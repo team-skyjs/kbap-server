@@ -57,10 +57,9 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 | 종류 | 설명 | 예시 |
 |------|------|------|
-| JPA Entity / Mongo Document | 영속성 표현(도메인 엔티티와 **별개**) | `FoodJpaEntity` |
+| JPA Entity / Mongo Document | 영속성 표현(도메인 엔티티와 **별개**). 도메인 ↔ 영속 변환을 **이 클래스 안에** 둔다(`toDomain()` + `companion object { fun from(domain) }`) | `FoodJpaEntity` |
 | Spring Data Repository | 기술 저장소 | `FoodJpaRepository` |
-| Repository 구현체(adapter) | 도메인 Repository 구현 + 매핑 | `FoodRepositoryAdapter` |
-| Mapper | 도메인 ↔ 영속 모델 변환 | `FoodEntityMapper` |
+| Repository 구현체(adapter) | 도메인 Repository 구현. 변환은 엔티티의 `toDomain()`/`from()`을 호출만 한다(별도 Mapper 두지 않음) | `FoodRepositoryAdapter` |
 
 **패키지 레이아웃 예시 (`meogo-api/food`)**
 
@@ -72,13 +71,30 @@ com.meogo.api.food
 ├── FoodRepository.kt       # Domain Repository 인터페이스 (공개 port)
 ├── event/FoodCreatedEvent.kt
 └── infrastructure/         # 외부 비공개 (= adapter)
-    ├── FoodJpaEntity.kt
+    ├── FoodJpaEntity.kt           # 영속 모델 + 도메인 변환(toDomain() / companion from())
     ├── FoodJpaRepository.kt
-    ├── FoodRepositoryAdapter.kt   # FoodRepository 구현
-    └── FoodEntityMapper.kt
+    └── FoodRepositoryAdapter.kt   # FoodRepository 구현 (변환은 엔티티에 위임)
 ```
 
 > 영속 기술(`data-jpa`/`data-mongodb`)은 `implementation`으로 둬 상위(application/api) 컴파일 클래스패스에 노출되지 않는다(런타임 전이만 허용). 패키지 가시성 + ArchUnit 으로 추가 강제.
+
+## 도메인 객체 불변성 & 영속 변환 ⭐
+
+- **도메인 ↔ JPA 변환은 JPA 엔티티 안에 둔다.** 별도 Mapper 클래스나 adapter 확장함수로 흩지 않는다. 엔티티에 도메인 복원 `toDomain()` 인스턴스 메서드와 `companion object { fun from(domain): Entity }` 팩토리를 두고, `RepositoryAdapter`는 `Entity.from(domain)`·`entity.toDomain()`만 호출한다. (도메인 클래스는 JPA를 모른다 — 의존 방향 유지.)
+- **도메인 객체는 불변(immutable)으로 둔다.** 모든 상태는 `val`. 상태를 바꾸는 도메인 메서드는 객체를 변형하지 않고 **새 인스턴스를 반환**한다. 데이터 클래스의 public `copy` 노출 대신 **`private fun copy(...)`** 를 직접 두어 통제된 복제만 허용하고, 상태 변경 메서드가 이를 호출한다.
+
+```kotlin
+fun increaseStock(quantity: Int): Product {
+    val newStock = stock + quantity
+    return copy(
+        stock = newStock,
+        status = if (status == ProductStatus.SOLD_OUT && newStock > 0) ProductStatus.ON_SALE else status,
+    )
+}
+
+private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
+    Product(id, sellerId, name, price, stock, category, thumbnailUrl, status)
+```
 
 ## 도메인 간 의존 규칙
 

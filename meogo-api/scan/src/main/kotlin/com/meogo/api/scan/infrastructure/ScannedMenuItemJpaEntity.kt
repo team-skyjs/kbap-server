@@ -1,6 +1,10 @@
 package com.meogo.api.scan.infrastructure
 
+import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.persistence.BaseEntity
+import com.meogo.api.scan.BoundingBox
+import com.meogo.api.scan.MenuItemAssessment
+import com.meogo.api.scan.ScannedMenuItem
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -34,4 +38,28 @@ class ScannedMenuItemJpaEntity(
 
     @Column(name = "reason", nullable = false, length = 500)
     var reason: String = "",
-) : BaseEntity()
+) : BaseEntity() {
+    fun toDomain(): ScannedMenuItem =
+        ScannedMenuItem(
+            itemId = itemId,
+            rawMenuName = rawMenuName,
+            boundingBox = BoundingBox(bboxX, bboxY, bboxWidth, bboxHeight),
+            receivedOrder = receivedOrder,
+            assessment = MenuItemAssessment(RiskLevel.valueOf(riskLevel), reason),
+        )
+
+    companion object {
+        fun from(item: ScannedMenuItem): ScannedMenuItemJpaEntity =
+            ScannedMenuItemJpaEntity(
+                itemId = item.itemId,
+                rawMenuName = item.rawMenuName,
+                bboxX = item.boundingBox.x,
+                bboxY = item.boundingBox.y,
+                bboxWidth = item.boundingBox.width,
+                bboxHeight = item.boundingBox.height,
+                receivedOrder = item.receivedOrder,
+                riskLevel = item.assessment.riskLevel.name,
+                reason = item.assessment.reason,
+            )
+    }
+}
