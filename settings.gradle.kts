@@ -20,7 +20,7 @@ rootProject.name = "meogo-server"
 
 include(
     // ── meogo-api 앱 (컨테이너 meogo-api 안의 leaf 모듈들) ──
-    ":meogo-api:api",          // web bootJar (조립)
+    ":meogo-api:presentation", // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
     ":meogo-api:application",  // 유스케이스 조율
     ":meogo-api:infra",        // 외부 연동(LLM 등) adapter
     ":meogo-api:core",         // 도메인 커널 (Spring-free)

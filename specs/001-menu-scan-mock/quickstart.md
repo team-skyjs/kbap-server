@@ -12,14 +12,14 @@
 ./gradlew :meogo-api:scan:test              # scan 도메인/repository
 ./gradlew :meogo-api:food:test              # food 도메인/repository
 ./gradlew :meogo-api:application:test       # 유스케이스·mock seam
-./gradlew :meogo-api:api:test               # web 계약(MockMvc) — 200/400/404, ApiResponse
+./gradlew :meogo-api:presentation:test               # web 계약(MockMvc) — 200/400/404, ApiResponse
 ```
 헌법 I: 각 task는 **실패 테스트 먼저** 작성 → 최소 구현 → 리팩터.
 
 ## 로컬 실행
 ```bash
 # MySQL 준비(예: localhost:3306/meogo, root/root) 후
-SPRING_PROFILES_ACTIVE=local ./gradlew :meogo-api:api:bootRun
+SPRING_PROFILES_ACTIVE=local ./gradlew :meogo-api:presentation:bootRun
 ```
 - Flyway가 `V1`(scan)·`V2`(food)·`V3`(seed) 마이그레이션을 적용한다(스키마 owner = api).
 - Swagger UI: `/swagger-ui.html`(springdoc).

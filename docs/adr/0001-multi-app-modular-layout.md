@@ -1,8 +1,8 @@
 # 0001. 멀티앱 모듈 레이아웃 (meogo-api 컨테이너 + batch + common)
 
-- **상태**: Accepted
+- **상태**: Accepted <!-- web 모듈명(api→presentation)·패키지 규약은 ADR-0005에서 보완 -->
 - **날짜**: 2026-06-26
-- **관련**: [meogo-conventions](../architecture/meogo-conventions.md), [meogo-api-module-structure](../architecture/meogo-api-module-structure.md), 헌법 v1.1.0 (원칙 II·III)
+- **관련**: [meogo-conventions](../architecture/meogo-conventions.md), [meogo-api-module-structure](../architecture/meogo-api-module-structure.md), 헌법 v1.1.0 (원칙 II·III), [ADR-0005](./0005-unified-api-package-and-presentation-rename.md)
 
 ## Context
 

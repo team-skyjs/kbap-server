@@ -113,7 +113,7 @@
 
 ## 7. 구현 시 주의사항
 
-- `research`는 **배치 전용** 도메인이다. web 진입점(`:meogo-api:api`)은 이 컨텍스트의 유스케이스를 노출하지 않는다(ArchUnit으로 강제 — ADR-0004).
+- `research`는 **배치 전용** 도메인이다. web 진입점(`:meogo-api:presentation`)은 이 컨텍스트의 유스케이스를 노출하지 않는다(ArchUnit으로 강제 — ADR-0004).
 - 컨텍스트 조합(큐 읽기 → LLM 호출 → 종합 → `food` 저장)은 `meogo-batch`가 아니라 **`meogo-application`의 배치 전용 유스케이스**가 한다. 배치 모듈은 그 유스케이스를 시간 맞춰 호출만 한다.
 - LLM 병렬 호출은 IO이므로 application이 core port로 수행하고, **종합은 순수 도메인 서비스**로 분리한다.
 - 대기열은 정규화 메뉴명으로 dedup한다 — 스캔 세션 수만큼 늘지 않게 한다.

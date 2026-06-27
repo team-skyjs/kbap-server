@@ -23,7 +23,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 | 모듈 | 책임 |
 |------|------|
-| `:meogo-api:api` | web bootJar, Controller, API DTO, 인증/인가, transaction boundary, 예외 응답 변환, infra 조립(runtimeOnly), Flyway 스키마 owner |
+| `:meogo-api:presentation` | web bootJar, Controller, API DTO, 인증/인가, transaction boundary, 예외 응답 변환, infra 조립(runtimeOnly), Flyway 스키마 owner |
 | `:meogo-api:application` | 유스케이스 조율, 도메인 컨텍스트 조합, Command 입력, 외부 client port 호출 |
 | `:meogo-api:{food,member,scan,assessment}` | Active 도메인 규칙. 각 컨텍스트는 `:meogo-api:core`만 직접 의존하고 영속 adapter를 자기 모듈 안에 캡슐화 |
 | `:meogo-api:research` | Active 도메인. 미스 메뉴 조사 대기열 + 3개 LLM 종합 정책(순수 도메인 서비스). **배치 전용**(web 미노출), 종합 결과를 `food`가 영속 ([ADR-0004](../adr/0004-research-bounded-context.md)) |
@@ -33,7 +33,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | `:meogo-batch` | 배치 bootJar. `:meogo-api:application` 유스케이스를 트리거(단일 모듈, 추후 분리). flyway off. **미스 메뉴 재료 조사 + 9개국어 번역 LLM 파이프라인을 하루 1회 실행**([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
 | `:meogo-common` | 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback·유틸·어노테이션). web/jpa/도메인 의존 금지, Spring-free |
 
-- **패키지 레이어링** — 각 도메인 subproject 내부는 BC별 패키지(`com.meogo.domain.<context>`)를 루트로 삼고, 그 아래에 도메인 모델과 `adapter`/`infrastructure`(영속 구현) 패키지를 둔다.
+- **패키지 레이어링** — 각 도메인 subproject 내부는 BC별 패키지(`com.meogo.api.<context>`)를 루트로 삼고, 그 아래에 도메인 모델과 `adapter`/`infrastructure`(영속 구현) 패키지를 둔다.
 - **얇은 Controller** — `meogo-api`는 HTTP 변환·인증/인가에 집중한다. Application Service는 `meogo-api`가 아니라 `meogo-application`에 둔다.
 - **인증/인가** — 별도 BC로 분리하지 않고 `member` 내부 하위 영역으로 두되, 프로필/식이 제한 관리와 **패키지·책임을 분리**한다. 토큰 발급·세션·보안 필터는 도메인이 아니라 API/security 계층 책임.
 
@@ -65,7 +65,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 **패키지 레이아웃 예시 (`meogo-api/food`)**
 
 ```
-com.meogo.domain.food
+com.meogo.api.food
 ├── Food.kt                 # Aggregate Root
 ├── FoodId.kt / FoodName.kt # Value Object
 ├── Ingredient.kt           # 별도 Aggregate Root
@@ -82,9 +82,9 @@ com.meogo.domain.food
 
 ## 도메인 간 의존 규칙
 
-1. **의존 방향** — `:meogo-api:api` → `:meogo-api:application` → 도메인 모듈. `:meogo-api:core`는 모두가 의존 가능. `:meogo-api:infra`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:meogo-batch`는 `:meogo-api:application`을 의존(+infra 조립)하고, `:meogo-common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
+1. **의존 방향** — `:meogo-api:presentation` → `:meogo-api:application` → 도메인 모듈. `:meogo-api:core`는 모두가 의존 가능. `:meogo-api:infra`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:meogo-batch`는 `:meogo-api:application`을 의존(+infra 조립)하고, `:meogo-common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
 2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `meogo-application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
-3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:meogo-api:api`·`:meogo-api:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
+3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:meogo-api:presentation`·`:meogo-api:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
 4. **assessment 입력 VO 규칙** ⭐ — `assessment`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `assessment`는 자기 전용 입력 VO(`AssessmentInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`meogo-application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AssessmentResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`meogo-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).

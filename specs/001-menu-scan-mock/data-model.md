@@ -5,7 +5,7 @@
 ## 공유 커널 (`:meogo-api:core`)
 
 ### RiskLevel (enum)
-`com.meogo.core.risk.RiskLevel`
+`com.meogo.api.core.risk.RiskLevel`
 - 값: `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` (고정 4단계)
 - 컨텍스트 공유(scan 결과·후속 assessment·food 재료 상태에서 사용). Spring-free.
 

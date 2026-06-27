@@ -8,7 +8,7 @@
 
 두 개의 web API를 구현한다. **(1) `POST /api/v1/menu-scans`** — 클라이언트가 메뉴 항목(itemId·rawMenuName·boundingBox) 배열을 보내면, 서버가 항목 배열 순서 기준으로 mock 4단계 위험도(`SAFE/CAUTION/DANGER/UNKNOWN`)를 부여하고 스캔·항목·결과를 MySQL에 최소 저장한 뒤 itemId로 매칭되는 결과를 반환한다. **(2) `GET /api/v1/foods/detail?menuName=&lang=`** — 메뉴명(trim 후 ko 원문 exact match)으로 seed된 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock riskStatus])를 반환하고, `lang` 미지원/미지정은 `ko` 폴백, 없으면 404, menuName 누락/blank면 400. 음식·재료명은 ko 원문 + 9개 대상 언어로 저장(seed 보유).
 
-기술 접근: 기존 멀티모듈 골격(`:meogo-api:{api,application,scan,food,core,infra}`)에 **첫 도메인 코드**를 채운다. 컨트롤러·DTO·`ApiResponse<T>`·예외 핸들러는 `:meogo-api:api`, 유스케이스는 `:meogo-api:application`, 도메인 엔티티·JPA·Repository는 `:meogo-api:{scan,food}`에 은닉한다. `RiskLevel`은 컨텍스트 공유 커널 타입이라 `:meogo-api:core`에 둔다. mock 판정은 application 계층의 교체 가능한 collaborator로 격리(FR-013)해, 후속에 실제 `assessment` 호출로 갈아끼운다. 스키마는 `:meogo-api:api`의 Flyway 마이그레이션이 소유한다.
+기술 접근: 기존 멀티모듈 골격(`:meogo-api:{api,application,scan,food,core,infra}`)에 **첫 도메인 코드**를 채운다. 컨트롤러·DTO·`ApiResponse<T>`·예외 핸들러는 `:meogo-api:presentation`, 유스케이스는 `:meogo-api:application`, 도메인 엔티티·JPA·Repository는 `:meogo-api:{scan,food}`에 은닉한다. `RiskLevel`은 컨텍스트 공유 커널 타입이라 `:meogo-api:core`에 둔다. mock 판정은 application 계층의 교체 가능한 collaborator로 격리(FR-013)해, 후속에 실제 `assessment` 호출로 갈아끼운다. 스키마는 `:meogo-api:presentation`의 Flyway 마이그레이션이 소유한다.
 
 ## Technical Context
 
@@ -20,7 +20,7 @@
 
 **Testing**: `./gradlew test` — Kotest/JUnit5. 단위(도메인·mock 판정), 영속(repository, H2), web(@SpringBootTest / MockMvc 또는 @WebMvcTest)
 
-**Target Platform**: Linux server (web bootJar `:meogo-api:api`, 진입점 `com.meogo.MeogoApiApplication`)
+**Target Platform**: Linux server (web bootJar `:meogo-api:presentation`, 진입점 `com.meogo.api.MeogoApiApplication`)
 
 **Project Type**: Web service (Gradle 멀티모듈, 단일 web 앱 + 도메인/계층 모듈)
 
@@ -74,15 +74,15 @@ specs/001-menu-scan-mock/
 
 ### Source Code (repository root)
 
-기존 모듈 골격에 아래 파일을 채운다. 패키지 규약: 도메인=`com.meogo.domain.<context>`, 계층=`com.meogo.<layer>`, web=`com.meogo.api`, 커널=`com.meogo.core`.
+기존 모듈 골격에 아래 파일을 채운다. 패키지 규약: **모든 meogo-api 하위 모듈은 `com.meogo.api.<모듈명>`** — 도메인=`com.meogo.api.<context>`, 계층=`com.meogo.api.{application,infra}`, 커널=`com.meogo.api.core`, web=`com.meogo.api.presentation`, 진입점=`com.meogo.api`.
 
 ```text
 meogo-api/
-├── core/src/main/kotlin/com/meogo/core/
+├── core/src/main/kotlin/com/meogo/api/core/
 │   └── risk/RiskLevel.kt                         # 공유 커널: SAFE/CAUTION/DANGER/UNKNOWN
 │
 ├── scan/                                          # scan 바운디드 컨텍스트
-│   ├── src/main/kotlin/com/meogo/domain/scan/
+│   ├── src/main/kotlin/com/meogo/api/scan/
 │   │   ├── MenuScan.kt                            # Aggregate Root (도메인)
 │   │   ├── ScannedMenuItem.kt                     # 항목 (도메인)
 │   │   ├── BoundingBox.kt                         # 값 객체(x/y/width/height: Double)
@@ -94,10 +94,10 @@ meogo-api/
 │   │       ├── ScannedMenuItemJpaEntity.kt
 │   │       ├── MenuScanJpaRepository.kt           # Spring Data
 │   │       └── MenuScanRepositoryAdapter.kt       # DomainRepository 구현
-│   └── src/test/kotlin/com/meogo/domain/scan/...  # 도메인·repository 테스트
+│   └── src/test/kotlin/com/meogo/api/scan/...  # 도메인·repository 테스트
 │
 ├── food/                                          # food 바운디드 컨텍스트
-│   ├── src/main/kotlin/com/meogo/domain/food/
+│   ├── src/main/kotlin/com/meogo/api/food/
 │   │   ├── Food.kt                                # Aggregate Root(koreanName=ko 매칭키·names[9개]·imageRef·재료, nameFor(lang))
 │   │   ├── Ingredient.kt                          # 재료(koreanName·names[9개]·iconRef, nameFor(lang))
 │   │   ├── LanguageCode.kt                        # ko + 9개 대상 언어 enum(폴백 ko)
@@ -108,9 +108,9 @@ meogo-api/
 │   │       ├── IngredientJpaEntity.kt / IngredientNameTranslationJpaEntity.kt / FoodIngredientJpaEntity.kt
 │   │       ├── FoodJpaRepository.kt
 │   │       └── FoodRepositoryAdapter.kt           # 음식+재료+번역 로드 → 도메인 매핑
-│   └── src/test/kotlin/com/meogo/domain/food/...
+│   └── src/test/kotlin/com/meogo/api/food/...
 │
-├── application/src/main/kotlin/com/meogo/application/
+├── application/src/main/kotlin/com/meogo/api/application/
 │   ├── scan/
 │   │   ├── SubmitMenuScanUseCase.kt               # 유스케이스(@Transactional)
 │   │   ├── SubmitMenuScanCommand.kt / MenuScanResult.kt   # application 레벨 입출력 타입

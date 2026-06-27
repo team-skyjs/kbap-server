@@ -17,3 +17,4 @@
 | [0002](./0002-buildsrc-convention-plugins.md) | 공통 빌드 설정 — buildSrc 컨벤션 플러그인 | Accepted | 2026-06-26 | ADR-0001 · gradle-made-easy |
 | [0003](./0003-pretranslated-batch-menu-pipeline.md) | 메뉴 데이터 파이프라인 — 사전 번역 배치(9개국어) + 캐시 미스 결과 없음 | Accepted | 2026-06-27 | meogo-data-ai-pipeline · ADR-0001 |
 | [0004](./0004-research-bounded-context.md) | research 바운디드 컨텍스트 신설 — 미스 메뉴 조사·종합, 배치 트리거 | Accepted | 2026-06-27 | ADR-0003 · ADR-0001 |
+| [0005](./0005-unified-api-package-and-presentation-rename.md) | meogo-api 패키지 규약 통일(`com.meogo.api.<모듈명>`) + web `api`→`presentation` 리네임 | Accepted | 2026-06-27 | specs/001 · ADR-0001 |

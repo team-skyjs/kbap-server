@@ -43,7 +43,7 @@ Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨
 
 `meogo-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
 
-- `:meogo-api:api`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
+- `:meogo-api:presentation`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
 - `:meogo-api:application`: 유스케이스 조율, transaction boundary
 - `:meogo-api:{food,member,scan,assessment}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
 - `:meogo-api:review`: deferred placeholder
@@ -254,7 +254,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 - LlmResponse (제공자별 원본 응답)
 - SynthesizedFoodProfile (종합 결과 → `food`가 영속)
 
-> **배치 전용** — web 진입점(`:meogo-api:api`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:meogo-api:application`의 배치 전용 패키지에 두고 `meogo-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
+> **배치 전용** — web 진입점(`:meogo-api:presentation`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:meogo-api:application`의 배치 전용 패키지에 두고 `meogo-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
 
 ## 12. review context (deferred)
 
@@ -480,7 +480,7 @@ API 유스케이스 기준 트랜잭션은 다음처럼 나눈다.
 
 JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체는 각 도메인 모듈 내부에 둔다. 다만 외부 모듈이 import하지 못하도록 패키지 가시성, 모듈 API 설정, 코드 리뷰, ArchUnit 테스트로 막는다.
 
-`:meogo-api:api`와 `:meogo-api:application`은 JPA Entity, Mongo Document, Spring Data Repository를 import하면 안 된다.
+`:meogo-api:presentation`와 `:meogo-api:application`은 JPA Entity, Mongo Document, Spring Data Repository를 import하면 안 된다.
 
 이 방식의 핵심은 “외부 기술을 도메인 모듈에 둔다”가 아니라 “외부 기술 구현을 도메인 컨텍스트 내부에 숨기고, 바깥에는 도메인 언어만 공개한다”이다.
 
@@ -503,7 +503,7 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 
 권장 구조는 다음이다.
 
-- `:meogo-api:api`: web bootJar, controller, API DTO, 조립
+- `:meogo-api:presentation`: web bootJar, controller, API DTO, 조립
 - `:meogo-api:application`: 유스케이스 조율, transaction boundary
 - `:meogo-api:{food,member,scan,assessment,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
 - `:meogo-api:review`: deferred placeholder

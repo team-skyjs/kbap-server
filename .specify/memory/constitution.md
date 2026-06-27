@@ -58,14 +58,14 @@ Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도�
 
 ### III. Layered Dependency Direction
 
-모듈 의존은 한 방향으로만 흐른다: `:meogo-api:api` → `:meogo-api:application` → 도메인 모듈.
+모듈 의존은 한 방향으로만 흐른다: `:meogo-api:presentation` → `:meogo-api:application` → 도메인 모듈.
 배치 앱 `:meogo-batch`도 같은 방향으로 `:meogo-api:application`을 의존한다.
 
 - `:meogo-api:core`는 도메인 커널로 모두가 의존 가능, `:meogo-api:infra`는 port/adapter로만 연결한다.
   `meogo-common`은 앱 간 공유 계약(통합 이벤트·DTO·기술 공통)으로 web/jpa/도메인에 의존하지 않는다.
 - 모듈 간 project 의존은 **`implementation`을 기본**으로 한다. 공개 API에 타입이 드러나는
   의도적 노출에만 `api`를 쓴다.
-- `:meogo-api:infra`는 조립 모듈(`:meogo-api:api`·`:meogo-batch`)이 런타임(`runtimeOnly`)에 주입한다.
+- `:meogo-api:infra`는 조립 모듈(`:meogo-api:presentation`·`:meogo-batch`)이 런타임(`runtimeOnly`)에 주입한다.
   `:meogo-api:application`은 infra 구현체에 직접 의존하지 않는다(계층 역전 금지).
 
 Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 한다.
@@ -101,7 +101,7 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 
 - 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL).
   영속: MySQL(+H2 test) + MongoDB, 마이그레이션 Flyway. LLM: Spring AI 2.0.
-- 실행 bootJar 는 둘: `:meogo-api:api`(web, 진입점 `com.meogo.MeogoApiApplication`)와
+- 실행 bootJar 는 둘: `:meogo-api:presentation`(web, 진입점 `com.meogo.api.MeogoApiApplication`)와
   `:meogo-batch`(배치, 진입점 `com.meogo.batch.MeogoBatchApplication`). 공통 빌드 설정은
   `buildSrc` 컨벤션 플러그인(`meogo.*`)에 둔다.
 - 외부 LLM 등 호출을 DB 트랜잭션 안에서 길게 잡지 않는다(스캔: pending 저장 → 외부 호출 →
