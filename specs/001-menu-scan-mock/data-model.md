@@ -1,40 +1,43 @@
 # Phase 1 Data Model — 메뉴 스캔 mock 슬라이스
 
-도메인 모델(컨텍스트별)과 영속 스키마(Flyway, MySQL)를 정의한다. 영속 엔티티는 각 도메인 모듈의 `infrastructure` 패키지에 은닉하고, 외부에는 도메인 엔티티 + DomainRepository 인터페이스만 공개한다(헌법 IV).
+도메인 모델(컨텍스트별, **순수 — Spring/ORM-free**)과 영속 스키마(Flyway, MySQL)를 정의한다. **JPA 엔티티·Spring Data·RepositoryAdapter 는 중앙 `:meogo-api:persistence` 모듈**(`com.meogo.api.persistence.<context>`)에 두고(ADR-0006), 도메인 모듈은 model + DomainRepository **port 인터페이스**만 공개한다(헌법 IV 의도). 도메인↔JPA 변환은 **JPA 엔티티 안**(`toDomain()` / `companion object fun from(domain)`)에 둔다. 모든 엔티티는 `com.meogo.api.persistence.BaseEntity`(@MappedSuperclass: `id`·`status`(EntityStatus 소프트삭제)·`createdAt`·`updatedAt`)를 상속하며 `@SQLRestriction("status = 'ACTIVE'")`로 ACTIVE 만 조회된다.
+
+> **재정합(2026-06-28)**: `ScannedMenuItem.receivedOrder` **제거**(itemId 는 응답 매핑용 상관 키, 순서 무의미) · 영속 위치 `infrastructure` → `:meogo-api:persistence` · 응답 봉투 `BaseResponse`/`payload` · application 입출력 `Command/Query` → `Input/Result` · 미수록 음식 **400** · 재료 `riskStatus` = 4단계 `RiskLevel` 재사용 · `inclusionPercent`(연속 %)와 `0/1/2`(후속 LLM 스코어링)는 별개.
 
 ## 공유 커널 (`:meogo-api:core`)
 
-### RiskLevel (enum)
-`com.meogo.api.core.risk.RiskLevel`
-- 값: `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` (고정 4단계)
-- 컨텍스트 공유(scan 결과·후속 assessment·food 재료 상태에서 사용). Spring-free.
+### RiskLevel (enum) — `com.meogo.api.core.risk.RiskLevel`
+- 값: `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` (고정 4단계). Spring-free.
+- 컨텍스트 공유: scan 항목 판정 결과 · **food 재료 `riskStatus`(재사용)** · 후속 assessment.
 
 ---
 
-## scan 컨텍스트 (`:meogo-api:scan`)
+## scan 컨텍스트 (`:meogo-api:scan`) — 순수 도메인 *(US1, 구현 완료)*
 
 ### MenuScan (Aggregate Root)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| id (scanId) | Long | DB auto-increment, PK |
+| id (scanId) | Long? | DB auto-increment PK (도메인 생성 시 null) |
 | status | ScanStatus | 이번 범위 `COMPLETED` |
 | items | List\<ScannedMenuItem\> | 1..100, 비어 있을 수 없음 |
-| createdAt | Instant | 생성 시각 |
 
-- 불변식: items 최소 1개·최대 100개; itemId는 스캔 내 유일.
-- Aggregate Root를 통해서만 항목 추가/판정 부여(헌법 II).
+- 불변식: items 1..100; itemId 스캔 내 유일.
+- 생성: `MenuScan.create(spec: CreationSpec)`, 복원: `MenuScan.reconstitute(id, status, items)`. (`CreateCommand` 아님 — `CreationSpec`.)
+- Aggregate Root 통해서만 항목 구성(헌법 II). 도메인 객체 불변(상태 변경은 새 인스턴스).
 
 ### ScannedMenuItem (Entity, MenuScan 내부)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| itemId | Int | 클라이언트 제공, 스캔 내 유일 |
+| id | Long? | 영속 PK(도메인 생성 시 null) |
+| itemId | Int | 클라이언트 제공, **응답 매핑용 상관 키**(스캔 내 유일, 순서 무의미) |
 | rawMenuName | String | blank 불가 |
 | boundingBox | BoundingBox | 필수 |
-| receivedOrder | Int | 수신 배열 순서(0-based) — 판정 순서·재현용 |
 | assessment | MenuItemAssessment | mock 판정 스냅샷 |
 
+> `receivedOrder` 는 **두지 않는다**. mock 위험도 순환은 유스케이스의 `mapIndexed` 지역 index 로만 산출하며 저장하지 않는다. 응답 정렬/매칭은 `itemId` 기준(서버는 결과 순서를 보존할 필요 없음).
+
 ### BoundingBox (Value Object)
-**정규화 비율 좌표** — 클라이언트 OCR 기준 이미지 대비. 좌상단 (0,0)·우하단 (1,1).
+정규화 비율 좌표 — 클라이언트 OCR 기준 이미지 대비. 좌상단 (0,0)·우하단 (1,1).
 
 | 필드 | 타입 | 규칙 |
 |------|------|------|
@@ -44,8 +47,8 @@
 | height | Double | > 0 |
 
 - 불변식(생성 시 검증): `x≥0 ∧ y≥0 ∧ width>0 ∧ height>0 ∧ x+width≤1 ∧ y+height≤1`.
-- 판정 미사용, UI 오버레이/재현용 저장. 클라이언트가 표시 이미지 크기에 비율을 곱해 복원(해상도 독립).
-- 전제: 이미지 압축은 aspect ratio 보존. crop/pad/rotate/orientation 보정은 범위 밖(좌표 기준 변경 금지).
+- 판정 미사용, UI 오버레이/재현용. 표시 이미지 크기에 비율을 곱해 복원(해상도 독립).
+- 전제: 이미지 압축은 aspect ratio 보존. crop/pad/rotate/orientation 보정은 범위 밖.
 
 ### MenuItemAssessment (Value Object, mock 스냅샷)
 | 필드 | 타입 | 규칙 |
@@ -54,51 +57,58 @@
 | reason | String | mock 사유 문구 |
 
 ### ScanStatus (enum)
-- `COMPLETED` (이번 범위). `PROCESSING`/`PARTIAL`/`FAILED` 예약(미사용).
+- `COMPLETED`(이번 범위). `PROCESSING`/`PARTIAL`/`FAILED` 예약(미사용).
 
-### MenuScanRepository (DomainRepository 인터페이스 — 공개)
+### MenuScanRepository (도메인 port — 공개)
 - `fun save(menuScan: MenuScan): MenuScan`
-- `fun findById(scanId: Long): MenuScan?` (재열람 API는 없지만 저장 검증/후속용)
+- `fun findById(scanId: Long): MenuScan?` (재열람 API 없으나 저장 검증/후속용)
 
-### 영속 스키마 — `V1__create_scan_tables.sql`
+### 영속 스키마 — `V1__create_scan_tables.sql` *(구현된 그대로)*
+> 공통 컬럼(`status`=EntityStatus 소프트삭제, `created_at`, `updated_at`)은 BaseEntity 에서 온다. 도메인 고유 상태 `scan_status`(ScanStatus)는 `status`와 컬럼명이 겹치지 않게 분리.
+
 ```sql
 CREATE TABLE menu_scan (
-    id          BIGINT      NOT NULL AUTO_INCREMENT,
-    status      VARCHAR(20) NOT NULL,
-    created_at  DATETIME(6) NOT NULL,
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    scan_status  VARCHAR(20) NOT NULL,                  -- ScanStatus(도메인): COMPLETED 등
+    status       VARCHAR(20) NOT NULL,                  -- EntityStatus: ACTIVE/DELETED
+    created_at   DATETIME(6) NOT NULL,
+    updated_at   DATETIME(6) NOT NULL,
     PRIMARY KEY (id)
 );
 
 CREATE TABLE scanned_menu_item (
-    id              BIGINT      NOT NULL AUTO_INCREMENT,
-    scan_id         BIGINT      NOT NULL,
-    item_id         INT         NOT NULL,        -- 클라이언트 제공(스캔 내 유일)
+    id              BIGINT       NOT NULL AUTO_INCREMENT,
+    scan_id         BIGINT       NOT NULL,
+    item_id         INT          NOT NULL,              -- 클라이언트 제공(스캔 내 유일)
     raw_menu_name   VARCHAR(255) NOT NULL,
-    bbox_x          DOUBLE      NOT NULL,
-    bbox_y          DOUBLE      NOT NULL,
-    bbox_width      DOUBLE      NOT NULL,
-    bbox_height     DOUBLE      NOT NULL,
-    received_order  INT         NOT NULL,
-    risk_level      VARCHAR(10) NOT NULL,         -- mock 판정 스냅샷
+    bbox_x          DOUBLE       NOT NULL,
+    bbox_y          DOUBLE       NOT NULL,
+    bbox_width      DOUBLE       NOT NULL,
+    bbox_height     DOUBLE       NOT NULL,
+    risk_level      VARCHAR(10)  NOT NULL,              -- mock 판정 스냅샷
     reason          VARCHAR(500) NOT NULL,
+    status          VARCHAR(20)  NOT NULL,              -- EntityStatus: ACTIVE/DELETED
+    created_at      DATETIME(6)  NOT NULL,
+    updated_at      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_item_scan FOREIGN KEY (scan_id) REFERENCES menu_scan(id),
     CONSTRAINT uq_scan_item UNIQUE (scan_id, item_id)
 );
 ```
+*(`received_order` 컬럼 없음 — 제거됨.)*
 
 ---
 
-## food 컨텍스트 (`:meogo-api:food`)
+## food 컨텍스트 (`:meogo-api:food`) — 순수 도메인 *(US2, 신규)*
 
-> **다국어**: 음식명·재료명은 `ko` 원문 + 9개 대상 언어 번역본을 보유한다(헌법 V·ADR-0003). `ko` 원문은 본 테이블 컬럼(매칭 키), 9개 번역은 별도 translation 테이블. 조회 시 요청 언어 값을 선택하고 없으면 `ko` 폴백. `LanguageCode`(R12 인접): `ko`+9개.
+> **다국어**: 음식명·재료명은 `ko` 원문 + 9개 대상 언어 번역본 보유(헌법 V·ADR-0003). `ko` 원문은 본 테이블 컬럼(매칭 키), 9개 번역은 별도 translation 테이블. 조회 시 요청 언어 값 선택, 없으면 `ko` 폴백. `LanguageCode`: `ko`+9개.
 
 ### Food (Aggregate Root)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| id | Long | PK |
+| id | Long? | PK |
 | koreanName | String | blank 불가, `ko` 원문 = **조회 매칭 키** |
-| names | Map\<LangCode, String\> | 9개 대상 언어 번역(부분 가능) |
+| names | Map\<LanguageCode, String\> | 9개 대상 언어 번역(부분 가능) |
 | imageRef | String? | 대표 이미지 참조(언어 무관) |
 | ingredients | List\<FoodIngredient\> | 0..N(빈 배열 허용) |
 
@@ -108,40 +118,51 @@ CREATE TABLE scanned_menu_item (
 ### Ingredient (Entity)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| id | Long | PK |
+| id | Long? | PK |
 | koreanName | String | blank 불가(`ko` 원문) |
-| names | Map\<LangCode, String\> | 9개 대상 언어 번역 |
+| names | Map\<LanguageCode, String\> | 9개 대상 언어 번역 |
 | iconRef | String? | 표시 아이콘 참조 |
-- `nameFor(lang)`: Food와 동일 폴백. 여러 음식에서 공유.
+- `nameFor(lang)`: Food 와 동일 폴백. 여러 음식에서 공유.
 
 ### FoodIngredient (관계 Entity)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| id | Long | PK |
-| foodId | Long | FK → food |
-| ingredientId | Long | FK → ingredient |
-| inclusionPercent | Int | 0~100 (연속 비율) |
-| displayOrder | Int | 표시 순서 |
-- riskStatus는 **저장하지 않음**(application mock marker가 부여).
+| id | Long? | PK |
+| ingredient | Ingredient | 연결된 재료 |
+| inclusionPercent | Int | **0~100 연속 비율** — 여러 레시피 기준 포함 확률(UI `~50%` 원천) |
+| displayOrder | Int | 재료 표시 순서(안정 정렬용) |
+- `riskStatus`는 **저장하지 않음** — application `IngredientRiskMarker`(mock)가 4단계 `RiskLevel` 로 부여.
+- `0/1/2` 스코어는 본 필드와 **별개**(후속 LLM per-recipe 스코어링 입력값, 이번 범위 밖).
 
-### FoodRepository (DomainRepository 인터페이스 — 공개)
-- `fun findByKoreanName(name: String): Food?` (호출 전 trim; 음식+재료+번역을 함께 로드)
+### LanguageCode (enum) — `ko` + 9개(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`)
+- 미지원/미지정은 `ko` 폴백.
+
+### FoodRepository (도메인 port — 공개)
+- `fun findByKoreanName(name: String): Food?` (호출 전 trim; 음식+재료+번역을 **fetch join**으로 함께 로드 — LAZY 매핑이라 트랜잭션 밖 매핑 대비)
 
 ### 영속 스키마 — `V2__create_food_tables.sql`
+> 모든 테이블에 BaseEntity 공통 컬럼(`status`·`created_at`·`updated_at`) 포함.
+
 ```sql
 CREATE TABLE food (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
-    korean_name   VARCHAR(255) NOT NULL,         -- ko 원문(매칭 키)
+    korean_name   VARCHAR(255) NOT NULL,               -- ko 원문(매칭 키)
     image_ref     VARCHAR(500) NULL,
+    status        VARCHAR(20)  NOT NULL,
+    created_at    DATETIME(6)  NOT NULL,
+    updated_at    DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uq_food_korean_name (korean_name)
 );
 
-CREATE TABLE food_name_translation (              -- 9개 대상 언어
+CREATE TABLE food_name_translation (                    -- 9개 대상 언어
     id        BIGINT      NOT NULL AUTO_INCREMENT,
     food_id   BIGINT      NOT NULL,
-    lang_code VARCHAR(10) NOT NULL,               -- zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es
+    lang_code VARCHAR(10) NOT NULL,                     -- zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es
     name      VARCHAR(255) NOT NULL,
+    status    VARCHAR(20) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_fnt_food FOREIGN KEY (food_id) REFERENCES food(id),
     UNIQUE KEY uq_fnt (food_id, lang_code)
@@ -149,8 +170,11 @@ CREATE TABLE food_name_translation (              -- 9개 대상 언어
 
 CREATE TABLE ingredient (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
-    korean_name   VARCHAR(255) NOT NULL,         -- ko 원문
+    korean_name   VARCHAR(255) NOT NULL,               -- ko 원문
     icon_ref      VARCHAR(500) NULL,
+    status        VARCHAR(20)  NOT NULL,
+    created_at    DATETIME(6)  NOT NULL,
+    updated_at    DATETIME(6)  NOT NULL,
     PRIMARY KEY (id)
 );
 
@@ -159,6 +183,9 @@ CREATE TABLE ingredient_name_translation (
     ingredient_id BIGINT      NOT NULL,
     lang_code     VARCHAR(10) NOT NULL,
     name          VARCHAR(255) NOT NULL,
+    status        VARCHAR(20) NOT NULL,
+    created_at    DATETIME(6) NOT NULL,
+    updated_at    DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_int_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredient(id),
     UNIQUE KEY uq_int (ingredient_id, lang_code)
@@ -168,45 +195,49 @@ CREATE TABLE food_ingredient (
     id                BIGINT  NOT NULL AUTO_INCREMENT,
     food_id           BIGINT  NOT NULL,
     ingredient_id     BIGINT  NOT NULL,
-    inclusion_percent INT     NOT NULL,            -- 0~100
+    inclusion_percent INT     NOT NULL,                 -- 0~100 (여러 레시피 기준 포함 확률)
     display_order     INT     NOT NULL,
+    status            VARCHAR(20) NOT NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_fi_food FOREIGN KEY (food_id) REFERENCES food(id),
     CONSTRAINT fk_fi_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredient(id)
 );
 ```
 
-### Seed — `V3__seed_food_data.sql` (데모: 된장찌개 스크린샷 재현)
-- food: `된장찌개`(ko 원문) + **9개 언어 번역**(food_name_translation) — 예: en `Doenjang Stew`, ja `テンジャンチゲ`, zh-Hans `大酱汤` …(9개 행 모두)
-- ingredient(ko 원문) + 9개 언어 번역(ingredient_name_translation): `바지락 조개`(en `Manila clam`…), `된장`, `두부`, `애호박`, `소고기`
+### Seed — `V3__seed_food_data.sql` (데모: 된장찌개 재현)
+- food: `된장찌개`(ko) + **9개 언어 번역**(food_name_translation): en `Doenjang Stew`, ja `テンジャンチゲ`, zh-Hans `大酱汤` …(9개 모두)
+- ingredient(ko) + 9개 번역: `바지락 조개`(en `Manila clam`…), `된장`, `두부`, `애호박`, `소고기`
 - food_ingredient(inclusion_percent): 바지락 50, 된장 100, 두부 90, 애호박 85, 소고기 40 (display_order 순)
-- **모든 seed 음식/재료는 9개 대상 언어 번역을 빠짐없이 포함**(헌법 V 충족). 번역 누락 시 그 항목만 `ko` 폴백되나, seed는 전 언어를 채운다.
+- **모든 seed 음식/재료는 9개 대상 언어 번역을 빠짐없이 포함**(헌법 V). seed 행은 `status='ACTIVE'`로 적재.
 
 ---
 
 ## 애플리케이션 입출력 타입 (`:meogo-api:application`)
 
-> 도메인 엔티티를 api로 직접 노출하지 않기 위한 계층 타입(Command/Result). api는 이 타입과 자기 DTO만 본다.
+> 도메인 엔티티를 presentation 으로 직접 노출하지 않기 위한 계층 타입. presentation 은 이 `Input/Result` 와 자기 DTO(`Request/Response`)만 본다. (CQRS 뉘앙스의 `Command/Query`는 쓰지 않음.)
 
-### scan
-- `SubmitMenuScanCommand`: `items: List<Item>` — Item(itemId, rawMenuName, boundingBox(x,y,w,h))
-- `MenuScanResult`: `scanId`, `results: List<ItemResult>` — ItemResult(itemId, riskLevel, reason)
-- `MenuItemRiskAssessor` (seam): `assess(index, item) -> (RiskLevel, reason)`; 구현 `MockCyclingRiskAssessor`(index%4)
+### scan *(구현 완료)*
+- `SubmitMenuScanInput`: `items: List<MenuScanItemInput>` — Item(itemId, rawMenuName, boundingBox(x,y,w,h))
+- `SubmitMenuScanResult`: `scanId`, `items: List<ItemRiskResult>` — ItemRiskResult(id, itemId, riskLevel, reason)
+- `MenuItemRiskAssessor`(seam): `assess(index, rawMenuName) -> MenuItemAssessment`; 구현 `MockCyclingRiskAssessor`(index%4)
 
-### food
-- `GetFoodDetailQuery`: `menuName: String`, `lang: String?`(미지정/미지원 → ko 폴백)
-- `FoodDetailResult`: `name`(요청 언어), `imageRef`, `ingredients: List<IngredientView>` — IngredientView(`name`(요청 언어), iconRef, inclusionPercent, riskStatus)
-- `LanguageResolver` (seam): 입력 `lang` → 지원 `LangCode` 또는 `ko`(폴백). 향후 회원 언어 출처로 교체될 지점(R7).
-- `IngredientRiskMarker` (seam): `mark(ingredients) -> List<riskStatus>`; 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE)
-- `FoodNotFoundException`: 미발견 → 404 매핑
+### food *(신규)*
+- `GetFoodDetailInput`: `menuName: String`, `lang: String?`(미지정/미지원 → ko 폴백)  ※ `Query` 아님
+- `GetFoodDetailResult`: `name`(요청 언어), `imageRef`, `ingredients: List<IngredientView>` — IngredientView(`name`(요청 언어), iconRef, inclusionPercent, riskStatus: RiskLevel)
+- `LanguageResolver`(seam): `lang` → 지원 `LanguageCode` 또는 `ko`(폴백). 향후 회원 언어 출처로 교체될 지점(R7).
+- `IngredientRiskMarker`(seam): `mark(ingredients) -> List<RiskLevel>`; 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE)
+- **미수록 메뉴 처리**: `findByKoreanName` 가 null 이면 유스케이스가 예외를 던지고 `GlobalExceptionHandler`가 **400 + `BaseResponse.fail("해당 음식 정보 없음")`** 로 매핑(clarify 2026-06-28; 이전 404 대체). `IllegalArgumentException`(현 핸들러가 400 매핑) 또는 400 매핑 전용 예외 사용.
 
 ---
 
 ## 매핑 경계 요약
 
 ```
-[api DTO] ⇄ [application Command/Result] ⇄ [domain Entity] ⇄ [infra JPA Entity]
-   └ Bean Validation        └ 유스케이스 조립·mock seam       └ DomainRepository 구현(은닉)
+[presentation DTO]  ⇄  [application Input/Result]  ⇄  [domain]  ⇄  [persistence JPA Entity]
+  Request/Response       유스케이스 조립·mock seam     model+port    toDomain()/from(domain) (도메인은 JPA 모름)
+  + Bean Validation       (BaseResponse 봉투는 presentation)         RepositoryAdapter 가 port 구현(:meogo-api:persistence)
 ```
-- api는 domain/JPA 엔티티를 import하지 않는다(헌법 IV).
-- application은 infra 구현체가 아닌 DomainRepository 인터페이스에만 의존(헌법 III).
+- presentation 은 domain/JPA 엔티티를 import 하지 않는다(헌법 IV). application 은 domain port 인터페이스에만 의존(헌법 III).
+- 도메인↔JPA 변환은 JPA 엔티티 안(`toDomain`/`from`)에 둔다 — 별도 Mapper 없음.

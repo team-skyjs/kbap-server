@@ -9,10 +9,11 @@
 ## 빌드 & 테스트 (TDD 루프)
 ```bash
 ./gradlew test                              # 전체 테스트
-./gradlew :meogo-api:scan:test              # scan 도메인/repository
-./gradlew :meogo-api:food:test              # food 도메인/repository
+./gradlew :meogo-api:scan:test              # scan 순수 도메인
+./gradlew :meogo-api:food:test              # food 순수 도메인
+./gradlew :meogo-api:persistence:test       # RepositoryAdapter 저장/조회(H2)
 ./gradlew :meogo-api:application:test       # 유스케이스·mock seam
-./gradlew :meogo-api:presentation:test               # web 계약(MockMvc) — 200/400/404, ApiResponse
+./gradlew :meogo-api:presentation:test      # web 계약(MockMvc) — 200/400, BaseResponse
 ```
 헌법 I: 각 task는 **실패 테스트 먼저** 작성 → 최소 구현 → 리팩터.
 
@@ -53,7 +54,7 @@ curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=된장찌개&lang=xx
 # → 200, ko 폴백("된장찌개" 등 ko 값)
 
 curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=없는메뉴&lang=en'
-# → 404, success:false, message:"해당 음식 정보 없음"
+# → 400, success:false, message:"해당 음식 정보 없음" (미수록 메뉴 = 잘못된 요청)
 
 curl -s 'http://localhost:8080/api/v1/foods/detail?menuName='
 # → 400, success:false, message:"menuName은 필수입니다"
@@ -65,5 +66,5 @@ curl -s 'http://localhost:8080/api/v1/foods/detail?menuName='
 - [ ] 4개+ 항목 → 4단계 모두 노출 (SC-003)
 - [ ] 잘못된 스캔 요청 100% 400 (SC-005)
 - [ ] 저장 검증: scanId·항목·boundingBox·mock 결과 (SC-006, repository/service 테스트)
-- [ ] 음식 상세 다국어(lang별 번역 + 미지원 ko 폴백)·200/404/400 일관 (SC-007)
+- [ ] 음식 상세 다국어(lang별 번역 + 미지원 ko 폴백)·200/400 일관 (SC-007)
 - [ ] 상세 응답만으로 화면 구성 가능 + 안내 문구 클라 조합 (SC-008)
