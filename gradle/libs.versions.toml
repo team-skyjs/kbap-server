@@ -7,6 +7,7 @@ spring-ai = "2.0.0"
 junit = "5.13.4"
 springdoc = "2.8.6"
 kotest = "5.9.1"
+kotest-extensions-spring = "1.3.0"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -55,5 +56,6 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-boot-webmvc-test = { module = "org.springframework.boot:spring-boot-webmvc-test" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

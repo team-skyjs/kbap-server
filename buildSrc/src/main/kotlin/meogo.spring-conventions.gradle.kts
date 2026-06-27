@@ -24,4 +24,5 @@ dependencies {
     "implementation"(libs.findLibrary("kotlin-reflect").get())
     "implementation"(libs.findLibrary("jackson-module-kotlin").get())
     "testImplementation"(libs.findLibrary("spring-boot-starter-test").get())
+    "testImplementation"(libs.findLibrary("kotest-extensions-spring").get())
 }
