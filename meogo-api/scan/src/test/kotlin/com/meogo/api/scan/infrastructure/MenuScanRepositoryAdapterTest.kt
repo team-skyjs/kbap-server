@@ -20,6 +20,9 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
     @Autowired
     private lateinit var adapter: MenuScanRepositoryAdapter
 
+    @Autowired
+    private lateinit var jpaRepository: MenuScanJpaRepository
+
     init {
         given("MenuScan 저장소 어댑터") {
             `when`("항목·boundingBox·판정을 가진 스캔을 저장하면") {
@@ -65,6 +68,29 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
             `when`("존재하지 않는 scanId 로 조회하면") {
                 then("null 을 반환한다") {
                     adapter.findById(999_999L) shouldBe null
+                }
+            }
+
+            `when`("저장된 스캔을 소프트 삭제하면") {
+                then("@SQLRestriction 으로 조회에서 제외돼 null 이 반환된다") {
+                    val scan = MenuScan.create(
+                        listOf(
+                            ScannedMenuItem(
+                                itemId = 0,
+                                rawMenuName = "제육볶음",
+                                boundingBox = BoundingBox(0.1, 0.1, 0.2, 0.2),
+                                receivedOrder = 0,
+                                assessment = MenuItemAssessment(RiskLevel.SAFE, "mock: 안전"),
+                            ),
+                        ),
+                    )
+                    val savedId = adapter.save(scan).id.shouldNotBeNull()
+
+                    val entity = jpaRepository.findById(savedId).get()
+                    entity.delete()
+                    jpaRepository.save(entity)
+
+                    adapter.findById(savedId) shouldBe null
                 }
             }
         }

@@ -12,7 +12,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "menu_scan")
 class MenuScanJpaEntity(
-    @Column(name = "scan_status", nullable = false)
+    @Column(name = "scan_status", nullable = false, length = 20)
     var scanStatus: String = "",
 
     @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)

@@ -11,7 +11,7 @@ class ScannedMenuItemJpaEntity(
     @Column(name = "item_id", nullable = false)
     var itemId: Int = 0,
 
-    @Column(name = "raw_menu_name", nullable = false)
+    @Column(name = "raw_menu_name", nullable = false, length = 255)
     var rawMenuName: String = "",
 
     @Column(name = "bbox_x", nullable = false)
@@ -29,9 +29,9 @@ class ScannedMenuItemJpaEntity(
     @Column(name = "received_order", nullable = false)
     var receivedOrder: Int = 0,
 
-    @Column(name = "risk_level", nullable = false)
+    @Column(name = "risk_level", nullable = false, length = 10)
     var riskLevel: String = "",
 
-    @Column(name = "reason", nullable = false)
+    @Column(name = "reason", nullable = false, length = 500)
     var reason: String = "",
 ) : BaseEntity()
