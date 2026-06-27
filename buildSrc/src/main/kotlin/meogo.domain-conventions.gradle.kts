@@ -16,6 +16,9 @@ val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 dependencies {
     "api"(project(":meogo-api:core"))
 
+    // BaseEntity(@MappedSuperclass) 공유 — 엔티티가 상속한다. infrastructure 내부에서만 쓰므로 implementation 으로 은닉.
+    "implementation"(project(":meogo-api:persistence"))
+
     "implementation"(libs.findLibrary("spring-boot-starter-data-jpa").get())
     "implementation"(libs.findLibrary("spring-boot-starter-data-mongodb").get())
 

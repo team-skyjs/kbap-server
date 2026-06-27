@@ -22,8 +22,7 @@ class MenuScanRepositoryAdapter(
 
 private fun MenuScan.toEntity(): MenuScanJpaEntity =
     MenuScanJpaEntity(
-        status = status.name,
-        createdAt = createdAt,
+        scanStatus = status.name,
         items = items.map { it.toEntity() }.toMutableList(),
     )
 
@@ -43,11 +42,10 @@ private fun ScannedMenuItem.toEntity(): ScannedMenuItemJpaEntity =
 private fun MenuScanJpaEntity.toDomain(): MenuScan =
     MenuScan.reconstitute(
         id = id,
-        status = ScanStatus.valueOf(status),
+        status = ScanStatus.valueOf(scanStatus),
         items = items
             .sortedBy { it.receivedOrder }
             .map { it.toDomain() },
-        createdAt = createdAt,
     )
 
 private fun ScannedMenuItemJpaEntity.toDomain(): ScannedMenuItem =

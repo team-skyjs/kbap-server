@@ -24,6 +24,7 @@ include(
     ":meogo-api:application",  // 유스케이스 조율
     ":meogo-api:infra",        // 외부 연동(LLM 등) adapter
     ":meogo-api:core",         // 도메인 커널 (Spring-free)
+    ":meogo-api:persistence",  // 영속 공통 (BaseEntity @MappedSuperclass) — 도메인 모듈 공유
     // 도메인 컨텍스트 (평탄화 — meogo-domain 컨테이너 없이 meogo-api 직속)
     ":meogo-api:food",
     ":meogo-api:member",

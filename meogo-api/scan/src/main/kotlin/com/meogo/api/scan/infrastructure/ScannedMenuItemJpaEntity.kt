@@ -1,19 +1,13 @@
 package com.meogo.api.scan.infrastructure
 
+import com.meogo.api.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
 import jakarta.persistence.Table
 
 @Entity
 @Table(name = "scanned_menu_item")
 class ScannedMenuItemJpaEntity(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long = 0,
-
     @Column(name = "item_id", nullable = false)
     var itemId: Int = 0,
 
@@ -40,4 +34,4 @@ class ScannedMenuItemJpaEntity(
 
     @Column(name = "reason", nullable = false)
     var reason: String = "",
-)
+) : BaseEntity()

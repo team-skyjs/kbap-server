@@ -1,12 +1,9 @@
 package com.meogo.api.scan
 
-import java.time.Instant
-
 class MenuScan private constructor(
     val id: Long?,
     val status: ScanStatus,
     val items: List<ScannedMenuItem>,
-    val createdAt: Instant,
 ) {
     init {
         require(items.isNotEmpty()) { "스캔 항목은 최소 1개여야 합니다" }
@@ -18,14 +15,13 @@ class MenuScan private constructor(
     companion object {
         const val MAX_ITEMS = 100
 
-        fun create(items: List<ScannedMenuItem>, createdAt: Instant = Instant.now()): MenuScan =
-            MenuScan(id = null, status = ScanStatus.COMPLETED, items = items, createdAt = createdAt)
+        fun create(items: List<ScannedMenuItem>): MenuScan =
+            MenuScan(id = null, status = ScanStatus.COMPLETED, items = items)
 
         fun reconstitute(
             id: Long,
             status: ScanStatus,
             items: List<ScannedMenuItem>,
-            createdAt: Instant,
-        ): MenuScan = MenuScan(id = id, status = status, items = items, createdAt = createdAt)
+        ): MenuScan = MenuScan(id = id, status = status, items = items)
     }
 }
