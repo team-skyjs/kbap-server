@@ -1,5 +1,6 @@
 package com.meogo.api.scan
 
+import com.meogo.api.common.ApiPaths
 import com.meogo.api.common.ApiResponse
 import com.meogo.api.scan.dto.SubmitMenuScanRequest
 import com.meogo.api.scan.dto.SubmitMenuScanResponse
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/menu-scans")
+@RequestMapping(ApiPaths.V1 + "/menu-scans")
 class MenuScanController(
     private val submitMenuScanUseCase: SubmitMenuScanUseCase,
 ) {

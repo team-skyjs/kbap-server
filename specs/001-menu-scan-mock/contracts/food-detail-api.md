@@ -1,6 +1,6 @@
 # Contract — API 2: 음식 상세 조회 (다국어)
 
-`GET /foods/detail?menuName={menuName}&lang={lang}`
+`GET /api/v1/foods/detail?menuName={menuName}&lang={lang}`
 
 모든 응답은 `ApiResponse<T>`로 감싼다.
 
@@ -11,7 +11,7 @@
 | `menuName` | query | 필수 | blank 불가. **trim 후** seed의 `ko` 원문 음식명과 **exact match** |
 | `lang` | query | 선택 | 지원: `ko`+9개(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`). **미지정/미지원 → `ko` 폴백** |
 
-예: `GET /foods/detail?menuName=된장찌개&lang=en`
+예: `GET /api/v1/foods/detail?menuName=된장찌개&lang=en`
 
 > 매칭 키(`menuName`=ko 원문)와 응답 콘텐츠 언어(`lang`)는 **분리**된다. 음식명·재료명은 `ko` 원문 + 9개 대상 언어로 사전 번역돼 저장되며(헌법 V·ADR-0003), 응답은 `lang` 한 언어만 내려준다.
 

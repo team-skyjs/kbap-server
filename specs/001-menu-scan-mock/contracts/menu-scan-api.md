@@ -1,6 +1,6 @@
 # Contract — API 1: 메뉴 스캔 제출 + mock 판정
 
-`POST /menu-scans`
+`POST /api/v1/menu-scans`
 
 모든 응답은 `ApiResponse<T>`로 감싼다. `Content-Type: application/json`.
 

@@ -12,7 +12,7 @@ import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 
 /**
- * POST /menu-scans 요청 본문. Bean Validation 으로 1차 검증하고,
+ * POST /api/v1/menu-scans 요청 본문. Bean Validation 으로 1차 검증하고,
  * itemId 중복(컬렉션 유일성)은 컨트롤러에서 수동 검사한다(R8).
  */
 data class SubmitMenuScanRequest(

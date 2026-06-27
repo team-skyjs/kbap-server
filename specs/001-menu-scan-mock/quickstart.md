@@ -26,7 +26,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :meogo-api:api:bootRun
 
 ## API 1 — 스캔 제출 + mock 판정
 ```bash
-curl -s -X POST http://localhost:8080/menu-scans \
+curl -s -X POST http://localhost:8080/api/v1/menu-scans \
   -H 'Content-Type: application/json' \
   -d '{
     "items": [
@@ -42,20 +42,20 @@ curl -s -X POST http://localhost:8080/menu-scans \
 
 ## API 2 — 음식 상세 조회 (다국어)
 ```bash
-curl -s 'http://localhost:8080/foods/detail?menuName=된장찌개&lang=en'
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=된장찌개&lang=en'
 # → 200, data.name(영어) + data.ingredients[*].name(영어) + inclusionPercent + riskStatus
 
-curl -s 'http://localhost:8080/foods/detail?menuName=된장찌개&lang=ja'
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=된장찌개&lang=ja'
 # → 200, 일본어 번역본
 
-curl -s 'http://localhost:8080/foods/detail?menuName=된장찌개'        # lang 미지정
-curl -s 'http://localhost:8080/foods/detail?menuName=된장찌개&lang=xx' # 미지원
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=된장찌개'        # lang 미지정
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=된장찌개&lang=xx' # 미지원
 # → 200, ko 폴백("된장찌개" 등 ko 값)
 
-curl -s 'http://localhost:8080/foods/detail?menuName=없는메뉴&lang=en'
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName=없는메뉴&lang=en'
 # → 404, success:false, message:"해당 음식 정보 없음"
 
-curl -s 'http://localhost:8080/foods/detail?menuName='
+curl -s 'http://localhost:8080/api/v1/foods/detail?menuName='
 # → 400, success:false, message:"menuName은 필수입니다"
 ```
 

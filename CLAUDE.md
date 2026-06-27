@@ -119,6 +119,15 @@ data class ApiResponse<T>(
 - 컨트롤러는 raw 도메인/DTO 를 직접 반환하지 않고 항상 `ResponseEntity<ApiResponse<T>>`로 감싼다. HTTP 상태코드는 `ResponseEntity`로, 비즈니스 성공/실패 플래그는 `ApiResponse.success`로 표현한다.
 - `ApiResponse`는 모든 web 응답이 공유하므로 `:meogo-api:api`(또는 공통 web 계층)에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
 
+### API 엔드포인트 경로 규약 (고정)
+
+**모든 컨트롤러 경로는 `/api/{버전}` 으로 시작한다.** 예외 없이 버전 prefix 와 함께 노출한다(예: `POST /api/v1/menu-scans`, `GET /api/v1/foods/detail`).
+
+- 버전 베이스는 `com.meogo.api.common.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/menu-scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
+- 새 버전 도입 시 `ApiPaths` 에 상수 추가(예: `const val V2 = "/api/v2"`)하고 해당 버전 컨트롤러가 참조한다. 같은 리소스의 v1·v2 컨트롤러는 서로 다른 베이스를 써 **공존**한다(기존 버전 경로는 깨지 않는다).
+- 이 규약은 **비즈니스 API(`com.meogo.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
+- 경계 강제는 후속 ArchUnit(또는 매핑 검사 테스트)로 둔다 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증.
+
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:

@@ -44,7 +44,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ## Phase 3: User Story 1 — 메뉴 스캔 제출 후 항목별 위험도 받기 (Priority: P1) 🎯 MVP
 
-**Goal**: `POST /menu-scans` — items(itemId·rawMenuName·boundingBox) 배열을 받아 배열 순서 기준 mock 4단계 위험도를 itemId로 매칭해 반환하고, 스캔·항목·결과를 MySQL에 최소 저장.
+**Goal**: `POST /api/v1/menu-scans` — items(itemId·rawMenuName·boundingBox) 배열을 받아 배열 순서 기준 mock 4단계 위험도를 itemId로 매칭해 반환하고, 스캔·항목·결과를 MySQL에 최소 저장.
 
 **Independent Test**: 4개 항목 제출 → 200, results 4개가 itemId로 1:1 매칭되고 4단계를 모두 포함. 잘못된 요청(빈 목록·100개 초과·itemId 중복·rawMenuName blank·boundingBox 누락/좌표오류) → 400. 저장은 repository 테스트로 확인.
 
@@ -85,7 +85,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 **web (api)**
 
 - [X] T027 [P] [US1] 요청/응답 DTO + Bean Validation(@NotEmpty/@Size(max=100)/@NotBlank/@NotNull/@Valid, BoundingBox @PositiveOrZero(x,y)·@Positive(w,h)·@DecimalMax("1.0"), 교차 제약 `x+width≤1`·`y+height≤1`은 @AssertTrue) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/dto/`
-- [X] T028 [US1] `MenuScanController`(POST /menu-scans, DTO→Command, itemId 중복 수동 검증→400, `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/MenuScanController.kt` (T026·T027)
+- [X] T028 [US1] `MenuScanController`(POST /api/v1/menu-scans, DTO→Command, itemId 중복 수동 검증→400, `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/MenuScanController.kt` (T026·T027)
 - [X] T029 [US1] mock 빈 와이어링 확인 후 US1 테스트 GREEN — `./gradlew :meogo-api:scan:test :meogo-api:application:test :meogo-api:api:test` 통과(T007~T012 통과)
 
 **Checkpoint**: US1 단독으로 동작·테스트 가능 → MVP 완성. 데모 가능.
@@ -94,7 +94,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ## Phase 4: User Story 2 — 메뉴명으로 음식 상세 정보 조회 (Priority: P2)
 
-**Goal**: `GET /foods/detail?menuName=&lang=` — seed 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock riskStatus]) 반환. `lang` 미지원/미지정 → `ko` 폴백. 없으면 404, menuName 누락/blank 400. 음식·재료명은 `ko` 원문 + 9개 대상 언어로 저장(seed 보유).
+**Goal**: `GET /api/v1/foods/detail?menuName=&lang=` — seed 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock riskStatus]) 반환. `lang` 미지원/미지정 → `ko` 폴백. 없으면 404, menuName 누락/blank 400. 음식·재료명은 `ko` 원문 + 9개 대상 언어로 저장(seed 보유).
 
 **Independent Test**: seed 메뉴명("된장찌개") + `lang=en` → 200 영어 음식명·재료명. `lang=ja` → 일본어. `lang` 미지정/`xx` → ko 폴백. 앞뒤 공백 trim. 없는 메뉴명 → 404. menuName 누락/blank → 400.
 
@@ -136,7 +136,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 **web (api)**
 
 - [ ] T046 [P] [US2] `FoodDetailResponse` DTO(name, imageRef, ingredients[name,iconRef,inclusionPercent,riskStatus]) — `meogo-api/api/src/main/kotlin/com/meogo/api/food/dto/FoodDetailResponse.kt`
-- [ ] T047 [US2] `FoodDetailController`(GET /foods/detail, `menuName`(@NotBlank→400)·`lang`(선택, 미지정/미지원→ko 폴백), `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/food/FoodDetailController.kt` (T045·T046)
+- [ ] T047 [US2] `FoodDetailController`(GET /api/v1/foods/detail, `menuName`(@NotBlank→400)·`lang`(선택, 미지정/미지원→ko 폴백), `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/food/FoodDetailController.kt` (T045·T046)
 - [ ] T048 [US2] `GlobalExceptionHandler`에 `FoodNotFoundException`→404 `ApiResponse.fail("해당 음식 정보 없음")` 매핑 추가 — `meogo-api/api/src/main/kotlin/com/meogo/api/common/GlobalExceptionHandler.kt` (T006 확장)
 - [ ] T049 [US2] US2 테스트 GREEN 확인 — `./gradlew :meogo-api:food:test :meogo-api:application:test :meogo-api:api:test` 통과(T030~T033, T030a/b·T032a 포함)
 

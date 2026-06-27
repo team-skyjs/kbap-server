@@ -6,7 +6,7 @@
 
 ## Summary
 
-두 개의 web API를 구현한다. **(1) `POST /menu-scans`** — 클라이언트가 메뉴 항목(itemId·rawMenuName·boundingBox) 배열을 보내면, 서버가 항목 배열 순서 기준으로 mock 4단계 위험도(`SAFE/CAUTION/DANGER/UNKNOWN`)를 부여하고 스캔·항목·결과를 MySQL에 최소 저장한 뒤 itemId로 매칭되는 결과를 반환한다. **(2) `GET /foods/detail?menuName=&lang=`** — 메뉴명(trim 후 ko 원문 exact match)으로 seed된 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock riskStatus])를 반환하고, `lang` 미지원/미지정은 `ko` 폴백, 없으면 404, menuName 누락/blank면 400. 음식·재료명은 ko 원문 + 9개 대상 언어로 저장(seed 보유).
+두 개의 web API를 구현한다. **(1) `POST /api/v1/menu-scans`** — 클라이언트가 메뉴 항목(itemId·rawMenuName·boundingBox) 배열을 보내면, 서버가 항목 배열 순서 기준으로 mock 4단계 위험도(`SAFE/CAUTION/DANGER/UNKNOWN`)를 부여하고 스캔·항목·결과를 MySQL에 최소 저장한 뒤 itemId로 매칭되는 결과를 반환한다. **(2) `GET /api/v1/foods/detail?menuName=&lang=`** — 메뉴명(trim 후 ko 원문 exact match)으로 seed된 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock riskStatus])를 반환하고, `lang` 미지원/미지정은 `ko` 폴백, 없으면 404, menuName 누락/blank면 400. 음식·재료명은 ko 원문 + 9개 대상 언어로 저장(seed 보유).
 
 기술 접근: 기존 멀티모듈 골격(`:meogo-api:{api,application,scan,food,core,infra}`)에 **첫 도메인 코드**를 채운다. 컨트롤러·DTO·`ApiResponse<T>`·예외 핸들러는 `:meogo-api:api`, 유스케이스는 `:meogo-api:application`, 도메인 엔티티·JPA·Repository는 `:meogo-api:{scan,food}`에 은닉한다. `RiskLevel`은 컨텍스트 공유 커널 타입이라 `:meogo-api:core`에 둔다. mock 판정은 application 계층의 교체 가능한 collaborator로 격리(FR-013)해, 후속에 실제 `assessment` 호출로 갈아끼운다. 스키마는 `:meogo-api:api`의 Flyway 마이그레이션이 소유한다.
 
@@ -127,9 +127,9 @@ meogo-api/
 │   ├── src/main/kotlin/com/meogo/api/
 │   │   ├── common/ApiResponse.kt                  # 공통 응답 봉투(고정 규약)
 │   │   ├── common/GlobalExceptionHandler.kt       # 400/404 → ApiResponse.fail 매핑
-│   │   ├── scan/MenuScanController.kt             # POST /menu-scans
+│   │   ├── scan/MenuScanController.kt             # POST /api/v1/menu-scans
 │   │   ├── scan/dto/...                           # Request/Response DTO + Bean Validation
-│   │   ├── food/FoodDetailController.kt           # GET /foods/detail
+│   │   ├── food/FoodDetailController.kt           # GET /api/v1/foods/detail
 │   │   └── food/dto/...
 │   ├── src/main/resources/db/migration/           # Flyway(스키마 owner)
 │   │   ├── V1__create_scan_tables.sql

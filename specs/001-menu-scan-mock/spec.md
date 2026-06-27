@@ -146,7 +146,7 @@
 
 ### API 1 — 메뉴 스캔 제출 + mock 판정
 
-`POST /menu-scans`
+`POST /api/v1/menu-scans`
 
 **Request body**:
 - `items`: 필수, **1개 이상, 최대 100개**
@@ -171,7 +171,7 @@
 
 ### API 2 — 음식 상세 조회
 
-`GET /foods/detail?menuName={menuName}&lang={lang}`
+`GET /api/v1/foods/detail?menuName={menuName}&lang={lang}`
 
 **Request**:
 - `menuName`: 필수, blank 불가. 매칭: **trim 후** seed의 `ko` 원문 음식명과 **exact match**

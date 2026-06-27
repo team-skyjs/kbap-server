@@ -11,7 +11,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 
 /**
- * POST /menu-scans 검증 거부 케이스 — 모두 400 + ApiResponse.fail.
+ * POST /api/v1/menu-scans 검증 거부 케이스 — 모두 400 + ApiResponse.fail.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,7 +36,7 @@ class MenuScanValidationTest {
     }
 
     private fun expectBadRequest(payload: Map<String, Any?>) {
-        mockMvc.post("/menu-scans") {
+        mockMvc.post("/api/v1/menu-scans") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(payload)
         }.andExpect {

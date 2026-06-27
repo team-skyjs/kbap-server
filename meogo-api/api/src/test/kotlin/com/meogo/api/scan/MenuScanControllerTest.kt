@@ -11,7 +11,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 
 /**
- * POST /menu-scans 정상 흐름 계약(SC-001/002/003).
+ * POST /api/v1/menu-scans 정상 흐름 계약(SC-001/002/003).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -33,7 +33,7 @@ class MenuScanControllerTest {
 
     @Test
     fun `4개 항목 제출하면 200 과 itemId 1대1 매칭 및 4단계 분포를 반환한다`() {
-        mockMvc.post("/menu-scans") {
+        mockMvc.post("/api/v1/menu-scans") {
             contentType = MediaType.APPLICATION_JSON
             content = body(item(0), item(1), item(2), item(3))
         }.andExpect {
@@ -51,7 +51,7 @@ class MenuScanControllerTest {
 
     @Test
     fun `같은 메뉴명이라도 서로 다른 itemId 로 구분 매칭된다`() {
-        mockMvc.post("/menu-scans") {
+        mockMvc.post("/api/v1/menu-scans") {
             contentType = MediaType.APPLICATION_JSON
             content = body(item(10, "된장찌개"), item(20, "된장찌개"))
         }.andExpect {
@@ -65,7 +65,7 @@ class MenuScanControllerTest {
 
     @Test
     fun `5번째 항목은 index 4 라 SAFE 로 재순환한다`() {
-        mockMvc.post("/menu-scans") {
+        mockMvc.post("/api/v1/menu-scans") {
             contentType = MediaType.APPLICATION_JSON
             content = body(item(0), item(1), item(2), item(3), item(4))
         }.andExpect {
