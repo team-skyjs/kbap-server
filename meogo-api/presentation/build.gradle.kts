@@ -8,8 +8,9 @@ dependencies {
     "implementation"(project(":meogo-api:core"))
     "implementation"(project(":meogo-common"))
 
-    // 조립: infra adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
+    // 조립: infra·persistence adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
     "runtimeOnly"(project(":meogo-api:infra"))
+    "runtimeOnly"(project(":meogo-api:persistence"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)

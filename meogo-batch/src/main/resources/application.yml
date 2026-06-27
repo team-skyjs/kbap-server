@@ -4,17 +4,7 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: meogo-batch
-  # 배치는 스키마 owner 가 아니다 — 마이그레이션은 meogo-api 가 책임진다(중복 적용 방지).
-  flyway:
-    enabled: false
-  ai:
-    model:
-      # LLM 자동구성이 키 없이 떠서 부팅이 깨지지 않도록 기본 비활성.
-      chat: none
-      embedding: none
-      image: none
-      moderation: none
-      audio:
-        transcription: none
-        speech: none
-# datasource 등 실제 배치 잡 설정은 잡 도입 시 프로필별로 추가한다.
+# 배치는 meogo-api 내부 모듈에 의존하지 않는 디커플드 위성 앱이다 —
+# ORM/JPA·Spring AI·Flyway 자동구성이 클래스패스에 없어 관련 설정이 필요 없다.
+# meogo-api 와의 연동은 :meogo-common 의 통합 이벤트(브로커)로만 한다.
+# datasource·메시징 등 실제 배치 잡 설정은 잡 도입 시 프로필별로 추가한다.

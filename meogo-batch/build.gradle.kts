@@ -4,17 +4,11 @@ plugins {
 }
 
 dependencies {
-    // 배치는 api 의 application 유스케이스를 트리거한다.
-    "implementation"(project(":meogo-api:application"))
+    // 배치는 meogo-api 내부 모듈(application/infra/persistence/도메인)에 일절 의존하지 않는다.
+    // 디커플드 위성 앱 — meogo-api 와는 :meogo-common 의 통합 이벤트(브로커)로만 소통한다.
     "implementation"(project(":meogo-common"))
 
-    // application 의 port 구현(adapter)을 런타임에 조립한다(컴파일 의존 X) — api 와 동일한 조립 책임.
-    // (영속/도메인은 application 을 통해 런타임 전이되므로 별도 선언 불필요.)
-    "runtimeOnly"(project(":meogo-api:infra"))
-
     "implementation"(libs.spring.boot.starter)
-
-    "testRuntimeOnly"(libs.h2)
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

@@ -1,4 +1,4 @@
-package com.meogo.api.scan.infrastructure
+package com.meogo.api.persistence.scan
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query

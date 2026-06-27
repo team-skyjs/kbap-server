@@ -1,8 +1,8 @@
 # 0001. 멀티앱 모듈 레이아웃 (meogo-api 컨테이너 + batch + common)
 
-- **상태**: Accepted <!-- web 모듈명(api→presentation)·패키지 규약은 ADR-0005에서 보완 -->
+- **상태**: Accepted <!-- web 모듈명(api→presentation)·패키지 규약은 ADR-0005에서 보완. 영속 per-domain 캡슐화·batch↔application 결합 결정은 ADR-0006에서 supersede(나머지 레이아웃 결정은 유효) -->
 - **날짜**: 2026-06-26
-- **관련**: [meogo-conventions](../architecture/meogo-conventions.md), [meogo-api-module-structure](../architecture/meogo-api-module-structure.md), 헌법 v1.1.0 (원칙 II·III), [ADR-0005](./0005-unified-api-package-and-presentation-rename.md)
+- **관련**: [meogo-conventions](../architecture/meogo-conventions.md), [meogo-api-module-structure](../architecture/meogo-api-module-structure.md), 헌법 v1.1.0 (원칙 II·III), [ADR-0005](./0005-unified-api-package-and-presentation-rename.md), [ADR-0006](./0006-central-persistence-adapter-and-decoupled-batch.md)
 
 ## Context
 

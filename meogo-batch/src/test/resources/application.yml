@@ -1,16 +1,5 @@
 spring:
-  # 테스트 컨텍스트: 환경 DB·외부 키에 의존하지 않게 한다.
-  flyway:
-    enabled: false
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-  ai:
-    model:
-      chat: none
-      embedding: none
-      image: none
-      moderation: none
-      audio:
-        transcription: none
-        speech: none
+  # 테스트 컨텍스트: 디커플드 배치 앱은 ORM/JPA·Spring AI·Flyway 자동구성을 클래스패스에 갖지 않는다.
+  # 환경 DB·외부 키에 의존하지 않으므로 별도 오버라이드가 필요 없다.
+  application:
+    name: meogo-batch

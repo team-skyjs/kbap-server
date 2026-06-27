@@ -1,4 +1,4 @@
-package com.meogo.api.scan.infrastructure
+package com.meogo.api.persistence.scan
 
 import com.meogo.api.scan.MenuScan
 import com.meogo.api.scan.MenuScanRepository

@@ -28,10 +28,10 @@ dependencies {
     jacocoAggregation(platform("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"))
 
     jacocoAggregation(project(":meogo-api:core"))
-    jacocoAggregation(project(":meogo-api:persistence"))
     jacocoAggregation(project(":meogo-api:application"))
     jacocoAggregation(project(":meogo-api:presentation"))
     jacocoAggregation(project(":meogo-api:infra"))
+    jacocoAggregation(project(":meogo-api:persistence"))
     jacocoAggregation(project(":meogo-api:scan"))
     jacocoAggregation(project(":meogo-api:food"))
     jacocoAggregation(project(":meogo-api:member"))
