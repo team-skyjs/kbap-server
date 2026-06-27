@@ -1,14 +1,9 @@
 package com.meogo.api.presentation.scan
 
+import com.meogo.api.application.scan.SubmitMenuScanUseCase
 import com.meogo.api.presentation.common.ApiPaths
 import com.meogo.api.presentation.common.BaseResponse
-import com.meogo.api.presentation.scan.dto.SubmitMenuScanRequest
-import com.meogo.api.presentation.scan.dto.SubmitMenuScanResponse
-import com.meogo.api.application.scan.SubmitMenuScanCommand
-import com.meogo.api.application.scan.SubmitMenuScanUseCase
-import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -18,31 +13,10 @@ import org.springframework.web.bind.annotation.RestController
 class MenuScanController(
     private val submitMenuScanUseCase: SubmitMenuScanUseCase,
 ) : MenuScanApi {
-    @PostMapping
     override fun submit(
-        @Valid @RequestBody request: SubmitMenuScanRequest,
+        @RequestBody request: SubmitMenuScanRequest,
     ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>> {
-        val itemIds = request.items.map { it.itemId }
-        require(itemIds.toSet().size == itemIds.size) { "itemId 는 요청 내에서 중복될 수 없습니다" }
-
-        val result = submitMenuScanUseCase.submit(request.toCommand())
+        val result = submitMenuScanUseCase.submit(request.toInput())
         return ResponseEntity.ok(BaseResponse.ok(SubmitMenuScanResponse.from(result)))
     }
 }
-
-private fun SubmitMenuScanRequest.toCommand(): SubmitMenuScanCommand =
-    SubmitMenuScanCommand(
-        items = items.map { item ->
-            val box = item.boundingBox!!
-            SubmitMenuScanCommand.Item(
-                itemId = item.itemId!!,
-                rawMenuName = item.rawMenuName!!,
-                boundingBox = SubmitMenuScanCommand.Box(
-                    x = box.x!!,
-                    y = box.y!!,
-                    width = box.width!!,
-                    height = box.height!!,
-                ),
-            )
-        },
-    )

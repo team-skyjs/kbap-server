@@ -13,33 +13,20 @@ class SubmitMenuScanUseCase(
     private val riskAssessor: MenuItemRiskAssessor,
 ) {
     @Transactional
-    fun submit(command: SubmitMenuScanCommand): MenuScanResult {
-        val items = command.items.mapIndexed { index, item ->
+    fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {
+        val items = input.items.mapIndexed { index, item ->
+            val box = item.boundingBox
             ScannedMenuItem(
                 itemId = item.itemId,
                 rawMenuName = item.rawMenuName,
-                boundingBox = BoundingBox(
-                    x = item.boundingBox.x,
-                    y = item.boundingBox.y,
-                    width = item.boundingBox.width,
-                    height = item.boundingBox.height,
-                ),
-                receivedOrder = index,
+                boundingBox = BoundingBox(x = box.x, y = box.y, width = box.width, height = box.height),
                 assessment = riskAssessor.assess(index, item.rawMenuName),
             )
         }
 
-        val saved = menuScanRepository.save(MenuScan.create(items))
-
-        return MenuScanResult(
-            scanId = requireNotNull(saved.id) { "저장된 스캔에 id 가 없습니다" },
-            results = saved.items.map { scannedItem ->
-                MenuScanResult.ItemResult(
-                    itemId = scannedItem.itemId,
-                    riskLevel = scannedItem.assessment.riskLevel,
-                    reason = scannedItem.assessment.reason,
-                )
-            },
-        )
+        return MenuScan.CreationSpec(items)
+            .let(MenuScan::create)
+            .let(menuScanRepository::save)
+            .let(SubmitMenuScanResult::from)
     }
 }

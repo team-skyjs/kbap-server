@@ -25,9 +25,7 @@ class MenuScanJpaEntity(
         MenuScan.reconstitute(
             id = id,
             status = ScanStatus.valueOf(scanStatus),
-            items = items
-                .sortedBy { it.receivedOrder }
-                .map { it.toDomain() },
+            items = items.map { it.toDomain() },
         )
 
     companion object {

@@ -1,10 +1,10 @@
 package com.meogo.api.scan
 
 data class ScannedMenuItem(
+    val id: Long? = null,
     val itemId: Int,
     val rawMenuName: String,
     val boundingBox: BoundingBox,
-    val receivedOrder: Int,
     val assessment: MenuItemAssessment,
 ) {
     init {

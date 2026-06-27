@@ -30,9 +30,6 @@ class ScannedMenuItemJpaEntity(
     @Column(name = "bbox_height", nullable = false)
     var bboxHeight: Double = 0.0,
 
-    @Column(name = "received_order", nullable = false)
-    var receivedOrder: Int = 0,
-
     @Column(name = "risk_level", nullable = false, length = 10)
     var riskLevel: String = "",
 
@@ -41,10 +38,10 @@ class ScannedMenuItemJpaEntity(
 ) : BaseEntity() {
     fun toDomain(): ScannedMenuItem =
         ScannedMenuItem(
+            id = id,
             itemId = itemId,
             rawMenuName = rawMenuName,
             boundingBox = BoundingBox(bboxX, bboxY, bboxWidth, bboxHeight),
-            receivedOrder = receivedOrder,
             assessment = MenuItemAssessment(RiskLevel.valueOf(riskLevel), reason),
         )
 
@@ -57,7 +54,6 @@ class ScannedMenuItemJpaEntity(
                 bboxY = item.boundingBox.y,
                 bboxWidth = item.boundingBox.width,
                 bboxHeight = item.boundingBox.height,
-                receivedOrder = item.receivedOrder,
                 riskLevel = item.assessment.riskLevel.name,
                 reason = item.assessment.reason,
             )

@@ -41,6 +41,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.scanId") { exists() }
                         jsonPath("$.payload.results.length()") { value(4) }
+                        jsonPath("$.payload.results[0].id") { exists() }
                         jsonPath("$.payload.results[0].itemId") { value(0) }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
                         jsonPath("$.payload.results[1].riskLevel") { value("CAUTION") }
