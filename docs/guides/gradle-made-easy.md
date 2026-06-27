@@ -37,7 +37,7 @@ Gradle에서 "프로젝트(project)"는 보통 우리가 말하는 **모듈** �
 rootProject.name = "meogo-server"
 
 include(
-    ":meogo-api:presentation",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 api 모듈
+    ":meogo-api:presentation",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 presentation 모듈
     ":meogo-api:application",
     ":meogo-api:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
     ":meogo-batch",            // 배치 앱
