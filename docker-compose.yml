@@ -1,0 +1,45 @@
+# 로컬 개발용 인프라(MySQL + MongoDB).
+# application-local.yml 의 기본값과 맞춘다: MySQL root/root@3306, Mongo @27017, DB명 meogo.
+#
+# 사용법:
+#   docker compose up -d        # 백그라운드 기동
+#   docker compose ps           # 상태 확인
+#   docker compose down         # 정지(데이터는 볼륨에 유지)
+#   docker compose down -v      # 정지 + 데이터 초기화
+#
+# dev/staging/prod 는 관리형 DB(RDS / Mongo Atlas 등)를 쓰므로 이 파일은 로컬 전용이다.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: meogo-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: meogo
+    # 음식 콘텐츠(한국어/영어)를 위해 utf8mb4 고정
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - meogo-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:8
+    container_name: meogo-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - meogo-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  meogo-mysql-data:
+  meogo-mongo-data:
