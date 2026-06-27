@@ -39,13 +39,13 @@ class MenuScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.data.scanId") { exists() }
-                        jsonPath("$.data.results.length()") { value(4) }
-                        jsonPath("$.data.results[0].itemId") { value(0) }
-                        jsonPath("$.data.results[0].riskLevel") { value("SAFE") }
-                        jsonPath("$.data.results[1].riskLevel") { value("CAUTION") }
-                        jsonPath("$.data.results[2].riskLevel") { value("DANGER") }
-                        jsonPath("$.data.results[3].riskLevel") { value("UNKNOWN") }
+                        jsonPath("$.payload.scanId") { exists() }
+                        jsonPath("$.payload.results.length()") { value(4) }
+                        jsonPath("$.payload.results[0].itemId") { value(0) }
+                        jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
+                        jsonPath("$.payload.results[1].riskLevel") { value("CAUTION") }
+                        jsonPath("$.payload.results[2].riskLevel") { value("DANGER") }
+                        jsonPath("$.payload.results[3].riskLevel") { value("UNKNOWN") }
                     }
                 }
             }
@@ -57,10 +57,10 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(10, "된장찌개"), item(20, "된장찌개"))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.data.results[0].itemId") { value(10) }
-                        jsonPath("$.data.results[1].itemId") { value(20) }
-                        jsonPath("$.data.results[0].riskLevel") { value("SAFE") }
-                        jsonPath("$.data.results[1].riskLevel") { value("CAUTION") }
+                        jsonPath("$.payload.results[0].itemId") { value(10) }
+                        jsonPath("$.payload.results[1].itemId") { value(20) }
+                        jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
+                        jsonPath("$.payload.results[1].riskLevel") { value("CAUTION") }
                     }
                 }
             }
@@ -72,7 +72,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0), item(1), item(2), item(3), item(4))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.data.results[4].riskLevel") { value("SAFE") }
+                        jsonPath("$.payload.results[4].riskLevel") { value("SAFE") }
                     }
                 }
             }

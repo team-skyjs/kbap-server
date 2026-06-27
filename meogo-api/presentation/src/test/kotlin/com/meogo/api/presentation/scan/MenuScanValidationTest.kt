@@ -41,7 +41,7 @@ class MenuScanValidationTest : BehaviorSpec() {
             }.andExpect {
                 status { isBadRequest() }
                 jsonPath("$.success") { value(false) }
-                jsonPath("$.data") { doesNotExist() }
+                jsonPath("$.payload") { doesNotExist() }
                 jsonPath("$.message") { exists() }
             }
         }

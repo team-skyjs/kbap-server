@@ -4,24 +4,24 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 
-class ApiResponseTest : BehaviorSpec({
-    given("ApiResponse 생성") {
+class BaseResponseTest : BehaviorSpec({
+    given("BaseResponse 생성") {
         `when`("ok 로 생성하면") {
-            then("success=true·data 페이로드·message=null 이다") {
-                val response = ApiResponse.ok("payload")
+            then("success=true·payload·message=null 이다") {
+                val response = BaseResponse.ok("payload")
 
                 response.success shouldBe true
-                response.data shouldBe "payload"
+                response.payload shouldBe "payload"
                 response.message.shouldBeNull()
             }
         }
 
         `when`("fail 로 생성하면") {
-            then("success=false·data=null·message 사유이다") {
-                val response = ApiResponse.fail("something wrong")
+            then("success=false·payload=null·message 사유이다") {
+                val response = BaseResponse.fail("something wrong")
 
                 response.success shouldBe false
-                response.data.shouldBeNull()
+                response.payload.shouldBeNull()
                 response.message shouldBe "something wrong"
             }
         }

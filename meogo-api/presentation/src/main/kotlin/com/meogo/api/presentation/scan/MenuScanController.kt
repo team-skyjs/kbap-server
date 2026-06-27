@@ -1,7 +1,7 @@
 package com.meogo.api.presentation.scan
 
 import com.meogo.api.presentation.common.ApiPaths
-import com.meogo.api.presentation.common.ApiResponse
+import com.meogo.api.presentation.common.BaseResponse
 import com.meogo.api.presentation.scan.dto.SubmitMenuScanRequest
 import com.meogo.api.presentation.scan.dto.SubmitMenuScanResponse
 import com.meogo.api.application.scan.SubmitMenuScanCommand
@@ -21,12 +21,12 @@ class MenuScanController(
     @PostMapping
     fun submit(
         @Valid @RequestBody request: SubmitMenuScanRequest,
-    ): ResponseEntity<ApiResponse<SubmitMenuScanResponse>> {
+    ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>> {
         val itemIds = request.items.map { it.itemId }
         require(itemIds.toSet().size == itemIds.size) { "itemId 는 요청 내에서 중복될 수 없습니다" }
 
         val result = submitMenuScanUseCase.submit(request.toCommand())
-        return ResponseEntity.ok(ApiResponse.ok(SubmitMenuScanResponse.from(result)))
+        return ResponseEntity.ok(BaseResponse.ok(SubmitMenuScanResponse.from(result)))
     }
 }
 

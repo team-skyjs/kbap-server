@@ -94,7 +94,7 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 ## 컨벤션
 
 - **Kotlin 소스 코드(`.kt`)에 주석을 작성하지 않는다 (고정).** 라인(`//`)·블록(`/* */`)·KDoc(`/** */`) 모두 금지하며, main·test 동일하게 적용한다. 코드는 이름(클래스·함수·변수)과 구조로 의도를 드러내는 **self-documenting** 방식으로 쓴다. 설명이 필요한 맥락(설계 근거·트레이드오프·"왜")은 코드가 아니라 **커밋 메시지·`docs/`·ADR·SpecKit 문서**에 남긴다. (예외: 빌드 스크립트 `*.gradle.kts`, Flyway SQL, `*.yml` 등 비-Kotlin 파일의 주석은 이 규약 밖이며 허용한다.)
-- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **`meogo-api` 하위 모든 모듈은 패키지를 `com.meogo.api.<모듈명>` 으로 둔다** — 도메인 컨텍스트는 `com/meogo/api/<context>/`(예: `meogo-api/food/src/main/kotlin/com/meogo/api/food/` — 모듈 경로는 평탄화됐고 패키지도 `com.meogo.api.food`), 계층은 `com/meogo/api/{application,infra}/`, 커널은 `com/meogo/api/core/`, web 모듈(`presentation`)은 `com/meogo/api/presentation/`(컨트롤러·DTO·`ApiResponse`). **부트 진입점 `MeogoApiApplication`은 `com/meogo/api`** 에 두고 전 하위 패키지를 컴포넌트 스캔한다(`scanBasePackages=["com.meogo.api"]`). 배치는 `com/meogo/batch`.
+- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **`meogo-api` 하위 모든 모듈은 패키지를 `com.meogo.api.<모듈명>` 으로 둔다** — 도메인 컨텍스트는 `com/meogo/api/<context>/`(예: `meogo-api/food/src/main/kotlin/com/meogo/api/food/` — 모듈 경로는 평탄화됐고 패키지도 `com.meogo.api.food`), 계층은 `com/meogo/api/{application,infra}/`, 커널은 `com/meogo/api/core/`, web 모듈(`presentation`)은 `com/meogo/api/presentation/`(컨트롤러·DTO·`BaseResponse`). **부트 진입점 `MeogoApiApplication`은 `com/meogo/api`** 에 두고 전 하위 패키지를 컴포넌트 스캔한다(`scanBasePackages=["com.meogo.api"]`). 배치는 `com/meogo/batch`.
 - web 실행 설정은 `meogo-api/presentation/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `meogo-api/presentation/src/test/resources/application.yml`(Flyway off, H2 `create-drop`). 배치는 `meogo-batch/src/main/resources/application.yml`(flyway off). 공통 로깅은 `meogo-common`의 `logback-common.xml`을 각 앱 `logback-spring.xml`이 `<include>`로 가져간다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `meogo.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:
   - `-Xjsr305=strict` — JSR-305 nullability 애너테이션을 강제 제약으로 취급(Spring/Java API 호출 시 영향).
@@ -110,25 +110,25 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 
 ### API 응답 규약 (고정)
 
-**모든 컨트롤러 응답 타입은 `ResponseEntity<ApiResponse<T>>`로 고정한다.** 예외 없이 모든 API는 아래 공통 봉투로 감싸 반환한다.
+**모든 컨트롤러 응답 타입은 `ResponseEntity<BaseResponse<T>>`로 고정한다.** 예외 없이 모든 API는 아래 공통 봉투로 감싸 반환한다. (봉투 클래스명은 Swagger `@ApiResponse`·`ResponseEntity` 와의 혼동을 피하려고 `BaseResponse` 로 두며, 페이로드 필드는 `payload` 다.)
 
 ```kotlin
-data class ApiResponse<T>(
+data class BaseResponse<T>(
     val success: Boolean,
-    val data: T? = null,
+    val payload: T? = null,
     val message: String? = null,
 ) {
     companion object {
-        fun <T> ok(data: T): ApiResponse<T> = ApiResponse(success = true, data = data)
-        fun fail(message: String): ApiResponse<Nothing> = ApiResponse(success = false, message = message)
+        fun <T> ok(payload: T): BaseResponse<T> = BaseResponse(success = true, payload = payload)
+        fun fail(message: String): BaseResponse<Nothing> = BaseResponse(success = false, message = message)
     }
 }
 ```
 
-- **성공**: `ApiResponse.ok(data)` — `success=true`, `data`에 페이로드, `message=null`.
-- **실패**: `ApiResponse.fail(message)` — `success=false`, `data=null`, `message`에 사유.
-- 컨트롤러는 raw 도메인/DTO 를 직접 반환하지 않고 항상 `ResponseEntity<ApiResponse<T>>`로 감싼다. HTTP 상태코드는 `ResponseEntity`로, 비즈니스 성공/실패 플래그는 `ApiResponse.success`로 표현한다.
-- `ApiResponse`는 모든 web 응답이 공유하므로 `:meogo-api:presentation`(또는 공통 web 계층)에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
+- **성공**: `BaseResponse.ok(payload)` — `success=true`, `payload`에 페이로드, `message=null`.
+- **실패**: `BaseResponse.fail(message)` — `success=false`, `payload=null`, `message`에 사유.
+- 컨트롤러는 raw 도메인/DTO 를 직접 반환하지 않고 항상 `ResponseEntity<BaseResponse<T>>`로 감싼다. HTTP 상태코드는 `ResponseEntity`로, 비즈니스 성공/실패 플래그는 `BaseResponse.success`로 표현한다.
+- `BaseResponse`는 모든 web 응답이 공유하므로 `:meogo-api:presentation`(또는 공통 web 계층)에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
 
 ### API 엔드포인트 경로 규약 (고정)
 
