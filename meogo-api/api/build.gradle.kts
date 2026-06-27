@@ -21,6 +21,9 @@ dependencies {
     "runtimeOnly"(libs.flyway.mysql)
 
     "testRuntimeOnly"(libs.h2)
+
+    // @AutoConfigureMockMvc — Boot 4.x 에서 web mvc test-slice 가 별도 모듈로 분리됐다.
+    "testImplementation"(libs.spring.boot.webmvc.test)
 }
 
 // 루트의 .env(application.yml 의 spring.config.import 대상)를 찾도록

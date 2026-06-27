@@ -24,8 +24,8 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 **Purpose**: 빌드 베이스라인 확인 및 마이그레이션 위치 준비
 
-- [ ] T001 빈 모듈 빌드/테스트 베이스라인 확인 — `./gradlew :meogo-api:api:test` 가 현재 통과(스캐폴드 정상)함을 확인
-- [ ] T002 [P] Flyway 마이그레이션 디렉터리 생성 — `meogo-api/api/src/main/resources/db/migration/` (비어 있으면 `.gitkeep`)
+- [X] T001 빈 모듈 빌드/테스트 베이스라인 확인 — `./gradlew :meogo-api:api:test` 가 현재 통과(스캐폴드 정상)함을 확인
+- [X] T002 [P] Flyway 마이그레이션 디렉터리 생성 — `meogo-api/api/src/main/resources/db/migration/` (비어 있으면 `.gitkeep`)
 
 ---
 
@@ -33,10 +33,10 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 **Purpose**: 두 user story가 공통으로 의존하는 커널·web 공통. **이 단계 완료 전 어떤 story도 시작 불가.**
 
-- [ ] T003 [P] `RiskLevel` enum(SAFE/CAUTION/DANGER/UNKNOWN) 생성 — `meogo-api/core/src/main/kotlin/com/meogo/core/risk/RiskLevel.kt`
-- [ ] T004 [P] `ApiResponse<T>`(success/data/message + ok/fail 팩토리) 생성 — `meogo-api/api/src/main/kotlin/com/meogo/api/common/ApiResponse.kt` (CLAUDE.md "API 응답 규약" 그대로)
-- [ ] T005 [P] `ApiResponse` 팩토리 단위 테스트(ok/fail 형태) 작성 — `meogo-api/api/src/test/kotlin/com/meogo/api/common/ApiResponseTest.kt`
-- [ ] T006 `GlobalExceptionHandler` 기본 골격(Bean Validation 위반 → 400 `ApiResponse.fail`) 생성 — `meogo-api/api/src/main/kotlin/com/meogo/api/common/GlobalExceptionHandler.kt`
+- [X] T003 [P] `RiskLevel` enum(SAFE/CAUTION/DANGER/UNKNOWN) 생성 — `meogo-api/core/src/main/kotlin/com/meogo/core/risk/RiskLevel.kt`
+- [X] T004 [P] `ApiResponse<T>`(success/data/message + ok/fail 팩토리) 생성 — `meogo-api/api/src/main/kotlin/com/meogo/api/common/ApiResponse.kt` (CLAUDE.md "API 응답 규약" 그대로)
+- [X] T005 [P] `ApiResponse` 팩토리 단위 테스트(ok/fail 형태) 작성 — `meogo-api/api/src/test/kotlin/com/meogo/api/common/ApiResponseTest.kt`
+- [X] T006 `GlobalExceptionHandler` 기본 골격(Bean Validation 위반 → 400 `ApiResponse.fail`) 생성 — `meogo-api/api/src/main/kotlin/com/meogo/api/common/GlobalExceptionHandler.kt`
 
 **Checkpoint**: 커널·응답 봉투·예외 매핑 준비 완료 → user story 시작 가능
 
@@ -50,43 +50,43 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ### Tests for User Story 1 (먼저 작성, 반드시 FAIL 확인) ⚠️
 
-- [ ] T007 [P] [US1] 도메인 단위 테스트 `BoundingBox` 정규화 좌표 검증(`x≥0,y≥0,width>0,height>0,x+width≤1,y+height≤1`; 위반 시 예외) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/BoundingBoxTest.kt`
-- [ ] T008 [P] [US1] 도메인 단위 테스트 `MenuScan` 불변식(항목 1..100, itemId 스캔 내 유일) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/MenuScanTest.kt`
-- [ ] T009 [P] [US1] 단위 테스트 `MockCyclingRiskAssessor`(index%4 → SAFE/CAUTION/DANGER/UNKNOWN, 5번째 재순환) — `meogo-api/application/src/test/kotlin/com/meogo/application/scan/MockCyclingRiskAssessorTest.kt`
-- [ ] T010 [P] [US1] 영속 테스트 `MenuScanRepositoryAdapter` 저장/조회(H2, scanId·항목·boundingBox·결과 보존, SC-006) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/infrastructure/MenuScanRepositoryAdapterTest.kt`
-- [ ] T011 [P] [US1] web 계약 테스트(MockMvc) 정상 흐름(200, results itemId 매칭, 4단계 분포) — `meogo-api/api/src/test/kotlin/com/meogo/api/scan/MenuScanControllerTest.kt`
-- [ ] T012 [P] [US1] web 검증 테스트(400: 빈 items·101개·itemId 중복·rawMenuName blank·boundingBox 누락·width=0·x=-1·`x+width>1`) — `meogo-api/api/src/test/kotlin/com/meogo/api/scan/MenuScanValidationTest.kt`
+- [X] T007 [P] [US1] 도메인 단위 테스트 `BoundingBox` 정규화 좌표 검증(`x≥0,y≥0,width>0,height>0,x+width≤1,y+height≤1`; 위반 시 예외) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/BoundingBoxTest.kt`
+- [X] T008 [P] [US1] 도메인 단위 테스트 `MenuScan` 불변식(항목 1..100, itemId 스캔 내 유일) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/MenuScanTest.kt`
+- [X] T009 [P] [US1] 단위 테스트 `MockCyclingRiskAssessor`(index%4 → SAFE/CAUTION/DANGER/UNKNOWN, 5번째 재순환) — `meogo-api/application/src/test/kotlin/com/meogo/application/scan/MockCyclingRiskAssessorTest.kt`
+- [X] T010 [P] [US1] 영속 테스트 `MenuScanRepositoryAdapter` 저장/조회(H2, scanId·항목·boundingBox·결과 보존, SC-006) — `meogo-api/scan/src/test/kotlin/com/meogo/domain/scan/infrastructure/MenuScanRepositoryAdapterTest.kt`
+- [X] T011 [P] [US1] web 계약 테스트(MockMvc) 정상 흐름(200, results itemId 매칭, 4단계 분포) — `meogo-api/api/src/test/kotlin/com/meogo/api/scan/MenuScanControllerTest.kt`
+- [X] T012 [P] [US1] web 검증 테스트(400: 빈 items·101개·itemId 중복·rawMenuName blank·boundingBox 누락·width=0·x=-1·`x+width>1`) — `meogo-api/api/src/test/kotlin/com/meogo/api/scan/MenuScanValidationTest.kt`
 
 ### Implementation for User Story 1
 
 **도메인 (scan)**
 
-- [ ] T013 [P] [US1] `BoundingBox` 값 객체(정규화 비율, 생성 시 불변식 `x≥0,y≥0,width>0,height>0,x+width≤1,y+height≤1` 검증) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/BoundingBox.kt`
-- [ ] T014 [P] [US1] `MenuItemAssessment` 값 객체(riskLevel, reason) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuItemAssessment.kt`
-- [ ] T015 [P] [US1] `ScanStatus` enum(COMPLETED) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/ScanStatus.kt`
-- [ ] T016 [US1] `ScannedMenuItem`(itemId, rawMenuName, boundingBox, receivedOrder, assessment) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/ScannedMenuItem.kt` (T013·T014)
-- [ ] T017 [US1] `MenuScan` Aggregate Root(불변식 1..100·itemId 유일, factory) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuScan.kt` (T015·T016)
-- [ ] T018 [US1] `MenuScanRepository` DomainRepository 인터페이스(save/findById) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuScanRepository.kt`
+- [X] T013 [P] [US1] `BoundingBox` 값 객체(정규화 비율, 생성 시 불변식 `x≥0,y≥0,width>0,height>0,x+width≤1,y+height≤1` 검증) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/BoundingBox.kt`
+- [X] T014 [P] [US1] `MenuItemAssessment` 값 객체(riskLevel, reason) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuItemAssessment.kt`
+- [X] T015 [P] [US1] `ScanStatus` enum(COMPLETED) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/ScanStatus.kt`
+- [X] T016 [US1] `ScannedMenuItem`(itemId, rawMenuName, boundingBox, receivedOrder, assessment) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/ScannedMenuItem.kt` (T013·T014)
+- [X] T017 [US1] `MenuScan` Aggregate Root(불변식 1..100·itemId 유일, factory) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuScan.kt` (T015·T016)
+- [X] T018 [US1] `MenuScanRepository` DomainRepository 인터페이스(save/findById) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/MenuScanRepository.kt`
 
 **영속 (scan/infrastructure) + 마이그레이션**
 
-- [ ] T019 [US1] Flyway `V1__create_scan_tables.sql`(menu_scan, scanned_menu_item) — `meogo-api/api/src/main/resources/db/migration/V1__create_scan_tables.sql` (data-model.md 스키마)
-- [ ] T020 [P] [US1] JPA 엔티티 `MenuScanJpaEntity`, `ScannedMenuItemJpaEntity` — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/`
-- [ ] T021 [US1] Spring Data `MenuScanJpaRepository` — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/MenuScanJpaRepository.kt` (T020)
-- [ ] T022 [US1] `MenuScanRepositoryAdapter`(도메인 ⇄ JPA 매핑, `MenuScanRepository` 구현) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/MenuScanRepositoryAdapter.kt` (T018·T021)
+- [X] T019 [US1] Flyway `V1__create_scan_tables.sql`(menu_scan, scanned_menu_item) — `meogo-api/api/src/main/resources/db/migration/V1__create_scan_tables.sql` (data-model.md 스키마)
+- [X] T020 [P] [US1] JPA 엔티티 `MenuScanJpaEntity`, `ScannedMenuItemJpaEntity` — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/`
+- [X] T021 [US1] Spring Data `MenuScanJpaRepository` — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/MenuScanJpaRepository.kt` (T020)
+- [X] T022 [US1] `MenuScanRepositoryAdapter`(도메인 ⇄ JPA 매핑, `MenuScanRepository` 구현) — `meogo-api/scan/src/main/kotlin/com/meogo/domain/scan/infrastructure/MenuScanRepositoryAdapter.kt` (T018·T021)
 
 **판정 seam + 유스케이스 (application)**
 
-- [ ] T023 [P] [US1] `MenuItemRiskAssessor` 인터페이스(판정 seam, FR-013) — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/MenuItemRiskAssessor.kt`
-- [ ] T024 [P] [US1] `MockCyclingRiskAssessor`(index%4 순환, reason 문구) 빈 — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/MockCyclingRiskAssessor.kt`
-- [ ] T025 [P] [US1] `SubmitMenuScanCommand` / `MenuScanResult` application 타입 — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/SubmitMenuScanCommand.kt`, `MenuScanResult.kt`
-- [ ] T026 [US1] `SubmitMenuScanUseCase`(@Transactional: command→도메인 조립, 판정 부여, 저장, 결과 반환) — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/SubmitMenuScanUseCase.kt` (T017·T018·T023·T025)
+- [X] T023 [P] [US1] `MenuItemRiskAssessor` 인터페이스(판정 seam, FR-013) — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/MenuItemRiskAssessor.kt`
+- [X] T024 [P] [US1] `MockCyclingRiskAssessor`(index%4 순환, reason 문구) 빈 — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/MockCyclingRiskAssessor.kt`
+- [X] T025 [P] [US1] `SubmitMenuScanCommand` / `MenuScanResult` application 타입 — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/SubmitMenuScanCommand.kt`, `MenuScanResult.kt`
+- [X] T026 [US1] `SubmitMenuScanUseCase`(@Transactional: command→도메인 조립, 판정 부여, 저장, 결과 반환) — `meogo-api/application/src/main/kotlin/com/meogo/application/scan/SubmitMenuScanUseCase.kt` (T017·T018·T023·T025)
 
 **web (api)**
 
-- [ ] T027 [P] [US1] 요청/응답 DTO + Bean Validation(@NotEmpty/@Size(max=100)/@NotBlank/@NotNull/@Valid, BoundingBox @PositiveOrZero(x,y)·@Positive(w,h)·@DecimalMax("1.0"), 교차 제약 `x+width≤1`·`y+height≤1`은 @AssertTrue) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/dto/`
-- [ ] T028 [US1] `MenuScanController`(POST /menu-scans, DTO→Command, itemId 중복 수동 검증→400, `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/MenuScanController.kt` (T026·T027)
-- [ ] T029 [US1] mock 빈 와이어링 확인 후 US1 테스트 GREEN — `./gradlew :meogo-api:scan:test :meogo-api:application:test :meogo-api:api:test` 통과(T007~T012 통과)
+- [X] T027 [P] [US1] 요청/응답 DTO + Bean Validation(@NotEmpty/@Size(max=100)/@NotBlank/@NotNull/@Valid, BoundingBox @PositiveOrZero(x,y)·@Positive(w,h)·@DecimalMax("1.0"), 교차 제약 `x+width≤1`·`y+height≤1`은 @AssertTrue) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/dto/`
+- [X] T028 [US1] `MenuScanController`(POST /menu-scans, DTO→Command, itemId 중복 수동 검증→400, `ApiResponse.ok`) — `meogo-api/api/src/main/kotlin/com/meogo/api/scan/MenuScanController.kt` (T026·T027)
+- [X] T029 [US1] mock 빈 와이어링 확인 후 US1 테스트 GREEN — `./gradlew :meogo-api:scan:test :meogo-api:application:test :meogo-api:api:test` 통과(T007~T012 통과)
 
 **Checkpoint**: US1 단독으로 동작·테스트 가능 → MVP 완성. 데모 가능.
 

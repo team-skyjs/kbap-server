@@ -14,4 +14,9 @@ dependencies {
     "implementation"(project(":meogo-api:review"))
     "implementation"(project(":meogo-api:core"))
     "implementation"(project(":meogo-common"))
+
+    // 유스케이스 조립·트랜잭션 경계용 최소 Spring(@Service/@Component/@Transactional).
+    // web/jpa 스타터는 얹지 않는다(계층 경계 유지) — 실제 트랜잭션 매니저는 부트 앱이 런타임 주입.
+    "implementation"(libs.spring.context)
+    "implementation"(libs.spring.tx)
 }

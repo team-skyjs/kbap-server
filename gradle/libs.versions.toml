@@ -20,6 +20,11 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
 
+# --- Spring framework (versions managed by the Spring Boot BOM) ---
+# application 모듈은 web/jpa 스타터 없이 @Service/@Transactional 만 필요 → 최소 의존만 얹는다.
+spring-context = { module = "org.springframework:spring-context" }
+spring-tx = { module = "org.springframework:spring-tx" }
+
 # --- Spring Boot starters (versions managed by the Spring Boot BOM) ---
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
@@ -46,6 +51,8 @@ spring-ai-starter-google-genai = { module = "org.springframework.ai:spring-ai-st
 
 # --- Test (versions managed by the Spring Boot / JUnit BOM) ---
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+# Boot 4.x 는 test-slice 어노테이션을 기술별 모듈로 분리했다(starter-test 가 전이 제공하지 않음).
+spring-boot-webmvc-test = { module = "org.springframework.boot:spring-boot-webmvc-test" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
