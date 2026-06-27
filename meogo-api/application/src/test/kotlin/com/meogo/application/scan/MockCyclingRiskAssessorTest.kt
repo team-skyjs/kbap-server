@@ -5,7 +5,6 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
 class MockCyclingRiskAssessorTest : StringSpec({
-
     val assessor = MockCyclingRiskAssessor()
 
     "index % 4 로 SAFE/CAUTION/DANGER/UNKNOWN 을 순환 부여한다" {

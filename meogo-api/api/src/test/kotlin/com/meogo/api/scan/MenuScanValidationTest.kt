@@ -10,13 +10,9 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 
-/**
- * POST /api/v1/menu-scans 검증 거부 케이스 — 모두 400 + ApiResponse.fail.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class MenuScanValidationTest {
-
     @Autowired
     private lateinit var mockMvc: MockMvc
 
@@ -52,7 +48,7 @@ class MenuScanValidationTest {
 
     @Test
     fun `101개 항목은 400`() {
-        val items = (0..100).map { item(itemId = it) } // 101개
+        val items = (0..100).map { item(itemId = it) }
         expectBadRequest(mapOf("items" to items))
     }
 

@@ -7,7 +7,6 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
 class MenuScanTest : StringSpec({
-
     fun item(itemId: Int) = ScannedMenuItem(
         itemId = itemId,
         rawMenuName = "메뉴$itemId",
@@ -21,7 +20,7 @@ class MenuScanTest : StringSpec({
     }
 
     "항목이 100개를 초과하면 예외" {
-        val items = (0..100).map { item(it) } // 101개
+        val items = (0..100).map { item(it) }
         shouldThrow<IllegalArgumentException> { MenuScan.create(items) }
     }
 

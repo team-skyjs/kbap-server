@@ -5,7 +5,6 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 
 class ApiResponseTest : StringSpec({
-
     "ok 는 success=true·data 페이로드·message=null 이다" {
         val response = ApiResponse.ok("payload")
 

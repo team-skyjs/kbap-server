@@ -12,11 +12,6 @@ import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * menu_scan 영속 엔티티. scan 모듈 내부에 은닉(상위 import 금지).
- * 항목은 단방향 @OneToMany(scan_id FK) 로 소유 — 자식에 부모 역참조를 두지 않아 프록시 불필요.
- * 모든 프로퍼티에 기본값을 둬 Kotlin 이 no-arg 생성자를 합성(Hibernate 요구) 하게 한다.
- */
 @Entity
 @Table(name = "menu_scan")
 class MenuScanJpaEntity(

@@ -22,7 +22,6 @@ class MenuScanController(
     fun submit(
         @Valid @RequestBody request: SubmitMenuScanRequest,
     ): ResponseEntity<ApiResponse<SubmitMenuScanResponse>> {
-        // 컬렉션 유일성은 Bean Validation 으로 표현 불가 → 수동 검사(위반 시 400).
         val itemIds = request.items.map { it.itemId }
         require(itemIds.toSet().size == itemIds.size) { "itemId 는 요청 내에서 중복될 수 없습니다" }
 
@@ -31,7 +30,6 @@ class MenuScanController(
     }
 }
 
-/** 검증을 통과한 요청을 application command 로 변환(필드는 @Valid 로 non-null 보장). */
 private fun SubmitMenuScanRequest.toCommand(): SubmitMenuScanCommand =
     SubmitMenuScanCommand(
         items = items.map { item ->

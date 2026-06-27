@@ -4,13 +4,8 @@ import com.meogo.core.risk.RiskLevel
 import com.meogo.domain.scan.MenuItemAssessment
 import org.springframework.stereotype.Component
 
-/**
- * mock 판정: 요청 항목 배열의 0-based index % 4 로 4단계를 순환 부여한다.
- * 0 SAFE / 1 CAUTION / 2 DANGER / 3 UNKNOWN (5번째부터 재순환).
- */
 @Component
 class MockCyclingRiskAssessor : MenuItemRiskAssessor {
-
     override fun assess(index: Int, rawMenuName: String): MenuItemAssessment {
         val level = LEVELS[index % LEVELS.size]
         return MenuItemAssessment(riskLevel = level, reason = REASONS.getValue(level))

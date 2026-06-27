@@ -1,10 +1,5 @@
 package com.meogo.domain.scan
 
-/**
- * 정규화 비율 좌표(클라이언트 OCR 기준 이미지 대비). 좌상단 (0,0)·우하단 (1,1).
- * 판정에는 쓰이지 않고 UI 오버레이 복원·재현용으로 저장한다.
- * 불변식(생성 시 검증): x≥0 ∧ y≥0 ∧ width>0 ∧ height>0 ∧ x+width≤1 ∧ y+height≤1.
- */
 data class BoundingBox(
     val x: Double,
     val y: Double,

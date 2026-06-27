@@ -7,10 +7,6 @@ import com.meogo.domain.scan.ScannedMenuItem
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-/**
- * 스캔 제출 유스케이스: command → 항목별 mock 판정 부여 → 도메인 조립 → 저장 → itemId 매칭 결과 반환.
- * 트랜잭션 경계는 이 유스케이스 한 번(헌법 III·외부 호출 없음).
- */
 @Service
 class SubmitMenuScanUseCase(
     private val menuScanRepository: MenuScanRepository,

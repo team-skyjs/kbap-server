@@ -7,9 +7,6 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 
-/**
- * scanned_menu_item 영속 엔티티. BoundingBox 는 4개 컬럼으로 평탄화, 판정은 risk_level/reason 스냅샷.
- */
 @Entity
 @Table(name = "scanned_menu_item")
 class ScannedMenuItemJpaEntity(

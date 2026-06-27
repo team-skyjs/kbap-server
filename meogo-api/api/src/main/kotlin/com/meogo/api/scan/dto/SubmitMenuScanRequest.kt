@@ -11,10 +11,6 @@ import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 
-/**
- * POST /api/v1/menu-scans 요청 본문. Bean Validation 으로 1차 검증하고,
- * itemId 중복(컬렉션 유일성)은 컨트롤러에서 수동 검사한다(R8).
- */
 data class SubmitMenuScanRequest(
     @field:NotEmpty(message = "items 는 최소 1개여야 합니다")
     @field:Size(max = 100, message = "items 는 최대 100개입니다")
@@ -34,10 +30,6 @@ data class MenuScanItemRequest(
     val boundingBox: BoundingBoxRequest?,
 )
 
-/**
- * 정규화 비율 좌표. 단일 필드 제약은 어노테이션으로, 교차 제약(x+width≤1, y+height≤1)은
- * [withinBounds] @AssertTrue 로 검증한다.
- */
 data class BoundingBoxRequest(
     @field:NotNull(message = "boundingBox.x 는 필수입니다")
     @field:PositiveOrZero(message = "boundingBox.x 는 0 이상이어야 합니다")

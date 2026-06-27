@@ -91,6 +91,7 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 
 ## 컨벤션
 
+- **Kotlin 소스 코드(`.kt`)에 주석을 작성하지 않는다 (고정).** 라인(`//`)·블록(`/* */`)·KDoc(`/** */`) 모두 금지하며, main·test 동일하게 적용한다. 코드는 이름(클래스·함수·변수)과 구조로 의도를 드러내는 **self-documenting** 방식으로 쓴다. 설명이 필요한 맥락(설계 근거·트레이드오프·"왜")은 코드가 아니라 **커밋 메시지·`docs/`·ADR·SpecKit 문서**에 남긴다. (예외: 빌드 스크립트 `*.gradle.kts`, Flyway SQL, `*.yml` 등 비-Kotlin 파일의 주석은 이 규약 밖이며 허용한다.)
 - 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. 도메인 컨텍스트 모듈은 패키지를 `com/meogo/domain/<context>/`로 유지한다(예: `meogo-api/food/src/main/kotlin/com/meogo/domain/food/` — 모듈 경로는 평탄화됐지만 패키지는 그대로). 나머지는 `com/meogo/<layer>/`(core/application/infra), web 진입점은 `com/meogo`, 배치는 `com/meogo/batch`.
 - web 실행 설정은 `meogo-api/api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `meogo-api/api/src/test/resources/application.yml`(Flyway off, H2 `create-drop`). 배치는 `meogo-batch/src/main/resources/application.yml`(flyway off). 공통 로깅은 `meogo-common`의 `logback-common.xml`을 각 앱 `logback-spring.xml`이 `<include>`로 가져간다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `meogo.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:

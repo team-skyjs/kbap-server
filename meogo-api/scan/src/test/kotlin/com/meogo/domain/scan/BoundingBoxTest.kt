@@ -5,7 +5,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 
 class BoundingBoxTest : StringSpec({
-
     "유효한 정규화 좌표는 생성된다" {
         shouldNotThrowAny {
             BoundingBox(x = 0.12, y = 0.34, width = 0.5, height = 0.08)

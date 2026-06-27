@@ -10,13 +10,9 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 
-/**
- * POST /api/v1/menu-scans 정상 흐름 계약(SC-001/002/003).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class MenuScanControllerTest {
-
     @Autowired
     private lateinit var mockMvc: MockMvc
 

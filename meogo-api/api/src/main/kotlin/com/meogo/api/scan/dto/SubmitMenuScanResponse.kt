@@ -2,9 +2,6 @@ package com.meogo.api.scan.dto
 
 import com.meogo.application.scan.MenuScanResult
 
-/**
- * POST /api/v1/menu-scans 응답 페이로드(ApiResponse.data). riskLevel 은 enum 이름 문자열로 노출한다.
- */
 data class SubmitMenuScanResponse(
     val scanId: Long,
     val results: List<ItemRiskResponse>,

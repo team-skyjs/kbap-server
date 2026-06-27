@@ -2,12 +2,6 @@ package com.meogo.domain.scan
 
 import java.time.Instant
 
-/**
- * 메뉴 스캔 애그리거트 루트.
- * 불변식: 항목 1..100 개, itemId 는 스캔 내 유일.
- *
- * @param id 영속 PK. 미저장 상태면 null.
- */
 class MenuScan private constructor(
     val id: Long?,
     val status: ScanStatus,
@@ -24,11 +18,9 @@ class MenuScan private constructor(
     companion object {
         const val MAX_ITEMS = 100
 
-        /** 신규 스캔 생성(동기 mock → 즉시 COMPLETED). */
         fun create(items: List<ScannedMenuItem>, createdAt: Instant = Instant.now()): MenuScan =
             MenuScan(id = null, status = ScanStatus.COMPLETED, items = items, createdAt = createdAt)
 
-        /** 영속 → 도메인 복원(어댑터 전용). */
         fun reconstitute(
             id: Long,
             status: ScanStatus,

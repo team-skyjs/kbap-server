@@ -13,14 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.annotation.Transactional
 
-/**
- * H2 로 저장/조회를 검증한다(SC-006): scanId·항목·boundingBox·판정 스냅샷이 보존되는지.
- * (Boot 4.x 는 @DataJpaTest 슬라이스가 별도 모듈이라, scan 단독 테스트는 전체 컨텍스트 + 롤백으로 대체.)
- */
 @SpringBootTest
 @Transactional
 class MenuScanRepositoryAdapterTest {
-
     @Autowired
     private lateinit var adapter: MenuScanRepositoryAdapter
 

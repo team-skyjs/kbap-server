@@ -9,14 +9,10 @@ import com.meogo.domain.scan.ScanStatus
 import com.meogo.domain.scan.ScannedMenuItem
 import org.springframework.stereotype.Repository
 
-/**
- * [MenuScanRepository] 구현 — 도메인 ⇄ JPA 매핑을 이 모듈 안에 가둔다(헌법 IV).
- */
 @Repository
 class MenuScanRepositoryAdapter(
     private val jpaRepository: MenuScanJpaRepository,
 ) : MenuScanRepository {
-
     override fun save(menuScan: MenuScan): MenuScan =
         jpaRepository.save(menuScan.toEntity()).toDomain()
 
