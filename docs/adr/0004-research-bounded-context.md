@@ -1,8 +1,8 @@
 # 0004. research 바운디드 컨텍스트 신설 — 미스 메뉴 조사·종합, 배치 트리거
 
-- **상태**: Accepted
+- **상태**: Accepted <!-- 본문의 패키지 표기(com.meogo.domain.research 등)는 ADR-0005에서 보완(com.meogo.api.research로 통일) -->
 - **날짜**: 2026-06-27
-- **관련**: [ADR-0003](./0003-pretranslated-batch-menu-pipeline.md), [meogo-conventions](../architecture/meogo-conventions.md), [domains/research](../architecture/domains/research.md), [domains/scan](../architecture/domains/scan.md), [domains/food](../architecture/domains/food.md), 헌법 원칙 II
+- **관련**: [ADR-0003](./0003-pretranslated-batch-menu-pipeline.md), [meogo-conventions](../architecture/meogo-conventions.md), [domains/research](../architecture/domains/research.md), [domains/scan](../architecture/domains/scan.md), [domains/food](../architecture/domains/food.md), 헌법 원칙 II, [ADR-0005](./0005-unified-api-package-and-presentation-rename.md)
 
 ## Context
 

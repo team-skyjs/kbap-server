@@ -42,7 +42,7 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 
 - **Kotlin 2.3** / **JVM (Java 21 toolchain)** — Gradle toolchain이 JDK를 해석하므로 로컬 `JAVA_HOME`에 묶이지 않는다(`settings.gradle.kts`의 foojay-resolver가 자동 프로비저닝).
 - **Spring Boot 4.1** — web/validation/actuator/data-jpa/data-mongodb 스타터. 영속: **MySQL**(prod, `mysql-connector-j`) + H2(test) + MongoDB. DB 마이그레이션: **Flyway**(+flyway-mysql). API 문서: **springdoc-openapi**(Swagger UI). JWT: 구현 시 결정(아직 미추가).
-- **LLM: Spring AI 2.0**(Boot 4 호환 라인) — `meogo-infra`에 `spring-ai-starter-model-openai` + `spring-ai-starter-model-google-genai`. 3개 모델(OpenAI·Upstage·Gemini) 병렬 호출 설계: Upstage는 OpenAI 호환이라 openai 스타터를 base-url만 교체해 재사용, Gemini는 google-genai 스타터. 모델 빈은 LLM 구현 시 명시 구성하며, 키 없이 자동구성이 떠서 부팅이 깨지지 않도록 `application.yml`에서 `spring.ai.model.*=none`으로 기본 비활성.
+- **LLM: Spring AI 2.0**(Boot 4 호환 라인) — `:meogo-api:infra`에 `spring-ai-starter-model-openai` + `spring-ai-starter-model-google-genai`. 3개 모델(OpenAI·Upstage·Gemini) 병렬 호출 설계: Upstage는 OpenAI 호환이라 openai 스타터를 base-url만 교체해 재사용, Gemini는 google-genai 스타터. 모델 빈은 LLM 구현 시 명시 구성하며, 키 없이 자동구성이 떠서 부팅이 깨지지 않도록 `application.yml`에서 `spring.ai.model.*=none`으로 기본 비활성.
 - 빌드 도구: **Gradle (Kotlin DSL)**, 래퍼 사용.
 - 테스트: **JUnit 5 플랫폼**(`useJUnitPlatform`) + **Kotest**(`kotest-runner-junit5` + `kotest-assertions-core`). Spring 모듈은 `spring-boot-starter-test`도 추가.
 

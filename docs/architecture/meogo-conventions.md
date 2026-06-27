@@ -34,7 +34,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | `:meogo-common` | 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback·유틸·어노테이션). web/jpa/도메인 의존 금지, Spring-free |
 
 - **패키지 레이어링** — 각 도메인 subproject 내부는 BC별 패키지(`com.meogo.api.<context>`)를 루트로 삼고, 그 아래에 도메인 모델과 `adapter`/`infrastructure`(영속 구현) 패키지를 둔다.
-- **얇은 Controller** — `meogo-api`는 HTTP 변환·인증/인가에 집중한다. Application Service는 `meogo-api`가 아니라 `meogo-application`에 둔다.
+- **얇은 Controller** — `:meogo-api:presentation`은 HTTP 변환·인증/인가에 집중한다. Application Service는 `:meogo-api:presentation`이 아니라 `:meogo-api:application`에 둔다.
 - **인증/인가** — 별도 BC로 분리하지 않고 `member` 내부 하위 영역으로 두되, 프로필/식이 제한 관리와 **패키지·책임을 분리**한다. 토큰 발급·세션·보안 필터는 도메인이 아니라 API/security 계층 책임.
 
 ## 도메인 모듈 빌딩블록 & 패키지 레이아웃
@@ -50,7 +50,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | 하위 Entity | Aggregate 구성요소 | `FoodIngredient` |
 | Domain Repository 인터페이스(port) | 도메인 언어 저장소 계약, **도메인 엔티티 반환** | `FoodRepository` |
 | Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AssessmentPolicy` |
-| Domain Event | 컨텍스트 내부 이벤트는 모듈 `event` 패키지에, 교차-컨텍스트 계약은 `meogo-core`에 | `FoodCreatedEvent` |
+| Domain Event | 컨텍스트 내부 이벤트는 모듈 `event` 패키지에, 교차-컨텍스트 계약은 `:meogo-api:core`에 | `FoodCreatedEvent` |
 | Domain Exception | 컨텍스트 고유 예외 | `FoodNotFoundException` |
 
 **은닉 — 모듈 내부 `infrastructure`/`adapter` 패키지, 외부 import 금지**
@@ -83,9 +83,9 @@ com.meogo.api.food
 ## 도메인 간 의존 규칙
 
 1. **의존 방향** — `:meogo-api:presentation` → `:meogo-api:application` → 도메인 모듈. `:meogo-api:core`는 모두가 의존 가능. `:meogo-api:infra`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:meogo-batch`는 `:meogo-api:application`을 의존(+infra 조립)하고, `:meogo-common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
-2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `meogo-application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
+2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:meogo-api:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
 3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:meogo-api:presentation`·`:meogo-api:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
-4. **assessment 입력 VO 규칙** ⭐ — `assessment`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `assessment`는 자기 전용 입력 VO(`AssessmentInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`meogo-application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AssessmentResult`)도 도메인 결과 객체로 반환한다.
+4. **assessment 입력 VO 규칙** ⭐ — `assessment`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `assessment`는 자기 전용 입력 VO(`AssessmentInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:meogo-api:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AssessmentResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`meogo-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 7. **API 노출** — 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다. 음식 원본 정보와 사용자별 위험도 판정 결과는 내부적으로 분리해 다룬다.
@@ -94,5 +94,5 @@ com.meogo.api.food
 ## 언어 / 데이터 정책
 
 - 음식 콘텐츠(음식명·설명·재료명·알러지/종교·비건 주의 성분)는 **한국어(`ko`) 원문 + 9개 대상 언어**로 사전 번역해 DB에 저장한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 9개 언어: `zh-Hans`(중국어 간체) · `en`(영어) · `ja`(일본어) · `zh-Hant`(중국어 번체) · `vi`(베트남어) · `id`(인도네시아어) · `th`(태국어) · `ru`(러시아어) · `es`(스페인어). 번역은 `research`(배치)가 LLM으로 생성하고 `food`가 저장한다.
-- 정적 UI 문구는 사전 번역해 `meogo-core` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
-- LLM 원본 응답을 도메인 판단에 직접 쓰지 않는다. `meogo-application`에서 종합한 결과만 `Food`/`FoodIngredient`에 반영한다.
+- 정적 UI 문구는 사전 번역해 `:meogo-api:core` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
+- LLM 원본 응답을 도메인 판단에 직접 쓰지 않는다. `:meogo-api:application`에서 종합한 결과만 `Food`/`FoodIngredient`에 반영한다.

@@ -1,7 +1,7 @@
 # Meogo API 모듈 구조 정리
 
 > 목적: `meogo-api` 서버의 API, Application, Domain, Core, Infra 모듈 구조와 책임을 정리하기 위한 팀 공유용 기준 문서이다.  
-> 범위: 이 문서는 **`meogo-api` 앱의 내부 DDD 구조**(API/Application/Domain/Core/Infra)에 집중한다. 레포는 멀티앱으로 확장돼 `meogo-batch`(배치 앱)와 `meogo-common`(공유 모듈)이 형제로 존재한다 — `meogo-batch`는 `:meogo-api:application` 유스케이스를 트리거하고, `meogo-common`은 앱 간 통합 이벤트·DTO·기술 공통을 담는다. 모듈은 `meogo-api` 컨테이너 아래 평탄화돼 `:meogo-api:{api,application,infra,core,food,member,scan,assessment,review}` 경로를 쓴다.
+> 범위: 이 문서는 **`meogo-api` 앱의 내부 DDD 구조**(API/Application/Domain/Core/Infra)에 집중한다. 레포는 멀티앱으로 확장돼 `meogo-batch`(배치 앱)와 `meogo-common`(공유 모듈)이 형제로 존재한다 — `meogo-batch`는 `:meogo-api:application` 유스케이스를 트리거하고, `meogo-common`은 앱 간 통합 이벤트·DTO·기술 공통을 담는다. 모듈은 `meogo-api` 컨테이너 아래 평탄화돼 `:meogo-api:{presentation,application,infra,core,food,member,scan,assessment,review}` 경로를 쓴다.
 
 ## 1. API 서버의 역할
 
@@ -66,21 +66,21 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 
 구체적인 Gradle 설정은 구현 단계에서 정한다. 이 문서에서는 의존성 방향만 고정한다.
 
-도메인 간 조합은 `meogo-application`의 Application Service에서 수행한다.
+도메인 간 조합은 `:meogo-api:application`의 Application Service에서 수행한다.
 
 예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `assessment`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
-- `meogo-api`는 HTTP 요청/응답과 인증/인가에 집중한다.
-- `meogo-application`은 도메인 컨텍스트와 외부 client를 조합한다.
+- `:meogo-api:presentation`은 HTTP 요청/응답과 인증/인가에 집중한다.
+- `:meogo-api:application`은 도메인 컨텍스트와 외부 client를 조합한다.
 - 도메인 모듈은 도메인 규칙과 영속성 adapter를 캡슐화한다.
-- `meogo-core`는 공통 타입과 이벤트 계약을 제공한다.
-- `meogo-infra`는 메시지큐, 외부 API, 이벤트 발행/구독 같은 외부 시스템 연동을 담당한다.
+- `:meogo-api:core`는 공통 타입과 이벤트 계약을 제공한다.
+- `:meogo-api:infra`는 메시지큐, 외부 API, 이벤트 발행/구독 같은 외부 시스템 연동을 담당한다.
 
 도메인 컨텍스트는 별도 Gradle subproject이므로, 서로를 직접 의존성으로 선언하지 않는 한 컴파일 시점 참조가 생기지 않는다. 패키지 규칙, 코드 리뷰, ArchUnit 테스트는 이 경계를 보조로 강제한다.
 
-## 5. meogo-api
+## 5. :meogo-api:presentation
 
-`meogo-api`는 Spring Boot 실행 모듈이다.
+`:meogo-api:presentation`은 Spring Boot 실행 모듈이다.
 
 ### 5.1 책임
 
@@ -100,18 +100,18 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 - 특정 LLM 응답 구조를 Controller까지 노출하지 않는다.
 - 도메인별 DB 테이블 구조를 API 응답 모델로 그대로 노출하지 않는다.
 
-Application Service는 `meogo-api`가 아니라 `meogo-application`에 둔다. `meogo-api`는 HTTP 요청/응답 변환과 인증/인가 적용에 집중한다.
+Application Service는 `:meogo-api:presentation`이 아니라 `:meogo-api:application`에 둔다. `:meogo-api:presentation`은 HTTP 요청/응답 변환과 인증/인가 적용에 집중한다.
 
-## 6. meogo-application
+## 6. :meogo-api:application
 
-`meogo-application`은 유스케이스 조율 모듈이다.
+`:meogo-api:application`은 유스케이스 조율 모듈이다.
 
 주요 책임:
 
 - API Request에서 변환된 Command를 입력으로 받는다.
 - 여러 도메인 컨텍스트를 조합한다.
 - transaction boundary를 잡는다.
-- 외부 API 호출이 필요한 경우 `meogo-infra`의 client port를 사용한다.
+- 외부 API 호출이 필요한 경우 `:meogo-api:infra`의 client port를 사용한다.
 - 도메인 규칙 자체는 직접 구현하지 않고 도메인 모듈의 policy/entity를 호출한다.
 
 ## 7. Bounded Context
@@ -280,9 +280,9 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 
 리뷰는 식당이 아니라 음식에 귀속한다. 작성자 표시 정보, 국적 필터, 랭킹 반영, 번역 저장 여부는 재개 시점에 다시 결정한다.
 
-## 13. meogo-infra
+## 13. :meogo-api:infra
 
-`meogo-infra`는 도메인의 영속성 구현을 담는 곳이 아니라, 도메인 밖 외부 시스템과 통신하는 기술 어댑터를 담는 모듈이다.
+`:meogo-api:infra`는 도메인의 영속성 구현을 담는 곳이 아니라, 도메인 밖 외부 시스템과 통신하는 기술 어댑터를 담는 모듈이다.
 
 포함 대상:
 
@@ -316,11 +316,11 @@ LLM 외부 API 호출을 담당한다.
 - OpenAI
 - Upstage
 
-`meogo-infra`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `meogo-core` 또는 `meogo-application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `meogo-application`의 Application Service 또는 별도 assembler에서 수행한다.
+`:meogo-api:infra`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `:meogo-api:core` 또는 `:meogo-api:application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `:meogo-api:application`의 Application Service 또는 별도 assembler에서 수행한다.
 
 여러 LLM 응답은 내부 공통 응답 모델로 변환한 뒤 Application 계층에서 종합한다.
 
-이 LLM 병렬 호출·종합은 **`research` 컨텍스트가 소유**하고 **`meogo-batch`가 하루 1회 트리거**한다. 스캔 응답 경로(`meogo-api`)는 LLM client를 호출하지 않는다. LLM client(IO)는 `meogo-infra`, 병렬 호출 오케스트레이션은 `meogo-application`, **종합 정책은 `research`의 순수 도메인 서비스**에 두고, `meogo-batch`가 `:meogo-api:infra`를 조립해 application 유스케이스를 호출한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md), §17·§11.5 참고).
+이 LLM 병렬 호출·종합은 **`research` 컨텍스트가 소유**하고 **`meogo-batch`가 하루 1회 트리거**한다. 스캔 응답 경로(`meogo-api`)는 LLM client를 호출하지 않는다. LLM client(IO)는 `:meogo-api:infra`, 병렬 호출 오케스트레이션은 `:meogo-api:application`, **종합 정책은 `research`의 순수 도메인 서비스**에 두고, `meogo-batch`가 `:meogo-api:infra`를 조립해 application 유스케이스를 호출한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md), §17·§11.5 참고).
 
 ### 13.2 Storage client
 
@@ -387,7 +387,7 @@ MVP에서 서버가 OCR을 직접 하지 않더라도, 사용자가 촬영한 �
 
 - `research` (조사 대기열·LLM 응답·종합 정책)
 - `food` (종합 결과 영속)
-- `meogo-infra`의 LLM client (병렬 호출 IO)
+- `:meogo-api:infra`의 LLM client (병렬 호출 IO)
 
 처리 흐름은 `research` 적재 미스 메뉴 조회(정규화·중복 제거), LLM 3개 모델 병렬 호출(application이 core port로, 재료 조사 + 9개 언어 번역), `research` 종합 정책(순수 도메인 서비스), `food` 음식 데이터 생성 또는 보강(9개 언어), 처리 완료 표시 순서로 본다. 처리 후 같은 메뉴는 §14.3 스캔에서 캐시 히트가 된다.
 

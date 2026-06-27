@@ -46,7 +46,7 @@ include(
 ```
 
 - 모듈 경로는 콜론으로 표기한다. 예: `:meogo-api:presentation`, `:meogo-api:food`, `:meogo-batch`.
-- `meogo-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`api`/`application`/`food`…)다.
+- `meogo-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`presentation`/`application`/`food`…)다.
 - 한 모듈이 다른 모듈을 사용하려면 `project(...)`로 의존성을 추가한다.
 
 ```kotlin
@@ -76,7 +76,7 @@ plugins {
 | 종류 | 의미 | 예시 |
 |---|---|---|
 | `implementation` | 이 모듈 내부에서만 쓰는 라이브러리. **이 모듈을 사용하는 다른 모듈의 컴파일 클래스패스에는 보이지 않는다**(런타임에는 전이됨) | `implementation(libs.spring.boot.starter.data.jpa)` |
-| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":meogo-core"))` |
+| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":meogo-api:core"))` |
 | `runtimeOnly` | 컴파일에는 필요 없고 **실행할 때만** 필요하다(주로 드라이버) | `runtimeOnly(libs.mysql.connector)` |
 | `testImplementation` | **테스트 코드에서만** 쓰는 라이브러리 | `testImplementation(libs.kotest.assertions.core)` |
 | `testRuntimeOnly` | 테스트 **실행 시점에만** 필요하다 | `testRuntimeOnly(libs.h2)` |
@@ -201,9 +201,9 @@ meogo-server  (rootProject.name = 폴더명)
 
 ```
 [meogo-api 앱]
-core ← 도메인(food/member/…) ← application ← api(bootJar)
+core ← 도메인(food/member/…) ← application ← presentation(bootJar)
   ↑                                 ↓
-  └──────────── infra ──────────────┘   (api 가 runtimeOnly 로 조립)
+  └──────────── infra ──────────────┘   (presentation 이 runtimeOnly 로 조립)
 
 meogo-batch  → :meogo-api:application 호출 (+ :meogo-api:infra 조립)
 meogo-common ← meogo-api·meogo-batch 가 공유

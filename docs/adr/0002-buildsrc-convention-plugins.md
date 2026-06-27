@@ -1,8 +1,8 @@
 # 0002. 공통 빌드 설정 — buildSrc 컨벤션 플러그인
 
-- **상태**: Accepted
+- **상태**: Accepted <!-- 본문의 모듈명·패키지 규약은 ADR-0005에서 보완(api→presentation, com.meogo.api.<모듈명> 통일) -->
 - **날짜**: 2026-06-26
-- **관련**: [ADR-0001](./0001-multi-app-modular-layout.md), [gradle-made-easy](../guides/gradle-made-easy.md), [meogo-conventions](../architecture/meogo-conventions.md)
+- **관련**: [ADR-0001](./0001-multi-app-modular-layout.md), [gradle-made-easy](../guides/gradle-made-easy.md), [meogo-conventions](../architecture/meogo-conventions.md), [ADR-0005](./0005-unified-api-package-and-presentation-rename.md)
 
 ## Context
 

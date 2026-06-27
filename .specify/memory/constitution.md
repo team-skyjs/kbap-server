@@ -50,7 +50,7 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 
 도메인은 `meogo-api` 컨테이너 직속의 컨텍스트별 모듈(`:meogo-api:{food,member,scan,assessment,research}`)로 둔다(평탄화). (`research`는 미스 메뉴 조사·종합 파이프라인, 배치 전용 — ADR-0004.)
 
-- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `meogo-application`에서 한다.
+- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:meogo-api:application`에서 한다.
 - 다른 Aggregate·Context의 객체 전체를 직접 들지 않고 **ID·코드·스냅샷 값**으로 참조한다.
 - Aggregate 내부 상태는 Aggregate Root를 통해서만 변경한다.
 
@@ -75,7 +75,7 @@ Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶
 JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는
 도메인 모듈 내부(`infrastructure`/`adapter` 패키지)에 숨긴다.
 
-- `meogo-application`·`meogo-api`는 이들을 **import 하지 않는다.** 외부에는 Domain Entity와
+- `:meogo-api:application`·`:meogo-api:presentation`은 이들을 **import 하지 않는다.** 외부에는 Domain Entity와
   DomainRepository 인터페이스만 공개한다.
 - 영속 기술 의존(`data-jpa`/`data-mongodb`)은 `implementation`으로 두어 상위 컴파일
   클래스패스에 노출되지 않게 한다(런타임 전이만 허용).
