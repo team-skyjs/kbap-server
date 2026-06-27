@@ -44,9 +44,9 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                     )
 
                     val saved = adapter.save(scan)
-                    saved.id.shouldNotBeNull()
+                    val savedId = saved.id.shouldNotBeNull()
 
-                    val loaded = adapter.findById(saved.id!!)
+                    val loaded = adapter.findById(savedId)
                     loaded.shouldNotBeNull()
                     loaded.status shouldBe ScanStatus.COMPLETED
                     loaded.items.size shouldBe 2

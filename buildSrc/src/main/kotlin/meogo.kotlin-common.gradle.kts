@@ -7,6 +7,8 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 plugins {
     id("org.jetbrains.kotlin.jvm")
     `java-library`
+    // 전 모듈 테스트 커버리지 계측(JaCoCo). 집계 리포트는 루트의 jacoco-report-aggregation 이 모은다.
+    jacoco
 }
 
 group = "com.meogo"
@@ -18,6 +20,10 @@ repositories {
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 val javaVersion = libs.findVersion("java").get().requiredVersion.toInt()
+
+jacoco {
+    toolVersion = libs.findVersion("jacoco").get().requiredVersion
+}
 
 configure<JavaPluginExtension> {
     toolchain {

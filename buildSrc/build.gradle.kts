@@ -13,6 +13,7 @@ fun pluginMarker(p: Provider<PluginDependency>): String =
 dependencies {
     implementation(pluginMarker(libs.plugins.kotlin.jvm))
     implementation(pluginMarker(libs.plugins.kotlin.spring))
+    implementation(pluginMarker(libs.plugins.kotlin.jpa))
     implementation(pluginMarker(libs.plugins.spring.boot))
     implementation(pluginMarker(libs.plugins.spring.dependency.management))
 }

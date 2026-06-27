@@ -6,6 +6,9 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 // - 영속 기술(jpa/mongo)은 implementation 으로 숨겨 상위 컴파일 클래스패스로 새지 않게 한다
 plugins {
     id("meogo.spring-conventions")
+    // JPA no-arg: @Entity/@Embeddable/@MappedSuperclass 에 합성 no-arg 생성자를 부여한다
+    // (엔티티 프로퍼티에 기본값을 강제하지 않아도 Hibernate 가 인스턴스화 가능).
+    id("org.jetbrains.kotlin.plugin.jpa")
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")

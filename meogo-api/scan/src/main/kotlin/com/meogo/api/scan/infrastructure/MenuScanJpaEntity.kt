@@ -15,17 +15,17 @@ import java.time.Instant
 @Entity
 @Table(name = "menu_scan")
 class MenuScanJpaEntity(
-    @field:Id
-    @field:GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long = 0,
 
-    @field:Column(nullable = false)
+    @Column(nullable = false)
     var status: String = "",
 
-    @field:Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.EPOCH,
 
-    @field:OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER, orphanRemoval = true)
-    @field:JoinColumn(name = "scan_id", nullable = false)
+    @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER, orphanRemoval = true)
+    @JoinColumn(name = "scan_id", nullable = false)
     var items: MutableList<ScannedMenuItemJpaEntity> = mutableListOf(),
 )
