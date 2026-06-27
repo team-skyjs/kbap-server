@@ -17,9 +17,9 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.V1 + "/menu-scans")
 class MenuScanController(
     private val submitMenuScanUseCase: SubmitMenuScanUseCase,
-) {
+) : MenuScanApi {
     @PostMapping
-    fun submit(
+    override fun submit(
         @Valid @RequestBody request: SubmitMenuScanRequest,
     ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>> {
         val itemIds = request.items.map { it.itemId }
