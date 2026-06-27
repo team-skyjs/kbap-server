@@ -35,7 +35,11 @@ configure<KotlinJvmProjectExtension> {
     compilerOptions {
         // -Xjsr305=strict: JSR-305 nullability 를 강제 제약으로 취급
         // -Xannotation-default-target=param-property: 프로퍼티 애너테이션 기본 타깃 변경
-        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+        freeCompilerArgs.addAll(
+            "-Xjsr305=strict",
+            "-Xannotation-default-target=param-property",
+            "-Xemit-jvm-type-annotations",
+        )
     }
 }
 
