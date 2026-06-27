@@ -25,7 +25,7 @@ class MenuScanJpaEntity(
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.EPOCH,
 
-    @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER, orphanRemoval = true)
+    @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)
     @JoinColumn(name = "scan_id", nullable = false)
     var items: MutableList<ScannedMenuItemJpaEntity> = mutableListOf(),
 )

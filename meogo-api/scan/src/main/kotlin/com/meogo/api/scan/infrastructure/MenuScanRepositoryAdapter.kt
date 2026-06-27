@@ -17,7 +17,7 @@ class MenuScanRepositoryAdapter(
         jpaRepository.save(menuScan.toEntity()).toDomain()
 
     override fun findById(scanId: Long): MenuScan? =
-        jpaRepository.findById(scanId).map { it.toDomain() }.orElse(null)
+        jpaRepository.findByIdWithItems(scanId)?.toDomain()
 }
 
 private fun MenuScan.toEntity(): MenuScanJpaEntity =

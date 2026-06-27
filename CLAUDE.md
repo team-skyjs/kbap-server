@@ -100,6 +100,8 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 - **테스트 스타일 (고정).** **모든 테스트는 Kotest `BehaviorSpec` 으로 통일**한다(다른 Spec 스타일·JUnit `@Test` 금지). 구조는 **`given("대상/전제") > \`when\`("상황") > then("기대 결과")`** 를 기본으로 하며, `given`·`` `when` ``·`then` 설명은 **한국어**로 쓴다(예: `` given("BoundingBox 생성") { `when`("x 가 음수이면") { then("예외를 던진다") { ... } } } ``).
   - **Spring 통합 테스트**(`@SpringBootTest`·MockMvc·repository)도 `BehaviorSpec` 으로 작성한다. `kotest-extensions-spring`(`io.kotest.extensions.spring.SpringExtension`)을 써서 클래스 본문 스타일(`class Foo : BehaviorSpec() { override fun extensions() = listOf(SpringExtension); @Autowired lateinit var ...; init { given... } }`)로 빈을 주입한다. `SpringExtension` 의존성은 `meogo.spring-conventions` 컨벤션 플러그인이 전 Spring 모듈 테스트에 일괄 제공한다.
   - MockMvc 는 `@AutoConfigureMockMvc` + `@Autowired MockMvc` 로 주입한다(`ObjectMapper` 빈은 주입 안 되므로 `jacksonObjectMapper()` 로 직접 생성).
+- **JPA 연관관계 로딩 (고정).** 모든 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)는 **`FetchType.LAZY`** 로 작성한다(`@ManyToOne`·`@OneToOne` 의 기본값 EAGER 도 명시적으로 LAZY 로 덮는다). 애그리거트 전체나 특정 연관을 함께 로드해야 하면 **fetch join 쿼리**(`@Query("… left join fetch …")`)로 명시적으로 가져온다 — EAGER 매핑으로 해결하지 않는다(N+1·불필요 로딩·`LazyInitializationException` 방지). 영속 어댑터가 트랜잭션 밖에서 도메인 매핑 시 컬렉션을 접근하면 fetch join 으로 미리 초기화한다.
+- **JPA 엔티티 작성 (고정).** 엔티티는 `:meogo-api:<도메인>` 의 `infrastructure` 패키지에 은닉한다. `kotlin-jpa`(no-arg) 플러그인이 `domain-conventions` 로 적용되므로 **프로퍼티 기본값으로 no-arg 를 흉내내지 않아도 된다**. JPA 애너테이션은 **use-site 타깃 없이**(`@Id`/`@Column`, `@field:` 불필요 — field-only 타깃이라 자동으로 field 에 적용) 단다.
 
 ### API 응답 규약 (고정)
 
