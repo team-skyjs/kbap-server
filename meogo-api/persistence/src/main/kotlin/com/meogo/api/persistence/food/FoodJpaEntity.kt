@@ -24,7 +24,7 @@ class FoodJpaEntity(
     var foodIngredients: MutableSet<FoodIngredientJpaEntity> = mutableSetOf(),
 ) : BaseEntity() {
     fun toDomain(): Food =
-        Food(
+        Food.reconstitute(
             id = id,
             koreanName = koreanName,
             imageRef = imageRef,

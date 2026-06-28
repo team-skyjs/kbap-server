@@ -16,7 +16,7 @@ class IngredientJpaEntity(
     var iconRef: String? = null,
 ) : BaseEntity() {
     fun toDomain(): Ingredient =
-        Ingredient(
+        Ingredient.reconstitute(
             id = id,
             koreanName = koreanName,
             iconRef = iconRef,

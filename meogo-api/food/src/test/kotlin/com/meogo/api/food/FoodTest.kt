@@ -5,12 +5,12 @@ import io.kotest.matchers.shouldBe
 
 class FoodTest : BehaviorSpec({
     fun foodIngredient(koreanName: String, percent: Int) =
-        FoodIngredient(ingredient = Ingredient(koreanName = koreanName), inclusionPercent = percent)
+        FoodIngredient(ingredient = Ingredient.create(koreanName = koreanName), inclusionPercent = percent)
 
     given("Food.ingredientsByInclusion") {
         `when`("재료가 포함비율 내림차순이 아닌 순서로 담겨 있으면") {
             then("포함비율 내림차순으로 정렬된 재료를 반환한다(머리가 주성분)") {
-                val food = Food(
+                val food = Food.create(
                     koreanName = "된장찌개",
                     ingredients = listOf(
                         foodIngredient("두부", 90),

@@ -1,5 +1,8 @@
 package com.meogo.api.scan
 
+import com.meogo.api.core.stereotype.AggregateRoot
+
+@AggregateRoot
 class MenuScan private constructor(
     val id: Long?,
     val status: ScanStatus,
