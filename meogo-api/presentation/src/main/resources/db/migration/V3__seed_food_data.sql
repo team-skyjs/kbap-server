@@ -546,89 +546,89 @@ INSERT INTO food_name_translation (id, food_id, lang_code, name, status, created
 
 -- ============================================================
 -- 5) FOOD ↔ INGREDIENT LINKS (shared ingredient pool reused)
---    inclusion_percent: likelihood across recipes; display_order: 0-based by importance
+--    inclusion_percent: likelihood across recipes; 응답 정렬은 서비스단에서 이 값 내림차순
 -- ============================================================
 
 -- 1 된장찌개: 된장(8), 두부(1), 애호박(11), 감자(12), 대파(5), 마늘(6)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(1,  1, 8,  100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(2,  1, 1,  90,  1, 'ACTIVE', NOW(6), NOW(6)),
-(3,  1, 11, 80,  2, 'ACTIVE', NOW(6), NOW(6)),
-(4,  1, 12, 65,  3, 'ACTIVE', NOW(6), NOW(6)),
-(5,  1, 5,  85,  4, 'ACTIVE', NOW(6), NOW(6)),
-(6,  1, 6,  75,  5, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(1,  1, 8,  100, 'ACTIVE', NOW(6), NOW(6)),
+(2,  1, 1,  90,  'ACTIVE', NOW(6), NOW(6)),
+(3,  1, 11, 80,  'ACTIVE', NOW(6), NOW(6)),
+(4,  1, 12, 65,  'ACTIVE', NOW(6), NOW(6)),
+(5,  1, 5,  85,  'ACTIVE', NOW(6), NOW(6)),
+(6,  1, 6,  75,  'ACTIVE', NOW(6), NOW(6));
 
 -- 2 김치찌개: 김치(4), 돼지고기(2), 두부(1), 대파(5), 고춧가루(10)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(7,  2, 4,  100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(8,  2, 2,  85,  1, 'ACTIVE', NOW(6), NOW(6)),
-(9,  2, 1,  70,  2, 'ACTIVE', NOW(6), NOW(6)),
-(10, 2, 5,  80,  3, 'ACTIVE', NOW(6), NOW(6)),
-(11, 2, 10, 60,  4, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(7,  2, 4,  100, 'ACTIVE', NOW(6), NOW(6)),
+(8,  2, 2,  85,  'ACTIVE', NOW(6), NOW(6)),
+(9,  2, 1,  70,  'ACTIVE', NOW(6), NOW(6)),
+(10, 2, 5,  80,  'ACTIVE', NOW(6), NOW(6)),
+(11, 2, 10, 60,  'ACTIVE', NOW(6), NOW(6));
 
 -- 3 비빔밥: 쌀밥(14), 시금치(16), 콩나물(17), 당근(15), 계란(13), 고추장(9)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(12, 3, 14, 100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(13, 3, 16, 80,  1, 'ACTIVE', NOW(6), NOW(6)),
-(14, 3, 17, 80,  2, 'ACTIVE', NOW(6), NOW(6)),
-(15, 3, 15, 75,  3, 'ACTIVE', NOW(6), NOW(6)),
-(16, 3, 13, 85,  4, 'ACTIVE', NOW(6), NOW(6)),
-(17, 3, 9,  90,  5, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(12, 3, 14, 100, 'ACTIVE', NOW(6), NOW(6)),
+(13, 3, 16, 80,  'ACTIVE', NOW(6), NOW(6)),
+(14, 3, 17, 80,  'ACTIVE', NOW(6), NOW(6)),
+(15, 3, 15, 75,  'ACTIVE', NOW(6), NOW(6)),
+(16, 3, 13, 85,  'ACTIVE', NOW(6), NOW(6)),
+(17, 3, 9,  90,  'ACTIVE', NOW(6), NOW(6));
 
 -- 4 불고기: 소고기(3), 간장(19), 양파(7), 설탕(20), 마늘(6), 참기름(18)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(18, 4, 3,  100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(19, 4, 19, 90,  1, 'ACTIVE', NOW(6), NOW(6)),
-(20, 4, 7,  80,  2, 'ACTIVE', NOW(6), NOW(6)),
-(21, 4, 20, 75,  3, 'ACTIVE', NOW(6), NOW(6)),
-(22, 4, 6,  85,  4, 'ACTIVE', NOW(6), NOW(6)),
-(23, 4, 18, 70,  5, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(18, 4, 3,  100, 'ACTIVE', NOW(6), NOW(6)),
+(19, 4, 19, 90,  'ACTIVE', NOW(6), NOW(6)),
+(20, 4, 7,  80,  'ACTIVE', NOW(6), NOW(6)),
+(21, 4, 20, 75,  'ACTIVE', NOW(6), NOW(6)),
+(22, 4, 6,  85,  'ACTIVE', NOW(6), NOW(6)),
+(23, 4, 18, 70,  'ACTIVE', NOW(6), NOW(6));
 
 -- 5 삼겹살: 돼지고기(2), 마늘(6), 대파(5), 김치(4)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(24, 5, 2,  100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(25, 5, 6,  80,  1, 'ACTIVE', NOW(6), NOW(6)),
-(26, 5, 5,  60,  2, 'ACTIVE', NOW(6), NOW(6)),
-(27, 5, 4,  70,  3, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(24, 5, 2,  100, 'ACTIVE', NOW(6), NOW(6)),
+(25, 5, 6,  80,  'ACTIVE', NOW(6), NOW(6)),
+(26, 5, 5,  60,  'ACTIVE', NOW(6), NOW(6)),
+(27, 5, 4,  70,  'ACTIVE', NOW(6), NOW(6));
 
 -- 6 떡볶이: 떡(21), 고추장(9), 어묵(22), 대파(5), 설탕(20)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(28, 6, 21, 100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(29, 6, 9,  95,  1, 'ACTIVE', NOW(6), NOW(6)),
-(30, 6, 22, 80,  2, 'ACTIVE', NOW(6), NOW(6)),
-(31, 6, 5,  65,  3, 'ACTIVE', NOW(6), NOW(6)),
-(32, 6, 20, 60,  4, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(28, 6, 21, 100, 'ACTIVE', NOW(6), NOW(6)),
+(29, 6, 9,  95,  'ACTIVE', NOW(6), NOW(6)),
+(30, 6, 22, 80,  'ACTIVE', NOW(6), NOW(6)),
+(31, 6, 5,  65,  'ACTIVE', NOW(6), NOW(6)),
+(32, 6, 20, 60,  'ACTIVE', NOW(6), NOW(6));
 
 -- 7 김밥: 쌀밥(14), 김(23), 단무지(24), 당근(15), 계란(13), 햄(25)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(33, 7, 14, 100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(34, 7, 23, 100, 1, 'ACTIVE', NOW(6), NOW(6)),
-(35, 7, 24, 85,  2, 'ACTIVE', NOW(6), NOW(6)),
-(36, 7, 15, 80,  3, 'ACTIVE', NOW(6), NOW(6)),
-(37, 7, 13, 85,  4, 'ACTIVE', NOW(6), NOW(6)),
-(38, 7, 25, 70,  5, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(33, 7, 14, 100, 'ACTIVE', NOW(6), NOW(6)),
+(34, 7, 23, 100, 'ACTIVE', NOW(6), NOW(6)),
+(35, 7, 24, 85,  'ACTIVE', NOW(6), NOW(6)),
+(36, 7, 15, 80,  'ACTIVE', NOW(6), NOW(6)),
+(37, 7, 13, 85,  'ACTIVE', NOW(6), NOW(6)),
+(38, 7, 25, 70,  'ACTIVE', NOW(6), NOW(6));
 
 -- 8 잡채: 당면(26), 소고기(3), 시금치(16), 당근(15), 버섯(27), 간장(19)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(39, 8, 26, 100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(40, 8, 3,  70,  1, 'ACTIVE', NOW(6), NOW(6)),
-(41, 8, 16, 75,  2, 'ACTIVE', NOW(6), NOW(6)),
-(42, 8, 15, 80,  3, 'ACTIVE', NOW(6), NOW(6)),
-(43, 8, 27, 70,  4, 'ACTIVE', NOW(6), NOW(6)),
-(44, 8, 19, 85,  5, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(39, 8, 26, 100, 'ACTIVE', NOW(6), NOW(6)),
+(40, 8, 3,  70,  'ACTIVE', NOW(6), NOW(6)),
+(41, 8, 16, 75,  'ACTIVE', NOW(6), NOW(6)),
+(42, 8, 15, 80,  'ACTIVE', NOW(6), NOW(6)),
+(43, 8, 27, 70,  'ACTIVE', NOW(6), NOW(6)),
+(44, 8, 19, 85,  'ACTIVE', NOW(6), NOW(6));
 
 -- 9 순두부찌개: 두부(1), 계란(13), 고춧가루(10), 대파(5), 마늘(6)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(45, 9, 1,  100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(46, 9, 13, 80,  1, 'ACTIVE', NOW(6), NOW(6)),
-(47, 9, 10, 70,  2, 'ACTIVE', NOW(6), NOW(6)),
-(48, 9, 5,  75,  3, 'ACTIVE', NOW(6), NOW(6)),
-(49, 9, 6,  70,  4, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(45, 9, 1,  100, 'ACTIVE', NOW(6), NOW(6)),
+(46, 9, 13, 80,  'ACTIVE', NOW(6), NOW(6)),
+(47, 9, 10, 70,  'ACTIVE', NOW(6), NOW(6)),
+(48, 9, 5,  75,  'ACTIVE', NOW(6), NOW(6)),
+(49, 9, 6,  70,  'ACTIVE', NOW(6), NOW(6));
 
 -- 10 물냉면: 메밀면(29), 육수(30), 오이(28), 계란(13), 소고기(3)
-INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, display_order, status, created_at, updated_at) VALUES
-(50, 10, 29, 100, 0, 'ACTIVE', NOW(6), NOW(6)),
-(51, 10, 30, 95,  1, 'ACTIVE', NOW(6), NOW(6)),
-(52, 10, 28, 80,  2, 'ACTIVE', NOW(6), NOW(6)),
-(53, 10, 13, 75,  3, 'ACTIVE', NOW(6), NOW(6)),
-(54, 10, 3,  60,  4, 'ACTIVE', NOW(6), NOW(6));
+INSERT INTO food_ingredient (id, food_id, ingredient_id, inclusion_percent, status, created_at, updated_at) VALUES
+(50, 10, 29, 100, 'ACTIVE', NOW(6), NOW(6)),
+(51, 10, 30, 95,  'ACTIVE', NOW(6), NOW(6)),
+(52, 10, 28, 80,  'ACTIVE', NOW(6), NOW(6)),
+(53, 10, 13, 75,  'ACTIVE', NOW(6), NOW(6)),
+(54, 10, 3,  60,  'ACTIVE', NOW(6), NOW(6));

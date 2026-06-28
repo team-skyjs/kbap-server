@@ -56,8 +56,7 @@ CREATE TABLE food_ingredient (
     id                BIGINT      NOT NULL AUTO_INCREMENT,
     food_id           BIGINT      NOT NULL,
     ingredient_id     BIGINT      NOT NULL,
-    inclusion_percent INT         NOT NULL,             -- 0~100 (여러 레시피 기준 포함 확률)
-    display_order     INT         NOT NULL,
+    inclusion_percent INT         NOT NULL,             -- 0~100 (여러 레시피 기준 포함 확률); 응답 정렬은 서비스단에서 이 값 내림차순
     status            VARCHAR(20) NOT NULL,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,

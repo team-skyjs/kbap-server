@@ -18,15 +18,11 @@ class FoodIngredientJpaEntity(
 
     @Column(name = "inclusion_percent", nullable = false)
     var inclusionPercent: Int = 0,
-
-    @Column(name = "display_order", nullable = false)
-    var displayOrder: Int = 0,
 ) : BaseEntity() {
     fun toDomain(): FoodIngredient =
         FoodIngredient(
             id = id,
             ingredient = ingredient.toDomain(),
             inclusionPercent = inclusionPercent,
-            displayOrder = displayOrder,
         )
 }

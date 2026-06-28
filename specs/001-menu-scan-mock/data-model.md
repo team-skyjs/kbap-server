@@ -129,8 +129,7 @@ CREATE TABLE scanned_menu_item (
 |------|------|------|
 | id | Long? | PK |
 | ingredient | Ingredient | 연결된 **공유** 재료(영속: `@ManyToOne`, **cascade 없음**) |
-| inclusionPercent | Int | **0~100 연속 비율** — 여러 레시피 기준 포함 확률(UI `~50%` 원천) |
-| displayOrder | Int | 재료 표시 순서(안정 정렬용) |
+| inclusionPercent | Int | **0~100 연속 비율** — 여러 레시피 기준 포함 확률(UI `~50%` 원천). **응답 정렬 기준** — 서비스단에서 이 값 내림차순으로 정렬해 반환(저장된 표시 순서 컬럼 없음). |
 - `(food_id, ingredient_id)` 는 **unique**(같은 음식에 같은 재료 중복 금지).
 - `riskStatus`는 **저장하지 않음** — application `IngredientRiskMarker`(mock)가 4단계 `RiskLevel` 로 부여.
 - `0/1/2` 스코어는 본 필드와 **별개**(후속 LLM per-recipe 스코어링 입력값, 이번 범위 밖).
@@ -201,8 +200,7 @@ CREATE TABLE food_ingredient (
     id                BIGINT  NOT NULL AUTO_INCREMENT,
     food_id           BIGINT  NOT NULL,
     ingredient_id     BIGINT  NOT NULL,                 -- 기존 ingredient 참조(공유)
-    inclusion_percent INT     NOT NULL,                 -- 0~100 (여러 레시피 기준 포함 확률)
-    display_order     INT     NOT NULL,
+    inclusion_percent INT     NOT NULL,                 -- 0~100 (여러 레시피 기준 포함 확률); 응답 정렬은 서비스단에서 이 값 내림차순
     status            VARCHAR(20) NOT NULL,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,
@@ -216,7 +214,7 @@ CREATE TABLE food_ingredient (
 ### Seed — `V3__seed_food_data.sql` (데모: 대표 메뉴 10종)
 - food **10종**(된장찌개·김치찌개·비빔밥·불고기·삼겹살·떡볶이·김밥·잡채·순두부찌개·물냉면), 각 `ko` 원문 + 9개 언어 번역.
 - ingredient **30종(공유 풀, dedup)** — 두부·마늘·대파·계란 등은 여러 음식이 같은 `ingredient_id` 로 참조. 각 재료도 9개 언어 번역 보유.
-- food_ingredient: 음식별 3~6개 재료(inclusion_percent·display_order).
+- food_ingredient: 음식별 3~6개 재료(inclusion_percent; 표시 순서 컬럼 없음 — 응답은 서비스단에서 inclusion_percent 내림차순 정렬).
 - **모든 seed 음식/재료는 9개 대상 언어 번역을 빠짐없이 포함**(헌법 V). seed 행은 `status='ACTIVE'`, 명시 id 로 적재. MySQL 8.4 에서 제약·무결성 검증 완료.
 
 ---

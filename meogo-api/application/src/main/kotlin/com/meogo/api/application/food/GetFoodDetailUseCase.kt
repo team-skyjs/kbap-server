@@ -17,11 +17,13 @@ class GetFoodDetailUseCase(
         val food = foodRepository.findByKoreanName(input.menuName.trim())
             ?: throw IllegalArgumentException("해당 음식 정보 없음")
 
-        val foodName = resolveFoodName(food.id, food.koreanName, lang)
-        val ingredientNames = resolveIngredientNames(food.ingredients.mapNotNull { it.ingredient.id }, lang)
+        val orderedIngredients = food.ingredients.sortedByDescending { it.inclusionPercent }
 
-        val risks = ingredientRiskMarker.mark(food.ingredients.map { it.ingredient })
-        val ingredients = food.ingredients.mapIndexed { index, foodIngredient ->
+        val foodName = resolveFoodName(food.id, food.koreanName, lang)
+        val ingredientNames = resolveIngredientNames(orderedIngredients.mapNotNull { it.ingredient.id }, lang)
+
+        val risks = ingredientRiskMarker.mark(orderedIngredients.map { it.ingredient })
+        val ingredients = orderedIngredients.mapIndexed { index, foodIngredient ->
             val ingredient = foodIngredient.ingredient
             GetFoodDetailResult.IngredientView(
                 name = ingredientNames[ingredient.id] ?: ingredient.koreanName,

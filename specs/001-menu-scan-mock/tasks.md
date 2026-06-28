@@ -115,7 +115,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 - [X] T037 [P] [US2] `LanguageCode` enum(`ko` + 9개; `from(code): LanguageCode`/미지원→`ko` 폴백 헬퍼) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/LanguageCode.kt`
 - [X] T038 [P] [US2] `Ingredient`(koreanName, names: Map<LanguageCode,String>, iconRef?, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Ingredient.kt`
-- [X] T039 [P] [US2] `FoodIngredient`(ingredient: Ingredient, inclusionPercent 0~100, displayOrder; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodIngredient.kt`
+- [X] T039 [P] [US2] `FoodIngredient`(ingredient: Ingredient, inclusionPercent 0~100; 불변; 응답 정렬은 서비스단 inclusionPercent 내림차순) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodIngredient.kt`
 - [X] T040 [US2] `Food` Aggregate Root(koreanName=`ko` 매칭키, names: Map<LanguageCode,String>, imageRef?, ingredients, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Food.kt` (T037·T038·T039)
 - [X] T041 [US2] `FoodRepository` 도메인 port(`findByKoreanName(name): Food?`) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodRepository.kt`
 

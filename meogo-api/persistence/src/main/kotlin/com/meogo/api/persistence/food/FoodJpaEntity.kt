@@ -28,6 +28,6 @@ class FoodJpaEntity(
             id = id,
             koreanName = koreanName,
             imageRef = imageRef,
-            ingredients = foodIngredients.sortedBy { it.displayOrder }.map { it.toDomain() },
+            ingredients = foodIngredients.map { it.toDomain() },
         )
 }

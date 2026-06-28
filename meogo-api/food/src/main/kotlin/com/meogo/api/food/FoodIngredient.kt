@@ -4,7 +4,6 @@ data class FoodIngredient(
     val id: Long? = null,
     val ingredient: Ingredient,
     val inclusionPercent: Int,
-    val displayOrder: Int,
 ) {
     init {
         require(inclusionPercent in 0..100) {

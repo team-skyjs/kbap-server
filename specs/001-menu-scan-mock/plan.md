@@ -96,7 +96,7 @@ meogo-api/
 │       ├── Food.kt (koreanName=매칭키·names[9]·imageRef·ingredients, nameFor(lang))
 │       ├── Ingredient.kt (koreanName·names[9]·iconRef, nameFor(lang))
 │       ├── LanguageCode.kt (ko + 9개, 폴백 ko)
-│       ├── FoodIngredient.kt (inclusionPercent 0~100, displayOrder)
+│       ├── FoodIngredient.kt (inclusionPercent 0~100; 응답 정렬은 서비스단 내림차순)
 │       └── FoodRepository.kt                      # 도메인 port: findByKoreanName(name): Food?
 │
 ├── application/src/main/kotlin/com/meogo/api/application/

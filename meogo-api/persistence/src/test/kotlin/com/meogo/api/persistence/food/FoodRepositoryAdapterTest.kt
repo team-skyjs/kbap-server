@@ -3,7 +3,7 @@ package com.meogo.api.persistence.food
 import com.meogo.api.food.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
-import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -36,16 +36,15 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
         fun saveFood(
             koreanName: String,
             imageRef: String? = null,
-            items: List<Triple<IngredientJpaEntity, Int, Int>> = emptyList(),
+            items: List<Pair<IngredientJpaEntity, Int>> = emptyList(),
         ): Long {
             val food = FoodJpaEntity(
                 koreanName = koreanName,
                 imageRef = imageRef,
-                foodIngredients = items.map { (ingredient, percent, order) ->
+                foodIngredients = items.map { (ingredient, percent) ->
                     FoodIngredientJpaEntity(
                         ingredient = ingredient,
                         inclusionPercent = percent,
-                        displayOrder = order,
                     )
                 }.toMutableSet(),
             )
@@ -54,7 +53,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
         given("Food 저장소 어댑터 — 구조 복원") {
             `when`("한국어 메뉴명으로 조회하면") {
-                then("음식·재료를 displayOrder 로 정렬해 복원한다(번역 미포함)") {
+                then("음식·재료를 복원한다(정렬은 서비스단 책임, 번역 미포함)") {
                     val doenjang = saveIngredient("된장-recon")
                     val tofu = saveIngredient("두부-recon")
                     val clam = saveIngredient("바지락-recon", iconRef = "clam.png")
@@ -62,9 +61,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                         "구조복원-된장찌개",
                         imageRef = "doenjang.png",
                         items = listOf(
-                            Triple(clam, 50, 2),
-                            Triple(doenjang, 100, 0),
-                            Triple(tofu, 90, 1),
+                            clam to 50,
+                            doenjang to 100,
+                            tofu to 90,
                         ),
                     )
 
@@ -72,9 +71,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     loaded.shouldNotBeNull()
                     loaded.imageRef shouldBe "doenjang.png"
                     loaded.ingredients.map { it.ingredient.koreanName }
-                        .shouldContainExactly("된장-recon", "두부-recon", "바지락-recon")
+                        .shouldContainExactlyInAnyOrder("된장-recon", "두부-recon", "바지락-recon")
                     loaded.ingredients.map { it.inclusionPercent }
-                        .shouldContainExactly(100, 90, 50)
+                        .shouldContainExactlyInAnyOrder(100, 90, 50)
                     loaded.ingredients.first { it.ingredient.koreanName == "바지락-recon" }
                         .ingredient.iconRef shouldBe "clam.png"
                 }
@@ -82,7 +81,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("앞뒤 공백이 있는 메뉴명으로 조회하면") {
                 then("trim 후 매칭한다") {
-                    saveFood("trim-김치찌개", items = listOf(Triple(saveIngredient("두부-trim"), 80, 0)))
+                    saveFood("trim-김치찌개", items = listOf(saveIngredient("두부-trim") to 80))
 
                     adapter.findByKoreanName("  trim-김치찌개  ").shouldNotBeNull()
                 }
@@ -96,7 +95,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("저장된 음식을 소프트 삭제하면") {
                 then("@SQLRestriction 으로 조회에서 제외돼 null 이 반환된다") {
-                    val savedId = saveFood("삭제-순두부찌개", items = listOf(Triple(saveIngredient("두부-del"), 95, 0)))
+                    val savedId = saveFood("삭제-순두부찌개", items = listOf(saveIngredient("두부-del") to 95))
 
                     val entity = foodJpaRepository.findById(savedId).get()
                     entity.delete()
@@ -113,8 +112,8 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val tofu = saveIngredient("두부-shared")
                     val before = ingredientJpaRepository.count()
 
-                    saveFood("공유A-된장찌개", items = listOf(Triple(tofu, 90, 0)))
-                    saveFood("공유B-순두부찌개", items = listOf(Triple(tofu, 95, 0)))
+                    saveFood("공유A-된장찌개", items = listOf(tofu to 90))
+                    saveFood("공유B-순두부찌개", items = listOf(tofu to 95))
 
                     ingredientJpaRepository.count() shouldBe before
 
@@ -130,7 +129,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             `when`("요청 언어 번역이 있으면") {
                 then("해당 언어 번역을 반환한다") {
                     val tofu = saveIngredient("두부-tx")
-                    val foodId = saveFood("번역있음", items = listOf(Triple(tofu, 90, 0)))
+                    val foodId = saveFood("번역있음", items = listOf(tofu to 90))
                     foodNameTranslationJpaRepository.save(
                         FoodNameTranslationJpaEntity(foodId = foodId, langCode = "en", name = "Doenjang Stew"),
                     )
@@ -147,7 +146,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             `when`("요청 언어 번역이 없으면") {
                 then("null·빈 맵을 반환한다(application 이 ko 로 폴백)") {
                     val tofu = saveIngredient("두부-notx")
-                    val foodId = saveFood("번역없음", items = listOf(Triple(tofu, 80, 0)))
+                    val foodId = saveFood("번역없음", items = listOf(tofu to 80))
 
                     adapter.findFoodNameTranslation(foodId, LanguageCode.JA).shouldBeNull()
                     adapter.findIngredientNameTranslations(listOf(tofu.id), LanguageCode.JA) shouldBe emptyMap()
@@ -174,7 +173,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     targetLanguages.size shouldBe 9
 
                     val ingredient = saveIngredient("두부-9lang")
-                    val foodId = saveFood("9개국어", items = listOf(Triple(ingredient, 90, 0)))
+                    val foodId = saveFood("9개국어", items = listOf(ingredient to 90))
                     targetLanguages.forEach { lang ->
                         foodNameTranslationJpaRepository.save(
                             FoodNameTranslationJpaEntity(foodId = foodId, langCode = lang.code, name = "food-${lang.code}"),

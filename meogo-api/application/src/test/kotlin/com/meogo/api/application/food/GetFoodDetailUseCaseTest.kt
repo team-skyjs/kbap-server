@@ -16,8 +16,8 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         koreanName = "된장찌개",
         imageRef = "doenjang.png",
         ingredients = listOf(
-            FoodIngredient(ingredient = Ingredient(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100, displayOrder = 0),
-            FoodIngredient(ingredient = Ingredient(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90, displayOrder = 1),
+            FoodIngredient(ingredient = Ingredient(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90),
+            FoodIngredient(ingredient = Ingredient(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100),
         ),
     )
 
@@ -41,6 +41,18 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 result.ingredients.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
                 result.ingredients.map { it.inclusionPercent } shouldBe listOf(100, 90)
                 result.ingredients[1].iconRef shouldBe "tofu.png"
+            }
+        }
+
+        `when`("재료가 inclusionPercent 내림차순이 아닌 순서로 저장돼 있으면") {
+            then("응답 재료를 inclusionPercent 내림차순으로 정렬하고 최상위에 CAUTION 을 부여한다") {
+                val repository = FakeFoodRepository(food = doenjangStew)
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+
+                result.ingredients.map { it.inclusionPercent } shouldBe listOf(100, 90)
+                result.ingredients.map { it.name } shouldBe listOf("된장", "두부")
+                result.ingredients.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
             }
         }
 
