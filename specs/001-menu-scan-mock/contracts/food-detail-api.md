@@ -1,8 +1,8 @@
-# Contract — API 2: 음식 상세 조회 (다국어)
+# Contract — API 2: 음식 상세 조회 (다국어)  *(US2, 잔여)*
 
 `GET /api/v1/foods/detail?menuName={menuName}&lang={lang}`
 
-모든 응답은 `ApiResponse<T>`로 감싼다.
+모든 응답은 `BaseResponse<T>`(필드 `success`/`payload`/`message`)로 감싼다.
 
 ## Request
 
@@ -15,12 +15,12 @@
 
 > 매칭 키(`menuName`=ko 원문)와 응답 콘텐츠 언어(`lang`)는 **분리**된다. 음식명·재료명은 `ko` 원문 + 9개 대상 언어로 사전 번역돼 저장되며(헌법 V·ADR-0003), 응답은 `lang` 한 언어만 내려준다.
 
-## Response 200 — `ApiResponse.ok(FoodDetail)`  (`lang=en` 예)
+## Response 200 — `BaseResponse.ok(FoodDetail)`  (`lang=en` 예)
 
 ```jsonc
 {
   "success": true,
-  "data": {
+  "payload": {
     "name": "Doenjang Stew",                 // 요청 언어(lang) 음식명, 미지원 시 ko
     "imageRef": "https://.../doenjang.png",
     "ingredients": [
@@ -36,17 +36,23 @@
 ```
 
 - `name`(음식·재료): **요청 `lang` 한 언어**. 해당 언어 번역이 없으면 그 항목만 `ko` 폴백.
-- `inclusionPercent`: 저장된 값(0~100).
-- `riskStatus`: **mock**(첫 재료 CAUTION, 나머지 SAFE). 저장 안 함, application이 부여.
+- `inclusionPercent`: 저장된 값(0~100, 여러 레시피 기준 포함 확률).
+- `riskStatus`: **4단계 `RiskLevel`**(SAFE/CAUTION/DANGER/UNKNOWN)을 재사용, 이번 범위는 **mock**(첫 재료 CAUTION, 나머지 SAFE). 저장 안 함, application이 부여. UI의 '안전/문의 필요' 2상태 표시는 클라이언트가 매핑.
 - 사장님 안내 **완성 문장은 응답에 없음** — 클라이언트가 위 구조화 값 + 로컬 템플릿으로 조합.
 
-## Response 404 — `ApiResponse.fail`
+## Response 400 — `BaseResponse.fail`
 
-메뉴명이 seed에 없을 때(리소스 없음): `{ "success": false, "data": null, "message": "해당 음식 정보 없음" }`
+두 경우 모두 400 (메시지로 구분):
 
-## Response 400 — `ApiResponse.fail`
+```json
+{ "success": false, "payload": null, "message": "해당 음식 정보 없음" }
+```
+- **미수록 메뉴**: `menuName`이 seed에 없을 때 → `message: "해당 음식 정보 없음"`. (clarify 2026-06-28 — 미수록 메뉴 상세 요청을 잘못된 요청으로 취급. 이전 404 대체.)
 
-`menuName` 누락/blank: `{ "success": false, "data": null, "message": "menuName은 필수입니다" }`
+```json
+{ "success": false, "payload": null, "message": "menuName은 필수입니다" }
+```
+- **menuName 누락/blank** → `message: "menuName은 필수입니다"`.
 
 > `lang` 미지정/미지원은 **400이 아니라** `ko` 폴백(200)이다.
 
@@ -55,6 +61,6 @@
 - 동일 메뉴명 `lang=ja` → 일본어 번역본 반환.
 - `lang` 미지정 / `lang=xx`(미지원) → `ko` 폴백 200("된장찌개" 등 ko 값).
 - 앞뒤 공백 포함("  된장찌개  ") → trim 후 200.
-- 없는 메뉴명("없는메뉴") → 404 + "해당 음식 정보 없음".
+- 없는 메뉴명("없는메뉴") → **400** + "해당 음식 정보 없음".
 - `menuName` 미제공 / 빈 문자열 → 400 + "menuName은 필수입니다".
 - 재료 없는 음식(seed) → ingredients 빈 배열 + 200.

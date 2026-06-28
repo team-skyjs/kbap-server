@@ -41,6 +41,9 @@ mysql-connector = { module = "com.mysql:mysql-connector-j" }
 h2 = { module = "com.h2database:h2" }
 
 # --- DB migration ---
+# Spring Boot 4 는 autoconfig 를 기술별 모듈로 분리 — flyway-core(라이브러리)만으론
+# 마이그레이션이 자동 실행되지 않으므로 Boot 의 Flyway autoconfig 모듈을 명시 추가한다.
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 

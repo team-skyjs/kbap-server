@@ -24,23 +24,24 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
     private lateinit var jpaRepository: MenuScanJpaRepository
 
     init {
+        fun menuScan(items: List<ScannedMenuItem>) =
+            MenuScan.create(MenuScan.CreationSpec(items))
+
         given("MenuScan 저장소 어댑터") {
             `when`("항목·boundingBox·판정을 가진 스캔을 저장하면") {
                 then("scanId 가 부여되고 조회 시 모두 보존된다") {
-                    val scan = MenuScan.create(
+                    val scan = menuScan(
                         listOf(
                             ScannedMenuItem(
                                 itemId = 0,
                                 rawMenuName = "된장찌개",
                                 boundingBox = BoundingBox(0.12, 0.34, 0.5, 0.08),
-                                receivedOrder = 0,
                                 assessment = MenuItemAssessment(RiskLevel.SAFE, "mock: 안전"),
                             ),
                             ScannedMenuItem(
                                 itemId = 1,
                                 rawMenuName = "김치찌개",
                                 boundingBox = BoundingBox(0.0, 0.0, 0.5, 0.5),
-                                receivedOrder = 1,
                                 assessment = MenuItemAssessment(RiskLevel.CAUTION, "mock: 주의"),
                             ),
                         ),
@@ -57,7 +58,6 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                     val first = loaded.items.first { it.itemId == 0 }
                     first.rawMenuName shouldBe "된장찌개"
                     first.boundingBox shouldBe BoundingBox(0.12, 0.34, 0.5, 0.08)
-                    first.receivedOrder shouldBe 0
                     first.assessment shouldBe MenuItemAssessment(RiskLevel.SAFE, "mock: 안전")
 
                     val second = loaded.items.first { it.itemId == 1 }
@@ -73,13 +73,12 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("저장된 스캔을 소프트 삭제하면") {
                 then("@SQLRestriction 으로 조회에서 제외돼 null 이 반환된다") {
-                    val scan = MenuScan.create(
+                    val scan = menuScan(
                         listOf(
                             ScannedMenuItem(
                                 itemId = 0,
                                 rawMenuName = "제육볶음",
                                 boundingBox = BoundingBox(0.1, 0.1, 0.2, 0.2),
-                                receivedOrder = 0,
                                 assessment = MenuItemAssessment(RiskLevel.SAFE, "mock: 안전"),
                             ),
                         ),

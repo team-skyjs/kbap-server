@@ -1,5 +1,8 @@
 package com.meogo.api.scan
 
+import com.meogo.api.core.stereotype.AggregateRoot
+
+@AggregateRoot
 class MenuScan private constructor(
     val id: Long?,
     val status: ScanStatus,
@@ -15,8 +18,8 @@ class MenuScan private constructor(
     companion object {
         const val MAX_ITEMS = 100
 
-        fun create(items: List<ScannedMenuItem>): MenuScan =
-            MenuScan(id = null, status = ScanStatus.COMPLETED, items = items)
+        fun create(spec: CreationSpec): MenuScan =
+            MenuScan(id = null, status = ScanStatus.COMPLETED, items = spec.items)
 
         fun reconstitute(
             id: Long,
@@ -24,4 +27,8 @@ class MenuScan private constructor(
             items: List<ScannedMenuItem>,
         ): MenuScan = MenuScan(id = id, status = status, items = items)
     }
+
+    data class CreationSpec(
+        val items: List<ScannedMenuItem>,
+    )
 }

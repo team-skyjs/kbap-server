@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 하네스: SpecKit·TDD 개발 팀
+
+**목표:** 헌법 원칙 I(Test-First)을 강제하며 test-writer→implementer→(code-reviewer∥database-expert) 에이전트 팀으로 task 를 Red→Green→Refactor→리뷰까지 구동한다.
+
+**트리거:** 기능/task 를 TDD 로 구현하거나(예: "TDD 로 구현해", "tasks.md 진행", "US2 구현", "테스트부터 짜고 구현"), 구현 결과를 검토/재실행/부분 보완할 때 `tdd-harness-orchestrator` 스킬을 사용하라. 단순 질문·단발 수정은 직접 응답 가능. (에이전트: `.claude/agents/`, 스킬: `.claude/skills/`.)
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-06-28 | 초기 구성 — test-writer·implementer·code-reviewer·database-expert 4에이전트 + 5스킬(역할 4 + 오케스트레이터 1) | 전체 | SpecKit·TDD 역할 분담 자동화 요청 |
+
 ## 개요
 
 `meogo/meogo-server` — Kotlin으로 작성된 Spring Boot 백엔드. Gradle 멀티모듈 구조다. **실행 가능한 bootJar 는 두 개** — `:meogo-api:presentation`(web, 진입점 `com.meogo.api.MeogoApiApplication`)와 `:meogo-batch`(배치, 진입점 `com.meogo.batch.MeogoBatchApplication`)다. `meogo-api`는 **컨테이너 폴더**이고 그 안에 web(`presentation`)/`application`/`infra`/`core` + 도메인 컨텍스트(`food`/`member`/`scan`/`assessment`/`research`, deferred placeholder `review`) leaf 모듈이 **평탄하게**(`meogo-domain` 중첩 없이) 들어간다. `meogo-batch`는 **meogo-api 내부 모듈에 일절 의존하지 않는 디커플드 위성 앱**으로, `:meogo-common`의 통합 이벤트(브로커)로만 meogo-api 와 소통한다(특히 `research` 미스 메뉴 조사·종합을 하루 1회 트리거 — ADR-0003·0004; in-process 호출이 아니라 이벤트 기반). `meogo-common`은 두 앱이 공유하는 통합 이벤트·DTO·기술 공통 모듈이다. 공통 빌드 설정은 `buildSrc` 컨벤션 플러그인에 둔다. 아직 비즈니스 코드는 거의 비어 있는 스캐폴드 상태다.
@@ -20,12 +31,12 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
 [meogo-batch 앱]  디커플드 — meogo-api 무의존, :meogo-common 통합 이벤트(브로커)로만 소통
 [meogo-common]    meogo-api·meogo-batch 공유 (통합 이벤트·DTO·기술 공통)
 ```
-(클린아키텍처 ports&adapters: 도메인은 순수(Spring/ORM-free)하게 model+port 만 갖고, infra(외부)·persistence(JPA)가 각각 port 를 구현한다. infra 는 core port 에만, persistence 는 도메인 port·타입에 의존한다. port 구현체는 조립 모듈 `:meogo-api:presentation`이 런타임에 주입한다. meogo-batch 는 meogo-api 에 의존하지 않으므로 어떤 adapter 도 조립하지 않는다.)
+(클린아키텍처 ports&adapters: 도메인은 ORM-free 로 model+port+도메인서비스/정책을 갖고(Spring 결합은 stereotype 표시용 `compileOnly(spring-context)` 한정), infra(외부)·persistence(JPA)가 각각 port 를 구현한다. infra 는 core port 에만, persistence 는 도메인 port·타입에 의존한다. port 구현체는 조립 모듈 `:meogo-api:presentation`이 런타임에 주입한다. meogo-batch 는 meogo-api 에 의존하지 않으므로 어떤 adapter 도 조립하지 않는다.)
 
 - `:meogo-api:presentation`: web bootJar — controller, API DTO. **조립 책임** — `:meogo-api:infra`·`:meogo-api:persistence`를 `runtimeOnly`로 결합해 adapter 빈을 런타임 DI 로 연결한다(컴파일 의존 X). DB 마이그레이션(Flyway) **스키마 owner** — 마이그레이션 파일은 `src/main/resources/db/migration`.
 - `:meogo-api:application`: 유스케이스 조율, transaction boundary. 외부 client 는 **`:meogo-api:core`의 port 인터페이스로만** 사용하고 infra 구현체에는 직접 의존하지 않는다(계층 역전 방지). **컨텍스트 간 조합은 여기서만** 일어난다.
-- 도메인 컨텍스트 모듈: `meogo-api` 컨테이너 직속으로 **평탄화** — active: `:meogo-api:{food,member,scan,assessment,research}`, deferred placeholder: `:meogo-api:review`. 각 도메인은 `:meogo-api:core`만 바라보는 **순수 모듈(Spring/ORM-free)** 로, model + port(리포지토리 인터페이스)만 갖는다. 영속(JPA)은 자기 모듈에 두지 않고 `:meogo-api:persistence`가 구현한다. (`research`는 미스 메뉴 조사·종합, 배치 전용 — web 미노출.)
-- `:meogo-api:core`: 공통 타입·예외·이벤트 계약·유틸, 외부 client **port 인터페이스**. **Spring-free.**
+- 도메인 컨텍스트 모듈: `meogo-api` 컨테이너 직속으로 **평탄화** — active: `:meogo-api:{food,member,scan,assessment,research}`, deferred placeholder: `:meogo-api:review`. 각 도메인은 `:meogo-api:core`만 바라보는 **ORM-free 모듈**로, model + port(리포지토리 인터페이스) + 도메인 서비스/정책을 갖는다. Spring 결합은 도메인 서비스/정책 빈 표시용 stereotype(@Component 계열) 컴파일에 한해 `spring-context`를 `compileOnly`로만 의존한다(web/jpa/tx 미포함, 런타임 전이 없음 — 제공은 presentation). 영속(JPA)은 자기 모듈에 두지 않고 `:meogo-api:persistence`가 구현한다. (`research`는 미스 메뉴 조사·종합, 배치 전용 — web 미노출.)
+- `:meogo-api:core`: 공통 타입·예외·이벤트 계약·유틸·도메인 stereotype(`@DomainService` 등), 외부 client **port 인터페이스**. 런타임 Spring-free — stereotype(@Component 메타) 컴파일용 `spring-context` 만 `compileOnly`(runtime 전이 없음).
 - `:meogo-api:infra`: LLM 등 외부 API/메시지큐/이벤트 어댑터. `:meogo-api:core`의 port 를 **구현**하며, `:meogo-api:presentation`이 런타임에 주입한다.
 - `:meogo-api:persistence`: JPA/ORM 영속 어댑터. **각 도메인 모듈을 `implementation`으로 의존**해 도메인 **리포지토리 port 를 구현**하고, **영속성 엔티티 관리 책임**을 갖는다(엔티티·Spring Data Repository·`RepositoryAdapter`·`BaseEntity`·`EntityStatus` 보유, 패키지 `com.meogo.api.persistence.*`). `:meogo-api:presentation`이 `runtimeOnly`로 조립한다.
 - `:meogo-batch`: 배치 bootJar(단일 모듈, 추후 필요 시 분리). **meogo-api 내부 모듈에 일절 의존하지 않고** `:meogo-common`만 의존한다 — meogo-api 와는 통합 이벤트(브로커)로만 소통하는 디커플드 앱이라 adapter 조립도 없다. **flyway off**(스키마 owner 는 api — 중복 적용 방지).
@@ -57,7 +68,7 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
   - `meogo.kotlin-common` — **모든 leaf 모듈** 공통: kotlin-jvm·java-library, Java 21 toolchain, Kotlin 엄격성 플래그, `group`/`version`, 공통 테스트(Kotest + JUnit launcher + `useJUnitPlatform()`). Spring-free 모듈(core/common)은 이것만 적용.
   - `meogo.spring-conventions` — **Spring 라이브러리 공통**(core/common 제외): kotlin-common 위에 kotlin-spring·dependency-management·Spring Boot/AI BOM·`kotlin-reflect`/`jackson-module-kotlin`/`spring-boot-starter-test`를 얹는다.
   - `meogo.spring-boot-application` — **부트 앱(bootJar)**: `:meogo-api:presentation`, `:meogo-batch`. spring-conventions 위에 `org.springframework.boot`.
-  - `meogo.domain-conventions` — **도메인 5종 공통**: spring-conventions 위에 `api(:meogo-api:core)` + data-jpa/mongo 은닉 + mysql runtime + h2 test. (도메인 build 파일이 한 줄로 줄어든다.)
+  - `meogo.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/assessment/research + review placeholder): kotlin-common 위에 `io.spring.dependency-management`(Boot BOM) + `api(:meogo-api:core)` + `compileOnly(spring-context)`. JPA/Mongo·web·tx·kotlin-spring 등은 끌어오지 않으며, Spring 결합은 도메인 서비스/정책 빈 표시용 stereotype(@Component 계열) 컴파일을 위한 `spring-context` 하나로 한정한다(버전은 Boot BOM 관리, 런타임 제공은 조립 모듈 `:meogo-api:presentation` — runtime 전이 없음). (도메인 build 파일이 한 줄로 줄어든다.)
 - **모듈별 고유 설정만 각 모듈 `build.gradle.kts`** 에 둔다(api=web/validation/actuator/flyway/springdoc, infra=spring-ai, batch=application 의존+infra 조립 등). 모듈 build 파일에서 의존성은 **문자열 표기**(`"implementation"(...)`)로 적는다(플러그인이 컨벤션에서 적용돼 타입 안전 단축표기 미생성). 라이브러리 좌표는 모듈 build 파일에선 `libs.*`로 정상 사용.
 - **버전 카탈로그 접근**: 컨벤션 플러그인 **안에서는** `libs.*` 타입세이프 접근자가 안 잡혀 `VersionCatalogsExtension`의 `findLibrary`/`findVersion`으로 조회한다. buildSrc 는 `buildSrc/settings.gradle.kts`에서 루트 `gradle/libs.versions.toml`을 `libs`로 가져오고, `buildSrc/build.gradle.kts`는 `libs.plugins.*`를 플러그인 마커 좌표로 변환해 서드파티 Gradle 플러그인을 classpath 에 올린다.
 - **트레이드오프**: buildSrc 변경 시 전체 빌드 캐시가 무효화돼 느려질 수 있다(대신 도메인 5종 dedup·모듈 파일 슬림).
@@ -103,7 +114,7 @@ core ← 도메인(food/member/scan/assessment/research/review) ← application 
   - **Spring 통합 테스트**(`@SpringBootTest`·MockMvc·repository)도 `BehaviorSpec` 으로 작성한다. `kotest-extensions-spring`(`io.kotest.extensions.spring.SpringExtension`)을 써서 클래스 본문 스타일(`class Foo : BehaviorSpec() { override fun extensions() = listOf(SpringExtension); @Autowired lateinit var ...; init { given... } }`)로 빈을 주입한다. `SpringExtension` 의존성은 `meogo.spring-conventions` 컨벤션 플러그인이 전 Spring 모듈 테스트에 일괄 제공한다.
   - MockMvc 는 `@AutoConfigureMockMvc` + `@Autowired MockMvc` 로 주입한다(`ObjectMapper` 빈은 주입 안 되므로 `jacksonObjectMapper()` 로 직접 생성).
 - **JPA 연관관계 로딩 (고정).** 모든 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)는 **`FetchType.LAZY`** 로 작성한다(`@ManyToOne`·`@OneToOne` 의 기본값 EAGER 도 명시적으로 LAZY 로 덮는다). 애그리거트 전체나 특정 연관을 함께 로드해야 하면 **fetch join 쿼리**(`@Query("… left join fetch …")`)로 명시적으로 가져온다 — EAGER 매핑으로 해결하지 않는다(N+1·불필요 로딩·`LazyInitializationException` 방지). 영속 어댑터가 트랜잭션 밖에서 도메인 매핑 시 컬렉션을 접근하면 fetch join 으로 미리 초기화한다.
-- **JPA 엔티티 작성 (고정).** 모든 JPA 영속 코드(엔티티·Spring Data Repository·adapter)는 **`:meogo-api:persistence` 모듈에 모은다** — 도메인 모듈은 순수(Spring/ORM-free)하게 두고, persistence 가 각 도메인을 `implementation` 으로 의존해 port 를 구현한다. 엔티티는 컨텍스트별 `com.meogo.api.persistence.<도메인>` 패키지에 둔다(예: `com.meogo.api.persistence.scan`). **모든 엔티티는 `com.meogo.api.persistence.BaseEntity`(`@MappedSuperclass`)를 상속**한다 — `id`(IDENTITY)·`status`(`EntityStatus` ACTIVE/DELETED 소프트삭제, `active()/isActive()/delete()/isDeleted()`)·`createdAt`(`@CreationTimestamp`)·`updatedAt`(`@UpdateTimestamp`)를 공통 제공하므로 엔티티엔 **자체 id·생성/수정 시각을 두지 않는다**(도메인 고유 상태가 따로 있으면 `status` 와 컬럼명이 겹치지 않게 분리 — 예: scan 의 `scan_status`). BaseEntity·EntityStatus 가 모두 persistence 모듈 안에 있어 단일 모듈로 공유된다(모든 엔티티가 동일 모듈에서 상속). `kotlin-jpa`(no-arg) 플러그인이 persistence 에 적용되므로 **프로퍼티 기본값으로 no-arg 를 흉내내지 않아도 된다**. JPA 애너테이션은 **use-site 타깃 없이**(`@Id`/`@Column`, `@field:` 불필요 — field-only 타깃이라 자동으로 field 에 적용) 단다.
+- **JPA 엔티티 작성 (고정).** 모든 JPA 영속 코드(엔티티·Spring Data Repository·adapter)는 **`:meogo-api:persistence` 모듈에 모은다** — 도메인 모듈은 ORM-free 로 두고(JPA·Spring Data 미포함), persistence 가 각 도메인을 `implementation` 으로 의존해 port 를 구현한다. 엔티티는 컨텍스트별 `com.meogo.api.persistence.<도메인>` 패키지에 둔다(예: `com.meogo.api.persistence.scan`). **모든 엔티티는 `com.meogo.api.persistence.BaseEntity`(`@MappedSuperclass`)를 상속**한다 — `id`(IDENTITY)·`status`(`EntityStatus` ACTIVE/DELETED 소프트삭제, `active()/isActive()/delete()/isDeleted()`)·`createdAt`(`@CreationTimestamp`)·`updatedAt`(`@UpdateTimestamp`)를 공통 제공하므로 엔티티엔 **자체 id·생성/수정 시각을 두지 않는다**(도메인 고유 상태가 따로 있으면 `status` 와 컬럼명이 겹치지 않게 분리 — 예: scan 의 `scan_status`). BaseEntity·EntityStatus 가 모두 persistence 모듈 안에 있어 단일 모듈로 공유된다(모든 엔티티가 동일 모듈에서 상속). `kotlin-jpa`(no-arg) 플러그인이 persistence 에 적용되므로 **프로퍼티 기본값으로 no-arg 를 흉내내지 않아도 된다**. JPA 애너테이션은 **use-site 타깃 없이**(`@Id`/`@Column`, `@field:` 불필요 — field-only 타깃이라 자동으로 field 에 적용) 단다.
   - **컬럼 정의는 MySQL 기준으로 고정한다 (H2 호환은 고려하지 않는다).** 문자열 컬럼은 `@Column(length = N)` 으로 길이를 명시하고(예: `length = 20`), 길이 없는 `columnDefinition = "VARCHAR"` 같은 비-MySQL 형식은 쓰지 않는다. 엔티티 컬럼 길이는 Flyway 마이그레이션과 일치시킨다.
   - **소프트 삭제는 BaseEntity 가 `@SQLRestriction("status = 'ACTIVE'")` 로 상시 적용**한다(@MappedSuperclass 에서 전 엔티티로 상속). 따라서 모든 조회는 자동으로 `ACTIVE` 만 본다 — 리포지토리 쿼리에 별도 status 조건을 달지 않는다. 삭제는 row 제거가 아니라 `BaseEntity.delete()`(status=DELETED).
 - **도메인 ↔ JPA 변환·도메인 불변 (고정).** 도메인 객체와 JPA 엔티티를 변환하는 메서드는 **JPA 엔티티 안에** 둔다 — 도메인 복원 `fun toDomain(): Domain` + `companion object { fun from(domain): Entity }`. 별도 `*Mapper` 클래스나 adapter 확장함수로 흩지 않으며, `RepositoryAdapter` 는 `Entity.from(...)`·`entity.toDomain()` 만 호출한다(도메인 클래스는 JPA 를 import 하지 않는다). **도메인 객체는 불변** — 모든 상태는 `val` 이고, 상태 변경 메서드는 변형 대신 **새 인스턴스를 반환**한다. 데이터 클래스 public `copy` 노출 대신 **`private fun copy(...)`** 를 직접 두어 통제된 복제만 허용한다. (상세·예시: [`docs/architecture/meogo-conventions.md`](docs/architecture/meogo-conventions.md) "도메인 객체 불변성 & 영속 변환".)

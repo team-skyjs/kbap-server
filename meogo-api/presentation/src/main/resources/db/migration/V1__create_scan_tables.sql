@@ -18,7 +18,6 @@ CREATE TABLE scanned_menu_item (
     bbox_y          DOUBLE       NOT NULL,
     bbox_width      DOUBLE       NOT NULL,
     bbox_height     DOUBLE       NOT NULL,
-    received_order  INT          NOT NULL,
     risk_level      VARCHAR(10)  NOT NULL,              -- mock 판정 스냅샷
     reason          VARCHAR(500) NOT NULL,
     status          VARCHAR(20)  NOT NULL,              -- EntityStatus: ACTIVE/DELETED

@@ -4,9 +4,9 @@
 
 ## R1. 포함 비율 모델 — 연속 % vs 0/1/2 스코어
 
-- **Decision**: `FoodIngredient.inclusionPercent`를 **연속 정수 퍼센티지(0~100)**로 모델링한다. `food.md`의 `0/1/2` 스코어 표기는 **연속 %로 대체**하며, 도메인 문서(`docs/architecture/domains/food.md`) 갱신은 **비차단 follow-up**으로 남긴다.
-- **Rationale**: 실제 제품 UI가 `~50%`·`~100%`·`~85%` 같은 연속값을 직접 노출한다(스크린샷 근거). UI가 진실의 원천이며, 0/1/2 버킷으로는 표현이 손실된다.
-- **Alternatives**: ① 0/1/2 유지 + 표시용 매핑(50/100%) — 버킷이 거칠어 UI 불일치. ② enum + 별도 % — 이중 소스, 불일치 위험. 기각.
+- **Decision**(clarify 2026-06-28 갱신): `FoodIngredient.inclusionPercent`를 **연속 정수 퍼센티지(0~100)**로 모델링한다 — 여러 레시피 조회 시 해당 재료가 포함되는 확률/정도(UI `~50%` 원천). `food.md`의 `0/1/2`는 **이 퍼센티지와 별개 개념**으로, 후속에 LLM이 레시피를 찾아 매기는 **per-recipe 스코어링 입력값**이며 퍼센티지 산출에 쓰인다(이번 범위 밖). 따라서 '대체'가 아니라 `food.md`에서 `0/1/2`를 '퍼센티지 산출용 스코어'로 위치시켜 정리한다.
+- **Rationale**: 실제 제품 UI가 `~50%`·`~100%`·`~85%` 연속값을 직접 노출(스크린샷 근거)하므로 저장·표시값은 연속 %다. `0/1/2`는 산출 파이프라인 내부값이라 표시 모델과 층위가 다르다.
+- **Alternatives**: ① `0/1/2`를 표시값으로 — 버킷이 거칠어 UI 불일치. ② enum + 별도 % 동시 노출 — 이중 소스. 기각(표시는 %, `0/1/2`는 산출 입력으로 분리).
 
 ## R2. mock 위험도 순환 — 위치와 형태
 
@@ -48,28 +48,28 @@
 
 ## R8. 입력 검증 전략(400 처리)
 
-- **Decision**: Bean Validation(`spring-boot-starter-validation`)을 1차로 쓰고, **리스트 교차 제약(itemId 중복)은 유스케이스/전용 검증에서 명시 검사** 후 예외 → `GlobalExceptionHandler`가 400 `ApiResponse.fail(...)`로 매핑.
+- **Decision**: Bean Validation(`spring-boot-starter-validation`)을 1차로 쓰고, **리스트 교차 제약(itemId 중복)은 유스케이스/전용 검증에서 명시 검사** 후 예외 → `GlobalExceptionHandler`가 400 `BaseResponse.fail(...)`로 매핑.
   - `items`: `@field:NotEmpty` + `@field:Size(max=100)`
   - `itemId`: `@field:NotNull`(Int) + 중복은 수동 검사
   - `rawMenuName`: `@field:NotBlank`
   - `boundingBox`: `@field:NotNull` + `@field:Valid`; 내부 `width`/`height` `@field:Positive`, `x`/`y` `@field:PositiveOrZero`, **상한 1.0은 `@field:DecimalMax("1.0")`**. 교차 제약 **`x+width≤1`·`y+height≤1`은 단일 필드로 표현 불가** → BoundingBox DTO에 `@AssertTrue` 검증 메서드(또는 클래스 레벨 커스텀 validator)로 처리. 도메인 `BoundingBox` VO 생성자에서도 동일 불변식을 재검증(이중 방어).
   - `menuName`(API 2): `@field:NotBlank`(쿼리 파라미터) → 누락/blank 400
-- **Rationale**: 선언적 검증으로 대부분 커버, Bean Validation이 못 하는 컬렉션 유일성만 코드로. 예외→핸들러 일원화로 400/404 응답 형식을 `ApiResponse`로 통일.
+- **Rationale**: 선언적 검증으로 대부분 커버, Bean Validation이 못 하는 컬렉션 유일성만 코드로. 예외→핸들러 일원화로 400 응답 형식을 `BaseResponse`로 통일.
 - **Alternatives**: 전부 수동 검사 — 보일러플레이트. 전부 어노테이션 — 중복 검사 불가. 혼합 채택.
 
-## R9. 404 표현(음식 없음)
+## R9. 미수록 음식 표현 (400)
 
-- **Decision**: `GetFoodDetailUseCase`가 미발견 시 `FoodNotFoundException`을 던지고, `GlobalExceptionHandler`가 **HTTP 404 + `ApiResponse.fail("해당 음식 정보 없음")`**으로 매핑. menuName 누락/blank는 검증 단계에서 **400 + `ApiResponse.fail("menuName은 필수입니다")`**.
-- **Rationale**: spec #3 확정. "리소스 없음"의 표준 시맨틱(404)과 "잘못된 요청"(400)을 분리. 봉투는 항상 `ApiResponse`.
-- **Alternatives**: 200 + `success=false`(빈 data) — HTTP 시맨틱 약화, 클라 분기 어려움. 기각.
+- **Decision**(clarify 2026-06-28; 이전 404 대체): `GetFoodDetailUseCase`가 미발견 시 예외를 던지고, `GlobalExceptionHandler`가 **HTTP 400 + `BaseResponse.fail("해당 음식 정보 없음")`**으로 매핑. menuName 누락/blank도 검증 단계에서 **400 + `BaseResponse.fail("menuName은 필수입니다")`**(메시지로 구분). 현 핸들러가 `IllegalArgumentException`→400 매핑하므로 이를 재사용하거나 400 매핑 전용 예외를 둔다.
+- **Rationale**: 제품 정책상 '미수록 메뉴 상세 요청'을 잘못된 요청으로 취급한다(스캔에서 미수록 메뉴는 UNKNOWN으로 거르고, 상세를 직접 조회하는 건 비정상 경로). REST 정석 404보다 제품 의미 우선. real 미스 파이프라인(UNKNOWN + research 대기열)은 다음 사이클(ADR-0003/0004).
+- **Alternatives**: ① 404(리소스 없음) — REST 정석이나 제품 흐름상 미수록 상세 직접 조회를 정상 취급하게 됨. 기각. ② 200 + `success=false` — HTTP 시맨틱 약화. 기각.
 
 ## R10. 테스트 전략(헌법 I)
 
 - **Decision**: 계층별 테스트를 **실패 먼저** 작성.
   - 도메인 단위: `BoundingBox` 검증, `MenuScan` 조립 불변식 — 순수 Kotlin/Kotest.
   - mock 판정 단위: `MockCyclingRiskAssessor`의 index%4 순환, `MockIngredientRiskMarker`.
-  - 영속: `MenuScanRepositoryAdapter`·`FoodRepositoryAdapter` — H2(`@DataJpaTest` 또는 슬라이스), 저장/조회 검증(SC-006).
-  - web 계약: `MenuScanController`·`FoodDetailController` — MockMvc로 200/400/404 + `ApiResponse` 형태·itemId 매칭·4단계 분포 검증.
+  - 영속: `MenuScanRepositoryAdapter`·`FoodRepositoryAdapter`(`:meogo-api:persistence`) — H2 `@SpringBootTest`, 저장/조회 검증(SC-006).
+  - web 계약: `MenuScanController`·`FoodDetailController` — MockMvc로 200/400 + `BaseResponse` 형태·itemId 매칭·4단계 분포 검증.
   - seed 검증: V3 seed 음식이 조회되는지 통합 확인.
 - **Rationale**: 헌법 I(NON-NEGOTIABLE) + spec의 Independent Test/Success Criteria를 테스트로 직접 사상.
 - **Alternatives**: 통합 테스트만 — 빠른 피드백·경계 검증 약화. 단위만 — 계약/저장 미검증. 피라미드 혼합 채택.
@@ -90,6 +90,6 @@
 
 ## 후속(이번 범위 밖) 메모
 
-- `docs/architecture/domains/food.md`의 포함도 `0/1/2` → 연속 % 문서 갱신(ADR 또는 doc edit).
+- `docs/architecture/domains/food.md`의 `0/1/2`를 '퍼센티지 산출용 후속 LLM per-recipe 스코어링 입력값'으로 위치 정리(표시·저장값은 연속 %, 둘은 별개 개념 — doc edit).
 - 헌법 원칙 V(한·영만) ↔ ADR-0003(9개국어) 정합 — 9개국어 기능 착수 시 헌법 개정 선행.
 - ArchUnit 경계 강제 테스트 일괄 도입(별도 기능).

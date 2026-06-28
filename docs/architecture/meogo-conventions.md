@@ -11,7 +11,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 ## DDD 정의
 
 - **Bounded Context** — `meogo-api` 컨테이너 직속의 **Gradle subproject + 패키지 경계**로 둔다(평탄화 — `:meogo-api:food` 등). Active BC는 `food`, `member`, `scan`, `assessment`, `research` 5개 ([`domains/README.md`](./domains/README.md)). `research`는 미스 메뉴 조사·종합 파이프라인(배치 전용, [ADR-0004](../adr/0004-research-bounded-context.md)). `review` subproject는 제품 기획 흔적을 보존한 placeholder이며, 현재 도메인 설계·초기 구현 범위에서는 제외한다.
-- **Aggregate** — Aggregate Root를 통해서만 내부 상태를 변경한다. `Food`와 `Ingredient`는 같은 BC라도 같은 Aggregate가 아니다(관계는 `FoodIngredient`가 `ingredientId`로 참조).
+- **Aggregate** — Aggregate Root를 통해서만 내부 상태를 변경한다. `Food`와 `Ingredient`는 같은 BC라도 같은 Aggregate가 아니다(관계는 `FoodIngredient`가 `ingredientId`로 참조). **Aggregate Root는 `@com.meogo.api.core.stereotype.AggregateRoot`로 표시한다** — 도메인 객체 마커일 뿐 Spring 빈이 아니므로 `@DomainService`와 달리 `@Component`를 붙이지 않는다(컴포넌트 스캔 대상 아님). 현재 표시 대상: `MenuScan`(scan), `Food`·`Ingredient`(food). 경계는 추후 ArchUnit으로 강제한다.
 - **Entity / Value Object** — 다른 Aggregate·Context의 객체 전체를 직접 들지 않는다. **ID·코드·스냅샷 값**으로 참조한다.
 - **스냅샷** — 시간이 지나면 원본이 바뀌는 값(스캔 당시 위험도·매핑 음식명·종합 재료 정보)은 스냅샷으로 보존한다. 최신 판정은 필요 시 재계산한다. 과거 결과를 현재 데이터 변경에 맞춰 덮어쓰지 않는다.
 - **Domain Event vs Integration Event** — **in-process 도메인 이벤트**(api 내부, 컨텍스트 간)의 의미/이름/payload 계약은 `:meogo-api:core` 또는 도메인 모듈(도메인 언어)에 둔다. **브로커를 타고 다른 앱(예: 알림 컨슈머)이 받는 통합 이벤트**는 `meogo-common`에 두고, 도메인 타입을 참조하지 않는 평면 값(ID·코드·스냅샷)만 담는다. 브로커(Kafka/RabbitMQ/SQS) 연결·직렬화·retry·DLQ 같은 기술 구현은 `:meogo-api:infra`에 둔다.

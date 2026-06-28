@@ -1,5 +1,6 @@
-// meogo-api:core — 공통 타입·예외·이벤트 계약·유틸, 외부 client port 인터페이스.
-// Spring-free: kotlin-common 컨벤션만 적용한다(kotlin-spring/BOM 없음). 별도 의존성 없음.
+// meogo-api:core — 공통 타입·예외·이벤트 계약·유틸·도메인 stereotype, 외부 client port 인터페이스.
+// 순수 Spring-free 커널이다. 빈 등록용 stereotype(@Component 계열)은 두지 않는다 —
+// 빈으로 쓸 서비스/정책은 조립·유스케이스 계층(:meogo-api:application)에 둔다.
 plugins {
     id("meogo.kotlin-common")
 }

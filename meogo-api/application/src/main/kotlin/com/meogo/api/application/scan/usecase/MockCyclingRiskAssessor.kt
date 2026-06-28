@@ -1,12 +1,12 @@
-package com.meogo.api.application.scan
+package com.meogo.api.application.scan.usecase
 
 import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.scan.MenuItemAssessment
 import org.springframework.stereotype.Component
 
 @Component
-class MockCyclingRiskAssessor : MenuItemRiskAssessor {
-    override fun assess(index: Int, rawMenuName: String): MenuItemAssessment {
+class MockCyclingRiskAssessor {
+    fun assess(index: Int, rawMenuName: String): MenuItemAssessment {
         val level = LEVELS[index % LEVELS.size]
         return MenuItemAssessment(riskLevel = level, reason = REASONS.getValue(level))
     }
