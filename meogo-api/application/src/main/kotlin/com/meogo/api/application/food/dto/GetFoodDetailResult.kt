@@ -1,4 +1,4 @@
-package com.meogo.api.application.food
+package com.meogo.api.application.food.dto
 
 import com.meogo.api.core.risk.RiskLevel
 

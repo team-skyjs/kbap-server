@@ -1,4 +1,4 @@
-package com.meogo.api.application.food
+package com.meogo.api.application.food.dto
 
 data class GetFoodDetailInput(
     val menuName: String,

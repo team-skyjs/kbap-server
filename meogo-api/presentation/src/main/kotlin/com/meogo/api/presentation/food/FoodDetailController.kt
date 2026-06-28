@@ -1,7 +1,7 @@
 package com.meogo.api.presentation.food
 
-import com.meogo.api.application.food.GetFoodDetailInput
-import com.meogo.api.application.food.GetFoodDetailUseCase
+import com.meogo.api.application.food.dto.GetFoodDetailInput
+import com.meogo.api.application.food.usecase.GetFoodDetailUseCase
 import com.meogo.api.presentation.common.ApiPaths
 import com.meogo.api.presentation.common.BaseResponse
 import org.springframework.http.ResponseEntity

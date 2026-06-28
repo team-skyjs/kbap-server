@@ -1,25 +1,24 @@
-package com.meogo.api.application.food
+package com.meogo.api.application.food.usecase
 
+import com.meogo.api.application.food.dto.GetFoodDetailInput
 import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.food.Food
 import com.meogo.api.food.FoodIngredient
 import com.meogo.api.food.FoodRepository
 import com.meogo.api.food.Ingredient
 import com.meogo.api.food.LanguageCode
-import com.meogo.api.food.LanguageResolver
-import com.meogo.api.food.MockIngredientRiskMarker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class GetFoodDetailUseCaseTest : BehaviorSpec({
-    val doenjangStew = Food(
+    val doenjangStew = Food.reconstitute(
         id = 1,
         koreanName = "된장찌개",
         imageRef = "doenjang.png",
         ingredients = listOf(
-            FoodIngredient(ingredient = Ingredient(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90),
-            FoodIngredient(ingredient = Ingredient(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100),
+            FoodIngredient(ingredient = Ingredient.reconstitute(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90),
+            FoodIngredient(ingredient = Ingredient.reconstitute(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100),
         ),
     )
 

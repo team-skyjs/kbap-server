@@ -1,4 +1,4 @@
-package com.meogo.api.application.scan
+package com.meogo.api.application.scan.dto
 
 import com.meogo.api.scan.MenuScan
 

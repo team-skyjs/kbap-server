@@ -1,6 +1,6 @@
 package com.meogo.api.presentation.scan
 
-import com.meogo.api.application.scan.SubmitMenuScanResult
+import com.meogo.api.application.scan.dto.SubmitMenuScanResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "메뉴 스캔 판정 결과 — scanId 와 itemId 로 매칭되는 항목별 위험도")

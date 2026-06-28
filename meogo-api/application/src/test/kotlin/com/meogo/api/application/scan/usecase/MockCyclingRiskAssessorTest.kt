@@ -1,4 +1,4 @@
-package com.meogo.api.application.scan
+package com.meogo.api.application.scan.usecase
 
 import com.meogo.api.core.risk.RiskLevel
 import io.kotest.core.spec.style.BehaviorSpec

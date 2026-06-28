@@ -1,6 +1,6 @@
 package com.meogo.api.presentation.food
 
-import com.meogo.api.application.food.GetFoodDetailResult
+import com.meogo.api.application.food.dto.GetFoodDetailResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "음식 상세 — 요청 언어 음식명·대표 이미지·재료 목록")
