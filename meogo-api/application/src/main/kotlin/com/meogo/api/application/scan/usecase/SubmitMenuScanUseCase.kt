@@ -1,5 +1,7 @@
-package com.meogo.api.application.scan
+package com.meogo.api.application.scan.usecase
 
+import com.meogo.api.application.scan.dto.SubmitMenuScanInput
+import com.meogo.api.application.scan.dto.SubmitMenuScanResult
 import com.meogo.api.scan.BoundingBox
 import com.meogo.api.scan.MenuScan
 import com.meogo.api.scan.MenuScanRepository
@@ -10,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class SubmitMenuScanUseCase(
     private val menuScanRepository: MenuScanRepository,
-    private val riskAssessor: MenuItemRiskAssessor,
+    private val riskAssessor: MockCyclingRiskAssessor,
 ) {
     @Transactional
     fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {

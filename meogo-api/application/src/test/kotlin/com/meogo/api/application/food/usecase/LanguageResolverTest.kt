@@ -1,5 +1,6 @@
-package com.meogo.api.food
+package com.meogo.api.application.food.usecase
 
+import com.meogo.api.food.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 

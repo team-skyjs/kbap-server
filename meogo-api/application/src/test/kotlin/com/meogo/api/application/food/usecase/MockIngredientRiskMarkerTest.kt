@@ -1,6 +1,7 @@
-package com.meogo.api.food
+package com.meogo.api.application.food.usecase
 
 import com.meogo.api.core.risk.RiskLevel
+import com.meogo.api.food.Ingredient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -8,7 +9,7 @@ class MockIngredientRiskMarkerTest : BehaviorSpec({
     val marker = MockIngredientRiskMarker()
 
     fun ingredient(id: Long, koreanName: String) =
-        Ingredient(id = id, koreanName = koreanName, iconRef = null)
+        Ingredient.reconstitute(id = id, koreanName = koreanName, iconRef = null)
 
     given("MockIngredientRiskMarker 재료 위험 표시") {
         `when`("재료 목록이 주어지면") {

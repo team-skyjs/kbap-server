@@ -1,10 +1,10 @@
-package com.meogo.api.application.food
+package com.meogo.api.application.food.usecase
 
+import com.meogo.api.application.food.dto.GetFoodDetailInput
+import com.meogo.api.application.food.dto.GetFoodDetailResult
 import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.food.FoodRepository
-import com.meogo.api.food.IngredientRiskMarker
 import com.meogo.api.food.LanguageCode
-import com.meogo.api.food.LanguageResolver
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetFoodDetailUseCase(
     private val foodRepository: FoodRepository,
     private val languageResolver: LanguageResolver,
-    private val ingredientRiskMarker: IngredientRiskMarker,
+    private val ingredientRiskMarker: MockIngredientRiskMarker,
 ) {
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
