@@ -5,8 +5,10 @@ import com.meogo.api.core.stereotype.DomainService
 
 @DomainService
 class MockIngredientRiskMarker : IngredientRiskMarker {
-    override fun mark(ingredients: List<Ingredient>): List<RiskLevel> =
-        ingredients.mapIndexed { index, _ ->
-            if (index == 0) RiskLevel.CAUTION else RiskLevel.SAFE
-        }
+    override fun mark(ingredients: List<Ingredient>): Map<Long, RiskLevel> =
+        ingredients.mapIndexedNotNull { index, ingredient ->
+            ingredient.id?.let { id ->
+                id to if (index == 0) RiskLevel.CAUTION else RiskLevel.SAFE
+            }
+        }.toMap()
 }

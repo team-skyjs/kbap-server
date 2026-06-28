@@ -9,4 +9,7 @@ data class Food(
     init {
         require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
     }
+
+    fun ingredientsByInclusion(): List<FoodIngredient> =
+        ingredients.sortedByDescending { it.inclusionPercent }
 }

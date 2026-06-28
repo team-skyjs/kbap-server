@@ -1,5 +1,6 @@
 package com.meogo.api.application.food
 
+import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.food.FoodRepository
 import com.meogo.api.food.IngredientRiskMarker
 import com.meogo.api.food.LanguageCode
@@ -19,19 +20,19 @@ class GetFoodDetailUseCase(
         val food = foodRepository.findByKoreanName(input.menuName.trim())
             ?: throw IllegalArgumentException("해당 음식 정보 없음")
 
-        val orderedIngredients = food.ingredients.sortedByDescending { it.inclusionPercent }
+        val orderedIngredients = food.ingredientsByInclusion()
 
         val foodName = resolveFoodName(food.id, food.koreanName, lang)
         val ingredientNames = resolveIngredientNames(orderedIngredients.mapNotNull { it.ingredient.id }, lang)
 
         val risks = ingredientRiskMarker.mark(orderedIngredients.map { it.ingredient })
-        val ingredients = orderedIngredients.mapIndexed { index, foodIngredient ->
+        val ingredients = orderedIngredients.map { foodIngredient ->
             val ingredient = foodIngredient.ingredient
             GetFoodDetailResult.IngredientView(
                 name = ingredientNames[ingredient.id] ?: ingredient.koreanName,
                 iconRef = ingredient.iconRef,
                 inclusionPercent = foodIngredient.inclusionPercent,
-                riskStatus = risks[index],
+                riskStatus = risks[ingredient.id] ?: RiskLevel.SAFE,
             )
         }
 
