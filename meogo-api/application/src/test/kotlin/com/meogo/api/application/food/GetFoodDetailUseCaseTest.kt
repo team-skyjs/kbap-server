@@ -6,6 +6,8 @@ import com.meogo.api.food.FoodIngredient
 import com.meogo.api.food.FoodRepository
 import com.meogo.api.food.Ingredient
 import com.meogo.api.food.LanguageCode
+import com.meogo.api.food.LanguageResolver
+import com.meogo.api.food.MockIngredientRiskMarker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

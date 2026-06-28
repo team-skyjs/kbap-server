@@ -1,7 +1,9 @@
 package com.meogo.api.application.food
 
 import com.meogo.api.food.FoodRepository
+import com.meogo.api.food.IngredientRiskMarker
 import com.meogo.api.food.LanguageCode
+import com.meogo.api.food.LanguageResolver
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

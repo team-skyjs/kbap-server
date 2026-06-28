@@ -1,10 +1,9 @@
-package com.meogo.api.application.food
+package com.meogo.api.food
 
 import com.meogo.api.core.risk.RiskLevel
-import com.meogo.api.food.Ingredient
-import org.springframework.stereotype.Component
+import com.meogo.api.core.stereotype.DomainService
 
-@Component
+@DomainService
 class MockIngredientRiskMarker : IngredientRiskMarker {
     override fun mark(ingredients: List<Ingredient>): List<RiskLevel> =
         ingredients.mapIndexed { index, _ ->

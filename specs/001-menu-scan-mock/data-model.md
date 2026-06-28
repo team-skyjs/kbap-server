@@ -131,7 +131,7 @@ CREATE TABLE scanned_menu_item (
 | ingredient | Ingredient | 연결된 **공유** 재료(영속: `@ManyToOne`, **cascade 없음**) |
 | inclusionPercent | Int | **0~100 연속 비율** — 여러 레시피 기준 포함 확률(UI `~50%` 원천). **응답 정렬 기준** — 서비스단에서 이 값 내림차순으로 정렬해 반환(저장된 표시 순서 컬럼 없음). |
 - `(food_id, ingredient_id)` 는 **unique**(같은 음식에 같은 재료 중복 금지).
-- `riskStatus`는 **저장하지 않음** — application `IngredientRiskMarker`(mock)가 4단계 `RiskLevel` 로 부여.
+- `riskStatus`는 **저장하지 않음** — food 도메인 서비스 `IngredientRiskMarker`(`@DomainService`, mock)가 4단계 `RiskLevel` 로 부여.
 - `0/1/2` 스코어는 본 필드와 **별개**(후속 LLM per-recipe 스코어링 입력값, 이번 범위 밖).
 
 ### LanguageCode (enum) — `ko` + 9개(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`)
@@ -231,8 +231,8 @@ CREATE TABLE food_ingredient (
 ### food *(신규)*
 - `GetFoodDetailInput`: `menuName: String`, `lang: String?`(미지정/미지원 → ko 폴백)  ※ `Query` 아님
 - `GetFoodDetailResult`: `name`(요청 언어), `imageRef`, `ingredients: List<IngredientView>` — IngredientView(`name`(요청 언어), iconRef, inclusionPercent, riskStatus: RiskLevel)
-- `LanguageResolver`(seam): `lang` → 지원 `LanguageCode` 또는 `ko`(폴백). 향후 회원 언어 출처로 교체될 지점(R7).
-- `IngredientRiskMarker`(seam): `mark(ingredients: List<Ingredient>) -> List<RiskLevel>`(평행 리스트); 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE)
+- `LanguageResolver`(food 도메인 서비스, `@DomainService` seam): `lang` → 지원 `LanguageCode` 또는 `ko`(폴백). 향후 회원 언어 출처로 교체될 지점(R7). *(application 아닌 `:meogo-api:food` 거주 — 유스케이스가 조합)*
+- `IngredientRiskMarker`(food 도메인 서비스, `@DomainService` seam): `mark(ingredients: List<Ingredient>) -> List<RiskLevel>`(평행 리스트); 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE). *(application 아닌 `:meogo-api:food` 거주)*
 - **미수록 메뉴 처리**: `findByKoreanName` 가 null 이면 유스케이스가 예외를 던지고 `GlobalExceptionHandler`가 **400 + `BaseResponse.fail("해당 음식 정보 없음")`** 로 매핑(clarify 2026-06-28; 이전 404 대체). `IllegalArgumentException`(현 핸들러가 400 매핑) 또는 400 매핑 전용 예외 사용.
 
 ---
