@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 하네스: SpecKit·TDD 개발 팀
+
+**목표:** 헌법 원칙 I(Test-First)을 강제하며 test-writer→implementer→(code-reviewer∥database-expert) 에이전트 팀으로 task 를 Red→Green→Refactor→리뷰까지 구동한다.
+
+**트리거:** 기능/task 를 TDD 로 구현하거나(예: "TDD 로 구현해", "tasks.md 진행", "US2 구현", "테스트부터 짜고 구현"), 구현 결과를 검토/재실행/부분 보완할 때 `tdd-harness-orchestrator` 스킬을 사용하라. 단순 질문·단발 수정은 직접 응답 가능. (에이전트: `.claude/agents/`, 스킬: `.claude/skills/`.)
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-06-28 | 초기 구성 — test-writer·implementer·code-reviewer·database-expert 4에이전트 + 5스킬(역할 4 + 오케스트레이터 1) | 전체 | SpecKit·TDD 역할 분담 자동화 요청 |
+
 ## 개요
 
 `meogo/meogo-server` — Kotlin으로 작성된 Spring Boot 백엔드. Gradle 멀티모듈 구조다. **실행 가능한 bootJar 는 두 개** — `:meogo-api:presentation`(web, 진입점 `com.meogo.api.MeogoApiApplication`)와 `:meogo-batch`(배치, 진입점 `com.meogo.batch.MeogoBatchApplication`)다. `meogo-api`는 **컨테이너 폴더**이고 그 안에 web(`presentation`)/`application`/`infra`/`core` + 도메인 컨텍스트(`food`/`member`/`scan`/`assessment`/`research`, deferred placeholder `review`) leaf 모듈이 **평탄하게**(`meogo-domain` 중첩 없이) 들어간다. `meogo-batch`는 **meogo-api 내부 모듈에 일절 의존하지 않는 디커플드 위성 앱**으로, `:meogo-common`의 통합 이벤트(브로커)로만 meogo-api 와 소통한다(특히 `research` 미스 메뉴 조사·종합을 하루 1회 트리거 — ADR-0003·0004; in-process 호출이 아니라 이벤트 기반). `meogo-common`은 두 앱이 공유하는 통합 이벤트·DTO·기술 공통 모듈이다. 공통 빌드 설정은 `buildSrc` 컨벤션 플러그인에 둔다. 아직 비즈니스 코드는 거의 비어 있는 스캐폴드 상태다.
