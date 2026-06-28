@@ -19,3 +19,4 @@
 | [0004](./0004-research-bounded-context.md) | research 바운디드 컨텍스트 신설 — 미스 메뉴 조사·종합, 배치 트리거 | Accepted | 2026-06-27 | ADR-0003 · ADR-0001 |
 | [0005](./0005-unified-api-package-and-presentation-rename.md) | meogo-api 패키지 규약 통일(`com.meogo.api.<모듈명>`) + web `api`→`presentation` 리네임 | Accepted | 2026-06-27 | specs/001 · ADR-0001 |
 | [0006](./0006-central-persistence-adapter-and-decoupled-batch.md) | 중앙 영속 어댑터 모듈(`:meogo-api:persistence`) 채택 + `meogo-batch` 완전 디커플드 | Accepted | 2026-06-28 | specs/001 · ADR-0001(supersede 일부) · ADR-0003 · ADR-0004 |
+| [0007](./0007-git-branch-strategy.md) | Git 브랜치 전략 — develop+main 채택, github-flow→git-flow 점진 확장 | Accepted | 2026-06-28 | specs/001 · ADR-0001 · git-branch-strategy |

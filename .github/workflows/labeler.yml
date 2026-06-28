@@ -1,0 +1,19 @@
+name: Pull Request Labeler
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Label the PR
+        id: label-the-PR
+        uses: actions/labeler@v6
+        with:
+          repo-token: '${{ secrets.GITHUB_TOKEN }}'
