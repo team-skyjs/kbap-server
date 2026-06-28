@@ -101,44 +101,47 @@ CREATE TABLE scanned_menu_item (
 
 ## food 컨텍스트 (`:meogo-api:food`) — 순수 도메인 *(US2, 신규)*
 
-> **다국어**: 음식명·재료명은 `ko` 원문 + 9개 대상 언어 번역본 보유(헌법 V·ADR-0003). `ko` 원문은 본 테이블 컬럼(매칭 키), 9개 번역은 별도 translation 테이블. 조회 시 요청 언어 값 선택, 없으면 `ko` 폴백. `LanguageCode`: `ko`+9개.
+> **다국어**: 음식명·재료명은 `ko` 원문 + 9개 대상 언어 번역본 보유(헌법 V·ADR-0003). `ko` 원문은 본 테이블 컬럼(매칭 키), 9개 번역은 별도 translation 테이블(`ko` 는 번역 테이블에 **저장하지 않는다**). `LanguageCode`: `ko`+9개.
+>
+> **읽기 모델(2026-06-28 리팩터)**: 도메인은 **구조만**(음식·재료·관계) 복원하고 **번역 맵을 들지 않는다**. 조회 시 ① `Food`+`Ingredient` 구조를 fetch join 으로 복원하고, ② **요청 언어 번역만** 별도 쿼리로 읽은 뒤, ③ **application service 에서 `ko` 폴백·응답 조립**을 한다(전 언어 번역을 한 쿼리로 fetch join 하던 row 폭증 제거 — [[food-translation-read-model]]).
 
-### Food (Aggregate Root)
+### Food (Aggregate Root) — 구조만
 | 필드 | 타입 | 규칙 |
 |------|------|------|
 | id | Long? | PK |
 | koreanName | String | blank 불가, `ko` 원문 = **조회 매칭 키** |
-| names | Map\<LanguageCode, String\> | 9개 대상 언어 번역(부분 가능) |
 | imageRef | String? | 대표 이미지 참조(언어 무관) |
 | ingredients | List\<FoodIngredient\> | 0..N(빈 배열 허용) |
 
-- `nameFor(lang)`: `lang==ko` 또는 미지원/번역 없음 → `koreanName`, 아니면 `names[lang]`.
+- **`names` 맵·`nameFor()` 없음** — 언어별 이름 선택·폴백은 application service 가 요청 언어 번역 조회 결과로 수행.
 - 조회: `koreanName` trim 후 exact match.
 
-### Ingredient (Entity)
+### Ingredient (Entity) — 공유 지식베이스
 | 필드 | 타입 | 규칙 |
 |------|------|------|
 | id | Long? | PK |
-| koreanName | String | blank 불가(`ko` 원문) |
-| names | Map\<LanguageCode, String\> | 9개 대상 언어 번역 |
+| koreanName | String | blank 불가(`ko` 원문), **unique** |
 | iconRef | String? | 표시 아이콘 참조 |
-- `nameFor(lang)`: Food 와 동일 폴백. 여러 음식에서 공유.
+- **`names` 맵·`nameFor()` 없음**(구조만). 여러 음식이 `ingredient_id` 로 **공유 참조** — 음식 저장 시 새로 만들지 않고 기존 재료를 참조한다(복제 금지).
 
 ### FoodIngredient (관계 Entity)
 | 필드 | 타입 | 규칙 |
 |------|------|------|
 | id | Long? | PK |
-| ingredient | Ingredient | 연결된 재료 |
+| ingredient | Ingredient | 연결된 **공유** 재료(영속: `@ManyToOne`, **cascade 없음**) |
 | inclusionPercent | Int | **0~100 연속 비율** — 여러 레시피 기준 포함 확률(UI `~50%` 원천) |
 | displayOrder | Int | 재료 표시 순서(안정 정렬용) |
+- `(food_id, ingredient_id)` 는 **unique**(같은 음식에 같은 재료 중복 금지).
 - `riskStatus`는 **저장하지 않음** — application `IngredientRiskMarker`(mock)가 4단계 `RiskLevel` 로 부여.
 - `0/1/2` 스코어는 본 필드와 **별개**(후속 LLM per-recipe 스코어링 입력값, 이번 범위 밖).
 
 ### LanguageCode (enum) — `ko` + 9개(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`)
-- 미지원/미지정은 `ko` 폴백.
+- `from(code)`: 미지원/미지정은 `ko` 폴백. **요청 lang 해석(`LanguageResolver`)에만** 사용 — DB 에 저장된 `lang_code` 를 enum 으로 되매핑하지 않는다(잘못된 코드가 조용히 `KO` 로 접히는 것 방지; 번역은 요청 lang 으로만 조회해 자연 배제).
 
 ### FoodRepository (도메인 port — 공개)
-- `fun findByKoreanName(name: String): Food?` (호출 전 trim; 음식+재료+번역을 **fetch join**으로 함께 로드 — LAZY 매핑이라 트랜잭션 밖 매핑 대비)
+- `fun findByKoreanName(name: String): Food?` — **구조만**(음식+재료) fetch join 복원. 호출 전 trim.
+- `fun findFoodNameTranslation(foodId: Long, lang: LanguageCode): String?` — 요청 언어 음식명 번역(없으면 null → app `ko` 폴백).
+- `fun findIngredientNameTranslations(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String>` — 요청 언어 재료명 번역(`ingredient_id → name`).
 
 ### 영속 스키마 — `V2__create_food_tables.sql`
 > 모든 테이블에 BaseEntity 공통 컬럼(`status`·`created_at`·`updated_at`) 포함.
@@ -155,7 +158,18 @@ CREATE TABLE food (
     UNIQUE KEY uq_food_korean_name (korean_name)
 );
 
-CREATE TABLE food_name_translation (                    -- 9개 대상 언어
+CREATE TABLE ingredient (                               -- 공유 지식베이스(여러 음식이 참조)
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    korean_name   VARCHAR(255) NOT NULL,               -- ko 원문
+    icon_ref      VARCHAR(500) NULL,
+    status        VARCHAR(20)  NOT NULL,
+    created_at    DATETIME(6)  NOT NULL,
+    updated_at    DATETIME(6)  NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_ingredient_korean_name (korean_name)  -- 공유 재료 매칭 키(복제 금지)
+);
+
+CREATE TABLE food_name_translation (                    -- 9개 대상 언어(ko 미저장)
     id        BIGINT      NOT NULL AUTO_INCREMENT,
     food_id   BIGINT      NOT NULL,
     lang_code VARCHAR(10) NOT NULL,                     -- zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es
@@ -165,20 +179,11 @@ CREATE TABLE food_name_translation (                    -- 9개 대상 언어
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_fnt_food FOREIGN KEY (food_id) REFERENCES food(id),
-    UNIQUE KEY uq_fnt (food_id, lang_code)
+    UNIQUE KEY uq_fnt (food_id, lang_code),
+    CONSTRAINT ck_fnt_lang CHECK (lang_code IN ('zh-Hans','en','ja','zh-Hant','vi','id','th','ru','es'))
 );
 
-CREATE TABLE ingredient (
-    id            BIGINT       NOT NULL AUTO_INCREMENT,
-    korean_name   VARCHAR(255) NOT NULL,               -- ko 원문
-    icon_ref      VARCHAR(500) NULL,
-    status        VARCHAR(20)  NOT NULL,
-    created_at    DATETIME(6)  NOT NULL,
-    updated_at    DATETIME(6)  NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE ingredient_name_translation (
+CREATE TABLE ingredient_name_translation (              -- ko 미저장
     id            BIGINT      NOT NULL AUTO_INCREMENT,
     ingredient_id BIGINT      NOT NULL,
     lang_code     VARCHAR(10) NOT NULL,
@@ -188,13 +193,14 @@ CREATE TABLE ingredient_name_translation (
     updated_at    DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_int_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredient(id),
-    UNIQUE KEY uq_int (ingredient_id, lang_code)
+    UNIQUE KEY uq_int (ingredient_id, lang_code),
+    CONSTRAINT ck_int_lang CHECK (lang_code IN ('zh-Hans','en','ja','zh-Hant','vi','id','th','ru','es'))
 );
 
 CREATE TABLE food_ingredient (
     id                BIGINT  NOT NULL AUTO_INCREMENT,
     food_id           BIGINT  NOT NULL,
-    ingredient_id     BIGINT  NOT NULL,
+    ingredient_id     BIGINT  NOT NULL,                 -- 기존 ingredient 참조(공유)
     inclusion_percent INT     NOT NULL,                 -- 0~100 (여러 레시피 기준 포함 확률)
     display_order     INT     NOT NULL,
     status            VARCHAR(20) NOT NULL,
@@ -202,15 +208,16 @@ CREATE TABLE food_ingredient (
     updated_at        DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_fi_food FOREIGN KEY (food_id) REFERENCES food(id),
-    CONSTRAINT fk_fi_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredient(id)
+    CONSTRAINT fk_fi_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredient(id),
+    UNIQUE KEY uq_food_ingredient (food_id, ingredient_id)
 );
 ```
 
-### Seed — `V3__seed_food_data.sql` (데모: 된장찌개 재현)
-- food: `된장찌개`(ko) + **9개 언어 번역**(food_name_translation): en `Doenjang Stew`, ja `テンジャンチゲ`, zh-Hans `大酱汤` …(9개 모두)
-- ingredient(ko) + 9개 번역: `바지락 조개`(en `Manila clam`…), `된장`, `두부`, `애호박`, `소고기`
-- food_ingredient(inclusion_percent): 바지락 50, 된장 100, 두부 90, 애호박 85, 소고기 40 (display_order 순)
-- **모든 seed 음식/재료는 9개 대상 언어 번역을 빠짐없이 포함**(헌법 V). seed 행은 `status='ACTIVE'`로 적재.
+### Seed — `V3__seed_food_data.sql` (데모: 대표 메뉴 10종)
+- food **10종**(된장찌개·김치찌개·비빔밥·불고기·삼겹살·떡볶이·김밥·잡채·순두부찌개·물냉면), 각 `ko` 원문 + 9개 언어 번역.
+- ingredient **30종(공유 풀, dedup)** — 두부·마늘·대파·계란 등은 여러 음식이 같은 `ingredient_id` 로 참조. 각 재료도 9개 언어 번역 보유.
+- food_ingredient: 음식별 3~6개 재료(inclusion_percent·display_order).
+- **모든 seed 음식/재료는 9개 대상 언어 번역을 빠짐없이 포함**(헌법 V). seed 행은 `status='ACTIVE'`, 명시 id 로 적재. MySQL 8.4 에서 제약·무결성 검증 완료.
 
 ---
 
@@ -227,7 +234,7 @@ CREATE TABLE food_ingredient (
 - `GetFoodDetailInput`: `menuName: String`, `lang: String?`(미지정/미지원 → ko 폴백)  ※ `Query` 아님
 - `GetFoodDetailResult`: `name`(요청 언어), `imageRef`, `ingredients: List<IngredientView>` — IngredientView(`name`(요청 언어), iconRef, inclusionPercent, riskStatus: RiskLevel)
 - `LanguageResolver`(seam): `lang` → 지원 `LanguageCode` 또는 `ko`(폴백). 향후 회원 언어 출처로 교체될 지점(R7).
-- `IngredientRiskMarker`(seam): `mark(ingredients) -> List<RiskLevel>`; 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE)
+- `IngredientRiskMarker`(seam): `mark(ingredients: List<Ingredient>) -> List<RiskLevel>`(평행 리스트); 구현 `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE)
 - **미수록 메뉴 처리**: `findByKoreanName` 가 null 이면 유스케이스가 예외를 던지고 `GlobalExceptionHandler`가 **400 + `BaseResponse.fail("해당 음식 정보 없음")`** 로 매핑(clarify 2026-06-28; 이전 404 대체). `IllegalArgumentException`(현 핸들러가 400 매핑) 또는 400 매핑 전용 예외 사용.
 
 ---
