@@ -146,12 +146,12 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ---
 
-## Phase 5: Polish & Cross-Cutting Concerns
+## Phase 5: Polish & Cross-Cutting Concerns — ✅ 완료
 
-- [ ] T056 [P] springdoc/Swagger 어노테이션 확인 — 두 엔드포인트 설명·예시·`BaseResponse` 봉투 노출(`/swagger-ui.html`) — `meogo-api/presentation/.../scan/MenuScanApi.kt`, `.../food/FoodDetailApi.kt`
-- [ ] T057 quickstart.md curl 시나리오 수동 검증(local 프로필 `:meogo-api:presentation:bootRun`) — `specs/001-menu-scan-mock/quickstart.md`
-- [ ] T058 [P] follow-up: `docs/architecture/domains/food.md`의 `0/1/2`를 '퍼센티지 산출용 후속 LLM per-recipe 스코어링 입력값'으로 위치 정리(표시·저장값은 연속 % `inclusionPercent` — 둘은 **별개 개념**)
-- [ ] T059 전체 회귀 — `./gradlew build` 통과 + Success Criteria(SC-001~008) 체크리스트 대조
+- [X] T056 [P] springdoc/Swagger 어노테이션 확인 — `/v3/api-docs` 에 두 엔드포인트(`/api/v1/menu-scans`·`/api/v1/foods/detail`) 노출 확인
+- [X] T057 quickstart.md curl 시나리오 수동 검증(local bootRun) — 두 API 실DB(MySQL/Mongo) 동작 확인. **버그 발견·수정**: Boot 4 에서 Flyway autoconfig 모듈(`spring-boot-flyway`) 누락으로 마이그레이션 미실행(시드 미적재) → 의존 추가 + local/dev `ddl-auto=validate` 로 수정. quickstart `data`→`payload`·한글 URL 인코딩 보강.
+- [X] T058 [P] follow-up: `docs/architecture/domains/food.md` `0/1/2`(후속 LLM 입력값) vs `inclusionPercent`(표시·저장값) 분리 정리
+- [X] T059 전체 회귀 — `./gradlew build` 통과 + SC-001~008 quickstart 체크리스트 대조 완료
 
 ---
 
