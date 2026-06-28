@@ -18,6 +18,8 @@ dependencies {
     "implementation"(libs.springdoc.openapi.starter.webmvc.ui)
 
     // DB 마이그레이션 — 스키마 owner 는 api. 마이그레이션 파일은 resources/db/migration.
+    // Boot 4 는 Flyway autoconfig 가 별도 모듈(spring-boot-flyway) — 없으면 마이그레이션이 자동 실행되지 않는다.
+    "implementation"(libs.spring.boot.flyway)
     "implementation"(libs.flyway.core)
     "runtimeOnly"(libs.flyway.mysql)
 
