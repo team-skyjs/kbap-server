@@ -93,7 +93,7 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ---
 
-## Phase 4: User Story 2 — 메뉴명으로 음식 상세 정보 조회 (P2) — ⬜ 잔여
+## Phase 4: User Story 2 — 메뉴명으로 음식 상세 정보 조회 (P2) — ✅ 완료
 
 **Goal**: `GET /api/v1/foods/detail?menuName=&lang=` — seed 음식 상세(요청 `lang` 음식명·대표 이미지·재료 목록[재료명·아이콘·포함%·mock `riskStatus`(4단계 `RiskLevel`)]) 반환. `lang` 미지원/미지정 → `ko` 폴백. **미수록 메뉴 → 400**, menuName 누락/blank → 400. 음식·재료명은 `ko` 원문 + 9개 대상 언어 저장(seed 보유).
 
@@ -101,46 +101,46 @@ description: "Task list — 메뉴 스캔 제출·판정 & 음식 상세 조회 
 
 ### Tests for US2 (먼저 작성, 반드시 FAIL 확인) ⚠️
 
-- [ ] T030 [P] [US2] `MockIngredientRiskMarkerTest`(첫 재료 CAUTION, 나머지 SAFE; 반환은 `RiskLevel`) — `meogo-api/application/src/test/kotlin/com/meogo/api/application/food/MockIngredientRiskMarkerTest.kt`
-- [ ] T031 [P] [US2] `LanguageResolverTest`(지원 코드 통과; 미지원/미지정/blank → `ko` 폴백) — `meogo-api/application/src/test/kotlin/com/meogo/api/application/food/LanguageResolverTest.kt`
-- [ ] T032 [P] [US2] 도메인 `FoodNameForTest`(`Food.nameFor`/`Ingredient.nameFor` — 번역 있으면 해당 언어, 없으면 `ko` 폴백) — `meogo-api/food/src/test/kotlin/com/meogo/api/food/FoodNameForTest.kt`
-- [ ] T033 [P] [US2] 영속 `FoodRepositoryAdapterTest`(H2 `@SpringBootTest`; `findByKoreanName` trim·9개 번역·재료 fetch join 로드·소프트삭제) — `meogo-api/persistence/src/test/kotlin/com/meogo/api/persistence/food/FoodRepositoryAdapterTest.kt` *(persistence 테스트 boot app 이 food 엔티티를 스캔하도록 구성)*
-- [ ] T034 [P] [US2] web 계약 `FoodDetailControllerTest`(MockMvc 200, `lang=en` 영어명 + 재료 %/riskStatus + trim, `payload` 봉투) — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailControllerTest.kt`
-- [ ] T035 [P] [US2] web `FoodDetailLangTest`(다국어 `lang=ja`; `lang=xx`/미지정 → `ko` 폴백 200) — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailLangTest.kt`
-- [ ] T036 [P] [US2] web `FoodDetailErrorTest`(미수록 메뉴 → **400** "해당 음식 정보 없음"; menuName 누락/blank → 400 "menuName은 필수입니다") — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailErrorTest.kt`
+- [X] T030 [P] [US2] `MockIngredientRiskMarkerTest`(첫 재료 CAUTION, 나머지 SAFE; 반환은 `RiskLevel`) — `meogo-api/application/src/test/kotlin/com/meogo/api/application/food/MockIngredientRiskMarkerTest.kt`
+- [X] T031 [P] [US2] `LanguageResolverTest`(지원 코드 통과; 미지원/미지정/blank → `ko` 폴백) — `meogo-api/application/src/test/kotlin/com/meogo/api/application/food/LanguageResolverTest.kt`
+- [X] T032 [P] [US2] 도메인 `FoodNameForTest`(`Food.nameFor`/`Ingredient.nameFor` — 번역 있으면 해당 언어, 없으면 `ko` 폴백) — `meogo-api/food/src/test/kotlin/com/meogo/api/food/FoodNameForTest.kt`
+- [X] T033 [P] [US2] 영속 `FoodRepositoryAdapterTest`(H2 `@SpringBootTest`; `findByKoreanName` trim·9개 번역·재료 fetch join 로드·소프트삭제) — `meogo-api/persistence/src/test/kotlin/com/meogo/api/persistence/food/FoodRepositoryAdapterTest.kt` *(persistence 테스트 boot app 이 food 엔티티를 스캔하도록 구성)*
+- [X] T034 [P] [US2] web 계약 `FoodDetailControllerTest`(MockMvc 200, `lang=en` 영어명 + 재료 %/riskStatus + trim, `payload` 봉투) — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailControllerTest.kt`
+- [X] T035 [P] [US2] web `FoodDetailLangTest`(다국어 `lang=ja`; `lang=xx`/미지정 → `ko` 폴백 200) — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailLangTest.kt`
+- [X] T036 [P] [US2] web `FoodDetailErrorTest`(미수록 메뉴 → **400** "해당 음식 정보 없음"; menuName 누락/blank → 400 "menuName은 필수입니다") — `meogo-api/presentation/src/test/kotlin/com/meogo/api/presentation/food/FoodDetailErrorTest.kt`
 
 ### Implementation for US2
 
 **도메인 (food, 순수 — Spring/ORM-free)**
 
-- [ ] T037 [P] [US2] `LanguageCode` enum(`ko` + 9개; `from(code): LanguageCode`/미지원→`ko` 폴백 헬퍼) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/LanguageCode.kt`
-- [ ] T038 [P] [US2] `Ingredient`(koreanName, names: Map<LanguageCode,String>, iconRef?, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Ingredient.kt`
-- [ ] T039 [P] [US2] `FoodIngredient`(ingredient: Ingredient, inclusionPercent 0~100, displayOrder; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodIngredient.kt`
-- [ ] T040 [US2] `Food` Aggregate Root(koreanName=`ko` 매칭키, names: Map<LanguageCode,String>, imageRef?, ingredients, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Food.kt` (T037·T038·T039)
-- [ ] T041 [US2] `FoodRepository` 도메인 port(`findByKoreanName(name): Food?`) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodRepository.kt`
+- [X] T037 [P] [US2] `LanguageCode` enum(`ko` + 9개; `from(code): LanguageCode`/미지원→`ko` 폴백 헬퍼) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/LanguageCode.kt`
+- [X] T038 [P] [US2] `Ingredient`(koreanName, names: Map<LanguageCode,String>, iconRef?, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Ingredient.kt`
+- [X] T039 [P] [US2] `FoodIngredient`(ingredient: Ingredient, inclusionPercent 0~100, displayOrder; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodIngredient.kt`
+- [X] T040 [US2] `Food` Aggregate Root(koreanName=`ko` 매칭키, names: Map<LanguageCode,String>, imageRef?, ingredients, `nameFor(lang)`; 불변) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/Food.kt` (T037·T038·T039)
+- [X] T041 [US2] `FoodRepository` 도메인 port(`findByKoreanName(name): Food?`) — `meogo-api/food/src/main/kotlin/com/meogo/api/food/FoodRepository.kt`
 
 **영속 (`:meogo-api:persistence` · com.meogo.api.persistence.food) + 마이그레이션/시드**
 
-- [ ] T042 [US2] Flyway `V2__create_food_tables.sql`(food·food_name_translation·ingredient·ingredient_name_translation·food_ingredient — 각 테이블 BaseEntity 컬럼 status/created_at/updated_at 포함) — `meogo-api/presentation/src/main/resources/db/migration/V2__create_food_tables.sql` (data-model 스키마)
-- [ ] T043 [US2] Flyway `V3__seed_food_data.sql`(된장찌개 + 재료 5종 + inclusion_percent + **각 음식·재료의 9개 언어 번역 행 전부**, status=ACTIVE) — `meogo-api/presentation/src/main/resources/db/migration/V3__seed_food_data.sql`
-- [ ] T044 [P] [US2] JPA 엔티티 `FoodJpaEntity`·`FoodNameTranslationJpaEntity`·`IngredientJpaEntity`·`IngredientNameTranslationJpaEntity`·`FoodIngredientJpaEntity`(BaseEntity 상속, LAZY 연관, `toDomain()`/`from(domain)`) — `meogo-api/persistence/src/main/kotlin/com/meogo/api/persistence/food/`
-- [ ] T045 [US2] Spring Data `FoodJpaRepository`(`findByKoreanName` + 재료·번역 **fetch join**으로 LAZY 초기화) — `meogo-api/persistence/.../persistence/food/FoodJpaRepository.kt` (T044)
-- [ ] T046 [US2] `FoodRepositoryAdapter`(`FoodRepository` port 구현, `Entity.from`/`entity.toDomain`만 호출, 번역행 → names 맵) — `meogo-api/persistence/.../persistence/food/FoodRepositoryAdapter.kt` (T041·T045)
+- [X] T042 [US2] Flyway `V2__create_food_tables.sql`(food·food_name_translation·ingredient·ingredient_name_translation·food_ingredient — 각 테이블 BaseEntity 컬럼 status/created_at/updated_at 포함) — `meogo-api/presentation/src/main/resources/db/migration/V2__create_food_tables.sql` (data-model 스키마)
+- [X] T043 [US2] Flyway `V3__seed_food_data.sql`(된장찌개 + 재료 5종 + inclusion_percent + **각 음식·재료의 9개 언어 번역 행 전부**, status=ACTIVE) — `meogo-api/presentation/src/main/resources/db/migration/V3__seed_food_data.sql`
+- [X] T044 [P] [US2] JPA 엔티티 `FoodJpaEntity`·`FoodNameTranslationJpaEntity`·`IngredientJpaEntity`·`IngredientNameTranslationJpaEntity`·`FoodIngredientJpaEntity`(BaseEntity 상속, LAZY 연관, `toDomain()`/`from(domain)`) — `meogo-api/persistence/src/main/kotlin/com/meogo/api/persistence/food/`
+- [X] T045 [US2] Spring Data `FoodJpaRepository`(`findByKoreanName` + 재료·번역 **fetch join**으로 LAZY 초기화) — `meogo-api/persistence/.../persistence/food/FoodJpaRepository.kt` (T044)
+- [X] T046 [US2] `FoodRepositoryAdapter`(`FoodRepository` port 구현, `Entity.from`/`entity.toDomain`만 호출, 번역행 → names 맵) — `meogo-api/persistence/.../persistence/food/FoodRepositoryAdapter.kt` (T041·T045)
 
 **상세 조회 seam + 유스케이스 (application/food)**
 
-- [ ] T047 [P] [US2] `IngredientRiskMarker` 인터페이스 + `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE; `RiskLevel` 반환) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/{IngredientRiskMarker.kt,MockIngredientRiskMarker.kt}`
-- [ ] T048 [P] [US2] `LanguageResolver`(입력 `lang` → 지원 `LanguageCode`/`ko` 폴백; 향후 회원 출처 교체점) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/LanguageResolver.kt`
-- [ ] T049 [P] [US2] `GetFoodDetailInput`(menuName, lang?) / `GetFoodDetailResult`(name, imageRef?, ingredients: List<IngredientView(name, iconRef?, inclusionPercent, riskStatus: RiskLevel)>) — Query 아님 — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/{GetFoodDetailInput.kt,GetFoodDetailResult.kt}`
-- [ ] T050 [US2] `GetFoodDetailUseCase`(@Transactional(readOnly): lang resolve → menuName trim → `findByKoreanName`, **null이면 `IllegalArgumentException("해당 음식 정보 없음")`**(→기존 400 핸들러), `nameFor(lang)` 매핑, `IngredientRiskMarker`로 riskStatus 부여 → `GetFoodDetailResult`) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/GetFoodDetailUseCase.kt` (T041·T047·T048·T049)
+- [X] T047 [P] [US2] `IngredientRiskMarker` 인터페이스 + `MockIngredientRiskMarker`(첫 재료 CAUTION, 나머지 SAFE; `RiskLevel` 반환) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/{IngredientRiskMarker.kt,MockIngredientRiskMarker.kt}`
+- [X] T048 [P] [US2] `LanguageResolver`(입력 `lang` → 지원 `LanguageCode`/`ko` 폴백; 향후 회원 출처 교체점) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/LanguageResolver.kt`
+- [X] T049 [P] [US2] `GetFoodDetailInput`(menuName, lang?) / `GetFoodDetailResult`(name, imageRef?, ingredients: List<IngredientView(name, iconRef?, inclusionPercent, riskStatus: RiskLevel)>) — Query 아님 — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/{GetFoodDetailInput.kt,GetFoodDetailResult.kt}`
+- [X] T050 [US2] `GetFoodDetailUseCase`(@Transactional(readOnly): lang resolve → menuName trim → `findByKoreanName`, **null이면 `IllegalArgumentException("해당 음식 정보 없음")`**(→기존 400 핸들러), `nameFor(lang)` 매핑, `IngredientRiskMarker`로 riskStatus 부여 → `GetFoodDetailResult`) — `meogo-api/application/src/main/kotlin/com/meogo/api/application/food/GetFoodDetailUseCase.kt` (T041·T047·T048·T049)
 
 **web (presentation/food)**
 
-- [ ] T051 [P] [US2] `FoodDetailApi`(springdoc `@Operation`/`@Parameter`(menuName·lang)·`@ApiResponses` 200/400, `ResponseEntity<BaseResponse<FoodDetailResponse>>`) — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailApi.kt`
-- [ ] T052 [P] [US2] `FoodDetailResponse` DTO(name, imageRef?, ingredients[name, iconRef?, inclusionPercent, riskStatus]) + `from(result: GetFoodDetailResult)` — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailResponse.kt`
-- [ ] T053 [US2] `FoodDetailController`(GET `ApiPaths.V1 + "/foods/detail"`, `@RequestParam menuName`·`@RequestParam(required=false) lang`; menuName blank → `IllegalArgumentException("menuName은 필수입니다")`; `GetFoodDetailInput` 조립 → usecase → `BaseResponse.ok(FoodDetailResponse.from(result))`) — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailController.kt` (T050·T051·T052)
-- [ ] T054 [US2] 미수록 메뉴·menuName blank 모두 `IllegalArgumentException` → **기존 `GlobalExceptionHandler` 400 매핑**으로 처리됨을 확인(핸들러 변경 불필요; 메시지로 구분). 404 매핑은 두지 않음 — `meogo-api/presentation/.../common/GlobalExceptionHandler.kt`
-- [ ] T055 [US2] US2 테스트 GREEN — `./gradlew :meogo-api:food:test :meogo-api:persistence:test :meogo-api:application:test :meogo-api:presentation:test`
+- [X] T051 [P] [US2] `FoodDetailApi`(springdoc `@Operation`/`@Parameter`(menuName·lang)·`@ApiResponses` 200/400, `ResponseEntity<BaseResponse<FoodDetailResponse>>`) — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailApi.kt`
+- [X] T052 [P] [US2] `FoodDetailResponse` DTO(name, imageRef?, ingredients[name, iconRef?, inclusionPercent, riskStatus]) + `from(result: GetFoodDetailResult)` — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailResponse.kt`
+- [X] T053 [US2] `FoodDetailController`(GET `ApiPaths.V1 + "/foods/detail"`, `@RequestParam menuName`·`@RequestParam(required=false) lang`; menuName blank → `IllegalArgumentException("menuName은 필수입니다")`; `GetFoodDetailInput` 조립 → usecase → `BaseResponse.ok(FoodDetailResponse.from(result))`) — `meogo-api/presentation/src/main/kotlin/com/meogo/api/presentation/food/FoodDetailController.kt` (T050·T051·T052)
+- [X] T054 [US2] 미수록 메뉴·menuName blank 모두 `IllegalArgumentException` → **기존 `GlobalExceptionHandler` 400 매핑**으로 처리됨을 확인(핸들러 변경 불필요; 메시지로 구분). 404 매핑은 두지 않음 — `meogo-api/presentation/.../common/GlobalExceptionHandler.kt`
+- [X] T055 [US2] US2 테스트 GREEN — `./gradlew :meogo-api:food:test :meogo-api:persistence:test :meogo-api:application:test :meogo-api:presentation:test`
 
 **Checkpoint**: US1·US2 모두 독립 동작.
 
