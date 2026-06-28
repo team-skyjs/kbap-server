@@ -9,7 +9,7 @@ class MockIngredientRiskMarkerTest : BehaviorSpec({
     val marker = MockIngredientRiskMarker()
 
     fun ingredient(koreanName: String) =
-        Ingredient(koreanName = koreanName, names = emptyMap(), iconRef = null)
+        Ingredient(koreanName = koreanName, iconRef = null)
 
     given("MockIngredientRiskMarker 재료 위험 표시") {
         `when`("재료 목록이 주어지면") {

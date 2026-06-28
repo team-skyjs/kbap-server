@@ -2,7 +2,6 @@ package com.meogo.api.persistence.food
 
 import com.meogo.api.food.FoodIngredient
 import com.meogo.api.persistence.BaseEntity
-import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -13,7 +12,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "food_ingredient")
 class FoodIngredientJpaEntity(
-    @ManyToOne(cascade = [CascadeType.PERSIST, CascadeType.MERGE], fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ingredient_id", nullable = false)
     var ingredient: IngredientJpaEntity = IngredientJpaEntity(),
 
@@ -30,13 +29,4 @@ class FoodIngredientJpaEntity(
             inclusionPercent = inclusionPercent,
             displayOrder = displayOrder,
         )
-
-    companion object {
-        fun from(foodIngredient: FoodIngredient): FoodIngredientJpaEntity =
-            FoodIngredientJpaEntity(
-                ingredient = IngredientJpaEntity.from(foodIngredient.ingredient),
-                inclusionPercent = foodIngredient.inclusionPercent,
-                displayOrder = foodIngredient.displayOrder,
-            )
-    }
 }

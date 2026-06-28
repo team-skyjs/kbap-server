@@ -8,6 +8,9 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "food_name_translation")
 class FoodNameTranslationJpaEntity(
+    @Column(name = "food_id", nullable = false)
+    var foodId: Long = 0,
+
     @Column(name = "lang_code", nullable = false, length = 10)
     var langCode: String = "",
 

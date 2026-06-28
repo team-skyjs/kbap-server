@@ -1,6 +1,7 @@
 package com.meogo.api.application.food
 
 import com.meogo.api.food.FoodRepository
+import com.meogo.api.food.LanguageCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,20 +17,34 @@ class GetFoodDetailUseCase(
         val food = foodRepository.findByKoreanName(input.menuName.trim())
             ?: throw IllegalArgumentException("해당 음식 정보 없음")
 
+        val foodName = resolveFoodName(food.id, food.koreanName, lang)
+        val ingredientNames = resolveIngredientNames(food.ingredients.mapNotNull { it.ingredient.id }, lang)
+
         val risks = ingredientRiskMarker.mark(food.ingredients.map { it.ingredient })
         val ingredients = food.ingredients.mapIndexed { index, foodIngredient ->
+            val ingredient = foodIngredient.ingredient
             GetFoodDetailResult.IngredientView(
-                name = foodIngredient.ingredient.nameFor(lang),
-                iconRef = foodIngredient.ingredient.iconRef,
+                name = ingredientNames[ingredient.id] ?: ingredient.koreanName,
+                iconRef = ingredient.iconRef,
                 inclusionPercent = foodIngredient.inclusionPercent,
                 riskStatus = risks[index],
             )
         }
 
         return GetFoodDetailResult(
-            name = food.nameFor(lang),
+            name = foodName,
             imageRef = food.imageRef,
             ingredients = ingredients,
         )
+    }
+
+    private fun resolveFoodName(foodId: Long?, koreanName: String, lang: LanguageCode): String {
+        if (lang == LanguageCode.KO || foodId == null) return koreanName
+        return foodRepository.findFoodNameTranslation(foodId, lang) ?: koreanName
+    }
+
+    private fun resolveIngredientNames(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String> {
+        if (lang == LanguageCode.KO) return emptyMap()
+        return foodRepository.findIngredientNameTranslations(ingredientIds, lang)
     }
 }
