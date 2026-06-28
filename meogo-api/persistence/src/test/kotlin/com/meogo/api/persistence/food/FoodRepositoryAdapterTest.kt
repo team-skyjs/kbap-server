@@ -165,5 +165,32 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("9개 대상 언어 전수 — 코드↔쿼리 라운드트립") {
+            val targetLanguages = LanguageCode.entries.filter { it != LanguageCode.KO }
+
+            `when`("음식·재료에 9개 언어 번역을 모두 저장하면") {
+                then("각 언어로 조회할 때 해당 언어 번역을 정확히 반환한다") {
+                    targetLanguages.size shouldBe 9
+
+                    val ingredient = saveIngredient("두부-9lang")
+                    val foodId = saveFood("9개국어", items = listOf(Triple(ingredient, 90, 0)))
+                    targetLanguages.forEach { lang ->
+                        foodNameTranslationJpaRepository.save(
+                            FoodNameTranslationJpaEntity(foodId = foodId, langCode = lang.code, name = "food-${lang.code}"),
+                        )
+                        ingredientNameTranslationJpaRepository.save(
+                            IngredientNameTranslationJpaEntity(ingredientId = ingredient.id, langCode = lang.code, name = "ing-${lang.code}"),
+                        )
+                    }
+
+                    targetLanguages.forEach { lang ->
+                        adapter.findFoodNameTranslation(foodId, lang) shouldBe "food-${lang.code}"
+                        adapter.findIngredientNameTranslations(listOf(ingredient.id), lang) shouldBe
+                            mapOf(ingredient.id to "ing-${lang.code}")
+                    }
+                }
+            }
+        }
     }
 }
