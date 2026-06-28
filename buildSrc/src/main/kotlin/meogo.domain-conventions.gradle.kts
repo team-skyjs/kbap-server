@@ -8,10 +8,13 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 // - core 는 도메인 공개 API 에 드러나므로 api() 로 전이 노출
 // - Spring 결합은 stereotype(@Component 계열) 한정으로만 연다: 도메인 서비스/정책 빈 표시를 위해
 //   spring-context 를 compileOnly 로만 의존한다(런타임 제공은 조립 모듈 :meogo-api:presentation).
-//   web/jpa/tx/kotlin-spring 등은 끌어오지 않으며, 버전은 Boot BOM 으로만 관리한다.
+//   web/jpa/tx 스타터는 끌어오지 않으며, 버전은 Boot BOM 으로만 관리한다.
+// - kotlin-spring(all-open) 컴파일러 플러그인: @Component 메타(@DomainService 포함) 클래스를 open 으로.
+//   순수 컴파일타임 플러그인(런타임 의존 0) — IDE 경고 제거 + 향후 프록시 안전.
 plugins {
     id("meogo.kotlin-common")
     id("io.spring.dependency-management")
+    id("org.jetbrains.kotlin.plugin.spring")
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
