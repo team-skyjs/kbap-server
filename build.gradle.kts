@@ -34,7 +34,7 @@ dependencies {
     jacocoAggregation(project(":core:scan"))
     jacocoAggregation(project(":core:food"))
     jacocoAggregation(project(":core:member"))
-    jacocoAggregation(project(":core:assessment"))
+    jacocoAggregation(project(":core:avoidance"))
     jacocoAggregation(project(":core:research"))
     jacocoAggregation(project(":core:review"))
     jacocoAggregation(project(":app:batch"))
