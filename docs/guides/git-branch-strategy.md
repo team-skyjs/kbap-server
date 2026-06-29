@@ -9,11 +9,14 @@
 |---|---|---|---|---|
 | `main` | — | — | — | 운영. 항상 배포 가능. **직접 커밋 ❌**, 태그만 |
 | `develop` | `main` | — | — | 통합 트렁크. **직접 커밋 ❌**, 머지로만 |
-| `feature/<이슈#>-<slug>` | `develop` | `develop` | **Squash** | 기능 작업. **머지 후 삭제 안 함** |
+| 기능 작업 브랜치 | `develop` | `develop` | **Squash** | 기능 작업. 이름은 §1.1 참조. **머지 후 삭제 안 함** |
 | `release/x.y.z` *(확장 시)* | `develop` | `main` + `develop` | Merge --no-ff | 안정화·QA 전용, 신규 기능 ❌ |
 | `hotfix/<slug>` *(확장 시)* | `main` | `main` + `develop` | Merge --no-ff | 운영 긴급 패치 |
 
-네이밍 예: `feature/6-menu-scan-api`, `release/0.0.1`, `hotfix/food-detail-npe`.
+### 1.1 브랜치 이름
+
+- **기능 작업 브랜치 이름은 이 문서가 정하지 않는다** — **SpecKit 사이클이 생성**하며, spec 폴더명과 동일한 `NNN-slug` 형식이다(예: `001-menu-scan-mock`, `002-food-description`). 별도 prefix(`feature/` 등)를 붙이지 않는다.
+- *(확장)* `release/*`·`hotfix/*` 네이밍 예: `release/0.0.1`, `hotfix/food-detail-npe`.
 
 ## 2. 불변 머지 원칙 ★
 
@@ -69,7 +72,7 @@ Conventional Commits + 한국어 본문(기존 repo 스타일 유지). 코드 �
 `scope` = 도메인·모듈: `scan` `food` `member` `assessment` `research` `persistence` `infra` `presentation` `core` `common` `batch`.
 
 ### 브랜치별 커밋 입도
-- **feature/***: 로컬은 자유·자주·WIP 허용(어차피 squash 됨). **PR 제목만** conventional 하게.
+- **기능 작업 브랜치**: 로컬은 자유·자주·WIP 허용(어차피 squash 됨). **PR 제목만** conventional 하게.
 - **develop / main**: 직접 커밋 ❌, 머지로만.
 - *(확장)* **release/***: 안정화만 — `fix(scan): QA 빈입력 400 처리`, `chore(release): 0.0.1 버전 범프`, `docs(changelog): …`.
 - *(확장)* **hotfix/***: 단일 긴급 수정 — `fix(food): 상세조회 NPE 긴급 수정`.
@@ -94,9 +97,9 @@ git push origin v0.0.1
 ## 7. 한 사이클 요약
 
 ```
-feature/6-menu-scan ─(Squash)─► develop ─●─●─●─(약속된 시점)─┐
-                                                            │ Merge --no-ff
-                                                   main ◄───┘ + tag v0.0.1
+001-menu-scan (기능) ─(Squash)─► develop ─●─●─●─(약속된 시점)─┐
+                                                             │ Merge --no-ff
+                                                    main ◄───┘ + tag v0.0.1
    (확장) hotfix/* ─(Merge)─► main & develop
 ```
 

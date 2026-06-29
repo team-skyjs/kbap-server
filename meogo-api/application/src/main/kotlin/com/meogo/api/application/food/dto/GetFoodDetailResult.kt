@@ -5,6 +5,8 @@ import com.meogo.api.core.risk.RiskLevel
 data class GetFoodDetailResult(
     val name: String,
     val imageRef: String?,
+    val briefDescription: String,
+    val detailedDescription: String,
     val ingredients: List<IngredientView>,
 ) {
     data class IngredientView(

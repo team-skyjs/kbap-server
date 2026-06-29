@@ -63,7 +63,11 @@ data class MenuScanItemRequest(
         )
 }
 
-@Schema(description = "정규화 좌표 바운딩 박스 (각 값 0.0~1.0, x+width·y+height 는 각각 1.0 이하)")
+@Schema(
+    description = "정규화 좌표 바운딩 박스. 이미지 좌상단을 원점(0,0)으로, 픽셀 좌표를 이미지 크기로 나눠 0.0~1.0 으로 표현한다 " +
+        "(x=left/imageWidth, y=top/imageHeight, width=boxWidth/imageWidth, height=boxHeight/imageHeight). " +
+        "각 값 0.0~1.0 이며 x+width·y+height 는 각각 1.0 이하여야 한다.",
+)
 data class BoundingBoxRequest(
     @field:NotNull(message = "boundingBox.x 는 필수입니다")
     @field:PositiveOrZero(message = "boundingBox.x 는 0 이상이어야 합니다")

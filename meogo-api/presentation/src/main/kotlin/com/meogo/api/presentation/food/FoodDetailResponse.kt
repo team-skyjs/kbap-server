@@ -3,13 +3,19 @@ package com.meogo.api.presentation.food
 import com.meogo.api.application.food.dto.GetFoodDetailResult
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "음식 상세 — 요청 언어 음식명·대표 이미지·재료 목록")
+@Schema(description = "음식 상세 — 요청 언어 음식명·간단/자세 설명·대표 이미지·재료 목록")
 data class FoodDetailResponse(
     @field:Schema(description = "요청 언어 음식명(미지원/미지정 시 한국어)", example = "Doenjang Stew")
     val name: String,
 
     @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
     val imageRef: String?,
+
+    @field:Schema(description = "요청 언어 간단 설명(미지원/미지정/번역 부재 시 한국어)", example = "A hearty Korean soybean paste stew.")
+    val briefDescription: String,
+
+    @field:Schema(description = "요청 언어 자세한 설명(미지원/미지정/번역 부재 시 한국어)", example = "Doenjang-jjigae is a traditional Korean stew made with soybean paste.")
+    val detailedDescription: String,
 
     @field:Schema(description = "재료 목록(표시 순서)")
     val ingredients: List<IngredientResponse>,
@@ -38,6 +44,8 @@ data class FoodDetailResponse(
             FoodDetailResponse(
                 name = result.name,
                 imageRef = result.imageRef,
+                briefDescription = result.briefDescription,
+                detailedDescription = result.detailedDescription,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
                         name = it.name,

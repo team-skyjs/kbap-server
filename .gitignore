@@ -242,3 +242,4 @@ build/
 
 # IntelliJ IDEA — 프로젝트 IDE 설정 전체 제외
 .idea/
+_workspace/
