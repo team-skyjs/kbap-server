@@ -3,7 +3,7 @@ package com.meogo.infra.persistence.food
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodDescriptionKind
 import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.LanguageCode
+import com.meogo.core.kernel.lang.LanguageCode
 import org.springframework.stereotype.Repository
 
 @Repository

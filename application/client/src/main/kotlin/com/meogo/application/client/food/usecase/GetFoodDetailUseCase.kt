@@ -6,7 +6,7 @@ import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodDescriptionKind
 import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.LanguageCode
+import com.meogo.core.kernel.lang.LanguageCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

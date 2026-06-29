@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.food
 
 import com.meogo.core.food.FoodDescriptionKind
-import com.meogo.core.food.LanguageCode
+import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder

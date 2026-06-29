@@ -1,4 +1,4 @@
-package com.meogo.core.food
+package com.meogo.core.kernel.lang
 
 enum class LanguageCode(val code: String) {
     KO("ko"),
