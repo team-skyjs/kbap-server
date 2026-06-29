@@ -1,6 +1,6 @@
 # 로컬 개발용 풀스택(web 앱 + MySQL + MongoDB).
 # 자격증명: root/root(관리) + 앱 유저 meogo/meogo(.env 의 DB_USERNAME/DB_PASSWORD). DB명 meogo, MySQL@3306, Mongo@27017.
-# web 앱(:meogo-api:presentation)은 Dockerfile 로 빌드돼 8080 에 뜨고, DB healthcheck 통과 후 기동된다.
+# web 앱(:app:api)은 Dockerfile 로 빌드돼 8080 에 뜨고, DB healthcheck 통과 후 기동된다.
 #
 # 사용법:
 #   docker compose up -d --build      # 앱 이미지 빌드 + 백그라운드 기동(전체 스택)

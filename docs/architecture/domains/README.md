@@ -12,7 +12,7 @@ Meogo 백엔드의 도메인 경계를 정의한다. 구현자는 이 문서를 
 - MVP 핵심 입력은 메뉴판 이미지가 아니라 **클라이언트가 추출한 메뉴명 목록**이다.
 - 위험도 판정 조건은 **알러지 / 종교 / 비건** 3가지 (매운맛·관심음식은 UX 보조, 판정 핵심 아님).
 - 위험도는 `SAFE` / `CAUTION` / `DANGER` / `UNKNOWN` 4단계 고정.
-- 음식 데이터는 한국어 원문 + 9개 언어로 사전 번역 저장(ADR-0003). 정적 UI 문구는 BC가 아니라 `:meogo-api:core` 또는 별도 supporting resource로 관리.
+- 음식 데이터는 한국어 원문 + 9개 언어로 사전 번역 저장(ADR-0003). 정적 UI 문구는 BC가 아니라 `:core:kernel` 또는 별도 supporting resource로 관리.
 - 캐시 미스 메뉴는 그 스캔에서 결과 없음. 재료 조사·9개국어 번역은 `meogo-batch`가 하루 1회 처리(ADR-0003).
 
 ## Active Bounded Context (5개)
@@ -33,7 +33,7 @@ Meogo 백엔드의 도메인 경계를 정의한다. 구현자는 이 문서를 
 
 - 각 컨텍스트는 **자기 언어**를 가진다. `scan`은 재료를 판단하지 않고, `assessment`는 메뉴판 위치를 다루지 않는다.
 - **도메인 간 조합은 Application 계층에서** 한다. 메뉴판 스캔 분석은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사(배치)는 `research`·`food`를 쓰지만, 이들이 서로의 내부 구현을 직접 알면 안 된다.
-- JPA Entity / Mongo Document / Spring Data Repository / 영속 Adapter는 각 도메인 모듈(`:meogo-api:{food,member,scan,assessment,research}`) 내부에 숨긴다. 외부 모듈은 도메인 클래스·도메인 repository interface·도메인 결과 객체만 사용한다.
+- JPA Entity / Mongo Document / Spring Data Repository / 영속 Adapter는 각 도메인 모듈(`:core:{food,member,scan,assessment,research}`) 내부에 숨긴다. 외부 모듈은 도메인 클래스·도메인 repository interface·도메인 결과 객체만 사용한다.
 - **`assessment`는 `food`/`member`의 엔티티·영속 모델에 직접 의존하지 않는다.** Application이 음식 재료·사용자 식이 제한을 `assessment` 전용 입력 VO로 변환해 넘긴다.
 
 ## ID 참조 / 스냅샷 원칙

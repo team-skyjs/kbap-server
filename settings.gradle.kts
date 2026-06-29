@@ -19,23 +19,26 @@ dependencyResolutionManagement {
 rootProject.name = "meogo-server"
 
 include(
-    // ── meogo-api 앱 (컨테이너 meogo-api 안의 leaf 모듈들) ──
-    ":meogo-api:presentation", // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
-    ":meogo-api:application",  // 유스케이스 조율
-    ":meogo-api:infra",        // 외부 연동(LLM 등) adapter
-    ":meogo-api:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 의존 + port 구현
-    ":meogo-api:core",         // 도메인 커널 (Spring-free)
-    // 도메인 컨텍스트 (평탄화 — meogo-domain 컨테이너 없이 meogo-api 직속)
-    ":meogo-api:food",
-    ":meogo-api:member",
-    ":meogo-api:scan",
-    ":meogo-api:assessment",
-    ":meogo-api:research",
-    ":meogo-api:review",
+    // ── 공유 코어 (도메인 커널 + 컨텍스트, ORM-free) ──
+    ":core:kernel",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
+    ":core:food",
+    ":core:member",
+    ":core:scan",
+    ":core:assessment",
+    ":core:research",
+    ":core:review",
 
-    // ── meogo-batch 앱 ──
-    ":meogo-batch",
+    // ── 유스케이스 계층 (진입점별 분할 — 교차 도메인 공유는 추후 :application:shared) ──
+    ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)
 
-    // ── 공유 모듈 (meogo-api·meogo-batch 공유) ──
-    ":meogo-common",
+    // ── 인프라(driven 어댑터) ──
+    ":infra:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 port 구현
+    // ":infra:external" — LLM 등 외부 연동, LLM 착수 시 추가
+
+    // ── 부트앱 진입점 ──
+    ":app:api",           // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
+    ":app:batch",         // batch bootJar — flyway off
+
+    // ── 공유 모듈 (app:api·app:batch 공유) ──
+    ":common",
 )

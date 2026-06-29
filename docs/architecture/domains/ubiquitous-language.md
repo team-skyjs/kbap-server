@@ -34,7 +34,7 @@ Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 �
 
 ## 도메인 클래스 다이어그램
 
-백엔드에서 사용할 도메인 클래스 구조다. 실선(`*--`)은 같은 Aggregate 안의 필수 구성, 빈 마름모(`o--`)는 같은 Context 안의 선택적/보조 구성 또는 느슨한 포함, 점선(`..>`)은 **다른 Context·Aggregate를 ID/스냅샷으로 참조**(직접 의존 아님)함을 뜻한다. 컨텍스트 간 조합은 항상 `:meogo-api:application`에서 일어난다.
+백엔드에서 사용할 도메인 클래스 구조다. 실선(`*--`)은 같은 Aggregate 안의 필수 구성, 빈 마름모(`o--`)는 같은 Context 안의 선택적/보조 구성 또는 느슨한 포함, 점선(`..>`)은 **다른 Context·Aggregate를 ID/스냅샷으로 참조**(직접 의존 아님)함을 뜻한다. 컨텍스트 간 조합은 항상 `:application`에서 일어난다.
 
 ```mermaid
 classDiagram
@@ -297,7 +297,7 @@ classDiagram
     ScanAssessmentSnapshot ..> AssessmentResult : 결과 스냅샷
 ```
 
-> 다이어그램이 보여주는 핵심 규칙: `assessment`는 `food`/`member`의 클래스에 **직접 화살표가 없다.** `:meogo-api:application`이 `DietaryProfile`과 `FoodIngredient` 등 원천 데이터를 `AssessmentInput` 안의 전용 값(`DietaryCondition`, `IngredientAssessmentSource`)으로 변환한다. `scan`은 음식 정보를 복제하지 않고 `foodId`와 결과 **스냅샷**만 들고 있다.
+> 다이어그램이 보여주는 핵심 규칙: `assessment`는 `food`/`member`의 클래스에 **직접 화살표가 없다.** `:application`이 `DietaryProfile`과 `FoodIngredient` 등 원천 데이터를 `AssessmentInput` 안의 전용 값(`DietaryCondition`, `IngredientAssessmentSource`)으로 변환한다. `scan`은 음식 정보를 복제하지 않고 `foodId`와 결과 **스냅샷**만 들고 있다.
 
 ---
 
