@@ -3,6 +3,8 @@ package com.meogo.api.application.food.usecase
 import com.meogo.api.application.food.dto.GetFoodDetailInput
 import com.meogo.api.application.food.dto.GetFoodDetailResult
 import com.meogo.api.core.risk.RiskLevel
+import com.meogo.api.food.Food
+import com.meogo.api.food.FoodDescriptionKind
 import com.meogo.api.food.FoodRepository
 import com.meogo.api.food.LanguageCode
 import org.springframework.stereotype.Service
@@ -24,6 +26,7 @@ class GetFoodDetailUseCase(
 
         val foodName = resolveFoodName(food.id, food.koreanName, lang)
         val ingredientNames = resolveIngredientNames(orderedIngredients.mapNotNull { it.ingredient.id }, lang)
+        val descriptions = resolveDescriptions(food, lang)
 
         val risks = ingredientRiskMarker.mark(orderedIngredients.map { it.ingredient })
         val ingredients = orderedIngredients.map { foodIngredient ->
@@ -39,6 +42,8 @@ class GetFoodDetailUseCase(
         return GetFoodDetailResult(
             name = foodName,
             imageRef = food.imageRef,
+            briefDescription = descriptions[FoodDescriptionKind.BRIEF] ?: food.briefDescription,
+            detailedDescription = descriptions[FoodDescriptionKind.DETAILED] ?: food.detailedDescription,
             ingredients = ingredients,
         )
     }
@@ -51,5 +56,11 @@ class GetFoodDetailUseCase(
     private fun resolveIngredientNames(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String> {
         if (lang == LanguageCode.KO) return emptyMap()
         return foodRepository.findIngredientNameTranslations(ingredientIds, lang)
+    }
+
+    private fun resolveDescriptions(food: Food, lang: LanguageCode): Map<FoodDescriptionKind, String> {
+        val foodId = food.id
+        if (lang == LanguageCode.KO || foodId == null) return emptyMap()
+        return foodRepository.findFoodDescriptionTranslations(foodId, lang)
     }
 }

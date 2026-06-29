@@ -1,9 +1,12 @@
 package com.meogo.api.persistence.food
 
+import com.meogo.api.food.FoodDescriptionKind
 import com.meogo.api.food.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.maps.shouldContainExactly
+import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -29,6 +32,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
     @Autowired
     private lateinit var ingredientNameTranslationJpaRepository: IngredientNameTranslationJpaRepository
 
+    @Autowired
+    private lateinit var foodDescriptionTranslationJpaRepository: FoodDescriptionTranslationJpaRepository
+
     init {
         fun saveIngredient(koreanName: String, iconRef: String? = null): IngredientJpaEntity =
             ingredientJpaRepository.save(IngredientJpaEntity(koreanName = koreanName, iconRef = iconRef))
@@ -37,10 +43,14 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             koreanName: String,
             imageRef: String? = null,
             items: List<Pair<IngredientJpaEntity, Int>> = emptyList(),
+            briefDescription: String = "구수한 $koreanName",
+            detailedDescription: String = "$koreanName 자세한 설명",
         ): Long {
             val food = FoodJpaEntity(
                 koreanName = koreanName,
                 imageRef = imageRef,
+                briefDescription = briefDescription,
+                detailedDescription = detailedDescription,
                 foodIngredients = items.map { (ingredient, percent) ->
                     FoodIngredientJpaEntity(
                         ingredient = ingredient,
@@ -188,6 +198,69 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                         adapter.findIngredientNameTranslations(listOf(ingredient.id), lang) shouldBe
                             mapOf(ingredient.id to "ing-${lang.code}")
                     }
+                }
+            }
+        }
+
+        given("음식 설명 — 도메인 복원") {
+            `when`("한국어 메뉴명으로 조회하면") {
+                then("간단·자세 설명 원문을 도메인으로 복원한다") {
+                    saveFood(
+                        "설명복원-된장찌개",
+                        briefDescription = "구수한 된장찌개",
+                        detailedDescription = "된장찌개는 된장을 푼 한국의 대표 찌개다.",
+                    )
+
+                    val loaded = adapter.findByKoreanName("설명복원-된장찌개").shouldNotBeNull()
+                    loaded.briefDescription shouldBe "구수한 된장찌개"
+                    loaded.detailedDescription shouldBe "된장찌개는 된장을 푼 한국의 대표 찌개다."
+                }
+            }
+        }
+
+        given("음식 설명 번역 조회 — 요청 언어만") {
+            fun saveDescriptionTranslation(foodId: Long, kind: FoodDescriptionKind, langCode: String, content: String) =
+                foodDescriptionTranslationJpaRepository.save(
+                    FoodDescriptionTranslationJpaEntity(
+                        foodId = foodId,
+                        kind = kind.name,
+                        langCode = langCode,
+                        content = content,
+                    ),
+                )
+
+            `when`("요청 언어로 간단·자세 설명 번역이 모두 있으면") {
+                then("BRIEF·DETAILED 를 종류별 Map 으로 반환한다") {
+                    val foodId = saveFood("설명번역-전부")
+                    saveDescriptionTranslation(foodId, FoodDescriptionKind.BRIEF, "en", "A hearty stew.")
+                    saveDescriptionTranslation(foodId, FoodDescriptionKind.DETAILED, "en", "Doenjang-jjigae is traditional.")
+
+                    adapter.findFoodDescriptionTranslations(foodId, LanguageCode.EN).shouldContainExactly(
+                        mapOf(
+                            FoodDescriptionKind.BRIEF to "A hearty stew.",
+                            FoodDescriptionKind.DETAILED to "Doenjang-jjigae is traditional.",
+                        ),
+                    )
+                }
+            }
+
+            `when`("lang=ko 이면") {
+                then("번역 테이블을 조회하지 않고 빈 맵을 반환한다") {
+                    val foodId = saveFood("설명번역-ko")
+                    saveDescriptionTranslation(foodId, FoodDescriptionKind.BRIEF, "en", "A hearty stew.")
+
+                    adapter.findFoodDescriptionTranslations(foodId, LanguageCode.KO) shouldBe emptyMap()
+                }
+            }
+
+            `when`("요청 언어로 한 종류 번역만 있으면") {
+                then("있는 종류만 반환하고 없는 종류는 맵에서 누락된다") {
+                    val foodId = saveFood("설명번역-일부")
+                    saveDescriptionTranslation(foodId, FoodDescriptionKind.DETAILED, "en", "Detailed only.")
+
+                    val result = adapter.findFoodDescriptionTranslations(foodId, LanguageCode.EN)
+                    result.shouldContainExactly(mapOf(FoodDescriptionKind.DETAILED to "Detailed only."))
+                    result.shouldNotContainKey(FoodDescriptionKind.BRIEF)
                 }
             }
         }

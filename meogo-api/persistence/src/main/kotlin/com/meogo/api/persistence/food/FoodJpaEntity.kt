@@ -19,6 +19,12 @@ class FoodJpaEntity(
     @Column(name = "image_ref", length = 500)
     var imageRef: String? = null,
 
+    @Column(name = "brief_description", nullable = false, length = 255)
+    var briefDescription: String = "",
+
+    @Column(name = "detailed_description", nullable = false, length = 1024)
+    var detailedDescription: String = "",
+
     @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)
     @JoinColumn(name = "food_id", nullable = false)
     var foodIngredients: MutableSet<FoodIngredientJpaEntity> = mutableSetOf(),
@@ -28,6 +34,8 @@ class FoodJpaEntity(
             id = id,
             koreanName = koreanName,
             imageRef = imageRef,
+            briefDescription = briefDescription,
+            detailedDescription = detailedDescription,
             ingredients = foodIngredients.map { it.toDomain() },
         )
 }

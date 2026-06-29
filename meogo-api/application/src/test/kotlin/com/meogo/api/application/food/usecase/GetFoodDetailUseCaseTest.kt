@@ -3,6 +3,7 @@ package com.meogo.api.application.food.usecase
 import com.meogo.api.application.food.dto.GetFoodDetailInput
 import com.meogo.api.core.risk.RiskLevel
 import com.meogo.api.food.Food
+import com.meogo.api.food.FoodDescriptionKind
 import com.meogo.api.food.FoodIngredient
 import com.meogo.api.food.FoodRepository
 import com.meogo.api.food.Ingredient
@@ -12,6 +13,9 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class GetFoodDetailUseCaseTest : BehaviorSpec({
+    val koBrief = "구수한 된장찌개"
+    val koDetailed = "된장찌개는 된장을 푼 한국의 대표 찌개다."
+
     val doenjangStew = Food.reconstitute(
         id = 1,
         koreanName = "된장찌개",
@@ -20,6 +24,8 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
             FoodIngredient(ingredient = Ingredient.reconstitute(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90),
             FoodIngredient(ingredient = Ingredient.reconstitute(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100),
         ),
+        briefDescription = koBrief,
+        detailedDescription = koDetailed,
     )
 
     fun useCase(repository: FoodRepository) =
@@ -102,14 +108,100 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
             }
         }
     }
+
+    given("음식 상세 조회 유스케이스 — 간단·자세 설명 다국어·독립 폴백") {
+        `when`("요청 언어로 두 설명 번역이 모두 있으면") {
+            then("간단·자세 설명을 모두 요청 언어로 조립한다") {
+                val repository = FakeFoodRepository(
+                    food = doenjangStew,
+                    descriptionTranslations = mapOf(
+                        LanguageCode.EN to mapOf(
+                            FoodDescriptionKind.BRIEF to "A hearty Korean soybean paste stew.",
+                            FoodDescriptionKind.DETAILED to "Doenjang-jjigae is a traditional Korean stew.",
+                        ),
+                    ),
+                )
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.briefDescription shouldBe "A hearty Korean soybean paste stew."
+                result.detailedDescription shouldBe "Doenjang-jjigae is a traditional Korean stew."
+            }
+        }
+
+        `when`("lang=ko 이면") {
+            then("두 설명 모두 한국어 원문으로 채우고 설명 번역을 조회하지 않는다") {
+                val repository = FakeFoodRepository(food = doenjangStew)
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+
+                result.briefDescription shouldBe koBrief
+                result.detailedDescription shouldBe koDetailed
+                repository.descriptionLookups shouldBe 0
+            }
+        }
+
+        `when`("미지원 lang 이면") {
+            then("두 설명 모두 한국어 원문으로 폴백한다") {
+                val repository = FakeFoodRepository(food = doenjangStew)
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
+
+                result.briefDescription shouldBe koBrief
+                result.detailedDescription shouldBe koDetailed
+            }
+        }
+
+        `when`("지원 lang=en 인데 설명 번역 행이 전무하면") {
+            then("두 설명 모두 한국어 원문으로 폴백하고 음식명·재료는 각자의 번역을 따른다") {
+                val repository = FakeFoodRepository(
+                    food = doenjangStew,
+                    foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
+                    ingredientTranslations = mapOf(LanguageCode.EN to mapOf(10L to "Soybean paste", 11L to "Tofu")),
+                    descriptionTranslations = emptyMap(),
+                )
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.briefDescription shouldBe koBrief
+                result.detailedDescription shouldBe koDetailed
+                result.name shouldBe "Doenjang Stew"
+                result.ingredients.map { it.name } shouldBe listOf("Soybean paste", "Tofu")
+            }
+        }
+
+        `when`("간단 설명 번역만 없고 자세한 설명 번역은 있으면") {
+            then("간단 설명만 한국어로 폴백하고 자세한 설명·음식명은 요청 언어를 유지한다") {
+                val repository = FakeFoodRepository(
+                    food = doenjangStew,
+                    foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
+                    descriptionTranslations = mapOf(
+                        LanguageCode.EN to mapOf(
+                            FoodDescriptionKind.DETAILED to "Doenjang-jjigae is a traditional Korean stew.",
+                        ),
+                    ),
+                )
+
+                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.briefDescription shouldBe koBrief
+                result.detailedDescription shouldBe "Doenjang-jjigae is a traditional Korean stew."
+                result.name shouldBe "Doenjang Stew"
+            }
+        }
+    }
 })
 
 private class FakeFoodRepository(
     private val food: Food?,
     private val foodTranslations: Map<LanguageCode, String> = emptyMap(),
     private val ingredientTranslations: Map<LanguageCode, Map<Long, String>> = emptyMap(),
+    private val descriptionTranslations: Map<LanguageCode, Map<FoodDescriptionKind, String>> = emptyMap(),
 ) : FoodRepository {
     var translationLookups: Int = 0
+        private set
+
+    var descriptionLookups: Int = 0
         private set
 
     override fun findByKoreanName(name: String): Food? = food
@@ -122,5 +214,10 @@ private class FakeFoodRepository(
     override fun findIngredientNameTranslations(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String> {
         translationLookups++
         return ingredientTranslations[lang]?.filterKeys { it in ingredientIds } ?: emptyMap()
+    }
+
+    override fun findFoodDescriptionTranslations(foodId: Long, lang: LanguageCode): Map<FoodDescriptionKind, String> {
+        descriptionLookups++
+        return descriptionTranslations[lang] ?: emptyMap()
     }
 }
