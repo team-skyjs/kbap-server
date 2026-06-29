@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":application"))
+    "implementation"(project(":application:client"))
     "implementation"(project(":core:kernel"))
     "implementation"(project(":common"))
 

@@ -28,7 +28,7 @@ dependencies {
     jacocoAggregation(platform("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"))
 
     jacocoAggregation(project(":core:kernel"))
-    jacocoAggregation(project(":application"))
+    jacocoAggregation(project(":application:client"))
     jacocoAggregation(project(":app:api"))
     jacocoAggregation(project(":infra:persistence"))
     jacocoAggregation(project(":core:scan"))

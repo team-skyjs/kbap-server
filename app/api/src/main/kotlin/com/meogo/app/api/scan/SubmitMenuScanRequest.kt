@@ -1,9 +1,9 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.meogo.application.scan.dto.BoundingBoxInput
-import com.meogo.application.scan.dto.MenuScanItemInput
-import com.meogo.application.scan.dto.SubmitMenuScanInput
+import com.meogo.application.client.scan.dto.BoundingBoxInput
+import com.meogo.application.client.scan.dto.MenuScanItemInput
+import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue

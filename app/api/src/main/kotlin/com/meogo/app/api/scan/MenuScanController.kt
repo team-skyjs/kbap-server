@@ -1,6 +1,6 @@
 package com.meogo.app.api.scan
 
-import com.meogo.application.scan.usecase.SubmitMenuScanUseCase
+import com.meogo.application.client.scan.usecase.SubmitMenuScanUseCase
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import org.springframework.http.ResponseEntity

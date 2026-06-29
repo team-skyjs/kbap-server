@@ -28,8 +28,8 @@ include(
     ":core:research",
     ":core:review",
 
-    // ── 유스케이스 계층 ──
-    ":application",       // 유스케이스 조율 · 트랜잭션 경계 (도메인 port 의존)
+    // ── 유스케이스 계층 (진입점별 분할 — 교차 도메인 공유는 추후 :application:shared) ──
+    ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)
 
     // ── 인프라(driven 어댑터) ──
     ":infra:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 port 구현
