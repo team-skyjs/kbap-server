@@ -6,7 +6,7 @@
 
 `food`는 **LLM 조사·종합을 직접 하지 않는다.** 캐시 미스 메뉴를 LLM으로 조사하고 응답을 종합하는 일은 `research` 컨텍스트(배치)의 책임이며([ADR-0004](../../adr/0004-research-bounded-context.md)), `food`는 그 종합 결과(`SynthesizedFoodProfile`)를 받아 `Food`/`FoodIngredient`로 영속하고 자신을 만든 research를 **ID로만** 참조한다. (지식 획득 = `research`, 검수된 지식 = `food`.)
 
-`food`는 사용자가 이 음식을 먹어도 되는지 최종 판단하지 않는다. 최종 위험도 판정은 `assessment` 컨텍스트의 책임이다.
+`food`는 사용자가 이 음식을 먹어도 되는지 최종 판단하지 않는다. 최종 위험도 판정은 `avoidance` 컨텍스트의 책임이다.
 
 MVP에서는 음식 카탈로그와 재료 지식베이스를 같은 `food` 컨텍스트 안에 둔다. 다만 재료, 알러지 매핑, 종교/비건 매핑이 커지면 `ingredient` 또는 `food-knowledge` 컨텍스트로 분리할 수 있다.
 
@@ -155,7 +155,7 @@ MVP에서는 음식 카탈로그와 재료 지식베이스를 같은 `food` 컨�
 도메인 로직 판단 기준:
 
 - 돼지고기, 소고기, 해산물, 젓갈, 육수, 동물성 성분처럼 종교/비건 제한과 연결되는 재료를 표현한다.
-- 사용자별 종교/비건 여부와 직접 비교하는 일은 `assessment`에서 수행한다.
+- 사용자별 종교/비건 여부와 직접 비교하는 일은 `avoidance`에서 수행한다.
 
 ### 데이터 출처 참조 (research 이관)
 
@@ -191,9 +191,9 @@ MVP에서는 음식 카탈로그와 재료 지식베이스를 같은 `food` 컨�
 
 ## 6. 다른 컨텍스트와의 관계
 
-- `member`: 직접 의존하지 않는다. 사용자의 식이 제한 정보는 `assessment`가 조합한다.
+- `member`: 직접 의존하지 않는다. 사용자의 식이 제한 정보는 `avoidance`가 조합한다.
 - `scan`: 메뉴명 매핑을 위해 food ID와 음식명 정보를 제공한다(캐시 조회).
-- `assessment`: 음식 재료, 알러지 매핑, 종교/비건 매핑 정보를 제공한다.
+- `avoidance`: 음식 재료, 알러지 매핑, 종교/비건 매핑 정보를 제공한다.
 - `research`: 캐시 미스 메뉴의 종합 결과(`SynthesizedFoodProfile`)를 `research`에서 받아 `Food`/`FoodIngredient`로 영속한다. `food`는 만든 research를 ID로만 참조한다.
 - `review`: 현재 구현 범위에서는 제외한다. 추후 리뷰 기능이 확정되면 음식 ID를 기준으로 연결된다.
 

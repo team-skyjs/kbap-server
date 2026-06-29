@@ -69,7 +69,7 @@ Conventional Commits + 한국어 본문(기존 repo 스타일 유지). 코드 �
 | `docs` | 문서 | `docs` |
 | `build` `ci` `test` `perf` `style` | 각 영역 | — |
 
-`scope` = 도메인·모듈: `scan` `food` `member` `assessment` `research` `persistence` `infra` `presentation` `core` `common` `batch`.
+`scope` = 도메인·모듈: `scan` `food` `member` `avoidance` `research` `persistence` `infra` `presentation` `core` `common` `batch`.
 
 ### 브랜치별 커밋 입도
 - **기능 작업 브랜치**: 로컬은 자유·자주·WIP 허용(어차피 squash 됨). **PR 제목만** conventional 하게.

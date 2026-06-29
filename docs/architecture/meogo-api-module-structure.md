@@ -1,6 +1,6 @@
 # Meogo 모듈 구조 정리
 
-> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,assessment,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.core.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
+> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.core.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
 >
 > 목적: 서버의 API, Application, Domain, Core, Infra 계층 구조와 책임을 정리한 팀 공유 기준 문서.
 > 범위: 계층별 DDD 구조(API/Application/Domain/Core/Infra)에 집중한다. `:app:batch`(배치 앱)와 `:common`(공유 모듈)이 형제로 존재하며, batch 는 공유 도메인/영속을 직접 재사용한다(ADR-0008).
@@ -37,9 +37,9 @@ API 구조에 적용할 원칙은 다음이다.
 6. Application은 JPA Entity나 Mongo Document가 아니라 Domain Entity, Command, DomainRepository를 사용한다.
 7. Aggregate Root를 통해서만 Aggregate 내부 상태를 변경한다.
 
-Meogo에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:core:assessment` 컨텍스트 정책으로 집중해야 한다.
+Meogo에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:core:avoidance` 컨텍스트 정책으로 집중해야 한다.
 
-Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨텍스트는 `meogo-api` 컨테이너 아래 Gradle subproject로 평탄하게 분리한다. active 컨텍스트는 `food`, `member`, `scan`, `assessment`이며, `review`는 placeholder/deferred subproject다.
+Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨텍스트는 `meogo-api` 컨테이너 아래 Gradle subproject로 평탄하게 분리한다. active 컨텍스트는 `food`, `member`, `scan`, `avoidance`이며, `review`는 placeholder/deferred subproject다.
 
 ## 3. 최종 권장 구조
 
@@ -47,7 +47,7 @@ Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨
 
 - `:app:api`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
 - `:application`: 유스케이스 조율, transaction boundary
-- `:core:{food,member,scan,assessment}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
+- `:core:{food,member,scan,avoidance}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
 - `:core:review`: deferred placeholder
 - `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸 (Spring-free)
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
@@ -70,7 +70,7 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 
 도메인 간 조합은 `:application`의 Application Service에서 수행한다.
 
-예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `assessment`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
+예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `avoidance`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
 - `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
 - `:application`은 도메인 컨텍스트와 외부 client를 조합한다.
@@ -127,7 +127,7 @@ MVP API 기준 active Bounded Context는 `meogo-api` 아래 5개 subproject로 �
 - `food`
 - `member`
 - `scan`
-- `assessment`
+- `avoidance`
 - `research` (미스 메뉴 조사·종합, 배치 전용)
 - `review` (deferred placeholder)
 
@@ -214,7 +214,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 
 `scan` 컨텍스트는 음식의 재료를 직접 판단하지 않는다. 어떤 메뉴명이 들어왔고, 어떤 음식으로 매칭됐으며, 사용자에게 어떤 결과를 반환했는지만 관리한다.
 
-## 11. assessment context
+## 11. avoidance context
 
 ### 11.1 책임
 
@@ -233,11 +233,11 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 ### 11.3 주요 개념
 
 - RiskLevel
-- AssessmentResult
-- AssessmentReason
+- AvoidanceResult
+- AvoidanceReason
 - IngredientRisk
 - OwnerQuestion
-- AssessmentPolicy
+- AvoidancePolicy
 
 ## 11.5 research context (배치 전용)
 
@@ -377,7 +377,7 @@ MVP에서 서버가 OCR을 직접 하지 않더라도, 사용자가 촬영한 �
 - `scan`
 - `food`
 - `member`
-- `assessment`
+- `avoidance`
 
 처리 흐름은 사용자 프로필 조회, 스캔 생성, 메뉴명 저장, 음식 캐시 조회, 캐시 히트 음식의 위험도 판정, 결과 스냅샷 저장 순서로 본다. **캐시 미스 음식은 결과 없음으로 응답하고 미스 메뉴명을 `research`에 적재한다 — 이 경로는 LLM을 호출하지 않는다**([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 미스 메뉴의 조사·LLM 종합은 §14.6 배치 유스케이스가 담당한다.
 
@@ -397,9 +397,9 @@ MVP에서 서버가 OCR을 직접 하지 않더라도, 사용자가 촬영한 �
 
 음식 상세 정보를 조회한다.
 
-사용 컨텍스트는 `food`, `assessment`, `member`이다.
+사용 컨텍스트는 `food`, `avoidance`, `member`이다.
 
-사용자별 위험도를 다시 계산해야 하므로 `member`와 `assessment` 컨텍스트가 필요하다.
+사용자별 위험도를 다시 계산해야 하므로 `member`와 `avoidance` 컨텍스트가 필요하다.
 
 ### 14.5 음식별 리뷰 조회 (deferred)
 
@@ -478,7 +478,7 @@ API 유스케이스 기준 트랜잭션은 다음처럼 나눈다.
 
 ## 19. 도메인/영속성 캡슐화 규칙
 
-각 도메인 모듈(`:core:{food,member,scan,assessment,research,review}`)은 외부에 Domain Entity와 DomainRepository interface만 공개한다.
+각 도메인 모듈(`:core:{food,member,scan,avoidance,research,review}`)은 외부에 Domain Entity와 DomainRepository interface만 공개한다.
 
 JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체는 각 도메인 모듈 내부에 둔다. 다만 외부 모듈이 import하지 못하도록 패키지 가시성, 모듈 API 설정, 코드 리뷰, ArchUnit 테스트로 막는다.
 
@@ -507,7 +507,7 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 
 - `:app:api`: web bootJar, controller, API DTO, 조립
 - `:application`: 유스케이스 조율, transaction boundary
-- `:core:{food,member,scan,assessment,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
+- `:core:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
 - `:core:review`: deferred placeholder
 - `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client

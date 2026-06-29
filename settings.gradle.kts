@@ -24,7 +24,7 @@ include(
     ":core:food",
     ":core:member",
     ":core:scan",
-    ":core:assessment",
+    ":core:avoidance",
     ":core:research",
     ":core:review",
 

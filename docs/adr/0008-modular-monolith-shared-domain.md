@@ -22,7 +22,7 @@
 common/                  기술 공통 · 통합 이벤트 (Spring-free, 도메인 무의존)
 core/
   kernel/                도메인 공유 커널: 공통타입·port·RiskLevel·stereotype + 공유 코드(enum)
-  food/ member/ scan/ assessment/ research/ review/   도메인(ORM-free)
+  food/ member/ scan/ avoidance/ research/ review/   도메인(ORM-free)
 application/             유스케이스 · 트랜잭션 경계 (도메인 port 의존)
 infra/
   persistence/           JPA 엔티티·Spring Data·Adapter (도메인 port 구현)

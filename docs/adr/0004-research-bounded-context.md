@@ -41,4 +41,4 @@ ADR-0003에서 메뉴 데이터 파이프라인을 사전 번역 배치 모델�
 
 - **좋음**: 지식(`food`=검수된 카탈로그)과 지식 획득(`research`=조사·종합 파이프라인)이 분리돼 각자 단순해진다. 종합 정책이 순수 도메인 서비스라 단위 테스트가 쉽다. 대기열이 메뉴명 단위로 dedup된다. 배치는 얇게 유지되고 ADR-0001 구조를 그대로 쓴다. "사용자 API에서 호출 안 함"이 트리거 위치(배치 전용)로 자연히 보장된다.
 - **트레이드오프**: active BC가 4→5로 늘어 모듈·문서가 하나 더 생긴다. 배치 전용 유스케이스가 공유 `:meogo-api:application`에 있어 변경 시 `api` 아티팩트도 바뀐다(behavior 변화는 없음). 경계는 패키지+ArchUnit으로만 강제된다(컴파일 분리는 아님).
-- **후속/리스크**: ① ArchUnit 규칙 작성(web 진입점 → 배치 전용 패키지 의존 금지, research↔다른 도메인 직접 의존 금지). ② 분리 트리거 도달 모니터링. ③ `ResearchRequest` 영속·중복 제거·재시도·부분 성공 정책. ④ 3개 응답 종합 알고리즘은 여전히 미결정(ADR-0003 §관련 미결정). ⑤ 헌법 원칙 II의 BC 열거(`{food,member,scan,assessment}`)에 `research` 추가 — 정식 버전 범프는 `speckit-constitution`으로 후속.
+- **후속/리스크**: ① ArchUnit 규칙 작성(web 진입점 → 배치 전용 패키지 의존 금지, research↔다른 도메인 직접 의존 금지). ② 분리 트리거 도달 모니터링. ③ `ResearchRequest` 영속·중복 제거·재시도·부분 성공 정책. ④ 3개 응답 종합 알고리즘은 여전히 미결정(ADR-0003 §관련 미결정). ⑤ 헌법 원칙 II의 BC 열거(`{food,member,scan,avoidance}`)에 `research` 추가 — 정식 버전 범프는 `speckit-constitution`으로 후속.

@@ -24,7 +24,7 @@
 ## 3. 제외 기능
 
 - 최종 음식 카탈로그 영속(= `food`의 책임)
-- 사용자별 위험도 판정(= `assessment`)
+- 사용자별 위험도 판정(= `avoidance`)
 - 스캔 사건·이력·횟수 제한(= `scan`)
 - 사용자 API에서의 동기 호출(배치 전용)
 - LLM 외부 호출의 기술 구현(= `:infra:external` 어댑터, core port 구현)
@@ -108,7 +108,7 @@
 
 - `food`: 종합 결과(`SynthesizedFoodProfile`)를 넘겨 `Food`/`FoodIngredient`로 영속한다. `food`는 이를 만든 research를 **ID로만** 참조한다.
 - `scan`: 직접 의존하지 않는다. 미스 적재는 `:application`이 스캔 유스케이스에서 `research`에 등록한다.
-- `member`/`assessment`: 직접 관련 없다.
+- `member`/`avoidance`: 직접 관련 없다.
 - `:infra:external`: LLM 병렬 호출의 기술 구현(core port 어댑터). 호출 자체는 `:application`이 port로 트리거한다.
 
 ## 7. 구현 시 주의사항

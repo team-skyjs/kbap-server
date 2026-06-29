@@ -10,7 +10,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 ## DDD 정의
 
-- **Bounded Context** — `meogo-api` 컨테이너 직속의 **Gradle subproject + 패키지 경계**로 둔다(평탄화 — `:core:food` 등). Active BC는 `food`, `member`, `scan`, `assessment`, `research` 5개 ([`domains/README.md`](./domains/README.md)). `research`는 미스 메뉴 조사·종합 파이프라인(배치 전용, [ADR-0004](../adr/0004-research-bounded-context.md)). `review` subproject는 제품 기획 흔적을 보존한 placeholder이며, 현재 도메인 설계·초기 구현 범위에서는 제외한다.
+- **Bounded Context** — `meogo-api` 컨테이너 직속의 **Gradle subproject + 패키지 경계**로 둔다(평탄화 — `:core:food` 등). Active BC는 `food`, `member`, `scan`, `avoidance`, `research` 5개 ([`domains/README.md`](./domains/README.md)). `research`는 미스 메뉴 조사·종합 파이프라인(배치 전용, [ADR-0004](../adr/0004-research-bounded-context.md)). `review` subproject는 제품 기획 흔적을 보존한 placeholder이며, 현재 도메인 설계·초기 구현 범위에서는 제외한다.
 - **Aggregate** — Aggregate Root를 통해서만 내부 상태를 변경한다. `Food`와 `Ingredient`는 같은 BC라도 같은 Aggregate가 아니다(관계는 `FoodIngredient`가 `ingredientId`로 참조). **Aggregate Root는 `@com.meogo.core.kernel.stereotype.AggregateRoot`로 표시한다** — 도메인 객체 마커일 뿐 Spring 빈이 아니므로 `@DomainService`와 달리 `@Component`를 붙이지 않는다(컴포넌트 스캔 대상 아님). 현재 표시 대상: `MenuScan`(scan), `Food`·`Ingredient`(food). 경계는 추후 ArchUnit으로 강제한다.
 - **Entity / Value Object** — 다른 Aggregate·Context의 객체 전체를 직접 들지 않는다. **ID·코드·스냅샷 값**으로 참조한다.
 - **스냅샷** — 시간이 지나면 원본이 바뀌는 값(스캔 당시 위험도·매핑 음식명·종합 재료 정보)은 스냅샷으로 보존한다. 최신 판정은 필요 시 재계산한다. 과거 결과를 현재 데이터 변경에 맞춰 덮어쓰지 않는다.
@@ -25,7 +25,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 |------|------|
 | `:app:api` | web bootJar, Controller, API DTO, 인증/인가, transaction boundary, 예외 응답 변환, infra 조립(runtimeOnly), Flyway 스키마 owner |
 | `:application` | 유스케이스 조율, 도메인 컨텍스트 조합, Command 입력, 외부 client port 호출 |
-| `:core:{food,member,scan,assessment}` | Active 도메인 규칙. 각 컨텍스트는 `:core:kernel`만 직접 의존하고 영속 adapter를 자기 모듈 안에 캡슐화 |
+| `:core:{food,member,scan,avoidance}` | Active 도메인 규칙. 각 컨텍스트는 `:core:kernel`만 직접 의존하고 영속 adapter를 자기 모듈 안에 캡슐화 |
 | `:core:research` | Active 도메인. 미스 메뉴 조사 대기열 + 3개 LLM 종합 정책(순수 도메인 서비스). **배치 전용**(web 미노출), 종합 결과를 `food`가 영속 ([ADR-0004](../adr/0004-research-bounded-context.md)) |
 | `:core:review` | Deferred placeholder. 현재 구현 범위 제외, 추후 리뷰 기능 재개 시 별도 컨텍스트로 다시 설계 |
 | `:core:kernel` | 공통 타입·예외·이벤트 계약·유틸 (Spring-free) |
@@ -46,10 +46,10 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | 종류 | 설명 | 예시 |
 |------|------|------|
 | Aggregate Root / Entity | 식별자·생명주기를 가진 도메인 객체. 내부 상태는 Root를 통해서만 변경 | `Food`, `Ingredient` |
-| Value Object | 식별자 없는 불변 값 | `FoodId`, `FoodName`, `AllergenMapping`, (assessment) `AssessmentInput`·`AssessmentResult` |
+| Value Object | 식별자 없는 불변 값 | `FoodId`, `FoodName`, `AllergenMapping`, (avoidance) `AvoidanceInput`·`AvoidanceResult` |
 | 하위 Entity | Aggregate 구성요소 | `FoodIngredient` |
 | Domain Repository 인터페이스(port) | 도메인 언어 저장소 계약, **도메인 엔티티 반환** | `FoodRepository` |
-| Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AssessmentPolicy` |
+| Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AvoidancePolicy` |
 | Domain Event | 컨텍스트 내부 이벤트는 모듈 `event` 패키지에, 교차-컨텍스트 계약은 `:core:kernel`에 | `FoodCreatedEvent` |
 | Domain Exception | 컨텍스트 고유 예외 | `FoodNotFoundException` |
 
@@ -99,9 +99,9 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 ## 도메인 간 의존 규칙
 
 1. **의존 방향** — `:app:api` → `:application` → 도메인 모듈. `:core:kernel`는 모두가 의존 가능. `:infra:external`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:app:batch`는 `:application`을 의존(+infra 조립)하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
-2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
+2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
 3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:app:api`·`:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
-4. **assessment 입력 VO 규칙** ⭐ — `assessment`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `assessment`는 자기 전용 입력 VO(`AssessmentInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AssessmentResult`)도 도메인 결과 객체로 반환한다.
+4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`meogo-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 7. **API 노출** — 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다. 음식 원본 정보와 사용자별 위험도 판정 결과는 내부적으로 분리해 다룬다.

@@ -131,7 +131,7 @@ BOM(Bill of Materials)은 **서로 호환되는 라이브러리 버전 묶음표
 공통 설정을 `buildSrc`의 **컨벤션 플러그인**(미리 컴파일된 `meogo.*.gradle.kts`)에 두고, 각 모듈은 **한 줄로 자기 아키타입을 선언**한다.
 
 ```kotlin
-// 예: 도메인 5개(food/member/scan/assessment/review)는 전부 이 한 줄
+// 예: 도메인 5개(food/member/scan/avoidance/review)는 전부 이 한 줄
 plugins { id("meogo.domain-conventions") }
 ```
 
@@ -192,7 +192,7 @@ meogo-server  (rootProject.name = 폴더명)
 │   ├── application/           ← 유스케이스 조율
 │   ├── infra/                 ← 외부 client(LLM 등)
 │   ├── core/                  ← 공통 타입·port (Spring-free)
-│   └── food/ member/ scan/ assessment/ review/   ← 도메인 컨텍스트(평탄화)
+│   └── food/ member/ scan/ avoidance/ review/   ← 도메인 컨텍스트(평탄화)
 ├── app/batch/               ← 배치 실행(bootJar)
 └── common/              ← 공유 모듈(통합 이벤트·DTO·기술 공통, Spring-free)
 ```

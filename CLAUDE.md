@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 :common  ← (모두 의존 가능 / 아무에게도 의존 안 함)
 
-core:kernel ← core:도메인(food/member/scan/assessment/research/review) ← application
+core:kernel ← core:도메인(food/member/scan/avoidance/research/review) ← application
    ▲    ▲                              ▲
    │  infra:persistence (도메인 port 구현, JPA)        │ implementation
    │       ▲ runtimeOnly                               │
@@ -35,8 +35,8 @@ core:kernel ← core:도메인(food/member/scan/assessment/research/review) ← 
 
 - `:app:api`: web bootJar — controller, API DTO. **조립 책임** — `:infra:persistence`를 `runtimeOnly`로 결합해 adapter 빈을 런타임 DI 로 연결(컴파일 의존 X). 진입점 `MeogoApiApplication`은 `com.meogo` 루트(스캔·AutoConfigurationPackages 가 전 계층 커버). DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`. 패키지 `com.meogo.app.api`.
 - `:application:*`: 유스케이스 조율, transaction boundary. 외부 client 는 **`:core:kernel`의 port 인터페이스로만** 사용하고 infra 구현체에 직접 의존하지 않는다(계층 역전 방지). **컨텍스트 간 조합은 여기서만**. `application/`은 **진입점별로 분할**한다 — 현재 `:application:client`(사용자 API 유스케이스)만 존재. 여러 진입점(api·batch·admin)이 공유하는 교차 도메인 유스케이스(예: "납부")는 추후 `:application:shared`에 한 번만 구현하고 각 `:application:<진입점>`이 의존한다(KakaoPay식). 패키지 `com.meogo.application.<진입점>`(예: `com.meogo.application.client`).
-- 도메인 컨텍스트 모듈: `core/` 컨테이너 직속 — active: `:core:{food,member,scan,assessment,research}`, deferred placeholder: `:core:review`. 각 도메인은 `:core:kernel`만 바라보는 **ORM-free·완전 Spring-free 모듈**(model + port + 도메인 서비스/정책). stereotype `@AggregateRoot`는 순수 마커라 spring-context 가 필요 없다(빈 등록 서비스/정책은 `:application:*`에). 영속(JPA)은 `:infra:persistence`가 구현. 패키지 `com.meogo.core.<도메인>`. (`research`는 배치 전용 — web 미노출.)
-- `:core:kernel`: 공통 타입·예외·이벤트 계약·유틸·도메인 stereotype(`@AggregateRoot` **순수 마커** — @Component 메타 아님)·`RiskLevel`, 외부 client **port 인터페이스**, 그리고 **앱 간 공유 코드 enum**(예: `AvoidanceCategory`/`AvoidanceSubstance`). **완전 Spring-free**(`kotlin-common`만, spring-context 불요 — `@DomainService` 폐기·`@AggregateRoot` 마커 도입 결과, ADR-0006). 패키지 `com.meogo.core.kernel`.
+- 도메인 컨텍스트 모듈: `core/` 컨테이너 직속 — active: `:core:{food,member,scan,avoidance,research}`, deferred placeholder: `:core:review`. 각 도메인은 `:core:kernel`만 바라보는 **ORM-free·완전 Spring-free 모듈**(model + port + 도메인 서비스/정책). stereotype `@AggregateRoot`는 순수 마커라 spring-context 가 필요 없다(빈 등록 서비스/정책은 `:application:*`에). 영속(JPA)은 `:infra:persistence`가 구현. 패키지 `com.meogo.core.<도메인>`. (`research`는 배치 전용 — web 미노출.)
+- `:core:kernel`: 공통 타입·예외·이벤트 계약·유틸·도메인 stereotype(`@AggregateRoot` **순수 마커** — @Component 메타 아님)·`RiskLevel`, 외부 client **port 인터페이스**, 그리고 **여러 도메인이 공유하는 vocabulary**(예: `LanguageCode` — food·avoidance 공용). 특정 컨텍스트가 소유하는 코드(예: 회피·주의 성분 `AvoidanceCategory`/`AvoidanceSubstance`)는 kernel 이 아니라 **소유 컨텍스트 모듈**(avoidance)에 두고, 타 컨텍스트는 코드로만 참조한다(원칙 II). **완전 Spring-free**(`kotlin-common`만, spring-context 불요 — `@DomainService` 폐기·`@AggregateRoot` 마커 도입 결과, ADR-0006). 패키지 `com.meogo.core.kernel`.
 - `:infra:persistence`: JPA/ORM 영속 어댑터. **각 도메인 모듈을 `implementation`으로 의존**해 리포지토리 port 를 구현하고 **영속 엔티티 관리**(엔티티·Spring Data Repository·`RepositoryAdapter`·`BaseEntity`·`EntityStatus`, 패키지 `com.meogo.infra.persistence.*`). 부트앱이 `runtimeOnly`로 조립. (LLM 등 외부 어댑터 `:infra:external`은 LLM 착수 시 추가.)
 - `:app:batch`: 배치 bootJar. **필요한 `:core:도메인`(+추후 `:application:batch`/`:application:shared`)·`:infra:persistence`를 직접 의존**해 같은 도메인/DB 를 재사용(ADR-0008 — 더 이상 이벤트 전용 디커플 아님). **flyway off**(스키마 owner=api — 중복 적용 방지). 현재 application 미의존(자기 잡에서 도메인 port 직접 사용). 패키지 `com.meogo.app.batch`.
 - `:common`: 통합 이벤트·기술 공통(logback 조각·유틸·횡단 어노테이션). 두 앱 공유. **web/jpa/도메인 의존 금지**(가볍게 유지). **Spring-free.** 통합 이벤트는 도메인 타입을 참조하지 않고 평면 값(ID·코드·스냅샷)만 담는다. 패키지 `com.meogo.common`.
@@ -67,7 +67,7 @@ core:kernel ← core:도메인(food/member/scan/assessment/research/review) ← 
   - `meogo.kotlin-common` — **모든 leaf 모듈** 공통: kotlin-jvm·java-library, Java 21 toolchain, Kotlin 엄격성 플래그, `group`/`version`, 공통 테스트(Kotest + JUnit launcher + `useJUnitPlatform()`). Spring-free 모듈(core/common)은 이것만 적용.
   - `meogo.spring-conventions` — **Spring 라이브러리 공통**(core/common 제외): kotlin-common 위에 kotlin-spring·dependency-management·Spring Boot/AI BOM·`kotlin-reflect`/`jackson-module-kotlin`/`spring-boot-starter-test`를 얹는다.
   - `meogo.spring-boot-application` — **부트 앱(bootJar)**: `:app:api`, `:app:batch`. spring-conventions 위에 `org.springframework.boot`.
-  - `meogo.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/assessment/research + review placeholder): kotlin-common 위에 `api(:core:kernel)` 만 얹는다. **완전 Spring-free** — JPA/Mongo·web·tx·kotlin-spring·spring-context·dependency-management 모두 끌어오지 않는다(`@AggregateRoot` 마커는 순수 애너테이션이라 spring 불요). (도메인 build 파일이 한 줄로 줄어든다.)
+  - `meogo.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/avoidance/research + review placeholder): kotlin-common 위에 `api(:core:kernel)` 만 얹는다. **완전 Spring-free** — JPA/Mongo·web·tx·kotlin-spring·spring-context·dependency-management 모두 끌어오지 않는다(`@AggregateRoot` 마커는 순수 애너테이션이라 spring 불요). (도메인 build 파일이 한 줄로 줄어든다.)
 - **모듈별 고유 설정만 각 모듈 `build.gradle.kts`** 에 둔다(app:api=web/validation/actuator/flyway/springdoc+application:client·infra 조립, infra:external=spring-ai, app:batch=필요 도메인·infra 조립 등). 모듈 build 파일에서 의존성은 **문자열 표기**(`"implementation"(...)`)로 적는다(플러그인이 컨벤션에서 적용돼 타입 안전 단축표기 미생성). 라이브러리 좌표는 모듈 build 파일에선 `libs.*`로 정상 사용.
 - **버전 카탈로그 접근**: 컨벤션 플러그인 **안에서는** `libs.*` 타입세이프 접근자가 안 잡혀 `VersionCatalogsExtension`의 `findLibrary`/`findVersion`으로 조회한다. buildSrc 는 `buildSrc/settings.gradle.kts`에서 루트 `gradle/libs.versions.toml`을 `libs`로 가져오고, `buildSrc/build.gradle.kts`는 `libs.plugins.*`를 플러그인 마커 좌표로 변환해 서드파티 Gradle 플러그인을 classpath 에 올린다.
 - **트레이드오프**: buildSrc 변경 시 전체 빌드 캐시가 무효화돼 느려질 수 있다(대신 도메인 5종 dedup·모듈 파일 슬림).
@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/002-food-description/plan.md` (음식 상세 조회에 음식 설명(간단·자세) 추가).
+`specs/004-avoidance-catalog/plan.md` (회피·주의 성분 카탈로그 81종 — :core:avoidance enum).
 <!-- SPECKIT END -->

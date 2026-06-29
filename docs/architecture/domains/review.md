@@ -4,7 +4,7 @@
 
 `review`는 제품 기획서에는 남겨두지만, 현재 도메인 설계와 초기 구현 범위에서는 고려하지 않는다.
 
-따라서 현재 구현 기준 Bounded Context 목록에는 `review`를 포함하지 않는다. active context는 `food`, `member`, `scan`, `assessment` 네 개다.
+따라서 현재 구현 기준 Bounded Context 목록에는 `review`를 포함하지 않는다. active context는 `food`, `member`, `scan`, `avoidance` 네 개다.
 
 이 문서는 추후 리뷰 기능을 다시 검토할 때 참고하기 위한 보류 메모다. 현재 도메인 클래스 설계 기준으로 사용하지 않는다.
 
@@ -13,7 +13,7 @@
 - 리뷰 기능의 제품 방향이 아직 확정되지 않았다.
 - 리뷰를 MVP에 포함하면 `member`, `food`, 랭킹, 번역 정책까지 함께 복잡해진다.
 - 현재 서비스의 핵심은 메뉴판 기반 음식 안전 판별이다.
-- 초기 도메인 설계에서는 `scan`, `food`, `member`, `assessment` 경계를 먼저 안정화하는 것이 우선이다.
+- 초기 도메인 설계에서는 `scan`, `food`, `member`, `avoidance` 경계를 먼저 안정화하는 것이 우선이다.
 
 ## 3. 추후 다시 설계할 때의 기본 원칙
 
@@ -44,7 +44,7 @@
 
 - `food`: 추후 리뷰는 food ID에 귀속될 수 있다.
 - `member`: 추후 리뷰 작성자 ID, 국적, 랭킹 표시 정보가 필요할 수 있다.
-- `assessment`: 직접 관련 없다.
+- `avoidance`: 직접 관련 없다.
 - `scan`: 직접 관련 없다.
 
 ## 6. 랭킹과의 관계

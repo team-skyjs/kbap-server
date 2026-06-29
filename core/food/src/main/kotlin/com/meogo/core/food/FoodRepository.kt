@@ -1,5 +1,7 @@
 package com.meogo.core.food
 
+import com.meogo.core.kernel.lang.LanguageCode
+
 interface FoodRepository {
     fun findByKoreanName(name: String): Food?
 

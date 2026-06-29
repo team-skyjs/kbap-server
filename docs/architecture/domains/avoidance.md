@@ -1,15 +1,15 @@
-# assessment Context
+# avoidance Context
 
 > 서비스 핵심 도메인(정책). 위험도 산출의 입력이 되는 재료 스코어·음식 정보 생성은 [`../meogo-data-ai-pipeline.md`](../meogo-data-ai-pipeline.md), 모듈 의존·입력 VO 규칙은 [`../meogo-conventions.md`](../meogo-conventions.md) 참고.
 > `RiskLevel` → UI 색/아이콘은 전 화면 공통 고정 상수: `SAFE` 초록 체크 / `CAUTION` 노랑 느낌표 / `DANGER` 빨강 엑스 / `UNKNOWN` 회색 물음표 (PRD에서 사용).
 
 ## 1. 역할
 
-`assessment` 컨텍스트는 특정 사용자에게 특정 음식이 얼마나 안전한지 판정한다. 입력은 사용자 식이 제한 정보와 음식의 재료/성분 정보이며, 출력은 `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 중 하나와 그 이유다.
+`avoidance` 컨텍스트는 특정 사용자에게 특정 음식이 얼마나 안전한지 판정한다. 입력은 사용자 식이 제한 정보와 음식의 재료/성분 정보이며, 출력은 `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 중 하나와 그 이유다.
 
-`assessment`는 메뉴판 스캔 상태를 관리하지 않는다. 음식 데이터를 생성하지도 않는다.
+`avoidance`는 메뉴판 스캔 상태를 관리하지 않는다. 음식 데이터를 생성하지도 않는다.
 
-`assessment`는 `food`나 `member`의 엔티티에 직접 의존하지 않는다. Application 계층이 음식 재료 정보와 사용자 식이 제한 정보를 `assessment` 전용 입력 값으로 변환해 전달한다.
+`avoidance`는 `food`나 `member`의 엔티티에 직접 의존하지 않는다. Application 계층이 음식 재료 정보와 사용자 식이 제한 정보를 `avoidance` 전용 입력 값으로 변환해 전달한다.
 
 ## 2. 포함 기능
 
@@ -58,7 +58,7 @@
 - 음식/재료 판정 대상 자체가 명확하지 않으면 `UNKNOWN`으로 판단한다.
 - 사용자의 알러지, 종교, 비건 조건만 MVP 판정 범위로 둔다.
 
-### AssessmentResult
+### AvoidanceResult
 
 음식 하나에 대한 사용자별 판정 결과다.
 
@@ -78,7 +78,7 @@
 - Food 데이터나 사용자 프로필이 바뀌면 현재 판정 결과도 달라질 수 있다.
 - 과거 스캔 당시 결과는 `scan`에서 스냅샷으로 보관한다.
 
-### AssessmentInput
+### AvoidanceInput
 
 위험도 판정을 위해 Application 계층이 만들어 넘기는 입력 값이다.
 
@@ -92,11 +92,11 @@
 
 도메인 로직 판단 기준:
 
-- `assessment`는 Food, Member, DietaryProfile 같은 다른 컨텍스트의 영속 모델을 직접 받지 않는다.
+- `avoidance`는 Food, Member, DietaryProfile 같은 다른 컨텍스트의 영속 모델을 직접 받지 않는다.
 - 입력 값은 판정에 필요한 정보만 담는다.
 - Application 계층이 `food`와 `member` 데이터를 이 입력 값으로 변환한다.
 
-### AssessmentReason
+### AvoidanceReason
 
 위험도 판정 이유다.
 
@@ -151,7 +151,7 @@
 - `UNKNOWN` 메뉴는 "이 메뉴가 어떤 음식/구성인지"를 확인하는 질문 생성 대상이 될 수 있다.
 - 질문 문구 자체의 다국어 UI 처리는 정적 UI 문구 정책과 분리한다.
 
-### AssessmentPolicy
+### AvoidancePolicy
 
 위험도 계산 정책이다.
 
@@ -185,9 +185,9 @@
 
 ## 7. 구현 시 주의사항
 
-- assessment는 정책 도메인에 가깝다.
-- assessment가 Food나 Member의 영속 구조를 직접 알면 안 된다.
-- assessment는 자기 입력 VO를 정의하고, Application 계층이 다른 컨텍스트 데이터를 그 입력으로 매핑한다.
+- avoidance는 정책 도메인에 가깝다.
+- avoidance가 Food나 Member의 영속 구조를 직접 알면 안 된다.
+- avoidance는 자기 입력 VO를 정의하고, Application 계층이 다른 컨텍스트 데이터를 그 입력으로 매핑한다.
 - 판정 결과와 판정 스냅샷을 구분한다.
 - 위험도는 음식 자체 속성이 아니라 사용자와 음식의 조합 결과다.
 - LLM 응답 원본을 직접 판정하지 말고, 정리된 음식/재료 정보를 입력으로 받는다.

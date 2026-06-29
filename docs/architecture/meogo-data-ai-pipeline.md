@@ -2,7 +2,7 @@
 
 메뉴판 촬영부터 위험도 응답까지의 처리 파이프라인과, 음식 데이터 저장·번역 정책을 정의한다. 백엔드 구현의 기준 문서.
 
-> 위험도 산출 규칙 자체는 [`domains/assessment.md`](./domains/assessment.md)에 있다. 본 문서는 그 입력이 되는 **음식 정보·재료 스코어를 어떻게 만들고 저장·재사용하는가**를 다룬다.
+> 위험도 산출 규칙 자체는 [`domains/avoidance.md`](./domains/avoidance.md)에 있다. 본 문서는 그 입력이 되는 **음식 정보·재료 스코어를 어떻게 만들고 저장·재사용하는가**를 다룬다.
 >
 > **파이프라인 모델은 [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)를 따른다** — 음식 콘텐츠는 9개 언어로 사전 번역해 저장하고, 캐시 미스는 실시간 LLM 호출 없이 "결과 없음"으로 응답한다. 미스 메뉴의 조사·종합·다국어 번역은 **`research` 컨텍스트**가 소유하고 하루 1회 배치(`meogo-batch`)가 트리거하며, 종합 결과는 `food`가 영속한다.
 

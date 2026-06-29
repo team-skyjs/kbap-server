@@ -7,7 +7,7 @@ import com.meogo.core.food.FoodDescriptionKind
 import com.meogo.core.food.FoodIngredient
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.food.Ingredient
-import com.meogo.core.food.LanguageCode
+import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
