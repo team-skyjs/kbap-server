@@ -27,6 +27,10 @@ dependencies {
 
     // @AutoConfigureMockMvc — Boot 4.x 에서 web mvc test-slice 가 별도 모듈로 분리됐다.
     "testImplementation"(libs.spring.boot.webmvc.test)
+
+    // ArchUnit 모듈 경계 테스트(ADR-0008). app:api 는 조립 모듈이라 런타임에 전 모듈 클래스를
+    // 이미 보므로(application:client 전이 + infra:persistence runtimeOnly) com.meogo 전체를 스캔할 수 있다.
+    "testImplementation"(libs.archunit)
 }
 
 // 루트의 .env(application.yml 의 spring.config.import 대상)를 찾도록

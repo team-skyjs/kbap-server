@@ -9,6 +9,7 @@ springdoc = "2.8.6"
 kotest = "5.9.1"
 kotest-extensions-spring = "1.3.0"
 jacoco = "0.8.12"
+archunit = "1.3.0"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -64,3 +65,6 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+# --- Architecture boundary tests (모듈 경계 강제) ---
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }

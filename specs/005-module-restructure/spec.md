@@ -29,7 +29,7 @@
 
 - 신규 비즈니스 기능 없음(동작 불변 — 기존 테스트 전부 그린 유지).
 - `:application:shared`/`:batch`/`:admin`, `:infra:external`(LLM) 은 필요 시 후속.
-- ArchUnit 의존 규칙 갱신은 후속.
+- ArchUnit 의 app:batch 미러링·컨트롤러 경로(`/api/v`)·BaseResponse 반환 타입 검증은 후속(핵심 모듈 경계 규칙은 본 스펙에 포함).
 
 ## 완료 기준 (Success Criteria)
 
@@ -37,7 +37,8 @@
 - **SC-002**: 잔여 stale 모듈경로/패키지 토큰 0(코드·문서).
 - **SC-003**: ADR-0008 가 ADR-0001/0006 을 supersede 기록, CLAUDE.md·conventions 가 새 구조와 일치.
 - **SC-004**: `app:batch` 가 공유 도메인/영속을 의존 가능(중복 정의 불요).
+- **SC-005**: 새 모듈 경계를 **ArchUnit 테스트**로 코드 강제 — 계층 의존 방향, 도메인/커널 Spring·ORM-free, 도메인 컨텍스트 격리, application→infra/app 금지, app:api→persistence/도메인 직접 의존 금지, `@Entity` 는 infra:persistence 한정. `./gradlew :app:api:test` 그린.
 
 ## 산출 (as-built)
 
-커밋: 구조 이동(Step A) → 패키지 정리(Step B) → 문서 동기화 → application 분할 → Spring-free 서술 정정. 전 단계 빌드 그린.
+커밋: 구조 이동(Step A) → 패키지 정리(Step B) → 문서 동기화 → application 분할 → Spring-free 서술 정정 → ArchUnit 경계 테스트(`ModuleBoundaryTest`). 전 단계 빌드 그린.

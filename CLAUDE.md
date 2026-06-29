@@ -41,7 +41,7 @@ core:kernel ← core:도메인(food/member/scan/assessment/research/review) ← 
 - `:app:batch`: 배치 bootJar. **필요한 `:core:도메인`(+추후 `:application:batch`/`:application:shared`)·`:infra:persistence`를 직접 의존**해 같은 도메인/DB 를 재사용(ADR-0008 — 더 이상 이벤트 전용 디커플 아님). **flyway off**(스키마 owner=api — 중복 적용 방지). 현재 application 미의존(자기 잡에서 도메인 port 직접 사용). 패키지 `com.meogo.app.batch`.
 - `:common`: 통합 이벤트·기술 공통(logback 조각·유틸·횡단 어노테이션). 두 앱 공유. **web/jpa/도메인 의존 금지**(가볍게 유지). **Spring-free.** 통합 이벤트는 도메인 타입을 참조하지 않고 평면 값(ID·코드·스냅샷)만 담는다. 패키지 `com.meogo.common`.
 
-각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. **모듈 간 project 의존은 `api`가 아니라 `implementation`을 기본으로** 한다 — `:application:client`는 도메인/코어를 `implementation`으로 의존하므로 도메인 타입이 `:app:api`의 **컴파일 클래스패스로 전이되지 않는다**(런타임에만 전이되어 빈·컴포넌트 스캔·JPA 정상). 따라서 web 은 application 의 공개 타입(Input/Result 등)만 보고 JPA Entity·도메인 엔티티를 직접 import 할 수 없다. 이 경계는 추후 ArchUnit 테스트로 강제한다.
+각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. **모듈 간 project 의존은 `api`가 아니라 `implementation`을 기본으로** 한다 — `:application:client`는 도메인/코어를 `implementation`으로 의존하므로 도메인 타입이 `:app:api`의 **컴파일 클래스패스로 전이되지 않는다**(런타임에만 전이되어 빈·컴포넌트 스캔·JPA 정상). 따라서 web 은 application 의 공개 타입(Input/Result 등)만 보고 JPA Entity·도메인 엔티티를 직접 import 할 수 없다. 이 경계(계층 의존 방향·도메인 Spring/ORM-free·도메인 컨텍스트 격리·application→infra/app 금지·app:api→persistence/도메인 금지·`@Entity` 위치)는 ArchUnit 테스트 `app/api/src/test/kotlin/com/meogo/app/api/architecture/ModuleBoundaryTest.kt` 로 강제한다(`:app:api` 가 전 모듈을 런타임에 보므로 `com.meogo` 전체를 스캔). app:batch 미러링·컨트롤러 경로(`/api/v`) 검증은 후속.
 
 ## 설계 / 문서 위치
 
