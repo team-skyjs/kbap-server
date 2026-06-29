@@ -58,7 +58,7 @@
 - 음식/재료 판정 대상 자체가 명확하지 않으면 `UNKNOWN`으로 판단한다.
 - 사용자의 알러지, 종교, 비건 조건만 MVP 판정 범위로 둔다.
 
-### AssessmentResult
+### AvoidanceResult
 
 음식 하나에 대한 사용자별 판정 결과다.
 
@@ -78,7 +78,7 @@
 - Food 데이터나 사용자 프로필이 바뀌면 현재 판정 결과도 달라질 수 있다.
 - 과거 스캔 당시 결과는 `scan`에서 스냅샷으로 보관한다.
 
-### AssessmentInput
+### AvoidanceInput
 
 위험도 판정을 위해 Application 계층이 만들어 넘기는 입력 값이다.
 
@@ -96,7 +96,7 @@
 - 입력 값은 판정에 필요한 정보만 담는다.
 - Application 계층이 `food`와 `member` 데이터를 이 입력 값으로 변환한다.
 
-### AssessmentReason
+### AvoidanceReason
 
 위험도 판정 이유다.
 
@@ -151,7 +151,7 @@
 - `UNKNOWN` 메뉴는 "이 메뉴가 어떤 음식/구성인지"를 확인하는 질문 생성 대상이 될 수 있다.
 - 질문 문구 자체의 다국어 UI 처리는 정적 UI 문구 정책과 분리한다.
 
-### AssessmentPolicy
+### AvoidancePolicy
 
 위험도 계산 정책이다.
 

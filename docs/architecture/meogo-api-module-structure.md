@@ -233,11 +233,11 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 ### 11.3 주요 개념
 
 - RiskLevel
-- AssessmentResult
-- AssessmentReason
+- AvoidanceResult
+- AvoidanceReason
 - IngredientRisk
 - OwnerQuestion
-- AssessmentPolicy
+- AvoidancePolicy
 
 ## 11.5 research context (배치 전용)
 

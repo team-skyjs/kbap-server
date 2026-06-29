@@ -6,7 +6,7 @@
 
 - **active 컨텍스트는 5개**: `scan` · `food` · `member` · `avoidance` · `research`. `research`는 미스 메뉴 조사·종합(배치 전용, §UC-8). `review`는 deferred([`domains/review.md`](./domains/review.md)) — 아래 §UC-7, §충분성 평가 참고.
 - **컨텍스트 간 조합은 `:application`에서만** 일어난다. 도메인 컨텍스트끼리 직접 호출하지 않는다.
-- `avoidance`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AssessmentInput` VO 로 변환**해 넘긴다.
+- `avoidance`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AvoidanceInput` VO 로 변환**해 넘긴다.
 - OCR(메뉴명 추출)은 **클라이언트 책임**. 서버는 메뉴명 리스트를 입력으로 받는다.
 - **LLM 호출은 스캔 응답 경로에 없다** — 캐시 미스 메뉴의 조사·종합·9개국어 번역은 `research` 컨텍스트가 소유하고 `meogo-batch`가 **하루 1회** 트리거한다(3개 모델 OpenAI·Upstage·Gemini 병렬, [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다. (배치 흐름은 §UC-8.)
 
@@ -52,9 +52,9 @@ sequenceDiagram
         end
     end
 
-    App->>App: AssessmentInput 조립 (캐시 히트 메뉴: food 재료 + member 제한 + 원문 메뉴명)
+    App->>App: AvoidanceInput 조립 (캐시 히트 메뉴: food 재료 + member 제한 + 원문 메뉴명)
     App->>Assess: 캐시 히트 메뉴별 위험도 판정
-    Assess-->>App: AssessmentResult (RiskLevel + 사유 + 재료별 + 사장님 질문값)
+    Assess-->>App: AvoidanceResult (RiskLevel + 사유 + 재료별 + 사장님 질문값)
     App->>Scan: ScanAssessmentSnapshot 저장 + 상태(완료/부분완료)
     API-->>Client: 메뉴별 번역명 + 위험도 응답 (미스 메뉴는 결과 없음/준비 중)
     Client->>User: 메뉴판 위 오버레이 (SAFE/CAUTION/DANGER/UNKNOWN/결과없음)
@@ -95,9 +95,9 @@ sequenceDiagram
     opt 스캔에서 진입
         App->>Scan: 원문 메뉴명 조회 (사장님 질문에 사용)
     end
-    App->>App: AssessmentInput 조립
+    App->>App: AvoidanceInput 조립
     App->>Assess: 위험도 재판정
-    Assess-->>App: AssessmentResult + IngredientRisk[] + OwnerQuestion 후보
+    Assess-->>App: AvoidanceResult + IngredientRisk[] + OwnerQuestion 후보
     API-->>Client: 메뉴명/설명/사진/재료표(위험도순) + 확인 질문값
     Client->>User: bottom sheet 표시 (재료 DANGER→CAUTION→SAFE 정렬)
 

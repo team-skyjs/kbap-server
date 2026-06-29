@@ -46,10 +46,10 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | 종류 | 설명 | 예시 |
 |------|------|------|
 | Aggregate Root / Entity | 식별자·생명주기를 가진 도메인 객체. 내부 상태는 Root를 통해서만 변경 | `Food`, `Ingredient` |
-| Value Object | 식별자 없는 불변 값 | `FoodId`, `FoodName`, `AllergenMapping`, (avoidance) `AssessmentInput`·`AssessmentResult` |
+| Value Object | 식별자 없는 불변 값 | `FoodId`, `FoodName`, `AllergenMapping`, (avoidance) `AvoidanceInput`·`AvoidanceResult` |
 | 하위 Entity | Aggregate 구성요소 | `FoodIngredient` |
 | Domain Repository 인터페이스(port) | 도메인 언어 저장소 계약, **도메인 엔티티 반환** | `FoodRepository` |
-| Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AssessmentPolicy` |
+| Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AvoidancePolicy` |
 | Domain Event | 컨텍스트 내부 이벤트는 모듈 `event` 패키지에, 교차-컨텍스트 계약은 `:core:kernel`에 | `FoodCreatedEvent` |
 | Domain Exception | 컨텍스트 고유 예외 | `FoodNotFoundException` |
 
@@ -101,7 +101,7 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 1. **의존 방향** — `:app:api` → `:application` → 도메인 모듈. `:core:kernel`는 모두가 의존 가능. `:infra:external`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:app:batch`는 `:application`을 의존(+infra 조립)하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
 2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
 3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:app:api`·`:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
-4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AssessmentInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AssessmentResult`)도 도메인 결과 객체로 반환한다.
+4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`meogo-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 7. **API 노출** — 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다. 음식 원본 정보와 사용자별 위험도 판정 결과는 내부적으로 분리해 다룬다.

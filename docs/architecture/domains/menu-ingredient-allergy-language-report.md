@@ -49,7 +49,7 @@ Meogo는 외국인 사용자가 한국 음식 메뉴를 보고 자신의 알러�
 
 사용자의 실제 조건은 `member` 컨텍스트의 `DietaryProfile`에 저장된다. 여기에는 알러지 목록, 종교상 제한 조건, 비건 여부가 포함된다. 하지만 `avoidance`는 `DietaryProfile`이나 `FoodIngredient` 같은 다른 컨텍스트의 영속 모델을 직접 받지 않는다.
 
-대신 `:application`이 `food`와 `member`의 데이터를 판정에 필요한 값만 담은 `AssessmentInput`으로 변환한다. 이 입력에는 사용자 제한 조건, 음식 재료 목록, 포함 가능성 스코어, 알러지/종교/비건 매핑, 원문 메뉴명이 들어간다.
+대신 `:application`이 `food`와 `member`의 데이터를 판정에 필요한 값만 담은 `AvoidanceInput`으로 변환한다. 이 입력에는 사용자 제한 조건, 음식 재료 목록, 포함 가능성 스코어, 알러지/종교/비건 매핑, 원문 메뉴명이 들어간다.
 
 `avoidance` 컨텍스트는 이 입력을 바탕으로 위험도를 계산한다.
 
@@ -69,7 +69,7 @@ Meogo는 외국인 사용자가 한국 음식 메뉴를 보고 자신의 알러�
 
 1. `food`에서 음식 기준 정보와 음식-재료 관계를 조회한다.
 2. `member`에서 사용자의 식이 제한 프로필을 조회한다.
-3. `:application`에서 두 데이터를 `AssessmentInput`으로 변환한다.
+3. `:application`에서 두 데이터를 `AvoidanceInput`으로 변환한다.
 4. `avoidance`가 사용자별 위험도와 사유를 계산한다.
 5. API 응답 DTO에서 음식 정보와 사용자별 판정 결과를 조합해 내려준다.
 
