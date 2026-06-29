@@ -1,4 +1,4 @@
-package com.meogo.api.presentation.common
+package com.meogo.api.presentation.config
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

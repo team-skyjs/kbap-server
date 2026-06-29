@@ -1,4 +1,4 @@
-package com.meogo.api.presentation.common
+package com.meogo.api.presentation.config
 
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.CorsRegistry
