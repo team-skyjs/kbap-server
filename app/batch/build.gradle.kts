@@ -5,8 +5,8 @@ plugins {
 
 dependencies {
     // 배치는 meogo-api 내부 모듈(application/infra/persistence/도메인)에 일절 의존하지 않는다.
-    // 디커플드 위성 앱 — meogo-api 와는 :meogo-common 의 통합 이벤트(브로커)로만 소통한다.
-    "implementation"(project(":meogo-common"))
+    // 디커플드 위성 앱 — meogo-api 와는 :common 의 통합 이벤트(브로커)로만 소통한다.
+    "implementation"(project(":common"))
 
     "implementation"(libs.spring.boot.starter)
 }

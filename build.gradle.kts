@@ -7,7 +7,7 @@ plugins {
 // 루트 빌드 — 집계 전용. 실제 공통 빌드 설정은 buildSrc 의 컨벤션 플러그인에 있다:
 //   meogo.kotlin-common          — 전 모듈 공통(kotlin/toolchain/엄격성/테스트/jacoco)
 //   meogo.spring-conventions     — Spring 라이브러리 공통(core/common 제외)
-//   meogo.spring-boot-application— 부트 앱(bootJar): :meogo-api:presentation, :meogo-batch
+//   meogo.spring-boot-application— 부트 앱(bootJar): :app:api, :app:batch
 //   meogo.domain-conventions     — 도메인 5종 공통
 //
 // 각 모듈은 plugins { id("meogo.<archetype>") } 로 적용한다.
@@ -27,19 +27,18 @@ dependencies {
     jacocoAggregation(platform("org.springframework.boot:spring-boot-dependencies:${libs.versions.spring.boot.get()}"))
     jacocoAggregation(platform("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"))
 
-    jacocoAggregation(project(":meogo-api:core"))
-    jacocoAggregation(project(":meogo-api:application"))
-    jacocoAggregation(project(":meogo-api:presentation"))
-    jacocoAggregation(project(":meogo-api:infra"))
-    jacocoAggregation(project(":meogo-api:persistence"))
-    jacocoAggregation(project(":meogo-api:scan"))
-    jacocoAggregation(project(":meogo-api:food"))
-    jacocoAggregation(project(":meogo-api:member"))
-    jacocoAggregation(project(":meogo-api:assessment"))
-    jacocoAggregation(project(":meogo-api:research"))
-    jacocoAggregation(project(":meogo-api:review"))
-    jacocoAggregation(project(":meogo-batch"))
-    jacocoAggregation(project(":meogo-common"))
+    jacocoAggregation(project(":core:kernel"))
+    jacocoAggregation(project(":application"))
+    jacocoAggregation(project(":app:api"))
+    jacocoAggregation(project(":infra:persistence"))
+    jacocoAggregation(project(":core:scan"))
+    jacocoAggregation(project(":core:food"))
+    jacocoAggregation(project(":core:member"))
+    jacocoAggregation(project(":core:assessment"))
+    jacocoAggregation(project(":core:research"))
+    jacocoAggregation(project(":core:review"))
+    jacocoAggregation(project(":app:batch"))
+    jacocoAggregation(project(":common"))
 }
 
 reporting {

@@ -4,13 +4,13 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":meogo-api:application"))
-    "implementation"(project(":meogo-api:core"))
-    "implementation"(project(":meogo-common"))
+    "implementation"(project(":application"))
+    "implementation"(project(":core:kernel"))
+    "implementation"(project(":common"))
 
-    // 조립: infra·persistence adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
-    "runtimeOnly"(project(":meogo-api:infra"))
-    "runtimeOnly"(project(":meogo-api:persistence"))
+    // 조립: persistence adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
+    // (infra:external 은 LLM 착수 시 추가)
+    "runtimeOnly"(project(":infra:persistence"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)

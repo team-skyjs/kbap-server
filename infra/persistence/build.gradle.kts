@@ -9,9 +9,9 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":meogo-api:core"))
-    "implementation"(project(":meogo-api:scan"))
-    "implementation"(project(":meogo-api:food"))
+    "implementation"(project(":core:kernel"))
+    "implementation"(project(":core:scan"))
+    "implementation"(project(":core:food"))
 
     "implementation"(libs.spring.boot.starter.data.jpa)
 
