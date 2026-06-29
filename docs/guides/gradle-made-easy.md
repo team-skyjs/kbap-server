@@ -37,23 +37,23 @@ Gradle에서 "프로젝트(project)"는 보통 우리가 말하는 **모듈** �
 rootProject.name = "meogo-server"
 
 include(
-    ":meogo-api:presentation",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 presentation 모듈
-    ":meogo-api:application",
-    ":meogo-api:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
-    ":meogo-batch",            // 배치 앱
-    ":meogo-common",           // 공유 모듈
+    ":app:api",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 presentation 모듈
+    ":application",
+    ":core:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
+    ":app:batch",            // 배치 앱
+    ":common",           // 공유 모듈
 )
 ```
 
-- 모듈 경로는 콜론으로 표기한다. 예: `:meogo-api:presentation`, `:meogo-api:food`, `:meogo-batch`.
+- 모듈 경로는 콜론으로 표기한다. 예: `:app:api`, `:core:food`, `:app:batch`.
 - `meogo-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`presentation`/`application`/`food`…)다.
 - 한 모듈이 다른 모듈을 사용하려면 `project(...)`로 의존성을 추가한다.
 
 ```kotlin
-// meogo-api/application/build.gradle.kts
+// application/build.gradle.kts
 dependencies {
-    "implementation"(project(":meogo-api:food"))   // 다른 모듈에 의존
-    "implementation"(project(":meogo-api:core"))
+    "implementation"(project(":core:food"))   // 다른 모듈에 의존
+    "implementation"(project(":core:kernel"))
 }
 ```
 
@@ -76,13 +76,13 @@ plugins {
 | 종류 | 의미 | 예시 |
 |---|---|---|
 | `implementation` | 이 모듈 내부에서만 쓰는 라이브러리. **이 모듈을 사용하는 다른 모듈의 컴파일 클래스패스에는 보이지 않는다**(런타임에는 전이됨) | `implementation(libs.spring.boot.starter.data.jpa)` |
-| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":meogo-api:core"))` |
+| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":core:kernel"))` |
 | `runtimeOnly` | 컴파일에는 필요 없고 **실행할 때만** 필요하다(주로 드라이버) | `runtimeOnly(libs.mysql.connector)` |
 | `testImplementation` | **테스트 코드에서만** 쓰는 라이브러리 | `testImplementation(libs.kotest.assertions.core)` |
 | `testRuntimeOnly` | 테스트 **실행 시점에만** 필요하다 | `testRuntimeOnly(libs.h2)` |
 
 > **왜 implementation vs api 구분이 중요한가?**
-> 이 프로젝트는 JPA(영속성 기술)를 각 도메인 모듈 안에 `implementation`으로 숨긴다. 그래서 `:meogo-api:presentation`와 `:meogo-api:application`은 JPA 타입을 **컴파일 시점에 import조차 할 수 없다**(아키텍처 규칙). 만약 `api`로 노출했다면 다른 계층에서도 JPA 타입을 직접 참조할 수 있었을 것이다.
+> 이 프로젝트는 JPA(영속성 기술)를 각 도메인 모듈 안에 `implementation`으로 숨긴다. 그래서 `:app:api`와 `:application`은 JPA 타입을 **컴파일 시점에 import조차 할 수 없다**(아키텍처 규칙). 만약 `api`로 노출했다면 다른 계층에서도 JPA 타입을 직접 참조할 수 있었을 것이다.
 
 ### tasks — 실제로 실행되는 동작
 `compileKotlin`, `test`, `bootJar`, `build` 같은 **작업 단위**다. `./gradlew build`를 실행하면 Gradle이 내부적으로 여러 task를 순서대로 실행한다(컴파일 → 테스트 → 패키징).
@@ -141,18 +141,18 @@ plugins { id("meogo.domain-conventions") }
 |---|---|---|
 | `meogo.kotlin-common` | 전 leaf | kotlin-jvm·java-library·Java 21 toolchain·엄격성·공통 테스트 |
 | `meogo.spring-conventions` | Spring 라이브러리(core/common 제외) | + kotlin-spring·BOM·reflect/jackson/test |
-| `meogo.spring-boot-application` | bootJar 앱(`:meogo-api:presentation`, `:meogo-batch`) | + `org.springframework.boot` |
-| `meogo.domain-conventions` | 도메인 5종 | + `api(:meogo-api:core)`·jpa/mongo·mysql/h2 |
+| `meogo.spring-boot-application` | bootJar 앱(`:app:api`, `:app:batch`) | + `org.springframework.boot` |
+| `meogo.domain-conventions` | 도메인 5종 | + `api(:core:kernel)`·jpa/mongo·mysql/h2 |
 
 플러그인끼리 **합성**된다: `domain-conventions` → `spring-conventions` → `kotlin-common`. 그래서 도메인 모듈은 한 줄로 위 세 층의 설정을 모두 받는다.
 
 각 모듈 파일은 **자기만의 고유 의존성**만 적는다:
 
 ```kotlin
-// 예: meogo-api/infra/build.gradle.kts — 이 모듈에만 필요한 것
+// 예: infra/external/build.gradle.kts — 이 모듈에만 필요한 것
 plugins { id("meogo.spring-conventions") }
 dependencies {
-    "implementation"(project(":meogo-api:core"))
+    "implementation"(project(":core:kernel"))
     "implementation"(libs.spring.ai.starter.openai)
 }
 ```
@@ -193,8 +193,8 @@ meogo-server  (rootProject.name = 폴더명)
 │   ├── infra/                 ← 외부 client(LLM 등)
 │   ├── core/                  ← 공통 타입·port (Spring-free)
 │   └── food/ member/ scan/ assessment/ review/   ← 도메인 컨텍스트(평탄화)
-├── meogo-batch/               ← 배치 실행(bootJar)
-└── meogo-common/              ← 공유 모듈(통합 이벤트·DTO·기술 공통, Spring-free)
+├── app/batch/               ← 배치 실행(bootJar)
+└── common/              ← 공유 모듈(통합 이벤트·DTO·기술 공통, Spring-free)
 ```
 
 의존 방향은 한쪽으로만 흐른다.
@@ -205,8 +205,8 @@ core ← 도메인(food/member/…) ← application ← presentation(bootJar)
   ↑                                 ↓
   └──────────── infra ──────────────┘   (presentation 이 runtimeOnly 로 조립)
 
-meogo-batch  → :meogo-api:application 호출 (+ :meogo-api:infra 조립)
-meogo-common ← meogo-api·meogo-batch 가 공유
+meogo-batch  → :application 호출 (+ :infra:external 조립)
+common ← meogo-api·meogo-batch 가 공유
 ```
 
 ---
@@ -215,16 +215,16 @@ meogo-common ← meogo-api·meogo-batch 가 공유
 
 ```bash
 ./gradlew build                       # 전체 컴파일 + 테스트 + 패키징
-./gradlew :meogo-api:presentation:bootRun      # web 앱 실행 (특정 모듈의 task는 :모듈:task)
-./gradlew :meogo-batch:bootRun        # 배치 앱 실행
+./gradlew :app:api:bootRun      # web 앱 실행 (특정 모듈의 task는 :모듈:task)
+./gradlew :app:batch:bootRun        # 배치 앱 실행
 ./gradlew test                        # 전체 테스트
-./gradlew :meogo-api:presentation:test         # 특정 모듈 테스트
+./gradlew :app:api:test         # 특정 모듈 테스트
 ./gradlew clean                       # 빌드 산출물 삭제
 ./gradlew projects                    # 모듈 목록 보기
-./gradlew :meogo-api:presentation:dependencies --configuration runtimeClasspath  # 의존성 트리 보기
+./gradlew :app:api:dependencies --configuration runtimeClasspath  # 의존성 트리 보기
 ```
 
-핵심은 `:모듈경로:task` 형태다. 예: `:meogo-api:food:test`, `:meogo-batch:test`.
+핵심은 `:모듈경로:task` 형태다. 예: `:core:food:test`, `:app:batch:test`.
 
 ---
 

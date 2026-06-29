@@ -5,12 +5,12 @@
 ## 전제
 
 - **active 컨텍스트는 5개**: `scan` · `food` · `member` · `assessment` · `research`. `research`는 미스 메뉴 조사·종합(배치 전용, §UC-8). `review`는 deferred([`domains/review.md`](./domains/review.md)) — 아래 §UC-7, §충분성 평가 참고.
-- **컨텍스트 간 조합은 `:meogo-api:application`에서만** 일어난다. 도메인 컨텍스트끼리 직접 호출하지 않는다.
+- **컨텍스트 간 조합은 `:application`에서만** 일어난다. 도메인 컨텍스트끼리 직접 호출하지 않는다.
 - `assessment`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AssessmentInput` VO 로 변환**해 넘긴다.
 - OCR(메뉴명 추출)은 **클라이언트 책임**. 서버는 메뉴명 리스트를 입력으로 받는다.
 - **LLM 호출은 스캔 응답 경로에 없다** — 캐시 미스 메뉴의 조사·종합·9개국어 번역은 `research` 컨텍스트가 소유하고 `meogo-batch`가 **하루 1회** 트리거한다(3개 모델 OpenAI·Upstage·Gemini 병렬, [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다. (배치 흐름은 §UC-8.)
 
-표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `meogo-api`(API) · `:meogo-api:application`(App) · `scan` · `food` · `member` · `assessment`(Assess) · `research`(Research) · `:meogo-api:infra·LLM` · `:meogo-api:infra·Email`. 배치는 `meogo-batch`(Batch).
+표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `meogo-api`(API) · `:application`(App) · `scan` · `food` · `member` · `assessment`(Assess) · `research`(Research) · `:infra:external·LLM` · `:infra:external·Email`. 배치는 `meogo-batch`(Batch).
 
 ---
 
@@ -25,7 +25,7 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Scan as scan
     participant Member as member
     participant Food as food
@@ -80,7 +80,7 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Scan as scan
     participant Member as member
     participant Food as food
@@ -125,7 +125,7 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Member as member
     participant Food as food
     participant Assess as assessment
@@ -161,7 +161,7 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Member as member
     participant Scan as scan
     participant Food as food
@@ -190,7 +190,7 @@ sequenceDiagram
 ## UC-5. 회원가입 · 온보딩 (PRD 005)
 
 - **트리거**: 앱 설치 후 첫 가입
-- **사용 컨텍스트**: `member`(Identity/Auth + 프로필 + 식이 제한) + `:meogo-api:infra·Email`
+- **사용 컨텍스트**: `member`(Identity/Auth + 프로필 + 식이 제한) + `:infra:external·Email`
 - 단일 컨텍스트 중심이지만 이메일 인증으로 infra 를 한 번 탄다.
 
 ```mermaid
@@ -198,9 +198,9 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Member as member
-    participant Email as :meogo-api:infra·Email
+    participant Email as :infra:external·Email
 
     User->>Client: 이메일 입력
     Client->>API: 인증 코드 요청
@@ -234,7 +234,7 @@ sequenceDiagram
     actor User
     participant Client
     participant API as meogo-api
-    participant App as :meogo-api:application
+    participant App as :application
     participant Member as member
 
     User->>Client: 프로필 탭
@@ -275,16 +275,16 @@ PRD 004(리뷰 상세·필터·번역)와, 다른 화면에 박혀 있는 리뷰
 ## UC-8. 미스 메뉴 배치 처리 (research 조사·종합)
 
 - **트리거**: 스케줄러 (하루 1회). UC-1에서 캐시 미스로 `research`에 적재된 메뉴를 모아 처리
-- **사용 컨텍스트**: `research`(조사 대기열·종합 정책) → `food`(영속) → (`:meogo-api:infra·LLM`). 조율은 `:meogo-api:application`의 **배치 전용 유스케이스**, 트리거는 `meogo-batch`([ADR-0004](../adr/0004-research-bounded-context.md))
+- **사용 컨텍스트**: `research`(조사 대기열·종합 정책) → `food`(영속) → (`:infra:external·LLM`). 조율은 `:application`의 **배치 전용 유스케이스**, 트리거는 `meogo-batch`([ADR-0004](../adr/0004-research-bounded-context.md))
 - 캐시 미스 메뉴의 음식 데이터·다국어 번역을 만들어 캐시를 채운다. 이후 같은 메뉴는 UC-1에서 캐시 히트가 된다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 
 ```mermaid
 sequenceDiagram
     participant Sched as 스케줄러
     participant Batch as meogo-batch
-    participant App as :meogo-api:application
+    participant App as :application
     participant Research as research
-    participant LLM as :meogo-api:infra·LLM
+    participant LLM as :infra:external·LLM
     participant Food as food
 
     Sched->>Batch: 하루 1회 트리거
@@ -320,7 +320,7 @@ sequenceDiagram
 1. **`review` deferred** — 위 §UC-7 표의 PRD 기능들은 흐름을 못 그린다. PRD에는 있으나 백엔드 active 범위 밖. (의도된 deferral, 갭 아님 — 단 PRD와 구현 범위의 불일치를 명시 필요.)
 2. **LLM 3개 응답 종합 알고리즘 미결정** — UC-8 배치의 "응답 종합" 단계가 블랙박스(`meogo-data-ai-pipeline.md` §관련 미결정).
 3. **음식 목록에서 위험도 표시 여부** — UC-3/UC-4 에서 목록 항목마다 `assessment` 를 호출할지(비용·성능)가 PRD/문서에 명시 없음. `opt` 로 표기.
-4. **온보딩 이메일 인증 어댑터** — `:meogo-api:infra·Email` 은 문서에 LLM 만큼 구체화돼 있지 않음(스택 문서엔 미등장). UC-5 는 합리적 추정.
+4. **온보딩 이메일 인증 어댑터** — `:infra:external·Email` 은 문서에 LLM 만큼 구체화돼 있지 않음(스택 문서엔 미등장). UC-5 는 합리적 추정.
 5. **스캔 재판정 트리거(UC-2)** — 상세 진입 시 매번 재판정인지, 스냅샷 우선인지 정책 명시 없음. 현재는 "상세=현재 기준 재판정"으로 가정.
 
 > 결론: **핵심 가치 흐름(스캔→위험도)과 그 주변은 문서만으로 시퀀스가 완성된다.** 비어 있는 칸은 대부분 `review` deferral과 몇 개의 명시적 "미결정" 항목이며, 이는 다이어그램 안에 표시해 두었다.
