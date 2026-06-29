@@ -22,7 +22,7 @@ Meogo 백엔드의 도메인 경계를 정의한다. 구현자는 이 문서를 
 | `food` | **검수된 음식 카탈로그** — 음식·재료·알러지/식이 매핑·9개국어 번역·데이터 상태 | [food.md](./food.md) |
 | `member` | 사용자가 누구이며 어떤 식이 제한·선호를 갖는지 관리 (인증/인가는 내부 하위 영역) | [member.md](./member.md) |
 | `scan` | 보낸 메뉴명이 어떤 음식으로 매핑됐고(또는 결과 없음) 당시 어떤 결과를 받았는지 기록 + 이력·횟수 제한 | [scan.md](./scan.md) |
-| `assessment` | 특정 사용자에게 특정 음식이 안전한지 판정 (정책 도메인) | [assessment.md](./assessment.md) |
+| `avoidance` | 특정 사용자에게 특정 음식이 안전한지 판정 (정책 도메인) | [avoidance.md](./avoidance.md) |
 | `research` | **미스 메뉴 조사·종합 파이프라인** — 조사 대기열 + 3개 LLM 병렬·종합 → 음식 데이터 후보 (배치 전용) | [research.md](./research.md) |
 
 > `review`는 제품 기획엔 남기되 **현재 도메인 설계·초기 구현 범위에서는 제외**한다. 추후 재개 시 `food`에 섞지 않고 별도 컨텍스트로 다시 설계한다 → [review.md](./review.md) (보류 메모).
@@ -31,10 +31,10 @@ Meogo 백엔드의 도메인 경계를 정의한다. 구현자는 이 문서를 
 
 ## 경계 원칙
 
-- 각 컨텍스트는 **자기 언어**를 가진다. `scan`은 재료를 판단하지 않고, `assessment`는 메뉴판 위치를 다루지 않는다.
-- **도메인 간 조합은 Application 계층에서** 한다. 메뉴판 스캔 분석은 `scan`·`food`·`member`·`assessment`를 쓰고, 미스 메뉴 조사(배치)는 `research`·`food`를 쓰지만, 이들이 서로의 내부 구현을 직접 알면 안 된다.
-- JPA Entity / Mongo Document / Spring Data Repository / 영속 Adapter는 각 도메인 모듈(`:core:{food,member,scan,assessment,research}`) 내부에 숨긴다. 외부 모듈은 도메인 클래스·도메인 repository interface·도메인 결과 객체만 사용한다.
-- **`assessment`는 `food`/`member`의 엔티티·영속 모델에 직접 의존하지 않는다.** Application이 음식 재료·사용자 식이 제한을 `assessment` 전용 입력 VO로 변환해 넘긴다.
+- 각 컨텍스트는 **자기 언어**를 가진다. `scan`은 재료를 판단하지 않고, `avoidance`는 메뉴판 위치를 다루지 않는다.
+- **도메인 간 조합은 Application 계층에서** 한다. 메뉴판 스캔 분석은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사(배치)는 `research`·`food`를 쓰지만, 이들이 서로의 내부 구현을 직접 알면 안 된다.
+- JPA Entity / Mongo Document / Spring Data Repository / 영속 Adapter는 각 도메인 모듈(`:core:{food,member,scan,avoidance,research}`) 내부에 숨긴다. 외부 모듈은 도메인 클래스·도메인 repository interface·도메인 결과 객체만 사용한다.
+- **`avoidance`는 `food`/`member`의 엔티티·영속 모델에 직접 의존하지 않는다.** Application이 음식 재료·사용자 식이 제한을 `avoidance` 전용 입력 VO로 변환해 넘긴다.
 
 ## ID 참조 / 스냅샷 원칙
 
@@ -47,4 +47,4 @@ Meogo 백엔드의 도메인 경계를 정의한다. 구현자는 이 문서를 
 
 ## 새 도메인 문서를 쓸 때
 
-기존 5개 문서(food/member/scan/assessment/research)를 패턴으로 따른다: **역할 → 포함/제외 기능 → 핵심 개념(필드·로직 판단 기준) → 상태 → 다른 컨텍스트와의 관계 → 구현 시 주의사항.**
+기존 5개 문서(food/member/scan/avoidance/research)를 패턴으로 따른다: **역할 → 포함/제외 기능 → 핵심 개념(필드·로직 판단 기준) → 상태 → 다른 컨텍스트와의 관계 → 구현 시 주의사항.**

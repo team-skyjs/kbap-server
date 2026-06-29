@@ -4,20 +4,20 @@
 
 ## 전제
 
-- **active 컨텍스트는 5개**: `scan` · `food` · `member` · `assessment` · `research`. `research`는 미스 메뉴 조사·종합(배치 전용, §UC-8). `review`는 deferred([`domains/review.md`](./domains/review.md)) — 아래 §UC-7, §충분성 평가 참고.
+- **active 컨텍스트는 5개**: `scan` · `food` · `member` · `avoidance` · `research`. `research`는 미스 메뉴 조사·종합(배치 전용, §UC-8). `review`는 deferred([`domains/review.md`](./domains/review.md)) — 아래 §UC-7, §충분성 평가 참고.
 - **컨텍스트 간 조합은 `:application`에서만** 일어난다. 도메인 컨텍스트끼리 직접 호출하지 않는다.
-- `assessment`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AssessmentInput` VO 로 변환**해 넘긴다.
+- `avoidance`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AssessmentInput` VO 로 변환**해 넘긴다.
 - OCR(메뉴명 추출)은 **클라이언트 책임**. 서버는 메뉴명 리스트를 입력으로 받는다.
 - **LLM 호출은 스캔 응답 경로에 없다** — 캐시 미스 메뉴의 조사·종합·9개국어 번역은 `research` 컨텍스트가 소유하고 `meogo-batch`가 **하루 1회** 트리거한다(3개 모델 OpenAI·Upstage·Gemini 병렬, [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다. (배치 흐름은 §UC-8.)
 
-표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `meogo-api`(API) · `:application`(App) · `scan` · `food` · `member` · `assessment`(Assess) · `research`(Research) · `:infra:external·LLM` · `:infra:external·Email`. 배치는 `meogo-batch`(Batch).
+표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `meogo-api`(API) · `:application`(App) · `scan` · `food` · `member` · `avoidance`(Assess) · `research`(Research) · `:infra:external·LLM` · `:infra:external·Email`. 배치는 `meogo-batch`(Batch).
 
 ---
 
 ## UC-1. 메뉴판 스캔 (PRD 001)
 
 - **트리거**: 사용자가 카메라/갤러리로 메뉴판을 찍고, 클라이언트가 메뉴명을 추출해 전송
-- **사용 컨텍스트**: `scan` → `member` → `food` → `assessment` → `scan` (LLM 없음 — 캐시 미스는 §UC-8 배치가 처리)
+- **사용 컨텍스트**: `scan` → `member` → `food` → `avoidance` → `scan` (LLM 없음 — 캐시 미스는 §UC-8 배치가 처리)
 - 서비스의 핵심 흐름이며 4개 컨텍스트를 모두 탄다.
 
 ```mermaid
@@ -30,7 +30,7 @@ sequenceDiagram
     participant Member as member
     participant Food as food
     participant Research as research
-    participant Assess as assessment
+    participant Assess as avoidance
 
     User->>Client: 메뉴판 촬영/업로드
     Client->>Client: OCR 메뉴명 추출
@@ -72,7 +72,7 @@ sequenceDiagram
 ## UC-2. 음식 상세 + 사장님 확인 질문 (PRD 003)
 
 - **트리거**: 스캔 결과 오버레이에서 메뉴 선택(bottom sheet), 또는 음식 탭에서 진입
-- **사용 컨텍스트**: `food` → `member` → `assessment` (+ 스캔 진입 시 `scan`의 원문 메뉴명)
+- **사용 컨텍스트**: `food` → `member` → `avoidance` (+ 스캔 진입 시 `scan`의 원문 메뉴명)
 - 음식 상세는 **현재 프로필 기준 재판정**이다. 스캔 스냅샷(과거값)과 구분된다.
 
 ```mermaid
@@ -84,7 +84,7 @@ sequenceDiagram
     participant Scan as scan
     participant Member as member
     participant Food as food
-    participant Assess as assessment
+    participant Assess as avoidance
 
     User->>Client: 메뉴 항목 탭
     Client->>API: 음식 상세 요청 (foodId, 사용자ID, [scanItemId])
@@ -118,7 +118,7 @@ sequenceDiagram
 
 - **트리거**: 음식 탭 진입, 음식명 검색
 - **사용 컨텍스트**: `food` + `member`(관심 음식 기반 추천) — **평점/리뷰 부분은 `review`(deferred)**
-- 위험도를 같이 보여주려면 목록 항목마다 `assessment` 호출이 필요(아래 노트).
+- 위험도를 같이 보여주려면 목록 항목마다 `avoidance` 호출이 필요(아래 노트).
 
 ```mermaid
 sequenceDiagram
@@ -128,7 +128,7 @@ sequenceDiagram
     participant App as :application
     participant Member as member
     participant Food as food
-    participant Assess as assessment
+    participant Assess as avoidance
 
     User->>Client: 음식 탭 / 검색어 입력
     Client->>API: 탐색 요청 (인기/추천/검색, 사용자ID)
@@ -165,7 +165,7 @@ sequenceDiagram
     participant Member as member
     participant Scan as scan
     participant Food as food
-    participant Assess as assessment
+    participant Assess as avoidance
 
     User->>Client: 홈 진입
     Client->>API: 대시보드 요청 (사용자ID)
@@ -319,7 +319,7 @@ sequenceDiagram
 
 1. **`review` deferred** — 위 §UC-7 표의 PRD 기능들은 흐름을 못 그린다. PRD에는 있으나 백엔드 active 범위 밖. (의도된 deferral, 갭 아님 — 단 PRD와 구현 범위의 불일치를 명시 필요.)
 2. **LLM 3개 응답 종합 알고리즘 미결정** — UC-8 배치의 "응답 종합" 단계가 블랙박스(`meogo-data-ai-pipeline.md` §관련 미결정).
-3. **음식 목록에서 위험도 표시 여부** — UC-3/UC-4 에서 목록 항목마다 `assessment` 를 호출할지(비용·성능)가 PRD/문서에 명시 없음. `opt` 로 표기.
+3. **음식 목록에서 위험도 표시 여부** — UC-3/UC-4 에서 목록 항목마다 `avoidance` 를 호출할지(비용·성능)가 PRD/문서에 명시 없음. `opt` 로 표기.
 4. **온보딩 이메일 인증 어댑터** — `:infra:external·Email` 은 문서에 LLM 만큼 구체화돼 있지 않음(스택 문서엔 미등장). UC-5 는 합리적 추정.
 5. **스캔 재판정 트리거(UC-2)** — 상세 진입 시 매번 재판정인지, 스냅샷 우선인지 정책 명시 없음. 현재는 "상세=현재 기준 재판정"으로 가정.
 

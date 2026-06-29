@@ -1,6 +1,6 @@
 # 유비쿼터스 언어 사전 (Ubiquitous Language)
 
-Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 사전이다. 도메인 문서([food](./food.md) · [member](./member.md) · [scan](./scan.md) · [assessment](./assessment.md))에서 쓰는 말을 코드·대화·문서에서 동일하게 쓰기 위한 기준이다.
+Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 사전이다. 도메인 문서([food](./food.md) · [member](./member.md) · [scan](./scan.md) · [avoidance](./avoidance.md))에서 쓰는 말을 코드·대화·문서에서 동일하게 쓰기 위한 기준이다.
 
 > 용어의 상세 책임·필드 근거는 각 도메인 문서, BC 경계 원칙은 [README.md](./README.md), DDD/모듈 규범은 [`../meogo-conventions.md`](../meogo-conventions.md)를 본다. 이 문서는 **말의 정의와 구조 요약**을 제공하되, 원본 규칙의 단일 출처는 각 도메인 문서와 규범 문서다.
 
@@ -10,7 +10,7 @@ Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 �
 
 | 개념 | 한국어 뜻 | Meogo에서의 의미 |
 |------|----------|------------------|
-| Bounded Context (BC) | 경계 지어진 컨텍스트 | 하나의 도메인 언어가 일관되게 통하는 경계. `meogo-api` 컨테이너 아래 도메인 모듈의 **패키지 경계**로 둔다. Active BC는 `food` · `member` · `scan` · `assessment` · `research` 5개. 같은 단어라도 BC가 다르면 뜻이 다를 수 있다(예: "메뉴명"은 `scan`에선 원문, `food`에선 정규 음식명). |
+| Bounded Context (BC) | 경계 지어진 컨텍스트 | 하나의 도메인 언어가 일관되게 통하는 경계. `meogo-api` 컨테이너 아래 도메인 모듈의 **패키지 경계**로 둔다. Active BC는 `food` · `member` · `scan` · `avoidance` · `research` 5개. 같은 단어라도 BC가 다르면 뜻이 다를 수 있다(예: "메뉴명"은 `scan`에선 원문, `food`에선 정규 음식명). |
 | Aggregate | 어그리게이트(일관성 단위) | 함께 변경·저장되어야 하는 객체 묶음. **Aggregate Root를 통해서만** 내부 상태를 바꾼다. |
 | Aggregate Root (AR) | 어그리게이트 루트 | 그 묶음의 대표 객체이자 유일한 진입점. 외부는 AR의 ID로만 다른 Aggregate를 참조한다. |
 | Entity | 엔티티 | 식별자(ID)로 구분되며 생애 동안 상태가 바뀌는 객체. |
@@ -25,7 +25,7 @@ Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 �
 | `food` | 음식이 무엇이고 어떤 재료/성분으로 이뤄지는지 (검수된 카탈로그) | `Food`, `Ingredient` | 음식 기준 정보(이름·설명은 한국어 원문 + 9개 언어 번역, 이미지), 재료, 음식-재료 관계와 포함 가능성 스코어, 알러지/종교·비건 성분 매핑, 데이터 상태. `FoodIngredient`는 `food` 컨텍스트의 관계 모델이며, `Food`와 `Ingredient`는 서로 다른 Aggregate다. **LLM 조사·종합 출처는 `research`가 소유하고 ID로만 참조한다. 사용자별 위험도는 담지 않는다.** |
 | `member` | 사용자가 누구이고 어떤 식이 제한·선호를 갖는지 | `Member`, `DietaryProfile` | 회원 기본 정보·인증 상태, 프로필(닉네임·국적·언어), 식이 제한(알러지·종교·비건), 매운맛 허용도, 관심 음식, 랭킹. **음식 재료나 위험도 계산은 담지 않는다.** |
 | `scan` | 보낸 메뉴명이 어떤 음식으로 매핑됐고 당시 무슨 결과를 받았는지 | `MenuScan` | 스캔 사건, 원문 메뉴명·표시 순서, 메뉴명↔Food 매핑 결과와 신뢰도, **당시 위험도 결과 스냅샷**, 클라이언트 OCR 보조 메타데이터. **OCR·위험도 계산은 담지 않는다.** |
-| `assessment` | 특정 사용자에게 특정 음식이 안전한지 판정 | `AssessmentResult` 또는 도메인 결과 객체 (정책 도메인) | 위험도(`RiskLevel`), 위험 사유, 재료별 위험, 사장님 질문에 필요한 값. 입력은 전용 VO로만 받고 결과는 도메인 결과 객체로 반환한다. `AssessmentResult`를 영속 생명주기로 관리할 때만 Aggregate Root로 본다. **식이 제한·음식 데이터를 저장하지 않는다.** |
+| `avoidance` | 특정 사용자에게 특정 음식이 안전한지 판정 | `AssessmentResult` 또는 도메인 결과 객체 (정책 도메인) | 위험도(`RiskLevel`), 위험 사유, 재료별 위험, 사장님 질문에 필요한 값. 입력은 전용 VO로만 받고 결과는 도메인 결과 객체로 반환한다. `AssessmentResult`를 영속 생명주기로 관리할 때만 Aggregate Root로 본다. **식이 제한·음식 데이터를 저장하지 않는다.** |
 | `research` | 미스 메뉴를 조사해 신뢰할 음식 데이터로 만드는 파이프라인 (배치 전용) | `ResearchRequest` | 조사 대기열(정규화 메뉴명 dedup)·상태, 제공자별 LLM 원본 응답, 종합 결과(`SynthesizedFoodProfile`)와 출처·검수 사유. 종합 결과는 `food`가 영속한다. **최종 카탈로그·위험도는 담지 않는다.** |
 
 > `review`는 **현재 구현 범위에서 제외**(보류). 사전에는 용어를 싣지 않는다 → [review.md](./review.md).
@@ -174,7 +174,7 @@ classDiagram
         }
     }
 
-    namespace assessment {
+    namespace avoidance {
         class AssessmentResult {
             <<Domain Result>>
             +사용자조건참조
@@ -285,7 +285,7 @@ classDiagram
     MenuScan ..> Member : requesterId
     FoodMapping ..> Food : foodId
 
-    %% assessment 내부 관계 + 컨텍스트 조합
+    %% avoidance 내부 관계 + 컨텍스트 조합
     AssessmentResult "1" *-- "*" AssessmentReason
     AssessmentResult "1" *-- "*" IngredientRisk
     AssessmentResult "1" *-- "*" OwnerQuestion
@@ -297,7 +297,7 @@ classDiagram
     ScanAssessmentSnapshot ..> AssessmentResult : 결과 스냅샷
 ```
 
-> 다이어그램이 보여주는 핵심 규칙: `assessment`는 `food`/`member`의 클래스에 **직접 화살표가 없다.** `:application`이 `DietaryProfile`과 `FoodIngredient` 등 원천 데이터를 `AssessmentInput` 안의 전용 값(`DietaryCondition`, `IngredientAssessmentSource`)으로 변환한다. `scan`은 음식 정보를 복제하지 않고 `foodId`와 결과 **스냅샷**만 들고 있다.
+> 다이어그램이 보여주는 핵심 규칙: `avoidance`는 `food`/`member`의 클래스에 **직접 화살표가 없다.** `:application`이 `DietaryProfile`과 `FoodIngredient` 등 원천 데이터를 `AssessmentInput` 안의 전용 값(`DietaryCondition`, `IngredientAssessmentSource`)으로 변환한다. `scan`은 음식 정보를 복제하지 않고 `foodId`와 결과 **스냅샷**만 들고 있다.
 
 ---
 
@@ -370,7 +370,7 @@ classDiagram
 
 ---
 
-## assessment — 위험도 판정 컨텍스트 (정책 도메인)
+## avoidance — 위험도 판정 컨텍스트 (정책 도메인)
 
 특정 사용자에게 특정 음식이 얼마나 안전한지 판정한다. `food`/`member`의 엔티티에 직접 의존하지 않고, Application이 만든 **전용 입력 VO**만 받는다.
 
@@ -394,9 +394,9 @@ classDiagram
 | 도메인 명칭 | 한국어 뜻 | 어디서 쓰나 |
 |-------------|----------|-------------|
 | 알러지/종교/비건 제한 코드 | 공통 제한 코드 체계 | `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 **비교 가능해야 하는 공통 코드.** |
-| 원문 메뉴명 | 사용자가 메뉴판에서 본 그대로의 이름 | `scan`이 소유. `assessment`의 `OwnerQuestion`·`food` 매핑에서 그대로 사용(정규 음식명과 구분). |
+| 원문 메뉴명 | 사용자가 메뉴판에서 본 그대로의 이름 | `scan`이 소유. `avoidance`의 `OwnerQuestion`·`food` 매핑에서 그대로 사용(정규 음식명과 구분). |
 | 정규화 메뉴명/이름 | 매칭용으로 다듬은 이름 | `scan`·`food` 양쪽에서 메뉴명 매칭에 사용. |
-| 스냅샷 | 그 시점 값의 보존 사본 | `scan`의 `ScanAssessmentSnapshot`. 현재 기준 재판정은 `assessment`를 다시 호출하는 별도 흐름. |
+| 스냅샷 | 그 시점 값의 보존 사본 | `scan`의 `ScanAssessmentSnapshot`. 현재 기준 재판정은 `avoidance`를 다시 호출하는 별도 흐름. |
 | 음식 콘텐츠 언어 | 한국어 원문 + 9개 언어 | 음식명·설명·재료명·주의 성분을 `ko` 원문 + 9개 언어(`zh-Hans`/`en`/`ja`/`zh-Hant`/`vi`/`id`/`th`/`ru`/`es`)로 사전 번역 저장(ADR-0003). 사용자 `사용 언어`는 어느 번역본을 내려줄지 결정. |
 
 ---
@@ -405,4 +405,4 @@ classDiagram
 
 - 새 도메인 용어가 생기면 **먼저 이 사전에 한국어 뜻과 함께 등록**하고 코드/문서에서 동일하게 쓴다.
 - 같은 단어가 BC마다 다른 뜻이면, 각 BC 섹션에 따로 적고 "공통 용어"에 차이를 명시한다.
-- 도메인 문서(food/member/scan/assessment)가 단일 출처다. 정의가 충돌하면 도메인 문서를 따르고 이 사전을 갱신한다.
+- 도메인 문서(food/member/scan/avoidance)가 단일 출처다. 정의가 충돌하면 도메인 문서를 따르고 이 사전을 갱신한다.
