@@ -1,0 +1,1379 @@
+[
+  {
+    "code": "EGG",
+    "name": "계란",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "계란",
+      "zh-Hans": "鸡蛋",
+      "en": "Egg",
+      "ja": "卵",
+      "zh-Hant": "雞蛋",
+      "vi": "Trứng",
+      "id": "Telur",
+      "th": "ไข่",
+      "ru": "Яйцо",
+      "es": "Huevo"
+    }
+  },
+  {
+    "code": "MILK",
+    "name": "우유",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "우유",
+      "zh-Hans": "牛奶",
+      "en": "Milk",
+      "ja": "牛乳",
+      "zh-Hant": "牛奶",
+      "vi": "Sữa",
+      "id": "Susu",
+      "th": "นม",
+      "ru": "Молоко",
+      "es": "Leche"
+    }
+  },
+  {
+    "code": "DAIRY",
+    "name": "유제품",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "유제품",
+      "zh-Hans": "乳制品",
+      "en": "Dairy products",
+      "ja": "乳製品",
+      "zh-Hant": "乳製品",
+      "vi": "Sản phẩm từ sữa",
+      "id": "Produk susu",
+      "th": "ผลิตภัณฑ์จากนม",
+      "ru": "Молочные продукты",
+      "es": "Productos lácteos"
+    }
+  },
+  {
+    "code": "GOAT_MILK",
+    "name": "산양유",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "산양유",
+      "zh-Hans": "山羊奶",
+      "en": "Goat milk",
+      "ja": "山羊乳",
+      "zh-Hant": "山羊奶",
+      "vi": "Sữa dê",
+      "id": "Susu kambing",
+      "th": "นมแพะ",
+      "ru": "Козье молоко",
+      "es": "Leche de cabra"
+    }
+  },
+  {
+    "code": "BUTTER",
+    "name": "버터",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "버터",
+      "zh-Hans": "黄油",
+      "en": "Butter",
+      "ja": "バター",
+      "zh-Hant": "奶油",
+      "vi": "Bơ",
+      "id": "Mentega",
+      "th": "เนย",
+      "ru": "Сливочное масло",
+      "es": "Mantequilla"
+    }
+  },
+  {
+    "code": "GHEE",
+    "name": "기버터",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "기버터",
+      "zh-Hans": "酥油",
+      "en": "Ghee",
+      "ja": "ギー",
+      "zh-Hant": "酥油",
+      "vi": "Bơ ghee",
+      "id": "Ghee",
+      "th": "กี",
+      "ru": "Гхи",
+      "es": "Ghee"
+    }
+  },
+  {
+    "code": "CHEESE",
+    "name": "치즈",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "치즈",
+      "zh-Hans": "奶酪",
+      "en": "Cheese",
+      "ja": "チーズ",
+      "zh-Hant": "起司",
+      "vi": "Phô mai",
+      "id": "Keju",
+      "th": "ชีส",
+      "ru": "Сыр",
+      "es": "Queso"
+    }
+  },
+  {
+    "code": "GELATIN",
+    "name": "젤라틴",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "젤라틴",
+      "zh-Hans": "明胶",
+      "en": "Gelatin",
+      "ja": "ゼラチン",
+      "zh-Hant": "明膠",
+      "vi": "Gelatin",
+      "id": "Gelatin",
+      "th": "เจลาติน",
+      "ru": "Желатин",
+      "es": "Gelatina"
+    }
+  },
+  {
+    "code": "RENNET",
+    "name": "레닛",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "레닛",
+      "zh-Hans": "凝乳酶",
+      "en": "Rennet",
+      "ja": "レンネット",
+      "zh-Hant": "凝乳酶",
+      "vi": "Men dịch vị",
+      "id": "Rennet",
+      "th": "เรนเนต",
+      "ru": "Сычужный фермент",
+      "es": "Cuajo"
+    }
+  },
+  {
+    "code": "HONEY",
+    "name": "꿀",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "꿀",
+      "zh-Hans": "蜂蜜",
+      "en": "Honey",
+      "ja": "はちみつ",
+      "zh-Hant": "蜂蜜",
+      "vi": "Mật ong",
+      "id": "Madu",
+      "th": "น้ำผึ้ง",
+      "ru": "Мёд",
+      "es": "Miel"
+    }
+  },
+  {
+    "code": "CARMINE",
+    "name": "카민",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "카민",
+      "zh-Hans": "胭脂红",
+      "en": "Carmine",
+      "ja": "カルミン",
+      "zh-Hant": "胭脂紅",
+      "vi": "Carmine",
+      "id": "Karmin",
+      "th": "คาร์มีน",
+      "ru": "Кармин",
+      "es": "Carmín"
+    }
+  },
+  {
+    "code": "PEANUT",
+    "name": "땅콩",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "땅콩",
+      "zh-Hans": "花生",
+      "en": "Peanut",
+      "ja": "ピーナッツ",
+      "zh-Hant": "花生",
+      "vi": "Đậu phộng",
+      "id": "Kacang tanah",
+      "th": "ถั่วลิสง",
+      "ru": "Арахис",
+      "es": "Cacahuete"
+    }
+  },
+  {
+    "code": "WALNUT",
+    "name": "호두",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "호두",
+      "zh-Hans": "核桃",
+      "en": "Walnut",
+      "ja": "くるみ",
+      "zh-Hant": "核桃",
+      "vi": "Óc chó",
+      "id": "Kenari",
+      "th": "วอลนัท",
+      "ru": "Грецкий орех",
+      "es": "Nuez"
+    }
+  },
+  {
+    "code": "PINE_NUT",
+    "name": "잣",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "잣",
+      "zh-Hans": "松子",
+      "en": "Pine nut",
+      "ja": "松の実",
+      "zh-Hant": "松子",
+      "vi": "Hạt thông",
+      "id": "Kacang pinus",
+      "th": "เมล็ดสน",
+      "ru": "Кедровый орех",
+      "es": "Piñón"
+    }
+  },
+  {
+    "code": "ALMOND",
+    "name": "아몬드",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "아몬드",
+      "zh-Hans": "杏仁",
+      "en": "Almond",
+      "ja": "アーモンド",
+      "zh-Hant": "杏仁",
+      "vi": "Hạnh nhân",
+      "id": "Almond",
+      "th": "อัลมอนด์",
+      "ru": "Миндаль",
+      "es": "Almendra"
+    }
+  },
+  {
+    "code": "CASHEW",
+    "name": "캐슈넛",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "캐슈넛",
+      "zh-Hans": "腰果",
+      "en": "Cashew nut",
+      "ja": "カシューナッツ",
+      "zh-Hant": "腰果",
+      "vi": "Hạt điều",
+      "id": "Kacang mete",
+      "th": "เม็ดมะม่วงหิมพานต์",
+      "ru": "Кешью",
+      "es": "Anacardo"
+    }
+  },
+  {
+    "code": "PISTACHIO",
+    "name": "피스타치오",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "피스타치오",
+      "zh-Hans": "开心果",
+      "en": "Pistachio",
+      "ja": "ピスタチオ",
+      "zh-Hant": "開心果",
+      "vi": "Hạt dẻ cười",
+      "id": "Pistachio",
+      "th": "พิสตาชิโอ",
+      "ru": "Фисташка",
+      "es": "Pistacho"
+    }
+  },
+  {
+    "code": "HAZELNUT",
+    "name": "헤이즐넛",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "헤이즐넛",
+      "zh-Hans": "榛子",
+      "en": "Hazelnut",
+      "ja": "ヘーゼルナッツ",
+      "zh-Hant": "榛果",
+      "vi": "Hạt phỉ",
+      "id": "Hazelnut",
+      "th": "เฮเซลนัท",
+      "ru": "Фундук",
+      "es": "Avellana"
+    }
+  },
+  {
+    "code": "MACADAMIA",
+    "name": "마카다미아",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "마카다미아",
+      "zh-Hans": "夏威夷果",
+      "en": "Macadamia nut",
+      "ja": "マカダミアナッツ",
+      "zh-Hant": "夏威夷豆",
+      "vi": "Hạt mắc ca",
+      "id": "Kacang macadamia",
+      "th": "แมคคาเดเมีย",
+      "ru": "Макадамия",
+      "es": "Macadamia"
+    }
+  },
+  {
+    "code": "PECAN",
+    "name": "피칸",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "피칸",
+      "zh-Hans": "碧根果",
+      "en": "Pecan",
+      "ja": "ピーカンナッツ",
+      "zh-Hant": "碧根果",
+      "vi": "Hạt hồ đào",
+      "id": "Pecan",
+      "th": "พีแคน",
+      "ru": "Пекан",
+      "es": "Pacana"
+    }
+  },
+  {
+    "code": "BRAZIL_NUT",
+    "name": "브라질너트",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "브라질너트",
+      "zh-Hans": "巴西坚果",
+      "en": "Brazil nut",
+      "ja": "ブラジルナッツ",
+      "zh-Hant": "巴西堅果",
+      "vi": "Hạt Brazil",
+      "id": "Kacang Brazil",
+      "th": "บราซิลนัท",
+      "ru": "Бразильский орех",
+      "es": "Nuez de Brasil"
+    }
+  },
+  {
+    "code": "CHESTNUT",
+    "name": "밤",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "밤",
+      "zh-Hans": "栗子",
+      "en": "Chestnut",
+      "ja": "栗",
+      "zh-Hant": "栗子",
+      "vi": "Hạt dẻ",
+      "id": "Kastanya",
+      "th": "เกาลัด",
+      "ru": "Каштан",
+      "es": "Castaña"
+    }
+  },
+  {
+    "code": "SESAME",
+    "name": "참깨",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "참깨",
+      "zh-Hans": "芝麻",
+      "en": "Sesame",
+      "ja": "ごま",
+      "zh-Hant": "芝麻",
+      "vi": "Vừng",
+      "id": "Wijen",
+      "th": "งา",
+      "ru": "Кунжут",
+      "es": "Sésamo"
+    }
+  },
+  {
+    "code": "SUNFLOWER_SEED",
+    "name": "해바라기씨",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "해바라기씨",
+      "zh-Hans": "葵花籽",
+      "en": "Sunflower seed",
+      "ja": "ひまわりの種",
+      "zh-Hant": "葵花籽",
+      "vi": "Hạt hướng dương",
+      "id": "Biji bunga matahari",
+      "th": "เมล็ดทานตะวัน",
+      "ru": "Семена подсолнечника",
+      "es": "Semilla de girasol"
+    }
+  },
+  {
+    "code": "MUSTARD",
+    "name": "겨자",
+    "categories": ["ALLERGEN", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "겨자",
+      "zh-Hans": "芥末",
+      "en": "Mustard",
+      "ja": "からし",
+      "zh-Hant": "芥末",
+      "vi": "Mù tạt",
+      "id": "Moster",
+      "th": "มัสตาร์ด",
+      "ru": "Горчица",
+      "es": "Mostaza"
+    }
+  },
+  {
+    "code": "WHEAT",
+    "name": "밀",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "밀",
+      "zh-Hans": "小麦",
+      "en": "Wheat",
+      "ja": "小麦",
+      "zh-Hant": "小麥",
+      "vi": "Lúa mì",
+      "id": "Gandum",
+      "th": "ข้าวสาลี",
+      "ru": "Пшеница",
+      "es": "Trigo"
+    }
+  },
+  {
+    "code": "BUCKWHEAT",
+    "name": "메밀",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "메밀",
+      "zh-Hans": "荞麦",
+      "en": "Buckwheat",
+      "ja": "そば",
+      "zh-Hant": "蕎麥",
+      "vi": "Kiều mạch",
+      "id": "Soba",
+      "th": "บัควีท",
+      "ru": "Гречка",
+      "es": "Trigo sarraceno"
+    }
+  },
+  {
+    "code": "BARLEY",
+    "name": "보리",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "보리",
+      "zh-Hans": "大麦",
+      "en": "Barley",
+      "ja": "大麦",
+      "zh-Hant": "大麥",
+      "vi": "Lúa mạch",
+      "id": "Jelai",
+      "th": "ข้าวบาร์เลย์",
+      "ru": "Ячмень",
+      "es": "Cebada"
+    }
+  },
+  {
+    "code": "RYE",
+    "name": "호밀",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "호밀",
+      "zh-Hans": "黑麦",
+      "en": "Rye",
+      "ja": "ライ麦",
+      "zh-Hant": "黑麥",
+      "vi": "Lúa mạch đen",
+      "id": "Rye",
+      "th": "ไรย์",
+      "ru": "Рожь",
+      "es": "Centeno"
+    }
+  },
+  {
+    "code": "OAT",
+    "name": "귀리",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "귀리",
+      "zh-Hans": "燕麦",
+      "en": "Oat",
+      "ja": "オーツ麦",
+      "zh-Hant": "燕麥",
+      "vi": "Yến mạch",
+      "id": "Oat",
+      "th": "ข้าวโอ๊ต",
+      "ru": "Овёс",
+      "es": "Avena"
+    }
+  },
+  {
+    "code": "CORN",
+    "name": "옥수수",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "옥수수",
+      "zh-Hans": "玉米",
+      "en": "Corn",
+      "ja": "とうもろこし",
+      "zh-Hant": "玉米",
+      "vi": "Ngô",
+      "id": "Jagung",
+      "th": "ข้าวโพด",
+      "ru": "Кукуруза",
+      "es": "Maíz"
+    }
+  },
+  {
+    "code": "SOY",
+    "name": "대두",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "대두",
+      "zh-Hans": "大豆",
+      "en": "Soybean",
+      "ja": "大豆",
+      "zh-Hant": "大豆",
+      "vi": "Đậu nành",
+      "id": "Kedelai",
+      "th": "ถั่วเหลือง",
+      "ru": "Соя",
+      "es": "Soja"
+    }
+  },
+  {
+    "code": "LUPIN",
+    "name": "루핀",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "루핀",
+      "zh-Hans": "羽扇豆",
+      "en": "Lupin",
+      "ja": "ルピナス",
+      "zh-Hant": "羽扇豆",
+      "vi": "Đậu lupin",
+      "id": "Lupin",
+      "th": "ลูปิน",
+      "ru": "Люпин",
+      "es": "Altramuz"
+    }
+  },
+  {
+    "code": "PEA",
+    "name": "완두콩",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "완두콩",
+      "zh-Hans": "豌豆",
+      "en": "Pea",
+      "ja": "えんどう豆",
+      "zh-Hant": "豌豆",
+      "vi": "Đậu Hà Lan",
+      "id": "Kacang polong",
+      "th": "ถั่วลันเตา",
+      "ru": "Горох",
+      "es": "Guisante"
+    }
+  },
+  {
+    "code": "CHICKPEA",
+    "name": "병아리콩",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "병아리콩",
+      "zh-Hans": "鹰嘴豆",
+      "en": "Chickpea",
+      "ja": "ひよこ豆",
+      "zh-Hant": "鷹嘴豆",
+      "vi": "Đậu gà",
+      "id": "Kacang arab",
+      "th": "ถั่วลูกไก่",
+      "ru": "Нут",
+      "es": "Garbanzo"
+    }
+  },
+  {
+    "code": "LENTIL",
+    "name": "렌틸콩",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "렌틸콩",
+      "zh-Hans": "扁豆",
+      "en": "Lentil",
+      "ja": "レンズ豆",
+      "zh-Hant": "扁豆",
+      "vi": "Đậu lăng",
+      "id": "Lentil",
+      "th": "ถั่วเลนทิล",
+      "ru": "Чечевица",
+      "es": "Lenteja"
+    }
+  },
+  {
+    "code": "SHRIMP",
+    "name": "새우",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "새우",
+      "zh-Hans": "虾",
+      "en": "Shrimp",
+      "ja": "エビ",
+      "zh-Hant": "蝦",
+      "vi": "Tôm",
+      "id": "Udang",
+      "th": "กุ้ง",
+      "ru": "Креветка",
+      "es": "Camarón"
+    }
+  },
+  {
+    "code": "SALTED_SHRIMP",
+    "name": "새우젓",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "새우젓",
+      "zh-Hans": "盐渍虾",
+      "en": "Salted shrimp",
+      "ja": "アミの塩辛",
+      "zh-Hant": "鹽漬蝦",
+      "vi": "Tôm muối",
+      "id": "Udang asin fermentasi",
+      "th": "กุ้งเค็มหมัก",
+      "ru": "Солёные креветки",
+      "es": "Camarón salado fermentado"
+    }
+  },
+  {
+    "code": "CRAB",
+    "name": "게",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "게",
+      "zh-Hans": "蟹",
+      "en": "Crab",
+      "ja": "カニ",
+      "zh-Hant": "蟹",
+      "vi": "Cua",
+      "id": "Kepiting",
+      "th": "ปู",
+      "ru": "Краб",
+      "es": "Cangrejo"
+    }
+  },
+  {
+    "code": "CRAYFISH",
+    "name": "가재",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "가재",
+      "zh-Hans": "小龙虾",
+      "en": "Crayfish",
+      "ja": "ザリガニ",
+      "zh-Hant": "小龍蝦",
+      "vi": "Tôm càng",
+      "id": "Lobster air tawar",
+      "th": "เครย์ฟิช",
+      "ru": "Речной рак",
+      "es": "Cangrejo de río"
+    }
+  },
+  {
+    "code": "LOBSTER",
+    "name": "랍스터",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "랍스터",
+      "zh-Hans": "龙虾",
+      "en": "Lobster",
+      "ja": "ロブスター",
+      "zh-Hant": "龍蝦",
+      "vi": "Tôm hùm",
+      "id": "Lobster",
+      "th": "ล็อบสเตอร์",
+      "ru": "Омар",
+      "es": "Langosta"
+    }
+  },
+  {
+    "code": "SQUID",
+    "name": "오징어",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "오징어",
+      "zh-Hans": "鱿鱼",
+      "en": "Squid",
+      "ja": "イカ",
+      "zh-Hant": "魷魚",
+      "vi": "Mực",
+      "id": "Cumi-cumi",
+      "th": "ปลาหมึก",
+      "ru": "Кальмар",
+      "es": "Calamar"
+    }
+  },
+  {
+    "code": "OCTOPUS",
+    "name": "문어",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "문어",
+      "zh-Hans": "章鱼",
+      "en": "Octopus",
+      "ja": "タコ",
+      "zh-Hant": "章魚",
+      "vi": "Bạch tuộc",
+      "id": "Gurita",
+      "th": "หมึกยักษ์",
+      "ru": "Осьминог",
+      "es": "Pulpo"
+    }
+  },
+  {
+    "code": "OYSTER",
+    "name": "굴",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "굴",
+      "zh-Hans": "牡蛎",
+      "en": "Oyster",
+      "ja": "牡蠣",
+      "zh-Hant": "牡蠣",
+      "vi": "Hàu",
+      "id": "Tiram",
+      "th": "หอยนางรม",
+      "ru": "Устрица",
+      "es": "Ostra"
+    }
+  },
+  {
+    "code": "OYSTER_SAUCE",
+    "name": "굴소스",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "굴소스",
+      "zh-Hans": "蚝油",
+      "en": "Oyster sauce",
+      "ja": "オイスターソース",
+      "zh-Hant": "蠔油",
+      "vi": "Dầu hào",
+      "id": "Saus tiram",
+      "th": "ซอสหอยนางรม",
+      "ru": "Устричный соус",
+      "es": "Salsa de ostras"
+    }
+  },
+  {
+    "code": "ABALONE",
+    "name": "전복",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "전복",
+      "zh-Hans": "鲍鱼",
+      "en": "Abalone",
+      "ja": "アワビ",
+      "zh-Hant": "鮑魚",
+      "vi": "Bào ngư",
+      "id": "Abalon",
+      "th": "หอยเป๋าฮื้อ",
+      "ru": "Морское ушко",
+      "es": "Abulón"
+    }
+  },
+  {
+    "code": "MUSSEL",
+    "name": "홍합",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "홍합",
+      "zh-Hans": "贻贝",
+      "en": "Mussel",
+      "ja": "ムール貝",
+      "zh-Hant": "貽貝",
+      "vi": "Vẹm",
+      "id": "Kerang hijau",
+      "th": "หอยแมลงภู่",
+      "ru": "Мидия",
+      "es": "Mejillón"
+    }
+  },
+  {
+    "code": "CLAM",
+    "name": "조개",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "조개",
+      "zh-Hans": "蛤蜊",
+      "en": "Clam",
+      "ja": "貝",
+      "zh-Hant": "蛤蜊",
+      "vi": "Nghêu",
+      "id": "Kerang",
+      "th": "หอย",
+      "ru": "Моллюск",
+      "es": "Almeja"
+    }
+  },
+  {
+    "code": "SHORT_NECK_CLAM",
+    "name": "바지락",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "바지락",
+      "zh-Hans": "菲律宾蛤仔",
+      "en": "Short-neck clam",
+      "ja": "アサリ",
+      "zh-Hant": "菲律賓蛤仔",
+      "vi": "Nghêu cổ ngắn",
+      "id": "Kerang asari",
+      "th": "หอยลาย",
+      "ru": "Маленькая венерка",
+      "es": "Almeja japonesa"
+    }
+  },
+  {
+    "code": "SCALLOP",
+    "name": "가리비",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "가리비",
+      "zh-Hans": "扇贝",
+      "en": "Scallop",
+      "ja": "ホタテ",
+      "zh-Hant": "扇貝",
+      "vi": "Sò điệp",
+      "id": "Kerang simping",
+      "th": "หอยเชลล์",
+      "ru": "Морской гребешок",
+      "es": "Vieira"
+    }
+  },
+  {
+    "code": "SEAFOOD",
+    "name": "해산물",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "해산물",
+      "zh-Hans": "海鲜",
+      "en": "Seafood",
+      "ja": "海産物",
+      "zh-Hant": "海鮮",
+      "vi": "Hải sản",
+      "id": "Makanan laut",
+      "th": "อาหารทะเล",
+      "ru": "Морепродукты",
+      "es": "Mariscos"
+    }
+  },
+  {
+    "code": "FISH",
+    "name": "생선",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "생선",
+      "zh-Hans": "鱼",
+      "en": "Fish",
+      "ja": "魚",
+      "zh-Hant": "魚",
+      "vi": "Cá",
+      "id": "Ikan",
+      "th": "ปลา",
+      "ru": "Рыба",
+      "es": "Pescado"
+    }
+  },
+  {
+    "code": "MACKEREL",
+    "name": "고등어",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "고등어",
+      "zh-Hans": "鲭鱼",
+      "en": "Mackerel",
+      "ja": "サバ",
+      "zh-Hant": "鯖魚",
+      "vi": "Cá thu",
+      "id": "Ikan kembung",
+      "th": "ปลาแมกเคอเรล",
+      "ru": "Скумбрия",
+      "es": "Caballa"
+    }
+  },
+  {
+    "code": "SALMON",
+    "name": "연어",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "연어",
+      "zh-Hans": "三文鱼",
+      "en": "Salmon",
+      "ja": "サーモン",
+      "zh-Hant": "鮭魚",
+      "vi": "Cá hồi",
+      "id": "Salmon",
+      "th": "ปลาแซลมอน",
+      "ru": "Лосось",
+      "es": "Salmón"
+    }
+  },
+  {
+    "code": "TUNA",
+    "name": "참치",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "참치",
+      "zh-Hans": "金枪鱼",
+      "en": "Tuna",
+      "ja": "マグロ",
+      "zh-Hant": "鮪魚",
+      "vi": "Cá ngừ",
+      "id": "Tuna",
+      "th": "ปลาทูน่า",
+      "ru": "Тунец",
+      "es": "Atún"
+    }
+  },
+  {
+    "code": "COD",
+    "name": "대구",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "대구",
+      "zh-Hans": "鳕鱼",
+      "en": "Cod",
+      "ja": "タラ",
+      "zh-Hant": "鱈魚",
+      "vi": "Cá tuyết",
+      "id": "Ikan kod",
+      "th": "ปลาค็อด",
+      "ru": "Треска",
+      "es": "Bacalao"
+    }
+  },
+  {
+    "code": "ANCHOVY",
+    "name": "멸치",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "멸치",
+      "zh-Hans": "凤尾鱼",
+      "en": "Anchovy",
+      "ja": "カタクチイワシ",
+      "zh-Hant": "鳳尾魚",
+      "vi": "Cá cơm",
+      "id": "Ikan teri",
+      "th": "ปลาแอนโชวี่",
+      "ru": "Анчоус",
+      "es": "Anchoa"
+    }
+  },
+  {
+    "code": "FISH_SAUCE",
+    "name": "액젓",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "액젓",
+      "zh-Hans": "鱼露",
+      "en": "Fish sauce",
+      "ja": "魚醤",
+      "zh-Hant": "魚露",
+      "vi": "Nước mắm",
+      "id": "Kecap ikan",
+      "th": "น้ำปลา",
+      "ru": "Рыбный соус",
+      "es": "Salsa de pescado"
+    }
+  },
+  {
+    "code": "BROTH",
+    "name": "육수",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "육수",
+      "zh-Hans": "高汤",
+      "en": "Broth",
+      "ja": "だし汁",
+      "zh-Hant": "高湯",
+      "vi": "Nước dùng",
+      "id": "Kaldu",
+      "th": "น้ำซุป",
+      "ru": "Бульон",
+      "es": "Caldo"
+    }
+  },
+  {
+    "code": "DASHI",
+    "name": "다시",
+    "categories": ["ALLERGEN", "DIETARY_RULE"],
+    "translations": {
+      "ko": "다시",
+      "zh-Hans": "日式高汤",
+      "en": "Dashi",
+      "ja": "出汁",
+      "zh-Hant": "日式高湯",
+      "vi": "Nước dùng dashi",
+      "id": "Dashi",
+      "th": "ดาชิ",
+      "ru": "Даси",
+      "es": "Dashi"
+    }
+  },
+  {
+    "code": "BEEF",
+    "name": "소고기",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "소고기",
+      "zh-Hans": "牛肉",
+      "en": "Beef",
+      "ja": "牛肉",
+      "zh-Hant": "牛肉",
+      "vi": "Thịt bò",
+      "id": "Daging sapi",
+      "th": "เนื้อวัว",
+      "ru": "Говядина",
+      "es": "Carne de res"
+    }
+  },
+  {
+    "code": "PORK",
+    "name": "돼지고기",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "돼지고기",
+      "zh-Hans": "猪肉",
+      "en": "Pork",
+      "ja": "豚肉",
+      "zh-Hant": "豬肉",
+      "vi": "Thịt heo",
+      "id": "Daging babi",
+      "th": "เนื้อหมู",
+      "ru": "Свинина",
+      "es": "Carne de cerdo"
+    }
+  },
+  {
+    "code": "LARD",
+    "name": "라드",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "라드",
+      "zh-Hans": "猪油",
+      "en": "Lard",
+      "ja": "ラード",
+      "zh-Hant": "豬油",
+      "vi": "Mỡ heo",
+      "id": "Lemak babi",
+      "th": "น้ำมันหมู",
+      "ru": "Смалец",
+      "es": "Manteca de cerdo"
+    }
+  },
+  {
+    "code": "TALLOW",
+    "name": "우지",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "우지",
+      "zh-Hans": "牛脂",
+      "en": "Tallow",
+      "ja": "牛脂",
+      "zh-Hant": "牛脂",
+      "vi": "Mỡ bò",
+      "id": "Lemak sapi",
+      "th": "ไขมันวัว",
+      "ru": "Говяжий жир",
+      "es": "Sebo"
+    }
+  },
+  {
+    "code": "CHICKEN",
+    "name": "닭고기",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "닭고기",
+      "zh-Hans": "鸡肉",
+      "en": "Chicken",
+      "ja": "鶏肉",
+      "zh-Hant": "雞肉",
+      "vi": "Thịt gà",
+      "id": "Daging ayam",
+      "th": "เนื้อไก่",
+      "ru": "Курица",
+      "es": "Pollo"
+    }
+  },
+  {
+    "code": "POULTRY",
+    "name": "가금류",
+    "categories": ["ALLERGEN", "DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "가금류",
+      "zh-Hans": "家禽",
+      "en": "Poultry",
+      "ja": "家禽類",
+      "zh-Hant": "家禽",
+      "vi": "Gia cầm",
+      "id": "Unggas",
+      "th": "สัตว์ปีก",
+      "ru": "Птица",
+      "es": "Aves de corral"
+    }
+  },
+  {
+    "code": "PEACH",
+    "name": "복숭아",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "복숭아",
+      "zh-Hans": "桃子",
+      "en": "Peach",
+      "ja": "桃",
+      "zh-Hant": "桃子",
+      "vi": "Đào",
+      "id": "Persik",
+      "th": "ลูกพีช",
+      "ru": "Персик",
+      "es": "Melocotón"
+    }
+  },
+  {
+    "code": "TOMATO",
+    "name": "토마토",
+    "categories": ["ALLERGEN", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "토마토",
+      "zh-Hans": "番茄",
+      "en": "Tomato",
+      "ja": "トマト",
+      "zh-Hant": "番茄",
+      "vi": "Cà chua",
+      "id": "Tomat",
+      "th": "มะเขือเทศ",
+      "ru": "Помидор",
+      "es": "Tomate"
+    }
+  },
+  {
+    "code": "CELERY",
+    "name": "셀러리",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "셀러리",
+      "zh-Hans": "芹菜",
+      "en": "Celery",
+      "ja": "セロリ",
+      "zh-Hant": "芹菜",
+      "vi": "Cần tây",
+      "id": "Seledri",
+      "th": "ขึ้นฉ่าย",
+      "ru": "Сельдерей",
+      "es": "Apio"
+    }
+  },
+  {
+    "code": "POTATO",
+    "name": "감자",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "감자",
+      "zh-Hans": "土豆",
+      "en": "Potato",
+      "ja": "じゃがいも",
+      "zh-Hant": "馬鈴薯",
+      "vi": "Khoai tây",
+      "id": "Kentang",
+      "th": "มันฝรั่ง",
+      "ru": "Картофель",
+      "es": "Patata"
+    }
+  },
+  {
+    "code": "CARROT",
+    "name": "당근",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "당근",
+      "zh-Hans": "胡萝卜",
+      "en": "Carrot",
+      "ja": "にんじん",
+      "zh-Hant": "胡蘿蔔",
+      "vi": "Cà rốt",
+      "id": "Wortel",
+      "th": "แครอท",
+      "ru": "Морковь",
+      "es": "Zanahoria"
+    }
+  },
+  {
+    "code": "ONION",
+    "name": "양파",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "양파",
+      "zh-Hans": "洋葱",
+      "en": "Onion",
+      "ja": "玉ねぎ",
+      "zh-Hant": "洋蔥",
+      "vi": "Hành tây",
+      "id": "Bawang bombai",
+      "th": "หัวหอม",
+      "ru": "Лук",
+      "es": "Cebolla"
+    }
+  },
+  {
+    "code": "GARLIC",
+    "name": "마늘",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "마늘",
+      "zh-Hans": "大蒜",
+      "en": "Garlic",
+      "ja": "にんにく",
+      "zh-Hant": "大蒜",
+      "vi": "Tỏi",
+      "id": "Bawang putih",
+      "th": "กระเทียม",
+      "ru": "Чеснок",
+      "es": "Ajo"
+    }
+  },
+  {
+    "code": "SCALLION",
+    "name": "파",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "파",
+      "zh-Hans": "大葱",
+      "en": "Scallion",
+      "ja": "長ねぎ",
+      "zh-Hant": "青蔥",
+      "vi": "Hành lá",
+      "id": "Daun bawang",
+      "th": "ต้นหอม",
+      "ru": "Зелёный лук",
+      "es": "Cebolleta"
+    }
+  },
+  {
+    "code": "CHIVE",
+    "name": "부추",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "부추",
+      "zh-Hans": "韭菜",
+      "en": "Chive",
+      "ja": "ニラ",
+      "zh-Hant": "韭菜",
+      "vi": "Hẹ",
+      "id": "Kucai",
+      "th": "กุยช่าย",
+      "ru": "Шнитт-лук",
+      "es": "Cebollino"
+    }
+  },
+  {
+    "code": "WILD_CHIVE",
+    "name": "달래",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "달래",
+      "zh-Hans": "野葱",
+      "en": "Wild chive",
+      "ja": "ヒメニラ",
+      "zh-Hant": "野蔥",
+      "vi": "Hẹ dại",
+      "id": "Kucai liar",
+      "th": "กุยช่ายป่า",
+      "ru": "Дикий шнитт-лук",
+      "es": "Cebollino silvestre"
+    }
+  },
+  {
+    "code": "ASAFOETIDA",
+    "name": "흥거",
+    "categories": ["DIETARY_RULE"],
+    "translations": {
+      "ko": "흥거",
+      "zh-Hans": "阿魏",
+      "en": "Asafoetida",
+      "ja": "アサフェティダ",
+      "zh-Hant": "阿魏",
+      "vi": "A nguỳ",
+      "id": "Asafetida",
+      "th": "มหาหิงคุ์",
+      "ru": "Асафетида",
+      "es": "Asafétida"
+    }
+  },
+  {
+    "code": "ALCOHOL",
+    "name": "알코올",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "알코올",
+      "zh-Hans": "酒精",
+      "en": "Alcohol",
+      "ja": "アルコール",
+      "zh-Hant": "酒精",
+      "vi": "Cồn",
+      "id": "Alkohol",
+      "th": "แอลกอฮอล์",
+      "ru": "Алкоголь",
+      "es": "Alcohol"
+    }
+  },
+  {
+    "code": "MIRIN",
+    "name": "미림",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "미림",
+      "zh-Hans": "味醂",
+      "en": "Mirin",
+      "ja": "みりん",
+      "zh-Hant": "味醂",
+      "vi": "Rượu mirin",
+      "id": "Mirin",
+      "th": "มิริน",
+      "ru": "Мирин",
+      "es": "Mirin"
+    }
+  },
+  {
+    "code": "COOKING_WINE",
+    "name": "맛술",
+    "categories": ["DIETARY_RULE", "PERSONAL_AVOIDANCE"],
+    "translations": {
+      "ko": "맛술",
+      "zh-Hans": "料酒",
+      "en": "Cooking wine",
+      "ja": "料理酒",
+      "zh-Hant": "料理酒",
+      "vi": "Rượu nấu ăn",
+      "id": "Anggur masak",
+      "th": "ไวน์ปรุงอาหาร",
+      "ru": "Кулинарное вино",
+      "es": "Vino de cocina"
+    }
+  },
+  {
+    "code": "SULFITES",
+    "name": "아황산류",
+    "categories": ["ALLERGEN"],
+    "translations": {
+      "ko": "아황산류",
+      "zh-Hans": "亚硫酸盐",
+      "en": "Sulfites",
+      "ja": "亜硫酸塩",
+      "zh-Hant": "亞硫酸鹽",
+      "vi": "Sulfite",
+      "id": "Sulfit",
+      "th": "ซัลไฟต์",
+      "ru": "Сульфиты",
+      "es": "Sulfitos"
+    }
+  }
+]
