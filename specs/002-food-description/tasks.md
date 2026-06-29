@@ -64,7 +64,7 @@ description: "Task list — 음식 상세 조회에 음식 설명(간단·자세
 ## Phase 3: Polish & Cross-Cutting
 
 - [X] T017 [P] 회귀 확인 — 기존 음식 상세 테스트(정상·ko 폴백·미수록 400·blank 400) 그대로 통과 + `./gradlew build` 그린
-- [ ] T018 [P] quickstart.md 시나리오 로컬 검증(MySQL, V4 적용, curl en/미지정/미수록) — `specs/002-food-description/quickstart.md` (미실행 — 로컬 MySQL 기동 필요. 빌드·H2 테스트는 통과)
+- [X] T018 [P] quickstart.md 시나리오 로컬 검증(MySQL, V4 적용, curl en/미지정/미수록) — `specs/002-food-description/quickstart.md`
 - [X] T019 [P] 문서 정합 — contracts/data-model 과 실제 응답 필드·컬럼 길이 일치 확인
 
 ---
