@@ -17,7 +17,7 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
 
 1. **상태 확인** — `git status --short` 로 변경/미추적 파일을 파악한다. `_workspace/` 등 gitignore 대상이 섞이지 않는지 `git check-ignore` 로 확인한다. 사전부터 있던 무관한 변경(`CLAUDE.md`·`.specify/feature.json` 등 SpecKit 포인터는 feature 의 일부라 포함)은 `git diff` 로 내용 확인 후 포함 여부를 판단한다.
 
-2. **커밋(미커밋이면)** — 작업/논리 단위로 커밋한다. 파일이 스토리 간 크게 겹치면 단일 feature 커밋이 더 정직하다(중간 깨진 상태 방지). 메시지는 **한국어 Conventional Commits**(`feat(scope): 요약 (#이슈)`) + 본문(모듈별 변경·테스트 요지)으로 쓰고, 본문은 스크래치패드 파일에 작성해 `git commit -F` 로 넣는다. 메시지 끝에 반드시:
+2. **커밋(미커밋이면)** — 작업/논리 단위로 커밋한다. 파일이 스토리 간 크게 겹치면 단일 feature 커밋이 더 정직하다(중간 깨진 상태 방지). 메시지는 **한국어 Conventional Commits**(`feat(scope): 요약` — **제목 끝에 이슈/PR 번호를 붙이지 않는다**) + 본문(모듈별 변경·테스트 요지)으로 쓰고, 본문은 스크래치패드 파일에 작성해 `git commit -F` 로 넣는다. 메시지 끝에 반드시:
    ```
    Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
    ```
@@ -43,9 +43,10 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
    gh pr create --draft \
      --base develop \
      --head <feature-branch> \
-     --title "feat(scope): 요약 (#이슈)" \
+     --title "feat(scope): 요약" \
      --body-file <scratchpad>/pr-body.md
    ```
+   - **제목 끝에 이슈/PR 번호(`(#15)` 등)를 붙이지 않는다** — GitHub squash 머지가 squash 커밋 제목 끝에 PR 번호 `(#NN)` 를 자동으로 붙인다(수동으로 넣으면 `(#15) (#19)` 처럼 중복). 이슈 종료는 본문 `### Issue Number` 의 `close #번호` 가 담당한다.
    - 제목은 **브랜치 전체 결과**를 반영한다(초기 커밋만이 아니라 최종 산출 기준). 작업을 더 했으면 푸시 후 제목을 갱신한다.
 
 7. **보고** — 생성된 PR 번호·URL·base/head·커밋 요약을 사용자에게 전달한다. "Ready for review" 전환·리뷰어/라벨 지정은 사용자 요청 시 처리한다.
