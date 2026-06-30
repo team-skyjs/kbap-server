@@ -29,12 +29,11 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
 
 4. **base 브랜치 결정** — feature PR 의 base 는 **`develop`**(통합 브랜치, git-branch-strategy/ADR-0007). `main` 은 릴리스용이라 feature PR 의 base 로 쓰지 않는다. `git ls-remote --heads origin` 으로 `develop` 존재를 확인한다.
 
-5. **PR 본문 작성** — 스크래치패드에 마크다운으로 쓴다(`--body-file` 로 전달, 셸 이스케이프 회피). 권장 섹션:
-   - `## 개요` — 무엇을/왜(이슈 번호 포함)
-   - `## 변경 사항` — 모듈별 핵심
-   - `## 테스트` — 테스트 종류·수·그린 여부(`./gradlew build` 결과)
-   - `## 설계 메모` / `## 범위 밖 (후속)` — 트레이드오프·후속 이슈
-   - 본문 끝에 반드시:
+5. **PR 본문 작성** — **`.github/PULL_REQUEST_TEMPLATE.md` 포맷을 그대로 따른다**(섹션·순서 고정). 스크래치패드에 마크다운으로 채워 `--body-file` 로 전달(셸 이스케이프 회피). 고정 섹션:
+   - `### Issue Number` — **닫는 이슈마다 `- close #이슈번호`**(예: `- close #15`). **후속/참조 이슈는 `close` 없이 `#번호` 만**. (default 브랜치 머지 시 종료 — base 가 develop 이어도 develop→main 도달 시 닫힘.)
+   - `## 무엇을 / 왜` · `## 변경 사항` · `## 설계 / 결정` · `## 테스트 / 검증`(`./gradlew build` 결과) · `## 범위 밖 / 후속`
+   - **닫는 이슈가 있으면 `### Issue Number` 의 `close` 를 절대 빠뜨리지 않는다.**
+   - Claude 가 작성한 PR 이면 본문 끝에:
      ```
      🤖 Generated with [Claude Code](https://claude.com/claude-code)
      ```
