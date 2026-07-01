@@ -1,11 +1,15 @@
 package com.meogo.app.api.architecture
 
+import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
+import java.lang.reflect.Modifier
 
 class ModuleBoundaryTest : BehaviorSpec({
 
@@ -135,6 +139,29 @@ class ModuleBoundaryTest : BehaviorSpec({
             then("모든 JPA 엔티티는 infra:persistence 에만 존재한다") {
                 classes().that().areAnnotatedWith("jakarta.persistence.Entity")
                     .should().resideInAPackage("com.meogo.infra.persistence..")
+                    .allowEmptyShould(true)
+                    .check(imported)
+            }
+        }
+    }
+
+    given("성분 식별자 enum 데이터 없음 회귀") {
+        `when`("AvoidanceSubstanceCode 의 선언 필드를 리플렉션으로 확인하면") {
+            then("데이터 인스턴스 필드를 갖지 않는다") {
+                val instanceFields = AvoidanceSubstanceCode::class.java.declaredFields
+                    .filterNot { Modifier.isStatic(it.modifiers) }
+
+                instanceFields shouldBe emptyList()
+            }
+        }
+    }
+
+    given("영속 avoidance 엔티티의 분류 저장 형식 회귀") {
+        `when`("infra:persistence 의 avoidance 필드 타입을 검사하면") {
+            then("도메인 enum AvoidanceCategory 를 필드 타입으로 쓰지 않는다(String 저장)") {
+                noFields().that().areDeclaredInClassesThat()
+                    .resideInAPackage("com.meogo.infra.persistence.avoidance..")
+                    .should().haveRawType("com.meogo.core.avoidance.AvoidanceCategory")
                     .allowEmptyShould(true)
                     .check(imported)
             }

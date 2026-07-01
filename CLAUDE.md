@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/006-ingredient-avoidance-mapping/plan.md` (재료↔회피·주의 성분 매핑 — MySQL 조인 테이블 + enum 코드 참조, 이슈 #15).
+`specs/007-avoidance-substance-aggregate/plan.md` (회피·주의 성분 — 식별자 enum `AvoidanceSubstanceCode` + 도메인 어그리게이트 `AvoidanceSubstance` 분리, DB 단일 출처·표시명 이동·String 저장, 이슈 #21).
 <!-- SPECKIT END -->

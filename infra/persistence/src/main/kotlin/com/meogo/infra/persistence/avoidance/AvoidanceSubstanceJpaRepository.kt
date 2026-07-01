@@ -6,6 +6,4 @@ interface AvoidanceSubstanceJpaRepository : JpaRepository<AvoidanceSubstanceJpaE
     fun findByCodeIn(codes: Set<String>): List<AvoidanceSubstanceJpaEntity>
 
     fun findByIdIn(ids: Set<Long>): List<AvoidanceSubstanceJpaEntity>
-
-    fun findByCode(code: String): AvoidanceSubstanceJpaEntity?
 }

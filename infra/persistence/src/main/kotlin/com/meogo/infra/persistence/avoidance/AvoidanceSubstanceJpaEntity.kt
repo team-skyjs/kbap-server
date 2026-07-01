@@ -1,5 +1,9 @@
 package com.meogo.infra.persistence.avoidance
 
+import com.meogo.core.avoidance.AvoidanceCategory
+import com.meogo.core.avoidance.AvoidanceSubstance
+import com.meogo.core.avoidance.AvoidanceSubstanceCode
+import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.infra.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -40,4 +44,28 @@ class AvoidanceSubstanceJpaEntity(
 
     @Column(name = "name_es", length = 100)
     var nameEs: String? = null,
-) : BaseEntity()
+) : BaseEntity() {
+    fun toDomain(categories: Set<AvoidanceCategory>): AvoidanceSubstance =
+        AvoidanceSubstance.reconstitute(
+            id = id,
+            code = AvoidanceSubstanceCode.valueOf(code),
+            koreanName = koreanName,
+            translations = translationColumns()
+                .filterValues { !it.isNullOrBlank() }
+                .mapValues { it.value!! },
+            categories = categories,
+        )
+
+    private fun translationColumns(): Map<LanguageCode, String?> =
+        mapOf(
+            LanguageCode.ZH_HANS to nameZhHans,
+            LanguageCode.EN to nameEn,
+            LanguageCode.JA to nameJa,
+            LanguageCode.ZH_HANT to nameZhHant,
+            LanguageCode.VI to nameVi,
+            LanguageCode.ID to nameId,
+            LanguageCode.TH to nameTh,
+            LanguageCode.RU to nameRu,
+            LanguageCode.ES to nameEs,
+        )
+}

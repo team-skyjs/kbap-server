@@ -1,8 +1,9 @@
 package com.meogo.infra.persistence.avoidance
 
-import com.meogo.core.avoidance.AvoidanceCategory
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface AvoidanceSubstanceCategoryJpaRepository : JpaRepository<AvoidanceSubstanceCategoryJpaEntity, Long> {
-    fun findByCategory(category: AvoidanceCategory): List<AvoidanceSubstanceCategoryJpaEntity>
+    fun findByCategory(category: String): List<AvoidanceSubstanceCategoryJpaEntity>
+
+    fun findBySubstanceIdIn(substanceIds: Set<Long>): List<AvoidanceSubstanceCategoryJpaEntity>
 }
