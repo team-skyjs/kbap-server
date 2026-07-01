@@ -25,6 +25,14 @@ class AvoidanceSubstance private constructor(
 
     fun belongsTo(category: AvoidanceCategory): Boolean = category in categories
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AvoidanceSubstance) return false
+        return code == other.code
+    }
+
+    override fun hashCode(): Int = code.hashCode()
+
     companion object {
         fun reconstitute(
             id: Long,

@@ -32,7 +32,8 @@ dependencies {
     // 이미 보므로(application:client 전이 + infra:persistence runtimeOnly) com.meogo 전체를 스캔할 수 있다.
     "testImplementation"(libs.archunit)
 
-    // enum↔V5 시드 정합 테스트(AvoidanceCatalogSeedSyncTest)가 카탈로그 enum 을 직접 참조한다.
+    // avoidance 회귀 테스트가 :core:avoidance 를 직접 참조한다: 코드↔V5 시드 정합(AvoidanceCatalogSeedSyncTest)이
+    // AvoidanceSubstanceCode 를, ModuleBoundaryTest 가 성분 식별자 enum 데이터 없음·엔티티 분류 저장 형식을 검증한다.
     "testImplementation"(project(":core:avoidance"))
 }
 

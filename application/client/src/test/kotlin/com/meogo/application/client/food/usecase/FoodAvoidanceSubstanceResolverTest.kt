@@ -34,7 +34,6 @@ class FoodAvoidanceSubstanceResolverTest : BehaviorSpec({
     val peanut = substance(AvoidanceSubstanceCode.PEANUT, "땅콩", mapOf(LanguageCode.EN to "Peanut"))
     val milk = substance(AvoidanceSubstanceCode.MILK, "우유")
     val egg = substance(AvoidanceSubstanceCode.EGG, "계란")
-    val soy = substance(AvoidanceSubstanceCode.SOY, "대두")
     val wheat = substance(AvoidanceSubstanceCode.WHEAT, "밀")
 
     given("음식 구성 재료의 회피·주의 성분 합집합 도출") {
@@ -52,20 +51,42 @@ class FoodAvoidanceSubstanceResolverTest : BehaviorSpec({
             }
         }
 
-        `when`("여러 재료가 같은 성분 어그리게이트에 매핑돼 있으면") {
-            then("그 성분은 합집합에 한 번만 포함된다") {
+        `when`("서로 다른 재료가 같은 code 의 서로 다른 인스턴스에 매핑돼 있으면") {
+            then("code 기준으로 중복 제거되어 합집합 크기가 1이다") {
+                val soyFromIngredientA = substance(AvoidanceSubstanceCode.SOY, "대두")
+                val soyFromIngredientB = substance(AvoidanceSubstanceCode.SOY, "대두")
+
                 val resolver = resolverWith(
                     mapOf(
-                        201L to setOf(soy),
-                        202L to setOf(soy, wheat),
+                        501L to setOf(soyFromIngredientA),
+                        502L to setOf(soyFromIngredientB),
+                    ),
+                )
+
+                val resolved = resolver.resolve(setOf(501L, 502L))
+
+                resolved shouldHaveSize 1
+                resolved.single().code shouldBe AvoidanceSubstanceCode.SOY
+            }
+        }
+
+        `when`("같은 code 의 다른 인스턴스와 다른 성분이 섞여 매핑돼 있으면") {
+            then("같은 code 는 한 번만 남고 서로 다른 code 는 각각 남는다") {
+                val soyFromIngredientA = substance(AvoidanceSubstanceCode.SOY, "대두")
+                val soyFromIngredientB = substance(AvoidanceSubstanceCode.SOY, "대두")
+
+                val resolver = resolverWith(
+                    mapOf(
+                        201L to setOf(soyFromIngredientA),
+                        202L to setOf(soyFromIngredientB, wheat),
                     ),
                 )
 
                 val resolved = resolver.resolve(setOf(201L, 202L))
 
+                resolved shouldHaveSize 2
                 resolved.map { it.code }.toSet() shouldBe
                     setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.WHEAT)
-                resolved shouldHaveSize 2
             }
         }
 
