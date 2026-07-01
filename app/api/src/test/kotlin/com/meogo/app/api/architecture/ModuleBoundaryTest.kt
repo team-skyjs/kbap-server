@@ -145,13 +145,14 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("성분 식별자 enum 데이터 없음 회귀") {
+    given("성분 식별자 enum 콘텐츠 데이터 없음 회귀") {
         `when`("AvoidanceSubstanceCode 의 선언 필드를 리플렉션으로 확인하면") {
-            then("데이터 인스턴스 필드를 갖지 않는다") {
-                val instanceFields = AvoidanceSubstanceCode::class.java.declaredFields
+            then("개발 가독성 label 만 허용하고 콘텐츠 데이터(번역·분류 등)는 갖지 않는다") {
+                val instanceFieldNames = AvoidanceSubstanceCode::class.java.declaredFields
                     .filterNot { Modifier.isStatic(it.modifiers) }
+                    .map { it.name }
 
-                instanceFields shouldBe emptyList()
+                instanceFieldNames shouldBe listOf("label")
             }
         }
     }
