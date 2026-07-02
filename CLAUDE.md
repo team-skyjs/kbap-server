@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/007-avoidance-substance-aggregate/plan.md` (회피·주의 성분 — 식별자 enum `AvoidanceSubstanceCode` + 도메인 어그리게이트 `AvoidanceSubstance` 분리, DB 단일 출처·표시명 이동·String 저장, 이슈 #21).
+`specs/008-unsupported-language-error/plan.md` (미지원 언어 코드 strict 검증 — `LanguageCode` 미지원 코드 → `UnsupportedLanguageException` + 지원 목록 안내, 미지정/빈/공백 → ko 기본, 400 매핑, 이슈 #18. 헌법 원칙 V 폴백 문구 MINOR 개정 필요).
 <!-- SPECKIT END -->
