@@ -1,0 +1,14 @@
+# SpecKit 확장 훅 등록
+#
+# before_specify: /speckit-specify 가 명세를 쓰기 전에 실행된다.
+#   git 확장이 feature 브랜치를 생성·전환한다(create-new-feature.sh --json).
+#   optional: false → 항상 실행(브랜치 자동 생성). command 의 점(.)은 슬래시 커맨드에서
+#   하이픈(-)으로 변환된다: speckit.git.branch → /speckit-git-branch
+#   (스킬: .claude/skills/speckit-git-branch/).
+hooks:
+  before_specify:
+    - extension: git
+      command: speckit.git.branch
+      optional: false
+      description: "feature 브랜치를 생성하고 전환한 뒤 명세를 작성한다"
+      prompt: "create-new-feature.sh 로 feature 브랜치를 생성·전환하고 BRANCH_NAME/SPEC_FILE/FEATURE_NUM 을 반환한다."

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository
 @Repository
 class IngredientAvoidanceSubstanceRepositoryAdapter(
     private val ingredientAvoidanceSubstanceJpaRepository: IngredientAvoidanceSubstanceJpaRepository,
-    private val avoidanceSubstanceJpaRepository: AvoidanceSubstanceJpaRepository,
+    private val avoidanceSubstanceReconstitutor: AvoidanceSubstanceReconstitutor,
 ) : IngredientAvoidanceSubstanceRepository {
     override fun findByIngredientIds(ingredientIds: Set<Long>): Map<Long, Set<AvoidanceSubstance>> {
         if (ingredientIds.isEmpty()) return emptyMap()
@@ -15,17 +15,14 @@ class IngredientAvoidanceSubstanceRepositoryAdapter(
         val mappings = ingredientAvoidanceSubstanceJpaRepository.findByIngredientIdIn(ingredientIds)
         if (mappings.isEmpty()) return emptyMap()
 
-        val substanceById = avoidanceSubstanceJpaRepository
-            .findByIdIn(mappings.map { it.substanceId }.toSet())
+        val substanceById = avoidanceSubstanceReconstitutor
+            .byIds(mappings.map { it.substanceId }.toSet())
             .associateBy { it.id }
 
         return mappings
             .groupBy { it.ingredientId }
             .mapValues { (_, ingredientMappings) ->
-                ingredientMappings
-                    .mapNotNull { substanceById[it.substanceId]?.code }
-                    .mapNotNull { code -> runCatching { AvoidanceSubstance.valueOf(code) }.getOrNull() }
-                    .toSet()
+                ingredientMappings.mapNotNull { substanceById[it.substanceId] }.toSet()
             }
             .filterValues { it.isNotEmpty() }
     }

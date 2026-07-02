@@ -1,91 +1,52 @@
 package com.meogo.core.avoidance
 
-enum class AvoidanceSubstance(val categories: Set<AvoidanceCategory>, val koName: String) {
-    EGG(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "계란"),
-    MILK(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "우유"),
-    DAIRY(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "유제품"),
-    GOAT_MILK(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "산양유"),
-    BUTTER(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "버터"),
-    GHEE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "기버터"),
-    CHEESE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "치즈"),
-    GELATIN(setOf(AvoidanceCategory.DIETARY_RULE), "젤라틴"),
-    RENNET(setOf(AvoidanceCategory.DIETARY_RULE), "레닛"),
-    HONEY(setOf(AvoidanceCategory.DIETARY_RULE), "꿀"),
-    CARMINE(setOf(AvoidanceCategory.DIETARY_RULE), "카민"),
-    PEANUT(setOf(AvoidanceCategory.ALLERGEN), "땅콩"),
-    WALNUT(setOf(AvoidanceCategory.ALLERGEN), "호두"),
-    PINE_NUT(setOf(AvoidanceCategory.ALLERGEN), "잣"),
-    ALMOND(setOf(AvoidanceCategory.ALLERGEN), "아몬드"),
-    CASHEW(setOf(AvoidanceCategory.ALLERGEN), "캐슈넛"),
-    PISTACHIO(setOf(AvoidanceCategory.ALLERGEN), "피스타치오"),
-    HAZELNUT(setOf(AvoidanceCategory.ALLERGEN), "헤이즐넛"),
-    MACADAMIA(setOf(AvoidanceCategory.ALLERGEN), "마카다미아"),
-    PECAN(setOf(AvoidanceCategory.ALLERGEN), "피칸"),
-    BRAZIL_NUT(setOf(AvoidanceCategory.ALLERGEN), "브라질너트"),
-    CHESTNUT(setOf(AvoidanceCategory.ALLERGEN), "밤"),
-    SESAME(setOf(AvoidanceCategory.ALLERGEN), "참깨"),
-    SUNFLOWER_SEED(setOf(AvoidanceCategory.ALLERGEN), "해바라기씨"),
-    MUSTARD(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.PERSONAL_AVOIDANCE), "겨자"),
-    WHEAT(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "밀"),
-    BUCKWHEAT(setOf(AvoidanceCategory.ALLERGEN), "메밀"),
-    BARLEY(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "보리"),
-    RYE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "호밀"),
-    OAT(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "귀리"),
-    CORN(setOf(AvoidanceCategory.ALLERGEN), "옥수수"),
-    SOY(setOf(AvoidanceCategory.ALLERGEN), "대두"),
-    LUPIN(setOf(AvoidanceCategory.ALLERGEN), "루핀"),
-    PEA(setOf(AvoidanceCategory.ALLERGEN), "완두콩"),
-    CHICKPEA(setOf(AvoidanceCategory.ALLERGEN), "병아리콩"),
-    LENTIL(setOf(AvoidanceCategory.ALLERGEN), "렌틸콩"),
-    SHRIMP(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "새우"),
-    SALTED_SHRIMP(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "새우젓"),
-    CRAB(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "게"),
-    CRAYFISH(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "가재"),
-    LOBSTER(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "랍스터"),
-    SQUID(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "오징어"),
-    OCTOPUS(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "문어"),
-    OYSTER(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "굴"),
-    OYSTER_SAUCE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "굴소스"),
-    ABALONE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "전복"),
-    MUSSEL(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "홍합"),
-    CLAM(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "조개"),
-    SHORT_NECK_CLAM(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "바지락"),
-    SCALLOP(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "가리비"),
-    SEAFOOD(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "해산물"),
-    FISH(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "생선"),
-    MACKEREL(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "고등어"),
-    SALMON(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "연어"),
-    TUNA(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "참치"),
-    COD(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "대구"),
-    ANCHOVY(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "멸치"),
-    FISH_SAUCE(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "액젓"),
-    BROTH(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "육수"),
-    DASHI(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE), "다시"),
-    BEEF(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "소고기"),
-    PORK(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "돼지고기"),
-    LARD(setOf(AvoidanceCategory.DIETARY_RULE), "라드"),
-    TALLOW(setOf(AvoidanceCategory.DIETARY_RULE), "우지"),
-    CHICKEN(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "닭고기"),
-    POULTRY(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "가금류"),
-    PEACH(setOf(AvoidanceCategory.ALLERGEN), "복숭아"),
-    TOMATO(setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.PERSONAL_AVOIDANCE), "토마토"),
-    CELERY(setOf(AvoidanceCategory.ALLERGEN), "셀러리"),
-    POTATO(setOf(AvoidanceCategory.DIETARY_RULE), "감자"),
-    CARROT(setOf(AvoidanceCategory.DIETARY_RULE), "당근"),
-    ONION(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "양파"),
-    GARLIC(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "마늘"),
-    SCALLION(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "파"),
-    CHIVE(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "부추"),
-    WILD_CHIVE(setOf(AvoidanceCategory.DIETARY_RULE), "달래"),
-    ASAFOETIDA(setOf(AvoidanceCategory.DIETARY_RULE), "흥거"),
-    ALCOHOL(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "알코올"),
-    MIRIN(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "미림"),
-    COOKING_WINE(setOf(AvoidanceCategory.DIETARY_RULE, AvoidanceCategory.PERSONAL_AVOIDANCE), "맛술"),
-    SULFITES(setOf(AvoidanceCategory.ALLERGEN), "아황산류"),
-    ;
+import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.stereotype.AggregateRoot
 
+@AggregateRoot
+class AvoidanceSubstance private constructor(
+    val id: Long,
+    val code: AvoidanceSubstanceCode,
+    val koreanName: String,
+    val translations: Map<LanguageCode, String>,
+    val categories: Set<AvoidanceCategory>,
+) {
     init {
         require(categories.isNotEmpty() && categories.size <= 3)
-        require(koName.isNotBlank())
+        require(koreanName.isNotBlank())
+    }
+
+    fun displayName(lang: LanguageCode): String =
+        if (lang == LanguageCode.KO) {
+            koreanName
+        } else {
+            translations[lang] ?: koreanName
+        }
+
+    fun belongsTo(category: AvoidanceCategory): Boolean = category in categories
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AvoidanceSubstance) return false
+        return code == other.code
+    }
+
+    override fun hashCode(): Int = code.hashCode()
+
+    companion object {
+        fun reconstitute(
+            id: Long,
+            code: AvoidanceSubstanceCode,
+            koreanName: String,
+            translations: Map<LanguageCode, String>,
+            categories: Set<AvoidanceCategory>,
+        ): AvoidanceSubstance =
+            AvoidanceSubstance(
+                id = id,
+                code = code,
+                koreanName = koreanName,
+                translations = translations,
+                categories = categories,
+            )
     }
 }

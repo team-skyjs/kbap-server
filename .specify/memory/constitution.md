@@ -1,17 +1,19 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.0.0 → 2.1.0   (개정 2026-06-30)
-Bump rationale (MINOR): 원칙 V 에 "고정 reference taxonomy 는 공유 컴파일 enum 저장 허용"
-  단서를 추가(실질 확장)하고, 원칙 II~IV·Additional Constraints 의 모듈 구조 참조를
-  ADR-0008(모듈러 모놀리스) 현행 구조로 동기화하며, 바운디드 컨텍스트 `assessment` 를
-  `avoidance` 로 리네임했다. 원칙의 목적·강제력은 불변이라 MAJOR 아님(제거/비호환 재정의 없음).
+Version change: 2.1.0 → 2.2.0   (개정 2026-07-02)
+Bump rationale (MINOR): 원칙 V 의 "고정 reference taxonomy 예외" 단서를 현행 구조로 재서술했다.
+  007 리팩터(이슈 #21)로 회피·주의 성분 카탈로그의 데이터(ko 원문·9개 번역·분류)를 enum 에서
+  DB 단일 출처로 옮기고 enum 은 데이터 없는 식별자(AvoidanceSubstanceCode)만 남겼으므로, 기존
+  전제("고정 taxonomy 는 DB 대신 공유 컴파일 enum 으로 데이터를 보유할 수 있다")를 "콘텐츠 데이터=DB 단일
+  출처 + 식별자(코드) enum(콘텐츠 미보유, 개발 가독성용 한국어 label 만 허용·시드 정합 검증)"로 현행화한다.
+  원칙의 목적(ko+9 번역·ko 폴백·콘텐츠↔UI 분리·안전 직결 정합)과 강제력은 불변이라 MAJOR 아님(제거/비호환
+  재정의 없음). 실질 가이드 재서술이라 PATCH 아님.
 
 Modified principles:
-  II.  Bounded Contexts — 모듈명(`:meogo-api:*`→`:core:*`/`:application:*`) 동기화 + `assessment`→`avoidance` BC 리네임
-  III. Layered Dependency Direction — 부트앱→application→도메인→kernel, :infra:persistence runtimeOnly 조립으로 현행화
-  IV.  Persistence Encapsulation — 영속을 도메인 모듈 내부가 아니라 `:infra:persistence` 로 집약(ADR-0008), ArchUnit 강제 명시
-  V.   Domain Content Language Policy — 고정 reference taxonomy 컴파일 enum 저장 예외 단서 추가
+  V.   Domain Content Language Policy — "고정 reference taxonomy 예외" 재서술:
+       컴파일 enum 데이터 저장 허용 → 콘텐츠 데이터 DB 단일 출처 + 식별자(코드) enum 은 콘텐츠 미보유
+       (개발 가독성용 label 만 허용, label=시드 korean_name 정합).
 
 Added sections: 없음 · Removed sections: 없음
 
@@ -20,14 +22,9 @@ Templates reviewed:
   ✅ .specify/templates/tasks-template.md — Test-First 동기화 유지, 무관. 변경 불필요.
   ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
 
-Docs propagation (이번 개정과 함께):
-  ✅ docs/adr/0001·0004·0008 · docs/architecture/* 의 BC명 `assessment`→`avoidance` 일괄
-  ✅ docs/architecture/domains/assessment.md → avoidance.md 리네임
-  ⚠ PascalCase 타입명(AssessmentInput/Result/Reason/Policy·ScanAssessmentSnapshot 등 — 판정 행위/스냅샷의
-     일반 식별자)과 architecture 문서의 구 모듈명(`:meogo-api:*`)은 보존 — 타입명 일괄 리네임·문서 모듈명
-     현행화는 별도 후속(이번 범위는 BC명 + 헌법).
+Docs propagation: 원칙 V 예외 문구는 constitution.md 외 참조처 없음(grep 확인). 별도 문서 동기화 불필요.
 
-Follow-up: 없음(날짜·버전 확정).
+Follow-up: 없음(이 개정으로 이슈 #21 의 "원칙 V 예외 단서 조정" 항목 완료).
 -->
 
 # Meogo API Constitution
@@ -96,10 +93,16 @@ Rationale: 도메인을 영속 기술로부터 보호하고, 기술 교체 시 �
 - 번역은 `:app:batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
 - 정적 UI 문구 번역 정책과 음식 콘텐츠 번역 정책은 **분리**한다(혼동 금지).
 - `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이며, 미지원/미지정 언어 응답 시 `ko`로 폴백한다.
-- **고정 reference taxonomy 예외**: 운영자 런타임 편집이 없고 고정·읽기 전용인 기준 목록
-  (예: 회피·주의 성분 카탈로그 — 81종)은 DB 대신 **공유 컴파일 enum**(소유 컨텍스트 모듈)으로 보유할 수 있다.
-  이때도 ko 원문 + 9개 대상 언어 사전 번역·ko 폴백·콘텐츠↔UI 분리는 동일하게 충족한다. 근거: 단일 출처·
-  컴파일타임 정합으로 앱 간 드리프트 0(안전 직결) — ADR-0008·spec 004. (동적 메뉴 콘텐츠는 본 예외 대상이 아니다.)
+- **고정 reference taxonomy — 식별자 enum + DB 단일 출처**: 운영자 런타임 편집이 없고 고정·읽기 전용인
+  기준 목록(예: 회피·주의 성분 카탈로그 — 81종)은 **데이터(ko 원문·9개 대상 언어 번역·분류)를 DB 단일 출처**로
+  두고(소프트삭제·ko 폴백 포함), **컴파일 타입 안전을 위한 식별자(코드) enum**(예: `AvoidanceSubstanceCode`)만
+  소유 컨텍스트 모듈에 둔다 — 이 enum 은 코드 상수 + **개발자 가독성용 한국어 `label`**(런타임 미사용·비권위,
+  코드 옆에서 성분을 알아보게 하는 힌트)만 가지며, 사용자 노출 표시명·9개 번역·분류 등 **콘텐츠 데이터는 이지
+  않는다**(콘텐츠는 DB 단일 출처). 식별자 enum 은 컴파일타임 코드 집합·망라 매칭(`when`)·타 컨텍스트의 타입 안전
+  참조에 쓰고, **시드 정합**(시드/DB 코드 집합 = enum 코드 집합, 그리고 `label` = 시드 korean_name)으로 드리프트를
+  배포 전 차단한다. ko 원문 + 9개 번역·ko 폴백·콘텐츠↔UI 분리는 동일하게 충족한다.
+  근거: 데이터 단일 출처(DB)로 redundancy·데이터 누수를 없애고, 식별자 enum 으로 앱 간 컴파일타임 정합을 유지한다
+  (안전 직결) — ADR-0008·spec 004·007(#21). (동적 메뉴 콘텐츠는 본 예외 대상이 아니다.)
 
 Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공하되(서비스 핵심 가치),
 데이터 품질·일관성과 번역 책임 경계(콘텐츠 vs UI)를 유지한다.
@@ -138,4 +141,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 2.1.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-30
+**Version**: 2.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-02
