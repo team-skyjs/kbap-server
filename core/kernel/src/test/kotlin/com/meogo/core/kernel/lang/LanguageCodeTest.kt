@@ -1,7 +1,9 @@
 package com.meogo.core.kernel.lang
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 
 class LanguageCodeTest : BehaviorSpec({
     given("LanguageCode.from 코드 해석") {
@@ -37,13 +39,28 @@ class LanguageCodeTest : BehaviorSpec({
             }
         }
 
-        `when`("미지원 코드·blank·null 이 주어지면") {
-            then("ko 로 폴백한다") {
-                LanguageCode.from("xx") shouldBe LanguageCode.KO
-                LanguageCode.from("EN") shouldBe LanguageCode.KO
+        `when`("미지정(null)·빈·공백 문자열이 주어지면") {
+            then("ko 로 기본 처리한다") {
+                LanguageCode.from(null) shouldBe LanguageCode.KO
                 LanguageCode.from("") shouldBe LanguageCode.KO
                 LanguageCode.from("   ") shouldBe LanguageCode.KO
-                LanguageCode.from(null) shouldBe LanguageCode.KO
+            }
+        }
+
+        `when`("지원 목록과 정확히 일치하지 않는 코드가 주어지면") {
+            then("LanguageException 을 던진다") {
+                shouldThrow<LanguageException> { LanguageCode.from("xx") }
+                shouldThrow<LanguageException> { LanguageCode.from("EN") }
+                shouldThrow<LanguageException> { LanguageCode.from("ko-KR") }
+                shouldThrow<LanguageException> { LanguageCode.from(" fr ") }
+            }
+        }
+
+        `when`("미지원 코드로 예외가 발생하면") {
+            then("메시지에 지원 언어 코드 10종이 모두 포함된다") {
+                val message = shouldThrow<LanguageException> { LanguageCode.from("fr") }.message ?: ""
+                listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
+                    .forEach { code -> message shouldContain code }
             }
         }
     }

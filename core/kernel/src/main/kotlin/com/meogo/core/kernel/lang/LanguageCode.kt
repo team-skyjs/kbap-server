@@ -14,7 +14,13 @@ enum class LanguageCode(val code: String) {
     ;
 
     companion object {
-        fun from(code: String?): LanguageCode =
-            entries.firstOrNull { it.code == code?.trim() } ?: KO
+        fun from(code: String?): LanguageCode {
+            val trimmed = code?.trim().orEmpty()
+            if (trimmed.isEmpty()) {
+                return KO
+            }
+            return entries.firstOrNull { it.code == trimmed }
+                ?: throw LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE)
+        }
     }
 }

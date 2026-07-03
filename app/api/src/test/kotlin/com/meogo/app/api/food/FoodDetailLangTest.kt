@@ -37,10 +37,21 @@ class FoodDetailLangTest : BehaviorSpec() {
             }
 
             `when`("지원하지 않는 lang=xx 로 조회하면") {
-                then("ko 로 폴백해 한국어 음식명을 반환한다") {
+                then("400 과 실패 응답을 반환한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
                         param("lang", "xx")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                    }
+                }
+            }
+
+            `when`("lang 을 지정하지 않으면") {
+                then("ko 로 기본 처리해 한국어 음식명을 반환한다") {
+                    mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "된장찌개")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.name") { value("된장찌개") }
@@ -48,10 +59,23 @@ class FoodDetailLangTest : BehaviorSpec() {
                 }
             }
 
-            `when`("lang 을 지정하지 않으면") {
-                then("ko 로 폴백해 한국어 음식명을 반환한다") {
+            `when`("lang 을 빈 값으로 조회하면") {
+                then("ko 로 기본 처리해 한국어 음식명을 반환한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
+                        param("lang", "")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.name") { value("된장찌개") }
+                    }
+                }
+            }
+
+            `when`("lang 을 공백 문자열로 조회하면") {
+                then("ko 로 기본 처리해 한국어 음식명을 반환한다") {
+                    mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "된장찌개")
+                        param("lang", "   ")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.name") { value("된장찌개") }

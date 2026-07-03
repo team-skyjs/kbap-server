@@ -5,9 +5,11 @@ import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodDescriptionKind
 import com.meogo.core.food.FoodIngredient
+import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.food.Ingredient
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LanguageException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -76,10 +78,12 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
 
         `when`("미지원 lang 이면") {
-            then("ko 로 폴백해 한국어 원문을 쓴다") {
+            then("LanguageException 을 던진다") {
                 val repository = FakeFoodRepository(food = doenjangStew)
 
-                useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx")).name shouldBe "된장찌개"
+                shouldThrow<LanguageException> {
+                    useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
+                }
             }
         }
 
@@ -99,10 +103,10 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
 
         `when`("수록되지 않은 메뉴명이면") {
-            then("IllegalArgumentException(\"해당 음식 정보 없음\") 을 던진다") {
+            then("FoodException(\"해당 음식 정보 없음\") 을 던진다") {
                 val repository = FakeFoodRepository(food = null)
 
-                shouldThrow<IllegalArgumentException> {
+                shouldThrow<FoodException> {
                     useCase(repository).getDetail(GetFoodDetailInput("없는메뉴", "en"))
                 }.message shouldBe "해당 음식 정보 없음"
             }
@@ -142,13 +146,12 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
 
         `when`("미지원 lang 이면") {
-            then("두 설명 모두 한국어 원문으로 폴백한다") {
+            then("LanguageException 을 던진다") {
                 val repository = FakeFoodRepository(food = doenjangStew)
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
-
-                result.briefDescription shouldBe koBrief
-                result.detailedDescription shouldBe koDetailed
+                shouldThrow<LanguageException> {
+                    useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
+                }
             }
         }
 
