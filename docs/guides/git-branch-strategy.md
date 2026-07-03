@@ -102,7 +102,7 @@ Conventional Commits + 한국어 본문(기존 repo 스타일 유지). 코드 �
 
 - 제목 = (squash 시) 커밋 메시지 → **conventional 1줄**.
 - 본문에 `Closes #N`(여러 기능이면 각각), 상위 릴리스 이슈는 `Refs #4`.
-- **Jira 추적 태스크면 양방향 링크**: PR 본문에 이슈 URL + `Refs KB-NN`, PR 생성 후 Jira 이슈에 PR 링크 역방향 코멘트. 대응 GitHub 이슈가 없으면 `close #` 는 비운다. GitHub for Jira 앱 설치 시 커밋/브랜치의 `KB-NN` 로 Development 패널 자동 연동.
+- **Jira 추적 태스크면 PR→Jira 링크**: PR 본문에 이슈 URL + `Refs KB-NN`. 대응 GitHub 이슈가 없으면 `close #` 는 비운다. **Jira 이슈에는 별도 완료/DoD 코멘트를 달지 않는다**(링크로 충분). GitHub for Jira 앱 설치 시 커밋/브랜치의 `KB-NN` 로 Development 패널 자동 연동.
 - base 브랜치 = **`develop`** (릴리스 PR 만 `main`).
 - CI(build) + Codex 리뷰가 PR 마다 자동 실행.
 
