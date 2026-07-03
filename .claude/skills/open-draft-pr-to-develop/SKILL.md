@@ -1,6 +1,6 @@
 ---
 name: open-draft-pr-to-develop
-description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으로 draft Pull Request 를 여는 절차 — 커밋(없으면)→푸시(-u)→develop 대상 draft PR 생성을 표준 컨벤션(제목·본문·Co-Authored-By/Generated 라인)으로 수행한다. 'develop 으로 draft PR 열어줘', 'PR 초안', 'open draft pr', '작업 PR로 올려줘' 요청 시 사용."
+description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으로 draft Pull Request 를 여는 절차 — 커밋(없으면)→푸시(-u)→develop 대상 draft PR 생성을 표준 컨벤션(제목·본문·Jira 양방향 링크·Co-Authored-By/Generated 라인)으로 수행한다. 'develop 으로 draft PR 열어줘', 'PR 초안', 'open draft pr', '작업 PR로 올려줘' 요청 시 사용."
 ---
 
 # develop 으로 Draft PR 열기
@@ -9,7 +9,7 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
 
 ## 사전 조건
 
-- `main`/`develop` 에서 직접 작업하지 않는다 — feature 브랜치(`NNN-slug`)에 있어야 한다. 아니면 먼저 브랜치를 판다.
+- `main`/`develop` 에서 직접 작업하지 않는다 — feature 브랜치(`kb-<nn>-slug`, [git-branch-strategy §1.1](../../../docs/guides/git-branch-strategy.md))에 있어야 한다. 아니면 먼저 브랜치를 판다.
 - 변경이 검증된 상태(테스트/빌드 그린)여야 한다 — draft 라도 깨진 채 올리지 않는다(`./gradlew build` 확인).
 - `gh` CLI 인증이 되어 있어야 한다.
 
@@ -31,6 +31,7 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
 
 5. **PR 본문 작성** — **`.github/PULL_REQUEST_TEMPLATE.md` 포맷을 그대로 따른다**(섹션·순서 고정). 스크래치패드에 마크다운으로 채워 `--body-file` 로 전달(셸 이스케이프 회피). 고정 섹션:
    - `### Issue Number` — **닫는 이슈마다 `- close #이슈번호`**(예: `- close #15`). **후속/참조 이슈는 `close` 없이 `#번호` 만**. (default 브랜치 머지 시 종료 — base 가 develop 이어도 develop→main 도달 시 닫힘.)
+   - **Jira 링크(태스크가 Jira 로 추적되면)** — 본문 상단에 `> **Jira:** [KB-NN](https://<site>.atlassian.net/browse/KB-NN)` 를 넣고 본문에 `Refs KB-NN` 을 적는다. 대응 GitHub 이슈가 없으면 `### Issue Number` 의 `- close #` 는 비운다(Jira 로만 추적).
    - `## 무엇을 / 왜` · `## 변경 사항` · `## 설계 / 결정` · `## 테스트 / 검증`(`./gradlew build` 결과) · `## 범위 밖 / 후속`
    - **닫는 이슈가 있으면 `### Issue Number` 의 `close` 를 절대 빠뜨리지 않는다.**
    - Claude 가 작성한 PR 이면 본문 끝에:
@@ -49,7 +50,9 @@ description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으�
    - **제목 끝에 이슈/PR 번호(`(#15)` 등)를 붙이지 않는다** — GitHub squash 머지가 squash 커밋 제목 끝에 PR 번호 `(#NN)` 를 자동으로 붙인다(수동으로 넣으면 `(#15) (#19)` 처럼 중복). 이슈 종료는 본문 `### Issue Number` 의 `close #번호` 가 담당한다.
    - 제목은 **브랜치 전체 결과**를 반영한다(초기 커밋만이 아니라 최종 산출 기준). 작업을 더 했으면 푸시 후 제목을 갱신한다.
 
-7. **보고** — 생성된 PR 번호·URL·base/head·커밋 요약을 사용자에게 전달한다. "Ready for review" 전환·리뷰어/라벨 지정은 사용자 요청 시 처리한다.
+7. **Jira 역방향 링크(Jira 추적 태스크면)** — PR 생성 후 Jira 이슈에 PR 링크 코멘트를 달아 양방향 연결을 만든다(`addCommentToJiraIssue`, 예: `🔗 PR 올림 (base: develop): #NN <URL>`). GitHub for Jira 앱이 설치돼 있으면 커밋/브랜치의 `KB-NN` 로 Development 패널에 자동 연동되므로 이 코멘트는 보조 수단이다.
+
+8. **보고** — 생성된 PR 번호·URL·base/head·커밋 요약을 사용자에게 전달한다. "Ready for review" 전환·리뷰어/라벨 지정은 사용자 요청 시 처리한다.
 
 ## 주의
 
