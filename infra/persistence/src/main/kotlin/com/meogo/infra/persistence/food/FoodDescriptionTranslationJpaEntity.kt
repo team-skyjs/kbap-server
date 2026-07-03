@@ -11,12 +11,9 @@ class FoodDescriptionTranslationJpaEntity(
     @Column(name = "food_id", nullable = false)
     var foodId: Long = 0,
 
-    @Column(name = "kind", nullable = false, length = 10)
-    var kind: String = "",
-
     @Column(name = "lang_code", nullable = false, length = 10)
     var langCode: String = "",
 
-    @Column(name = "content", nullable = false, length = 1024)
+    @Column(name = "content", nullable = false, length = 255)
     var content: String = "",
 ) : BaseEntity()
