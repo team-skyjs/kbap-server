@@ -1,6 +1,5 @@
 package com.meogo.infra.persistence.avoidance
 
-import com.meogo.core.avoidance.AvoidanceCategory
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
@@ -21,9 +20,6 @@ class IngredientAvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
     private lateinit var substanceJpaRepository: AvoidanceSubstanceJpaRepository
 
     @Autowired
-    private lateinit var categoryJpaRepository: AvoidanceSubstanceCategoryJpaRepository
-
-    @Autowired
     private lateinit var mappingJpaRepository: IngredientAvoidanceSubstanceJpaRepository
 
     init {
@@ -31,15 +27,14 @@ class IngredientAvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
             code: AvoidanceSubstanceCode,
             koreanName: String,
             nameEn: String? = null,
-        ): Long {
-            val id = substanceJpaRepository.save(
-                AvoidanceSubstanceJpaEntity(code = code.name, koreanName = koreanName, nameEn = nameEn),
+        ): Long =
+            substanceJpaRepository.save(
+                AvoidanceSubstanceJpaEntity(
+                    code = code.name,
+                    koreanName = koreanName,
+                    translations = nameEn?.let { mapOf("en" to it) } ?: emptyMap(),
+                ),
             ).id
-            categoryJpaRepository.save(
-                AvoidanceSubstanceCategoryJpaEntity(substanceId = id, category = AvoidanceCategory.ALLERGEN.name),
-            )
-            return id
-        }
 
         fun saveRawSubstance(code: String, koreanName: String): Long =
             substanceJpaRepository.save(
@@ -72,8 +67,8 @@ class IngredientAvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
 
-            `when`("반환된 어그리게이트의 표시명·분류를 확인하면") {
-                then("어그리게이트가 displayName·belongsTo 를 스스로 답한다") {
+            `when`("반환된 어그리게이트의 표시명을 확인하면") {
+                then("어그리게이트가 displayName 을 스스로 답한다") {
                     val peanutId = saveSubstance(AvoidanceSubstanceCode.WHEAT, koreanName = "밀", nameEn = "Wheat")
                     saveMapping(ingredientId = 1101L, substanceId = peanutId)
 
@@ -81,7 +76,6 @@ class IngredientAvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
 
                     substance.displayName(LanguageCode.EN) shouldBe "Wheat"
                     substance.displayName(LanguageCode.KO) shouldBe "밀"
-                    substance.belongsTo(AvoidanceCategory.ALLERGEN) shouldBe true
                 }
             }
 

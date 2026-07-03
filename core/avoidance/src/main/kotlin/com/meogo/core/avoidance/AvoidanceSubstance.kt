@@ -9,10 +9,8 @@ class AvoidanceSubstance private constructor(
     val code: AvoidanceSubstanceCode,
     val koreanName: String,
     val translations: Map<LanguageCode, String>,
-    val categories: Set<AvoidanceCategory>,
 ) {
     init {
-        require(categories.isNotEmpty() && categories.size <= 3)
         require(koreanName.isNotBlank())
     }
 
@@ -22,8 +20,6 @@ class AvoidanceSubstance private constructor(
         } else {
             translations[lang] ?: koreanName
         }
-
-    fun belongsTo(category: AvoidanceCategory): Boolean = category in categories
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -39,14 +35,12 @@ class AvoidanceSubstance private constructor(
             code: AvoidanceSubstanceCode,
             koreanName: String,
             translations: Map<LanguageCode, String>,
-            categories: Set<AvoidanceCategory>,
         ): AvoidanceSubstance =
             AvoidanceSubstance(
                 id = id,
                 code = code,
                 koreanName = koreanName,
                 translations = translations,
-                categories = categories,
             )
     }
 }

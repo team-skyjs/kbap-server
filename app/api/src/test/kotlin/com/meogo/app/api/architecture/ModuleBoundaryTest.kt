@@ -6,7 +6,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
-import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.lang.reflect.Modifier
@@ -153,18 +152,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .map { it.name }
 
                 instanceFieldNames shouldBe listOf("label")
-            }
-        }
-    }
-
-    given("영속 avoidance 엔티티의 분류 저장 형식 회귀") {
-        `when`("infra:persistence 의 avoidance 필드 타입을 검사하면") {
-            then("도메인 enum AvoidanceCategory 를 필드 타입으로 쓰지 않는다(String 저장)") {
-                noFields().that().areDeclaredInClassesThat()
-                    .resideInAPackage("com.meogo.infra.persistence.avoidance..")
-                    .should().haveRawType("com.meogo.core.avoidance.AvoidanceCategory")
-                    .allowEmptyShould(true)
-                    .check(imported)
             }
         }
     }
