@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/009-avoidance-schema-refactor/plan.md` (기피 성분 스키마 정리 — 미사용 3분류 카테고리(`AvoidanceCategory`·조인 테이블·`byCategory`) 완전 제거 + `avoidance_substance` 언어별 컬럼 9종 → 단일 `translations` JSON 컬럼 통합(`korean_name` 컬럼 유지, 비-ko만 JSON). V5 불변·신규 V6 forward. API 무변경).
+`specs/kb-40-food-avoidance-substance-mapping/plan.md` (음식별 81종 기피 성분 포함 여부·포함 확률(1~100%) 직접 저장 — 레시피/재료 모델(`FoodIngredient`·`Ingredient`·`food_ingredient`·`ingredient*` 테이블) 전부 제거, 신규 `food_avoidance_substance`(food_id·substance_code FK·inclusion_percent) 도입. Food 는 avoidance enum 미import·`substanceCode`(String) 코드 참조(헌법 II). 상세조회 API(`GET /api/v1/foods/detail`) **응답 필드 동결** — `ingredients[].inclusionPercent` 키가 포함 확률을 담고 데이터 원천만 교체. 신규 마이그레이션 V7(시드 이행 후 재료 테이블 DROP)).
 <!-- SPECKIT END -->
