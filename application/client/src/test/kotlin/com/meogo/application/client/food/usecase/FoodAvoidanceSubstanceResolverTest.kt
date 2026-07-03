@@ -1,6 +1,5 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.core.avoidance.AvoidanceCategory
 import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.avoidance.IngredientAvoidanceSubstanceRepository
@@ -20,7 +19,6 @@ class FoodAvoidanceSubstanceResolverTest : BehaviorSpec({
             code = code,
             koreanName = koreanName,
             translations = translations,
-            categories = setOf(AvoidanceCategory.ALLERGEN),
         )
 
     fun resolverWith(mapping: Map<Long, Set<AvoidanceSubstance>>): FoodAvoidanceSubstanceResolver {

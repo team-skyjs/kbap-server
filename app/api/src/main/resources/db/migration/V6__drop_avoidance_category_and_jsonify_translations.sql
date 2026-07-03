@@ -32,3 +32,7 @@ ALTER TABLE avoidance_substance
     DROP COLUMN name_th,
     DROP COLUMN name_ru,
     DROP COLUMN name_es;
+
+-- 3분류 카테고리 완전 제거(도메인 소비자 없음). ingredient_avoidance_substance 는
+-- avoidance_substance(id) 만 참조하므로 인입 FK 없어 DROP 안전.
+DROP TABLE avoidance_substance_category;

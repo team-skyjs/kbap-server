@@ -2,8 +2,6 @@ package com.meogo.core.avoidance
 
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.core.spec.style.BehaviorSpec
 import java.lang.reflect.Modifier
@@ -14,35 +12,28 @@ class AvoidanceSubstanceTest : BehaviorSpec({
         code: AvoidanceSubstanceCode = AvoidanceSubstanceCode.PEANUT,
         koreanName: String = "땅콩",
         translations: Map<LanguageCode, String> = emptyMap(),
-        categories: Set<AvoidanceCategory> = setOf(AvoidanceCategory.ALLERGEN),
     ): AvoidanceSubstance =
         AvoidanceSubstance.reconstitute(
             id = id,
             code = code,
             koreanName = koreanName,
             translations = translations,
-            categories = categories,
         )
 
     given("성분 어그리게이트 복원") {
         `when`("복원에 사용한 값으로 조회하면") {
-            then("코드·한국어명·번역·분류를 그대로 보유한다") {
+            then("코드·한국어명·번역을 그대로 보유한다") {
                 val restored = substance(
                     id = 7L,
                     code = AvoidanceSubstanceCode.EGG,
                     koreanName = "계란",
                     translations = mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵"),
-                    categories = setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE),
                 )
 
                 restored.id shouldBe 7L
                 restored.code shouldBe AvoidanceSubstanceCode.EGG
                 restored.koreanName shouldBe "계란"
                 restored.translations shouldBe mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵")
-                restored.categories shouldContainExactlyInAnyOrder listOf(
-                    AvoidanceCategory.ALLERGEN,
-                    AvoidanceCategory.DIETARY_RULE,
-                )
             }
         }
     }
@@ -73,34 +64,28 @@ class AvoidanceSubstanceTest : BehaviorSpec({
         }
     }
 
-    given("분류 소속 belongsTo") {
-        val restored = substance(
-            categories = setOf(AvoidanceCategory.ALLERGEN, AvoidanceCategory.DIETARY_RULE),
-        )
+    given("성분 동등성") {
+        `when`("코드가 같고 한국어명·번역이 다른 두 인스턴스를 비교하면") {
+            then("code 기준으로 동등하다") {
+                val a = substance(id = 1L, code = AvoidanceSubstanceCode.SOY, koreanName = "대두")
+                val b = substance(id = 2L, code = AvoidanceSubstanceCode.SOY, koreanName = "대두-운영자수정")
 
-        `when`("자신의 분류 집합에 속한 분류를 물으면") {
-            then("참을 반환한다") {
-                restored.belongsTo(AvoidanceCategory.ALLERGEN) shouldBe true
-                restored.belongsTo(AvoidanceCategory.DIETARY_RULE) shouldBe true
+                (a == b) shouldBe true
+                (a.hashCode() == b.hashCode()) shouldBe true
             }
         }
 
-        `when`("자신의 분류 집합에 없는 분류를 물으면") {
-            then("거짓을 반환한다") {
-                restored.belongsTo(AvoidanceCategory.PERSONAL_AVOIDANCE) shouldBe false
+        `when`("코드가 다른 두 인스턴스를 비교하면") {
+            then("동등하지 않다") {
+                val soy = substance(code = AvoidanceSubstanceCode.SOY, koreanName = "대두")
+                val egg = substance(code = AvoidanceSubstanceCode.EGG, koreanName = "계란")
+
+                (soy == egg) shouldBe false
             }
         }
     }
 
     given("어그리게이트 불변식") {
-        `when`("분류 집합이 비어 있으면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    substance(categories = emptySet())
-                }
-            }
-        }
-
         `when`("한국어명이 blank 이면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
@@ -127,18 +112,6 @@ class AvoidanceSubstanceTest : BehaviorSpec({
                     .map { it.name }
 
                 instanceFieldNames shouldBe listOf("label")
-            }
-        }
-    }
-
-    given("회피·주의 분류 enum") {
-        `when`("전체 분류를 조회하면") {
-            then("정확히 세 값 ALLERGEN/DIETARY_RULE/PERSONAL_AVOIDANCE 이다") {
-                AvoidanceCategory.entries shouldContainExactly listOf(
-                    AvoidanceCategory.ALLERGEN,
-                    AvoidanceCategory.DIETARY_RULE,
-                    AvoidanceCategory.PERSONAL_AVOIDANCE,
-                )
             }
         }
     }
