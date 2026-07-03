@@ -5,14 +5,14 @@ import com.meogo.core.kernel.risk.RiskLevel
 data class GetFoodDetailResult(
     val name: String,
     val imageRef: String?,
-    val briefDescription: String,
-    val detailedDescription: String,
-    val ingredients: List<IngredientView>,
+    val description: String,
+    val spiciness: Int,
+    val avoidanceSubstances: List<AvoidanceSubstanceView>,
 ) {
-    data class IngredientView(
+    data class AvoidanceSubstanceView(
         val name: String,
         val iconRef: String?,
-        val inclusionPercent: Int,
+        val inclusionProbability: Int,
         val riskStatus: RiskLevel,
     )
 }

@@ -36,6 +36,21 @@ class FoodDetailLangTest : BehaviorSpec() {
                 }
             }
 
+            `when`("lang=ja 인데 성분에 일본어 번역이 없으면") {
+                then("성분 표시명을 한국어로 폴백하고 확률 내림차순을 유지한다") {
+                    mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "된장찌개")
+                        param("lang", "ja")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.ingredients[0].name") { value("대두") }
+                        jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
+                        jsonPath("$.payload.ingredients[2].name") { value("조개") }
+                        jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
+                    }
+                }
+            }
+
             `when`("지원하지 않는 lang=xx 로 조회하면") {
                 then("400 과 실패 응답을 반환한다") {
                     mockMvc.get("/api/v1/foods/detail") {

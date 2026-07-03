@@ -20,3 +20,5 @@
 | [0005](./0005-unified-api-package-and-presentation-rename.md) | meogo-api 패키지 규약 통일(`com.meogo.api.<모듈명>`) + web `api`→`presentation` 리네임 | Accepted | 2026-06-27 | specs/001 · ADR-0001 |
 | [0006](./0006-central-persistence-adapter-and-decoupled-batch.md) | 중앙 영속 어댑터 모듈(`:meogo-api:persistence`) 채택 + `meogo-batch` 완전 디커플드 | Accepted | 2026-06-28 | specs/001 · ADR-0001(supersede 일부) · ADR-0003 · ADR-0004 |
 | [0007](./0007-git-branch-strategy.md) | Git 브랜치 전략 — develop+main 채택, github-flow→git-flow 점진 확장 | Accepted | 2026-06-28 | specs/001 · ADR-0001 · git-branch-strategy |
+| [0008](./0008-modular-monolith-shared-domain.md) | 모듈러 모놀리스 — 공유 도메인/영속, batch 직접 의존 | Accepted | 2026-06-29 | specs/004-avoidance-catalog · ADR-0001(supersede 일부) · ADR-0006 |
+| [0009](./0009-food-avoidance-direct-mapping.md) | 음식↔기피성분 직접 매핑 — 레시피/재료 모델 제거 | Accepted | 2026-07-04 | specs/kb-40 · Jira KB-40 · ADR-0008 |

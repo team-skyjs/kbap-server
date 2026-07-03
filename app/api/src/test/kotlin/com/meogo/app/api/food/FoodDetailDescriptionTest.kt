@@ -26,56 +26,56 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
             FoodTestSeed.seedPartialDescriptionFood(dataSource)
         }
 
-        given("음식 상세 조회 — 간단·자세 설명 응답") {
-            `when`("lang=en 으로 두 설명 번역이 모두 있는 메뉴를 조회하면") {
-                then("간단·자세 설명을 영어로 응답에 포함한다") {
+        given("음식 상세 조회 — 단일 설명·맵기 응답") {
+            `when`("lang=en 으로 설명 번역이 있는 메뉴를 조회하면") {
+                then("설명을 영어로, 맵기를 정수로 응답에 포함한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.briefDescription") { value(FoodTestSeed.DOENJANG_BRIEF_EN) }
-                        jsonPath("$.payload.detailedDescription") { value(FoodTestSeed.DOENJANG_DETAILED_EN) }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
+                        jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
                     }
                 }
             }
 
             `when`("lang 을 지정하지 않으면") {
-                then("간단·자세 설명을 모두 한국어 원문으로 반환한다") {
+                then("설명을 한국어 원문으로 반환한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.briefDescription") { value(FoodTestSeed.DOENJANG_BRIEF_KO) }
-                        jsonPath("$.payload.detailedDescription") { value(FoodTestSeed.DOENJANG_DETAILED_KO) }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_KO) }
                     }
                 }
             }
 
-            `when`("lang=en 이지만 간단 설명 영어 번역만 부재하면") {
-                then("간단 설명은 한국어로 폴백하고 자세한 설명·음식명은 영어를 유지한다") {
+            `when`("lang=en 이지만 설명 번역이 부재하면") {
+                then("설명은 한국어로 폴백하고 음식명은 영어를 유지한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "비빔밥")
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.name") { value("Bibimbap") }
-                        jsonPath("$.payload.briefDescription") { value(FoodTestSeed.BIBIMBAP_BRIEF_KO) }
-                        jsonPath("$.payload.detailedDescription") { value(FoodTestSeed.BIBIMBAP_DETAILED_EN) }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.BIBIMBAP_DESCRIPTION_KO) }
+                        jsonPath("$.payload.spiciness") { value(FoodTestSeed.BIBIMBAP_SPICINESS) }
                     }
                 }
             }
 
             `when`("음식 상세를 조회하면") {
-                then("간단·자세 설명 필드가 응답에서 null 이 아니다") {
+                then("간단·자세 설명 필드는 응답에서 사라지고 단일 설명 필드만 존재한다") {
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.briefDescription") { isNotEmpty() }
-                        jsonPath("$.payload.detailedDescription") { isNotEmpty() }
+                        jsonPath("$.payload.description") { isNotEmpty() }
+                        jsonPath("$.payload.briefDescription") { doesNotExist() }
+                        jsonPath("$.payload.detailedDescription") { doesNotExist() }
                     }
                 }
             }

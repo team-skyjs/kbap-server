@@ -7,6 +7,8 @@ description: "meogo/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 
 
 현재 프로젝트(meogo-server / kbap-server)의 백엔드 작업을 **Jira KB 프로젝트의 태스크**로 등록하는 표준 절차. 팀 공통 규약(프로젝트·레이블·할당·본문 서식)을 강제해 누가 등록해도 일관되게 만든다.
 
+> **등록 전 한국어 윤문이 필요하면** — 초안 본문이 어색하거나 번역투일 때는, 이슈 생성 전에 `create-jira-task-with-codex` 스킬로 cmux 분할 창(cmd+d식 split)에서 Codex 윤문 → before/after 확인을 거친 뒤 그 결과를 본문으로 삼아 아래 절차를 수행한다. 윤문이 불필요하면 이 스킬을 그대로 쓴다.
+
 ## 사전 조건
 
 - **Atlassian MCP 서버가 연결**되어 있어야 한다(`/mcp` 에서 `atlassian` 이 `✓ Connected`). 미연결이면 먼저 붙인다:
@@ -23,6 +25,7 @@ description: "meogo/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 
 | Jira 사이트 | `simhani1.atlassian.net` (cloudId `50957656-c97c-4cc0-b1ca-f209cef7d5c9`) |
 | 프로젝트 | `KB` (K-Bap) |
 | 이슈 유형 | `작업` (Task). 버그면 `버그`, 큰 단위면 `스토리`/`에픽` |
+| 제목 접두어 | `[BE] ` — 모든 summary 앞에 붙인다(예: `[BE] food 상세조회 API 응답 동결`) |
 | 레이블 | `BE` (백엔드) |
 | 할당자 | **실행자 본인**(이슈를 만드는 사람) |
 
@@ -34,7 +37,7 @@ description: "meogo/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 
 
 2. **이슈 생성** — `createJiraIssue`:
    - `cloudId` = 위 값, `projectKey` = `KB`, `issueTypeName` = `작업`
-   - `summary` = 한 줄 제목(무엇을 하는지 명확히)
+   - `summary` = **`[BE] ` 접두어 + 한 줄 제목**(무엇을 하는지 명확히). 접두어는 예외 없이 붙인다.
    - 본문은 3단계에서 ADF 로 넣으므로, 생성 시엔 `summary` 만 줘도 된다(혹은 `contentFormat:"adf"` 로 바로 넣기).
 
 3. **본문(ADF)·레이블·할당 지정** — `editJiraIssue`(`contentFormat:"adf"`):

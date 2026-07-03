@@ -8,10 +8,9 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     @Query(
         """
         select distinct f from FoodJpaEntity f
-        left join fetch f.foodIngredients fi
-        left join fetch fi.ingredient
+        left join fetch f.foodAvoidanceSubstances
         where f.koreanName = :koreanName
         """,
     )
-    fun findByKoreanNameWithIngredients(@Param("koreanName") koreanName: String): FoodJpaEntity?
+    fun findByKoreanNameWithAvoidanceSubstances(@Param("koreanName") koreanName: String): FoodJpaEntity?
 }
