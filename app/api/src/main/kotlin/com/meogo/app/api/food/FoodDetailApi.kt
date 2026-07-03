@@ -15,12 +15,14 @@ interface FoodDetailApi {
     @Operation(
         summary = "음식 상세 조회",
         description = """
-            한국어 메뉴명(menuName)으로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·간단 설명(briefDescription)·자세한 설명(detailedDescription)·재료명을 반환하며,
-            지정하지 않은(또는 빈/공백) 언어는 한국어(ko)로 처리하고, 지원 목록에 없는 코드는 400 으로 거절한다. 설명은 종류별로 독립 폴백한다(간단 번역만 없으면 간단만 ko).
+            한국어 메뉴명(menuName)으로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·설명(description)·맵기(spiciness)·포함 기피성분명을 반환하며,
+            지정하지 않은(또는 빈/공백) 언어는 한국어(ko)로 처리하고, 지원 목록에 없는 코드는 400 으로 거절한다. 설명 번역이 없으면 한국어 원문으로 폴백한다.
 
             지원 언어: ko(기본), zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es.
 
-            각 재료는 포함 비율(inclusionPercent, 0~100)과 mock 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)를 함께 제공한다.
+            맵기(spiciness)는 0~10 정수(0=맵지 않음, 10=매우 매움)로 제공한다.
+
+            각 포함 기피성분은 포함 확률(inclusionPercent, 1~100)과 mock 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)를 함께 제공한다.
 
             ## 현재 더미에 수록된 메뉴(10종)
             아래 한국어 메뉴명만 조회 가능하다(그 외 메뉴명은 400):
@@ -31,7 +33,7 @@ interface FoodDetailApi {
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·간단/자세한 설명·재료 목록 반환"),
+            ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·설명·맵기·포함 기피성분 목록 반환"),
             ApiResponse(
                 responseCode = "400",
                 description = "menuName 누락/blank('menuName은 필수입니다'), 미수록 메뉴('해당 음식 정보 없음'), 또는 지원 목록에 없는 언어 코드(지원 언어 목록 안내)",
