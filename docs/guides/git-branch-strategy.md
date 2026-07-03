@@ -13,9 +13,30 @@
 | `release/x.y.z` *(확장 시)* | `develop` | `main` + `develop` | Merge --no-ff | 안정화·QA 전용, 신규 기능 ❌ |
 | `hotfix/<slug>` *(확장 시)* | `main` | `main` + `develop` | Merge --no-ff | 운영 긴급 패치 |
 
-### 1.1 브랜치 이름
+### 1.1 spec 폴더 · 브랜치 이름
 
-- **기능 작업 브랜치 이름은 이 문서가 정하지 않는다** — **SpecKit 사이클이 생성**하며, spec 폴더명과 동일한 `NNN-slug` 형식이다(예: `001-menu-scan-mock`, `002-food-description`). 별도 prefix(`feature/` 등)를 붙이지 않는다.
+기능 작업의 이름은 **Jira 태스크 키를 기준**으로 짓는다. 순번(`NNN`)은 쓰지 않는다 — 여러 개발자가 동시에 작업할 때 공유 카운터가 충돌하기 때문이다. Jira 키는 전역 유일하므로 카운터 없이 절대 겹치지 않는다.
+
+**① spec 폴더 = 브랜치 = `kb-NN-slug`** (SpecKit 사이클이 생성)
+
+- `kb-NN` — Jira 태스크 키를 **소문자로** 그대로 쓴 것(`KB-28` → `kb-28`). 폴더 유일성을 보장한다.
+- `slug` — 작업 설명(영문 2~4단어, `--short-name`으로 전달). 예: `kb-28-food-spiciness`.
+- 별도 prefix(`feature/`·순번 등)를 붙이지 않는다.
+- 생성: `/speckit-specify` 를 `JIRA_KEY=KB-28` 와 함께 실행한다 — `before_specify` 훅(`speckit-git-branch` 스킬)이 순번 없이 `kb-28-<slug>` 브랜치·`specs/kb-28-<slug>/` 를 만든다. 공유 스크립트 `create-new-feature.sh` 는 손대지 않는다(Jira 경로는 스킬이 git 으로 직접 생성). 수동 생성 시엔 `git checkout -b kb-28-<slug>` 후 `specs/kb-28-<slug>/` 를 스캐폴드한다.
+
+**② Jira 태스크 ↔ spec 폴더 = 기본 1:1**
+
+- **한 태스크 = 한 spec 폴더**가 기본이다. 작업이 늘면 폴더를 쪼개지 말고 tasks.md 안에서 PR 크기로 슬라이스한다(③).
+- 드물게 별도 spec·plan·tasks 가 필요할 만큼 설계가 갈리면 새 폴더를 파도 된다 — slug 가 달라 자연히 구분된다(`kb-28-food-spiciness`, `kb-28-spiciness-batch`).
+
+**③ PR 브랜치 = 폴더당 1~N개** (멀티 PR 대비)
+
+- 단일 PR 태스크 → 브랜치명 = **spec 폴더명 그대로**(`kb-28-food-spiciness`).
+- 여러 PR로 쪼갤 때 → 각 PR 브랜치에 **`-pK-서브슬러그`** 를 붙인다(`p1`, `p2`, …): `kb-28-food-spiciness-p1-domain-column`, `kb-28-food-spiciness-p2-response-dto`.
+  - 전부 `develop`에서 분기하고 각자 **Squash** PR로 병합한다(§2).
+  - 구분자는 반드시 `-pK-` — `kb-28-food-spiciness` 브랜치와 `kb-28-food-spiciness/p1` 은 git ref 가 충돌하므로 `/` 를 쓰지 않는다.
+  - PR 본문에 Jira 키를 참조한다: 중간 PR `Refs KB-28`, 태스크를 끝내는 마지막 PR `Closes #<GitHub 이슈>`(연계 시).
+
 - *(확장)* `release/*`·`hotfix/*` 네이밍 예: `release/0.0.1`, `hotfix/food-detail-npe`.
 
 ## 2. 불변 머지 원칙 ★
