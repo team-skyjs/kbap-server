@@ -1,19 +1,18 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.1.0 → 2.2.0   (개정 2026-07-02)
-Bump rationale (MINOR): 원칙 V 의 "고정 reference taxonomy 예외" 단서를 현행 구조로 재서술했다.
-  007 리팩터(이슈 #21)로 회피·주의 성분 카탈로그의 데이터(ko 원문·9개 번역·분류)를 enum 에서
-  DB 단일 출처로 옮기고 enum 은 데이터 없는 식별자(AvoidanceSubstanceCode)만 남겼으므로, 기존
-  전제("고정 taxonomy 는 DB 대신 공유 컴파일 enum 으로 데이터를 보유할 수 있다")를 "콘텐츠 데이터=DB 단일
-  출처 + 식별자(코드) enum(콘텐츠 미보유, 개발 가독성용 한국어 label 만 허용·시드 정합 검증)"로 현행화한다.
-  원칙의 목적(ko+9 번역·ko 폴백·콘텐츠↔UI 분리·안전 직결 정합)과 강제력은 불변이라 MAJOR 아님(제거/비호환
-  재정의 없음). 실질 가이드 재서술이라 PATCH 아님.
+Version change: 2.2.0 → 2.3.0   (개정 2026-07-02)
+Bump rationale (MINOR): 원칙 V 의 언어 폴백 정책을 세분화했다. 기존 "미지원/미지정 언어 응답 시 ko 로
+  폴백한다"가 미지원 코드까지 조용히 ko 로 폴백함을 명시했으나, 이슈 #18(spec 008)로 이를 세 경우로 분리한다:
+  (1) 미지정(null·빈·공백) → ko 기본, (2) 지원 언어이나 번역 부재 → ko 폴백, (3) 지원 목록에 없는 코드(값 존재
+  + 정확 불일치) → 에러(fail-fast) + 지원 언어 목록 안내(HTTP 400). 매칭은 정확 일치(대소문자·지역 변형 미지원).
+  ko 원문 + 9개 번역·콘텐츠↔UI 분리·안전 직결 정합 등 원칙의 목적은 불변이며, 폴백 조건을 세분화하는 확장이라
+  MAJOR 아님(제거/비호환 재정의 없음). 실질 가이드 확장이라 PATCH 아님.
 
 Modified principles:
-  V.   Domain Content Language Policy — "고정 reference taxonomy 예외" 재서술:
-       컴파일 enum 데이터 저장 허용 → 콘텐츠 데이터 DB 단일 출처 + 식별자(코드) enum 은 콘텐츠 미보유
-       (개발 가독성용 label 만 허용, label=시드 korean_name 정합).
+  V.   Domain Content Language Policy — 언어 폴백 정책 세분화:
+       "미지원/미지정 → ko 폴백" → "미지정(null·빈·공백) → ko 기본 / 번역 부재 → ko 폴백 /
+       지원 목록에 없는 코드 → 에러 + 지원 목록 안내(fail-fast, HTTP 400)".
 
 Added sections: 없음 · Removed sections: 없음
 
@@ -22,9 +21,9 @@ Templates reviewed:
   ✅ .specify/templates/tasks-template.md — Test-First 동기화 유지, 무관. 변경 불필요.
   ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
 
-Docs propagation: 원칙 V 예외 문구는 constitution.md 외 참조처 없음(grep 확인). 별도 문서 동기화 불필요.
+Docs propagation: 언어 폴백 문구는 constitution.md 외 참조처 없음(docs/·templates/ grep 확인). 별도 문서 동기화 불필요.
 
-Follow-up: 없음(이 개정으로 이슈 #21 의 "원칙 V 예외 단서 조정" 항목 완료).
+Follow-up: 없음(이 개정으로 spec 008/이슈 #18 의 원칙 V 정합 항목 완료).
 -->
 
 # Meogo API Constitution
@@ -92,7 +91,13 @@ Rationale: 도메인을 영속 기술로부터 보호하고, 기술 교체 시 �
   `id`(인도네시아어)·`th`(태국어)·`ru`(러시아어)·`es`(스페인어).
 - 번역은 `:app:batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
 - 정적 UI 문구 번역 정책과 음식 콘텐츠 번역 정책은 **분리**한다(혼동 금지).
-- `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이며, 미지원/미지정 언어 응답 시 `ko`로 폴백한다.
+- `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이다. 언어 폴백은 다음 세 경우로 구분한다(spec 008/이슈 #18):
+  (1) **미지정**(언어 코드 null·빈 문자열·공백) → `ko` 기본으로 응답한다. (2) **지원 언어이나 번역 부재**(예: `ja`
+  요청인데 해당 콘텐츠 일본어 번역 미보유) → `ko`로 폴백한다. (3) **지원 목록에 없는 코드**(값이 존재하고 지원 코드와
+  정확히 일치하지 않음 — 대소문자·지역 변형 포함, 예: `fr`·`EN`·`ko-KR`) → 조용히 폴백하지 않고 **에러(fail-fast)로
+  거절**하며 응답에 **지원 언어 목록을 안내**한다(HTTP 400). 매칭은 **정확 일치**로 하고 관대한 정규화를 하지 않는다.
+  근거: 외국인 대상 서비스에서 잘못된 언어 코드가 조용히 한국어로 응답되면 오인·디버깅을 어렵게 하므로, fail-fast +
+  지원 목록 안내가 UX·디버깅에 우월하다.
 - **고정 reference taxonomy — 식별자 enum + DB 단일 출처**: 운영자 런타임 편집이 없고 고정·읽기 전용인
   기준 목록(예: 회피·주의 성분 카탈로그 — 81종)은 **데이터(ko 원문·9개 대상 언어 번역·분류)를 DB 단일 출처**로
   두고(소프트삭제·ko 폴백 포함), **컴파일 타입 안전을 위한 식별자(코드) enum**(예: `AvoidanceSubstanceCode`)만
@@ -141,4 +146,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 2.2.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-02
+**Version**: 2.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-02

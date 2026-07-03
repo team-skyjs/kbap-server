@@ -1,6 +1,8 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LanguageException
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -18,8 +20,8 @@ class LanguageResolverTest : BehaviorSpec({
         }
 
         `when`("지원하지 않는 코드가 주어지면") {
-            then("ko 로 폴백한다") {
-                resolver.resolve("xx") shouldBe LanguageCode.KO
+            then("LanguageException 을 던진다") {
+                shouldThrow<LanguageException> { resolver.resolve("xx") }
             }
         }
 

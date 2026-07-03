@@ -16,7 +16,7 @@ interface FoodDetailApi {
         summary = "음식 상세 조회",
         description = """
             한국어 메뉴명(menuName)으로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·간단 설명(briefDescription)·자세한 설명(detailedDescription)·재료명을 반환하며,
-            지원하지 않거나 지정하지 않은 언어는 한국어(ko)로 폴백한다. 설명은 종류별로 독립 폴백한다(간단 번역만 없으면 간단만 ko).
+            지정하지 않은(또는 빈/공백) 언어는 한국어(ko)로 처리하고, 지원 목록에 없는 코드는 400 으로 거절한다. 설명은 종류별로 독립 폴백한다(간단 번역만 없으면 간단만 ko).
 
             지원 언어: ko(기본), zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es.
 
@@ -34,7 +34,7 @@ interface FoodDetailApi {
             ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·간단/자세한 설명·재료 목록 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "menuName 누락/blank('menuName은 필수입니다') 또는 미수록 메뉴('해당 음식 정보 없음')",
+                description = "menuName 누락/blank('menuName은 필수입니다'), 미수록 메뉴('해당 음식 정보 없음'), 또는 지원 목록에 없는 언어 코드(지원 언어 목록 안내)",
             ),
         ],
     )
@@ -46,7 +46,7 @@ interface FoodDetailApi {
             example = "된장찌개",
         )
         @RequestParam menuName: String,
-        @Parameter(description = "응답 언어 코드(미지정/미지원 시 ko 폴백)", required = false, example = "en")
+        @Parameter(description = "응답 언어 코드(미지정/빈/공백 시 ko 기본, 지원 목록에 없는 코드는 400)", required = false, example = "en")
         @RequestParam(required = false) lang: String?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>>
 }
