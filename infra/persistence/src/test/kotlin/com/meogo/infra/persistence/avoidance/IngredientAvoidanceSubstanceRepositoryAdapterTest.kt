@@ -33,7 +33,11 @@ class IngredientAvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
             nameEn: String? = null,
         ): Long {
             val id = substanceJpaRepository.save(
-                AvoidanceSubstanceJpaEntity(code = code.name, koreanName = koreanName, nameEn = nameEn),
+                AvoidanceSubstanceJpaEntity(
+                    code = code.name,
+                    koreanName = koreanName,
+                    translations = nameEn?.let { mapOf("en" to it) } ?: emptyMap(),
+                ),
             ).id
             categoryJpaRepository.save(
                 AvoidanceSubstanceCategoryJpaEntity(substanceId = id, category = AvoidanceCategory.ALLERGEN.name),

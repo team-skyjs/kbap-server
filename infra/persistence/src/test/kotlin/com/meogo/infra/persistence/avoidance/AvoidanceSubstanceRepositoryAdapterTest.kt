@@ -35,29 +35,13 @@ class AvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
         fun saveSubstance(
             code: AvoidanceSubstanceCode,
             koreanName: String,
-            nameZhHans: String? = null,
-            nameEn: String? = null,
-            nameJa: String? = null,
-            nameZhHant: String? = null,
-            nameVi: String? = null,
-            nameId: String? = null,
-            nameTh: String? = null,
-            nameRu: String? = null,
-            nameEs: String? = null,
+            translations: Map<String, String> = emptyMap(),
         ): AvoidanceSubstanceJpaEntity =
             substanceJpaRepository.save(
                 AvoidanceSubstanceJpaEntity(
                     code = code.name,
                     koreanName = koreanName,
-                    nameZhHans = nameZhHans,
-                    nameEn = nameEn,
-                    nameJa = nameJa,
-                    nameZhHant = nameZhHant,
-                    nameVi = nameVi,
-                    nameId = nameId,
-                    nameTh = nameTh,
-                    nameRu = nameRu,
-                    nameEs = nameEs,
+                    translations = translations,
                 ),
             )
 
@@ -66,6 +50,60 @@ class AvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
                 categoryJpaRepository.save(
                     AvoidanceSubstanceCategoryJpaEntity(substanceId = substanceId, category = category.name),
                 )
+            }
+        }
+
+        given("translations JSON 컬럼 왕복") {
+            `when`("여러 언어 번역을 translations 맵으로 저장하고 코드로 조회하면") {
+                then("각 언어 displayName 이 저장한 번역과 같다") {
+                    val egg = saveSubstance(
+                        AvoidanceSubstanceCode.EGG,
+                        koreanName = "달걀",
+                        translations = mapOf(
+                            "en" to "Egg",
+                            "ja" to "卵",
+                            "zh-Hans" to "鸡蛋",
+                        ),
+                    )
+                    saveMembership(egg.id, AvoidanceCategory.ALLERGEN)
+
+                    val found = adapter.findByCodes(setOf(AvoidanceSubstanceCode.EGG)).single()
+
+                    found.displayName(LanguageCode.EN) shouldBe "Egg"
+                    found.displayName(LanguageCode.JA) shouldBe "卵"
+                    found.displayName(LanguageCode.ZH_HANS) shouldBe "鸡蛋"
+                }
+            }
+
+            `when`("특정 언어 번역이 없는 성분을 그 언어로 조회하면") {
+                then("displayName 이 korean_name 으로 폴백하며 빈 문자열을 반환하지 않는다") {
+                    val cashew = saveSubstance(
+                        AvoidanceSubstanceCode.CASHEW,
+                        koreanName = "캐슈넛",
+                        translations = mapOf("en" to "Cashew nut"),
+                    )
+                    saveMembership(cashew.id, AvoidanceCategory.ALLERGEN)
+
+                    val name = adapter.findByCodes(setOf(AvoidanceSubstanceCode.CASHEW))
+                        .single().displayName(LanguageCode.JA)
+
+                    name shouldBe "캐슈넛"
+                    name.shouldNotBeBlank()
+                }
+            }
+
+            `when`("translations 가 빈 맵인 성분을 임의 비-ko 언어로 조회하면") {
+                then("displayName 이 korean_name 으로 폴백한다") {
+                    val almond = saveSubstance(
+                        AvoidanceSubstanceCode.ALMOND,
+                        koreanName = "아몬드",
+                        translations = emptyMap(),
+                    )
+                    saveMembership(almond.id, AvoidanceCategory.ALLERGEN)
+
+                    adapter.findByCodes(setOf(AvoidanceSubstanceCode.ALMOND))
+                        .single().displayName(LanguageCode.EN) shouldBe "아몬드"
+                }
             }
         }
 
@@ -114,48 +152,6 @@ class AvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
                         AvoidanceSubstanceCode.SHRIMP,
                         AvoidanceSubstanceCode.CRAB,
                     )
-                }
-            }
-
-            `when`("번역 컬럼이 있는 성분을 조회하면") {
-                then("어그리게이트가 그 언어의 번역을 displayName 으로 반환한다") {
-                    val peanut = saveSubstance(AvoidanceSubstanceCode.PEANUT, koreanName = "땅콩", nameEn = "Peanut")
-                    saveMembership(peanut.id, AvoidanceCategory.ALLERGEN)
-
-                    adapter.findByCodes(setOf(AvoidanceSubstanceCode.PEANUT))
-                        .single().displayName(LanguageCode.EN) shouldBe "Peanut"
-                }
-            }
-
-            `when`("요청 언어 번역 컬럼이 NULL 이면") {
-                then("displayName 이 korean_name 으로 폴백하며 빈 문자열을 반환하지 않는다") {
-                    val cashew = saveSubstance(
-                        AvoidanceSubstanceCode.CASHEW,
-                        koreanName = "캐슈넛",
-                        nameEn = "Cashew nut",
-                        nameJa = null,
-                    )
-                    saveMembership(cashew.id, AvoidanceCategory.ALLERGEN)
-
-                    val name = adapter.findByCodes(setOf(AvoidanceSubstanceCode.CASHEW))
-                        .single().displayName(LanguageCode.JA)
-
-                    name shouldBe "캐슈넛"
-                    name.shouldNotBeBlank()
-                }
-            }
-
-            `when`("요청 언어 번역 컬럼이 blank 이면") {
-                then("displayName 이 korean_name 으로 폴백한다") {
-                    val almond = saveSubstance(
-                        AvoidanceSubstanceCode.ALMOND,
-                        koreanName = "아몬드",
-                        nameEn = "   ",
-                    )
-                    saveMembership(almond.id, AvoidanceCategory.ALLERGEN)
-
-                    adapter.findByCodes(setOf(AvoidanceSubstanceCode.ALMOND))
-                        .single().displayName(LanguageCode.EN) shouldBe "아몬드"
                 }
             }
 
