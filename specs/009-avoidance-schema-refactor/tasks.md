@@ -29,7 +29,7 @@ description: "Task list for 기피 성분 스키마 리팩터"
 
 **Purpose**: 리팩터 회귀 기준선 확보
 
-- [ ] T001 [P] `./gradlew :core:avoidance:test :infra:persistence:test :app:api:test` 로 현재 baseline Green 확인(변경 전 기준선 기록)
+- [X] T001 [P] `./gradlew :core:avoidance:test :infra:persistence:test :app:api:test` 로 현재 baseline Green 확인(변경 전 기준선 기록)
 
 ---
 
@@ -53,13 +53,13 @@ description: "Task list for 기피 성분 스키마 리팩터"
 
 ### Tests for User Story 1 (Test-First: 먼저 작성·실패 확인) ⚠️
 
-- [ ] T002 [P] [US1] 영속 JSON 왕복 실패 테스트 작성 in `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapterTest.kt` — given `translations`(JSON, 비-ko 다수) 를 가진 성분 저장 → when `findByCodes` 조회 → then 각 언어 `displayName(lang)`=저장값 / 미보유 언어=`koreanName` / `{}`=모든 비-ko 조회가 `koreanName`. Red 확인(`./gradlew :infra:persistence:test`).
+- [X] T002 [P] [US1] 영속 JSON 왕복 실패 테스트 작성 in `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapterTest.kt` — given `translations`(JSON, 비-ko 다수) 를 가진 성분 저장 → when `findByCodes` 조회 → then 각 언어 `displayName(lang)`=저장값 / 미보유 언어=`koreanName` / `{}`=모든 비-ko 조회가 `koreanName`. Red 확인(`./gradlew :infra:persistence:test`).
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] `AvoidanceSubstanceJpaEntity` 를 JSON 번역 매핑으로 변경 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceJpaEntity.kt` — `name_zh_hans`…`name_es` 9필드 제거, `@JdbcTypeCode(SqlTypes.JSON) @Column(name="translations") var translations: Map<String,String> = emptyMap()` 추가, `translationColumns()` 제거, `toDomain(categories)` 는 JSON 을 **엄격 code 매칭**으로 `Map<LanguageCode,String>` 복원(매핑 불가 키 무시). `categories` 파라미터는 US2 까지 유지.
-- [ ] T004 [US1] V6 마이그레이션 생성(번역 파트) in `app/api/src/main/resources/db/migration/V6__drop_avoidance_category_and_jsonify_translations.sql` — (1) `ALTER TABLE avoidance_substance ADD COLUMN translations JSON NULL;` (2) 기존 `name_*` → `translations` 백필: 비-NULL 언어만 포함하는 JSON 객체(키=`en`,`ja`,`zh-Hans`,`zh-Hant`,`vi`,`id`,`th`,`ru`,`es`), 전부 NULL 이면 `{}`. (3) `name_zh_hans … name_es` 9개 컬럼 DROP. (V5 는 절대 수정 금지.)
-- [ ] T005 [US1] US1 Green 확인: `./gradlew :infra:persistence:test --tests "*AvoidanceSubstanceRepositoryAdapterTest*"` — JSON 왕복·폴백 통과(카테고리 기능은 아직 존재, 빌드 Green).
+- [X] T003 [US1] `AvoidanceSubstanceJpaEntity` 를 JSON 번역 매핑으로 변경 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceJpaEntity.kt` — `name_zh_hans`…`name_es` 9필드 제거, `@JdbcTypeCode(SqlTypes.JSON) @Column(name="translations") var translations: Map<String,String> = emptyMap()` 추가, `translationColumns()` 제거, `toDomain(categories)` 는 JSON 을 **엄격 code 매칭**으로 `Map<LanguageCode,String>` 복원(매핑 불가 키 무시). `categories` 파라미터는 US2 까지 유지.
+- [X] T004 [US1] V6 마이그레이션 생성(번역 파트) in `app/api/src/main/resources/db/migration/V6__drop_avoidance_category_and_jsonify_translations.sql` — (1) `ALTER TABLE avoidance_substance ADD COLUMN translations JSON NULL;` (2) 기존 `name_*` → `translations` 백필: 비-NULL 언어만 포함하는 JSON 객체(키=`en`,`ja`,`zh-Hans`,`zh-Hant`,`vi`,`id`,`th`,`ru`,`es`), 전부 NULL 이면 `{}`. (3) `name_zh_hans … name_es` 9개 컬럼 DROP. (V5 는 절대 수정 금지.)
+- [X] T005 [US1] US1 Green 확인: `./gradlew :infra:persistence:test --tests "*AvoidanceSubstanceRepositoryAdapterTest*"` — JSON 왕복·폴백 통과(카테고리 기능은 아직 존재, 빌드 Green).
 
 **Checkpoint**: 번역이 JSON 단일 컬럼으로 저장·조회되며 기존 이름 조회 결과 동일. `avoidance_substance` 에 `name_*` 컬럼 없음. (분류는 아직 존재 — 독립 배포 가능한 증분.)
 
@@ -75,22 +75,22 @@ description: "Task list for 기피 성분 스키마 리팩터"
 
 ### Tests for User Story 2 (Test-First: 먼저 작성·실패 확인) ⚠️
 
-- [ ] T006 [P] [US2] 도메인 카테고리 제거 실패 테스트 in `core/avoidance/src/test/kotlin/com/meogo/core/avoidance/AvoidanceSubstanceTest.kt` — `categories`/`belongsTo`/`AvoidanceCategory.entries` 참조 제거, `reconstitute(...)`(categories 없이) 구성, `displayName` 폴백 회귀 유지. (도메인 변경 전까지 컴파일 Red.)
-- [ ] T007 [P] [US2] "전 성분 복원" 실패 테스트 보강 in `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapterTest.kt` — 카테고리 매핑 없이도 `findByCodes` 가 성분을 복원(현재 Reconstitutor drop 로 실패)함을 검증, `saveMembership`/`byCategory` 케이스 제거.
+- [X] T006 [P] [US2] 도메인 카테고리 제거 실패 테스트 in `core/avoidance/src/test/kotlin/com/meogo/core/avoidance/AvoidanceSubstanceTest.kt` — `categories`/`belongsTo`/`AvoidanceCategory.entries` 참조 제거, `reconstitute(...)`(categories 없이) 구성, `displayName` 폴백 회귀 유지. (도메인 변경 전까지 컴파일 Red.)
+- [X] T007 [P] [US2] "전 성분 복원" 실패 테스트 보강 in `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapterTest.kt` — 카테고리 매핑 없이도 `findByCodes` 가 성분을 복원(현재 Reconstitutor drop 로 실패)함을 검증, `saveMembership`/`byCategory` 케이스 제거.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] 도메인 `AvoidanceSubstance` 수정 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceSubstance.kt` — `categories` 필드·`belongsTo`·`require(categories …)` 제거, `reconstitute` 시그니처에서 `categories` 제거.
-- [ ] T009 [P] [US2] `AvoidanceCategory.kt` 삭제 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceCategory.kt`
-- [ ] T010 [US2] port 에서 `byCategory` 제거 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceSubstanceRepository.kt` (`findByCodes` 유지)
-- [ ] T011 [US2] `AvoidanceSubstanceJpaEntity.toDomain` 에서 `categories` 파라미터 제거 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceJpaEntity.kt` (T003 결과 위에서 수정)
-- [ ] T012 [US2] `AvoidanceSubstanceReconstitutor` 수정 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceReconstitutor.kt` — `categoryJpaRepository` 의존 제거, 카테고리 조인·**"카테고리 없으면 drop" 필터 제거**(rows 만으로 `toDomain()` 복원).
-- [ ] T013 [US2] `AvoidanceSubstanceRepositoryAdapter` 수정 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapter.kt` — `byCategory` 구현·`avoidanceSubstanceCategoryJpaRepository` 생성자 의존 제거.
-- [ ] T014 [P] [US2] `AvoidanceSubstanceCategoryJpaEntity.kt` + `AvoidanceSubstanceCategoryJpaRepository.kt` 삭제 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/`
-- [ ] T015 [US2] V6 에 `DROP TABLE avoidance_substance_category;` 추가 in `app/api/src/main/resources/db/migration/V6__drop_avoidance_category_and_jsonify_translations.sql` (T004 파일에 이어서 — 인입 FK 없어 안전)
-- [ ] T016 [P] [US2] ArchUnit `ModuleBoundaryTest` 의 "영속 avoidance 엔티티의 분류 저장 형식 회귀" given 블록 제거 in `app/api/src/test/kotlin/com/meogo/app/api/architecture/ModuleBoundaryTest.kt` (`AvoidanceSubstanceCode` label-only 검증 given 은 **유지**)
-- [ ] T017 [P] [US2] `FoodAvoidanceSubstanceResolverTest` 의 `categories`/`AvoidanceCategory` 픽스처 제거 in `application/client/src/test/kotlin/com/meogo/application/client/food/usecase/FoodAvoidanceSubstanceResolverTest.kt`
-- [ ] T018 [US2] US2 Green 확인: `./gradlew :core:avoidance:test :infra:persistence:test :app:api:test` — 도메인·영속·ArchUnit·application 통과.
+- [X] T008 [US2] 도메인 `AvoidanceSubstance` 수정 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceSubstance.kt` — `categories` 필드·`belongsTo`·`require(categories …)` 제거, `reconstitute` 시그니처에서 `categories` 제거.
+- [X] T009 [P] [US2] `AvoidanceCategory.kt` 삭제 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceCategory.kt`
+- [X] T010 [US2] port 에서 `byCategory` 제거 in `core/avoidance/src/main/kotlin/com/meogo/core/avoidance/AvoidanceSubstanceRepository.kt` (`findByCodes` 유지)
+- [X] T011 [US2] `AvoidanceSubstanceJpaEntity.toDomain` 에서 `categories` 파라미터 제거 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceJpaEntity.kt` (T003 결과 위에서 수정)
+- [X] T012 [US2] `AvoidanceSubstanceReconstitutor` 수정 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceReconstitutor.kt` — `categoryJpaRepository` 의존 제거, 카테고리 조인·**"카테고리 없으면 drop" 필터 제거**(rows 만으로 `toDomain()` 복원).
+- [X] T013 [US2] `AvoidanceSubstanceRepositoryAdapter` 수정 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/AvoidanceSubstanceRepositoryAdapter.kt` — `byCategory` 구현·`avoidanceSubstanceCategoryJpaRepository` 생성자 의존 제거.
+- [X] T014 [P] [US2] `AvoidanceSubstanceCategoryJpaEntity.kt` + `AvoidanceSubstanceCategoryJpaRepository.kt` 삭제 in `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/avoidance/`
+- [X] T015 [US2] V6 에 `DROP TABLE avoidance_substance_category;` 추가 in `app/api/src/main/resources/db/migration/V6__drop_avoidance_category_and_jsonify_translations.sql` (T004 파일에 이어서 — 인입 FK 없어 안전)
+- [X] T016 [P] [US2] ArchUnit `ModuleBoundaryTest` 의 "영속 avoidance 엔티티의 분류 저장 형식 회귀" given 블록 제거 in `app/api/src/test/kotlin/com/meogo/app/api/architecture/ModuleBoundaryTest.kt` (`AvoidanceSubstanceCode` label-only 검증 given 은 **유지**)
+- [X] T017 [P] [US2] `FoodAvoidanceSubstanceResolverTest` 의 `categories`/`AvoidanceCategory` 픽스처 제거 in `application/client/src/test/kotlin/com/meogo/application/client/food/usecase/FoodAvoidanceSubstanceResolverTest.kt`
+- [X] T018 [US2] US2 Green 확인: `./gradlew :core:avoidance:test :infra:persistence:test :app:api:test` — 도메인·영속·ArchUnit·application 통과.
 
 **Checkpoint**: 분류 카테고리가 코드·스키마에서 완전히 제거되고 전 성분 복원·API 무변경.
 
@@ -98,10 +98,10 @@ description: "Task list for 기피 성분 스키마 리팩터"
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] 잔여 참조 점검 — `grep -rn "AvoidanceCategory\|byCategory\|belongsTo\|avoidance_substance_category" core infra application app --include="*.kt" --include="*.sql"` 결과가 V5 시드 INSERT 외 0건인지 확인(quickstart §2)
-- [ ] T020 전체 빌드 회귀 게이트: `./gradlew build` Green (SC-003)
-- [ ] T021 [P] `docs/architecture` 등에 avoidance 분류 언급이 있으면 정리(있을 때만; CLAUDE.md 플랜 포인터는 이미 009 로 갱신됨)
-- [ ] T022 quickstart.md 검증 절차 수행 + V5 무변경 확인(`git diff -- app/api/src/main/resources/db/migration/V5__*.sql` 빈 결과)
+- [X] T019 [P] 잔여 참조 점검 — `grep -rn "AvoidanceCategory\|byCategory\|belongsTo\|avoidance_substance_category" core infra application app --include="*.kt" --include="*.sql"` 결과가 V5 시드 INSERT 외 0건인지 확인(quickstart §2)
+- [X] T020 전체 빌드 회귀 게이트: `./gradlew build` Green (SC-003)
+- [X] T021 [P] `docs/architecture` 등에 avoidance 분류 언급이 있으면 정리(있을 때만; CLAUDE.md 플랜 포인터는 이미 009 로 갱신됨)
+- [X] T022 quickstart.md 검증 절차 수행 + V5 무변경 확인(`git diff -- app/api/src/main/resources/db/migration/V5__*.sql` 빈 결과)
 
 ---
 
