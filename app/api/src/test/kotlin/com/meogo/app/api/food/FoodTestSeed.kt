@@ -10,6 +10,9 @@ object FoodTestSeed {
     const val BIBIMBAP_DESCRIPTION_KO = "비빔밥은 밥에 나물을 비벼 먹는 음식이다"
     const val BIBIMBAP_SPICINESS = 2
 
+    const val PLAIN_RICE_DESCRIPTION_KO = "흰밥은 쌀로 지은 밥이다"
+    const val PLAIN_RICE_SPICINESS = 0
+
     fun seedDoenjangStew(dataSource: DataSource) {
         execute(
             dataSource,
@@ -34,6 +37,15 @@ object FoodTestSeed {
             listOf(
                 food(2, "비빔밥", null, BIBIMBAP_DESCRIPTION_KO, BIBIMBAP_SPICINESS),
                 foodName(2, "en", "Bibimbap"),
+            ),
+        )
+    }
+
+    fun seedPlainRice(dataSource: DataSource) {
+        execute(
+            dataSource,
+            clearStatements() + listOf(
+                food(3, "흰밥", null, PLAIN_RICE_DESCRIPTION_KO, PLAIN_RICE_SPICINESS),
             ),
         )
     }

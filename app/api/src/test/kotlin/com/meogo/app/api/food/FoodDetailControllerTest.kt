@@ -46,6 +46,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.ingredients[2].name") { value("Clam") }
                         jsonPath("$.payload.ingredients[2].iconRef") { value(null) }
                         jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
+                        jsonPath("$.payload.ingredients[2].riskStatus") { value("SAFE") }
                     }
                 }
             }
@@ -58,6 +59,22 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.name") { value("Doenjang Stew") }
+                    }
+                }
+            }
+
+            `when`("포함 기피 성분이 하나도 없는 메뉴를 조회하면") {
+                then("200 과 함께 ingredients 를 빈 배열로 반환한다") {
+                    FoodTestSeed.seedPlainRice(dataSource)
+
+                    mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "흰밥")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.name") { value("흰밥") }
+                        jsonPath("$.payload.ingredients.length()") { value(0) }
                     }
                 }
             }
