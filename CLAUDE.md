@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/007-avoidance-substance-aggregate/plan.md` (회피·주의 성분 — 식별자 enum `AvoidanceSubstanceCode` + 도메인 어그리게이트 `AvoidanceSubstance` 분리, DB 단일 출처·표시명 이동·String 저장, 이슈 #21).
+`specs/009-avoidance-schema-refactor/plan.md` (기피 성분 스키마 정리 — 미사용 3분류 카테고리(`AvoidanceCategory`·조인 테이블·`byCategory`) 완전 제거 + `avoidance_substance` 언어별 컬럼 9종 → 단일 `translations` JSON 컬럼 통합(`korean_name` 컬럼 유지, 비-ko만 JSON). V5 불변·신규 V6 forward. API 무변경).
 <!-- SPECKIT END -->
