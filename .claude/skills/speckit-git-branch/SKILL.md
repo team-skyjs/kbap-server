@@ -17,6 +17,11 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
 
 - The **feature description** (the text passed to `/speckit-specify`) arrives as `$ARGUMENTS`.
 - Optional overrides:
+  - `JIRA_KEY=<KEY>` — **meogo default**. A Jira issue key (e.g. `KB-28`). When present, take the
+    **Jira-keyed path in Step 2** instead of the numbered script: the branch/dir become
+    `kb-<nn>-<slug>` (e.g. `kb-28-food-spiciness`) with **no sequential number**, because the Jira
+    key is globally unique and concurrent developers never collide. See
+    `docs/guides/git-branch-strategy.md §1.1`.
   - `GIT_BRANCH_NAME=<name>` — if the caller provided an exact branch name, pass it through
     as `--short-name <name>` so the script uses it verbatim (numbering is still prepended).
   - `--short-name <name>` — a custom 2-4 word slug.
@@ -26,7 +31,29 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
 
 1. Resolve the feature description from `$ARGUMENTS`. If empty, ERROR: "No feature description provided".
 
-2. Run the branch script from the repo root (JSON mode):
+2. Create the branch + scaffold. Two paths:
+
+   **2a. Jira-keyed path (meogo default — when `JIRA_KEY` is provided).**
+   Do **not** call the numbered script. Create the branch and scaffold directly from the repo root,
+   so no sequential number is prepended (the shared `create-new-feature.sh` stays untouched):
+
+   ```bash
+   SLUG="<2-4 word slug from --short-name or the description>"     # e.g. food-spiciness
+   PREFIX="$(printf '%s' "$JIRA_KEY" | tr '[:upper:]' '[:lower:]')" # KB-28 -> kb-28
+   BRANCH_NAME="${PREFIX}-${SLUG}"                                  # kb-28-food-spiciness
+   FEATURE_DIR="specs/${BRANCH_NAME}"
+   SPEC_FILE="${FEATURE_DIR}/spec.md"
+
+   # create+switch (idempotent: switch if it already exists)
+   git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
+
+   mkdir -p "$FEATURE_DIR"
+   [ -f "$SPEC_FILE" ] || cp .specify/templates/spec-template.md "$SPEC_FILE"
+   ```
+
+   Set `FEATURE_NUM="$PREFIX"` (there is no numeric prefix). Proceed to Step 3 with these values.
+
+   **2b. Default numbered path (no `JIRA_KEY`).** Run the branch script from the repo root (JSON mode):
 
    ```bash
    .specify/scripts/bash/create-new-feature.sh --json "<feature description>"
@@ -36,10 +63,11 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
    - The script derives `NNN` sequentially from existing `specs/` dirs + git branches,
      creates+switches branch `NNN-<slug>`, and scaffolds `specs/NNN-<slug>/spec.md`.
 
-3. Capture the JSON on stdout. It contains:
-   - `BRANCH_NAME` — the created/switched branch (e.g. `007-avoidance-substance-aggregate`)
-   - `SPEC_FILE` — path to the scaffolded spec (e.g. `specs/007-.../spec.md`)
-   - `FEATURE_NUM` — the numeric prefix (e.g. `007`)
+3. Resolve `BRANCH_NAME`, `SPEC_FILE`, `FEATURE_NUM`:
+   - Path 2a (Jira): use the values you set directly (e.g. `kb-28-food-spiciness`,
+     `specs/kb-28-food-spiciness/spec.md`, `kb-28`).
+   - Path 2b (numbered): capture them from the script's JSON on stdout (e.g.
+     `007-avoidance-substance-aggregate`, `specs/007-.../spec.md`, `007`).
 
 4. Persist the resolved directory so downstream commands agree with the branch:
 
@@ -53,7 +81,8 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
 
 ## Notes
 
-- **Idempotency**: if the branch already exists, the script switches to it (with
-  `--allow-existing-branch`) or errors asking for a rerun; surface that error, don't loop.
+- **Idempotency**: if the branch already exists, path 2a switches to it (`git checkout` fallback)
+  and reuses the existing `spec.md`; path 2b's script switches (with `--allow-existing-branch`)
+  or errors asking for a rerun — surface that error, don't loop.
 - This skill only handles the branch + scaffold. Filling in the spec content, the quality
   checklist, and validation remain the responsibility of `/speckit-specify`.
