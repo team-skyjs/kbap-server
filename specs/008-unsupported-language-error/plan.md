@@ -62,9 +62,15 @@ specs/008-unsupported-language-error/
 ### Source Code (repository root)
 
 ```text
+core/kernel/src/main/kotlin/com/meogo/core/kernel/error/
+├── ErrorCode.kt                       # 신규 — 예외 종류 계약(status·message) 인터페이스
+└── MeogoException.kt                  # 신규 — 예상된 비즈니스/도메인 오류 최상위 추상 예외
+
 core/kernel/src/main/kotlin/com/meogo/core/kernel/lang/
 ├── LanguageCode.kt                    # strict 해석 규칙 추가 (미지원 → 예외, null·blank → KO)
-└── UnsupportedLanguageException.kt    # 신규 — 지원 목록을 메시지에 포함하는 커널 예외
+├── LanguageErrorCode.kt               # 신규 — enum : ErrorCode, UNSUPPORTED_LANGUAGE(400, 지원목록)
+├── LanguageException.kt               # 신규 — 언어 도메인 부모 (: MeogoException)
+└── UnsupportedLanguageException.kt    # 신규 — 구체 예외 (: LanguageException)
 
 core/kernel/src/test/kotlin/com/meogo/core/kernel/lang/
 └── LanguageCodeTest.kt                # 회귀 갱신 — xx·EN → 예외, null·blank → KO
@@ -76,7 +82,7 @@ application/client/src/test/kotlin/com/meogo/application/client/food/usecase/
 └── LanguageResolverTest.kt            # 회귀 갱신 — 미지원 코드 → 예외
 
 app/api/src/main/kotlin/com/meogo/app/api/common/
-└── GlobalExceptionHandler.kt          # UnsupportedLanguageException → 400 + BaseResponse.fail 매핑
+└── GlobalExceptionHandler.kt          # MeogoException 최상위 핸들러 → status(errorCode) + BaseResponse.fail 매핑
 
 app/api/src/main/kotlin/com/meogo/app/api/food/
 └── FoodDetailApi.kt                   # Swagger 문서 갱신 (미지원 lang → 400)
@@ -86,7 +92,7 @@ app/api/src/test/kotlin/com/meogo/app/api/food/
 └── FoodDetailLanguageErrorTest.kt     # 신규 — 미지원 코드 400 + 지원 목록 메시지 검증
 ```
 
-**Structure Decision**: 기존 모듈러 모놀리스 구조를 그대로 사용한다. 신규 모듈·패키지 없음. 공유 어휘 규칙은 `:core:kernel` 에, 해석 사용은 `:application:client` 에, 에러 표면은 `:app:api` 에 두어 계층 방향을 준수한다.
+**Structure Decision**: 기존 모듈러 모놀리스 구조를 그대로 사용한다. 신규 모듈 없음, 신규 패키지 `com.meogo.core.kernel.error`(공유 예외 계약) 추가. 공유 어휘·예외 계약은 `:core:kernel` 에, 언어 오류 vocabulary 는 kernel 소유라 `kernel.lang` 에, 해석 사용은 `:application:client` 에, 에러 표면(핸들러)은 `:app:api` 에 두어 계층 방향을 준수한다. 타 도메인(food·avoidance…)은 자기 `ErrorCode` enum·도메인 부모 예외를 소유 모듈에 두는 패턴(원칙 II).
 
 ## Complexity Tracking
 

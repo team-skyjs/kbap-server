@@ -15,14 +15,14 @@
 - **Alternatives considered**: (a) `from`(lenient) 유지 + `fromStrict` 추가 → 두 경로 공존이 회귀 위험·혼동. 기각. (b) resolver 에서만 검증 → kernel 소비처마다 재구현 필요, 단일 출처 위반. 기각.
 
 ### Decision 2 — 예외 타입과 위치
-- **Decision**: `com.meogo.core.kernel.lang.UnsupportedLanguageException` 신규. `IllegalArgumentException` 을 상속하고, 메시지에 입력 코드와 지원 목록을 포함한다. 지원 목록 문자열은 `LanguageCode.entries.joinToString(", ") { it.code }` 로 **enum 단일 출처**에서 생성.
-- **Rationale**: kernel 은 공통 예외의 소유 위치이자 Spring-free(순수 Kotlin 예외라 부합). `IllegalArgumentException` 상속 시 기존 `GlobalExceptionHandler` 의 IAE 핸들러가 자동으로 400 + 메시지 매핑 → 변경 최소. 지원 목록을 enum 에서 생성해 언어 추가 시 메시지 자동 동기화.
-- **Alternatives considered**: (a) kernel 공통 예외 베이스 상속 → 현재 kernel 에 도메인 예외 베이스가 없어 과설계. IAE 상속이 기존 핸들러와 정합. (b) application/web 계층에 예외 배치 → kernel 소비처(타 계층)에서 못 던짐. 기각.
+- **Decision (개정)**: **도메인 예외 계층 + ErrorCode 계약 패턴**을 도입한다. `:core:kernel` 에 공유 계약 `com.meogo.core.kernel.error.ErrorCode`(`status: Int`·`message: String` 인터페이스)와 최상위 추상 예외 `MeogoException(val errorCode: ErrorCode) : RuntimeException(errorCode.message)` 를 둔다. 언어는 kernel 소유 어휘이므로 `com.meogo.core.kernel.lang` 에 `LanguageErrorCode`(enum : ErrorCode, `UNSUPPORTED_LANGUAGE(400, …)`)·도메인 부모 `LanguageException(ec: LanguageErrorCode) : MeogoException(ec)`·구체 `UnsupportedLanguageException : LanguageException(UNSUPPORTED_LANGUAGE)`(무상태) 를 둔다. 지원 목록은 `LanguageCode.entries.joinToString(", ") { it.code }` 로 enum 메시지에서 **단일 출처** 생성. 메시지 문자열은 throw 지점/핸들러가 아니라 **ErrorCode enum 이 소유**(문자열 직접 작성 금지).
+- **Rationale**: (1) 최상위 `MeogoException` 하나를 핸들러가 잡으면 **모든 도메인·모든 하위 예외를 단일 핸들러로 커버**(사용자 요구 "대표 예외만 체크"). (2) 도메인별 `ErrorCode` enum 이 상태코드+메시지를 소유해 도메인이 자기 오류 vocabulary 를 **바운디드 컨텍스트 안에서 관리**(원칙 II — food/avoidance 코드가 kernel 로 새지 않음; 언어만 kernel 소유라 kernel.lang). (3) kernel Spring-free 유지(순수 Kotlin, RuntimeException 기반). status 는 정수라 kernel 이 Spring `HttpStatus` 를 모름.
+- **Alternatives considered**: (a) `IllegalArgumentException` 상속 + 기존 IAE 핸들러 재사용 → 변경은 최소지만 무관한 IAE(`require`·"해당 음식 정보 없음")까지 뭉뚱그려져 의도·상태 매핑이 흐려짐. 기각. (b) 도메인 부모별 핸들러(공유 루트 없음) → 도메인 추가마다 동일 핸들러 복붙. 기각. (c) 전 도메인 에러 코드를 kernel 단일 enum 에 집約 → 원칙 II(컨텍스트 소유권) 위반(#21 AvoidanceSubstance 이관과 동일 사유). 기각.
 
-### Decision 3 — 에러 매핑 (400) 방식
-- **Decision**: `UnsupportedLanguageException` 전용 `@ExceptionHandler` 를 `GlobalExceptionHandler` 에 **명시 추가**해 400 + `BaseResponse.fail(e.message)` 로 매핑한다(IAE 상속으로 자동 커버되지만, 의도를 코드로 드러내고 메시지 형식을 고정하기 위해 전용 핸들러 유지).
-- **Rationale**: Spring 은 가장 구체적인 예외 핸들러를 우선 선택하므로 전용 핸들러가 안정적으로 승리. 향후 상태/메시지 형식 변경 지점을 명확히 한다. 응답 규약(`ResponseEntity<BaseResponse<T>>`) 준수.
-- **Alternatives considered**: 전용 핸들러 없이 기존 IAE 핸들러에 위임 → 동작은 되나 "미지원 언어"의 의도가 코드에 드러나지 않음. 명시 핸들러 채택.
+### Decision 3 — 에러 매핑 (400) 방식 (개정)
+- **Decision**: `GlobalExceptionHandler` 에 **`MeogoException` 최상위 핸들러 1개**를 두고 `ResponseEntity.status(HttpStatus.valueOf(e.errorCode.status)).body(BaseResponse.fail(e.errorCode.message))` 로 매핑한다. 기존 `MethodArgumentNotValidException`·`HttpMessageNotReadableException`·`IllegalArgumentException`(require·food not-found) 핸들러는 유지. 예상 못 한 기술 오류는 이 계층 밖(일반 `Exception` fallback → 500).
+- **Rationale**: 도메인이 늘어도 핸들러 불변 — 상태·메시지는 `errorCode` 가 운반. status 정수 → web 계층에서 `HttpStatus.valueOf` 로 매핑(kernel 은 Spring 무의존). 응답 규약(`ResponseEntity<BaseResponse<T>>`) 준수.
+- **Alternatives considered**: 예외 타입별 전용 핸들러 다수 → 도메인 확장 시 보일러플레이트. 단일 루트 핸들러 채택.
 
 ### Decision 4 — 기본값·매칭 규칙 (사용자 확정)
 - **Decision**: null·빈 문자열·공백 → `KO` 기본(에러 아님). 매칭은 **정확 일치**(`EN`·`ko-KR`·`en-US` 등은 미지원 에러, 정규화 없음).
