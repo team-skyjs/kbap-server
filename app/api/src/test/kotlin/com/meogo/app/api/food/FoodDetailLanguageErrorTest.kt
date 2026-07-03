@@ -26,15 +26,17 @@ class FoodDetailLanguageErrorTest : BehaviorSpec() {
 
         given("음식 상세 조회 미지원 언어 코드 처리") {
             `when`("lang=fr 로 조회하면") {
-                then("400 과 지원 목록을 포함한 실패 메시지를 반환한다") {
+                then("400 과 지원 언어 10종 전체를 포함한 실패 메시지를 반환한다") {
+                    val supported = listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
                     mockMvc.get("/api/v1/foods/detail") {
                         param("menuName", "된장찌개")
                         param("lang", "fr")
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value(containsString("zh-Hans")) }
-                        jsonPath("$.message") { value(containsString("es")) }
+                        supported.forEach { code ->
+                            jsonPath("$.message") { value(containsString(code)) }
+                        }
                     }
                 }
             }

@@ -69,8 +69,7 @@ core/kernel/src/main/kotlin/com/meogo/core/kernel/error/
 core/kernel/src/main/kotlin/com/meogo/core/kernel/lang/
 ├── LanguageCode.kt                    # strict 해석 규칙 추가 (미지원 → 예외, null·blank → KO)
 ├── LanguageErrorCode.kt               # 신규 — enum : ErrorCode, UNSUPPORTED_LANGUAGE(400, 지원목록)
-├── LanguageException.kt               # 신규 — 언어 도메인 부모 (: MeogoException)
-└── UnsupportedLanguageException.kt    # 신규 — 구체 예외 (: LanguageException)
+└── LanguageException.kt               # 신규 — open class(errorCode) : MeogoException, throw 시 enum 전달
 
 core/kernel/src/test/kotlin/com/meogo/core/kernel/lang/
 └── LanguageCodeTest.kt                # 회귀 갱신 — xx·EN → 예외, null·blank → KO

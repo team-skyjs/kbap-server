@@ -19,11 +19,9 @@
 - `com.meogo.core.kernel.error.ErrorCode` (interface) — `status: Int`·`message: String`. "예외 종류"의 공유 계약.
 - `com.meogo.core.kernel.error.MeogoException(val errorCode: ErrorCode) : RuntimeException(errorCode.message)` — 예상된 비즈니스/도메인 오류의 **최상위 추상 예외**. 핸들러가 이 하나만 잡아 전 하위 커버.
 - `com.meogo.core.kernel.lang.LanguageErrorCode` (enum : ErrorCode) — `UNSUPPORTED_LANGUAGE(400, "지원하지 않는 언어 코드입니다. 지원 언어: " + LanguageCode.entries…)`. 상태코드+메시지 **단일 출처**(문자열 직접 작성 금지).
-- `com.meogo.core.kernel.lang.LanguageException(ec: LanguageErrorCode) : MeogoException(ec)` — 언어 도메인 부모.
-- `com.meogo.core.kernel.lang.UnsupportedLanguageException : LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE)` — 구체 예외(무상태 — 메시지·상태는 enum 소유).
-  - 불변식: 지원 목록에 **없는** 코드에 대해서만 생성된다(값이 있으나 미지원).
-  - 관측: `GlobalExceptionHandler`가 `MeogoException`을 warn 로깅(fail-fast 빈도 가시성).
-- Spring-free: 전부 순수 Kotlin(RuntimeException 기반, status 는 정수) — kernel 의 Spring-free 제약 준수. HTTP 상태 매핑은 web(`HttpStatus.valueOf`)에서.
+- `com.meogo.core.kernel.lang.LanguageException(errorCode: LanguageErrorCode) : MeogoException(errorCode)` — 언어 도메인 예외. **`open class`** 로 두고 **throw 시 enum 을 전달**한다(`throw LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE)`). 오류 종류는 enum 이 구분하므로 코드마다 전용 하위 클래스를 두지 않는다(특정 오류만 타입 분기 필요 시 그때 하위 클래스로 승격).
+  - 핸들러가 구체 타입으로 분기하지 않고 `errorCode` 만 읽으므로, "코드별 전용 예외 클래스" 대신 "enum 을 던질 때 전달"이 설계와 정합.
+- Spring-free: 전부 순수 Kotlin(RuntimeException 기반, status 는 정수) — kernel 의 Spring-free 제약 준수. HTTP 상태 매핑·로깅은 web 핸들러에서(`HttpStatus.resolve`; 4xx→warn(스택 제외), 5xx→error(스택 포함)).
 
 ## 상태/흐름
 
@@ -31,7 +29,7 @@
 lang(String?) ─▶ LanguageCode 해석
                    ├─ null / "" / "   "        ─▶ KO (성공 흐름 계속)
                    ├─ 정확 일치 (ko, en, ...)   ─▶ 해당 LanguageCode (성공 흐름 계속)
-                   └─ 값 존재 + 불일치           ─▶ UnsupportedLanguageException (: LanguageException : MeogoException)
+                   └─ 값 존재 + 불일치           ─▶ LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE) (: MeogoException)
                                                      ─▶ GlobalExceptionHandler @ExceptionHandler(MeogoException)
                                                         ─▶ status(errorCode.status=400) + BaseResponse.fail(errorCode.message)
 ```

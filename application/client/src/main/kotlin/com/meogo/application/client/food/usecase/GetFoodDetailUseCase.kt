@@ -5,7 +5,8 @@ import com.meogo.application.client.food.dto.GetFoodDetailResult
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodDescriptionKind
-import com.meogo.core.food.FoodNotFoundException
+import com.meogo.core.food.FoodErrorCode
+import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.kernel.lang.LanguageCode
 import org.springframework.stereotype.Service
@@ -21,7 +22,7 @@ class GetFoodDetailUseCase(
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
         val lang = languageResolver.resolve(input.lang)
         val food = foodRepository.findByKoreanName(input.menuName.trim())
-            ?: throw FoodNotFoundException()
+            ?: throw FoodException(FoodErrorCode.NOT_FOUND)
 
         val orderedIngredients = food.ingredientsByInclusion()
 

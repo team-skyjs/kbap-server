@@ -48,17 +48,17 @@ class LanguageCodeTest : BehaviorSpec({
         }
 
         `when`("지원 목록과 정확히 일치하지 않는 코드가 주어지면") {
-            then("UnsupportedLanguageException 을 던진다") {
-                shouldThrow<UnsupportedLanguageException> { LanguageCode.from("xx") }
-                shouldThrow<UnsupportedLanguageException> { LanguageCode.from("EN") }
-                shouldThrow<UnsupportedLanguageException> { LanguageCode.from("ko-KR") }
-                shouldThrow<UnsupportedLanguageException> { LanguageCode.from(" fr ") }
+            then("LanguageException 을 던진다") {
+                shouldThrow<LanguageException> { LanguageCode.from("xx") }
+                shouldThrow<LanguageException> { LanguageCode.from("EN") }
+                shouldThrow<LanguageException> { LanguageCode.from("ko-KR") }
+                shouldThrow<LanguageException> { LanguageCode.from(" fr ") }
             }
         }
 
         `when`("미지원 코드로 예외가 발생하면") {
             then("메시지에 지원 언어 코드 10종이 모두 포함된다") {
-                val message = shouldThrow<UnsupportedLanguageException> { LanguageCode.from("fr") }.message ?: ""
+                val message = shouldThrow<LanguageException> { LanguageCode.from("fr") }.message ?: ""
                 listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
                     .forEach { code -> message shouldContain code }
             }

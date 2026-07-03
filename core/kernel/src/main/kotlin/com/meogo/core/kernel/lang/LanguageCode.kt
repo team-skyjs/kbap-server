@@ -20,7 +20,7 @@ enum class LanguageCode(val code: String) {
                 return KO
             }
             return entries.firstOrNull { it.code == trimmed }
-                ?: throw UnsupportedLanguageException()
+                ?: throw LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE)
         }
     }
 }

@@ -31,7 +31,11 @@ class GlobalExceptionHandler {
     @ExceptionHandler(MeogoException::class)
     fun handleMeogo(e: MeogoException): ResponseEntity<BaseResponse<Nothing>> {
         val status = HttpStatus.resolve(e.errorCode.status) ?: HttpStatus.INTERNAL_SERVER_ERROR
-        log.warn("business exception: {} (status={})", e.errorCode.message, e.errorCode.status, e)
+        if (status.is5xxServerError) {
+            log.error("business exception (server): {} (status={})", e.errorCode.message, status.value(), e)
+        } else {
+            log.warn("business exception (client): {} (status={})", e.errorCode.message, status.value())
+        }
         return ResponseEntity.status(status).body(BaseResponse.fail(e.errorCode.message))
     }
 
