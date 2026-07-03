@@ -7,6 +7,8 @@ description: "meogo/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 
 
 현재 프로젝트(meogo-server / kbap-server)의 백엔드 작업을 **Jira KB 프로젝트의 태스크**로 등록하는 표준 절차. 팀 공통 규약(프로젝트·레이블·할당·본문 서식)을 강제해 누가 등록해도 일관되게 만든다.
 
+> **등록 전 한국어 윤문이 필요하면** — 초안 본문이 어색하거나 번역투일 때는, 이슈 생성 전에 `create-jira-task-with-codex` 스킬로 cmux 분할 창(cmd+d식 split)에서 Codex 윤문 → before/after 확인을 거친 뒤 그 결과를 본문으로 삼아 아래 절차를 수행한다. 윤문이 불필요하면 이 스킬을 그대로 쓴다.
+
 ## 사전 조건
 
 - **Atlassian MCP 서버가 연결**되어 있어야 한다(`/mcp` 에서 `atlassian` 이 `✓ Connected`). 미연결이면 먼저 붙인다:
