@@ -1,194 +1,203 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.GetFoodDetailInput
-import com.meogo.core.kernel.risk.RiskLevel
+import com.meogo.core.avoidance.AvoidanceSubstance
+import com.meogo.core.avoidance.AvoidanceSubstanceCode
+import com.meogo.core.avoidance.AvoidanceSubstanceRepository
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
-import com.meogo.core.food.FoodDescriptionKind
-import com.meogo.core.food.FoodIngredient
+import com.meogo.core.food.FoodAvoidanceSubstance
+import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.Ingredient
+import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LanguageException
+import com.meogo.core.kernel.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 
 class GetFoodDetailUseCaseTest : BehaviorSpec({
-    val koBrief = "구수한 된장찌개"
-    val koDetailed = "된장찌개는 된장을 푼 한국의 대표 찌개다."
+    val koDescription = "구수한 된장찌개"
 
     val doenjangStew = Food.reconstitute(
         id = 1,
-        koreanName = "된장찌개",
-        imageRef = "doenjang.png",
-        ingredients = listOf(
-            FoodIngredient(ingredient = Ingredient.reconstitute(id = 11, koreanName = "두부", iconRef = "tofu.png"), inclusionPercent = 90),
-            FoodIngredient(ingredient = Ingredient.reconstitute(id = 10, koreanName = "된장", iconRef = null), inclusionPercent = 100),
+        content = FoodContent(
+            koreanName = "된장찌개",
+            description = koDescription,
         ),
-        briefDescription = koBrief,
-        detailedDescription = koDetailed,
+        imageRef = "doenjang.png",
+        spiciness = FoodSpiciness(3),
+        avoidanceSubstances = listOf(
+            FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("WHEAT"), inclusionProbability = 80),
+            FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("SOY"), inclusionProbability = 100),
+        ),
     )
 
-    fun useCase(repository: FoodRepository) =
-        GetFoodDetailUseCase(repository, LanguageResolver(), MockIngredientRiskMarker())
+    fun substance(code: AvoidanceSubstanceCode, koreanName: String, translations: Map<LanguageCode, String> = emptyMap()) =
+        AvoidanceSubstance.reconstitute(
+            id = code.ordinal.toLong() + 1,
+            code = code,
+            koreanName = koreanName,
+            translations = translations,
+        )
 
-    given("음식 상세 조회 유스케이스 — 요청 언어 우선·ko 폴백 조립") {
-        `when`("요청 언어 번역이 모두 있으면") {
-            then("음식명·재료명을 요청 언어로 조립하고 첫 재료에 CAUTION 을 부여한다") {
-                val repository = FakeFoodRepository(
+    val soy = substance(AvoidanceSubstanceCode.SOY, "대두", mapOf(LanguageCode.EN to "Soybean"))
+    val wheat = substance(AvoidanceSubstanceCode.WHEAT, "밀", mapOf(LanguageCode.EN to "Wheat"))
+
+    fun useCase(
+        foodRepository: FoodRepository,
+        avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
+    ) = GetFoodDetailUseCase(
+        foodRepository,
+        avoidanceSubstanceRepository,
+        LanguageResolver(),
+        MockAvoidanceRiskMarker(),
+    )
+
+    given("음식 상세 조회 유스케이스 — 포함 기피 성분 표시명·확률·위험도 조립") {
+        `when`("요청 언어 성분 번역이 모두 있으면") {
+            then("성분 표시명을 요청 언어로 조립하고 iconRef 는 null, 확률 내림차순·최상위 CAUTION 을 부여한다") {
+                val foodRepository = FakeFoodRepository(
                     food = doenjangStew,
                     foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
-                    ingredientTranslations = mapOf(LanguageCode.EN to mapOf(10L to "Soybean paste", 11L to "Tofu")),
                 )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
 
                 result.name shouldBe "Doenjang Stew"
                 result.imageRef shouldBe "doenjang.png"
-                result.ingredients.map { it.name } shouldBe listOf("Soybean paste", "Tofu")
-                result.ingredients.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
-                result.ingredients.map { it.inclusionPercent } shouldBe listOf(100, 90)
-                result.ingredients[1].iconRef shouldBe "tofu.png"
+                result.spiciness shouldBe 3
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "Wheat")
+                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
+                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
+                result.avoidanceSubstances.map { it.iconRef } shouldBe listOf(null, null)
             }
         }
 
-        `when`("재료가 inclusionPercent 내림차순이 아닌 순서로 저장돼 있으면") {
-            then("응답 재료를 inclusionPercent 내림차순으로 정렬하고 최상위에 CAUTION 을 부여한다") {
-                val repository = FakeFoodRepository(food = doenjangStew)
+        `when`("포함 기피 성분이 확률 내림차순이 아닌 순서로 저장돼 있으면") {
+            then("응답 성분을 확률 내림차순으로 정렬하고 최상위에 CAUTION 을 부여한다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
 
-                result.ingredients.map { it.inclusionPercent } shouldBe listOf(100, 90)
-                result.ingredients.map { it.name } shouldBe listOf("된장", "두부")
-                result.ingredients.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
+                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("대두", "밀")
+                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
             }
         }
 
-        `when`("lang=ko 이면") {
-            then("번역을 조회하지 않고 한국어 원문을 그대로 쓴다") {
-                val repository = FakeFoodRepository(food = doenjangStew)
+        `when`("성분 코드 문자열로 카탈로그를 조회하면") {
+            then("substanceCode 를 AvoidanceSubstanceCode 로 변환해 findByCodes 에 전달한다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
 
-                result.name shouldBe "된장찌개"
-                result.ingredients.map { it.name } shouldBe listOf("된장", "두부")
-                repository.translationLookups shouldBe 0
+                avoidanceRepository.requestedCodes shouldContainExactlyInAnyOrder
+                    listOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.WHEAT)
+            }
+        }
+
+        `when`("요청 언어 번역이 없는 성분이 섞여 있으면") {
+            then("번역 없는 성분 표시명만 한국어로 폴백한다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val wheatNoEn = substance(AvoidanceSubstanceCode.WHEAT, "밀")
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheatNoEn))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "밀")
+            }
+        }
+
+        `when`("포함 기피 성분이 하나도 없으면") {
+            then("성분 목록이 빈 채로 정상 조립된다") {
+                val plainRice = Food.reconstitute(
+                    id = 2,
+                    content = FoodContent(
+                        koreanName = "흰밥",
+                        description = "흰밥은 쌀로 지은 밥이다.",
+                    ),
+                    imageRef = null,
+                    spiciness = FoodSpiciness(0),
+                    avoidanceSubstances = emptyList(),
+                )
+                val foodRepository = FakeFoodRepository(food = plainRice)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("흰밥", "ko"))
+
+                result.avoidanceSubstances shouldBe emptyList()
+                result.spiciness shouldBe 0
             }
         }
 
         `when`("미지원 lang 이면") {
             then("LanguageException 을 던진다") {
-                val repository = FakeFoodRepository(food = doenjangStew)
+                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 shouldThrow<LanguageException> {
-                    useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
+                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
                 }
-            }
-        }
-
-        `when`("일부 번역만 있으면") {
-            then("번역 없는 항목만 한국어로 폴백한다") {
-                val repository = FakeFoodRepository(
-                    food = doenjangStew,
-                    foodTranslations = emptyMap(),
-                    ingredientTranslations = mapOf(LanguageCode.EN to mapOf(10L to "Soybean paste")),
-                )
-
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
-
-                result.name shouldBe "된장찌개"
-                result.ingredients.map { it.name } shouldBe listOf("Soybean paste", "두부")
             }
         }
 
         `when`("수록되지 않은 메뉴명이면") {
             then("FoodException(\"해당 음식 정보 없음\") 을 던진다") {
-                val repository = FakeFoodRepository(food = null)
+                val foodRepository = FakeFoodRepository(food = null)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
 
                 shouldThrow<FoodException> {
-                    useCase(repository).getDetail(GetFoodDetailInput("없는메뉴", "en"))
+                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("없는메뉴", "en"))
                 }.message shouldBe "해당 음식 정보 없음"
             }
         }
     }
 
-    given("음식 상세 조회 유스케이스 — 간단·자세 설명 다국어·독립 폴백") {
-        `when`("요청 언어로 두 설명 번역이 모두 있으면") {
-            then("간단·자세 설명을 모두 요청 언어로 조립한다") {
-                val repository = FakeFoodRepository(
+    given("음식 상세 조회 유스케이스 — 단일 설명 다국어·폴백") {
+        `when`("요청 언어로 설명 번역이 있으면") {
+            then("설명을 요청 언어로 조립한다") {
+                val foodRepository = FakeFoodRepository(
                     food = doenjangStew,
-                    descriptionTranslations = mapOf(
-                        LanguageCode.EN to mapOf(
-                            FoodDescriptionKind.BRIEF to "A hearty Korean soybean paste stew.",
-                            FoodDescriptionKind.DETAILED to "Doenjang-jjigae is a traditional Korean stew.",
-                        ),
-                    ),
+                    descriptionTranslations = mapOf(LanguageCode.EN to "A hearty Korean soybean paste stew."),
                 )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
 
-                result.briefDescription shouldBe "A hearty Korean soybean paste stew."
-                result.detailedDescription shouldBe "Doenjang-jjigae is a traditional Korean stew."
+                result.description shouldBe "A hearty Korean soybean paste stew."
             }
         }
 
         `when`("lang=ko 이면") {
-            then("두 설명 모두 한국어 원문으로 채우고 설명 번역을 조회하지 않는다") {
-                val repository = FakeFoodRepository(food = doenjangStew)
+            then("설명을 한국어 원문으로 채우고 설명 번역을 조회하지 않는다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
 
-                result.briefDescription shouldBe koBrief
-                result.detailedDescription shouldBe koDetailed
-                repository.descriptionLookups shouldBe 0
+                result.description shouldBe koDescription
+                foodRepository.descriptionLookups shouldBe 0
             }
         }
 
-        `when`("미지원 lang 이면") {
-            then("LanguageException 을 던진다") {
-                val repository = FakeFoodRepository(food = doenjangStew)
-
-                shouldThrow<LanguageException> {
-                    useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
-                }
-            }
-        }
-
-        `when`("지원 lang=en 인데 설명 번역 행이 전무하면") {
-            then("두 설명 모두 한국어 원문으로 폴백하고 음식명·재료는 각자의 번역을 따른다") {
-                val repository = FakeFoodRepository(
+        `when`("요청 언어 설명 번역이 없으면") {
+            then("설명만 한국어로 폴백하고 음식명은 요청 언어를 유지한다") {
+                val foodRepository = FakeFoodRepository(
                     food = doenjangStew,
                     foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
-                    ingredientTranslations = mapOf(LanguageCode.EN to mapOf(10L to "Soybean paste", 11L to "Tofu")),
-                    descriptionTranslations = emptyMap(),
                 )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
 
-                result.briefDescription shouldBe koBrief
-                result.detailedDescription shouldBe koDetailed
-                result.name shouldBe "Doenjang Stew"
-                result.ingredients.map { it.name } shouldBe listOf("Soybean paste", "Tofu")
-            }
-        }
-
-        `when`("간단 설명 번역만 없고 자세한 설명 번역은 있으면") {
-            then("간단 설명만 한국어로 폴백하고 자세한 설명·음식명은 요청 언어를 유지한다") {
-                val repository = FakeFoodRepository(
-                    food = doenjangStew,
-                    foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
-                    descriptionTranslations = mapOf(
-                        LanguageCode.EN to mapOf(
-                            FoodDescriptionKind.DETAILED to "Doenjang-jjigae is a traditional Korean stew.",
-                        ),
-                    ),
-                )
-
-                val result = useCase(repository).getDetail(GetFoodDetailInput("된장찌개", "en"))
-
-                result.briefDescription shouldBe koBrief
-                result.detailedDescription shouldBe "Doenjang-jjigae is a traditional Korean stew."
+                result.description shouldBe koDescription
                 result.name shouldBe "Doenjang Stew"
             }
         }
@@ -198,29 +207,29 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 private class FakeFoodRepository(
     private val food: Food?,
     private val foodTranslations: Map<LanguageCode, String> = emptyMap(),
-    private val ingredientTranslations: Map<LanguageCode, Map<Long, String>> = emptyMap(),
-    private val descriptionTranslations: Map<LanguageCode, Map<FoodDescriptionKind, String>> = emptyMap(),
+    private val descriptionTranslations: Map<LanguageCode, String> = emptyMap(),
 ) : FoodRepository {
-    var translationLookups: Int = 0
-        private set
-
     var descriptionLookups: Int = 0
         private set
 
     override fun findByKoreanName(name: String): Food? = food
 
-    override fun findFoodNameTranslation(foodId: Long, lang: LanguageCode): String? {
-        translationLookups++
-        return foodTranslations[lang]
-    }
+    override fun findFoodNameTranslation(foodId: Long, lang: LanguageCode): String? = foodTranslations[lang]
 
-    override fun findIngredientNameTranslations(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String> {
-        translationLookups++
-        return ingredientTranslations[lang]?.filterKeys { it in ingredientIds } ?: emptyMap()
-    }
-
-    override fun findFoodDescriptionTranslations(foodId: Long, lang: LanguageCode): Map<FoodDescriptionKind, String> {
+    override fun findFoodDescriptionTranslation(foodId: Long, lang: LanguageCode): String? {
         descriptionLookups++
-        return descriptionTranslations[lang] ?: emptyMap()
+        return descriptionTranslations[lang]
+    }
+}
+
+private class FakeAvoidanceSubstanceRepository(
+    private val substances: List<AvoidanceSubstance>,
+) : AvoidanceSubstanceRepository {
+    var requestedCodes: Set<AvoidanceSubstanceCode> = emptySet()
+        private set
+
+    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> {
+        requestedCodes = codes
+        return substances.filter { it.code in codes }
     }
 }

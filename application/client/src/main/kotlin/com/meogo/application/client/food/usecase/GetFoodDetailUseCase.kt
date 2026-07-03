@@ -2,21 +2,23 @@ package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.GetFoodDetailInput
 import com.meogo.application.client.food.dto.GetFoodDetailResult
-import com.meogo.core.kernel.risk.RiskLevel
+import com.meogo.core.avoidance.AvoidanceSubstanceCode
+import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.Food
-import com.meogo.core.food.FoodDescriptionKind
 import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.risk.RiskLevel
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class GetFoodDetailUseCase(
     private val foodRepository: FoodRepository,
+    private val avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
     private val languageResolver: LanguageResolver,
-    private val ingredientRiskMarker: MockIngredientRiskMarker,
+    private val mockAvoidanceRiskMarker: MockAvoidanceRiskMarker,
 ) {
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
@@ -24,29 +26,32 @@ class GetFoodDetailUseCase(
         val food = foodRepository.findByKoreanName(input.menuName.trim())
             ?: throw FoodException(FoodErrorCode.NOT_FOUND)
 
-        val orderedIngredients = food.ingredientsByInclusion()
+        val orderedSubstances = food.avoidanceSubstancesByProbability()
+        val codedSubstances = orderedSubstances.map { it to AvoidanceSubstanceCode.valueOf(it.substanceCode.value) }
+        val catalog = avoidanceSubstanceRepository.findByCodes(codedSubstances.map { it.second }.toSet())
+            .associateBy { it.code }
+        val risks = mockAvoidanceRiskMarker.mark(orderedSubstances.map { it.substanceCode.value })
 
-        val foodName = resolveFoodName(food.id, food.koreanName, lang)
-        val ingredientNames = resolveIngredientNames(orderedIngredients.mapNotNull { it.ingredient.id }, lang)
-        val descriptions = resolveDescriptions(food, lang)
+        val foodName = resolveFoodName(food.id, food.content.koreanName, lang)
+        val description = resolveDescription(food, lang)
 
-        val risks = ingredientRiskMarker.mark(orderedIngredients.map { it.ingredient })
-        val ingredients = orderedIngredients.map { foodIngredient ->
-            val ingredient = foodIngredient.ingredient
-            GetFoodDetailResult.IngredientView(
-                name = ingredientNames[ingredient.id] ?: ingredient.koreanName,
-                iconRef = ingredient.iconRef,
-                inclusionPercent = foodIngredient.inclusionPercent,
-                riskStatus = risks[ingredient.id] ?: RiskLevel.SAFE,
+        val avoidanceSubstances = codedSubstances.map { (substance, code) ->
+            val catalogEntry = catalog[code]
+                ?: throw IllegalStateException("avoidance substance catalog missing for code: $code")
+            GetFoodDetailResult.AvoidanceSubstanceView(
+                name = catalogEntry.displayName(lang),
+                iconRef = null,
+                inclusionProbability = substance.inclusionProbability,
+                riskStatus = risks[substance.substanceCode.value] ?: RiskLevel.SAFE,
             )
         }
 
         return GetFoodDetailResult(
             name = foodName,
             imageRef = food.imageRef,
-            briefDescription = descriptions[FoodDescriptionKind.BRIEF] ?: food.briefDescription,
-            detailedDescription = descriptions[FoodDescriptionKind.DETAILED] ?: food.detailedDescription,
-            ingredients = ingredients,
+            description = description,
+            spiciness = food.spiciness.value,
+            avoidanceSubstances = avoidanceSubstances,
         )
     }
 
@@ -55,14 +60,10 @@ class GetFoodDetailUseCase(
         return foodRepository.findFoodNameTranslation(foodId, lang) ?: koreanName
     }
 
-    private fun resolveIngredientNames(ingredientIds: List<Long>, lang: LanguageCode): Map<Long, String> {
-        if (lang == LanguageCode.KO) return emptyMap()
-        return foodRepository.findIngredientNameTranslations(ingredientIds, lang)
-    }
-
-    private fun resolveDescriptions(food: Food, lang: LanguageCode): Map<FoodDescriptionKind, String> {
+    private fun resolveDescription(food: Food, lang: LanguageCode): String {
         val foodId = food.id
-        if (lang == LanguageCode.KO || foodId == null) return emptyMap()
-        return foodRepository.findFoodDescriptionTranslations(foodId, lang)
+        val koreanDescription = food.content.description
+        if (lang == LanguageCode.KO || foodId == null) return koreanDescription
+        return foodRepository.findFoodDescriptionTranslation(foodId, lang) ?: koreanDescription
     }
 }
