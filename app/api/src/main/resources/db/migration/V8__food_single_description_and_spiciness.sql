@@ -35,12 +35,15 @@ ALTER TABLE food
 -- ============================================================
 DELETE FROM food_description_translation WHERE kind = 'DETAILED';
 
+-- 새 유일 제약(food_id, lang_code)을 먼저 만든다. food_id 가 선두라 FK(fk_fdt_food)의 백킹 인덱스도 겸한다.
+-- 기존 uq_fdt(food_id, kind, lang_code)가 FK 백킹 인덱스라 먼저 드롭할 수 없으므로(신규 인덱스 생성 후 드롭).
+-- DETAILED 를 이미 지워 (food_id, lang_code)당 BRIEF 1행만 남아 유일 제약을 만족한다.
+ALTER TABLE food_description_translation
+    ADD CONSTRAINT uq_fdt_food_lang UNIQUE (food_id, lang_code);
 ALTER TABLE food_description_translation DROP INDEX uq_fdt;
+
 ALTER TABLE food_description_translation DROP CHECK ck_fdt_kind;
 ALTER TABLE food_description_translation DROP COLUMN kind;
 
 UPDATE food_description_translation SET content = LEFT(content, 255);
 ALTER TABLE food_description_translation MODIFY COLUMN content VARCHAR(255) NOT NULL;
-
-ALTER TABLE food_description_translation
-    ADD CONSTRAINT uq_fdt UNIQUE (food_id, lang_code);
