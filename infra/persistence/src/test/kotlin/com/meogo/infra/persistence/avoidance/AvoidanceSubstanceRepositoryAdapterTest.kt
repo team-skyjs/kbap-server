@@ -107,7 +107,7 @@ class AvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
 
                     val found = adapter.findByCodes(setOf(AvoidanceSubstanceCode.WHEAT)).single()
 
-                    found.translations shouldBe mapOf(LanguageCode.EN to "Wheat")
+                    found.name.translations shouldBe mapOf(LanguageCode.EN to "Wheat")
                     found.displayName(LanguageCode.EN) shouldBe "Wheat"
                 }
             }

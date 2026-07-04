@@ -13,7 +13,7 @@
 
 | API | 도메인 모듈 | 역할과 책임 |
 | --- | --- | --- |
-| 음식 상세 조회 | `:core:food` | `Food`, `FoodAvoidanceSubstance`, `FoodRepository`를 제공한다. 음식 기본 정보, 포함 기피성분(코드·포함 확률) 목록, 음식명/설명 번역 조회의 도메인 포트를 담당한다. |
+| 음식 상세 조회 | `:core:food` | `Food`, `FoodContent`(음식명·설명 + 대상 언어 번역 맵·폴백), `FoodAvoidanceSubstance`, `FoodRepository`를 제공한다. 음식명/설명 번역은 `FoodContent`에 포함되어 음식 로드와 함께 온다(별도 조회 포트 없음). |
 | 음식 상세 조회 | `:core:avoidance` | `AvoidanceSubstance`, `AvoidanceSubstanceCode`, `AvoidanceSubstanceRepository`를 제공한다. 성분 코드로 표시명 카탈로그를 조회해 요청 언어 표시명(ko 폴백)을 해석한다. |
 | 음식 상세 조회 | `:core:kernel` | `LanguageCode`, `RiskLevel` 같은 공통 타입을 제공한다. 언어 코드와 위험도 값을 API/유스케이스/도메인 사이에서 공유한다. |
 | 메뉴 스캔 제출 | `:core:scan` | `MenuScan`, `ScannedMenuItem`, `BoundingBox`, `MenuScanRepository`를 제공한다. 스캔 항목 개수, `itemId` 중복 같은 스캔 도메인 규칙을 담당한다. |
@@ -82,13 +82,7 @@ sequenceDiagram
             Persistence->>DB: avoidance_substance 조회
             DB-->>Persistence: 카탈로그(코드·한국어명·번역 JSON)
             Persistence-->>UseCase: AvoidanceSubstance 목록<br/>displayName(lang) ko 폴백
-            opt lang != ko
-                UseCase->>FoodCore: 음식명/설명 번역 조회 요청
-                FoodCore->>Persistence: 음식명/설명 번역 조회
-                Persistence->>DB: translation tables 조회
-                DB-->>Persistence: 번역 데이터
-                Persistence-->>UseCase: 번역 결과
-            end
+            Note over UseCase,FoodCore: 음식명·설명 번역은 FoodContent에 이미 포함<br/>content.name(lang)/description(lang) ko 폴백 (추가 조회 없음)
             UseCase->>UseCase: 확률 내림차순 정렬 + mock 위험도 표시 + 응답 결과 조립
             UseCase-->>Controller: GetFoodDetailResult
             Controller-->>Client: 200 FoodDetailResponse
@@ -96,17 +90,16 @@ sequenceDiagram
     end
 ```
 
-음식 상세 조회는 현재 별도 캐시 계층 없이 요청마다 DB를 조회한다. `ko` 요청이면 음식 + 포함 기피성분과 표시명 카탈로그만 조회하고, `ko`가 아니면 음식명·설명 번역 테이블을 추가로 조회한다.
+음식 상세 조회는 현재 별도 캐시 계층 없이 요청마다 DB를 조회한다. 음식명·설명 번역이 `food` 행 JSON 칼럼에 있어 음식 로드와 함께 오므로, `ko`든 아니든 쿼리 수는 동일하다(음식+기피성분 fetch join 1회 + 표시명 카탈로그 1회). KB-48 이전 비-ko 요청의 번역 테이블 추가 조회 2회는 사라졌다.
 
 **응답 계약은 동결이다** — 외부 JSON 키는 이전과 동일하게 `payload.ingredients[].{name,iconRef,inclusionPercent,riskStatus}`를 유지한다(클라이언트 무변경). 내부 의미만 재료→포함 기피성분으로 바뀌며, `inclusionPercent`는 이제 **포함 확률(1~100)**, `name`은 성분 표시명, `iconRef`는 현재 미제공(null)이다.
 
 | 데이터 | 저장 위치 | 조회 시점 |
 | --- | --- | --- |
-| 음식 기본 정보, 한국어 설명 | `food` | 음식 상세 요청마다 |
+| 음식 기본 정보, 한국어 설명, 맵기 | `food` | 음식 상세 요청마다 |
+| 음식명·설명 대상 언어 번역(JSON) | `food.name_translations`·`food.description_translations` | 음식 로드에 포함(별도 조회 없음) |
 | 음식-기피성분 매핑, 포함 확률(1~100) | `food_avoidance_substance` | 음식 상세 요청마다(음식과 fetch join 1회) |
 | 기피성분 표시명 카탈로그 | `avoidance_substance` | 음식 상세 요청마다(`findByCodes` 1회) |
-| 음식명 번역 | `food_name_translation` | `lang != ko`일 때 |
-| 음식 설명 번역 | `food_description_translation` | `lang != ko`일 때 |
 
 ## 메뉴 스캔 제출
 

@@ -4,11 +4,9 @@ import com.meogo.application.client.food.dto.GetFoodDetailInput
 import com.meogo.application.client.food.dto.GetFoodDetailResult
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.Food
 import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
-import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.risk.RiskLevel
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,8 +30,8 @@ class GetFoodDetailUseCase(
             .associateBy { it.code }
         val risks = mockAvoidanceRiskMarker.mark(orderedSubstances.map { it.substanceCode.value })
 
-        val foodName = resolveFoodName(food.id, food.content.koreanName, lang)
-        val description = resolveDescription(food, lang)
+        val foodName = food.displayName(lang)
+        val description = food.description(lang)
 
         val avoidanceSubstances = codedSubstances.map { (substance, code) ->
             val catalogEntry = catalog[code]
@@ -53,17 +51,5 @@ class GetFoodDetailUseCase(
             spiciness = food.spiciness.value,
             avoidanceSubstances = avoidanceSubstances,
         )
-    }
-
-    private fun resolveFoodName(foodId: Long?, koreanName: String, lang: LanguageCode): String {
-        if (lang == LanguageCode.KO || foodId == null) return koreanName
-        return foodRepository.findFoodNameTranslation(foodId, lang) ?: koreanName
-    }
-
-    private fun resolveDescription(food: Food, lang: LanguageCode): String {
-        val foodId = food.id
-        val koreanDescription = food.content.description
-        if (lang == LanguageCode.KO || foodId == null) return koreanDescription
-        return foodRepository.findFoodDescriptionTranslation(foodId, lang) ?: koreanDescription
     }
 }

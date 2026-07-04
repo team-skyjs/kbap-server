@@ -151,5 +151,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/kb-40-food-avoidance-substance-mapping/plan.md` (음식별 81종 기피 성분 포함 여부·포함 확률(1~100%) 직접 저장 — 레시피/재료 모델(`FoodIngredient`·`Ingredient`·`food_ingredient`·`ingredient*` 테이블) 전부 제거, 신규 `food_avoidance_substance`(food_id·substance_code FK·inclusion_percent) 도입. Food 는 avoidance enum 미import·`substanceCode`(String) 코드 참조(헌법 II). 상세조회 API(`GET /api/v1/foods/detail`) **응답 필드 동결** — `ingredients[].inclusionPercent` 키가 포함 확률을 담고 데이터 원천만 교체. 신규 마이그레이션 V7(시드 이행 후 재료 테이블 DROP)).
+`specs/kb-48-food-translation-json-column/plan.md` (음식 번역결과를 별도 테이블(`food_name_translation`·`food_description_translation`)에서 기피성분(`avoidance_substance.translations`, #25)처럼 **음식 행의 JSON 칼럼 2개**(`name_translations`·`description_translations`, `언어코드→문자열`, ko 제외)로 통합. 번역 맵·폴백을 도메인 `FoodContent`(name(lang)/description(lang)) 로 이관, `FoodRepository` 의 번역 조회 포트·번역 엔티티/리포지토리 4종 삭제. 상세조회 API(`GET /api/v1/foods/detail`) **응답 계약·폴백 동결** — 저장 원천만 교체. 신규 마이그레이션 V10(JSON_OBJECTAGG 무손실 백필 후 두 번역 테이블 DROP)).
 <!-- SPECKIT END -->

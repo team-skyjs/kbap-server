@@ -17,10 +17,15 @@ object FoodTestSeed {
         execute(
             dataSource,
             clearStatements() + listOf(
-                food(1, "된장찌개", "doenjang.png", DOENJANG_DESCRIPTION_KO, DOENJANG_SPICINESS),
-                foodName(1, "en", "Doenjang Stew"),
-                foodName(1, "ja", "テンジャンチゲ"),
-                foodDescription(1, "en", DOENJANG_DESCRIPTION_EN),
+                food(
+                    1,
+                    "된장찌개",
+                    "doenjang.png",
+                    DOENJANG_DESCRIPTION_KO,
+                    DOENJANG_SPICINESS,
+                    nameTranslations = mapOf("en" to "Doenjang Stew", "ja" to "テンジャンチゲ"),
+                    descriptionTranslations = mapOf("en" to DOENJANG_DESCRIPTION_EN),
+                ),
                 avoidanceSubstance(101, "SOY", "대두", """{"en":"Soybean"}"""),
                 avoidanceSubstance(102, "WHEAT", "밀", """{"en":"Wheat"}"""),
                 avoidanceSubstance(103, "CLAM", "조개", """{"en":"Clam"}"""),
@@ -35,8 +40,14 @@ object FoodTestSeed {
         execute(
             dataSource,
             listOf(
-                food(2, "비빔밥", null, BIBIMBAP_DESCRIPTION_KO, BIBIMBAP_SPICINESS),
-                foodName(2, "en", "Bibimbap"),
+                food(
+                    2,
+                    "비빔밥",
+                    null,
+                    BIBIMBAP_DESCRIPTION_KO,
+                    BIBIMBAP_SPICINESS,
+                    nameTranslations = mapOf("en" to "Bibimbap"),
+                ),
             ),
         )
     }
@@ -62,23 +73,28 @@ object FoodTestSeed {
 
     private fun clearStatements() = listOf(
         "DELETE FROM food_avoidance_substance",
-        "DELETE FROM food_name_translation",
-        "DELETE FROM food_description_translation",
         "DELETE FROM avoidance_substance",
         "DELETE FROM food",
     )
 
-    private fun food(id: Long, koreanName: String, imageRef: String?, description: String, spiciness: Int) =
-        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, status, created_at, updated_at) " +
-            "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    private fun food(
+        id: Long,
+        koreanName: String,
+        imageRef: String?,
+        description: String,
+        spiciness: Int,
+        nameTranslations: Map<String, String> = emptyMap(),
+        descriptionTranslations: Map<String, String> = emptyMap(),
+    ) =
+        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, status, created_at, updated_at) " +
+            "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, " +
+            "'${jsonObject(nameTranslations)}' FORMAT JSON, '${jsonObject(descriptionTranslations)}' FORMAT JSON, " +
+            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
-    private fun foodName(foodId: Long, lang: String, name: String) =
-        "INSERT INTO food_name_translation (food_id, lang_code, name, status, created_at, updated_at) " +
-            "VALUES ($foodId, '$lang', '$name', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-
-    private fun foodDescription(foodId: Long, lang: String, content: String) =
-        "INSERT INTO food_description_translation (food_id, lang_code, content, status, created_at, updated_at) " +
-            "VALUES ($foodId, '$lang', '$content', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    private fun jsonObject(entries: Map<String, String>) =
+        entries.entries.joinToString(separator = ",", prefix = "{", postfix = "}") { (key, value) ->
+            "\"$key\":\"$value\""
+        }
 
     private fun avoidanceSubstance(id: Long, code: String, koreanName: String, translationsJson: String) =
         "INSERT INTO avoidance_substance (id, code, korean_name, translations, status, created_at, updated_at) " +

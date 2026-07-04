@@ -1,5 +1,6 @@
 package com.meogo.core.food
 
+import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.stereotype.AggregateRoot
 
 @AggregateRoot
@@ -16,6 +17,10 @@ class Food private constructor(
             "food.avoidanceSubstances 에 중복된 기피 성분 코드가 있을 수 없습니다"
         }
     }
+
+    fun displayName(lang: LanguageCode): String = content.resolveName(lang)
+
+    fun description(lang: LanguageCode): String = content.resolveDescription(lang)
 
     fun avoidanceSubstancesByProbability(): List<FoodAvoidanceSubstance> =
         avoidanceSubstances.sortedByDescending { it.inclusionProbability }
