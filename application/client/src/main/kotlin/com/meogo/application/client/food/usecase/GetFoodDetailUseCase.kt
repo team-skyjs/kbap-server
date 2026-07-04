@@ -30,8 +30,8 @@ class GetFoodDetailUseCase(
             .associateBy { it.code }
         val risks = mockAvoidanceRiskMarker.mark(orderedSubstances.map { it.substanceCode.value })
 
-        val foodName = food.content.name(lang)
-        val description = food.content.description(lang)
+        val foodName = food.content.name.resolve(lang)
+        val description = food.content.description.resolve(lang)
 
         val avoidanceSubstances = codedSubstances.map { (substance, code) ->
             val catalogEntry = catalog[code]

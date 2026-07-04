@@ -4,6 +4,7 @@ import com.meogo.core.food.Food
 import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.infra.persistence.BaseEntity
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
@@ -46,10 +47,8 @@ class FoodJpaEntity(
         Food.reconstitute(
             id = id,
             content = FoodContent(
-                koreanName = koreanName,
-                description = description,
-                nameTranslations = resolve(nameTranslations),
-                descriptionTranslations = resolve(descriptionTranslations),
+                name = LocalizedText(korean = koreanName, translations = resolve(nameTranslations)),
+                description = LocalizedText(korean = description, translations = resolve(descriptionTranslations)),
             ),
             imageRef = imageRef,
             spiciness = FoodSpiciness(spiciness),

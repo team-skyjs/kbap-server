@@ -1,6 +1,7 @@
 package com.meogo.core.avoidance
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LocalizedText
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.core.spec.style.BehaviorSpec
@@ -16,8 +17,7 @@ class AvoidanceSubstanceTest : BehaviorSpec({
         AvoidanceSubstance.reconstitute(
             id = id,
             code = code,
-            koreanName = koreanName,
-            translations = translations,
+            name = LocalizedText(korean = koreanName, translations = translations),
         )
 
     given("성분 어그리게이트 복원") {
@@ -32,8 +32,8 @@ class AvoidanceSubstanceTest : BehaviorSpec({
 
                 restored.id shouldBe 7L
                 restored.code shouldBe AvoidanceSubstanceCode.EGG
-                restored.koreanName shouldBe "계란"
-                restored.translations shouldBe mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵")
+                restored.name.korean shouldBe "계란"
+                restored.name.translations shouldBe mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵")
             }
         }
     }

@@ -118,7 +118,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     )
 
                     val loaded = adapter.findByKoreanName("구성복원-된장찌개").shouldNotBeNull()
-                    loaded.content.description shouldBe "된장찌개는 된장을 푼 한국의 대표 찌개다."
+                    loaded.content.description.korean shouldBe "된장찌개는 된장을 푼 한국의 대표 찌개다."
                     loaded.spiciness.value shouldBe 4
                 }
             }
@@ -135,11 +135,11 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     )
 
                     val loaded = adapter.findByKoreanName("번역복원-된장찌개").shouldNotBeNull()
-                    loaded.content.nameTranslations shouldContainExactly mapOf(
+                    loaded.content.name.translations shouldContainExactly mapOf(
                         LanguageCode.EN to "Doenjang Stew",
                         LanguageCode.JA to "テンジャンチゲ",
                     )
-                    loaded.content.descriptionTranslations shouldContainExactly mapOf(
+                    loaded.content.description.translations shouldContainExactly mapOf(
                         LanguageCode.EN to "A hearty stew.",
                     )
                 }
@@ -155,12 +155,12 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     )
 
                     val loaded = adapter.findByKoreanName("폴백복원-된장찌개").shouldNotBeNull()
-                    loaded.content.name(LanguageCode.EN) shouldBe "Doenjang Stew"
-                    loaded.content.name(LanguageCode.JA) shouldBe "폴백복원-된장찌개"
-                    loaded.content.description(LanguageCode.EN) shouldBe "A hearty stew."
-                    loaded.content.description(LanguageCode.JA) shouldBe "된장찌개는 된장을 푼 찌개다."
-                    loaded.content.name(LanguageCode.KO) shouldBe "폴백복원-된장찌개"
-                    loaded.content.description(LanguageCode.KO) shouldBe "된장찌개는 된장을 푼 찌개다."
+                    loaded.content.name.resolve(LanguageCode.EN) shouldBe "Doenjang Stew"
+                    loaded.content.name.resolve(LanguageCode.JA) shouldBe "폴백복원-된장찌개"
+                    loaded.content.description.resolve(LanguageCode.EN) shouldBe "A hearty stew."
+                    loaded.content.description.resolve(LanguageCode.JA) shouldBe "된장찌개는 된장을 푼 찌개다."
+                    loaded.content.name.resolve(LanguageCode.KO) shouldBe "폴백복원-된장찌개"
+                    loaded.content.description.resolve(LanguageCode.KO) shouldBe "된장찌개는 된장을 푼 찌개다."
                 }
             }
 
@@ -173,9 +173,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     )
 
                     val loaded = adapter.findByKoreanName("미지키-된장찌개").shouldNotBeNull()
-                    loaded.content.nameTranslations shouldContainExactly mapOf(LanguageCode.EN to "Doenjang Stew")
-                    loaded.content.nameTranslations shouldNotContainKey LanguageCode.KO
-                    loaded.content.descriptionTranslations shouldContainExactly mapOf(LanguageCode.EN to "A hearty stew.")
+                    loaded.content.name.translations shouldContainExactly mapOf(LanguageCode.EN to "Doenjang Stew")
+                    loaded.content.name.translations shouldNotContainKey LanguageCode.KO
+                    loaded.content.description.translations shouldContainExactly mapOf(LanguageCode.EN to "A hearty stew.")
                 }
             }
         }
@@ -195,8 +195,8 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     saveFood("번역없음-흰밥")
 
                     val loaded = adapter.findByKoreanName("번역없음-흰밥").shouldNotBeNull()
-                    loaded.content.nameTranslations shouldBe emptyMap()
-                    loaded.content.descriptionTranslations shouldBe emptyMap()
+                    loaded.content.name.translations shouldBe emptyMap()
+                    loaded.content.description.translations shouldBe emptyMap()
                 }
             }
         }
@@ -221,7 +221,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val loaded = adapter.findByKoreanName("N플러스원-부대찌개").shouldNotBeNull()
 
                     loaded.avoidanceSubstances.size shouldBe 4
-                    loaded.content.nameTranslations.size shouldBe 2
+                    loaded.content.name.translations.size shouldBe 2
                     statistics.prepareStatementCount shouldBe 1
                 }
             }

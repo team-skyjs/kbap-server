@@ -3,6 +3,7 @@ package com.meogo.infra.persistence.avoidance
 import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.infra.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -27,8 +28,7 @@ class AvoidanceSubstanceJpaEntity(
         AvoidanceSubstance.reconstitute(
             id = id,
             code = AvoidanceSubstanceCode.valueOf(code),
-            koreanName = koreanName,
-            translations = resolveTranslations(),
+            name = LocalizedText(korean = koreanName, translations = resolveTranslations()),
         )
 
     private fun resolveTranslations(): Map<LanguageCode, String> =

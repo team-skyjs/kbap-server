@@ -13,6 +13,7 @@ import com.meogo.core.food.FoodRepository
 import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LanguageException
+import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.kernel.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -28,10 +29,8 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
     ) = Food.reconstitute(
         id = 1,
         content = FoodContent(
-            koreanName = "된장찌개",
-            description = koDescription,
-            nameTranslations = nameTranslations,
-            descriptionTranslations = descriptionTranslations,
+            name = LocalizedText(korean = "된장찌개", translations = nameTranslations),
+            description = LocalizedText(korean = koDescription, translations = descriptionTranslations),
         ),
         imageRef = "doenjang.png",
         spiciness = FoodSpiciness(3),
@@ -45,8 +44,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         AvoidanceSubstance.reconstitute(
             id = code.ordinal.toLong() + 1,
             code = code,
-            koreanName = koreanName,
-            translations = translations,
+            name = LocalizedText(korean = koreanName, translations = translations),
         )
 
     val soy = substance(AvoidanceSubstanceCode.SOY, "대두", mapOf(LanguageCode.EN to "Soybean"))
@@ -124,8 +122,8 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val plainRice = Food.reconstitute(
                     id = 2,
                     content = FoodContent(
-                        koreanName = "흰밥",
-                        description = "흰밥은 쌀로 지은 밥이다.",
+                        name = LocalizedText(korean = "흰밥"),
+                        description = LocalizedText(korean = "흰밥은 쌀로 지은 밥이다."),
                     ),
                     imageRef = null,
                     spiciness = FoodSpiciness(0),

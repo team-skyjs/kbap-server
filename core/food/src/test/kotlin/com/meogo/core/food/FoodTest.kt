@@ -1,5 +1,6 @@
 package com.meogo.core.food
 
+import com.meogo.core.kernel.lang.LocalizedText
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -9,8 +10,8 @@ class FoodTest : BehaviorSpec({
         FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef(code), inclusionProbability = probability)
 
     val baseContent = FoodContent(
-        koreanName = "된장찌개",
-        description = "구수한 한국식 된장찌개",
+        name = LocalizedText(korean = "된장찌개"),
+        description = LocalizedText(korean = "구수한 한국식 된장찌개"),
     )
 
     fun create(
@@ -28,8 +29,8 @@ class FoodTest : BehaviorSpec({
             then("content 와 맵기를 그대로 보존한다") {
                 val food = create()
 
-                food.content.koreanName shouldBe "된장찌개"
-                food.content.description shouldBe "구수한 한국식 된장찌개"
+                food.content.name.korean shouldBe "된장찌개"
+                food.content.description.korean shouldBe "구수한 한국식 된장찌개"
                 food.spiciness.value shouldBe 3
             }
         }
@@ -56,7 +57,7 @@ class FoodTest : BehaviorSpec({
                 val food = create(avoidanceSubstances = emptyList())
 
                 food.avoidanceSubstancesByProbability() shouldBe emptyList()
-                food.content.koreanName shouldBe "된장찌개"
+                food.content.name.korean shouldBe "된장찌개"
             }
         }
     }
