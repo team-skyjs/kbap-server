@@ -72,13 +72,13 @@ class FoodContentTest : BehaviorSpec({
         }
     }
 
-    given("이름 언어 해석 name.resolve(lang)") {
+    given("이름 언어 해석 resolveName(lang)") {
         `when`("대상 언어가 KO 이면") {
             then("번역 맵을 조회하지 않고 korean 원문을 반환한다") {
                 content(
                     name = "김치찌개",
                     nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
-                ).name.resolve(LanguageCode.KO) shouldBe "김치찌개"
+                ).resolveName(LanguageCode.KO) shouldBe "김치찌개"
             }
         }
 
@@ -87,7 +87,7 @@ class FoodContentTest : BehaviorSpec({
                 content(
                     name = "김치찌개",
                     nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
-                ).name.resolve(LanguageCode.EN) shouldBe "Kimchi Stew"
+                ).resolveName(LanguageCode.EN) shouldBe "Kimchi Stew"
             }
         }
 
@@ -96,24 +96,24 @@ class FoodContentTest : BehaviorSpec({
                 content(
                     name = "김치찌개",
                     nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
-                ).name.resolve(LanguageCode.RU) shouldBe "김치찌개"
+                ).resolveName(LanguageCode.RU) shouldBe "김치찌개"
             }
         }
 
         `when`("번역 맵이 비어 있으면") {
             then("어떤 대상 언어든 korean 으로 폴백한다") {
-                content(name = "김치찌개").name.resolve(LanguageCode.EN) shouldBe "김치찌개"
+                content(name = "김치찌개").resolveName(LanguageCode.EN) shouldBe "김치찌개"
             }
         }
     }
 
-    given("설명 언어 해석 description.resolve(lang)") {
+    given("설명 언어 해석 resolveDescription(lang)") {
         `when`("대상 언어가 KO 이면") {
             then("번역 맵을 조회하지 않고 korean 원문을 반환한다") {
                 content(
                     description = "얼큰한 김치찌개",
                     descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
-                ).description.resolve(LanguageCode.KO) shouldBe "얼큰한 김치찌개"
+                ).resolveDescription(LanguageCode.KO) shouldBe "얼큰한 김치찌개"
             }
         }
 
@@ -122,7 +122,7 @@ class FoodContentTest : BehaviorSpec({
                 content(
                     description = "얼큰한 김치찌개",
                     descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
-                ).description.resolve(LanguageCode.EN) shouldBe "Spicy kimchi stew"
+                ).resolveDescription(LanguageCode.EN) shouldBe "Spicy kimchi stew"
             }
         }
 
@@ -131,13 +131,13 @@ class FoodContentTest : BehaviorSpec({
                 content(
                     description = "얼큰한 김치찌개",
                     descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
-                ).description.resolve(LanguageCode.RU) shouldBe "얼큰한 김치찌개"
+                ).resolveDescription(LanguageCode.RU) shouldBe "얼큰한 김치찌개"
             }
         }
 
         `when`("번역 맵이 비어 있으면") {
             then("어떤 대상 언어든 korean 으로 폴백한다") {
-                content(description = "얼큰한 김치찌개").description.resolve(LanguageCode.EN) shouldBe "얼큰한 김치찌개"
+                content(description = "얼큰한 김치찌개").resolveDescription(LanguageCode.EN) shouldBe "얼큰한 김치찌개"
             }
         }
     }
