@@ -1,5 +1,6 @@
 package com.meogo.core.food
 
+import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -11,7 +12,14 @@ class FoodContentTest : BehaviorSpec({
     fun content(
         koreanName: String = validName,
         description: String = validDescription,
-    ) = FoodContent(koreanName = koreanName, description = description)
+        nameTranslations: Map<LanguageCode, String> = emptyMap(),
+        descriptionTranslations: Map<LanguageCode, String> = emptyMap(),
+    ) = FoodContent(
+        koreanName = koreanName,
+        description = description,
+        nameTranslations = nameTranslations,
+        descriptionTranslations = descriptionTranslations,
+    )
 
     given("FoodContent 생성 — 이름 제약") {
         `when`("이름이 빈 문자열이면") {
@@ -61,6 +69,76 @@ class FoodContentTest : BehaviorSpec({
         `when`("설명이 256자를 초과하면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> { content(description = "나".repeat(256)) }
+            }
+        }
+    }
+
+    given("이름 언어 해석 name(lang)") {
+        `when`("대상 언어가 KO 이면") {
+            then("번역 맵을 조회하지 않고 koreanName 원문을 반환한다") {
+                content(
+                    koreanName = "김치찌개",
+                    nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
+                ).name(LanguageCode.KO) shouldBe "김치찌개"
+            }
+        }
+
+        `when`("대상 언어의 번역이 존재하면") {
+            then("해당 번역값을 반환한다") {
+                content(
+                    koreanName = "김치찌개",
+                    nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
+                ).name(LanguageCode.EN) shouldBe "Kimchi Stew"
+            }
+        }
+
+        `when`("대상 언어의 키가 없고 다른 언어만 존재하면") {
+            then("koreanName 으로 폴백한다") {
+                content(
+                    koreanName = "김치찌개",
+                    nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
+                ).name(LanguageCode.RU) shouldBe "김치찌개"
+            }
+        }
+
+        `when`("번역 맵이 비어 있으면") {
+            then("어떤 대상 언어든 koreanName 으로 폴백한다") {
+                content(koreanName = "김치찌개").name(LanguageCode.EN) shouldBe "김치찌개"
+            }
+        }
+    }
+
+    given("설명 언어 해석 description(lang)") {
+        `when`("대상 언어가 KO 이면") {
+            then("번역 맵을 조회하지 않고 description 원문을 반환한다") {
+                content(
+                    description = "얼큰한 김치찌개",
+                    descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
+                ).description(LanguageCode.KO) shouldBe "얼큰한 김치찌개"
+            }
+        }
+
+        `when`("대상 언어의 번역이 존재하면") {
+            then("해당 번역값을 반환한다") {
+                content(
+                    description = "얼큰한 김치찌개",
+                    descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
+                ).description(LanguageCode.EN) shouldBe "Spicy kimchi stew"
+            }
+        }
+
+        `when`("대상 언어의 키가 없고 다른 언어만 존재하면") {
+            then("description 으로 폴백한다") {
+                content(
+                    description = "얼큰한 김치찌개",
+                    descriptionTranslations = mapOf(LanguageCode.EN to "Spicy kimchi stew"),
+                ).description(LanguageCode.RU) shouldBe "얼큰한 김치찌개"
+            }
+        }
+
+        `when`("번역 맵이 비어 있으면") {
+            then("어떤 대상 언어든 description 으로 폴백한다") {
+                content(description = "얼큰한 김치찌개").description(LanguageCode.EN) shouldBe "얼큰한 김치찌개"
             }
         }
     }

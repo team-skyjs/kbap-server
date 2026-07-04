@@ -22,11 +22,16 @@ import io.kotest.matchers.shouldBe
 class GetFoodDetailUseCaseTest : BehaviorSpec({
     val koDescription = "구수한 된장찌개"
 
-    val doenjangStew = Food.reconstitute(
+    fun doenjangStew(
+        nameTranslations: Map<LanguageCode, String> = emptyMap(),
+        descriptionTranslations: Map<LanguageCode, String> = emptyMap(),
+    ) = Food.reconstitute(
         id = 1,
         content = FoodContent(
             koreanName = "된장찌개",
             description = koDescription,
+            nameTranslations = nameTranslations,
+            descriptionTranslations = descriptionTranslations,
         ),
         imageRef = "doenjang.png",
         spiciness = FoodSpiciness(3),
@@ -61,8 +66,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         `when`("요청 언어 성분 번역이 모두 있으면") {
             then("성분 표시명을 요청 언어로 조립하고 iconRef 는 null, 확률 내림차순·최상위 CAUTION 을 부여한다") {
                 val foodRepository = FakeFoodRepository(
-                    food = doenjangStew,
-                    foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
+                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
@@ -80,7 +84,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
         `when`("포함 기피 성분이 확률 내림차순이 아닌 순서로 저장돼 있으면") {
             then("응답 성분을 확률 내림차순으로 정렬하고 최상위에 CAUTION 을 부여한다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
@@ -93,7 +97,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
         `when`("성분 코드 문자열로 카탈로그를 조회하면") {
             then("substanceCode 를 AvoidanceSubstanceCode 로 변환해 findByCodes 에 전달한다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
@@ -105,7 +109,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
         `when`("요청 언어 번역이 없는 성분이 섞여 있으면") {
             then("번역 없는 성분 표시명만 한국어로 폴백한다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val wheatNoEn = substance(AvoidanceSubstanceCode.WHEAT, "밀")
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheatNoEn))
 
@@ -139,7 +143,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
         `when`("미지원 lang 이면") {
             then("LanguageException 을 던진다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew)
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 shouldThrow<LanguageException> {
@@ -164,8 +168,9 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         `when`("요청 언어로 설명 번역이 있으면") {
             then("설명을 요청 언어로 조립한다") {
                 val foodRepository = FakeFoodRepository(
-                    food = doenjangStew,
-                    descriptionTranslations = mapOf(LanguageCode.EN to "A hearty Korean soybean paste stew."),
+                    food = doenjangStew(
+                        descriptionTranslations = mapOf(LanguageCode.EN to "A hearty Korean soybean paste stew."),
+                    ),
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
@@ -176,22 +181,26 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
 
         `when`("lang=ko 이면") {
-            then("설명을 한국어 원문으로 채우고 설명 번역을 조회하지 않는다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew)
+            then("음식명·설명을 모두 한국어 원문으로 채운다") {
+                val foodRepository = FakeFoodRepository(
+                    food = doenjangStew(
+                        nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
+                        descriptionTranslations = mapOf(LanguageCode.EN to "A hearty Korean soybean paste stew."),
+                    ),
+                )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
 
+                result.name shouldBe "된장찌개"
                 result.description shouldBe koDescription
-                foodRepository.descriptionLookups shouldBe 0
             }
         }
 
         `when`("요청 언어 설명 번역이 없으면") {
             then("설명만 한국어로 폴백하고 음식명은 요청 언어를 유지한다") {
                 val foodRepository = FakeFoodRepository(
-                    food = doenjangStew,
-                    foodTranslations = mapOf(LanguageCode.EN to "Doenjang Stew"),
+                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
@@ -206,20 +215,8 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
 private class FakeFoodRepository(
     private val food: Food?,
-    private val foodTranslations: Map<LanguageCode, String> = emptyMap(),
-    private val descriptionTranslations: Map<LanguageCode, String> = emptyMap(),
 ) : FoodRepository {
-    var descriptionLookups: Int = 0
-        private set
-
     override fun findByKoreanName(name: String): Food? = food
-
-    override fun findFoodNameTranslation(foodId: Long, lang: LanguageCode): String? = foodTranslations[lang]
-
-    override fun findFoodDescriptionTranslation(foodId: Long, lang: LanguageCode): String? {
-        descriptionLookups++
-        return descriptionTranslations[lang]
-    }
 }
 
 private class FakeAvoidanceSubstanceRepository(
