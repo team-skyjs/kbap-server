@@ -1,0 +1,6 @@
+spring:
+  # 영속 어댑터 테스트: MySQL Testcontainers(@ServiceConnection)에 붙되, 이 모듈엔 마이그레이션이 없으므로
+  # 스키마는 Hibernate 가 엔티티에서 생성한다(어댑터 매핑 검증 목적, KB-46 D-3).
+  jpa:
+    hibernate:
+      ddl-auto: create-drop

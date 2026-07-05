@@ -40,7 +40,6 @@ spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-b
 
 # --- Databases ---
 mysql-connector = { module = "com.mysql:mysql-connector-j" }
-h2 = { module = "com.h2database:h2" }
 
 # --- DB migration ---
 # Spring Boot 4 는 autoconfig 를 기술별 모듈로 분리 — flyway-core(라이브러리)만으론
@@ -66,6 +65,12 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# Testcontainers (versions managed by the Spring Boot BOM). @ServiceConnection 지원은 spring-boot-testcontainers.
+# testFixtures 등 dependency-management 가 자동 적용되지 않는 구성엔 아래 BOM 을 platform 으로 직접 얹는다.
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+# Testcontainers 2.0 부터 DB 모듈 좌표가 `mysql` → `testcontainers-mysql` 로 바뀌었다(구 `org.testcontainers:mysql` 은 1.x 까지).
+testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql" }
 
 # --- Architecture boundary tests (모듈 경계 강제) ---
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }

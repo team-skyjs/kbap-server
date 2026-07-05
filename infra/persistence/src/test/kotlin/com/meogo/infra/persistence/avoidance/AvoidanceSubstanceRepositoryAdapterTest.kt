@@ -1,4 +1,6 @@
 package com.meogo.infra.persistence.avoidance
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.LanguageCode
@@ -11,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
+@Import(MySqlContainerConfig::class)
 class AvoidanceSubstanceRepositoryAdapterTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

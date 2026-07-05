@@ -23,7 +23,10 @@ dependencies {
     "implementation"(libs.flyway.core)
     "runtimeOnly"(libs.flyway.mysql)
 
-    "testRuntimeOnly"(libs.h2)
+    // 통합 테스트 DB: MySQL Testcontainers 공통 설정을 persistence testFixtures 에서 가져온다(KB-46).
+    // testFixturesApi 로 노출된 spring-boot-testcontainers·testcontainers-mysql 이 전이된다.
+    "testImplementation"(testFixtures(project(":infra:persistence")))
+    "testRuntimeOnly"(libs.mysql.connector)
 
     // @AutoConfigureMockMvc — Boot 4.x 에서 web mvc test-slice 가 별도 모듈로 분리됐다.
     "testImplementation"(libs.spring.boot.webmvc.test)
