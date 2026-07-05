@@ -22,7 +22,8 @@ interface FoodDetailApi {
 
             맵기(spiciness)는 0~10 정수(0=맵지 않음, 10=매우 매움)로 제공한다.
 
-            각 포함 기피성분은 포함 확률(inclusionPercent, 1~100)과 mock 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)를 함께 제공한다.
+            각 포함 기피성분의 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)는 포함 확률(inclusionPercent, 1~100) 기반 실제값이다(p<10 SAFE · 10~59 CAUTION · ≥60 DANGER).
+            응답 최상위 overallRiskStatus 는 사용자 회피 목록 ∩ 음식 성분의 성분별 위험도 최악값이다(현재 회피 목록은 mock 조달).
 
             ## 현재 더미에 수록된 메뉴(10종)
             아래 한국어 메뉴명만 조회 가능하다(그 외 메뉴명은 400):

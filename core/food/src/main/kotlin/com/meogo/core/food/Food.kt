@@ -1,6 +1,7 @@
 package com.meogo.core.food
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.stereotype.AggregateRoot
 
 @AggregateRoot
@@ -24,6 +25,11 @@ class Food private constructor(
 
     fun avoidanceSubstancesByProbability(): List<FoodAvoidanceSubstance> =
         avoidanceSubstances.sortedByDescending { it.inclusionProbability }
+
+    fun overallRisk(avoidedCodes: Set<AvoidanceSubstanceCodeRef>): RiskLevel {
+        val targeted = avoidanceSubstances.filter { it.substanceCode in avoidedCodes }
+        return RiskLevel.aggregate(targeted.map { it.riskLevel() })
+    }
 
     companion object {
         fun create(
