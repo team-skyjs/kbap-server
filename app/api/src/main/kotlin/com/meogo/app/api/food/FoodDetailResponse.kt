@@ -17,10 +17,17 @@ data class FoodDetailResponse(
     @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
     val spiciness: Int,
 
+    @field:Schema(
+        description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값)",
+        example = "DANGER",
+        allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
+    )
+    val overallRiskStatus: String,
+
     @field:Schema(description = "포함 기피성분 목록(포함 확률 내림차순)")
     val ingredients: List<IngredientResponse>,
 ) {
-    @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·mock 위험도")
+    @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
     data class IngredientResponse(
         @field:Schema(description = "요청 언어 성분명(미지원/미지정/번역 부재 시 한국어)", example = "Soybean")
         val name: String,
@@ -32,7 +39,7 @@ data class FoodDetailResponse(
         val inclusionPercent: Int,
 
         @field:Schema(
-            description = "mock 기피성분 위험도",
+            description = "포함 확률 기반 실제 기피성분 위험도",
             example = "SAFE",
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
@@ -46,6 +53,7 @@ data class FoodDetailResponse(
                 imageRef = result.imageRef,
                 description = result.description,
                 spiciness = result.spiciness,
+                overallRiskStatus = result.overallRiskStatus.name,
                 ingredients = result.avoidanceSubstances.map {
                     IngredientResponse(
                         name = it.name,

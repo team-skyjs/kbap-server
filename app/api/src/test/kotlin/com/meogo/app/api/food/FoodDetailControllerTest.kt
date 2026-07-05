@@ -35,18 +35,19 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.name") { value("Doenjang Stew") }
                         jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
                         jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
+                        jsonPath("$.payload.overallRiskStatus") { value("DANGER") }
                         jsonPath("$.payload.ingredients.length()") { value(3) }
                         jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
                         jsonPath("$.payload.ingredients[0].iconRef") { value(null) }
                         jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
-                        jsonPath("$.payload.ingredients[0].riskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.ingredients[0].riskStatus") { value("DANGER") }
                         jsonPath("$.payload.ingredients[1].name") { value("Wheat") }
                         jsonPath("$.payload.ingredients[1].inclusionPercent") { value(80) }
-                        jsonPath("$.payload.ingredients[1].riskStatus") { value("SAFE") }
+                        jsonPath("$.payload.ingredients[1].riskStatus") { value("DANGER") }
                         jsonPath("$.payload.ingredients[2].name") { value("Clam") }
                         jsonPath("$.payload.ingredients[2].iconRef") { value(null) }
                         jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
-                        jsonPath("$.payload.ingredients[2].riskStatus") { value("SAFE") }
+                        jsonPath("$.payload.ingredients[2].riskStatus") { value("CAUTION") }
                     }
                 }
             }
@@ -74,6 +75,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.name") { value("흰밥") }
+                        jsonPath("$.payload.overallRiskStatus") { value("SAFE") }
                         jsonPath("$.payload.ingredients.length()") { value(0) }
                     }
                 }

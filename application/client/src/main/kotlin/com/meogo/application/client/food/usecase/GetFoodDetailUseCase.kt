@@ -4,10 +4,10 @@ import com.meogo.application.client.food.dto.GetFoodDetailInput
 import com.meogo.application.client.food.dto.GetFoodDetailResult
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.avoidance.AvoidanceSubstanceRepository
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
-import com.meogo.core.kernel.risk.RiskLevel
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,7 +17,7 @@ class GetFoodDetailUseCase(
     private val foodRepository: FoodRepository,
     private val avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
     private val languageResolver: LanguageResolver,
-    private val mockAvoidanceRiskMarker: MockAvoidanceRiskMarker,
+    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
 ) {
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
@@ -29,7 +29,6 @@ class GetFoodDetailUseCase(
         val codedSubstances = orderedSubstances.map { it to AvoidanceSubstanceCode.valueOf(it.substanceCode.value) }
         val catalog = avoidanceSubstanceRepository.findByCodes(codedSubstances.map { it.second }.toSet())
             .associateBy { it.code }
-        val risks = mockAvoidanceRiskMarker.mark(orderedSubstances.map { it.substanceCode.value })
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
@@ -50,15 +49,20 @@ class GetFoodDetailUseCase(
                 name = catalogEntry.displayName(lang),
                 iconRef = null,
                 inclusionProbability = substance.inclusionProbability,
-                riskStatus = risks[substance.substanceCode.value] ?: RiskLevel.SAFE,
+                riskStatus = substance.riskLevel(),
             )
         }
+
+        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes().map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
+        val resolvableCodes = resolvable.map { it.first.substanceCode }.toSet()
+        val overallRiskStatus = food.overallRisk(avoidedCodes intersect resolvableCodes)
 
         return GetFoodDetailResult(
             name = foodName,
             imageRef = food.imageRef,
             description = description,
             spiciness = food.spiciness.value,
+            overallRiskStatus = overallRiskStatus,
             avoidanceSubstances = avoidanceSubstances,
         )
     }

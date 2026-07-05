@@ -153,5 +153,5 @@ data class BaseResponse<T>(
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/kb-44-flyway-timestamp-versioning/plan.md` (신규 Flyway 마이그레이션 버전을 정수(`V1`…`V10`)→**점 구분 timestamp**(`Vyyyy.MM.dd.HH.mm.ss__desc.sql`, 공식 유효 예시 `2013.01.15.11.35.56` 형)로 전환해 병렬 머지 번호 충돌 제거. 생성 시각 기반이라 뒤늦은 머지가 out-of-order → `spring.flyway.out-of-order=true`(베이스 `application.yml`) + **마이그레이션 순서-독립 작성 원칙**을 한 쌍으로 도입. 기존 `V1`~`V10` 파일·checksum **불변**(정수·timestamp 숫자 정렬 공존). 산출물=컨벤션 문서(CLAUDE.md+meogo-conventions.md)+설정 1줄+로컬 docker MySQL 실측 검증. 도메인/엔티티/스키마 코드 무변경 — Test-First 는 코드 부재로 정당화된 예외, quickstart 실측으로 검증).
+`specs/kb-9-avoidance-risk-policy/plan.md` (음식 상세조회 위험도를 목→**실제 정책**으로 대체. (1) 성분별: 포함 확률 `p`로 위험도 — `p<10`→SAFE·`10≤p<60`→CAUTION·`p≥60`→DANGER, 임계값·심각도·집계는 `:core:kernel` `RiskLevel` 단일출처. (2) 종합: **사용자 회피 ∩ 음식 성분**의 성분별 위험도 **최악값**을 `Food.overallRisk(avoidedCodes: Set<String>)`(food 애그리거트, avoidance enum 미의존)이 판정 — 공집합→SAFE, 결측→UNKNOWN 우선(§8, 현 스키마 미도달·정책단위 테스트). 응답에 최상위 `overallRiskStatus` 신설. 사용자 회피 목록만 `AvoidedSubstanceProvider` port + **목 구현**으로 조달(member·인증 미구현 이음새), 교집합·판정은 실제. 미등록 음식은 **현행 400 유지**. DB 스키마/마이그레이션/엔티티 무변경 — 로드된 도메인 위 순수 계산).
 <!-- SPECKIT END -->

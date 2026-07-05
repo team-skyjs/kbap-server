@@ -53,16 +53,17 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
     fun useCase(
         foodRepository: FoodRepository,
         avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
+        avoidedCodes: Set<AvoidanceSubstanceCode> = emptySet(),
     ) = GetFoodDetailUseCase(
         foodRepository,
         avoidanceSubstanceRepository,
         LanguageResolver(),
-        MockAvoidanceRiskMarker(),
+        FakeAvoidedSubstanceProvider(avoidedCodes),
     )
 
     given("음식 상세 조회 유스케이스 — 포함 기피 성분 표시명·확률·위험도 조립") {
         `when`("요청 언어 성분 번역이 모두 있으면") {
-            then("성분 표시명을 요청 언어로 조립하고 iconRef 는 null, 확률 내림차순·최상위 CAUTION 을 부여한다") {
+            then("성분 표시명을 요청 언어로 조립하고 iconRef 는 null, 확률 내림차순·포함 확률 기반 위험도(SOY100·WHEAT80 모두 DANGER)를 부여한다") {
                 val foodRepository = FakeFoodRepository(
                     food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
                 )
@@ -75,13 +76,13 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 result.spiciness shouldBe 3
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "Wheat")
                 result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
-                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
+                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.DANGER, RiskLevel.DANGER)
                 result.avoidanceSubstances.map { it.iconRef } shouldBe listOf(null, null)
             }
         }
 
         `when`("포함 기피 성분이 확률 내림차순이 아닌 순서로 저장돼 있으면") {
-            then("응답 성분을 확률 내림차순으로 정렬하고 최상위에 CAUTION 을 부여한다") {
+            then("응답 성분을 확률 내림차순으로 정렬하고 포함 확률 기반 위험도(SOY100·WHEAT80 모두 DANGER)를 부여한다") {
                 val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
@@ -89,7 +90,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
                 result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("대두", "밀")
-                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.CAUTION, RiskLevel.SAFE)
+                result.avoidanceSubstances.map { it.riskStatus } shouldBe listOf(RiskLevel.DANGER, RiskLevel.DANGER)
             }
         }
 
@@ -136,6 +137,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 
                 result.avoidanceSubstances shouldBe emptyList()
                 result.spiciness shouldBe 0
+                result.overallRiskStatus shouldBe RiskLevel.SAFE
             }
         }
 
@@ -269,12 +271,66 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
             }
         }
     }
+
+    given("종합 위험도 — 사용자 회피 ∩ 음식 성분 최악값 판정") {
+        `when`("사용자가 회피하는 SOY 가 음식 성분(SOY100)과 교차하면") {
+            then("overallRiskStatus 는 DANGER 다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(
+                    foodRepository,
+                    avoidanceRepository,
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
+                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.overallRiskStatus shouldBe RiskLevel.DANGER
+            }
+        }
+
+        `when`("사용자 회피 성분(MILK)이 음식 성분과 전혀 교차하지 않으면") {
+            then("overallRiskStatus 는 SAFE 다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(
+                    foodRepository,
+                    avoidanceRepository,
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.MILK),
+                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.overallRiskStatus shouldBe RiskLevel.SAFE
+            }
+        }
+
+        `when`("회피 성분(SOY)이 음식 성분이지만 카탈로그 결측으로 표시 목록에서 빠지면") {
+            then("표시 목록과 동일하게 판정 대상에서도 제외돼 overallRiskStatus 는 SAFE 다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(wheat))
+
+                val result = useCase(
+                    foodRepository,
+                    avoidanceRepository,
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
+                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("Wheat")
+                result.overallRiskStatus shouldBe RiskLevel.SAFE
+            }
+        }
+    }
 })
 
 private class FakeFoodRepository(
     private val food: Food?,
 ) : FoodRepository {
     override fun findByKoreanName(name: String): Food? = food
+}
+
+private class FakeAvoidedSubstanceProvider(
+    private val codes: Set<AvoidanceSubstanceCode>,
+) : AvoidedSubstanceProvider {
+    override fun avoidedCodes() = codes
 }
 
 private class FakeAvoidanceSubstanceRepository(
