@@ -36,6 +36,32 @@ class MigrationValidationTest : BehaviorSpec() {
                     }
                 }
             }
+
+            `when`("시드 마이그레이션이 채운 음식 카탈로그를 확인하면") {
+                then("기준 음식 10종과 대표 음식(된장찌개)의 번역·기피성분 시드가 온전하다") {
+                    dataSource.connection.use { conn ->
+                        conn.createStatement().use { st ->
+                            st.executeQuery("SELECT COUNT(*) AS cnt FROM food WHERE status = 'ACTIVE'").use { rs ->
+                                rs.next()
+                                rs.getInt("cnt") shouldBe 10
+                            }
+                            st.executeQuery(
+                                "SELECT korean_name, JSON_LENGTH(name_translations) AS langs FROM food WHERE id = 1",
+                            ).use { rs ->
+                                rs.next() shouldBe true
+                                rs.getString("korean_name") shouldBe "된장찌개"
+                                rs.getInt("langs") shouldBe 9
+                            }
+                            st.executeQuery(
+                                "SELECT COUNT(*) AS cnt FROM food_avoidance_substance WHERE food_id = 1",
+                            ).use { rs ->
+                                rs.next()
+                                rs.getInt("cnt") shouldBeGreaterThan 0
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
