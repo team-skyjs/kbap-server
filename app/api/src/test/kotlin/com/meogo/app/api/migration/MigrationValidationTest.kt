@@ -30,17 +30,24 @@ class MigrationValidationTest : MySqlIntegrationSpec() {
                 }
             }
 
-            `when`("MySQL 전용 JSON 컬럼을 확인하면") {
-                then("food.name_translations 가 JSON 타입으로 생성돼 있다") {
+            `when`("마이그레이션이 만든 MySQL 전용 JSON 컬럼을 확인하면") {
+                then("번역 JSON 컬럼(food.name_translations·food.description_translations·avoidance_substance.translations)이 모두 JSON 타입이다") {
+                    val jsonColumns = listOf(
+                        "food" to "name_translations",
+                        "food" to "description_translations",
+                        "avoidance_substance" to "translations",
+                    )
                     dataSource.connection.use { conn ->
-                        conn.createStatement().use { st ->
-                            val rs = st.executeQuery(
-                                "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
-                                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'food' " +
-                                    "AND COLUMN_NAME = 'name_translations'",
-                            )
-                            rs.next() shouldBe true
-                            rs.getString("DATA_TYPE") shouldBe "json"
+                        jsonColumns.forEach { (table, column) ->
+                            conn.createStatement().use { st ->
+                                val rs = st.executeQuery(
+                                    "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS " +
+                                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$table' " +
+                                        "AND COLUMN_NAME = '$column'",
+                                )
+                                rs.next() shouldBe true
+                                rs.getString("DATA_TYPE") shouldBe "json"
+                            }
                         }
                     }
                 }
