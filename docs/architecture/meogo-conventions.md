@@ -112,3 +112,40 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 - 음식 콘텐츠(음식명·설명·재료명·알러지/종교·비건 주의 성분)는 **한국어(`ko`) 원문 + 9개 대상 언어**로 사전 번역해 DB에 저장한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 9개 언어: `zh-Hans`(중국어 간체) · `en`(영어) · `ja`(일본어) · `zh-Hant`(중국어 번체) · `vi`(베트남어) · `id`(인도네시아어) · `th`(태국어) · `ru`(러시아어) · `es`(스페인어). 번역은 `research`(배치)가 LLM으로 생성하고 `food`가 저장한다.
 - 정적 UI 문구는 사전 번역해 `:core:kernel` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
 - LLM 원본 응답을 도메인 판단에 직접 쓰지 않는다. `:application`에서 종합한 결과만 `Food`/`FoodIngredient`에 반영한다.
+
+## Flyway 마이그레이션 버전 규칙
+
+스키마 owner 는 `:app:api`(`src/main/resources/db/migration`)이고 DB 를 공유하는 구조라, 여러 개발자가 병렬 브랜치에서 각자 "다음 정수"(V10, V11 …)를 잡으면 머지 시 같은 버전 번호가 충돌한다. 이를 없애기 위해 **신규 마이그레이션은 생성 시각 기반 점 구분 timestamp 버전**을 쓴다. (근거: KB-44, Flyway 공식 문서 `concepts/migrations`.)
+
+### 파일명 포맷
+
+```
+V<version>__<description>.sql
+```
+
+- **신규**: `<version>` = `yyyy.MM.dd.HH.mm.ss` (점 구분, 초 단위, 각 파트 두 자리 zero-pad). 값은 **파일 생성 시점의 로컬 현재 시각**.
+  - 예: `V2026.07.05.14.30.12__add_review_table.sql`
+- Flyway 공식 문서가 유효 예시로 제시한 포맷이다(`2013.01.15.11.35.56`). Flyway 는 버전을 **숫자 파트열로 수치 정렬**한다(*"versions are sorted numerically"*).
+- `<description>` 은 소문자 스네이크 슬러그(변경 목적).
+
+### 기존 파일 일회성 전환 & 프로덕션 후 freeze
+
+- 기존 정수 마이그레이션(`V1`~`V10`)은 **로컬 DB 전용·프로덕션 이전 단계에서 각 파일의 최초 커밋 시각 기준 timestamp 로 일괄 전환**했다(KB-44). 같은 커밋에 묶여 시각이 동일한 파일은 원래 정수 순서를 보존하도록 초를 1초씩 밀어 정렬을 유지했다(예: `V1`,`V2`,`V3`,`V4` → `...20.35.02`,`03`,`04`,`05`).
+- 전환이 안전했던 이유: 공유/프로덕션 DB 가 없어 로컬 `flyway_schema_history` 를 재생성(DB DROP+CREATE 후 재적용)하면 됐기 때문이다. 파일 내용은 바꾸지 않고 파일명(버전)만 바꿨다.
+- **한 번이라도 공유/프로덕션 DB 에 적용된 마이그레이션은 그 시점부터 동결**한다 — 이후 수정·리네임은 checksum/history 파손으로 배포 장애를 부른다. 따라서 이런 일괄 전환은 프로덕션 배포 전 **단 한 번만** 가능하다.
+
+### out-of-order 허용 + 순서-독립 원칙
+
+- 버전이 **생성 시각** 기준이라, 먼저 만들고 늦게 머지한 마이그레이션은 이미 적용된 최신보다 **과거 버전**이 된다(= out-of-order). Flyway 기본값(`out-of-order=false`)에서는 이때 validate 가 실패해 부팅이 거부된다.
+- 이를 허용하기 위해 **`spring.flyway.out-of-order: true`** 를 베이스 `app/api/src/main/resources/application.yml` 에 둔다(전 프로필 상속). 과거 버전도 도착 순서대로 적용되며, `flyway_schema_history.installed_rank` 가 실제 실행 순서를 보존한다.
+- 공식 문서는 out-of-order 를 *"rerunning the entire migration history might produce different results"* 로 경고한다. 이 위험은 **각 마이그레이션이 다른 미적용 마이그레이션의 실행 순서에 의존하지 않을 때만** 무해하다. 따라서 **마이그레이션은 순서-독립적으로 작성**한다(같은 배포 묶음의 두 스크립트가 순서 의존적으로 같은 테이블/컬럼을 건드리지 않는다).
+
+### 금지 사례
+
+1. 신규 마이그레이션에 정수 버전(`V11`) 사용 — 병렬 충돌 재발.
+2. **공유/프로덕션 DB 에 이미 적용된** 마이그레이션 파일 수정·리네임 — checksum/history 파손(로컬 전용·프로덕션 이전 단계의 일괄 전환은 예외).
+3. 순서 의존 마이그레이션 작성 — out-of-order 시 결과가 달라질 수 있음.
+
+### 검증
+
+테스트 스위트는 H2 + flyway off 라 마이그레이션을 실행하지 않는다. Flyway 실동작(정렬·out-of-order·checksum)은 **로컬 docker MySQL** 부팅으로 실측 검증한다(절차: `specs/kb-44-flyway-timestamp-versioning/quickstart.md`).

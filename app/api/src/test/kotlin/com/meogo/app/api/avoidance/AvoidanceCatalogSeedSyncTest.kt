@@ -6,7 +6,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 
 class AvoidanceCatalogSeedSyncTest : BehaviorSpec({
-    val seedResourcePath = "db/migration/V5__create_avoidance_catalog_and_mapping.sql"
+    val seedResourcePath = "db/migration/V2026.07.02.01.09.09__create_avoidance_catalog_and_mapping.sql"
     val sql = Thread.currentThread().contextClassLoader.getResource(seedResourcePath)?.readText() ?: ""
 
     val substanceRowRegex = Regex(
@@ -16,7 +16,7 @@ class AvoidanceCatalogSeedSyncTest : BehaviorSpec({
     val seedCodes = substanceRows.map { it[1] }
     val seedKoreanByCode = substanceRows.associate { it[1] to it[2] }
 
-    given("V5 시드 SQL 의 성분 카탈로그") {
+    given("성분 카탈로그 시드 SQL") {
         `when`("성분 코드 집합을 식별자 enum 과 비교하면") {
             then("AvoidanceSubstanceCode.entries 의 name 집합과 정확히 일치한다(누락·초과 0)") {
                 seedCodes shouldContainExactlyInAnyOrder
