@@ -19,4 +19,5 @@ dependencies {
     // web/jpa 스타터는 얹지 않는다(계층 경계 유지) — 실제 트랜잭션 매니저는 부트 앱이 런타임 주입.
     "implementation"(libs.spring.context)
     "implementation"(libs.spring.tx)
+    "implementation"(libs.slf4j.api)
 }

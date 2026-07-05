@@ -209,6 +209,66 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
             }
         }
     }
+
+    given("참조 기피 성분 중 일부가 카탈로그에 없음(소프트 삭제)") {
+        `when`("참조 성분 2개(WHEAT·SOY) 중 SOY 만 카탈로그에 있으면") {
+            then("예외 없이 SOY(Soybean) 1개만 조립되고, 확률 내림차순·필드 구조는 그대로다") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.avoidanceSubstances.size shouldBe 1
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean")
+                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100)
+            }
+        }
+    }
+
+    given("참조 성분이 전부 카탈로그에 없음") {
+        `when`("참조 성분 2개가 모두 카탈로그에 없으면") {
+            then("예외 없이 avoidanceSubstances 는 빈 목록이고 name·spiciness 등 나머지 상세는 정상이다") {
+                val foodRepository = FakeFoodRepository(
+                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
+                )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.avoidanceSubstances shouldBe emptyList()
+                result.name shouldBe "Doenjang Stew"
+                result.spiciness shouldBe 3
+            }
+        }
+    }
+
+    given("중간 확률 성분만 카탈로그에서 빠짐") {
+        `when`("확률이 서로 다른 성분 3개 중 중간 확률(SESAME) 성분만 skip 되면") {
+            then("남은 두 성분이 확률 내림차순(SOY 100 → WHEAT 80) 정렬을 유지한다") {
+                val threeSubstanceFood = Food.reconstitute(
+                    id = 1,
+                    content = FoodContent(
+                        name = LocalizedText(korean = "된장찌개"),
+                        description = LocalizedText(korean = koDescription),
+                    ),
+                    imageRef = "doenjang.png",
+                    spiciness = FoodSpiciness(3),
+                    avoidanceSubstances = listOf(
+                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("WHEAT"), inclusionProbability = 80),
+                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("SESAME"), inclusionProbability = 90),
+                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("SOY"), inclusionProbability = 100),
+                    ),
+                )
+                val foodRepository = FakeFoodRepository(food = threeSubstanceFood)
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "Wheat")
+                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
+            }
+        }
+    }
 })
 
 private class FakeFoodRepository(

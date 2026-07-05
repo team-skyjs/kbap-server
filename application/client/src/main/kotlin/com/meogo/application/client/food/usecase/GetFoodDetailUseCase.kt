@@ -8,6 +8,7 @@ import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.kernel.risk.RiskLevel
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,9 +34,18 @@ class GetFoodDetailUseCase(
         val foodName = food.displayName(lang)
         val description = food.description(lang)
 
-        val avoidanceSubstances = codedSubstances.map { (substance, code) ->
-            val catalogEntry = catalog[code]
-                ?: throw IllegalStateException("avoidance substance catalog missing for code: $code")
+        val (resolvable, missing) = codedSubstances.partition { (_, code) -> code in catalog }
+
+        missing.forEach { (_, code) ->
+            log.warn(
+                "avoidance substance skipped (catalog missing / soft-deleted): foodId={} substanceCode={}",
+                food.id,
+                code,
+            )
+        }
+
+        val avoidanceSubstances = resolvable.map { (substance, code) ->
+            val catalogEntry = catalog.getValue(code)
             GetFoodDetailResult.AvoidanceSubstanceView(
                 name = catalogEntry.displayName(lang),
                 iconRef = null,
@@ -51,5 +61,9 @@ class GetFoodDetailUseCase(
             spiciness = food.spiciness.value,
             avoidanceSubstances = avoidanceSubstances,
         )
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(GetFoodDetailUseCase::class.java)
     }
 }
