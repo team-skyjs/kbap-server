@@ -33,19 +33,13 @@
 
 ## 새 DB-backed 테스트 작성법
 
-공통 컨테이너 설정은 `infra:persistence` 의 `testFixtures` 에 있다. 두 가지 방식:
+공통 컨테이너 설정 `MySqlContainerConfig` 는 `infra:persistence` 의 `testFixtures` 에 있다. DB-backed 테스트는 **`@Import(MySqlContainerConfig::class)` 로 컨테이너 설정만 주입**한다(웹·영속 테스트 동일 방식):
 
 ```kotlin
-// 1) 영속/어댑터 테스트 (infra:persistence) — 공통 베이스 상속
-class FooRepositoryAdapterTest : MySqlIntegrationSpec({
-    given("...") { `when`("...") { then("...") { /* ... */ } } }
-})
-
-// 2) 웹/컨트롤러 테스트 (app:api) — @Import 로 컨테이너 설정만 주입
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc          // 웹/컨트롤러 테스트만
 @Import(MySqlContainerConfig::class)
-class FooControllerTest : BehaviorSpec() {
+class FooTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
     // ...
 }

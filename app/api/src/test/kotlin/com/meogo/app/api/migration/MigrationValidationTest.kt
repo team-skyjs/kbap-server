@@ -1,12 +1,19 @@
 package com.meogo.app.api.migration
 
-import com.meogo.infra.persistence.testsupport.MySqlIntegrationSpec
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-class MigrationValidationTest : MySqlIntegrationSpec() {
+@SpringBootTest
+@Import(MySqlContainerConfig::class)
+class MigrationValidationTest : BehaviorSpec() {
+    override fun extensions() = listOf(SpringExtension)
 
     @Autowired
     private lateinit var dataSource: DataSource
