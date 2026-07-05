@@ -1,4 +1,6 @@
 package com.meogo.infra.persistence.scan
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.scan.BoundingBox
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
+@Import(MySqlContainerConfig::class)
 class MenuScanRepositoryAdapterTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

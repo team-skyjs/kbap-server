@@ -1,4 +1,6 @@
 package com.meogo.app.api.food
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -12,6 +14,7 @@ import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(MySqlContainerConfig::class)
 class FoodDetailLanguageErrorTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

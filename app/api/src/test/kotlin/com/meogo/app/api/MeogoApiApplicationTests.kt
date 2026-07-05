@@ -1,10 +1,13 @@
 package com.meogo.app.api
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
+@Import(MySqlContainerConfig::class)
 class MeogoApiApplicationTests : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

@@ -88,7 +88,7 @@ object FoodTestSeed {
     ) =
         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, status, created_at, updated_at) " +
             "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, " +
-            "'${jsonObject(nameTranslations)}' FORMAT JSON, '${jsonObject(descriptionTranslations)}' FORMAT JSON, " +
+            "'${jsonObject(nameTranslations)}', '${jsonObject(descriptionTranslations)}', " +
             "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
     private fun jsonObject(entries: Map<String, String>) =
@@ -98,7 +98,7 @@ object FoodTestSeed {
 
     private fun avoidanceSubstance(id: Long, code: String, koreanName: String, translationsJson: String) =
         "INSERT INTO avoidance_substance (id, code, korean_name, translations, status, created_at, updated_at) " +
-            "VALUES ($id, '$code', '$koreanName', '$translationsJson' FORMAT JSON, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            "VALUES ($id, '$code', '$koreanName', '$translationsJson', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
     private fun foodAvoidanceSubstance(foodId: Long, substanceCode: String, percent: Int) =
         "INSERT INTO food_avoidance_substance (food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +

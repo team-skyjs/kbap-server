@@ -79,7 +79,7 @@ plugins {
 | `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":core:kernel"))` |
 | `runtimeOnly` | 컴파일에는 필요 없고 **실행할 때만** 필요하다(주로 드라이버) | `runtimeOnly(libs.mysql.connector)` |
 | `testImplementation` | **테스트 코드에서만** 쓰는 라이브러리 | `testImplementation(libs.kotest.assertions.core)` |
-| `testRuntimeOnly` | 테스트 **실행 시점에만** 필요하다 | `testRuntimeOnly(libs.h2)` |
+| `testRuntimeOnly` | 테스트 **실행 시점에만** 필요하다 | `testRuntimeOnly(libs.junit.platform.launcher)` |
 
 > **왜 implementation vs api 구분이 중요한가?**
 > 이 프로젝트는 JPA(영속성 기술)를 각 도메인 모듈 안에 `implementation`으로 숨긴다. 그래서 `:app:api`와 `:application`은 JPA 타입을 **컴파일 시점에 import조차 할 수 없다**(아키텍처 규칙). 만약 `api`로 노출했다면 다른 계층에서도 JPA 타입을 직접 참조할 수 있었을 것이다.
