@@ -1,6 +1,11 @@
 spring:
   # 영속 어댑터 테스트: MySQL Testcontainers(@ServiceConnection)에 붙되, 이 모듈엔 마이그레이션이 없으므로
   # 스키마는 Hibernate 가 엔티티에서 생성한다(어댑터 매핑 검증 목적, KB-46 D-3).
+  # 컨테이너는 테스트 후 폐기되는 일회용이라 drop 이 불필요하다. create-drop 은 fresh DB 에서
+  # 시작 시 '존재하지 않는 FK drop' 을 시도해 CommandAcceptanceException 스택트레이스를 남기므로(로그로 관용되나 소음),
+  # JPA 표준 schema-generation=create(선-drop 없는 생성 전용)로 대체해 소음·순서 취약성을 제거한다.
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: none
+    properties:
+      jakarta.persistence.schema-generation.database.action: create
