@@ -1,18 +1,17 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.2.0 → 2.3.0   (개정 2026-07-02)
-Bump rationale (MINOR): 원칙 V 의 언어 폴백 정책을 세분화했다. 기존 "미지원/미지정 언어 응답 시 ko 로
-  폴백한다"가 미지원 코드까지 조용히 ko 로 폴백함을 명시했으나, 이슈 #18(spec 008)로 이를 세 경우로 분리한다:
-  (1) 미지정(null·빈·공백) → ko 기본, (2) 지원 언어이나 번역 부재 → ko 폴백, (3) 지원 목록에 없는 코드(값 존재
-  + 정확 불일치) → 에러(fail-fast) + 지원 언어 목록 안내(HTTP 400). 매칭은 정확 일치(대소문자·지역 변형 미지원).
-  ko 원문 + 9개 번역·콘텐츠↔UI 분리·안전 직결 정합 등 원칙의 목적은 불변이며, 폴백 조건을 세분화하는 확장이라
-  MAJOR 아님(제거/비호환 재정의 없음). 실질 가이드 확장이라 PATCH 아님.
+Version change: 2.3.0 → 2.3.1   (개정 2026-07-06)
+Bump rationale (PATCH): Additional Constraints 의 영속 스택 문구를 실체에 맞게 보정했다. KB-46 에서
+  통합 테스트의 임베디드 H2 를 제거하고 MySQL Testcontainers 로 전환했으므로(운영과 동등한 MySQL 8.4 로
+  통합 테스트·마이그레이션 검증), "MySQL(+H2 test)" → "MySQL(+통합 테스트는 MySQL Testcontainers)" 로
+  갱신한다. 원칙 본문·의미 변경 없는 문구 동기화라 MINOR 아님(신규 원칙/실질 확장 없음). 단순 오탈자 보정을
+  넘어 스택 서술을 바꾸는 사실 정정이라 PATCH.
 
-Modified principles:
-  V.   Domain Content Language Policy — 언어 폴백 정책 세분화:
-       "미지원/미지정 → ko 폴백" → "미지정(null·빈·공백) → ko 기본 / 번역 부재 → ko 폴백 /
-       지원 목록에 없는 코드 → 에러 + 지원 목록 안내(fail-fast, HTTP 400)".
+Modified principles: 없음 (원칙 I~V 본문 불변)
+
+Modified sections:
+  Additional Constraints — 영속 스택 서술을 "MySQL(+H2 test)" → "MySQL(+통합 테스트는 MySQL Testcontainers)" 로 보정.
 
 Added sections: 없음 · Removed sections: 없음
 
@@ -21,9 +20,9 @@ Templates reviewed:
   ✅ .specify/templates/tasks-template.md — Test-First 동기화 유지, 무관. 변경 불필요.
   ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
 
-Docs propagation: 언어 폴백 문구는 constitution.md 외 참조처 없음(docs/·templates/ grep 확인). 별도 문서 동기화 불필요.
+Docs propagation: 테스트 DB 전략 상세는 specs/kb-46-mysql-testcontainers/ 및 CLAUDE.md SpecKit 포인터에 반영됨.
 
-Follow-up: 없음(이 개정으로 spec 008/이슈 #18 의 원칙 V 정합 항목 완료).
+Follow-up: 없음(KB-46 의 헌법 문구 동기화 완료).
 -->
 
 # Meogo API Constitution
@@ -115,7 +114,7 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 ## Additional Constraints (기술·아키텍처)
 
 - 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스(ADR-0008).
-  영속: MySQL(+H2 test) + MongoDB, 마이그레이션 Flyway. LLM: Spring AI 2.0.
+  영속: MySQL(+통합 테스트는 MySQL Testcontainers) + MongoDB, 마이그레이션 Flyway. LLM: Spring AI 2.0.
 - 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.meogo.MeogoApiApplication` — 패키지 루트라 전 계층 스캔)와
   `:app:batch`(배치, 진입점 `com.meogo.app.batch.MeogoBatchApplication`). 공통 빌드 설정은
   `buildSrc` 컨벤션 플러그인(`meogo.*`)에 둔다.
@@ -146,4 +145,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 2.3.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-02
+**Version**: 2.3.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-06
