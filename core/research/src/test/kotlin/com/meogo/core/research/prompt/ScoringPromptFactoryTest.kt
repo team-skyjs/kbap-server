@@ -7,6 +7,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class ScoringPromptFactoryTest : BehaviorSpec({
 
@@ -40,24 +41,44 @@ class ScoringPromptFactoryTest : BehaviorSpec({
                 combined shouldContain "우유"
             }
 
-            then("포함된 것만 응답하라는 지시를 포함한다") {
-                combined shouldContain "포함"
+            then("지시문은 영어로 작성한다") {
+                combined shouldContain "representative recipe"
+                combined shouldNotContain "대표 레시피"
+            }
+
+            then("포함 판단한 것만 응답하라는 지시를 포함한다") {
+                combined shouldContain "judge as included"
+                combined shouldContain "omit"
             }
 
             then("score 0/1/2 정의를 고유 문구로 언급한다") {
-                combined shouldContain "0=낮음"
-                combined shouldContain "1=가능성 있음"
-                combined shouldContain "2=높음"
+                combined shouldContain "0=low"
+                combined shouldContain "1=possible"
+                combined shouldContain "2=high"
             }
 
             then("probability 정수 1~100 강제를 범위 표현으로 언급한다") {
-                combined shouldContain "1~100"
+                combined shouldContain "1-100"
+            }
+
+            then("후보 목록 외 코드 창작 금지를 강제 문구로 언급한다") {
+                combined shouldContain "verbatim"
+                combined shouldContain "NEVER invent"
             }
 
             then("9개 대상 언어코드를 모두 언급한다") {
                 listOf("zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es").forEach {
                     combined shouldContain it
                 }
+            }
+
+            then("9개 언어 전부 필수·생략 금지 지시를 언급한다") {
+                combined shouldContain "ALL 9 target languages"
+                combined shouldContain "Do NOT omit any language"
+            }
+
+            then("마크다운 코드펜스 금지를 언급한다") {
+                combined shouldContain "code fences"
             }
 
             then("음식 설명 생성(목표 200·최대 230자) 지시를 언급한다") {

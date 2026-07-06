@@ -47,11 +47,11 @@ meogo:
     # 응답에 1분 안팎이 걸린다 — 기본 30s 로는 타임아웃 후 과금만 되고 결과가 버려지므로 넉넉히 준다.
     call-timeout: 180s
     openai:
-      model: gpt-5.4-nano
+      model: gpt-5-mini
       api-key: ${OPENAI_API_KEY:}
       pricing:
-        input-usd-per-million-tokens: 0.20
-        output-usd-per-million-tokens: 1.25
+        input-usd-per-million-tokens: 0.25
+        output-usd-per-million-tokens: 2.00
     upstage:
       model: solar-mini
       api-key: ${UPSTAGE_API_KEY:}
