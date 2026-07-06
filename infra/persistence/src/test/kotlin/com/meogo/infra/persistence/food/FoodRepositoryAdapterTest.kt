@@ -1,4 +1,6 @@
 package com.meogo.infra.persistence.food
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
@@ -17,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
 
 @SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
+@Import(MySqlContainerConfig::class)
 class FoodRepositoryAdapterTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

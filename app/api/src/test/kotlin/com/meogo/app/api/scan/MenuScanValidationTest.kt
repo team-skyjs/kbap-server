@@ -1,4 +1,6 @@
 package com.meogo.app.api.scan
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
@@ -12,6 +14,7 @@ import org.springframework.test.web.servlet.post
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(MySqlContainerConfig::class)
 class MenuScanValidationTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

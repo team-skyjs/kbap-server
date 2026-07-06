@@ -1,10 +1,12 @@
 spring:
-  # 테스트 컨텍스트: 환경 DB·외부 키에 의존하지 않게 한다.
+  # 테스트 컨텍스트: 외부 키에 의존하지 않게 한다. DB 는 MySQL Testcontainers(@ServiceConnection)로 붙는다(KB-46).
+  # 운영과 동일한 Flyway 마이그레이션으로 스키마를 만들고(ddl-auto=validate 로 엔티티↔스키마 정합만 검증),
+  # 마이그레이션 SQL 자체를 실 MySQL 에서 검증한다.
   flyway:
-    enabled: false
+    enabled: true
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
   ai:
     model:
       chat: none

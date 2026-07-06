@@ -6,6 +6,8 @@ plugins {
     id("meogo.spring-conventions")
     // JPA no-arg: @Entity/@MappedSuperclass 에 합성 no-arg 생성자를 부여한다.
     id("org.jetbrains.kotlin.plugin.jpa")
+    // testFixtures 소스셋: MySQL Testcontainers 공통 설정을 app:api 와 공유(KB-46).
+    `java-test-fixtures`
 }
 
 dependencies {
@@ -17,5 +19,16 @@ dependencies {
     "implementation"(libs.spring.boot.starter.data.jpa)
 
     "runtimeOnly"(libs.mysql.connector)
-    "testRuntimeOnly"(libs.h2)
+
+    // 공유 컨테이너 설정(testFixtures): @ServiceConnection + Kotest 베이스. 소비 모듈이 testImplementation(testFixtures(...)) 로 가져간다.
+    // dependency-management 가 testFixtures 구성엔 자동 적용되지 않아 Boot BOM 을 platform 으로 직접 얹어 버전을 해석한다.
+    "testFixturesApi"(platform(libs.spring.boot.dependencies))
+    "testFixturesApi"(libs.spring.boot.testcontainers)
+    "testFixturesApi"(libs.testcontainers.mysql)
+    "testFixturesApi"(libs.spring.boot.starter.test)
+    "testFixturesApi"(libs.kotest.extensions.spring)
+    "testFixturesApi"(libs.kotest.runner.junit5)
+
+    // 통합 테스트가 MySQL 드라이버로 컨테이너에 접속.
+    "testRuntimeOnly"(libs.mysql.connector)
 }
