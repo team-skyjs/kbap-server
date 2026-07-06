@@ -4,6 +4,7 @@ import com.google.genai.Client
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmModelId
+import com.meogo.infra.llm.model.LlmPricing
 import com.meogo.infra.llm.provider.SpringAiModelCaller
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatModel
@@ -27,6 +28,7 @@ class LlmConfiguration {
         SpringAiModelCaller(
             LlmModelId.OPENAI,
             openAiChatModel(LlmModelId.OPENAI, properties.openai, resolveOpenAiBaseUrl(properties.openai.baseUrl)),
+            pricingOf(properties.openai, properties.usdToKrw),
         )
 
     @Bean
@@ -35,12 +37,17 @@ class LlmConfiguration {
         SpringAiModelCaller(
             LlmModelId.UPSTAGE,
             openAiChatModel(LlmModelId.UPSTAGE, properties.upstage, properties.upstage.baseUrl ?: DEFAULT_UPSTAGE_BASE_URL),
+            pricingOf(properties.upstage, properties.usdToKrw),
         )
 
     @Bean
     @ConditionalOnProperty(prefix = "meogo.llm.gemini", name = ["enabled"], havingValue = "true")
     fun geminiModelCaller(properties: LlmModelProperties): LlmModelCaller =
-        SpringAiModelCaller(LlmModelId.GEMINI, geminiChatModel(properties.gemini))
+        SpringAiModelCaller(
+            LlmModelId.GEMINI,
+            geminiChatModel(properties.gemini),
+            pricingOf(properties.gemini, properties.usdToKrw),
+        )
 
     @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
@@ -58,6 +65,13 @@ class LlmConfiguration {
             .options(optionsBuilder.build())
             .build()
     }
+
+    private fun pricingOf(props: LlmModelProperties.ModelProps, usdToKrw: Double): LlmPricing =
+        LlmPricing(
+            inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+            outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+            usdToKrw = usdToKrw,
+        )
 
     private fun geminiChatModel(props: LlmModelProperties.ModelProps): ChatModel {
         val client = Client.builder()
