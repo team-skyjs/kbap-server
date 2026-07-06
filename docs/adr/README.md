@@ -22,3 +22,4 @@
 | [0007](./0007-git-branch-strategy.md) | Git 브랜치 전략 — develop+main 채택, github-flow→git-flow 점진 확장 | Accepted | 2026-06-28 | specs/001 · ADR-0001 · git-branch-strategy |
 | [0008](./0008-modular-monolith-shared-domain.md) | 모듈러 모놀리스 — 공유 도메인/영속, batch 직접 의존 | Accepted | 2026-06-29 | specs/004-avoidance-catalog · ADR-0001(supersede 일부) · ADR-0006 |
 | [0009](./0009-food-avoidance-direct-mapping.md) | 음식↔기피성분 직접 매핑 — 레시피/재료 모델 제거 | Accepted | 2026-07-04 | specs/kb-40 · Jira KB-40 · ADR-0008 |
+| [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Accepted | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |

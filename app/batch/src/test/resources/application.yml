@@ -1,5 +1,15 @@
 spring:
-  # 테스트 컨텍스트: 디커플드 배치 앱은 ORM/JPA·Spring AI·Flyway 자동구성을 클래스패스에 갖지 않는다.
-  # 환경 DB·외부 키에 의존하지 않으므로 별도 오버라이드가 필요 없다.
   application:
     name: meogo-batch
+  # :infra:llm 이 Spring AI 스타터(openai·google-genai)를 배치 런타임/테스트 클래스패스로 전이시킨다.
+  # 키 없이 컨텍스트를 로딩해도 벤더 자동구성이 뜨지 않도록 모든 모델 자동구성을 명시 비활성한다
+  # (LLM 빈은 :infra:llm 의 meogo.llm.* + @ConditionalOnProperty 로만 구성 — 키 없으면 빈 미생성).
+  ai:
+    model:
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        transcription: none
+        speech: none
