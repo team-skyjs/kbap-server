@@ -4,9 +4,11 @@ plugins {
 }
 
 dependencies {
-    // 배치는 meogo-api 내부 모듈(application/infra/persistence/도메인)에 일절 의존하지 않는다.
-    // 디커플드 위성 앱 — meogo-api 와는 :common 의 통합 이벤트(브로커)로만 소통한다.
+    // ADR-0008/0010: 배치는 필요한 도메인/infra 모듈을 직접 의존해 같은 도메인/DB/어댑터를 재사용한다.
+    // (더 이상 :common 통합 이벤트 전용 디커플 위성 앱이 아니다.)
+    // 현재 직접 의존: :infra:llm (Spring AI 기반 LLM fan-out 어댑터 — 잡에서 호출).
     "implementation"(project(":common"))
+    "implementation"(project(":infra:llm"))
 
     "implementation"(libs.spring.boot.starter)
 }

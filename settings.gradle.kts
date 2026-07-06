@@ -33,7 +33,7 @@ include(
 
     // ── 인프라(driven 어댑터) ──
     ":infra:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 port 구현
-    // ":infra:external" — LLM 등 외부 연동, LLM 착수 시 추가
+    ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존
 
     // ── 부트앱 진입점 ──
     ":app:api",           // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
