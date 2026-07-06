@@ -20,6 +20,7 @@ import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmChatRequest
 import com.meogo.infra.llm.model.LlmModelId
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -238,6 +239,29 @@ class AvoidanceScoringJobTest : BehaviorSpec({
 
             then("파싱 불가 응답을 준 모델(GEMINI) 정보가 로그에 남는다") {
                 appender.list.map { it.formattedMessage }.any { it.contains("GEMINI") } shouldBe true
+            }
+        }
+    }
+
+    given("회피성분 카탈로그가 비어 있는 스코어링 잡") {
+        val source = FakeFoodScoringSource(listOf(food(id = 800L, koreanName = "라면")))
+        val counter = AtomicInteger()
+        val callers = listOf(
+            CountingJsonCaller(LlmModelId.OPENAI, EMPTY_RESULTS_JSON, counter),
+            CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
+            CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
+        )
+        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(), chunkSize = 10)
+
+        `when`("잡을 실행하면") {
+            then("IllegalStateException 을 던져 즉시 중단한다") {
+                shouldThrow<IllegalStateException> {
+                    job.run()
+                }
+            }
+
+            then("LLM 을 한 번도 호출하지 않는다") {
+                counter.get() shouldBe 0
             }
         }
     }

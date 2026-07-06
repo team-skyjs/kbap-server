@@ -20,6 +20,10 @@ class ScoringResponseParser {
         candidates: List<CandidateSubstance>,
     ): ModelScoring {
         val root = readRoot(content)
+        val resultsNode = root.get("results")
+        if (resultsNode == null || !resultsNode.isArray) {
+            throw ScoringResponseParseException("research.scoringResponse.results 가 없거나 배열이 아닙니다")
+        }
         val foodIdByName = foods.associate { it.koreanName to it.foodId }
         val candidateCodes = candidates.map { it.code }.toSet()
 
@@ -27,20 +31,25 @@ class ScoringResponseParser {
         val nameTranslations = mutableMapOf<Long, Map<LanguageCode, String>>()
         val descriptions = mutableMapOf<Long, LocalizedText>()
 
-        for (resultNode in root.path("results")) {
+        for (resultNode in resultsNode) {
             val foodId = foodIdByName[resultNode.path("food").asText(null)] ?: continue
 
-            val judgements = parseJudgements(resultNode.path("included"), candidateCodes)
+            val existing = included[foodId].orEmpty()
+            val judgements = parseJudgements(
+                resultNode.path("included"),
+                candidateCodes,
+                existing.map { it.code }.toMutableSet(),
+            )
             if (judgements.isNotEmpty()) {
-                included[foodId] = judgements
+                included[foodId] = existing + judgements
             }
 
             val translations = parseTranslations(resultNode.get("nameTranslations"))
-            if (translations.isNotEmpty()) {
+            if (translations.isNotEmpty() && foodId !in nameTranslations) {
                 nameTranslations[foodId] = translations
             }
 
-            parseDescription(resultNode.get("description"))?.let { descriptions[foodId] = it }
+            parseDescription(resultNode.get("description"))?.let { descriptions.putIfAbsent(foodId, it) }
         }
 
         return ModelScoring(
@@ -74,9 +83,12 @@ class ScoringResponseParser {
             .trim()
     }
 
-    private fun parseJudgements(includedNode: JsonNode, candidateCodes: Set<String>): List<SubstanceJudgement> {
+    private fun parseJudgements(
+        includedNode: JsonNode,
+        candidateCodes: Set<String>,
+        seenCodes: MutableSet<String>,
+    ): List<SubstanceJudgement> {
         val judgements = mutableListOf<SubstanceJudgement>()
-        val seenCodes = mutableSetOf<String>()
         for (itemNode in includedNode) {
             val code = itemNode.path("code").asText(null) ?: continue
             if (code !in candidateCodes || code in seenCodes) {

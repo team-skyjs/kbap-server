@@ -322,6 +322,62 @@ class ScoringResponseParserTest : BehaviorSpec({
         }
     }
 
+    given("results 키가 없는 유효 JSON 응답") {
+        val content = """{"error":"rate limited"}"""
+
+        `when`("파싱하면") {
+            then("ScoringResponseParseException 을 던진다") {
+                shouldThrow<ScoringResponseParseException> {
+                    parser.parse(content, foods, candidates)
+                }
+            }
+        }
+    }
+
+    given("results 가 배열이 아닌 응답") {
+        val content = """{"results":"oops"}"""
+
+        `when`("파싱하면") {
+            then("ScoringResponseParseException 을 던진다") {
+                shouldThrow<ScoringResponseParseException> {
+                    parser.parse(content, foods, candidates)
+                }
+            }
+        }
+    }
+
+    given("같은 음식이 두 results 항목으로 쪼개진 응답") {
+        val content = """
+            {"results":[
+              {"food":"김밥","included":[{"code":"EGG","score":2,"probability":90}],
+               "nameTranslations":{"en":"First"}},
+              {"food":"김밥","included":[
+                {"code":"MILK","score":1,"probability":50},
+                {"code":"EGG","score":0,"probability":10}
+              ],
+               "nameTranslations":{"en":"Second"}}
+            ]}
+        """.trimIndent()
+
+        `when`("파싱하면") {
+            val result = parser.parse(content, foods, candidates)
+
+            then("두 항목의 판단을 병합해 모두 담는다") {
+                result.included[1L]!!.map { it.code } shouldContainExactlyInAnyOrder listOf("EGG", "MILK")
+            }
+
+            then("항목 간 중복 코드는 첫 유효 판단을 유지한다") {
+                val egg = result.included[1L]!!.first { it.code == "EGG" }
+                egg.score shouldBe 2
+                egg.probability shouldBe 90
+            }
+
+            then("이름 번역은 첫 항목 값을 유지한다") {
+                result.nameTranslations[1L]!![LanguageCode.EN] shouldBe "First"
+            }
+        }
+    }
+
     given("빈 문자열 content") {
         `when`("파싱하면") {
             then("ScoringResponseParseException 을 던진다") {

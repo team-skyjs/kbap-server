@@ -32,6 +32,7 @@ class AvoidanceScoringJob(
 
     fun run(): List<FoodScoringResult> {
         val candidates = loadCandidates()
+        check(candidates.isNotEmpty()) { "scoring.candidates 는 비어있을 수 없습니다 — 회피성분 카탈로그(시드/활성 상태)를 확인하세요" }
         val results = mutableListOf<FoodScoringResult>()
         val seen = mutableSetOf<Long>()
         var page = 0
