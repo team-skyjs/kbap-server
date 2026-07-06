@@ -1,4 +1,6 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
+
+import com.meogo.core.research.parse.ModelScoring
 
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText

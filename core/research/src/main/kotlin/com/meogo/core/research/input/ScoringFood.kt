@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.input
 
 data class ScoringFood(
     val foodId: Long,

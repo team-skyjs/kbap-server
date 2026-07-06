@@ -2,9 +2,9 @@ package com.meogo.app.batch.scoring
 
 import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.FoodScoringSource
-import com.meogo.core.research.ConsensusEnsembleAggregator
-import com.meogo.core.research.ScoringPromptFactory
-import com.meogo.core.research.ScoringResponseParser
+import com.meogo.core.research.ensemble.ConsensusEnsembleAggregator
+import com.meogo.core.research.prompt.ScoringPromptFactory
+import com.meogo.core.research.parse.ScoringResponseParser
 import com.meogo.infra.llm.client.LlmFanoutClient
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

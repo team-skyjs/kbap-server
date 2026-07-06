@@ -1,8 +1,10 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
+
+import com.meogo.core.research.parse.ModelScoring
 
 class FoodContentSelector {
-    fun select(foodId: Long, orderedModelScorings: List<ModelScoring>): FoodContent {
-        val selected = orderedModelScorings.firstOrNull { hasText(foodId, it) }
+    fun select(foodId: Long, orderedModelScoring: List<ModelScoring>): FoodContent {
+        val selected = orderedModelScoring.firstOrNull { hasText(foodId, it) }
             ?: return FoodContent(nameTranslations = emptyMap(), description = null)
         return FoodContent(
             nameTranslations = selected.nameTranslations[foodId] ?: emptyMap(),

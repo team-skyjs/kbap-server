@@ -1,4 +1,7 @@
-package com.meogo.core.research
+package com.meogo.core.research.parse
+
+import com.meogo.core.research.input.CandidateSubstance
+import com.meogo.core.research.input.ScoringFood
 
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow

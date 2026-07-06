@@ -1,6 +1,8 @@
-package com.meogo.core.research
+package com.meogo.core.research.prompt
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.research.input.CandidateSubstance
+import com.meogo.core.research.input.ScoringFood
 
 class ScoringPromptFactory {
 

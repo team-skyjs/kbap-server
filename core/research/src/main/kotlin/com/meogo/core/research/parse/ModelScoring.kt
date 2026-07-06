@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.parse
 
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText

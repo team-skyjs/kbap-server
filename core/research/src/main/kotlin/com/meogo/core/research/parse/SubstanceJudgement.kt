@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.parse
 
 data class SubstanceJudgement(
     val code: String,

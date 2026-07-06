@@ -12,10 +12,10 @@ import com.meogo.core.food.FoodScoringSource
 import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
-import com.meogo.core.research.ConsensusEnsembleAggregator
-import com.meogo.core.research.FoodScoringStatus
-import com.meogo.core.research.ScoringPromptFactory
-import com.meogo.core.research.ScoringResponseParser
+import com.meogo.core.research.ensemble.ConsensusEnsembleAggregator
+import com.meogo.core.research.ensemble.FoodScoringStatus
+import com.meogo.core.research.prompt.ScoringPromptFactory
+import com.meogo.core.research.parse.ScoringResponseParser
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmChatRequest

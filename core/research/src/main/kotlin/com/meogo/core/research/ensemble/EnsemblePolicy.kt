@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
 
 data class EnsemblePolicy(
     val scoreWeight: Double = 0.6,

@@ -1,5 +1,8 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
 
+import com.meogo.core.research.input.CandidateSubstance
+import com.meogo.core.research.input.ScoringFood
+import com.meogo.core.research.parse.ModelScoring
 import kotlin.math.roundToInt
 
 class ConsensusEnsembleAggregator(

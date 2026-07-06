@@ -1,10 +1,12 @@
-package com.meogo.core.research
+package com.meogo.core.research.parse
 
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.research.input.CandidateSubstance
+import com.meogo.core.research.input.ScoringFood
 
 class ScoringResponseParser {
 

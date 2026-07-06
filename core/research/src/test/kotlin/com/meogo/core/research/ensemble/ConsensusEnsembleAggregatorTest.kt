@@ -1,4 +1,9 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
+
+import com.meogo.core.research.input.CandidateSubstance
+import com.meogo.core.research.input.ScoringFood
+import com.meogo.core.research.parse.ModelScoring
+import com.meogo.core.research.parse.SubstanceJudgement
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec

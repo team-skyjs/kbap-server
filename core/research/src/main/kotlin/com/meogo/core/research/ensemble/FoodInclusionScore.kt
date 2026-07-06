@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.ensemble
 
 data class FoodInclusionScore(
     val foodId: Long,

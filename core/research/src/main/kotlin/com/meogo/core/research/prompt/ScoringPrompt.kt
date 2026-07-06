@@ -1,4 +1,4 @@
-package com.meogo.core.research
+package com.meogo.core.research.prompt
 
 data class ScoringPrompt(
     val prompt: String,
