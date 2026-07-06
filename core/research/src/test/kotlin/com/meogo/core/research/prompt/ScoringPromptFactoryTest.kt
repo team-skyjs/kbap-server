@@ -81,6 +81,11 @@ class ScoringPromptFactoryTest : BehaviorSpec({
                 combined shouldContain "code fences"
             }
 
+            then("모든 음식 entry 필수(빈 included 허용) 커버리지 지시를 언급한다") {
+                combined shouldContain "one entry for EVERY food"
+                combined shouldContain "\"included\": []"
+            }
+
             then("음식 설명 생성(목표 200·최대 230자) 지시를 언급한다") {
                 combined shouldContain "200"
                 combined shouldContain "230"

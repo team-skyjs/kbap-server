@@ -30,9 +30,11 @@ class ScoringResponseParser {
         val included = mutableMapOf<Long, List<SubstanceJudgement>>()
         val nameTranslations = mutableMapOf<Long, Map<LanguageCode, String>>()
         val descriptions = mutableMapOf<Long, LocalizedText>()
+        val coveredFoodIds = mutableSetOf<Long>()
 
         for (resultNode in resultsNode) {
             val foodId = foodIdByName[resultNode.path("food").asText(null)] ?: continue
+            coveredFoodIds.add(foodId)
 
             val existing = included[foodId].orEmpty()
             val judgements = parseJudgements(
@@ -56,6 +58,7 @@ class ScoringResponseParser {
             included = included,
             nameTranslations = nameTranslations,
             descriptions = descriptions,
+            coveredFoodIds = coveredFoodIds,
         )
     }
 

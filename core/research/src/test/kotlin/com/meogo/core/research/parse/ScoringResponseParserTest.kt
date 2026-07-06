@@ -322,6 +322,44 @@ class ScoringResponseParserTest : BehaviorSpec({
         }
     }
 
+    given("청크 음식 중 일부만 결과에 등장하는 응답") {
+        val content = """
+            {"results":[
+              {"food":"김밥","included":[{"code":"EGG","score":2,"probability":90}]}
+            ]}
+        """.trimIndent()
+
+        `when`("파싱하면") {
+            val result = parser.parse(content, foods, candidates)
+
+            then("결과에 등장한 음식만 coveredFoodIds 에 담긴다") {
+                result.coveredFoodIds shouldBe setOf(1L)
+            }
+        }
+    }
+
+    given("included 가 빈 배열인 음식 항목이 담긴 응답") {
+        val content = """
+            {"results":[
+              {"food":"김밥","included":[]},
+              {"food":"불고기","included":[{"code":"WHEAT","score":1,"probability":40}]}
+            ]}
+        """.trimIndent()
+
+        `when`("파싱하면") {
+            val result = parser.parse(content, foods, candidates)
+
+            then("빈 included 음식도 coveredFoodIds 에 집계된다") {
+                result.coveredFoodIds shouldBe setOf(1L, 2L)
+            }
+
+            then("빈 included 음식은 included 맵에는 담기지 않는다") {
+                result.included shouldNotContainKey 1L
+                result.included shouldContainKey 2L
+            }
+        }
+    }
+
     given("results 키가 없는 유효 JSON 응답") {
         val content = """{"error":"rate limited"}"""
 

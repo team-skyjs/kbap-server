@@ -33,6 +33,9 @@ class ScoringPromptFactory {
             appendLine("STRICT CODE RULE: every \"code\" value MUST be copied verbatim from the candidate list. NEVER invent, translate, or modify a code. Any code not in the candidate list will be discarded.")
             // [음식 강제] "food" 값은 반드시 주어진 음식 목록의 한국어명을 그대로 복사한다. 목록에 없는 음식은 넣지 않는다.
             appendLine("STRICT FOOD RULE: every \"food\" value MUST be copied verbatim from the given food list (Korean name). Do not add foods that are not in the list.")
+            // [커버리지 강제] results 에는 주어진 모든 음식의 entry 가 정확히 하나씩 있어야 한다.
+            // 포함 성분이 없는 음식도 entry 를 생략하지 말고 "included": [] 로 낸다.
+            appendLine("STRICT COVERAGE RULE: \"results\" MUST contain exactly one entry for EVERY food in the given list. If a food has no included candidate substances, still emit its entry with \"included\": [].")
             // [출력 강제] 원시 JSON 만 출력한다 — 마크다운 코드펜스(```), 주석, 설명, 앞뒤 잡음 텍스트 금지.
             append("STRICT OUTPUT RULE: output raw JSON only. Do NOT wrap it in markdown code fences (```), and do NOT add comments, explanations, or any surrounding text.")
         }

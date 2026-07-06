@@ -77,7 +77,17 @@ class AvoidanceScoringJob(
             }
         }
 
-        val confirmed = fanoutResult.failures.isEmpty() && parsed.size == REQUIRED_MODEL_COUNT
+        val foodIds = scoringFoods.map { it.foodId }.toSet()
+        parsed.forEach { (modelId, scoring) ->
+            val missingFoodIds = foodIds - scoring.coveredFoodIds
+            if (missingFoodIds.isNotEmpty()) {
+                logger.warn("스코어링 응답 음식 커버리지 미달 modelId={} missingFoodIds={}", modelId, missingFoodIds)
+            }
+        }
+
+        val confirmed = fanoutResult.failures.isEmpty() &&
+            parsed.size == REQUIRED_MODEL_COUNT &&
+            parsed.all { it.second.coveredFoodIds.containsAll(foodIds) }
         if (!confirmed) {
             return scoringFoods.map { food ->
                 FoodScoringResult(

@@ -37,12 +37,13 @@ class AvoidanceScoringJobTest : BehaviorSpec({
 
     given("음식 23개가 대기 중이고 chunkSize 가 10 인 스코어링 잡") {
         val foods = (1..23).map { food(id = it.toLong(), koreanName = "음식$it") }
+        val allNames = (1..23).map { "음식$it" }.toTypedArray()
         val source = FakeFoodScoringSource(foods)
         val counter = AtomicInteger()
         val callers = listOf(
-            CountingJsonCaller(LlmModelId.OPENAI, EMPTY_RESULTS_JSON, counter),
-            CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
-            CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
+            CountingJsonCaller(LlmModelId.OPENAI, coveringJson(*allNames), counter),
+            CountingJsonCaller(LlmModelId.UPSTAGE, coveringJson(*allNames), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.GEMINI, coveringJson(*allNames), AtomicInteger()),
         )
         val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
@@ -243,6 +244,39 @@ class AvoidanceScoringJobTest : BehaviorSpec({
         }
     }
 
+    given("한 모델이 청크 음식 2개 중 1개만 응답하는(출력 잘림) 스코어링 잡") {
+        val chunk = listOf(food(id = 901L, koreanName = "김밥"), food(id = 902L, koreanName = "잔치국수"))
+        val source = FakeFoodScoringSource(chunk)
+        val callers = listOf(
+            CountingJsonCaller(LlmModelId.OPENAI, scoredJson("김밥"), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("김밥", "잔치국수"), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥", "잔치국수"), AtomicInteger()),
+        )
+        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
+        jobLogger.addAppender(appender)
+
+        `when`("잡을 실행하면") {
+            val results = job.run()
+
+            then("커버리지 미달로 청크의 모든 음식이 FAILED(미확정)로 처리된다") {
+                results shouldHaveSize 2
+                results.map { it.status }.toSet() shouldBe setOf(FoodScoringStatus.FAILED)
+            }
+
+            then("응답된 음식조차 SCORED 로 확정되지 않는다") {
+                results.none { it.status == FoodScoringStatus.SCORED } shouldBe true
+                results.forEach { it.scores.shouldBeEmpty() }
+            }
+
+            then("커버리지 미달 모델(OPENAI) 정보가 로그에 남는다") {
+                appender.list.map { it.formattedMessage }.any { it.contains("OPENAI") } shouldBe true
+            }
+        }
+    }
+
     given("회피성분 카탈로그가 비어 있는 스코어링 잡") {
         val source = FakeFoodScoringSource(listOf(food(id = 800L, koreanName = "라면")))
         val counter = AtomicInteger()
@@ -290,6 +324,11 @@ class AvoidanceScoringJobTest : BehaviorSpec({
 })
 
 private const val EMPTY_RESULTS_JSON = """{"results":[]}"""
+
+private fun coveringJson(vararg koreanNames: String): String {
+    val results = koreanNames.joinToString(",") { name -> """{"food":"$name","included":[]}""" }
+    return """{"results":[$results]}"""
+}
 
 private fun scoredJson(vararg koreanNames: String): String {
     val results = koreanNames.joinToString(",") { name ->
