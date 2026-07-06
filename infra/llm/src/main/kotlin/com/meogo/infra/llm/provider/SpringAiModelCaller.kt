@@ -1,4 +1,4 @@
-package com.meogo.infra.llm.springai
+package com.meogo.infra.llm.provider
 
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmChatRequest

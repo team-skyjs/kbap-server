@@ -4,7 +4,7 @@ import com.google.genai.Client
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmModelId
-import com.meogo.infra.llm.springai.SpringAiModelCaller
+import com.meogo.infra.llm.provider.SpringAiModelCaller
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions
