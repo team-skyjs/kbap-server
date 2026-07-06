@@ -2,3 +2,7 @@
 plugins {
     id("meogo.domain-conventions")
 }
+
+dependencies {
+    "implementation"(libs.jackson.module.kotlin)
+}

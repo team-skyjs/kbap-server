@@ -1,5 +1,6 @@
 package com.meogo.infra.persistence.food
 
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -13,4 +14,17 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         """,
     )
     fun findByKoreanNameWithAvoidanceSubstances(@Param("koreanName") koreanName: String): FoodJpaEntity?
+
+    @Query("select f.id from FoodJpaEntity f order by f.id asc")
+    fun findFoodIds(pageable: Pageable): List<Long>
+
+    @Query(
+        """
+        select distinct f from FoodJpaEntity f
+        left join fetch f.foodAvoidanceSubstances
+        where f.id in :ids
+        order by f.id asc
+        """,
+    )
+    fun findByIdInWithAvoidanceSubstances(@Param("ids") ids: List<Long>): List<FoodJpaEntity>
 }
