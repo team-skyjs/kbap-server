@@ -1,9 +1,11 @@
 package com.meogo.infra.llm.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.time.Duration
 
 @ConfigurationProperties("meogo.llm")
 data class LlmModelProperties(
+    val callTimeout: Duration = Duration.ofSeconds(30),
     val usdToKrw: Double = 1500.0,
     val openai: ModelProps = ModelProps(),
     val upstage: ModelProps = ModelProps(),

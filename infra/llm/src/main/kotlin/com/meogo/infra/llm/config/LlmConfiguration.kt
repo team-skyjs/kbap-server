@@ -53,8 +53,11 @@ class LlmConfiguration {
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
 
     @Bean
-    fun llmFanoutClient(callers: List<LlmModelCaller>, executor: Executor): LlmFanoutClient =
-        LlmFanoutClient(callers, executor)
+    fun llmFanoutClient(
+        callers: List<LlmModelCaller>,
+        executor: Executor,
+        properties: LlmModelProperties,
+    ): LlmFanoutClient = LlmFanoutClient(callers, executor, properties.callTimeout)
 
     private fun openAiChatModel(modelId: LlmModelId, props: LlmModelProperties.ModelProps, baseUrl: String): ChatModel {
         val optionsBuilder = OpenAiChatOptions.builder()

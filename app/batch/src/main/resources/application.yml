@@ -16,6 +16,11 @@ spring:
       audio:
         transcription: none
         speech: none
+# LLM 원문 응답(JSON 본문)을 로그로 보려면 DEBUG. 본문이 청크당 수만 자라 기본은 INFO(토큰/비용만).
+# 실행 인자로도 토글 가능: --logging.level.com.meogo.infra.llm.provider=DEBUG
+logging:
+  level:
+    com.meogo.infra.llm.provider: DEBUG
 # KB-53 기피성분 스코어링 잡 설정.
 # 아래 값은 "기본값"이다 — 실행 시점 잡 파라미터로 덮어쓸 수 있어 재배포 없이 조정한다
 # (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
@@ -38,6 +43,9 @@ meogo:
     # 단가는 "1백만 토큰당 USD"이며 아래 model 의 벤더 공시가(2026-07 조회)에 맞춰 둔다.
     # 모델을 바꾸면 단가도 함께 갱신한다. 환율은 1 USD = 1,500 KRW 고정 추정.
     usd-to-krw: 1500
+    # 모델 1회 호출 타임아웃. 스코어링은 번역 9언어+설명 생성으로 출력이 커서(모델당 5천~1만 토큰)
+    # 응답에 1분 안팎이 걸린다 — 기본 30s 로는 타임아웃 후 과금만 되고 결과가 버려지므로 넉넉히 준다.
+    call-timeout: 180s
     openai:
       model: gpt-5.4-nano
       api-key: ${OPENAI_API_KEY:}

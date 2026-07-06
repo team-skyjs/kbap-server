@@ -22,7 +22,9 @@ class SpringAiModelCaller(
     override fun call(request: LlmChatRequest): String {
         val response = chatModel.call(promptOf(request))
         logTokenUsage(response)
-        return response.results.firstOrNull()?.output?.text.orEmpty()
+        val content = response.results.firstOrNull()?.output?.text.orEmpty()
+        logger.debug("LLM 응답 본문 model={} content={}", modelId, content)
+        return content
     }
 
     private fun logTokenUsage(response: ChatResponse) {
