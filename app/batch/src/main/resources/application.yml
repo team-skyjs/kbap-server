@@ -16,4 +16,16 @@ spring:
       audio:
         transcription: none
         speech: none
+# KB-53 기피성분 스코어링 잡 설정.
+meogo:
+  scoring:
+    # 조사 대기열을 한 번에 몇 개(청크) 단위로 LLM fan-out 스코어링할지. 기본 10.
+    chunk-size: 10
+    runner:
+      # 부팅 시 스코어링 잡을 실제로 실행할지. 기본 off — 실 실행 시에만 true 로 켜고
+      # meogo.llm.<openai|upstage|gemini>.enabled=true + api-key 를 함께 준다(아래 안내).
+      enabled: false
+  # LLM 스코어링을 실제로 활성화하려면 meogo.llm.<openai|upstage|gemini>.enabled=true 와 api-key 를 준다.
+  # 키/활성 플래그는 루트 .env 로 주입한다(위 spring.config.import). 키가 없으면 caller 빈이 비어
+  # fan-out 이 전부 실패(FAILED)로 처리되므로 부팅은 안전하다.
 # datasource·메시징 등 실제 배치 잡 설정은 잡 도입 시 프로필별로 추가한다.
