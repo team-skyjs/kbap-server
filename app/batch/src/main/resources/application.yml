@@ -28,4 +28,27 @@ meogo:
   # LLM 스코어링을 실제로 활성화하려면 meogo.llm.<openai|upstage|gemini>.enabled=true 와 api-key 를 준다.
   # 키/활성 플래그는 루트 .env 로 주입한다(위 spring.config.import). 키가 없으면 caller 빈이 비어
   # fan-out 이 전부 실패(FAILED)로 처리되므로 부팅은 안전하다.
-# datasource·메시징 등 실제 배치 잡 설정은 잡 도입 시 프로필별로 추가한다.
+  llm:
+    # LLM 비용 추적 — 호출마다 토큰 사용량과 함께 USD/KRW 비용을 로그로 남긴다.
+    # 단가는 "1백만 토큰당 USD"이며 아래 model 의 벤더 공시가(2026-07 조회)에 맞춰 둔다.
+    # 모델을 바꾸면 단가도 함께 갱신한다. 환율은 1 USD = 1,500 KRW 고정 추정.
+    usd-to-krw: 1500
+    openai:
+      model: gpt-5.4-nano
+      pricing:
+        input-usd-per-million-tokens: 0.20
+        output-usd-per-million-tokens: 1.25
+    upstage:
+      model: solar-mini
+      pricing:
+        # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
+        input-usd-per-million-tokens: 0.15
+        output-usd-per-million-tokens: 0.15
+    gemini:
+      model: gemini-2.5-flash-lite
+      pricing:
+        input-usd-per-million-tokens: 0.10
+        output-usd-per-million-tokens: 0.40
+# datasource/mongodb 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
+# 배치는 :infra:persistence 를 조립해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
+# 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.
