@@ -4,12 +4,15 @@ import com.meogo.infra.llm.model.LlmChatRequest
 import com.meogo.infra.llm.model.LlmChatResult
 import com.meogo.infra.llm.model.LlmFanoutResult
 import com.meogo.infra.llm.model.LlmModelFailure
+import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
 
 class LlmFanoutClient(
     private val callers: List<LlmModelCaller>,
     private val executor: Executor,
+    private val callTimeout: Duration = Duration.ofSeconds(30),
 ) {
     fun generate(request: LlmChatRequest): LlmFanoutResult {
         val outcomes = callers
@@ -27,6 +30,7 @@ class LlmFanoutClient(
     ): CompletableFuture<CallOutcome> =
         CompletableFuture
             .supplyAsync({ caller.call(request) }, executor)
+            .orTimeout(callTimeout.toMillis(), TimeUnit.MILLISECONDS)
             .handle { content, throwable ->
                 if (throwable == null) {
                     CallOutcome.Success(LlmChatResult(caller.modelId, content))

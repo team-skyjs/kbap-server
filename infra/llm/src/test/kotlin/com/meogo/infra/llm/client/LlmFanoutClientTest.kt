@@ -7,8 +7,10 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -131,6 +133,34 @@ class LlmFanoutClientTest : BehaviorSpec({
         }
     }
 
+    given("한 caller 는 호출 타임아웃보다 오래 걸리고 나머지 2개는 즉시 응답하는 구성") {
+        val callers = listOf(
+            SuccessfulCaller(LlmModelId.OPENAI, "openai-content"),
+            HangingCaller(LlmModelId.UPSTAGE, sleepMillis = 2000),
+            SuccessfulCaller(LlmModelId.GEMINI, "gemini-content"),
+        )
+        val client = LlmFanoutClient(callers, executor, callTimeout = Duration.ofMillis(200))
+
+        `when`("generate 를 호출하면") {
+            val startedAt = System.nanoTime()
+            val result = client.generate(LlmChatRequest(prompt = "안녕"))
+            val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
+
+            then("hang 된 모델을 기다리지 않고 타임아웃 안에 이미 끝난 성공분을 반환한다") {
+                elapsedMillis shouldBeLessThan 2000
+                result.successes.map { it.modelId } shouldContainExactlyInAnyOrder listOf(
+                    LlmModelId.OPENAI,
+                    LlmModelId.GEMINI,
+                )
+            }
+
+            then("타임아웃된 UPSTAGE 는 failures 로 분리된다") {
+                result.failures shouldHaveSize 1
+                result.failures.single().modelId shouldBe LlmModelId.UPSTAGE
+            }
+        }
+    }
+
     given("caller 가 하나도 없는 빈 리스트 구성") {
         val client = LlmFanoutClient(emptyList(), executor)
 
@@ -158,6 +188,16 @@ private class FailingCaller(
     private val failureMessage: String,
 ) : LlmModelCaller {
     override fun call(request: LlmChatRequest): String = throw RuntimeException(failureMessage)
+}
+
+private class HangingCaller(
+    override val modelId: LlmModelId,
+    private val sleepMillis: Long,
+) : LlmModelCaller {
+    override fun call(request: LlmChatRequest): String {
+        Thread.sleep(sleepMillis)
+        return "should-have-timed-out"
+    }
 }
 
 private class ConcurrencyProbingCaller(
