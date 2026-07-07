@@ -153,6 +153,36 @@ class FoodContentSelectorTest : BehaviorSpec({
         }
     }
 
+    given("세 모델 중 한 소스만 이름 번역을 보유하고 어느 모델도 설명을 제공하지 않음(US2 역할 분리)") {
+        val models = listOf(
+            ModelScoring(),
+            ModelScoring(
+                nameTranslations = mapOf(
+                    foodId to mapOf(
+                        LanguageCode.EN to "Fried rice",
+                        LanguageCode.JA to "チャーハン",
+                    ),
+                ),
+            ),
+            ModelScoring(),
+        )
+
+        `when`("선택하면") {
+            val content = selector.select(foodId, models)
+
+            then("단일 소스의 이름 번역을 그대로 채택한다") {
+                content.nameTranslations shouldBe mapOf(
+                    LanguageCode.EN to "Fried rice",
+                    LanguageCode.JA to "チャーハン",
+                )
+            }
+
+            then("설명은 null 로 안전하게 산출된다") {
+                content.description.shouldBeNull()
+            }
+        }
+    }
+
     given("동일 입력") {
         val models = listOf(
             ModelScoring(
