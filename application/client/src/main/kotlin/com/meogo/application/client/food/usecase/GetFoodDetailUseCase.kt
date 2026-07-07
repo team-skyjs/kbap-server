@@ -22,7 +22,7 @@ class GetFoodDetailUseCase(
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
         val lang = languageResolver.resolve(input.lang)
-        val food = foodRepository.findByKoreanName(input.menuName.trim())
+        val food = foodRepository.findById(input.foodId)
             ?: throw FoodException(FoodErrorCode.NOT_FOUND)
 
         val orderedSubstances = food.avoidanceSubstancesByProbability()

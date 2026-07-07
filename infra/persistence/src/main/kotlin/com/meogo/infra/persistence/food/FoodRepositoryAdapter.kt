@@ -9,8 +9,8 @@ import org.springframework.stereotype.Repository
 class FoodRepositoryAdapter(
     private val foodJpaRepository: FoodJpaRepository,
 ) : FoodRepository {
-    override fun findByKoreanName(name: String): Food? =
-        foodJpaRepository.findByKoreanNameWithAvoidanceSubstances(name.trim())?.toDomain()
+    override fun findById(id: Long): Food? =
+        foodJpaRepository.findByIdInWithAvoidanceSubstances(listOf(id)).firstOrNull()?.toDomain()
 
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> {
         val ids = foodJpaRepository.findMenuPageIds(cursor, PageRequest.of(0, size))

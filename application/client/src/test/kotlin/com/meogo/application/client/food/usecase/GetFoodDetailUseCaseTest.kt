@@ -69,7 +69,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.name shouldBe "Doenjang Stew"
                 result.imageRef shouldBe "doenjang.png"
@@ -86,7 +86,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "ko"))
 
                 result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("대두", "밀")
@@ -99,7 +99,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "ko"))
 
                 avoidanceRepository.requestedCodes shouldContainExactlyInAnyOrder
                     listOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.WHEAT)
@@ -112,7 +112,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val wheatNoEn = substance(AvoidanceSubstanceCode.WHEAT, "밀")
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheatNoEn))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "밀")
             }
@@ -133,7 +133,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val foodRepository = FakeFoodRepository(food = plainRice)
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("흰밥", "ko"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(2, "ko"))
 
                 result.avoidanceSubstances shouldBe emptyList()
                 result.spiciness shouldBe 0
@@ -147,19 +147,19 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
                 shouldThrow<LanguageException> {
-                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "xx"))
+                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "xx"))
                 }
             }
         }
 
-        `when`("수록되지 않은 메뉴명이면") {
-            then("FoodException(\"해당 음식 정보 없음\") 을 던진다") {
+        `when`("미존재 foodId 이면") {
+            then("FoodException(\"해당 음식 정보를 찾을 수 없습니다\") 을 던진다") {
                 val foodRepository = FakeFoodRepository(food = null)
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
 
                 shouldThrow<FoodException> {
-                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("없는메뉴", "en"))
-                }.message shouldBe "해당 음식 정보 없음"
+                    useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(999, "en"))
+                }.message shouldBe "해당 음식 정보를 찾을 수 없습니다"
             }
         }
     }
@@ -174,7 +174,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.description shouldBe "A hearty Korean soybean paste stew."
             }
@@ -190,7 +190,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "ko"))
 
                 result.name shouldBe "된장찌개"
                 result.description shouldBe koDescription
@@ -204,7 +204,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.description shouldBe koDescription
                 result.name shouldBe "Doenjang Stew"
@@ -218,7 +218,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances.size shouldBe 1
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean")
@@ -235,7 +235,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 )
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances shouldBe emptyList()
                 result.name shouldBe "Doenjang Stew"
@@ -264,7 +264,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 val foodRepository = FakeFoodRepository(food = threeSubstanceFood)
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
 
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "Wheat")
                 result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
@@ -282,7 +282,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                     foodRepository,
                     avoidanceRepository,
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                ).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.overallRiskStatus shouldBe RiskLevel.DANGER
             }
@@ -297,7 +297,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                     foodRepository,
                     avoidanceRepository,
                     avoidedCodes = setOf(AvoidanceSubstanceCode.MILK),
-                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                ).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.overallRiskStatus shouldBe RiskLevel.SAFE
             }
@@ -312,7 +312,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                     foodRepository,
                     avoidanceRepository,
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                ).getDetail(GetFoodDetailInput("된장찌개", "en"))
+                ).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Wheat")
                 result.overallRiskStatus shouldBe RiskLevel.SAFE
@@ -324,7 +324,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
 private class FakeFoodRepository(
     private val food: Food?,
 ) : FoodRepository {
-    override fun findByKoreanName(name: String): Food? = food
+    override fun findById(id: Long): Food? = food
 
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
 }

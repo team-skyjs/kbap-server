@@ -61,6 +61,17 @@ object FoodTestSeed {
         )
     }
 
+    const val DELETED_FOOD_ID = 4L
+
+    fun seedDeletedFood(dataSource: DataSource) {
+        execute(
+            dataSource,
+            listOf(
+                food(DELETED_FOOD_ID, "삭제된음식", null, "삭제된 음식 설명", 0, status = "DELETED"),
+            ),
+        )
+    }
+
     fun clear(dataSource: DataSource) = execute(dataSource, clearStatements())
 
     private fun execute(dataSource: DataSource, statements: List<String>) {
@@ -85,11 +96,12 @@ object FoodTestSeed {
         spiciness: Int,
         nameTranslations: Map<String, String> = emptyMap(),
         descriptionTranslations: Map<String, String> = emptyMap(),
+        status: String = "ACTIVE",
     ) =
         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, status, created_at, updated_at) " +
             "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, " +
             "'${jsonObject(nameTranslations)}', '${jsonObject(descriptionTranslations)}', " +
-            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            "'$status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
     private fun jsonObject(entries: Map<String, String>) =
         entries.entries.joinToString(separator = ",", prefix = "{", postfix = "}") { (key, value) ->

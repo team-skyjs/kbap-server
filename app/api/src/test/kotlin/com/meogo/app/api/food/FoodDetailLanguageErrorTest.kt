@@ -31,8 +31,7 @@ class FoodDetailLanguageErrorTest : BehaviorSpec() {
             `when`("lang=fr 로 조회하면") {
                 then("400 과 지원 언어 10종 전체를 포함한 실패 메시지를 반환한다") {
                     val supported = listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "된장찌개")
+                    mockMvc.get("/api/v1/foods/1") {
                         param("lang", "fr")
                     }.andExpect {
                         status { isBadRequest() }
@@ -46,8 +45,7 @@ class FoodDetailLanguageErrorTest : BehaviorSpec() {
 
             `when`("lang=xx 로 조회하면") {
                 then("400 과 실패 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "된장찌개")
+                    mockMvc.get("/api/v1/foods/1") {
                         param("lang", "xx")
                     }.andExpect {
                         status { isBadRequest() }
@@ -59,8 +57,7 @@ class FoodDetailLanguageErrorTest : BehaviorSpec() {
 
             `when`("lang=EN(대문자) 로 조회하면") {
                 then("400 과 실패 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "된장찌개")
+                    mockMvc.get("/api/v1/foods/1") {
                         param("lang", "EN")
                     }.andExpect {
                         status { isBadRequest() }
