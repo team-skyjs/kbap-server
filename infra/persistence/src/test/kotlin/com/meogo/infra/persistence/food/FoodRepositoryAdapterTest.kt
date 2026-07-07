@@ -17,6 +17,7 @@ import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
+import javax.sql.DataSource
 
 @SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
 @Import(MySqlContainerConfig::class)
@@ -32,7 +33,19 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
     @Autowired
     private lateinit var entityManagerFactory: EntityManagerFactory
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
+        fun clearFoods() {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM food_avoidance_substance")
+                    statement.execute("DELETE FROM food")
+                }
+            }
+        }
+
         fun saveFood(
             koreanName: String,
             imageRef: String? = null,
@@ -246,6 +259,47 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     shouldThrow<DataIntegrityViolationException> {
                         foodJpaRepository.saveAndFlush(food)
                     }
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 메뉴 목록 keyset 페이지네이션") {
+            `when`("커서 없이 첫 페이지(20개)를 조회하면") {
+                then("최신순(id 내림차순) 상위 20개를 반환한다") {
+                    clearFoods()
+                    val ids = (1..22).map { saveFood("목록정렬-메뉴$it") }
+
+                    val page = adapter.findMenuPage(null, 20)
+
+                    page.map { it.id } shouldBe ids.sortedDescending().take(20)
+                }
+            }
+
+            `when`("커서를 지정해 다음 페이지를 조회하면") {
+                then("id 가 커서보다 작은 항목만 최신순으로 반환한다") {
+                    clearFoods()
+                    val ids = (1..5).map { saveFood("커서경계-메뉴$it") }
+                    val cursor = ids.sorted()[2]
+
+                    val page = adapter.findMenuPage(cursor, 20)
+
+                    page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
+                }
+            }
+
+            `when`("소프트 삭제된 음식이 섞여 있으면") {
+                then("ACTIVE 필터로 목록에서 제외된다") {
+                    clearFoods()
+                    val first = saveFood("소프트삭제-메뉴1")
+                    val deleted = saveFood("소프트삭제-메뉴2")
+                    val last = saveFood("소프트삭제-메뉴3")
+                    val deletedEntity = foodJpaRepository.findById(deleted).get()
+                    deletedEntity.delete()
+                    foodJpaRepository.save(deletedEntity)
+
+                    val page = adapter.findMenuPage(null, 20)
+
+                    page.map { it.id } shouldBe listOf(last, first)
                 }
             }
         }

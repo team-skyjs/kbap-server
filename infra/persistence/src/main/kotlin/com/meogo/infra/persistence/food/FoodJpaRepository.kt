@@ -20,6 +20,25 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
 
     @Query(
         """
+        select f.id from FoodJpaEntity f
+        where (:cursor is null or f.id < :cursor)
+        order by f.id desc
+        """,
+    )
+    fun findMenuPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
+
+    @Query(
+        """
+        select distinct f from FoodJpaEntity f
+        left join fetch f.foodAvoidanceSubstances
+        where f.id in :ids
+        order by f.id desc
+        """,
+    )
+    fun findByIdInWithAvoidanceSubstancesDesc(@Param("ids") ids: List<Long>): List<FoodJpaEntity>
+
+    @Query(
+        """
         select distinct f from FoodJpaEntity f
         left join fetch f.foodAvoidanceSubstances
         where f.id in :ids
