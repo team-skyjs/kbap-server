@@ -13,3 +13,10 @@ spring:
       audio:
         transcription: none
         speech: none
+  # 승격 배치 e2e(@SpringBootTest)는 MySQL Testcontainers 에 붙는다. 배치엔 마이그레이션이 없으므로
+  # 스키마는 Hibernate 가 엔티티에서 생성한다(infra:persistence 테스트와 동일 전략, KB-46 D-3).
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      jakarta.persistence.schema-generation.database.action: create

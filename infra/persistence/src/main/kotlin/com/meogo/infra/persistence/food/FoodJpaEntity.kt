@@ -55,8 +55,26 @@ class FoodJpaEntity(
             avoidanceSubstances = foodAvoidanceSubstances.map { it.toDomain() },
         )
 
+    fun updateFrom(domain: Food) {
+        koreanName = domain.content.name.korean
+        description = domain.content.description.korean
+        imageRef = domain.imageRef
+        spiciness = domain.spiciness.value
+        nameTranslations = flatten(domain.content.name.translations)
+        descriptionTranslations = flatten(domain.content.description.translations)
+        foodAvoidanceSubstances.clear()
+        foodAvoidanceSubstances.addAll(domain.avoidanceSubstances.map { FoodAvoidanceSubstanceJpaEntity.from(it) })
+    }
+
     private fun resolve(raw: Map<String, String>): Map<LanguageCode, String> =
         raw.mapNotNull { (key, value) ->
             LanguageCode.entries.firstOrNull { it.code == key }?.let { it to value }
         }.toMap()
+
+    companion object {
+        fun from(domain: Food): FoodJpaEntity = FoodJpaEntity().apply { updateFrom(domain) }
+
+        private fun flatten(translations: Map<LanguageCode, String>): Map<String, String> =
+            translations.entries.associate { (lang, value) -> lang.code to value }
+    }
 }

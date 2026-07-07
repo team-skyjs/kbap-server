@@ -25,4 +25,12 @@ class FoodAvoidanceSubstanceJpaEntity(
             substanceCode = AvoidanceSubstanceCodeRef(substanceCode),
             inclusionProbability = inclusionPercent,
         )
+
+    companion object {
+        fun from(domain: FoodAvoidanceSubstance): FoodAvoidanceSubstanceJpaEntity =
+            FoodAvoidanceSubstanceJpaEntity(
+                substanceCode = domain.substanceCode.value,
+                inclusionPercent = domain.inclusionProbability,
+            )
+    }
 }

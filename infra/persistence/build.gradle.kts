@@ -15,6 +15,7 @@ dependencies {
     "implementation"(project(":core:scan"))
     "implementation"(project(":core:food"))
     "implementation"(project(":core:avoidance"))
+    "implementation"(project(":core:research"))
 
     "implementation"(libs.spring.boot.starter.data.jpa)
 

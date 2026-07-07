@@ -325,6 +325,8 @@ private class FakeFoodRepository(
     private val food: Food?,
 ) : FoodRepository {
     override fun findByKoreanName(name: String): Food? = food
+
+    override fun save(food: Food): Food = TODO()
 }
 
 private class FakeAvoidedSubstanceProvider(
