@@ -59,6 +59,7 @@ class GetFoodDetailUseCase(
 
         return GetFoodDetailResult(
             name = foodName,
+            koreanName = food.koreanName().takeIf { it != foodName },
             imageRef = food.imageRef,
             description = description,
             spiciness = food.spiciness.value,

@@ -67,6 +67,21 @@ class FoodTest : BehaviorSpec({
         }
     }
 
+    given("Food.koreanName — 언어 무관 한국어 원문") {
+        `when`("영어 번역이 있는 음식이어도") {
+            then("content 의 한국어 원문 이름을 반환한다") {
+                val food = create(
+                    content = FoodContent(
+                        name = LocalizedText(korean = "된장찌개", translations = mapOf(LanguageCode.EN to "Doenjang Stew")),
+                        description = LocalizedText(korean = "구수한 된장찌개"),
+                    ),
+                )
+
+                food.koreanName() shouldBe "된장찌개"
+            }
+        }
+    }
+
     given("Food.avoidanceSubstancesByProbability") {
         `when`("포함 성분이 포함 확률 내림차순이 아닌 순서로 담겨 있으면") {
             then("포함 확률 내림차순으로 정렬된 성분을 반환한다") {

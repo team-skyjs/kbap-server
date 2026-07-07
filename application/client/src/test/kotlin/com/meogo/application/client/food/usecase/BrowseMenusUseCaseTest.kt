@@ -224,6 +224,43 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
         }
     }
 
+    given("메뉴 목록 조회 — 언어 무관 한국어 메뉴명(koreanName) (상세와 동일 규칙)") {
+        `when`("지역화명이 한국어와 다르면(en 번역 보유)") {
+            then("항목 koreanName 에 한국어 원문을 담는다") {
+                val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
+
+                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                    .browse(BrowseMenusInput(cursor = null, lang = "en"))
+
+                result.items.single().name shouldBe "Kimchi Stew"
+                result.items.single().koreanName shouldBe "메뉴-30"
+            }
+        }
+
+        `when`("lang 미지정이면(지역화명이 곧 한국어)") {
+            then("항목 koreanName 은 null 이다(중복 미노출)") {
+                val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
+
+                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                    .browse(BrowseMenusInput(cursor = null, lang = null))
+
+                result.items.single().name shouldBe "메뉴-30"
+                result.items.single().koreanName shouldBe null
+            }
+        }
+
+        `when`("lang=en 이지만 해당 food 에 en 번역이 없어 한국어로 폴백되면") {
+            then("항목 koreanName 은 null 이다(중복 미노출)") {
+                val untranslated = richFood(31)
+
+                val result = browseUseCase(listOf(untranslated), emptySet(), emptyList())
+                    .browse(BrowseMenusInput(cursor = null, lang = "en"))
+
+                result.items.single().koreanName shouldBe null
+            }
+        }
+    }
+
     given("메뉴 목록 조회 — 항목 숫자 foodId 정합 (상세 조회 식별자)") {
         `when`("food.id 를 가진 항목을 조회하면") {
             then("응답 항목 foodId 가 food.id 와 순서대로 일치한다") {

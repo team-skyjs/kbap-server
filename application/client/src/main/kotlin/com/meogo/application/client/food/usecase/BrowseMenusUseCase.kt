@@ -36,9 +36,11 @@ class BrowseMenusUseCase(
                 .map { it.substanceCode }
                 .filter { it in catalogCodes }
                 .toSet()
+            val localizedName = food.displayName(lang)
             BrowseMenusResult.MenuSummaryView(
                 foodId = food.id!!,
-                name = food.displayName(lang),
+                name = localizedName,
+                koreanName = food.koreanName().takeIf { it != localizedName },
                 imageRef = food.imageRef,
                 spiciness = food.spiciness.value,
                 overallRiskStatus = food.overallRisk(avoidedCodes intersect resolvableAvoidedCodes),

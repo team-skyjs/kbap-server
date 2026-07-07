@@ -4,6 +4,7 @@ import com.meogo.core.kernel.risk.RiskLevel
 
 data class GetFoodDetailResult(
     val name: String,
+    val koreanName: String?,
     val imageRef: String?,
     val description: String,
     val spiciness: Int,

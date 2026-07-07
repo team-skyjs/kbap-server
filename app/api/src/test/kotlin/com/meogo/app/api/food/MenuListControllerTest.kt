@@ -149,6 +149,36 @@ class MenuListControllerTest : BehaviorSpec() {
             }
         }
 
+        given("메뉴 목록 조회 API — 언어 무관 한국어 메뉴명(koreanName)") {
+            `when`("lang=en 으로 조회하면(지역화명이 한국어와 다름)") {
+                then("항목 koreanName 에 한국어 원문을 담는다") {
+                    seedLocalizedMenu()
+
+                    mockMvc.get("/api/v1/foods") {
+                        param("lang", "en")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.items[0].koreanName") { value("김치찌개") }
+                    }
+                }
+            }
+
+            `when`("lang 미지정으로 조회하면(지역화명이 곧 한국어)") {
+                then("항목 koreanName 은 응답에 명시적 null 로 존재한다") {
+                    seedLocalizedMenu()
+
+                    val json = mockMvc.get("/api/v1/foods")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("name").asText() shouldBe "김치찌개"
+                    item.has("koreanName") shouldBe true
+                    item.get("koreanName").isNull shouldBe true
+                }
+            }
+        }
+
         given("메뉴 목록 조회 API — 경계·오류 (US3)") {
             `when`("결과가 0건인 커서(최소 id 이하)로 조회하면") {
                 then("200 과 함께 빈 배열·hasNext=false·nextCursor=null 을 BaseResponse 봉투로 반환한다") {

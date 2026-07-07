@@ -10,6 +10,7 @@ data class BrowseMenusResult(
     data class MenuSummaryView(
         val foodId: Long,
         val name: String,
+        val koreanName: String?,
         val imageRef: String?,
         val spiciness: Int,
         val overallRiskStatus: RiskLevel,
