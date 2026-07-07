@@ -16,6 +16,8 @@ data class LlmModelProperties(
         val apiKey: String? = null,
         val baseUrl: String? = null,
         val model: String? = null,
+        val maxOutputTokens: Int? = null,
+        val reasoningEffort: String? = null,
         val pricing: PricingProps = PricingProps(),
     )
 

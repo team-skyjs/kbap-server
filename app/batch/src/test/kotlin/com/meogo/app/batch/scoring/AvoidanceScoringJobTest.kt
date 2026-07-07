@@ -10,7 +10,6 @@ import com.meogo.core.food.Food
 import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodScoringSource
 import com.meogo.core.food.FoodSpiciness
-import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.research.ensemble.ConsensusEnsembleAggregator
 import com.meogo.core.research.ensemble.FoodScoringStatus
@@ -25,8 +24,8 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import org.slf4j.LoggerFactory
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -104,11 +103,6 @@ class AvoidanceScoringJobTest : BehaviorSpec({
 
             then("scores 가 카탈로그 후보 전부(3종)를 커버한다") {
                 results.single().scores shouldHaveSize 3
-            }
-
-            then("음식명 번역과 음식 설명이 채택된다") {
-                results.single().nameTranslations.isNotEmpty() shouldBe true
-                results.single().description.shouldNotBeNull()
             }
         }
     }
@@ -300,45 +294,69 @@ class AvoidanceScoringJobTest : BehaviorSpec({
         }
     }
 
-    given("음식 1개에 대해 3개 모델이 서로 다른 음식명 번역·설명을 반환하는 스코어링 잡") {
-        val source = FakeFoodScoringSource(listOf(food(id = 700L, koreanName = "칼국수")))
+    given("음식 1개(김밥) 요청을 modelId 별로 캡처하는 스코어링 잡") {
+        val source = FakeFoodScoringSource(listOf(food(id = 710L, koreanName = "김밥")))
+        val openai = CapturingJsonCaller(LlmModelId.OPENAI, scoredJson("김밥"))
+        val upstage = CapturingJsonCaller(LlmModelId.UPSTAGE, scoredJson("김밥"))
+        val gemini = CapturingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥"))
+        val job = job(
+            source,
+            LlmFanoutClient(listOf(openai, upstage, gemini), executor),
+            repositoryOf(egg(), milk(), wheat()),
+            chunkSize = 10,
+        )
+
+        `when`("잡을 실행하면") {
+            job.run()
+
+            then("세 모델 요청이 모두 동일한 스코어링 전용 프롬프트다") {
+                openai.captured() shouldBe gemini.captured()
+                upstage.captured() shouldBe gemini.captured()
+            }
+
+            then("어떤 모델 요청에도 이름 번역(고정 언어 순서) 지시가 없다") {
+                openai.captured() shouldNotContain "zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es"
+                gemini.captured() shouldNotContain "zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es"
+            }
+        }
+    }
+
+    given("음식 1개(된장국)에 대해 스코어링은 전량 취합되지만 이름 번역(t)이 전혀 없는 스코어링 잡") {
+        val source = FakeFoodScoringSource(listOf(food(id = 720L, koreanName = "된장국")))
         val callers = listOf(
-            CountingJsonCaller(LlmModelId.OPENAI, scoredJsonWithText("칼국수", "A-en", "A설명"), AtomicInteger()),
-            CountingJsonCaller(LlmModelId.UPSTAGE, scoredJsonWithText("칼국수", "B-en", "B설명"), AtomicInteger()),
-            CountingJsonCaller(LlmModelId.GEMINI, scoredJsonWithText("칼국수", "C-en", "C설명"), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.OPENAI, scoredJson("된장국"), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("된장국"), AtomicInteger()),
+            CountingJsonCaller(LlmModelId.GEMINI, scoredJson("된장국"), AtomicInteger()),
         )
         val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
 
-            then("우선순위 첫 모델(OPENAI)의 음식명 번역이 채택된다") {
-                results.single().nameTranslations[LanguageCode.EN] shouldBe "A-en"
+            then("이름 번역 누락이 확정을 막지 않아 SCORED 로 확정된다") {
+                results.single().status shouldBe FoodScoringStatus.SCORED
             }
 
-            then("우선순위 첫 모델(OPENAI)의 음식 설명이 채택된다") {
-                results.single().description.shouldNotBeNull().korean shouldBe "A설명"
+            then("이름 번역은 비어 있다") {
+                results.single().nameTranslations shouldBe emptyMap()
             }
         }
     }
+
 })
 
-private const val EMPTY_RESULTS_JSON = """{"results":[]}"""
+private const val EMPTY_RESULTS_JSON = """{"c":[],"r":[]}"""
 
 private fun coveringJson(vararg koreanNames: String): String {
-    val results = koreanNames.joinToString(",") { name -> """{"food":"$name","included":[]}""" }
-    return """{"results":[$results]}"""
+    val covered = koreanNames.indices.joinToString(",")
+    return """{"c":[$covered],"r":[]}"""
 }
 
 private fun scoredJson(vararg koreanNames: String): String {
-    val results = koreanNames.joinToString(",") { name ->
-        """{"food":"$name","included":[{"code":"EGG","score":2,"probability":90}],"nameTranslations":{"en":"$name-en"},"description":{"ko":"$name 설명","translations":{"en":"$name-desc-en"}}}"""
-    }
-    return """{"results":[$results]}"""
+    val covered = koreanNames.indices.joinToString(",")
+    val rows = koreanNames.indices.joinToString(",") { index -> "[$index,0,2,90]" }
+    return """{"c":[$covered],"r":[$rows]}"""
 }
-
-private fun scoredJsonWithText(koreanName: String, nameEn: String, descriptionKo: String): String =
-    """{"results":[{"food":"$koreanName","included":[{"code":"EGG","score":2,"probability":90}],"nameTranslations":{"en":"$nameEn"},"description":{"ko":"$descriptionKo","translations":{"en":"$nameEn-desc"}}}]}"""
 
 private fun food(id: Long, koreanName: String): Food =
     Food.reconstitute(
@@ -410,4 +428,23 @@ private class FailingCaller(
     private val failureMessage: String,
 ) : LlmModelCaller {
     override fun call(request: LlmChatRequest): String = throw RuntimeException(failureMessage)
+}
+
+private class CapturingJsonCaller(
+    override val modelId: LlmModelId,
+    private val json: String,
+) : LlmModelCaller {
+
+    @Volatile
+    private var lastRequest: LlmChatRequest? = null
+
+    override fun call(request: LlmChatRequest): String {
+        lastRequest = request
+        return json
+    }
+
+    fun captured(): String {
+        val request = lastRequest ?: return ""
+        return request.prompt + (request.system ?: "")
+    }
 }

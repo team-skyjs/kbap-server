@@ -59,15 +59,10 @@ class LlmConfiguration {
         properties: LlmModelProperties,
     ): LlmFanoutClient = LlmFanoutClient(callers, executor, properties.callTimeout)
 
-    private fun openAiChatModel(modelId: LlmModelId, props: LlmModelProperties.ModelProps, baseUrl: String): ChatModel {
-        val optionsBuilder = OpenAiChatOptions.builder()
-        optionsBuilder.apiKey(requireOpenAiApiKey(modelId, props.apiKey))
-        optionsBuilder.baseUrl(baseUrl)
-        props.model?.let { optionsBuilder.model(it) }
-        return OpenAiChatModel.builder()
-            .options(optionsBuilder.build())
+    private fun openAiChatModel(modelId: LlmModelId, props: LlmModelProperties.ModelProps, baseUrl: String): ChatModel =
+        OpenAiChatModel.builder()
+            .options(openAiChatOptions(modelId, props, baseUrl))
             .build()
-    }
 
     private fun pricingOf(props: LlmModelProperties.ModelProps, usdToKrw: Double): LlmPricing =
         LlmPricing(
@@ -80,17 +75,40 @@ class LlmConfiguration {
         val client = Client.builder()
             .apiKey(props.apiKey)
             .build()
-        val optionsBuilder = GoogleGenAiChatOptions.builder()
-        props.model?.let { optionsBuilder.model(it) }
         return GoogleGenAiChatModel.builder()
             .genAiClient(client)
-            .options(optionsBuilder.build())
+            .options(geminiChatOptions(props))
             .build()
     }
 
     companion object {
         internal const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
         private const val DEFAULT_UPSTAGE_BASE_URL = "https://api.upstage.ai/v1"
+
+        internal fun openAiChatOptions(
+            modelId: LlmModelId,
+            props: LlmModelProperties.ModelProps,
+            baseUrl: String,
+        ): OpenAiChatOptions {
+            val builder = OpenAiChatOptions.builder()
+            builder.apiKey(requireOpenAiApiKey(modelId, props.apiKey))
+            builder.baseUrl(baseUrl)
+            props.model?.let { builder.model(it) }
+            props.maxOutputTokens?.let {
+                if (modelId == LlmModelId.OPENAI) builder.maxCompletionTokens(it) else builder.maxTokens(it)
+            }
+            if (modelId == LlmModelId.OPENAI) {
+                props.reasoningEffort?.let { builder.reasoningEffort(it) }
+            }
+            return builder.build()
+        }
+
+        internal fun geminiChatOptions(props: LlmModelProperties.ModelProps): GoogleGenAiChatOptions {
+            val builder = GoogleGenAiChatOptions.builder()
+            props.model?.let { builder.model(it) }
+            props.maxOutputTokens?.let { builder.maxOutputTokens(it) }
+            return builder.build()
+        }
 
         internal fun resolveOpenAiBaseUrl(configured: String?): String = configured ?: DEFAULT_OPENAI_BASE_URL
 

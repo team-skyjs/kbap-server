@@ -14,6 +14,7 @@ import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class LlmFanoutClientTest : BehaviorSpec({
 
@@ -174,7 +175,77 @@ class LlmFanoutClientTest : BehaviorSpec({
             }
         }
     }
+
+    given("modelId 별로 다른 요청을 전달하는 per-model fan-out 구성") {
+        val openai = CapturingCaller(LlmModelId.OPENAI)
+        val upstage = CapturingCaller(LlmModelId.UPSTAGE)
+        val gemini = CapturingCaller(LlmModelId.GEMINI)
+        val client = LlmFanoutClient(listOf(openai, upstage, gemini), executor)
+
+        `when`("generate(requestFor) 를 modelId 기반 요청 함수로 호출하면") {
+            val result = client.generate { modelId -> LlmChatRequest(prompt = "prompt-${modelId.name}") }
+
+            then("각 caller 는 자신의 modelId 에 대응하는 요청을 정확히 1회 받는다") {
+                openai.callCount() shouldBe 1
+                upstage.callCount() shouldBe 1
+                gemini.callCount() shouldBe 1
+                openai.lastPrompt() shouldBe "prompt-OPENAI"
+                upstage.lastPrompt() shouldBe "prompt-UPSTAGE"
+                gemini.lastPrompt() shouldBe "prompt-GEMINI"
+            }
+
+            then("3개 모델 결과가 모두 successes 에 담기고 failures 는 비어 있다") {
+                result.successes.map { it.modelId } shouldContainExactlyInAnyOrder listOf(
+                    LlmModelId.OPENAI,
+                    LlmModelId.UPSTAGE,
+                    LlmModelId.GEMINI,
+                )
+                result.failures.shouldBeEmpty()
+            }
+        }
+    }
+
+    given("per-model 요청에서 UPSTAGE 만 실패하는 구성") {
+        val callers = listOf(
+            CapturingCaller(LlmModelId.OPENAI),
+            FailingCaller(LlmModelId.UPSTAGE, "upstage down"),
+            CapturingCaller(LlmModelId.GEMINI),
+        )
+        val client = LlmFanoutClient(callers, executor)
+
+        `when`("generate(requestFor) 를 호출하면") {
+            val result = client.generate { modelId -> LlmChatRequest(prompt = "p-${modelId.name}") }
+
+            then("부분 실패 수집(successes/failures) 의미가 generate(request) 와 동일하다") {
+                result.successes.map { it.modelId } shouldContainExactlyInAnyOrder listOf(
+                    LlmModelId.OPENAI,
+                    LlmModelId.GEMINI,
+                )
+                result.failures.single().modelId shouldBe LlmModelId.UPSTAGE
+                result.attemptedCount() shouldBe 3
+            }
+        }
+    }
 })
+
+private class CapturingCaller(
+    override val modelId: LlmModelId,
+) : LlmModelCaller {
+    private val count = AtomicInteger()
+
+    @Volatile
+    private var lastRequest: LlmChatRequest? = null
+
+    override fun call(request: LlmChatRequest): String {
+        count.incrementAndGet()
+        lastRequest = request
+        return "content-${modelId.name}"
+    }
+
+    fun callCount(): Int = count.get()
+
+    fun lastPrompt(): String? = lastRequest?.prompt
+}
 
 private class SuccessfulCaller(
     override val modelId: LlmModelId,

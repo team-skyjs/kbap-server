@@ -49,12 +49,20 @@ meogo:
     openai:
       model: gpt-5-nano
       api-key: ${OPENAI_API_KEY:}
+      # gpt-5-nano 는 추론 모델이라 max_tokens 미지원 → maxCompletionTokens 로 실린다(reasoning-effort=minimal 로 추론 비용 최소화).
+      # low 실측 시 빈 응답(추론만 태우고 판단 0)으로 오히려 악화돼 minimal 로 복원(2026-07-07 스모크).
+      reasoning-effort: minimal
+      # 스코어링 전용 응답(c/r) 상한. 청크 10개 판단 JSON 에 넉넉.
+      max-output-tokens: 2048
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.40
     upstage:
+      # solar-pro3 은 malformed JSON(닫는 } 누락) + 저품질 판단으로 롤백(2026-07-07 스모크). solar-mini 로 복원.
       model: solar-mini
       api-key: ${UPSTAGE_API_KEY:}
+      # 스코어링 전용 응답(c/r) 상한. OpenAI 호환 표준 maxTokens 로 실린다.
+      max-output-tokens: 2048
       pricing:
         # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
         input-usd-per-million-tokens: 0.15
@@ -62,6 +70,8 @@ meogo:
     gemini:
       model: gemini-2.5-flash-lite
       api-key: ${GOOGLE_API_KEY:}
+      # 스코어링(c/r) + 이름 번역(t, 9언어) 응답이라 상한을 2배로 산정(R4).
+      max-output-tokens: 4096
       pricing:
         input-usd-per-million-tokens: 0.10
         output-usd-per-million-tokens: 0.40

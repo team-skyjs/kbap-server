@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.research.input.CandidateSubstance
 import com.meogo.core.research.input.ScoringFood
 
@@ -12,52 +11,43 @@ class ScoringResponseParser {
 
     private val objectMapper = jacksonObjectMapper()
 
-    private val languageByCode = LanguageCode.entries.associateBy { it.code }
-
     fun parse(
         content: String,
         foods: List<ScoringFood>,
         candidates: List<CandidateSubstance>,
     ): ModelScoring {
         val root = readRoot(content)
-        val resultsNode = root.get("results")
-        if (resultsNode == null || !resultsNode.isArray) {
-            throw ScoringResponseParseException("research.scoringResponse.results 가 없거나 배열이 아닙니다")
+        val judgementsNode = root.get("r")
+        if (judgementsNode == null || !judgementsNode.isArray) {
+            throw ScoringResponseParseException("research.scoringResponse.r 가 없거나 배열이 아닙니다")
         }
-        val foodIdByName = foods.associate { it.koreanName to it.foodId }
-        val candidateCodes = candidates.map { it.code }.toSet()
 
-        val included = mutableMapOf<Long, List<SubstanceJudgement>>()
-        val nameTranslations = mutableMapOf<Long, Map<LanguageCode, String>>()
-        val descriptions = mutableMapOf<Long, LocalizedText>()
+        val included = mutableMapOf<Long, MutableList<SubstanceJudgement>>()
         val coveredFoodIds = mutableSetOf<Long>()
+        val acceptedPairs = mutableSetOf<Long>()
 
-        for (resultNode in resultsNode) {
-            val foodId = foodIdByName[resultNode.path("food").asText(null)] ?: continue
-            coveredFoodIds.add(foodId)
-
-            val existing = included[foodId].orEmpty()
-            val judgements = parseJudgements(
-                resultNode.path("included"),
-                candidateCodes,
-                existing.map { it.code }.toMutableSet(),
-            )
-            if (judgements.isNotEmpty()) {
-                included[foodId] = existing + judgements
+        for (itemNode in judgementsNode) {
+            val values = readIntArray(itemNode, JUDGEMENT_ARITY) ?: continue
+            val (foodIndex, substanceIndex, score, probability) = values
+            val food = foods.getOrNull(foodIndex) ?: continue
+            val candidate = candidates.getOrNull(substanceIndex) ?: continue
+            if (score !in 0..2 || probability !in 1..100) {
+                continue
             }
-
-            val translations = parseTranslations(resultNode.get("nameTranslations"))
-            if (translations.isNotEmpty() && foodId !in nameTranslations) {
-                nameTranslations[foodId] = translations
+            val pairKey = foodIndex.toLong() * candidates.size + substanceIndex
+            if (!acceptedPairs.add(pairKey)) {
+                continue
             }
-
-            parseDescription(resultNode.get("description"))?.let { descriptions.putIfAbsent(foodId, it) }
+            coveredFoodIds.add(food.foodId)
+            included.getOrPut(food.foodId) { mutableListOf() }
+                .add(SubstanceJudgement(code = candidate.code, score = score, probability = probability))
         }
+
+        coveredFoodIds += readAttestedFoodIds(root.get("c"), foods)
 
         return ModelScoring(
             included = included,
-            nameTranslations = nameTranslations,
-            descriptions = descriptions,
+            nameTranslations = readNameTranslations(root.get("t"), foods),
             coveredFoodIds = coveredFoodIds,
         )
     }
@@ -86,64 +76,80 @@ class ScoringResponseParser {
             .trim()
     }
 
-    private fun parseJudgements(
-        includedNode: JsonNode,
-        candidateCodes: Set<String>,
-        seenCodes: MutableSet<String>,
-    ): List<SubstanceJudgement> {
-        val judgements = mutableListOf<SubstanceJudgement>()
-        for (itemNode in includedNode) {
-            val code = itemNode.path("code").asText(null) ?: continue
-            if (code !in candidateCodes || code in seenCodes) {
-                continue
-            }
-            val scoreNode = itemNode.get("score")
-            val probabilityNode = itemNode.get("probability")
-            if (scoreNode == null || !scoreNode.isIntegralNumber || probabilityNode == null || !probabilityNode.isIntegralNumber) {
-                continue
-            }
-            val score = scoreNode.intValue()
-            val probability = probabilityNode.intValue()
-            if (score !in 0..2 || probability !in 1..100) {
-                continue
-            }
-            judgements.add(SubstanceJudgement(code = code, score = score, probability = probability))
-            seenCodes.add(code)
+    private fun readIntArray(node: JsonNode, arity: Int): List<Int>? {
+        if (!node.isArray || node.size() != arity) {
+            return null
         }
-        return judgements
+        val values = ArrayList<Int>(arity)
+        for (element in node) {
+            if (!element.isIntegralNumber) {
+                return null
+            }
+            values.add(element.intValue())
+        }
+        return values
     }
 
-    private fun parseTranslations(translationsNode: JsonNode?): Map<LanguageCode, String> {
-        if (translationsNode == null || !translationsNode.isObject) {
-            return emptyMap()
+    private fun readAttestedFoodIds(attestNode: JsonNode?, foods: List<ScoringFood>): Set<Long> {
+        if (attestNode == null || !attestNode.isArray) {
+            return emptySet()
         }
-        val translations = mutableMapOf<LanguageCode, String>()
-        for ((key, valueNode) in translationsNode.properties()) {
-            val language = languageByCode[key] ?: continue
-            if (language == LanguageCode.KO) {
+        val attested = mutableSetOf<Long>()
+        for (element in attestNode) {
+            if (!element.isIntegralNumber) {
                 continue
             }
-            val value = valueNode.asText(null)?.takeIf { it.isNotBlank() } ?: continue
-            translations[language] = truncate(value)
+            foods.getOrNull(element.intValue())?.let { attested.add(it.foodId) }
+        }
+        return attested
+    }
+
+    private fun readNameTranslations(
+        translationsNode: JsonNode?,
+        foods: List<ScoringFood>,
+    ): Map<Long, Map<LanguageCode, String>> {
+        if (translationsNode == null || !translationsNode.isArray) {
+            return emptyMap()
+        }
+        val nameTranslations = mutableMapOf<Long, Map<LanguageCode, String>>()
+        val claimedFoodIndices = mutableSetOf<Int>()
+        for (itemNode in translationsNode) {
+            if (!itemNode.isArray || itemNode.size() < 2) {
+                continue
+            }
+            val foodIndexNode = itemNode.get(0)
+            if (!foodIndexNode.isIntegralNumber) {
+                continue
+            }
+            val foodIndex = foodIndexNode.intValue()
+            val food = foods.getOrNull(foodIndex) ?: continue
+            if (!claimedFoodIndices.add(foodIndex)) {
+                continue
+            }
+            val valuesNode = itemNode.get(1)
+            if (!valuesNode.isArray) {
+                continue
+            }
+            val translations = readTranslationValues(valuesNode)
+            if (translations.isNotEmpty()) {
+                nameTranslations[food.foodId] = translations
+            }
+        }
+        return nameTranslations
+    }
+
+    private fun readTranslationValues(valuesNode: JsonNode): Map<LanguageCode, String> {
+        val translations = mutableMapOf<LanguageCode, String>()
+        val limit = minOf(valuesNode.size(), TRANSLATION_LANGUAGES.size)
+        for (position in 0 until limit) {
+            val value = valuesNode.get(position).asText(null)?.takeIf { it.isNotBlank() } ?: continue
+            translations[TRANSLATION_LANGUAGES[position]] = value
         }
         return translations
     }
 
-    private fun parseDescription(descriptionNode: JsonNode?): LocalizedText? {
-        if (descriptionNode == null || !descriptionNode.isObject) {
-            return null
-        }
-        val korean = descriptionNode.path("ko").asText(null)?.takeIf { it.isNotBlank() } ?: return null
-        return LocalizedText(
-            korean = truncate(korean),
-            translations = parseTranslations(descriptionNode.get("translations")),
-        )
-    }
-
-    private fun truncate(value: String): String =
-        if (value.length > MAX_LENGTH) value.take(MAX_LENGTH) else value
-
     companion object {
-        private const val MAX_LENGTH = 230
+        private const val JUDGEMENT_ARITY = 4
+        private val TRANSLATION_LANGUAGES = LanguageCode.entries.filter { it != LanguageCode.KO }
     }
 }
