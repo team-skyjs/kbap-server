@@ -5,6 +5,7 @@ import com.meogo.application.client.food.usecase.GetFoodDetailUseCase
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -15,12 +16,10 @@ class FoodDetailController(
     private val getFoodDetailUseCase: GetFoodDetailUseCase,
 ) : FoodDetailApi {
     override fun detail(
-        @RequestParam menuName: String,
+        @PathVariable foodId: Long,
         @RequestParam(required = false) lang: String?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
-        require(menuName.isNotBlank()) { "menuName은 필수입니다" }
-
-        val result = getFoodDetailUseCase.getDetail(GetFoodDetailInput(menuName = menuName, lang = lang))
+        val result = getFoodDetailUseCase.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang))
         return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result)))
     }
 }

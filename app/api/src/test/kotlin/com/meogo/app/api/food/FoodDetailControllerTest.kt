@@ -27,10 +27,9 @@ class FoodDetailControllerTest : BehaviorSpec() {
         beforeTest { FoodTestSeed.seedDoenjangStew(dataSource) }
 
         given("음식 상세 조회 API") {
-            `when`("lang=en 으로 수록된 메뉴를 조회하면") {
+            `when`("lang=en 으로 수록된 foodId 를 조회하면") {
                 then("200 과 동결 계약(ingredients[].{name,iconRef,inclusionPercent,riskStatus})으로 포함 기피 성분을 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "된장찌개")
+                    mockMvc.get("/api/v1/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -55,24 +54,11 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("메뉴명 앞뒤에 공백이 있으면") {
-                then("trim 후 매칭해 200 을 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "  된장찌개  ")
-                        param("lang", "en")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.name") { value("Doenjang Stew") }
-                    }
-                }
-            }
-
-            `when`("포함 기피 성분이 하나도 없는 메뉴를 조회하면") {
+            `when`("포함 기피 성분이 하나도 없는 foodId 를 조회하면") {
                 then("200 과 함께 ingredients 를 빈 배열로 반환한다") {
                     FoodTestSeed.seedPlainRice(dataSource)
 
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "흰밥")
+                    mockMvc.get("/api/v1/foods/3") {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }
