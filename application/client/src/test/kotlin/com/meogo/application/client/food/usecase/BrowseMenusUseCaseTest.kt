@@ -274,7 +274,7 @@ private class BrowseFakeFoodRepository(
     var requestedSize: Int? = null
         private set
 
-    override fun findByKoreanName(name: String): Food? = null
+    override fun findById(id: Long): Food? = null
 
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> {
         requestedCursor = cursor

@@ -27,26 +27,34 @@ class FoodDetailErrorTest : BehaviorSpec() {
         beforeTest { FoodTestSeed.clear(dataSource) }
 
         given("음식 상세 조회 오류 처리") {
-            `when`("수록되지 않은 메뉴명으로 조회하면") {
-                then("400 과 '해당 음식 정보 없음' 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "존재하지않는메뉴")
-                    }.andExpect {
+            `when`("존재하지 않는 foodId 로 조회하면") {
+                then("400 과 '해당 음식 정보를 찾을 수 없습니다' 메시지를 반환한다") {
+                    mockMvc.get("/api/v1/foods/999999").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value("해당 음식 정보 없음") }
+                        jsonPath("$.message") { value("해당 음식 정보를 찾을 수 없습니다") }
                     }
                 }
             }
 
-            `when`("menuName 이 blank 이면") {
-                then("400 과 'menuName은 필수입니다' 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/detail") {
-                        param("menuName", "   ")
-                    }.andExpect {
+            `when`("소프트삭제된 음식의 foodId 로 조회하면") {
+                then("400 과 '해당 음식 정보를 찾을 수 없습니다' 메시지를 반환한다") {
+                    FoodTestSeed.seedDeletedFood(dataSource)
+
+                    mockMvc.get("/api/v1/foods/${FoodTestSeed.DELETED_FOOD_ID}").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value("menuName은 필수입니다") }
+                        jsonPath("$.message") { value("해당 음식 정보를 찾을 수 없습니다") }
+                    }
+                }
+            }
+
+            `when`("숫자가 아닌 foodId 로 조회하면") {
+                then("400 과 '잘못된 요청입니다' 메시지를 반환한다") {
+                    mockMvc.get("/api/v1/foods/abc").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.message") { value("잘못된 요청입니다") }
                     }
                 }
             }
