@@ -212,6 +212,48 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
     }
 
+    given("음식 상세 조회 유스케이스 — 언어 무관 한국어 메뉴명(koreanName)") {
+        `when`("지역화명이 한국어와 다르면(en 번역 보유)") {
+            then("koreanName 에 한국어 원문을 담는다") {
+                val foodRepository = FakeFoodRepository(
+                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
+                )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.name shouldBe "Doenjang Stew"
+                result.koreanName shouldBe "된장찌개"
+            }
+        }
+
+        `when`("lang=ko 여서 지역화명이 곧 한국어면") {
+            then("koreanName 은 null 이다(중복 미노출)") {
+                val foodRepository = FakeFoodRepository(
+                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
+                )
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "ko"))
+
+                result.name shouldBe "된장찌개"
+                result.koreanName shouldBe null
+            }
+        }
+
+        `when`("지원 언어이나 이름 번역이 없어 한국어로 폴백되면") {
+            then("koreanName 은 null 이다(중복 미노출)") {
+                val foodRepository = FakeFoodRepository(food = doenjangStew())
+                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
+
+                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput("된장찌개", "en"))
+
+                result.name shouldBe "된장찌개"
+                result.koreanName shouldBe null
+            }
+        }
+    }
+
     given("참조 기피 성분 중 일부가 카탈로그에 없음(소프트 삭제)") {
         `when`("참조 성분 2개(WHEAT·SOY) 중 SOY 만 카탈로그에 있으면") {
             then("예외 없이 SOY(Soybean) 1개만 조립되고, 확률 내림차순·필드 구조는 그대로다") {

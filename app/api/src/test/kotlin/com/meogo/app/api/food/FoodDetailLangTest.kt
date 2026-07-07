@@ -2,8 +2,10 @@ package com.meogo.app.api.food
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -98,6 +100,37 @@ class FoodDetailLangTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.name") { value("된장찌개") }
                     }
+                }
+            }
+        }
+
+        given("음식 상세 조회 — 언어 무관 한국어 메뉴명(koreanName)") {
+            `when`("lang=ja 로 조회하면(지역화명이 한국어와 다름)") {
+                then("지역화명은 일본어이고 koreanName 에 한국어 원문을 담는다") {
+                    mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "된장찌개")
+                        param("lang", "ja")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.name") { value("テンジャンチゲ") }
+                        jsonPath("$.payload.koreanName") { value("된장찌개") }
+                    }
+                }
+            }
+
+            `when`("lang=ko 로 조회하면(지역화명이 곧 한국어)") {
+                then("koreanName 은 응답에 명시적 null 로 존재한다") {
+                    val json = mockMvc.get("/api/v1/foods/detail") {
+                        param("menuName", "된장찌개")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.name") { value("된장찌개") }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    val payload = jacksonObjectMapper().readTree(json).path("payload")
+                    payload.has("koreanName") shouldBe true
+                    payload.get("koreanName").isNull shouldBe true
                 }
             }
         }

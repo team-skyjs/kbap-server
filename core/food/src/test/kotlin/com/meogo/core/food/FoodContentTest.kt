@@ -107,6 +107,23 @@ class FoodContentTest : BehaviorSpec({
         }
     }
 
+    given("한국어 원문 이름 koreanName") {
+        `when`("다른 언어 번역이 존재해도") {
+            then("요청 언어와 무관하게 한국어 원문을 반환한다") {
+                content(
+                    name = "김치찌개",
+                    nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"),
+                ).koreanName() shouldBe "김치찌개"
+            }
+        }
+
+        `when`("번역 맵이 비어 있으면") {
+            then("한국어 원문을 반환한다") {
+                content(name = "김치찌개").koreanName() shouldBe "김치찌개"
+            }
+        }
+    }
+
     given("설명 언어 해석 resolveDescription(lang)") {
         `when`("대상 언어가 KO 이면") {
             then("번역 맵을 조회하지 않고 korean 원문을 반환한다") {

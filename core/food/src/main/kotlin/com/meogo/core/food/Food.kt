@@ -19,6 +19,8 @@ class Food private constructor(
         }
     }
 
+    fun koreanName(): String = content.koreanName()
+
     fun displayName(lang: LanguageCode): String = content.resolveName(lang)
 
     fun description(lang: LanguageCode): String = content.resolveDescription(lang)

@@ -8,6 +8,13 @@ data class FoodDetailResponse(
     @field:Schema(description = "요청 언어 음식명(미지원/미지정 시 한국어)", example = "Doenjang Stew")
     val name: String,
 
+    @field:Schema(
+        description = "언어 무관 한국어 음식명. 지역화 음식명이 곧 한국어면(lang=ko·번역 부재 폴백) null.",
+        example = "된장찌개",
+        nullable = true,
+    )
+    val koreanName: String?,
+
     @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
     val imageRef: String?,
 
@@ -50,6 +57,7 @@ data class FoodDetailResponse(
         fun from(result: GetFoodDetailResult): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
+                koreanName = result.koreanName,
                 imageRef = result.imageRef,
                 description = result.description,
                 spiciness = result.spiciness,

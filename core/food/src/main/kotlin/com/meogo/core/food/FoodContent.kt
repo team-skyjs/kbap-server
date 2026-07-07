@@ -12,6 +12,8 @@ data class FoodContent(
         require(description.korean.length <= MAX_DESCRIPTION_LENGTH) { "food.description 은 ${MAX_DESCRIPTION_LENGTH}자를 초과할 수 없습니다" }
     }
 
+    fun koreanName(): String = name.korean
+
     fun resolveName(lang: LanguageCode): String = name.resolve(lang)
 
     fun resolveDescription(lang: LanguageCode): String = description.resolve(lang)
