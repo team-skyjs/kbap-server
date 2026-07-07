@@ -25,4 +25,4 @@
 | [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Accepted | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |
 | [0011](./0011-scoring-domain-in-research-batch-orchestration.md) | 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:app:batch` | Accepted | 2026-07-07 | specs/kb-53 · Jira KB-53 · ADR-0004 · ADR-0010 |
 | [0012](./0012-food-candidate-staging-promotion-pipeline.md) | 미완성 음식 candidate 스테이징 → 완성 시 food 승격 파이프라인 | Proposed | 2026-07-07 | Jira KB-94·KB-54 · ADR-0004 · ADR-0009 |
-| [0013](./0013-batch-bulk-persistence-io-exposed.md) | 배치 대량 영속·IO 전략 — candidate 어댑터 Exposed + bulk IO 규칙 | Proposed | 2026-07-07 | ADR-0012 · ADR-0008 · Jira KB-54·KB-94 |
+| [0013](./0013-batch-bulk-persistence-io-exposed.md) | 배치 대량 영속·IO 전략 — JPA-first(@Modifying bulk) + IO 규칙, Exposed 후속 | Proposed | 2026-07-07 | ADR-0012 · ADR-0008 · Jira KB-96·KB-54·KB-94 |

@@ -1,50 +1,51 @@
-# ADR-0013: 배치 대량 영속·IO 전략 — candidate 파이프라인 어댑터는 Exposed + bulk IO 규칙
+# ADR-0013: 배치 대량 영속·IO 전략 — JPA-first(@Modifying bulk) + IO 규칙, Exposed 후속
 
-- **상태**: Proposed (2026-07-07) <!-- P1 구현·검증 시 Accepted 승격 -->
-- **관련**: [ADR-0012](./0012-food-candidate-staging-promotion-pipeline.md)(candidate 스테이징 파이프라인) · [ADR-0008](./0008-modular-monolith-shared-domain.md)(원칙 IV 영속 캡슐화) · Jira KB-54·KB-94 · [ADR-0006](./0006-central-persistence-adapter-and-decoupled-batch.md)(`:infra:persistence`)
+- **상태**: Proposed (2026-07-07) <!-- KB-96 구현·검증 시 Accepted 승격 -->
+- **관련**: [ADR-0012](./0012-food-candidate-staging-promotion-pipeline.md)(candidate 스테이징 파이프라인) · [ADR-0008](./0008-modular-monolith-shared-domain.md)(원칙 IV 영속 캡슐화) · Jira KB-96·KB-54·KB-94 · [ADR-0006](./0006-central-persistence-adapter-and-decoupled-batch.md)(`:infra:persistence`)
 
 ## Context
 
-candidate 파이프라인([ADR-0012](./0012-food-candidate-staging-promotion-pipeline.md))은 **대량·write-heavy·rich 도메인 행위 없는 데이터 처리 워크로드**다. 수천~수만 행을 청크로 훑어 부분 업데이트하고, 완성분을 대량 적재(승격)한다. 이 워크로드에서 두 종류의 비용이 문제가 된다.
+candidate 파이프라인([ADR-0012](./0012-food-candidate-staging-promotion-pipeline.md))은 **대량·write-heavy·rich 도메인 행위 없는 데이터 처리 워크로드**다. 수천~수만 행을 청크로 훑어 부분 업데이트하고, 완성분을 대량 적재(승격)한다. 여기서 두 종류의 비용이 문제가 된다.
 
-- **JPA/Hibernate 의 엔티티 관리 비용.** persistence context 1차 캐시에 관리 엔티티가 적체되어(대량 배치일수록 메모리·GC 압박), flush 마다 dirty checking 이 관리 엔티티 × 전 필드로 발생한다(O(n×필드) — 타깃 업데이트만 하는데 순수 낭비). 게다가 `BaseEntity` 의 `id` 가 **IDENTITY(MySQL AUTO_INCREMENT)** 라 Hibernate 의 **INSERT 배치가 무력화**된다(생성키를 건건이 받아야 해서). auto-flush 오버헤드도 있다.
+- **JPA/Hibernate 의 엔티티 관리 비용.** persistence context 1차 캐시에 관리 엔티티가 적체되어(대량 배치일수록 메모리·GC 압박), flush 마다 dirty checking 이 관리 엔티티 × 전 필드로 발생한다. `BaseEntity` 의 `id` 가 **IDENTITY(MySQL AUTO_INCREMENT)** 라 Hibernate 의 **INSERT 배치가 무력화**된다.
 - **DB IO 라운드트립.** 단건 반복 UPDATE/INSERT 는 라운드트립이 행 수에 비례한다. 청크당 1회로 줄여야 한다.
 
-동시에, 쿼리 오류(컬럼 오타·타입 불일치)를 **가능한 이른 시점에** 잡고 싶다. 이 프로젝트는 MySQL Testcontainers 통합 테스트가 필수(KB-46)라 잘못된 SQL 은 머지 전 테스트에서 깨지지만, 팀은 **컴파일 타임 쿼리 안전**을 최우선 가치로 둔다.
+동시에 쿼리 오류를 이른 시점에 잡고 싶은 요구가 있다. 후보는 (a) 기존 JPA 를 그대로 쓰되 벌크 경로만 최적화, (b) Exposed(Kotlin SQL DSL) 로 어댑터를 새로 구현, (c) jOOQ, (d) 순수 JdbcClient 였다. 제약: 이 프로젝트는 Spring Boot 4.1 로 매우 최신이라 서드파티 영속 스타터의 Boot 4 autoconfig 호환이 검증되지 않았고, 팀은 **첫 골격(KB-96)을 최소 비용으로 빠르게** 세우길 원한다.
 
 ## Decision
 
-**candidate 파이프라인의 영속 어댑터는 JPA 가 아니라 Exposed(JetBrains Kotlin SQL DSL)로 구현하고, 아래 bulk IO 규칙을 강제한다.**
+**candidate 파이프라인의 1차 구현은 JPA 로 간다. persistence context 비용은 hot-path 에서 `@Modifying` 벌크 쿼리로 회피하고, 아래 IO 규칙을 강제한다. Exposed 는 포트 seam 뒤 후속 최적화로 미룬다.**
 
-- **Exposed 채택 이유**: persistence context 가 없어(엔티티 라이프사이클·dirty checking·1차 캐시 제거) 대량 배치의 엔티티 관리 비용을 제거하고, 컬럼·타입을 Kotlin 테이블 object 로 선언해 **컴파일 타임에 쿼리 타입이 검증**된다. Spring 트랜잭션 통합은 `exposed-spring-boot-starter` 의 `SpringTransactionManager` 로 기존 `@Transactional` 경계에 브리지한다.
-- **도메인은 ORM-free 유지**(원칙 IV). `FoodCandidateRepository` 등 포트는 순수하고, Exposed 는 `:infra:persistence` 어댑터 구현 안에만 갇힌다. JPA 냐 Exposed 냐는 어댑터 구현 세부이므로 모듈 경계·ArchUnit 은 그대로 유효하다.
-- **bulk IO 규칙 (대량 hot-path):**
-  1. **컬럼-스코프 부분 업데이트** — 각 잡은 자기 컬럼만 UPDATE 한다(엔티티/행 통째 갱신 금지 → 동시에 도는 타 잡의 컬럼을 덮어쓰지 않음). 정합성을 실행 타이밍에 의존하지 않게 하는 핵심(ADR-0012).
-  2. **청크당 1 라운드트립** — 행마다 값이 다르면 batch update, 값이 균일하면 `WHERE id IN (...)` 단일문, 대량 INSERT 는 다중행으로.
-  3. **`rewriteBatchedStatements=true`**(MySQL JDBC URL) — 배치가 실제로 라운드트립을 줄이도록. 승격 INSERT 는 IDENTITY 로 인한 배치 무력화를 피하려 JDBC 레벨 다중행 INSERT 로 수행.
-  4. **멱등** — 이미 채운/승격된 행은 조회 단계에서 제외.
-- **`food` 서빙 읽기(API 음식 상세)는 기존 JPA/도메인 복원을 유지**한다 — 이 결정은 **batch 파이프라인 어댑터에 국한**하며 전면 ORM 교체가 아니다.
+- **JPA-first**: candidate 어댑터를 기존 JPA/`BaseEntity`·Spring Data 패턴으로 구현한다 — 빌드·테스트(Testcontainers) 자산을 그대로 재사용하고 Boot 4 호환 리스크가 없다.
+- **persistence context 회피(hot-path)**: 대량·부분 업데이트는 엔티티를 로드하지 않고 **`@Modifying @Query`** 로 직접 `UPDATE` 한다(1차 캐시·dirty checking 우회). 즉 "엔티티 관리 비용" 문제를 ORM 교체 없이 벌크 쿼리로 해결한다.
+- **IO 규칙 (기술 무관, JPA 로도 강제):**
+  1. **컬럼-스코프 부분 업데이트** — 각 잡은 자기 컬럼만 `UPDATE`(엔티티/행 통째 merge 금지 → 동시에 도는 타 잡의 컬럼을 덮지 않음). 정합성을 실행 타이밍에 의존하지 않게 하는 핵심(ADR-0012).
+  2. **청크당 라운드트립 최소화** — 균일 값은 `WHERE id IN (...)` 단일문, 행별 다른 값·대량 INSERT 는 JDBC 배치(`rewriteBatchedStatements=true`)로. 단건 반복 금지.
+  3. **멱등** — 이미 채운/승격된 행은 조회 단계에서 제외, 승격은 자연 키(음식명) 업서트 + 승격 링크.
+- **포트 seam 유지**: `FoodCandidateRepository` 등 포트는 순수하고, 어댑터 기술(JPA)은 `:infra:persistence` 구현 세부다. **규모·쿼리 안전이 실제로 정당화되면 어댑터만 Exposed(또는 jOOQ)로 교체**한다 — 상위(배치·도메인)는 불변.
+- **컴파일 타임 쿼리 안전은 지금 포기**하고, MySQL Testcontainers 통합 테스트로 잘못된 쿼리를 머지 전에 검출한다(기존 전략 재사용).
+- `food` 서빙 읽기(API 음식 상세)는 기존 JPA/도메인 복원을 유지한다(범위 밖).
 
 ## Alternatives Considered
 
-- **JPA + `@Modifying` 벌크 쿼리 + `JdbcClient`.** persistence context 비용은 JdbcClient 로 피할 수 있고 신규 의존성도 0 이나, SQL 이 문자열이라 **컴파일 타임 체크가 없다**(오류가 테스트/런타임에만 드러남). Testcontainers 로 프로덕션 전에 잡히긴 하지만, 팀이 컴파일 타임 쿼리 안전을 최우선으로 선택해 Exposed 로 간다.
-- **jOOQ(코드젠, 스키마 검증까지).** 마이그레이션된 실 스키마에서 Q 코드를 생성해 컴파일 타임 + 스키마 검증까지 주는 가장 강한 안전이지만, 코드젠 파이프라인·빌드 복잡도가 크다. Exposed 의 Kotlin 네이티브 DSL·낮은 셋업 비용을 우선했다(스키마 드리프트는 아래 Testcontainers 로 보완).
-- **QueryDSL-JPA.** Hibernate 위의 쿼리 빌더일 뿐이라 persistence context 를 그대로 써 **대량 엔티티 관리 비용 문제를 못 푼다.** Boot 4/jakarta/Kotlin 지원 마찰도 있어 기각.
-- **Exposed 없이 실행 시간대 분리로 동시성 회피.** 청크 순차 처리 오버런으로 무보장(ADR-0012). 컬럼-스코프 + 멱등으로 대체.
+- **Exposed 즉시 도입.** persistence context 제거 + 컴파일 타임 쿼리 안전을 바로 주지만, Exposed 빌드 셋업·`SpringTransactionManager` 브리지·**Boot 4 autoconfig 호환 리스크**·JPA 와의 이중 스택·Exposed 테이블 object 의 스키마 드리프트 관리가 붙는다. 첫 골격엔 과투자라 **포트 seam 뒤 후속**으로 미룬다(규모/쿼리 안전이 실제로 아플 때). context 비용은 그전까지 `@Modifying` 으로 회피된다.
+- **jOOQ.** 코드젠으로 컴파일 타임 + 스키마 검증까지 주지만 코드젠 파이프라인·빌드 복잡도가 크다. 규모/안전 요구가 커지면 Exposed 와 함께 재검토.
+- **순수 JdbcClient.** context-free 지만 JPA 패턴(엔티티·Testcontainers) 재사용 이점이 없고 SQL 이 문자열이다. `@Modifying` 이 재사용·context 회피를 둘 다 만족해 우선순위 낮음.
+- **JPA 를 벌크 최적화 없이 그대로(엔티티 로드→수정→save).** 대량에서 persistence context·dirty checking 비용이 그대로다. `@Modifying` 벌크로 hot-path 만 최적화해 회피.
 
 ## Consequences
 
 **+**
-- 대량 배치에서 persistence context 오버헤드(메모리 적체·dirty checking) 제거 + **컴파일 타임 쿼리 타입 안전**.
-- IO 라운드트립 최소화(batch/IN/다중행 INSERT). IDENTITY 로 인한 Hibernate INSERT 배치 무력화 문제를 JDBC 직접 INSERT 로 회피.
-- 도메인·모듈 경계 무손상 — 포트 뒤 어댑터 세부라 원칙 IV·ArchUnit 유지. batch 어댑터에만 국한해 리스크를 좁힌다.
+- 첫 골격(KB-96)이 가볍다 — 기존 JPA/BaseEntity/Testcontainers 자산 재사용, Boot 4 호환 리스크 0.
+- persistence context 비용은 `@Modifying` 벌크로 회피, IO 규칙(컬럼-스코프·청크·멱등)은 기술 무관하게 그대로 강제.
+- 포트 seam 덕에 Exposed/jOOQ 후속 교체가 어댑터 국소 변경으로 제한된다.
 
 **−**
-- `:infra:persistence` 에 **JPA 와 Exposed 두 영속 기술이 공존**한다 — 매핑 모델·학습 곡선이 이중화된다. batch 파이프라인 어댑터로만 국한해 최소화한다.
-- **Exposed 테이블 object 가 Flyway 스키마와 드리프트할 수 있다**(Exposed 는 실 스키마를 읽지 않음 — 컴파일 안전 ≠ 스키마 검증). → **MySQL Testcontainers 통합 테스트로 드리프트를 차단**한다(기존 전략 재사용).
-- Exposed 트랜잭션·Spring tx 브리지, `rewriteBatchedStatements` 등 **빌드·구성 셋업이 선행**으로 필요하다(P1).
+- **컴파일 타임 쿼리 안전이 없다**(JPQL 문자열) — MySQL Testcontainers 통합 테스트로 커버한다.
+- **IDENTITY 로 인한 Hibernate INSERT 배치 무력화**는 남는다 — 승격 대량 INSERT 는 초기 규모에선 감수하고, 커지면 JDBC 배치/Exposed 로 최적화(후속).
+- JPA + (후속)Exposed 이중 스택 가능성은 미뤄둔 상태다.
 
 ## 후속
 
-- Exposed 빌드 셋업(버전 카탈로그 좌표 · `exposed-spring-boot-starter` · `SpringTransactionManager` 구성) · MySQL JDBC URL `rewriteBatchedStatements=true` 는 P1 에서 처리한다.
-- `food` 서빙 읽기까지 Exposed 로 확장할지는 별도 판단이며, 현 결정은 batch 파이프라인 한정이다(필요 시 후속 ADR).
+- 규모(수천~수만 행 정례 처리)나 컴파일 타임 쿼리 안전 요구가 실제로 커지면, candidate·승격 어댑터를 **Exposed(또는 jOOQ)로 교체하는 후속 ADR**을 남긴다(포트 seam 덕에 상위 불변). 그때 `SpringTransactionManager` 브리지·Boot 4 호환·스키마 드리프트 대책을 함께 정한다.
+- 승격 대량 INSERT 의 IDENTITY-배치 문제는 규모 임계에서 JDBC 배치로 우선 대응한다.
