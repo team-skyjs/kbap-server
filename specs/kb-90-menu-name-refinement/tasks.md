@@ -104,11 +104,11 @@ description: "Task list for 메뉴 스캔 수신 메뉴명 정제"
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T036 [P] `app/api/src/test/kotlin/com/meogo/app/api/scan/MenuScanRefinementRegressionTest.kt` — 실측 6종+"메뉴판"·잡음 혼합 회귀(SC-001): 6종 매칭/PENDING, "메뉴판"·잡음 미매칭
+- [X] T036 [P] `app/api/src/test/kotlin/com/meogo/app/api/scan/MenuScanRefinementRegressionTest.kt` — 실측 6종+"메뉴판"·잡음 혼합 회귀(SC-001): 6종 매칭/PENDING, "메뉴판"·잡음 미매칭
 - [X] T037 [P] `app/api/.../architecture/ModuleBoundaryTest.kt` 통과 확인 — kernel port·infra 조립 경계 위반 없음(신규 모듈 배치 검증)
-- [ ] T038 [P] `app/api/src/main/kotlin/com/meogo/app/api/scan/SubmitMenuScanResponse.kt`·`MenuScanApi.kt` — 신규 필드 `@Schema` + Operation 설명에 matchStatus 의미 반영
-- [ ] T039 로컬 docker MySQL 로 신규 Flyway 3종 검증(DROP+CREATE 부팅) — 생성 컬럼 `REGEXP_REPLACE`·pending_menus unique 실제 적용 확인([[flyway-migration-validation-gap]])
-- [ ] T040 [P] `MockCyclingRiskAssessor` 경로 정리 — 매칭 결과와 무관하게 mock 위험도 유지 명시(범위 밖 표식), 기존 스캔 예제/테스트가 신규 필드로 깨지지 않게 갱신
+- [X] T038 [P] `app/api/src/main/kotlin/com/meogo/app/api/scan/SubmitMenuScanResponse.kt`·`MenuScanApi.kt` — 신규 필드 `@Schema` + Operation 설명에 matchStatus 의미 반영
+- [X] T039 로컬 docker MySQL 로 신규 Flyway 3종 검증(DROP+CREATE 부팅) — 생성 컬럼 `REGEXP_REPLACE`·pending_menus unique 실제 적용 확인([[flyway-migration-validation-gap]])
+- [X] T040 [P] `MockCyclingRiskAssessor` 경로 정리 — 매칭 결과와 무관하게 mock 위험도 유지 명시(범위 밖 표식), 기존 스캔 예제/테스트가 신규 필드로 깨지지 않게 갱신
 
 ---
 

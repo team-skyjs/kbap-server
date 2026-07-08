@@ -21,6 +21,8 @@ interface MenuScanApi {
         description = """
             스캔으로 인식한 메뉴 항목(itemId·메뉴명·boundingBox)들을 제출하면, 각 항목에 위험도(SAFE/CAUTION/DANGER/UNKNOWN)를 판정해 돌려준다.
 
+            각 항목은 정제·매칭 결과 matchStatus 를 함께 반환한다: MATCHED(아는 음식 — foodId 포함), PENDING(처음 보는 메뉴 — 조사 대기), NOT_FOOD(비음식). 잡음 섞인 원문 메뉴명은 서버가 정제(정규화·표준 한국어 메뉴명 추출)해 매칭한다.
+
             응답 results 는 요청 items 와 itemId 로 1:1 매칭된다. itemId 는 '순서'가 아니라 클라이언트가 각 메뉴에 부여하는 매칭용 식별자이며, 한 요청 안에서 유일해야 한다(중복 시 400). 따라서 메뉴명이 같아도 itemId 가 다르면 별개 항목으로 구분되고, 클라이언트는 응답의 itemId 로 자기 화면의 메뉴와 결과를 연결한다.
 
             ## boundingBox 정규화 방법

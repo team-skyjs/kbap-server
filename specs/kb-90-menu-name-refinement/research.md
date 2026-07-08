@@ -69,5 +69,7 @@ LLM 대상 전원 → matchKey(raw) 로 foods exact 매치
 ## 미해결/후속 (범위 밖)
 
 - 위험도 산출은 mock(`MockCyclingRiskAssessor`) 유지 — 매칭된 food 기준 실제 위험도는 별도 작업.
-- `pending_menus` 소비 레시피 조사 배치는 별도(이 작업은 적재·dedup·상태까지).
-- 동음이의 food 정밀 해소는 위험도 de-mock 시 재검토(D2).
+- `pending_menus` 소비 레시피 조사 배치는 별도(이 작업은 적재·dedup·상태까지). **pending_menus 는 소프트삭제하지 않고 `queue_status`(PENDING/RESOLVED/REJECTED)로만 lifecycle 관리**한다(unique+@SQLRestriction 조합에서 소프트삭제 시 재등록 불능 방지 — upsert 는 `ON DUPLICATE KEY UPDATE status='ACTIVE'` 로 resurrect-safe).
+- **N+1 후속**: 항목당 `findFoodIdByKoreanMatchKey` 개별 조회 → de-mock/프로덕션 전 `WHERE korean_match_key IN (:keys)` 배치 조회 1콜로 접기(현재 index point-lookup·mock 위험도라 비차단, 리뷰 지적).
+- **NFC 불변식**: kernel `matchKey` 는 NFC 정규화 후 한글 필터하지만 MySQL 생성 컬럼은 NFC 미수행 — `food.korean_name` 은 항상 NFC 로 저장한다는 전제(write-side)에서 두 키가 일치한다. 동등성 sync 테스트가 방어선.
+- 동음이의(match_key 충돌: 서로 다른 korean_name 이 같은 정규화 키)는 최소 id 매칭 — 위험도 de-mock 시 재검토(D2).

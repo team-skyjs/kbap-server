@@ -61,7 +61,7 @@ CREATE INDEX idx_foods_korean_match_key ON foods (korean_match_key);
 ```
 
 - 생성 저장 컬럼 → 기존/신규 row 자동 계산, 백필 불필요.
-- `FoodJpaEntity` 는 이 컬럼을 **읽기 전용 매핑**(`@Column(insertable=false, updatable=false)`) 또는 매핑 생략 후 JPQL/native 조회. `FoodJpaRepository.findByKoreanMatchKey(key)` 로 조회.
+- food.korean_name 에는 UNIQUE 제약이 있어 이름 동음이의는 없고, 서로 다른 원문이 같은 정규화 키가 되는 match_key 충돌만 가능하다(최소 id 매칭). `FoodJpaEntity` 는 이 컬럼을 **읽기 전용 매핑**(`@Column(insertable=false, updatable=false)`) 또는 매핑 생략 후 JPQL/native 조회. `FoodJpaRepository.findByKoreanMatchKey(key)` 로 조회.
 - **kernel normalizer ↔ SQL 규칙 동등성 sync 테스트**(Testcontainers) 필수(research D2).
 
 ### scanned_menu_item (컬럼 추가) — P1 · Flyway
