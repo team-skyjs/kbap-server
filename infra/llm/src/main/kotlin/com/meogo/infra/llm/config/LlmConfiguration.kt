@@ -1,8 +1,11 @@
 package com.meogo.infra.llm.config
 
 import com.google.genai.Client
+import com.meogo.core.kernel.scan.ScannedNameInterpreter
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
+import com.meogo.infra.llm.menu.ScannedNameParser
+import com.meogo.infra.llm.menu.UpstageScannedNameInterpreter
 import com.meogo.infra.llm.model.LlmModelId
 import com.meogo.infra.llm.model.LlmPricing
 import com.meogo.infra.llm.provider.SpringAiModelCaller
@@ -48,6 +51,13 @@ class LlmConfiguration {
             geminiChatModel(properties.gemini),
             pricingOf(properties.gemini, properties.usdToKrw),
         )
+
+    @Bean
+    @ConditionalOnProperty(prefix = "meogo.llm.upstage", name = ["enabled"], havingValue = "true")
+    fun scannedNameInterpreter(callers: List<LlmModelCaller>): ScannedNameInterpreter {
+        val upstage = callers.first { it.modelId == LlmModelId.UPSTAGE }
+        return UpstageScannedNameInterpreter(upstage, ScannedNameParser())
+    }
 
     @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()

@@ -8,9 +8,10 @@ dependencies {
     "implementation"(project(":core:kernel"))
     "implementation"(project(":common"))
 
-    // 조립: persistence adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
-    // (infra:external 은 LLM 착수 시 추가)
+    // 조립: adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
     "runtimeOnly"(project(":infra:persistence"))
+    // 스캔 메뉴명 정제 LLM 어댑터(ScannedNameInterpreter). @ConditionalOnProperty 로 미구성 시 빈 미생성.
+    "runtimeOnly"(project(":infra:llm"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
