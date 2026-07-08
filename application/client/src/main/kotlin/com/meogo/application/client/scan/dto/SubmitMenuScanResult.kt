@@ -1,5 +1,6 @@
 package com.meogo.application.client.scan.dto
 
+import com.meogo.core.scan.MenuItemMatch
 import com.meogo.core.scan.MenuScan
 
 data class SubmitMenuScanResult(
@@ -11,6 +12,8 @@ data class SubmitMenuScanResult(
         val itemId: Int,
         val riskLevel: String,
         val reason: String,
+        val matchStatus: String,
+        val foodId: Long?,
     )
 
     companion object {
@@ -23,8 +26,17 @@ data class SubmitMenuScanResult(
                         itemId = it.itemId,
                         riskLevel = it.assessment.riskLevel.name,
                         reason = it.assessment.reason,
+                        matchStatus = statusOf(it.match),
+                        foodId = (it.match as? MenuItemMatch.Matched)?.foodId,
                     )
                 },
             )
+
+        private fun statusOf(match: MenuItemMatch): String =
+            when (match) {
+                is MenuItemMatch.Matched -> "MATCHED"
+                MenuItemMatch.Pending -> "PENDING"
+                MenuItemMatch.NotFood -> "NOT_FOOD"
+            }
     }
 }

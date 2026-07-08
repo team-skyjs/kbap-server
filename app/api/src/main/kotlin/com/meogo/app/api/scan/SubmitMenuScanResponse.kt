@@ -28,6 +28,16 @@ data class SubmitMenuScanResponse(
 
         @field:Schema(description = "판정 사유", example = "mock: 안전으로 판정된 항목")
         val reason: String,
+
+        @field:Schema(
+            description = "정제·매칭 결과. MATCHED=아는 음식(foodId 존재), PENDING=조사 대기, NOT_FOOD=비음식",
+            example = "MATCHED",
+            allowableValues = ["MATCHED", "PENDING", "NOT_FOOD"],
+        )
+        val matchStatus: String,
+
+        @field:Schema(description = "MATCHED 일 때 매칭된 음식 id, 그 외 null", example = "7", nullable = true)
+        val foodId: Long?,
     )
 
     companion object {
@@ -40,6 +50,8 @@ data class SubmitMenuScanResponse(
                         itemId = it.itemId,
                         riskLevel = it.riskLevel,
                         reason = it.reason,
+                        matchStatus = it.matchStatus,
+                        foodId = it.foodId,
                     )
                 },
             )

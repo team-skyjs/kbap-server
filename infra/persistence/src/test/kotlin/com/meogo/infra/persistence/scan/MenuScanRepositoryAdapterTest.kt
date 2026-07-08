@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Import
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.scan.BoundingBox
 import com.meogo.core.scan.MenuItemAssessment
+import com.meogo.core.scan.MenuItemMatch
 import com.meogo.core.scan.MenuScan
 import com.meogo.core.scan.ScanStatus
 import com.meogo.core.scan.ScannedMenuItem
@@ -40,12 +41,14 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                                 rawMenuName = "된장찌개",
                                 boundingBox = BoundingBox(0.12, 0.34, 0.5, 0.08),
                                 assessment = MenuItemAssessment(RiskLevel.SAFE, "mock: 안전"),
+                                match = MenuItemMatch.Matched(foodId = 42L),
                             ),
                             ScannedMenuItem(
                                 itemId = 1,
                                 rawMenuName = "김치찌개",
                                 boundingBox = BoundingBox(0.0, 0.0, 0.5, 0.5),
                                 assessment = MenuItemAssessment(RiskLevel.CAUTION, "mock: 주의"),
+                                match = MenuItemMatch.NotFood,
                             ),
                         ),
                     )
@@ -62,9 +65,11 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                     first.rawMenuName shouldBe "된장찌개"
                     first.boundingBox shouldBe BoundingBox(0.12, 0.34, 0.5, 0.08)
                     first.assessment shouldBe MenuItemAssessment(RiskLevel.SAFE, "mock: 안전")
+                    first.match shouldBe MenuItemMatch.Matched(foodId = 42L)
 
                     val second = loaded.items.first { it.itemId == 1 }
                     second.assessment.riskLevel shouldBe RiskLevel.CAUTION
+                    second.match shouldBe MenuItemMatch.NotFood
                 }
             }
 
@@ -87,6 +92,8 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                         ),
                     )
                     val savedId = adapter.save(scan).id.shouldNotBeNull()
+
+                    adapter.findById(savedId)!!.items.first().match shouldBe MenuItemMatch.Pending
 
                     val entity = jpaRepository.findById(savedId).get()
                     entity.delete()

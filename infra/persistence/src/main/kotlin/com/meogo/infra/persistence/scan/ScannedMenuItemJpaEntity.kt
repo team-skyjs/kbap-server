@@ -4,6 +4,7 @@ import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.infra.persistence.BaseEntity
 import com.meogo.core.scan.BoundingBox
 import com.meogo.core.scan.MenuItemAssessment
+import com.meogo.core.scan.MenuItemMatch
 import com.meogo.core.scan.ScannedMenuItem
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -35,6 +36,12 @@ class ScannedMenuItemJpaEntity(
 
     @Column(name = "reason", nullable = false, length = 500)
     var reason: String = "",
+
+    @Column(name = "match_status", nullable = false, length = 20)
+    var matchStatus: String = MATCH_PENDING,
+
+    @Column(name = "matched_food_id")
+    var matchedFoodId: Long? = null,
 ) : BaseEntity() {
     fun toDomain(): ScannedMenuItem =
         ScannedMenuItem(
@@ -43,9 +50,23 @@ class ScannedMenuItemJpaEntity(
             rawMenuName = rawMenuName,
             boundingBox = BoundingBox(bboxX, bboxY, bboxWidth, bboxHeight),
             assessment = MenuItemAssessment(RiskLevel.valueOf(riskLevel), reason),
+            match = toMatch(),
         )
 
+    private fun toMatch(): MenuItemMatch =
+        when (matchStatus) {
+            MATCH_MATCHED -> MenuItemMatch.Matched(
+                requireNotNull(matchedFoodId) { "MATCHED 항목에 matched_food_id 가 없습니다" },
+            )
+            MATCH_NOT_FOOD -> MenuItemMatch.NotFood
+            else -> MenuItemMatch.Pending
+        }
+
     companion object {
+        private const val MATCH_MATCHED = "MATCHED"
+        private const val MATCH_PENDING = "PENDING"
+        private const val MATCH_NOT_FOOD = "NOT_FOOD"
+
         fun from(item: ScannedMenuItem): ScannedMenuItemJpaEntity =
             ScannedMenuItemJpaEntity(
                 itemId = item.itemId,
@@ -56,6 +77,15 @@ class ScannedMenuItemJpaEntity(
                 bboxHeight = item.boundingBox.height,
                 riskLevel = item.assessment.riskLevel.name,
                 reason = item.assessment.reason,
+                matchStatus = statusOf(item.match),
+                matchedFoodId = (item.match as? MenuItemMatch.Matched)?.foodId,
             )
+
+        private fun statusOf(match: MenuItemMatch): String =
+            when (match) {
+                is MenuItemMatch.Matched -> MATCH_MATCHED
+                MenuItemMatch.Pending -> MATCH_PENDING
+                MenuItemMatch.NotFood -> MATCH_NOT_FOOD
+            }
     }
 }
