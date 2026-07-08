@@ -5,12 +5,14 @@ import org.springframework.context.annotation.Import
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -21,8 +23,33 @@ class MenuScanControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var mockMvc: MockMvc
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
         val objectMapper = jacksonObjectMapper()
+
+        fun seedFood(koreanName: String): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
+                                      status, created_at, updated_at)
+                    VALUES (?, '설명', 0, '{}', '{}', 'ACTIVE', NOW(6), NOW(6))
+                    """,
+                ).use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.executeUpdate()
+                }
+            }
+
+        fun pendingCount(standardName: String): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT COUNT(*) FROM pending_menus WHERE standard_name = ?").use { ps ->
+                    ps.setString(1, standardName)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                }
+            }
 
         fun item(itemId: Int, name: String = "메뉴$itemId") = mapOf(
             "itemId" to itemId,
@@ -80,6 +107,42 @@ class MenuScanControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.results[4].riskLevel") { value("SAFE") }
                     }
+                }
+            }
+        }
+
+        given("정제 서비스 미구성(폴백) — 실제 매칭 e2e") {
+            `when`("저장된 음식 이름과 정규화 키가 일치하면") {
+                then("MATCHED 로 foodId 와 함께 반환한다") {
+                    seedFood("김치찌개")
+
+                    mockMvc.post("/api/v1/menu-scans") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "김치찌개 kimchi jjigae"))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matchStatus") { value("MATCHED") }
+                        jsonPath("$.payload.results[0].foodId") { exists() }
+                    }
+                }
+            }
+
+            `when`("미등록 메뉴를 두 번 스캔하면") {
+                then("PENDING 이고 대기열에는 1건만 적재된다(dedup)") {
+                    val name = "정제e2e-미등록라면"
+                    mockMvc.post("/api/v1/menu-scans") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, name))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matchStatus") { value("PENDING") }
+                    }
+                    mockMvc.post("/api/v1/menu-scans") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, name))
+                    }.andExpect { status { isOk() } }
+
+                    pendingCount(name) shouldBe 1
                 }
             }
         }
