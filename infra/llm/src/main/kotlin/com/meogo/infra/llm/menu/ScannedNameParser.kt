@@ -13,7 +13,7 @@ class ScannedNameParser {
     fun parse(raw: String, expectedSize: Int): List<InterpretedName> {
         val json = stripCodeFence(raw)
         val names = try {
-            objectMapper.readValue<List<String>>(json)
+            objectMapper.readValue<List<String?>>(json)
         } catch (e: JacksonException) {
             throw ScannedNameParseException("LLM 응답을 문자열 배열로 파싱하지 못했습니다: $raw", e)
         }
@@ -23,8 +23,8 @@ class ScannedNameParser {
         return names.map { toInterpreted(it) }
     }
 
-    private fun toInterpreted(value: String): InterpretedName {
-        val trimmed = value.trim()
+    private fun toInterpreted(value: String?): InterpretedName {
+        val trimmed = value?.trim().orEmpty()
         return if (trimmed.isBlank() || trimmed.equals(NOT_FOOD, ignoreCase = true)) {
             InterpretedName.NotFood
         } else {

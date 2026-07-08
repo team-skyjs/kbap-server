@@ -36,6 +36,15 @@ class ScannedNameParserTest : BehaviorSpec({
             }
         }
 
+        `when`("배열 원소에 JSON null 이 섞이면") {
+            then("NotFood 로 취급한다(NPE 없음)") {
+                parser.parse("""["김치찌개",null]""", expectedSize = 2) shouldBe listOf(
+                    InterpretedName.StandardName("김치찌개"),
+                    InterpretedName.NotFood,
+                )
+            }
+        }
+
         `when`("JSON 이 아니면") {
             then("파싱 예외를 던진다") {
                 shouldThrow<ScannedNameParseException> { parser.parse("보통 텍스트", expectedSize = 1) }

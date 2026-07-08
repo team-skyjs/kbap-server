@@ -11,7 +11,7 @@ interface PendingMenuJpaRepository : JpaRepository<PendingMenuJpaEntity, Long> {
         value = """
             INSERT INTO pending_menus (standard_name, queue_status, status, created_at, updated_at)
             VALUES (:name, 'PENDING', 'ACTIVE', NOW(6), NOW(6))
-            ON DUPLICATE KEY UPDATE id = id
+            ON DUPLICATE KEY UPDATE status = 'ACTIVE'
         """,
         nativeQuery = true,
     )

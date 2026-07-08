@@ -26,7 +26,7 @@ class FoodJpaEntity(
         name = "korean_match_key",
         insertable = false,
         updatable = false,
-        columnDefinition = "VARCHAR(255) GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name, '[^가-힣]', '')) STORED",
+        columnDefinition = "VARCHAR(255) GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name COLLATE utf8mb4_bin, '[^가-힣]', '')) STORED",
     )
     var koreanMatchKey: String = "",
 

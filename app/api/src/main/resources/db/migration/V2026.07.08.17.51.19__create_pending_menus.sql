@@ -2,7 +2,7 @@
 -- 공통 컬럼(status=EntityStatus, created_at, updated_at)은 BaseEntity 규약과 동일.
 CREATE TABLE pending_menus (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
-    standard_name VARCHAR(100) NOT NULL,
+    standard_name VARCHAR(255) NOT NULL,
     queue_status  VARCHAR(20)  NOT NULL,
     status        VARCHAR(20)  NOT NULL,
     created_at    DATETIME(6)  NOT NULL,

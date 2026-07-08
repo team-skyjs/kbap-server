@@ -8,7 +8,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "pending_menus")
 class PendingMenuJpaEntity(
-    @Column(name = "standard_name", nullable = false, length = 100, unique = true)
+    @Column(name = "standard_name", nullable = false, length = 255, unique = true)
     var standardName: String = "",
 
     @Column(name = "queue_status", nullable = false, length = 20)

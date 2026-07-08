@@ -72,7 +72,11 @@ class SubmitMenuScanUseCase(
         if (interpreter == null || targetIndexes.isEmpty()) return null
         return try {
             val texts = targetIndexes.map { input.items[it].rawMenuName }
-            targetIndexes.zip(interpreter.interpret(texts)).toMap()
+            val interpreted = interpreter.interpret(texts)
+            require(interpreted.size == targetIndexes.size) {
+                "정제 결과 개수(${interpreted.size})가 요청(${targetIndexes.size})과 다릅니다"
+            }
+            targetIndexes.zip(interpreted).toMap()
         } catch (e: Exception) {
             log.warn("정제 서비스 호출 실패 — 정규화 exact 매치 폴백", e)
             null

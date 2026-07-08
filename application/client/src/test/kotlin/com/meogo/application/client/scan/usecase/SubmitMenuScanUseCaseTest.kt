@@ -152,6 +152,22 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 interpreter.callCount shouldBe 1
             }
         }
+
+        `when`("한 스캔 안에서 같은 표준명이 여러 항목으로 나오면") {
+            then("대기열에는 그 표준명을 1번만 등록한다") {
+                val pending = RecordingPendingRepository()
+                val uc = useCase(
+                    interpreter = FakeInterpreter(
+                        listOf(InterpretedName.StandardName("우주라면"), InterpretedName.StandardName("우주라면")),
+                    ),
+                    pending = pending,
+                )
+
+                uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"), item(1, "우주 라면"))))
+
+                pending.enqueued shouldBe listOf("우주라면")
+            }
+        }
     }
 
     given("정제 서비스가 없거나 장애일 때(폴백)") {
@@ -163,6 +179,23 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
 
                 scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Matched(7L)
+            }
+        }
+
+        `when`("interpreter 가 요청보다 적은 개수를 반환하면") {
+            then("결과를 신뢰하지 않고 정규화 exact 매치 폴백으로 처리한다") {
+                val scanRepo = CapturingScanRepository()
+                val uc = useCase(
+                    food = mapOf("김치찌개" to 7L),
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("무시됨"))),
+                    scanRepo = scanRepo,
+                )
+
+                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면"))))
+
+                val items = scanRepo.saved!!.items
+                items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
+                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending
             }
         }
 
