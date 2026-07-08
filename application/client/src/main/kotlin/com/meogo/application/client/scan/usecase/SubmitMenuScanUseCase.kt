@@ -48,30 +48,59 @@ class SubmitMenuScanUseCase(
 
     private fun resolveMatches(input: SubmitMenuScanInput): List<MenuItemMatch> {
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
-        val targetIndexes = keys.indices.filter { keys[it].isNotBlank() }
-        val interpreted = interpretTargets(input, targetIndexes)
+        val interpreted = interpretTargets(input, keys)
 
-        val enqueueNames = mutableListOf<String>()
-        val matches = keys.indices.map { index ->
+        val matches = mutableListOf<MenuItemMatch>()
+        val namesToEnqueue = mutableListOf<String>()
+
+        for (index in input.items.indices) {
             val key = keys[index]
-            when {
-                key.isBlank() -> MenuItemMatch.NotFood
-                interpreted != null -> resolveInterpreted(interpreted.getValue(index), enqueueNames)
-                else -> matchOrPending(key, input.items[index].rawMenuName, enqueueNames)
+            if (key.isBlank()) {
+                matches.add(MenuItemMatch.NotFood)
+                continue
+            }
+
+            val lookupKey: String
+            val nameForQueue: String
+            if (interpreted == null) {
+                lookupKey = key
+                nameForQueue = input.items[index].rawMenuName
+            } else when (val interpretedName = interpreted.getValue(index)) {
+                is InterpretedName.StandardName -> {
+                    lookupKey = KoreanMenuNameNormalizer.matchKey(interpretedName.korean)
+                    nameForQueue = interpretedName.korean
+                }
+                InterpretedName.NotFood -> {
+                    matches.add(MenuItemMatch.NotFood)
+                    continue
+                }
+            }
+
+            val foodId = foodRepository.findFoodIdByKoreanMatchKey(lookupKey)
+            if (foodId == null) {
+                matches.add(MenuItemMatch.Pending)
+                namesToEnqueue.add(nameForQueue)
+            } else {
+                matches.add(MenuItemMatch.Matched(foodId))
             }
         }
 
-        enqueueNames.distinct().forEach(pendingMenuRepository::enqueue)
+        for (name in namesToEnqueue.distinct()) {
+            pendingMenuRepository.enqueue(name)
+        }
         return matches
     }
 
     private fun interpretTargets(
         input: SubmitMenuScanInput,
-        targetIndexes: List<Int>,
+        keys: List<String>,
     ): Map<Int, InterpretedName>? {
-        if (interpreter == null || targetIndexes.isEmpty()) return null
+        if (interpreter == null) return null
+        val targetIndexes = keys.indices.filter { keys[it].isNotBlank() }
+        if (targetIndexes.isEmpty()) return null
+
+        val texts = targetIndexes.map { input.items[it].rawMenuName }
         return try {
-            val texts = targetIndexes.map { input.items[it].rawMenuName }
             val interpreted = interpreter.interpret(texts)
             require(interpreted.size == targetIndexes.size) {
                 "정제 결과 개수(${interpreted.size})가 요청(${targetIndexes.size})과 다릅니다"
@@ -80,30 +109,6 @@ class SubmitMenuScanUseCase(
         } catch (e: Exception) {
             log.warn("정제 서비스 호출 실패 — 정규화 exact 매치 폴백", e)
             null
-        }
-    }
-
-    private fun resolveInterpreted(
-        interpreted: InterpretedName,
-        enqueueNames: MutableList<String>,
-    ): MenuItemMatch =
-        when (interpreted) {
-            is InterpretedName.StandardName ->
-                matchOrPending(KoreanMenuNameNormalizer.matchKey(interpreted.korean), interpreted.korean, enqueueNames)
-            InterpretedName.NotFood -> MenuItemMatch.NotFood
-        }
-
-    private fun matchOrPending(
-        lookupKey: String,
-        enqueueName: String,
-        enqueueNames: MutableList<String>,
-    ): MenuItemMatch {
-        val foodId = foodRepository.findFoodIdByKoreanMatchKey(lookupKey)
-        return if (foodId != null) {
-            MenuItemMatch.Matched(foodId)
-        } else {
-            enqueueNames += enqueueName
-            MenuItemMatch.Pending
         }
     }
 }
