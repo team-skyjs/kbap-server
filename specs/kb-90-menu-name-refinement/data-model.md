@@ -64,7 +64,7 @@ CREATE INDEX idx_foods_korean_match_key ON foods (korean_match_key);
 - `FoodJpaEntity` 는 이 컬럼을 **읽기 전용 매핑**(`@Column(insertable=false, updatable=false)`) 또는 매핑 생략 후 JPQL/native 조회. `FoodJpaRepository.findByKoreanMatchKey(key)` 로 조회.
 - **kernel normalizer ↔ SQL 규칙 동등성 sync 테스트**(Testcontainers) 필수(research D2).
 
-### scanned_menu_items (컬럼 추가) — P1 · Flyway
+### scanned_menu_item (컬럼 추가) — P1 · Flyway
 
 - `match_status VARCHAR(20) NOT NULL`(MATCHED/PENDING/NOT_FOOD), `matched_food_id BIGINT NULL`.
 - `BaseEntity.status`(소프트삭제)와 이름 충돌 피해 `match_status` 사용(scan 의 `scan_status` 선례).

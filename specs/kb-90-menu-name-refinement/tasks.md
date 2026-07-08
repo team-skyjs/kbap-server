@@ -23,7 +23,7 @@ description: "Task list for 메뉴 스캔 수신 메뉴명 정제"
 
 ## Phase 1: Setup
 
-- [ ] T001 `application/client/build.gradle.kts` 에 `"implementation"(project(":core:food"))` 존재 확인·추가 (매칭에 `FoodRepository` 사용)
+- [X] T001 `application/client/build.gradle.kts` 에 `"implementation"(project(":core:food"))` 존재 확인·추가 (매칭에 `FoodRepository` 사용)
 - [ ] T002 `app/api/build.gradle.kts` 에 `"runtimeOnly"(project(":infra:llm"))` 추가 (`ScannedNameInterpreter` 어댑터 런타임 조립 — 컴파일 의존 X)
 
 ---
@@ -32,14 +32,14 @@ description: "Task list for 메뉴 스캔 수신 메뉴명 정제"
 
 **목적**: 스캔 항목의 매칭 상태(MATCHED/PENDING/NOT_FOOD)를 도메인·영속·응답에 관통시켜, US1·US2 가 스키마를 다시 고치지 않게 한다.
 
-- [ ] T003 [P] `core/scan/src/test/kotlin/com/meogo/core/scan/MenuItemMatchTest.kt` — `MenuItemMatch` 3상태(MATCHED foodId/PENDING/NOT_FOOD) 생성·불변 실패 테스트
-- [ ] T004 `core/scan/src/main/kotlin/com/meogo/core/scan/MenuItemMatch.kt` — sealed 값타입 구현(MATCHED 는 `foodId: Long`)
-- [ ] T005 `core/scan/src/test/kotlin/com/meogo/core/scan/MenuScanTest.kt` — `ScannedMenuItem` 에 `match: MenuItemMatch` 필드 추가 실패 테스트 보강
-- [ ] T006 `core/scan/src/main/kotlin/com/meogo/core/scan/ScannedMenuItem.kt` — `match` 필드 추가(불변, 상태 변경은 새 인스턴스 반환)
-- [ ] T007 `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/scan/ScannedMenuItemJpaEntity.kt` — `match_status VARCHAR(20)`·`matched_food_id BIGINT NULL` 매핑 + `toDomain`/`from` 에 match 반영
-- [ ] T008 `app/api/src/main/resources/db/migration/V<생성시각>__add_scanned_menu_item_match.sql` — `scanned_menu_items` 에 두 컬럼 추가(점 구분 timestamp, 순서 비의존)
-- [ ] T009 `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/scan/MenuScanRepositoryAdapterTest.kt` — match 상태 round-trip(저장→복원) 실패 테스트 보강
-- [ ] T010 `application/client/.../scan/dto/SubmitMenuScanResult.kt` + `app/api/.../scan/SubmitMenuScanResponse.kt` — 항목에 `matchStatus`·`foodId` 추가(기존 필드 유지 = 하위 호환), 매핑 배선
+- [X] T003 [P] `core/scan/src/test/kotlin/com/meogo/core/scan/MenuItemMatchTest.kt` — `MenuItemMatch` 3상태(MATCHED foodId/PENDING/NOT_FOOD) 생성·불변 실패 테스트
+- [X] T004 `core/scan/src/main/kotlin/com/meogo/core/scan/MenuItemMatch.kt` — sealed 값타입 구현(MATCHED 는 `foodId: Long`)
+- [X] T005 `core/scan/src/test/kotlin/com/meogo/core/scan/MenuScanTest.kt` — `ScannedMenuItem` 에 `match: MenuItemMatch` 필드 추가 실패 테스트 보강
+- [X] T006 `core/scan/src/main/kotlin/com/meogo/core/scan/ScannedMenuItem.kt` — `match` 필드 추가(불변, 상태 변경은 새 인스턴스 반환)
+- [X] T007 `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/scan/ScannedMenuItemJpaEntity.kt` — `match_status VARCHAR(20)`·`matched_food_id BIGINT NULL` 매핑 + `toDomain`/`from` 에 match 반영
+- [X] T008 `app/api/src/main/resources/db/migration/V<생성시각>__add_scanned_menu_item_match.sql` — `scanned_menu_items` 에 두 컬럼 추가(점 구분 timestamp, 순서 비의존)
+- [X] T009 `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/scan/MenuScanRepositoryAdapterTest.kt` — match 상태 round-trip(저장→복원) 실패 테스트 보강
+- [X] T010 `application/client/.../scan/dto/SubmitMenuScanResult.kt` + `app/api/.../scan/SubmitMenuScanResponse.kt` — 항목에 `matchStatus`·`foodId` 추가(기존 필드 유지 = 하위 호환), 매핑 배선
 
 **Checkpoint**: 매칭 상태가 도메인·영속·응답에 관통. 아직 라우팅 로직 없음.
 
@@ -53,8 +53,8 @@ description: "Task list for 메뉴 스캔 수신 메뉴명 정제"
 
 ### Tests (먼저 작성·Red 확인)
 
-- [ ] T011 [P] [US1] `core/kernel/src/test/kotlin/com/meogo/core/kernel/menu/KoreanMenuNameNormalizerTest.kt` — 혼합 로마자·선두기호·공백·숫자/라틴전용(빈 키)·띄어쓰기변형 표본으로 `matchKey` 계약(contracts/ports.md) 실패 테스트
-- [ ] T012 [P] [US1] `core/kernel/src/test/kotlin/com/meogo/core/kernel/scan/InterpretedNameTest.kt` — `InterpretedName`(StandardName blank 불가/NotFood) 값타입 실패 테스트
+- [X] T011 [P] [US1] `core/kernel/src/test/kotlin/com/meogo/core/kernel/menu/KoreanMenuNameNormalizerTest.kt` — 혼합 로마자·선두기호·공백·숫자/라틴전용(빈 키)·띄어쓰기변형 표본으로 `matchKey` 계약(contracts/ports.md) 실패 테스트
+- [X] T012 [P] [US1] `core/kernel/src/test/kotlin/com/meogo/core/kernel/scan/InterpretedNameTest.kt` — `InterpretedName`(StandardName blank 불가/NotFood) 값타입 실패 테스트
 - [ ] T013 [P] [US1] `infra/llm/src/test/kotlin/com/meogo/infra/llm/menu/ScannedNameParserTest.kt` — LLM 배열 응답 파싱(정상·NOT_FOOD·부분 실패 예외) 실패 테스트
 - [ ] T014 [P] [US1] `infra/llm/src/test/kotlin/com/meogo/infra/llm/menu/UpstageScannedNameInterpreterTest.kt` — fake `LlmModelCaller` 로 배열 1콜·입력순서 1:1·프롬프트 조립 검증
 - [ ] T015 [P] [US1] `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/food/FoodRepositoryAdapterTest.kt` — `findByKoreanMatchKey`(hit 1/0/동음이의 2→최소 id) Testcontainers 실패 테스트 보강
@@ -65,10 +65,10 @@ description: "Task list for 메뉴 스캔 수신 메뉴명 정제"
 
 ### Implementation
 
-- [ ] T020 [P] [US1] `core/kernel/src/main/kotlin/com/meogo/core/kernel/menu/KoreanMenuNameNormalizer.kt` — 순수 `matchKey(raw)`: NFC 후 `[가-힣]` 만 남김
-- [ ] T021 [P] [US1] `core/kernel/src/main/kotlin/com/meogo/core/kernel/scan/ScannedNameInterpreter.kt` — port `interpret(texts): List<InterpretedName>` + `InterpretedName` sealed
+- [X] T020 [P] [US1] `core/kernel/src/main/kotlin/com/meogo/core/kernel/menu/KoreanMenuNameNormalizer.kt` — 순수 `matchKey(raw)`: NFC 후 `[가-힣]` 만 남김
+- [X] T021 [P] [US1] `core/kernel/src/main/kotlin/com/meogo/core/kernel/scan/ScannedNameInterpreter.kt` — port `interpret(texts): List<InterpretedName>` + `InterpretedName` sealed
 - [ ] T022 [P] [US1] `core/food/src/main/kotlin/com/meogo/core/food/FoodRepository.kt` — `findByKoreanMatchKey(key: String): List<Food>` port 추가
-- [ ] T023 [P] [US1] `core/scan/src/main/kotlin/com/meogo/core/scan/PendingMenu.kt` + `PendingMenuRepository.kt` — `enqueue(value)` port·큐 상태 값타입
+- [X] T023 [P] [US1] `core/scan/src/main/kotlin/com/meogo/core/scan/PendingMenu.kt` + `PendingMenuRepository.kt` — `enqueue(value)` port·큐 상태 값타입
 - [ ] T024 [US1] `app/api/src/main/resources/db/migration/V<생성시각>__add_foods_korean_match_key.sql` — `korean_match_key` 생성 저장 컬럼(`REGEXP_REPLACE(korean_name,'[^가-힣]','')`) + `idx_foods_korean_match_key` (MySQL 8 전용)
 - [ ] T025 [US1] `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/food/FoodJpaEntity.kt`·`FoodJpaRepository.kt`·`FoodRepositoryAdapter.kt` — `korean_match_key` 읽기전용 매핑 + `findByKoreanMatchKey` 쿼리·어댑터(동음이의 시 최소 id + 경고 로깅)
 - [ ] T026 [US1] `infra/llm/src/main/kotlin/com/meogo/infra/llm/menu/ScannedNameParser.kt` — 배열 응답 파서(research `ScoringResponseParser` 패턴)
