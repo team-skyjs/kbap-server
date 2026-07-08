@@ -9,6 +9,9 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     @Query("select f.id from FoodJpaEntity f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
 
+    @Query("select f.id from FoodJpaEntity f where f.koreanMatchKey = :key order by f.id asc")
+    fun findIdsByKoreanMatchKey(@Param("key") key: String): List<Long>
+
     @Query(
         """
         select f.id from FoodJpaEntity f

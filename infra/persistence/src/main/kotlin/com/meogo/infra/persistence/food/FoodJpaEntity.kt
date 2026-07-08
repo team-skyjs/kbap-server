@@ -22,6 +22,14 @@ class FoodJpaEntity(
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",
 
+    @Column(
+        name = "korean_match_key",
+        insertable = false,
+        updatable = false,
+        columnDefinition = "VARCHAR(255) GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name, '[^가-힣]', '')) STORED",
+    )
+    var koreanMatchKey: String = "",
+
     @Column(name = "image_ref", length = 500)
     var imageRef: String? = null,
 

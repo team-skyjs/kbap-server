@@ -318,6 +318,8 @@ private class BrowseFakeFoodRepository(
         requestedSize = size
         return page.take(size)
     }
+
+    override fun findFoodIdByKoreanMatchKey(key: String): Long? = null
 }
 
 private class BrowseFakeAvoidedSubstanceProvider(

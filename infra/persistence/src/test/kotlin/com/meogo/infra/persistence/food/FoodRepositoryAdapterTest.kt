@@ -295,5 +295,56 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("Food 저장소 어댑터 — 정규화 매칭 키 조회") {
+            `when`("정규화 키로 저장 음식을 조회하면") {
+                then("일치하는 음식의 id 를 반환한다") {
+                    clearFoods()
+                    val id = saveFood("김치찌개")
+
+                    adapter.findFoodIdByKoreanMatchKey("김치찌개") shouldBe id
+                }
+            }
+
+            `when`("원문에 공백이 섞여 있어도") {
+                then("정규화 키(한글만)로 매칭된다") {
+                    clearFoods()
+                    val id = saveFood("돼지 국밥")
+
+                    adapter.findFoodIdByKoreanMatchKey("돼지국밥") shouldBe id
+                }
+            }
+
+            `when`("일치하는 음식이 없으면") {
+                then("null 을 반환한다") {
+                    clearFoods()
+                    saveFood("김치찌개")
+
+                    adapter.findFoodIdByKoreanMatchKey("없는메뉴") shouldBe null
+                }
+            }
+
+            `when`("같은 한국어 이름의 음식이 둘 이상이면(동음이의)") {
+                then("가장 작은 id 를 반환한다") {
+                    clearFoods()
+                    val first = saveFood("국밥")
+                    saveFood("국밥")
+
+                    adapter.findFoodIdByKoreanMatchKey("국밥") shouldBe first
+                }
+            }
+
+            `when`("소프트 삭제된 음식만 키가 일치하면") {
+                then("@SQLRestriction 으로 제외돼 null 을 반환한다") {
+                    clearFoods()
+                    val id = saveFood("삭제된김밥")
+                    val entity = foodJpaRepository.findById(id).get()
+                    entity.delete()
+                    foodJpaRepository.save(entity)
+
+                    adapter.findFoodIdByKoreanMatchKey("삭제된김밥") shouldBe null
+                }
+            }
+        }
     }
 }
