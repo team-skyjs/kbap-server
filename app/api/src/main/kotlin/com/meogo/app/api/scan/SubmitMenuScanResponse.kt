@@ -43,6 +43,21 @@ data class SubmitMenuScanResponse(
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
         val riskLevel: String,
+
+        @field:Schema(
+            description = "요청 언어(lang)로 지역화한 메뉴명. 해당 언어 번역이 없으면 한국어로 폴백한다. " +
+                "조사 대기 음식은 아직 번역이 없어 항상 한국어다. foodId 가 null 이면 서버가 아는 이름이 없어 null",
+            example = "Kimchi Stew",
+            nullable = true,
+        )
+        val name: String?,
+
+        @field:Schema(
+            description = "언어와 무관한 한국어 메뉴명. foodId 가 null 이면 null",
+            example = "김치찌개",
+            nullable = true,
+        )
+        val koreanName: String?,
     )
 
     companion object {
@@ -55,6 +70,8 @@ data class SubmitMenuScanResponse(
                         matchStatus = it.matchStatus,
                         foodId = it.foodId,
                         riskLevel = it.riskLevel,
+                        name = it.name,
+                        koreanName = it.koreanName,
                     )
                 },
             )

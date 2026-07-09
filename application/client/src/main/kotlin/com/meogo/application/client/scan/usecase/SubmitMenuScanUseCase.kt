@@ -1,6 +1,7 @@
 package com.meogo.application.client.scan.usecase
 
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
+import com.meogo.application.client.food.usecase.LanguageResolver
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanResult
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service
 class SubmitMenuScanUseCase(
     private val foodRepository: FoodRepository,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
+    private val languageResolver: LanguageResolver,
     private val interpreter: ScannedNameInterpreter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -26,6 +28,7 @@ class SubmitMenuScanUseCase(
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val interpretation = interpretTargets(input, keys)
         val resolutions = resolveItems(input, keys, interpretation.byIndex)
+        val lang = languageResolver.resolve(input.lang)
         val avoidedCodes = avoidedSubstanceProvider.avoidedCodes()
             .map { AvoidanceSubstanceCodeRef(it.name) }
             .toSet()
@@ -37,6 +40,8 @@ class SubmitMenuScanUseCase(
                 riskLevel = riskOf(resolution, avoidedCodes).name,
                 matchStatus = statusOf(resolution.match),
                 foodId = foodIdOf(resolution.match),
+                name = resolution.food?.displayName(lang),
+                koreanName = resolution.food?.koreanName(),
             )
         }
 

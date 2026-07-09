@@ -3,6 +3,7 @@ package com.meogo.application.client.scan.usecase
 import com.meogo.application.client.scan.dto.MenuScanItemInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
+import com.meogo.application.client.food.usecase.LanguageResolver
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
@@ -88,7 +89,19 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
     ) = SubmitMenuScanUseCase(
         foodRepository = foodRepo,
         avoidedSubstanceProvider = ScanFakeAvoidedProvider(),
+        languageResolver = LanguageResolver(),
         interpreter = interpreter,
+    )
+
+    fun translatedFood(id: Long, koreanName: String, english: String) = Food.reconstitute(
+        id = id,
+        content = FoodContent(
+            name = LocalizedText(korean = koreanName, translations = mapOf(LanguageCode.EN to english)),
+            description = LocalizedText(korean = "설명"),
+        ),
+        imageRef = null,
+        spiciness = FoodSpiciness(0),
+        avoidanceSubstances = emptyList(),
     )
 
     given("정제 서비스가 정상일 때") {
@@ -244,6 +257,60 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 val items = result.items
                 items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
                 items.first { it.itemId == 1 }.matchStatus shouldBe "UNMATCHED"
+            }
+        }
+    }
+
+    given("응답 메뉴명 — 요청 언어 지역화·한국어 병기") {
+        `when`("lang=en 이고 매칭된 음식에 en 번역이 있으면") {
+            then("name 은 영어, koreanName 은 한국어다") {
+                val uc = useCase(
+                    foods = mapOf("김치찌개" to translatedFood(7L, "김치찌개", "Kimchi Stew")),
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
+                )
+
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개 kimchi")), lang = "en"))
+
+                result.items.first().name shouldBe "Kimchi Stew"
+                result.items.first().koreanName shouldBe "김치찌개"
+            }
+        }
+
+        `when`("lang=en 이지만 미완성으로 새로 등록된 음식이면") {
+            then("번역이 없어 name 이 한국어로 폴백되고 koreanName 과 같다") {
+                val uc = useCase(
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))),
+                )
+
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면")), lang = "en"))
+
+                result.items.first().name shouldBe "우주라면"
+                result.items.first().koreanName shouldBe "우주라면"
+            }
+        }
+
+        `when`("lang 을 지정하지 않으면") {
+            then("name 이 한국어다") {
+                val uc = useCase(
+                    foods = mapOf("김치찌개" to translatedFood(7L, "김치찌개", "Kimchi Stew")),
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
+                )
+
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
+
+                result.items.first().name shouldBe "김치찌개"
+            }
+        }
+
+        `when`("폴백 중 아는 음식이 아니어서 판정이 불가하면") {
+            then("서버가 아는 이름이 없으므로 name·koreanName 이 null 이다") {
+                val uc = useCase(interpreter = ThrowingInterpreter())
+
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면 space")), lang = "en"))
+
+                result.items.first().foodId shouldBe null
+                result.items.first().name shouldBe null
+                result.items.first().koreanName shouldBe null
             }
         }
     }

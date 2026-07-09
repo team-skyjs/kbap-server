@@ -21,8 +21,8 @@ data class SubmitMenuScanRequest(
     )
     val items: List<@Valid MenuScanItemRequest> = emptyList(),
 ) {
-    fun toInput(): SubmitMenuScanInput =
-        SubmitMenuScanInput(items = items.map { it.toInput() })
+    fun toInput(lang: String?): SubmitMenuScanInput =
+        SubmitMenuScanInput(items = items.map { it.toInput() }, lang = lang)
 
     @get:JsonIgnore
     @get:AssertTrue(message = "itemId 는 요청 안에서 중복될 수 없습니다")

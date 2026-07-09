@@ -15,8 +15,9 @@ class MenuScanController(
 ) : MenuScanApi {
     override fun submit(
         @RequestBody request: SubmitMenuScanRequest,
+        lang: String?,
     ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>> {
-        val result = submitMenuScanUseCase.submit(request.toInput())
+        val result = submitMenuScanUseCase.submit(request.toInput(lang))
         return ResponseEntity.ok(BaseResponse.ok(SubmitMenuScanResponse.from(result)))
     }
 }

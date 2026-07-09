@@ -41,6 +41,22 @@ class MenuScanControllerTest : BehaviorSpec() {
                 ).use { ps -> ps.setString(1, koreanName); ps.executeUpdate() }
             }
 
+        fun seedTranslatedFood(koreanName: String, englishName: String): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
+                                      content_status, status, created_at, updated_at)
+                    VALUES (?, '설명', 0, ?, '{}', 'READY', 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE name_translations = VALUES(name_translations)
+                    """,
+                ).use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.setString(2, """{"en": "$englishName"}""")
+                    ps.executeUpdate()
+                }
+            }
+
         fun countFood(koreanName: String): Int =
             dataSource.connection.use { c ->
                 c.prepareStatement("SELECT COUNT(*) FROM food WHERE korean_name = ?").use { ps ->
@@ -155,6 +171,64 @@ class MenuScanControllerTest : BehaviorSpec() {
                     }
 
                     contentStatusOf(name) shouldBe "INCOMPLETE"
+                }
+            }
+        }
+
+        given("응답 메뉴명 — 요청 언어 지역화·한국어 병기") {
+            `when`("lang=en 이고 매칭된 음식에 en 번역이 있으면") {
+                then("name 은 영어, koreanName 은 한국어로 내려간다") {
+                    seedTranslatedFood("언어테스트김치찌개", "Kimchi Stew")
+
+                    mockMvc.post("/api/v1/menu-scans?lang=en") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "언어테스트김치찌개 kimchi jjigae"))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matchStatus") { value("MATCHED") }
+                        jsonPath("$.payload.results[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.results[0].koreanName") { value("언어테스트김치찌개") }
+                    }
+                }
+            }
+
+            `when`("lang=en 이지만 조사 대기(미완성) 음식이라 번역이 없으면") {
+                then("name 이 한국어로 폴백해 koreanName 과 같다") {
+                    val name = "언어테스트미완성-마라탕"
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            """
+                            INSERT INTO food (korean_name, description, spiciness, name_translations,
+                                              description_translations, content_status, status, created_at, updated_at)
+                            VALUES (?, '설명 준비 중', 0, '{}', '{}', 'INCOMPLETE', 'ACTIVE', NOW(6), NOW(6))
+                            ON DUPLICATE KEY UPDATE content_status = 'INCOMPLETE'
+                            """,
+                        ).use { ps -> ps.setString(1, name); ps.executeUpdate() }
+                    }
+
+                    mockMvc.post("/api/v1/menu-scans?lang=en") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, name))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
+                        jsonPath("$.payload.results[0].name") { value(name) }
+                        jsonPath("$.payload.results[0].koreanName") { value(name) }
+                    }
+                }
+            }
+
+            `when`("lang 을 지정하지 않으면") {
+                then("name 이 한국어다") {
+                    seedTranslatedFood("언어미지정김치찌개", "Kimchi Stew")
+
+                    mockMvc.post("/api/v1/menu-scans") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "언어미지정김치찌개"))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].name") { value("언어미지정김치찌개") }
+                    }
                 }
             }
         }

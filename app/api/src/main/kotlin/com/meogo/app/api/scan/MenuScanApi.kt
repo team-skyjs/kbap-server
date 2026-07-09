@@ -4,6 +4,7 @@ import com.meogo.app.api.common.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -12,6 +13,7 @@ import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
 @Tag(name = "메뉴 스캔", description = "메뉴판 스캔 제출·판정 API")
@@ -33,6 +35,10 @@ interface MenuScanApi {
 
             메뉴가 아닌 텍스트(원산지·가격·UI 문구 등)는 **결과에서 제외**되므로 results 개수가 요청 items 보다 적을 수 있다.
             클라이언트는 요청에 부여한 itemId 로 결과의 짝을 맞춘다(itemId 는 '순서'가 아니며 한 요청 안에서 유일해야 한다 — 중복 시 400).
+
+            ## 응답 메뉴명
+            `name` 은 요청 언어(`lang`)로 지역화한 표시명이며, 해당 언어 번역이 없으면 한국어로 폴백한다(조사 대기 음식은 번역이 없어 항상 한국어).
+            `koreanName` 은 언어와 무관한 한국어 메뉴명이다. 둘 다 서버가 아는 음식일 때만 채워지며, `foodId` 가 null 이면 함께 null 이다.
         """,
     )
     @ApiResponses(
@@ -85,5 +91,7 @@ interface MenuScanApi {
             ],
         )
         request: SubmitMenuScanRequest,
+        @Parameter(description = "응답 표시명 언어 코드(미지정/빈/공백 시 ko, 지원 목록에 없는 코드는 400)", required = false, example = "en")
+        @RequestParam(required = false) lang: String?,
     ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>>
 }

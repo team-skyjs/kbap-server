@@ -9,5 +9,7 @@ data class SubmitMenuScanResult(
         val riskLevel: String,
         val matchStatus: String,
         val foodId: Long?,
+        val name: String?,
+        val koreanName: String?,
     )
 }
