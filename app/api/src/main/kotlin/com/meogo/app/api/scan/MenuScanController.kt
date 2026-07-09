@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 class MenuScanController(
     private val menuScanUseCase: MenuScanUseCase,
 ) : MenuScanApi {
-    override fun submit(
+    override fun scan(
         @RequestBody request: MenuScanRequest,
     ): ResponseEntity<BaseResponse<MenuScanResponse>> {
         val result = menuScanUseCase.scan(request.toInput())

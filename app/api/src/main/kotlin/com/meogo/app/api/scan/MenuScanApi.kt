@@ -50,7 +50,7 @@ interface MenuScanApi {
         ],
     )
     @PostMapping
-    fun submit(
+    fun scan(
         @Valid
         @RequestBody
         @SwaggerRequestBody(
