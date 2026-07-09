@@ -1,95 +1,88 @@
 # Phase 1 Data Model: 메뉴 스캔 메뉴명 정제
 
-기존 스캔·food 모델에 매칭 상태와 대기열을 더한다. 도메인은 ORM-free, 영속은 `:infra:persistence`.
+스캔은 아무것도 저장하지 않는다. 유일한 영속 변경은 **`food`에 콘텐츠 완성 상태·매칭 키를 더하는 것**이다.
 
-## 값타입 (kernel / scan 도메인)
+## 값타입
 
-### InterpretedName (`:core:kernel`, sealed) — P1
-
-LLM 해석 결과.
+### InterpretedName (`:core:kernel`, sealed) — LLM 정제 결과
 
 | 변형 | 필드 | 의미 |
 |------|------|------|
 | `StandardName` | `korean: String`(blank 불가) | 표준 한국어 메뉴명 |
-| `NotFood` | — | 음식 아님 |
+| `NotFood` | — | 음식 아님 → 응답 결과에서 제외 |
 
-### MenuItemMatch (`:core:scan`, sealed 또는 status+foodId) — P1
+### MenuItemMatch (`:core:scan`, sealed) — 항목 매칭 결과
 
-스캔 항목의 정제·매칭 결과. `ScannedMenuItem` 이 보유. **항상 아래 3종 중 하나로 종결**(중간상태 없음).
+| 변형 | 필드 | 진입 경로 | 응답 `matchStatus` |
+|------|------|-----------|--------------------|
+| `Matched` | `foodId: Long`(양수) | 완성(READY) 음식과 매칭 | `MATCHED` |
+| `Unmatched` | `foodId: Long?` | 미완성 음식 매칭/신규 등록(id 있음), 또는 폴백 판정불가(null) | `UNMATCHED` |
 
-| 상태 | 데이터 | 진입 경로 |
-|------|--------|-----------|
-| `MATCHED` | `foodId: Long` | 표준명 exact 매치 hit, 또는 폴백 정규화 exact 매치 hit |
-| `PENDING` | — | 표준명(또는 폴백 원문)이 미등록 → 대기열 등록 |
-| `NOT_FOOD` | — | LLM NOT_FOOD 판정, 또는 정규화 빈 키(한글 0자) pre-filter |
+메뉴가 아닌 항목은 `MenuItemMatch` 자체를 만들지 않는다(내부적으로 `Resolution = null` → 결과에서 제외).
 
-**산출**: 정상 경로 = 정규화 게이트 → LLM 판정 → 매치. 폴백(LLM 실패/미구성) = 정규화 exact 매치. 어느 쪽이든 위 3종으로 종결.
+### FoodContentStatus (`:core:food`)
+
+| 값 | 의미 |
+|----|------|
+| `INCOMPLETE` | 스캔으로 발견됐으나 레시피·설명·번역 미충족. 일반 조회 미노출, 위험도 항상 `UNKNOWN` |
+| `READY` | 콘텐츠 완성. 조회·위험도 산출 대상 |
 
 ## 엔티티
 
-### ScannedMenuItem (`:core:scan`, 기존 확장) — P1
+### Food (`:core:food`, 확장)
 
-기존: `id, itemId, rawMenuName, boundingBox, assessment(mock risk)`. **추가**: `match: MenuItemMatch`.
+기존: `id, content(name·description·번역), imageRef, spiciness, avoidanceSubstances`. **추가**: `contentStatus: FoodContentStatus`.
 
-- 불변(헌법·도메인 규약) — 상태 변경은 새 인스턴스 반환.
-- `rawMenuName` 은 원문 유지(응답 표시·폴백 대기열 등록에 사용).
-- `assessment`(위험도)는 mock 그대로 — 이 작업 범위 밖.
+- `Food.incomplete(koreanName)` — 한국어명만 가진 미완성 음식 팩토리. description은 플레이스홀더(`LocalizedText.korean`이 blank 불가), spiciness 0, 성분 없음.
+- `Food.isReady()` — 완성 여부.
+- `Food.overallRisk(avoidedCodes)` — **`!isReady()`면 무조건 `UNKNOWN`**. 성분이 비었다고 `SAFE`가 되는 것을 도메인에서 차단.
+- `reconstitute(..., contentStatus = READY)` — 기본값 READY(기존 호출부 호환).
 
-### Food (`:core:food`, 조회만) — P1
+### 스캔 관련 엔티티 — **없음**
 
-변경 없음(도메인). 매칭은 `korean_match_key`(파생) 로 이루어지며 도메인엔 노출 안 함. `Food.koreanName()` 이 키의 원천.
-
-### PendingMenu (`:core:scan`, 신규) — P1
-
-미등록 표준명 대기열 항목.
-
-| 필드 | 타입 | 제약 |
-|------|------|------|
-| `id` | Long? | IDENTITY |
-| `standardName` | String | blank 불가, **unique** |
-| `status` | enum `PENDING`/`RESOLVED`/`REJECTED` | 기본 `PENDING` |
+`MenuScan`·`ScannedMenuItem`·`ScanStatus`·`BoundingBox`·`MenuItemAssessment`·`MenuScanRepository`는 제거됐다. `:core:scan`에는 `MenuItemMatch`만 남는다.
 
 ## 영속 (`:infra:persistence`)
 
-### foods (컬럼 추가) — P1 · Flyway
+### food (컬럼 추가)
 
 ```sql
-ALTER TABLE foods
-  ADD COLUMN korean_match_key VARCHAR(255)
-    GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name, '[^가-힣]', '')) STORED;
-CREATE INDEX idx_foods_korean_match_key ON foods (korean_match_key);
+-- 콘텐츠 완성 상태 (기존 row 는 완성본이므로 READY 로 백필)
+ALTER TABLE food ADD COLUMN content_status VARCHAR(20) NOT NULL DEFAULT 'READY';
+CREATE INDEX idx_food_content_status ON food (content_status);
+
+-- 정규화 매칭 키(생성 저장 컬럼) — COLLATE utf8mb4_bin 필수(아래 주의)
+ALTER TABLE food ADD COLUMN korean_match_key VARCHAR(255)
+  GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name COLLATE utf8mb4_bin, '[^가-힣]', '')) STORED;
+CREATE INDEX idx_food_korean_match_key ON food (korean_match_key);
 ```
 
-- 생성 저장 컬럼 → 기존/신규 row 자동 계산, 백필 불필요.
-- food.korean_name 에는 UNIQUE 제약이 있어 이름 동음이의는 없고, 서로 다른 원문이 같은 정규화 키가 되는 match_key 충돌만 가능하다(최소 id 매칭). `FoodJpaEntity` 는 이 컬럼을 **읽기 전용 매핑**(`@Column(insertable=false, updatable=false)`) 또는 매핑 생략 후 JPQL/native 조회. `FoodJpaRepository.findByKoreanMatchKey(key)` 로 조회.
-- **kernel normalizer ↔ SQL 규칙 동등성 sync 테스트**(Testcontainers) 필수(research D2).
+- ⚠️ **`COLLATE utf8mb4_bin`을 빼면 MySQL 기본 collation에서 `[^가-힣]` 범위가 정렬 순서로 해석돼 마이그레이션이 실패한다.** Testcontainers는 collation이 달라 못 잡으므로 로컬 MySQL 검증 필수.
+- `FoodJpaEntity`는 `korean_match_key`를 **읽기 전용 매핑**(`insertable=false, updatable=false`). `@Generated`는 소프트삭제(`@SQLRestriction`)와 충돌해 쓰지 않는다.
+- `korean_name`엔 기존 UNIQUE 제약이 있다 → `createIncomplete`는 get-or-create.
 
-### scanned_menu_item (컬럼 추가) — P1 · Flyway
-
-- `match_status VARCHAR(20) NOT NULL`(MATCHED/PENDING/NOT_FOOD), `matched_food_id BIGINT NULL`.
-- `BaseEntity.status`(소프트삭제)와 이름 충돌 피해 `match_status` 사용(scan 의 `scan_status` 선례).
-
-### pending_menus (신규 테이블) — P1 · Flyway
+### 스캔 테이블 — **DROP**
 
 ```sql
-CREATE TABLE pending_menus (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  standard_name VARCHAR(100) NOT NULL,
-  queue_status VARCHAR(20) NOT NULL,
-  status VARCHAR(20) NOT NULL,           -- BaseEntity 소프트삭제
-  created_at DATETIME(6) NOT NULL,
-  updated_at DATETIME(6) NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_pending_menus_standard_name (standard_name)
-);
+DROP TABLE IF EXISTS scanned_menu_item;  -- 자식(FK) 먼저
+DROP TABLE IF EXISTS menu_scan;
 ```
+`create_scan_tables.sql`은 develop에 이미 적용돼 파일 삭제가 금지되므로(CLAUDE.md) DROP 마이그레이션으로 되돌린다.
 
-- `BaseEntity` 상속(id/status/created_at/updated_at). 도메인 큐 상태는 `queue_status` 로 분리.
-- unique 제약이 dedup 을 강제(SC-005). `enqueue` 는 `INSERT ... ON DUPLICATE KEY UPDATE`(no-op) 또는 존재 조회 후 skip.
+## 쿼리와 serving gate
 
-## Flyway 파일 (버전 규칙: 점 구분 timestamp)
+| 메서드 | 대상 | 완성 상태 필터 |
+|--------|------|----------------|
+| `findMenuPage(cursor, size)` | 메뉴 목록(사용자) | **JPQL에 `contentStatus = 'READY'`** — 페이지 크기 정확성 때문에 쿼리 레벨 |
+| `findById(id)` | 음식 상세(사용자) | **어댑터에서 `takeIf { it.isReady() }`** |
+| `findByKoreanMatchKeys(keys)` | 스캔 매칭 | **필터 없음** — 미완성 음식도 매칭돼야 재등록을 막는다 |
+| `findByIdInWithAvoidanceSubstances(ids)` | 상세 + **스코어링 배치 공유** | **필터 없음** — 배치가 미완성 음식을 봐야 채울 수 있다 |
+| `createIncomplete(koreanName)` | 스캔 miss | get-or-create(경합 시 재조회) |
 
-- P1: `V<생성시각>__add_foods_korean_match_key.sql`, `V<생성시각>__add_scanned_menu_item_match.sql`
-- P1: `V<생성시각>__create_pending_menus.sql`
+## Flyway 파일 (점 구분 timestamp)
 
-각 마이그레이션은 순서 비의존(out-of-order 전제). 생성 시각 기준 파일명(CLAUDE.md 규칙).
+- `V…__add_foods_korean_match_key.sql` — 생성 컬럼 + 인덱스
+- `V…__add_food_content_status.sql` — 완성 상태 + 인덱스(READY 백필)
+- `V…__drop_menu_scan_tables.sql` — 스캔 테이블 제거
+
+각 마이그레이션은 순서 비의존(out-of-order 전제).

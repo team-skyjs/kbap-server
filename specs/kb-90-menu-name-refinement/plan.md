@@ -1,56 +1,76 @@
-# Implementation Plan: 메뉴 스캔 수신 메뉴명 정제 (정규화 + 잔여 해석)
+# Implementation Plan: 메뉴 스캔 메뉴명 정제 · 매칭 · 위험도 판정
 
-**Branch**: `kb-90-menu-name-refinement` | **Date**: 2026-07-08 | **Spec**: [spec.md](./spec.md)
+**Branch**: `kb-90-menu-name-refinement` | **Date**: 2026-07-08 (updated 2026-07-09) | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `specs/kb-90-menu-name-refinement/spec.md`
+**Status**: Implemented — PR #41. 실제 Upstage(solar-pro) 호출 스모크로 전 경로 검증됨.
 
 ## Summary
 
-스캔으로 들어온 잡음 섞인 메뉴 텍스트를 **정규화 → 전부 LLM 음식명 추출 → DB 매칭 → hit/miss → miss 대기열** 로 정제·매칭한다. (1) 각 항목을 한글만 남기는 결정적 정규화 — 빈 키(한글 0자)는 LLM 스킵하고 NOT_FOOD. (2) 비지 않은 전 항목을 Upstage LLM 1콜(스캔당 배열 입출력)로 표준 한국어 메뉴명 또는 NOT_FOOD 판정. (3) 표준명을 저장 음식과 exact 매치 — hit=MATCHED, miss=PENDING+대기열, NOT_FOOD=제외. **LLM 장애·타임아웃·미구성 시엔 정규화된 텍스트로 exact 매치 폴백** — 이름이 정확한 아는 메뉴는 계속 MATCHED, 나머지는 원문 PENDING+대기열. 스캔은 항상 성공한다.
+스캔 항목을 **정규화 → 정제 서비스(LLM) 동기 1콜 → DB 배치 매칭 → 위험도 산출**으로 처리하고, 매칭되지 않은 표준명은 **`food` 테이블에 미완성(INCOMPLETE) 상태로 등록**한다. 미완성 음식은 완성될 때까지 일반 조회(목록·상세)에 노출되지 않고 위험도는 항상 `UNKNOWN`이다. 메뉴가 아닌 항목은 응답에서 제외한다. 스캔 내역은 저장하지 않는다.
 
-매칭은 LLM 출력 기준으로 단일화하고 exact 매치는 폴백으로 둔다(사용자 결정 — "다 LLM 으로 넘겨 음식명 추출"). 정규화 결과의 음식 여부는 형태로 판정 불가하므로 판정자는 DB exact 매치 또는 LLM 이다.
-
-기존 스캔은 `MockCyclingRiskAssessor`로 raw 이름에 위험도를 순환 배정할 뿐 실제 매칭이 없다. 이 작업은 그 자리에 정규화·정제·매칭·라우팅을 넣는다(위험도 산출 자체는 mock 유지 — 범위 밖).
+정제 서비스가 없거나 실패하면 정규화 exact 매치 폴백으로 강등하되, 음식 여부를 판정할 수 없으므로 **미완성 음식을 새로 만들지 않고** 응답에 `degraded=true`를 실어 알린다.
 
 ## Technical Context
 
 **Language/Version**: Kotlin 2.3 / JDK 21 toolchain
 
-**Primary Dependencies**: Spring Boot 4.1 (web/validation/data-jpa), Spring AI 2.0 (`:infra:llm`, Upstage=openai 스타터 base-url 교체), Flyway(+flyway-mysql)
+**Primary Dependencies**: Spring Boot 4.1 (web/validation/data-jpa), Spring AI 2.0 (`:infra:llm` — Upstage `solar-pro`, OpenAI 호환 base-url), Flyway(+flyway-mysql)
 
-**Storage**: MySQL 8.4 (prod), 통합 테스트는 MySQL Testcontainers(`@ServiceConnection`, persistence testFixtures)
+**Storage**: MySQL 8.4. 통합 테스트는 MySQL Testcontainers(`@ServiceConnection`)
 
-**Testing**: JUnit5 platform + Kotest `BehaviorSpec`(given/when/then 한국어). 도메인=순수 단위, persistence=Testcontainers, web=`@SpringBootTest`+MockMvc
+**Testing**: JUnit5 + Kotest `BehaviorSpec`(given/when/then 한국어). 도메인=순수 단위, persistence=Testcontainers, web=`@SpringBootTest`+MockMvc
 
-**Target Platform**: Linux 서버 (web bootJar `:app:api`)
+**Project Type**: 모듈러 모놀리스 백엔드(ADR-0008) — web 진입점 `:app:api`
 
-**Project Type**: 모듈러 모놀리스 백엔드 (ADR-0008) — 이 기능은 web 진입점(`:app:api`) 유스케이스
+**Performance Goals**: 정제 LLM 스캔당 **1콜**(타임아웃 5s, temperature 0). 음식 매칭도 스캔당 **1쿼리**(`korean_match_key IN (:keys)` fetch join).
 
-**Performance Goals**: 정제 LLM은 스캔당 1콜(비지 않은 항목 배열), 총 타임아웃 예산 ~2s. 매칭·폴백 exact 매치는 인덱스 조회.
+**Constraints**: LLM 미구성·장애 시 부팅·스캔 응답이 정상이어야 한다(폴백). 미완성 음식이 사용자 조회에 새면 안 된다.
 
-**Constraints**: 외부 LLM 호출을 DB 트랜잭션 안에서 길게 잡지 않는다(Additional Constraints — 저장 → 외부 호출 → 결과 저장). LLM 미구성/장애 시 web 부팅·스캔 응답이 정상이어야 한다(정규화 exact 매치 폴백으로 강등).
-
-**Scale/Scope**: foods 사전 규모 미정 — exact 매치는 인덱스 조회라 규모 무관. 스캔당 항목 1~100개(`MenuScan.MAX_ITEMS`).
+**Scale/Scope**: 스캔당 항목 1~100개.
 
 ## Constitution Check
 
-*GATE: Phase 0 전 통과, Phase 1 후 재확인.*
+- **I. Test-First**: 모든 슬라이스를 실패 테스트 우선으로 구현. 도메인 단위 → persistence Testcontainers → web MockMvc. ✅
+- **II. Bounded Contexts**: 정규화기·LLM port는 `:core:kernel`(공유 vocabulary). 매칭 결과 값타입은 `:core:scan`. food 완성 상태는 `:core:food`가 소유. 컨텍스트 조합은 `:application:client`에서만. ✅
+- **III. Layered Dependency Direction**: LLM은 `:core:kernel` port 인터페이스, `:infra:llm` 어댑터가 구현, `:app:api`가 `runtimeOnly` 조립. application은 port로만 사용. ✅
+- **IV. Persistence Encapsulation**: JPA는 `:infra:persistence`에만. 도메인은 ORM-free port(`FoodRepository`). ✅
+- **V. Domain Content Language Policy**: 매칭 키는 한국어 원문(`food.korean_name`) 기준. 미완성 음식은 번역이 없으므로 serving gate로 노출을 막는다. ✅
 
-- **I. Test-First (NON-NEGOTIABLE)**: 각 슬라이스(정규화·정제 파싱·매치·라우팅·폴백)를 실패 테스트 우선으로 작성. 정규화기·정제 파싱은 순수 단위, 매칭 조회는 persistence Testcontainers, 엔드투엔드는 web MockMvc(fake interpreter 로 정상·장애 경로). ✅ 계획됨.
-- **II. Bounded Contexts**: 정규화기는 여러 컨텍스트(scan 매칭·food match-key)가 공유하는 vocabulary → `:core:kernel`에 둔다(LanguageCode 선례). 대기열은 scan 이 소유(미등록 표준명 적재). 컨텍스트 조합은 `:application:client`에서만. food 는 코드/키로만 참조. ✅.
-- **III. Layered Dependency Direction**: LLM 정제는 `:core:kernel` **port 인터페이스**로 승격하고 `:infra:llm` 어댑터가 구현, `:app:api`가 `runtimeOnly` 조립(application 은 port 로만 사용, 계층 역전 없음). ✅.
-- **IV. Persistence Encapsulation**: 대기열 엔티티·food match-key 컬럼·Repository 구현은 `:infra:persistence`에. 도메인은 ORM-free port(`PendingMenuRepository`, `FoodRepository.findByKoreanMatchKey`). ✅.
-- **V. Domain Content Language Policy**: 한국어 원문(`foods.korean_name`)이 매칭 키의 출처. 표준명도 한국어. 언어 폴백·번역 로직은 이 기능 범위 밖(매칭은 한국어 원문 기준). ✅.
-- **Additional Constraints**: 외부 호출 트랜잭션 분리(pending→호출→저장) 준수. 도메인/영속 모델을 응답에 직접 노출하지 않음(응답 DTO 미러링). ✅.
+**게이트 결과: PASS**
 
-**게이트 결과: PASS** (위반 없음 — Complexity Tracking 불요).
+## 최종 설계 (구현 기준)
 
-## 구현 순서 (스펙 우선순위와 정렬)
+### 흐름
 
-독립 테스트 가능한 수직 슬라이스로 나눠 P1 을 먼저 머지 가능한 MVP 로 둔다. `/speckit-tasks`가 이 순서를 task 로 전개한다.
+```
+items[]{itemId, rawMenuName}
+  │
+  ├─ matchKey(raw) = NFC → [가-힣]만
+  │   └─ 빈 키 → 결과에서 제외 (LLM 호출 안 함)
+  │
+  ├─ 비지 않은 전 항목 → ScannedNameInterpreter.interpret(texts)   ← 동기 1콜
+  │   응답: 같은 길이 문자열 배열, 비음식은 "NOT_FOOD" 센티넬
+  │   실패·개수불일치·미구성 → degraded=true, 폴백으로 전환
+  │
+  ├─ 정상: StandardName → matchKey → findByKoreanMatchKeys(keys)   ← 1쿼리
+  │   폴백: 원문 matchKey → 같은 조회 (단, 미완성 음식 생성 안 함)
+  │
+  ├─ hit + READY      → Matched(foodId), 위험도 산출
+  ├─ hit + INCOMPLETE → Unmatched(foodId), UNKNOWN
+  ├─ miss + LLM 확인   → createIncomplete(표준명) → Unmatched(foodId), UNKNOWN
+  ├─ miss + 폴백       → Unmatched(null), UNKNOWN   (food 생성 안 함)
+  └─ NOT_FOOD         → 결과에서 제외
+  │
+  └─ FoodRiskEvaluator.risksOf(foods)  → { foodId → RiskLevel }
+```
 
-- **P1 (MVP · 정상 경로)** — US1. `:core:kernel` `KoreanMenuNameNormalizer`(순수)·`ScannedNameInterpreter` port(배열→ StandardName|NotFood), `:infra:llm` Upstage 단일 어댑터 + 응답 파서, `:app:api` `runtimeOnly` 조립. `FoodRepository.findByKoreanMatchKey` + persistence 조회(foods 생성 컬럼 `korean_match_key`+인덱스, Flyway). `ScannedMenuItem`에 매칭 결과(MATCHED foodId/PENDING/NOT_FOOD) 상태 추가. 대기열 `PendingMenuRepository`(표준명 dedup) + persistence 테이블·Flyway. `SubmitMenuScanUseCase`가 **정규화(빈 키→NOT_FOOD)→비지 않은 전 항목 LLM 1콜→표준명 exact 매치(hit=MATCHED/miss=PENDING+enqueue)/NotFood=제외**. 응답 DTO 에 matchStatus·foodId 미러링. **이 슬라이스가 정상 경로 전체 = MVP**(정제 서비스 구성 전제).
-- **P2 (폴백·견고성)** — US2. interpreter 를 nullable/Optional 주입 — LLM 미구성·호출 실패·타임아웃 시 정규화된 텍스트로 exact 매치 폴백(hit=MATCHED, miss=원문 PENDING+enqueue), 아는 메뉴 응답 유지·스캔 성공. 트랜잭션 경계(저장→외부 호출→결과 저장) 준수.
+### 핵심 결정 (근거는 [research.md](./research.md))
+
+1. **응답 배열은 입력과 같은 길이 + `NOT_FOOD` 센티넬** — 결과를 `itemId`로 되짚으려면 위치 정렬이 필요하고, 길이 불일치가 오정렬의 유일한 검출 신호다. 비음식 필터링은 서버가 한다.
+2. **미완성 음식의 위험도 가드를 도메인에 둔다** — `RiskLevel.aggregate(빈 목록)`이 `SAFE`라서, `Food.overallRisk()`가 `!isReady()`면 무조건 `UNKNOWN`을 반환한다. 호출자가 잊을 수 없는 자리.
+3. **serving gate는 목록 JPQL + 상세 어댑터에만** — 스코어링 배치가 쓰는 공유 쿼리(`findByIdIn…`)에 걸면 배치가 미완성 음식을 못 봐서 영영 채워지지 않는다.
+4. **폴백은 음식을 만들지 않는다** — 판정 없이 등록하면 `원산지중국` 같은 잡음이 사용자 데이터 테이블(`food`)을 오염시킨다.
+5. **배치 매칭 1쿼리** — 위험도 산출에 전체 Food 애그리거트가 필요하므로 항목별 개별 조회는 100항목 × fetch join이 된다.
 
 ## Project Structure
 
@@ -58,54 +78,44 @@
 
 ```text
 specs/kb-90-menu-name-refinement/
-├── plan.md              # 이 파일
-├── research.md          # Phase 0 — 정규화 규칙·match-key·LLM port·대기열 결정
-├── data-model.md        # Phase 1 — 엔티티/상태/컬럼
-├── quickstart.md        # Phase 1 — 로컬 검증 흐름
-├── contracts/           # Phase 1 — 도메인 port·API 응답 계약
-│   ├── ports.md
-│   └── scan-api.md
-└── tasks.md             # /speckit-tasks 산출 (이 명령이 만들지 않음)
+├── plan.md · spec.md · research.md · data-model.md · quickstart.md · tasks.md
+└── contracts/{ports.md, scan-api.md}
 ```
 
-### Source Code (repository root)
+### Source Code
 
 ```text
-core/kernel/src/main/kotlin/com/meogo/core/kernel/
-├── menu/KoreanMenuNameNormalizer.kt      # P1 순수 정규화(한글만 → 매칭 키, 빈 키=비음식 게이트)
-└── scan/ScannedNameInterpreter.kt        # P1 LLM 정제 port + 결과 값타입(StandardName|NotFood)
+core/kernel/.../menu/KoreanMenuNameNormalizer.kt     # 순수 정규화(NFC → 한글만)
+core/kernel/.../scan/ScannedNameInterpreter.kt       # LLM port + InterpretedName(StandardName|NotFood)
 
-core/scan/src/main/kotlin/com/meogo/core/scan/
-├── ScannedMenuItem.kt                    # P1 매칭 상태 필드 추가(MATCHED foodId/PENDING/NOT_FOOD)
-├── MenuItemMatch.kt                      # (신규) 매칭 결과 값타입
-├── PendingMenu.kt                        # (신규) 대기열 항목·큐 상태
-└── PendingMenuRepository.kt              # P1 대기열 port(enqueue 값 dedup)
+core/scan/.../MenuItemMatch.kt                       # Matched(foodId) | Unmatched(foodId?)
+core/food/.../FoodContentStatus.kt                   # INCOMPLETE | READY
+core/food/.../Food.kt                                # incomplete() 팩토리, isReady(), overallRisk() 가드
+core/food/.../FoodRepository.kt                      # findByKoreanMatchKeys · createIncomplete · (serving) findById/findMenuPage
 
-core/food/src/main/kotlin/com/meogo/core/food/
-└── FoodRepository.kt                     # P1 findByKoreanMatchKey(key) 추가
+infra/llm/.../menu/UpstageScannedNameInterpreter.kt  # 단일 Upstage caller, 영문 프롬프트(개수·번호·few-shot)
+infra/llm/.../menu/ScannedNameParser.kt              # 문자열 배열 파싱, NOT_FOOD 센티넬, 길이 검증
+infra/llm/.../config/LlmConfiguration.kt             # @ConditionalOnProperty(upstage) 빈 + temperature
 
-application/client/src/main/kotlin/com/meogo/application/client/scan/
-├── usecase/SubmitMenuScanUseCase.kt      # 정규화→전부 LLM→매치→라우팅(+P2 폴백) 조율
-└── dto/SubmitMenuScanResult.kt           # 매칭 상태·foodId 반영
+infra/persistence/.../food/FoodJpaEntity.kt          # content_status, korean_match_key(생성 컬럼)
+infra/persistence/.../food/FoodJpaRepository.kt      # matchKey IN 배치 fetch join, 목록 READY 필터
+infra/persistence/.../food/FoodRepositoryAdapter.kt  # 동음이의 최소 id, createIncomplete get-or-create, 상세 gate
 
-infra/llm/src/main/kotlin/com/meogo/infra/llm/menu/
-├── UpstageScannedNameInterpreter.kt      # P1 port 구현(단일 Upstage caller, @ConditionalOnProperty)
-└── ScannedNameParser.kt                  # P1 LLM 배열 응답 파싱
+application/client/.../food/usecase/FoodRiskEvaluator.kt    # Browse·Scan 공용 위험도 산출
+application/client/.../scan/usecase/SubmitMenuScanUseCase.kt # 오케스트레이션 + 폴백
 
-infra/persistence/src/main/kotlin/com/meogo/infra/persistence/
-├── food/FoodJpaEntity.kt                 # P1 korean_match_key 매핑(생성 컬럼)
-├── food/FoodJpaRepository.kt             # P1 findByKoreanMatchKey 쿼리
-├── scan/ScannedMenuItemJpaEntity.kt      # P1 매칭 상태 컬럼
-└── pending/PendingMenuJpaEntity.kt+Repo  # P1 대기열 테이블·adapter
-
-app/api/src/main/kotlin/com/meogo/app/api/scan/
-└── SubmitMenuScanResponse.kt             # 매칭 상태·foodId 필드 미러링
-
-app/api/src/main/resources/db/migration/  # P1 foods 생성컬럼+인덱스, pending_menus 테이블, scan 항목 컬럼
+app/api/.../scan/{SubmitMenuScanRequest,SubmitMenuScanResponse,MenuScanApi}.kt
+app/api/src/main/resources/db/migration/             # content_status, korean_match_key, menu_scan DROP
 ```
 
-**Structure Decision**: 모듈러 모놀리스(ADR-0008)의 기존 계층을 그대로 쓴다. 신규 코드는 계층별 소유 모듈에 배치 — 공유 정규화·LLM port 는 `:core:kernel`, 매칭 상태·대기열 port 는 `:core:scan`, port 구현은 `:infra:llm`/`:infra:persistence`, 조율은 `:application:client`, 조립은 `:app:api`(runtimeOnly). 경계는 기존 `ModuleBoundaryTest`(ArchUnit)로 강제된다.
+**Structure Decision**: 기존 계층을 그대로 사용. 스캔 애그리거트·영속은 전부 제거됐고 `:core:scan`엔 매칭 결과 값타입만 남는다. 경계는 `ModuleBoundaryTest`(ArchUnit)로 강제.
 
 ## Complexity Tracking
 
-> Constitution Check 위반 없음 — 이 절은 비워 둔다.
+> Constitution Check 위반 없음.
+
+## 검증
+
+- `./gradlew build` 전체 green (ArchUnit 포함)
+- 로컬 docker MySQL로 Flyway 전량 적용 검증(create→drop 순서, 생성 컬럼 collation 포함)
+- **실제 Upstage solar-pro 스모크**(임시 DB·8081): 로마자 제거·오탈자 교정·비음식 제외·미완성 등록·serving gate·재스캔 dedup 전부 확인

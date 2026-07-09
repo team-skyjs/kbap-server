@@ -1,28 +1,68 @@
-# Quickstart: 메뉴 스캔 메뉴명 정제 검증
+# Quickstart: 메뉴 스캔 정제 검증
 
 ## 전제
 
-- 로컬 docker MySQL 8.4 (`meogo-mysql`, root/root) 또는 통합 테스트는 MySQL Testcontainers.
-- foods 테이블에 매칭 대상 시드(예: `김치찌개`)가 존재.
-- 정상 경로 검증엔 `meogo.llm.upstage.*` 구성(또는 fake interpreter). 미구성 시 폴백 경로(US2)로 동작.
+- 로컬 docker MySQL 8.4 (`meogo-mysql`) — 통합 테스트는 MySQL Testcontainers를 자동 기동
+- `food` 테이블에 완성(READY) 시드 존재
+- 실제 LLM 호출 검증엔 `UPSTAGE_ENABLED=true` + `UPSTAGE_API_KEY`
 
-## US1 — 정상 경로 (정규화 → 전부 LLM → 매치 → 대기열)
+## 1. 단위·통합 테스트
 
-1. `./gradlew :core:kernel:test` — `KoreanMenuNameNormalizer`(혼합 로마자·기호·공백·비한글 빈 키·띄어쓰기변형) + `InterpretedName` 순수 단위.
-2. `./gradlew :infra:llm:test` — `ScannedNameParser` 배열 응답 파싱(정상·NOT_FOOD·부분 실패), `UpstageScannedNameInterpreter` 는 fake `LlmModelCaller` 로 단위(배열 1콜·입력순서 1:1).
-3. `./gradlew :infra:persistence:test` — `findByKoreanMatchKey`(hit/miss/동음이의) + **normalizer↔SQL 규칙 동등성 sync 테스트** + `PendingMenuRepository` enqueue dedup (Testcontainers).
-4. `./gradlew :app:api:test` — MockMvc(fake interpreter): `"김치찌개 kimchi jjigae"`·`"김치찌게"` → `MATCHED`+같은 `foodId`. `"우주라면"` → `PENDING` + `pending_menus` 1행. `"원산지 중국"`·`"MacBook Air F9"` → `NOT_FOOD`(빈 키는 LLM 스킵), 대기열 미등록.
-5. 같은 미등록 표준명 2회 스캔 → `pending_menus` 여전히 1행(unique dedup, SC-005).
+```bash
+./gradlew :core:kernel:test        # 정규화기(혼합 로마자·기호·비한글 빈 키), InterpretedName
+./gradlew :core:food:test          # Food.incomplete, isReady, overallRisk 가 미완성이면 UNKNOWN
+./gradlew :core:scan:test          # MenuItemMatch(Matched/Unmatched)
+./gradlew :infra:llm:test          # 프롬프트 조립(번호·개수), 배열 파싱(NOT_FOOD·null·길이불일치·코드펜스)
+./gradlew :infra:persistence:test  # matchKey 배치 조회·동음이의 최소 id·createIncomplete dedup·serving gate
+                                   # + kernel matchKey ↔ SQL 생성 컬럼 동등성 sync 테스트
+./gradlew :application:client:test # 라우팅·폴백·degraded·한 스캔 내 중복 생성 방지
+./gradlew :app:api:test            # MockMvc e2e + SC-001 회귀 + 요청 검증(400)
+./gradlew build                    # 전체(ArchUnit 경계 포함)
+```
 
-## US2 — 폴백 (LLM 장애·미구성)
+## 2. Flyway 실검증 (필수 — 테스트가 못 잡는 결함)
 
-6. 예외/타임아웃/부재(null) fake interpreter 주입 → 아는 메뉴 `"김치찌개"` 는 정규화 exact 매치로 `MATCHED`, 잡음·미등록은 원문 `PENDING`+대기열. 스캔 응답 200 성공(FR-006).
-7. `meogo.llm.upstage.*` 미구성 부팅 → web 정상 기동, 폴백 규칙으로 응답(interpreter 빈 부재 안전).
+마이그레이션은 테스트에서 실행되지 않는다(Testcontainers는 엔티티로 스키마 생성). **생성 컬럼의 collation 결함은 실제 MySQL에서만 드러난다.**
 
-## 실측 회귀 (SC-001)
+```bash
+DB=kb90_check
+docker exec -i meogo-mysql sh -c "mysql -uroot -proot -e \"DROP DATABASE IF EXISTS $DB; CREATE DATABASE $DB CHARACTER SET utf8mb4\""
+cat $(ls app/api/src/main/resources/db/migration/*.sql | sort) \
+  | docker exec -i meogo-mysql sh -c "mysql -uroot -proot --default-character-set=utf8mb4 $DB"
+# 기대: 에러 없음, food.korean_match_key 생성, menu_scan/scanned_menu_item 없음
+docker exec -i meogo-mysql sh -c "mysql -uroot -proot -e \"DROP DATABASE $DB\""
+```
 
-8. 실측 로그의 6종(김치찌개·된장찌개·순두부찌개·부대찌개·고추장찌개·닭볶음탕) + "메뉴판"·잡음 혼합 입력 → 6종 매칭(또는 PENDING), "메뉴판"·잡음은 MATCHED 되지 않음.
+## 3. 실제 LLM 스모크 (Upstage solar-pro)
 
-## Flyway 로컬 확인
+로컬 개발 DB를 건드리지 않도록 **임시 DB + 다른 포트**로 띄운다.
 
-마이그레이션은 테스트에서 실행되지 않음(Testcontainers 스키마는 JPA ddl). 새 V 스크립트(foods 생성컬럼·scan 항목 컬럼·pending_menus)는 로컬 docker MySQL 에 DROP+CREATE 후 부팅해 검증([[flyway-migration-validation-gap]]). 생성 컬럼 `REGEXP_REPLACE` 는 MySQL 8 전용 — H2 미고려(CLAUDE.md).
+```bash
+docker exec -i meogo-mysql sh -c "mysql -uroot -proot -e 'CREATE DATABASE meogo_smoke CHARACTER SET utf8mb4'"
+
+SPRING_PROFILES_ACTIVE=local \
+DB_URL=jdbc:mysql://localhost:3306/meogo_smoke \
+UPSTAGE_ENABLED=true UPSTAGE_API_KEY=<키> SERVER_PORT=8081 \
+./gradlew :app:api:bootRun
+```
+
+```bash
+curl -s -X POST localhost:8081/api/v1/menu-scans -H 'Content-Type: application/json' -d '{"items":[
+  {"itemId":10,"rawMenuName":"김치찌개 kimchi jjigae"},
+  {"itemId":20,"rawMenuName":"원산지 : 중국"},
+  {"itemId":30,"rawMenuName":"된장찌게 8,000"},
+  {"itemId":40,"rawMenuName":"MacBook Air F9"},
+  {"itemId":50,"rawMenuName":"우주라면"}]}' | python3 -m json.tool
+```
+
+**기대**: `degraded=false`, 결과 3건 — 10·30은 `MATCHED`(오탈자 교정 포함), 50은 `UNMATCHED`+신규 `foodId`, 20·40은 **제외**.
+
+이어서 확인:
+```bash
+curl -s "localhost:8081/api/v1/foods?lang=ko"   # 우주라면 미포함 (serving gate)
+# 같은 우주라면 재스캔 → 같은 foodId, food 행 1개 (dedup)
+```
+
+정리: 앱 종료 후 `DROP DATABASE meogo_smoke`.
+
+> `UPSTAGE_ENABLED`를 켜지 않으면 interpreter 빈이 생성되지 않아 **폴백 경로**로 동작하고 `degraded=true`가 온다. 로컬 개발 DB(`meogo`)로 띄우면 `menu_scan`·`scanned_menu_item`이 DROP되고 `food.content_status`가 추가된다(의도된 마이그레이션).

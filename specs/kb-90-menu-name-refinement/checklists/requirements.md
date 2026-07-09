@@ -31,6 +31,7 @@
 
 ## Notes
 
-- 정제 방식(외부 언어 이해 서비스=LLM, Upstage/Spring AI)은 HOW 이므로 spec 본문에서 제외하고 Assumptions 에 기술 중립으로만 남김 — 구체 선택은 plan.md 담당.
-- 위험도 산출·실제 레시피 배치는 범위 밖으로 명시(Assumptions). 대기열 적재·dedup·상태 전이가 이 작업의 책임 경계.
-- 흐름(정규화→전부 LLM→매치→miss 대기열, LLM 장애 시 정규화 exact 매치 폴백)이 SC-002(혼합·오탈자 동일 매칭)/SC-004(장애 시 아는 메뉴 가용성)로 측정 가능하게 검증됨.
+- 구현 중 설계가 두 번 바뀌었고 spec 에 반영됨: (1) `pending_menus` 대기열 폐기 → miss 를 `food` 에 미완성(INCOMPLETE)으로 in-place 등록, (2) 스캔 내역 기록·바운딩 박스 수신 제거. 근거는 research.md D4·D7.
+- 정제 방식(Upstage solar-pro, 동기 1콜, 같은 길이 배열 + NOT_FOOD 센티넬)은 HOW 이므로 spec 본문에서 기술 중립으로 서술하고 상세는 plan/research 에 둠.
+- 안전 직결 규칙 두 가지가 SC 로 측정됨: 미완성 음식 노출 0%(SC-004), 비음식 응답 포함 0%(SC-003).
+- 위험도 산출은 실제값(더미 회피성분 제공자 사용). 회원 기능·조사 배치는 범위 밖(Assumptions).

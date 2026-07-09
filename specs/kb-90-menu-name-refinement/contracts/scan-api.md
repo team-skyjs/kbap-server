@@ -1,43 +1,77 @@
-# Contracts: 스캔 API 응답 변경
+# Contracts: 스캔 API
 
-`POST /api/v1/menu-scans` — 요청 스키마 **변경 없음**(`items[].{itemId, rawMenuName, boundingBox}` 그대로). 응답 항목에 정제·매칭 결과를 추가한다. `BaseResponse<T>` 봉투·`/api/v1` 규약 유지.
+`POST /api/v1/menu-scans` — `BaseResponse<T>` 봉투·`/api/v1` 규약을 따른다.
 
-## 응답 항목 필드 (SubmitMenuScanResponse.results[])
+> **develop 대비 breaking change.** 요청에서 `boundingBox`가, 응답에서 `scanId`·`results[].id`·`reason`이 빠졌고, `degraded`·`matchStatus`·`foodId`가 추가됐다. 응답 개수도 요청과 달라질 수 있다.
 
-기존: `{ id, itemId, riskLevel, reason }`(riskLevel/reason 은 mock 유지). **추가**:
+## 요청
+
+```json
+{ "items": [
+    { "itemId": 10, "rawMenuName": "김치찌개 kimchi jjigae" },
+    { "itemId": 20, "rawMenuName": "원산지 : 중국" }
+]}
+```
+
+| 필드 | 타입 | 제약 |
+|------|------|------|
+| `items` | array | 1~100개 |
+| `items[].itemId` | int | 필수. **요청 안에서 유일**(중복 시 400). 순서가 아니라 클라이언트의 매칭 키 |
+| `items[].rawMenuName` | string | 필수, blank 불가 |
+
+바운딩 박스는 서버가 쓰지 않으므로 받지 않는다.
+
+## 응답
+
+```json
+{ "success": true,
+  "payload": {
+    "degraded": false,
+    "results": [
+      { "itemId": 10, "matchStatus": "MATCHED",   "foodId": 2,    "riskLevel": "DANGER" },
+      { "itemId": 50, "matchStatus": "UNMATCHED", "foodId": 11,   "riskLevel": "UNKNOWN" },
+      { "itemId": 60, "matchStatus": "UNMATCHED", "foodId": null, "riskLevel": "UNKNOWN" }
+    ]
+  },
+  "message": null }
+```
 
 | 필드 | 타입 | 의미 |
 |------|------|------|
-| `matchStatus` | enum `MATCHED`/`PENDING`/`NOT_FOOD` | 정제·매칭 결과. 항상 3종 중 하나로 종결(정상 경로·폴백 무관) |
-| `foodId` | Long? | `MATCHED` 일 때 매칭된 음식 id, 그 외 null |
+| `degraded` | boolean | `true`면 정제 서비스 미적용(미구성·실패). 메뉴가 아닌 텍스트가 `results`에 섞여 있을 수 있다 |
+| `results[].itemId` | int | 요청 `itemId`와 짝. **인덱스가 아니라 이 키로 맞춘다** |
+| `results[].matchStatus` | enum | `MATCHED`(조회 가능한 음식) / `UNMATCHED`(조사 대기 — 위험도 판정 불가) |
+| `results[].foodId` | long? | 음식 PK. `UNMATCHED`여도 조사 대기로 등록된 음식이면 값이 있고, 판정 자체가 불가하면 `null` |
+| `results[].riskLevel` | enum | `SAFE`/`CAUTION`/`DANGER`(MATCHED) · `UNKNOWN`(UNMATCHED) |
 
-- `itemId` 로 요청 항목과 1:1 매핑(FR-009, 기존 규약).
-- **하위 호환**: 기존 필드 유지 + 신규 필드 추가(순수 확장). 클라이언트가 신규 필드를 무시해도 기존 동작 불변.
+### ⚠️ `results` 개수는 요청보다 적을 수 있다
 
-## matchStatus 별 의미 (클라이언트 처리 가이드)
+메뉴가 아닌 항목(원산지·가격·UI 문구·한글 없는 텍스트)은 **결과에서 제외**된다. 클라이언트는 반드시 `itemId`로 짝을 맞추고, 응답에 없는 `itemId`는 "메뉴 아님"으로 처리한다.
 
-- `MATCHED` + `foodId`: 아는 메뉴 — 그 음식으로 위험도/상세 연결 가능.
-- `PENDING`: 처음 보는(또는 해석 지연) 메뉴 — "확인 중" 표시. 후속 조사 대기열 등록됨.
-- `NOT_FOOD`: 비음식(원산지·가격·UI 텍스트 등) — 결과에서 제외/비표시.
+## 상태 조합
 
-## 예 (P2 완성 기준)
+| 상황 | `matchStatus` | `foodId` | `riskLevel` | 응답 포함 |
+|------|---------------|----------|-------------|-----------|
+| 완성 음식과 매칭 | `MATCHED` | 있음 | 산출값 | ✅ |
+| 미완성 음식과 매칭 | `UNMATCHED` | 있음 | `UNKNOWN` | ✅ |
+| 미등록 → 미완성 등록 | `UNMATCHED` | 있음(신규) | `UNKNOWN` | ✅ |
+| 폴백 중 판정 불가 | `UNMATCHED` | `null` | `UNKNOWN` | ✅ (`degraded=true`) |
+| 메뉴가 아님 | — | — | — | ❌ 제외 |
 
-요청 항목: `[{itemId:0,"김치찌개 kimchi jjigae"}, {itemId:1,"김치찌게"}, {itemId:2,"원산지 중국"}, {itemId:3,"우주라면"(미등록)}]`
+## 실측 예 (Upstage solar-pro)
 
-```json
-{
-  "success": true,
-  "payload": {
-    "scanId": 42,
-    "results": [
-      {"itemId": 0, "matchStatus": "MATCHED", "foodId": 7, "riskLevel": "…", "reason": "…"},
-      {"itemId": 1, "matchStatus": "MATCHED", "foodId": 7, "riskLevel": "…", "reason": "…"},
-      {"itemId": 2, "matchStatus": "NOT_FOOD", "foodId": null, "riskLevel": "…", "reason": "…"},
-      {"itemId": 3, "matchStatus": "PENDING", "foodId": null, "riskLevel": "…", "reason": "…"}
-    ]
-  }
-}
-```
+요청 5항목 → 응답 3항목:
 
-- 정상 경로: 0(혼합 로마자)·1(오탈자) 모두 LLM 이 `김치찌개` 로 정제 → 같은 음식(foodId 7) MATCHED. 2(`원산지 중국`)는 LLM NOT_FOOD, 3(`우주라면`)은 표준명 miss → PENDING+대기열.
-- LLM 장애/미구성 시(폴백): 각 항목을 정규화 exact 매치 — 0(`김치찌개…`→키 `김치찌개`)은 hit=MATCHED로 살아있고, 1(`김치찌게`→키 `김치찌게`)·2·3 은 저장 음식에 없어 miss → 원문 PENDING+대기열. 아는 메뉴(0)는 무영향, 스캔은 200 성공(FR-006).
+| itemId | 원문 | 결과 |
+|--------|------|------|
+| 10 | `김치찌개 kimchi jjigae` | `MATCHED` foodId=2 `DANGER` |
+| 20 | `원산지 : 중국` | 제외(비음식) |
+| 30 | `된장찌게 8,000` | `MATCHED` foodId=1 `DANGER` — 오탈자 교정 |
+| 40 | `MacBook Air F9` | 제외(한글 0자, LLM 호출 안 함) |
+| 50 | `우주라면` | `UNMATCHED` foodId=11 `UNKNOWN` — 미완성 등록 |
+
+## 오류
+
+| 상태 | 사유 |
+|------|------|
+| 400 | `items` 비었거나 101개 초과, `itemId` 누락·중복, `rawMenuName` blank |

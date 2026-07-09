@@ -1,75 +1,97 @@
 # Phase 0 Research: 메뉴 스캔 메뉴명 정제
 
-정제·매칭 설계의 핵심 결정. **주 경로 = 정규화 → 전부 LLM 음식명 추출 → DB 매칭 → hit/miss → miss 대기열.** LLM 장애 시에만 정규화 exact 매치로 폴백한다(사용자 결정 2026-07-08).
+핵심 결정과 근거. 구현 중 뒤집힌 결정은 **이력**으로 남긴다(왜 그렇게 안 했는지가 다음 사람에게 필요하다).
 
-## D1 — 정규화 규칙·위치·역할
+## D1 — 정규화 규칙과 역할
 
-**Decision**: 매칭 키 = 입력 텍스트를 NFC 정규화 후 **한글 음절(`[가-힣]`)만 남긴 문자열**. 순수 함수 `KoreanMenuNameNormalizer.matchKey(raw): String` 를 **`:core:kernel`** 에 둔다.
+**Decision**: 매칭 키 = NFC 정규화 후 **한글 음절(`[가-힣]`)만** 남긴 문자열. 순수 함수 `KoreanMenuNameNormalizer.matchKey(raw)`를 `:core:kernel`에 둔다(scan 매칭·food 생성 컬럼이 공유하는 vocabulary).
 
-새 흐름에서 정규화기의 역할은 두 가지:
-1. **비한글 pre-filter** — `matchKey(raw)` 가 빈 문자열이면(한글 0자: "MacBook Air F9", "6,500") 그 항목은 **LLM 에 보내지 않고 곧장 NOT_FOOD** 처리(불필요한 LLM 토큰·비용 절감).
-2. **매치 키 빌더** — (a) LLM 이 돌려준 표준 한국어 이름을 DB exact 매치할 때, (b) 폴백에서 원문을 exact 매치할 때, 양쪽 다 이 함수로 키를 만든다(동일 규칙 재사용).
+역할은 둘뿐이다:
+1. **비한글 pre-filter** — 빈 키(`6,500`, `MacBook Air F9`)는 LLM에 보내지 않고 결과에서 제외.
+2. **매치 키 빌더** — LLM 표준명과 폴백 원문 양쪽을 같은 규칙으로 키화.
 
-**정규화 결과의 "깨끗함"은 독립 판정하지 않는다** — 한글만 남은 문자열이 음식명인지("김치찌개")·비음식인지("원산지중국")·수식어 변형인지("왕김치찌개")는 형태로 구분 불가(사용자 질의). 판정자는 **DB exact 매치(hit=아는 음식) 또는 LLM(의미)** 이다.
+**정규화 결과의 "음식 여부"는 판정하지 않는다.** `김치찌개`·`원산지중국`·`왕김치찌개`는 형태로 구분 불가다. 판정자는 **DB exact 매치(hit=아는 음식)** 또는 **LLM(의미)**이다.
 
-**Rationale**: 순수·Spring-free(kernel 제약). 빈 키 pre-filter 로 명백한 잡음의 LLM 호출을 없앰. 매치 키를 한 함수로 통일해 LLM 출력·폴백 원문이 같은 규칙으로 매칭됨.
+**Rationale**: 순수·Spring-free. 공백 제거로 `돼지 국밥`/`돼지국밥` 변형을 흡수.
 
-## D2 — foods 매칭 키 저장·조회
+## D2 — food 매칭 키 저장·조회
 
-**Decision**: `foods` 에 **MySQL 생성 저장 컬럼** `korean_match_key VARCHAR(255) GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name,'[^가-힣]','')) STORED` + 인덱스. 도메인 port `FoodRepository.findByKoreanMatchKey(key): List<Food>`. 주 경로(LLM 출력 매칭)·폴백(원문 매칭) 양쪽이 이 조회를 쓴다.
+**Decision**: `food`에 MySQL **생성 저장 컬럼**
+```sql
+korean_match_key VARCHAR(255)
+  GENERATED ALWAYS AS (REGEXP_REPLACE(korean_name COLLATE utf8mb4_bin, '[^가-힣]', '')) STORED
+```
++ 인덱스. 도메인 port는 **배치 조회** `findByKoreanMatchKeys(keys): Map<String, Food>`.
 
 - 생성 컬럼이라 기존/신규 row 자동 계산 — 백필·write 경로 변경 불필요.
-- kernel `matchKey` 규칙 == SQL `REGEXP_REPLACE(...,'[^가-힣]','')` 동등성을 표본 sync 테스트(Testcontainers)로 고정([[migration-filename-test-coupling]] 교훈).
+- kernel `matchKey`와 SQL 식의 동등성을 표본 sync 테스트(Testcontainers)로 고정.
 
-**동음이의**: `korean_name` 은 유일하지 않음 → `List` 반환. 1개=MATCHED, 0개=miss, 2개↑=최소 id 매칭+경고 로깅(위험도 mock 인 동안 안전 영향 없음, de-mock 시 재검토).
+**⚠️ collation 함정 (실측으로 발견)**: `[^가-힣]` 문자 범위는 MySQL 기본 collation(`utf8mb4_0900_ai_ci`)에서 정렬 순서로 해석돼 `range x comes after y` 에러로 **마이그레이션이 실패**한다. `COLLATE utf8mb4_bin`(코드포인트 순서)이 필수다. Testcontainers는 collation이 달라 이 결함을 잡지 못했고, **로컬 docker MySQL에 실제 마이그레이션을 돌려서** 발견했다.
 
-**Alternatives**: 앱이 write 시 컬럼 채우기(백필 필요) 기각(YAGNI). in-memory 전량 스캔(규모 미정 O(N)) 기각.
+**동음이의**: `korean_name`엔 UNIQUE가 있어 이름 중복은 없지만, 서로 다른 이름이 같은 정규화 키가 될 수 있다(`국밥`/`국 밥`). 이때 **최소 id 매칭 + 경고 로깅**.
 
-## D3 — LLM 음식명 추출 (주 경로)
+**Alternatives**: 앱이 write 시 컬럼 채우기(백필 필요) 기각. 항목별 개별 조회 → 위험도 산출에 전체 애그리거트가 필요해 100항목이면 100 fetch join. 배치 조회로 대체.
 
-**Decision**: `:core:kernel` port `ScannedNameInterpreter.interpret(texts: List<String>): List<InterpretedName>`, `InterpretedName = StandardName(korean) | NotFood`(sealed). `:infra:llm` 에 **단일 Upstage `LlmModelCaller`** 어댑터 `UpstageScannedNameInterpreter`(3모델 fanout 은 배치 전용, 미재사용). **빈 키가 아닌 전 항목**을 스캔당 **1콜**(배열 입출력)로 보내 표준 한국어 메뉴명 또는 NOT_FOOD 를 받는다. `:app:api` `runtimeOnly` 조립. `@ConditionalOnProperty(meogo.llm.upstage.*)` 게이팅.
+## D3 — LLM 정제 (동기 1콜)
 
-- LLM 입력은 **원문 텍스트**(로마자 음역 등 문맥이 추출에 도움) — 정규화기는 어느 항목이 LLM 대상인지 거르는 게이트로만 쓰고, LLM 이 볼 텍스트를 미리 뭉개지 않는다. (사용자 표현 "정규화 거친 후 LLM": 정규화 게이트를 통과한 항목이 LLM 으로 간다는 의미로 구현.)
-- 프롬프트 system 역할: "각 텍스트에서 표준 한국어 메뉴명을 추출. 음식이 아니면 NOT_FOOD." 배열 JSON 입출력, 입력 순서 1:1. 파서는 research `ScoringResponseParser` 패턴.
-- 총 타임아웃 예산 ~2s. 실패·타임아웃·부분 파싱 실패는 예외 → D4 폴백.
+**Decision**: `:core:kernel` port `ScannedNameInterpreter.interpret(texts): List<InterpretedName>`, `InterpretedName = StandardName(korean) | NotFood`. `:infra:llm`에 **단일 Upstage caller** 어댑터(`solar-pro`, `temperature=0`, 타임아웃 5s). `:app:api`가 `runtimeOnly` 조립, `@ConditionalOnProperty(meogo.llm.upstage.enabled)`.
 
-**Rationale**: 오탈자·미등록 신메뉴·수식어·비음식 판정은 의미 이해라 규칙 불가. 사용자가 "전부 LLM 으로 음식명 추출" 을 택함 — 매칭을 LLM 출력 기준으로 단일화(정규화 exact 매치는 폴백으로 강등).
+**응답 형식: 입력과 같은 길이의 문자열 배열 + `"NOT_FOOD"` 센티넬.**
 
-**Alternatives**: 정규화 exact 매치를 주 경로로 두고 잔여만 LLM(이전 설계) → 사용자가 단일 LLM 경로로 변경. 3모델 fanout → 과함, 기각.
+왜 "음식만 골라 반환"이 아닌가:
+- 결과를 `itemId`로 되짚으려면 **위치 정렬**이 필요하다. 같은 `rawMenuName`에 다른 `itemId`가 허용되므로(공기밥 두 번) 내용 기반 매칭은 불가능하다.
+- 인덱스를 echo하는 방식(`[{"i":0,...}]`)은 모델이 인덱스를 틀리면 **조용히 엉뚱한 항목에 붙는다**. 같은 길이 방식은 **길이 불일치로 즉시 감지**되어 폴백으로 떨어진다. 안전 서비스에서 조용한 오매칭이 최악이다.
 
-## D4 — 라우팅·대기열·폴백
+**프롬프트(영문)**: system에 hard rule(같은 길이·순서 유지·코드펜스 금지) + 중간 슬롯이 `NOT_FOOD`인 few-shot 1개. user에 기대 개수 명시 + 입력을 번호로 제시. `temperature=0`으로 결정적 판정.
 
-**주 경로 (LLM 정상)**:
+**실측 검증**: `solar-pro` 실호출로 로마자 제거·오탈자 교정(`된장찌게`→`된장찌개`)·비음식 판정·코드펜스 없는 순수 JSON 배열을 확인했다. (배치 쪽 `solar-pro3`는 malformed JSON으로 롤백된 이력이 있어 형식을 단순하게 유지했다.)
+
+## D4 — miss 처리: 대기열 → in-place 미완성 food (**결정 변경**)
+
+**Decision**: 매칭되지 않은 표준명은 **`food` 테이블에 `content_status=INCOMPLETE`로 직접 등록**한다(`createIncomplete`, get-or-create). 레시피·설명·번역이 채워져 `READY`가 되어야 일반 조회에 노출된다.
+
+**이력**: 초기 설계는 별도 `pending_menus` 대기열 테이블이었다. 구현 후 **폐기**했다 — miss가 곧 "조사 대상 음식"이므로 별도 큐가 중복이고, 배치는 `food WHERE content_status=INCOMPLETE`를 스캔하면 된다. 대기열 인프라(테이블·엔티티·repo·어댑터·port·마이그레이션) 한 겹이 통째로 사라졌다.
+
+**serving gate는 목록 JPQL + 상세 어댑터에만 건다.** 스코어링 배치가 공유하는 `findByIdInWithAvoidanceSubstances`에 걸면 배치가 미완성 음식을 못 봐서 **영영 채워지지 않는다**.
+
+`LocalizedText.korean`이 blank를 금지하므로 미완성 음식의 description은 플레이스홀더를 넣는다(serving gate로 노출되지 않음).
+
+## D5 — 위험도 산출 (mock 제거)
+
+**Decision**: `MockCyclingRiskAssessor` 삭제. `FoodRiskEvaluator`(Browse·Scan 공용)가 사용자 회피 코드 ∩ 카탈로그 코드로 `Food.overallRisk()`를 호출한다. 회원 기능 전까지 `MockAvoidedSubstanceProvider`가 회피 코드를 준다.
+
+**⚠️ 함정**: `RiskLevel.aggregate(빈 목록) = SAFE`. 미완성 음식은 성분이 비어 있어 그냥 계산하면 **"안전"으로 나온다.** 그래서 가드를 **도메인 안**에 뒀다:
+```kotlin
+fun overallRisk(avoidedCodes: Set<...>): RiskLevel {
+    if (!isReady()) return RiskLevel.UNKNOWN
+    ...
+}
 ```
-각 항목 raw → matchKey(raw)
-  빈 키(한글 0)         → NOT_FOOD (LLM 스킵)
-  비어있지 않음         → LLM 대상 수집
-LLM interpret(대상들) 1콜:
-  StandardName(korean) → matchKey(korean) 로 foods exact 매치
-                          hit  → MATCHED(foodId)
-                          miss → PENDING + enqueue(표준명)
-  NotFood              → NOT_FOOD (대기열 미등록)
-```
+호출자가 잊을 수 없는 자리. 판정 기준은 성분 유무가 아니라 **콘텐츠 완성 상태**다.
 
-**폴백 (LLM 미구성·실패·타임아웃)**:
-```
-LLM 대상 전원 → matchKey(raw) 로 foods exact 매치
-  hit  → MATCHED(foodId)       (아는 메뉴는 장애 중에도 살아있음)
-  miss → PENDING + enqueue(원문) (신메뉴/수식어/비음식 구분 불가 → LLM 복구 후 처리)
-```
+## D6 — 폴백과 degraded
 
-- **스캔 항목 상태** `MenuItemMatch`: `MATCHED(foodId)` / `PENDING` / `NOT_FOOD`. (UNMATCHED 중간상태 불요 — 주 경로든 폴백이든 항상 3종 중 하나로 종결.) `ScanStatus` 는 `COMPLETED` 유지.
-- **대기열** `pending_menus`: 표준명(폴백 시 원문) unique dedup, port `PendingMenuRepository.enqueue`. blank 거절. INSERT ON DUPLICATE KEY no-op. 소유 컨텍스트 `:core:scan`.
-- **트랜잭션 경계**: LLM 호출을 트랜잭션 밖에서(Additional Constraints). 스캔 저장(pending) → LLM 호출 → 결과로 항목 상태·대기열 확정 저장.
+**Decision**: interpreter 미구성·예외·타임아웃·**응답 개수 불일치**면 정규화 exact 매치 폴백으로 강등한다. 스캔은 항상 성공한다.
 
-**Rationale**: exact 매치가 "깨끗함" 판정을 대신하므로 폴백에 휴리스틱이 없다(hit 이면 아는 음식, 아니면 대기열). 아는 메뉴는 LLM 장애에도 폴백 exact 매치로 계속 매칭 — 사용자가 우려한 "핵심 기능 종속"을 완화. unique 제약 dedup 이 가장 단순·정확(SC-005).
+- **폴백은 미완성 음식을 만들지 않는다.** 음식 여부 판정이 없으므로 `원산지중국` 같은 잡음이 사용자 데이터 테이블을 오염시킨다.
+- 폴백에선 비음식을 걸러낼 수 없어 결과에 섞인다 → 응답에 **`degraded=true`**를 실어 클라이언트가 알 수 있게 한다.
+- "해석할 항목이 아예 없었던 경우"(전부 비한글)는 강등이 아니다(`degraded=false`).
 
-**Alternatives**: LLM 실패 시 전량 대기열(폴백 없음) → 아는 메뉴도 장애 중 못 됨. 기각. 스캔 자체 5xx → 핵심 기능이 LLM 에 완전 종속. 기각(사용자 우려 지점).
+**Alternatives**: LLM 필수·폴백 제거(외부 장애=기능 정지) 기각. degraded 표시 없이 폴백(계약이 조용히 깨짐) 기각.
 
-## 미해결/후속 (범위 밖)
+## D7 — 스캔 내역·바운딩 박스 제거 (**결정 변경**)
 
-- 위험도 산출은 mock(`MockCyclingRiskAssessor`) 유지 — 매칭된 food 기준 실제 위험도는 별도 작업.
-- `pending_menus` 소비 레시피 조사 배치는 별도(이 작업은 적재·dedup·상태까지). **pending_menus 는 소프트삭제하지 않고 `queue_status`(PENDING/RESOLVED/REJECTED)로만 lifecycle 관리**한다(unique+@SQLRestriction 조합에서 소프트삭제 시 재등록 불능 방지 — upsert 는 `ON DUPLICATE KEY UPDATE status='ACTIVE'` 로 resurrect-safe).
-- **N+1 후속**: 항목당 `findFoodIdByKoreanMatchKey` 개별 조회 → de-mock/프로덕션 전 `WHERE korean_match_key IN (:keys)` 배치 조회 1콜로 접기(현재 index point-lookup·mock 위험도라 비차단, 리뷰 지적).
-- **NFC 불변식**: kernel `matchKey` 는 NFC 정규화 후 한글 필터하지만 MySQL 생성 컬럼은 NFC 미수행 — `food.korean_name` 은 항상 NFC 로 저장한다는 전제(write-side)에서 두 키가 일치한다. 동등성 sync 테스트가 방어선.
-- 동음이의(match_key 충돌: 서로 다른 korean_name 이 같은 정규화 키)는 최소 id 매칭 — 위험도 de-mock 시 재검토(D2).
+**Decision**: 스캔은 요청당 정제·매칭·판정만 하고 응답한다. `menu_scan`·`scanned_menu_item` 테이블과 `MenuScan` 애그리거트·영속을 전부 제거하고, 요청에서 바운딩 박스를 받지 않는다.
+
+- `create_scan_tables.sql`은 develop에 이미 머지·적용돼 파일 삭제가 금지되므로(CLAUDE.md) **DROP 마이그레이션**으로 되돌렸다.
+- `itemId` 중복 400 검증은 `MenuScan` 애그리거트에 있었으므로 **요청 DTO(`@AssertTrue`)로 이관**했다.
+- 응답에서 `scanId`·항목 `id`·`reason`이 사라졌다.
+
+## 후속 (범위 밖)
+
+- **회원 기능** 도입 시 `MockAvoidedSubstanceProvider` → 실제 사용자 프로필로 교체.
+- **조사 배치**: `food WHERE content_status=INCOMPLETE`를 소비해 레시피·설명·번역을 채우고 `READY`로 전이.
+- **검색 API(KB-62)**에도 serving gate 필요 — 이 브랜치엔 검색이 없다.
+- **`MenuSummaryAssembler`(KB-62) ↔ `FoodRiskEvaluator` 책임 분리**: 머지 시 Assembler는 뷰 조립만, 위험도는 Evaluator로.
+- **NFC 불변식**: `food.korean_name`은 항상 NFC로 저장돼야 kernel 규칙과 SQL 생성 컬럼의 키가 일치한다(sync 테스트가 방어선).
+- 정제 결과 캐시 없음(잡음 문자열 롱테일이라 이득이 적음 — 사용자 결정).
