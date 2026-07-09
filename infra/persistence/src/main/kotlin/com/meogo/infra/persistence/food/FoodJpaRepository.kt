@@ -19,7 +19,7 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     )
     fun findByKoreanMatchKeyInWithAvoidanceSubstances(@Param("keys") keys: Set<String>): List<FoodJpaEntity>
 
-    fun findByKoreanName(koreanName: String): FoodJpaEntity?
+    fun findByKoreanNameIn(koreanNames: Set<String>): List<FoodJpaEntity>
 
     @Query(
         """

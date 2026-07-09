@@ -11,5 +11,5 @@ interface FoodRepository {
 
     fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food>
 
-    fun createIncomplete(koreanName: String): Food
+    fun createIncomplete(koreanNames: Set<String>): Map<String, Food>
 }

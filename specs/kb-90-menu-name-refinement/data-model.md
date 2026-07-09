@@ -78,7 +78,7 @@ DROP TABLE IF EXISTS menu_scan;
 | `findById(id)` | 음식 상세(사용자) | **어댑터에서 `takeIf { it.isReady() }`** |
 | `findByKoreanMatchKeys(keys)` | 스캔 매칭 | **필터 없음** — 미완성 음식도 매칭돼야 재등록을 막는다 |
 | `findByIdInWithAvoidanceSubstances(ids)` | 상세 + **스코어링 배치 공유** | **필터 없음** — 배치가 미완성 음식을 봐야 채울 수 있다 |
-| `createIncomplete(koreanName)` | 스캔 miss | get-or-create(경합 시 재조회) |
+| `createIncomplete(koreanNames)` | 스캔 miss | 스캔당 1회. `IN` 조회 1회 + 남은 이름만 `saveAll`. 기존 음식은 덮어쓰지 않음 |
 
 ## Flyway 파일 (점 구분 timestamp)
 

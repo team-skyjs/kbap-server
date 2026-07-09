@@ -54,15 +54,25 @@ class FoodRepositoryAdapter(
     }
 
     @Transactional
-    override fun createIncomplete(koreanName: String): Food {
-        foodJpaRepository.findByKoreanName(koreanName)?.let { return it.toDomain() }
-        return try {
-            foodJpaRepository.save(FoodJpaEntity.from(Food.incomplete(koreanName))).toDomain()
+    override fun createIncomplete(koreanNames: Set<String>): Map<String, Food> {
+        if (koreanNames.isEmpty()) return emptyMap()
+
+        val existing = foodJpaRepository.findByKoreanNameIn(koreanNames)
+        val missing = koreanNames - existing.map { it.koreanName }.toSet()
+        if (missing.isEmpty()) return existing.associate { it.koreanName to it.toDomain() }
+
+        val created = try {
+            foodJpaRepository.saveAll(missing.map { FoodJpaEntity.from(Food.incomplete(it)) })
         } catch (e: DataIntegrityViolationException) {
-            log.warn("미완성 음식 생성 경합 — koreanName={}, 기존 음식 재조회", koreanName, e)
-            val existing = foodJpaRepository.findByKoreanName(koreanName)
-                ?: throw IllegalStateException("미완성 음식 생성에 실패했습니다: $koreanName", e)
-            existing.toDomain()
+            log.warn("미완성 음식 생성 경합 — koreanNames={}, 기존 음식 재조회", missing, e)
+            foodJpaRepository.findByKoreanNameIn(missing)
         }
+
+        val resolved = (existing + created).associate { it.koreanName to it.toDomain() }
+        val unresolved = koreanNames - resolved.keys
+        if (unresolved.isNotEmpty()) {
+            log.warn("미완성 음식 생성 실패 — 소프트 삭제된 동명 음식이 있을 수 있습니다: {}", unresolved)
+        }
+        return resolved
     }
 }

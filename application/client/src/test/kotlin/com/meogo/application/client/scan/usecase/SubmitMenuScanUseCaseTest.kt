@@ -21,6 +21,8 @@ import io.kotest.matchers.shouldBe
 
 private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : FoodRepository {
     val createdIncomplete = mutableListOf<String>()
+    var createIncompleteCallCount = 0
+        private set
     private var nextId = 100L
 
     override fun findById(id: Long): Food? = null
@@ -32,19 +34,22 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
     override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> =
         readyFoods.filterKeys { it in keys }
 
-    override fun createIncomplete(koreanName: String): Food {
-        createdIncomplete += koreanName
-        return Food.reconstitute(
-            id = nextId++,
-            content = FoodContent(
-                name = LocalizedText(korean = koreanName),
-                description = LocalizedText(korean = Food.PLACEHOLDER_DESCRIPTION),
-            ),
-            imageRef = null,
-            spiciness = FoodSpiciness(0),
-            avoidanceSubstances = emptyList(),
-            contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
-        )
+    override fun createIncomplete(koreanNames: Set<String>): Map<String, Food> {
+        createIncompleteCallCount++
+        createdIncomplete += koreanNames
+        return koreanNames.associateWith { koreanName ->
+            Food.reconstitute(
+                id = nextId++,
+                content = FoodContent(
+                    name = LocalizedText(korean = koreanName),
+                    description = LocalizedText(korean = Food.PLACEHOLDER_DESCRIPTION),
+                ),
+                imageRef = null,
+                spiciness = FoodSpiciness(0),
+                avoidanceSubstances = emptyList(),
+                contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
+            )
+        }
     }
 }
 
@@ -134,6 +139,46 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 result.items.first().matchStatus shouldBe "UNMATCHED"
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
                 result.items.first().foodId shouldBe 100L
+            }
+        }
+
+        `when`("매칭되지 않은 항목이 여러 개면") {
+            then("이름을 모아 저장소를 한 번만 호출한다(항목마다 반복 저장하지 않는다)") {
+                val foodRepo = FakeFoodRepository(emptyMap())
+                val uc = useCase(
+                    interpreter = FakeInterpreter(
+                        listOf(
+                            InterpretedName.StandardName("우주라면"),
+                            InterpretedName.StandardName("탕후루"),
+                            InterpretedName.StandardName("우주라면"),
+                        ),
+                    ),
+                    foodRepo = foodRepo,
+                )
+
+                val result = uc.submit(
+                    SubmitMenuScanInput(listOf(item(0, "우주라면"), item(1, "탕후루"), item(2, "우주라면 space"))),
+                )
+
+                foodRepo.createIncompleteCallCount shouldBe 1
+                foodRepo.createdIncomplete.toSet() shouldBe setOf("우주라면", "탕후루")
+                result.items.map { it.matchStatus }.toSet() shouldBe setOf("UNMATCHED")
+                val byItem = result.items.associate { it.itemId to it.foodId }
+                byItem.getValue(0) shouldBe byItem.getValue(2)
+            }
+        }
+
+        `when`("모든 항목이 저장 음식과 매칭되면") {
+            then("저장소에 빈 집합을 넘겨 새 음식을 만들지 않는다") {
+                val foodRepo = FakeFoodRepository(mapOf("김치찌개" to readyFood(7L, "김치찌개")))
+                val uc = useCase(
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
+                    foodRepo = foodRepo,
+                )
+
+                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
+
+                foodRepo.createdIncomplete shouldBe emptyList()
             }
         }
 

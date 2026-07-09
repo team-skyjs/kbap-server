@@ -582,7 +582,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             `when`("미완성(INCOMPLETE) 음식이 키와 일치하면") {
                 then("스캔 매칭 대상이므로 포함된다") {
                     clearFoods()
-                    adapter.createIncomplete("우주라면")
+                    adapter.createIncomplete(setOf("우주라면"))
 
                     val found = adapter.findByKoreanMatchKeys(setOf("우주라면"))
 
@@ -619,27 +619,64 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             }
         }
 
-        given("Food 저장소 어댑터 — 미완성 음식 생성") {
-            `when`("스캔 miss 로 미완성 음식을 만들면") {
-                then("INCOMPLETE 상태로 저장되고 id 가 부여된다") {
+        given("Food 저장소 어댑터 — 미완성 음식 일괄 생성") {
+            `when`("스캔 miss 이름들을 한 번에 등록하면") {
+                then("모두 INCOMPLETE 로 저장되고 이름별 음식 맵을 돌려준다") {
                     clearFoods()
 
-                    val created = adapter.createIncomplete("마라샹궈")
+                    val created = adapter.createIncomplete(setOf("마라샹궈", "우주라면", "탕후루"))
 
-                    created.id.shouldNotBeNull()
-                    created.koreanName() shouldBe "마라샹궈"
-                    created.isReady() shouldBe false
+                    created.keys shouldBe setOf("마라샹궈", "우주라면", "탕후루")
+                    created.values.forEach {
+                        it.id.shouldNotBeNull()
+                        it.isReady() shouldBe false
+                    }
+                    foodJpaRepository.count() shouldBe 3
                 }
             }
 
-            `when`("같은 이름으로 두 번 생성하면") {
-                then("중복 없이 기존 음식을 반환한다") {
+            `when`("이미 있는 이름과 새 이름이 섞여 있으면") {
+                then("기존 음식은 재사용하고 새 이름만 삽입한다") {
                     clearFoods()
-                    val first = adapter.createIncomplete("마라탕")
-                    val second = adapter.createIncomplete("마라탕")
+                    val existingId = adapter.createIncomplete(setOf("마라탕")).getValue("마라탕").id
 
-                    second.id shouldBe first.id
+                    val created = adapter.createIncomplete(setOf("마라탕", "탕수육"))
+
+                    created.getValue("마라탕").id shouldBe existingId
+                    created.getValue("탕수육").id.shouldNotBeNull()
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("완성(READY) 음식과 이름이 같으면") {
+                then("미완성으로 덮어쓰지 않고 기존 음식을 그대로 돌려준다") {
+                    clearFoods()
+                    val readyId = saveFood("완성-비빔밥")
+
+                    val created = adapter.createIncomplete(setOf("완성-비빔밥"))
+
+                    created.getValue("완성-비빔밥").id shouldBe readyId
+                    created.getValue("완성-비빔밥").isReady() shouldBe true
                     foodJpaRepository.count() shouldBe 1
+                }
+            }
+
+            `when`("빈 집합으로 호출하면") {
+                then("쿼리 없이 빈 맵을 돌려준다") {
+                    adapter.createIncomplete(emptySet()) shouldBe emptyMap()
+                }
+            }
+
+            `when`("이름 5개를 한 번에 등록하면") {
+                then("조회는 개수와 무관하게 1회이고, INSERT 만 이름 수만큼 나간다(IDENTITY 는 배치 불가)") {
+                    clearFoods()
+                    val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
+                    statistics.clear()
+
+                    adapter.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
+
+                    statistics.prepareStatementCount shouldBe 6
+                    statistics.entityInsertCount shouldBe 5
                 }
             }
         }
@@ -649,7 +686,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 then("READY 음식만 반환한다") {
                     clearFoods()
                     val ready = saveFood("완성-비빔밥")
-                    adapter.createIncomplete("미완성-우주라면")
+                    adapter.createIncomplete(setOf("미완성-우주라면"))
 
                     adapter.findFoodPage(null, 20).map { it.id } shouldBe listOf(ready)
                 }
@@ -658,7 +695,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             `when`("미완성 음식을 id 로 상세 조회하면") {
                 then("null 을 반환한다") {
                     clearFoods()
-                    val incompleteId = adapter.createIncomplete("미완성-마라탕").id!!
+                    val incompleteId = adapter.createIncomplete(setOf("미완성-마라탕")).getValue("미완성-마라탕").id!!
 
                     adapter.findById(incompleteId) shouldBe null
                 }
@@ -668,7 +705,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 then("네이티브 검색 쿼리도 READY 음식만 반환한다") {
                     clearFoods()
                     val ready = saveFood("완성-라면")
-                    adapter.createIncomplete("미완성-라면")
+                    adapter.createIncomplete(setOf("미완성-라면"))
 
                     adapter.searchFoodPage("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
                 }

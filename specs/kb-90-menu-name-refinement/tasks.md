@@ -33,7 +33,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 ## Phase 3: 매칭 · 미완성 등록 · serving gate
 
 - [X] `FoodRepository.findByKoreanMatchKeys(keys)` — 스캔당 1쿼리(fetch join), 미완성 포함, 동음이의 최소 id + 경고 로깅
-- [X] `FoodRepository.createIncomplete(koreanName)` — get-or-create(경합 시 재조회)
+- [X] `FoodRepository.createIncomplete(koreanNames)` — 스캔당 1회 일괄 get-or-create(`IN` 조회 1회 + `saveAll`)
 - [X] serving gate — 목록은 JPQL `contentStatus='READY'`, 상세는 어댑터 `takeIf { isReady() }`
 - [X] **스코어링 배치 공유 쿼리(`findByIdIn…`)엔 gate 미적용** — 배치가 미완성 음식을 봐야 채운다
 
@@ -45,7 +45,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 ## Phase 5: 오케스트레이션 · 폴백
 
 - [X] `SubmitMenuScanUseCase` — 정규화 게이트 → 전 항목 LLM 1콜 → 배치 매칭 → 미완성 등록 → 위험도
-- [X] 한 스캔 안에서 같은 표준명은 미완성 음식 1회만 생성
+- [X] 한 스캔 안에서 같은 표준명은 미완성 음식 1회만 생성(이름 집합으로 dedup)
 - [X] 폴백 — interpreter 미구성·예외·타임아웃·**응답 개수 불일치** 시 정규화 exact 매치
 - [X] **폴백은 미완성 음식을 만들지 않는다**(food 테이블 오염 방지)
 - [X] 응답 `degraded` 플래그 — 폴백 여부. "해석 대상 없음"은 강등 아님

@@ -72,7 +72,7 @@ class SubmitMenuScanUseCase(
             lookupNameOf(keys[index], input.items[index].rawMenuName, interpreted, index)
         }
         val foundByKey = foodRepository.findByKoreanMatchKeys(lookups.filterNotNull().map { it.matchKey }.toSet())
-        val createdByName = mutableMapOf<String, Food>()
+        val createdByName = foodRepository.createIncomplete(namesToRegister(lookups, foundByKey))
 
         return lookups.map { lookup ->
             if (lookup == null) return@map null
@@ -82,10 +82,17 @@ class SubmitMenuScanUseCase(
 
             if (!lookup.confirmedFood) return@map Resolution(MenuItemMatch.Unmatched(), null)
 
-            val created = createdByName.getOrPut(lookup.koreanName) { foodRepository.createIncomplete(lookup.koreanName) }
+            val created = createdByName[lookup.koreanName] ?: return@map Resolution(MenuItemMatch.Unmatched(), null)
             Resolution(matchOf(created), created)
         }
     }
+
+    private fun namesToRegister(lookups: List<LookupName?>, foundByKey: Map<String, Food>): Set<String> =
+        lookups
+            .filterNotNull()
+            .filter { it.confirmedFood && it.matchKey !in foundByKey }
+            .map { it.koreanName }
+            .toSet()
 
     private fun matchOf(food: Food): MenuItemMatch {
         val foodId = requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }

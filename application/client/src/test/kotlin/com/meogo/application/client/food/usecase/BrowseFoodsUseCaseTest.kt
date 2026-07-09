@@ -251,7 +251,7 @@ private class BrowseFakeFoodRepository(
 
     override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> = emptyMap()
 
-    override fun createIncomplete(koreanName: String): Food = throw UnsupportedOperationException()
+    override fun createIncomplete(koreanNames: Set<String>): Map<String, Food> = throw UnsupportedOperationException()
 }
 
 private class BrowseFakeAvoidedSubstanceProvider(
