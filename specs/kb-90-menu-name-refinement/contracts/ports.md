@@ -28,21 +28,19 @@ fun interpret(texts: List<String>): List<InterpretedName>
 
 ```
 fun findById(id: Long): Food?                                  // 상세(사용자) — READY 만
-fun findMenuPage(cursor: Long?, size: Int): List<Food>         // 목록(사용자) — READY 만
+fun findFoodPage(cursor: Long?, size: Int): List<Food>         // 목록(사용자) — READY 만
+fun searchFoodPage(keyword, lang, cursor, size): List<Food>    // 검색(사용자) — READY 만
 fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> // 스캔 매칭 — 완성 상태 무관
 fun createIncomplete(koreanName: String): Food                 // 스캔 miss — get-or-create
 ```
 
 - `findByKoreanMatchKeys`: 스캔당 **1쿼리**(성분 fetch join). 활성(소프트삭제 제외) 음식만. **미완성 음식도 포함**(재등록 방지). 키가 비면 조회하지 않고 빈 맵. 같은 키에 복수 음식이면 **최소 id + 경고 로깅**.
 - `createIncomplete`: `content_status=INCOMPLETE`로 생성. 같은 `korean_name`이 이미 있으면 그 음식을 반환(경합 시 재조회). blank 거절.
-- `findById`/`findMenuPage`: **미완성 음식은 반환하지 않는다**(serving gate).
+- `findById`/`findFoodPage`/`searchFoodPage`: **미완성 음식은 반환하지 않는다**(serving gate).
 
-## FoodRiskEvaluator (`:application:client`)
+## 위험도 산출 (`:application:client`)
 
-```
-fun risksOf(foods: List<Food>): Map<Long, RiskLevel>
-```
+`Food.overallRisk(avoidedCodes)` 를 유스케이스가 직접 호출한다. `avoidedCodes` 는 `AvoidedSubstanceProvider.avoidedCodes()` 를 `AvoidanceSubstanceCodeRef` 로 옮긴 집합이다.
 
-- 사용자 회피 코드(`AvoidedSubstanceProvider`) ∩ 카탈로그 활성 코드(`AvoidanceSubstanceRepository`)로 `Food.overallRisk()`를 호출.
-- **미완성 음식은 도메인이 `UNKNOWN`을 강제**하므로 별도 분기 불요.
-- Browse(목록)와 Scan이 공유한다. 빈 입력 → 빈 맵.
+- **미완성 음식은 도메인이 `UNKNOWN`을 강제**하므로 호출부에 분기가 없다.
+- 카탈로그(`AvoidanceSubstanceRepository`) 상태는 보지 않는다 — 목록·검색·상세·스캔 네 경로 동일 규칙(KB-62 `contracts/menu-search-api.md`).

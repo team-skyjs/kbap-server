@@ -13,7 +13,7 @@
 ./gradlew :core:food:test          # Food.incomplete, isReady, overallRisk 가 미완성이면 UNKNOWN
 ./gradlew :core:scan:test          # MenuItemMatch(Matched/Unmatched)
 ./gradlew :infra:llm:test          # 프롬프트 조립(번호·개수), 배열 파싱(NOT_FOOD·null·길이불일치·코드펜스)
-./gradlew :infra:persistence:test  # matchKey 배치 조회·동음이의 최소 id·createIncomplete dedup·serving gate
+./gradlew :infra:persistence:test  # matchKey 배치 조회·동음이의 최소 id·createIncomplete dedup·serving gate(목록·검색·상세)
                                    # + kernel matchKey ↔ SQL 생성 컬럼 동등성 sync 테스트
 ./gradlew :application:client:test # 라우팅·폴백·degraded·한 스캔 내 중복 생성 방지
 ./gradlew :app:api:test            # MockMvc e2e + SC-001 회귀 + 요청 검증(400)
@@ -59,7 +59,8 @@ curl -s -X POST localhost:8081/api/v1/menu-scans -H 'Content-Type: application/j
 
 이어서 확인:
 ```bash
-curl -s "localhost:8081/api/v1/foods?lang=ko"   # 우주라면 미포함 (serving gate)
+curl -s "localhost:8081/api/v1/foods?lang=ko"                # 우주라면 미포함 (serving gate)
+curl -s "localhost:8081/api/v1/foods/search?keyword=우주&lang=ko"  # 우주라면 미포함 (serving gate)
 # 같은 우주라면 재스캔 → 같은 foodId, food 행 1개 (dedup)
 ```
 

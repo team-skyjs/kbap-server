@@ -16,7 +16,7 @@ interface FoodDetailApi {
     @Operation(
         summary = "음식 상세 조회",
         description = """
-            안정적 식별자 foodId(메뉴 목록·검색이 각 항목에 내려주는 숫자 id)로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·설명(description)·맵기(spiciness)·포함 기피성분명을 반환하며,
+            안정적 식별자 foodId(음식 목록·검색이 각 항목에 내려주는 숫자 id)로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·설명(description)·맵기(spiciness)·포함 기피성분명을 반환하며,
             지정하지 않은(또는 빈/공백) 언어는 한국어(ko)로 처리하고, 지원 목록에 없는 코드는 400 으로 거절한다. 설명 번역이 없으면 한국어 원문으로 폴백한다.
 
             지원 언어: ko(기본), zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es.
@@ -40,7 +40,7 @@ interface FoodDetailApi {
     )
     @GetMapping("/{foodId}")
     fun detail(
-        @Parameter(description = "조회할 음식의 안정적 식별자(메뉴 목록/검색이 내려준 숫자 id)", required = true, example = "1")
+        @Parameter(description = "조회할 음식의 안정적 식별자(음식 목록/검색이 내려준 숫자 id)", required = true, example = "1")
         @PathVariable foodId: Long,
         @Parameter(description = "응답 언어 코드(미지정/빈/공백 시 ko 기본, 지원 목록에 없는 코드는 400)", required = false, example = "en")
         @RequestParam(required = false) lang: String?,

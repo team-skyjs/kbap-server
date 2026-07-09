@@ -73,7 +73,8 @@ DROP TABLE IF EXISTS menu_scan;
 
 | 메서드 | 대상 | 완성 상태 필터 |
 |--------|------|----------------|
-| `findMenuPage(cursor, size)` | 메뉴 목록(사용자) | **JPQL에 `contentStatus = 'READY'`** — 페이지 크기 정확성 때문에 쿼리 레벨 |
+| `findFoodPage(cursor, size)` | 메뉴 목록(사용자) | **JPQL에 `contentStatus = 'READY'`** — 페이지 크기 정확성 때문에 쿼리 레벨 |
+| `searchFoodPage(kw, lang, …)` | 메뉴 검색(사용자) | **네이티브 쿼리에 `content_status = 'READY'`** — `@SQLRestriction`이 안 걸리므로 `status='ACTIVE'`와 함께 명시 |
 | `findById(id)` | 음식 상세(사용자) | **어댑터에서 `takeIf { it.isReady() }`** |
 | `findByKoreanMatchKeys(keys)` | 스캔 매칭 | **필터 없음** — 미완성 음식도 매칭돼야 재등록을 막는다 |
 | `findByIdInWithAvoidanceSubstances(ids)` | 상세 + **스코어링 배치 공유** | **필터 없음** — 배치가 미완성 음식을 봐야 채울 수 있다 |

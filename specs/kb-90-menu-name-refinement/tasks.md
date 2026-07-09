@@ -39,8 +39,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ## Phase 4: 위험도 산출 (mock 제거)
 
-- [X] `FoodRiskEvaluator` 추출 — 회피코드 ∩ 카탈로그코드 → `Food.overallRisk()`. Browse·Scan 공용
-- [X] `BrowseMenusUseCase`가 evaluator 사용하도록 리팩터
+- [X] 유스케이스가 `Food.overallRisk(avoidedCodes)` 직접 호출 — 카탈로그 미조회(KB-62 규칙과 동일)
 - [X] `MockCyclingRiskAssessor` 삭제 — 응답 `riskLevel`이 실제 산출값
 
 ## Phase 5: 오케스트레이션 · 폴백
@@ -74,9 +73,14 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ---
 
+## Phase 9: develop 머지 (KB-62 검색 · KB-103 회원)
+
+- [X] `Menu*` → `Food*` 리네임 수용(`findFoodPage`·`BrowseFoodsUseCase`·`FoodSummaryView`)
+- [X] 위험도 규칙을 KB-62 쪽으로 통일 — `FoodRiskEvaluator` 삭제, 카탈로그 교집합 폐기
+- [X] **검색 네이티브 쿼리에 serving gate 추가** — 스캔이 만든 미완성 음식이 검색에 노출되던 결함
+- [X] Flyway 전량(회원 테이블 포함) 로컬 MySQL 적용 검증
+
 ## 후속 (이 작업 범위 밖)
 
-- 회원 기능 도입 시 `MockAvoidedSubstanceProvider` → 실제 사용자 프로필
+- 회원 기능 도입 시 `MockAvoidedSubstanceProvider` → 실제 `MemberProfile` 회피 성분
 - 조사 배치: `food WHERE content_status=INCOMPLETE` 소비 → 레시피·설명·번역 채우고 `READY` 전이
-- 검색 API(KB-62)에도 serving gate 적용
-- `MenuSummaryAssembler`(KB-62) ↔ `FoodRiskEvaluator` 책임 분리 (머지 시)

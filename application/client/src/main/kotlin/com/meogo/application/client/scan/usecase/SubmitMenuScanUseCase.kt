@@ -1,8 +1,9 @@
 package com.meogo.application.client.scan.usecase
 
-import com.meogo.application.client.food.usecase.FoodRiskEvaluator
+import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanResult
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service
 @Service
 class SubmitMenuScanUseCase(
     private val foodRepository: FoodRepository,
-    private val foodRiskEvaluator: FoodRiskEvaluator,
+    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     @Autowired(required = false)
     private val interpreter: ScannedNameInterpreter? = null,
 ) {
@@ -27,13 +28,15 @@ class SubmitMenuScanUseCase(
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val interpretation = interpretTargets(input, keys)
         val resolutions = resolveItems(input, keys, interpretation.byIndex)
-        val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it?.food })
+        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes()
+            .map { AvoidanceSubstanceCodeRef(it.name) }
+            .toSet()
 
         val items = input.items.mapIndexedNotNull { index, item ->
             val resolution = resolutions[index] ?: return@mapIndexedNotNull null
             SubmitMenuScanResult.ItemRiskResult(
                 itemId = item.itemId,
-                riskLevel = riskOf(resolution, risks).name,
+                riskLevel = riskOf(resolution, avoidedCodes).name,
                 matchStatus = statusOf(resolution.match),
                 foodId = foodIdOf(resolution.match),
             )
@@ -42,11 +45,8 @@ class SubmitMenuScanUseCase(
         return SubmitMenuScanResult(items = items, degraded = interpretation.degraded)
     }
 
-    private fun riskOf(resolution: Resolution, risks: Map<Long, RiskLevel>): RiskLevel {
-        val food = resolution.food ?: return RiskLevel.UNKNOWN
-        return risks[food.id] ?: RiskLevel.UNKNOWN
-    }
-
+    private fun riskOf(resolution: Resolution, avoidedCodes: Set<AvoidanceSubstanceCodeRef>): RiskLevel =
+        resolution.food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN
 
     private fun statusOf(match: MenuItemMatch): String =
         when (match) {

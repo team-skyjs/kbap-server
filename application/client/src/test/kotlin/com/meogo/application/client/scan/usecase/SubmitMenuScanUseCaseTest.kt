@@ -3,16 +3,14 @@ package com.meogo.application.client.scan.usecase
 import com.meogo.application.client.scan.dto.MenuScanItemInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
-import com.meogo.application.client.food.usecase.FoodRiskEvaluator
-import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodAvoidanceSubstance
 import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.food.FoodSpiciness
+import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
@@ -25,7 +23,10 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
     private var nextId = 100L
 
     override fun findById(id: Long): Food? = null
-    override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
+    override fun findFoodPage(cursor: Long?, size: Int): List<Food> = emptyList()
+
+    override fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+        emptyList()
 
     override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> =
         readyFoods.filterKeys { it in keys }
@@ -48,11 +49,6 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
 
 private class ScanFakeAvoidedProvider : AvoidedSubstanceProvider {
     override fun avoidedCodes(): Set<AvoidanceSubstanceCode> = setOf(AvoidanceSubstanceCode.SOY)
-}
-
-private class ScanFakeCatalogRepository : AvoidanceSubstanceRepository {
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> =
-        codes.map { AvoidanceSubstance.reconstitute(id = 1L, code = it, name = LocalizedText(korean = it.name)) }
 }
 
 private class FakeInterpreter(private val results: List<InterpretedName>) : ScannedNameInterpreter {
@@ -91,7 +87,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         foodRepo: FakeFoodRepository = FakeFoodRepository(foods),
     ) = SubmitMenuScanUseCase(
         foodRepository = foodRepo,
-        foodRiskEvaluator = FoodRiskEvaluator(ScanFakeAvoidedProvider(), ScanFakeCatalogRepository()),
+        avoidedSubstanceProvider = ScanFakeAvoidedProvider(),
         interpreter = interpreter,
     )
 

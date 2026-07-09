@@ -52,13 +52,15 @@ korean_match_key VARCHAR(255)
 
 **이력**: 초기 설계는 별도 `pending_menus` 대기열 테이블이었다. 구현 후 **폐기**했다 — miss가 곧 "조사 대상 음식"이므로 별도 큐가 중복이고, 배치는 `food WHERE content_status=INCOMPLETE`를 스캔하면 된다. 대기열 인프라(테이블·엔티티·repo·어댑터·port·마이그레이션) 한 겹이 통째로 사라졌다.
 
-**serving gate는 목록 JPQL + 상세 어댑터에만 건다.** 스코어링 배치가 공유하는 `findByIdInWithAvoidanceSubstances`에 걸면 배치가 미완성 음식을 못 봐서 **영영 채워지지 않는다**.
+**serving gate는 목록·검색 쿼리 + 상세 어댑터에만 건다.** 스코어링 배치가 공유하는 `findByIdInWithAvoidanceSubstances`에 걸면 배치가 미완성 음식을 못 봐서 **영영 채워지지 않는다**.
 
 `LocalizedText.korean`이 blank를 금지하므로 미완성 음식의 description은 플레이스홀더를 넣는다(serving gate로 노출되지 않음).
 
 ## D5 — 위험도 산출 (mock 제거)
 
-**Decision**: `MockCyclingRiskAssessor` 삭제. `FoodRiskEvaluator`(Browse·Scan 공용)가 사용자 회피 코드 ∩ 카탈로그 코드로 `Food.overallRisk()`를 호출한다. 회원 기능 전까지 `MockAvoidedSubstanceProvider`가 회피 코드를 준다.
+**Decision**: `MockCyclingRiskAssessor` 삭제. 유스케이스가 사용자 회피 코드로 `Food.overallRisk()`를 직접 호출한다. 회원 기능 전까지 `MockAvoidedSubstanceProvider`가 회피 코드를 준다.
+
+초기엔 `FoodRiskEvaluator` 컴포넌트로 감싸고 카탈로그 활성 코드와 교집합을 냈으나, develop 머지 시 KB-62 가 정한 규칙(**카탈로그 상태를 보지 않는다** — 카탈로그는 고정이며 소프트삭제되지 않는다, `specs/kb-62-menu-search/contracts/menu-search-api.md`)으로 통일하며 둘 다 걷어냈다. 남겨 뒀다면 스캔만 다른 위험도 규칙을 쓰게 된다.
 
 **⚠️ 함정**: `RiskLevel.aggregate(빈 목록) = SAFE`. 미완성 음식은 성분이 비어 있어 그냥 계산하면 **"안전"으로 나온다.** 그래서 가드를 **도메인 안**에 뒀다:
 ```kotlin
@@ -91,7 +93,5 @@ fun overallRisk(avoidedCodes: Set<...>): RiskLevel {
 
 - **회원 기능** 도입 시 `MockAvoidedSubstanceProvider` → 실제 사용자 프로필로 교체.
 - **조사 배치**: `food WHERE content_status=INCOMPLETE`를 소비해 레시피·설명·번역을 채우고 `READY`로 전이.
-- **검색 API(KB-62)**에도 serving gate 필요 — 이 브랜치엔 검색이 없다.
-- **`MenuSummaryAssembler`(KB-62) ↔ `FoodRiskEvaluator` 책임 분리**: 머지 시 Assembler는 뷰 조립만, 위험도는 Evaluator로.
 - **NFC 불변식**: `food.korean_name`은 항상 NFC로 저장돼야 kernel 규칙과 SQL 생성 컬럼의 키가 일치한다(sync 테스트가 방어선).
 - 정제 결과 캐시 없음(잡음 문자열 롱테일이라 이득이 적음 — 사용자 결정).
