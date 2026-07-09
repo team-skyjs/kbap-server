@@ -74,6 +74,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.degraded") { value(true) }
                         jsonPath("$.payload.results.length()") { value(2) }
                         jsonPath("$.payload.results[0].itemId") { value(0) }
                         jsonPath("$.payload.results[1].itemId") { value(1) }

@@ -107,6 +107,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 result.items.first().matchStatus shouldBe "MATCHED"
                 result.items.first().riskLevel shouldBe RiskLevel.DANGER.name
+                result.degraded shouldBe false
             }
         }
 
@@ -216,7 +217,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
     given("정제 서비스가 없거나 장애일 때(폴백)") {
         `when`("interpreter 가 주입되지 않았고 정규화 키가 저장 음식과 일치하면") {
-            then("정규화 exact 매치로 MATCHED 한다") {
+            then("정규화 exact 매치로 MATCHED 하고 degraded=true 로 알린다") {
                 val uc = useCase(
                     foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
                     interpreter = null,
@@ -225,6 +226,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
 
                 result.items.first().matchStatus shouldBe "MATCHED"
+                result.degraded shouldBe true
             }
         }
 
@@ -238,6 +240,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
 
+                result.degraded shouldBe true
                 val items = result.items
                 items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
                 items.first { it.itemId == 1 }.matchStatus shouldBe "UNMATCHED"

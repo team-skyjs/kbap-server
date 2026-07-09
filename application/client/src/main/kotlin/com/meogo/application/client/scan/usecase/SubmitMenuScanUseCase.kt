@@ -24,7 +24,9 @@ class SubmitMenuScanUseCase(
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {
-        val resolutions = resolveItems(input)
+        val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
+        val interpretation = interpretTargets(input, keys)
+        val resolutions = resolveItems(input, keys, interpretation.byIndex)
         val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it?.food })
 
         val items = input.items.mapIndexedNotNull { index, item ->
@@ -37,7 +39,7 @@ class SubmitMenuScanUseCase(
             )
         }
 
-        return SubmitMenuScanResult(items)
+        return SubmitMenuScanResult(items = items, degraded = interpretation.degraded)
     }
 
     private fun riskOf(resolution: Resolution, risks: Map<Long, RiskLevel>): RiskLevel {
@@ -58,10 +60,11 @@ class SubmitMenuScanUseCase(
             is MenuItemMatch.Unmatched -> match.foodId
         }
 
-    private fun resolveItems(input: SubmitMenuScanInput): List<Resolution?> {
-        val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
-        val interpreted = interpretTargets(input, keys)
-
+    private fun resolveItems(
+        input: SubmitMenuScanInput,
+        keys: List<String>,
+        interpreted: Map<Int, InterpretedName>?,
+    ): List<Resolution?> {
         val lookups = input.items.indices.map { index ->
             lookupNameOf(keys[index], input.items[index].rawMenuName, interpreted, index)
         }
@@ -106,13 +109,11 @@ class SubmitMenuScanUseCase(
         }
     }
 
-    private fun interpretTargets(
-        input: SubmitMenuScanInput,
-        keys: List<String>,
-    ): Map<Int, InterpretedName>? {
-        if (interpreter == null) return null
+    private fun interpretTargets(input: SubmitMenuScanInput, keys: List<String>): Interpretation {
+        if (interpreter == null) return Interpretation(byIndex = null, degraded = true)
+
         val targetIndexes = keys.indices.filter { keys[it].isNotBlank() }
-        if (targetIndexes.isEmpty()) return null
+        if (targetIndexes.isEmpty()) return Interpretation(byIndex = null, degraded = false)
 
         val texts = targetIndexes.map { input.items[it].rawMenuName }
         return try {
@@ -120,12 +121,14 @@ class SubmitMenuScanUseCase(
             require(interpreted.size == targetIndexes.size) {
                 "정제 결과 개수(${interpreted.size})가 요청(${targetIndexes.size})과 다릅니다"
             }
-            targetIndexes.zip(interpreted).toMap()
+            Interpretation(byIndex = targetIndexes.zip(interpreted).toMap(), degraded = false)
         } catch (e: Exception) {
             log.warn("정제 서비스 호출 실패 — 정규화 exact 매치 폴백", e)
-            null
+            Interpretation(byIndex = null, degraded = true)
         }
     }
+
+    private data class Interpretation(val byIndex: Map<Int, InterpretedName>?, val degraded: Boolean)
 
     private data class LookupName(val koreanName: String, val matchKey: String, val confirmedFood: Boolean)
 

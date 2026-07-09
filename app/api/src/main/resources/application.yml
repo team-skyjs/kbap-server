@@ -41,6 +41,8 @@ meogo:
       enabled: ${UPSTAGE_ENABLED:false}
       model: solar-pro
       api-key: ${UPSTAGE_API_KEY:}
+      # 정제는 결정적이어야 한다 — 같은 메뉴판에 같은 판정.
+      temperature: 0.0
       # 정제 응답은 문자열 JSON 배열 하나 — 스캔 항목(최대 100)에 넉넉한 상한.
       max-output-tokens: 2048
       pricing:

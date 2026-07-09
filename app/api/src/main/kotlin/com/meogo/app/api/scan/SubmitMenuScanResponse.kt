@@ -6,6 +6,13 @@ import io.swagger.v3.oas.annotations.media.Schema
 @Schema(description = "메뉴 스캔 판정 결과 — 요청 itemId 로 짝이 맞는 항목별 매칭·위험도")
 data class SubmitMenuScanResponse(
     @field:Schema(
+        description = "정제 서비스 미적용 여부. true 면 LLM 이 없거나 실패해 음식 여부를 판정하지 못한 상태로, " +
+            "메뉴가 아닌 텍스트가 results 에 섞여 있을 수 있다(모두 UNMATCHED).",
+        example = "false",
+    )
+    val degraded: Boolean,
+
+    @field:Schema(
         description = "메뉴로 인식된 항목의 판정 결과. 요청의 itemId 로 짝을 맞춘다. " +
             "메뉴가 아닌 항목(원산지·가격·UI 문구 등)은 결과에서 제외되므로 요청보다 개수가 적을 수 있다.",
     )
@@ -41,6 +48,7 @@ data class SubmitMenuScanResponse(
     companion object {
         fun from(result: SubmitMenuScanResult): SubmitMenuScanResponse =
             SubmitMenuScanResponse(
+                degraded = result.degraded,
                 results = result.items.map {
                     ItemRiskResponse(
                         itemId = it.itemId,

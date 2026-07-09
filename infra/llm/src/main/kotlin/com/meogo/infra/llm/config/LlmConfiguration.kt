@@ -107,6 +107,7 @@ class LlmConfiguration {
             props.maxOutputTokens?.let {
                 if (modelId == LlmModelId.OPENAI) builder.maxCompletionTokens(it) else builder.maxTokens(it)
             }
+            props.temperature?.let { builder.temperature(it) }
             if (modelId == LlmModelId.OPENAI) {
                 props.reasoningEffort?.let { builder.reasoningEffort(it) }
             }

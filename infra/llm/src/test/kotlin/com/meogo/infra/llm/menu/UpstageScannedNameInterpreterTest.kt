@@ -38,14 +38,18 @@ class UpstageScannedNameInterpreterTest : BehaviorSpec({
             }
         }
 
-        `when`("보낼 텍스트가 프롬프트에 포함되면") {
-            then("각 원문이 프롬프트에 들어간다") {
-                val caller = FakeCaller("""["돈까스"]""")
+        `when`("프롬프트를 조립하면") {
+            then("원문을 번호와 함께 싣고 기대 개수를 명시한다") {
+                val caller = FakeCaller("""["돈까스","NOT_FOOD"]""")
                 val interpreter = UpstageScannedNameInterpreter(caller, ScannedNameParser())
 
-                interpreter.interpret(listOf("돈까스 donkatsu"))
+                interpreter.interpret(listOf("돈까스 donkatsu", "원산지 중국"))
 
-                (caller.lastRequest!!.prompt.contains("돈까스 donkatsu")) shouldBe true
+                val prompt = caller.lastRequest!!.prompt
+                prompt.contains("1. 돈까스 donkatsu") shouldBe true
+                prompt.contains("2. 원산지 중국") shouldBe true
+                prompt.contains("exactly 2 strings") shouldBe true
+                caller.lastRequest!!.system!!.contains("NOT_FOOD") shouldBe true
             }
         }
 
