@@ -12,15 +12,13 @@ import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
 import com.meogo.core.scan.MenuItemMatch
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service
 class SubmitMenuScanUseCase(
     private val foodRepository: FoodRepository,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
-    @Autowired(required = false)
-    private val interpreter: ScannedNameInterpreter? = null,
+    private val interpreter: ScannedNameInterpreter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -110,8 +108,6 @@ class SubmitMenuScanUseCase(
     }
 
     private fun interpretTargets(input: SubmitMenuScanInput, keys: List<String>): Interpretation {
-        if (interpreter == null) return Interpretation(byIndex = null, degraded = true)
-
         val targetIndexes = keys.indices.filter { keys[it].isNotBlank() }
         if (targetIndexes.isEmpty()) return Interpretation(byIndex = null, degraded = false)
 

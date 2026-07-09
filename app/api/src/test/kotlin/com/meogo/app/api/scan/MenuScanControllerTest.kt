@@ -95,7 +95,7 @@ class MenuScanControllerTest : BehaviorSpec() {
             }
         }
 
-        given("정제 서비스 미구성(폴백) — 실제 매칭 e2e") {
+        given("정제 서비스 호출 실패(폴백) — 실제 매칭 e2e") {
             `when`("저장된 완성 음식과 정규화 키가 일치하면") {
                 then("MATCHED 이고 위험도를 산출해 반환한다") {
                     seedReadyFood("완성이이김치찌개")
@@ -112,7 +112,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("정제 서비스가 없어 음식 여부를 판정할 수 없으면") {
+            `when`("정제 서비스가 죽어 음식 여부를 판정할 수 없으면") {
                 then("PENDING·UNKNOWN 이고 food 테이블을 오염시키지 않는다") {
                     val name = "폴백미상-우주라면"
 

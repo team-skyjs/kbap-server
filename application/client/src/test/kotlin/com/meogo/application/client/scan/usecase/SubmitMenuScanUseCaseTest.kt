@@ -83,7 +83,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
     fun useCase(
         foods: Map<String, Food> = emptyMap(),
-        interpreter: ScannedNameInterpreter? = null,
+        interpreter: ScannedNameInterpreter,
         foodRepo: FakeFoodRepository = FakeFoodRepository(foods),
     ) = SubmitMenuScanUseCase(
         foodRepository = foodRepo,
@@ -211,21 +211,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         }
     }
 
-    given("정제 서비스가 없거나 장애일 때(폴백)") {
-        `when`("interpreter 가 주입되지 않았고 정규화 키가 저장 음식과 일치하면") {
-            then("정규화 exact 매치로 MATCHED 하고 degraded=true 로 알린다") {
-                val uc = useCase(
-                    foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
-                    interpreter = null,
-                )
-
-                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
-
-                result.items.first().matchStatus shouldBe "MATCHED"
-                result.degraded shouldBe true
-            }
-        }
-
+    given("정제 서비스 호출이 실패할 때(폴백)") {
         `when`("interpreter 가 예외를 던지면") {
             then("아는 메뉴는 MATCHED, 나머지는 food 생성 없이 PENDING 으로 강등한다") {
                 val foodRepo = FakeFoodRepository(mapOf("김치찌개" to readyFood(7L, "김치찌개")))
@@ -246,7 +232,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         }
 
         `when`("interpreter 가 요청보다 적은 개수를 반환하면") {
-            then("결과를 신뢰하지 않고 정규화 exact 매치 폴백으로 처리한다") {
+            then("결과를 신뢰하지 않고 정규화 exact 매치 폴백으로 degraded=true 를 알린다") {
                 val uc = useCase(
                     foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("무시됨"))),
@@ -254,6 +240,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면"))))
 
+                result.degraded shouldBe true
                 val items = result.items
                 items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
                 items.first { it.itemId == 1 }.matchStatus shouldBe "UNMATCHED"
