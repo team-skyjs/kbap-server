@@ -16,14 +16,14 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
-class SubmitMenuScanUseCase(
+class MenuScanUseCase(
     private val foodRepository: FoodRepository,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val interpreter: ScannedNameInterpreter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {
+    fun scan(input: SubmitMenuScanInput): SubmitMenuScanResult {
         val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val refinement = refineMenuNames(input, matchKeys)
         val resolvedItems = resolveFoods(input, matchKeys, refinement.byItemIndex)
