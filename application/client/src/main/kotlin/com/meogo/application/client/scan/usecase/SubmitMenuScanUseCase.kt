@@ -25,11 +25,10 @@ class SubmitMenuScanUseCase(
 
     fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {
         val resolutions = resolveItems(input)
-        val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it.food })
+        val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it?.food })
 
         val items = input.items.mapIndexedNotNull { index, item ->
-            val resolution = resolutions[index]
-            if (resolution.match is MenuItemMatch.NotFood) return@mapIndexedNotNull null
+            val resolution = resolutions[index] ?: return@mapIndexedNotNull null
             SubmitMenuScanResult.ItemRiskResult(
                 itemId = item.itemId,
                 riskLevel = riskOf(resolution, risks).name,
@@ -50,17 +49,16 @@ class SubmitMenuScanUseCase(
     private fun statusOf(match: MenuItemMatch): String =
         when (match) {
             is MenuItemMatch.Matched -> "MATCHED"
-            else -> "UNMATCHED"
+            is MenuItemMatch.Unmatched -> "UNMATCHED"
         }
 
     private fun foodIdOf(match: MenuItemMatch): Long? =
         when (match) {
             is MenuItemMatch.Matched -> match.foodId
             is MenuItemMatch.Unmatched -> match.foodId
-            MenuItemMatch.NotFood -> null
         }
 
-    private fun resolveItems(input: SubmitMenuScanInput): List<Resolution> {
+    private fun resolveItems(input: SubmitMenuScanInput): List<Resolution?> {
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val interpreted = interpretTargets(input, keys)
 
@@ -71,7 +69,7 @@ class SubmitMenuScanUseCase(
         val createdByName = mutableMapOf<String, Food>()
 
         return lookups.map { lookup ->
-            if (lookup == null) return@map Resolution(MenuItemMatch.NotFood, null)
+            if (lookup == null) return@map null
 
             val existing = foundByKey[lookup.matchKey]
             if (existing != null) return@map Resolution(matchOf(existing), existing)

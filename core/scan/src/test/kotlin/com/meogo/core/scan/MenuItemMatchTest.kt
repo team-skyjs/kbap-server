@@ -25,10 +25,9 @@ class MenuItemMatchTest : BehaviorSpec({
             }
         }
 
-        `when`("같은 foodId 라도 Matched 와 Unmatched 는") {
-            then("서로 구별된다") {
+        `when`("같은 foodId 라도") {
+            then("Matched 와 Unmatched 는 서로 구별된다") {
                 (MenuItemMatch.Matched(7L) == MenuItemMatch.Unmatched(7L)) shouldBe false
-                MenuItemMatch.NotFood shouldBe MenuItemMatch.NotFood
             }
         }
     }
