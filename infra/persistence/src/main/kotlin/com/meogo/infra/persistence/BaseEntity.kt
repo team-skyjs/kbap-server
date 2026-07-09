@@ -20,7 +20,7 @@ abstract class BaseEntity {
     val id: Long = 0
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20, nullable = false)
+    @Column(nullable = false, columnDefinition = "ENUM('ACTIVE','DELETED')")
     private var status: EntityStatus = EntityStatus.ACTIVE
 
     @CreationTimestamp

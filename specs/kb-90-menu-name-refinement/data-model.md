@@ -62,6 +62,15 @@ CREATE INDEX idx_food_korean_match_key ON food (korean_match_key);
 - `korean_name`엔 기존 UNIQUE 제약(`uq_food_korean_name`)이 있다 → `createIncomplete`는 upsert 로 get-or-create.
 - ⚠️ 이 UNIQUE 를 **엔티티에도 선언**한다(`@Table(uniqueConstraints=…)`). 선언이 없으면 `:infra:persistence` 테스트가 Hibernate 생성 스키마(제약 없음)에서 돌아 **경합·중복 결함을 영영 못 잡는다**(실제로 그랬다).
 
+### 상태 컬럼은 MySQL ENUM
+
+`status`(5개 테이블)·`content_status`·`onboarding_status`·`provider` 를 `VARCHAR(20)` → `ENUM(...)` 으로 고정했다. VARCHAR 이면 오타(`ACTIV`)가 그대로 적재되고, 이후 `@SQLRestriction("status = 'ACTIVE'")` 에 안 걸려 **행이 조용히 사라진 것처럼** 보인다.
+
+- 오타는 `STRICT_TRANS_TABLES` 에서 `ERROR 1265` 로 거부된다. **strict 가 꺼지면 빈 문자열로 조용히 들어간다** — 이 보호는 sql_mode 에 의존한다.
+- Hibernate 6 는 `@Enumerated(EnumType.STRING)` 컬럼에 CHECK 제약을 자동 생성하지만, **Flyway 로 만든 프로덕션 스키마엔 그게 없다.** 그래서 마이그레이션이 필요했다. 반대로 `content_status` 는 엔티티가 `String` 매핑이라 생성 스키마에도 보호가 없었다.
+- 엔티티에 `columnDefinition = "ENUM(...)"` 을 달아 **테스트 생성 스키마와 프로덕션을 일치**시킨다(UNIQUE 때와 같은 함정 방지).
+- 값 추가는 목록 **끝에 append** 하면 MySQL 8 에서 `ALGORITHM=INSTANT`(메타데이터만). 중간 삽입·순서 변경은 테이블 재작성이므로 하지 않는다.
+
 ### 스캔 테이블 — **DROP**
 
 ```sql

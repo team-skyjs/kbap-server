@@ -749,5 +749,35 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("Food 스키마 — 상태 컬럼은 DB 가 후보값을 고정한다") {
+            `when`("status 에 정의되지 않은 값을 직접 넣으면") {
+                then("DB 가 거부한다(오타 유입 차단)") {
+                    shouldThrow<java.sql.SQLException> {
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
+                                    "description_translations, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타상태', '설명', 0, '{}', '{}', 'READY', 'ACTIV', NOW(6), NOW(6))",
+                            ).use { it.executeUpdate() }
+                        }
+                    }
+                }
+            }
+
+            `when`("content_status 에 정의되지 않은 값을 직접 넣으면") {
+                then("DB 가 거부한다") {
+                    shouldThrow<java.sql.SQLException> {
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
+                                    "description_translations, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타완성상태', '설명', 0, '{}', '{}', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
+                            ).use { it.executeUpdate() }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

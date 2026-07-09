@@ -17,7 +17,7 @@ import jakarta.persistence.UniqueConstraint
 )
 class SocialIdentityJpaEntity(
     @Enumerated(EnumType.STRING)
-    @Column(name = "provider", nullable = false, length = 20)
+    @Column(name = "provider", nullable = false, columnDefinition = "ENUM('GOOGLE','APPLE')")
     var provider: SocialProvider = SocialProvider.GOOGLE,
 
     @Column(name = "provider_user_id", nullable = false, length = 255)

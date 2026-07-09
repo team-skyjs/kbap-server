@@ -86,6 +86,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 - [X] `createIncomplete` upsert 전환 — 경합 데드락(500)·유령 행 배치 롤백 제거. 회귀 테스트 2종
 - [X] `findByKoreanNameIn` fetch join — `toDomain()` 이 유발하던 N+1(이름당 컬렉션 SELECT) 제거
 - [X] 메뉴명 255자 길이 가드 — 파서가 `NotFood` 로 떨구고 도메인이 최후 방어
+- [X] 상태 컬럼 8종 `VARCHAR` → `ENUM` — 오타 유입 차단. 엔티티 `columnDefinition` 으로 스키마 일치
 
 ## 후속 (이 작업 범위 밖)
 

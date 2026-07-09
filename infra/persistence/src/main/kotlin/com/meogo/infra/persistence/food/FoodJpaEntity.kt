@@ -52,7 +52,7 @@ class FoodJpaEntity(
     @Column(name = "description_translations", nullable = false)
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
-    @Column(name = "content_status", nullable = false, length = 20)
+    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','READY')")
     var contentStatus: String = FoodContentStatus.READY.name,
 
     @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)
