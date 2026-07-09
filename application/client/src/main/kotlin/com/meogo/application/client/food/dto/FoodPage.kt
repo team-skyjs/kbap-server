@@ -1,7 +1,7 @@
 package com.meogo.application.client.food.dto
 
-data class MenuPage(
-    val items: List<MenuSummaryView>,
+data class FoodPage(
+    val items: List<FoodSummaryView>,
     val nextCursor: Long?,
     val hasNext: Boolean,
 )

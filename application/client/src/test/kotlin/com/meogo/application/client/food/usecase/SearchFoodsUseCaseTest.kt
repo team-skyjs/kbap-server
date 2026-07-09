@@ -1,6 +1,6 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.application.client.food.dto.SearchMenusInput
+import com.meogo.application.client.food.dto.SearchFoodsInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
@@ -18,8 +18,8 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 
-class SearchMenusUseCaseTest : BehaviorSpec({
-    fun menuFood(id: Long) = Food.reconstitute(
+class SearchFoodsUseCaseTest : BehaviorSpec({
+    fun food(id: Long) = Food.reconstitute(
         id = id,
         content = FoodContent(
             name = LocalizedText(korean = "메뉴-$id"),
@@ -30,9 +30,9 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         avoidanceSubstances = emptyList(),
     )
 
-    fun descendingFoods(count: Int): List<Food> = (count downTo 1).map { menuFood(it.toLong()) }
+    fun descendingFoods(count: Int): List<Food> = (count downTo 1).map { food(it.toLong()) }
 
-    fun useCase(foodRepository: FoodRepository) = SearchMenusUseCase(
+    fun useCase(foodRepository: FoodRepository) = SearchFoodsUseCase(
         foodRepository,
         LanguageResolver(),
         SearchFakeAvoidedSubstanceProvider(emptySet()),
@@ -62,7 +62,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
     fun searchUseCase(
         foods: List<Food>,
         avoidedCodes: Set<AvoidanceSubstanceCode>,
-    ) = SearchMenusUseCase(
+    ) = SearchFoodsUseCase(
         SearchFakeFoodRepository(foods),
         LanguageResolver(),
         SearchFakeAvoidedSubstanceProvider(avoidedCodes),
@@ -74,7 +74,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
                 val exception = shouldThrow<FoodException> {
-                    useCase(foodRepository).search(SearchMenusInput(keyword = "", cursor = null, lang = null))
+                    useCase(foodRepository).search(SearchFoodsInput(keyword = "", cursor = null, lang = null))
                 }
 
                 exception.errorCode shouldBe FoodErrorCode.BLANK_SEARCH_KEYWORD
@@ -87,7 +87,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
                 val exception = shouldThrow<FoodException> {
-                    useCase(foodRepository).search(SearchMenusInput(keyword = "   ", cursor = null, lang = null))
+                    useCase(foodRepository).search(SearchFoodsInput(keyword = "   ", cursor = null, lang = null))
                 }
 
                 exception.errorCode shouldBe FoodErrorCode.BLANK_SEARCH_KEYWORD
@@ -100,7 +100,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
                 val exception = shouldThrow<FoodException> {
-                    useCase(foodRepository).search(SearchMenusInput(keyword = null, cursor = null, lang = null))
+                    useCase(foodRepository).search(SearchFoodsInput(keyword = null, cursor = null, lang = null))
                 }
 
                 exception.errorCode shouldBe FoodErrorCode.BLANK_SEARCH_KEYWORD
@@ -114,7 +114,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
             then("trim 된 검색어로 검색 포트에 위임한다") {
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
-                useCase(foodRepository).search(SearchMenusInput(keyword = " 김치 ", cursor = null, lang = null))
+                useCase(foodRepository).search(SearchFoodsInput(keyword = " 김치 ", cursor = null, lang = null))
 
                 foodRepository.requestedKeyword shouldBe "김치"
             }
@@ -124,7 +124,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
             then("검색 포트에 ko 로 폴백한 언어를 전달한다") {
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
-                useCase(foodRepository).search(SearchMenusInput(keyword = "김치", cursor = null, lang = null))
+                useCase(foodRepository).search(SearchFoodsInput(keyword = "김치", cursor = null, lang = null))
 
                 foodRepository.requestedLang shouldBe LanguageCode.KO
             }
@@ -134,7 +134,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
             then("검색 포트에 en 을 전달한다") {
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
-                useCase(foodRepository).search(SearchMenusInput(keyword = "bibim", cursor = null, lang = "en"))
+                useCase(foodRepository).search(SearchFoodsInput(keyword = "bibim", cursor = null, lang = "en"))
 
                 foodRepository.requestedLang shouldBe LanguageCode.EN
             }
@@ -144,7 +144,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
             then("검색 포트를 해당 cursor·페이지 크기+1(21)로 호출한다") {
                 val foodRepository = SearchFakeFoodRepository(emptyList())
 
-                useCase(foodRepository).search(SearchMenusInput(keyword = "김치", cursor = 100L, lang = null))
+                useCase(foodRepository).search(SearchFoodsInput(keyword = "김치", cursor = 100L, lang = null))
 
                 foodRepository.requestedCursor shouldBe 100L
                 foodRepository.requestedSize shouldBe 21
@@ -156,7 +156,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         `when`("포트가 페이지 크기+1(21)개를 반환하면") {
             then("hasNext=true·items 20개이며 nextCursor 는 마지막 항목 foodId 다") {
                 val result = useCase(SearchFakeFoodRepository(descendingFoods(21)))
-                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                    .search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.hasNext shouldBe true
                 result.items.size shouldBe 20
@@ -165,7 +165,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
 
             then("21번째 항목은 절단돼 items 에 담기지 않는다") {
                 val result = useCase(SearchFakeFoodRepository(descendingFoods(21)))
-                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                    .search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.map { it.foodId } shouldBe (21 downTo 2).map { it.toLong() }
                 result.items.map { it.foodId } shouldNotContain 1L
@@ -175,7 +175,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         `when`("포트가 페이지 크기보다 적은 5건을 반환하면") {
             then("마지막 페이지로 보고 hasNext=false·nextCursor=null 이며 5개를 담는다") {
                 val result = useCase(SearchFakeFoodRepository(descendingFoods(5)))
-                    .search(SearchMenusInput(keyword = "메뉴", cursor = 50L, lang = null))
+                    .search(SearchFoodsInput(keyword = "메뉴", cursor = 50L, lang = null))
 
                 result.items.size shouldBe 5
                 result.hasNext shouldBe false
@@ -186,7 +186,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         `when`("포트가 페이지 크기와 정확히 같은 20건을 반환하면") {
             then("마지막 페이지로 보고 hasNext=false·nextCursor=null 이다") {
                 val result = useCase(SearchFakeFoodRepository(descendingFoods(20)))
-                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                    .search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.size shouldBe 20
                 result.hasNext shouldBe false
@@ -197,7 +197,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         `when`("포트가 0건을 반환하면 (매칭 없음)") {
             then("items 는 빈 리스트이고 hasNext=false·nextCursor=null 이다 (오류 아님)") {
                 val result = useCase(SearchFakeFoodRepository(emptyList()))
-                    .search(SearchMenusInput(keyword = "없는메뉴", cursor = null, lang = null))
+                    .search(SearchFoodsInput(keyword = "없는메뉴", cursor = null, lang = null))
 
                 result.items shouldBe emptyList()
                 result.hasNext shouldBe false
@@ -216,7 +216,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                         richFood(12, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100))),
                     ),
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                ).search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 val statusById = result.items.associate { it.foodId to it.overallRiskStatus }
                 statusById[10L] shouldBe RiskLevel.DANGER
@@ -230,7 +230,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(13, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100)))),
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                ).search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
             }
@@ -243,7 +243,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
                     avoidedCodes = emptySet(),
-                ).search(SearchMenusInput(keyword = "kimchi", cursor = null, lang = "en"))
+                ).search(SearchFoodsInput(keyword = "kimchi", cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "Kimchi Stew"
                 result.items.single().koreanName shouldBe "메뉴-30"
@@ -255,7 +255,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(31)),
                     avoidedCodes = emptySet(),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = "en"))
+                ).search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "메뉴-31"
                 result.items.single().koreanName shouldBe null
@@ -267,7 +267,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
                     avoidedCodes = emptySet(),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                ).search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.single().name shouldBe "메뉴-30"
                 result.items.single().koreanName shouldBe null
@@ -279,7 +279,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         `when`("food.id 를 가진 항목을 조회하면") {
             then("응답 항목 foodId 가 food.id 와 순서대로 일치한다") {
                 val result = searchUseCase(listOf(richFood(42), richFood(7)), emptySet())
-                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+                    .search(SearchFoodsInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.map { it.foodId } shouldBe listOf(42L, 7L)
             }
@@ -303,9 +303,9 @@ private class SearchFakeFoodRepository(
 
     override fun findById(id: Long): Food? = null
 
-    override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
+    override fun findFoodPage(cursor: Long?, size: Int): List<Food> = emptyList()
 
-    override fun searchMenuPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
+    override fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         searchCallCount++
         requestedKeyword = keyword
         requestedLang = lang

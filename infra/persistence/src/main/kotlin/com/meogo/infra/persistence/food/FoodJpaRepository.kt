@@ -16,7 +16,7 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         order by f.id desc
         """,
     )
-    fun findMenuPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
+    fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
     @Query(
         """
@@ -56,7 +56,7 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         limit :size
         """,
     )
-    fun searchMenuPageIds(
+    fun searchFoodPageIds(
         @Param("kw") keyword: String,
         @Param("jsonPath") jsonPath: String?,
         @Param("cursor") cursor: Long?,

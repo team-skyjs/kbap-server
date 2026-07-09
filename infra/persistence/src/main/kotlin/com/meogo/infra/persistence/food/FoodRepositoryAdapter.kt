@@ -13,14 +13,14 @@ class FoodRepositoryAdapter(
     override fun findById(id: Long): Food? =
         foodJpaRepository.findByIdInWithAvoidanceSubstances(listOf(id)).firstOrNull()?.toDomain()
 
-    override fun findMenuPage(cursor: Long?, size: Int): List<Food> {
-        val ids = foodJpaRepository.findMenuPageIds(cursor, PageRequest.of(0, size))
+    override fun findFoodPage(cursor: Long?, size: Int): List<Food> {
+        val ids = foodJpaRepository.findFoodPageIds(cursor, PageRequest.of(0, size))
         return loadDescending(ids)
     }
 
-    override fun searchMenuPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
+    override fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        val ids = foodJpaRepository.searchMenuPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size)
+        val ids = foodJpaRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size)
         return loadDescending(ids)
     }
 

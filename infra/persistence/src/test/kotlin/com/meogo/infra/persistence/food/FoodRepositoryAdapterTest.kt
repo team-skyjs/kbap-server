@@ -261,7 +261,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     clearFoods()
                     val ids = (1..22).map { saveFood("목록정렬-메뉴$it") }
 
-                    val page = adapter.findMenuPage(null, 20)
+                    val page = adapter.findFoodPage(null, 20)
 
                     page.map { it.id } shouldBe ids.sortedDescending().take(20)
                 }
@@ -273,7 +273,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val ids = (1..5).map { saveFood("커서경계-메뉴$it") }
                     val cursor = ids.sorted()[2]
 
-                    val page = adapter.findMenuPage(cursor, 20)
+                    val page = adapter.findFoodPage(cursor, 20)
 
                     page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
                 }
@@ -289,7 +289,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     deletedEntity.delete()
                     foodJpaRepository.save(deletedEntity)
 
-                    val page = adapter.findMenuPage(null, 20)
+                    val page = adapter.findFoodPage(null, 20)
 
                     page.map { it.id } shouldBe listOf(last, first)
                 }
@@ -304,7 +304,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val friedRice = saveFood("김치볶음밥")
                     saveFood("된장찌개")
 
-                    val page = adapter.searchMenuPage("김치", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("김치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldContainExactlyInAnyOrder listOf(stew, friedRice)
                 }
@@ -315,7 +315,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("김치찌개")
 
-                    adapter.searchMenuPage("파스타", LanguageCode.KO, null, 20) shouldBe emptyList()
+                    adapter.searchFoodPage("파스타", LanguageCode.KO, null, 20) shouldBe emptyList()
                 }
             }
 
@@ -325,7 +325,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val ids = (1..3).map { saveFood("커서검색-김치$it") }
                     val cursor = ids.sorted()[2]
 
-                    val page = adapter.searchMenuPage("김치", LanguageCode.KO, cursor, 20)
+                    val page = adapter.searchFoodPage("김치", LanguageCode.KO, cursor, 20)
 
                     page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
                 }
@@ -342,7 +342,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     saveFood("커서혼합-순두부찌개")
                     val cursor = saveFood("커서혼합-김치만두")
 
-                    val page = adapter.searchMenuPage("김치", LanguageCode.KO, cursor, 20)
+                    val page = adapter.searchFoodPage("김치", LanguageCode.KO, cursor, 20)
 
                     page.map { it.id } shouldBe listOf(second, first)
                 }
@@ -354,7 +354,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val smallest = saveFood("커서소진-김치찌개")
                     saveFood("커서소진-김치볶음밥")
 
-                    adapter.searchMenuPage("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList()
+                    adapter.searchFoodPage("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList()
                 }
             }
         }
@@ -366,7 +366,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val bibimbap = saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
                     saveFood("된장찌개", nameTranslations = mapOf("en" to "Doenjang Stew"))
 
-                    val page = adapter.searchMenuPage("bibim", LanguageCode.EN, null, 20)
+                    val page = adapter.searchFoodPage("bibim", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(bibimbap)
                 }
@@ -377,7 +377,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("냉면", nameTranslations = mapOf("ja" to "ネンミョン", "en" to "Cold Noodles"))
 
-                    adapter.searchMenuPage("ネンミョン", LanguageCode.EN, null, 20) shouldBe emptyList()
+                    adapter.searchFoodPage("ネンミョン", LanguageCode.EN, null, 20) shouldBe emptyList()
                 }
             }
 
@@ -386,7 +386,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    adapter.searchMenuPage("Bibimbap", LanguageCode.KO, null, 20) shouldBe emptyList()
+                    adapter.searchFoodPage("Bibimbap", LanguageCode.KO, null, 20) shouldBe emptyList()
                 }
             }
 
@@ -395,7 +395,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     clearFoods()
                     val id = saveFood("Bibim비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    val page = adapter.searchMenuPage("bibim", LanguageCode.EN, null, 20)
+                    val page = adapter.searchFoodPage("bibim", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -403,7 +403,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
         }
 
         given("Food 저장소 어댑터 — 검색어의 패턴 특수문자는 리터럴로 매칭한다 (FR-003a)") {
-            fun seedWildcardMenus(): Map<String, Long> {
+            fun seedWildcardFoods(): Map<String, Long> {
                 clearFoods()
                 saveFood("김치찌개")
                 saveFood("된장찌개")
@@ -418,9 +418,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("검색어가 % 하나이면") {
                 then("전체 메뉴가 아니라 이름에 % 를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardMenus()
+                    val seeded = seedWildcardFoods()
 
-                    val page = adapter.searchMenuPage("%", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("%", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
                 }
@@ -428,9 +428,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("검색어가 _ 하나이면") {
                 then("임의 1문자 와일드카드가 아니라 이름에 _ 를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardMenus()
+                    val seeded = seedWildcardFoods()
 
-                    val page = adapter.searchMenuPage("_", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("_", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("underscore"))
                 }
@@ -438,9 +438,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("검색어에 % 가 리터럴로 섞여 있으면 (50%)") {
                 then("그 조각을 이름에 포함하는 메뉴를 부분 일치로 반환한다") {
-                    val seeded = seedWildcardMenus()
+                    val seeded = seedWildcardFoods()
 
-                    val page = adapter.searchMenuPage("50%", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("50%", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
                 }
@@ -453,7 +453,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     saveFood("김밥치즈")
                     val underscore = saveFood("김_치")
 
-                    val page = adapter.searchMenuPage("김_치", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("김_치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(underscore)
                 }
@@ -461,9 +461,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("검색어가 이스케이프 문자 자체(백슬래시)이면") {
                 then("이스케이프 문자도 리터럴로 취급해 백슬래시를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardMenus()
+                    val seeded = seedWildcardFoods()
 
-                    val page = adapter.searchMenuPage("\\", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("\\", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("backslash"))
                 }
@@ -475,7 +475,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     saveFood("일반세트", nameTranslations = mapOf("en" to "Normal Set"))
                     val sale = saveFood("세일세트", nameTranslations = mapOf("en" to "50% Off Set"))
 
-                    val page = adapter.searchMenuPage("%", LanguageCode.EN, null, 20)
+                    val page = adapter.searchFoodPage("%", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(sale)
                 }
@@ -483,7 +483,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
         }
 
         given("Food 저장소 어댑터 — 하이픈이 든 언어 코드(zh-Hans·zh-Hant) 번역명 매칭") {
-            fun seedChineseMenu(): Long {
+            fun seedChineseFood(): Long {
                 clearFoods()
                 saveFood("된장찌개")
                 return saveFood(
@@ -494,9 +494,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("간체 번역명 조각을 lang=zh-Hans 로 검색하면") {
                 then("JSON 경로가 인용돼 간체 번역명으로 매칭한다") {
-                    val id = seedChineseMenu()
+                    val id = seedChineseFood()
 
-                    val page = adapter.searchMenuPage("简体", LanguageCode.ZH_HANS, null, 20)
+                    val page = adapter.searchFoodPage("简体", LanguageCode.ZH_HANS, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -504,9 +504,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("번체 번역명 조각을 lang=zh-Hant 로 검색하면") {
                 then("JSON 경로가 인용돼 번체 번역명으로 매칭한다") {
-                    val id = seedChineseMenu()
+                    val id = seedChineseFood()
 
-                    val page = adapter.searchMenuPage("繁體", LanguageCode.ZH_HANT, null, 20)
+                    val page = adapter.searchFoodPage("繁體", LanguageCode.ZH_HANT, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -514,9 +514,9 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
 
             `when`("간체 번역명 조각을 lang=zh-Hant 로 교차 검색하면") {
                 then("하이픈 코드에서도 언어 분리가 성립해 매칭되지 않는다") {
-                    seedChineseMenu()
+                    seedChineseFood()
 
-                    adapter.searchMenuPage("简体", LanguageCode.ZH_HANT, null, 20) shouldBe emptyList()
+                    adapter.searchFoodPage("简体", LanguageCode.ZH_HANT, null, 20) shouldBe emptyList()
                 }
             }
         }
@@ -528,7 +528,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val bbq = saveFood("BBQ 치킨")
                     saveFood("김치찌개")
 
-                    val page = adapter.searchMenuPage("bbq", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("bbq", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(bbq)
                 }
@@ -540,7 +540,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val latte = saveFood("Latte 라떼")
                     saveFood("김치찌개")
 
-                    val page = adapter.searchMenuPage("LATTE", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("LATTE", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(latte)
                 }
@@ -557,7 +557,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     deletedEntity.delete()
                     foodJpaRepository.save(deletedEntity)
 
-                    val page = adapter.searchMenuPage("김치", LanguageCode.KO, null, 20)
+                    val page = adapter.searchFoodPage("김치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(alive)
                 }

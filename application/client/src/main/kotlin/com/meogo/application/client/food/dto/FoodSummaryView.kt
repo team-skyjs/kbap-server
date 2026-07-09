@@ -5,7 +5,7 @@ import com.meogo.core.food.Food
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.risk.RiskLevel
 
-data class MenuSummaryView(
+data class FoodSummaryView(
     val foodId: Long,
     val name: String,
     val koreanName: String?,
@@ -14,9 +14,9 @@ data class MenuSummaryView(
     val overallRiskStatus: RiskLevel,
 ) {
     companion object {
-        fun from(food: Food, lang: LanguageCode, userAvoidedCodes: Set<AvoidanceSubstanceCodeRef>): MenuSummaryView {
+        fun from(food: Food, lang: LanguageCode, userAvoidedCodes: Set<AvoidanceSubstanceCodeRef>): FoodSummaryView {
             val localizedName = food.displayName(lang)
-            return MenuSummaryView(
+            return FoodSummaryView(
                 foodId = food.id!!,
                 name = localizedName,
                 koreanName = food.koreanName().takeIf { it != localizedName },

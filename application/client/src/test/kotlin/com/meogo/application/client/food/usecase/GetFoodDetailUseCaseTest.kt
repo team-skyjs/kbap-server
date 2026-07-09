@@ -292,9 +292,9 @@ private class FakeFoodRepository(
 ) : FoodRepository {
     override fun findById(id: Long): Food? = food
 
-    override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
+    override fun findFoodPage(cursor: Long?, size: Int): List<Food> = emptyList()
 
-    override fun searchMenuPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+    override fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
         emptyList()
 }
 

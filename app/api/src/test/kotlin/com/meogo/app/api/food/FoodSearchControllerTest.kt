@@ -21,7 +21,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class MenuSearchControllerTest : BehaviorSpec() {
+class FoodSearchControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -33,7 +33,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        fun seedSearchableMenus() {
+        fun seedSearchableFoods() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_avoidance_substance")
@@ -60,7 +60,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedNumberedMenus(count: Int) {
+        fun seedNumberedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_avoidance_substance")
@@ -77,7 +77,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedJapaneseOnlyMenu() {
+        fun seedJapaneseOnlyFood() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_avoidance_substance")
@@ -114,7 +114,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 검색어 부분 일치") {
             `when`("한국어명 조각(keyword=김치)으로 검색하면") {
                 then("200 과 함께 매칭 메뉴만 BaseResponse 봉투로 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치")
@@ -130,7 +130,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("영어 번역명 조각(keyword=kimchi&lang=en)으로 검색하면") {
                 then("대소문자 무관 번역명 매칭 메뉴를 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "kimchi")
@@ -145,7 +145,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("어떤 메뉴에도 없는 검색어로 검색하면") {
                 then("오류가 아니라 200 과 빈 배열·hasNext=false·nextCursor=null 을 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "파스타")
@@ -165,7 +165,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 항목 스키마 계약 (FR-009)") {
             `when`("검색 결과 항목을 조회하면") {
                 then("foodId·koreanName·imageRef·spiciness·overallRiskStatus 필드 계약을 만족한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치찌개")
@@ -185,7 +185,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 회피 성분 종합 위험도 실 스택 계산 (FR-009)") {
             `when`("사용자가 회피하는 SOY 를 100% 포함하는 메뉴를 검색하면") {
                 then("실 스택(성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
                     seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
 
                     val json = mockMvc.get("/api/v1/foods/search") {
@@ -202,7 +202,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("성분이 없는 메뉴를 검색하면") {
                 then("위험도는 SAFE 다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
                     seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
 
                     val json = mockMvc.get("/api/v1/foods/search") {
@@ -219,7 +219,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 표시명 지역화·koreanName (FR-010)") {
             `when`("lang=en 으로 검색하면 (en 번역 보유 메뉴)") {
                 then("name 은 영어 번역명이고 koreanName 에 한국어 원문을 담는다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "kimchi stew")
@@ -234,7 +234,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("lang 미지정으로 검색하면 (표시명이 곧 한국어)") {
                 then("koreanName 은 응답에 명시적 null 로 존재한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치찌개")
@@ -250,7 +250,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {
             `when`("일본어 번역명에만 있는 키워드를 lang=ja 로 검색하면") {
                 then("해당 메뉴가 결과에 포함된다") {
-                    seedJapaneseOnlyMenu()
+                    seedJapaneseOnlyFood()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "レイメン")
@@ -263,7 +263,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("같은 키워드를 lang=en 으로 검색하면") {
                 then("요청 언어가 아니므로 결과에 포함되지 않는다 (불변식 2)") {
-                    seedJapaneseOnlyMenu()
+                    seedJapaneseOnlyFood()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "レイメン")
@@ -276,7 +276,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("번역명에만 있는 키워드를 lang 미지정으로 검색하면") {
                 then("ko 폴백이라 한국어명만 매칭해 결과에 포함되지 않는다 (불변식 3)") {
-                    seedJapaneseOnlyMenu()
+                    seedJapaneseOnlyFood()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "Cold Noodles")
@@ -290,7 +290,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 지원 목록 밖 언어 코드는 거절 (FR-004, 원칙 V)") {
             `when`("존재하지 않는 언어 코드(lang=fr)로 검색하면") {
                 then("400 과 함께 success=false·지원 언어 목록 안내 message 를 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치")
@@ -306,7 +306,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("대소문자가 다른 언어 코드(lang=EN)로 검색하면") {
                 then("지원 목록과 정확히 일치하지 않으므로 400 으로 거절한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치")
@@ -324,7 +324,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 커서 연속성 (US2)") {
             `when`("같은 검색어로 첫 페이지를 조회하면") {
                 then("최신순 20개·hasNext=true·nextCursor 를 반환한다") {
-                    seedNumberedMenus(25)
+                    seedNumberedFoods(25)
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "검색메뉴")
@@ -339,7 +339,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("첫 페이지 nextCursor 를 같은 검색어와 함께 넘겨 다음 페이지를 조회하면") {
                 then("두 페이지의 foodId 교집합이 공집합이고 단조 감소한다") {
-                    seedNumberedMenus(25)
+                    seedNumberedFoods(25)
 
                     val firstJson = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "검색메뉴")
@@ -362,7 +362,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("마지막 페이지를 조회하면") {
                 then("남은 항목과 함께 hasNext=false·nextCursor=null 을 반환한다") {
-                    seedNumberedMenus(25)
+                    seedNumberedFoods(25)
 
                     val firstJson = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "검색메뉴")
@@ -387,7 +387,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 잘못된 커서 (FR-014)") {
             `when`("비숫자 커서(cursor=abc)로 검색하면") {
                 then("400 과 함께 success=false·커서 형식 안내 message 를 반환한다") {
-                    seedNumberedMenus(3)
+                    seedNumberedFoods(3)
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "검색메뉴")
@@ -402,7 +402,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("음수 커서(cursor=-1)로 검색하면") {
                 then("400 과 함께 success=false·커서 형식 안내 message 를 반환한다") {
-                    seedNumberedMenus(3)
+                    seedNumberedFoods(3)
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "검색메뉴")
@@ -419,7 +419,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 검색어의 패턴 특수문자는 리터럴 (FR-003a)") {
             `when`("keyword=% 로 검색하면") {
                 then("전체 메뉴가 쏟아지지 않고 매칭 0건이면 빈 목록 200 을 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "%")
@@ -438,7 +438,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
         given("메뉴 검색 API — 빈/공백 검색어 (FR-011)") {
             `when`("빈 검색어(keyword=)로 검색하면") {
                 then("400 과 함께 success=false·검색어 안내 message 를 BaseResponse 봉투로 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "")
@@ -453,7 +453,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("keyword 파라미터를 아예 붙이지 않고 검색하면") {
                 then("400 과 함께 success=false·빈 검색어와 동일한 안내 message 를 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("lang", "en")
@@ -468,7 +468,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
             `when`("공백뿐인 검색어(keyword=   )로 검색하면") {
                 then("400 과 함께 success=false·검색어 안내 message 를 BaseResponse 봉투로 반환한다") {
-                    seedSearchableMenus()
+                    seedSearchableFoods()
 
                     mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "   ")
