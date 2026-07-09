@@ -11,7 +11,6 @@ import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
-import com.meogo.core.scan.MenuItemMatch
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -38,9 +37,9 @@ class MenuScanUseCase(
             val resolved = resolvedItems[index] ?: return@mapIndexedNotNull null
             MenuScanResult.ItemRiskResult(
                 idx = item.idx,
-                riskLevel = riskLevelOf(resolved, avoidedCodes).name,
-                matched = resolved.match is MenuItemMatch.Matched,
-                foodId = foodIdOf(resolved.match),
+                riskLevel = (resolved.food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
+                matched = resolved.food?.isReady() == true,
+                foodId = resolved.food?.id,
                 name = resolved.food?.displayName(lang),
                 koreanName = resolved.food?.koreanName(),
             )
@@ -48,15 +47,6 @@ class MenuScanUseCase(
 
         return MenuScanResult(items = items, degraded = refinement.degraded)
     }
-
-    private fun riskLevelOf(resolved: ResolvedItem, avoidedCodes: Set<AvoidanceSubstanceCodeRef>): RiskLevel =
-        resolved.food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN
-
-    private fun foodIdOf(match: MenuItemMatch): Long? =
-        when (match) {
-            is MenuItemMatch.Matched -> match.foodId
-            is MenuItemMatch.Unmatched -> match.foodId
-        }
 
     private fun resolveFoods(
         input: MenuScanInput,
@@ -89,11 +79,9 @@ class MenuScanUseCase(
             .map { it.koreanName }
             .toSet()
 
-    private fun resolvedFrom(food: Food): ResolvedItem = ResolvedItem(matchFor(food), food)
-
-    private fun matchFor(food: Food): MenuItemMatch {
-        val foodId = requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }
-        return if (food.isReady()) MenuItemMatch.Matched(foodId) else MenuItemMatch.Unmatched(foodId)
+    private fun resolvedFrom(food: Food): ResolvedItem {
+        requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }
+        return ResolvedItem(food)
     }
 
     private fun lookupNameFor(
@@ -141,9 +129,9 @@ class MenuScanUseCase(
         val confirmedByInterpreter: Boolean,
     )
 
-    private data class ResolvedItem(val match: MenuItemMatch, val food: Food?)
+    private data class ResolvedItem(val food: Food?)
 
     companion object {
-        private val UNRESOLVED = ResolvedItem(MenuItemMatch.Unmatched(), null)
+        private val UNRESOLVED = ResolvedItem(null)
     }
 }

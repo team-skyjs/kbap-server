@@ -25,18 +25,11 @@ class ScannedNameParser {
     }
 
     private fun toInterpreted(value: String?): InterpretedName {
-        val trimmed = value?.trim().orEmpty()
-        return if (isNotMenuName(trimmed)) {
-            InterpretedName.NotFood
-        } else {
-            InterpretedName.StandardName(trimmed)
-        }
-    }
-
-    private fun isNotMenuName(trimmed: String): Boolean {
-        if (trimmed.isBlank()) return true
-        if (trimmed.equals(NOT_FOOD, ignoreCase = true)) return true
-        return trimmed.length > KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH
+        val name = value?.trim().orEmpty()
+        val notMenuName = name.isBlank() ||
+            name.equals(NOT_FOOD, ignoreCase = true) ||
+            name.length > KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH
+        return if (notMenuName) InterpretedName.NotFood else InterpretedName.StandardName(name)
     }
 
     private fun stripCodeFence(raw: String): String {

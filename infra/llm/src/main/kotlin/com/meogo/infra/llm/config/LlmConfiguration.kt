@@ -65,10 +65,8 @@ class LlmConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "meogo.llm.upstage", name = ["enabled"], havingValue = "true")
-    fun scannedNameInterpreter(callers: List<LlmModelCaller>): ScannedNameInterpreter {
-        val upstage = callers.first { it.modelId == LlmModelId.UPSTAGE }
-        return UpstageScannedNameInterpreter(upstage, ScannedNameParser())
-    }
+    fun scannedNameInterpreter(properties: LlmModelProperties): ScannedNameInterpreter =
+        UpstageScannedNameInterpreter(upstageModelCaller(properties), ScannedNameParser())
 
     @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()

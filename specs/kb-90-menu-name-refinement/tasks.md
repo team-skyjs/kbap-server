@@ -60,9 +60,15 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ## Phase 7: 응답 계약 확정
 
-- [X] `MenuItemMatch` = `Matched(foodId)` | `Unmatched(foodId?)` — `NotFood` 제거, 제외는 `Resolution=null`
+- [X] 항목 매칭 결과 전용 타입 없음 — `matched`·`foodId` 를 확정된 `Food` 에서 파생
 - [X] `matchStatus` 2상태(MATCHED/UNMATCHED), 비음식 항목은 결과에서 제외
 - [X] Swagger(`MenuScanApi`) 재작성 — 흐름·상태·개수 비대칭 명시
+
+## Phase 12: 복잡도 정리 (ponytail)
+
+- [X] `MenuItemMatch` 제거 — `Food` 에서 전부 파생. `:core:scan` 은 deferred placeholder 로
+- [X] `:core:scan` 죽은 의존 제거(`application:client`·`infra:persistence`)
+- [X] LLM 어댑터 정리 — 중복 빈 목록 가드·조건 분리 함수·caller 목록 탐색 제거
 
 ## Phase 8: 검증
 

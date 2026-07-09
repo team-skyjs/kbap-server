@@ -88,7 +88,6 @@ specs/kb-90-menu-name-refinement/
 core/kernel/.../menu/KoreanMenuNameNormalizer.kt     # 순수 정규화(NFC → 한글만)
 core/kernel/.../scan/ScannedNameInterpreter.kt       # LLM port + InterpretedName(StandardName|NotFood)
 
-core/scan/.../MenuItemMatch.kt                       # Matched(foodId) | Unmatched(foodId?)
 core/food/.../FoodContentStatus.kt                   # INCOMPLETE | READY
 core/food/.../Food.kt                                # incomplete() 팩토리, isReady(), overallRisk() 가드
 core/food/.../FoodRepository.kt                      # findByKoreanMatchKeys · createIncomplete · (serving) findById/findMenuPage

@@ -52,15 +52,5 @@ class UpstageScannedNameInterpreterTest : BehaviorSpec({
                 caller.lastRequest!!.system!!.contains("NOT_FOOD") shouldBe true
             }
         }
-
-        `when`("입력이 비어 있으면") {
-            then("LLM 을 호출하지 않고 빈 결과를 반환한다") {
-                val caller = FakeCaller("[]")
-                val interpreter = UpstageScannedNameInterpreter(caller, ScannedNameParser())
-
-                interpreter.interpret(emptyList()) shouldBe emptyList()
-                caller.callCount shouldBe 0
-            }
-        }
     }
 })

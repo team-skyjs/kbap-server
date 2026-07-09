@@ -11,7 +11,6 @@
 ```bash
 ./gradlew :core:kernel:test        # 정규화기(혼합 로마자·기호·비한글 빈 키), InterpretedName
 ./gradlew :core:food:test          # Food.incomplete, isReady, overallRisk 가 미완성이면 UNKNOWN
-./gradlew :core:scan:test          # MenuItemMatch(Matched/Unmatched)
 ./gradlew :infra:llm:test          # 프롬프트 조립(번호·개수), 배열 파싱(NOT_FOOD·null·길이불일치·코드펜스)
 ./gradlew :infra:persistence:test  # matchKey 배치 조회·동음이의 최소 id·createIncomplete dedup·serving gate(목록·검색·상세)
                                    # + kernel matchKey ↔ SQL 생성 컬럼 동등성 sync 테스트

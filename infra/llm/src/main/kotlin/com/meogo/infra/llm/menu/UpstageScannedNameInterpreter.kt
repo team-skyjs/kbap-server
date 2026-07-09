@@ -10,7 +10,6 @@ class UpstageScannedNameInterpreter(
     private val parser: ScannedNameParser,
 ) : ScannedNameInterpreter {
     override fun interpret(texts: List<String>): List<InterpretedName> {
-        if (texts.isEmpty()) return emptyList()
         val response = caller.call(LlmChatRequest(prompt = userPrompt(texts), system = SYSTEM_PROMPT))
         return parser.parse(response, texts.size)
     }

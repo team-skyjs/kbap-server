@@ -11,14 +11,9 @@
 | `StandardName` | `korean: String`(blank 불가) | 표준 한국어 메뉴명 |
 | `NotFood` | — | 음식 아님 → 응답 결과에서 제외 |
 
-### MenuItemMatch (`:core:scan`, sealed) — 항목 매칭 결과
+### 항목 매칭 결과 — 별도 타입 없음
 
-| 변형 | 필드 | 진입 경로 | 응답 `matchStatus` |
-|------|------|-----------|--------------------|
-| `Matched` | `foodId: Long`(양수) | 완성(READY) 음식과 매칭 | `MATCHED` |
-| `Unmatched` | `foodId: Long?` | 미완성 음식 매칭/신규 등록(id 있음), 또는 폴백 판정불가(null) | `UNMATCHED` |
-
-메뉴가 아닌 항목은 `MenuItemMatch` 자체를 만들지 않는다(내부적으로 `Resolution = null` → 결과에서 제외).
+응답의 `matched`·`foodId` 는 확정된 `Food` 에서 파생한다(`food.isReady()`, `food.id`). 메뉴가 아닌 항목은 유스케이스 내부에서 `ResolvedItem = null` 로 표현돼 결과에서 제외되고, 판정 불가(폴백 miss)는 `ResolvedItem(food = null)` 이다.
 
 ### FoodContentStatus (`:core:food`)
 
@@ -40,7 +35,7 @@
 
 ### 스캔 관련 엔티티 — **없음**
 
-`MenuScan`·`ScannedMenuItem`·`ScanStatus`·`BoundingBox`·`MenuItemAssessment`·`MenuScanRepository`는 제거됐다. `:core:scan`에는 `MenuItemMatch`만 남는다.
+`MenuScan`·`ScannedMenuItem`·`ScanStatus`·`BoundingBox`·`MenuItemAssessment`·`MenuScanRepository`는 제거됐다. `:core:scan`은 도메인 타입이 하나도 없는 **deferred placeholder**가 됐다(`:core:review`와 동일). 스캔은 상태를 갖지 않고 요청당 판정만 하므로 도메인 모델이 필요 없다.
 
 ## 영속 (`:infra:persistence`)
 
