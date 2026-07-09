@@ -16,20 +16,20 @@ data class SubmitMenuScanRequest(
     @field:NotEmpty(message = "items 는 최소 1개여야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(
-        description = "스캔한 메뉴 항목 목록 (1~100개). 각 항목의 itemId 로 응답 결과와 1:1 매칭한다.",
+        description = "스캔한 메뉴 항목 목록 (1~100개). 각 항목의 idx 로 응답 결과와 1:1 매칭한다.",
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
     val items: List<@Valid MenuScanItemRequest> = emptyList(),
 ) {
-    fun toInput(lang: String?): SubmitMenuScanInput =
-        SubmitMenuScanInput(items = items.map { it.toInput() }, lang = lang)
+    fun toInput(): SubmitMenuScanInput =
+        SubmitMenuScanInput(items = items.map { it.toInput() })
 
     @get:JsonIgnore
-    @get:AssertTrue(message = "itemId 는 요청 안에서 중복될 수 없습니다")
-    val itemIdsUnique: Boolean
+    @get:AssertTrue(message = "idx 는 요청 안에서 중복될 수 없습니다")
+    val idxUnique: Boolean
         get() {
-            val ids = items.mapNotNull { it.itemId }
-            return ids.size == ids.toSet().size
+            val indexes = items.mapNotNull { it.idx }
+            return indexes.size == indexes.toSet().size
         }
 
     companion object {
@@ -39,13 +39,13 @@ data class SubmitMenuScanRequest(
 
 @Schema(description = "스캔한 개별 메뉴 항목")
 data class MenuScanItemRequest(
-    @field:NotNull(message = "itemId 는 필수입니다")
+    @field:NotNull(message = "idx 는 필수입니다")
     @field:Schema(
-        description = "클라이언트가 스캔한 메뉴 각각에 부여하는 식별자. 응답 results[].itemId 와 1:1 매칭되어, 클라이언트가 자기 화면의 메뉴와 판정 결과를 연결하는 용도다. 순서를 뜻하지 않으며 한 요청 안에서만 유일하면 된다.",
+        description = "클라이언트가 스캔한 메뉴 각각에 부여하는 식별자. 응답 results[].idx 와 1:1 매칭되어, 클라이언트가 자기 화면의 메뉴와 판정 결과를 연결하는 용도다. 배열 인덱스를 그대로 써도 되지만 서버는 순서로 해석하지 않는다. 한 요청 안에서만 유일하면 된다.",
         example = "0",
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
-    val itemId: Int?,
+    val idx: Int?,
 
     @field:NotBlank(message = "rawMenuName 은 blank 일 수 없습니다")
     @field:Schema(
@@ -56,5 +56,5 @@ data class MenuScanItemRequest(
     val rawMenuName: String?,
 ) {
     fun toInput(): MenuScanItemInput =
-        MenuScanItemInput(itemId = itemId!!, rawMenuName = rawMenuName!!)
+        MenuScanItemInput(idx = idx!!, rawMenuName = rawMenuName!!)
 }

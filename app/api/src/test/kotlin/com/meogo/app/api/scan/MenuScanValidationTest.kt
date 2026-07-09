@@ -25,10 +25,10 @@ class MenuScanValidationTest : BehaviorSpec() {
         val objectMapper = jacksonObjectMapper()
 
         fun item(
-            itemId: Any? = 0,
+            idx: Any? = 0,
             rawMenuName: Any? = "메뉴",
         ): Map<String, Any?> = buildMap {
-            put("itemId", itemId)
+            put("idx", idx)
             put("rawMenuName", rawMenuName)
         }
 
@@ -51,19 +51,19 @@ class MenuScanValidationTest : BehaviorSpec() {
 
             `when`("항목이 101개이면") {
                 then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to (0..100).map { item(itemId = it) }))
+                    expectBadRequest(mapOf("items" to (0..100).map { item(idx = it) }))
                 }
             }
 
-            `when`("itemId 가 중복이면") {
+            `when`("idx 가 중복이면") {
                 then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(itemId = 1), item(itemId = 1))))
+                    expectBadRequest(mapOf("items" to listOf(item(idx = 1), item(idx = 1))))
                 }
             }
 
-            `when`("itemId 가 누락되면") {
+            `when`("idx 가 누락되면") {
                 then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(itemId = null))))
+                    expectBadRequest(mapOf("items" to listOf(item(idx = null))))
                 }
             }
 

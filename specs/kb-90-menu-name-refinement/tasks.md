@@ -88,6 +88,13 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 - [X] 메뉴명 255자 길이 가드 — 파서가 `NotFood` 로 떨구고 도메인이 최후 방어
 - [X] 상태 컬럼 8종 `VARCHAR` → `ENUM` — 오타 유입 차단. 엔티티 `columnDefinition` 으로 스키마 일치
 
+## Phase 11: 응답 계약 정리
+
+- [X] 항목 식별자 `itemId` → `idx`
+- [X] `matchStatus`(문자열) → `matched`(불리언). `foodId` 유무와 구분됨을 문서화
+- [X] `lang` 쿼리 파라미터 제거 — 한국어 고정, 회원 언어 설정 연동은 TODO
+- [X] `SubmitMenuScanUseCase` 이름 정리 — `confirmedByInterpreter` 등으로 폴백 규칙을 이름에 노출
+
 ## 후속 (이 작업 범위 밖)
 
 - 회원 기능 도입 시 `MockAvoidedSubstanceProvider` → 실제 `MemberProfile` 회피 성분

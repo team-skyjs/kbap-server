@@ -49,14 +49,14 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
                 }
             }
 
-        fun item(itemId: Int, name: String) = mapOf(
-            "itemId" to itemId,
+        fun item(idx: Int, name: String) = mapOf(
+            "idx" to idx,
             "rawMenuName" to name,
         )
 
         given("실측 로그 회귀 — 진짜 메뉴 6종 + 메뉴판/잡음 혼합(폴백 경로)") {
             `when`("6종 메뉴는 완성 상태로 저장돼 있고 잡음이 섞여 들어오면") {
-                then("6종은 MATCHED, '메뉴판'은 UNMATCHED, 비한글 잡음은 결과에서 제외되며 food 를 오염시키지 않는다") {
+                then("6종은 matched=true, '메뉴판'은 matched=false, 비한글 잡음은 결과에서 제외되며 food 를 오염시키지 않는다") {
                     val menus = listOf("회귀김치찌개", "회귀된장찌개", "회귀순두부찌개", "회귀부대찌개", "회귀고추장찌개", "회귀닭볶음탕")
                     menus.forEach(::seedReadyFood)
 
@@ -78,12 +78,12 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         (0..5).forEach { i ->
-                            jsonPath("$.payload.results[$i].matchStatus") { value("MATCHED") }
+                            jsonPath("$.payload.results[$i].matched") { value(true) }
                             jsonPath("$.payload.results[$i].foodId") { exists() }
                         }
-                        jsonPath("$.payload.results[6].matchStatus") { value("UNMATCHED") }
+                        jsonPath("$.payload.results[6].matched") { value(false) }
                         jsonPath("$.payload.results[6].riskLevel") { value("UNKNOWN") }
-                        jsonPath("$.payload.results[6].itemId") { value(6) }
+                        jsonPath("$.payload.results[6].idx") { value(6) }
                         jsonPath("$.payload.results.length()") { value(7) }
                     }
 

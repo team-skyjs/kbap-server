@@ -5,9 +5,9 @@ data class SubmitMenuScanResult(
     val degraded: Boolean,
 ) {
     data class ItemRiskResult(
-        val itemId: Int,
+        val idx: Int,
         val riskLevel: String,
-        val matchStatus: String,
+        val matched: Boolean,
         val foodId: Long?,
         val name: String?,
         val koreanName: String?,

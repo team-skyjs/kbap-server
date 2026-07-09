@@ -73,8 +73,8 @@ class MenuScanControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun item(itemId: Int, name: String) = mapOf(
-            "itemId" to itemId,
+        fun item(idx: Int, name: String) = mapOf(
+            "idx" to idx,
             "rawMenuName" to name,
         )
 
@@ -83,7 +83,7 @@ class MenuScanControllerTest : BehaviorSpec() {
 
         given("메뉴 스캔 제출 API — 요청/응답 규약") {
             `when`("유효한 항목들로 POST /api/v1/menu-scans 를 호출하면") {
-                then("200 과 itemId 1:1 매칭 결과를 반환한다") {
+                then("200 과 idx 1:1 매칭 결과를 반환한다") {
                     mockMvc.post("/api/v1/menu-scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "된장찌개"), item(1, "비빔밥"))
@@ -92,8 +92,8 @@ class MenuScanControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.degraded") { value(true) }
                         jsonPath("$.payload.results.length()") { value(2) }
-                        jsonPath("$.payload.results[0].itemId") { value(0) }
-                        jsonPath("$.payload.results[1].itemId") { value(1) }
+                        jsonPath("$.payload.results[0].idx") { value(0) }
+                        jsonPath("$.payload.results[1].idx") { value(1) }
                     }
                 }
             }
@@ -121,7 +121,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0, "완성이이김치찌개 kimchi jjigae"))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("MATCHED") }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].foodId") { exists() }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
                     }
@@ -137,7 +137,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0, name))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
                         jsonPath("$.payload.results[0].foodId") { doesNotExist() }
                     }
@@ -165,7 +165,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0, name))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
                         jsonPath("$.payload.results[0].foodId") { exists() }
                     }
@@ -175,25 +175,25 @@ class MenuScanControllerTest : BehaviorSpec() {
             }
         }
 
-        given("응답 메뉴명 — 요청 언어 지역화·한국어 병기") {
-            `when`("lang=en 이고 매칭된 음식에 en 번역이 있으면") {
-                then("name 은 영어, koreanName 은 한국어로 내려간다") {
+        given("응답 메뉴명 — 현재는 한국어 고정(회원 언어 설정 연동 전)") {
+            `when`("매칭된 음식에 en 번역이 있어도") {
+                then("name 을 한국어로 내린다") {
                     seedTranslatedFood("언어테스트김치찌개", "Kimchi Stew")
 
-                    mockMvc.post("/api/v1/menu-scans?lang=en") {
+                    mockMvc.post("/api/v1/menu-scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "언어테스트김치찌개 kimchi jjigae"))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("MATCHED") }
-                        jsonPath("$.payload.results[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].name") { value("언어테스트김치찌개") }
                         jsonPath("$.payload.results[0].koreanName") { value("언어테스트김치찌개") }
                     }
                 }
             }
 
-            `when`("lang=en 이지만 조사 대기(미완성) 음식이라 번역이 없으면") {
-                then("name 이 한국어로 폴백해 koreanName 과 같다") {
+            `when`("조사 대기(미완성) 음식이면") {
+                then("표준명을 name·koreanName 에 함께 담는다") {
                     val name = "언어테스트미완성-마라탕"
                     dataSource.connection.use { c ->
                         c.prepareStatement(
@@ -206,19 +206,19 @@ class MenuScanControllerTest : BehaviorSpec() {
                         ).use { ps -> ps.setString(1, name); ps.executeUpdate() }
                     }
 
-                    mockMvc.post("/api/v1/menu-scans?lang=en") {
+                    mockMvc.post("/api/v1/menu-scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
                         jsonPath("$.payload.results[0].name") { value(name) }
                         jsonPath("$.payload.results[0].koreanName") { value(name) }
                     }
                 }
             }
 
-            `when`("lang 을 지정하지 않으면") {
+            `when`("번역이 있는 음식을 다시 조회해도") {
                 then("name 이 한국어다") {
                     seedTranslatedFood("언어미지정김치찌개", "Kimchi Stew")
 
