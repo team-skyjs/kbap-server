@@ -27,12 +27,12 @@ class SubmitMenuScanUseCase(
         val resolutions = resolveItems(input)
         val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it.food })
 
-        val items = input.items.mapIndexed { index, item ->
+        val items = input.items.mapIndexedNotNull { index, item ->
             val resolution = resolutions[index]
+            if (resolution.match is MenuItemMatch.NotFood) return@mapIndexedNotNull null
             SubmitMenuScanResult.ItemRiskResult(
                 itemId = item.itemId,
                 riskLevel = riskOf(resolution, risks).name,
-                reason = reasonOf(resolution),
                 matchStatus = statusOf(resolution.match),
                 foodId = foodIdOf(resolution.match),
             )
@@ -46,24 +46,17 @@ class SubmitMenuScanUseCase(
         return risks[food.id] ?: RiskLevel.UNKNOWN
     }
 
-    private fun reasonOf(resolution: Resolution): String =
-        when {
-            resolution.food?.isReady() == true -> REASON_EVALUATED
-            resolution.match is MenuItemMatch.Pending -> REASON_INCOMPLETE
-            else -> REASON_NOT_FOOD
-        }
 
     private fun statusOf(match: MenuItemMatch): String =
         when (match) {
             is MenuItemMatch.Matched -> "MATCHED"
-            is MenuItemMatch.Pending -> "PENDING"
-            MenuItemMatch.NotFood -> "NOT_FOOD"
+            else -> "UNMATCHED"
         }
 
     private fun foodIdOf(match: MenuItemMatch): Long? =
         when (match) {
             is MenuItemMatch.Matched -> match.foodId
-            is MenuItemMatch.Pending -> match.foodId
+            is MenuItemMatch.Unmatched -> match.foodId
             MenuItemMatch.NotFood -> null
         }
 
@@ -83,7 +76,7 @@ class SubmitMenuScanUseCase(
             val existing = foundByKey[lookup.matchKey]
             if (existing != null) return@map Resolution(matchOf(existing), existing)
 
-            if (!lookup.confirmedFood) return@map Resolution(MenuItemMatch.Pending(), null)
+            if (!lookup.confirmedFood) return@map Resolution(MenuItemMatch.Unmatched(), null)
 
             val created = createdByName.getOrPut(lookup.koreanName) { foodRepository.createIncomplete(lookup.koreanName) }
             Resolution(matchOf(created), created)
@@ -92,7 +85,7 @@ class SubmitMenuScanUseCase(
 
     private fun matchOf(food: Food): MenuItemMatch {
         val foodId = requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }
-        return if (food.isReady()) MenuItemMatch.Matched(foodId) else MenuItemMatch.Pending(foodId)
+        return if (food.isReady()) MenuItemMatch.Matched(foodId) else MenuItemMatch.Unmatched(foodId)
     }
 
     private fun lookupNameOf(
@@ -140,9 +133,4 @@ class SubmitMenuScanUseCase(
 
     private data class Resolution(val match: MenuItemMatch, val food: Food?)
 
-    companion object {
-        private const val REASON_EVALUATED = "회피 성분 기준으로 판정했습니다"
-        private const val REASON_INCOMPLETE = "조사 대기 중인 메뉴입니다"
-        private const val REASON_NOT_FOOD = "메뉴로 인식되지 않았습니다"
-    }
 }

@@ -29,10 +29,10 @@ interface MenuScanApi {
 
             ## 응답 matchStatus
             - `MATCHED` — 조회 가능한 음식과 매칭됨. `foodId` 가 있고 `riskLevel` 은 사용자 회피 성분 기준 판정값이다.
-            - `PENDING` — 조사 대기 중인 메뉴. `riskLevel` 은 `UNKNOWN` 이다.
-            - `NOT_FOOD` — 원산지·가격·UI 문구 등 메뉴가 아닌 텍스트. `foodId` 는 없고 `riskLevel` 은 `UNKNOWN` 이다.
+            - `UNMATCHED` — 조사 대기 중이라 위험도를 알 수 없다(`riskLevel=UNKNOWN`). 조사 대기로 등록된 음식이면 `foodId` 가 있다.
 
-            응답 results 는 요청 items 와 itemId 로 1:1 매칭된다. itemId 는 '순서'가 아니라 클라이언트가 각 메뉴에 부여하는 매칭용 식별자이며, 한 요청 안에서 유일해야 한다(중복 시 400).
+            메뉴가 아닌 텍스트(원산지·가격·UI 문구 등)는 **결과에서 제외**되므로 results 개수가 요청 items 보다 적을 수 있다.
+            클라이언트는 요청에 부여한 itemId 로 결과의 짝을 맞춘다(itemId 는 '순서'가 아니며 한 요청 안에서 유일해야 한다 — 중복 시 400).
         """,
     )
     @ApiResponses(

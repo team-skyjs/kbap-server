@@ -121,7 +121,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe listOf("우주라면")
-                result.items.first().matchStatus shouldBe "PENDING"
+                result.items.first().matchStatus shouldBe "UNMATCHED"
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
                 result.items.first().foodId shouldBe 100L
             }
@@ -149,13 +149,13 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe emptyList()
-                result.items.first().matchStatus shouldBe "PENDING"
+                result.items.first().matchStatus shouldBe "UNMATCHED"
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
             }
         }
 
         `when`("LLM 이 NOT_FOOD 로 판정하면") {
-            then("NOT_FOOD·UNKNOWN 이고 food 를 만들지 않는다") {
+            then("결과에서 제외되고 food 를 만들지 않는다") {
                 val foodRepo = FakeFoodRepository(emptyMap())
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.NotFood)),
@@ -164,21 +164,19 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "원산지 중국"))))
 
-                result.items.first().matchStatus shouldBe "NOT_FOOD"
+                result.items shouldBe emptyList()
                 foodRepo.createdIncomplete shouldBe emptyList()
-                result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
-                result.items.first().foodId shouldBe null
             }
         }
 
         `when`("한글이 전혀 없는 항목이면") {
-            then("LLM 을 거치지 않고 NOT_FOOD 로 처리한다") {
+            then("LLM 을 거치지 않고 결과에서 제외한다") {
                 val interpreter = FakeInterpreter(emptyList())
                 val uc = useCase(interpreter = interpreter)
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "MacBook Air F9"))))
 
-                result.items.first().matchStatus shouldBe "NOT_FOOD"
+                result.items shouldBe emptyList()
                 interpreter.callCount shouldBe 0
             }
         }
@@ -242,7 +240,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val items = result.items
                 items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
-                items.first { it.itemId == 1 }.matchStatus shouldBe "PENDING"
+                items.first { it.itemId == 1 }.matchStatus shouldBe "UNMATCHED"
                 items.first { it.itemId == 1 }.foodId shouldBe null
                 foodRepo.createdIncomplete shouldBe emptyList()
             }
@@ -259,7 +257,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val items = result.items
                 items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
-                items.first { it.itemId == 1 }.matchStatus shouldBe "PENDING"
+                items.first { it.itemId == 1 }.matchStatus shouldBe "UNMATCHED"
             }
         }
     }

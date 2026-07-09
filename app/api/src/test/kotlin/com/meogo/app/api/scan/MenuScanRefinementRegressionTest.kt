@@ -56,7 +56,7 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
 
         given("실측 로그 회귀 — 진짜 메뉴 6종 + 메뉴판/잡음 혼합(폴백 경로)") {
             `when`("6종 메뉴는 완성 상태로 저장돼 있고 잡음이 섞여 들어오면") {
-                then("6종은 MATCHED, '메뉴판'은 PENDING, 비한글 잡음은 NOT_FOOD 이며 food 를 오염시키지 않는다") {
+                then("6종은 MATCHED, '메뉴판'은 UNMATCHED, 비한글 잡음은 결과에서 제외되며 food 를 오염시키지 않는다") {
                     val menus = listOf("회귀김치찌개", "회귀된장찌개", "회귀순두부찌개", "회귀부대찌개", "회귀고추장찌개", "회귀닭볶음탕")
                     menus.forEach(::seedReadyFood)
 
@@ -81,9 +81,10 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
                             jsonPath("$.payload.results[$i].matchStatus") { value("MATCHED") }
                             jsonPath("$.payload.results[$i].foodId") { exists() }
                         }
-                        jsonPath("$.payload.results[6].matchStatus") { value("PENDING") }
+                        jsonPath("$.payload.results[6].matchStatus") { value("UNMATCHED") }
                         jsonPath("$.payload.results[6].riskLevel") { value("UNKNOWN") }
-                        jsonPath("$.payload.results[7].matchStatus") { value("NOT_FOOD") }
+                        jsonPath("$.payload.results[6].itemId") { value(6) }
+                        jsonPath("$.payload.results.length()") { value(7) }
                     }
 
                     countFood("메뉴판") shouldBe 0

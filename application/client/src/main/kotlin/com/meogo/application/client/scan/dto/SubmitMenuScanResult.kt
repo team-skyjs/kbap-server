@@ -6,7 +6,6 @@ data class SubmitMenuScanResult(
     data class ItemRiskResult(
         val itemId: Int,
         val riskLevel: String,
-        val reason: String,
         val matchStatus: String,
         val foodId: Long?,
     )

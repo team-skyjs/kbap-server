@@ -82,15 +82,13 @@ class MenuScanControllerTest : BehaviorSpec() {
             }
 
             `when`("한글이 전혀 없는 항목을 제출하면") {
-                then("NOT_FOOD·UNKNOWN 이고 foodId 는 없다") {
+                then("메뉴가 아니므로 결과에서 제외된다") {
                     mockMvc.post("/api/v1/menu-scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "6,500"))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("NOT_FOOD") }
-                        jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
-                        jsonPath("$.payload.results[0].foodId") { doesNotExist() }
+                        jsonPath("$.payload.results.length()") { value(0) }
                     }
                 }
             }
@@ -122,7 +120,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0, name))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("PENDING") }
+                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
                         jsonPath("$.payload.results[0].foodId") { doesNotExist() }
                     }
@@ -132,7 +130,7 @@ class MenuScanControllerTest : BehaviorSpec() {
             }
 
             `when`("미완성으로 등록된 음식과 키가 일치하면") {
-                then("MATCHED 가 아니라 PENDING·UNKNOWN 으로 응답한다") {
+                then("MATCHED 가 아니라 UNMATCHED·UNKNOWN 으로 응답한다") {
                     val name = "미완성-마라샹궈"
                     dataSource.connection.use { c ->
                         c.prepareStatement(
@@ -150,7 +148,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         content = body(item(0, name))
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matchStatus") { value("PENDING") }
+                        jsonPath("$.payload.results[0].matchStatus") { value("UNMATCHED") }
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
                         jsonPath("$.payload.results[0].foodId") { exists() }
                     }
