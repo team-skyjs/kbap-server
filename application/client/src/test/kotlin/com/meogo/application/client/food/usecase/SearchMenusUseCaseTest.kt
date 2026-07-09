@@ -4,7 +4,9 @@ import com.meogo.application.client.food.dto.SearchMenusInput
 import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.avoidance.AvoidanceSubstanceRepository
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
+import com.meogo.core.food.FoodAvoidanceSubstance
 import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
@@ -12,6 +14,7 @@ import com.meogo.core.food.FoodRepository
 import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.kernel.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldNotContain
@@ -37,6 +40,47 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         MenuSummaryAssembler(
             SearchFakeAvoidedSubstanceProvider(emptySet()),
             SearchFakeAvoidanceSubstanceRepository(emptyList()),
+        ),
+    )
+
+    fun avoidedRef(code: AvoidanceSubstanceCode, probability: Int) =
+        FoodAvoidanceSubstance(
+            substanceCode = AvoidanceSubstanceCodeRef(code.name),
+            inclusionProbability = probability,
+        )
+
+    fun richFood(
+        id: Long,
+        nameTranslations: Map<LanguageCode, String> = emptyMap(),
+        substances: List<FoodAvoidanceSubstance> = emptyList(),
+    ) = Food.reconstitute(
+        id = id,
+        content = FoodContent(
+            name = LocalizedText(korean = "메뉴-$id", translations = nameTranslations),
+            description = LocalizedText(korean = "메뉴-$id 설명"),
+        ),
+        imageRef = "menu-$id.png",
+        spiciness = FoodSpiciness(0),
+        avoidanceSubstances = substances,
+    )
+
+    fun catalogSubstance(code: AvoidanceSubstanceCode) =
+        AvoidanceSubstance.reconstitute(
+            id = code.ordinal.toLong() + 1,
+            code = code,
+            name = LocalizedText(korean = code.label),
+        )
+
+    fun searchUseCase(
+        foods: List<Food>,
+        avoidedCodes: Set<AvoidanceSubstanceCode>,
+        catalog: List<AvoidanceSubstance>,
+    ) = SearchMenusUseCase(
+        SearchFakeFoodRepository(foods),
+        LanguageResolver(),
+        MenuSummaryAssembler(
+            SearchFakeAvoidedSubstanceProvider(avoidedCodes),
+            SearchFakeAvoidanceSubstanceRepository(catalog),
         ),
     )
 
@@ -185,6 +229,119 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 result.items shouldBe emptyList()
                 result.hasNext shouldBe false
                 result.nextCursor shouldBe null
+            }
+        }
+    }
+
+    given("검색어 메뉴 조회 — 항목 종합 위험도 (사용자 회피 ∩ 성분 포함확률 최악값, US3)") {
+        `when`("회피 성분을 포함한 food(SOY100·MILK30)와 미포함 food(WHEAT100)가 섞여 있으면") {
+            then("포함 food 는 포함확률 규칙대로(DANGER·CAUTION), 미포함 food 는 SAFE 로 판정한다") {
+                val result = searchUseCase(
+                    foods = listOf(
+                        richFood(10, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100))),
+                        richFood(11, substances = listOf(avoidedRef(AvoidanceSubstanceCode.MILK, 30))),
+                        richFood(12, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100))),
+                    ),
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
+                    catalog = listOf(
+                        catalogSubstance(AvoidanceSubstanceCode.SOY),
+                        catalogSubstance(AvoidanceSubstanceCode.MILK),
+                        catalogSubstance(AvoidanceSubstanceCode.WHEAT),
+                    ),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                val statusById = result.items.associate { it.foodId to it.overallRiskStatus }
+                statusById[10L] shouldBe RiskLevel.DANGER
+                statusById[11L] shouldBe RiskLevel.CAUTION
+                statusById[12L] shouldBe RiskLevel.SAFE
+            }
+        }
+
+        `when`("회피 성분과 겹치는 성분이 하나도 없으면") {
+            then("overallRiskStatus 는 SAFE 다") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(13, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100)))),
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
+                    catalog = listOf(catalogSubstance(AvoidanceSubstanceCode.WHEAT)),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
+            }
+        }
+
+        `when`("사용자가 회피하는 SOY 를 food 가 100% 포함하지만 카탈로그(findByCodes)에서 SOY 가 빠지면") {
+            then("소프트삭제된 성분은 판정 대상에서 제외돼 overallRiskStatus 는 SAFE 다") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
+                    catalog = emptyList(),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
+            }
+        }
+
+        `when`("동일 food·회피 조건에서 카탈로그에 SOY 가 존재하면") {
+            then("대비적으로 교집합이 걸려 overallRiskStatus 는 DANGER 로 반영된다") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
+                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
+                    catalog = listOf(catalogSubstance(AvoidanceSubstanceCode.SOY)),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.single().overallRiskStatus shouldBe RiskLevel.DANGER
+            }
+        }
+    }
+
+    given("검색어 메뉴 조회 — 표시명 지역화·koreanName 규약 (US3, 목록·상세와 동일)") {
+        `when`("lang=en 이고 en 번역이 있으면") {
+            then("표시명은 영어이고 koreanName 에 한국어 원문을 담는다") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
+                    avoidedCodes = emptySet(),
+                    catalog = emptyList(),
+                ).search(SearchMenusInput(keyword = "kimchi", cursor = null, lang = "en"))
+
+                result.items.single().name shouldBe "Kimchi Stew"
+                result.items.single().koreanName shouldBe "메뉴-30"
+            }
+        }
+
+        `when`("lang=en 이지만 해당 food 에 en 번역이 없으면") {
+            then("표시명을 한국어로 폴백하고 koreanName 은 null 이다(중복 미노출)") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(31)),
+                    avoidedCodes = emptySet(),
+                    catalog = emptyList(),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = "en"))
+
+                result.items.single().name shouldBe "메뉴-31"
+                result.items.single().koreanName shouldBe null
+            }
+        }
+
+        `when`("lang 미지정이면(표시명이 곧 한국어)") {
+            then("koreanName 은 null 이다(중복 미노출)") {
+                val result = searchUseCase(
+                    foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
+                    avoidedCodes = emptySet(),
+                    catalog = emptyList(),
+                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.single().name shouldBe "메뉴-30"
+                result.items.single().koreanName shouldBe null
+            }
+        }
+    }
+
+    given("검색어 메뉴 조회 — 항목 foodId 정합 (상세 조회 식별자, FR-009)") {
+        `when`("food.id 를 가진 항목을 조회하면") {
+            then("응답 항목 foodId 가 food.id 와 순서대로 일치한다") {
+                val result = searchUseCase(listOf(richFood(42), richFood(7)), emptySet(), emptyList())
+                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.map { it.foodId } shouldBe listOf(42L, 7L)
             }
         }
     }

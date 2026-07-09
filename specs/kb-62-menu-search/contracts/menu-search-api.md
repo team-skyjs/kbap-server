@@ -51,7 +51,9 @@
 | `payload.items[].koreanName` | string? | 한국어 메뉴명. 표시명(`name`)과 다를 때만 채워짐(같으면 null). |
 | `payload.items[].imageRef` | string? | 대표 이미지 참조(없을 수 있음). |
 | `payload.items[].spiciness` | number | 0~10. |
-| `payload.items[].overallRiskStatus` | enum | `SAFE`·`CAUTION`·`DANGER`·`UNKNOWN`. 사용자 회피 ∩ 성분 위험도 최악값(목록·상세와 동일 의미). |
+| `payload.items[].overallRiskStatus` | enum | `SAFE`·`CAUTION`·`DANGER`·`UNKNOWN`. 사용자 회피 ∩ 성분 위험도 최악값(목록·상세와 동일 의미). **현재 `UNKNOWN` 은 이 경로에서 도달 불가**(아래 참고). |
+
+> **`UNKNOWN` 도달 가능성 (현 구현 기준)**: `Food.overallRisk` → `RiskLevel.aggregate` 는 (a) 겹치는 회피 성분이 없으면 `SAFE`, (b) 있으면 `max(severity)` 를 낸다. `UNKNOWN` 은 개별 성분의 `riskLevel()` 이 `UNKNOWN` 일 때만 나오는데, `riskLevel()` 은 `fromInclusionProbability(1..100)` 이고 `FoodAvoidanceSubstance` 생성자가 그 범위를 강제하므로 **`SAFE`/`CAUTION`/`DANGER` 만 산출된다**. 따라서 `aggregate` 의 `UNKNOWN` 분기는 이 경로에서 실행되지 않는 방어 코드다. 클라이언트는 4값을 모두 처리하되, 테스트는 `UNKNOWN` 을 값으로 단언하지 않고 **enum 멤버십**으로만 검증한다(목록 API 와 동일).
 | `payload.hasNext` | boolean | 다음 페이지 존재 여부. |
 | `payload.nextCursor` | number? | 다음 요청에 넘길 커서(마지막 항목 foodId, **숫자**). `hasNext=false` 면 `null`. |
 

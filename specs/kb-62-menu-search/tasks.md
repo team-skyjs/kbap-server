@@ -102,13 +102,13 @@ description: "Task list for 검색어 메뉴 조회 (다국어 부분 일치, no
 
 ### Tests for User Story 3 (Test-First: 먼저 작성·FAIL 확인) ⚠️
 
-- [ ] T018 [P] [US3] `SearchMenusUseCaseTest.kt` 보강 — 사용자 회피 ∩ 성분 위험도가 food 별 정확(소프트삭제 카탈로그 성분 미반영), `lang=en` 표시명 지역화·미지정 시 ko, `foodId`·`koreanName`(표시명과 다를 때만) 매핑 검증. Red 확인.
-- [ ] T019 [P] [US3] `MenuSearchControllerTest.kt` 보강 — 항목 계약(`foodId`·`koreanName`·`imageRef`·`spiciness`(0~10)·`overallRiskStatus`∈{SAFE,CAUTION,DANGER,UNKNOWN}), `lang=en` 지역화 응답, 미지원 lang 코드 400(지원 언어 안내, 원칙 V). Red 확인.
+- [X] T018 [P] [US3] `SearchMenusUseCaseTest.kt` 보강 — 사용자 회피 ∩ 성분 위험도가 food 별 정확(소프트삭제 카탈로그 성분 미반영), `lang=en` 표시명 지역화·미지정 시 ko, `foodId`·`koreanName`(표시명과 다를 때만) 매핑 검증. Red 확인.
+- [X] T019 [P] [US3] `MenuSearchControllerTest.kt` 보강 — 항목 계약(`foodId`·`koreanName`·`imageRef`·`spiciness`(0~10)·`overallRiskStatus`∈{SAFE,CAUTION,DANGER,UNKNOWN}), `lang=en` 지역화 응답, 미지원 lang 코드 400(지원 언어 안내, 원칙 V). Red 확인.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] 위험도·언어 정합 확인 — `MenuSummaryAssembler`(T011)가 상세 `GetFoodDetailUseCase`·목록 `BrowseMenusUseCase` 와 동일 의미(`avoided ∩ 카탈로그존재코드`, 소프트삭제 성분 제외)로 계산하고 `displayName(lang)` 지역화함을 검증·보강. 검색 고유 로직 없음(assembler 재사용). T011·T012 확장.
-- [ ] T021 [US3] 미지원 lang 400 경로·매핑 완전성 확인 — `LanguageResolver.resolve(lang)` 재사용으로 미지원 코드 400+지원목록(원칙 V), `MenuSummaryResponse.from(view)` 가 `overallRiskStatus=view.overallRiskStatus.name`·`koreanName`·nullable `imageRef` 를 온전히 전달함을 확인. 필요 시 컨트롤러 배선만 조정. T013 확장.
+- [X] T020 [US3] 위험도·언어 정합 확인 — `MenuSummaryAssembler`(T011)가 상세 `GetFoodDetailUseCase`·목록 `BrowseMenusUseCase` 와 동일 의미(`avoided ∩ 카탈로그존재코드`, 소프트삭제 성분 제외)로 계산하고 `displayName(lang)` 지역화함을 검증·보강. 검색 고유 로직 없음(assembler 재사용). T011·T012 확장.
+- [X] T021 [US3] 미지원 lang 400 경로·매핑 완전성 확인 — `LanguageResolver.resolve(lang)` 재사용으로 미지원 코드 400+지원목록(원칙 V), `MenuSummaryResponse.from(view)` 가 `overallRiskStatus=view.overallRiskStatus.name`·`koreanName`·nullable `imageRef` 를 온전히 전달함을 확인. 필요 시 컨트롤러 배선만 조정. T013 확장.
 
 **Checkpoint**: 모든 스토리 독립 동작 — 검색 카드·상세 식별자·언어·오류 완결
 

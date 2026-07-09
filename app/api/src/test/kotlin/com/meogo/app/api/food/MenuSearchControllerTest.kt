@@ -5,10 +5,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -76,8 +79,26 @@ class MenuSearchControllerTest : BehaviorSpec() {
             }
         }
 
+        fun seedJapaneseOnlyMenu() {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM food_avoidance_substance")
+                    statement.execute("DELETE FROM food")
+                    statement.execute(
+                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, status, created_at, updated_at) " +
+                            "VALUES (610, '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
+                            "'{\"ja\":\"レイメン\",\"en\":\"Cold Noodles\"}', '{}', " +
+                            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    )
+                }
+            }
+        }
+
         fun foodIdsOf(json: String): List<Long> =
             mapper.readTree(json).path("payload").path("items").map { it.path("foodId").asLong() }
+
+        fun messageOf(json: String): String = mapper.readTree(json).path("message").asText()
 
         given("메뉴 검색 API — 검색어 부분 일치") {
             `when`("한국어명 조각(keyword=김치)으로 검색하면") {
@@ -126,6 +147,134 @@ class MenuSearchControllerTest : BehaviorSpec() {
                     root.path("payload").path("items").size() shouldBe 0
                     root.path("payload").path("hasNext").asBoolean() shouldBe false
                     root.path("payload").path("nextCursor").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 항목 스키마 계약 (FR-009)") {
+            `when`("검색 결과 항목을 조회하면") {
+                then("foodId·koreanName·imageRef·spiciness·overallRiskStatus 필드 계약을 만족한다") {
+                    seedSearchableMenus()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치찌개")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("foodId").isNumber shouldBe true
+                    item.path("foodId").asLong() shouldBe 601L
+                    item.has("koreanName") shouldBe true
+                    item.path("imageRef").asText() shouldBe "kimchi.png"
+                    item.path("spiciness").isInt shouldBe true
+                    item.path("spiciness").asInt() shouldBeInRange 0..10
+                    item.path("overallRiskStatus").asText() shouldBeIn
+                        listOf("SAFE", "CAUTION", "DANGER", "UNKNOWN")
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 표시명 지역화·koreanName (FR-010)") {
+            `when`("lang=en 으로 검색하면 (en 번역 보유 메뉴)") {
+                then("name 은 영어 번역명이고 koreanName 에 한국어 원문을 담는다") {
+                    seedSearchableMenus()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "kimchi stew")
+                        param("lang", "en")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.items[0].koreanName") { value("김치찌개") }
+                    }
+                }
+            }
+
+            `when`("lang 미지정으로 검색하면 (표시명이 곧 한국어)") {
+                then("koreanName 은 응답에 명시적 null 로 존재한다") {
+                    seedSearchableMenus()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치찌개")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("name").asText() shouldBe "김치찌개"
+                    item.get("koreanName").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {
+            `when`("일본어 번역명에만 있는 키워드를 lang=ja 로 검색하면") {
+                then("해당 메뉴가 결과에 포함된다") {
+                    seedJapaneseOnlyMenu()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "レイメン")
+                        param("lang", "ja")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    foodIdsOf(json) shouldBe listOf(610L)
+                }
+            }
+
+            `when`("같은 키워드를 lang=en 으로 검색하면") {
+                then("요청 언어가 아니므로 결과에 포함되지 않는다 (불변식 2)") {
+                    seedJapaneseOnlyMenu()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "レイメン")
+                        param("lang", "en")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    foodIdsOf(json) shouldBe emptyList()
+                }
+            }
+
+            `when`("번역명에만 있는 키워드를 lang 미지정으로 검색하면") {
+                then("ko 폴백이라 한국어명만 매칭해 결과에 포함되지 않는다 (불변식 3)") {
+                    seedJapaneseOnlyMenu()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "Cold Noodles")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    foodIdsOf(json) shouldBe emptyList()
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 지원 목록 밖 언어 코드는 거절 (FR-004, 원칙 V)") {
+            `when`("존재하지 않는 언어 코드(lang=fr)로 검색하면") {
+                then("400 과 함께 success=false·지원 언어 목록 안내 message 를 반환한다") {
+                    seedSearchableMenus()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치")
+                        param("lang", "fr")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    messageOf(json) shouldContain "지원하지 않는 언어 코드입니다"
+                    messageOf(json) shouldContain "zh-Hans"
+                }
+            }
+
+            `when`("대소문자가 다른 언어 코드(lang=EN)로 검색하면") {
+                then("지원 목록과 정확히 일치하지 않으므로 400 으로 거절한다") {
+                    seedSearchableMenus()
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치")
+                        param("lang", "EN")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    messageOf(json) shouldContain "지원하지 않는 언어 코드입니다"
                 }
             }
         }
