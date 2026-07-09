@@ -38,7 +38,7 @@ class ScannedMenuItemJpaEntity(
     var reason: String = "",
 
     @Column(name = "match_status", nullable = false, length = 20)
-    var matchStatus: String = MATCH_PENDING,
+    var matchStatus: String = MATCH_NOT_FOOD,
 
     @Column(name = "matched_food_id")
     var matchedFoodId: Long? = null,
@@ -55,12 +55,13 @@ class ScannedMenuItemJpaEntity(
 
     private fun toMatch(): MenuItemMatch =
         when (matchStatus) {
-            MATCH_MATCHED -> MenuItemMatch.Matched(
-                requireNotNull(matchedFoodId) { "MATCHED 항목에 matched_food_id 가 없습니다" },
-            )
-            MATCH_NOT_FOOD -> MenuItemMatch.NotFood
-            else -> MenuItemMatch.Pending
+            MATCH_MATCHED -> MenuItemMatch.Matched(requireFoodId(MATCH_MATCHED))
+            MATCH_PENDING -> MenuItemMatch.Pending(matchedFoodId)
+            else -> MenuItemMatch.NotFood
         }
+
+    private fun requireFoodId(status: String): Long =
+        requireNotNull(matchedFoodId) { "$status 항목에 matched_food_id 가 없습니다" }
 
     companion object {
         private const val MATCH_MATCHED = "MATCHED"
@@ -78,14 +79,21 @@ class ScannedMenuItemJpaEntity(
                 riskLevel = item.assessment.riskLevel.name,
                 reason = item.assessment.reason,
                 matchStatus = statusOf(item.match),
-                matchedFoodId = (item.match as? MenuItemMatch.Matched)?.foodId,
+                matchedFoodId = foodIdOf(item.match),
             )
 
         private fun statusOf(match: MenuItemMatch): String =
             when (match) {
                 is MenuItemMatch.Matched -> MATCH_MATCHED
-                MenuItemMatch.Pending -> MATCH_PENDING
+                is MenuItemMatch.Pending -> MATCH_PENDING
                 MenuItemMatch.NotFood -> MATCH_NOT_FOOD
+            }
+
+        private fun foodIdOf(match: MenuItemMatch): Long? =
+            when (match) {
+                is MenuItemMatch.Matched -> match.foodId
+                is MenuItemMatch.Pending -> match.foodId
+                MenuItemMatch.NotFood -> null
             }
     }
 }

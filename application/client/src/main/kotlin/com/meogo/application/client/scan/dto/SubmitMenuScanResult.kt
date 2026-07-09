@@ -27,7 +27,7 @@ data class SubmitMenuScanResult(
                         riskLevel = it.assessment.riskLevel.name,
                         reason = it.assessment.reason,
                         matchStatus = statusOf(it.match),
-                        foodId = (it.match as? MenuItemMatch.Matched)?.foodId,
+                        foodId = foodIdOf(it.match),
                     )
                 },
             )
@@ -35,8 +35,15 @@ data class SubmitMenuScanResult(
         private fun statusOf(match: MenuItemMatch): String =
             when (match) {
                 is MenuItemMatch.Matched -> "MATCHED"
-                MenuItemMatch.Pending -> "PENDING"
+                is MenuItemMatch.Pending -> "PENDING"
                 MenuItemMatch.NotFood -> "NOT_FOOD"
+            }
+
+        private fun foodIdOf(match: MenuItemMatch): Long? =
+            when (match) {
+                is MenuItemMatch.Matched -> match.foodId
+                is MenuItemMatch.Pending -> match.foodId
+                MenuItemMatch.NotFood -> null
             }
     }
 }

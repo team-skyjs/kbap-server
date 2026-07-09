@@ -3,14 +3,24 @@ package com.meogo.application.client.scan.usecase
 import com.meogo.application.client.scan.dto.BoundingBoxInput
 import com.meogo.application.client.scan.dto.MenuScanItemInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
+import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
+import com.meogo.application.client.food.usecase.FoodRiskEvaluator
+import com.meogo.core.avoidance.AvoidanceSubstance
+import com.meogo.core.avoidance.AvoidanceSubstanceCode
+import com.meogo.core.avoidance.AvoidanceSubstanceRepository
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
+import com.meogo.core.food.FoodAvoidanceSubstance
+import com.meogo.core.food.FoodContent
 import com.meogo.core.food.FoodRepository
+import com.meogo.core.food.FoodSpiciness
+import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
 import com.meogo.core.scan.MenuItemMatch
 import com.meogo.core.scan.MenuScan
 import com.meogo.core.scan.MenuScanRepository
-import com.meogo.core.scan.PendingMenuRepository
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -30,17 +40,39 @@ private class CapturingScanRepository : MenuScanRepository {
     override fun findById(scanId: Long): MenuScan? = null
 }
 
-private class FakeFoodRepository(private val keyToId: Map<String, Long>) : FoodRepository {
+private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : FoodRepository {
+    val createdIncomplete = mutableListOf<String>()
+    private var nextId = 100L
+
     override fun findById(id: Long): Food? = null
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
-    override fun findFoodIdByKoreanMatchKey(key: String): Long? = keyToId[key]
+
+    override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> =
+        readyFoods.filterKeys { it in keys }
+
+    override fun createIncomplete(koreanName: String): Food {
+        createdIncomplete += koreanName
+        return Food.reconstitute(
+            id = nextId++,
+            content = FoodContent(
+                name = LocalizedText(korean = koreanName),
+                description = LocalizedText(korean = Food.PLACEHOLDER_DESCRIPTION),
+            ),
+            imageRef = null,
+            spiciness = FoodSpiciness(0),
+            avoidanceSubstances = emptyList(),
+            contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
+        )
+    }
 }
 
-private class RecordingPendingRepository : PendingMenuRepository {
-    val enqueued = mutableListOf<String>()
-    override fun enqueue(name: String) {
-        enqueued += name
-    }
+private class ScanFakeAvoidedProvider : AvoidedSubstanceProvider {
+    override fun avoidedCodes(): Set<AvoidanceSubstanceCode> = setOf(AvoidanceSubstanceCode.SOY)
+}
+
+private class ScanFakeCatalogRepository : AvoidanceSubstanceRepository {
+    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> =
+        codes.map { AvoidanceSubstance.reconstitute(id = 1L, code = it, name = LocalizedText(korean = it.name)) }
 }
 
 private class FakeInterpreter(private val results: List<InterpretedName>) : ScannedNameInterpreter {
@@ -64,66 +96,112 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         boundingBox = BoundingBoxInput(0.1, 0.1, 0.3, 0.1),
     )
 
+    fun readyFood(id: Long, koreanName: String, substance: Pair<String, Int>? = null) = Food.reconstitute(
+        id = id,
+        content = FoodContent(
+            name = LocalizedText(korean = koreanName),
+            description = LocalizedText(korean = "설명"),
+        ),
+        imageRef = null,
+        spiciness = FoodSpiciness(0),
+        avoidanceSubstances = substance?.let {
+            listOf(FoodAvoidanceSubstance(AvoidanceSubstanceCodeRef(it.first), it.second))
+        } ?: emptyList(),
+    )
+
     fun useCase(
-        food: Map<String, Long> = emptyMap(),
+        foods: Map<String, Food> = emptyMap(),
         interpreter: ScannedNameInterpreter? = null,
-        pending: RecordingPendingRepository = RecordingPendingRepository(),
+        foodRepo: FakeFoodRepository = FakeFoodRepository(foods),
         scanRepo: CapturingScanRepository = CapturingScanRepository(),
     ) = SubmitMenuScanUseCase(
         menuScanRepository = scanRepo,
-        foodRepository = FakeFoodRepository(food),
-        pendingMenuRepository = pending,
-        riskAssessor = MockCyclingRiskAssessor(),
+        foodRepository = foodRepo,
+        foodRiskEvaluator = FoodRiskEvaluator(ScanFakeAvoidedProvider(), ScanFakeCatalogRepository()),
         interpreter = interpreter,
     )
 
     given("정제 서비스가 정상일 때") {
-        `when`("표준명이 저장 음식과 일치하면") {
-            then("MATCHED(foodId) 로 매칭한다") {
+        `when`("표준명이 완성된 저장 음식과 일치하면") {
+            then("MATCHED 이고 산출된 위험도를 반환한다") {
                 val scanRepo = CapturingScanRepository()
                 val uc = useCase(
-                    food = mapOf("김치찌개" to 7L),
+                    foods = mapOf("김치찌개" to readyFood(7L, "김치찌개", "SOY" to 100)),
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
                     scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개 kimchi jjigae"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개 kimchi jjigae"))))
 
                 scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Matched(7L)
+                result.items.first().riskLevel shouldBe RiskLevel.DANGER.name
             }
         }
 
         `when`("표준명이 저장에 없으면") {
-            then("PENDING 이고 표준명을 대기열에 등록한다") {
-                val pending = RecordingPendingRepository()
+            then("food 에 미완성으로 등록하고 PENDING·UNKNOWN 으로 응답한다") {
+                val foodRepo = FakeFoodRepository(emptyMap())
                 val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))),
-                    pending = pending,
+                    foodRepo = foodRepo,
                     scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
 
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Pending
-                pending.enqueued shouldBe listOf("우주라면")
+                foodRepo.createdIncomplete shouldBe listOf("우주라면")
+                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Pending(100L)
+                result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
+                result.items.first().foodId shouldBe 100L
+            }
+        }
+
+        `when`("이미 미완성으로 등록된 음식을 다시 스캔하면") {
+            then("중복 생성 없이 PENDING·UNKNOWN 으로 응답한다") {
+                val incomplete = Food.reconstitute(
+                    id = 55L,
+                    content = FoodContent(
+                        name = LocalizedText(korean = "우주라면"),
+                        description = LocalizedText(korean = Food.PLACEHOLDER_DESCRIPTION),
+                    ),
+                    imageRef = null,
+                    spiciness = FoodSpiciness(0),
+                    avoidanceSubstances = emptyList(),
+                    contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
+                )
+                val foodRepo = FakeFoodRepository(mapOf("우주라면" to incomplete))
+                val scanRepo = CapturingScanRepository()
+                val uc = useCase(
+                    interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))),
+                    foodRepo = foodRepo,
+                    scanRepo = scanRepo,
+                )
+
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
+
+                foodRepo.createdIncomplete shouldBe emptyList()
+                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Pending(55L)
+                result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
             }
         }
 
         `when`("LLM 이 NOT_FOOD 로 판정하면") {
-            then("NOT_FOOD 이고 대기열에 등록하지 않는다") {
-                val pending = RecordingPendingRepository()
+            then("NOT_FOOD·UNKNOWN 이고 food 를 만들지 않는다") {
+                val foodRepo = FakeFoodRepository(emptyMap())
                 val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.NotFood)),
-                    pending = pending,
+                    foodRepo = foodRepo,
                     scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "원산지 중국"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "원산지 중국"))))
 
                 scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.NotFood
-                pending.enqueued shouldBe emptyList()
+                foodRepo.createdIncomplete shouldBe emptyList()
+                result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
+                result.items.first().foodId shouldBe null
             }
         }
 
@@ -145,7 +223,10 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                 val interpreter = FakeInterpreter(
                     listOf(InterpretedName.StandardName("김치찌개"), InterpretedName.NotFood),
                 )
-                val uc = useCase(food = mapOf("김치찌개" to 7L), interpreter = interpreter)
+                val uc = useCase(
+                    foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
+                    interpreter = interpreter,
+                )
 
                 uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "원산지 중국"))))
 
@@ -154,18 +235,18 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         }
 
         `when`("한 스캔 안에서 같은 표준명이 여러 항목으로 나오면") {
-            then("대기열에는 그 표준명을 1번만 등록한다") {
-                val pending = RecordingPendingRepository()
+            then("미완성 음식을 1번만 생성한다") {
+                val foodRepo = FakeFoodRepository(emptyMap())
                 val uc = useCase(
                     interpreter = FakeInterpreter(
                         listOf(InterpretedName.StandardName("우주라면"), InterpretedName.StandardName("우주라면")),
                     ),
-                    pending = pending,
+                    foodRepo = foodRepo,
                 )
 
                 uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"), item(1, "우주 라면"))))
 
-                pending.enqueued shouldBe listOf("우주라면")
+                foodRepo.createdIncomplete shouldBe listOf("우주라면")
             }
         }
     }
@@ -174,7 +255,11 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         `when`("interpreter 가 주입되지 않았고 정규화 키가 저장 음식과 일치하면") {
             then("정규화 exact 매치로 MATCHED 한다") {
                 val scanRepo = CapturingScanRepository()
-                val uc = useCase(food = mapOf("김치찌개" to 7L), interpreter = null, scanRepo = scanRepo)
+                val uc = useCase(
+                    foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
+                    interpreter = null,
+                    scanRepo = scanRepo,
+                )
 
                 uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
 
@@ -182,11 +267,30 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
             }
         }
 
+        `when`("interpreter 가 예외를 던지면") {
+            then("아는 메뉴는 MATCHED, 나머지는 food 생성 없이 PENDING 으로 강등한다") {
+                val foodRepo = FakeFoodRepository(mapOf("김치찌개" to readyFood(7L, "김치찌개")))
+                val scanRepo = CapturingScanRepository()
+                val uc = useCase(
+                    interpreter = ThrowingInterpreter(),
+                    foodRepo = foodRepo,
+                    scanRepo = scanRepo,
+                )
+
+                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
+
+                val items = scanRepo.saved!!.items
+                items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
+                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending()
+                foodRepo.createdIncomplete shouldBe emptyList()
+            }
+        }
+
         `when`("interpreter 가 요청보다 적은 개수를 반환하면") {
             then("결과를 신뢰하지 않고 정규화 exact 매치 폴백으로 처리한다") {
                 val scanRepo = CapturingScanRepository()
                 val uc = useCase(
-                    food = mapOf("김치찌개" to 7L),
+                    foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("무시됨"))),
                     scanRepo = scanRepo,
                 )
@@ -195,27 +299,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
 
                 val items = scanRepo.saved!!.items
                 items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
-                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending
-            }
-        }
-
-        `when`("interpreter 가 예외를 던지면") {
-            then("아는 메뉴는 MATCHED, 나머지는 원문으로 PENDING+대기열 강등한다") {
-                val pending = RecordingPendingRepository()
-                val scanRepo = CapturingScanRepository()
-                val uc = useCase(
-                    food = mapOf("김치찌개" to 7L),
-                    interpreter = ThrowingInterpreter(),
-                    pending = pending,
-                    scanRepo = scanRepo,
-                )
-
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
-
-                val items = scanRepo.saved!!.items
-                items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
-                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending
-                pending.enqueued shouldBe listOf("우주라면 space")
+                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending()
             }
         }
     }

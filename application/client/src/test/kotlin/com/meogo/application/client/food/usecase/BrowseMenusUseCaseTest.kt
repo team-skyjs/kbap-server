@@ -34,8 +34,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     fun useCase(foodRepository: FoodRepository) = BrowseMenusUseCase(
         foodRepository,
         LanguageResolver(),
-        BrowseFakeAvoidedSubstanceProvider(emptySet()),
-        BrowseFakeAvoidanceSubstanceRepository(emptyList()),
+        FoodRiskEvaluator(
+            BrowseFakeAvoidedSubstanceProvider(emptySet()),
+            BrowseFakeAvoidanceSubstanceRepository(emptyList()),
+        ),
     )
 
     fun avoidedRef(code: AvoidanceSubstanceCode, probability: Int) =
@@ -73,8 +75,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     ) = BrowseMenusUseCase(
         BrowseFakeFoodRepository(foods),
         LanguageResolver(),
-        BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
-        BrowseFakeAvoidanceSubstanceRepository(catalog),
+        FoodRiskEvaluator(
+            BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
+            BrowseFakeAvoidanceSubstanceRepository(catalog),
+        ),
     )
 
     given("메뉴 목록 조회 유스케이스 — 최신순 keyset 페이지네이션") {
@@ -291,8 +295,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
                         ),
                     ),
                     LanguageResolver(),
-                    BrowseFakeAvoidedSubstanceProvider(setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK)),
-                    catalogRepository,
+                    FoodRiskEvaluator(
+                        BrowseFakeAvoidedSubstanceProvider(setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK)),
+                        catalogRepository,
+                    ),
                 )
 
                 useCase.browse(BrowseMenusInput(cursor = null, lang = null))
@@ -319,7 +325,9 @@ private class BrowseFakeFoodRepository(
         return page.take(size)
     }
 
-    override fun findFoodIdByKoreanMatchKey(key: String): Long? = null
+    override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> = emptyMap()
+
+    override fun createIncomplete(koreanName: String): Food = throw UnsupportedOperationException()
 }
 
 private class BrowseFakeAvoidedSubstanceProvider(

@@ -1,16 +1,19 @@
 package com.meogo.application.client.scan.usecase
 
+import com.meogo.application.client.food.usecase.FoodRiskEvaluator
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanResult
+import com.meogo.core.food.Food
 import com.meogo.core.food.FoodRepository
 import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
+import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
 import com.meogo.core.scan.BoundingBox
+import com.meogo.core.scan.MenuItemAssessment
 import com.meogo.core.scan.MenuItemMatch
 import com.meogo.core.scan.MenuScan
 import com.meogo.core.scan.MenuScanRepository
-import com.meogo.core.scan.PendingMenuRepository
 import com.meogo.core.scan.ScannedMenuItem
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,24 +23,25 @@ import org.springframework.stereotype.Service
 class SubmitMenuScanUseCase(
     private val menuScanRepository: MenuScanRepository,
     private val foodRepository: FoodRepository,
-    private val pendingMenuRepository: PendingMenuRepository,
-    private val riskAssessor: MockCyclingRiskAssessor,
+    private val foodRiskEvaluator: FoodRiskEvaluator,
     @Autowired(required = false)
     private val interpreter: ScannedNameInterpreter? = null,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun submit(input: SubmitMenuScanInput): SubmitMenuScanResult {
-        val matches = resolveMatches(input)
+        val resolutions = resolveItems(input)
+        val risks = foodRiskEvaluator.risksOf(resolutions.mapNotNull { it.food })
 
         val items = input.items.mapIndexed { index, item ->
+            val resolution = resolutions[index]
             val box = item.boundingBox
             ScannedMenuItem(
                 itemId = item.itemId,
                 rawMenuName = item.rawMenuName,
                 boundingBox = BoundingBox(x = box.x, y = box.y, width = box.width, height = box.height),
-                assessment = riskAssessor.assess(index, item.rawMenuName),
-                match = matches[index],
+                assessment = assessmentOf(resolution, risks),
+                match = resolution.match,
             )
         }
 
@@ -46,39 +50,64 @@ class SubmitMenuScanUseCase(
             .let(SubmitMenuScanResult::from)
     }
 
-    private fun resolveMatches(input: SubmitMenuScanInput): List<MenuItemMatch> {
+    private fun assessmentOf(resolution: Resolution, risks: Map<Long, RiskLevel>): MenuItemAssessment {
+        val food = resolution.food
+            ?: return MenuItemAssessment(RiskLevel.UNKNOWN, reasonWithoutFood(resolution.match))
+        val risk = risks[food.id] ?: RiskLevel.UNKNOWN
+        val reason = if (food.isReady()) REASON_EVALUATED else REASON_INCOMPLETE
+        return MenuItemAssessment(risk, reason)
+    }
+
+    private fun reasonWithoutFood(match: MenuItemMatch): String =
+        if (match is MenuItemMatch.Pending) REASON_INCOMPLETE else REASON_NOT_FOOD
+
+    private fun resolveItems(input: SubmitMenuScanInput): List<Resolution> {
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val interpreted = interpretTargets(input, keys)
 
-        val resolutions = input.items.mapIndexed { index, item ->
-            when {
-                keys[index].isBlank() -> Resolution(MenuItemMatch.NotFood)
-                interpreted == null -> matchOrPending(keys[index], item.rawMenuName)
-                else -> resolveInterpreted(interpreted.getValue(index))
-            }
+        val lookups = input.items.indices.map { index ->
+            lookupNameOf(keys[index], input.items[index].rawMenuName, interpreted, index)
         }
+        val foundByKey = foodRepository.findByKoreanMatchKeys(lookups.filterNotNull().map { it.matchKey }.toSet())
+        val createdByName = mutableMapOf<String, Food>()
 
-        resolutions.mapNotNull { it.nameToEnqueue }.distinct().forEach(pendingMenuRepository::enqueue)
-        return resolutions.map { it.match }
-    }
+        return lookups.map { lookup ->
+            if (lookup == null) return@map Resolution(MenuItemMatch.NotFood, null)
 
-    private fun resolveInterpreted(interpretedName: InterpretedName): Resolution =
-        when (interpretedName) {
-            is InterpretedName.StandardName ->
-                matchOrPending(KoreanMenuNameNormalizer.matchKey(interpretedName.korean), interpretedName.korean)
-            InterpretedName.NotFood -> Resolution(MenuItemMatch.NotFood)
-        }
+            val existing = foundByKey[lookup.matchKey]
+            if (existing != null) return@map Resolution(matchOf(existing), existing)
 
-    private fun matchOrPending(lookupKey: String, enqueueName: String): Resolution {
-        val foodId = foodRepository.findFoodIdByKoreanMatchKey(lookupKey)
-        return if (foodId != null) {
-            Resolution(MenuItemMatch.Matched(foodId))
-        } else {
-            Resolution(MenuItemMatch.Pending, nameToEnqueue = enqueueName)
+            if (!lookup.confirmedFood) return@map Resolution(MenuItemMatch.Pending(), null)
+
+            val created = createdByName.getOrPut(lookup.koreanName) { foodRepository.createIncomplete(lookup.koreanName) }
+            Resolution(matchOf(created), created)
         }
     }
 
-    private data class Resolution(val match: MenuItemMatch, val nameToEnqueue: String? = null)
+    private fun matchOf(food: Food): MenuItemMatch {
+        val foodId = requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }
+        return if (food.isReady()) MenuItemMatch.Matched(foodId) else MenuItemMatch.Pending(foodId)
+    }
+
+    private fun lookupNameOf(
+        key: String,
+        rawMenuName: String,
+        interpreted: Map<Int, InterpretedName>?,
+        index: Int,
+    ): LookupName? {
+        if (key.isBlank()) return null
+        if (interpreted == null) {
+            return LookupName(koreanName = rawMenuName, matchKey = key, confirmedFood = false)
+        }
+        return when (val interpretedName = interpreted.getValue(index)) {
+            is InterpretedName.StandardName -> LookupName(
+                koreanName = interpretedName.korean,
+                matchKey = KoreanMenuNameNormalizer.matchKey(interpretedName.korean),
+                confirmedFood = true,
+            )
+            InterpretedName.NotFood -> null
+        }
+    }
 
     private fun interpretTargets(
         input: SubmitMenuScanInput,
@@ -99,5 +128,15 @@ class SubmitMenuScanUseCase(
             log.warn("정제 서비스 호출 실패 — 정규화 exact 매치 폴백", e)
             null
         }
+    }
+
+    private data class LookupName(val koreanName: String, val matchKey: String, val confirmedFood: Boolean)
+
+    private data class Resolution(val match: MenuItemMatch, val food: Food?)
+
+    companion object {
+        private const val REASON_EVALUATED = "회피 성분 기준으로 판정했습니다"
+        private const val REASON_INCOMPLETE = "조사 대기 중인 메뉴입니다"
+        private const val REASON_NOT_FOOD = "메뉴로 인식되지 않았습니다"
     }
 }

@@ -2,6 +2,7 @@ package com.meogo.infra.persistence.food
 
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodContent
+import com.meogo.core.food.FoodContentStatus
 import com.meogo.core.food.FoodSpiciness
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
@@ -47,6 +48,9 @@ class FoodJpaEntity(
     @Column(name = "description_translations", nullable = false)
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
+    @Column(name = "content_status", nullable = false, length = 20)
+    var contentStatus: String = FoodContentStatus.READY.name,
+
     @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)
     @JoinColumn(name = "food_id", nullable = false)
     var foodAvoidanceSubstances: MutableSet<FoodAvoidanceSubstanceJpaEntity> = mutableSetOf(),
@@ -61,10 +65,22 @@ class FoodJpaEntity(
             imageRef = imageRef,
             spiciness = FoodSpiciness(spiciness),
             avoidanceSubstances = foodAvoidanceSubstances.map { it.toDomain() },
+            contentStatus = FoodContentStatus.valueOf(contentStatus),
         )
 
     private fun resolve(raw: Map<String, String>): Map<LanguageCode, String> =
         raw.mapNotNull { (key, value) ->
             LanguageCode.entries.firstOrNull { it.code == key }?.let { it to value }
         }.toMap()
+
+    companion object {
+        fun from(food: Food): FoodJpaEntity =
+            FoodJpaEntity(
+                koreanName = food.koreanName(),
+                imageRef = food.imageRef,
+                description = food.content.description.korean,
+                spiciness = food.spiciness.value,
+                contentStatus = food.contentStatus.name,
+            )
+    }
 }

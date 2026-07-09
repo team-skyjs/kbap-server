@@ -5,5 +5,7 @@ interface FoodRepository {
 
     fun findMenuPage(cursor: Long?, size: Int): List<Food>
 
-    fun findFoodIdByKoreanMatchKey(key: String): Long?
+    fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food>
+
+    fun createIncomplete(koreanName: String): Food
 }

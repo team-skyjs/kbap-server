@@ -296,53 +296,103 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             }
         }
 
-        given("Food 저장소 어댑터 — 정규화 매칭 키 조회") {
-            `when`("정규화 키로 저장 음식을 조회하면") {
-                then("일치하는 음식의 id 를 반환한다") {
+        given("Food 저장소 어댑터 — 정규화 매칭 키 배치 조회") {
+            `when`("여러 정규화 키로 한 번에 조회하면") {
+                then("키별 음식을 담은 맵을 반환하고 없는 키는 빠진다") {
                     clearFoods()
-                    val id = saveFood("김치찌개")
+                    val kimchi = saveFood("김치찌개")
+                    val gukbap = saveFood("돼지 국밥")
 
-                    adapter.findFoodIdByKoreanMatchKey("김치찌개") shouldBe id
+                    val found = adapter.findByKoreanMatchKeys(setOf("김치찌개", "돼지국밥", "없는메뉴"))
+
+                    found.keys shouldBe setOf("김치찌개", "돼지국밥")
+                    found.getValue("김치찌개").id shouldBe kimchi
+                    found.getValue("돼지국밥").id shouldBe gukbap
                 }
             }
 
-            `when`("원문에 공백이 섞여 있어도") {
-                then("정규화 키(한글만)로 매칭된다") {
+            `when`("미완성(INCOMPLETE) 음식이 키와 일치하면") {
+                then("스캔 매칭 대상이므로 포함된다") {
                     clearFoods()
-                    val id = saveFood("돼지 국밥")
+                    adapter.createIncomplete("우주라면")
 
-                    adapter.findFoodIdByKoreanMatchKey("돼지국밥") shouldBe id
+                    val found = adapter.findByKoreanMatchKeys(setOf("우주라면"))
+
+                    found.getValue("우주라면").isReady() shouldBe false
                 }
             }
 
-            `when`("일치하는 음식이 없으면") {
-                then("null 을 반환한다") {
-                    clearFoods()
-                    saveFood("김치찌개")
-
-                    adapter.findFoodIdByKoreanMatchKey("없는메뉴") shouldBe null
-                }
-            }
-
-            `when`("같은 한국어 이름의 음식이 둘 이상이면(동음이의)") {
-                then("가장 작은 id 를 반환한다") {
+            `when`("같은 정규화 키를 가진 음식이 둘 이상이면") {
+                then("가장 작은 id 의 음식을 반환한다") {
                     clearFoods()
                     val first = saveFood("국밥")
-                    saveFood("국밥")
+                    saveFood("국 밥")
 
-                    adapter.findFoodIdByKoreanMatchKey("국밥") shouldBe first
+                    adapter.findByKoreanMatchKeys(setOf("국밥")).getValue("국밥").id shouldBe first
                 }
             }
 
             `when`("소프트 삭제된 음식만 키가 일치하면") {
-                then("@SQLRestriction 으로 제외돼 null 을 반환한다") {
+                then("@SQLRestriction 으로 제외된다") {
                     clearFoods()
                     val id = saveFood("삭제된김밥")
                     val entity = foodJpaRepository.findById(id).get()
                     entity.delete()
                     foodJpaRepository.save(entity)
 
-                    adapter.findFoodIdByKoreanMatchKey("삭제된김밥") shouldBe null
+                    adapter.findByKoreanMatchKeys(setOf("삭제된김밥")) shouldBe emptyMap()
+                }
+            }
+
+            `when`("빈 키 집합으로 조회하면") {
+                then("빈 맵을 반환한다(쿼리 없음)") {
+                    adapter.findByKoreanMatchKeys(emptySet()) shouldBe emptyMap()
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 미완성 음식 생성") {
+            `when`("스캔 miss 로 미완성 음식을 만들면") {
+                then("INCOMPLETE 상태로 저장되고 id 가 부여된다") {
+                    clearFoods()
+
+                    val created = adapter.createIncomplete("마라샹궈")
+
+                    created.id.shouldNotBeNull()
+                    created.koreanName() shouldBe "마라샹궈"
+                    created.isReady() shouldBe false
+                }
+            }
+
+            `when`("같은 이름으로 두 번 생성하면") {
+                then("중복 없이 기존 음식을 반환한다") {
+                    clearFoods()
+                    val first = adapter.createIncomplete("마라탕")
+                    val second = adapter.createIncomplete("마라탕")
+
+                    second.id shouldBe first.id
+                    foodJpaRepository.count() shouldBe 1
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 미완성 음식 노출 차단(serving gate)") {
+            `when`("미완성 음식이 섞인 채 메뉴 목록을 조회하면") {
+                then("READY 음식만 반환한다") {
+                    clearFoods()
+                    val ready = saveFood("완성-비빔밥")
+                    adapter.createIncomplete("미완성-우주라면")
+
+                    adapter.findMenuPage(null, 20).map { it.id } shouldBe listOf(ready)
+                }
+            }
+
+            `when`("미완성 음식을 id 로 상세 조회하면") {
+                then("null 을 반환한다") {
+                    clearFoods()
+                    val incompleteId = adapter.createIncomplete("미완성-마라탕").id!!
+
+                    adapter.findById(incompleteId) shouldBe null
                 }
             }
         }

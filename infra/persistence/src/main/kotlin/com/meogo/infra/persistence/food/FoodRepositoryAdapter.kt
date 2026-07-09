@@ -3,8 +3,10 @@ package com.meogo.infra.persistence.food
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodRepository
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class FoodRepositoryAdapter(
@@ -13,7 +15,10 @@ class FoodRepositoryAdapter(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun findById(id: Long): Food? =
-        foodJpaRepository.findByIdInWithAvoidanceSubstances(listOf(id)).firstOrNull()?.toDomain()
+        foodJpaRepository.findByIdInWithAvoidanceSubstances(listOf(id))
+            .firstOrNull()
+            ?.toDomain()
+            ?.takeIf { it.isReady() }
 
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> {
         val ids = foodJpaRepository.findMenuPageIds(cursor, PageRequest.of(0, size))
@@ -21,11 +26,26 @@ class FoodRepositoryAdapter(
         return foodJpaRepository.findByIdInWithAvoidanceSubstancesDesc(ids).map { it.toDomain() }
     }
 
-    override fun findFoodIdByKoreanMatchKey(key: String): Long? {
-        val ids = foodJpaRepository.findIdsByKoreanMatchKey(key)
-        if (ids.size > 1) {
-            log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, ids.size, ids)
+    override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
+        if (keys.isEmpty()) return emptyMap()
+        val entities = foodJpaRepository.findByKoreanMatchKeyInWithAvoidanceSubstances(keys)
+        val grouped = entities.groupBy { it.koreanMatchKey }
+        grouped.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
+            log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, duplicates.size, duplicates.map { it.id })
         }
-        return ids.firstOrNull()
+        return grouped.mapValues { (_, duplicates) -> duplicates.minBy { it.id }.toDomain() }
+    }
+
+    @Transactional
+    override fun createIncomplete(koreanName: String): Food {
+        foodJpaRepository.findByKoreanName(koreanName)?.let { return it.toDomain() }
+        return try {
+            foodJpaRepository.save(FoodJpaEntity.from(Food.incomplete(koreanName))).toDomain()
+        } catch (e: DataIntegrityViolationException) {
+            log.warn("미완성 음식 생성 경합 — koreanName={}, 기존 음식 재조회", koreanName, e)
+            val existing = foodJpaRepository.findByKoreanName(koreanName)
+                ?: throw IllegalStateException("미완성 음식 생성에 실패했습니다: $koreanName", e)
+            existing.toDomain()
+        }
     }
 }

@@ -32,3 +32,20 @@ spring:
       audio:
         transcription: none
         speech: none
+
+meogo:
+  llm:
+    # 스캔 메뉴명 정제(ScannedNameInterpreter)는 Upstage Solar 를 단일 호출한다.
+    # enabled=false 면 어댑터 빈이 생성되지 않고, 유스케이스는 정규화 exact 매치 폴백으로 동작한다(부팅 안전).
+    upstage:
+      enabled: ${UPSTAGE_ENABLED:false}
+      model: solar-pro
+      api-key: ${UPSTAGE_API_KEY:}
+      # 정제 응답은 문자열 JSON 배열 하나 — 스캔 항목(최대 100)에 넉넉한 상한.
+      max-output-tokens: 2048
+      pricing:
+        # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
+        input-usd-per-million-tokens: 0.15
+        output-usd-per-million-tokens: 0.15
+    # 정제 호출 타임아웃(초과 시 폴백)
+    call-timeout: 5s

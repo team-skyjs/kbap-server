@@ -6,7 +6,7 @@ data class ScannedMenuItem(
     val rawMenuName: String,
     val boundingBox: BoundingBox,
     val assessment: MenuItemAssessment,
-    val match: MenuItemMatch = MenuItemMatch.Pending,
+    val match: MenuItemMatch = MenuItemMatch.NotFood,
 ) {
     init {
         require(rawMenuName.isNotBlank()) { "rawMenuName 은 blank 일 수 없습니다" }

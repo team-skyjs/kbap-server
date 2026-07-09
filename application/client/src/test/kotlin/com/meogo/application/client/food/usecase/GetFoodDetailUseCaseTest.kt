@@ -370,7 +370,9 @@ private class FakeFoodRepository(
 
     override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
 
-    override fun findFoodIdByKoreanMatchKey(key: String): Long? = null
+    override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> = emptyMap()
+
+    override fun createIncomplete(koreanName: String): Food = throw UnsupportedOperationException()
 }
 
 private class FakeAvoidedSubstanceProvider(

@@ -7,7 +7,11 @@ sealed interface MenuItemMatch {
         }
     }
 
-    data object Pending : MenuItemMatch
+    data class Pending(val foodId: Long? = null) : MenuItemMatch {
+        init {
+            require(foodId == null || foodId > 0) { "Pending.foodId 는 양수여야 합니다" }
+        }
+    }
 
     data object NotFood : MenuItemMatch
 }

@@ -48,7 +48,7 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                                 rawMenuName = "김치찌개",
                                 boundingBox = BoundingBox(0.0, 0.0, 0.5, 0.5),
                                 assessment = MenuItemAssessment(RiskLevel.CAUTION, "mock: 주의"),
-                                match = MenuItemMatch.NotFood,
+                                match = MenuItemMatch.Pending(foodId = 99L),
                             ),
                         ),
                     )
@@ -69,7 +69,7 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
 
                     val second = loaded.items.first { it.itemId == 1 }
                     second.assessment.riskLevel shouldBe RiskLevel.CAUTION
-                    second.match shouldBe MenuItemMatch.NotFood
+                    second.match shouldBe MenuItemMatch.Pending(foodId = 99L)
                 }
             }
 
@@ -93,7 +93,7 @@ class MenuScanRepositoryAdapterTest : BehaviorSpec() {
                     )
                     val savedId = adapter.save(scan).id.shouldNotBeNull()
 
-                    adapter.findById(savedId)!!.items.first().match shouldBe MenuItemMatch.Pending
+                    adapter.findById(savedId)!!.items.first().match shouldBe MenuItemMatch.NotFood
 
                     val entity = jpaRepository.findById(savedId).get()
                     entity.delete()
