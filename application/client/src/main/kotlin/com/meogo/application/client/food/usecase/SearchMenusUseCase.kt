@@ -1,7 +1,9 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.MenuPage
+import com.meogo.application.client.food.dto.MenuSummaryView
 import com.meogo.application.client.food.dto.SearchMenusInput
+import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.FoodRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -10,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class SearchMenusUseCase(
     private val foodRepository: FoodRepository,
     private val languageResolver: LanguageResolver,
-    private val menuSummaryAssembler: MenuSummaryAssembler,
+    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
 ) {
     @Transactional(readOnly = true)
     fun search(input: SearchMenusInput): MenuPage {
@@ -22,8 +24,12 @@ class SearchMenusUseCase(
         val items = rows.take(PAGE_SIZE)
         val nextCursor = if (hasNext) items.last().id else null
 
+        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes()
+            .map { AvoidanceSubstanceCodeRef(it.name) }
+            .toSet()
+
         return MenuPage(
-            items = menuSummaryAssembler.assemble(items, lang),
+            items = items.map { MenuSummaryView.from(it, lang, userAvoidedCodes) },
             nextCursor = nextCursor,
             hasNext = hasNext,
         )

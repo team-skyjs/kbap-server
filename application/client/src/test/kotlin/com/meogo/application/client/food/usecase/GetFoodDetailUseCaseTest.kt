@@ -346,7 +346,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
 
         `when`("회피 성분(SOY)이 음식 성분이지만 카탈로그 결측으로 표시 목록에서 빠지면") {
-            then("표시 목록과 동일하게 판정 대상에서도 제외돼 overallRiskStatus 는 SAFE 다") {
+            then("표시 목록에는 없어도 overallRiskStatus 는 DANGER 로 경고한다") {
                 val foodRepository = FakeFoodRepository(food = doenjangStew())
                 val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(wheat))
 
@@ -357,7 +357,7 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 ).getDetail(GetFoodDetailInput(1, "en"))
 
                 result.avoidanceSubstances.map { it.name } shouldBe listOf("Wheat")
-                result.overallRiskStatus shouldBe RiskLevel.SAFE
+                result.overallRiskStatus shouldBe RiskLevel.DANGER
             }
         }
     }

@@ -1,9 +1,7 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.SearchMenusInput
-import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodAvoidanceSubstance
@@ -37,10 +35,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
     fun useCase(foodRepository: FoodRepository) = SearchMenusUseCase(
         foodRepository,
         LanguageResolver(),
-        MenuSummaryAssembler(
-            SearchFakeAvoidedSubstanceProvider(emptySet()),
-            SearchFakeAvoidanceSubstanceRepository(emptyList()),
-        ),
+        SearchFakeAvoidedSubstanceProvider(emptySet()),
     )
 
     fun avoidedRef(code: AvoidanceSubstanceCode, probability: Int) =
@@ -64,24 +59,13 @@ class SearchMenusUseCaseTest : BehaviorSpec({
         avoidanceSubstances = substances,
     )
 
-    fun catalogSubstance(code: AvoidanceSubstanceCode) =
-        AvoidanceSubstance.reconstitute(
-            id = code.ordinal.toLong() + 1,
-            code = code,
-            name = LocalizedText(korean = code.label),
-        )
-
     fun searchUseCase(
         foods: List<Food>,
         avoidedCodes: Set<AvoidanceSubstanceCode>,
-        catalog: List<AvoidanceSubstance>,
     ) = SearchMenusUseCase(
         SearchFakeFoodRepository(foods),
         LanguageResolver(),
-        MenuSummaryAssembler(
-            SearchFakeAvoidedSubstanceProvider(avoidedCodes),
-            SearchFakeAvoidanceSubstanceRepository(catalog),
-        ),
+        SearchFakeAvoidedSubstanceProvider(avoidedCodes),
     )
 
     given("검색어 메뉴 조회 유스케이스 — 빈/공백 검색어 검증 (FR-011)") {
@@ -232,11 +216,6 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                         richFood(12, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100))),
                     ),
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
-                    catalog = listOf(
-                        catalogSubstance(AvoidanceSubstanceCode.SOY),
-                        catalogSubstance(AvoidanceSubstanceCode.MILK),
-                        catalogSubstance(AvoidanceSubstanceCode.WHEAT),
-                    ),
                 ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
 
                 val statusById = result.items.associate { it.foodId to it.overallRiskStatus }
@@ -251,34 +230,9 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(13, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100)))),
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                    catalog = listOf(catalogSubstance(AvoidanceSubstanceCode.WHEAT)),
                 ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
-            }
-        }
-
-        `when`("사용자가 회피하는 SOY 를 food 가 100% 포함하지만 카탈로그(findByCodes)에서 SOY 가 빠지면") {
-            then("소프트삭제된 성분은 판정 대상에서 제외돼 overallRiskStatus 는 SAFE 다") {
-                val result = searchUseCase(
-                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
-                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                    catalog = emptyList(),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
-
-                result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
-            }
-        }
-
-        `when`("동일 food·회피 조건에서 카탈로그에 SOY 가 존재하면") {
-            then("대비적으로 교집합이 걸려 overallRiskStatus 는 DANGER 로 반영된다") {
-                val result = searchUseCase(
-                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
-                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                    catalog = listOf(catalogSubstance(AvoidanceSubstanceCode.SOY)),
-                ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
-
-                result.items.single().overallRiskStatus shouldBe RiskLevel.DANGER
             }
         }
     }
@@ -289,7 +243,6 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
                     avoidedCodes = emptySet(),
-                    catalog = emptyList(),
                 ).search(SearchMenusInput(keyword = "kimchi", cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "Kimchi Stew"
@@ -302,7 +255,6 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(31)),
                     avoidedCodes = emptySet(),
-                    catalog = emptyList(),
                 ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "메뉴-31"
@@ -315,7 +267,6 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 val result = searchUseCase(
                     foods = listOf(richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))),
                     avoidedCodes = emptySet(),
-                    catalog = emptyList(),
                 ).search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.single().name shouldBe "메뉴-30"
@@ -327,7 +278,7 @@ class SearchMenusUseCaseTest : BehaviorSpec({
     given("검색어 메뉴 조회 — 항목 foodId 정합 (상세 조회 식별자, FR-009)") {
         `when`("food.id 를 가진 항목을 조회하면") {
             then("응답 항목 foodId 가 food.id 와 순서대로 일치한다") {
-                val result = searchUseCase(listOf(richFood(42), richFood(7)), emptySet(), emptyList())
+                val result = searchUseCase(listOf(richFood(42), richFood(7)), emptySet())
                     .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
 
                 result.items.map { it.foodId } shouldBe listOf(42L, 7L)
@@ -368,11 +319,4 @@ private class SearchFakeAvoidedSubstanceProvider(
     private val codes: Set<AvoidanceSubstanceCode>,
 ) : AvoidedSubstanceProvider {
     override fun avoidedCodes() = codes
-}
-
-private class SearchFakeAvoidanceSubstanceRepository(
-    private val substances: List<AvoidanceSubstance>,
-) : AvoidanceSubstanceRepository {
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> =
-        substances.filter { it.code in codes }
 }

@@ -1,9 +1,7 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.BrowseMenusInput
-import com.meogo.core.avoidance.AvoidanceSubstance
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodAvoidanceSubstance
@@ -34,10 +32,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     fun useCase(foodRepository: FoodRepository) = BrowseMenusUseCase(
         foodRepository,
         LanguageResolver(),
-        MenuSummaryAssembler(
-            BrowseFakeAvoidedSubstanceProvider(emptySet()),
-            BrowseFakeAvoidanceSubstanceRepository(emptyList()),
-        ),
+        BrowseFakeAvoidedSubstanceProvider(emptySet()),
     )
 
     fun avoidedRef(code: AvoidanceSubstanceCode, probability: Int) =
@@ -61,24 +56,13 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
         avoidanceSubstances = substances,
     )
 
-    fun catalogSubstance(code: AvoidanceSubstanceCode) =
-        AvoidanceSubstance.reconstitute(
-            id = code.ordinal.toLong() + 1,
-            code = code,
-            name = LocalizedText(korean = code.label),
-        )
-
     fun browseUseCase(
         foods: List<Food>,
         avoidedCodes: Set<AvoidanceSubstanceCode>,
-        catalog: List<AvoidanceSubstance>,
     ) = BrowseMenusUseCase(
         BrowseFakeFoodRepository(foods),
         LanguageResolver(),
-        MenuSummaryAssembler(
-            BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
-            BrowseFakeAvoidanceSubstanceRepository(catalog),
-        ),
+        BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
     )
 
     given("메뉴 목록 조회 유스케이스 — 최신순 keyset 페이지네이션") {
@@ -152,11 +136,6 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
                 val result = browseUseCase(
                     foods = listOf(foodDanger, foodCaution, foodSafe),
                     avoidedCodes = setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
-                    catalog = listOf(
-                        catalogSubstance(AvoidanceSubstanceCode.SOY),
-                        catalogSubstance(AvoidanceSubstanceCode.MILK),
-                        catalogSubstance(AvoidanceSubstanceCode.WHEAT),
-                    ),
                 ).browse(BrowseMenusInput(cursor = null, lang = null))
 
                 val statusById = result.items.associate { it.foodId to it.overallRiskStatus }
@@ -167,38 +146,12 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
         }
     }
 
-    given("메뉴 목록 조회 — 카탈로그 결측(소프트삭제) 성분은 위험도에 미반영 (상세와 동일 의미)") {
-        `when`("food 가 SOY(100)를 포함하고 사용자가 SOY 를 회피하지만 카탈로그(findByCodes)에서 SOY 가 빠지면") {
-            then("판정 대상에서 제외돼 overallRiskStatus 는 SAFE 다") {
-                val result = browseUseCase(
-                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
-                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                    catalog = emptyList(),
-                ).browse(BrowseMenusInput(cursor = null, lang = null))
-
-                result.items.single().overallRiskStatus shouldBe RiskLevel.SAFE
-            }
-        }
-
-        `when`("동일 food·회피 조건에서 카탈로그에 SOY 가 존재하면") {
-            then("대비적으로 교집합이 걸려 overallRiskStatus 는 DANGER 로 반영된다") {
-                val result = browseUseCase(
-                    foods = listOf(richFood(20, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100)))),
-                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                    catalog = listOf(catalogSubstance(AvoidanceSubstanceCode.SOY)),
-                ).browse(BrowseMenusInput(cursor = null, lang = null))
-
-                result.items.single().overallRiskStatus shouldBe RiskLevel.DANGER
-            }
-        }
-    }
-
     given("메뉴 목록 조회 — 표시명 언어 지역화·폴백 (상세와 동일 규칙)") {
         `when`("lang=en 이고 en 번역이 있으면") {
             then("표시명을 영어로 조립한다") {
                 val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
 
-                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(translated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "Kimchi Stew"
@@ -209,7 +162,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
             then("표시명을 한국어 원문으로 폴백한다") {
                 val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
 
-                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(translated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = null))
 
                 result.items.single().name shouldBe "메뉴-30"
@@ -220,7 +173,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
             then("표시명을 한국어로 폴백한다") {
                 val untranslated = richFood(31)
 
-                val result = browseUseCase(listOf(untranslated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(untranslated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "메뉴-31"
@@ -233,7 +186,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
             then("항목 koreanName 에 한국어 원문을 담는다") {
                 val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
 
-                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(translated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = "en"))
 
                 result.items.single().name shouldBe "Kimchi Stew"
@@ -245,7 +198,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
             then("항목 koreanName 은 null 이다(중복 미노출)") {
                 val translated = richFood(30, nameTranslations = mapOf(LanguageCode.EN to "Kimchi Stew"))
 
-                val result = browseUseCase(listOf(translated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(translated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = null))
 
                 result.items.single().name shouldBe "메뉴-30"
@@ -257,7 +210,7 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
             then("항목 koreanName 은 null 이다(중복 미노출)") {
                 val untranslated = richFood(31)
 
-                val result = browseUseCase(listOf(untranslated), emptySet(), emptyList())
+                val result = browseUseCase(listOf(untranslated), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = "en"))
 
                 result.items.single().koreanName shouldBe null
@@ -268,44 +221,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     given("메뉴 목록 조회 — 항목 숫자 foodId 정합 (상세 조회 식별자)") {
         `when`("food.id 를 가진 항목을 조회하면") {
             then("응답 항목 foodId 가 food.id 와 순서대로 일치한다") {
-                val result = browseUseCase(listOf(richFood(42), richFood(7)), emptySet(), emptyList())
+                val result = browseUseCase(listOf(richFood(42), richFood(7)), emptySet())
                     .browse(BrowseMenusInput(cursor = null, lang = null))
 
                 result.items.map { it.foodId } shouldBe listOf(42L, 7L)
-            }
-        }
-    }
-
-    given("메뉴 목록 조회 — 위험도 계산의 카탈로그 조회는 페이지당 1회 (N+1 회피)") {
-        `when`("성분을 가진 food 가 여러 개인 페이지를 조회하면") {
-            then("avoidanceSubstanceRepository.findByCodes 는 정확히 1회만 호출된다") {
-                val catalogRepository = BrowseFakeAvoidanceSubstanceRepository(
-                    listOf(
-                        catalogSubstance(AvoidanceSubstanceCode.SOY),
-                        catalogSubstance(AvoidanceSubstanceCode.MILK),
-                        catalogSubstance(AvoidanceSubstanceCode.WHEAT),
-                    ),
-                )
-                val useCase = BrowseMenusUseCase(
-                    BrowseFakeFoodRepository(
-                        listOf(
-                            richFood(1, substances = listOf(avoidedRef(AvoidanceSubstanceCode.SOY, 100))),
-                            richFood(2, substances = listOf(avoidedRef(AvoidanceSubstanceCode.MILK, 100))),
-                            richFood(3, substances = listOf(avoidedRef(AvoidanceSubstanceCode.WHEAT, 100))),
-                        ),
-                    ),
-                    LanguageResolver(),
-                    MenuSummaryAssembler(
-                        BrowseFakeAvoidedSubstanceProvider(
-                            setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
-                        ),
-                        catalogRepository,
-                    ),
-                )
-
-                useCase.browse(BrowseMenusInput(cursor = null, lang = null))
-
-                catalogRepository.callCount shouldBe 1
             }
         }
     }
@@ -335,16 +254,4 @@ private class BrowseFakeAvoidedSubstanceProvider(
     private val codes: Set<AvoidanceSubstanceCode>,
 ) : AvoidedSubstanceProvider {
     override fun avoidedCodes() = codes
-}
-
-private class BrowseFakeAvoidanceSubstanceRepository(
-    private val substances: List<AvoidanceSubstance>,
-) : AvoidanceSubstanceRepository {
-    var callCount = 0
-        private set
-
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> {
-        callCount++
-        return substances.filter { it.code in codes }
-    }
 }

@@ -53,9 +53,8 @@ class GetFoodDetailUseCase(
             )
         }
 
-        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes().map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
-        val resolvableCodes = resolvable.map { it.first.substanceCode }.toSet()
-        val overallRiskStatus = food.overallRisk(avoidedCodes intersect resolvableCodes)
+        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes().map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
+        val overallRiskStatus = food.overallRisk(userAvoidedCodes)
 
         return GetFoodDetailResult(
             name = foodName,

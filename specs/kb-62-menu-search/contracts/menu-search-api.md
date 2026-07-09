@@ -53,6 +53,8 @@
 | `payload.items[].spiciness` | number | 0~10. |
 | `payload.items[].overallRiskStatus` | enum | `SAFE`·`CAUTION`·`DANGER`·`UNKNOWN`. 사용자 회피 ∩ 성분 위험도 최악값(목록·상세와 동일 의미). **현재 `UNKNOWN` 은 이 경로에서 도달 불가**(아래 참고). |
 
+> **카탈로그 결측 성분과 위험도 (현 구현 기준)**: 위험도는 **사용자 회피 성분 전부**로 계산하며, 회피·주의 성분 카탈로그의 상태를 보지 않는다. 목록·검색·상세 세 경로가 동일한 규칙을 쓴다. 상세는 카탈로그에 없는(소프트삭제된) 성분을 **표시 목록에서만** 제외하고 경고 로그를 남긴다 — 표시할 이름이 없기 때문이다. 즉 **이름은 못 밝혀도 경고는 한다.** 이 상태는 성분 소프트삭제가 실제로 일어날 때만 발생하며, 현재 전제는 "카탈로그는 고정, 소프트삭제 없음"이다.
+
 > **`UNKNOWN` 도달 가능성 (현 구현 기준)**: `Food.overallRisk` → `RiskLevel.aggregate` 는 (a) 겹치는 회피 성분이 없으면 `SAFE`, (b) 있으면 `max(severity)` 를 낸다. `UNKNOWN` 은 개별 성분의 `riskLevel()` 이 `UNKNOWN` 일 때만 나오는데, `riskLevel()` 은 `fromInclusionProbability(1..100)` 이고 `FoodAvoidanceSubstance` 생성자가 그 범위를 강제하므로 **`SAFE`/`CAUTION`/`DANGER` 만 산출된다**. 따라서 `aggregate` 의 `UNKNOWN` 분기는 이 경로에서 실행되지 않는 방어 코드다. 클라이언트는 4값을 모두 처리하되, 테스트는 `UNKNOWN` 을 값으로 단언하지 않고 **enum 멤버십**으로만 검증한다(목록 API 와 동일).
 | `payload.hasNext` | boolean | 다음 페이지 존재 여부. |
 | `payload.nextCursor` | number? | 다음 요청에 넘길 커서(마지막 항목 foodId, **숫자**). `hasNext=false` 면 `null`. |
