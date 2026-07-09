@@ -1,6 +1,7 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.application.client.food.dto.BrowseMenusResult
+import com.meogo.application.client.food.dto.MenuPage
+import com.meogo.application.client.food.dto.MenuSummaryView
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.avoidance.AvoidanceSubstanceRepository
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
@@ -13,7 +14,7 @@ class MenuSummaryAssembler(
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
 ) {
-    fun assemble(foods: List<Food>, lang: LanguageCode): List<BrowseMenusResult.MenuSummaryView> {
+    fun assemble(foods: List<Food>, lang: LanguageCode): List<MenuSummaryView> {
         val avoidedCodes = avoidedSubstanceProvider.avoidedCodes()
             .map { AvoidanceSubstanceCodeRef(it.name) }
             .toSet()
@@ -25,7 +26,7 @@ class MenuSummaryAssembler(
                 .filter { it in catalogCodes }
                 .toSet()
             val localizedName = food.displayName(lang)
-            BrowseMenusResult.MenuSummaryView(
+            MenuSummaryView(
                 foodId = food.id!!,
                 name = localizedName,
                 koreanName = food.koreanName().takeIf { it != localizedName },

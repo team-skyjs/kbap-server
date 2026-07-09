@@ -1,6 +1,7 @@
 package com.meogo.app.api.food
 
-import com.meogo.application.client.food.dto.BrowseMenusResult
+import com.meogo.application.client.food.dto.MenuPage
+import com.meogo.application.client.food.dto.MenuSummaryView
 
 data class MenuSummaryResponse(
     val foodId: Long,
@@ -11,7 +12,7 @@ data class MenuSummaryResponse(
     val overallRiskStatus: String,
 ) {
     companion object {
-        fun from(view: BrowseMenusResult.MenuSummaryView) = MenuSummaryResponse(
+        fun from(view: MenuSummaryView) = MenuSummaryResponse(
             foodId = view.foodId,
             name = view.name,
             koreanName = view.koreanName,
