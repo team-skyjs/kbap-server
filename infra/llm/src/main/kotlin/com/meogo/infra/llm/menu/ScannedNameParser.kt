@@ -3,6 +3,7 @@ package com.meogo.infra.llm.menu
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.scan.InterpretedName
 
 class ScannedNameParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
@@ -25,11 +26,17 @@ class ScannedNameParser {
 
     private fun toInterpreted(value: String?): InterpretedName {
         val trimmed = value?.trim().orEmpty()
-        return if (trimmed.isBlank() || trimmed.equals(NOT_FOOD, ignoreCase = true)) {
+        return if (isNotMenuName(trimmed)) {
             InterpretedName.NotFood
         } else {
             InterpretedName.StandardName(trimmed)
         }
+    }
+
+    private fun isNotMenuName(trimmed: String): Boolean {
+        if (trimmed.isBlank()) return true
+        if (trimmed.equals(NOT_FOOD, ignoreCase = true)) return true
+        return trimmed.length > KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH
     }
 
     private fun stripCodeFence(raw: String): String {

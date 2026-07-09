@@ -59,7 +59,8 @@ CREATE INDEX idx_food_korean_match_key ON food (korean_match_key);
 
 - ⚠️ **`COLLATE utf8mb4_bin`을 빼면 MySQL 기본 collation에서 `[^가-힣]` 범위가 정렬 순서로 해석돼 마이그레이션이 실패한다.** Testcontainers는 collation이 달라 못 잡으므로 로컬 MySQL 검증 필수.
 - `FoodJpaEntity`는 `korean_match_key`를 **읽기 전용 매핑**(`insertable=false, updatable=false`). `@Generated`는 소프트삭제(`@SQLRestriction`)와 충돌해 쓰지 않는다.
-- `korean_name`엔 기존 UNIQUE 제약이 있다 → `createIncomplete`는 get-or-create.
+- `korean_name`엔 기존 UNIQUE 제약(`uq_food_korean_name`)이 있다 → `createIncomplete`는 upsert 로 get-or-create.
+- ⚠️ 이 UNIQUE 를 **엔티티에도 선언**한다(`@Table(uniqueConstraints=…)`). 선언이 없으면 `:infra:persistence` 테스트가 Hibernate 생성 스키마(제약 없음)에서 돌아 **경합·중복 결함을 영영 못 잡는다**(실제로 그랬다).
 
 ### 스캔 테이블 — **DROP**
 
@@ -78,7 +79,7 @@ DROP TABLE IF EXISTS menu_scan;
 | `findById(id)` | 음식 상세(사용자) | **어댑터에서 `takeIf { it.isReady() }`** |
 | `findByKoreanMatchKeys(keys)` | 스캔 매칭 | **필터 없음** — 미완성 음식도 매칭돼야 재등록을 막는다 |
 | `findByIdInWithAvoidanceSubstances(ids)` | 상세 + **스코어링 배치 공유** | **필터 없음** — 배치가 미완성 음식을 봐야 채울 수 있다 |
-| `createIncomplete(koreanNames)` | 스캔 miss | 스캔당 1회. `IN` 조회 1회 + 남은 이름만 `saveAll`. 기존 음식은 덮어쓰지 않음 |
+| `createIncomplete(koreanNames)` | 스캔 miss | 스캔당 1회·문장 2개. 다중행 upsert(`ON DUPLICATE KEY UPDATE id=id`) + `IN` fetch join 재조회 |
 
 ## Flyway 파일 (점 구분 timestamp)
 

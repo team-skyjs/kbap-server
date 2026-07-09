@@ -14,11 +14,15 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "food")
+@Table(
+    name = "food",
+    uniqueConstraints = [UniqueConstraint(name = "uq_food_korean_name", columnNames = ["korean_name"])],
+)
 class FoodJpaEntity(
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",

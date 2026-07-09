@@ -33,7 +33,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 ## Phase 3: 매칭 · 미완성 등록 · serving gate
 
 - [X] `FoodRepository.findByKoreanMatchKeys(keys)` — 스캔당 1쿼리(fetch join), 미완성 포함, 동음이의 최소 id + 경고 로깅
-- [X] `FoodRepository.createIncomplete(koreanNames)` — 스캔당 1회 일괄 get-or-create(`IN` 조회 1회 + `saveAll`)
+- [X] `FoodRepository.createIncomplete(koreanNames)` — 스캔당 1회·문장 2개(다중행 upsert + `IN` fetch join)
 - [X] serving gate — 목록은 JPQL `contentStatus='READY'`, 상세는 어댑터 `takeIf { isReady() }`
 - [X] **스코어링 배치 공유 쿼리(`findByIdIn…`)엔 gate 미적용** — 배치가 미완성 음식을 봐야 채운다
 
@@ -79,6 +79,13 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 - [X] 위험도 규칙을 KB-62 쪽으로 통일 — `FoodRiskEvaluator` 삭제, 카탈로그 교집합 폐기
 - [X] **검색 네이티브 쿼리에 serving gate 추가** — 스캔이 만든 미완성 음식이 검색에 노출되던 결함
 - [X] Flyway 전량(회원 테이블 포함) 로컬 MySQL 적용 검증
+
+## Phase 10: 동시성·오염 결함 수정
+
+- [X] `FoodJpaEntity` 에 `uq_food_korean_name` 선언 — 테스트 스키마가 프로덕션과 달라 결함을 못 잡던 문제
+- [X] `createIncomplete` upsert 전환 — 경합 데드락(500)·유령 행 배치 롤백 제거. 회귀 테스트 2종
+- [X] `findByKoreanNameIn` fetch join — `toDomain()` 이 유발하던 N+1(이름당 컬렉션 SELECT) 제거
+- [X] 메뉴명 255자 길이 가드 — 파서가 `NotFood` 로 떨구고 도메인이 최후 방어
 
 ## 후속 (이 작업 범위 밖)
 

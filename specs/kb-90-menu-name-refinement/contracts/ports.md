@@ -35,9 +35,12 @@ fun createIncomplete(koreanNames: Set<String>): Map<String, Food> // 스캔 miss
 ```
 
 - `findByKoreanMatchKeys`: 스캔당 **1쿼리**(성분 fetch join). 활성(소프트삭제 제외) 음식만. **미완성 음식도 포함**(재등록 방지). 키가 비면 조회하지 않고 빈 맵. 같은 키에 복수 음식이면 **최소 id + 경고 로깅**.
-- `createIncomplete`: **스캔당 1회 호출**. 이름 집합을 받아 `korean_name IN (...)` **조회 1회**로 기존 음식을 걸러내고 남은 이름만 `saveAll` 한다. 이미 있는 이름(완성이든 미완성이든)은 그대로 반환하며 미완성으로 덮어쓰지 않는다. 빈 집합이면 쿼리 없이 빈 맵.
-  - **INSERT 문은 이름 수만큼 나간다** — `BaseEntity.id` 가 `GenerationType.IDENTITY` 라 Hibernate 가 insert 배치를 끄기 때문이다(생성 PK 를 즉시 받아야 함). 없앤 것은 항목당 SELECT 와 항목당 저장소 왕복이다. 통계로 강제: 이름 5개 → `prepareStatementCount=6`(SELECT 1 + INSERT 5).
-  - 소프트 삭제된 동명 음식이 있으면 unique 제약에 막혀 되살아나지 않고, 그 이름은 결과 맵에서 빠진다(경고 로깅). 유스케이스는 `Unmatched(null)`로 흘린다.
+- `createIncomplete`: **스캔당 1회 호출**, **문장 2개**(이름 개수 무관). 다중행 `INSERT ... ON DUPLICATE KEY UPDATE id = id` 로 upsert 하고 `korean_name IN (...)` fetch join 으로 다시 읽는다. 빈 집합이면 쿼리 없이 빈 맵. 통계로 강제: 이름 5개 → `prepareStatementCount=2`, `entityInsertCount=0`.
+  - **`saveAll` 이 아닌 이유(정합성)**: `food` 에는 `uq_food_korean_name` UNIQUE 가 있다. 두 사용자가 같은 신규 메뉴를 동시에 스캔하면 JPA insert 는 **InnoDB 데드락**(`CannotAcquireLockException` — `DataIntegrityViolationException` 이 아니라 catch 도 안 걸린다)을 내고, 소프트 삭제된 동명 행이 있으면 `DataIntegrityViolationException` 이 세션을 오염시켜 **같은 배치의 멀쩡한 INSERT 까지 롤백**된다. 둘 다 스캔 500. upsert 는 충돌을 예외가 아니라 no-op 으로 만들어 둘 다 없앤다. (회귀 테스트: 경합 2스레드 · 유령 행)
+  - `INSERT IGNORE` 는 쓰지 않는다 — 중복뿐 아니라 길이 초과·NULL·FK 위반까지 조용히 삼켜 `food` 를 오염시킨다. `ON DUPLICATE KEY UPDATE` 는 **유니크 충돌만** 무시한다.
+  - 소프트 삭제된 동명 음식은 유니크 키를 점유하므로 upsert 가 no-op 이 되고, 후속 조회(`@SQLRestriction`)에서도 안 잡혀 결과 맵에서 빠진다(경고 로깅). 유스케이스는 `Unmatched(null)` → `UNKNOWN` 안전측으로 흘린다. 삭제된 음식을 스캔이 되살리지 않는다.
+  - **남은 상한**: 단일 문장이라 데드락 창이 매우 좁지만 0은 아니다. 문제가 되면 데드락 재시도를 얹는다.
+  - `korean_name` 은 `VARCHAR(255)` 이고 값이 LLM 출력이므로 **길이 가드가 두 겹**이다 — `ScannedNameParser` 가 255자 초과 표준명을 `NotFood` 로 떨구고, `Food.incomplete()` 가 최후 방어선으로 거절한다(`KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH` 단일 출처).
 - `findById`/`findFoodPage`/`searchFoodPage`: **미완성 음식은 반환하지 않는다**(serving gate).
 
 ## 위험도 산출 (`:application:client`)

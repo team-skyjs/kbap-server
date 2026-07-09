@@ -19,7 +19,14 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     )
     fun findByKoreanMatchKeyInWithAvoidanceSubstances(@Param("keys") keys: Set<String>): List<FoodJpaEntity>
 
-    fun findByKoreanNameIn(koreanNames: Set<String>): List<FoodJpaEntity>
+    @Query(
+        """
+        select distinct f from FoodJpaEntity f
+        left join fetch f.foodAvoidanceSubstances
+        where f.koreanName in :koreanNames
+        """,
+    )
+    fun findByKoreanNameIn(@Param("koreanNames") koreanNames: Set<String>): List<FoodJpaEntity>
 
     @Query(
         """

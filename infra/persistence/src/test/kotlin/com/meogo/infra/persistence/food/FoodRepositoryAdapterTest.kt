@@ -2,6 +2,7 @@ package com.meogo.infra.persistence.food
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
+import com.meogo.core.food.Food
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -17,6 +18,8 @@ import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
@@ -667,16 +670,51 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
 
+            `when`("소프트 삭제된 동명 음식이 섞여 있으면") {
+                then("되살리지 않고 그 이름만 결과에서 빠지며, 같은 배치의 새 이름은 정상 등록된다") {
+                    clearFoods()
+                    val ghostId = saveFood("유령-라면")
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+
+                    val created = adapter.createIncomplete(setOf("유령-라면", "신규-라면"))
+
+                    created shouldNotContainKey "유령-라면"
+                    created.getValue("신규-라면").id.shouldNotBeNull()
+                }
+            }
+
+            `when`("같은 새 이름을 두 스레드가 동시에 등록하면") {
+                then("아무도 실패하지 않고 둘 다 같은 foodId 를 받으며 행은 하나다") {
+                    clearFoods()
+                    val pool = Executors.newFixedThreadPool(2)
+                    val tasks: List<Callable<Result<Map<String, Food>>>> = (1..2).map {
+                        Callable { runCatching { adapter.createIncomplete(setOf("경합-라면", "경합-국밥")) } }
+                    }
+                    val outcomes = pool.invokeAll(tasks).map { it.get() }
+                    pool.shutdown()
+
+                    outcomes.forEach { it.exceptionOrNull().shouldBeNull() }
+                    val first = outcomes[0].getOrThrow()
+                    val second = outcomes[1].getOrThrow()
+                    first.getValue("경합-라면").id shouldBe second.getValue("경합-라면").id
+                    first.getValue("경합-국밥").id shouldBe second.getValue("경합-국밥").id
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
             `when`("이름 5개를 한 번에 등록하면") {
-                then("조회는 개수와 무관하게 1회이고, INSERT 만 이름 수만큼 나간다(IDENTITY 는 배치 불가)") {
+                then("이름 수와 무관하게 문장은 2개다(다중행 upsert 1 + 조회 1)") {
                     clearFoods()
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     statistics.clear()
 
                     adapter.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
 
-                    statistics.prepareStatementCount shouldBe 6
-                    statistics.entityInsertCount shouldBe 5
+                    statistics.prepareStatementCount shouldBe 2
+                    statistics.entityInsertCount shouldBe 0
+                    foodJpaRepository.count() shouldBe 5
                 }
             }
         }

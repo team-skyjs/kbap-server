@@ -1,6 +1,7 @@
 package com.meogo.core.food
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.kernel.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
@@ -152,6 +153,16 @@ class FoodTest : BehaviorSpec({
         `when`("한국어명이 blank 이면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> { Food.incomplete(" ") }
+            }
+        }
+    }
+
+    given("Food.incomplete 한국어명 길이") {
+        `when`("컬럼 길이(255)를 넘는 이름이면") {
+            then("도메인이 거절한다(영속 계층 truncation 방지 최후 방어선)") {
+                shouldThrow<IllegalArgumentException> {
+                    Food.incomplete("가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH + 1))
+                }
             }
         }
     }

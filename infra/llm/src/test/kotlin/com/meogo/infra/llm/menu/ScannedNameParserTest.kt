@@ -1,5 +1,6 @@
 package com.meogo.infra.llm.menu
 
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.scan.InterpretedName
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -56,6 +57,26 @@ class ScannedNameParserTest : BehaviorSpec({
                 shouldThrow<ScannedNameParseException> {
                     parser.parse("""["김치찌개"]""", expectedSize = 2)
                 }
+            }
+        }
+    }
+
+    given("표준명 길이 한계") {
+        `when`("표준명이 food.korean_name 컬럼 길이(255)를 넘으면") {
+            then("메뉴명으로 보지 않고 NotFood 로 떨군다") {
+                val tooLong = "가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH + 1)
+                val parsed = ScannedNameParser().parse("[\"$tooLong\"]", 1)
+
+                parsed.single() shouldBe InterpretedName.NotFood
+            }
+        }
+
+        `when`("표준명이 정확히 255자면") {
+            then("정상 표준명으로 받는다") {
+                val exact = "가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH)
+                val parsed = ScannedNameParser().parse("[\"$exact\"]", 1)
+
+                parsed.single() shouldBe InterpretedName.StandardName(exact)
             }
         }
     }

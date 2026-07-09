@@ -2,6 +2,7 @@ package com.meogo.core.food
 
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.stereotype.AggregateRoot
 
@@ -57,6 +58,9 @@ class Food private constructor(
 
         fun incomplete(koreanName: String): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
+            require(koreanName.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH) {
+                "food.koreanName 은 ${KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH}자를 넘을 수 없습니다"
+            }
             return Food(
                 id = null,
                 content = FoodContent(
