@@ -1,13 +1,13 @@
 package com.meogo.app.api.scan
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
-import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
@@ -24,17 +24,12 @@ class MenuScanValidationTest : BehaviorSpec() {
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun box(x: Double = 0.1, y: Double = 0.1, width: Double = 0.3, height: Double = 0.1) =
-            mapOf("x" to x, "y" to y, "width" to width, "height" to height)
-
         fun item(
             itemId: Any? = 0,
             rawMenuName: Any? = "메뉴",
-            boundingBox: Any? = box(),
         ): Map<String, Any?> = buildMap {
             put("itemId", itemId)
             put("rawMenuName", rawMenuName)
-            put("boundingBox", boundingBox)
         }
 
         suspend fun expectBadRequest(payload: Map<String, Any?>) {
@@ -66,33 +61,15 @@ class MenuScanValidationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("itemId 가 누락되면") {
+                then("400 을 반환한다") {
+                    expectBadRequest(mapOf("items" to listOf(item(itemId = null))))
+                }
+            }
+
             `when`("rawMenuName 이 blank 이면") {
                 then("400 을 반환한다") {
                     expectBadRequest(mapOf("items" to listOf(item(rawMenuName = "  "))))
-                }
-            }
-
-            `when`("boundingBox 가 누락되면") {
-                then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(boundingBox = null))))
-                }
-            }
-
-            `when`("boundingBox.width 가 0 이면") {
-                then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(boundingBox = box(width = 0.0)))))
-                }
-            }
-
-            `when`("boundingBox.x 가 음수이면") {
-                then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(boundingBox = box(x = -1.0)))))
-                }
-            }
-
-            `when`("boundingBox 의 x + width 가 1 을 초과하면") {
-                then("400 을 반환한다") {
-                    expectBadRequest(mapOf("items" to listOf(item(boundingBox = box(x = 0.8, width = 0.5)))))
                 }
             }
         }

@@ -52,7 +52,6 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
         fun item(itemId: Int, name: String) = mapOf(
             "itemId" to itemId,
             "rawMenuName" to name,
-            "boundingBox" to mapOf("x" to 0.1, "y" to 0.1, "width" to 0.3, "height" to 0.1),
         )
 
         given("실측 로그 회귀 — 진짜 메뉴 6종 + 메뉴판/잡음 혼합(폴백 경로)") {

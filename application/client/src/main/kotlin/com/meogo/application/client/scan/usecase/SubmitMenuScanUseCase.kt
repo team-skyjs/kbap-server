@@ -9,19 +9,13 @@ import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
-import com.meogo.core.scan.BoundingBox
-import com.meogo.core.scan.MenuItemAssessment
 import com.meogo.core.scan.MenuItemMatch
-import com.meogo.core.scan.MenuScan
-import com.meogo.core.scan.MenuScanRepository
-import com.meogo.core.scan.ScannedMenuItem
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service
 class SubmitMenuScanUseCase(
-    private val menuScanRepository: MenuScanRepository,
     private val foodRepository: FoodRepository,
     private val foodRiskEvaluator: FoodRiskEvaluator,
     @Autowired(required = false)
@@ -35,31 +29,43 @@ class SubmitMenuScanUseCase(
 
         val items = input.items.mapIndexed { index, item ->
             val resolution = resolutions[index]
-            val box = item.boundingBox
-            ScannedMenuItem(
+            SubmitMenuScanResult.ItemRiskResult(
                 itemId = item.itemId,
-                rawMenuName = item.rawMenuName,
-                boundingBox = BoundingBox(x = box.x, y = box.y, width = box.width, height = box.height),
-                assessment = assessmentOf(resolution, risks),
-                match = resolution.match,
+                riskLevel = riskOf(resolution, risks).name,
+                reason = reasonOf(resolution),
+                matchStatus = statusOf(resolution.match),
+                foodId = foodIdOf(resolution.match),
             )
         }
 
-        return MenuScan.create(MenuScan.CreationSpec(items))
-            .let(menuScanRepository::save)
-            .let(SubmitMenuScanResult::from)
+        return SubmitMenuScanResult(items)
     }
 
-    private fun assessmentOf(resolution: Resolution, risks: Map<Long, RiskLevel>): MenuItemAssessment {
-        val food = resolution.food
-            ?: return MenuItemAssessment(RiskLevel.UNKNOWN, reasonWithoutFood(resolution.match))
-        val risk = risks[food.id] ?: RiskLevel.UNKNOWN
-        val reason = if (food.isReady()) REASON_EVALUATED else REASON_INCOMPLETE
-        return MenuItemAssessment(risk, reason)
+    private fun riskOf(resolution: Resolution, risks: Map<Long, RiskLevel>): RiskLevel {
+        val food = resolution.food ?: return RiskLevel.UNKNOWN
+        return risks[food.id] ?: RiskLevel.UNKNOWN
     }
 
-    private fun reasonWithoutFood(match: MenuItemMatch): String =
-        if (match is MenuItemMatch.Pending) REASON_INCOMPLETE else REASON_NOT_FOOD
+    private fun reasonOf(resolution: Resolution): String =
+        when {
+            resolution.food?.isReady() == true -> REASON_EVALUATED
+            resolution.match is MenuItemMatch.Pending -> REASON_INCOMPLETE
+            else -> REASON_NOT_FOOD
+        }
+
+    private fun statusOf(match: MenuItemMatch): String =
+        when (match) {
+            is MenuItemMatch.Matched -> "MATCHED"
+            is MenuItemMatch.Pending -> "PENDING"
+            MenuItemMatch.NotFood -> "NOT_FOOD"
+        }
+
+    private fun foodIdOf(match: MenuItemMatch): Long? =
+        when (match) {
+            is MenuItemMatch.Matched -> match.foodId
+            is MenuItemMatch.Pending -> match.foodId
+            MenuItemMatch.NotFood -> null
+        }
 
     private fun resolveItems(input: SubmitMenuScanInput): List<Resolution> {
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }

@@ -60,7 +60,6 @@ class MenuScanControllerTest : BehaviorSpec() {
         fun item(itemId: Int, name: String) = mapOf(
             "itemId" to itemId,
             "rawMenuName" to name,
-            "boundingBox" to mapOf("x" to 0.1, "y" to 0.1, "width" to 0.3, "height" to 0.1),
         )
 
         fun body(vararg items: Map<String, Any>) =
@@ -75,9 +74,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.scanId") { exists() }
                         jsonPath("$.payload.results.length()") { value(2) }
-                        jsonPath("$.payload.results[0].id") { exists() }
                         jsonPath("$.payload.results[0].itemId") { value(0) }
                         jsonPath("$.payload.results[1].itemId") { value(1) }
                     }

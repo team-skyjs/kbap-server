@@ -1,6 +1,5 @@
 package com.meogo.application.client.scan.usecase
 
-import com.meogo.application.client.scan.dto.BoundingBoxInput
 import com.meogo.application.client.scan.dto.MenuScanItemInput
 import com.meogo.application.client.scan.dto.SubmitMenuScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
@@ -18,27 +17,8 @@ import com.meogo.core.kernel.lang.LocalizedText
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
-import com.meogo.core.scan.MenuItemMatch
-import com.meogo.core.scan.MenuScan
-import com.meogo.core.scan.MenuScanRepository
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
-
-private class CapturingScanRepository : MenuScanRepository {
-    var saved: MenuScan? = null
-        private set
-
-    override fun save(menuScan: MenuScan): MenuScan {
-        saved = menuScan
-        return MenuScan.reconstitute(
-            id = 1L,
-            status = menuScan.status,
-            items = menuScan.items.mapIndexed { i, item -> item.copy(id = (i + 1).toLong()) },
-        )
-    }
-
-    override fun findById(scanId: Long): MenuScan? = null
-}
 
 private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : FoodRepository {
     val createdIncomplete = mutableListOf<String>()
@@ -90,11 +70,7 @@ private class ThrowingInterpreter : ScannedNameInterpreter {
 }
 
 class SubmitMenuScanUseCaseTest : BehaviorSpec({
-    fun item(itemId: Int, name: String) = MenuScanItemInput(
-        itemId = itemId,
-        rawMenuName = name,
-        boundingBox = BoundingBoxInput(0.1, 0.1, 0.3, 0.1),
-    )
+    fun item(itemId: Int, name: String) = MenuScanItemInput(itemId = itemId, rawMenuName = name)
 
     fun readyFood(id: Long, koreanName: String, substance: Pair<String, Int>? = null) = Food.reconstitute(
         id = id,
@@ -113,9 +89,7 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         foods: Map<String, Food> = emptyMap(),
         interpreter: ScannedNameInterpreter? = null,
         foodRepo: FakeFoodRepository = FakeFoodRepository(foods),
-        scanRepo: CapturingScanRepository = CapturingScanRepository(),
     ) = SubmitMenuScanUseCase(
-        menuScanRepository = scanRepo,
         foodRepository = foodRepo,
         foodRiskEvaluator = FoodRiskEvaluator(ScanFakeAvoidedProvider(), ScanFakeCatalogRepository()),
         interpreter = interpreter,
@@ -124,16 +98,14 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
     given("정제 서비스가 정상일 때") {
         `when`("표준명이 완성된 저장 음식과 일치하면") {
             then("MATCHED 이고 산출된 위험도를 반환한다") {
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     foods = mapOf("김치찌개" to readyFood(7L, "김치찌개", "SOY" to 100)),
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
-                    scanRepo = scanRepo,
                 )
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개 kimchi jjigae"))))
 
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Matched(7L)
+                result.items.first().matchStatus shouldBe "MATCHED"
                 result.items.first().riskLevel shouldBe RiskLevel.DANGER.name
             }
         }
@@ -141,17 +113,15 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         `when`("표준명이 저장에 없으면") {
             then("food 에 미완성으로 등록하고 PENDING·UNKNOWN 으로 응답한다") {
                 val foodRepo = FakeFoodRepository(emptyMap())
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))),
                     foodRepo = foodRepo,
-                    scanRepo = scanRepo,
                 )
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe listOf("우주라면")
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Pending(100L)
+                result.items.first().matchStatus shouldBe "PENDING"
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
                 result.items.first().foodId shouldBe 100L
             }
@@ -171,17 +141,15 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
                     contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
                 )
                 val foodRepo = FakeFoodRepository(mapOf("우주라면" to incomplete))
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))),
                     foodRepo = foodRepo,
-                    scanRepo = scanRepo,
                 )
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe emptyList()
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Pending(55L)
+                result.items.first().matchStatus shouldBe "PENDING"
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
             }
         }
@@ -189,16 +157,14 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         `when`("LLM 이 NOT_FOOD 로 판정하면") {
             then("NOT_FOOD·UNKNOWN 이고 food 를 만들지 않는다") {
                 val foodRepo = FakeFoodRepository(emptyMap())
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = FakeInterpreter(listOf(InterpretedName.NotFood)),
                     foodRepo = foodRepo,
-                    scanRepo = scanRepo,
                 )
 
                 val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "원산지 중국"))))
 
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.NotFood
+                result.items.first().matchStatus shouldBe "NOT_FOOD"
                 foodRepo.createdIncomplete shouldBe emptyList()
                 result.items.first().riskLevel shouldBe RiskLevel.UNKNOWN.name
                 result.items.first().foodId shouldBe null
@@ -208,12 +174,11 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
         `when`("한글이 전혀 없는 항목이면") {
             then("LLM 을 거치지 않고 NOT_FOOD 로 처리한다") {
                 val interpreter = FakeInterpreter(emptyList())
-                val scanRepo = CapturingScanRepository()
-                val uc = useCase(interpreter = interpreter, scanRepo = scanRepo)
+                val uc = useCase(interpreter = interpreter)
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "MacBook Air F9"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "MacBook Air F9"))))
 
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.NotFood
+                result.items.first().matchStatus shouldBe "NOT_FOOD"
                 interpreter.callCount shouldBe 0
             }
         }
@@ -254,52 +219,47 @@ class SubmitMenuScanUseCaseTest : BehaviorSpec({
     given("정제 서비스가 없거나 장애일 때(폴백)") {
         `when`("interpreter 가 주입되지 않았고 정규화 키가 저장 음식과 일치하면") {
             then("정규화 exact 매치로 MATCHED 한다") {
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
                     interpreter = null,
-                    scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"))))
 
-                scanRepo.saved!!.items.first().match shouldBe MenuItemMatch.Matched(7L)
+                result.items.first().matchStatus shouldBe "MATCHED"
             }
         }
 
         `when`("interpreter 가 예외를 던지면") {
             then("아는 메뉴는 MATCHED, 나머지는 food 생성 없이 PENDING 으로 강등한다") {
                 val foodRepo = FakeFoodRepository(mapOf("김치찌개" to readyFood(7L, "김치찌개")))
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     interpreter = ThrowingInterpreter(),
                     foodRepo = foodRepo,
-                    scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
 
-                val items = scanRepo.saved!!.items
-                items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
-                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending()
+                val items = result.items
+                items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
+                items.first { it.itemId == 1 }.matchStatus shouldBe "PENDING"
+                items.first { it.itemId == 1 }.foodId shouldBe null
                 foodRepo.createdIncomplete shouldBe emptyList()
             }
         }
 
         `when`("interpreter 가 요청보다 적은 개수를 반환하면") {
             then("결과를 신뢰하지 않고 정규화 exact 매치 폴백으로 처리한다") {
-                val scanRepo = CapturingScanRepository()
                 val uc = useCase(
                     foods = mapOf("김치찌개" to readyFood(7L, "김치찌개")),
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("무시됨"))),
-                    scanRepo = scanRepo,
                 )
 
-                uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면"))))
+                val result = uc.submit(SubmitMenuScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면"))))
 
-                val items = scanRepo.saved!!.items
-                items.first { it.itemId == 0 }.match shouldBe MenuItemMatch.Matched(7L)
-                items.first { it.itemId == 1 }.match shouldBe MenuItemMatch.Pending()
+                val items = result.items
+                items.first { it.itemId == 0 }.matchStatus shouldBe "MATCHED"
+                items.first { it.itemId == 1 }.matchStatus shouldBe "PENDING"
             }
         }
     }
