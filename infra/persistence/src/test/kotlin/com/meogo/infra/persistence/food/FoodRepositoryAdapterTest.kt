@@ -332,6 +332,33 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             }
         }
 
+        given("Food 저장소 어댑터 — 검색 keyset 커서 경계 (US2)") {
+            `when`("커서 안쪽에 매칭되지 않는 메뉴가 섞여 있으면") {
+                then("id 가 커서보다 작은 매칭 항목만 최신순으로 반환한다") {
+                    clearFoods()
+                    val first = saveFood("커서혼합-김치찌개")
+                    saveFood("커서혼합-된장찌개")
+                    val second = saveFood("커서혼합-김치볶음밥")
+                    saveFood("커서혼합-순두부찌개")
+                    val cursor = saveFood("커서혼합-김치만두")
+
+                    val page = adapter.searchMenuPage("김치", LanguageCode.KO, cursor, 20)
+
+                    page.map { it.id } shouldBe listOf(second, first)
+                }
+            }
+
+            `when`("커서가 매칭 항목의 최소 id 이하이면") {
+                then("빈 목록을 반환한다") {
+                    clearFoods()
+                    val smallest = saveFood("커서소진-김치찌개")
+                    saveFood("커서소진-김치볶음밥")
+
+                    adapter.searchMenuPage("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList()
+                }
+            }
+        }
+
         given("Food 저장소 어댑터 — 검색어 부분 일치(요청 언어 번역명)") {
             `when`("영어 번역명 조각을 소문자로 검색하면 (lang=en)") {
                 then("대소문자를 구분하지 않고 번역명 매칭 메뉴를 반환한다") {
@@ -381,6 +408,7 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                 saveFood("김치찌개")
                 saveFood("된장찌개")
                 saveFood("비빔밥")
+                saveFood("50000원 세트")
                 return mapOf(
                     "percent" to saveFood("할인 50% 세트"),
                     "underscore" to saveFood("김치_특"),
@@ -419,9 +447,10 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
             }
 
             `when`("검색어 가운데에 _ 가 섞여 있으면 (김_치)") {
-                then("임의 1문자로 해석하지 않아 김치찌개 는 매칭되지 않는다") {
+                then("임의 1문자로 해석하지 않아 김밥치즈 는 매칭되지 않는다") {
                     clearFoods()
                     saveFood("김치찌개")
+                    saveFood("김밥치즈")
                     val underscore = saveFood("김_치")
 
                     val page = adapter.searchMenuPage("김_치", LanguageCode.KO, null, 20)

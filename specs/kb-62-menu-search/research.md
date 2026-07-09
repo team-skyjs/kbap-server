@@ -25,7 +25,17 @@
   1. `food.korean_name` 의 실제 콜레이션은 `utf8mb4_0900_ai_ci` 가 **아니라 `utf8mb4_unicode_ci`** 다 — `docker-compose.yml` 과 Testcontainers(`MySqlContainerConfig`)가 `--collation-server=utf8mb4_unicode_ci` 로 서버 기본값을 덮기 때문이다.
   2. `json_unquote(json_extract(...))` 의 반환 콜레이션은 컬럼 콜레이션을 물려받지 않고 **`utf8mb4_bin`** 이다 → `collate` 를 빼면 번역명 매칭이 **대소문자를 구분**한다(`bibim` 이 `Bibimbap` 에 매칭 안 됨). 구현 중 실제로 이 테스트 하나만 실패해 드러났다.
 - **Rationale (콜레이션 이름 선택)**: `utf8mb4_unicode_ci` 는 (a) 로컬·Testcontainers 의 실제 서버/컬럼 콜레이션과 일치해 **두 분기의 비대칭을 없애고**, (b) **MySQL 5.7·8.x 모두에 존재**한다. 반면 `utf8mb4_0900_ai_ci` 는 8.0+ 전용이라, prod 가 5.7 이면 검색 쿼리가 런타임에 실패한다 — 그리고 로컬·CI 는 둘 다 8.4 라 **이 실패를 절대 잡지 못한다**. prod DB 는 저장소 밖 외부 컨테이너(`mysql-prod`, `docker-compose.prod.yml` 참고)라 버전이 기록돼 있지 않으므로, 이식성 있는 쪽을 택한다.
-- **`korean_name` 에 `collate` 를 붙이는 비용**: 없다. leading-wildcard LIKE 는 어차피 어떤 B-tree 인덱스도 못 타므로(R3), 콜레이션 명시가 잃을 인덱스 이점이 애초에 없다.
+- **`korean_name` 에 `collate` 를 붙이는 비용**: 없다. leading-wildcard LIKE 는 어차피 어떤 B-tree 인덱스도 못 타므로(R3), 콜레이션 명시가 잃을 인덱스 이점이 애초에 없다. (`uq_food_korean_name` 은 `possible_keys` 에 오르지도 않는다 — US1 DB 리뷰 EXPLAIN 확인.)
+- **`collate` 강제의 실효 (US1 DB 리뷰 실측)**: 현재 환경에선 **no-op** 이고, 서버 기본 콜레이션이 나쁠 때만 살아나는 **안전망**이다.
+
+  | `korean_name` 컬럼 콜레이션 | `collate` 없이 | `collate` 강제 |
+  |---|---|---|
+  | `utf8mb4_unicode_ci` (현 로컬·Testcontainers) | 매칭 O | 매칭 O (no-op) |
+  | `utf8mb4_0900_ai_ci` (prod 가 이럴 경우) | 매칭 O | 매칭 O (coercion legal, 에러 없음) |
+  | `utf8mb4_bin` (최악의 서버 기본값) | **매칭 X** | **매칭 O** |
+
+  즉 지금 동작을 바꾸지 않으면서 컬럼 콜레이션이 무엇이든 FR-003 을 결정적으로 보장한다. `0900_ai_ci` 컬럼에 `unicode_ci` 를 강제해도 같은 utf8mb4 charset 이라 `ER_UNKNOWN_COLLATION` 도 "Illegal mix of collations" 도 발생하지 않는다(OR 로 묶인 두 LIKE 는 서로 피연산자가 아니다).
+- **⚠️ 승격 시 함정 (미래 트랩)**: 훗날 prefix 매칭(`LIKE 'kw%'`)으로 인덱스를 태우려 하면, **좌변 `collate` 강제가 range 최적화를 막는다**(컬럼과 다른 콜레이션으로 비교하면 옵티마이저가 인덱스 순서를 쓸 수 없다). 지금은 leading-wildcard 라 무해하지만, FULLTEXT/prefix 로 승격할 때는 쿼리의 `collate` 를 **빼고** 컬럼 콜레이션을 **DDL(Flyway)로 고정**하는 쪽으로 전환해야 한다.
 - **Alternatives**: (a) `LOWER(col) LIKE LOWER(:kw)` — CJK 무의미, 악센트 비구분 상실, 콜레이션과 중복이라 기각. (b) `collate utf8mb4_0900_ai_ci` 유지 — 위 이식성 위험으로 기각. (c) Flyway 로 컬럼 콜레이션 고정 — 공유 DB 스키마 변경이라 KB-62 범위를 넘고, 쿼리 레벨 `collate` 로 충분해 기각.
 - **잔여 리스크(사용자 확인 필요)**: prod `mysql-prod` 의 MySQL 버전·서버 콜레이션이 저장소에 기록돼 있지 않다. `utf8mb4_unicode_ci` 는 5.7·8.x 공통이라 안전하지만, prod 버전을 명시적으로 확인·기록해 두는 것이 옳다.
 
@@ -43,6 +53,9 @@
 - **Rationale**: 초안 구현은 `concat('%', :kw, '%')` 로 검색어를 그대로 패턴에 박아, `keyword=%` 가 **전체 메뉴**를 반환했다. 이는 단순 버그가 아니라 **역할 분리 위반**이다 — 스펙이 목록 API(KB-63)에 할당한 "검색어 없는 전체 탐색"을 검색 API 로 우회할 수 있게 된다(FR-003a 신설). `_` 는 임의 1문자 와일드카드라 미이스케이프 시 거의 모든 이름에 매칭된다. 파라미터 바인딩이라 SQL injection 은 아니지만, **의미론적 결함**이다.
 - **자기 이스케이프 문자 처리**: 이스케이프 문자(`\`) 자체가 검색어에 있으면 먼저 이스케이프해야 한다(순서: `\` → `%` → `_`). 검색어에 `\` 를 넣는 회귀 테스트로 가드.
 - **Alternatives**: (a) 이스케이프 없이 `%`·`_` 를 거절(400) — 정당한 검색어(`"할인 50% 세트"`)를 막아 기각. (b) 커스텀 ESCAPE 문자(`!`) — 백슬래시 이중화 혼란을 피하는 이점은 있으나, `ESCAPE` 절을 명시하면 어느 쪽도 동등하므로 구현 재량.
+- **`collate` 와의 공존 (실측 확인)**: `COLLATE` 는 `LIKE` 보다 우선순위가 높아 좌변에 결합하고, `ESCAPE` 는 LIKE 절의 후행 수식어라 서로 간섭하지 않는다. `_bin` 컬럼에 둘을 함께 걸어도 대소문자 비구분이 복구된다.
+- **알려진 상한**: `escape '\\'` 는 서버 `sql_mode` 에 `NO_BACKSLASH_ESCAPES` 가 **없다는 전제**에 의존한다(현 서버 실측상 없음). 켜지면 `Incorrect arguments to ESCAPE` 로 검색이 실패한다. 발생 시 escape 문자를 `!` 등으로 바꾸면 되므로 지금 방어 코드는 두지 않는다.
+- **이스케이프는 sargability 를 바꾸지 않는다**: `ESCAPE` 는 패턴 해석만 바꾼다. 패턴이 이미 leading-wildcard 라 처음부터 non-sargable 이었다(EXPLAIN 확인).
 
 ## R4. 네이티브 쿼리의 소프트삭제 필터 — @SQLRestriction 손실 보정
 

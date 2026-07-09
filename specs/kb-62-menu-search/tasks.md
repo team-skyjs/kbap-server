@@ -82,13 +82,13 @@ description: "Task list for 검색어 메뉴 조회 (다국어 부분 일치, no
 
 ### Tests for User Story 2 (Test-First: 먼저 작성·FAIL 확인) ⚠️
 
-- [ ] T014 [P] [US2] `SearchMenusUseCaseTest.kt` 보강 — 커서 지정 시 `searchMenuPage(keyword, lang, cursor, 21)` 위임·최신순 유지, 남은 ≤20 시 `hasNext:false`·`nextCursor:null`. Red 확인.
-- [ ] T015 [P] [US2] `MenuSearchControllerTest.kt` 보강 + `FoodRepositoryAdapterTest.kt` keyset 경계 — 같은 keyword 로 다음 커서 연속 조회 시 foodId 교집합 공집합·단조 감소(불변식 4), 마지막 페이지 `hasNext:false`, 잘못된 커서(음수·비숫자) 400 `success:false`; 어댑터 `searchMenuPage(kw, lang, cursorId, 20)` 는 `id < cursorId` 매칭만. Red 확인.
+- [X] T014 [P] [US2] `SearchMenusUseCaseTest.kt` 보강 — 커서 지정 시 `searchMenuPage(keyword, lang, cursor, 21)` 위임·최신순 유지, 남은 ≤20 시 `hasNext:false`·`nextCursor:null`. Red 확인.
+- [X] T015 [P] [US2] `MenuSearchControllerTest.kt` 보강 + `FoodRepositoryAdapterTest.kt` keyset 경계 — 같은 keyword 로 다음 커서 연속 조회 시 foodId 교집합 공집합·단조 감소(불변식 4), 마지막 페이지 `hasNext:false`, 잘못된 커서(음수·비숫자) 400 `success:false`; 어댑터 `searchMenuPage(kw, lang, cursorId, 20)` 는 `id < cursorId` 매칭만. Red 확인.
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] 커서 연속성 배선 확인 — `MenuSearchController` 가 `resolveCursor(cursor)` 로 파싱불가·음수를 `INVALID_CURSOR(400)` 처리하고(`GlobalExceptionHandler` → `BaseResponse.fail`), `SearchMenusInput.cursor` 로 전달함을 확인·보강(research R6, KB-63 재사용). T013 확장.
-- [ ] T017 [US2] `searchMenuPageIds` 의 `(:cursor is null or f.id < :cursor)` + `order by f.id desc limit` 로 keyset 연속성(중복·누락 0, SC-002)이 성립함을 T015 어댑터 경계 테스트로 확정. 필요 시 쿼리만 보정(신규 로직 없음). T009 확장.
+- [X] T016 [US2] 커서 연속성 배선 확인 — `MenuSearchController` 가 `resolveCursor(cursor)` 로 파싱불가·음수를 `INVALID_CURSOR(400)` 처리하고(`GlobalExceptionHandler` → `BaseResponse.fail`), `SearchMenusInput.cursor` 로 전달함을 확인·보강(research R6, KB-63 재사용). T013 확장.
+- [X] T017 [US2] `searchMenuPageIds` 의 `(:cursor is null or f.id < :cursor)` + `order by f.id desc limit` 로 keyset 연속성(중복·누락 0, SC-002)이 성립함을 T015 어댑터 경계 테스트로 확정. 필요 시 쿼리만 보정(신규 로직 없음). T009 확장.
 
 **Checkpoint**: US1 + 무한 스크롤 연속 페이지·마지막 페이지·잘못된 커서 처리
 

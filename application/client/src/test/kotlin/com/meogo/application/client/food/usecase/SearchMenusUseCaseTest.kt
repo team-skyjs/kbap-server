@@ -14,6 +14,7 @@ import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.kernel.lang.LocalizedText
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 
 class SearchMenusUseCaseTest : BehaviorSpec({
@@ -132,6 +133,36 @@ class SearchMenusUseCaseTest : BehaviorSpec({
                 result.hasNext shouldBe true
                 result.items.size shouldBe 20
                 result.nextCursor shouldBe result.items.last().foodId
+            }
+        }
+
+        `when`("포트가 페이지 크기+1(21)개를 반환하면") {
+            then("21번째 항목은 절단돼 items 에 담기지 않는다") {
+                val result = useCase(SearchFakeFoodRepository(descendingFoods(21)))
+                    .search(SearchMenusInput(keyword = "메뉴", cursor = null, lang = null))
+
+                result.items.map { it.foodId } shouldBe (21 downTo 2).map { it.toLong() }
+                result.items.map { it.foodId } shouldNotContain 1L
+            }
+        }
+
+        `when`("cursor 를 지정해 다음 페이지를 조회하면") {
+            then("반환 순서(최신순)를 그대로 유지한다") {
+                val result = useCase(SearchFakeFoodRepository(descendingFoods(21)))
+                    .search(SearchMenusInput(keyword = "메뉴", cursor = 100L, lang = null))
+
+                result.items.map { it.foodId } shouldBe (21 downTo 2).map { it.toLong() }
+            }
+        }
+
+        `when`("포트가 페이지 크기보다 적은 5건을 반환하면") {
+            then("마지막 페이지로 보고 hasNext=false·nextCursor=null 이며 5개를 담는다") {
+                val result = useCase(SearchFakeFoodRepository(descendingFoods(5)))
+                    .search(SearchMenusInput(keyword = "메뉴", cursor = 50L, lang = null))
+
+                result.items.size shouldBe 5
+                result.hasNext shouldBe false
+                result.nextCursor shouldBe null
             }
         }
 

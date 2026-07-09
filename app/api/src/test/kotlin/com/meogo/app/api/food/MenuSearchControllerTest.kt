@@ -5,6 +5,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -52,6 +55,23 @@ class MenuSearchControllerTest : BehaviorSpec() {
                             "VALUES (603, '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
                             "'{\"en\":\"Doenjang Stew\"}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
+                }
+            }
+        }
+
+        fun seedNumberedMenus(count: Int) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM food_avoidance_substance")
+                    statement.execute("DELETE FROM food")
+                    (1..count).forEach { index ->
+                        statement.execute(
+                            "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, status, created_at, updated_at) " +
+                                "VALUES (${700 + index}, '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
+                                "'{}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        )
+                    }
                 }
             }
         }
@@ -106,6 +126,101 @@ class MenuSearchControllerTest : BehaviorSpec() {
                     root.path("payload").path("items").size() shouldBe 0
                     root.path("payload").path("hasNext").asBoolean() shouldBe false
                     root.path("payload").path("nextCursor").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 커서 연속성 (US2)") {
+            `when`("같은 검색어로 첫 페이지를 조회하면") {
+                then("최신순 20개·hasNext=true·nextCursor 를 반환한다") {
+                    seedNumberedMenus(25)
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(20) }
+                        jsonPath("$.payload.hasNext") { value(true) }
+                        jsonPath("$.payload.nextCursor") { isNumber() }
+                    }
+                }
+            }
+
+            `when`("첫 페이지 nextCursor 를 같은 검색어와 함께 넘겨 다음 페이지를 조회하면") {
+                then("두 페이지의 foodId 교집합이 공집합이고 단조 감소한다") {
+                    seedNumberedMenus(25)
+
+                    val firstJson = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val firstIds = foodIdsOf(firstJson)
+                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
+
+                    val secondJson = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                        param("cursor", nextCursor.toString())
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val secondIds = foodIdsOf(secondJson)
+
+                    firstIds shouldHaveSize 20
+                    secondIds.size shouldBeGreaterThan 0
+                    (firstIds intersect secondIds.toSet()) shouldBe emptySet()
+                    secondIds.max() shouldBeLessThan firstIds.min()
+                }
+            }
+
+            `when`("마지막 페이지를 조회하면") {
+                then("남은 항목과 함께 hasNext=false·nextCursor=null 을 반환한다") {
+                    seedNumberedMenus(25)
+
+                    val firstJson = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
+
+                    val lastJson = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                        param("cursor", nextCursor.toString())
+                    }.andExpect {
+                        status { isOk() }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val payload = mapper.readTree(lastJson).path("payload")
+
+                    payload.path("items").size() shouldBe 5
+                    payload.path("hasNext").asBoolean() shouldBe false
+                    payload.path("nextCursor").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 잘못된 커서 (FR-014)") {
+            `when`("비숫자 커서(cursor=abc)로 검색하면") {
+                then("400 과 함께 success=false·커서 형식 안내 message 를 반환한다") {
+                    seedNumberedMenus(3)
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                        param("cursor", "abc")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.message") { value("커서 형식이 올바르지 않습니다") }
+                    }
+                }
+            }
+
+            `when`("음수 커서(cursor=-1)로 검색하면") {
+                then("400 과 함께 success=false·커서 형식 안내 message 를 반환한다") {
+                    seedNumberedMenus(3)
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "검색메뉴")
+                        param("cursor", "-1")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.message") { value("커서 형식이 올바르지 않습니다") }
+                    }
                 }
             }
         }
