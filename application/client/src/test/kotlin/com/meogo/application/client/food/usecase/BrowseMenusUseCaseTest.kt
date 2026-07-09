@@ -34,8 +34,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     fun useCase(foodRepository: FoodRepository) = BrowseMenusUseCase(
         foodRepository,
         LanguageResolver(),
-        BrowseFakeAvoidedSubstanceProvider(emptySet()),
-        BrowseFakeAvoidanceSubstanceRepository(emptyList()),
+        MenuSummaryAssembler(
+            BrowseFakeAvoidedSubstanceProvider(emptySet()),
+            BrowseFakeAvoidanceSubstanceRepository(emptyList()),
+        ),
     )
 
     fun avoidedRef(code: AvoidanceSubstanceCode, probability: Int) =
@@ -73,8 +75,10 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
     ) = BrowseMenusUseCase(
         BrowseFakeFoodRepository(foods),
         LanguageResolver(),
-        BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
-        BrowseFakeAvoidanceSubstanceRepository(catalog),
+        MenuSummaryAssembler(
+            BrowseFakeAvoidedSubstanceProvider(avoidedCodes),
+            BrowseFakeAvoidanceSubstanceRepository(catalog),
+        ),
     )
 
     given("메뉴 목록 조회 유스케이스 — 최신순 keyset 페이지네이션") {
@@ -291,8 +295,12 @@ class BrowseMenusUseCaseTest : BehaviorSpec({
                         ),
                     ),
                     LanguageResolver(),
-                    BrowseFakeAvoidedSubstanceProvider(setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK)),
-                    catalogRepository,
+                    MenuSummaryAssembler(
+                        BrowseFakeAvoidedSubstanceProvider(
+                            setOf(AvoidanceSubstanceCode.SOY, AvoidanceSubstanceCode.MILK),
+                        ),
+                        catalogRepository,
+                    ),
                 )
 
                 useCase.browse(BrowseMenusInput(cursor = null, lang = null))
@@ -318,6 +326,9 @@ private class BrowseFakeFoodRepository(
         requestedSize = size
         return page.take(size)
     }
+
+    override fun searchMenuPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+        emptyList()
 }
 
 private class BrowseFakeAvoidedSubstanceProvider(
