@@ -21,7 +21,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class MenuListControllerTest : BehaviorSpec() {
+class FoodListControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -33,7 +33,7 @@ class MenuListControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        fun seedMenus(count: Int) {
+        fun seedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_avoidance_substance")
@@ -50,7 +50,7 @@ class MenuListControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedLocalizedMenu() {
+        fun seedLocalizedFood() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_avoidance_substance")
@@ -71,7 +71,7 @@ class MenuListControllerTest : BehaviorSpec() {
         given("메뉴 목록 조회 API — 무한 스크롤 keyset 페이지네이션") {
             `when`("커서 없이 첫 페이지를 조회하면") {
                 then("200 과 함께 최신순 20개·hasNext·nextCursor 를 BaseResponse 봉투로 반환한다") {
-                    seedMenus(25)
+                    seedFoods(25)
 
                     mockMvc.get("/api/v1/foods").andExpect {
                         status { isOk() }
@@ -85,7 +85,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("첫 페이지 nextCursor 로 다음 페이지를 이어 조회하면") {
                 then("두 페이지 사이 foodId 가 겹치지 않는다") {
-                    seedMenus(25)
+                    seedFoods(25)
 
                     val firstJson = mockMvc.get("/api/v1/foods")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
@@ -107,7 +107,7 @@ class MenuListControllerTest : BehaviorSpec() {
         given("메뉴 목록 조회 API — 리치 카드(표시명 지역화·항목 필드 계약)") {
             `when`("lang=en 으로 조회하면 (en 번역 보유 food)") {
                 then("항목 표시명이 영어로 지역화된다") {
-                    seedLocalizedMenu()
+                    seedLocalizedFood()
 
                     mockMvc.get("/api/v1/foods") {
                         param("lang", "en")
@@ -120,7 +120,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("lang 미지정으로 조회하면") {
                 then("항목 표시명이 한국어로 폴백된다") {
-                    seedLocalizedMenu()
+                    seedLocalizedFood()
 
                     mockMvc.get("/api/v1/foods").andExpect {
                         status { isOk() }
@@ -131,7 +131,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("항목을 조회하면") {
                 then("foodId·imageRef·spiciness·overallRiskStatus 필드 계약을 만족한다") {
-                    seedLocalizedMenu()
+                    seedLocalizedFood()
 
                     val json = mockMvc.get("/api/v1/foods")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
@@ -152,7 +152,7 @@ class MenuListControllerTest : BehaviorSpec() {
         given("메뉴 목록 조회 API — 언어 무관 한국어 메뉴명(koreanName)") {
             `when`("lang=en 으로 조회하면(지역화명이 한국어와 다름)") {
                 then("항목 koreanName 에 한국어 원문을 담는다") {
-                    seedLocalizedMenu()
+                    seedLocalizedFood()
 
                     mockMvc.get("/api/v1/foods") {
                         param("lang", "en")
@@ -166,7 +166,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("lang 미지정으로 조회하면(지역화명이 곧 한국어)") {
                 then("항목 koreanName 은 응답에 명시적 null 로 존재한다") {
-                    seedLocalizedMenu()
+                    seedLocalizedFood()
 
                     val json = mockMvc.get("/api/v1/foods")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
@@ -182,7 +182,7 @@ class MenuListControllerTest : BehaviorSpec() {
         given("메뉴 목록 조회 API — 경계·오류 (US3)") {
             `when`("결과가 0건인 커서(최소 id 이하)로 조회하면") {
                 then("200 과 함께 빈 배열·hasNext=false·nextCursor=null 을 BaseResponse 봉투로 반환한다") {
-                    seedMenus(3)
+                    seedFoods(3)
 
                     val json = mockMvc.get("/api/v1/foods") {
                         param("cursor", "1")
@@ -200,7 +200,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("비숫자 커서(cursor=abc)로 조회하면") {
                 then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
-                    seedMenus(3)
+                    seedFoods(3)
 
                     mockMvc.get("/api/v1/foods") {
                         param("cursor", "abc")
@@ -214,7 +214,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("음수 커서(cursor=-1)로 조회하면") {
                 then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
-                    seedMenus(3)
+                    seedFoods(3)
 
                     mockMvc.get("/api/v1/foods") {
                         param("cursor", "-1")
@@ -228,7 +228,7 @@ class MenuListControllerTest : BehaviorSpec() {
 
             `when`("지원 목록에 없는 언어 코드(lang=xx)로 조회하면") {
                 then("400 과 함께 success=false·지원 언어 안내 message 를 BaseResponse 봉투로 반환한다") {
-                    seedMenus(3)
+                    seedFoods(3)
 
                     mockMvc.get("/api/v1/foods") {
                         param("lang", "xx")

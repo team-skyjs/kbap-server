@@ -16,7 +16,7 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         order by f.id desc
         """,
     )
-    fun findMenuPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
+    fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
     @Query(
         """
@@ -37,4 +37,29 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         """,
     )
     fun findByIdInWithAvoidanceSubstances(@Param("ids") ids: List<Long>): List<FoodJpaEntity>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.id from food f
+        where f.status = 'ACTIVE'
+          and (:cursor is null or f.id < :cursor)
+          and (
+            f.korean_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
+            or (
+              :jsonPath is not null
+              and json_unquote(json_extract(f.name_translations, :jsonPath)) collate utf8mb4_unicode_ci
+                like concat('%', :kw, '%') escape '\\'
+            )
+          )
+        order by f.id desc
+        limit :size
+        """,
+    )
+    fun searchFoodPageIds(
+        @Param("kw") keyword: String,
+        @Param("jsonPath") jsonPath: String?,
+        @Param("cursor") cursor: Long?,
+        @Param("size") size: Int,
+    ): List<Long>
 }

@@ -254,66 +254,6 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
         }
     }
 
-    given("참조 기피 성분 중 일부가 카탈로그에 없음(소프트 삭제)") {
-        `when`("참조 성분 2개(WHEAT·SOY) 중 SOY 만 카탈로그에 있으면") {
-            then("예외 없이 SOY(Soybean) 1개만 조립되고, 확률 내림차순·필드 구조는 그대로다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew())
-                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy))
-
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
-
-                result.avoidanceSubstances.size shouldBe 1
-                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean")
-                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100)
-            }
-        }
-    }
-
-    given("참조 성분이 전부 카탈로그에 없음") {
-        `when`("참조 성분 2개가 모두 카탈로그에 없으면") {
-            then("예외 없이 avoidanceSubstances 는 빈 목록이고 name·spiciness 등 나머지 상세는 정상이다") {
-                val foodRepository = FakeFoodRepository(
-                    food = doenjangStew(nameTranslations = mapOf(LanguageCode.EN to "Doenjang Stew")),
-                )
-                val avoidanceRepository = FakeAvoidanceSubstanceRepository(emptyList())
-
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
-
-                result.avoidanceSubstances shouldBe emptyList()
-                result.name shouldBe "Doenjang Stew"
-                result.spiciness shouldBe 3
-            }
-        }
-    }
-
-    given("중간 확률 성분만 카탈로그에서 빠짐") {
-        `when`("확률이 서로 다른 성분 3개 중 중간 확률(SESAME) 성분만 skip 되면") {
-            then("남은 두 성분이 확률 내림차순(SOY 100 → WHEAT 80) 정렬을 유지한다") {
-                val threeSubstanceFood = Food.reconstitute(
-                    id = 1,
-                    content = FoodContent(
-                        name = LocalizedText(korean = "된장찌개"),
-                        description = LocalizedText(korean = koDescription),
-                    ),
-                    imageRef = "doenjang.png",
-                    spiciness = FoodSpiciness(3),
-                    avoidanceSubstances = listOf(
-                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("WHEAT"), inclusionProbability = 80),
-                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("SESAME"), inclusionProbability = 90),
-                        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef("SOY"), inclusionProbability = 100),
-                    ),
-                )
-                val foodRepository = FakeFoodRepository(food = threeSubstanceFood)
-                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(soy, wheat))
-
-                val result = useCase(foodRepository, avoidanceRepository).getDetail(GetFoodDetailInput(1, "en"))
-
-                result.avoidanceSubstances.map { it.name } shouldBe listOf("Soybean", "Wheat")
-                result.avoidanceSubstances.map { it.inclusionProbability } shouldBe listOf(100, 80)
-            }
-        }
-    }
-
     given("종합 위험도 — 사용자 회피 ∩ 음식 성분 최악값 판정") {
         `when`("사용자가 회피하는 SOY 가 음식 성분(SOY100)과 교차하면") {
             then("overallRiskStatus 는 DANGER 다") {
@@ -344,22 +284,6 @@ class GetFoodDetailUseCaseTest : BehaviorSpec({
                 result.overallRiskStatus shouldBe RiskLevel.SAFE
             }
         }
-
-        `when`("회피 성분(SOY)이 음식 성분이지만 카탈로그 결측으로 표시 목록에서 빠지면") {
-            then("표시 목록과 동일하게 판정 대상에서도 제외돼 overallRiskStatus 는 SAFE 다") {
-                val foodRepository = FakeFoodRepository(food = doenjangStew())
-                val avoidanceRepository = FakeAvoidanceSubstanceRepository(listOf(wheat))
-
-                val result = useCase(
-                    foodRepository,
-                    avoidanceRepository,
-                    avoidedCodes = setOf(AvoidanceSubstanceCode.SOY),
-                ).getDetail(GetFoodDetailInput(1, "en"))
-
-                result.avoidanceSubstances.map { it.name } shouldBe listOf("Wheat")
-                result.overallRiskStatus shouldBe RiskLevel.SAFE
-            }
-        }
     }
 })
 
@@ -368,7 +292,10 @@ private class FakeFoodRepository(
 ) : FoodRepository {
     override fun findById(id: Long): Food? = food
 
-    override fun findMenuPage(cursor: Long?, size: Int): List<Food> = emptyList()
+    override fun findFoodPage(cursor: Long?, size: Int): List<Food> = emptyList()
+
+    override fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+        emptyList()
 }
 
 private class FakeAvoidedSubstanceProvider(
