@@ -8,7 +8,6 @@ import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.FoodErrorCode
 import com.meogo.core.food.FoodException
 import com.meogo.core.food.FoodRepository
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,20 +32,9 @@ class GetFoodDetailUseCase(
         val foodName = food.displayName(lang)
         val description = food.description(lang)
 
-        val (resolvable, missing) = codedSubstances.partition { (_, code) -> code in catalog }
-
-        missing.forEach { (_, code) ->
-            log.warn(
-                "avoidance substance skipped (catalog missing / soft-deleted): foodId={} substanceCode={}",
-                food.id,
-                code,
-            )
-        }
-
-        val avoidanceSubstances = resolvable.map { (substance, code) ->
-            val catalogEntry = catalog.getValue(code)
+        val avoidanceSubstances = codedSubstances.map { (substance, code) ->
             GetFoodDetailResult.AvoidanceSubstanceView(
-                name = catalogEntry.displayName(lang),
+                name = catalog.getValue(code).displayName(lang),
                 iconRef = null,
                 inclusionProbability = substance.inclusionProbability,
                 riskStatus = substance.riskLevel(),
@@ -54,7 +42,6 @@ class GetFoodDetailUseCase(
         }
 
         val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes().map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
-        val overallRiskStatus = food.overallRisk(userAvoidedCodes)
 
         return GetFoodDetailResult(
             name = foodName,
@@ -62,12 +49,8 @@ class GetFoodDetailUseCase(
             imageRef = food.imageRef,
             description = description,
             spiciness = food.spiciness.value,
-            overallRiskStatus = overallRiskStatus,
+            overallRiskStatus = food.overallRisk(userAvoidedCodes),
             avoidanceSubstances = avoidanceSubstances,
         )
-    }
-
-    companion object {
-        private val log = LoggerFactory.getLogger(GetFoodDetailUseCase::class.java)
     }
 }
