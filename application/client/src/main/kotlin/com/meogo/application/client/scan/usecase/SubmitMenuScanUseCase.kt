@@ -50,46 +50,35 @@ class SubmitMenuScanUseCase(
         val keys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val interpreted = interpretTargets(input, keys)
 
-        val matches = mutableListOf<MenuItemMatch>()
-        val namesToEnqueue = mutableListOf<String>()
-
-        for (index in input.items.indices) {
-            val key = keys[index]
-            if (key.isBlank()) {
-                matches.add(MenuItemMatch.NotFood)
-                continue
-            }
-
-            val lookupKey: String
-            val nameForQueue: String
-            if (interpreted == null) {
-                lookupKey = key
-                nameForQueue = input.items[index].rawMenuName
-            } else when (val interpretedName = interpreted.getValue(index)) {
-                is InterpretedName.StandardName -> {
-                    lookupKey = KoreanMenuNameNormalizer.matchKey(interpretedName.korean)
-                    nameForQueue = interpretedName.korean
-                }
-                InterpretedName.NotFood -> {
-                    matches.add(MenuItemMatch.NotFood)
-                    continue
-                }
-            }
-
-            val foodId = foodRepository.findFoodIdByKoreanMatchKey(lookupKey)
-            if (foodId == null) {
-                matches.add(MenuItemMatch.Pending)
-                namesToEnqueue.add(nameForQueue)
-            } else {
-                matches.add(MenuItemMatch.Matched(foodId))
+        val resolutions = input.items.mapIndexed { index, item ->
+            when {
+                keys[index].isBlank() -> Resolution(MenuItemMatch.NotFood)
+                interpreted == null -> matchOrPending(keys[index], item.rawMenuName)
+                else -> resolveInterpreted(interpreted.getValue(index))
             }
         }
 
-        for (name in namesToEnqueue.distinct()) {
-            pendingMenuRepository.enqueue(name)
-        }
-        return matches
+        resolutions.mapNotNull { it.nameToEnqueue }.distinct().forEach(pendingMenuRepository::enqueue)
+        return resolutions.map { it.match }
     }
+
+    private fun resolveInterpreted(interpretedName: InterpretedName): Resolution =
+        when (interpretedName) {
+            is InterpretedName.StandardName ->
+                matchOrPending(KoreanMenuNameNormalizer.matchKey(interpretedName.korean), interpretedName.korean)
+            InterpretedName.NotFood -> Resolution(MenuItemMatch.NotFood)
+        }
+
+    private fun matchOrPending(lookupKey: String, enqueueName: String): Resolution {
+        val foodId = foodRepository.findFoodIdByKoreanMatchKey(lookupKey)
+        return if (foodId != null) {
+            Resolution(MenuItemMatch.Matched(foodId))
+        } else {
+            Resolution(MenuItemMatch.Pending, nameToEnqueue = enqueueName)
+        }
+    }
+
+    private data class Resolution(val match: MenuItemMatch, val nameToEnqueue: String? = null)
 
     private fun interpretTargets(
         input: SubmitMenuScanInput,
