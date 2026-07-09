@@ -116,9 +116,9 @@ description: "Task list for 검색어 메뉴 조회 (다국어 부분 일치, no
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T022 [P] `./gradlew :app:api:test --tests "com.meogo.app.api.architecture.ModuleBoundaryTest"` — 의존 방향·경계 무손상 확인(네이티브 쿼리·assembler 추가 후에도 도메인 ORM-free·app→persistence 금지 유지).
-- [ ] T023 [P] `./gradlew build` 전체 통과 + 로컬 docker MySQL 수동 스모크 — `curl "/api/v1/foods/search?keyword=김치"`, `?keyword=bibim&lang=en`(번역명·대소문자), `?keyword=`(빈 → 400), nextCursor 로 연속(quickstart.md).
-- [ ] T024 Swagger UI "음식 검색" 태그·응답 스키마 노출 확인, `contracts/menu-search-api.md` 불변식 7종과 대조.
+- [X] T022 [P] `./gradlew :app:api:test --tests "com.meogo.app.api.architecture.ModuleBoundaryTest"` — 의존 방향·경계 무손상 확인(네이티브 쿼리·assembler 추가 후에도 도메인 ORM-free·app→persistence 금지 유지).
+- [X] T023 [P] `./gradlew build` 전체 통과 + 로컬 docker MySQL 수동 스모크 — `curl "/api/v1/foods/search?keyword=김치"`, `?keyword=bibim&lang=en`(번역명·대소문자), `?keyword=`(빈 → 400), nextCursor 로 연속(quickstart.md).
+- [X] T024 Swagger UI "음식 검색" 태그·응답 스키마 노출 확인, `contracts/menu-search-api.md` 불변식 7종과 대조.
 
 ---
 

@@ -2,16 +2,14 @@ package com.meogo.app.api.food
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.meogo.core.kernel.lang.LanguageErrorCode
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
-import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
-import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -100,6 +98,19 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
         fun messageOf(json: String): String = mapper.readTree(json).path("message").asText()
 
+        fun seedAvoidanceSubstance(foodId: Long, substanceCode: String, inclusionPercent: Int) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT INTO food_avoidance_substance " +
+                            "(food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
+                            "VALUES ($foodId, '$substanceCode', $inclusionPercent, " +
+                            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    )
+                }
+            }
+        }
+
         given("메뉴 검색 API — 검색어 부분 일치") {
             `when`("한국어명 조각(keyword=김치)으로 검색하면") {
                 then("200 과 함께 매칭 메뉴만 BaseResponse 봉투로 반환한다") {
@@ -163,12 +174,44 @@ class MenuSearchControllerTest : BehaviorSpec() {
 
                     item.path("foodId").isNumber shouldBe true
                     item.path("foodId").asLong() shouldBe 601L
-                    item.has("koreanName") shouldBe true
+                    item.get("koreanName").isNull shouldBe true
                     item.path("imageRef").asText() shouldBe "kimchi.png"
-                    item.path("spiciness").isInt shouldBe true
-                    item.path("spiciness").asInt() shouldBeInRange 0..10
-                    item.path("overallRiskStatus").asText() shouldBeIn
-                        listOf("SAFE", "CAUTION", "DANGER", "UNKNOWN")
+                    item.path("spiciness").asInt() shouldBe 4
+                    item.path("overallRiskStatus").asText() shouldBe "SAFE"
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 회피 성분 종합 위험도 실 스택 계산 (FR-009)") {
+            `when`("사용자가 회피하는 SOY 를 100% 포함하는 메뉴를 검색하면") {
+                then("실 스택(성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
+                    seedSearchableMenus()
+                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("foodId").asLong() shouldBe 601L
+                    item.path("overallRiskStatus").asText() shouldBe "DANGER"
+                }
+            }
+
+            `when`("성분이 없는 메뉴를 검색하면") {
+                then("위험도는 SAFE 다") {
+                    seedSearchableMenus()
+                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "된장찌개")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("foodId").asLong() shouldBe 603L
+                    item.path("overallRiskStatus").asText() shouldBe "SAFE"
                 }
             }
         }
@@ -257,8 +300,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(false) }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
-                    messageOf(json) shouldContain "지원하지 않는 언어 코드입니다"
-                    messageOf(json) shouldContain "zh-Hans"
+                    messageOf(json) shouldBe LanguageErrorCode.UNSUPPORTED_LANGUAGE.message
                 }
             }
 
@@ -274,7 +316,7 @@ class MenuSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(false) }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
-                    messageOf(json) shouldContain "지원하지 않는 언어 코드입니다"
+                    messageOf(json) shouldBe LanguageErrorCode.UNSUPPORTED_LANGUAGE.message
                 }
             }
         }
