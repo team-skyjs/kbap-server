@@ -16,7 +16,7 @@
 | 음식 상세 조회 | `:core:food` | `Food`, `FoodContent`(음식명·설명 + 대상 언어 번역 맵·폴백), `FoodAvoidanceSubstance`, `FoodRepository`를 제공한다. 음식명/설명 번역은 `FoodContent`에 포함되어 음식 로드와 함께 온다(별도 조회 포트 없음). |
 | 음식 상세 조회 | `:core:avoidance` | `AvoidanceSubstance`, `AvoidanceSubstanceCode`, `AvoidanceSubstanceRepository`를 제공한다. 성분 코드로 표시명 카탈로그를 조회해 요청 언어 표시명(ko 폴백)을 해석한다. |
 | 음식 상세 조회 | `:core:kernel` | `LanguageCode`, `RiskLevel` 같은 공통 타입을 제공한다. 언어 코드와 위험도 값을 API/유스케이스/도메인 사이에서 공유한다. |
-| 메뉴 스캔 제출 | `:core:scan` | `MenuScan`, `ScannedMenuItem`, `BoundingBox`, `MenuScanRepository`를 제공한다. 스캔 항목 개수, `itemId` 중복 같은 스캔 도메인 규칙을 담당한다. |
+| 메뉴 스캔 제출 | `:core:kernel` · `:core:food` | 스캔은 상태를 갖지 않아 전용 도메인 모듈이 없다. 정규화기·정제 port 는 kernel, 매칭·완성 상태·위험도는 `Food` 가 소유한다. |
 | 메뉴 스캔 제출 | `:core:kernel` | `RiskLevel` 같은 공통 타입을 제공한다. 스캔 항목 위험도 값에 사용된다. |
 
 ## 공통 요청 구조
@@ -108,39 +108,50 @@ sequenceDiagram
     actor Client
     participant Controller as MenuScanController<br/>:app:api
     participant UseCase as MenuScanUseCase<br/>:application:client
-    participant Kernel as Kernel Types<br/>:core:kernel
-    participant ScanCore as Scan Aggregate / Repository Port<br/>:core:scan
-    participant Persistence as MenuScanRepositoryAdapter<br/>:infra:persistence
-    participant DB as Scan DB
+    participant Kernel as KoreanMenuNameNormalizer<br/>:core:kernel
+    participant Llm as UpstageScannedNameInterpreter<br/>:infra:llm
+    participant Persistence as FoodRepositoryAdapter<br/>:infra:persistence
+    participant DB as food
     participant Error as GlobalExceptionHandler<br/>:app:api
 
     Client->>Controller: POST /api/v1/menu-scans
-    alt 요청 검증 실패
+    alt 요청 검증 실패 (idx 중복·blank·개수 초과)
         Controller-->>Error: validation error
         Error-->>Client: 400 실패 응답
     else 요청 정상
         Controller->>UseCase: MenuScanInput
-        UseCase->>Kernel: RiskLevel 사용
-        UseCase->>UseCase: 항목별 mock 위험도 판정
-        UseCase->>ScanCore: MenuScan aggregate 생성<br/>ScannedMenuItem, BoundingBox 포함
-        alt 스캔 규칙 실패
-            ScanCore-->>Error: IllegalArgumentException
-            Error-->>Client: 400 실패 응답
-        else 스캔 생성 성공
-            UseCase->>ScanCore: 저장 요청
-            ScanCore->>Persistence: save(menuScan)
-            Persistence->>DB: menu_scan + scanned_menu_item 저장
-            DB-->>Persistence: 저장된 스캔
-            Persistence-->>UseCase: MenuScan domain
-            UseCase-->>Controller: MenuScanResult
-            Controller-->>Client: 200 MenuScanResponse
+        UseCase->>Kernel: matchKey(rawMenuName)
+        Note over UseCase: 한글 0자 = 메뉴 아님 → 결과에서 제외
+
+        alt 정제 대상 있음
+            UseCase->>Llm: interpret(texts) — 스캔당 동기 1콜
+            alt 호출 실패·타임아웃·개수 불일치
+                Llm-->>UseCase: 예외
+                Note over UseCase: degraded=true<br/>정규화 exact 매치 폴백<br/>새 음식 생성 안 함
+            else 정제 성공
+                Llm-->>UseCase: StandardName | NotFood
+            end
         end
+
+        UseCase->>Persistence: findByKoreanMatchKeys(keys) — 1쿼리
+        Persistence->>DB: fetch join (완성 상태 무관)
+        DB-->>UseCase: 아는 음식들
+
+        opt 미등록 표준명 있음
+            UseCase->>Persistence: createIncomplete(names) — 1회
+            Persistence->>DB: 다중행 upsert + IN 재조회
+            DB-->>UseCase: content_status=INCOMPLETE 음식들
+        end
+
+        Note over UseCase: matched = food.isReady()<br/>riskLevel = food.overallRisk(회피코드)<br/>(미완성이면 UNKNOWN)
+        UseCase-->>Controller: MenuScanResult
+        Controller-->>Client: 200 MenuScanResponse
     end
 ```
 
-메뉴 스캔 제출은 음식 상세 DB를 조회해서 판정하는 구조가 아니다. 클라이언트가 보낸 메뉴 항목을 기준으로 mock 판정 결과를 만들고, 그 결과를 스캔 이력으로 저장한다.
+메뉴 스캔은 **아무것도 저장하지 않는다** — 스캔 이력 테이블(`menu_scan`·`scanned_menu_item`)은 제거됐다. 유일한 쓰기는 처음 보는 메뉴를 `food` 에 미완성(`content_status=INCOMPLETE`)으로 등록하는 것이며, 이 음식은 조사 배치가 레시피·설명·번역을 채워 `READY` 로 전이시키기 전까지 목록·검색·상세에 노출되지 않는다.
 
 | 데이터 | 저장 위치 | 사용 시점 |
 | --- | --- | --- |
-| 스캔 단위 | `menu_scan` | 메뉴 스캔 제출 시 저장 |
-| 스캔 항목, 위치, 위험도 스냅샷 | `scanned_menu_item` | 메뉴 스캔 제출 시 저장 |
+| 처음 본 메뉴 | `food` (`content_status=INCOMPLETE`) | 정제된 표준명이 DB 에 없을 때 |
+| 스캔 이력 | 저장하지 않음 | — |

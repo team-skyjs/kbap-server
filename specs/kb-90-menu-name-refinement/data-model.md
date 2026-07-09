@@ -35,7 +35,7 @@
 
 ### 스캔 관련 엔티티 — **없음**
 
-`MenuScan`·`ScannedMenuItem`·`ScanStatus`·`BoundingBox`·`MenuItemAssessment`·`MenuScanRepository`는 제거됐다. `:core:scan`은 도메인 타입이 하나도 없는 **deferred placeholder**가 됐다(`:core:review`와 동일). 스캔은 상태를 갖지 않고 요청당 판정만 하므로 도메인 모델이 필요 없다.
+`MenuScan`·`ScannedMenuItem`·`ScanStatus`·`BoundingBox`·`MenuItemAssessment`·`MenuScanRepository`는 제거됐다. **`:core:scan` 모듈 자체를 삭제했다.** 스캔은 상태를 갖지 않고 요청당 판정만 하므로 도메인 모델이 필요 없다 — 응답의 `matched`·`foodId` 는 확정된 `Food` 에서 파생한다.
 
 ## 영속 (`:infra:persistence`)
 

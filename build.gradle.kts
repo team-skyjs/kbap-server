@@ -31,7 +31,6 @@ dependencies {
     jacocoAggregation(project(":application:client"))
     jacocoAggregation(project(":app:api"))
     jacocoAggregation(project(":infra:persistence"))
-    jacocoAggregation(project(":core:scan"))
     jacocoAggregation(project(":core:food"))
     jacocoAggregation(project(":core:member"))
     jacocoAggregation(project(":core:avoidance"))

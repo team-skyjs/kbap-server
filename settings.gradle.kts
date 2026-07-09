@@ -23,7 +23,6 @@ include(
     ":core:kernel",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
     ":core:food",
     ":core:member",
-    ":core:scan",
     ":core:avoidance",
     ":core:research",
     ":core:review",

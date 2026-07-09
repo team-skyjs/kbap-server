@@ -66,8 +66,8 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ## Phase 12: 복잡도 정리 (ponytail)
 
-- [X] `MenuItemMatch` 제거 — `Food` 에서 전부 파생. `:core:scan` 은 deferred placeholder 로
-- [X] `:core:scan` 죽은 의존 제거(`application:client`·`infra:persistence`)
+- [X] `MenuItemMatch` 제거 — `Food` 에서 전부 파생
+- [X] **`:core:scan` 모듈 삭제** — settings·jacoco·ArchUnit 도메인 목록·죽은 의존 2곳 정리
 - [X] LLM 어댑터 정리 — 중복 빈 목록 가드·조건 분리 함수·caller 목록 탐색 제거
 
 ## Phase 8: 검증

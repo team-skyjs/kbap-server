@@ -23,7 +23,6 @@ class ModuleBoundaryTest : BehaviorSpec({
         listOf(
             "com.meogo.core.food..",
             "com.meogo.core.member..",
-            "com.meogo.core.scan..",
             "com.meogo.core.avoidance..",
             "com.meogo.core.research..",
             "com.meogo.core.review..",

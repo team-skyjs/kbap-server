@@ -31,7 +31,7 @@
 ## Constitution Check
 
 - **I. Test-First**: 모든 슬라이스를 실패 테스트 우선으로 구현. 도메인 단위 → persistence Testcontainers → web MockMvc. ✅
-- **II. Bounded Contexts**: 정규화기·LLM port는 `:core:kernel`(공유 vocabulary). 매칭 결과 값타입은 `:core:scan`. food 완성 상태는 `:core:food`가 소유. 컨텍스트 조합은 `:application:client`에서만. ✅
+- **II. Bounded Contexts**: 정규화기·LLM port는 `:core:kernel`(공유 vocabulary). 스캔은 상태가 없어 전용 도메인 모듈이 없다(`:core:scan` 삭제). 매칭 결과·완성 상태는 `:core:food`가 소유. 컨텍스트 조합은 `:application:client`에서만. ✅
 - **III. Layered Dependency Direction**: LLM은 `:core:kernel` port 인터페이스, `:infra:llm` 어댑터가 구현, `:app:api`가 `runtimeOnly` 조립. application은 port로만 사용. ✅
 - **IV. Persistence Encapsulation**: JPA는 `:infra:persistence`에만. 도메인은 ORM-free port(`FoodRepository`). ✅
 - **V. Domain Content Language Policy**: 매칭 키는 한국어 원문(`food.korean_name`) 기준. 미완성 음식은 번역이 없으므로 serving gate로 노출을 막는다. ✅
@@ -107,7 +107,7 @@ app/api/.../scan/{MenuScanRequest,MenuScanResponse,MenuScanApi}.kt
 app/api/src/main/resources/db/migration/             # content_status, korean_match_key, menu_scan DROP
 ```
 
-**Structure Decision**: 기존 계층을 그대로 사용. 스캔 애그리거트·영속은 전부 제거됐고 `:core:scan`엔 매칭 결과 값타입만 남는다. 경계는 `ModuleBoundaryTest`(ArchUnit)로 강제.
+**Structure Decision**: 기존 계층을 그대로 사용. 스캔 애그리거트·영속이 전부 제거되고 매칭 결과도 `Food` 에서 파생되므로 `:core:scan` 모듈 자체를 삭제했다. 경계는 `ModuleBoundaryTest`(ArchUnit)로 강제.
 
 ## Complexity Tracking
 
