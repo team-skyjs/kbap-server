@@ -57,7 +57,7 @@ interface MenuScanApi {
             required = true,
             content = [
                 Content(
-                    schema = Schema(implementation = SubmitMenuScanRequest::class),
+                    schema = Schema(implementation = MenuScanRequest::class),
                     examples = [
                         ExampleObject(
                             name = "서로 다른 메뉴 4개",
@@ -89,6 +89,6 @@ interface MenuScanApi {
                 ),
             ],
         )
-        request: SubmitMenuScanRequest,
-    ): ResponseEntity<BaseResponse<SubmitMenuScanResponse>>
+        request: MenuScanRequest,
+    ): ResponseEntity<BaseResponse<MenuScanResponse>>
 }

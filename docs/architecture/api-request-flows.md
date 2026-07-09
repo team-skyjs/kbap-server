@@ -107,7 +107,7 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant Controller as MenuScanController<br/>:app:api
-    participant UseCase as SubmitMenuScanUseCase<br/>:application:client
+    participant UseCase as MenuScanUseCase<br/>:application:client
     participant Kernel as Kernel Types<br/>:core:kernel
     participant ScanCore as Scan Aggregate / Repository Port<br/>:core:scan
     participant Persistence as MenuScanRepositoryAdapter<br/>:infra:persistence
@@ -119,7 +119,7 @@ sequenceDiagram
         Controller-->>Error: validation error
         Error-->>Client: 400 실패 응답
     else 요청 정상
-        Controller->>UseCase: SubmitMenuScanInput
+        Controller->>UseCase: MenuScanInput
         UseCase->>Kernel: RiskLevel 사용
         UseCase->>UseCase: 항목별 mock 위험도 판정
         UseCase->>ScanCore: MenuScan aggregate 생성<br/>ScannedMenuItem, BoundingBox 포함
@@ -132,8 +132,8 @@ sequenceDiagram
             Persistence->>DB: menu_scan + scanned_menu_item 저장
             DB-->>Persistence: 저장된 스캔
             Persistence-->>UseCase: MenuScan domain
-            UseCase-->>Controller: SubmitMenuScanResult
-            Controller-->>Client: 200 SubmitMenuScanResponse
+            UseCase-->>Controller: MenuScanResult
+            Controller-->>Client: 200 MenuScanResponse
         end
     end
 ```

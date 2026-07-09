@@ -99,12 +99,12 @@ infra/llm/.../config/LlmConfiguration.kt             # @ConditionalOnProperty(up
 
 infra/persistence/.../food/FoodJpaEntity.kt          # content_status, korean_match_key(생성 컬럼)
 infra/persistence/.../food/FoodJpaRepository.kt      # matchKey IN 배치 fetch join, 목록 READY 필터
-infra/persistence/.../food/FoodRepositoryAdapter.kt  # 동음이의 최소 id, createIncomplete get-or-create, 상세 gate
+infra/persistence/.../food/FoodRepositoryAdapter.kt  # 동음이의 최소 id, createIncomplete 다중행 upsert, 상세 gate
 
-application/client/.../food/usecase/FoodRiskEvaluator.kt    # Browse·Scan 공용 위험도 산출
-application/client/.../scan/usecase/SubmitMenuScanUseCase.kt # 오케스트레이션 + 폴백
+application/client/.../scan/usecase/MenuScanUseCase.kt      # 오케스트레이션 + 폴백
+application/client/.../scan/dto/{MenuScanInput,MenuScanResult}.kt
 
-app/api/.../scan/{SubmitMenuScanRequest,SubmitMenuScanResponse,MenuScanApi}.kt
+app/api/.../scan/{MenuScanRequest,MenuScanResponse,MenuScanApi}.kt
 app/api/src/main/resources/db/migration/             # content_status, korean_match_key, menu_scan DROP
 ```
 

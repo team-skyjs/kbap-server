@@ -1,6 +1,6 @@
 package com.meogo.application.client.scan.dto
 
-data class SubmitMenuScanResult(
+data class MenuScanResult(
     val items: List<ItemRiskResult>,
     val degraded: Boolean,
 ) {

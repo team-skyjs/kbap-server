@@ -44,7 +44,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ## Phase 5: 오케스트레이션 · 폴백
 
-- [X] `SubmitMenuScanUseCase` — 정규화 게이트 → 전 항목 LLM 1콜 → 배치 매칭 → 미완성 등록 → 위험도
+- [X] `MenuScanUseCase` — 정규화 게이트 → 전 항목 LLM 1콜 → 배치 매칭 → 미완성 등록 → 위험도
 - [X] 한 스캔 안에서 같은 표준명은 미완성 음식 1회만 생성(이름 집합으로 dedup)
 - [X] 폴백 — interpreter 미구성·예외·타임아웃·**응답 개수 불일치** 시 정규화 exact 매치
 - [X] **폴백은 미완성 음식을 만들지 않는다**(food 테이블 오염 방지)
@@ -93,7 +93,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 - [X] 항목 식별자 `itemId` → `idx`
 - [X] `matchStatus`(문자열) → `matched`(불리언). `foodId` 유무와 구분됨을 문서화
 - [X] `lang` 쿼리 파라미터 제거 — 한국어 고정, 회원 언어 설정 연동은 TODO
-- [X] `SubmitMenuScanUseCase` 이름 정리 — `confirmedByInterpreter` 등으로 폴백 규칙을 이름에 노출
+- [X] `MenuScanUseCase` 이름 정리 — `confirmedByInterpreter` 등으로 폴백 규칙을 이름에 노출
 
 ## 후속 (이 작업 범위 밖)
 

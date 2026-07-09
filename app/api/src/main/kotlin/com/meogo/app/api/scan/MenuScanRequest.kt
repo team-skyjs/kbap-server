@@ -2,7 +2,7 @@ package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.meogo.application.client.scan.dto.MenuScanItemInput
-import com.meogo.application.client.scan.dto.SubmitMenuScanInput
+import com.meogo.application.client.scan.dto.MenuScanInput
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue
@@ -12,7 +12,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 
 @Schema(description = "메뉴 스캔 제출 요청 — 스캔으로 인식한 메뉴 항목 배열을 담는다.")
-data class SubmitMenuScanRequest(
+data class MenuScanRequest(
     @field:NotEmpty(message = "items 는 최소 1개여야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(
@@ -21,8 +21,8 @@ data class SubmitMenuScanRequest(
     )
     val items: List<@Valid MenuScanItemRequest> = emptyList(),
 ) {
-    fun toInput(): SubmitMenuScanInput =
-        SubmitMenuScanInput(items = items.map { it.toInput() })
+    fun toInput(): MenuScanInput =
+        MenuScanInput(items = items.map { it.toInput() })
 
     @get:JsonIgnore
     @get:AssertTrue(message = "idx 는 요청 안에서 중복될 수 없습니다")

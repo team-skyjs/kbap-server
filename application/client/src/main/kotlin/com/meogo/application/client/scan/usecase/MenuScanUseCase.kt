@@ -1,8 +1,8 @@
 package com.meogo.application.client.scan.usecase
 
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
-import com.meogo.application.client.scan.dto.SubmitMenuScanInput
-import com.meogo.application.client.scan.dto.SubmitMenuScanResult
+import com.meogo.application.client.scan.dto.MenuScanInput
+import com.meogo.application.client.scan.dto.MenuScanResult
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
 import com.meogo.core.food.FoodRepository
@@ -23,7 +23,7 @@ class MenuScanUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scan(input: SubmitMenuScanInput): SubmitMenuScanResult {
+    fun scan(input: MenuScanInput): MenuScanResult {
         val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val refinement = refineMenuNames(input, matchKeys)
         val resolvedItems = resolveFoods(input, matchKeys, refinement.byItemIndex)
@@ -36,7 +36,7 @@ class MenuScanUseCase(
 
         val items = input.items.mapIndexedNotNull { index, item ->
             val resolved = resolvedItems[index] ?: return@mapIndexedNotNull null
-            SubmitMenuScanResult.ItemRiskResult(
+            MenuScanResult.ItemRiskResult(
                 idx = item.idx,
                 riskLevel = riskLevelOf(resolved, avoidedCodes).name,
                 matched = resolved.match is MenuItemMatch.Matched,
@@ -46,7 +46,7 @@ class MenuScanUseCase(
             )
         }
 
-        return SubmitMenuScanResult(items = items, degraded = refinement.degraded)
+        return MenuScanResult(items = items, degraded = refinement.degraded)
     }
 
     private fun riskLevelOf(resolved: ResolvedItem, avoidedCodes: Set<AvoidanceSubstanceCodeRef>): RiskLevel =
@@ -59,7 +59,7 @@ class MenuScanUseCase(
         }
 
     private fun resolveFoods(
-        input: SubmitMenuScanInput,
+        input: MenuScanInput,
         matchKeys: List<String>,
         refinedNames: Map<Int, InterpretedName>?,
     ): List<ResolvedItem?> {
@@ -116,7 +116,7 @@ class MenuScanUseCase(
         }
     }
 
-    private fun refineMenuNames(input: SubmitMenuScanInput, matchKeys: List<String>): Refinement {
+    private fun refineMenuNames(input: MenuScanInput, matchKeys: List<String>): Refinement {
         val refinableIndexes = matchKeys.indices.filter { matchKeys[it].isNotBlank() }
         if (refinableIndexes.isEmpty()) return Refinement(byItemIndex = null, degraded = false)
 

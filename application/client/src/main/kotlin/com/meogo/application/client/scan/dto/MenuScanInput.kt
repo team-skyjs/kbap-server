@@ -1,6 +1,6 @@
 package com.meogo.application.client.scan.dto
 
-data class SubmitMenuScanInput(
+data class MenuScanInput(
     val items: List<MenuScanItemInput>,
 )
 
