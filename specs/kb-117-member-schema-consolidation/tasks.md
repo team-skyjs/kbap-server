@@ -101,8 +101,8 @@ Gradle 멀티모듈 — `core/kernel`·`core/member`·`infra/persistence`·`app/
 
 **Purpose**: 전체 회귀·경계 검증·산출물 정리
 
-- [ ] T013 전체 빌드 회귀: `./gradlew build` — ArchUnit `ModuleBoundaryTest`(도메인 Spring/ORM-free·계층 방향) 포함 전 모듈 Green, Kotlin 주석 금지·BehaviorSpec 한국어 규약 위반 없는지 훑기
-- [ ] T014 quickstart.md 검증 절차 완주 확인 + 태스크/논리 단위 커밋 정리(작업 단위마다 커밋 — 헌법 Workflow)
+- [X] T013 전체 빌드 회귀: `./gradlew build` — ArchUnit `ModuleBoundaryTest`(도메인 Spring/ORM-free·계층 방향) 포함 전 모듈 Green, Kotlin 주석 금지·BehaviorSpec 한국어 규약 위반 없는지 훑기
+- [X] T014 quickstart.md 검증 절차 완주 확인 + 태스크/논리 단위 커밋 정리(작업 단위마다 커밋 — 헌법 Workflow)
 
 ---
 
