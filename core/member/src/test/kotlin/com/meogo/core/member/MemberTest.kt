@@ -25,7 +25,7 @@ class MemberTest : BehaviorSpec({
         `when`("새 프로필로 갱신하면") {
             then("새 인스턴스에 값이 반영되고 원본은 유지된다") {
                 val member = Member.signUp(googleIdentity())
-                val newProfile = MemberProfile(
+                val newProfile = MemberProfile.of(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
                     spicinessPreference = 7,

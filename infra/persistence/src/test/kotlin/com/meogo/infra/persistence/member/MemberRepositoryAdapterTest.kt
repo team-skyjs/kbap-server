@@ -111,7 +111,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
         given("프로필 값이 채워진 회원 저장") {
             `when`("기피성분·맵기·국가·언어·닉네임을 담아 저장하면") {
                 then("findById 재조회 시 profile JSON 값이 그대로 복원된다") {
-                    val profile = MemberProfile(
+                    val profile = MemberProfile.of(
                         nickname = "머고",
                         avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("SOYBEAN")),
                         spicinessPreference = 7,
@@ -169,7 +169,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
             `when`("빈 프로필 회원의 프로필을 채우고 온보딩을 완료해 update 하면") {
                 then("findById 재조회 시 갱신 값이 그대로 반환된다") {
                     val saved = adapter.saveNew(newMember(googleIdentity(sub = "update-sub")))
-                    val filled = MemberProfile(
+                    val filled = MemberProfile.of(
                         nickname = "머고",
                         avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
                         spicinessPreference = 4,

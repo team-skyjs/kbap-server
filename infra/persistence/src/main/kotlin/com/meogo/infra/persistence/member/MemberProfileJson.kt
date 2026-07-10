@@ -12,7 +12,7 @@ data class MemberProfileJson(
     val appLanguage: String? = null,
 ) {
     fun toDomain(nickname: String?): MemberProfile =
-        MemberProfile(
+        MemberProfile.of(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
             spicinessPreference = spicinessPreference,
