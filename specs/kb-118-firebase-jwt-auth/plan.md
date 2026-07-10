@@ -6,7 +6,7 @@
 
 ## Summary
 
-클라이언트가 제출한 Firebase ID 토큰을 firebase-admin `verifyIdToken` 으로 검증(서명·iss·aud·exp)하고, 클레임에서 (provider, **플랫폼 원본 sub**, email) 을 추출해 기존 `MemberIdentityResolver.resolve` 로 로그인/가입 처리한다. 성공 시 자체 JWT 2종을 발급해 **응답 본문**으로 내려준다(쿠키 결정은 모바일 클라이언트 확인 후 개정) — access(30분, stateless, 클레임은 회원 PK 하나뿐)·refresh(14일, `jti` 를 **Redis 에 TTL 저장**해 폐기 가능). 재발급은 **rotation** — access·refresh 둘 다 갱신해 refresh 유효기간을 연장하고 구 refresh 는 즉시 폐기하며, refresh 만료 시엔 **강제 로그아웃**(세션 폐기 + 쿠키 제거, 재로그인 필수). `POST /api/v1/auth/{login,refresh,logout}` 3개 엔드포인트. 모듈 배치는 사용자 결정(속도 우선): firebase-admin·jjwt·유스케이스는 `:application:client` 의 `auth` 패키지(헌법 III 의식적 완화 — 아래 Complexity Tracking), `RefreshTokenStore` port 는 `:core:member`, Redis 어댑터·의존성은 `:infra:persistence`(기존 패턴 그대로). Redis 인프라 도입(docker-compose·프로필 설정) 포함, Flyway 마이그레이션 없음.
+클라이언트가 제출한 Firebase ID 토큰을 firebase-admin `verifyIdToken` 으로 검증(서명·iss·aud·exp)하고, 클레임에서 (provider, **플랫폼 원본 sub**, email) 을 추출해 로그인/가입 처리한다 — 신원 해소(조회→가입→중복 폴백)는 `LoginUseCase` 가 직접 수행(도메인 `MemberIdentityResolver` 는 소비자가 로그인뿐이라 인라인 후 삭제, 사용자 결정 2026-07-11). 성공 시 자체 JWT 2종을 발급해 **응답 본문**으로 내려준다(쿠키 결정은 모바일 클라이언트 확인 후 개정) — access(30분, stateless, 클레임은 회원 PK 하나뿐)·refresh(14일, `jti` 를 **Redis 에 TTL 저장**해 폐기 가능). 재발급은 **rotation** — access·refresh 둘 다 갱신해 refresh 유효기간을 연장하고 구 refresh 는 즉시 폐기하며, refresh 만료 시엔 **강제 로그아웃**(세션 폐기 + 쿠키 제거, 재로그인 필수). `POST /api/v1/auth/{login,refresh,logout}` 3개 엔드포인트. 모듈 배치는 사용자 결정(속도 우선): firebase-admin·jjwt·유스케이스는 `:application:client` 의 `auth` 패키지(헌법 III 의식적 완화 — 아래 Complexity Tracking), `RefreshTokenStore` port 는 `:core:member`, Redis 어댑터·의존성은 `:infra:persistence`(기존 패턴 그대로). Redis 인프라 도입(docker-compose·프로필 설정) 포함, Flyway 마이그레이션 없음.
 
 ## Technical Context
 

@@ -1,7 +1,8 @@
 package com.meogo.application.client.auth
 
 import com.meogo.core.member.Member
-import com.meogo.core.member.MemberIdentityResolver
+import com.meogo.core.member.MemberErrorCode
+import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberProfile
 import com.meogo.core.member.MemberRepository
 import com.meogo.core.member.OnboardingStatus
@@ -29,7 +30,7 @@ class LoginUseCaseTest : BehaviorSpec({
         verifier: SocialTokenVerifier,
     ) = LoginUseCase(
         socialTokenVerifier = verifier,
-        memberIdentityResolver = MemberIdentityResolver(repository),
+        memberRepository = repository,
         tokenIssuer = TokenIssuer(properties),
         refreshTokenStore = store,
         properties = properties,
@@ -102,6 +103,26 @@ class LoginUseCaseTest : BehaviorSpec({
         }
     }
 
+    given("동시 첫 로그인 경합 — saveNew 가 중복 예외를 던지는 경우") {
+        `when`("로그인하면") {
+            then("재조회 폴백으로 먼저 가입된 회원을 반환하고 신규가 아니다") {
+                val winner = Member.reconstitute(
+                    id = 20L,
+                    identity = identity,
+                    profile = MemberProfile.empty(),
+                    onboardingStatus = OnboardingStatus.PENDING,
+                )
+                val repository = FakeMemberRepository(duplicateOnSaveThenFind = winner)
+                val store = InMemoryRefreshTokenStore()
+
+                val result = useCase(repository, store, FakeSocialTokenVerifier(identity)).login("id-token")
+
+                result.newMember shouldBe false
+                result.memberId shouldBe 20L
+            }
+        }
+    }
+
     given("지원하지 않는 provider 토큰") {
         `when`("로그인하면") {
             then("UNSUPPORTED_PROVIDER 가 전파되고 회원이 생성되지 않는다") {
@@ -146,15 +167,25 @@ private class InMemoryRefreshTokenStore : RefreshTokenStore {
 
 private class FakeMemberRepository(
     private val existingByIdentity: Member? = null,
+    private val duplicateOnSaveThenFind: Member? = null,
 ) : MemberRepository {
     var saveNewCallCount: Int = 0
+    private var findAfterDuplicate = false
 
     override fun findById(id: Long): Member? = null
 
-    override fun findByIdentity(provider: SocialProvider, providerUserId: String): Member? = existingByIdentity
+    override fun findByIdentity(provider: SocialProvider, providerUserId: String): Member? {
+        if (existingByIdentity != null) return existingByIdentity
+        if (findAfterDuplicate) return duplicateOnSaveThenFind
+        return null
+    }
 
     override fun saveNew(member: Member): Member {
         saveNewCallCount++
+        if (duplicateOnSaveThenFind != null) {
+            findAfterDuplicate = true
+            throw MemberException(MemberErrorCode.DUPLICATE_SOCIAL_IDENTITY)
+        }
         return Member.reconstitute(
             id = 99L,
             identity = member.identity,

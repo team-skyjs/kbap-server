@@ -1,7 +1,11 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.MemberIdentityResolver
+import com.meogo.core.member.Member
+import com.meogo.core.member.MemberErrorCode
+import com.meogo.core.member.MemberException
+import com.meogo.core.member.MemberRepository
 import com.meogo.core.member.RefreshTokenStore
+import com.meogo.core.member.SocialIdentity
 import org.springframework.stereotype.Service
 
 data class LoginResult(
@@ -14,24 +18,39 @@ data class LoginResult(
 @Service
 class LoginUseCase(
     private val socialTokenVerifier: SocialTokenVerifier,
-    private val memberIdentityResolver: MemberIdentityResolver,
+    private val memberRepository: MemberRepository,
     private val tokenIssuer: TokenIssuer,
     private val refreshTokenStore: RefreshTokenStore,
     private val properties: AuthTokenProperties,
 ) {
     fun login(idToken: String): LoginResult {
         val identity = socialTokenVerifier.verify(idToken)
-        val resolution = memberIdentityResolver.resolve(identity)
-        val memberId = resolution.member.id ?: throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
+        val (member, newMember) = resolveMember(identity)
+        val memberId = member.id ?: throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
 
         val refreshToken = tokenIssuer.issueRefreshToken(memberId)
         refreshTokenStore.save(refreshToken.jti, memberId, properties.refreshTtl)
 
         return LoginResult(
             memberId = memberId,
-            newMember = resolution.isNewMember,
+            newMember = newMember,
             accessToken = tokenIssuer.issueAccessToken(memberId),
             refreshToken = refreshToken.token,
         )
+    }
+
+    private fun resolveMember(identity: SocialIdentity): Pair<Member, Boolean> {
+        memberRepository.findByIdentity(identity.provider, identity.providerUserId)?.let {
+            return it to false
+        }
+
+        return try {
+            memberRepository.saveNew(Member.signUp(identity)) to true
+        } catch (e: MemberException) {
+            if (e.errorCode != MemberErrorCode.DUPLICATE_SOCIAL_IDENTITY) throw e
+            val existing = memberRepository.findByIdentity(identity.provider, identity.providerUserId)
+                ?: throw e
+            existing to false
+        }
     }
 }

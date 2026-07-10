@@ -10,7 +10,7 @@
 | findMemberId | `findMemberId(jti: String): Long?` | 재발급 시 유효 세션 확인 (없으면 null → 401) |
 | delete | `delete(jti: String)` | 로그아웃 폐기 |
 
-- `Member`·`SocialIdentity`·`MemberRepository`·`MemberIdentityResolver` 는 **불변** — 로그인 유스케이스가 기존 `MemberIdentityResolver.resolve` 를 그대로 조합.
+- `Member`·`SocialIdentity`·`MemberRepository` 는 **불변**. `MemberIdentityResolver` 는 소비자가 로그인 하나뿐이라 `LoginUseCase` 로 인라인 후 **삭제**(사용자 결정 — 수동 @Bean 등록 제거).
 
 ## 유스케이스 계층 (application/client — 신규 `auth` 패키지)
 
@@ -20,7 +20,7 @@
 | `FirebaseTokenVerifier` | firebase-admin `verifyIdToken` 구현. `@ConditionalOnProperty(meogo.auth.firebase.credentials-path)` |
 | `FirebaseClaimMapper` (순수 함수) | 클레임 Map → `SocialIdentity` — sign_in_provider 매핑·identities 원본 sub 추출·email. 단위 테스트 대상 |
 | `TokenIssuer` / `TokenParser` | jjwt HS256. access(sub=memberId, 30m) / refresh(sub=memberId, jti=UUID, 14d) 발급·검증 |
-| `LoginUseCase` | verify → `MemberIdentityResolver.resolve` → 토큰 2종 발급 → `RefreshTokenStore.save(jti)` → `LoginResult(memberId, newMember, accessToken, refreshToken)` |
+| `LoginUseCase` | verify → 신원 해소(findByIdentity→없으면 signUp+saveNew→DUPLICATE 시 재조회 폴백) → 토큰 2종 발급 → `RefreshTokenStore.save(jti)` → `LoginResult` |
 | `RefreshUseCase` | refresh JWT 검증(조작→INVALID, 만료→EXPIRED) + store jti 존재 확인(부재→INVALID) → **rotation**: 이전 jti delete → access·refresh 둘 다 신규 발급 → 새 jti 를 전체 TTL 로 save → `RefreshResult(accessToken, refreshToken)` |
 | `LogoutUseCase` | refresh JWT 에서 jti 추출 → `store.delete(jti)` (無 refresh 도 성공 처리 — 멱등) |
 | `AuthErrorCode` / `AuthException` | INVALID_SOCIAL_TOKEN·UNSUPPORTED_PROVIDER·INVALID_REFRESH_TOKEN·**EXPIRED_REFRESH_TOKEN(강제 로그아웃)** — 전부 401, kernel ErrorCode/MeogoException 계층 (상세 표 = research R5) |

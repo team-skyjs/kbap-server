@@ -4,8 +4,6 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.meogo.core.member.MemberIdentityResolver
-import com.meogo.core.member.MemberRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -16,10 +14,6 @@ import java.time.Duration
 @Configuration
 class AuthConfig {
     private val log = LoggerFactory.getLogger(javaClass)
-
-    @Bean
-    fun memberIdentityResolver(memberRepository: MemberRepository): MemberIdentityResolver =
-        MemberIdentityResolver(memberRepository)
 
     @Bean
     fun authTokenProperties(
