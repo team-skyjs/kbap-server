@@ -16,6 +16,15 @@ dependencies {
 
     // 유스케이스 조립·트랜잭션 경계용 최소 Spring(@Service/@Component/@Transactional).
     // web/jpa 스타터는 얹지 않는다(계층 경계 유지) — 실제 트랜잭션 매니저는 부트 앱이 런타임 주입.
+    // 인증(KB-118): Firebase ID 토큰 검증 + 자체 JWT 발급/파싱.
+    // firebase-admin 을 application 이 직접 의존하는 것은 헌법 III(port-only) 의 의식적 완화다 —
+    // 인증 1개 기능에 infra 모듈 신설·조립 배선은 과하다는 판단(plan.md Complexity Tracking).
+    // 테스트 격리는 SocialTokenVerifier 인터페이스 seam 으로 확보한다.
+    "implementation"(libs.firebase.admin)
+    "implementation"(libs.jjwt.api)
+    "runtimeOnly"(libs.jjwt.impl)
+    "runtimeOnly"(libs.jjwt.jackson)
+
     "implementation"(libs.spring.context)
     "implementation"(libs.spring.tx)
     "implementation"(libs.slf4j.api)

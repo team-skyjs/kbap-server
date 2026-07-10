@@ -57,6 +57,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:8
+    container_name: meogo-redis
+    ports:
+      - "6379:6379"
+    # refresh token 저장소(KB-118). TTL 로 만료가 자동 처리되므로 영속 볼륨을 두지 않는다 —
+    # 재시작 시 세션이 날아가면 사용자는 재로그인하면 된다(복구 가능한 데이터).
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mongo:
     image: mongo:8
     container_name: meogo-mongo

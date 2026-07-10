@@ -34,6 +34,18 @@ spring:
         speech: none
 
 meogo:
+  auth:
+    firebase:
+      # 서비스 계정 키 경로. 미설정이면 FirebaseTokenVerifier 빈이 생성되지 않아
+      # 부팅은 정상이고 /api/v1/auth/login 만 사용 불가하다(키 없이 테스트·개발 가능).
+      # 키는 저장소에 커밋하지 않는다 — 주입 경로는 specs/kb-118-firebase-jwt-auth/quickstart.md.
+      credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+    jwt:
+      # HS256 서명 키. 32바이트 이상(HMAC-SHA256 최소 길이) — 미설정 시 부팅 실패로 조용한 약한 키를 막는다.
+      secret: ${JWT_SECRET:}
+      # access 는 stateless 라 만료 전 무효화가 불가능하므로 짧게, refresh 는 Redis 폐기가 가능하므로 길게.
+      access-ttl: 30m
+      refresh-ttl: 14d
   llm:
     # 스캔 메뉴명 정제(ScannedNameInterpreter)는 Upstage Solar 를 단일 호출한다.
     # 정제 없이 스캔 API 를 열어 두지 않으므로 기본 on — enabled=false 면 SubmitMenuScanUseCase 가

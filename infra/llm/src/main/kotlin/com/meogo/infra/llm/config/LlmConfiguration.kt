@@ -142,7 +142,11 @@ class LlmConfiguration {
 
         internal fun requireOpenAiApiKey(modelId: LlmModelId, configured: String?): String {
             if (configured.isNullOrBlank()) {
-                throw IllegalStateException("LLM 모델 $modelId 의 api-key 가 설정되지 않았습니다 (환경변수 폴백 미허용)")
+                val property = "meogo.llm.${modelId.name.lowercase()}.api-key"
+                throw IllegalStateException(
+                    "LLM 모델 $modelId 의 api-key 가 비어 있습니다. $property 를 설정하세요" +
+                        "(배포 환경변수로 주입 — 환경변수 폴백은 허용하지 않습니다).",
+                )
             }
             return configured
         }

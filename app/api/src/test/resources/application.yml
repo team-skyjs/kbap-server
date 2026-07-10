@@ -16,3 +16,13 @@ spring:
       audio:
         transcription: none
         speech: none
+
+meogo:
+  auth:
+    firebase:
+      # 테스트는 실제 Firebase 를 호출하지 않는다 — SocialTokenVerifier 를 페이크 빈으로 대체한다.
+      credentials-path: ""
+    jwt:
+      secret: kb118-test-secret-key-at-least-32-bytes-long
+      access-ttl: 30m
+      refresh-ttl: 14d

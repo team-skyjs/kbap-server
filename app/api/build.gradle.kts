@@ -39,6 +39,10 @@ dependencies {
     // avoidance 회귀 테스트가 :core:avoidance 를 직접 참조한다: 코드↔V5 시드 정합(AvoidanceCatalogSeedSyncTest)이
     // AvoidanceSubstanceCode 를, ModuleBoundaryTest 가 성분 식별자 enum 데이터 없음·엔티티 분류 저장 형식을 검증한다.
     "testImplementation"(project(":core:avoidance"))
+
+    // auth 엔드포인트 테스트가 페이크 SocialTokenVerifier 를 만들며 도메인 타입(SocialIdentity)을 참조한다.
+    // 테스트 스코프에만 노출되므로 프로덕션 경계(app:api → 도메인 금지)는 유지된다.
+    "testImplementation"(project(":core:member"))
 }
 
 // 루트의 .env(application.yml 의 spring.config.import 대상)를 찾도록
