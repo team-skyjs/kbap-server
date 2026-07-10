@@ -10,7 +10,6 @@ import java.time.Duration
 class AuthCookieFactory(
     @Value("\${meogo.auth.jwt.access-ttl}") private val accessTtl: Duration,
     @Value("\${meogo.auth.jwt.refresh-ttl}") private val refreshTtl: Duration,
-    @Value("\${meogo.auth.cookie.secure:false}") private val secure: Boolean,
 ) {
     fun accessCookie(token: String): ResponseCookie = build(ACCESS_TOKEN, token, ROOT_PATH, accessTtl)
 
@@ -25,7 +24,7 @@ class AuthCookieFactory(
     private fun build(name: String, value: String, path: String, maxAge: Duration): ResponseCookie =
         ResponseCookie.from(name, value)
             .httpOnly(true)
-            .secure(secure)
+            .secure(true)
             .sameSite("Lax")
             .path(path)
             .maxAge(maxAge)

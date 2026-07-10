@@ -36,9 +36,9 @@ spring:
 meogo:
   auth:
     firebase:
-      # 서비스 계정 키 경로. 미설정이면 FirebaseTokenVerifier 빈이 생성되지 않아
-      # 부팅은 정상이고 /api/v1/auth/login 만 사용 불가하다(키 없이 테스트·개발 가능).
-      # 키는 저장소에 커밋하지 않는다 — 주입 경로는 specs/kb-118-firebase-jwt-auth/quickstart.md.
+      # 서비스 계정 키 경로. 미설정이면 항상 거절하는 폴백 검증기가 대신 등록되어
+      # 부팅은 정상이고 /api/v1/auth/login 만 401 을 돌려준다(키 없이 테스트·개발 가능).
+      # 키는 저장소에 커밋하지 않는다 — 주입 경로는 .env.example / specs/kb-118-firebase-jwt-auth/quickstart.md.
       credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
     jwt:
       # HS256 서명 키. 32바이트 이상(HMAC-SHA256 최소 길이) — 미설정 시 부팅 실패로 조용한 약한 키를 막는다.

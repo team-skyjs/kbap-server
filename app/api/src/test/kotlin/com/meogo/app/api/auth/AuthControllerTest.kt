@@ -62,6 +62,17 @@ class AuthControllerTest : BehaviorSpec() {
             }
         }
 
+        fun memberColumn(memberId: Long, column: String): String? =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT $column FROM member WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+                }
+            }
+
+        fun memberIdOf(response: MockHttpServletResponse): Long =
+            objectMapper.readTree(response.contentAsString).path("payload").path("memberId").asLong()
+
         fun login(idToken: String = "valid-token") =
             mockMvc.post("/api/v1/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
@@ -87,11 +98,28 @@ class AuthControllerTest : BehaviorSpec() {
                     val refresh = cookies.first { it.startsWith("refresh_token=") }
 
                     access shouldContain "HttpOnly"
+                    access shouldContain "Secure"
                     access shouldContain "Path=/"
                     access shouldContain "SameSite=Lax"
                     refresh shouldContain "HttpOnly"
+                    refresh shouldContain "Secure"
                     refresh shouldContain "Path=/api/v1/auth"
                     refresh shouldContain "Max-Age=1209600"
+                }
+            }
+
+            `when`("로그인하면") {
+                then("회원이 신원과 함께 저장되고 온보딩 대기·활성 상태로 가입된다") {
+                    val response = login().andReturn().response
+                    val memberId = memberIdOf(response)
+
+                    countMembers() shouldBe 1
+                    memberColumn(memberId, "provider") shouldBe "GOOGLE"
+                    memberColumn(memberId, "provider_uid") shouldBe "google-sub-fixed"
+                    memberColumn(memberId, "email") shouldBe "user@gmail.com"
+                    memberColumn(memberId, "onboarding_status") shouldBe "0"
+                    memberColumn(memberId, "member_status") shouldBe "ACTIVE"
+                    memberColumn(memberId, "status") shouldBe "ACTIVE"
                 }
             }
         }
