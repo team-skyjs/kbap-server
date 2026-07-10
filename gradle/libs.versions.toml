@@ -11,6 +11,9 @@ kotest-extensions-spring = "1.3.0"
 jacoco = "0.8.12"
 archunit = "1.3.0"
 jackson = "2.21.4"
+# 인증(KB-118): jjwt·firebase-admin 은 Spring Boot BOM 이 관리하지 않아 버전을 여기에 고정한다.
+jjwt = "0.12.6"
+firebase-admin = "9.4.3"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -37,6 +40,7 @@ spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-start
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
 spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-boot-starter-data-mongodb" }
 
 # --- Databases ---
@@ -57,6 +61,12 @@ springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openap
 spring-ai-starter-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
 spring-ai-starter-google-genai = { module = "org.springframework.ai:spring-ai-starter-model-google-genai" }
 
+# --- Auth (KB-118): 자체 JWT 발급/파싱 + Firebase ID 토큰 검증 ---
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
+
 # --- Test (versions managed by the Spring Boot / JUnit BOM) ---
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 # Boot 4.x 는 test-slice 어노테이션을 기술별 모듈로 분리했다(starter-test 가 전이 제공하지 않음).
@@ -72,6 +82,8 @@ spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-depe
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 # Testcontainers 2.0 부터 DB 모듈 좌표가 `mysql` → `testcontainers-mysql` 로 바뀌었다(구 `org.testcontainers:mysql` 은 1.x 까지).
 testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql" }
+# Redis 는 전용 모듈 없이 GenericContainer 로 띄운다(testcontainers 코어).
+testcontainers-core = { module = "org.testcontainers:testcontainers" }
 
 # --- Architecture boundary tests (모듈 경계 강제) ---
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }

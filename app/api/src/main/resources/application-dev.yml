@@ -10,3 +10,7 @@ spring:
     show-sql: true
   mongodb:
     uri: ${MONGODB_URI}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}

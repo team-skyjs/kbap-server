@@ -17,6 +17,8 @@ dependencies {
     "implementation"(project(":core:member"))
 
     "implementation"(libs.spring.boot.starter.data.jpa)
+    // refresh token 저장소(KB-118): Redis TTL 로 토큰 수명 = 저장 수명을 맞춘다.
+    "implementation"(libs.spring.boot.starter.data.redis)
 
     "runtimeOnly"(libs.mysql.connector)
 
@@ -25,6 +27,7 @@ dependencies {
     "testFixturesApi"(platform(libs.spring.boot.dependencies))
     "testFixturesApi"(libs.spring.boot.testcontainers)
     "testFixturesApi"(libs.testcontainers.mysql)
+    "testFixturesApi"(libs.testcontainers.core)
     "testFixturesApi"(libs.spring.boot.starter.test)
     "testFixturesApi"(libs.kotest.extensions.spring)
     "testFixturesApi"(libs.kotest.runner.junit5)
