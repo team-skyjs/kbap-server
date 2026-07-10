@@ -8,7 +8,7 @@ import com.meogo.core.member.MemberRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.io.FileInputStream
+import java.io.ByteArrayInputStream
 import java.time.Duration
 
 @Configuration
@@ -27,18 +27,18 @@ class AuthConfig {
 
     @Bean
     fun socialTokenVerifier(
+        @Value("\${meogo.auth.firebase.credentials-json:}") credentialsJson: String,
         @Value("\${meogo.auth.firebase.credentials-path:}") credentialsPath: String,
     ): SocialTokenVerifier {
-        if (credentialsPath.isBlank()) {
-            return UnavailableSocialTokenVerifier
-        }
-        return FirebaseTokenVerifier(firebaseApp(credentialsPath))
+        val credentials = FirebaseCredentialsSource.resolve(json = credentialsJson, path = credentialsPath)
+            ?: return UnavailableSocialTokenVerifier
+        return FirebaseTokenVerifier(firebaseApp(credentials))
     }
 
-    private fun firebaseApp(credentialsPath: String): FirebaseApp {
+    private fun firebaseApp(credentials: ByteArray): FirebaseApp {
         FirebaseApp.getApps().firstOrNull()?.let { return it }
         val options = FirebaseOptions.builder()
-            .setCredentials(FileInputStream(credentialsPath).use { GoogleCredentials.fromStream(it) })
+            .setCredentials(ByteArrayInputStream(credentials).use { GoogleCredentials.fromStream(it) })
             .build()
         return FirebaseApp.initializeApp(options)
     }

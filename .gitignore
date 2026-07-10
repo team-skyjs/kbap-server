@@ -243,3 +243,8 @@ build/
 # IntelliJ IDEA — 프로젝트 IDE 설정 전체 제외
 .idea/
 _workspace/
+
+# Firebase 서비스 계정 키 — 프로젝트 전체 관리자 권한이라 절대 커밋하지 않는다.
+# (권장 주입 방식은 FIREBASE_CREDENTIALS_JSON 환경변수라 파일 자체가 필요 없다)
+*-firebase-adminsdk-*.json
+firebase-service-account*.json
