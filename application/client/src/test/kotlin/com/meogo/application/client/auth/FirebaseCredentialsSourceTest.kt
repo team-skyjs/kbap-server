@@ -35,6 +35,20 @@ class FirebaseCredentialsSourceTest : BehaviorSpec({
         }
     }
 
+    given("base64 도 JSON 도 아닌 값") {
+        `when`("소스를 해석하면") {
+            then("원문 JSON 으로 오인하지 않고 명확한 예외를 던진다") {
+                val encoded = Base64.getEncoder().encodeToString(serviceAccountJson.toByteArray())
+
+                val e = shouldThrow<IllegalStateException> {
+                    FirebaseCredentialsSource.resolve(json = encoded + "%", path = "")
+                }
+
+                e.message.shouldNotBeNull()
+            }
+        }
+    }
+
     given("키 내용과 파일 경로가 모두 없을 때") {
         `when`("소스를 해석하면") {
             then("null 을 돌려준다(검증기 비활성)") {
