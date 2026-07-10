@@ -5,7 +5,7 @@ import java.time.Duration
 interface RefreshTokenStore {
     fun save(jti: String, memberId: Long, ttl: Duration)
 
-    fun findMemberId(jti: String): Long?
+    fun consume(jti: String): Long?
 
     fun delete(jti: String)
 }

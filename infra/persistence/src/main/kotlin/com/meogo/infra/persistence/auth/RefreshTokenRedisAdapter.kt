@@ -13,8 +13,8 @@ class RefreshTokenRedisAdapter(
         redisTemplate.opsForValue().set(key(jti), memberId.toString(), ttl)
     }
 
-    override fun findMemberId(jti: String): Long? =
-        redisTemplate.opsForValue().get(key(jti))?.toLongOrNull()
+    override fun consume(jti: String): Long? =
+        redisTemplate.opsForValue().getAndDelete(key(jti))?.toLongOrNull()
 
     override fun delete(jti: String) {
         redisTemplate.delete(key(jti))

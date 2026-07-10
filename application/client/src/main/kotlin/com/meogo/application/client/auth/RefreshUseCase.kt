@@ -25,10 +25,9 @@ class RefreshUseCase(
             throw e
         }
 
-        val memberId = refreshTokenStore.findMemberId(parsed.jti)
+        val memberId = refreshTokenStore.consume(parsed.jti)
             ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
 
-        refreshTokenStore.delete(parsed.jti)
         val rotated = tokenIssuer.issueRefreshToken(memberId)
         refreshTokenStore.save(rotated.jti, memberId, properties.refreshTtl)
 

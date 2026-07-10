@@ -6,9 +6,9 @@
 
 | 메서드 | 시그니처 | 의미 |
 |--------|----------|------|
-| save | `save(jti: String, memberId: Long, ttl: Duration)` | 로그인 시 refresh 세션 등록 |
-| findMemberId | `findMemberId(jti: String): Long?` | 재발급 시 유효 세션 확인 (없으면 null → 401) |
-| delete | `delete(jti: String)` | 로그아웃 폐기 |
+| save | `save(jti: String, memberId: Long, ttl: Duration)` | 로그인·재발급 시 refresh 세션 등록 |
+| consume | `consume(jti: String): Long?` | 재발급 시 **원자적 소비**(조회+삭제 한 연산 — Redis GETDEL). 동시 재사용 경합에서 한 요청만 성공. 없으면 null → 401 |
+| delete | `delete(jti: String)` | 로그아웃·만료 정리 폐기 |
 
 - `Member`·`SocialIdentity`·`MemberRepository` 는 **불변**. `MemberIdentityResolver` 는 소비자가 로그인 하나뿐이라 `LoginUseCase` 로 인라인 후 **삭제**(사용자 결정 — 수동 @Bean 등록 제거).
 

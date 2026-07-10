@@ -44,7 +44,7 @@ class RefreshTokenRedisAdapterTest : BehaviorSpec({
             then("같은 jti 로 회원 식별자를 복원한다") {
                 adapter.save("jti-save", memberId = 11L, ttl = ttl)
 
-                adapter.findMemberId("jti-save") shouldBe 11L
+                redisTemplate.opsForValue().get("auth:refresh:jti-save") shouldBe "11"
             }
         }
 
@@ -58,10 +58,19 @@ class RefreshTokenRedisAdapterTest : BehaviorSpec({
         }
     }
 
-    given("저장되지 않은 jti") {
-        `when`("조회하면") {
+    given("refresh 세션 원자적 소비 — rotation 경합 방어") {
+        `when`("저장된 jti 를 consume 하면") {
+            then("회원 식별자를 돌려주면서 키를 함께 제거한다(한 연산)") {
+                adapter.save("jti-consume", memberId = 30L, ttl = ttl)
+
+                adapter.consume("jti-consume") shouldBe 30L
+                adapter.consume("jti-consume").shouldBeNull()
+            }
+        }
+
+        `when`("없는 jti 를 consume 하면") {
             then("null 을 반환한다") {
-                adapter.findMemberId("jti-absent").shouldBeNull()
+                adapter.consume("jti-consume-absent").shouldBeNull()
             }
         }
     }
@@ -73,7 +82,7 @@ class RefreshTokenRedisAdapterTest : BehaviorSpec({
 
                 adapter.delete("jti-delete")
 
-                adapter.findMemberId("jti-delete").shouldBeNull()
+                redisTemplate.opsForValue().get("auth:refresh:jti-delete").shouldBeNull()
             }
         }
 
@@ -90,8 +99,8 @@ class RefreshTokenRedisAdapterTest : BehaviorSpec({
                 adapter.save("jti-device-1", memberId = 20L, ttl = ttl)
                 adapter.save("jti-device-2", memberId = 20L, ttl = ttl)
 
-                adapter.findMemberId("jti-device-1") shouldBe 20L
-                adapter.findMemberId("jti-device-2") shouldBe 20L
+                adapter.consume("jti-device-1") shouldBe 20L
+                adapter.consume("jti-device-2") shouldBe 20L
             }
         }
     }

@@ -134,7 +134,9 @@ private class InMemoryStore : RefreshTokenStore {
         savedTtl = ttl
     }
 
-    override fun findMemberId(jti: String): Long? = sessions[jti]
+    override fun consume(jti: String): Long? = sessions.remove(jti)
+
+    fun findMemberId(jti: String): Long? = sessions[jti]
 
     override fun delete(jti: String) {
         sessions.remove(jti)

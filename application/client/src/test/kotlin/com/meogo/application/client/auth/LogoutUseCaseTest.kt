@@ -80,7 +80,9 @@ private class InMemorySessions : RefreshTokenStore {
         sessions[jti] = memberId
     }
 
-    override fun findMemberId(jti: String): Long? = sessions[jti]
+    override fun consume(jti: String): Long? = sessions.remove(jti)
+
+    fun findMemberId(jti: String): Long? = sessions[jti]
 
     override fun delete(jti: String) {
         deleteCallCount++
