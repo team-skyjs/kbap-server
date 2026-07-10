@@ -3,7 +3,6 @@ package com.meogo.app.api.auth
 import com.meogo.application.client.auth.LoginResult
 
 data class LoginResponse(
-    val memberId: Long,
     val newMember: Boolean,
     val accessToken: String,
     val refreshToken: String,
@@ -11,7 +10,6 @@ data class LoginResponse(
     companion object {
         fun from(result: LoginResult): LoginResponse =
             LoginResponse(
-                memberId = result.memberId,
                 newMember = result.newMember,
                 accessToken = result.accessToken,
                 refreshToken = result.refreshToken,

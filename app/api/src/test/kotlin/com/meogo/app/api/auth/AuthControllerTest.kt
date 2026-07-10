@@ -61,16 +61,13 @@ class AuthControllerTest : BehaviorSpec() {
             }
         }
 
-        fun memberColumn(memberId: Long, column: String): String? =
+        fun memberColumn(providerUid: String, column: String): String? =
             dataSource.connection.use { c ->
-                c.prepareStatement("SELECT $column FROM member WHERE id = ?").use { ps ->
-                    ps.setLong(1, memberId)
+                c.prepareStatement("SELECT $column FROM member WHERE provider_uid = ?").use { ps ->
+                    ps.setString(1, providerUid)
                     ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
                 }
             }
-
-        fun memberIdOf(response: MockHttpServletResponse): Long =
-            objectMapper.readTree(response.contentAsString).path("payload").path("memberId").asLong()
 
         fun login(idToken: String = "valid-token") =
             mockMvc.post("/api/v1/auth/login") {
@@ -110,22 +107,21 @@ class AuthControllerTest : BehaviorSpec() {
                     val payload = objectMapper.readTree(result.contentAsString).path("payload")
                     payload.path("accessToken").asText().isNotBlank() shouldBe true
                     payload.path("refreshToken").asText().isNotBlank() shouldBe true
+                    payload.has("memberId") shouldBe false
                     result.getHeaders("Set-Cookie").isEmpty() shouldBe true
                 }
             }
 
             `when`("로그인하면") {
                 then("회원이 신원과 함께 저장되고 온보딩 대기·활성 상태로 가입된다") {
-                    val response = login().andReturn().response
-                    val memberId = memberIdOf(response)
+                    login().andReturn()
 
                     countMembers() shouldBe 1
-                    memberColumn(memberId, "provider") shouldBe "GOOGLE"
-                    memberColumn(memberId, "provider_uid") shouldBe "google-sub-fixed"
-                    memberColumn(memberId, "email") shouldBe "user@gmail.com"
-                    memberColumn(memberId, "onboarding_status") shouldBe "0"
-                    memberColumn(memberId, "member_status") shouldBe "ACTIVE"
-                    memberColumn(memberId, "status") shouldBe "ACTIVE"
+                    memberColumn("google-sub-fixed", "provider") shouldBe "GOOGLE"
+                    memberColumn("google-sub-fixed", "email") shouldBe "user@gmail.com"
+                    memberColumn("google-sub-fixed", "onboarding_status") shouldBe "0"
+                    memberColumn("google-sub-fixed", "member_status") shouldBe "ACTIVE"
+                    memberColumn("google-sub-fixed", "status") shouldBe "ACTIVE"
                 }
             }
         }

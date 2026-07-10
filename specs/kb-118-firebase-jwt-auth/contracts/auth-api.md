@@ -7,12 +7,16 @@
 
 ## POST /api/v1/auth/login
 
+응답에 memberId 를 담지 않는다 — 회원 식별은 항상 access 토큰(sub)에서 서버가 유도하고,
+클라이언트가 자기 id 를 보내는 API 는 만들지 않는다(IDOR 방지). 필요해지면 필드 추가는 하위호환이다.
+
 **Request**: `{ "idToken": "<Firebase ID token>" }`
 
 **Response 200**
 
 ```json
-{ "success": true, "payload": { "memberId": 1, "newMember": true, "accessToken": "<jwt>", "refreshToken": "<jwt>" } }
+{ "success": true, "payload": { "newMember": true, "accessToken": "<jwt>", "refreshToken": "<jwt>" } }
+
 ```
 
 **오류**

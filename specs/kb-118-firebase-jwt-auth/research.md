@@ -28,7 +28,7 @@
 
 ## R5. API·토큰 전달 설계 (개정 — 쿠키 → 응답 본문)
 
-- **Decision (개정 2026-07-11)**: 토큰은 쿠키가 아니라 **응답 본문**으로 내려준다. `POST /api/v1/auth/login` → `{memberId, newMember, accessToken, refreshToken}`, `POST /api/v1/auth/refresh`(body `{refreshToken}`) → `{accessToken, refreshToken}`, `POST /api/v1/auth/logout`(body `{refreshToken}` optional·멱등). 클라이언트는 안전 저장소(Keychain/Keystore)에 보관하고 매 요청 `Authorization: Bearer {accessToken}` 헤더로 보낸다 — Bearer 접두사는 클라이언트가 붙인다. 후속 인증 필터는 이 헤더에서 토큰을 읽는다.
+- **Decision (개정 2026-07-11)**: 토큰은 쿠키가 아니라 **응답 본문**으로 내려준다. `POST /api/v1/auth/login` → `{newMember, accessToken, refreshToken}`(memberId 미포함 — 회원 식별은 토큰 sub 에서 유도, 클라이언트가 자기 id 를 다룰 일이 없다), `POST /api/v1/auth/refresh`(body `{refreshToken}`) → `{accessToken, refreshToken}`, `POST /api/v1/auth/logout`(body `{refreshToken}` optional·멱등). 클라이언트는 안전 저장소(Keychain/Keystore)에 보관하고 매 요청 `Authorization: Bearer {accessToken}` 헤더로 보낸다 — Bearer 접두사는 클라이언트가 붙인다. 후속 인증 필터는 이 헤더에서 토큰을 읽는다.
 - **Rationale**: 클라이언트가 모바일 앱(Firebase SDK)이라 브라우저 쿠키 자동 전송이 없다 — HttpOnly 쿠키는 앱에서 Set-Cookie 수동 파싱·쿠키 저장소를 강제해 오히려 일이 늘고, JS 노출 방지라는 HttpOnly 의 이점도 앱에는 해당 없다. 초기 쿠키 결정은 이 충돌이 드러나기 전의 것(스펙 Assumption 개정). 쿠키 인프라(AuthCookieFactory·AuthExceptionHandler 쿠키 만료)는 제거했다.
 - **예외 응답 체계 (사용자 요구 — 조작/만료 구분 정의)**: `AuthErrorCode`(kernel `ErrorCode` 구현) + `AuthException`(MeogoException 하위) 을 application:client `auth` 에 둔다. 전부 401, 공통 봉투(BaseResponse fail)로 응답 — 기존 `GlobalExceptionHandler` 가 자동 매핑.
 
