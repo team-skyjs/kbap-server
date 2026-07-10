@@ -59,13 +59,14 @@ class MemberJpaEntity(
     }
 
     fun withdraw() {
-        providerUid = withdrawnProviderUid(id)
-        email = null
+        providerUid = deletedProviderUid(id)
         delete()
     }
 
     companion object {
-        private fun withdrawnProviderUid(memberId: Long): String = "withdrawn:$memberId"
+        const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"
+
+        private fun deletedProviderUid(memberId: Long): String = "$DELETED_PROVIDER_UID_PREFIX$memberId"
 
         fun from(domain: Member): MemberJpaEntity =
             MemberJpaEntity(

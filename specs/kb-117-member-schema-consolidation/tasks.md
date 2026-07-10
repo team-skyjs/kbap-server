@@ -54,7 +54,7 @@ Gradle 멀티모듈 — `core/kernel`·`core/member`·`infra/persistence`·`app/
 ### Implementation for User Story 3
 
 - [X] T006 [US3] 영속 Green: `infra/persistence/src/main/kotlin/com/meogo/infra/persistence/member/` — ① `MemberJpaEntity.kt` 재편: `@Table(name = "member", uniqueConstraints = [(provider, provider_uid)])`, 신원 3컬럼 흡수(`provider` columnDefinition `ENUM('GOOGLE','APPLE')`·`providerUid`·`email`), `profile` JSON(`@JdbcTypeCode(SqlTypes.JSON)` `MemberProfileJson` — 같은 파일 또는 별도 파일), `memberStatus` columnDefinition `ENUM('ACTIVE','SUSPENDED')` default ACTIVE, `onboardingCompleted: Boolean` ↔ 도메인 enum 변환, @OneToMany 제거 ② `MemberStatus.kt` 신규(ACTIVE/SUSPENDED) ③ `SocialIdentityJpaEntity.kt` 삭제 ④ `MemberJpaRepository.kt` fetch join 2개 삭제 → 파생 `findByProviderAndProviderUid`(정지 조건은 US2 에서) ⑤ `MemberRepositoryAdapter.kt` 새 매핑 사용(withdraw 는 일단 소프트 삭제만 — 더미 치환은 US1), T005 전체 Green 확인
-- [X] T007 [US3] Flyway 마이그레이션 작성: `app/api/src/main/resources/db/migration/V<생성 시점 로컬시각 점구분>__consolidate_member_schema.sql` — data-model.md 9단계(RENAME→컬럼 추가→JOIN 백필→신원 없는 행 `withdrawn:{id}`·GOOGLE 백필→profile `JSON_OBJECT`(맵기 `COALESCE(...,5)`)→onboarding BOOLEAN 변환→NOT NULL·유니크 승격→구컬럼 DROP→`member_social_identities` DROP), 다른 미적용 마이그레이션과 순서 독립
+- [X] T007 [US3] Flyway 마이그레이션 작성: `app/api/src/main/resources/db/migration/V<생성 시점 로컬시각 점구분>__consolidate_member_schema.sql` — data-model.md 9단계(RENAME→컬럼 추가→JOIN 백필→신원 없는 행 `DELETED:{id}`·GOOGLE 백필→profile `JSON_OBJECT`(맵기 `COALESCE(...,5)`)→onboarding BOOLEAN 변환→NOT NULL·유니크 승격→구컬럼 DROP→`member_social_identities` DROP), 다른 미적용 마이그레이션과 순서 독립
 - [X] T008 [US3] Flyway 로컬 검증(테스트 미커버 영역): `docker compose up -d meogo-mysql` → `meogo` DB DROP+CREATE → `SPRING_PROFILES_ACTIVE=local ./gradlew :app:api:bootRun` 부팅 성공 → `SHOW CREATE TABLE member`(ENUM·유니크·profile JSON)·`member_social_identities` 부재 확인(quickstart.md §2)
 
 **Checkpoint**: 새 스키마에서 저장·조회·중복 방어·프로필 복원 완전 동작 — US1·US2 시작 가능
@@ -63,17 +63,17 @@ Gradle 멀티모듈 — `core/kernel`·`core/member`·`infra/persistence`·`app/
 
 ## Phase 4: User Story 1 — 탈퇴 후 같은 소셜 계정으로 재가입 (Priority: P1) 🎯 MVP
 
-**Goal**: 탈퇴 = 소프트 삭제 + provider_uid `withdrawn:{memberId}` 치환 + email NULL — 재가입 개방·개인정보 미잔존
+**Goal**: 탈퇴 = 소프트 삭제 + provider_uid `DELETED:{memberId}` 삭제 표식 치환(email 보존) — 재가입 개방
 
 **Independent Test**: 가입→탈퇴→같은 계정 재가입 성공, 탈퇴 행에 원본 식별자·이메일 미잔존을 영속 통합 테스트로 검증
 
 ### Tests for User Story 1 (Test-First — 작성 후 반드시 Red 확인) ⚠️
 
-- [X] T009 [US1] 탈퇴·재가입 실패 테스트 추가: `MemberRepositoryAdapterTest.kt` — ① 탈퇴 후 findById·findByIdentity 제외 + 같은 소셜 계정 재가입 성공(새 id) ② 탈퇴 행 직접 SELECT 로 `provider_uid = 'withdrawn:{id}'`·`email IS NULL` 검증(원본 미잔존 — FR-004) ③ 가입→탈퇴 2회 반복에도 유니크 충돌 없음 ④ 존재하지 않는 회원 탈퇴 → `MEMBER_NOT_FOUND`, Red 확인
+- [X] T009 [US1] 탈퇴·재가입 실패 테스트 추가: `MemberRepositoryAdapterTest.kt` — ① 탈퇴 후 findById·findByIdentity 제외 + 같은 소셜 계정 재가입 성공(새 id) ② 탈퇴 행 직접 SELECT 로 `provider_uid = 'DELETED:{id}'`·email 보존 검증(FR-004) ③ 가입→탈퇴 2회 반복에도 유니크 충돌 없음 ④ 존재하지 않는 회원 탈퇴 → `MEMBER_NOT_FOUND`, Red 확인
 
 ### Implementation for User Story 1
 
-- [X] T010 [US1] withdraw Green: `MemberRepositoryAdapter.kt` — 활성 회원 로드 → `providerUid = "withdrawn:{id}"` 치환 → `email = null` → `delete()`(소프트 삭제) 순 구현(R6), T009 Green + `:infra:persistence:test` 전체 회귀 확인
+- [X] T010 [US1] withdraw Green: `MemberRepositoryAdapter.kt` — 활성 회원 로드 → `providerUid = "DELETED:{id}"` 표식 치환 → `delete()`(소프트 삭제) 순 구현(R6, email 보존), T009 Green + `:infra:persistence:test` 전체 회귀 확인
 
 **Checkpoint**: P1 수용 시나리오 전부 통과 — 재가입 흐름 완결
 

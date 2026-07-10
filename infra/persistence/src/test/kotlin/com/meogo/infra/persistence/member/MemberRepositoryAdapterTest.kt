@@ -220,21 +220,21 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
             }
 
             `when`("탈퇴한 회원 행을 직접 조회하면") {
-                then("원본 소셜 식별자와 이메일이 남지 않는다") {
+                then("소셜 식별자는 삭제 표식으로 대체되고 이메일은 그대로 남는다") {
                     val saved = adapter.saveNew(
-                        newMember(googleIdentity(sub = "privacy-sub", email = "privacy@gmail.com")),
+                        newMember(googleIdentity(sub = "marker-sub", email = "kept@gmail.com")),
                     )
                     val id = saved.id!!
 
                     adapter.withdraw(id)
 
-                    readColumn(id, "provider_uid") shouldBe "withdrawn:$id"
-                    readColumn(id, "email").shouldBeNull()
+                    readColumn(id, "provider_uid") shouldBe "DELETED:$id"
+                    readColumn(id, "email") shouldBe "kept@gmail.com"
                 }
             }
 
             `when`("같은 소셜 계정으로 가입·탈퇴를 반복하면") {
-                then("탈퇴 행끼리도 유니크 충돌 없이 매번 재가입된다") {
+                then("삭제 표식이 회원마다 유일해 탈퇴 행끼리도 충돌하지 않는다") {
                     val first = adapter.saveNew(newMember(googleIdentity(sub = "repeat-sub")))
                     adapter.withdraw(first.id!!)
 
@@ -243,8 +243,8 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
 
                     val third = adapter.saveNew(newMember(googleIdentity(sub = "repeat-sub")))
                     third.id.shouldNotBeNull()
-                    readColumn(first.id!!, "provider_uid") shouldBe "withdrawn:${first.id}"
-                    readColumn(second.id!!, "provider_uid") shouldBe "withdrawn:${second.id}"
+                    readColumn(first.id!!, "provider_uid") shouldBe "DELETED:${first.id}"
+                    readColumn(second.id!!, "provider_uid") shouldBe "DELETED:${second.id}"
                 }
             }
 

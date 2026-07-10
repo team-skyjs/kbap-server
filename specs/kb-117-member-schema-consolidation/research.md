@@ -8,8 +8,8 @@
 
 ## R2. 과거 탈퇴 회원(신원 행 없는 DELETED row) 백필
 
-- **Decision**: 기존 `withdraw` 는 신원 행을 hard delete 했으므로 신원 없는 member 행이 존재할 수 있다. 이 행들은 마이그레이션에서 `provider = 'GOOGLE'`(임의 유효값), `provider_uid = CONCAT('withdrawn:', id)`, `email = NULL` 로 백필한 뒤 NOT NULL 을 승격한다.
-- **Rationale**: 새 탈퇴 정책(더미 치환)과 동일한 표현으로 수렴시켜 유니크 제약·NOT NULL 과 충돌하지 않는다. `withdrawn:{id}` 는 회원별 유일하므로 (provider, provider_uid) 충돌이 없다.
+- **Decision**: 기존 `withdraw` 는 신원 행을 hard delete 했으므로 신원 없는 member 행이 존재할 수 있다. 이 행들은 마이그레이션에서 `provider = 'GOOGLE'`(임의 유효값), `provider_uid = CONCAT('DELETED:', id)` 로 백필한 뒤 NOT NULL 을 승격한다(원본 provider·email 은 이미 소실돼 복원 불가).
+- **Rationale**: 새 탈퇴 정책(삭제 표식 치환)과 동일한 표현으로 수렴시켜 유니크 제약·NOT NULL 과 충돌하지 않는다. `DELETED:{id}` 는 회원별 유일하므로 (provider, provider_uid) 충돌이 없다.
 - **Alternatives considered**: `provider` NULLABLE 유지 — 엔티티 매핑이 nullable 로 오염되고 도메인 불변(신원 필수)과 어긋남. 신원 없는 행 DELETE — 감사 이력 소실, 소프트 삭제 원칙 위배.
 
 ## R3. 정지 필터 위치 — 파생 쿼리 조건, 관리자 조회는 상속 메서드
@@ -32,11 +32,12 @@
 - **Alternatives considered**: `Map<String, Any?>` 매핑 — 타입 안전성 상실. 도메인 `MemberProfile` 직접 직렬화 — 도메인 타입이 저장 포맷에 결합돼 원칙 IV 위반.
 - **JSON 형태**: `{"avoidanceSubstanceCodes":["PEANUT"],"spicinessPreference":7,"countryCode":"KR","appLanguage":"en"}` — 언어는 `LanguageCode.code` 문자열, 미설정 필드는 null/빈 배열.
 
-## R6. 탈퇴 더미 치환 방식
+## R6. 탈퇴 시 신원 처리 — 삭제 표식 치환, 이메일 보존 (사용자 결정 — 개정)
 
-- **Decision**: `withdraw(id)` 는 활성 회원 로드 → `provider_uid = "withdrawn:{memberId}"` 치환 → `email = NULL` → 소프트 삭제(`delete()`) 순으로 바꾼다. `provider` 는 원값을 유지한다.
-- **Rationale**: memberId 기반이라 탈퇴 반복·동일 소셜 계정 재가입 반복에도 유니크 충돌이 없다. `provider`(GOOGLE/APPLE)는 단독으로 개인 식별이 불가능해 잔존해도 무방하고, ENUM NOT NULL 을 유지할 수 있다. 원본 소셜 식별자·이메일은 row 에 남지 않는다(개인정보 요구 충족).
-- **Alternatives considered**: UUID 더미 — memberId 만으로 충분한데 난수 의존 추가. 신원 컬럼 NULL 화 — NOT NULL 완화 필요 + 유니크 제약 의미 약화.
+- **Decision**: `withdraw(id)` 는 활성 회원 로드 → `provider_uid = "DELETED:{memberId}"` 삭제 표식으로 치환 → 소프트 삭제(`delete()`) 순으로 바꾼다. **`email` 과 `provider` 는 원값을 보존**한다(초기 결정의 `email = NULL` 을 대체 — 사용자 지시 2026-07-10).
+- **Rationale**: `provider_uid` 를 표식으로 덮어야 유니크 제약 `(provider, provider_uid)` 를 유지한 채 같은 소셜 계정 재가입이 열린다. 표식에 `memberId` 를 붙이는 이유는 **상수 `'DELETED'`·`'DUMMY'` 만 쓰면 같은 provider 의 두 번째 탈퇴에서 `(GOOGLE, 'DELETED')` 가 중복되어 탈퇴 자체가 실패**하기 때문이다 — 접두사가 삭제 의미를, memberId 가 유일성을 담당한다. `DELETED:` 접두사는 `MemberJpaEntity.DELETED_PROVIDER_UID_PREFIX` 상수로 단일 출처를 둔다.
+- **Alternatives considered**: 상수 `'DELETED'` 단독 — 두 번째 탈퇴에서 유니크 충돌(치명). UUID 더미 — memberId 로 충분한데 난수 의존 추가. `email = NULL`(초기 결정) — 사용자 결정으로 철회, 탈퇴 회원 이메일은 보존한다.
+- **주의(개인정보)**: 탈퇴 회원의 이메일이 row 에 남는다. 소셜 식별자만 지워지므로 provider 계정과의 재연결은 불가능하지만, 이메일 자체는 개인정보이므로 보존 기간·파기 정책이 필요하면 별도 작업으로 다룬다.
 
 ## R7. 컬럼 타입 — 상태·provider 는 ENUM, 엔티티 columnDefinition 동기화
 

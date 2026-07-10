@@ -6,7 +6,7 @@
 
 ## Summary
 
-`member_social_identities` 테이블을 없애고 소셜 신원 3컬럼(provider·provider_uid·email)을 `member`(구 `members`, 단수형 리네임) 행으로 흡수한다. (provider, provider_uid) 유니크 제약을 member 로 옮겨 로그인 "조회→없으면 가입" 단일 분기를 유지한다(동시 첫 로그인 경합은 발생 확률이 희박해 범위 제외 — R8). 탈퇴는 소프트 삭제 + `provider_uid` 를 `withdrawn:{memberId}` 더미로 치환 + email NULL 로 바꿔, 유니크 제약을 유지한 채 재가입을 열고 개인정보 잔존을 없앤다. 정지 상태는 BaseEntity.status(@SQLRestriction 소프트 삭제 전용)와 분리된 `member_status ENUM('ACTIVE','SUSPENDED')` 컬럼으로 표현하고, 서비스 조회(파생 쿼리 조건)에서만 제외하며 관리자 조회(JPA 상속 findById)에는 보이게 한다. 프로필 4항목(기피성분·맵기·국가·언어)은 `profile` JSON 단일 컬럼으로 이관하고, `onboarding_status` 는 BOOLEAN(TINYINT(1)) 저장으로 바꾼다(도메인 enum 유지 — 엔티티 변환). 도메인 `Member` 는 identities(List) → 단일 identity 로 축소하고 `SocialIdentity`·`MemberRepository`·`MemberIdentityResolver` 는 그대로 둔다(`MemberProfile` 은 countryCode 형식 검증만 추가 — R10).
+`member_social_identities` 테이블을 없애고 소셜 신원 3컬럼(provider·provider_uid·email)을 `member`(구 `members`, 단수형 리네임) 행으로 흡수한다. (provider, provider_uid) 유니크 제약을 member 로 옮겨 로그인 "조회→없으면 가입" 단일 분기를 유지한다(동시 첫 로그인 경합은 발생 확률이 희박해 범위 제외 — R8). 탈퇴는 소프트 삭제 + `provider_uid` 를 `DELETED:{memberId}` 삭제 표식으로 치환해, 유니크 제약을 유지한 채 재가입을 연다(email 은 보존). 정지 상태는 BaseEntity.status(@SQLRestriction 소프트 삭제 전용)와 분리된 `member_status ENUM('ACTIVE','SUSPENDED')` 컬럼으로 표현하고, 서비스 조회(파생 쿼리 조건)에서만 제외하며 관리자 조회(JPA 상속 findById)에는 보이게 한다. 프로필 4항목(기피성분·맵기·국가·언어)은 `profile` JSON 단일 컬럼으로 이관하고, `onboarding_status` 는 BOOLEAN(TINYINT(1)) 저장으로 바꾼다(도메인 enum 유지 — 엔티티 변환). 도메인 `Member` 는 identities(List) → 단일 identity 로 축소하고 `SocialIdentity`·`MemberRepository`·`MemberIdentityResolver` 는 그대로 둔다(`MemberProfile` 은 countryCode 형식 검증만 추가 — R10).
 
 ## Technical Context
 
@@ -101,11 +101,11 @@ app/api/src/main/resources/db/migration/
 | # | 결정 |
 |---|------|
 | R1 | 단일 Flyway 스크립트: RENAME → 컬럼 추가 → JOIN 백필 → NOT NULL·유니크 승격 → 구컬럼·구테이블 DROP |
-| R2 | 신원 없는 과거 탈퇴 행은 `withdrawn:{id}` 더미로 백필 후 NOT NULL 승격 |
+| R2 | 신원 없는 과거 탈퇴 행은 `DELETED:{id}` 표식으로 백필 후 NOT NULL 승격 |
 | R3 | 정지 필터는 파생 쿼리 조건(findById·findByIdentity) — 관리자 조회는 JPA 상속 findById(무필터), port 불변 |
 | R4 | `MemberStatus` 는 영속 모듈(도메인 미보유 — 정지 운영 도구 도입 시 core 승격) |
 | R5 | profile JSON 은 영속 전용 `MemberProfileJson` 스냅샷으로 매핑, nickname 은 컬럼 유지 |
-| R6 | 탈퇴 = 소프트 삭제 + `provider_uid="withdrawn:{memberId}"` + email NULL, provider 원값 유지 |
+| R6 | 탈퇴 = 소프트 삭제 + `provider_uid="DELETED:{memberId}"` 표식 치환, email·provider 는 보존 |
 | R7 | provider·member_status 는 ENUM — 엔티티 columnDefinition·uniqueConstraints 동기화(테스트 스키마 = 엔티티) |
 | R8 | 동시 첫 로그인 경합은 범위 제외(발생 확률 희박 — 사용자 결정). 유니크 제약·폴백 코드는 유지하되 검증 대상 아님 |
 | R9 | 컬럼명 `provider_uid`(프로퍼티 `providerUid`), `onboarding_status` 는 BOOLEAN 저장 — 도메인 타입 불변, 엔티티 변환 |

@@ -30,8 +30,8 @@
 |------|------|------|------|
 | id | BIGINT PK AUTO_INCREMENT | 유지 (BaseEntity) | |
 | provider | ENUM('GOOGLE','APPLE') NOT NULL | **신규 (신원 흡수)** | 엔티티 columnDefinition 동기화 |
-| provider_uid | VARCHAR(255) NOT NULL | **신규 (신원 흡수)** | 탈퇴 시 `withdrawn:{id}` 치환 |
-| email | VARCHAR(255) NULL | **신규 (신원 흡수)** | 탈퇴 시 NULL |
+| provider_uid | VARCHAR(255) NOT NULL | **신규 (신원 흡수)** | 탈퇴 시 `DELETED:{id}` 삭제 표식으로 치환(상수만 쓰면 같은 provider 의 두 번째 탈퇴가 유니크 충돌) |
+| email | VARCHAR(255) NULL | **신규 (신원 흡수)** | 탈퇴 시에도 보존 |
 | nickname | VARCHAR(30) NULL | 유지 | JSON 이관 대상 아님 |
 | profile | JSON NOT NULL | **신규** | 아래 MemberProfileJson |
 | member_status | ENUM('ACTIVE','SUSPENDED') NOT NULL DEFAULT 'ACTIVE' | **신규** | BaseEntity.status 와 별개 축 |
@@ -85,7 +85,7 @@
 ```
 [가입]    member_status=ACTIVE, status=ACTIVE, provider_uid=원본, email=원본
 [정지]    member_status=SUSPENDED            (범위 밖 — 표현·조회 규칙만 이번 작업)
-[탈퇴]    status=DELETED, provider_uid="withdrawn:{id}", email=NULL
+[탈퇴]    status=DELETED, provider_uid="DELETED:{id}"  (email 은 보존)
 ```
 
 - 서비스 조회(findById·findByIdentity): `status=ACTIVE`(자동) + `member_status=ACTIVE`(명시) 인 회원만.
@@ -98,7 +98,7 @@
 1. `RENAME TABLE members TO member`
 2. `ALTER TABLE member ADD` — provider(NULL 로 시작)·provider_uid(NULL 로 시작)·email·member_status·profile(NULL 로 시작)
 3. 신원 백필: `UPDATE member m JOIN member_social_identities si ON si.member_id = m.id SET m.provider_uid = si.provider_user_id, ...`
-4. 과거 탈퇴(신원 없는) 행 백필: `provider='GOOGLE'`, `provider_uid=CONCAT('withdrawn:', id)`
+4. 과거 탈퇴(신원 없는) 행 백필: `provider='GOOGLE'`, `provider_uid=CONCAT('DELETED:', id)`
 5. profile 백필: `JSON_OBJECT(...)` — 구 4컬럼에서 생성 (`avoidance_substance_codes` 는 기존 JSON 배열 그대로, `spiciness_preference` 는 `COALESCE(spiciness_preference, 5)` 로 비-널 보장)
 6. onboarding_status 변환: `UPDATE member SET onboarding_status = IF(onboarding_status = 'COMPLETED', '1', '0')` 후 `MODIFY onboarding_status TINYINT(1) NOT NULL DEFAULT 0`
 7. NOT NULL 승격(provider·provider_uid·profile) + `uk_member_provider_uid` 유니크 추가

@@ -4,7 +4,8 @@
 --   3) 프로필 4컬럼 → profile JSON 단일 컬럼
 --   4) onboarding_status VARCHAR → BOOLEAN
 --   5) member_status ENUM 신설 (BaseEntity.status 소프트삭제와 별개 축)
--- 탈퇴 회원은 provider_uid 를 'withdrawn:{id}' 더미로 두어 유니크 제약을 유지한 채 재가입을 허용한다.
+-- 탈퇴 회원은 provider_uid 를 'DELETED:{id}' 삭제 표식으로 두어 유니크 제약을 유지한 채 재가입을 허용한다
+-- (상수 'DELETED' 만 쓰면 같은 provider 의 두 번째 탈퇴에서 유니크 충돌이 난다).
 
 RENAME TABLE members TO member;
 
@@ -22,11 +23,11 @@ SET m.provider     = si.provider,
     m.provider_uid = si.provider_user_id,
     m.email        = si.email;
 
--- 신원 행이 없는 과거 탈퇴 회원: 더미 식별자로 백필해 NOT NULL·유니크 제약과 충돌하지 않게 한다
+-- 신원 행이 없는 과거 탈퇴 회원: 삭제 표식으로 백필해 NOT NULL·유니크 제약과 충돌하지 않게 한다
+-- (구 withdraw 는 신원 행을 hard delete 했으므로 원본 provider·email 은 복원할 수 없다)
 UPDATE member
 SET provider     = 'GOOGLE',
-    provider_uid = CONCAT('withdrawn:', id),
-    email        = NULL
+    provider_uid = CONCAT('DELETED:', id)
 WHERE provider_uid IS NULL;
 
 -- 프로필 4컬럼 → profile JSON (맵기 미설정 회원은 기본값 5)
