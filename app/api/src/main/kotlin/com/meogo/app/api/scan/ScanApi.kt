@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
 @Tag(name = "메뉴 스캔", description = "메뉴판 스캔 제출·판정 API")
-interface MenuScanApi {
+interface ScanApi {
     @Operation(
         summary = "메뉴 스캔 제출",
         description = """
@@ -57,7 +57,7 @@ interface MenuScanApi {
             required = true,
             content = [
                 Content(
-                    schema = Schema(implementation = MenuScanRequest::class),
+                    schema = Schema(implementation = ScanRequest::class),
                     examples = [
                         ExampleObject(
                             name = "서로 다른 메뉴 4개",
@@ -89,6 +89,6 @@ interface MenuScanApi {
                 ),
             ],
         )
-        request: MenuScanRequest,
-    ): ResponseEntity<BaseResponse<MenuScanResponse>>
+        request: ScanRequest,
+    ): ResponseEntity<BaseResponse<ScanResponse>>
 }

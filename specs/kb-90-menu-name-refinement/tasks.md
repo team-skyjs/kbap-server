@@ -44,7 +44,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 ## Phase 5: 오케스트레이션 · 폴백
 
-- [X] `MenuScanUseCase` — 정규화 게이트 → 전 항목 LLM 1콜 → 배치 매칭 → 미완성 등록 → 위험도
+- [X] `ScanUseCase` — 정규화 게이트 → 전 항목 LLM 1콜 → 배치 매칭 → 미완성 등록 → 위험도
 - [X] 한 스캔 안에서 같은 표준명은 미완성 음식 1회만 생성(이름 집합으로 dedup)
 - [X] 폴백 — interpreter 미구성·예외·타임아웃·**응답 개수 불일치** 시 정규화 exact 매치
 - [X] **폴백은 미완성 음식을 만들지 않는다**(food 테이블 오염 방지)
@@ -62,7 +62,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 
 - [X] 항목 매칭 결과 전용 타입 없음 — `matched`·`foodId` 를 확정된 `Food` 에서 파생
 - [X] `matchStatus` 2상태(MATCHED/UNMATCHED), 비음식 항목은 결과에서 제외
-- [X] Swagger(`MenuScanApi`) 재작성 — 흐름·상태·개수 비대칭 명시
+- [X] Swagger(`ScanApi`) 재작성 — 흐름·상태·개수 비대칭 명시
 
 ## Phase 12: 복잡도 정리 (ponytail)
 
@@ -99,7 +99,7 @@ description: "Delivered scope for 메뉴 스캔 메뉴명 정제"
 - [X] 항목 식별자 `itemId` → `idx`
 - [X] `matchStatus`(문자열) → `matched`(불리언). `foodId` 유무와 구분됨을 문서화
 - [X] `lang` 쿼리 파라미터 제거 — 한국어 고정, 회원 언어 설정 연동은 TODO
-- [X] `MenuScanUseCase` 이름 정리 — `confirmedByInterpreter` 등으로 폴백 규칙을 이름에 노출
+- [X] `ScanUseCase` 이름 정리 — `confirmedByInterpreter` 등으로 폴백 규칙을 이름에 노출
 
 ## 후속 (이 작업 범위 밖)
 

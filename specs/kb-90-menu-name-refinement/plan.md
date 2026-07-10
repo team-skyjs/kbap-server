@@ -100,10 +100,10 @@ infra/persistence/.../food/FoodJpaEntity.kt          # content_status, korean_ma
 infra/persistence/.../food/FoodJpaRepository.kt      # matchKey IN 배치 fetch join, 목록 READY 필터
 infra/persistence/.../food/FoodRepositoryAdapter.kt  # 동음이의 최소 id, createIncomplete 다중행 upsert, 상세 gate
 
-application/client/.../scan/usecase/MenuScanUseCase.kt      # 오케스트레이션 + 폴백
-application/client/.../scan/dto/{MenuScanInput,MenuScanResult}.kt
+application/client/.../scan/usecase/ScanUseCase.kt      # 오케스트레이션 + 폴백
+application/client/.../scan/dto/{ScanInput,ScanResult}.kt
 
-app/api/.../scan/{MenuScanRequest,MenuScanResponse,MenuScanApi}.kt
+app/api/.../scan/{ScanRequest,ScanResponse,ScanApi}.kt
 app/api/src/main/resources/db/migration/             # content_status, korean_match_key, menu_scan DROP
 ```
 

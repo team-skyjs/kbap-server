@@ -17,7 +17,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class MenuScanControllerTest : BehaviorSpec() {
+class ScanControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -82,9 +82,9 @@ class MenuScanControllerTest : BehaviorSpec() {
             objectMapper.writeValueAsString(mapOf("items" to items.toList()))
 
         given("메뉴 스캔 제출 API — 요청/응답 규약") {
-            `when`("유효한 항목들로 POST /api/v1/menu-scans 를 호출하면") {
+            `when`("유효한 항목들로 POST /api/v1/scans 를 호출하면") {
                 then("200 과 idx 1:1 매칭 결과를 반환한다") {
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "된장찌개"), item(1, "비빔밥"))
                     }.andExpect {
@@ -100,7 +100,7 @@ class MenuScanControllerTest : BehaviorSpec() {
 
             `when`("한글이 전혀 없는 항목을 제출하면") {
                 then("메뉴가 아니므로 결과에서 제외된다") {
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "6,500"))
                     }.andExpect {
@@ -116,7 +116,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                 then("MATCHED 이고 위험도를 산출해 반환한다") {
                     seedReadyFood("완성이이김치찌개")
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "완성이이김치찌개 kimchi jjigae"))
                     }.andExpect {
@@ -132,7 +132,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                 then("PENDING·UNKNOWN 이고 food 테이블을 오염시키지 않는다") {
                     val name = "폴백미상-우주라면"
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -160,7 +160,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         ).use { ps -> ps.setString(1, name); ps.executeUpdate() }
                     }
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -180,7 +180,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                 then("name 을 한국어로 내린다") {
                     seedTranslatedFood("언어테스트김치찌개", "Kimchi Stew")
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "언어테스트김치찌개 kimchi jjigae"))
                     }.andExpect {
@@ -206,7 +206,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                         ).use { ps -> ps.setString(1, name); ps.executeUpdate() }
                     }
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -222,7 +222,7 @@ class MenuScanControllerTest : BehaviorSpec() {
                 then("name 이 한국어다") {
                     seedTranslatedFood("언어미지정김치찌개", "Kimchi Stew")
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "언어미지정김치찌개"))
                     }.andExpect {

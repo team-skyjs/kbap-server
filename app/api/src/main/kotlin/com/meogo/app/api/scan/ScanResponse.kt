@@ -1,10 +1,10 @@
 package com.meogo.app.api.scan
 
-import com.meogo.application.client.scan.dto.MenuScanResult
+import com.meogo.application.client.scan.dto.ScanResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "메뉴 스캔 판정 결과 — 요청 idx 로 짝이 맞는 항목별 매칭·위험도")
-data class MenuScanResponse(
+data class ScanResponse(
     @field:Schema(
         description = "정제 서비스 미적용 여부. true 면 LLM 이 없거나 실패해 음식 여부를 판정하지 못한 상태로, " +
             "메뉴가 아닌 텍스트가 results 에 섞여 있을 수 있다(모두 UNMATCHED).",
@@ -62,8 +62,8 @@ data class MenuScanResponse(
     )
 
     companion object {
-        fun from(result: MenuScanResult): MenuScanResponse =
-            MenuScanResponse(
+        fun from(result: ScanResult): ScanResponse =
+            ScanResponse(
                 degraded = result.degraded,
                 results = result.items.map {
                     ItemRiskResponse(

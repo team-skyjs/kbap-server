@@ -1,6 +1,6 @@
 # Contracts: 스캔 API
 
-`POST /api/v1/menu-scans` — `BaseResponse<T>` 봉투·`/api/v1` 규약을 따른다.
+`POST /api/v1/scans` — `BaseResponse<T>` 봉투·`/api/v1` 규약을 따른다.
 
 > **develop 대비 breaking change.** 요청에서 `boundingBox`가, 응답에서 `scanId`·`results[].id`·`reason`이 빠졌고, `degraded`·`matched`·`foodId`·`name`·`koreanName`이 추가됐다. 항목 식별자는 `itemId` → **`idx`** 로 바뀌었고, `matchStatus`(문자열) 대신 **`matched`(불리언)** 를 쓴다. 응답 개수도 요청과 달라질 수 있다.
 

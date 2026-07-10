@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.post
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class MenuScanValidationTest : BehaviorSpec() {
+class ScanValidationTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -33,7 +33,7 @@ class MenuScanValidationTest : BehaviorSpec() {
         }
 
         suspend fun expectBadRequest(payload: Map<String, Any?>) {
-            mockMvc.post("/api/v1/menu-scans") {
+            mockMvc.post("/api/v1/scans") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(payload)
             }.andExpect {

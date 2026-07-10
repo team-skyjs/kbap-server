@@ -46,7 +46,7 @@ UPSTAGE_ENABLED=true UPSTAGE_API_KEY=<키> SERVER_PORT=8081 \
 ```
 
 ```bash
-curl -s -X POST localhost:8081/api/v1/menu-scans -H 'Content-Type: application/json' -d '{"items":[
+curl -s -X POST localhost:8081/api/v1/scans -H 'Content-Type: application/json' -d '{"items":[
   {"itemId":10,"rawMenuName":"김치찌개 kimchi jjigae"},
   {"itemId":20,"rawMenuName":"원산지 : 중국"},
   {"itemId":30,"rawMenuName":"된장찌게 8,000"},

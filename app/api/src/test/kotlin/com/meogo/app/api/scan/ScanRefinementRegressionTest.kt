@@ -17,7 +17,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class MenuScanRefinementRegressionTest : BehaviorSpec() {
+class ScanRefinementRegressionTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -72,7 +72,7 @@ class MenuScanRefinementRegressionTest : BehaviorSpec() {
                     )
                     val body = objectMapper.writeValueAsString(mapOf("items" to items))
 
-                    mockMvc.post("/api/v1/menu-scans") {
+                    mockMvc.post("/api/v1/scans") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body
                     }.andExpect {

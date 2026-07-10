@@ -1,8 +1,8 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.meogo.application.client.scan.dto.MenuScanItemInput
-import com.meogo.application.client.scan.dto.MenuScanInput
+import com.meogo.application.client.scan.dto.ScanItemInput
+import com.meogo.application.client.scan.dto.ScanInput
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue
@@ -12,17 +12,17 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 
 @Schema(description = "메뉴 스캔 제출 요청 — 스캔으로 인식한 메뉴 항목 배열을 담는다.")
-data class MenuScanRequest(
+data class ScanRequest(
     @field:NotEmpty(message = "items 는 최소 1개여야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(
         description = "스캔한 메뉴 항목 목록 (1~100개). 각 항목의 idx 로 응답 결과와 1:1 매칭한다.",
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
-    val items: List<@Valid MenuScanItemRequest> = emptyList(),
+    val items: List<@Valid ScanItemRequest> = emptyList(),
 ) {
-    fun toInput(): MenuScanInput =
-        MenuScanInput(items = items.map { it.toInput() })
+    fun toInput(): ScanInput =
+        ScanInput(items = items.map { it.toInput() })
 
     @get:JsonIgnore
     @get:AssertTrue(message = "idx 는 요청 안에서 중복될 수 없습니다")
@@ -38,7 +38,7 @@ data class MenuScanRequest(
 }
 
 @Schema(description = "스캔한 개별 메뉴 항목")
-data class MenuScanItemRequest(
+data class ScanItemRequest(
     @field:NotNull(message = "idx 는 필수입니다")
     @field:Schema(
         description = "클라이언트가 스캔한 메뉴 각각에 부여하는 식별자. 응답 results[].idx 와 1:1 매칭되어, 클라이언트가 자기 화면의 메뉴와 판정 결과를 연결하는 용도다. 배열 인덱스를 그대로 써도 되지만 서버는 순서로 해석하지 않는다. 한 요청 안에서만 유일하면 된다.",
@@ -55,6 +55,6 @@ data class MenuScanItemRequest(
     )
     val rawMenuName: String?,
 ) {
-    fun toInput(): MenuScanItemInput =
-        MenuScanItemInput(idx = idx!!, rawMenuName = rawMenuName!!)
+    fun toInput(): ScanItemInput =
+        ScanItemInput(idx = idx!!, rawMenuName = rawMenuName!!)
 }

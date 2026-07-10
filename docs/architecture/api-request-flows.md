@@ -7,7 +7,7 @@
 | API | 목적 | 큰 흐름 |
 | --- | --- | --- |
 | `GET /api/v1/foods/detail` | 한국어 메뉴명으로 음식 상세 조회 | Controller -> UseCase -> Core Repository Port -> Persistence -> DB -> Response |
-| `POST /api/v1/menu-scans` | 인식된 메뉴 목록 저장 및 위험도 판정 | Controller -> UseCase -> Core Aggregate/Port -> Persistence -> DB -> Response |
+| `POST /api/v1/scans` | 인식된 메뉴 목록 저장 및 위험도 판정 | Controller -> UseCase -> Core Aggregate/Port -> Persistence -> DB -> Response |
 
 ## 사용되는 도메인 모듈
 
@@ -106,20 +106,20 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor Client
-    participant Controller as MenuScanController<br/>:app:api
-    participant UseCase as MenuScanUseCase<br/>:application:client
+    participant Controller as ScanController<br/>:app:api
+    participant UseCase as ScanUseCase<br/>:application:client
     participant Kernel as KoreanMenuNameNormalizer<br/>:core:kernel
     participant Llm as UpstageScannedNameInterpreter<br/>:infra:llm
     participant Persistence as FoodRepositoryAdapter<br/>:infra:persistence
     participant DB as food
     participant Error as GlobalExceptionHandler<br/>:app:api
 
-    Client->>Controller: POST /api/v1/menu-scans
+    Client->>Controller: POST /api/v1/scans
     alt 요청 검증 실패 (idx 중복·blank·개수 초과)
         Controller-->>Error: validation error
         Error-->>Client: 400 실패 응답
     else 요청 정상
-        Controller->>UseCase: MenuScanInput
+        Controller->>UseCase: ScanInput
         UseCase->>Kernel: matchKey(rawMenuName)
         Note over UseCase: 한글 0자 = 메뉴 아님 → 결과에서 제외
 
@@ -144,8 +144,8 @@ sequenceDiagram
         end
 
         Note over UseCase: matched = food.isReady()<br/>riskLevel = food.overallRisk(회피코드)<br/>(미완성이면 UNKNOWN)
-        UseCase-->>Controller: MenuScanResult
-        Controller-->>Client: 200 MenuScanResponse
+        UseCase-->>Controller: ScanResult
+        Controller-->>Client: 200 ScanResponse
     end
 ```
 
