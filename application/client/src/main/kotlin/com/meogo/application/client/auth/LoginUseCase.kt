@@ -25,7 +25,7 @@ class LoginUseCase(
 ) {
     fun login(idToken: String): LoginResult {
         val identity = socialTokenVerifier.verify(idToken)
-        val (member, newMember) = resolveMember(identity)
+        val (member, isNewMember) = resolveMember(identity)
         val memberId = member.id ?: throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
 
         val refreshToken = tokenIssuer.issueRefreshToken(memberId)
@@ -33,7 +33,7 @@ class LoginUseCase(
 
         return LoginResult(
             memberId = memberId,
-            newMember = newMember,
+            newMember = isNewMember,
             accessToken = tokenIssuer.issueAccessToken(memberId),
             refreshToken = refreshToken.token,
         )
