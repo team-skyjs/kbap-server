@@ -1,5 +1,6 @@
 package com.meogo.core.member
 
+import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -7,7 +8,7 @@ import io.kotest.matchers.shouldBe
 
 class MemberProfileTest : BehaviorSpec({
 
-    fun profile(spiciness: Int?) = MemberProfile(
+    fun profile(spiciness: Int) = MemberProfile(
         nickname = null,
         avoidanceSubstanceCodes = emptySet(),
         spicinessPreference = spiciness,
@@ -29,10 +30,13 @@ class MemberProfileTest : BehaviorSpec({
                 shouldThrow<IllegalArgumentException> { profile(11) }
             }
         }
+    }
 
-        `when`("맵기 선호가 null 이면") {
-            then("미설정으로 허용된다") {
-                MemberProfile.empty().spicinessPreference shouldBe null
+    given("MemberProfile.empty — 가입 직후 기본 프로필") {
+        `when`("빈 프로필을 만들면") {
+            then("맵기 선호는 기본값 5, 기피성분은 빈 셋이다") {
+                MemberProfile.empty().spicinessPreference shouldBe 5
+                MemberProfile.empty().avoidanceSubstanceCodes shouldBe emptySet()
             }
         }
     }
@@ -44,13 +48,13 @@ class MemberProfileTest : BehaviorSpec({
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("MILK")),
                     spicinessPreference = 3,
-                    countryCode = "KR",
+                    countryCode = CountryCode.KR,
                     appLanguage = LanguageCode.JA,
                 )
 
                 profile.nickname shouldBe "머고"
                 profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("PEANUT", "MILK")
-                profile.countryCode shouldBe "KR"
+                profile.countryCode shouldBe CountryCode.KR
                 profile.appLanguage shouldBe LanguageCode.JA
             }
         }

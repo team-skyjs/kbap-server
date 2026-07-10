@@ -1,8 +1,8 @@
 package com.meogo.core.member
 
+import com.meogo.core.kernel.lang.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 
 class MemberTest : BehaviorSpec({
@@ -11,28 +11,12 @@ class MemberTest : BehaviorSpec({
 
     given("Member.signUp — 최초 가입") {
         `when`("소셜 신원으로 가입하면") {
-            then("온보딩 PENDING·빈 프로필·신원 1개를 보유한다") {
+            then("온보딩 PENDING·빈 프로필·해당 신원을 보유한다") {
                 val member = Member.signUp(googleIdentity())
 
                 member.onboardingStatus shouldBe OnboardingStatus.PENDING
                 member.profile shouldBe MemberProfile.empty()
-                member.identities shouldHaveSize 1
-                member.identities.first().providerUserId shouldBe "google-sub-1"
-            }
-        }
-    }
-
-    given("Member 불변식 — 신원 최소 1개") {
-        `when`("신원 없이 복원하려 하면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    Member.reconstitute(
-                        id = 1L,
-                        identities = emptyList(),
-                        profile = MemberProfile.empty(),
-                        onboardingStatus = OnboardingStatus.PENDING,
-                    )
-                }
+                member.identity.providerUserId shouldBe "google-sub-1"
             }
         }
     }
@@ -44,8 +28,8 @@ class MemberTest : BehaviorSpec({
                 val newProfile = MemberProfile(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
-                    spicinessPreference = 5,
-                    countryCode = "KR",
+                    spicinessPreference = 7,
+                    countryCode = CountryCode.KR,
                     appLanguage = null,
                 )
 
@@ -53,7 +37,7 @@ class MemberTest : BehaviorSpec({
 
                 updated.profile shouldBe newProfile
                 member.profile shouldBe MemberProfile.empty()
-                updated.identities shouldBe member.identities
+                updated.identity shouldBe member.identity
                 updated.onboardingStatus shouldBe member.onboardingStatus
             }
         }
@@ -75,7 +59,7 @@ class MemberTest : BehaviorSpec({
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
                 val completed = Member.reconstitute(
                     id = 1L,
-                    identities = listOf(googleIdentity()),
+                    identity = googleIdentity(),
                     profile = MemberProfile.empty(),
                     onboardingStatus = OnboardingStatus.COMPLETED,
                 )
