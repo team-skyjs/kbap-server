@@ -4,6 +4,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.time.Duration
 
@@ -91,6 +92,36 @@ class TokenTest : BehaviorSpec({
             then("INVALID_REFRESH_TOKEN 예외를 던진다") {
                 val e = shouldThrow<AuthException> { parser.parseRefreshToken("not-a-jwt") }
                 e.errorCode shouldBe AuthErrorCode.INVALID_REFRESH_TOKEN
+            }
+        }
+    }
+
+    given("토큰 타입 강제 — access 와 refresh 는 교차 사용할 수 없다") {
+        `when`("refresh 토큰을 access 파서에 넣으면") {
+            then("서명이 유효해도 INVALID_ACCESS_TOKEN 으로 거절한다") {
+                val refreshToken = issuer.issueRefreshToken(memberId = 7L).token
+
+                val e = shouldThrow<AuthException> { parser.parseAccessToken(refreshToken) }
+                e.errorCode shouldBe AuthErrorCode.INVALID_ACCESS_TOKEN
+            }
+        }
+
+        `when`("access 토큰을 refresh 파서에 넣으면") {
+            then("서명이 유효해도 INVALID_REFRESH_TOKEN 으로 거절한다") {
+                val accessToken = issuer.issueAccessToken(memberId = 7L)
+
+                val e = shouldThrow<AuthException> { parser.parseRefreshToken(accessToken) }
+                e.errorCode shouldBe AuthErrorCode.INVALID_REFRESH_TOKEN
+            }
+        }
+
+        `when`("발급된 토큰 본문을 디코딩하면") {
+            then("token_type 클레임이 용도별로 박혀 있다") {
+                fun payload(token: String) =
+                    String(java.util.Base64.getUrlDecoder().decode(token.split(".")[1]))
+
+                payload(issuer.issueAccessToken(1L)) shouldContain "\"token_type\":\"ACCESS\""
+                payload(issuer.issueRefreshToken(1L).token) shouldContain "\"token_type\":\"REFRESH\""
             }
         }
     }

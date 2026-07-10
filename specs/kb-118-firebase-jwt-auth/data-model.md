@@ -39,7 +39,7 @@
 | | Access | Refresh |
 |---|---|---|
 | 형식 | JWT HS256 | JWT HS256 |
-| 클레임 | `sub`=회원 PK, `exp` | `sub`=회원 PK, `jti`=UUID, `exp` |
+| 클레임 | `sub`=회원 PK, `token_type`=ACCESS, `exp` | `sub`=회원 PK, `token_type`=REFRESH, `jti`=UUID, `exp` |
 | 개인정보 | **없음 (금지)** | **없음 (금지)** |
 | 수명 | 30분 (`meogo.auth.jwt.access-ttl`) | 14일 (`meogo.auth.jwt.refresh-ttl`) |
 | 서버 저장 | 없음 (stateless) | Redis jti (폐기 가능) |

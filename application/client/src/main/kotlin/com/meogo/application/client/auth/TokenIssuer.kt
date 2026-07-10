@@ -21,6 +21,7 @@ class TokenIssuer(
         val now = System.currentTimeMillis()
         return Jwts.builder()
             .subject(memberId.toString())
+            .claim(TokenType.CLAIM, TokenType.ACCESS.name)
             .issuedAt(Date(now))
             .expiration(Date(now + properties.accessTtl.toMillis()))
             .signWith(key)
@@ -32,11 +33,22 @@ class TokenIssuer(
         val jti = UUID.randomUUID().toString()
         val token = Jwts.builder()
             .subject(memberId.toString())
+            .claim(TokenType.CLAIM, TokenType.REFRESH.name)
             .id(jti)
             .issuedAt(Date(now))
             .expiration(Date(now + properties.refreshTtl.toMillis()))
             .signWith(key)
             .compact()
         return IssuedRefreshToken(token = token, jti = jti)
+    }
+}
+
+enum class TokenType {
+    ACCESS,
+    REFRESH,
+    ;
+
+    companion object {
+        const val CLAIM: String = "token_type"
     }
 }

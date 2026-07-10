@@ -18,17 +18,24 @@ class TokenParser(
 ) {
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 
-    fun parseAccessToken(token: String): Long =
-        claims(token, AuthErrorCode.EXPIRED_ACCESS_TOKEN, AuthErrorCode.INVALID_ACCESS_TOKEN)
-            .subject
-            .toLongOrNull()
-            ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+    fun parseAccessToken(token: String): Long {
+        val claims = claims(token, AuthErrorCode.EXPIRED_ACCESS_TOKEN, AuthErrorCode.INVALID_ACCESS_TOKEN)
+        requireTokenType(claims, TokenType.ACCESS, AuthErrorCode.INVALID_ACCESS_TOKEN)
+        return claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+    }
 
     fun parseRefreshToken(token: String): ParsedRefreshToken {
         val claims = claims(token, AuthErrorCode.EXPIRED_REFRESH_TOKEN, AuthErrorCode.INVALID_REFRESH_TOKEN)
+        requireTokenType(claims, TokenType.REFRESH, AuthErrorCode.INVALID_REFRESH_TOKEN)
         val memberId = claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
         val jti = claims.id ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
         return ParsedRefreshToken(memberId = memberId, jti = jti)
+    }
+
+    private fun requireTokenType(claims: Claims, expected: TokenType, onMismatch: AuthErrorCode) {
+        if (claims[TokenType.CLAIM] != expected.name) {
+            throw AuthException(onMismatch)
+        }
     }
 
     fun refreshTokenJtiOrNull(token: String): String? =
