@@ -1,8 +1,11 @@
 package com.meogo.infra.llm.config
 
 import com.google.genai.Client
+import com.meogo.core.kernel.scan.ScannedNameInterpreter
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
+import com.meogo.infra.llm.menu.ScannedNameParser
+import com.meogo.infra.llm.menu.UpstageScannedNameInterpreter
 import com.meogo.infra.llm.model.LlmModelId
 import com.meogo.infra.llm.model.LlmPricing
 import com.meogo.infra.llm.provider.SpringAiModelCaller
@@ -15,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.time.Duration
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -27,7 +31,12 @@ class LlmConfiguration {
     fun openAiModelCaller(properties: LlmModelProperties): LlmModelCaller =
         SpringAiModelCaller(
             LlmModelId.OPENAI,
-            openAiChatModel(LlmModelId.OPENAI, properties.openai, resolveOpenAiBaseUrl(properties.openai.baseUrl)),
+            openAiChatModel(
+                LlmModelId.OPENAI,
+                properties.openai,
+                resolveOpenAiBaseUrl(properties.openai.baseUrl),
+                properties.callTimeout,
+            ),
             pricingOf(properties.openai, properties.usdToKrw),
         )
 
@@ -36,7 +45,12 @@ class LlmConfiguration {
     fun upstageModelCaller(properties: LlmModelProperties): LlmModelCaller =
         SpringAiModelCaller(
             LlmModelId.UPSTAGE,
-            openAiChatModel(LlmModelId.UPSTAGE, properties.upstage, properties.upstage.baseUrl ?: DEFAULT_UPSTAGE_BASE_URL),
+            openAiChatModel(
+                LlmModelId.UPSTAGE,
+                properties.upstage,
+                properties.upstage.baseUrl ?: DEFAULT_UPSTAGE_BASE_URL,
+                properties.callTimeout,
+            ),
             pricingOf(properties.upstage, properties.usdToKrw),
         )
 
@@ -50,6 +64,11 @@ class LlmConfiguration {
         )
 
     @Bean
+    @ConditionalOnProperty(prefix = "meogo.llm.upstage", name = ["enabled"], havingValue = "true")
+    fun scannedNameInterpreter(properties: LlmModelProperties): ScannedNameInterpreter =
+        UpstageScannedNameInterpreter(upstageModelCaller(properties), ScannedNameParser())
+
+    @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
 
     @Bean
@@ -59,9 +78,14 @@ class LlmConfiguration {
         properties: LlmModelProperties,
     ): LlmFanoutClient = LlmFanoutClient(callers, executor, properties.callTimeout)
 
-    private fun openAiChatModel(modelId: LlmModelId, props: LlmModelProperties.ModelProps, baseUrl: String): ChatModel =
+    private fun openAiChatModel(
+        modelId: LlmModelId,
+        props: LlmModelProperties.ModelProps,
+        baseUrl: String,
+        callTimeout: Duration,
+    ): ChatModel =
         OpenAiChatModel.builder()
-            .options(openAiChatOptions(modelId, props, baseUrl))
+            .options(openAiChatOptions(modelId, props, baseUrl, callTimeout))
             .build()
 
     private fun pricingOf(props: LlmModelProperties.ModelProps, usdToKrw: Double): LlmPricing =
@@ -89,14 +113,18 @@ class LlmConfiguration {
             modelId: LlmModelId,
             props: LlmModelProperties.ModelProps,
             baseUrl: String,
+            callTimeout: Duration,
         ): OpenAiChatOptions {
             val builder = OpenAiChatOptions.builder()
             builder.apiKey(requireOpenAiApiKey(modelId, props.apiKey))
             builder.baseUrl(baseUrl)
+            builder.timeout(callTimeout)
+            props.maxRetries?.let { builder.maxRetries(it) }
             props.model?.let { builder.model(it) }
             props.maxOutputTokens?.let {
                 if (modelId == LlmModelId.OPENAI) builder.maxCompletionTokens(it) else builder.maxTokens(it)
             }
+            props.temperature?.let { builder.temperature(it) }
             if (modelId == LlmModelId.OPENAI) {
                 props.reasoningEffort?.let { builder.reasoningEffort(it) }
             }

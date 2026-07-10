@@ -11,8 +11,28 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
 
     @Query(
         """
+        select distinct f from FoodJpaEntity f
+        left join fetch f.foodAvoidanceSubstances
+        where f.koreanMatchKey in :keys
+        order by f.id asc
+        """,
+    )
+    fun findByKoreanMatchKeyInWithAvoidanceSubstances(@Param("keys") keys: Set<String>): List<FoodJpaEntity>
+
+    @Query(
+        """
+        select distinct f from FoodJpaEntity f
+        left join fetch f.foodAvoidanceSubstances
+        where f.koreanName in :koreanNames
+        """,
+    )
+    fun findByKoreanNameIn(@Param("koreanNames") koreanNames: Set<String>): List<FoodJpaEntity>
+
+    @Query(
+        """
         select f.id from FoodJpaEntity f
         where (:cursor is null or f.id < :cursor)
+          and f.contentStatus = 'READY'
         order by f.id desc
         """,
     )
@@ -43,6 +63,7 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         value = """
         select f.id from food f
         where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
           and (:cursor is null or f.id < :cursor)
           and (
             f.korean_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'

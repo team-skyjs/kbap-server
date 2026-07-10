@@ -32,3 +32,28 @@ spring:
       audio:
         transcription: none
         speech: none
+
+meogo:
+  llm:
+    # 스캔 메뉴명 정제(ScannedNameInterpreter)는 Upstage Solar 를 단일 호출한다.
+    # 정제 없이 스캔 API 를 열어 두지 않으므로 기본 on — enabled=false 면 SubmitMenuScanUseCase 가
+    # 의존성을 못 찾아 부팅에 실패한다. 폴백(degraded=true)은 "호출 실패"에만 쓴다.
+    # UPSTAGE_API_KEY 가 없으면 부팅 시 어느 키가 빠졌는지 알려주며 실패한다.
+    upstage:
+      enabled: ${UPSTAGE_ENABLED:true}
+      model: solar-pro
+      api-key: ${UPSTAGE_API_KEY:}
+      # 정제는 결정적이어야 한다 — 같은 메뉴판에 같은 판정.
+      temperature: 0.0
+      # 정제 응답은 문자열 JSON 배열 하나 — 스캔 항목(최대 100)에 넉넉한 상한.
+      max-output-tokens: 2048
+      # 스캔은 동기 응답이라 재시도로 대기시간을 늘릴 수 없다. call-timeout 이 곧 상한이 되도록 0.
+      # (Spring AI 기본값 3 이면 최악 4회 시도 = call-timeout x4)
+      max-retries: 0
+      pricing:
+        # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
+        input-usd-per-million-tokens: 0.15
+        output-usd-per-million-tokens: 0.15
+    # 모델 1회 호출 타임아웃. OpenAI 호환 클라이언트(okhttp)의 요청 타임아웃으로 실린다.
+    # 스캔 정제는 사용자 요청 경로라 초과 시 폴백(degraded=true)으로 흘린다.
+    call-timeout: 5s

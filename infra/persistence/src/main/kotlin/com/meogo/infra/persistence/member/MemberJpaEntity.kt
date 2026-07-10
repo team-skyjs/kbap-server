@@ -38,7 +38,7 @@ class MemberJpaEntity(
     var appLanguage: String? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "onboarding_status", nullable = false, length = 20)
+    @Column(name = "onboarding_status", nullable = false, columnDefinition = "ENUM('PENDING','COMPLETED')")
     var onboardingStatus: OnboardingStatus = OnboardingStatus.PENDING,
 
     @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)

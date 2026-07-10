@@ -1,6 +1,8 @@
 package com.meogo.core.food
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.stereotype.AggregateRoot
 
@@ -11,6 +13,7 @@ class Food private constructor(
     val imageRef: String?,
     val spiciness: FoodSpiciness,
     val avoidanceSubstances: List<FoodAvoidanceSubstance>,
+    val contentStatus: FoodContentStatus,
 ) {
     init {
         val codes = avoidanceSubstances.map { it.substanceCode }
@@ -18,6 +21,8 @@ class Food private constructor(
             "food.avoidanceSubstances 에 중복된 기피 성분 코드가 있을 수 없습니다"
         }
     }
+
+    fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
     fun koreanName(): String = content.koreanName()
 
@@ -29,11 +34,14 @@ class Food private constructor(
         avoidanceSubstances.sortedByDescending { it.inclusionProbability }
 
     fun overallRisk(avoidedCodes: Set<AvoidanceSubstanceCodeRef>): RiskLevel {
+        if (!isReady()) return RiskLevel.UNKNOWN
         val targeted = avoidanceSubstances.filter { it.substanceCode in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
 
     companion object {
+        const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
         fun create(
             content: FoodContent,
             imageRef: String? = null,
@@ -45,7 +53,26 @@ class Food private constructor(
             imageRef = imageRef,
             spiciness = spiciness,
             avoidanceSubstances = avoidanceSubstances,
+            contentStatus = FoodContentStatus.READY,
         )
+
+        fun incomplete(koreanName: String): Food {
+            require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
+            require(koreanName.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH) {
+                "food.koreanName 은 ${KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH}자를 넘을 수 없습니다"
+            }
+            return Food(
+                id = null,
+                content = FoodContent(
+                    name = LocalizedText(korean = koreanName),
+                    description = LocalizedText(korean = PLACEHOLDER_DESCRIPTION),
+                ),
+                imageRef = null,
+                spiciness = FoodSpiciness(FoodSpiciness.MIN_LEVEL),
+                avoidanceSubstances = emptyList(),
+                contentStatus = FoodContentStatus.INCOMPLETE,
+            )
+        }
 
         fun reconstitute(
             id: Long,
@@ -53,12 +80,14 @@ class Food private constructor(
             imageRef: String?,
             spiciness: FoodSpiciness,
             avoidanceSubstances: List<FoodAvoidanceSubstance>,
+            contentStatus: FoodContentStatus = FoodContentStatus.READY,
         ): Food = Food(
             id = id,
             content = content,
             imageRef = imageRef,
             spiciness = spiciness,
             avoidanceSubstances = avoidanceSubstances,
+            contentStatus = contentStatus,
         )
     }
 }

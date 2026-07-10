@@ -2,6 +2,7 @@ package com.meogo.infra.persistence.food
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
+import com.meogo.core.food.Food
 import com.meogo.core.kernel.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -17,6 +18,8 @@ import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
@@ -560,6 +563,219 @@ class FoodRepositoryAdapterTest : BehaviorSpec() {
                     val page = adapter.searchFoodPage("김치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(alive)
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 정규화 매칭 키 배치 조회") {
+            `when`("여러 정규화 키로 한 번에 조회하면") {
+                then("키별 음식을 담은 맵을 반환하고 없는 키는 빠진다") {
+                    clearFoods()
+                    val kimchi = saveFood("김치찌개")
+                    val gukbap = saveFood("돼지 국밥")
+
+                    val found = adapter.findByKoreanMatchKeys(setOf("김치찌개", "돼지국밥", "없는메뉴"))
+
+                    found.keys shouldBe setOf("김치찌개", "돼지국밥")
+                    found.getValue("김치찌개").id shouldBe kimchi
+                    found.getValue("돼지국밥").id shouldBe gukbap
+                }
+            }
+
+            `when`("미완성(INCOMPLETE) 음식이 키와 일치하면") {
+                then("스캔 매칭 대상이므로 포함된다") {
+                    clearFoods()
+                    adapter.createIncomplete(setOf("우주라면"))
+
+                    val found = adapter.findByKoreanMatchKeys(setOf("우주라면"))
+
+                    found.getValue("우주라면").isReady() shouldBe false
+                }
+            }
+
+            `when`("같은 정규화 키를 가진 음식이 둘 이상이면") {
+                then("가장 작은 id 의 음식을 반환한다") {
+                    clearFoods()
+                    val first = saveFood("국밥")
+                    saveFood("국 밥")
+
+                    adapter.findByKoreanMatchKeys(setOf("국밥")).getValue("국밥").id shouldBe first
+                }
+            }
+
+            `when`("소프트 삭제된 음식만 키가 일치하면") {
+                then("@SQLRestriction 으로 제외된다") {
+                    clearFoods()
+                    val id = saveFood("삭제된김밥")
+                    val entity = foodJpaRepository.findById(id).get()
+                    entity.delete()
+                    foodJpaRepository.save(entity)
+
+                    adapter.findByKoreanMatchKeys(setOf("삭제된김밥")) shouldBe emptyMap()
+                }
+            }
+
+            `when`("빈 키 집합으로 조회하면") {
+                then("빈 맵을 반환한다(쿼리 없음)") {
+                    adapter.findByKoreanMatchKeys(emptySet()) shouldBe emptyMap()
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 미완성 음식 일괄 생성") {
+            `when`("스캔 miss 이름들을 한 번에 등록하면") {
+                then("모두 INCOMPLETE 로 저장되고 이름별 음식 맵을 돌려준다") {
+                    clearFoods()
+
+                    val created = adapter.createIncomplete(setOf("마라샹궈", "우주라면", "탕후루"))
+
+                    created.keys shouldBe setOf("마라샹궈", "우주라면", "탕후루")
+                    created.values.forEach {
+                        it.id.shouldNotBeNull()
+                        it.isReady() shouldBe false
+                    }
+                    foodJpaRepository.count() shouldBe 3
+                }
+            }
+
+            `when`("이미 있는 이름과 새 이름이 섞여 있으면") {
+                then("기존 음식은 재사용하고 새 이름만 삽입한다") {
+                    clearFoods()
+                    val existingId = adapter.createIncomplete(setOf("마라탕")).getValue("마라탕").id
+
+                    val created = adapter.createIncomplete(setOf("마라탕", "탕수육"))
+
+                    created.getValue("마라탕").id shouldBe existingId
+                    created.getValue("탕수육").id.shouldNotBeNull()
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("완성(READY) 음식과 이름이 같으면") {
+                then("미완성으로 덮어쓰지 않고 기존 음식을 그대로 돌려준다") {
+                    clearFoods()
+                    val readyId = saveFood("완성-비빔밥")
+
+                    val created = adapter.createIncomplete(setOf("완성-비빔밥"))
+
+                    created.getValue("완성-비빔밥").id shouldBe readyId
+                    created.getValue("완성-비빔밥").isReady() shouldBe true
+                    foodJpaRepository.count() shouldBe 1
+                }
+            }
+
+            `when`("빈 집합으로 호출하면") {
+                then("쿼리 없이 빈 맵을 돌려준다") {
+                    adapter.createIncomplete(emptySet()) shouldBe emptyMap()
+                }
+            }
+
+            `when`("소프트 삭제된 동명 음식이 섞여 있으면") {
+                then("되살리지 않고 그 이름만 결과에서 빠지며, 같은 배치의 새 이름은 정상 등록된다") {
+                    clearFoods()
+                    val ghostId = saveFood("유령-라면")
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+
+                    val created = adapter.createIncomplete(setOf("유령-라면", "신규-라면"))
+
+                    created shouldNotContainKey "유령-라면"
+                    created.getValue("신규-라면").id.shouldNotBeNull()
+                }
+            }
+
+            `when`("같은 새 이름을 두 스레드가 동시에 등록하면") {
+                then("아무도 실패하지 않고 둘 다 같은 foodId 를 받으며 행은 하나다") {
+                    clearFoods()
+                    val pool = Executors.newFixedThreadPool(2)
+                    val tasks: List<Callable<Result<Map<String, Food>>>> = (1..2).map {
+                        Callable { runCatching { adapter.createIncomplete(setOf("경합-라면", "경합-국밥")) } }
+                    }
+                    val outcomes = pool.invokeAll(tasks).map { it.get() }
+                    pool.shutdown()
+
+                    outcomes.forEach { it.exceptionOrNull().shouldBeNull() }
+                    val first = outcomes[0].getOrThrow()
+                    val second = outcomes[1].getOrThrow()
+                    first.getValue("경합-라면").id shouldBe second.getValue("경합-라면").id
+                    first.getValue("경합-국밥").id shouldBe second.getValue("경합-국밥").id
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("이름 5개를 한 번에 등록하면") {
+                then("이름 수와 무관하게 문장은 2개다(다중행 upsert 1 + 조회 1)") {
+                    clearFoods()
+                    val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
+                    statistics.clear()
+
+                    adapter.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
+
+                    statistics.prepareStatementCount shouldBe 2
+                    statistics.entityInsertCount shouldBe 0
+                    foodJpaRepository.count() shouldBe 5
+                }
+            }
+        }
+
+        given("Food 저장소 어댑터 — 미완성 음식 노출 차단(serving gate)") {
+            `when`("미완성 음식이 섞인 채 메뉴 목록을 조회하면") {
+                then("READY 음식만 반환한다") {
+                    clearFoods()
+                    val ready = saveFood("완성-비빔밥")
+                    adapter.createIncomplete(setOf("미완성-우주라면"))
+
+                    adapter.findFoodPage(null, 20).map { it.id } shouldBe listOf(ready)
+                }
+            }
+
+            `when`("미완성 음식을 id 로 상세 조회하면") {
+                then("null 을 반환한다") {
+                    clearFoods()
+                    val incompleteId = adapter.createIncomplete(setOf("미완성-마라탕")).getValue("미완성-마라탕").id!!
+
+                    adapter.findById(incompleteId) shouldBe null
+                }
+            }
+
+            `when`("미완성 음식의 이름이 검색어와 일치하면") {
+                then("네이티브 검색 쿼리도 READY 음식만 반환한다") {
+                    clearFoods()
+                    val ready = saveFood("완성-라면")
+                    adapter.createIncomplete(setOf("미완성-라면"))
+
+                    adapter.searchFoodPage("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
+                }
+            }
+        }
+
+        given("Food 스키마 — 상태 컬럼은 DB 가 후보값을 고정한다") {
+            `when`("status 에 정의되지 않은 값을 직접 넣으면") {
+                then("DB 가 거부한다(오타 유입 차단)") {
+                    shouldThrow<java.sql.SQLException> {
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
+                                    "description_translations, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타상태', '설명', 0, '{}', '{}', 'READY', 'ACTIV', NOW(6), NOW(6))",
+                            ).use { it.executeUpdate() }
+                        }
+                    }
+                }
+            }
+
+            `when`("content_status 에 정의되지 않은 값을 직접 넣으면") {
+                then("DB 가 거부한다") {
+                    shouldThrow<java.sql.SQLException> {
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
+                                    "description_translations, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타완성상태', '설명', 0, '{}', '{}', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
+                            ).use { it.executeUpdate() }
+                        }
+                    }
                 }
             }
         }

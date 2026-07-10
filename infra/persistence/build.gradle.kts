@@ -12,7 +12,6 @@ plugins {
 
 dependencies {
     "implementation"(project(":core:kernel"))
-    "implementation"(project(":core:scan"))
     "implementation"(project(":core:food"))
     "implementation"(project(":core:avoidance"))
     "implementation"(project(":core:member"))

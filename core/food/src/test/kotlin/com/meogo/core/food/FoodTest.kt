@@ -1,7 +1,9 @@
 package com.meogo.core.food
 
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.lang.LocalizedText
+import com.meogo.core.kernel.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -118,6 +120,48 @@ class FoodTest : BehaviorSpec({
                             substance("SOYBEAN", 80),
                         ),
                     )
+                }
+            }
+        }
+    }
+
+    given("Food 콘텐츠 완성 상태") {
+        `when`("정상 생성하면") {
+            then("READY 이며 조회 가능하다") {
+                create().contentStatus shouldBe FoodContentStatus.READY
+                create().isReady() shouldBe true
+            }
+        }
+
+        `when`("스캔 미스로 미완성 음식을 만들면") {
+            then("한국어명만 갖고 INCOMPLETE 상태이며 성분이 비어 있다") {
+                val food = Food.incomplete("우주라면")
+
+                food.koreanName() shouldBe "우주라면"
+                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                food.isReady() shouldBe false
+                food.avoidanceSubstances shouldBe emptyList()
+            }
+        }
+
+        `when`("미완성 음식의 위험도를 물으면") {
+            then("성분이 비어도 SAFE 가 아니라 UNKNOWN 이다") {
+                Food.incomplete("우주라면").overallRisk(emptySet()) shouldBe RiskLevel.UNKNOWN
+            }
+        }
+
+        `when`("한국어명이 blank 이면") {
+            then("예외를 던진다") {
+                shouldThrow<IllegalArgumentException> { Food.incomplete(" ") }
+            }
+        }
+    }
+
+    given("Food.incomplete 한국어명 길이") {
+        `when`("컬럼 길이(255)를 넘는 이름이면") {
+            then("도메인이 거절한다(영속 계층 truncation 방지 최후 방어선)") {
+                shouldThrow<IllegalArgumentException> {
+                    Food.incomplete("가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH + 1))
                 }
             }
         }

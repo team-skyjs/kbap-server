@@ -8,4 +8,8 @@ interface FoodRepository {
     fun findFoodPage(cursor: Long?, size: Int): List<Food>
 
     fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food>
+
+    fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food>
+
+    fun createIncomplete(koreanNames: Set<String>): Map<String, Food>
 }
