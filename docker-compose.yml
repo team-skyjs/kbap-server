@@ -26,10 +26,19 @@ services:
       DB_USERNAME: ${DB_USERNAME:-meogo}
       DB_PASSWORD: ${DB_PASSWORD:-meogo}
       MONGODB_URI: mongodb://mongo:27017/meogo
+      # 인증(KB-118). compose 의 .env 는 변수 보간용일 뿐 컨테이너 환경으로 자동 주입되지 않으므로
+      # 여기서 명시적으로 전달한다. JWT_SECRET 없이는 앱이 부팅하지 않는다(fail-fast).
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 을 .env 에 설정하세요 - 32바이트 이상 (openssl rand -base64 32)}"
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+      # 컨테이너 안에서 localhost 는 자기 자신 — refresh 세션 저장소는 서비스명(redis)으로 접속한다.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       mysql:
         condition: service_healthy
       mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
