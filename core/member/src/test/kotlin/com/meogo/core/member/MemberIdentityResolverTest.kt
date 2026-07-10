@@ -16,7 +16,7 @@ class MemberIdentityResolverTest : BehaviorSpec({
             then("기존 회원을 반환하고 신규가 아니다") {
                 val existing = Member.reconstitute(
                     id = 10L,
-                    identities = listOf(identity()),
+                    identity = identity(),
                     profile = MemberProfile.empty(),
                     onboardingStatus = OnboardingStatus.COMPLETED,
                 )
@@ -52,7 +52,7 @@ class MemberIdentityResolverTest : BehaviorSpec({
             then("재조회 1회로 기존 회원을 반환하고 신규가 아니다") {
                 val winner = Member.reconstitute(
                     id = 20L,
-                    identities = listOf(identity()),
+                    identity = identity(),
                     profile = MemberProfile.empty(),
                     onboardingStatus = OnboardingStatus.PENDING,
                 )
@@ -88,7 +88,7 @@ class MemberIdentityResolverTest : BehaviorSpec({
             then("신규가 아니면서 온보딩 상태가 PENDING 으로 노출된다") {
                 val pending = Member.reconstitute(
                     id = 30L,
-                    identities = listOf(identity()),
+                    identity = identity(),
                     profile = MemberProfile.empty(),
                     onboardingStatus = OnboardingStatus.PENDING,
                 )
@@ -127,7 +127,7 @@ private class FakeMemberRepository(
         }
         return Member.reconstitute(
             id = 99L,
-            identities = member.identities,
+            identity = member.identity,
             profile = member.profile,
             onboardingStatus = member.onboardingStatus,
         )

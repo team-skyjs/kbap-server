@@ -12,11 +12,12 @@ import org.springframework.stereotype.Repository
 class MemberRepositoryAdapter(
     private val memberJpaRepository: MemberJpaRepository,
 ) : MemberRepository {
-    override fun findById(id: Long): Member? =
-        memberJpaRepository.findByIdWithIdentities(id)?.toDomain()
+    override fun findById(id: Long): Member? = findActive(id)?.toDomain()
 
     override fun findByIdentity(provider: SocialProvider, providerUserId: String): Member? =
-        memberJpaRepository.findByIdentity(provider, providerUserId)?.toDomain()
+        memberJpaRepository
+            .findByProviderAndProviderUidAndMemberStatus(provider, providerUserId, MemberStatus.ACTIVE)
+            ?.toDomain()
 
     override fun saveNew(member: Member): Member =
         try {
@@ -27,17 +28,17 @@ class MemberRepositoryAdapter(
 
     override fun update(member: Member): Member {
         val id = member.id ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        val entity = memberJpaRepository.findByIdWithIdentities(id)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        val entity = findActive(id) ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
         entity.applyProfile(member)
         return memberJpaRepository.save(entity).toDomain()
     }
 
     override fun withdraw(id: Long) {
-        val entity = memberJpaRepository.findByIdWithIdentities(id)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        entity.identities.clear()
-        entity.delete()
+        val entity = findActive(id) ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        entity.withdraw()
         memberJpaRepository.save(entity)
     }
+
+    private fun findActive(id: Long): MemberJpaEntity? =
+        memberJpaRepository.findByIdAndMemberStatus(id, MemberStatus.ACTIVE)
 }

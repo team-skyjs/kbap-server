@@ -5,14 +5,10 @@ import com.meogo.core.kernel.stereotype.AggregateRoot
 @AggregateRoot
 class Member private constructor(
     val id: Long?,
-    val identities: List<SocialIdentity>,
+    val identity: SocialIdentity,
     val profile: MemberProfile,
     val onboardingStatus: OnboardingStatus,
 ) {
-    init {
-        require(identities.isNotEmpty()) { "member 는 최소 1개의 소셜 신원을 가져야 합니다" }
-    }
-
     fun updateProfile(profile: MemberProfile): Member = copy(profile = profile)
 
     fun completeOnboarding(): Member {
@@ -28,7 +24,7 @@ class Member private constructor(
     ): Member =
         Member(
             id = id,
-            identities = identities,
+            identity = identity,
             profile = profile,
             onboardingStatus = onboardingStatus,
         )
@@ -37,20 +33,20 @@ class Member private constructor(
         fun signUp(identity: SocialIdentity): Member =
             Member(
                 id = null,
-                identities = listOf(identity),
+                identity = identity,
                 profile = MemberProfile.empty(),
                 onboardingStatus = OnboardingStatus.PENDING,
             )
 
         fun reconstitute(
             id: Long,
-            identities: List<SocialIdentity>,
+            identity: SocialIdentity,
             profile: MemberProfile,
             onboardingStatus: OnboardingStatus,
         ): Member =
             Member(
                 id = id,
-                identities = identities,
+                identity = identity,
                 profile = profile,
                 onboardingStatus = onboardingStatus,
             )

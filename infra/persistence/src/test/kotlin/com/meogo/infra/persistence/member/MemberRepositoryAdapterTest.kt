@@ -1,5 +1,7 @@
 package com.meogo.infra.persistence.member
 
+import com.meogo.core.kernel.lang.CountryCode
+import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.member.AvoidanceSubstanceCodeRef
 import com.meogo.core.member.Member
 import com.meogo.core.member.MemberErrorCode
@@ -29,26 +31,47 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
     private lateinit var adapter: MemberRepositoryAdapter
 
     @Autowired
+    private lateinit var memberJpaRepository: MemberJpaRepository
+
+    @Autowired
     private lateinit var dataSource: DataSource
 
     init {
         fun clear() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM member_social_identities")
-                    statement.execute("DELETE FROM members")
+                    statement.execute("DELETE FROM member")
                 }
             }
         }
 
         fun softDeleteMember(id: Long) {
             dataSource.connection.use { connection ->
-                connection.prepareStatement("UPDATE members SET status = 'DELETED' WHERE id = ?").use {
+                connection.prepareStatement("UPDATE member SET status = 'DELETED' WHERE id = ?").use {
                     it.setLong(1, id)
                     it.executeUpdate()
                 }
             }
         }
+
+        fun suspendMember(id: Long) {
+            dataSource.connection.use { connection ->
+                connection.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use {
+                    it.setLong(1, id)
+                    it.executeUpdate()
+                }
+            }
+        }
+
+        fun readColumn(id: Long, column: String): String? =
+            dataSource.connection.use { connection ->
+                connection.prepareStatement("SELECT $column FROM member WHERE id = ?").use { statement ->
+                    statement.setLong(1, id)
+                    statement.executeQuery().use { rs ->
+                        if (rs.next()) rs.getString(1) else null
+                    }
+                }
+            }
 
         fun googleIdentity(sub: String = "google-sub-1", email: String? = "user@gmail.com") =
             SocialIdentity(SocialProvider.GOOGLE, sub, email)
@@ -59,32 +82,45 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
 
         given("saveNew — 회원·신원 저장") {
             `when`("신규 회원을 저장하면") {
-                then("members·member_social_identities 에 저장되고 findByIdentity 로 복원된다") {
+                then("member 한 행에 신원이 저장되고 findByIdentity 로 복원된다") {
                     val saved = adapter.saveNew(newMember(googleIdentity()))
 
                     saved.id.shouldNotBeNull()
                     val found = adapter.findByIdentity(SocialProvider.GOOGLE, "google-sub-1")
                     found.shouldNotBeNull()
-                    found.identities.first().providerUserId shouldBe "google-sub-1"
-                    found.identities.first().email shouldBe "user@gmail.com"
+                    found.identity.providerUserId shouldBe "google-sub-1"
+                    found.identity.email shouldBe "user@gmail.com"
                     found.onboardingStatus shouldBe OnboardingStatus.PENDING
+                }
+            }
+
+            `when`("빈 프로필로 가입하면") {
+                then("맵기 선호 기본값 5 와 빈 기피성분이 복원된다") {
+                    val saved = adapter.saveNew(newMember(googleIdentity(sub = "empty-profile-sub")))
+
+                    val found = adapter.findById(saved.id!!)
+                    found.shouldNotBeNull()
+                    found.profile.spicinessPreference shouldBe 5
+                    found.profile.avoidanceSubstanceCodes shouldBe emptySet()
+                    found.profile.countryCode.shouldBeNull()
+                    found.profile.appLanguage.shouldBeNull()
                 }
             }
         }
 
         given("프로필 값이 채워진 회원 저장") {
             `when`("기피성분·맵기·국가·언어·닉네임을 담아 저장하면") {
-                then("findById 재조회 시 값이 그대로 복원된다") {
-                    val profile = MemberProfile(
+                then("findById 재조회 시 profile JSON 값이 그대로 복원된다") {
+                    val profile = MemberProfile.of(
                         nickname = "머고",
                         avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("SOYBEAN")),
                         spicinessPreference = 7,
-                        countryCode = "KR",
-                        appLanguage = com.meogo.core.kernel.lang.LanguageCode.EN,
+                        countryCode = CountryCode.KR,
+                        appLanguage = LanguageCode.EN,
                     )
                     val toSave = Member.reconstitute(
                         id = 0L,
-                        identities = listOf(googleIdentity(sub = "sub-profile")),
+                        identity = googleIdentity(sub = "sub-profile"),
                         profile = profile,
                         onboardingStatus = OnboardingStatus.COMPLETED,
                     )
@@ -95,16 +131,30 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                     found.profile.nickname shouldBe "머고"
                     found.profile.avoidanceSubstanceCodes shouldBe profile.avoidanceSubstanceCodes
                     found.profile.spicinessPreference shouldBe 7
-                    found.profile.countryCode shouldBe "KR"
-                    found.profile.appLanguage shouldBe com.meogo.core.kernel.lang.LanguageCode.EN
+                    found.profile.countryCode shouldBe CountryCode.KR
+                    found.profile.appLanguage shouldBe LanguageCode.EN
                     found.onboardingStatus shouldBe OnboardingStatus.COMPLETED
+                }
+            }
+
+            `when`("온보딩을 완료한 회원을 저장하면") {
+                then("onboarding_status 컬럼에 boolean true 로 저장된다") {
+                    val toSave = Member.reconstitute(
+                        id = 0L,
+                        identity = googleIdentity(sub = "onboarding-bool-sub"),
+                        profile = MemberProfile.empty(),
+                        onboardingStatus = OnboardingStatus.COMPLETED,
+                    )
+                    val saved = adapter.saveNew(toSave)
+
+                    readColumn(saved.id!!, "onboarding_status") shouldBe "1"
                 }
             }
         }
 
-        given("동일 (provider, providerUserId) 중복 저장") {
+        given("동일 (provider, providerUid) 중복 저장") {
             `when`("같은 소셜 계정을 다시 saveNew 하면") {
-                then("DUPLICATE_SOCIAL_IDENTITY 예외를 던진다") {
+                then("유니크 제약이 막아 DUPLICATE_SOCIAL_IDENTITY 예외를 던진다") {
                     adapter.saveNew(newMember(googleIdentity(sub = "dup-sub")))
 
                     val e = shouldThrow<MemberException> {
@@ -119,12 +169,12 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
             `when`("빈 프로필 회원의 프로필을 채우고 온보딩을 완료해 update 하면") {
                 then("findById 재조회 시 갱신 값이 그대로 반환된다") {
                     val saved = adapter.saveNew(newMember(googleIdentity(sub = "update-sub")))
-                    val filled = MemberProfile(
+                    val filled = MemberProfile.of(
                         nickname = "머고",
                         avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
                         spicinessPreference = 4,
-                        countryCode = "JP",
-                        appLanguage = com.meogo.core.kernel.lang.LanguageCode.JA,
+                        countryCode = CountryCode.JP,
+                        appLanguage = LanguageCode.JA,
                     )
 
                     adapter.update(saved.updateProfile(filled).completeOnboarding())
@@ -134,8 +184,8 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                     found.profile.nickname shouldBe "머고"
                     found.profile.avoidanceSubstanceCodes shouldBe filled.avoidanceSubstanceCodes
                     found.profile.spicinessPreference shouldBe 4
-                    found.profile.countryCode shouldBe "JP"
-                    found.profile.appLanguage shouldBe com.meogo.core.kernel.lang.LanguageCode.JA
+                    found.profile.countryCode shouldBe CountryCode.JP
+                    found.profile.appLanguage shouldBe LanguageCode.JA
                     found.onboardingStatus shouldBe OnboardingStatus.COMPLETED
                 }
             }
@@ -153,9 +203,9 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
             }
         }
 
-        given("회원 탈퇴 — 회원 soft delete + 신원 hard delete") {
+        given("회원 탈퇴 — 소프트 삭제 + 신원 더미 치환") {
             `when`("활성 회원을 탈퇴 처리하면") {
-                then("조회·신원 해소에서 제외되고, 같은 소셜 계정 재가입이 유니크 충돌 없이 성공한다") {
+                then("조회에서 제외되고 같은 소셜 계정 재가입이 유니크 충돌 없이 성공한다") {
                     val saved = adapter.saveNew(newMember(googleIdentity(sub = "withdraw-sub")))
 
                     adapter.withdraw(saved.id!!)
@@ -169,10 +219,72 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
 
+            `when`("탈퇴한 회원 행을 직접 조회하면") {
+                then("소셜 식별자는 삭제 표식으로 대체되고 이메일은 그대로 남는다") {
+                    val saved = adapter.saveNew(
+                        newMember(googleIdentity(sub = "marker-sub", email = "kept@gmail.com")),
+                    )
+                    val id = saved.id!!
+
+                    adapter.withdraw(id)
+
+                    readColumn(id, "provider_uid") shouldBe "DELETED:$id"
+                    readColumn(id, "email") shouldBe "kept@gmail.com"
+                }
+            }
+
+            `when`("같은 소셜 계정으로 가입·탈퇴를 반복하면") {
+                then("삭제 표식이 회원마다 유일해 탈퇴 행끼리도 충돌하지 않는다") {
+                    val first = adapter.saveNew(newMember(googleIdentity(sub = "repeat-sub")))
+                    adapter.withdraw(first.id!!)
+
+                    val second = adapter.saveNew(newMember(googleIdentity(sub = "repeat-sub")))
+                    adapter.withdraw(second.id!!)
+
+                    val third = adapter.saveNew(newMember(googleIdentity(sub = "repeat-sub")))
+                    third.id.shouldNotBeNull()
+                    readColumn(first.id!!, "provider_uid") shouldBe "DELETED:${first.id}"
+                    readColumn(second.id!!, "provider_uid") shouldBe "DELETED:${second.id}"
+                }
+            }
+
             `when`("존재하지 않는 회원을 탈퇴 처리하면") {
                 then("MEMBER_NOT_FOUND 예외를 던진다") {
                     val e = shouldThrow<MemberException> { adapter.withdraw(999_999L) }
                     e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
+                }
+            }
+        }
+
+        given("회원 정지 상태 — 소프트 삭제와 별개 축") {
+            `when`("신규 회원을 저장하면") {
+                then("member_status 는 기본 ACTIVE 다") {
+                    val saved = adapter.saveNew(newMember(googleIdentity(sub = "status-default-sub")))
+
+                    readColumn(saved.id!!, "member_status") shouldBe MemberStatus.ACTIVE.name
+                }
+            }
+
+            `when`("정지된 회원을 서비스 조회 경로로 조회하면") {
+                then("findById·findByIdentity 에서 제외된다") {
+                    val saved = adapter.saveNew(newMember(googleIdentity(sub = "suspended-sub")))
+                    suspendMember(saved.id!!)
+
+                    adapter.findById(saved.id!!).shouldBeNull()
+                    adapter.findByIdentity(SocialProvider.GOOGLE, "suspended-sub").shouldBeNull()
+                }
+            }
+
+            `when`("정지된 회원을 관리자 조회 경로로 조회하면") {
+                then("정지 회원이 그대로 보이고 소프트 삭제 상태는 ACTIVE 로 남는다") {
+                    val saved = adapter.saveNew(newMember(googleIdentity(sub = "admin-view-sub")))
+                    suspendMember(saved.id!!)
+
+                    val entity = memberJpaRepository.findById(saved.id!!).orElse(null)
+                    entity.shouldNotBeNull()
+                    entity.memberStatus shouldBe MemberStatus.SUSPENDED
+                    entity.isActive() shouldBe true
+                    readColumn(saved.id!!, "status") shouldBe "ACTIVE"
                 }
             }
         }
