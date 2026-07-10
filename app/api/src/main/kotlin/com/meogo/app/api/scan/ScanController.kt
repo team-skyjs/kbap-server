@@ -16,7 +16,7 @@ class ScanController(
     override fun scan(
         @RequestBody request: ScanRequest,
     ): ResponseEntity<BaseResponse<ScanResponse>> {
-        val result = scanUseCase.scan(request.toInput())
+        val result = scanUseCase.assessMenuBoard(request.toInput())
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
     }
 }

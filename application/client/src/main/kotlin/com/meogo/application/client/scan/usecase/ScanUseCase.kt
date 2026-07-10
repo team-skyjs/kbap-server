@@ -22,7 +22,7 @@ class ScanUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scan(input: ScanInput): ScanResult {
+    fun assessMenuBoard(input: ScanInput): ScanResult {
         val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val refinement = refineMenuNames(input, matchKeys)
         val resolvedItems = resolveFoods(input, matchKeys, refinement.byItemIndex)
