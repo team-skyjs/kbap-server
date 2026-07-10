@@ -1,28 +1,18 @@
 # Auth API Contract (KB-118)
 
 모든 응답은 `ResponseEntity<BaseResponse<T>>` 봉투(규약). 인증 실패는 401 + `success=false`.
+토큰 전달 = **응답 본문**(사용자 결정 개정 — 클라이언트가 모바일 앱이라 쿠키 자동 전송이 없음).
+클라이언트는 안전 저장소(Keychain/Keystore)에 보관하고 매 요청 `Authorization: Bearer {accessToken}` 로 보낸다
+("Bearer " 접두사는 클라이언트가 붙인다).
 
 ## POST /api/v1/auth/login
 
-Firebase ID 토큰으로 로그인/가입. 성공 시 자체 토큰 2종을 쿠키로 발급.
-
-**Request**
-
-```json
-{ "idToken": "<Firebase ID token>" }
-```
+**Request**: `{ "idToken": "<Firebase ID token>" }`
 
 **Response 200**
 
 ```json
-{ "success": true, "payload": { "memberId": 1, "newMember": true }, "message": null }
-```
-
-Set-Cookie:
-
-```
-access_token=<jwt>; Path=/; Max-Age=1800; HttpOnly; SameSite=Lax[; Secure]
-refresh_token=<jwt>; Path=/api/v1/auth; Max-Age=1209600; HttpOnly; SameSite=Lax[; Secure]
+{ "success": true, "payload": { "memberId": 1, "newMember": true, "accessToken": "<jwt>", "refreshToken": "<jwt>" } }
 ```
 
 **오류**
@@ -36,24 +26,23 @@ refresh_token=<jwt>; Path=/api/v1/auth; Max-Age=1209600; HttpOnly; SameSite=Lax[
 
 ## POST /api/v1/auth/refresh
 
-refresh 쿠키로 **access·refresh 둘 다 재발급**(rotation). 이전 refresh 는 즉시 폐기되고 refresh 유효기간이 연장된다.
+rotation — access·refresh 둘 다 재발급, 이전 refresh 즉시 폐기·수명 연장. 클라이언트는 두 토큰 모두 갱신 저장.
 
-**Request**: body 없음, Cookie `refresh_token` 필요.
+**Request**: `{ "refreshToken": "<jwt>" }`
 
-**Response 200**: `{ "success": true }` + Set-Cookie 2건 — `access_token`(신규)·`refresh_token`(신규, Max-Age 14d 재설정).
+**Response 200**: `{ "success": true, "payload": { "accessToken": "<새 jwt>", "refreshToken": "<새 jwt>" } }`
 
-**오류** (전부 401, BaseResponse fail):
+**오류** (400 = refreshToken 누락, 그 외 401):
 
-| 상황 | 코드 | message | 부가 동작 |
-|------|------|---------|-----------|
-| 쿠키 부재·서명 조작·형식 불량 | INVALID_REFRESH_TOKEN | 유효하지 않은 갱신 토큰입니다 | 쿠키 2종 만료 |
-| Redis 에 jti 없음 — 로그아웃·rotation 된 구 토큰 재사용·위조 | INVALID_REFRESH_TOKEN | 유효하지 않은 갱신 토큰입니다 | 쿠키 2종 만료 |
-| **refresh 만료** | EXPIRED_REFRESH_TOKEN | 만료된 갱신 토큰입니다 | **강제 로그아웃** — Redis jti 삭제 + 쿠키 2종 만료, 재로그인 필수 |
+| 상황 | 코드 | 클라이언트 행동 |
+|------|------|----------------|
+| 서명 조작·형식 불량·Redis 미존재(로그아웃·회전된 구 토큰 재사용·위조) | INVALID_REFRESH_TOKEN | 저장 토큰 삭제 후 재로그인 |
+| **refresh 만료** | EXPIRED_REFRESH_TOKEN — 서버 세션도 폐기(강제 로그아웃) | 저장 토큰 삭제 후 재로그인 |
 
 ## POST /api/v1/auth/logout
 
-서버 저장 refresh 세션 폐기 + 쿠키 만료. 멱등(이미 폐기됐어도 200).
+서버 refresh 세션 폐기. 멱등 — body 없거나 이미 폐기된 토큰이어도 200. 클라이언트는 저장 토큰 2개 삭제.
 
-**Request**: body 없음, Cookie `refresh_token`(없어도 200 — 쿠키 만료만 수행).
+**Request**: `{ "refreshToken": "<jwt>" }` (optional)
 
-**Response 200**: `{ "success": true }` + Set-Cookie 두 쿠키 `Max-Age=0`.
+**Response 200**: `{ "success": true }`

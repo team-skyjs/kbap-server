@@ -26,10 +26,10 @@
 - **Refresh rotation 포함 (사용자 결정 2026-07-10 — 초기 "범위 밖" 개정)**: 재발급 성공 시 **access·refresh 둘 다 새로 발급**한다. 이전 jti 를 Redis 에서 삭제 → 새 jti 를 전체 TTL(14일)로 저장 — refresh 유효기간이 재발급마다 연장되는 sliding session. 이전 refresh 는 즉시 무효(재사용 시 Redis 부재로 401). 탈취 재사용 **탐지·알림**(reuse detection)은 여전히 범위 밖.
 - **인프라 도입**: docker-compose.yml 에 `meogo-redis`(redis:8) 추가, `application-local.yml` 등 프로필별 `spring.data.redis.*` 설정, 카탈로그에 `spring-boot-starter-data-redis`(persistence). 통합 테스트는 Redis Testcontainers(`GenericContainer` + `@ServiceConnection`).
 
-## R5. API·쿠키 설계
+## R5. API·토큰 전달 설계 (개정 — 쿠키 → 응답 본문)
 
-- **Decision**: 컨트롤러 3개 — `POST /api/v1/auth/login`(body `{idToken}`) / `POST /api/v1/auth/refresh` / `POST /api/v1/auth/logout`. 응답은 전부 `ResponseEntity<BaseResponse<T>>`(규약). 토큰은 **`Set-Cookie`(ResponseCookie)** 로: `access_token`(Path=/, Max-Age 30m), `refresh_token`(**Path=/api/v1/auth** — refresh·logout 에만 전송돼 노출 최소화, Max-Age 14d). 둘 다 HttpOnly·SameSite=Lax, Secure 는 프로필별(local 제외 활성). 로그인 응답 payload = `{memberId, newMember}` — 클라이언트 온보딩 분기용. logout·refresh 는 payload 없이 ok. 로그아웃 시 두 쿠키 즉시 만료(Max-Age=0).
-- **Rationale**: 사용자 결정(쿠키 전달). refresh 쿠키의 Path 제한은 모든 API 요청에 refresh 가 실려 나가는 것을 막는 표준 완화책.
+- **Decision (개정 2026-07-11)**: 토큰은 쿠키가 아니라 **응답 본문**으로 내려준다. `POST /api/v1/auth/login` → `{memberId, newMember, accessToken, refreshToken}`, `POST /api/v1/auth/refresh`(body `{refreshToken}`) → `{accessToken, refreshToken}`, `POST /api/v1/auth/logout`(body `{refreshToken}` optional·멱등). 클라이언트는 안전 저장소(Keychain/Keystore)에 보관하고 매 요청 `Authorization: Bearer {accessToken}` 헤더로 보낸다 — Bearer 접두사는 클라이언트가 붙인다. 후속 인증 필터는 이 헤더에서 토큰을 읽는다.
+- **Rationale**: 클라이언트가 모바일 앱(Firebase SDK)이라 브라우저 쿠키 자동 전송이 없다 — HttpOnly 쿠키는 앱에서 Set-Cookie 수동 파싱·쿠키 저장소를 강제해 오히려 일이 늘고, JS 노출 방지라는 HttpOnly 의 이점도 앱에는 해당 없다. 초기 쿠키 결정은 이 충돌이 드러나기 전의 것(스펙 Assumption 개정). 쿠키 인프라(AuthCookieFactory·AuthExceptionHandler 쿠키 만료)는 제거했다.
 - **예외 응답 체계 (사용자 요구 — 조작/만료 구분 정의)**: `AuthErrorCode`(kernel `ErrorCode` 구현) + `AuthException`(MeogoException 하위) 을 application:client `auth` 에 둔다. 전부 401, 공통 봉투(BaseResponse fail)로 응답 — 기존 `GlobalExceptionHandler` 가 자동 매핑.
 
 | 코드 | 상황 | 부가 동작 |

@@ -6,7 +6,7 @@
 
 ## Summary
 
-클라이언트가 제출한 Firebase ID 토큰을 firebase-admin `verifyIdToken` 으로 검증(서명·iss·aud·exp)하고, 클레임에서 (provider, **플랫폼 원본 sub**, email) 을 추출해 기존 `MemberIdentityResolver.resolve` 로 로그인/가입 처리한다. 성공 시 자체 JWT 2종을 발급해 **응답 쿠키**로 내려준다 — access(30분, stateless, 클레임은 회원 PK 하나뿐)·refresh(14일, `jti` 를 **Redis 에 TTL 저장**해 폐기 가능). 재발급은 **rotation** — access·refresh 둘 다 갱신해 refresh 유효기간을 연장하고 구 refresh 는 즉시 폐기하며, refresh 만료 시엔 **강제 로그아웃**(세션 폐기 + 쿠키 제거, 재로그인 필수). `POST /api/v1/auth/{login,refresh,logout}` 3개 엔드포인트. 모듈 배치는 사용자 결정(속도 우선): firebase-admin·jjwt·유스케이스는 `:application:client` 의 `auth` 패키지(헌법 III 의식적 완화 — 아래 Complexity Tracking), `RefreshTokenStore` port 는 `:core:member`, Redis 어댑터·의존성은 `:infra:persistence`(기존 패턴 그대로). Redis 인프라 도입(docker-compose·프로필 설정) 포함, Flyway 마이그레이션 없음.
+클라이언트가 제출한 Firebase ID 토큰을 firebase-admin `verifyIdToken` 으로 검증(서명·iss·aud·exp)하고, 클레임에서 (provider, **플랫폼 원본 sub**, email) 을 추출해 기존 `MemberIdentityResolver.resolve` 로 로그인/가입 처리한다. 성공 시 자체 JWT 2종을 발급해 **응답 본문**으로 내려준다(쿠키 결정은 모바일 클라이언트 확인 후 개정) — access(30분, stateless, 클레임은 회원 PK 하나뿐)·refresh(14일, `jti` 를 **Redis 에 TTL 저장**해 폐기 가능). 재발급은 **rotation** — access·refresh 둘 다 갱신해 refresh 유효기간을 연장하고 구 refresh 는 즉시 폐기하며, refresh 만료 시엔 **강제 로그아웃**(세션 폐기 + 쿠키 제거, 재로그인 필수). `POST /api/v1/auth/{login,refresh,logout}` 3개 엔드포인트. 모듈 배치는 사용자 결정(속도 우선): firebase-admin·jjwt·유스케이스는 `:application:client` 의 `auth` 패키지(헌법 III 의식적 완화 — 아래 Complexity Tracking), `RefreshTokenStore` port 는 `:core:member`, Redis 어댑터·의존성은 `:infra:persistence`(기존 패턴 그대로). Redis 인프라 도입(docker-compose·프로필 설정) 포함, Flyway 마이그레이션 없음.
 
 ## Technical Context
 
@@ -109,7 +109,7 @@ app/api/src/main/resources/application*.yml  # 수정 — meogo.auth.*·spring.d
 | R2 | verifyIdToken 전항목 검증. 원본 sub(firebase.identities) 저장 — Firebase uid 금지. 클레임 매핑 순수 함수 분리 |
 | R3 | jjwt HS256, 클레임 sub=회원 PK 단 하나. access 30m / refresh 14d(+jti) |
 | R4 | Redis `auth:refresh:{jti}`→memberId, TTL=수명. 다중 기기 자연 허용. **rotation 포함** — 재발급 시 둘 다 갱신·구 jti 삭제·유효기간 연장(사용자 결정). 재사용 탐지는 범위 밖 |
-| R5 | 쿠키: access(Path=/)·refresh(Path=/api/v1/auth), HttpOnly·SameSite=Lax·Secure(non-local). 예외 4종(INVALID_SOCIAL/UNSUPPORTED_PROVIDER/INVALID_REFRESH/**EXPIRED_REFRESH=강제 로그아웃**) 전부 401 |
+| R5 | (개정) 토큰 = 응답 본문, 클라이언트가 Authorization Bearer 로 제시. 예외 4종(INVALID_SOCIAL/UNSUPPORTED_PROVIDER/INVALID_REFRESH/**EXPIRED_REFRESH=강제 로그아웃**) 전부 401 |
 | R6 | 정지 회원: 기존 메커니즘(유니크 충돌→DUPLICATE)이 차단·회원 미생성 보장 — 신규 코드 없음, 전용 에러는 후속 |
 | R7 | 이메일: 가입 시 1회 저장, 재로그인 갱신 없음 |
 | R8 | 테스트 4벌 — 유스케이스(페이크)·클레임 매핑(순수)·Redis 어댑터(Testcontainers)·MockMvc(페이크 빈) |
