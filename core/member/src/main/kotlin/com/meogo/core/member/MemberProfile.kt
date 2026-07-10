@@ -15,18 +15,6 @@ data class MemberProfile private constructor(
         require(spicinessPreference in SPICINESS_RANGE) { "member.profile.spicinessPreference 는 0~10 이어야 합니다" }
     }
 
-    fun changeNickname(nickname: String?): MemberProfile = copy(nickname = nickname)
-
-    fun changeAvoidanceSubstances(avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>): MemberProfile =
-        copy(avoidanceSubstanceCodes = avoidanceSubstanceCodes)
-
-    fun changeSpicinessPreference(spicinessPreference: Int): MemberProfile =
-        copy(spicinessPreference = spicinessPreference)
-
-    fun changeCountry(countryCode: CountryCode?): MemberProfile = copy(countryCode = countryCode)
-
-    fun changeAppLanguage(appLanguage: LanguageCode?): MemberProfile = copy(appLanguage = appLanguage)
-
     companion object {
         const val DEFAULT_SPICINESS_PREFERENCE: Int = 5
 

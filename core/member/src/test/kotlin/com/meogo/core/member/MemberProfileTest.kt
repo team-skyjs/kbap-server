@@ -60,70 +60,25 @@ class MemberProfileTest : BehaviorSpec({
         }
     }
 
-    given("MemberProfile 부분 수정 — 불변(새 인스턴스 반환)") {
-        `when`("닉네임을 변경하면") {
-            then("새 인스턴스에만 반영되고 나머지 항목과 원본은 유지된다") {
+    given("프로필 수정 — 통째 교체(불변)") {
+        `when`("회원의 프로필을 새 프로필로 교체하면") {
+            then("새 회원 인스턴스만 새 프로필을 갖고 이전 프로필 인스턴스는 그대로다") {
                 val origin = MemberProfile.empty()
+                val member = Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-1", null))
+                val replacement = MemberProfile.of(
+                    nickname = "머고",
+                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
+                    spicinessPreference = 2,
+                    countryCode = CountryCode.KR,
+                    appLanguage = LanguageCode.KO,
+                )
 
-                val updated = origin.changeNickname("머고")
+                val updated = member.updateProfile(replacement)
 
-                updated.nickname shouldBe "머고"
-                updated.spicinessPreference shouldBe origin.spicinessPreference
+                updated.profile shouldBe replacement
+                member.profile shouldBe origin
                 origin.nickname shouldBe null
-            }
-        }
-
-        `when`("기피성분을 변경하면") {
-            then("새 인스턴스에만 반영되고 원본은 유지된다") {
-                val origin = MemberProfile.empty()
-
-                val updated = origin.changeAvoidanceSubstances(setOf(AvoidanceSubstanceCodeRef("PEANUT")))
-
-                updated.avoidanceSubstanceCodes shouldBe setOf(AvoidanceSubstanceCodeRef("PEANUT"))
-                origin.avoidanceSubstanceCodes shouldBe emptySet()
-            }
-        }
-
-        `when`("맵기 선호를 변경하면") {
-            then("새 인스턴스에만 반영되고 원본은 유지된다") {
-                val origin = MemberProfile.empty()
-
-                val updated = origin.changeSpicinessPreference(9)
-
-                updated.spicinessPreference shouldBe 9
                 origin.spicinessPreference shouldBe 5
-            }
-        }
-
-        `when`("허용 범위를 벗어난 맵기 선호로 변경하면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { MemberProfile.empty().changeSpicinessPreference(11) }
-            }
-        }
-
-        `when`("국가·앱 언어를 변경하면") {
-            then("새 인스턴스에만 반영되고 원본은 유지된다") {
-                val origin = MemberProfile.empty()
-
-                val updated = origin.changeCountry(CountryCode.JP).changeAppLanguage(LanguageCode.JA)
-
-                updated.countryCode shouldBe CountryCode.JP
-                updated.appLanguage shouldBe LanguageCode.JA
-                origin.countryCode shouldBe null
-                origin.appLanguage shouldBe null
-            }
-        }
-
-        `when`("여러 항목을 연달아 변경하면") {
-            then("앞선 변경이 보존된 채 누적된다") {
-                val updated = MemberProfile.empty()
-                    .changeNickname("머고")
-                    .changeSpicinessPreference(2)
-                    .changeCountry(CountryCode.KR)
-
-                updated.nickname shouldBe "머고"
-                updated.spicinessPreference shouldBe 2
-                updated.countryCode shouldBe CountryCode.KR
             }
         }
     }
