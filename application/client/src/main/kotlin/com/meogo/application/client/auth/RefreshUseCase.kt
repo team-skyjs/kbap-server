@@ -1,5 +1,6 @@
 package com.meogo.application.client.auth
 
+import com.meogo.core.member.MemberRole
 import com.meogo.core.member.RefreshTokenStore
 import org.springframework.stereotype.Service
 
@@ -32,7 +33,7 @@ class RefreshUseCase(
         refreshTokenStore.save(rotated.jti, memberId, properties.refreshTtl)
 
         return RefreshResult(
-            accessToken = tokenIssuer.issueAccessToken(memberId),
+            accessToken = tokenIssuer.issueAccessToken(memberId, MemberRole.USER),
             refreshToken = rotated.token,
         )
     }

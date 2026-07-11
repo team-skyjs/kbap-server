@@ -1,11 +1,17 @@
 package com.meogo.application.client.auth
 
+import com.meogo.core.member.MemberRole
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
 import javax.crypto.spec.SecretKeySpec
+
+data class ParsedAccessToken(
+    val memberId: Long,
+    val role: MemberRole,
+)
 
 data class ParsedRefreshToken(
     val memberId: Long,
@@ -18,10 +24,14 @@ class TokenParser(
 ) {
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 
-    fun parseAccessToken(token: String): Long {
+    fun parseAccessToken(token: String): ParsedAccessToken {
         val claims = claims(token, AuthErrorCode.EXPIRED_ACCESS_TOKEN, AuthErrorCode.INVALID_ACCESS_TOKEN)
         requireTokenType(claims, TokenType.ACCESS, AuthErrorCode.INVALID_ACCESS_TOKEN)
-        return claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+        val memberId = claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+        val role = (claims[ROLE_CLAIM] as? String)
+            ?.let { name -> MemberRole.entries.firstOrNull { it.name == name } }
+            ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+        return ParsedAccessToken(memberId = memberId, role = role)
     }
 
     fun parseRefreshToken(token: String): ParsedRefreshToken {
