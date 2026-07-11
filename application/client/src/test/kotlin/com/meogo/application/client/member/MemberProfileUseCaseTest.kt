@@ -46,7 +46,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.setUp(input())
+                useCase.completeOnboarding(input())
 
                 val saved = repo.findById(1L)!!
                 saved.onboardingCompleted shouldBe true
@@ -69,7 +69,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L, profile = existing)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.setUp(input())
+                useCase.completeOnboarding(input())
 
                 repo.findById(1L)!!.profile.spicinessPreference shouldBe 8
             }
@@ -80,7 +80,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.setUp(input(avoidanceSubstanceCodes = emptyList()))
+                useCase.completeOnboarding(input(avoidanceSubstanceCodes = emptyList()))
 
                 val saved = repo.findById(1L)!!
                 saved.onboardingCompleted shouldBe true
@@ -104,7 +104,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 }
                 val useCase = MemberProfileUseCase(repo)
 
-                val e = shouldThrow<MemberException> { useCase.setUp(input()) }
+                val e = shouldThrow<MemberException> { useCase.completeOnboarding(input()) }
 
                 e.errorCode shouldBe MemberErrorCode.ONBOARDING_ALREADY_COMPLETED
                 repo.findById(1L)!!.profile.nickname shouldBe "원래닉"
@@ -118,7 +118,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository()
                 val useCase = MemberProfileUseCase(repo)
 
-                val e = shouldThrow<MemberException> { useCase.setUp(input(memberId = 99L)) }
+                val e = shouldThrow<MemberException> { useCase.completeOnboarding(input(memberId = 99L)) }
 
                 e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
             }
@@ -132,7 +132,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.setUp(input(avoidanceSubstanceCodes = listOf("EGG", "NOT_A_CODE")))
+                    useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("EGG", "NOT_A_CODE")))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
@@ -148,7 +148,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.setUp(input(avoidanceSubstanceCodes = listOf("egg")))
+                    useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("egg")))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
@@ -161,7 +161,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.setUp(input(countryCode = "ZZ"))
+                    useCase.completeOnboarding(input(countryCode = "ZZ"))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_COUNTRY_CODE
@@ -175,7 +175,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                     val useCase = MemberProfileUseCase(repo)
 
                     val e = shouldThrow<OnboardingException> {
-                        useCase.setUp(input(appLanguage = badLang))
+                        useCase.completeOnboarding(input(appLanguage = badLang))
                     }
 
                     e.errorCode shouldBe OnboardingErrorCode.UNSUPPORTED_APP_LANGUAGE
@@ -189,7 +189,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.setUp(input(nickname = "   "))
+                    useCase.completeOnboarding(input(nickname = "   "))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_NICKNAME
@@ -203,7 +203,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.setUp(input(nickname = "  길동이  "))
+                useCase.completeOnboarding(input(nickname = "  길동이  "))
 
                 repo.findById(1L)!!.profile.nickname shouldBe "길동이"
             }
@@ -214,7 +214,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.setUp(input(avoidanceSubstanceCodes = listOf("EGG", "EGG", "MILK")))
+                useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("EGG", "EGG", "MILK")))
 
                 repo.findById(1L)!!.profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
             }
@@ -226,9 +226,9 @@ class MemberProfileUseCaseTest : BehaviorSpec({
             then("정상적으로 온보딩이 완료된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
-                shouldThrow<OnboardingException> { useCase.setUp(input(countryCode = "ZZ")) }
+                shouldThrow<OnboardingException> { useCase.completeOnboarding(input(countryCode = "ZZ")) }
 
-                useCase.setUp(input())
+                useCase.completeOnboarding(input())
 
                 repo.findById(1L)!!.onboardingCompleted shouldBe true
             }

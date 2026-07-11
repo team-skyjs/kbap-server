@@ -19,7 +19,7 @@ class MemberProfileUseCase(
     private val memberRepository: MemberRepository,
 ) {
     @Transactional
-    fun setUp(input: MemberProfileInput) {
+    fun completeOnboarding(input: MemberProfileInput) {
         val member = memberRepository.findById(input.memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 

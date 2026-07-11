@@ -18,7 +18,7 @@ class MemberController(
         @AuthMemberId memberId: Long,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        memberProfileUseCase.setUp(request.toInput(memberId))
+        memberProfileUseCase.completeOnboarding(request.toInput(memberId))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
