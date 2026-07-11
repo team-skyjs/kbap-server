@@ -15,6 +15,7 @@ dependencies {
     "implementation"(project(":core:food"))
     "implementation"(project(":core:avoidance"))
     "implementation"(project(":core:member"))
+    "implementation"(project(":core:scan"))
 
     "implementation"(libs.spring.boot.starter.data.jpa)
     // refresh token 저장소(KB-118): Redis TTL 로 토큰 수명 = 저장 수명을 맞춘다.

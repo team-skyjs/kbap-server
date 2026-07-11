@@ -11,17 +11,22 @@ import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
+import com.meogo.core.scan.ScanHistory
+import com.meogo.core.scan.ScanHistoryRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ScanUseCase(
     private val foodRepository: FoodRepository,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val interpreter: ScannedNameInterpreter,
+    private val scanHistoryRepository: ScanHistoryRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional
     fun assessMenuBoard(input: ScanInput): ScanResult {
         val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val refinement = refineMenuNames(input, matchKeys)
@@ -45,7 +50,15 @@ class ScanUseCase(
             )
         }
 
+        recordHistory(input.memberId, items)
+
         return ScanResult(items = items, degraded = refinement.degraded)
+    }
+
+    private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
+        if (readyFoodIds.isEmpty()) return
+        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
     }
 
     private fun resolveFoods(

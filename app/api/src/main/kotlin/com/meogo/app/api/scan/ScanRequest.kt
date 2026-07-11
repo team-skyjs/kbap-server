@@ -21,8 +21,8 @@ data class ScanRequest(
     )
     val items: List<@Valid ScanItemRequest> = emptyList(),
 ) {
-    fun toInput(): ScanInput =
-        ScanInput(items = items.map { it.toInput() })
+    fun toInput(memberId: Long): ScanInput =
+        ScanInput(items = items.map { it.toInput() }, memberId = memberId)
 
     @get:JsonIgnore
     @get:AssertTrue(message = "idx 는 요청 안에서 중복될 수 없습니다")

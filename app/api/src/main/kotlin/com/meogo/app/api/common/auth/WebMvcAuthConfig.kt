@@ -19,6 +19,6 @@ class WebMvcAuthConfig(
     @Bean
     fun jwtAuthenticationFilterRegistration(): FilterRegistrationBean<JwtAuthenticationFilter> =
         FilterRegistrationBean(JwtAuthenticationFilter(tokenParser)).apply {
-            addUrlPatterns("${ApiPaths.V1}/members/*")
+            addUrlPatterns("${ApiPaths.V1}/members/*", "${ApiPaths.V1}/scans", "${ApiPaths.V1}/scans/*")
         }
 }

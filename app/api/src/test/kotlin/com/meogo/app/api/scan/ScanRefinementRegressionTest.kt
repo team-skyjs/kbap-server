@@ -1,6 +1,8 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.core.member.MemberRole
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -26,8 +28,25 @@ class ScanRefinementRegressionTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     init {
         val objectMapper = jacksonObjectMapper()
+
+        fun accessToken(): String {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                                        onboarding_completed, status, created_at, updated_at)
+                    VALUES (42, 'GOOGLE', 'scan-test-42', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE id = id
+                    """,
+                ).use { it.executeUpdate() }
+            }
+            return tokenIssuer.issueAccessToken(42L, MemberRole.USER)
+        }
 
         fun seedReadyFood(koreanName: String): Unit =
             dataSource.connection.use { c ->
@@ -73,6 +92,7 @@ class ScanRefinementRegressionTest : BehaviorSpec() {
                     val body = objectMapper.writeValueAsString(mapOf("items" to items))
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body
                     }.andExpect {

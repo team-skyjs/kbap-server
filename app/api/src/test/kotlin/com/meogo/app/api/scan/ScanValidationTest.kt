@@ -1,6 +1,8 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.core.member.MemberRole
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -21,8 +23,13 @@ class ScanValidationTest : BehaviorSpec() {
     @Autowired
     private lateinit var mockMvc: MockMvc
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     init {
         val objectMapper = jacksonObjectMapper()
+
+        fun accessToken() = tokenIssuer.issueAccessToken(42L, MemberRole.USER)
 
         fun item(
             idx: Any? = 0,
@@ -34,6 +41,7 @@ class ScanValidationTest : BehaviorSpec() {
 
         suspend fun expectBadRequest(payload: Map<String, Any?>) {
             mockMvc.post("/api/v1/scans") {
+                header("Authorization", "Bearer ${accessToken()}")
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(payload)
             }.andExpect {

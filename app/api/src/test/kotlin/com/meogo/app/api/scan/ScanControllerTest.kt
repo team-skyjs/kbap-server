@@ -1,6 +1,8 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.core.member.MemberRole
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -26,8 +28,40 @@ class ScanControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     init {
         val objectMapper = jacksonObjectMapper()
+
+        fun seedMember(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                                        onboarding_completed, status, created_at, updated_at)
+                    VALUES (?, 'GOOGLE', ?, '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE id = id
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setString(2, "scan-test-$memberId")
+                    ps.executeUpdate()
+                }
+            }
+
+        fun accessToken(memberId: Long = 42L): String {
+            seedMember(memberId)
+            return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
+
+        fun countHistory(memberId: Long): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT COUNT(*) FROM scan_history WHERE member_id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                }
+            }
 
         fun seedReadyFood(koreanName: String): Unit =
             dataSource.connection.use { c ->
@@ -85,6 +119,7 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("유효한 항목들로 POST /api/v1/scans 를 호출하면") {
                 then("200 과 idx 1:1 매칭 결과를 반환한다") {
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "된장찌개"), item(1, "비빔밥"))
                     }.andExpect {
@@ -101,12 +136,44 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("한글이 전혀 없는 항목을 제출하면") {
                 then("메뉴가 아니므로 결과에서 제외된다") {
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "6,500"))
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results.length()") { value(0) }
                     }
+                }
+            }
+
+            `when`("액세스 토큰 없이 호출하면") {
+                then("401 을 반환한다") {
+                    mockMvc.post("/api/v1/scans") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "된장찌개"))
+                    }.andExpect {
+                        status { isUnauthorized() }
+                    }
+                }
+            }
+        }
+
+        given("스캔 이력 기록") {
+            `when`("완성(READY) 음식에 매칭되는 메뉴를 스캔하면") {
+                then("회원별 스캔 이력이 저장된다") {
+                    val historyMemberId = 777L
+                    seedReadyFood("이력저장김치찌개")
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(historyMemberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "이력저장김치찌개 kimchi jjigae"))
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                    }
+
+                    countHistory(historyMemberId) shouldBe 1
                 }
             }
         }
@@ -117,6 +184,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedReadyFood("완성이이김치찌개")
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "완성이이김치찌개 kimchi jjigae"))
                     }.andExpect {
@@ -133,6 +201,7 @@ class ScanControllerTest : BehaviorSpec() {
                     val name = "폴백미상-우주라면"
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -161,6 +230,7 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -181,6 +251,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedTranslatedFood("언어테스트김치찌개", "Kimchi Stew")
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "언어테스트김치찌개 kimchi jjigae"))
                     }.andExpect {
@@ -207,6 +278,7 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, name))
                     }.andExpect {
@@ -223,6 +295,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedTranslatedFood("언어미지정김치찌개", "Kimchi Stew")
 
                     mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(item(0, "언어미지정김치찌개"))
                     }.andExpect {
