@@ -83,6 +83,7 @@ object FoodTestSeed {
     }
 
     private fun clearStatements() = listOf(
+        "DELETE FROM scan_history",
         "DELETE FROM food_avoidance_substance",
         "DELETE FROM avoidance_substance",
         "DELETE FROM food",

@@ -34,7 +34,26 @@ class ScanControllerTest : BehaviorSpec() {
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun accessToken(memberId: Long = 42L) = tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        fun seedMember(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                                        onboarding_completed, status, created_at, updated_at)
+                    VALUES (?, 'GOOGLE', ?, '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE id = id
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setString(2, "scan-test-$memberId")
+                    ps.executeUpdate()
+                }
+            }
+
+        fun accessToken(memberId: Long = 42L): String {
+            seedMember(memberId)
+            return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
 
         fun countHistory(memberId: Long): Int =
             dataSource.connection.use { c ->

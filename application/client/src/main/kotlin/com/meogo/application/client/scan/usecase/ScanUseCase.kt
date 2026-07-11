@@ -15,6 +15,7 @@ import com.meogo.core.scan.ScanHistory
 import com.meogo.core.scan.ScanHistoryRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ScanUseCase(
@@ -25,6 +26,7 @@ class ScanUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional
     fun assessMenuBoard(input: ScanInput): ScanResult {
         val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
         val refinement = refineMenuNames(input, matchKeys)

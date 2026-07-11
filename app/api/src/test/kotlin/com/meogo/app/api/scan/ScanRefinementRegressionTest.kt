@@ -34,7 +34,19 @@ class ScanRefinementRegressionTest : BehaviorSpec() {
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun accessToken() = tokenIssuer.issueAccessToken(42L, MemberRole.USER)
+        fun accessToken(): String {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                                        onboarding_completed, status, created_at, updated_at)
+                    VALUES (42, 'GOOGLE', 'scan-test-42', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE id = id
+                    """,
+                ).use { it.executeUpdate() }
+            }
+            return tokenIssuer.issueAccessToken(42L, MemberRole.USER)
+        }
 
         fun seedReadyFood(koreanName: String): Unit =
             dataSource.connection.use { c ->

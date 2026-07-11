@@ -9,5 +9,7 @@ CREATE TABLE scan_history (
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    INDEX idx_scan_history_recent (member_id, created_at)
+    INDEX idx_scan_history_recent (member_id, created_at),
+    CONSTRAINT fk_scan_history_member FOREIGN KEY (member_id) REFERENCES member (id),
+    CONSTRAINT fk_scan_history_food FOREIGN KEY (food_id) REFERENCES food (id)
 );
