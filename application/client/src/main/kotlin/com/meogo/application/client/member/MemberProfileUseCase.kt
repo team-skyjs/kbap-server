@@ -14,11 +14,11 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class CompleteOnboardingUseCase(
+class MemberProfileUseCase(
     private val memberRepository: MemberRepository,
 ) {
     @Transactional
-    fun complete(input: OnboardingInput) {
+    fun setUp(input: OnboardingInput) {
         val member = memberRepository.findById(input.memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 

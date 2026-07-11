@@ -15,7 +15,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 
-class CompleteOnboardingUseCaseTest : BehaviorSpec({
+class MemberProfileUseCaseTest : BehaviorSpec({
 
     fun member(id: Long, onboardingCompleted: Boolean = false, profile: MemberProfile = MemberProfile.empty()): Member =
         Member.reconstitute(
@@ -43,9 +43,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("유효한 온보딩 정보를 제출하면") {
             then("프로필이 저장되고 온보딩이 완료로 전이된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                useCase.complete(input())
+                useCase.setUp(input())
 
                 val saved = repo.findById(1L)!!
                 saved.onboardingCompleted shouldBe true
@@ -66,9 +66,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
                     appLanguage = null,
                 )
                 val repo = FakeMemberRepository().apply { seed(member(1L, profile = existing)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                useCase.complete(input())
+                useCase.setUp(input())
 
                 repo.findById(1L)!!.profile.spicinessPreference shouldBe 8
             }
@@ -77,9 +77,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("기피 음식을 하나도 제출하지 않으면(빈 목록)") {
             then("기피 성분 없이 정상 저장된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                useCase.complete(input(avoidanceSubstanceCodes = emptyList()))
+                useCase.setUp(input(avoidanceSubstanceCodes = emptyList()))
 
                 val saved = repo.findById(1L)!!
                 saved.onboardingCompleted shouldBe true
@@ -101,9 +101,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply {
                     seed(member(1L, onboardingCompleted = true, profile = original))
                 }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                val e = shouldThrow<MemberException> { useCase.complete(input()) }
+                val e = shouldThrow<MemberException> { useCase.setUp(input()) }
 
                 e.errorCode shouldBe MemberErrorCode.ONBOARDING_ALREADY_COMPLETED
                 repo.findById(1L)!!.profile.nickname shouldBe "원래닉"
@@ -115,9 +115,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("온보딩을 제출하면") {
             then("MEMBER_NOT_FOUND 로 거절된다") {
                 val repo = FakeMemberRepository()
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                val e = shouldThrow<MemberException> { useCase.complete(input(memberId = 99L)) }
+                val e = shouldThrow<MemberException> { useCase.setUp(input(memberId = 99L)) }
 
                 e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
             }
@@ -128,10 +128,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("카탈로그 81종에 없는 기피 성분 코드를 포함하면") {
             then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절되고 저장되지 않는다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.complete(input(avoidanceSubstanceCodes = listOf("EGG", "NOT_A_CODE")))
+                    useCase.setUp(input(avoidanceSubstanceCodes = listOf("EGG", "NOT_A_CODE")))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
@@ -144,10 +144,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("소문자 등 형식이 맞지 않는 성분 코드를 포함하면") {
             then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.complete(input(avoidanceSubstanceCodes = listOf("egg")))
+                    useCase.setUp(input(avoidanceSubstanceCodes = listOf("egg")))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
@@ -157,10 +157,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("지정 목록에 없는 국가 코드를 제출하면") {
             then("INVALID_COUNTRY_CODE 로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.complete(input(countryCode = "ZZ"))
+                    useCase.setUp(input(countryCode = "ZZ"))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_COUNTRY_CODE
@@ -171,10 +171,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
             `when`("지원 10개국어 code 와 정확히 일치하지 않는 언어($badLang)를 제출하면") {
                 then("UNSUPPORTED_APP_LANGUAGE 로 거절된다") {
                     val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                    val useCase = CompleteOnboardingUseCase(repo)
+                    val useCase = MemberProfileUseCase(repo)
 
                     val e = shouldThrow<OnboardingException> {
-                        useCase.complete(input(appLanguage = badLang))
+                        useCase.setUp(input(appLanguage = badLang))
                     }
 
                     e.errorCode shouldBe OnboardingErrorCode.UNSUPPORTED_APP_LANGUAGE
@@ -185,10 +185,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("공백만 있는 닉네임을 제출하면") {
             then("INVALID_NICKNAME 으로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.complete(input(nickname = "   "))
+                    useCase.setUp(input(nickname = "   "))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_NICKNAME
@@ -200,9 +200,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("닉네임 앞뒤에 공백이 있으면") {
             then("공백을 제거해 저장한다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                useCase.complete(input(nickname = "  길동이  "))
+                useCase.setUp(input(nickname = "  길동이  "))
 
                 repo.findById(1L)!!.profile.nickname shouldBe "길동이"
             }
@@ -211,9 +211,9 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("같은 성분 코드가 중복 포함되면") {
             then("중복이 제거된 집합으로 저장된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
+                val useCase = MemberProfileUseCase(repo)
 
-                useCase.complete(input(avoidanceSubstanceCodes = listOf("EGG", "EGG", "MILK")))
+                useCase.setUp(input(avoidanceSubstanceCodes = listOf("EGG", "EGG", "MILK")))
 
                 repo.findById(1L)!!.profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
             }
@@ -224,10 +224,10 @@ class CompleteOnboardingUseCaseTest : BehaviorSpec({
         `when`("유효한 입력으로 다시 제출하면") {
             then("정상적으로 온보딩이 완료된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = CompleteOnboardingUseCase(repo)
-                shouldThrow<OnboardingException> { useCase.complete(input(countryCode = "ZZ")) }
+                val useCase = MemberProfileUseCase(repo)
+                shouldThrow<OnboardingException> { useCase.setUp(input(countryCode = "ZZ")) }
 
-                useCase.complete(input())
+                useCase.setUp(input())
 
                 repo.findById(1L)!!.onboardingCompleted shouldBe true
             }
