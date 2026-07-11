@@ -1,5 +1,6 @@
 package com.meogo.application.client.auth
 
+import com.meogo.core.member.MemberRole
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -20,22 +21,53 @@ class TokenTest : BehaviorSpec({
     val parser = TokenParser(properties)
 
     given("access 토큰 발급") {
-        `when`("회원 식별자로 발급하면") {
-            then("파싱 시 회원 식별자가 복원되고 개인정보 클레임은 담기지 않는다") {
-                val token = issuer.issueAccessToken(memberId = 42L)
+        `when`("회원 식별자와 역할로 발급하면") {
+            then("파싱 시 회원 식별자·역할이 복원되고 개인정보 클레임은 담기지 않는다") {
+                val token = issuer.issueAccessToken(memberId = 42L, role = MemberRole.USER)
 
-                parser.parseAccessToken(token) shouldBe 42L
+                val parsed = parser.parseAccessToken(token)
+                parsed.memberId shouldBe 42L
+                parsed.role shouldBe MemberRole.USER
                 token.shouldNotBeNull()
             }
         }
 
         `when`("발급된 토큰 본문을 디코딩하면") {
-            then("이메일·닉네임 등 개인정보 문자열이 존재하지 않는다") {
-                val token = issuer.issueAccessToken(memberId = 42L)
+            then("역할 클레임이 담기고 이메일·닉네임 등 개인정보 문자열은 존재하지 않는다") {
+                val token = issuer.issueAccessToken(memberId = 42L, role = MemberRole.USER)
                 val payload = String(java.util.Base64.getUrlDecoder().decode(token.split(".")[1]))
 
+                payload shouldContain "\"role\":\"USER\""
                 payload shouldNotContain "email"
                 payload shouldNotContain "nickname"
+            }
+        }
+    }
+
+    given("access 토큰 역할 클레임 강제") {
+        fun accessTokenWithoutRole(roleValue: String? = null): String {
+            val now = System.currentTimeMillis()
+            val builder = io.jsonwebtoken.Jwts.builder()
+                .subject("42")
+                .claim(TokenType.CLAIM, TokenType.ACCESS.name)
+                .issuedAt(java.util.Date(now))
+                .expiration(java.util.Date(now + 60_000))
+                .signWith(javax.crypto.spec.SecretKeySpec(secret.toByteArray(), "HmacSHA256"))
+            roleValue?.let { builder.claim(ROLE_CLAIM, it) }
+            return builder.compact()
+        }
+
+        `when`("역할 클레임이 없는 access 토큰을 파싱하면") {
+            then("서명이 유효해도 INVALID_ACCESS_TOKEN 으로 거절한다") {
+                val e = shouldThrow<AuthException> { parser.parseAccessToken(accessTokenWithoutRole()) }
+                e.errorCode shouldBe AuthErrorCode.INVALID_ACCESS_TOKEN
+            }
+        }
+
+        `when`("정의되지 않은 역할 값을 담은 access 토큰을 파싱하면") {
+            then("INVALID_ACCESS_TOKEN 으로 거절한다") {
+                val e = shouldThrow<AuthException> { parser.parseAccessToken(accessTokenWithoutRole("SUPERUSER")) }
+                e.errorCode shouldBe AuthErrorCode.INVALID_ACCESS_TOKEN
             }
         }
     }
@@ -80,7 +112,7 @@ class TokenTest : BehaviorSpec({
 
         `when`("본문이 변조된 access 토큰을 파싱하면") {
             then("INVALID_ACCESS_TOKEN 예외를 던진다") {
-                val token = issuer.issueAccessToken(memberId = 1L)
+                val token = issuer.issueAccessToken(memberId = 1L, role = MemberRole.USER)
                 val tampered = token.dropLast(3) + "abc"
 
                 val e = shouldThrow<AuthException> { parser.parseAccessToken(tampered) }
@@ -108,7 +140,7 @@ class TokenTest : BehaviorSpec({
 
         `when`("access 토큰을 refresh 파서에 넣으면") {
             then("서명이 유효해도 INVALID_REFRESH_TOKEN 으로 거절한다") {
-                val accessToken = issuer.issueAccessToken(memberId = 7L)
+                val accessToken = issuer.issueAccessToken(memberId = 7L, role = MemberRole.USER)
 
                 val e = shouldThrow<AuthException> { parser.parseRefreshToken(accessToken) }
                 e.errorCode shouldBe AuthErrorCode.INVALID_REFRESH_TOKEN
@@ -120,7 +152,7 @@ class TokenTest : BehaviorSpec({
                 fun payload(token: String) =
                     String(java.util.Base64.getUrlDecoder().decode(token.split(".")[1]))
 
-                payload(issuer.issueAccessToken(1L)) shouldContain "\"token_type\":\"ACCESS\""
+                payload(issuer.issueAccessToken(1L, MemberRole.USER)) shouldContain "\"token_type\":\"ACCESS\""
                 payload(issuer.issueRefreshToken(1L).token) shouldContain "\"token_type\":\"REFRESH\""
             }
         }
@@ -146,7 +178,7 @@ class TokenTest : BehaviorSpec({
 
         `when`("만료된 access 토큰을 파싱하면") {
             then("EXPIRED_ACCESS_TOKEN 으로 조작과 구분해 던진다") {
-                val expired = expiredIssuer.issueAccessToken(memberId = 7L)
+                val expired = expiredIssuer.issueAccessToken(memberId = 7L, role = MemberRole.USER)
 
                 val e = shouldThrow<AuthException> { parser.parseAccessToken(expired) }
                 e.errorCode shouldBe AuthErrorCode.EXPIRED_ACCESS_TOKEN

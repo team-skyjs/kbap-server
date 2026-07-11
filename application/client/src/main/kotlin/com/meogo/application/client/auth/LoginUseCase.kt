@@ -4,6 +4,7 @@ import com.meogo.core.member.Member
 import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberRepository
+import com.meogo.core.member.MemberRole
 import com.meogo.core.member.RefreshTokenStore
 import com.meogo.core.member.SocialIdentity
 import org.springframework.stereotype.Service
@@ -34,7 +35,7 @@ class LoginUseCase(
         return LoginResult(
             memberId = memberId,
             newMember = isNewMember,
-            accessToken = tokenIssuer.issueAccessToken(memberId),
+            accessToken = tokenIssuer.issueAccessToken(memberId, MemberRole.USER),
             refreshToken = refreshToken.token,
         )
     }
