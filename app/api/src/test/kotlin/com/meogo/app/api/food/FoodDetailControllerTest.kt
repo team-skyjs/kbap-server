@@ -2,6 +2,8 @@ package com.meogo.app.api.food
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
+import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.core.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,14 +25,21 @@ class FoodDetailControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     init {
         beforeTest { FoodTestSeed.seedDoenjangStew(dataSource) }
 
         given("음식 상세 조회 API") {
-            `when`("lang=en 으로 수록된 foodId 를 조회하면") {
+            `when`("SOY 를 회피하는 회원이 lang=en 으로 수록된 foodId 를 조회하면") {
                 then("200 과 동결 계약(ingredients[].{name,iconRef,inclusionPercent,riskStatus})으로 포함 기피 성분을 반환한다") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
+                    val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
+
                     mockMvc.get("/api/v1/foods/1") {
                         param("lang", "en")
+                        header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }

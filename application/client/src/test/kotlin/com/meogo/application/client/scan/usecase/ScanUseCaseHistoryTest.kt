@@ -49,7 +49,7 @@ private class HistoryFakeFoodRepository(
 }
 
 private class HistoryFakeAvoidedProvider : AvoidedSubstanceProvider {
-    override fun avoidedCodes(): Set<AvoidanceSubstanceCode> = emptySet()
+    override fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> = emptySet()
 }
 
 private class HistoryFakeInterpreter : ScannedNameInterpreter {

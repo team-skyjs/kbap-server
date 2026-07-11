@@ -1,6 +1,7 @@
 package com.meogo.app.api.food
 
 import com.meogo.app.api.common.BaseResponse
+import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import com.meogo.app.api.common.Page
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -35,5 +36,7 @@ interface FoodListApi {
         @RequestParam(required = false) cursor: String?,
         @Parameter(description = "응답 표시명 언어 코드(미지정/빈/공백 시 ko, 지원 목록에 없는 코드는 400)", required = false, example = "en")
         @RequestParam(required = false) lang: String?,
+        @Parameter(hidden = true)
+        @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
 }

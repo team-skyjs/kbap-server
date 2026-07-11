@@ -53,7 +53,7 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
 }
 
 private class ScanFakeAvoidedProvider : AvoidedSubstanceProvider {
-    override fun avoidedCodes(): Set<AvoidanceSubstanceCode> = setOf(AvoidanceSubstanceCode.SOY)
+    override fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> = setOf(AvoidanceSubstanceCode.SOY)
 }
 
 

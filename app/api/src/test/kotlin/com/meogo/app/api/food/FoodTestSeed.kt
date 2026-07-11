@@ -72,6 +72,21 @@ object FoodTestSeed {
         )
     }
 
+
+    fun seedMemberAvoiding(dataSource: DataSource, memberId: Long, vararg codes: String) {
+        val codesJson = codes.joinToString(separator = ",", prefix = "[", postfix = "]") { "\"$it\"" }
+        execute(
+            dataSource,
+            listOf(
+                "DELETE FROM member WHERE id = $memberId",
+                "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, onboarding_completed, status, created_at, updated_at) " +
+                    "VALUES ($memberId, 'GOOGLE', 'food-test-$memberId', NULL, '테스터$memberId', " +
+                    "'{\"avoidanceSubstanceCodes\":$codesJson,\"spicinessPreference\":5,\"countryCode\":\"US\",\"appLanguage\":\"en\"}', " +
+                    "'ACTIVE', 1, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+            ),
+        )
+    }
+
     fun clear(dataSource: DataSource) = execute(dataSource, clearStatements())
 
     private fun execute(dataSource: DataSource, statements: List<String>) {

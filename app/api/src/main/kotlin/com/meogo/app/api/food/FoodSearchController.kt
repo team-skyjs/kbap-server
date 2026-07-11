@@ -19,9 +19,10 @@ class FoodSearchController(
         keyword: String?,
         cursor: String?,
         lang: String?,
+        memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = searchFoodsUseCase.search(
-            SearchFoodsInput(keyword = keyword, cursor = resolveCursor(cursor), lang = lang),
+            SearchFoodsInput(keyword = keyword, cursor = resolveCursor(cursor), lang = lang, memberId = memberId),
         )
         return ResponseEntity.ok(
             BaseResponse.ok(
