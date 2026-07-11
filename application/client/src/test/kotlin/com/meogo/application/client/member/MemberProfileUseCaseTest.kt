@@ -1,6 +1,6 @@
 package com.meogo.application.client.member
 
-import com.meogo.application.client.member.dto.OnboardingInput
+import com.meogo.application.client.member.dto.MemberProfileInput
 import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.member.AvoidanceSubstanceCodeRef
@@ -32,7 +32,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         avoidanceSubstanceCodes: List<String> = listOf("EGG", "MILK"),
         countryCode: String = "US",
         appLanguage: String = "en",
-    ) = OnboardingInput(
+    ) = MemberProfileInput(
         memberId = memberId,
         nickname = nickname,
         avoidanceSubstanceCodes = avoidanceSubstanceCodes,
@@ -281,6 +281,67 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val e = shouldThrow<MemberException> { useCase.getMyProfile(99L) }
 
                 e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
+            }
+        }
+    }
+
+    given("온보딩을 완료한 회원의 프로필 수정") {
+        val onboarded = MemberProfile.of(
+            nickname = "원래닉",
+            avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("EGG")),
+            spicinessPreference = 5,
+            countryCode = CountryCode.KR,
+            appLanguage = LanguageCode.KO,
+        )
+
+        `when`("유효한 값으로 수정하면") {
+            then("프로필이 새 값으로 바뀌고 온보딩 완료 상태는 유지된다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
+                val useCase = MemberProfileUseCase(repo)
+
+                useCase.update(input(nickname = "새닉", avoidanceSubstanceCodes = listOf("MILK"), countryCode = "US", appLanguage = "en"))
+
+                val saved = repo.findById(1L)!!
+                saved.profile.nickname shouldBe "새닉"
+                saved.profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("MILK")
+                saved.profile.countryCode shouldBe CountryCode.US
+                saved.profile.appLanguage shouldBe LanguageCode.EN
+                saved.onboardingCompleted shouldBe true
+            }
+        }
+
+        `when`("무효한 성분 코드로 수정하면") {
+            then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절되고 프로필은 변하지 않는다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
+                val useCase = MemberProfileUseCase(repo)
+
+                val e = shouldThrow<OnboardingException> {
+                    useCase.update(input(avoidanceSubstanceCodes = listOf("NOT_A_CODE")))
+                }
+
+                e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
+                repo.findById(1L)!!.profile.nickname shouldBe "원래닉"
+            }
+        }
+
+        `when`("존재하지 않는 회원의 프로필을 수정하면") {
+            then("MEMBER_NOT_FOUND 로 거절된다") {
+                val useCase = MemberProfileUseCase(FakeMemberRepository())
+
+                val e = shouldThrow<MemberException> { useCase.update(input(memberId = 99L)) }
+
+                e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
+            }
+        }
+
+        `when`("온보딩 미완료 회원의 프로필을 수정하면") {
+            then("온보딩 완료로 전이되지 않고 미완료 상태가 유지된다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L)) }
+                val useCase = MemberProfileUseCase(repo)
+
+                useCase.update(input())
+
+                repo.findById(1L)!!.onboardingCompleted shouldBe false
             }
         }
     }

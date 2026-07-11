@@ -2,7 +2,7 @@ package com.meogo.app.api.member
 
 import com.meogo.application.client.member.dto.MemberProfileInput
 
-data class OnboardingRequest(
+data class ProfileUpdateRequest(
     val nickname: String,
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val countryCode: String,

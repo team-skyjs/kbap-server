@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
@@ -113,4 +114,58 @@ interface MemberApi {
     fun getMyProfile(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
+
+    @Operation(
+        summary = "프로필 수정",
+        description = """
+            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어)을 다시 설정한다. 온보딩 제출과
+            같은 형태·검증이지만 온보딩 완료 상태는 그대로 유지된다(재설정 전용, 상태 전이 없음).
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "수정 성공 — 프로필 갱신"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
+        ],
+    )
+    @PutMapping("/me/profile")
+    fun updateProfile(
+        @AuthMemberId memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "한국 · 계란/우유 기피",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": ["EGG", "MILK"],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "기피 음식 없음으로 변경",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": [],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        @RequestBody request: ProfileUpdateRequest,
+    ): ResponseEntity<BaseResponse<Unit>>
 }

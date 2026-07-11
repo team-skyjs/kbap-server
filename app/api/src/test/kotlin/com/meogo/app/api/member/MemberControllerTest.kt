@@ -16,6 +16,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
 
 @SpringBootTest
@@ -55,6 +56,13 @@ class MemberControllerTest : BehaviorSpec() {
         fun getMyProfile(token: String?) =
             mockMvc.get("/api/v1/members/me") {
                 if (token != null) header("Authorization", "Bearer $token")
+            }
+
+        fun updateProfile(token: String?, body: Map<String, Any?>) =
+            mockMvc.put("/api/v1/members/me/profile") {
+                if (token != null) header("Authorization", "Bearer $token")
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(body)
             }
 
         fun validBody() = mapOf(
@@ -185,6 +193,46 @@ class MemberControllerTest : BehaviorSpec() {
             `when`("인증 없이 조회하면") {
                 then("401 로 거절된다") {
                     getMyProfile(null).andReturn().response.status shouldBe 401
+                }
+            }
+        }
+
+        given("프로필 수정") {
+            fun updateBody() = mapOf(
+                "nickname" to "수정닉",
+                "avoidanceSubstanceCodes" to listOf("PEANUT"),
+                "countryCode" to "JP",
+                "appLanguage" to "ja",
+            )
+
+            `when`("온보딩을 완료한 회원이 유효한 값으로 수정하면") {
+                then("200 으로 응답하고 프로필이 갱신되며 온보딩 상태는 유지된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andReturn()
+
+                    val result = updateProfile(token, updateBody()).andReturn().response
+
+                    result.status shouldBe 200
+                    memberColumn("google-sub-fixed", "nickname") shouldBe "수정닉"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                }
+            }
+
+            `when`("무효한 값으로 수정하면") {
+                then("400 으로 거절된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andReturn()
+
+                    val result = updateProfile(token, updateBody() + ("countryCode" to "ZZ")).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "\"success\":false"
+                }
+            }
+
+            `when`("인증 없이 수정하면") {
+                then("401 로 거절된다") {
+                    updateProfile(null, updateBody()).andReturn().response.status shouldBe 401
                 }
             }
         }

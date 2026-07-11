@@ -28,4 +28,12 @@ class MemberController(
         val result = memberProfileUseCase.getMyProfile(memberId)
         return ResponseEntity.ok(BaseResponse.ok(MyProfileResponse.from(result)))
     }
+
+    override fun updateProfile(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: ProfileUpdateRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        memberProfileUseCase.update(request.toInput(memberId))
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
 }

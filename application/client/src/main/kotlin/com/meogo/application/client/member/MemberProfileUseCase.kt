@@ -1,7 +1,7 @@
 package com.meogo.application.client.member
 
 import com.meogo.application.client.member.dto.MyProfileResult
-import com.meogo.application.client.member.dto.OnboardingInput
+import com.meogo.application.client.member.dto.MemberProfileInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
@@ -19,13 +19,22 @@ class MemberProfileUseCase(
     private val memberRepository: MemberRepository,
 ) {
     @Transactional
-    fun setUp(input: OnboardingInput) {
+    fun setUp(input: MemberProfileInput) {
         val member = memberRepository.findById(input.memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 
         val profile = validatedProfile(input, member)
         val updated = member.updateProfile(profile).completeOnboarding()
         memberRepository.update(updated)
+    }
+
+    @Transactional
+    fun update(input: MemberProfileInput) {
+        val member = memberRepository.findById(input.memberId)
+            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+
+        val profile = validatedProfile(input, member)
+        memberRepository.update(member.updateProfile(profile))
     }
 
     @Transactional(readOnly = true)
@@ -35,7 +44,7 @@ class MemberProfileUseCase(
         return MyProfileResult.from(member)
     }
 
-    private fun validatedProfile(input: OnboardingInput, member: Member): MemberProfile {
+    private fun validatedProfile(input: MemberProfileInput, member: Member): MemberProfile {
         val nickname = input.nickname.trim()
         if (nickname.isBlank()) {
             throw OnboardingException(OnboardingErrorCode.INVALID_NICKNAME)
