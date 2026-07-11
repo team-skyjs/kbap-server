@@ -39,7 +39,7 @@ class RefreshUseCaseTest : BehaviorSpec({
 
                 val result = useCase(store).refresh(refreshToken)
 
-                parser.parseAccessToken(result.accessToken) shouldBe 5L
+                parser.parseAccessToken(result.accessToken).memberId shouldBe 5L
                 parser.parseRefreshToken(result.refreshToken).memberId shouldBe 5L
                 (result.refreshToken != refreshToken) shouldBe true
             }
