@@ -1,6 +1,7 @@
 package com.meogo.app.api.scan
 
 import com.meogo.app.api.common.BaseResponse
+import com.meogo.app.api.common.auth.AuthMemberId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -20,7 +21,7 @@ interface ScanApi {
         summary = "메뉴 스캔 제출",
         description = """
             스캔으로 인식한 메뉴 항목(idx·메뉴명)들을 제출하면, 서버가 메뉴명을 정제해 저장된 음식과 매칭하고 항목별 위험도를 돌려준다.
-            스캔 내역은 저장하지 않으며, 요청당 판정 결과만 응답한다.
+            로그인 필수 API 로, 요청당 판정 결과를 응답하며 매칭된 완성(READY) 음식은 회원별 스캔 이력으로 음식당 1건 기록한다.
 
             ## 정제·매칭 흐름
             1. 수신한 원문 메뉴명에서 한글만 남겨 매칭 키를 만든다(로마자 음역·가격·기호 제거). 한글이 하나도 없으면 비음식으로 처리한다.
@@ -47,10 +48,12 @@ interface ScanApi {
                 responseCode = "400",
                 description = "요청 검증 실패 — 필수값 누락, idx 중복, rawMenuName blank, 항목 수 초과 등",
             ),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
         ],
     )
     @PostMapping
     fun scan(
+        @AuthMemberId memberId: Long,
         @Valid
         @RequestBody
         @SwaggerRequestBody(

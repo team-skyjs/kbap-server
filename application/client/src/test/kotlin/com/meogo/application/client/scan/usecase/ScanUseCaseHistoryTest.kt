@@ -79,7 +79,7 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
         scanHistoryRepository = historyRepository,
     )
 
-    fun input(memberId: Long?, vararg names: String) = ScanInput(
+    fun input(memberId: Long, vararg names: String) = ScanInput(
         items = names.mapIndexed { index, name -> ScanItemInput(idx = index, rawMenuName = name) },
         memberId = memberId,
     )
@@ -126,19 +126,6 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
                 uc.assessMenuBoard(input(11L, "비빔밥", "처음보는찌개"))
 
                 history.saved.map { it.memberId to it.foodId } shouldContainExactly listOf(11L to 30L)
-            }
-        }
-    }
-
-    given("비회원의 메뉴 스캔") {
-        `when`("READY 음식에 매칭되는 메뉴를 스캔해도") {
-            then("이력을 저장하지 않는다") {
-                val history = FakeScanHistoryRepository()
-                val uc = useCase(mapOf("김치찌개" to readyFood(7L, "김치찌개")), history)
-
-                uc.assessMenuBoard(input(null, "김치찌개"))
-
-                history.saveAllCallCount shouldBe 0
             }
         }
     }

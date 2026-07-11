@@ -117,7 +117,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개 kimchi jjigae"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개 kimchi jjigae"))))
 
                 result.items.first().matched shouldBe true
                 result.items.first().riskLevel shouldBe RiskLevel.DANGER.name
@@ -133,7 +133,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "우주라면"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe listOf("우주라면")
                 result.items.first().matched shouldBe false
@@ -157,7 +157,7 @@ class ScanUseCaseTest : BehaviorSpec({
                 )
 
                 val result = uc.assessMenuBoard(
-                    ScanInput(listOf(item(0, "우주라면"), item(1, "탕후루"), item(2, "우주라면 space"))),
+                    ScanInput(memberId = 1L, items = listOf(item(0, "우주라면"), item(1, "탕후루"), item(2, "우주라면 space"))),
                 )
 
                 foodRepo.createIncompleteCallCount shouldBe 1
@@ -176,7 +176,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개"))))
+                uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개"))))
 
                 foodRepo.createdIncomplete shouldBe emptyList()
             }
@@ -201,7 +201,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "우주라면"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "우주라면"))))
 
                 foodRepo.createdIncomplete shouldBe emptyList()
                 result.items.first().matched shouldBe false
@@ -217,7 +217,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "원산지 중국"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "원산지 중국"))))
 
                 result.items shouldBe emptyList()
                 foodRepo.createdIncomplete shouldBe emptyList()
@@ -229,7 +229,7 @@ class ScanUseCaseTest : BehaviorSpec({
                 val interpreter = FakeInterpreter(emptyList())
                 val uc = useCase(interpreter = interpreter)
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "MacBook Air F9"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "MacBook Air F9"))))
 
                 result.items shouldBe emptyList()
                 interpreter.callCount shouldBe 0
@@ -246,7 +246,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     interpreter = interpreter,
                 )
 
-                uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개"), item(1, "원산지 중국"))))
+                uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개"), item(1, "원산지 중국"))))
 
                 interpreter.callCount shouldBe 1
             }
@@ -262,7 +262,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                uc.assessMenuBoard(ScanInput(listOf(item(0, "우주라면"), item(1, "우주 라면"))))
+                uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "우주라면"), item(1, "우주 라면"))))
 
                 foodRepo.createdIncomplete shouldBe listOf("우주라면")
             }
@@ -278,7 +278,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     foodRepo = foodRepo,
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개"), item(1, "우주라면 space"))))
 
                 result.degraded shouldBe true
                 val items = result.items
@@ -296,7 +296,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("무시됨"))),
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개"), item(1, "우주라면"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개"), item(1, "우주라면"))))
 
                 result.degraded shouldBe true
                 val items = result.items
@@ -314,7 +314,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("김치찌개"))),
                 )
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "김치찌개 kimchi"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "김치찌개 kimchi"))))
 
                 result.items.first().name shouldBe "김치찌개"
                 result.items.first().koreanName shouldBe "김치찌개"
@@ -325,7 +325,7 @@ class ScanUseCaseTest : BehaviorSpec({
             then("표준명을 name·koreanName 에 함께 담는다") {
                 val uc = useCase(interpreter = FakeInterpreter(listOf(InterpretedName.StandardName("우주라면"))))
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "우주라면"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "우주라면"))))
 
                 result.items.first().name shouldBe "우주라면"
                 result.items.first().koreanName shouldBe "우주라면"
@@ -336,7 +336,7 @@ class ScanUseCaseTest : BehaviorSpec({
             then("서버가 아는 이름이 없으므로 name·koreanName 이 null 이다") {
                 val uc = useCase(interpreter = ThrowingInterpreter())
 
-                val result = uc.assessMenuBoard(ScanInput(listOf(item(0, "우주라면 space"))))
+                val result = uc.assessMenuBoard(ScanInput(memberId = 1L, items = listOf(item(0, "우주라면 space"))))
 
                 result.items.first().foodId shouldBe null
                 result.items.first().name shouldBe null

@@ -53,8 +53,7 @@ class ScanUseCase(
         return ScanResult(items = items, degraded = refinement.degraded)
     }
 
-    private fun recordHistory(memberId: Long?, items: List<ScanResult.ItemRiskResult>) {
-        if (memberId == null) return
+    private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
         if (readyFoodIds.isEmpty()) return
         scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
