@@ -11,8 +11,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
@@ -131,7 +131,7 @@ interface MemberApi {
             ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
         ],
     )
-    @PutMapping("/me/profile")
+    @PatchMapping("/me/profile")
     fun updateProfile(
         @AuthMemberId memberId: Long,
         @SwaggerRequestBody(

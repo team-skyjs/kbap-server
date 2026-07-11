@@ -15,8 +15,8 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
-import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
 
 @SpringBootTest
@@ -59,7 +59,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun updateProfile(token: String?, body: Map<String, Any?>) =
-            mockMvc.put("/api/v1/members/me/profile") {
+            mockMvc.patch("/api/v1/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
