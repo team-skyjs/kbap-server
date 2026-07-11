@@ -3,6 +3,7 @@ package com.meogo.application.client.member
 import com.meogo.application.client.member.dto.OnboardingInput
 import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.member.AvoidanceSubstanceCodeRef
 import com.meogo.core.member.Member
 import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
@@ -230,6 +231,56 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 useCase.setUp(input())
 
                 repo.findById(1L)!!.onboardingCompleted shouldBe true
+            }
+        }
+    }
+
+    given("내 프로필 조회") {
+        `when`("온보딩을 완료한 회원이 조회하면") {
+            then("저장된 프로필과 온보딩 완료 상태를 반환한다") {
+                val profile = MemberProfile.of(
+                    nickname = "길동이",
+                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("EGG"), AvoidanceSubstanceCodeRef("MILK")),
+                    spicinessPreference = 5,
+                    countryCode = CountryCode.US,
+                    appLanguage = LanguageCode.EN,
+                )
+                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = profile)) }
+                val useCase = MemberProfileUseCase(repo)
+
+                val result = useCase.getMyProfile(1L)
+
+                result.memberId shouldBe 1L
+                result.nickname shouldBe "길동이"
+                result.avoidanceSubstanceCodes.toSet() shouldBe setOf("EGG", "MILK")
+                result.countryCode shouldBe "US"
+                result.appLanguage shouldBe "en"
+                result.onboardingCompleted shouldBe true
+            }
+        }
+
+        `when`("온보딩 미완료 회원이 조회하면") {
+            then("빈 프로필과 온보딩 미완료 상태를 반환한다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L)) }
+                val useCase = MemberProfileUseCase(repo)
+
+                val result = useCase.getMyProfile(1L)
+
+                result.nickname shouldBe null
+                result.avoidanceSubstanceCodes.shouldBeEmpty()
+                result.countryCode shouldBe null
+                result.appLanguage shouldBe null
+                result.onboardingCompleted shouldBe false
+            }
+        }
+
+        `when`("존재하지 않는 회원 식별자로 조회하면") {
+            then("MEMBER_NOT_FOUND 로 거절된다") {
+                val useCase = MemberProfileUseCase(FakeMemberRepository())
+
+                val e = shouldThrow<MemberException> { useCase.getMyProfile(99L) }
+
+                e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
             }
         }
     }

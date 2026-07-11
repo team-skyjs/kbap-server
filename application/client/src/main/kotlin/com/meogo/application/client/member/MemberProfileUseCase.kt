@@ -1,5 +1,6 @@
 package com.meogo.application.client.member
 
+import com.meogo.application.client.member.dto.MyProfileResult
 import com.meogo.application.client.member.dto.OnboardingInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.CountryCode
@@ -25,6 +26,13 @@ class MemberProfileUseCase(
         val profile = validatedProfile(input, member)
         val updated = member.updateProfile(profile).completeOnboarding()
         memberRepository.update(updated)
+    }
+
+    @Transactional(readOnly = true)
+    fun getMyProfile(memberId: Long): MyProfileResult {
+        val member = memberRepository.findById(memberId)
+            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        return MyProfileResult.from(member)
     }
 
     private fun validatedProfile(input: OnboardingInput, member: Member): MemberProfile {
