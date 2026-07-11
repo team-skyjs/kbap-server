@@ -10,6 +10,7 @@ dependencies {
     "implementation"(project(":core:food"))
     "implementation"(project(":core:member"))
     "implementation"(project(":core:avoidance"))
+    "implementation"(project(":core:scan"))
     "implementation"(project(":core:review"))
     "implementation"(project(":core:kernel"))
     "implementation"(project(":common"))

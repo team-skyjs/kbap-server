@@ -95,6 +95,7 @@ class ScanUseCaseTest : BehaviorSpec({
         foodRepository = foodRepo,
         avoidedSubstanceProvider = ScanFakeAvoidedProvider(),
         interpreter = interpreter,
+        scanHistoryRepository = FakeScanHistoryRepository(),
     )
 
     fun translatedFood(id: Long, koreanName: String, english: String) = Food.reconstitute(
