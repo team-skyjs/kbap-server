@@ -54,7 +54,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun getMyProfile(token: String?) =
-            mockMvc.get("/api/v1/members/me") {
+            mockMvc.get("/api/v1/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 
