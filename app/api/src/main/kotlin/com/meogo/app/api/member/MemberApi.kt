@@ -3,6 +3,8 @@ package com.meogo.app.api.member
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberId
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -11,6 +13,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
 @Tag(name = "회원", description = "온보딩·프로필 API")
 @SecurityRequirement(name = "bearerAuth")
@@ -34,6 +37,60 @@ interface MemberApi {
     @PostMapping("/me/onboarding")
     fun submitOnboarding(
         @AuthMemberId memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "한국 · 계란/우유/땅콩 기피",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "미국 · 기피 음식 없음",
+                            value = """
+                                {
+                                  "nickname": "John",
+                                  "avoidanceSubstanceCodes": [],
+                                  "countryCode": "US",
+                                  "appLanguage": "en"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "일본 · 갑각류/생선 기피",
+                            value = """
+                                {
+                                  "nickname": "さくら",
+                                  "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
+                                  "countryCode": "JP",
+                                  "appLanguage": "ja"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "베트남 · 견과류 다수 기피",
+                            value = """
+                                {
+                                  "nickname": "Linh",
+                                  "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
+                                  "countryCode": "VN",
+                                  "appLanguage": "vi"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 
