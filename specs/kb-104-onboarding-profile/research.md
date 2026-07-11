@@ -4,13 +4,17 @@
 
 Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 선택지가 여럿인 지점의 결정 기록이다.
 
-## R1. 요청 인증 주입 방식 — HandlerMethodArgumentResolver
+## R1. 요청 인증·인가 방식 — 필터 레벨 인증 + ArgumentResolver 주입 (사용자 결정 2026-07-12 개정)
 
-- **Decision**: app:api 에 `@AuthMemberId` 파라미터 애너테이션 + `HandlerMethodArgumentResolver` 를 신설한다. `Authorization: Bearer <access>` 헤더를 꺼내 기존 `TokenParser.parseAccessToken(token): Long`(application:client, KB-118)으로 검증·회원 PK 를 얻어 컨트롤러 파라미터로 주입한다. 헤더 부재·형식 오류·서명 불일치 = `AuthException(INVALID_ACCESS_TOKEN)`, 만료 = `AuthException(EXPIRED_ACCESS_TOKEN)` — 둘 다 기존 401 에러코드라 `GlobalExceptionHandler` 의 `MeogoException` 핸들러가 BaseResponse 401 로 변환한다(신규 예외 처리 코드 0).
-- **Rationale**: KB-118 은 토큰 발급·재발급만 구현했고 수신 요청 검증 장치가 없다(`parseAccessToken` 호출처 0). 보호 엔드포인트가 KB-104 가 최초이므로 최소 장치가 필요하다. ArgumentResolver 는 (1) 컨트롤러 시그니처에 인증 요구가 명시적으로 드러나고, (2) 파라미터가 없는 엔드포인트(기존 food·scan·auth)는 전혀 영향받지 않으며, (3) Spring Web 만으로 구현돼 신규 의존이 없다.
+- **Decision**: 인증은 **서블릿 필터**, 컨트롤러 주입은 ArgumentResolver 로 분담한다(모두 app:api `common/auth`).
+  - `JwtAuthenticationFilter`(`OncePerRequestFilter`): 보호 경로에서 `Authorization: Bearer <access>` 를 꺼내 `TokenParser.parseAccessToken`(PR #46 — `ParsedAccessToken(memberId, role)` 반환)으로 검증하고 결과를 **request attribute** 로 저장 후 체인 진행. 실패(부재·형식 오류·위조 = INVALID_ACCESS_TOKEN, 만료 = EXPIRED_ACCESS_TOKEN)는 **필터가 직접 401 + `BaseResponse.fail` JSON 으로 응답**한다 — 필터는 DispatcherServlet 앞에서 실행되므로 `@RestControllerAdvice`(GlobalExceptionHandler)가 잡지 못한다.
+  - 보호 경로 등록: `FilterRegistrationBean` 의 urlPatterns 로 현재 `/api/v1/members/*` 만 지정. **추후 전 API 인증 일괄 적용 시 패턴 확장만으로 커버**(사용자 계획 — 모든 API 완성 후 필터 레벨 일괄 적용).
+  - `@AuthMemberId` + `AuthMemberIdArgumentResolver`: 필터가 저장한 attribute 에서 회원 PK 를 꺼내 컨트롤러 파라미터로 주입(파싱 없음 — 얇은 어댑터).
+  - **인가(role)**: 필터가 role 까지 attribute 에 저장한다. 현재 역할이 `USER` 단일이라 KB-104 에서 role 분기는 없다 — 관리자 전용 경로가 생기면 이 필터(또는 후속 인가 필터)가 role 대조를 담당한다. 토큰의 role 클레임 검증(부재·미지 값 = 401)은 `TokenParser` 가 이미 수행(PR #46).
+- **Rationale**: 사용자 결정 — 인증·인가를 API 전체에 일괄 적용할 계획이라 경로 패턴 기반 필터가 종착 구조다. KB-118 은 토큰 발급만 구현했고 수신 요청 검증 장치가 없어(KB-104 가 보호 엔드포인트 최초) 이번에 필터를 도입한다. 컨트롤러 시그니처의 `@AuthMemberId` 는 유지해 "이 API 는 인증 회원 컨텍스트를 쓴다"가 코드에 드러난다.
 - **Alternatives considered**:
-  - **Spring Security 필터 체인**: 표준이지만 스타터 추가 + 전 엔드포인트 기본 잠금 → 기존 공개 API(food·scan·auth) 전부에 permitAll 설정 필요. 보호 엔드포인트 2개에 과함. 보호 API 가 늘어나 경로 기반 일괄 차단이 필요해지는 시점에 도입한다.
-  - **HandlerInterceptor + ThreadLocal/request attribute**: 경로 패턴 관리가 별도 설정으로 분산되고 컨트롤러에서 인증 여부가 안 보인다. resolver 보다 이점 없음.
+  - **ArgumentResolver 단독**(초안): 보호 API 가 늘 때마다 파라미터 단위로 인증이 흩어지고 일괄 적용 계획과 어긋남 — 사용자 결정으로 대체.
+  - **Spring Security 필터 체인**: 표준이지만 스타터 추가 + 전 엔드포인트 기본 잠금 → 기존 공개 API(food·scan·auth) 전부 permitAll 필요. 자체 필터로 충분한 규모라 기각(도입 시점 재평가 가능).
 
 ## R2. 엔드포인트 경로 — `POST /api/v1/members/me/onboarding` · `GET /api/v1/members/me`
 

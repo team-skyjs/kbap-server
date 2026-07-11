@@ -7,7 +7,6 @@ import com.meogo.core.member.Member
 import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberProfile
-import com.meogo.core.member.OnboardingStatus
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
@@ -90,7 +89,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                     found.shouldNotBeNull()
                     found.identity.providerUserId shouldBe "google-sub-1"
                     found.identity.email shouldBe "user@gmail.com"
-                    found.onboardingStatus shouldBe OnboardingStatus.PENDING
+                    found.onboardingCompleted shouldBe false
                 }
             }
 
@@ -122,7 +121,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                         id = 0L,
                         identity = googleIdentity(sub = "sub-profile"),
                         profile = profile,
-                        onboardingStatus = OnboardingStatus.COMPLETED,
+                        onboardingCompleted = true,
                     )
                     val saved = adapter.saveNew(toSave)
 
@@ -133,21 +132,21 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                     found.profile.spicinessPreference shouldBe 7
                     found.profile.countryCode shouldBe CountryCode.KR
                     found.profile.appLanguage shouldBe LanguageCode.EN
-                    found.onboardingStatus shouldBe OnboardingStatus.COMPLETED
+                    found.onboardingCompleted shouldBe true
                 }
             }
 
             `when`("온보딩을 완료한 회원을 저장하면") {
-                then("onboarding_status 컬럼에 boolean true 로 저장된다") {
+                then("onboarding_completed 컬럼에 boolean true 로 저장된다") {
                     val toSave = Member.reconstitute(
                         id = 0L,
                         identity = googleIdentity(sub = "onboarding-bool-sub"),
                         profile = MemberProfile.empty(),
-                        onboardingStatus = OnboardingStatus.COMPLETED,
+                        onboardingCompleted = true,
                     )
                     val saved = adapter.saveNew(toSave)
 
-                    readColumn(saved.id!!, "onboarding_status") shouldBe "1"
+                    readColumn(saved.id!!, "onboarding_completed") shouldBe "1"
                 }
             }
         }
@@ -186,7 +185,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                     found.profile.spicinessPreference shouldBe 4
                     found.profile.countryCode shouldBe CountryCode.JP
                     found.profile.appLanguage shouldBe LanguageCode.JA
-                    found.onboardingStatus shouldBe OnboardingStatus.COMPLETED
+                    found.onboardingCompleted shouldBe true
                 }
             }
         }

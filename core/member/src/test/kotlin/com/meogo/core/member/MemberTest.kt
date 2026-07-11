@@ -11,10 +11,10 @@ class MemberTest : BehaviorSpec({
 
     given("Member.signUp — 최초 가입") {
         `when`("소셜 신원으로 가입하면") {
-            then("온보딩 PENDING·빈 프로필·해당 신원을 보유한다") {
+            then("온보딩 미완료·빈 프로필·해당 신원을 보유한다") {
                 val member = Member.signUp(googleIdentity())
 
-                member.onboardingStatus shouldBe OnboardingStatus.PENDING
+                member.onboardingCompleted shouldBe false
                 member.profile shouldBe MemberProfile.empty()
                 member.identity.providerUserId shouldBe "google-sub-1"
             }
@@ -38,30 +38,30 @@ class MemberTest : BehaviorSpec({
                 updated.profile shouldBe newProfile
                 member.profile shouldBe MemberProfile.empty()
                 updated.identity shouldBe member.identity
-                updated.onboardingStatus shouldBe member.onboardingStatus
+                updated.onboardingCompleted shouldBe member.onboardingCompleted
             }
         }
     }
 
     given("Member.completeOnboarding — 온보딩 전이") {
-        `when`("PENDING 회원이 완료 처리하면") {
-            then("COMPLETED 로 전이한 새 인스턴스를 반환한다") {
+        `when`("미완료 회원이 완료 처리하면") {
+            then("완료 상태로 전이한 새 인스턴스를 반환한다") {
                 val member = Member.signUp(googleIdentity())
 
                 val completed = member.completeOnboarding()
 
-                completed.onboardingStatus shouldBe OnboardingStatus.COMPLETED
-                member.onboardingStatus shouldBe OnboardingStatus.PENDING
+                completed.onboardingCompleted shouldBe true
+                member.onboardingCompleted shouldBe false
             }
         }
 
-        `when`("이미 COMPLETED 인 회원이 재완료하면") {
+        `when`("이미 완료된 회원이 재완료하면") {
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
                 val completed = Member.reconstitute(
                     id = 1L,
                     identity = googleIdentity(),
                     profile = MemberProfile.empty(),
-                    onboardingStatus = OnboardingStatus.COMPLETED,
+                    onboardingCompleted = true,
                 )
 
                 val e = shouldThrow<MemberException> { completed.completeOnboarding() }

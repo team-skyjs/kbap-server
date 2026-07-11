@@ -1,0 +1,24 @@
+package com.meogo.app.api.common.auth
+
+import com.meogo.app.api.common.ApiPaths
+import com.meogo.application.client.auth.TokenParser
+import org.springframework.boot.web.servlet.FilterRegistrationBean
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
+
+@Configuration
+class WebMvcAuthConfig(
+    private val tokenParser: TokenParser,
+) : WebMvcConfigurer {
+    override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
+        resolvers.add(AuthMemberIdArgumentResolver())
+    }
+
+    @Bean
+    fun jwtAuthenticationFilterRegistration(): FilterRegistrationBean<JwtAuthenticationFilter> =
+        FilterRegistrationBean(JwtAuthenticationFilter(tokenParser)).apply {
+            addUrlPatterns("${ApiPaths.V1}/members/*")
+        }
+}

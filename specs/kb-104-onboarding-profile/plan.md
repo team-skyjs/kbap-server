@@ -6,13 +6,13 @@
 
 ## Summary
 
-인증된 회원이 온보딩 정보(닉네임·기피 성분 코드 집합·국가·앱 언어)를 제출하면 검증 후 프로필로 저장하고 온보딩 상태를 PENDING→COMPLETED 로 전이한다(`POST /api/v1/members/me/onboarding`). 홈화면 진입용으로 내 프로필·온보딩 상태 조회를 제공한다(`GET /api/v1/members/me`).
+인증된 회원이 온보딩 정보(닉네임·기피 성분 코드 집합·국가·앱 언어)를 제출하면 검증 후 프로필로 저장하고 온보딩 상태를 미완료→완료로 전이한다(`POST /api/v1/members/me/onboarding`). 홈화면 진입용으로 내 프로필·온보딩 상태 조회를 제공한다(`GET /api/v1/members/me`).
 
 도메인(`Member.updateProfile`/`completeOnboarding`·`MemberProfile`)과 영속(member 테이블: `nickname`·`profile` JSON)은 KB-103/117 에서 이미 완성돼 있다. 다만 온보딩 진행 표현이 계층마다 제각각이라(도메인 enum `OnboardingStatus` ↔ 엔티티 필드 `onboardingCompleted` ↔ 칼럼 `onboarding_status` BOOLEAN ↔ 응답 boolean) **전 계층을 `onboardingCompleted: Boolean` / `onboarding_completed` 로 통일**한다(사용자 결정): enum `OnboardingStatus` 삭제, 칼럼 rename 마이그레이션 1건. 신규 작업은 네 가지다:
 
 0. **온보딩 네이밍 통일 리팩터**(선행): 도메인 `Member.onboardingCompleted: Boolean`(enum 삭제, `completeOnboarding()` 행위·재완료 400 유지), `MemberJpaEntity` `@Column(name = "onboarding_completed")`(enum↔boolean 왕복 변환 제거), Flyway `ALTER TABLE member RENAME COLUMN onboarding_status TO onboarding_completed`. 기존 참조 5파일(MemberTest·LoginUseCaseTest·MemberRepositoryAdapterTest·AuthControllerTest 칼럼명 assert 포함) 동반 수정. 마이그레이션은 app:api 통합 테스트가 Testcontainers MySQL 에서 Flyway 실행+`ddl-auto=validate` 로 자동 검증한다(KB-46).
 
-1. **요청 인증 주입 장치**(app:api 신규): `Authorization: Bearer` 액세스 토큰을 기존 `TokenParser.parseAccessToken` 으로 검증해 회원 PK 를 컨트롤러 파라미터로 주입하는 `HandlerMethodArgumentResolver`(`@AuthMemberId`). 헤더 부재·위조·만료 = 401 (기존 `AuthErrorCode` 재사용). KB-118 이 토큰 발급만 만들었고 **수신 요청 검증 장치는 이번이 최초 도입**이다.
+1. **필터 레벨 인증·인가**(app:api 신규, R1 개정 — 사용자 결정): `JwtAuthenticationFilter`(`OncePerRequestFilter`, 보호 경로 `/api/v1/members/*` 에 `FilterRegistrationBean` 등록)가 `Authorization: Bearer` 를 `TokenParser.parseAccessToken`(PR #46 — memberId+role 반환)으로 검증해 request attribute 에 저장. 실패는 필터가 직접 401 BaseResponse JSON 응답(advice 미도달 구간). 컨트롤러는 `@AuthMemberId` ArgumentResolver 로 attribute 의 회원 PK 만 주입. 추후 전 API 일괄 인증은 urlPatterns 확장으로 처리. KB-118 이 토큰 발급만 만들었고 **수신 요청 검증 장치는 이번이 최초 도입**이다.
 2. **유스케이스 2종**(application:client `member` 패키지 신설): `CompleteOnboardingUseCase`(검증→프로필 저장→상태 전이, 단일 트랜잭션), `GetMyProfileUseCase`(조회). 카탈로그 81종 멤버십 검증은 컨텍스트 조합 계층인 application 에서 `AvoidanceSubstanceCode` enum 대조로 수행(헌법 II — member 는 코드 문자열만 보유).
 3. **컨트롤러**(app:api `member` 패키지 신설): 제출·조회 2개 엔드포인트, `BaseResponse` 봉투·`ApiPaths.V1` 규약.
 
@@ -83,10 +83,11 @@ application/client/src/test/kotlin/com/meogo/application/client/member/
 └── GetMyProfileUseCaseTest.kt
 
 app/api/src/main/kotlin/com/meogo/app/api/
-├── common/auth/                        # 신규 — 요청 인증 주입 장치
+├── common/auth/                        # 신규 — 필터 레벨 인증·인가
+│   ├── JwtAuthenticationFilter.kt      # Bearer 검증 → attribute 저장, 실패 시 직접 401 JSON
 │   ├── AuthMemberId.kt                 # 파라미터 애너테이션
-│   ├── AuthMemberIdArgumentResolver.kt # Bearer 추출 → TokenParser.parseAccessToken → 401
-│   └── WebMvcAuthConfig.kt             # resolver 등록 (WebMvcConfigurer)
+│   ├── AuthMemberIdArgumentResolver.kt # attribute 의 회원 PK 주입 (파싱 없음)
+│   └── WebMvcAuthConfig.kt             # 필터 등록(/api/v1/members/*) + resolver 등록
 └── member/                             # 신규 — 컨트롤러
     ├── MemberApi.kt                    # springdoc 인터페이스 (기존 AuthApi 패턴)
     ├── MemberController.kt             # POST /members/me/onboarding, GET /members/me

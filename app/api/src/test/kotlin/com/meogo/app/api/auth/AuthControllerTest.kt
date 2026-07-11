@@ -119,7 +119,7 @@ class AuthControllerTest : BehaviorSpec() {
                     countMembers() shouldBe 1
                     memberColumn("google-sub-fixed", "provider") shouldBe "GOOGLE"
                     memberColumn("google-sub-fixed", "email") shouldBe "user@gmail.com"
-                    memberColumn("google-sub-fixed", "onboarding_status") shouldBe "0"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                     memberColumn("google-sub-fixed", "member_status") shouldBe "ACTIVE"
                     memberColumn("google-sub-fixed", "status") shouldBe "ACTIVE"
                 }
