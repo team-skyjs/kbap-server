@@ -1,7 +1,6 @@
 package com.meogo.infra.persistence.member
 
 import com.meogo.core.member.Member
-import com.meogo.core.member.OnboardingStatus
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import com.meogo.infra.persistence.BaseEntity
@@ -41,7 +40,7 @@ class MemberJpaEntity(
     @Column(name = "member_status", nullable = false, columnDefinition = "ENUM('ACTIVE','SUSPENDED') default 'ACTIVE'")
     var memberStatus: MemberStatus = MemberStatus.ACTIVE,
 
-    @Column(name = "onboarding_status", nullable = false)
+    @Column(name = "onboarding_completed", nullable = false)
     var onboardingCompleted: Boolean = false,
 ) : BaseEntity() {
     fun toDomain(): Member =
@@ -49,13 +48,13 @@ class MemberJpaEntity(
             id = id,
             identity = SocialIdentity(provider = provider, providerUserId = providerUid, email = email),
             profile = profile.toDomain(nickname),
-            onboardingStatus = if (onboardingCompleted) OnboardingStatus.COMPLETED else OnboardingStatus.PENDING,
+            onboardingCompleted = onboardingCompleted,
         )
 
     fun applyProfile(domain: Member) {
         nickname = domain.profile.nickname
         profile = MemberProfileJson.from(domain.profile)
-        onboardingCompleted = domain.onboardingStatus == OnboardingStatus.COMPLETED
+        onboardingCompleted = domain.onboardingCompleted
     }
 
     fun withdraw() {

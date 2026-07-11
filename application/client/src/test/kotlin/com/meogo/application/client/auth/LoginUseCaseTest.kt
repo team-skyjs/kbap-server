@@ -5,7 +5,6 @@ import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberProfile
 import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.OnboardingStatus
 import com.meogo.core.member.RefreshTokenStore
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
@@ -73,7 +72,7 @@ class LoginUseCaseTest : BehaviorSpec({
                     id = 10L,
                     identity = identity,
                     profile = MemberProfile.empty(),
-                    onboardingStatus = OnboardingStatus.COMPLETED,
+                    onboardingCompleted = true,
                 )
                 val repository = FakeMemberRepository(existingByIdentity = existing)
                 val store = InMemoryRefreshTokenStore()
@@ -110,7 +109,7 @@ class LoginUseCaseTest : BehaviorSpec({
                     id = 20L,
                     identity = identity,
                     profile = MemberProfile.empty(),
-                    onboardingStatus = OnboardingStatus.PENDING,
+                    onboardingCompleted = false,
                 )
                 val repository = FakeMemberRepository(duplicateOnSaveThenFind = winner)
                 val store = InMemoryRefreshTokenStore()
@@ -192,7 +191,7 @@ private class FakeMemberRepository(
             id = 99L,
             identity = member.identity,
             profile = member.profile,
-            onboardingStatus = member.onboardingStatus,
+            onboardingCompleted = member.onboardingCompleted,
         )
     }
 

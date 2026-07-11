@@ -11,7 +11,9 @@ import javax.crypto.spec.SecretKeySpec
 data class ParsedAccessToken(
     val memberId: Long,
     val role: MemberRole,
-)
+) {
+    val roleName: String get() = role.name
+}
 
 data class ParsedRefreshToken(
     val memberId: Long,

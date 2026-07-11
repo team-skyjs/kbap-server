@@ -1,0 +1,170 @@
+package com.meogo.app.api.member
+
+import com.meogo.app.api.common.BaseResponse
+import com.meogo.app.api.common.auth.AuthMemberId
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
+import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
+
+@Tag(name = "회원", description = "온보딩·프로필 API")
+@SecurityRequirement(name = "bearerAuth")
+interface MemberApi {
+    @Operation(
+        summary = "온보딩 정보 제출",
+        description = """
+            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어를 제출하면, 각 값을 검증한 뒤
+            프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
+            (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "온보딩 완료 — 프로필 저장·상태 전이"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임) 또는 이미 온보딩 완료"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
+        ],
+    )
+    @PostMapping("/me/onboarding")
+    fun completeOnboarding(
+        @AuthMemberId memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "한국 · 계란/우유/땅콩 기피",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "미국 · 기피 음식 없음",
+                            value = """
+                                {
+                                  "nickname": "John",
+                                  "avoidanceSubstanceCodes": [],
+                                  "countryCode": "US",
+                                  "appLanguage": "en"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "일본 · 갑각류/생선 기피",
+                            value = """
+                                {
+                                  "nickname": "さくら",
+                                  "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
+                                  "countryCode": "JP",
+                                  "appLanguage": "ja"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "베트남 · 견과류 다수 기피",
+                            value = """
+                                {
+                                  "nickname": "Linh",
+                                  "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
+                                  "countryCode": "VN",
+                                  "appLanguage": "vi"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        @RequestBody request: OnboardingRequest,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "내 프로필 조회",
+        description = """
+            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어)를 조회한다.
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 프로필 정보"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
+        ],
+    )
+    @GetMapping("/me/profile")
+    fun getMyProfile(
+        @AuthMemberId memberId: Long,
+    ): ResponseEntity<BaseResponse<MyProfileResponse>>
+
+    @Operation(
+        summary = "프로필 수정",
+        description = """
+            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어)을 다시 설정한다. 온보딩 제출과
+            같은 형태·검증이지만 온보딩 완료 상태는 그대로 유지된다(재설정 전용, 상태 전이 없음).
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "수정 성공 — 프로필 갱신"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
+        ],
+    )
+    @PatchMapping("/me/profile")
+    fun updateProfile(
+        @AuthMemberId memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "한국 · 계란/우유 기피",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": ["EGG", "MILK"],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "기피 음식 없음으로 변경",
+                            value = """
+                                {
+                                  "nickname": "길동이",
+                                  "avoidanceSubstanceCodes": [],
+                                  "countryCode": "KR",
+                                  "appLanguage": "ko"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        @RequestBody request: ProfileUpdateRequest,
+    ): ResponseEntity<BaseResponse<Unit>>
+}

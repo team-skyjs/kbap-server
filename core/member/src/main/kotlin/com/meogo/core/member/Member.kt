@@ -7,26 +7,26 @@ class Member private constructor(
     val id: Long?,
     val identity: SocialIdentity,
     val profile: MemberProfile,
-    val onboardingStatus: OnboardingStatus,
+    val onboardingCompleted: Boolean,
 ) {
     fun updateProfile(profile: MemberProfile): Member = copy(profile = profile)
 
     fun completeOnboarding(): Member {
-        if (onboardingStatus == OnboardingStatus.COMPLETED) {
+        if (onboardingCompleted) {
             throw MemberException(MemberErrorCode.ONBOARDING_ALREADY_COMPLETED)
         }
-        return copy(onboardingStatus = OnboardingStatus.COMPLETED)
+        return copy(onboardingCompleted = true)
     }
 
     private fun copy(
         profile: MemberProfile = this.profile,
-        onboardingStatus: OnboardingStatus = this.onboardingStatus,
+        onboardingCompleted: Boolean = this.onboardingCompleted,
     ): Member =
         Member(
             id = id,
             identity = identity,
             profile = profile,
-            onboardingStatus = onboardingStatus,
+            onboardingCompleted = onboardingCompleted,
         )
 
     companion object {
@@ -35,20 +35,20 @@ class Member private constructor(
                 id = null,
                 identity = identity,
                 profile = MemberProfile.empty(),
-                onboardingStatus = OnboardingStatus.PENDING,
+                onboardingCompleted = false,
             )
 
         fun reconstitute(
             id: Long,
             identity: SocialIdentity,
             profile: MemberProfile,
-            onboardingStatus: OnboardingStatus,
+            onboardingCompleted: Boolean,
         ): Member =
             Member(
                 id = id,
                 identity = identity,
                 profile = profile,
-                onboardingStatus = onboardingStatus,
+                onboardingCompleted = onboardingCompleted,
             )
     }
 }
