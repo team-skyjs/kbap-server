@@ -36,7 +36,7 @@ interface MemberApi {
         ],
     )
     @PostMapping("/me/onboarding")
-    fun submitOnboarding(
+    fun completeOnboarding(
         @AuthMemberId memberId: Long,
         @SwaggerRequestBody(
             required = true,

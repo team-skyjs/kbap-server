@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberProfileUseCase: MemberProfileUseCase,
 ) : MemberApi {
-    override fun submitOnboarding(
+    override fun completeOnboarding(
         @AuthMemberId memberId: Long,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
