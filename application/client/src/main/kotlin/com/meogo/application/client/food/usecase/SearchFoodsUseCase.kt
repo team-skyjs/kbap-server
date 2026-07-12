@@ -24,7 +24,7 @@ class SearchFoodsUseCase(
         val items = rows.take(PAGE_SIZE)
         val nextCursor = if (hasNext) items.last().id else null
 
-        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes()
+        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes(input.memberId)
             .map { AvoidanceSubstanceCodeRef(it.name) }
             .toSet()
 

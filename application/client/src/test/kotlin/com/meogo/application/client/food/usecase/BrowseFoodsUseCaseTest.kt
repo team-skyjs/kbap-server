@@ -257,5 +257,5 @@ private class BrowseFakeFoodRepository(
 private class BrowseFakeAvoidedSubstanceProvider(
     private val codes: Set<AvoidanceSubstanceCode>,
 ) : AvoidedSubstanceProvider {
-    override fun avoidedCodes() = codes
+    override fun avoidedCodes(memberId: Long?) = codes
 }

@@ -18,9 +18,10 @@ class FoodListController(
     override fun browse(
         cursor: String?,
         lang: String?,
+        memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = browseFoodsUseCase.browse(
-            BrowseFoodsInput(cursor = resolveCursor(cursor), lang = lang),
+            BrowseFoodsInput(cursor = resolveCursor(cursor), lang = lang, memberId = memberId),
         )
         return ResponseEntity.ok(
             BaseResponse.ok(

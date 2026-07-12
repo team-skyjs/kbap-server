@@ -34,7 +34,7 @@ class ScanUseCase(
 
         // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
         val lang = LanguageCode.KO
-        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes()
+        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes(input.memberId)
             .map { AvoidanceSubstanceCodeRef(it.name) }
             .toSet()
 

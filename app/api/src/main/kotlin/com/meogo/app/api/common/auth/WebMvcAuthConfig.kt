@@ -14,6 +14,7 @@ class WebMvcAuthConfig(
 ) : WebMvcConfigurer {
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(AuthMemberIdArgumentResolver())
+        resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser))
     }
 
     @Bean

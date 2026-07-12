@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.core.kernel.lang.LanguageErrorCode
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.core.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize
@@ -29,6 +31,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var dataSource: DataSource
+
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
 
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
@@ -183,13 +188,16 @@ class FoodSearchControllerTest : BehaviorSpec() {
         }
 
         given("메뉴 검색 API — 회피 성분 종합 위험도 실 스택 계산 (FR-009)") {
-            `when`("사용자가 회피하는 SOY 를 100% 포함하는 메뉴를 검색하면") {
-                then("실 스택(성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
+            `when`("SOY 를 회피하는 회원이 SOY 를 100% 포함하는 메뉴를 검색하면") {
+                then("실 스택(프로필 조회 → 성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
                     seedSearchableFoods()
                     seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
+                    val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
 
                     val json = mockMvc.get("/api/v1/foods/search") {
                         param("keyword", "김치찌개")
+                        header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)

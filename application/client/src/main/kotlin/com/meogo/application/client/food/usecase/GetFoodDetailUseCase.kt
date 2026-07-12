@@ -41,7 +41,7 @@ class GetFoodDetailUseCase(
             )
         }
 
-        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes().map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
+        val userAvoidedCodes = avoidedSubstanceProvider.avoidedCodes(input.memberId).map { AvoidanceSubstanceCodeRef(it.name) }.toSet()
 
         return GetFoodDetailResult(
             name = foodName,

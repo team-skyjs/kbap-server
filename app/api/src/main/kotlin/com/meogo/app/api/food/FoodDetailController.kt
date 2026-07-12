@@ -18,8 +18,9 @@ class FoodDetailController(
     override fun detail(
         @PathVariable foodId: Long,
         @RequestParam(required = false) lang: String?,
+        memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
-        val result = getFoodDetailUseCase.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang))
+        val result = getFoodDetailUseCase.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId))
         return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result)))
     }
 }
