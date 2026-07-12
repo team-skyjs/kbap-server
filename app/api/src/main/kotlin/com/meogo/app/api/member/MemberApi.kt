@@ -113,17 +113,24 @@ interface MemberApi {
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
 
     @Operation(
-        summary = "프로필 수정",
+        summary = "프로필 수정 (부분 수정)",
         description = """
-            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어)을 다시 설정한다. 온보딩 제출과
-            같은 형태·검증이지만 온보딩 완료 상태는 그대로 유지된다(재설정 전용, 상태 전이 없음).
-            `Authorization: Bearer {accessToken}` 로 인증한다.
+            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어)을 다시 설정한다. **바꾸고 싶은 필드만**
+            담아 보내면 된다 — 모든 필드가 선택이며, **보내지 않은 필드는 기존 값이 유지된다.**
+
+            기피 성분은 **빈 배열 `[]` 이면 전부 해제**, **미전송이면 유지**로 서로 다르게 동작한다. 그래서
+            닉네임 화면은 `nickname`·`countryCode`·`appLanguage` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
+            만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
+
+            검증은 **값이 전달된 필드에만** 적용한다 — 보내지 않은 필드 때문에 400 이 나지 않는다. 전달된 값이
+            무효하면 요청 전체를 거절하고 프로필은 하나도 바뀌지 않는다(부분 저장 없음). 온보딩 완료 상태는
+            그대로 유지된다(재설정 전용, 상태 전이 없음). `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "수정 성공 — 프로필 갱신"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임) 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "200", description = "수정 성공 — 전달한 필드만 갱신(빈 본문이면 변경 없음)"),
+            ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·언어·닉네임) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
@@ -137,24 +144,39 @@ interface MemberApi {
                     mediaType = "application/json",
                     examples = [
                         ExampleObject(
-                            name = "한국 · 계란/우유 기피",
+                            name = "닉네임·국가·언어 화면 — 기피 성분은 유지된다",
                             value = """
                                 {
                                   "nickname": "길동이",
-                                  "avoidanceSubstanceCodes": ["EGG", "MILK"],
                                   "countryCode": "KR",
                                   "appLanguage": "ko"
                                 }
                             """,
                         ),
                         ExampleObject(
-                            name = "기피 음식 없음으로 변경",
+                            name = "기피 성분 화면 — 나머지는 유지된다",
+                            value = """
+                                {
+                                  "avoidanceSubstanceCodes": ["EGG", "MILK"]
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "기피 성분 전부 해제 — 빈 배열은 미전송과 다르다",
+                            value = """
+                                {
+                                  "avoidanceSubstanceCodes": []
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "전체 교체 — 네 필드를 모두 보낸다",
                             value = """
                                 {
                                   "nickname": "길동이",
-                                  "avoidanceSubstanceCodes": [],
-                                  "countryCode": "KR",
-                                  "appLanguage": "ko"
+                                  "avoidanceSubstanceCodes": ["PEANUT"],
+                                  "countryCode": "JP",
+                                  "appLanguage": "ja"
                                 }
                             """,
                         ),

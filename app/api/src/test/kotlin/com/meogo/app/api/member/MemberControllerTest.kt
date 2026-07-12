@@ -236,5 +236,98 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
         }
+        given("프로필 부분 수정 — 보내지 않은 필드는 유지된다") {
+            fun profilePayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            fun onboardedToken(): String {
+                val token = loginAccessToken()
+                submitOnboarding(token, validBody()).andReturn()
+                return token
+            }
+
+            `when`("닉네임·국가·언어만 보내면") {
+                then("기피 성분이 삭제되지 않고 그대로 유지된다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfile(
+                        token,
+                        mapOf("nickname" to "새닉", "countryCode" to "JP", "appLanguage" to "ja"),
+                    ).andReturn().response
+
+                    result.status shouldBe 200
+                    val payload = profilePayload(token)
+                    payload.path("nickname").asText() shouldBe "새닉"
+                    payload.path("countryCode").asText() shouldBe "JP"
+                    payload.path("appLanguage").asText() shouldBe "ja"
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
+                }
+            }
+
+            `when`("기피 성분만 보내면") {
+                then("기피 성분만 교체되고 닉네임·국가·언어는 유지된다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfile(
+                        token,
+                        mapOf("avoidanceSubstanceCodes" to listOf("PEANUT")),
+                    ).andReturn().response
+
+                    result.status shouldBe 200
+                    val payload = profilePayload(token)
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() } shouldBe listOf("PEANUT")
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("countryCode").asText() shouldBe "US"
+                    payload.path("appLanguage").asText() shouldBe "en"
+                }
+            }
+
+            `when`("기피 성분에 빈 배열을 보내면") {
+                then("기피 성분이 전부 해제된다") {
+                    val token = onboardedToken()
+
+                    updateProfile(token, mapOf("avoidanceSubstanceCodes" to emptyList<String>()))
+                        .andReturn().response.status shouldBe 200
+
+                    profilePayload(token).path("avoidanceSubstanceCodes").isEmpty shouldBe true
+                }
+            }
+
+            `when`("빈 본문을 보내면") {
+                then("200 으로 응답하고 프로필이 하나도 바뀌지 않는다") {
+                    val token = onboardedToken()
+
+                    updateProfile(token, emptyMap()).andReturn().response.status shouldBe 200
+
+                    val payload = profilePayload(token)
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("countryCode").asText() shouldBe "US"
+                    payload.path("appLanguage").asText() shouldBe "en"
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
+                }
+            }
+
+            `when`("전달한 국가 코드만 무효하면") {
+                then("400 으로 거절되고 프로필은 하나도 바뀌지 않는다") {
+                    val token = onboardedToken()
+
+                    updateProfile(token, mapOf("countryCode" to "ZZ")).andReturn().response.status shouldBe 400
+
+                    val payload = profilePayload(token)
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("countryCode").asText() shouldBe "US"
+                }
+            }
+
+            `when`("유효한 닉네임만 보내면") {
+                then("국가·언어를 보내지 않았다는 이유로 거절되지 않는다") {
+                    val token = onboardedToken()
+
+                    updateProfile(token, mapOf("nickname" to "새닉")).andReturn().response.status shouldBe 200
+
+                    profilePayload(token).path("nickname").asText() shouldBe "새닉"
+                }
+            }
+        }
     }
 }

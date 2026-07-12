@@ -1,15 +1,15 @@
 package com.meogo.app.api.member
 
-import com.meogo.application.client.member.dto.MemberProfileInput
+import com.meogo.application.client.member.dto.ProfileUpdateInput
 
 data class ProfileUpdateRequest(
-    val nickname: String,
-    val avoidanceSubstanceCodes: List<String> = emptyList(),
-    val countryCode: String,
-    val appLanguage: String,
+    val nickname: String? = null,
+    val avoidanceSubstanceCodes: List<String>? = null,
+    val countryCode: String? = null,
+    val appLanguage: String? = null,
 ) {
-    fun toInput(memberId: Long): MemberProfileInput =
-        MemberProfileInput(
+    fun toInput(memberId: Long): ProfileUpdateInput =
+        ProfileUpdateInput(
             memberId = memberId,
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
