@@ -20,8 +20,7 @@ import io.kotest.matchers.shouldBe
 
 class MemberProfileUseCaseTest : BehaviorSpec({
 
-    fun profileUseCase(repository: FakeMemberRepository) =
-        MemberProfileUseCase(repository, MemberRankingUseCase(repository))
+    fun profileUseCase(repository: FakeMemberRepository) = MemberProfileUseCase(repository)
 
     fun member(
         id: Long,
