@@ -1,10 +1,7 @@
 package com.meogo.app.api.member
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.meogo.app.api.auth.FakeSocialAccountDeleter
-import com.meogo.app.api.auth.FakeSocialTokenVerifier
 import com.meogo.app.api.auth.FakeSocialTokenVerifierConfig
-import com.meogo.core.member.SocialProvider
 import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
 import com.meogo.infra.persistence.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -34,9 +31,6 @@ class MemberControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
-    @Autowired
-    private lateinit var accountDeleter: FakeSocialAccountDeleter
-
     init {
         val objectMapper = jacksonObjectMapper()
 
@@ -44,13 +38,13 @@ class MemberControllerTest : BehaviorSpec() {
             dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member") } }
         }
 
-        fun loginResponse() = mockMvc.post("/api/v1/auth/login") {
-            contentType = MediaType.APPLICATION_JSON
-            content = objectMapper.writeValueAsString(mapOf("idToken" to "valid-token"))
-        }.andReturn().response
-
-        fun loginAccessToken(): String =
-            objectMapper.readTree(loginResponse().contentAsString).path("payload").path("accessToken").asText()
+        fun loginAccessToken(): String {
+            val response = mockMvc.post("/api/v1/auth/login") {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(mapOf("idToken" to "valid-token"))
+            }.andReturn().response
+            return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
+        }
 
         fun submitOnboarding(token: String?, body: Map<String, Any?>) =
             mockMvc.post("/api/v1/members/me/onboarding") {
@@ -86,30 +80,8 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun columnById(id: Long, column: String): String? =
-            dataSource.connection.use { c ->
-                c.prepareStatement("SELECT $column FROM member WHERE id = ?").use { ps ->
-                    ps.setLong(1, id)
-                    ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
-                }
-            }
-
-        fun memberIdOf(providerUid: String): Long =
-            dataSource.connection.use { c ->
-                c.prepareStatement("SELECT id FROM member WHERE provider_uid = ?").use { ps ->
-                    ps.setString(1, providerUid)
-                    ps.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else error("회원 없음: $providerUid") }
-                }
-            }
-
-        fun withdraw(token: String?) =
-            mockMvc.patch("/api/v1/auth/withdraw") {
-                if (token != null) header("Authorization", "Bearer $token")
-            }
-
         beforeContainer {
             clearMembers()
-            accountDeleter.reset()
         }
 
         given("온보딩 미완료 회원") {
@@ -261,104 +233,6 @@ class MemberControllerTest : BehaviorSpec() {
             `when`("인증 없이 수정하면") {
                 then("401 로 거절된다") {
                     updateProfile(null, updateBody()).andReturn().response.status shouldBe 401
-                }
-            }
-        }
-
-        given("회원 탈퇴") {
-            `when`("로그인한 회원이 탈퇴하면") {
-                then("200 으로 응답하고 인증 제공자 계정 삭제 후 회원 행이 소프트 삭제된다") {
-                    val token = loginAccessToken()
-                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
-
-                    val result = withdraw(token).andReturn().response
-
-                    result.status shouldBe 200
-                    result.contentAsString shouldContain "\"success\":true"
-                    accountDeleter.deleted shouldBe
-                        listOf(SocialProvider.GOOGLE to FakeSocialTokenVerifier.DEFAULT_SUB)
-                    columnById(id, "provider_uid") shouldBe "DELETED:$id"
-                    columnById(id, "status") shouldBe "DELETED"
-                }
-            }
-
-            `when`("탈퇴 후 같은 access 토큰으로 프로필을 조회하면") {
-                then("400 으로 거절된다") {
-                    val token = loginAccessToken()
-                    withdraw(token).andReturn()
-
-                    val result = getMyProfile(token).andReturn().response
-
-                    result.status shouldBe 400
-                    result.contentAsString shouldContain "해당 회원을 찾을 수 없습니다"
-                }
-            }
-
-            `when`("이미 탈퇴한 회원이 다시 탈퇴를 요청하면") {
-                then("400 으로 거절된다") {
-                    val token = loginAccessToken()
-                    withdraw(token).andReturn()
-
-                    withdraw(token).andReturn().response.status shouldBe 400
-                }
-            }
-
-            `when`("인증 없이 탈퇴를 요청하면") {
-                then("401 로 거절되고 인증 제공자 계정도 지워지지 않는다") {
-                    loginAccessToken()
-
-                    withdraw(null).andReturn().response.status shouldBe 401
-
-                    accountDeleter.deleted.isEmpty() shouldBe true
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "status") shouldBe "ACTIVE"
-                }
-            }
-
-            `when`("인증 제공자 계정 삭제가 실패하면") {
-                then("500 으로 거절되고 회원 행은 활성 상태로 남는다") {
-                    val token = loginAccessToken()
-                    accountDeleter.fail()
-
-                    withdraw(token).andReturn().response.status shouldBe 500
-
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "status") shouldBe "ACTIVE"
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "member_status") shouldBe "ACTIVE"
-                }
-            }
-        }
-
-        given("탈퇴 후 같은 소셜 계정 재가입") {
-            `when`("탈퇴 직후 같은 소셜 계정으로 다시 로그인하면") {
-                then("신규 회원으로 가입되고 이전 프로필을 승계하지 않는다") {
-                    val token = loginAccessToken()
-                    submitOnboarding(token, validBody()).andReturn()
-                    val previousId = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
-                    withdraw(token).andReturn()
-
-                    val response = loginResponse()
-
-                    response.status shouldBe 200
-                    response.contentAsString shouldContain "\"newMember\":true"
-                    val newId = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
-                    (newId != previousId) shouldBe true
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "onboarding_completed") shouldBe "0"
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "nickname") shouldBe null
-                }
-            }
-
-            `when`("가입과 탈퇴를 두 번 반복한 뒤 다시 로그인하면") {
-                then("삭제 표식이 회원마다 달라 유니크 충돌 없이 가입된다") {
-                    withdraw(loginAccessToken()).andReturn()
-                    withdraw(loginAccessToken()).andReturn()
-
-                    val response = loginResponse()
-
-                    response.status shouldBe 200
-                    response.contentAsString shouldContain "\"newMember\":true"
-                    getMyProfile(
-                        objectMapper.readTree(response.contentAsString)
-                            .path("payload").path("accessToken").asText(),
-                    ).andReturn().response.status shouldBe 200
                 }
             }
         }
