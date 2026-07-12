@@ -287,5 +287,70 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("스캔 횟수 — 랭킹 카운트") {
+            `when`("가입 직후 회원을 저장하면") {
+                then("스캔·리뷰·고유 음식 카운트가 모두 0으로 초기화된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+
+                    saved.ranking.scanCount shouldBe 0
+                    saved.ranking.reviewCount shouldBe 0
+                    saved.ranking.uniqueReviewedFoodCount shouldBe 0
+                    readColumn(saved.id!!, "scan_count") shouldBe "0"
+                    readColumn(saved.id!!, "review_count") shouldBe "0"
+                    readColumn(saved.id!!, "unique_reviewed_food_count") shouldBe "0"
+                }
+            }
+
+            `when`("리뷰 카운트가 쌓인 회원을 조회하면") {
+                then("컬럼 값이 도메인으로 복원된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE member SET review_count = 8, unique_reviewed_food_count = 6, scan_count = 9 " +
+                                    "WHERE id = ${saved.id}",
+                            )
+                        }
+                    }
+
+                    val ranking = adapter.findById(saved.id!!)!!.ranking
+
+                    ranking.score shouldBe 128
+                }
+            }
+
+            `when`("스캔 횟수를 올리면") {
+                then("DB 에서 직접 1씩 증가하고 다시 조회해도 유지된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+
+                    adapter.increaseScanCount(saved.id!!)
+                    adapter.increaseScanCount(saved.id!!)
+
+                    adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 2
+                    readColumn(saved.id!!, "scan_count") shouldBe "2"
+                }
+            }
+
+            `when`("카운트업 이전에 읽어 둔 회원으로 프로필을 갱신하면") {
+                then("그 사이 올라간 스캔 횟수를 덮어쓰지 않는다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+                    val stale = adapter.findById(saved.id!!)!!
+
+                    adapter.increaseScanCount(saved.id!!)
+                    adapter.update(stale.updateProfile(MemberProfile.empty()))
+
+                    adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 1
+                }
+            }
+
+            `when`("존재하지 않는 회원의 스캔 횟수를 올리면") {
+                then("MEMBER_NOT_FOUND 로 거절된다") {
+                    val e = shouldThrow<MemberException> { adapter.increaseScanCount(999999L) }
+
+                    e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
+                }
+            }
+        }
     }
 }

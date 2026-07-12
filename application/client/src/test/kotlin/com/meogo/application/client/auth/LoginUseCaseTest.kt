@@ -198,4 +198,6 @@ private class FakeMemberRepository(
     override fun update(member: Member): Member = member
 
     override fun withdraw(id: Long) = Unit
+
+    override fun increaseScanCount(memberId: Long) = Unit
 }

@@ -161,6 +161,8 @@ private class StubMemberLookup(private val member: Member?) : MemberRepository {
     override fun update(member: Member): Member = member
 
     override fun withdraw(id: Long) = Unit
+
+    override fun increaseScanCount(memberId: Long) = Unit
 }
 
 private class InMemoryStore : RefreshTokenStore {

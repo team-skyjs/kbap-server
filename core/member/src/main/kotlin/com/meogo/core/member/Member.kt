@@ -8,6 +8,7 @@ class Member private constructor(
     val identity: SocialIdentity,
     val profile: MemberProfile,
     val onboardingCompleted: Boolean,
+    val ranking: Ranking,
 ) {
     fun updateProfile(profile: MemberProfile): Member = copy(profile = profile)
 
@@ -27,6 +28,7 @@ class Member private constructor(
             identity = identity,
             profile = profile,
             onboardingCompleted = onboardingCompleted,
+            ranking = ranking,
         )
 
     companion object {
@@ -36,6 +38,7 @@ class Member private constructor(
                 identity = identity,
                 profile = MemberProfile.empty(),
                 onboardingCompleted = false,
+                ranking = Ranking.initial(),
             )
 
         fun reconstitute(
@@ -43,12 +46,14 @@ class Member private constructor(
             identity: SocialIdentity,
             profile: MemberProfile,
             onboardingCompleted: Boolean,
+            ranking: Ranking = Ranking.initial(),
         ): Member =
             Member(
                 id = id,
                 identity = identity,
                 profile = profile,
                 onboardingCompleted = onboardingCompleted,
+                ranking = ranking,
             )
     }
 }

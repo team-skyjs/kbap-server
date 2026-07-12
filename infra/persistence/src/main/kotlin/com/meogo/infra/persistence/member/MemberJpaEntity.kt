@@ -1,6 +1,7 @@
 package com.meogo.infra.persistence.member
 
 import com.meogo.core.member.Member
+import com.meogo.core.member.Ranking
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import com.meogo.infra.persistence.BaseEntity
@@ -42,6 +43,15 @@ class MemberJpaEntity(
 
     @Column(name = "onboarding_completed", nullable = false)
     var onboardingCompleted: Boolean = false,
+
+    @Column(name = "scan_count", nullable = false)
+    var scanCount: Int = 0,
+
+    @Column(name = "review_count", nullable = false)
+    var reviewCount: Int = 0,
+
+    @Column(name = "unique_reviewed_food_count", nullable = false)
+    var uniqueReviewedFoodCount: Int = 0,
 ) : BaseEntity() {
     fun toDomain(): Member =
         Member.reconstitute(
@@ -49,9 +59,14 @@ class MemberJpaEntity(
             identity = SocialIdentity(provider = provider, providerUserId = providerUid, email = email),
             profile = profile.toDomain(nickname),
             onboardingCompleted = onboardingCompleted,
+            ranking = Ranking.of(
+                scanCount = scanCount,
+                reviewCount = reviewCount,
+                uniqueReviewedFoodCount = uniqueReviewedFoodCount,
+            ),
         )
 
-    fun applyProfile(domain: Member) {
+    fun applyDomain(domain: Member) {
         nickname = domain.profile.nickname
         profile = MemberProfileJson.from(domain.profile)
         onboardingCompleted = domain.onboardingCompleted
@@ -72,6 +87,6 @@ class MemberJpaEntity(
                 provider = domain.identity.provider,
                 providerUid = domain.identity.providerUserId,
                 email = domain.identity.email,
-            ).apply { applyProfile(domain) }
+            ).apply { applyDomain(domain) }
     }
 }

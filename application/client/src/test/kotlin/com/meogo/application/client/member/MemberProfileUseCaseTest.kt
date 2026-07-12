@@ -10,6 +10,7 @@ import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberProfile
 import com.meogo.core.member.MemberRepository
+import com.meogo.core.member.Ranking
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
@@ -19,12 +20,20 @@ import io.kotest.matchers.shouldBe
 
 class MemberProfileUseCaseTest : BehaviorSpec({
 
-    fun member(id: Long, onboardingCompleted: Boolean = false, profile: MemberProfile = MemberProfile.empty()): Member =
+    fun profileUseCase(repository: FakeMemberRepository) = MemberProfileUseCase(repository)
+
+    fun member(
+        id: Long,
+        onboardingCompleted: Boolean = false,
+        profile: MemberProfile = MemberProfile.empty(),
+        scanCount: Int = 0,
+    ): Member =
         Member.reconstitute(
             id = id,
             identity = SocialIdentity(SocialProvider.GOOGLE, "google-sub-$id", "user$id@gmail.com"),
             profile = profile,
             onboardingCompleted = onboardingCompleted,
+            ranking = Ranking.of(scanCount = scanCount, reviewCount = 0, uniqueReviewedFoodCount = 0),
         )
 
     fun input(
@@ -59,7 +68,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("유효한 온보딩 정보를 제출하면") {
             then("프로필이 저장되고 온보딩이 완료로 전이된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.completeOnboarding(input())
 
@@ -82,7 +91,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                     appLanguage = null,
                 )
                 val repo = FakeMemberRepository().apply { seed(member(1L, profile = existing)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.completeOnboarding(input())
 
@@ -93,7 +102,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("기피 음식을 하나도 제출하지 않으면(빈 목록)") {
             then("기피 성분 없이 정상 저장된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.completeOnboarding(input(avoidanceSubstanceCodes = emptyList()))
 
@@ -117,7 +126,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply {
                     seed(member(1L, onboardingCompleted = true, profile = original))
                 }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<MemberException> { useCase.completeOnboarding(input()) }
 
@@ -131,7 +140,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("온보딩을 제출하면") {
             then("MEMBER_NOT_FOUND 로 거절된다") {
                 val repo = FakeMemberRepository()
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<MemberException> { useCase.completeOnboarding(input(memberId = 99L)) }
 
@@ -144,7 +153,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("카탈로그 81종에 없는 기피 성분 코드를 포함하면") {
             then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절되고 저장되지 않는다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
                     useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("EGG", "NOT_A_CODE")))
@@ -160,7 +169,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("소문자 등 형식이 맞지 않는 성분 코드를 포함하면") {
             then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
                     useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("egg")))
@@ -173,7 +182,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("지정 목록에 없는 국가 코드를 제출하면") {
             then("INVALID_COUNTRY_CODE 로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
                     useCase.completeOnboarding(input(countryCode = "ZZ"))
@@ -187,7 +196,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
             `when`("지원 10개국어 code 와 정확히 일치하지 않는 언어($badLang)를 제출하면") {
                 then("UNSUPPORTED_APP_LANGUAGE 로 거절된다") {
                     val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                    val useCase = MemberProfileUseCase(repo)
+                    val useCase = profileUseCase(repo)
 
                     val e = shouldThrow<OnboardingException> {
                         useCase.completeOnboarding(input(appLanguage = badLang))
@@ -201,7 +210,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("공백만 있는 닉네임을 제출하면") {
             then("INVALID_NICKNAME 으로 거절된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
                     useCase.completeOnboarding(input(nickname = "   "))
@@ -216,7 +225,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("닉네임 앞뒤에 공백이 있으면") {
             then("공백을 제거해 저장한다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.completeOnboarding(input(nickname = "  길동이  "))
 
@@ -227,7 +236,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("같은 성분 코드가 중복 포함되면") {
             then("중복이 제거된 집합으로 저장된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.completeOnboarding(input(avoidanceSubstanceCodes = listOf("EGG", "EGG", "MILK")))
 
@@ -240,12 +249,42 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("유효한 입력으로 다시 제출하면") {
             then("정상적으로 온보딩이 완료된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
                 shouldThrow<OnboardingException> { useCase.completeOnboarding(input(countryCode = "ZZ")) }
 
                 useCase.completeOnboarding(input())
 
                 repo.findById(1L)!!.onboardingCompleted shouldBe true
+            }
+        }
+    }
+
+    given("프로필 조회의 랭킹 요약") {
+        `when`("메뉴판을 40번 스캔한 회원이 조회하면") {
+            then("프로필과 함께 등급·점수·다음 등급이 담긴다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, scanCount = 40)) }
+                val useCase = profileUseCase(repo)
+
+                val ranking = useCase.getMyProfile(1L).ranking
+
+                ranking.tier shouldBe "explorer"
+                ranking.level shouldBe 3
+                ranking.score shouldBe 80
+                ranking.nextTier shouldBe "regular"
+                ranking.pointsToNext shouldBe 100
+            }
+        }
+
+        `when`("활동이 없는 회원이 조회하면") {
+            then("0점 최하 등급이 담긴다") {
+                val repo = FakeMemberRepository().apply { seed(member(1L)) }
+                val useCase = profileUseCase(repo)
+
+                val ranking = useCase.getMyProfile(1L).ranking
+
+                ranking.tier shouldBe "newcomer"
+                ranking.score shouldBe 0
+                ranking.pointsToNext shouldBe 30
             }
         }
     }
@@ -261,7 +300,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                     appLanguage = LanguageCode.EN,
                 )
                 val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = profile)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val result = useCase.getMyProfile(1L)
 
@@ -277,7 +316,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("온보딩 미완료 회원이 조회하면") {
             then("빈 프로필과 온보딩 미완료 상태를 반환한다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val result = useCase.getMyProfile(1L)
 
@@ -291,7 +330,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
 
         `when`("존재하지 않는 회원 식별자로 조회하면") {
             then("MEMBER_NOT_FOUND 로 거절된다") {
-                val useCase = MemberProfileUseCase(FakeMemberRepository())
+                val useCase = profileUseCase(FakeMemberRepository())
 
                 val e = shouldThrow<MemberException> { useCase.getMyProfile(99L) }
 
@@ -312,7 +351,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("유효한 값으로 수정하면") {
             then("프로필이 새 값으로 바뀌고 온보딩 완료 상태는 유지된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.update(updateInput(nickname = "새닉", avoidanceSubstanceCodes = listOf("MILK"), countryCode = "US", appLanguage = "en"))
 
@@ -328,7 +367,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("무효한 성분 코드로 수정하면") {
             then("INVALID_AVOIDANCE_SUBSTANCE_CODE 로 거절되고 프로필은 변하지 않는다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
                     useCase.update(updateInput(avoidanceSubstanceCodes = listOf("NOT_A_CODE")))
@@ -341,7 +380,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
 
         `when`("존재하지 않는 회원의 프로필을 수정하면") {
             then("MEMBER_NOT_FOUND 로 거절된다") {
-                val useCase = MemberProfileUseCase(FakeMemberRepository())
+                val useCase = profileUseCase(FakeMemberRepository())
 
                 val e = shouldThrow<MemberException> { useCase.update(updateInput(memberId = 99L, nickname = "새닉")) }
 
@@ -352,7 +391,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         `when`("온보딩 미완료 회원의 프로필을 수정하면") {
             then("온보딩 완료로 전이되지 않고 미완료 상태가 유지된다") {
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
-                val useCase = MemberProfileUseCase(repo)
+                val useCase = profileUseCase(repo)
 
                 useCase.update(updateInput(nickname = "새닉"))
 
@@ -527,31 +566,3 @@ class MemberProfileUseCaseTest : BehaviorSpec({
     }
 })
 
-private class FakeMemberRepository : MemberRepository {
-    private val store = mutableMapOf<Long, Member>()
-
-    fun seed(member: Member) {
-        store[member.id!!] = member
-    }
-
-    override fun findById(id: Long): Member? = store[id]
-
-    override fun findByIdentity(provider: SocialProvider, providerUserId: String): Member? =
-        store.values.firstOrNull { it.identity.provider == provider && it.identity.providerUserId == providerUserId }
-
-    override fun saveNew(member: Member): Member {
-        val id = (store.keys.maxOrNull() ?: 0L) + 1
-        val saved = Member.reconstitute(id, member.identity, member.profile, member.onboardingCompleted)
-        store[id] = saved
-        return saved
-    }
-
-    override fun update(member: Member): Member {
-        store[member.id!!] = member
-        return member
-    }
-
-    override fun withdraw(id: Long) {
-        store.remove(id)
-    }
-}

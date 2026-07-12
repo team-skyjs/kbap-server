@@ -80,6 +80,28 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun getMyRanking(token: String?) =
+            mockMvc.get("/api/v1/members/me/ranking") {
+                if (token != null) header("Authorization", "Bearer $token")
+            }
+
+        fun seedCounts(scanCount: Int = 0, reviewCount: Int = 0, uniqueReviewedFoodCount: Int = 0) {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "UPDATE member SET scan_count = ?, review_count = ?, unique_reviewed_food_count = ? " +
+                        "WHERE provider_uid = ?",
+                ).use { ps ->
+                    ps.setInt(1, scanCount)
+                    ps.setInt(2, reviewCount)
+                    ps.setInt(3, uniqueReviewedFoodCount)
+                    ps.setString(4, "google-sub-fixed")
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun seedScanCount(scanCount: Int) = seedCounts(scanCount = scanCount)
+
         beforeContainer {
             clearMembers()
         }
@@ -326,6 +348,150 @@ class MemberControllerTest : BehaviorSpec() {
                     updateProfile(token, mapOf("nickname" to "새닉")).andReturn().response.status shouldBe 200
 
                     profilePayload(token).path("nickname").asText() shouldBe "새닉"
+                }
+            }
+        }
+
+        given("프로필 응답의 랭킹 요약") {
+            `when`("가입 직후 회원이 프로필을 조회하면") {
+                then("모든 카운트가 0으로 초기화된 랭킹이 내려온다") {
+                    val token = loginAccessToken()
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    result.status shouldBe 200
+                    val ranking = objectMapper.readTree(result.contentAsString).path("payload").path("ranking")
+                    ranking.path("score").asInt() shouldBe 0
+                    ranking.path("tier").asText() shouldBe "newcomer"
+                    ranking.path("level").asInt() shouldBe 1
+                }
+            }
+
+            `when`("메뉴판을 40번 스캔한 회원이 프로필을 조회하면") {
+                then("등급·점수·다음 등급이 함께 내려오고 점수 내역은 없다") {
+                    val token = loginAccessToken()
+                    seedScanCount(40)
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    result.status shouldBe 200
+                    val ranking = objectMapper.readTree(result.contentAsString).path("payload").path("ranking")
+                    ranking.path("tier").asText() shouldBe "explorer"
+                    ranking.path("level").asInt() shouldBe 3
+                    ranking.path("score").asInt() shouldBe 80
+                    ranking.path("nextTier").asText() shouldBe "regular"
+                    ranking.path("pointsToNext").asInt() shouldBe 100
+                    ranking.has("breakdown") shouldBe false
+                }
+            }
+
+            `when`("활동이 없는 회원이 프로필을 조회하면") {
+                then("0점 최하 등급으로 내려온다") {
+                    val token = loginAccessToken()
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    val ranking = objectMapper.readTree(result.contentAsString).path("payload").path("ranking")
+                    ranking.path("tier").asText() shouldBe "newcomer"
+                    ranking.path("score").asInt() shouldBe 0
+                    ranking.path("pointsToNext").asInt() shouldBe 30
+                }
+            }
+        }
+
+        given("랭킹 상세 조회") {
+            `when`("리뷰 8건·고유 음식 6종·스캔 9회인 회원이 조회하면") {
+                then("정책 검증 케이스대로 128점 explorer 이고 남은 점수가 52다") {
+                    val token = loginAccessToken()
+                    seedCounts(scanCount = 9, reviewCount = 8, uniqueReviewedFoodCount = 6)
+
+                    val payload = objectMapper.readTree(getMyRanking(token).andReturn().response.contentAsString)
+                        .path("payload")
+
+                    payload.path("score").asInt() shouldBe 128
+                    payload.path("tier").asText() shouldBe "explorer"
+                    payload.path("pointsToNext").asInt() shouldBe 52
+
+                    val breakdown = payload.path("breakdown")
+                    breakdown.path("reviews").path("count").asInt() shouldBe 8
+                    breakdown.path("reviews").path("points").asInt() shouldBe 80
+                    breakdown.path("diversity").path("count").asInt() shouldBe 6
+                    breakdown.path("diversity").path("points").asInt() shouldBe 30
+                    breakdown.path("scans").path("count").asInt() shouldBe 9
+                    breakdown.path("scans").path("points").asInt() shouldBe 18
+                }
+            }
+
+            `when`("메뉴판을 40번 스캔한 회원이 조회하면") {
+                then("점수 내역이 항목별로 내려오고 합이 총점과 같다") {
+                    val token = loginAccessToken()
+                    seedScanCount(40)
+
+                    val result = getMyRanking(token).andReturn().response
+
+                    result.status shouldBe 200
+                    val payload = objectMapper.readTree(result.contentAsString).path("payload")
+                    payload.path("tier").asText() shouldBe "explorer"
+                    payload.path("score").asInt() shouldBe 80
+
+                    val breakdown = payload.path("breakdown")
+                    breakdown.path("scans").path("count").asInt() shouldBe 40
+                    breakdown.path("scans").path("points").asInt() shouldBe 80
+                    breakdown.path("reviews").path("count").asInt() shouldBe 0
+                    breakdown.path("reviews").path("points").asInt() shouldBe 0
+                    breakdown.path("diversity").path("count").asInt() shouldBe 0
+                    breakdown.path("diversity").path("points").asInt() shouldBe 0
+
+                    val sum = breakdown.path("reviews").path("points").asInt() +
+                        breakdown.path("diversity").path("points").asInt() +
+                        breakdown.path("scans").path("points").asInt()
+                    sum shouldBe payload.path("score").asInt()
+                }
+            }
+
+            `when`("같은 회원의 프로필 요약과 비교하면") {
+                then("등급·레벨·점수·다음 등급·남은 점수가 일치한다") {
+                    val token = loginAccessToken()
+                    seedScanCount(17)
+
+                    val summary = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload").path("ranking")
+                    val detail = objectMapper.readTree(getMyRanking(token).andReturn().response.contentAsString)
+                        .path("payload")
+
+                    detail.path("tier").asText() shouldBe summary.path("tier").asText()
+                    detail.path("level").asInt() shouldBe summary.path("level").asInt()
+                    detail.path("score").asInt() shouldBe summary.path("score").asInt()
+                    detail.path("nextTier").asText() shouldBe summary.path("nextTier").asText()
+                    detail.path("pointsToNext").asInt() shouldBe summary.path("pointsToNext").asInt()
+                }
+            }
+
+            `when`("인증 없이 조회하면") {
+                then("401 로 거절된다") {
+                    getMyRanking(null).andReturn().response.status shouldBe 401
+                }
+            }
+        }
+
+        given("최고 등급 회원") {
+            `when`("누적 점수가 1000점 이상이면") {
+                then("프로필·랭킹 상세 모두 다음 등급과 남은 점수가 비어 있다") {
+                    val token = loginAccessToken()
+                    seedScanCount(500)
+
+                    val summary = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload").path("ranking")
+                    val detail = objectMapper.readTree(getMyRanking(token).andReturn().response.contentAsString)
+                        .path("payload")
+
+                    summary.path("tier").asText() shouldBe "korean_at_heart"
+                    summary.path("level").asInt() shouldBe 7
+                    summary.path("score").asInt() shouldBe 1000
+                    summary.path("nextTier").isNull shouldBe true
+                    summary.path("pointsToNext").isNull shouldBe true
+                    detail.path("nextTier").isNull shouldBe true
+                    detail.path("pointsToNext").isNull shouldBe true
                 }
             }
         }

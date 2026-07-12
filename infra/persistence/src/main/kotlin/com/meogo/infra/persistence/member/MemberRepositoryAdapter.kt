@@ -7,6 +7,7 @@ import com.meogo.core.member.MemberRepository
 import com.meogo.core.member.SocialProvider
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class MemberRepositoryAdapter(
@@ -29,8 +30,16 @@ class MemberRepositoryAdapter(
     override fun update(member: Member): Member {
         val id = member.id ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
         val entity = findActive(id) ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        entity.applyProfile(member)
+        entity.applyDomain(member)
         return memberJpaRepository.save(entity).toDomain()
+    }
+
+    @Transactional
+    override fun increaseScanCount(memberId: Long) {
+        val updated = memberJpaRepository.increaseScanCount(memberId)
+        if (updated == 0) {
+            throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        }
     }
 
     override fun withdraw(id: Long) {

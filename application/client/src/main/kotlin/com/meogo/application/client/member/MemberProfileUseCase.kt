@@ -1,6 +1,7 @@
 package com.meogo.application.client.member
 
 import com.meogo.application.client.member.dto.MemberProfileInput
+import com.meogo.application.client.member.dto.MemberRankingResult
 import com.meogo.application.client.member.dto.MyProfileResult
 import com.meogo.application.client.member.dto.ProfileUpdateInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
@@ -52,7 +53,10 @@ class MemberProfileUseCase(
     }
 
     @Transactional(readOnly = true)
-    fun getMyProfile(memberId: Long): MyProfileResult = MyProfileResult.from(findMember(memberId))
+    fun getMyProfile(memberId: Long): MyProfileResult {
+        val member = findMember(memberId)
+        return MyProfileResult.of(member, MemberRankingResult.from(member.ranking))
+    }
 
     private fun findMember(memberId: Long): Member =
         memberRepository.findById(memberId)
