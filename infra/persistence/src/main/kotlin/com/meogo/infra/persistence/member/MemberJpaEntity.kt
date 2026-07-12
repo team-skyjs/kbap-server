@@ -1,6 +1,7 @@
 package com.meogo.infra.persistence.member
 
 import com.meogo.core.member.Member
+import com.meogo.core.member.Ranking
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import com.meogo.infra.persistence.BaseEntity
@@ -58,18 +59,20 @@ class MemberJpaEntity(
             identity = SocialIdentity(provider = provider, providerUserId = providerUid, email = email),
             profile = profile.toDomain(nickname),
             onboardingCompleted = onboardingCompleted,
-            scanCount = scanCount,
-            reviewCount = reviewCount,
-            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
+            ranking = Ranking.of(
+                scanCount = scanCount,
+                reviewCount = reviewCount,
+                uniqueReviewedFoodCount = uniqueReviewedFoodCount,
+            ),
         )
 
     fun applyDomain(domain: Member) {
         nickname = domain.profile.nickname
         profile = MemberProfileJson.from(domain.profile)
         onboardingCompleted = domain.onboardingCompleted
-        scanCount = domain.scanCount
-        reviewCount = domain.reviewCount
-        uniqueReviewedFoodCount = domain.uniqueReviewedFoodCount
+        scanCount = domain.ranking.scanCount
+        reviewCount = domain.ranking.reviewCount
+        uniqueReviewedFoodCount = domain.ranking.uniqueReviewedFoodCount
     }
 
     fun withdraw() {

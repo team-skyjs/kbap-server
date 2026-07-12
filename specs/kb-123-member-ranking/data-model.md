@@ -24,23 +24,24 @@
 
 ### Member (애그리거트 루트, 기존)
 
-카운트 3종(`scanCount`·`reviewCount`·`uniqueReviewedFoodCount`)을 갖는다 — 가입 시 모두 0, `recordScan()` 이 스캔 횟수를 1 올린 새 인스턴스를 반환하고, `ranking()` 이 세 카운트로 `MemberRanking` 을 만든다.
+`val ranking: Ranking` 을 갖는다 — 가입 시 `Ranking.initial()`(모두 0), `recordScan()` 이 랭킹의 스캔 횟수를 1 올린 새 회원 인스턴스를 반환한다.
 
-### MemberRanking (값 객체, 불변)
+### Ranking (값 객체, 불변 — Member 의 하위 도메인)
 
-조회 시점에 산출되는 회원 1인의 랭킹. 저장하지 않는다.
+카운트 3종을 담고 점수·등급을 스스로 파생한다. 파생값은 저장하지 않는다(컬럼에 저장되는 건 카운트뿐).
 
 | 필드 | 타입 | 규칙 |
 |------|------|------|
+| scanCount | Int | 메뉴판 스캔 횟수 |
 | reviewCount | Int | 작성한 리뷰 개수. **현재 항상 0**(리뷰 도메인 부재) |
 | uniqueReviewedFoodCount | Int | 리뷰한 서로 다른 음식 수. **현재 항상 0** |
-| scanCount | Int | 메뉴판 스캔 횟수 |
 | score | Int | `reviewCount × 10 + uniqueReviewedFoodCount × 5 + scanCount × 2` (파생) |
 | tier | RankingTier | `RankingTier.of(score)` (파생) |
 | nextTier | RankingTier? | `tier.next` — 최고 등급이면 null (파생) |
 | pointsToNext | Int? | `nextTier.minScore − score` — 최고 등급이면 null (파생) |
 
-- 생성: `MemberRanking.of(reviewCount, uniqueReviewedFoodCount, scanCount)`. 카운트는 음수일 수 없다.
+- 생성: `Ranking.initial()`(가입) 또는 `Ranking.of(scanCount, reviewCount, uniqueReviewedFoodCount)`(복원). 카운트는 음수일 수 없다.
+- 상태 변경: `recordScan()` — 스캔 카운트를 1 올린 새 인스턴스를 반환한다.
 - 점수 내역(breakdown)은 별도 저장 필드가 아니라 세 카운트와 배점(10·5·2)에서 계산한다 — `reviews(count, points)` · `diversity(count, points)` · `scans(count, points)`. 세 points 의 합은 항상 `score` 와 같다.
 
 ## 카운트 소스

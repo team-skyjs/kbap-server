@@ -167,7 +167,7 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
 
                 uc.assessMenuBoard(input(11L, "김치찌개", "비빔밥"))
 
-                members.findById(11L)!!.scanCount shouldBe 1
+                members.findById(11L)!!.ranking.scanCount shouldBe 1
             }
         }
 
@@ -179,7 +179,7 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
                 uc.assessMenuBoard(input(11L, "김치찌개"))
                 uc.assessMenuBoard(input(11L, "김치찌개"))
 
-                members.findById(11L)!!.scanCount shouldBe 2
+                members.findById(11L)!!.ranking.scanCount shouldBe 2
             }
         }
 
@@ -190,7 +190,7 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
 
                 uc.assessMenuBoard(input(11L, "처음보는찌개"))
 
-                members.findById(11L)!!.scanCount shouldBe 1
+                members.findById(11L)!!.ranking.scanCount shouldBe 1
             }
         }
 
@@ -202,8 +202,8 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
                 uc.assessMenuBoard(input(11L, "김치찌개"))
                 uc.assessMenuBoard(input(99L, "김치찌개"))
 
-                members.findById(11L)!!.scanCount shouldBe 1
-                members.findById(99L)!!.scanCount shouldBe 1
+                members.findById(11L)!!.ranking.scanCount shouldBe 1
+                members.findById(99L)!!.ranking.scanCount shouldBe 1
             }
         }
     }

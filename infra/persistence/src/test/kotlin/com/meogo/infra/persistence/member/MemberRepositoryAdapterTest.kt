@@ -293,9 +293,9 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                 then("스캔·리뷰·고유 음식 카운트가 모두 0으로 초기화된다") {
                     val saved = adapter.saveNew(Member.signUp(googleIdentity()))
 
-                    saved.scanCount shouldBe 0
-                    saved.reviewCount shouldBe 0
-                    saved.uniqueReviewedFoodCount shouldBe 0
+                    saved.ranking.scanCount shouldBe 0
+                    saved.ranking.reviewCount shouldBe 0
+                    saved.ranking.uniqueReviewedFoodCount shouldBe 0
                     readColumn(saved.id!!, "scan_count") shouldBe "0"
                     readColumn(saved.id!!, "review_count") shouldBe "0"
                     readColumn(saved.id!!, "unique_reviewed_food_count") shouldBe "0"
@@ -314,7 +314,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                         }
                     }
 
-                    val ranking = adapter.findById(saved.id!!)!!.ranking()
+                    val ranking = adapter.findById(saved.id!!)!!.ranking
 
                     ranking.score shouldBe 128
                 }
@@ -326,7 +326,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
 
                     adapter.update(saved.recordScan().recordScan())
 
-                    adapter.findById(saved.id!!)!!.scanCount shouldBe 2
+                    adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 2
                     readColumn(saved.id!!, "scan_count") shouldBe "2"
                 }
             }
@@ -338,7 +338,7 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
 
                     adapter.update(scanned.updateProfile(MemberProfile.empty()))
 
-                    adapter.findById(saved.id!!)!!.scanCount shouldBe 1
+                    adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 1
                 }
             }
         }

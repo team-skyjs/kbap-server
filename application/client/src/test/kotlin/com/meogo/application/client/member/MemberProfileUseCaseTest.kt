@@ -10,6 +10,7 @@ import com.meogo.core.member.MemberErrorCode
 import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberProfile
 import com.meogo.core.member.MemberRepository
+import com.meogo.core.member.Ranking
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
@@ -33,7 +34,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
             identity = SocialIdentity(SocialProvider.GOOGLE, "google-sub-$id", "user$id@gmail.com"),
             profile = profile,
             onboardingCompleted = onboardingCompleted,
-            scanCount = scanCount,
+            ranking = Ranking.of(scanCount = scanCount, reviewCount = 0, uniqueReviewedFoodCount = 0),
         )
 
     fun input(

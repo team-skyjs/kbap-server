@@ -24,11 +24,11 @@ class MemberTest : BehaviorSpec({
             then("스캔·리뷰·고유 음식 카운트가 모두 0이고 최하 등급이다") {
                 val member = Member.signUp(googleIdentity())
 
-                member.scanCount shouldBe 0
-                member.reviewCount shouldBe 0
-                member.uniqueReviewedFoodCount shouldBe 0
+                member.ranking.scanCount shouldBe 0
+                member.ranking.reviewCount shouldBe 0
+                member.ranking.uniqueReviewedFoodCount shouldBe 0
 
-                val ranking = member.ranking()
+                val ranking = member.ranking
                 ranking.score shouldBe 0
                 ranking.tier shouldBe RankingTier.NEWCOMER
                 ranking.pointsToNext shouldBe 30
@@ -43,8 +43,8 @@ class MemberTest : BehaviorSpec({
 
                 val scanned = member.recordScan()
 
-                scanned.scanCount shouldBe 1
-                member.scanCount shouldBe 0
+                scanned.ranking.scanCount shouldBe 1
+                member.ranking.scanCount shouldBe 0
             }
         }
 
@@ -52,9 +52,9 @@ class MemberTest : BehaviorSpec({
             then("스캔 횟수만큼 점수가 오른다") {
                 val member = (1..40).fold(Member.signUp(googleIdentity())) { m, _ -> m.recordScan() }
 
-                member.scanCount shouldBe 40
+                member.ranking.scanCount shouldBe 40
 
-                val ranking = member.ranking()
+                val ranking = member.ranking
                 ranking.score shouldBe 80
                 ranking.tier shouldBe RankingTier.EXPLORER
                 ranking.nextTier shouldBe RankingTier.REGULAR
@@ -69,12 +69,10 @@ class MemberTest : BehaviorSpec({
                     identity = googleIdentity(),
                     profile = MemberProfile.empty(),
                     onboardingCompleted = true,
-                    scanCount = 9,
-                    reviewCount = 8,
-                    uniqueReviewedFoodCount = 6,
+                    ranking = Ranking.of(scanCount = 9, reviewCount = 8, uniqueReviewedFoodCount = 6),
                 )
 
-                val ranking = member.ranking()
+                val ranking = member.ranking
 
                 ranking.score shouldBe 128
                 ranking.tier shouldBe RankingTier.EXPLORER
@@ -88,7 +86,7 @@ class MemberTest : BehaviorSpec({
 
                 val updated = member.updateProfile(MemberProfile.empty())
 
-                updated.scanCount shouldBe 2
+                updated.ranking.scanCount shouldBe 2
             }
         }
     }

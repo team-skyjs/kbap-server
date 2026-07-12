@@ -23,9 +23,7 @@ class FakeMemberRepository : MemberRepository {
             identity = member.identity,
             profile = member.profile,
             onboardingCompleted = member.onboardingCompleted,
-            scanCount = member.scanCount,
-            reviewCount = member.reviewCount,
-            uniqueReviewedFoodCount = member.uniqueReviewedFoodCount,
+            ranking = member.ranking,
         )
         store[id] = saved
         return saved

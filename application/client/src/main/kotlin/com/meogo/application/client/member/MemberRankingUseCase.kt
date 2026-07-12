@@ -16,6 +16,6 @@ class MemberRankingUseCase(
         val member = memberRepository.findById(memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 
-        return MemberRankingResult.from(member.ranking())
+        return MemberRankingResult.from(member.ranking)
     }
 }

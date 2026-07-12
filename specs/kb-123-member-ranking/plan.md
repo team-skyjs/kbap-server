@@ -8,9 +8,9 @@
 
 회원의 활동량(리뷰 수·리뷰한 고유 음식 수·스캔 수)을 점수로 환산해 7단계 등급으로 매핑하고, 두 곳에서 노출한다 — 기존 프로필 조회 응답에 **랭킹 요약**을 얹어 프로필 탭을 한 번의 호출로 그리게 하고, **랭킹 상세 조회**(`GET /api/v1/members/me/ranking`)를 새로 열어 점수 내역(breakdown)을 준다.
 
-산정 로직은 `:core:member` 의 순수 값 객체(`MemberRanking` + `RankingTier`)로 두고 **평면 카운트 3개만 입력**받는다 — 다른 컨텍스트 타입을 들이지 않아 원칙 II 를 지키고, 등급 경계·공식은 Spring 없이 단위 테스트로 고정된다. 조합은 `:application:client` 에서만 한다.
+산정 로직은 `:core:member` 의 순수 값 객체 **`Ranking`**(+ `RankingTier`)에 있다 — 카운트 3종(`scanCount`·`reviewCount`·`uniqueReviewedFoodCount`)을 담고 점수·등급·다음 등급·항목별 점수를 스스로 파생한다. 다른 컨텍스트 타입을 들이지 않아 원칙 II 를 지키고, 등급 경계·공식은 Spring 없이 단위 테스트로 고정된다.
 
-**랭킹은 `Member` 애그리거트의 하위 개념이다.** 정책의 카운트 3종(`scan_count`·`review_count`·`unique_reviewed_food_count`)을 별도 테이블이 아니라 `member` 행의 컬럼으로 두고, 가입 시 모두 0으로 초기화된다(`Member.signUp` + `DEFAULT 0`). 이후 카운트업만 친다 — 지금은 스캔만(`Member.recordScan()`, 불변), 리뷰 카운트는 리뷰 기능이 붙을 때 같은 방식으로 올린다. 점수·등급은 `Member.ranking()` 이 세 카운트에서 파생한다.
+**랭킹은 `Member` 애그리거트의 하위 도메인이다.** `Member` 가 `val ranking: Ranking` 을 들고, 정책의 카운트 3종은 별도 테이블이 아니라 `member` 행의 컬럼(`scan_count`·`review_count`·`unique_reviewed_food_count`)으로 저장된다. 가입 시 `Ranking.initial()`(모두 0) + `DEFAULT 0` 이라 초기화가 자동이고, 탈퇴 시 회원과 함께 사라진다. 이후 카운트업만 친다 — 지금은 스캔만(`Member.recordScan()` → `Ranking.recordScan()`, 둘 다 불변), 리뷰 카운트는 리뷰 기능이 붙을 때 같은 방식으로 올린다.
 
 **스캔 횟수는 메뉴판 1장 = 1회다.** `scan_history` 는 매칭된 음식마다 행이 생기므로 횟수 집계에 쓸 수 없다. `ScanUseCase.assessMenuBoard` 가 스캔 1회마다 회원을 로드해 `recordScan()` 후 저장한다(매칭 0건이어도 1회). **동시성은 의도적으로 다루지 않는다** — 같은 회원이 동시에 스캔하면 카운트가 하나 유실될 수 있으나(read-modify-write), 초기 단계이고 랭킹은 안전·결제 같은 핵심 영역이 아니라 감수한다. 문제가 되면 그때 이벤트 기반 집계로 튼다.
 
@@ -43,7 +43,7 @@
 | 원칙 | 판정 | 근거 |
 |------|------|------|
 | I. Test-First (NON-NEGOTIABLE) | ✅ | 모든 task 를 Red(실패 테스트) → Green → Refactor 로 진행한다. 등급 경계값·검증 케이스(128점/explorer/52)를 도메인 단위 테스트로 먼저 고정한다. |
-| II. Bounded Contexts | ✅ | 랭킹은 `Member` 애그리거트의 하위 개념(카운트 + 파생 계산)이다. 산정 입력은 **평면 카운트**뿐이라 member 가 scan·review 타입을 import 하지 않는다. 스캔 시 회원 카운트업의 **조합은 `:application:client`(`ScanUseCase`)에서만** 한다. |
+| II. Bounded Contexts | ✅ | 랭킹은 `Member` 애그리거트의 하위 도메인(`Ranking` 값 객체 — 카운트 + 파생 계산)이다. 산정 입력은 **평면 카운트**뿐이라 member 가 scan·review 타입을 import 하지 않는다. 스캔 시 회원 카운트업의 **조합은 `:application:client`(`ScanUseCase`)에서만** 한다. |
 | III. Layered Dependency | ✅ | `app:api` → `application:client` → `core:member`/`core:scan` → `core:kernel`. 유스케이스는 `MemberRepository` **port** 로만 회원을 읽고 저장한다(구현체 미참조). |
 | IV. Persistence Encapsulation | ✅ | `scan_count` 컬럼 매핑·왕복은 `MemberJpaEntity`(+`MemberRepositoryAdapter`)에 갇힌다. 신규 리포지토리·엔티티가 없다. |
 | V. Domain Content Language | ✅ | 서버는 등급 **안정 키**(newcomer …)와 레벨만 내려주고 번역된 등급명을 만들지 않는다(9개 언어 번역은 FE i18n). 음식 콘텐츠 번역 정책과 무관하다. |
@@ -72,11 +72,11 @@ specs/kb-123-member-ranking/
 
 ```text
 core/member/src/main/kotlin/com/meogo/core/member/
-├── Member.kt                     # 수정 — 카운트 3종(가입 시 0)·recordScan()·ranking()
-├── MemberRanking.kt              # 신규 — 점수·등급·다음 등급·남은 점수·내역 (순수 값 객체)
+├── Member.kt                     # 수정 — val ranking: Ranking(가입 시 initial)·recordScan()
+├── Ranking.kt                    # 신규 — 카운트 3종 + 점수·등급·다음 등급·항목별 점수 (순수 값 객체)
 └── RankingTier.kt                # 신규 — 7단계 등급 enum(안정 키 + 레벨 + 진입 점수)
 core/member/src/test/kotlin/com/meogo/core/member/
-├── MemberRankingTest.kt          # 신규 — 공식·경계값·최고 등급
+├── RankingTest.kt                # 신규 — 공식·경계값·최고 등급
 └── MemberTest.kt                 # 수정 — 가입 시 0·recordScan 불변·프로필 갱신 시 보존
 
 infra/persistence/src/main/kotlin/com/meogo/infra/persistence/member/
@@ -112,7 +112,7 @@ app/api/src/test/kotlin/com/meogo/app/api/member/
 
 ## Design Decisions (핵심)
 
-1. **랭킹은 `Member` 애그리거트 안에 있다.** 카운트(`scanCount`)를 회원 행에 두고 `Member.recordScan()`·`Member.ranking()` 으로 다룬다. 별도 카운터 애그리거트·리포지토리를 만들지 않으므로 "애그리거트 루트가 아닌 것에 리포지토리를 붙이는" 문제가 사라진다. 가입 시 0 초기화가 자동이고(생성자 + `DEFAULT 0`), 탈퇴 시 회원과 함께 사라진다.
+1. **랭킹은 `Member` 애그리거트 안의 값 객체 `Ranking` 이다.** 카운트 3종과 점수·등급 파생이 한 클래스에 모여 있고 `Member` 가 `val ranking: Ranking` 으로 소유한다(별도 `MemberRanking` 클래스는 흡수해 없앴다). 별도 카운터 애그리거트·리포지토리를 만들지 않으므로 "애그리거트 루트가 아닌 것에 리포지토리를 붙이는" 문제가 사라진다. 가입 시 0 초기화가 자동이고(`Ranking.initial()` + `DEFAULT 0`), 탈퇴 시 회원과 함께 사라진다.
 
 2. **동시성은 의도적으로 감수한다.** 카운트업이 "회원 로드 → 증가 → 저장" 이라 같은 회원의 동시 스캔에서 1회가 유실될 수 있다. 초기 단계이고 랭킹은 안전·결제 같은 핵심 영역이 아니므로 원자적 upsert·락·버전을 지금 도입하는 건 과한 선택이다. 실제로 문제가 되면 이벤트 기반 집계로 전환한다.
 

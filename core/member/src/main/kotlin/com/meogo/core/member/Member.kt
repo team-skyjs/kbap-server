@@ -8,9 +8,7 @@ class Member private constructor(
     val identity: SocialIdentity,
     val profile: MemberProfile,
     val onboardingCompleted: Boolean,
-    val scanCount: Int,
-    val reviewCount: Int,
-    val uniqueReviewedFoodCount: Int,
+    val ranking: Ranking,
 ) {
     fun updateProfile(profile: MemberProfile): Member = copy(profile = profile)
 
@@ -21,28 +19,19 @@ class Member private constructor(
         return copy(onboardingCompleted = true)
     }
 
-    fun recordScan(): Member = copy(scanCount = scanCount + 1)
-
-    fun ranking(): MemberRanking =
-        MemberRanking.of(
-            reviewCount = reviewCount,
-            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
-            scanCount = scanCount,
-        )
+    fun recordScan(): Member = copy(ranking = ranking.recordScan())
 
     private fun copy(
         profile: MemberProfile = this.profile,
         onboardingCompleted: Boolean = this.onboardingCompleted,
-        scanCount: Int = this.scanCount,
+        ranking: Ranking = this.ranking,
     ): Member =
         Member(
             id = id,
             identity = identity,
             profile = profile,
             onboardingCompleted = onboardingCompleted,
-            scanCount = scanCount,
-            reviewCount = reviewCount,
-            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
+            ranking = ranking,
         )
 
     companion object {
@@ -52,9 +41,7 @@ class Member private constructor(
                 identity = identity,
                 profile = MemberProfile.empty(),
                 onboardingCompleted = false,
-                scanCount = 0,
-                reviewCount = 0,
-                uniqueReviewedFoodCount = 0,
+                ranking = Ranking.initial(),
             )
 
         fun reconstitute(
@@ -62,18 +49,14 @@ class Member private constructor(
             identity: SocialIdentity,
             profile: MemberProfile,
             onboardingCompleted: Boolean,
-            scanCount: Int = 0,
-            reviewCount: Int = 0,
-            uniqueReviewedFoodCount: Int = 0,
+            ranking: Ranking = Ranking.initial(),
         ): Member =
             Member(
                 id = id,
                 identity = identity,
                 profile = profile,
                 onboardingCompleted = onboardingCompleted,
-                scanCount = scanCount,
-                reviewCount = reviewCount,
-                uniqueReviewedFoodCount = uniqueReviewedFoodCount,
+                ranking = ranking,
             )
     }
 }

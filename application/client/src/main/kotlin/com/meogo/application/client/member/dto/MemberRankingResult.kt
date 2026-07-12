@@ -1,6 +1,6 @@
 package com.meogo.application.client.member.dto
 
-import com.meogo.core.member.MemberRanking
+import com.meogo.core.member.Ranking
 
 data class MemberRankingResult(
     val tier: String,
@@ -16,7 +16,7 @@ data class MemberRankingResult(
     val scanPoints: Int,
 ) {
     companion object {
-        fun from(ranking: MemberRanking): MemberRankingResult =
+        fun from(ranking: Ranking): MemberRankingResult =
             MemberRankingResult(
                 tier = ranking.tier.key,
                 level = ranking.tier.level,
