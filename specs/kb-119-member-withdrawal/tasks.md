@@ -58,7 +58,7 @@
 - [X] T019 `./gradlew build` 전체 green — ArchUnit(`ErrorCodeStatusTest` 신규 500 코드, `ModuleBoundaryTest`) 포함.
 - [ ] T020 [P] Swagger UI 에서 `PATCH /api/v1/auth/withdraw` 문서가 [contracts/withdraw-api.md](./contracts/withdraw-api.md) 와 일치하는지 확인(본문 없음·200/400/401/500).
 - [ ] T021 [P] 로컬 docker + 실제 Firebase 자격증명으로 로그인 → 탈퇴 → **Firebase 콘솔에서 계정 소멸 확인**(SC-001 — 페이크로 검증 불가한 유일 항목이자, `getUserByProviderUid` 역조회가 실제로 동작하는지 확인하는 유일한 경로).
-- [ ] T022 [P] Sign in with Apple 토큰 revoke 의무 범위·구현 방법을 조사해 `create-jira-task-with-codex` 로 별도 Jira 태스크 생성.
+- [X] T022 [P] Sign in with Apple 토큰 revoke 조사 완료 → **KB-122** 등록. 결론: revoke 엔드포인트는 애플이 발급한 refresh/access token 을 보유해야 호출 가능한데, Firebase 가 Sign in with Apple 을 대행해 **우리는 애플 토큰을 전혀 받지 못한다**(`FirebaseAuth.deleteUser()` 도 애플 연결을 끊지 않는다). 즉 **KB-119 만으로는 애플 심사 요건(5.1.1(v)) 미충족**이며, 애플 로그인 출시 전에 (A) 클라이언트에서 `revokeToken(withAuthorizationCode:)` 호출(탈퇴 시 애플 재인증 필요) 또는 (B) 로그인 때 받은 `authorizationCode` 를 서버가 애플 refresh token 으로 교환·저장했다가 탈퇴 시 revoke(ES256 client_secret JWT + 토큰 at-rest 보관) 중 하나를 구현해야 한다.
 
 ---
 
