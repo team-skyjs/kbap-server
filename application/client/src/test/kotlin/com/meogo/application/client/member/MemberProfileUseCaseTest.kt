@@ -1,6 +1,7 @@
 package com.meogo.application.client.member
 
 import com.meogo.application.client.member.dto.MemberProfileInput
+import com.meogo.application.client.member.dto.ProfileUpdateInput
 import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
 import com.meogo.core.member.AvoidanceSubstanceCodeRef
@@ -33,6 +34,20 @@ class MemberProfileUseCaseTest : BehaviorSpec({
         countryCode: String = "US",
         appLanguage: String = "en",
     ) = MemberProfileInput(
+        memberId = memberId,
+        nickname = nickname,
+        avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+        countryCode = countryCode,
+        appLanguage = appLanguage,
+    )
+
+    fun updateInput(
+        memberId: Long = 1L,
+        nickname: String? = null,
+        avoidanceSubstanceCodes: List<String>? = null,
+        countryCode: String? = null,
+        appLanguage: String? = null,
+    ) = ProfileUpdateInput(
         memberId = memberId,
         nickname = nickname,
         avoidanceSubstanceCodes = avoidanceSubstanceCodes,
@@ -299,7 +314,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.update(input(nickname = "새닉", avoidanceSubstanceCodes = listOf("MILK"), countryCode = "US", appLanguage = "en"))
+                useCase.update(updateInput(nickname = "새닉", avoidanceSubstanceCodes = listOf("MILK"), countryCode = "US", appLanguage = "en"))
 
                 val saved = repo.findById(1L)!!
                 saved.profile.nickname shouldBe "새닉"
@@ -316,7 +331,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val useCase = MemberProfileUseCase(repo)
 
                 val e = shouldThrow<OnboardingException> {
-                    useCase.update(input(avoidanceSubstanceCodes = listOf("NOT_A_CODE")))
+                    useCase.update(updateInput(avoidanceSubstanceCodes = listOf("NOT_A_CODE")))
                 }
 
                 e.errorCode shouldBe OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE
@@ -328,7 +343,7 @@ class MemberProfileUseCaseTest : BehaviorSpec({
             then("MEMBER_NOT_FOUND 로 거절된다") {
                 val useCase = MemberProfileUseCase(FakeMemberRepository())
 
-                val e = shouldThrow<MemberException> { useCase.update(input(memberId = 99L)) }
+                val e = shouldThrow<MemberException> { useCase.update(updateInput(memberId = 99L, nickname = "새닉")) }
 
                 e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
             }
@@ -339,9 +354,174 @@ class MemberProfileUseCaseTest : BehaviorSpec({
                 val repo = FakeMemberRepository().apply { seed(member(1L)) }
                 val useCase = MemberProfileUseCase(repo)
 
-                useCase.update(input())
+                useCase.update(updateInput(nickname = "새닉"))
 
                 repo.findById(1L)!!.onboardingCompleted shouldBe false
+            }
+        }
+    }
+
+    given("프로필 부분 수정 — 미전송 필드는 기존 값을 유지한다") {
+        val onboarded = MemberProfile.of(
+            nickname = "원래닉",
+            avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("EGG"), AvoidanceSubstanceCodeRef("MILK")),
+            spicinessPreference = 8,
+            countryCode = CountryCode.KR,
+            appLanguage = LanguageCode.KO,
+        )
+
+        fun seeded(): FakeMemberRepository =
+            FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
+
+        `when`("닉네임·국가·언어만 보내면") {
+            then("세 값만 바뀌고 기피 성분은 그대로 유지된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(
+                    updateInput(nickname = "새닉", countryCode = "US", appLanguage = "en"),
+                )
+
+                val saved = repo.findById(1L)!!.profile
+                saved.nickname shouldBe "새닉"
+                saved.countryCode shouldBe CountryCode.US
+                saved.appLanguage shouldBe LanguageCode.EN
+                saved.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
+            }
+        }
+
+        `when`("닉네임만 보내면") {
+            then("닉네임만 바뀌고 국가·언어·기피 성분은 모두 유지된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(nickname = "새닉"))
+
+                val saved = repo.findById(1L)!!.profile
+                saved.nickname shouldBe "새닉"
+                saved.countryCode shouldBe CountryCode.KR
+                saved.appLanguage shouldBe LanguageCode.KO
+                saved.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
+            }
+        }
+
+        `when`("아무 필드도 보내지 않으면") {
+            then("프로필이 하나도 바뀌지 않는다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput())
+
+                val saved = repo.findById(1L)!!.profile
+                saved.nickname shouldBe "원래닉"
+                saved.countryCode shouldBe CountryCode.KR
+                saved.appLanguage shouldBe LanguageCode.KO
+                saved.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
+            }
+        }
+
+        `when`("일부 필드만 수정하면") {
+            then("API 로 노출되지 않는 맵기 선호도는 보존된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(nickname = "새닉"))
+
+                repo.findById(1L)!!.profile.spicinessPreference shouldBe 8
+            }
+        }
+    }
+
+    given("프로필 부분 수정 — 기피 성분의 빈 목록과 미전송은 다르다") {
+        val onboarded = MemberProfile.of(
+            nickname = "원래닉",
+            avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("EGG"), AvoidanceSubstanceCodeRef("MILK")),
+            spicinessPreference = 5,
+            countryCode = CountryCode.KR,
+            appLanguage = LanguageCode.KO,
+        )
+
+        fun seeded(): FakeMemberRepository =
+            FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
+
+        `when`("기피 성분만 보내면") {
+            then("기피 성분만 교체되고 닉네임·국가·언어는 유지된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(avoidanceSubstanceCodes = listOf("PEANUT")))
+
+                val saved = repo.findById(1L)!!.profile
+                saved.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("PEANUT")
+                saved.nickname shouldBe "원래닉"
+                saved.countryCode shouldBe CountryCode.KR
+                saved.appLanguage shouldBe LanguageCode.KO
+            }
+        }
+
+        `when`("기피 성분에 빈 목록을 보내면") {
+            then("기피 성분이 전부 해제된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(avoidanceSubstanceCodes = emptyList()))
+
+                repo.findById(1L)!!.profile.avoidanceSubstanceCodes.shouldBeEmpty()
+            }
+        }
+
+        `when`("기피 성분을 보내지 않으면") {
+            then("기존 기피 성분이 유지된다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(nickname = "새닉"))
+
+                repo.findById(1L)!!.profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("EGG", "MILK")
+            }
+        }
+    }
+
+    given("프로필 부분 수정 — 검증은 전달된 필드에만 적용한다") {
+        val onboarded = MemberProfile.of(
+            nickname = "원래닉",
+            avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("EGG")),
+            spicinessPreference = 5,
+            countryCode = CountryCode.KR,
+            appLanguage = LanguageCode.KO,
+        )
+
+        fun seeded(): FakeMemberRepository =
+            FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, profile = onboarded)) }
+
+        `when`("잘못된 국가 코드만 보내면") {
+            then("INVALID_COUNTRY_CODE 로 거절되고 프로필은 하나도 바뀌지 않는다") {
+                val repo = seeded()
+
+                val e = shouldThrow<OnboardingException> {
+                    MemberProfileUseCase(repo).update(updateInput(countryCode = "ZZ"))
+                }
+
+                e.errorCode shouldBe OnboardingErrorCode.INVALID_COUNTRY_CODE
+                val kept = repo.findById(1L)!!.profile
+                kept.nickname shouldBe "원래닉"
+                kept.countryCode shouldBe CountryCode.KR
+            }
+        }
+
+        `when`("공백뿐인 닉네임을 보내면") {
+            then("INVALID_NICKNAME 으로 거절된다") {
+                val repo = seeded()
+
+                val e = shouldThrow<OnboardingException> {
+                    MemberProfileUseCase(repo).update(updateInput(nickname = "   "))
+                }
+
+                e.errorCode shouldBe OnboardingErrorCode.INVALID_NICKNAME
+                repo.findById(1L)!!.profile.nickname shouldBe "원래닉"
+            }
+        }
+
+        `when`("유효한 닉네임만 보내면") {
+            then("국가·언어를 보내지 않았다는 이유로 거절되지 않는다") {
+                val repo = seeded()
+
+                MemberProfileUseCase(repo).update(updateInput(nickname = "  새닉  "))
+
+                repo.findById(1L)!!.profile.nickname shouldBe "새닉"
             }
         }
     }

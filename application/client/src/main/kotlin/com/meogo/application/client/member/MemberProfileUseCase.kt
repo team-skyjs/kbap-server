@@ -1,7 +1,8 @@
 package com.meogo.application.client.member
 
-import com.meogo.application.client.member.dto.MyProfileResult
 import com.meogo.application.client.member.dto.MemberProfileInput
+import com.meogo.application.client.member.dto.MyProfileResult
+import com.meogo.application.client.member.dto.ProfileUpdateInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.kernel.lang.CountryCode
 import com.meogo.core.kernel.lang.LanguageCode
@@ -20,51 +21,59 @@ class MemberProfileUseCase(
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        val member = memberRepository.findById(input.memberId)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        val member = findMember(input.memberId)
 
-        val profile = validatedProfile(input, member)
-        val updated = member.updateProfile(profile).completeOnboarding()
-        memberRepository.update(updated)
+        val profile = MemberProfile.of(
+            nickname = validatedNickname(input.nickname),
+            avoidanceSubstanceCodes = validatedCodes(input.avoidanceSubstanceCodes),
+            spicinessPreference = member.profile.spicinessPreference,
+            countryCode = validatedCountry(input.countryCode),
+            appLanguage = validatedLanguage(input.appLanguage),
+        )
+
+        memberRepository.update(member.updateProfile(profile).completeOnboarding())
     }
 
     @Transactional
-    fun update(input: MemberProfileInput) {
-        val member = memberRepository.findById(input.memberId)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+    fun update(input: ProfileUpdateInput) {
+        val member = findMember(input.memberId)
+        val current = member.profile
 
-        val profile = validatedProfile(input, member)
-        memberRepository.update(member.updateProfile(profile))
+        val merged = MemberProfile.of(
+            nickname = input.nickname?.let { validatedNickname(it) } ?: current.nickname,
+            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes?.let { validatedCodes(it) }
+                ?: current.avoidanceSubstanceCodes,
+            spicinessPreference = current.spicinessPreference,
+            countryCode = input.countryCode?.let { validatedCountry(it) } ?: current.countryCode,
+            appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
+        )
+
+        memberRepository.update(member.updateProfile(merged))
     }
 
     @Transactional(readOnly = true)
-    fun getMyProfile(memberId: Long): MyProfileResult {
-        val member = memberRepository.findById(memberId)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        return MyProfileResult.from(member)
-    }
+    fun getMyProfile(memberId: Long): MyProfileResult = MyProfileResult.from(findMember(memberId))
 
-    private fun validatedProfile(input: MemberProfileInput, member: Member): MemberProfile {
-        val nickname = input.nickname.trim()
-        if (nickname.isBlank()) {
-            throw OnboardingException(OnboardingErrorCode.INVALID_NICKNAME)
-        }
-        if (input.avoidanceSubstanceCodes.any { it !in CATALOG_CODES }) {
+    private fun findMember(memberId: Long): Member =
+        memberRepository.findById(memberId)
+            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+
+    private fun validatedNickname(raw: String): String =
+        raw.trim().ifBlank { throw OnboardingException(OnboardingErrorCode.INVALID_NICKNAME) }
+
+    private fun validatedCodes(raw: List<String>): Set<AvoidanceSubstanceCodeRef> {
+        if (raw.any { it !in CATALOG_CODES }) {
             throw OnboardingException(OnboardingErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
         }
-        val countryCode = CountryCode.from(input.countryCode)
-            ?: throw OnboardingException(OnboardingErrorCode.INVALID_COUNTRY_CODE)
-        val appLanguage = LanguageCode.entries.firstOrNull { it.code == input.appLanguage }
-            ?: throw OnboardingException(OnboardingErrorCode.UNSUPPORTED_APP_LANGUAGE)
-
-        return MemberProfile.of(
-            nickname = nickname,
-            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
-            spicinessPreference = member.profile.spicinessPreference,
-            countryCode = countryCode,
-            appLanguage = appLanguage,
-        )
+        return raw.map { AvoidanceSubstanceCodeRef(it) }.toSet()
     }
+
+    private fun validatedCountry(raw: String): CountryCode =
+        CountryCode.from(raw) ?: throw OnboardingException(OnboardingErrorCode.INVALID_COUNTRY_CODE)
+
+    private fun validatedLanguage(raw: String): LanguageCode =
+        LanguageCode.entries.firstOrNull { it.code == raw }
+            ?: throw OnboardingException(OnboardingErrorCode.UNSUPPORTED_APP_LANGUAGE)
 
     companion object {
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
