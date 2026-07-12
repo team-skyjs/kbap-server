@@ -4,7 +4,6 @@ import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberId
 import com.meogo.application.client.member.MemberProfileUseCase
-import com.meogo.application.client.member.WithdrawUseCase
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.V1 + "/members")
 class MemberController(
     private val memberProfileUseCase: MemberProfileUseCase,
-    private val withdrawUseCase: WithdrawUseCase,
 ) : MemberApi {
     override fun completeOnboarding(
         @AuthMemberId memberId: Long,
@@ -36,13 +34,6 @@ class MemberController(
         @RequestBody request: ProfileUpdateRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         memberProfileUseCase.update(request.toInput(memberId))
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
-    override fun withdraw(
-        @AuthMemberId memberId: Long,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        withdrawUseCase.withdraw(memberId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 }

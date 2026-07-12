@@ -1,13 +1,13 @@
 # API Contract: 회원 탈퇴
 
-## `PATCH /api/v1/members/me/withdraw`
+## `PATCH /api/v1/auth/withdraw`
 
 로그인한 회원이 자기 계정을 탈퇴한다. 인증 제공자(Firebase) 사용자 기록을 삭제한 뒤 회원 행을 소프트 삭제한다.
 
 ### Request
 
 ```
-PATCH /api/v1/members/me/withdraw
+PATCH /api/v1/auth/withdraw
 Authorization: Bearer {accessToken}
 ```
 

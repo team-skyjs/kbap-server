@@ -2,9 +2,11 @@ package com.meogo.app.api.auth
 
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
+import com.meogo.app.api.common.auth.AuthMemberId
 import com.meogo.application.client.auth.LoginUseCase
 import com.meogo.application.client.auth.LogoutUseCase
 import com.meogo.application.client.auth.RefreshUseCase
+import com.meogo.application.client.member.WithdrawUseCase
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -16,6 +18,7 @@ class AuthController(
     private val loginUseCase: LoginUseCase,
     private val refreshUseCase: RefreshUseCase,
     private val logoutUseCase: LogoutUseCase,
+    private val withdrawUseCase: WithdrawUseCase,
 ) : AuthApi {
     override fun login(
         @RequestBody request: LoginRequest,
@@ -35,6 +38,13 @@ class AuthController(
         @RequestBody(required = false) request: LogoutRequest?,
     ): ResponseEntity<BaseResponse<Unit>> {
         logoutUseCase.logout(request?.refreshToken)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    override fun withdraw(
+        @AuthMemberId memberId: Long,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        withdrawUseCase.withdraw(memberId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 }

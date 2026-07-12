@@ -103,7 +103,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun withdraw(token: String?) =
-            mockMvc.patch("/api/v1/members/me/withdraw") {
+            mockMvc.patch("/api/v1/auth/withdraw") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 

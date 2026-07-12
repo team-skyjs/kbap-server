@@ -52,7 +52,7 @@ interface SocialAccountDeleter {
 
 ```
 ACTIVE 회원
-   │  PATCH /members/me/withdraw (본문 없음, access token 만)
+   │  PATCH /auth/withdraw (본문 없음, access token 만)
    │    ├─ 회원 없음 ─────────────────────► 400, 상태 변화 없음
    │    ├─ 인증 제공자 삭제 실패 ─────────► 500 + ERROR 로그, 상태 변화 없음
    │    └─ 인증 제공자 삭제 성공

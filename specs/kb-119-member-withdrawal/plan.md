@@ -8,7 +8,7 @@
 
 > **구현 중 설계 변경 2건**(사용자 확정): ① 소셜 ID 토큰 재인증 폐기 — 앱이 탈퇴 직전 재로그인을 하지 않으므로 **서버가 저장된 소셜 신원으로 인증 제공자에 역조회**해 삭제한다(요청 본문 없음, US3·403 폐기). ② 이메일 유지 — `provider_uid` 만 더미 치환한다. 아래 본문은 최종 구현 기준이다.
 
-로그인한 회원이 `PATCH /api/v1/members/me/withdraw`(본문 없음)를 호출하면, 서버는 (1) 접근 토큰이 가리키는 회원을 조회하고, (2) 그 회원의 `(provider, providerUserId)` 로 `FirebaseAuth.getUserByProviderUid` → `deleteUser` 를 호출해 **Firebase 사용자 기록을 먼저 삭제**한 뒤, (3) 회원 행을 소프트 삭제하며 `provider_uid` 를 `DELETED:{id}` 로 치환한다. Firebase 삭제가 실패하면 DB 는 그대로 두고 500 + ERROR 로그를 남겨 관리자가 콘솔에서 수동 삭제한다.
+로그인한 회원이 `PATCH /api/v1/auth/withdraw`(본문 없음)를 호출하면, 서버는 (1) 접근 토큰이 가리키는 회원을 조회하고, (2) 그 회원의 `(provider, providerUserId)` 로 `FirebaseAuth.getUserByProviderUid` → `deleteUser` 를 호출해 **Firebase 사용자 기록을 먼저 삭제**한 뒤, (3) 회원 행을 소프트 삭제하며 `provider_uid` 를 `DELETED:{id}` 로 치환한다. Firebase 삭제가 실패하면 DB 는 그대로 두고 500 + ERROR 로그를 남겨 관리자가 콘솔에서 수동 삭제한다.
 
 기술적 요점 세 가지:
 - **Firebase local uid 는 저장하지 않는다.** 이미 저장한 `(provider, provider_uid)` 로 역조회해 uid 를 얻는다 — 스키마·클라이언트 변경 0(research R1).
@@ -61,7 +61,7 @@ specs/kb-119-member-withdrawal/
 ├── data-model.md        # Phase 1 — 스키마 무변경 + 타입 변화
 ├── quickstart.md        # Phase 1 — 건드리는 파일·테스트·검증 명령
 ├── contracts/
-│   └── withdraw-api.md  # Phase 1 — PATCH /members/me/withdraw 계약
+│   └── withdraw-api.md  # Phase 1 — PATCH /auth/withdraw 계약
 ├── checklists/
 │   └── requirements.md
 └── tasks.md             # Phase 2 (/speckit-tasks 가 생성 — 이 명령은 만들지 않음)
@@ -80,14 +80,15 @@ application/client/src/main/kotlin/com/meogo/application/client/
 └── member/
     └── WithdrawUseCase.kt          # 신규 — findById → 소셜 계정 삭제 → 소프트 삭제 (@Transactional 없음)
 
-app/api/src/main/kotlin/com/meogo/app/api/member/
-├── MemberApi.kt                    # 수정 — @PatchMapping("/me/withdraw") + swagger (본문 없음)
-└── MemberController.kt             # 수정 — WithdrawUseCase 주입, @AuthMemberId
+app/api/src/main/kotlin/com/meogo/app/api/
+├── auth/AuthApi.kt                 # 수정 — @PatchMapping("/withdraw") + swagger (본문 없음)
+├── auth/AuthController.kt          # 수정 — WithdrawUseCase 주입, @AuthMemberId
+└── common/auth/WebMvcAuthConfig.kt # 수정 — 인증 필터에 정확 경로 /api/v1/auth/withdraw 추가
 ```
 
 `SocialTokenVerifier`·`FirebaseTokenVerifier`·`LoginUseCase`·`infra:persistence`·Flyway 는 **무변경**이다.
 
-**Structure Decision**: 기존 모듈 경계를 그대로 쓴다. 신규 모듈·신규 도메인 컨텍스트 없음. 인증 필터(`WebMvcAuthConfig`)가 이미 `/api/v1/members/*` 를 커버하므로 설정 변경도 없다.
+**Structure Decision**: 기존 모듈 경계를 그대로 쓴다. 신규 모듈·신규 도메인 컨텍스트 없음. 탈퇴는 세션 종료와 함께 다뤄지므로 **인증 API 그룹(`/api/v1/auth`)** 에 둔다. `/auth/*` 는 로그인·재발급이 공개라 인증 필터 밖이므로, **`/auth/withdraw` 정확 경로만** 필터에 등록한다(와일드카드 `/auth/*` 를 넣으면 로그인이 막힌다).
 
 ## Complexity Tracking
 

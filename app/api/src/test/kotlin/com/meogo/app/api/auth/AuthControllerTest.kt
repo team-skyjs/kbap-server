@@ -268,7 +268,7 @@ class AuthControllerTest : BehaviorSpec() {
                     val refreshToken = bodyToken(loginResponse, "refreshToken")
                     val accessToken = bodyToken(loginResponse, "accessToken")
 
-                    mockMvc.patch("/api/v1/members/me/withdraw") {
+                    mockMvc.patch("/api/v1/auth/withdraw") {
                         header("Authorization", "Bearer $accessToken")
                     }.andReturn().response.status shouldBe 200
 

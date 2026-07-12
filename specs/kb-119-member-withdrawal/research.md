@@ -70,9 +70,11 @@
 
 ## R7. 엔드포인트
 
-**Decision**: `PATCH /api/v1/members/me/withdraw`, **요청 본문 없음**, 응답 `BaseResponse<Unit>`. `@AuthMemberId` 로 회원을 해석한다.
+**Decision**: `PATCH /api/v1/auth/withdraw`, **요청 본문 없음**, 응답 `BaseResponse<Unit>`. `@AuthMemberId` 로 회원을 해석하며 `AuthApi`/`AuthController` 에 둔다.
 
-**Rationale**: 인증 필터(`WebMvcAuthConfig`)가 이미 `/api/v1/members/*` 를 커버하므로 설정 변경이 없다. 애너테이션은 컨벤션대로 `MemberApi` 인터페이스가 아니라 `MemberController` 구현 파라미터에 단다.
+**Rationale**: 탈퇴는 세션·소셜 계정의 종료라 **인증 API 그룹**에 묶는 편이 클라이언트가 찾기 쉽다(로그인·재발급·로그아웃과 한 태그). 애너테이션은 컨벤션대로 인터페이스가 아니라 컨트롤러 구현 파라미터에 단다.
+
+**주의(함정)**: `/api/v1/auth/*` 는 로그인·재발급·로그아웃이 공개라 **인증 필터 밖**이다. 따라서 `WebMvcAuthConfig` 의 `addUrlPatterns` 에 **`/api/v1/auth/withdraw` 정확 경로만** 추가해야 한다 — 와일드카드 `/auth/*` 를 넣으면 로그인이 401 로 막힌다.
 
 ## R8. Sign in with Apple 토큰 revoke
 

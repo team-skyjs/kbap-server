@@ -32,7 +32,7 @@
 - [X] T008 [US1] `application/client/.../member/WithdrawUseCase.kt` — `findById` → 소셜 계정 삭제(실패 시 ERROR 로그 + 500) → `memberRepository.withdraw`. `@Transactional` 없음.
 - [X] T009 ~~`MemberJpaEntity.withdraw()` 에 `email = null`~~ — **설계 변경으로 철회**.
 - [X] T010 [US1] `app/api/src/test/.../member/MemberControllerTest.kt` 에 탈퇴 시나리오 5건 추가(Red) — 200 + DB 컬럼(`provider_uid`·`status`) / 프로필 400 / 재탈퇴 400 / 미인증 401 / 삭제 실패 500 + 활성 유지.
-- [X] T011 [US1] `app/api/.../member/MemberApi.kt`(`@PatchMapping("/me/withdraw")`, 본문 없음, swagger 200/400/401/500) + `MemberController` 에 `WithdrawUseCase` 주입·`@AuthMemberId` 배선. green 확인.
+- [X] T011 [US1] `app/api/.../member/MemberApi.kt`(`@PatchMapping("/withdraw")`, 본문 없음, swagger 200/400/401/500) + `MemberController` 에 `WithdrawUseCase` 주입·`@AuthMemberId` 배선. green 확인.
 - [X] T012 [US1] `app/api/src/test/.../auth/AuthControllerTest.kt` 에 "탈퇴한 회원의 refresh 토큰 → 401" 추가 + `RefreshUseCaseTest` 에 단위 시나리오 추가(Red).
 - [X] T013 [US1] `application/client/.../auth/RefreshUseCase.kt` 에 `MemberRepository` 주입 + `consume` 후 회원 존재 확인 → 없으면 `INVALID_REFRESH_TOKEN`. green 확인.
 
@@ -56,7 +56,7 @@
 ## Phase 6: Polish & Cross-Cutting
 
 - [X] T019 `./gradlew build` 전체 green — ArchUnit(`ErrorCodeStatusTest` 신규 500 코드, `ModuleBoundaryTest`) 포함.
-- [ ] T020 [P] Swagger UI 에서 `PATCH /api/v1/members/me/withdraw` 문서가 [contracts/withdraw-api.md](./contracts/withdraw-api.md) 와 일치하는지 확인(본문 없음·200/400/401/500).
+- [ ] T020 [P] Swagger UI 에서 `PATCH /api/v1/auth/withdraw` 문서가 [contracts/withdraw-api.md](./contracts/withdraw-api.md) 와 일치하는지 확인(본문 없음·200/400/401/500).
 - [ ] T021 [P] 로컬 docker + 실제 Firebase 자격증명으로 로그인 → 탈퇴 → **Firebase 콘솔에서 계정 소멸 확인**(SC-001 — 페이크로 검증 불가한 유일 항목이자, `getUserByProviderUid` 역조회가 실제로 동작하는지 확인하는 유일한 경로).
 - [ ] T022 [P] Sign in with Apple 토큰 revoke 의무 범위·구현 방법을 조사해 `create-jira-task-with-codex` 로 별도 Jira 태스크 생성.
 

@@ -11,8 +11,9 @@
 - `application/client/.../auth/AuthConfig.kt` — `socialAccountDeleter` 빈, `UnavailableSocialAuth` 가 두 port 구현
 - `application/client/.../auth/AuthErrorCode.kt` — `SOCIAL_ACCOUNT_DELETE_FAILED(500)`
 - `application/client/.../auth/RefreshUseCase.kt` — `MemberRepository` 주입 + 재발급 전 회원 존재 확인
-- `app/api/.../member/MemberApi.kt` — `@PatchMapping("/me/withdraw")` + swagger(본문 없음)
-- `app/api/.../member/MemberController.kt` — `WithdrawUseCase` 주입 + `@AuthMemberId`
+- `app/api/.../auth/AuthApi.kt` — `@PatchMapping("/withdraw")` + swagger(본문 없음)
+- `app/api/.../auth/AuthController.kt` — `WithdrawUseCase` 주입 + `@AuthMemberId`
+- `app/api/.../common/auth/WebMvcAuthConfig.kt` — 인증 필터에 정확 경로 `/api/v1/auth/withdraw` 추가
 
 **마이그레이션·도메인·`MemberRepository` port·`MemberJpaEntity`·`SocialTokenVerifier`·인증 필터 설정: 변경 없음.**
 
@@ -34,4 +35,4 @@
 ./gradlew build
 ```
 
-수동 확인(SC-001 — 페이크로는 검증 불가): 로컬 docker MySQL + 실제 Firebase 자격증명으로 앱을 띄우고 `scripts/firebase-login-tool.html` 로 로그인 → `PATCH /api/v1/members/me/withdraw` → **Firebase 콘솔 Authentication 사용자 목록에서 계정이 사라졌는지** 눈으로 확인.
+수동 확인(SC-001 — 페이크로는 검증 불가): 로컬 docker MySQL + 실제 Firebase 자격증명으로 앱을 띄우고 `scripts/firebase-login-tool.html` 로 로그인 → `PATCH /api/v1/auth/withdraw` → **Firebase 콘솔 Authentication 사용자 목록에서 계정이 사라졌는지** 눈으로 확인.
