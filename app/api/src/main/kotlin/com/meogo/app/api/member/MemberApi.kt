@@ -1,7 +1,6 @@
 package com.meogo.app.api.member
 
 import com.meogo.app.api.common.BaseResponse
-import com.meogo.app.api.common.auth.AuthMemberId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -37,7 +36,7 @@ interface MemberApi {
     )
     @PostMapping("/me/onboarding")
     fun completeOnboarding(
-        @AuthMemberId memberId: Long,
+        memberId: Long,
         @SwaggerRequestBody(
             required = true,
             content = [
@@ -111,7 +110,7 @@ interface MemberApi {
     )
     @GetMapping("/me/profile")
     fun getMyProfile(
-        @AuthMemberId memberId: Long,
+        memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
 
     @Operation(
@@ -132,7 +131,7 @@ interface MemberApi {
     )
     @PatchMapping("/me/profile")
     fun updateProfile(
-        @AuthMemberId memberId: Long,
+        memberId: Long,
         @SwaggerRequestBody(
             required = true,
             content = [

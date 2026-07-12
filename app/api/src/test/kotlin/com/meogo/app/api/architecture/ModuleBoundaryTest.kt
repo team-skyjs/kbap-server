@@ -24,6 +24,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "com.meogo.core.food..",
             "com.meogo.core.member..",
             "com.meogo.core.avoidance..",
+            "com.meogo.core.scan..",
             "com.meogo.core.research..",
             "com.meogo.core.review..",
         )

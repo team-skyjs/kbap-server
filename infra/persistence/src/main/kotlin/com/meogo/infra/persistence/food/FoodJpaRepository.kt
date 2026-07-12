@@ -83,4 +83,16 @@ interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
         @Param("cursor") cursor: Long?,
         @Param("size") size: Int,
     ): List<Long>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.id from food f
+        where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
+        order by rand()
+        limit :size
+        """,
+    )
+    fun findRandomReadyIds(@Param("size") size: Int): List<Long>
 }

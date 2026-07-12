@@ -22,6 +22,19 @@ class FoodRepositoryAdapter(
             ?.toDomain()
             ?.takeIf { it.isReady() }
 
+    override fun findRandomReady(size: Int): List<Food> {
+        val ids = foodJpaRepository.findRandomReadyIds(size)
+        if (ids.isEmpty()) return emptyList()
+        return foodJpaRepository.findByIdInWithAvoidanceSubstances(ids).map { it.toDomain() }
+    }
+
+    override fun findAllReadyByIds(ids: List<Long>): List<Food> {
+        if (ids.isEmpty()) return emptyList()
+        return foodJpaRepository.findByIdInWithAvoidanceSubstances(ids)
+            .map { it.toDomain() }
+            .filter { it.isReady() }
+    }
+
     override fun findFoodPage(cursor: Long?, size: Int): List<Food> {
         val ids = foodJpaRepository.findFoodPageIds(cursor, PageRequest.of(0, size))
         return loadDescending(ids)

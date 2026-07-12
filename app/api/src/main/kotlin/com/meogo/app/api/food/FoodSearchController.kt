@@ -2,6 +2,7 @@ package com.meogo.app.api.food
 
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
+import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import com.meogo.app.api.common.Page
 import com.meogo.application.client.food.dto.SearchFoodsInput
 import com.meogo.application.client.food.usecase.SearchFoodsUseCase
@@ -19,7 +20,7 @@ class FoodSearchController(
         keyword: String?,
         cursor: String?,
         lang: String?,
-        memberId: Long?,
+        @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = searchFoodsUseCase.search(
             SearchFoodsInput(keyword = keyword, cursor = resolveCursor(cursor), lang = lang, memberId = memberId),

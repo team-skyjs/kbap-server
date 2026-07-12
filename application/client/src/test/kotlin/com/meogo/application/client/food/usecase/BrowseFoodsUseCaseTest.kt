@@ -252,6 +252,10 @@ private class BrowseFakeFoodRepository(
     override fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> = emptyMap()
 
     override fun createIncomplete(koreanNames: Set<String>): Map<String, Food> = throw UnsupportedOperationException()
+
+    override fun findRandomReady(size: Int): List<Food> = emptyList()
+
+    override fun findAllReadyByIds(ids: List<Long>): List<Food> = emptyList()
 }
 
 private class BrowseFakeAvoidedSubstanceProvider(

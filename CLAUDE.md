@@ -150,6 +150,10 @@ data class BaseResponse<T>(
 - 이 규약은 **비즈니스 API(`com.meogo.app.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
 - 경계 강제는 후속 ArchUnit(또는 매핑 검사 테스트)로 둔다 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증.
 
+### 인증 파라미터 애너테이션 위치 (고정)
+
+**인증 리졸버 애너테이션(`@AuthMemberId`·`@AuthMemberIdOrNull`)은 swagger `*Api` 인터페이스가 아니라 구현 컨트롤러 클래스의 파라미터에 선언한다.** Spring 은 인터페이스 선언도 병합해 해석하지만(HandlerMethodParameter), 개발자가 컨트롤러 파일만 열어 그 엔드포인트의 인증 방식(강제/선택/없음)을 즉시 파악할 수 있어야 한다 — 인터페이스에만 두면 컨트롤러에선 평범한 `memberId: Long?` 로 보여 오독한다. 인터페이스 쪽 파라미터는 애너테이션 없이 타입만 맞춘다(중복 선언 금지 — 두 곳이 어긋나면 어느 쪽이 진실인지 모호해진다). swagger 문서 노출은 `OpenApiConfig` 의 `SpringDocUtils.addAnnotationsToIgnore` 가 두 애너테이션을 숨기므로 `@Parameter(hidden = true)` 를 따로 달지 않는다. (web 바인딩 `@RequestBody`/`@PathVariable`/`@RequestParam` 과 swagger 문서 애너테이션은 기존대로 인터페이스에 두는 관례 유지.)
+
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:

@@ -1,11 +1,11 @@
 package com.meogo.app.api.food
 
 import com.meogo.app.api.common.BaseResponse
-import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestParam
 
 @Tag(name = "음식 상세", description = "foodId 로 음식 상세 정보를 조회하는 API")
+@SecurityRequirement(name = "bearerAuth")
 interface FoodDetailApi {
     @Operation(
         summary = "음식 상세 조회",
@@ -45,7 +46,6 @@ interface FoodDetailApi {
         @PathVariable foodId: Long,
         @Parameter(description = "응답 언어 코드(미지정/빈/공백 시 ko 기본, 지원 목록에 없는 코드는 400)", required = false, example = "en")
         @RequestParam(required = false) lang: String?,
-        @Parameter(hidden = true)
-        @AuthMemberIdOrNull memberId: Long?,
+        memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>>
 }

@@ -19,6 +19,7 @@ Authorization: Bearer <accessToken>   # 선택 — 없으면 비회원으로 처
 {
   "success": true,
   "payload": {
+    "authenticated": true,
     "avoidedSubstances": [
       { "code": "EGG", "name": "Egg" },
       { "code": "MILK", "name": "Milk" }
@@ -34,9 +35,11 @@ Authorization: Bearer <accessToken>   # 선택 — 없으면 비회원으로 처
 }
 ```
 
+- `authenticated`: 요청자가 회원인지 여부. 비회원이면 false.
 - `avoidedSubstances`: 회원 프로필의 기피 성분(코드 + 지역화 이름). 미설정이면 `[]`.
 - `popularFoods`: 최대 5개(READY 음식 무작위). 위험도는 회원 기피 기준. READY 음식이 5개 미만이면 있는 만큼.
 - `recentScans`: 최대 10개. 스캔 시각 내림차순·동일 메뉴 중복 제거·READY 매칭만. 이력 없으면 `[]`.
+- **배열 필드는 null 을 내려주지 않는다** — 값이 없으면 빈 배열(클라이언트 null 분기 불필요).
 
 ## Response 200 — 비회원
 
@@ -44,17 +47,18 @@ Authorization: Bearer <accessToken>   # 선택 — 없으면 비회원으로 처
 {
   "success": true,
   "payload": {
-    "avoidedSubstances": null,
+    "authenticated": false,
+    "avoidedSubstances": [],
     "popularFoods": [
       { "foodId": 12, "name": "Kimchi Stew", "koreanName": "김치찌개", "imageRef": "kimchi.png", "spiciness": 3, "overallRiskStatus": "UNKNOWN" }
     ],
-    "recentScans": null
+    "recentScans": []
   },
   "message": null
 }
 ```
 
-- 개인화 섹션은 `null`(회원의 "없음" `[]` 과 구분). 인기 음식만 영어로, 위험도는 회피 성분 없음이라 `UNKNOWN`.
+- 개인화 섹션은 빈 배열이고 `authenticated=false` 로 비회원임을 알린다(클라이언트는 이 플래그로 블러·가입 유도). 인기 음식만 영어로.
 
 ## Response 401 — 무효/만료 토큰
 
@@ -68,11 +72,12 @@ Authorization: Bearer <accessToken>   # 선택 — 없으면 비회원으로 처
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| `avoidedSubstances` | `AvoidedSubstanceView[] \| null` | 회원 기피 성분(null=비회원) |
+| `authenticated` | boolean | 요청자가 회원인지 여부(false=비회원 → 개인화 영역 블러) |
+| `avoidedSubstances` | `AvoidedSubstanceView[]` | 회원 기피 성분(비회원·미설정은 `[]`) |
 | `avoidedSubstances[].code` | string | 회피 성분 코드(`AvoidanceSubstanceCode`) |
 | `avoidedSubstances[].name` | string | 지역화 이름 |
 | `popularFoods` | `FoodSummaryView[]` | 인기 음식(항상, 최대 5) |
-| `recentScans` | `FoodSummaryView[] \| null` | 최근 스캔(null=비회원, 최대 10) |
+| `recentScans` | `FoodSummaryView[]` | 최근 스캔(비회원·이력없음은 `[]`, 최대 10) |
 | `FoodSummaryView.foodId` | number | 음식 id |
 | `FoodSummaryView.name` | string | 지역화 음식명 |
 | `FoodSummaryView.koreanName` | string \| null | 한국어 원문(지역화명과 같으면 null) |

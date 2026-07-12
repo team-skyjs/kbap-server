@@ -46,6 +46,11 @@ private class HistoryFakeFoodRepository(
                 contentStatus = FoodContentStatus.INCOMPLETE,
             )
         }
+
+    override fun findRandomReady(size: Int): List<Food> = emptyList()
+
+    override fun findAllReadyByIds(ids: List<Long>): List<Food> = emptyList()
+
 }
 
 private class HistoryFakeAvoidedProvider : AvoidedSubstanceProvider {
