@@ -19,17 +19,21 @@ import io.kotest.matchers.shouldBe
 
 class MemberProfileUseCaseTest : BehaviorSpec({
 
-    fun profileUseCase(
-        repository: FakeMemberRepository,
-        rankingRepository: FakeMemberRankingRepository = FakeMemberRankingRepository(),
-    ) = MemberProfileUseCase(repository, MemberRankingUseCase(repository, rankingRepository))
+    fun profileUseCase(repository: FakeMemberRepository) =
+        MemberProfileUseCase(repository, MemberRankingUseCase(repository))
 
-    fun member(id: Long, onboardingCompleted: Boolean = false, profile: MemberProfile = MemberProfile.empty()): Member =
+    fun member(
+        id: Long,
+        onboardingCompleted: Boolean = false,
+        profile: MemberProfile = MemberProfile.empty(),
+        scanCount: Int = 0,
+    ): Member =
         Member.reconstitute(
             id = id,
             identity = SocialIdentity(SocialProvider.GOOGLE, "google-sub-$id", "user$id@gmail.com"),
             profile = profile,
             onboardingCompleted = onboardingCompleted,
+            scanCount = scanCount,
         )
 
     fun input(
@@ -258,9 +262,8 @@ class MemberProfileUseCaseTest : BehaviorSpec({
     given("프로필 조회의 랭킹 요약") {
         `when`("메뉴판을 40번 스캔한 회원이 조회하면") {
             then("프로필과 함께 등급·점수·다음 등급이 담긴다") {
-                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true)) }
-                val rankingRepo = FakeMemberRankingRepository().apply { repeat(40) { increaseScanCount(1L) } }
-                val useCase = profileUseCase(repo, rankingRepo)
+                val repo = FakeMemberRepository().apply { seed(member(1L, onboardingCompleted = true, scanCount = 40)) }
+                val useCase = profileUseCase(repo)
 
                 val ranking = useCase.getMyProfile(1L).ranking
 

@@ -35,12 +35,7 @@ class MemberControllerTest : BehaviorSpec() {
         val objectMapper = jacksonObjectMapper()
 
         fun clearMembers() {
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM member_ranking")
-                    it.execute("DELETE FROM member")
-                }
-            }
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member") } }
         }
 
         fun loginAccessToken(): String {
@@ -91,14 +86,10 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun seedScanCount(scanCount: Int) {
-            val memberId = memberColumn("google-sub-fixed", "id")!!.toLong()
             dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "INSERT INTO member_ranking (member_id, scan_count, status, created_at, updated_at) " +
-                        "VALUES (?, ?, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
-                ).use { ps ->
-                    ps.setLong(1, memberId)
-                    ps.setInt(2, scanCount)
+                c.prepareStatement("UPDATE member SET scan_count = ? WHERE provider_uid = ?").use { ps ->
+                    ps.setInt(1, scanCount)
+                    ps.setString(2, "google-sub-fixed")
                     ps.executeUpdate()
                 }
             }
@@ -355,6 +346,20 @@ class MemberControllerTest : BehaviorSpec() {
         }
 
         given("프로필 응답의 랭킹 요약") {
+            `when`("가입 직후 회원이 프로필을 조회하면") {
+                then("모든 카운트가 0으로 초기화된 랭킹이 내려온다") {
+                    val token = loginAccessToken()
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    result.status shouldBe 200
+                    val ranking = objectMapper.readTree(result.contentAsString).path("payload").path("ranking")
+                    ranking.path("score").asInt() shouldBe 0
+                    ranking.path("tier").asText() shouldBe "newcomer"
+                    ranking.path("level").asInt() shouldBe 1
+                }
+            }
+
             `when`("메뉴판을 40번 스캔한 회원이 프로필을 조회하면") {
                 then("등급·점수·다음 등급이 함께 내려오고 점수 내역은 없다") {
                     val token = loginAccessToken()

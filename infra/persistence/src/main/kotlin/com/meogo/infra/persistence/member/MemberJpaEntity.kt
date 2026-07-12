@@ -42,6 +42,9 @@ class MemberJpaEntity(
 
     @Column(name = "onboarding_completed", nullable = false)
     var onboardingCompleted: Boolean = false,
+
+    @Column(name = "scan_count", nullable = false)
+    var scanCount: Int = 0,
 ) : BaseEntity() {
     fun toDomain(): Member =
         Member.reconstitute(
@@ -49,12 +52,14 @@ class MemberJpaEntity(
             identity = SocialIdentity(provider = provider, providerUserId = providerUid, email = email),
             profile = profile.toDomain(nickname),
             onboardingCompleted = onboardingCompleted,
+            scanCount = scanCount,
         )
 
-    fun applyProfile(domain: Member) {
+    fun applyDomain(domain: Member) {
         nickname = domain.profile.nickname
         profile = MemberProfileJson.from(domain.profile)
         onboardingCompleted = domain.onboardingCompleted
+        scanCount = domain.scanCount
     }
 
     fun withdraw() {
@@ -72,6 +77,6 @@ class MemberJpaEntity(
                 provider = domain.identity.provider,
                 providerUid = domain.identity.providerUserId,
                 email = domain.identity.email,
-            ).apply { applyProfile(domain) }
+            ).apply { applyDomain(domain) }
     }
 }

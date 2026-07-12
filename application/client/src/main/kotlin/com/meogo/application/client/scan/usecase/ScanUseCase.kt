@@ -11,7 +11,9 @@ import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
-import com.meogo.core.member.MemberRankingRepository
+import com.meogo.core.member.MemberErrorCode
+import com.meogo.core.member.MemberException
+import com.meogo.core.member.MemberRepository
 import com.meogo.core.scan.ScanHistory
 import com.meogo.core.scan.ScanHistoryRepository
 import org.slf4j.LoggerFactory
@@ -24,7 +26,7 @@ class ScanUseCase(
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val interpreter: ScannedNameInterpreter,
     private val scanHistoryRepository: ScanHistoryRepository,
-    private val memberRankingRepository: MemberRankingRepository,
+    private val memberRepository: MemberRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -53,9 +55,15 @@ class ScanUseCase(
         }
 
         recordHistory(input.memberId, items)
-        memberRankingRepository.increaseScanCount(input.memberId)
+        recordScanCount(input.memberId)
 
         return ScanResult(items = items, degraded = refinement.degraded)
+    }
+
+    private fun recordScanCount(memberId: Long) {
+        val member = memberRepository.findById(memberId)
+            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
+        memberRepository.update(member.recordScan())
     }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {

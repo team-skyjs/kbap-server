@@ -30,7 +30,8 @@
 ```
 
 - `breakdown` 세 항목의 `points` 합은 항상 `score` 와 같다.
-- **현재 제약**: 리뷰 도메인이 없어 `reviews.count`·`diversity.count` 는 항상 0, `points` 도 0이다. 리뷰 기능 도입 시 자동으로 채워진다.
+- **현재 제약**: 리뷰 도메인이 없어 `reviews.count`·`diversity.count` 는 항상 0, `points` 도 0이다. 리뷰 기능 도입 시 채워진다.
+- 가입 직후 회원은 모든 카운트가 0이라 `score` 0 · `tier` `newcomer` · `pointsToNext` 30 이다.
 
 ### 401 Unauthorized
 

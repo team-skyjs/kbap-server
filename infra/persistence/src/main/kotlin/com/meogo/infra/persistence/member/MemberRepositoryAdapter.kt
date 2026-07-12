@@ -29,7 +29,7 @@ class MemberRepositoryAdapter(
     override fun update(member: Member): Member {
         val id = member.id ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
         val entity = findActive(id) ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        entity.applyProfile(member)
+        entity.applyDomain(member)
         return memberJpaRepository.save(entity).toDomain()
     }
 

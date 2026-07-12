@@ -3,7 +3,11 @@ package com.meogo.application.client.scan.usecase
 import com.meogo.application.client.scan.dto.ScanItemInput
 import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
-import com.meogo.application.client.member.FakeMemberRankingRepository
+import com.meogo.application.client.member.FakeMemberRepository
+import com.meogo.core.member.Member
+import com.meogo.core.member.MemberProfile
+import com.meogo.core.member.SocialIdentity
+import com.meogo.core.member.SocialProvider
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
@@ -102,7 +106,16 @@ class ScanUseCaseTest : BehaviorSpec({
         avoidedSubstanceProvider = ScanFakeAvoidedProvider(),
         interpreter = interpreter,
         scanHistoryRepository = FakeScanHistoryRepository(),
-        memberRankingRepository = FakeMemberRankingRepository(),
+        memberRepository = FakeMemberRepository().apply {
+            seed(
+                Member.reconstitute(
+                    id = 1L,
+                    identity = SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "user1@gmail.com"),
+                    profile = MemberProfile.empty(),
+                    onboardingCompleted = true,
+                ),
+            )
+        },
     )
 
     fun translatedFood(id: Long, koreanName: String, english: String) = Food.reconstitute(

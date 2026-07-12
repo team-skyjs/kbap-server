@@ -13,7 +13,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 
 **Organization**: 스토리별로 묶어 각각 독립 검증한다. 워크트리 `~/source_code/meogo/meogo-server-kb-123`(브랜치 `kb-123-member-ranking`)에서 작업한다.
 
-**스캔 횟수 단위 확정(2026-07-12)**: 메뉴판 1장 = 1회. `scan_history` 행 수 집계 안(초안)을 폐기하고, 회원당 1행 카운터 테이블 `member_ranking` + 스캔 시 카운트업으로 바꿨다.
+**설계 확정 이력**: (1) 스캔 횟수 단위 = 메뉴판 1장 1회 → `scan_history` 행 수 집계 안 폐기. (2) 랭킹은 **`Member` 애그리거트의 하위 개념** → 별도 카운터 테이블(`member_ranking`) 안을 폐기하고 `member.scan_count` 컬럼으로 이전. 가입 시 0 초기화, 이후 카운트업만. 동시성(read-modify-write 유실)은 초기 단계라 의도적으로 감수하며, 필요해지면 이벤트 기반 집계로 전환한다.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -34,11 +34,11 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 **Purpose**: US1·US2·US3 이 모두 의존하는 산정 로직과 스캔 횟수 카운터.
 
 - [x] T002 [P] **Red** — `core/member/src/test/kotlin/com/meogo/core/member/MemberRankingTest.kt`: 점수 공식, 검증 케이스(리뷰 8·고유음식 6·스캔 9 → 128 · explorer · nextTier regular · pointsToNext 52), 활동 0 → newcomer, 음수 카운트 거부, breakdown 합 = score
-- [x] T003 [P] **Red** — `infra/persistence/src/test/kotlin/com/meogo/infra/persistence/member/MemberRankingRepositoryAdapterTest.kt`: 첫 스캔 시 카운터 행 생성(1), 반복 스캔 시 1씩 증가, 회원 간 격리, 기록 없는 회원은 0
+- [x] T003 [P] **Red** — `core/member/src/test/kotlin/com/meogo/core/member/MemberTest.kt`: 가입 직후 `scanCount` 0·랭킹 최하 등급, `recordScan()` 이 새 인스턴스에서 1 올리고 원본 불변, 프로필 갱신 시 스캔 횟수 보존
 - [x] T004 **Green** — `core/member/src/main/kotlin/com/meogo/core/member/RankingTier.kt`: 7단계 enum(안정 키·level·minScore), `of(score)`(경계값은 상위 등급), `next`
 - [x] T005 **Green** — `core/member/src/main/kotlin/com/meogo/core/member/MemberRanking.kt`: 카운트 3개를 받는 불변 값 객체(score·tier·nextTier·pointsToNext·항목별 점수)
-- [x] T006 **Green** — 스캔 횟수 카운터 영속: `core/member/.../MemberRankingRepository.kt`(port: `increaseScanCount`·`scanCountOf`), `infra/persistence/.../member/MemberRankingJpaEntity.kt`(member_id 유니크), `MemberRankingJpaRepository.kt`(원자적 `INSERT ... ON DUPLICATE KEY UPDATE` + 카운트 조회), `MemberRankingRepositoryAdapter.kt`, 마이그레이션 `app/api/src/main/resources/db/migration/V2026.07.12.23.14.05__create_member_ranking_table.sql`
-- [x] T007 **Red** — `application/client/src/test/kotlin/com/meogo/application/client/member/MemberRankingUseCaseTest.kt`(페이크): 스캔 카운트가 점수에 반영, 리뷰·다양성 0, 존재하지 않는 회원이면 `MEMBER_NOT_FOUND`
+- [x] T006 **Green** — 랭킹을 `Member` 애그리거트에 편입: `core/member/.../Member.kt`(`scanCount`·`recordScan()`·`ranking()`, 가입 시 0), `infra/persistence/.../member/MemberJpaEntity.kt`(`scan_count` 컬럼 + `applyDomain`), `MemberRepositoryAdapter.kt`, 마이그레이션 `app/api/src/main/resources/db/migration/V2026.07.13.00.12.40__add_member_scan_count.sql`. 영속 왕복은 `MemberRepositoryAdapterTest`(가입 시 0·카운트업 영속·프로필 갱신 시 보존)
+- [x] T007 **Red** — `application/client/src/test/kotlin/com/meogo/application/client/member/MemberRankingUseCaseTest.kt`(페이크 회원 리포지토리): 회원의 스캔 횟수가 점수에 반영, 리뷰·다양성 0, 존재하지 않는 회원이면 `MEMBER_NOT_FOUND`
 - [x] T008 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/member/MemberRankingUseCase.kt` + `dto/MemberRankingResult.kt`(경계 DTO — app:api 가 도메인 타입을 보지 않게)
 
 ---
@@ -48,7 +48,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 **Goal**: 메뉴판 스캔 1회마다 회원의 스캔 횟수가 1 오른다.
 
 - [x] T009 **Red** — `application/client/src/test/kotlin/com/meogo/application/client/scan/usecase/ScanUseCaseHistoryTest.kt`: 메뉴판 1장에 음식이 여러 개 매칭돼도 1회만, 두 번 스캔하면 2회, 매칭 0건이어도 1회, 회원 간 격리
-- [x] T010 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/ScanUseCase.kt`: `assessMenuBoard` 끝에서 `memberRankingRepository.increaseScanCount(input.memberId)` 호출
+- [x] T010 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/ScanUseCase.kt`: `assessMenuBoard` 끝에서 회원 로드 → `member.recordScan()` → `memberRepository.update`
 
 ---
 
@@ -57,7 +57,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 **Independent Test**: 회원 토큰으로 `GET /api/v1/members/me/profile` 호출 → 기존 필드 + `ranking` 요약(breakdown 없음).
 
 - [x] T011 [US1] **Red** — `MemberProfileUseCaseTest.kt`: 프로필 결과에 랭킹 요약이 담긴다(스캔 40회 → 80점·explorer·pointsToNext 100 / 활동 0 → newcomer)
-- [x] T012 [US1] **Red** — `app/api/src/test/kotlin/com/meogo/app/api/member/MemberControllerTest.kt`: 프로필 응답에 `ranking.tier`·`level`·`score`·`nextTier`·`pointsToNext` 가 있고 `breakdown` 은 없다, 미인증 401
+- [x] T012 [US1] **Red** — `app/api/src/test/kotlin/com/meogo/app/api/member/MemberControllerTest.kt`: 가입 직후 회원은 0점·newcomer, 스캔 40회 회원은 80점·explorer, `breakdown` 은 없다, 미인증 401
 - [x] T013 [US1] **Green** — `application/client/.../dto/MyProfileResult.kt`(랭킹 요약 필드) + `MemberProfileUseCase` 가 `MemberRankingUseCase` 호출
 - [x] T014 [US1] **Green** — `app/api/.../member/MyProfileResponse.kt`(`ranking` 요약) + `MemberApi.kt` 프로필 조회 swagger 설명 갱신
 
@@ -87,9 +87,9 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 
 - [x] T021 전체 테스트 그린 — `./gradlew test`(ArchUnit `ModuleBoundaryTest` 포함)
 - [x] T022 [P] Kotlin 주석 금지 규약 확인 — 신규·수정 `.kt` 에 주석 없음
-- [x] T023 설계 문서 동기화 — plan/research/data-model/contracts/quickstart 를 "카운터 테이블 + 스캔 시 카운트업" 으로 갱신(초안의 "스키마 무변경·이력 행 수 집계" 폐기)
+- [x] T023 설계 문서 동기화 — plan/research/data-model/contracts/quickstart 를 "Member 애그리거트 하위 랭킹 + member.scan_count 카운트업" 으로 갱신(초안의 "스키마 무변경·이력 행 수 집계" 와 중간안 "별도 카운터 테이블" 모두 폐기)
 - [ ] T024 수동 검증 — `quickstart.md` 절차대로 `SPRING_PROFILES_ACTIVE=local ./gradlew :app:api:bootRun` 후 스캔 → 프로필·랭킹 상세 응답 일치·401 확인, Swagger "회원" 태그 노출 확인
-- [ ] T025 draft PR — `open-draft-pr-to-develop` 스킬. 본문에 **계약 변경 2건**을 명시: (1) 프로필 응답에 `ranking` 요약 추가, (2) 스캔 시 `member_ranking` 카운트업 + 신규 마이그레이션(기존 회원 스캔 횟수는 소급 없음)
+- [ ] T025 draft PR — `open-draft-pr-to-develop` 스킬. 본문에 **계약 변경 2건**을 명시: (1) 프로필 응답에 `ranking` 요약 추가, (2) `member.scan_count` 컬럼 추가 마이그레이션 + 스캔 시 카운트업(기존 회원 스캔 횟수는 소급 없음)
 
 ---
 
@@ -100,5 +100,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 
 ## 남은 리스크
 
-- **기존 회원의 스캔 횟수는 0에서 시작한다.** 카운터는 배포 이후 스캔부터 쌓이며, `scan_history` 로 소급 집계하지 않는다(메뉴판 단위 복원이 불가능하다 — 음식 단위 행만 있다).
+- **기존 회원의 스캔 횟수는 0에서 시작한다.** 배포 이후 스캔부터 쌓이며, `scan_history` 로 소급 집계하지 않는다(메뉴판 단위 복원이 불가능하다 — 음식 단위 행만 있다).
+- **동시 스캔 시 카운트 1회가 유실될 수 있다**(read-modify-write). 의도적 수용 — 관측되면 이벤트 기반 집계로 전환한다.
+- 로컬 DB 에 이전 `member_ranking` 마이그레이션을 적용했다면 테이블과 `flyway_schema_history` 행을 정리해야 부팅된다.
 - KB-124(프로필 수정 부분 수정 전환)와 `MemberProfileUseCase`·`MemberController`·`MemberControllerTest` 가 겹친다 — 먼저 머지된 쪽 기준으로 리베이스.

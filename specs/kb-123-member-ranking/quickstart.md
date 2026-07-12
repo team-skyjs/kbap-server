@@ -10,7 +10,7 @@
 ./gradlew :core:member:test --tests "com.meogo.core.member.MemberRankingTest"      # 도메인 단위(빠름)
 ./gradlew :application:client:test --tests "*MemberRanking*"                        # 유스케이스(페이크)
 ./gradlew :application:client:test --tests "*ScanUseCaseHistoryTest"                # 스캔 1회당 카운트업
-./gradlew :infra:persistence:test --tests "*MemberRankingRepositoryAdapterTest"     # 카운터 upsert(Testcontainers)
+./gradlew :infra:persistence:test --tests "*MemberRepositoryAdapterTest"            # scan_count 영속(Testcontainers)
 ./gradlew :app:api:test --tests "com.meogo.app.api.member.MemberControllerTest"     # MockMvc + Testcontainers
 ./gradlew test                                                                      # 전체
 ```
@@ -24,7 +24,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :app:api:bootRun
 ```
 
 1. 로그인해 access token 을 얻는다.
-2. 메뉴판 스캔을 몇 번 수행한다(스캔 1회 = 메뉴판 1장 → `member_ranking.scan_count` 가 1씩 오른다).
+2. 메뉴판 스캔을 몇 번 수행한다(스캔 1회 = 메뉴판 1장 → `member.scan_count` 가 1씩 오른다).
 3. 랭킹 상세:
    ```bash
    curl -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/members/me/ranking
@@ -46,7 +46,8 @@ Swagger: `localhost:8080/swagger-ui/index.html` — "회원" 태그에 랭킹 �
 
 ## 배포 시 유의
 
-- Flyway 마이그레이션 1건이 추가됐다(`V2026.07.12.23.14.05__create_member_ranking_table.sql` — `member_ranking`). 기존 회원의 스캔 횟수는 소급되지 않는다(카운터는 배포 이후 스캔부터 쌓인다).
+- Flyway 마이그레이션 1건이 추가됐다(`V2026.07.13.00.12.40__add_member_scan_count.sql` — `member.scan_count DEFAULT 0`). 기존 회원의 스캔 횟수는 0에서 시작한다(소급 집계 없음 — 배포 이후 스캔부터 쌓인다).
+- 이전 커밋의 `member_ranking` 테이블 마이그레이션을 이미 로컬 DB 에 적용했다면, 그 테이블과 `flyway_schema_history` 의 해당 행을 지우고 다시 부팅한다(파일이 사라져 Flyway validate 가 실패한다).
 
 ## 배포 후 할 일
 

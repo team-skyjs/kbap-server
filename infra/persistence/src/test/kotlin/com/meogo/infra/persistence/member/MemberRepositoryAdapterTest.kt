@@ -287,5 +287,38 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("스캔 횟수 — 랭킹 카운트") {
+            `when`("가입 직후 회원을 저장하면") {
+                then("스캔 횟수가 0으로 초기화된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+
+                    saved.scanCount shouldBe 0
+                    readColumn(saved.id!!, "scan_count") shouldBe "0"
+                }
+            }
+
+            `when`("스캔을 기록해 저장하면") {
+                then("올라간 횟수가 영속되고 다시 조회해도 유지된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+
+                    adapter.update(saved.recordScan().recordScan())
+
+                    adapter.findById(saved.id!!)!!.scanCount shouldBe 2
+                    readColumn(saved.id!!, "scan_count") shouldBe "2"
+                }
+            }
+
+            `when`("스캔 이후 프로필을 갱신하면") {
+                then("스캔 횟수가 보존된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+                    val scanned = adapter.update(saved.recordScan())
+
+                    adapter.update(scanned.updateProfile(MemberProfile.empty()))
+
+                    adapter.findById(saved.id!!)!!.scanCount shouldBe 1
+                }
+            }
+        }
     }
 }

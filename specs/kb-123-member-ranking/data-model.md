@@ -1,6 +1,6 @@
 # Phase 1 Data Model: 회원 랭킹 산정 및 조회
 
-**신규 테이블 1개**(`member_ranking`) + Flyway 마이그레이션 1건. 점수·등급은 저장하지 않고 카운트에서 조회 시점에 계산한다.
+**`member` 테이블에 컬럼 1개 추가**(`scan_count`) + Flyway 마이그레이션 1건. 신규 테이블 없음. 점수·등급은 저장하지 않고 카운트에서 조회 시점에 계산한다. 랭킹은 `Member` 애그리거트의 하위 개념이다.
 
 ## 도메인 모델 (`:core:member`, ORM-free · Spring-free)
 
@@ -22,6 +22,10 @@
 - `of(score)`: 진입 점수가 `score` 이하인 등급 중 가장 높은 것. 경계값은 상위 등급으로 판정한다(30 → TASTER).
 - `next`: 다음 등급(최고 등급이면 `null`).
 
+### Member (애그리거트 루트, 기존)
+
+`scanCount: Int` 를 갖는다 — 가입 시 0, `recordScan()` 이 1 올린 새 인스턴스를 반환하고, `ranking()` 이 자기 카운트로 `MemberRanking` 을 만든다(리뷰·다양성은 리뷰 도메인 부재로 0).
+
 ### MemberRanking (값 객체, 불변)
 
 조회 시점에 산출되는 회원 1인의 랭킹. 저장하지 않는다.
@@ -41,22 +45,16 @@
 
 ## 카운트 소스
 
-### member_ranking (신규 테이블)
-
-회원의 활동 카운터를 **회원당 1행**으로 누적한다. 점수·등급은 담지 않는다(계산은 조회 시점).
+### member (기존 테이블, 컬럼 1개 추가)
 
 | 컬럼 | 타입 | 비고 |
 |------|------|------|
-| id | BIGINT PK | BaseEntity |
-| member_id | BIGINT NOT NULL | **UNIQUE** (`uk_member_ranking_member`), FK → member(id) |
-| scan_count | INT NOT NULL DEFAULT 0 | 메뉴판 스캔 횟수 |
-| status | VARCHAR(20) | BaseEntity — 소프트삭제 |
-| created_at / updated_at | DATETIME(6) | BaseEntity |
+| scan_count | INT NOT NULL DEFAULT 0 | 메뉴판 스캔 횟수. **가입 시 0**(`Member.signUp` + DEFAULT) |
 
 - **스캔 1회 = 메뉴판 1장**(정책 확정). 매칭된 음식 수와 무관하게 `ScanUseCase.assessMenuBoard` 호출당 1 증가하며, 매칭 결과가 하나도 없어도 오른다.
-- 카운트업은 `INSERT ... ON DUPLICATE KEY UPDATE scan_count = scan_count + 1` 로 원자적이다(행이 없으면 생성). 유니크 키가 이 upsert 의 전제라 필수다.
-- 기록이 없는 회원의 조회는 0으로 취급한다(행을 미리 만들지 않는다).
-- 리뷰 수·고유 음식 수는 리뷰 도메인 도입 시 이 테이블에 컬럼으로 추가한다.
+- 카운트업은 `Member.recordScan()`(불변 — 새 인스턴스 반환) 후 `MemberRepository.update`. 회원 로드 → 증가 → 저장이라 **같은 회원의 동시 스캔에서 1회가 유실될 수 있다** — 초기 단계라 감수하며, 문제가 되면 이벤트 기반 집계로 전환한다.
+- 탈퇴하면 회원 행과 함께 소프트 삭제되므로 따로 정리할 카운터가 없다.
+- 리뷰 수·고유 음식 수는 리뷰 도메인 도입 시 같은 방식으로 `member` 에 컬럼을 추가한다(현재 계산에서 0).
 
 ### scan_history (변경 없음)
 
@@ -66,13 +64,6 @@
 
 리뷰 테이블·도메인이 아직 없다. 리뷰 수·고유 음식 수는 0으로 산정한다.
 
-## 포트 (`:core:member`)
+## 애그리거트
 
-```
-interface MemberRankingRepository {
-    fun increaseScanCount(memberId: Long)
-    fun scanCountOf(memberId: Long): Int
-}
-```
-
-구현은 `:infra:persistence` 의 `MemberRankingRepositoryAdapter`. `ScanUseCase` 는 카운트업만, `MemberRankingUseCase` 는 조회만 쓴다.
+랭킹 전용 리포지토리·포트는 없다. `MemberRepository`(기존 port)로 회원을 읽고 저장하며, 랭킹은 `Member` 가 자기 카운트에서 파생한다(`Member.ranking()`).

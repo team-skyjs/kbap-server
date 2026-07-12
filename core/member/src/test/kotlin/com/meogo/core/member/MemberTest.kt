@@ -19,6 +19,56 @@ class MemberTest : BehaviorSpec({
                 member.identity.providerUserId shouldBe "google-sub-1"
             }
         }
+
+        `when`("가입 직후 랭킹을 보면") {
+            then("모든 카운트가 0이고 최하 등급이다") {
+                val member = Member.signUp(googleIdentity())
+
+                member.scanCount shouldBe 0
+
+                val ranking = member.ranking()
+                ranking.score shouldBe 0
+                ranking.tier shouldBe RankingTier.NEWCOMER
+                ranking.pointsToNext shouldBe 30
+            }
+        }
+    }
+
+    given("Member.recordScan — 메뉴판 스캔 카운트업(불변)") {
+        `when`("메뉴판을 한 번 스캔하면") {
+            then("새 인스턴스의 스캔 횟수가 1 오르고 원본은 그대로다") {
+                val member = Member.signUp(googleIdentity())
+
+                val scanned = member.recordScan()
+
+                scanned.scanCount shouldBe 1
+                member.scanCount shouldBe 0
+            }
+        }
+
+        `when`("메뉴판을 여러 번 스캔하면") {
+            then("스캔 횟수만큼 점수가 오른다") {
+                val member = (1..40).fold(Member.signUp(googleIdentity())) { m, _ -> m.recordScan() }
+
+                member.scanCount shouldBe 40
+
+                val ranking = member.ranking()
+                ranking.score shouldBe 80
+                ranking.tier shouldBe RankingTier.EXPLORER
+                ranking.nextTier shouldBe RankingTier.REGULAR
+                ranking.pointsToNext shouldBe 100
+            }
+        }
+
+        `when`("스캔 이후 프로필을 갱신해도") {
+            then("스캔 횟수는 보존된다") {
+                val member = Member.signUp(googleIdentity()).recordScan().recordScan()
+
+                val updated = member.updateProfile(MemberProfile.empty())
+
+                updated.scanCount shouldBe 2
+            }
+        }
     }
 
     given("Member.updateProfile — 프로필 갱신(불변)") {
