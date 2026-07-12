@@ -3,6 +3,7 @@ package com.meogo.application.client.scan.usecase
 import com.meogo.application.client.scan.dto.ScanItemInput
 import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
+import com.meogo.application.client.member.FakeMemberRankingRepository
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
 import com.meogo.core.food.AvoidanceSubstanceCodeRef
 import com.meogo.core.food.Food
@@ -101,6 +102,7 @@ class ScanUseCaseTest : BehaviorSpec({
         avoidedSubstanceProvider = ScanFakeAvoidedProvider(),
         interpreter = interpreter,
         scanHistoryRepository = FakeScanHistoryRepository(),
+        memberRankingRepository = FakeMemberRankingRepository(),
     )
 
     fun translatedFood(id: Long, koreanName: String, english: String) = Food.reconstitute(

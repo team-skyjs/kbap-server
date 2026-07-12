@@ -96,13 +96,16 @@ interface MemberApi {
     @Operation(
         summary = "내 프로필 조회",
         description = """
-            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어)를 조회한다.
+            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
+            다음 등급까지 남은 점수)을 함께 조회한다. 프로필 탭이 이 응답 하나로 그려지도록 랭킹 요약을 싣되,
+            점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
+            등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
             `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "조회 성공 — 프로필 정보"),
+            ApiResponse(responseCode = "200", description = "조회 성공 — 프로필 정보 + 랭킹 요약"),
             ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
@@ -111,6 +114,29 @@ interface MemberApi {
     fun getMyProfile(
         memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
+
+    @Operation(
+        summary = "내 랭킹 상세 조회",
+        description = """
+            현재 회원의 랭킹을 점수 내역까지 조회한다. 점수는 `리뷰 수 × 10 + 리뷰한 고유 음식 수 × 5 +
+            스캔 횟수 × 2` 로 산정하며, 스캔 횟수는 메뉴판 1장을 1회로 센다. 등급은 누적 점수 구간으로
+            7단계(newcomer 0 · taster 30 · explorer 80 · regular 180 · gourmet 350 · kfood_master 600 ·
+            korean_at_heart 1000)이며, 최고 등급이면 nextTier·pointsToNext 가 null 이다.
+            리뷰 기능 도입 전이라 reviews·diversity 는 현재 항상 0이다.
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 랭킹 요약 + 점수 내역"),
+            ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+        ],
+    )
+    @GetMapping("/me/ranking")
+    fun getMyRanking(
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<MemberRankingResponse>>
 
     @Operation(
         summary = "프로필 수정 (부분 수정)",

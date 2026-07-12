@@ -1,6 +1,7 @@
 package com.meogo.application.client.scan.usecase
 
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
+import com.meogo.application.client.member.FakeMemberRankingRepository
 import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.scan.dto.ScanItemInput
 import com.meogo.core.avoidance.AvoidanceSubstanceCode
@@ -77,11 +78,13 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
     fun useCase(
         foods: Map<String, Food>,
         historyRepository: FakeScanHistoryRepository,
+        rankingRepository: FakeMemberRankingRepository = FakeMemberRankingRepository(),
     ) = ScanUseCase(
         foodRepository = HistoryFakeFoodRepository(foods),
         avoidedSubstanceProvider = HistoryFakeAvoidedProvider(),
         interpreter = HistoryFakeInterpreter(),
         scanHistoryRepository = historyRepository,
+        memberRankingRepository = rankingRepository,
     )
 
     fun input(memberId: Long, vararg names: String) = ScanInput(
@@ -131,6 +134,59 @@ class ScanUseCaseHistoryTest : BehaviorSpec({
                 uc.assessMenuBoard(input(11L, "비빔밥", "처음보는찌개"))
 
                 history.saved.map { it.memberId to it.foodId } shouldContainExactly listOf(11L to 30L)
+            }
+        }
+    }
+
+    given("랭킹 스캔 횟수 집계") {
+        `when`("메뉴판 한 장에 여러 음식이 매칭되면") {
+            then("스캔 횟수는 메뉴판 단위로 1회만 오른다") {
+                val ranking = FakeMemberRankingRepository()
+                val uc = useCase(
+                    mapOf("김치찌개" to readyFood(7L, "김치찌개"), "비빔밥" to readyFood(8L, "비빔밥")),
+                    FakeScanHistoryRepository(),
+                    ranking,
+                )
+
+                uc.assessMenuBoard(input(11L, "김치찌개", "비빔밥"))
+
+                ranking.scanCountOf(11L) shouldBe 1
+            }
+        }
+
+        `when`("같은 회원이 메뉴판을 두 번 스캔하면") {
+            then("스캔 횟수가 2가 된다") {
+                val ranking = FakeMemberRankingRepository()
+                val uc = useCase(mapOf("김치찌개" to readyFood(7L, "김치찌개")), FakeScanHistoryRepository(), ranking)
+
+                uc.assessMenuBoard(input(11L, "김치찌개"))
+                uc.assessMenuBoard(input(11L, "김치찌개"))
+
+                ranking.scanCountOf(11L) shouldBe 2
+            }
+        }
+
+        `when`("매칭된 음식이 하나도 없으면") {
+            then("스캔 횟수는 그래도 1회 오른다") {
+                val ranking = FakeMemberRankingRepository()
+                val uc = useCase(emptyMap(), FakeScanHistoryRepository(), ranking)
+
+                uc.assessMenuBoard(input(11L, "처음보는찌개"))
+
+                ranking.scanCountOf(11L) shouldBe 1
+            }
+        }
+
+        `when`("다른 회원이 스캔하면") {
+            then("자기 횟수만 오른다") {
+                val ranking = FakeMemberRankingRepository()
+                val uc = useCase(mapOf("김치찌개" to readyFood(7L, "김치찌개")), FakeScanHistoryRepository(), ranking)
+
+                uc.assessMenuBoard(input(11L, "김치찌개"))
+                uc.assessMenuBoard(input(99L, "김치찌개"))
+
+                ranking.scanCountOf(11L) shouldBe 1
+                ranking.scanCountOf(99L) shouldBe 1
             }
         }
     }

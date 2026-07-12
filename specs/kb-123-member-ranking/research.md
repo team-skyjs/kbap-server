@@ -1,0 +1,46 @@
+# Phase 0 Research: 회원 랭킹 산정 및 조회
+
+Technical Context 에 NEEDS CLARIFICATION 은 없다(스택·저장소·테스트 전략이 기존 코드에서 확정). 대신 이 기능에서 갈릴 수 있었던 설계 선택 5건을 기록한다.
+
+## 1. 랭킹 산정 로직을 어디에 두는가
+
+- **Decision**: `:core:member` 에 순수 값 객체(`MemberRanking`, `RankingTier`)로 둔다. 입력은 평면 카운트 3개(`reviewCount`, `uniqueReviewedFoodCount`, `scanCount`).
+- **Rationale**: 랭킹은 "회원의 등급"이라 member 컨텍스트가 소유하는 게 자연스럽다. 입력을 Int 카운트로 제한하면 member 가 scan·review 도메인 타입을 import 하지 않아 원칙 II(컨텍스트 간 무결합)를 지키면서, 공식·등급 경계를 Spring·DB 없이 밀리초 단위 단위 테스트로 고정할 수 있다.
+- **Alternatives considered**:
+  - `:core:kernel` — 여러 컨텍스트가 공유하는 vocabulary 가 아니라 member 소유 개념이라 커널 오염이다(원칙 II 의 "소유 컨텍스트에 둔다").
+  - `:application:client` 에 계산 코드 — 도메인 규칙(공식·등급표)이 유스케이스에 섞여 재사용·테스트가 어렵다.
+  - 신규 `:core:ranking` 모듈 — 값 객체 2개를 위해 모듈을 신설하는 건 과설계.
+
+## 2. 리뷰 수·고유 음식 수를 어떻게 다루는가 (리뷰 도메인 부재)
+
+- **Decision**: 집계 포트를 만들지 않는다. 유스케이스가 리뷰 카운트에 0을 넣어 산정한다.
+- **Rationale**: `:core:review` 는 빈 placeholder 라 구현할 데이터가 없다. 구현체가 하나도 없는 포트 + 0을 반환하는 가짜 어댑터는 지금 아무 동작도 하지 않으면서 파일과 배선만 늘린다. 산정 함수가 카운트를 인자로 받으므로 리뷰 도메인이 생기면 유스케이스 한 줄(리포지토리 호출)로 값이 채워지고 공식·등급표·응답 계약은 그대로다 — FR-011("산정 규칙 변경 없이 반영")을 이미 만족한다.
+- **Alternatives considered**:
+  - Jira DoD 에 적힌 "리뷰 집계 포트 정의 + 0 반환 연결" — 지금 시점에 인터페이스 1개 + 구현 1개가 늘지만 얻는 게 없다. 리뷰 기능이 실제로 붙을 때 포트를 만들어도 늦지 않다.
+  - 리뷰 기능 완성까지 랭킹 자체를 보류 — FE 가 이미 mock 으로 대기 중이라 스캔 점수만이라도 먼저 내보내는 편이 낫다.
+
+## 3. 스캔 횟수를 어떻게 세는가 (메뉴판 1장 = 1회)
+
+- **Decision**: 회원당 1행 카운터 테이블 `member_ranking(member_id UNIQUE, scan_count)` 를 두고, `ScanUseCase.assessMenuBoard` 가 스캔 1회마다 원자적 upsert 로 올린다. **점수·등급은 저장하지 않는다**(조회 시점 계산).
+- **Rationale**: 스캔 횟수는 메뉴판 1장을 1회로 센다(기획 확정). `scan_history` 는 매칭된 음식마다 행이 생겨 행 수 = 음식 수이므로 횟수 집계에 쓸 수 없고, 메뉴판 단위 스캔 자체를 세는 곳이 지금 어디에도 없다. 카운터 1행이면 조회는 유니크 키 단건 SELECT 로 끝나고, `INSERT ... ON DUPLICATE KEY UPDATE` 가 read-modify-write 경합을 제거한다.
+- **Alternatives considered**:
+  - `scan_history` 행 수 집계 — 메뉴판 1장에서 음식 5개가 잡히면 5회로 세어 점수가 부풀려진다(기획 의도와 불일치).
+  - `scan_history` 에 스캔 세션 ID 컬럼 추가 후 distinct 집계 — 이력 테이블에 새 컬럼 + 매 조회 distinct 집계가 필요하고, 얻는 건 카운터 1행과 같다.
+  - 점수까지 미리 계산해 저장 — 배점·등급표가 바뀌면 전량 재계산이 필요하다. 카운트만 저장하면 정책 변경이 조회 로직 교체로 끝난다(SC-006 즉시 반영도 유지).
+
+## 4. 프로필 응답에 랭킹을 실을 것인가
+
+- **Decision**: 프로필 조회 응답에 랭킹 **요약**(등급·레벨·점수·다음 등급·남은 점수)을 싣고, 점수 내역(breakdown)은 상세 전용 엔드포인트에만 둔다.
+- **Rationale**: 프로필 탭이 한 화면에서 프로필 + 랭킹 카드를 그리므로 호출 1회로 끝내고 싶다(SC-001). breakdown 은 랭킹 상세 화면에서만 쓰이므로 프로필 응답을 부풀리지 않는다.
+- **Alternatives considered**:
+  - 프로필과 랭킹을 완전히 분리(FE 가 2회 호출) — 정책 문서의 원래 전제. 화면 하나에 왕복 2회가 든다.
+  - 프로필 응답에 breakdown 까지 포함 — 프로필 탭이 쓰지 않는 데이터고, 랭킹 상세 진입 경로가 딥링크로 늘어나면 어차피 상세 조회가 필요하다.
+- **주의**: 정책 문서(예진, 2026-07-09)의 전제와 달라졌으므로 FE 에 공유해야 한다.
+
+## 5. 프로필 유스케이스와 랭킹 유스케이스의 관계
+
+- **Decision**: `MemberProfileUseCase.getMyProfile` 이 `MemberRankingUseCase` 를 호출해 랭킹을 얻는다(회원 조회가 1회 더 발생).
+- **Rationale**: 산정 경로가 하나뿐이라 프로필 요약과 랭킹 상세가 구조적으로 어긋날 수 없다(FR-008·SC-004). 추가 비용은 PK 단건 SELECT 1회다.
+- **Alternatives considered**:
+  - 프로필 유스케이스가 카운트 리포지토리를 직접 들고 `MemberRanking` 을 조립 — 조립 코드가 두 곳에 복제돼 어긋날 여지가 생긴다.
+  - 랭킹 유스케이스에서 회원 존재 확인을 빼기 — 탈퇴 회원의 유효 토큰으로 상세를 조회하면 0점 랭킹이 응답된다(스펙 Edge Case 위반).

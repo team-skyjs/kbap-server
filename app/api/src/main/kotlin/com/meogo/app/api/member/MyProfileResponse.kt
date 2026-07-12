@@ -1,5 +1,6 @@
 package com.meogo.app.api.member
 
+import com.meogo.application.client.member.dto.MemberRankingResult
 import com.meogo.application.client.member.dto.MyProfileResult
 
 data class MyProfileResponse(
@@ -9,7 +10,27 @@ data class MyProfileResponse(
     val countryCode: String?,
     val appLanguage: String?,
     val onboardingCompleted: Boolean,
+    val ranking: RankingSummary,
 ) {
+    data class RankingSummary(
+        val tier: String,
+        val level: Int,
+        val score: Int,
+        val nextTier: String?,
+        val pointsToNext: Int?,
+    ) {
+        companion object {
+            fun from(result: MemberRankingResult): RankingSummary =
+                RankingSummary(
+                    tier = result.tier,
+                    level = result.level,
+                    score = result.score,
+                    nextTier = result.nextTier,
+                    pointsToNext = result.pointsToNext,
+                )
+        }
+    }
+
     companion object {
         fun from(result: MyProfileResult): MyProfileResponse =
             MyProfileResponse(
@@ -19,6 +40,7 @@ data class MyProfileResponse(
                 countryCode = result.countryCode,
                 appLanguage = result.appLanguage,
                 onboardingCompleted = result.onboardingCompleted,
+                ranking = RankingSummary.from(result.ranking),
             )
     }
 }
