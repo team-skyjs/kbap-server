@@ -283,23 +283,23 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
             `when`("탈퇴 후 같은 access 토큰으로 프로필을 조회하면") {
-                then("404 로 거절된다") {
+                then("400 으로 거절된다") {
                     val token = loginAccessToken()
                     withdraw(token).andReturn()
 
                     val result = getMyProfile(token).andReturn().response
 
-                    result.status shouldBe 404
+                    result.status shouldBe 400
                     result.contentAsString shouldContain "해당 회원을 찾을 수 없습니다"
                 }
             }
 
             `when`("이미 탈퇴한 회원이 다시 탈퇴를 요청하면") {
-                then("404 로 거절된다") {
+                then("400 으로 거절된다") {
                     val token = loginAccessToken()
                     withdraw(token).andReturn()
 
-                    withdraw(token).andReturn().response.status shouldBe 404
+                    withdraw(token).andReturn().response.status shouldBe 400
                 }
             }
 

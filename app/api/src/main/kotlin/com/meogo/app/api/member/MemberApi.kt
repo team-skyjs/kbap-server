@@ -29,9 +29,8 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "온보딩 완료 — 프로필 저장·상태 전이"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임) 또는 이미 온보딩 완료"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
-            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
         ],
     )
     @PostMapping("/me/onboarding")
@@ -104,8 +103,8 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 프로필 정보"),
+            ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
-            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
         ],
     )
     @GetMapping("/me/profile")
@@ -124,9 +123,8 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "수정 성공 — 프로필 갱신"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임)"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
-            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음"),
         ],
     )
     @PatchMapping("/me/profile")
@@ -181,8 +179,8 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "탈퇴 완료 — 소셜 계정·회원 기록 삭제"),
+            ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음(이미 탈퇴 포함)"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
-            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음(이미 탈퇴 포함)"),
             ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원 데이터는 변경되지 않음"),
         ],
     )

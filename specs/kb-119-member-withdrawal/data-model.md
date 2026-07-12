@@ -53,13 +53,13 @@ interface SocialAccountDeleter {
 ```
 ACTIVE 회원
    │  PATCH /members/me/withdraw (본문 없음, access token 만)
-   │    ├─ 회원 없음 ─────────────────────► 404, 상태 변화 없음
+   │    ├─ 회원 없음 ─────────────────────► 400, 상태 변화 없음
    │    ├─ 인증 제공자 삭제 실패 ─────────► 500 + ERROR 로그, 상태 변화 없음
    │    └─ 인증 제공자 삭제 성공
    ▼
 DELETED 회원 (status=DELETED, provider_uid='DELETED:{id}', email·nickname·profile 유지)
    │
-   ├─ 기존 access token → 회원 조회 API 404 (findById 가 못 찾음)
+   ├─ 기존 access token → 회원 조회 API 400 (findById 가 못 찾음)
    ├─ 기존 refresh token → 재발급 401 (RefreshUseCase 의 회원 존재 확인)
    └─ 같은 소셜 계정 재로그인 → 신규 회원 (새 id, 온보딩 미완료)
 ```

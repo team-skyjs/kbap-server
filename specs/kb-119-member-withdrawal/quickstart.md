@@ -20,9 +20,9 @@
 
 | 파일 | 성격 | 시나리오 |
 |---|---|---|
-| `application/client/src/test/.../member/WithdrawUseCaseTest.kt` (신규, 3) | 단위·페이크 | 삭제가 먼저·`withdraw` 가 나중 / 회원 없음 404 / 삭제 실패 500 + `withdraw` 미호출 |
+| `application/client/src/test/.../member/WithdrawUseCaseTest.kt` (신규, 3) | 단위·페이크 | 삭제가 먼저·`withdraw` 가 나중 / 회원 없음 400 / 삭제 실패 500 + `withdraw` 미호출 |
 | `application/client/src/test/.../auth/RefreshUseCaseTest.kt` (+1, 총 7) | 단위·페이크 | 탈퇴한 회원(=`findById` null)의 갱신 토큰 → 401 |
-| `app/api/src/test/.../member/MemberControllerTest.kt` (+7, 총 22) | Testcontainers+MockMvc | 탈퇴 200(+DB 컬럼) / 프로필 404 / 재탈퇴 404 / 미인증 401 / 삭제 실패 500 + 활성 유지 / 재가입 신규회원·프로필 미승계 / 가입-탈퇴 2회 반복 후 재가입 |
+| `app/api/src/test/.../member/MemberControllerTest.kt` (+7, 총 22) | Testcontainers+MockMvc | 탈퇴 200(+DB 컬럼) / 프로필 400 / 재탈퇴 400 / 미인증 401 / 삭제 실패 500 + 활성 유지 / 재가입 신규회원·프로필 미승계 / 가입-탈퇴 2회 반복 후 재가입 |
 | `app/api/src/test/.../auth/AuthControllerTest.kt` (+1, 총 15) | Testcontainers+MockMvc | 탈퇴 후 기존 refresh token 재발급 → 401 |
 | `infra/persistence/src/test/.../member/MemberRepositoryAdapterTest.kt` | Testcontainers | KB-117 그대로(변경 없음) |
 
