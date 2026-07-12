@@ -13,7 +13,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 
 **Organization**: 스토리별로 묶어 각각 독립 검증한다. 워크트리 `~/source_code/meogo/meogo-server-kb-123`(브랜치 `kb-123-member-ranking`)에서 작업한다.
 
-**설계 확정 이력**: (1) 스캔 횟수 단위 = 메뉴판 1장 1회 → `scan_history` 행 수 집계 안 폐기. (2) 랭킹은 **`Member` 애그리거트의 하위 개념** → 별도 카운터 테이블(`member_ranking`) 안을 폐기하고 `member` 컬럼으로 이전. (3) 정책의 **카운트 3종**(`scan_count`·`review_count`·`unique_reviewed_food_count`)을 모두 컬럼으로 두고 가입 시 0 초기화, 이후 카운트업만(현재는 스캔만 오른다). 동시성(read-modify-write 유실)은 초기 단계라 의도적으로 감수하며, 필요해지면 이벤트 기반 집계로 전환한다.
+**설계 확정 이력**: (1) 스캔 횟수 단위 = 메뉴판 1장 1회 → `scan_history` 행 수 집계 안 폐기. (2) 랭킹은 **`Member` 애그리거트의 하위 개념** → 별도 카운터 테이블(`member_ranking`) 안을 폐기하고 `member` 컬럼으로 이전. (3) 정책의 **카운트 3종**(`scan_count`·`review_count`·`unique_reviewed_food_count`)을 모두 컬럼으로 두고 가입 시 0 초기화, 이후 카운트업만(현재는 스캔만 오른다). 카운트업은 DB 원자적 증가(`scan_count = scan_count + 1`)로 처리해 동시 스캔에서 유실되지 않는다(PR 리뷰 반영).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -48,7 +48,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 **Goal**: 메뉴판 스캔 1회마다 회원의 스캔 횟수가 1 오른다.
 
 - [x] T009 **Red** — `application/client/src/test/kotlin/com/meogo/application/client/scan/usecase/ScanUseCaseHistoryTest.kt`: 메뉴판 1장에 음식이 여러 개 매칭돼도 1회만, 두 번 스캔하면 2회, 매칭 0건이어도 1회, 회원 간 격리
-- [x] T010 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/ScanUseCase.kt`: `assessMenuBoard` 끝에서 회원 로드 → `member.recordScan()` → `memberRepository.update`
+- [x] T010 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/ScanUseCase.kt`: `assessMenuBoard` 끝에서 `memberRepository.increaseScanCount(memberId)` 호출(원자적 UPDATE — 동시 스캔에서 유실 없음)
 
 ---
 
@@ -101,6 +101,5 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 ## 남은 리스크
 
 - **기존 회원의 스캔 횟수는 0에서 시작한다.** 배포 이후 스캔부터 쌓이며, `scan_history` 로 소급 집계하지 않는다(메뉴판 단위 복원이 불가능하다 — 음식 단위 행만 있다).
-- **동시 스캔 시 카운트 1회가 유실될 수 있다**(read-modify-write). 의도적 수용 — 관측되면 이벤트 기반 집계로 전환한다.
 - 로컬 DB 에 이전 `member_ranking` 마이그레이션을 적용했다면 테이블과 `flyway_schema_history` 행을 정리해야 부팅된다.
 - KB-124(프로필 수정 부분 수정 전환)와 `MemberProfileUseCase`·`MemberController`·`MemberControllerTest` 가 겹친다 — 먼저 머지된 쪽 기준으로 리베이스.

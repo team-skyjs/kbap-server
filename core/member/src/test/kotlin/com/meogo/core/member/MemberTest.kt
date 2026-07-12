@@ -36,33 +36,8 @@ class MemberTest : BehaviorSpec({
         }
     }
 
-    given("Member.recordScan — 메뉴판 스캔 카운트업(불변)") {
-        `when`("메뉴판을 한 번 스캔하면") {
-            then("새 인스턴스의 스캔 횟수가 1 오르고 원본은 그대로다") {
-                val member = Member.signUp(googleIdentity())
-
-                val scanned = member.recordScan()
-
-                scanned.ranking.scanCount shouldBe 1
-                member.ranking.scanCount shouldBe 0
-            }
-        }
-
-        `when`("메뉴판을 여러 번 스캔하면") {
-            then("스캔 횟수만큼 점수가 오른다") {
-                val member = (1..40).fold(Member.signUp(googleIdentity())) { m, _ -> m.recordScan() }
-
-                member.ranking.scanCount shouldBe 40
-
-                val ranking = member.ranking
-                ranking.score shouldBe 80
-                ranking.tier shouldBe RankingTier.EXPLORER
-                ranking.nextTier shouldBe RankingTier.REGULAR
-                ranking.pointsToNext shouldBe 100
-            }
-        }
-
-        `when`("리뷰·고유 음식 카운트까지 쌓인 회원이면") {
+    given("Member.ranking — 카운트에서 파생") {
+        `when`("리뷰·고유 음식·스캔 카운트가 쌓인 회원이면") {
             then("세 카운트가 모두 점수에 반영된다") {
                 val member = Member.reconstitute(
                     id = 1L,
@@ -80,9 +55,15 @@ class MemberTest : BehaviorSpec({
             }
         }
 
-        `when`("스캔 이후 프로필을 갱신해도") {
-            then("스캔 횟수는 보존된다") {
-                val member = Member.signUp(googleIdentity()).recordScan().recordScan()
+        `when`("프로필을 갱신해도") {
+            then("랭킹 카운트는 보존된다") {
+                val member = Member.reconstitute(
+                    id = 1L,
+                    identity = googleIdentity(),
+                    profile = MemberProfile.empty(),
+                    onboardingCompleted = true,
+                    ranking = Ranking.of(scanCount = 2, reviewCount = 0, uniqueReviewedFoodCount = 0),
+                )
 
                 val updated = member.updateProfile(MemberProfile.empty())
 

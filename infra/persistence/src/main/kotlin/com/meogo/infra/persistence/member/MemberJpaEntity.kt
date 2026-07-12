@@ -70,9 +70,6 @@ class MemberJpaEntity(
         nickname = domain.profile.nickname
         profile = MemberProfileJson.from(domain.profile)
         onboardingCompleted = domain.onboardingCompleted
-        scanCount = domain.ranking.scanCount
-        reviewCount = domain.ranking.reviewCount
-        uniqueReviewedFoodCount = domain.ranking.uniqueReviewedFoodCount
     }
 
     fun withdraw() {

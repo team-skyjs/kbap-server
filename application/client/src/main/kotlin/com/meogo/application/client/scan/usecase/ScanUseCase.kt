@@ -11,8 +11,6 @@ import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
 import com.meogo.core.kernel.risk.RiskLevel
 import com.meogo.core.kernel.scan.InterpretedName
 import com.meogo.core.kernel.scan.ScannedNameInterpreter
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
 import com.meogo.core.member.MemberRepository
 import com.meogo.core.scan.ScanHistory
 import com.meogo.core.scan.ScanHistoryRepository
@@ -61,9 +59,7 @@ class ScanUseCase(
     }
 
     private fun recordScanCount(memberId: Long) {
-        val member = memberRepository.findById(memberId)
-            ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
-        memberRepository.update(member.recordScan())
+        memberRepository.increaseScanCount(memberId)
     }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {

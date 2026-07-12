@@ -31,6 +31,8 @@ private class HomeFakeMemberRepository(private val members: Map<Long, Member>) :
     override fun saveNew(member: Member): Member = member
     override fun update(member: Member): Member = member
     override fun withdraw(id: Long) = Unit
+
+    override fun increaseScanCount(memberId: Long) = Unit
 }
 
 private class HomeFakeFoodRepository(

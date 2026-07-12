@@ -2,6 +2,7 @@ package com.meogo.application.client.member
 
 import com.meogo.core.member.Member
 import com.meogo.core.member.MemberRepository
+import com.meogo.core.member.Ranking
 import com.meogo.core.member.SocialProvider
 
 class FakeMemberRepository : MemberRepository {
@@ -27,6 +28,21 @@ class FakeMemberRepository : MemberRepository {
         )
         store[id] = saved
         return saved
+    }
+
+    override fun increaseScanCount(memberId: Long) {
+        val member = store[memberId] ?: return
+        store[memberId] = Member.reconstitute(
+            id = memberId,
+            identity = member.identity,
+            profile = member.profile,
+            onboardingCompleted = member.onboardingCompleted,
+            ranking = Ranking.of(
+                scanCount = member.ranking.scanCount + 1,
+                reviewCount = member.ranking.reviewCount,
+                uniqueReviewedFoodCount = member.ranking.uniqueReviewedFoodCount,
+            ),
+        )
     }
 
     override fun update(member: Member): Member {

@@ -320,25 +320,35 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
                 }
             }
 
-            `when`("스캔을 기록해 저장하면") {
-                then("올라간 횟수가 영속되고 다시 조회해도 유지된다") {
+            `when`("스캔 횟수를 올리면") {
+                then("DB 에서 직접 1씩 증가하고 다시 조회해도 유지된다") {
                     val saved = adapter.saveNew(Member.signUp(googleIdentity()))
 
-                    adapter.update(saved.recordScan().recordScan())
+                    adapter.increaseScanCount(saved.id!!)
+                    adapter.increaseScanCount(saved.id!!)
 
                     adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 2
                     readColumn(saved.id!!, "scan_count") shouldBe "2"
                 }
             }
 
-            `when`("스캔 이후 프로필을 갱신하면") {
-                then("스캔 횟수가 보존된다") {
+            `when`("카운트업 이전에 읽어 둔 회원으로 프로필을 갱신하면") {
+                then("그 사이 올라간 스캔 횟수를 덮어쓰지 않는다") {
                     val saved = adapter.saveNew(Member.signUp(googleIdentity()))
-                    val scanned = adapter.update(saved.recordScan())
+                    val stale = adapter.findById(saved.id!!)!!
 
-                    adapter.update(scanned.updateProfile(MemberProfile.empty()))
+                    adapter.increaseScanCount(saved.id!!)
+                    adapter.update(stale.updateProfile(MemberProfile.empty()))
 
                     adapter.findById(saved.id!!)!!.ranking.scanCount shouldBe 1
+                }
+            }
+
+            `when`("존재하지 않는 회원의 스캔 횟수를 올리면") {
+                then("MEMBER_NOT_FOUND 로 거절된다") {
+                    val e = shouldThrow<MemberException> { adapter.increaseScanCount(999999L) }
+
+                    e.errorCode shouldBe MemberErrorCode.MEMBER_NOT_FOUND
                 }
             }
         }

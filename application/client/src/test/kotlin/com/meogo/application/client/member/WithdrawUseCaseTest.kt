@@ -106,4 +106,6 @@ private class FakeWithdrawMemberRepository(
         withdrawnIds += id
         callLog += "withdraw:$id"
     }
+
+    override fun increaseScanCount(memberId: Long) = Unit
 }

@@ -19,12 +19,9 @@ class Member private constructor(
         return copy(onboardingCompleted = true)
     }
 
-    fun recordScan(): Member = copy(ranking = ranking.recordScan())
-
     private fun copy(
         profile: MemberProfile = this.profile,
         onboardingCompleted: Boolean = this.onboardingCompleted,
-        ranking: Ranking = this.ranking,
     ): Member =
         Member(
             id = id,

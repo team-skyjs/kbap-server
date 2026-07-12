@@ -12,7 +12,7 @@
 
 **랭킹은 `Member` 애그리거트의 하위 도메인이다.** `Member` 가 `val ranking: Ranking` 을 들고, 정책의 카운트 3종은 별도 테이블이 아니라 `member` 행의 컬럼(`scan_count`·`review_count`·`unique_reviewed_food_count`)으로 저장된다. 가입 시 `Ranking.initial()`(모두 0) + `DEFAULT 0` 이라 초기화가 자동이고, 탈퇴 시 회원과 함께 사라진다. 이후 카운트업만 친다 — 지금은 스캔만(`Member.recordScan()` → `Ranking.recordScan()`, 둘 다 불변), 리뷰 카운트는 리뷰 기능이 붙을 때 같은 방식으로 올린다.
 
-**스캔 횟수는 메뉴판 1장 = 1회다.** `scan_history` 는 매칭된 음식마다 행이 생기므로 횟수 집계에 쓸 수 없다. `ScanUseCase.assessMenuBoard` 가 스캔 1회마다 회원을 로드해 `recordScan()` 후 저장한다(매칭 0건이어도 1회). **동시성은 의도적으로 다루지 않는다** — 같은 회원이 동시에 스캔하면 카운트가 하나 유실될 수 있으나(read-modify-write), 초기 단계이고 랭킹은 안전·결제 같은 핵심 영역이 아니라 감수한다. 문제가 되면 그때 이벤트 기반 집계로 튼다.
+**스캔 횟수는 메뉴판 1장 = 1회다.** `scan_history` 는 매칭된 음식마다 행이 생기므로 횟수 집계에 쓸 수 없다. `ScanUseCase.assessMenuBoard` 가 스캔 1회마다 `MemberRepository.increaseScanCount(memberId)` 를 호출한다(매칭 0건이어도 1회). **카운트업은 DB 에서 원자적으로 한다** — `update member set scan_count = scan_count + 1 where id = ?`(JPQL 벌크 업데이트). 회원을 읽어 +1 해서 저장하는 방식이면 같은 회원의 동시 스캔에서 두 트랜잭션이 같은 값을 읽고 같은 값을 써 스캔이 유실된다(lost update). 카운트는 **DB 가 소유**하므로 프로필 수정 경로(`applyDomain`)는 카운트 컬럼을 건드리지 않는다 — 오래된 `Member` 로 프로필을 저장해도 그 사이 오른 카운트를 덮어쓰지 않는다.
 
 리뷰 도메인(`:core:review`)은 아직 빈 placeholder 라 리뷰 수·고유 음식 수는 **0으로 고정**된다. 산정 함수의 입력이 평면 카운트이므로, 리뷰 기능이 생기면 유스케이스에서 값을 채워 넣는 것만으로 반영된다(공식·등급 표는 손대지 않는다).
 
@@ -30,7 +30,7 @@
 
 **Project Type**: 멀티모듈 모놀리스 백엔드 (ADR-0008).
 
-**Performance Goals**: 랭킹 조회는 회원 단건 SELECT 로 끝난다(추가 쿼리 0 — 카운트가 회원 행에 있다). 스캔 시 회원 로드 + UPDATE 1회가 추가된다.
+**Performance Goals**: 랭킹 조회는 회원 단건 SELECT 로 끝난다(추가 쿼리 0 — 카운트가 회원 행에 있다). 스캔 시 UPDATE 1회(원자적 증가)가 추가된다.
 
 **Constraints**: 랭킹 값은 조회 시점 계산(SC-006 — 활동 직후 즉시 반영). 등급 안정 키·점수 상수는 FE 번역·정책이 의존하는 계약값이라 변경 금지.
 
@@ -72,7 +72,8 @@ specs/kb-123-member-ranking/
 
 ```text
 core/member/src/main/kotlin/com/meogo/core/member/
-├── Member.kt                     # 수정 — val ranking: Ranking(가입 시 initial)·recordScan()
+├── Member.kt                     # 수정 — val ranking: Ranking(가입 시 initial, 읽기 전용)
+├── MemberRepository.kt           # 수정 — increaseScanCount(memberId) port
 ├── Ranking.kt                    # 신규 — 카운트 3종 + 점수·등급·다음 등급·항목별 점수 (순수 값 객체)
 └── RankingTier.kt                # 신규 — 7단계 등급 enum(안정 키 + 레벨 + 진입 점수)
 core/member/src/test/kotlin/com/meogo/core/member/
@@ -80,8 +81,9 @@ core/member/src/test/kotlin/com/meogo/core/member/
 └── MemberTest.kt                 # 수정 — 가입 시 0·recordScan 불변·프로필 갱신 시 보존
 
 infra/persistence/src/main/kotlin/com/meogo/infra/persistence/member/
-├── MemberJpaEntity.kt            # 수정 — 카운트 3종 컬럼 + applyDomain(도메인 → 엔티티)
-└── MemberRepositoryAdapter.kt    # 수정 — applyDomain 호출
+├── MemberJpaEntity.kt            # 수정 — 카운트 3종 컬럼(applyDomain 은 카운트를 쓰지 않는다)
+├── MemberJpaRepository.kt        # 수정 — @Modifying 원자적 증가 쿼리
+└── MemberRepositoryAdapter.kt    # 수정 — increaseScanCount 구현(0행이면 MEMBER_NOT_FOUND)
 infra/persistence/src/test/kotlin/com/meogo/infra/persistence/member/
 └── MemberRepositoryAdapterTest.kt # 수정 — 가입 시 0·카운트업 영속·프로필 갱신 시 보존
 
@@ -89,7 +91,7 @@ app/api/src/main/resources/db/migration/
 └── V2026.07.13.00.19.27__add_member_ranking_counts.sql # 신규 — scan/review/unique_reviewed_food count DEFAULT 0
 
 application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/
-└── ScanUseCase.kt                # 수정 — 스캔 1회당 회원 로드 → recordScan() → 저장
+└── ScanUseCase.kt                # 수정 — 스캔 1회당 increaseScanCount 호출
 
 application/client/src/main/kotlin/com/meogo/application/client/member/
 ├── MemberRankingUseCase.kt       # 신규 — 회원 존재 확인 + 카운트 수집 + MemberRanking 산출
@@ -114,7 +116,7 @@ app/api/src/test/kotlin/com/meogo/app/api/member/
 
 1. **랭킹은 `Member` 애그리거트 안의 값 객체 `Ranking` 이다.** 카운트 3종과 점수·등급 파생이 한 클래스에 모여 있고 `Member` 가 `val ranking: Ranking` 으로 소유한다(별도 `MemberRanking` 클래스는 흡수해 없앴다). 별도 카운터 애그리거트·리포지토리를 만들지 않으므로 "애그리거트 루트가 아닌 것에 리포지토리를 붙이는" 문제가 사라진다. 가입 시 0 초기화가 자동이고(`Ranking.initial()` + `DEFAULT 0`), 탈퇴 시 회원과 함께 사라진다.
 
-2. **동시성은 의도적으로 감수한다.** 카운트업이 "회원 로드 → 증가 → 저장" 이라 같은 회원의 동시 스캔에서 1회가 유실될 수 있다. 초기 단계이고 랭킹은 안전·결제 같은 핵심 영역이 아니므로 원자적 upsert·락·버전을 지금 도입하는 건 과한 선택이다. 실제로 문제가 되면 이벤트 기반 집계로 전환한다.
+2. **카운트업은 DB 원자적 증가로 한다.** `MemberRepository.increaseScanCount` port + JPQL 벌크 업데이트(`scan_count = scan_count + 1`). 회원 로드 → +1 → 저장 방식은 동시 스캔에서 lost update 가 나고, 락·버전을 얹으면 재시도 처리가 따라붙는다. 증가문 하나가 가장 짧고 정확하다. 도메인(`Member`·`Ranking`)은 카운트를 **읽기 전용**으로 들고(점수·등급 파생), 증가는 영속 계층이 담당한다.
 
 3. **스캔 횟수는 메뉴판 1장 = 1회.** `scan_history` 행 수는 쓸 수 없다(음식마다 행이 생긴다). `ScanUseCase.assessMenuBoard` 호출당 1회 올리며, 매칭 결과가 하나도 없어도 센다.
 

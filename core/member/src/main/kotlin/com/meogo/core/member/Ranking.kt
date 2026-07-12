@@ -17,8 +17,6 @@ class Ranking private constructor(
 
     val pointsToNext: Int? = nextTier?.let { it.minScore - score }
 
-    fun recordScan(): Ranking = of(scanCount + 1, reviewCount, uniqueReviewedFoodCount)
-
     companion object {
         private const val REVIEW_POINTS = 10
         private const val DIVERSITY_POINTS = 5

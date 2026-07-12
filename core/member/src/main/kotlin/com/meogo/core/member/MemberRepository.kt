@@ -9,5 +9,7 @@ interface MemberRepository {
 
     fun update(member: Member): Member
 
+    fun increaseScanCount(memberId: Long)
+
     fun withdraw(id: Long)
 }
