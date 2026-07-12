@@ -9,6 +9,8 @@ class Member private constructor(
     val profile: MemberProfile,
     val onboardingCompleted: Boolean,
     val scanCount: Int,
+    val reviewCount: Int,
+    val uniqueReviewedFoodCount: Int,
 ) {
     fun updateProfile(profile: MemberProfile): Member = copy(profile = profile)
 
@@ -23,8 +25,8 @@ class Member private constructor(
 
     fun ranking(): MemberRanking =
         MemberRanking.of(
-            reviewCount = REVIEW_COUNT_UNAVAILABLE,
-            uniqueReviewedFoodCount = REVIEW_COUNT_UNAVAILABLE,
+            reviewCount = reviewCount,
+            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
             scanCount = scanCount,
         )
 
@@ -39,11 +41,11 @@ class Member private constructor(
             profile = profile,
             onboardingCompleted = onboardingCompleted,
             scanCount = scanCount,
+            reviewCount = reviewCount,
+            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
         )
 
     companion object {
-        private const val REVIEW_COUNT_UNAVAILABLE = 0
-
         fun signUp(identity: SocialIdentity): Member =
             Member(
                 id = null,
@@ -51,6 +53,8 @@ class Member private constructor(
                 profile = MemberProfile.empty(),
                 onboardingCompleted = false,
                 scanCount = 0,
+                reviewCount = 0,
+                uniqueReviewedFoodCount = 0,
             )
 
         fun reconstitute(
@@ -59,6 +63,8 @@ class Member private constructor(
             profile: MemberProfile,
             onboardingCompleted: Boolean,
             scanCount: Int = 0,
+            reviewCount: Int = 0,
+            uniqueReviewedFoodCount: Int = 0,
         ): Member =
             Member(
                 id = id,
@@ -66,6 +72,8 @@ class Member private constructor(
                 profile = profile,
                 onboardingCompleted = onboardingCompleted,
                 scanCount = scanCount,
+                reviewCount = reviewCount,
+                uniqueReviewedFoodCount = uniqueReviewedFoodCount,
             )
     }
 }

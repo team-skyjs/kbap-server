@@ -10,7 +10,7 @@
 
 산정 로직은 `:core:member` 의 순수 값 객체(`MemberRanking` + `RankingTier`)로 두고 **평면 카운트 3개만 입력**받는다 — 다른 컨텍스트 타입을 들이지 않아 원칙 II 를 지키고, 등급 경계·공식은 Spring 없이 단위 테스트로 고정된다. 조합은 `:application:client` 에서만 한다.
 
-**랭킹은 `Member` 애그리거트의 하위 개념이다.** 카운트는 별도 테이블이 아니라 `member` 행의 컬럼(`scan_count`)으로 두고, 가입 시 0으로 초기화된다(`Member.signUp` + `DEFAULT 0`). 이후 스캔마다 `Member.recordScan()` 으로 올리고(불변 — 새 인스턴스 반환), 점수·등급은 `Member.ranking()` 이 자기 카운트에서 파생한다.
+**랭킹은 `Member` 애그리거트의 하위 개념이다.** 정책의 카운트 3종(`scan_count`·`review_count`·`unique_reviewed_food_count`)을 별도 테이블이 아니라 `member` 행의 컬럼으로 두고, 가입 시 모두 0으로 초기화된다(`Member.signUp` + `DEFAULT 0`). 이후 카운트업만 친다 — 지금은 스캔만(`Member.recordScan()`, 불변), 리뷰 카운트는 리뷰 기능이 붙을 때 같은 방식으로 올린다. 점수·등급은 `Member.ranking()` 이 세 카운트에서 파생한다.
 
 **스캔 횟수는 메뉴판 1장 = 1회다.** `scan_history` 는 매칭된 음식마다 행이 생기므로 횟수 집계에 쓸 수 없다. `ScanUseCase.assessMenuBoard` 가 스캔 1회마다 회원을 로드해 `recordScan()` 후 저장한다(매칭 0건이어도 1회). **동시성은 의도적으로 다루지 않는다** — 같은 회원이 동시에 스캔하면 카운트가 하나 유실될 수 있으나(read-modify-write), 초기 단계이고 랭킹은 안전·결제 같은 핵심 영역이 아니라 감수한다. 문제가 되면 그때 이벤트 기반 집계로 튼다.
 
@@ -22,7 +22,7 @@
 
 **Primary Dependencies**: Spring Boot 4.1 (web, data-jpa), springdoc-openapi. 신규 라이브러리 없음.
 
-**Storage**: MySQL. **`member` 테이블에 컬럼 1개 추가** — `scan_count INT NOT NULL DEFAULT 0`(Flyway 1건). 신규 테이블 없음. 점수·등급은 저장하지 않고 조회 시점에 카운트로 계산한다.
+**Storage**: MySQL. **`member` 테이블에 카운트 컬럼 3개 추가** — `scan_count`·`review_count`·`unique_reviewed_food_count`(모두 `INT NOT NULL DEFAULT 0`, Flyway 1건). 신규 테이블 없음. 점수·등급은 저장하지 않고 조회 시점에 카운트로 계산한다.
 
 **Testing**: Kotest `BehaviorSpec`(given/`when`/then 한국어). 도메인 단위 테스트(`:core:member`), 유스케이스 페이크 테스트(`:application:client`), MockMvc + MySQL Testcontainers 통합 테스트(`:app:api`), 영속 어댑터 테스트(`:infra:persistence`).
 
@@ -72,7 +72,7 @@ specs/kb-123-member-ranking/
 
 ```text
 core/member/src/main/kotlin/com/meogo/core/member/
-├── Member.kt                     # 수정 — scanCount(가입 시 0)·recordScan()·ranking()
+├── Member.kt                     # 수정 — 카운트 3종(가입 시 0)·recordScan()·ranking()
 ├── MemberRanking.kt              # 신규 — 점수·등급·다음 등급·남은 점수·내역 (순수 값 객체)
 └── RankingTier.kt                # 신규 — 7단계 등급 enum(안정 키 + 레벨 + 진입 점수)
 core/member/src/test/kotlin/com/meogo/core/member/
@@ -80,13 +80,13 @@ core/member/src/test/kotlin/com/meogo/core/member/
 └── MemberTest.kt                 # 수정 — 가입 시 0·recordScan 불변·프로필 갱신 시 보존
 
 infra/persistence/src/main/kotlin/com/meogo/infra/persistence/member/
-├── MemberJpaEntity.kt            # 수정 — scan_count 컬럼 + applyDomain(도메인 → 엔티티)
+├── MemberJpaEntity.kt            # 수정 — 카운트 3종 컬럼 + applyDomain(도메인 → 엔티티)
 └── MemberRepositoryAdapter.kt    # 수정 — applyDomain 호출
 infra/persistence/src/test/kotlin/com/meogo/infra/persistence/member/
 └── MemberRepositoryAdapterTest.kt # 수정 — 가입 시 0·카운트업 영속·프로필 갱신 시 보존
 
 app/api/src/main/resources/db/migration/
-└── V2026.07.13.00.12.40__add_member_scan_count.sql # 신규 — member.scan_count DEFAULT 0
+└── V2026.07.13.00.19.27__add_member_ranking_counts.sql # 신규 — scan/review/unique_reviewed_food count DEFAULT 0
 
 application/client/src/main/kotlin/com/meogo/application/client/scan/usecase/
 └── ScanUseCase.kt                # 수정 — 스캔 1회당 회원 로드 → recordScan() → 저장
@@ -108,7 +108,7 @@ app/api/src/test/kotlin/com/meogo/app/api/member/
 └── MemberControllerTest.kt       # 수정 — 프로필 랭킹 요약·상세·401·요약↔상세 일치
 ```
 
-**Structure Decision**: 기존 회원 API 그룹(`/api/v1/members`)에 상세 조회를 추가하고, 랭킹은 `Member` 애그리거트 안에 둔다. 새 모듈·새 테이블 없이 `member` 컬럼 1개만 는다.
+**Structure Decision**: 기존 회원 API 그룹(`/api/v1/members`)에 상세 조회를 추가하고, 랭킹은 `Member` 애그리거트 안에 둔다. 새 모듈·새 테이블 없이 `member` 카운트 컬럼 3개만 는다.
 
 ## Design Decisions (핵심)
 
@@ -118,7 +118,7 @@ app/api/src/test/kotlin/com/meogo/app/api/member/
 
 3. **스캔 횟수는 메뉴판 1장 = 1회.** `scan_history` 행 수는 쓸 수 없다(음식마다 행이 생긴다). `ScanUseCase.assessMenuBoard` 호출당 1회 올리며, 매칭 결과가 하나도 없어도 센다.
 
-4. **리뷰 카운트는 0으로 고정한다.** 리뷰 도메인이 빈 placeholder 라 셀 데이터가 없다. `Member.ranking()` 이 리뷰·다양성에 0을 넣고, 리뷰 기능이 생기면 같은 방식으로 `member` 에 카운트를 추가한다 — 공식·등급표·응답 계약은 그대로다(FR-011 충족).
+4. **정책의 카운트 3종을 모두 컬럼으로 둔다.** 리뷰 도메인이 아직 없어 `review_count`·`unique_reviewed_food_count` 는 당분간 0에 머물지만, 랭킹 공식이 요구하는 원천 값이므로 자리를 미리 잡아 둔다 — 리뷰 기능이 붙으면 카운트업 호출만 추가하면 되고 마이그레이션·도메인·응답 계약은 손대지 않는다(FR-011 충족).
 
 5. **프로필 조회는 랭킹 유스케이스를 호출한다.** 회원 조회가 한 번 더 일어나는 대신 산정 경로가 하나로 유지돼 프로필 요약과 상세가 어긋날 수 없다(FR-008).
 

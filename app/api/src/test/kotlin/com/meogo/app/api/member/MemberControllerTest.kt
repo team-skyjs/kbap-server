@@ -85,15 +85,22 @@ class MemberControllerTest : BehaviorSpec() {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 
-        fun seedScanCount(scanCount: Int) {
+        fun seedCounts(scanCount: Int = 0, reviewCount: Int = 0, uniqueReviewedFoodCount: Int = 0) {
             dataSource.connection.use { c ->
-                c.prepareStatement("UPDATE member SET scan_count = ? WHERE provider_uid = ?").use { ps ->
+                c.prepareStatement(
+                    "UPDATE member SET scan_count = ?, review_count = ?, unique_reviewed_food_count = ? " +
+                        "WHERE provider_uid = ?",
+                ).use { ps ->
                     ps.setInt(1, scanCount)
-                    ps.setString(2, "google-sub-fixed")
+                    ps.setInt(2, reviewCount)
+                    ps.setInt(3, uniqueReviewedFoodCount)
+                    ps.setString(4, "google-sub-fixed")
                     ps.executeUpdate()
                 }
             }
         }
+
+        fun seedScanCount(scanCount: Int) = seedCounts(scanCount = scanCount)
 
         beforeContainer {
             clearMembers()
@@ -393,6 +400,28 @@ class MemberControllerTest : BehaviorSpec() {
         }
 
         given("랭킹 상세 조회") {
+            `when`("리뷰 8건·고유 음식 6종·스캔 9회인 회원이 조회하면") {
+                then("정책 검증 케이스대로 128점 explorer 이고 남은 점수가 52다") {
+                    val token = loginAccessToken()
+                    seedCounts(scanCount = 9, reviewCount = 8, uniqueReviewedFoodCount = 6)
+
+                    val payload = objectMapper.readTree(getMyRanking(token).andReturn().response.contentAsString)
+                        .path("payload")
+
+                    payload.path("score").asInt() shouldBe 128
+                    payload.path("tier").asText() shouldBe "explorer"
+                    payload.path("pointsToNext").asInt() shouldBe 52
+
+                    val breakdown = payload.path("breakdown")
+                    breakdown.path("reviews").path("count").asInt() shouldBe 8
+                    breakdown.path("reviews").path("points").asInt() shouldBe 80
+                    breakdown.path("diversity").path("count").asInt() shouldBe 6
+                    breakdown.path("diversity").path("points").asInt() shouldBe 30
+                    breakdown.path("scans").path("count").asInt() shouldBe 9
+                    breakdown.path("scans").path("points").asInt() shouldBe 18
+                }
+            }
+
             `when`("메뉴판을 40번 스캔한 회원이 조회하면") {
                 then("점수 내역이 항목별로 내려오고 합이 총점과 같다") {
                     val token = loginAccessToken()

@@ -21,10 +21,12 @@ class MemberTest : BehaviorSpec({
         }
 
         `when`("가입 직후 랭킹을 보면") {
-            then("모든 카운트가 0이고 최하 등급이다") {
+            then("스캔·리뷰·고유 음식 카운트가 모두 0이고 최하 등급이다") {
                 val member = Member.signUp(googleIdentity())
 
                 member.scanCount shouldBe 0
+                member.reviewCount shouldBe 0
+                member.uniqueReviewedFoodCount shouldBe 0
 
                 val ranking = member.ranking()
                 ranking.score shouldBe 0
@@ -57,6 +59,26 @@ class MemberTest : BehaviorSpec({
                 ranking.tier shouldBe RankingTier.EXPLORER
                 ranking.nextTier shouldBe RankingTier.REGULAR
                 ranking.pointsToNext shouldBe 100
+            }
+        }
+
+        `when`("리뷰·고유 음식 카운트까지 쌓인 회원이면") {
+            then("세 카운트가 모두 점수에 반영된다") {
+                val member = Member.reconstitute(
+                    id = 1L,
+                    identity = googleIdentity(),
+                    profile = MemberProfile.empty(),
+                    onboardingCompleted = true,
+                    scanCount = 9,
+                    reviewCount = 8,
+                    uniqueReviewedFoodCount = 6,
+                )
+
+                val ranking = member.ranking()
+
+                ranking.score shouldBe 128
+                ranking.tier shouldBe RankingTier.EXPLORER
+                ranking.pointsToNext shouldBe 52
             }
         }
 

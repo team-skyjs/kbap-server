@@ -42,12 +42,12 @@ Swagger: `localhost:8080/swagger-ui/index.html` — "회원" 태그에 랭킹 �
 ## 검증 케이스 (정책 문서 기준)
 
 리뷰 8 + 고유 음식 6 + 스캔 9 → score 128 → `explorer`(level 3), nextTier `regular`, pointsToNext 52.
-현재는 리뷰가 0이므로 이 케이스는 **도메인 단위 테스트에서만** 재현된다(리뷰 카운트를 직접 주입).
+리뷰 기능이 없어 앱으로는 리뷰 카운트를 올릴 수 없지만, 컬럼이 있으므로 `UPDATE member SET review_count = 8, unique_reviewed_food_count = 6, scan_count = 9` 로 재현할 수 있다(통합 테스트가 이 케이스를 그대로 검증한다).
 
 ## 배포 시 유의
 
-- Flyway 마이그레이션 1건이 추가됐다(`V2026.07.13.00.12.40__add_member_scan_count.sql` — `member.scan_count DEFAULT 0`). 기존 회원의 스캔 횟수는 0에서 시작한다(소급 집계 없음 — 배포 이후 스캔부터 쌓인다).
-- 이전 커밋의 `member_ranking` 테이블 마이그레이션을 이미 로컬 DB 에 적용했다면, 그 테이블과 `flyway_schema_history` 의 해당 행을 지우고 다시 부팅한다(파일이 사라져 Flyway validate 가 실패한다).
+- Flyway 마이그레이션 1건이 추가됐다(`V2026.07.13.00.19.27__add_member_ranking_counts.sql` — `member` 에 `scan_count`·`review_count`·`unique_reviewed_food_count` 를 `DEFAULT 0` 으로 추가). 기존 회원의 카운트는 0에서 시작한다(소급 집계 없음).
+- 이전 커밋의 마이그레이션(`member_ranking` 테이블 또는 `add_member_scan_count`)을 이미 로컬 DB 에 적용했다면, 그 산출물과 `flyway_schema_history` 의 해당 행을 지우고 다시 부팅한다(파일이 사라져 Flyway validate 가 실패한다).
 
 ## 배포 후 할 일
 

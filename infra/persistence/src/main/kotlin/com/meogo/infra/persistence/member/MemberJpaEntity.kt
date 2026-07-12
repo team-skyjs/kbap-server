@@ -45,6 +45,12 @@ class MemberJpaEntity(
 
     @Column(name = "scan_count", nullable = false)
     var scanCount: Int = 0,
+
+    @Column(name = "review_count", nullable = false)
+    var reviewCount: Int = 0,
+
+    @Column(name = "unique_reviewed_food_count", nullable = false)
+    var uniqueReviewedFoodCount: Int = 0,
 ) : BaseEntity() {
     fun toDomain(): Member =
         Member.reconstitute(
@@ -53,6 +59,8 @@ class MemberJpaEntity(
             profile = profile.toDomain(nickname),
             onboardingCompleted = onboardingCompleted,
             scanCount = scanCount,
+            reviewCount = reviewCount,
+            uniqueReviewedFoodCount = uniqueReviewedFoodCount,
         )
 
     fun applyDomain(domain: Member) {
@@ -60,6 +68,8 @@ class MemberJpaEntity(
         profile = MemberProfileJson.from(domain.profile)
         onboardingCompleted = domain.onboardingCompleted
         scanCount = domain.scanCount
+        reviewCount = domain.reviewCount
+        uniqueReviewedFoodCount = domain.uniqueReviewedFoodCount
     }
 
     fun withdraw() {

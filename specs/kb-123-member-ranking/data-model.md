@@ -1,6 +1,6 @@
 # Phase 1 Data Model: 회원 랭킹 산정 및 조회
 
-**`member` 테이블에 컬럼 1개 추가**(`scan_count`) + Flyway 마이그레이션 1건. 신규 테이블 없음. 점수·등급은 저장하지 않고 카운트에서 조회 시점에 계산한다. 랭킹은 `Member` 애그리거트의 하위 개념이다.
+**`member` 테이블에 카운트 컬럼 3개 추가**(`scan_count`·`review_count`·`unique_reviewed_food_count`) + Flyway 마이그레이션 1건. 신규 테이블 없음. 점수·등급은 저장하지 않고 카운트에서 조회 시점에 계산한다. 랭킹은 `Member` 애그리거트의 하위 개념이다.
 
 ## 도메인 모델 (`:core:member`, ORM-free · Spring-free)
 
@@ -24,7 +24,7 @@
 
 ### Member (애그리거트 루트, 기존)
 
-`scanCount: Int` 를 갖는다 — 가입 시 0, `recordScan()` 이 1 올린 새 인스턴스를 반환하고, `ranking()` 이 자기 카운트로 `MemberRanking` 을 만든다(리뷰·다양성은 리뷰 도메인 부재로 0).
+카운트 3종(`scanCount`·`reviewCount`·`uniqueReviewedFoodCount`)을 갖는다 — 가입 시 모두 0, `recordScan()` 이 스캔 횟수를 1 올린 새 인스턴스를 반환하고, `ranking()` 이 세 카운트로 `MemberRanking` 을 만든다.
 
 ### MemberRanking (값 객체, 불변)
 
@@ -45,16 +45,20 @@
 
 ## 카운트 소스
 
-### member (기존 테이블, 컬럼 1개 추가)
+### member (기존 테이블, 카운트 컬럼 3개 추가)
+
+랭킹 공식의 원천 카운트 3종. **가입 시 모두 0**(`Member.signUp` + `DEFAULT 0`), 이후 카운트업만 친다.
 
 | 컬럼 | 타입 | 비고 |
 |------|------|------|
-| scan_count | INT NOT NULL DEFAULT 0 | 메뉴판 스캔 횟수. **가입 시 0**(`Member.signUp` + DEFAULT) |
+| scan_count | INT NOT NULL DEFAULT 0 | 메뉴판 스캔 횟수(×2점) — 지금 유일하게 오르는 카운트 |
+| review_count | INT NOT NULL DEFAULT 0 | 작성한 리뷰 개수(×10점) — 리뷰 도메인 도입 전이라 0 |
+| unique_reviewed_food_count | INT NOT NULL DEFAULT 0 | 리뷰한 서로 다른 음식 수(×5점) — 리뷰 도메인 도입 전이라 0 |
 
 - **스캔 1회 = 메뉴판 1장**(정책 확정). 매칭된 음식 수와 무관하게 `ScanUseCase.assessMenuBoard` 호출당 1 증가하며, 매칭 결과가 하나도 없어도 오른다.
 - 카운트업은 `Member.recordScan()`(불변 — 새 인스턴스 반환) 후 `MemberRepository.update`. 회원 로드 → 증가 → 저장이라 **같은 회원의 동시 스캔에서 1회가 유실될 수 있다** — 초기 단계라 감수하며, 문제가 되면 이벤트 기반 집계로 전환한다.
 - 탈퇴하면 회원 행과 함께 소프트 삭제되므로 따로 정리할 카운터가 없다.
-- 리뷰 수·고유 음식 수는 리뷰 도메인 도입 시 같은 방식으로 `member` 에 컬럼을 추가한다(현재 계산에서 0).
+- 리뷰 카운트 2종은 컬럼만 있고 아직 오르지 않는다 — 리뷰 기능이 붙으면 카운트업 호출만 추가하면 되고 마이그레이션·도메인·응답 계약은 그대로다. 고유 음식 수는 "리뷰한 서로 다른 음식" 이라 단순 증가가 아니라 그 음식의 첫 리뷰일 때만 올린다.
 
 ### scan_history (변경 없음)
 
@@ -62,7 +66,7 @@
 
 ### 리뷰 (미존재)
 
-리뷰 테이블·도메인이 아직 없다. 리뷰 수·고유 음식 수는 0으로 산정한다.
+리뷰 테이블·도메인이 아직 없어 리뷰 카운트 2종은 0에 머문다. 컬럼은 이미 있으므로 리뷰 기능 도입 시 스키마 변경이 없다.
 
 ## 애그리거트
 

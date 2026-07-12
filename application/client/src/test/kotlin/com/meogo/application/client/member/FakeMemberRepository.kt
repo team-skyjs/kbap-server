@@ -18,7 +18,15 @@ class FakeMemberRepository : MemberRepository {
 
     override fun saveNew(member: Member): Member {
         val id = (store.keys.maxOrNull() ?: 0L) + 1
-        val saved = Member.reconstitute(id, member.identity, member.profile, member.onboardingCompleted, member.scanCount)
+        val saved = Member.reconstitute(
+            id = id,
+            identity = member.identity,
+            profile = member.profile,
+            onboardingCompleted = member.onboardingCompleted,
+            scanCount = member.scanCount,
+            reviewCount = member.reviewCount,
+            uniqueReviewedFoodCount = member.uniqueReviewedFoodCount,
+        )
         store[id] = saved
         return saved
     }

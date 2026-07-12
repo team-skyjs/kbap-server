@@ -290,11 +290,33 @@ class MemberRepositoryAdapterTest : BehaviorSpec() {
 
         given("스캔 횟수 — 랭킹 카운트") {
             `when`("가입 직후 회원을 저장하면") {
-                then("스캔 횟수가 0으로 초기화된다") {
+                then("스캔·리뷰·고유 음식 카운트가 모두 0으로 초기화된다") {
                     val saved = adapter.saveNew(Member.signUp(googleIdentity()))
 
                     saved.scanCount shouldBe 0
+                    saved.reviewCount shouldBe 0
+                    saved.uniqueReviewedFoodCount shouldBe 0
                     readColumn(saved.id!!, "scan_count") shouldBe "0"
+                    readColumn(saved.id!!, "review_count") shouldBe "0"
+                    readColumn(saved.id!!, "unique_reviewed_food_count") shouldBe "0"
+                }
+            }
+
+            `when`("리뷰 카운트가 쌓인 회원을 조회하면") {
+                then("컬럼 값이 도메인으로 복원된다") {
+                    val saved = adapter.saveNew(Member.signUp(googleIdentity()))
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE member SET review_count = 8, unique_reviewed_food_count = 6, scan_count = 9 " +
+                                    "WHERE id = ${saved.id}",
+                            )
+                        }
+                    }
+
+                    val ranking = adapter.findById(saved.id!!)!!.ranking()
+
+                    ranking.score shouldBe 128
                 }
             }
 

@@ -13,7 +13,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 
 **Organization**: 스토리별로 묶어 각각 독립 검증한다. 워크트리 `~/source_code/meogo/meogo-server-kb-123`(브랜치 `kb-123-member-ranking`)에서 작업한다.
 
-**설계 확정 이력**: (1) 스캔 횟수 단위 = 메뉴판 1장 1회 → `scan_history` 행 수 집계 안 폐기. (2) 랭킹은 **`Member` 애그리거트의 하위 개념** → 별도 카운터 테이블(`member_ranking`) 안을 폐기하고 `member.scan_count` 컬럼으로 이전. 가입 시 0 초기화, 이후 카운트업만. 동시성(read-modify-write 유실)은 초기 단계라 의도적으로 감수하며, 필요해지면 이벤트 기반 집계로 전환한다.
+**설계 확정 이력**: (1) 스캔 횟수 단위 = 메뉴판 1장 1회 → `scan_history` 행 수 집계 안 폐기. (2) 랭킹은 **`Member` 애그리거트의 하위 개념** → 별도 카운터 테이블(`member_ranking`) 안을 폐기하고 `member` 컬럼으로 이전. (3) 정책의 **카운트 3종**(`scan_count`·`review_count`·`unique_reviewed_food_count`)을 모두 컬럼으로 두고 가입 시 0 초기화, 이후 카운트업만(현재는 스캔만 오른다). 동시성(read-modify-write 유실)은 초기 단계라 의도적으로 감수하며, 필요해지면 이벤트 기반 집계로 전환한다.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -37,7 +37,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 - [x] T003 [P] **Red** — `core/member/src/test/kotlin/com/meogo/core/member/MemberTest.kt`: 가입 직후 `scanCount` 0·랭킹 최하 등급, `recordScan()` 이 새 인스턴스에서 1 올리고 원본 불변, 프로필 갱신 시 스캔 횟수 보존
 - [x] T004 **Green** — `core/member/src/main/kotlin/com/meogo/core/member/RankingTier.kt`: 7단계 enum(안정 키·level·minScore), `of(score)`(경계값은 상위 등급), `next`
 - [x] T005 **Green** — `core/member/src/main/kotlin/com/meogo/core/member/MemberRanking.kt`: 카운트 3개를 받는 불변 값 객체(score·tier·nextTier·pointsToNext·항목별 점수)
-- [x] T006 **Green** — 랭킹을 `Member` 애그리거트에 편입: `core/member/.../Member.kt`(`scanCount`·`recordScan()`·`ranking()`, 가입 시 0), `infra/persistence/.../member/MemberJpaEntity.kt`(`scan_count` 컬럼 + `applyDomain`), `MemberRepositoryAdapter.kt`, 마이그레이션 `app/api/src/main/resources/db/migration/V2026.07.13.00.12.40__add_member_scan_count.sql`. 영속 왕복은 `MemberRepositoryAdapterTest`(가입 시 0·카운트업 영속·프로필 갱신 시 보존)
+- [x] T006 **Green** — 랭킹을 `Member` 애그리거트에 편입: `core/member/.../Member.kt`(`scanCount`·`recordScan()`·`ranking()`, 가입 시 0), `infra/persistence/.../member/MemberJpaEntity.kt`(`scan_count` 컬럼 + `applyDomain`), `MemberRepositoryAdapter.kt`, 마이그레이션 `app/api/src/main/resources/db/migration/V2026.07.13.00.19.27__add_member_ranking_counts.sql`(카운트 3종 DEFAULT 0). 영속 왕복은 `MemberRepositoryAdapterTest`(가입 시 0·카운트업 영속·프로필 갱신 시 보존)
 - [x] T007 **Red** — `application/client/src/test/kotlin/com/meogo/application/client/member/MemberRankingUseCaseTest.kt`(페이크 회원 리포지토리): 회원의 스캔 횟수가 점수에 반영, 리뷰·다양성 0, 존재하지 않는 회원이면 `MEMBER_NOT_FOUND`
 - [x] T008 **Green** — `application/client/src/main/kotlin/com/meogo/application/client/member/MemberRankingUseCase.kt` + `dto/MemberRankingResult.kt`(경계 DTO — app:api 가 도메인 타입을 보지 않게)
 
@@ -89,7 +89,7 @@ description: "Task list for KB-123 회원 랭킹 산정 및 조회"
 - [x] T022 [P] Kotlin 주석 금지 규약 확인 — 신규·수정 `.kt` 에 주석 없음
 - [x] T023 설계 문서 동기화 — plan/research/data-model/contracts/quickstart 를 "Member 애그리거트 하위 랭킹 + member.scan_count 카운트업" 으로 갱신(초안의 "스키마 무변경·이력 행 수 집계" 와 중간안 "별도 카운터 테이블" 모두 폐기)
 - [ ] T024 수동 검증 — `quickstart.md` 절차대로 `SPRING_PROFILES_ACTIVE=local ./gradlew :app:api:bootRun` 후 스캔 → 프로필·랭킹 상세 응답 일치·401 확인, Swagger "회원" 태그 노출 확인
-- [ ] T025 draft PR — `open-draft-pr-to-develop` 스킬. 본문에 **계약 변경 2건**을 명시: (1) 프로필 응답에 `ranking` 요약 추가, (2) `member.scan_count` 컬럼 추가 마이그레이션 + 스캔 시 카운트업(기존 회원 스캔 횟수는 소급 없음)
+- [ ] T025 draft PR — `open-draft-pr-to-develop` 스킬. 본문에 **계약 변경 2건**을 명시: (1) 프로필 응답에 `ranking` 요약 추가, (2) `member` 카운트 컬럼 3종 추가 마이그레이션 + 스캔 시 카운트업(기존 회원 카운트는 소급 없음)
 
 ---
 
