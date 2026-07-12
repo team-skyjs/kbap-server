@@ -1,6 +1,11 @@
 package com.meogo.application.client.auth
 
+import com.meogo.core.member.Member
+import com.meogo.core.member.MemberProfile
+import com.meogo.core.member.MemberRepository
 import com.meogo.core.member.RefreshTokenStore
+import com.meogo.core.member.SocialIdentity
+import com.meogo.core.member.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -18,10 +23,18 @@ class RefreshUseCaseTest : BehaviorSpec({
     val issuer = TokenIssuer(properties)
     val parser = TokenParser(properties)
 
-    fun useCase(store: RefreshTokenStore) = RefreshUseCase(
+    val activeMember = Member.reconstitute(
+        id = 5L,
+        identity = SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "user@gmail.com"),
+        profile = MemberProfile.empty(),
+        onboardingCompleted = true,
+    )
+
+    fun useCase(store: RefreshTokenStore, member: Member? = activeMember) = RefreshUseCase(
         tokenIssuer = issuer,
         tokenParser = parser,
         refreshTokenStore = store,
+        memberRepository = StubMemberLookup(member),
         properties = properties,
     )
 
@@ -102,6 +115,19 @@ class RefreshUseCaseTest : BehaviorSpec({
         }
     }
 
+    given("탈퇴한 회원의 refresh 토큰") {
+        `when`("재발급하면") {
+            then("INVALID_REFRESH_TOKEN 으로 거절된다(모든 기기의 잔여 토큰이 함께 무력화된다)") {
+                val store = InMemoryStore()
+                val refreshToken = loggedInSession(store)
+
+                val e = shouldThrow<AuthException> { useCase(store, member = null).refresh(refreshToken) }
+
+                e.errorCode shouldBe AuthErrorCode.INVALID_REFRESH_TOKEN
+            }
+        }
+    }
+
     given("만료된 refresh 토큰") {
         `when`("재발급하면") {
             then("EXPIRED_REFRESH_TOKEN 으로 거절되고 남은 세션도 폐기된다(강제 로그아웃)") {
@@ -124,6 +150,18 @@ class RefreshUseCaseTest : BehaviorSpec({
         }
     }
 })
+
+private class StubMemberLookup(private val member: Member?) : MemberRepository {
+    override fun findById(id: Long): Member? = member
+
+    override fun findByIdentity(provider: SocialProvider, providerUserId: String): Member? = null
+
+    override fun saveNew(member: Member): Member = member
+
+    override fun update(member: Member): Member = member
+
+    override fun withdraw(id: Long) = Unit
+}
 
 private class InMemoryStore : RefreshTokenStore {
     private val sessions = mutableMapOf<String, Long>()

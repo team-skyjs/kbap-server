@@ -1,5 +1,6 @@
 package com.meogo.application.client.auth
 
+import com.meogo.core.member.MemberRepository
 import com.meogo.core.member.MemberRole
 import com.meogo.core.member.RefreshTokenStore
 import org.springframework.stereotype.Service
@@ -14,6 +15,7 @@ class RefreshUseCase(
     private val tokenIssuer: TokenIssuer,
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
+    private val memberRepository: MemberRepository,
     private val properties: AuthTokenProperties,
 ) {
     fun refresh(refreshToken: String): RefreshResult {
@@ -28,6 +30,10 @@ class RefreshUseCase(
 
         val memberId = refreshTokenStore.consume(parsed.jti)
             ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
+
+        if (memberRepository.findById(memberId) == null) {
+            throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        }
 
         val rotated = tokenIssuer.issueRefreshToken(memberId)
         refreshTokenStore.save(rotated.jti, memberId, properties.refreshTtl)

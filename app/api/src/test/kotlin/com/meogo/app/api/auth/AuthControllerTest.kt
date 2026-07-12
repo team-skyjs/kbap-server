@@ -3,6 +3,7 @@ package com.meogo.app.api.auth
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.application.client.auth.AuthErrorCode
 import com.meogo.application.client.auth.AuthException
+import com.meogo.application.client.auth.SocialAccountDeleter
 import com.meogo.application.client.auth.SocialTokenVerifier
 import com.meogo.core.member.SocialIdentity
 import com.meogo.core.member.SocialProvider
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
@@ -258,6 +260,22 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("탈퇴한 회원이 들고 있던 refresh 토큰") {
+            `when`("재발급하면") {
+                then("401 로 거절된다") {
+                    val loginResponse = login().andReturn().response
+                    val refreshToken = bodyToken(loginResponse, "refreshToken")
+                    val accessToken = bodyToken(loginResponse, "accessToken")
+
+                    mockMvc.patch("/api/v1/members/me/withdraw") {
+                        header("Authorization", "Bearer $accessToken")
+                    }.andReturn().response.status shouldBe 200
+
+                    refresh(refreshToken).andReturn().response.status shouldBe 401
+                }
+            }
+        }
     }
 }
 
@@ -266,7 +284,7 @@ class FakeSocialTokenVerifier : SocialTokenVerifier {
 
     override fun verify(idToken: String): SocialIdentity {
         failure?.let { throw AuthException(it) }
-        return SocialIdentity(SocialProvider.GOOGLE, "google-sub-fixed", "user@gmail.com")
+        return SocialIdentity(SocialProvider.GOOGLE, DEFAULT_SUB, "user@gmail.com")
     }
 
     fun failWith(errorCode: AuthErrorCode) {
@@ -276,6 +294,31 @@ class FakeSocialTokenVerifier : SocialTokenVerifier {
     fun reset() {
         failure = null
     }
+
+    companion object {
+        const val DEFAULT_SUB: String = "google-sub-fixed"
+    }
+}
+
+class FakeSocialAccountDeleter : SocialAccountDeleter {
+    val deleted: MutableList<Pair<SocialProvider, String>> = mutableListOf()
+    private var failing = false
+
+    override fun delete(provider: SocialProvider, providerUserId: String) {
+        if (failing) {
+            throw IllegalStateException("인증 제공자 계정 삭제 실패 시뮬레이션")
+        }
+        deleted += provider to providerUserId
+    }
+
+    fun fail() {
+        failing = true
+    }
+
+    fun reset() {
+        deleted.clear()
+        failing = false
+    }
 }
 
 @TestConfiguration
@@ -283,4 +326,8 @@ class FakeSocialTokenVerifierConfig {
     @Bean
     @Primary
     fun fakeSocialTokenVerifier(): FakeSocialTokenVerifier = FakeSocialTokenVerifier()
+
+    @Bean
+    @Primary
+    fun fakeSocialAccountDeleter(): FakeSocialAccountDeleter = FakeSocialAccountDeleter()
 }

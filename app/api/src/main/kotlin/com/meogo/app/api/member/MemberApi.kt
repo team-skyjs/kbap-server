@@ -166,4 +166,28 @@ interface MemberApi {
         )
         @RequestBody request: ProfileUpdateRequest,
     ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "회원 탈퇴",
+        description = """
+            로그인한 회원이 자기 계정을 탈퇴한다. 요청 본문은 없고 접근 토큰이 대상 회원을 결정한다.
+            서버가 저장된 소셜 신원(제공자 + 소셜 식별자)으로 인증 제공자(Firebase)의 사용자 기록을
+            직접 찾아 먼저 삭제한 뒤, 회원 행을 소프트 삭제하고 소셜 식별자를 삭제 표식으로 치환한다.
+            삭제에 실패하면 회원 데이터를 그대로 두고 500 으로 응답한다(부분 탈퇴 없음).
+            탈퇴 후에는 기존 access·refresh 토큰을 쓸 수 없고, 같은 소셜 계정으로 다시 로그인하면
+            신규 회원으로 가입된다. `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "탈퇴 완료 — 소셜 계정·회원 기록 삭제"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음(이미 탈퇴 포함)"),
+            ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원 데이터는 변경되지 않음"),
+        ],
+    )
+    @PatchMapping("/me/withdraw")
+    fun withdraw(
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<Unit>>
 }
