@@ -50,6 +50,11 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
             )
         }
     }
+
+    override fun findRandomReady(size: Int): List<Food> = emptyList()
+
+    override fun findAllReadyByIds(ids: List<Long>): List<Food> = emptyList()
+
 }
 
 private class ScanFakeAvoidedProvider : AvoidedSubstanceProvider {

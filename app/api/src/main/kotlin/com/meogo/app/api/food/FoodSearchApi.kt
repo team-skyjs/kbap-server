@@ -1,18 +1,19 @@
 package com.meogo.app.api.food
 
 import com.meogo.app.api.common.BaseResponse
-import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import com.meogo.app.api.common.Page
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
 
 @Tag(name = "음식 검색", description = "검색어로 음식을 찾아 최신순 keyset 커서로 조회하는 API")
+@SecurityRequirement(name = "bearerAuth")
 interface FoodSearchApi {
     @Operation(
         summary = "음식 검색 조회 (무한 스크롤, no-offset)",
@@ -39,7 +40,6 @@ interface FoodSearchApi {
         @RequestParam(required = false) cursor: String?,
         @Parameter(description = "검색·표시명 언어 코드(미지정/빈/공백 시 ko, 지원 목록에 없는 코드는 400)", required = false, example = "en")
         @RequestParam(required = false) lang: String?,
-        @Parameter(hidden = true)
-        @AuthMemberIdOrNull memberId: Long?,
+        memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
 }

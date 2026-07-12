@@ -1,7 +1,6 @@
 package com.meogo.app.api.scan
 
 import com.meogo.app.api.common.BaseResponse
-import com.meogo.app.api.common.auth.AuthMemberId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -55,7 +54,7 @@ interface ScanApi {
     )
     @PostMapping
     fun scan(
-        @AuthMemberId memberId: Long,
+        memberId: Long,
         @Valid
         @RequestBody
         @SwaggerRequestBody(

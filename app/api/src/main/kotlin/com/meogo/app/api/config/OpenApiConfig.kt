@@ -1,6 +1,7 @@
 package com.meogo.app.api.config
 
 import com.meogo.app.api.common.auth.AuthMemberId
+import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.security.SecurityScheme
@@ -11,7 +12,9 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class OpenApiConfig {
     init {
-        SpringDocUtils.getConfig().addAnnotationsToIgnore(AuthMemberId::class.java)
+        SpringDocUtils.getConfig()
+            .addAnnotationsToIgnore(AuthMemberId::class.java)
+            .addAnnotationsToIgnore(AuthMemberIdOrNull::class.java)
     }
 
     @Bean
