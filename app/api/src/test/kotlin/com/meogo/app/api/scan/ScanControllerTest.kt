@@ -55,6 +55,14 @@ class ScanControllerTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
+        fun scanCountOf(memberId: Long): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT scan_count FROM member WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                }
+            }
+
         fun countHistory(memberId: Long): Int =
             dataSource.connection.use { c ->
                 c.prepareStatement("SELECT COUNT(*) FROM scan_history WHERE member_id = ?").use { ps ->
@@ -174,6 +182,54 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     countHistory(historyMemberId) shouldBe 1
+                }
+            }
+
+            `when`("READY 매칭과 조사 대기(INCOMPLETE) 매칭이 섞인 메뉴판을 스캔하면") {
+                then("이력은 READY 음식만, 같은 음식의 중복 항목은 1건으로 저장된다") {
+                    val mixedMemberId = 778L
+                    seedReadyFood("혼합이력갈비탕")
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            """
+                            INSERT INTO food (korean_name, description, spiciness, name_translations,
+                                              description_translations, content_status, status, created_at, updated_at)
+                            VALUES ('혼합이력미완성만두', '설명 준비 중', 0, '{}', '{}', 'INCOMPLETE', 'ACTIVE', NOW(6), NOW(6))
+                            ON DUPLICATE KEY UPDATE content_status = 'INCOMPLETE'
+                            """,
+                        ).use { it.executeUpdate() }
+                    }
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(mixedMemberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(
+                            item(0, "혼합이력갈비탕"),
+                            item(1, "혼합이력갈비탕"),
+                            item(2, "혼합이력미완성만두"),
+                        )
+                    }.andExpect {
+                        status { isOk() }
+                    }
+
+                    countHistory(mixedMemberId) shouldBe 1
+                }
+            }
+
+            `when`("매칭되는 음식이 하나도 없는 메뉴판을 스캔하면") {
+                then("이력은 저장되지 않지만 스캔 횟수는 메뉴판 단위로 1회 오른다") {
+                    val unmatchedMemberId = 779L
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(unmatchedMemberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(item(0, "존재하지않는스캔전용메뉴"))
+                    }.andExpect {
+                        status { isOk() }
+                    }
+
+                    countHistory(unmatchedMemberId) shouldBe 0
+                    scanCountOf(unmatchedMemberId) shouldBe 1
                 }
             }
         }

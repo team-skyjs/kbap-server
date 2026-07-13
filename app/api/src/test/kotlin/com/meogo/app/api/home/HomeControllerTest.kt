@@ -96,6 +96,28 @@ class HomeControllerTest : BehaviorSpec() {
             }
         }
 
+        given("프로필 언어를 설정하지 않은(온보딩 미완료) 회원") {
+            `when`("홈을 조회하면") {
+                then("영어 기준으로 응답한다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 1)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, " +
+                                    "onboarding_completed, status, created_at, updated_at) " +
+                                    "VALUES (12, 'GOOGLE', 'home-test-nolang', NULL, NULL, '{}', " +
+                                    "'ACTIVE', 0, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+                            )
+                        }
+                    }
+
+                    val payload = payload(12L)
+
+                    payload.path("popularFoods").single().path("name").asText() shouldBe "Menu1"
+                }
+            }
+        }
+
         given("기피 성분·스캔 이력이 없는 회원") {
             `when`("홈을 조회하면") {
                 then("두 섹션이 빈 배열로 내려온다") {

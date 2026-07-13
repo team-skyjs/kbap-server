@@ -352,6 +352,45 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
+        given("온보딩 입력 정규화") {
+            `when`("닉네임 앞뒤 공백과 중복 성분 코드를 제출하면") {
+                then("공백은 제거되고 성분은 중복 없이 저장된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(
+                        token,
+                        mapOf(
+                            "nickname" to "  길동이  ",
+                            "avoidanceSubstanceCodes" to listOf("EGG", "EGG", "MILK"),
+                            "countryCode" to "US",
+                            "appLanguage" to "en",
+                        ),
+                    ).andExpect { status { isOk() } }
+
+                    val result = getMyProfile(token).andReturn().response
+                    val payload = objectMapper.readTree(result.contentAsString).path("payload")
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
+                    payload.path("avoidanceSubstanceCodes").size() shouldBe 2
+                }
+            }
+        }
+
+        given("프로필 부분 수정 — API 로 노출되지 않는 값") {
+            `when`("닉네임만 수정하면") {
+                then("맵기 선호도는 보존된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+
+                    updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
+
+                    val profileJson = memberColumn("google-sub-fixed", "profile")!!
+                    profileJson.contains("\"spicinessPreference\"") shouldBe true
+                    objectMapper.readTree(profileJson).path("spicinessPreference").asInt() shouldBe 5
+                }
+            }
+        }
+
         given("프로필 응답의 랭킹 요약") {
             `when`("가입 직후 회원이 프로필을 조회하면") {
                 then("모든 카운트가 0으로 초기화된 랭킹이 내려온다") {

@@ -93,13 +93,13 @@
 
 ### Tests for User Story 2 (Test-First) ⚠️
 
-- [ ] T022 [P] [US2] 컨트롤러 통합 테스트 보강(먼저 작성 — 기존 동작이라 green 시작이 정상인 **동작 보존 테스트**) — 매핑표의 login·withdraw·scan·food detail·avoided substance 시나리오 중 기존 MockMvc 테스트가 커버하지 않는 케이스를 `app/api/src/test/kotlin/com/meogo/app/api/**` 에 추가
-- [ ] T023 [P] [US2] batch 스코어링 통합 테스트 재작성 — `app/batch/src/test/kotlin/com/meogo/app/batch/scoring/AvoidanceScoringJobTest.kt` 를 실물 FoodService + MySQL Testcontainers + LLM seam 페이크로 전환
+- [X] T022 [P] [US2] 컨트롤러 통합 테스트 보강(먼저 작성 — 기존 동작이라 green 시작이 정상인 **동작 보존 테스트**) — 매핑표의 login·withdraw·scan·food detail·avoided substance 시나리오 중 기존 MockMvc 테스트가 커버하지 않는 케이스를 `app/api/src/test/kotlin/com/meogo/app/api/**` 에 추가
+- [X] T023 [P] [US2] batch 스코어링 테스트 승계 — 구현 편차(T019): 잡을 람다 협력자로 재구성해 `AvoidanceScoringJobTest`·`ScoringJobRunnerTest`·`AvoidanceScoringSmokeTest` 의 기존 시나리오 전부를 페이크→람다로 무손실 보존(Testcontainers 통합 전환 불필요), 게이팅 테스트는 스텁 잡 + `ScoringRunnerConfig` 로 재작성
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] 페이크 port 테스트 삭제 — `application/client/src/test` 의 Fake* 파일·구 유스케이스 단위 테스트 제거(매핑표 전 행의 승계 완료를 먼저 대조), `application/client/build.gradle.kts` 테스트 의존 정리
-- [ ] T025 [US2] internal 경계 스팟체크 — application:client 에 `MemberJpaEntity` import 를 임시 추가해 컴파일 실패 확인 후 원복(결과를 커밋 메시지에 기록), ArchUnit ModuleBoundaryTest 실행해 연관관계 규칙(4) 외 전부 green 확인
+- [X] T024 [US2] 페이크 port 테스트 삭제(T018 에서 선행 — 컴파일 유지 필요) 및 매핑표 대조 완료. 보강 4건: 재로그아웃 멱등(Auth)·온보딩 정규화/맵기 보존(Member)·혼합 이력 READY 필터+음식당 1건·매칭 0건 스캔 1회(Scan)·언어 미설정 영어 폴백(Home). 수용 손실 2건(문서화): 로그인 saveNew 동시성 경합 재조회 폴백(페이크 전용 재현 — 중복 예외 자체는 MemberServiceTest 커버), 만료 refresh 의 잔여 세션 폐기 후속동작(만료 파싱 거절은 TokenTest 커버) — `application/client/src/test` 의 Fake* 파일·구 유스케이스 단위 테스트 제거(매핑표 전 행의 승계 완료를 먼저 대조), `application/client/build.gradle.kts` 테스트 의존 정리
+- [X] T025 [US2] internal 경계 스팟체크 — application:client 에 `MemberJpaEntity` import 를 임시 추가해 컴파일 실패 확인 후 원복(결과를 커밋 메시지에 기록), ArchUnit ModuleBoundaryTest 실행해 연관관계 규칙(4) 외 전부 green 확인
 
 **Checkpoint**: 경계 검증 완료·시나리오 유실 0건 — 전체 테스트 스위트가 새 구조에서 유의미
 

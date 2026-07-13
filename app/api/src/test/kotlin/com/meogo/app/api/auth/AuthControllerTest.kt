@@ -306,6 +306,15 @@ class AuthControllerTest : BehaviorSpec() {
                     logout(null).andReturn().response.status shouldBe 200
                 }
             }
+
+            `when`("이미 로그아웃한 refresh 토큰으로 다시 로그아웃하면") {
+                then("200 으로 멱등 처리된다") {
+                    val refreshToken = bodyToken(login().andReturn().response, "refreshToken")
+                    logout(refreshToken).andReturn().response.status shouldBe 200
+
+                    logout(refreshToken).andReturn().response.status shouldBe 200
+                }
+            }
         }
 
         given("회원 탈퇴") {
