@@ -38,7 +38,6 @@ dependencies {
     jacocoAggregation(project(":domain:scan"))
     jacocoAggregation(project(":infra:llm"))
     jacocoAggregation(project(":app:batch"))
-    jacocoAggregation(project(":common"))
 }
 
 reporting {

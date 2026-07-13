@@ -37,7 +37,4 @@ include(
     // ── 부트앱 진입점 ──
     ":app:api",           // web bootJar (조립) — 진입점 com.kbap.api.KbapApiApplication
     ":app:batch",         // batch bootJar — flyway off
-
-    // ── 공유 모듈 (app:api·app:batch 공유) ──
-    ":common",
 )

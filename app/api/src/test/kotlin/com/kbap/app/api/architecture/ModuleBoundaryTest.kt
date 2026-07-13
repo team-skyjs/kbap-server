@@ -48,7 +48,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                         "com.kbap.application..",
                         "com.kbap.infra..",
                         "com.kbap.app..",
-                        "com.kbap.common..",
                     )
                     .allowEmptyShould(true)
                     .check(imported)
@@ -64,7 +63,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                         "com.kbap.application..",
                         "com.kbap.infra..",
                         "com.kbap.app..",
-                        "com.kbap.common..",
                     )
                     .allowEmptyShould(true)
                     .check(imported)
@@ -159,25 +157,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .should().dependOnClassesThat().resideInAnyPackage(
                         "com.kbap.infra..",
                         "com.kbap.app..",
-                    )
-                    .allowEmptyShould(true)
-                    .check(imported)
-            }
-        }
-    }
-
-    given("공유 모듈(common) 경계") {
-        `when`("common 이 도메인·상위 계층·스프링·JPA 에 의존하는지 검사하면") {
-            then("가볍게 유지되어 어떤 계층도 알지 못한다") {
-                noClasses().that().resideInAPackage("com.kbap.common..")
-                    .should().dependOnClassesThat().resideInAnyPackage(
-                        core,
-                        anyDomain,
-                        "com.kbap.application..",
-                        "com.kbap.infra..",
-                        "com.kbap.app..",
-                        spring,
-                        jpa,
                     )
                     .allowEmptyShould(true)
                     .check(imported)
