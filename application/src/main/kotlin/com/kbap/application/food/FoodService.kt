@@ -1,7 +1,6 @@
 package com.kbap.application.food
 
-import com.kbap.application.support.LanguageResolver
-import com.kbap.application.support.resolveKeyword
+import com.kbap.application.support.SearchKeywordParser
 import com.kbap.application.support.AvoidedSubstanceHelper
 import com.kbap.application.food.dto.BrowseFoodsInput
 import com.kbap.application.food.dto.FoodPage
@@ -26,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional
 class FoodService(
     private val foodRepository: FoodJpaRepository,
     private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
-    private val languageResolver: LanguageResolver,
     private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
     private val entityManager: EntityManager,
 ) {
@@ -34,14 +32,14 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun browse(input: BrowseFoodsInput): FoodPage {
-        val lang = languageResolver.resolve(input.lang)
+        val lang = LanguageCode.from(input.lang)
         return foodPage(findFoodPage(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     @Transactional(readOnly = true)
     fun search(input: SearchFoodsInput): FoodPage {
-        val keyword = resolveKeyword(input.keyword)
-        val lang = languageResolver.resolve(input.lang)
+        val keyword = SearchKeywordParser.parse(input.keyword)
+        val lang = LanguageCode.from(input.lang)
         return foodPage(searchFoodPage(keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
@@ -55,7 +53,7 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
-        val lang = languageResolver.resolve(input.lang)
+        val lang = LanguageCode.from(input.lang)
         val food = findReadyById(input.foodId)
             ?: throw KbapException(ErrorCode.FOOD_NOT_FOUND)
 

@@ -6,7 +6,7 @@ import com.kbap.app.api.common.auth.AuthMemberIdOrNull
 import com.kbap.app.api.common.Page
 import com.kbap.application.food.dto.BrowseFoodsInput
 import com.kbap.application.food.FoodService
-import com.kbap.application.support.resolveCursor
+import com.kbap.application.support.CursorParser
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -22,7 +22,7 @@ class FoodListController(
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = foodService.browse(
-            BrowseFoodsInput(cursor = resolveCursor(cursor), lang = lang, memberId = memberId),
+            BrowseFoodsInput(cursor = CursorParser.parse(cursor), lang = lang, memberId = memberId),
         )
         return ResponseEntity.ok(
             BaseResponse.ok(
