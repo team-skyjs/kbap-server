@@ -1,6 +1,6 @@
 package com.kbap.app.api.scan
 
-import com.kbap.application.scan.ScanService
+import com.kbap.domain.scan.ScanService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId

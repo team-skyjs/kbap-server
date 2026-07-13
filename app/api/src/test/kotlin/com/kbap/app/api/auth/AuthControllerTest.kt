@@ -3,7 +3,7 @@ package com.kbap.app.api.auth
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.application.auth.social.SocialAccountDeleter
+import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
 import com.kbap.domain.member.SocialIdentity
 import com.kbap.domain.member.SocialProvider

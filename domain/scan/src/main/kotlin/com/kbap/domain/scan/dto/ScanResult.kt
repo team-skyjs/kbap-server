@@ -1,4 +1,4 @@
-package com.kbap.application.scan.dto
+package com.kbap.domain.scan.dto
 
 data class ScanResult(
     val items: List<ItemRiskResult>,

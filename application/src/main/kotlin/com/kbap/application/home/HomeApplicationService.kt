@@ -1,41 +1,38 @@
 package com.kbap.application.home
 
 import com.kbap.core.id.MemberId
-import com.kbap.application.food.dto.FoodSummaryView
-import com.kbap.application.support.AvoidedSubstanceHelper
+import com.kbap.domain.food.dto.FoodSummaryView
 import com.kbap.application.home.dto.AvoidedSubstanceView
 import com.kbap.application.home.dto.HomeResult
-import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
-import com.kbap.application.food.FoodService
+import com.kbap.domain.avoidance.AvoidanceCatalogService
+import com.kbap.domain.food.FoodService
 import com.kbap.core.lang.LanguageCode
-import com.kbap.domain.member.MemberJpaRepository
-import com.kbap.domain.member.MemberStatus
-import com.kbap.domain.scan.ScanHistoryJpaRepository
+import com.kbap.domain.member.MemberService
+import com.kbap.domain.scan.ScanService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class HomeService(
-    private val memberRepository: MemberJpaRepository,
+class HomeApplicationService(
+    private val memberService: MemberService,
     private val foodService: FoodService,
-    private val scanHistoryRepository: ScanHistoryJpaRepository,
-    private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
-    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
+    private val scanService: ScanService,
+    private val avoidanceCatalogService: AvoidanceCatalogService,
 ) {
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?): HomeResult {
-        val member = memberId?.let { memberRepository.findByIdAndMemberStatus(it, MemberStatus.ACTIVE) }
+        val member = memberId?.let { memberService.findActive(it) }
         val lang = member?.profile?.appLanguage ?: LanguageCode.EN
-        val avoidedCodes = avoidedSubstanceHelper.avoidedCodes(member?.id)
+        val avoidedCodes = memberService.avoidedCodes(member?.id)
         val avoidedRefs = avoidedCodes.map { it.name }.toSet()
 
         return HomeResult(
-            avoidedSubstances = (if (avoidedCodes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(avoidedCodes))
+            avoidedSubstances = avoidanceCatalogService.findByCodes(avoidedCodes)
                 .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
             popularFoods = foodService.findRandomReady(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs) },
             recentScans = member?.id?.let { id ->
-                val recentIds = scanHistoryRepository.findRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
+                val recentIds = scanService.recentReadyFoodIds(id, RECENT_SCAN_SIZE)
                 val foodsById = foodService.findAllReadyByIds(recentIds).associateBy { it.id }
                 recentIds.mapNotNull { foodsById[it] }.map { FoodSummaryView.from(it, lang, avoidedRefs) }
             }.orEmpty(),

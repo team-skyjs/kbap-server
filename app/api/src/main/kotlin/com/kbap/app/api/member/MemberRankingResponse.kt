@@ -1,6 +1,6 @@
 package com.kbap.app.api.member
 
-import com.kbap.application.member.dto.MemberRankingResult
+import com.kbap.domain.member.dto.MemberRankingResult
 
 data class MemberRankingResponse(
     val tier: String,

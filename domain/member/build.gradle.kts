@@ -5,5 +5,7 @@ plugins {
 }
 
 dependencies {
+    "api"(project(":domain:avoidance")) // 기피 성분 코드 enum — 프로필 검증·조회 반환 타입
+
     "implementation"(libs.spring.boot.starter.data.redis)
 }

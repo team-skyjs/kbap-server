@@ -1,4 +1,4 @@
-package com.kbap.application.food.dto
+package com.kbap.domain.food.dto
 
 import com.kbap.core.risk.RiskLevel
 

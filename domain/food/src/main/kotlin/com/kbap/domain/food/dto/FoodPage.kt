@@ -1,4 +1,4 @@
-package com.kbap.application.food.dto
+package com.kbap.domain.food.dto
 
 data class FoodPage(
     val items: List<FoodSummaryView>,

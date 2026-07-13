@@ -4,7 +4,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.kbap.application.auth.social.SocialAccountDeleter
+import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
 import java.io.ByteArrayInputStream
 

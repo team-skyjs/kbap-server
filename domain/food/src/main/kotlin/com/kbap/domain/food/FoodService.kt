@@ -1,19 +1,17 @@
-package com.kbap.application.food
+package com.kbap.domain.food
 
-import com.kbap.application.support.AvoidedSubstanceHelper
-import com.kbap.application.food.dto.BrowseFoodsInput
-import com.kbap.application.food.dto.FoodPage
-import com.kbap.application.food.dto.FoodSummaryView
-import com.kbap.application.food.dto.GetFoodDetailInput
-import com.kbap.application.food.dto.GetFoodDetailResult
-import com.kbap.application.food.dto.SearchFoodsInput
+import com.kbap.domain.food.dto.BrowseFoodsInput
+import com.kbap.domain.food.dto.FoodPage
+import com.kbap.domain.food.dto.FoodSummaryView
+import com.kbap.domain.food.dto.GetFoodDetailInput
+import com.kbap.domain.food.dto.GetFoodDetailResult
+import com.kbap.domain.food.dto.SearchFoodsInput
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
-import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodJpaRepository
+import com.kbap.domain.avoidance.AvoidanceCatalogService
+import com.kbap.domain.member.MemberService
 import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
@@ -23,8 +21,8 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
-    private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
-    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
+    private val avoidanceCatalogService: AvoidanceCatalogService,
+    private val memberService: MemberService,
     private val entityManager: EntityManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -126,11 +124,10 @@ class FoodService(
         return resolved
     }
 
-    fun findSubstanceCatalog(codes: Set<AvoidanceSubstanceCode>) =
-        if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes)
+    fun findSubstanceCatalog(codes: Set<AvoidanceSubstanceCode>) = avoidanceCatalogService.findByCodes(codes)
 
     fun avoidedCodeNames(memberId: Long?): Set<String> =
-        avoidedSubstanceHelper.avoidedCodes(memberId).map { it.name }.toSet()
+        memberService.avoidedCodes(memberId).map { it.name }.toSet()
 
     private fun foodPage(rows: List<Food>, lang: LanguageCode, memberId: Long?): FoodPage {
         val hasNext = rows.size > PAGE_SIZE

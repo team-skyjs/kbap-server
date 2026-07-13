@@ -26,15 +26,6 @@ class ModuleBoundaryTest : BehaviorSpec({
 
     val core = "com.kbap.core.."
     val anyDomain = "com.kbap.domain.."
-    val domains =
-        listOf(
-            "com.kbap.domain.food..",
-            "com.kbap.domain.member..",
-            "com.kbap.domain.avoidance..",
-            "com.kbap.domain.scan..",
-            "com.kbap.domain.research..",
-            "com.kbap.domain.review..",
-        )
     val spring = "org.springframework.."
     val jpa = "jakarta.persistence.."
 
@@ -66,18 +57,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                     )
                     .allowEmptyShould(true)
                     .check(imported)
-            }
-        }
-
-        domains.forEach { domain ->
-            `when`("$domain 가 다른 도메인 컨텍스트에 의존하는지 검사하면") {
-                then("서로 다른 도메인 컨텍스트는 격리된다") {
-                    val others = domains.filter { it != domain }.toTypedArray()
-                    noClasses().that().resideInAPackage(domain)
-                        .should().dependOnClassesThat().resideInAnyPackage(*others)
-                        .allowEmptyShould(true)
-                        .check(imported)
-                }
             }
         }
 
@@ -133,17 +112,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                 classes().that().resideInAPackage("com.kbap.app.api..")
                     .and().areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
                     .should(declareApiVersionedMapping)
-                    .allowEmptyShould(true)
-                    .check(imported)
-            }
-        }
-    }
-
-    given("부트앱 모듈(app:api) 경계") {
-        `when`("app:api 가 도메인 내부에 의존하는지 검사하면") {
-            then("도메인 모듈을 직접 import 하지 않는다") {
-                noClasses().that().resideInAPackage("com.kbap.app.api..")
-                    .should().dependOnClassesThat().resideInAPackage(anyDomain)
                     .allowEmptyShould(true)
                     .check(imported)
             }

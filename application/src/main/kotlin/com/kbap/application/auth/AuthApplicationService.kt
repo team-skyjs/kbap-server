@@ -8,19 +8,15 @@ import com.kbap.application.auth.dto.LoginResult
 import com.kbap.application.auth.dto.RefreshResult
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
-import com.kbap.domain.member.Member
-import com.kbap.domain.member.MemberJpaRepository
+import com.kbap.domain.member.MemberService
 import com.kbap.domain.member.MemberRole
-import com.kbap.domain.member.MemberStatus
 import com.kbap.domain.member.RefreshTokenStore
-import com.kbap.domain.member.SocialIdentity
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 
 @Service
-class AuthService(
+class AuthApplicationService(
     private val socialTokenVerifier: SocialTokenVerifier,
-    private val memberRepository: MemberJpaRepository,
+    private val memberService: MemberService,
     private val tokenIssuer: TokenIssuer,
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
@@ -28,7 +24,7 @@ class AuthService(
 ) {
     fun login(idToken: String): LoginResult {
         val identity = socialTokenVerifier.verify(idToken)
-        val (member, isNewMember) = resolveMember(identity)
+        val (member, isNewMember) = memberService.findOrSignUp(identity)
         val memberId = member.id
 
         val refreshToken = tokenIssuer.issueRefreshToken(memberId)
@@ -55,7 +51,7 @@ class AuthService(
         val memberId = refreshTokenStore.consume(parsed.jti)
             ?: throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
 
-        if (memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE) == null) {
+        if (memberService.findActive(memberId) == null) {
             throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
 
@@ -76,22 +72,4 @@ class AuthService(
         refreshTokenStore.delete(jti)
     }
 
-    private fun resolveMember(identity: SocialIdentity): Pair<Member, Boolean> {
-        findActive(identity)?.let { return it to false }
-
-        return try {
-            memberRepository.save(Member.signUp(identity)) to true
-        } catch (e: DataIntegrityViolationException) {
-            val existing = findActive(identity)
-                ?: throw KbapException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
-            existing to false
-        }
-    }
-
-    private fun findActive(identity: SocialIdentity): Member? =
-        memberRepository.findByProviderAndProviderUidAndMemberStatus(
-            identity.provider,
-            identity.providerUserId,
-            MemberStatus.ACTIVE,
-        )
 }

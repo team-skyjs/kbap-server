@@ -1,4 +1,4 @@
-package com.kbap.application.member.dto
+package com.kbap.domain.member.dto
 
 data class ProfileUpdateInput(
     val memberId: Long,

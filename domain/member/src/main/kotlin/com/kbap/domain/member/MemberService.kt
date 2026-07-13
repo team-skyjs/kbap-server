@@ -1,22 +1,16 @@
-package com.kbap.application.member
+package com.kbap.domain.member
 
-import com.kbap.application.auth.social.SocialAccountDeleter
-import com.kbap.application.member.dto.MemberProfileInput
-import com.kbap.application.member.dto.MemberRankingResult
-import com.kbap.application.member.dto.MyProfileResult
-import com.kbap.application.member.dto.ProfileUpdateInput
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.member.AvoidanceSubstanceCodeRef
-import com.kbap.domain.member.Member
-import com.kbap.domain.member.MemberJpaRepository
-import com.kbap.domain.member.MemberProfile
-import com.kbap.domain.member.MemberStatus
-import com.kbap.domain.member.SocialIdentity
+import com.kbap.domain.member.dto.MemberProfileInput
+import com.kbap.domain.member.dto.MemberRankingResult
+import com.kbap.domain.member.dto.MyProfileResult
+import com.kbap.domain.member.dto.ProfileUpdateInput
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -29,7 +23,7 @@ class MemberService(
 
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        val member = findMember(input.memberId)
+        val member = findActiveOrThrow(input.memberId)
 
         val profile = MemberProfile.of(
             nickname = validatedNickname(input.nickname),
@@ -45,7 +39,7 @@ class MemberService(
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        val member = findMember(input.memberId)
+        val member = findActiveOrThrow(input.memberId)
         val current = member.profile
 
         val merged = MemberProfile.of(
@@ -62,16 +56,16 @@ class MemberService(
 
     @Transactional(readOnly = true)
     fun getMyProfile(memberId: Long): MyProfileResult {
-        val member = findMember(memberId)
+        val member = findActiveOrThrow(memberId)
         return MyProfileResult.of(member, MemberRankingResult.from(member.ranking))
     }
 
     @Transactional(readOnly = true)
     fun getRanking(memberId: Long): MemberRankingResult =
-        MemberRankingResult.from(findMember(memberId).ranking)
+        MemberRankingResult.from(findActiveOrThrow(memberId).ranking)
 
     fun withdraw(memberId: Long) {
-        val member = findMember(memberId)
+        val member = findActiveOrThrow(memberId)
 
         deleteSocialAccount(memberId, member.identity)
 
@@ -79,9 +73,47 @@ class MemberService(
         memberRepository.save(member)
     }
 
-    private fun findMember(memberId: Long): Member =
+    fun findActive(memberId: Long): Member? =
         memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
-            ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+
+    fun findByIdentity(identity: SocialIdentity): Member? =
+        memberRepository.findByProviderAndProviderUidAndMemberStatus(
+            identity.provider,
+            identity.providerUserId,
+            MemberStatus.ACTIVE,
+        )
+
+    // 소셜 신원으로 기존 회원을 찾고, 없으면 가입시킨다. (member, 신규 여부)
+    fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
+        findByIdentity(identity)?.let { return it to false }
+
+        return try {
+            memberRepository.save(Member.signUp(identity)) to true
+        } catch (e: DataIntegrityViolationException) {
+            val existing = findByIdentity(identity)
+                ?: throw KbapException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
+            existing to false
+        }
+    }
+
+    @Transactional
+    fun increaseScanCount(memberId: Long) {
+        if (memberRepository.increaseScanCount(memberId) == 0) {
+            throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
+    fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
+        if (memberId == null) return emptySet()
+        val member = findActive(memberId) ?: return emptySet()
+        return member.profile.avoidanceSubstanceCodes
+            .mapNotNull { ref -> AvoidanceSubstanceCode.entries.firstOrNull { it.name == ref.value } }
+            .toSet()
+    }
+
+    private fun findActiveOrThrow(memberId: Long): Member =
+        findActive(memberId) ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
 
     private fun deleteSocialAccount(memberId: Long, identity: SocialIdentity) {
         try {

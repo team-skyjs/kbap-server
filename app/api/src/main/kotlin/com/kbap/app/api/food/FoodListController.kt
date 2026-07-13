@@ -5,8 +5,8 @@ import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberIdOrNull
 import com.kbap.app.api.common.CursorParser
 import com.kbap.app.api.common.Page
-import com.kbap.application.food.dto.BrowseFoodsInput
-import com.kbap.application.food.FoodService
+import com.kbap.domain.food.dto.BrowseFoodsInput
+import com.kbap.domain.food.FoodService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController

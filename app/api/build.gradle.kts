@@ -13,6 +13,11 @@ dependencies {
     // 인증 구현 어댑터 — config/AuthConfig 가 Firebase 팩토리를 직접 조립하므로 compile 의존.
     "implementation"(project(":infra:auth"))
 
+    // 컨트롤러가 도메인 서비스를 직접 호출한다(도메인 간 단방향 의존 구조 전환).
+    "implementation"(project(":domain:member"))
+    "implementation"(project(":domain:food"))
+    "implementation"(project(":domain:scan"))
+
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
     "implementation"(libs.spring.boot.starter.actuator)
@@ -40,12 +45,6 @@ dependencies {
     // AvoidanceSubstanceCode 를, ModuleBoundaryTest 가 성분 식별자 enum 데이터 없음·엔티티 분류 저장 형식을 검증한다.
     "testImplementation"(project(":domain:avoidance"))
 
-    // auth 엔드포인트 테스트가 페이크 SocialTokenVerifier 를 만들며 도메인 타입(SocialIdentity)을 참조한다.
-    // 테스트 스코프에만 노출되므로 프로덕션 경계(app:api → 도메인 금지)는 유지된다.
-    "testImplementation"(project(":domain:member"))
-
-    // FoodServiceIntegrationTest 가 food 엔티티·레포지토리를 직접 시딩/검증한다.
-    "testImplementation"(project(":domain:food"))
 }
 
 // 루트의 .env(application.yml 의 spring.config.import 대상)를 찾도록

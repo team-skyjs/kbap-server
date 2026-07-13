@@ -1,6 +1,6 @@
 package com.kbap.app.api.food
 
-import com.kbap.application.food.dto.FoodSummaryView
+import com.kbap.domain.food.dto.FoodSummaryView
 
 data class FoodSummaryResponse(
     val foodId: Long,

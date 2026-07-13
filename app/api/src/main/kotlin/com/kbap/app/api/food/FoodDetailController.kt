@@ -1,7 +1,7 @@
 package com.kbap.app.api.food
 
-import com.kbap.application.food.dto.GetFoodDetailInput
-import com.kbap.application.food.FoodService
+import com.kbap.domain.food.dto.GetFoodDetailInput
+import com.kbap.domain.food.FoodService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberIdOrNull

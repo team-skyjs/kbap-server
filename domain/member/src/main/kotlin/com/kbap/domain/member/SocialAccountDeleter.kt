@@ -1,6 +1,5 @@
-package com.kbap.application.auth.social
+package com.kbap.domain.member
 
-import com.kbap.domain.member.SocialProvider
 
 interface SocialAccountDeleter {
     fun delete(provider: SocialProvider, providerUserId: String)

@@ -1,4 +1,4 @@
-package com.kbap.application.member.dto
+package com.kbap.domain.member.dto
 
 import com.kbap.domain.member.Member
 

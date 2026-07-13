@@ -1,22 +1,17 @@
-package com.kbap.application.scan
+package com.kbap.domain.scan
 
 import com.kbap.core.id.FoodId
 import com.kbap.core.id.MemberId
-import com.kbap.application.support.AvoidedSubstanceHelper
-import com.kbap.application.scan.dto.ScanInput
-import com.kbap.application.scan.dto.ScanResult
+import com.kbap.domain.scan.dto.ScanInput
+import com.kbap.domain.scan.dto.ScanResult
 import com.kbap.domain.food.Food
-import com.kbap.application.food.FoodService
+import com.kbap.domain.food.FoodService
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
 import com.kbap.core.scan.InterpretedName
 import com.kbap.core.scan.ScannedNameInterpreter
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
-import com.kbap.domain.member.MemberJpaRepository
-import com.kbap.domain.scan.ScanHistory
-import com.kbap.domain.scan.ScanHistoryJpaRepository
+import com.kbap.domain.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,10 +19,9 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ScanService(
     private val foodService: FoodService,
-    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
     private val interpreter: ScannedNameInterpreter,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
-    private val memberRepository: MemberJpaRepository,
+    private val memberService: MemberService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -39,7 +33,7 @@ class ScanService(
 
         // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
         val lang = LanguageCode.KO
-        val avoidedCodes = avoidedSubstanceHelper.avoidedCodes(input.memberId)
+        val avoidedCodes = memberService.avoidedCodes(input.memberId)
             .map { it.name }
             .toSet()
 
@@ -61,10 +55,11 @@ class ScanService(
         return ScanResult(items = items, degraded = refinement.degraded)
     }
 
+    fun recentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
+        scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
+
     private fun recordScanCount(memberId: Long) {
-        if (memberRepository.increaseScanCount(memberId) == 0) {
-            throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
-        }
+        memberService.increaseScanCount(memberId)
     }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {

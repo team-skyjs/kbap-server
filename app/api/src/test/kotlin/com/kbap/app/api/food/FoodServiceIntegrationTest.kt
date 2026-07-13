@@ -1,6 +1,6 @@
 package com.kbap.app.api.food
 
-import com.kbap.application.food.FoodService
+import com.kbap.domain.food.FoodService
 import com.kbap.core.id.FoodId
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig

@@ -2,3 +2,8 @@
 plugins {
     id("kbap.domain-conventions")
 }
+
+dependencies {
+    "api"(project(":domain:food"))   // 메뉴 매칭·미완성 등록
+    "api"(project(":domain:member")) // 기피 성분·스캔 카운트
+}

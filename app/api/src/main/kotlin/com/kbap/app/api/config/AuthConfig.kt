@@ -1,6 +1,6 @@
 package com.kbap.app.api.config
 
-import com.kbap.application.auth.social.SocialAccountDeleter
+import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
 import com.kbap.application.auth.social.UnavailableSocialAuth
 import com.kbap.application.auth.token.AuthTokenProperties
