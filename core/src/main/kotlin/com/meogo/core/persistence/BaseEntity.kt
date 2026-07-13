@@ -17,17 +17,17 @@ import java.time.LocalDateTime
 abstract class BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long = 0
+    open val id: Long = 0
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "ENUM('ACTIVE','DELETED')")
     private var status: EntityStatus = EntityStatus.ACTIVE
 
     @CreationTimestamp
-    val createdAt: LocalDateTime = LocalDateTime.MIN
+    open val createdAt: LocalDateTime = LocalDateTime.MIN
 
     @UpdateTimestamp
-    val updatedAt: LocalDateTime = LocalDateTime.MIN
+    open val updatedAt: LocalDateTime = LocalDateTime.MIN
 
     fun active() {
         status = EntityStatus.ACTIVE

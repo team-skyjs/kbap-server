@@ -16,6 +16,14 @@ plugins {
     id("io.spring.dependency-management")
 }
 
+// Hibernate 프록시 경고(HHH000305) 방지: kotlin-spring 이 깔아둔 allopen 에 JPA 애너테이션을 추가해
+// 엔티티 클래스·게터를 open 으로 만든다(가시성 internal 은 불변 — 경계 유지).
+allOpen {
+    annotation("jakarta.persistence.Entity")
+    annotation("jakarta.persistence.MappedSuperclass")
+    annotation("jakarta.persistence.Embeddable")
+}
+
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 val springBootVersion = libs.findVersion("spring-boot").get().requiredVersion
 
