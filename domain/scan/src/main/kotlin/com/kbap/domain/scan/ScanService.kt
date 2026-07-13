@@ -53,6 +53,7 @@ class ScanService internal constructor(
         return ScanResult(items = items, degraded = refinement.degraded)
     }
 
+    @Transactional(readOnly = true)
     fun recentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 

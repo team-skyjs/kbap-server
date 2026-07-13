@@ -4,7 +4,6 @@ import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
 import com.kbap.application.auth.AuthApplicationService
-import com.kbap.domain.member.MemberService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.V1 + "/auth")
 class AuthController(
     private val authApplicationService: AuthApplicationService,
-    private val memberService: MemberService,
 ) : AuthApi {
     override fun login(
         @RequestBody request: LoginRequest,
@@ -40,7 +38,7 @@ class AuthController(
     override fun withdraw(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<Unit>> {
-        memberService.withdraw(memberId)
+        authApplicationService.withdraw(memberId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 }

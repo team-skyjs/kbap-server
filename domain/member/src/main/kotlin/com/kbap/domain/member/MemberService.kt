@@ -9,7 +9,6 @@ import com.kbap.domain.member.dto.MemberProfileInput
 import com.kbap.domain.member.dto.MemberRankingResult
 import com.kbap.domain.member.dto.MyProfileResult
 import com.kbap.domain.member.dto.ProfileUpdateInput
-import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,10 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class MemberService internal constructor(
     private val memberRepository: MemberJpaRepository,
-    private val socialAccountDeleter: SocialAccountDeleter,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
         val member = findActiveOrThrow(input.memberId)
@@ -64,15 +60,13 @@ class MemberService internal constructor(
     fun getRanking(memberId: Long): MemberRankingResult =
         MemberRankingResult.from(findActiveOrThrow(memberId).ranking)
 
+    // 소셜 계정 삭제(외부 호출)는 AuthApplicationService 가 트랜잭션 밖에서 선행한다.
+    @Transactional
     fun withdraw(memberId: Long) {
-        val member = findActiveOrThrow(memberId)
-
-        deleteSocialAccount(memberId, member.identity)
-
-        member.withdraw()
-        memberRepository.save(member)
+        findActiveOrThrow(memberId).withdraw()
     }
 
+    @Transactional(readOnly = true)
     fun findActive(memberId: Long): Member? =
         memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
@@ -84,6 +78,8 @@ class MemberService internal constructor(
         )
 
     // 소셜 신원으로 기존 회원을 찾고, 없으면 가입시킨다. (member, 신규 여부)
+    // 의도적 무트랜잭션: unique 제약 위반 폴백(가입 경합)이 세션을 무효화하므로 단일 트랜잭션으로
+    // 묶을 수 없다 — 각 레포지토리 호출이 자체 트랜잭션으로 돈다.
     fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
         findByIdentity(identity)?.let { return it to false }
 
@@ -104,6 +100,7 @@ class MemberService internal constructor(
     }
 
     // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
+    @Transactional(readOnly = true)
     fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
         if (memberId == null) return emptySet()
         val member = findActive(memberId) ?: return emptySet()
@@ -114,22 +111,6 @@ class MemberService internal constructor(
 
     private fun findActiveOrThrow(memberId: Long): Member =
         findActive(memberId) ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
-
-    private fun deleteSocialAccount(memberId: Long, identity: SocialIdentity) {
-        try {
-            socialAccountDeleter.delete(identity.provider, identity.providerUserId)
-        } catch (e: Exception) {
-            log.error(
-                "소셜 계정 삭제 실패 — 관리자가 콘솔에서 직접 삭제해야 한다: " +
-                    "memberId={}, provider={}, providerUserId={}",
-                memberId,
-                identity.provider,
-                identity.providerUserId,
-                e,
-            )
-            throw KbapException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
-        }
-    }
 
     private fun validatedNickname(raw: String): String =
         raw.trim().ifBlank { throw KbapException(ErrorCode.INVALID_NICKNAME) }

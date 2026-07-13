@@ -9,8 +9,11 @@ import com.kbap.application.auth.dto.RefreshResult
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberService
+import com.kbap.domain.member.SocialAccountDeleter
+import com.kbap.domain.member.SocialIdentity
 import com.kbap.domain.member.MemberRole
 import com.kbap.application.auth.token.RefreshTokenStore
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -20,8 +23,11 @@ class AuthApplicationService(
     private val tokenIssuer: TokenIssuer,
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
+    private val socialAccountDeleter: SocialAccountDeleter,
     private val properties: AuthTokenProperties,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun login(idToken: String): LoginResult {
         val identity = socialTokenVerifier.verify(idToken)
         val (member, isNewMember) = memberService.findOrSignUp(identity)
@@ -72,4 +78,29 @@ class AuthApplicationService(
         refreshTokenStore.delete(jti)
     }
 
+    // 소셜 계정 삭제(외부 호출)를 트랜잭션 밖에서 먼저 수행하고, DB 탈퇴 마킹은 MemberService 트랜잭션에 맡긴다.
+    fun withdraw(memberId: Long) {
+        val member = memberService.findActive(memberId)
+            ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+
+        deleteSocialAccount(memberId, member.identity)
+
+        memberService.withdraw(memberId)
+    }
+
+    private fun deleteSocialAccount(memberId: Long, identity: SocialIdentity) {
+        try {
+            socialAccountDeleter.delete(identity.provider, identity.providerUserId)
+        } catch (e: Exception) {
+            log.error(
+                "소셜 계정 삭제 실패 — 관리자가 콘솔에서 직접 삭제해야 한다: " +
+                    "memberId={}, provider={}, providerUserId={}",
+                memberId,
+                identity.provider,
+                identity.providerUserId,
+                e,
+            )
+            throw KbapException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
+        }
+    }
 }

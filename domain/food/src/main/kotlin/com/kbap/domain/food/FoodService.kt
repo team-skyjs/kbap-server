@@ -39,9 +39,11 @@ class FoodService internal constructor(
         return foodPage(searchFoodPage(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
+    @Transactional(readOnly = true)
     fun findFoodPage(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
+    @Transactional(readOnly = true)
     fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
         return loadDescending(foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size))
@@ -82,17 +84,20 @@ class FoodService internal constructor(
         )
     }
 
+    @Transactional(readOnly = true)
     fun findReadyById(id: Long): Food? =
         foodRepository.findByIdIn(listOf(id))
             .firstOrNull()
             ?.takeIf { it.isReady() }
 
+    @Transactional(readOnly = true)
     fun findRandomReady(size: Int): List<Food> {
         val ids = foodRepository.findRandomReadyIds(size)
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
     }
 
+    @Transactional(readOnly = true)
     fun findAllReadyByIds(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
@@ -100,6 +105,7 @@ class FoodService internal constructor(
             .filter { it.isReady() }
     }
 
+    @Transactional(readOnly = true)
     fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
         if (keys.isEmpty()) return emptyMap()
         val entities = foodRepository.findByKoreanMatchKeyIn(keys)
