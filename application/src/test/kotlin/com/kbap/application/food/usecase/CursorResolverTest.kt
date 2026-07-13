@@ -1,7 +1,7 @@
 package com.kbap.application.food.usecase
 
-import com.kbap.domain.food.FoodErrorCode
-import com.kbap.domain.food.FoodException
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -39,26 +39,26 @@ class CursorResolverTest : BehaviorSpec({
         }
 
         `when`("커서가 숫자가 아니면") {
-            then("INVALID_CURSOR FoodException 을 던진다") {
-                shouldThrow<FoodException> {
+            then("INVALID_CURSOR KbapException 을 던진다") {
+                shouldThrow<KbapException> {
                     resolveCursor("abc")
-                }.errorCode shouldBe FoodErrorCode.INVALID_CURSOR
+                }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
 
         `when`("커서가 음수이면") {
-            then("INVALID_CURSOR FoodException 을 던진다") {
-                shouldThrow<FoodException> {
+            then("INVALID_CURSOR KbapException 을 던진다") {
+                shouldThrow<KbapException> {
                     resolveCursor("-1")
-                }.errorCode shouldBe FoodErrorCode.INVALID_CURSOR
+                }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
 
         `when`("커서가 공백을 포함한 숫자이면") {
-            then("파싱에 실패해 INVALID_CURSOR FoodException 을 던진다") {
-                shouldThrow<FoodException> {
+            then("파싱에 실패해 INVALID_CURSOR KbapException 을 던진다") {
+                shouldThrow<KbapException> {
                     resolveCursor(" 100 ")
-                }.errorCode shouldBe FoodErrorCode.INVALID_CURSOR
+                }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
     }

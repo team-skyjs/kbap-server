@@ -1,9 +1,9 @@
 package com.kbap.application.food.usecase
 
-import com.kbap.domain.food.FoodErrorCode
-import com.kbap.domain.food.FoodException
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 
 fun resolveCursor(cursor: String?): Long? {
     if (cursor.isNullOrBlank()) return null
-    return cursor.toLongOrNull()?.takeIf { it >= 0 } ?: throw FoodException(FoodErrorCode.INVALID_CURSOR)
+    return cursor.toLongOrNull()?.takeIf { it >= 0 } ?: throw KbapException(ErrorCode.INVALID_CURSOR)
 }

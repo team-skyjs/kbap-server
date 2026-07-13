@@ -1,7 +1,7 @@
 package com.kbap.app.api.common.auth
 
-import com.kbap.application.auth.AuthErrorCode
-import com.kbap.application.auth.AuthException
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
@@ -21,5 +21,5 @@ class AuthMemberIdArgumentResolver : HandlerMethodArgumentResolver {
         binderFactory: WebDataBinderFactory?,
     ): Long =
         webRequest.getAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? Long
-            ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+            ?: throw KbapException(ErrorCode.INVALID_ACCESS_TOKEN)
 }

@@ -1,5 +1,7 @@
 package com.kbap.core.lang
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 enum class LanguageCode(val code: String) {
     KO("ko"),
     ZH_HANS("zh-Hans"),
@@ -20,7 +22,7 @@ enum class LanguageCode(val code: String) {
                 return KO
             }
             return entries.firstOrNull { it.code == trimmed }
-                ?: throw LanguageException(LanguageErrorCode.UNSUPPORTED_LANGUAGE)
+                ?: throw KbapException(ErrorCode.UNSUPPORTED_LANGUAGE)
         }
     }
 }

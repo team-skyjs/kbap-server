@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
@@ -66,8 +68,8 @@ class AuthConfig {
 }
 
 private object UnavailableSocialAuth : SocialTokenVerifier, SocialAccountDeleter {
-    override fun verify(idToken: String) = throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
+    override fun verify(idToken: String) = throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
 
     override fun delete(provider: SocialProvider, providerUserId: String) =
-        throw AuthException(AuthErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
+        throw KbapException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
 }

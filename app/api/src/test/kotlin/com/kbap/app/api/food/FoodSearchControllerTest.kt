@@ -1,8 +1,8 @@
 package com.kbap.app.api.food
 
+import com.kbap.core.error.ErrorCode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.core.lang.LanguageErrorCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.application.auth.TokenIssuer
 import com.kbap.domain.member.MemberRole
@@ -308,7 +308,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(false) }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
-                    messageOf(json) shouldBe LanguageErrorCode.UNSUPPORTED_LANGUAGE.message
+                    messageOf(json) shouldBe ErrorCode.UNSUPPORTED_LANGUAGE.message
                 }
             }
 
@@ -324,7 +324,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.success") { value(false) }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
-                    messageOf(json) shouldBe LanguageErrorCode.UNSUPPORTED_LANGUAGE.message
+                    messageOf(json) shouldBe ErrorCode.UNSUPPORTED_LANGUAGE.message
                 }
             }
         }

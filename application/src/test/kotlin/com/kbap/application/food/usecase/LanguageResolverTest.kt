@@ -1,7 +1,7 @@
 package com.kbap.application.food.usecase
 
+import com.kbap.core.error.KbapException
 import com.kbap.core.lang.LanguageCode
-import com.kbap.core.lang.LanguageException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -20,8 +20,8 @@ class LanguageResolverTest : BehaviorSpec({
         }
 
         `when`("지원하지 않는 코드가 주어지면") {
-            then("LanguageException 을 던진다") {
-                shouldThrow<LanguageException> { resolver.resolve("xx") }
+            then("KbapException 을 던진다") {
+                shouldThrow<KbapException> { resolver.resolve("xx") }
             }
         }
 

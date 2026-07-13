@@ -1,9 +1,9 @@
 package com.kbap.app.api.common.auth
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.app.api.common.BaseResponse
-import com.kbap.application.auth.AuthErrorCode
-import com.kbap.application.auth.AuthException
 import com.kbap.application.auth.TokenParser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -27,7 +27,7 @@ class JwtAuthenticationFilter(
             request.setAttribute(MEMBER_ID_ATTRIBUTE, parsed.memberId)
             request.setAttribute(ROLE_ATTRIBUTE, parsed.roleName)
             filterChain.doFilter(request, response)
-        } catch (e: AuthException) {
+        } catch (e: KbapException) {
             writeUnauthorized(response, e)
         }
     }
@@ -35,12 +35,12 @@ class JwtAuthenticationFilter(
     private fun bearerToken(request: HttpServletRequest): String {
         val header = request.getHeader(AUTHORIZATION_HEADER)
         if (header == null || !header.startsWith(BEARER_PREFIX)) {
-            throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+            throw KbapException(ErrorCode.INVALID_ACCESS_TOKEN)
         }
         return header.removePrefix(BEARER_PREFIX)
     }
 
-    private fun writeUnauthorized(response: HttpServletResponse, e: AuthException) {
+    private fun writeUnauthorized(response: HttpServletResponse, e: KbapException) {
         response.status = e.errorCode.status
         response.contentType = MediaType.APPLICATION_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()

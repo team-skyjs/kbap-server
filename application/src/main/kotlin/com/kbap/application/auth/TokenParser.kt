@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberRole
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
@@ -27,26 +29,26 @@ class TokenParser(
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 
     fun parseAccessToken(token: String): ParsedAccessToken {
-        val claims = claims(token, AuthErrorCode.EXPIRED_ACCESS_TOKEN, AuthErrorCode.INVALID_ACCESS_TOKEN)
-        requireTokenType(claims, TokenType.ACCESS, AuthErrorCode.INVALID_ACCESS_TOKEN)
-        val memberId = claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+        val claims = claims(token, ErrorCode.EXPIRED_ACCESS_TOKEN, ErrorCode.INVALID_ACCESS_TOKEN)
+        requireTokenType(claims, TokenType.ACCESS, ErrorCode.INVALID_ACCESS_TOKEN)
+        val memberId = claims.subject?.toLongOrNull() ?: throw KbapException(ErrorCode.INVALID_ACCESS_TOKEN)
         val role = (claims[ROLE_CLAIM] as? String)
             ?.let { name -> MemberRole.entries.firstOrNull { it.name == name } }
-            ?: throw AuthException(AuthErrorCode.INVALID_ACCESS_TOKEN)
+            ?: throw KbapException(ErrorCode.INVALID_ACCESS_TOKEN)
         return ParsedAccessToken(memberId = memberId, role = role)
     }
 
     fun parseRefreshToken(token: String): ParsedRefreshToken {
-        val claims = claims(token, AuthErrorCode.EXPIRED_REFRESH_TOKEN, AuthErrorCode.INVALID_REFRESH_TOKEN)
-        requireTokenType(claims, TokenType.REFRESH, AuthErrorCode.INVALID_REFRESH_TOKEN)
-        val memberId = claims.subject?.toLongOrNull() ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
-        val jti = claims.id ?: throw AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN)
+        val claims = claims(token, ErrorCode.EXPIRED_REFRESH_TOKEN, ErrorCode.INVALID_REFRESH_TOKEN)
+        requireTokenType(claims, TokenType.REFRESH, ErrorCode.INVALID_REFRESH_TOKEN)
+        val memberId = claims.subject?.toLongOrNull() ?: throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
+        val jti = claims.id ?: throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
         return ParsedRefreshToken(memberId = memberId, jti = jti)
     }
 
-    private fun requireTokenType(claims: Claims, expected: TokenType, onMismatch: AuthErrorCode) {
+    private fun requireTokenType(claims: Claims, expected: TokenType, onMismatch: ErrorCode) {
         if (claims[TokenType.CLAIM] != expected.name) {
-            throw AuthException(onMismatch)
+            throw KbapException(onMismatch)
         }
     }
 
@@ -57,14 +59,14 @@ class TokenParser(
                 onFailure = { (it as? ExpiredJwtException)?.claims?.id },
             )
 
-    private fun claims(token: String, onExpired: AuthErrorCode, onInvalid: AuthErrorCode): Claims =
+    private fun claims(token: String, onExpired: ErrorCode, onInvalid: ErrorCode): Claims =
         try {
             Jwts.parser().verifyWith(key).build().parseSignedClaims(token).payload
         } catch (e: ExpiredJwtException) {
-            throw AuthException(onExpired)
+            throw KbapException(onExpired)
         } catch (e: JwtException) {
-            throw AuthException(onInvalid)
+            throw KbapException(onInvalid)
         } catch (e: IllegalArgumentException) {
-            throw AuthException(onInvalid)
+            throw KbapException(onInvalid)
         }
 }

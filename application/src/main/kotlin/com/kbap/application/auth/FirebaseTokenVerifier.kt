@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
@@ -20,10 +22,10 @@ class FirebaseTokenVerifier(
                 e.authErrorCode,
                 e.message,
             )
-            throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
+            throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
         } catch (e: IllegalArgumentException) {
             log.warn("Firebase ID 토큰 형식 오류: {}", e.message)
-            throw AuthException(AuthErrorCode.INVALID_SOCIAL_TOKEN)
+            throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
         }
         return FirebaseClaimMapper.toSocialIdentity(decoded.claims)
     }

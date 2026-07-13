@@ -1,8 +1,8 @@
 package com.kbap.app.api.auth
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.application.auth.AuthErrorCode
-import com.kbap.application.auth.AuthException
 import com.kbap.application.auth.SocialAccountDeleter
 import com.kbap.application.auth.SocialTokenVerifier
 import com.kbap.domain.member.SocialIdentity
@@ -192,7 +192,7 @@ class AuthControllerTest : BehaviorSpec() {
         given("검증에 실패하는 소셜 토큰") {
             `when`("로그인하면") {
                 then("401 로 거절되고 회원이 생성되지 않는다") {
-                    verifier.failWith(AuthErrorCode.INVALID_SOCIAL_TOKEN)
+                    verifier.failWith(ErrorCode.INVALID_SOCIAL_TOKEN)
 
                     val result = login("forged-token").andReturn().response
 
@@ -206,7 +206,7 @@ class AuthControllerTest : BehaviorSpec() {
         given("지원하지 않는 provider 토큰") {
             `when`("로그인하면") {
                 then("401 로 거절된다") {
-                    verifier.failWith(AuthErrorCode.UNSUPPORTED_PROVIDER)
+                    verifier.failWith(ErrorCode.UNSUPPORTED_PROVIDER)
 
                     login("kakao-token").andReturn().response.status shouldBe 401
                 }
@@ -431,14 +431,14 @@ class AuthControllerTest : BehaviorSpec() {
 }
 
 class FakeSocialTokenVerifier : SocialTokenVerifier {
-    private var failure: AuthErrorCode? = null
+    private var failure: ErrorCode? = null
 
     override fun verify(idToken: String): SocialIdentity {
-        failure?.let { throw AuthException(it) }
+        failure?.let { throw KbapException(it) }
         return SocialIdentity(SocialProvider.GOOGLE, DEFAULT_SUB, "user@gmail.com")
     }
 
-    fun failWith(errorCode: AuthErrorCode) {
+    fun failWith(errorCode: ErrorCode) {
         failure = errorCode
     }
 

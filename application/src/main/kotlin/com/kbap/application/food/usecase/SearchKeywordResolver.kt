@@ -1,10 +1,10 @@
 package com.kbap.application.food.usecase
 
-import com.kbap.domain.food.FoodErrorCode
-import com.kbap.domain.food.FoodException
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 
 fun resolveKeyword(keyword: String?): String {
     val trimmed = keyword?.trim().orEmpty()
-    if (trimmed.isEmpty()) throw FoodException(FoodErrorCode.BLANK_SEARCH_KEYWORD)
+    if (trimmed.isEmpty()) throw KbapException(ErrorCode.BLANK_SEARCH_KEYWORD)
     return trimmed
 }
