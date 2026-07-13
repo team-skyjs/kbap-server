@@ -42,7 +42,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, coveringJson(*allNames), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, coveringJson(*allNames), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -67,7 +67,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -89,7 +89,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("비빔밥"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("비빔밥"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -113,7 +113,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             FailingCaller(LlmModelId.UPSTAGE, "upstage down"),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥", "된장국"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -148,7 +148,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             FailingCaller(LlmModelId.UPSTAGE, "upstage down"),
             FailingCaller(LlmModelId.GEMINI, "gemini down"),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -173,7 +173,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("떡볶이", "순대", "튀김"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("떡볶이", "순대", "튀김"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -192,7 +192,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("잡채"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("잡채"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -211,7 +211,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("비빔국수"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, "이건 JSON 이 아니다", AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -244,7 +244,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("김밥", "잔치국수"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥", "잔치국수"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -277,7 +277,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             then("IllegalStateException 을 던져 즉시 중단한다") {
@@ -300,7 +300,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
         val job = job(
             source::nextChunk,
             LlmFanoutClient(listOf(openai, upstage, gemini), executor),
-            repositoryOf(egg(), milk(), wheat()),
+            substancesOf(egg(), milk(), wheat()),
             chunkSize = 10,
         )
 
@@ -326,7 +326,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("된장국"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("된장국"), AtomicInteger()),
         )
-        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), substancesOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -377,13 +377,13 @@ private fun milk(): AvoidanceSubstance =
 private fun wheat(): AvoidanceSubstance =
     AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
 
-private fun repositoryOf(vararg substances: AvoidanceSubstance): FakeAvoidanceSubstanceRepository =
-    FakeAvoidanceSubstanceRepository(substances.toList())
+private fun substancesOf(vararg substances: AvoidanceSubstance): FakeSubstanceCatalog =
+    FakeSubstanceCatalog(substances.toList())
 
 private fun job(
     source: (Int, Int) -> List<Food>,
     client: LlmFanoutClient,
-    repository: FakeAvoidanceSubstanceRepository,
+    repository: FakeSubstanceCatalog,
     chunkSize: Int,
 ): AvoidanceScoringJob =
     AvoidanceScoringJob(
@@ -404,7 +404,7 @@ private class NonAdvancingFoodScoringSource(private val foods: List<Food>) {
     fun nextChunk(page: Int, size: Int): List<Food> = foods.take(size)
 }
 
-private class FakeAvoidanceSubstanceRepository(
+private class FakeSubstanceCatalog(
     private val substances: List<AvoidanceSubstance>,
 ) {
     fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances

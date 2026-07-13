@@ -165,10 +165,7 @@ class ModuleBoundaryTest : BehaviorSpec({
         `when`("app:api 가 도메인 내부에 의존하는지 검사하면") {
             then("도메인 모듈을 직접 import 하지 않는다") {
                 noClasses().that().resideInAPackage("com.meogo.app.api..")
-                    .should().dependOnClassesThat().resideInAnyPackage(
-                        anyDomain,
-                        "com.meogo.infra.persistence..",
-                    )
+                    .should().dependOnClassesThat().resideInAPackage(anyDomain)
                     .allowEmptyShould(true)
                     .check(imported)
             }

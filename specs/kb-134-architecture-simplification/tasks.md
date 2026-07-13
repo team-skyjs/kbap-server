@@ -132,8 +132,8 @@
 
 **Independent Test**: 새 경로로 전체 빌드 성공, 옛 좌표(`:core:kernel`·`:core:<도메인>`·`com.meogo.core.<도메인>`·`com.meogo.infra.persistence`) 잔재 grep 0건.
 
-- [ ] T031 [P] [US4] 잔재 검증 — quickstart 2번 grep 세트 실행(옛 모듈 경로·옛 패키지·persistence 참조 0건), BaseEntity·EntityStatus 상속이 전 엔티티에서 `com.meogo.core.persistence` 를 가리키는지 확인
-- [ ] T032 [P] [US4] 아키텍처 문서 표기 갱신 — `docs/architecture/meogo-api-module-structure.md`·`docs/architecture/meogo-conventions.md` 의 모듈 트리·패키지·"JPA 엔티티 작성"·"도메인↔JPA 변환" 절을 새 구조(도메인 내 internal 영속·도메인 서비스 창구·연관관계 금지) 기준으로 재작성
+- [X] T031 [P] [US4] 잔재 검증 — quickstart 2번 grep 세트 실행(옛 모듈 경로·옛 패키지·persistence 참조 0건), BaseEntity·EntityStatus 상속이 전 엔티티에서 `com.meogo.core.persistence` 를 가리키는지 확인
+- [X] T032 [P] [US4] 아키텍처 문서 표기 갱신 — `docs/architecture/meogo-api-module-structure.md`·`docs/architecture/meogo-conventions.md` 의 모듈 트리·패키지·"JPA 엔티티 작성"·"도메인↔JPA 변환" 절을 새 구조(도메인 내 internal 영속·도메인 서비스 창구·연관관계 금지) 기준으로 재작성
 
 **Checkpoint**: 이름·문서·실체 일치
 

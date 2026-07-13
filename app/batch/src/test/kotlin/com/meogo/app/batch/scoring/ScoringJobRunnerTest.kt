@@ -39,7 +39,7 @@ class ScoringJobRunnerTest : BehaviorSpec({
         val job = AvoidanceScoringJob(
             nextChunk = source::nextChunk,
             llmFanoutClient = LlmFanoutClient(callers, executor),
-            findSubstances = runnerRepositoryOf(runnerEgg(), runnerMilk(), runnerWheat()),
+            findSubstances = runnerSubstancesOf(runnerEgg(), runnerMilk(), runnerWheat()),
             promptFactory = ScoringPromptFactory(),
             responseParser = ScoringResponseParser(),
             aggregator = ConsensusEnsembleAggregator(),
@@ -91,8 +91,8 @@ private fun runnerMilk(): AvoidanceSubstance =
 private fun runnerWheat(): AvoidanceSubstance =
     AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
 
-private fun runnerRepositoryOf(vararg substances: AvoidanceSubstance): (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance> =
-    RunnerAvoidanceSubstanceRepository(substances.toList())::findByCodes
+private fun runnerSubstancesOf(vararg substances: AvoidanceSubstance): (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance> =
+    RunnerSubstanceCatalog(substances.toList())::findByCodes
 
 private class RecordingFoodScoringSource(private val foods: List<Food>) {
     val invocationCount = AtomicInteger()
@@ -103,7 +103,7 @@ private class RecordingFoodScoringSource(private val foods: List<Food>) {
     }
 }
 
-private class RunnerAvoidanceSubstanceRepository(
+private class RunnerSubstanceCatalog(
     private val substances: List<AvoidanceSubstance>,
 ) {
     fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances

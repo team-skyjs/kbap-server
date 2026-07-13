@@ -1,5 +1,7 @@
 # Meogo 모듈 구조 정리
 
+> **2026-07-13 갱신([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md), KB-134)**: `:infra:persistence` 해체·리포지토리 port 폐기·모듈 리네임(`core/`→`domain/`, kernel→`:core`)이 반영됐다. 아래 컨텍스트별 개념 절의 "Repository 인터페이스" 표기는 도메인 서비스 창구로 읽는다.
+
 > ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.domain.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
 >
 > 목적: 서버의 API, Application, Domain, Core, Infra 계층 구조와 책임을 정리한 팀 공유 기준 문서.
@@ -45,13 +47,13 @@ Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨
 
 `meogo-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
 
-- `:app:api`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
-- `:application`: 유스케이스 조율, transaction boundary
-- `:core:{food,member,scan,avoidance}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
+- `:app:api`: web bootJar — controller, API DTO, Flyway 스키마 owner (도메인 모듈은 application 을 통해 런타임 전이 — ADR-0012 로 runtimeOnly 조립 소멸)
+- `:application:client`: 유스케이스 조율(도메인 서비스 조합), transaction boundary
+- `:domain:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 — 도메인 모델 + 도메인 서비스(public) + 영속(internal), `domain/` 컨테이너 직속
 - `:domain:review`: deferred placeholder
-- `:core`: 공통 타입, 예외, 이벤트, 유틸 (Spring-free)
-- `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
-- `:app:batch`: 배치 bootJar — `:application`을 트리거(단일 모듈, 추후 분리)
+- `:core`: 공통 타입·예외·유틸·외부 client seam·id 값 클래스 + 영속 공통(BaseEntity — compileOnly jakarta/hibernate)
+- `:infra:llm`: LLM 외부 연동 어댑터(Spring AI) — 배치가 직접 의존
+- `:app:batch`: 배치 bootJar — 도메인 서비스를 직접 조합해 잡 실행
 - `:common`: 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback 조각·유틸·어노테이션), Spring-free
 
 ### 3.1 왜 도메인별 subproject로 두는가
@@ -73,10 +75,10 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `avoidance`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
 - `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
-- `:application`은 도메인 컨텍스트와 외부 client를 조합한다.
-- 도메인 모듈은 도메인 규칙과 영속성 adapter를 캡슐화한다.
-- `:core`는 공통 타입과 이벤트 계약을 제공한다.
-- `:infra:external`는 메시지큐, 외부 API, 이벤트 발행/구독 같은 외부 시스템 연동을 담당한다.
+- `:application:client`은 도메인 서비스와 외부 client seam 을 조합한다.
+- 도메인 모듈은 도메인 규칙과 영속 코드를 캡슐화한다 — 영속은 `internal`, 공개 창구는 도메인 서비스 하나다(ADR-0012).
+- `:core`는 공통 타입·공유 값 클래스·영속 공통을 제공한다.
+- `:infra:llm`은 LLM 외부 시스템 연동을 담당한다.
 
 도메인 컨텍스트는 별도 Gradle subproject이므로, 서로를 직접 의존성으로 선언하지 않는 한 컴파일 시점 참조가 생기지 않는다. 패키지 규칙, 코드 리뷰, ArchUnit 테스트는 이 경계를 보조로 강제한다.
 

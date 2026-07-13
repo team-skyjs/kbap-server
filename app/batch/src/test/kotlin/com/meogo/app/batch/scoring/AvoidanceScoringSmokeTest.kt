@@ -58,7 +58,7 @@ class AvoidanceScoringSmokeTest : BehaviorSpec({
                     val job = AvoidanceScoringJob(
                         nextChunk = SmokeFoodScoringSource(listOf(bibimbap()))::nextChunk,
                         llmFanoutClient = fanoutClient,
-                        findSubstances = SmokeAvoidanceSubstanceRepository(listOf(egg(), milk(), wheat()))::findByCodes,
+                        findSubstances = SmokeSubstanceCatalog(listOf(egg(), milk(), wheat()))::findByCodes,
                         promptFactory = ScoringPromptFactory(),
                         responseParser = ScoringResponseParser(),
                         aggregator = ConsensusEnsembleAggregator(),
@@ -103,7 +103,7 @@ private class SmokeFoodScoringSource(private val foods: List<Food>) {
     fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
 }
 
-private class SmokeAvoidanceSubstanceRepository(
+private class SmokeSubstanceCatalog(
     private val substances: List<AvoidanceSubstance>,
 ) {
     fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
