@@ -44,7 +44,7 @@ class JwtAuthenticationFilter(
         response.status = e.errorCode.status
         response.contentType = MediaType.APPLICATION_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()
-        response.writer.write(objectMapper.writeValueAsString(BaseResponse.fail(e.errorCode.message)))
+        response.writer.write(objectMapper.writeValueAsString(BaseResponse.fail(e.errorCode.code, e.errorCode.message)))
     }
 
     companion object {
