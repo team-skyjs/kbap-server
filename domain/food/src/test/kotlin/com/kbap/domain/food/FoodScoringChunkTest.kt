@@ -1,6 +1,5 @@
 package com.kbap.domain.food
 
-import com.kbap.core.id.FoodId
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -51,7 +50,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
             ).id
             substances.forEach { (code, percent) ->
                 foodAvoidanceSubstanceJpaRepository.save(
-                    FoodAvoidanceSubstance(foodId = FoodId(savedId), substanceCode = code, inclusionPercent = percent),
+                    FoodAvoidanceSubstance(foodId = savedId, substanceCode = code, inclusionPercent = percent),
                 )
             }
             return savedId

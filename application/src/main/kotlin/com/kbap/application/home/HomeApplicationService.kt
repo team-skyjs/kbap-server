@@ -1,6 +1,5 @@
 package com.kbap.application.home
 
-import com.kbap.core.id.MemberId
 import com.kbap.domain.food.dto.FoodSummaryView
 import com.kbap.application.home.dto.AvoidedSubstanceView
 import com.kbap.application.home.dto.HomeResult

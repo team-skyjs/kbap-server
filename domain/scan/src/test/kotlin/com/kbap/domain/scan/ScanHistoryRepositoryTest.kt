@@ -1,7 +1,5 @@
 package com.kbap.domain.scan
 
-import com.kbap.core.id.FoodId
-import com.kbap.core.id.MemberId
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -96,8 +94,8 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
 
                     repository.saveAll(
                         listOf(
-                            ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(1L)),
-                            ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(2L)),
+                            ScanHistory.record(memberId = 11L, foodId = 1L),
+                            ScanHistory.record(memberId = 11L, foodId = 2L),
                         ),
                     )
 

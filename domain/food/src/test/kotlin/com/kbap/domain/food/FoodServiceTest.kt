@@ -1,6 +1,5 @@
 package com.kbap.domain.food
 
-import com.kbap.core.id.FoodId
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.throwables.shouldThrow
@@ -74,7 +73,7 @@ class FoodServiceTest : BehaviorSpec() {
             substances.forEach { (code, percent) ->
                 foodAvoidanceSubstanceJpaRepository.save(
                     FoodAvoidanceSubstance(
-                        foodId = FoodId(savedId),
+                        foodId = savedId,
                         substanceCode = code,
                         inclusionPercent = percent,
                     ),
@@ -256,7 +255,7 @@ class FoodServiceTest : BehaviorSpec() {
                     shouldThrow<DataIntegrityViolationException> {
                         foodAvoidanceSubstanceJpaRepository.saveAndFlush(
                             FoodAvoidanceSubstance(
-                                foodId = FoodId(foodId),
+                                foodId = foodId,
                                 substanceCode = "SOY",
                                 inclusionPercent = 80,
                             ),

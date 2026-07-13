@@ -1,7 +1,5 @@
 package com.kbap.domain.scan
 
-import com.kbap.core.id.FoodId
-import com.kbap.core.id.MemberId
 import com.kbap.domain.scan.dto.ScanInput
 import com.kbap.domain.scan.dto.ScanResult
 import com.kbap.domain.food.Food
@@ -61,7 +59,7 @@ class ScanService internal constructor(
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
         if (readyFoodIds.isEmpty()) return
-        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(MemberId(memberId), FoodId(it)) })
+        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
     }
 
     private fun resolveFoods(
