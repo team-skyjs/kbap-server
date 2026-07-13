@@ -1,11 +1,8 @@
-# 배포용 스택 — 앱 컨테이너 1개(simhani1/meogo-api). DB 는 기존 mysql-prod(monitor-net) 재사용, MongoDB 미사용.
+# 배포용 스택 — 앱 컨테이너 1개(simhani1/meogo-api). DB 는 기존 mysql-prod(monitor-net) 재사용.
 #
 # - MySQL: 별도로 만들지 않고 외부 네트워크 monitor-net 의 기존 컨테이너 `mysql-prod` 에
 #   컨테이너명으로 붙는다(mysql-prod 의 호스트 퍼블리시가 127.0.0.1 전용이라 host-gateway 로는 안 되고,
 #   같은 도커 네트워크에 합류해 내부 3306 으로 통신).
-# - MongoDB: 사용하지 않는다. data-mongodb 스타터가 이미지에 들어 있지만 소스에서 안 쓰므로,
-#   Mongo 자동설정·헬스체크를 SPRING_AUTOCONFIGURE_EXCLUDE 로 로드 차단한다(이미지 재빌드 불필요).
-#   → MONGODB_URI 없이도 부팅되고, 헬스체크가 Mongo 로 DOWN 되지 않는다.
 # - 프로필 prod: datasource 접속값을 환경변수로만 받는다(아래 .env 필요).
 #
 # 사용법:
@@ -41,8 +38,6 @@ services:
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # MongoDB 미사용 — 클라이언트/데이터/헬스/메트릭 자동설정 로드 차단(Boot 4.1 FQN).
-      SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration,org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration,org.springframework.boot.mongodb.autoconfigure.health.MongoHealthContributorAutoConfiguration,org.springframework.boot.mongodb.autoconfigure.metrics.MongoMetricsAutoConfiguration"
     networks:
       - monitor-net
     depends_on:

@@ -9,8 +9,6 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
-  mongodb:
-    uri: ${MONGODB_URI:mongodb://localhost:27017/meogo}
   data:
     redis:
       host: ${REDIS_HOST:localhost}

@@ -1,16 +1,16 @@
-# 로컬 개발용 풀스택(web 앱 + MySQL + MongoDB).
-# 자격증명: root/root(관리) + 앱 유저 meogo/meogo(.env 의 DB_USERNAME/DB_PASSWORD). DB명 meogo, MySQL@3306, Mongo@27017.
+# 로컬 개발용 풀스택(web 앱 + MySQL).
+# 자격증명: root/root(관리) + 앱 유저 meogo/meogo(.env 의 DB_USERNAME/DB_PASSWORD). DB명 meogo, MySQL@3306.
 # web 앱(:app:api)은 Dockerfile 로 빌드돼 8080 에 뜨고, DB healthcheck 통과 후 기동된다.
 #
 # 사용법:
 #   docker compose up -d --build      # 앱 이미지 빌드 + 백그라운드 기동(전체 스택)
-#   docker compose up -d mysql mongo  # DB 만 띄우고 앱은 로컬 bootRun 으로 돌릴 때
+#   docker compose up -d mysql       # DB 만 띄우고 앱은 로컬 bootRun 으로 돌릴 때
 #   docker compose ps                 # 상태 확인
 #   docker compose logs -f app        # 앱 로그
 #   docker compose down               # 정지(데이터는 볼륨에 유지)
 #   docker compose down -v            # 정지 + 데이터 초기화
 #
-# dev/staging/prod 는 관리형 DB(RDS / Mongo Atlas 등)를 쓰므로 이 파일은 로컬 전용이다.
+# dev/staging/prod 는 관리형 DB(RDS 등)를 쓰므로 이 파일은 로컬 전용이다.
 services:
   app:
     build:
@@ -21,11 +21,10 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: local
-      # compose 네트워크 안에서는 DB 호스트가 localhost 가 아니라 서비스명(mysql/mongo)이다.
+      # compose 네트워크 안에서는 DB 호스트가 localhost 가 아니라 서비스명(mysql)이다.
       DB_URL: jdbc:mysql://mysql:3306/meogo
       DB_USERNAME: ${DB_USERNAME:-meogo}
       DB_PASSWORD: ${DB_PASSWORD:-meogo}
-      MONGODB_URI: mongodb://mongo:27017/meogo
       # 인증(KB-118). compose 의 .env 는 변수 보간용일 뿐 컨테이너 환경으로 자동 주입되지 않으므로
       # 여기서 명시적으로 전달한다. JWT_SECRET 없이는 앱이 부팅하지 않는다(fail-fast).
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 을 .env 에 설정하세요 - 32바이트 이상 (openssl rand -base64 32)}"
@@ -35,8 +34,6 @@ services:
       REDIS_PORT: 6379
     depends_on:
       mysql:
-        condition: service_healthy
-      mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -79,19 +76,6 @@ services:
       timeout: 5s
       retries: 5
 
-  mongo:
-    image: mongo:8
-    container_name: meogo-mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - meogo-mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   meogo-mysql-data:
-  meogo-mongo-data:

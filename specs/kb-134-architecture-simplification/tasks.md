@@ -145,9 +145,9 @@
 
 **Independent Test**: mongo 관련 grep 0건 + 두 앱 부팅 green.
 
-- [ ] T033 [P] [US5] yml 정리 — `app/api/src/main/resources/application-{local,dev,staging,prod}.yml`·`app/batch/src/main/resources/application-{local,dev,staging,prod}.yml` 의 `spring.data.mongodb` 블록 8곳 + `app/batch/src/main/resources/application.yml` 의 mongodb 주석 삭제
-- [ ] T034 [P] [US5] compose·카탈로그 정리 — `docker-compose.yml` mongo 서비스·볼륨·depends_on·MONGODB_URI 삭제, `docker-compose.prod.yml` 의 `SPRING_AUTOCONFIGURE_EXCLUDE` mongo 4종·관련 주석 삭제, `gradle/libs.versions.toml` 에서 `spring-boot-starter-data-mongodb` 삭제
-- [ ] T035 [US5] 부팅 검증 — `./gradlew :app:api:test :app:batch:test` 로 `@SpringBootTest` 부팅 green(quickstart 4·5 절), `docker compose config` 로 compose 유효성 확인
+- [X] T033 [P] [US5] yml 정리 — `app/api/src/main/resources/application-{local,dev,staging,prod}.yml`·`app/batch/src/main/resources/application-{local,dev,staging,prod}.yml` 의 `spring.data.mongodb` 블록 8곳 + `app/batch/src/main/resources/application.yml` 의 mongodb 주석 삭제
+- [X] T034 [P] [US5] compose·카탈로그 정리 — `docker-compose.yml` mongo 서비스·볼륨·depends_on·MONGODB_URI 삭제, `docker-compose.prod.yml` 의 `SPRING_AUTOCONFIGURE_EXCLUDE` mongo 4종·관련 주석 삭제, `gradle/libs.versions.toml` 에서 `spring-boot-starter-data-mongodb` 삭제
+- [X] T035 [US5] 부팅 검증 — `./gradlew :app:api:test :app:batch:test` 로 `@SpringBootTest` 부팅 green(quickstart 4·5 절), `docker compose config` 로 compose 유효성 확인
 
 **Checkpoint**: MongoDB 잔재 0건
 
