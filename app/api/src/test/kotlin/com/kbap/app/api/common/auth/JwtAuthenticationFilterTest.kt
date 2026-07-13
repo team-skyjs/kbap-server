@@ -1,8 +1,8 @@
 package com.kbap.app.api.common.auth
 
 import com.kbap.application.auth.token.AuthTokenProperties
-import com.kbap.application.auth.token.TokenIssuer
-import com.kbap.application.auth.token.TokenParser
+import com.kbap.infra.auth.token.JwtTokenIssuer
+import com.kbap.infra.auth.token.JwtTokenParser
 import com.kbap.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -21,8 +21,8 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
         accessTtl = Duration.ofMinutes(30),
         refreshTtl = Duration.ofDays(14),
     )
-    val issuer = TokenIssuer(properties)
-    val filter = JwtAuthenticationFilter(TokenParser(properties))
+    val issuer = JwtTokenIssuer(properties)
+    val filter = JwtAuthenticationFilter(JwtTokenParser(properties))
 
     fun request(header: String?): MockHttpServletRequest {
         val request = MockHttpServletRequest()
@@ -85,7 +85,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     given("다른 시크릿으로 서명한 위조 토큰") {
         `when`("필터를 통과하면") {
             then("401 로 거절한다") {
-                val forgedIssuer = TokenIssuer(
+                val forgedIssuer = JwtTokenIssuer(
                     properties.copy(secret = "another-kb104-forged-secret-at-least-32b!!"),
                 )
                 val forged = forgedIssuer.issueAccessToken(memberId = 1L, role = MemberRole.USER)
@@ -105,7 +105,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
     given("만료된 액세스 토큰") {
         `when`("필터를 통과하면") {
             then("401 만료 메시지로 거절한다") {
-                val expiredIssuer = TokenIssuer(
+                val expiredIssuer = JwtTokenIssuer(
                     properties.copy(accessTtl = Duration.ofMinutes(-1)),
                 )
                 val expired = expiredIssuer.issueAccessToken(memberId = 1L, role = MemberRole.USER)

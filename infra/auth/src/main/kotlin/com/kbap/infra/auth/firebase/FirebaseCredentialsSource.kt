@@ -1,4 +1,4 @@
-package com.kbap.application.auth.social.firebase
+package com.kbap.infra.auth.firebase
 
 import java.io.File
 import java.util.Base64

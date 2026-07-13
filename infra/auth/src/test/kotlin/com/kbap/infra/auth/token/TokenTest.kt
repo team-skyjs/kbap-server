@@ -1,5 +1,6 @@
-package com.kbap.application.auth.token
+package com.kbap.infra.auth.token
 
+import com.kbap.application.auth.token.AuthTokenProperties
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberRole
@@ -19,8 +20,8 @@ class TokenTest : BehaviorSpec({
         accessTtl = Duration.ofMinutes(30),
         refreshTtl = Duration.ofDays(14),
     )
-    val issuer = TokenIssuer(properties)
-    val parser = TokenParser(properties)
+    val issuer = JwtTokenIssuer(properties)
+    val parser = JwtTokenParser(properties)
 
     given("access 토큰 발급") {
         `when`("회원 식별자와 역할로 발급하면") {
@@ -99,7 +100,7 @@ class TokenTest : BehaviorSpec({
     given("조작된 토큰") {
         `when`("다른 시크릿으로 서명한 refresh 토큰을 파싱하면") {
             then("INVALID_REFRESH_TOKEN 예외를 던진다") {
-                val forged = TokenIssuer(
+                val forged = JwtTokenIssuer(
                     AuthTokenProperties(
                         secret = "another-secret-key-at-least-32-bytes-long!!",
                         accessTtl = Duration.ofMinutes(30),
@@ -161,7 +162,7 @@ class TokenTest : BehaviorSpec({
     }
 
     given("만료된 토큰") {
-        val expiredIssuer = TokenIssuer(
+        val expiredIssuer = JwtTokenIssuer(
             AuthTokenProperties(
                 secret = secret,
                 accessTtl = Duration.ofSeconds(-10),

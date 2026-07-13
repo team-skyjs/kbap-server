@@ -1,4 +1,4 @@
-package com.kbap.application.auth.token
+package com.kbap.infra.auth.token
 
 enum class TokenType {
     ACCESS,

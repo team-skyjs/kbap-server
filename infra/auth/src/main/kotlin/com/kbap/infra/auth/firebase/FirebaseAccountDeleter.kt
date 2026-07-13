@@ -1,4 +1,4 @@
-package com.kbap.application.auth.social.firebase
+package com.kbap.infra.auth.firebase
 
 import com.kbap.application.auth.social.SocialAccountDeleter
 import com.google.firebase.FirebaseApp

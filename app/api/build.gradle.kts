@@ -8,8 +8,10 @@ dependencies {
     "implementation"(project(":core"))
 
     // 스캔 메뉴명 정제 LLM 어댑터(ScannedNameInterpreter). @ConditionalOnProperty 로 미구성 시 빈 미생성.
-    // 도메인 모듈(영속 포함)은 :application 를 통해 런타임 전이된다(ADR-0012 — runtimeOnly 조립 소멸).
     "runtimeOnly"(project(":infra:llm"))
+
+    // 인증 구현 어댑터 — config/AuthConfig 가 Firebase 팩토리를 직접 조립하므로 compile 의존.
+    "implementation"(project(":infra:auth"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
