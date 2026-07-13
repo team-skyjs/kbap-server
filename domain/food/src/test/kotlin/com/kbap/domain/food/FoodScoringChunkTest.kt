@@ -30,6 +30,11 @@ class FoodScoringChunkTest : BehaviorSpec() {
     private lateinit var foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository
 
     init {
+        fun clearFoods() {
+            foodAvoidanceSubstanceJpaRepository.deleteAll()
+            foodJpaRepository.deleteAll()
+        }
+
         fun nextChunk(page: Int, size: Int): List<Food> =
             foodJpaRepository.findFoodIds(PageRequest.of(page, size))
                 .takeIf { it.isNotEmpty() }
@@ -55,7 +60,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 청크 크기 상한") {
             `when`("active food 가 요청 size 보다 많을 때 nextChunk 를 호출하면") {
                 then("요청 size 만큼만 반환한다") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
                     val koreanNames = listOf("상한-된장찌개", "상한-김치찌개", "상한-순두부", "상한-부대찌개", "상한-청국장")
                     koreanNames.forEach { saveFood(it) }
 
@@ -71,7 +76,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 잔여가 size 보다 적은 마지막 청크") {
             `when`("active food 가 요청 size 보다 적을 때 nextChunk 를 호출하면") {
                 then("남은 것 전부를 반환한다") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
                     saveFood("잔여-된장찌개")
                     saveFood("잔여-김치찌개")
 
@@ -88,7 +93,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 빈 대기열") {
             `when`("active food 가 하나도 없을 때 nextChunk 를 호출하면") {
                 then("빈 목록을 반환한다") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
 
                     nextChunk(0, 10).shouldBeEmpty()
                 }
@@ -98,7 +103,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 소프트 삭제 제외") {
             `when`("active 음식과 소프트 삭제된 음식이 함께 있을 때 nextChunk 를 호출하면") {
                 then("active 음식만 반환하고 삭제된 음식은 제외한다") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
                     saveFood("삭제제외-생존-된장찌개")
                     val deletedId = saveFood("삭제제외-삭제-김치찌개")
                     val deletedEntity = foodJpaRepository.findById(deletedId).get()
@@ -116,7 +121,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 엔티티 복원 충실성") {
             `when`("포함 기피 성분과 번역을 가진 음식을 nextChunk 로 가져오면") {
                 then("한국어명·포함 성분이 복원된다") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
                     saveFood(
                         "복원-된장찌개",
                         substances = listOf("SOYBEAN" to 100, "CLAM" to 50),
@@ -136,7 +141,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
         given("Food 스코어링 공급 — 페이지 커서로 전체 대기열 종단 소진") {
             `when`("active food 23건을 size 10 으로 페이지 0·1·2·3 순차 조회하면") {
                 then("각 페이지가 10·10·3·빈 으로 나뉘고 세 페이지 union 이 저장한 23건 전부와 정확히 일치한다(중복·누락 없음)") {
-                    foodJpaRepository.deleteAll()
+                    clearFoods()
                     val savedIds = (1..23).map { saveFood("종단소진-음식$it") }.toSet()
 
                     val page0 = nextChunk(0, 10)
