@@ -1,6 +1,6 @@
 # ADR-0008: 모듈러 모놀리스 — 공유 도메인/영속, batch 직접 의존
 
-- **상태**: Accepted (2026-06-29)
+- **상태**: Accepted (2026-06-29) — 영속 배치 결정(:infra:persistence 집결·port 구현·runtimeOnly 조립)은 [ADR-0012](./0012-dissolve-persistence-module-and-ports.md)가 supersede. 모듈러 모놀리스·공유 도메인·batch 직접 의존은 유효
 - **관련**: supersedes 의사결정 일부 — [ADR-0001](./0001-multi-app-modular-layout.md)(앱-모듈 배치), [ADR-0006](./0006-central-persistence-adapter-and-decoupled-batch.md)(디커플드 batch). [ADR-0003](./0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](./0004-research-bounded-context.md)의 "batch 는 통합 이벤트로만 소통" 전제를 완화. 트리거: `specs/004-avoidance-catalog`(알러지 공통 코드를 batch 가 공유해야 함).
 
 ## Context

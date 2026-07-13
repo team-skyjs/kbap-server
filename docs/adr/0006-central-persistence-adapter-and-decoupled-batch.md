@@ -1,6 +1,6 @@
 # 0006. 중앙 영속 어댑터 모듈(`:meogo-api:persistence`) 채택 + `meogo-batch` 완전 디커플드
 
-- **상태**: Accepted
+- **상태**: Superseded by [ADR-0008](./0008-modular-monolith-shared-domain.md)(batch 디커플), [ADR-0012](./0012-dissolve-persistence-module-and-ports.md)(중앙 영속 어댑터)
 - **날짜**: 2026-06-28
 - **관련**: specs/001-menu-scan-mock, [ADR-0001](./0001-multi-app-modular-layout.md)(영속 캡슐화·batch↔application 결합 결정을 supersede), [ADR-0003](./0003-pretranslated-batch-menu-pipeline.md), [ADR-0004](./0004-research-bounded-context.md), [meogo-conventions](../architecture/meogo-conventions.md), 헌법 v1.1.0(원칙 IV)
 
