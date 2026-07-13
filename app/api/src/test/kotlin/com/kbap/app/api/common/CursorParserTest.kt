@@ -1,4 +1,4 @@
-package com.kbap.application.support
+package com.kbap.app.api.common
 
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException

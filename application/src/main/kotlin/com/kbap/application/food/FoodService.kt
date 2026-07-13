@@ -1,6 +1,5 @@
 package com.kbap.application.food
 
-import com.kbap.application.support.SearchKeywordParser
 import com.kbap.application.support.AvoidedSubstanceHelper
 import com.kbap.application.food.dto.BrowseFoodsInput
 import com.kbap.application.food.dto.FoodPage
@@ -38,9 +37,8 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun search(input: SearchFoodsInput): FoodPage {
-        val keyword = SearchKeywordParser.parse(input.keyword)
         val lang = LanguageCode.from(input.lang)
-        return foodPage(searchFoodPage(keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
+        return foodPage(searchFoodPage(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     fun findFoodPage(cursor: Long?, size: Int): List<Food> =
