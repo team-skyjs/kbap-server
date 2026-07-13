@@ -1,4 +1,4 @@
-package com.kbap.application.member
+package com.kbap.application.support
 
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
 import com.kbap.domain.member.MemberJpaRepository
@@ -6,7 +6,7 @@ import com.kbap.domain.member.MemberStatus
 import org.springframework.stereotype.Component
 
 @Component
-class AvoidedSubstanceProvider(
+class AvoidedSubstanceHelper(
     private val memberRepository: MemberJpaRepository,
 ) {
     fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {

@@ -2,7 +2,7 @@ package com.kbap.application.home
 
 import com.kbap.core.id.MemberId
 import com.kbap.application.food.dto.FoodSummaryView
-import com.kbap.application.member.AvoidedSubstanceProvider
+import com.kbap.application.support.AvoidedSubstanceHelper
 import com.kbap.application.home.dto.AvoidedSubstanceView
 import com.kbap.application.home.dto.HomeResult
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
@@ -20,13 +20,13 @@ class HomeService(
     private val foodService: FoodService,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
-    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
+    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
 ) {
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?): HomeResult {
         val member = memberId?.let { memberRepository.findByIdAndMemberStatus(it, MemberStatus.ACTIVE) }
         val lang = member?.profile?.appLanguage ?: LanguageCode.EN
-        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes(member?.id)
+        val avoidedCodes = avoidedSubstanceHelper.avoidedCodes(member?.id)
         val avoidedRefs = avoidedCodes.map { it.name }.toSet()
 
         return HomeResult(

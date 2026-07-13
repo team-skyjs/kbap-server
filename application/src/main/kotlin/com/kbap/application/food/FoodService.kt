@@ -1,6 +1,6 @@
 package com.kbap.application.food
 
-import com.kbap.application.member.AvoidedSubstanceProvider
+import com.kbap.application.support.AvoidedSubstanceHelper
 import com.kbap.application.food.dto.BrowseFoodsInput
 import com.kbap.application.food.dto.FoodPage
 import com.kbap.application.food.dto.FoodSummaryView
@@ -25,7 +25,7 @@ class FoodService(
     private val foodRepository: FoodJpaRepository,
     private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
     private val languageResolver: LanguageResolver,
-    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
+    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
     private val entityManager: EntityManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -132,7 +132,7 @@ class FoodService(
         if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes)
 
     fun avoidedCodeNames(memberId: Long?): Set<String> =
-        avoidedSubstanceProvider.avoidedCodes(memberId).map { it.name }.toSet()
+        avoidedSubstanceHelper.avoidedCodes(memberId).map { it.name }.toSet()
 
     private fun foodPage(rows: List<Food>, lang: LanguageCode, memberId: Long?): FoodPage {
         val hasNext = rows.size > PAGE_SIZE

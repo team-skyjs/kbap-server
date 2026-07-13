@@ -2,7 +2,7 @@ package com.kbap.application.scan
 
 import com.kbap.core.id.FoodId
 import com.kbap.core.id.MemberId
-import com.kbap.application.member.AvoidedSubstanceProvider
+import com.kbap.application.support.AvoidedSubstanceHelper
 import com.kbap.application.scan.dto.ScanInput
 import com.kbap.application.scan.dto.ScanResult
 import com.kbap.domain.food.Food
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ScanService(
     private val foodService: FoodService,
-    private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
+    private val avoidedSubstanceHelper: AvoidedSubstanceHelper,
     private val interpreter: ScannedNameInterpreter,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberRepository: MemberJpaRepository,
@@ -39,7 +39,7 @@ class ScanService(
 
         // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
         val lang = LanguageCode.KO
-        val avoidedCodes = avoidedSubstanceProvider.avoidedCodes(input.memberId)
+        val avoidedCodes = avoidedSubstanceHelper.avoidedCodes(input.memberId)
             .map { it.name }
             .toSet()
 
