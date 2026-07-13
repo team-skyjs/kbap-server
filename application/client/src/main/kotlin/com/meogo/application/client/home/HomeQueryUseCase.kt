@@ -1,5 +1,6 @@
 package com.meogo.application.client.home
 
+import com.meogo.core.id.MemberId
 import com.meogo.application.client.food.dto.FoodSummaryView
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
 import com.meogo.application.client.home.dto.AvoidedSubstanceView
@@ -34,7 +35,7 @@ class HomeQueryUseCase(
             popularFoods = foodService.findRandomReady(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs) },
             recentScans = member?.id?.let { id ->
-                val recentIds = scanHistoryService.findRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
+                val recentIds = scanHistoryService.findRecentReadyFoodIds(MemberId(id), RECENT_SCAN_SIZE).map { it.value }
                 val foodsById = foodService.findAllReadyByIds(recentIds).associateBy { it.id }
                 recentIds.mapNotNull { foodsById[it] }.map { FoodSummaryView.from(it, lang, avoidedRefs) }
             }.orEmpty(),

@@ -1,5 +1,7 @@
 package com.meogo.domain.scan
 
+import com.meogo.core.id.FoodId
+import com.meogo.core.id.MemberId
 import com.meogo.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -13,11 +15,13 @@ import jakarta.persistence.Table
 )
 internal class ScanHistoryJpaEntity(
     @Column(name = "member_id", nullable = false)
-    var memberId: Long = 0,
+    var memberId: MemberId = MemberId(0),
 
     @Column(name = "food_id", nullable = false)
-    var foodId: Long = 0,
+    var foodId: FoodId = FoodId(0),
 ) : BaseEntity() {
+    internal constructor() : this(MemberId(0), FoodId(0))
+
     companion object {
         fun from(history: ScanHistory): ScanHistoryJpaEntity =
             ScanHistoryJpaEntity(

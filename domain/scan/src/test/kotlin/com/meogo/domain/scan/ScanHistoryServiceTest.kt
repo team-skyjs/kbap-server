@@ -1,5 +1,7 @@
 package com.meogo.domain.scan
 
+import com.meogo.core.id.FoodId
+import com.meogo.core.id.MemberId
 import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -94,8 +96,8 @@ class ScanHistoryServiceTest : BehaviorSpec() {
 
                     service.saveAll(
                         listOf(
-                            ScanHistory.record(memberId = 11L, foodId = 1L),
-                            ScanHistory.record(memberId = 11L, foodId = 2L),
+                            ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(1L)),
+                            ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(2L)),
                         ),
                     )
 
@@ -113,7 +115,7 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-02 10:00:00")
                     seedHistory(11L, 1L, "2026-07-03 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L, 2L)
+                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L), FoodId(2L))
                 }
             }
 
@@ -124,7 +126,7 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
+                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L))
                 }
             }
 
@@ -135,9 +137,9 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                         seedHistory(11L, id, "2026-07-01 10:00:${"%02d".format(id)}")
                     }
 
-                    val result = service.findRecentReadyFoodIds(memberId = 11L, limit = 10)
+                    val result = service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10)
 
-                    result shouldContainExactly (12L downTo 3L).toList()
+                    result shouldContainExactly (12L downTo 3L).map(::FoodId)
                 }
             }
 
@@ -148,13 +150,13 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
                     seedHistory(99L, 2L, "2026-07-02 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
+                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L))
                 }
             }
 
             `when`("이력이 없으면") {
                 then("빈 목록을 반환한다") {
-                    service.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldBe emptyList()
+                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldBe emptyList<FoodId>()
                 }
             }
         }

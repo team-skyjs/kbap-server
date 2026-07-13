@@ -1,5 +1,7 @@
 package com.meogo.application.client.scan.usecase
 
+import com.meogo.core.id.FoodId
+import com.meogo.core.id.MemberId
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
 import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.scan.dto.ScanResult
@@ -65,7 +67,7 @@ class ScanUseCase(
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
         if (readyFoodIds.isEmpty()) return
-        scanHistoryService.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
+        scanHistoryService.saveAll(readyFoodIds.map { ScanHistory.record(MemberId(memberId), FoodId(it)) })
     }
 
     private fun resolveFoods(

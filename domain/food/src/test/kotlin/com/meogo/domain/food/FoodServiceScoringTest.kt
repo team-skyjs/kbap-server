@@ -1,6 +1,7 @@
 package com.meogo.domain.food
 
 import com.meogo.core.lang.LanguageCode
+import com.meogo.core.id.FoodId
 import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -26,6 +27,9 @@ class FoodServiceScoringTest : BehaviorSpec() {
     @Autowired
     private lateinit var foodJpaRepository: FoodJpaRepository
 
+    @Autowired
+    private lateinit var foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository
+
     init {
         fun saveFood(
             koreanName: String,
@@ -41,14 +45,18 @@ class FoodServiceScoringTest : BehaviorSpec() {
                 spiciness = spiciness,
                 nameTranslations = nameTranslations,
                 descriptionTranslations = descriptionTranslations,
-                foodAvoidanceSubstances = substances.map { (code, percent) ->
+            )
+            val savedId = foodJpaRepository.save(food).id
+            substances.forEach { (code, percent) ->
+                foodAvoidanceSubstanceJpaRepository.save(
                     FoodAvoidanceSubstanceJpaEntity(
+                        foodId = FoodId(savedId),
                         substanceCode = code,
                         inclusionPercent = percent,
-                    )
-                }.toMutableSet(),
-            )
-            return foodJpaRepository.save(food).id
+                    ),
+                )
+            }
+            return savedId
         }
 
         given("Food 스코어링 공급 어댑터 — 청크 크기 상한") {

@@ -10,24 +10,9 @@ internal interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     @Query("select f.id from FoodJpaEntity f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
 
-    @Query(
-        """
-        select distinct f from FoodJpaEntity f
-        left join fetch f.foodAvoidanceSubstances
-        where f.koreanMatchKey in :keys
-        order by f.id asc
-        """,
-    )
-    fun findByKoreanMatchKeyInWithAvoidanceSubstances(@Param("keys") keys: Set<String>): List<FoodJpaEntity>
+    fun findByKoreanMatchKeyIn(keys: Set<String>): List<FoodJpaEntity>
 
-    @Query(
-        """
-        select distinct f from FoodJpaEntity f
-        left join fetch f.foodAvoidanceSubstances
-        where f.koreanName in :koreanNames
-        """,
-    )
-    fun findByKoreanNameIn(@Param("koreanNames") koreanNames: Set<String>): List<FoodJpaEntity>
+    fun findByKoreanNameIn(koreanNames: Set<String>): List<FoodJpaEntity>
 
     @Query(
         """
@@ -39,25 +24,7 @@ internal interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     )
     fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
-    @Query(
-        """
-        select distinct f from FoodJpaEntity f
-        left join fetch f.foodAvoidanceSubstances
-        where f.id in :ids
-        order by f.id desc
-        """,
-    )
-    fun findByIdInWithAvoidanceSubstancesDesc(@Param("ids") ids: List<Long>): List<FoodJpaEntity>
-
-    @Query(
-        """
-        select distinct f from FoodJpaEntity f
-        left join fetch f.foodAvoidanceSubstances
-        where f.id in :ids
-        order by f.id asc
-        """,
-    )
-    fun findByIdInWithAvoidanceSubstances(@Param("ids") ids: List<Long>): List<FoodJpaEntity>
+    fun findByIdIn(ids: List<Long>): List<FoodJpaEntity>
 
     @Query(
         nativeQuery = true,

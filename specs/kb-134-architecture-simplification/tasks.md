@@ -113,14 +113,14 @@
 
 ### Tests for User Story 3 (Test-First) ⚠️
 
-- [ ] T026 [US3] cascade 동작 보존 테스트 선작성 — `FoodServiceTest` 에 자식(food_avoidance_substance) 교체 저장·삭제 시나리오 추가(현행 cascade 구현으로 green 확인 — 이후 명시 관리 전환에도 green 유지가 검증), JPQL/파라미터에 값 클래스 바인딩 검증 케이스 포함(값 클래스 도입 전이라 Red)
+- [X] T026 [US3] 테스트 선작성(Red 확인) — 조정: 프로덕션에 cascade 쓰기 경로가 없음을 확인(자식 쓰기는 시드·테스트뿐, port 에 save(food) 부재)해 "cascade 보존" 대신 자식 명시 시드 + 값 클래스 바인딩 + 문장 수 상수(음식1+성분1) 검증으로 대체. 원문: — `FoodServiceTest` 에 자식(food_avoidance_substance) 교체 저장·삭제 시나리오 추가(현행 cascade 구현으로 green 확인 — 이후 명시 관리 전환에도 green 유지가 검증), JPQL/파라미터에 값 클래스 바인딩 검증 케이스 포함(값 클래스 도입 전이라 Red)
 
 ### Implementation for User Story 3
 
-- [ ] T027 [P] [US3] id 값 클래스 + 컨버터 — `core/src/main/kotlin/com/meogo/core/id/` 에 `@JvmInline value class FoodId`·`MemberId` + `IdConverter<T>` base + `FoodIdConverter`·`MemberIdConverter`(`@Converter(autoApply = true)`) 작성 (research D5)
-- [ ] T028 [US3] 참조 필드 전환 — `ScanHistoryJpaEntity.memberId/foodId`·`FoodAvoidanceSubstanceJpaEntity.foodId` 와 대응 도메인 모델(`ScanHistory`·`FoodAvoidanceSubstance`)·서비스 시그니처를 값 클래스로 교체(`ScanHistoryServiceTest` 시그니처·바인딩 케이스 갱신 포함), 유스케이스 경계(Input/Result)는 Long 유지(API 계약 불변)
-- [ ] T029 [US3] @OneToMany 제거 — `FoodJpaEntity` 의 자식 컬렉션·cascade·orphanRemoval 삭제, `FoodService` 가 자식 리포지토리로 명시 save/delete(교체 저장 = 기존 자식 delete → 신규 insert)·id 목록 일괄 조회로 조립 (data-model §4) → T026 전부 green
-- [ ] T030 [US3] 검증 — 연관관계 애너테이션 grep 0건, ArchUnit 전 규칙 green(이 시점부터 arch 태그 제외 없이 상시 실행 복귀), 로컬 MySQL(docker) DROP+CREATE 후 api 부팅으로 Flyway·FK 제약(fk_fas_*·fk_scan_history_*) 존재 확인 — 신규 마이그레이션 불요 재확인(research D8), 커밋
+- [X] T027 [P] [US3] id 값 클래스 + 컨버터 — `core/src/main/kotlin/com/meogo/core/id/` 에 `@JvmInline value class FoodId`·`MemberId` + `IdConverter<T>` base + `FoodIdConverter`·`MemberIdConverter`(`@Converter(autoApply = true)`) 작성 (research D5)
+- [X] T028 [US3] 참조 필드 전환 — `ScanHistoryJpaEntity.memberId/foodId`·`FoodAvoidanceSubstanceJpaEntity.foodId` 와 대응 도메인 모델(`ScanHistory`·`FoodAvoidanceSubstance`)·서비스 시그니처를 값 클래스로 교체(`ScanHistoryServiceTest` 시그니처·바인딩 케이스 갱신 포함), 유스케이스 경계(Input/Result)는 Long 유지(API 계약 불변)
+- [X] T029 [US3] @OneToMany 제거 — `FoodJpaEntity` 의 자식 컬렉션·cascade·orphanRemoval 삭제, `FoodService` 가 자식 리포지토리로 명시 save/delete(교체 저장 = 기존 자식 delete → 신규 insert)·id 목록 일괄 조회로 조립 (data-model §4) → T026 전부 green
+- [X] T030 [US3] 검증 — 연관관계 애너테이션 grep 0건, ArchUnit 전 규칙 green(이 시점부터 arch 태그 제외 없이 상시 실행 복귀), 로컬 MySQL(docker) DROP+CREATE 후 api 부팅으로 Flyway·FK 제약(fk_fas_*·fk_scan_history_*) 존재 확인 — 신규 마이그레이션 불요 재확인(research D8), 커밋
 
 **Checkpoint**: 연관관계 0건·값 클래스 적용·FK 스키마 강제 확인
 

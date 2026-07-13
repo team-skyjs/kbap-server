@@ -3,12 +3,8 @@ package com.meogo.domain.food
 import com.meogo.core.lang.LanguageCode
 import com.meogo.core.lang.LocalizedText
 import com.meogo.core.persistence.BaseEntity
-import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
@@ -50,12 +46,8 @@ internal class FoodJpaEntity(
 
     @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','READY')")
     var contentStatus: String = FoodContentStatus.READY.name,
-
-    @OneToMany(cascade = [CascadeType.ALL], fetch = FetchType.LAZY, orphanRemoval = true)
-    @JoinColumn(name = "food_id", nullable = false)
-    var foodAvoidanceSubstances: MutableSet<FoodAvoidanceSubstanceJpaEntity> = mutableSetOf(),
 ) : BaseEntity() {
-    fun toDomain(): Food =
+    fun toDomain(substances: List<FoodAvoidanceSubstanceJpaEntity>): Food =
         Food.reconstitute(
             id = id,
             content = FoodContent(
@@ -64,7 +56,7 @@ internal class FoodJpaEntity(
             ),
             imageRef = imageRef,
             spiciness = FoodSpiciness(spiciness),
-            avoidanceSubstances = foodAvoidanceSubstances.map { it.toDomain() },
+            avoidanceSubstances = substances.map { it.toDomain() },
             contentStatus = FoodContentStatus.valueOf(contentStatus),
         )
 

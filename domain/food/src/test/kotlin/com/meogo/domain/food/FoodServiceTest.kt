@@ -1,4 +1,5 @@
 package com.meogo.domain.food
+import com.meogo.core.id.FoodId
 import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
@@ -33,6 +34,9 @@ class FoodServiceTest : BehaviorSpec() {
     private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
+    private lateinit var foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository
+
+    @Autowired
     private lateinit var entityManagerFactory: EntityManagerFactory
 
     @Autowired
@@ -64,14 +68,18 @@ class FoodServiceTest : BehaviorSpec() {
                 spiciness = spiciness,
                 nameTranslations = nameTranslations,
                 descriptionTranslations = descriptionTranslations,
-                foodAvoidanceSubstances = substances.map { (code, percent) ->
+            )
+            val savedId = foodJpaRepository.save(food).id
+            substances.forEach { (code, percent) ->
+                foodAvoidanceSubstanceJpaRepository.save(
                     FoodAvoidanceSubstanceJpaEntity(
+                        foodId = FoodId(savedId),
                         substanceCode = code,
                         inclusionPercent = percent,
-                    )
-                }.toMutableSet(),
-            )
-            return foodJpaRepository.save(food).id
+                    ),
+                )
+            }
+            return savedId
         }
 
         given("Food 저장소 어댑터 — 포함 기피 성분 복원") {
@@ -211,9 +219,9 @@ class FoodServiceTest : BehaviorSpec() {
             }
         }
 
-        given("Food 저장소 어댑터 — fetch join 상수 쿼리(N+1 없음)") {
+        given("Food 저장소 어댑터 — 상수 쿼리(N+1 없음)") {
             `when`("포함 기피 성분·번역이 여러 개인 음식을 조회하면") {
-                then("성분·번역 개수와 무관하게 단일 SQL 로 로드한다") {
+                then("성분·번역 개수와 무관하게 음식 1 + 성분 1 의 상수 SQL 로 로드한다") {
                     val id = saveFood(
                         "N플러스원-부대찌개",
                         substances = listOf(
@@ -232,7 +240,7 @@ class FoodServiceTest : BehaviorSpec() {
 
                     loaded.avoidanceSubstances.size shouldBe 4
                     loaded.content.name.translations.size shouldBe 2
-                    statistics.prepareStatementCount shouldBe 1
+                    statistics.prepareStatementCount shouldBe 2
                 }
             }
         }
@@ -240,18 +248,16 @@ class FoodServiceTest : BehaviorSpec() {
         given("Food 저장소 어댑터 — (food_id, substance_code) 조합 유일") {
             `when`("같은 음식에 같은 기피 성분 코드를 두 번 등록하면") {
                 then("unique 제약 위반으로 저장이 거부된다") {
-                    val food = FoodJpaEntity(
-                        koreanName = "중복성분-된장찌개",
-                        description = "중복성분 설명",
-                        spiciness = 0,
-                        foodAvoidanceSubstances = mutableSetOf(
-                            FoodAvoidanceSubstanceJpaEntity(substanceCode = "SOYBEAN", inclusionPercent = 100),
-                            FoodAvoidanceSubstanceJpaEntity(substanceCode = "SOYBEAN", inclusionPercent = 80),
-                        ),
-                    )
+                    val foodId = saveFood("중복성분-된장찌개", substances = listOf("SOYBEAN" to 100))
 
                     shouldThrow<DataIntegrityViolationException> {
-                        foodJpaRepository.saveAndFlush(food)
+                        foodAvoidanceSubstanceJpaRepository.saveAndFlush(
+                            FoodAvoidanceSubstanceJpaEntity(
+                                foodId = FoodId(foodId),
+                                substanceCode = "SOYBEAN",
+                                inclusionPercent = 80,
+                            ),
+                        )
                     }
                 }
             }
@@ -704,14 +710,14 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("이름 5개를 한 번에 등록하면") {
-                then("이름 수와 무관하게 문장은 2개다(다중행 upsert 1 + 조회 1)") {
+                then("이름 수와 무관하게 문장은 3개다(다중행 upsert 1 + 음식 조회 1 + 성분 조회 1)") {
                     clearFoods()
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     statistics.clear()
 
                     service.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
 
-                    statistics.prepareStatementCount shouldBe 2
+                    statistics.prepareStatementCount shouldBe 3
                     statistics.entityInsertCount shouldBe 0
                     foodJpaRepository.count() shouldBe 5
                 }

@@ -10,26 +10,26 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class FoodService internal constructor(
     private val foodJpaRepository: FoodJpaRepository,
+    private val foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository,
     private val entityManager: EntityManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun findById(id: Long): Food? =
-        foodJpaRepository.findByIdInWithAvoidanceSubstances(listOf(id))
+        toDomains(foodJpaRepository.findByIdIn(listOf(id)))
             .firstOrNull()
-            ?.toDomain()
             ?.takeIf { it.isReady() }
 
     fun findRandomReady(size: Int): List<Food> {
         val ids = foodJpaRepository.findRandomReadyIds(size)
         if (ids.isEmpty()) return emptyList()
-        return foodJpaRepository.findByIdInWithAvoidanceSubstances(ids).map { it.toDomain() }
+        return toDomains(foodJpaRepository.findByIdIn(ids))
     }
 
     fun findAllReadyByIds(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
-        return foodJpaRepository.findByIdInWithAvoidanceSubstances(ids)
-            .map { it.toDomain() }
+        return toDomains(foodJpaRepository.findByIdIn(ids))
+            .sortedBy { it.id }
             .filter { it.isReady() }
     }
 
@@ -46,12 +46,13 @@ class FoodService internal constructor(
 
     fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
         if (keys.isEmpty()) return emptyMap()
-        val entities = foodJpaRepository.findByKoreanMatchKeyInWithAvoidanceSubstances(keys)
+        val entities = foodJpaRepository.findByKoreanMatchKeyIn(keys)
+        val domainsById = toDomains(entities).associateBy { it.id }
         val grouped = entities.groupBy { it.koreanMatchKey }
         grouped.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
             log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, duplicates.size, duplicates.map { it.id })
         }
-        return grouped.mapValues { (_, duplicates) -> duplicates.minBy { it.id }.toDomain() }
+        return grouped.mapValues { (_, duplicates) -> domainsById.getValue(duplicates.minBy { it.id }.id) }
     }
 
     @Transactional
@@ -62,7 +63,8 @@ class FoodService internal constructor(
 
 
         val resolved = foodJpaRepository.findByKoreanNameIn(koreanNames)
-            .associate { it.koreanName to it.toDomain() }
+            .let { entities -> entities.zip(toDomains(entities)) }
+            .associate { (entity, domain) -> entity.koreanName to domain }
         val unresolved = koreanNames - resolved.keys
         if (unresolved.isNotEmpty()) {
             log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
@@ -73,7 +75,7 @@ class FoodService internal constructor(
     fun nextChunk(page: Int, size: Int): List<Food> {
         val ids = foodJpaRepository.findFoodIds(PageRequest.of(page, size))
         if (ids.isEmpty()) return emptyList()
-        return foodJpaRepository.findByIdInWithAvoidanceSubstances(ids).map { it.toDomain() }
+        return toDomains(foodJpaRepository.findByIdIn(ids)).sortedBy { it.id }
     }
 
     private fun upsertIncomplete(foods: List<Food>) {
@@ -103,6 +105,14 @@ class FoodService internal constructor(
 
     private fun loadDescending(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
-        return foodJpaRepository.findByIdInWithAvoidanceSubstancesDesc(ids).map { it.toDomain() }
+        return toDomains(foodJpaRepository.findByIdIn(ids)).sortedByDescending { it.id }
+    }
+
+    private fun toDomains(entities: List<FoodJpaEntity>): List<Food> {
+        if (entities.isEmpty()) return emptyList()
+        val substancesByFoodId = foodAvoidanceSubstanceJpaRepository
+            .findByFoodIdIn(entities.map { it.id })
+            .groupBy { it.foodId.value }
+        return entities.map { it.toDomain(substancesByFoodId[it.id].orEmpty()) }
     }
 }
