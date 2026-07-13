@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class ScanService(
+class ScanService internal constructor(
     private val foodService: FoodService,
     private val interpreter: ScannedNameInterpreter,
     private val scanHistoryRepository: ScanHistoryJpaRepository,

@@ -10,7 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest
+@SpringBootTest(classes = [FoodTestApp::class])
 @Import(MySqlContainerConfig::class)
 class FoodMatchKeySyncTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

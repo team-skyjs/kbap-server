@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 
 // 배치 스코어링 청크 공급(ScoringJobConfig 의 nextChunk 람다)과 동일한 조합의 회귀 테스트.
-@SpringBootTest
+@SpringBootTest(classes = [FoodTestApp::class])
 @Import(MySqlContainerConfig::class)
 class FoodScoringChunkTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

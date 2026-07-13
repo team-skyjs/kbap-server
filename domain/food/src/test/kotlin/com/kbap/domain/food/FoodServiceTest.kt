@@ -1,13 +1,8 @@
-package com.kbap.app.api.food
+package com.kbap.domain.food
 
-import com.kbap.domain.food.FoodService
 import com.kbap.core.id.FoodId
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodAvoidanceSubstance
-import com.kbap.domain.food.FoodAvoidanceSubstanceJpaRepository
-import com.kbap.domain.food.FoodJpaRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -25,9 +20,12 @@ import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
 import javax.sql.DataSource
 
-@SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
+@SpringBootTest(
+    classes = [FoodServiceTestApp::class],
+    properties = ["spring.jpa.properties.hibernate.generate_statistics=true"],
+)
 @Import(MySqlContainerConfig::class)
-class FoodServiceIntegrationTest : BehaviorSpec() {
+class FoodServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -49,7 +47,6 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
         fun clearFoods() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM scan_history")
                     statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                 }

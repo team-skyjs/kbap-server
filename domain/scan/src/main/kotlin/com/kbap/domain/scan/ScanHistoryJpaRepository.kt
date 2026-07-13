@@ -4,7 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+internal interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
     @Query(
         nativeQuery = true,
         value = """

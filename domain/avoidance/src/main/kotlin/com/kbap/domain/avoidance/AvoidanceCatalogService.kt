@@ -3,7 +3,7 @@ package com.kbap.domain.avoidance
 import org.springframework.stereotype.Service
 
 @Service
-class AvoidanceCatalogService(
+class AvoidanceCatalogService internal constructor(
     private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
 ) {
     fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> =

@@ -1,10 +1,9 @@
 package com.kbap.app.batch.scoring
 
-import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
+import com.kbap.domain.avoidance.AvoidanceCatalogService
 import com.kbap.core.lang.LanguageCode
-import com.kbap.domain.food.FoodJpaRepository
+import com.kbap.domain.food.FoodScoringSource
 import com.kbap.domain.research.input.ScoringFood
-import org.springframework.data.domain.PageRequest
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
 import com.kbap.domain.research.prompt.ScoringPromptFactory
 import com.kbap.domain.research.parse.ScoringResponseParser
@@ -12,8 +11,10 @@ import com.kbap.infra.llm.client.LlmFanoutClient
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
 
 @Configuration
+@Import(FoodScoringSource::class, AvoidanceCatalogService::class)
 class ScoringJobConfig {
 
     @Bean
@@ -27,9 +28,9 @@ class ScoringJobConfig {
 
     @Bean
     fun avoidanceScoringJob(
-        foodRepository: FoodJpaRepository,
+        foodScoringSource: FoodScoringSource,
         llmFanoutClient: LlmFanoutClient,
-        avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
+        avoidanceCatalogService: AvoidanceCatalogService,
         promptFactory: ScoringPromptFactory,
         responseParser: ScoringResponseParser,
         aggregator: ConsensusEnsembleAggregator,
@@ -37,14 +38,11 @@ class ScoringJobConfig {
     ): AvoidanceScoringJob =
         AvoidanceScoringJob(
             nextChunk = { page, size ->
-                foodRepository.findFoodIds(PageRequest.of(page, size))
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { ids -> foodRepository.findByIdIn(ids).sortedBy { it.id } }
-                    .orEmpty()
+                foodScoringSource.nextChunk(page, size)
                     .map { ScoringFood(foodId = it.id, koreanName = it.displayName(LanguageCode.KO)) }
             },
             llmFanoutClient = llmFanoutClient,
-            findSubstances = { codes -> if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes) },
+            findSubstances = avoidanceCatalogService::findByCodes,
             promptFactory = promptFactory,
             responseParser = responseParser,
             aggregator = aggregator,
