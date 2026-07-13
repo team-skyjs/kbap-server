@@ -1,4 +1,4 @@
-package com.kbap.application.auth.social
+package com.kbap.application.auth.social.firebase
 
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException

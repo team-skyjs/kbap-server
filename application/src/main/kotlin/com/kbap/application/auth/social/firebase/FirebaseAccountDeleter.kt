@@ -1,5 +1,6 @@
-package com.kbap.application.auth.social
+package com.kbap.application.auth.social.firebase
 
+import com.kbap.application.auth.social.SocialAccountDeleter
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException

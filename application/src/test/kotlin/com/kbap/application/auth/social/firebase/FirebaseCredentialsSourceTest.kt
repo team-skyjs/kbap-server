@@ -1,4 +1,4 @@
-package com.kbap.application.auth.social
+package com.kbap.application.auth.social.firebase
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec

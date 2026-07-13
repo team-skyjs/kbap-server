@@ -1,8 +1,8 @@
 package com.kbap.application.auth
 
-import com.kbap.application.auth.social.FirebaseAccountDeleter
-import com.kbap.application.auth.social.FirebaseCredentialsSource
-import com.kbap.application.auth.social.FirebaseTokenVerifier
+import com.kbap.application.auth.social.firebase.FirebaseAccountDeleter
+import com.kbap.application.auth.social.firebase.FirebaseCredentialsSource
+import com.kbap.application.auth.social.firebase.FirebaseTokenVerifier
 import com.kbap.application.auth.social.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
 import com.kbap.application.auth.token.AuthTokenProperties
