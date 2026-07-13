@@ -1,4 +1,4 @@
-package com.kbap.application.food
+package com.kbap.application.support
 
 import com.kbap.core.lang.LanguageCode
 import org.springframework.stereotype.Component
