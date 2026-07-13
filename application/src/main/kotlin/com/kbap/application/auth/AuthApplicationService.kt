@@ -7,7 +7,7 @@ import com.kbap.application.auth.token.TokenParser
 import com.kbap.application.auth.dto.LoginResult
 import com.kbap.application.auth.dto.RefreshResult
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.domain.member.MemberService
 import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.domain.member.SocialIdentity
@@ -47,7 +47,7 @@ class AuthApplicationService(
     fun refresh(refreshToken: String): RefreshResult {
         val parsed = try {
             tokenParser.parseRefreshToken(refreshToken)
-        } catch (e: KbapException) {
+        } catch (e: BusinessException) {
             if (e.errorCode == ErrorCode.EXPIRED_REFRESH_TOKEN) {
                 tokenParser.refreshTokenJtiOrNull(refreshToken)?.let { refreshTokenStore.delete(it) }
             }
@@ -55,10 +55,10 @@ class AuthApplicationService(
         }
 
         val memberId = refreshTokenStore.consume(parsed.jti)
-            ?: throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
+            ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
 
         if (memberService.findActive(memberId) == null) {
-            throw KbapException(ErrorCode.INVALID_REFRESH_TOKEN)
+            throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
 
         val rotated = tokenIssuer.issueRefreshToken(memberId)
@@ -81,7 +81,7 @@ class AuthApplicationService(
     // 소셜 계정 삭제(외부 호출)를 트랜잭션 밖에서 먼저 수행하고, DB 탈퇴 마킹은 MemberService 트랜잭션에 맡긴다.
     fun withdraw(memberId: Long) {
         val member = memberService.findActive(memberId)
-            ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
         deleteSocialAccount(memberId, member.identity)
 
@@ -100,7 +100,7 @@ class AuthApplicationService(
                 identity.providerUserId,
                 e,
             )
-            throw KbapException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
+            throw BusinessException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
         }
     }
 }

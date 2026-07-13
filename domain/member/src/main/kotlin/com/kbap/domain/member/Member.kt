@@ -1,7 +1,7 @@
 package com.kbap.domain.member
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -71,7 +71,7 @@ class Member(
 
     fun completeOnboarding() {
         if (onboardingCompleted) {
-            throw KbapException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
+            throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
         }
         onboardingCompleted = true
     }

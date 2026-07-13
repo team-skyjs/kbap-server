@@ -2,7 +2,7 @@ package com.kbap.infra.auth.token
 
 import com.kbap.application.auth.token.AuthTokenProperties
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.domain.member.MemberRole
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -62,14 +62,14 @@ class TokenTest : BehaviorSpec({
 
         `when`("역할 클레임이 없는 access 토큰을 파싱하면") {
             then("서명이 유효해도 INVALID_ACCESS_TOKEN 으로 거절한다") {
-                val e = shouldThrow<KbapException> { parser.parseAccessToken(accessTokenWithoutRole()) }
+                val e = shouldThrow<BusinessException> { parser.parseAccessToken(accessTokenWithoutRole()) }
                 e.errorCode shouldBe ErrorCode.INVALID_ACCESS_TOKEN
             }
         }
 
         `when`("정의되지 않은 역할 값을 담은 access 토큰을 파싱하면") {
             then("INVALID_ACCESS_TOKEN 으로 거절한다") {
-                val e = shouldThrow<KbapException> { parser.parseAccessToken(accessTokenWithoutRole("SUPERUSER")) }
+                val e = shouldThrow<BusinessException> { parser.parseAccessToken(accessTokenWithoutRole("SUPERUSER")) }
                 e.errorCode shouldBe ErrorCode.INVALID_ACCESS_TOKEN
             }
         }
@@ -108,7 +108,7 @@ class TokenTest : BehaviorSpec({
                     ),
                 ).issueRefreshToken(memberId = 7L).token
 
-                val e = shouldThrow<KbapException> { parser.parseRefreshToken(forged) }
+                val e = shouldThrow<BusinessException> { parser.parseRefreshToken(forged) }
                 e.errorCode shouldBe ErrorCode.INVALID_REFRESH_TOKEN
             }
         }
@@ -118,14 +118,14 @@ class TokenTest : BehaviorSpec({
                 val token = issuer.issueAccessToken(memberId = 1L, role = MemberRole.USER)
                 val tampered = token.dropLast(3) + "abc"
 
-                val e = shouldThrow<KbapException> { parser.parseAccessToken(tampered) }
+                val e = shouldThrow<BusinessException> { parser.parseAccessToken(tampered) }
                 e.errorCode shouldBe ErrorCode.INVALID_ACCESS_TOKEN
             }
         }
 
         `when`("형식이 아닌 문자열을 파싱하면") {
             then("INVALID_REFRESH_TOKEN 예외를 던진다") {
-                val e = shouldThrow<KbapException> { parser.parseRefreshToken("not-a-jwt") }
+                val e = shouldThrow<BusinessException> { parser.parseRefreshToken("not-a-jwt") }
                 e.errorCode shouldBe ErrorCode.INVALID_REFRESH_TOKEN
             }
         }
@@ -136,7 +136,7 @@ class TokenTest : BehaviorSpec({
             then("서명이 유효해도 INVALID_ACCESS_TOKEN 으로 거절한다") {
                 val refreshToken = issuer.issueRefreshToken(memberId = 7L).token
 
-                val e = shouldThrow<KbapException> { parser.parseAccessToken(refreshToken) }
+                val e = shouldThrow<BusinessException> { parser.parseAccessToken(refreshToken) }
                 e.errorCode shouldBe ErrorCode.INVALID_ACCESS_TOKEN
             }
         }
@@ -145,7 +145,7 @@ class TokenTest : BehaviorSpec({
             then("서명이 유효해도 INVALID_REFRESH_TOKEN 으로 거절한다") {
                 val accessToken = issuer.issueAccessToken(memberId = 7L, role = MemberRole.USER)
 
-                val e = shouldThrow<KbapException> { parser.parseRefreshToken(accessToken) }
+                val e = shouldThrow<BusinessException> { parser.parseRefreshToken(accessToken) }
                 e.errorCode shouldBe ErrorCode.INVALID_REFRESH_TOKEN
             }
         }
@@ -174,7 +174,7 @@ class TokenTest : BehaviorSpec({
             then("EXPIRED_REFRESH_TOKEN 으로 조작과 구분해 던진다") {
                 val expired = expiredIssuer.issueRefreshToken(memberId = 7L).token
 
-                val e = shouldThrow<KbapException> { parser.parseRefreshToken(expired) }
+                val e = shouldThrow<BusinessException> { parser.parseRefreshToken(expired) }
                 e.errorCode shouldBe ErrorCode.EXPIRED_REFRESH_TOKEN
             }
         }
@@ -183,7 +183,7 @@ class TokenTest : BehaviorSpec({
             then("EXPIRED_ACCESS_TOKEN 으로 조작과 구분해 던진다") {
                 val expired = expiredIssuer.issueAccessToken(memberId = 7L, role = MemberRole.USER)
 
-                val e = shouldThrow<KbapException> { parser.parseAccessToken(expired) }
+                val e = shouldThrow<BusinessException> { parser.parseAccessToken(expired) }
                 e.errorCode shouldBe ErrorCode.EXPIRED_ACCESS_TOKEN
             }
         }

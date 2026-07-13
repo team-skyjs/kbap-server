@@ -1,7 +1,7 @@
 package com.kbap.app.api.auth
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
@@ -434,7 +434,7 @@ class FakeSocialTokenVerifier : SocialTokenVerifier {
     private var failure: ErrorCode? = null
 
     override fun verify(idToken: String): SocialIdentity {
-        failure?.let { throw KbapException(it) }
+        failure?.let { throw BusinessException(it) }
         return SocialIdentity(SocialProvider.GOOGLE, DEFAULT_SUB, "user@gmail.com")
     }
 

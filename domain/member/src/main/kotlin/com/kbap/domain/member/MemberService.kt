@@ -1,7 +1,7 @@
 package com.kbap.domain.member
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
@@ -87,7 +87,7 @@ class MemberService internal constructor(
             memberRepository.save(Member.signUp(identity)) to true
         } catch (e: DataIntegrityViolationException) {
             val existing = findByIdentity(identity)
-                ?: throw KbapException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
+                ?: throw BusinessException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
             existing to false
         }
     }
@@ -95,7 +95,7 @@ class MemberService internal constructor(
     @Transactional
     fun increaseScanCount(memberId: Long) {
         if (memberRepository.increaseScanCount(memberId) == 0) {
-            throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
     }
 
@@ -110,24 +110,24 @@ class MemberService internal constructor(
     }
 
     private fun findActiveOrThrow(memberId: Long): Member =
-        findActive(memberId) ?: throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+        findActive(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
     private fun validatedNickname(raw: String): String =
-        raw.trim().ifBlank { throw KbapException(ErrorCode.INVALID_NICKNAME) }
+        raw.trim().ifBlank { throw BusinessException(ErrorCode.INVALID_NICKNAME) }
 
     private fun validatedCodes(raw: List<String>): Set<AvoidanceSubstanceCodeRef> {
         if (raw.any { it !in CATALOG_CODES }) {
-            throw KbapException(ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
+            throw BusinessException(ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
         }
         return raw.map { AvoidanceSubstanceCodeRef(it) }.toSet()
     }
 
     private fun validatedCountry(raw: String): CountryCode =
-        CountryCode.from(raw) ?: throw KbapException(ErrorCode.INVALID_COUNTRY_CODE)
+        CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
 
     private fun validatedLanguage(raw: String): LanguageCode =
         LanguageCode.entries.firstOrNull { it.code == raw }
-            ?: throw KbapException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
+            ?: throw BusinessException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
 
     companion object {
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()

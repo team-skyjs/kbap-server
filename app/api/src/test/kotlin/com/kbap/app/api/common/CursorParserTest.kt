@@ -1,7 +1,7 @@
 package com.kbap.app.api.common
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -39,24 +39,24 @@ class CursorParserTest : BehaviorSpec({
         }
 
         `when`("커서가 숫자가 아니면") {
-            then("INVALID_CURSOR KbapException 을 던진다") {
-                shouldThrow<KbapException> {
+            then("INVALID_CURSOR BusinessException 을 던진다") {
+                shouldThrow<BusinessException> {
                     CursorParser.parse("abc")
                 }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
 
         `when`("커서가 음수이면") {
-            then("INVALID_CURSOR KbapException 을 던진다") {
-                shouldThrow<KbapException> {
+            then("INVALID_CURSOR BusinessException 을 던진다") {
+                shouldThrow<BusinessException> {
                     CursorParser.parse("-1")
                 }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
 
         `when`("커서가 공백을 포함한 숫자이면") {
-            then("파싱에 실패해 INVALID_CURSOR KbapException 을 던진다") {
-                shouldThrow<KbapException> {
+            then("파싱에 실패해 INVALID_CURSOR BusinessException 을 던진다") {
+                shouldThrow<BusinessException> {
                     CursorParser.parse(" 100 ")
                 }.errorCode shouldBe ErrorCode.INVALID_CURSOR
             }

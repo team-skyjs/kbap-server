@@ -1,6 +1,6 @@
 package com.kbap.core.lang
 
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -49,17 +49,17 @@ class LanguageCodeTest : BehaviorSpec({
         }
 
         `when`("지원 목록과 정확히 일치하지 않는 코드가 주어지면") {
-            then("KbapException 을 던진다") {
-                shouldThrow<KbapException> { LanguageCode.from("xx") }
-                shouldThrow<KbapException> { LanguageCode.from("EN") }
-                shouldThrow<KbapException> { LanguageCode.from("ko-KR") }
-                shouldThrow<KbapException> { LanguageCode.from(" fr ") }
+            then("BusinessException 을 던진다") {
+                shouldThrow<BusinessException> { LanguageCode.from("xx") }
+                shouldThrow<BusinessException> { LanguageCode.from("EN") }
+                shouldThrow<BusinessException> { LanguageCode.from("ko-KR") }
+                shouldThrow<BusinessException> { LanguageCode.from(" fr ") }
             }
         }
 
         `when`("미지원 코드로 예외가 발생하면") {
             then("메시지에 지원 언어 코드 10종이 모두 포함된다") {
-                val message = shouldThrow<KbapException> { LanguageCode.from("fr") }.message ?: ""
+                val message = shouldThrow<BusinessException> { LanguageCode.from("fr") }.message ?: ""
                 listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
                     .forEach { code -> message shouldContain code }
             }

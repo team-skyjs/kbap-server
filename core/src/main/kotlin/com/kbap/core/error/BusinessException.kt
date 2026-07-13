@@ -1,5 +1,5 @@
 package com.kbap.core.error
 
-open class KbapException(
+open class BusinessException(
     val errorCode: ErrorCode,
 ) : RuntimeException(errorCode.message)

@@ -1,7 +1,7 @@
 package com.kbap.domain.member
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -81,7 +81,7 @@ class MemberTest : BehaviorSpec({
                 val member = Member.signUp(googleIdentity())
                 member.completeOnboarding()
 
-                val e = shouldThrow<KbapException> { member.completeOnboarding() }
+                val e = shouldThrow<BusinessException> { member.completeOnboarding() }
                 e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
             }
         }

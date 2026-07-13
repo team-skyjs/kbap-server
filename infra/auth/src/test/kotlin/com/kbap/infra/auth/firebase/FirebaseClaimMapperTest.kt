@@ -1,7 +1,7 @@
 package com.kbap.infra.auth.firebase
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.domain.member.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -87,7 +87,7 @@ class FirebaseClaimMapperTest : BehaviorSpec({
     given("지원하지 않는 provider") {
         `when`("매핑하면") {
             then("UNSUPPORTED_PROVIDER 예외를 던진다") {
-                val e = shouldThrow<KbapException> {
+                val e = shouldThrow<BusinessException> {
                     FirebaseClaimMapper.toSocialIdentity(
                         claims(
                             signInProvider = "facebook.com",
@@ -104,7 +104,7 @@ class FirebaseClaimMapperTest : BehaviorSpec({
     given("훼손된 클레임") {
         `when`("identities 에 해당 provider 원소가 없으면") {
             then("INVALID_SOCIAL_TOKEN 예외를 던진다") {
-                val e = shouldThrow<KbapException> {
+                val e = shouldThrow<BusinessException> {
                     FirebaseClaimMapper.toSocialIdentity(
                         claims(signInProvider = "google.com", identities = emptyMap()),
                     )
@@ -116,7 +116,7 @@ class FirebaseClaimMapperTest : BehaviorSpec({
 
         `when`("firebase 클레임 자체가 없으면") {
             then("INVALID_SOCIAL_TOKEN 예외를 던진다") {
-                val e = shouldThrow<KbapException> {
+                val e = shouldThrow<BusinessException> {
                     FirebaseClaimMapper.toSocialIdentity(mapOf("sub" to "uid"))
                 }
 
@@ -126,7 +126,7 @@ class FirebaseClaimMapperTest : BehaviorSpec({
 
         `when`("provider 원소가 빈 배열이면") {
             then("INVALID_SOCIAL_TOKEN 예외를 던진다") {
-                val e = shouldThrow<KbapException> {
+                val e = shouldThrow<BusinessException> {
                     FirebaseClaimMapper.toSocialIdentity(
                         claims(signInProvider = "google.com", identities = mapOf("google.com" to emptyList<String>())),
                     )

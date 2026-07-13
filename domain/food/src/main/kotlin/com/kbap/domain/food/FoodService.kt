@@ -7,7 +7,7 @@ import com.kbap.domain.food.dto.GetFoodDetailInput
 import com.kbap.domain.food.dto.GetFoodDetailResult
 import com.kbap.domain.food.dto.SearchFoodsInput
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
 import com.kbap.domain.avoidance.AvoidanceCatalogService
@@ -53,7 +53,7 @@ class FoodService internal constructor(
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
         val lang = LanguageCode.from(input.lang)
         val food = findReadyById(input.foodId)
-            ?: throw KbapException(ErrorCode.FOOD_NOT_FOUND)
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
         val orderedSubstances = food.avoidanceSubstancesByProbability()
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()

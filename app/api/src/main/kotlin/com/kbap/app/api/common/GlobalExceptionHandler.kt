@@ -1,6 +1,6 @@
 package com.kbap.app.api.common
 
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -29,8 +29,8 @@ class GlobalExceptionHandler {
     fun handleUnreadable(e: HttpMessageNotReadableException): ResponseEntity<BaseResponse<Nothing>> =
         ResponseEntity.badRequest().body(BaseResponse.fail("요청 본문을 해석할 수 없습니다"))
 
-    @ExceptionHandler(KbapException::class)
-    fun handleKbap(e: KbapException): ResponseEntity<BaseResponse<Nothing>> {
+    @ExceptionHandler(BusinessException::class)
+    fun handleKbap(e: BusinessException): ResponseEntity<BaseResponse<Nothing>> {
         val status = HttpStatus.resolve(e.errorCode.status) ?: HttpStatus.INTERNAL_SERVER_ERROR
         if (status.is5xxServerError) {
             log.error("business exception (server): {} (status={})", e.errorCode.message, status.value(), e)

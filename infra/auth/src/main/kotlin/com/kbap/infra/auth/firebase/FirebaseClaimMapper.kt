@@ -1,7 +1,7 @@
 package com.kbap.infra.auth.firebase
 
 import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.KbapException
+import com.kbap.core.error.BusinessException
 import com.kbap.domain.member.SocialIdentity
 import com.kbap.domain.member.SocialProvider
 
@@ -17,17 +17,17 @@ object FirebaseClaimMapper {
     )
 
     fun toSocialIdentity(claims: Map<String, Any?>): SocialIdentity {
-        val firebase = claims[FIREBASE_CLAIM] as? Map<*, *> ?: throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
+        val firebase = claims[FIREBASE_CLAIM] as? Map<*, *> ?: throw BusinessException(ErrorCode.INVALID_SOCIAL_TOKEN)
         val signInProvider = firebase[SIGN_IN_PROVIDER] as? String
-            ?: throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
-        val provider = PROVIDERS[signInProvider] ?: throw KbapException(ErrorCode.UNSUPPORTED_PROVIDER)
+            ?: throw BusinessException(ErrorCode.INVALID_SOCIAL_TOKEN)
+        val provider = PROVIDERS[signInProvider] ?: throw BusinessException(ErrorCode.UNSUPPORTED_PROVIDER)
 
-        val identities = firebase[IDENTITIES] as? Map<*, *> ?: throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
+        val identities = firebase[IDENTITIES] as? Map<*, *> ?: throw BusinessException(ErrorCode.INVALID_SOCIAL_TOKEN)
         val providerUserId = (identities[signInProvider] as? List<*>)
             ?.firstOrNull()
             ?.toString()
             ?.takeIf { it.isNotBlank() }
-            ?: throw KbapException(ErrorCode.INVALID_SOCIAL_TOKEN)
+            ?: throw BusinessException(ErrorCode.INVALID_SOCIAL_TOKEN)
 
         return SocialIdentity(
             provider = provider,
