@@ -96,8 +96,8 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
                         imageRef = "doenjang.png",
                         substances = listOf(
                             "CLAM" to 50,
-                            "SOYBEAN" to 100,
-                            "TOFU" to 90,
+                            "SOY" to 100,
+                            "MILK" to 90,
                         ),
                     )
 
@@ -105,10 +105,10 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
                     loaded.shouldNotBeNull()
                     loaded.imageRef shouldBe "doenjang.png"
                     loaded.avoidanceSubstances.map { it.substanceCode }
-                        .shouldContainExactlyInAnyOrder("CLAM", "SOYBEAN", "TOFU")
+                        .shouldContainExactlyInAnyOrder("CLAM", "SOY", "MILK")
                     loaded.avoidanceSubstances.map { it.inclusionPercent }
                         .shouldContainExactlyInAnyOrder(50, 100, 90)
-                    loaded.avoidanceSubstances.first { it.substanceCode == "SOYBEAN" }
+                    loaded.avoidanceSubstances.first { it.substanceCode == "SOY" }
                         .inclusionPercent shouldBe 100
                 }
             }
@@ -121,7 +121,7 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
 
             `when`("저장된 음식을 소프트 삭제하면") {
                 then("@SQLRestriction 으로 조회에서 제외돼 null 이 반환된다") {
-                    val savedId = saveFood("삭제-순두부찌개", substances = listOf("SOYBEAN" to 95))
+                    val savedId = saveFood("삭제-순두부찌개", substances = listOf("SOY" to 95))
 
                     val entity = foodJpaRepository.findById(savedId).get()
                     entity.delete()
@@ -232,7 +232,7 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
                         "N플러스원-부대찌개",
                         substances = listOf(
                             "EGG" to 70,
-                            "SOYBEAN" to 100,
+                            "SOY" to 100,
                             "PORK" to 90,
                             "WHEAT" to 60,
                         ),
@@ -254,13 +254,13 @@ class FoodServiceIntegrationTest : BehaviorSpec() {
         given("Food 저장 — (food_id, substance_code) 조합 유일") {
             `when`("같은 음식에 같은 기피 성분 코드를 두 번 등록하면") {
                 then("unique 제약 위반으로 저장이 거부된다") {
-                    val foodId = saveFood("중복성분-된장찌개", substances = listOf("SOYBEAN" to 100))
+                    val foodId = saveFood("중복성분-된장찌개", substances = listOf("SOY" to 100))
 
                     shouldThrow<DataIntegrityViolationException> {
                         foodAvoidanceSubstanceJpaRepository.saveAndFlush(
                             FoodAvoidanceSubstance(
                                 foodId = FoodId(foodId),
-                                substanceCode = "SOYBEAN",
+                                substanceCode = "SOY",
                                 inclusionPercent = 80,
                             ),
                         )
