@@ -22,7 +22,7 @@ class HomeApplicationService(
     fun getHome(memberId: Long?): HomeResult {
         val member = memberId?.let { memberService.findActive(it) }
         val lang = member?.profile?.appLanguage ?: LanguageCode.EN
-        val avoidedCodes = memberService.avoidedCodes(member?.id)
+        val avoidedCodes = memberService.getAvoidedCodes(member?.id)
         val avoidedRefs = avoidedCodes.map { it.name }.toSet()
 
         return HomeResult(
@@ -31,7 +31,7 @@ class HomeApplicationService(
             popularFoods = foodService.findRandomReady(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs) },
             recentScans = member?.id?.let { id ->
-                val recentIds = scanService.recentReadyFoodIds(id, RECENT_SCAN_SIZE)
+                val recentIds = scanService.findRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
                 val foodsById = foodService.findAllReadyByIds(recentIds).associateBy { it.id }
                 recentIds.mapNotNull { foodsById[it] }.map { FoodSummaryView.from(it, lang, avoidedRefs) }
             }.orEmpty(),

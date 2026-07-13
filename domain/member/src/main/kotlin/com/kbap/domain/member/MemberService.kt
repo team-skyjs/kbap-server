@@ -101,7 +101,7 @@ class MemberService internal constructor(
 
     // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
     @Transactional(readOnly = true)
-    fun avoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
+    fun getAvoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
         if (memberId == null) return emptySet()
         val member = findActive(memberId) ?: return emptySet()
         return member.profile.avoidanceSubstanceCodes

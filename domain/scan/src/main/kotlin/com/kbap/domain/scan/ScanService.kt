@@ -31,7 +31,7 @@ class ScanService internal constructor(
 
         // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
         val lang = LanguageCode.KO
-        val avoidedCodes = memberService.avoidedCodes(input.memberId)
+        val avoidedCodes = memberService.getAvoidedCodes(input.memberId)
             .map { it.name }
             .toSet()
 
@@ -54,7 +54,7 @@ class ScanService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun recentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
+    fun findRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {

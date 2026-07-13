@@ -131,7 +131,7 @@ class FoodService internal constructor(
     }
 
     private fun avoidedCodeNames(memberId: Long?): Set<String> =
-        memberService.avoidedCodes(memberId).map { it.name }.toSet()
+        memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 
     private fun foodPage(rows: List<Food>, lang: LanguageCode, memberId: Long?): FoodPage {
         val hasNext = rows.size > PAGE_SIZE
