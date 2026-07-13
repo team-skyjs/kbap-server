@@ -2,7 +2,7 @@ package com.kbap.application.scan
 
 import com.kbap.core.id.FoodId
 import com.kbap.core.id.MemberId
-import com.kbap.application.food.usecase.AvoidedSubstanceProvider
+import com.kbap.application.food.AvoidedSubstanceProvider
 import com.kbap.application.scan.dto.ScanInput
 import com.kbap.application.scan.dto.ScanResult
 import com.kbap.domain.food.Food

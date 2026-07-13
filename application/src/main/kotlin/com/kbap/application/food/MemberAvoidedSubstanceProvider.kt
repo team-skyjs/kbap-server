@@ -1,4 +1,4 @@
-package com.kbap.application.food.usecase
+package com.kbap.application.food
 
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
 import com.kbap.domain.member.MemberJpaRepository

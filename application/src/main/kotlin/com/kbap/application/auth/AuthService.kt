@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.application.auth.dto.LoginResult
+import com.kbap.application.auth.dto.RefreshResult
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.Member
@@ -10,18 +12,6 @@ import com.kbap.domain.member.RefreshTokenStore
 import com.kbap.domain.member.SocialIdentity
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
-
-data class LoginResult(
-    val memberId: Long,
-    val newMember: Boolean,
-    val accessToken: String,
-    val refreshToken: String,
-)
-
-data class RefreshResult(
-    val accessToken: String,
-    val refreshToken: String,
-)
 
 @Service
 class AuthService(

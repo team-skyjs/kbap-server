@@ -2,7 +2,7 @@ package com.kbap.application.home
 
 import com.kbap.core.id.MemberId
 import com.kbap.application.food.dto.FoodSummaryView
-import com.kbap.application.food.usecase.AvoidedSubstanceProvider
+import com.kbap.application.food.AvoidedSubstanceProvider
 import com.kbap.application.home.dto.AvoidedSubstanceView
 import com.kbap.application.home.dto.HomeResult
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository

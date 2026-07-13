@@ -1,6 +1,6 @@
 package com.kbap.app.api.auth
 
-import com.kbap.application.auth.LoginResult
+import com.kbap.application.auth.dto.LoginResult
 
 data class LoginResponse(
     val newMember: Boolean,

@@ -10,18 +10,6 @@ import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
 import javax.crypto.spec.SecretKeySpec
 
-data class ParsedAccessToken(
-    val memberId: Long,
-    val role: MemberRole,
-) {
-    val roleName: String get() = role.name
-}
-
-data class ParsedRefreshToken(
-    val memberId: Long,
-    val jti: String,
-)
-
 @Component
 class TokenParser(
     properties: AuthTokenProperties,

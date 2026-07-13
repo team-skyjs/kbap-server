@@ -9,11 +9,6 @@ import javax.crypto.spec.SecretKeySpec
 
 const val ROLE_CLAIM: String = "role"
 
-data class IssuedRefreshToken(
-    val token: String,
-    val jti: String,
-)
-
 @Component
 class TokenIssuer(
     private val properties: AuthTokenProperties,
@@ -44,15 +39,5 @@ class TokenIssuer(
             .signWith(key)
             .compact()
         return IssuedRefreshToken(token = token, jti = jti)
-    }
-}
-
-enum class TokenType {
-    ACCESS,
-    REFRESH,
-    ;
-
-    companion object {
-        const val CLAIM: String = "token_type"
     }
 }

@@ -1,4 +1,4 @@
-package com.kbap.application.food.usecase
+package com.kbap.application.food
 
 import com.kbap.core.error.KbapException
 import com.kbap.core.lang.LanguageCode

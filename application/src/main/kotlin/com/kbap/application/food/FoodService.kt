@@ -6,9 +6,6 @@ import com.kbap.application.food.dto.FoodSummaryView
 import com.kbap.application.food.dto.GetFoodDetailInput
 import com.kbap.application.food.dto.GetFoodDetailResult
 import com.kbap.application.food.dto.SearchFoodsInput
-import com.kbap.application.food.usecase.AvoidedSubstanceProvider
-import com.kbap.application.food.usecase.LanguageResolver
-import com.kbap.application.food.usecase.resolveKeyword
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.core.lang.LanguageCode
