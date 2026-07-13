@@ -2,34 +2,34 @@ package com.kbap.domain.avoidance
 
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.lang.LocalizedText
-import com.kbap.core.stereotype.AggregateRoot
+import com.kbap.core.persistence.BaseEntity
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
-@AggregateRoot
-class AvoidanceSubstance private constructor(
-    val id: Long,
-    val code: AvoidanceSubstanceCode,
-    val name: LocalizedText,
-) {
-    fun displayName(lang: LanguageCode): String = name.resolve(lang)
+@Entity
+@Table(name = "avoidance_substance")
+class AvoidanceSubstance(
+    @Enumerated(EnumType.STRING)
+    @Column(name = "code", nullable = false, length = 40)
+    var code: AvoidanceSubstanceCode = AvoidanceSubstanceCode.EGG,
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is AvoidanceSubstance) return false
-        return code == other.code
-    }
+    @Column(name = "korean_name", nullable = false, length = 100)
+    var koreanName: String = "",
 
-    override fun hashCode(): Int = code.hashCode()
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "translations", nullable = false)
+    var translations: Map<String, String> = emptyMap(),
+) : BaseEntity() {
+    fun displayName(lang: LanguageCode): String =
+        LocalizedText(korean = koreanName, translations = resolveTranslations()).resolve(lang)
 
-    companion object {
-        fun reconstitute(
-            id: Long,
-            code: AvoidanceSubstanceCode,
-            name: LocalizedText,
-        ): AvoidanceSubstance =
-            AvoidanceSubstance(
-                id = id,
-                code = code,
-                name = name,
-            )
-    }
+    private fun resolveTranslations(): Map<LanguageCode, String> =
+        translations.mapNotNull { (key, value) ->
+            LanguageCode.entries.firstOrNull { it.code == key }?.let { it to value }
+        }.toMap()
 }

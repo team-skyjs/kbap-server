@@ -6,17 +6,17 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
-    @Query("select f.id from FoodJpaEntity f order by f.id asc")
+interface FoodJpaRepository : JpaRepository<Food, Long> {
+    @Query("select f.id from Food f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
 
-    fun findByKoreanMatchKeyIn(keys: Set<String>): List<FoodJpaEntity>
+    fun findByKoreanMatchKeyIn(keys: Set<String>): List<Food>
 
-    fun findByKoreanNameIn(koreanNames: Set<String>): List<FoodJpaEntity>
+    fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
     @Query(
         """
-        select f.id from FoodJpaEntity f
+        select f.id from Food f
         where (:cursor is null or f.id < :cursor)
           and f.contentStatus = 'READY'
         order by f.id desc
@@ -24,7 +24,7 @@ internal interface FoodJpaRepository : JpaRepository<FoodJpaEntity, Long> {
     )
     fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
-    fun findByIdIn(ids: List<Long>): List<FoodJpaEntity>
+    fun findByIdIn(ids: List<Long>): List<Food>
 
     @Query(
         nativeQuery = true,

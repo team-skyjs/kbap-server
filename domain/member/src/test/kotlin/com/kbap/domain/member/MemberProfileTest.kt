@@ -60,9 +60,9 @@ class MemberProfileTest : BehaviorSpec({
         }
     }
 
-    given("프로필 수정 — 통째 교체(불변)") {
+    given("프로필 수정 — 통째 교체") {
         `when`("회원의 프로필을 새 프로필로 교체하면") {
-            then("새 회원 인스턴스만 새 프로필을 갖고 이전 프로필 인스턴스는 그대로다") {
+            then("회원이 새 프로필을 갖고 프로필 값 객체 자체는 그대로다") {
                 val origin = MemberProfile.empty()
                 val member = Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-1", null))
                 val replacement = MemberProfile.of(
@@ -73,10 +73,9 @@ class MemberProfileTest : BehaviorSpec({
                     appLanguage = LanguageCode.KO,
                 )
 
-                val updated = member.updateProfile(replacement)
+                member.updateProfile(replacement)
 
-                updated.profile shouldBe replacement
-                member.profile shouldBe origin
+                member.profile shouldBe replacement
                 origin.nickname shouldBe null
                 origin.spicinessPreference shouldBe 5
             }

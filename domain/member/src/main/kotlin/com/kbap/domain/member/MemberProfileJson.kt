@@ -3,7 +3,7 @@ package com.kbap.domain.member
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
 
-internal data class MemberProfileJson(
+data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val spicinessPreference: Int = MemberProfile.DEFAULT_SPICINESS_PREFERENCE,
     val countryCode: String? = null,

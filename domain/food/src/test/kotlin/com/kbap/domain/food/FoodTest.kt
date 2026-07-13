@@ -2,49 +2,49 @@ package com.kbap.domain.food
 
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
-import com.kbap.core.lang.LocalizedText
 import com.kbap.core.risk.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class FoodTest : BehaviorSpec({
-    fun substance(code: String, probability: Int) =
-        FoodAvoidanceSubstance(substanceCode = AvoidanceSubstanceCodeRef(code), inclusionProbability = probability)
-
-    val baseContent = FoodContent(
-        name = LocalizedText(korean = "된장찌개"),
-        description = LocalizedText(korean = "구수한 한국식 된장찌개"),
-    )
+    fun substance(code: String, percent: Int) =
+        FoodAvoidanceSubstance(substanceCode = code, inclusionPercent = percent)
 
     fun create(
-        content: FoodContent = baseContent,
-        spiciness: FoodSpiciness = FoodSpiciness(3),
+        koreanName: String = "된장찌개",
+        description: String = "구수한 한국식 된장찌개",
+        spiciness: Int = 3,
+        nameTranslations: Map<String, String> = emptyMap(),
+        descriptionTranslations: Map<String, String> = emptyMap(),
         avoidanceSubstances: List<FoodAvoidanceSubstance> = listOf(substance("SOYBEAN", 100)),
-    ) = Food.create(
-        content = content,
+    ) = Food(
+        koreanName = koreanName,
+        description = description,
         spiciness = spiciness,
+        nameTranslations = nameTranslations,
+        descriptionTranslations = descriptionTranslations,
         avoidanceSubstances = avoidanceSubstances,
     )
 
-    given("Food.create — 구성·맵기 보존") {
+    given("Food — 구성·맵기 보존") {
         `when`("정상 값으로 생성하면") {
-            then("content 와 맵기를 그대로 보존한다") {
+            then("이름·설명·맵기를 그대로 보존한다") {
                 val food = create()
 
-                food.content.name.korean shouldBe "된장찌개"
-                food.content.description.korean shouldBe "구수한 한국식 된장찌개"
-                food.spiciness.value shouldBe 3
+                food.koreanName() shouldBe "된장찌개"
+                food.description shouldBe "구수한 한국식 된장찌개"
+                food.spiciness shouldBe 3
             }
         }
     }
 
     given("Food.displayName / description — 요청 언어 표시값(ko 폴백)") {
         val localized = create(
-            content = FoodContent(
-                name = LocalizedText(korean = "된장찌개", translations = mapOf(LanguageCode.EN to "Doenjang Stew")),
-                description = LocalizedText(korean = "구수한 된장찌개", translations = mapOf(LanguageCode.EN to "A hearty stew")),
-            ),
+            koreanName = "된장찌개",
+            description = "구수한 된장찌개",
+            nameTranslations = mapOf("en" to "Doenjang Stew"),
+            descriptionTranslations = mapOf("en" to "A hearty stew"),
         )
 
         `when`("번역이 있는 언어로 조회하면") {
@@ -71,13 +71,8 @@ class FoodTest : BehaviorSpec({
 
     given("Food.koreanName — 언어 무관 한국어 원문") {
         `when`("영어 번역이 있는 음식이어도") {
-            then("content 의 한국어 원문 이름을 반환한다") {
-                val food = create(
-                    content = FoodContent(
-                        name = LocalizedText(korean = "된장찌개", translations = mapOf(LanguageCode.EN to "Doenjang Stew")),
-                        description = LocalizedText(korean = "구수한 된장찌개"),
-                    ),
-                )
+            then("한국어 원문 이름을 반환한다") {
+                val food = create(nameTranslations = mapOf("en" to "Doenjang Stew"))
 
                 food.koreanName() shouldBe "된장찌개"
             }
@@ -95,8 +90,8 @@ class FoodTest : BehaviorSpec({
                     ),
                 )
 
-                food.avoidanceSubstancesByProbability().map { it.inclusionProbability } shouldBe listOf(100, 90, 50)
-                food.avoidanceSubstancesByProbability().first().substanceCode shouldBe AvoidanceSubstanceCodeRef("SOYBEAN")
+                food.avoidanceSubstancesByProbability().map { it.inclusionPercent } shouldBe listOf(100, 90, 50)
+                food.avoidanceSubstancesByProbability().first().substanceCode shouldBe "SOYBEAN"
             }
         }
 
@@ -105,22 +100,7 @@ class FoodTest : BehaviorSpec({
                 val food = create(avoidanceSubstances = emptyList())
 
                 food.avoidanceSubstancesByProbability() shouldBe emptyList()
-                food.content.name.korean shouldBe "된장찌개"
-            }
-        }
-    }
-
-    given("Food.create — 포함 기피 성분 코드 유일") {
-        `when`("한 음식에 같은 기피 성분 코드가 중복으로 담기면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    create(
-                        avoidanceSubstances = listOf(
-                            substance("SOYBEAN", 100),
-                            substance("SOYBEAN", 80),
-                        ),
-                    )
-                }
+                food.koreanName() shouldBe "된장찌개"
             }
         }
     }
@@ -140,7 +120,7 @@ class FoodTest : BehaviorSpec({
                 food.koreanName() shouldBe "우주라면"
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 food.isReady() shouldBe false
-                food.avoidanceSubstances shouldBe emptyList()
+                food.avoidanceSubstances shouldBe emptyList<FoodAvoidanceSubstance>()
             }
         }
 

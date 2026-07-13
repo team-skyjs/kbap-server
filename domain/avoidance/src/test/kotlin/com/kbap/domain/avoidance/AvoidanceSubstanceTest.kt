@@ -1,42 +1,17 @@
 package com.kbap.domain.avoidance
 
 import com.kbap.core.lang.LanguageCode
-import com.kbap.core.lang.LocalizedText
-import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.matchers.shouldBe
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
 import java.lang.reflect.Modifier
 
 class AvoidanceSubstanceTest : BehaviorSpec({
     fun substance(
-        id: Long = 1L,
         code: AvoidanceSubstanceCode = AvoidanceSubstanceCode.PEANUT,
         koreanName: String = "땅콩",
-        translations: Map<LanguageCode, String> = emptyMap(),
+        translations: Map<String, String> = emptyMap(),
     ): AvoidanceSubstance =
-        AvoidanceSubstance.reconstitute(
-            id = id,
-            code = code,
-            name = LocalizedText(korean = koreanName, translations = translations),
-        )
-
-    given("성분 어그리게이트 복원") {
-        `when`("복원에 사용한 값으로 조회하면") {
-            then("코드·한국어명·번역을 그대로 보유한다") {
-                val restored = substance(
-                    id = 7L,
-                    code = AvoidanceSubstanceCode.EGG,
-                    koreanName = "계란",
-                    translations = mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵"),
-                )
-
-                restored.id shouldBe 7L
-                restored.code shouldBe AvoidanceSubstanceCode.EGG
-                restored.name.korean shouldBe "계란"
-                restored.name.translations shouldBe mapOf(LanguageCode.EN to "Egg", LanguageCode.JA to "卵")
-            }
-        }
-    }
+        AvoidanceSubstance(code = code, koreanName = koreanName, translations = translations)
 
     given("표시명 displayName") {
         `when`("언어가 KO 이면") {
@@ -51,46 +26,22 @@ class AvoidanceSubstanceTest : BehaviorSpec({
 
         `when`("요청 언어의 번역이 있으면") {
             then("그 언어의 번역을 반환한다") {
-                substance(koreanName = "계란", translations = mapOf(LanguageCode.EN to "Egg"))
+                substance(koreanName = "계란", translations = mapOf("en" to "Egg"))
                     .displayName(LanguageCode.EN) shouldBe "Egg"
             }
         }
 
         `when`("요청 언어의 번역이 없으면") {
             then("한국어명으로 폴백한다") {
-                substance(koreanName = "계란", translations = mapOf(LanguageCode.EN to "Egg"))
+                substance(koreanName = "계란", translations = mapOf("en" to "Egg"))
                     .displayName(LanguageCode.JA) shouldBe "계란"
             }
         }
-    }
 
-    given("성분 동등성") {
-        `when`("코드가 같고 한국어명·번역이 다른 두 인스턴스를 비교하면") {
-            then("code 기준으로 동등하다") {
-                val a = substance(id = 1L, code = AvoidanceSubstanceCode.SOY, koreanName = "대두")
-                val b = substance(id = 2L, code = AvoidanceSubstanceCode.SOY, koreanName = "대두-운영자수정")
-
-                (a == b) shouldBe true
-                (a.hashCode() == b.hashCode()) shouldBe true
-            }
-        }
-
-        `when`("코드가 다른 두 인스턴스를 비교하면") {
-            then("동등하지 않다") {
-                val soy = substance(code = AvoidanceSubstanceCode.SOY, koreanName = "대두")
-                val egg = substance(code = AvoidanceSubstanceCode.EGG, koreanName = "계란")
-
-                (soy == egg) shouldBe false
-            }
-        }
-    }
-
-    given("어그리게이트 불변식") {
-        `when`("한국어명이 blank 이면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    substance(koreanName = "  ")
-                }
+        `when`("미인식 언어 키가 섞여 있으면") {
+            then("언어 해석에서 무시된다") {
+                substance(koreanName = "밀", translations = mapOf("en" to "Wheat", "xx" to "무시대상"))
+                    .displayName(LanguageCode.EN) shouldBe "Wheat"
             }
         }
     }

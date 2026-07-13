@@ -14,11 +14,11 @@ import javax.sql.DataSource
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
-class ScanHistoryServiceTest : BehaviorSpec() {
+class ScanHistoryRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
-    private lateinit var service: ScanHistoryService
+    private lateinit var repository: ScanHistoryJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -94,7 +94,7 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedFood(1L, "김치찌개")
                     seedFood(2L, "비빔밥")
 
-                    service.saveAll(
+                    repository.saveAll(
                         listOf(
                             ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(1L)),
                             ScanHistory.record(memberId = MemberId(11L), foodId = FoodId(2L)),
@@ -115,7 +115,7 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-02 10:00:00")
                     seedHistory(11L, 1L, "2026-07-03 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L), FoodId(2L))
+                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L, 2L)
                 }
             }
 
@@ -126,7 +126,7 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L))
+                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
                 }
             }
 
@@ -137,9 +137,9 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                         seedHistory(11L, id, "2026-07-01 10:00:${"%02d".format(id)}")
                     }
 
-                    val result = service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10)
+                    val result = repository.findRecentReadyFoodIds(memberId = 11L, limit = 10)
 
-                    result shouldContainExactly (12L downTo 3L).map(::FoodId)
+                    result shouldContainExactly (12L downTo 3L).toList()
                 }
             }
 
@@ -150,13 +150,13 @@ class ScanHistoryServiceTest : BehaviorSpec() {
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
                     seedHistory(99L, 2L, "2026-07-02 10:00:00")
 
-                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldContainExactly listOf(FoodId(1L))
+                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
                 }
             }
 
             `when`("이력이 없으면") {
                 then("빈 목록을 반환한다") {
-                    service.findRecentReadyFoodIds(memberId = MemberId(11L), limit = 10) shouldBe emptyList<FoodId>()
+                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldBe emptyList<Long>()
                 }
             }
         }

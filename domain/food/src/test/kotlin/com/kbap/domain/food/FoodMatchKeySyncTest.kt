@@ -45,7 +45,7 @@ class FoodMatchKeySyncTest : BehaviorSpec() {
                     )
                     samples.forEach { korean ->
                         val id = foodJpaRepository.save(
-                            FoodJpaEntity(koreanName = korean, description = "설명"),
+                            Food(koreanName = korean, description = "설명"),
                         ).id
                         generatedKeyOf(id) shouldBe KoreanMenuNameNormalizer.matchKey(korean)
                     }

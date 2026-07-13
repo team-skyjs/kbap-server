@@ -2,12 +2,10 @@ import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
 import org.gradle.api.artifacts.VersionCatalogsExtension
 
 // ───────── 도메인 컨텍스트 모듈 공통 ─────────
-// food/member/scan/avoidance/research/review 가 동일하게 갖는 설정을 한곳에 모은다(ADR-0012).
-// 각 도메인 모듈 = 도메인 모델(불변·ORM-free) + 도메인 서비스(public 창구) + JPA 엔티티·Spring Data
-// 리포지토리(internal). 영속이 도메인 모듈 안으로 들어오므로 spring·jpa 를 여기서 얹는다.
-// - 엔티티·리포지토리는 Kotlin internal 로 감춘다 — 모듈 밖 접근은 컴파일러가 차단.
+// food/member/scan/avoidance/research/review 가 동일하게 갖는 설정을 한곳에 모은다.
+// 각 도메인 모듈 = JPA 엔티티(도메인 메서드 내장) + Spring Data 리포지토리 + 도메인 정책 클래스.
+// application 이 리포지토리·엔티티를 직접 다루므로 data-jpa 는 api 로 전이 노출한다.
 // - :core 는 도메인 공개 API 에 드러나므로 api() 로 전이 노출한다.
-// - data-jpa 는 implementation — 상위(application·app) 컴파일 클래스패스로 새지 않는다.
 // - 통합 테스트는 MySQL Testcontainers 공통 설정(:core testFixtures)을 쓴다.
 plugins {
     id("kbap.kotlin-common")
@@ -35,7 +33,7 @@ configure<DependencyManagementExtension> {
 
 dependencies {
     "api"(project(":core"))
-    "implementation"(libs.findLibrary("spring-boot-starter-data-jpa").get())
+    "api"(libs.findLibrary("spring-boot-starter-data-jpa").get())
     "implementation"(libs.findLibrary("kotlin-reflect").get())
     "implementation"(libs.findLibrary("jackson-module-kotlin").get())
     "runtimeOnly"(libs.findLibrary("mysql-connector").get())

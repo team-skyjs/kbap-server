@@ -1,21 +1,29 @@
 package com.kbap.domain.food
 
+import com.kbap.core.id.FoodId
+import com.kbap.core.persistence.BaseEntity
 import com.kbap.core.risk.RiskLevel
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
-data class FoodAvoidanceSubstance(
-    val substanceCode: AvoidanceSubstanceCodeRef,
-    val inclusionProbability: Int,
-) {
-    init {
-        require(inclusionProbability in MIN_PROBABILITY..MAX_PROBABILITY) {
-            "foodAvoidanceSubstance.inclusionProbability 는 $MIN_PROBABILITY..$MAX_PROBABILITY 범위여야 합니다"
-        }
-    }
+@Entity
+@Table(
+    name = "food_avoidance_substance",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["food_id", "substance_code"])],
+)
+class FoodAvoidanceSubstance(
+    @Column(name = "food_id", nullable = false)
+    var foodId: FoodId = FoodId(0),
 
-    fun riskLevel(): RiskLevel = RiskLevel.fromInclusionProbability(inclusionProbability)
+    @Column(name = "substance_code", nullable = false, length = 40)
+    var substanceCode: String = "",
 
-    companion object {
-        const val MIN_PROBABILITY = 1
-        const val MAX_PROBABILITY = 100
-    }
+    @Column(name = "inclusion_percent", nullable = false)
+    var inclusionPercent: Int = 0,
+) : BaseEntity() {
+    constructor() : this(FoodId(0), "", 0)
+
+    fun riskLevel(): RiskLevel = RiskLevel.fromInclusionProbability(inclusionPercent)
 }

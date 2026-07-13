@@ -1,8 +1,7 @@
 package com.kbap.domain.avoidance
-import com.kbap.core.testsupport.MySqlContainerConfig
-import org.springframework.context.annotation.Import
 
 import com.kbap.core.lang.LanguageCode
+import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -10,14 +9,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
-class AvoidanceSubstanceServiceTest : BehaviorSpec() {
+class AvoidanceSubstanceRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
-
-    @Autowired
-    private lateinit var service: AvoidanceSubstanceService
 
     @Autowired
     private lateinit var substanceJpaRepository: AvoidanceSubstanceJpaRepository
@@ -27,21 +24,21 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
             code: AvoidanceSubstanceCode,
             koreanName: String,
             translations: Map<String, String> = emptyMap(),
-        ): AvoidanceSubstanceJpaEntity =
+        ): AvoidanceSubstance =
             substanceJpaRepository.save(
-                AvoidanceSubstanceJpaEntity(
-                    code = code.name,
+                AvoidanceSubstance(
+                    code = code,
                     koreanName = koreanName,
                     translations = translations,
                 ),
             )
 
-        given("카테고리 매핑이 없는 성분 복원") {
-            `when`("카테고리 멤버십을 전혀 저장하지 않은 성분을 코드로 조회하면") {
+        given("코드 조회 — 성분 복원") {
+            `when`("성분을 코드로 조회하면") {
                 then("그 성분이 정상 복원된다") {
                     saveSubstance(AvoidanceSubstanceCode.PEANUT, koreanName = "땅콩")
 
-                    val found = service.findByCodes(setOf(AvoidanceSubstanceCode.PEANUT))
+                    val found = substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.PEANUT))
 
                     found.map { it.code } shouldContainExactlyInAnyOrder listOf(AvoidanceSubstanceCode.PEANUT)
                     found.single().displayName(LanguageCode.KO) shouldBe "땅콩"
@@ -62,7 +59,7 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
                         ),
                     )
 
-                    val found = service.findByCodes(setOf(AvoidanceSubstanceCode.EGG)).single()
+                    val found = substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.EGG)).single()
 
                     found.displayName(LanguageCode.EN) shouldBe "Egg"
                     found.displayName(LanguageCode.JA) shouldBe "卵"
@@ -78,7 +75,7 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
                         translations = mapOf("en" to "Cashew nut"),
                     )
 
-                    val name = service.findByCodes(setOf(AvoidanceSubstanceCode.CASHEW))
+                    val name = substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.CASHEW))
                         .single().displayName(LanguageCode.JA)
 
                     name shouldBe "캐슈넛"
@@ -94,23 +91,23 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
                         translations = emptyMap(),
                     )
 
-                    service.findByCodes(setOf(AvoidanceSubstanceCode.ALMOND))
+                    substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.ALMOND))
                         .single().displayName(LanguageCode.EN) shouldBe "아몬드"
                 }
             }
 
             `when`("유효 언어 키와 미인식 언어 키가 섞인 translations 를 저장하고 조회하면") {
-                then("미인식 키는 무시되고 유효 언어만 복원된다") {
+                then("미인식 키는 언어 해석에서 무시되고 유효 언어만 반영된다") {
                     saveSubstance(
                         AvoidanceSubstanceCode.WHEAT,
                         koreanName = "밀",
                         translations = mapOf("en" to "Wheat", "xx" to "무시대상"),
                     )
 
-                    val found = service.findByCodes(setOf(AvoidanceSubstanceCode.WHEAT)).single()
+                    val found = substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.WHEAT)).single()
 
-                    found.name.translations shouldBe mapOf(LanguageCode.EN to "Wheat")
                     found.displayName(LanguageCode.EN) shouldBe "Wheat"
+                    found.displayName(LanguageCode.JA) shouldBe "밀"
                 }
             }
         }
@@ -120,7 +117,7 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
                 then("displayName(KO) 가 저장된 korean_name 을 반환한다") {
                     saveSubstance(AvoidanceSubstanceCode.WALNUT, koreanName = "호두-운영자수정")
 
-                    val found = service.findByCodes(setOf(AvoidanceSubstanceCode.WALNUT))
+                    val found = substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.WALNUT))
 
                     found.single().displayName(LanguageCode.KO) shouldBe "호두-운영자수정"
                 }
@@ -129,11 +126,11 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
 
         given("코드 집합으로 성분 조회") {
             `when`("저장된 코드와 미저장 코드를 섞어 조회하면") {
-                then("저장된 코드의 어그리게이트만 반환하고 미저장 코드는 제외한다") {
+                then("저장된 코드의 성분만 반환하고 미저장 코드는 제외한다") {
                     saveSubstance(AvoidanceSubstanceCode.SHRIMP, koreanName = "새우")
                     saveSubstance(AvoidanceSubstanceCode.CRAB, koreanName = "게")
 
-                    val found = service.findByCodes(
+                    val found = substanceJpaRepository.findByCodeIn(
                         setOf(
                             AvoidanceSubstanceCode.SHRIMP,
                             AvoidanceSubstanceCode.CRAB,
@@ -158,7 +155,7 @@ class AvoidanceSubstanceServiceTest : BehaviorSpec() {
                     pecan.delete()
                     substanceJpaRepository.save(pecan)
 
-                    service.findByCodes(setOf(AvoidanceSubstanceCode.HAZELNUT, AvoidanceSubstanceCode.PECAN))
+                    substanceJpaRepository.findByCodeIn(setOf(AvoidanceSubstanceCode.HAZELNUT, AvoidanceSubstanceCode.PECAN))
                         .map { it.code } shouldContainExactlyInAnyOrder listOf(AvoidanceSubstanceCode.HAZELNUT)
                 }
             }

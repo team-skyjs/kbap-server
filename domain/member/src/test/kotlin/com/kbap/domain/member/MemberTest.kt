@@ -1,5 +1,7 @@
 package com.kbap.domain.member
 
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
 import com.kbap.core.lang.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -26,55 +28,14 @@ class MemberTest : BehaviorSpec({
 
                 member.ranking.scanCount shouldBe 0
                 member.ranking.reviewCount shouldBe 0
-                member.ranking.uniqueReviewedFoodCount shouldBe 0
-
-                val ranking = member.ranking
-                ranking.score shouldBe 0
-                ranking.tier shouldBe RankingTier.NEWCOMER
-                ranking.pointsToNext shouldBe 30
+                member.ranking.tier shouldBe RankingTier.NEWCOMER
             }
         }
     }
 
-    given("Member.ranking — 카운트에서 파생") {
-        `when`("리뷰·고유 음식·스캔 카운트가 쌓인 회원이면") {
-            then("세 카운트가 모두 점수에 반영된다") {
-                val member = Member.reconstitute(
-                    id = 1L,
-                    identity = googleIdentity(),
-                    profile = MemberProfile.empty(),
-                    onboardingCompleted = true,
-                    ranking = Ranking.of(scanCount = 9, reviewCount = 8, uniqueReviewedFoodCount = 6),
-                )
-
-                val ranking = member.ranking
-
-                ranking.score shouldBe 128
-                ranking.tier shouldBe RankingTier.EXPLORER
-                ranking.pointsToNext shouldBe 52
-            }
-        }
-
-        `when`("프로필을 갱신해도") {
-            then("랭킹 카운트는 보존된다") {
-                val member = Member.reconstitute(
-                    id = 1L,
-                    identity = googleIdentity(),
-                    profile = MemberProfile.empty(),
-                    onboardingCompleted = true,
-                    ranking = Ranking.of(scanCount = 2, reviewCount = 0, uniqueReviewedFoodCount = 0),
-                )
-
-                val updated = member.updateProfile(MemberProfile.empty())
-
-                updated.ranking.scanCount shouldBe 2
-            }
-        }
-    }
-
-    given("Member.updateProfile — 프로필 갱신(불변)") {
+    given("Member.updateProfile — 프로필 갱신") {
         `when`("새 프로필로 갱신하면") {
-            then("새 인스턴스에 값이 반영되고 원본은 유지된다") {
+            then("프로필이 반영되고 신원·온보딩 상태는 유지된다") {
                 val member = Member.signUp(googleIdentity())
                 val newProfile = MemberProfile.of(
                     nickname = "머고",
@@ -84,39 +45,57 @@ class MemberTest : BehaviorSpec({
                     appLanguage = null,
                 )
 
-                val updated = member.updateProfile(newProfile)
+                member.updateProfile(newProfile)
 
-                updated.profile shouldBe newProfile
-                member.profile shouldBe MemberProfile.empty()
-                updated.identity shouldBe member.identity
-                updated.onboardingCompleted shouldBe member.onboardingCompleted
+                member.profile shouldBe newProfile
+                member.identity shouldBe googleIdentity()
+                member.onboardingCompleted shouldBe false
+            }
+        }
+
+        `when`("프로필을 갱신해도") {
+            then("랭킹 카운트는 보존된다") {
+                val member = Member.signUp(googleIdentity())
+                member.scanCount = 2
+
+                member.updateProfile(MemberProfile.empty())
+
+                member.ranking.scanCount shouldBe 2
             }
         }
     }
 
     given("Member.completeOnboarding — 온보딩 전이") {
         `when`("미완료 회원이 완료 처리하면") {
-            then("완료 상태로 전이한 새 인스턴스를 반환한다") {
+            then("완료 상태로 전이한다") {
                 val member = Member.signUp(googleIdentity())
 
-                val completed = member.completeOnboarding()
+                member.completeOnboarding()
 
-                completed.onboardingCompleted shouldBe true
-                member.onboardingCompleted shouldBe false
+                member.onboardingCompleted shouldBe true
             }
         }
 
         `when`("이미 완료된 회원이 재완료하면") {
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
-                val completed = Member.reconstitute(
-                    id = 1L,
-                    identity = googleIdentity(),
-                    profile = MemberProfile.empty(),
-                    onboardingCompleted = true,
-                )
+                val member = Member.signUp(googleIdentity())
+                member.completeOnboarding()
 
-                val e = shouldThrow<MemberException> { completed.completeOnboarding() }
-                e.errorCode shouldBe MemberErrorCode.ONBOARDING_ALREADY_COMPLETED
+                val e = shouldThrow<KbapException> { member.completeOnboarding() }
+                e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
+            }
+        }
+    }
+
+    given("Member.withdraw — 탈퇴") {
+        `when`("탈퇴 처리하면") {
+            then("providerUid 가 삭제 마킹되고 엔티티가 DELETED 상태가 된다") {
+                val member = Member.signUp(googleIdentity())
+
+                member.withdraw()
+
+                member.providerUid shouldBe "${Member.DELETED_PROVIDER_UID_PREFIX}${member.id}"
+                member.isDeleted() shouldBe true
             }
         }
     }

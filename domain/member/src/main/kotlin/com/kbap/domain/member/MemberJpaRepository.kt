@@ -5,19 +5,19 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface MemberJpaRepository : JpaRepository<MemberJpaEntity, Long> {
-    fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): MemberJpaEntity?
+interface MemberJpaRepository : JpaRepository<Member, Long> {
+    fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
         providerUid: String,
         memberStatus: MemberStatus,
-    ): MemberJpaEntity?
+    ): Member?
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         """
-        update MemberJpaEntity m
+        update Member m
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.domain.member.MemberStatus.ACTIVE
