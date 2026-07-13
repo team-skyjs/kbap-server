@@ -1,8 +1,8 @@
 package com.meogo.infra.persistence.food
 
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodRepository
-import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodRepository
+import com.meogo.core.lang.LanguageCode
 import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest

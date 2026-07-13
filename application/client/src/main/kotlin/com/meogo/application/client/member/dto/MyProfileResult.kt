@@ -1,6 +1,6 @@
 package com.meogo.application.client.member.dto
 
-import com.meogo.core.member.Member
+import com.meogo.domain.member.Member
 
 data class MyProfileResult(
     val memberId: Long,

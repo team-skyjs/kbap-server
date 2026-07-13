@@ -1,10 +1,10 @@
 package com.meogo.app.batch.scoring
 
-import com.meogo.core.avoidance.AvoidanceSubstance
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodScoringSource
+import com.meogo.domain.avoidance.AvoidanceSubstance
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodScoringSource
 import com.meogo.infra.llm.client.LlmFanoutClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

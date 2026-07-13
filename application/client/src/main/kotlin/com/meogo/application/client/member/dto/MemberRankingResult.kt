@@ -1,6 +1,6 @@
 package com.meogo.application.client.member.dto
 
-import com.meogo.core.member.Ranking
+import com.meogo.domain.member.Ranking
 
 data class MemberRankingResult(
     val tier: String,

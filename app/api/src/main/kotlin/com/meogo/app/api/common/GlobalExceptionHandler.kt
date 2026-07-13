@@ -1,6 +1,6 @@
 package com.meogo.app.api.common
 
-import com.meogo.core.kernel.error.MeogoException
+import com.meogo.core.error.MeogoException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

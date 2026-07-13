@@ -1,6 +1,6 @@
 package com.meogo.infra.persistence.auth
 
-import com.meogo.core.member.RefreshTokenStore
+import com.meogo.domain.member.RefreshTokenStore
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Repository
 import java.time.Duration

@@ -4,7 +4,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.meogo.core.member.SocialProvider
+import com.meogo.domain.member.SocialProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean

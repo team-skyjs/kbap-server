@@ -1,29 +1,29 @@
 package com.meogo.application.client.home
 
 import com.meogo.application.client.food.usecase.MemberAvoidedSubstanceProvider
-import com.meogo.core.avoidance.AvoidanceSubstance
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodAvoidanceSubstance
-import com.meogo.core.food.FoodContent
-import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.FoodSpiciness
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.lang.LocalizedText
-import com.meogo.core.kernel.risk.RiskLevel
-import com.meogo.core.member.AvoidanceSubstanceCodeRef
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberProfile
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
-import com.meogo.core.scan.ScanHistory
-import com.meogo.core.scan.ScanHistoryRepository
+import com.meogo.domain.avoidance.AvoidanceSubstance
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodAvoidanceSubstance
+import com.meogo.domain.food.FoodContent
+import com.meogo.domain.food.FoodRepository
+import com.meogo.domain.food.FoodSpiciness
+import com.meogo.core.lang.LanguageCode
+import com.meogo.core.lang.LocalizedText
+import com.meogo.core.risk.RiskLevel
+import com.meogo.domain.member.AvoidanceSubstanceCodeRef
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberProfile
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
+import com.meogo.domain.scan.ScanHistory
+import com.meogo.domain.scan.ScanHistoryRepository
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import com.meogo.core.food.AvoidanceSubstanceCodeRef as FoodAvoidanceSubstanceCodeRef
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef as FoodAvoidanceSubstanceCodeRef
 
 private class HomeFakeMemberRepository(private val members: Map<Long, Member>) : MemberRepository {
     override fun findById(id: Long): Member? = members[id]

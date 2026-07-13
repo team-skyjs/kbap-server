@@ -2,8 +2,8 @@ package com.meogo.app.api.member
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.app.api.auth.FakeSocialTokenVerifierConfig
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
-import com.meogo.infra.persistence.testsupport.RedisContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe

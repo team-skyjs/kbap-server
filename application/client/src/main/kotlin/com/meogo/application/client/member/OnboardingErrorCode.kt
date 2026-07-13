@@ -1,6 +1,6 @@
 package com.meogo.application.client.member
 
-import com.meogo.core.kernel.error.ErrorCode
+import com.meogo.core.error.ErrorCode
 
 enum class OnboardingErrorCode(
     override val status: Int,

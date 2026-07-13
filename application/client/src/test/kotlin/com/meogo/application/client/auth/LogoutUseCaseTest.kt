@@ -1,6 +1,6 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.RefreshTokenStore
+import com.meogo.domain.member.RefreshTokenStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe

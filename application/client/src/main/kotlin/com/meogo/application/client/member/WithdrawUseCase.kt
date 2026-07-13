@@ -3,10 +3,10 @@ package com.meogo.application.client.member
 import com.meogo.application.client.auth.AuthErrorCode
 import com.meogo.application.client.auth.AuthException
 import com.meogo.application.client.auth.SocialAccountDeleter
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.SocialIdentity
+import com.meogo.domain.member.MemberErrorCode
+import com.meogo.domain.member.MemberException
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.SocialIdentity
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

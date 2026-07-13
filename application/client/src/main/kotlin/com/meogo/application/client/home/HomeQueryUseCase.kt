@@ -4,12 +4,12 @@ import com.meogo.application.client.food.dto.FoodSummaryView
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
 import com.meogo.application.client.home.dto.AvoidedSubstanceView
 import com.meogo.application.client.home.dto.HomeResult
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.FoodRepository
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.scan.ScanHistoryRepository
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.FoodRepository
+import com.meogo.core.lang.LanguageCode
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.scan.ScanHistoryRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

@@ -1,8 +1,8 @@
 package com.meogo.infra.persistence.food
 
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.FoodAvoidanceSubstance
-import com.meogo.infra.persistence.BaseEntity
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.FoodAvoidanceSubstance
+import com.meogo.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table

@@ -1,6 +1,6 @@
 package com.meogo.app.api.migration
 
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.ints.shouldBeGreaterThan

@@ -1,6 +1,6 @@
 # Meogo 모듈 구조 정리
 
-> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.core.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
+> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.domain.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
 >
 > 목적: 서버의 API, Application, Domain, Core, Infra 계층 구조와 책임을 정리한 팀 공유 기준 문서.
 > 범위: 계층별 DDD 구조(API/Application/Domain/Core/Infra)에 집중한다. `:app:batch`(배치 앱)와 `:common`(공유 모듈)이 형제로 존재하며, batch 는 공유 도메인/영속을 직접 재사용한다(ADR-0008).
@@ -37,7 +37,7 @@ API 구조에 적용할 원칙은 다음이다.
 6. Application은 JPA Entity나 Mongo Document가 아니라 Domain Entity, Command, DomainRepository를 사용한다.
 7. Aggregate Root를 통해서만 Aggregate 내부 상태를 변경한다.
 
-Meogo에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:core:avoidance` 컨텍스트 정책으로 집중해야 한다.
+Meogo에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:domain:avoidance` 컨텍스트 정책으로 집중해야 한다.
 
 Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨텍스트는 `meogo-api` 컨테이너 아래 Gradle subproject로 평탄하게 분리한다. active 컨텍스트는 `food`, `member`, `scan`, `avoidance`이며, `review`는 placeholder/deferred subproject다.
 
@@ -48,8 +48,8 @@ Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨
 - `:app:api`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
 - `:application`: 유스케이스 조율, transaction boundary
 - `:core:{food,member,scan,avoidance}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
-- `:core:review`: deferred placeholder
-- `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸 (Spring-free)
+- `:domain:review`: deferred placeholder
+- `:core`: 공통 타입, 예외, 이벤트, 유틸 (Spring-free)
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
 - `:app:batch`: 배치 bootJar — `:application`을 트리거(단일 모듈, 추후 분리)
 - `:common`: 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback 조각·유틸·어노테이션), Spring-free
@@ -75,7 +75,7 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 - `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
 - `:application`은 도메인 컨텍스트와 외부 client를 조합한다.
 - 도메인 모듈은 도메인 규칙과 영속성 adapter를 캡슐화한다.
-- `:core:kernel`는 공통 타입과 이벤트 계약을 제공한다.
+- `:core`는 공통 타입과 이벤트 계약을 제공한다.
 - `:infra:external`는 메시지큐, 외부 API, 이벤트 발행/구독 같은 외부 시스템 연동을 담당한다.
 
 도메인 컨텍스트는 별도 Gradle subproject이므로, 서로를 직접 의존성으로 선언하지 않는 한 컴파일 시점 참조가 생기지 않는다. 패키지 규칙, 코드 리뷰, ArchUnit 테스트는 이 경계를 보조로 강제한다.
@@ -120,7 +120,7 @@ Application Service는 `:app:api`이 아니라 `:application`에 둔다. `:app:a
 
 MVP API 기준 active Bounded Context는 `meogo-api` 아래 5개 subproject로 둔다.
 
-`review`는 제품 기획에는 남아 있지만 현재 도메인 설계·초기 구현 범위에서는 제외한다. repo에는 `:core:review` subproject를 placeholder로 유지하되, 실제 리뷰 기능은 재개 시점에 다시 설계한다. 리뷰를 재개하더라도 `food` 컨텍스트에 섞지 않고 별도 컨텍스트로 유지한다.
+`review`는 제품 기획에는 남아 있지만 현재 도메인 설계·초기 구현 범위에서는 제외한다. repo에는 `:domain:review` subproject를 placeholder로 유지하되, 실제 리뷰 기능은 재개 시점에 다시 설계한다. 리뷰를 재개하더라도 `food` 컨텍스트에 섞지 않고 별도 컨텍스트로 유지한다.
 
 컨텍스트 목록:
 
@@ -260,7 +260,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 
 ## 12. review context (deferred)
 
-현재 구현 범위에서는 리뷰 도메인을 구현하지 않는다. `:core:review`는 placeholder이며, 아래 내용은 재개 시 참고할 보류 원칙이다.
+현재 구현 범위에서는 리뷰 도메인을 구현하지 않는다. `:domain:review`는 placeholder이며, 아래 내용은 재개 시 참고할 보류 원칙이다.
 
 ### 12.1 추후 책임 후보
 
@@ -306,7 +306,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 
 위 영속성 관련 구현은 각 도메인 모듈 내부의 `adapter` 또는 `infrastructure` 패키지에 둔다.
 
-in-process 도메인 이벤트의 이름과 payload 계약은 `:core:kernel` 또는 도메인 모듈에 둔다(앱 간 브로커를 타는 통합 이벤트는 `common`). 반면 Kafka, RabbitMQ, SQS 같은 실제 메시지 브로커 연결, 직렬화, retry, dead letter queue 처리는 `:infra:external`에 둔다.
+in-process 도메인 이벤트의 이름과 payload 계약은 `:core` 또는 도메인 모듈에 둔다(앱 간 브로커를 타는 통합 이벤트는 `common`). 반면 Kafka, RabbitMQ, SQS 같은 실제 메시지 브로커 연결, 직렬화, retry, dead letter queue 처리는 `:infra:external`에 둔다.
 
 ### 13.1 LLM client
 
@@ -318,7 +318,7 @@ LLM 외부 API 호출을 담당한다.
 - OpenAI
 - Upstage
 
-`:infra:external`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `:core:kernel` 또는 `:application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `:application`의 Application Service 또는 별도 assembler에서 수행한다.
+`:infra:external`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `:core` 또는 `:application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `:application`의 Application Service 또는 별도 assembler에서 수행한다.
 
 여러 LLM 응답은 내부 공통 응답 모델로 변환한 뒤 Application 계층에서 종합한다.
 
@@ -508,8 +508,8 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 - `:app:api`: web bootJar, controller, API DTO, 조립
 - `:application`: 유스케이스 조율, transaction boundary
 - `:core:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
-- `:core:review`: deferred placeholder
-- `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸
+- `:domain:review`: deferred placeholder
+- `:core`: 공통 타입, 예외, 이벤트, 유틸
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
 - `:app:batch`: 배치 bootJar (application 트리거) · `:common`: 앱 간 공유 계약
 

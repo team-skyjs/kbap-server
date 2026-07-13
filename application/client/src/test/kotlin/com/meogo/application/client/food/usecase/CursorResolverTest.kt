@@ -1,7 +1,7 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.core.food.FoodErrorCode
-import com.meogo.core.food.FoodException
+import com.meogo.domain.food.FoodErrorCode
+import com.meogo.domain.food.FoodException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

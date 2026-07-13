@@ -1,10 +1,10 @@
 package com.meogo.infra.persistence.member
 
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.SocialProvider
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberErrorCode
+import com.meogo.domain.member.MemberException
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.SocialProvider
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional

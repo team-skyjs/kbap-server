@@ -3,7 +3,7 @@ package com.meogo.app.api.common.auth
 import com.meogo.application.client.auth.AuthTokenProperties
 import com.meogo.application.client.auth.TokenIssuer
 import com.meogo.application.client.auth.TokenParser
-import com.meogo.core.member.MemberRole
+import com.meogo.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull

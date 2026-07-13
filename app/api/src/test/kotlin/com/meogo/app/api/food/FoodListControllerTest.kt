@@ -1,5 +1,5 @@
 package com.meogo.app.api.food
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.databind.ObjectMapper

@@ -2,10 +2,10 @@ package com.meogo.app.api.food
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.meogo.core.kernel.lang.LanguageErrorCode
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.lang.LanguageErrorCode
+import com.meogo.core.testsupport.MySqlContainerConfig
 import com.meogo.application.client.auth.TokenIssuer
-import com.meogo.core.member.MemberRole
+import com.meogo.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize

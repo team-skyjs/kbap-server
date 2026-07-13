@@ -4,22 +4,22 @@ import com.meogo.application.client.scan.dto.ScanItemInput
 import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.food.usecase.AvoidedSubstanceProvider
 import com.meogo.application.client.member.FakeMemberRepository
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberProfile
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodAvoidanceSubstance
-import com.meogo.core.food.FoodContent
-import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.FoodSpiciness
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.lang.LocalizedText
-import com.meogo.core.kernel.risk.RiskLevel
-import com.meogo.core.kernel.scan.InterpretedName
-import com.meogo.core.kernel.scan.ScannedNameInterpreter
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberProfile
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodAvoidanceSubstance
+import com.meogo.domain.food.FoodContent
+import com.meogo.domain.food.FoodRepository
+import com.meogo.domain.food.FoodSpiciness
+import com.meogo.core.lang.LanguageCode
+import com.meogo.core.lang.LocalizedText
+import com.meogo.core.risk.RiskLevel
+import com.meogo.domain.scan.InterpretedName
+import com.meogo.domain.scan.ScannedNameInterpreter
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -51,7 +51,7 @@ private class FakeFoodRepository(private val readyFoods: Map<String, Food>) : Fo
                 imageRef = null,
                 spiciness = FoodSpiciness(0),
                 avoidanceSubstances = emptyList(),
-                contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
+                contentStatus = com.meogo.domain.food.FoodContentStatus.INCOMPLETE,
             )
         }
     }
@@ -213,7 +213,7 @@ class ScanUseCaseTest : BehaviorSpec({
                     imageRef = null,
                     spiciness = FoodSpiciness(0),
                     avoidanceSubstances = emptyList(),
-                    contentStatus = com.meogo.core.food.FoodContentStatus.INCOMPLETE,
+                    contentStatus = com.meogo.domain.food.FoodContentStatus.INCOMPLETE,
                 )
                 val foodRepo = FakeFoodRepository(mapOf("우주라면" to incomplete))
                 val uc = useCase(

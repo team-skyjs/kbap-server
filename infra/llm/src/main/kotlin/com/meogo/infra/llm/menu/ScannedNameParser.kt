@@ -3,8 +3,8 @@ package com.meogo.infra.llm.menu
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
-import com.meogo.core.kernel.scan.InterpretedName
+import com.meogo.core.menu.KoreanMenuNameNormalizer
+import com.meogo.domain.scan.InterpretedName
 
 class ScannedNameParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 

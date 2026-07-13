@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.scan
 
-import com.meogo.core.scan.ScanHistory
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.domain.scan.ScanHistory
+import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly

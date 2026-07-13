@@ -3,8 +3,8 @@ package com.meogo.application.client.food.usecase
 import com.meogo.application.client.food.dto.BrowseFoodsInput
 import com.meogo.application.client.food.dto.FoodPage
 import com.meogo.application.client.food.dto.FoodSummaryView
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.FoodRepository
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.FoodRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

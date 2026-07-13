@@ -1,9 +1,9 @@
 package com.meogo.application.client.food.dto
 
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.Food
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.risk.RiskLevel
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.Food
+import com.meogo.core.lang.LanguageCode
+import com.meogo.core.risk.RiskLevel
 
 data class FoodSummaryView(
     val foodId: Long,

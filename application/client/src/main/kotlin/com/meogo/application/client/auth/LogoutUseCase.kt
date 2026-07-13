@@ -1,6 +1,6 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.RefreshTokenStore
+import com.meogo.domain.member.RefreshTokenStore
 import org.springframework.stereotype.Service
 
 @Service

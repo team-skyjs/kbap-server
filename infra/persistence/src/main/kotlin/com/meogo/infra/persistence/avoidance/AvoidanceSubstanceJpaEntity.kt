@@ -1,10 +1,10 @@
 package com.meogo.infra.persistence.avoidance
 
-import com.meogo.core.avoidance.AvoidanceSubstance
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.lang.LocalizedText
-import com.meogo.infra.persistence.BaseEntity
+import com.meogo.domain.avoidance.AvoidanceSubstance
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.core.lang.LanguageCode
+import com.meogo.core.lang.LocalizedText
+import com.meogo.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table

@@ -1,7 +1,7 @@
 package com.meogo.application.client.scan.usecase
 
-import com.meogo.core.scan.ScanHistory
-import com.meogo.core.scan.ScanHistoryRepository
+import com.meogo.domain.scan.ScanHistory
+import com.meogo.domain.scan.ScanHistoryRepository
 
 class FakeScanHistoryRepository : ScanHistoryRepository {
     val saved = mutableListOf<ScanHistory>()

@@ -1,9 +1,9 @@
 package com.meogo.infra.persistence.member
 
-import com.meogo.core.kernel.lang.CountryCode
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.member.AvoidanceSubstanceCodeRef
-import com.meogo.core.member.MemberProfile
+import com.meogo.core.lang.CountryCode
+import com.meogo.core.lang.LanguageCode
+import com.meogo.domain.member.AvoidanceSubstanceCodeRef
+import com.meogo.domain.member.MemberProfile
 
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),

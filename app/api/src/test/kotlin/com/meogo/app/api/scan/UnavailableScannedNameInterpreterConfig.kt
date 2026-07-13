@@ -1,7 +1,7 @@
 package com.meogo.app.api.scan
 
-import com.meogo.core.kernel.scan.InterpretedName
-import com.meogo.core.kernel.scan.ScannedNameInterpreter
+import com.meogo.domain.scan.InterpretedName
+import com.meogo.domain.scan.ScannedNameInterpreter
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

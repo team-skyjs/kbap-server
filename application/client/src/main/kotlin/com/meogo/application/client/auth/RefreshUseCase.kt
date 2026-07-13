@@ -1,8 +1,8 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.MemberRole
-import com.meogo.core.member.RefreshTokenStore
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberRole
+import com.meogo.domain.member.RefreshTokenStore
 import org.springframework.stereotype.Service
 
 data class RefreshResult(

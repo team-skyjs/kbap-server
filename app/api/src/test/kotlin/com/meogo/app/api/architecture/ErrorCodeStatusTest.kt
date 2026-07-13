@@ -1,6 +1,6 @@
 package com.meogo.app.api.architecture
 
-import com.meogo.core.kernel.error.ErrorCode
+import com.meogo.core.error.ErrorCode
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption

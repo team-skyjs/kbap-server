@@ -1,9 +1,9 @@
 package com.meogo.app.api.food
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
 import com.meogo.application.client.auth.TokenIssuer
-import com.meogo.core.member.MemberRole
+import com.meogo.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired

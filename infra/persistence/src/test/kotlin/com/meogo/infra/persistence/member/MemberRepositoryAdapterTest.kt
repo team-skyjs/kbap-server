@@ -1,15 +1,15 @@
 package com.meogo.infra.persistence.member
 
-import com.meogo.core.kernel.lang.CountryCode
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.member.AvoidanceSubstanceCodeRef
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
-import com.meogo.core.member.MemberProfile
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.lang.CountryCode
+import com.meogo.core.lang.LanguageCode
+import com.meogo.domain.member.AvoidanceSubstanceCodeRef
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberErrorCode
+import com.meogo.domain.member.MemberException
+import com.meogo.domain.member.MemberProfile
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
+import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

@@ -1,7 +1,7 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.member.MemberRepository
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.member.MemberRepository
 import org.springframework.stereotype.Component
 
 @Component

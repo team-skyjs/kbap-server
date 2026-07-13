@@ -1,5 +1,5 @@
 package com.meogo.app.api
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
 import io.kotest.core.spec.style.BehaviorSpec

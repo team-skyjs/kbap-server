@@ -1,6 +1,6 @@
 package com.meogo.infra.persistence.auth
 
-import com.meogo.infra.persistence.testsupport.RedisContainerConfig
+import com.meogo.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe

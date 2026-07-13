@@ -39,21 +39,21 @@ rootProject.name = "meogo-server"
 include(
     ":app:api",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 presentation 모듈
     ":application",
-    ":core:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
+    ":domain:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
     ":app:batch",            // 배치 앱
     ":common",           // 공유 모듈
 )
 ```
 
-- 모듈 경로는 콜론으로 표기한다. 예: `:app:api`, `:core:food`, `:app:batch`.
+- 모듈 경로는 콜론으로 표기한다. 예: `:app:api`, `:domain:food`, `:app:batch`.
 - `meogo-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`presentation`/`application`/`food`…)다.
 - 한 모듈이 다른 모듈을 사용하려면 `project(...)`로 의존성을 추가한다.
 
 ```kotlin
 // application/build.gradle.kts
 dependencies {
-    "implementation"(project(":core:food"))   // 다른 모듈에 의존
-    "implementation"(project(":core:kernel"))
+    "implementation"(project(":domain:food"))   // 다른 모듈에 의존
+    "implementation"(project(":core"))
 }
 ```
 
@@ -76,7 +76,7 @@ plugins {
 | 종류 | 의미 | 예시 |
 |---|---|---|
 | `implementation` | 이 모듈 내부에서만 쓰는 라이브러리. **이 모듈을 사용하는 다른 모듈의 컴파일 클래스패스에는 보이지 않는다**(런타임에는 전이됨) | `implementation(libs.spring.boot.starter.data.jpa)` |
-| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":core:kernel"))` |
+| `api` | 의존성을 **바깥으로도 공개**한다. 이 모듈을 사용하는 모듈도 컴파일 시점에 해당 타입을 쓸 수 있다 | `api(project(":core"))` |
 | `runtimeOnly` | 컴파일에는 필요 없고 **실행할 때만** 필요하다(주로 드라이버) | `runtimeOnly(libs.mysql.connector)` |
 | `testImplementation` | **테스트 코드에서만** 쓰는 라이브러리 | `testImplementation(libs.kotest.assertions.core)` |
 | `testRuntimeOnly` | 테스트 **실행 시점에만** 필요하다 | `testRuntimeOnly(libs.junit.platform.launcher)` |
@@ -142,7 +142,7 @@ plugins { id("meogo.domain-conventions") }
 | `meogo.kotlin-common` | 전 leaf | kotlin-jvm·java-library·Java 21 toolchain·엄격성·공통 테스트 |
 | `meogo.spring-conventions` | Spring 라이브러리(core/common 제외) | + kotlin-spring·BOM·reflect/jackson/test |
 | `meogo.spring-boot-application` | bootJar 앱(`:app:api`, `:app:batch`) | + `org.springframework.boot` |
-| `meogo.domain-conventions` | 도메인 5종 | + `api(:core:kernel)`·jpa/mongo·mysql/h2 |
+| `meogo.domain-conventions` | 도메인 5종 | + `api(:core)`·jpa/mongo·mysql/h2 |
 
 플러그인끼리 **합성**된다: `domain-conventions` → `spring-conventions` → `kotlin-common`. 그래서 도메인 모듈은 한 줄로 위 세 층의 설정을 모두 받는다.
 
@@ -152,7 +152,7 @@ plugins { id("meogo.domain-conventions") }
 // 예: infra/external/build.gradle.kts — 이 모듈에만 필요한 것
 plugins { id("meogo.spring-conventions") }
 dependencies {
-    "implementation"(project(":core:kernel"))
+    "implementation"(project(":core"))
     "implementation"(libs.spring.ai.starter.openai)
 }
 ```
@@ -224,7 +224,7 @@ common ← meogo-api·meogo-batch 가 공유
 ./gradlew :app:api:dependencies --configuration runtimeClasspath  # 의존성 트리 보기
 ```
 
-핵심은 `:모듈경로:task` 형태다. 예: `:core:food:test`, `:app:batch:test`.
+핵심은 `:모듈경로:task` 형태다. 예: `:domain:food:test`, `:app:batch:test`.
 
 ---
 

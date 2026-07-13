@@ -1,14 +1,38 @@
+import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
+import org.gradle.api.artifacts.VersionCatalogsExtension
+
 // ───────── 도메인 컨텍스트 모듈 공통 ─────────
-// food/member/scan/avoidance/research/review 가 동일하게 갖는 설정을 한곳에 모은다.
-// 클린아키텍처: 도메인은 모델 + port(인터페이스) + 도메인 서비스/정책만 갖는다.
-// 영속 기술(JPA/Mongo)은 도메인에 두지 않고 바깥 :infra:persistence 가 도메인을 의존해 구현한다.
-// - 도메인은 순수 Spring-free 로 둔다. 빈 등록이 필요한 서비스/정책(@Service/@Component)은
-//   도메인이 아니라 조립·유스케이스 계층(:application)에 둔다.
-// - core 는 도메인 공개 API 에 드러나므로 api() 로 전이 노출한다.
+// food/member/scan/avoidance/research/review 가 동일하게 갖는 설정을 한곳에 모은다(ADR-0012).
+// 각 도메인 모듈 = 도메인 모델(불변·ORM-free) + 도메인 서비스(public 창구) + JPA 엔티티·Spring Data
+// 리포지토리(internal). 영속이 도메인 모듈 안으로 들어오므로 spring·jpa 를 여기서 얹는다.
+// - 엔티티·리포지토리는 Kotlin internal 로 감춘다 — 모듈 밖 접근은 컴파일러가 차단.
+// - :core 는 도메인 공개 API 에 드러나므로 api() 로 전이 노출한다.
+// - data-jpa 는 implementation — 상위(application·app) 컴파일 클래스패스로 새지 않는다.
+// - 통합 테스트는 MySQL Testcontainers 공통 설정(:core testFixtures)을 쓴다.
 plugins {
     id("meogo.kotlin-common")
+    id("org.jetbrains.kotlin.plugin.spring")
+    id("org.jetbrains.kotlin.plugin.jpa")
+    id("io.spring.dependency-management")
+}
+
+val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+val springBootVersion = libs.findVersion("spring-boot").get().requiredVersion
+
+configure<DependencyManagementExtension> {
+    imports {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
+    }
 }
 
 dependencies {
-    "api"(project(":core:kernel"))
+    "api"(project(":core"))
+    "implementation"(libs.findLibrary("spring-boot-starter-data-jpa").get())
+    "implementation"(libs.findLibrary("kotlin-reflect").get())
+    "runtimeOnly"(libs.findLibrary("mysql-connector").get())
+
+    "testImplementation"(libs.findLibrary("spring-boot-starter-test").get())
+    "testImplementation"(libs.findLibrary("kotest-extensions-spring").get())
+    "testImplementation"(testFixtures(project(":core")))
+    "testRuntimeOnly"(libs.findLibrary("mysql-connector").get())
 }

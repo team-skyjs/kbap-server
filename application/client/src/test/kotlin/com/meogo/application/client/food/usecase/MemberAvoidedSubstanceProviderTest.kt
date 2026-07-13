@@ -1,12 +1,12 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.member.AvoidanceSubstanceCodeRef
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberProfile
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.member.AvoidanceSubstanceCodeRef
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberProfile
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 

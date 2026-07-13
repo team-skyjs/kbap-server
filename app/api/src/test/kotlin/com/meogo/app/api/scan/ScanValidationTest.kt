@@ -2,8 +2,8 @@ package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.application.client.auth.TokenIssuer
-import com.meogo.core.member.MemberRole
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.domain.member.MemberRole
+import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired

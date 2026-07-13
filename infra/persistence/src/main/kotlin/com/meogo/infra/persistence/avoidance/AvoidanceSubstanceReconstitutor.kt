@@ -1,6 +1,6 @@
 package com.meogo.infra.persistence.avoidance
 
-import com.meogo.core.avoidance.AvoidanceSubstance
+import com.meogo.domain.avoidance.AvoidanceSubstance
 import org.springframework.stereotype.Component
 
 @Component

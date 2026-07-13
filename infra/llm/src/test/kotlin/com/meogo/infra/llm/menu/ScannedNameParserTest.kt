@@ -1,7 +1,7 @@
 package com.meogo.infra.llm.menu
 
-import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
-import com.meogo.core.kernel.scan.InterpretedName
+import com.meogo.core.menu.KoreanMenuNameNormalizer
+import com.meogo.domain.scan.InterpretedName
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

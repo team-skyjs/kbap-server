@@ -5,10 +5,10 @@ import com.meogo.application.client.auth.AuthErrorCode
 import com.meogo.application.client.auth.AuthException
 import com.meogo.application.client.auth.SocialAccountDeleter
 import com.meogo.application.client.auth.SocialTokenVerifier
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
-import com.meogo.infra.persistence.testsupport.RedisContainerConfig
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
+import com.meogo.core.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull

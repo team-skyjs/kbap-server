@@ -1,9 +1,9 @@
 package com.meogo.application.client.member
 
 import com.meogo.application.client.member.dto.MemberRankingResult
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
-import com.meogo.core.member.MemberRepository
+import com.meogo.domain.member.MemberErrorCode
+import com.meogo.domain.member.MemberException
+import com.meogo.domain.member.MemberRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

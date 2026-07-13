@@ -1,12 +1,12 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberErrorCode
-import com.meogo.core.member.MemberException
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.MemberRole
-import com.meogo.core.member.RefreshTokenStore
-import com.meogo.core.member.SocialIdentity
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberErrorCode
+import com.meogo.domain.member.MemberException
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberRole
+import com.meogo.domain.member.RefreshTokenStore
+import com.meogo.domain.member.SocialIdentity
 import org.springframework.stereotype.Service
 
 data class LoginResult(

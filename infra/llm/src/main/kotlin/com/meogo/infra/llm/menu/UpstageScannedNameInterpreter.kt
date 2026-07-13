@@ -1,7 +1,7 @@
 package com.meogo.infra.llm.menu
 
-import com.meogo.core.kernel.scan.InterpretedName
-import com.meogo.core.kernel.scan.ScannedNameInterpreter
+import com.meogo.domain.scan.InterpretedName
+import com.meogo.domain.scan.ScannedNameInterpreter
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.model.LlmChatRequest
 

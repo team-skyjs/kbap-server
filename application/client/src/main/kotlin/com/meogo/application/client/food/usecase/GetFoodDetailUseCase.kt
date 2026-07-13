@@ -2,12 +2,12 @@ package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.GetFoodDetailInput
 import com.meogo.application.client.food.dto.GetFoodDetailResult
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.FoodErrorCode
-import com.meogo.core.food.FoodException
-import com.meogo.core.food.FoodRepository
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.FoodErrorCode
+import com.meogo.domain.food.FoodException
+import com.meogo.domain.food.FoodRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.food
 
-import com.meogo.core.kernel.menu.KoreanMenuNameNormalizer
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.menu.KoreanMenuNameNormalizer
+import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe

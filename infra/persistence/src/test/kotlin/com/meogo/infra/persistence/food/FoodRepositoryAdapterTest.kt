@@ -1,9 +1,9 @@
 package com.meogo.infra.persistence.food
-import com.meogo.infra.persistence.testsupport.MySqlContainerConfig
+import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
-import com.meogo.core.food.Food
-import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.domain.food.Food
+import com.meogo.core.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

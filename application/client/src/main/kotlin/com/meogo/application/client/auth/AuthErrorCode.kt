@@ -1,6 +1,6 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.kernel.error.ErrorCode
+import com.meogo.core.error.ErrorCode
 
 enum class AuthErrorCode(
     override val status: Int,

@@ -9,7 +9,7 @@ Bump rationale (MAJOR): 원칙 III·IV 를 **재정의**한다(비호환 재정�
   **도메인 서비스 하나를 public 창구**로 두고 엔티티·Spring Data 리포지토리를 **Kotlin `internal`** 로 감춘다.
   Gradle 모듈이 컴파일 단위이므로 경계 강제 수단이 "리뷰 + ArchUnit" 에서 **컴파일러 + ArchUnit** 으로
   오히려 강해진다. 캡슐화 목적(원칙 IV)은 유지되고 수단만 바뀐다. 함께: JPA 연관관계 전면 금지(참조는 id 값),
-  모듈 리네임(core/→domain/, :core:kernel→:core), MongoDB 스택 제거.
+  모듈 리네임(core/→domain/, 구 kernel 모듈→:core), MongoDB 스택 제거.
 
 Modified principles:
   III. Layered Dependency Direction — port-only·runtimeOnly 조립 → 도메인 서비스 창구·직접 의존.

@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.food
 
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodScoringSource
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodScoringSource
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 

@@ -1,6 +1,6 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.MemberRole
+import com.meogo.domain.member.MemberRole
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException

@@ -1,7 +1,7 @@
 package com.meogo.infra.llm.config
 
 import com.google.genai.Client
-import com.meogo.core.kernel.scan.ScannedNameInterpreter
+import com.meogo.domain.scan.ScannedNameInterpreter
 import com.meogo.infra.llm.client.LlmFanoutClient
 import com.meogo.infra.llm.client.LlmModelCaller
 import com.meogo.infra.llm.menu.ScannedNameParser

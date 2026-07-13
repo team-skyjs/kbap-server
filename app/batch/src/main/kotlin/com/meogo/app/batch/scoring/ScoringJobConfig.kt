@@ -1,10 +1,10 @@
 package com.meogo.app.batch.scoring
 
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
-import com.meogo.core.food.FoodScoringSource
-import com.meogo.core.research.ensemble.ConsensusEnsembleAggregator
-import com.meogo.core.research.prompt.ScoringPromptFactory
-import com.meogo.core.research.parse.ScoringResponseParser
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.food.FoodScoringSource
+import com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator
+import com.meogo.domain.research.prompt.ScoringPromptFactory
+import com.meogo.domain.research.parse.ScoringResponseParser
 import com.meogo.infra.llm.client.LlmFanoutClient
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

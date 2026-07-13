@@ -1,8 +1,8 @@
 package com.meogo.infra.persistence.avoidance
 
-import com.meogo.core.avoidance.AvoidanceSubstance
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.avoidance.AvoidanceSubstanceRepository
+import com.meogo.domain.avoidance.AvoidanceSubstance
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
 import org.springframework.stereotype.Repository
 
 @Repository

@@ -1,6 +1,6 @@
 package com.meogo.application.client.food.usecase
 
-import com.meogo.core.kernel.lang.LanguageCode
+import com.meogo.core.lang.LanguageCode
 import org.springframework.stereotype.Component
 
 @Component

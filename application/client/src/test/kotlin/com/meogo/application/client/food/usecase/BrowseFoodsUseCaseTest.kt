@@ -1,16 +1,16 @@
 package com.meogo.application.client.food.usecase
 
 import com.meogo.application.client.food.dto.BrowseFoodsInput
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
-import com.meogo.core.food.AvoidanceSubstanceCodeRef
-import com.meogo.core.food.Food
-import com.meogo.core.food.FoodAvoidanceSubstance
-import com.meogo.core.food.FoodContent
-import com.meogo.core.food.FoodRepository
-import com.meogo.core.food.FoodSpiciness
-import com.meogo.core.kernel.lang.LanguageCode
-import com.meogo.core.kernel.lang.LocalizedText
-import com.meogo.core.kernel.risk.RiskLevel
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.food.AvoidanceSubstanceCodeRef
+import com.meogo.domain.food.Food
+import com.meogo.domain.food.FoodAvoidanceSubstance
+import com.meogo.domain.food.FoodContent
+import com.meogo.domain.food.FoodRepository
+import com.meogo.domain.food.FoodSpiciness
+import com.meogo.core.lang.LanguageCode
+import com.meogo.core.lang.LocalizedText
+import com.meogo.core.risk.RiskLevel
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 

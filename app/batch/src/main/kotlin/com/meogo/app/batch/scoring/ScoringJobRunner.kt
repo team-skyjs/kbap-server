@@ -1,6 +1,6 @@
 package com.meogo.app.batch.scoring
 
-import com.meogo.core.research.ensemble.FoodScoringStatus
+import com.meogo.domain.research.ensemble.FoodScoringStatus
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner

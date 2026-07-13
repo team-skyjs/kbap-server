@@ -1,7 +1,7 @@
 package com.meogo.application.client.auth
 
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
 
 object FirebaseClaimMapper {
     private const val FIREBASE_CLAIM = "firebase"

@@ -1,6 +1,6 @@
 package com.meogo.application.client.food.dto
 
-import com.meogo.core.kernel.risk.RiskLevel
+import com.meogo.core.risk.RiskLevel
 
 data class GetFoodDetailResult(
     val name: String,

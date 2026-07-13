@@ -1,10 +1,10 @@
 package com.meogo.infra.persistence.member
 
-import com.meogo.core.member.Member
-import com.meogo.core.member.Ranking
-import com.meogo.core.member.SocialIdentity
-import com.meogo.core.member.SocialProvider
-import com.meogo.infra.persistence.BaseEntity
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.Ranking
+import com.meogo.domain.member.SocialIdentity
+import com.meogo.domain.member.SocialProvider
+import com.meogo.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

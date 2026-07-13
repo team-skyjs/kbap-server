@@ -3,7 +3,7 @@ package com.meogo.application.client.auth
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.meogo.core.member.SocialIdentity
+import com.meogo.domain.member.SocialIdentity
 import org.slf4j.LoggerFactory
 
 class FirebaseTokenVerifier(

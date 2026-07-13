@@ -1,9 +1,9 @@
 package com.meogo.application.client.member
 
-import com.meogo.core.member.Member
-import com.meogo.core.member.MemberRepository
-import com.meogo.core.member.Ranking
-import com.meogo.core.member.SocialProvider
+import com.meogo.domain.member.Member
+import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.Ranking
+import com.meogo.domain.member.SocialProvider
 
 class FakeMemberRepository : MemberRepository {
     private val store = mutableMapOf<Long, Member>()

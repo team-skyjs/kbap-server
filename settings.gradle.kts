@@ -20,13 +20,13 @@ rootProject.name = "meogo-server"
 
 include(
     // ── 공유 코어 (도메인 커널 + 컨텍스트, ORM-free) ──
-    ":core:kernel",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
-    ":core:food",
-    ":core:member",
-    ":core:avoidance",
-    ":core:research",
-    ":core:review",
-    ":core:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
+    ":core",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
+    ":domain:food",
+    ":domain:member",
+    ":domain:avoidance",
+    ":domain:research",
+    ":domain:review",
+    ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
 
     // ── 유스케이스 계층 (진입점별 분할 — 교차 도메인 공유는 추후 :application:shared) ──
     ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)

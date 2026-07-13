@@ -52,4 +52,6 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // -Dkotest.tags 를 테스트 JVM 으로 전달한다(예: -Dkotest.tags="!arch" 로 ArchUnit 스펙만 제외 실행).
+    System.getProperty("kotest.tags")?.let { systemProperty("kotest.tags", it) }
 }

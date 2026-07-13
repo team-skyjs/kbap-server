@@ -1,6 +1,6 @@
 package com.meogo.app.api.avoidance
 
-import com.meogo.core.avoidance.AvoidanceSubstanceCode
+import com.meogo.domain.avoidance.AvoidanceSubstanceCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe

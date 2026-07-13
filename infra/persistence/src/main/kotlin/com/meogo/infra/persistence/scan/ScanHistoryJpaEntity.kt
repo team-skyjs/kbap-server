@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.scan
 
-import com.meogo.core.scan.ScanHistory
-import com.meogo.infra.persistence.BaseEntity
+import com.meogo.domain.scan.ScanHistory
+import com.meogo.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Index

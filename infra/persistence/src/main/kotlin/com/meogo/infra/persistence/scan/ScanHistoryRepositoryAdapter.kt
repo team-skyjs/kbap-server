@@ -1,7 +1,7 @@
 package com.meogo.infra.persistence.scan
 
-import com.meogo.core.scan.ScanHistory
-import com.meogo.core.scan.ScanHistoryRepository
+import com.meogo.domain.scan.ScanHistory
+import com.meogo.domain.scan.ScanHistoryRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 
