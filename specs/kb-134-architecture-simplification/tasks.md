@@ -155,9 +155,9 @@
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T036 [P] CLAUDE.md 갱신 — 개요·모듈 구조·기술 스택(MongoDB 삭제)·빌드 구성·컨벤션("JPA 엔티티 작성"·"도메인↔JPA 변환"·연관관계 절을 새 규칙으로) 재작성 (FR-015)
-- [ ] T037 quickstart.md 전 절 실행 — 완료 판정 체크 1~5 전부 통과 확인(전체 빌드·잔재 grep·internal 스팟체크·로컬 부팅·Swagger 계약 육안 대조), 결과 기록
-- [ ] T038 [P] Jira 후속 정리 — KB-134 DoD 체크 갱신 + 리뷰 태스크(KB-128·KB-129·KB-131) 본문을 새 구조 기준으로 갱신(이슈 본문의 선행 관계 결정)
+- [X] T036 [P] CLAUDE.md 갱신 — 개요·모듈 구조·기술 스택(MongoDB 삭제)·빌드 구성·컨벤션("JPA 엔티티 작성"·"도메인↔JPA 변환"·연관관계 절을 새 규칙으로) 재작성 (FR-015)
+- [X] T037 quickstart.md 전 절 실행(clean build green·잔재 grep 전부 clean·internal 스팟체크 T025·로컬 MySQL 실스키마 validate 부팅 UP + /v3/api-docs 경로 12종 무변경 확인) — 완료 판정 체크 1~5 전부 통과 확인(전체 빌드·잔재 grep·internal 스팟체크·로컬 부팅·Swagger 계약 육안 대조), 결과 기록
+- [ ] T038 [P] Jira 후속 정리(외부 시스템 변경 — 사용자 확인 후 진행) — KB-134 DoD 체크 갱신 + 리뷰 태스크(KB-128·KB-129·KB-131) 본문을 새 구조 기준으로 갱신(이슈 본문의 선행 관계 결정)
 
 ---
 
