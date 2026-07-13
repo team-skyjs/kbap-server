@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.application.auth.dto.ParsedAccessToken
+import com.kbap.application.auth.dto.ParsedRefreshToken
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberRole

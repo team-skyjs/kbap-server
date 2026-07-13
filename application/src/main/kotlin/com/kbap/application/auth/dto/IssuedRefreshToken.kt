@@ -1,4 +1,4 @@
-package com.kbap.application.auth
+package com.kbap.application.auth.dto
 
 data class IssuedRefreshToken(
     val token: String,

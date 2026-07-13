@@ -1,5 +1,7 @@
 package com.kbap.application.auth
 
+import com.kbap.application.auth.dto.IssuedRefreshToken
+
 import com.kbap.domain.member.MemberRole
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
