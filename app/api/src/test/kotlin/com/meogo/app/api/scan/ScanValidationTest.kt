@@ -1,7 +1,7 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.application.auth.TokenIssuer
 import com.meogo.domain.member.MemberRole
 import com.meogo.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec

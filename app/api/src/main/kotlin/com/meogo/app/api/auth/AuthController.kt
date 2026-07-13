@@ -3,10 +3,10 @@ package com.meogo.app.api.auth
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberId
-import com.meogo.application.client.auth.LoginUseCase
-import com.meogo.application.client.auth.LogoutUseCase
-import com.meogo.application.client.auth.RefreshUseCase
-import com.meogo.application.client.member.WithdrawUseCase
+import com.meogo.application.auth.LoginUseCase
+import com.meogo.application.auth.LogoutUseCase
+import com.meogo.application.auth.RefreshUseCase
+import com.meogo.application.member.WithdrawUseCase
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping

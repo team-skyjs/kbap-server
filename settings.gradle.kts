@@ -28,8 +28,8 @@ include(
     ":domain:review",
     ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
 
-    // ── 유스케이스 계층 (진입점별 분할 — 교차 도메인 공유는 추후 :application:shared) ──
-    ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)
+    // ── 유스케이스 계층 ──
+    ":application", // 유스케이스 조율 — 도메인 서비스 조합·transaction boundary (진입점별 분할은 실제로 늘 때 재도입)
 
     // ── 인프라(driven 어댑터) ──
     ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존

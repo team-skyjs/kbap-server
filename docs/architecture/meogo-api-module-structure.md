@@ -48,7 +48,7 @@ Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨
 `meogo-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
 
 - `:app:api`: web bootJar — controller, API DTO, Flyway 스키마 owner (도메인 모듈은 application 을 통해 런타임 전이 — ADR-0012 로 runtimeOnly 조립 소멸)
-- `:application:client`: 유스케이스 조율(도메인 서비스 조합), transaction boundary
+- `:application`: 유스케이스 조율(도메인 서비스 조합), transaction boundary
 - `:domain:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 — 도메인 모델 + 도메인 서비스(public) + 영속(internal), `domain/` 컨테이너 직속
 - `:domain:review`: deferred placeholder
 - `:core`: 공통 타입·예외·유틸·외부 client seam·id 값 클래스 + 영속 공통(BaseEntity — compileOnly jakarta/hibernate)
@@ -75,7 +75,7 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `avoidance`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
 - `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
-- `:application:client`은 도메인 서비스와 외부 client seam 을 조합한다.
+- `:application`은 도메인 서비스와 외부 client seam 을 조합한다.
 - 도메인 모듈은 도메인 규칙과 영속 코드를 캡슐화한다 — 영속은 `internal`, 공개 창구는 도메인 서비스 하나다(ADR-0012).
 - `:core`는 공통 타입·공유 값 클래스·영속 공통을 제공한다.
 - `:infra:llm`은 LLM 외부 시스템 연동을 담당한다.

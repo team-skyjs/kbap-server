@@ -25,7 +25,7 @@
 sequenceDiagram
     actor Client
     participant Controller as Controller<br/>:app:api
-    participant UseCase as UseCase<br/>:application:client
+    participant UseCase as UseCase<br/>:application
     participant Core as Domain / Repository Port<br/>:core:*
     participant Persistence as Repository Adapter<br/>:infra:persistence
     participant DB as Database
@@ -53,7 +53,7 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant Controller as FoodDetailController<br/>:app:api
-    participant UseCase as GetFoodDetailUseCase<br/>:application:client
+    participant UseCase as GetFoodDetailUseCase<br/>:application
     participant Kernel as Kernel Types<br/>:core
     participant FoodCore as Food Domain / Repository Port<br/>:domain:food
     participant AvoidanceCore as Avoidance Catalog Port<br/>:domain:avoidance
@@ -107,7 +107,7 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant Controller as ScanController<br/>:app:api
-    participant UseCase as ScanUseCase<br/>:application:client
+    participant UseCase as ScanUseCase<br/>:application
     participant Kernel as KoreanMenuNameNormalizer<br/>:core
     participant Llm as UpstageScannedNameInterpreter<br/>:infra:llm
     participant Persistence as FoodRepositoryAdapter<br/>:infra:persistence

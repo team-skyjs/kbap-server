@@ -1,6 +1,6 @@
 package com.meogo.app.api.auth
 
-import com.meogo.application.client.auth.RefreshResult
+import com.meogo.application.auth.RefreshResult
 import jakarta.validation.constraints.NotBlank
 
 data class RefreshRequest(

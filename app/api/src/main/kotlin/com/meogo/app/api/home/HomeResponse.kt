@@ -1,8 +1,8 @@
 package com.meogo.app.api.home
 
 import com.meogo.app.api.food.FoodSummaryResponse
-import com.meogo.application.client.home.dto.AvoidedSubstanceView
-import com.meogo.application.client.home.dto.HomeResult
+import com.meogo.application.home.dto.AvoidedSubstanceView
+import com.meogo.application.home.dto.HomeResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "홈 화면 응답 — 기피 성분·인기 음식·최근 스캔 세 섹션")

@@ -1,10 +1,10 @@
 package com.meogo.app.api.auth
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.meogo.application.client.auth.AuthErrorCode
-import com.meogo.application.client.auth.AuthException
-import com.meogo.application.client.auth.SocialAccountDeleter
-import com.meogo.application.client.auth.SocialTokenVerifier
+import com.meogo.application.auth.AuthErrorCode
+import com.meogo.application.auth.AuthException
+import com.meogo.application.auth.SocialAccountDeleter
+import com.meogo.application.auth.SocialTokenVerifier
 import com.meogo.domain.member.SocialIdentity
 import com.meogo.domain.member.SocialProvider
 import com.meogo.core.testsupport.MySqlContainerConfig

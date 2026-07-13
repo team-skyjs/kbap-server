@@ -1,6 +1,6 @@
 package com.meogo.app.api.common.auth
 
-import com.meogo.application.client.auth.TokenParser
+import com.meogo.application.auth.TokenParser
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory

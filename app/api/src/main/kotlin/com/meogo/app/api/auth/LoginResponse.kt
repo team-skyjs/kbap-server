@@ -1,6 +1,6 @@
 package com.meogo.app.api.auth
 
-import com.meogo.application.client.auth.LoginResult
+import com.meogo.application.auth.LoginResult
 
 data class LoginResponse(
     val newMember: Boolean,

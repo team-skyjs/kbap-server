@@ -3,8 +3,8 @@ package com.meogo.app.api.member
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberId
-import com.meogo.application.client.member.MemberProfileUseCase
-import com.meogo.application.client.member.MemberRankingUseCase
+import com.meogo.application.member.MemberProfileUseCase
+import com.meogo.application.member.MemberRankingUseCase
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping

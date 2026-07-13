@@ -1,6 +1,6 @@
 package com.meogo.app.api.member
 
-import com.meogo.application.client.member.dto.MemberProfileInput
+import com.meogo.application.member.dto.MemberProfileInput
 
 data class OnboardingRequest(
     val nickname: String,

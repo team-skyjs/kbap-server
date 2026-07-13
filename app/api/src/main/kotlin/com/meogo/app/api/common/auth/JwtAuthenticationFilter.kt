@@ -2,9 +2,9 @@ package com.meogo.app.api.common.auth
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.meogo.app.api.common.BaseResponse
-import com.meogo.application.client.auth.AuthErrorCode
-import com.meogo.application.client.auth.AuthException
-import com.meogo.application.client.auth.TokenParser
+import com.meogo.application.auth.AuthErrorCode
+import com.meogo.application.auth.AuthException
+import com.meogo.application.auth.TokenParser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

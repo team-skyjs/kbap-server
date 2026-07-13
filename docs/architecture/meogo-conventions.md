@@ -24,7 +24,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | 모듈 | 책임 |
 |------|------|
 | `:app:api` | web bootJar, Controller, API DTO, 인증/인가, 예외 응답 변환, Flyway 스키마 owner |
-| `:application:client` | 유스케이스 조율(도메인 서비스 조합), transaction boundary, Input/Result 경계 타입, 외부 client seam 호출 |
+| `:application` | 유스케이스 조율(도메인 서비스 조합), transaction boundary, Input/Result 경계 타입, 외부 client seam 호출 |
 | `:domain:{food,member,scan,avoidance}` | Active 도메인 컨텍스트 — 도메인 모델(불변·ORM-free) + 도메인 서비스(public 창구) + JPA 엔티티·Spring Data 리포지토리(internal) ([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)) |
 | `:domain:research` | Active 도메인. 미스 메뉴 조사·3개 LLM 종합 정책(순수 로직 — 영속 없음). **배치 전용**(web 미노출) ([ADR-0004](../adr/0004-research-bounded-context.md)) |
 | `:domain:review` | Deferred placeholder. 현재 구현 범위 제외, 추후 리뷰 기능 재개 시 별도 컨텍스트로 다시 설계 |
@@ -91,9 +91,9 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 
 ## 도메인 간 의존 규칙
 
-1. **의존 방향** — `:app:api` → `:application:client` → `:domain:*` → `:core`. `:core`는 모두가 의존 가능. 외부 시스템 클라이언트(LLM·소셜 인증 등)는 **seam 인터페이스로만** 사용한다(폐기된 것은 리포지토리 port 이지 외부 어댑터 seam 이 아니다). `:app:batch`는 필요한 도메인 모듈·`:infra:llm`을 직접 의존하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
+1. **의존 방향** — `:app:api` → `:application` → `:domain:*` → `:core`. `:core`는 모두가 의존 가능. 외부 시스템 클라이언트(LLM·소셜 인증 등)는 **seam 인터페이스로만** 사용한다(폐기된 것은 리포지토리 port 이지 외부 어댑터 seam 이 아니다). `:app:batch`는 필요한 도메인 모듈·`:infra:llm`을 직접 의존하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
 2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
-3. **영속 모델 비노출** — JPA Entity / Spring Data Repository 는 각 도메인 모듈 안에 **`internal`** 로 숨긴다. `:app:api`·`:application:*`이 import 하면 **컴파일이 실패**한다(+ **ArchUnit 테스트** 이중 방어).
+3. **영속 모델 비노출** — JPA Entity / Spring Data Repository 는 각 도메인 모듈 안에 **`internal`** 로 숨긴다. `:app:api`·`:application`이 import 하면 **컴파일이 실패**한다(+ **ArchUnit 테스트** 이중 방어).
 3-1. **JPA 연관관계 금지** ⭐ — 엔티티 간 `@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany` 를 두지 않는다. 참조는 **id 값 컬럼**(공유 값 클래스 `FoodId`·`MemberId`)으로만 들고, 연관 데이터는 도메인 서비스가 id(목록)로 명시 조회한다. 지연 로딩이 없어 N+1·`LazyInitializationException` 이 구조적으로 불가하다. 외래키 제약은 Flyway 스키마가 강제한다(ON DELETE 없음 — 소프트 삭제 구조). (ArchUnit 전면 금지 규칙)
 4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.

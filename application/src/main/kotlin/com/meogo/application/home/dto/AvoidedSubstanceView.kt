@@ -1,0 +1,6 @@
+package com.meogo.application.home.dto
+
+data class AvoidedSubstanceView(
+    val code: String,
+    val name: String,
+)

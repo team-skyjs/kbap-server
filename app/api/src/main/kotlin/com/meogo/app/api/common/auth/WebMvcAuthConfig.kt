@@ -1,7 +1,7 @@
 package com.meogo.app.api.common.auth
 
 import com.meogo.app.api.common.ApiPaths
-import com.meogo.application.client.auth.TokenParser
+import com.meogo.application.auth.TokenParser
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

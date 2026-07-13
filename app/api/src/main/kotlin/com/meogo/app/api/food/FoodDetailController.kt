@@ -1,7 +1,7 @@
 package com.meogo.app.api.food
 
-import com.meogo.application.client.food.dto.GetFoodDetailInput
-import com.meogo.application.client.food.usecase.GetFoodDetailUseCase
+import com.meogo.application.food.dto.GetFoodDetailInput
+import com.meogo.application.food.usecase.GetFoodDetailUseCase
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberIdOrNull

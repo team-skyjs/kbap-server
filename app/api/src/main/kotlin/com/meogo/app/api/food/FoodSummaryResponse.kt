@@ -1,6 +1,6 @@
 package com.meogo.app.api.food
 
-import com.meogo.application.client.food.dto.FoodSummaryView
+import com.meogo.application.food.dto.FoodSummaryView
 
 data class FoodSummaryResponse(
     val foodId: Long,

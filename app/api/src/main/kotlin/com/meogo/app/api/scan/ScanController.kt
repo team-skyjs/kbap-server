@@ -1,6 +1,6 @@
 package com.meogo.app.api.scan
 
-import com.meogo.application.client.scan.usecase.ScanUseCase
+import com.meogo.application.scan.usecase.ScanUseCase
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberId

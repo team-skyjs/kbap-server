@@ -1,8 +1,8 @@
 package com.meogo.app.api.common.auth
 
-import com.meogo.application.client.auth.AuthTokenProperties
-import com.meogo.application.client.auth.TokenIssuer
-import com.meogo.application.client.auth.TokenParser
+import com.meogo.application.auth.AuthTokenProperties
+import com.meogo.application.auth.TokenIssuer
+import com.meogo.application.auth.TokenParser
 import com.meogo.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull

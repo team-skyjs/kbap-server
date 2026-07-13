@@ -1,6 +1,6 @@
 package com.meogo.app.api.member
 
-import com.meogo.application.client.member.dto.ProfileUpdateInput
+import com.meogo.application.member.dto.ProfileUpdateInput
 
 data class ProfileUpdateRequest(
     val nickname: String? = null,

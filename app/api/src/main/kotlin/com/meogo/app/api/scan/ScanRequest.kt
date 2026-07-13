@@ -1,8 +1,8 @@
 package com.meogo.app.api.scan
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.meogo.application.client.scan.dto.ScanItemInput
-import com.meogo.application.client.scan.dto.ScanInput
+import com.meogo.application.scan.dto.ScanItemInput
+import com.meogo.application.scan.dto.ScanInput
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue

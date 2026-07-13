@@ -3,7 +3,7 @@ package com.meogo.app.api.home
 import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberIdOrNull
-import com.meogo.application.client.home.HomeQueryUseCase
+import com.meogo.application.home.HomeQueryUseCase
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController

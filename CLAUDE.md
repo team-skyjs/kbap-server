@@ -24,21 +24,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 :common  ← (모두 의존 가능 / 아무에게도 의존 안 함)
 
-:core ← domain:도메인(food/member/scan/avoidance/research/review) ← application:client ← app:api (web bootJar, Flyway owner)
+:core ← domain:도메인(food/member/scan/avoidance/research/review) ← application ← app:api (web bootJar, Flyway owner)
                      ▲                                                                    app:batch (배치 bootJar, 도메인 직접 의존, flyway off)
                      └── infra:llm (LLM 어댑터 — batch·api 가 직접/런타임 의존)
 ```
 (ADR-0012: 각 도메인 모듈 = 도메인 모델(불변·ORM-free) + **도메인 서비스(public 유일 창구, `@Service`)** + JPA 엔티티·Spring Data 리포지토리(**`internal`** — 모듈 밖 참조는 컴파일 실패). 리포지토리 port·어댑터·runtimeOnly 조립은 폐기됐다. 외부 시스템 클라이언트(LLM·소셜 인증)는 여전히 **seam 인터페이스**로 쓴다 — 폐기된 것은 리포지토리 port 뿐이다.)
 
-- `:app:api`: web bootJar — controller, API DTO. 진입점 `MeogoApiApplication`은 `com.meogo` 루트(스캔·AutoConfigurationPackages 가 전 계층 커버 — 도메인 모듈은 `:application:client` 를 통해 런타임 전이). DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`. 패키지 `com.meogo.app.api`.
-- `:application:*`: 유스케이스 조율, transaction boundary. **도메인 서비스를 조합**해 유스케이스를 만들고, 외부 client 는 seam 인터페이스로만 사용한다. **컨텍스트 간 조합은 여기서만**. `application/`은 **진입점별로 분할** — 현재 `:application:client`(사용자 API 유스케이스)만 존재. 패키지 `com.meogo.application.<진입점>`(예: `com.meogo.application.client`).
+- `:app:api`: web bootJar — controller, API DTO. 진입점 `MeogoApiApplication`은 `com.meogo` 루트(스캔·AutoConfigurationPackages 가 전 계층 커버 — 도메인 모듈은 `:application` 을 통해 런타임 전이). DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`. 패키지 `com.meogo.app.api`.
+- `:application`: 유스케이스 조율, transaction boundary. **도메인 서비스를 조합**해 유스케이스를 만들고, 외부 client 는 seam 인터페이스로만 사용한다. **컨텍스트 간 조합은 여기서만**. 단일 모듈이다 — 진입점별 분할(client/admin/batch)은 실제로 늘 때 재도입. 패키지 `com.meogo.application`.
 - 도메인 컨텍스트 모듈: `domain/` 컨테이너 직속 — active: `:domain:{food,member,scan,avoidance,research}`, deferred placeholder: `:domain:review`. 각 도메인은 도메인 모델(ORM-free) + 도메인 서비스(`FoodService`·`MemberService` 등, 유일 public 창구 — member 는 `RefreshTokenStore` Redis 구체 클래스 포함) + 영속 코드(`internal`)를 **한 모듈에** 담는다. 도메인 모듈끼리는 서로 의존하지 않는다. 패키지 `com.meogo.domain.<도메인>`. (`research`는 순수 로직·배치 전용 — 영속 없음, web 미노출.)
 - `:core`: 공통 타입·예외·유틸·도메인 stereotype(`@AggregateRoot` **순수 마커**)·`RiskLevel`, 외부 client **seam 인터페이스**(`ScannedNameInterpreter`), **여러 도메인이 공유하는 vocabulary**(`LanguageCode`, id 값 클래스 **`FoodId`·`MemberId`**), 그리고 **영속 공통**(`BaseEntity`·`EntityStatus`·`IdConverter` — jakarta/hibernate 는 `compileOnly`, 런타임 제공은 도메인 모듈). 특정 컨텍스트가 소유하는 코드는 **소유 컨텍스트 모듈**에 두고 타 컨텍스트는 코드로만 참조한다(원칙 II). 애플리케이션 코드는 Spring-free. 패키지 `com.meogo.core`.
 - `:infra:llm`: LLM 호출 어댑터(Spring AI — ADR-0010). `:app:batch`가 `implementation`, `:app:api`가 `runtimeOnly` 로 의존.
 - `:app:batch`: 배치 bootJar. **필요한 `:domain:*`·`:infra:llm`을 직접 의존**해 도메인 서비스를 잡에서 조합(ADR-0012). **flyway off**(스키마 owner=api). 패키지 `com.meogo.app.batch`.
 - `:common`: 통합 이벤트·기술 공통(logback 조각·유틸·횡단 어노테이션). 두 앱 공유. **web/jpa/도메인 의존 금지**. **Spring-free.** 패키지 `com.meogo.common`.
 
-각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. **모듈 간 project 의존은 `api`가 아니라 `implementation`을 기본으로** 한다(도메인 모듈 → `api(:core)` 만 예외). `:application:client`가 도메인을 `implementation`으로 의존하므로 도메인 타입은 `:app:api`의 컴파일 클래스패스로 전이되지 않고, 엔티티·리포지토리는 `internal` 이라 application 에서도 보이지 않는다. 이 경계(계층 의존 방향·도메인 간 격리·도메인 모델 ORM-free·`@Entity` 위치·**JPA 연관관계 애너테이션 전면 금지**·컨트롤러 매핑 `/api/v` 시작·app:api 도메인 미참조·application→infra/app 금지)는 ArchUnit 테스트 `app/api/src/test/kotlin/com/meogo/app/api/architecture/ModuleBoundaryTest.kt`(Kotest 태그 `arch` — `-Dkotest.tags="!arch"` 로 제외 실행 가능)로 강제한다.
+각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. **모듈 간 project 의존은 `api`가 아니라 `implementation`을 기본으로** 한다(도메인 모듈 → `api(:core)` 만 예외). `:application`이 도메인을 `implementation`으로 의존하므로 도메인 타입은 `:app:api`의 컴파일 클래스패스로 전이되지 않고, 엔티티·리포지토리는 `internal` 이라 application 에서도 보이지 않는다. 이 경계(계층 의존 방향·도메인 간 격리·도메인 모델 ORM-free·`@Entity` 위치·**JPA 연관관계 애너테이션 전면 금지**·컨트롤러 매핑 `/api/v` 시작·app:api 도메인 미참조·application→infra/app 금지)는 ArchUnit 테스트 `app/api/src/test/kotlin/com/meogo/app/api/architecture/ModuleBoundaryTest.kt`(Kotest 태그 `arch` — `-Dkotest.tags="!arch"` 로 제외 실행 가능)로 강제한다.
 
 ## 설계 / 문서 위치
 
@@ -65,7 +65,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `meogo.spring-conventions` — **Spring 라이브러리 공통**(core/common 제외): kotlin-common 위에 kotlin-spring·dependency-management·Spring Boot/AI BOM·`kotlin-reflect`/`jackson-module-kotlin`/`spring-boot-starter-test`를 얹는다.
   - `meogo.spring-boot-application` — **부트 앱(bootJar)**: `:app:api`, `:app:batch`. spring-conventions 위에 `org.springframework.boot`.
   - `meogo.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/avoidance/research + review placeholder): kotlin-common 위에 kotlin-spring·**kotlin-jpa(no-arg)**·dependency-management·Boot BOM·`api(:core)`·`implementation(data-jpa·kotlin-reflect·jackson-module-kotlin)`·`runtimeOnly(mysql)`·테스트 공통(starter-test·kotest-extensions-spring·`testFixtures(:core)`)을 얹는다(ADR-0012 — 영속이 도메인 안으로 들어온 결과). member 처럼 모듈 고유 의존(data-redis)만 각 build 파일에 둔다.
-- **모듈별 고유 설정만 각 모듈 `build.gradle.kts`** 에 둔다(app:api=web/validation/actuator/flyway/springdoc+application:client·infra 조립, infra:llm=spring-ai, app:batch=필요 도메인·infra 조립 등). 모듈 build 파일에서 의존성은 **문자열 표기**(`"implementation"(...)`)로 적는다(플러그인이 컨벤션에서 적용돼 타입 안전 단축표기 미생성). 라이브러리 좌표는 모듈 build 파일에선 `libs.*`로 정상 사용.
+- **모듈별 고유 설정만 각 모듈 `build.gradle.kts`** 에 둔다(app:api=web/validation/actuator/flyway/springdoc+application 의존, infra:llm=spring-ai, app:batch=필요 도메인·llm 의존 등). 모듈 build 파일에서 의존성은 **문자열 표기**(`"implementation"(...)`)로 적는다(플러그인이 컨벤션에서 적용돼 타입 안전 단축표기 미생성). 라이브러리 좌표는 모듈 build 파일에선 `libs.*`로 정상 사용.
 - **버전 카탈로그 접근**: 컨벤션 플러그인 **안에서는** `libs.*` 타입세이프 접근자가 안 잡혀 `VersionCatalogsExtension`의 `findLibrary`/`findVersion`으로 조회한다. buildSrc 는 `buildSrc/settings.gradle.kts`에서 루트 `gradle/libs.versions.toml`을 `libs`로 가져오고, `buildSrc/build.gradle.kts`는 `libs.plugins.*`를 플러그인 마커 좌표로 변환해 서드파티 Gradle 플러그인을 classpath 에 올린다.
 - **트레이드오프**: buildSrc 변경 시 전체 빌드 캐시가 무효화돼 느려질 수 있다(대신 도메인 5종 dedup·모듈 파일 슬림).
 
@@ -100,7 +100,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 컨벤션
 
 - **Kotlin 소스 코드(`.kt`)에 주석을 작성하지 않는다 (고정).** 라인(`//`)·블록(`/* */`)·KDoc(`/** */`) 모두 금지하며, main·test 동일하게 적용한다. 코드는 이름(클래스·함수·변수)과 구조로 의도를 드러내는 **self-documenting** 방식으로 쓴다. 설명이 필요한 맥락(설계 근거·트레이드오프·"왜")은 코드가 아니라 **커밋 메시지·`docs/`·ADR·SpecKit 문서**에 남긴다. (예외: 빌드 스크립트 `*.gradle.kts`, Flyway SQL, `*.yml` 등 비-Kotlin 파일의 주석은 이 규약 밖이며 허용한다.)
-- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링해 `com.meogo.<layer>` 로 둔다** — 커널 `com.meogo.core`(`core/`), 도메인 컨텍스트 `com.meogo.domain.<context>`(예: `domain/food/src/main/kotlin/com/meogo/domain/food/` — 도메인 모델·서비스·엔티티가 함께, 영속은 `internal`), 유스케이스 `com.meogo.application.<진입점>`(예: `com.meogo.application.client`), web `com.meogo.app.api`(컨트롤러·DTO·`BaseResponse`), 배치 `com.meogo.app.batch`, 공유 `com.meogo.common`. **부트 진입점 `MeogoApiApplication`은 패키지 루트 `com.meogo`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.meogo.app.batch`.
+- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링해 `com.meogo.<layer>` 로 둔다** — 커널 `com.meogo.core`(`core/`), 도메인 컨텍스트 `com.meogo.domain.<context>`(예: `domain/food/src/main/kotlin/com/meogo/domain/food/` — 도메인 모델·서비스·엔티티가 함께, 영속은 `internal`), 유스케이스 `com.meogo.application`, web `com.meogo.app.api`(컨트롤러·DTO·`BaseResponse`), 배치 `com.meogo.app.batch`, 공유 `com.meogo.common`. **부트 진입점 `MeogoApiApplication`은 패키지 루트 `com.meogo`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.meogo.app.batch`.
 - web 실행 설정은 `app/api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `app/api/src/test/resources/application.yml`(Flyway off, Testcontainers MySQL 에 Hibernate `schema-generation=create`). 배치는 `app/batch/src/main/resources/application.yml`(flyway off). 공통 로깅은 `common`의 `logback-common.xml`을 각 앱 `logback-spring.xml`이 `<include>`로 가져간다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `meogo.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:
   - `-Xjsr305=strict` — JSR-305 nullability 애너테이션을 강제 제약으로 취급(Spring/Java API 호출 시 영향).

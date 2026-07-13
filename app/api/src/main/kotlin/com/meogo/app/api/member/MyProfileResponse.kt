@@ -1,7 +1,7 @@
 package com.meogo.app.api.member
 
-import com.meogo.application.client.member.dto.MemberRankingResult
-import com.meogo.application.client.member.dto.MyProfileResult
+import com.meogo.application.member.dto.MemberRankingResult
+import com.meogo.application.member.dto.MyProfileResult
 
 data class MyProfileResponse(
     val memberId: Long,

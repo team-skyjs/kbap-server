@@ -4,9 +4,9 @@ import com.meogo.app.api.common.ApiPaths
 import com.meogo.app.api.common.BaseResponse
 import com.meogo.app.api.common.auth.AuthMemberIdOrNull
 import com.meogo.app.api.common.Page
-import com.meogo.application.client.food.dto.SearchFoodsInput
-import com.meogo.application.client.food.usecase.SearchFoodsUseCase
-import com.meogo.application.client.food.usecase.resolveCursor
+import com.meogo.application.food.dto.SearchFoodsInput
+import com.meogo.application.food.usecase.SearchFoodsUseCase
+import com.meogo.application.food.usecase.resolveCursor
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController

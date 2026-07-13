@@ -1,7 +1,7 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.3.1 → 3.0.0   (개정 2026-07-13)
+Version change: 3.0.0 → 3.0.1   (개정 2026-07-13)
 Bump rationale (MAJOR): 원칙 III·IV 를 **재정의**한다(비호환 재정의 = MAJOR). KB-134 에서 클린아키텍처
   ports & adapters 를 폐기했다 — 도메인 하나를 다루는 데 모델·port·엔티티·리포지토리·어댑터 다섯 조각이
   두 모듈에 흩어지는 비용이, 얻는 것(영속 기술 교체 가능성)보다 크다는 판단이다. `:infra:persistence` 를
@@ -14,6 +14,9 @@ Bump rationale (MAJOR): 원칙 III·IV 를 **재정의**한다(비호환 재정�
 Modified principles:
   III. Layered Dependency Direction — port-only·runtimeOnly 조립 → 도메인 서비스 창구·직접 의존.
   IV. Persistence Encapsulation — ":infra:persistence 에 집결" → "소유 도메인 모듈 안에 internal 로".
+
+3.0.1 (PATCH, 같은 날): :application:client 하위 모듈을 :application 단일 모듈로 평탄화(진입점별
+  분할은 실제 필요 시 재도입) — 원칙 II·III 의 괄호 표기만 동기화, 원칙 본문·의미 불변.
 
 Modified sections:
   II. Bounded Contexts — 모듈 표기(:core:*→:domain:*)·공유 id 값 클래스의 :core 배치 반영(원칙 취지 불변).
@@ -54,7 +57,7 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 deferred placeholder `:domain:review`)로 둔다(ADR-0012). (`research`는 미스 메뉴 조사·종합 파이프라인,
 배치 전용 — ADR-0004. `avoidance`는 회피·주의 성분 카탈로그와 판정을 소유하는 컨텍스트 — 구 `assessment`.)
 
-- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:application:*`(현재 `:application:client`)에서 한다.
+- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:application`에서 한다.
 - 다른 Aggregate·Context의 객체 전체를 직접 들지 않고 **ID·코드·스냅샷 값**으로 참조한다.
   (예: member·food 는 회피·주의 성분을 `avoidance` 의 enum 을 import 하지 않고 코드로 참조한다.)
   여러 컨텍스트가 공유하는 **id 값 클래스**(`FoodId`·`MemberId`)와 vocabulary(`LanguageCode`)는
@@ -65,7 +68,7 @@ Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도�
 
 ### III. Layered Dependency Direction
 
-모듈 의존은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`) → `:application:*` → 도메인 모듈(`:domain:*`)
+모듈 의존은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`) → `:application` → 도메인 모듈(`:domain:*`)
 → `:core`. 두 부트앱은 공유 계층을 직접 의존해 도메인/영속을 재사용한다(ADR-0008·0012).
 
 - `:core`는 도메인 커널로 모두가 의존 가능하다. 애플리케이션 코드는 **Spring-free** 이며, 전 도메인이
@@ -167,4 +170,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 3.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-13
+**Version**: 3.0.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-13

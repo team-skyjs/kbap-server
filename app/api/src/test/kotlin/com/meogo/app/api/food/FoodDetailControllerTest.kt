@@ -2,7 +2,7 @@ package com.meogo.app.api.food
 import com.meogo.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
-import com.meogo.application.client.auth.TokenIssuer
+import com.meogo.application.auth.TokenIssuer
 import com.meogo.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

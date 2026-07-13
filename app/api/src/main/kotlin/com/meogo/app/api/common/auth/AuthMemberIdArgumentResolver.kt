@@ -1,7 +1,7 @@
 package com.meogo.app.api.common.auth
 
-import com.meogo.application.client.auth.AuthErrorCode
-import com.meogo.application.client.auth.AuthException
+import com.meogo.application.auth.AuthErrorCode
+import com.meogo.application.auth.AuthException
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
