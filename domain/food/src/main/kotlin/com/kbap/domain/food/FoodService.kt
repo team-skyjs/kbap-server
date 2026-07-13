@@ -55,7 +55,7 @@ class FoodService(
 
         val orderedSubstances = food.avoidanceSubstancesByProbability()
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()
-        val catalog = findSubstanceCatalog(codes).associateBy { it.code }
+        val catalog = avoidanceCatalogService.findByCodes(codes).associateBy { it.code }
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
@@ -124,9 +124,7 @@ class FoodService(
         return resolved
     }
 
-    fun findSubstanceCatalog(codes: Set<AvoidanceSubstanceCode>) = avoidanceCatalogService.findByCodes(codes)
-
-    fun avoidedCodeNames(memberId: Long?): Set<String> =
+    private fun avoidedCodeNames(memberId: Long?): Set<String> =
         memberService.avoidedCodes(memberId).map { it.name }.toSet()
 
     private fun foodPage(rows: List<Food>, lang: LanguageCode, memberId: Long?): FoodPage {

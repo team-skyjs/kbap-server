@@ -76,7 +76,7 @@ class MemberService(
     fun findActive(memberId: Long): Member? =
         memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
-    fun findByIdentity(identity: SocialIdentity): Member? =
+    private fun findByIdentity(identity: SocialIdentity): Member? =
         memberRepository.findByProviderAndProviderUidAndMemberStatus(
             identity.provider,
             identity.providerUserId,

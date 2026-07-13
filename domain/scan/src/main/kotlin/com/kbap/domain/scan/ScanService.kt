@@ -50,17 +50,13 @@ class ScanService(
         }
 
         recordHistory(input.memberId, items)
-        recordScanCount(input.memberId)
+        memberService.increaseScanCount(input.memberId)
 
         return ScanResult(items = items, degraded = refinement.degraded)
     }
 
     fun recentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
-
-    private fun recordScanCount(memberId: Long) {
-        memberService.increaseScanCount(memberId)
-    }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
@@ -83,12 +79,12 @@ class ScanService(
             if (lookup == null) return@map null
 
             val known = foodsByMatchKey[lookup.matchKey]
-            if (known != null) return@map resolvedFrom(known)
+            if (known != null) return@map ResolvedItem(known)
 
             if (!lookup.confirmedByInterpreter) return@map UNRESOLVED
 
             val registered = registeredFoodsByName[lookup.koreanName] ?: return@map UNRESOLVED
-            resolvedFrom(registered)
+            ResolvedItem(registered)
         }
     }
 
@@ -98,8 +94,6 @@ class ScanService(
             .filter { it.confirmedByInterpreter && it.matchKey !in foodsByMatchKey }
             .map { it.koreanName }
             .toSet()
-
-    private fun resolvedFrom(food: Food): ResolvedItem = ResolvedItem(food)
 
     private fun lookupNameFor(
         matchKey: String,
