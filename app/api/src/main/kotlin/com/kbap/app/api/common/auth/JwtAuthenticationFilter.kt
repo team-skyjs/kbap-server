@@ -4,7 +4,7 @@ import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.app.api.common.BaseResponse
-import com.kbap.application.auth.TokenParser
+import com.kbap.application.auth.token.TokenParser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

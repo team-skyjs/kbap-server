@@ -1,6 +1,6 @@
 package com.kbap.application.member
 
-import com.kbap.application.auth.SocialAccountDeleter
+import com.kbap.application.auth.social.SocialAccountDeleter
 import com.kbap.application.member.dto.MemberProfileInput
 import com.kbap.application.member.dto.MemberRankingResult
 import com.kbap.application.member.dto.MyProfileResult

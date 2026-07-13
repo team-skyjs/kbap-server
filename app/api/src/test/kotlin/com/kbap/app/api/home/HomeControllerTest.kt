@@ -2,7 +2,7 @@ package com.kbap.app.api.home
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.application.auth.TokenIssuer
+import com.kbap.application.auth.token.TokenIssuer
 import com.kbap.domain.member.MemberRole
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec

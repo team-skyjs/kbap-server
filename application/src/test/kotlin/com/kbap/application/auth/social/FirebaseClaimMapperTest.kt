@@ -1,4 +1,4 @@
-package com.kbap.application.auth
+package com.kbap.application.auth.social
 
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException

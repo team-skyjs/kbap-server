@@ -1,4 +1,4 @@
-package com.kbap.application.auth
+package com.kbap.application.auth.social
 
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth

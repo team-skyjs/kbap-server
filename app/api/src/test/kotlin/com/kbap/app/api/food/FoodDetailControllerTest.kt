@@ -2,7 +2,7 @@ package com.kbap.app.api.food
 import com.kbap.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
-import com.kbap.application.auth.TokenIssuer
+import com.kbap.application.auth.token.TokenIssuer
 import com.kbap.domain.member.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

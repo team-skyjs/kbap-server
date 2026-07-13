@@ -1,4 +1,4 @@
-package com.kbap.application.auth
+package com.kbap.application.auth.social
 
 import java.io.File
 import java.util.Base64

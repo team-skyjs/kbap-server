@@ -1,4 +1,4 @@
-package com.kbap.application.auth
+package com.kbap.application.auth.token
 
 import java.time.Duration
 
