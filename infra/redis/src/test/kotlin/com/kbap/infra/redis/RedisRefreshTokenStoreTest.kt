@@ -1,4 +1,4 @@
-package com.kbap.domain.member
+package com.kbap.infra.redis
 
 import com.kbap.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -12,13 +12,13 @@ import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-class RefreshTokenStoreTest : BehaviorSpec({
+class RedisRefreshTokenStoreTest : BehaviorSpec({
 
     val container = GenericContainer(DockerImageName.parse(RedisContainerConfig.REDIS_IMAGE))
         .withExposedPorts(RedisContainerConfig.REDIS_PORT)
 
     lateinit var redisTemplate: StringRedisTemplate
-    lateinit var store: RefreshTokenStore
+    lateinit var store: RedisRefreshTokenStore
 
     beforeSpec {
         container.start()
@@ -30,7 +30,7 @@ class RefreshTokenStoreTest : BehaviorSpec({
         )
         connectionFactory.afterPropertiesSet()
         redisTemplate = StringRedisTemplate(connectionFactory)
-        store = RefreshTokenStore(redisTemplate)
+        store = RedisRefreshTokenStore(redisTemplate)
     }
 
     afterSpec {

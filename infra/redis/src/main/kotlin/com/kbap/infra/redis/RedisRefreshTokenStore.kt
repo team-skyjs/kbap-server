@@ -1,21 +1,22 @@
-package com.kbap.domain.member
+package com.kbap.infra.redis
 
+import com.kbap.application.auth.token.RefreshTokenStore
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import java.time.Duration
 
 @Component
-class RefreshTokenStore(
+class RedisRefreshTokenStore(
     private val redisTemplate: StringRedisTemplate,
-) {
-    fun save(jti: String, memberId: Long, ttl: Duration) {
+) : RefreshTokenStore {
+    override fun save(jti: String, memberId: Long, ttl: Duration) {
         redisTemplate.opsForValue().set(key(jti), memberId.toString(), ttl)
     }
 
-    fun consume(jti: String): Long? =
+    override fun consume(jti: String): Long? =
         redisTemplate.opsForValue().getAndDelete(key(jti))?.toLongOrNull()
 
-    fun delete(jti: String) {
+    override fun delete(jti: String) {
         redisTemplate.delete(key(jti))
     }
 

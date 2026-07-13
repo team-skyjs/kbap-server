@@ -10,7 +10,7 @@ import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberService
 import com.kbap.domain.member.MemberRole
-import com.kbap.domain.member.RefreshTokenStore
+import com.kbap.application.auth.token.RefreshTokenStore
 import org.springframework.stereotype.Service
 
 @Service

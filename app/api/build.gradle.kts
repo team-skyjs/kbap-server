@@ -13,6 +13,9 @@ dependencies {
     // 인증 구현 어댑터 — config/AuthConfig 가 Firebase 팩토리를 직접 조립하므로 compile 의존.
     "implementation"(project(":infra:auth"))
 
+    // Redis 어댑터(RefreshTokenStore 구현) — 런타임 조립.
+    "runtimeOnly"(project(":infra:redis"))
+
     // 컨트롤러가 도메인 서비스를 직접 호출한다(도메인 간 단방향 의존 구조 전환).
     "implementation"(project(":domain:member"))
     "implementation"(project(":domain:food"))
