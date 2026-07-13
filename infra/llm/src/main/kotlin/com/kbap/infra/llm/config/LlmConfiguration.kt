@@ -1,7 +1,7 @@
 package com.kbap.infra.llm.config
 
 import com.google.genai.Client
-import com.kbap.domain.scan.ScannedNameInterpreter
+import com.kbap.core.scan.ScannedNameInterpreter
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.menu.ScannedNameParser

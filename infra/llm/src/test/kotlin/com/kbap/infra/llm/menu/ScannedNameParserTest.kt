@@ -1,7 +1,7 @@
 package com.kbap.infra.llm.menu
 
 import com.kbap.core.menu.KoreanMenuNameNormalizer
-import com.kbap.domain.scan.InterpretedName
+import com.kbap.core.scan.InterpretedName
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

@@ -1,6 +1,6 @@
 package com.kbap.infra.llm.menu
 
-import com.kbap.domain.scan.InterpretedName
+import com.kbap.core.scan.InterpretedName
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 import com.kbap.infra.llm.model.LlmModelId

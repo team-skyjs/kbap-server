@@ -2,7 +2,7 @@ package com.kbap.application.scan
 
 import com.kbap.core.id.FoodId
 import com.kbap.core.id.MemberId
-import com.kbap.application.food.AvoidedSubstanceProvider
+import com.kbap.application.member.AvoidedSubstanceProvider
 import com.kbap.application.scan.dto.ScanInput
 import com.kbap.application.scan.dto.ScanResult
 import com.kbap.domain.food.Food
@@ -10,8 +10,8 @@ import com.kbap.application.food.FoodService
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
-import com.kbap.domain.scan.InterpretedName
-import com.kbap.domain.scan.ScannedNameInterpreter
+import com.kbap.core.scan.InterpretedName
+import com.kbap.core.scan.ScannedNameInterpreter
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.KbapException
 import com.kbap.domain.member.MemberJpaRepository

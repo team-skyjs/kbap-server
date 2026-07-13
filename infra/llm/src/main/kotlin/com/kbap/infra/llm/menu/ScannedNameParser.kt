@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.core.menu.KoreanMenuNameNormalizer
-import com.kbap.domain.scan.InterpretedName
+import com.kbap.core.scan.InterpretedName
 
 class ScannedNameParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 

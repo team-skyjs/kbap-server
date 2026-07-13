@@ -1,7 +1,7 @@
 package com.kbap.app.api.scan
 
-import com.kbap.domain.scan.InterpretedName
-import com.kbap.domain.scan.ScannedNameInterpreter
+import com.kbap.core.scan.InterpretedName
+import com.kbap.core.scan.ScannedNameInterpreter
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

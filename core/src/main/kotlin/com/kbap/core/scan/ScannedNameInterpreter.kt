@@ -1,4 +1,4 @@
-package com.kbap.domain.scan
+package com.kbap.core.scan
 
 sealed interface InterpretedName {
     data class StandardName(val korean: String) : InterpretedName {

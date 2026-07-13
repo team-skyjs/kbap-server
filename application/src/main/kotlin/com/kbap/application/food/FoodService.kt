@@ -1,5 +1,6 @@
 package com.kbap.application.food
 
+import com.kbap.application.member.AvoidedSubstanceProvider
 import com.kbap.application.food.dto.BrowseFoodsInput
 import com.kbap.application.food.dto.FoodPage
 import com.kbap.application.food.dto.FoodSummaryView
