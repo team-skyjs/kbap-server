@@ -61,7 +61,7 @@ class Food(
     @OneToMany(fetch = FetchType.EAGER, cascade = [])
     @JoinColumn(name = "food_id", insertable = false, updatable = false)
     @BatchSize(size = 100)
-    var avoidanceSubstances: List<FoodAvoidanceSubstance> = emptyList(),
+    var avoidanceSubstances: MutableList<FoodAvoidanceSubstance> = mutableListOf(),
 ) : BaseEntity() {
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 

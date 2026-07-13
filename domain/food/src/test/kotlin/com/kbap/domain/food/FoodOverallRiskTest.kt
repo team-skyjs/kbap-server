@@ -10,7 +10,7 @@ class FoodOverallRiskTest : BehaviorSpec({
         description = "구수한 된장찌개",
         imageRef = "doenjang.png",
         spiciness = 3,
-        avoidanceSubstances = listOf(
+        avoidanceSubstances = mutableListOf(
             FoodAvoidanceSubstance(substanceCode = "SOY", inclusionPercent = 100),
             FoodAvoidanceSubstance(substanceCode = "WHEAT", inclusionPercent = 80),
             FoodAvoidanceSubstance(substanceCode = "CLAM", inclusionPercent = 50),
@@ -52,7 +52,7 @@ class FoodOverallRiskTest : BehaviorSpec({
                     koreanName = "흰밥",
                     description = "흰밥은 쌀로 지은 밥이다.",
                     spiciness = 0,
-                    avoidanceSubstances = emptyList(),
+                    avoidanceSubstances = mutableListOf(),
                 )
 
                 plainRice.overallRisk(setOf("SOY", "WHEAT", "CLAM")) shouldBe RiskLevel.SAFE

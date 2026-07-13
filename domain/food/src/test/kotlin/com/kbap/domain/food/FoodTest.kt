@@ -17,7 +17,7 @@ class FoodTest : BehaviorSpec({
         spiciness: Int = 3,
         nameTranslations: Map<String, String> = emptyMap(),
         descriptionTranslations: Map<String, String> = emptyMap(),
-        avoidanceSubstances: List<FoodAvoidanceSubstance> = listOf(substance("SOYBEAN", 100)),
+        avoidanceSubstances: MutableList<FoodAvoidanceSubstance> = mutableListOf(substance("SOYBEAN", 100)),
     ) = Food(
         koreanName = koreanName,
         description = description,
@@ -83,7 +83,7 @@ class FoodTest : BehaviorSpec({
         `when`("포함 성분이 포함 확률 내림차순이 아닌 순서로 담겨 있으면") {
             then("포함 확률 내림차순으로 정렬된 성분을 반환한다") {
                 val food = create(
-                    avoidanceSubstances = listOf(
+                    avoidanceSubstances = mutableListOf(
                         substance("TOFU", 90),
                         substance("SOYBEAN", 100),
                         substance("CLAM", 50),
@@ -97,7 +97,7 @@ class FoodTest : BehaviorSpec({
 
         `when`("포함하는 기피 성분이 하나도 없으면") {
             then("빈 목록을 반환하고 음식은 유효하다") {
-                val food = create(avoidanceSubstances = emptyList())
+                val food = create(avoidanceSubstances = mutableListOf())
 
                 food.avoidanceSubstancesByProbability() shouldBe emptyList()
                 food.koreanName() shouldBe "된장찌개"
