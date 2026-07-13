@@ -12,13 +12,13 @@ import com.meogo.domain.member.Member
 import com.meogo.domain.member.MemberErrorCode
 import com.meogo.domain.member.MemberException
 import com.meogo.domain.member.MemberProfile
-import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class MemberProfileUseCase(
-    private val memberRepository: MemberRepository,
+    private val memberService: MemberService,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
@@ -32,7 +32,7 @@ class MemberProfileUseCase(
             appLanguage = validatedLanguage(input.appLanguage),
         )
 
-        memberRepository.update(member.updateProfile(profile).completeOnboarding())
+        memberService.update(member.updateProfile(profile).completeOnboarding())
     }
 
     @Transactional
@@ -49,7 +49,7 @@ class MemberProfileUseCase(
             appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
         )
 
-        memberRepository.update(member.updateProfile(merged))
+        memberService.update(member.updateProfile(merged))
     }
 
     @Transactional(readOnly = true)
@@ -59,7 +59,7 @@ class MemberProfileUseCase(
     }
 
     private fun findMember(memberId: Long): Member =
-        memberRepository.findById(memberId)
+        memberService.findById(memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 
     private fun validatedNickname(raw: String): String =

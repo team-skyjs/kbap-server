@@ -3,7 +3,7 @@ package com.meogo.application.client.auth
 import com.meogo.domain.member.Member
 import com.meogo.domain.member.MemberErrorCode
 import com.meogo.domain.member.MemberException
-import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberService
 import com.meogo.domain.member.MemberRole
 import com.meogo.domain.member.RefreshTokenStore
 import com.meogo.domain.member.SocialIdentity
@@ -19,7 +19,7 @@ data class LoginResult(
 @Service
 class LoginUseCase(
     private val socialTokenVerifier: SocialTokenVerifier,
-    private val memberRepository: MemberRepository,
+    private val memberService: MemberService,
     private val tokenIssuer: TokenIssuer,
     private val refreshTokenStore: RefreshTokenStore,
     private val properties: AuthTokenProperties,
@@ -41,15 +41,15 @@ class LoginUseCase(
     }
 
     private fun resolveMember(identity: SocialIdentity): Pair<Member, Boolean> {
-        memberRepository.findByIdentity(identity.provider, identity.providerUserId)?.let {
+        memberService.findByIdentity(identity.provider, identity.providerUserId)?.let {
             return it to false
         }
 
         return try {
-            memberRepository.saveNew(Member.signUp(identity)) to true
+            memberService.saveNew(Member.signUp(identity)) to true
         } catch (e: MemberException) {
             if (e.errorCode != MemberErrorCode.DUPLICATE_SOCIAL_IDENTITY) throw e
-            val existing = memberRepository.findByIdentity(identity.provider, identity.providerUserId)
+            val existing = memberService.findByIdentity(identity.provider, identity.providerUserId)
                 ?: throw e
             existing to false
         }

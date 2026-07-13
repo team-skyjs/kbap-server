@@ -19,8 +19,8 @@ dependencyResolutionManagement {
 rootProject.name = "meogo-server"
 
 include(
-    // ── 공유 코어 (도메인 커널 + 컨텍스트, ORM-free) ──
-    ":core",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
+    // ── 공유 코어 + 도메인 컨텍스트 (영속 포함 — ADR-0012) ──
+    ":core",       // 도메인 공유 커널 — 공통타입·외부 client seam·stereotype·영속 공통(BaseEntity)
     ":domain:food",
     ":domain:member",
     ":domain:avoidance",
@@ -32,7 +32,6 @@ include(
     ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)
 
     // ── 인프라(driven 어댑터) ──
-    ":infra:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 port 구현
     ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존
 
     // ── 부트앱 진입점 ──

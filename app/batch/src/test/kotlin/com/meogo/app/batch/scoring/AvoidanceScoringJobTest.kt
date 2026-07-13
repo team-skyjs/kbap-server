@@ -5,10 +5,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.meogo.domain.avoidance.AvoidanceSubstance
 import com.meogo.domain.avoidance.AvoidanceSubstanceCode
-import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
 import com.meogo.domain.food.Food
 import com.meogo.domain.food.FoodContent
-import com.meogo.domain.food.FoodScoringSource
 import com.meogo.domain.food.FoodSpiciness
 import com.meogo.core.lang.LocalizedText
 import com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator
@@ -44,7 +42,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, coveringJson(*allNames), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, coveringJson(*allNames), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -69,7 +67,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -91,7 +89,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("비빔밥"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("비빔밥"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -115,7 +113,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             FailingCaller(LlmModelId.UPSTAGE, "upstage down"),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥", "된장국"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -150,7 +148,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             FailingCaller(LlmModelId.UPSTAGE, "upstage down"),
             FailingCaller(LlmModelId.GEMINI, "gemini down"),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -175,7 +173,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("떡볶이", "순대", "튀김"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("떡볶이", "순대", "튀김"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -194,7 +192,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("잡채"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("잡채"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -213,7 +211,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("비빔국수"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, "이건 JSON 이 아니다", AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -246,7 +244,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("김밥", "잔치국수"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥", "잔치국수"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         val appender = ListAppender<ILoggingEvent>().apply { start() }
         val jobLogger = LoggerFactory.getLogger(AvoidanceScoringJob::class.java) as Logger
@@ -279,7 +277,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, EMPTY_RESULTS_JSON, AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, EMPTY_RESULTS_JSON, AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             then("IllegalStateException 을 던져 즉시 중단한다") {
@@ -300,7 +298,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
         val upstage = CapturingJsonCaller(LlmModelId.UPSTAGE, scoredJson("김밥"))
         val gemini = CapturingJsonCaller(LlmModelId.GEMINI, scoredJson("김밥"))
         val job = job(
-            source,
+            source::nextChunk,
             LlmFanoutClient(listOf(openai, upstage, gemini), executor),
             repositoryOf(egg(), milk(), wheat()),
             chunkSize = 10,
@@ -328,7 +326,7 @@ class AvoidanceScoringJobTest : BehaviorSpec({
             CountingJsonCaller(LlmModelId.UPSTAGE, scoredJson("된장국"), AtomicInteger()),
             CountingJsonCaller(LlmModelId.GEMINI, scoredJson("된장국"), AtomicInteger()),
         )
-        val job = job(source, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
+        val job = job(source::nextChunk, LlmFanoutClient(callers, executor), repositoryOf(egg(), milk(), wheat()), chunkSize = 10)
 
         `when`("잡을 실행하면") {
             val results = job.run()
@@ -379,37 +377,37 @@ private fun milk(): AvoidanceSubstance =
 private fun wheat(): AvoidanceSubstance =
     AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
 
-private fun repositoryOf(vararg substances: AvoidanceSubstance): AvoidanceSubstanceRepository =
+private fun repositoryOf(vararg substances: AvoidanceSubstance): FakeAvoidanceSubstanceRepository =
     FakeAvoidanceSubstanceRepository(substances.toList())
 
 private fun job(
-    source: FoodScoringSource,
+    source: (Int, Int) -> List<Food>,
     client: LlmFanoutClient,
-    repository: AvoidanceSubstanceRepository,
+    repository: FakeAvoidanceSubstanceRepository,
     chunkSize: Int,
 ): AvoidanceScoringJob =
     AvoidanceScoringJob(
-        foodScoringSource = source,
+        nextChunk = source,
         llmFanoutClient = client,
-        avoidanceSubstanceRepository = repository,
+        findSubstances = repository::findByCodes,
         promptFactory = ScoringPromptFactory(),
         responseParser = ScoringResponseParser(),
         aggregator = ConsensusEnsembleAggregator(),
         chunkSize = chunkSize,
     )
 
-private class FakeFoodScoringSource(private val foods: List<Food>) : FoodScoringSource {
-    override fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
+private class FakeFoodScoringSource(private val foods: List<Food>) {
+    fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
 }
 
-private class NonAdvancingFoodScoringSource(private val foods: List<Food>) : FoodScoringSource {
-    override fun nextChunk(page: Int, size: Int): List<Food> = foods.take(size)
+private class NonAdvancingFoodScoringSource(private val foods: List<Food>) {
+    fun nextChunk(page: Int, size: Int): List<Food> = foods.take(size)
 }
 
 private class FakeAvoidanceSubstanceRepository(
     private val substances: List<AvoidanceSubstance>,
-) : AvoidanceSubstanceRepository {
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
+) {
+    fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
 }
 
 private class CountingJsonCaller(

@@ -1,10 +1,5 @@
 package com.meogo.app.batch.scoring
 
-import com.meogo.domain.avoidance.AvoidanceSubstance
-import com.meogo.domain.avoidance.AvoidanceSubstanceCode
-import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
-import com.meogo.domain.food.Food
-import com.meogo.domain.food.FoodScoringSource
 import com.meogo.infra.llm.client.LlmFanoutClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -15,12 +10,10 @@ import java.util.function.Supplier
 class ScoringJobConfigGatingTest : BehaviorSpec({
 
     val contextRunner = ApplicationContextRunner()
-        .withBean(FoodScoringSource::class.java, Supplier { emptyFoodScoringSource() })
-        .withBean(LlmFanoutClient::class.java, Supplier { emptyLlmFanoutClient() })
-        .withBean(AvoidanceSubstanceRepository::class.java, Supplier { emptyAvoidanceSubstanceRepository() })
-        .withUserConfiguration(ScoringJobConfig::class.java)
+        .withBean(AvoidanceScoringJob::class.java, Supplier { stubJob() })
+        .withUserConfiguration(ScoringRunnerConfig::class.java)
 
-    given("ScoringJobConfig 와 잡 협력자 스텁 빈으로 구성한 배치 컨텍스트") {
+    given("스텁 AvoidanceScoringJob 빈과 ScoringRunnerConfig 로 구성한 배치 컨텍스트") {
         `when`("meogo.scoring.runner.enabled 프로퍼티를 설정하지 않고 컨텍스트를 올리면") {
             then("ScoringJobRunner 빈이 등록되지 않는다(부팅 시 잡 미자동실행)") {
                 contextRunner.run { context ->
@@ -51,15 +44,13 @@ class ScoringJobConfigGatingTest : BehaviorSpec({
     }
 })
 
-private fun emptyFoodScoringSource(): FoodScoringSource =
-    object : FoodScoringSource {
-        override fun nextChunk(page: Int, size: Int): List<Food> = emptyList()
-    }
-
-private fun emptyLlmFanoutClient(): LlmFanoutClient =
-    LlmFanoutClient(emptyList(), Executors.newVirtualThreadPerTaskExecutor())
-
-private fun emptyAvoidanceSubstanceRepository(): AvoidanceSubstanceRepository =
-    object : AvoidanceSubstanceRepository {
-        override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = emptyList()
-    }
+private fun stubJob(): AvoidanceScoringJob =
+    AvoidanceScoringJob(
+        nextChunk = { _, _ -> emptyList() },
+        llmFanoutClient = LlmFanoutClient(emptyList(), Executors.newVirtualThreadPerTaskExecutor()),
+        findSubstances = { emptyList() },
+        promptFactory = com.meogo.domain.research.prompt.ScoringPromptFactory(),
+        responseParser = com.meogo.domain.research.parse.ScoringResponseParser(),
+        aggregator = com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator(),
+        chunkSize = 10,
+    )

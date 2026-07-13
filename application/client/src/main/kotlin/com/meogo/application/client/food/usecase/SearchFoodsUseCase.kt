@@ -4,13 +4,13 @@ import com.meogo.application.client.food.dto.FoodPage
 import com.meogo.application.client.food.dto.FoodSummaryView
 import com.meogo.application.client.food.dto.SearchFoodsInput
 import com.meogo.domain.food.AvoidanceSubstanceCodeRef
-import com.meogo.domain.food.FoodRepository
+import com.meogo.domain.food.FoodService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class SearchFoodsUseCase(
-    private val foodRepository: FoodRepository,
+    private val foodService: FoodService,
     private val languageResolver: LanguageResolver,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
 ) {
@@ -19,7 +19,7 @@ class SearchFoodsUseCase(
         val keyword = resolveKeyword(input.keyword)
         val lang = languageResolver.resolve(input.lang)
 
-        val rows = foodRepository.searchFoodPage(keyword, lang, input.cursor, PAGE_SIZE + 1)
+        val rows = foodService.searchFoodPage(keyword, lang, input.cursor, PAGE_SIZE + 1)
         val hasNext = rows.size > PAGE_SIZE
         val items = rows.take(PAGE_SIZE)
         val nextCursor = if (hasNext) items.last().id else null

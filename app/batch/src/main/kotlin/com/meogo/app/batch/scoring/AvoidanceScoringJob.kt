@@ -1,9 +1,8 @@
 package com.meogo.app.batch.scoring
 
+import com.meogo.domain.avoidance.AvoidanceSubstance
 import com.meogo.domain.avoidance.AvoidanceSubstanceCode
-import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
 import com.meogo.domain.food.Food
-import com.meogo.domain.food.FoodScoringSource
 import com.meogo.core.lang.LanguageCode
 import com.meogo.domain.research.input.CandidateSubstance
 import com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator
@@ -20,9 +19,9 @@ import com.meogo.infra.llm.model.LlmModelId
 import org.slf4j.LoggerFactory
 
 class AvoidanceScoringJob(
-    private val foodScoringSource: FoodScoringSource,
+    private val nextChunk: (page: Int, size: Int) -> List<Food>,
     private val llmFanoutClient: LlmFanoutClient,
-    private val avoidanceSubstanceRepository: AvoidanceSubstanceRepository,
+    private val findSubstances: (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance>,
     private val promptFactory: ScoringPromptFactory,
     private val responseParser: ScoringResponseParser,
     private val aggregator: ConsensusEnsembleAggregator,
@@ -37,7 +36,7 @@ class AvoidanceScoringJob(
         val seen = mutableSetOf<Long>()
         var page = 0
         while (true) {
-            val chunk = foodScoringSource.nextChunk(page, chunkSize)
+            val chunk = nextChunk(page, chunkSize)
             if (chunk.isEmpty()) {
                 break
             }
@@ -52,8 +51,7 @@ class AvoidanceScoringJob(
     }
 
     private fun loadCandidates(): List<CandidateSubstance> =
-        avoidanceSubstanceRepository
-            .findByCodes(AvoidanceSubstanceCode.entries.toSet())
+        findSubstances(AvoidanceSubstanceCode.entries.toSet())
             .map { CandidateSubstance(code = it.code.name, koreanLabel = it.displayName(LanguageCode.KO)) }
 
     private fun scoreChunk(

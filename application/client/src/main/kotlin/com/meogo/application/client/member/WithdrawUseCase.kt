@@ -5,25 +5,25 @@ import com.meogo.application.client.auth.AuthException
 import com.meogo.application.client.auth.SocialAccountDeleter
 import com.meogo.domain.member.MemberErrorCode
 import com.meogo.domain.member.MemberException
-import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberService
 import com.meogo.domain.member.SocialIdentity
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
 class WithdrawUseCase(
-    private val memberRepository: MemberRepository,
+    private val memberService: MemberService,
     private val socialAccountDeleter: SocialAccountDeleter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun withdraw(memberId: Long) {
-        val member = memberRepository.findById(memberId)
+        val member = memberService.findById(memberId)
             ?: throw MemberException(MemberErrorCode.MEMBER_NOT_FOUND)
 
         deleteSocialAccount(memberId, member.identity)
 
-        memberRepository.withdraw(memberId)
+        memberService.withdraw(memberId)
     }
 
     private fun deleteSocialAccount(memberId: Long, identity: SocialIdentity) {

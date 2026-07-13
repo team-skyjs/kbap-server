@@ -5,26 +5,26 @@ import com.meogo.application.client.scan.dto.ScanInput
 import com.meogo.application.client.scan.dto.ScanResult
 import com.meogo.domain.food.AvoidanceSubstanceCodeRef
 import com.meogo.domain.food.Food
-import com.meogo.domain.food.FoodRepository
+import com.meogo.domain.food.FoodService
 import com.meogo.core.lang.LanguageCode
 import com.meogo.core.menu.KoreanMenuNameNormalizer
 import com.meogo.core.risk.RiskLevel
 import com.meogo.domain.scan.InterpretedName
 import com.meogo.domain.scan.ScannedNameInterpreter
-import com.meogo.domain.member.MemberRepository
+import com.meogo.domain.member.MemberService
 import com.meogo.domain.scan.ScanHistory
-import com.meogo.domain.scan.ScanHistoryRepository
+import com.meogo.domain.scan.ScanHistoryService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ScanUseCase(
-    private val foodRepository: FoodRepository,
+    private val foodService: FoodService,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val interpreter: ScannedNameInterpreter,
-    private val scanHistoryRepository: ScanHistoryRepository,
-    private val memberRepository: MemberRepository,
+    private val scanHistoryService: ScanHistoryService,
+    private val memberService: MemberService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -59,13 +59,13 @@ class ScanUseCase(
     }
 
     private fun recordScanCount(memberId: Long) {
-        memberRepository.increaseScanCount(memberId)
+        memberService.increaseScanCount(memberId)
     }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
         if (readyFoodIds.isEmpty()) return
-        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
+        scanHistoryService.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
     }
 
     private fun resolveFoods(
@@ -76,8 +76,8 @@ class ScanUseCase(
         val lookups = input.items.indices.map { index ->
             lookupNameFor(matchKeys[index], input.items[index].rawMenuName, refinedNames, index)
         }
-        val foodsByMatchKey = foodRepository.findByKoreanMatchKeys(lookups.filterNotNull().map { it.matchKey }.toSet())
-        val registeredFoodsByName = foodRepository.createIncomplete(unregisteredFoodNames(lookups, foodsByMatchKey))
+        val foodsByMatchKey = foodService.findByKoreanMatchKeys(lookups.filterNotNull().map { it.matchKey }.toSet())
+        val registeredFoodsByName = foodService.createIncomplete(unregisteredFoodNames(lookups, foodsByMatchKey))
 
         return lookups.map { lookup ->
             if (lookup == null) return@map null

@@ -8,9 +8,8 @@ dependencies {
     "implementation"(project(":core"))
     "implementation"(project(":common"))
 
-    // 조립: adapter 빈을 런타임 클래스패스에만 올려 DI 로 연결한다(컴파일 의존 X).
-    "runtimeOnly"(project(":infra:persistence"))
     // 스캔 메뉴명 정제 LLM 어댑터(ScannedNameInterpreter). @ConditionalOnProperty 로 미구성 시 빈 미생성.
+    // 도메인 모듈(영속 포함)은 :application:client 를 통해 런타임 전이된다(ADR-0012 — runtimeOnly 조립 소멸).
     "runtimeOnly"(project(":infra:llm"))
 
     "implementation"(libs.spring.boot.starter.web)
@@ -33,7 +32,7 @@ dependencies {
     "testImplementation"(libs.spring.boot.webmvc.test)
 
     // ArchUnit 모듈 경계 테스트(ADR-0008). app:api 는 조립 모듈이라 런타임에 전 모듈 클래스를
-    // 이미 보므로(application:client 전이 + infra:persistence runtimeOnly) com.meogo 전체를 스캔할 수 있다.
+    // 이미 보므로(application:client 가 도메인 모듈을 런타임 전이) com.meogo 전체를 스캔할 수 있다.
     "testImplementation"(libs.archunit)
 
     // avoidance 회귀 테스트가 :domain:avoidance 를 직접 참조한다: 코드↔V5 시드 정합(AvoidanceCatalogSeedSyncTest)이

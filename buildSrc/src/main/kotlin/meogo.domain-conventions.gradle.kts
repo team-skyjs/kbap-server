@@ -29,6 +29,7 @@ dependencies {
     "api"(project(":core"))
     "implementation"(libs.findLibrary("spring-boot-starter-data-jpa").get())
     "implementation"(libs.findLibrary("kotlin-reflect").get())
+    "implementation"(libs.findLibrary("jackson-module-kotlin").get())
     "runtimeOnly"(libs.findLibrary("mysql-connector").get())
 
     "testImplementation"(libs.findLibrary("spring-boot-starter-test").get())

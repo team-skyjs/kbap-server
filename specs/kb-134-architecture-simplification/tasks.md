@@ -65,21 +65,21 @@
 
 ### Tests for User Story 1 (Test-First — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T010 [P] [US1] `domain/member/src/test/kotlin/com/meogo/domain/member/MemberServiceTest.kt` + `RefreshTokenStoreTest.kt` + TestApp 작성 — 구 어댑터 테스트 시나리오(프로필 왕복·scan_count 영속·소프트삭제·토큰 TTL) 승계, MemberService 미존재로 Red
-- [ ] T011 [P] [US1] `domain/food/src/test/kotlin/com/meogo/domain/food/FoodServiceTest.kt` + TestApp 작성 — 구 FoodRepositoryAdapterTest·FoodScoringSourceAdapterTest 시나리오(조회·검색 커서·match key·스코어링 소스) 승계, Red
-- [ ] T012 [P] [US1] `domain/avoidance/src/test/kotlin/com/meogo/domain/avoidance/AvoidanceSubstanceServiceTest.kt` + TestApp 작성 — 카탈로그 조회·소프트삭제 스킵 시나리오 승계, Red
-- [ ] T013 [P] [US1] `domain/scan/src/test/kotlin/com/meogo/domain/scan/ScanHistoryServiceTest.kt` + TestApp 작성 — 이력 기록·최근 10건 조회 시나리오 승계, Red
+- [X] T010 [P] [US1] `domain/member/src/test/kotlin/com/meogo/domain/member/MemberServiceTest.kt` + `RefreshTokenStoreTest.kt` + TestApp 작성 — 구 어댑터 테스트 시나리오(프로필 왕복·scan_count 영속·소프트삭제·토큰 TTL) 승계, MemberService 미존재로 Red
+- [X] T011 [P] [US1] `domain/food/src/test/kotlin/com/meogo/domain/food/FoodServiceTest.kt` + TestApp 작성 — 구 FoodRepositoryAdapterTest·FoodScoringSourceAdapterTest 시나리오(조회·검색 커서·match key·스코어링 소스) 승계, Red
+- [X] T012 [P] [US1] `domain/avoidance/src/test/kotlin/com/meogo/domain/avoidance/AvoidanceSubstanceServiceTest.kt` + TestApp 작성 — 카탈로그 조회·소프트삭제 스킵 시나리오 승계, Red
+- [X] T013 [P] [US1] `domain/scan/src/test/kotlin/com/meogo/domain/scan/ScanHistoryServiceTest.kt` + TestApp 작성 — 이력 기록·최근 10건 조회 시나리오 승계, Red
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] member 이식 — 엔티티·리포지토리·MemberStatus·MemberProfileJson 을 `domain/member/src/main/kotlin/com/meogo/domain/member/` 로 이동(**internal**), `MemberService`(public, 구 어댑터 로직 흡수) 신설, `RefreshTokenRedisAdapter` → public 구체 클래스 `RefreshTokenStore` 로 전환, `MemberRepository`·`RefreshTokenStore` port 삭제, `domain/member/build.gradle.kts` 에 `implementation(data-redis)` 추가 → T010 Green
-- [ ] T015 [P] [US1] food 이식 — FoodJpaEntity·FoodJpaRepository·FoodAvoidanceSubstanceJpaEntity 를 `domain/food/src/main/kotlin/com/meogo/domain/food/` 로 이동(**internal**, 연관관계는 이 단계에선 현행 유지 — US3 에서 제거), `FoodService`(조회·검색·스코어링 소스 메서드) 신설, `FoodRepository`·`FoodScoringSource` port 삭제 → T011 Green
-- [ ] T016 [P] [US1] avoidance 이식 — 엔티티·리포지토리·Reconstitutor 이동(**internal**), `AvoidanceSubstanceService` 신설, `AvoidanceSubstanceRepository` port 삭제 → T012 Green
-- [ ] T017 [P] [US1] scan 이식 — 엔티티·리포지토리 이동(**internal**), `ScanHistoryService` 신설, `ScanHistoryRepository` port 삭제 → T013 Green
-- [ ] T018 [US1] application:client 전환 — 전 유스케이스(auth·member·food·home·scan)의 port 주입을 도메인 서비스 주입으로 교체 (`application/client/src/main/kotlin/com/meogo/application/client/**`) — 유스케이스 public 시그니처(Input/Result)는 무변경, `@Transactional` 경계 유지 (HomeQueryUseCase 등 여러 도메인 서비스 조합 파일이 있어 T014~T017 완료 후 순차 1회로 처리)
-- [ ] T019 [US1] app:batch 전환 — `AvoidanceScoringJob` 등이 `FoodService`·`AvoidanceSubstanceService` 를 직접 주입하도록 수정(`app/batch/src/main/kotlin/com/meogo/app/batch/scoring/`), `app/batch/build.gradle.kts` 의존을 `:domain:*` 로 갱신
-- [ ] T020 [US1] `:infra:persistence` 모듈 삭제 — 잔여 파일 0 확인 후 디렉터리 삭제, `settings.gradle.kts` 에서 include 제거, `app/api/build.gradle.kts`·`app/batch/build.gradle.kts` 의 `runtimeOnly(:infra:persistence)`·testFixtures 참조 제거
-- [ ] T021 [US1] 부팅·전체 검증 — `./gradlew build -Dkotest.tags="!arch"` green(api·batch `@SpringBootTest` 부팅·컨트롤러 테스트 포함 — 도메인 서비스 빈 조립 확인), 커밋
+- [X] T014 [P] [US1] member 이식 — 엔티티·리포지토리·MemberStatus·MemberProfileJson 을 `domain/member/src/main/kotlin/com/meogo/domain/member/` 로 이동(**internal**), `MemberService`(public, 구 어댑터 로직 흡수) 신설, `RefreshTokenRedisAdapter` → public 구체 클래스 `RefreshTokenStore` 로 전환, `MemberRepository`·`RefreshTokenStore` port 삭제, `domain/member/build.gradle.kts` 에 `implementation(data-redis)` 추가 → T010 Green
+- [X] T015 [P] [US1] food 이식 — FoodJpaEntity·FoodJpaRepository·FoodAvoidanceSubstanceJpaEntity 를 `domain/food/src/main/kotlin/com/meogo/domain/food/` 로 이동(**internal**, 연관관계는 이 단계에선 현행 유지 — US3 에서 제거), `FoodService`(조회·검색·스코어링 소스 메서드) 신설, `FoodRepository`·`FoodScoringSource` port 삭제 → T011 Green
+- [X] T016 [P] [US1] avoidance 이식 — 엔티티·리포지토리·Reconstitutor 이동(**internal**), `AvoidanceSubstanceService` 신설, `AvoidanceSubstanceRepository` port 삭제 → T012 Green
+- [X] T017 [P] [US1] scan 이식 — 엔티티·리포지토리 이동(**internal**), `ScanHistoryService` 신설, `ScanHistoryRepository` port 삭제 → T013 Green
+- [X] T018 [US1] application:client 전환 — 전 유스케이스(auth·member·food·home·scan)의 port 주입을 도메인 서비스 주입으로 교체 (`application/client/src/main/kotlin/com/meogo/application/client/**`) — 유스케이스 public 시그니처(Input/Result)는 무변경, `@Transactional` 경계 유지 (HomeQueryUseCase 등 여러 도메인 서비스 조합 파일이 있어 T014~T017 완료 후 순차 1회로 처리)
+- [X] T019 [US1] app:batch 전환 — `ScoringJobConfig` 가 `FoodService`·`AvoidanceSubstanceService` 를 주입해 잡에 배선. 구현 편차: `AvoidanceScoringJob` 은 서비스 직접 의존 대신 **람다 협력자**(`nextChunk`·`findSubstances` — 잡 소유 파라미터, port 아님)를 받아 기존 배치 단위 테스트 시나리오 전부를 페이크→람다로 보존(무거운 batch Testcontainers 통합 불필요). runner 게이팅은 `ScoringRunnerConfig` 로 분리해 게이팅 테스트가 스텁 잡으로 검증
+- [X] T020 [US1] `:infra:persistence` 모듈 삭제 — 잔여 파일 0 확인 후 디렉터리 삭제, `settings.gradle.kts` 에서 include 제거, `app/api/build.gradle.kts`·`app/batch/build.gradle.kts` 의 `runtimeOnly(:infra:persistence)`·testFixtures 참조 제거
+- [X] T021 [US1] 부팅·전체 검증 — `./gradlew build -Dkotest.tags="!arch"` green(api·batch `@SpringBootTest` 부팅·컨트롤러 테스트 포함 — 도메인 서비스 빈 조립 확인), 커밋
 
 **Checkpoint**: US1 AC 충족 — persistence·port·어댑터 0건, 도메인 모듈 자족. ArchUnit 은 연관관계 규칙만 Red 로 남음
 

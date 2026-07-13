@@ -5,10 +5,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.meogo.domain.avoidance.AvoidanceSubstance
 import com.meogo.domain.avoidance.AvoidanceSubstanceCode
-import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
 import com.meogo.domain.food.Food
 import com.meogo.domain.food.FoodContent
-import com.meogo.domain.food.FoodScoringSource
 import com.meogo.domain.food.FoodSpiciness
 import com.meogo.core.lang.LocalizedText
 import com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator
@@ -39,9 +37,9 @@ class ScoringJobRunnerTest : BehaviorSpec({
             RunnerJsonCaller(LlmModelId.GEMINI, runnerScoredJson("비빔밥")),
         )
         val job = AvoidanceScoringJob(
-            foodScoringSource = source,
+            nextChunk = source::nextChunk,
             llmFanoutClient = LlmFanoutClient(callers, executor),
-            avoidanceSubstanceRepository = runnerRepositoryOf(runnerEgg(), runnerMilk(), runnerWheat()),
+            findSubstances = runnerRepositoryOf(runnerEgg(), runnerMilk(), runnerWheat()),
             promptFactory = ScoringPromptFactory(),
             responseParser = ScoringResponseParser(),
             aggregator = ConsensusEnsembleAggregator(),
@@ -93,13 +91,13 @@ private fun runnerMilk(): AvoidanceSubstance =
 private fun runnerWheat(): AvoidanceSubstance =
     AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
 
-private fun runnerRepositoryOf(vararg substances: AvoidanceSubstance): AvoidanceSubstanceRepository =
-    RunnerAvoidanceSubstanceRepository(substances.toList())
+private fun runnerRepositoryOf(vararg substances: AvoidanceSubstance): (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance> =
+    RunnerAvoidanceSubstanceRepository(substances.toList())::findByCodes
 
-private class RecordingFoodScoringSource(private val foods: List<Food>) : FoodScoringSource {
+private class RecordingFoodScoringSource(private val foods: List<Food>) {
     val invocationCount = AtomicInteger()
 
-    override fun nextChunk(page: Int, size: Int): List<Food> {
+    fun nextChunk(page: Int, size: Int): List<Food> {
         invocationCount.incrementAndGet()
         return foods.drop(page * size).take(size)
     }
@@ -107,8 +105,8 @@ private class RecordingFoodScoringSource(private val foods: List<Food>) : FoodSc
 
 private class RunnerAvoidanceSubstanceRepository(
     private val substances: List<AvoidanceSubstance>,
-) : AvoidanceSubstanceRepository {
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
+) {
+    fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
 }
 
 private class RunnerJsonCaller(

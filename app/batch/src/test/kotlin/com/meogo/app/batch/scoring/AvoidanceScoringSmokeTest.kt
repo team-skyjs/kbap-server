@@ -2,10 +2,8 @@ package com.meogo.app.batch.scoring
 
 import com.meogo.domain.avoidance.AvoidanceSubstance
 import com.meogo.domain.avoidance.AvoidanceSubstanceCode
-import com.meogo.domain.avoidance.AvoidanceSubstanceRepository
 import com.meogo.domain.food.Food
 import com.meogo.domain.food.FoodContent
-import com.meogo.domain.food.FoodScoringSource
 import com.meogo.domain.food.FoodSpiciness
 import com.meogo.core.lang.LocalizedText
 import com.meogo.domain.research.ensemble.ConsensusEnsembleAggregator
@@ -58,9 +56,9 @@ class AvoidanceScoringSmokeTest : BehaviorSpec({
                     val fanoutClient = context.getBean(LlmFanoutClient::class.java)
 
                     val job = AvoidanceScoringJob(
-                        foodScoringSource = SmokeFoodScoringSource(listOf(bibimbap())),
+                        nextChunk = SmokeFoodScoringSource(listOf(bibimbap()))::nextChunk,
                         llmFanoutClient = fanoutClient,
-                        avoidanceSubstanceRepository = SmokeAvoidanceSubstanceRepository(listOf(egg(), milk(), wheat())),
+                        findSubstances = SmokeAvoidanceSubstanceRepository(listOf(egg(), milk(), wheat()))::findByCodes,
                         promptFactory = ScoringPromptFactory(),
                         responseParser = ScoringResponseParser(),
                         aggregator = ConsensusEnsembleAggregator(),
@@ -101,12 +99,12 @@ private fun milk(): AvoidanceSubstance =
 private fun wheat(): AvoidanceSubstance =
     AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
 
-private class SmokeFoodScoringSource(private val foods: List<Food>) : FoodScoringSource {
-    override fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
+private class SmokeFoodScoringSource(private val foods: List<Food>) {
+    fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
 }
 
 private class SmokeAvoidanceSubstanceRepository(
     private val substances: List<AvoidanceSubstance>,
-) : AvoidanceSubstanceRepository {
-    override fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
+) {
+    fun findByCodes(codes: Set<AvoidanceSubstanceCode>): List<AvoidanceSubstance> = substances
 }
