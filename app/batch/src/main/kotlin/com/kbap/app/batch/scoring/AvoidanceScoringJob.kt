@@ -2,7 +2,6 @@ package com.kbap.app.batch.scoring
 
 import com.kbap.domain.avoidance.AvoidanceSubstance
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.food.Food
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.research.input.CandidateSubstance
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
@@ -19,7 +18,7 @@ import com.kbap.infra.llm.model.LlmModelId
 import org.slf4j.LoggerFactory
 
 class AvoidanceScoringJob(
-    private val nextChunk: (page: Int, size: Int) -> List<Food>,
+    private val nextChunk: (page: Int, size: Int) -> List<ScoringFood>,
     private val llmFanoutClient: LlmFanoutClient,
     private val findSubstances: (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance>,
     private val promptFactory: ScoringPromptFactory,
@@ -40,7 +39,7 @@ class AvoidanceScoringJob(
             if (chunk.isEmpty()) {
                 break
             }
-            val fresh = chunk.filter { it.id != null && seen.add(it.id!!) }
+            val fresh = chunk.filter { seen.add(it.foodId) }
             if (fresh.isEmpty()) {
                 break
             }
@@ -55,10 +54,9 @@ class AvoidanceScoringJob(
             .map { CandidateSubstance(code = it.code.name, koreanLabel = it.displayName(LanguageCode.KO)) }
 
     private fun scoreChunk(
-        fresh: List<Food>,
+        scoringFoods: List<ScoringFood>,
         candidates: List<CandidateSubstance>,
     ): List<FoodScoringResult> {
-        val scoringFoods = fresh.map { ScoringFood(foodId = it.id!!, koreanName = it.displayName(LanguageCode.KO)) }
         val prompt = promptFactory.build(scoringFoods, candidates)
         val fanoutResult = llmFanoutClient.generate(LlmChatRequest(prompt = prompt.prompt, system = prompt.system))
 

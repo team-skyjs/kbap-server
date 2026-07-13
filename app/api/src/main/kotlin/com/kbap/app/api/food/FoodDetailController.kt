@@ -1,7 +1,7 @@
 package com.kbap.app.api.food
 
 import com.kbap.application.food.dto.GetFoodDetailInput
-import com.kbap.application.food.usecase.GetFoodDetailUseCase
+import com.kbap.application.food.FoodService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberIdOrNull
@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.V1 + "/foods")
 class FoodDetailController(
-    private val getFoodDetailUseCase: GetFoodDetailUseCase,
+    private val foodService: FoodService,
 ) : FoodDetailApi {
     override fun detail(
         @PathVariable foodId: Long,
         @RequestParam(required = false) lang: String?,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
-        val result = getFoodDetailUseCase.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId))
+        val result = foodService.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId))
         return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result)))
     }
 }

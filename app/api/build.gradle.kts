@@ -42,6 +42,9 @@ dependencies {
     // auth 엔드포인트 테스트가 페이크 SocialTokenVerifier 를 만들며 도메인 타입(SocialIdentity)을 참조한다.
     // 테스트 스코프에만 노출되므로 프로덕션 경계(app:api → 도메인 금지)는 유지된다.
     "testImplementation"(project(":domain:member"))
+
+    // FoodServiceIntegrationTest 가 food 엔티티·레포지토리를 직접 시딩/검증한다.
+    "testImplementation"(project(":domain:food"))
 }
 
 // 루트의 .env(application.yml 의 spring.config.import 대상)를 찾도록

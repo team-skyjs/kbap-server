@@ -5,10 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.kbap.domain.avoidance.AvoidanceSubstance
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodContent
-import com.kbap.domain.food.FoodSpiciness
-import com.kbap.core.lang.LocalizedText
+import com.kbap.domain.research.input.ScoringFood
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
 import com.kbap.domain.research.ensemble.FoodScoringStatus
 import com.kbap.domain.research.prompt.ScoringPromptFactory
@@ -356,32 +353,23 @@ private fun scoredJson(vararg koreanNames: String): String {
     return """{"c":[$covered],"r":[$rows]}"""
 }
 
-private fun food(id: Long, koreanName: String): Food =
-    Food.reconstitute(
-        id = id,
-        content = FoodContent(
-            name = LocalizedText(korean = koreanName),
-            description = LocalizedText(korean = "$koreanName 기본 설명"),
-        ),
-        imageRef = null,
-        spiciness = FoodSpiciness(0),
-        avoidanceSubstances = emptyList(),
-    )
+private fun food(id: Long, koreanName: String): ScoringFood =
+    ScoringFood(foodId = id, koreanName = koreanName)
 
 private fun egg(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 1L, code = AvoidanceSubstanceCode.EGG, name = LocalizedText(korean = "계란"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "계란")
 
 private fun milk(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 2L, code = AvoidanceSubstanceCode.MILK, name = LocalizedText(korean = "우유"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.MILK, koreanName = "우유")
 
 private fun wheat(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.WHEAT, koreanName = "밀")
 
 private fun substancesOf(vararg substances: AvoidanceSubstance): FakeSubstanceCatalog =
     FakeSubstanceCatalog(substances.toList())
 
 private fun job(
-    source: (Int, Int) -> List<Food>,
+    source: (Int, Int) -> List<ScoringFood>,
     client: LlmFanoutClient,
     repository: FakeSubstanceCatalog,
     chunkSize: Int,
@@ -396,12 +384,12 @@ private fun job(
         chunkSize = chunkSize,
     )
 
-private class FakeFoodScoringSource(private val foods: List<Food>) {
-    fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
+private class FakeFoodScoringSource(private val foods: List<ScoringFood>) {
+    fun nextChunk(page: Int, size: Int): List<ScoringFood> = foods.drop(page * size).take(size)
 }
 
-private class NonAdvancingFoodScoringSource(private val foods: List<Food>) {
-    fun nextChunk(page: Int, size: Int): List<Food> = foods.take(size)
+private class NonAdvancingFoodScoringSource(private val foods: List<ScoringFood>) {
+    fun nextChunk(page: Int, size: Int): List<ScoringFood> = foods.take(size)
 }
 
 private class FakeSubstanceCatalog(

@@ -5,10 +5,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.kbap.domain.avoidance.AvoidanceSubstance
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodContent
-import com.kbap.domain.food.FoodSpiciness
-import com.kbap.core.lang.LocalizedText
+import com.kbap.domain.research.input.ScoringFood
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
 import com.kbap.domain.research.prompt.ScoringPromptFactory
 import com.kbap.domain.research.parse.ScoringResponseParser
@@ -70,34 +67,25 @@ class ScoringJobRunnerTest : BehaviorSpec({
 private fun runnerScoredJson(koreanName: String): String =
     """{"results":[{"food":"$koreanName","included":[{"code":"EGG","score":2,"probability":90}],"nameTranslations":{"en":"$koreanName-en"},"description":{"ko":"$koreanName 설명","translations":{"en":"$koreanName-desc-en"}}}]}"""
 
-private fun runnerFood(id: Long, koreanName: String): Food =
-    Food.reconstitute(
-        id = id,
-        content = FoodContent(
-            name = LocalizedText(korean = koreanName),
-            description = LocalizedText(korean = "$koreanName 기본 설명"),
-        ),
-        imageRef = null,
-        spiciness = FoodSpiciness(0),
-        avoidanceSubstances = emptyList(),
-    )
+private fun runnerFood(id: Long, koreanName: String): ScoringFood =
+    ScoringFood(foodId = id, koreanName = koreanName)
 
 private fun runnerEgg(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 1L, code = AvoidanceSubstanceCode.EGG, name = LocalizedText(korean = "계란"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "계란")
 
 private fun runnerMilk(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 2L, code = AvoidanceSubstanceCode.MILK, name = LocalizedText(korean = "우유"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.MILK, koreanName = "우유")
 
 private fun runnerWheat(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.WHEAT, koreanName = "밀")
 
 private fun runnerSubstancesOf(vararg substances: AvoidanceSubstance): (Set<AvoidanceSubstanceCode>) -> List<AvoidanceSubstance> =
     RunnerSubstanceCatalog(substances.toList())::findByCodes
 
-private class RecordingFoodScoringSource(private val foods: List<Food>) {
+private class RecordingFoodScoringSource(private val foods: List<ScoringFood>) {
     val invocationCount = AtomicInteger()
 
-    fun nextChunk(page: Int, size: Int): List<Food> {
+    fun nextChunk(page: Int, size: Int): List<ScoringFood> {
         invocationCount.incrementAndGet()
         return foods.drop(page * size).take(size)
     }

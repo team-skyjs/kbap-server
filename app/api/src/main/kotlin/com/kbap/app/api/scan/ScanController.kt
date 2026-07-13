@@ -1,6 +1,6 @@
 package com.kbap.app.api.scan
 
-import com.kbap.application.scan.usecase.ScanUseCase
+import com.kbap.application.scan.ScanService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
@@ -12,13 +12,13 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.V1 + "/scans")
 class ScanController(
-    private val scanUseCase: ScanUseCase,
+    private val scanService: ScanService,
 ) : ScanApi {
     override fun scan(
         @AuthMemberId memberId: Long,
         @RequestBody request: ScanRequest,
     ): ResponseEntity<BaseResponse<ScanResponse>> {
-        val result = scanUseCase.assessMenuBoard(request.toInput(memberId))
+        val result = scanService.assessMenuBoard(request.toInput(memberId))
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
     }
 }

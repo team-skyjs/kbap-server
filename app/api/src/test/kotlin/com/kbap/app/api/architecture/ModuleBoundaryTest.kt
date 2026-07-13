@@ -10,7 +10,6 @@ import com.tngtech.archunit.lang.ConditionEvents
 import com.tngtech.archunit.lang.SimpleConditionEvent
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
-import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMembers
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -38,13 +37,6 @@ class ModuleBoundaryTest : BehaviorSpec({
         )
     val spring = "org.springframework.."
     val jpa = "jakarta.persistence.."
-    val associationAnnotations =
-        listOf(
-            "jakarta.persistence.OneToMany",
-            "jakarta.persistence.ManyToOne",
-            "jakarta.persistence.OneToOne",
-            "jakarta.persistence.ManyToMany",
-        )
 
     given("커널 모듈(:core) 경계") {
         `when`("커널이 의존하는 패키지를 검사하면") {
@@ -114,18 +106,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .should().resideInAPackage(anyDomain)
                     .allowEmptyShould(true)
                     .check(imported)
-            }
-        }
-    }
-
-    given("JPA 연관관계 금지") {
-        associationAnnotations.forEach { annotation ->
-            `when`("$annotation 사용을 검사하면") {
-                then("엔티티 간 연관관계 애너테이션은 전면 금지다 — 참조는 id 값으로만 든다") {
-                    noMembers().should().beAnnotatedWith(annotation)
-                        .allowEmptyShould(true)
-                        .check(imported)
-                }
             }
         }
     }

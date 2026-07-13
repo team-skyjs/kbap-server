@@ -2,10 +2,7 @@ package com.kbap.app.batch.scoring
 
 import com.kbap.domain.avoidance.AvoidanceSubstance
 import com.kbap.domain.avoidance.AvoidanceSubstanceCode
-import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodContent
-import com.kbap.domain.food.FoodSpiciness
-import com.kbap.core.lang.LocalizedText
+import com.kbap.domain.research.input.ScoringFood
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
 import com.kbap.domain.research.ensemble.FoodScoringStatus
 import com.kbap.domain.research.prompt.ScoringPromptFactory
@@ -78,29 +75,19 @@ class AvoidanceScoringSmokeTest : BehaviorSpec({
     }
 })
 
-private fun bibimbap(): Food =
-    Food.reconstitute(
-        id = 900L,
-        content = FoodContent(
-            name = LocalizedText(korean = "비빔밥"),
-            description = LocalizedText(korean = "비빔밥 기본 설명"),
-        ),
-        imageRef = null,
-        spiciness = FoodSpiciness(0),
-        avoidanceSubstances = emptyList(),
-    )
+private fun bibimbap(): ScoringFood = ScoringFood(foodId = 900L, koreanName = "비빔밥")
 
 private fun egg(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 1L, code = AvoidanceSubstanceCode.EGG, name = LocalizedText(korean = "계란"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "계란")
 
 private fun milk(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 2L, code = AvoidanceSubstanceCode.MILK, name = LocalizedText(korean = "우유"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.MILK, koreanName = "우유")
 
 private fun wheat(): AvoidanceSubstance =
-    AvoidanceSubstance.reconstitute(id = 3L, code = AvoidanceSubstanceCode.WHEAT, name = LocalizedText(korean = "밀"))
+    AvoidanceSubstance(code = AvoidanceSubstanceCode.WHEAT, koreanName = "밀")
 
-private class SmokeFoodScoringSource(private val foods: List<Food>) {
-    fun nextChunk(page: Int, size: Int): List<Food> = foods.drop(page * size).take(size)
+private class SmokeFoodScoringSource(private val foods: List<ScoringFood>) {
+    fun nextChunk(page: Int, size: Int): List<ScoringFood> = foods.drop(page * size).take(size)
 }
 
 private class SmokeSubstanceCatalog(

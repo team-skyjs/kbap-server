@@ -14,7 +14,7 @@ data class MyProfileResult(
     companion object {
         fun of(member: Member, ranking: MemberRankingResult): MyProfileResult =
             MyProfileResult(
-                memberId = member.id!!,
+                memberId = member.id,
                 nickname = member.profile.nickname,
                 avoidanceSubstanceCodes = member.profile.avoidanceSubstanceCodes.map { it.value },
                 countryCode = member.profile.countryCode?.name,

@@ -1,32 +1,33 @@
-package com.kbap.application.scan.usecase
+package com.kbap.application.scan
 
 import com.kbap.core.id.FoodId
 import com.kbap.core.id.MemberId
 import com.kbap.application.food.usecase.AvoidedSubstanceProvider
 import com.kbap.application.scan.dto.ScanInput
 import com.kbap.application.scan.dto.ScanResult
-import com.kbap.domain.food.AvoidanceSubstanceCodeRef
 import com.kbap.domain.food.Food
-import com.kbap.domain.food.FoodService
+import com.kbap.application.food.FoodService
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
 import com.kbap.domain.scan.InterpretedName
 import com.kbap.domain.scan.ScannedNameInterpreter
-import com.kbap.domain.member.MemberService
+import com.kbap.core.error.ErrorCode
+import com.kbap.core.error.KbapException
+import com.kbap.domain.member.MemberJpaRepository
 import com.kbap.domain.scan.ScanHistory
-import com.kbap.domain.scan.ScanHistoryService
+import com.kbap.domain.scan.ScanHistoryJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class ScanUseCase(
+class ScanService(
     private val foodService: FoodService,
     private val avoidedSubstanceProvider: AvoidedSubstanceProvider,
     private val interpreter: ScannedNameInterpreter,
-    private val scanHistoryService: ScanHistoryService,
-    private val memberService: MemberService,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val memberRepository: MemberJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -39,7 +40,7 @@ class ScanUseCase(
         // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
         val lang = LanguageCode.KO
         val avoidedCodes = avoidedSubstanceProvider.avoidedCodes(input.memberId)
-            .map { AvoidanceSubstanceCodeRef(it.name) }
+            .map { it.name }
             .toSet()
 
         val items = input.items.mapIndexedNotNull { index, item ->
@@ -61,13 +62,15 @@ class ScanUseCase(
     }
 
     private fun recordScanCount(memberId: Long) {
-        memberService.increaseScanCount(memberId)
+        if (memberRepository.increaseScanCount(memberId) == 0) {
+            throw KbapException(ErrorCode.MEMBER_NOT_FOUND)
+        }
     }
 
     private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
         val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
         if (readyFoodIds.isEmpty()) return
-        scanHistoryService.saveAll(readyFoodIds.map { ScanHistory.record(MemberId(memberId), FoodId(it)) })
+        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(MemberId(memberId), FoodId(it)) })
     }
 
     private fun resolveFoods(
@@ -101,10 +104,7 @@ class ScanUseCase(
             .map { it.koreanName }
             .toSet()
 
-    private fun resolvedFrom(food: Food): ResolvedItem {
-        requireNotNull(food.id) { "매칭된 food 에 id 가 없습니다" }
-        return ResolvedItem(food)
-    }
+    private fun resolvedFrom(food: Food): ResolvedItem = ResolvedItem(food)
 
     private fun lookupNameFor(
         matchKey: String,
