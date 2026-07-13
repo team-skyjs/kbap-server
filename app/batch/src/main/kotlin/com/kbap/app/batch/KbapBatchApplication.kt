@@ -1,0 +1,13 @@
+package com.kbap.app.batch
+
+import org.springframework.boot.autoconfigure.AutoConfigurationPackage
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
+
+@SpringBootApplication(scanBasePackages = ["com.kbap"])
+@AutoConfigurationPackage(basePackages = ["com.kbap"])
+class KbapBatchApplication
+
+fun main(args: Array<String>) {
+    runApplication<KbapBatchApplication>(*args)
+}

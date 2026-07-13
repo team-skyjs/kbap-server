@@ -1,11 +1,11 @@
 ---
 name: create-jira-task
-description: "meogo/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 등록하는 절차 — 프로젝트 KB·유형 작업·BE 레이블·실행자 본인 할당을 표준으로, 본문은 ADF(개조식 Background + 체크박스 DoD)로 자체 완결형 작성한다. '지라에 태스크로 등록', 'jira 이슈 만들어', '이거 태스크로 빼줘', 'create jira task', '백로그에 등록' 요청 시 사용."
+description: "kbap/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 등록하는 절차 — 프로젝트 KB·유형 작업·BE 레이블·실행자 본인 할당을 표준으로, 본문은 ADF(개조식 Background + 체크박스 DoD)로 자체 완결형 작성한다. '지라에 태스크로 등록', 'jira 이슈 만들어', '이거 태스크로 빼줘', 'create jira task', '백로그에 등록' 요청 시 사용."
 ---
 
 # Jira 태스크 등록 (KB 프로젝트)
 
-현재 프로젝트(meogo-server / kbap-server)의 백엔드 작업을 **Jira KB 프로젝트의 태스크**로 등록하는 표준 절차. 팀 공통 규약(프로젝트·레이블·할당·본문 서식)을 강제해 누가 등록해도 일관되게 만든다.
+현재 프로젝트(kbap-server / kbap-server)의 백엔드 작업을 **Jira KB 프로젝트의 태스크**로 등록하는 표준 절차. 팀 공통 규약(프로젝트·레이블·할당·본문 서식)을 강제해 누가 등록해도 일관되게 만든다.
 
 > **등록 전 한국어 윤문이 필요하면** — 초안 본문이 어색하거나 번역투일 때는, 이슈 생성 전에 `create-jira-task-with-codex` 스킬로 cmux 분할 창(cmd+d식 split)에서 Codex 윤문 → before/after 확인을 거친 뒤 그 결과를 본문으로 삼아 아래 절차를 수행한다. 윤문이 불필요하면 이 스킬을 그대로 쓴다.
 

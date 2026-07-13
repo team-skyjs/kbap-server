@@ -30,12 +30,12 @@ Templates reviewed:
   ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
 
 Docs propagation: ADR-0012(ADR-0006·0008 supersede) · CLAUDE.md 모듈 구조·컨벤션 절 ·
-  docs/architecture/{meogo-conventions,meogo-api-module-structure}.md · specs/kb-134-architecture-simplification/.
+  docs/architecture/{kbap-conventions,kbap-api-module-structure}.md · specs/kb-134-architecture-simplification/.
 
 Follow-up: 없음(KB-134 구현과 동시 반영).
 -->
 
-# Meogo API Constitution
+# Kbap API Constitution
 
 ## Core Principles
 
@@ -140,16 +140,16 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 
 - 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스(ADR-0008·0012).
   영속: MySQL(+통합 테스트는 MySQL Testcontainers) + Redis(refresh token), 마이그레이션 Flyway. LLM: Spring AI 2.0.
-- 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.meogo.MeogoApiApplication` — 패키지 루트라 전 계층 스캔)와
-  `:app:batch`(배치, 진입점 `com.meogo.app.batch.MeogoBatchApplication`). 공통 빌드 설정은
-  `buildSrc` 컨벤션 플러그인(`meogo.*`)에 둔다.
+- 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.kbap.KbapApiApplication` — 패키지 루트라 전 계층 스캔)와
+  `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`). 공통 빌드 설정은
+  `buildSrc` 컨벤션 플러그인(`kbap.*`)에 둔다.
 - 외부 LLM 등 호출을 DB 트랜잭션 안에서 길게 잡지 않는다(스캔: pending 저장 → 외부 호출 →
   결과 저장 후 completed 전환).
 - 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다.
 
 > 구속력 없는 상세 "어떻게"(패키지 레이아웃·빌딩블록·컨텍스트별 개념)는 레퍼런스로
-> [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md) 및
-> [`meogo-api-module-structure.md`](../../docs/architecture/meogo-api-module-structure.md)에 둔다.
+> [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md) 및
+> [`kbap-api-module-structure.md`](../../docs/architecture/kbap-api-module-structure.md)에 둔다.
 
 ## Development Workflow
 
@@ -168,6 +168,6 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
   PATCH=문구·오타·비의미 보정.
 - 모든 설계·PR은 본 헌법 준수를 검증한다. 위반은 정당화하거나 설계를 수정한다.
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
-  [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
+  [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md)를 참조한다.
 
 **Version**: 3.0.1 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-13

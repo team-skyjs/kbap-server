@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  모든 부트 앱(meogo-api·meogo-batch)이 <include resource="logback-common.xml"/> 로 공유하는
+  모든 부트 앱(kbap-api·kbap-batch)이 <include resource="logback-common.xml"/> 로 공유하는
   공통 로깅 조각. Spring Boot 기본 패턴/콘솔 appender 를 재사용해 일관된 포맷을 보장한다.
-  (이 XML 은 리소스일 뿐이라 meogo-common 자체는 Spring-free 로 유지된다 — 해석은 부트 앱 런타임에서.)
+  (이 XML 은 리소스일 뿐이라 kbap-common 자체는 Spring-free 로 유지된다 — 해석은 부트 앱 런타임에서.)
 -->
 <included>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>

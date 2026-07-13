@@ -7,11 +7,11 @@ server:
 spring:
   # 루트의 .env 를 properties 형식으로 읽어 ${...} 플레이스홀더에 사용한다.
   # optional: → .env 가 없으면(예: 배포 환경) 조용히 건너뛰고 OS 환경변수를 쓴다.
-  # (.env 를 루트에서 찾도록 meogo-api 의 bootRun workingDir 를 루트로 설정해 둠)
+  # (.env 를 루트에서 찾도록 kbap-api 의 bootRun workingDir 를 루트로 설정해 둠)
   config:
     import: optional:file:.env[.properties]
   application:
-    name: meogo-api
+    name: kbap-api
   flyway:
     # 신규 마이그레이션 버전은 생성 시각 기반 점 구분 timestamp(Vyyyy.MM.dd.HH.mm.ss)라,
     # 먼저 만들고 늦게 머지된 마이그레이션이 이미 적용된 최신보다 과거 버전이 될 수 있다.
@@ -33,7 +33,7 @@ spring:
         transcription: none
         speech: none
 
-meogo:
+kbap:
   auth:
     firebase:
       # 서비스 계정 키를 주는 방법은 두 가지이며 json 이 우선한다.

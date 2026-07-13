@@ -1,5 +1,5 @@
 # 로컬 개발용 풀스택(web 앱 + MySQL).
-# 자격증명: root/root(관리) + 앱 유저 meogo/meogo(.env 의 DB_USERNAME/DB_PASSWORD). DB명 meogo, MySQL@3306.
+# 자격증명: root/root(관리) + 앱 유저 kbap/kbap(.env 의 DB_USERNAME/DB_PASSWORD). DB명 kbap, MySQL@3306.
 # web 앱(:app:api)은 Dockerfile 로 빌드돼 8080 에 뜨고, DB healthcheck 통과 후 기동된다.
 #
 # 사용법:
@@ -16,15 +16,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: meogo-app
+    container_name: kbap-app
     ports:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: local
       # compose 네트워크 안에서는 DB 호스트가 localhost 가 아니라 서비스명(mysql)이다.
-      DB_URL: jdbc:mysql://mysql:3306/meogo
-      DB_USERNAME: ${DB_USERNAME:-meogo}
-      DB_PASSWORD: ${DB_PASSWORD:-meogo}
+      DB_URL: jdbc:mysql://mysql:3306/kbap
+      DB_USERNAME: ${DB_USERNAME:-kbap}
+      DB_PASSWORD: ${DB_PASSWORD:-kbap}
       # 인증(KB-118). compose 의 .env 는 변수 보간용일 뿐 컨테이너 환경으로 자동 주입되지 않으므로
       # 여기서 명시적으로 전달한다. JWT_SECRET 없이는 앱이 부팅하지 않는다(fail-fast).
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 을 .env 에 설정하세요 - 32바이트 이상 (openssl rand -base64 32)}"
@@ -41,22 +41,22 @@ services:
 
   mysql:
     image: mysql:8.4
-    container_name: meogo-mysql
+    container_name: kbap-mysql
     ports:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: meogo
-      # 앱 전용 유저 — .env 의 DB_USERNAME/DB_PASSWORD 와 동일 값으로 생성한다(없으면 meogo 기본).
+      MYSQL_DATABASE: kbap
+      # 앱 전용 유저 — .env 의 DB_USERNAME/DB_PASSWORD 와 동일 값으로 생성한다(없으면 kbap 기본).
       # docker compose 가 같은 디렉터리의 .env 를 자동 치환하므로 앱↔DB 자격증명이 한 출처(.env)로 유지된다.
       # ⚠️ MYSQL_USER 는 데이터 볼륨 최초 init 때만 생성된다 — 기존 볼륨이 있으면
       #    `docker compose down -v && docker compose up -d` 로 재초기화해야 유저가 만들어진다.
-      MYSQL_USER: ${DB_USERNAME:-meogo}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-meogo}
+      MYSQL_USER: ${DB_USERNAME:-kbap}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-kbap}
     # 음식 콘텐츠(한국어/영어)를 위해 utf8mb4 고정
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
-      - meogo-mysql-data:/var/lib/mysql
+      - kbap-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s
@@ -65,7 +65,7 @@ services:
 
   redis:
     image: redis:8
-    container_name: meogo-redis
+    container_name: kbap-redis
     ports:
       - "6379:6379"
     # refresh token 저장소(KB-118). TTL 로 만료가 자동 처리되므로 영속 볼륨을 두지 않는다 —
@@ -78,4 +78,4 @@ services:
 
 
 volumes:
-  meogo-mysql-data:
+  kbap-mysql-data:

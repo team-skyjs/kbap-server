@@ -1,11 +1,11 @@
 ---
 name: tdd-implementation
-description: "meogo-server 에서 실패 테스트를 통과시키는 최소 구현(Green)과 리팩터링(Refactor) 절차. 멀티모듈 경계·클린아키텍처 의존 방향·영속 캡슐화·도메인 불변·응답(BaseResponse)/경로(/api/v) 규약·Kotlin 주석 금지를 다룬다. 구현·코드 작성·Green·리팩터·리뷰 피드백 반영 작업 시 반드시 사용."
+description: "kbap-server 에서 실패 테스트를 통과시키는 최소 구현(Green)과 리팩터링(Refactor) 절차. 멀티모듈 경계·클린아키텍처 의존 방향·영속 캡슐화·도메인 불변·응답(BaseResponse)/경로(/api/v) 규약·Kotlin 주석 금지를 다룬다. 구현·코드 작성·Green·리팩터·리뷰 피드백 반영 작업 시 반드시 사용."
 ---
 
 # TDD 구현 (Green·Refactor 단계)
 
-test-writer 가 고정한 실패 테스트를 통과시키되 meogo 의 모듈 경계·아키텍처 규약을 지킨다. Red → **Green**(최소 구현) → **Refactor**(테스트 유지하며 정리).
+test-writer 가 고정한 실패 테스트를 통과시키되 kbap 의 모듈 경계·아키텍처 규약을 지킨다. Red → **Green**(최소 구현) → **Refactor**(테스트 유지하며 정리).
 
 ## 절차
 
@@ -26,14 +26,14 @@ presentation → application → 도메인(scan/food/...) → core
 presentation 이 persistence·infra 를 runtimeOnly 로 조립(컴파일 의존 X)
 ```
 
-- **도메인 모듈**(`com.meogo.api.<context>`): 순수 — Spring/ORM-free. model + repository **port 인터페이스**만. 도메인끼리 직접 의존 금지(조합은 application 에서만).
+- **도메인 모듈**(`com.kbap.api.<context>`): 순수 — Spring/ORM-free. model + repository **port 인터페이스**만. 도메인끼리 직접 의존 금지(조합은 application 에서만).
 - **application**: 유스케이스·`Input`/`Result`(Command/Query 명칭 금지)·교체 가능한 seam(인터페이스). 외부/영속은 **port 인터페이스로만** 사용, infra/JPA 구현체 직접 의존 금지.
-- **persistence**(`com.meogo.api.persistence.<context>`): 모든 JPA 엔티티·Spring Data Repository·`RepositoryAdapter`. 도메인 port 를 구현.
-- **presentation**(`com.meogo.api.presentation`): 컨트롤러·API DTO·`BaseResponse`·예외 핸들러·Flyway. JPA Entity·도메인 엔티티를 import 하지 않는다(application 공개 타입만).
+- **persistence**(`com.kbap.api.persistence.<context>`): 모든 JPA 엔티티·Spring Data Repository·`RepositoryAdapter`. 도메인 port 를 구현.
+- **presentation**(`com.kbap.api.presentation`): 컨트롤러·API DTO·`BaseResponse`·예외 핸들러·Flyway. JPA Entity·도메인 엔티티를 import 하지 않는다(application 공개 타입만).
 
 ## 영속(JPA) 규약 (고정)
 
-- 모든 엔티티는 `com.meogo.api.persistence.BaseEntity` 상속 — `id`·`status`(소프트삭제)·`createdAt`·`updatedAt` 제공. 자체 id·시각 두지 않는다.
+- 모든 엔티티는 `com.kbap.api.persistence.BaseEntity` 상속 — `id`·`status`(소프트삭제)·`createdAt`·`updatedAt` 제공. 자체 id·시각 두지 않는다.
 - 모든 연관(`@OneToMany`/`@ManyToOne`/`@OneToOne`/`@ManyToMany`)은 **`FetchType.LAZY`**. 함께 로딩할 땐 **fetch join 쿼리**로 명시(EAGER 금지). 트랜잭션 밖 도메인 매핑 시 필요한 연관은 fetch join 으로 미리 초기화.
 - 컬럼은 **MySQL 기준**: 문자열은 `@Column(length = N)` 명시. Flyway DDL 과 **길이·타입 일치**.
 - 소프트삭제는 BaseEntity 의 `@SQLRestriction("status = 'ACTIVE'")` 가 전 엔티티에 적용 — 조회에 status 조건 달지 않는다. 삭제는 `delete()`(status=DELETED).
@@ -48,7 +48,7 @@ presentation 이 persistence·infra 를 runtimeOnly 로 조립(컴파일 의존 
 ## 응답·경로 규약 (presentation, 고정)
 
 - 모든 컨트롤러 반환 타입은 **`ResponseEntity<BaseResponse<T>>`**. 성공 `BaseResponse.ok(payload)`, 실패 `BaseResponse.fail(message)`. raw 도메인/DTO 직접 반환 금지.
-- 모든 경로는 **`/api/v{n}`** 으로 시작. `com.meogo.api.presentation.common.ApiPaths`(`const val V1 = "/api/v1"`) 상수에 리소스 경로를 이어 붙인다. `/api/v1` 하드코딩 금지.
+- 모든 경로는 **`/api/v{n}`** 으로 시작. `com.kbap.api.presentation.common.ApiPaths`(`const val V1 = "/api/v1"`) 상수에 리소스 경로를 이어 붙인다. `/api/v1` 하드코딩 금지.
 
 ## Kotlin 주석 금지 (고정)
 
@@ -57,12 +57,12 @@ presentation 이 persistence·infra 를 runtimeOnly 로 조립(컴파일 의존 
 ## Green 확인 명령
 
 ```bash
-./gradlew :meogo-api:<module>:test --tests "<FQCN>"   # 대상만 빠르게
-./gradlew :meogo-api:<module>:test                     # 모듈 전체
+./gradlew :kbap-api:<module>:test --tests "<FQCN>"   # 대상만 빠르게
+./gradlew :kbap-api:<module>:test                     # 모듈 전체
 ./gradlew build                                        # 전체(머지 전 최종)
 ```
 
-DI/조립 문제(빈 누락, port 미주입)는 presentation 의 `runtimeOnly` 조립과 컴포넌트 스캔(`scanBasePackages=["com.meogo.api"]`)을 점검한다.
+DI/조립 문제(빈 누락, port 미주입)는 presentation 의 `runtimeOnly` 조립과 컴포넌트 스캔(`scanBasePackages=["com.kbap.api"]`)을 점검한다.
 
 ## 원칙
 

@@ -1,6 +1,6 @@
 plugins {
     // web bootJar (조립 모듈). 공통 설정은 buildSrc 컨벤션 플러그인에서 온다.
-    id("meogo.spring-boot-application")
+    id("kbap.spring-boot-application")
 }
 
 dependencies {
@@ -32,7 +32,7 @@ dependencies {
     "testImplementation"(libs.spring.boot.webmvc.test)
 
     // ArchUnit 모듈 경계 테스트(ADR-0008). app:api 는 조립 모듈이라 런타임에 전 모듈 클래스를
-    // 이미 보므로(application:client 가 도메인 모듈을 런타임 전이) com.meogo 전체를 스캔할 수 있다.
+    // 이미 보므로(application:client 가 도메인 모듈을 런타임 전이) com.kbap 전체를 스캔할 수 있다.
     "testImplementation"(libs.archunit)
 
     // avoidance 회귀 테스트가 :domain:avoidance 를 직접 참조한다: 코드↔V5 시드 정합(AvoidanceCatalogSeedSyncTest)이

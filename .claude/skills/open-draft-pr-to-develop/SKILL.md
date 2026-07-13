@@ -1,6 +1,6 @@
 ---
 name: open-draft-pr-to-develop
-description: "meogo-server 에서 현재 feature 브랜치를 base=develop 으로 draft Pull Request 를 여는 절차 — 커밋(없으면)→푸시(-u)→develop 대상 draft PR 생성을 표준 컨벤션(제목·본문·Jira 링크·Co-Authored-By/Generated 라인)으로 수행한다. 'develop 으로 draft PR 열어줘', 'PR 초안', 'open draft pr', '작업 PR로 올려줘' 요청 시 사용."
+description: "kbap-server 에서 현재 feature 브랜치를 base=develop 으로 draft Pull Request 를 여는 절차 — 커밋(없으면)→푸시(-u)→develop 대상 draft PR 생성을 표준 컨벤션(제목·본문·Jira 링크·Co-Authored-By/Generated 라인)으로 수행한다. 'develop 으로 draft PR 열어줘', 'PR 초안', 'open draft pr', '작업 PR로 올려줘' 요청 시 사용."
 ---
 
 # develop 으로 Draft PR 열기

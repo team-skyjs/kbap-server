@@ -1,5 +1,5 @@
 plugins {
-    id("meogo.spring-conventions")
+    id("kbap.spring-conventions")
 }
 
 dependencies {

@@ -1,11 +1,11 @@
 ---
 name: tdd-test-authoring
-description: "meogo-server 에서 실패하는 테스트를 먼저 작성하는 절차(TDD Red). Kotest BehaviorSpec(given/when/then 한국어), 모듈별 테스트 종류(도메인 단위·영속 H2·web MockMvc), Red 확인법을 다룬다. 테스트 작성·실패 테스트·Red 단계·테스트 보강 작업 시 반드시 사용."
+description: "kbap-server 에서 실패하는 테스트를 먼저 작성하는 절차(TDD Red). Kotest BehaviorSpec(given/when/then 한국어), 모듈별 테스트 종류(도메인 단위·영속 H2·web MockMvc), Red 확인법을 다룬다. 테스트 작성·실패 테스트·Red 단계·테스트 보강 작업 시 반드시 사용."
 ---
 
 # TDD 테스트 작성 (Red 단계)
 
-meogo-server 의 테스트 우선 규약. 헌법 원칙 I(NON-NEGOTIABLE): 구현 전에 실패하는 테스트를 먼저 쓰고, **실제로 실패함을 확인**한 뒤에야 구현으로 넘어간다.
+kbap-server 의 테스트 우선 규약. 헌법 원칙 I(NON-NEGOTIABLE): 구현 전에 실패하는 테스트를 먼저 쓰고, **실제로 실패함을 확인**한 뒤에야 구현으로 넘어간다.
 
 ## 절차
 
@@ -42,10 +42,10 @@ class BoundingBoxTest : BehaviorSpec({
 
 | 대상 | 위치 | 스타일 | 비고 |
 |------|------|--------|------|
-| 순수 도메인(model·port 규칙·불변·폴백) | `:meogo-api:{scan,food,...}/src/test` | 순수 BehaviorSpec(스프링 X) | 가장 빠름. 도메인 규칙·`nameFor(lang)` 폴백 등 |
-| application 유스케이스·mock seam | `:meogo-api:application/src/test` | BehaviorSpec(필요 시 fake/mock port) | 컨텍스트 조합·seam(MockCyclingRiskAssessor 등) |
-| 영속 어댑터(RepositoryAdapter·매핑·fetch join) | `:meogo-api:persistence/src/test` | `@SpringBootTest` + `SpringExtension`, H2 | 클래스 본문 스타일, `@Autowired lateinit` |
-| web 계약(컨트롤러·BaseResponse·상태코드) | `:meogo-api:presentation/src/test` | `@SpringBootTest` + `@AutoConfigureMockMvc` | MockMvc 주입, ObjectMapper 는 `jacksonObjectMapper()` 직접 생성 |
+| 순수 도메인(model·port 규칙·불변·폴백) | `:kbap-api:{scan,food,...}/src/test` | 순수 BehaviorSpec(스프링 X) | 가장 빠름. 도메인 규칙·`nameFor(lang)` 폴백 등 |
+| application 유스케이스·mock seam | `:kbap-api:application/src/test` | BehaviorSpec(필요 시 fake/mock port) | 컨텍스트 조합·seam(MockCyclingRiskAssessor 등) |
+| 영속 어댑터(RepositoryAdapter·매핑·fetch join) | `:kbap-api:persistence/src/test` | `@SpringBootTest` + `SpringExtension`, H2 | 클래스 본문 스타일, `@Autowired lateinit` |
+| web 계약(컨트롤러·BaseResponse·상태코드) | `:kbap-api:presentation/src/test` | `@SpringBootTest` + `@AutoConfigureMockMvc` | MockMvc 주입, ObjectMapper 는 `jacksonObjectMapper()` 직접 생성 |
 
 ## Spring 통합 테스트 형태 (클래스 본문 스타일)
 
@@ -72,8 +72,8 @@ class FooAdapterTest : BehaviorSpec() {
 ## Red 확인 명령
 
 ```bash
-./gradlew :meogo-api:<module>:test --tests "<FQCN>"      # 대상 클래스만
-./gradlew :meogo-api:<module>:test                        # 모듈 전체
+./gradlew :kbap-api:<module>:test --tests "<FQCN>"      # 대상 클래스만
+./gradlew :kbap-api:<module>:test                        # 모듈 전체
 ```
 
 실패 출력(어떤 then 이 왜 실패했는지)을 캡처해 보고한다. "통과해 버림"이면 이미 구현됐다는 뜻 — 누락 요구사항을 더 테스트하거나 리더에 보고한다.

@@ -6,7 +6,7 @@
 import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
 
 plugins {
-    id("meogo.kotlin-common")
+    id("kbap.kotlin-common")
     id("io.spring.dependency-management")
     `java-test-fixtures`
 }

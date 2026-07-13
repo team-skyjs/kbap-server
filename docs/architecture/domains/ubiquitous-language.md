@@ -1,16 +1,16 @@
 # 유비쿼터스 언어 사전 (Ubiquitous Language)
 
-Meogo 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 사전이다. 도메인 문서([food](./food.md) · [member](./member.md) · [scan](./scan.md) · [avoidance](./avoidance.md))에서 쓰는 말을 코드·대화·문서에서 동일하게 쓰기 위한 기준이다.
+Kbap 백엔드의 **도메인 용어 ↔ 한국어 뜻**을 한 곳에 모은 사전이다. 도메인 문서([food](./food.md) · [member](./member.md) · [scan](./scan.md) · [avoidance](./avoidance.md))에서 쓰는 말을 코드·대화·문서에서 동일하게 쓰기 위한 기준이다.
 
-> 용어의 상세 책임·필드 근거는 각 도메인 문서, BC 경계 원칙은 [README.md](./README.md), DDD/모듈 규범은 [`../meogo-conventions.md`](../meogo-conventions.md)를 본다. 이 문서는 **말의 정의와 구조 요약**을 제공하되, 원본 규칙의 단일 출처는 각 도메인 문서와 규범 문서다.
+> 용어의 상세 책임·필드 근거는 각 도메인 문서, BC 경계 원칙은 [README.md](./README.md), DDD/모듈 규범은 [`../kbap-conventions.md`](../kbap-conventions.md)를 본다. 이 문서는 **말의 정의와 구조 요약**을 제공하되, 원본 규칙의 단일 출처는 각 도메인 문서와 규범 문서다.
 
 ---
 
 ## DDD 기본 개념 (이 사전을 읽기 위한 전제)
 
-| 개념 | 한국어 뜻 | Meogo에서의 의미 |
+| 개념 | 한국어 뜻 | Kbap에서의 의미 |
 |------|----------|------------------|
-| Bounded Context (BC) | 경계 지어진 컨텍스트 | 하나의 도메인 언어가 일관되게 통하는 경계. `meogo-api` 컨테이너 아래 도메인 모듈의 **패키지 경계**로 둔다. Active BC는 `food` · `member` · `scan` · `avoidance` · `research` 5개. 같은 단어라도 BC가 다르면 뜻이 다를 수 있다(예: "메뉴명"은 `scan`에선 원문, `food`에선 정규 음식명). |
+| Bounded Context (BC) | 경계 지어진 컨텍스트 | 하나의 도메인 언어가 일관되게 통하는 경계. `kbap-api` 컨테이너 아래 도메인 모듈의 **패키지 경계**로 둔다. Active BC는 `food` · `member` · `scan` · `avoidance` · `research` 5개. 같은 단어라도 BC가 다르면 뜻이 다를 수 있다(예: "메뉴명"은 `scan`에선 원문, `food`에선 정규 음식명). |
 | Aggregate | 어그리게이트(일관성 단위) | 함께 변경·저장되어야 하는 객체 묶음. **Aggregate Root를 통해서만** 내부 상태를 바꾼다. |
 | Aggregate Root (AR) | 어그리게이트 루트 | 그 묶음의 대표 객체이자 유일한 진입점. 외부는 AR의 ID로만 다른 Aggregate를 참조한다. |
 | Entity | 엔티티 | 식별자(ID)로 구분되며 생애 동안 상태가 바뀌는 객체. |

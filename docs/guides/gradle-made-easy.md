@@ -1,7 +1,7 @@
-# Gradle 쉽게 이해하기 (meogo-api 기준)
+# Gradle 쉽게 이해하기 (kbap-api 기준)
 
 > 목적: Gradle 문법과 구조가 낯선 사람도 이 프로젝트의 빌드 구성을 이해할 수 있게 돕는다.
-> 예시는 모두 실제 `meogo-api` 코드에서 가져왔다.
+> 예시는 모두 실제 `kbap-api` 코드에서 가져왔다.
 
 ---
 
@@ -29,24 +29,24 @@
 
 Gradle에서 "프로젝트(project)"는 보통 우리가 말하는 **모듈** 하나에 해당한다.
 
-- 루트 프로젝트(`meogo`) 아래에 여러 **subproject(모듈)** 가 있다 → **멀티모듈**.
+- 루트 프로젝트(`kbap`) 아래에 여러 **subproject(모듈)** 가 있다 → **멀티모듈**.
 - `settings.gradle.kts`의 `include(...)`로 모듈을 등록한다.
 
 ```kotlin
 // settings.gradle.kts
-rootProject.name = "meogo-server"
+rootProject.name = "kbap-server"
 
 include(
-    ":app:api",          // 콜론(:)은 계층을 뜻한다 → meogo-api 폴더 아래 presentation 모듈
+    ":app:api",          // 콜론(:)은 계층을 뜻한다 → kbap-api 폴더 아래 presentation 모듈
     ":application",
-    ":domain:food",         // 도메인 컨텍스트 (meogo-api 직속으로 평탄화)
+    ":domain:food",         // 도메인 컨텍스트 (kbap-api 직속으로 평탄화)
     ":app:batch",            // 배치 앱
     ":common",           // 공유 모듈
 )
 ```
 
 - 모듈 경로는 콜론으로 표기한다. 예: `:app:api`, `:domain:food`, `:app:batch`.
-- `meogo-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`presentation`/`application`/`food`…)다.
+- `kbap-api`는 빌드 파일 없는 **컨테이너 폴더**이고, 실제 모듈은 그 안의 leaf(`presentation`/`application`/`food`…)다.
 - 한 모듈이 다른 모듈을 사용하려면 `project(...)`로 의존성을 추가한다.
 
 ```kotlin
@@ -66,7 +66,7 @@ dependencies {
 
 ```kotlin
 plugins {
-    id("meogo.domain-conventions")   // 우리가 만든 공통 설정(6장 참고)
+    id("kbap.domain-conventions")   // 우리가 만든 공통 설정(6장 참고)
 }
 ```
 
@@ -128,21 +128,21 @@ BOM(Bill of Materials)은 **서로 호환되는 라이브러리 버전 묶음표
 모듈이 11개다(웹/배치 앱 + 도메인 5 + application/infra/core/common). 각 `build.gradle.kts`에 **똑같은 설정**(Java 21 toolchain, Kotlin 엄격성 옵션, 테스트 의존성, Spring BOM)을 11번 복사해 넣으면 유지보수가 어려워진다.
 
 ### 이 프로젝트의 선택: `buildSrc` 컨벤션 플러그인
-공통 설정을 `buildSrc`의 **컨벤션 플러그인**(미리 컴파일된 `meogo.*.gradle.kts`)에 두고, 각 모듈은 **한 줄로 자기 아키타입을 선언**한다.
+공통 설정을 `buildSrc`의 **컨벤션 플러그인**(미리 컴파일된 `kbap.*.gradle.kts`)에 두고, 각 모듈은 **한 줄로 자기 아키타입을 선언**한다.
 
 ```kotlin
 // 예: 도메인 5개(food/member/scan/avoidance/review)는 전부 이 한 줄
-plugins { id("meogo.domain-conventions") }
+plugins { id("kbap.domain-conventions") }
 ```
 
 컨벤션 플러그인 4종(`buildSrc/src/main/kotlin/`):
 
 | id | 적용 대상 | 담는 것 |
 |---|---|---|
-| `meogo.kotlin-common` | 전 leaf | kotlin-jvm·java-library·Java 21 toolchain·엄격성·공통 테스트 |
-| `meogo.spring-conventions` | Spring 라이브러리(core/common 제외) | + kotlin-spring·BOM·reflect/jackson/test |
-| `meogo.spring-boot-application` | bootJar 앱(`:app:api`, `:app:batch`) | + `org.springframework.boot` |
-| `meogo.domain-conventions` | 도메인 5종 | + `api(:core)`·jpa/mongo·mysql/h2 |
+| `kbap.kotlin-common` | 전 leaf | kotlin-jvm·java-library·Java 21 toolchain·엄격성·공통 테스트 |
+| `kbap.spring-conventions` | Spring 라이브러리(core/common 제외) | + kotlin-spring·BOM·reflect/jackson/test |
+| `kbap.spring-boot-application` | bootJar 앱(`:app:api`, `:app:batch`) | + `org.springframework.boot` |
+| `kbap.domain-conventions` | 도메인 5종 | + `api(:core)`·jpa/mongo·mysql/h2 |
 
 플러그인끼리 **합성**된다: `domain-conventions` → `spring-conventions` → `kotlin-common`. 그래서 도메인 모듈은 한 줄로 위 세 층의 설정을 모두 받는다.
 
@@ -150,7 +150,7 @@ plugins { id("meogo.domain-conventions") }
 
 ```kotlin
 // 예: infra/external/build.gradle.kts — 이 모듈에만 필요한 것
-plugins { id("meogo.spring-conventions") }
+plugins { id("kbap.spring-conventions") }
 dependencies {
     "implementation"(project(":core"))
     "implementation"(libs.spring.ai.starter.openai)
@@ -172,7 +172,7 @@ dependencies {
    - `buildSrc`와 개념은 같고 `includeBuild`로 연결하는 별도 빌드. 여러 레포가 빌드 로직을 공유할 때 유리.
 
 3. **`buildSrc` 폴더의 컨벤션 플러그인 (현재 방식)**
-   - 컨벤션 플러그인을 `buildSrc/`에 둬 자동으로 전 모듈에서 `id("meogo.*")`로 적용. 모듈별 아키타입 선언이 명확하고 IDE 타입세이프 지원을 받는다.
+   - 컨벤션 플러그인을 `buildSrc/`에 둬 자동으로 전 모듈에서 `id("kbap.*")`로 적용. 모듈별 아키타입 선언이 명확하고 IDE 타입세이프 지원을 받는다.
    - 단점: `buildSrc`를 한 글자만 고쳐도 **전체 빌드 캐시가 무효화**돼 느려질 수 있다.
 
 > 초기엔 **1번(단순함)**으로 갔다가, 평탄화로 **동일한 도메인 모듈이 5개**가 되면서 dedup 이득이 커져 **3번(buildSrc)으로 전환**했다. 모듈이 늘수록 "모듈 파일은 한 줄, 공통은 플러그인" 구조가 깔끔하다.
@@ -182,12 +182,12 @@ dependencies {
 ## 7. 이 프로젝트 전체 그림
 
 ```
-meogo-server  (rootProject.name = 폴더명)
+kbap-server  (rootProject.name = 폴더명)
 ├── settings.gradle.kts        ← 모듈 목차(include)
 ├── build.gradle.kts           ← 거의 빔(집계 전용 — 공통 설정은 buildSrc)
-├── buildSrc/                  ← 컨벤션 플러그인(meogo.*) = 공통 빌드 설정
+├── buildSrc/                  ← 컨벤션 플러그인(kbap.*) = 공통 빌드 설정
 ├── gradle/libs.versions.toml  ← 버전 카탈로그
-├── meogo-api/                 ← 컨테이너(빌드 파일 없음)
+├── kbap-api/                 ← 컨테이너(빌드 파일 없음)
 │   ├── api/                   ← web 실행(bootJar)
 │   ├── application/           ← 유스케이스 조율
 │   ├── infra/                 ← 외부 client(LLM 등)
@@ -200,13 +200,13 @@ meogo-server  (rootProject.name = 폴더명)
 의존 방향은 한쪽으로만 흐른다.
 
 ```
-[meogo-api 앱]
+[kbap-api 앱]
 core ← 도메인(food/member/…) ← application ← presentation(bootJar)
   ↑                                 ↓
   └──────────── infra ──────────────┘   (presentation 이 runtimeOnly 로 조립)
 
-meogo-batch  → :application 호출 (+ :infra:external 조립)
-common ← meogo-api·meogo-batch 가 공유
+kbap-batch  → :application 호출 (+ :infra:external 조립)
+common ← kbap-api·kbap-batch 가 공유
 ```
 
 ---
@@ -236,4 +236,4 @@ common ← meogo-api·meogo-batch 가 공유
 
 ---
 
-> 이 프로젝트의 모듈 책임과 경계는 [`../architecture/meogo-api-module-structure.md`](../architecture/meogo-api-module-structure.md)를 참고한다.
+> 이 프로젝트의 모듈 책임과 경계는 [`../architecture/kbap-api-module-structure.md`](../architecture/kbap-api-module-structure.md)를 참고한다.

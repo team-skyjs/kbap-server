@@ -1,16 +1,16 @@
 plugins {
     jacoco
-    // 멀티모듈 커버리지 집계: 각 모듈(meogo.kotlin-common 이 jacoco 적용)의 .exec 를 모아 단일 리포트로 만든다.
+    // 멀티모듈 커버리지 집계: 각 모듈(kbap.kotlin-common 이 jacoco 적용)의 .exec 를 모아 단일 리포트로 만든다.
     id("jacoco-report-aggregation")
 }
 
 // 루트 빌드 — 집계 전용. 실제 공통 빌드 설정은 buildSrc 의 컨벤션 플러그인에 있다:
-//   meogo.kotlin-common          — 전 모듈 공통(kotlin/toolchain/엄격성/테스트/jacoco)
-//   meogo.spring-conventions     — Spring 라이브러리 공통(core/common 제외)
-//   meogo.spring-boot-application— 부트 앱(bootJar): :app:api, :app:batch
-//   meogo.domain-conventions     — 도메인 5종 공통
+//   kbap.kotlin-common          — 전 모듈 공통(kotlin/toolchain/엄격성/테스트/jacoco)
+//   kbap.spring-conventions     — Spring 라이브러리 공통(core/common 제외)
+//   kbap.spring-boot-application— 부트 앱(bootJar): :app:api, :app:batch
+//   kbap.domain-conventions     — 도메인 5종 공통
 //
-// 각 모듈은 plugins { id("meogo.<archetype>") } 로 적용한다.
+// 각 모듈은 plugins { id("kbap.<archetype>") } 로 적용한다.
 // 라이브러리/플러그인 버전 단일 출처: gradle/libs.versions.toml.
 
 repositories {
@@ -57,8 +57,8 @@ tasks.named<JacocoReport>("testCodeCoverageReport") {
         originalClassDirs.map {
             fileTree(it) {
                 exclude(
-                    "**/MeogoApiApplication*",
-                    "**/MeogoBatchApplication*",
+                    "**/KbapApiApplication*",
+                    "**/KbapBatchApplication*",
                     "**/*JpaEntity*",
                 )
             }

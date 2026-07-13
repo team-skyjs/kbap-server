@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "meogo-server"
+rootProject.name = "kbap-server"
 
 include(
     // ── 공유 코어 + 도메인 컨텍스트 (영속 포함 — ADR-0012) ──
@@ -35,7 +35,7 @@ include(
     ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존
 
     // ── 부트앱 진입점 ──
-    ":app:api",           // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
+    ":app:api",           // web bootJar (조립) — 진입점 com.kbap.api.KbapApiApplication
     ":app:batch",         // batch bootJar — flyway off
 
     // ── 공유 모듈 (app:api·app:batch 공유) ──
