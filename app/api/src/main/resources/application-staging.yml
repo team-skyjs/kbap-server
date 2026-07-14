@@ -1,3 +1,10 @@
+logging:
+  # 수집기가 requestId·memberId·status·elapsedMs 를 필드 단위로 검색할 수 있게 JSON 으로 출력한다.
+  # Boot 내장 structured logging — MDC 값이 최상위 필드로 자동 포함된다. (KB-130)
+  structured:
+    format:
+      console: ecs
+
 spring:
   datasource:
     url: ${DB_URL}

@@ -15,6 +15,7 @@ enum class ErrorCode(
         "지원하지 않는 언어 코드입니다. 지원 언어: " + LanguageCode.entries.joinToString(", ") { it.code },
     ),
     INVALID_REQUEST("COMMON-002", 400, "잘못된 요청입니다"),
+    INTERNAL_SERVER_ERROR("COMMON-003", 500, "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요"),
 
     // 인증
     INVALID_SOCIAL_TOKEN("AUTH-001", 401, "유효하지 않은 소셜 인증 토큰입니다"),
