@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 internal interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
-    fun findAllByMemberIdAndFoodId(memberId: Long, foodId: Long): List<Bookmark>
+    fun findByMemberIdAndFoodId(memberId: Long, foodId: Long): Bookmark?
 
     @Query(
         """

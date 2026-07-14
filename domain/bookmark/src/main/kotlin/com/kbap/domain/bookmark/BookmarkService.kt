@@ -21,13 +21,13 @@ class BookmarkService internal constructor(
     @Transactional
     fun bookmark(memberId: Long, foodId: Long) {
         foodService.findReadyById(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
-        if (bookmarkRepository.findAllByMemberIdAndFoodId(memberId, foodId).isNotEmpty()) return
+        if (bookmarkRepository.findByMemberIdAndFoodId(memberId, foodId) != null) return
         bookmarkRepository.save(Bookmark(memberId = memberId, foodId = foodId))
     }
 
     @Transactional
     fun unbookmark(memberId: Long, foodId: Long) {
-        bookmarkRepository.findAllByMemberIdAndFoodId(memberId, foodId).forEach { it.delete() }
+        bookmarkRepository.findByMemberIdAndFoodId(memberId, foodId)?.delete()
     }
 
     @Transactional(readOnly = true)
