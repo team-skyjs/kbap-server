@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.web.filter.OncePerRequestFilter
+import java.net.URLDecoder
 import java.util.UUID
 
 // 로그에 남길 때 값을 가릴 쿼리 파라미터명. 민감 파라미터가 생기면 여기에 등록한다.
@@ -50,7 +51,10 @@ class RequestLoggingFilter : OncePerRequestFilter() {
     }
 
     private fun requestPath(request: HttpServletRequest): String {
+        // 한글 검색어 등 퍼센트 인코딩을 풀어 사람이 읽게 남긴다. 깨진 인코딩이면
+        // 로깅 실패가 요청 처리로 번지지 않게 인코딩된 원문 그대로 둔다.
         val query = maskQuery(request.queryString, MASKED_QUERY_PARAMS)
+            ?.let { runCatching { URLDecoder.decode(it, Charsets.UTF_8) }.getOrDefault(it) }
         return if (query == null) request.requestURI else "${request.requestURI}?$query"
     }
 

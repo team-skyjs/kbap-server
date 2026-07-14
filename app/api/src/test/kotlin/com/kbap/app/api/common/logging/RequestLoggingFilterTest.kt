@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.get
+import java.net.URI
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -141,6 +142,14 @@ class RequestLoggingFilterTest : BehaviorSpec() {
 
                     entry.mdcPropertyMap["requestId"] shouldBe result.requestId()
                     exit.mdcPropertyMap["requestId"] shouldBe result.requestId()
+                }
+            }
+
+            `when`("한글 검색어처럼 퍼센트 인코딩된 쿼리로 요청하면") {
+                then("진입 로그에는 디코딩된 원문으로 남는다") {
+                    mockMvc.get(URI.create("/api/v1/test-logging/ok?keyword=%EA%B9%80%EC%B9%98")).andReturn()
+
+                    eventsOf("RequestLoggingFilter").first().formattedMessage shouldContain "keyword=김치"
                 }
             }
 
