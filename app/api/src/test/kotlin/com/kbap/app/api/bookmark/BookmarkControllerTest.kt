@@ -15,7 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.delete
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
@@ -155,14 +155,14 @@ class BookmarkControllerTest : BehaviorSpec() {
             }
         }
 
-        given("음식 북마크 취소 API — DELETE /api/v1/bookmarks/{foodId}") {
+        given("음식 북마크 취소 API — PATCH /api/v1/bookmarks/{foodId}") {
             `when`("등록한 음식을 취소하면") {
                 then("200 과 success=true 를 반환하고 목록에서 사라진다") {
                     val token = accessToken(210L)
                     seedFood(1L, "김치찌개")
                     register(token, 1L).andExpect { status { isOk() } }
 
-                    mockMvc.delete("$path/1") {
+                    mockMvc.patch("$path/1") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
@@ -178,7 +178,7 @@ class BookmarkControllerTest : BehaviorSpec() {
                     val token = accessToken(211L)
                     seedFood(1L, "김치찌개")
                     register(token, 1L).andExpect { status { isOk() } }
-                    mockMvc.delete("$path/1") {
+                    mockMvc.patch("$path/1") {
                         header("Authorization", "Bearer $token")
                     }.andExpect { status { isOk() } }
 
@@ -190,7 +190,7 @@ class BookmarkControllerTest : BehaviorSpec() {
 
             `when`("액세스 토큰 없이 취소하면") {
                 then("401 을 반환한다") {
-                    mockMvc.delete("$path/1").andExpect {
+                    mockMvc.patch("$path/1").andExpect {
                         status { isUnauthorized() }
                     }
                 }
