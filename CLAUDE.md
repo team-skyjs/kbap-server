@@ -15,30 +15,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 개요
 
-`kbap/kbap-server` — Kotlin으로 작성된 Spring Boot 백엔드. Gradle 멀티모듈 **모듈러 모놀리스**다(ADR-0008·**ADR-0012**). 모듈 접두어(`kbap-`)는 쓰지 않고 그룹 컨테이너(`domain/`·`infra/`·`app/`)로 분류한다. **실행 가능한 bootJar 는 두 개** — `:app:api`(web, 진입점 `com.kbap.KbapApiApplication`)와 `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`)다. **KB-134(ADR-0012)에서 클린아키텍처 ports & adapters 를 폐기**했다 — `:infra:persistence` 를 해체해 영속 코드를 각 도메인 모듈 안으로 옮기고(엔티티·리포지토리는 Kotlin `internal`), 리포지토리 port·어댑터를 없앴으며, 각 도메인은 **도메인 서비스 하나를 public 창구**로 둔다. 경계는 컴파일러(internal) + ArchUnit 이 강제한다. DB 는 공유(batch `flyway off`, 스키마 owner=api), 도메인/엔티티도 단일 소스로 공유한다. `:common`은 두 앱이 공유하는 통합 이벤트·기술 공통(도메인/web/jpa 무의존). 공통 빌드 설정은 `buildSrc` 컨벤션 플러그인에 둔다.
+`kbap/kbap-server` — Kotlin으로 작성된 Spring Boot 백엔드. Gradle 멀티모듈 **모듈러 모놀리스**다. 모듈 접두어(`kbap-`)는 쓰지 않고 그룹 컨테이너(`domain/`·`infra/`·`app/`)로 분류한다. **실행 가능한 bootJar 는 두 개** — `:app:api`(web, 진입점 `com.kbap.KbapApiApplication`)와 `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`)다.
+
+**2026-07-14 아키텍처 대개편** 이후 구조: JPA 엔티티가 곧 도메인 모델이고(별도 도메인 모델·toDomain/from 변환 없음), **비즈니스 로직은 도메인 모듈의 도메인 서비스가 소유**한다. 도메인 모듈끼리는 **필요한 의존을 build.gradle 에 단방향 선언**해 서로의 도메인 서비스를 조합한다(Gradle 이 순환을 컴파일 차단). `:application` 은 **무소속 유스케이스(Home·Auth)와 도메인 간 순환 해소용 `~ApplicationService`** 만 두는 얇은 조합 계층이다. 리포지토리는 `internal` — 유일 창구는 도메인 서비스(컴파일러 강제). 외부 시스템(jjwt·firebase·Redis·LLM)은 **인터페이스는 소비 계층에, 구현은 `:infra:*` 에, 조립은 부트앱 config** 패턴으로 격리한다. DB 는 공유(batch `flyway off`, 스키마 owner=api). 공통 빌드 설정은 `buildSrc` 컨벤션 플러그인에 둔다.
 
 ### 모듈 구조
 
-상세 결정 근거는 [ADR-0012](docs/adr/0012-dissolve-persistence-module-and-ports.md)·[`docs/architecture/kbap-api-module-structure.md`](docs/architecture/kbap-api-module-structure.md) 참고. 의존 방향은 단방향으로 고정한다.
+의존 방향은 단방향으로 고정한다(Gradle 이 순환을 컴파일 차단).
 
 ```
-:common  ← (모두 의존 가능 / 아무에게도 의존 안 함)
+:core ← :domain:avoidance ← :domain:member ← :domain:food ← :domain:scan
+              (도메인 간 단방향 의존 — 서로의 도메인 서비스를 조합)
+                                   ▲
+        :application (조합 계층: Home·Auth ApplicationService + seam 인터페이스·dto)
+                                   ▲
+        :app:api (web bootJar, Flyway owner — 컨트롤러가 도메인 서비스 직접 호출)
+        :app:batch (배치 bootJar, 도메인 레포·서비스를 @Import 조립, flyway off)
 
-:core ← domain:도메인(food/member/scan/avoidance/research/review) ← application ← app:api (web bootJar, Flyway owner)
-                     ▲                                                                    app:batch (배치 bootJar, 도메인 직접 의존, flyway off)
-                     └── infra:llm (LLM 어댑터 — batch·api 가 직접/런타임 의존)
+:infra:llm / :infra:auth / :infra:redis — 외부 시스템 구현체(seam 인터페이스의 구현), 부트앱이 조립
 ```
-(ADR-0012: 각 도메인 모듈 = 도메인 모델(불변·ORM-free) + **도메인 서비스(public 유일 창구, `@Service`)** + JPA 엔티티·Spring Data 리포지토리(**`internal`** — 모듈 밖 참조는 컴파일 실패). 리포지토리 port·어댑터·runtimeOnly 조립은 폐기됐다. 외부 시스템 클라이언트(LLM·소셜 인증)는 여전히 **seam 인터페이스**로 쓴다 — 폐기된 것은 리포지토리 port 뿐이다.)
 
-- `:app:api`: web bootJar — controller, API DTO. 진입점 `KbapApiApplication`은 `com.kbap` 루트(스캔·AutoConfigurationPackages 가 전 계층 커버 — 도메인 모듈은 `:application` 을 통해 런타임 전이). DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`. 패키지 `com.kbap.app.api`.
-- `:application`: 유스케이스 조율, transaction boundary. **도메인 서비스를 조합**해 유스케이스를 만들고, 외부 client 는 seam 인터페이스로만 사용한다. **컨텍스트 간 조합은 여기서만**. 단일 모듈이다 — 진입점별 분할(client/admin/batch)은 실제로 늘 때 재도입. 패키지 `com.kbap.application`.
-- 도메인 컨텍스트 모듈: `domain/` 컨테이너 직속 — active: `:domain:{food,member,scan,avoidance,research}`, deferred placeholder: `:domain:review`. 각 도메인은 도메인 모델(ORM-free) + 도메인 서비스(`FoodService`·`MemberService` 등, 유일 public 창구 — member 는 `RefreshTokenStore` Redis 구체 클래스 포함) + 영속 코드(`internal`)를 **한 모듈에** 담는다. 도메인 모듈끼리는 서로 의존하지 않는다. 패키지 `com.kbap.domain.<도메인>`. (`research`는 순수 로직·배치 전용 — 영속 없음, web 미노출.)
+- `:app:api`: web bootJar — controller, API DTO(`*Request`/`*Response`), `config/`(빈 조립 `@Configuration` — CORS·OpenAPI·Auth). 진입점 `KbapApiApplication`은 `com.kbap` 루트(스캔·AutoConfigurationPackages 가 전 계층 커버). **컨트롤러는 도메인 서비스를 직접 호출**하고, home·auth 만 `:application` 을 경유한다. DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`. 패키지 `com.kbap.app.api`.
+- `:application`: **얇은 조합 계층** — 무소속 유스케이스(`HomeApplicationService`·`AuthApplicationService`)와 향후 도메인 간 순환 해소용 `~ApplicationService`, 그리고 auth seam 인터페이스(`TokenIssuer`·`TokenParser`·`SocialTokenVerifier`·`RefreshTokenStore`)와 dto 를 둔다. 도메인 간 순환이 실제로 발생할 때만 여기로 조합을 승격한다. 패키지 `com.kbap.application`.
+- 도메인 컨텍스트 모듈: `domain/` 컨테이너 직속 — active: `:domain:{food,member,scan,avoidance,research}`, deferred placeholder: `:domain:review`. 각 도메인 = **JPA 엔티티(=도메인 모델, 도메인 메서드 내장)** + **도메인 서비스(비즈니스 로직 소유, `@Service` + `internal constructor`)** + 리포지토리(`internal`) + `dto/`. 도메인 간 의존은 필요한 것만 단방향 선언 — 현재 `avoidance ← member ← food ← scan`. **가드레일: member 는 리프 유지** — member 가 타 도메인 서비스를 필요로 하는 순간 그 조합을 `:application` 으로 승격한다. 패키지 `com.kbap.domain.<도메인>`. (`research`는 순수 로직·배치 전용 — 영속 없음, web 미노출.)
 - `:core`: 공통 타입·**통합 에러**(`ErrorCode` enum + `BusinessException`)·유틸·`RiskLevel`, 외부 client **seam 인터페이스**(`ScannedNameInterpreter`), **여러 도메인이 공유하는 vocabulary**(`LanguageCode`), 그리고 **영속 공통**(`BaseEntity`·`EntityStatus` — jakarta/hibernate 는 `compileOnly`, 런타임 제공은 도메인 모듈). 특정 컨텍스트가 소유하는 코드는 **소유 컨텍스트 모듈**에 두고 타 컨텍스트는 코드로만 참조한다(원칙 II). 애플리케이션 코드는 Spring-free. 패키지 `com.kbap.core`.
-- `:infra:llm`: LLM 호출 어댑터(Spring AI — ADR-0010). `:app:batch`가 `implementation`, `:app:api`가 `runtimeOnly` 로 의존.
-- `:app:batch`: 배치 bootJar. **필요한 `:domain:*`·`:infra:llm`을 직접 의존**해 도메인 서비스를 잡에서 조합(ADR-0012). **flyway off**(스키마 owner=api). 패키지 `com.kbap.app.batch`.
-- `:common`: 통합 이벤트·기술 공통(logback 조각·유틸·횡단 어노테이션). 두 앱 공유. **web/jpa/도메인 의존 금지**. **Spring-free.** 패키지 `com.kbap.common`.
+- `:infra:llm`: LLM 호출 어댑터(Spring AI — ADR-0010). seam 은 `:core` 의 `ScannedNameInterpreter`. `:app:batch`가 `implementation`, `:app:api`가 `runtimeOnly` 로 의존. (조립 `@Configuration` 은 api·batch 양쪽이 쓰므로 예외적으로 모듈 안에 둔다.)
+- `:infra:auth`: 인증 구현 어댑터 — jjwt(`JwtTokenIssuer`/`JwtTokenParser`) + firebase-admin(`Firebase*` + `FirebaseSocialAuth` 팩토리). seam 은 `:application`(`TokenIssuer`·`TokenParser`·`SocialTokenVerifier`)과 `:domain:member`(`SocialAccountDeleter`). `:app:api` 가 `implementation`(config 조립).
+- `:infra:redis`: Redis 어댑터 — `RedisRefreshTokenStore`. seam 은 `:application`(`RefreshTokenStore`). `:app:api` 가 `runtimeOnly`.
+- `:app:batch`: 배치 bootJar. **컴포넌트 스캔을 자신 + `com.kbap.infra.llm` 로 좁힌다** — 도메인 서비스 그래프(외부 seam 필요)를 올리지 않고, 필요한 도메인 창구(`FoodScoringSource`·`AvoidanceCatalogService`)만 `@Import` 로 조립한다. 엔티티/레포 스캔은 `@AutoConfigurationPackage("com.kbap")`. **flyway off**(스키마 owner=api). 패키지 `com.kbap.app.batch`.
 
-각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. **모듈 간 project 의존은 `api`가 아니라 `implementation`을 기본으로** 한다(도메인 모듈 → `api(:core)` 만 예외). `:application`이 도메인을 `implementation`으로 의존하므로 도메인 타입은 `:app:api`의 컴파일 클래스패스로 전이되지 않고, 엔티티·리포지토리는 `internal` 이라 application 에서도 보이지 않는다. 이 경계(계층 의존 방향·도메인 간 격리·도메인 모델 ORM-free·`@Entity` 위치·**JPA 연관관계 애너테이션 전면 금지**·컨트롤러 매핑 `/api/v` 시작·app:api 도메인 미참조·application→infra/app 금지)는 ArchUnit 테스트 `app/api/src/test/kotlin/com/kbap/app/api/architecture/ModuleBoundaryTest.kt`(Kotest 태그 `arch` — `-Dkotest.tags="!arch"` 로 제외 실행 가능)로 강제한다.
+각 모듈은 `src/main`·`src/test` 소스셋을 모두 가진다. 도메인 모듈 간 의존과 `:core`·data-jpa 는 `api`(엔티티가 서비스 시그니처에 노출), 그 외 모듈 간 의존은 `implementation` 기본. 경계 강제 수단은 세 겹이다 — **Kotlin `internal`**(리포지토리는 소유 도메인 서비스만), **Gradle**(도메인 간 순환 컴파일 차단), **ArchUnit**(`ModuleBoundaryTest.kt`, Kotest 태그 `arch` — core Spring-free·도메인→상위 계층(application/infra/app) 금지·`@Entity` 는 도메인 모듈에만·컨트롤러 매핑 `/api/v` 시작·application→infra/app 금지).
 
 ## 설계 / 문서 위치
 
@@ -50,7 +56,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 기술 스택
 
 - **Kotlin 2.3** / **JVM (Java 21 toolchain)** — Gradle toolchain이 JDK를 해석하므로 로컬 `JAVA_HOME`에 묶이지 않는다(`settings.gradle.kts`의 foojay-resolver가 자동 프로비저닝).
-- **Spring Boot 4.1** — web/validation/actuator/data-jpa/data-redis 스타터. 영속: **MySQL**(prod, `mysql-connector-j`, 통합 테스트는 MySQL Testcontainers) + **Redis**(refresh token — KB-118). DB 마이그레이션: **Flyway**(+flyway-mysql). API 문서: **springdoc-openapi**(Swagger UI). 인증: 자체 JWT(jjwt) + Firebase ID 토큰 검증(firebase-admin).
+- **Spring Boot 4.1** — web/validation/actuator/data-jpa/data-redis 스타터. 영속: **MySQL**(prod, `mysql-connector-j`, 통합 테스트는 MySQL Testcontainers) + **Redis**(refresh token — KB-118). DB 마이그레이션: **Flyway**(+flyway-mysql). API 문서: **springdoc-openapi**(Swagger UI). 인증: 자체 JWT(jjwt) + Firebase ID 토큰 검증(firebase-admin) — 구현은 `:infra:auth`, refresh token 저장은 `:infra:redis`.
 - **LLM: Spring AI 2.0**(Boot 4 호환 라인) — 전용 모듈 **`:infra:llm`**(ADR-0010)에 `spring-ai-starter-model-openai` + `spring-ai-starter-model-google-genai`. 공개 API `LlmFanoutClient`·값타입·구성이 이 모듈에 응집되고 **`:app:batch`가 `implementation`으로 직접 의존**해 잡에서 호출(단일 소비자=배치, `:core` port·`runtimeOnly` 조립은 생략 — web/application 재사용 시 kernel port 승격 후속). 3개 모델(OpenAI·Upstage·Gemini)을 `kbap.llm.*` 프로퍼티 + `@ConditionalOnProperty`로 명시 구성: Upstage는 OpenAI 호환이라 openai 스타터를 base-url만 교체해 재사용, Gemini는 google-genai 스타터(API 키 방식). 키/활성 플래그가 없으면 caller 빈이 미생성돼 batch/web 부팅이 안전하며, Spring AI 자동구성 유입은 `application.yml`의 `spring.ai.model.*=none`으로 차단. fan-out은 JDK21 가상스레드 + `CompletableFuture`, 단일모델 seam `LlmModelCaller`로 부분실패를 페이크 단위검증(헌법 I).
 - 빌드 도구: **Gradle (Kotlin DSL)**, 래퍼 사용.
 - 테스트: **JUnit 5 플랫폼**(`useJUnitPlatform`) + **Kotest**(`kotest-runner-junit5` + `kotest-assertions-core`). Spring 모듈은 `spring-boot-starter-test`도 추가.
@@ -61,10 +67,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **버전 카탈로그** `gradle/libs.versions.toml`이 모든 버전(라이브러리·플러그인)의 단일 출처다. `libs.*` 접근자로 참조한다. 스타터 버전은 대부분 Spring Boot BOM이 관리하므로 카탈로그에 버전을 적지 않는다.
 - **공통 설정은 `buildSrc` 의 컨벤션 플러그인**(미리 컴파일된 `kbap.*.gradle.kts`)에 둔다. 각 모듈은 `plugins { id("kbap.<archetype>") }` 한 줄로 자기 아키타입을 선언한다. 루트 `build.gradle.kts`는 거의 비어 있다(집계 전용).
-  - `kbap.kotlin-common` — **모든 leaf 모듈** 공통: kotlin-jvm·java-library, Java 21 toolchain, Kotlin 엄격성 플래그, `group`/`version`, 공통 테스트(Kotest + JUnit launcher + `useJUnitPlatform()` + `-Dkotest.tags` 전달). Spring-free 모듈(common)은 이것만 적용. `:core` 는 여기에 dependency-management + jakarta/hibernate `compileOnly` + testFixtures(Testcontainers 공통 설정)를 얹는다.
-  - `kbap.spring-conventions` — **Spring 라이브러리 공통**(core/common 제외): kotlin-common 위에 kotlin-spring·dependency-management·Spring Boot/AI BOM·`kotlin-reflect`/`jackson-module-kotlin`/`spring-boot-starter-test`를 얹는다.
+  - `kbap.kotlin-common` — **모든 leaf 모듈** 공통: kotlin-jvm·java-library, Java 21 toolchain, Kotlin 엄격성 플래그, `group`/`version`, 공통 테스트(Kotest + JUnit launcher + `useJUnitPlatform()` + `-Dkotest.tags` 전달). Spring-free 모듈은 이것만 적용. `:core` 는 여기에 dependency-management + jakarta/hibernate `compileOnly` + testFixtures(Testcontainers 공통 설정)를 얹는다.
+  - `kbap.spring-conventions` — **Spring 라이브러리 공통**(core 제외): kotlin-common 위에 kotlin-spring·dependency-management·Spring Boot/AI BOM·`kotlin-reflect`/`jackson-module-kotlin`/`spring-boot-starter-test`를 얹는다.
   - `kbap.spring-boot-application` — **부트 앱(bootJar)**: `:app:api`, `:app:batch`. spring-conventions 위에 `org.springframework.boot`.
-  - `kbap.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/avoidance/research + review placeholder): kotlin-common 위에 kotlin-spring·**kotlin-jpa(no-arg)**·dependency-management·Boot BOM·`api(:core)`·`implementation(data-jpa·kotlin-reflect·jackson-module-kotlin)`·`runtimeOnly(mysql)`·테스트 공통(starter-test·kotest-extensions-spring·`testFixtures(:core)`)을 얹는다(ADR-0012 — 영속이 도메인 안으로 들어온 결과). member 처럼 모듈 고유 의존(data-redis)만 각 build 파일에 둔다.
+  - `kbap.domain-conventions` — **도메인 컨텍스트 공통**(food/member/scan/avoidance/research + review placeholder): kotlin-common 위에 kotlin-spring·**kotlin-jpa(no-arg)**·dependency-management·Boot BOM·`api(:core)`·`api(data-jpa)`·`implementation(kotlin-reflect·jackson-module-kotlin)`·`runtimeOnly(mysql)`·테스트 공통(starter-test·kotest-extensions-spring·`testFixtures(:core)`)을 얹는다(영속이 도메인 안으로 들어온 결과). 도메인 간 의존 등 모듈 고유 의존만 각 build 파일에 둔다.
 - **모듈별 고유 설정만 각 모듈 `build.gradle.kts`** 에 둔다(app:api=web/validation/actuator/flyway/springdoc+application 의존, infra:llm=spring-ai, app:batch=필요 도메인·llm 의존 등). 모듈 build 파일에서 의존성은 **문자열 표기**(`"implementation"(...)`)로 적는다(플러그인이 컨벤션에서 적용돼 타입 안전 단축표기 미생성). 라이브러리 좌표는 모듈 build 파일에선 `libs.*`로 정상 사용.
 - **버전 카탈로그 접근**: 컨벤션 플러그인 **안에서는** `libs.*` 타입세이프 접근자가 안 잡혀 `VersionCatalogsExtension`의 `findLibrary`/`findVersion`으로 조회한다. buildSrc 는 `buildSrc/settings.gradle.kts`에서 루트 `gradle/libs.versions.toml`을 `libs`로 가져오고, `buildSrc/build.gradle.kts`는 `libs.plugins.*`를 플러그인 마커 좌표로 변환해 서드파티 Gradle 플러그인을 classpath 에 올린다.
 - **트레이드오프**: buildSrc 변경 시 전체 빌드 캐시가 무효화돼 느려질 수 있다(대신 도메인 5종 dedup·모듈 파일 슬림).
@@ -99,9 +105,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 컨벤션
 
-- **Kotlin 소스 코드(`.kt`)에 주석을 작성하지 않는다 (고정).** 라인(`//`)·블록(`/* */`)·KDoc(`/** */`) 모두 금지하며, main·test 동일하게 적용한다. 코드는 이름(클래스·함수·변수)과 구조로 의도를 드러내는 **self-documenting** 방식으로 쓴다. 설명이 필요한 맥락(설계 근거·트레이드오프·"왜")은 코드가 아니라 **커밋 메시지·`docs/`·ADR·SpecKit 문서**에 남긴다. (예외: 빌드 스크립트 `*.gradle.kts`, Flyway SQL, `*.yml` 등 비-Kotlin 파일의 주석은 이 규약 밖이며 허용한다.)
-- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링해 `com.kbap.<layer>` 로 둔다** — 커널 `com.kbap.core`(`core/`), 도메인 컨텍스트 `com.kbap.domain.<context>`(예: `domain/food/src/main/kotlin/com/kbap/domain/food/` — 도메인 모델·서비스·엔티티가 함께, 영속은 `internal`), 유스케이스 `com.kbap.application`, web `com.kbap.app.api`(컨트롤러·DTO·`BaseResponse`), 배치 `com.kbap.app.batch`, 공유 `com.kbap.common`. **부트 진입점 `KbapApiApplication`은 패키지 루트 `com.kbap`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.kbap.app.batch`.
-- web 실행 설정은 `app/api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `app/api/src/test/resources/application.yml`(Flyway off, Testcontainers MySQL 에 Hibernate `schema-generation=create`). 배치는 `app/batch/src/main/resources/application.yml`(flyway off). 공통 로깅은 `common`의 `logback-common.xml`을 각 앱 `logback-spring.xml`이 `<include>`로 가져간다.
+- **Kotlin 소스 주석은 "코드로 표현 불가능한 제약"만 허용한다 (2026-07-14 완화).** 코드가 하는 일·다음 줄 설명·변경 정당화 주석은 여전히 금지 — 코드는 이름과 구조로 의도를 드러내는 **self-documenting** 이 기본이다. 단 **코드 자체로는 드러나지 않는 설계 제약**은 짧은 라인 주석으로 남긴다(예: "의도적 무트랜잭션 — 제약 위반 폴백이 세션을 무효화", "읽기 전용 매핑 — 쓰기는 리포지토리 직접", 스캔 제외 사유). KDoc·서사형 블록 주석은 금지. 긴 맥락(설계 근거·트레이드오프)은 커밋 메시지·`docs/`·ADR 에 남긴다. (빌드 스크립트·Flyway SQL·yml 주석은 규약 밖.)
+- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링해 `com.kbap.<layer>` 로 둔다** — 커널 `com.kbap.core`(`core/`), 도메인 컨텍스트 `com.kbap.domain.<context>`(예: `domain/food/src/main/kotlin/com/kbap/domain/food/` — 도메인 모델·서비스·엔티티가 함께, 영속은 `internal`), 조합 계층 `com.kbap.application`, web `com.kbap.app.api`(컨트롤러·DTO·`BaseResponse`·`config/`), 배치 `com.kbap.app.batch`, 인프라 `com.kbap.infra.<어댑터>`. **부트 진입점 `KbapApiApplication`은 패키지 루트 `com.kbap`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.kbap.app.batch` — 단 배치는 `scanBasePackages` 를 자신 + `com.kbap.infra.llm` 로 좁힌다(도메인 서비스 미탑재).
+- web 실행 설정은 `app/api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `app/api/src/test/resources/application.yml`(Flyway off, Testcontainers MySQL 에 Hibernate `schema-generation=create`). 배치는 `app/batch/src/main/resources/application.yml`(flyway off). 로깅은 각 앱 `logback-spring.xml`이 Boot 기본(`base.xml`)을 include 한다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `kbap.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:
   - `-Xjsr305=strict` — JSR-305 nullability 애너테이션을 강제 제약으로 취급(Spring/Java API 호출 시 영향).
   - `-Xannotation-default-target=param-property` — Kotlin 프로퍼티의 기본 애너테이션 타깃을 변경.
@@ -115,10 +121,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **도메인 행위는 유비쿼터스 언어 동사 그대로** — `login`·`logout`·`withdraw`·`completeOnboarding`·`assessMenuBoard`·`search`·`increaseScanCount` 처럼 업무 용어를 CRUD 접두로 뭉개지 않는다(가장 우선하는 규칙).
   - **보조**: boolean `is~/has~/exists~`, 개수 `count~`, 순차 공급 `next~`.
 - **크로스 도메인 엔티티 참조는 `Long` id 컬럼 (2026-07-14 개정).** 엔티티 간 참조는 원칙적으로 **id 값 컬럼(`Long`, 명확한 필드명 `memberId`/`foodId`)**으로 든다 — id 값 클래스(`FoodId`·`MemberId`)와 `IdConverter` 는 JPA 마찰(쿼리 파라미터 언랩·no-arg 보조 생성자) 대비 실이득이 없어 폐기했다. 예외적으로 **읽기 전용 연관**은 허용한다(현재 유일: `Food`→성분 `@OneToMany(EAGER)+@JoinColumn(insertable=false,updatable=false)+@BatchSize` — 쓰기는 레포지토리 직접). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(ON DELETE 없음 — 소프트 삭제 구조).
-- **JPA 엔티티 작성 (고정 — ADR-0012).** JPA 영속 코드(엔티티·Spring Data Repository)는 **데이터를 소유하는 도메인 모듈 안에 두고 `internal` 로 감춘다** — 별도 persistence 모듈·리포지토리 port·어댑터는 없다. 영속 접근의 public 창구는 **도메인 서비스**(`FoodService` 등, `@Service` + `internal constructor`) 하나다. 엔티티는 도메인 패키지 `com.kbap.domain.<도메인>` 에 도메인 모델과 나란히 둔다(가시성으로 구분). **모든 엔티티는 `com.kbap.core.persistence.BaseEntity`(`@MappedSuperclass`)를 상속**한다 — `id`(IDENTITY)·`status`(`EntityStatus` ACTIVE/DELETED 소프트삭제)·`createdAt`·`updatedAt` 공통 제공, 엔티티엔 **자체 id·생성/수정 시각을 두지 않는다**(도메인 고유 상태는 `status` 와 컬럼명 분리 — 예: member 의 `member_status`). `kotlin-jpa`(no-arg)는 `kbap.domain-conventions` 가 전 도메인 모듈에 적용한다(전 필드 기본값이 있으면 no-arg 자동 생성). JPA 애너테이션은 **use-site 타깃 없이**(`@Id`/`@Column`) 단다.
+- **JPA 엔티티 작성 (고정).** **엔티티가 곧 도메인 모델**이다 — 도메인 메서드(`completeOnboarding`·`overallRisk` 등)를 엔티티에 두고, 별도 도메인 모델 클래스·`toDomain`/`from` 변환을 만들지 않는다. 값 객체(`MemberProfile`·`Ranking` 등)는 유지. **Spring Data Repository 는 `internal`** — 영속 접근의 public 창구는 **도메인 서비스**(`@Service` + `internal constructor`) 하나다(컴파일러 강제). 엔티티는 도메인 패키지 `com.kbap.domain.<도메인>` 에 둔다. **모든 엔티티는 `com.kbap.core.persistence.BaseEntity`(`@MappedSuperclass`)를 상속**한다 — `id`(IDENTITY)·`status`(`EntityStatus` ACTIVE/DELETED 소프트삭제)·`createdAt`·`updatedAt` 공통 제공, 엔티티엔 **자체 id·생성/수정 시각을 두지 않는다**(도메인 고유 상태는 `status` 와 컬럼명 분리 — 예: member 의 `member_status`). `kotlin-jpa`(no-arg)는 `kbap.domain-conventions` 가 전 도메인 모듈에 적용한다(전 필드 기본값이 있으면 no-arg 자동 생성). JPA 애너테이션은 **use-site 타깃 없이**(`@Id`/`@Column`) 단다.
   - **컬럼 정의는 MySQL 기준으로 고정한다 (H2 호환은 고려하지 않는다).** 문자열 컬럼은 `@Column(length = N)` 으로 길이를 명시하고(예: `length = 20`), 길이 없는 `columnDefinition = "VARCHAR"` 같은 비-MySQL 형식은 쓰지 않는다. 엔티티 컬럼 길이는 Flyway 마이그레이션과 일치시킨다.
   - **소프트 삭제는 BaseEntity 가 `@SQLRestriction("status = 'ACTIVE'")` 로 상시 적용**한다(@MappedSuperclass 에서 전 엔티티로 상속). 따라서 모든 조회는 자동으로 `ACTIVE` 만 본다 — 리포지토리 쿼리에 별도 status 조건을 달지 않는다. 삭제는 row 제거가 아니라 `BaseEntity.delete()`(status=DELETED).
-- **도메인 ↔ JPA 변환·도메인 불변 (고정).** 도메인 객체와 JPA 엔티티를 변환하는 메서드는 **JPA 엔티티 안에** 둔다 — 도메인 복원 `fun toDomain(): Domain` + `companion object { fun from(domain): Entity }`. 별도 `*Mapper` 클래스로 흩지 않으며, **도메인 서비스**는 `Entity.from(...)`·`entity.toDomain()` 만 호출한다(도메인 모델 클래스는 JPA 를 import 하지 않는다 — ArchUnit 강제). **도메인 객체는 불변** — 모든 상태는 `val` 이고, 상태 변경 메서드는 변형 대신 **새 인스턴스를 반환**한다. 데이터 클래스 public `copy` 노출 대신 **`private fun copy(...)`** 를 직접 두어 통제된 복제만 허용한다. (상세·예시: [`docs/architecture/kbap-conventions.md`](docs/architecture/kbap-conventions.md) "도메인 객체 불변성 & 영속 변환".)
+- **트랜잭션 경계 (고정 — 2026-07-14).** DB 를 만지는 서비스 public 메서드는 **전부 명시적 `@Transactional`**(읽기는 `readOnly = true`)을 선언한다 — 리포지토리 기본 트랜잭션에 암묵 의존 금지. 상태 변경은 관리 엔티티 dirty checking(불필요한 `save()` 호출 금지). 애플리케이션 서비스는 여러 조회를 한 스냅샷으로 묶을 때만 선언. **외부 시스템 호출은 트랜잭션 밖**(예: 탈퇴의 소셜 삭제는 `AuthApplicationService` 가 선행). 예외는 주석으로 사유 명시(예: `findOrSignUp` — unique 제약 위반 폴백이 세션을 무효화해 단일 트랜잭션 불가).
 - **Flyway 마이그레이션 버전 규칙 (고정).** 마이그레이션 버전은 **점 구분 timestamp** `Vyyyy.MM.dd.HH.mm.ss__description.sql` 로 짓는다 — 값은 **파일 생성 시점의 로컬 현재 시각**(각 파트 두 자리 zero-pad), 예: `V2026.07.05.14.30.12__add_review_table.sql`. 병렬 브랜치에서 각자 다음 정수를 잡을 때 생기는 버전 번호 머지 충돌을 없애기 위함이다(Flyway 공식 유효 포맷 — 예시 `2013.01.15.11.35.56`). Flyway 는 버전을 숫자 파트열로 정렬한다. 기존 정수 마이그레이션(`V1`~`V10`)은 **로컬 DB 전용·프로덕션 이전 단계에서 커밋 시각 기준 timestamp 로 일괄 전환**했으므로(KB-44) 현재 모든 마이그레이션이 timestamp 포맷이다. 생성 시각 기반이라 먼저 만들고 늦게 머지된 과거 버전이 out-of-order 로 적용될 수 있어 **`spring.flyway.out-of-order=true`**(베이스 `application.yml`)를 켜 두며, 그 전제로 **각 마이그레이션은 다른 미적용 마이그레이션의 실행 순서에 의존하지 않게 독립적으로 작성**한다. **금지 사례**: (1) 신규에 정수 버전(`V11`) 사용, (2) **공유/프로덕션 DB 에 이미 적용된** 마이그레이션 파일 수정·리네임(checksum/history 파손 — 일괄 전환은 로컬 전용·프로덕션 이전 단계에서만 가능), (3) 순서 의존 마이그레이션 작성. (상세·근거: [`docs/architecture/kbap-conventions.md`](docs/architecture/kbap-conventions.md) "Flyway 마이그레이션 버전 규칙".)
   - **시드-동기화 테스트 ↔ 마이그레이션 파일명 결합 (주의).** 일부 테스트는 마이그레이션 SQL 을 **리소스 경로로 하드코딩해 읽는다**(예: `AvoidanceCatalogSeedSyncTest` 의 `seedResourcePath = "db/migration/…​.sql"`). 시드가 담긴 마이그레이션의 **파일명(버전)·위치를 바꾸면 그 테스트의 참조도 반드시 함께 갱신**한다 — 파일을 못 찾으면 내용이 빈 문자열로 읽혀 "파일 없음"이 아니라 **데이터 불일치 assertion 실패**로 조용히 깨진다(오진 주의). 테스트 설명(`given(...)`)에는 버전 번호를 박지 말고 버전 비의존 문구를 쓴다.
 
@@ -131,18 +137,15 @@ data class BaseResponse<T>(
     val success: Boolean,
     val payload: T? = null,
     val message: String? = null,
-) {
-    companion object {
-        fun <T> ok(payload: T): BaseResponse<T> = BaseResponse(success = true, payload = payload)
-        fun fail(message: String): BaseResponse<Nothing> = BaseResponse(success = false, message = message)
-    }
-}
+    val code: String? = null,
+)
 ```
 
-- **성공**: `BaseResponse.ok(payload)` — `success=true`, `payload`에 페이로드, `message=null`.
-- **실패**: `BaseResponse.fail(message)` — `success=false`, `payload=null`, `message`에 사유.
+- **성공**: `BaseResponse.ok(payload)` — `success=true`, `payload`에 페이로드.
+- **실패**: `BaseResponse.fail(code, message, payload?)` — `success=false` + **`code`(클라이언트 분기용 안정 식별자)** + `message`(표시용) + 선택적 `payload`(후속 동작용 구조화 데이터).
+- **에러 코드 체계 (고정)**: `ErrorCode` enum(`:core`) 단일 출처 — `code` 는 **도메인 접두 + 3자리 채번**(`COMMON-001`·`AUTH-004`·`MEMBER-003`·`FOOD-001`). `KB-` 접두는 Jira 이슈 키와 충돌하므로 금지. 클라이언트는 `code` 로만 분기하고 `message` 매칭은 금지(문구는 자유 변경). 예: access 만료 `AUTH-004` → refresh 호출, refresh 만료 `AUTH-006` → 재로그인. 형식·유일성은 `ErrorCodeStatusTest` 가 강제. 예외는 `BusinessException(errorCode, payload = null)` 하나 — 도메인별 예외 클래스를 만들지 않는다.
 - 컨트롤러는 raw 도메인/DTO 를 직접 반환하지 않고 항상 `ResponseEntity<BaseResponse<T>>`로 감싼다. HTTP 상태코드는 `ResponseEntity`로, 비즈니스 성공/실패 플래그는 `BaseResponse.success`로 표현한다.
-- `BaseResponse`는 모든 web 응답이 공유하므로 `:app:api`(또는 공통 web 계층)에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
+- `BaseResponse`는 모든 web 응답이 공유하므로 `:app:api` 에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
 
 ### API 엔드포인트 경로 규약 (고정)
 
@@ -151,7 +154,7 @@ data class BaseResponse<T>(
 - 버전 베이스는 `com.kbap.app.api.common.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
 - 새 버전 도입 시 `ApiPaths` 에 상수 추가(예: `const val V2 = "/api/v2"`)하고 해당 버전 컨트롤러가 참조한다. 같은 리소스의 v1·v2 컨트롤러는 서로 다른 베이스를 써 **공존**한다(기존 버전 경로는 깨지 않는다).
 - 이 규약은 **비즈니스 API(`com.kbap.app.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
-- 경계 강제는 후속 ArchUnit(또는 매핑 검사 테스트)로 둔다 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증.
+- 경계 강제는 ArchUnit(`ModuleBoundaryTest`)이 담당 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증한다.
 
 ### 인증 파라미터 애너테이션 위치 (고정)
 
