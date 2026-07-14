@@ -24,11 +24,11 @@ X-Request-Id: 550e8400-e29b-41d4-a716-446655440000
 Boot 기본 패턴의 correlation 자리에 삽입:
 
 ```
-2026-07-14T12:00:00.000+09:00  INFO 123 --- [nio-8080-exec-1] [550e8400-...][42] c.k.a.a.c.l.RequestLoggingFilter : --> GET /api/v1/members/me/profile
-2026-07-14T12:00:00.012+09:00  INFO 123 --- [nio-8080-exec-1] [550e8400-...][42] c.k.a.a.c.l.RequestLoggingFilter : <-- 200 GET /api/v1/members/me/profile (12ms)
+2026-07-14T12:00:00.000+09:00  INFO 123 --- [nio-8080-exec-1] [reqId=550e8400-...][memberId=42] c.k.a.a.c.l.RequestLoggingFilter : --> GET /api/v1/members/me/profile
+2026-07-14T12:00:00.012+09:00  INFO 123 --- [nio-8080-exec-1] [reqId=550e8400-...][memberId=42] c.k.a.a.c.l.RequestLoggingFilter : <-- 200 GET /api/v1/members/me/profile (12ms)
 ```
 
-- `[requestId][memberId]` — memberId 부재 시 빈 칸(`%X{memberId:-}`).
+- `[reqId=...][memberId=...]` — 값 부재 시 라벨만 남고 빈 값(`%X{memberId:-}`).
 
 ### staging/prod (ECS JSON — Boot 내장 structured logging)
 
