@@ -1,5 +1,6 @@
-package com.kbap.app.api.common.logging
+package com.kbap.app.api.config
 
+import com.kbap.app.api.common.logging.RequestLoggingFilter
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
