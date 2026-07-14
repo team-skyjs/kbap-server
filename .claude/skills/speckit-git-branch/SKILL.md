@@ -17,7 +17,7 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
 
 - The **feature description** (the text passed to `/speckit-specify`) arrives as `$ARGUMENTS`.
 - Optional overrides:
-  - `JIRA_KEY=<KEY>` — **meogo default**. A Jira issue key (e.g. `KB-28`). When present, take the
+  - `JIRA_KEY=<KEY>` — **kbap default**. A Jira issue key (e.g. `KB-28`). When present, take the
     **Jira-keyed path in Step 2** instead of the numbered script: the branch/dir become
     `kb-<nn>-<slug>` (e.g. `kb-28-food-spiciness`) with **no sequential number**, because the Jira
     key is globally unique and concurrent developers never collide. See
@@ -33,7 +33,7 @@ the spec template, and prints `{BRANCH_NAME, SPEC_FILE, FEATURE_NUM}` as JSON.
 
 2. Create the branch + scaffold. Two paths:
 
-   **2a. Jira-keyed path (meogo default — when `JIRA_KEY` is provided).**
+   **2a. Jira-keyed path (kbap default — when `JIRA_KEY` is provided).**
    Do **not** call the numbered script. Create the branch and scaffold directly from the repo root,
    so no sequential number is prepended (the shared `create-new-feature.sh` stays untouched):
 

@@ -1,13 +1,15 @@
-# Meogo 모듈 구조 정리
+# Kbap 모듈 구조 정리
 
-> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `meogo-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.meogo.<layer>`(예: `com.meogo.core.food`, `com.meogo.infra.persistence`, `com.meogo.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
+> **2026-07-13 갱신([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md), KB-134)**: `:infra:persistence` 해체·리포지토리 port 폐기·모듈 리네임(`core/`→`domain/`, kernel→`:core`)이 반영됐다. 아래 컨텍스트별 개념 절의 "Repository 인터페이스" 표기는 도메인 서비스 창구로 읽는다.
+
+> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `kbap-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.kbap.<layer>`(예: `com.kbap.domain.food`, `com.kbap.infra.persistence`, `com.kbap.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
 >
 > 목적: 서버의 API, Application, Domain, Core, Infra 계층 구조와 책임을 정리한 팀 공유 기준 문서.
 > 범위: 계층별 DDD 구조(API/Application/Domain/Core/Infra)에 집중한다. `:app:batch`(배치 앱)와 `:common`(공유 모듈)이 형제로 존재하며, batch 는 공유 도메인/영속을 직접 재사용한다(ADR-0008).
 
 ## 1. API 서버의 역할
 
-`meogo-api`는 사용자의 모바일 앱 요청을 직접 받는 Spring Boot API 서버다.
+`kbap-api`는 사용자의 모바일 앱 요청을 직접 받는 Spring Boot API 서버다.
 
 MVP 기준 API 서버는 다음 책임을 가진다.
 
@@ -37,26 +39,26 @@ API 구조에 적용할 원칙은 다음이다.
 6. Application은 JPA Entity나 Mongo Document가 아니라 Domain Entity, Command, DomainRepository를 사용한다.
 7. Aggregate Root를 통해서만 Aggregate 내부 상태를 변경한다.
 
-Meogo에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:core:avoidance` 컨텍스트 정책으로 집중해야 한다.
+Kbap에 적용하면, `SAFE`, `CAUTION`, `DANGER`, `UNKNOWN` 판정 규칙은 컨트롤러나 응답 DTO에 있으면 안 된다. 위험도 판정은 `:domain:avoidance` 컨텍스트 정책으로 집중해야 한다.
 
-Meogo 는 멀티앱(web `meogo-api` + 배치 `meogo-batch`)이며, 도메인 컨텍스트는 `meogo-api` 컨테이너 아래 Gradle subproject로 평탄하게 분리한다. active 컨텍스트는 `food`, `member`, `scan`, `avoidance`이며, `review`는 placeholder/deferred subproject다.
+Kbap 는 멀티앱(web `kbap-api` + 배치 `kbap-batch`)이며, 도메인 컨텍스트는 `kbap-api` 컨테이너 아래 Gradle subproject로 평탄하게 분리한다. active 컨텍스트는 `food`, `member`, `scan`, `avoidance`이며, `review`는 placeholder/deferred subproject다.
 
 ## 3. 최종 권장 구조
 
-`meogo-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
+`kbap-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
 
-- `:app:api`: web bootJar — controller, API DTO, 조립(infra runtimeOnly), Flyway 스키마 owner
-- `:application`: 유스케이스 조율, transaction boundary
-- `:core:{food,member,scan,avoidance}`: active 도메인 컨텍스트 (`meogo-api` 직속, 평탄화)
-- `:core:review`: deferred placeholder
-- `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸 (Spring-free)
-- `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
-- `:app:batch`: 배치 bootJar — `:application`을 트리거(단일 모듈, 추후 분리)
+- `:app:api`: web bootJar — controller, API DTO, Flyway 스키마 owner (도메인 모듈은 application 을 통해 런타임 전이 — ADR-0012 로 runtimeOnly 조립 소멸)
+- `:application`: 유스케이스 조율(도메인 서비스 조합), transaction boundary
+- `:domain:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 — 도메인 모델 + 도메인 서비스(public) + 영속(internal), `domain/` 컨테이너 직속
+- `:domain:review`: deferred placeholder
+- `:core`: 공통 타입·예외·유틸·외부 client seam·id 값 클래스 + 영속 공통(BaseEntity — compileOnly jakarta/hibernate)
+- `:infra:llm`: LLM 외부 연동 어댑터(Spring AI) — 배치가 직접 의존
+- `:app:batch`: 배치 bootJar — 도메인 서비스를 직접 조합해 잡 실행
 - `:common`: 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback 조각·유틸·어노테이션), Spring-free
 
 ### 3.1 왜 도메인별 subproject로 두는가
 
-API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application 유스케이스를 재사용하는 위성 앱이다. 도메인 컨텍스트는 Gradle subproject로 나누어 컴파일 의존 방향을 더 명확히 한다. 이 구조는 다음 장점이 있다.
+API 서버가 제품의 중심이고, 배치(`kbap-batch`)는 그 application 유스케이스를 재사용하는 위성 앱이다. 도메인 컨텍스트는 Gradle subproject로 나누어 컴파일 의존 방향을 더 명확히 한다. 이 구조는 다음 장점이 있다.
 
 - 도메인 간 직접 의존을 Gradle 의존성으로도 확인할 수 있다.
 - 실행 서버는 하나라 운영 복잡도가 낮다.
@@ -73,10 +75,10 @@ API 서버가 제품의 중심이고, 배치(`meogo-batch`)는 그 application �
 예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `avoidance`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
 - `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
-- `:application`은 도메인 컨텍스트와 외부 client를 조합한다.
-- 도메인 모듈은 도메인 규칙과 영속성 adapter를 캡슐화한다.
-- `:core:kernel`는 공통 타입과 이벤트 계약을 제공한다.
-- `:infra:external`는 메시지큐, 외부 API, 이벤트 발행/구독 같은 외부 시스템 연동을 담당한다.
+- `:application`은 도메인 서비스와 외부 client seam 을 조합한다.
+- 도메인 모듈은 도메인 규칙과 영속 코드를 캡슐화한다 — 영속은 `internal`, 공개 창구는 도메인 서비스 하나다(ADR-0012).
+- `:core`는 공통 타입·공유 값 클래스·영속 공통을 제공한다.
+- `:infra:llm`은 LLM 외부 시스템 연동을 담당한다.
 
 도메인 컨텍스트는 별도 Gradle subproject이므로, 서로를 직접 의존성으로 선언하지 않는 한 컴파일 시점 참조가 생기지 않는다. 패키지 규칙, 코드 리뷰, ArchUnit 테스트는 이 경계를 보조로 강제한다.
 
@@ -118,9 +120,9 @@ Application Service는 `:app:api`이 아니라 `:application`에 둔다. `:app:a
 
 ## 7. Bounded Context
 
-MVP API 기준 active Bounded Context는 `meogo-api` 아래 5개 subproject로 둔다.
+MVP API 기준 active Bounded Context는 `kbap-api` 아래 5개 subproject로 둔다.
 
-`review`는 제품 기획에는 남아 있지만 현재 도메인 설계·초기 구현 범위에서는 제외한다. repo에는 `:core:review` subproject를 placeholder로 유지하되, 실제 리뷰 기능은 재개 시점에 다시 설계한다. 리뷰를 재개하더라도 `food` 컨텍스트에 섞지 않고 별도 컨텍스트로 유지한다.
+`review`는 제품 기획에는 남아 있지만 현재 도메인 설계·초기 구현 범위에서는 제외한다. repo에는 `:domain:review` subproject를 placeholder로 유지하되, 실제 리뷰 기능은 재개 시점에 다시 설계한다. 리뷰를 재개하더라도 `food` 컨텍스트에 섞지 않고 별도 컨텍스트로 유지한다.
 
 컨텍스트 목록:
 
@@ -256,11 +258,11 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 - LlmResponse (제공자별 원본 응답)
 - SynthesizedFoodProfile (종합 결과 → `food`가 영속)
 
-> **배치 전용** — web 진입점(`:app:api`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:application`의 배치 전용 패키지에 두고 `meogo-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
+> **배치 전용** — web 진입점(`:app:api`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:application`의 배치 전용 패키지에 두고 `kbap-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
 
 ## 12. review context (deferred)
 
-현재 구현 범위에서는 리뷰 도메인을 구현하지 않는다. `:core:review`는 placeholder이며, 아래 내용은 재개 시 참고할 보류 원칙이다.
+현재 구현 범위에서는 리뷰 도메인을 구현하지 않는다. `:domain:review`는 placeholder이며, 아래 내용은 재개 시 참고할 보류 원칙이다.
 
 ### 12.1 추후 책임 후보
 
@@ -306,7 +308,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 
 위 영속성 관련 구현은 각 도메인 모듈 내부의 `adapter` 또는 `infrastructure` 패키지에 둔다.
 
-in-process 도메인 이벤트의 이름과 payload 계약은 `:core:kernel` 또는 도메인 모듈에 둔다(앱 간 브로커를 타는 통합 이벤트는 `common`). 반면 Kafka, RabbitMQ, SQS 같은 실제 메시지 브로커 연결, 직렬화, retry, dead letter queue 처리는 `:infra:external`에 둔다.
+in-process 도메인 이벤트의 이름과 payload 계약은 `:core` 또는 도메인 모듈에 둔다(앱 간 브로커를 타는 통합 이벤트는 `common`). 반면 Kafka, RabbitMQ, SQS 같은 실제 메시지 브로커 연결, 직렬화, retry, dead letter queue 처리는 `:infra:external`에 둔다.
 
 ### 13.1 LLM client
 
@@ -318,11 +320,11 @@ LLM 외부 API 호출을 담당한다.
 - OpenAI
 - Upstage
 
-`:infra:external`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `:core:kernel` 또는 `:application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `:application`의 Application Service 또는 별도 assembler에서 수행한다.
+`:infra:external`의 LLM client는 외부 API별 응답을 내부 공통 응답 모델로 변환한다. 이 공통 응답 모델은 `:core` 또는 `:application`의 port 계약으로 둔다. LLM 결과를 최종 음식 데이터로 확정하는 정책은 `:application`의 Application Service 또는 별도 assembler에서 수행한다.
 
 여러 LLM 응답은 내부 공통 응답 모델로 변환한 뒤 Application 계층에서 종합한다.
 
-이 LLM 병렬 호출·종합은 **`research` 컨텍스트가 소유**하고 **`meogo-batch`가 하루 1회 트리거**한다. 스캔 응답 경로(`meogo-api`)는 LLM client를 호출하지 않는다. LLM client(IO)는 `:infra:external`, 병렬 호출 오케스트레이션은 `:application`, **종합 정책은 `research`의 순수 도메인 서비스**에 두고, `meogo-batch`가 `:infra:external`를 조립해 application 유스케이스를 호출한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md), §17·§11.5 참고).
+이 LLM 병렬 호출·종합은 **`research` 컨텍스트가 소유**하고 **`kbap-batch`가 하루 1회 트리거**한다. 스캔 응답 경로(`kbap-api`)는 LLM client를 호출하지 않는다. LLM client(IO)는 `:infra:external`, 병렬 호출 오케스트레이션은 `:application`, **종합 정책은 `research`의 순수 도메인 서비스**에 두고, `kbap-batch`가 `:infra:external`를 조립해 application 유스케이스를 호출한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md), §17·§11.5 참고).
 
 ### 13.2 Storage client
 
@@ -383,7 +385,7 @@ MVP에서 서버가 OCR을 직접 하지 않더라도, 사용자가 촬영한 �
 
 ### 14.6 미스 메뉴 배치 처리 (research 조사·종합)
 
-캐시 미스로 적재된 메뉴를 하루 1회 조사해 음식 데이터·다국어 번역을 만들어 캐시를 채운다. **조사·종합 로직은 `research` 컨텍스트가 소유**하고([ADR-0004](../adr/0004-research-bounded-context.md)), 조합 유스케이스(`ProcessPendingResearch`)는 `:application`의 **배치 전용 패키지**에 둔다. **`meogo-batch`는 이 유스케이스를 스케줄에 맞춰 호출만** 하고 `:infra:external`(LLM client)를 조립해 실행한다(비즈니스 로직을 Job에 두지 않는다 — 규칙 §도메인 간 의존 8).
+캐시 미스로 적재된 메뉴를 하루 1회 조사해 음식 데이터·다국어 번역을 만들어 캐시를 채운다. **조사·종합 로직은 `research` 컨텍스트가 소유**하고([ADR-0004](../adr/0004-research-bounded-context.md)), 조합 유스케이스(`ProcessPendingResearch`)는 `:application`의 **배치 전용 패키지**에 둔다. **`kbap-batch`는 이 유스케이스를 스케줄에 맞춰 호출만** 하고 `:infra:external`(LLM client)를 조립해 실행한다(비즈니스 로직을 Job에 두지 않는다 — 규칙 §도메인 간 의존 8).
 
 사용 컨텍스트와 모듈:
 
@@ -446,7 +448,7 @@ DB에 저장하는 음식 콘텐츠는 **한국어(`ko`) 원문 + 9개 대상 �
 
 ## 17. LLM 처리 위치
 
-LLM 조사·종합은 **`research` 컨텍스트가 소유**하고 **하루 1회 배치로 트리거**된다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API(`meogo-api`)는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다.
+LLM 조사·종합은 **`research` 컨텍스트가 소유**하고 **하루 1회 배치로 트리거**된다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API(`kbap-api`)는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다.
 
 이유:
 
@@ -454,7 +456,7 @@ LLM 조사·종합은 **`research` 컨텍스트가 소유**하고 **하루 1회 
 - 재료 조사 + 9개 언어 번역은 무거우므로 모아서 배치로 처리하는 편이 비용·운영상 단순하다.
 - 신규 메뉴는 첫 스캔에서 결과를 못 보고 배치 후(최대 ~1일) 제공되는 트레이드오프를 감수한다(클라이언트 UX로 "준비 중" 안내).
 
-책임 분리: **종합 정책은 `research`의 순수 도메인 서비스**(IO 없음 → 테스트 쉬움), **LLM 병렬 호출(IO)은 `application`이 core port로**, **`meogo-batch`는 그 application 유스케이스를 시간 맞춰 호출만** 한다. 추후 신선도 요구가 커지면 배치 주기를 좁히거나 온디맨드 worker를 추가할 수 있다(트리거만 추가, 로직 재사용).
+책임 분리: **종합 정책은 `research`의 순수 도메인 서비스**(IO 없음 → 테스트 쉬움), **LLM 병렬 호출(IO)은 `application`이 core port로**, **`kbap-batch`는 그 application 유스케이스를 시간 맞춰 호출만** 한다. 추후 신선도 요구가 커지면 배치 주기를 좁히거나 온디맨드 worker를 추가할 수 있다(트리거만 추가, 로직 재사용).
 
 ## 18. 트랜잭션 기준
 
@@ -490,7 +492,7 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 
 아래는 구현 전에 결정해야 하는 항목이다.
 
-1. ~~API 서버가 LLM 병렬 호출을 동기 응답으로 기다릴지~~ → **결정됨**: 스캔은 캐시 미스에 LLM을 호출하지 않고 결과 없음으로 응답, LLM 처리는 `meogo-batch`가 하루 1회([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 남은 항목: 미스 메뉴 적재 저장소·중복 제거, 배치 주기 조정 기준
+1. ~~API 서버가 LLM 병렬 호출을 동기 응답으로 기다릴지~~ → **결정됨**: 스캔은 캐시 미스에 LLM을 호출하지 않고 결과 없음으로 응답, LLM 처리는 `kbap-batch`가 하루 1회([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 남은 항목: 미스 메뉴 적재 저장소·중복 제거, 배치 주기 조정 기준
 2. LLM 3개 응답을 종합하는 정확한 규칙
 3. 배치가 만든 음식 데이터(9개 언어 번역 포함)의 DB 저장 전 검수 여부
 4. 음식 대표 이미지 저장 방식
@@ -501,15 +503,15 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 
 ## 21. 최종 요약
 
-`meogo-api`는 단순한 controller 모음이 아니라, Meogo MVP의 핵심 도메인을 실행하는 API 애플리케이션이다.
+`kbap-api`는 단순한 controller 모음이 아니라, Kbap MVP의 핵심 도메인을 실행하는 API 애플리케이션이다.
 
 권장 구조는 다음이다.
 
 - `:app:api`: web bootJar, controller, API DTO, 조립
 - `:application`: 유스케이스 조율, transaction boundary
 - `:core:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
-- `:core:review`: deferred placeholder
-- `:core:kernel`: 공통 타입, 예외, 이벤트, 유틸
+- `:domain:review`: deferred placeholder
+- `:core`: 공통 타입, 예외, 이벤트, 유틸
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
 - `:app:batch`: 배치 bootJar (application 트리거) · `:common`: 앱 간 공유 계약
 
@@ -520,4 +522,4 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 - 도메인 규칙은 각 도메인 모듈 내부 컨텍스트에 둔다.
 - JPA Entity, Mongo Document, Spring Data Repository, 영속성 Adapter는 각 도메인 모듈 내부에 숨긴다.
 - 도메인 간 직접 의존은 피하고 Application Service가 조합한다.
-- LLM 병렬 호출·종합·9개국어 번역은 `meogo-batch`가 하루 1회 담당하고, 스캔 API는 캐시 미스를 결과 없음으로 응답한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 추후 신선도 요구 시 배치 주기를 좁히거나 Worker 분리를 고려한 경계를 유지한다.
+- LLM 병렬 호출·종합·9개국어 번역은 `kbap-batch`가 하루 1회 담당하고, 스캔 API는 캐시 미스를 결과 없음으로 응답한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 추후 신선도 요구 시 배치 주기를 좁히거나 Worker 분리를 고려한 경계를 유지한다.

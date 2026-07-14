@@ -1,11 +1,11 @@
 ---
 name: tdd-harness-orchestrator
-description: "meogo-server 의 SpecKit·TDD 개발 에이전트 팀을 조율하는 오케스트레이터. test-writer→implementer→(code-reviewer∥database-expert) 사이클로 task 를 Red→Green→Refactor→리뷰까지 몰고 간다. 'TDD 로 구현해', 'task 구현해줘', 'tasks.md 진행', '이 기능 TDD 로', 'US2 구현', '테스트부터 짜고 구현' 요청 시 사용. 후속 작업: 특정 task/스토리만 다시, 리뷰 지적 반영, 재실행, 이어서 진행, 검토만 다시도 이 스킬."
+description: "kbap-server 의 SpecKit·TDD 개발 에이전트 팀을 조율하는 오케스트레이터. test-writer→implementer→(code-reviewer∥database-expert) 사이클로 task 를 Red→Green→Refactor→리뷰까지 몰고 간다. 'TDD 로 구현해', 'task 구현해줘', 'tasks.md 진행', '이 기능 TDD 로', 'US2 구현', '테스트부터 짜고 구현' 요청 시 사용. 후속 작업: 특정 task/스토리만 다시, 리뷰 지적 반영, 재실행, 이어서 진행, 검토만 다시도 이 스킬."
 ---
 
 # TDD 하네스 오케스트레이터
 
-meogo-server 의 SpecKit·TDD 흐름을 4역할 에이전트 팀으로 구동한다. 헌법 원칙 I(Test-First, NON-NEGOTIABLE)을 **리더가 게이트로 강제**한다: 테스트가 Red 임을 본 뒤에만 구현, Green 인 뒤에만 리뷰.
+kbap-server 의 SpecKit·TDD 흐름을 4역할 에이전트 팀으로 구동한다. 헌법 원칙 I(Test-First, NON-NEGOTIABLE)을 **리더가 게이트로 강제**한다: 테스트가 Red 임을 본 뒤에만 구현, Green 인 뒤에만 리뷰.
 
 이 스킬은 `/speckit-implement` 를 **대체가 아니라 보완**한다 — tasks.md 의 task 를 한 단위씩 TDD 사이클로 처리하며, 각 단위마다 점진적으로 리뷰한다.
 
@@ -19,8 +19,8 @@ meogo-server 의 SpecKit·TDD 흐름을 4역할 에이전트 팀으로 구동한
 |------|------|------|------|
 | test-writer | test-writer | 실패 테스트 작성·Red 확인 | tdd-test-authoring |
 | implementer | implementer | 최소 구현(Green)·리팩터·수정 | tdd-implementation |
-| code-reviewer | code-reviewer | 헌법·컨벤션·테스트 품질 리뷰 | meogo-code-review |
-| database-expert | database-expert | JPA·Mongo·Flyway 설계/성능 리뷰 | meogo-db-review |
+| code-reviewer | code-reviewer | 헌법·컨벤션·테스트 품질 리뷰 | kbap-code-review |
+| database-expert | database-expert | JPA·Mongo·Flyway 설계/성능 리뷰 | kbap-db-review |
 
 모든 Agent/TeamCreate 멤버는 `model: "opus"`.
 
@@ -43,15 +43,15 @@ meogo-server 의 SpecKit·TDD 흐름을 4역할 에이전트 팀으로 구동한
 ### Phase 2: 팀 구성
 
 ```
-TeamCreate(team_name: "meogo-tdd-team", members: [
+TeamCreate(team_name: "kbap-tdd-team", members: [
   { name: "test-writer",     agent_type: "test-writer",     model: "opus",
     prompt: "tdd-test-authoring 스킬을 사용. 할당 task 의 실패 테스트를 먼저 작성하고 Red 를 실제 확인해 보고하라. 구현은 절대 작성하지 말 것. 제약: <헌법·컨벤션 요약>" },
   { name: "implementer",     agent_type: "implementer",     model: "opus",
     prompt: "tdd-implementation 스킬을 사용. test-writer 의 Red 확인 후에만 최소 구현(Green)→리팩터. 모듈 경계·영속 규약·BaseResponse·/api/v·Kotlin 주석 금지 준수." },
   { name: "code-reviewer",   agent_type: "code-reviewer",   model: "opus",
-    prompt: "meogo-code-review 스킬을 사용. Green 직후 헌법·컨벤션·테스트 품질을 검토하고 심각도별로 보고. 코드 수정 금지. DB 스키마는 database-expert 에 위임." },
+    prompt: "kbap-code-review 스킬을 사용. Green 직후 헌법·컨벤션·테스트 품질을 검토하고 심각도별로 보고. 코드 수정 금지. DB 스키마는 database-expert 에 위임." },
   { name: "database-expert", agent_type: "database-expert", model: "opus",
-    prompt: "meogo-db-review 스킬을 사용. 영속 변경(엔티티·Flyway·Mongo)이 있으면 3소스 교차로 성능·요구 적합성 검토. 없으면 'DB 영향 없음' 보고." },
+    prompt: "kbap-db-review 스킬을 사용. 영속 변경(엔티티·Flyway·Mongo)이 있으면 3소스 교차로 성능·요구 적합성 검토. 없으면 'DB 영향 없음' 보고." },
 ])
 ```
 

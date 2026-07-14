@@ -16,29 +16,27 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "meogo-server"
+rootProject.name = "kbap-server"
 
 include(
-    // ── 공유 코어 (도메인 커널 + 컨텍스트, ORM-free) ──
-    ":core:kernel",       // 도메인 공유 커널 (Spring-free) — 공통타입·port·stereotype·공유 코드
-    ":core:food",
-    ":core:member",
-    ":core:avoidance",
-    ":core:research",
-    ":core:review",
-    ":core:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
+    // ── 공유 코어 + 도메인 컨텍스트 (엔티티·레포지토리·도메인 서비스, 단방향 상호 의존 허용) ──
+    ":core",       // 도메인 공유 커널 — 공통타입·외부 client seam·영속 공통(BaseEntity)·통합 ErrorCode/예외
+    ":domain:food",
+    ":domain:member",
+    ":domain:avoidance",
+    ":domain:research",
+    ":domain:review",
+    ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
 
-    // ── 유스케이스 계층 (진입점별 분할 — 교차 도메인 공유는 추후 :application:shared) ──
-    ":application:client", // 사용자 API 유스케이스 (현재 유일 — batch/admin/shared 는 생길 때 추가)
+    // ── 조합 계층 ──
+    ":application", // 무소속 유스케이스(Home·Auth)와 도메인 간 순환 해소용 ~ApplicationService 만 둔다
 
     // ── 인프라(driven 어댑터) ──
-    ":infra:persistence", // 영속 adapter — ORM(JPA)·BaseEntity, 도메인 port 구현
     ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존
+    ":infra:auth", // 인증 구현 어댑터(jjwt 자체 JWT + firebase-admin 소셜 검증)
+    ":infra:redis", // Redis 어댑터 — refresh token 세션 저장소 구현
 
     // ── 부트앱 진입점 ──
-    ":app:api",           // web bootJar (조립) — 진입점 com.meogo.api.MeogoApiApplication
+    ":app:api",           // web bootJar (조립) — 진입점 com.kbap.api.KbapApiApplication
     ":app:batch",         // batch bootJar — flyway off
-
-    // ── 공유 모듈 (app:api·app:batch 공유) ──
-    ":common",
 )

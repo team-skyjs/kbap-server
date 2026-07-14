@@ -4,83 +4,76 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 > **구속 원칙의 단일 출처는 헌법** [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md)다(Spec Kit `/speckit-plan`의 Constitution Check가 강제). 이 문서는 그 원칙을 따르는 **상세 "어떻게"**(패키지 레이아웃·빌딩블록·세부 규칙)를 담는 레퍼런스다. 원칙과 상세가 충돌하면 **헌법이 우선**한다.
 >
-> **이 문서는 "무엇을 지켜야 하는가"(규칙)만 적는다.** 설계 배경·근거는 [`meogo-api-module-structure.md`](./meogo-api-module-structure.md), BC 정의는 [`domains/README.md`](./domains/README.md)에 있다. 코드에 직접 영향을 주는 핵심 규칙은 루트 [`CLAUDE.md`](../../../CLAUDE.md)에 요약+링크로 노출한다.
+> **이 문서는 "무엇을 지켜야 하는가"(규칙)만 적는다.** 설계 배경·근거는 [`kbap-api-module-structure.md`](./kbap-api-module-structure.md), BC 정의는 [`domains/README.md`](./domains/README.md)에 있다. 코드에 직접 영향을 주는 핵심 규칙은 루트 [`CLAUDE.md`](../../../CLAUDE.md)에 요약+링크로 노출한다.
 
 ---
 
 ## DDD 정의
 
-- **Bounded Context** — `meogo-api` 컨테이너 직속의 **Gradle subproject + 패키지 경계**로 둔다(평탄화 — `:core:food` 등). Active BC는 `food`, `member`, `scan`, `avoidance`, `research` 5개 ([`domains/README.md`](./domains/README.md)). `research`는 미스 메뉴 조사·종합 파이프라인(배치 전용, [ADR-0004](../adr/0004-research-bounded-context.md)). `review` subproject는 제품 기획 흔적을 보존한 placeholder이며, 현재 도메인 설계·초기 구현 범위에서는 제외한다.
-- **Aggregate** — Aggregate Root를 통해서만 내부 상태를 변경한다. `Food`와 `Ingredient`는 같은 BC라도 같은 Aggregate가 아니다(관계는 `FoodIngredient`가 `ingredientId`로 참조). **Aggregate Root는 `@com.meogo.core.kernel.stereotype.AggregateRoot`로 표시한다** — 도메인 객체 마커일 뿐 Spring 빈이 아니므로 `@DomainService`와 달리 `@Component`를 붙이지 않는다(컴포넌트 스캔 대상 아님). 현재 표시 대상: `MenuScan`(scan), `Food`·`Ingredient`(food). 경계는 추후 ArchUnit으로 강제한다.
+- **Bounded Context** — `kbap-api` 컨테이너 직속의 **Gradle subproject + 패키지 경계**로 둔다(평탄화 — `:domain:food` 등). Active BC는 `food`, `member`, `scan`, `avoidance`, `research` 5개 ([`domains/README.md`](./domains/README.md)). `research`는 미스 메뉴 조사·종합 파이프라인(배치 전용, [ADR-0004](../adr/0004-research-bounded-context.md)). `review` subproject는 제품 기획 흔적을 보존한 placeholder이며, 현재 도메인 설계·초기 구현 범위에서는 제외한다.
+- **Aggregate** — Aggregate Root를 통해서만 내부 상태를 변경한다. `Food`와 `Ingredient`는 같은 BC라도 같은 Aggregate가 아니다(관계는 `FoodIngredient`가 `ingredientId`로 참조). **Aggregate Root는 `@com.kbap.core.stereotype.AggregateRoot`로 표시한다** — 도메인 객체 마커일 뿐 Spring 빈이 아니므로 `@DomainService`와 달리 `@Component`를 붙이지 않는다(컴포넌트 스캔 대상 아님). 현재 표시 대상: `MenuScan`(scan), `Food`·`Ingredient`(food). 경계는 추후 ArchUnit으로 강제한다.
 - **Entity / Value Object** — 다른 Aggregate·Context의 객체 전체를 직접 들지 않는다. **ID·코드·스냅샷 값**으로 참조한다.
 - **스냅샷** — 시간이 지나면 원본이 바뀌는 값(스캔 당시 위험도·매핑 음식명·종합 재료 정보)은 스냅샷으로 보존한다. 최신 판정은 필요 시 재계산한다. 과거 결과를 현재 데이터 변경에 맞춰 덮어쓰지 않는다.
-- **Domain Event vs Integration Event** — **in-process 도메인 이벤트**(api 내부, 컨텍스트 간)의 의미/이름/payload 계약은 `:core:kernel` 또는 도메인 모듈(도메인 언어)에 둔다. **브로커를 타고 다른 앱(예: 알림 컨슈머)이 받는 통합 이벤트**는 `common`에 두고, 도메인 타입을 참조하지 않는 평면 값(ID·코드·스냅샷)만 담는다. 브로커(Kafka/RabbitMQ/SQS) 연결·직렬화·retry·DLQ 같은 기술 구현은 `:infra:external`에 둔다.
-- **Repository** — 도메인 모듈은 외부에 **Domain Entity와 DomainRepository interface만** 공개한다. 구현체는 도메인 모듈 내부에 숨긴다.
+- **Domain Event vs Integration Event** — **in-process 도메인 이벤트**(api 내부, 컨텍스트 간)의 의미/이름/payload 계약은 `:core` 또는 도메인 모듈(도메인 언어)에 둔다. **브로커를 타고 다른 앱(예: 알림 컨슈머)이 받는 통합 이벤트**는 `common`에 두고, 도메인 타입을 참조하지 않는 평면 값(ID·코드·스냅샷)만 담는다. 브로커(Kafka/RabbitMQ/SQS) 연결·직렬화·retry·DLQ 같은 기술 구현은 `:infra:external`에 둔다.
+- **도메인 서비스 창구** — 도메인 모듈은 외부에 **도메인 모델과 도메인 서비스(`MemberService`·`FoodService` 등)만** 공개한다. JPA 엔티티·Spring Data 리포지토리는 Kotlin `internal` 로 감춰 컴파일러가 경계를 강제한다. 리포지토리 port 인터페이스·어댑터는 두지 않는다([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)).
 
 ## 모듈 구성 (멀티모듈)
 
-레포는 **멀티앱**이다 — `meogo-api`(web) 컨테이너와 `meogo-batch`(배치) 앱, 둘이 공유하는 `common`. `meogo-api` 컨테이너 안에 실행/조율/공통/외부 연동 + 도메인 컨텍스트 leaf 모듈이 평탄하게 들어간다. (상세: [`meogo-api-module-structure.md`](./meogo-api-module-structure.md))
+레포는 **멀티앱**이다 — `kbap-api`(web) 컨테이너와 `kbap-batch`(배치) 앱, 둘이 공유하는 `common`. `kbap-api` 컨테이너 안에 실행/조율/공통/외부 연동 + 도메인 컨텍스트 leaf 모듈이 평탄하게 들어간다. (상세: [`kbap-api-module-structure.md`](./kbap-api-module-structure.md))
 
 | 모듈 | 책임 |
 |------|------|
-| `:app:api` | web bootJar, Controller, API DTO, 인증/인가, transaction boundary, 예외 응답 변환, infra 조립(runtimeOnly), Flyway 스키마 owner |
-| `:application` | 유스케이스 조율, 도메인 컨텍스트 조합, Command 입력, 외부 client port 호출 |
-| `:core:{food,member,scan,avoidance}` | Active 도메인 규칙. 각 컨텍스트는 `:core:kernel`만 직접 의존하고 영속 adapter를 자기 모듈 안에 캡슐화 |
-| `:core:research` | Active 도메인. 미스 메뉴 조사 대기열 + 3개 LLM 종합 정책(순수 도메인 서비스). **배치 전용**(web 미노출), 종합 결과를 `food`가 영속 ([ADR-0004](../adr/0004-research-bounded-context.md)) |
-| `:core:review` | Deferred placeholder. 현재 구현 범위 제외, 추후 리뷰 기능 재개 시 별도 컨텍스트로 다시 설계 |
-| `:core:kernel` | 공통 타입·예외·이벤트 계약·유틸 (Spring-free) |
-| `:infra:external` | 메시지큐, 외부 API(LLM·storage·번역·알림), 이벤트 발행/구독 client |
-| `:app:batch` | 배치 bootJar. `:application` 유스케이스를 트리거(단일 모듈, 추후 분리). flyway off. **미스 메뉴 재료 조사 + 9개국어 번역 LLM 파이프라인을 하루 1회 실행**([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
+| `:app:api` | web bootJar, Controller, API DTO, 인증/인가, 예외 응답 변환, Flyway 스키마 owner |
+| `:application` | 유스케이스 조율(도메인 서비스 조합), transaction boundary, Input/Result 경계 타입, 외부 client seam 호출 |
+| `:domain:{food,member,scan,avoidance}` | Active 도메인 컨텍스트 — 도메인 모델(불변·ORM-free) + 도메인 서비스(public 창구) + JPA 엔티티·Spring Data 리포지토리(internal) ([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)) |
+| `:domain:research` | Active 도메인. 미스 메뉴 조사·3개 LLM 종합 정책(순수 로직 — 영속 없음). **배치 전용**(web 미노출) ([ADR-0004](../adr/0004-research-bounded-context.md)) |
+| `:domain:review` | Deferred placeholder. 현재 구현 범위 제외, 추후 리뷰 기능 재개 시 별도 컨텍스트로 다시 설계 |
+| `:core` | 공통 타입·예외·유틸·외부 client seam·공유 vocabulary(`LanguageCode`·id 값 클래스 `FoodId`/`MemberId`) + 영속 공통(`BaseEntity`·`EntityStatus`, jakarta/hibernate `compileOnly`). 애플리케이션 코드는 Spring-free |
+| `:infra:llm` | LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존 ([ADR-0010](../adr/0010-llm-adapter-module-named-infra-llm.md)) |
+| `:app:batch` | 배치 bootJar. 도메인 서비스를 직접 조합해 잡 실행. flyway off. **미스 메뉴 재료 조사 + 9개국어 번역 LLM 파이프라인을 하루 1회 실행**([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
 | `:common` | 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback·유틸·어노테이션). web/jpa/도메인 의존 금지, Spring-free |
 
-- **패키지 레이어링** — 각 도메인 subproject 내부는 BC별 패키지(`com.meogo.api.<context>`)를 루트로 삼고, 그 아래에 도메인 모델과 `adapter`/`infrastructure`(영속 구현) 패키지를 둔다.
+- **패키지 레이어링** — 각 도메인 subproject 는 `com.kbap.domain.<context>` 를 루트 패키지로 삼고, 도메인 모델·도메인 서비스·영속 코드(internal)가 한 패키지에 함께 산다.
 - **얇은 Controller** — `:app:api`은 HTTP 변환·인증/인가에 집중한다. Application Service는 `:app:api`이 아니라 `:application`에 둔다.
 - **인증/인가** — 별도 BC로 분리하지 않고 `member` 내부 하위 영역으로 두되, 프로필/식이 제한 관리와 **패키지·책임을 분리**한다. 토큰 발급·세션·보안 필터는 도메인이 아니라 API/security 계층 책임.
 
 ## 도메인 모듈 빌딩블록 & 패키지 레이아웃
 
-한 컨텍스트 모듈(`:core:<context>`)에 들어가는 클래스 종류와 배치. **외부에는 도메인 모델·Repository 인터페이스만 공개하고, 영속 구현은 모듈 내부에 숨긴다.**
+한 컨텍스트 모듈(`:domain:<context>`)에 들어가는 클래스 종류와 배치([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)). **외부에는 도메인 모델과 도메인 서비스만 공개하고, 영속 코드는 Kotlin `internal` 로 감춘다 — 경계는 컴파일러 + ArchUnit 이 강제한다.**
 
 **공개 — 다른 모듈이 보는 도메인 언어**
 
 | 종류 | 설명 | 예시 |
 |------|------|------|
-| Aggregate Root / Entity | 식별자·생명주기를 가진 도메인 객체. 내부 상태는 Root를 통해서만 변경 | `Food`, `Ingredient` |
-| Value Object | 식별자 없는 불변 값 | `FoodId`, `FoodName`, `AllergenMapping`, (avoidance) `AvoidanceInput`·`AvoidanceResult` |
-| 하위 Entity | Aggregate 구성요소 | `FoodIngredient` |
-| Domain Repository 인터페이스(port) | 도메인 언어 저장소 계약, **도메인 엔티티 반환** | `FoodRepository` |
-| Domain Service | 한 엔티티에 안 붙는 도메인 규칙 | `AvoidancePolicy` |
-| Domain Event | 컨텍스트 내부 이벤트는 모듈 `event` 패키지에, 교차-컨텍스트 계약은 `:core:kernel`에 | `FoodCreatedEvent` |
-| Domain Exception | 컨텍스트 고유 예외 | `FoodNotFoundException` |
+| Aggregate Root / Entity | 식별자·생명주기를 가진 도메인 객체. 내부 상태는 Root를 통해서만 변경. ORM-free | `Food`, `Member` |
+| Value Object | 식별자 없는 불변 값 | `FoodSpiciness`, `MemberProfile` |
+| 도메인 서비스 | **영속 접근의 유일한 public 창구**(`@Service`). 구 어댑터의 역할 승계 — 내부 리포지토리를 호출하고 엔티티↔도메인 변환을 조율 | `FoodService`, `MemberService` |
+| Domain Exception / ErrorCode | 컨텍스트 고유 예외 | `FoodException` |
 
-**은닉 — 모듈 내부 `infrastructure`/`adapter` 패키지, 외부 import 금지**
+**은닉 — `internal`, 모듈 밖 참조 시 컴파일 실패**
 
 | 종류 | 설명 | 예시 |
 |------|------|------|
-| JPA Entity / Mongo Document | 영속성 표현(도메인 엔티티와 **별개**). 도메인 ↔ 영속 변환을 **이 클래스 안에** 둔다(`toDomain()` + `companion object { fun from(domain) }`) | `FoodJpaEntity` |
-| Spring Data Repository | 기술 저장소 | `FoodJpaRepository` |
-| Repository 구현체(adapter) | 도메인 Repository 구현. 변환은 엔티티의 `toDomain()`/`from()`을 호출만 한다(별도 Mapper 두지 않음) | `FoodRepositoryAdapter` |
+| JPA Entity | 영속성 표현(도메인 모델과 **별개**). 도메인 ↔ 영속 변환을 **이 클래스 안에** 둔다(`toDomain()` + `companion object { fun from(domain) }`). **연관관계 애너테이션 금지 — 참조는 id 값 컬럼** | `internal class FoodJpaEntity` |
+| Spring Data Repository | 기술 저장소 | `internal interface FoodJpaRepository` |
 
-**패키지 레이아웃 예시 (`core/food`)**
+**패키지 레이아웃 예시 (`domain/food`)**
 
 ```
-com.meogo.core.food
-├── Food.kt                 # Aggregate Root
-├── FoodId.kt / FoodName.kt # Value Object
-├── Ingredient.kt           # 별도 Aggregate Root
-├── FoodRepository.kt       # Domain Repository 인터페이스 (공개 port)
-├── event/FoodCreatedEvent.kt
-└── infrastructure/         # 외부 비공개 (= adapter)
-    ├── FoodJpaEntity.kt           # 영속 모델 + 도메인 변환(toDomain() / companion from())
-    ├── FoodJpaRepository.kt
-    └── FoodRepositoryAdapter.kt   # FoodRepository 구현 (변환은 엔티티에 위임)
+com.kbap.domain.food            # 한 패키지에 공개·은닉이 함께 — 가시성은 internal 로 구분
+├── Food.kt                      # Aggregate Root (공개, ORM-free)
+├── FoodSpiciness.kt             # Value Object (공개)
+├── FoodService.kt               # 도메인 서비스 (공개 창구, @Service)
+├── FoodJpaEntity.kt             # internal — 영속 모델 + 도메인 변환(toDomain()/from())
+├── FoodAvoidanceSubstanceJpaEntity.kt  # internal — 참조는 foodId 값 컬럼(연관관계 없음)
+└── FoodJpaRepository.kt         # internal — Spring Data
 ```
 
-> 영속 기술(`data-jpa`/`data-mongodb`)은 `implementation`으로 둬 상위(application/api) 컴파일 클래스패스에 노출되지 않는다(런타임 전이만 허용). 패키지 가시성 + ArchUnit 으로 추가 강제.
+> 영속 기술(`data-jpa`)은 `kbap.domain-conventions` 컨벤션 플러그인이 `implementation` 으로 얹어 상위(application/api) 컴파일 클래스패스에 노출되지 않는다(런타임 전이만 허용). 도메인 서비스의 public 시그니처는 도메인 모델·공유 값 클래스(`FoodId`·`MemberId`)만 노출한다.
 
 ## 도메인 객체 불변성 & 영속 변환 ⭐
 
-- **도메인 ↔ JPA 변환은 JPA 엔티티 안에 둔다.** 별도 Mapper 클래스나 adapter 확장함수로 흩지 않는다. 엔티티에 도메인 복원 `toDomain()` 인스턴스 메서드와 `companion object { fun from(domain): Entity }` 팩토리를 두고, `RepositoryAdapter`는 `Entity.from(domain)`·`entity.toDomain()`만 호출한다. (도메인 클래스는 JPA를 모른다 — 의존 방향 유지.)
+- **도메인 ↔ JPA 변환은 JPA 엔티티 안에 둔다.** 별도 Mapper 클래스나 adapter 확장함수로 흩지 않는다. 엔티티에 도메인 복원 `toDomain()` 인스턴스 메서드와 `companion object { fun from(domain): Entity }` 팩토리를 두고, **도메인 서비스**는 `Entity.from(domain)`·`entity.toDomain()`만 호출한다. (도메인 모델 클래스는 JPA를 모른다 — ArchUnit 이 강제.)
 - **도메인 객체는 불변(immutable)으로 둔다.** 모든 상태는 `val`. 상태를 바꾸는 도메인 메서드는 객체를 변형하지 않고 **새 인스턴스를 반환**한다. 데이터 클래스의 public `copy` 노출 대신 **`private fun copy(...)`** 를 직접 두어 통제된 복제만 허용하고, 상태 변경 메서드가 이를 호출한다.
 
 ```kotlin
@@ -98,19 +91,20 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 
 ## 도메인 간 의존 규칙
 
-1. **의존 방향** — `:app:api` → `:application` → 도메인 모듈. `:core:kernel`는 모두가 의존 가능. `:infra:external`는 port/adapter로만 연결한다(조립 모듈이 runtimeOnly 주입). `:app:batch`는 `:application`을 의존(+infra 조립)하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
+1. **의존 방향** — `:app:api` → `:application` → `:domain:*` → `:core`. `:core`는 모두가 의존 가능. 외부 시스템 클라이언트(LLM·소셜 인증 등)는 **seam 인터페이스로만** 사용한다(폐기된 것은 리포지토리 port 이지 외부 어댑터 seam 이 아니다). `:app:batch`는 필요한 도메인 모듈·`:infra:llm`을 직접 의존하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
 2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
-3. **영속 모델 비노출** — JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는 각 도메인 모듈 내부에 숨긴다. `:app:api`·`:application`은 이들을 import하지 않는다. (패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제)
+3. **영속 모델 비노출** — JPA Entity / Spring Data Repository 는 각 도메인 모듈 안에 **`internal`** 로 숨긴다. `:app:api`·`:application`이 import 하면 **컴파일이 실패**한다(+ **ArchUnit 테스트** 이중 방어).
+3-1. **JPA 연관관계 금지** ⭐ — 엔티티 간 `@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany` 를 두지 않는다. 참조는 **id 값 컬럼**(공유 값 클래스 `FoodId`·`MemberId`)으로만 들고, 연관 데이터는 도메인 서비스가 id(목록)로 명시 조회한다. 지연 로딩이 없어 N+1·`LazyInitializationException` 이 구조적으로 불가하다. 외래키 제약은 Flyway 스키마가 강제한다(ON DELETE 없음 — 소프트 삭제 구조). (ArchUnit 전면 금지 규칙)
 4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
-6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`meogo-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
+6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`kbap-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 7. **API 노출** — 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다. 음식 원본 정보와 사용자별 위험도 판정 결과는 내부적으로 분리해 다룬다.
-8. **배치 전용 조합 로직** ⭐ — `research` 처리처럼 **사용자 API가 호출하지 않고 배치만 트리거하는 조합 유스케이스**는 `meogo-batch`(Job 껍데기)가 아니라 `:application`에 둔다(조합은 application에서만 — 규칙 2). 단 web 진입점이 호출 못 하게 **전용 패키지로 격리하고 ArchUnit으로 강제**한다. `meogo-batch`는 그 유스케이스를 스케줄에 맞춰 호출만 한다. (분리 트리거·근거는 [ADR-0004](../adr/0004-research-bounded-context.md).)
+8. **배치 전용 조합 로직** ⭐ — `research` 처리처럼 **사용자 API가 호출하지 않고 배치만 트리거하는 조합 유스케이스**는 `kbap-batch`(Job 껍데기)가 아니라 `:application`에 둔다(조합은 application에서만 — 규칙 2). 단 web 진입점이 호출 못 하게 **전용 패키지로 격리하고 ArchUnit으로 강제**한다. `kbap-batch`는 그 유스케이스를 스케줄에 맞춰 호출만 한다. (분리 트리거·근거는 [ADR-0004](../adr/0004-research-bounded-context.md).)
 
 ## 언어 / 데이터 정책
 
 - 음식 콘텐츠(음식명·설명·재료명·알러지/종교·비건 주의 성분)는 **한국어(`ko`) 원문 + 9개 대상 언어**로 사전 번역해 DB에 저장한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)). 9개 언어: `zh-Hans`(중국어 간체) · `en`(영어) · `ja`(일본어) · `zh-Hant`(중국어 번체) · `vi`(베트남어) · `id`(인도네시아어) · `th`(태국어) · `ru`(러시아어) · `es`(스페인어). 번역은 `research`(배치)가 LLM으로 생성하고 `food`가 저장한다.
-- 정적 UI 문구는 사전 번역해 `:core:kernel` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
+- 정적 UI 문구는 사전 번역해 `:core` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
 - LLM 원본 응답을 도메인 판단에 직접 쓰지 않는다. `:application`에서 종합한 결과만 `Food`/`FoodIngredient`에 반영한다.
 
 ## Flyway 마이그레이션 버전 규칙

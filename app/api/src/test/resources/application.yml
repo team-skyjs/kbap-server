@@ -17,7 +17,7 @@ spring:
         transcription: none
         speech: none
 
-meogo:
+kbap:
   auth:
     firebase:
       # 테스트는 실제 Firebase 를 호출하지 않는다 — SocialTokenVerifier 를 페이크 빈으로 대체한다.

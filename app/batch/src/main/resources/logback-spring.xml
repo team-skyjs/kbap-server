@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- 공통 로깅(meogo-common)을 가져온다. 앱별 로거가 필요하면 아래에 추가. -->
-    <include resource="logback-common.xml"/>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
 </configuration>

@@ -1,6 +1,6 @@
 # avoidance Context
 
-> 서비스 핵심 도메인(정책). 위험도 산출의 입력이 되는 재료 스코어·음식 정보 생성은 [`../meogo-data-ai-pipeline.md`](../meogo-data-ai-pipeline.md), 모듈 의존·입력 VO 규칙은 [`../meogo-conventions.md`](../meogo-conventions.md) 참고.
+> 서비스 핵심 도메인(정책). 위험도 산출의 입력이 되는 재료 스코어·음식 정보 생성은 [`../kbap-data-ai-pipeline.md`](../kbap-data-ai-pipeline.md), 모듈 의존·입력 VO 규칙은 [`../kbap-conventions.md`](../kbap-conventions.md) 참고.
 > `RiskLevel` → UI 색/아이콘은 전 화면 공통 고정 상수: `SAFE` 초록 체크 / `CAUTION` 노랑 느낌표 / `DANGER` 빨강 엑스 / `UNKNOWN` 회색 물음표 (PRD에서 사용).
 
 ## 1. 역할

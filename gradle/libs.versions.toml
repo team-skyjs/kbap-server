@@ -41,10 +41,14 @@ spring-boot-starter-validation = { module = "org.springframework.boot:spring-boo
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
-spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-boot-starter-data-mongodb" }
 
 # --- Databases ---
 mysql-connector = { module = "com.mysql:mysql-connector-j" }
+
+# --- JPA/Hibernate 애너테이션 (버전은 Spring Boot BOM 관리) ---
+# :core 의 영속 공통(BaseEntity·IdConverter)이 compileOnly 로만 쓴다 — 런타임 제공은 도메인 모듈.
+jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api" }
+hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
 
 # --- DB migration ---
 # Spring Boot 4 는 autoconfig 를 기술별 모듈로 분리 — flyway-core(라이브러리)만으론

@@ -8,8 +8,6 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
-  mongodb:
-    uri: ${MONGODB_URI}
   data:
     redis:
       host: ${REDIS_HOST}

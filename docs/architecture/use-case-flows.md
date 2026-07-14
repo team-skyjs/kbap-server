@@ -1,6 +1,6 @@
 # 유스케이스 흐름 (PRD → 컨텍스트 시퀀스)
 
-각 PRD 화면의 요청이 **어떤 바운디드 컨텍스트를 어떤 순서로 타는지**를 시퀀스 다이어그램으로 정리한다. 컨텍스트 경계·책임은 [`domains/`](./domains/), 데이터/AI 파이프라인은 [`meogo-data-ai-pipeline.md`](./meogo-data-ai-pipeline.md), 모듈 의존 규칙은 [`meogo-conventions.md`](./meogo-conventions.md)·[`meogo-api-module-structure.md`](./meogo-api-module-structure.md) 참고.
+각 PRD 화면의 요청이 **어떤 바운디드 컨텍스트를 어떤 순서로 타는지**를 시퀀스 다이어그램으로 정리한다. 컨텍스트 경계·책임은 [`domains/`](./domains/), 데이터/AI 파이프라인은 [`kbap-data-ai-pipeline.md`](./kbap-data-ai-pipeline.md), 모듈 의존 규칙은 [`kbap-conventions.md`](./kbap-conventions.md)·[`kbap-api-module-structure.md`](./kbap-api-module-structure.md) 참고.
 
 ## 전제
 
@@ -8,9 +8,9 @@
 - **컨텍스트 간 조합은 `:application`에서만** 일어난다. 도메인 컨텍스트끼리 직접 호출하지 않는다.
 - `avoidance`는 `food`/`member`의 영속 모델에 직접 의존하지 않는다. **application 이 `food`·`member` 데이터를 `AvoidanceInput` VO 로 변환**해 넘긴다.
 - OCR(메뉴명 추출)은 **클라이언트 책임**. 서버는 메뉴명 리스트를 입력으로 받는다.
-- **LLM 호출은 스캔 응답 경로에 없다** — 캐시 미스 메뉴의 조사·종합·9개국어 번역은 `research` 컨텍스트가 소유하고 `meogo-batch`가 **하루 1회** 트리거한다(3개 모델 OpenAI·Upstage·Gemini 병렬, [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다. (배치 흐름은 §UC-8.)
+- **LLM 호출은 스캔 응답 경로에 없다** — 캐시 미스 메뉴의 조사·종합·9개국어 번역은 `research` 컨텍스트가 소유하고 `kbap-batch`가 **하루 1회** 트리거한다(3개 모델 OpenAI·Upstage·Gemini 병렬, [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)). 스캔 API는 캐시 조회 + 위험도 판정만 동기로 수행하고, 캐시 미스는 결과 없음으로 응답한다. (배치 흐름은 §UC-8.)
 
-표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `meogo-api`(API) · `:application`(App) · `scan` · `food` · `member` · `avoidance`(Assess) · `research`(Research) · `:infra:external·LLM` · `:infra:external·Email`. 배치는 `meogo-batch`(Batch).
+표준 participant 이름(다이어그램 전반 고정): `User` · `Client` · `kbap-api`(API) · `:application`(App) · `scan` · `food` · `member` · `avoidance`(Assess) · `research`(Research) · `:infra:external·LLM` · `:infra:external·Email`. 배치는 `kbap-batch`(Batch).
 
 ---
 
@@ -24,7 +24,7 @@
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Scan as scan
     participant Member as member
@@ -79,7 +79,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Scan as scan
     participant Member as member
@@ -124,7 +124,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Member as member
     participant Food as food
@@ -160,7 +160,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Member as member
     participant Scan as scan
@@ -197,7 +197,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Member as member
     participant Email as :infra:external·Email
@@ -233,7 +233,7 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client
-    participant API as meogo-api
+    participant API as kbap-api
     participant App as :application
     participant Member as member
 
@@ -275,13 +275,13 @@ PRD 004(리뷰 상세·필터·번역)와, 다른 화면에 박혀 있는 리뷰
 ## UC-8. 미스 메뉴 배치 처리 (research 조사·종합)
 
 - **트리거**: 스케줄러 (하루 1회). UC-1에서 캐시 미스로 `research`에 적재된 메뉴를 모아 처리
-- **사용 컨텍스트**: `research`(조사 대기열·종합 정책) → `food`(영속) → (`:infra:external·LLM`). 조율은 `:application`의 **배치 전용 유스케이스**, 트리거는 `meogo-batch`([ADR-0004](../adr/0004-research-bounded-context.md))
+- **사용 컨텍스트**: `research`(조사 대기열·종합 정책) → `food`(영속) → (`:infra:external·LLM`). 조율은 `:application`의 **배치 전용 유스케이스**, 트리거는 `kbap-batch`([ADR-0004](../adr/0004-research-bounded-context.md))
 - 캐시 미스 메뉴의 음식 데이터·다국어 번역을 만들어 캐시를 채운다. 이후 같은 메뉴는 UC-1에서 캐시 히트가 된다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 
 ```mermaid
 sequenceDiagram
     participant Sched as 스케줄러
-    participant Batch as meogo-batch
+    participant Batch as kbap-batch
     participant App as :application
     participant Research as research
     participant LLM as :infra:external·LLM
@@ -302,7 +302,7 @@ sequenceDiagram
 ```
 
 > **정책/엣지**
-> - **책임 분리**: 큐·종합 정책은 `research`(순수 도메인), LLM 병렬 호출(IO)은 `application`, 트리거는 `meogo-batch`(Job 껍데기) — 로직을 Job에 두지 않는다.
+> - **책임 분리**: 큐·종합 정책은 `research`(순수 도메인), LLM 병렬 호출(IO)은 `application`, 트리거는 `kbap-batch`(Job 껍데기) — 로직을 Job에 두지 않는다.
 > - LLM 호출은 **DB 트랜잭션 밖**. 일부 메뉴 처리 실패는 부분 성공으로 두고 다음 배치에서 재시도(스캔 응답은 영향 없음).
 > - 9개 언어로 번역해 저장하며, 사용자 안전 직결(알러지/식이 제한) 데이터는 검수 상태로 구분한다(`menu-ingredient-allergy-language-report.md` §7).
 > - `research`는 **배치 전용** — web 진입점은 이 유스케이스를 노출하지 않는다(ArchUnit 강제).
@@ -318,7 +318,7 @@ sequenceDiagram
 **문서로는 확정 못 하는 지점 (다이어그램에 `Note`/주석으로 표기)**:
 
 1. **`review` deferred** — 위 §UC-7 표의 PRD 기능들은 흐름을 못 그린다. PRD에는 있으나 백엔드 active 범위 밖. (의도된 deferral, 갭 아님 — 단 PRD와 구현 범위의 불일치를 명시 필요.)
-2. **LLM 3개 응답 종합 알고리즘 미결정** — UC-8 배치의 "응답 종합" 단계가 블랙박스(`meogo-data-ai-pipeline.md` §관련 미결정).
+2. **LLM 3개 응답 종합 알고리즘 미결정** — UC-8 배치의 "응답 종합" 단계가 블랙박스(`kbap-data-ai-pipeline.md` §관련 미결정).
 3. **음식 목록에서 위험도 표시 여부** — UC-3/UC-4 에서 목록 항목마다 `avoidance` 를 호출할지(비용·성능)가 PRD/문서에 명시 없음. `opt` 로 표기.
 4. **온보딩 이메일 인증 어댑터** — `:infra:external·Email` 은 문서에 LLM 만큼 구체화돼 있지 않음(스택 문서엔 미등장). UC-5 는 합리적 추정.
 5. **스캔 재판정 트리거(UC-2)** — 상세 진입 시 매번 재판정인지, 스냅샷 우선인지 정책 명시 없음. 현재는 "상세=현재 기준 재판정"으로 가정.

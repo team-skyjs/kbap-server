@@ -13,11 +13,11 @@
 
 | API | 도메인 모듈 | 역할과 책임 |
 | --- | --- | --- |
-| 음식 상세 조회 | `:core:food` | `Food`, `FoodContent`(음식명·설명 + 대상 언어 번역 맵·폴백), `FoodAvoidanceSubstance`, `FoodRepository`를 제공한다. 음식명/설명 번역은 `FoodContent`에 포함되어 음식 로드와 함께 온다(별도 조회 포트 없음). |
-| 음식 상세 조회 | `:core:avoidance` | `AvoidanceSubstance`, `AvoidanceSubstanceCode`, `AvoidanceSubstanceRepository`를 제공한다. 성분 코드로 표시명 카탈로그를 조회해 요청 언어 표시명(ko 폴백)을 해석한다. |
-| 음식 상세 조회 | `:core:kernel` | `LanguageCode`, `RiskLevel` 같은 공통 타입을 제공한다. 언어 코드와 위험도 값을 API/유스케이스/도메인 사이에서 공유한다. |
-| 메뉴 스캔 제출 | `:core:kernel` · `:core:food` | 스캔은 상태를 갖지 않아 전용 도메인 모듈이 없다. 정규화기·정제 port 는 kernel, 매칭·완성 상태·위험도는 `Food` 가 소유한다. |
-| 메뉴 스캔 제출 | `:core:kernel` | `RiskLevel` 같은 공통 타입을 제공한다. 스캔 항목 위험도 값에 사용된다. |
+| 음식 상세 조회 | `:domain:food` | `Food`, `FoodContent`(음식명·설명 + 대상 언어 번역 맵·폴백), `FoodAvoidanceSubstance`, `FoodRepository`를 제공한다. 음식명/설명 번역은 `FoodContent`에 포함되어 음식 로드와 함께 온다(별도 조회 포트 없음). |
+| 음식 상세 조회 | `:domain:avoidance` | `AvoidanceSubstance`, `AvoidanceSubstanceCode`, `AvoidanceSubstanceRepository`를 제공한다. 성분 코드로 표시명 카탈로그를 조회해 요청 언어 표시명(ko 폴백)을 해석한다. |
+| 음식 상세 조회 | `:core` | `LanguageCode`, `RiskLevel` 같은 공통 타입을 제공한다. 언어 코드와 위험도 값을 API/유스케이스/도메인 사이에서 공유한다. |
+| 메뉴 스캔 제출 | `:core` · `:domain:food` | 스캔은 상태를 갖지 않아 전용 도메인 모듈이 없다. 정규화기·정제 port 는 kernel, 매칭·완성 상태·위험도는 `Food` 가 소유한다. |
+| 메뉴 스캔 제출 | `:core` | `RiskLevel` 같은 공통 타입을 제공한다. 스캔 항목 위험도 값에 사용된다. |
 
 ## 공통 요청 구조
 
@@ -25,7 +25,7 @@
 sequenceDiagram
     actor Client
     participant Controller as Controller<br/>:app:api
-    participant UseCase as UseCase<br/>:application:client
+    participant UseCase as UseCase<br/>:application
     participant Core as Domain / Repository Port<br/>:core:*
     participant Persistence as Repository Adapter<br/>:infra:persistence
     participant DB as Database
@@ -53,10 +53,10 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant Controller as FoodDetailController<br/>:app:api
-    participant UseCase as GetFoodDetailUseCase<br/>:application:client
-    participant Kernel as Kernel Types<br/>:core:kernel
-    participant FoodCore as Food Domain / Repository Port<br/>:core:food
-    participant AvoidanceCore as Avoidance Catalog Port<br/>:core:avoidance
+    participant UseCase as GetFoodDetailUseCase<br/>:application
+    participant Kernel as Kernel Types<br/>:core
+    participant FoodCore as Food Domain / Repository Port<br/>:domain:food
+    participant AvoidanceCore as Avoidance Catalog Port<br/>:domain:avoidance
     participant Persistence as Repository Adapters<br/>:infra:persistence
     participant DB as Food DB
     participant Error as GlobalExceptionHandler<br/>:app:api
@@ -107,8 +107,8 @@ sequenceDiagram
 sequenceDiagram
     actor Client
     participant Controller as ScanController<br/>:app:api
-    participant UseCase as ScanUseCase<br/>:application:client
-    participant Kernel as KoreanMenuNameNormalizer<br/>:core:kernel
+    participant UseCase as ScanUseCase<br/>:application
+    participant Kernel as KoreanMenuNameNormalizer<br/>:core
     participant Llm as UpstageScannedNameInterpreter<br/>:infra:llm
     participant Persistence as FoodRepositoryAdapter<br/>:infra:persistence
     participant DB as food
