@@ -5,6 +5,10 @@ import com.kbap.app.api.common.Page
 import com.kbap.app.api.food.FoodSummaryResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -30,6 +34,21 @@ interface BookmarkApi {
     )
     fun register(
         memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    schema = Schema(implementation = BookmarkCreateRequest::class),
+                    examples = [
+                        ExampleObject(
+                            name = "음식 북마크 등록",
+                            description = "북마크할 음식의 안정적 식별자",
+                            value = """{"foodId": 1}""",
+                        ),
+                    ],
+                ),
+            ],
+        )
         request: BookmarkCreateRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 
