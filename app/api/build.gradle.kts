@@ -20,6 +20,7 @@ dependencies {
     "implementation"(project(":domain:member"))
     "implementation"(project(":domain:food"))
     "implementation"(project(":domain:scan"))
+    "implementation"(project(":domain:bookmark"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
