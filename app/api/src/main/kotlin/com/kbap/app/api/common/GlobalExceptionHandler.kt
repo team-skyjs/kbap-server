@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -68,10 +69,17 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        val errorCode = ErrorCode.INTERNAL_SERVER_ERROR
-        logFailure(e, errorCode.code, HttpStatus.INTERNAL_SERVER_ERROR, request)
+        // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
+        // 500 으로 뭉개면 클라이언트 잘못이 서버 장애로 둔갑하므로 원래 상태를 보존한다.
+        if (e is ErrorResponse) {
+            val status = HttpStatus.resolve(e.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+            logFailure(e, ErrorCode.INVALID_REQUEST.code, status, request)
+            return ResponseEntity.status(status)
+                .body(BaseResponse.fail(ErrorCode.INVALID_REQUEST.code, ErrorCode.INVALID_REQUEST.message))
+        }
+        logFailure(e, ErrorCode.INTERNAL_SERVER_ERROR.code, HttpStatus.INTERNAL_SERVER_ERROR, request)
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(BaseResponse.fail(errorCode.code, errorCode.message))
+            .body(BaseResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.code, ErrorCode.INTERNAL_SERVER_ERROR.message))
     }
 
     private fun logFailure(e: Exception, errorCode: String, status: HttpStatus, request: HttpServletRequest) {

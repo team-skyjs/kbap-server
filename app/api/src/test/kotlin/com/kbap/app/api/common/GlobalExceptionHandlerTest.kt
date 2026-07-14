@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 
 @SpringBootTest
@@ -62,6 +63,32 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
                     event.value("status") shouldBe 400
                     event.value("uri") shouldBe "/api/v1/test-logging/business"
                     event.mdcPropertyMap["requestId"] shouldBe result.response.getHeader("X-Request-Id")
+                }
+            }
+        }
+
+        given("스프링이 상태 코드를 아는 예외") {
+            `when`("매핑되지 않은 경로를 호출하면") {
+                then("500 이 아니라 404 로, 봉투를 유지한 채 WARN 로그가 남는다") {
+                    val result = mockMvc.get("/api/v1/nope").andReturn()
+
+                    result.response.status shouldBe 404
+                    result.body().path("success").asBoolean() shouldBe false
+                    result.body().path("code").asText() shouldBe "COMMON-002"
+
+                    val event = appender.list.single()
+                    event.level shouldBe Level.WARN
+                    event.value("status") shouldBe 404
+                }
+            }
+
+            `when`("지원하지 않는 HTTP 메서드로 호출하면") {
+                then("500 이 아니라 405 로 응답한다") {
+                    val result = mockMvc.delete("/api/v1/test-logging/ok").andReturn()
+
+                    result.response.status shouldBe 405
+                    result.body().path("code").asText() shouldBe "COMMON-002"
+                    appender.list.single().level shouldBe Level.WARN
                 }
             }
         }
