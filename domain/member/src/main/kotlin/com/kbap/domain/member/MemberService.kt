@@ -1,10 +1,15 @@
 package com.kbap.domain.member
 
+import com.kbap.domain.member.model.AvoidanceSubstanceCodeRef
+import com.kbap.domain.member.model.Member
+import com.kbap.domain.member.model.MemberProfile
+import com.kbap.domain.member.model.MemberStatus
+import com.kbap.domain.member.model.SocialIdentity
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.member.dto.MemberProfileInput
 import com.kbap.domain.member.dto.MemberRankingResult
 import com.kbap.domain.member.dto.MyProfileResult

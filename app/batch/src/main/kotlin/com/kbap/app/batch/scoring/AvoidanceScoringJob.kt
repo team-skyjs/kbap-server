@@ -1,7 +1,7 @@
 package com.kbap.app.batch.scoring
 
-import com.kbap.domain.avoidance.AvoidanceSubstance
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstance
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.research.input.CandidateSubstance
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator

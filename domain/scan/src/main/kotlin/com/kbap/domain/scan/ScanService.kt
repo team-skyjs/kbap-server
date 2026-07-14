@@ -1,8 +1,12 @@
 package com.kbap.domain.scan
 
+import com.kbap.domain.scan.model.ScanHistory
+import com.kbap.domain.scan.dto.MenuNameLookup
+import com.kbap.domain.scan.dto.Refinement
+import com.kbap.domain.scan.dto.ResolvedItem
 import com.kbap.domain.scan.dto.ScanInput
 import com.kbap.domain.scan.dto.ScanResult
-import com.kbap.domain.food.Food
+import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.FoodService
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
@@ -130,16 +134,6 @@ class ScanService internal constructor(
             Refinement(byItemIndex = null, degraded = true)
         }
     }
-
-    private data class Refinement(val byItemIndex: Map<Int, InterpretedName>?, val degraded: Boolean)
-
-    private data class MenuNameLookup(
-        val koreanName: String,
-        val matchKey: String,
-        val confirmedByInterpreter: Boolean,
-    )
-
-    private data class ResolvedItem(val food: Food?)
 
     companion object {
         private val UNRESOLVED = ResolvedItem(null)

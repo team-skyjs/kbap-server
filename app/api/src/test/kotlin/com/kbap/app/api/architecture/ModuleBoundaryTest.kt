@@ -1,6 +1,6 @@
 package com.kbap.app.api.architecture
 
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter

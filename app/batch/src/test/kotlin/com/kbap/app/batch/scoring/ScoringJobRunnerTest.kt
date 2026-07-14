@@ -3,8 +3,8 @@ package com.kbap.app.batch.scoring
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
-import com.kbap.domain.avoidance.AvoidanceSubstance
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstance
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.research.input.ScoringFood
 import com.kbap.domain.research.ensemble.ConsensusEnsembleAggregator
 import com.kbap.domain.research.prompt.ScoringPromptFactory

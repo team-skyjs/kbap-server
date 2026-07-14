@@ -1,6 +1,6 @@
 package com.kbap.domain.food.dto
 
-import com.kbap.domain.food.Food
+import com.kbap.domain.food.model.Food
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.risk.RiskLevel
 

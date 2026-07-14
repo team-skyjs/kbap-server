@@ -1,5 +1,8 @@
 package com.kbap.domain.member
 
+import com.kbap.domain.member.model.Member
+import com.kbap.domain.member.model.MemberStatus
+import com.kbap.domain.member.model.SocialProvider
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -20,7 +23,7 @@ internal interface MemberJpaRepository : JpaRepository<Member, Long> {
         update Member m
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
-          and m.memberStatus = com.kbap.domain.member.MemberStatus.ACTIVE
+          and m.memberStatus = com.kbap.domain.member.model.MemberStatus.ACTIVE
           and m.status = com.kbap.core.persistence.EntityStatus.ACTIVE
         """,
     )

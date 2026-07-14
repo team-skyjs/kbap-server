@@ -2,7 +2,7 @@ package com.kbap.infra.auth.firebase
 
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
-import com.kbap.domain.member.SocialProvider
+import com.kbap.domain.member.model.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull

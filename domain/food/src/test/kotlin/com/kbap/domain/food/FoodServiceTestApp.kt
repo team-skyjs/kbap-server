@@ -1,7 +1,7 @@
 package com.kbap.domain.food
 
 import com.kbap.domain.member.SocialAccountDeleter
-import com.kbap.domain.member.SocialProvider
+import com.kbap.domain.member.model.SocialProvider
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration

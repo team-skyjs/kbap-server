@@ -1,6 +1,6 @@
 package com.kbap.application.auth.dto
 
-import com.kbap.domain.member.MemberRole
+import com.kbap.domain.member.model.MemberRole
 
 data class ParsedAccessToken(
     val memberId: Long,

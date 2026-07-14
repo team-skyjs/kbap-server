@@ -1,5 +1,6 @@
 package com.kbap.domain.scan
 
+import com.kbap.domain.scan.model.ScanHistory
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

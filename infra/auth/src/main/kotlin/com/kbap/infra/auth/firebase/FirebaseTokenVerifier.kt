@@ -6,7 +6,7 @@ import com.kbap.core.error.BusinessException
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.kbap.domain.member.SocialIdentity
+import com.kbap.domain.member.model.SocialIdentity
 import org.slf4j.LoggerFactory
 
 class FirebaseTokenVerifier(

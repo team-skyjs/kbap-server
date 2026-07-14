@@ -1,5 +1,7 @@
 package com.kbap.domain.food
 
+import com.kbap.domain.food.model.Food
+import com.kbap.domain.food.model.FoodAvoidanceSubstance
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec

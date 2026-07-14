@@ -6,11 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
-import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PatchMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 
 @Tag(name = "인증", description = "소셜 로그인·토큰 재발급·로그아웃 API")
 interface AuthApi {
@@ -35,9 +31,8 @@ interface AuthApi {
             ApiResponse(responseCode = "401", description = "토큰 검증 실패(서명 불일치·만료·수신자 불일치) 또는 미지원 provider"),
         ],
     )
-    @PostMapping("/login")
     fun login(
-        @Valid @RequestBody request: LoginRequest,
+        request: LoginRequest,
     ): ResponseEntity<BaseResponse<LoginResponse>>
 
     @Operation(
@@ -61,9 +56,8 @@ interface AuthApi {
             ),
         ],
     )
-    @PostMapping("/refresh")
     fun refresh(
-        @Valid @RequestBody request: RefreshRequest,
+        request: RefreshRequest,
     ): ResponseEntity<BaseResponse<TokenResponse>>
 
     @Operation(
@@ -75,9 +69,8 @@ interface AuthApi {
         """,
     )
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "로그아웃 완료")])
-    @PostMapping("/logout")
     fun logout(
-        @RequestBody(required = false) request: LogoutRequest?,
+        request: LogoutRequest?,
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
@@ -102,7 +95,6 @@ interface AuthApi {
             ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원 데이터는 변경되지 않음"),
         ],
     )
-    @PatchMapping("/withdraw")
     fun withdraw(
         memberId: Long,
     ): ResponseEntity<BaseResponse<Unit>>

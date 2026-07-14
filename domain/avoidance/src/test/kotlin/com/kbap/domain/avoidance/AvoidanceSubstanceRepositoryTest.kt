@@ -1,5 +1,7 @@
 package com.kbap.domain.avoidance
 
+import com.kbap.domain.avoidance.model.AvoidanceSubstance
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec

@@ -9,10 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
-import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
 @Tag(name = "메뉴 스캔", description = "메뉴판 스캔 제출·판정 API")
@@ -52,11 +49,8 @@ interface ScanApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
         ],
     )
-    @PostMapping
     fun scan(
         memberId: Long,
-        @Valid
-        @RequestBody
         @SwaggerRequestBody(
             required = true,
             content = [

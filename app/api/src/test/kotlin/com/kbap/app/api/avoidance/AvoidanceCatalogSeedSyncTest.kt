@@ -1,6 +1,6 @@
 package com.kbap.app.api.avoidance
 
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe

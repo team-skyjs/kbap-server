@@ -5,6 +5,7 @@ import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberIdOrNull
 import com.kbap.application.home.HomeApplicationService
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 class HomeController(
     private val homeApplicationService: HomeApplicationService,
 ) : HomeApi {
+    @GetMapping
     override fun home(
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<HomeResponse>> {

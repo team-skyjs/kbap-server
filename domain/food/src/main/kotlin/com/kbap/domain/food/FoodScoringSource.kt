@@ -1,5 +1,6 @@
 package com.kbap.domain.food
 
+import com.kbap.domain.food.model.Food
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

@@ -2,8 +2,8 @@ package com.kbap.infra.auth.firebase
 
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
-import com.kbap.domain.member.SocialIdentity
-import com.kbap.domain.member.SocialProvider
+import com.kbap.domain.member.model.SocialIdentity
+import com.kbap.domain.member.model.SocialProvider
 
 object FirebaseClaimMapper {
     private const val FIREBASE_CLAIM = "firebase"

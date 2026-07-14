@@ -5,8 +5,8 @@ import com.kbap.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.domain.member.SocialAccountDeleter
 import com.kbap.application.auth.social.SocialTokenVerifier
-import com.kbap.domain.member.SocialIdentity
-import com.kbap.domain.member.SocialProvider
+import com.kbap.domain.member.model.SocialIdentity
+import com.kbap.domain.member.model.SocialProvider
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec

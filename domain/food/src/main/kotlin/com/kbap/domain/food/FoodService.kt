@@ -1,5 +1,6 @@
 package com.kbap.domain.food
 
+import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.dto.BrowseFoodsInput
 import com.kbap.domain.food.dto.FoodPage
 import com.kbap.domain.food.dto.FoodSummaryView
@@ -9,7 +10,7 @@ import com.kbap.domain.food.dto.SearchFoodsInput
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.LanguageCode
-import com.kbap.domain.avoidance.AvoidanceSubstanceCode
+import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.avoidance.AvoidanceCatalogService
 import com.kbap.domain.member.MemberService
 import jakarta.persistence.EntityManager

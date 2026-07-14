@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
 
 @Tag(name = "홈", description = "홈 화면 조회 API")
 @SecurityRequirement(name = "bearerAuth")
@@ -45,7 +44,6 @@ interface HomeApi {
             ApiResponse(responseCode = "401", description = "인증 헤더는 있으나 토큰이 위조·만료됨"),
         ],
     )
-    @GetMapping
     fun home(
         memberId: Long?,
     ): ResponseEntity<BaseResponse<HomeResponse>>

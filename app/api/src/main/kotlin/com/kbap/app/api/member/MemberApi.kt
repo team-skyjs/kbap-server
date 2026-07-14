@@ -9,10 +9,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
 @Tag(name = "회원", description = "온보딩·프로필 API")
@@ -33,7 +29,6 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
-    @PostMapping("/me/onboarding")
     fun completeOnboarding(
         memberId: Long,
         @SwaggerRequestBody(
@@ -90,7 +85,7 @@ interface MemberApi {
                 ),
             ],
         )
-        @RequestBody request: OnboardingRequest,
+        request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
@@ -110,7 +105,6 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
-    @GetMapping("/me/profile")
     fun getMyProfile(
         memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
@@ -133,7 +127,6 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
-    @GetMapping("/me/ranking")
     fun getMyRanking(
         memberId: Long,
     ): ResponseEntity<BaseResponse<MemberRankingResponse>>
@@ -160,7 +153,6 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
-    @PatchMapping("/me/profile")
     fun updateProfile(
         memberId: Long,
         @SwaggerRequestBody(
@@ -210,6 +202,6 @@ interface MemberApi {
                 ),
             ],
         )
-        @RequestBody request: ProfileUpdateRequest,
+        request: ProfileUpdateRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 }

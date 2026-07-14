@@ -4,7 +4,7 @@ import com.kbap.domain.member.SocialAccountDeleter
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.kbap.domain.member.SocialProvider
+import com.kbap.domain.member.model.SocialProvider
 import org.slf4j.LoggerFactory
 import com.google.firebase.auth.AuthErrorCode as FirebaseAuthErrorCode
 

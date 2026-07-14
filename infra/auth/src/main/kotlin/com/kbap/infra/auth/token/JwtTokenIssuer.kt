@@ -4,7 +4,7 @@ import com.kbap.application.auth.dto.IssuedRefreshToken
 import com.kbap.application.auth.token.AuthTokenProperties
 import com.kbap.application.auth.token.TokenIssuer
 
-import com.kbap.domain.member.MemberRole
+import com.kbap.domain.member.model.MemberRole
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
 import java.util.Date

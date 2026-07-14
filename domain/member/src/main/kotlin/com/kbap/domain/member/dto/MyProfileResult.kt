@@ -1,6 +1,6 @@
 package com.kbap.domain.member.dto
 
-import com.kbap.domain.member.Member
+import com.kbap.domain.member.model.Member
 
 data class MyProfileResult(
     val memberId: Long,

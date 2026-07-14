@@ -4,7 +4,9 @@ import com.kbap.domain.scan.ScanService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -14,9 +16,10 @@ import org.springframework.web.bind.annotation.RestController
 class ScanController(
     private val scanService: ScanService,
 ) : ScanApi {
+    @PostMapping
     override fun scan(
         @AuthMemberId memberId: Long,
-        @RequestBody request: ScanRequest,
+        @Valid @RequestBody request: ScanRequest,
     ): ResponseEntity<BaseResponse<ScanResponse>> {
         val result = scanService.assessMenuBoard(request.toInput(memberId))
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))

@@ -10,8 +10,8 @@ import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.domain.member.MemberService
 import com.kbap.domain.member.SocialAccountDeleter
-import com.kbap.domain.member.SocialIdentity
-import com.kbap.domain.member.MemberRole
+import com.kbap.domain.member.model.SocialIdentity
+import com.kbap.domain.member.model.MemberRole
 import com.kbap.application.auth.token.RefreshTokenStore
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

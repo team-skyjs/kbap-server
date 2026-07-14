@@ -3,7 +3,7 @@ package com.kbap.app.api.common.auth
 import com.kbap.application.auth.token.AuthTokenProperties
 import com.kbap.infra.auth.token.JwtTokenIssuer
 import com.kbap.infra.auth.token.JwtTokenParser
-import com.kbap.domain.member.MemberRole
+import com.kbap.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull

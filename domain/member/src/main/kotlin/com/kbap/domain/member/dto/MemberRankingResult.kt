@@ -1,6 +1,6 @@
 package com.kbap.domain.member.dto
 
-import com.kbap.domain.member.Ranking
+import com.kbap.domain.member.model.Ranking
 
 data class MemberRankingResult(
     val tier: String,
