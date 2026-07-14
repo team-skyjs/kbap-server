@@ -3,6 +3,8 @@ import com.kbap.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.application.auth.token.TokenIssuer
+import com.kbap.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -25,6 +27,9 @@ class FoodDetailLangTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     init {
         beforeTest { FoodTestSeed.seedDoenjangStew(dataSource) }
 
@@ -40,10 +45,14 @@ class FoodDetailLangTest : BehaviorSpec() {
                 }
             }
 
-            `when`("lang=ja 인데 성분에 일본어 번역이 없으면") {
+            `when`("전 성분을 회피하는 회원이 lang=ja 로 조회하는데 성분에 일본어 번역이 없으면") {
                 then("성분 표시명을 한국어로 폴백하고 확률 내림차순을 유지한다") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 13L, "SOY", "WHEAT", "CLAM")
+                    val token = tokenIssuer.issueAccessToken(13L, MemberRole.USER)
+
                     mockMvc.get("/api/v1/foods/1") {
                         param("lang", "ja")
+                        header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.ingredients[0].name") { value("대두") }
