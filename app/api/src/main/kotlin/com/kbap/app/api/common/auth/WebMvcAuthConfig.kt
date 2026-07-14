@@ -24,6 +24,8 @@ class WebMvcAuthConfig(
                 "${ApiPaths.V1}/members/*",
                 "${ApiPaths.V1}/scans",
                 "${ApiPaths.V1}/scans/*",
+                "${ApiPaths.V1}/bookmarks",
+                "${ApiPaths.V1}/bookmarks/*",
                 "${ApiPaths.V1}/auth/withdraw",
             )
         }
