@@ -471,6 +471,29 @@ class MemberControllerTest : BehaviorSpec() {
                     profilePayload(token).path("spicinessPreference").asInt() shouldBe 4
                 }
             }
+
+            `when`("사진에 빈 문자열을 담아 수정하면") {
+                then("사진이 제거되어 null 로 돌아가고 나머지는 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "")).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("profileImageUrl").isNull shouldBe true
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("spicinessPreference").asInt() shouldBe 4
+                }
+            }
+
+            `when`("사진에 공백 문자열을 담아 수정하면") {
+                then("빈 문자열과 동일하게 사진이 제거된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "   ")).andExpect { status { isOk() } }
+
+                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                }
+            }
         }
 
         given("온보딩의 프로필 사진·맵기 등록") {

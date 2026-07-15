@@ -85,13 +85,13 @@ kbap 멀티모듈 — `:core`(`core/`), `:domain:member`(`domain/member/`), `:ap
 
 ### Tests for User Story 3 (Red — 작성 직후 반드시 실패 확인) ⚠️
 
-- [ ] T015 [US3] `MemberServiceTest` 에 제거 시나리오 추가 후 **실패(Red) 확인** — `domain/member/src/test/kotlin/com/kbap/domain/member/MemberServiceTest.kt`: 빈 문자열(공백 포함) 전송 → 사진 null + 다른 프로필 값 유지
-- [ ] T016 [P] [US3] `MemberControllerTest` 에 MockMvc 제거 시나리오 추가 후 **실패(Red) 확인** — `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt`: `{"profileImageUrl":""}` PATCH → 200 + 조회 응답 null
+- [x] T015 [US3] `MemberServiceTest` 에 제거 시나리오 추가 후 **실패(Red) 확인** — `domain/member/src/test/kotlin/com/kbap/domain/member/MemberServiceTest.kt`: 빈 문자열(공백 포함) 전송 → 사진 null + 다른 프로필 값 유지
+- [x] T016 [P] [US3] `MemberControllerTest` 에 MockMvc 제거 시나리오 추가 후 **실패(Red) 확인** — `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt`: `{"profileImageUrl":""}` PATCH → 200 + 조회 응답 null
 
 ### Implementation for User Story 3 (Green → Refactor)
 
-- [ ] T017 [US3] `MemberService.updateProfile` 에 3분법 완성: blank → null(제거) 분기 — `domain/member/src/main/kotlin/com/kbap/domain/member/MemberService.kt` (T007 의 `validatedImageUrl` blank→null 시맨틱과 정합 확인)
-- [ ] T018 [US3] Green 확인: `./gradlew :domain:member:test :app:api:test` 통과 + 리팩터링
+- [x] T017 [US3] `MemberService.updateProfile` 에 3분법 완성: blank → null(제거) 분기 — `domain/member/src/main/kotlin/com/kbap/domain/member/MemberService.kt` (T007 의 `validatedImageUrl` blank→null 시맨틱과 정합 확인)
+- [x] T018 [US3] Green 확인: `./gradlew :domain:member:test :app:api:test` 통과 + 리팩터링
 
 **Checkpoint**: 3개 스토리 전부 독립 검증 가능.
 

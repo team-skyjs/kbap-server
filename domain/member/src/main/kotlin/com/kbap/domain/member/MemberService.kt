@@ -57,7 +57,11 @@ class MemberService internal constructor(
                 ?: current.spicinessPreference,
             countryCode = input.countryCode?.let { validatedCountry(it) } ?: current.countryCode,
             appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
-            profileImageUrl = input.profileImageUrl?.let { validatedImageUrl(it) } ?: current.profileImageUrl,
+            // 미전송(null)=유지 · 값=검증 후 교체 · 빈 문자열=제거(validatedImageUrl 이 null 반환)
+            profileImageUrl = when (val raw = input.profileImageUrl) {
+                null -> current.profileImageUrl
+                else -> validatedImageUrl(raw)
+            },
         )
 
         member.updateProfile(merged)
