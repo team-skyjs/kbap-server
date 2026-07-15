@@ -16,6 +16,9 @@ dependencies {
     // Redis 어댑터(RefreshTokenStore 구현) — 런타임 조립.
     "runtimeOnly"(project(":infra:redis"))
 
+    // S3 어댑터(PresignedUploadPort 구현) — 런타임 조립(AWS SDK 타입이 web 컴파일 클래스패스에 새지 않게).
+    "runtimeOnly"(project(":infra:storage"))
+
     // 컨트롤러가 도메인 서비스를 직접 호출한다(도메인 간 단방향 의존 구조 전환).
     "implementation"(project(":domain:member"))
     "implementation"(project(":domain:food"))

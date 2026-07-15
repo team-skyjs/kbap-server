@@ -36,6 +36,7 @@ include(
     ":infra:llm", // LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존
     ":infra:auth", // 인증 구현 어댑터(jjwt 자체 JWT + firebase-admin 소셜 검증)
     ":infra:redis", // Redis 어댑터 — refresh token 세션 저장소 구현
+    ":infra:storage", // S3 어댑터 — 이미지 업로드용 presigned URL 발급 구현(KB-145)
 
     // ── 부트앱 진입점 ──
     ":app:api",           // web bootJar (조립) — 진입점 com.kbap.api.KbapApiApplication

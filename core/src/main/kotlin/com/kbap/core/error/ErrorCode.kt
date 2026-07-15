@@ -41,4 +41,9 @@ enum class ErrorCode(
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
     BLANK_SEARCH_KEYWORD("FOOD-003", 400, "검색어를 입력해 주세요"),
+
+    // 이미지 업로드
+    UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
+    UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
+    IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),
 }
