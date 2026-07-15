@@ -16,7 +16,7 @@ import org.springframework.test.web.servlet.post
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, FakePresignedUploadPortConfig::class)
+@Import(MySqlContainerConfig::class)
 class ImageUploadControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

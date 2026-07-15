@@ -28,6 +28,7 @@ include(
     ":domain:review",
     ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
     ":domain:bookmark",     // 음식 북마크 컨텍스트 (KB-139) — 즐겨찾기 등록·취소·목록
+    ":domain:image",        // 업로드 이미지 컨텍스트 (KB-138) — 완료 검증·소유 기록(리뷰 사진 등 재사용)
 
     // ── 조합 계층 ──
     ":application", // 무소속 유스케이스(Home·Auth)와 도메인 간 순환 해소용 ~ApplicationService 만 둔다

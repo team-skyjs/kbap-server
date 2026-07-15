@@ -21,7 +21,7 @@ class ScanController(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: ScanRequest,
     ): ResponseEntity<BaseResponse<ScanResponse>> {
-        val result = scanService.assessMenuBoard(request.toInput(memberId))
+        val result = scanService.scanMenuBoardImage(memberId, request.imagePath!!, request.toOcrItems())
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
     }
 }

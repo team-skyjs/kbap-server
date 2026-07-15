@@ -2,6 +2,7 @@ package com.kbap.infra.storage
 
 import com.kbap.application.upload.PresignedUploadPort
 import com.kbap.application.upload.dto.PresignedUpload
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
@@ -12,6 +13,11 @@ class S3PresignedUploadPort(
     private val bucket: String,
     private val publicBaseUrl: String,
 ) : PresignedUploadPort {
+    companion object {
+        fun create(region: String, bucket: String, publicBaseUrl: String): PresignedUploadPort =
+            S3PresignedUploadPort(S3Presigner.builder().region(Region.of(region)).build(), bucket, publicBaseUrl)
+    }
+
     override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {
         val putObjectRequest = PutObjectRequest.builder()
             .bucket(bucket)
