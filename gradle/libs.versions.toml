@@ -15,6 +15,7 @@ jackson = "2.21.4"
 jjwt = "0.12.6"
 firebase-admin = "9.4.3"
 # 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
+# presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
 aws-sdk = "2.48.0"
 
 [plugins]
@@ -60,10 +61,9 @@ flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 
 # --- Storage (KB-145/KB-138): S3 presigned URL 발급·오브젝트 검증 (AWS SDK v2) ---
-# BOM 으로 버전 정렬 — s3·s3-presigner 는 버전 생략(platform 이 관리).
+# BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3" }
-aws-s3-presigner = { module = "software.amazon.awssdk:s3-presigner" }
 
 # --- API docs (Swagger UI) ---
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }

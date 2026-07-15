@@ -1,11 +1,13 @@
-// 스토리지 구현 어댑터 — :core 의 StorageObjectStore seam 을 AWS S3(HeadObject·DeleteObject)로 구현한다(KB-138).
-// presigned URL 발급 구현(KB-145)도 이 모듈에 얹힌다. 조립은 부트앱 config 소관.
+// 스토리지 구현 어댑터 — :core 의 StorageObjectStore seam(KB-138, HeadObject·DeleteObject)과
+// :application 의 PresignedUploadPort seam(KB-145, presigned PUT)을 AWS S3 로 구현한다.
+// presign 은 로컬 SigV4 서명이라 발급 시 S3 를 호출하지 않는다. 조립은 부트앱 config 소관.
 plugins {
     id("kbap.spring-conventions")
 }
 
 dependencies {
     "implementation"(project(":core"))
+    "implementation"(project(":application"))
 
     "implementation"(platform(libs.aws.bom))
     "implementation"(libs.aws.s3)
