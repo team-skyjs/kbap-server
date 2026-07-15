@@ -2,6 +2,7 @@ package com.kbap.application.upload.dto
 
 enum class UploadPurpose(val prefix: String) {
     MENU_SCAN("menu-scan"),
+    REVIEW("review"),
     ;
 
     companion object {

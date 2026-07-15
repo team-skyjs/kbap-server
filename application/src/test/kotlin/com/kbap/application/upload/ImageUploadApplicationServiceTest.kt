@@ -53,7 +53,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
             then("UPLOAD-002 로 거절한다") {
                 val service = ImageUploadApplicationService(properties(), RecordingPort())
                 val ex = shouldThrow<BusinessException> {
-                    service.issueUploadUrl(input(purpose = "REVIEW"))
+                    service.issueUploadUrl(input(purpose = "UNKNOWN"))
                 }
                 ex.errorCode shouldBe ErrorCode.UNSUPPORTED_UPLOAD_PURPOSE
             }
