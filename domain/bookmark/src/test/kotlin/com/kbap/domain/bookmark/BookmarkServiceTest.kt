@@ -83,6 +83,47 @@ class BookmarkServiceTest : BehaviorSpec() {
 
         beforeContainer { clearTables() }
 
+        given("음식 북마크 여부 일괄 조회 — findBookmarkedFoodIds") {
+            `when`("회원이 요청 음식 집합 중 일부만 북마크했으면") {
+                then("북마크한 foodId 만 반환한다") {
+                    seedFood(1L, "김치찌개")
+                    seedFood(2L, "된장찌개")
+                    seedFood(3L, "비빔밥")
+                    service.bookmark(memberId, 1L)
+                    service.bookmark(memberId, 3L)
+
+                    service.findBookmarkedFoodIds(memberId, listOf(1L, 2L, 3L)) shouldContainExactlyInAnyOrder listOf(1L, 3L)
+                }
+            }
+
+            `when`("memberId 가 null 이면(비회원)") {
+                then("쿼리 없이 빈 집합을 반환한다") {
+                    seedFood(1L, "김치찌개")
+                    service.bookmark(memberId, 1L)
+
+                    service.findBookmarkedFoodIds(null, listOf(1L)) shouldBe emptySet()
+                }
+            }
+
+            `when`("요청 foodIds 가 비어 있으면") {
+                then("빈 집합을 반환한다") {
+                    service.findBookmarkedFoodIds(memberId, emptyList()) shouldBe emptySet()
+                }
+            }
+
+            `when`("북마크를 취소(소프트삭제)한 뒤 조회하면") {
+                then("취소한 foodId 는 제외된다") {
+                    seedFood(1L, "김치찌개")
+                    seedFood(2L, "된장찌개")
+                    service.bookmark(memberId, 1L)
+                    service.bookmark(memberId, 2L)
+                    service.unbookmark(memberId, 1L)
+
+                    service.findBookmarkedFoodIds(memberId, listOf(1L, 2L)) shouldContainExactlyInAnyOrder listOf(2L)
+                }
+            }
+        }
+
         given("음식 북마크 등록") {
             `when`("READY 음식을 처음 북마크하면") {
                 then("활성 북마크가 1건 생성되고 목록에 담긴다") {

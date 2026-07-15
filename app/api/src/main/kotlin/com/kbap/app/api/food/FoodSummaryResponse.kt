@@ -9,15 +9,17 @@ data class FoodSummaryResponse(
     val imageRef: String?,
     val spiciness: Int,
     val overallRiskStatus: String,
+    val bookmarked: Boolean,
 ) {
     companion object {
-        fun from(view: FoodSummaryView) = FoodSummaryResponse(
+        fun from(view: FoodSummaryView, bookmarked: Boolean) = FoodSummaryResponse(
             foodId = view.foodId,
             name = view.name,
             koreanName = view.koreanName,
             imageRef = view.imageRef,
             spiciness = view.spiciness,
             overallRiskStatus = view.overallRiskStatus.name,
+            bookmarked = bookmarked,
         )
     }
 }

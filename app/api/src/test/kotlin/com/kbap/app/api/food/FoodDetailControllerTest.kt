@@ -9,8 +9,11 @@ import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
+import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
 @SpringBootTest
@@ -29,7 +32,88 @@ class FoodDetailControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     init {
-        beforeTest { FoodTestSeed.seedDoenjangStew(dataSource) }
+        beforeTest {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
+            FoodTestSeed.seedDoenjangStew(dataSource)
+        }
+
+        fun accessToken(memberId: Long): String {
+            dataSource.connection.use { c ->
+                c.createStatement().use {
+                    it.execute(
+                        "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES ($memberId, 'GOOGLE', 'food-detail-bm-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                            "ON DUPLICATE KEY UPDATE id = id",
+                    )
+                }
+            }
+            return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
+
+        fun registerBookmark(token: String, foodId: Long) =
+            mockMvc.post("/api/v1/bookmarks") {
+                header("Authorization", "Bearer $token")
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"foodId":$foodId}"""
+            }.andExpect { status { isOk() } }
+
+        given("음식 상세 조회 API — 북마크 여부(bookmarked)") {
+            `when`("회원이 북마크한 음식의 상세를 조회하면") {
+                then("bookmarked=true 를 반환한다") {
+                    val token = accessToken(31L)
+                    registerBookmark(token, 1L)
+
+                    mockMvc.get("/api/v1/foods/1") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.bookmarked") { value(true) }
+                    }
+                }
+            }
+
+            `when`("북마크를 취소한 뒤 상세를 다시 조회하면") {
+                then("bookmarked=false 를 반환한다") {
+                    val token = accessToken(32L)
+                    registerBookmark(token, 1L)
+                    mockMvc.patch("/api/v1/bookmarks/1") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect { status { isOk() } }
+
+                    mockMvc.get("/api/v1/foods/1") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.bookmarked") { value(false) }
+                    }
+                }
+            }
+
+            `when`("비회원이 상세를 조회하면") {
+                then("bookmarked=false 를 반환한다") {
+                    mockMvc.get("/api/v1/foods/1").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.bookmarked") { value(false) }
+                    }
+                }
+            }
+
+            `when`("회원 A 가 북마크한 음식을 회원 B 가 조회하면") {
+                then("조회자 본인 기준이라 bookmarked=false 다") {
+                    val tokenA = accessToken(33L)
+                    registerBookmark(tokenA, 1L)
+                    val tokenB = accessToken(34L)
+
+                    mockMvc.get("/api/v1/foods/1") {
+                        header("Authorization", "Bearer $tokenB")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.bookmarked") { value(false) }
+                    }
+                }
+            }
+        }
 
         given("음식 상세 조회 API") {
             `when`("SOY 를 회피하는 회원이 lang=en 으로 수록된 foodId 를 조회하면") {

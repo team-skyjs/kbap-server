@@ -252,6 +252,21 @@ class BookmarkControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("목록 항목의 북마크 여부(bookmarked)를 확인하면") {
+                then("정의상 전부 북마크한 음식이므로 모든 항목이 bookmarked=true 다") {
+                    val token = accessToken(230L)
+                    seedFood(1L, "김치찌개")
+                    seedFood(2L, "된장찌개")
+                    register(token, 1L).andExpect { status { isOk() } }
+                    register(token, 2L).andExpect { status { isOk() } }
+
+                    val items = mapper.readTree(listJson(token)).path("payload").path("items").toList()
+
+                    items.size shouldBe 2
+                    items.forEach { it.path("bookmarked").asBoolean() shouldBe true }
+                }
+            }
+
             `when`("액세스 토큰 없이 목록을 조회하면") {
                 then("401 을 반환한다") {
                     mockMvc.get(path).andExpect {

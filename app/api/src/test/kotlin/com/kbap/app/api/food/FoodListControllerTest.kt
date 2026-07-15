@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.application.auth.token.TokenIssuer
+import com.kbap.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeIn
@@ -30,9 +32,33 @@ class FoodListControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
+        fun seedBookmarkRow(memberId: Long, foodId: Long) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES ($memberId, 'GOOGLE', 'food-bm-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                            "ON DUPLICATE KEY UPDATE id = id",
+                    )
+                    statement.execute(
+                        "INSERT INTO bookmark (member_id, food_id, status, created_at, updated_at) " +
+                            "VALUES ($memberId, $foodId, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                }
+            }
+        }
+
+        beforeTest {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
+        }
+
         fun seedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
@@ -67,6 +93,42 @@ class FoodListControllerTest : BehaviorSpec() {
 
         fun foodIdsOf(json: String): List<Long> =
             mapper.readTree(json).path("payload").path("items").map { it.path("foodId").asLong() }
+
+        given("메뉴 목록 조회 API — 북마크 여부(bookmarked)") {
+            `when`("회원이 페이지 내 일부 음식만 북마크한 상태로 조회하면") {
+                then("북마크한 항목만 bookmarked=true, 나머지는 false 다") {
+                    seedFoods(3)
+                    seedBookmarkRow(300L, 2L)
+                    val token = tokenIssuer.issueAccessToken(300L, MemberRole.USER)
+
+                    val json = mockMvc.get("/api/v1/foods") {
+                        header("Authorization", "Bearer $token")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val byId = mapper.readTree(json).path("payload").path("items").toList()
+                        .associate { it.path("foodId").asLong() to it.path("bookmarked").asBoolean() }
+
+                    byId[2L] shouldBe true
+                    byId[1L] shouldBe false
+                    byId[3L] shouldBe false
+                }
+            }
+
+            `when`("비회원이 조회하면") {
+                then("어떤 음식이 북마크돼 있어도 전 항목 bookmarked=false 이고 필드는 항상 존재한다") {
+                    seedFoods(3)
+                    seedBookmarkRow(301L, 2L)
+
+                    val json = mockMvc.get("/api/v1/foods")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val items = mapper.readTree(json).path("payload").path("items").toList()
+
+                    items.forEach { item ->
+                        item.has("bookmarked") shouldBe true
+                        item.path("bookmarked").asBoolean() shouldBe false
+                    }
+                }
+            }
+        }
 
         given("메뉴 목록 조회 API — 무한 스크롤 keyset 페이지네이션") {
             `when`("커서 없이 첫 페이지를 조회하면") {

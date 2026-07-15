@@ -103,9 +103,73 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
         fun messageOf(json: String): String = mapper.readTree(json).path("message").asText()
 
+        fun seedBookmarkRow(memberId: Long, foodId: Long) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES ($memberId, 'GOOGLE', 'food-bm-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                            "ON DUPLICATE KEY UPDATE id = id",
+                    )
+                    statement.execute(
+                        "INSERT INTO bookmark (member_id, food_id, status, created_at, updated_at) " +
+                            "VALUES ($memberId, $foodId, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                }
+            }
+        }
+
+        beforeTest {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
+        }
+
+        given("메뉴 검색 API — 북마크 여부(bookmarked)") {
+            `when`("회원이 검색 결과 중 일부를 북마크한 상태로 검색하면") {
+                then("북마크한 항목만 bookmarked=true, 나머지는 false 다") {
+                    seedSearchableFoods()
+                    seedBookmarkRow(400L, 601L)
+                    val token = tokenIssuer.issueAccessToken(400L, MemberRole.USER)
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치")
+                        header("Authorization", "Bearer $token")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val byId = mapper.readTree(json).path("payload").path("items").toList()
+                        .associate { it.path("foodId").asLong() to it.path("bookmarked").asBoolean() }
+
+                    byId[601L] shouldBe true
+                    byId[602L] shouldBe false
+                }
+            }
+
+            `when`("비회원이 검색하면") {
+                then("전 항목 bookmarked=false 이고 필드는 항상 존재한다") {
+                    seedSearchableFoods()
+                    seedBookmarkRow(401L, 601L)
+
+                    val json = mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "김치")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val items = mapper.readTree(json).path("payload").path("items").toList()
+
+                    items.forEach { item ->
+                        item.has("bookmarked") shouldBe true
+                        item.path("bookmarked").asBoolean() shouldBe false
+                    }
+                }
+            }
+        }
+
         fun seedAvoidanceSubstance(foodId: Long, substanceCode: String, inclusionPercent: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT IGNORE INTO avoidance_substance " +
+                            "(code, korean_name, translations, status, created_at, updated_at) " +
+                            "VALUES ('$substanceCode', '$substanceCode', '{}', " +
+                            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    )
                     statement.execute(
                         "INSERT INTO food_avoidance_substance " +
                             "(food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
