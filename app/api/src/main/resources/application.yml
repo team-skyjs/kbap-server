@@ -75,6 +75,22 @@ kbap:
         # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
         input-usd-per-million-tokens: 0.15
         output-usd-per-million-tokens: 0.15
+    # 메뉴판 사진 스캔(KB-138)은 gpt-4o-mini vision 을 단일 호출한다. ScanService 가 이 빈에 의존하므로
+    # 기본 on — enabled=false 면 부팅에 실패한다. VISION_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
+    # image-base-url(CDN 도메인)에 오브젝트 path 를 붙여 모델이 fetch 할 전체 URL 을 만든다(DB 엔 path 만 저장).
+    vision:
+      enabled: ${VISION_ENABLED:true}
+      api-key: ${VISION_API_KEY:}
+      model: gpt-4o-mini
+      image-base-url: ${CDN_BASE_URL:}
+      temperature: 0.0
+      max-retries: 0
     # 모델 1회 호출 타임아웃. OpenAI 호환 클라이언트(okhttp)의 요청 타임아웃으로 실린다.
     # 스캔 정제는 사용자 요청 경로라 초과 시 폴백(degraded=true)으로 흘린다.
     call-timeout: 5s
+  # 이미지 오브젝트 스토리지(KB-138) — 업로드 완료 검증(HeadObject)·정리(DeleteObject).
+  # ImageUploadService 가 StorageObjectStore 빈에 의존하므로 기본 on — enabled=false 면 부팅 실패.
+  storage:
+    enabled: ${STORAGE_ENABLED:true}
+    bucket: ${STORAGE_BUCKET:}
+    region: ${STORAGE_REGION:ap-northeast-2}

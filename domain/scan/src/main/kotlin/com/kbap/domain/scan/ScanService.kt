@@ -1,19 +1,18 @@
 package com.kbap.domain.scan
 
-import com.kbap.domain.scan.model.ScanHistory
-import com.kbap.domain.scan.dto.MenuNameLookup
-import com.kbap.domain.scan.dto.Refinement
-import com.kbap.domain.scan.dto.ResolvedItem
-import com.kbap.domain.scan.dto.ScanInput
-import com.kbap.domain.scan.dto.ScanResult
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.FoodService
-import com.kbap.core.lang.LanguageCode
+import com.kbap.core.error.BusinessException
+import com.kbap.core.error.ErrorCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
-import com.kbap.core.scan.InterpretedName
-import com.kbap.core.scan.ScannedNameInterpreter
+import com.kbap.core.scan.ExtractedMenu
+import com.kbap.core.scan.MenuBoardVisionExtractor
+import com.kbap.core.scan.OcrItem
+import com.kbap.domain.food.FoodService
+import com.kbap.domain.food.model.Food
+import com.kbap.domain.image.ImageUploadService
 import com.kbap.domain.member.MemberService
+import com.kbap.domain.scan.dto.ScanResult
+import com.kbap.domain.scan.model.ScanHistory
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,121 +20,89 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ScanService internal constructor(
     private val foodService: FoodService,
-    private val interpreter: ScannedNameInterpreter,
-    private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
+    private val imageUploadService: ImageUploadService,
+    private val visionExtractor: MenuBoardVisionExtractor,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
-    fun assessMenuBoard(input: ScanInput): ScanResult {
-        val matchKeys = input.items.map { KoreanMenuNameNormalizer.matchKey(it.rawMenuName) }
-        val refinement = refineMenuNames(input, matchKeys)
-        val resolvedItems = resolveFoods(input, matchKeys, refinement.byItemIndex)
+    // 의도적 무트랜잭션 — 비전 인식(외부 호출)을 트랜잭션 밖에 두고(헌법: 외부 호출 tx 밖),
+    // 매칭·이력 저장·스캔 카운트는 각 도메인 서비스·리포지토리의 트랜잭션에 위임한다.
+    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>): ScanResult {
+    // TODO     imageUploadService.findVerifiedImage(memberId, imagePath)
+    // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
 
-        // TODO: 회원 설정값(MemberProfile.appLanguage)에서 언어를 가져와 번역된 메뉴명을 내려준다
-        val lang = LanguageCode.KO
-        val avoidedCodes = memberService.getAvoidedCodes(input.memberId)
-            .map { it.name }
-            .toSet()
+        val extracted = try {
+            visionExtractor.extract(imagePath, ocrItems)
+        } catch (e: Exception) {
+            log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
+            throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
+        }
 
-        val items = input.items.mapIndexedNotNull { index, item ->
-            val resolved = resolvedItems[index] ?: return@mapIndexedNotNull null
+        val foodsByMatchKey = resolveFoods(extracted)
+        val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
+        val validIdxes = ocrItems.map { it.idx }.toSet()
+
+        val items = extracted.map { menu ->
+            val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             ScanResult.ItemRiskResult(
-                idx = item.idx,
-                riskLevel = (resolved.food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
-                matched = resolved.food?.isReady() == true,
-                foodId = resolved.food?.id,
-                name = resolved.food?.displayName(lang),
-                koreanName = resolved.food?.koreanName(),
+                // LLM 이 목록에 없는 idx 를 반환하면(할루시네이션) 매칭 없음으로 처리한다.
+                idx = menu.matchedIdx?.takeIf { it in validIdxes },
+                riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
+                matched = food?.isReady() == true,
+                foodId = food?.id,
+                name = menu.name,
+                koreanName = food?.koreanName() ?: menu.koreanName,
+                price = menu.priceKrw,
             )
         }
 
-        recordHistory(input.memberId, items)
-        memberService.increaseScanCount(input.memberId)
+        recordHistory(memberId, imagePath, extracted, items)
+        memberService.increaseScanCount(memberId)
 
-        return ScanResult(items = items, degraded = refinement.degraded)
+        return ScanResult(items = items, degraded = false)
     }
 
     @Transactional(readOnly = true)
     fun findRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 
-    private fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
-        val readyFoodIds = items.filter { it.matched }.mapNotNull { it.foodId }.distinct()
-        if (readyFoodIds.isEmpty()) return
-        scanHistoryRepository.saveAll(readyFoodIds.map { ScanHistory.record(memberId, it) })
-    }
+    private fun resolveFoods(extracted: List<ExtractedMenu>): Map<String, Food> {
+        val matchKeys = extracted
+            .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) }
+            .filter { it.isNotBlank() }
+            .toSet()
+        val known = foodService.findByKoreanMatchKeys(matchKeys)
 
-    private fun resolveFoods(
-        input: ScanInput,
-        matchKeys: List<String>,
-        refinedNames: Map<Int, InterpretedName>?,
-    ): List<ResolvedItem?> {
-        val lookups = input.items.indices.map { index ->
-            lookupNameFor(matchKeys[index], input.items[index].rawMenuName, refinedNames, index)
-        }
-        val foodsByMatchKey = foodService.findByKoreanMatchKeys(lookups.filterNotNull().map { it.matchKey }.toSet())
-        val registeredFoodsByName = foodService.createIncomplete(unregisteredFoodNames(lookups, foodsByMatchKey))
-
-        return lookups.map { lookup ->
-            if (lookup == null) return@map null
-
-            val known = foodsByMatchKey[lookup.matchKey]
-            if (known != null) return@map ResolvedItem(known)
-
-            if (!lookup.confirmedByInterpreter) return@map UNRESOLVED
-
-            val registered = registeredFoodsByName[lookup.koreanName] ?: return@map UNRESOLVED
-            ResolvedItem(registered)
-        }
-    }
-
-    private fun unregisteredFoodNames(lookups: List<MenuNameLookup?>, foodsByMatchKey: Map<String, Food>): Set<String> =
-        lookups
-            .filterNotNull()
-            .filter { it.confirmedByInterpreter && it.matchKey !in foodsByMatchKey }
+        val unknownNames = extracted
+            .filter { KoreanMenuNameNormalizer.matchKey(it.koreanName).let { key -> key.isNotBlank() && key !in known } }
             .map { it.koreanName }
             .toSet()
+        val registered = foodService.createIncomplete(unknownNames)
 
-    private fun lookupNameFor(
-        matchKey: String,
-        rawMenuName: String,
-        refinedNames: Map<Int, InterpretedName>?,
-        index: Int,
-    ): MenuNameLookup? {
-        if (matchKey.isBlank()) return null
-        if (refinedNames == null) {
-            return MenuNameLookup(koreanName = rawMenuName, matchKey = matchKey, confirmedByInterpreter = false)
-        }
-        return when (val refined = refinedNames.getValue(index)) {
-            is InterpretedName.StandardName -> MenuNameLookup(
-                koreanName = refined.korean,
-                matchKey = KoreanMenuNameNormalizer.matchKey(refined.korean),
-                confirmedByInterpreter = true,
+        val byMatchKey = known.toMutableMap()
+        registered.forEach { (koreanName, food) -> byMatchKey[KoreanMenuNameNormalizer.matchKey(koreanName)] = food }
+        return byMatchKey
+    }
+
+    private fun recordHistory(
+        memberId: Long,
+        imagePath: String,
+        extracted: List<ExtractedMenu>,
+        items: List<ScanResult.ItemRiskResult>,
+    ) {
+        if (extracted.isEmpty()) return
+        val histories = extracted.mapIndexed { index, menu ->
+            ScanHistory.record(
+                memberId = memberId,
+                imagePath = imagePath,
+                menuName = menu.name,
+                koreanName = menu.koreanName,
+                price = menu.priceKrw,
+                foodId = items[index].foodId,
             )
-            InterpretedName.NotFood -> null
         }
-    }
-
-    private fun refineMenuNames(input: ScanInput, matchKeys: List<String>): Refinement {
-        val refinableIndexes = matchKeys.indices.filter { matchKeys[it].isNotBlank() }
-        if (refinableIndexes.isEmpty()) return Refinement(byItemIndex = null, degraded = false)
-
-        val texts = refinableIndexes.map { input.items[it].rawMenuName }
-        return try {
-            val refined = interpreter.interpret(texts)
-            require(refined.size == refinableIndexes.size) {
-                "정제 결과 개수(${refined.size})가 요청(${refinableIndexes.size})과 다릅니다"
-            }
-            Refinement(byItemIndex = refinableIndexes.zip(refined).toMap(), degraded = false)
-        } catch (e: Exception) {
-            log.warn("정제 서비스 호출 실패 — 정규화 exact 매치 폴백", e)
-            Refinement(byItemIndex = null, degraded = true)
-        }
-    }
-
-    companion object {
-        private val UNRESOLVED = ResolvedItem(null)
+        scanHistoryRepository.saveAll(histories)
     }
 }
