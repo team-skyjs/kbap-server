@@ -5,8 +5,6 @@ import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
-import com.kbap.domain.member.dto.MemberProfileInput
-import com.kbap.domain.member.dto.ProfileUpdateInput
 import java.net.URI
 import java.net.URISyntaxException
 
@@ -66,36 +64,46 @@ data class MemberProfile private constructor(
 
         fun onboarded(
             current: MemberProfile,
-            input: MemberProfileInput,
+            nickname: String,
+            avoidanceSubstanceCodes: List<String>,
+            spicinessPreference: Int?,
+            countryCode: String,
+            appLanguage: String,
+            profileImageUrl: String?,
             allowedImageHosts: List<String>,
         ): MemberProfile =
             of(
-                nickname = validatedNickname(input.nickname),
-                avoidanceSubstanceCodes = validatedCodes(input.avoidanceSubstanceCodes),
-                spicinessPreference = input.spicinessPreference?.let { validatedSpiciness(it) }
+                nickname = validatedNickname(nickname),
+                avoidanceSubstanceCodes = validatedCodes(avoidanceSubstanceCodes),
+                spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
                     ?: current.spicinessPreference,
-                countryCode = validatedCountry(input.countryCode),
-                appLanguage = validatedLanguage(input.appLanguage),
-                profileImageUrl = input.profileImageUrl?.let { validatedImageUrl(it, allowedImageHosts) },
+                countryCode = validatedCountry(countryCode),
+                appLanguage = validatedLanguage(appLanguage),
+                profileImageUrl = profileImageUrl?.let { validatedImageUrl(it, allowedImageHosts) },
             )
 
         fun merged(
             current: MemberProfile,
-            input: ProfileUpdateInput,
+            nickname: String?,
+            avoidanceSubstanceCodes: List<String>?,
+            spicinessPreference: Int?,
+            countryCode: String?,
+            appLanguage: String?,
+            profileImageUrl: String?,
             allowedImageHosts: List<String>,
         ): MemberProfile =
             of(
-                nickname = input.nickname?.let { validatedNickname(it) } ?: current.nickname,
-                avoidanceSubstanceCodes = input.avoidanceSubstanceCodes?.let { validatedCodes(it) }
+                nickname = nickname?.let { validatedNickname(it) } ?: current.nickname,
+                avoidanceSubstanceCodes = avoidanceSubstanceCodes?.let { validatedCodes(it) }
                     ?: current.avoidanceSubstanceCodes,
-                spicinessPreference = input.spicinessPreference?.let { validatedSpiciness(it) }
+                spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
                     ?: current.spicinessPreference,
-                countryCode = input.countryCode?.let { validatedCountry(it) } ?: current.countryCode,
-                appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
+                countryCode = countryCode?.let { validatedCountry(it) } ?: current.countryCode,
+                appLanguage = appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
                 // 미전송(null)=유지 · 값=검증 후 교체 · 빈 문자열=제거(validatedImageUrl 이 null 반환)
-                profileImageUrl = when (val raw = input.profileImageUrl) {
+                profileImageUrl = when (profileImageUrl) {
                     null -> current.profileImageUrl
-                    else -> validatedImageUrl(raw, allowedImageHosts)
+                    else -> validatedImageUrl(profileImageUrl, allowedImageHosts)
                 },
             )
 

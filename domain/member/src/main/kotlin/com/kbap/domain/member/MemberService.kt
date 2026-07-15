@@ -1,6 +1,7 @@
 package com.kbap.domain.member
 
 import com.kbap.domain.member.model.Member
+import com.kbap.domain.member.model.MemberProfile
 import com.kbap.domain.member.model.MemberStatus
 import com.kbap.domain.member.model.SocialIdentity
 import com.kbap.core.error.ErrorCode
@@ -22,12 +23,36 @@ class MemberService internal constructor(
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        findActiveOrThrow(input.memberId).completeOnboarding(input, profileImageAllowedHosts)
+        val member = findActiveOrThrow(input.memberId)
+        member.completeOnboarding(
+            MemberProfile.onboarded(
+                current = member.profile,
+                nickname = input.nickname,
+                avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+                spicinessPreference = input.spicinessPreference,
+                countryCode = input.countryCode,
+                appLanguage = input.appLanguage,
+                profileImageUrl = input.profileImageUrl,
+                allowedImageHosts = profileImageAllowedHosts,
+            ),
+        )
     }
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        findActiveOrThrow(input.memberId).updateProfile(input, profileImageAllowedHosts)
+        val member = findActiveOrThrow(input.memberId)
+        member.updateProfile(
+            MemberProfile.merged(
+                current = member.profile,
+                nickname = input.nickname,
+                avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+                spicinessPreference = input.spicinessPreference,
+                countryCode = input.countryCode,
+                appLanguage = input.appLanguage,
+                profileImageUrl = input.profileImageUrl,
+                allowedImageHosts = profileImageAllowedHosts,
+            ),
+        )
     }
 
     @Transactional(readOnly = true)
