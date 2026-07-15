@@ -14,13 +14,17 @@ import com.kbap.domain.member.dto.MemberProfileInput
 import com.kbap.domain.member.dto.MemberRankingResult
 import com.kbap.domain.member.dto.MyProfileResult
 import com.kbap.domain.member.dto.ProfileUpdateInput
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.net.URI
+import java.net.URISyntaxException
 
 @Service
 class MemberService internal constructor(
     private val memberRepository: MemberJpaRepository,
+    @Value("\${kbap.member.profile-image-allowed-hosts:}") private val profileImageAllowedHosts: List<String>,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
@@ -29,9 +33,11 @@ class MemberService internal constructor(
         val profile = MemberProfile.of(
             nickname = validatedNickname(input.nickname),
             avoidanceSubstanceCodes = validatedCodes(input.avoidanceSubstanceCodes),
-            spicinessPreference = member.profile.spicinessPreference,
+            spicinessPreference = input.spicinessPreference?.let { validatedSpiciness(it) }
+                ?: member.profile.spicinessPreference,
             countryCode = validatedCountry(input.countryCode),
             appLanguage = validatedLanguage(input.appLanguage),
+            profileImageUrl = input.profileImageUrl?.let { validatedImageUrl(it) },
         )
 
         member.updateProfile(profile)
@@ -134,7 +140,34 @@ class MemberService internal constructor(
         LanguageCode.entries.firstOrNull { it.code == raw }
             ?: throw BusinessException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
 
+    private fun validatedSpiciness(raw: Int): Int {
+        if (raw !in MemberProfile.SPICINESS_RANGE) {
+            throw BusinessException(ErrorCode.INVALID_SPICINESS_PREFERENCE)
+        }
+        return raw
+    }
+
+    // 빈 문자열은 "미설정/제거"(null) — 부분 수정의 미전송(null=유지)과 구분되는 센티널.
+    private fun validatedImageUrl(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.length > PROFILE_IMAGE_URL_MAX_LENGTH) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
+        val host = try {
+            URI(trimmed).takeIf { it.scheme.equals("https", ignoreCase = true) }?.host
+        } catch (e: URISyntaxException) {
+            null
+        } ?: throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        if (profileImageAllowedHosts.isNotEmpty() && host !in profileImageAllowedHosts) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
+        return trimmed
+    }
+
     companion object {
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
+
+        private const val PROFILE_IMAGE_URL_MAX_LENGTH: Int = 512
     }
 }

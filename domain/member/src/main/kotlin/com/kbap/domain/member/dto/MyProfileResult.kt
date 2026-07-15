@@ -8,6 +8,8 @@ data class MyProfileResult(
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String?,
     val appLanguage: String?,
+    val profileImageUrl: String?,
+    val spicinessPreference: Int,
     val onboardingCompleted: Boolean,
     val ranking: MemberRankingResult,
 ) {
@@ -19,6 +21,8 @@ data class MyProfileResult(
                 avoidanceSubstanceCodes = member.profile.avoidanceSubstanceCodes.map { it.value },
                 countryCode = member.profile.countryCode?.name,
                 appLanguage = member.profile.appLanguage?.code,
+                profileImageUrl = member.profile.profileImageUrl,
+                spicinessPreference = member.profile.spicinessPreference,
                 onboardingCompleted = member.onboardingCompleted,
                 ranking = ranking,
             )

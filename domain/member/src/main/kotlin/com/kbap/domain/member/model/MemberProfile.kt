@@ -10,6 +10,7 @@ data class MemberProfile private constructor(
     val spicinessPreference: Int,
     val countryCode: CountryCode?,
     val appLanguage: LanguageCode?,
+    val profileImageUrl: String?,
 ) {
     init {
         require(spicinessPreference in SPICINESS_RANGE) { "member.profile.spicinessPreference 는 0~10 이어야 합니다" }
@@ -18,7 +19,7 @@ data class MemberProfile private constructor(
     companion object {
         const val DEFAULT_SPICINESS_PREFERENCE: Int = 5
 
-        private val SPICINESS_RANGE = 0..10
+        val SPICINESS_RANGE = 0..10
 
         fun of(
             nickname: String?,
@@ -26,6 +27,7 @@ data class MemberProfile private constructor(
             spicinessPreference: Int,
             countryCode: CountryCode?,
             appLanguage: LanguageCode?,
+            profileImageUrl: String? = null,
         ): MemberProfile =
             MemberProfile(
                 nickname = nickname,
@@ -33,6 +35,7 @@ data class MemberProfile private constructor(
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
                 appLanguage = appLanguage,
+                profileImageUrl = profileImageUrl,
             )
 
         fun empty(): MemberProfile =
@@ -42,6 +45,7 @@ data class MemberProfile private constructor(
                 spicinessPreference = DEFAULT_SPICINESS_PREFERENCE,
                 countryCode = null,
                 appLanguage = null,
+                profileImageUrl = null,
             )
     }
 }

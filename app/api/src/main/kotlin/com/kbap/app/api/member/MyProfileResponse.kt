@@ -9,6 +9,8 @@ data class MyProfileResponse(
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String?,
     val appLanguage: String?,
+    val profileImageUrl: String?,
+    val spicinessPreference: Int,
     val onboardingCompleted: Boolean,
     val ranking: RankingSummary,
 ) {
@@ -39,6 +41,8 @@ data class MyProfileResponse(
                 avoidanceSubstanceCodes = result.avoidanceSubstanceCodes,
                 countryCode = result.countryCode,
                 appLanguage = result.appLanguage,
+                profileImageUrl = result.profileImageUrl,
+                spicinessPreference = result.spicinessPreference,
                 onboardingCompleted = result.onboardingCompleted,
                 ranking = RankingSummary.from(result.ranking),
             )
