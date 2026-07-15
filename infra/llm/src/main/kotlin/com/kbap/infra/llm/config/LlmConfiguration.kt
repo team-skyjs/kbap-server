@@ -1,11 +1,11 @@
 package com.kbap.infra.llm.config
 
 import com.google.genai.Client
-import com.kbap.core.scan.ScannedNameInterpreter
+import com.kbap.core.scan.MenuBoardVisionExtractor
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
-import com.kbap.infra.llm.menu.ScannedNameParser
-import com.kbap.infra.llm.menu.UpstageScannedNameInterpreter
+import com.kbap.infra.llm.menu.MenuBoardResultParser
+import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.infra.llm.model.LlmModelId
 import com.kbap.infra.llm.model.LlmPricing
 import com.kbap.infra.llm.provider.SpringAiModelCaller
@@ -13,6 +13,7 @@ import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions
 import org.springframework.ai.openai.OpenAiChatModel
+import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -64,9 +65,22 @@ class LlmConfiguration {
         )
 
     @Bean
-    @ConditionalOnProperty(prefix = "kbap.llm.upstage", name = ["enabled"], havingValue = "true")
-    fun scannedNameInterpreter(properties: LlmModelProperties): ScannedNameInterpreter =
-        UpstageScannedNameInterpreter(upstageModelCaller(properties), ScannedNameParser())
+    @ConditionalOnProperty(prefix = "kbap.llm.vision", name = ["enabled"], havingValue = "true")
+    fun menuBoardVisionExtractor(properties: LlmModelProperties): MenuBoardVisionExtractor {
+        val props = properties.vision
+        val chatModel = OpenAiChatModel.builder()
+            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+            // OpenAiChatOptions.timeout 은 spring-ai-openai 2.0 에서 소비되지 않는다(죽은 필드) —
+            // 실제 okhttp 타임아웃은 http client 빌더로만 설정된다. vision 은 사진 해석이라 기본값(짧음)으로는 초과한다.
+            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+            .build()
+        val pricing = LlmPricing(
+            inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+            outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+            usdToKrw = properties.usdToKrw,
+        )
+        return OpenAiMenuBoardVisionExtractor(chatModel, MenuBoardResultParser(), props.imageBaseUrl, pricing)
+    }
 
     @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
@@ -135,6 +149,26 @@ class LlmConfiguration {
             val builder = GoogleGenAiChatOptions.builder()
             props.model?.let { builder.model(it) }
             props.maxOutputTokens?.let { builder.maxOutputTokens(it) }
+            return builder.build()
+        }
+
+        internal fun visionChatOptions(
+            props: LlmModelProperties.VisionProps,
+            baseUrl: String,
+            callTimeout: Duration,
+        ): OpenAiChatOptions {
+            val apiKey = props.apiKey
+            require(!apiKey.isNullOrBlank()) {
+                "kbap.llm.vision.api-key 가 비어 있습니다(배포 환경변수로 주입)."
+            }
+            val builder = OpenAiChatOptions.builder()
+            builder.apiKey(apiKey)
+            builder.baseUrl(baseUrl)
+            builder.timeout(callTimeout)
+            props.maxRetries?.let { builder.maxRetries(it) }
+            props.model?.let { builder.model(it) }
+            props.temperature?.let { builder.temperature(it) }
+            builder.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build())
             return builder.build()
         }
 

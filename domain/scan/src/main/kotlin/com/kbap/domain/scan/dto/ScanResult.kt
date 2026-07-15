@@ -5,11 +5,12 @@ data class ScanResult(
     val degraded: Boolean,
 ) {
     data class ItemRiskResult(
-        val idx: Int,
+        val idx: Int?,
         val riskLevel: String,
         val matched: Boolean,
         val foodId: Long?,
         val name: String?,
         val koreanName: String?,
+        val price: Int?,
     )
 }

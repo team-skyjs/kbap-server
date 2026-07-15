@@ -64,8 +64,10 @@ object HomeTestSeed {
     fun seedScan(dataSource: DataSource, memberId: Long, foodId: Long, scannedAt: String) = execute(
         dataSource,
         listOf(
-            "INSERT INTO scan_history (member_id, food_id, status, created_at, updated_at) " +
-                "VALUES ($memberId, $foodId, 'ACTIVE', '$scannedAt', '$scannedAt')",
+            "INSERT INTO scan_history (member_id, image_path, menu_name, korean_name, food_id, " +
+                "status, created_at, updated_at) " +
+                "VALUES ($memberId, 'scan/$memberId/x.jpg', '메뉴', '메뉴', $foodId, " +
+                "'ACTIVE', '$scannedAt', '$scannedAt')",
         ),
     )
 

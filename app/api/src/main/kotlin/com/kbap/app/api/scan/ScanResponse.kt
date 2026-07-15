@@ -20,8 +20,13 @@ data class ScanResponse(
 ) {
     @Schema(description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
-        @field:Schema(description = "요청에서 받은 idx — 클라이언트가 자기 화면의 메뉴와 결과를 연결하는 키", example = "1")
-        val idx: Int,
+        @field:Schema(
+            description = "이 추출 메뉴에 매칭된 클라이언트 OCR 항목의 idx. 클라이언트는 이 값으로 해당 메뉴 위에 박스를 그린다. " +
+                "사진에서 추출됐지만 대응하는 OCR 항목이 없으면 null(그릴 박스 없음).",
+            example = "0",
+            nullable = true,
+        )
+        val idx: Int?,
 
         @field:Schema(
             description = "조회 가능한(완성된) 음식과 매칭됐는지. false 면 조사 대기라 위험도를 알 수 없다(riskLevel=UNKNOWN). " +
@@ -45,20 +50,26 @@ data class ScanResponse(
         val riskLevel: String,
 
         @field:Schema(
-            description = "표시명(요청 파라미터로 언어를 지정할 수 없다). 현재는 항상 한국어이며, " +
-                "회원 언어 설정이 붙으면 그 언어로 지역화된다(번역이 없으면 한국어 폴백). " +
-                "foodId 가 null 이면 서버가 아는 이름이 없어 null",
-            example = "김치찌개",
+            description = "사진에 표기된 그대로의 메뉴명(외국어 병기 포함). 비전 인식이 읽은 원문이다.",
+            example = "Kimchi 김치찌개",
             nullable = true,
         )
         val name: String?,
 
         @field:Schema(
-            description = "언어와 무관한 한국어 메뉴명. foodId 가 null 이면 null",
+            description = "언어와 무관한 한국어 메뉴명. 매칭되면 음식의 표준명, 미매칭이면 사진에서 인식한 한국어명",
             example = "김치찌개",
             nullable = true,
         )
         val koreanName: String?,
+
+        @field:Schema(
+            description = "메뉴판에 표기된 가격(원 단위 정수). 축약 표기(\"1.6\", \"9.0\")는 천원 단위로 복원한다. " +
+                "가격이 표기되지 않은 메뉴는 null. 가격은 응답으로만 제공되며 음식 마스터에는 저장하지 않는다.",
+            example = "9000",
+            nullable = true,
+        )
+        val price: Int?,
     )
 
     companion object {
@@ -73,6 +84,7 @@ data class ScanResponse(
                         riskLevel = it.riskLevel,
                         name = it.name,
                         koreanName = it.koreanName,
+                        price = it.price,
                     )
                 },
             )

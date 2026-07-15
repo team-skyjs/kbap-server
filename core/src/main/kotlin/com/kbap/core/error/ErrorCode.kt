@@ -41,4 +41,13 @@ enum class ErrorCode(
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
     BLANK_SEARCH_KEYWORD("FOOD-003", 400, "검색어를 입력해 주세요"),
+
+    // 업로드 이미지
+    NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
+    UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
+    UPLOADED_OBJECT_NOT_FOUND("IMAGE-003", 400, "업로드된 파일을 찾을 수 없습니다"),
+
+    // 스캔
+    SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
+    MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 }
