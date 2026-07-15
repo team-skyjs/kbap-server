@@ -25,7 +25,7 @@ interface FoodApi {
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "조회 성공 — 최신순 음식 요약(≤20)·nextCursor·hasNext 반환"),
+            ApiResponse(responseCode = "200", description = "조회 성공 — 최신순 음식 요약(≤20)·nextCursor·hasNext 반환. 각 항목 bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
             ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 지원 목록에 없는 언어 코드"),
         ],
     )
@@ -50,7 +50,7 @@ interface FoodApi {
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "조회 성공 — 매칭 음식 요약(≤20)·nextCursor·hasNext 반환"),
+            ApiResponse(responseCode = "200", description = "조회 성공 — 매칭 음식 요약(≤20)·nextCursor·hasNext 반환. 각 항목 bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
             ApiResponse(responseCode = "400", description = "빈/공백 검색어, 잘못된 커서 형식/음수, 또는 지원 목록에 없는 언어 코드"),
         ],
     )
@@ -82,7 +82,7 @@ interface FoodApi {
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·설명·맵기·포함 기피성분 목록 반환"),
+            ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·설명·맵기·포함 기피성분 목록 반환. bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
             ApiResponse(
                 responseCode = "400",
                 description = "미존재/소프트삭제 음식('해당 음식 정보를 찾을 수 없습니다'), 숫자가 아닌 foodId('잘못된 요청입니다'), 또는 지원 목록에 없는 언어 코드(지원 언어 목록 안내)",

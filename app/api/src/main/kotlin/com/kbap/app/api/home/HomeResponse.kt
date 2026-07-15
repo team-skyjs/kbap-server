@@ -21,11 +21,11 @@ data class HomeResponse(
     val recentScans: List<FoodSummaryResponse>,
 ) {
     companion object {
-        fun from(result: HomeResult, authenticated: Boolean) = HomeResponse(
+        fun from(result: HomeResult, authenticated: Boolean, bookmarkedFoodIds: Set<Long>) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
-            popularFoods = result.popularFoods.map(FoodSummaryResponse::from),
-            recentScans = result.recentScans.map(FoodSummaryResponse::from),
+            popularFoods = result.popularFoods.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds) },
+            recentScans = result.recentScans.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds) },
         )
     }
 }

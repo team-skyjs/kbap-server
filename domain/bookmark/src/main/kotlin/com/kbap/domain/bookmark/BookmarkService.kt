@@ -31,6 +31,14 @@ class BookmarkService internal constructor(
     }
 
     @Transactional(readOnly = true)
+    fun findBookmarkedFoodIds(memberId: Long?, foodIds: Collection<Long>): Set<Long> {
+        if (memberId == null || foodIds.isEmpty()) return emptySet()
+        return bookmarkRepository.findByMemberIdAndFoodIdIn(memberId, foodIds)
+            .map { it.foodId }
+            .toSet()
+    }
+
+    @Transactional(readOnly = true)
     fun findBookmarks(memberId: Long, lang: String?, cursor: Long?): BookmarkPage {
         val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
 

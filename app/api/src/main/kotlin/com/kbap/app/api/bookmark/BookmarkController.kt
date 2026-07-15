@@ -51,7 +51,7 @@ class BookmarkController(
         return ResponseEntity.ok(
             BaseResponse.ok(
                 Page(
-                    items = result.items.map(FoodSummaryResponse::from),
+                    items = result.items.map { FoodSummaryResponse.from(it, bookmarked = true) },
                     hasNext = result.hasNext,
                     nextCursor = result.nextCursor,
                 ),

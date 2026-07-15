@@ -74,7 +74,7 @@ interface BookmarkApi {
         summary = "음식 북마크 목록 조회 (무한 스크롤, no-offset)",
         description = """
             북마크한 음식을 최근 등록/재등록순으로 한 페이지 20개씩 조회한다. 직전 페이지 nextCursor 를 cursor 로 넘기면 그 이후 20개가 이어진다.
-            응답 항목은 음식 요약(음식 목록 API 와 동일 형태)이며 요청 언어(lang)로 표시명을 지역화한다.
+            응답 항목은 음식 요약(음식 목록 API 와 동일 형태)이며 요청 언어(lang)로 표시명을 지역화한다. 항목은 정의상 전부 북마크한 음식이므로 bookmarked 는 항상 true 다.
 
             지원 언어: ko(기본), zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 미지정/빈/공백은 ko, 지원 목록에 없는 코드는 400.
         """,

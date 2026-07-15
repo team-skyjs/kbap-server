@@ -33,6 +33,9 @@ data class FoodDetailResponse(
 
     @field:Schema(description = "포함 기피성분 목록(포함 확률 내림차순)")
     val ingredients: List<IngredientResponse>,
+
+    @field:Schema(description = "조회 회원의 북마크 여부. 비회원 조회는 항상 false.", example = "true")
+    val bookmarked: Boolean,
 ) {
     @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
     data class IngredientResponse(
@@ -54,7 +57,7 @@ data class FoodDetailResponse(
     )
 
     companion object {
-        fun from(result: GetFoodDetailResult): FoodDetailResponse =
+        fun from(result: GetFoodDetailResult, bookmarked: Boolean): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
@@ -70,6 +73,7 @@ data class FoodDetailResponse(
                         riskStatus = it.riskStatus.name,
                     )
                 },
+                bookmarked = bookmarked,
             )
     }
 }
