@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping(ApiPaths.V1 + "/images")
-class ImageUploadController(
+class ImageUploadUrlController(
     private val imageUploadApplicationService: ImageUploadApplicationService,
-) : ImageUploadApi {
+) : ImageUploadUrlApi {
     @PostMapping("/upload-url")
     override fun issueUploadUrl(
         @AuthMemberId memberId: Long,

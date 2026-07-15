@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity
 
 @Tag(name = "이미지 업로드", description = "이미지 업로드용 presigned URL 발급 API")
 @SecurityRequirement(name = "bearerAuth")
-interface ImageUploadApi {
+interface ImageUploadUrlApi {
     @Operation(
         summary = "업로드용 presigned URL 발급",
         description = """
