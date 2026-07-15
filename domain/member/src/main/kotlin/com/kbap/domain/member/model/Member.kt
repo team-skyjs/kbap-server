@@ -3,6 +3,8 @@ package com.kbap.domain.member.model
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.persistence.BaseEntity
+import com.kbap.domain.member.dto.MemberProfileInput
+import com.kbap.domain.member.dto.ProfileUpdateInput
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -69,10 +71,15 @@ class Member(
         profileJson = MemberProfileJson.from(profile)
     }
 
-    fun completeOnboarding() {
+    fun updateProfile(input: ProfileUpdateInput, allowedImageHosts: List<String>) {
+        updateProfile(MemberProfile.merged(profile, input, allowedImageHosts))
+    }
+
+    fun completeOnboarding(input: MemberProfileInput, allowedImageHosts: List<String>) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
         }
+        updateProfile(MemberProfile.onboarded(profile, input, allowedImageHosts))
         onboardingCompleted = true
     }
 

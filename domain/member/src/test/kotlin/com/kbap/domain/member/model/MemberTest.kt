@@ -3,6 +3,7 @@ package com.kbap.domain.member.model
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.CountryCode
+import com.kbap.domain.member.dto.MemberProfileInput
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -10,6 +11,14 @@ import io.kotest.matchers.shouldBe
 class MemberTest : BehaviorSpec({
 
     fun googleIdentity() = SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "user@gmail.com")
+
+    fun onboardingInput() = MemberProfileInput(
+        memberId = 0,
+        nickname = "길동이",
+        avoidanceSubstanceCodes = emptyList(),
+        countryCode = "KR",
+        appLanguage = "ko",
+    )
 
     given("Member.signUp — 최초 가입") {
         `when`("소셜 신원으로 가입하면") {
@@ -66,22 +75,26 @@ class MemberTest : BehaviorSpec({
     }
 
     given("Member.completeOnboarding — 온보딩 전이") {
-        `when`("미완료 회원이 완료 처리하면") {
-            then("완료 상태로 전이한다") {
+        `when`("미완료 회원이 온보딩 정보를 제출하면") {
+            then("프로필이 반영되고 완료 상태로 전이한다") {
                 val member = Member.signUp(googleIdentity())
 
-                member.completeOnboarding()
+                member.completeOnboarding(onboardingInput(), emptyList())
 
                 member.onboardingCompleted shouldBe true
+                member.profile.nickname shouldBe "길동이"
+                member.profile.countryCode shouldBe CountryCode.KR
             }
         }
 
-        `when`("이미 완료된 회원이 재완료하면") {
+        `when`("이미 완료된 회원이 재제출하면") {
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
                 val member = Member.signUp(googleIdentity())
-                member.completeOnboarding()
+                member.completeOnboarding(onboardingInput(), emptyList())
 
-                val e = shouldThrow<BusinessException> { member.completeOnboarding() }
+                val e = shouldThrow<BusinessException> {
+                    member.completeOnboarding(onboardingInput(), emptyList())
+                }
                 e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
             }
         }
