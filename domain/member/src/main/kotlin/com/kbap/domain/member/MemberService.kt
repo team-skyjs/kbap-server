@@ -22,33 +22,27 @@ class MemberService internal constructor(
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        val member = findActiveOrThrow(input.memberId)
-        member.completeOnboarding(
-            member.profile.updatedWith(
-                nickname = input.nickname,
-                avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
-                spicinessPreference = input.spicinessPreference,
-                countryCode = input.countryCode,
-                appLanguage = input.appLanguage,
-                profileImageUrl = input.profileImageUrl,
-                allowedImageHosts = profileImageAllowedHosts,
-            ),
+        findActiveOrThrow(input.memberId).completeOnboarding(
+            nickname = input.nickname,
+            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            spicinessPreference = input.spicinessPreference,
+            countryCode = input.countryCode,
+            appLanguage = input.appLanguage,
+            profileImageUrl = input.profileImageUrl,
+            allowedImageHosts = profileImageAllowedHosts,
         )
     }
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        val member = findActiveOrThrow(input.memberId)
-        member.updateProfile(
-            member.profile.updatedWith(
-                nickname = input.nickname,
-                avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
-                spicinessPreference = input.spicinessPreference,
-                countryCode = input.countryCode,
-                appLanguage = input.appLanguage,
-                profileImageUrl = input.profileImageUrl,
-                allowedImageHosts = profileImageAllowedHosts,
-            ),
+        findActiveOrThrow(input.memberId).updateProfile(
+            nickname = input.nickname,
+            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            spicinessPreference = input.spicinessPreference,
+            countryCode = input.countryCode,
+            appLanguage = input.appLanguage,
+            profileImageUrl = input.profileImageUrl,
+            allowedImageHosts = profileImageAllowedHosts,
         )
     }
 

@@ -3,7 +3,6 @@ package com.kbap.domain.member.model
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -12,12 +11,14 @@ class MemberTest : BehaviorSpec({
 
     fun googleIdentity() = SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "user@gmail.com")
 
-    fun onboardedProfile() = MemberProfile.of(
+    fun submitOnboarding(member: Member) = member.completeOnboarding(
         nickname = "길동이",
-        avoidanceSubstanceCodes = emptySet(),
-        spicinessPreference = MemberProfile.DEFAULT_SPICINESS_PREFERENCE,
-        countryCode = CountryCode.KR,
-        appLanguage = LanguageCode.KO,
+        avoidanceSubstanceCodes = emptyList(),
+        spicinessPreference = null,
+        countryCode = "KR",
+        appLanguage = "ko",
+        profileImageUrl = null,
+        allowedImageHosts = emptyList(),
     )
 
     given("Member.signUp — 최초 가입") {
@@ -75,11 +76,11 @@ class MemberTest : BehaviorSpec({
     }
 
     given("Member.completeOnboarding — 온보딩 전이") {
-        `when`("미완료 회원이 온보딩 프로필을 제출하면") {
+        `when`("미완료 회원이 온보딩 정보를 제출하면") {
             then("프로필이 반영되고 완료 상태로 전이한다") {
                 val member = Member.signUp(googleIdentity())
 
-                member.completeOnboarding(onboardedProfile())
+                submitOnboarding(member)
 
                 member.onboardingCompleted shouldBe true
                 member.profile.nickname shouldBe "길동이"
@@ -90,11 +91,9 @@ class MemberTest : BehaviorSpec({
         `when`("이미 완료된 회원이 재제출하면") {
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
                 val member = Member.signUp(googleIdentity())
-                member.completeOnboarding(onboardedProfile())
+                submitOnboarding(member)
 
-                val e = shouldThrow<BusinessException> {
-                    member.completeOnboarding(onboardedProfile())
-                }
+                val e = shouldThrow<BusinessException> { submitOnboarding(member) }
                 e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
             }
         }
