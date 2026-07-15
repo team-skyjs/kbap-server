@@ -19,3 +19,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
+
+kbap:
+  member:
+    # 프로필 사진 URL 허용 호스트(콤마 구분, CloudFront CDN 도메인). 비우면 https 형식 검증만 적용된다.
+    profile-image-allowed-hosts: ${PROFILE_IMAGE_ALLOWED_HOSTS:}

@@ -8,6 +8,7 @@ data class MemberProfileJson(
     val spicinessPreference: Int = MemberProfile.DEFAULT_SPICINESS_PREFERENCE,
     val countryCode: String? = null,
     val appLanguage: String? = null,
+    val profileImageUrl: String? = null,
 ) {
     fun toDomain(nickname: String?): MemberProfile =
         MemberProfile.of(
@@ -16,6 +17,7 @@ data class MemberProfileJson(
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
             appLanguage = LanguageCode.entries.firstOrNull { it.code == appLanguage },
+            profileImageUrl = profileImageUrl,
         )
 
     companion object {
@@ -25,6 +27,7 @@ data class MemberProfileJson(
                 spicinessPreference = profile.spicinessPreference,
                 countryCode = profile.countryCode?.name,
                 appLanguage = profile.appLanguage?.code,
+                profileImageUrl = profile.profileImageUrl,
             )
     }
 }

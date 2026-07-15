@@ -69,10 +69,49 @@ class Member(
         profileJson = MemberProfileJson.from(profile)
     }
 
-    fun completeOnboarding() {
+    fun updateProfile(
+        nickname: String? = null,
+        avoidanceSubstanceCodes: List<String>? = null,
+        spicinessPreference: Int? = null,
+        countryCode: String? = null,
+        appLanguage: String? = null,
+        profileImageUrl: String? = null,
+        allowedImageHosts: List<String>,
+    ) {
+        updateProfile(
+            profile.updatedWith(
+                nickname = nickname,
+                avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+                spicinessPreference = spicinessPreference,
+                countryCode = countryCode,
+                appLanguage = appLanguage,
+                profileImageUrl = profileImageUrl,
+                allowedImageHosts = allowedImageHosts,
+            ),
+        )
+    }
+
+    fun completeOnboarding(
+        nickname: String,
+        avoidanceSubstanceCodes: List<String>,
+        spicinessPreference: Int?,
+        countryCode: String,
+        appLanguage: String,
+        profileImageUrl: String?,
+        allowedImageHosts: List<String>,
+    ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
         }
+        updateProfile(
+            nickname = nickname,
+            avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+            spicinessPreference = spicinessPreference,
+            countryCode = countryCode,
+            appLanguage = appLanguage,
+            profileImageUrl = profileImageUrl,
+            allowedImageHosts = allowedImageHosts,
+        )
         onboardingCompleted = true
     }
 

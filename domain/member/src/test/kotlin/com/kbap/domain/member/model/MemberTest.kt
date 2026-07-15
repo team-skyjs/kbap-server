@@ -11,6 +11,16 @@ class MemberTest : BehaviorSpec({
 
     fun googleIdentity() = SocialIdentity(SocialProvider.GOOGLE, "google-sub-1", "user@gmail.com")
 
+    fun submitOnboarding(member: Member) = member.completeOnboarding(
+        nickname = "길동이",
+        avoidanceSubstanceCodes = emptyList(),
+        spicinessPreference = null,
+        countryCode = "KR",
+        appLanguage = "ko",
+        profileImageUrl = null,
+        allowedImageHosts = emptyList(),
+    )
+
     given("Member.signUp — 최초 가입") {
         `when`("소셜 신원으로 가입하면") {
             then("온보딩 미완료·빈 프로필·해당 신원을 보유한다") {
@@ -66,22 +76,24 @@ class MemberTest : BehaviorSpec({
     }
 
     given("Member.completeOnboarding — 온보딩 전이") {
-        `when`("미완료 회원이 완료 처리하면") {
-            then("완료 상태로 전이한다") {
+        `when`("미완료 회원이 온보딩 정보를 제출하면") {
+            then("프로필이 반영되고 완료 상태로 전이한다") {
                 val member = Member.signUp(googleIdentity())
 
-                member.completeOnboarding()
+                submitOnboarding(member)
 
                 member.onboardingCompleted shouldBe true
+                member.profile.nickname shouldBe "길동이"
+                member.profile.countryCode shouldBe CountryCode.KR
             }
         }
 
-        `when`("이미 완료된 회원이 재완료하면") {
+        `when`("이미 완료된 회원이 재제출하면") {
             then("ONBOARDING_ALREADY_COMPLETED 예외를 던진다") {
                 val member = Member.signUp(googleIdentity())
-                member.completeOnboarding()
+                submitOnboarding(member)
 
-                val e = shouldThrow<BusinessException> { member.completeOnboarding() }
+                val e = shouldThrow<BusinessException> { submitOnboarding(member) }
                 e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
             }
         }

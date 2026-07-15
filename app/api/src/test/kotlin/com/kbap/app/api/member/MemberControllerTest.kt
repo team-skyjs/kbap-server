@@ -391,6 +391,197 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
+        given("프로필 부분 수정 — 사진·맵기 교체와 유지") {
+            fun profilePayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            fun onboardedWithImageToken(): String {
+                val token = loginAccessToken()
+                submitOnboarding(
+                    token,
+                    validBody() + mapOf(
+                        "profileImageUrl" to "https://cdn.example.com/profiles/origin.jpg",
+                        "spicinessPreference" to 4,
+                    ),
+                ).andExpect { status { isOk() } }
+                return token
+            }
+
+            `when`("새 사진 URL 만 담아 수정하면") {
+                then("사진은 교체되고 나머지 프로필 값은 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "https://cdn.example.com/profiles/new.jpg"))
+                        .andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/new.jpg"
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("spicinessPreference").asInt() shouldBe 4
+                }
+            }
+
+            `when`("닉네임만 담아 수정하면") {
+                then("사진과 맵기는 기존 값 그대로 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/origin.jpg"
+                    payload.path("spicinessPreference").asInt() shouldBe 4
+                }
+            }
+
+            `when`("맵기 9 만 담아 수정하면") {
+                then("맵기는 교체되고 사진·닉네임은 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("spicinessPreference" to 9)).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("spicinessPreference").asInt() shouldBe 9
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/origin.jpg"
+                    payload.path("nickname").asText() shouldBe "길동이"
+                }
+            }
+
+            `when`("불합격 사진 URL 을 담아 수정하면") {
+                then("400 MEMBER-008 로 거절되고 아무 필드도 변경되지 않는다") {
+                    val token = onboardedWithImageToken()
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "http://cdn.example.com/x.jpg"))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.example.com/profiles/origin.jpg"
+                }
+            }
+
+            `when`("범위 밖 맵기를 담아 수정하면") {
+                then("400 MEMBER-009 로 거절되고 아무 필드도 변경되지 않는다") {
+                    val token = onboardedWithImageToken()
+
+                    val result = updateProfile(token, mapOf("spicinessPreference" to 11)).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-009"
+                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 4
+                }
+            }
+
+            `when`("사진에 빈 문자열을 담아 수정하면") {
+                then("사진이 제거되어 null 로 돌아가고 나머지는 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "")).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("profileImageUrl").isNull shouldBe true
+                    payload.path("nickname").asText() shouldBe "길동이"
+                    payload.path("spicinessPreference").asInt() shouldBe 4
+                }
+            }
+
+            `when`("사진에 공백 문자열을 담아 수정하면") {
+                then("빈 문자열과 동일하게 사진이 제거된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "   ")).andExpect { status { isOk() } }
+
+                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                }
+            }
+        }
+
+        given("온보딩의 프로필 사진·맵기 등록") {
+            fun profilePayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            `when`("사진 URL 과 맵기 7 을 포함해 온보딩하면") {
+                then("프로필 조회 응답에 동일한 사진 URL 과 맵기가 담긴다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(
+                        token,
+                        validBody() + mapOf(
+                            "profileImageUrl" to "https://cdn.example.com/profiles/abc.jpg",
+                            "spicinessPreference" to 7,
+                        ),
+                    ).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/abc.jpg"
+                    payload.path("spicinessPreference").asInt() shouldBe 7
+                }
+            }
+
+            `when`("사진·맵기 없이 온보딩하면") {
+                then("사진은 null, 맵기는 기본값 5 로 응답한다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+
+                    val payload = profilePayload(token)
+                    payload.has("profileImageUrl") shouldBe true
+                    payload.path("profileImageUrl").isNull shouldBe true
+                    payload.path("spicinessPreference").asInt() shouldBe 5
+                }
+            }
+
+            `when`("빈 문자열 사진 URL 로 온보딩하면") {
+                then("미설정과 동일하게 사진은 null 이다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "  ")).andExpect { status { isOk() } }
+
+                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                }
+            }
+        }
+
+        given("온보딩의 프로필 사진 URL 검증 — 저장 없이 400") {
+            listOf(
+                "https 가 아닌 스킴" to "http://cdn.example.com/p.jpg",
+                "URL 로 파싱할 수 없는 값" to "not a url",
+                "호스트 없는 URL" to "https:///p.jpg",
+                "512자를 넘는 URL" to "https://cdn.example.com/" + "a".repeat(512),
+            ).forEach { (label, url) ->
+                `when`(label + "을 제출하면") {
+                    then("400 MEMBER-008 로 거절되고 아무것도 저장되지 않는다") {
+                        val token = loginAccessToken()
+
+                        val result = submitOnboarding(token, validBody() + ("profileImageUrl" to url))
+                            .andReturn().response
+
+                        result.status shouldBe 400
+                        result.contentAsString shouldContain "MEMBER-008"
+                        memberColumn("google-sub-fixed", "nickname") shouldBe null
+                        memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    }
+                }
+            }
+        }
+
+        given("온보딩의 맵기 범위 검증 — 저장 없이 400") {
+            listOf(11, -1).forEach { spiciness ->
+                `when`("범위 밖 맵기 $spiciness 를 제출하면") {
+                    then("400 MEMBER-009 로 거절되고 아무것도 저장되지 않는다") {
+                        val token = loginAccessToken()
+
+                        val result = submitOnboarding(token, validBody() + ("spicinessPreference" to spiciness))
+                            .andReturn().response
+
+                        result.status shouldBe 400
+                        result.contentAsString shouldContain "MEMBER-009"
+                        memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    }
+                }
+            }
+        }
+
         given("프로필 응답의 랭킹 요약") {
             `when`("가입 직후 회원이 프로필을 조회하면") {
                 then("모든 카운트가 0으로 초기화된 랭킹이 내려온다") {

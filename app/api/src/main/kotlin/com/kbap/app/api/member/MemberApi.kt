@@ -20,12 +20,17 @@ interface MemberApi {
             로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어를 제출하면, 각 값을 검증한 뒤
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
+
+            선택 필드: `profileImageUrl`(https URL — 클라이언트가 업로드한 이미지의 CDN 링크, 생략·빈 문자열이면
+            미설정), `spicinessPreference`(0~10 정수 맵기 선호 — 생략하면 기본값 5). 사진 URL 은 https 형식이어야
+            하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만 허용한다(불합격 MEMBER-008). 맵기가 범위 밖이면
+            MEMBER-009 로 거절한다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "온보딩 완료 — 프로필 저장·상태 전이"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임·사진 URL·맵기), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
@@ -38,13 +43,15 @@ interface MemberApi {
                     mediaType = "application/json",
                     examples = [
                         ExampleObject(
-                            name = "한국 · 계란/우유/땅콩 기피",
+                            name = "한국 · 계란/우유/땅콩 기피 · 사진·맵기 포함",
                             value = """
                                 {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
                                   "countryCode": "KR",
-                                  "appLanguage": "ko"
+                                  "appLanguage": "ko",
+                                  "profileImageUrl": "https://cdn.example.com/profiles/abc.jpg",
+                                  "spicinessPreference": 7
                                 }
                             """,
                         ),
@@ -91,7 +98,7 @@ interface MemberApi {
     @Operation(
         summary = "내 프로필 조회",
         description = """
-            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
+            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어·프로필 사진 URL·맵기 선호)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
             다음 등급까지 남은 점수)을 함께 조회한다. 프로필 탭이 이 응답 하나로 그려지도록 랭킹 요약을 싣되,
             점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
             등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
@@ -134,12 +141,17 @@ interface MemberApi {
     @Operation(
         summary = "프로필 수정 (부분 수정)",
         description = """
-            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어)을 다시 설정한다. **바꾸고 싶은 필드만**
-            담아 보내면 된다 — 모든 필드가 선택이며, **보내지 않은 필드는 기존 값이 유지된다.**
+            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어·프로필 사진·맵기 선호)을 다시 설정한다.
+            **바꾸고 싶은 필드만** 담아 보내면 된다 — 모든 필드가 선택이며, **보내지 않은 필드는 기존 값이 유지된다.**
 
             기피 성분은 **빈 배열 `[]` 이면 전부 해제**, **미전송이면 유지**로 서로 다르게 동작한다. 그래서
             닉네임 화면은 `nickname`·`countryCode`·`appLanguage` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
             만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
+
+            프로필 사진 `profileImageUrl` 은 3분법 — **미전송이면 유지**, **https URL 을 보내면 검증 후 교체**
+            (허용 이미지 도메인이 설정된 환경에서는 그 도메인만, 불합격 MEMBER-008), **빈 문자열 `""` 이면 제거**
+            (미설정 null 로 복귀). 맵기 `spicinessPreference` 는 0~10 정수로 교체하며 범위 밖은 MEMBER-009,
+            항상 값이 있는 속성이라 제거는 없다.
 
             검증은 **값이 전달된 필드에만** 적용한다 — 보내지 않은 필드 때문에 400 이 나지 않는다. 전달된 값이
             무효하면 요청 전체를 거절하고 프로필은 하나도 바뀌지 않는다(부분 저장 없음). 온보딩 완료 상태는
@@ -149,7 +161,7 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "수정 성공 — 전달한 필드만 갱신(빈 본문이면 변경 없음)"),
-            ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·언어·닉네임) 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·언어·닉네임·사진 URL·맵기) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
@@ -188,13 +200,39 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "전체 교체 — 네 필드를 모두 보낸다",
+                            name = "사진 교체 — 나머지는 유지된다",
+                            value = """
+                                {
+                                  "profileImageUrl": "https://cdn.example.com/profiles/new.jpg"
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "사진 제거 — 빈 문자열은 미전송(유지)과 다르다",
+                            value = """
+                                {
+                                  "profileImageUrl": ""
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "맵기 변경 — 0~10 정수",
+                            value = """
+                                {
+                                  "spicinessPreference": 9
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "전체 교체 — 모든 필드를 보낸다",
                             value = """
                                 {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja"
+                                  "appLanguage": "ja",
+                                  "profileImageUrl": "https://cdn.example.com/profiles/new.jpg",
+                                  "spicinessPreference": 3
                                 }
                             """,
                         ),

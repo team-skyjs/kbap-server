@@ -6,4 +6,6 @@ data class ProfileUpdateInput(
     val avoidanceSubstanceCodes: List<String>? = null,
     val countryCode: String? = null,
     val appLanguage: String? = null,
+    val profileImageUrl: String? = null,
+    val spicinessPreference: Int? = null,
 )

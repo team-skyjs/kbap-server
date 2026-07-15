@@ -1,19 +1,16 @@
 package com.kbap.domain.member
 
-import com.kbap.domain.member.model.AvoidanceSubstanceCodeRef
 import com.kbap.domain.member.model.Member
-import com.kbap.domain.member.model.MemberProfile
 import com.kbap.domain.member.model.MemberStatus
 import com.kbap.domain.member.model.SocialIdentity
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
-import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.member.dto.MemberProfileInput
 import com.kbap.domain.member.dto.MemberRankingResult
 import com.kbap.domain.member.dto.MyProfileResult
 import com.kbap.domain.member.dto.ProfileUpdateInput
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,38 +18,32 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class MemberService internal constructor(
     private val memberRepository: MemberJpaRepository,
+    @Value("\${kbap.member.profile-image-allowed-hosts:}") private val profileImageAllowedHosts: List<String>,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        val member = findActiveOrThrow(input.memberId)
-
-        val profile = MemberProfile.of(
-            nickname = validatedNickname(input.nickname),
-            avoidanceSubstanceCodes = validatedCodes(input.avoidanceSubstanceCodes),
-            spicinessPreference = member.profile.spicinessPreference,
-            countryCode = validatedCountry(input.countryCode),
-            appLanguage = validatedLanguage(input.appLanguage),
+        findActiveOrThrow(input.memberId).completeOnboarding(
+            nickname = input.nickname,
+            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            spicinessPreference = input.spicinessPreference,
+            countryCode = input.countryCode,
+            appLanguage = input.appLanguage,
+            profileImageUrl = input.profileImageUrl,
+            allowedImageHosts = profileImageAllowedHosts,
         )
-
-        member.updateProfile(profile)
-        member.completeOnboarding()
     }
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        val member = findActiveOrThrow(input.memberId)
-        val current = member.profile
-
-        val merged = MemberProfile.of(
-            nickname = input.nickname?.let { validatedNickname(it) } ?: current.nickname,
-            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes?.let { validatedCodes(it) }
-                ?: current.avoidanceSubstanceCodes,
-            spicinessPreference = current.spicinessPreference,
-            countryCode = input.countryCode?.let { validatedCountry(it) } ?: current.countryCode,
-            appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
+        findActiveOrThrow(input.memberId).updateProfile(
+            nickname = input.nickname,
+            avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            spicinessPreference = input.spicinessPreference,
+            countryCode = input.countryCode,
+            appLanguage = input.appLanguage,
+            profileImageUrl = input.profileImageUrl,
+            allowedImageHosts = profileImageAllowedHosts,
         )
-
-        member.updateProfile(merged)
     }
 
     @Transactional(readOnly = true)
@@ -108,33 +99,9 @@ class MemberService internal constructor(
     @Transactional(readOnly = true)
     fun getAvoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
         if (memberId == null) return emptySet()
-        val member = findActive(memberId) ?: return emptySet()
-        return member.profile.avoidanceSubstanceCodes
-            .mapNotNull { ref -> AvoidanceSubstanceCode.entries.firstOrNull { it.name == ref.value } }
-            .toSet()
+        return findActive(memberId)?.profile?.avoidedCodes() ?: emptySet()
     }
 
     private fun findActiveOrThrow(memberId: Long): Member =
         findActive(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-
-    private fun validatedNickname(raw: String): String =
-        raw.trim().ifBlank { throw BusinessException(ErrorCode.INVALID_NICKNAME) }
-
-    private fun validatedCodes(raw: List<String>): Set<AvoidanceSubstanceCodeRef> {
-        if (raw.any { it !in CATALOG_CODES }) {
-            throw BusinessException(ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
-        }
-        return raw.map { AvoidanceSubstanceCodeRef(it) }.toSet()
-    }
-
-    private fun validatedCountry(raw: String): CountryCode =
-        CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
-
-    private fun validatedLanguage(raw: String): LanguageCode =
-        LanguageCode.entries.firstOrNull { it.code == raw }
-            ?: throw BusinessException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
-
-    companion object {
-        private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
-    }
 }
