@@ -7,6 +7,8 @@ data class ProfileUpdateRequest(
     val avoidanceSubstanceCodes: List<String>? = null,
     val countryCode: String? = null,
     val appLanguage: String? = null,
+    val profileImageUrl: String? = null,
+    val spicinessPreference: Int? = null,
 ) {
     fun toInput(memberId: Long): ProfileUpdateInput =
         ProfileUpdateInput(
@@ -15,5 +17,7 @@ data class ProfileUpdateRequest(
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
             countryCode = countryCode,
             appLanguage = appLanguage,
+            profileImageUrl = profileImageUrl,
+            spicinessPreference = spicinessPreference,
         )
 }

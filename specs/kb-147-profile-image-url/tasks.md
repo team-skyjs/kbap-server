@@ -64,14 +64,14 @@ kbap 멀티모듈 — `:core`(`core/`), `:domain:member`(`domain/member/`), `:ap
 
 ### Tests for User Story 2 (Red — 작성 직후 반드시 실패 확인) ⚠️
 
-- [ ] T010 [US2] `MemberServiceTest` 에 수정 시나리오 추가 후 **실패(Red) 확인** — `domain/member/src/test/kotlin/com/kbap/domain/member/MemberServiceTest.kt`: (1) 새 URL 전송 → 교체 + 다른 프로필 값 유지 (2) 필드 미전송(null) → 기존 URL 유지 (3) 불합격 URL → `MEMBER-008` + 아무 필드도 변경 안 됨 (4) 맵기 9 전송 → 교체 + 나머지 유지 (5) 맵기 미전송 → 기존 맵기 유지 (6) 범위 밖 맵기 → `MEMBER-009` + 아무 필드도 변경 안 됨
-- [ ] T011 [P] [US2] `MemberControllerTest` 에 MockMvc PATCH 시나리오 추가 후 **실패(Red) 확인** — `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt`: URL 만 담은 PATCH → 200 + 조회로 교체 확인, 닉네임만 담은 PATCH → 사진·맵기 유지, 맵기만 담은 PATCH → 200 + 조회로 변경 확인, 불합격 URL → 400 `MEMBER-008`, 범위 밖 맵기 → 400 `MEMBER-009`
+- [x] T010 [US2] `MemberServiceTest` 에 수정 시나리오 추가 후 **실패(Red) 확인** — `domain/member/src/test/kotlin/com/kbap/domain/member/MemberServiceTest.kt`: (1) 새 URL 전송 → 교체 + 다른 프로필 값 유지 (2) 필드 미전송(null) → 기존 URL 유지 (3) 불합격 URL → `MEMBER-008` + 아무 필드도 변경 안 됨 (4) 맵기 9 전송 → 교체 + 나머지 유지 (5) 맵기 미전송 → 기존 맵기 유지 (6) 범위 밖 맵기 → `MEMBER-009` + 아무 필드도 변경 안 됨
+- [x] T011 [P] [US2] `MemberControllerTest` 에 MockMvc PATCH 시나리오 추가 후 **실패(Red) 확인** — `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt`: URL 만 담은 PATCH → 200 + 조회로 교체 확인, 닉네임만 담은 PATCH → 사진·맵기 유지, 맵기만 담은 PATCH → 200 + 조회로 변경 확인, 불합격 URL → 400 `MEMBER-008`, 범위 밖 맵기 → 400 `MEMBER-009`
 
 ### Implementation for User Story 2 (Green → Refactor)
 
-- [ ] T012 [P] [US2] `ProfileUpdateInput`·`ProfileUpdateRequest` 에 `profileImageUrl: String? = null`·`spicinessPreference: Int? = null` 추가(`toInput` 반영) — `domain/member/src/main/kotlin/com/kbap/domain/member/dto/ProfileUpdateInput.kt`, `app/api/src/main/kotlin/com/kbap/app/api/member/ProfileUpdateRequest.kt`
-- [ ] T013 [US2] `MemberService.updateProfile` 병합에 반영: 사진 null=유지(current)·값=`validatedImageUrl` 후 교체, 맵기 null=유지·값=`validatedSpiciness` 후 교체 — `domain/member/src/main/kotlin/com/kbap/domain/member/MemberService.kt`
-- [ ] T014 [US2] Green 확인: `./gradlew :domain:member:test :app:api:test` 통과 + 리팩터링
+- [x] T012 [P] [US2] `ProfileUpdateInput`·`ProfileUpdateRequest` 에 `profileImageUrl: String? = null`·`spicinessPreference: Int? = null` 추가(`toInput` 반영) — `domain/member/src/main/kotlin/com/kbap/domain/member/dto/ProfileUpdateInput.kt`, `app/api/src/main/kotlin/com/kbap/app/api/member/ProfileUpdateRequest.kt`
+- [x] T013 [US2] `MemberService.updateProfile` 병합에 반영: 사진 null=유지(current)·값=`validatedImageUrl` 후 교체, 맵기 null=유지·값=`validatedSpiciness` 후 교체 — `domain/member/src/main/kotlin/com/kbap/domain/member/MemberService.kt`
+- [x] T014 [US2] Green 확인: `./gradlew :domain:member:test :app:api:test` 통과 + 리팩터링
 
 **Checkpoint**: US1·US2 독립 검증 가능 — 교체·유지 규칙 준수(사진·맵기).
 

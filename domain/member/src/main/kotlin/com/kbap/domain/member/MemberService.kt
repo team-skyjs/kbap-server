@@ -53,9 +53,11 @@ class MemberService internal constructor(
             nickname = input.nickname?.let { validatedNickname(it) } ?: current.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes?.let { validatedCodes(it) }
                 ?: current.avoidanceSubstanceCodes,
-            spicinessPreference = current.spicinessPreference,
+            spicinessPreference = input.spicinessPreference?.let { validatedSpiciness(it) }
+                ?: current.spicinessPreference,
             countryCode = input.countryCode?.let { validatedCountry(it) } ?: current.countryCode,
             appLanguage = input.appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
+            profileImageUrl = input.profileImageUrl?.let { validatedImageUrl(it) } ?: current.profileImageUrl,
         )
 
         member.updateProfile(merged)
