@@ -30,11 +30,10 @@ class ImageUploadApplicationService(
 
     private fun objectKey(purpose: UploadPurpose, memberId: Long, contentType: String): String {
         val date = LocalDate.now(ZoneOffset.UTC)
-        return "%s/%04d/%02d/%02d/%d/%s.%s".format(
+        return "images/%s/%04d/%02d/%d/%s.%s".format(
             purpose.prefix,
             date.year,
             date.monthValue,
-            date.dayOfMonth,
             memberId,
             UUID.randomUUID(),
             extensionOf(contentType),

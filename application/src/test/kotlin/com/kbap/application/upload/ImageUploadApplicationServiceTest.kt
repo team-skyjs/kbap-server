@@ -86,7 +86,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
 
                 val result = service.issueUploadUrl(input(memberId = 1024L, contentType = "image/jpeg"))
 
-                port.keys.single() shouldMatch Regex("""^menu-scan/\d{4}/\d{2}/\d{2}/1024/[0-9a-f-]{36}\.jpg$""")
+                port.keys.single() shouldMatch Regex("""^images/scan/\d{4}/\d{2}/1024/[0-9a-f-]{36}\.jpg$""")
                 port.lastContentType shouldBe "image/jpeg"
                 port.lastContentLength shouldBe 500L
                 port.lastTtl shouldBe Duration.ofMinutes(5)

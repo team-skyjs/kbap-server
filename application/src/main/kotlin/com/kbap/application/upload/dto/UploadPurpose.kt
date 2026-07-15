@@ -1,7 +1,7 @@
 package com.kbap.application.upload.dto
 
 enum class UploadPurpose(val prefix: String) {
-    MENU_SCAN("menu-scan"),
+    MENU_SCAN("scan"),
     REVIEW("review"),
     ;
 
