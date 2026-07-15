@@ -26,6 +26,31 @@ data class MemberProfile private constructor(
             .mapNotNull { ref -> AvoidanceSubstanceCode.entries.firstOrNull { it.name == ref.value } }
             .toSet()
 
+    // 검증 있는 copy — 전달된 필드만 검증 후 교체, null 은 기존 값 유지.
+    // 사진만 3분법: null=유지 · 값=검증 후 교체 · 빈 문자열=제거(validatedImageUrl 이 null 반환).
+    fun updatedWith(
+        nickname: String? = null,
+        avoidanceSubstanceCodes: List<String>? = null,
+        spicinessPreference: Int? = null,
+        countryCode: String? = null,
+        appLanguage: String? = null,
+        profileImageUrl: String? = null,
+        allowedImageHosts: List<String>,
+    ): MemberProfile =
+        of(
+            nickname = nickname?.let { validatedNickname(it) } ?: this.nickname,
+            avoidanceSubstanceCodes = avoidanceSubstanceCodes?.let { validatedCodes(it) }
+                ?: this.avoidanceSubstanceCodes,
+            spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
+                ?: this.spicinessPreference,
+            countryCode = countryCode?.let { validatedCountry(it) } ?: this.countryCode,
+            appLanguage = appLanguage?.let { validatedLanguage(it) } ?: this.appLanguage,
+            profileImageUrl = when (profileImageUrl) {
+                null -> this.profileImageUrl
+                else -> validatedImageUrl(profileImageUrl, allowedImageHosts)
+            },
+        )
+
     companion object {
         const val DEFAULT_SPICINESS_PREFERENCE: Int = 5
 
@@ -60,51 +85,6 @@ data class MemberProfile private constructor(
                 countryCode = null,
                 appLanguage = null,
                 profileImageUrl = null,
-            )
-
-        fun onboarded(
-            current: MemberProfile,
-            nickname: String,
-            avoidanceSubstanceCodes: List<String>,
-            spicinessPreference: Int?,
-            countryCode: String,
-            appLanguage: String,
-            profileImageUrl: String?,
-            allowedImageHosts: List<String>,
-        ): MemberProfile =
-            of(
-                nickname = validatedNickname(nickname),
-                avoidanceSubstanceCodes = validatedCodes(avoidanceSubstanceCodes),
-                spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
-                    ?: current.spicinessPreference,
-                countryCode = validatedCountry(countryCode),
-                appLanguage = validatedLanguage(appLanguage),
-                profileImageUrl = profileImageUrl?.let { validatedImageUrl(it, allowedImageHosts) },
-            )
-
-        fun merged(
-            current: MemberProfile,
-            nickname: String?,
-            avoidanceSubstanceCodes: List<String>?,
-            spicinessPreference: Int?,
-            countryCode: String?,
-            appLanguage: String?,
-            profileImageUrl: String?,
-            allowedImageHosts: List<String>,
-        ): MemberProfile =
-            of(
-                nickname = nickname?.let { validatedNickname(it) } ?: current.nickname,
-                avoidanceSubstanceCodes = avoidanceSubstanceCodes?.let { validatedCodes(it) }
-                    ?: current.avoidanceSubstanceCodes,
-                spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
-                    ?: current.spicinessPreference,
-                countryCode = countryCode?.let { validatedCountry(it) } ?: current.countryCode,
-                appLanguage = appLanguage?.let { validatedLanguage(it) } ?: current.appLanguage,
-                // 미전송(null)=유지 · 값=검증 후 교체 · 빈 문자열=제거(validatedImageUrl 이 null 반환)
-                profileImageUrl = when (profileImageUrl) {
-                    null -> current.profileImageUrl
-                    else -> validatedImageUrl(profileImageUrl, allowedImageHosts)
-                },
             )
 
         private fun validatedNickname(raw: String): String =

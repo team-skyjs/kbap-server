@@ -1,7 +1,6 @@
 package com.kbap.domain.member
 
 import com.kbap.domain.member.model.Member
-import com.kbap.domain.member.model.MemberProfile
 import com.kbap.domain.member.model.MemberStatus
 import com.kbap.domain.member.model.SocialIdentity
 import com.kbap.core.error.ErrorCode
@@ -25,8 +24,7 @@ class MemberService internal constructor(
     fun completeOnboarding(input: MemberProfileInput) {
         val member = findActiveOrThrow(input.memberId)
         member.completeOnboarding(
-            MemberProfile.onboarded(
-                current = member.profile,
+            member.profile.updatedWith(
                 nickname = input.nickname,
                 avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
                 spicinessPreference = input.spicinessPreference,
@@ -42,8 +40,7 @@ class MemberService internal constructor(
     fun updateProfile(input: ProfileUpdateInput) {
         val member = findActiveOrThrow(input.memberId)
         member.updateProfile(
-            MemberProfile.merged(
-                current = member.profile,
+            member.profile.updatedWith(
                 nickname = input.nickname,
                 avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
                 spicinessPreference = input.spicinessPreference,
