@@ -99,8 +99,8 @@ kbap 멀티모듈 — `:core`(`core/`), `:domain:member`(`domain/member/`), `:ap
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] prod(·staging) 프로필에 `kbap.member.profile-image-allowed-hosts: <CloudFront CDN 호스트>` 등록 — `app/api/src/main/resources/application-prod.yml`(·`application-staging.yml`) (실제 CDN 도메인 값은 사용자/인프라 확인 필요 — local·dev·테스트는 미설정 유지)
-- [ ] T020 전체 회귀 + 수동 검증: `./gradlew build` 통과, `specs/kb-147-profile-image-url/quickstart.md` 시나리오 확인, Swagger UI 에서 3개 API 필드 문서 노출 확인
+- [x] T019 [P] prod(·staging) 프로필에 `kbap.member.profile-image-allowed-hosts: <CloudFront CDN 호스트>` 등록 — `app/api/src/main/resources/application-prod.yml`(·`application-staging.yml`) (실제 CDN 도메인 값은 사용자/인프라 확인 필요 — local·dev·테스트는 미설정 유지)
+- [x] T020 전체 회귀 + 수동 검증: `./gradlew build` 통과, `specs/kb-147-profile-image-url/quickstart.md` 시나리오 확인, Swagger UI 에서 3개 API 필드 문서 노출 확인
 
 ---
 
