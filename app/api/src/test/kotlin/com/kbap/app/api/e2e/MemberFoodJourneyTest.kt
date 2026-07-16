@@ -73,6 +73,7 @@ class MemberFoodJourneyTest : BehaviorSpec() {
                                 "avoidanceSubstanceCodes" to listOf("SOY"),
                                 "countryCode" to "US",
                                 "appLanguage" to "en",
+                                "spicinessPreference" to 3,
                             ),
                         )
                     }.andExpect { status { isOk() } }

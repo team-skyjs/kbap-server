@@ -94,7 +94,7 @@ class Member(
     fun completeOnboarding(
         nickname: String,
         avoidanceSubstanceCodes: List<String>,
-        spicinessPreference: Int?,
+        spicinessPreference: Int,
         countryCode: String,
         appLanguage: String,
         profileImageUrl: String?,

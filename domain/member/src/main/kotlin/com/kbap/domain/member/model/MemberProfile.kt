@@ -18,7 +18,9 @@ data class MemberProfile private constructor(
     val profileImageUrl: String?,
 ) {
     init {
-        require(spicinessPreference in SPICINESS_RANGE) { "member.profile.spicinessPreference 는 0~10 이어야 합니다" }
+        require(spicinessPreference == SPICINESS_UNSET || spicinessPreference in SPICINESS_RANGE) {
+            "member.profile.spicinessPreference 는 -1(미설정) 또는 0~10 이어야 합니다"
+        }
     }
 
     fun avoidedCodes(): Set<AvoidanceSubstanceCode> =
@@ -52,7 +54,7 @@ data class MemberProfile private constructor(
         )
 
     companion object {
-        const val DEFAULT_SPICINESS_PREFERENCE: Int = 5
+        const val SPICINESS_UNSET: Int = -1
 
         val SPICINESS_RANGE = 0..10
 
@@ -81,7 +83,7 @@ data class MemberProfile private constructor(
             MemberProfile(
                 nickname = null,
                 avoidanceSubstanceCodes = emptySet(),
-                spicinessPreference = DEFAULT_SPICINESS_PREFERENCE,
+                spicinessPreference = SPICINESS_UNSET,
                 countryCode = null,
                 appLanguage = null,
                 profileImageUrl = null,
@@ -105,7 +107,7 @@ data class MemberProfile private constructor(
                 ?: throw BusinessException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
 
         private fun validatedSpiciness(raw: Int): Int {
-            if (raw !in SPICINESS_RANGE) {
+            if (raw != SPICINESS_UNSET && raw !in SPICINESS_RANGE) {
                 throw BusinessException(ErrorCode.INVALID_SPICINESS_PREFERENCE)
             }
             return raw

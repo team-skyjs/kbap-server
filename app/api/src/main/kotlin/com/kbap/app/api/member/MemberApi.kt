@@ -17,14 +17,17 @@ interface MemberApi {
     @Operation(
         summary = "온보딩 정보 제출",
         description = """
-            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어를 제출하면, 각 값을 검증한 뒤
+            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어·맵기 선호를 제출하면, 각 값을 검증한 뒤
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
 
+            맵기 `spicinessPreference` 는 **필수** — -1(미설정) 또는 0~10 정수. 맵기 화면을 건너뛰면
+            클라이언트가 **-1 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, -1·0~10 외 값이면
+            400 MEMBER-009 로 거절한다.
+
             선택 필드: `profileImageUrl`(https URL — 클라이언트가 업로드한 이미지의 CDN 링크, 생략·빈 문자열이면
-            미설정), `spicinessPreference`(0~10 정수 맵기 선호 — 생략하면 기본값 5). 사진 URL 은 https 형식이어야
-            하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만 허용한다(불합격 MEMBER-008). 맵기가 범위 밖이면
-            MEMBER-009 로 거절한다.
+            미설정). 사진 URL 은 https 형식이어야 하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만
+            허용한다(불합격 MEMBER-008).
         """,
     )
     @ApiResponses(
@@ -56,13 +59,14 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(-1)",
                             value = """
                                 {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
-                                  "appLanguage": "en"
+                                  "appLanguage": "en",
+                                  "spicinessPreference": -1
                                 }
                             """,
                         ),
@@ -73,7 +77,8 @@ interface MemberApi {
                                   "nickname": "さくら",
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja"
+                                  "appLanguage": "ja",
+                                  "spicinessPreference": 4
                                 }
                             """,
                         ),
@@ -84,7 +89,8 @@ interface MemberApi {
                                   "nickname": "Linh",
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
-                                  "appLanguage": "vi"
+                                  "appLanguage": "vi",
+                                  "spicinessPreference": 8
                                 }
                             """,
                         ),
@@ -98,7 +104,7 @@ interface MemberApi {
     @Operation(
         summary = "내 프로필 조회",
         description = """
-            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어·프로필 사진 URL·맵기 선호)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
+            현재 회원의 프로필 정보(닉네임·기피 성분·국가·앱 언어·프로필 사진 URL·맵기 선호 — 미설정이면 -1)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
             다음 등급까지 남은 점수)을 함께 조회한다. 프로필 탭이 이 응답 하나로 그려지도록 랭킹 요약을 싣되,
             점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
             등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
@@ -150,8 +156,8 @@ interface MemberApi {
 
             프로필 사진 `profileImageUrl` 은 3분법 — **미전송이면 유지**, **https URL 을 보내면 검증 후 교체**
             (허용 이미지 도메인이 설정된 환경에서는 그 도메인만, 불합격 MEMBER-008), **빈 문자열 `""` 이면 제거**
-            (미설정 null 로 복귀). 맵기 `spicinessPreference` 는 0~10 정수로 교체하며 범위 밖은 MEMBER-009,
-            항상 값이 있는 속성이라 제거는 없다.
+            (미설정 null 로 복귀). 맵기 `spicinessPreference` 는 0~10 정수로 교체하며, -1 을 명시 전송하면 미설정으로 복귀한다.
+            -1·0~10 외 값은 MEMBER-009 로 거절한다.
 
             검증은 **값이 전달된 필드에만** 적용한다 — 보내지 않은 필드 때문에 400 이 나지 않는다. 전달된 값이
             무효하면 요청 전체를 거절하고 프로필은 하나도 바뀌지 않는다(부분 저장 없음). 온보딩 완료 상태는
@@ -220,6 +226,14 @@ interface MemberApi {
                             value = """
                                 {
                                   "spicinessPreference": 9
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "맵기 설정 안 함 — -1 명시는 미전송(유지)과 다르다",
+                            value = """
+                                {
+                                  "spicinessPreference": -1
                                 }
                             """,
                         ),

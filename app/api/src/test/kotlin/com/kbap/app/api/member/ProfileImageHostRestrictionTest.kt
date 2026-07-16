@@ -50,6 +50,7 @@ class ProfileImageHostRestrictionTest : BehaviorSpec() {
                         "avoidanceSubstanceCodes" to emptyList<String>(),
                         "countryCode" to "US",
                         "appLanguage" to "en",
+                        "spicinessPreference" to 3,
                         "profileImageUrl" to profileImageUrl,
                     ),
                 )

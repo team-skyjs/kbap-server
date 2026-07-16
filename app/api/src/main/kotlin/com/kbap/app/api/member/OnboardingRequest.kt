@@ -8,7 +8,7 @@ data class OnboardingRequest(
     val countryCode: String,
     val appLanguage: String,
     val profileImageUrl: String? = null,
-    val spicinessPreference: Int? = null,
+    val spicinessPreference: Int,
 ) {
     fun toInput(memberId: Long): MemberProfileInput =
         MemberProfileInput(

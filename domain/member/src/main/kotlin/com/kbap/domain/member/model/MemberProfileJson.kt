@@ -5,7 +5,7 @@ import com.kbap.core.lang.LanguageCode
 
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
-    val spicinessPreference: Int = MemberProfile.DEFAULT_SPICINESS_PREFERENCE,
+    val spicinessPreference: Int = MemberProfile.SPICINESS_UNSET,
     val countryCode: String? = null,
     val appLanguage: String? = null,
     val profileImageUrl: String? = null,
