@@ -10,7 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest
+// local·dev 와 동일한 locations — 데모 시드(db/seed) SQL 도 실 MySQL 에서 적용 검증한다 (KB-163)
+@SpringBootTest(properties = ["spring.flyway.locations=classpath:db/migration,classpath:db/seed"])
 @Import(MySqlContainerConfig::class)
 class MigrationValidationTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

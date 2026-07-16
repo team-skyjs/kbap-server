@@ -1,4 +1,7 @@
 spring:
+  # 데모 음식 시드(db/seed)까지 적용 — prod 는 베이스 locations(db/migration만)를 쓴다. (KB-163)
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
