@@ -60,7 +60,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
                 response.status shouldBe 401
                 response.contentType shouldContain "application/json"
                 response.contentAsString shouldContain "\"success\":false"
-                response.contentAsString shouldContain "유효하지 않은 인증 토큰입니다"
+                response.contentAsString shouldContain "유효하지 않은 액세스 토큰입니다. 다시 로그인해 주세요"
                 chain.request.shouldBeNull()
             }
         }
@@ -76,7 +76,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
                 filter.doFilter(request, response, chain)
 
                 response.status shouldBe 401
-                response.contentAsString shouldContain "유효하지 않은 인증 토큰입니다"
+                response.contentAsString shouldContain "유효하지 않은 액세스 토큰입니다. 다시 로그인해 주세요"
                 chain.request.shouldBeNull()
             }
         }
@@ -96,7 +96,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
                 filter.doFilter(request, response, chain)
 
                 response.status shouldBe 401
-                response.contentAsString shouldContain "유효하지 않은 인증 토큰입니다"
+                response.contentAsString shouldContain "유효하지 않은 액세스 토큰입니다. 다시 로그인해 주세요"
                 chain.request.shouldBeNull()
             }
         }
@@ -116,7 +116,7 @@ class JwtAuthenticationFilterTest : BehaviorSpec({
                 filter.doFilter(request, response, chain)
 
                 response.status shouldBe 401
-                response.contentAsString shouldContain "만료된 인증 토큰입니다"
+                response.contentAsString shouldContain "만료된 액세스 토큰입니다. 토큰을 갱신해 주세요"
                 chain.request.shouldBeNull()
             }
         }

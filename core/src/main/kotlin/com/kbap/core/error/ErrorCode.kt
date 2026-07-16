@@ -20,10 +20,10 @@ enum class ErrorCode(
     // 인증
     INVALID_SOCIAL_TOKEN("AUTH-001", 401, "유효하지 않은 소셜 인증 토큰입니다"),
     UNSUPPORTED_PROVIDER("AUTH-002", 401, "지원하지 않는 소셜 로그인 제공자입니다"),
-    INVALID_ACCESS_TOKEN("AUTH-003", 401, "유효하지 않은 인증 토큰입니다"),
-    EXPIRED_ACCESS_TOKEN("AUTH-004", 401, "만료된 인증 토큰입니다"),
-    INVALID_REFRESH_TOKEN("AUTH-005", 401, "유효하지 않은 갱신 토큰입니다"),
-    EXPIRED_REFRESH_TOKEN("AUTH-006", 401, "만료된 갱신 토큰입니다"),
+    INVALID_ACCESS_TOKEN("AUTH-003", 401, "유효하지 않은 액세스 토큰입니다. 다시 로그인해 주세요"),
+    EXPIRED_ACCESS_TOKEN("AUTH-004", 401, "만료된 액세스 토큰입니다. 토큰을 갱신해 주세요"),
+    INVALID_REFRESH_TOKEN("AUTH-005", 401, "유효하지 않은 리프레시 토큰입니다. 다시 로그인해 주세요"),
+    EXPIRED_REFRESH_TOKEN("AUTH-006", 401, "만료된 리프레시 토큰입니다. 다시 로그인해 주세요"),
     SOCIAL_ACCOUNT_DELETE_FAILED("AUTH-007", 500, "소셜 계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 
     // 회원
