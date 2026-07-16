@@ -1,9 +1,7 @@
 spring:
   # 로컬은 환경변수로 덮어쓸 수 있게 하되, 없으면 localhost 기본값으로 바로 뜬다.
   datasource:
-    # createDatabaseIfNotExist: 빈 MySQL 서버에서도 커넥션 시점에 kbap DB 를 만들어 부팅되게 한다.
-    # (마이그레이션의 CREATE SCHEMA 는 커넥션 이후에 실행되므로 이 파라미터 없인 접속 자체가 실패)
-    url: ${DB_URL:jdbc:mysql://localhost:3306/kbap?createDatabaseIfNotExist=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/kbap}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}
   jpa:
