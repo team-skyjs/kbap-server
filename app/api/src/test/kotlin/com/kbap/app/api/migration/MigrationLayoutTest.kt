@@ -4,7 +4,6 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldEndWith
 import java.io.File
 
 class MigrationLayoutTest : BehaviorSpec({
@@ -15,7 +14,6 @@ class MigrationLayoutTest : BehaviorSpec({
         dir.listFiles { f -> f.isFile && f.extension == "sql" }?.sortedBy { it.name } ?: emptyList()
     }
     val migrationSqls = sqlFiles(File("src/main/resources/db/migration"))
-    val seedSqls = sqlFiles(File("src/main/resources/db/seed"))
 
     given("db/migration 디렉터리(prod 적용 위치)") {
         `when`("SQL 파일 목록을 세면") {
@@ -53,31 +51,10 @@ class MigrationLayoutTest : BehaviorSpec({
         }
     }
 
-    given("db/seed 디렉터리(local·dev 전용 데모 시드)") {
-        `when`("SQL 파일 목록을 세면") {
-            then("정확히 1개이고 __seed_demo_food_data.sql 로 끝난다") {
-                seedSqls shouldHaveSize 1
-                val demo = seedSqls.firstOrNull()
-                demo.shouldNotBeNull()
-                demo.name shouldEndWith "__seed_demo_food_data.sql"
-            }
-        }
-
-        `when`("데모 시드 내용을 읽으면") {
-            then("INSERT INTO food 와 INSERT INTO food_avoidance_substance 가 존재한다") {
-                val demo = seedSqls.firstOrNull()
-                demo.shouldNotBeNull()
-                val sql = demo.readText()
-                sql.contains("INSERT INTO food", ignoreCase = true) shouldBe true
-                sql.contains("INSERT INTO food_avoidance_substance", ignoreCase = true) shouldBe true
-            }
-        }
-    }
-
-    given("모든 마이그레이션·시드 파일명") {
+    given("모든 마이그레이션 파일명") {
         `when`("KB-44 timestamp 버전 형식과 비교하면") {
             then("전부 V<yyyy.MM.dd.HH.mm.ss>__<slug>.sql 형식을 따른다") {
-                (migrationSqls + seedSqls).forEach { file ->
+                migrationSqls.forEach { file ->
                     versionFormat.matches(file.name) shouldBe true
                 }
             }

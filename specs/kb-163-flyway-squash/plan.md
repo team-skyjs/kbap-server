@@ -4,6 +4,10 @@
 
 **Input**: Feature specification from `specs/kb-163-flyway-squash/spec.md`
 
+> **개정 (2026-07-17)**: 데모 시드(db/seed)·locations 프로필 분기는 구현 후 사용자 결정으로 **폐기** — 음식 10건은 더미라
+> 어떤 환경에도 시드하지 않는다. 최종 구조는 `db/migration` 2파일(init_schema + seed_avoidance_catalog) 뿐이다.
+> 아래 본문의 db/seed·locations 서술은 결정 이전의 계획 기록이다. 현행 런북·검증은 quickstart.md 를 따른다.
+
 ## Summary
 
 기존 Flyway 마이그레이션 22개(스키마 변경 + 데모 시드가 파일 단위로 얽힘)를 최종 상태 기준으로 재편한다: **스키마 전용 init 1개 + 마스터 시드(기피물질 카탈로그 81종)** 는 `db/migration`(전 환경), **데모 시드(음식 10건·매핑)** 는 `db/seed`(local·dev 만)로 분리하고 `spring.flyway.locations` 를 프로필별로 나눈다. 최종 스키마·데모 데이터는 docker MySQL 에 구 22개를 적용한 덤프에서 도출하고(diff 검증), 기존 데이터가 있는 홈서버 dev DB 는 **drop 이 아니라 flyway_schema_history 재기준선**으로 데이터 손실 0 전환한다(FR-005 — Jira 원안의 "drop 후 재생성"을 데이터 보존 요구에 따라 대체). 신규 코드 0줄 — 산출물은 SQL 리소스 3개, yml 3곳, 테스트 2개(신규 가드 1 + 경로 갱신 1), 삭제 22개.

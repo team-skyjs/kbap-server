@@ -10,8 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-// local·dev 와 동일한 locations — 데모 시드(db/seed) SQL 도 실 MySQL 에서 적용 검증한다 (KB-163)
-@SpringBootTest(properties = ["spring.flyway.locations=classpath:db/migration,classpath:db/seed"])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class MigrationValidationTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
@@ -38,26 +37,23 @@ class MigrationValidationTest : BehaviorSpec() {
                 }
             }
 
-            `when`("시드 마이그레이션이 채운 음식 카탈로그를 확인하면") {
-                then("기준 음식 10종과 대표 음식(된장찌개)의 번역·기피성분 시드가 온전하다") {
+            `when`("마스터 시드가 채운 기피물질 카탈로그를 확인하면") {
+                then("81종 전부와 대표 성분(계란)의 9개 언어 번역이 온전하다") {
                     dataSource.connection.use { conn ->
                         conn.createStatement().use { st ->
-                            st.executeQuery("SELECT COUNT(*) AS cnt FROM food WHERE status = 'ACTIVE'").use { rs ->
+                            st.executeQuery(
+                                "SELECT COUNT(*) AS cnt FROM avoidance_substance WHERE status = 'ACTIVE'",
+                            ).use { rs ->
                                 rs.next()
-                                rs.getInt("cnt") shouldBe 10
+                                rs.getInt("cnt") shouldBe 81
                             }
                             st.executeQuery(
-                                "SELECT korean_name, JSON_LENGTH(name_translations) AS langs FROM food WHERE id = 1",
+                                "SELECT korean_name, JSON_LENGTH(translations) AS langs " +
+                                    "FROM avoidance_substance WHERE code = 'EGG'",
                             ).use { rs ->
                                 rs.next() shouldBe true
-                                rs.getString("korean_name") shouldBe "된장찌개"
+                                rs.getString("korean_name") shouldBe "계란"
                                 rs.getInt("langs") shouldBe 9
-                            }
-                            st.executeQuery(
-                                "SELECT COUNT(*) AS cnt FROM food_avoidance_substance WHERE food_id = 1",
-                            ).use { rs ->
-                                rs.next()
-                                rs.getInt("cnt") shouldBeGreaterThan 0
                             }
                         }
                     }
