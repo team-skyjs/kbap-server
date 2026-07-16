@@ -9,7 +9,12 @@ import jakarta.validation.constraints.Positive
 @Schema(description = "업로드용 presigned URL 발급 요청")
 data class UploadUrlRequest(
     @field:NotBlank(message = "purpose 는 필수입니다")
-    @field:Schema(description = "업로드 용도", example = "MENU_SCAN", requiredMode = Schema.RequiredMode.REQUIRED)
+    @field:Schema(
+        description = "업로드 용도",
+        example = "MENU_SCAN",
+        allowableValues = ["MENU_SCAN", "REVIEW", "PROFILE_IMAGE"],
+        requiredMode = Schema.RequiredMode.REQUIRED,
+    )
     val purpose: String?,
 
     @field:NotBlank(message = "contentType 은 필수입니다")
