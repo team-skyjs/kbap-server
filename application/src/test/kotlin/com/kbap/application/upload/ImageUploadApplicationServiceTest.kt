@@ -95,6 +95,17 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
             }
         }
 
+        `when`("PROFILE_IMAGE 용도로 요청하면") {
+            then("객체 키가 profile 폴더 아래로 생성된다") {
+                val port = RecordingPort()
+                val service = ImageUploadApplicationService(properties(), port)
+
+                service.issueUploadUrl(input(memberId = 7L, purpose = "PROFILE_IMAGE"))
+
+                port.keys.single() shouldMatch Regex("""^images/profile/\d{4}/\d{2}/7/[0-9a-f-]{36}\.jpg$""")
+            }
+        }
+
         `when`("image/png 을 올리면") {
             then("객체 키 확장자가 png 다") {
                 val port = RecordingPort()
