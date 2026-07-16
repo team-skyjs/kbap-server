@@ -10,11 +10,13 @@
 
 ## POST /api/v1/members/me/onboarding
 
-| 요청 `spicinessPreference` | 저장 결과 |
-|---------------------------|-----------|
-| 미전송(또는 null) | -1 (미설정) — 기존: 5 |
-| -1 | -1 (미설정) — 기존: 400 MEMBER-009 |
-| 0~10 | 그 값 (불변) |
+`spicinessPreference` 는 **필수 필드**(-1 또는 0~10) — nickname 등 다른 필수 필드와 동일하게 non-null 로 강제한다.
+
+| 요청 `spicinessPreference` | 결과 |
+|---------------------------|------|
+| 미전송(또는 null) | **400 COMMON-002 (필수 누락)** — 온보딩 미완료. 기존: 기본 5 저장 |
+| -1 | -1 (미설정) 저장 — 기존: 400 MEMBER-009 |
+| 0~10 | 그 값 저장 (불변) |
 | 그 외 | 400 MEMBER-009 (불변, 메시지만 갱신) |
 
 ## PATCH /api/v1/members/me/profile (프로필 부분 수정)

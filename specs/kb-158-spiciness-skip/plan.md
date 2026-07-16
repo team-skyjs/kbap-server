@@ -6,16 +6,16 @@
 
 ## Summary
 
-KB-147 이 추가한 맵기 선호(spicinessPreference, 0~10 필수·기본값 5)를 **미설정 가능**하게 바꾼다. 미설정은 -1 센티널로 표현한다. 클라이언트 계약(사용자 확인): 온보딩 스킵·프로필 "설정 안 함"은 **클라이언트가 -1을 명시 전송**하며, 온보딩 미전송도 -1로 저장된다. 프로필 부분 수정의 미전송=유지 규약(KB-124)은 불변.
+KB-147 이 추가한 맵기 선호(spicinessPreference, 0~10 필수·기본값 5)를 **미설정 가능**하게 바꾼다. 미설정은 -1 센티널로 표현한다. 클라이언트 계약(사용자 확인 2026-07-16·17): 스킵/"설정 안 함"은 **-1 명시 전송**이고, **온보딩에선 맵기 선호가 필수 필드**(-1~10 반드시 전송, 미전송=400 COMMON-002)다. 프로필 수정 API 는 여러 화면이 공용으로 쓰므로 미전송(null)=유지 규약(KB-124) 불변.
 
 **핵심 성질: 코드 변경이 전부 기존 값 흐름 위에서 상수·검증·문구(+온보딩 진입점 한 줄)만 바뀐다** — DB 스키마·Flyway·엔티티 구조·모듈 의존 그래프·DTO 시그니처 전부 무변경. 변경 지점은 네 곳:
 
 1. **`:domain:member` `MemberProfile`** — 허용 집합을 `{-1} ∪ 0..10` 으로 확장(`init` require + `validatedSpiciness`), 기본 상수 `DEFAULT_SPICINESS_PREFERENCE(5)` → `SPICINESS_UNSET(-1)` 로 대체(`empty()`·`MemberProfileJson` 기본값이 이를 따라감).
-2. **`:domain:member` `Member.completeOnboarding`** — `spicinessPreference ?: SPICINESS_UNSET` 치환. 배포 전 가입 회원은 profile JSON 에 5 가 이미 저장돼 있어 `updatedWith(null)`=유지로는 -1 이 되지 않으므로(Codex 리뷰 발견), 온보딩 진입점에서만 null→-1 을 강제한다. PATCH 의 null=유지 규약은 불변.
+2. **온보딩 경로 필수화 — `OnboardingRequest`·`MemberProfileInput`·`Member.completeOnboarding` 의 spicinessPreference 를 non-null `Int` 로.** nickname 등 다른 필수 필드와 동일 패턴 — 누락은 역직렬화 단계에서 400 COMMON-002. 항상 명시 값이 흐르므로 배포 전 가입 회원의 저장값 5 잔존 회귀(Codex 리뷰 발견)도 구조적으로 소멸한다. PATCH 경로(`ProfileUpdateInput`, `Int?`)의 null=유지 규약은 불변.
 3. **`:core` `ErrorCode`** — MEMBER-009 메시지에 -1(미설정) 허용 반영.
 4. **`:app:api` `MemberApi`** — 온보딩·프로필 수정·조회 Swagger 문구에 -1 계약 명시.
 
-값 흐름: 온보딩 미전송 → 진입점에서 -1 치환 → 저장 / -1 명시 → `validatedSpiciness(-1)` 통과 → 저장 / 프로필 수정 미전송 → 기존 값 유지(불변 규약).
+값 흐름: 온보딩 미전송 → 400 COMMON-002(역직렬화 거절) / -1 명시 → `validatedSpiciness(-1)` 통과 → 저장 / 프로필 수정 미전송(null) → 기존 값 유지(불변 규약) / 수정 -1 명시 → 미설정 복귀.
 
 ## Technical Context
 
@@ -94,7 +94,7 @@ app/api/src/test/kotlin/com/kbap/app/api/member/
 
 1. **상수 교체 — `DEFAULT_SPICINESS_PREFERENCE(5)` 폐기, `SPICINESS_UNSET(-1)` 도입.** "기본값"과 "미설정"이 같은 값(-1)이 됐으므로 상수는 하나만 남긴다(같은 값의 상수 두 개 금지). `empty()`·`MemberProfileJson` 기본값·테스트 참조를 일괄 리네임.
 2. **검증 집합 확장 — `spicinessPreference == SPICINESS_UNSET || spicinessPreference in SPICINESS_RANGE`.** `init` require 와 `validatedSpiciness` 두 곳 동일 규칙(둘 다 이 조건으로). `SPICINESS_RANGE(0..10)` 는 "설정된 값"의 범위로 의미 유지.
-3. **생략 의미론 — 온보딩 진입점에서만 null→-1 치환.** 신규 회원은 `empty()` 기본 -1 로 충분하지만, 배포 전 가입 회원은 profile JSON 에 5 가 저장돼 있어 유지 규약으로는 계약(FR-002: 온보딩 생략=무조건 -1)이 깨진다 — `completeOnboarding` 에서 `?: SPICINESS_UNSET` 한 줄로 강제(Codex 리뷰 Important 반영, Red→Green 검증). 수정(PATCH): null=유지 규약 그대로, -1 명시=미설정 복귀.
+3. **생략 의미론 — 온보딩은 타입으로 필수 강제, 수정은 null=유지.** 온보딩 spicinessPreference 는 non-null `Int`(FR-002, 사용자 확인 2026-07-17) — 누락이 컴파일/역직렬화 레벨에서 차단되므로 "생략 시 어떤 값을 넣을까" 분기 자체가 없다. 초기안(생략→-1 저장)은 배포 전 가입 회원의 저장값 5 잔존 회귀(Codex 리뷰 발견) 때문에 진입점 치환이 필요했으나, 필수화로 그 코드도 불필요해졌다. 수정(PATCH): null=유지 규약 그대로, -1 명시=미설정 복귀.
 4. **레거시 JSON 역직렬화 — 필드 부재 시 -1 로 해석(방어적).** DB 검토(database-expert) 결과 키 부재 행은 실존하지 않는다 — consolidation 마이그레이션이 전 행에 키를 백필(5)했고 non-null 직렬화라 이후에도 키가 항상 존재한다. 기본값 -1 은 향후 키 없는 JSON 유입에 대한 방어이며, 기존 회원 표시값 변화 0건(FR-006 충족). 상세: research.md D4.
 5. **응답 타입 불변 — `spicinessPreference: Int` 유지, 미설정이면 -1.** null 화하지 않는다(스펙: 저장·조회·요청 모두 -1 통일).
 

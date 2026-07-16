@@ -14,7 +14,7 @@ class MemberTest : BehaviorSpec({
     fun submitOnboarding(member: Member) = member.completeOnboarding(
         nickname = "길동이",
         avoidanceSubstanceCodes = emptyList(),
-        spicinessPreference = null,
+        spicinessPreference = -1,
         countryCode = "KR",
         appLanguage = "ko",
         profileImageUrl = null,
@@ -98,16 +98,6 @@ class MemberTest : BehaviorSpec({
             }
         }
 
-        `when`("맵기 선호를 생략(null)하고 온보딩하면") {
-            then("맵기 선호가 미설정(-1)으로 저장된다") {
-                val member = Member.signUp(googleIdentity())
-
-                submitOnboarding(member)
-
-                member.profile.spicinessPreference shouldBe -1
-            }
-        }
-
         `when`("맵기 선호로 -1 을 명시해 온보딩하면") {
             then("맵기 선호가 미설정(-1)으로 저장된다") {
                 val member = Member.signUp(googleIdentity())
@@ -150,16 +140,6 @@ class MemberTest : BehaviorSpec({
             Member.signUp(googleIdentity()).apply {
                 profileJson = MemberProfileJson(spicinessPreference = 5)
             }
-
-        `when`("맵기를 생략하고 온보딩하면") {
-            then("맵기 선호가 미설정(-1)으로 저장된다") {
-                val member = preDeployMember()
-
-                submitOnboarding(member)
-
-                member.profile.spicinessPreference shouldBe -1
-            }
-        }
 
         `when`("맵기 -1 을 명시하고 온보딩하면") {
             then("맵기 선호가 미설정(-1)으로 저장된다") {

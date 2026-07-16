@@ -17,7 +17,7 @@
 
 1. `./gradlew :app:api:bootRun` (SPRING_PROFILES_ACTIVE=local)
 2. 로그인 → access token 획득
-3. `POST /api/v1/members/me/onboarding` — `spicinessPreference` 생략 → `GET /api/v1/members/me/profile` 에서 `-1` 확인
+3. `POST /api/v1/members/me/onboarding` — `spicinessPreference` 생략 → 400 + `COMMON-002`(필수 누락) 확인, `-1` 명시 → `GET /api/v1/members/me/profile` 에서 `-1` 확인
 4. `PATCH /api/v1/members/me/profile` — `{"spicinessPreference": 7}` → 조회 시 7
 5. `PATCH /api/v1/members/me/profile` — `{"spicinessPreference": -1}` → 조회 시 -1 (미설정 복귀)
 6. `PATCH /api/v1/members/me/profile` — `{"nickname": "x"}` (맵기 생략) → 맵기 값 유지 확인

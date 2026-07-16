@@ -87,6 +87,16 @@
 
 ---
 
+## Phase 7: 계약 변경 — 온보딩 맵기 필수화 (2026-07-17, 사용자 확정)
+
+온보딩은 spicinessPreference 를 반드시 전송(-1~10), 미전송은 400 COMMON-002. 프로필 수정의 null=유지는 불변. (research.md D6)
+
+- [X] T013 Red — MemberControllerTest: 온보딩 맵기 생략 → 400 COMMON-002·온보딩 미완료(기존 "생략→-1" 시나리오 교체), MemberTest: null 온보딩 시나리오를 -1 명시로 교체. `app/api/src/test/.../MemberControllerTest.kt`, `domain/member/src/test/.../MemberTest.kt`
+- [X] T014 Green — `OnboardingRequest`·`MemberProfileInput`·`Member.completeOnboarding` spiciness non-null `Int` 화, `?: SPICINESS_UNSET` 치환 제거, MemberApi Swagger required 반영. `app/api/.../OnboardingRequest.kt`, `domain/member/.../dto/MemberProfileInput.kt`, `domain/member/.../model/Member.kt`, `app/api/.../MemberApi.kt`
+- [X] T015 전체 빌드 그린 + PR 갱신
+
+---
+
 ## Dependencies & Execution Order
 
 - **Setup/Foundational**: 없음 — 바로 US1 시작.

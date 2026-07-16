@@ -94,7 +94,7 @@ class Member(
     fun completeOnboarding(
         nickname: String,
         avoidanceSubstanceCodes: List<String>,
-        spicinessPreference: Int?,
+        spicinessPreference: Int,
         countryCode: String,
         appLanguage: String,
         profileImageUrl: String?,
@@ -106,7 +106,7 @@ class Member(
         updateProfile(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
-            spicinessPreference = spicinessPreference ?: MemberProfile.SPICINESS_UNSET,
+            spicinessPreference = spicinessPreference,
             countryCode = countryCode,
             appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,

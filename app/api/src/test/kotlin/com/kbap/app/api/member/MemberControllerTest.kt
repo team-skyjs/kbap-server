@@ -70,6 +70,7 @@ class MemberControllerTest : BehaviorSpec() {
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
             "appLanguage" to "en",
+            "spicinessPreference" to -1,
         )
 
         fun memberColumn(providerUid: String, column: String): String? =
@@ -364,6 +365,7 @@ class MemberControllerTest : BehaviorSpec() {
                             "avoidanceSubstanceCodes" to listOf("EGG", "EGG", "MILK"),
                             "countryCode" to "US",
                             "appLanguage" to "en",
+                            "spicinessPreference" to 3,
                         ),
                     ).andExpect { status { isOk() } }
 
@@ -518,8 +520,8 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진·맵기 없이 온보딩하면") {
-                then("사진은 null, 맵기는 미설정(-1) 로 응답한다") {
+            `when`("사진 없이(맵기 -1 로) 온보딩하면") {
+                then("사진은 null, 맵기는 보낸 -1 로 응답한다") {
                     val token = loginAccessToken()
 
                     submitOnboarding(token, validBody()).andExpect { status { isOk() } }
@@ -587,12 +589,15 @@ class MemberControllerTest : BehaviorSpec() {
                 objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
 
             `when`("맵기 선호를 생략하고 온보딩하면") {
-                then("조회 시 맵기 선호가 -1 로 반환된다") {
+                then("400 과 COMMON-002 를 반환하고 온보딩은 완료되지 않는다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+                    val result = submitOnboarding(token, validBody() - "spicinessPreference").andReturn().response
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe -1
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "\"success\":false"
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
 

@@ -18,9 +18,9 @@ DB 스키마·Flyway·엔티티 구조 무변경. 변경은 값 객체의 허용
 
 ```text
 미설정(-1) ──[온보딩/수정에서 0..10 전송]──▶ 설정(n)
-설정(n)   ──[수정에서 -1 명시 전송]────────▶ 미설정(-1)
-설정(n)   ──[수정에서 미전송]──────────────▶ 설정(n) 유지   (부분 수정 규약 불변)
-미설정(-1)──[온보딩에서 미전송 또는 -1]────▶ 미설정(-1)
+설정(n)   ──[온보딩(-1 명시)/수정(-1 명시)]▶ 미설정(-1)
+설정(n)   ──[수정에서 미전송(null)]────────▶ 설정(n) 유지   (부분 수정 규약 불변)
+(온보딩에서 미전송은 상태 전이 없음 — 400 COMMON-002 필수 누락 거절)
 ```
 
 ## MemberProfileJson (JSON 직렬화 모델, member 모듈 내부 — 상수 참조만 변경)
@@ -38,7 +38,12 @@ DB 스키마·Flyway·엔티티 구조 무변경. 변경은 값 객체의 허용
 |------|------|----------------|----------------|
 | `MEMBER-009` (`INVALID_SPICINESS_PREFERENCE`) | 400 | 맵기 선호는 0~10 사이여야 합니다 | 맵기 선호는 -1(미설정) 또는 0~10 사이여야 합니다 |
 
+## 시그니처 변경 (온보딩 필수화 — 2026-07-17 확정)
+
+- `OnboardingRequest`·`MemberProfileInput`·`Member.completeOnboarding` 의 `spicinessPreference`: `Int? = null` → **`Int`(필수)**. 누락은 역직렬화 400 COMMON-002 — nickname 등 다른 필수 필드와 동일 패턴.
+- `ProfileUpdateRequest`·`ProfileUpdateInput` 은 `Int? = null` 유지(공용 부분 수정 API — null=유지).
+
 ## 무변경 확인
 
-- `Member` 엔티티·`MemberService`·도메인 dto(`MemberProfileInput`·`ProfileUpdateInput`·`MyProfileResult`), API DTO(`OnboardingRequest`·`ProfileUpdateRequest`·`MyProfileResponse`) — 시그니처·타입 전부 그대로(-1 이 기존 `Int?`/`Int` 통로로 흐름).
+- `Member` 엔티티 구조·`MyProfileResult`·`MyProfileResponse` — 그대로(-1 이 기존 `Int` 통로로 흐름).
 - `food.spiciness` (음식 매운맛) — 별개 컬럼, 범위 밖.

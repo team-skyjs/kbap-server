@@ -22,8 +22,8 @@ interface MemberApi {
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
 
             선택 필드: `profileImageUrl`(https URL — 클라이언트가 업로드한 이미지의 CDN 링크, 생략·빈 문자열이면
-            미설정), `spicinessPreference`(맵기 선호 — -1(미설정) 또는 0~10 정수. 스킵/설정 안 함은 -1 을 명시 전송,
-            미전송 시 -1(미설정)로 저장). 사진 URL 은 https 형식이어야
+            미설정), `spicinessPreference`(맵기 선호 — 필수. -1(미설정) 또는 0~10 정수. 스킵은 -1 을 명시 전송,
+            미전송 시 400 COMMON-002). 사진 URL 은 https 형식이어야
             하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만 허용한다(불합격 MEMBER-008). 맵기가 -1·0~10 외 값이면
             MEMBER-009 로 거절한다.
         """,

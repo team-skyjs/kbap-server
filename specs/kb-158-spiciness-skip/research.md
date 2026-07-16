@@ -31,3 +31,9 @@ Technical Context 에 NEEDS CLARIFICATION 없음 — 기존 스택·기존 값 �
 
 - **Decision**: MEMBER-009 메시지를 "맵기 선호는 -1(미설정) 또는 0~10 사이여야 합니다" 로 갱신. 코드·HTTP 상태(400) 불변.
 - **Rationale**: DoD 항목. 클라이언트는 code 로만 분기하므로(API 규약) 문구 변경은 자유.
+
+## D6. 온보딩 필수화 (2026-07-17 계약 확정)
+
+- **Decision**: 온보딩의 spicinessPreference 는 **필수 필드**(-1~10 반드시 전송) — `OnboardingRequest`·`MemberProfileInput`·`Member.completeOnboarding` 을 non-null `Int` 로. 미전송은 역직렬화 단계 400 COMMON-002.
+- **Rationale**: 사용자 확정 — 온보딩 화면은 맵기 단계가 항상 존재(스킵=클라이언트가 -1 전송)하므로 서버가 필수로 강제하는 게 계약을 정직하게 표현한다. nickname 등 다른 온보딩 필수 필드와 동일 패턴(타입 강제)이라 별도 검증 코드가 없고, "생략 시 -1 저장" 초기안이 안고 있던 배포 전 가입 회원 저장값 5 잔존 회귀(Codex 발견, 진입점 치환으로 땜질)도 구조적으로 소멸한다.
+- **Alternatives considered**: 생략→-1 저장(초기 Jira DoD 문구) — 프로필 수정 API 를 공용으로 쓰는 클라이언트 관점에서 "생략" 의미가 API 마다 달라지는 비대칭 + 진입점 치환 코드 필요. 사용자 결정으로 폐기.
