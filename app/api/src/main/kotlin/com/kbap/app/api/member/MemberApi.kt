@@ -17,15 +17,17 @@ interface MemberApi {
     @Operation(
         summary = "온보딩 정보 제출",
         description = """
-            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어를 제출하면, 각 값을 검증한 뒤
+            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어·맵기 선호를 제출하면, 각 값을 검증한 뒤
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
 
+            맵기 `spicinessPreference` 는 **필수** — -1(미설정) 또는 0~10 정수. 맵기 화면을 건너뛰면
+            클라이언트가 **-1 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, -1·0~10 외 값이면
+            400 MEMBER-009 로 거절한다.
+
             선택 필드: `profileImageUrl`(https URL — 클라이언트가 업로드한 이미지의 CDN 링크, 생략·빈 문자열이면
-            미설정), `spicinessPreference`(맵기 선호 — 필수. -1(미설정) 또는 0~10 정수. 스킵은 -1 을 명시 전송,
-            미전송 시 400 COMMON-002). 사진 URL 은 https 형식이어야
-            하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만 허용한다(불합격 MEMBER-008). 맵기가 -1·0~10 외 값이면
-            MEMBER-009 로 거절한다.
+            미설정). 사진 URL 은 https 형식이어야 하고 허용 이미지 도메인이 설정된 환경에서는 그 도메인만
+            허용한다(불합격 MEMBER-008).
         """,
     )
     @ApiResponses(
@@ -57,13 +59,14 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(-1)",
                             value = """
                                 {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
-                                  "appLanguage": "en"
+                                  "appLanguage": "en",
+                                  "spicinessPreference": -1
                                 }
                             """,
                         ),
@@ -74,7 +77,8 @@ interface MemberApi {
                                   "nickname": "さくら",
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja"
+                                  "appLanguage": "ja",
+                                  "spicinessPreference": 4
                                 }
                             """,
                         ),
@@ -85,7 +89,8 @@ interface MemberApi {
                                   "nickname": "Linh",
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
-                                  "appLanguage": "vi"
+                                  "appLanguage": "vi",
+                                  "spicinessPreference": 8
                                 }
                             """,
                         ),
@@ -221,6 +226,14 @@ interface MemberApi {
                             value = """
                                 {
                                   "spicinessPreference": 9
+                                }
+                            """,
+                        ),
+                        ExampleObject(
+                            name = "맵기 설정 안 함 — -1 명시는 미전송(유지)과 다르다",
+                            value = """
+                                {
+                                  "spicinessPreference": -1
                                 }
                             """,
                         ),
