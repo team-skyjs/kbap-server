@@ -106,7 +106,7 @@ class Member(
         updateProfile(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
-            spicinessPreference = spicinessPreference,
+            spicinessPreference = spicinessPreference ?: MemberProfile.SPICINESS_UNSET,
             countryCode = countryCode,
             appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,

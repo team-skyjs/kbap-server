@@ -97,6 +97,87 @@ class MemberTest : BehaviorSpec({
                 e.errorCode shouldBe ErrorCode.ONBOARDING_ALREADY_COMPLETED
             }
         }
+
+        `when`("맵기 선호를 생략(null)하고 온보딩하면") {
+            then("맵기 선호가 미설정(-1)으로 저장된다") {
+                val member = Member.signUp(googleIdentity())
+
+                submitOnboarding(member)
+
+                member.profile.spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("맵기 선호로 -1 을 명시해 온보딩하면") {
+            then("맵기 선호가 미설정(-1)으로 저장된다") {
+                val member = Member.signUp(googleIdentity())
+
+                member.completeOnboarding(
+                    nickname = "길동이",
+                    avoidanceSubstanceCodes = emptyList(),
+                    spicinessPreference = -1,
+                    countryCode = "KR",
+                    appLanguage = "ko",
+                    profileImageUrl = null,
+                    allowedImageHosts = emptyList(),
+                )
+
+                member.profile.spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("맵기 선호로 0~10 값을 명시해 온보딩하면") {
+            then("그 값이 그대로 저장된다") {
+                val member = Member.signUp(googleIdentity())
+
+                member.completeOnboarding(
+                    nickname = "길동이",
+                    avoidanceSubstanceCodes = emptyList(),
+                    spicinessPreference = 8,
+                    countryCode = "KR",
+                    appLanguage = "ko",
+                    profileImageUrl = null,
+                    allowedImageHosts = emptyList(),
+                )
+
+                member.profile.spicinessPreference shouldBe 8
+            }
+        }
+    }
+
+    given("배포 전 가입 회원(프로필에 맵기 5 저장, 온보딩 미완료)") {
+        fun preDeployMember(): Member =
+            Member.signUp(googleIdentity()).apply {
+                profileJson = MemberProfileJson(spicinessPreference = 5)
+            }
+
+        `when`("맵기를 생략하고 온보딩하면") {
+            then("맵기 선호가 미설정(-1)으로 저장된다") {
+                val member = preDeployMember()
+
+                submitOnboarding(member)
+
+                member.profile.spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("맵기 -1 을 명시하고 온보딩하면") {
+            then("맵기 선호가 미설정(-1)으로 저장된다") {
+                val member = preDeployMember()
+
+                member.completeOnboarding(
+                    nickname = "길동이",
+                    avoidanceSubstanceCodes = emptyList(),
+                    spicinessPreference = -1,
+                    countryCode = "KR",
+                    appLanguage = "ko",
+                    profileImageUrl = null,
+                    allowedImageHosts = emptyList(),
+                )
+
+                member.profile.spicinessPreference shouldBe -1
+            }
+        }
     }
 
     given("Member.withdraw — 탈퇴") {
