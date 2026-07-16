@@ -28,6 +28,14 @@ class MigrationLayoutTest : BehaviorSpec({
         }
 
         `when`("init_schema 를 읽으면") {
+            then("첫 구문이 스키마 생성(CREATE SCHEMA IF NOT EXISTS)이다") {
+                val init = migrationSqls.firstOrNull { it.name.endsWith("__init_schema.sql") }
+                init.shouldNotBeNull()
+                val firstStatement = init.readLines()
+                    .map { it.trim() }
+                    .first { it.isNotEmpty() && !it.startsWith("--") }
+                firstStatement.startsWith("CREATE SCHEMA IF NOT EXISTS") shouldBe true
+            }
             then("INSERT 문이 없다(스키마 전용)") {
                 val init = migrationSqls.firstOrNull { it.name.endsWith("__init_schema.sql") }
                 init.shouldNotBeNull()

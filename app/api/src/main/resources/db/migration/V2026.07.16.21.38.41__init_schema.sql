@@ -1,5 +1,8 @@
 -- KB-163: 기존 마이그레이션 22개를 스쿼시한 최종 스키마 (도출: 구 마이그레이션 전체 적용 후 mysqldump --no-data)
 
+CREATE SCHEMA IF NOT EXISTS kbap DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE kbap;
+
 CREATE TABLE `avoidance_substance` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `code` varchar(40) NOT NULL,
