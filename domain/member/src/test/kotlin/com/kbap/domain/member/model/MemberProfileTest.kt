@@ -1,5 +1,9 @@
 package com.kbap.domain.member.model
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.core.error.BusinessException
+import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.CountryCode
 import com.kbap.core.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
@@ -16,6 +20,14 @@ class MemberProfileTest : BehaviorSpec({
         appLanguage = null,
     )
 
+    fun baseProfile() = MemberProfile.of(
+        nickname = "머고",
+        avoidanceSubstanceCodes = emptySet(),
+        spicinessPreference = 5,
+        countryCode = CountryCode.KR,
+        appLanguage = LanguageCode.KO,
+    )
+
     given("MemberProfile 맵기 선호 범위") {
         `when`("0~10 경계값이면") {
             then("정상 생성된다") {
@@ -24,9 +36,15 @@ class MemberProfileTest : BehaviorSpec({
             }
         }
 
-        `when`("범위를 벗어나면") {
+        `when`("-1(미설정)이면") {
+            then("정상 생성되고 -1 을 보존한다") {
+                profile(-1).spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("-1 도 0~10 도 아닌 값이면") {
             then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { profile(-1) }
+                shouldThrow<IllegalArgumentException> { profile(-2) }
                 shouldThrow<IllegalArgumentException> { profile(11) }
             }
         }
@@ -34,9 +52,71 @@ class MemberProfileTest : BehaviorSpec({
 
     given("MemberProfile.empty — 가입 직후 기본 프로필") {
         `when`("빈 프로필을 만들면") {
-            then("맵기 선호는 기본값 5, 기피성분은 빈 셋이다") {
-                MemberProfile.empty().spicinessPreference shouldBe 5
+            then("맵기 선호는 미설정(-1), 기피성분은 빈 셋이다") {
+                MemberProfile.empty().spicinessPreference shouldBe -1
                 MemberProfile.empty().avoidanceSubstanceCodes shouldBe emptySet()
+            }
+        }
+    }
+
+    given("MemberProfileJson 역직렬화 — 레거시 회원(맵기 키 부재)") {
+        `when`("spicinessPreference 키가 없는 JSON 을 읽으면") {
+            then("맵기 선호가 미설정(-1)으로 해석된다") {
+                val json = jacksonObjectMapper()
+                    .readValue<MemberProfileJson>("""{"avoidanceSubstanceCodes":[]}""")
+
+                json.toDomain(null).spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("spicinessPreference 에 5 가 저장돼 있으면") {
+            then("기존 값 5 를 그대로 읽는다") {
+                val json = jacksonObjectMapper()
+                    .readValue<MemberProfileJson>("""{"spicinessPreference":5}""")
+
+                json.toDomain(null).spicinessPreference shouldBe 5
+            }
+        }
+    }
+
+    given("MemberProfile.updatedWith — 맵기 선호 부분 수정") {
+        `when`("맵기 선호로 -1 을 명시 전송하면") {
+            then("미설정(-1)으로 되돌린다") {
+                baseProfile().updatedWith(spicinessPreference = -1, allowedImageHosts = emptyList())
+                    .spicinessPreference shouldBe -1
+            }
+        }
+
+        `when`("맵기 선호를 전송하지 않으면(null)") {
+            then("기존 값을 유지한다") {
+                baseProfile().updatedWith(spicinessPreference = null, allowedImageHosts = emptyList())
+                    .spicinessPreference shouldBe 5
+            }
+        }
+
+        `when`("미설정(-1) 상태에서 0~10 값을 전송하면") {
+            then("그 값으로 교체한다") {
+                val unset = MemberProfile.of(
+                    nickname = null,
+                    avoidanceSubstanceCodes = emptySet(),
+                    spicinessPreference = -1,
+                    countryCode = null,
+                    appLanguage = null,
+                )
+
+                unset.updatedWith(spicinessPreference = 7, allowedImageHosts = emptyList())
+                    .spicinessPreference shouldBe 7
+            }
+        }
+
+        `when`("맵기 선호로 -1 도 0~10 도 아닌 값을 전송하면") {
+            then("MEMBER-009 로 거절한다") {
+                listOf(-2, 11).forEach { invalid ->
+                    val e = shouldThrow<BusinessException> {
+                        baseProfile().updatedWith(spicinessPreference = invalid, allowedImageHosts = emptyList())
+                    }
+                    e.errorCode shouldBe ErrorCode.INVALID_SPICINESS_PREFERENCE
+                }
             }
         }
     }
@@ -77,7 +157,7 @@ class MemberProfileTest : BehaviorSpec({
 
                 member.profile shouldBe replacement
                 origin.nickname shouldBe null
-                origin.spicinessPreference shouldBe 5
+                origin.spicinessPreference shouldBe -1
             }
         }
     }

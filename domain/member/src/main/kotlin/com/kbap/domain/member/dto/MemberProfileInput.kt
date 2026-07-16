@@ -7,5 +7,5 @@ data class MemberProfileInput(
     val countryCode: String,
     val appLanguage: String,
     val profileImageUrl: String? = null,
-    val spicinessPreference: Int? = null,
+    val spicinessPreference: Int,
 )

@@ -120,6 +120,7 @@ class AuthControllerTest : BehaviorSpec() {
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
             "appLanguage" to "en",
+            "spicinessPreference" to 3,
         )
 
         fun columnById(id: Long, column: String): String? =
