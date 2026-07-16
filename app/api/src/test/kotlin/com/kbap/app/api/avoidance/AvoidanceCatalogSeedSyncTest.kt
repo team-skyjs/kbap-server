@@ -6,12 +6,10 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 
 class AvoidanceCatalogSeedSyncTest : BehaviorSpec({
-    val seedResourcePath = "db/migration/V2026.07.02.01.09.09__create_avoidance_catalog_and_mapping.sql"
+    val seedResourcePath = "db/migration/V2026.07.16.21.38.42__seed_avoidance_catalog.sql"
     val sql = Thread.currentThread().contextClassLoader.getResource(seedResourcePath)?.readText() ?: ""
 
-    val substanceRowRegex = Regex(
-        "\\(\\s*" + (1..11).joinToString("\\s*,\\s*") { "'([^']*)'" } + "\\s*\\)",
-    )
+    val substanceRowRegex = Regex("""\(\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'[^']*'\s*\)""")
     val substanceRows = substanceRowRegex.findAll(sql).map { it.groupValues }.toList()
     val seedCodes = substanceRows.map { it[1] }
     val seedKoreanByCode = substanceRows.associate { it[1] to it[2] }
