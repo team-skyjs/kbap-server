@@ -33,8 +33,8 @@ class WithdrawScenarioTest : BehaviorSpec() {
             val 사용자 = ScenarioApiDriver(mockMvc, "withdraw")
             var 탈퇴전리프레시토큰 = ""
 
-            `when`("탈퇴한 뒤 구 토큰으로 접근하고 같은 소셜 계정으로 재가입하면") {
-                then("가입·온보딩·북마크로 활동 이력을 만든다") {
+            `when`("탈퇴한 뒤 이전 토큰으로 접근하고 같은 소셜 계정으로 재가입하면") {
+                then("가입·온보딩·북마크를 거쳐 활동 이력을 만든다") {
                     사용자.회원가입한다() shouldBe true
                     사용자.온보딩한다(avoidanceSubstanceCodes = listOf("EGG")) shouldBe 200
 
@@ -44,7 +44,7 @@ class WithdrawScenarioTest : BehaviorSpec() {
 
                     탈퇴전리프레시토큰 = 사용자.refreshToken
                 }
-                then("탈퇴 후 구 액세스토큰은 MEMBER-003으로 거절된다") {
+                then("탈퇴 후 이전 액세스토큰은 MEMBER-003으로 거절된다") {
                     사용자.탈퇴한다() shouldBe 200
 
                     val 프로필응답 = 사용자.프로필을_조회한다()
@@ -56,7 +56,7 @@ class WithdrawScenarioTest : BehaviorSpec() {
                     갱신응답.상태코드 shouldBe 401
                     갱신응답.code shouldBe "AUTH-005"
                 }
-                then("같은 계정 재로그인은 신규 회원이며 이전 북마크가 없다") {
+                then("같은 계정으로 재로그인하면 신규 회원으로 인증되며 이전 북마크는 없다") {
                     사용자.재로그인한다() shouldBe true
                     사용자.북마크_목록을_조회한다().size() shouldBe 0
                 }
