@@ -20,7 +20,7 @@
 
 정밀도 한도: DECIMAL(12,6) USD ≈ 최대 999,999.999999 — 단건 vision 호출 비용(수 센트)과 수년 누적 합산 모두 여유. DECIMAL(14,2) KRW 동일.
 
-## 엔티티: `LlmCallCost` (`com.kbap.domain.scan.model`)
+## 엔티티: `LlmCallCost` (`com.kbap.domain.metering.model`)
 
 - `BaseEntity` 상속(id·status·createdAt·updatedAt 공통 — 자체 id/시각 금지).
 - 필드: `modelName: String`, `inputTokens: Long`, `outputTokens: Long`, `costUsd: BigDecimal`, `costKrw: BigDecimal` — 전 필드 기본값으로 no-arg 자동 생성(kotlin-jpa).

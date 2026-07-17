@@ -19,7 +19,7 @@
 
 ## R3. 원장 엔티티 소유 모듈 — `:domain:scan` vs 신규 모듈
 
-- **Decision**: `:domain:scan` 이 소유한다 — `model/LlmCallCost` 엔티티 + `internal` 리포지토리 + `LlmCallCostService`(public 창구, `record` 만 노출 = append-only).
+- **Decision**(2026-07-18 개정): 전용 리프 모듈 `:domain:metering` 이 소유한다 — 초기 결정(:domain:scan 합류)은 구현 후 "메타성 계량 데이터가 스캔 컨텍스트에 있는 위화감 + 배치 LLM 확장 예정" 사용자 판단으로 번복 — `model/LlmCallCost` 엔티티 + `internal` 리포지토리 + `LlmCallCostService`(public 창구, `record` 만 노출 = append-only).
 - **Rationale**: 유일한 생산자가 메뉴 스캔 vision 호출이고(KB-155 범위), scan 은 이미 api 부트앱에만 로드되는 컨텍스트다. 신규 Gradle 모듈(`:domain:llmcost`)은 행 하나 기록하는 기능에 모듈 1개를 추가하는 과설계. 테이블 구조는 스캔 비종속(FK 없음)이라 소유 모듈 이동이 필요해지면(배치 fan-out 기록 확장 시) 마이그레이션 없이 코드만 옮기면 된다.
 - **Alternatives considered**: 신규 `:domain:llmcost` — 확장(배치 LLM 비용) 시 재고. 현재는 YAGNI. `:domain:image` 합류 — 의미 무관. 기각.
 

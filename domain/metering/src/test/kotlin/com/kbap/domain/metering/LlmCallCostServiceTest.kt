@@ -1,4 +1,4 @@
-package com.kbap.domain.scan
+package com.kbap.domain.metering
 
 import com.kbap.core.llm.LlmCallCostIncurred
 import com.kbap.core.testsupport.MySqlContainerConfig

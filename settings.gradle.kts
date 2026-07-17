@@ -29,6 +29,7 @@ include(
     ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
     ":domain:bookmark",     // 음식 북마크 컨텍스트 (KB-139) — 즐겨찾기 등록·취소·목록
     ":domain:image",        // 업로드 이미지 컨텍스트 (KB-138) — 완료 검증·소유 기록(리뷰 사진 등 재사용)
+    ":domain:metering",     // 사용량·비용 계량 컨텍스트 (KB-155) — LLM 호출 비용 원장(append-only)
 
     // ── 조합 계층 ──
     ":application", // 무소속 유스케이스(Home·Auth)와 도메인 간 순환 해소용 ~ApplicationService 만 둔다

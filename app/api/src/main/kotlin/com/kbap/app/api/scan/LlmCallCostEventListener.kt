@@ -1,7 +1,7 @@
 package com.kbap.app.api.scan
 
 import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.domain.scan.LlmCallCostService
+import com.kbap.domain.metering.LlmCallCostService
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async

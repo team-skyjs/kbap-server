@@ -12,7 +12,7 @@
 
 ## Path Conventions
 
-Gradle 멀티모듈 — `:core`, `:infra:llm`, `:domain:scan`, `:app:api` 4모듈 터치, 신규 모듈 0.
+Gradle 멀티모듈 — `:core`, `:infra:llm`, `:domain:scan`, `:app:api` 4모듈 터치로 구현 후, 2026-07-18 원장을 신규 리프 모듈 `:domain:metering` 으로 분리(계량 데이터는 스캔 컨텍스트와 무관·배치 LLM 확장 대비).
 
 ---
 

@@ -4,7 +4,7 @@
 
 ```bash
 ./gradlew :infra:llm:test --tests "*OpenAiMenuBoardVisionExtractorTest*"   # 발행 시점·반올림·격리
-./gradlew :domain:scan:test --tests "*LlmCallCostServiceTest*"             # 영속·정밀도
+./gradlew :domain:metering:test --tests "*LlmCallCostServiceTest*"             # 영속·정밀도
 ./gradlew :app:api:test --tests "*LlmCallCostEventListenerTest*"           # 비동기 소비·실패 격리
 ./gradlew test -Dkotest.tags='!arch'                                       # 전체 회귀
 ```
