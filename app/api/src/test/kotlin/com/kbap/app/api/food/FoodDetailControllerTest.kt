@@ -128,6 +128,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.name") { value("Doenjang Stew") }
+                        jsonPath("$.payload.imageRef") { value("https://cdn.test/doenjang.png") }
                         jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
                         jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
                         jsonPath("$.payload.overallRiskStatus") { value("DANGER") }

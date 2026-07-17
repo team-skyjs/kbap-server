@@ -52,7 +52,7 @@ class BookmarkService internal constructor(
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 
         val items = orderedFoodIds.mapNotNull { foodId ->
-            foodsById[foodId]?.let { FoodSummaryView.from(it, languageCode, avoidedCodes) }
+            foodsById[foodId]?.let { FoodSummaryView.from(it, languageCode, avoidedCodes, foodService.resolveImageUrl(it)) }
         }
 
         return BookmarkPage(items = items, nextCursor = nextCursor, hasNext = hasNext)

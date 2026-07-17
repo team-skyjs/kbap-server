@@ -76,7 +76,6 @@ class Member(
         countryCode: String? = null,
         appLanguage: String? = null,
         profileImageUrl: String? = null,
-        allowedImageHosts: List<String>,
     ) {
         updateProfile(
             profile.updatedWith(
@@ -86,7 +85,6 @@ class Member(
                 countryCode = countryCode,
                 appLanguage = appLanguage,
                 profileImageUrl = profileImageUrl,
-                allowedImageHosts = allowedImageHosts,
             ),
         )
     }
@@ -98,7 +96,6 @@ class Member(
         countryCode: String,
         appLanguage: String,
         profileImageUrl: String?,
-        allowedImageHosts: List<String>,
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
@@ -110,7 +107,6 @@ class Member(
             countryCode = countryCode,
             appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,
-            allowedImageHosts = allowedImageHosts,
         )
         onboardingCompleted = true
     }

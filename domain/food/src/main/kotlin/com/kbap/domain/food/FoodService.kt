@@ -9,12 +9,14 @@ import com.kbap.domain.food.dto.GetFoodDetailResult
 import com.kbap.domain.food.dto.SearchFoodsInput
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
+import com.kbap.core.image.ImageUrls
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.avoidance.AvoidanceCatalogService
 import com.kbap.domain.member.MemberService
 import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +27,7 @@ class FoodService internal constructor(
     private val avoidanceCatalogService: AvoidanceCatalogService,
     private val memberService: MemberService,
     private val entityManager: EntityManager,
+    @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -77,7 +80,7 @@ class FoodService internal constructor(
         return GetFoodDetailResult(
             name = foodName,
             koreanName = food.koreanName().takeIf { it != foodName },
-            imageRef = food.imageRef,
+            imageRef = resolveImageUrl(food),
             description = description,
             spiciness = food.spiciness,
             overallRiskStatus = food.overallRisk(userAvoidedCodes),
@@ -142,11 +145,13 @@ class FoodService internal constructor(
         val userAvoidedCodes = avoidedCodeNames(memberId)
 
         return FoodPage(
-            items = items.map { FoodSummaryView.from(it, lang, userAvoidedCodes) },
+            items = items.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) },
             nextCursor = nextCursor,
             hasNext = hasNext,
         )
     }
+
+    fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
     private fun upsertIncomplete(foods: List<Food>) {
         val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', ?, 'ACTIVE', NOW(6), NOW(6))" }

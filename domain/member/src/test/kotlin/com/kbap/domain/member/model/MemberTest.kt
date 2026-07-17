@@ -18,7 +18,6 @@ class MemberTest : BehaviorSpec({
         countryCode = "KR",
         appLanguage = "ko",
         profileImageUrl = null,
-        allowedImageHosts = emptyList(),
     )
 
     given("Member.signUp — 최초 가입") {
@@ -109,7 +108,6 @@ class MemberTest : BehaviorSpec({
                     countryCode = "KR",
                     appLanguage = "ko",
                     profileImageUrl = null,
-                    allowedImageHosts = emptyList(),
                 )
 
                 member.profile.spicinessPreference shouldBe -1
@@ -127,7 +125,6 @@ class MemberTest : BehaviorSpec({
                     countryCode = "KR",
                     appLanguage = "ko",
                     profileImageUrl = null,
-                    allowedImageHosts = emptyList(),
                 )
 
                 member.profile.spicinessPreference shouldBe 8
@@ -152,7 +149,6 @@ class MemberTest : BehaviorSpec({
                     countryCode = "KR",
                     appLanguage = "ko",
                     profileImageUrl = null,
-                    allowedImageHosts = emptyList(),
                 )
 
                 member.profile.spicinessPreference shouldBe -1

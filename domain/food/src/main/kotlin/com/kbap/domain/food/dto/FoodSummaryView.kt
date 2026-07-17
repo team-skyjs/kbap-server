@@ -13,13 +13,13 @@ data class FoodSummaryView(
     val overallRiskStatus: RiskLevel,
 ) {
     companion object {
-        fun from(food: Food, lang: LanguageCode, userAvoidedCodes: Set<String>): FoodSummaryView {
+        fun from(food: Food, lang: LanguageCode, userAvoidedCodes: Set<String>, imageUrl: String?): FoodSummaryView {
             val localizedName = food.displayName(lang)
             return FoodSummaryView(
                 foodId = food.id,
                 name = localizedName,
                 koreanName = food.koreanName().takeIf { it != localizedName },
-                imageRef = food.imageRef,
+                imageRef = imageUrl,
                 spiciness = food.spiciness,
                 overallRiskStatus = food.overallRisk(userAvoidedCodes),
             )
