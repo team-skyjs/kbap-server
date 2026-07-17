@@ -14,14 +14,14 @@ data class MyProfileResult(
     val ranking: MemberRankingResult,
 ) {
     companion object {
-        fun of(member: Member, ranking: MemberRankingResult): MyProfileResult =
+        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
                 nickname = member.profile.nickname,
                 avoidanceSubstanceCodes = member.profile.avoidanceSubstanceCodes.map { it.value },
                 countryCode = member.profile.countryCode?.name,
                 appLanguage = member.profile.appLanguage?.code,
-                profileImageUrl = member.profile.profileImageUrl,
+                profileImageUrl = profileImageUrl,
                 spicinessPreference = member.profile.spicinessPreference,
                 onboardingCompleted = member.onboardingCompleted,
                 ranking = ranking,

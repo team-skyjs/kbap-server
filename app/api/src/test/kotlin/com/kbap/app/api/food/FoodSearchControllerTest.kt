@@ -244,7 +244,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     item.path("foodId").isNumber shouldBe true
                     item.path("foodId").asLong() shouldBe 601L
                     item.get("koreanName").isNull shouldBe true
-                    item.path("imageRef").asText() shouldBe "kimchi.png"
+                    item.path("imageRef").asText() shouldBe "https://cdn.test/kimchi.png"
                     item.path("spiciness").asInt() shouldBe 4
                     item.path("overallRiskStatus").asText() shouldBe "SAFE"
                 }

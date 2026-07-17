@@ -82,14 +82,14 @@ class MemberProfileTest : BehaviorSpec({
     given("MemberProfile.updatedWith — 맵기 선호 부분 수정") {
         `when`("맵기 선호로 -1 을 명시 전송하면") {
             then("미설정(-1)으로 되돌린다") {
-                baseProfile().updatedWith(spicinessPreference = -1, allowedImageHosts = emptyList())
+                baseProfile().updatedWith(spicinessPreference = -1)
                     .spicinessPreference shouldBe -1
             }
         }
 
         `when`("맵기 선호를 전송하지 않으면(null)") {
             then("기존 값을 유지한다") {
-                baseProfile().updatedWith(spicinessPreference = null, allowedImageHosts = emptyList())
+                baseProfile().updatedWith(spicinessPreference = null)
                     .spicinessPreference shouldBe 5
             }
         }
@@ -104,7 +104,7 @@ class MemberProfileTest : BehaviorSpec({
                     appLanguage = null,
                 )
 
-                unset.updatedWith(spicinessPreference = 7, allowedImageHosts = emptyList())
+                unset.updatedWith(spicinessPreference = 7)
                     .spicinessPreference shouldBe 7
             }
         }
@@ -113,10 +113,61 @@ class MemberProfileTest : BehaviorSpec({
             then("MEMBER-009 로 거절한다") {
                 listOf(-2, 11).forEach { invalid ->
                     val e = shouldThrow<BusinessException> {
-                        baseProfile().updatedWith(spicinessPreference = invalid, allowedImageHosts = emptyList())
+                        baseProfile().updatedWith(spicinessPreference = invalid)
                     }
                     e.errorCode shouldBe ErrorCode.INVALID_SPICINESS_PREFERENCE
                 }
+            }
+        }
+    }
+
+    given("MemberProfile.updatedWith — 프로필 사진 경로(3분법)") {
+        `when`("CDN 도메인 없는 경로를 전송하면") {
+            then("경로 그대로 저장한다") {
+                baseProfile().updatedWith(profileImageUrl = "profile-image/2026/07/18/1/uuid.jpg")
+                    .profileImageUrl shouldBe "profile-image/2026/07/18/1/uuid.jpg"
+            }
+        }
+
+        `when`("전송하지 않으면(null)") {
+            then("기존 사진을 유지한다") {
+                val withImage = baseProfile().updatedWith(profileImageUrl = "profile-image/a.jpg")
+
+                withImage.updatedWith(profileImageUrl = null)
+                    .profileImageUrl shouldBe "profile-image/a.jpg"
+            }
+        }
+
+        `when`("빈 문자열을 전송하면") {
+            then("사진을 제거한다(null)") {
+                val withImage = baseProfile().updatedWith(profileImageUrl = "profile-image/a.jpg")
+
+                withImage.updatedWith(profileImageUrl = " ")
+                    .profileImageUrl shouldBe null
+            }
+        }
+
+        `when`("전체 URL 을 전송하면") {
+            then("MEMBER-008 로 거절한다") {
+                listOf(
+                    "https://cdn.example.com/a.jpg",
+                    "http://cdn.example.com/a.jpg",
+                    "HTTPS://cdn.example.com/a.jpg",
+                ).forEach { absoluteUrl ->
+                    val e = shouldThrow<BusinessException> {
+                        baseProfile().updatedWith(profileImageUrl = absoluteUrl)
+                    }
+                    e.errorCode shouldBe ErrorCode.INVALID_PROFILE_IMAGE_URL
+                }
+            }
+        }
+
+        `when`("512자를 초과하는 경로를 전송하면") {
+            then("MEMBER-008 로 거절한다") {
+                val e = shouldThrow<BusinessException> {
+                    baseProfile().updatedWith(profileImageUrl = "a".repeat(513))
+                }
+                e.errorCode shouldBe ErrorCode.INVALID_PROFILE_IMAGE_URL
             }
         }
     }

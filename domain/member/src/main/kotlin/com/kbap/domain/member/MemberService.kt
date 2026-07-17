@@ -5,6 +5,7 @@ import com.kbap.domain.member.model.MemberStatus
 import com.kbap.domain.member.model.SocialIdentity
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
+import com.kbap.core.image.ImageUrls
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.member.dto.MemberProfileInput
 import com.kbap.domain.member.dto.MemberRankingResult
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class MemberService internal constructor(
     private val memberRepository: MemberJpaRepository,
-    @Value("\${kbap.member.profile-image-allowed-hosts:}") private val profileImageAllowedHosts: List<String>,
+    @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
@@ -29,7 +30,6 @@ class MemberService internal constructor(
             countryCode = input.countryCode,
             appLanguage = input.appLanguage,
             profileImageUrl = input.profileImageUrl,
-            allowedImageHosts = profileImageAllowedHosts,
         )
     }
 
@@ -42,14 +42,17 @@ class MemberService internal constructor(
             countryCode = input.countryCode,
             appLanguage = input.appLanguage,
             profileImageUrl = input.profileImageUrl,
-            allowedImageHosts = profileImageAllowedHosts,
         )
     }
 
     @Transactional(readOnly = true)
     fun getMyProfile(memberId: Long): MyProfileResult {
         val member = findActiveOrThrow(memberId)
-        return MyProfileResult.of(member, MemberRankingResult.from(member.ranking))
+        return MyProfileResult.of(
+            member = member,
+            ranking = MemberRankingResult.from(member.ranking),
+            profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
+        )
     }
 
     @Transactional(readOnly = true)

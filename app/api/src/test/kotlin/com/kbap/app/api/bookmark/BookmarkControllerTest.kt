@@ -61,20 +61,22 @@ class BookmarkControllerTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
-        fun seedFood(id: Long, koreanName: String, nameTranslations: String = "{}"): Unit =
+        fun seedFood(id: Long, koreanName: String, nameTranslations: String = "{}", imageRef: String? = null): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, image_ref, description, spiciness,
                                       name_translations, description_translations, content_status, status,
                                       created_at, updated_at)
-                    VALUES (?, ?, NULL, '설명', 0, ?, '{}', 'READY', 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE content_status = 'READY', name_translations = VALUES(name_translations)
+                    VALUES (?, ?, ?, '설명', 0, ?, '{}', 'READY', 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE content_status = 'READY', name_translations = VALUES(name_translations),
+                                            image_ref = VALUES(image_ref)
                     """,
                 ).use { ps ->
                     ps.setLong(1, id)
                     ps.setString(2, koreanName)
-                    ps.setString(3, nameTranslations)
+                    ps.setString(3, imageRef)
+                    ps.setString(4, nameTranslations)
                     ps.executeUpdate()
                 }
             }
@@ -223,6 +225,19 @@ class BookmarkControllerTest : BehaviorSpec() {
 
                     listJson(token, lang = "en").let { json ->
                         mapper.readTree(json).path("payload").path("items").path(0).path("name").asText() shouldBe "Kimchi Stew"
+                    }
+                }
+            }
+
+            `when`("이미지 경로가 있는 음식을 북마크하고 조회하면") {
+                then("항목 imageRef 는 CDN 도메인이 조합된 완전한 URL 이다") {
+                    val token = accessToken(223L)
+                    seedFood(90020L, "북마크이미지테스트-된장찌개", imageRef = "bookmark/doenjang.png")
+                    register(token, 90020L).andExpect { status { isOk() } }
+
+                    listJson(token).let { json ->
+                        mapper.readTree(json).path("payload").path("items").path(0).path("imageRef").asText() shouldBe
+                            "https://cdn.test/bookmark/doenjang.png"
                     }
                 }
             }

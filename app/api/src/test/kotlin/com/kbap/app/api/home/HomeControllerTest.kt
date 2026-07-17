@@ -63,6 +63,9 @@ class HomeControllerTest : BehaviorSpec() {
                     payload.path("authenticated").asBoolean() shouldBe true
                     payload.path("avoidedSubstances").map { it.path("code").asText() } shouldContainExactly listOf("EGG")
                     payload.path("popularFoods").size() shouldBe 5
+                    payload.path("popularFoods").forEach {
+                        it.path("imageRef").asText() shouldBe "https://cdn.test/menu-${it.path("foodId").asLong()}.png"
+                    }
                     payload.path("recentScans").map { it.path("foodId").asLong() } shouldContainExactly listOf(1L, 3L)
                 }
             }

@@ -402,22 +402,22 @@ class MemberControllerTest : BehaviorSpec() {
                 submitOnboarding(
                     token,
                     validBody() + mapOf(
-                        "profileImageUrl" to "https://cdn.example.com/profiles/origin.jpg",
+                        "profileImageUrl" to "profiles/origin.jpg",
                         "spicinessPreference" to 4,
                     ),
                 ).andExpect { status { isOk() } }
                 return token
             }
 
-            `when`("새 사진 URL 만 담아 수정하면") {
+            `when`("새 사진 경로만 담아 수정하면") {
                 then("사진은 교체되고 나머지 프로필 값은 유지된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "https://cdn.example.com/profiles/new.jpg"))
+                    updateProfile(token, mapOf("profileImageUrl" to "profiles/new.jpg"))
                         .andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/new.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/new.jpg"
                     payload.path("nickname").asText() shouldBe "길동이"
                     payload.path("spicinessPreference").asInt() shouldBe 4
                 }
@@ -430,7 +430,7 @@ class MemberControllerTest : BehaviorSpec() {
                     updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/origin.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
                     payload.path("spicinessPreference").asInt() shouldBe 4
                 }
             }
@@ -443,12 +443,12 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val payload = profilePayload(token)
                     payload.path("spicinessPreference").asInt() shouldBe 9
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/origin.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
                     payload.path("nickname").asText() shouldBe "길동이"
                 }
             }
 
-            `when`("불합격 사진 URL 을 담아 수정하면") {
+            `when`("전체 URL 사진을 담아 수정하면") {
                 then("400 MEMBER-008 로 거절되고 아무 필드도 변경되지 않는다") {
                     val token = onboardedWithImageToken()
 
@@ -458,7 +458,7 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.example.com/profiles/origin.jpg"
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
 
@@ -502,21 +502,42 @@ class MemberControllerTest : BehaviorSpec() {
             fun profilePayload(token: String) =
                 objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
 
-            `when`("사진 URL 과 맵기 7 을 포함해 온보딩하면") {
-                then("프로필 조회 응답에 동일한 사진 URL 과 맵기가 담긴다") {
+            `when`("사진 경로와 맵기 7 을 포함해 온보딩하면") {
+                then("DB 엔 경로만 저장되고 조회 응답엔 CDN 도메인이 조합된 완전한 URL 이 담긴다") {
                     val token = loginAccessToken()
 
                     submitOnboarding(
                         token,
                         validBody() + mapOf(
-                            "profileImageUrl" to "https://cdn.example.com/profiles/abc.jpg",
+                            "profileImageUrl" to "profiles/abc.jpg",
                             "spicinessPreference" to 7,
                         ),
                     ).andExpect { status { isOk() } }
 
+                    val storedProfile = objectMapper.readTree(memberColumn("google-sub-fixed", "profile")!!)
+                    storedProfile.path("profileImageUrl").asText() shouldBe "profiles/abc.jpg"
+
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.example.com/profiles/abc.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/abc.jpg"
                     payload.path("spicinessPreference").asInt() shouldBe 7
+                }
+            }
+
+            `when`("레거시 절대 URL 이 저장된 회원이 조회하면") {
+                then("도메인을 덧붙이지 않고 저장값 그대로 반환한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE member SET profile = JSON_SET(profile, '$.profileImageUrl', " +
+                                    "'https://legacy-cdn.example.com/old.jpg') WHERE provider_uid = 'google-sub-fixed'",
+                            )
+                        }
+                    }
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://legacy-cdn.example.com/old.jpg"
                 }
             }
 
@@ -544,18 +565,18 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
-        given("온보딩의 프로필 사진 URL 검증 — 저장 없이 400") {
+        given("온보딩의 프로필 사진 경로 검증 — 저장 없이 400") {
             listOf(
-                "https 가 아닌 스킴" to "http://cdn.example.com/p.jpg",
-                "URL 로 파싱할 수 없는 값" to "not a url",
-                "호스트 없는 URL" to "https:///p.jpg",
-                "512자를 넘는 URL" to "https://cdn.example.com/" + "a".repeat(512),
-            ).forEach { (label, url) ->
+                "https 전체 URL" to "https://cdn.example.com/p.jpg",
+                "http 전체 URL" to "http://cdn.example.com/p.jpg",
+                "대문자 스킴 전체 URL" to "HTTPS://cdn.example.com/p.jpg",
+                "512자를 넘는 경로" to "a".repeat(513),
+            ).forEach { (label, path) ->
                 `when`(label + "을 제출하면") {
                     then("400 MEMBER-008 로 거절되고 아무것도 저장되지 않는다") {
                         val token = loginAccessToken()
 
-                        val result = submitOnboarding(token, validBody() + ("profileImageUrl" to url))
+                        val result = submitOnboarding(token, validBody() + ("profileImageUrl" to path))
                             .andReturn().response
 
                         result.status shouldBe 400

@@ -201,7 +201,7 @@ class FoodListControllerTest : BehaviorSpec() {
 
                     item.path("foodId").isNumber shouldBe true
                     item.path("foodId").asLong() shouldBe 500L
-                    item.path("imageRef").asText() shouldBe "kimchi.png"
+                    item.path("imageRef").asText() shouldBe "https://cdn.test/kimchi.png"
                     item.path("spiciness").isInt shouldBe true
                     item.path("spiciness").asInt() shouldBe 4
                     item.path("spiciness").asInt() shouldBeInRange 0..10
