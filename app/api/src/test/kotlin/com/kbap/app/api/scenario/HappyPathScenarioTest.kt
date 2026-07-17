@@ -30,31 +30,32 @@ class HappyPathScenarioTest : BehaviorSpec() {
 
     init {
         given("대두가 든 음식이 수록된 서비스에 처음 방문한 사용자") {
-            `when`("가입하고 대두 기피로 온보딩한 뒤 그 음식을 검색해 북마크하면") {
-                then("홈·검색·상세·북마크 목록이 여정의 각 단계를 이어서 반영한다") {
-                    ScenarioFoodSeed.ensureFood(dataSource, "시나리오된장찌개", spiciness = 3, substances = mapOf("SOY" to 100))
-                    val 여정 = ScenarioApiDriver(mockMvc, "happy")
+            ScenarioFoodSeed.ensureFood(dataSource, "시나리오된장찌개", spiciness = 3, substances = mapOf("SOY" to 100))
+            val 사용자 = ScenarioApiDriver(mockMvc, "happy")
 
-                    여정.회원가입한다() shouldBe true
+            `when`("가입부터 북마크까지 여정을 진행하면") {
+                then("가입 시 신규 회원으로 인증된다") {
+                    사용자.회원가입한다() shouldBe true
+                }
+                then("온보딩 결과가 홈에 인증 상태·기피 성분으로 반영된다") {
+                    사용자.온보딩한다(avoidanceSubstanceCodes = listOf("SOY")) shouldBe 200
 
-                    여정.온보딩한다(avoidanceSubstanceCodes = listOf("SOY")) shouldBe 200
-
-                    val 홈 = 여정.홈을_조회한다()
+                    val 홈 = 사용자.홈을_조회한다()
                     홈.path("authenticated").asBoolean() shouldBe true
                     홈.path("avoidedSubstances").map { it.path("code").asText() } shouldContain "SOY"
-
-                    val 검색결과 = 여정.음식을_검색한다("시나리오된장찌개")
+                }
+                then("검색·상세가 위험도를 이어서 내려준다") {
+                    val 검색결과 = 사용자.음식을_검색한다("시나리오된장찌개")
                     검색결과.size() shouldBeGreaterThan 0
-                    여정.foodId shouldBeGreaterThan 0L
+                    사용자.foodId shouldBeGreaterThan 0L
 
-                    val 상세 = 여정.음식_상세를_조회한다()
+                    val 상세 = 사용자.음식_상세를_조회한다()
                     상세.path("overallRiskStatus").asText() shouldBe "DANGER"
                     상세.path("bookmarked").asBoolean() shouldBe false
-
-                    여정.북마크한다() shouldBe 200
-
-                    val 북마크목록 = 여정.북마크_목록을_조회한다()
-                    북마크목록.map { it.path("foodId").asLong() } shouldContain 여정.foodId
+                }
+                then("북마크하면 목록에 그 음식이 담긴다") {
+                    사용자.북마크한다() shouldBe 200
+                    사용자.북마크_목록을_조회한다().map { it.path("foodId").asLong() } shouldContain 사용자.foodId
                 }
             }
         }

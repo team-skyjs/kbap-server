@@ -28,32 +28,36 @@ class AuthLifecycleScenarioTest : BehaviorSpec() {
 
     init {
         given("가입 직후 액세스 토큰이 만료된 사용자") {
-            `when`("토큰을 갱신해 이어가다 로그아웃 후 재로그인하면") {
-                then("만료·갱신·회전·로그아웃 각 단계가 토큰 유효성을 올바르게 전이시킨다") {
-                    val 여정 = ScenarioApiDriver(mockMvc, "auth-lifecycle", authTokenProperties)
+            val 사용자 = ScenarioApiDriver(mockMvc, "auth-lifecycle", authTokenProperties)
+            var 회전전_리프레시토큰 = ""
 
-                    여정.회원가입한다() shouldBe true
+            `when`("만료·갱신·회전·로그아웃을 거쳐 재로그인하면") {
+                then("만료된 액세스토큰은 AUTH-004로 거절된다") {
+                    사용자.회원가입한다() shouldBe true
 
-                    val 만료응답 = 여정.만료된_액세스토큰으로_프로필을_조회한다()
+                    val 만료응답 = 사용자.만료된_액세스토큰으로_프로필을_조회한다()
                     만료응답.상태코드 shouldBe 401
                     만료응답.code shouldBe "AUTH-004"
-
-                    val 회전전_리프레시토큰 = 여정.토큰을_갱신한다()
-
-                    여정.프로필을_조회한다().상태코드 shouldBe 200
-
-                    val 회전거절 = 여정.구_리프레시토큰으로_갱신을_시도한다(회전전_리프레시토큰)
+                }
+                then("리프레시로 갱신하면 새 토큰으로 프로필을 볼 수 있다") {
+                    회전전_리프레시토큰 = 사용자.토큰을_갱신한다()
+                    사용자.프로필을_조회한다().상태코드 shouldBe 200
+                }
+                then("회전 이전 리프레시토큰은 AUTH-005로 거절된다") {
+                    val 회전거절 = 사용자.구_리프레시토큰으로_갱신을_시도한다(회전전_리프레시토큰)
                     회전거절.상태코드 shouldBe 401
                     회전거절.code shouldBe "AUTH-005"
+                }
+                then("로그아웃 후 리프레시토큰은 AUTH-005로 거절된다") {
+                    val 로그아웃시점_리프레시토큰 = 사용자.refreshToken
+                    사용자.로그아웃한다() shouldBe 200
 
-                    val 로그아웃시점_리프레시토큰 = 여정.refreshToken
-                    여정.로그아웃한다() shouldBe 200
-
-                    val 로그아웃후거절 = 여정.구_리프레시토큰으로_갱신을_시도한다(로그아웃시점_리프레시토큰)
+                    val 로그아웃후거절 = 사용자.구_리프레시토큰으로_갱신을_시도한다(로그아웃시점_리프레시토큰)
                     로그아웃후거절.상태코드 shouldBe 401
                     로그아웃후거절.code shouldBe "AUTH-005"
-
-                    여정.재로그인한다() shouldBe false
+                }
+                then("같은 소셜 계정 재로그인은 기존 회원으로 인증된다") {
+                    사용자.재로그인한다() shouldBe false
                 }
             }
         }

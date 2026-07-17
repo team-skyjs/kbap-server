@@ -29,32 +29,36 @@ class WithdrawScenarioTest : BehaviorSpec() {
 
     init {
         given("활동 이력(온보딩·북마크)이 있는 가입 회원") {
+            ScenarioFoodSeed.ensureFood(dataSource, "시나리오탈퇴비빔밥", spiciness = 2, substances = mapOf("EGG" to 100))
+            val 사용자 = ScenarioApiDriver(mockMvc, "withdraw")
+            var 탈퇴전리프레시토큰 = ""
+
             `when`("탈퇴한 뒤 구 토큰으로 접근하고 같은 소셜 계정으로 재가입하면") {
-                then("구 토큰은 전부 거절되고 신규 회원으로 시작하며 이전 활동이 노출되지 않는다") {
-                    ScenarioFoodSeed.ensureFood(dataSource, "시나리오탈퇴비빔밥", spiciness = 2, substances = mapOf("EGG" to 100))
-                    val 여정 = ScenarioApiDriver(mockMvc, "withdraw")
+                then("가입·온보딩·북마크로 활동 이력을 만든다") {
+                    사용자.회원가입한다() shouldBe true
+                    사용자.온보딩한다(avoidanceSubstanceCodes = listOf("EGG")) shouldBe 200
 
-                    여정.회원가입한다() shouldBe true
-                    여정.온보딩한다(avoidanceSubstanceCodes = listOf("EGG")) shouldBe 200
+                    사용자.음식을_검색한다("시나리오탈퇴비빔밥")
+                    사용자.foodId shouldBeGreaterThan 0L
+                    사용자.북마크한다() shouldBe 200
 
-                    여정.음식을_검색한다("시나리오탈퇴비빔밥")
-                    여정.foodId shouldBeGreaterThan 0L
-                    여정.북마크한다() shouldBe 200
+                    탈퇴전리프레시토큰 = 사용자.refreshToken
+                }
+                then("탈퇴 후 구 액세스토큰은 MEMBER-003으로 거절된다") {
+                    사용자.탈퇴한다() shouldBe 200
 
-                    val 탈퇴전리프레시토큰 = 여정.refreshToken
-                    여정.탈퇴한다() shouldBe 200
-
-                    val 프로필응답 = 여정.프로필을_조회한다()
+                    val 프로필응답 = 사용자.프로필을_조회한다()
                     프로필응답.상태코드 shouldBe 400
                     프로필응답.code shouldBe "MEMBER-003"
-
-                    val 갱신응답 = 여정.구_리프레시토큰으로_갱신을_시도한다(탈퇴전리프레시토큰)
+                }
+                then("탈퇴 전 리프레시토큰은 AUTH-005로 거절된다") {
+                    val 갱신응답 = 사용자.구_리프레시토큰으로_갱신을_시도한다(탈퇴전리프레시토큰)
                     갱신응답.상태코드 shouldBe 401
                     갱신응답.code shouldBe "AUTH-005"
-
-                    여정.재로그인한다() shouldBe true
-
-                    여정.북마크_목록을_조회한다().size() shouldBe 0
+                }
+                then("같은 계정 재로그인은 신규 회원이며 이전 북마크가 없다") {
+                    사용자.재로그인한다() shouldBe true
+                    사용자.북마크_목록을_조회한다().size() shouldBe 0
                 }
             }
         }

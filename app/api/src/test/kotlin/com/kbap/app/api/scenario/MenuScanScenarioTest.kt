@@ -39,32 +39,35 @@ class MenuScanScenarioTest : BehaviorSpec() {
 
     init {
         given("수록된 음식이 담긴 메뉴판을 촬영한 가입 사용자") {
+            val 시드음식Id = ScenarioFoodSeed.ensureFood(dataSource, "시나리오스캔국밥", spiciness = 2, substances = emptyMap())
+            val 사용자 = ScenarioApiDriver(mockMvc, "menuscan")
+
             `when`("업로드 URL 발급·업로드 완료·스캔을 이어서 수행하면") {
-                then("스캔 결과가 매칭·위험도를 내려주고 홈 최근 스캔에 그 음식이 노출된다") {
-                    val 시드음식Id = ScenarioFoodSeed.ensureFood(dataSource, "시나리오스캔국밥", spiciness = 2, substances = emptyMap())
-                    val 여정 = ScenarioApiDriver(mockMvc, "menuscan")
+                then("가입·온보딩으로 여정을 시작한다") {
+                    사용자.회원가입한다() shouldBe true
+                    사용자.온보딩한다() shouldBe 200
+                }
+                then("업로드 URL 발급·업로드 완료가 이어진다") {
+                    사용자.업로드URL을_발급받는다("image/jpeg", 1024)
+                    사용자.objectKey.shouldNotBeBlank()
 
-                    여정.회원가입한다() shouldBe true
-                    여정.온보딩한다() shouldBe 200
-
-                    여정.업로드URL을_발급받는다("image/jpeg", 1024)
-                    여정.objectKey.shouldNotBeBlank()
-
-                    storage.put(여정.objectKey, "image/jpeg", 1024)
-                    여정.업로드를_완료한다("image/jpeg", 1024) shouldBe 200
-
+                    storage.put(사용자.objectKey, "image/jpeg", 1024)
+                    사용자.업로드를_완료한다("image/jpeg", 1024) shouldBe 200
+                }
+                then("스캔이 매칭·위험도를 내려준다") {
                     vision.program(
-                        여정.objectKey,
+                        사용자.objectKey,
                         listOf(ExtractedMenu("Scenario Gukbap 시나리오스캔국밥", "시나리오스캔국밥", 9000, matchedIdx = 0)),
                     )
 
-                    val 결과 = 여정.스캔한다("시나리오스캔국밥")
+                    val 결과 = 사용자.스캔한다("시나리오스캔국밥")
                     결과.size() shouldBe 1
                     결과[0].path("matched").asBoolean() shouldBe true
                     결과[0].path("foodId").asLong() shouldBe 시드음식Id
                     결과[0].path("riskLevel").asText() shouldBe "SAFE"
-
-                    val 홈 = 여정.홈을_조회한다()
+                }
+                then("홈 최근 스캔에 그 음식이 노출된다") {
+                    val 홈 = 사용자.홈을_조회한다()
                     홈.path("recentScans").map { it.path("foodId").asLong() } shouldContain 시드음식Id
                 }
             }
