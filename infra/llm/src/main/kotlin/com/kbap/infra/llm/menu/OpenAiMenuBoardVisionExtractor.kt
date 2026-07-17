@@ -1,5 +1,6 @@
 package com.kbap.infra.llm.menu
 
+import com.kbap.core.llm.LlmCallCostIncurred
 import com.kbap.core.scan.ExtractedMenu
 import com.kbap.core.scan.MenuBoardVisionExtractor
 import com.kbap.core.scan.OcrItem
@@ -11,8 +12,11 @@ import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.ai.content.Media
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.net.URI
 
 // 메뉴판 사진 URL 을 gpt-4o-mini vision 에 넘겨 메뉴명·가격을 추출하고 클라이언트 OCR idx 에 매칭한다(KB-138).
@@ -22,6 +26,8 @@ class OpenAiMenuBoardVisionExtractor(
     private val parser: MenuBoardResultParser,
     private val imageBaseUrl: String,
     private val pricing: LlmPricing = LlmPricing.UNPRICED,
+    private val configuredModelName: String = "",
+    private val eventPublisher: ApplicationEventPublisher = ApplicationEventPublisher { },
 ) : MenuBoardVisionExtractor {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -31,22 +37,49 @@ class OpenAiMenuBoardVisionExtractor(
         val userMessage = UserMessage.builder().text(userPromptWith(ocrItems)).media(media).build()
 
         val response = chatModel.call(Prompt(listOf(SystemMessage(SYSTEM_PROMPT), userMessage)))
-        logTokenUsage(response)
+        val cost = costIncurredFrom(response)
+        publishCost(cost)
+        logTokenUsage(cost, response.metadata.usage.totalTokens)
         val raw = response.results.firstOrNull()?.output?.text.orEmpty()
         return parser.parse(raw)
     }
 
-    private fun logTokenUsage(response: ChatResponse) {
+    private fun costIncurredFrom(response: ChatResponse): LlmCallCostIncurred {
         val usage = response.metadata.usage
         val promptTokens = (usage.promptTokens ?: 0).toLong()
         val completionTokens = (usage.completionTokens ?: 0).toLong()
+        if (promptTokens == 0L && completionTokens == 0L) {
+            log.warn("vision 응답에 usage 정보가 없어 토큰 수를 0 으로 기록합니다")
+        }
+        if (pricing == LlmPricing.UNPRICED) {
+            log.warn("vision 단가가 설정되지 않아 비용을 0 으로 기록합니다")
+        }
+        val modelName = response.metadata.model?.takeIf { it.isNotBlank() } ?: configuredModelName
+        return LlmCallCostIncurred(
+            modelName = modelName,
+            inputTokens = promptTokens,
+            outputTokens = completionTokens,
+            costUsd = BigDecimal.valueOf(pricing.costUsd(promptTokens, completionTokens)).setScale(6, RoundingMode.HALF_UP),
+            costKrw = BigDecimal.valueOf(pricing.costKrw(promptTokens, completionTokens)).setScale(2, RoundingMode.HALF_UP),
+        )
+    }
+
+    private fun publishCost(cost: LlmCallCostIncurred) {
+        try {
+            eventPublisher.publishEvent(cost)
+        } catch (e: Exception) {
+            log.warn("LLM 호출 비용 이벤트 발행 실패 modelName={}", cost.modelName, e)
+        }
+    }
+
+    private fun logTokenUsage(cost: LlmCallCostIncurred, totalTokens: Int?) {
         log.info(
             "vision 토큰 사용량 promptTokens={} completionTokens={} totalTokens={} costUsd={} costKrw={}",
-            promptTokens,
-            completionTokens,
-            usage.totalTokens,
-            "%.6f".format(pricing.costUsd(promptTokens, completionTokens)),
-            "%.2f".format(pricing.costKrw(promptTokens, completionTokens)),
+            cost.inputTokens,
+            cost.outputTokens,
+            totalTokens,
+            cost.costUsd.toPlainString(),
+            cost.costKrw.toPlainString(),
         )
     }
 

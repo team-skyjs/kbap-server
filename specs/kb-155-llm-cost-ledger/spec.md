@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Draft
+**Status**: Implemented (2026-07-17 — 전체 스위트 그린, code-reviewer·database-expert 게이트 통과)
 
 **Input**: User description: "kb-155 — 메뉴 스캔 LLM 호출 비용 기록 테이블(관리자용 총비용 집계). 토큰 출력 비용 기록은 비즈니스 로직과 별개이므로 비동기/이벤트 발행으로 DB에 기록한다."
 

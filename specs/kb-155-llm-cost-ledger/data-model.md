@@ -12,7 +12,7 @@
 | output_tokens | BIGINT | NOT NULL | completion 토큰 수(usage 누락 시 0) |
 | cost_usd | DECIMAL(12,6) | NOT NULL | `LlmPricing.costUsd` 결과, HALF_UP 6자리 |
 | cost_krw | DECIMAL(14,2) | NOT NULL | `LlmPricing.costKrw`(환율 1500) 결과, HALF_UP 2자리 |
-| status | VARCHAR(20) | NOT NULL | BaseEntity 공통(ACTIVE/DELETED) — 소프트삭제 구조 공유, 삭제 기능은 노출 안 함 |
+| status | ENUM('ACTIVE','DELETED') | NOT NULL | BaseEntity 공통 — 기존 테이블과 동일 ENUM 규약, 삭제 기능은 노출 안 함 |
 | created_at | DATETIME(6) | NOT NULL | BaseEntity 공통 — 기간 집계 기준 시각 |
 | updated_at | DATETIME(6) | NOT NULL | BaseEntity 공통 |
 
