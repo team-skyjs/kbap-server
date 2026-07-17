@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-17
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "kb-167" (Jira KB-167 — [BE] E2E 시나리오 테스트 도입 — 핵심 사용자 여정 4종(해피패스·인증 생명주기·메뉴판 스캔·탈퇴) 인수 테스트)
 
