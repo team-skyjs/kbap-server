@@ -112,7 +112,7 @@ data class MemberProfile private constructor(
         }
 
         // 빈 문자열은 "미설정/제거"(null) — 부분 수정의 미전송(null=유지)과 구분되는 센티널.
-        // 저장은 CDN 도메인 없는 경로만 — 전체 URL 은 거부한다(KB-154).
+        // 저장은 CDN 도메인 없는 경로만 — 전체 URL 은 거부한다.
         private fun validatedImagePath(raw: String): String? {
             val trimmed = raw.trim()
             if (trimmed.isEmpty()) return null
