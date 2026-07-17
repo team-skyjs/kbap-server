@@ -25,6 +25,7 @@ dependencies {
     "implementation"(project(":domain:scan"))
     "implementation"(project(":domain:bookmark"))
     "implementation"(project(":domain:image"))
+    "implementation"(project(":domain:metering"))
 
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)

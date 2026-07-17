@@ -17,6 +17,7 @@ import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Duration
@@ -66,7 +67,10 @@ class LlmConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.vision", name = ["enabled"], havingValue = "true")
-    fun menuBoardVisionExtractor(properties: LlmModelProperties): MenuBoardVisionExtractor {
+    fun menuBoardVisionExtractor(
+        properties: LlmModelProperties,
+        eventPublisher: ApplicationEventPublisher,
+    ): MenuBoardVisionExtractor {
         val props = properties.vision
         val chatModel = OpenAiChatModel.builder()
             .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
@@ -79,7 +83,14 @@ class LlmConfiguration {
             outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
             usdToKrw = properties.usdToKrw,
         )
-        return OpenAiMenuBoardVisionExtractor(chatModel, MenuBoardResultParser(), props.imageBaseUrl, pricing)
+        return OpenAiMenuBoardVisionExtractor(
+            chatModel = chatModel,
+            parser = MenuBoardResultParser(),
+            imageBaseUrl = props.imageBaseUrl,
+            pricing = pricing,
+            configuredModelName = props.model.orEmpty(),
+            eventPublisher = eventPublisher,
+        )
     }
 
     @Bean
