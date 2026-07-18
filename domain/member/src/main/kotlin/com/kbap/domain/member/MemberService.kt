@@ -23,7 +23,7 @@ class MemberService internal constructor(
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        findActiveOrThrow(input.memberId).completeOnboarding(
+        getMember(input.memberId).completeOnboarding(
             nickname = input.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             spicinessPreference = input.spicinessPreference,
@@ -35,7 +35,7 @@ class MemberService internal constructor(
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        findActiveOrThrow(input.memberId).updateProfile(
+        getMember(input.memberId).updateProfile(
             nickname = input.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             spicinessPreference = input.spicinessPreference,
@@ -47,7 +47,7 @@ class MemberService internal constructor(
 
     @Transactional(readOnly = true)
     fun getMyProfile(memberId: Long): MyProfileResult {
-        val member = findActiveOrThrow(memberId)
+        val member = getMember(memberId)
         return MyProfileResult.of(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
@@ -57,16 +57,16 @@ class MemberService internal constructor(
 
     @Transactional(readOnly = true)
     fun getRanking(memberId: Long): MemberRankingResult =
-        MemberRankingResult.from(findActiveOrThrow(memberId).ranking)
+        MemberRankingResult.from(getMember(memberId).ranking)
 
     // 소셜 계정 삭제(외부 호출)는 AuthApplicationService 가 트랜잭션 밖에서 선행한다.
     @Transactional
     fun withdraw(memberId: Long) {
-        findActiveOrThrow(memberId).withdraw()
+        getMember(memberId).withdraw()
     }
 
     @Transactional(readOnly = true)
-    fun findActive(memberId: Long): Member? =
+    fun getMemberOrNull(memberId: Long): Member? =
         memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
     private fun findByIdentity(identity: SocialIdentity): Member? =
@@ -102,9 +102,10 @@ class MemberService internal constructor(
     @Transactional(readOnly = true)
     fun getAvoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
         if (memberId == null) return emptySet()
-        return findActive(memberId)?.profile?.avoidedCodes() ?: emptySet()
+        return getMemberOrNull(memberId)?.profile?.avoidedCodes() ?: emptySet()
     }
 
-    private fun findActiveOrThrow(memberId: Long): Member =
-        findActive(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+    @Transactional(readOnly = true)
+    fun getMember(memberId: Long): Member =
+        getMemberOrNull(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 }
