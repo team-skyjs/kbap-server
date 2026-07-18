@@ -52,21 +52,21 @@ description: "Task list for 서비스 조회 메서드 네이밍 get 통일"
 
 - [X] T003 [P] [US1] `ScanService.findRecentReadyFoodIds` → `getRecentReadyFoodIds` 로 개명 — 선언(`domain/scan/.../ScanService.kt`) + 호출부(`application/.../home/HomeApplicationService.kt`) + `ScanServiceTest` 참조 갱신, `./gradlew test`
 
-- [ ] T004 [US1] `MemberService` 회원 조회 분리 — `findActive` → `getMemberOrNull`, private `findActiveOrThrow` → **public `getMember`** 로 승격(`domain/member/.../MemberService.kt`). 호출부 계약별 배분: `getAvoidedCodes`·`HomeApplicationService`(게스트) → `getMemberOrNull`; `AuthApplicationService.refresh`(`== null` → INVALID_REFRESH_TOKEN) → `getMemberOrNull`; `AuthApplicationService.withdraw`·내부 4곳(completeOnboarding·updateProfile·getMyProfile·getRanking·withdraw) → `getMember`. `MemberServiceTest`·`AuthApplicationServiceTest` 갱신, `./gradlew test`
+- [X] T004 [US1] `MemberService` 회원 조회 분리 — `findActive` → `getMemberOrNull`, private `findActiveOrThrow` → **public `getMember`** 로 승격(`domain/member/.../MemberService.kt`). 호출부 계약별 배분: `getAvoidedCodes`·`HomeApplicationService`(게스트) → `getMemberOrNull`; `AuthApplicationService.refresh`(`== null` → INVALID_REFRESH_TOKEN) → `getMemberOrNull`; `AuthApplicationService.withdraw`·내부 4곳(completeOnboarding·updateProfile·getMyProfile·getRanking·withdraw) → `getMember`. `MemberServiceTest`·`AuthApplicationServiceTest` 갱신, `./gradlew test`
 
 - [X] T013 [P] [US1] `ImageUploadService.findVerifiedImage` → `verifyImageAccess` 로 재분류 개명(FR-010) — 선언만 변경(`domain/image/.../ImageUploadService.kt`), 반환 타입 `UploadedImage?`·읽기전용 트랜잭션·미사용 상태 유지, `ScanService` 의 TODO 주석 참조 문구도 `verifyImageAccess` 로 동기화(`domain/scan/.../ScanService.kt:33`), `./gradlew test`
 
-- [ ] T005 [US1] `BookmarkService` 개명 — `findBookmarks` → `getBookmarkPage`(반환 `BookmarkPage`), `findBookmarkedFoodIds` → `getBookmarkedFoodIds`(`domain/bookmark/.../BookmarkService.kt`) + 호출부(grep 로 확인 — 북마크 플래그 소비처) + `BookmarkServiceTest`·`BookmarkControllerTest` 갱신, `./gradlew test`
+- [X] T005 [US1] `BookmarkService` 개명 — `findBookmarks` → `getBookmarkPage`(반환 `BookmarkPage`), `findBookmarkedFoodIds` → `getBookmarkedFoodIds`(`domain/bookmark/.../BookmarkService.kt`) + 호출부(grep 로 확인 — 북마크 플래그 소비처) + `BookmarkServiceTest`·`BookmarkControllerTest` 갱신, `./gradlew test`
 
-- [ ] T006 [US1] `FoodService` 컬렉션 조회 개명 — `findRandomReady`→`getRandomReadyFoods`, `findAllReadyByIds`→`getReadyFoodsByIds`, `findByKoreanMatchKeys`→`getFoodsByKoreanMatchKeys`(`domain/food/.../FoodService.kt`) + 호출부(`HomeApplicationService`, `ScanService`, `BookmarkService`) + `FoodServiceTest` 갱신, `./gradlew test`
+- [X] T006 [US1] `FoodService` 컬렉션 조회 개명 — `findRandomReady`→`getRandomReadyFoods`, `findAllReadyByIds`→`getReadyFoodsByIds`, `findByKoreanMatchKeys`→`getFoodsByKoreanMatchKeys`(`domain/food/.../FoodService.kt`) + 호출부(`HomeApplicationService`, `ScanService`, `BookmarkService`) + `FoodServiceTest` 갱신, `./gradlew test`
 
-- [ ] T007 [US1] `FoodService` 페이지 조회 개명 — **로더 선행 순서 준수**(research §4): ① `searchFoodPage`(로더,List)→`getFoodsByKeyword`(internal) → ② `search`→`searchFoodPage` → ③ `findFoodPage`(로더,List)→`getFoods`(internal) → ④ `browse`→`getFoodPage`(`domain/food/.../FoodService.kt`) + 호출부(`app/api/.../food/FoodController.kt`) + `FoodServiceTest`·`FoodControllerTest` 갱신, `./gradlew test`
+- [X] T007 [US1] `FoodService` 페이지 조회 개명 — **로더 선행 순서 준수**(research §4): ① `searchFoodPage`(로더,List)→`getFoodsByKeyword`(internal) → ② `search`→`searchFoodPage` → ③ `findFoodPage`(로더,List)→`getFoods`(internal) → ④ `browse`→`getFoodPage`(`domain/food/.../FoodService.kt`) + 호출부(`app/api/.../food/FoodController.kt`) + `FoodServiceTest`·`FoodControllerTest` 갱신, `./gradlew test`
 
 ### Test-First: `getReadyFood`(계약 이동 — null→throw)
 
-- [ ] T008 [US1] (Red) `FoodServiceTest` 에서 `findReadyById` 의 미존재·미완성·소프트삭제 케이스(`shouldBe null`/`shouldBeNull` 3곳)를 `shouldThrow<BusinessException>`(FOOD_NOT_FOUND) 로 변경하고, 미리 이름을 `getReadyFood` 로 참조해 **테스트가 실패(Red)** 함을 확인(`domain/food/src/test/.../FoodServiceTest.kt`)
+- [X] T008 [US1] (Red) `FoodServiceTest` 에서 `findReadyById` 의 미존재·미완성·소프트삭제 케이스(`shouldBe null`/`shouldBeNull` 3곳)를 `shouldThrow<BusinessException>`(FOOD_NOT_FOUND) 로 변경하고, 미리 이름을 `getReadyFood` 로 참조해 **테스트가 실패(Red)** 함을 확인(`domain/food/src/test/.../FoodServiceTest.kt`)
 
-- [ ] T009 [US1] (Green) `findReadyById`(`Food?`) → `getReadyFood`(`Food`, 내부 `?: throw BusinessException(FOOD_NOT_FOUND)`)(`domain/food/.../FoodService.kt`) + 호출부 2곳(`getDetail`, `BookmarkService.bookmark`)의 `?: throw FOOD_NOT_FOUND` 꼬리 제거 + `shouldNotBeNull()` 7곳을 반환값 직접 사용으로 정리, `./gradlew test` Green 확인
+- [X] T009 [US1] (Green) `findReadyById`(`Food?`) → `getReadyFood`(`Food`, 내부 `?: throw BusinessException(FOOD_NOT_FOUND)`)(`domain/food/.../FoodService.kt`) + 호출부 2곳(`getDetail`, `BookmarkService.bookmark`)의 `?: throw FOOD_NOT_FOUND` 꼬리 제거 + `shouldNotBeNull()` 7곳을 반환값 직접 사용으로 정리, `./gradlew test` Green 확인
 
 **Checkpoint**: 서비스 public 조회에 `find` 접두 0(예외: `findOrSignUp`), 페이지 이름·타입 일치, 전체 테스트 Green → US1 독립 완료(MVP).
 
@@ -78,7 +78,7 @@ description: "Task list for 서비스 조회 메서드 네이밍 get 통일"
 
 **Independent Test**: CLAUDE.md "서비스 메서드 네이밍" 절에 get 통일 + `get~OrNull` 예외 + 규약 밖 구분이 명시됨(quickstart §6).
 
-- [ ] T010 [US2] `CLAUDE.md` "서비스 메서드 네이밍 (고정)" 절 갱신 — 단건 `get~`(없으면 예외/non-null)/`get~OrNull`(null 정상값만), 컬렉션 `get~s`(빈 값 허용), 페이지 `get~Page`(이름·반환타입 일치), `find` 접두 폐기, 규약 밖(유비쿼터스 동사 `search`·`findOrSignUp`·보조·행위) 명시. 예시 `getAvoidedCodes` 를 컬렉션 get 예로 유지. **MemberService 서비스 계약 한 줄 추가**: "MemberService 조회는 항상 active(member_status=ACTIVE) 회원만 노출한다 — `getMember`/`getMemberOrNull` 이름에 active 를 생략하는 근거"
+- [X] T010 [US2] `CLAUDE.md` "서비스 메서드 네이밍 (고정)" 절 갱신 — 단건 `get~`(없으면 예외/non-null)/`get~OrNull`(null 정상값만), 컬렉션 `get~s`(빈 값 허용), 페이지 `get~Page`(이름·반환타입 일치), `find` 접두 폐기, 규약 밖(유비쿼터스 동사 `search`·`findOrSignUp`·보조·행위) 명시. 예시 `getAvoidedCodes` 를 컬렉션 get 예로 유지. **MemberService 서비스 계약 한 줄 추가**: "MemberService 조회는 항상 active(member_status=ACTIVE) 회원만 노출한다 — `getMember`/`getMemberOrNull` 이름에 active 를 생략하는 근거"
 
 **Checkpoint**: 규약 문서가 코드 상태와 일치.
 
@@ -86,7 +86,7 @@ description: "Task list for 서비스 조회 메서드 네이밍 get 통일"
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T011 [P] quickstart.md 검증 런북 전 항목 실행 — `grep` 게이트(§1~2, `find` 0건·페이지 이름/타입 일치), `./gradlew test`(§3), ArchUnit `ModuleBoundaryTest`(§3), 핵심 API 통합 테스트 Green(§4)
+- [X] T011 [P] quickstart.md 검증 런북 전 항목 실행 — `grep` 게이트(§1~2, `find` 0건·페이지 이름/타입 일치), `./gradlew test`(§3), ArchUnit `ModuleBoundaryTest`(§3), 핵심 API 통합 테스트 Green(§4)
 - [ ] T012 [P] (선택) `FoodService.getDetail` → `getFoodDetail` 명확화 개명 + 호출부(`FoodController`)·테스트 — 필수 완료 기준 아님(Assumptions), 원할 때만
 
 ---
