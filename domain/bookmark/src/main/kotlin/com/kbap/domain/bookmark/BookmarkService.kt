@@ -47,7 +47,7 @@ class BookmarkService internal constructor(
         val nextCursor = if (hasNext) page.last().id else null
 
         val orderedFoodIds = page.map { it.foodId }
-        val foodsById = foodService.findAllReadyByIds(orderedFoodIds).associateBy { it.id }
+        val foodsById = foodService.getReadyFoodsByIds(orderedFoodIds).associateBy { it.id }
         val languageCode = LanguageCode.from(lang)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 

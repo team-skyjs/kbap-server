@@ -583,7 +583,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val kimchi = saveFood("김치찌개")
                     val gukbap = saveFood("돼지 국밥")
 
-                    val found = service.findByKoreanMatchKeys(setOf("김치찌개", "돼지국밥", "없는메뉴"))
+                    val found = service.getFoodsByKoreanMatchKeys(setOf("김치찌개", "돼지국밥", "없는메뉴"))
 
                     found.keys shouldBe setOf("김치찌개", "돼지국밥")
                     found.getValue("김치찌개").id shouldBe kimchi
@@ -596,7 +596,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     service.createIncomplete(setOf("우주라면"))
 
-                    val found = service.findByKoreanMatchKeys(setOf("우주라면"))
+                    val found = service.getFoodsByKoreanMatchKeys(setOf("우주라면"))
 
                     found.getValue("우주라면").isReady() shouldBe false
                 }
@@ -608,7 +608,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val first = saveFood("국밥")
                     saveFood("국 밥")
 
-                    service.findByKoreanMatchKeys(setOf("국밥")).getValue("국밥").id shouldBe first
+                    service.getFoodsByKoreanMatchKeys(setOf("국밥")).getValue("국밥").id shouldBe first
                 }
             }
 
@@ -620,13 +620,13 @@ class FoodServiceTest : BehaviorSpec() {
                     entity.delete()
                     foodJpaRepository.save(entity)
 
-                    service.findByKoreanMatchKeys(setOf("삭제된김밥")) shouldBe emptyMap<String, Food>()
+                    service.getFoodsByKoreanMatchKeys(setOf("삭제된김밥")) shouldBe emptyMap<String, Food>()
                 }
             }
 
             `when`("빈 키 집합으로 조회하면") {
                 then("빈 맵을 반환한다(쿼리 없음)") {
-                    service.findByKoreanMatchKeys(emptySet()) shouldBe emptyMap<String, Food>()
+                    service.getFoodsByKoreanMatchKeys(emptySet()) shouldBe emptyMap<String, Food>()
                 }
             }
         }

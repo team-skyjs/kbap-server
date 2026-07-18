@@ -73,7 +73,7 @@ class ScanService internal constructor(
             .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) }
             .filter { it.isNotBlank() }
             .toSet()
-        val known = foodService.findByKoreanMatchKeys(matchKeys)
+        val known = foodService.getFoodsByKoreanMatchKeys(matchKeys)
 
         val unknownNames = extracted
             .filter { KoreanMenuNameNormalizer.matchKey(it.koreanName).let { key -> key.isNotBlank() && key !in known } }

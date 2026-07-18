@@ -95,14 +95,14 @@ class FoodService internal constructor(
             ?.takeIf { it.isReady() }
 
     @Transactional(readOnly = true)
-    fun findRandomReady(size: Int): List<Food> {
+    fun getRandomReadyFoods(size: Int): List<Food> {
         val ids = foodRepository.findRandomReadyIds(size)
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
     }
 
     @Transactional(readOnly = true)
-    fun findAllReadyByIds(ids: List<Long>): List<Food> {
+    fun getReadyFoodsByIds(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
             .sortedBy { it.id }
@@ -110,7 +110,7 @@ class FoodService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
+    fun getFoodsByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
         if (keys.isEmpty()) return emptyMap()
         val entities = foodRepository.findByKoreanMatchKeyIn(keys)
         val grouped = entities.groupBy { it.koreanMatchKey }

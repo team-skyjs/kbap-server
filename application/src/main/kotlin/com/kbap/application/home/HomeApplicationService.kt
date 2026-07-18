@@ -28,11 +28,11 @@ class HomeApplicationService(
         return HomeResult(
             avoidedSubstances = avoidanceCatalogService.getSubstancesByCodes(avoidedCodes)
                 .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
-            popularFoods = foodService.findRandomReady(POPULAR_SIZE)
+            popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },
             recentScans = member?.id?.let { id ->
                 val recentIds = scanService.getRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
-                val foodsById = foodService.findAllReadyByIds(recentIds).associateBy { it.id }
+                val foodsById = foodService.getReadyFoodsByIds(recentIds).associateBy { it.id }
                 recentIds.mapNotNull { foodsById[it] }
                     .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) }
             }.orEmpty(),
