@@ -66,7 +66,7 @@ class BookmarkServiceTest : BehaviorSpec() {
         }
 
         fun bookmarkedFoodIds(cursor: Long? = null) =
-            service.findBookmarks(memberId, "ko", cursor).items.map { it.foodId }
+            service.getBookmarkPage(memberId, "ko", cursor).items.map { it.foodId }
 
         fun activeBookmarkIdOf(foodId: Long): Long =
             dataSource.connection.use { connection ->
@@ -83,7 +83,7 @@ class BookmarkServiceTest : BehaviorSpec() {
 
         beforeContainer { clearTables() }
 
-        given("음식 북마크 여부 일괄 조회 — findBookmarkedFoodIds") {
+        given("음식 북마크 여부 일괄 조회 — getBookmarkedFoodIds") {
             `when`("회원이 요청 음식 집합 중 일부만 북마크했으면") {
                 then("북마크한 foodId 만 반환한다") {
                     seedFood(1L, "김치찌개")
@@ -92,7 +92,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                     service.bookmark(memberId, 1L)
                     service.bookmark(memberId, 3L)
 
-                    service.findBookmarkedFoodIds(memberId, listOf(1L, 2L, 3L)) shouldContainExactlyInAnyOrder listOf(1L, 3L)
+                    service.getBookmarkedFoodIds(memberId, listOf(1L, 2L, 3L)) shouldContainExactlyInAnyOrder listOf(1L, 3L)
                 }
             }
 
@@ -101,13 +101,13 @@ class BookmarkServiceTest : BehaviorSpec() {
                     seedFood(1L, "김치찌개")
                     service.bookmark(memberId, 1L)
 
-                    service.findBookmarkedFoodIds(null, listOf(1L)) shouldBe emptySet()
+                    service.getBookmarkedFoodIds(null, listOf(1L)) shouldBe emptySet()
                 }
             }
 
             `when`("요청 foodIds 가 비어 있으면") {
                 then("빈 집합을 반환한다") {
-                    service.findBookmarkedFoodIds(memberId, emptyList()) shouldBe emptySet()
+                    service.getBookmarkedFoodIds(memberId, emptyList()) shouldBe emptySet()
                 }
             }
 
@@ -119,7 +119,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                     service.bookmark(memberId, 2L)
                     service.unbookmark(memberId, 1L)
 
-                    service.findBookmarkedFoodIds(memberId, listOf(1L, 2L)) shouldContainExactlyInAnyOrder listOf(2L)
+                    service.getBookmarkedFoodIds(memberId, listOf(1L, 2L)) shouldContainExactlyInAnyOrder listOf(2L)
                 }
             }
         }
@@ -239,11 +239,11 @@ class BookmarkServiceTest : BehaviorSpec() {
                         service.bookmark(memberId, id)
                     }
 
-                    val firstPage = service.findBookmarks(memberId, "ko", null)
+                    val firstPage = service.getBookmarkPage(memberId, "ko", null)
                     firstPage.items.size shouldBe BookmarkService.PAGE_SIZE
                     firstPage.hasNext shouldBe true
 
-                    val secondPage = service.findBookmarks(memberId, "ko", firstPage.nextCursor)
+                    val secondPage = service.getBookmarkPage(memberId, "ko", firstPage.nextCursor)
                     secondPage.items.size shouldBe 1
                     secondPage.hasNext shouldBe false
 
@@ -261,7 +261,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                     val cursor = activeBookmarkIdOf(3L)
                     service.unbookmark(memberId, 3L)
 
-                    val page = service.findBookmarks(memberId, "ko", cursor)
+                    val page = service.getBookmarkPage(memberId, "ko", cursor)
 
                     page.items.map { it.foodId } shouldContainExactly listOf(2L, 1L)
                 }

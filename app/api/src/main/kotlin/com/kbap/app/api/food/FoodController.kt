@@ -57,7 +57,7 @@ class FoodController(
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
         val result = foodService.getDetail(GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId))
-        val bookmarked = foodId in bookmarkService.findBookmarkedFoodIds(memberId, listOf(foodId))
+        val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
         return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked)))
     }
 
@@ -67,7 +67,7 @@ class FoodController(
         nextCursor: Long?,
         memberId: Long?,
     ): Page<FoodSummaryResponse> {
-        val bookmarkedIds = bookmarkService.findBookmarkedFoodIds(memberId, items.map { it.foodId })
+        val bookmarkedIds = bookmarkService.getBookmarkedFoodIds(memberId, items.map { it.foodId })
         return Page(
             items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds) },
             hasNext = hasNext,

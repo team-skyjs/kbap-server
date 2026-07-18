@@ -47,7 +47,7 @@ class BookmarkController(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(required = false) lang: String?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
-        val result = bookmarkService.findBookmarks(memberId, lang, CursorParser.parse(cursor))
+        val result = bookmarkService.getBookmarkPage(memberId, lang, CursorParser.parse(cursor))
         return ResponseEntity.ok(
             BaseResponse.ok(
                 Page(
