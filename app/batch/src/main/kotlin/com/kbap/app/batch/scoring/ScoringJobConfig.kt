@@ -42,7 +42,7 @@ class ScoringJobConfig {
                     .map { ScoringFood(foodId = it.id, koreanName = it.displayName(LanguageCode.KO)) }
             },
             llmFanoutClient = llmFanoutClient,
-            findSubstances = avoidanceCatalogService::findByCodes,
+            findSubstances = avoidanceCatalogService::getSubstancesByCodes,
             promptFactory = promptFactory,
             responseParser = responseParser,
             aggregator = aggregator,

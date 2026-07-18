@@ -63,7 +63,7 @@ class FoodService internal constructor(
         val orderedSubstances = food.avoidanceSubstancesByProbability()
             .filter { it.substanceCode in userAvoidedCodes }
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()
-        val catalog = avoidanceCatalogService.findByCodes(codes).associateBy { it.code }
+        val catalog = avoidanceCatalogService.getSubstancesByCodes(codes).associateBy { it.code }
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
