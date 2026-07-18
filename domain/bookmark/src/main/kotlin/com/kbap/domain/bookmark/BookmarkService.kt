@@ -1,7 +1,5 @@
 package com.kbap.domain.bookmark
 
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.bookmark.dto.BookmarkPage
 import com.kbap.domain.bookmark.model.Bookmark
@@ -20,7 +18,7 @@ class BookmarkService internal constructor(
 ) {
     @Transactional
     fun bookmark(memberId: Long, foodId: Long) {
-        foodService.findReadyById(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        foodService.getReadyFood(foodId)
         if (bookmarkRepository.findByMemberIdAndFoodId(memberId, foodId) != null) return
         bookmarkRepository.save(Bookmark(memberId = memberId, foodId = foodId))
     }

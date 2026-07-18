@@ -4,13 +4,14 @@ import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodAvoidanceSubstance
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.core.error.BusinessException
+import com.kbap.core.error.ErrorCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldNotContainKey
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import jakarta.persistence.EntityManagerFactory
@@ -99,8 +100,7 @@ class FoodServiceTest : BehaviorSpec() {
                         ),
                     )
 
-                    val loaded = service.findReadyById(id)
-                    loaded.shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.imageRef shouldBe "doenjang.png"
                     loaded.avoidanceSubstances.map { it.substanceCode }
                         .shouldContainExactlyInAnyOrder("CLAM", "SOY", "MILK")
@@ -112,20 +112,24 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("미존재 id 로 조회하면") {
-                then("null 을 반환한다") {
-                    service.findReadyById(99999L) shouldBe null
+                then("FOOD_NOT_FOUND 예외를 던진다") {
+                    shouldThrow<BusinessException> {
+                        service.getReadyFood(99999L)
+                    }.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
                 }
             }
 
             `when`("저장된 음식을 소프트 삭제하면") {
-                then("@SQLRestriction 으로 조회에서 제외돼 null 이 반환된다") {
+                then("@SQLRestriction 으로 조회에서 제외돼 FOOD_NOT_FOUND 예외를 던진다") {
                     val savedId = saveFood("삭제-순두부찌개", substances = listOf("SOY" to 95))
 
                     val entity = foodJpaRepository.findById(savedId).get()
                     entity.delete()
                     foodJpaRepository.save(entity)
 
-                    service.findReadyById(savedId).shouldBeNull()
+                    shouldThrow<BusinessException> {
+                        service.getReadyFood(savedId)
+                    }.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
                 }
             }
         }
@@ -139,7 +143,7 @@ class FoodServiceTest : BehaviorSpec() {
                         spiciness = 4,
                     )
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.description shouldBe "된장찌개는 된장을 푼 한국의 대표 찌개다."
                     loaded.spiciness shouldBe 4
                 }
@@ -156,7 +160,7 @@ class FoodServiceTest : BehaviorSpec() {
                         descriptionTranslations = mapOf("en" to "A hearty stew."),
                     )
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.nameTranslations shouldContainExactly mapOf(
                         "en" to "Doenjang Stew",
                         "ja" to "テンジャンチゲ",
@@ -176,7 +180,7 @@ class FoodServiceTest : BehaviorSpec() {
                         descriptionTranslations = mapOf("en" to "A hearty stew."),
                     )
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.displayName(LanguageCode.EN) shouldBe "Doenjang Stew"
                     loaded.displayName(LanguageCode.JA) shouldBe "폴백복원-된장찌개"
                     loaded.description(LanguageCode.EN) shouldBe "A hearty stew."
@@ -194,7 +198,7 @@ class FoodServiceTest : BehaviorSpec() {
                         descriptionTranslations = mapOf("en" to "A hearty stew.", "zz" to "Unknown"),
                     )
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.displayName(LanguageCode.EN) shouldBe "Doenjang Stew"
                     loaded.displayName(LanguageCode.JA) shouldBe "미지키-된장찌개"
                     loaded.description(LanguageCode.JA) shouldBe "구수한 미지키-된장찌개"
@@ -207,7 +211,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("정상 저장되고 빈 목록으로 복원된다") {
                     val id = saveFood("성분없음-흰밥", substances = emptyList())
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.avoidanceSubstances shouldBe emptyList<FoodAvoidanceSubstance>()
                 }
             }
@@ -216,7 +220,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("빈 번역 맵으로 복원된다") {
                     val id = saveFood("번역없음-흰밥")
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
                     loaded.nameTranslations shouldBe emptyMap<String, String>()
                     loaded.descriptionTranslations shouldBe emptyMap<String, String>()
                 }
@@ -240,7 +244,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     statistics.clear()
 
-                    val loaded = service.findReadyById(id).shouldNotBeNull()
+                    val loaded = service.getReadyFood(id)
 
                     loaded.avoidanceSubstances.size shouldBe 4
                     loaded.nameTranslations.size shouldBe 2
@@ -719,11 +723,13 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("미완성 음식을 id 로 상세 조회하면") {
-                then("null 을 반환한다") {
+                then("FOOD_NOT_FOUND 예외를 던진다") {
                     clearFoods()
                     val incompleteId = service.createIncomplete(setOf("미완성-마라탕")).getValue("미완성-마라탕").id
 
-                    service.findReadyById(incompleteId) shouldBe null
+                    shouldThrow<BusinessException> {
+                        service.getReadyFood(incompleteId)
+                    }.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
                 }
             }
 

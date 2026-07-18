@@ -56,8 +56,7 @@ class FoodService internal constructor(
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
         val lang = LanguageCode.from(input.lang)
-        val food = findReadyById(input.foodId)
-            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val food = getReadyFood(input.foodId)
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
         val orderedSubstances = food.avoidanceSubstancesByProbability()
@@ -89,10 +88,11 @@ class FoodService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findReadyById(id: Long): Food? =
+    fun getReadyFood(id: Long): Food =
         foodRepository.findByIdIn(listOf(id))
             .firstOrNull()
             ?.takeIf { it.isReady() }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
     fun getRandomReadyFoods(size: Int): List<Food> {
