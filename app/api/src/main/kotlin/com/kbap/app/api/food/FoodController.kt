@@ -31,7 +31,7 @@ class FoodController(
         @RequestParam(required = false) lang: String?,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
-        val result = foodService.browse(
+        val result = foodService.getFoodPage(
             BrowseFoodsInput(cursor = CursorParser.parse(cursor), lang = lang, memberId = memberId),
         )
         return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
@@ -44,7 +44,7 @@ class FoodController(
         @RequestParam(required = false) lang: String?,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
-        val result = foodService.search(
+        val result = foodService.searchFoodPage(
             SearchFoodsInput(keyword = SearchKeywordParser.parse(keyword), cursor = CursorParser.parse(cursor), lang = lang, memberId = memberId),
         )
         return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))

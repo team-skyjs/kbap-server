@@ -273,7 +273,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     val ids = (1..22).map { saveFood("목록정렬-메뉴$it") }
 
-                    val page = service.findFoodPage(null, 20)
+                    val page = service.getFoods(null, 20)
 
                     page.map { it.id } shouldBe ids.sortedDescending().take(20)
                 }
@@ -285,7 +285,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val ids = (1..5).map { saveFood("커서경계-메뉴$it") }
                     val cursor = ids.sorted()[2]
 
-                    val page = service.findFoodPage(cursor, 20)
+                    val page = service.getFoods(cursor, 20)
 
                     page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
                 }
@@ -301,7 +301,7 @@ class FoodServiceTest : BehaviorSpec() {
                     deletedEntity.delete()
                     foodJpaRepository.save(deletedEntity)
 
-                    val page = service.findFoodPage(null, 20)
+                    val page = service.getFoods(null, 20)
 
                     page.map { it.id } shouldBe listOf(last, first)
                 }
@@ -316,7 +316,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val friedRice = saveFood("김치볶음밥")
                     saveFood("된장찌개")
 
-                    val page = service.searchFoodPage("김치", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldContainExactlyInAnyOrder listOf(stew, friedRice)
                 }
@@ -327,7 +327,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("김치찌개")
 
-                    service.searchFoodPage("파스타", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
+                    service.getFoodsByKeyword("파스타", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
                 }
             }
 
@@ -337,7 +337,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val ids = (1..3).map { saveFood("커서검색-김치$it") }
                     val cursor = ids.sorted()[2]
 
-                    val page = service.searchFoodPage("김치", LanguageCode.KO, cursor, 20)
+                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, cursor, 20)
 
                     page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
                 }
@@ -354,7 +354,7 @@ class FoodServiceTest : BehaviorSpec() {
                     saveFood("커서혼합-순두부찌개")
                     val cursor = saveFood("커서혼합-김치만두")
 
-                    val page = service.searchFoodPage("김치", LanguageCode.KO, cursor, 20)
+                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, cursor, 20)
 
                     page.map { it.id } shouldBe listOf(second, first)
                 }
@@ -366,7 +366,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val smallest = saveFood("커서소진-김치찌개")
                     saveFood("커서소진-김치볶음밥")
 
-                    service.searchFoodPage("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList<Food>()
+                    service.getFoodsByKeyword("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList<Food>()
                 }
             }
         }
@@ -378,7 +378,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val bibimbap = saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
                     saveFood("된장찌개", nameTranslations = mapOf("en" to "Doenjang Stew"))
 
-                    val page = service.searchFoodPage("bibim", LanguageCode.EN, null, 20)
+                    val page = service.getFoodsByKeyword("bibim", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(bibimbap)
                 }
@@ -389,7 +389,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("냉면", nameTranslations = mapOf("ja" to "ネンミョン", "en" to "Cold Noodles"))
 
-                    service.searchFoodPage("ネンミョン", LanguageCode.EN, null, 20) shouldBe emptyList<Food>()
+                    service.getFoodsByKeyword("ネンミョン", LanguageCode.EN, null, 20) shouldBe emptyList<Food>()
                 }
             }
 
@@ -398,7 +398,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    service.searchFoodPage("Bibimbap", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
+                    service.getFoodsByKeyword("Bibimbap", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
                 }
             }
 
@@ -407,7 +407,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     val id = saveFood("Bibim비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    val page = service.searchFoodPage("bibim", LanguageCode.EN, null, 20)
+                    val page = service.getFoodsByKeyword("bibim", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -432,7 +432,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("전체 메뉴가 아니라 이름에 % 를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.searchFoodPage("%", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("%", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
                 }
@@ -442,7 +442,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("임의 1문자 와일드카드가 아니라 이름에 _ 를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.searchFoodPage("_", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("_", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("underscore"))
                 }
@@ -452,7 +452,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("그 조각을 이름에 포함하는 메뉴를 부분 일치로 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.searchFoodPage("50%", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("50%", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
                 }
@@ -465,7 +465,7 @@ class FoodServiceTest : BehaviorSpec() {
                     saveFood("김밥치즈")
                     val underscore = saveFood("김_치")
 
-                    val page = service.searchFoodPage("김_치", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("김_치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(underscore)
                 }
@@ -475,7 +475,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("이스케이프 문자도 리터럴로 취급해 백슬래시를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.searchFoodPage("\\", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("\\", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(seeded.getValue("backslash"))
                 }
@@ -487,7 +487,7 @@ class FoodServiceTest : BehaviorSpec() {
                     saveFood("일반세트", nameTranslations = mapOf("en" to "Normal Set"))
                     val sale = saveFood("세일세트", nameTranslations = mapOf("en" to "50% Off Set"))
 
-                    val page = service.searchFoodPage("%", LanguageCode.EN, null, 20)
+                    val page = service.getFoodsByKeyword("%", LanguageCode.EN, null, 20)
 
                     page.map { it.id } shouldBe listOf(sale)
                 }
@@ -508,7 +508,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("JSON 경로가 인용돼 간체 번역명으로 매칭한다") {
                     val id = seedChineseFood()
 
-                    val page = service.searchFoodPage("简体", LanguageCode.ZH_HANS, null, 20)
+                    val page = service.getFoodsByKeyword("简体", LanguageCode.ZH_HANS, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -518,7 +518,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("JSON 경로가 인용돼 번체 번역명으로 매칭한다") {
                     val id = seedChineseFood()
 
-                    val page = service.searchFoodPage("繁體", LanguageCode.ZH_HANT, null, 20)
+                    val page = service.getFoodsByKeyword("繁體", LanguageCode.ZH_HANT, null, 20)
 
                     page.map { it.id } shouldBe listOf(id)
                 }
@@ -528,7 +528,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("하이픈 코드에서도 언어 분리가 성립해 매칭되지 않는다") {
                     seedChineseFood()
 
-                    service.searchFoodPage("简体", LanguageCode.ZH_HANT, null, 20) shouldBe emptyList<Food>()
+                    service.getFoodsByKeyword("简体", LanguageCode.ZH_HANT, null, 20) shouldBe emptyList<Food>()
                 }
             }
         }
@@ -540,7 +540,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val bbq = saveFood("BBQ 치킨")
                     saveFood("김치찌개")
 
-                    val page = service.searchFoodPage("bbq", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("bbq", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(bbq)
                 }
@@ -552,7 +552,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val latte = saveFood("Latte 라떼")
                     saveFood("김치찌개")
 
-                    val page = service.searchFoodPage("LATTE", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("LATTE", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(latte)
                 }
@@ -569,7 +569,7 @@ class FoodServiceTest : BehaviorSpec() {
                     deletedEntity.delete()
                     foodJpaRepository.save(deletedEntity)
 
-                    val page = service.searchFoodPage("김치", LanguageCode.KO, null, 20)
+                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, null, 20)
 
                     page.map { it.id } shouldBe listOf(alive)
                 }
@@ -714,7 +714,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val ready = saveFood("완성-비빔밥")
                     service.createIncomplete(setOf("미완성-우주라면"))
 
-                    service.findFoodPage(null, 20).map { it.id } shouldBe listOf(ready)
+                    service.getFoods(null, 20).map { it.id } shouldBe listOf(ready)
                 }
             }
 
@@ -733,7 +733,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val ready = saveFood("완성-라면")
                     service.createIncomplete(setOf("미완성-라면"))
 
-                    service.searchFoodPage("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
+                    service.getFoodsByKeyword("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
                 }
             }
         }

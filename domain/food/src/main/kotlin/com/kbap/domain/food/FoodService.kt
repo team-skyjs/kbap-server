@@ -32,23 +32,23 @@ class FoodService internal constructor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun browse(input: BrowseFoodsInput): FoodPage {
+    fun getFoodPage(input: BrowseFoodsInput): FoodPage {
         val lang = LanguageCode.from(input.lang)
-        return foodPage(findFoodPage(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
+        return foodPage(getFoods(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     @Transactional(readOnly = true)
-    fun search(input: SearchFoodsInput): FoodPage {
+    fun searchFoodPage(input: SearchFoodsInput): FoodPage {
         val lang = LanguageCode.from(input.lang)
-        return foodPage(searchFoodPage(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
+        return foodPage(getFoodsByKeyword(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     @Transactional(readOnly = true)
-    fun findFoodPage(cursor: Long?, size: Int): List<Food> =
+    internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
+    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
         return loadDescending(foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size))
     }
