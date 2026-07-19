@@ -30,7 +30,8 @@ class ImageUploadApplicationService(
 
     private fun objectKey(purpose: UploadPurpose, memberId: Long, contentType: String): String {
         val date = LocalDate.now(ZoneOffset.UTC)
-        return "images/%s/%04d/%02d/%d/%s.%s".format(
+        val prefix = properties.keyPrefix.trim('/')
+        val baseKey = "images/%s/%04d/%02d/%d/%s.%s".format(
             purpose.prefix,
             date.year,
             date.monthValue,
@@ -38,6 +39,7 @@ class ImageUploadApplicationService(
             UUID.randomUUID(),
             extensionOf(contentType),
         )
+        return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
     }
 
     private fun extensionOf(contentType: String): String {

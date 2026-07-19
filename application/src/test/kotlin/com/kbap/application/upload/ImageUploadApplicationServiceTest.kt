@@ -34,11 +34,12 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         }
     }
 
-    fun properties() = ImageUploadProperties(
+    fun properties(keyPrefix: String = "") = ImageUploadProperties(
         allowedContentTypes = setOf("image/jpeg", "image/png"),
         maxBytes = 1_000L,
         uploadTtl = Duration.ofMinutes(5),
         publicBaseUrl = "https://cdn.test",
+        keyPrefix = keyPrefix,
     )
 
     fun input(
@@ -112,6 +113,32 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
                 val service = ImageUploadApplicationService(properties(), port)
                 service.issueUploadUrl(input(contentType = "image/png"))
                 port.keys.single() shouldMatch Regex(""".*\.png$""")
+            }
+        }
+
+        `when`("환경 접두가 dev 로 설정되면") {
+            then("객체 키와 공개 URL 이 dev/ 접두로 시작한다") {
+                val port = RecordingPort()
+                val service = ImageUploadApplicationService(properties(keyPrefix = "dev"), port)
+
+                val result = service.issueUploadUrl(input(memberId = 1024L))
+
+                port.keys.single() shouldMatch Regex("""^dev/images/scan/\d{4}/\d{2}/1024/[0-9a-f-]{36}\.jpg$""")
+                result.publicUrl shouldBe "https://cdn.test/${port.keys.single()}"
+            }
+        }
+
+        `when`("접두가 dev/ 또는 /dev 처럼 슬래시를 포함하면") {
+            then("동일하게 정규화되어 중복 슬래시 없이 dev/ 로 시작한다") {
+                listOf("dev/", "/dev").forEach { prefix ->
+                    val port = RecordingPort()
+                    val service = ImageUploadApplicationService(properties(keyPrefix = prefix), port)
+
+                    service.issueUploadUrl(input())
+
+                    port.keys.single() shouldMatch Regex("""^dev/images/scan/.+""")
+                    port.keys.single().contains("//") shouldBe false
+                }
             }
         }
 
