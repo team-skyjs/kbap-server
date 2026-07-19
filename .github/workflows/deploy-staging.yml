@@ -90,11 +90,14 @@ jobs:
           echo "health check failed"; exit 1
           EOF
 
+          # AWS CLI --parameters shorthand(commands=)는 멀티라인·쉼표·따옴표가 든 스크립트를
+          # 파싱하지 못한다(ParamValidation). jq 로 JSON 인코딩해 넘긴다(개행·특수문자 이스케이프).
+          PARAMS=$(printf '%s' "$REMOTE" | jq -Rs '{commands: [.]}')
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
             --comment "deploy $CONTAINER" \
-            --parameters commands="$REMOTE" \
+            --parameters "$PARAMS" \
             --query Command.CommandId --output text)
           echo "SSM command: $CMD_ID"
 
