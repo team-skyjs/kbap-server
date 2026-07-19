@@ -51,8 +51,8 @@ aws iam create-open-id-connect-provider \
 
 - [ ] SSM Agent 동작 + 인스턴스 프로파일에 `AmazonSSMManagedInstanceCore`
 - [ ] 인스턴스 프로파일에 ECR pull 권한(`kbap/api`) — SSM 스크립트가 인스턴스 자격으로 `docker pull` 한다
-- [ ] env-file 존재: `/opt/kbap/api-dev.env`, `/opt/kbap/api-staging.env` — 기존 수동 `docker run` 에 쓰던 env 를 파일로 정리(파이프라인은 내용을 모른다, R3). `SPRING_PROFILES_ACTIVE=dev|staging` 포함 확인.
-- [ ] 포트 확인: api-dev 호스트 8080, api-staging 호스트 8081 (컨테이너 내부는 둘 다 8080)
+- [ ] env-file 존재: `/opt/kbap/kbap-api-dev.env`, `/opt/kbap/kbap-api-staging.env` — 기존 수동 `docker run` 에 쓰던 env 를 파일로 정리(파이프라인은 내용을 모른다, R3). `SPRING_PROFILES_ACTIVE=dev|staging` 포함 확인.
+- [ ] 포트 확인: kbap-api-dev 호스트 8080, kbap-api-staging 호스트 8081 (컨테이너 내부는 둘 다 8080)
 
 ## §4. GitHub Environments + variables
 
@@ -64,7 +64,7 @@ Settings → Environments 에 `dev`/`staging`/`prod` 생성 후 **variables**(se
 | `AWS_ROLE_ARN` | gha-deploy-dev ARN | gha-deploy-staging ARN | gha-deploy-prod ARN |
 | `ECR_REPOSITORY` | `kbap/api` | `kbap/api` | `kbap/api` |
 | `EC2_INSTANCE_ID` | 공용 EC2 id | 공용 EC2 id | — |
-| `CONTAINER_NAME` | `api-dev` | `api-staging` | 태스크정의 컨테이너명 |
+| `CONTAINER_NAME` | `kbap-api-dev` | `kbap-api-staging` | 태스크정의 컨테이너명 |
 | `HOST_PORT` | `8080` | `8081` | — |
 | `ECS_CLUSTER` / `ECS_SERVICE` | — | — | 기존 클러스터/서비스 |
 
@@ -84,12 +84,12 @@ git push origin develop:staging-20260720   # develop 기준 임시 staging-* 생
 # 합격 후: staging-20260720 을 main·develop 에 병합 → 브랜치 삭제(git push origin :staging-20260720)
 ```
 
-> 여러 `staging-*` 브랜치가 동시에 있어도 배포는 같은 `api-staging` 컨테이너를 대상으로 하므로 `concurrency: deploy-staging` 하나로 직렬화된다(마지막 푸시가 최종 상태). 한 번에 하나의 릴리스 후보만 실험하는 것을 전제로 한다.
+> 여러 `staging-*` 브랜치가 동시에 있어도 배포는 같은 `kbap-api-staging` 컨테이너를 대상으로 하므로 `concurrency: deploy-staging` 하나로 직렬화된다(마지막 푸시가 최종 상태). 한 번에 하나의 릴리스 후보만 실험하는 것을 전제로 한다.
 
 ## §6. 환경별 검증 (DoD — 각 1회)
 
-1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `api-dev` 이미지 태그 = **푸시 커밋 sha** 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
-2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 이미지 태그도 **커밋 sha**(dev·prod 와 동일). `api-dev` 비간섭 확인.
+1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `kbap-api-dev` 이미지 태그 = **푸시 커밋 sha** 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `kbap-api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
+2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 이미지 태그도 **커밋 sha**(dev·prod 와 동일). `kbap-api-dev` 비간섭 확인.
 3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **커밋 sha** 확인 → ECS 콘솔의 서비스 배포 탭에서 블루/그린 트래픽 전환 확인 → 서비스 헬스 UP. (`aws ecs describe-services --query 'services[0].deployments'` 로 새 배포가 PRIMARY 로 전환됐는지 확인.)
 4. **실패 전파 확인(권장)**: 존재하지 않는 image_tag 로 dev workflow_dispatch 실행 → 워크플로가 실패로 표시되고 기존 컨테이너가 살아있는지 확인(FR-010, US1-AC3).
 

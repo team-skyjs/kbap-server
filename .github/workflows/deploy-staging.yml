@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   deploy:
-    name: build and deploy to api-staging
+    name: build and deploy to kbap-api-staging
     runs-on: ubuntu-latest
     environment: staging
 

@@ -19,7 +19,7 @@
 - **Rationale**: SSH 키 불필요(Jira 확정). 헬스체크를 SSM 스크립트 안에 두면 "헬스 실패 = 명령 실패 = 워크플로 실패"가 한 경로로 떨어져 FR-008·FR-010 을 추가 단계 없이 충족한다. 러너에서 EC2 로 직접 curl 하는 방식은 보안그룹 개방이 필요해 기각.
 - **완료 대기는 `aws ssm wait` 대신 직접 폴링**(Codex 리뷰 2026-07-20 지적 반영): `aws ssm wait command-executed` 기본 상한은 20회×5초=100초인데 원격 헬스 루프는 30회×5초=150초라, 느린 JVM 기동 시 waiter 가 먼저 포기하고 `|| true` 가 타임아웃을 삼켜 즉시 status 확인이 `InProgress` 를 봐 **정상 배포를 실패로 오탐**한다. 러너에서 `get-command-invocation` 을 최대 60회×5초=300초 폴링해 종료 상태(Success/Failed/…)까지 기다린 뒤 판정한다 — 폴링 창(300초) > 원격 창(150초).
 - **Alternatives considered**: (1) SSM 세션/포트포워딩으로 러너에서 헬스체크 — 플러그인 설치·세션 관리 복잡. (2) docker compose 파일을 EC2 에 두고 갱신 — 현재 운영이 단일 `docker run` 컨테이너 2개라 도입 이득 없음.
-- **환경값**: 컨테이너 런타임 env 는 EC2 호스트의 `--env-file`(`/opt/kbap/api-dev.env`·`api-staging.env`)이 소유 — 기존 수동 배포의 env 구성을 그대로 승계하고, DB 비밀번호 등이 GitHub 로 이동하지 않는다.
+- **환경값**: 컨테이너 런타임 env 는 EC2 호스트의 `--env-file`(`/opt/kbap/kbap-api-dev.env`·`kbap-api-staging.env`)이 소유 — 기존 수동 배포의 env 구성을 그대로 승계하고, DB 비밀번호 등이 GitHub 로 이동하지 않는다.
 
 ## R4. prod — 태스크 정의 리비전 갱신 + ECS 네이티브 블루/그린(update-service)
 
@@ -37,7 +37,7 @@
 
 ## R6. GitHub Environments — 값은 variables, secrets 불필요
 
-- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap/api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`api-dev`/`api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`(CODEDEPLOY_*·CONTAINER_* 불필요 — 네이티브 블루/그린은 컨테이너·포트·타깃그룹·전략을 서비스/태스크정의가 소유). prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
+- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap/api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`kbap-api-dev`/`kbap-api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`(CODEDEPLOY_*·CONTAINER_* 불필요 — 네이티브 블루/그린은 컨테이너·포트·타깃그룹·전략을 서비스/태스크정의가 소유). prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
 - **Rationale**: OIDC 라 자격 증명 secret 이 없고, 컨테이너 런타임 secret 은 EC2 env-file/ECS 태스크정의가 소유(R3·R4) — GitHub 에 비밀이 하나도 안 올라간다.
 
 ## R7. 동시 실행 — 환경별 직렬화, 마지막 푸시가 최종 상태

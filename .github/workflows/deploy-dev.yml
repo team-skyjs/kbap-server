@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   deploy:
-    name: build and deploy to api-dev
+    name: build and deploy to kbap-api-dev
     runs-on: ubuntu-latest
     environment: dev
 

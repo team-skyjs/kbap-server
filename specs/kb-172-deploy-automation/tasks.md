@@ -32,7 +32,7 @@
 **⚠️ CRITICAL**: US1~US3 실배포 검증 전 완료 필수
 
 - [ ] T002 GitHub OIDC provider 존재 확인/생성 — quickstart §1 (`aws iam create-open-id-connect-provider`)
-- [ ] T003 [P] 공용 EC2 사전 조건 확인 — quickstart §3: SSM Agent + `AmazonSSMManagedInstanceCore`, 인스턴스 프로파일 ECR pull 권한, env-file 2개(`/opt/kbap/api-dev.env`·`api-staging.env`, `SPRING_PROFILES_ACTIVE` 포함), 포트 8080/8081
+- [ ] T003 [P] 공용 EC2 사전 조건 확인 — quickstart §3: SSM Agent + `AmazonSSMManagedInstanceCore`, 인스턴스 프로파일 ECR pull 권한, env-file 2개(`/opt/kbap/kbap-api-dev.env`·`kbap-api-staging.env`, `SPRING_PROFILES_ACTIVE` 포함), 포트 8080/8081
 
 **Checkpoint**: OIDC·EC2 준비 완료 — 스토리별 IAM/Environment/워크플로 작업 시작 가능
 
@@ -40,17 +40,17 @@
 
 ## Phase 3: User Story 1 - develop 푸시만으로 dev 환경 배포 (Priority: P1) 🎯 MVP
 
-**Goal**: develop 푸시 → 이미지 빌드·ECR push(git sha 태그) → SSM 으로 `api-dev`(:8080) 교체 → 헬스체크까지 무인 완료
+**Goal**: develop 푸시 → 이미지 빌드·ECR push(git sha 태그) → SSM 으로 `kbap-api-dev`(:8080) 교체 → 헬스체크까지 무인 완료
 
-**Independent Test**: develop 에 커밋 푸시 → 사람 조작 0회로 `api-dev` 가 해당 sha 이미지로 교체되고 `/actuator/health` UP (quickstart §6.1)
+**Independent Test**: develop 에 커밋 푸시 → 사람 조작 0회로 `kbap-api-dev` 가 해당 sha 이미지로 교체되고 `/actuator/health` UP (quickstart §6.1)
 
 ### Implementation for User Story 1
 
 - [ ] T004 [P] [US1] IAM 역할 `gha-deploy-dev` 생성 — quickstart §2: 신뢰 정책 `sub`=`repo:team-skyjs/kbap-server:environment:dev`, 권한 = ECR push(`kbap/api` 한정) + `ssm:SendCommand`(대상 인스턴스·`AWS-RunShellScript` 한정) + 조회
-- [ ] T005 [P] [US1] GitHub Environment `dev` 생성 + variables 등록 + **deployment branch policy `develop`** — quickstart §4: `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY=kbap/api`·`EC2_INSTANCE_ID`·`CONTAINER_NAME=api-dev`·`HOST_PORT=8080` (secret 0개). branch policy 로 develop 만 dev 배포 가능하게 잠금(브랜치 격리 실집행 — FR-006)
-- [X] T006 [P] [US1] `.github/workflows/deploy-dev.yml` 작성 — plan "워크플로 공통 골격": `on: push(develop)` + `workflow_dispatch(image_tag)`(R8), `concurrency: deploy-dev, cancel-in-progress: false`(R7), `permissions: id-token: write`(R5), `environment: dev`, steps = checkout → configure-aws-credentials(OIDC, `vars.AWS_ROLE_ARN`) → ecr-login → [image_tag 미지정 시] `docker build --platform linux/amd64` + push 태그 `${{ github.sha }}`(R2) → `aws ssm send-command`(pull/stop/rm/run `--env-file /opt/kbap/api-dev.env -p 8080:8080` + 헬스체크 루프 `curl -sf localhost:8080/actuator/health` 30회×5초, 실패 `exit 1`)(R3) → `ssm wait command-executed` + `get-command-invocation`(실패 전파, FR-010)
+- [ ] T005 [P] [US1] GitHub Environment `dev` 생성 + variables 등록 + **deployment branch policy `develop`** — quickstart §4: `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY=kbap/api`·`EC2_INSTANCE_ID`·`CONTAINER_NAME=kbap-api-dev`·`HOST_PORT=8080` (secret 0개). branch policy 로 develop 만 dev 배포 가능하게 잠금(브랜치 격리 실집행 — FR-006)
+- [X] T006 [P] [US1] `.github/workflows/deploy-dev.yml` 작성 — plan "워크플로 공통 골격": `on: push(develop)` + `workflow_dispatch(image_tag)`(R8), `concurrency: deploy-dev, cancel-in-progress: false`(R7), `permissions: id-token: write`(R5), `environment: dev`, steps = checkout → configure-aws-credentials(OIDC, `vars.AWS_ROLE_ARN`) → ecr-login → [image_tag 미지정 시] `docker build --platform linux/amd64` + push 태그 `${{ github.sha }}`(R2) → `aws ssm send-command`(pull/stop/rm/run `--env-file /opt/kbap/kbap-api-dev.env -p 8080:8080` + 헬스체크 루프 `curl -sf localhost:8080/actuator/health` 30회×5초, 실패 `exit 1`)(R3) → `ssm wait command-executed` + `get-command-invocation`(실패 전파, FR-010)
 - [X] T007 [US1] `actionlint` 로 `.github/workflows/deploy-dev.yml` 정적 검증 (R9)
-- [ ] T008 [US1] 실배포 검증 — develop 푸시 → Actions `deploy-dev` 성공, EC2 `docker ps` 태그=푸시 sha, health UP, `api-staging` 비간섭 (quickstart §6.1, SC-001)
+- [ ] T008 [US1] 실배포 검증 — develop 푸시 → Actions `deploy-dev` 성공, EC2 `docker ps` 태그=푸시 sha, health UP, `kbap-api-staging` 비간섭 (quickstart §6.1, SC-001)
 
 **Checkpoint**: dev 배포 자동화 완결 — 수동 배포 절차 소멸(SC-005)
 
@@ -58,18 +58,18 @@
 
 ## Phase 4: User Story 2 - staging 푸시만으로 staging 환경 배포 (Priority: P2)
 
-**Goal**: staging 푸시 → 커밋 sha 이미지 → SSM 으로 `api-staging`(:8081) 교체, `api-dev` 비간섭
+**Goal**: staging 푸시 → 커밋 sha 이미지 → SSM 으로 `kbap-api-staging`(:8081) 교체, `kbap-api-dev` 비간섭
 
-**Independent Test**: staging 에 커밋 푸시 → `api-staging` 만 해당 sha 이미지로 교체, 같은 EC2 의 `api-dev` STATUS 유지 (quickstart §6.2)
+**Independent Test**: staging 에 커밋 푸시 → `kbap-api-staging` 만 해당 sha 이미지로 교체, 같은 EC2 의 `kbap-api-dev` STATUS 유지 (quickstart §6.2)
 
 ### Implementation for User Story 2
 
 - [ ] T009 [P] [US2] 임시 `staging-*` 브랜치 생성 — quickstart §5: `git push origin develop:staging-<yyyymmdd>`(릴리스마다 새로, 병합 후 삭제)
 - [ ] T010 [P] [US2] IAM 역할 `gha-deploy-staging` 생성 — quickstart §2 (dev 와 동일 구조, `sub`=`environment:staging`)
-- [ ] T011 [P] [US2] GitHub Environment `staging` 생성 + variables 등록 + **deployment branch policy `staging-*`** — quickstart §4: `CONTAINER_NAME=api-staging`·`HOST_PORT=8081`, 나머지 dev 와 동일 항목. branch policy 패턴 `staging-*` 로 임시 staging 브랜치들만 배포 가능하게 잠금(FR-006)
-- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1, 태그도 `github.sha` 동일), 차이: 트리거 `staging-*`, `concurrency: deploy-staging`, `environment: staging`, env-file `/opt/kbap/api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
+- [ ] T011 [P] [US2] GitHub Environment `staging` 생성 + variables 등록 + **deployment branch policy `staging-*`** — quickstart §4: `CONTAINER_NAME=kbap-api-staging`·`HOST_PORT=8081`, 나머지 dev 와 동일 항목. branch policy 패턴 `staging-*` 로 임시 staging 브랜치들만 배포 가능하게 잠금(FR-006)
+- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1, 태그도 `github.sha` 동일), 차이: 트리거 `staging-*`, `concurrency: deploy-staging`, `environment: staging`, env-file `/opt/kbap/kbap-api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
 - [X] T013 [US2] `actionlint` 로 `.github/workflows/deploy-staging.yml` 정적 검증 (R9)
-- [ ] T014 [US2] 실배포 검증 — staging 푸시 → `api-staging` 태그=푸시 sha, health UP(:8081), `api-dev` 재시작 없음 (quickstart §6.2, FR-002)
+- [ ] T014 [US2] 실배포 검증 — staging 푸시 → `kbap-api-staging` 태그=푸시 sha, health UP(:8081), `kbap-api-dev` 재시작 없음 (quickstart §6.2, FR-002)
 
 **Checkpoint**: dev·staging 이 같은 EC2 에서 독립 배포됨
 
