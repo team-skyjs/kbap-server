@@ -32,7 +32,7 @@
 ## R5. 인증 — GitHub OIDC + 환경별 IAM 역할(신뢰 정책으로 교차 차단)
 
 - **Decision**: 각 워크플로 잡에 `permissions: {id-token: write, contents: read}` + `aws-actions/configure-aws-credentials@v4`(`role-to-assume: ${{ vars.AWS_ROLE_ARN }}`). IAM 역할 3개(`gha-deploy-dev`/`-staging`/`-prod`)의 신뢰 정책 `sub` 조건을 `repo:<org>/<repo>:environment:<env>` 로 잠가, **해당 GitHub Environment 에서 실행된 잡만** 그 역할을 assume 할 수 있게 한다. 권한: dev/staging 역할 = ECR push + `ssm:SendCommand`(대상 인스턴스·문서 한정) + 결과 조회, prod 역할 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService`(+`iam:PassRole` 태스크 역할 한정) — CodeDeploy 권한 없음.
-- **Rationale**: 장기 액세스 키 0개. 단 **IAM `sub` 만으로는 브랜치를 격리하지 못한다** — environment 잡의 OIDC `sub` 는 `repo:…:environment:<env>` 로 브랜치를 담지 않으므로, 아무 브랜치의 워크플로가 `environment: prod` 를 선언하면 신뢰 정책이 통과한다. 따라서 브랜치 격리는 **GitHub Environment 의 deployment branch policy**(prod→main·staging→staging·dev→develop)가 담당하고, IAM `sub`(어느 환경) + branch policy(어느 브랜치) 2겹으로 FR-006 을 완성한다(quickstart §4). (Codex 리뷰 2026-07-20 지적 반영.)
+- **Rationale**: 장기 액세스 키 0개. 단 **IAM `sub` 만으로는 브랜치를 격리하지 못한다** — environment 잡의 OIDC `sub` 는 `repo:…:environment:<env>` 로 브랜치를 담지 않으므로, 아무 브랜치의 워크플로가 `environment: prod` 를 선언하면 신뢰 정책이 통과한다. 따라서 브랜치 격리는 **GitHub Environment 의 deployment branch policy**(prod→main·staging→`staging-*`·dev→develop)가 담당하고, IAM `sub`(어느 환경) + branch policy(어느 브랜치) 2겹으로 FR-006 을 완성한다(quickstart §4). (Codex 리뷰 2026-07-20 지적 반영.)
 - **Alternatives considered**: 액세스 키 secrets 저장 — 유출·로테이션 부담, Jira 가 OIDC 확정. 기각.
 
 ## R6. GitHub Environments — 값은 variables, secrets 불필요

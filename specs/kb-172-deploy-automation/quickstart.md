@@ -68,21 +68,21 @@ Settings → Environments 에 `dev`/`staging`/`prod` 생성 후 **variables**(se
 
 > prod 는 ECS 네이티브 블루/그린이라 `CODEDEPLOY_*`·`CONTAINER_NAME`·`CONTAINER_PORT` variables 가 필요 없다 — 컨테이너·포트·타깃그룹·블루그린 전략·bake time 은 **ECS 서비스/태스크정의에 사전 구성**(인프라 소유). 워크플로는 태스크정의의 이미지만 교체하고 `update-service` 로 블루/그린을 트리거한다. 서비스에 `deploymentConfiguration.strategy=BLUE_GREEN` 이 설정돼 있어야 한다(CodeDeploy 의 배포그룹을 대체하는 사전 조건).
 
-**deployment branch policy (필수 — 브랜치→환경 격리의 실제 집행자)**: 각 environment → Settings → Environments → `<env>` → **Deployment branches and tags → Selected branches and tags** 에서 브랜치를 잠근다 — prod→`main`, staging→`staging`, dev→`develop`. 이게 없으면 **아무 브랜치의 워크플로가 `environment: prod` 를 선언해 prod 역할을 assume 할 수 있다** — OIDC `sub` 는 `repo:…:environment:prod` 로 브랜치를 담지 않으므로 IAM 신뢰 정책만으로는 브랜치를 못 막는다(§2 의 `sub` 조건은 "어느 environment 냐"만 검증). 교차 배포 차단은 **IAM sub(어느 환경) + deployment branch policy(어느 브랜치) 2겹**으로 완성된다.
+**deployment branch policy (필수 — 브랜치→환경 격리의 실제 집행자)**: 각 environment → Settings → Environments → `<env>` → **Deployment branches and tags → Selected branches and tags** 에서 브랜치를 잠근다 — prod→`main`, staging→`staging-*`(패턴), dev→`develop`. 이게 없으면 **아무 브랜치의 워크플로가 `environment: prod` 를 선언해 prod 역할을 assume 할 수 있다** — OIDC `sub` 는 `repo:…:environment:prod` 로 브랜치를 담지 않으므로 IAM 신뢰 정책만으로는 브랜치를 못 막는다(§2 의 `sub` 조건은 "어느 environment 냐"만 검증). 교차 배포 차단은 **IAM sub(어느 환경) + deployment branch policy(어느 브랜치) 2겹**으로 완성된다.
 
 prod 승인 게이트: 이번엔 미설정. 필요 시 `prod` environment 의 protection rules → required reviewers 만 켜면 된다(워크플로 무변경).
 
 ## §5. staging 브랜치 (릴리스마다 임시)
 
-staging 은 릴리스마다 develop 에서 따서 실험하고, 합격하면 main·develop 에 병합 후 삭제하는 **임시 브랜치**다. 워크플로는 고정 이름 `staging` 푸시에 트리거되므로 매 사이클 같은 이름으로 다시 만든다.
+staging 은 릴리스마다 develop 에서 따서 실험하고, 합격하면 main·develop 에 병합 후 삭제하는 **임시 브랜치**다. 워크플로는 **`staging-*` 패턴** 푸시에 트리거되므로(`deploy-staging.yml`), 날짜 등을 붙인 이름을 매 사이클 새로 만든다.
 
 ```bash
-git push origin develop:staging   # develop 기준 임시 staging 생성 → deploy-staging 트리거
-# ... 테스트·핫픽스 커밋 ...
-# 합격 후: staging 을 main·develop 에 병합 → staging 삭제(git push origin :staging)
+git push origin develop:staging-20260720   # develop 기준 임시 staging-* 생성 → deploy-staging 트리거
+# ... 테스트·핫픽스 커밋 (푸시마다 재배포) ...
+# 합격 후: staging-20260720 을 main·develop 에 병합 → 브랜치 삭제(git push origin :staging-20260720)
 ```
 
-> 날짜 등을 넣은 임시 브랜치명(`staging-20260720`)을 쓰고 싶으면 `deploy-staging.yml` 의 트리거를 `branches: [ "staging-*" ]` 로 바꾸면 된다(현재는 고정 `staging`).
+> 여러 `staging-*` 브랜치가 동시에 있어도 배포는 같은 `api-staging` 컨테이너를 대상으로 하므로 `concurrency: deploy-staging` 하나로 직렬화된다(마지막 푸시가 최종 상태). 한 번에 하나의 릴리스 후보만 실험하는 것을 전제로 한다.
 
 ## §6. 환경별 검증 (DoD — 각 1회)
 

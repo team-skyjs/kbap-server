@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "재배포할 기존 이미지 태그(예: 0.9). 비우면 VERSION 기준으로 빌드한다."
+        description: "재배포할 기존 이미지 태그(이전 커밋 sha). 비우면 현재 커밋을 빌드한다."
         required: false
         type: string
 

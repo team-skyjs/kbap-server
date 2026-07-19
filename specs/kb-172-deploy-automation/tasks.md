@@ -64,10 +64,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [P] [US2] 장기 브랜치 `staging` 생성 — quickstart §5: `git push origin develop:staging`
+- [ ] T009 [P] [US2] 임시 `staging-*` 브랜치 생성 — quickstart §5: `git push origin develop:staging-<yyyymmdd>`(릴리스마다 새로, 병합 후 삭제)
 - [ ] T010 [P] [US2] IAM 역할 `gha-deploy-staging` 생성 — quickstart §2 (dev 와 동일 구조, `sub`=`environment:staging`)
-- [ ] T011 [P] [US2] GitHub Environment `staging` 생성 + variables 등록 + **deployment branch policy `staging`** — quickstart §4: `CONTAINER_NAME=api-staging`·`HOST_PORT=8081`, 나머지 dev 와 동일 항목. branch policy 로 staging 브랜치만 배포 가능하게 잠금(FR-006)
-- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1, 태그도 `github.sha` 동일), 차이: 트리거 `staging`, `concurrency: deploy-staging`, `environment: staging`, env-file `/opt/kbap/api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
+- [ ] T011 [P] [US2] GitHub Environment `staging` 생성 + variables 등록 + **deployment branch policy `staging-*`** — quickstart §4: `CONTAINER_NAME=api-staging`·`HOST_PORT=8081`, 나머지 dev 와 동일 항목. branch policy 패턴 `staging-*` 로 임시 staging 브랜치들만 배포 가능하게 잠금(FR-006)
+- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1, 태그도 `github.sha` 동일), 차이: 트리거 `staging-*`, `concurrency: deploy-staging`, `environment: staging`, env-file `/opt/kbap/api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
 - [X] T013 [US2] `actionlint` 로 `.github/workflows/deploy-staging.yml` 정적 검증 (R9)
 - [ ] T014 [US2] 실배포 검증 — staging 푸시 → `api-staging` 태그=푸시 sha, health UP(:8081), `api-dev` 재시작 없음 (quickstart §6.2, FR-002)
 
