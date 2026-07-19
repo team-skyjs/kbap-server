@@ -21,7 +21,7 @@
 
 **Purpose**: 저장소 쪽 공통 전제
 
-- [X] T001 릴리스 버전 단일 출처 `VERSION` 파일 생성(1줄 `1.0`) — repo 루트, staging/prod 이미지 태그 근원(research R2)
+- [X] T001 (폐기) 버전 개념 폐기 — 전 환경 커밋 sha 태그(사용자 결정 07-20). VERSION 파일 없음, Setup 저장소 작업 없음.
 
 ---
 
@@ -58,18 +58,18 @@
 
 ## Phase 4: User Story 2 - staging 푸시만으로 staging 환경 배포 (Priority: P2)
 
-**Goal**: staging 푸시 → 버전 태그(`$(cat VERSION)-rc`) 이미지 → SSM 으로 `api-staging`(:8081) 교체, `api-dev` 비간섭
+**Goal**: staging 푸시 → 커밋 sha 이미지 → SSM 으로 `api-staging`(:8081) 교체, `api-dev` 비간섭
 
-**Independent Test**: staging 에 커밋 푸시 → `api-staging` 만 `1.0-rc` 이미지로 교체, 같은 EC2 의 `api-dev` STATUS 유지 (quickstart §6.2)
+**Independent Test**: staging 에 커밋 푸시 → `api-staging` 만 해당 sha 이미지로 교체, 같은 EC2 의 `api-dev` STATUS 유지 (quickstart §6.2)
 
 ### Implementation for User Story 2
 
 - [ ] T009 [P] [US2] 장기 브랜치 `staging` 생성 — quickstart §5: `git push origin develop:staging`
 - [ ] T010 [P] [US2] IAM 역할 `gha-deploy-staging` 생성 — quickstart §2 (dev 와 동일 구조, `sub`=`environment:staging`)
 - [ ] T011 [P] [US2] GitHub Environment `staging` 생성 + variables 등록 + **deployment branch policy `staging`** — quickstart §4: `CONTAINER_NAME=api-staging`·`HOST_PORT=8081`, 나머지 dev 와 동일 항목. branch policy 로 staging 브랜치만 배포 가능하게 잠금(FR-006)
-- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1), 차이: 트리거 `staging`, `concurrency: deploy-staging`, `environment: staging`, 이미지 태그 **`$(cat VERSION)-rc`**(R2 — sha 아님, `latest` 미사용), env-file `/opt/kbap/api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
+- [X] T012 [P] [US2] `.github/workflows/deploy-staging.yml` 작성 — deploy-dev.yml 과 동일 구조(R1, 태그도 `github.sha` 동일), 차이: 트리거 `staging`, `concurrency: deploy-staging`, `environment: staging`, env-file `/opt/kbap/api-staging.env`, 포트 `8081:8080`, 헬스체크 `localhost:8081`
 - [X] T013 [US2] `actionlint` 로 `.github/workflows/deploy-staging.yml` 정적 검증 (R9)
-- [ ] T014 [US2] 실배포 검증 — staging 푸시 → `api-staging` 태그=`1.0-rc`, health UP(:8081), `api-dev` 재시작 없음 (quickstart §6.2, FR-002)
+- [ ] T014 [US2] 실배포 검증 — staging 푸시 → `api-staging` 태그=푸시 sha, health UP(:8081), `api-dev` 재시작 없음 (quickstart §6.2, FR-002)
 
 **Checkpoint**: dev·staging 이 같은 EC2 에서 독립 배포됨
 
@@ -77,17 +77,17 @@
 
 ## Phase 5: User Story 3 - main 병합 시 prod 무중단 배포 (Priority: P3)
 
-**Goal**: main 병합 → 버전 태그(`$(cat VERSION)`) 이미지 → 태스크정의 리비전 갱신 → `update-service` 로 ECS 네이티브 블루/그린 트리거·`wait services-stable`
+**Goal**: main 병합 → 커밋 sha 이미지 → 태스크정의 리비전 갱신 → `update-service` 로 ECS 네이티브 블루/그린 트리거·`wait services-stable`
 
-**Independent Test**: main 병합 → 새 태스크정의 이미지 태그=`1.0`, 블루/그린 트래픽 전환(새 배포 PRIMARY), 서비스 헬스 UP (quickstart §6.3)
+**Independent Test**: main 병합 → 새 태스크정의 이미지 태그=커밋 sha, 블루/그린 트래픽 전환(새 배포 PRIMARY), 서비스 헬스 UP (quickstart §6.3)
 
 ### Implementation for User Story 3
 
 - [ ] T015 [P] [US3] IAM 역할 `gha-deploy-prod` 생성 — quickstart §2: `sub`=`environment:prod`, 권한 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService` + `iam:PassRole`(태스크 역할 한정). CodeDeploy 권한 없음(네이티브 블루/그린)
 - [ ] T016 [P] [US3] GitHub Environment `prod` 생성 + variables 등록 + **deployment branch policy `main`** — quickstart §4: `ECS_CLUSTER`·`ECS_SERVICE` + 공통 3종(`AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`). CODEDEPLOY_*·CONTAINER_* 불필요(서비스/태스크정의가 소유). branch policy 로 main 만 prod 배포 가능하게 잠금(FR-006 브랜치 격리 실집행 — IAM sub 은 브랜치를 못 담음). 승인 게이트 미설정 — 추후 protection rule 만. **전제**: ECS 서비스에 `deploymentConfiguration.strategy=BLUE_GREEN`·타깃그룹·bake 사전 구성
-- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`$(cat VERSION)`**), 배포 단계는 R4: `describe-services` → `describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws ecs update-service --task-definition <new-arn>`(블루/그린 트리거) → `aws ecs wait services-stable`(실패 전파). `--deployment-configuration` 미전달(bake·서킷브레이커 덮어쓰기 방지)
+- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`github.sha`**), 배포 단계는 R4: `describe-services` → `describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws ecs update-service --task-definition <new-arn>`(블루/그린 트리거) → `aws ecs wait services-stable`(실패 전파). `--deployment-configuration` 미전달(bake·서킷브레이커 덮어쓰기 방지)
 - [X] T018 [US3] `actionlint` 로 `.github/workflows/deploy-prod.yml` 정적 검증 (R9)
-- [ ] T019 [US3] 실배포 검증 — main 병합 → 태스크정의 태그=`1.0`, 블루그린 전환, 헬스 UP (quickstart §6.3, FR-003)
+- [ ] T019 [US3] 실배포 검증 — main 병합 → 태스크정의 태그=커밋 sha, 블루그린 전환, 헬스 UP (quickstart §6.3, FR-003)
 
 **Checkpoint**: 3개 브랜치→환경 매핑 전부 자동화 — DoD 배포 검증 3종 완료
 
@@ -106,7 +106,7 @@
 
 ### Phase Dependencies
 
-- **Phase 1(T001)**: 즉시 가능 — T012·T017(버전 태그)의 전제
+- **Phase 1(T001)**: 폐기(버전 개념 없음 — 저장소 Setup 작업 없음)
 - **Phase 2(T002~T003)**: 즉시 가능 — 각 스토리의 **실배포 검증**(T008·T014)을 블록(워크플로 파일 작성 자체는 비블록)
 - **US1(T004~T008)** → **US2(T009~T014)** → **US3(T015~T019)**: 우선순위 순 권장. 파일·역할·환경이 전부 분리라 기술적으론 병렬 가능하나, 검증 순서는 P1→P2→P3(신뢰 축적 후 prod 연결 — spec)
 - **Polish(T020~T023)**: 해당 스토리 검증 완료 후

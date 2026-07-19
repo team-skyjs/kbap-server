@@ -8,9 +8,8 @@
 
 ## R2. 이미지 빌드 — 기존 멀티스테이지 Dockerfile 그대로 CI 에서 docker build
 
-- **Decision**: 러너에서 `docker build --platform linux/amd64` 후 push. 빌드 로직은 기존 `Dockerfile`(Gradle bootJar 멀티스테이지)이 소유 — 워크플로는 build/push 만 한다. **이미지 태그는 환경별**(사용자 지시 2026-07-20 — staging·main 은 커밋 해시 대신 명시적 버전, `latest` 미사용): dev = `${{ github.sha }}`, staging = `$(cat VERSION)-rc`(예: `1.0-rc`), prod = `$(cat VERSION)`(예: `1.0`).
-- **버전 단일 출처**: 루트 `VERSION` 파일 1줄(예: `1.0`) — 워크플로가 `cat` 으로 읽는다. buildSrc 의 `version = "0.0.1-SNAPSHOT"` 은 하드코딩·릴리스 관리 밖이라 출처로 부적합(gradle 실행으로 읽는 것도 무거움), git tag 는 푸시 트리거 모델과 안 맞아 기각. 릴리스마다 `VERSION` 을 커밋으로 올린다(bump 없이 재배포하면 같은 태그를 덮어씀 — 롤백 전제 훼손이라 팀 규율로 관리).
-- **staging 접미사 `-rc`**: staging 과 prod 가 같은 태그(`1.0`)를 공유하면 ECR 이 리포지토리 공유라 main 병합 빌드가 staging 이 검증한 이미지를 덮어쓴다 — `-rc` 접미사로 환경 간 태그를 분리해 각자의 롤백 대상이 보존된다.
+- **Decision**: 러너에서 `docker build --platform linux/amd64` 후 push. 빌드 로직은 기존 `Dockerfile`(Gradle bootJar 멀티스테이지)이 소유 — 워크플로는 build/push 만 한다. **이미지 태그는 전 환경 공통 `${{ github.sha }}`**(사용자 결정 2026-07-20 — 버전 개념 폐기, 단순화). `latest`·버전 태그 미사용.
+- **커밋 sha 통일 근거**: 커밋마다 유일 태그라 환경 간 덮어쓰기·충돌이 원천적으로 없다(별도 `-rc` 접미사·버전 파일·태그 파싱 불필요). VERSION 파일·브랜치명 파싱·git tag 트리거는 전부 검토했으나(2026-07-20 논의), 버전 관리가 지금 요구사항이 아니라 기각 — 릴리스 버저닝이 필요해지면 후속으로 git 태그 도입(R8 롤백은 sha 로 이미 충족).
 - **Rationale**: Dockerfile 이 이미 로컬 수동 배포에서 검증된 빌드 정의다. 로컬과 CI 가 같은 아티팩트 경로를 쓰므로 "prod 와 동일한 아티팩트" 성질이 유지된다. `ubuntu-latest` 러너가 amd64 라 `--platform` 은 명시적 안전핀.
 - **Alternatives considered**: (1) 러너에서 gradle 빌드 후 jar 만 도커라이즈 — Dockerfile 과 빌드 정의가 이원화돼 드리프트. (2) buildx 레이어 캐시(gha cache) — Gradle 스테이지는 소스 복사 직후라 캐시 적중이 낮음. 빌드 시간이 문제 되면 후속.
 
@@ -24,7 +23,7 @@
 
 ## R4. prod — 태스크 정의 리비전 갱신 + ECS 네이티브 블루/그린(update-service)
 
-- **Decision**(2026-07-20 사용자 확인 — CodeDeploy 미사용, ECS 네이티브 블루/그린 사용): `aws ecs describe-services` 로 현재 태스크정의 ARN 을 얻어 `describe-task-definition` → **이미지 태그만 릴리스 버전으로 교체**한 새 리비전 등록(`register-task-definition`) → `aws ecs update-service --task-definition <new-arn>` 로 블루/그린 트리거 → `aws ecs wait services-stable` 로 완료 대기. 블루/그린 전략(`deploymentConfiguration.strategy=BLUE_GREEN`)·타깃그룹·리스너·bake time 은 **ECS 서비스에 미리 구성**(인프라 소유 — CodeDeploy 의 배포그룹이 하던 역할을 서비스 설정이 대체). 헬스체크는 블루/그린 타깃그룹이 담당, wait 실패가 곧 워크플로 실패다.
+- **Decision**(2026-07-20 사용자 확인 — CodeDeploy 미사용, ECS 네이티브 블루/그린 사용): `aws ecs describe-services` 로 현재 태스크정의 ARN 을 얻어 `describe-task-definition` → **이미지 태그(커밋 sha)만 교체**한 새 리비전 등록(`register-task-definition`) → `aws ecs update-service --task-definition <new-arn>` 로 블루/그린 트리거 → `aws ecs wait services-stable` 로 완료 대기. 블루/그린 전략(`deploymentConfiguration.strategy=BLUE_GREEN`)·타깃그룹·리스너·bake time 은 **ECS 서비스에 미리 구성**(인프라 소유 — CodeDeploy 의 배포그룹이 하던 역할을 서비스 설정이 대체). 헬스체크는 블루/그린 타깃그룹이 담당, wait 실패가 곧 워크플로 실패다.
 - **Rationale**: CodeDeploy 를 쓰지 않으므로 `deploy create-deployment`·appspec·`AWS::ECS::Service` revision 이 전부 불필요해진다 — `update-service` 한 번이 블루/그린을 트리거한다(서비스가 BLUE_GREEN 전략으로 구성돼 있을 때). 태스크정의를 저장소에 두지 않고 현재 리비전에서 파생하는 원칙은 유지(인프라 드리프트 방지).
 - **`--deployment-configuration` 미전달**: 매 배포에서 이 플래그를 넘기지 않는다 — AWS CLI 는 이 객체를 통째로 대체하므로 미지정 하위필드(bakeTime·서킷브레이커·min/maxPercent)가 기본값으로 덮어써진다. 전략·bake 는 서비스에 1회 구성하고 파이프라인은 태스크정의만 교체한다.
 - **wait 시간 주의**: `aws ecs wait services-stable` 기본 상한은 10분(40회×15초) — bake time 이 길면 wait 가 타임아웃될 수 있다(배포 자체는 계속 진행). bake 를 wait 안에 맞추거나 필요 시 폴링 루프로 대체(현재는 표준 wait 사용).
@@ -48,7 +47,7 @@
 
 ## R8. 롤백 — 같은 워크플로의 workflow_dispatch + image_tag 입력
 
-- **Decision**: 세 워크플로 모두 `workflow_dispatch`(optional input `image_tag`)를 추가. 입력이 있으면 빌드·push 를 건너뛰고 해당 태그를 그대로 배포한다(없으면 현재 커밋 빌드 + 환경별 기본 태그 — R2). 롤백 입력값: dev = 이전 커밋 sha, staging = 이전 `<버전>-rc`, prod = 이전 `<버전>`.
+- **Decision**: 세 워크플로 모두 `workflow_dispatch`(optional input `image_tag`)를 추가. 입력이 있으면 빌드·push 를 건너뛰고 해당 태그를 그대로 배포한다(없으면 현재 커밋 sha 빌드 — R2). 롤백 입력값은 전 환경 공통 **이전 커밋 sha**. 입력은 `env` 로 받아 ECR 태그 형식 검증 후 사용(셸 인젝션 차단 — Codex 리뷰 반영).
 - **Rationale**: FR-009 롤백(이전 태그 재배포, 추가 빌드 불필요)이 별도 장치 없이 수동 실행 한 번으로 충족된다.
 - **Alternatives considered**: 별도 rollback.yml — 배포 경로가 이원화돼 드리프트. 기각.
 

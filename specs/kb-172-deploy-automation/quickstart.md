@@ -72,41 +72,25 @@ Settings → Environments 에 `dev`/`staging`/`prod` 생성 후 **variables**(se
 
 prod 승인 게이트: 이번엔 미설정. 필요 시 `prod` environment 의 protection rules → required reviewers 만 켜면 된다(워크플로 무변경).
 
-## §5. staging 브랜치 생성 (1회)
+## §5. staging 브랜치 (릴리스마다 임시)
+
+staging 은 릴리스마다 develop 에서 따서 실험하고, 합격하면 main·develop 에 병합 후 삭제하는 **임시 브랜치**다. 워크플로는 고정 이름 `staging` 푸시에 트리거되므로 매 사이클 같은 이름으로 다시 만든다.
 
 ```bash
-git push origin develop:staging   # develop 기준 장기 브랜치 생성
+git push origin develop:staging   # develop 기준 임시 staging 생성 → deploy-staging 트리거
+# ... 테스트·핫픽스 커밋 ...
+# 합격 후: staging 을 main·develop 에 병합 → staging 삭제(git push origin :staging)
 ```
+
+> 날짜 등을 넣은 임시 브랜치명(`staging-20260720`)을 쓰고 싶으면 `deploy-staging.yml` 의 트리거를 `branches: [ "staging-*" ]` 로 바꾸면 된다(현재는 고정 `staging`).
 
 ## §6. 환경별 검증 (DoD — 각 1회)
 
 1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `api-dev` 이미지 태그 = **푸시 커밋 sha** 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
-2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 단 이미지 태그는 **`$(cat VERSION)-rc`**(예: `1.0-rc`). `api-dev` 비간섭 확인.
-3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **`$(cat VERSION)`**(예: `1.0`) 확인 → ECS 콘솔의 서비스 배포 탭에서 블루/그린 트래픽 전환 확인 → 서비스 헬스 UP. (`aws ecs describe-services --query 'services[0].deployments'` 로 새 배포가 PRIMARY 로 전환됐는지 확인.)
+2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 이미지 태그도 **커밋 sha**(dev·prod 와 동일). `api-dev` 비간섭 확인.
+3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **커밋 sha** 확인 → ECS 콘솔의 서비스 배포 탭에서 블루/그린 트래픽 전환 확인 → 서비스 헬스 UP. (`aws ecs describe-services --query 'services[0].deployments'` 로 새 배포가 PRIMARY 로 전환됐는지 확인.)
 4. **실패 전파 확인(권장)**: 존재하지 않는 image_tag 로 dev workflow_dispatch 실행 → 워크플로가 실패로 표시되고 기존 컨테이너가 살아있는지 확인(FR-010, US1-AC3).
 
 ## §7. 롤백 절차
 
-Actions → 해당 환경의 deploy 워크플로 → Run workflow → `image_tag` 에 **이전 정상 태그** 입력 → 실행. 빌드 없이 해당 태그를 재배포한다(R8, FR-009).
-
-- dev: 이전 정상 커밋의 git sha (Actions 이력 또는 `git log`)
-- staging: 이전 릴리스 버전 + `-rc` (예: `0.9.0-rc`)
-- prod: 이전 릴리스 버전 (예: `0.9.0`)
-
-## §8. 릴리스 버전 운용
-
-**버전 단일 출처 = 레포 루트 `VERSION` 파일 1줄**(예: `1.0.0`). staging/prod 워크플로가 `cat VERSION` 으로 읽어 태그를 만든다(staging=`<버전>-rc`, prod=`<버전>`). `latest` 미사용. git 추적 파일이라 모든 브랜치가 사본을 갖고, 병합으로 값이 따라 이동한다.
-
-**고치는 지점은 staging 한 곳** — 브랜치 전략(스쿼시 develop · 임시 staging · 릴리스 병합 main):
-
-| 브랜치 | VERSION | 편집 | 배포 태그 |
-|---|---|---|---|
-| develop | 직전 릴리스 값에서 정지 | 안 함 | git sha (VERSION 무시) |
-| staging | 릴리스 준비 시 다음 버전으로 bump | **여기서만** | `<버전>-rc` |
-| main | staging 병합으로 따라옴 | 안 함(머지로 유입) | `<버전>` |
-
-릴리스 사이클: (1) develop→staging 분기 → (2) staging 첫 커밋으로 `VERSION` bump(예: `1.0.0`→`1.1.0`) → (3) 테스트·핫픽스는 staging 에서 계속 커밋(태그 `1.1.0-rc` 유지) → (4) 합격 시 staging 을 **main·develop 양쪽 병합**(VERSION 이 두 브랜치로 따라감, main 배포=`1.1.0`) → (5) staging 삭제.
-
-- **main 의 `release: 1.1.0` 머지 커밋 메시지는 사람이 읽는 기록**일 뿐, 버전 권위는 `VERSION` 파일이다(메시지 파싱 안 함 — 형식 오타에 배포가 깨지지 않게).
-- develop 은 `VERSION` 을 절대 bump 하지 않는다 → 그래서 staging→develop 병합에서 `VERSION` 은 충돌 파일이 되지 않는다(코드 핫픽스가 develop 의 같은 줄과 겹치면 그건 별개로 충돌 가능 — 릴리스 브랜치 핫픽스의 본질).
-- bump 없이 같은 버전을 재배포하면 ECR 태그가 덮어써져 그 버전의 롤백 대상이 사라진다 — staging 분기 직후 bump 를 규율로 한다.
+Actions → 해당 환경의 deploy 워크플로 → Run workflow → `image_tag` 에 **이전 정상 커밋 sha** 입력 → 실행. 빌드 없이 해당 이미지를 재배포한다(R8, FR-009). 전 환경 공통 — 이전 sha 는 Actions 이력·`git log`·ECR 태그 목록에서 확인. 커밋마다 유일 태그라 덮어쓰기·버전 관리 없음.
