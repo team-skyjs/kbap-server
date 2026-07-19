@@ -28,5 +28,5 @@ kbap:
     # 실 S3 버킷·공개(CDN) 베이스. bucket 이 있어야 실 발급 어댑터가 조립된다(KB-145).
     bucket: ${STORAGE_BUCKET}
     public-base-url: ${IMAGE_PUBLIC_BASE_URL}
-    # 공유 버킷 환경 접두 — 인프라 env 로 staging 주입(KB-171), 미설정 시 접두 없음.
-    key-prefix: ${STORAGE_KEY_PREFIX:}
+    # 공유 버킷 환경 접두 — 기본 staging, env 로 커밋 없이 변경 가능(KB-171).
+    key-prefix: ${STORAGE_KEY_PREFIX:staging}

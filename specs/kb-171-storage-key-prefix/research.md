@@ -18,13 +18,13 @@ Technical Context 에 NEEDS CLARIFICATION 없음 — Jira Background·DoD 가 �
   - S3 어댑터(`S3PresignedUploadPort`)에서 결합 — 키 규칙이 두 곳으로 갈라지고 단위 테스트가 :infra 로 밀림. 기각.
   - 별도 KeyPrefix 값 타입 — 문자열 1개에 타입 하나는 과설계. 기각.
 
-## R3. yml 선언 범위
+## R3. yml 선언 범위 (2026-07-20 개정 — 사용자 결정)
 
-- **Decision**: base `application.yml` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}` 선언 + dev·staging 프로필 yml 에 동일 선언. prod·local 은 미선언(= base 기본 빈 값).
-- **Rationale**: base 선언으로 전 환경이 env 에 반응하되 기본 빈 값이라 미설정 기동 실패 없음(FR-004·US3). dev·staging 프로필 중복 선언은 Jira DoD 명시 — 환경 설정 파일만 봐도 접두 사용 환경이 드러나는 가시성 목적(KB-169 프로필별 명시 선언 관례).
+- **Decision**: base `application.yml` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}`(기본 빈 값 — local·테스트) + dev·staging·prod 프로필 yml 에 **환경명 기본값** `${STORAGE_KEY_PREFIX:dev|staging|prod}` 선언. env 는 커밋 없는 오버라이드(빈 값 반전 포함).
+- **Rationale**: KB-169(`REDIS_SSL_ENABLED` 프로필 기본값+env 반전)와 동일 관례 — 인프라 env 추가 없이 배포만으로 전 환경 폴더 분리가 완성되고, 특수 사정은 env 로 커밋 없이 반전한다. prod 도 `prod/` 접두를 기본으로 가져 버킷 최상위가 `dev/`·`staging/`·`prod/`·`images/`(레거시+음식 사진 공유 자산)로 정리된다.
 - **Alternatives considered**:
-  - dev·staging 에 `dev`·`staging` 값 하드코딩 — env 없이도 접두가 걸려 편하지만, Jira 가 값 소유를 인프라(env)에 두기로 결정(`${STORAGE_KEY_PREFIX:}`). 하드코딩 시 환경 이름 변경·홈서버 dev 특수 사정에 커밋이 필요해져 기각.
-  - `@Value` 기본값만으로 처리(yml 무선언) — 동작은 같으나 설정 표면이 코드에만 숨어 운영 가시성이 없다. 기각.
+  - (최초안) 기본 빈 값 + 인프라 env 주입(`${STORAGE_KEY_PREFIX:}`), prod·local 미선언 — Jira DoD 원문. 인프라 env 작업이 선행돼야 효력이 생기고 prod 는 레거시 혼재가 지속돼 사용자 결정으로 대체.
+  - `@Value` 기본값만으로 처리(yml 무선언) — 설정 표면이 코드에만 숨어 운영 가시성이 없다. 기각.
 
 ## R4. URL 조립·저장 경로 영향
 
