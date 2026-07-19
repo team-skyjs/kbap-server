@@ -16,6 +16,8 @@ aws iam create-open-id-connect-provider \
 
 역할 이름: `gha-deploy-dev` / `gha-deploy-staging` / `gha-deploy-prod`.
 
+> **붙여넣기용 완성 JSON**(신뢰정책 + 권한정책 3역할)은 [`iam-policies.md`](iam-policies.md) 참조 — 자리표시자만 치환하면 된다. 아래는 골격 설명.
+
 **신뢰 정책(공통 골격)** — `sub` 를 GitHub Environment 로 잠근다(교차 배포 차단, FR-006). `<ORG>/<REPO>` 와 `<ENV>` 만 치환:
 
 ```json
