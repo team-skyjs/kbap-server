@@ -11,12 +11,12 @@
 
 | 환경 | 기본값(yml) | 발급 키 예시 |
 |------|-------------|--------------|
-| local·테스트 | (빈 값) | `images/scan/2026/07/42/{uuid}.jpg` — 기존과 동일 |
+| local·테스트 | `local` | `local/images/scan/2026/07/42/{uuid}.jpg` |
 | dev | `dev` | `dev/images/scan/2026/07/42/{uuid}.jpg` |
 | staging | `staging` | `staging/images/scan/2026/07/42/{uuid}.jpg` |
 | prod | `prod` | `prod/images/scan/2026/07/42/{uuid}.jpg` |
 
-**음식 사진은 환경 공용** — `images/menus/…` 에 두고 전 환경이 같은 경로를 참조한다. 업로드 API(용도 `scan`·`review`·`profile`)를 경유하지 않으므로 환경 접두가 붙지 않는다(구조적 보장). 기존 저장된 ref(`images/…` 레거시 포함)도 전 환경에서 그대로 유효 — URL 조립이 ref 를 그대로 접합.
+**음식 사진은 환경 공용** — `images/menus/…` 에 두고 전 환경이 같은 경로를 참조한다. 업로드 API(용도 `scan`·`review`·`profile`)를 경유하지 않으므로 환경 접두가 붙지 않는다(구조적 보장) — 향후 배치의 음식 사진 제작도 `images/` 아래 직접 기록(이 설정 무관). 기존 저장된 ref(`images/…` 레거시 포함)도 전 환경에서 그대로 유효 — URL 조립이 ref 를 그대로 접합. 접두 결합 빈 값 계약은 단위 테스트가 고정(env 로 빈 값 반전 시 무접두).
 
 ## 3. 배포 후 검증 런북 (dev)
 

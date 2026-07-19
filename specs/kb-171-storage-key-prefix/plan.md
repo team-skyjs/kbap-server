@@ -71,10 +71,13 @@ app/api/src/main/kotlin/com/kbap/app/api/config/
 └── ImageUploadConfig.kt              # [수정] @Value("${kbap.storage.key-prefix:}") 주입
 
 app/api/src/main/resources/
-├── application.yml                   # [수정] kbap.storage.key-prefix: ${STORAGE_KEY_PREFIX:} 선언(빈 값 — local·테스트)
+├── application.yml                   # [수정] kbap.storage.key-prefix: ${STORAGE_KEY_PREFIX:local}
 ├── application-dev.yml               # [수정] key-prefix: ${STORAGE_KEY_PREFIX:dev}
 ├── application-staging.yml           # [수정] key-prefix: ${STORAGE_KEY_PREFIX:staging}
 └── application-prod.yml              # [수정] key-prefix: ${STORAGE_KEY_PREFIX:prod}
+
+app/api/src/test/resources/
+└── application.yml                   # [수정] key-prefix: local (테스트 환경도 local/ 접두)
 ```
 
 **Structure Decision**: 신규 파일 0, 신규 모듈 0. 기존 KB-145 업로드 경로의 세 파일과 yml 만 만진다. prod·local yml 은 선언하지 않아 base 기본(빈 값)으로 동작 — 기존 키 구조 유지.
@@ -84,7 +87,7 @@ app/api/src/main/resources/
 1. **프로퍼티 위치 = `kbap.storage.key-prefix`** (Jira DoD 명시) — 버킷·public-base-url 과 같은 `kbap.storage.*` 군. 값은 env `STORAGE_KEY_PREFIX` 주입, 기본 빈 값(미설정 시 기동 실패 없음).
 2. **접두 결합은 `objectKey()` 안에서 1회 정규화** — `keyPrefix.trim('/')` 후 빈 값이면 기존 키 그대로, 값이 있으면 `"$prefix/$key"`. `dev`·`dev/`·`/dev` 모두 동일 결과, 선행 슬래시·중복 슬래시 구조적 불가.
 3. **URL 조립 무변경** — 접두 포함 키가 DB ref 로 저장되고 `ImageUrls.resolve(base, ref)` 는 ref 를 경로로 그대로 접합하므로 접두는 경로의 일부일 뿐.
-4. **yml 선언 전략 (2026-07-20 개정 — 사용자 결정)** — base `application.yml` 은 `${STORAGE_KEY_PREFIX:}`(빈 값 — local·테스트), dev·staging·prod 프로필은 **환경명 기본값** `${STORAGE_KEY_PREFIX:dev|staging|prod}`. env 는 커밋 없는 오버라이드(빈 값 반전 포함) — KB-169 관례. 음식 사진은 업로드 API 미경유라 접두와 무관하게 `images/menus/…` 공용 경로 유지.
+4. **yml 선언 전략 (2026-07-20 개정 — 사용자 결정)** — 전 환경 환경명 기본값: base `${STORAGE_KEY_PREFIX:local}`·테스트 yml `local`·프로필 `${STORAGE_KEY_PREFIX:dev|staging|prod}`. env 는 커밋 없는 오버라이드(빈 값 반전 포함) — KB-169 관례. 음식 사진은 업로드 API 미경유라 접두와 무관하게 `images/menus/…` 공용 경로 유지(향후 배치 음식 사진 제작도 `images/` 직접 기록).
 5. **테스트 전략** — `:application` 단위 테스트만으로 완결(페이크 port 가 키를 기록). 통합·컨트롤러 테스트는 키 구조를 검증하지 않으므로 무수정 통과.
 
 ## Complexity Tracking

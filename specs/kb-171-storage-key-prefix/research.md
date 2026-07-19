@@ -20,8 +20,8 @@ Technical Context 에 NEEDS CLARIFICATION 없음 — Jira Background·DoD 가 �
 
 ## R3. yml 선언 범위 (2026-07-20 개정 — 사용자 결정)
 
-- **Decision**: base `application.yml` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}`(기본 빈 값 — local·테스트) + dev·staging·prod 프로필 yml 에 **환경명 기본값** `${STORAGE_KEY_PREFIX:dev|staging|prod}` 선언. env 는 커밋 없는 오버라이드(빈 값 반전 포함).
-- **Rationale**: KB-169(`REDIS_SSL_ENABLED` 프로필 기본값+env 반전)와 동일 관례 — 인프라 env 추가 없이 배포만으로 전 환경 폴더 분리가 완성되고, 특수 사정은 env 로 커밋 없이 반전한다. prod 도 `prod/` 접두를 기본으로 가져 버킷 최상위가 `dev/`·`staging/`·`prod/`·`images/`(레거시+음식 사진 공유 자산)로 정리된다.
+- **Decision**: base `application.yml` 에 `key-prefix: ${STORAGE_KEY_PREFIX:local}`(local 프로필·미지정 실행), 테스트 yml 에 `local`, dev·staging·prod 프로필 yml 에 **환경명 기본값** `${STORAGE_KEY_PREFIX:dev|staging|prod}` 선언. env 는 커밋 없는 오버라이드(빈 값 반전 포함).
+- **Rationale**: KB-169(`REDIS_SSL_ENABLED` 프로필 기본값+env 반전)와 동일 관례 — 인프라 env 추가 없이 배포만으로 전 환경 폴더 분리가 완성되고, 특수 사정은 env 로 커밋 없이 반전한다. 버킷 최상위가 `local/`·`dev/`·`staging/`·`prod/`·`images/`(음식 사진 등 환경 공용 자산)로 정리된다 — 향후 배치의 음식 사진 제작은 업로드 API 밖에서 `images/menus/…` 에 직접 기록하므로 이 설정과 무관.
 - **Alternatives considered**:
   - (최초안) 기본 빈 값 + 인프라 env 주입(`${STORAGE_KEY_PREFIX:}`), prod·local 미선언 — Jira DoD 원문. 인프라 env 작업이 선행돼야 효력이 생기고 prod 는 레거시 혼재가 지속돼 사용자 결정으로 대체.
   - `@Value` 기본값만으로 처리(yml 무선언) — 설정 표면이 코드에만 숨어 운영 가시성이 없다. 기각.
