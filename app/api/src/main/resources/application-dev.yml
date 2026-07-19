@@ -12,6 +12,9 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
+      ssl:
+        # 전송 중 암호화 필수 Redis(ElastiCache) 대응 — 평문 예외 환경은 REDIS_SSL_ENABLED=false (KB-169)
+        enabled: ${REDIS_SSL_ENABLED:true}
 
 kbap:
   storage:

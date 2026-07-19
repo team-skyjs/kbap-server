@@ -13,3 +13,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      ssl:
+        # 로컬 docker Redis 는 평문 — TLS 로 검증하려면 REDIS_SSL_ENABLED=true (KB-169)
+        enabled: ${REDIS_SSL_ENABLED:false}
