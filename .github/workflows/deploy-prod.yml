@@ -1,0 +1,111 @@
+name: Deploy prod
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "재배포할 기존 이미지 태그(예: 0.9). 비우면 VERSION 기준으로 빌드한다."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: build and blue/green deploy to prod ECS
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            TAG="${{ inputs.image_tag }}"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            TAG="$(cat VERSION)"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        if: steps.image.outputs.build == 'true'
+        run: |
+          docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
+          docker push "${{ steps.image.outputs.uri }}"
+
+      - name: Register new task definition revision
+        id: taskdef
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ vars.ECS_SERVICE }}
+        run: |
+          CURRENT_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$CURRENT_ARN" \
+            --query taskDefinition > taskdef.json
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions[0].image = $IMAGE
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' taskdef.json > new-taskdef.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Create CodeDeploy blue/green deployment
+        env:
+          APP: ${{ vars.CODEDEPLOY_APP }}
+          GROUP: ${{ vars.CODEDEPLOY_GROUP }}
+          TASK_DEF_ARN: ${{ steps.taskdef.outputs.arn }}
+          CONTAINER: ${{ vars.CONTAINER_NAME }}
+          CONTAINER_PORT: ${{ vars.CONTAINER_PORT }}
+        run: |
+          APPSPEC=$(jq -n \
+            --arg arn "$TASK_DEF_ARN" \
+            --arg name "$CONTAINER" \
+            --argjson port "$CONTAINER_PORT" '
+            {
+              version: 0.0,
+              Resources: [{
+                TargetService: {
+                  Type: "AWS::ECS::Service",
+                  Properties: {
+                    TaskDefinition: $arn,
+                    LoadBalancerInfo: { ContainerName: $name, ContainerPort: $port }
+                  }
+                }
+              }]
+            }' | jq -c . )
+
+          DEPLOY_ID=$(aws deploy create-deployment \
+            --application-name "$APP" \
+            --deployment-group-name "$GROUP" \
+            --revision "revisionType=AppSpecContent,appSpecContent={content='$APPSPEC'}" \
+            --query deploymentId --output text)
+          echo "CodeDeploy deployment: $DEPLOY_ID"
+
+          aws deploy wait deployment-successful --deployment-id "$DEPLOY_ID"

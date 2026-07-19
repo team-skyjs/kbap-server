@@ -1,0 +1,96 @@
+name: Deploy staging
+
+on:
+  push:
+    branches: [ "staging" ]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "재배포할 기존 이미지 태그(예: 0.9-rc). 비우면 VERSION 기준으로 빌드한다."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: build and deploy to api-staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            TAG="${{ inputs.image_tag }}"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            TAG="$(cat VERSION)-rc"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        if: steps.image.outputs.build == 'true'
+        run: |
+          docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
+          docker push "${{ steps.image.outputs.uri }}"
+
+      - name: Deploy to EC2 via SSM Run Command
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          CONTAINER: ${{ vars.CONTAINER_NAME }}
+          HOST_PORT: ${{ vars.HOST_PORT }}
+          REGION: ${{ vars.AWS_REGION }}
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+        run: |
+          read -r -d '' REMOTE <<EOF || true
+          set -e
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+          docker pull $IMAGE
+          docker stop $CONTAINER 2>/dev/null || true
+          docker rm $CONTAINER 2>/dev/null || true
+          docker run -d --name $CONTAINER --restart unless-stopped --env-file /opt/kbap/$CONTAINER.env -p $HOST_PORT:8080 $IMAGE
+          for i in \$(seq 1 30); do
+            if curl -sf http://localhost:$HOST_PORT/actuator/health >/dev/null; then echo healthy; exit 0; fi
+            sleep 5
+          done
+          echo "health check failed"; exit 1
+          EOF
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy $CONTAINER" \
+            --parameters commands="$REMOTE" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $CMD_ID"
+
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query Status --output text)
+          echo "SSM status: $STATUS"
+          [ "$STATUS" = "Success" ]
