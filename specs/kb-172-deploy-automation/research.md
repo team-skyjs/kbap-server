@@ -21,21 +21,23 @@
 - **Alternatives considered**: (1) SSM 세션/포트포워딩으로 러너에서 헬스체크 — 플러그인 설치·세션 관리 복잡. (2) docker compose 파일을 EC2 에 두고 갱신 — 현재 운영이 단일 `docker run` 컨테이너 2개라 도입 이득 없음.
 - **환경값**: 컨테이너 런타임 env 는 EC2 호스트의 `--env-file`(`/opt/kbap/api-dev.env`·`api-staging.env`)이 소유 — 기존 수동 배포의 env 구성을 그대로 승계하고, DB 비밀번호 등이 GitHub 로 이동하지 않는다.
 
-## R4. prod — 태스크 정의 리비전 갱신 + CodeDeploy 블루그린 배포 생성
+## R4. prod — 태스크 정의 리비전 갱신 + ECS 네이티브 블루/그린(update-service)
 
-- **Decision**: `aws ecs describe-task-definition` 으로 현재 태스크 정의를 읽어 **이미지 태그만 git sha 로 교체**해 새 리비전 등록 → `aws deploy create-deployment`(기존 CodeDeploy application·deployment group, appspec 은 태스크정의 ARN·컨테이너명·포트만 담아 인라인 생성) → `aws deploy wait deployment-successful` 로 완료 대기. 헬스체크는 블루그린의 타깃그룹 헬스가 담당하고, wait 실패가 곧 워크플로 실패다.
-- **Rationale**: "기존 ECS 블루그린 파이프라인을 호출"이 요구사항 — CodeDeploy 앱·배포그룹은 이미 존재한다. 태스크 정의를 저장소에 두지 않고 현재 리비전에서 파생하면 인프라 측 변경(cpu/메모리/env)과 저장소가 드리프트하지 않는다.
-- **Alternatives considered**: (1) `taskdef.json`·`appspec.yaml` 저장소 반입 + `aws-actions/amazon-ecs-deploy-task-definition` — 인프라 값이 저장소로 복제돼 이중 관리. (2) `aws ecs update-service --force-new-deployment` — 블루그린이 아니라 롤링이 됨(기존 파이프라인 무시). 기각.
+- **Decision**(2026-07-20 사용자 확인 — CodeDeploy 미사용, ECS 네이티브 블루/그린 사용): `aws ecs describe-services` 로 현재 태스크정의 ARN 을 얻어 `describe-task-definition` → **이미지 태그만 릴리스 버전으로 교체**한 새 리비전 등록(`register-task-definition`) → `aws ecs update-service --task-definition <new-arn>` 로 블루/그린 트리거 → `aws ecs wait services-stable` 로 완료 대기. 블루/그린 전략(`deploymentConfiguration.strategy=BLUE_GREEN`)·타깃그룹·리스너·bake time 은 **ECS 서비스에 미리 구성**(인프라 소유 — CodeDeploy 의 배포그룹이 하던 역할을 서비스 설정이 대체). 헬스체크는 블루/그린 타깃그룹이 담당, wait 실패가 곧 워크플로 실패다.
+- **Rationale**: CodeDeploy 를 쓰지 않으므로 `deploy create-deployment`·appspec·`AWS::ECS::Service` revision 이 전부 불필요해진다 — `update-service` 한 번이 블루/그린을 트리거한다(서비스가 BLUE_GREEN 전략으로 구성돼 있을 때). 태스크정의를 저장소에 두지 않고 현재 리비전에서 파생하는 원칙은 유지(인프라 드리프트 방지).
+- **`--deployment-configuration` 미전달**: 매 배포에서 이 플래그를 넘기지 않는다 — AWS CLI 는 이 객체를 통째로 대체하므로 미지정 하위필드(bakeTime·서킷브레이커·min/maxPercent)가 기본값으로 덮어써진다. 전략·bake 는 서비스에 1회 구성하고 파이프라인은 태스크정의만 교체한다.
+- **wait 시간 주의**: `aws ecs wait services-stable` 기본 상한은 10분(40회×15초) — bake time 이 길면 wait 가 타임아웃될 수 있다(배포 자체는 계속 진행). bake 를 wait 안에 맞추거나 필요 시 폴링 루프로 대체(현재는 표준 wait 사용).
+- **Alternatives considered**: (1) CodeDeploy `create-deployment`+appspec — 사용자가 CodeDeploy 미사용이라 기각. (2) `taskdef.json` 저장소 반입 — 인프라 값 이중 관리라 기각. (3) `--force-new-deployment` — 서비스가 BLUE_GREEN 전략이면 task-def 교체만으로 블루/그린이 트리거되므로 불필요.
 
 ## R5. 인증 — GitHub OIDC + 환경별 IAM 역할(신뢰 정책으로 교차 차단)
 
-- **Decision**: 각 워크플로 잡에 `permissions: {id-token: write, contents: read}` + `aws-actions/configure-aws-credentials@v4`(`role-to-assume: ${{ vars.AWS_ROLE_ARN }}`). IAM 역할 3개(`gha-deploy-dev`/`-staging`/`-prod`)의 신뢰 정책 `sub` 조건을 `repo:<org>/<repo>:environment:<env>` 로 잠가, **해당 GitHub Environment 에서 실행된 잡만** 그 역할을 assume 할 수 있게 한다. 권한: dev/staging 역할 = ECR push + `ssm:SendCommand`(대상 인스턴스·문서 한정) + 결과 조회, prod 역할 = ECR push + ECS 태스크정의 등록 + CodeDeploy 배포 생성/조회(+`iam:PassRole` 태스크 실행 역할 한정).
+- **Decision**: 각 워크플로 잡에 `permissions: {id-token: write, contents: read}` + `aws-actions/configure-aws-credentials@v4`(`role-to-assume: ${{ vars.AWS_ROLE_ARN }}`). IAM 역할 3개(`gha-deploy-dev`/`-staging`/`-prod`)의 신뢰 정책 `sub` 조건을 `repo:<org>/<repo>:environment:<env>` 로 잠가, **해당 GitHub Environment 에서 실행된 잡만** 그 역할을 assume 할 수 있게 한다. 권한: dev/staging 역할 = ECR push + `ssm:SendCommand`(대상 인스턴스·문서 한정) + 결과 조회, prod 역할 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService`(+`iam:PassRole` 태스크 역할 한정) — CodeDeploy 권한 없음.
 - **Rationale**: 장기 액세스 키 0개. environment 조건이 FR-006 의 교차 배포 차단을 IAM 수준에서 강제 — develop 브랜치에서 prod 워크플로를 위조해도 prod environment 를 못 쓰면 역할 assume 이 거부된다.
 - **Alternatives considered**: 액세스 키 secrets 저장 — 유출·로테이션 부담, Jira 가 OIDC 확정. 기각.
 
 ## R6. GitHub Environments — 값은 variables, secrets 불필요
 
-- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap-api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`api-dev`/`api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`·`CODEDEPLOY_APP`·`CODEDEPLOY_GROUP`·`CONTAINER_NAME`·`CONTAINER_PORT`. prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
+- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap-api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`api-dev`/`api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`(CODEDEPLOY_*·CONTAINER_* 불필요 — 네이티브 블루/그린은 컨테이너·포트·타깃그룹·전략을 서비스/태스크정의가 소유). prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
 - **Rationale**: OIDC 라 자격 증명 secret 이 없고, 컨테이너 런타임 secret 은 EC2 env-file/ECS 태스크정의가 소유(R3·R4) — GitHub 에 비밀이 하나도 안 올라간다.
 
 ## R7. 동시 실행 — 환경별 직렬화, 마지막 푸시가 최종 상태

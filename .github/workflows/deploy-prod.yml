@@ -76,36 +76,18 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      - name: Create CodeDeploy blue/green deployment
+      # 블루/그린 전략·타깃그룹·bake time·리스너는 ECS 서비스에 미리 구성돼 있어야 한다(인프라 소유).
+      # 여기서 --deployment-configuration 을 넘기지 않는 것은 의도적 — 넘기면 미지정 하위필드(bakeTime·
+      # 서킷브레이커)가 기본값으로 덮어써진다. 파이프라인은 태스크정의만 교체해 블루/그린을 트리거한다.
+      - name: Update ECS service (native blue/green)
         env:
-          APP: ${{ vars.CODEDEPLOY_APP }}
-          GROUP: ${{ vars.CODEDEPLOY_GROUP }}
-          TASK_DEF_ARN: ${{ steps.taskdef.outputs.arn }}
-          CONTAINER: ${{ vars.CONTAINER_NAME }}
-          CONTAINER_PORT: ${{ vars.CONTAINER_PORT }}
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ vars.ECS_SERVICE }}
+          NEW_ARN: ${{ steps.taskdef.outputs.arn }}
         run: |
-          APPSPEC=$(jq -n \
-            --arg arn "$TASK_DEF_ARN" \
-            --arg name "$CONTAINER" \
-            --argjson port "$CONTAINER_PORT" '
-            {
-              version: 0.0,
-              Resources: [{
-                TargetService: {
-                  Type: "AWS::ECS::Service",
-                  Properties: {
-                    TaskDefinition: $arn,
-                    LoadBalancerInfo: { ContainerName: $name, ContainerPort: $port }
-                  }
-                }
-              }]
-            }' | jq -c . )
-
-          DEPLOY_ID=$(aws deploy create-deployment \
-            --application-name "$APP" \
-            --deployment-group-name "$GROUP" \
-            --revision "revisionType=AppSpecContent,appSpecContent={content='$APPSPEC'}" \
-            --query deploymentId --output text)
-          echo "CodeDeploy deployment: $DEPLOY_ID"
-
-          aws deploy wait deployment-successful --deployment-id "$DEPLOY_ID"
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --task-definition "$NEW_ARN" >/dev/null
+          echo "triggered blue/green deployment: $SERVICE -> $NEW_ARN"
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"

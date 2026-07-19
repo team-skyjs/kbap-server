@@ -77,15 +77,15 @@
 
 ## Phase 5: User Story 3 - main 병합 시 prod 무중단 배포 (Priority: P3)
 
-**Goal**: main 병합 → 버전 태그(`$(cat VERSION)`) 이미지 → 태스크정의 리비전 갱신 → 기존 CodeDeploy 블루그린 실행·완료 대기
+**Goal**: main 병합 → 버전 태그(`$(cat VERSION)`) 이미지 → 태스크정의 리비전 갱신 → `update-service` 로 ECS 네이티브 블루/그린 트리거·`wait services-stable`
 
-**Independent Test**: main 병합 → 새 태스크정의 이미지 태그=`1.0`, CodeDeploy 트래픽 전환, 서비스 헬스 UP (quickstart §6.3)
+**Independent Test**: main 병합 → 새 태스크정의 이미지 태그=`1.0`, 블루/그린 트래픽 전환(새 배포 PRIMARY), 서비스 헬스 UP (quickstart §6.3)
 
 ### Implementation for User Story 3
 
-- [ ] T015 [P] [US3] IAM 역할 `gha-deploy-prod` 생성 — quickstart §2: `sub`=`environment:prod`, 권한 = ECR push + `ecs:Describe/RegisterTaskDefinition`·`DescribeServices` + CodeDeploy 배포 생성/조회(기존 앱 ARN 한정) + `iam:PassRole`(태스크 역할 한정)
-- [ ] T016 [P] [US3] GitHub Environment `prod` 생성 + variables 등록 — quickstart §4: `ECS_CLUSTER`·`ECS_SERVICE`·`CODEDEPLOY_APP`·`CODEDEPLOY_GROUP`·`CONTAINER_NAME`·`CONTAINER_PORT=8080` + 공통 3종 (승인 게이트 미설정 — 추후 protection rule 만)
-- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`$(cat VERSION)`**), 배포 단계는 R4: `aws ecs describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws deploy create-deployment`(인라인 appspec: 태스크정의 ARN·`vars.CONTAINER_NAME`·`vars.CONTAINER_PORT`) → `aws deploy wait deployment-successful`(실패 전파)
+- [ ] T015 [P] [US3] IAM 역할 `gha-deploy-prod` 생성 — quickstart §2: `sub`=`environment:prod`, 권한 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService` + `iam:PassRole`(태스크 역할 한정). CodeDeploy 권한 없음(네이티브 블루/그린)
+- [ ] T016 [P] [US3] GitHub Environment `prod` 생성 + variables 등록 — quickstart §4: `ECS_CLUSTER`·`ECS_SERVICE` + 공통 3종(`AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`). CODEDEPLOY_*·CONTAINER_* 불필요(서비스/태스크정의가 소유). 승인 게이트 미설정 — 추후 protection rule 만. **전제**: ECS 서비스에 `deploymentConfiguration.strategy=BLUE_GREEN`·타깃그룹·bake 사전 구성
+- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`$(cat VERSION)`**), 배포 단계는 R4: `describe-services` → `describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws ecs update-service --task-definition <new-arn>`(블루/그린 트리거) → `aws ecs wait services-stable`(실패 전파). `--deployment-configuration` 미전달(bake·서킷브레이커 덮어쓰기 방지)
 - [X] T018 [US3] `actionlint` 로 `.github/workflows/deploy-prod.yml` 정적 검증 (R9)
 - [ ] T019 [US3] 실배포 검증 — main 병합 → 태스크정의 태그=`1.0`, 블루그린 전환, 헬스 UP (quickstart §6.3, FR-003)
 
@@ -97,7 +97,7 @@
 
 - [ ] T020 실패 전파 확인 — 존재하지 않는 `image_tag` 로 dev `workflow_dispatch` 실행 → 워크플로 실패 표시 + 기존 컨테이너 생존 확인 (quickstart §6.4, FR-010·US1-AC3)
 - [ ] T021 [P] 롤백 리허설(권장) — dev 에서 직전 sha 로 `workflow_dispatch` 재배포 성공 확인 (quickstart §7, SC-004)
-- [ ] T022 [P] 교차 권한 차단 확인 — dev 역할 자격으로 CodeDeploy 호출 시 AccessDenied 확인 (SC-003, 스팟 체크)
+- [ ] T022 [P] 교차 권한 차단 확인 — dev 역할 자격으로 prod 자원(예: `ecs:UpdateService`) 호출 시 AccessDenied 확인 (SC-003, 스팟 체크)
 - [X] T023 PR #71 제목·본문 갱신 — `docs(spec)` → `feat(ci): 브랜치별 배포 자동화` + 변경/검증 결과 반영, Ready for review 전환은 사용자 승인 후
 
 ---

@@ -70,10 +70,10 @@ main 브랜치에 병합(푸시)되면 기존 ECS 블루그린 배포가 자동�
 
 - **FR-001**: develop 브랜치 푸시 시 자동으로 이미지를 빌드(linux/amd64)해 공유 이미지 저장소(ECR `kbap-api`)에 git sha 태그로 올리고, 공용 EC2 의 `api-dev` 컨테이너(:8080)를 그 이미지로 교체해야 한다.
 - **FR-002**: staging 브랜치 푸시 시 동일한 흐름으로 `api-staging` 컨테이너(:8081)를 교체하되, 이미지 태그는 git sha 가 아닌 **명시적 릴리스 버전**(저장소의 버전 선언 단일 출처 기반, staging 식별 접미사 포함 — 예: `1.0-rc`)이어야 한다. `latest` 태그는 쓰지 않는다.
-- **FR-003**: main 브랜치 푸시 시 기존 ECS 블루그린 배포를 실행하되, 이미지 태그는 **명시적 릴리스 버전 그대로**(예: `1.0`)여야 한다. `latest` 태그는 쓰지 않는다.
+- **FR-003**: main 브랜치 푸시 시 ECS 네이티브 블루/그린 배포(CodeDeploy 미사용 — 서비스에 사전 구성된 블루/그린 전략을 태스크정의 교체로 트리거)를 실행하되, 이미지 태그는 **명시적 릴리스 버전 그대로**(예: `1.0`)여야 한다. `latest` 태그는 쓰지 않는다.
 - **FR-004**: 환경별 워크플로 파일을 분리(`deploy-dev.yml`·`deploy-staging.yml`·`deploy-prod.yml`)해 실패 추적과 권한을 환경 단위로 격리해야 한다.
 - **FR-005**: EC2 컨테이너 교체는 SSH 키 없이 원격 명령(SSM Run Command)으로 수행해야 한다 — 저장소나 CI 에 SSH 개인키를 두지 않는다.
-- **FR-006**: 파이프라인 인증은 장기 액세스 키 없이 GitHub OIDC 로 환경별 IAM 역할을 assume 해야 하며, dev/staging 역할에는 이미지 push + 원격 명령 권한만, prod 역할에는 ECS·CodeDeploy 권한만 부여해 교차 배포를 권한 수준에서 차단해야 한다.
+- **FR-006**: 파이프라인 인증은 장기 액세스 키 없이 GitHub OIDC 로 환경별 IAM 역할을 assume 해야 하며, dev/staging 역할에는 이미지 push + 원격 명령 권한만, prod 역할에는 ECS 배포 권한(태스크정의 등록·서비스 갱신)만 부여해 교차 배포를 권한 수준에서 차단해야 한다.
 - **FR-007**: secrets·환경값은 GitHub Environments(dev/staging/prod)로 분리해 관리해야 한다.
 - **FR-008**: 각 배포는 컨테이너(또는 서비스) 교체 후 헬스체크(`/actuator/health`)를 확인하는 단계를 포함해야 하며, 제한 시간 내 정상 응답이 없으면 배포를 실패로 표시해야 한다.
 - **FR-009**: 이미지는 환경별 태그 정책(dev=git sha, staging/prod=릴리스 버전)으로 보존되어, 이전 태그(sha 또는 이전 버전)를 재배포하는 것만으로 롤백할 수 있어야 한다 — 릴리스 버전은 배포마다 재사용하지 않고 증가시키는 것을 전제로 한다.
@@ -84,7 +84,7 @@ main 브랜치에 병합(푸시)되면 기존 ECS 블루그린 배포가 자동�
 - **배포 워크플로**: 브랜치(develop/staging/main) → 환경(dev/staging/prod) 매핑 하나당 파일 1개. 트리거 브랜치·대상 환경·자격 증명 범위를 소유한다.
 - **컨테이너 이미지**: 배포 아티팩트. 태그 정책은 환경별 — dev 는 커밋 식별자(git sha), staging 은 릴리스 버전+식별 접미사(예: `1.0-rc`), prod 는 릴리스 버전(예: `1.0`). `latest` 미사용. dev·staging·prod 가 동일 저장소(ECR `kbap-api`)를 공유한다.
 - **릴리스 버전**: 저장소 안의 단일 출처(버전 파일)로 선언되는 명시적 버전 문자열(예: `1.0`). 릴리스마다 커밋으로 증가시키며 staging·prod 이미지 태그의 근원이 된다.
-- **배포 대상 환경**: dev(`api-dev` :8080)·staging(`api-staging` :8081)은 공용 EC2 의 컨테이너, prod 는 ECS 서비스(블루그린). 환경별로 자격 증명·secrets 가 분리된다.
+- **배포 대상 환경**: dev(`api-dev` :8080)·staging(`api-staging` :8081)은 공용 EC2 의 컨테이너, prod 는 ECS 서비스(네이티브 블루/그린 — CodeDeploy 미사용). 환경별로 자격 증명·secrets 가 분리된다.
 
 ## Success Criteria *(mandatory)*
 
@@ -98,7 +98,7 @@ main 브랜치에 병합(푸시)되면 기존 ECS 블루그린 배포가 자동�
 
 ## Assumptions
 
-- 공용 EC2, ECR `kbap-api` 저장소, prod ECS 블루그린(CodeDeploy) 인프라는 이미 존재하며 이 작업은 GitHub 측 파이프라인과 그에 필요한 인증(OIDC·IAM 역할·Environments) 구성만 다룬다.
+- 공용 EC2, ECR `kbap-api` 저장소, prod ECS 서비스(네이티브 블루/그린 전략·타깃그룹·bake 사전 구성, CodeDeploy 미사용) 인프라는 이미 존재하며 이 작업은 GitHub 측 파이프라인과 그에 필요한 인증(OIDC·IAM 역할·Environments) 구성만 다룬다.
 - `staging` 브랜치는 장기 브랜치로 운영된다(현재 없다면 develop 에서 분기해 생성).
 - prod 승인 게이트는 이번 범위에서 강제하지 않는다 — GitHub Environments(prod) 구조상 추후 설정만으로 켤 수 있게 한다(Jira: "둘 수 있다").
 - 롤백은 자동이 아닌 수동 재배포(이전 태그 지정 재실행)로 충분하다 — 자동 롤백은 범위 밖.
