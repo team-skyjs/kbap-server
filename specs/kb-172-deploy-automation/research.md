@@ -8,7 +8,9 @@
 
 ## R2. 이미지 빌드 — 기존 멀티스테이지 Dockerfile 그대로 CI 에서 docker build
 
-- **Decision**: 러너에서 `docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}` 후 push. 빌드 로직은 기존 `Dockerfile`(Gradle bootJar 멀티스테이지)이 소유 — 워크플로는 build/push 만 한다.
+- **Decision**: 러너에서 `docker build --platform linux/amd64` 후 push. 빌드 로직은 기존 `Dockerfile`(Gradle bootJar 멀티스테이지)이 소유 — 워크플로는 build/push 만 한다. **이미지 태그는 환경별**(사용자 지시 2026-07-20 — staging·main 은 커밋 해시 대신 명시적 버전, `latest` 미사용): dev = `${{ github.sha }}`, staging = `$(cat VERSION)-rc`(예: `1.0-rc`), prod = `$(cat VERSION)`(예: `1.0`).
+- **버전 단일 출처**: 루트 `VERSION` 파일 1줄(예: `1.0`) — 워크플로가 `cat` 으로 읽는다. buildSrc 의 `version = "0.0.1-SNAPSHOT"` 은 하드코딩·릴리스 관리 밖이라 출처로 부적합(gradle 실행으로 읽는 것도 무거움), git tag 는 푸시 트리거 모델과 안 맞아 기각. 릴리스마다 `VERSION` 을 커밋으로 올린다(bump 없이 재배포하면 같은 태그를 덮어씀 — 롤백 전제 훼손이라 팀 규율로 관리).
+- **staging 접미사 `-rc`**: staging 과 prod 가 같은 태그(`1.0`)를 공유하면 ECR 이 리포지토리 공유라 main 병합 빌드가 staging 이 검증한 이미지를 덮어쓴다 — `-rc` 접미사로 환경 간 태그를 분리해 각자의 롤백 대상이 보존된다.
 - **Rationale**: Dockerfile 이 이미 로컬 수동 배포에서 검증된 빌드 정의다. 로컬과 CI 가 같은 아티팩트 경로를 쓰므로 "prod 와 동일한 아티팩트" 성질이 유지된다. `ubuntu-latest` 러너가 amd64 라 `--platform` 은 명시적 안전핀.
 - **Alternatives considered**: (1) 러너에서 gradle 빌드 후 jar 만 도커라이즈 — Dockerfile 과 빌드 정의가 이원화돼 드리프트. (2) buildx 레이어 캐시(gha cache) — Gradle 스테이지는 소스 복사 직후라 캐시 적중이 낮음. 빌드 시간이 문제 되면 후속.
 
@@ -43,7 +45,7 @@
 
 ## R8. 롤백 — 같은 워크플로의 workflow_dispatch + image_tag 입력
 
-- **Decision**: 세 워크플로 모두 `workflow_dispatch`(optional input `image_tag`)를 추가. 입력이 있으면 빌드·push 를 건너뛰고 해당 sha 태그를 그대로 배포한다(없으면 현재 커밋 빌드).
+- **Decision**: 세 워크플로 모두 `workflow_dispatch`(optional input `image_tag`)를 추가. 입력이 있으면 빌드·push 를 건너뛰고 해당 태그를 그대로 배포한다(없으면 현재 커밋 빌드 + 환경별 기본 태그 — R2). 롤백 입력값: dev = 이전 커밋 sha, staging = 이전 `<버전>-rc`, prod = 이전 `<버전>`.
 - **Rationale**: FR-009 롤백(이전 태그 재배포, 추가 빌드 불필요)이 별도 장치 없이 수동 실행 한 번으로 충족된다.
 - **Alternatives considered**: 별도 rollback.yml — 배포 경로가 이원화돼 드리프트. 기각.
 

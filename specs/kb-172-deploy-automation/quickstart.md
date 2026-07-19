@@ -79,11 +79,20 @@ git push origin develop:staging   # develop 기준 장기 브랜치 생성
 
 ## §6. 환경별 검증 (DoD — 각 1회)
 
-1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `api-dev` 이미지 태그 = 푸시 sha 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
-2. **staging**: staging 에 푸시 → 동일 확인(:8081), `api-dev` 비간섭 확인.
-3. **prod**: main 병합 → `deploy-prod` 실행 → CodeDeploy 콘솔에서 블루그린 트래픽 전환 확인 → 서비스 헬스 UP.
+1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `api-dev` 이미지 태그 = **푸시 커밋 sha** 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
+2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 단 이미지 태그는 **`$(cat VERSION)-rc`**(예: `1.0-rc`). `api-dev` 비간섭 확인.
+3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **`$(cat VERSION)`**(예: `1.0`) 확인 → CodeDeploy 콘솔에서 블루그린 트래픽 전환 확인 → 서비스 헬스 UP.
 4. **실패 전파 확인(권장)**: 존재하지 않는 image_tag 로 dev workflow_dispatch 실행 → 워크플로가 실패로 표시되고 기존 컨테이너가 살아있는지 확인(FR-010, US1-AC3).
 
 ## §7. 롤백 절차
 
-Actions → 해당 환경의 deploy 워크플로 → Run workflow → `image_tag` 에 **이전 정상 커밋의 git sha** 입력 → 실행. 빌드 없이 해당 태그를 재배포한다(R8, FR-009). 이전 sha 는 Actions 이력 또는 `git log` 에서 확인.
+Actions → 해당 환경의 deploy 워크플로 → Run workflow → `image_tag` 에 **이전 정상 태그** 입력 → 실행. 빌드 없이 해당 태그를 재배포한다(R8, FR-009).
+
+- dev: 이전 정상 커밋의 git sha (Actions 이력 또는 `git log`)
+- staging: 이전 릴리스 버전 + `-rc` (예: `0.9-rc`)
+- prod: 이전 릴리스 버전 (예: `0.9`)
+
+## §8. 릴리스 버전 운용
+
+- 버전 단일 출처는 루트 `VERSION` 파일 1줄(예: `1.0`) — staging/prod 워크플로가 `cat VERSION` 으로 읽어 태그를 만든다. `latest` 는 쓰지 않는다.
+- **릴리스마다 `VERSION` 을 커밋으로 올린다**(예: `1.0`→`1.1`). bump 없이 같은 버전을 재배포하면 ECR 태그가 덮어써져 그 버전의 롤백 대상이 사라진다 — staging 반입 전 bump 를 규율로 한다.

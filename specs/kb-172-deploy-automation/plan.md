@@ -6,7 +6,7 @@
 
 ## Summary
 
-수동 배포(로컬 빌드→ECR push→EC2 접속 docker 명령)를 브랜치 푸시만으로 자동화한다. 환경별 워크플로 3파일 — `deploy-dev.yml`(develop→공용 EC2 `api-dev` :8080), `deploy-staging.yml`(staging→`api-staging` :8081), `deploy-prod.yml`(main→기존 ECS 블루그린). 공통 흐름: 멀티스테이지 Dockerfile 로 linux/amd64 이미지 빌드 → ECR `kbap-api` 에 git sha 태그 push → 환경별 배포(dev/staging 은 SSM Run Command 로 컨테이너 교체+스크립트 내 헬스체크, prod 는 태스크정의 리비전 갱신+CodeDeploy 배포 생성+완료 대기). 인증은 GitHub OIDC 로 환경별 IAM 역할 assume(신뢰 정책 `sub`=environment 조건으로 교차 배포 차단), 값은 GitHub Environments variables(secret 0개 — 런타임 비밀은 EC2 env-file/ECS 태스크정의 소유). 롤백은 `workflow_dispatch` + `image_tag` 입력으로 이전 sha 재배포. **애플리케이션 코드·설정(yml)·DB 0줄** — 저장소 변경은 워크플로 3파일뿐이고, AWS 측 구성(OIDC provider·IAM 역할 3개·Environments)은 quickstart 런북으로 수행한다.
+수동 배포(로컬 빌드→ECR push→EC2 접속 docker 명령)를 브랜치 푸시만으로 자동화한다. 환경별 워크플로 3파일 — `deploy-dev.yml`(develop→공용 EC2 `api-dev` :8080), `deploy-staging.yml`(staging→`api-staging` :8081), `deploy-prod.yml`(main→기존 ECS 블루그린). 공통 흐름: 멀티스테이지 Dockerfile 로 linux/amd64 이미지 빌드 → ECR `kbap-api` push(태그는 환경별 — dev=git sha, staging=`<버전>-rc`, prod=`<버전>`, 버전 단일 출처는 루트 `VERSION` 파일·`latest` 미사용) → 환경별 배포(dev/staging 은 SSM Run Command 로 컨테이너 교체+스크립트 내 헬스체크, prod 는 태스크정의 리비전 갱신+CodeDeploy 배포 생성+완료 대기). 인증은 GitHub OIDC 로 환경별 IAM 역할 assume(신뢰 정책 `sub`=environment 조건으로 교차 배포 차단), 값은 GitHub Environments variables(secret 0개 — 런타임 비밀은 EC2 env-file/ECS 태스크정의 소유). 롤백은 `workflow_dispatch` + `image_tag` 입력으로 이전 태그(sha/버전) 재배포. **애플리케이션 코드·설정(yml)·DB 0줄** — 저장소 변경은 워크플로 3파일 + `VERSION` 파일뿐이고, AWS 측 구성(OIDC provider·IAM 역할 3개·Environments)은 quickstart 런북으로 수행한다.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@
 
 **Constraints**: SSH 키 금지(SSM 만), 장기 액세스 키 금지(OIDC 만), dev/staging↔prod 교차 배포 IAM 수준 차단, 헬스체크 미통과 = 배포 실패(무한 대기 금지), 같은 EC2 의 이웃 컨테이너 비간섭, GitHub secrets 0개.
 
-**Scale/Scope**: 신규 워크플로 3파일(각 60~90줄) + 런북 1개. 기존 `build.yml`(PR CI) 불변. `:app:batch` 배포는 범위 밖.
+**Scale/Scope**: 신규 워크플로 3파일(각 60~90줄) + `VERSION` 파일 1줄 + 런북 1개. 기존 `build.yml`(PR CI) 불변. `:app:batch` 배포는 범위 밖.
 
 ## Constitution Check
 
@@ -65,6 +65,7 @@ data-model.md·contracts/ 없음 — 엔티티·API 계약 변경 0 (KB-169 선�
 ├── deploy-staging.yml   # 신규: staging 푸시 → ECR push → SSM 으로 api-staging(:8081) 교체
 └── deploy-prod.yml      # 신규: main 푸시 → ECR push → 태스크정의 리비전 → CodeDeploy 블루그린
 Dockerfile               # 기존 — 불변(빌드 정의 소유, R2)
+VERSION                  # 신규: 릴리스 버전 단일 출처(1줄, 예: 1.0 — staging/prod 이미지 태그 근원, R2)
 ```
 
 **Structure Decision**: 환경별 3개 독립 워크플로(R1 — Jira 확정: 실패 추적·권한 격리). dev/staging 은 동일 구조에 environment variables 값만 다름. 공용 로직의 reusable workflow 승격은 소비자가 늘 때(YAGNI). 애플리케이션 소스 트리는 무접촉.
@@ -79,7 +80,8 @@ jobs.deploy (environment: <env>):
   1. checkout
   2. configure-aws-credentials (OIDC, vars.AWS_ROLE_ARN)
   3. ecr-login
-  4. [image_tag 미지정 시] docker build --platform linux/amd64 + push (:git-sha, R2)
+  4. [image_tag 미지정 시] docker build --platform linux/amd64 + push
+     (태그: dev=git sha, staging=$(cat VERSION)-rc, prod=$(cat VERSION) — R2)
   5. ssm send-command → pull/stop/rm/run(--env-file, -p <port>:8080) + 헬스체크 루프 (R3)
   6. ssm wait command-executed + get-command-invocation (실패 전파, FR-010)
 ```
