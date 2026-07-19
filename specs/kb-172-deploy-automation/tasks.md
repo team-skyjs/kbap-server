@@ -98,7 +98,7 @@
 - [ ] T020 실패 전파 확인 — 존재하지 않는 `image_tag` 로 dev `workflow_dispatch` 실행 → 워크플로 실패 표시 + 기존 컨테이너 생존 확인 (quickstart §6.4, FR-010·US1-AC3)
 - [ ] T021 [P] 롤백 리허설(권장) — dev 에서 직전 sha 로 `workflow_dispatch` 재배포 성공 확인 (quickstart §7, SC-004)
 - [ ] T022 [P] 교차 권한 차단 확인 — dev 역할 자격으로 CodeDeploy 호출 시 AccessDenied 확인 (SC-003, 스팟 체크)
-- [ ] T023 PR #71 제목·본문 갱신 — `docs(spec)` → `feat(ci): 브랜치별 배포 자동화` + 변경/검증 결과 반영, Ready for review 전환은 사용자 승인 후
+- [X] T023 PR #71 제목·본문 갱신 — `docs(spec)` → `feat(ci): 브랜치별 배포 자동화` + 변경/검증 결과 반영, Ready for review 전환은 사용자 승인 후
 
 ---
 
