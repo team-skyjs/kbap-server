@@ -29,6 +29,7 @@ kbap:
   # 이미지 업로드 정책(KB-145). 실 S3 는 미구성(bucket 없음) — PresignedUploadPort 는 테스트 페이크 빈으로 대체한다.
   storage:
     public-base-url: https://cdn.test
+    key-prefix: local
   upload:
     allowed-content-types: image/jpeg,image/png
     max-bytes: 1048576

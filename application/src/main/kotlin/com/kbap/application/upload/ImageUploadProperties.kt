@@ -7,4 +7,5 @@ data class ImageUploadProperties(
     val maxBytes: Long,
     val uploadTtl: Duration,
     val publicBaseUrl: String,
+    val keyPrefix: String,
 )
