@@ -38,7 +38,7 @@ aws iam create-open-id-connect-provider \
 **권한 정책**:
 
 - `gha-deploy-dev`·`gha-deploy-staging` (동일 구조, 인스턴스 한정):
-  - ECR: `GetAuthorizationToken`(전역) + push/pull 계열(`kbap-api` 리포지토리 ARN 한정)
+  - ECR: `GetAuthorizationToken`(전역) + push/pull 계열(`kbap/api` 리포지토리 ARN 한정)
   - SSM: `ssm:SendCommand`(document `AWS-RunShellScript` + 대상 EC2 인스턴스 ARN 한정), `ssm:GetCommandInvocation`·`ssm:ListCommands`(조회)
 - `gha-deploy-prod` (ECS 네이티브 블루/그린 — CodeDeploy 미사용):
   - ECR: 위와 동일
@@ -48,7 +48,7 @@ aws iam create-open-id-connect-provider \
 ## §3. EC2 사전 조건 (dev·staging 공용 인스턴스)
 
 - [ ] SSM Agent 동작 + 인스턴스 프로파일에 `AmazonSSMManagedInstanceCore`
-- [ ] 인스턴스 프로파일에 ECR pull 권한(`kbap-api`) — SSM 스크립트가 인스턴스 자격으로 `docker pull` 한다
+- [ ] 인스턴스 프로파일에 ECR pull 권한(`kbap/api`) — SSM 스크립트가 인스턴스 자격으로 `docker pull` 한다
 - [ ] env-file 존재: `/opt/kbap/api-dev.env`, `/opt/kbap/api-staging.env` — 기존 수동 `docker run` 에 쓰던 env 를 파일로 정리(파이프라인은 내용을 모른다, R3). `SPRING_PROFILES_ACTIVE=dev|staging` 포함 확인.
 - [ ] 포트 확인: api-dev 호스트 8080, api-staging 호스트 8081 (컨테이너 내부는 둘 다 8080)
 
@@ -60,7 +60,7 @@ Settings → Environments 에 `dev`/`staging`/`prod` 생성 후 **variables**(se
 |---|---|---|---|
 | `AWS_REGION` | 리전 | 리전 | 리전 |
 | `AWS_ROLE_ARN` | gha-deploy-dev ARN | gha-deploy-staging ARN | gha-deploy-prod ARN |
-| `ECR_REPOSITORY` | `kbap-api` | `kbap-api` | `kbap-api` |
+| `ECR_REPOSITORY` | `kbap/api` | `kbap/api` | `kbap/api` |
 | `EC2_INSTANCE_ID` | 공용 EC2 id | 공용 EC2 id | — |
 | `CONTAINER_NAME` | `api-dev` | `api-staging` | 태스크정의 컨테이너명 |
 | `HOST_PORT` | `8080` | `8081` | — |

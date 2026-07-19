@@ -37,7 +37,7 @@
 
 ## R6. GitHub Environments — 값은 variables, secrets 불필요
 
-- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap-api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`api-dev`/`api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`(CODEDEPLOY_*·CONTAINER_* 불필요 — 네이티브 블루/그린은 컨테이너·포트·타깃그룹·전략을 서비스/태스크정의가 소유). prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
+- **Decision**: Environments `dev`/`staging`/`prod` 생성. 배포에 필요한 값은 전부 비밀 아님 → **environment variables** 로 등록: 공통 `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`(=`kbap/api`), dev/staging `EC2_INSTANCE_ID`·`CONTAINER_NAME`(`api-dev`/`api-staging`)·`HOST_PORT`(`8080`/`8081`), prod `ECS_CLUSTER`·`ECS_SERVICE`(CODEDEPLOY_*·CONTAINER_* 불필요 — 네이티브 블루/그린은 컨테이너·포트·타깃그룹·전략을 서비스/태스크정의가 소유). prod 승인 게이트는 이번에 켜지 않되 environment 구조상 protection rule 설정만으로 추후 활성화 가능.
 - **Rationale**: OIDC 라 자격 증명 secret 이 없고, 컨테이너 런타임 secret 은 EC2 env-file/ECS 태스크정의가 소유(R3·R4) — GitHub 에 비밀이 하나도 안 올라간다.
 
 ## R7. 동시 실행 — 환경별 직렬화, 마지막 푸시가 최종 상태

@@ -46,8 +46,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T004 [P] [US1] IAM 역할 `gha-deploy-dev` 생성 — quickstart §2: 신뢰 정책 `sub`=`repo:team-skyjs/kbap-server:environment:dev`, 권한 = ECR push(`kbap-api` 한정) + `ssm:SendCommand`(대상 인스턴스·`AWS-RunShellScript` 한정) + 조회
-- [ ] T005 [P] [US1] GitHub Environment `dev` 생성 + variables 등록 + **deployment branch policy `develop`** — quickstart §4: `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY=kbap-api`·`EC2_INSTANCE_ID`·`CONTAINER_NAME=api-dev`·`HOST_PORT=8080` (secret 0개). branch policy 로 develop 만 dev 배포 가능하게 잠금(브랜치 격리 실집행 — FR-006)
+- [ ] T004 [P] [US1] IAM 역할 `gha-deploy-dev` 생성 — quickstart §2: 신뢰 정책 `sub`=`repo:team-skyjs/kbap-server:environment:dev`, 권한 = ECR push(`kbap/api` 한정) + `ssm:SendCommand`(대상 인스턴스·`AWS-RunShellScript` 한정) + 조회
+- [ ] T005 [P] [US1] GitHub Environment `dev` 생성 + variables 등록 + **deployment branch policy `develop`** — quickstart §4: `AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY=kbap/api`·`EC2_INSTANCE_ID`·`CONTAINER_NAME=api-dev`·`HOST_PORT=8080` (secret 0개). branch policy 로 develop 만 dev 배포 가능하게 잠금(브랜치 격리 실집행 — FR-006)
 - [X] T006 [P] [US1] `.github/workflows/deploy-dev.yml` 작성 — plan "워크플로 공통 골격": `on: push(develop)` + `workflow_dispatch(image_tag)`(R8), `concurrency: deploy-dev, cancel-in-progress: false`(R7), `permissions: id-token: write`(R5), `environment: dev`, steps = checkout → configure-aws-credentials(OIDC, `vars.AWS_ROLE_ARN`) → ecr-login → [image_tag 미지정 시] `docker build --platform linux/amd64` + push 태그 `${{ github.sha }}`(R2) → `aws ssm send-command`(pull/stop/rm/run `--env-file /opt/kbap/api-dev.env -p 8080:8080` + 헬스체크 루프 `curl -sf localhost:8080/actuator/health` 30회×5초, 실패 `exit 1`)(R3) → `ssm wait command-executed` + `get-command-invocation`(실패 전파, FR-010)
 - [X] T007 [US1] `actionlint` 로 `.github/workflows/deploy-dev.yml` 정적 검증 (R9)
 - [ ] T008 [US1] 실배포 검증 — develop 푸시 → Actions `deploy-dev` 성공, EC2 `docker ps` 태그=푸시 sha, health UP, `api-staging` 비간섭 (quickstart §6.1, SC-001)
