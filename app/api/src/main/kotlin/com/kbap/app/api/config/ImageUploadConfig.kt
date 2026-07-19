@@ -14,11 +14,13 @@ class ImageUploadConfig {
         @Value("\${kbap.upload.max-bytes}") maxBytes: Long,
         @Value("\${kbap.upload.upload-ttl}") uploadTtl: Duration,
         @Value("\${kbap.storage.public-base-url:}") publicBaseUrl: String,
+        @Value("\${kbap.storage.key-prefix:}") keyPrefix: String,
     ): ImageUploadProperties =
         ImageUploadProperties(
             allowedContentTypes = allowedContentTypes,
             maxBytes = maxBytes,
             uploadTtl = uploadTtl,
             publicBaseUrl = publicBaseUrl,
+            keyPrefix = keyPrefix,
         )
 }

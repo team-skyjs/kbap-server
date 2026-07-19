@@ -96,6 +96,8 @@ kbap:
     bucket: ${STORAGE_BUCKET:}
     region: ${STORAGE_REGION:ap-northeast-2}
     public-base-url: ${IMAGE_PUBLIC_BASE_URL:}
+    # 공유 버킷 환경별 폴더 접두(dev/·staging/) — 빈 값이면 기존 키 구조 유지(KB-171).
+    key-prefix: ${STORAGE_KEY_PREFIX:}
   upload:
     # presigned 발급 정책 — 허용 이미지 형식·크기 상한(bytes)·업로드 URL 만료(KB-145).
     allowed-content-types: image/jpeg,image/png,image/webp

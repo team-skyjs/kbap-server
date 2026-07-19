@@ -24,13 +24,13 @@
 
 ### Tests for User Story 1 (Test-First — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T001 [US1] `application/src/test/kotlin/com/kbap/application/upload/ImageUploadApplicationServiceTest.kt` 에 접두 시나리오 추가 — `properties()` 헬퍼에 `keyPrefix: String = ""` 파라미터를 더하고(`ImageUploadProperties(keyPrefix = …)` 전달), 신규 `when` 3개: (1) `keyPrefix = "dev"` → 키가 `^dev/images/scan/…` 매칭, (2) `keyPrefix = "dev/"` 와 `"/dev"` → 동일하게 `^dev/images/…` (중복 슬래시 `dev//` 부재 단정), (3) `publicUrl` 이 접두 포함 키로 조립됨(`https://cdn.test/dev/images/…`). 실행해 **컴파일 실패(keyPrefix 필드 부재) = Red 확인**: `./gradlew :application:test --tests "com.kbap.application.upload.ImageUploadApplicationServiceTest"`
+- [X] T001 [US1] `application/src/test/kotlin/com/kbap/application/upload/ImageUploadApplicationServiceTest.kt` 에 접두 시나리오 추가 — `properties()` 헬퍼에 `keyPrefix: String = ""` 파라미터를 더하고(`ImageUploadProperties(keyPrefix = …)` 전달), 신규 `when` 3개: (1) `keyPrefix = "dev"` → 키가 `^dev/images/scan/…` 매칭, (2) `keyPrefix = "dev/"` 와 `"/dev"` → 동일하게 `^dev/images/…` (중복 슬래시 `dev//` 부재 단정), (3) `publicUrl` 이 접두 포함 키로 조립됨(`https://cdn.test/dev/images/…`). 실행해 **컴파일 실패(keyPrefix 필드 부재) = Red 확인**: `./gradlew :application:test --tests "com.kbap.application.upload.ImageUploadApplicationServiceTest"`
 
 ### Implementation for User Story 1
 
-- [ ] T002 [US1] `application/src/main/kotlin/com/kbap/application/upload/ImageUploadProperties.kt` 에 `keyPrefix: String` 필드 추가(기본값 없음 — 컴파일러가 조립 지점 갱신을 강제)
-- [ ] T003 [US1] `application/src/main/kotlin/com/kbap/application/upload/ImageUploadApplicationService.kt` 의 `objectKey()` 에 접두 결합 — `properties.keyPrefix.trim('/')` 후 빈 값이면 기존 키 그대로, 아니면 `"$prefix/$key"`. T001 테스트 실행해 **Green 확인**
-- [ ] T004 [US1] `app/api/src/main/kotlin/com/kbap/app/api/config/ImageUploadConfig.kt` 에 `@Value("\${kbap.storage.key-prefix:}") keyPrefix: String` 주입 추가 + `app/api/src/main/resources/application.yml` 의 `kbap.storage` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}` 선언 — `./gradlew :app:api:compileKotlin` 통과 확인
+- [X] T002 [US1] `application/src/main/kotlin/com/kbap/application/upload/ImageUploadProperties.kt` 에 `keyPrefix: String` 필드 추가(기본값 없음 — 컴파일러가 조립 지점 갱신을 강제)
+- [X] T003 [US1] `application/src/main/kotlin/com/kbap/application/upload/ImageUploadApplicationService.kt` 의 `objectKey()` 에 접두 결합 — `properties.keyPrefix.trim('/')` 후 빈 값이면 기존 키 그대로, 아니면 `"$prefix/$key"`. T001 테스트 실행해 **Green 확인**
+- [X] T004 [US1] `app/api/src/main/kotlin/com/kbap/app/api/config/ImageUploadConfig.kt` 에 `@Value("\${kbap.storage.key-prefix:}") keyPrefix: String` 주입 추가 + `app/api/src/main/resources/application.yml` 의 `kbap.storage` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}` 선언 — `./gradlew :app:api:compileKotlin` 통과 확인
 
 **Checkpoint**: 접두 설정 시 키 접두 결합이 단위 테스트로 완결 검증됨.
 
@@ -44,7 +44,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T005 [US2] 신규 테스트 없음 — 기존 시나리오가 빈 접두 검증 그 자체. `./gradlew :application:test :app:api:test` 로 기존 테스트(발급 규격·컨트롤러·시나리오) 전부 무수정 통과 확인 (SC-002·SC-005)
+- [X] T005 [US2] 신규 테스트 없음 — 기존 시나리오가 빈 접두 검증 그 자체. `./gradlew :application:test :app:api:test` 로 기존 테스트(발급 규격·컨트롤러·시나리오) 전부 무수정 통과 확인 (SC-002·SC-005)
 
 **Checkpoint**: 빈 접두 = 기존 동작 보존이 기존 테스트로 증명됨.
 
@@ -58,8 +58,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T006 [P] [US3] `app/api/src/main/resources/application-dev.yml` 의 `kbap.storage` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}` 선언(기존 bucket·public-base-url 주석 관례에 맞춰 접두 용도 주석 1줄)
-- [ ] T007 [P] [US3] `app/api/src/main/resources/application-staging.yml` 에 동일 선언
+- [X] T006 [P] [US3] `app/api/src/main/resources/application-dev.yml` 의 `kbap.storage` 에 `key-prefix: ${STORAGE_KEY_PREFIX:}` 선언(기존 bucket·public-base-url 주석 관례에 맞춰 접두 용도 주석 1줄)
+- [X] T007 [P] [US3] `app/api/src/main/resources/application-staging.yml` 에 동일 선언
 
 **Checkpoint**: 전 스토리 완결 — 접두는 env 로만 제어되고 커밋 없이 반전 가능.
 
@@ -67,7 +67,7 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T008 전체 테스트 실행 `./gradlew test` — 전 모듈 무수정 통과 확인(quickstart §1, SC-005). 통과 후 논리 단위 커밋
+- [X] T008 전체 테스트 실행 `./gradlew test` — 전 모듈 무수정 통과 확인(quickstart §1, SC-005). 통과 후 논리 단위 커밋
 
 ---
 
