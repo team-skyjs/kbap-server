@@ -230,7 +230,7 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            // TODO ScanService 의 소유 검증(findVerifiedImage) 주석 해제 시 xwhen → when 으로 함께 복구
+            // TODO ScanService 의 소유 검증(verifyImageAccess) 주석 해제 시 xwhen → when 으로 함께 복구
             xwhen("검증되지 않은(신고 안 된) 이미지 경로로 스캔하면") {
                 then("400 SCAN-001 로 거절한다") {
                     val memberId = 505L
@@ -245,7 +245,7 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            // TODO ScanService 의 소유 검증(findVerifiedImage) 주석 해제 시 xwhen → when 으로 함께 복구
+            // TODO ScanService 의 소유 검증(verifyImageAccess) 주석 해제 시 xwhen → when 으로 함께 복구
             xwhen("다른 회원이 업로드한 이미지 경로로 스캔하면") {
                 then("본인 소유가 아니므로 400 SCAN-001 로 거절한다") {
                     val ownerId = 506L

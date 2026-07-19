@@ -1,7 +1,5 @@
 package com.kbap.domain.bookmark
 
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.bookmark.dto.BookmarkPage
 import com.kbap.domain.bookmark.model.Bookmark
@@ -20,7 +18,7 @@ class BookmarkService internal constructor(
 ) {
     @Transactional
     fun bookmark(memberId: Long, foodId: Long) {
-        foodService.findReadyById(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        foodService.getReadyFood(foodId)
         if (bookmarkRepository.findByMemberIdAndFoodId(memberId, foodId) != null) return
         bookmarkRepository.save(Bookmark(memberId = memberId, foodId = foodId))
     }
@@ -31,7 +29,7 @@ class BookmarkService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findBookmarkedFoodIds(memberId: Long?, foodIds: Collection<Long>): Set<Long> {
+    fun getBookmarkedFoodIds(memberId: Long?, foodIds: Collection<Long>): Set<Long> {
         if (memberId == null || foodIds.isEmpty()) return emptySet()
         return bookmarkRepository.findByMemberIdAndFoodIdIn(memberId, foodIds)
             .map { it.foodId }
@@ -39,7 +37,7 @@ class BookmarkService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findBookmarks(memberId: Long, lang: String?, cursor: Long?): BookmarkPage {
+    fun getBookmarkPage(memberId: Long, lang: String?, cursor: Long?): BookmarkPage {
         val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
 
         val hasNext = rows.size > PAGE_SIZE
@@ -47,7 +45,7 @@ class BookmarkService internal constructor(
         val nextCursor = if (hasNext) page.last().id else null
 
         val orderedFoodIds = page.map { it.foodId }
-        val foodsById = foodService.findAllReadyByIds(orderedFoodIds).associateBy { it.id }
+        val foodsById = foodService.getReadyFoodsByIds(orderedFoodIds).associateBy { it.id }
         val languageCode = LanguageCode.from(lang)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 

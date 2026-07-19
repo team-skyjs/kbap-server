@@ -32,23 +32,23 @@ class FoodService internal constructor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun browse(input: BrowseFoodsInput): FoodPage {
+    fun getFoodPage(input: BrowseFoodsInput): FoodPage {
         val lang = LanguageCode.from(input.lang)
-        return foodPage(findFoodPage(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
+        return foodPage(getFoods(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     @Transactional(readOnly = true)
-    fun search(input: SearchFoodsInput): FoodPage {
+    fun searchFoodPage(input: SearchFoodsInput): FoodPage {
         val lang = LanguageCode.from(input.lang)
-        return foodPage(searchFoodPage(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
+        return foodPage(getFoodsByKeyword(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
     }
 
     @Transactional(readOnly = true)
-    fun findFoodPage(cursor: Long?, size: Int): List<Food> =
+    internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
+    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
         return loadDescending(foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size))
     }
@@ -56,14 +56,13 @@ class FoodService internal constructor(
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
         val lang = LanguageCode.from(input.lang)
-        val food = findReadyById(input.foodId)
-            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val food = getReadyFood(input.foodId)
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
         val orderedSubstances = food.avoidanceSubstancesByProbability()
             .filter { it.substanceCode in userAvoidedCodes }
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()
-        val catalog = avoidanceCatalogService.findByCodes(codes).associateBy { it.code }
+        val catalog = avoidanceCatalogService.getSubstancesByCodes(codes).associateBy { it.code }
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
@@ -89,20 +88,21 @@ class FoodService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findReadyById(id: Long): Food? =
+    fun getReadyFood(id: Long): Food =
         foodRepository.findByIdIn(listOf(id))
             .firstOrNull()
             ?.takeIf { it.isReady() }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
-    fun findRandomReady(size: Int): List<Food> {
+    fun getRandomReadyFoods(size: Int): List<Food> {
         val ids = foodRepository.findRandomReadyIds(size)
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
     }
 
     @Transactional(readOnly = true)
-    fun findAllReadyByIds(ids: List<Long>): List<Food> {
+    fun getReadyFoodsByIds(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
             .sortedBy { it.id }
@@ -110,7 +110,7 @@ class FoodService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
+    fun getFoodsByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
         if (keys.isEmpty()) return emptyMap()
         val entities = foodRepository.findByKoreanMatchKeyIn(keys)
         val grouped = entities.groupBy { it.koreanMatchKey }

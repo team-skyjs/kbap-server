@@ -22,7 +22,7 @@ class HomeController(
     ): ResponseEntity<BaseResponse<HomeResponse>> {
         val result = homeApplicationService.getHome(memberId)
         val foodIds = (result.popularFoods + result.recentScans).map { it.foodId }
-        val bookmarkedFoodIds = bookmarkService.findBookmarkedFoodIds(memberId, foodIds)
+        val bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(memberId, foodIds)
         return ResponseEntity.ok(
             BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null, bookmarkedFoodIds = bookmarkedFoodIds)),
         )

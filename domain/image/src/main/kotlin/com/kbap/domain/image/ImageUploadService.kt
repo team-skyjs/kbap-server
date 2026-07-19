@@ -43,6 +43,6 @@ class ImageUploadService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun findVerifiedImage(memberId: Long, path: String): UploadedImage? =
+    fun verifyImageAccess(memberId: Long, path: String): UploadedImage? =
         uploadedImageRepository.findByPath(path)?.takeIf { it.isOwnedBy(memberId) }
 }

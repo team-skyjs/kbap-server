@@ -57,7 +57,7 @@ class AuthApplicationService(
         val memberId = refreshTokenStore.consume(parsed.jti)
             ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
 
-        if (memberService.findActive(memberId) == null) {
+        if (memberService.getMemberOrNull(memberId) == null) {
             throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
 
@@ -80,8 +80,7 @@ class AuthApplicationService(
 
     // 소셜 계정 삭제(외부 호출)를 트랜잭션 밖에서 먼저 수행하고, DB 탈퇴 마킹은 MemberService 트랜잭션에 맡긴다.
     fun withdraw(memberId: Long) {
-        val member = memberService.findActive(memberId)
-            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        val member = memberService.getMember(memberId)
 
         deleteSocialAccount(memberId, member.identity)
 
