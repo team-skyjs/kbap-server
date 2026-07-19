@@ -40,9 +40,19 @@ jobs:
 
       - name: Resolve image tag
         id: image
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
         run: |
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            TAG="${{ inputs.image_tag }}"
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            # 롤백 입력은 ECR 태그 형식만 허용 — 셸 인젝션·잘못된 태그 차단
+            case "$IMAGE_TAG_INPUT" in
+              [A-Za-z0-9_]*) ;;
+              *) echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1 ;;
+            esac
+            if printf '%s' "$IMAGE_TAG_INPUT" | grep -q '[^A-Za-z0-9._-]'; then
+              echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1
+            fi
+            TAG="$IMAGE_TAG_INPUT"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             TAG="$(cat VERSION)"

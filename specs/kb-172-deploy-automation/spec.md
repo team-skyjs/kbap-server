@@ -73,7 +73,7 @@ main 브랜치에 병합(푸시)되면 기존 ECS 블루그린 배포가 자동�
 - **FR-003**: main 브랜치 푸시 시 ECS 네이티브 블루/그린 배포(CodeDeploy 미사용 — 서비스에 사전 구성된 블루/그린 전략을 태스크정의 교체로 트리거)를 실행하되, 이미지 태그는 **명시적 릴리스 버전 그대로**(예: `1.0`)여야 한다. `latest` 태그는 쓰지 않는다.
 - **FR-004**: 환경별 워크플로 파일을 분리(`deploy-dev.yml`·`deploy-staging.yml`·`deploy-prod.yml`)해 실패 추적과 권한을 환경 단위로 격리해야 한다.
 - **FR-005**: EC2 컨테이너 교체는 SSH 키 없이 원격 명령(SSM Run Command)으로 수행해야 한다 — 저장소나 CI 에 SSH 개인키를 두지 않는다.
-- **FR-006**: 파이프라인 인증은 장기 액세스 키 없이 GitHub OIDC 로 환경별 IAM 역할을 assume 해야 하며, dev/staging 역할에는 이미지 push + 원격 명령 권한만, prod 역할에는 ECS 배포 권한(태스크정의 등록·서비스 갱신)만 부여해 교차 배포를 권한 수준에서 차단해야 한다.
+- **FR-006**: 파이프라인 인증은 장기 액세스 키 없이 GitHub OIDC 로 환경별 IAM 역할을 assume 해야 하며, dev/staging 역할에는 이미지 push + 원격 명령 권한만, prod 역할에는 ECS 배포 권한(태스크정의 등록·서비스 갱신)만 부여해 교차 배포를 차단해야 한다. 차단은 **2겹**으로 구성한다 — IAM 신뢰 정책 `sub`(어느 environment 에서 실행됐나) + GitHub Environment 의 deployment branch policy(어느 브랜치가 그 environment 에 배포 가능한가, prod→main·staging→staging·dev→develop). OIDC `sub` 는 브랜치를 담지 않으므로 IAM 만으로는 브랜치를 격리하지 못한다.
 - **FR-007**: secrets·환경값은 GitHub Environments(dev/staging/prod)로 분리해 관리해야 한다.
 - **FR-008**: 각 배포는 컨테이너(또는 서비스) 교체 후 헬스체크(`/actuator/health`)를 확인하는 단계를 포함해야 하며, 제한 시간 내 정상 응답이 없으면 배포를 실패로 표시해야 한다.
 - **FR-009**: 이미지는 환경별 태그 정책(dev=git sha, staging/prod=릴리스 버전)으로 보존되어, 이전 태그(sha 또는 이전 버전)를 재배포하는 것만으로 롤백할 수 있어야 한다 — 릴리스 버전은 배포마다 재사용하지 않고 증가시키는 것을 전제로 한다.

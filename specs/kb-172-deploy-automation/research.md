@@ -18,6 +18,7 @@
 
 - **Decision**: `aws ssm send-command`(document `AWS-RunShellScript`)로 EC2 에 셸 스크립트 전달: ECR 로그인(인스턴스 프로파일 권한) → `docker pull` → `docker stop/rm` → `docker run -d --restart unless-stopped --env-file /opt/kbap/<container>.env -p <port>:8080` → **헬스체크 루프**(`curl -sf localhost:<port>/actuator/health` 최대 30회×5초, 실패 시 `exit 1`). 워크플로는 `aws ssm wait command-executed` + `get-command-invocation` 으로 종료 코드·출력을 회수해 실패를 그대로 잡 실패로 만든다.
 - **Rationale**: SSH 키 불필요(Jira 확정). 헬스체크를 SSM 스크립트 안에 두면 "헬스 실패 = 명령 실패 = 워크플로 실패"가 한 경로로 떨어져 FR-008·FR-010 을 추가 단계 없이 충족한다. 러너에서 EC2 로 직접 curl 하는 방식은 보안그룹 개방이 필요해 기각.
+- **완료 대기는 `aws ssm wait` 대신 직접 폴링**(Codex 리뷰 2026-07-20 지적 반영): `aws ssm wait command-executed` 기본 상한은 20회×5초=100초인데 원격 헬스 루프는 30회×5초=150초라, 느린 JVM 기동 시 waiter 가 먼저 포기하고 `|| true` 가 타임아웃을 삼켜 즉시 status 확인이 `InProgress` 를 봐 **정상 배포를 실패로 오탐**한다. 러너에서 `get-command-invocation` 을 최대 60회×5초=300초 폴링해 종료 상태(Success/Failed/…)까지 기다린 뒤 판정한다 — 폴링 창(300초) > 원격 창(150초).
 - **Alternatives considered**: (1) SSM 세션/포트포워딩으로 러너에서 헬스체크 — 플러그인 설치·세션 관리 복잡. (2) docker compose 파일을 EC2 에 두고 갱신 — 현재 운영이 단일 `docker run` 컨테이너 2개라 도입 이득 없음.
 - **환경값**: 컨테이너 런타임 env 는 EC2 호스트의 `--env-file`(`/opt/kbap/api-dev.env`·`api-staging.env`)이 소유 — 기존 수동 배포의 env 구성을 그대로 승계하고, DB 비밀번호 등이 GitHub 로 이동하지 않는다.
 
@@ -32,7 +33,7 @@
 ## R5. 인증 — GitHub OIDC + 환경별 IAM 역할(신뢰 정책으로 교차 차단)
 
 - **Decision**: 각 워크플로 잡에 `permissions: {id-token: write, contents: read}` + `aws-actions/configure-aws-credentials@v4`(`role-to-assume: ${{ vars.AWS_ROLE_ARN }}`). IAM 역할 3개(`gha-deploy-dev`/`-staging`/`-prod`)의 신뢰 정책 `sub` 조건을 `repo:<org>/<repo>:environment:<env>` 로 잠가, **해당 GitHub Environment 에서 실행된 잡만** 그 역할을 assume 할 수 있게 한다. 권한: dev/staging 역할 = ECR push + `ssm:SendCommand`(대상 인스턴스·문서 한정) + 결과 조회, prod 역할 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService`(+`iam:PassRole` 태스크 역할 한정) — CodeDeploy 권한 없음.
-- **Rationale**: 장기 액세스 키 0개. environment 조건이 FR-006 의 교차 배포 차단을 IAM 수준에서 강제 — develop 브랜치에서 prod 워크플로를 위조해도 prod environment 를 못 쓰면 역할 assume 이 거부된다.
+- **Rationale**: 장기 액세스 키 0개. 단 **IAM `sub` 만으로는 브랜치를 격리하지 못한다** — environment 잡의 OIDC `sub` 는 `repo:…:environment:<env>` 로 브랜치를 담지 않으므로, 아무 브랜치의 워크플로가 `environment: prod` 를 선언하면 신뢰 정책이 통과한다. 따라서 브랜치 격리는 **GitHub Environment 의 deployment branch policy**(prod→main·staging→staging·dev→develop)가 담당하고, IAM `sub`(어느 환경) + branch policy(어느 브랜치) 2겹으로 FR-006 을 완성한다(quickstart §4). (Codex 리뷰 2026-07-20 지적 반영.)
 - **Alternatives considered**: 액세스 키 secrets 저장 — 유출·로테이션 부담, Jira 가 OIDC 확정. 기각.
 
 ## R6. GitHub Environments — 값은 variables, secrets 불필요
