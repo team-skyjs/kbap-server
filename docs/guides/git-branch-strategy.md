@@ -1,16 +1,17 @@
 # Git 브랜치 전략 — 실무 지침
 
 > 결정 근거는 [ADR-0007](../adr/0007-git-branch-strategy.md). 이 문서는 **무엇을 어떻게** 하는지의 단일 출처다.
-> 현재 모델: **`develop` + `main`** (github-flow 와 full git-flow 사이). 추후 `release/*`·`hotfix/*` 추가로 full git-flow 로 확장.
+> 현재 모델: **`main` + `staging-*` + `develop`** (git-flow). 릴리스마다 `develop` 에서 임시 `staging-<yyyymmdd>` 를 따 QA·스테이징 배포 후 `main`·`develop` 양쪽에 머지하고 삭제한다. `hotfix/*` 는 추후 확장.
+> 브랜치→배포 매핑(KB-172): `develop` push→dev · `staging-*` push→staging · `main` push→prod. 이미지 태그는 전 환경 커밋 sha. 상세는 [specs/kb-172-deploy-automation](../../specs/kb-172-deploy-automation/).
 
 ## 1. 브랜치 모델
 
 | 브랜치 | 분기 원천 | 머지 대상 | 머지 방식 | 비고 |
 |---|---|---|---|---|
-| `main` | — | — | — | 운영. 항상 배포 가능. **직접 커밋 ❌**, 태그만 |
-| `develop` | `main` | — | — | 통합 트렁크. **직접 커밋 ❌**, 머지로만 |
+| `main` | — | — | — | 운영. 항상 배포 가능. **직접 커밋 ❌**, 머지로만. push→prod |
+| `develop` | `main` | — | — | 통합 트렁크. **직접 커밋 ❌**, 머지로만. push→dev |
 | 기능 작업 브랜치 | `develop` | `develop` | **Squash** | 기능 작업. 이름은 §1.1 참조. **머지 후 삭제 안 함** |
-| `release/x.y.z` *(확장 시)* | `develop` | `main` + `develop` | Merge --no-ff | 안정화·QA 전용, 신규 기능 ❌ |
+| `staging-<yyyymmdd>` | `develop` | `main` **+** `develop` | **Merge --no-ff** | 릴리스마다 임시. 안정화·QA·스테이징 배포 전용, 신규 기능 ❌. push→staging. **양쪽 머지 후 삭제** |
 | `hotfix/<slug>` *(확장 시)* | `main` | `main` + `develop` | Merge --no-ff | 운영 긴급 패치 |
 
 ### 1.1 spec 폴더 · 브랜치 이름
@@ -37,7 +38,14 @@
   - 구분자는 반드시 `-pK-` — `kb-28-food-spiciness` 브랜치와 `kb-28-food-spiciness/p1` 은 git ref 가 충돌하므로 `/` 를 쓰지 않는다.
   - PR 본문에 Jira 키를 참조한다: 중간 PR `Refs KB-28`, 태스크를 끝내는 마지막 PR `Closes #<GitHub 이슈>`(연계 시).
 
-- *(확장)* `release/*`·`hotfix/*` 네이밍 예: `release/0.0.1`, `hotfix/food-detail-npe`.
+**④ staging 브랜치 = `staging-<yyyymmdd>`** (릴리스마다 임시)
+
+- 릴리스 준비 시 `develop` 에서 딴다: `git push origin develop:staging-20260720`. 트리거 패턴이 `staging-*` 라 push 하면 staging 환경(`api-staging` :8081)에 자동 배포된다.
+- QA 중 수정은 이 브랜치에 **일반 커밋**(스쿼시 안 함 — §2)한다. push 마다 재배포된다.
+- 합격 시 `main`·`develop` **양쪽에 Merge --no-ff**(§2) 하고 브랜치를 삭제한다(`git push origin :staging-20260720`).
+- **한 번에 하나만** 운영한다 — 여러 `staging-*` 가 있어도 배포는 같은 컨테이너 하나를 대상으로 직렬화된다.
+
+- *(확장)* `hotfix/*` 네이밍 예: `hotfix/food-detail-npe`.
 
 ## 2. 불변 머지 원칙 ★
 
@@ -47,12 +55,11 @@
 | 구간 | 방식 | 결과 커밋 메시지 |
 |---|---|---|
 | `feature → develop` | **Squash** | PR 제목 = conventional 1줄 (+ 본문) |
-| `develop → main` (릴리스) | **Merge --no-ff** | `Merge develop into main (release x.y.z)` |
-| *(확장)* `release/* → main` | Merge --no-ff | `Merge release/x.y.z into main` |
-| *(확장)* `release/* → develop` 백머지 | Merge --no-ff | `Merge release/x.y.z back into develop` |
+| `staging-* → main` (릴리스) | **Merge --no-ff** | `Merge staging-20260720 into main (release …)` |
+| `staging-* → develop` (QA 수정 백머지) | **Merge --no-ff** | `Merge staging-20260720 into develop` |
 | *(확장)* `hotfix/* → main`·`→ develop` | Merge --no-ff | `Merge hotfix/<slug> into …` |
 
-이 규칙을 지키면 확장(release/hotfix 추가) 시에도 규칙이 안 바뀌고 develop↔main 이 정렬된다.
+**왜 staging→develop 을 스쿼시하면 안 되나 ★**: 스쿼시는 커밋을 새 SHA 로 뭉친다. `staging→main` 은 머지커밋(원본 SHA 유지)인데 `staging→develop` 을 스쿼시하면 같은 변경이 main·develop 에서 **다른 SHA** 로 존재해, 다음 릴리스에서 develop→staging→main 머지 시 git 이 중복 인식 못 해 **충돌·중복**이 난다. 버려지는 브랜치(feature)에서 올라올 때만 스쿼시, 살아있는 브랜치(main/develop/staging)끼리는 머지커밋 — 이 규칙을 지키면 develop↔main 이 정렬된다.
 
 ## 3. 레포 머지 설정 (Settings → Pull Requests)
 
@@ -66,8 +73,9 @@ base 별 머지 방식을 GitHub 가 자동 강제하지 못하므로 **두 방�
 | Automatically delete head branches | ⬜ OFF (브랜치 보존) |
 
 **PR 머지 버튼 선택 규칙:**
-- base = **`develop`** → **Squash and merge**
-- base = **`main`**(릴리스) → **Create a merge commit**
+- base = **`develop`**, head = 기능 브랜치 → **Squash and merge**
+- base = **`develop`**, head = `staging-*` (QA 수정 백머지) → **Create a merge commit**
+- base = **`main`**, head = `staging-*` (릴리스) → **Create a merge commit**
 
 ## 4. 커밋 메시지 컨벤션
 
@@ -95,7 +103,7 @@ Conventional Commits + 한국어 본문(기존 repo 스타일 유지). 코드 �
 ### 브랜치별 커밋 입도
 - **기능 작업 브랜치**: 로컬은 자유·자주·WIP 허용(어차피 squash 됨). **PR 제목만** conventional 하게.
 - **develop / main**: 직접 커밋 ❌, 머지로만.
-- *(확장)* **release/***: 안정화만 — `fix(scan): QA 빈입력 400 처리`, `chore(release): 0.0.1 버전 범프`, `docs(changelog): …`.
+- **staging-***: 안정화만(신규 기능 ❌) — QA 수정을 일반 커밋으로: `fix(scan): QA 빈입력 400 처리`. 각 수정이 개별 커밋(스쿼시 안 함)이라 main·develop 백머지 시 SHA 가 정렬된다.
 - *(확장)* **hotfix/***: 단일 긴급 수정 — `fix(food): 상세조회 NPE 긴급 수정`.
 
 ## 5. PR 규약
@@ -115,13 +123,17 @@ git push origin v0.0.1
 
 - SemVer: 초기 개발 `0.0.1 → 0.1.0`, **첫 스토어 출시 `1.0.0`**, 이후 MAJOR/MINOR/PATCH 엄격 적용.
 - 스토어 빌드번호(android `versionCode` / iOS build)는 SemVer 와 별개로 단조증가.
+- **주의**: 이 SemVer 태그는 제품/스토어 릴리스 마킹용이며(선택), **배포 파이프라인 이미지 태그와는 무관**하다 — 배포는 전 환경 커밋 sha 를 쓴다(KB-172). 릴리스에 태그를 달고 싶으면 `main` 머지 커밋에 붙이면 되고, 안 달아도 배포는 동작한다.
 
 ## 7. 한 사이클 요약
 
 ```
-001-menu-scan (기능) ─(Squash)─► develop ─●─●─●─(약속된 시점)─┐
-                                                             │ Merge --no-ff
-                                                    main ◄───┘ + tag v0.0.1
+kb-NN-slug (기능) ─(Squash)─► develop ─●─●─●─┐
+                                             │ (릴리스 준비) 분기
+                              staging-yyyymmdd ┤─● QA 수정 ─┐
+                                             │             ├─(Merge --no-ff)─► main   → prod 배포
+                                             │             └─(Merge --no-ff)─► develop → dev 배포
+                                             └ staging 배포(push 마다) → 합격 후 브랜치 삭제
    (확장) hotfix/* ─(Merge)─► main & develop
 ```
 
