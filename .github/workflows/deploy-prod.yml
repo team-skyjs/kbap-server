@@ -1,0 +1,125 @@
+name: Deploy prod
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "재배포할 기존 이미지 태그(이전 커밋 sha). 비우면 현재 커밋을 빌드한다."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: build and blue/green deploy to prod ECS
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: image
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            # 롤백 입력은 ECR 태그 형식만 허용 — 셸 인젝션·잘못된 태그 차단
+            case "$IMAGE_TAG_INPUT" in
+              [A-Za-z0-9_]*) ;;
+              *) echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1 ;;
+            esac
+            if printf '%s' "$IMAGE_TAG_INPUT" | grep -q '[^A-Za-z0-9._-]'; then
+              echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1
+            fi
+            TAG="$IMAGE_TAG_INPUT"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            TAG="$COMMIT_SHA"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        if: steps.image.outputs.build == 'true'
+        run: |
+          docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
+          docker push "${{ steps.image.outputs.uri }}"
+
+      - name: Register new task definition revision
+        id: taskdef
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ vars.ECS_SERVICE }}
+        run: |
+          CURRENT_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$CURRENT_ARN" \
+            --query taskDefinition > taskdef.json
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions[0].image = $IMAGE
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' taskdef.json > new-taskdef.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
+
+      # 블루/그린 전략·타깃그룹·bake time·리스너는 ECS 서비스에 미리 구성돼 있어야 한다(인프라 소유).
+      # 여기서 --deployment-configuration 을 넘기지 않는 것은 의도적 — 넘기면 미지정 하위필드(bakeTime·
+      # 서킷브레이커)가 기본값으로 덮어써진다. 파이프라인은 태스크정의만 교체해 블루/그린을 트리거한다.
+      - name: Update ECS service (native blue/green)
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          SERVICE: ${{ vars.ECS_SERVICE }}
+          NEW_ARN: ${{ steps.taskdef.outputs.arn }}
+          DEPLOY_TIMEOUT: ${{ vars.DEPLOY_TIMEOUT_SECONDS }}
+        run: |
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --task-definition "$NEW_ARN" >/dev/null
+          echo "triggered blue/green deployment: $SERVICE -> $NEW_ARN"
+
+          # `aws ecs wait services-stable` 는 length(deployments)==1 && running==desired 에서만
+          # 성공하고 40회×15초=10분 고정 상한 뒤 실패한다. 네이티브 블루/그린은 bake 동안 blue+green
+          # 두 리비전을 의도적으로 유지하므로, bake>10분이면 정상 배포가 오탐된다.
+          # 대신 PRIMARY 배포의 rolloutState 를 bake 보다 긴 설정형 타임아웃으로 폴링한다(deployment-aware).
+          TIMEOUT="${DEPLOY_TIMEOUT:-1800}"   # 기본 30분. bake 보다 길게 — vars.DEPLOY_TIMEOUT_SECONDS 로 조정
+          deadline=$(( $(date +%s) + TIMEOUT ))
+          while :; do
+            STATE=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query "services[0].deployments[?status=='PRIMARY']|[0].rolloutState" --output text 2>/dev/null || echo IN_PROGRESS)
+            echo "rolloutState: $STATE"
+            case "$STATE" in
+              COMPLETED) echo "deployment completed"; exit 0 ;;
+              FAILED) echo "deployment failed or rolled back" >&2; exit 1 ;;
+            esac
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "timeout ${TIMEOUT}s — bake time 보다 짧을 수 있음. vars.DEPLOY_TIMEOUT_SECONDS 를 bake+여유로 상향" >&2
+              exit 1
+            fi
+            sleep 15
+          done
