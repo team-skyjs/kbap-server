@@ -90,10 +90,23 @@ git push origin develop:staging   # develop 기준 장기 브랜치 생성
 Actions → 해당 환경의 deploy 워크플로 → Run workflow → `image_tag` 에 **이전 정상 태그** 입력 → 실행. 빌드 없이 해당 태그를 재배포한다(R8, FR-009).
 
 - dev: 이전 정상 커밋의 git sha (Actions 이력 또는 `git log`)
-- staging: 이전 릴리스 버전 + `-rc` (예: `0.9-rc`)
-- prod: 이전 릴리스 버전 (예: `0.9`)
+- staging: 이전 릴리스 버전 + `-rc` (예: `0.9.0-rc`)
+- prod: 이전 릴리스 버전 (예: `0.9.0`)
 
 ## §8. 릴리스 버전 운용
 
-- 버전 단일 출처는 루트 `VERSION` 파일 1줄(예: `1.0`) — staging/prod 워크플로가 `cat VERSION` 으로 읽어 태그를 만든다. `latest` 는 쓰지 않는다.
-- **릴리스마다 `VERSION` 을 커밋으로 올린다**(예: `1.0`→`1.1`). bump 없이 같은 버전을 재배포하면 ECR 태그가 덮어써져 그 버전의 롤백 대상이 사라진다 — staging 반입 전 bump 를 규율로 한다.
+**버전 단일 출처 = 레포 루트 `VERSION` 파일 1줄**(예: `1.0.0`). staging/prod 워크플로가 `cat VERSION` 으로 읽어 태그를 만든다(staging=`<버전>-rc`, prod=`<버전>`). `latest` 미사용. git 추적 파일이라 모든 브랜치가 사본을 갖고, 병합으로 값이 따라 이동한다.
+
+**고치는 지점은 staging 한 곳** — 브랜치 전략(스쿼시 develop · 임시 staging · 릴리스 병합 main):
+
+| 브랜치 | VERSION | 편집 | 배포 태그 |
+|---|---|---|---|
+| develop | 직전 릴리스 값에서 정지 | 안 함 | git sha (VERSION 무시) |
+| staging | 릴리스 준비 시 다음 버전으로 bump | **여기서만** | `<버전>-rc` |
+| main | staging 병합으로 따라옴 | 안 함(머지로 유입) | `<버전>` |
+
+릴리스 사이클: (1) develop→staging 분기 → (2) staging 첫 커밋으로 `VERSION` bump(예: `1.0.0`→`1.1.0`) → (3) 테스트·핫픽스는 staging 에서 계속 커밋(태그 `1.1.0-rc` 유지) → (4) 합격 시 staging 을 **main·develop 양쪽 병합**(VERSION 이 두 브랜치로 따라감, main 배포=`1.1.0`) → (5) staging 삭제.
+
+- **main 의 `release: 1.1.0` 머지 커밋 메시지는 사람이 읽는 기록**일 뿐, 버전 권위는 `VERSION` 파일이다(메시지 파싱 안 함 — 형식 오타에 배포가 깨지지 않게).
+- develop 은 `VERSION` 을 절대 bump 하지 않는다 → 그래서 staging→develop 병합에서 `VERSION` 은 충돌 파일이 되지 않는다(코드 핫픽스가 develop 의 같은 줄과 겹치면 그건 별개로 충돌 가능 — 릴리스 브랜치 핫픽스의 본질).
+- bump 없이 같은 버전을 재배포하면 ECR 태그가 덮어써져 그 버전의 롤백 대상이 사라진다 — staging 분기 직후 bump 를 규율로 한다.
