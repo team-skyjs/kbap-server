@@ -6,7 +6,7 @@
 
 ## Summary
 
-수동 배포(로컬 빌드→ECR push→EC2 접속 docker 명령)를 브랜치 푸시만으로 자동화한다. 환경별 워크플로 3파일 — `deploy-dev.yml`(develop→공용 EC2 `kbap-api-dev` :8080), `deploy-staging.yml`(staging→`kbap-api-staging` :8081), `deploy-prod.yml`(main→ECS 네이티브 블루/그린, CodeDeploy 미사용). 공통 흐름: 멀티스테이지 Dockerfile 로 linux/amd64 이미지 빌드 → ECR `kbap/api` push(태그는 **전 환경 공통 커밋 sha**·`latest` 미사용 — 커밋마다 유일 태그라 충돌·덮어쓰기 없음) → 환경별 배포(dev/staging 은 SSM Run Command 로 컨테이너 교체+스크립트 내 헬스체크, prod 는 태스크정의 리비전 갱신+`update-service` 로 블루/그린 트리거+`wait services-stable`). 인증은 GitHub OIDC 로 환경별 IAM 역할 assume(신뢰 정책 `sub`=environment + GitHub deployment branch policy 2겹으로 교차 배포 차단), 값은 GitHub Environments variables(secret 0개 — 런타임 비밀은 EC2 env-file/ECS 태스크정의 소유). 롤백은 `workflow_dispatch` + `image_tag`(이전 커밋 sha, env 로 받아 형식 검증) 재배포. **애플리케이션 코드·설정(yml)·DB 0줄** — 저장소 변경은 워크플로 3파일뿐이고, AWS 측 구성(OIDC provider·IAM 역할 3개·Environments)은 quickstart 런북으로 수행한다.
+수동 배포(로컬 빌드→ECR push→EC2 접속 docker 명령)를 브랜치 푸시만으로 자동화한다. 환경별 워크플로 3파일 — `deploy-dev.yml`(develop→공용 EC2 `kbap-api-dev` :8080), `deploy-staging.yml`(staging→`kbap-api-staging` :8081), `deploy-prod.yml`(main→ECS 네이티브 블루/그린, CodeDeploy 미사용). 공통 흐름: 멀티스테이지 Dockerfile 로 linux/amd64 이미지 빌드 → ECR `kbap/api` push(태그는 **전 환경 공통 커밋 sha**·`latest` 미사용 — 커밋마다 유일 태그라 충돌·덮어쓰기 없음) → 환경별 배포(dev/staging 은 SSM Run Command 로 컨테이너 교체+스크립트 내 헬스체크, prod 는 태스크정의 리비전 갱신+`update-service` 로 블루/그린 트리거+PRIMARY 배포 `rolloutState` 폴링(설정형 타임아웃, 고정 `wait services-stable` 오탐 회피)). 인증은 GitHub OIDC 로 환경별 IAM 역할 assume(신뢰 정책 `sub`=environment + GitHub deployment branch policy 2겹으로 교차 배포 차단), 값은 GitHub Environments variables(secret 0개 — 런타임 비밀은 EC2 env-file/ECS 태스크정의 소유). 롤백은 `workflow_dispatch` + `image_tag`(이전 커밋 sha, env 로 받아 형식 검증) 재배포. **애플리케이션 코드·설정(yml)·DB 0줄** — 저장소 변경은 워크플로 3파일뿐이고, AWS 측 구성(OIDC provider·IAM 역할 3개·Environments)은 quickstart 런북으로 수행한다.
 
 ## Technical Context
 
@@ -84,7 +84,7 @@ jobs.deploy (environment: <env>):
   6. get-command-invocation 종료상태 폴링(최대 300초, 실패 전파 — FR-010·R3)
 ```
 
-prod 는 5–6 대신: describe-services → describe-task-definition → 이미지만 교체한 리비전 등록 → `ecs update-service --task-definition <new>`(블루/그린 트리거) → `ecs wait services-stable` (R4). 블루/그린 전략·타깃그룹·bake 는 서비스에 사전 구성(인프라 소유), `--deployment-configuration` 미전달(덮어쓰기 방지).
+prod 는 5–6 대신: describe-services → describe-task-definition → 이미지만 교체한 리비전 등록 → `ecs update-service --task-definition <new>`(블루/그린 트리거) → **PRIMARY 배포 `rolloutState` 폴링**(COMPLETED=성공·FAILED=실패, 타임아웃 `vars.DEPLOY_TIMEOUT_SECONDS` 기본 30분 — 고정 `wait services-stable` 10분은 bake>10분 오탐이라 기각) (R4). 블루/그린 전략·타깃그룹·bake 는 서비스에 사전 구성(인프라 소유), `--deployment-configuration` 미전달(덮어쓰기 방지).
 
 ## Complexity Tracking
 

@@ -67,6 +67,7 @@ Settings → Environments 에 `dev`/`staging`/`prod` 생성 후 **variables**(se
 | `CONTAINER_NAME` | `kbap-api-dev` | `kbap-api-staging` | 태스크정의 컨테이너명 |
 | `HOST_PORT` | `8080` | `8081` | — |
 | `ECS_CLUSTER` / `ECS_SERVICE` | — | — | 기존 클러스터/서비스 |
+| `DEPLOY_TIMEOUT_SECONDS` (선택) | — | — | 배포 완료 대기 상한(초). 미설정 시 1800(30분). **bake time 보다 길게** |
 
 > prod 는 ECS 네이티브 블루/그린이라 `CODEDEPLOY_*`·`CONTAINER_NAME`·`CONTAINER_PORT` variables 가 필요 없다 — 컨테이너·포트·타깃그룹·블루그린 전략·bake time 은 **ECS 서비스/태스크정의에 사전 구성**(인프라 소유). 워크플로는 태스크정의의 이미지만 교체하고 `update-service` 로 블루/그린을 트리거한다. 서비스에 `deploymentConfiguration.strategy=BLUE_GREEN` 이 설정돼 있어야 한다(CodeDeploy 의 배포그룹을 대체하는 사전 조건).
 
@@ -90,7 +91,7 @@ git push origin develop:staging-20260720   # develop 기준 임시 staging-* 생
 
 1. **dev**: develop 에 커밋 푸시 → Actions 의 `deploy-dev` 실행 확인 → 성공 후 EC2 에서 `docker ps` 로 `kbap-api-dev` 이미지 태그 = **푸시 커밋 sha** 확인, `curl localhost:8080/actuator/health` = UP. 같은 시각 `kbap-api-staging` 컨테이너 재시작 없음(`docker ps` STATUS 유지).
 2. **staging**: staging 에 푸시 → 동일 확인(:8081) — 이미지 태그도 **커밋 sha**(dev·prod 와 동일). `kbap-api-dev` 비간섭 확인.
-3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **커밋 sha** 확인 → ECS 콘솔의 서비스 배포 탭에서 블루/그린 트래픽 전환 확인 → 서비스 헬스 UP. (`aws ecs describe-services --query 'services[0].deployments'` 로 새 배포가 PRIMARY 로 전환됐는지 확인.)
+3. **prod**: main 병합 → `deploy-prod` 실행 → 새 태스크정의 리비전 이미지 태그 = **커밋 sha** 확인 → ECS 콘솔의 서비스 배포 탭에서 블루/그린 트래픽 전환 확인 → 워크플로가 PRIMARY 배포 `rolloutState=COMPLETED` 까지 폴링(기본 30분, bake 길면 `DEPLOY_TIMEOUT_SECONDS` 상향) → 서비스 헬스 UP. (`aws ecs describe-services --query "services[0].deployments[?status=='PRIMARY']|[0].rolloutState"` 로 상태 확인.)
 4. **실패 전파 확인(권장)**: 존재하지 않는 image_tag 로 dev workflow_dispatch 실행 → 워크플로가 실패로 표시되고 기존 컨테이너가 살아있는지 확인(FR-010, US1-AC3).
 
 ## §7. 롤백 절차

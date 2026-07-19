@@ -77,7 +77,7 @@
 
 ## Phase 5: User Story 3 - main 병합 시 prod 무중단 배포 (Priority: P3)
 
-**Goal**: main 병합 → 커밋 sha 이미지 → 태스크정의 리비전 갱신 → `update-service` 로 ECS 네이티브 블루/그린 트리거·`wait services-stable`
+**Goal**: main 병합 → 커밋 sha 이미지 → 태스크정의 리비전 갱신 → `update-service` 로 ECS 네이티브 블루/그린 트리거·PRIMARY 배포 `rolloutState` 폴링(설정형 타임아웃)
 
 **Independent Test**: main 병합 → 새 태스크정의 이미지 태그=커밋 sha, 블루/그린 트래픽 전환(새 배포 PRIMARY), 서비스 헬스 UP (quickstart §6.3)
 
@@ -85,7 +85,7 @@
 
 - [ ] T015 [P] [US3] IAM 역할 `gha-deploy-prod` 생성 — quickstart §2: `sub`=`environment:prod`, 권한 = ECR push + `ecs:DescribeServices`·`DescribeTaskDefinition`·`RegisterTaskDefinition`·`UpdateService` + `iam:PassRole`(태스크 역할 한정). CodeDeploy 권한 없음(네이티브 블루/그린)
 - [ ] T016 [P] [US3] GitHub Environment `prod` 생성 + variables 등록 + **deployment branch policy `main`** — quickstart §4: `ECS_CLUSTER`·`ECS_SERVICE` + 공통 3종(`AWS_REGION`·`AWS_ROLE_ARN`·`ECR_REPOSITORY`). CODEDEPLOY_*·CONTAINER_* 불필요(서비스/태스크정의가 소유). branch policy 로 main 만 prod 배포 가능하게 잠금(FR-006 브랜치 격리 실집행 — IAM sub 은 브랜치를 못 담음). 승인 게이트 미설정 — 추후 protection rule 만. **전제**: ECS 서비스에 `deploymentConfiguration.strategy=BLUE_GREEN`·타깃그룹·bake 사전 구성
-- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`github.sha`**), 배포 단계는 R4: `describe-services` → `describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws ecs update-service --task-definition <new-arn>`(블루/그린 트리거) → `aws ecs wait services-stable`(실패 전파). `--deployment-configuration` 미전달(bake·서킷브레이커 덮어쓰기 방지)
+- [X] T017 [P] [US3] `.github/workflows/deploy-prod.yml` 작성 — 골격 공통(트리거 `main`·`concurrency: deploy-prod`·OIDC·ECR push 태그 **`github.sha`**), 배포 단계는 R4: `describe-services` → `describe-task-definition` → 이미지만 교체한 새 리비전 등록 → `aws ecs update-service --task-definition <new-arn>`(블루/그린 트리거) → PRIMARY 배포 `rolloutState` 폴링(COMPLETED=성공·FAILED=실패, `vars.DEPLOY_TIMEOUT_SECONDS` 기본 1800초 — 고정 `wait services-stable` 10분 상한은 bake>10분 오탐이라 대체, 리뷰 지적). `--deployment-configuration` 미전달(bake·서킷브레이커 덮어쓰기 방지)
 - [X] T018 [US3] `actionlint` 로 `.github/workflows/deploy-prod.yml` 정적 검증 (R9)
 - [ ] T019 [US3] 실배포 검증 — main 병합 → 태스크정의 태그=커밋 sha, 블루그린 전환, 헬스 UP (quickstart §6.3, FR-003)
 

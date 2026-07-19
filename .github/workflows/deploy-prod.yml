@@ -95,10 +95,31 @@ jobs:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           SERVICE: ${{ vars.ECS_SERVICE }}
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
+          DEPLOY_TIMEOUT: ${{ vars.DEPLOY_TIMEOUT_SECONDS }}
         run: |
           aws ecs update-service \
             --cluster "$CLUSTER" \
             --service "$SERVICE" \
             --task-definition "$NEW_ARN" >/dev/null
           echo "triggered blue/green deployment: $SERVICE -> $NEW_ARN"
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+          # `aws ecs wait services-stable` 는 length(deployments)==1 && running==desired 에서만
+          # 성공하고 40회×15초=10분 고정 상한 뒤 실패한다. 네이티브 블루/그린은 bake 동안 blue+green
+          # 두 리비전을 의도적으로 유지하므로, bake>10분이면 정상 배포가 오탐된다.
+          # 대신 PRIMARY 배포의 rolloutState 를 bake 보다 긴 설정형 타임아웃으로 폴링한다(deployment-aware).
+          TIMEOUT="${DEPLOY_TIMEOUT:-1800}"   # 기본 30분. bake 보다 길게 — vars.DEPLOY_TIMEOUT_SECONDS 로 조정
+          deadline=$(( $(date +%s) + TIMEOUT ))
+          while :; do
+            STATE=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query "services[0].deployments[?status=='PRIMARY']|[0].rolloutState" --output text 2>/dev/null || echo IN_PROGRESS)
+            echo "rolloutState: $STATE"
+            case "$STATE" in
+              COMPLETED) echo "deployment completed"; exit 0 ;;
+              FAILED) echo "deployment failed or rolled back" >&2; exit 1 ;;
+            esac
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "timeout ${TIMEOUT}s — bake time 보다 짧을 수 있음. vars.DEPLOY_TIMEOUT_SECONDS 를 bake+여유로 상향" >&2
+              exit 1
+            fi
+            sleep 15
+          done
