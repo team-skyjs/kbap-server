@@ -38,16 +38,21 @@ class ScanControllerTest : BehaviorSpec() {
     init {
         val mapper = jacksonObjectMapper()
 
-        fun seedMember(memberId: Long): Unit =
+        fun seedMember(memberId: Long, profile: String = "{}"): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
                     INSERT INTO member (id, provider, provider_uid, profile, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
-                ).use { ps -> ps.setLong(1, memberId); ps.setString(2, "scan-test-$memberId"); ps.executeUpdate() }
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setString(2, "scan-test-$memberId")
+                    ps.setString(3, profile)
+                    ps.executeUpdate()
+                }
             }
 
         fun accessToken(memberId: Long): String {
@@ -68,16 +73,20 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedReadyFood(koreanName: String): Unit =
+        fun seedReadyFood(koreanName: String, nameTranslations: String = "{}"): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
                     INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
                                       content_status, status, created_at, updated_at)
-                    VALUES (?, '설명', 0, '{}', '{}', 'READY', 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE content_status = 'READY'
+                    VALUES (?, '설명', 0, ?, '{}', 'READY', 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE content_status = 'READY', name_translations = VALUES(name_translations)
                     """,
-                ).use { ps -> ps.setString(1, koreanName); ps.executeUpdate() }
+                ).use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.setString(2, nameTranslations)
+                    ps.executeUpdate()
+                }
             }
 
         fun scanCountOf(memberId: Long): Int =
@@ -103,6 +112,16 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun historyMenuName(memberId: Long, koreanName: String): String =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT menu_name FROM scan_history WHERE member_id = ? AND korean_name = ?",
+                ).use { ps ->
+                    ps.setLong(1, memberId); ps.setString(2, koreanName)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getString(1) }
+                }
+            }
+
         fun body(imagePath: String, vararg items: Pair<Int, String>) =
             mapper.writeValueAsString(
                 mapOf(
@@ -117,7 +136,8 @@ class ScanControllerTest : BehaviorSpec() {
                     val memberId = 501L
                     val path = "scan/501/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    seedReadyFood("김치찌개")
+                    // 앱 언어 미설정 회원이므로 en 번역이 있어도 ko 기본으로 한국어명이 내려가야 한다
+                    seedReadyFood("김치찌개", """{"en":"Kimchi Stew"}""")
                     vision.program(
                         path,
                         listOf(
@@ -136,13 +156,59 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results.length()") { value(2) }
                         jsonPath("$.payload.results[0].idx") { value(0) }
                         jsonPath("$.payload.results[0].matched") { value(true) }
-                        jsonPath("$.payload.results[0].name") { value("Kimchi 김치찌개") }
+                        jsonPath("$.payload.results[0].name") { value("김치찌개") }
                         jsonPath("$.payload.results[0].koreanName") { value("김치찌개") }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
                         jsonPath("$.payload.results[0].price") { value(9000) }
                         jsonPath("$.payload.results[1].idx") { value(1) }
                         jsonPath("$.payload.results[1].matched") { value(false) }
+                        jsonPath("$.payload.results[1].name") { value("Bulgogi 미등록불고기501") }
                         jsonPath("$.payload.results[1].price") { value(16000) }
+                    }
+                }
+            }
+
+            `when`("앱 언어가 영어인 회원이 영어 번역이 등록된 음식을 스캔하면") {
+                then("매칭 항목의 name 은 영어 번역명으로 내려간다") {
+                    val memberId = 514L
+                    val path = "scan/514/menu.jpg"
+                    seedMember(memberId, """{"appLanguage":"en"}""")
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("번역김치찌개", """{"en":"Kimchi Stew"}""")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 번역김치찌개", "번역김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "번역김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.results[0].koreanName") { value("번역김치찌개") }
+                    }
+
+                    historyMenuName(memberId, "번역김치찌개") shouldBe "Kimchi 번역김치찌개"
+                }
+            }
+
+            `when`("앱 언어가 영어인 회원이 영어 번역이 없는 음식을 스캔하면") {
+                then("매칭 항목의 name 은 한국어 이름으로 폴백한다") {
+                    val memberId = 515L
+                    val path = "scan/515/menu.jpg"
+                    seedMember(memberId, """{"appLanguage":"en"}""")
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("폴백김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 폴백김치찌개", "폴백김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "폴백김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].name") { value("폴백김치찌개") }
                     }
                 }
             }

@@ -9,5 +9,5 @@ data class LocalizedText(
     }
 
     fun resolve(lang: LanguageCode): String =
-        if (lang == LanguageCode.KO) korean else translations[lang] ?: korean
+        if (lang == LanguageCode.KO) korean else translations[lang]?.takeIf { it.isNotBlank() } ?: korean
 }

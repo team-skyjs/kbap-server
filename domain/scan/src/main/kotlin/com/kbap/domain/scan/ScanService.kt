@@ -2,6 +2,7 @@ package com.kbap.domain.scan
 
 import com.kbap.core.error.BusinessException
 import com.kbap.core.error.ErrorCode
+import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
 import com.kbap.core.scan.ExtractedMenu
@@ -33,6 +34,9 @@ class ScanService internal constructor(
     // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
     // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
 
+        // 비전 호출(비용) 전에 회원 존재를 확정하고 응답 언어를 잡는다
+        val lang = memberService.getMember(memberId).profile.appLanguage ?: LanguageCode.KO
+
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
         } catch (e: Exception) {
@@ -46,13 +50,14 @@ class ScanService internal constructor(
 
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
+            val matched = food?.isReady() == true
             ScanResult.ItemRiskResult(
                 // LLM 이 목록에 없는 idx 를 반환하면(할루시네이션) 매칭 없음으로 처리한다.
                 idx = menu.matchedIdx?.takeIf { it in validIdxes },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
-                matched = food?.isReady() == true,
+                matched = matched,
                 foodId = food?.id,
-                name = menu.name,
+                name = if (matched) food!!.displayName(lang) else menu.name,
                 koreanName = food?.koreanName() ?: menu.koreanName,
                 price = menu.priceKrw,
             )
