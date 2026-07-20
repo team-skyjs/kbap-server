@@ -90,7 +90,7 @@ description: "Task list for lang 파라미터 정책 통일"
 - [X] T023 [P] [US3] `app/api/src/main/kotlin/com/kbap/app/api/food/FoodApi.kt` 의 `@Parameter` 3곳을 `required = true` 와 새 설명으로 갱신한다
 - [X] T024 [P] [US3] `app/api/src/main/kotlin/com/kbap/app/api/bookmark/BookmarkApi.kt` 의 `@Parameter` 를 동일하게 갱신한다
 - [X] T025 [US3] 기존 테스트 중 `lang` 없이 호출하던 케이스에 헬퍼 기본값이 적용되도록 정리하고, `./gradlew build` 로 전체 그린을 확인한다
-- [X] T026 [US3] Swagger UI 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터로 렌더링되는지 확인한다 — 요청 DTO 가 펼쳐지지 않으면 `@ParameterObject` 를 붙인다(research R6) — **완료·자동화**(수동 확인 대신 `OpenApiLangParameterTest` 신설: `/v3/api-docs` 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터인지 + `COMMON-001` 미언급 검증)
+- [ ] T026 [US3] Swagger UI 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터로 렌더링되는지 확인한다 — 요청 DTO 가 펼쳐지지 않으면 `@ParameterObject` 를 붙인다(research R6). **수동 확인으로 남긴다** — 자동 검증(`OpenApiLangParameterTest`)을 한때 넣었으나 제거했다(사용자 결정)
 
 **Checkpoint**: `lang` 이 전 API 필수가 되고 서비스가 확정된 `LanguageCode` 를 받는다. 미지원 코드는 아직 400 이다.
 

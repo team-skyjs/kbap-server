@@ -111,7 +111,7 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
   - 근거: `lang` 은 사용자가 고르는 값이 아니라 기기 설정에서 흘러드는 값이라, 미지원 기기 언어에 400 을 주면 화면이 열리지 않는다. 상세·트레이드오프는 ADR-0013.
 - **외부 입력 검증은 요청 경계(컨트롤러)가 소유한다 (KB-201)** — 필수 여부·빈 값 판정은 web 계층의 **요청 DTO**(`@field:NotBlank` 등 + `@Valid @ModelAttribute`)가 처리하고, 도메인·애플리케이션 서비스는 **확정된 값**(예: `LanguageCode`)을 받는다. 타입이 계약을 강제하므로 서비스 안에 방어 코드를 두지 않는다.
   - 쿼리 파라미터에도 요청 DTO 를 쓴다 — 종래 `*Request` DTO 는 POST/PUT 본문 전용이었으나 KB-201 이 쿼리 파라미터로 확장한 첫 사례다. 신규 API 와 기존 API 이행은 이 패턴을 따른다.
-  - swagger 는 인터페이스 파라미터에 `@ParameterObject`(springdoc)를 붙여 DTO 를 쿼리 파라미터로 펼치고, 필드 설명은 DTO 의 `@field:Schema` 에 둔다. 펼침 여부는 `OpenApiLangParameterTest` 가 `/v3/api-docs` 로 검증한다.
+  - swagger 는 인터페이스 파라미터에 `@ParameterObject`(springdoc)를 붙여 DTO 를 쿼리 파라미터로 펼치고, 필드 설명은 DTO 의 `@field:Schema` 에 둔다. 펼침이 실패하면 문서가 실제 계약과 어긋나므로 Swagger UI 에서 육안 확인한다.
 - 정적 UI 문구는 사전 번역해 `:core` 또는 별도 supporting resource로 제공한다. **음식 데이터 번역 정책과 분리**한다. (BC로 올리지 않음)
 - LLM 원본 응답을 도메인 판단에 직접 쓰지 않는다. `:application`에서 종합한 결과만 `Food`/`FoodIngredient`에 반영한다.
 
