@@ -78,6 +78,9 @@ jobs:
         run: |
           read -r -d '' REMOTE <<EOF || true
           set -e
+          # SSM Run Command 는 최소 PATH 로 실행돼 /usr/local/bin 이 빠질 수 있다.
+          # AWS CLI v2 는 /usr/local/bin/aws 라 보정하지 않으면 'aws: command not found' 로 죽는다.
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:\$PATH
           aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
           docker pull $IMAGE
           docker stop $CONTAINER 2>/dev/null || true
@@ -113,7 +116,12 @@ jobs:
             esac
             sleep 5
           done
+          echo "--- remote stdout ---"
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --query StandardOutputContent --output text
+          # 스크립트가 초반에 죽으면 stdout 이 비어 원인을 알 수 없다 — stderr 도 반드시 출력한다.
+          echo "--- remote stderr ---"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text
           echo "SSM status: $STATUS"
           [ "$STATUS" = "Success" ]
