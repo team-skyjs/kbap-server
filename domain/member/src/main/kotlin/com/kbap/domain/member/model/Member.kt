@@ -64,7 +64,7 @@ class Member(
             uniqueReviewedFoodCount = uniqueReviewedFoodCount,
         )
 
-    fun updateProfile(profile: MemberProfile) {
+    internal fun updateProfile(profile: MemberProfile) {
         nickname = profile.nickname
         profileJson = MemberProfileJson.from(profile)
     }
@@ -95,7 +95,7 @@ class Member(
         spicinessPreference: Int,
         countryCode: String,
         appLanguage: String,
-        profileImageUrl: String?,
+        profileImageUrl: String,
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)

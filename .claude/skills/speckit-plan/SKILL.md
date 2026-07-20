@@ -66,7 +66,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Evaluate gates (ERROR if violations unjustified)
    - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
    - Phase 1: Generate data-model.md, contracts/, quickstart.md
-   - Phase 1: Update agent context by running the agent script
    - Re-evaluate Constitution Check post-design
 
 4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
@@ -142,9 +141,9 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Skip if project is purely internal (build scripts, one-off tools, etc.)
 
 3. **Agent context update**:
-   - Update the plan reference between the `<!-- SPECKIT START -->` and `<!-- SPECKIT END -->` markers in `CLAUDE.md` to point to the plan file created in step 1 (the IMPL_PLAN path)
+   - **`CLAUDE.md` 는 수정하지 않는다.** `CLAUDE.md` 의 SPECKIT 블록은 고정 문구다 — 브랜치별 플랜 포인터/요약을 거기 쓰면 모든 feature 브랜치가 같은 줄을 교체해 머지 충돌이 100% 발생한다(2026-07-20 결정). 현재 플랜의 발견 경로는 `.specify/feature.json`(git 비추적) → `specs/<feature>/plan.md` 이며, feature.json 은 `/speckit-specify` 가 이미 썼으므로 여기서 할 일은 없다.
 
-**Output**: data-model.md, /contracts/*, quickstart.md, updated agent context file
+**Output**: data-model.md, /contracts/*, quickstart.md
 
 ## Key rules
 

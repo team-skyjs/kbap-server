@@ -46,6 +46,7 @@ class ScenarioApiDriver(
         countryCode: String = "US",
         appLanguage: String = "en",
         spicinessPreference: Int = 3,
+        profileImageUrl: String = "/images/default/profile/profile-default-512.png",
     ): Int = post(
         "/api/v1/members/me/onboarding",
         mapOf(
@@ -54,6 +55,7 @@ class ScenarioApiDriver(
             "countryCode" to countryCode,
             "appLanguage" to appLanguage,
             "spicinessPreference" to spicinessPreference,
+            "profileImageUrl" to profileImageUrl,
         ),
     ).status
 

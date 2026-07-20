@@ -7,6 +7,7 @@ import com.kbap.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -65,12 +66,15 @@ class MemberControllerTest : BehaviorSpec() {
                 content = objectMapper.writeValueAsString(body)
             }
 
+        val defaultProfileImagePath = "/images/default/profile/profile-default-512.png"
+
         fun validBody() = mapOf(
             "nickname" to "길동이",
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
             "appLanguage" to "en",
             "spicinessPreference" to -1,
+            "profileImageUrl" to defaultProfileImagePath,
         )
 
         fun memberColumn(providerUid: String, column: String): String? =
@@ -368,6 +372,7 @@ class MemberControllerTest : BehaviorSpec() {
                             "countryCode" to "US",
                             "appLanguage" to "en",
                             "spicinessPreference" to 3,
+                            "profileImageUrl" to defaultProfileImagePath,
                         ),
                     ).andExpect { status { isOk() } }
 
@@ -476,26 +481,40 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진에 빈 문자열을 담아 수정하면") {
-                then("사진이 제거되어 null 로 돌아가고 나머지는 유지된다") {
+            `when`("사진에 null 을 명시해 수정하면") {
+                then("미전송과 동일하게 기존 사진이 유지된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "")).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("profileImageUrl" to null)).andExpect { status { isOk() } }
 
-                    val payload = profilePayload(token)
-                    payload.path("profileImageUrl").isNull shouldBe true
-                    payload.path("nickname").asText() shouldBe "길동이"
-                    payload.path("spicinessPreference").asInt() shouldBe 4
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
+                }
+            }
+
+            `when`("사진에 빈 문자열을 담아 수정하면") {
+                then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "")).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
 
             `when`("사진에 공백 문자열을 담아 수정하면") {
-                then("빈 문자열과 동일하게 사진이 제거된다") {
+                then("빈 문자열과 동일하게 400 MEMBER-008 로 거절된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "   ")).andExpect { status { isOk() } }
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "   ")).andReturn().response
 
-                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
         }
@@ -543,26 +562,115 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진 없이(맵기 -1 로) 온보딩하면") {
-                then("사진은 null, 맵기는 보낸 -1 로 응답한다") {
+            `when`("사진을 생략하고 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩은 완료되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() - "profileImageUrl").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("사진에 null 을 명시해 온보딩하면") {
+                then("400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("profileImageUrl" to null))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("기본 이미지 경로로 온보딩하면") {
+                then("200 으로 저장되고 조회 응답엔 CDN 도메인이 조합된 기본 이미지 URL 이 담긴다") {
                     val token = loginAccessToken()
 
                     submitOnboarding(token, validBody()).andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.has("profileImageUrl") shouldBe true
-                    payload.path("profileImageUrl").isNull shouldBe true
-                    payload.path("spicinessPreference").asInt() shouldBe -1
+                    payload.path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
                 }
             }
 
             `when`("빈 문자열 사진 URL 로 온보딩하면") {
-                then("미설정과 동일하게 사진은 null 이다") {
+                then("400 MEMBER-008 로 거절되고 온보딩은 완료되지 않는다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, validBody() + ("profileImageUrl" to "  ")).andExpect { status { isOk() } }
+                    val result = submitOnboarding(token, validBody() + ("profileImageUrl" to "  "))
+                        .andReturn().response
 
-                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+        }
+
+        given("기본 이미지 백필 마이그레이션 — 기존 null 저장 회원") {
+            fun profilePayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            fun backfillSql(): String {
+                val resource = javaClass.classLoader
+                    .getResource("db/migration/V2026.07.20.14.04.38__backfill_default_profile_image.sql")
+                resource shouldNotBe null
+                return resource!!.readText().trim().trimEnd(';')
+            }
+
+            fun runProfileSql(sql: String) {
+                dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+            }
+
+            `when`("사진이 JSON null 로 저장된 회원에게 백필을 적용하면") {
+                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+                    runProfileSql(
+                        "UPDATE member SET profile = JSON_SET(profile, '$.profileImageUrl', CAST('null' AS JSON)) " +
+                            "WHERE provider_uid = 'google-sub-fixed'",
+                    )
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                }
+            }
+
+            `when`("사진 키 자체가 없는 회원에게 백필을 적용하면") {
+                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+                    runProfileSql(
+                        "UPDATE member SET profile = JSON_REMOVE(profile, '$.profileImageUrl') " +
+                            "WHERE provider_uid = 'google-sub-fixed'",
+                    )
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                }
+            }
+
+            `when`("사진이 이미 설정된 회원에게 백필을 적용하면") {
+                then("기존 저장값이 변경되지 않는다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
         }
