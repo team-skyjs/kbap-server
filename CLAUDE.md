@@ -144,7 +144,7 @@ data class BaseResponse<T>(
 
 - **성공**: `BaseResponse.ok(payload)` — `success=true`, `payload`에 페이로드.
 - **실패**: `BaseResponse.fail(code, message, payload?)` — `success=false` + **`code`(클라이언트 분기용 안정 식별자)** + `message`(표시용) + 선택적 `payload`(후속 동작용 구조화 데이터).
-- **에러 코드 체계 (고정)**: `ErrorCode` enum(`:core`) 단일 출처 — `code` 는 **도메인 접두 + 3자리 채번**(`COMMON-001`·`AUTH-004`·`MEMBER-003`·`FOOD-001`). `KB-` 접두는 Jira 이슈 키와 충돌하므로 금지. 클라이언트는 `code` 로만 분기하고 `message` 매칭은 금지(문구는 자유 변경). 예: access 만료 `AUTH-004` → refresh 호출, refresh 만료 `AUTH-006` → 재로그인. 형식·유일성은 `ErrorCodeStatusTest` 가 강제. 예외는 `BusinessException(errorCode, payload = null)` 하나 — 도메인별 예외 클래스를 만들지 않는다.
+- **에러 코드 체계 (고정)**: `ErrorCode` enum(`:core`) 단일 출처 — `code` 는 **도메인 접두 + 3자리 채번**(`COMMON-002`·`AUTH-004`·`MEMBER-003`·`FOOD-001`). 폐기된 번호는 재사용하지 않는다(`COMMON-001` = 구 `UNSUPPORTED_LANGUAGE`, KB-201 에서 삭제). `KB-` 접두는 Jira 이슈 키와 충돌하므로 금지. 클라이언트는 `code` 로만 분기하고 `message` 매칭은 금지(문구는 자유 변경). 예: access 만료 `AUTH-004` → refresh 호출, refresh 만료 `AUTH-006` → 재로그인. 형식·유일성은 `ErrorCodeStatusTest` 가 강제. 예외는 `BusinessException(errorCode, payload = null)` 하나 — 도메인별 예외 클래스를 만들지 않는다.
 - 컨트롤러는 raw 도메인/DTO 를 직접 반환하지 않고 항상 `ResponseEntity<BaseResponse<T>>`로 감싼다. HTTP 상태코드는 `ResponseEntity`로, 비즈니스 성공/실패 플래그는 `BaseResponse.success`로 표현한다.
 - `BaseResponse`는 모든 web 응답이 공유하므로 `:app:api` 에 둔다. 페이로드 타입 `T`는 각 API 의 응답 DTO 다.
 

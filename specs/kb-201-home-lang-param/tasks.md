@@ -53,7 +53,7 @@ description: "Task list for lang 파라미터 정책 통일"
 
 - [X] T003 [P] `app/api/src/test/kotlin/com/kbap/app/api/home/HomeTestSeed.kt` 의 요청 헬퍼에 `lang: String? = "en"` 파라미터를 추가한다(`null` 이면 쿼리 파라미터 자체를 붙이지 않아 누락 케이스를 표현할 수 있게 한다)
 - [X] T004 [P] `app/api/src/test/kotlin/com/kbap/app/api/food/FoodTestSeed.kt` 의 요청 헬퍼에 동일한 `lang` 파라미터를 추가한다
-- [ ] T005 **기존** `app/api/src/test/kotlin/com/kbap/app/api/common/GlobalExceptionHandlerTest.kt` 에 필수 쿼리 파라미터 누락·`@NotBlank` 위반이 400 `COMMON-002` 로 응답되는 케이스를 추가한다(신규 핸들러가 필요 없음을 고정). 신규 파일을 만들지 않는다 — T002c 참조
+- [X] T005 **기존** `app/api/src/test/kotlin/com/kbap/app/api/common/GlobalExceptionHandlerTest.kt` 에 필수 쿼리 파라미터 누락·`@NotBlank` 위반이 400 `COMMON-002` 로 응답되는 케이스를 추가한다(신규 핸들러가 필요 없음을 고정). 신규 파일을 만들지 않는다 — T002c 참조 — **완료**(기존 GlobalExceptionHandlerTest 에 누락·빈 값·공백 3케이스 추가, 신규 핸들러 불필요를 고정)
 
 **Checkpoint**: 헬퍼 준비 완료 — 스토리별 테스트 작성 가능
 
@@ -90,7 +90,7 @@ description: "Task list for lang 파라미터 정책 통일"
 - [X] T023 [P] [US3] `app/api/src/main/kotlin/com/kbap/app/api/food/FoodApi.kt` 의 `@Parameter` 3곳을 `required = true` 와 새 설명으로 갱신한다
 - [X] T024 [P] [US3] `app/api/src/main/kotlin/com/kbap/app/api/bookmark/BookmarkApi.kt` 의 `@Parameter` 를 동일하게 갱신한다
 - [X] T025 [US3] 기존 테스트 중 `lang` 없이 호출하던 케이스에 헬퍼 기본값이 적용되도록 정리하고, `./gradlew build` 로 전체 그린을 확인한다
-- [ ] T026 [US3] Swagger UI 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터로 렌더링되는지 확인한다 — 요청 DTO 가 펼쳐지지 않으면 `@ParameterObject` 를 붙인다(research R6)
+- [X] T026 [US3] Swagger UI 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터로 렌더링되는지 확인한다 — 요청 DTO 가 펼쳐지지 않으면 `@ParameterObject` 를 붙인다(research R6) — **완료·자동화**(수동 확인 대신 `OpenApiLangParameterTest` 신설: `/v3/api-docs` 에서 5개 엔드포인트의 `lang` 이 required 쿼리 파라미터인지 + `COMMON-001` 미언급 검증)
 
 **Checkpoint**: `lang` 이 전 API 필수가 되고 서비스가 확정된 `LanguageCode` 를 받는다. 미지원 코드는 아직 400 이다.
 
@@ -171,12 +171,12 @@ description: "Task list for lang 파라미터 정책 통일"
 
 **Purpose**: 헌법·기존 결정 번복을 코드 변경과 분리해 리뷰 포인트를 나눈다
 
-- [ ] T050 [P] `.specify/memory/constitution.md` 의 원칙 V 를 개정한다 — clause (3) 을 "미지원 코드 → 영어 폴백"으로 교체, clause (1) 을 `lang` 필수화에 맞춰 정리, clause (2)(번역 부재 → ko)와 "정확 일치·정규화 금지"는 유지
-- [ ] T051 `.specify/memory/constitution.md` 상단 Sync Impact Report 를 갱신하고 버전을 MAJOR 로 올린다(3.0.1 → 4.0.0), 개정 사유·영향 문서를 기록한다
-- [ ] T052 [P] `docs/adr/0013-lang-english-fallback.md` 를 작성한다 — fail-fast 를 버리고 영어 폴백을 택한 근거, 검토한 대안(ko 폴백·클라이언트 필터링·홈만 예외), 감수하는 비용(클라이언트 오타가 조용히 영어로 나가 QA 에서 드러나지 않음), spec 008 supersede 명시
-- [ ] T053 [P] `specs/008-unsupported-language-error/` 에 superseded 표기와 ADR-0013·본 spec 포인터를 추가한다
-- [ ] T054 [P] `CLAUDE.md` 의 "프로필 언어 = 회원 응답 언어의 단일 기준" 서술을 스캔 API 한정으로 정정한다
-- [ ] T055 [P] `docs/architecture/kbap-conventions.md` 에 언어 코드 규범이 기술돼 있으면 동일하게 정정한다
+- [X] T050 [P] `.specify/memory/constitution.md` 의 원칙 V 를 개정한다 — clause (3) 을 "미지원 코드 → 영어 폴백"으로 교체, clause (1) 을 `lang` 필수화에 맞춰 정리, clause (2)(번역 부재 → ko)와 "정확 일치·정규화 금지"는 유지 — **완료**(원칙 V 재정의: 비어 있음→400 / 번역 부재→ko / 미지원 코드→en, + 검증 소유 계층 조항 추가)
+- [X] T051 `.specify/memory/constitution.md` 상단 Sync Impact Report 를 갱신하고 버전을 MAJOR 로 올린다(3.0.1 → 4.0.0), 개정 사유·영향 문서를 기록한다 — **완료**(Sync Impact Report 갱신, v3.0.1 → **v4.0.0**, Last Amended 2026-07-20)
+- [X] T052 [P] `docs/adr/0013-lang-english-fallback.md` 를 작성한다 — fail-fast 를 버리고 영어 폴백을 택한 근거, 검토한 대안(ko 폴백·클라이언트 필터링·홈만 예외), 감수하는 비용(클라이언트 오타가 조용히 영어로 나가 QA 에서 드러나지 않음), spec 008 supersede 명시 — **완료**(`docs/adr/0013-lang-english-fallback.md` + README 인덱스 등록)
+- [X] T053 [P] `specs/008-unsupported-language-error/` 에 superseded 표기와 ADR-0013·본 spec 포인터를 추가한다 — **완료**(spec 008 상단 SUPERSEDED 배너 + Status 변경)
+- [X] T054 [P] `CLAUDE.md` 의 "프로필 언어 = 회원 응답 언어의 단일 기준" 서술을 스캔 API 한정으로 정정한다 — **완료**(CLAUDE.md 에 '프로필 언어 단일 기준' 서술은 **없었다**. 대신 실제 문제였던 에러 코드 예시의 `COMMON-001` 참조를 `COMMON-002` 로 교체 + 폐기 번호 재사용 금지 명시)
+- [X] T055 [P] `docs/architecture/kbap-conventions.md` 에 언어 코드 규범이 기술돼 있으면 동일하게 정정한다 — **완료**(`docs/architecture/meogo-conventions.md` — `kbap-conventions.md` 는 존재하지 않는 경로였다. 언어 규약 + 검증 계층 관례 추가)
 
 ---
 
@@ -184,7 +184,7 @@ description: "Task list for lang 파라미터 정책 통일"
 
 - [ ] T056 `specs/kb-201-home-lang-param/quickstart.md` 의 수동 검증 절차를 실행해 5개 엔드포인트 동작을 확인한다
 - [X] T057 `./gradlew build` 전체 그린을 최종 확인한다 — **BUILD SUCCESSFUL in 2m 2s · 475 tests · failures 0 · E2E 시나리오 4종 포함**
-- [ ] T058 [P] 쿼리 파라미터 검증을 요청 DTO 로 올린 것이 이 코드베이스의 첫 사례임을 `docs/architecture/kbap-conventions.md` 에 관례로 기록한다(이후 신규 API 가 따를 패턴)
+- [X] T058 [P] 쿼리 파라미터 검증을 요청 DTO 로 올린 것이 이 코드베이스의 첫 사례임을 `docs/architecture/kbap-conventions.md` 에 관례로 기록한다(이후 신규 API 가 따를 패턴) — **완료**(T055 와 같은 커밋에서 meogo-conventions.md 에 기록)
 - [ ] T059 클라이언트 배포 선행이 릴리스 조건임을 PR 본문에 명시하고 앱 팀 합의 여부를 확인한다
 
 ---
