@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 
 @Tag(name = "북마크", description = "음식 북마크 등록·취소·목록 조회 API")
@@ -76,21 +77,18 @@ interface BookmarkApi {
             북마크한 음식을 최근 등록/재등록순으로 한 페이지 20개씩 조회한다. 직전 페이지 nextCursor 를 cursor 로 넘기면 그 이후 20개가 이어진다.
             응답 항목은 음식 요약(음식 목록 API 와 동일 형태)이며 요청 언어(lang)로 표시명을 지역화한다. 항목은 정의상 전부 북마크한 음식이므로 bookmarked 는 항상 true 다.
 
-            지원 언어: ko(기본), zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 미지정/빈/공백은 ko, 지원 목록에 없는 코드는 400.
+            지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. lang 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 최신순 북마크 음식 요약(≤20)·nextCursor·hasNext 반환"),
-            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 지원 목록에 없는 언어 코드"),
+            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 lang 누락·빈/공백"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
     fun list(
         memberId: Long,
-        @Parameter(description = "직전 페이지 nextCursor(마지막 북마크 id). 미지정 시 첫 페이지", required = false, example = "42")
-        cursor: String?,
-        @Parameter(description = "응답 표시명 언어 코드(미지정/빈/공백 시 ko, 지원 목록에 없는 코드는 400)", required = false, example = "en")
-        lang: String?,
+        @ParameterObject request: BookmarkListRequest,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
 }

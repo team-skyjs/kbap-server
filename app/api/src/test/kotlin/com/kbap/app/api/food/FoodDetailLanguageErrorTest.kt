@@ -29,40 +29,35 @@ class FoodDetailLanguageErrorTest : BehaviorSpec() {
 
         given("음식 상세 조회 미지원 언어 코드 처리") {
             `when`("lang=fr 로 조회하면") {
-                then("400 과 지원 언어 10종 전체를 포함한 실패 메시지를 반환한다") {
-                    val supported = listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
+                then("400 이 아니라 200 과 영어 응답을 반환한다") {
                     mockMvc.get("/api/v1/foods/1") {
                         param("lang", "fr")
                     }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.success") { value(false) }
-                        supported.forEach { code ->
-                            jsonPath("$.message") { value(containsString(code)) }
-                        }
-                    }
-                }
-            }
-
-            `when`("lang=xx 로 조회하면") {
-                then("400 과 실패 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/1") {
-                        param("lang", "xx")
-                    }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value(containsString("zh-Hans")) }
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.name") { value("Doenjang Stew") }
                     }
                 }
             }
 
             `when`("lang=EN(대문자) 로 조회하면") {
-                then("400 과 실패 메시지를 반환한다") {
+                then("정확 일치가 아니므로 영어로 폴백한다") {
                     mockMvc.get("/api/v1/foods/1") {
                         param("lang", "EN")
                     }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value(containsString("zh-Hans")) }
+                        status { isOk() }
+                        jsonPath("$.payload.name") { value("Doenjang Stew") }
+                    }
+                }
+            }
+
+            `when`("lang=ko-KR(지역 태그) 로 조회하면") {
+                then("정확 일치가 아니므로 영어로 폴백한다") {
+                    mockMvc.get("/api/v1/foods/1") {
+                        param("lang", "ko-KR")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.name") { value("Doenjang Stew") }
                     }
                 }
             }

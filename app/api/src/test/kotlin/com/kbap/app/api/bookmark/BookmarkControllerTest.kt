@@ -90,7 +90,7 @@ class BookmarkControllerTest : BehaviorSpec() {
                 content = registerBody(foodId)
             }
 
-        fun listJson(token: String, lang: String? = null, cursor: Long? = null): String =
+        fun listJson(token: String, lang: String? = "ko", cursor: Long? = null): String =
             mockMvc.get(path) {
                 header("Authorization", "Bearer $token")
                 lang?.let { param("lang", it) }
@@ -284,7 +284,7 @@ class BookmarkControllerTest : BehaviorSpec() {
 
             `when`("액세스 토큰 없이 목록을 조회하면") {
                 then("401 을 반환한다") {
-                    mockMvc.get(path).andExpect {
+                    mockMvc.get("$path?lang=ko").andExpect {
                         status { isUnauthorized() }
                     }
                 }

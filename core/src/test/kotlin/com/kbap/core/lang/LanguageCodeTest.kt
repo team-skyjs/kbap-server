@@ -1,10 +1,7 @@
 package com.kbap.core.lang
 
-import com.kbap.core.error.BusinessException
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
 
 class LanguageCodeTest : BehaviorSpec({
     given("LanguageCode.from 코드 해석") {
@@ -40,28 +37,30 @@ class LanguageCodeTest : BehaviorSpec({
             }
         }
 
-        `when`("미지정(null)·빈·공백 문자열이 주어지면") {
-            then("ko 로 기본 처리한다") {
-                LanguageCode.from(null) shouldBe LanguageCode.KO
-                LanguageCode.from("") shouldBe LanguageCode.KO
-                LanguageCode.from("   ") shouldBe LanguageCode.KO
+        `when`("지원 목록에 없는 코드가 주어지면") {
+            then("예외 없이 EN 으로 폴백한다") {
+                LanguageCode.from("xx") shouldBe LanguageCode.EN
+                LanguageCode.from("fr") shouldBe LanguageCode.EN
             }
         }
 
-        `when`("지원 목록과 정확히 일치하지 않는 코드가 주어지면") {
-            then("BusinessException 을 던진다") {
-                shouldThrow<BusinessException> { LanguageCode.from("xx") }
-                shouldThrow<BusinessException> { LanguageCode.from("EN") }
-                shouldThrow<BusinessException> { LanguageCode.from("ko-KR") }
-                shouldThrow<BusinessException> { LanguageCode.from(" fr ") }
+        `when`("대소문자·지역 태그가 어긋난 코드가 주어지면") {
+            then("정확 일치가 아니므로 EN 으로 폴백한다") {
+                LanguageCode.from("EN") shouldBe LanguageCode.EN
+                LanguageCode.from("ko-KR") shouldBe LanguageCode.EN
             }
         }
 
-        `when`("미지원 코드로 예외가 발생하면") {
-            then("메시지에 지원 언어 코드 10종이 모두 포함된다") {
-                val message = shouldThrow<BusinessException> { LanguageCode.from("fr") }.message ?: ""
-                listOf("ko", "zh-Hans", "en", "ja", "zh-Hant", "vi", "id", "th", "ru", "es")
-                    .forEach { code -> message shouldContain code }
+        `when`("지원 코드에 앞뒤 공백이 붙어 주어지면") {
+            then("trim 하지 않으므로 EN 으로 폴백한다") {
+                LanguageCode.from(" ko ") shouldBe LanguageCode.EN
+                LanguageCode.from(" fr ") shouldBe LanguageCode.EN
+            }
+        }
+
+        `when`("빈 문자열이 주어지면") {
+            then("EN 으로 폴백한다(비어 있지 않음 보장은 요청 경계 책임)") {
+                LanguageCode.from("") shouldBe LanguageCode.EN
             }
         }
     }

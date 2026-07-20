@@ -1,19 +1,12 @@
 package com.kbap.core.error
 
-import com.kbap.core.lang.LanguageCode
-
 // code = 클라이언트 분기용 안정 식별자(도메인 접두 + 번호). message 는 표시용 — 바꿔도 클라이언트가 안 깨진다.
 enum class ErrorCode(
     val code: String,
     val status: Int,
     val message: String,
 ) {
-    // 공통
-    UNSUPPORTED_LANGUAGE(
-        "COMMON-001",
-        400,
-        "지원하지 않는 언어 코드입니다. 지원 언어: " + LanguageCode.entries.joinToString(", ") { it.code },
-    ),
+    // 공통 — COMMON-001 은 폐기된 UNSUPPORTED_LANGUAGE 자리다(KB-201, 미지원 언어는 영어 폴백). 재사용 금지.
     INVALID_REQUEST("COMMON-002", 400, "잘못된 요청입니다"),
     INTERNAL_SERVER_ERROR("COMMON-003", 500, "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요"),
 
