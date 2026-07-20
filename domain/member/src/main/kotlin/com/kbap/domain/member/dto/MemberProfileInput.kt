@@ -6,6 +6,6 @@ data class MemberProfileInput(
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String,
     val appLanguage: String,
-    val profileImageUrl: String? = null,
+    val profileImageUrl: String,
     val spicinessPreference: Int,
 )

@@ -7,7 +7,7 @@ data class OnboardingRequest(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val countryCode: String,
     val appLanguage: String,
-    val profileImageUrl: String? = null,
+    val profileImageUrl: String,
     val spicinessPreference: Int,
 ) {
     fun toInput(memberId: Long): MemberProfileInput =

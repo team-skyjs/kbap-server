@@ -95,7 +95,7 @@ class Member(
         spicinessPreference: Int,
         countryCode: String,
         appLanguage: String,
-        profileImageUrl: String?,
+        profileImageUrl: String,
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)

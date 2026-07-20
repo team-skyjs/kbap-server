@@ -65,12 +65,15 @@ class MemberControllerTest : BehaviorSpec() {
                 content = objectMapper.writeValueAsString(body)
             }
 
+        val defaultProfileImagePath = "/images/default/profile/profile-default-512.png"
+
         fun validBody() = mapOf(
             "nickname" to "길동이",
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
             "appLanguage" to "en",
             "spicinessPreference" to -1,
+            "profileImageUrl" to defaultProfileImagePath,
         )
 
         fun memberColumn(providerUid: String, column: String): String? =
@@ -366,6 +369,7 @@ class MemberControllerTest : BehaviorSpec() {
                             "countryCode" to "US",
                             "appLanguage" to "en",
                             "spicinessPreference" to 3,
+                            "profileImageUrl" to defaultProfileImagePath,
                         ),
                     ).andExpect { status { isOk() } }
 
@@ -541,16 +545,39 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진 없이(맵기 -1 로) 온보딩하면") {
-                then("사진은 null, 맵기는 보낸 -1 로 응답한다") {
+            `when`("사진을 생략하고 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩은 완료되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() - "profileImageUrl").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("사진에 null 을 명시해 온보딩하면") {
+                then("400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("profileImageUrl" to null))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("기본 이미지 경로로 온보딩하면") {
+                then("200 으로 저장되고 조회 응답엔 CDN 도메인이 조합된 기본 이미지 URL 이 담긴다") {
                     val token = loginAccessToken()
 
                     submitOnboarding(token, validBody()).andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.has("profileImageUrl") shouldBe true
-                    payload.path("profileImageUrl").isNull shouldBe true
-                    payload.path("spicinessPreference").asInt() shouldBe -1
+                    payload.path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
                 }
             }
 

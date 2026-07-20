@@ -25,8 +25,10 @@ interface MemberApi {
             클라이언트가 **-1 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, -1·0~10 외 값이면
             400 MEMBER-009 로 거절한다.
 
-            선택 필드: `profileImageUrl`(CDN 도메인 없는 이미지 경로 — presigned 발급 응답의 `objectKey`,
-            생략·빈 문자열이면 미설정). 전체 URL(`http(s)://` 시작)·512자 초과는 MEMBER-008 로 거절한다.
+            프로필 사진 `profileImageUrl` 은 **필수** — CDN 도메인 없는 이미지 경로(presigned 발급 응답의
+            `objectKey`)를 보낸다. 사진을 설정하지 않은 회원도 클라이언트가 **기본 이미지 경로
+            `/images/default/profile/profile-default-512.png` 를 명시 전송**한다. 미전송·null 이면 400 COMMON-002,
+            빈 문자열·전체 URL(`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
             조회 응답에서는 설정된 CDN 도메인이 조합된 완전한 URL 로 내려간다.
         """,
     )
@@ -59,13 +61,14 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음 · 맵기 스킵(-1)",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(-1) · 사진 미설정(기본 이미지 경로 명시)",
                             value = """
                                 {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
                                   "appLanguage": "en",
+                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
                                   "spicinessPreference": -1
                                 }
                             """,
@@ -78,6 +81,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
                                   "appLanguage": "ja",
+                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 4
                                 }
                             """,
@@ -90,6 +94,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
                                   "appLanguage": "vi",
+                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 8
                                 }
                             """,
