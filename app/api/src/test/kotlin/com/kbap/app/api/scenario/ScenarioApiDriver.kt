@@ -59,19 +59,19 @@ class ScenarioApiDriver(
         ),
     ).status
 
-    fun 홈을_조회한다(): JsonNode = payload(get("/api/v1/home"))
+    fun 홈을_조회한다(): JsonNode = payload(get("/api/v1/home", "lang" to "ko"))
 
     fun 음식을_검색한다(keyword: String): JsonNode {
-        val items = payload(get("/api/v1/foods/search", "keyword" to keyword)).path("items")
+        val items = payload(get("/api/v1/foods/search", "keyword" to keyword, "lang" to "ko")).path("items")
         foodId = items.firstOrNull()?.path("foodId")?.asLong() ?: 0
         return items
     }
 
-    fun 음식_상세를_조회한다(): JsonNode = payload(get("/api/v1/foods/$foodId"))
+    fun 음식_상세를_조회한다(): JsonNode = payload(get("/api/v1/foods/$foodId", "lang" to "ko"))
 
     fun 북마크한다(): Int = post("/api/v1/bookmarks", mapOf("foodId" to foodId)).status
 
-    fun 북마크_목록을_조회한다(): JsonNode = payload(get("/api/v1/bookmarks")).path("items")
+    fun 북마크_목록을_조회한다(): JsonNode = payload(get("/api/v1/bookmarks", "lang" to "ko")).path("items")
 
     fun 프로필을_조회한다(): 응답 = 응답으로(get("/api/v1/members/me/profile"))
 

@@ -64,7 +64,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     val token = accessToken(31L)
                     registerBookmark(token, 1L)
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/v1/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
@@ -81,7 +81,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                     }.andExpect { status { isOk() } }
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/v1/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
@@ -92,7 +92,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
 
             `when`("비회원이 상세를 조회하면") {
                 then("bookmarked=false 를 반환한다") {
-                    mockMvc.get("/api/v1/foods/1").andExpect {
+                    mockMvc.get("/api/v1/foods/1?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.bookmarked") { value(false) }
                     }
@@ -105,7 +105,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     registerBookmark(tokenA, 1L)
                     val tokenB = accessToken(34L)
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/v1/foods/1?lang=ko") {
                         header("Authorization", "Bearer $tokenB")
                     }.andExpect {
                         status { isOk() }

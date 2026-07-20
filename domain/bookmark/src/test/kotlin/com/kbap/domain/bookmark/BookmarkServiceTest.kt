@@ -2,6 +2,7 @@ package com.kbap.domain.bookmark
 
 import com.kbap.core.error.BusinessException
 import com.kbap.core.error.ErrorCode
+import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
@@ -66,7 +67,7 @@ class BookmarkServiceTest : BehaviorSpec() {
         }
 
         fun bookmarkedFoodIds(cursor: Long? = null) =
-            service.getBookmarkPage(memberId, "ko", cursor).items.map { it.foodId }
+            service.getBookmarkPage(memberId, LanguageCode.KO, cursor).items.map { it.foodId }
 
         fun activeBookmarkIdOf(foodId: Long): Long =
             dataSource.connection.use { connection ->
@@ -239,11 +240,11 @@ class BookmarkServiceTest : BehaviorSpec() {
                         service.bookmark(memberId, id)
                     }
 
-                    val firstPage = service.getBookmarkPage(memberId, "ko", null)
+                    val firstPage = service.getBookmarkPage(memberId, LanguageCode.KO, null)
                     firstPage.items.size shouldBe BookmarkService.PAGE_SIZE
                     firstPage.hasNext shouldBe true
 
-                    val secondPage = service.getBookmarkPage(memberId, "ko", firstPage.nextCursor)
+                    val secondPage = service.getBookmarkPage(memberId, LanguageCode.KO, firstPage.nextCursor)
                     secondPage.items.size shouldBe 1
                     secondPage.hasNext shouldBe false
 
@@ -261,7 +262,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                     val cursor = activeBookmarkIdOf(3L)
                     service.unbookmark(memberId, 3L)
 
-                    val page = service.getBookmarkPage(memberId, "ko", cursor)
+                    val page = service.getBookmarkPage(memberId, LanguageCode.KO, cursor)
 
                     page.items.map { it.foodId } shouldContainExactly listOf(2L, 1L)
                 }

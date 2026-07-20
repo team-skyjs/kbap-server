@@ -37,7 +37,7 @@ class BookmarkService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun getBookmarkPage(memberId: Long, lang: String?, cursor: Long?): BookmarkPage {
+    fun getBookmarkPage(memberId: Long, lang: LanguageCode, cursor: Long?): BookmarkPage {
         val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
 
         val hasNext = rows.size > PAGE_SIZE
@@ -46,11 +46,10 @@ class BookmarkService internal constructor(
 
         val orderedFoodIds = page.map { it.foodId }
         val foodsById = foodService.getReadyFoodsByIds(orderedFoodIds).associateBy { it.id }
-        val languageCode = LanguageCode.from(lang)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 
         val items = orderedFoodIds.mapNotNull { foodId ->
-            foodsById[foodId]?.let { FoodSummaryView.from(it, languageCode, avoidedCodes, foodService.resolveImageUrl(it)) }
+            foodsById[foodId]?.let { FoodSummaryView.from(it, lang, avoidedCodes, foodService.resolveImageUrl(it)) }
         }
 
         return BookmarkPage(items = items, nextCursor = nextCursor, hasNext = hasNext)

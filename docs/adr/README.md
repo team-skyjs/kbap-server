@@ -25,3 +25,4 @@
 | [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Accepted | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |
 | [0011](./0011-scoring-domain-in-research-batch-orchestration.md) | 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:app:batch` | Accepted | 2026-07-06 | specs/kb-53 · Jira KB-53 · ADR-0004 · ADR-0010 |
 | [0012](./0012-dissolve-persistence-module-and-ports.md) | persistence 모듈 해체·리포지토리 port 폐기 — 영속은 도메인 모듈 안에 internal | Accepted | 2026-07-13 | specs/kb-134 · Jira KB-134 · ADR-0006·0008(supersede) · 헌법 v3.0.0 |
+| [0013](./0013-lang-english-fallback.md) | 표시 언어(lang) — 필수화 + 미지원 코드 영어 폴백 | Accepted | 2026-07-20 | specs/kb-201 · Jira KB-201 · specs/008(supersede) · 헌법 v4.0.0 |

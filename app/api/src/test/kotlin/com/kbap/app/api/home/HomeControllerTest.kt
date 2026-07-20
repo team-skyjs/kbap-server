@@ -37,13 +37,13 @@ class HomeControllerTest : BehaviorSpec() {
     init {
         fun token(memberId: Long) = tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
 
-        fun home(memberId: Long?) = mockMvc.get("/api/v1/home") {
+        fun home(memberId: Long?, lang: String = "en") = mockMvc.get("/api/v1/home?lang=$lang") {
             memberId?.let { header("Authorization", "Bearer ${token(it)}") }
         }
 
-        fun payload(memberId: Long?) =
+        fun payload(memberId: Long?, lang: String = "en") =
             mapper.readTree(
-                home(memberId).andReturn().response.getContentAsString(Charsets.UTF_8),
+                home(memberId, lang).andReturn().response.getContentAsString(Charsets.UTF_8),
             ).path("payload")
 
         beforeContainer {
@@ -86,22 +86,46 @@ class HomeControllerTest : BehaviorSpec() {
         }
 
         given("프로필 언어가 일본어인 회원") {
-            `when`("홈을 조회하면") {
+            `when`("lang=ja 로 조회하면") {
                 then("음식명과 기피 성분명이 일본어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
                     HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
 
-                    val payload = payload(11L)
+                    val payload = payload(11L, lang = "ja")
 
                     payload.path("avoidedSubstances").single().path("name").asText() shouldBe "卵"
                     payload.path("popularFoods").single().path("name").asText() shouldBe "メニュー1"
                 }
             }
+
+            `when`("프로필과 다른 lang=ko 로 조회하면") {
+                then("프로필 언어를 무시하고 한국어로 내려온다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 1)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
+
+                    val payload = payload(11L, lang = "ko")
+
+                    payload.path("avoidedSubstances").single().path("name").asText() shouldBe "계란"
+                    payload.path("popularFoods").single().path("name").asText() shouldBe "메뉴1"
+                }
+            }
+
+            `when`("같은 lang 으로 비회원이 조회하면") {
+                then("회원과 같은 언어로 내려온다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 1)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
+
+                    val 회원 = payload(11L, lang = "ko").path("popularFoods").single().path("name").asText()
+                    val 비회원 = payload(null, lang = "ko").path("popularFoods").single().path("name").asText()
+
+                    회원 shouldBe 비회원
+                }
+            }
         }
 
         given("프로필 언어를 설정하지 않은(온보딩 미완료) 회원") {
-            `when`("홈을 조회하면") {
-                then("영어 기준으로 응답한다") {
+            `when`("lang=ja 로 조회하면") {
+                then("프로필과 무관하게 일본어로 응답한다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
                     dataSource.connection.use { c ->
                         c.createStatement().use {
@@ -114,9 +138,9 @@ class HomeControllerTest : BehaviorSpec() {
                         }
                     }
 
-                    val payload = payload(12L)
+                    val payload = payload(12L, lang = "ja")
 
-                    payload.path("popularFoods").single().path("name").asText() shouldBe "Menu1"
+                    payload.path("popularFoods").single().path("name").asText() shouldBe "メニュー1"
                 }
             }
         }

@@ -45,7 +45,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
 
             `when`("lang 을 지정하지 않으면") {
                 then("설명을 한국어 원문으로 반환한다") {
-                    mockMvc.get("/api/v1/foods/1").andExpect {
+                    mockMvc.get("/api/v1/foods/1?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_KO) }
                     }

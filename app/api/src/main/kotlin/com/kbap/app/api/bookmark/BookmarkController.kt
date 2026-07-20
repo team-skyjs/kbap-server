@@ -6,16 +6,17 @@ import com.kbap.app.api.common.CursorParser
 import com.kbap.app.api.common.Page
 import com.kbap.app.api.common.auth.AuthMemberId
 import com.kbap.app.api.food.FoodSummaryResponse
+import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.bookmark.BookmarkService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -44,10 +45,9 @@ class BookmarkController(
     @GetMapping
     override fun list(
         @AuthMemberId memberId: Long,
-        @RequestParam(required = false) cursor: String?,
-        @RequestParam(required = false) lang: String?,
+        @Valid @ModelAttribute request: BookmarkListRequest,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
-        val result = bookmarkService.getBookmarkPage(memberId, lang, CursorParser.parse(cursor))
+        val result = bookmarkService.getBookmarkPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor))
         return ResponseEntity.ok(
             BaseResponse.ok(
                 Page(

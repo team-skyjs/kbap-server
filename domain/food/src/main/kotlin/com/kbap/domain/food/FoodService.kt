@@ -32,16 +32,12 @@ class FoodService internal constructor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun getFoodPage(input: BrowseFoodsInput): FoodPage {
-        val lang = LanguageCode.from(input.lang)
-        return foodPage(getFoods(input.cursor, PAGE_SIZE + 1), lang, input.memberId)
-    }
+    fun getFoodPage(input: BrowseFoodsInput): FoodPage =
+        foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(input: SearchFoodsInput): FoodPage {
-        val lang = LanguageCode.from(input.lang)
-        return foodPage(getFoodsByKeyword(input.keyword, lang, input.cursor, PAGE_SIZE + 1), lang, input.memberId)
-    }
+    fun searchFoodPage(input: SearchFoodsInput): FoodPage =
+        foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
@@ -55,7 +51,7 @@ class FoodService internal constructor(
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
-        val lang = LanguageCode.from(input.lang)
+        val lang = input.lang
         val food = getReadyFood(input.foodId)
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)

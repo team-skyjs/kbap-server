@@ -1,10 +1,22 @@
 # Feature Specification: 미지원 언어 코드 요청 시 에러 응답 (LanguageCode strict 검증)
 
+> ## ⚠️ SUPERSEDED (2026-07-20, KB-201)
+>
+> **이 spec 의 핵심 결정(미지원 언어 코드 → HTTP 400 + 지원 언어 목록 안내)은 폐기됐다.**
+> 현재 계약은 **미지원 코드 → `en`(영어) 폴백**이며, 대신 `lang` 이 **필수**가 되어 누락·빈 값·공백이
+> 400 `COMMON-002` 로 거절된다. `ErrorCode.UNSUPPORTED_LANGUAGE`(`COMMON-001`)는 삭제됐다.
+>
+> - 대체 spec: [`specs/kb-201-home-lang-param/`](../kb-201-home-lang-param/spec.md)
+> - 결정 기록: [ADR-0013](../../docs/adr/0013-lang-english-fallback.md)
+> - 헌법: 원칙 V 재정의(v3.0.1 → v4.0.0)
+>
+> 이 문서는 **이력으로만** 남긴다 — 현재 동작의 근거로 인용하지 말 것.
+
 **Feature Branch**: `008-unsupported-language-error`
 
 **Created**: 2026-07-02
 
-**Status**: Draft
+**Status**: Superseded by specs/kb-201-home-lang-param (2026-07-20)
 
 **Input**: 이슈 #18 — 언어 파라미터를 받는 조회에서 지원하지 않는 언어 코드가 들어오면 에러를 던지고, 에러 메시지에 지원 언어 목록을 포함한다. 현재처럼 조용히 `ko` 로 기본 처리하지 않는다(fail-fast + 안내).
 

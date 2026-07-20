@@ -67,6 +67,38 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
             }
         }
 
+        given("필수 쿼리 파라미터를 채우지 않은 요청") {
+            `when`("필수 파라미터를 아예 빠뜨리면") {
+                then("신규 핸들러 없이 400 COMMON-002 봉투로 응답한다") {
+                    val result = mockMvc.get("/api/v1/home").andReturn()
+
+                    result.response.status shouldBe 400
+                    result.body().path("success").asBoolean() shouldBe false
+                    result.body().path("code").asText() shouldBe "COMMON-002"
+                }
+            }
+
+            `when`("필수 파라미터를 빈 값으로 보내면") {
+                then("누락과 같은 400 COMMON-002 로 응답한다") {
+                    val result = mockMvc.get("/api/v1/home?lang=").andReturn()
+
+                    result.response.status shouldBe 400
+                    result.body().path("code").asText() shouldBe "COMMON-002"
+                }
+            }
+
+            `when`("필수 파라미터를 공백 문자열로 보내면") {
+                then("누락과 같은 400 COMMON-002 로 응답한다") {
+                    val result = mockMvc.get("/api/v1/home") {
+                        param("lang", "  ")
+                    }.andReturn()
+
+                    result.response.status shouldBe 400
+                    result.body().path("code").asText() shouldBe "COMMON-002"
+                }
+            }
+        }
+
         given("스프링이 상태 코드를 아는 예외") {
             `when`("매핑되지 않은 경로를 호출하면") {
                 then("500 이 아니라 404 로, 봉투를 유지한 채 WARN 로그가 남는다") {

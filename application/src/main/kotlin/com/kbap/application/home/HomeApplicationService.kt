@@ -19,9 +19,8 @@ class HomeApplicationService(
     private val avoidanceCatalogService: AvoidanceCatalogService,
 ) {
     @Transactional(readOnly = true)
-    fun getHome(memberId: Long?): HomeResult {
+    fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
         val member = memberId?.let { memberService.getMemberOrNull(it) }
-        val lang = member?.profile?.appLanguage ?: LanguageCode.EN
         val avoidedCodes = memberService.getAvoidedCodes(member?.id)
         val avoidedRefs = avoidedCodes.map { it.name }.toSet()
 
