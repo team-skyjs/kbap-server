@@ -34,6 +34,9 @@ class ScanService internal constructor(
     // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
     // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
 
+        // 비전 호출(비용) 전에 회원 존재를 확정하고 응답 언어를 잡는다
+        val lang = memberService.getMember(memberId).profile.appLanguage ?: LanguageCode.KO
+
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
         } catch (e: Exception) {
@@ -43,7 +46,6 @@ class ScanService internal constructor(
 
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
-        val lang = memberService.getMember(memberId).profile.appLanguage ?: LanguageCode.KO
         val validIdxes = ocrItems.map { it.idx }.toSet()
 
         val items = extracted.map { menu ->

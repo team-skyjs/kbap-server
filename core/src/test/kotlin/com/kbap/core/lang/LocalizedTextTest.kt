@@ -33,6 +33,18 @@ class LocalizedTextTest : BehaviorSpec({
             }
         }
 
+        `when`("대상 언어의 번역값이 빈 문자열이거나 공백뿐이면") {
+            then("부재와 동일하게 korean 으로 폴백한다") {
+                LocalizedText(
+                    korean = "김치찌개",
+                    translations = mapOf(LanguageCode.EN to "", LanguageCode.JA to "   "),
+                ).let {
+                    it.resolve(LanguageCode.EN) shouldBe "김치찌개"
+                    it.resolve(LanguageCode.JA) shouldBe "김치찌개"
+                }
+            }
+        }
+
         `when`("번역 맵이 비어 있으면") {
             then("어떤 대상 언어든 korean 으로 폴백한다") {
                 val text = LocalizedText(korean = "김치찌개")

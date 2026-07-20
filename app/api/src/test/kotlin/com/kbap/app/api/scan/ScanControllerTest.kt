@@ -112,6 +112,16 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun historyMenuName(memberId: Long, koreanName: String): String =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT menu_name FROM scan_history WHERE member_id = ? AND korean_name = ?",
+                ).use { ps ->
+                    ps.setLong(1, memberId); ps.setString(2, koreanName)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getString(1) }
+                }
+            }
+
         fun body(imagePath: String, vararg items: Pair<Int, String>) =
             mapper.writeValueAsString(
                 mapOf(
@@ -126,7 +136,8 @@ class ScanControllerTest : BehaviorSpec() {
                     val memberId = 501L
                     val path = "scan/501/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    seedReadyFood("김치찌개")
+                    // 앱 언어 미설정 회원이므로 en 번역이 있어도 ko 기본으로 한국어명이 내려가야 한다
+                    seedReadyFood("김치찌개", """{"en":"Kimchi Stew"}""")
                     vision.program(
                         path,
                         listOf(
@@ -176,6 +187,8 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].name") { value("Kimchi Stew") }
                         jsonPath("$.payload.results[0].koreanName") { value("번역김치찌개") }
                     }
+
+                    historyMenuName(memberId, "번역김치찌개") shouldBe "Kimchi 번역김치찌개"
                 }
             }
 
