@@ -197,6 +197,7 @@ class MemberControllerTest : BehaviorSpec() {
                     payload.path("countryCode").asText() shouldBe "US"
                     payload.path("appLanguage").asText() shouldBe "en"
                     payload.path("onboardingCompleted").asBoolean() shouldBe true
+                    payload.path("provider").asText() shouldBe "GOOGLE"
                 }
             }
 
@@ -210,6 +211,7 @@ class MemberControllerTest : BehaviorSpec() {
                     val payload = objectMapper.readTree(result.contentAsString).path("payload")
                     payload.path("onboardingCompleted").asBoolean() shouldBe false
                     payload.path("nickname").isNull shouldBe true
+                    payload.path("provider").asText() shouldBe "GOOGLE"
                 }
             }
 

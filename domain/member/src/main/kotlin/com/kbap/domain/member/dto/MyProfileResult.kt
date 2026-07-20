@@ -4,6 +4,7 @@ import com.kbap.domain.member.model.Member
 
 data class MyProfileResult(
     val memberId: Long,
+    val provider: String,
     val nickname: String?,
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String?,
@@ -17,6 +18,7 @@ data class MyProfileResult(
         fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
+                provider = member.provider.name,
                 nickname = member.profile.nickname,
                 avoidanceSubstanceCodes = member.profile.avoidanceSubstanceCodes.map { it.value },
                 countryCode = member.profile.countryCode?.name,
