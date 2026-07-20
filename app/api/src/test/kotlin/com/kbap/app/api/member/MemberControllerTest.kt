@@ -7,6 +7,7 @@ import com.kbap.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -594,6 +595,69 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+        }
+
+        given("기본 이미지 백필 마이그레이션 — 기존 null 저장 회원") {
+            fun profilePayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            fun backfillSql(): String {
+                val resource = javaClass.classLoader
+                    .getResource("db/migration/V2026.07.20.14.04.38__backfill_default_profile_image.sql")
+                resource shouldNotBe null
+                return resource!!.readText().trim().trimEnd(';')
+            }
+
+            fun runProfileSql(sql: String) {
+                dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+            }
+
+            `when`("사진이 JSON null 로 저장된 회원에게 백필을 적용하면") {
+                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+                    runProfileSql(
+                        "UPDATE member SET profile = JSON_SET(profile, '$.profileImageUrl', CAST('null' AS JSON)) " +
+                            "WHERE provider_uid = 'google-sub-fixed'",
+                    )
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                }
+            }
+
+            `when`("사진 키 자체가 없는 회원에게 백필을 적용하면") {
+                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+                    runProfileSql(
+                        "UPDATE member SET profile = JSON_REMOVE(profile, '$.profileImageUrl') " +
+                            "WHERE provider_uid = 'google-sub-fixed'",
+                    )
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                }
+            }
+
+            `when`("사진이 이미 설정된 회원에게 백필을 적용하면") {
+                then("기존 저장값이 변경되지 않는다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
+                        .andExpect { status { isOk() } }
+
+                    runProfileSql(backfillSql())
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
         }

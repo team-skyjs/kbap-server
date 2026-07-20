@@ -21,10 +21,11 @@ Technical Context 에 NEEDS CLARIFICATION 없음 — 아래는 구현 방식 결
   ```sql
   UPDATE member
   SET profile = JSON_SET(profile, '$.profileImageUrl', '/images/default/profile/profile-default-512.png')
-  WHERE JSON_UNQUOTE(JSON_EXTRACT(profile, '$.profileImageUrl')) IS NULL;
+  WHERE JSON_EXTRACT(profile, '$.profileImageUrl') IS NULL
+     OR JSON_TYPE(JSON_EXTRACT(profile, '$.profileImageUrl')) = 'NULL';
   ```
 
-- **Rationale**: `JSON_UNQUOTE(JSON_EXTRACT(...)) IS NULL` 은 **키 부재 행과 JSON null 행을 모두** 참으로 판정한다(레거시 행은 두 형태가 혼재할 수 있음). WHERE 가드로 이미 값이 있는 행은 절대 건드리지 않는다(FR-005). status 필터를 두지 않아 소프트 삭제 행도 포함한다(스펙 가정 — Flyway 원시 SQL 은 `@SQLRestriction` 미적용이라 자연히 전 행 대상). 단독 UPDATE 1문 — 다른 마이그레이션과 순서 의존 없음(out-of-order 안전), 재실행해도 WHERE 가 걸러 멱등.
+- **Rationale**: `JSON_EXTRACT(...) IS NULL` 이 키 부재 행을, `JSON_TYPE(...) = 'NULL'` 이 JSON null 행을 판정한다(레거시 행은 두 형태가 혼재할 수 있음). 초기 설계의 `JSON_UNQUOTE(JSON_EXTRACT(...)) IS NULL` 단일 조건은 **MySQL 이 JSON null 을 문자열 `'null'` 로 unquote 하는 함정** 때문에 JSON null 행을 놓친다 — T010 통합 테스트(Red)가 잡아내 교정했다. WHERE 가드로 이미 값이 있는 행은 절대 건드리지 않는다(FR-005). status 필터를 두지 않아 소프트 삭제 행도 포함한다(스펙 가정 — Flyway 원시 SQL 은 `@SQLRestriction` 미적용이라 자연히 전 행 대상). 단독 UPDATE 1문 — 다른 마이그레이션과 순서 의존 없음(out-of-order 안전), 재실행해도 WHERE 가 걸러 멱등.
 - **Alternatives considered**: 애플리케이션 부팅 시 백필 코드 → 1회성 데이터 보정에 상주 코드가 남고 스키마 owner(Flyway) 원칙 위반. 기각. `JSON_REPLACE` → 키 부재 행을 못 채움. 기각.
 
 ## R4. 백필 검증 방법 — 테스트가 마이그레이션 리소스를 읽어 직접 실행

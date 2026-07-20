@@ -41,11 +41,13 @@ curl -s -X PATCH localhost:8080/api/v1/members/me/profile \
 ```sql
 -- 배포 전 대상 행 수 파악
 SELECT COUNT(*) FROM member
-WHERE JSON_UNQUOTE(JSON_EXTRACT(profile, '$.profileImageUrl')) IS NULL;
+WHERE JSON_EXTRACT(profile, '$.profileImageUrl') IS NULL
+   OR JSON_TYPE(JSON_EXTRACT(profile, '$.profileImageUrl')) = 'NULL';
 
 -- 배포(Flyway 적용) 후 0 이어야 함
 SELECT COUNT(*) FROM member
-WHERE JSON_UNQUOTE(JSON_EXTRACT(profile, '$.profileImageUrl')) IS NULL;
+WHERE JSON_EXTRACT(profile, '$.profileImageUrl') IS NULL
+   OR JSON_TYPE(JSON_EXTRACT(profile, '$.profileImageUrl')) = 'NULL';
 
 -- flyway 이력 확인
 SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;
