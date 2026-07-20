@@ -479,6 +479,17 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("사진에 null 을 명시해 수정하면") {
+                then("미전송과 동일하게 기존 사진이 유지된다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to null)).andExpect { status { isOk() } }
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
+                }
+            }
+
             `when`("사진에 빈 문자열을 담아 수정하면") {
                 then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다") {
                     val token = onboardedWithImageToken()

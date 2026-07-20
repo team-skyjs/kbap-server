@@ -64,7 +64,7 @@ class Member(
             uniqueReviewedFoodCount = uniqueReviewedFoodCount,
         )
 
-    fun updateProfile(profile: MemberProfile) {
+    internal fun updateProfile(profile: MemberProfile) {
         nickname = profile.nickname
         profileJson = MemberProfileJson.from(profile)
     }

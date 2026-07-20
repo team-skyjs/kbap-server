@@ -56,7 +56,8 @@ data class MemberProfile private constructor(
 
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
 
-        fun of(
+        // hydration 전용 — 검증은 updatedWith 경유가 유일 경로(무검증 저장 차단)
+        internal fun of(
             nickname: String?,
             avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
             spicinessPreference: Int,
