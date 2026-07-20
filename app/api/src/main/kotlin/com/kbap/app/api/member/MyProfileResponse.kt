@@ -5,6 +5,7 @@ import com.kbap.domain.member.dto.MyProfileResult
 
 data class MyProfileResponse(
     val memberId: Long,
+    val provider: String,
     val nickname: String?,
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String?,
@@ -37,6 +38,7 @@ data class MyProfileResponse(
         fun from(result: MyProfileResult): MyProfileResponse =
             MyProfileResponse(
                 memberId = result.memberId,
+                provider = result.provider,
                 nickname = result.nickname,
                 avoidanceSubstanceCodes = result.avoidanceSubstanceCodes,
                 countryCode = result.countryCode,
