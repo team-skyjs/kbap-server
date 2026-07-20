@@ -479,25 +479,28 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
             `when`("사진에 빈 문자열을 담아 수정하면") {
-                then("사진이 제거되어 null 로 돌아가고 나머지는 유지된다") {
+                then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "")).andExpect { status { isOk() } }
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "")).andReturn().response
 
-                    val payload = profilePayload(token)
-                    payload.path("profileImageUrl").isNull shouldBe true
-                    payload.path("nickname").asText() shouldBe "길동이"
-                    payload.path("spicinessPreference").asInt() shouldBe 4
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
 
             `when`("사진에 공백 문자열을 담아 수정하면") {
-                then("빈 문자열과 동일하게 사진이 제거된다") {
+                then("빈 문자열과 동일하게 400 MEMBER-008 로 거절된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "   ")).andExpect { status { isOk() } }
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "   ")).andReturn().response
 
-                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
                 }
             }
         }
@@ -582,12 +585,15 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
             `when`("빈 문자열 사진 URL 로 온보딩하면") {
-                then("미설정과 동일하게 사진은 null 이다") {
+                then("400 MEMBER-008 로 거절되고 온보딩은 완료되지 않는다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, validBody() + ("profileImageUrl" to "  ")).andExpect { status { isOk() } }
+                    val result = submitOnboarding(token, validBody() + ("profileImageUrl" to "  "))
+                        .andReturn().response
 
-                    profilePayload(token).path("profileImageUrl").isNull shouldBe true
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
         }

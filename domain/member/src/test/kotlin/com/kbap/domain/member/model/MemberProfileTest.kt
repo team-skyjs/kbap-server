@@ -121,7 +121,7 @@ class MemberProfileTest : BehaviorSpec({
         }
     }
 
-    given("MemberProfile.updatedWith — 프로필 사진 경로(3분법)") {
+    given("MemberProfile.updatedWith — 프로필 사진 경로(2분법)") {
         `when`("CDN 도메인 없는 경로를 전송하면") {
             then("경로 그대로 저장한다") {
                 baseProfile().updatedWith(profileImageUrl = "profile-image/2026/07/18/1/uuid.jpg")
@@ -139,11 +139,13 @@ class MemberProfileTest : BehaviorSpec({
         }
 
         `when`("빈 문자열을 전송하면") {
-            then("사진을 제거한다(null)") {
-                val withImage = baseProfile().updatedWith(profileImageUrl = "profile-image/a.jpg")
-
-                withImage.updatedWith(profileImageUrl = " ")
-                    .profileImageUrl shouldBe null
+            then("MEMBER-008 로 거절한다") {
+                listOf("", " ", "   ").forEach { blank ->
+                    val e = shouldThrow<BusinessException> {
+                        baseProfile().updatedWith(profileImageUrl = blank)
+                    }
+                    e.errorCode shouldBe ErrorCode.INVALID_PROFILE_IMAGE_URL
+                }
             }
         }
 

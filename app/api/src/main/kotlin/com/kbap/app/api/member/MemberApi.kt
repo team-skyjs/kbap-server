@@ -159,9 +159,10 @@ interface MemberApi {
             닉네임 화면은 `nickname`·`countryCode`·`appLanguage` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
             만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
 
-            프로필 사진 `profileImageUrl` 은 3분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
-            (전체 URL·512자 초과는 MEMBER-008 거절), **빈 문자열 `""` 이면 제거**
-            (미설정 null 로 복귀). 조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 0~10 정수로 교체하며, -1 을 명시 전송하면 미설정으로 복귀한다.
+            프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
+            (빈 문자열·전체 URL·512자 초과는 MEMBER-008 거절). 사진을 없애는 개념은 없다 — 기본 이미지로
+            되돌리려면 기본 이미지 경로 `/images/default/profile/profile-default-512.png` 를 명시 전송한다.
+            조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 0~10 정수로 교체하며, -1 을 명시 전송하면 미설정으로 복귀한다.
             -1·0~10 외 값은 MEMBER-009 로 거절한다.
 
             검증은 **값이 전달된 필드에만** 적용한다 — 보내지 않은 필드 때문에 400 이 나지 않는다. 전달된 값이
@@ -219,10 +220,10 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "사진 제거 — 빈 문자열은 미전송(유지)과 다르다",
+                            name = "기본 이미지로 복귀 — 빈 문자열은 400, 기본 경로를 명시 전송한다",
                             value = """
                                 {
-                                  "profileImageUrl": ""
+                                  "profileImageUrl": "/images/default/profile/profile-default-512.png"
                                 }
                             """,
                         ),
