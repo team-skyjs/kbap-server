@@ -28,7 +28,6 @@ data class MemberProfile private constructor(
             .toSet()
 
     // 검증 있는 copy — 전달된 필드만 검증 후 교체, null 은 기존 값 유지.
-    // 사진만 3분법: null=유지 · 값=검증 후 교체 · 빈 문자열=제거(validatedImagePath 가 null 반환).
     fun updatedWith(
         nickname: String? = null,
         avoidanceSubstanceCodes: List<String>? = null,
@@ -45,10 +44,7 @@ data class MemberProfile private constructor(
                 ?: this.spicinessPreference,
             countryCode = countryCode?.let { validatedCountry(it) } ?: this.countryCode,
             appLanguage = appLanguage?.let { validatedLanguage(it) } ?: this.appLanguage,
-            profileImageUrl = when (profileImageUrl) {
-                null -> this.profileImageUrl
-                else -> validatedImagePath(profileImageUrl)
-            },
+            profileImageUrl = profileImageUrl?.let { validatedImagePath(it) } ?: this.profileImageUrl,
         )
 
     companion object {
@@ -60,7 +56,8 @@ data class MemberProfile private constructor(
 
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
 
-        fun of(
+        // hydration 전용 — 검증은 updatedWith 경유가 유일 경로(무검증 저장 차단)
+        internal fun of(
             nickname: String?,
             avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
             spicinessPreference: Int,
@@ -111,12 +108,10 @@ data class MemberProfile private constructor(
             return raw
         }
 
-        // 빈 문자열은 "미설정/제거"(null) — 부분 수정의 미전송(null=유지)과 구분되는 센티널.
-        // 저장은 CDN 도메인 없는 경로만 — 전체 URL 은 거부한다.
-        private fun validatedImagePath(raw: String): String? {
+        // 저장은 CDN 도메인 없는 경로만 — 빈 문자열·전체 URL 은 거부한다(제거 센티널 없음, 미설정=기본 이미지 경로).
+        private fun validatedImagePath(raw: String): String {
             val trimmed = raw.trim()
-            if (trimmed.isEmpty()) return null
-            if (trimmed.length > PROFILE_IMAGE_PATH_MAX_LENGTH || ImageUrls.isAbsoluteUrl(trimmed)) {
+            if (trimmed.isEmpty() || trimmed.length > PROFILE_IMAGE_PATH_MAX_LENGTH || ImageUrls.isAbsoluteUrl(trimmed)) {
                 throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
             }
             return trimmed

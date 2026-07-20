@@ -17,7 +17,7 @@ class MemberTest : BehaviorSpec({
         spicinessPreference = -1,
         countryCode = "KR",
         appLanguage = "ko",
-        profileImageUrl = null,
+        profileImageUrl = "/images/default/profile/profile-default-512.png",
     )
 
     given("Member.signUp — 최초 가입") {
@@ -107,7 +107,7 @@ class MemberTest : BehaviorSpec({
                     spicinessPreference = -1,
                     countryCode = "KR",
                     appLanguage = "ko",
-                    profileImageUrl = null,
+                    profileImageUrl = "/images/default/profile/profile-default-512.png",
                 )
 
                 member.profile.spicinessPreference shouldBe -1
@@ -124,7 +124,7 @@ class MemberTest : BehaviorSpec({
                     spicinessPreference = 8,
                     countryCode = "KR",
                     appLanguage = "ko",
-                    profileImageUrl = null,
+                    profileImageUrl = "/images/default/profile/profile-default-512.png",
                 )
 
                 member.profile.spicinessPreference shouldBe 8
@@ -148,7 +148,7 @@ class MemberTest : BehaviorSpec({
                     spicinessPreference = -1,
                     countryCode = "KR",
                     appLanguage = "ko",
-                    profileImageUrl = null,
+                    profileImageUrl = "/images/default/profile/profile-default-512.png",
                 )
 
                 member.profile.spicinessPreference shouldBe -1
