@@ -50,8 +50,9 @@ data class ScanResponse(
         val riskLevel: String,
 
         @field:Schema(
-            description = "사진에 표기된 그대로의 메뉴명(외국어 병기 포함). 비전 인식이 읽은 원문이다.",
-            example = "Kimchi 김치찌개",
+            description = "표시용 메뉴명. matched=true 면 음식의 회원 앱 언어 번역명(해당 언어 번역이 없거나 앱 언어 미설정이면 한국어명), " +
+                "matched=false 면 사진에 표기된 그대로의 메뉴명(외국어 병기 포함 — 비전 인식이 읽은 원문).",
+            example = "Kimchi Stew",
             nullable = true,
         )
         val name: String?,
