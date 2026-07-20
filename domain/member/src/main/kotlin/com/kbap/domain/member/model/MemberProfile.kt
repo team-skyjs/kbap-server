@@ -109,8 +109,9 @@ data class MemberProfile private constructor(
         }
 
         // 저장은 CDN 도메인 없는 경로만 — 빈 문자열·전체 URL 은 거부한다(제거 센티널 없음, 미설정=기본 이미지 경로).
+        // 선행 '/' 는 저장 전 제거 — 스토리지 키 컨벤션(무슬래시)으로 통일.
         private fun validatedImagePath(raw: String): String {
-            val trimmed = raw.trim()
+            val trimmed = raw.trim().trimStart('/')
             if (trimmed.isEmpty() || trimmed.length > PROFILE_IMAGE_PATH_MAX_LENGTH || ImageUrls.isAbsoluteUrl(trimmed)) {
                 throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
             }

@@ -17,7 +17,8 @@ data class MemberProfileJson(
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
             appLanguage = LanguageCode.entries.firstOrNull { it.code == appLanguage },
-            profileImageUrl = profileImageUrl,
+            // 선행 '/' 는 로드 시 제거 — 슬래시로 저장된 legacy 값을 무슬래시 키로 정규화.
+            profileImageUrl = profileImageUrl?.trimStart('/'),
         )
 
     companion object {

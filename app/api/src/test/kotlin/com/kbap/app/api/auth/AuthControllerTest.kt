@@ -121,7 +121,7 @@ class AuthControllerTest : BehaviorSpec() {
             "countryCode" to "US",
             "appLanguage" to "en",
             "spicinessPreference" to 3,
-            "profileImageUrl" to "/images/default/profile/profile-default-512.png",
+            "profileImageUrl" to "images/default/profile/profile-default-512.png",
         )
 
         fun columnById(id: Long, column: String): String? =

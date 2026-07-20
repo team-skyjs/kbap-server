@@ -46,7 +46,7 @@ class ScenarioApiDriver(
         countryCode: String = "US",
         appLanguage: String = "en",
         spicinessPreference: Int = 3,
-        profileImageUrl: String = "/images/default/profile/profile-default-512.png",
+        profileImageUrl: String = "images/default/profile/profile-default-512.png",
     ): Int = post(
         "/api/v1/members/me/onboarding",
         mapOf(

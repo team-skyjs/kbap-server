@@ -27,7 +27,7 @@ interface MemberApi {
 
             프로필 사진 `profileImageUrl` 은 **필수** — CDN 도메인 없는 이미지 경로(presigned 발급 응답의
             `objectKey`)를 보낸다. 사진을 설정하지 않은 회원도 클라이언트가 **기본 이미지 경로
-            `/images/default/profile/profile-default-512.png` 를 명시 전송**한다. 미전송·null 이면 400 COMMON-002,
+            `images/default/profile/profile-default-512.png` 를 명시 전송**한다. 미전송·null 이면 400 COMMON-002,
             빈 문자열·전체 URL(`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
             조회 응답에서는 설정된 CDN 도메인이 조합된 완전한 URL 로 내려간다.
         """,
@@ -68,7 +68,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
                                   "appLanguage": "en",
-                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": -1
                                 }
                             """,
@@ -81,7 +81,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
                                   "appLanguage": "ja",
-                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 4
                                 }
                             """,
@@ -94,7 +94,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
                                   "appLanguage": "vi",
-                                  "profileImageUrl": "/images/default/profile/profile-default-512.png",
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 8
                                 }
                             """,
@@ -161,7 +161,7 @@ interface MemberApi {
 
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
             (빈 문자열·전체 URL·512자 초과는 MEMBER-008 거절). 사진을 없애는 개념은 없다 — 기본 이미지로
-            되돌리려면 기본 이미지 경로 `/images/default/profile/profile-default-512.png` 를 명시 전송한다.
+            되돌리려면 기본 이미지 경로 `images/default/profile/profile-default-512.png` 를 명시 전송한다.
             조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 0~10 정수로 교체하며, -1 을 명시 전송하면 미설정으로 복귀한다.
             -1·0~10 외 값은 MEMBER-009 로 거절한다.
 
@@ -223,7 +223,7 @@ interface MemberApi {
                             name = "기본 이미지로 복귀 — 빈 문자열은 400, 기본 경로를 명시 전송한다",
                             value = """
                                 {
-                                  "profileImageUrl": "/images/default/profile/profile-default-512.png"
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png"
                                 }
                             """,
                         ),

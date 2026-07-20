@@ -66,7 +66,7 @@ class MemberControllerTest : BehaviorSpec() {
                 content = objectMapper.writeValueAsString(body)
             }
 
-        val defaultProfileImagePath = "/images/default/profile/profile-default-512.png"
+        val defaultProfileImagePath = "images/default/profile/profile-default-512.png"
 
         fun validBody() = mapOf(
             "nickname" to "길동이",
