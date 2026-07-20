@@ -2,6 +2,7 @@ package com.kbap.domain.scan
 
 import com.kbap.core.error.BusinessException
 import com.kbap.core.error.ErrorCode
+import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.risk.RiskLevel
 import com.kbap.core.scan.ExtractedMenu
@@ -42,17 +43,19 @@ class ScanService internal constructor(
 
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
+        val lang = memberService.getMember(memberId).profile.appLanguage ?: LanguageCode.KO
         val validIdxes = ocrItems.map { it.idx }.toSet()
 
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
+            val matched = food?.isReady() == true
             ScanResult.ItemRiskResult(
                 // LLM 이 목록에 없는 idx 를 반환하면(할루시네이션) 매칭 없음으로 처리한다.
                 idx = menu.matchedIdx?.takeIf { it in validIdxes },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
-                matched = food?.isReady() == true,
+                matched = matched,
                 foodId = food?.id,
-                name = menu.name,
+                name = if (matched) food!!.displayName(lang) else menu.name,
                 koreanName = food?.koreanName() ?: menu.koreanName,
                 price = menu.priceKrw,
             )
