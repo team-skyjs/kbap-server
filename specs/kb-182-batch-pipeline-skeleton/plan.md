@@ -6,15 +6,15 @@
 
 ## Summary
 
-구 회피성분 스코어링 배치(`app/batch` scoring 패키지)와 `:domain:research` 모듈을 통째로 걷어내고, 그 자리에 새 골격을 세운다: INCOMPLETE 음식을 청크로 공급하는 도메인 창구(`FoodScoringSource` 대체), 콘텐츠 4작업(사진·설명·이름 번역·기피성분 매핑) 완비 시에만 READY 로 전이하는 `Food` 도메인 메서드, 음식 1건 단위로 처리→전이하며 실패를 건 단위로 격리하는 단일 잡. 잡은 LLM 호출을 작업별 메서드 4개로 구분만 해 두고(본문 비움), 후속 태스크(KB-183·184·209)가 각 메서드를 채운다 — 스텝 인터페이스 등 추가 추상화는 두지 않는다.
+구 회피성분 스코어링 배치(`app/batch` scoring 패키지)와 `:domain:research` 모듈을 통째로 걷어내고, 그 자리에 새 골격을 세운다: INCOMPLETE 음식을 청크로 공급하는 도메인 창구(`FoodScoringSource` 대체), 콘텐츠 4작업(사진·설명·이름 번역·기피성분 매핑) 완비 시에만 READY 로 전이하는 `Food` 도메인 메서드, 음식 1건 단위로 처리→전이하며 실패를 건 단위로 격리하는 **Spring Batch chunk-oriented Step**(commit-interval=1). processor 가 LLM 호출을 작업별 메서드 4개로 구분만 해 두고(본문 비움), 후속 태스크(KB-183·184·209)가 각 메서드를 채운다. Spring Batch 로 재시작·실행 이력·스킵 관측성을 확보한다(성분 조사 3-API 종합 등 다중 외부호출 잡 대비).
 
 ## Technical Context
 
 **Language/Version**: Kotlin 2.3 / JVM 21 toolchain
 
-**Primary Dependencies**: Spring Boot 4.1 (batch 는 web 없음, ApplicationRunner 방식), Spring Data JPA
+**Primary Dependencies**: Spring Boot 4.1, Spring Batch 6.0(chunk-oriented Step), Spring Data JPA
 
-**Storage**: MySQL — 기존 `food`·`food_avoidance_substance` 테이블 그대로 사용, **신규 마이그레이션 없음** (`content_status` ENUM('INCOMPLETE','READY') 이미 존재)
+**Storage**: MySQL — 기존 `food`·`food_avoidance_substance` 테이블 그대로 사용. **신규 마이그레이션 1개** — Spring Batch 메타데이터(`BATCH_*` 6테이블)를 api Flyway 가 생성(배치는 flyway off, 스키마 owner=api). food 컬럼 변경은 없음(`content_status` ENUM 이미 존재).
 
 **Testing**: Kotest BehaviorSpec(given/when/then 한국어) + JUnit 플랫폼, 통합은 MySQL Testcontainers(`:core` testFixtures `MySqlContainerConfig`)
 
@@ -82,13 +82,19 @@ domain/food/src/test/kotlin/com/kbap/domain/food/
 ├── model/FoodReadyTransitionTest.kt              # 신규 — 전이 규칙 단위 테스트
 └── FoodContentBatchServiceTest.kt                # 신규 — 창구 통합 테스트(Testcontainers)
 
-# 신규 — :app:batch
+# 신규 — Spring Batch 메타데이터 (api Flyway, 스키마 owner)
+app/api/src/main/resources/db/migration/
+└── V2026.07.21.15.03.58__spring_batch_metadata.sql   # BATCH_* 6테이블 (schema-mysql.sql)
+
+# 신규 — :app:batch (Spring Batch chunk-oriented Step)
+app/batch/build.gradle.kts                         # spring-boot-starter-batch 추가
 app/batch/src/main/kotlin/com/kbap/app/batch/content/
-├── FoodContentJob.kt                             # 단일 잡 — 청크 루프 + 작업별 메서드 4개(본문은 후속 태스크)
-└── ContentJobConfig.kt                           # @Import 조립 + 러너 게이팅 + 청크 설정
-app/batch/src/test/kotlin/com/kbap/app/batch/content/
-├── FoodContentJobTest.kt                         # 실패 격리·청크 소진·0건 종료 검증
-└── ContentJobConfigGatingTest.kt                 # 러너 enabled 게이팅 검증
+├── IncompleteFoodItemReader.kt                   # ItemStreamReader — INCOMPLETE 키셋 페이지 리더
+├── FoodContentItemProcessor.kt                   # ItemProcessor — 4작업 메서드(본문 후속) + ProcessedFood
+└── FoodContentBatchConfig.kt                     # Job/Step(commit-interval=1, skip) + writer + RunIdIncrementer
+app/batch/src/main/resources/application.yml       # spring.batch.job.enabled=false, chunk-size(리더 페이지)
+app/batch/src/test/resources/application.yml       # initialize-schema=always(테스트 메타 테이블 자동 생성)
+# 배치 잡 단위 테스트는 사용자 지시로 생략 — 부팅 테스트(KbapBatchApplicationTests)로 컨텍스트 검증
 ```
 
 **Structure Decision**: 기존 모듈 구조를 그대로 따른다. 배치 창구는 `FoodScoringSource` 가 쓰던 "레포지토리만 무는 소형 `@Service` + `@Import` 조립" 패턴을 계승해 `FoodContentBatchService` 로 대체하고, 잡 코드는 `com.kbap.app.batch.content` 패키지에 새로 둔다(scoring 패키지는 삭제).

@@ -26,16 +26,24 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 결정과
 
 **Alternatives considered**: (1) 연관 컬렉션으로 자가 판정 — 위 스냅샷 문제로 방금 완성한 음식이 전이되지 않는 버그 소지. (2) 번역 non-empty 만 요구 — "완성만 노출" 보장이 약해진다(부분 번역 노출). (3) spiciness 를 게이트에 포함 — 티켓 DoD 가 콘텐츠 3필드+기피성분으로 확정했고, spiciness 는 기본 0 이 유효값이라 완비 판정이 불가능(KB-209 에서 기피성분과 같은 호출로 채움).
 
-## D4. 러너 골격 — 단일 잡 + 작업별 메서드 + 건 단위 실패 격리 (2026-07-21 개정: 스텝 인터페이스 제거)
+## D4. 러너 골격 — Spring Batch chunk-oriented Step (2026-07-21 재개정)
 
-**Decision**: `:app:batch` 의 `content` 패키지에 **잡 클래스 하나**만 둔다. 스텝 인터페이스·플러그인 빈 구조는 만들지 않는다(사용자 지시 — 과한 추상화 지양).
+**결정 변천**: (초안) 스텝 인터페이스 + 빈 리스트 → (2차) 단일 잡 클래스 + 작업별 메서드(ApplicationRunner 루프) → **(확정) Spring Batch chunk-oriented Step 1개**. 사용자가 3-API 종합 등 성분 조사 로직의 복잡도를 근거로 재시작·실행 이력·스킵 관측성을 위해 Spring Batch 채택을 지시(2026-07-21).
 
-- `FoodContentJob` — 루프: `getIncompleteFoods(afterId, chunkSize)` 로 청크 소진까지 반복, 음식 1건마다 `try { 작업별 메서드 순차 호출(트랜잭션 밖) → service.completeContent(food, hasAvoidanceMapping) } catch { 로그 후 다음 음식 }`. 작업별 메서드는 잡 안의 평범한 메서드 4개 — `generateImage(food)`·`generateDescription(food)`·`translateNames(food)`·`mapAvoidance(food)` — 로 LLM 호출을 태스크별로 구분하고, 이번 범위에선 본문이 비어 있다(후속 KB-183·184·209 가 각 메서드 본문을 채운다).
-- `ContentJobConfig` — `@Import(FoodContentBatchService)` 조립, `@ConditionalOnProperty("kbap.batch.content.runner.enabled")` 게이팅, `@Value("\${kbap.batch.content.chunk-size:10}")` 청크 설정. 기존 ScoringRunnerConfig 게이팅 패턴 계승.
+**Decision**: `:app:batch` `content` 패키지에 **Job 1개 → chunk-oriented Step 1개**를 둔다(음식 단위 = Architecture A).
 
-**Rationale**: 작업 실행을 트랜잭션 밖에 두고 저장+전이만 짧은 트랜잭션(`FoodContentBatchService.completeContent`)으로 묶어 "외부 호출은 트랜잭션 밖" 제약을 골격 구조로 강제한다. 실패 격리는 음식 단위 try/catch 하나로 충분하다. 후속 태스크가 꽂힐 "자리"는 인터페이스가 아니라 메서드 4개다 — 구현체가 하나뿐일 인터페이스는 만들지 않는다.
+- `IncompleteFoodItemReader`(`ItemStreamReader<Food>`) — `getIncompleteFoods(lastReadId, pageSize)` 키셋 페이지 리더. 복원 지점은 "마지막으로 넘긴 음식 id"(ExecutionContext) 라 버퍼 미처리분을 건너뛰지 않는다.
+- `FoodContentItemProcessor`(`ItemProcessor<Food, ProcessedFood>`) — 음식 1건의 4작업을 **작업별 메서드**(`generateImage`·`generateDescription`·`translateNames`·`mapAvoidance`)로 수행(LLM 호출은 여기 = 트랜잭션 밖). 본문은 후속(KB-183·184·209)이 채운다. `mapAvoidance` 는 KB-209 에서 API 3개 호출·종합.
+- writer(`ItemWriter<ProcessedFood>`) — `completeContent(food, hasAvoidanceMapping)` 로 저장·전이.
+- Step: **commit-interval = 1**(음식 1건 = 트랜잭션 1개), `faultTolerant().skip(Exception).skipLimit(MAX)` + SkipListener 로그(건 단위 격리·다음 실행 재시도).
+- Job: `RunIdIncrementer`(야간 반복 재실행). 부팅 자동 실행은 `spring.batch.job.enabled=false` 기본, 실행 시 인자로 켠다.
+- `kbap.batch.content.chunk-size` = **리더 DB 페이지 크기**(처리·커밋은 음식 1건 단위).
 
-**Alternatives considered**: (1) `FoodContentStep` fun interface + 빈 리스트 주입 — 초안이었으나 폐기: 소비자가 잡 하나뿐이고 스텝 교체·조합 요구가 없어 추상화 비용만 남는다. (2) Spring Batch 프레임워크 — Job/Step/Chunk 추상화·메타 테이블이 현재 규모(단일 잡, 수백 건)에 과하다.
+**Rationale**: commit-interval=1 이 음식 단위 트랜잭션·롤백 격리를 정확히 준다 — chunk N>1 이면 skip 시 형제 음식 processor 가 재실행돼 LLM 을 중복 호출(비용·부작용). Spring Batch 가 재시작·실행 이력·스킵 카운트를 공짜로 제공해 다중 외부 API 종합 잡의 관측성/복구성을 확보한다. 처리 모델("음식 1건 4작업→READY")은 그대로다.
+
+**메타데이터**: 배치는 `flyway off`(스키마 owner=api) 라 `BATCH_*` 6테이블을 **api Flyway 마이그레이션**이 생성한다(`V2026.07.21…__spring_batch_metadata.sql`, spring-batch-core schema-mysql.sql 원본). 배치 main 은 `initialize-schema=never`, 배치 test 는 Flyway off 환경이라 `initialize-schema=always`(Batch 자체 initializer 가 Testcontainer 에 생성).
+
+**Alternatives considered**: (1) ApplicationRunner + 평범한 순차 루프(2차 안) — 더 단순하지만 재시작·이력·스킵 관측성이 없어, 3-API 종합처럼 실패 지점 추적이 필요한 잡에 부적합(사용자 판단). (2) 작업별 Step 4개(Architecture B) — 작업이 독립 Step 이 되지만 음식 1건의 4작업이 4 Step 에 분산돼 음식 단위 원자성·롤백 격리가 깨져 폐기.
 
 ## D5. 설정 키 — kbap.batch.content.*
 

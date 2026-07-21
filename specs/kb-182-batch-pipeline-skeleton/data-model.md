@@ -62,25 +62,31 @@ class FoodContentBatchService internal constructor(
 
 `FoodJpaRepository` 에 키셋 조회 쿼리 추가(`internal` 유지). `FoodScoringSource` 는 삭제.
 
-## 잡 구조 (`:app:batch`) — 단일 클래스, 작업별 메서드
+## 잡 구조 (`:app:batch`) — Spring Batch chunk-oriented Step
 
-```kotlin
-class FoodContentJob(...) {
-    fun run()                                    // 청크 소진 루프 + 음식 1건 try/catch 격리
-    private fun process(food: Food)              // 4작업 순차 호출 → completeContent
-    private fun generateImage(food: Food)        // KB-184 가 본문 구현 (지금은 비어 있음)
-    private fun generateDescription(food: Food)  // KB-183
-    private fun translateNames(food: Food)       // KB-183
-    private fun mapAvoidance(food: Food): Boolean // KB-209 — 매핑 쓰기 후 true 반환
-}
+```text
+Job "foodContentJob" (RunIdIncrementer — 실행마다 새 인스턴스, 야간 반복)
+ └─ Step "foodContentStep" (chunk, commit-interval=1, faultTolerant.skip)
+     ├─ Reader   IncompleteFoodItemReader   getIncompleteFoods(lastReadId, pageSize) 키셋
+     ├─ Processor FoodContentItemProcessor   음식 1건 4작업 → ProcessedFood
+     │              generateImage / generateDescription / translateNames  (본문 후속)
+     │              mapAvoidance → Boolean   (KB-209: API 3개 호출·종합)
+     └─ Writer    completeContent(food, hasAvoidanceMapping)  저장·전이
 ```
 
-- 스텝 인터페이스·플러그인 빈 없음 — 후속 태스크는 해당 메서드 본문에 LLM 호출을 채운다(작업별 호출 구분은 메서드 경계로 표현).
-- 메서드 안 예외 = 해당 음식 실패 → 건 단위 격리(INCOMPLETE 잔류, 다음 음식 계속).
+- **commit-interval = 1** → 음식 1건 = 트랜잭션 1개. skip 시 형제 음식 재처리(중복 LLM) 없음.
+- **faultTolerant().skip(Exception).skipLimit(MAX)** + SkipListener 로그 → 한 음식 실패는 그 건만 건너뜀(INCOMPLETE 잔류, 다음 실행 재시도), 잡 계속.
+- Processor 의 4작업 메서드 본문을 후속(KB-183·184·209)이 채운다 — 스텝 인터페이스·플러그인 빈 없음.
+- `ProcessedFood(food, hasAvoidanceMapping)` — processor→writer 로 전이 판정 입력을 넘기는 값.
 
 ## 설정
 
 | 키 | 기본값 | 의미 |
 |----|--------|------|
-| `kbap.batch.content.chunk-size` | 10 | 청크당 INCOMPLETE 조회 건수 |
-| `kbap.batch.content.runner.enabled` | false | 부팅 시 콘텐츠 잡 실행 여부 |
+| `kbap.batch.content.chunk-size` | 10 | 리더가 한 번에 DB 에서 읽는 INCOMPLETE 건수(처리·커밋은 1건 단위) |
+| `spring.batch.job.enabled` | false | 부팅 시 잡 자동 실행 여부(실행 시 `--spring.batch.job.enabled=true`) |
+| `spring.batch.jdbc.initialize-schema` | never(main) / always(test) | 메타 테이블 생성 주체(운영=api Flyway, 테스트=Batch 자체) |
+
+## Spring Batch 메타데이터
+
+`BATCH_*` 6테이블(+시퀀스). 배치는 `flyway off` 라 **api Flyway 마이그레이션**(`V2026.07.21…__spring_batch_metadata.sql`)이 생성 — 원본은 spring-batch-core `schema-mysql.sql`(Batch 6.0). 테스트는 Flyway off 이므로 `initialize-schema=always` 로 Batch 가 Testcontainer 에 직접 생성.
