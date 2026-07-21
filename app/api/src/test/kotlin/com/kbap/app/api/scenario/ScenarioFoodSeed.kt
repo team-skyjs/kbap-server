@@ -26,31 +26,23 @@ object ScenarioFoodSeed {
         spiciness: Int,
         substances: Map<String, Int>,
     ): Long {
-        val foodId = connection.prepareStatement(
+        substances.keys.forEach { code -> ensureSubstance(connection, code) }
+        val avoidanceSubstancesJson = substances.entries.joinToString(separator = ",", prefix = "[", postfix = "]") {
+            """{"code":"${it.key}","inclusion_percent":${it.value}}"""
+        }
+        return connection.prepareStatement(
             "INSERT INTO food (korean_name, image_ref, description, name_translations, description_translations, " +
-                "spiciness, content_status, status, created_at, updated_at) " +
-                "VALUES (?, NULL, ?, '{}', '{}', ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+                "avoidance_substances, spiciness, content_status, status, created_at, updated_at) " +
+                "VALUES (?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             Statement.RETURN_GENERATED_KEYS,
         ).use { ps ->
             ps.setString(1, koreanName)
             ps.setString(2, "$koreanName 시나리오 설명")
-            ps.setInt(3, spiciness)
+            ps.setString(3, avoidanceSubstancesJson)
+            ps.setInt(4, spiciness)
             ps.executeUpdate()
             ps.generatedKeys.use { keys -> keys.next(); keys.getLong(1) }
         }
-        substances.forEach { (code, percent) ->
-            ensureSubstance(connection, code)
-            connection.prepareStatement(
-                "INSERT INTO food_avoidance_substance (food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
-                    "VALUES (?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
-            ).use { ps ->
-                ps.setLong(1, foodId)
-                ps.setString(2, code)
-                ps.setInt(3, percent)
-                ps.executeUpdate()
-            }
-        }
-        return foodId
     }
 
     private fun ensureSubstance(connection: Connection, code: String) {

@@ -5,17 +5,12 @@ import com.kbap.core.lang.LocalizedText
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.core.persistence.BaseEntity
 import com.kbap.core.risk.RiskLevel
-import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import org.hibernate.annotations.BatchSize
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -49,11 +44,9 @@ class Food(
     @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','READY')")
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
-    // 연관 성분은 읽기 전용 매핑 — 쓰기는 FoodAvoidanceSubstanceJpaRepository 를 통해서만 한다.
-    @OneToMany(fetch = FetchType.EAGER, cascade = [])
-    @JoinColumn(name = "food_id", insertable = false, updatable = false)
-    @BatchSize(size = 100)
-    var avoidanceSubstances: MutableList<FoodAvoidanceSubstance> = mutableListOf(),
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "avoidance_substances", nullable = false)
+    var avoidanceSubstances: List<FoodAvoidanceItem> = emptyList(),
 ) : BaseEntity() {
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
@@ -82,12 +75,12 @@ class Food(
 
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
 
-    fun avoidanceSubstancesByProbability(): List<FoodAvoidanceSubstance> =
+    fun avoidanceSubstancesByProbability(): List<FoodAvoidanceItem> =
         avoidanceSubstances.sortedByDescending { it.inclusionPercent }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
-        val targeted = avoidanceSubstances.filter { it.substanceCode in avoidedCodes }
+        val targeted = avoidanceSubstances.filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
 

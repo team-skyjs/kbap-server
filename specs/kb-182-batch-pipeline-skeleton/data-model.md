@@ -1,6 +1,6 @@
 # Data Model: 배치 콘텐츠 파이프라인 골격 (KB-182)
 
-**신규 테이블·Flyway 마이그레이션 없음.** 기존 스키마(`food`·`food_avoidance_substance`)를 그대로 쓴다.
+**food 컬럼 변경 없음.** 신규 마이그레이션은 Spring Batch 메타데이터(`BATCH_*`)뿐. 기피성분 매핑은 develop #82 이후 `food.avoidance_substances` JSON 컬럼(`List<FoodAvoidanceItem>`)이다 — 별도 `food_avoidance_substance` 테이블에 의존하지 않는다.
 
 ## 엔티티 (기존 — 변경 사항만 표시)
 
@@ -15,7 +15,7 @@
 | `descriptionTranslations` | Map<String,String> (JSON) | ✅ 9개 대상 언어 코드 전부 포함 |
 | `spiciness` | Int | ❌ 게이트 제외 — 기본 0 이 유효값(KB-209 에서 채움) |
 | `contentStatus` | `FoodContentStatus` (INCOMPLETE/READY) | 전이 대상 |
-| `avoidanceSubstances` | 읽기 전용 EAGER 연관 | ❌ 판정에 직접 사용 안 함(D3 — 스냅샷 불일치) |
+| `avoidanceSubstances` | `List<FoodAvoidanceItem>` (JSON 컬럼, #82) | ✅ 존재 여부가 `hasAvoidanceMapping` (KB-209 채움) |
 
 9개 대상 언어 = `LanguageCode` 중 `KO` 제외 전부: `zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`.
 
@@ -32,9 +32,9 @@ fun transitionToReadyIfComplete(hasAvoidanceMapping: Boolean): Boolean
 - `needsX()` — 배치 processor 가 이미 된 작업의 LLM 호출을 건너뛰는(skip-if-done) 근거.
 - `transitionToReadyIfComplete`: 이미 READY → 상태 불변·true(멱등). 4작업(`!needsImage && !needsDescription && !needsNameTranslations && !needsDescriptionTranslations`) + `hasAvoidanceMapping` 전부 만족 → `contentStatus = READY`·true. 하나라도 미달 → 상태 불변·false.
 
-### FoodAvoidanceSubstance (`food_avoidance_substance` 테이블) — 변경 없음
+### 기피성분 매핑 — `food.avoidance_substances` JSON (#82)
 
-존재 여부만 READY 게이트의 입력(boolean)이 된다. 쓰기는 KB-209 범위.
+`List<FoodAvoidanceItem>`(food 엔티티의 JSON 컬럼). 비어있지 않음 = `hasAvoidanceMapping`. develop #82 이 별도 테이블에서 JSON 컬럼으로 이관 — food 스냅샷에 함께 실려 오므로 구 D3 의 "EAGER 연관 스냅샷 불일치" 우려는 사라졌다(전이 메서드는 `hasAvoidanceMapping` 파라미터 seam 유지). 쓰기는 KB-209 범위.
 
 ## 상태 전이
 

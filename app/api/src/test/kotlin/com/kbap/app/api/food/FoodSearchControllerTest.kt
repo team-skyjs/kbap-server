@@ -46,21 +46,21 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, status, created_at, updated_at) " +
+                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
                             "VALUES (601, '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
-                            "'{\"en\":\"Kimchi Stew\"}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, status, created_at, updated_at) " +
+                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
                             "VALUES (602, '김치볶음밥', 'kimchi-rice.png', '김치볶음밥 설명', 3, " +
-                            "'{\"en\":\"Kimchi Fried Rice\"}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            "'{\"en\":\"Kimchi Fried Rice\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, status, created_at, updated_at) " +
+                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
                             "VALUES (603, '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
-                            "'{\"en\":\"Doenjang Stew\"}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            "'{\"en\":\"Doenjang Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                 }
             }
@@ -74,9 +74,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     (1..count).forEach { index ->
                         statement.execute(
                             "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                                "name_translations, description_translations, status, created_at, updated_at) " +
+                                "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
                                 "VALUES (${700 + index}, '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
-                                "'{}', '{}', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                                "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                         )
                     }
                 }
@@ -90,9 +90,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, status, created_at, updated_at) " +
+                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
                             "VALUES (610, '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
-                            "'{\"ja\":\"レイメン\",\"en\":\"Cold Noodles\"}', '{}', " +
+                            "'{\"ja\":\"レイメン\",\"en\":\"Cold Noodles\"}', '{}', '[]', " +
                             "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                 }
@@ -172,10 +172,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
                             "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "INSERT INTO food_avoidance_substance " +
-                            "(food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
-                            "VALUES ($foodId, '$substanceCode', $inclusionPercent, " +
-                            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        "UPDATE food SET avoidance_substances = JSON_ARRAY_APPEND(avoidance_substances, '$', " +
+                            "JSON_OBJECT('code', '$substanceCode', 'inclusion_percent', $inclusionPercent)) " +
+                            "WHERE id = $foodId",
                     )
                 }
             }
