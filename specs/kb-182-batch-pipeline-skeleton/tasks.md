@@ -59,7 +59,7 @@
 
 ## Phase 5: User Story 2 - 음식 단위 처리 러너 골격 (Priority: P1)
 
-**Goal**: INCOMPLETE 키셋 조회 창구(`FoodContentBatchService`) + Spring Batch chunk-oriented Step(commit-interval=1, faultTolerant skip, RunIdIncrementer) + processor 작업별 메서드 4개 + 청크(리더 페이지) 설정 외부화(FR-004~006, FR-008).
+**Goal**: INCOMPLETE 키셋 조회 창구(`FoodContentBatchService`) + Spring Batch chunk-oriented Step(chunk=chunk-size, faultTolerant skip, RunIdIncrementer) + processor 작업별 skip-if-done + 작업별 독립 커밋(saveProgress REQUIRES_NEW) + 청크 설정 외부화(FR-004~006, FR-008).
 
 **Independent Test**: `./gradlew :domain:food:test`(창구 Testcontainers 통합) + `:app:batch:test`(기존 부팅 테스트 그린) + 러너 on 수동 실행.
 
@@ -70,7 +70,7 @@
 ### Implementation for User Story 2
 
 - [X] T009 [US2] `FoodJpaRepository` 키셋 쿼리 추가 + `FoodContentBatchService` 구현 in `domain/food/src/main/kotlin/com/kbap/domain/food/FoodContentBatchService.kt` — `@Service` + `internal constructor`, `getIncompleteFoods(afterId, size)`(@Transactional readOnly)·`completeContent(food, hasAvoidanceMapping)`(@Transactional, save + transitionToReadyIfComplete). T008 그린 확인
-- [X] T010 [US2] Spring Batch 잡 구현(**테스트 선행 없이** — 사용자 지시) — `IncompleteFoodItemReader`(키셋 `ItemStreamReader`)·`FoodContentItemProcessor`(4작업 메서드 + `ProcessedFood`)·`FoodContentBatchConfig`(Job/Step commit-interval=1, faultTolerant skip, RunIdIncrementer, writer=completeContent) in `app/batch/src/main/kotlin/com/kbap/app/batch/content/`. 구 `FoodContentJob`·`ContentJobConfig`(ApplicationRunner 안) 삭제
+- [X] T010 [US2] Spring Batch 잡 구현(**테스트 선행 없이** — 사용자 지시) — `IncompleteFoodItemReader`(키셋 `ItemStreamReader`)·`FoodContentItemProcessor`(작업별 skip-if-done `needsX()` + `saveProgress` 즉시 커밋 + `ProcessedFood`)·`FoodContentBatchConfig`(Job/Step chunk=chunk-size, faultTolerant skip, RunIdIncrementer, writer=completeContent 전이) in `app/batch/src/main/kotlin/com/kbap/app/batch/content/`. `Food.needsX()` 4메서드 + `FoodContentBatchService.saveProgress`(REQUIRES_NEW) 추가. 구 `FoodContentJob`·`ContentJobConfig`(ApplicationRunner 안) 삭제
 - [X] T011 [US2] Spring Batch 메타데이터·설정 배선 — `spring-boot-starter-batch` 의존 추가, api Flyway 마이그레이션 `V…__spring_batch_metadata.sql`(BATCH_* 6테이블), 배치 `application.yml`(`spring.batch.job.enabled=false`·`initialize-schema=never`·`kbap.batch.content.chunk-size=10`)·테스트 yml(`initialize-schema=always`). 검증: `./gradlew build` 그린 + `:app:batch:test` 부팅 그린
 
 **Checkpoint**: 골격 완성 — 후속 태스크는 메서드 본문만 채우면 됨(SC-005). 배치 테스트 보강은 후속 스텝 태스크에서.

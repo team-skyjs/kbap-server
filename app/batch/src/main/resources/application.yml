@@ -37,7 +37,8 @@ logging:
 kbap:
   batch:
     content:
-      # INCOMPLETE 음식을 리더가 한 번에 몇 건씩 DB 에서 읽을지(페이지 크기). 처리·커밋은 음식 1건 단위다.
+      # 한 청크(=리더 페이지 = Step 커밋 단위)로 처리할 INCOMPLETE 음식 수. 각 작업이 즉시 개별 커밋되므로
+      # 청크가 커도 재처리 시 이미 된 작업은 건너뛴다(LLM 중복 없음). 기본 10 — 운영하며 조정.
       chunk-size: 10
   # LLM 을 실제로 활성화하려면 kbap.llm.<openai|upstage|gemini>.enabled=true 를 준다.
   # api-key 는 루트 .env 의 OPENAI_API_KEY/UPSTAGE_API_KEY/GOOGLE_API_KEY 가 아래 placeholder 로 주입된다

@@ -128,4 +128,40 @@ class FoodReadyTransitionTest : BehaviorSpec({
             }
         }
     }
+
+    given("Food.needsX — 작업별 완료 여부(배치 skip 근거)") {
+        `when`("모든 콘텐츠가 채워진 음식이면") {
+            then("네 작업 모두 needs=false 다") {
+                val food = incomplete()
+
+                food.needsImage() shouldBe false
+                food.needsDescription() shouldBe false
+                food.needsNameTranslations() shouldBe false
+                food.needsDescriptionTranslations() shouldBe false
+            }
+        }
+
+        `when`("이미지가 비어 있으면") {
+            then("needsImage 만 true 다") {
+                val food = incomplete(imageRef = null)
+
+                food.needsImage() shouldBe true
+                food.needsDescription() shouldBe false
+            }
+        }
+
+        `when`("설명이 placeholder 이면") {
+            then("needsDescription 이 true 다") {
+                incomplete(description = Food.PLACEHOLDER_DESCRIPTION).needsDescription() shouldBe true
+            }
+        }
+
+        `when`("이름 번역이 한 언어라도 빠지면") {
+            then("needsNameTranslations 가 true 다") {
+                incomplete(
+                    nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code,
+                ).needsNameTranslations() shouldBe true
+            }
+        }
+    }
 })

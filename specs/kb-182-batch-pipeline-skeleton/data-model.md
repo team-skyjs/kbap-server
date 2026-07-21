@@ -22,12 +22,15 @@
 **신규 도메인 메서드**:
 
 ```kotlin
+fun needsImage(): Boolean                    // imageRef 비었으면 true
+fun needsDescription(): Boolean              // description 이 blank 또는 placeholder 면 true
+fun needsNameTranslations(): Boolean         // 9개 대상 언어 미완비면 true
+fun needsDescriptionTranslations(): Boolean  // 9개 대상 언어 미완비면 true
 fun transitionToReadyIfComplete(hasAvoidanceMapping: Boolean): Boolean
 ```
 
-- 이미 READY → 상태 불변, true 반환 (멱등)
-- 위 4조건(imageRef·description·번역 2종 완비 + `hasAvoidanceMapping`) 전부 만족 → `contentStatus = READY`, true
-- 하나라도 미달 → 상태 불변, false
+- `needsX()` — 배치 processor 가 이미 된 작업의 LLM 호출을 건너뛰는(skip-if-done) 근거.
+- `transitionToReadyIfComplete`: 이미 READY → 상태 불변·true(멱등). 4작업(`!needsImage && !needsDescription && !needsNameTranslations && !needsDescriptionTranslations`) + `hasAvoidanceMapping` 전부 만족 → `contentStatus = READY`·true. 하나라도 미달 → 상태 불변·false.
 
 ### FoodAvoidanceSubstance (`food_avoidance_substance` 테이블) — 변경 없음
 
@@ -54,9 +57,13 @@ class FoodContentBatchService internal constructor(
     fun getIncompleteFoods(afterId: Long?, size: Int): List<Food>
     // content_status='INCOMPLETE' and id > :afterId(null 이면 처음부터) order by id asc limit :size
 
+    @Transactional(propagation = REQUIRES_NEW)
+    fun saveProgress(food: Food)
+    // 한 작업 결과를 독립 트랜잭션으로 즉시 커밋 — 뒤 작업 실패해도 롤백 안 됨(작업별 재시도 근거)
+
     @Transactional
     fun completeContent(food: Food, hasAvoidanceMapping: Boolean): Boolean
-    // 스텝이 채운 필드 저장(save) + transitionToReadyIfComplete 시도, 전이 여부 반환
+    // transitionToReadyIfComplete 시도 + save, 전이 여부 반환
 }
 ```
 
@@ -66,18 +73,22 @@ class FoodContentBatchService internal constructor(
 
 ```text
 Job "foodContentJob" (RunIdIncrementer — 실행마다 새 인스턴스, 야간 반복)
- └─ Step "foodContentStep" (chunk, commit-interval=1, faultTolerant.skip)
+ └─ Step "foodContentStep" (chunk = chunk-size(10), faultTolerant.skip)
      ├─ Reader   IncompleteFoodItemReader   getIncompleteFoods(lastReadId, pageSize) 키셋
-     ├─ Processor FoodContentItemProcessor   음식 1건 4작업 → ProcessedFood
-     │              generateImage / generateDescription / translateNames  (본문 후속)
-     │              mapAvoidance → Boolean   (KB-209: API 3개 호출·종합)
-     └─ Writer    completeContent(food, hasAvoidanceMapping)  저장·전이
+     ├─ Processor FoodContentItemProcessor   음식 1건 4작업(skip-if-done) → ProcessedFood
+     │              if needsImage()               → generateImage → saveProgress(즉시 커밋)
+     │              if needsDescription()          → generateDescription → saveProgress
+     │              if needs(Name/Desc)Translations() → translateContent → saveProgress
+     │              mapAvoidance → Boolean         (KB-209: 매핑 있으면 skip, 없으면 API 3개 종합)
+     └─ Writer    completeContent(food, hasAvoidanceMapping)  4작업 완비 시 READY 전이
 ```
 
-- **commit-interval = 1** → 음식 1건 = 트랜잭션 1개. skip 시 형제 음식 재처리(중복 LLM) 없음.
-- **faultTolerant().skip(Exception).skipLimit(MAX)** + SkipListener 로그 → 한 음식 실패는 그 건만 건너뜀(INCOMPLETE 잔류, 다음 실행 재시도), 잡 계속.
+- **작업별 skip-if-done** — 각 작업은 `food.needsX()` 로 이미 된 작업의 LLM 호출을 건너뛴다(해야 하는 음식만 LLM).
+- **작업별 독립 커밋** — `saveProgress`(REQUIRES_NEW)로 한 작업 결과를 즉시 커밋. 뒤 작업이 실패해도 앞 작업이 롤백 안 돼 다음 실행에서 실패한 작업만 재시도. 청크가 커도(10) 재스캔 시 LLM 중복 없음.
+- **faultTolerant().skip(Exception).skipLimit(MAX)** + SkipListener 로그 → 한 음식 실패는 그 건만 건너뜀(INCOMPLETE 잔류), 잡 계속.
 - Processor 의 4작업 메서드 본문을 후속(KB-183·184·209)이 채운다 — 스텝 인터페이스·플러그인 빈 없음.
 - `ProcessedFood(food, hasAvoidanceMapping)` — processor→writer 로 전이 판정 입력을 넘기는 값.
+- **원자성 폐기 근거**: "음식 1건=트랜잭션 1개"는 반쯤 찬 음식 노출을 막으려던 것인데, 그 방어는 READY 게이트(INCOMPLETE 미노출)가 이미 하므로 작업별 부분 커밋이 안전하다.
 
 ## 설정
 
