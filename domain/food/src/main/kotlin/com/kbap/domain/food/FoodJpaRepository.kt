@@ -8,8 +8,15 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 internal interface FoodJpaRepository : JpaRepository<Food, Long> {
-    @Query("select f.id from Food f order by f.id asc")
-    fun findFoodIds(pageable: Pageable): List<Long>
+    @Query(
+        """
+        select f from Food f
+        where f.contentStatus = 'INCOMPLETE'
+          and (:afterId is null or f.id > :afterId)
+        order by f.id asc
+        """,
+    )
+    fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
