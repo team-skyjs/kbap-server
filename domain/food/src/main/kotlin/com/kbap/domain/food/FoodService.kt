@@ -56,8 +56,8 @@ class FoodService internal constructor(
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
         val orderedSubstances = food.avoidanceSubstancesByProbability()
-            .filter { it.substanceCode in userAvoidedCodes }
-        val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()
+            .filter { it.code in userAvoidedCodes }
+        val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.code) }.toSet()
         val catalog = avoidanceCatalogService.getSubstancesByCodes(codes).associateBy { it.code }
 
         val foodName = food.displayName(lang)
@@ -65,7 +65,7 @@ class FoodService internal constructor(
 
         val avoidanceSubstances = orderedSubstances.map { substance ->
             GetFoodDetailResult.AvoidanceSubstanceView(
-                name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.substanceCode)).displayName(lang),
+                name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.code)).displayName(lang),
                 iconRef = null,
                 inclusionProbability = substance.inclusionPercent,
                 riskStatus = substance.riskLevel(),
@@ -145,11 +145,11 @@ class FoodService internal constructor(
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
     private fun upsertIncomplete(foods: List<Food>) {
-        val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', ?, 'ACTIVE', NOW(6), NOW(6))" }
+        val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))" }
         val query = entityManager.createNativeQuery(
             """
             insert into food (korean_name, description, spiciness, name_translations, description_translations,
-                              content_status, status, created_at, updated_at)
+                              avoidance_substances, content_status, status, created_at, updated_at)
             values $rows
             on duplicate key update id = id
             """.trimIndent(),

@@ -1,7 +1,7 @@
 package com.kbap.domain.food
 
 import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodAvoidanceSubstance
+import com.kbap.domain.food.model.FoodAvoidanceItem
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.core.error.BusinessException
@@ -19,7 +19,6 @@ import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.dao.DataIntegrityViolationException
 import javax.sql.DataSource
 
 @SpringBootTest(
@@ -37,9 +36,6 @@ class FoodServiceTest : BehaviorSpec() {
     private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
-    private lateinit var foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository
-
-    @Autowired
     private lateinit var entityManagerFactory: EntityManagerFactory
 
     @Autowired
@@ -49,7 +45,6 @@ class FoodServiceTest : BehaviorSpec() {
         fun clearFoods() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                 }
             }
@@ -71,25 +66,18 @@ class FoodServiceTest : BehaviorSpec() {
                 spiciness = spiciness,
                 nameTranslations = nameTranslations,
                 descriptionTranslations = descriptionTranslations,
+                avoidanceSubstances = substances.map { (code, percent) ->
+                    FoodAvoidanceItem(code = code, inclusionPercent = percent)
+                },
             )
-            val savedId = foodJpaRepository.save(food).id
-            substances.forEach { (code, percent) ->
-                foodAvoidanceSubstanceJpaRepository.save(
-                    FoodAvoidanceSubstance(
-                        foodId = savedId,
-                        substanceCode = code,
-                        inclusionPercent = percent,
-                    ),
-                )
-            }
-            return savedId
+            return foodJpaRepository.save(food).id
         }
 
         beforeContainer { clearFoods() }
 
         given("Food 조회 — 포함 기피 성분 복원") {
             `when`("foodId 로 조회하면") {
-                then("음식과 포함 기피 성분(코드·확률)을 복원한다") {
+                then("음식과 포함 기피 성분(코드·확률)을 JSON 컬럼에서 복원한다") {
                     val id = saveFood(
                         "구조복원-된장찌개",
                         imageRef = "doenjang.png",
@@ -102,12 +90,29 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val loaded = service.getReadyFood(id)
                     loaded.imageRef shouldBe "doenjang.png"
-                    loaded.avoidanceSubstances.map { it.substanceCode }
+                    loaded.avoidanceSubstances.map { it.code }
                         .shouldContainExactlyInAnyOrder("CLAM", "SOY", "MILK")
                     loaded.avoidanceSubstances.map { it.inclusionPercent }
                         .shouldContainExactlyInAnyOrder(50, 100, 90)
-                    loaded.avoidanceSubstances.first { it.substanceCode == "SOY" }
+                    loaded.avoidanceSubstances.first { it.code == "SOY" }
                         .inclusionPercent shouldBe 100
+                }
+            }
+
+            `when`("저장 순서가 확률 내림차순이 아니게 심겨 있으면") {
+                then("avoidanceSubstancesByProbability 가 확률 내림차순으로 정렬해 복원한다") {
+                    val id = saveFood(
+                        "정렬복원-부대찌개",
+                        substances = listOf(
+                            "CLAM" to 50,
+                            "SOY" to 100,
+                            "WHEAT" to 80,
+                        ),
+                    )
+
+                    val ordered = service.getReadyFood(id).avoidanceSubstancesByProbability()
+                    ordered.map { it.inclusionPercent } shouldBe listOf(100, 80, 50)
+                    ordered.map { it.code } shouldBe listOf("SOY", "WHEAT", "CLAM")
                 }
             }
 
@@ -212,7 +217,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val id = saveFood("성분없음-흰밥", substances = emptyList())
 
                     val loaded = service.getReadyFood(id)
-                    loaded.avoidanceSubstances shouldBe emptyList<FoodAvoidanceSubstance>()
+                    loaded.avoidanceSubstances shouldBe emptyList<FoodAvoidanceItem>()
                 }
             }
 
@@ -227,9 +232,9 @@ class FoodServiceTest : BehaviorSpec() {
             }
         }
 
-        given("Food 조회 — 상수 쿼리(N+1 없음)") {
+        given("Food 조회 — 단일 쿼리(N+1 없음)") {
             `when`("포함 기피 성분·번역이 여러 개인 음식을 조회하면") {
-                then("성분·번역 개수와 무관하게 음식 1 + 성분 1 의 상수 SQL 로 로드한다") {
+                then("성분이 JSON 컬럼에 인라인되어 성분 개수와 무관하게 음식 1 SQL 로 로드한다") {
                     val id = saveFood(
                         "N플러스원-부대찌개",
                         substances = listOf(
@@ -248,25 +253,7 @@ class FoodServiceTest : BehaviorSpec() {
 
                     loaded.avoidanceSubstances.size shouldBe 4
                     loaded.nameTranslations.size shouldBe 2
-                    statistics.prepareStatementCount shouldBe 2
-                }
-            }
-        }
-
-        given("Food 저장 — (food_id, substance_code) 조합 유일") {
-            `when`("같은 음식에 같은 기피 성분 코드를 두 번 등록하면") {
-                then("unique 제약 위반으로 저장이 거부된다") {
-                    val foodId = saveFood("중복성분-된장찌개", substances = listOf("SOY" to 100))
-
-                    shouldThrow<DataIntegrityViolationException> {
-                        foodAvoidanceSubstanceJpaRepository.saveAndFlush(
-                            FoodAvoidanceSubstance(
-                                foodId = foodId,
-                                substanceCode = "SOY",
-                                inclusionPercent = 80,
-                            ),
-                        )
-                    }
+                    statistics.prepareStatementCount shouldBe 1
                 }
             }
         }
@@ -700,14 +687,14 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("이름 5개를 한 번에 등록하면") {
-                then("이름 수와 무관하게 문장은 3개다(다중행 upsert 1 + 음식 조회 1 + 성분 조회 1)") {
+                then("이름 수와 무관하게 문장은 2개다(다중행 upsert 1 + 음식 조회 1 — 성분은 JSON 인라인)") {
                     clearFoods()
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     statistics.clear()
 
                     service.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
 
-                    statistics.prepareStatementCount shouldBe 3
+                    statistics.prepareStatementCount shouldBe 2
                     statistics.entityInsertCount shouldBe 0
                     foodJpaRepository.count() shouldBe 5
                 }
@@ -754,8 +741,8 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, content_status, status, created_at, updated_at) " +
-                                    "VALUES ('오타상태', '설명', 0, '{}', '{}', 'READY', 'ACTIV', NOW(6), NOW(6))",
+                                    "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타상태', '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIV', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }
                     }
@@ -768,8 +755,8 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, content_status, status, created_at, updated_at) " +
-                                    "VALUES ('오타완성상태', '설명', 0, '{}', '{}', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
+                                    "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                                    "VALUES ('오타완성상태', '설명', 0, '{}', '{}', '[]', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }
                     }

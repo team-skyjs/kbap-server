@@ -18,9 +18,9 @@ object HomeTestSeed {
         dataSource,
         (1..count).map { id ->
             "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, " +
-                "description_translations, content_status, status, created_at, updated_at) " +
+                "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
                 "VALUES ($id, '메뉴$id', 'menu-$id.png', '메뉴$id 설명', 0, " +
-                """'{"en":"Menu$id","ja":"メニュー$id"}', '{"en":"Menu$id desc"}', """ +
+                """'{"en":"Menu$id","ja":"メニュー$id"}', '{"en":"Menu$id desc"}', '[]', """ +
                 "'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         },
     )
@@ -39,8 +39,8 @@ object HomeTestSeed {
         execute(
             dataSource,
             listOf(
-                "INSERT INTO food_avoidance_substance (food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
-                    "VALUES ($foodId, '$code', $percent, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+                "UPDATE food SET avoidance_substances = JSON_ARRAY_APPEND(avoidance_substances, '$', " +
+                    "JSON_OBJECT('code', '$code', 'inclusion_percent', $percent)) WHERE id = $foodId",
             ),
         )
     }
