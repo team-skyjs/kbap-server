@@ -7,17 +7,9 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface FoodNameRow {
-    val id: Long
-    val koreanName: String
-}
-
 internal interface FoodJpaRepository : JpaRepository<Food, Long> {
     @Query("select f.id from Food f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
-
-    @Query("select f.id as id, f.koreanName as koreanName from Food f")
-    fun findIdAndKoreanNames(): List<FoodNameRow>
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
