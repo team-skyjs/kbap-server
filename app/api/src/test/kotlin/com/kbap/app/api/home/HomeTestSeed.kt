@@ -7,7 +7,6 @@ object HomeTestSeed {
         dataSource,
         listOf(
             "DELETE FROM scan_history",
-            "DELETE FROM food_avoidance_substance",
             "DELETE FROM avoidance_substance",
             "DELETE FROM food",
             "DELETE FROM member",

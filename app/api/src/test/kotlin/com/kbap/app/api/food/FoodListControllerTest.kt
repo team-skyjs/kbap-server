@@ -62,7 +62,6 @@ class FoodListControllerTest : BehaviorSpec() {
         fun seedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                     (1..count).forEach { id ->
                         statement.execute(
@@ -79,7 +78,6 @@ class FoodListControllerTest : BehaviorSpec() {
         fun seedLocalizedFood() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
