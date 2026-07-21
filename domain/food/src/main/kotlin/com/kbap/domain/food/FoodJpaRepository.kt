@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface FoodJpaRepository : JpaRepository<Food, Long> {
+internal interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
     @Query("select f.id from Food f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
 
