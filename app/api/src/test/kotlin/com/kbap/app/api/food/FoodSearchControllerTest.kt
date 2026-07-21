@@ -42,7 +42,6 @@ class FoodSearchControllerTest : BehaviorSpec() {
         fun seedSearchableFoods() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
@@ -69,7 +68,6 @@ class FoodSearchControllerTest : BehaviorSpec() {
         fun seedNumberedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                     (1..count).forEach { index ->
                         statement.execute(
@@ -86,7 +84,6 @@ class FoodSearchControllerTest : BehaviorSpec() {
         fun seedJapaneseOnlyFood() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_avoidance_substance")
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
