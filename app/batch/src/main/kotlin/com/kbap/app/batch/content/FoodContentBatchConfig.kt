@@ -17,11 +17,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
 
-// 콘텐츠 파이프라인(KB-182) — INCOMPLETE 음식을 chunk-oriented Step 으로 소진한다.
-// 각 작업이 결과를 즉시 개별 커밋(processor→saveProgress, REQUIRES_NEW)하므로, 청크가 롤백·재스캔돼도
-// 이미 된 작업은 needsX=false 로 건너뛰어 LLM 을 다시 태우지 않는다 → chunk-size 를 크게(10) 잡아도 안전하다.
-// faultTolerant + skip: 한 음식 처리 실패는 그 건만 건너뛰고(INCOMPLETE 잔류·다음 실행에서 실패 작업만 재시도) 잡은 계속된다.
-// FoodContentBatchService(:domain:food 창구, internal constructor)를 @Import 로 조립한다.
 @Configuration
 @Import(FoodContentBatchService::class)
 class FoodContentBatchConfig {

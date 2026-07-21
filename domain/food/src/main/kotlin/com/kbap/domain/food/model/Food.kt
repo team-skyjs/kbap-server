@@ -57,7 +57,6 @@ class Food(
 ) : BaseEntity() {
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
-    // 작업별 "아직 안 된 것" 판정 — 배치 processor 가 이미 된 작업의 LLM 호출을 건너뛰는 근거.
     fun needsImage(): Boolean = imageRef.isNullOrBlank()
 
     fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION

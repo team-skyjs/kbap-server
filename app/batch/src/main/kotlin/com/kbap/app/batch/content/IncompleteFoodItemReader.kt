@@ -5,10 +5,7 @@ import com.kbap.domain.food.model.Food
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.batch.infrastructure.item.ItemStreamReader
 
-// INCOMPLETE 음식을 id 키셋으로 앞으로만 읽는 리더. pageSize 만큼 DB 에서 미리 읽어 버퍼링하되,
-// 재시작 복원 지점은 "마지막으로 넘긴 음식 id"(lastReadId)라 버퍼에 남은 미처리 건을 건너뛰지 않는다.
-// 성공분은 READY 로 빠지고 실패분은 lastReadId 뒤에 남으므로, 같은 실행에선 재조회되지 않고
-// 다음(신규) 실행에서 커서 null 부터 다시 대상이 된다.
+// 재시작 복원 지점은 "마지막으로 넘긴 음식 id"라 버퍼에 남은 미처리 건을 건너뛰지 않는다.
 class IncompleteFoodItemReader(
     private val foodContentBatchService: FoodContentBatchService,
     private val pageSize: Int,
