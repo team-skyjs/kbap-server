@@ -2,6 +2,7 @@ package com.kbap.domain.food
 
 import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodAvoidanceItem
+import com.kbap.domain.food.dto.SeedIncompleteResult
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.core.error.BusinessException
@@ -683,6 +684,53 @@ class FoodServiceTest : BehaviorSpec() {
 
                     created shouldNotContainKey "유령-라면"
                     created.getValue("신규-라면").shouldNotBeNull()
+                }
+            }
+        }
+
+        given("Food 적재 — 관리자 시드(seedIncomplete)") {
+            `when`("전부 새 이름이면") {
+                then("모두 INCOMPLETE 로 생성되고 created 로 센다") {
+                    clearFoods()
+
+                    val result = service.seedIncomplete(setOf("시드-마라샹궈", "시드-탕후루", "시드-쌀국수"))
+
+                    result shouldBe SeedIncompleteResult(requested = 3, created = 3, skipped = 0)
+                    foodJpaRepository.count() shouldBe 3
+                    service.getFoodsByKoreanNames(setOf("시드-마라샹궈", "시드-탕후루", "시드-쌀국수"))
+                        .values.forEach { it.isReady() shouldBe false }
+                }
+            }
+
+            `when`("기존 이름과 새 이름이 섞여 있으면") {
+                then("새 이름만 생성하고 기존은 skipped 로 센다") {
+                    clearFoods()
+                    val existingId = saveFood("시드-비빔밥")
+
+                    val result = service.seedIncomplete(setOf("시드-비빔밥", "시드-김치찌개", "시드-잡채"))
+
+                    result shouldBe SeedIncompleteResult(requested = 3, created = 2, skipped = 1)
+                    foodJpaRepository.count() shouldBe 3
+                    service.getFoodsByKoreanNames(setOf("시드-비빔밥")).getValue("시드-비빔밥").id shouldBe existingId
+                }
+            }
+
+            `when`("전부 기존 이름이면") {
+                then("생성 없이 skipped 로만 세고 성공한다") {
+                    clearFoods()
+                    saveFood("시드-국밥")
+                    saveFood("시드-냉면")
+
+                    val result = service.seedIncomplete(setOf("시드-국밥", "시드-냉면"))
+
+                    result shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("빈 집합이면") {
+                then("쿼리 없이 (0,0,0) 을 돌려준다") {
+                    service.seedIncomplete(emptySet()) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
                 }
             }
         }

@@ -7,6 +7,7 @@ import com.kbap.domain.food.dto.FoodSummaryView
 import com.kbap.domain.food.dto.GetFoodDetailInput
 import com.kbap.domain.food.dto.GetFoodDetailResult
 import com.kbap.domain.food.dto.SearchFoodsInput
+import com.kbap.domain.food.dto.SeedIncompleteResult
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.image.ImageUrls
@@ -107,6 +108,19 @@ class FoodService internal constructor(
     fun getFoodsByKoreanNames(names: Set<String>): Map<String, Food> {
         if (names.isEmpty()) return emptyMap()
         return foodRepository.findByKoreanNameIn(names).associateBy { it.koreanName }
+    }
+
+    @Transactional
+    fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
+        if (koreanNames.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+
+        val existing = foodRepository.findByKoreanNameIn(koreanNames).map { it.koreanName }.toSet()
+        val newNames = koreanNames - existing
+        if (newNames.isNotEmpty()) {
+            createIncomplete(newNames)
+        }
+        // ponytail: 동시 요청 경합 시 created 는 낙관적 카운트 — 행 정합은 upsert(insert-or-ignore)가 보장
+        return SeedIncompleteResult(requested = koreanNames.size, created = newNames.size, skipped = existing.size)
     }
 
     @Transactional

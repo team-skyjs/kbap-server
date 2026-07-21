@@ -1,0 +1,7 @@
+package com.kbap.domain.food.dto
+
+data class SeedIncompleteResult(
+    val requested: Int,
+    val created: Int,
+    val skipped: Int,
+)
