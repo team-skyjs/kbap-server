@@ -11,6 +11,7 @@ import com.kbap.core.error.ErrorCode
 import com.kbap.core.error.BusinessException
 import com.kbap.core.image.ImageUrls
 import com.kbap.core.lang.LanguageCode
+import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.avoidance.AvoidanceCatalogService
 import com.kbap.domain.member.MemberService
@@ -108,12 +109,16 @@ class FoodService internal constructor(
     @Transactional(readOnly = true)
     fun getFoodsByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
         if (keys.isEmpty()) return emptyMap()
-        val entities = foodRepository.findByKoreanMatchKeyIn(keys)
-        val grouped = entities.groupBy { it.koreanMatchKey }
-        grouped.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
-            log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, duplicates.size, duplicates.map { it.id })
+        // ponytail: 전 음식 (id, korean_name) 풀로드 매칭 — 수만 건 규모가 되면 캐시 도입
+        val matched = foodRepository.findIdAndKoreanNames()
+            .groupBy({ KoreanMenuNameNormalizer.matchKey(it.koreanName) }, { it.id })
+            .filterKeys { it in keys }
+        matched.filterValues { it.size > 1 }.forEach { (key, ids) ->
+            log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, ids.size, ids)
         }
-        return grouped.mapValues { (_, duplicates) -> duplicates.minBy { it.id } }
+        val minIdByKey = matched.mapValues { (_, ids) -> ids.min() }
+        val foods = foodRepository.findByIdIn(minIdByKey.values.toList()).associateBy { it.id }
+        return minIdByKey.mapValues { (_, id) -> foods.getValue(id) }
     }
 
     @Transactional
