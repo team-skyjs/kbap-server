@@ -11,8 +11,6 @@ internal interface FoodJpaRepository : JpaRepository<Food, Long> {
     @Query("select f.id from Food f order by f.id asc")
     fun findFoodIds(pageable: Pageable): List<Long>
 
-    fun findByKoreanMatchKeyIn(keys: Set<String>): List<Food>
-
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
     @Query(

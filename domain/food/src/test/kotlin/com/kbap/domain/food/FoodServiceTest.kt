@@ -580,14 +580,14 @@ class FoodServiceTest : BehaviorSpec() {
             }
         }
 
-        given("Food 매칭 — 정규화 매칭 키 배치 조회") {
-            `when`("여러 정규화 키로 한 번에 조회하면") {
-                then("키별 음식을 담은 맵을 반환하고 없는 키는 빠진다") {
+        given("Food 매칭 — 한국어 이름 정확 일치 배치 조회") {
+            `when`("여러 이름으로 한 번에 조회하면") {
+                then("이름별 음식을 담은 맵을 반환하고 없는 이름은 빠진다") {
                     clearFoods()
                     val kimchi = saveFood("김치찌개")
-                    val gukbap = saveFood("돼지 국밥")
+                    val gukbap = saveFood("돼지국밥")
 
-                    val found = service.getFoodsByKoreanMatchKeys(setOf("김치찌개", "돼지국밥", "없는메뉴"))
+                    val found = service.getFoodsByKoreanNames(setOf("김치찌개", "돼지국밥", "없는메뉴"))
 
                     found.keys shouldBe setOf("김치찌개", "돼지국밥")
                     found.getValue("김치찌개").id shouldBe kimchi
@@ -595,28 +595,31 @@ class FoodServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("미완성(INCOMPLETE) 음식이 키와 일치하면") {
+            `when`("미완성(INCOMPLETE) 음식이 이름과 일치하면") {
                 then("스캔 매칭 대상이므로 포함된다") {
                     clearFoods()
                     service.createIncomplete(setOf("우주라면"))
 
-                    val found = service.getFoodsByKoreanMatchKeys(setOf("우주라면"))
+                    val found = service.getFoodsByKoreanNames(setOf("우주라면"))
 
                     found.getValue("우주라면").isReady() shouldBe false
                 }
             }
 
-            `when`("같은 정규화 키를 가진 음식이 둘 이상이면") {
-                then("가장 작은 id 의 음식을 반환한다") {
+            `when`("정규화되지 않은 이름의 음식이 남아 있으면") {
+                then("정확 일치가 아니므로 매칭되지 않는다") {
                     clearFoods()
-                    val first = saveFood("국밥")
+                    val normalized = saveFood("국밥")
                     saveFood("국 밥")
 
-                    service.getFoodsByKoreanMatchKeys(setOf("국밥")).getValue("국밥").id shouldBe first
+                    val found = service.getFoodsByKoreanNames(setOf("국밥"))
+
+                    found.getValue("국밥").id shouldBe normalized
+                    found.keys shouldBe setOf("국밥")
                 }
             }
 
-            `when`("소프트 삭제된 음식만 키가 일치하면") {
+            `when`("소프트 삭제된 음식만 이름이 일치하면") {
                 then("@SQLRestriction 으로 제외된다") {
                     clearFoods()
                     val id = saveFood("삭제된김밥")
@@ -624,13 +627,13 @@ class FoodServiceTest : BehaviorSpec() {
                     entity.delete()
                     foodJpaRepository.save(entity)
 
-                    service.getFoodsByKoreanMatchKeys(setOf("삭제된김밥")) shouldBe emptyMap<String, Food>()
+                    service.getFoodsByKoreanNames(setOf("삭제된김밥")) shouldBe emptyMap<String, Food>()
                 }
             }
 
-            `when`("빈 키 집합으로 조회하면") {
+            `when`("빈 이름 집합으로 조회하면") {
                 then("빈 맵을 반환한다(쿼리 없음)") {
-                    service.getFoodsByKoreanMatchKeys(emptySet()) shouldBe emptyMap<String, Food>()
+                    service.getFoodsByKoreanNames(emptySet()) shouldBe emptyMap<String, Food>()
                 }
             }
         }

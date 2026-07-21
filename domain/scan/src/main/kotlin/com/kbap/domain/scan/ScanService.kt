@@ -73,22 +73,15 @@ class ScanService internal constructor(
     fun getRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 
+    // 저장·조회 모두 정규화된 이름 기준 — korean_name 은 항상 정규화 상태를 유지한다
     private fun resolveFoods(extracted: List<ExtractedMenu>): Map<String, Food> {
         val matchKeys = extracted
             .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) }
             .filter { it.isNotBlank() }
             .toSet()
-        val known = foodService.getFoodsByKoreanMatchKeys(matchKeys)
-
-        val unknownNames = extracted
-            .filter { KoreanMenuNameNormalizer.matchKey(it.koreanName).let { key -> key.isNotBlank() && key !in known } }
-            .map { it.koreanName }
-            .toSet()
-        val registered = foodService.createIncomplete(unknownNames)
-
-        val byMatchKey = known.toMutableMap()
-        registered.forEach { (koreanName, food) -> byMatchKey[KoreanMenuNameNormalizer.matchKey(koreanName)] = food }
-        return byMatchKey
+        val known = foodService.getFoodsByKoreanNames(matchKeys)
+        val registered = foodService.createIncomplete(matchKeys - known.keys)
+        return known + registered
     }
 
     private fun recordHistory(

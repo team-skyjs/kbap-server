@@ -106,14 +106,9 @@ class FoodService internal constructor(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodsByKoreanMatchKeys(keys: Set<String>): Map<String, Food> {
-        if (keys.isEmpty()) return emptyMap()
-        val entities = foodRepository.findByKoreanMatchKeyIn(keys)
-        val grouped = entities.groupBy { it.koreanMatchKey }
-        grouped.filterValues { it.size > 1 }.forEach { (key, duplicates) ->
-            log.warn("동음이의 음식 매칭 — key={} 에 {} 개 음식({}), 최소 id 로 매칭", key, duplicates.size, duplicates.map { it.id })
-        }
-        return grouped.mapValues { (_, duplicates) -> duplicates.minBy { it.id } }
+    fun getFoodsByKoreanNames(names: Set<String>): Map<String, Food> {
+        if (names.isEmpty()) return emptyMap()
+        return foodRepository.findByKoreanNameIn(names).associateBy { it.koreanName }
     }
 
     @Transactional
