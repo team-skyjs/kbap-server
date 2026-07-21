@@ -14,7 +14,6 @@ import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.avoidance.AvoidanceCatalogService
 import com.kbap.domain.member.MemberService
-import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
@@ -26,7 +25,6 @@ class FoodService internal constructor(
     private val foodRepository: FoodJpaRepository,
     private val avoidanceCatalogService: AvoidanceCatalogService,
     private val memberService: MemberService,
-    private val entityManager: EntityManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,8 +54,8 @@ class FoodService internal constructor(
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
         val orderedSubstances = food.avoidanceSubstancesByProbability()
-            .filter { it.substanceCode in userAvoidedCodes }
-        val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.substanceCode) }.toSet()
+            .filter { it.code in userAvoidedCodes }
+        val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.code) }.toSet()
         val catalog = avoidanceCatalogService.getSubstancesByCodes(codes).associateBy { it.code }
 
         val foodName = food.displayName(lang)
@@ -65,7 +63,7 @@ class FoodService internal constructor(
 
         val avoidanceSubstances = orderedSubstances.map { substance ->
             GetFoodDetailResult.AvoidanceSubstanceView(
-                name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.substanceCode)).displayName(lang),
+                name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.code)).displayName(lang),
                 iconRef = null,
                 inclusionProbability = substance.inclusionPercent,
                 riskStatus = substance.riskLevel(),
@@ -115,7 +113,7 @@ class FoodService internal constructor(
     fun createIncomplete(koreanNames: Set<String>): Map<String, Food> {
         if (koreanNames.isEmpty()) return emptyMap()
 
-        upsertIncomplete(koreanNames.map { Food.incomplete(it) })
+        foodRepository.upsertIncomplete(koreanNames.map { Food.incomplete(it) })
 
         val resolved = foodRepository.findByKoreanNameIn(koreanNames).associateBy { it.koreanName }
         val unresolved = koreanNames - resolved.keys
@@ -143,25 +141,6 @@ class FoodService internal constructor(
     }
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
-
-    private fun upsertIncomplete(foods: List<Food>) {
-        val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', ?, 'ACTIVE', NOW(6), NOW(6))" }
-        val query = entityManager.createNativeQuery(
-            """
-            insert into food (korean_name, description, spiciness, name_translations, description_translations,
-                              content_status, status, created_at, updated_at)
-            values $rows
-            on duplicate key update id = id
-            """.trimIndent(),
-        )
-        foods.forEachIndexed { index, food ->
-            query.setParameter(index * 4 + 1, food.koreanName)
-            query.setParameter(index * 4 + 2, food.description)
-            query.setParameter(index * 4 + 3, food.spiciness)
-            query.setParameter(index * 4 + 4, food.contentStatus.name)
-        }
-        query.executeUpdate()
-    }
 
     private fun escapeLikeWildcards(keyword: String): String =
         keyword

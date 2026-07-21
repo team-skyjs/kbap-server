@@ -8,8 +8,8 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class FoodTest : BehaviorSpec({
-    fun substance(code: String, percent: Int) =
-        FoodAvoidanceSubstance(substanceCode = code, inclusionPercent = percent)
+    fun item(code: String, percent: Int) =
+        FoodAvoidanceItem(code = code, inclusionPercent = percent)
 
     fun create(
         koreanName: String = "된장찌개",
@@ -17,7 +17,7 @@ class FoodTest : BehaviorSpec({
         spiciness: Int = 3,
         nameTranslations: Map<String, String> = emptyMap(),
         descriptionTranslations: Map<String, String> = emptyMap(),
-        avoidanceSubstances: MutableList<FoodAvoidanceSubstance> = mutableListOf(substance("SOYBEAN", 100)),
+        avoidanceSubstances: List<FoodAvoidanceItem> = listOf(item("SOYBEAN", 100)),
     ) = Food(
         koreanName = koreanName,
         description = description,
@@ -79,25 +79,47 @@ class FoodTest : BehaviorSpec({
         }
     }
 
+    given("FoodAvoidanceItem.riskLevel — 포함 확률로 위험도 산출") {
+        `when`("포함 확률이 DANGER 임계(60) 이상이면") {
+            then("DANGER 다") {
+                item("SOY", 100).riskLevel() shouldBe RiskLevel.DANGER
+                item("SOY", 60).riskLevel() shouldBe RiskLevel.DANGER
+            }
+        }
+
+        `when`("포함 확률이 CAUTION 구간(10~59)이면") {
+            then("CAUTION 이다") {
+                item("CLAM", 50).riskLevel() shouldBe RiskLevel.CAUTION
+                item("CLAM", 10).riskLevel() shouldBe RiskLevel.CAUTION
+            }
+        }
+
+        `when`("포함 확률이 CAUTION 임계 미만(1~9)이면") {
+            then("SAFE 다") {
+                item("TRACE", 5).riskLevel() shouldBe RiskLevel.SAFE
+            }
+        }
+    }
+
     given("Food.avoidanceSubstancesByProbability") {
         `when`("포함 성분이 포함 확률 내림차순이 아닌 순서로 담겨 있으면") {
-            then("포함 확률 내림차순으로 정렬된 성분을 반환한다") {
+            then("저장 순서와 무관하게 포함 확률 내림차순으로 정렬된 성분을 반환한다") {
                 val food = create(
-                    avoidanceSubstances = mutableListOf(
-                        substance("TOFU", 90),
-                        substance("SOYBEAN", 100),
-                        substance("CLAM", 50),
+                    avoidanceSubstances = listOf(
+                        item("CLAM", 50),
+                        item("SOYBEAN", 100),
+                        item("TOFU", 80),
                     ),
                 )
 
-                food.avoidanceSubstancesByProbability().map { it.inclusionPercent } shouldBe listOf(100, 90, 50)
-                food.avoidanceSubstancesByProbability().first().substanceCode shouldBe "SOYBEAN"
+                food.avoidanceSubstancesByProbability().map { it.inclusionPercent } shouldBe listOf(100, 80, 50)
+                food.avoidanceSubstancesByProbability().map { it.code } shouldBe listOf("SOYBEAN", "TOFU", "CLAM")
             }
         }
 
         `when`("포함하는 기피 성분이 하나도 없으면") {
             then("빈 목록을 반환하고 음식은 유효하다") {
-                val food = create(avoidanceSubstances = mutableListOf())
+                val food = create(avoidanceSubstances = emptyList())
 
                 food.avoidanceSubstancesByProbability() shouldBe emptyList()
                 food.koreanName() shouldBe "된장찌개"
@@ -120,7 +142,7 @@ class FoodTest : BehaviorSpec({
                 food.koreanName() shouldBe "우주라면"
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 food.isReady() shouldBe false
-                food.avoidanceSubstances shouldBe emptyList<FoodAvoidanceSubstance>()
+                food.avoidanceSubstances shouldBe emptyList<FoodAvoidanceItem>()
             }
         }
 

@@ -25,13 +25,11 @@ object FoodTestSeed {
                     DOENJANG_SPICINESS,
                     nameTranslations = mapOf("en" to "Doenjang Stew", "ja" to "テンジャンチゲ"),
                     descriptionTranslations = mapOf("en" to DOENJANG_DESCRIPTION_EN),
+                    avoidanceSubstances = listOf("CLAM" to 50, "SOY" to 100, "WHEAT" to 80),
                 ),
                 avoidanceSubstance(101, "SOY", "대두", """{"en":"Soybean"}"""),
                 avoidanceSubstance(102, "WHEAT", "밀", """{"en":"Wheat"}"""),
                 avoidanceSubstance(103, "CLAM", "조개", """{"en":"Clam"}"""),
-                foodAvoidanceSubstance(1, "SOY", 100),
-                foodAvoidanceSubstance(1, "WHEAT", 80),
-                foodAvoidanceSubstance(1, "CLAM", 50),
             ),
         )
     }
@@ -112,11 +110,12 @@ object FoodTestSeed {
         spiciness: Int,
         nameTranslations: Map<String, String> = emptyMap(),
         descriptionTranslations: Map<String, String> = emptyMap(),
+        avoidanceSubstances: List<Pair<String, Int>> = emptyList(),
         status: String = "ACTIVE",
     ) =
-        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, status, created_at, updated_at) " +
+        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
             "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, " +
-            "'${jsonObject(nameTranslations)}', '${jsonObject(descriptionTranslations)}', " +
+            "'${jsonObject(nameTranslations)}', '${jsonObject(descriptionTranslations)}', '${jsonArray(avoidanceSubstances)}', " +
             "'$status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
     private fun jsonObject(entries: Map<String, String>) =
@@ -124,11 +123,12 @@ object FoodTestSeed {
             "\"$key\":\"$value\""
         }
 
+    private fun jsonArray(substances: List<Pair<String, Int>>) =
+        substances.joinToString(separator = ",", prefix = "[", postfix = "]") { (code, percent) ->
+            """{"code":"$code","inclusion_percent":$percent}"""
+        }
+
     private fun avoidanceSubstance(id: Long, code: String, koreanName: String, translationsJson: String) =
         "INSERT INTO avoidance_substance (id, code, korean_name, translations, status, created_at, updated_at) " +
             "VALUES ($id, '$code', '$koreanName', '$translationsJson', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-
-    private fun foodAvoidanceSubstance(foodId: Long, substanceCode: String, percent: Int) =
-        "INSERT INTO food_avoidance_substance (food_id, substance_code, inclusion_percent, status, created_at, updated_at) " +
-            "VALUES ($foodId, '$substanceCode', $percent, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 }

@@ -1,7 +1,7 @@
 package com.kbap.domain.food
 
 import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodAvoidanceSubstance
+import com.kbap.domain.food.model.FoodAvoidanceItem
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -27,12 +27,8 @@ class FoodScoringChunkTest : BehaviorSpec() {
     @Autowired
     private lateinit var foodJpaRepository: FoodJpaRepository
 
-    @Autowired
-    private lateinit var foodAvoidanceSubstanceJpaRepository: FoodAvoidanceSubstanceJpaRepository
-
     init {
         fun clearFoods() {
-            foodAvoidanceSubstanceJpaRepository.deleteAll()
             foodJpaRepository.deleteAll()
         }
 
@@ -46,17 +42,17 @@ class FoodScoringChunkTest : BehaviorSpec() {
             koreanName: String,
             substances: List<Pair<String, Int>> = emptyList(),
             nameTranslations: Map<String, String> = emptyMap(),
-        ): Long {
-            val savedId = foodJpaRepository.save(
-                Food(koreanName = koreanName, description = "구수한 $koreanName", nameTranslations = nameTranslations),
+        ): Long =
+            foodJpaRepository.save(
+                Food(
+                    koreanName = koreanName,
+                    description = "구수한 $koreanName",
+                    nameTranslations = nameTranslations,
+                    avoidanceSubstances = substances.map { (code, percent) ->
+                        FoodAvoidanceItem(code = code, inclusionPercent = percent)
+                    },
+                ),
             ).id
-            substances.forEach { (code, percent) ->
-                foodAvoidanceSubstanceJpaRepository.save(
-                    FoodAvoidanceSubstance(foodId = savedId, substanceCode = code, inclusionPercent = percent),
-                )
-            }
-            return savedId
-        }
 
         given("Food 스코어링 공급 — 청크 크기 상한") {
             `when`("active food 가 요청 size 보다 많을 때 nextChunk 를 호출하면") {
@@ -133,7 +129,7 @@ class FoodScoringChunkTest : BehaviorSpec() {
 
                     val food = chunk.firstOrNull { it.displayName(LanguageCode.KO) == "복원-된장찌개" }
                     food.shouldNotBeNull()
-                    food.avoidanceSubstances.map { it.substanceCode }
+                    food.avoidanceSubstances.map { it.code }
                         .shouldContainExactlyInAnyOrder("SOYBEAN", "CLAM")
                 }
             }

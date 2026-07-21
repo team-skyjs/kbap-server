@@ -29,7 +29,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     statement.execute(
                         "CREATE TABLE IF NOT EXISTS food (" +
                             "id BIGINT PRIMARY KEY, korean_name VARCHAR(255), description TEXT, spiciness INT, " +
-                            "name_translations JSON, description_translations JSON, content_status VARCHAR(20), " +
+                            "name_translations JSON, description_translations JSON, avoidance_substances JSON, content_status VARCHAR(20), " +
                             "status VARCHAR(20), created_at DATETIME(6), updated_at DATETIME(6))",
                     )
                 }
@@ -50,8 +50,8 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, description, spiciness, " +
-                            "name_translations, description_translations, content_status, status, created_at, updated_at) " +
-                            "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '$contentStatus', 'ACTIVE', " +
+                            "name_translations, description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                            "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                     )
                 }
