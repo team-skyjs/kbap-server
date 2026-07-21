@@ -126,6 +126,51 @@ class AdminFoodControllerTest : BehaviorSpec() {
             }
         }
 
+        given("관리자 신규 음식 적재 — 인가") {
+            `when`("토큰 없이 호출하면") {
+                then("401 로 거절하고 아무것도 생성하지 않는다") {
+                    postSeed(seedBody(listOf("무단-마라탕")), token = null)
+                        .andExpect { status { isUnauthorized() } }
+
+                    countFoods() shouldBe 0
+                }
+            }
+
+            `when`("위조 서명 토큰으로 호출하면") {
+                then("401 로 거절한다") {
+                    postSeed(seedBody(listOf("위조-마라탕")), token = "forged.token.value")
+                        .andExpect { status { isUnauthorized() } }
+
+                    countFoods() shouldBe 0
+                }
+            }
+
+            `when`("USER 역할 토큰으로 호출하면") {
+                then("AUTH-008(403) 로 거절하고 아무것도 생성하지 않는다") {
+                    postSeed(seedBody(listOf("일반유저-마라탕")), token = tokenIssuer.issueAccessToken(1, MemberRole.USER))
+                        .andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.success") { value(false) }
+                            jsonPath("$.code") { value(ErrorCode.ADMIN_FORBIDDEN.code) }
+                        }
+
+                    countFoods() shouldBe 0
+                }
+            }
+
+            `when`("ADMIN 역할 토큰으로 호출하면") {
+                then("정상 적재된다") {
+                    postSeed(seedBody(listOf("관리자-마라탕")))
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.created") { value(1) }
+                        }
+
+                    contentStatusOf("관리자-마라탕") shouldBe "INCOMPLETE"
+                }
+            }
+        }
+
         given("관리자 신규 음식 적재 — 요청 검증") {
             `when`("255자를 넘는 이름이 섞여 있으면") {
                 then("COMMON-002 로 거절하고 아무것도 생성하지 않는다") {
