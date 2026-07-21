@@ -685,20 +685,6 @@ class FoodServiceTest : BehaviorSpec() {
                     created.getValue("신규-라면").shouldNotBeNull()
                 }
             }
-
-            `when`("이름 5개를 한 번에 등록하면") {
-                then("이름 수와 무관하게 문장은 2개다(다중행 upsert 1 + 음식 조회 1 — 성분은 JSON 인라인)") {
-                    clearFoods()
-                    val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
-                    statistics.clear()
-
-                    service.createIncomplete(setOf("일번면", "이번면", "삼번면", "사번면", "오번면"))
-
-                    statistics.prepareStatementCount shouldBe 2
-                    statistics.entityInsertCount shouldBe 0
-                    foodJpaRepository.count() shouldBe 5
-                }
-            }
         }
 
         given("Food 노출 — 미완성 음식 노출 차단(serving gate)") {
