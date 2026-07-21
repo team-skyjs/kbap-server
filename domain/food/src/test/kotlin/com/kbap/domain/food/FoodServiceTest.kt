@@ -747,8 +747,23 @@ class FoodServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("소프트 삭제된 동명 음식만 있으면") {
+                then("되살리지도 새로 만들지도 않고 skipped 로 집계한다") {
+                    clearFoods()
+                    val ghostId = saveFood("유령-시드라면")
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+
+                    val result = service.seedIncomplete(setOf("유령-시드라면", "생존-시드라면"))
+
+                    result shouldBe SeedIncompleteResult(requested = 2, created = 1, skipped = 1)
+                    service.getFoodsByKoreanNames(setOf("생존-시드라면")).keys shouldBe setOf("생존-시드라면")
+                }
+            }
+
             `when`("동일 목록을 두 스레드가 동시에 적재하면") {
-                then("각 이름은 정확히 한 행만 저장되고 어느 쪽도 실패하지 않는다") {
+                then("각 이름은 정확히 한 행만 저장되고 created 합계도 실제 생성 수와 일치한다") {
                     clearFoods()
                     val names = setOf("경합-마라탕", "경합-쌀국수", "경합-분짜")
                     val barrier = CyclicBarrier(2)
@@ -761,6 +776,7 @@ class FoodServiceTest : BehaviorSpec() {
                     }.map { it.join() }
 
                     results.forEach { it.requested shouldBe 3 }
+                    results.sumOf { it.created } shouldBe 3
                     foodJpaRepository.count() shouldBe 3
                     service.getFoodsByKoreanNames(names).keys shouldBe names
                 }

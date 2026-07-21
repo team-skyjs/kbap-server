@@ -21,12 +21,12 @@
 
 - **Decision**: `FoodService` 에 `seedIncomplete(names: Set<String>): SeedIncompleteResult` 를 추가한다. 구현: ① `findByKoreanNameIn(names)` 로 기존 이름 조회 → `skipped` ② 나머지를 기존 `createIncomplete`(→ `upsertIncomplete` insert-or-ignore) 로 적재 → `created`. 반환 `SeedIncompleteResult(requested, created, skipped)`.
 - **Rationale**: 멱등성(FR-005)·동시성(FR-008)은 이미 `ON DUPLICATE KEY UPDATE id = id` 가 보장한다(kb-90 에서 데드락·유령행까지 검증). 새로 필요한 것은 응답 카운트(FR-006)뿐이고, 그것은 upsert 앞의 SELECT diff 로 나온다. 도메인 쓰기 로직 신규 작성 없음.
-- **동시성 카운트 주의**: 두 동시 요청이 같은 신규 이름을 넣으면 둘 다 `created` 로 셀 수 있다(행은 upsert 로 1개 보장 — 정합 훼손 없음, 카운트만 낙관적). 관리자 수동 도구에서 수용. `ponytail:` 주석으로 명시 예정.
+- **동시성 카운트 (Codex 리뷰 반영, 2026-07-21 개정)**: 초기 설계(사전 diff 크기 = created)는 소프트 삭제 유령·경합 패배에서 과대 집계됐다. `createIncomplete` 가 돌려주는 **upsert 후 재조회(resolved) 맵 크기를 created 확정치**로 쓰고 `skipped = requested - created` 로 계산한다 — 유령·경합 패배 이름은 재조회에 안 잡혀 자동으로 skipped 가 된다(경합 시 두 응답 created 합 = 실제 생성 수, 테스트로 고정).
 - **Alternatives considered**: upsert 의 affected-rows 로 카운트 — MySQL `ON DUPLICATE KEY` 의 affected-rows 의미(1=insert, 2=update, 0=no-op)가 드라이버 설정(`useAffectedRows`)에 좌우돼 취약. 기각. `INSERT IGNORE` — 다른 unique 위반까지 삼킴. 기각(기존 결정 유지).
 
 ## R4. 요청 검증 — 요청 DTO 소유(헌법 V), blank 필터·dedup·길이 제한
 
-- **Decision**: `AdminFoodSeedRequest(koreanNames: List<String>?)` 가 경계 검증을 소유한다: `@field:NotNull` + 각 항목 `@field:Size(max=255)`(= `KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH`, 위반 시 400 COMMON-002). `toKoreanNames()` 가 trim 후 blank 제거·dedup 해 `Set<String>` 확정값을 만든다. 유효 항목 0개면 빈 Set → 서비스는 0건 성공(FR-007, 스펙 엣지케이스).
+- **Decision (Codex 리뷰 반영, 2026-07-21 개정)**: `AdminFoodSeedRequest(koreanNames: List<String>?)` 가 경계 검증을 소유한다: `@field:NotNull` + 목록 `@field:Size(max=500)`(단일 동적 SQL 폭주 방지). `toKoreanNames()` 는 trim 이 아니라 **`KoreanMenuNameNormalizer.matchKey`(NFC·한글만)** 를 적용해 blank 제거·dedup·길이(255) 검증 후 `Set<String>` 확정값을 만든다 — 스캔 입구(`ScanService.resolveFoods`)와 동일 기준으로 "korean_name 은 항상 정규화 상태" 불변식을 지킨다(trim 만 하면 "김치 찌개" 시드 후 스캔이 "김치찌개"를 별도 신규 생성하는 이중 등록 발생). 유효 항목 0개면 빈 Set → 서비스는 0건 성공(FR-007).
 - **Rationale**: 헌법 V — 외부 입력 판정은 요청 경계가 소유, 도메인은 확정값 수신. `Food.incomplete` 의 `require`(blank·길이) 는 도메인 불변 방어로 남되, DTO 가 먼저 걸러 500 경로를 차단한다.
 - **Alternatives considered**: 서비스에서 검증 — 헌법 V 위반. 기각. 길이 초과 항목 조용히 드롭 — 오타·인코딩 깨짐을 삼켜 관리자 실수가 안 드러남. 400 으로 시끄럽게 실패가 관리자 도구에 맞음. 기각.
 

@@ -116,11 +116,13 @@ class FoodService internal constructor(
 
         val existing = foodRepository.findByKoreanNameIn(koreanNames).map { it.koreanName }.toSet()
         val newNames = koreanNames - existing
-        if (newNames.isNotEmpty()) {
-            createIncomplete(newNames)
-        }
-        // ponytail: 동시 요청 경합 시 created 는 낙관적 카운트 — 행 정합은 upsert(insert-or-ignore)가 보장
-        return SeedIncompleteResult(requested = koreanNames.size, created = newNames.size, skipped = existing.size)
+        // created 는 upsert 후 재조회 확정치 — 소프트 삭제 유령·경합 패배로 미생성된 이름은 skipped 로 집계
+        val created = if (newNames.isEmpty()) 0 else createIncomplete(newNames).size
+        return SeedIncompleteResult(
+            requested = koreanNames.size,
+            created = created,
+            skipped = koreanNames.size - created,
+        )
     }
 
     @Transactional

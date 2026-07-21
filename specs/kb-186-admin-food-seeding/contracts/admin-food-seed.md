@@ -19,7 +19,7 @@
 
 | 필드 | 타입 | 제약 |
 |---|---|---|
-| koreanNames | array\<string\> | 필수(null 불가). 각 항목 최대 255자. 서버가 trim 후 blank 제거·중복 제거 — 위 예시의 실제 판정 대상은 3건 |
+| koreanNames | array\<string\> | 필수(null 불가), 최대 500건. 각 항목 최대 255자. 서버가 **스캔 입구와 동일한 정규화(NFC·한글만 유지)** 후 빈 항목 제거·중복 제거 — korean_name 은 항상 정규화 상태라는 불변식을 따른다. 위 예시의 실제 판정 대상은 3건 |
 
 ### Response 200 — BaseResponse 포맷
 
@@ -52,4 +52,4 @@
 ### 멱등성·동시성
 
 - 같은 목록 재실행: 새 행 0, 200 성공(created=0, skipped=requested).
-- 동시 중복 요청: `uq_food_korean_name` + insert-or-ignore upsert 로 각 이름 정확히 1행. 카운트는 경합 시 양쪽 다 created 로 셀 수 있음(행 정합은 보장, 카운트만 낙관적).
+- 동시 중복 요청: `uq_food_korean_name` + insert-or-ignore upsert 로 각 이름 정확히 1행. `created` 는 **upsert 후 재조회 확정치** — 경합 패배·소프트 삭제 유령으로 실제 생성되지 않은 이름은 skipped 로 집계된다(두 동시 요청의 created 합 = 실제 생성 수).

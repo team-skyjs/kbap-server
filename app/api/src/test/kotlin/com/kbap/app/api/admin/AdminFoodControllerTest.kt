@@ -93,9 +93,9 @@ class AdminFoodControllerTest : BehaviorSpec() {
         given("관리자 신규 음식 적재 — 정상 흐름") {
             `when`("신규·기존·중복·공백이 섞인 목록을 제출하면") {
                 then("정제 후 신규만 INCOMPLETE 로 생성되고 카운트를 돌려준다") {
-                    seedExistingFood("기존-비빔밥")
+                    seedExistingFood("기존비빔밥")
 
-                    postSeed(seedBody(listOf("신규-마라샹궈", "기존-비빔밥", " 신규-마라샹궈 ", "신규-탕후루", "  ")))
+                    postSeed(seedBody(listOf("신규마라샹궈", "기존비빔밥", " 신규마라샹궈 ", "신규탕후루", "  ")))
                         .andExpect {
                             status { isOk() }
                             jsonPath("$.success") { value(true) }
@@ -105,22 +105,37 @@ class AdminFoodControllerTest : BehaviorSpec() {
                         }
 
                     countFoods() shouldBe 3
-                    contentStatusOf("신규-마라샹궈") shouldBe "INCOMPLETE"
-                    contentStatusOf("신규-탕후루") shouldBe "INCOMPLETE"
-                    contentStatusOf("기존-비빔밥") shouldBe "READY"
+                    contentStatusOf("신규마라샹궈") shouldBe "INCOMPLETE"
+                    contentStatusOf("신규탕후루") shouldBe "INCOMPLETE"
+                    contentStatusOf("기존비빔밥") shouldBe "READY"
+                }
+            }
+
+            `when`("공백·비한글이 섞인 표기로 제출하면") {
+                then("스캔 입구와 동일하게 정규화(NFC·한글만)해 저장·중복 판정한다") {
+                    postSeed(seedBody(listOf("김치 찌개", "김치찌개", "Kimchi 김치찌개!", "abc123")))
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.requested") { value(1) }
+                            jsonPath("$.payload.created") { value(1) }
+                            jsonPath("$.payload.skipped") { value(0) }
+                        }
+
+                    countFoods() shouldBe 1
+                    contentStatusOf("김치찌개") shouldBe "INCOMPLETE"
                 }
             }
 
             `when`("적재된 음식의 초기 조사 상태를 보면") {
                 // kb-182(미조사 센티널: 맵기 -1·avoidance NULL) 머지 후 enabled 로 전환 — 그 전엔 구 기본값(0·'[]')이라 실패한다
                 then("맵기 -1, 기피성분 NULL(미조사) 로 저장돼 있다").config(enabled = false) {
-                    postSeed(seedBody(listOf("센티널-마라탕"))).andExpect { status { isOk() } }
+                    postSeed(seedBody(listOf("센티널마라탕"))).andExpect { status { isOk() } }
 
                     dataSource.connection.use { c ->
                         c.prepareStatement(
                             "SELECT spiciness, avoidance_substances FROM food WHERE korean_name = ?",
                         ).use { ps ->
-                            ps.setString(1, "센티널-마라탕")
+                            ps.setString(1, "센티널마라탕")
                             ps.executeQuery().use { rs ->
                                 rs.next() shouldBe true
                                 rs.getInt(1) shouldBe -1
@@ -133,7 +148,7 @@ class AdminFoodControllerTest : BehaviorSpec() {
 
             `when`("같은 목록을 다시 제출하면") {
                 then("멱등하게 created=0 으로 성공하고 행이 늘지 않는다") {
-                    val body = seedBody(listOf("재실행-마라탕", "재실행-분짜"))
+                    val body = seedBody(listOf("재실행마라탕", "재실행분짜"))
 
                     postSeed(body).andExpect { status { isOk() } }
                     postSeed(body)
@@ -197,13 +212,13 @@ class AdminFoodControllerTest : BehaviorSpec() {
 
             `when`("ADMIN 역할 토큰으로 호출하면") {
                 then("정상 적재된다") {
-                    postSeed(seedBody(listOf("관리자-마라탕")))
+                    postSeed(seedBody(listOf("관리자마라탕")))
                         .andExpect {
                             status { isOk() }
                             jsonPath("$.payload.created") { value(1) }
                         }
 
-                    contentStatusOf("관리자-마라탕") shouldBe "INCOMPLETE"
+                    contentStatusOf("관리자마라탕") shouldBe "INCOMPLETE"
                 }
             }
         }
@@ -215,6 +230,18 @@ class AdminFoodControllerTest : BehaviorSpec() {
                         .andExpect {
                             status { isBadRequest() }
                             jsonPath("$.success") { value(false) }
+                            jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                        }
+
+                    countFoods() shouldBe 0
+                }
+            }
+
+            `when`("500건을 넘는 목록을 제출하면") {
+                then("COMMON-002 로 거절한다") {
+                    postSeed(seedBody((1..501).map { "메뉴이름$it" }))
+                        .andExpect {
+                            status { isBadRequest() }
                             jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
                         }
 
