@@ -111,6 +111,43 @@ class AdminFoodControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("적재된 음식의 초기 조사 상태를 보면") {
+                // kb-182(미조사 센티널: 맵기 -1·avoidance NULL) 머지 후 enabled 로 전환 — 그 전엔 구 기본값(0·'[]')이라 실패한다
+                then("맵기 -1, 기피성분 NULL(미조사) 로 저장돼 있다").config(enabled = false) {
+                    postSeed(seedBody(listOf("센티널-마라탕"))).andExpect { status { isOk() } }
+
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "SELECT spiciness, avoidance_substances FROM food WHERE korean_name = ?",
+                        ).use { ps ->
+                            ps.setString(1, "센티널-마라탕")
+                            ps.executeQuery().use { rs ->
+                                rs.next() shouldBe true
+                                rs.getInt(1) shouldBe -1
+                                rs.getString(2) shouldBe null
+                            }
+                        }
+                    }
+                }
+            }
+
+            `when`("같은 목록을 다시 제출하면") {
+                then("멱등하게 created=0 으로 성공하고 행이 늘지 않는다") {
+                    val body = seedBody(listOf("재실행-마라탕", "재실행-분짜"))
+
+                    postSeed(body).andExpect { status { isOk() } }
+                    postSeed(body)
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.requested") { value(2) }
+                            jsonPath("$.payload.created") { value(0) }
+                            jsonPath("$.payload.skipped") { value(2) }
+                        }
+
+                    countFoods() shouldBe 2
+                }
+            }
+
             `when`("빈 배열이나 공백뿐인 목록을 제출하면") {
                 then("0건 생성으로 성공 처리한다") {
                     postSeed(seedBody(listOf("   ", "")))

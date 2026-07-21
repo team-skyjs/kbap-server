@@ -16,6 +16,8 @@ import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import jakarta.persistence.EntityManagerFactory
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CyclicBarrier
 import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -731,6 +733,36 @@ class FoodServiceTest : BehaviorSpec() {
             `when`("빈 집합이면") {
                 then("쿼리 없이 (0,0,0) 을 돌려준다") {
                     service.seedIncomplete(emptySet()) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+                }
+            }
+
+            `when`("같은 목록으로 두 번 적재하면") {
+                then("두 번째는 created=0 으로 성공하고 행 수가 늘지 않는다") {
+                    clearFoods()
+                    val names = setOf("멱등-마라탕", "멱등-탕수육")
+
+                    service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 2, skipped = 0)
+                    service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("동일 목록을 두 스레드가 동시에 적재하면") {
+                then("각 이름은 정확히 한 행만 저장되고 어느 쪽도 실패하지 않는다") {
+                    clearFoods()
+                    val names = setOf("경합-마라탕", "경합-쌀국수", "경합-분짜")
+                    val barrier = CyclicBarrier(2)
+
+                    val results = (1..2).map {
+                        CompletableFuture.supplyAsync {
+                            barrier.await()
+                            service.seedIncomplete(names)
+                        }
+                    }.map { it.join() }
+
+                    results.forEach { it.requested shouldBe 3 }
+                    foodJpaRepository.count() shouldBe 3
+                    service.getFoodsByKoreanNames(names).keys shouldBe names
                 }
             }
         }
