@@ -21,8 +21,8 @@ class FoodContentBatchService internal constructor(
     }
 
     @Transactional
-    fun completeContent(food: Food, hasAvoidanceMapping: Boolean): Boolean {
-        val transitioned = food.transitionToReadyIfComplete(hasAvoidanceMapping)
+    fun completeContent(food: Food): Boolean {
+        val transitioned = food.transitionToReadyIfComplete()
         foodRepository.save(food)
         return transitioned
     }

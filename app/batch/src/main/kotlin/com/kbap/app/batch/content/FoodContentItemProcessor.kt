@@ -7,8 +7,8 @@ import org.springframework.batch.infrastructure.item.ItemProcessor
 // 작업 본문은 골격 단계에선 비어 있다 — KB-183(설명·번역)·KB-184(사진)·KB-209(기피성분)가 채운다.
 class FoodContentItemProcessor(
     private val foodContentBatchService: FoodContentBatchService,
-) : ItemProcessor<Food, ProcessedFood> {
-    override fun process(item: Food): ProcessedFood {
+) : ItemProcessor<Food, Food> {
+    override fun process(item: Food): Food {
         if (item.needsImage()) {
             generateImage(item)
             foodContentBatchService.saveProgress(item)
@@ -21,8 +21,11 @@ class FoodContentItemProcessor(
             translateContent(item)
             foodContentBatchService.saveProgress(item)
         }
-        val hasAvoidanceMapping = mapAvoidance(item)
-        return ProcessedFood(item, hasAvoidanceMapping)
+        if (item.needsAvoidanceMapping()) {
+            mapAvoidance(item)
+            foodContentBatchService.saveProgress(item)
+        }
+        return item
     }
 
     private fun generateImage(food: Food) {
@@ -34,11 +37,7 @@ class FoodContentItemProcessor(
     private fun translateContent(food: Food) {
     }
 
-    // KB-209: 매핑 있으면 skip, 없으면 API 3개 호출·종합 후 존재 여부 반환.
-    private fun mapAvoidance(food: Food): Boolean = false
+    // KB-209: API 3개 호출·종합으로 food.avoidanceSubstances 를 채운다.
+    private fun mapAvoidance(food: Food) {
+    }
 }
-
-data class ProcessedFood(
-    val food: Food,
-    val hasAvoidanceMapping: Boolean,
-)

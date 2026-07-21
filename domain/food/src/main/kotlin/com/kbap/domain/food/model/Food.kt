@@ -58,13 +58,15 @@ class Food(
 
     fun needsDescriptionTranslations(): Boolean = !descriptionTranslations.keys.containsAll(TARGET_LANG_CODES)
 
-    fun transitionToReadyIfComplete(hasAvoidanceMapping: Boolean): Boolean {
+    fun needsAvoidanceMapping(): Boolean = avoidanceSubstances.isEmpty()
+
+    fun transitionToReadyIfComplete(): Boolean {
         if (isReady()) return true
         val complete = !needsImage() &&
             !needsDescription() &&
             !needsNameTranslations() &&
             !needsDescriptionTranslations() &&
-            hasAvoidanceMapping
+            !needsAvoidanceMapping()
         if (complete) contentStatus = FoodContentStatus.READY
         return complete
     }

@@ -14,12 +14,14 @@ class FoodReadyTransitionTest : BehaviorSpec({
         description: String = "구수한 된장찌개",
         nameTranslations: Map<String, String> = allTargets("된장찌개"),
         descriptionTranslations: Map<String, String> = allTargets("hearty stew"),
+        avoidanceSubstances: List<FoodAvoidanceItem> = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
     ) = Food(
         koreanName = "된장찌개",
         imageRef = imageRef,
         description = description,
         nameTranslations = nameTranslations,
         descriptionTranslations = descriptionTranslations,
+        avoidanceSubstances = avoidanceSubstances,
         contentStatus = FoodContentStatus.INCOMPLETE,
     )
 
@@ -28,7 +30,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("READY 로 전이하고 true 를 반환한다") {
                 val food = incomplete()
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe true
+                food.transitionToReadyIfComplete() shouldBe true
                 food.contentStatus shouldBe FoodContentStatus.READY
             }
         }
@@ -38,7 +40,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
                 val food = incomplete()
                 food.spiciness shouldBe 0
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe true
+                food.transitionToReadyIfComplete() shouldBe true
                 food.contentStatus shouldBe FoodContentStatus.READY
             }
         }
@@ -49,7 +51,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("전이하지 않고 INCOMPLETE 를 유지하며 false 를 반환한다") {
                 val food = incomplete(imageRef = null)
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -58,7 +60,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("전이하지 않고 false 를 반환한다") {
                 val food = incomplete(imageRef = "  ")
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -69,7 +71,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("전이하지 않고 false 를 반환한다") {
                 val food = incomplete(description = "")
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -78,7 +80,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("아직 생성 전이므로 전이하지 않고 false 를 반환한다") {
                 val food = incomplete(description = Food.PLACEHOLDER_DESCRIPTION)
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -91,7 +93,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
                     nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code,
                 )
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -100,18 +102,18 @@ class FoodReadyTransitionTest : BehaviorSpec({
             then("전이하지 않고 false 를 반환한다") {
                 val food = incomplete(descriptionTranslations = emptyMap())
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
     }
 
     given("Food.transitionToReadyIfComplete — 기피성분 매핑 부재") {
-        `when`("콘텐츠 3필드가 완비되어도 기피성분 매핑이 없으면") {
+        `when`("콘텐츠 3필드가 완비되어도 기피성분 매핑이 비어 있으면") {
             then("안전 직결이라 전이하지 않고 false 를 반환한다") {
-                val food = incomplete()
+                val food = incomplete(avoidanceSubstances = emptyList())
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = false) shouldBe false
+                food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
@@ -121,9 +123,9 @@ class FoodReadyTransitionTest : BehaviorSpec({
         `when`("이미 READY 인 음식에 다시 전이를 시도하면") {
             then("상태 불변으로 READY 를 유지하고 true 를 반환한다") {
                 val food = incomplete()
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = true) shouldBe true
+                food.transitionToReadyIfComplete() shouldBe true
 
-                food.transitionToReadyIfComplete(hasAvoidanceMapping = false) shouldBe true
+                food.transitionToReadyIfComplete() shouldBe true
                 food.contentStatus shouldBe FoodContentStatus.READY
             }
         }
@@ -138,6 +140,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
                 food.needsDescription() shouldBe false
                 food.needsNameTranslations() shouldBe false
                 food.needsDescriptionTranslations() shouldBe false
+                food.needsAvoidanceMapping() shouldBe false
             }
         }
 
@@ -161,6 +164,12 @@ class FoodReadyTransitionTest : BehaviorSpec({
                 incomplete(
                     nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code,
                 ).needsNameTranslations() shouldBe true
+            }
+        }
+
+        `when`("기피성분 매핑이 비어 있으면") {
+            then("needsAvoidanceMapping 이 true 다") {
+                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe true
             }
         }
     }

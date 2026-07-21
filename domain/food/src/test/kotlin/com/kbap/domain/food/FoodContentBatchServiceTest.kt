@@ -3,6 +3,7 @@ package com.kbap.domain.food
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.food.model.Food
+import com.kbap.domain.food.model.FoodAvoidanceItem
 import com.kbap.domain.food.model.FoodContentStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -99,8 +100,9 @@ class FoodContentBatchServiceTest : BehaviorSpec() {
                     food.description = "얼큰한 부대찌개"
                     food.nameTranslations = targets
                     food.descriptionTranslations = targets
+                    food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
 
-                    val transitioned = service.completeContent(food, hasAvoidanceMapping = true)
+                    val transitioned = service.completeContent(food)
 
                     transitioned shouldBe true
                     val reloaded = foodJpaRepository.findById(id).get()
@@ -119,7 +121,7 @@ class FoodContentBatchServiceTest : BehaviorSpec() {
                     val food = service.getIncompleteFoods(afterId = null, size = 1).single()
                     food.imageRef = "s3://img/cheonggukjang.jpg"
 
-                    val transitioned = service.completeContent(food, hasAvoidanceMapping = false)
+                    val transitioned = service.completeContent(food)
 
                     transitioned shouldBe false
                     val reloaded = foodJpaRepository.findById(id).get()

@@ -18,13 +18,13 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 결정과
 
 **Alternatives considered**: (1) FoodScoringSource 이름 유지·수정 — "scoring" 이 죽은 개념이라 이름이 거짓말이 된다. (2) page 오프셋 유지 — 위 결함. (3) `FoodService` 에 메서드 추가 — FoodService 는 도메인 서비스 그래프(타 도메인 의존)를 끌고 와 배치 컨텍스트에 올릴 수 없다(기존 주석의 분리 사유 그대로).
 
-## D3. READY 전이 규칙 — Food 도메인 메서드, 매핑 존재는 파라미터로 주입
+## D3. READY 전이 규칙 — Food 도메인 메서드, 엔티티 자기 상태로 완결 (2026-07-21 개정: #82 이후 파라미터 제거)
 
-**Decision**: `Food` 에 전이 메서드를 둔다: `fun transitionToReadyIfComplete(hasAvoidanceMapping: Boolean): Boolean`. 완비 판정 = ① `imageRef` 존재(비-blank) ② `description` 이 비-blank 이고 placeholder("설명 준비 중")가 아님 ③ `nameTranslations`·`descriptionTranslations` 가 9개 대상 언어 코드를 모두 포함 ④ `hasAvoidanceMapping == true`. 전부 만족 시 `contentStatus = READY` 후 true, 아니면 상태 불변 false. 이미 READY 면 true(멱등, 상태 불변).
+**Decision**: `Food` 에 전이 메서드를 둔다: `fun transitionToReadyIfComplete(): Boolean`. 완비 판정 = ① `!needsImage()`(imageRef 비-blank) ② `!needsDescription()`(비-blank·placeholder 아님) ③④ `!needsNameTranslations() && !needsDescriptionTranslations()`(9개 대상 언어 완비) ⑤ `!needsAvoidanceMapping()`(`avoidanceSubstances` JSON 비어있지 않음). 전부 만족 시 `contentStatus = READY` 후 true, 아니면 상태 불변 false. 이미 READY 면 true(멱등).
 
-**Rationale**: 판정 로직은 도메인 소유(FR-003). 기피성분 매핑은 별도 테이블이고 `Food.avoidanceSubstances` 는 읽기 전용 EAGER 연관이라 **같은 트랜잭션에서 방금 쓴 매핑이 연관에 반영되지 않는다** — 스냅샷 불일치를 피하려고 매핑 존재 여부는 호출자(방금 쓴 쪽이 안다)가 boolean 으로 주입한다. 9개 언어 완비 기준은 헌법 V(사전 번역 정책)와 KB-96 의 "9언어 번역 완비" 판정을 계승한다.
+**Rationale**: 판정 로직은 도메인 소유(FR-003). develop #82 이 기피성분을 별도 테이블에서 **food 행의 JSON 컬럼**(`avoidanceSubstances: List<FoodAvoidanceItem>`)으로 이관하면서, 매핑이 food 스냅샷에 함께 실려 온다 — 초기 설계의 "별도 테이블 EAGER 연관 스냅샷 불일치" 문제가 사라졌다. 그래서 `hasAvoidanceMapping` 파라미터를 제거하고 엔티티가 `needsAvoidanceMapping()`으로 자기 상태를 직접 본다(모든 걸 food 행에서 관리하는 방향과 정합). 9개 언어 완비 기준은 헌법 V(사전 번역 정책)와 KB-96 의 "9언어 번역 완비" 판정을 계승한다.
 
-**Alternatives considered**: (1) 연관 컬렉션으로 자가 판정 — 위 스냅샷 문제로 방금 완성한 음식이 전이되지 않는 버그 소지. (2) 번역 non-empty 만 요구 — "완성만 노출" 보장이 약해진다(부분 번역 노출). (3) spiciness 를 게이트에 포함 — 티켓 DoD 가 콘텐츠 3필드+기피성분으로 확정했고, spiciness 는 기본 0 이 유효값이라 완비 판정이 불가능(KB-209 에서 기피성분과 같은 호출로 채움).
+**Alternatives considered**: (1) `hasAvoidanceMapping` 파라미터 주입(초기 안) — 기피성분이 별도 테이블이던 시절엔 스냅샷 불일치 회피용으로 필요했으나, #82 의 JSON 컬럼 이관으로 불필요해져 제거. (2) 번역 non-empty 만 요구 — "완성만 노출" 보장이 약해진다(부분 번역 노출). (3) spiciness 를 게이트에 포함 — 티켓 DoD 가 콘텐츠 3필드+기피성분으로 확정했고, spiciness 는 기본 0 이 유효값이라 완비 판정 불가(KB-209 에서 기피성분과 같은 호출로 채움).
 
 ## D4. 러너 골격 — Spring Batch chunk-oriented Step (2026-07-21 재개정)
 
@@ -33,8 +33,8 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 결정과
 **Decision**: `:app:batch` `content` 패키지에 **Job 1개 → chunk-oriented Step 1개**를 둔다(음식 단위 = Architecture A).
 
 - `IncompleteFoodItemReader`(`ItemStreamReader<Food>`) — `getIncompleteFoods(lastReadId, pageSize)` 키셋 페이지 리더. 복원 지점은 "마지막으로 넘긴 음식 id"(ExecutionContext) 라 버퍼 미처리분을 건너뛰지 않는다.
-- `FoodContentItemProcessor`(`ItemProcessor<Food, ProcessedFood>`) — 음식 1건의 4작업을 **작업별 메서드**(`generateImage`·`generateDescription`·`translateNames`·`mapAvoidance`)로 수행(LLM 호출은 여기 = 트랜잭션 밖). 본문은 후속(KB-183·184·209)이 채운다. `mapAvoidance` 는 KB-209 에서 API 3개 호출·종합.
-- writer(`ItemWriter<ProcessedFood>`) — `completeContent(food, hasAvoidanceMapping)` 로 저장·전이.
+- `FoodContentItemProcessor`(`ItemProcessor<Food, Food>`) — 음식 1건의 4작업을 **작업별 메서드**(`generateImage`·`generateDescription`·`translateContent`·`mapAvoidance`)로 수행(LLM 호출은 여기 = 트랜잭션 밖). 본문은 후속(KB-183·184·209)이 채운다. `mapAvoidance` 는 KB-209 에서 API 3개 호출·종합으로 `food.avoidanceSubstances` 를 채운다(boolean 반환 없음 — food 행에 직접).
+- writer(`ItemWriter<Food>`) — `completeContent(food)` 로 저장·전이.
 - Processor 는 **작업별 skip-if-done** — `food.needsImage()/needsDescription()/needsNameTranslations()/needsDescriptionTranslations()` 로 이미 된 작업은 LLM 호출을 건너뛰고, 한 작업 끝나면 `saveProgress`(**REQUIRES_NEW 즉시 커밋**)로 결과를 남긴다.
 - Step: chunk-size = `kbap.batch.content.chunk-size`(기본 10), `faultTolerant().skip(Exception).skipLimit(MAX)` + SkipListener 로그(건 단위 격리·다음 실행에서 실패 작업만 재시도).
 - Job: `RunIdIncrementer`(야간 반복 재실행). 부팅 자동 실행은 `spring.batch.job.enabled=false` 기본, 실행 시 인자로 켠다.

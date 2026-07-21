@@ -33,9 +33,9 @@ class FoodContentBatchConfig {
         FoodContentItemProcessor(foodContentBatchService)
 
     @Bean
-    fun foodContentWriter(foodContentBatchService: FoodContentBatchService): ItemWriter<ProcessedFood> =
+    fun foodContentWriter(foodContentBatchService: FoodContentBatchService): ItemWriter<Food> =
         ItemWriter { chunk ->
-            chunk.items.forEach { foodContentBatchService.completeContent(it.food, it.hasAvoidanceMapping) }
+            chunk.items.forEach { foodContentBatchService.completeContent(it) }
         }
 
     @Bean
@@ -44,11 +44,11 @@ class FoodContentBatchConfig {
         transactionManager: PlatformTransactionManager,
         foodContentReader: IncompleteFoodItemReader,
         foodContentProcessor: FoodContentItemProcessor,
-        foodContentWriter: ItemWriter<ProcessedFood>,
+        foodContentWriter: ItemWriter<Food>,
         @Value("\${kbap.batch.content.chunk-size:10}") chunkSize: Int,
     ): Step =
         StepBuilder("foodContentStep", jobRepository)
-            .chunk<Food, ProcessedFood>(chunkSize, transactionManager)
+            .chunk<Food, Food>(chunkSize, transactionManager)
             .reader(foodContentReader)
             .processor(foodContentProcessor)
             .writer(foodContentWriter)
@@ -65,14 +65,14 @@ class FoodContentBatchConfig {
             .start(foodContentStep)
             .build()
 
-    private fun skipLogging(): SkipListener<Food, ProcessedFood> =
-        object : SkipListener<Food, ProcessedFood> {
+    private fun skipLogging(): SkipListener<Food, Food> =
+        object : SkipListener<Food, Food> {
             override fun onSkipInProcess(item: Food, t: Throwable) {
                 logger.warn("음식 콘텐츠 처리 실패 — 건너뜀 foodId={} message={}", item.id, t.message, t)
             }
 
-            override fun onSkipInWrite(item: ProcessedFood, t: Throwable) {
-                logger.warn("음식 콘텐츠 저장 실패 — 건너뜀 foodId={} message={}", item.food.id, t.message, t)
+            override fun onSkipInWrite(item: Food, t: Throwable) {
+                logger.warn("음식 콘텐츠 저장 실패 — 건너뜀 foodId={} message={}", item.id, t.message, t)
             }
         }
 }
