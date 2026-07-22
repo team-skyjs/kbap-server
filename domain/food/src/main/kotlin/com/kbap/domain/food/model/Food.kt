@@ -45,8 +45,8 @@ class Food(
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "avoidance_substances", nullable = false)
-    var avoidanceSubstances: List<FoodAvoidanceItem> = emptyList(),
+    @Column(name = "avoidance_substances")
+    var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
 ) : BaseEntity() {
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
@@ -58,7 +58,13 @@ class Food(
 
     fun needsDescriptionTranslations(): Boolean = !descriptionTranslations.keys.containsAll(TARGET_LANG_CODES)
 
-    fun needsAvoidanceMapping(): Boolean = avoidanceSubstances.isEmpty()
+    fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
+
+    fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
+        require(spiciness in 0..10) { "food.spiciness 는 0~10 이어야 합니다" }
+        this.avoidanceSubstances = substances
+        this.spiciness = spiciness
+    }
 
     fun transitionToReadyIfComplete(): Boolean {
         if (isReady()) return true
@@ -78,11 +84,11 @@ class Food(
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
 
     fun avoidanceSubstancesByProbability(): List<FoodAvoidanceItem> =
-        avoidanceSubstances.sortedByDescending { it.inclusionPercent }
+        avoidanceSubstances.orEmpty().sortedByDescending { it.inclusionPercent }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
-        val targeted = avoidanceSubstances.filter { it.code in avoidedCodes }
+        val targeted = avoidanceSubstances.orEmpty().filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
 
@@ -94,6 +100,8 @@ class Food(
 
     companion object {
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
+        const val SPICINESS_UNASSESSED = -1
 
         // READY 완비 판정 기준 — ko 원문 제외 9개 대상 언어(헌법 V 사전 번역 정책).
         private val TARGET_LANG_CODES: Set<String> =
@@ -107,8 +115,9 @@ class Food(
             return Food(
                 koreanName = koreanName,
                 description = PLACEHOLDER_DESCRIPTION,
-                spiciness = 0,
+                spiciness = SPICINESS_UNASSESSED,
                 contentStatus = FoodContentStatus.INCOMPLETE,
+                avoidanceSubstances = null,
             )
         }
 

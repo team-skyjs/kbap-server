@@ -7,7 +7,7 @@ class FoodJpaRepositoryCustomImpl(
     private val jdbcTemplate: JdbcTemplate,
 ) : FoodJpaRepositoryCustom {
     override fun upsertIncomplete(foods: List<Food>) {
-        val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))" }
+        val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', NULL, ?, 'ACTIVE', NOW(6), NOW(6))" }
         val sql =
             """
             insert into food (korean_name, description, spiciness, name_translations, description_translations,

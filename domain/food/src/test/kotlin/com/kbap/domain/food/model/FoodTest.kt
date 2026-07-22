@@ -136,13 +136,13 @@ class FoodTest : BehaviorSpec({
         }
 
         `when`("스캔 미스로 미완성 음식을 만들면") {
-            then("한국어명만 갖고 INCOMPLETE 상태이며 성분이 비어 있다") {
+            then("한국어명만 갖고 INCOMPLETE 상태이며 성분은 미조사(null)다") {
                 val food = Food.incomplete("우주라면")
 
                 food.koreanName() shouldBe "우주라면"
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 food.isReady() shouldBe false
-                food.avoidanceSubstances shouldBe emptyList<FoodAvoidanceItem>()
+                food.avoidanceSubstances shouldBe null
             }
         }
 

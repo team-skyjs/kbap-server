@@ -14,7 +14,7 @@ class FoodReadyTransitionTest : BehaviorSpec({
         description: String = "구수한 된장찌개",
         nameTranslations: Map<String, String> = allTargets("된장찌개"),
         descriptionTranslations: Map<String, String> = allTargets("hearty stew"),
-        avoidanceSubstances: List<FoodAvoidanceItem> = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
+        avoidanceSubstances: List<FoodAvoidanceItem>? = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
     ) = Food(
         koreanName = "된장찌개",
         imageRef = imageRef,
@@ -108,13 +108,22 @@ class FoodReadyTransitionTest : BehaviorSpec({
         }
     }
 
-    given("Food.transitionToReadyIfComplete — 기피성분 매핑 부재") {
-        `when`("콘텐츠 3필드가 완비되어도 기피성분 매핑이 비어 있으면") {
+    given("Food.transitionToReadyIfComplete — 기피성분 조사 상태") {
+        `when`("콘텐츠 3필드가 완비되어도 기피성분이 미조사(null)이면") {
             then("안전 직결이라 전이하지 않고 false 를 반환한다") {
-                val food = incomplete(avoidanceSubstances = emptyList())
+                val food = incomplete(avoidanceSubstances = null)
 
                 food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+            }
+        }
+
+        `when`("콘텐츠 3필드가 완비되고 기피성분이 빈 목록(무성분 조사완료)이면") {
+            then("조사완료이므로 READY 로 전이하고 true 를 반환한다") {
+                val food = incomplete(avoidanceSubstances = emptyList())
+
+                food.transitionToReadyIfComplete() shouldBe true
+                food.contentStatus shouldBe FoodContentStatus.READY
             }
         }
     }
@@ -167,9 +176,15 @@ class FoodReadyTransitionTest : BehaviorSpec({
             }
         }
 
-        `when`("기피성분 매핑이 비어 있으면") {
+        `when`("기피성분이 미조사(null)이면") {
             then("needsAvoidanceMapping 이 true 다") {
-                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe true
+                incomplete(avoidanceSubstances = null).needsAvoidanceMapping() shouldBe true
+            }
+        }
+
+        `when`("기피성분이 빈 목록(무성분 조사완료)이면") {
+            then("조사완료라 needsAvoidanceMapping 이 false 다") {
+                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe false
             }
         }
     }

@@ -127,7 +127,7 @@ class AdminControllerTest : BehaviorSpec() {
             }
 
             `when`("적재된 음식의 초기 조사 상태를 보면") {
-                then("맵기 -1, 기피성분 NULL(미조사) 로 저장돼 있다").config(enabled = false) {
+                then("맵기 -1, 기피성분 NULL(미조사) 로 저장돼 있다") {
                     postSeed(seedBody(listOf("센티널마라탕"))).andExpect { status { isOk() } }
 
                     dataSource.connection.use { c ->

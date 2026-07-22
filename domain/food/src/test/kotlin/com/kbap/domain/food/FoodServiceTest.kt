@@ -2,6 +2,7 @@ package com.kbap.domain.food
 
 import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodAvoidanceItem
+import com.kbap.domain.food.model.FoodContentStatus
 import com.kbap.domain.food.dto.SeedIncompleteResult
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
@@ -93,11 +94,11 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val loaded = service.getReadyFood(id)
                     loaded.imageRef shouldBe "doenjang.png"
-                    loaded.avoidanceSubstances.map { it.code }
+                    loaded.avoidanceSubstances.orEmpty().map { it.code }
                         .shouldContainExactlyInAnyOrder("CLAM", "SOY", "MILK")
-                    loaded.avoidanceSubstances.map { it.inclusionPercent }
+                    loaded.avoidanceSubstances.orEmpty().map { it.inclusionPercent }
                         .shouldContainExactlyInAnyOrder(50, 100, 90)
-                    loaded.avoidanceSubstances.first { it.code == "SOY" }
+                    loaded.avoidanceSubstances.orEmpty().first { it.code == "SOY" }
                         .inclusionPercent shouldBe 100
                 }
             }
@@ -254,7 +255,7 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val loaded = service.getReadyFood(id)
 
-                    loaded.avoidanceSubstances.size shouldBe 4
+                    loaded.avoidanceSubstances.orEmpty().size shouldBe 4
                     loaded.nameTranslations.size shouldBe 2
                     statistics.prepareStatementCount shouldBe 1
                 }
@@ -686,6 +687,20 @@ class FoodServiceTest : BehaviorSpec() {
 
                     created shouldNotContainKey "유령-라면"
                     created.getValue("신규-라면").shouldNotBeNull()
+                }
+            }
+        }
+
+        given("Food upsert — 미완성 음식은 미조사 센티널로 저장") {
+            `when`("createIncomplete 로 미완성 음식을 적재하면") {
+                then("upsert 경로가 기피성분 NULL(미조사)·맵기 -1 로 저장한다") {
+                    clearFoods()
+
+                    val created = service.createIncomplete(setOf("센티널-우주라면")).getValue("센티널-우주라면")
+
+                    created.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                    created.avoidanceSubstances shouldBe null
+                    created.spiciness shouldBe Food.SPICINESS_UNASSESSED
                 }
             }
         }
