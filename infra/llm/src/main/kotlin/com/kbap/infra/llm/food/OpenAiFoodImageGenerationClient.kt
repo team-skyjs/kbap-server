@@ -10,7 +10,6 @@ import java.util.Base64
 class OpenAiFoodImageGenerationClient(
     private val imageModel: ImageModel,
     private val storageObjectStore: StorageObjectStore,
-    private val contentType: String = "image/png",
 ) : FoodImageGenerationClient {
 
     override fun call(koreanName: String, storageKey: String): String {
@@ -19,7 +18,7 @@ class OpenAiFoodImageGenerationClient(
         require(!b64.isNullOrBlank()) { "이미지 생성 응답에 b64 데이터가 없습니다: $koreanName" }
 
         val bytes = Base64.getDecoder().decode(b64)
-        storageObjectStore.put(storageKey, bytes, contentType)
+        storageObjectStore.put(storageKey, bytes, "image/png")
         return storageKey
     }
 

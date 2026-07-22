@@ -7,7 +7,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 
 class FoodContentParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
-class FoodContentJsonParser {
+object FoodContentJsonParser {
     val objectMapper = jacksonObjectMapper()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 

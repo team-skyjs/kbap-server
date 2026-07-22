@@ -5,7 +5,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class FoodContentJsonParserTest : BehaviorSpec({
-    val parser = FoodContentJsonParser()
+    val parser = FoodContentJsonParser
 
     data class Sample(val name: String = "", val value: Int = 0)
 
