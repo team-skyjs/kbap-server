@@ -127,7 +127,6 @@ class AdminControllerTest : BehaviorSpec() {
             }
 
             `when`("적재된 음식의 초기 조사 상태를 보면") {
-                // kb-182(미조사 센티널: 맵기 -1·avoidance NULL) 머지 후 enabled 로 전환 — 그 전엔 구 기본값(0·'[]')이라 실패한다
                 then("맵기 -1, 기피성분 NULL(미조사) 로 저장돼 있다").config(enabled = false) {
                     postSeed(seedBody(listOf("센티널마라탕"))).andExpect { status { isOk() } }
 
