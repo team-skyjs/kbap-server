@@ -6,7 +6,6 @@ import org.springframework.jdbc.core.JdbcTemplate
 internal class FoodJpaRepositoryCustomImpl(
     private val jdbcTemplate: JdbcTemplate,
 ) : FoodJpaRepositoryCustom {
-    // insert-or-ignore: korean_name unique 충돌 시 no-op(동시 등록 idempotent). 바인딩은 행당 4개(placeholder 개수와 결합).
     override fun upsertIncomplete(foods: List<Food>) {
         val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))" }
         val sql =
