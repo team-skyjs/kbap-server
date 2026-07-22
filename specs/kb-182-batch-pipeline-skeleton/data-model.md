@@ -70,34 +70,31 @@ class FoodContentBatchService internal constructor(
 
 `FoodJpaRepository` 에 키셋 조회 쿼리 추가(`internal` 유지). `FoodScoringSource` 는 삭제.
 
-## 잡 구조 (`:app:batch`) — Spring Batch chunk-oriented Step
+## 잡 구조 (`:app:batch`) — 평범한 순차 루프 (Spring Batch 미사용)
 
 ```text
-Job "foodContentJob" (RunIdIncrementer — 실행마다 새 인스턴스, 야간 반복)
- └─ Step "foodContentStep" (chunk = chunk-size(10), faultTolerant.skip)
-     ├─ Reader   IncompleteFoodItemReader   getIncompleteFoods(lastReadId, pageSize) 키셋
-     ├─ Processor FoodContentItemProcessor   음식 1건 4작업(skip-if-done) → Food
-     │              if needsImage()               → generateImage → saveProgress(즉시 커밋)
-     │              if needsDescription()          → generateDescription → saveProgress
-     │              if needs(Name/Desc)Translations() → translateContent → saveProgress
-     │              if needsAvoidanceMapping()     → mapAvoidance → saveProgress  (KB-209: API 3개 종합)
-     └─ Writer    completeContent(food)            5작업 완비 시 READY 전이
+FoodContentJob.run()   (ContentJobConfig 의 gated ApplicationRunner 가 실행)
+ └─ while: getIncompleteFoods(afterId, chunkSize) 키셋 청크  (빈 청크면 종료)
+     └─ for each food:  try { process(food) } catch { 로그 후 다음 음식 }   ← 건 단위 격리
+          process(food) — 4작업 skip-if-done 순차:
+            if needsImage()               → generateImage → saveProgress(즉시 커밋)
+            if needsDescription()          → generateDescription → saveProgress
+            if needs(Name/Desc)Translations() → translateContent → saveProgress
+            if needsAvoidanceMapping()     → mapAvoidance → saveProgress  (KB-209: API 3개 종합)
+          → completeContent(food)          5작업 완비 시 READY 전이
+     afterId = chunk.last().id
 ```
 
+- **평범한 for 루프** — Spring Batch·Step·메타 테이블 없음. 잡 하나·순차 처리엔 이게 가장 단순(멘토 조언). 병렬화는 이후 스레드풀/future/코루틴으로.
 - **작업별 skip-if-done** — 각 작업은 `food.needsX()` 로 이미 된 작업의 LLM 호출을 건너뛴다(해야 하는 음식만 LLM).
-- **작업별 독립 커밋** — `saveProgress`(REQUIRES_NEW)로 한 작업 결과를 즉시 커밋. 뒤 작업이 실패해도 앞 작업이 롤백 안 돼 다음 실행에서 실패한 작업만 재시도. 청크가 커도(10) 재스캔 시 LLM 중복 없음.
-- **faultTolerant().skip(Exception).skipLimit(MAX)** + SkipListener 로그 → 한 음식 실패는 그 건만 건너뜀(INCOMPLETE 잔류), 잡 계속.
-- Processor 의 4작업 메서드 본문을 후속(KB-183·184·209)이 채운다 — 스텝 인터페이스·플러그인 빈 없음. Processor 는 `ItemProcessor<Food, Food>`(래퍼 타입 없음 — 기피성분이 food 행에 있어 boolean 을 나를 필요 없음).
-- **원자성 폐기 근거**: "음식 1건=트랜잭션 1개"는 반쯤 찬 음식 노출을 막으려던 것인데, 그 방어는 READY 게이트(INCOMPLETE 미노출)가 이미 하므로 작업별 부분 커밋이 안전하다.
+- **작업별 독립 커밋** — `saveProgress`(REQUIRES_NEW)로 한 작업 결과를 즉시 커밋. 뒤 작업이 실패해도 앞 작업이 롤백 안 돼 다음 실행에서 실패한 작업만 재시도.
+- **건 단위 격리** — 음식 1건 처리 실패는 try/catch 로 그 건만 건너뛰고(INCOMPLETE 잔류·다음 실행 재시도) 잡은 계속. `afterId` 가 전진해 같은 실행에서 재조회 안 됨(무한 루프 없음).
+- 4작업 메서드 본문은 후속(KB-183·184·209)이 채운다 — 스텝 인터페이스·플러그인 빈 없음.
+- **재시작/재실행**: 상태가 `content_status`·작업별 필드에 있어 다음 실행이 미완만 재처리(프레임워크 메타 테이블 불필요).
 
 ## 설정
 
 | 키 | 기본값 | 의미 |
 |----|--------|------|
-| `kbap.batch.content.chunk-size` | 10 | 리더가 한 번에 DB 에서 읽는 INCOMPLETE 건수(처리·커밋은 1건 단위) |
-| `spring.batch.job.enabled` | false | 부팅 시 잡 자동 실행 여부(실행 시 `--spring.batch.job.enabled=true`) |
-| `spring.batch.jdbc.initialize-schema` | never(main) / always(test) | 메타 테이블 생성 주체(운영=api Flyway, 테스트=Batch 자체) |
-
-## Spring Batch 메타데이터
-
-`BATCH_*` 6테이블(+시퀀스). 배치는 `flyway off` 라 **api Flyway 마이그레이션**(`V2026.07.21…__spring_batch_metadata.sql`)이 생성 — 원본은 spring-batch-core `schema-mysql.sql`(Batch 6.0). 테스트는 Flyway off 이므로 `initialize-schema=always` 로 Batch 가 Testcontainer 에 직접 생성.
+| `kbap.batch.content.chunk-size` | 10 | 한 번에 DB 에서 읽어 순차 처리할 INCOMPLETE 건수 |
+| `kbap.batch.content.runner.enabled` | false | 부팅 시 콘텐츠 잡 실행 여부(실행 시 `--kbap.batch.content.runner.enabled=true`) |

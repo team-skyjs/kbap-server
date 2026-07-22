@@ -4,14 +4,6 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: kbap-batch
-  # Spring Batch — 부팅 시 잡 자동 실행 off(기본). 실 실행 시 --spring.batch.job.enabled=true 로 켠다.
-  # RunIdIncrementer 로 실행마다 새 인스턴스가 되어 재실행(야간 반복)이 가능하다.
-  # 메타데이터 테이블(BATCH_*)은 스키마 owner=api 의 Flyway 가 생성하므로 배치는 스키마 초기화를 하지 않는다.
-  batch:
-    job:
-      enabled: false
-    jdbc:
-      initialize-schema: never
   # :infra:llm 이 Spring AI 스타터(openai·google-genai)를 배치 런타임 클래스패스로 전이시킨다.
   # 키 없이 부팅해도 벤더 자동구성이 뜨지 않도록 모든 모델 자동구성을 명시 비활성한다
   # (LLM 빈은 :infra:llm 의 kbap.llm.* + @ConditionalOnProperty 로만 구성).
@@ -32,14 +24,17 @@ logging:
 # KB-182 콘텐츠 파이프라인 설정.
 # 아래 값은 "기본값"이다 — 실행 시점 인자로 덮어쓸 수 있어 재배포 없이 조정한다
 # (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
-#   ./gradlew :app:batch:bootRun --args='--spring.batch.job.enabled=true --kbap.batch.content.chunk-size=20'
-#   SPRING_BATCH_JOB_ENABLED=true KBAP_BATCH_CONTENT_CHUNK_SIZE=20 java -jar batch.jar
+#   ./gradlew :app:batch:bootRun --args='--kbap.batch.content.runner.enabled=true --kbap.batch.content.chunk-size=20'
+#   KBAP_BATCH_CONTENT_RUNNER_ENABLED=true KBAP_BATCH_CONTENT_CHUNK_SIZE=20 java -jar batch.jar
 kbap:
   batch:
     content:
-      # 한 청크(=리더 페이지 = Step 커밋 단위)로 처리할 INCOMPLETE 음식 수. 각 작업이 즉시 개별 커밋되므로
+      # INCOMPLETE 음식을 한 번에 몇 건씩 DB 에서 읽어 순차 처리할지. 각 작업이 즉시 개별 커밋되므로
       # 청크가 커도 재처리 시 이미 된 작업은 건너뛴다(LLM 중복 없음). 기본 10 — 운영하며 조정.
       chunk-size: 10
+      runner:
+        # 부팅 시 콘텐츠 잡을 실제로 실행할지. 기본 off — 실 실행 시에만 실행 인자로 켠다.
+        enabled: false
   # LLM 을 실제로 활성화하려면 kbap.llm.<openai|upstage|gemini>.enabled=true 를 준다.
   # api-key 는 루트 .env 의 OPENAI_API_KEY/UPSTAGE_API_KEY/GOOGLE_API_KEY 가 아래 placeholder 로 주입된다
   # (위 spring.config.import). enabled 기본 off + 키 미설정이면 caller 빈이 비어 부팅은 안전하다.
