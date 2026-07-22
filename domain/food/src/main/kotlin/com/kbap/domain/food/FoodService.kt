@@ -117,7 +117,7 @@ class FoodService internal constructor(
         val existing = foodRepository.findByKoreanNameIn(koreanNames).map { it.koreanName }.toSet()
         val newNames = koreanNames - existing
         // created 는 upsert 후 재조회 확정치 — 소프트 삭제 유령·경합 패배로 미생성된 이름은 skipped 로 집계
-        val created = if (newNames.isEmpty()) 0 else createIncomplete(newNames).size
+        val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
         return SeedIncompleteResult(
             requested = koreanNames.size,
             created = created,
@@ -128,7 +128,10 @@ class FoodService internal constructor(
     @Transactional
     fun createIncomplete(koreanNames: Set<String>): Map<String, Food> {
         if (koreanNames.isEmpty()) return emptyMap()
+        return upsertAndResolve(koreanNames)
+    }
 
+    private fun upsertAndResolve(koreanNames: Set<String>): Map<String, Food> {
         foodRepository.upsertIncomplete(koreanNames.map { Food.incomplete(it) })
 
         val resolved = foodRepository.findByKoreanNameIn(koreanNames).associateBy { it.koreanName }
