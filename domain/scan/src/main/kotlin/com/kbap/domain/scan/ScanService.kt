@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class ScanService internal constructor(
+class ScanService(
     private val foodService: FoodService,
     private val memberService: MemberService,
     private val imageUploadService: ImageUploadService,

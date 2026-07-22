@@ -61,7 +61,7 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
 
         `when`("영속 애너테이션 없는 도메인 클래스(모델·정책·값 객체)가 jakarta.persistence 에 의존하는지 검사하면") {
-            then("도메인 모델은 ORM-free 다 — 영속 접근은 엔티티·리포지토리·도메인 서비스(@Service)만 허용") {
+            then("도메인 모델은 ORM-free 다 — 도메인 안에서 jakarta.persistence 는 엔티티·리포지토리·도메인 서비스(@Service)만 만진다") {
                 noClasses().that().resideInAPackage(anyDomain)
                     .and().areNotAnnotatedWith("jakarta.persistence.Entity")
                     .and().areNotAnnotatedWith("jakarta.persistence.MappedSuperclass")

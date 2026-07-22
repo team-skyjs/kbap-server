@@ -3,7 +3,7 @@ package com.kbap.domain.food
 import com.kbap.domain.food.model.Food
 import org.springframework.jdbc.core.JdbcTemplate
 
-internal class FoodJpaRepositoryCustomImpl(
+class FoodJpaRepositoryCustomImpl(
     private val jdbcTemplate: JdbcTemplate,
 ) : FoodJpaRepositoryCustom {
     override fun upsertIncomplete(foods: List<Food>) {

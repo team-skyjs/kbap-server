@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class BookmarkService internal constructor(
+class BookmarkService(
     private val foodService: FoodService,
     private val memberService: MemberService,
     private val bookmarkRepository: BookmarkJpaRepository,

@@ -14,7 +14,7 @@ import com.kbap.core.image.ImageUrls
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.menu.KoreanMenuNameNormalizer
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
-import com.kbap.domain.avoidance.AvoidanceCatalogService
+import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.domain.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -23,9 +23,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class FoodService internal constructor(
+class FoodService(
     private val foodRepository: FoodJpaRepository,
-    private val avoidanceCatalogService: AvoidanceCatalogService,
+    private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
     private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -58,7 +58,7 @@ class FoodService internal constructor(
         val orderedSubstances = food.avoidanceSubstancesByProbability()
             .filter { it.code in userAvoidedCodes }
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.code) }.toSet()
-        val catalog = avoidanceCatalogService.getSubstancesByCodes(codes).associateBy { it.code }
+        val catalog = (if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes)).associateBy { it.code }
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
