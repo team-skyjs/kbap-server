@@ -48,14 +48,15 @@ class FoodContentBatchConfig {
         @Value("\${kbap.batch.content.chunk-size:10}") chunkSize: Int,
     ): Step =
         StepBuilder("foodContentStep", jobRepository)
-            .chunk<Food, Food>(chunkSize, transactionManager)
+            .chunk<Food, Food>(chunkSize)
+            .transactionManager(transactionManager)
             .reader(foodContentReader)
             .processor(foodContentProcessor)
             .writer(foodContentWriter)
             .faultTolerant()
             .skip(Exception::class.java)
-            .skipLimit(Int.MAX_VALUE)
-            .listener(skipLogging())
+            .skipLimit(Long.MAX_VALUE)
+            .skipListener(skipLogging())
             .build()
 
     @Bean
