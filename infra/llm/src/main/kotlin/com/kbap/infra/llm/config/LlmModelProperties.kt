@@ -11,9 +11,18 @@ data class LlmModelProperties(
     val upstage: ModelProps = ModelProps(),
     val gemini: ModelProps = ModelProps(),
     val vision: VisionProps = VisionProps(),
+    val image: ImageProps = ImageProps(),
 ) {
-    // 메뉴판 사진 스캔 전용(KB-138) — 배치 채점 모델(openai)과 독립 구성.
-    // imageBaseUrl(CDN 도메인) + 오브젝트 path 를 조합해 모델이 fetch 할 전체 URL 을 만든다.
+    // 음식 사진 생성 전용
+    data class ImageProps(
+        val enabled: Boolean = false,
+        val apiKey: String? = null,
+        val baseUrl: String? = null,
+        val model: String? = null,
+        val size: String? = null,
+    )
+
+    // 메뉴판 사진 스캔 전용
     data class VisionProps(
         val enabled: Boolean = false,
         val apiKey: String? = null,

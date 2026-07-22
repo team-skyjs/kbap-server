@@ -51,7 +51,7 @@ class MenuScanScenarioTest : BehaviorSpec() {
                     사용자.업로드URL을_발급받는다("image/jpeg", 1024)
                     사용자.objectKey.shouldNotBeBlank()
 
-                    storage.put(사용자.objectKey, "image/jpeg", 1024)
+                    storage.stub(사용자.objectKey, "image/jpeg", 1024)
                     사용자.업로드를_완료한다("image/jpeg", 1024) shouldBe 200
                 }
                 then("스캔 결과로 매칭·위험도가 반환된다") {
