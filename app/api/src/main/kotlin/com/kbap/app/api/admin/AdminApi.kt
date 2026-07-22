@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBod
 
 @Tag(name = "관리자 음식 적재", description = "관리자 전용 — 신규 음식을 INCOMPLETE 로 적재하는 API")
 @SecurityRequirement(name = "bearerAuth")
-interface AdminFoodApi {
+interface AdminApi {
     @Operation(
         summary = "신규 음식 일괄 적재",
         description = """

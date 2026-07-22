@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping(ApiPaths.ADMIN + "/foods")
-class AdminFoodController(
+class AdminController(
     private val foodService: FoodService,
-) : AdminFoodApi {
+) : AdminApi {
     @PostMapping
     override fun seed(
         @Valid @RequestBody request: AdminFoodSeedRequest,
