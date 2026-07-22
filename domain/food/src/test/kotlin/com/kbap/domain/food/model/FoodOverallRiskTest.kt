@@ -45,6 +45,23 @@ class FoodOverallRiskTest : BehaviorSpec({
         }
     }
 
+    given("READY 인데 기피성분이 미조사(null)인 비정상 상태") {
+        `when`("위험도를 판정하면") {
+            then("미조사를 SAFE 로 은폐하지 않고 UNKNOWN 으로 fail-closed 한다") {
+                val unassessed = Food(
+                    koreanName = "된장찌개",
+                    description = "구수한 된장찌개",
+                    imageRef = "doenjang.png",
+                    spiciness = 3,
+                    avoidanceSubstances = null,
+                    contentStatus = FoodContentStatus.READY,
+                )
+
+                unassessed.overallRisk(setOf("SOY")) shouldBe RiskLevel.UNKNOWN
+            }
+        }
+    }
+
     given("음식에 기피 성분이 하나도 없다") {
         `when`("어떤 회피 성분으로 판정해도") {
             then("교집합이 비어 SAFE 다") {

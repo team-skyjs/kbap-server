@@ -14,11 +14,13 @@ class FoodReadyTransitionTest : BehaviorSpec({
         description: String = "구수한 된장찌개",
         nameTranslations: Map<String, String> = allTargets("된장찌개"),
         descriptionTranslations: Map<String, String> = allTargets("hearty stew"),
-        avoidanceSubstances: List<FoodAvoidanceItem> = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
+        avoidanceSubstances: List<FoodAvoidanceItem>? = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
+        spiciness: Int = 3,
     ) = Food(
         koreanName = "된장찌개",
         imageRef = imageRef,
         description = description,
+        spiciness = spiciness,
         nameTranslations = nameTranslations,
         descriptionTranslations = descriptionTranslations,
         avoidanceSubstances = avoidanceSubstances,
@@ -35,13 +37,21 @@ class FoodReadyTransitionTest : BehaviorSpec({
             }
         }
 
-        `when`("나머지가 완비되고 spiciness 가 기본 0 이어도") {
-            then("맵기는 게이트가 아니므로 READY 로 전이한다") {
-                val food = incomplete()
-                food.spiciness shouldBe 0
+        `when`("나머지가 완비되고 맵기가 조사값 0(안 매움)이면") {
+            then("맵기 값(0~10)은 게이트가 아니므로 READY 로 전이한다") {
+                val food = incomplete(spiciness = 0)
 
                 food.transitionToReadyIfComplete() shouldBe true
                 food.contentStatus shouldBe FoodContentStatus.READY
+            }
+        }
+
+        `when`("나머지가 완비되어도 맵기가 미조사 센티널(-1)이면") {
+            then("미조사 상태로는 전이하지 않고 INCOMPLETE 를 유지한다") {
+                val food = incomplete(spiciness = Food.SPICINESS_UNASSESSED)
+
+                food.transitionToReadyIfComplete() shouldBe false
+                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
     }
@@ -108,13 +118,22 @@ class FoodReadyTransitionTest : BehaviorSpec({
         }
     }
 
-    given("Food.transitionToReadyIfComplete — 기피성분 매핑 부재") {
-        `when`("콘텐츠 3필드가 완비되어도 기피성분 매핑이 비어 있으면") {
+    given("Food.transitionToReadyIfComplete — 기피성분 조사 상태") {
+        `when`("콘텐츠 3필드가 완비되어도 기피성분이 미조사(null)이면") {
             then("안전 직결이라 전이하지 않고 false 를 반환한다") {
-                val food = incomplete(avoidanceSubstances = emptyList())
+                val food = incomplete(avoidanceSubstances = null)
 
                 food.transitionToReadyIfComplete() shouldBe false
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+            }
+        }
+
+        `when`("콘텐츠 3필드가 완비되고 기피성분이 빈 목록(무성분 조사완료)이면") {
+            then("조사완료이므로 READY 로 전이하고 true 를 반환한다") {
+                val food = incomplete(avoidanceSubstances = emptyList())
+
+                food.transitionToReadyIfComplete() shouldBe true
+                food.contentStatus shouldBe FoodContentStatus.READY
             }
         }
     }
@@ -167,9 +186,15 @@ class FoodReadyTransitionTest : BehaviorSpec({
             }
         }
 
-        `when`("기피성분 매핑이 비어 있으면") {
+        `when`("기피성분이 미조사(null)이면") {
             then("needsAvoidanceMapping 이 true 다") {
-                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe true
+                incomplete(avoidanceSubstances = null).needsAvoidanceMapping() shouldBe true
+            }
+        }
+
+        `when`("기피성분이 빈 목록(무성분 조사완료)이면") {
+            then("조사완료라 needsAvoidanceMapping 이 false 다") {
+                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe false
             }
         }
     }

@@ -98,6 +98,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     val food = findIncomplete(afterId = null, size = 1).single()
                     food.imageRef = "s3://img/budae.jpg"
                     food.description = "얼큰한 부대찌개"
+                    food.spiciness = 5
                     food.nameTranslations = targets
                     food.descriptionTranslations = targets
                     food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))

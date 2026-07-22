@@ -1,5 +1,6 @@
 package com.kbap.app.batch.content
 
+import com.kbap.app.batch.BatchTestClientConfig
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.food.FoodJpaRepository
@@ -19,7 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 
 @SpringBootTest
-@Import(MySqlContainerConfig::class)
+@Import(MySqlContainerConfig::class, BatchTestClientConfig::class)
 class FoodContentPipelineTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -65,6 +66,7 @@ class FoodContentPipelineTest : BehaviorSpec() {
                     val food = foodJpaRepository.save(Food.incomplete("완비-갈비찜"))
                     food.imageRef = "s3://img/galbijjim.jpg"
                     food.description = "달큰한 갈비찜"
+                    food.spiciness = 2
                     food.nameTranslations = targets
                     food.descriptionTranslations = targets
                     food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
