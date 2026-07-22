@@ -38,21 +38,22 @@ class FoodContentClientConfiguration {
     fun foodAvoidanceAssessmentClient(fanoutClient: LlmFanoutClient): FoodAvoidanceAssessmentClient =
         SpringAiFoodAvoidanceAssessmentClient(fanoutClient)
 
-    @Bean
-    @ConditionalOnProperty(prefix = "kbap.llm.image", name = ["enabled"], havingValue = "true")
-    fun foodImageGenerationClient(
-        properties: LlmModelProperties,
-        storageObjectStore: StorageObjectStore,
-    ): FoodImageGenerationClient =
-        OpenAiFoodImageGenerationClient(imageModel(properties.image), storageObjectStore)
-
-    private fun imageModel(props: LlmModelProperties.ImageProps): ImageModel {
-        val builder = OpenAiImageOptions.builder()
-        builder.responseFormat("b64_json")
-        props.apiKey?.let { builder.apiKey(it) }
-        props.baseUrl?.let { builder.baseUrl(it) }
-        props.model?.let { builder.model(it) }
-        props.size?.let { builder.size(it) }
-        return OpenAiImageModel.builder().options(builder.build()).build()
-    }
+    // 이미지 생성은 텍스트 3작업 실운영 검증 후 개방 — 주석 해제 시 그대로 동작한다.
+    // @Bean
+    // @ConditionalOnProperty(prefix = "kbap.llm.image", name = ["enabled"], havingValue = "true")
+    // fun foodImageGenerationClient(
+    //     properties: LlmModelProperties,
+    //     storageObjectStore: StorageObjectStore,
+    // ): FoodImageGenerationClient =
+    //     OpenAiFoodImageGenerationClient(imageModel(properties.image), storageObjectStore)
+    //
+    // private fun imageModel(props: LlmModelProperties.ImageProps): ImageModel {
+    //     val builder = OpenAiImageOptions.builder()
+    //     builder.responseFormat("b64_json")
+    //     props.apiKey?.let { builder.apiKey(it) }
+    //     props.baseUrl?.let { builder.baseUrl(it) }
+    //     props.model?.let { builder.model(it) }
+    //     props.size?.let { builder.size(it) }
+    //     return OpenAiImageModel.builder().options(builder.build()).build()
+    // }
 }
