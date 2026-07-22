@@ -9,12 +9,10 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 
-// 사진·설명·번역 작업 본문은 후속(KB-183·KB-184). 기피성분(KB-209)은 mapAvoidance 로 구현됨.
 class FoodContentItemProcessor(
     private val foodRepository: FoodJpaRepository,
     transactionManager: PlatformTransactionManager,
     private val avoidanceClient: FoodAvoidanceAssessmentClient,
-    // 매 호출마다 평가 — 카탈로그는 고정 참조 데이터라 조회 비용이 작고, 시드 시점 의존이 없다.
     private val candidateCodes: () -> Set<String>,
 ) : ItemProcessor<Food, Food> {
     // REQUIRES_NEW — 청크 트랜잭션과 분리해 즉시 커밋. 뒤 작업이 실패해도 이 작업 결과는 유지(재실행 시 실패 작업만 재시도).
@@ -55,11 +53,10 @@ class FoodContentItemProcessor(
     private fun translateContent(food: Food) {
     }
 
-    // 조사·종합(3모델 합의·미지코드 폐기)은 client 구현(:infra:llm) 책임 — 결과 code 는 candidateCodes 소속을 보장한다.
     private fun mapAvoidance(food: Food) {
         val codes = candidateCodes()
         if (codes.isEmpty()) return
-        // 포함률 0 은 "미포함 판단"이라 폐기 — RiskLevel 은 1..100 만 허용(0 저장 시 조회에서 예외).
+        // 포함률 0 은 미포함 판단이라 버린다 — RiskLevel 은 1..100 만 허용(0 저장 시 조회에서 예외).
         val substances = avoidanceClient.call(food.koreanName, codes)
             .filter { it.inclusionPercent > 0 }
             .map { FoodAvoidanceItem(code = it.code, inclusionPercent = it.inclusionPercent) }
