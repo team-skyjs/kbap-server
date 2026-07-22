@@ -26,7 +26,7 @@
 
 ## R4. 요청 검증 — 요청 DTO 소유(헌법 V), blank 필터·dedup·길이 제한
 
-- **Decision (Codex 리뷰 반영, 2026-07-21 개정)**: `AdminFoodSeedRequest(koreanNames: List<String>?)` 가 경계 검증을 소유한다: `@field:NotNull` + 목록 `@field:Size(max=500)`(단일 동적 SQL 폭주 방지). `toKoreanNames()` 는 trim 이 아니라 **`KoreanMenuNameNormalizer.matchKey`(NFC·한글만)** 를 적용해 blank 제거·dedup·길이(255) 검증 후 `Set<String>` 확정값을 만든다 — 스캔 입구(`ScanService.resolveFoods`)와 동일 기준으로 "korean_name 은 항상 정규화 상태" 불변식을 지킨다(trim 만 하면 "김치 찌개" 시드 후 스캔이 "김치찌개"를 별도 신규 생성하는 이중 등록 발생). 유효 항목 0개면 빈 Set → 서비스는 0건 성공(FR-007).
+- **Decision (2026-07-22 재개정 — 정규화를 서비스 레이어로 이관)**: 구조 검증(`@field:NotNull`·목록 `@field:Size(max=500)` — 단일 동적 SQL 폭주 방지)은 요청 DTO 가 소유하고, **이름 정규화는 `FoodService.seedIncomplete` 가 소유**한다 — core 의 `KoreanMenuNameNormalizer.matchKey`(NFC·한글만) 적용 후 blank 제거·dedup. 스캔 입구(`ScanService.resolveFoods`)와 동일 기준으로 "korean_name 은 항상 정규화 상태" 불변식을 도메인 진입점에서 강제해, 향후 다른 호출자가 생겨도 정규화가 누락될 수 없다(trim 만 하면 "김치 찌개" 시드 후 스캔이 "김치찌개"를 별도 신규 생성하는 이중 등록 발생 — Codex 리뷰). 길이(255) 초과는 `Food.incomplete` 의 도메인 불변(require)이 잡아 400 COMMON-002. 정규화 후 유효 항목 0개면 (0,0,0) 성공(FR-007).
 - **Rationale**: 헌법 V — 외부 입력 판정은 요청 경계가 소유, 도메인은 확정값 수신. `Food.incomplete` 의 `require`(blank·길이) 는 도메인 불변 방어로 남되, DTO 가 먼저 걸러 500 경로를 차단한다.
 - **Alternatives considered**: 서비스에서 검증 — 헌법 V 위반. 기각. 길이 초과 항목 조용히 드롭 — 오타·인코딩 깨짐을 삼켜 관리자 실수가 안 드러남. 400 으로 시끄럽게 실패가 관리자 도구에 맞음. 기각.
 

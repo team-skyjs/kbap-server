@@ -695,51 +695,64 @@ class FoodServiceTest : BehaviorSpec() {
                 then("모두 INCOMPLETE 로 생성되고 created 로 센다") {
                     clearFoods()
 
-                    val result = service.seedIncomplete(setOf("시드-마라샹궈", "시드-탕후루", "시드-쌀국수"))
+                    val result = service.seedIncomplete(setOf("시드마라샹궈", "시드탕후루", "시드쌀국수"))
 
                     result shouldBe SeedIncompleteResult(requested = 3, created = 3, skipped = 0)
                     foodJpaRepository.count() shouldBe 3
-                    service.getFoodsByKoreanNames(setOf("시드-마라샹궈", "시드-탕후루", "시드-쌀국수"))
+                    service.getFoodsByKoreanNames(setOf("시드마라샹궈", "시드탕후루", "시드쌀국수"))
                         .values.forEach { it.isReady() shouldBe false }
+                }
+            }
+
+            `when`("정규화되지 않은 표기가 섞여 있으면") {
+                then("정규화(NFC·한글만)된 이름으로 저장·중복 판정한다") {
+                    clearFoods()
+
+                    val result = service.seedIncomplete(setOf("김치 찌개", "김치찌개", "Kimchi 김치찌개!", "abc123"))
+
+                    result shouldBe SeedIncompleteResult(requested = 1, created = 1, skipped = 0)
+                    service.getFoodsByKoreanNames(setOf("김치찌개")).keys shouldBe setOf("김치찌개")
+                    foodJpaRepository.count() shouldBe 1
                 }
             }
 
             `when`("기존 이름과 새 이름이 섞여 있으면") {
                 then("새 이름만 생성하고 기존은 skipped 로 센다") {
                     clearFoods()
-                    val existingId = saveFood("시드-비빔밥")
+                    val existingId = saveFood("시드비빔밥")
 
-                    val result = service.seedIncomplete(setOf("시드-비빔밥", "시드-김치찌개", "시드-잡채"))
+                    val result = service.seedIncomplete(setOf("시드비빔밥", "시드김치찌개", "시드잡채"))
 
                     result shouldBe SeedIncompleteResult(requested = 3, created = 2, skipped = 1)
                     foodJpaRepository.count() shouldBe 3
-                    service.getFoodsByKoreanNames(setOf("시드-비빔밥")).getValue("시드-비빔밥").id shouldBe existingId
+                    service.getFoodsByKoreanNames(setOf("시드비빔밥")).getValue("시드비빔밥").id shouldBe existingId
                 }
             }
 
             `when`("전부 기존 이름이면") {
                 then("생성 없이 skipped 로만 세고 성공한다") {
                     clearFoods()
-                    saveFood("시드-국밥")
-                    saveFood("시드-냉면")
+                    saveFood("시드국밥")
+                    saveFood("시드냉면")
 
-                    val result = service.seedIncomplete(setOf("시드-국밥", "시드-냉면"))
+                    val result = service.seedIncomplete(setOf("시드국밥", "시드냉면"))
 
                     result shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
                     foodJpaRepository.count() shouldBe 2
                 }
             }
 
-            `when`("빈 집합이면") {
+            `when`("빈 집합이거나 정규화 후 남는 이름이 없으면") {
                 then("쿼리 없이 (0,0,0) 을 돌려준다") {
                     service.seedIncomplete(emptySet()) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+                    service.seedIncomplete(setOf("abc", "123", "  ")) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
                 }
             }
 
             `when`("같은 목록으로 두 번 적재하면") {
                 then("두 번째는 created=0 으로 성공하고 행 수가 늘지 않는다") {
                     clearFoods()
-                    val names = setOf("멱등-마라탕", "멱등-탕수육")
+                    val names = setOf("멱등마라탕", "멱등탕수육")
 
                     service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 2, skipped = 0)
                     service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
@@ -750,22 +763,22 @@ class FoodServiceTest : BehaviorSpec() {
             `when`("소프트 삭제된 동명 음식만 있으면") {
                 then("되살리지도 새로 만들지도 않고 skipped 로 집계한다") {
                     clearFoods()
-                    val ghostId = saveFood("유령-시드라면")
+                    val ghostId = saveFood("유령시드라면")
                     val ghost = foodJpaRepository.findById(ghostId).get()
                     ghost.delete()
                     foodJpaRepository.save(ghost)
 
-                    val result = service.seedIncomplete(setOf("유령-시드라면", "생존-시드라면"))
+                    val result = service.seedIncomplete(setOf("유령시드라면", "생존시드라면"))
 
                     result shouldBe SeedIncompleteResult(requested = 2, created = 1, skipped = 1)
-                    service.getFoodsByKoreanNames(setOf("생존-시드라면")).keys shouldBe setOf("생존-시드라면")
+                    service.getFoodsByKoreanNames(setOf("생존시드라면")).keys shouldBe setOf("생존시드라면")
                 }
             }
 
             `when`("동일 목록을 두 스레드가 동시에 적재하면") {
                 then("각 이름은 정확히 한 행만 저장되고 created 합계도 실제 생성 수와 일치한다") {
                     clearFoods()
-                    val names = setOf("경합-마라탕", "경합-쌀국수", "경합-분짜")
+                    val names = setOf("경합마라탕", "경합쌀국수", "경합분짜")
                     val barrier = CyclicBarrier(2)
 
                     val results = (1..2).map {
