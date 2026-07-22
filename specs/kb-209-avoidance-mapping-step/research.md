@@ -38,11 +38,13 @@
 - **Rationale**: solar-mini 등 소형 모델의 malformed JSON 전례(2026-07-07 스모크)가 있어 관용 전처리 + 모델 단위 격리가 필요하다. 구조화 출력 API 는 3사 공통 지원이 아니라 프롬프트 강제가 최소 공통분모.
 - **Alternatives considered**: Spring AI structured output converter — 모델별 지원 편차·현 `LlmModelCaller` seam(문자열 반환)과 불일치.
 
-## R8. 청크 트랜잭션 내 LLM 호출 — 커넥션 점유 (미해소, 실 client 태스크와 함께)
+## R8. 청크 트랜잭션 제거 — ResourcelessTransactionManager (해소)
 
-- **문제 (Codex 재확인)**: chunk-oriented Step 은 read-process-write 를 chunk 트랜잭션으로 감싼다 — processor 의 client 호출(실구현 시 모델당 최대 180s)이 그 트랜잭션 안에서 돌아 LLM 지연 동안 DB 커넥션을 점유한다. processor 의 `TransactionTemplate`(REQUIRES_NEW)는 **롤백 격리만** 해결하고 커넥션 점유는 그대로다(오히려 저장 시 두 번째 커넥션까지 요구).
-- **Decision — 유보**: `foodContentStep` 의 `.transactionManager` 를 `ResourcelessTransactionManager` 로 전환하는 것이 해법이나, chunk step 에서 이는 reader 상태 복원·Batch 메타(BATCH_* 6테이블) 영속과 얽혀 별도 검증 사이클이 필요하다. **client 실구현(실 지연이 발생하는 시점)과 묶어 처리**한다. 현재는 client 미구현·배치 미배포라 라이브 영향 없음.
-- **Alternatives considered**: NOT_SUPPORTED 전파 속성 — Step 빌더 계약상 트랜잭션 매니저가 필수라 우회가 더 복잡.
+- **문제**: chunk-oriented Step 은 read-process-write 를 chunk 트랜잭션으로 감싼다 — processor 의 client 호출(실구현 시 모델당 최대 180s)이 그 트랜잭션 안에서 돌아 LLM 지연 동안 DB 커넥션을 점유한다. `TransactionTemplate`(REQUIRES_NEW)는 롤백 격리만 해결하고 점유는 그대로다.
+- **Decision — 적용**: `foodContentStep` 의 `.transactionManager` 를 `ResourcelessTransactionManager`(no-op)로 교체해 청크 트랜잭션이 DB 커넥션을 잡지 않게 한다. DB 쓰기는 각자 자기 트랜잭션으로 커밋한다 — processor 의 `saveProgress`(REQUIRES_NEW), writer 의 `save`, reader 의 조회. 읽기 페이징(chunk-size 만큼)은 트랜잭션과 무관하게 유지돼 IO 효율은 그대로다.
+- **정합성**: 재시도는 청크 커서/메타가 아니라 **도메인 상태(INCOMPLETE + skip-if-done)** 가 소유하므로(RunIdIncrementer 로 매 실행이 새 인스턴스라 커서를 이어받지도 않음), BATCH_* 메타가 비즈니스 쓰기와 원자적으로 안 묶여도 무해하다(메타는 관측용). fault-tolerant skip 도 REQUIRES_NEW 커밋이 이미 빠져나가 롤백할 게 없을 뿐 격리 동작은 유지된다.
+- **검증**: `FoodContentJobTest` 가 실 잡을 resourceless 스텝으로 돌려 — 한 음식 조사 실패 시 잡 COMPLETED·실패 음식만 미조사(null)·나머지 성분 커밋 — 을 Testcontainers 로 고정한다.
+- **후속(별개)**: 4작업 **비동기 팬아웃**(음식당 4 API 동시 호출 → 성공분만 1회 쓰기, 워커 스레드에선 DB 접근 금지)은 지연(latency) 최적화로 남는다 — 4 client(KB-224) 갖춰진 뒤 도입.
 
 ## R9. 배포 순서·병행 실행 (Codex 리뷰 반영 — 위험 수용 기록)
 

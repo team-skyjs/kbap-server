@@ -14,7 +14,7 @@
 > - **완료 범위(본 브랜치)**: ① 센티널·마이그레이션·upsert(PR #86 초기분) + ② `assessAvoidance` 성분-전용화, `mapAvoidance` 구현(카탈로그 findAll supplier → client 호출 → 매핑 → 저장, 빈 카탈로그 skip), `FoodContentBatchConfig` 조립, 배치 부팅 테스트에 페이크 client 빈. `./gradlew build` 그린.
 > - **잔여(범위 밖)**:
 >   1. `FoodAvoidanceAssessmentClient` 실구현(`:infra:llm` 3모델 합의) — 별도 태스크. 미구현 상태에서 배치 실부팅은 client 빈 부재로 실패(배치 미배포라 수용).
->   2. **R8 커넥션 점유 — 미해소, 실구현 태스크와 함께**: chunk 트랜잭션이 여전히 process()(=조사 호출)를 감싸므로 LLM 지연 동안 DB 커넥션이 점유된다. processor 의 `TransactionTemplate`(REQUIRES_NEW)는 **롤백 격리**만 해결하지 커넥션 점유는 그대로다. step `ResourcelessTransactionManager` 전환이 해법이나, chunk step 에서 이는 reader 상태·Batch 메타 영속과 얽혀 별도 검증 사이클이 필요하다 — client 실구현(실 지연 발생 시점)과 묶어 처리한다. 현재는 client 미구현·배치 미배포라 라이브 영향 없음.
+>   2. **R8 커넥션 점유 — 해소**: 청크 트랜잭션을 `ResourcelessTransactionManager` 로 제거해 LLM 호출이 DB 커넥션을 청크 내내 물지 않게 했다. `FoodContentJobTest`(실 잡·Testcontainers)로 skip 격리·독립 커밋 검증. 남은 것은 **4작업 비동기 팬아웃**(지연 최적화, KB-224 client 갖춰진 뒤).
 
 ## Technical Context
 
@@ -32,7 +32,7 @@
 
 **Performance Goals**: 처리량 목표 없음 — 정확성 우선(spec Assumptions). 호출당 음식 1건(ItemProcessor 구조 강제), 모델 호출 타임아웃 기존 `kbap.llm.call-timeout`(180s) 재사용
 
-**Constraints**: chunk 트랜잭션이 process()(=조사 호출)를 감싸 LLM 지연 동안 DB 커넥션을 점유하는 문제(R8)는 **미해소 — 실 client 구현 태스크와 함께 처리**(아래 잔여 참고). processor 는 `TransactionTemplate`(REQUIRES_NEW)로 작업별 즉시 커밋해 롤백은 격리된다. 부분 실패 격리(음식 단위, step skip). 포함률 0 폐기(RiskLevel 1..100 방어)
+**Constraints**: 청크 트랜잭션을 `ResourcelessTransactionManager` 로 제거(R8) — LLM 호출이 DB 커넥션을 청크 내내 물지 않는다. DB 쓰기는 각자 자기 트랜잭션(processor REQUIRES_NEW·writer save·reader 조회). 읽기 페이징은 유지(IO 효율). 부분 실패 격리(음식 단위, step skip). 포함률 0 폐기(RiskLevel 1..100 방어)
 
 **Scale/Scope**: 배치 주기당 INCOMPLETE 수십 건 수준, 카탈로그 81종, 3모델 × 1호출/음식
 

@@ -13,6 +13,7 @@ import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.infrastructure.item.ItemWriter
+import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -51,7 +52,6 @@ class FoodContentBatchConfig {
     @Bean
     fun foodContentStep(
         jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
         foodContentReader: IncompleteFoodItemReader,
         foodContentProcessor: FoodContentItemProcessor,
         foodContentWriter: ItemWriter<Food>,
@@ -59,7 +59,9 @@ class FoodContentBatchConfig {
     ): Step =
         StepBuilder("foodContentStep", jobRepository)
             .chunk<Food, Food>(chunkSize)
-            .transactionManager(transactionManager)
+            // 청크 트랜잭션을 끈다(resourceless) — 외부 LLM 호출이 DB 커넥션을 청크 내내 물지 않게.
+            // DB 쓰기는 각자 자기 트랜잭션으로 커밋한다(processor 의 REQUIRES_NEW·writer 의 save).
+            .transactionManager(ResourcelessTransactionManager())
             .reader(foodContentReader)
             .processor(foodContentProcessor)
             .writer(foodContentWriter)
