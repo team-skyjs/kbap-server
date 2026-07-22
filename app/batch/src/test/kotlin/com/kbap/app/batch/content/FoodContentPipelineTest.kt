@@ -66,6 +66,7 @@ class FoodContentPipelineTest : BehaviorSpec() {
                     val food = foodJpaRepository.save(Food.incomplete("완비-갈비찜"))
                     food.imageRef = "s3://img/galbijjim.jpg"
                     food.description = "달큰한 갈비찜"
+                    food.spiciness = 2
                     food.nameTranslations = targets
                     food.descriptionTranslations = targets
                     food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))

@@ -20,11 +20,11 @@
 
 **Language/Version**: Kotlin 2.3 / JVM 21 (Gradle toolchain)
 
-**Primary Dependencies**: Spring Boot 4.1, Spring Batch(chunk Step — 기존 골격), Spring AI 2.0(`:infra:llm` 의 `LlmFanoutClient`·`LlmModelCaller` seam), Jackson(kotlin module)
+**Primary Dependencies**: Spring Boot 4.1, Spring Batch(chunk Step — 기존 골격), #87 seam `FoodAvoidanceAssessmentClient`(`:core:food`, 구현은 `:infra:llm` 별도 태스크), `AvoidanceSubstanceJpaRepository`(`:domain:avoidance`, 카탈로그 조회)
 
 **Storage**: MySQL — `food` 행 JSON 컬럼(`avoidance_substances`)·`spiciness` 컬럼. Flyway 마이그레이션 1건(NULL 허용 + INCOMPLETE 백필). Redis 무관
 
-**Testing**: Kotest BehaviorSpec(한국어 given/when/then) + JUnit5 플랫폼. 단위: 페이크 `LlmModelCaller` 로 `LlmFanoutClient` 조립. 통합: MySQL Testcontainers(`:core` testFixtures)
+**Testing**: Kotest BehaviorSpec(한국어 given/when/then) + JUnit5 플랫폼. 배치: 페이크 `FoodAvoidanceAssessmentClient`(fun interface 람다) + MySQL Testcontainers. 도메인: 순수 단위(센티널·게이트·overallRisk)
 
 **Target Platform**: `:app:batch` bootJar (Linux 서버·로컬), `:app:api` 는 마이그레이션 owner 로만 관여
 
@@ -32,7 +32,7 @@
 
 **Performance Goals**: 처리량 목표 없음 — 정확성 우선(spec Assumptions). 호출당 음식 1건(ItemProcessor 구조 강제), 모델 호출 타임아웃 기존 `kbap.llm.call-timeout`(180s) 재사용
 
-**Constraints**: LLM 호출은 DB 트랜잭션 밖 — chunk 트랜잭션이 process() 를 감싸는 문제를 `ResourcelessTransactionManager` 로 해소(R8, Codex Critical 반영 — KB-220 재편 후에도 유효). DB 작업은 processor 내 `TransactionTemplate` 작업별 즉시 커밋·writer save 로만. 부분 실패 격리(음식·모델 단위). 미지 코드 폐기+경고
+**Constraints**: chunk 트랜잭션이 process()(=조사 호출)를 감싸 LLM 지연 동안 DB 커넥션을 점유하는 문제(R8)는 **미해소 — 실 client 구현 태스크와 함께 처리**(아래 잔여 참고). processor 는 `TransactionTemplate`(REQUIRES_NEW)로 작업별 즉시 커밋해 롤백은 격리된다. 부분 실패 격리(음식 단위, step skip). 포함률 0 폐기(RiskLevel 1..100 방어)
 
 **Scale/Scope**: 배치 주기당 INCOMPLETE 수십 건 수준, 카탈로그 81종, 3모델 × 1호출/음식
 
@@ -42,7 +42,7 @@
 
 | 원칙 | 판정 | 근거 |
 |---|---|---|
-| I. Test-First (NON-NEGOTIABLE) | PASS | 모든 변경(Food 센티널·investigator 합의·파서·upsert NULL·READY 게이트)을 실패 테스트 선행으로 진행. 페이크 `LlmModelCaller` 로 성공/부분실패/미지코드/형식불일치 경로 단위 검증(DoD 명시) |
+| I. Test-First (NON-NEGOTIABLE) | PASS | 모든 변경(Food 센티널·READY 게이트(-1 차단)·overallRisk fail-closed·mapAvoidance·upsert NULL)을 실패 테스트 선행으로 진행. 페이크 `FoodAvoidanceAssessmentClient` 로 성공(인자 캡처)/무성분/0%폐기/예외전파/빈카탈로그/skip-if-done 검증 |
 | II. Bounded Contexts | PASS | food 는 성분을 `code: String` 으로만 저장(기존 유지). 배치(부트앱, 조합 계층)가 `:domain:avoidance` 카탈로그와 `:domain:food` 창구를 조합 — 도메인 간 신규 의존 없음 |
 | III. Layered Dependency Direction | PASS | `:app:batch` → `:domain:*`·`:infra:llm` 기존 선언 의존만 사용(avoidance 의존은 KB-209 자리로 이미 예약). LLM 은 `LlmModelCaller` seam 뒤 |
 | IV. Persistence Encapsulation (ADR-0014 개정) | PASS | KB-220 으로 리포지토리 public — 단순 영속 접근은 리포지토리 직접, 도메인 로직(센티널·READY 게이트)은 `Food` 엔티티·`FoodService` 소유. `upsertIncomplete` 수정은 `:domain:food` 안. 신규 JPA 연관관계 없음 |
@@ -79,27 +79,24 @@ domain/avoidance/src/main/kotlin/com/kbap/domain/avoidance/
 domain/avoidance/src/test/kotlin/...                                 # [수정] 목록 조회 스펙
 
 app/batch/src/main/kotlin/com/kbap/app/batch/content/
-├── FoodAvoidanceInvestigator.kt         # [신규] 프롬프트·fan-out·파싱·2/3 합의·검증
-├── FoodContentItemProcessor.kt          # [수정] mapAvoidance 본문 — investigator 호출·결과 반영
-├── FoodContentBatchConfig.kt            # [수정] investigator 빈 조립(AvoidanceSubstanceJpaRepository 직접 주입 — 엔티티/레포 스캔은 @AutoConfigurationPackage 커버)
-│                                        #        + step transactionManager → ResourcelessTransactionManager (R8)
+├── FoodContentItemProcessor.kt          # [수정] mapAvoidance 본문 — candidateCodes supplier→client.call→0%폐기→매핑→assessAvoidance
+├── FoodContentBatchConfig.kt            # [수정] client + AvoidanceSubstanceJpaRepository.findAll() 코드 supplier 주입
 app/batch/src/test/kotlin/com/kbap/app/batch/content/
-├── FoodAvoidanceInvestigatorTest.kt     # [신규] 페이크 LLM — 성공/부분실패(1개 성공→실패)/미지코드/형식·범위 위반/
-│                                        #        빈배열 명시 합의 vs 교집합-빈 불일치/빈 카탈로그(호출 0회)
-├── FoodContentItemProcessorTest.kt      # [수정] 매핑 성공·실패 경로 + 조사완료([]) 재실행 시 LLM 미호출
+├── FoodAvoidanceMapProcessorTest.kt     # [신규] 페이크 client — 성공(인자 캡처)/무성분/0%폐기/예외전파/빈카탈로그/skip-if-done
+├── (KbapBatchApplicationTests·FoodContentPipelineTest) # [수정] @Import(BatchTestClientConfig) 부팅 페이크 client 빈
+app/batch/src/test/kotlin/com/kbap/app/batch/BatchTestClientConfig.kt # [신규] 부팅용 no-op client 빈
 
-app/api/src/main/kotlin/com/kbap/app/api/food/FoodDetailResponse.kt   # [수정] nullable 파급
 app/api/src/main/resources/db/migration/
-├── V2026.07.22.HH.mm.ss__food_unassessed_sentinel.sql   # [신규] CHECK -1~10 재정의 + NULL 허용 + INCOMPLETE 백필
+├── V2026.07.22.14.27.32__food_unassessed_sentinel.sql   # [신규] CHECK -1~10 재정의 + NULL 허용 + INCOMPLETE 백필
 app/api/src/test/kotlin/com/kbap/app/api/admin/AdminControllerTest.kt # [수정] 센티널 assert 활성화
-(scan 손스텁 CREATE TABLE·ScenarioFoodSeed·FoodTestSeed — NULL 허용·CHECK 동기화, 전체 build 로 검증)
+(scan 손스텁·ScenarioFoodSeed·FoodTestSeed — 수정 불필요 확인, 전체 build 로 검증)
 ```
 
-**Structure Decision**: 신규 모듈 없음. LLM 오케스트레이션(프롬프트·합의)은 `:app:batch` 소유(모듈 배치 규칙 — 데이터 접근만 도메인 창구 경유), 도메인 불변(센티널·READY 게이트·조사 반영 규칙)은 `Food` 엔티티 소유. 스텝 인터페이스·플러그인 빈 금지 결정에 따라 협력자 1개(`FoodAvoidanceInvestigator`)만 추가한다.
+**Structure Decision**: 신규 모듈 없음. **조사·2/3 합의는 #87 계약(`FoodAvoidanceAssessmentClient`)의 구현(`:infra:llm`, 별도 태스크) 책임** — 배치는 별도 investigator 협력자 없이 `mapAvoidance` 에서 client 호출→저장만 한다(0% 포함률은 배치가 폐기해 `RiskLevel` 1..100 을 방어). 도메인 불변(센티널·READY 게이트(-1 차단)·조사 반영·overallRisk fail-closed)은 `Food` 엔티티 소유.
 
 **검증 범위 주의 (Codex 리뷰 반영)**: 사진·설명·번역 작업은 KB-183/184 소관으로 여전히 빈 스텁이다 — KB-209 의 READY 전이 종단 검증은 **3작업이 완성된 fixture** 위에서 기피성분 매핑 → READY 만 검증한다. 실제 4작업 전체 e2e 는 KB-183/184 완료 후 가능하다.
 
-**선행 의존 — LLM seam 은 병행 세션 소유 (2026-07-22)**: 배치가 LLM 클라이언트에 기대하는 인터페이스·응답 DTO 는 병행 세션이 정의 중이며 완성 후 이 브랜치가 이어받는다(R5). 그 전까지 착수 순서: **① LLM 무관 작업 먼저**(센티널 — Food·Flyway CHECK/NULL·upsertIncomplete·파급 테스트, 카탈로그 findAll 조회 경로 검증, `assessAvoidance`) → **② seam 인계 후** investigator(합의·검증)·프로세서·조립. tasks 분해 시 이 순서로 정렬한다.
+**선행 의존 — LLM seam 은 병행 세션 소유 (2026-07-22)**: 배치가 LLM 클라이언트에 기대하는 인터페이스·응답 DTO 는 병행 세션이 정의 중이며 완성 후 이 브랜치가 이어받는다(R5). 착수 순서(완료): **① LLM 무관 작업**(센티널·Flyway·upsertIncomplete·카탈로그 findAll·`assessAvoidance`) → **② seam(#87) 인계 후** `mapAvoidance`(client 호출·0%폐기·저장)·조립. 합의는 client 구현 소관이라 배치엔 investigator 없음.
 
 **배포·운영 전제 (R9)**: api 배포(Flyway 적용) 전에는 신규 배치를 실행하지 않는다(배치 기본 off 라 순서 보장 용이). 병행 잡 인스턴스 방지는 현 단일 실행 운영에서 수용 위험으로 기록 — 다중 인스턴스 시 잡 락 후속 도입.
 

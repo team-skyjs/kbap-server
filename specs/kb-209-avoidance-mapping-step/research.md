@@ -28,7 +28,7 @@
 ## R5. 배치 쪽 구현 형태 — 협력자 1개 + 프로세서 메서드 채움
 
 - **선행 의존 (2026-07-22 추가)**: 배치가 LLM 클라이언트에 기대하는 **인터페이스·응답 DTO 는 병행 세션이 밑작업 중** — 완성되면 이 브랜치가 이어받는다. 그 확정 전까지 `LlmFanoutClient` 직접 호출·응답 파싱 형태(아래)는 **잠정 설계**이며, seam 이 넘어오면 investigator 는 프롬프트 구성·합의·검증만 남기고 호출·파싱은 인계받은 인터페이스에 위임한다. **이 브랜치는 그 seam 파일을 독자 정의하지 않는다**(세션 간 이중 정의 방지).
-- **Decision**: `com.kbap.app.batch.content` 에 협력자 **`FoodAvoidanceInvestigator`**(가칭) 하나를 두고 — 프롬프트 구성·LLM 호출(인계 seam 경유)·합의·검증을 담당, `investigate(food, catalog): AvoidanceInvestigation?`(null = 실패) — 프로세서의 `mapAvoidance` 는 이를 호출해 `food.avoidanceSubstances`·`food.spiciness` 를 채운다. 실패 시 예외를 올리지 않고 해당 작업만 미완으로 남긴다(뒤 작업 진행·앞 작업 커밋 유지 — 기존 skip-if-done·독립 커밋 구조 그대로).
+- **Decision (구현 확정)**: 별도 협력자(`FoodAvoidanceInvestigator`)를 두지 않는다 — #87 계약이 조사·합의·검증을 `FoodAvoidanceAssessmentClient` 구현 뒤로 숨겼다. `mapAvoidance` 가 직접 `candidateCodes()` supplier 평가 → 빈 카탈로그면 skip → `client.call(koreanName, codes)` → **포함률 0 폐기**(RiskLevel 1..100 방어) → `FoodAvoidanceItem` 매핑 → `food.assessAvoidance(substances)`. 맵기(spiciness)는 여기서 다루지 않는다(#87 로 설명 작업 소관). client 예외는 process 밖으로 전파돼 step skip 이 그 음식만 미완 처리한다(다음 음식 진행).
 - **Rationale**: 스텝 인터페이스·플러그인 빈 금지(2026-07-21 사용자 지시 — 과한 추상화 지양). 페이크 `LlmModelCaller` 로 `LlmFanoutClient` 를 직접 조립해 단위 테스트 가능(기존 `LlmFanoutClient` 패턴 그대로)하므로 별도 seam 불필요.
 - **Alternatives considered**: 프로세서 안에 전부 인라인 — 파싱·합의 로직까지 넣으면 프로세서가 4작업 공용이라 비대해지고 단위 테스트가 Spring Batch 에 묶임. 도메인 서비스로 이동 — LLM 호출 오케스트레이션은 배치 소유(모듈 배치 규칙), 도메인은 저장 창구만.
 
@@ -38,11 +38,11 @@
 - **Rationale**: solar-mini 등 소형 모델의 malformed JSON 전례(2026-07-07 스모크)가 있어 관용 전처리 + 모델 단위 격리가 필요하다. 구조화 출력 API 는 3사 공통 지원이 아니라 프롬프트 강제가 최소 공통분모.
 - **Alternatives considered**: Spring AI structured output converter — 모델별 지원 편차·현 `LlmModelCaller` seam(문자열 반환)과 불일치.
 
-## R8. 청크 트랜잭션 밖 LLM 호출 — ResourcelessTransactionManager (Codex 리뷰 반영 신규)
+## R8. 청크 트랜잭션 내 LLM 호출 — 커넥션 점유 (미해소, 실 client 태스크와 함께)
 
-- **Decision (KB-220 재편 반영)**: `foodContentStep` 의 `.transactionManager(...)` 를 **`ResourcelessTransactionManager`** 로 교체해 chunk 트랜잭션이 DB 커넥션을 잡지 않게 한다. DB 작업은 전부 자기 트랜잭션으로 수행된다(reader 리포지토리 조회·processor 내 `TransactionTemplate` 작업별 즉시 커밋·writer save — KB-220 재편 구조).
-- **Rationale**: chunk-oriented Step 은 read-process-write 를 chunk 트랜잭션으로 감싼다 — processor 의 LLM 호출(모델당 최대 180s)이 DB 트랜잭션 안에서 돌게 되어 헌법 추가 제약("외부 LLM 호출을 DB 트랜잭션 안에서 길게 잡지 않는다") 위반. 작업별 독립 커밋 설계라 chunk 롤백에 의미가 없으므로(되돌릴 것이 없음) resourceless 가 의미론적으로도 정확하다.
-- **Alternatives considered**: NOT_SUPPORTED 전파 속성 — Step 빌더 계약상 트랜잭션 매니저가 필수라 우회가 더 복잡. 구조 유지 — 커넥션 점유 시간이 청크당 수십 분까지 늘어나 기각.
+- **문제 (Codex 재확인)**: chunk-oriented Step 은 read-process-write 를 chunk 트랜잭션으로 감싼다 — processor 의 client 호출(실구현 시 모델당 최대 180s)이 그 트랜잭션 안에서 돌아 LLM 지연 동안 DB 커넥션을 점유한다. processor 의 `TransactionTemplate`(REQUIRES_NEW)는 **롤백 격리만** 해결하고 커넥션 점유는 그대로다(오히려 저장 시 두 번째 커넥션까지 요구).
+- **Decision — 유보**: `foodContentStep` 의 `.transactionManager` 를 `ResourcelessTransactionManager` 로 전환하는 것이 해법이나, chunk step 에서 이는 reader 상태 복원·Batch 메타(BATCH_* 6테이블) 영속과 얽혀 별도 검증 사이클이 필요하다. **client 실구현(실 지연이 발생하는 시점)과 묶어 처리**한다. 현재는 client 미구현·배치 미배포라 라이브 영향 없음.
+- **Alternatives considered**: NOT_SUPPORTED 전파 속성 — Step 빌더 계약상 트랜잭션 매니저가 필수라 우회가 더 복잡.
 
 ## R9. 배포 순서·병행 실행 (Codex 리뷰 반영 — 위험 수용 기록)
 
@@ -56,8 +56,8 @@
 | `Food.kt` (`:domain:food`) | `incomplete()` spiciness=0·emptyList, `needsAvoidanceMapping()=isEmpty()` | 센티널 -1/null 화, `avoidanceSubstances: List<FoodAvoidanceItem>?`, null-safe 파생 메서드(`orEmpty()`) |
 | `FoodJpaRepositoryCustomImpl.upsertIncomplete` | `'[]'` 하드코딩·spiciness 바인딩 | NULL 삽입(센티널) |
 | Flyway | `avoidance_substances` NOT NULL (V2026.07.21…) + **`ck_food_spiciness` CHECK(0~10)** (init_schema:32) | 신규 마이그레이션: NULL 허용 + **CHECK 를 -1~10 으로 재정의** + INCOMPLETE 백필 — CHECK 재정의 없이는 -1 백필이 즉시 실패(Codex Critical) |
-| `FoodContentItemProcessor.mapAvoidance` | 빈 스텁 | `FoodAvoidanceInvestigator` 호출·결과 반영 |
-| `FoodContentBatchConfig` | KB-220 재편 — 리포지토리 직접 주입 + `TransactionTemplate` | investigator 빈 조립(`AvoidanceSubstanceJpaRepository` 직접 주입) + **step `.transactionManager` 재검토**(R8 — KB-220 재편 후 현 구조 확인 우선) |
+| `FoodContentItemProcessor.mapAvoidance` | 빈 스텁 | client 호출→0%폐기→매핑→`assessAvoidance`(협력자 없음) |
+| `FoodContentBatchConfig` | KB-220 재편 — 리포지토리 직접 주입 + `TransactionTemplate` | client + `AvoidanceSubstanceJpaRepository.findAll()` 코드 supplier 주입. step `.transactionManager` 는 R8 미해소(유보) |
 | `AvoidanceSubstanceJpaRepository` | public(KB-220), findAll 상속 제공 | 추가 코드 없음 — findAll 직접 사용(`AvoidanceSubstanceCatalogQueryTest` 로 ACTIVE 필터 고정) |
 | `AdminControllerTest:130` | 센티널 assert `enabled = false` | 활성화 |
 | `avoidanceSubstances` 참조 파급 | `FoodServiceTest`·`FoodReadyTransitionTest`·`FoodOverallRiskTest`·`FoodTest`·`GetFoodDetailResult`·`FoodDetailResponse`·`ScenarioFoodSeed`·`FoodTestSeed` | nullable 화에 따른 컴파일·기대값 갱신 — API 경계(dto/response)는 `orEmpty()` 로 non-null 유지(READY 만 노출되므로 동작 불변) |

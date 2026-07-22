@@ -70,7 +70,8 @@ class Food(
             !needsDescription() &&
             !needsNameTranslations() &&
             !needsDescriptionTranslations() &&
-            !needsAvoidanceMapping()
+            !needsAvoidanceMapping() &&
+            spiciness != SPICINESS_UNASSESSED
         if (complete) contentStatus = FoodContentStatus.READY
         return complete
     }
@@ -86,7 +87,9 @@ class Food(
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
-        val targeted = avoidanceSubstances.orEmpty().filter { it.code in avoidedCodes }
+        // 미조사(null)를 SAFE 로 은폐하지 않는다 — 안전 직결이라 fail-closed.
+        val substances = avoidanceSubstances ?: return RiskLevel.UNKNOWN
+        val targeted = substances.filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
 

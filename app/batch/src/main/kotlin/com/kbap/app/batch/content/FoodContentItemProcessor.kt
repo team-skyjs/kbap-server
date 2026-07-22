@@ -9,7 +9,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 
-// 작업 본문은 골격 단계에선 비어 있다 — KB-183(설명·번역)·KB-184(사진)·KB-209(기피성분)가 채운다.
+// 사진·설명·번역 작업 본문은 후속(KB-183·KB-184). 기피성분(KB-209)은 mapAvoidance 로 구현됨.
 class FoodContentItemProcessor(
     private val foodRepository: FoodJpaRepository,
     transactionManager: PlatformTransactionManager,
@@ -59,7 +59,9 @@ class FoodContentItemProcessor(
     private fun mapAvoidance(food: Food) {
         val codes = candidateCodes()
         if (codes.isEmpty()) return
+        // 포함률 0 은 "미포함 판단"이라 폐기 — RiskLevel 은 1..100 만 허용(0 저장 시 조회에서 예외).
         val substances = avoidanceClient.call(food.koreanName, codes)
+            .filter { it.inclusionPercent > 0 }
             .map { FoodAvoidanceItem(code = it.code, inclusionPercent = it.inclusionPercent) }
         food.assessAvoidance(substances)
     }

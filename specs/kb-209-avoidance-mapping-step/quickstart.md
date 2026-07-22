@@ -4,7 +4,7 @@
 
 ```bash
 ./gradlew :domain:food:test          # Food 센티널·assessAvoidance 단위
-./gradlew :app:batch:test            # FoodAvoidanceInvestigator(페이크 LLM)·프로세서
+./gradlew :app:batch:test            # FoodAvoidanceMapProcessorTest(페이크 client)·프로세서·부팅
 ./gradlew :app:api:test              # AdminControllerTest 센티널 assert(활성화됨)·마이그레이션
 ./gradlew build                      # food 컬럼 변경 3곳 동기화 전수 검증 (필수)
 ```

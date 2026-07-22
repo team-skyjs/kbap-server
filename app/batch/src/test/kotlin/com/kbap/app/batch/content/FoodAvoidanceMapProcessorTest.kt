@@ -47,19 +47,39 @@ class FoodAvoidanceMapProcessorTest : BehaviorSpec() {
 
         given("mapAvoidance — 조사 성공") {
             `when`("client 가 성분 목록을 반환하면") {
-                then("성분이 반영·즉시 커밋되고(null→non-null) client 를 1회 호출한다") {
+                then("성분이 반영·즉시 커밋되고(null→non-null) 음식명·후보 코드가 client 에 전달된다") {
                     val food = saveNeedingOnlyAvoidance("성공-김치찌개")
-                    var calls = 0
-                    val client = FoodAvoidanceAssessmentClient { _, _ ->
-                        calls++
+                    var capturedName: String? = null
+                    var capturedCodes: Set<String>? = null
+                    val client = FoodAvoidanceAssessmentClient { name, codes ->
+                        capturedName = name
+                        capturedCodes = codes
                         listOf(FoodAvoidanceAssessment("EGG", 90), FoodAvoidanceAssessment("WHEAT", 100))
                     }
 
                     processor(client, setOf("EGG", "WHEAT")).process(food)
 
-                    calls shouldBe 1
+                    capturedName shouldBe "성공-김치찌개"
+                    capturedCodes shouldBe setOf("EGG", "WHEAT")
                     val loaded = foodJpaRepository.findById(food.id).get()
                     loaded.avoidanceSubstances.orEmpty().map { it.code } shouldContainExactlyInAnyOrder listOf("EGG", "WHEAT")
+                    loaded.needsAvoidanceMapping() shouldBe false
+                }
+            }
+        }
+
+        given("mapAvoidance — 포함률 0 폐기") {
+            `when`("client 응답에 포함률 0(미포함 판단) 항목이 섞이면") {
+                then("0 은 버리고 1..100 만 저장한다(RiskLevel 예외 방지)") {
+                    val food = saveNeedingOnlyAvoidance("0필터-부대찌개")
+                    val client = FoodAvoidanceAssessmentClient { _, _ ->
+                        listOf(FoodAvoidanceAssessment("EGG", 0), FoodAvoidanceAssessment("WHEAT", 80))
+                    }
+
+                    processor(client, setOf("EGG", "WHEAT")).process(food)
+
+                    val loaded = foodJpaRepository.findById(food.id).get()
+                    loaded.avoidanceSubstances.orEmpty().map { it.code } shouldContainExactlyInAnyOrder listOf("WHEAT")
                     loaded.needsAvoidanceMapping() shouldBe false
                 }
             }
