@@ -3,7 +3,7 @@ package com.kbap.domain.food
 import com.kbap.domain.food.model.Food
 import org.springframework.jdbc.core.JdbcTemplate
 
-internal class FoodJpaRepositoryCustomImpl(
+class FoodJpaRepositoryCustomImpl(
     private val jdbcTemplate: JdbcTemplate,
 ) : FoodJpaRepositoryCustom {
     // insert-or-ignore: korean_name unique 충돌 시 no-op(동시 등록 idempotent). 바인딩은 행당 4개(placeholder 개수와 결합).

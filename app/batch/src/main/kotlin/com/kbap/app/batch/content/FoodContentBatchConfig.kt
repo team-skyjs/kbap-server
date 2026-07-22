@@ -1,6 +1,6 @@
 package com.kbap.app.batch.content
 
-import com.kbap.domain.food.FoodContentBatchService
+import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.job.Job
@@ -14,28 +14,31 @@ import org.springframework.batch.infrastructure.item.ItemWriter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
 
 @Configuration
-@Import(FoodContentBatchService::class)
 class FoodContentBatchConfig {
     private val logger = LoggerFactory.getLogger(FoodContentBatchConfig::class.java)
 
     @Bean
     fun foodContentReader(
-        foodContentBatchService: FoodContentBatchService,
+        foodRepository: FoodJpaRepository,
         @Value("\${kbap.batch.content.chunk-size:10}") pageSize: Int,
-    ): IncompleteFoodItemReader = IncompleteFoodItemReader(foodContentBatchService, pageSize)
+    ): IncompleteFoodItemReader = IncompleteFoodItemReader(foodRepository, pageSize)
 
     @Bean
-    fun foodContentProcessor(foodContentBatchService: FoodContentBatchService): FoodContentItemProcessor =
-        FoodContentItemProcessor(foodContentBatchService)
+    fun foodContentProcessor(
+        foodRepository: FoodJpaRepository,
+        transactionManager: PlatformTransactionManager,
+    ): FoodContentItemProcessor = FoodContentItemProcessor(foodRepository, transactionManager)
 
     @Bean
-    fun foodContentWriter(foodContentBatchService: FoodContentBatchService): ItemWriter<Food> =
+    fun foodContentWriter(foodRepository: FoodJpaRepository): ItemWriter<Food> =
         ItemWriter { chunk ->
-            chunk.items.forEach { foodContentBatchService.completeContent(it) }
+            chunk.items.forEach {
+                it.transitionToReadyIfComplete()
+                foodRepository.save(it)
+            }
         }
 
     @Bean

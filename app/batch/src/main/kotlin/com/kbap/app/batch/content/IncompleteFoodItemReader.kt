@@ -1,13 +1,14 @@
 package com.kbap.app.batch.content
 
-import com.kbap.domain.food.FoodContentBatchService
+import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.batch.infrastructure.item.ItemStreamReader
+import org.springframework.data.domain.PageRequest
 
 // 재시작 복원 지점은 "마지막으로 넘긴 음식 id"라 버퍼에 남은 미처리 건을 건너뛰지 않는다.
 class IncompleteFoodItemReader(
-    private val foodContentBatchService: FoodContentBatchService,
+    private val foodRepository: FoodJpaRepository,
     private val pageSize: Int,
 ) : ItemStreamReader<Food> {
     private val buffer = ArrayDeque<Food>()
@@ -20,7 +21,7 @@ class IncompleteFoodItemReader(
 
     override fun read(): Food? {
         if (buffer.isEmpty()) {
-            val page = foodContentBatchService.getIncompleteFoods(lastReadId, pageSize)
+            val page = foodRepository.findIncompleteAfter(lastReadId, PageRequest.of(0, pageSize))
             if (page.isEmpty()) return null
             buffer.addAll(page)
         }

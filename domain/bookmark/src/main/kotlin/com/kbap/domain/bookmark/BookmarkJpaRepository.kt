@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
+interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
     fun findByMemberIdAndFoodId(memberId: Long, foodId: Long): Bookmark?
 
     fun findByMemberIdAndFoodIdIn(memberId: Long, foodIds: Collection<Long>): List<Bookmark>

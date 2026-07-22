@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
+interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
     @Query(
         """
         select f from Food f

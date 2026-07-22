@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface MemberJpaRepository : JpaRepository<Member, Long> {
+interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
 
     fun findByProviderAndProviderUidAndMemberStatus(
