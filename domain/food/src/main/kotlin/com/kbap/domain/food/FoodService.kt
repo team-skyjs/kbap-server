@@ -113,7 +113,6 @@ class FoodService internal constructor(
 
     @Transactional
     fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
-        // korean_name 정규화 불변식(NFC·한글만) — 스캔 입구(ScanService.resolveFoods)와 동일 기준
         val names = koreanNames
             .map { KoreanMenuNameNormalizer.matchKey(it) }
             .filter { it.isNotEmpty() }
@@ -122,7 +121,6 @@ class FoodService internal constructor(
 
         val existing = foodRepository.findByKoreanNameIn(names).map { it.koreanName }.toSet()
         val newNames = names - existing
-        // created 는 upsert 후 재조회 확정치 — 소프트 삭제 유령·경합 패배로 미생성된 이름은 skipped 로 집계
         val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
         return SeedIncompleteResult(
             requested = names.size,
