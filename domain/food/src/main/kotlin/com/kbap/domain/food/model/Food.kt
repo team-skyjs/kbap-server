@@ -50,6 +50,27 @@ class Food(
 ) : BaseEntity() {
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
+    fun needsImage(): Boolean = imageRef.isNullOrBlank()
+
+    fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION
+
+    fun needsNameTranslations(): Boolean = !nameTranslations.keys.containsAll(TARGET_LANG_CODES)
+
+    fun needsDescriptionTranslations(): Boolean = !descriptionTranslations.keys.containsAll(TARGET_LANG_CODES)
+
+    fun needsAvoidanceMapping(): Boolean = avoidanceSubstances.isEmpty()
+
+    fun transitionToReadyIfComplete(): Boolean {
+        if (isReady()) return true
+        val complete = !needsImage() &&
+            !needsDescription() &&
+            !needsNameTranslations() &&
+            !needsDescriptionTranslations() &&
+            !needsAvoidanceMapping()
+        if (complete) contentStatus = FoodContentStatus.READY
+        return complete
+    }
+
     fun koreanName(): String = koreanName
 
     fun displayName(lang: LanguageCode): String = localizedName().resolve(lang)
@@ -73,6 +94,10 @@ class Food(
 
     companion object {
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
+        // READY 완비 판정 기준 — ko 원문 제외 9개 대상 언어(헌법 V 사전 번역 정책).
+        private val TARGET_LANG_CODES: Set<String> =
+            LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }.toSet()
 
         fun incomplete(koreanName: String): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }

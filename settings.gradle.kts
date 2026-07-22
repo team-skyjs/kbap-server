@@ -24,7 +24,6 @@ include(
     ":domain:food",
     ":domain:member",
     ":domain:avoidance",
-    ":domain:research",
     ":domain:review",
     ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
     ":domain:bookmark",     // 음식 북마크 컨텍스트 (KB-139) — 즐겨찾기 등록·취소·목록
