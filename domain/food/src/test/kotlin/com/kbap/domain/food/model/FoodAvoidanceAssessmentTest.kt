@@ -1,7 +1,6 @@
 package com.kbap.domain.food.model
 
 import com.kbap.core.risk.RiskLevel
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -37,52 +36,27 @@ class FoodAvoidanceAssessmentTest : BehaviorSpec({
         }
     }
 
-    given("Food.assessAvoidance — 성분·맵기 원자 반영") {
-        `when`("유효한 성분 목록과 맵기(0~10)를 반영하면") {
-            then("성분과 맵기가 함께 채워지고 조사완료로 판정된다") {
+    given("Food.assessAvoidance — 성분만 반영(맵기는 설명 작업 소관)") {
+        `when`("유효한 성분 목록을 반영하면") {
+            then("성분이 확률 내림차순으로 채워지고 조사완료로 판정되며 맵기는 건드리지 않는다") {
                 val food = foodWith(null, spiciness = Food.SPICINESS_UNASSESSED)
 
-                food.assessAvoidance(listOf(item("EGG", 90), item("WHEAT", 100)), spiciness = 7)
+                food.assessAvoidance(listOf(item("EGG", 90), item("WHEAT", 100)))
 
-                food.spiciness shouldBe 7
                 food.needsAvoidanceMapping() shouldBe false
                 food.avoidanceSubstancesByProbability() shouldBe listOf(item("WHEAT", 100), item("EGG", 90))
+                food.spiciness shouldBe Food.SPICINESS_UNASSESSED
             }
         }
 
         `when`("빈 성분 목록을 반영하면(무성분 조사완료)") {
-            then("맵기는 채워지고 무한 재조사 대상이 아니게 된다") {
+            then("재조사 대상이 아니게 되고 맵기는 그대로다") {
                 val food = foodWith(null, spiciness = Food.SPICINESS_UNASSESSED)
 
-                food.assessAvoidance(emptyList(), spiciness = 0)
+                food.assessAvoidance(emptyList())
 
-                food.spiciness shouldBe 0
                 food.needsAvoidanceMapping() shouldBe false
-            }
-        }
-
-        `when`("맵기가 0 미만이면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    foodWith(null).assessAvoidance(listOf(item("EGG", 90)), spiciness = -1)
-                }
-            }
-        }
-
-        `when`("맵기가 10 을 넘으면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    foodWith(null).assessAvoidance(listOf(item("EGG", 90)), spiciness = 11)
-                }
-            }
-        }
-
-        `when`("맵기가 경계값(하한 0·상한 10)이면") {
-            then("둘 다 유효하게 반영된다") {
-                foodWith(null).apply { assessAvoidance(listOf(item("EGG", 90)), spiciness = 0) }
-                    .spiciness shouldBe 0
-                foodWith(null).apply { assessAvoidance(listOf(item("EGG", 90)), spiciness = 10) }
-                    .spiciness shouldBe 10
+                food.spiciness shouldBe Food.SPICINESS_UNASSESSED
             }
         }
     }

@@ -6,7 +6,15 @@
 
 ## Summary
 
-배치 콘텐츠 파이프라인의 빈 스텁 `mapAvoidance` 를 채운다: 음식 1건마다 LLM 3모델(OPENAI·UPSTAGE·GEMINI)에 fan-out 해 기피성분(카탈로그 81종 기준 code + 포함확률)과 맵기(0~10)를 조사하고, 2/3 다수결 합의 결과만 저장한다. 전제인 **미조사/무성분 센티널**(spiciness -1·avoidance NULL — kb-182 소유였으나 미구현으로 확인, 본 기능이 흡수)을 함께 구현해 무성분 음식의 무한 재조사를 차단하고, READY 전이를 4작업 완성으로 완성한다. 상세 결정: [research.md](research.md).
+배치 콘텐츠 파이프라인의 빈 스텁 `mapAvoidance` 를 채운다: 음식 1건마다 기피성분 조사 client 를 호출해 카탈로그 81종 기준 성분(code + 포함확률)을 받아 저장한다. 전제인 **미조사/무성분 센티널**(spiciness -1·avoidance NULL — kb-182 소유였으나 미구현으로 확인, 본 기능이 흡수)을 함께 구현해 무성분 음식의 무한 재조사를 차단하고, READY 전이를 4작업 완성으로 완성한다. 상세 결정: [research.md](research.md).
+
+> **구현 반영 노트 (2026-07-22 — #87 seam 인계 후 개정)**
+> - **조사·합의는 client 구현 뒤로 이관**: #87(`com.kbap.core.food` seam)이 `FoodAvoidanceAssessmentClient.call(koreanName, candidateCodes): List<FoodAvoidanceAssessment>` 로 확정. 3모델 fan-out·2/3 다수결·미지코드 폐기는 이 계약의 **구현(`:infra:llm`) 책임**이며 별도 태스크다. 배치는 호출→매핑→저장만 한다. 우리가 쓴 `contracts/llm-avoidance-response.md`(합의 규칙)는 그 구현 태스크의 스펙으로 유효하다.
+> - **맵기(spiciness)는 KB-183 설명 작업으로 이관**: #87 `FoodDescriptionClient` 가 설명·번역·맵기를 일괄 반환. 따라서 `assessAvoidance` 는 성분만 반영(spiciness 파라미터 제거)하고, -1 센티널 해소는 설명 작업 몫이다. Jira DoD 의 "같은 조사에서 맵기" 항목은 계약 차원에서 KB-183 로 이동.
+> - **완료 범위(본 브랜치)**: ① 센티널·마이그레이션·upsert(PR #86 초기분) + ② `assessAvoidance` 성분-전용화, `mapAvoidance` 구현(카탈로그 findAll supplier → client 호출 → 매핑 → 저장, 빈 카탈로그 skip), `FoodContentBatchConfig` 조립, 배치 부팅 테스트에 페이크 client 빈. `./gradlew build` 그린.
+> - **잔여(범위 밖)**:
+>   1. `FoodAvoidanceAssessmentClient` 실구현(`:infra:llm` 3모델 합의) — 별도 태스크. 미구현 상태에서 배치 실부팅은 client 빈 부재로 실패(배치 미배포라 수용).
+>   2. **R8 커넥션 점유 — 미해소, 실구현 태스크와 함께**: chunk 트랜잭션이 여전히 process()(=조사 호출)를 감싸므로 LLM 지연 동안 DB 커넥션이 점유된다. processor 의 `TransactionTemplate`(REQUIRES_NEW)는 **롤백 격리**만 해결하지 커넥션 점유는 그대로다. step `ResourcelessTransactionManager` 전환이 해법이나, chunk step 에서 이는 reader 상태·Batch 메타 영속과 얽혀 별도 검증 사이클이 필요하다 — client 실구현(실 지연 발생 시점)과 묶어 처리한다. 현재는 client 미구현·배치 미배포라 라이브 영향 없음.
 
 ## Technical Context
 

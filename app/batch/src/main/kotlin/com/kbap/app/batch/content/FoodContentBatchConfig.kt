@@ -1,5 +1,7 @@
 package com.kbap.app.batch.content
 
+import com.kbap.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
 import org.slf4j.LoggerFactory
@@ -30,7 +32,12 @@ class FoodContentBatchConfig {
     fun foodContentProcessor(
         foodRepository: FoodJpaRepository,
         transactionManager: PlatformTransactionManager,
-    ): FoodContentItemProcessor = FoodContentItemProcessor(foodRepository, transactionManager)
+        avoidanceClient: FoodAvoidanceAssessmentClient,
+        avoidanceRepository: AvoidanceSubstanceJpaRepository,
+    ): FoodContentItemProcessor =
+        FoodContentItemProcessor(foodRepository, transactionManager, avoidanceClient) {
+            avoidanceRepository.findAll().map { it.code.name }.toSet()
+        }
 
     @Bean
     fun foodContentWriter(foodRepository: FoodJpaRepository): ItemWriter<Food> =

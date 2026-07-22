@@ -10,7 +10,7 @@
 - `needsAvoidanceMapping(): Boolean = avoidanceSubstances == null` — 빈 목록은 "완료"로 판정(무한 재조사 차단).
 - `transitionToReadyIfComplete()` — 변경 없음(needsAvoidanceMapping 의미 변경으로 자동 반영). 맵기는 READY 게이트에 포함하지 않는다(spec Assumptions).
 - 파생 메서드 null-safe 화: `avoidanceSubstancesByProbability()`·`overallRisk()` 는 `orEmpty()` 기반 — READY 음식은 항상 non-null 이므로 동작 불변(INCOMPLETE 는 기존에도 `UNKNOWN` 조기 반환).
-- 조사 결과 반영은 도메인 메서드로: `assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int)` — `require(spiciness in 0..10)`, 정렬·저장. **센티널 쌍(성분·맵기)은 이 메서드가 원자적으로 함께 채우는 것이 유일 경로**다(성분만·맵기만 채워진 어긋난 상태 방지 — 필드가 JPA 관례상 `var` 라도 조사 반영은 이 메서드로만 한다).
+- 조사 결과 반영은 도메인 메서드로: `assessAvoidance(substances: List<FoodAvoidanceItem>)` — `avoidanceSubstances` 를 채운다(빈 목록 = 무성분 조사완료). **맵기(spiciness)는 이 메서드가 다루지 않는다** — #87 계약(`FoodDescriptionClient` 가 설명·번역·맵기 일괄 반환)으로 맵기 채움이 설명 작업(KB-183) 소관으로 이관됐다. 따라서 -1 센티널 해소는 설명 작업이 담당하며, 기피성분 작업은 성분만 반영한다.
 
 ## FoodAvoidanceItem (변경 없음)
 
@@ -21,9 +21,10 @@
 - 활성(ACTIVE) 전체 목록은 `AvoidanceSubstanceJpaRepository.findAll()` 직접 조회(@SQLRestriction 이 ACTIVE 필터) — KB-220(ADR-0014)으로 리포지토리가 public 화·위임 전용 창구 서비스 금지라 별도 서비스 메서드를 두지 않는다. 스키마 변경 없음.
 - 프롬프트에는 `code` + 한국어 이름(DB `korean_name`)만 사용. 응답 코드 유효성 판정 기준 = 이 목록의 code 집합.
 
-## 배치 값 타입 (`:app:batch` — 신규, 영속 없음)
+## 배치 조립 (`:app:batch` — 구현 반영, 신규 값 타입 없음)
 
-- `AvoidanceInvestigation(substances: List<FoodAvoidanceItem>, spiciness: Int)` — 합의 확정 결과. `FoodAvoidanceInvestigator` 반환값(실패 시 null).
+- 별도 `FoodAvoidanceInvestigator`·`AvoidanceInvestigation` 값 타입을 두지 않는다 — #87 계약이 조사·종합(3모델 합의·미지코드 폐기)을 **client 구현(`:infra:llm`, 별도 태스크) 뒤로** 숨겼다. 배치의 `FoodContentItemProcessor.mapAvoidance` 는 `FoodAvoidanceAssessmentClient.call(koreanName, candidateCodes)` 를 호출해 `List<FoodAvoidanceAssessment>` 를 `FoodAvoidanceItem` 으로 매핑 후 `food.assessAvoidance(...)` 만 한다.
+- `candidateCodes` 는 `FoodContentBatchConfig` 이 `AvoidanceSubstanceJpaRepository.findAll().map { it.code.name }.toSet()` supplier 로 주입(매 호출 평가 — 시드 시점 비의존). 빈 카탈로그면 client 미호출·미조사 유지.
 
 ## Flyway 마이그레이션 (신규 1건 — 파일 생성 시각으로 명명)
 
