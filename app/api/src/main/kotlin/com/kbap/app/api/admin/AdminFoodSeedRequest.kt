@@ -8,8 +8,6 @@ data class AdminFoodSeedRequest(
     @field:Size(max = MAX_SEED_NAMES, message = "koreanNames 는 최대 $MAX_SEED_NAMES 건까지 제출할 수 있습니다")
     val koreanNames: List<String>? = null,
 ) {
-    fun toKoreanNames(): Set<String> = koreanNames.orEmpty().toSet()
-
     companion object {
         const val MAX_SEED_NAMES = 500
     }
