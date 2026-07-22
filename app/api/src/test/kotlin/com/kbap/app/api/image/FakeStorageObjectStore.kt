@@ -11,8 +11,12 @@ class FakeStorageObjectStore : StorageObjectStore {
     val deleted: MutableList<String> = mutableListOf()
     val headCalls: MutableList<String> = mutableListOf()
 
-    fun put(path: String, contentType: String, sizeBytes: Long) {
+    fun stub(path: String, contentType: String, sizeBytes: Long) {
         heads[path] = StorageObjectMetadata(contentType, sizeBytes)
+    }
+
+    override fun put(path: String, bytes: ByteArray, contentType: String) {
+        heads[path] = StorageObjectMetadata(contentType, bytes.size.toLong())
     }
 
     override fun head(path: String): StorageObjectMetadata? {

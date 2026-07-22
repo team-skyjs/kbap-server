@@ -70,7 +70,7 @@ class ImageControllerTest : BehaviorSpec() {
             `when`("실제 오브젝트가 사진이고 신고값과 일치하면") {
                 then("200 과 경로를 반환하고 이미지를 기록한다") {
                     val path = "scan/1/success.jpg"
-                    storage.put(path, "image/jpeg", 1048576)
+                    storage.stub(path, "image/jpeg", 1048576)
 
                     mockMvc.post("/api/v1/images/complete") {
                         header("Authorization", "Bearer ${accessToken(1L)}")
@@ -89,7 +89,7 @@ class ImageControllerTest : BehaviorSpec() {
             `when`("실제 오브젝트가 이미지가 아니면(영상 등)") {
                 then("400 IMAGE-001 로 거절하고 오브젝트를 삭제한다") {
                     val path = "scan/2/clip.mp4"
-                    storage.put(path, "video/mp4", 5048576)
+                    storage.stub(path, "video/mp4", 5048576)
 
                     mockMvc.post("/api/v1/images/complete") {
                         header("Authorization", "Bearer ${accessToken(2L)}")
@@ -108,7 +108,7 @@ class ImageControllerTest : BehaviorSpec() {
             `when`("신고한 형식·크기가 실제와 다르면") {
                 then("400 IMAGE-002 로 거절하고 오브젝트를 삭제한다") {
                     val path = "scan/3/mismatch.jpg"
-                    storage.put(path, "image/jpeg", 2048)
+                    storage.stub(path, "image/jpeg", 2048)
 
                     mockMvc.post("/api/v1/images/complete") {
                         header("Authorization", "Bearer ${accessToken(3L)}")
@@ -142,7 +142,7 @@ class ImageControllerTest : BehaviorSpec() {
             `when`("같은 경로로 다시 신고하면") {
                 then("재검증 없이 성공하고 기록은 1건이다(멱등)") {
                     val path = "scan/5/idem.jpg"
-                    storage.put(path, "image/png", 3000)
+                    storage.stub(path, "image/png", 3000)
 
                     repeat(2) {
                         mockMvc.post("/api/v1/images/complete") {
