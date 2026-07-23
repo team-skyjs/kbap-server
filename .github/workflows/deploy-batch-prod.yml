@@ -58,16 +58,16 @@ jobs:
             TAG="$IMAGE_TAG_INPUT"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
-            # api 이미지와 같은 ECR 저장소를 쓰므로 batch- 접두로 구분한다
             TAG="batch-$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+          # 배치 전용 저장소(ECR_BATCH_REPOSITORY)가 있으면 그쪽으로, 없으면 api 저장소에 batch- 태그로 관리
+          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push batch image
         if: steps.image.outputs.build == 'true'
         run: |
-          docker build --platform linux/amd64 --build-arg APP_MODULE=batch \
+          docker build --platform linux/amd64 -f Dockerfile.batch \
             -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 

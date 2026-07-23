@@ -5,7 +5,7 @@
 
 | 워크플로우 | 트리거 | 역할 |
 |---|---|---|
-| `deploy-batch-prod.yml` | main push · 수동 | 배치 이미지 빌드·푸시(`batch-<sha>` 태그) + 태스크정의 리비전 갱신 |
+| `deploy-batch-prod.yml` | main push · 수동 | 배치 이미지 빌드(`Dockerfile.batch`)·푸시(`batch-<sha>` 태그) + 태스크정의 리비전 갱신 |
 | `run-batch-prod.yml` | 매시 17분 cron · 수동 | 최신 태스크정의로 `run-task` 기동, 중복 방지, 종료 코드 확인 |
 
 schedule 트리거는 **main 에 워크플로우 파일이 있어야** 동작한다. 이전 실행이 살아 있으면
@@ -84,6 +84,7 @@ aws ecs register-task-definition --cli-input-json file://batch-taskdef.json
 | `ECS_BATCH_TASK_FAMILY` | `kbap-batch-prod` | 태스크정의 family |
 | `BATCH_SUBNETS` | `subnet-aaa,subnet-bbb` | run-task awsvpc 서브넷(프라이빗 — OpenAI 아웃바운드용 NAT 필요) |
 | `BATCH_SECURITY_GROUPS` | `sg-xxx` | RDS 인바운드 허용된 SG |
+| `ECR_BATCH_REPOSITORY` | `kbap-batch` | (선택) 배치 전용 ECR 저장소 — 없으면 `ECR_REPOSITORY` 에 `batch-` 태그로 공존 |
 
 OIDC 롤(`AWS_ROLE_ARN`)에는 기존 권한에 더해 `ecs:RunTask`·`ecs:ListTasks`·
 `ecs:DescribeTasks` 와 태스크정의의 execution/task 롤에 대한 `iam:PassRole` 이 필요하다.
