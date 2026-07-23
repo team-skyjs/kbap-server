@@ -100,11 +100,9 @@ kbap:
     # 스캔 정제는 사용자 요청 경로라 초과 시 폴백(degraded=true)으로 흘린다.
     call-timeout: 5s
   # 이미지 배치 운영 파라미터(KB-226). 배치당 10건 — 부분 회수가 빠르고 소량 신메뉴 운영에 자연스럽다.
-  # prompt 의 %s 자리에 koreanName 이 들어간다. prompt-version 은 제출 배치에 기록(재생성 트리거는 후속).
+  # 프롬프트는 설정이 아니라 코드 상수(FoodImageProperties.PROMPT_TEMPLATE) — 변경 시 PROMPT_VERSION 도 함께 올린다.
   food-image:
     batch-size: 10
-    prompt: 한국 음식 "%s" 의 먹음직스러운 대표 사진. 밝은 조명, 깔끔한 배경, 사실적인 음식 사진.
-    prompt-version: v1
     # 정시 cron — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(시간당 정확히 1회).
     collect-cron: 0 0 * * * *
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만

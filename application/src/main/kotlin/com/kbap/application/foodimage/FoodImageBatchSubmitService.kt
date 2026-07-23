@@ -37,7 +37,9 @@ class FoodImageBatchSubmitService(
         candidates.chunked(properties.batchSize).forEach { chunk ->
             val batch = try {
                 metaTransaction.execute {
-                    val claimed = batchRepository.save(ImageBatch(promptVersion = properties.promptVersion, model = properties.model))
+                    val claimed = batchRepository.save(
+                        ImageBatch(promptVersion = FoodImageProperties.PROMPT_VERSION, model = properties.model),
+                    )
                     itemRepository.saveAll(chunk.map { ImageBatchItem(batchId = claimed.id, foodId = it.id) })
                     claimed
                 }!!

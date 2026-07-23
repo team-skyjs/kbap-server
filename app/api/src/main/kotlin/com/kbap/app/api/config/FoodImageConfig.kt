@@ -13,9 +13,6 @@ class FoodImageConfig {
     fun foodImageProperties(
         @Value("\${kbap.llm.image.model:gpt-image-2}") model: String,
         @Value("\${kbap.food-image.batch-size:10}") batchSize: Int,
-        @Value("\${kbap.food-image.prompt:한국 음식 \"%s\" 의 먹음직스러운 대표 사진. 밝은 조명, 깔끔한 배경, 사실적인 음식 사진.}")
-        prompt: String,
-        @Value("\${kbap.food-image.prompt-version:v1}") promptVersion: String,
         @Value("\${kbap.llm.image.pricing.input-usd-per-million-tokens:0}") inputUsdPerMillionTokens: Double,
         @Value("\${kbap.llm.image.pricing.output-usd-per-million-tokens:0}") outputUsdPerMillionTokens: Double,
         @Value("\${kbap.llm.usd-to-krw:1500}") usdToKrw: Double,
@@ -23,8 +20,6 @@ class FoodImageConfig {
         FoodImageProperties(
             model = model,
             batchSize = batchSize,
-            prompt = prompt,
-            promptVersion = promptVersion,
             inputUsdPerMillionTokens = inputUsdPerMillionTokens,
             outputUsdPerMillionTokens = outputUsdPerMillionTokens,
             usdToKrw = usdToKrw,
