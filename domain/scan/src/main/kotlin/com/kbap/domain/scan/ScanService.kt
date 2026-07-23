@@ -34,7 +34,6 @@ class ScanService internal constructor(
     // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
     // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
 
-        // 비전 호출(비용) 전에 회원 존재를 확정한다
         memberService.getMember(memberId)
 
         val extracted = try {
@@ -53,7 +52,6 @@ class ScanService internal constructor(
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.koreanName() else menu.koreanName
             ScanResult.ItemRiskResult(
-                // LLM 이 목록에 없는 idx 를 반환하면(할루시네이션) 매칭 없음으로 처리한다.
                 idx = menu.matchedIdx?.takeIf { it in validIdxes },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
                 matched = matched,
