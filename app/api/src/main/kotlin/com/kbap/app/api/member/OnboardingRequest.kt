@@ -6,7 +6,6 @@ data class OnboardingRequest(
     val nickname: String,
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val countryCode: String,
-    val appLanguage: String,
     val profileImageUrl: String,
     val spicinessPreference: Int,
 ) {
@@ -16,7 +15,6 @@ data class OnboardingRequest(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
             countryCode = countryCode,
-            appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,
             spicinessPreference = spicinessPreference,
         )

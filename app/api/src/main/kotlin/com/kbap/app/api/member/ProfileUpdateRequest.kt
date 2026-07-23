@@ -6,7 +6,6 @@ data class ProfileUpdateRequest(
     val nickname: String? = null,
     val avoidanceSubstanceCodes: List<String>? = null,
     val countryCode: String? = null,
-    val appLanguage: String? = null,
     val profileImageUrl: String? = null,
     val spicinessPreference: Int? = null,
 ) {
@@ -16,7 +15,6 @@ data class ProfileUpdateRequest(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
             countryCode = countryCode,
-            appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,
             spicinessPreference = spicinessPreference,
         )

@@ -72,7 +72,6 @@ class MemberControllerTest : BehaviorSpec() {
             "nickname" to "길동이",
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
-            "appLanguage" to "en",
             "spicinessPreference" to -1,
             "profileImageUrl" to defaultProfileImagePath,
         )
@@ -125,6 +124,17 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("구버전 앱이 폐기된 appLanguage 를 포함해 제출하면") {
+                then("그 값은 무시되고 200 으로 정상 처리된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("appLanguage" to "fr")).andReturn().response
+
+                    result.status shouldBe 200
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                }
+            }
+
             `when`("이미 온보딩을 완료한 뒤 다시 제출하면") {
                 then("400 으로 거절된다") {
                     val token = loginAccessToken()
@@ -143,7 +153,6 @@ class MemberControllerTest : BehaviorSpec() {
             listOf(
                 "카탈로그에 없는 기피 성분" to validBody() + ("avoidanceSubstanceCodes" to listOf("NOT_A_CODE")),
                 "지정 목록에 없는 국가" to validBody() + ("countryCode" to "ZZ"),
-                "지원하지 않는 언어" to validBody() + ("appLanguage" to "fr"),
                 "빈 닉네임" to validBody() + ("nickname" to "   "),
             ).forEach { (label, body) ->
                 `when`(label + "을 제출하면") {
@@ -199,7 +208,7 @@ class MemberControllerTest : BehaviorSpec() {
                     val payload = objectMapper.readTree(result.contentAsString).path("payload")
                     payload.path("nickname").asText() shouldBe "길동이"
                     payload.path("countryCode").asText() shouldBe "US"
-                    payload.path("appLanguage").asText() shouldBe "en"
+                    payload.has("appLanguage") shouldBe false
                     payload.path("onboardingCompleted").asBoolean() shouldBe true
                     payload.path("provider").asText() shouldBe "GOOGLE"
                 }
@@ -231,7 +240,6 @@ class MemberControllerTest : BehaviorSpec() {
                 "nickname" to "수정닉",
                 "avoidanceSubstanceCodes" to listOf("PEANUT"),
                 "countryCode" to "JP",
-                "appLanguage" to "ja",
             )
 
             `when`("온보딩을 완료한 회원이 유효한 값으로 수정하면") {
@@ -275,26 +283,41 @@ class MemberControllerTest : BehaviorSpec() {
                 return token
             }
 
-            `when`("닉네임·국가·언어만 보내면") {
+            `when`("닉네임·국가만 보내면") {
                 then("기피 성분이 삭제되지 않고 그대로 유지된다") {
                     val token = onboardedToken()
 
                     val result = updateProfile(
                         token,
-                        mapOf("nickname" to "새닉", "countryCode" to "JP", "appLanguage" to "ja"),
+                        mapOf("nickname" to "새닉", "countryCode" to "JP"),
                     ).andReturn().response
 
                     result.status shouldBe 200
                     val payload = profilePayload(token)
                     payload.path("nickname").asText() shouldBe "새닉"
                     payload.path("countryCode").asText() shouldBe "JP"
-                    payload.path("appLanguage").asText() shouldBe "ja"
                     payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
                 }
             }
 
+            `when`("구버전 앱이 폐기된 appLanguage 를 포함해 수정하면") {
+                then("그 값은 무시되고 나머지 항목만 반영된다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfile(
+                        token,
+                        mapOf("nickname" to "새닉", "appLanguage" to "ja"),
+                    ).andReturn().response
+
+                    result.status shouldBe 200
+                    val payload = profilePayload(token)
+                    payload.path("nickname").asText() shouldBe "새닉"
+                    payload.has("appLanguage") shouldBe false
+                }
+            }
+
             `when`("기피 성분만 보내면") {
-                then("기피 성분만 교체되고 닉네임·국가·언어는 유지된다") {
+                then("기피 성분만 교체되고 닉네임·국가는 유지된다") {
                     val token = onboardedToken()
 
                     val result = updateProfile(
@@ -307,7 +330,6 @@ class MemberControllerTest : BehaviorSpec() {
                     payload.path("avoidanceSubstanceCodes").map { it.asText() } shouldBe listOf("PEANUT")
                     payload.path("nickname").asText() shouldBe "길동이"
                     payload.path("countryCode").asText() shouldBe "US"
-                    payload.path("appLanguage").asText() shouldBe "en"
                 }
             }
 
@@ -331,7 +353,6 @@ class MemberControllerTest : BehaviorSpec() {
                     val payload = profilePayload(token)
                     payload.path("nickname").asText() shouldBe "길동이"
                     payload.path("countryCode").asText() shouldBe "US"
-                    payload.path("appLanguage").asText() shouldBe "en"
                     payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
                 }
             }
@@ -370,7 +391,6 @@ class MemberControllerTest : BehaviorSpec() {
                             "nickname" to "  길동이  ",
                             "avoidanceSubstanceCodes" to listOf("EGG", "EGG", "MILK"),
                             "countryCode" to "US",
-                            "appLanguage" to "en",
                             "spicinessPreference" to 3,
                             "profileImageUrl" to defaultProfileImagePath,
                         ),

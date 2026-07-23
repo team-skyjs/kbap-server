@@ -41,7 +41,7 @@ class Food(
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','READY')")
+    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','PENDING_REVIEW','READY')")
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -64,15 +64,15 @@ class Food(
         this.avoidanceSubstances = substances
     }
 
-    fun transitionToReadyIfComplete(): Boolean {
-        if (isReady()) return true
+    fun transitionToPendingReviewIfComplete(): Boolean {
+        if (contentStatus != FoodContentStatus.INCOMPLETE) return true
         val complete = !needsImage() &&
             !needsDescription() &&
             !needsNameTranslations() &&
             !needsDescriptionTranslations() &&
             !needsAvoidanceMapping() &&
             spiciness != SPICINESS_UNASSESSED
-        if (complete) contentStatus = FoodContentStatus.READY
+        if (complete) contentStatus = FoodContentStatus.PENDING_REVIEW
         return complete
     }
 

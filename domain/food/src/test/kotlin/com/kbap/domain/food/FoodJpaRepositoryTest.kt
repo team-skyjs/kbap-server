@@ -36,6 +36,15 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 Food(koreanName = koreanName, description = "구수한 $koreanName", contentStatus = FoodContentStatus.READY),
             ).id
 
+        fun savePendingReview(koreanName: String): Long =
+            foodJpaRepository.save(
+                Food(
+                    koreanName = koreanName,
+                    description = "구수한 $koreanName",
+                    contentStatus = FoodContentStatus.PENDING_REVIEW,
+                ),
+            ).id
+
         fun findIncomplete(afterId: Long?, size: Int): List<Food> =
             foodJpaRepository.findIncompleteAfter(afterId, PageRequest.of(0, size))
 
@@ -90,9 +99,9 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("READY 전이 저장 — 완비 시 저장 + 전이") {
+        given("검수 대기 전이 저장 — 완비 시 저장 + 전이") {
             `when`("스텝이 사진·설명·번역을 채우고 기피성분 매핑이 있으면") {
-                then("채운 필드를 저장하고 READY 로 전이하며 true 를 반환한다") {
+                then("채운 필드를 저장하고 PENDING_REVIEW 로 전이하며 true 를 반환한다") {
                     clear()
                     val id = saveIncomplete("완비-부대찌개")
                     val food = findIncomplete(afterId = null, size = 1).single()
@@ -103,19 +112,19 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     food.descriptionTranslations = targets
                     food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
 
-                    val transitioned = food.transitionToReadyIfComplete()
+                    val transitioned = food.transitionToPendingReviewIfComplete()
                     foodJpaRepository.save(food)
 
                     transitioned shouldBe true
                     val reloaded = foodJpaRepository.findById(id).get()
-                    reloaded.contentStatus shouldBe FoodContentStatus.READY
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                     reloaded.imageRef shouldBe "s3://img/budae.jpg"
                     reloaded.description shouldBe "얼큰한 부대찌개"
                 }
             }
         }
 
-        given("READY 전이 저장 — 미완비 시 저장만") {
+        given("검수 대기 전이 저장 — 미완비 시 저장만") {
             `when`("사진만 채우고 번역·매핑이 없으면") {
                 then("채운 필드는 저장하되 INCOMPLETE 를 유지하고 false 를 반환한다") {
                     clear()
@@ -123,13 +132,53 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     val food = findIncomplete(afterId = null, size = 1).single()
                     food.imageRef = "s3://img/cheonggukjang.jpg"
 
-                    val transitioned = food.transitionToReadyIfComplete()
+                    val transitioned = food.transitionToPendingReviewIfComplete()
                     foodJpaRepository.save(food)
 
                     transitioned shouldBe false
                     val reloaded = foodJpaRepository.findById(id).get()
                     reloaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                     reloaded.imageRef shouldBe "s3://img/cheonggukjang.jpg"
+                }
+            }
+        }
+
+        given("사용자 노출 조회 — READY 만 노출, PENDING_REVIEW 비노출") {
+            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 목록 페이지를 조회하면") {
+                then("READY 음식 id 만 반환한다") {
+                    clear()
+                    val readyId = saveReady("완성-김치찌개")
+                    savePendingReview("검수대기-된장찌개")
+
+                    val ids = foodJpaRepository.findFoodPageIds(cursor = null, PageRequest.of(0, 10))
+
+                    ids shouldBe listOf(readyId)
+                }
+            }
+
+            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 이름으로 검색하면") {
+                then("READY 음식 id 만 반환한다") {
+                    clear()
+                    val readyId = saveReady("탐색-김치찌개")
+                    savePendingReview("탐색-된장찌개")
+
+                    val ids = foodJpaRepository.searchFoodPageIds(
+                        keyword = "탐색",
+                        jsonPath = null,
+                        cursor = null,
+                        size = 10,
+                    )
+
+                    ids shouldBe listOf(readyId)
+                }
+            }
+
+            `when`("PENDING_REVIEW 만 있고 랜덤 조회하면") {
+                then("빈 목록을 반환한다") {
+                    clear()
+                    savePendingReview("랜덤-검수대기")
+
+                    foodJpaRepository.findRandomReadyIds(size = 10).shouldBeEmpty()
                 }
             }
         }

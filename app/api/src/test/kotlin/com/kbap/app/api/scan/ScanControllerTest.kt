@@ -136,7 +136,6 @@ class ScanControllerTest : BehaviorSpec() {
                     val memberId = 501L
                     val path = "scan/501/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    // 앱 언어 미설정 회원이므로 en 번역이 있어도 ko 기본으로 한국어명이 내려가야 한다
                     seedReadyFood("김치찌개", """{"en":"Kimchi Stew"}""")
                     vision.program(
                         path,
@@ -147,6 +146,7 @@ class ScanControllerTest : BehaviorSpec() {
                     )
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "김치찌개", 1 to "불고기")
@@ -162,22 +162,23 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].price") { value(9000) }
                         jsonPath("$.payload.results[1].idx") { value(1) }
                         jsonPath("$.payload.results[1].matched") { value(false) }
-                        jsonPath("$.payload.results[1].name") { value("Bulgogi 미등록불고기501") }
+                        jsonPath("$.payload.results[1].name") { value("미등록불고기501") }
+                        jsonPath("$.payload.results[1].koreanName") { value("미등록불고기501") }
                         jsonPath("$.payload.results[1].price") { value(16000) }
                     }
                 }
             }
 
-            `when`("앱 언어가 영어인 회원이 영어 번역이 등록된 음식을 스캔하면") {
+            `when`("lang=en 으로 영어 번역이 등록된 음식을 스캔하면") {
                 then("매칭 항목의 name 은 영어 번역명으로 내려간다") {
                     val memberId = 514L
                     val path = "scan/514/menu.jpg"
-                    seedMember(memberId, """{"appLanguage":"en"}""")
                     seedVerifiedImage(memberId, path)
                     seedReadyFood("번역김치찌개", """{"en":"Kimchi Stew"}""")
                     vision.program(path, listOf(ExtractedMenu("Kimchi 번역김치찌개", "번역김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "en")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "번역김치찌개")
@@ -192,16 +193,81 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("앱 언어가 영어인 회원이 영어 번역이 없는 음식을 스캔하면") {
+            `when`("등록되지 않은 신규 음식을 외국어 lang 으로 스캔하면") {
+                then("사진 표기가 아니라 표준 한국어명으로 내려간다") {
+                    val memberId = 522L
+                    val path = "scan/522/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(
+                        path,
+                        listOf(ExtractedMenu("Bulgogi Hot Pot 신규불고기522", "신규불고기522", 16000, matchedIdx = 0)),
+                    )
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "en")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "불고기")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].name") { value("신규불고기522") }
+                        jsonPath("$.payload.results[0].koreanName") { value("신규불고기522") }
+                    }
+                }
+            }
+
+            `when`("lang=ja 로 같은 음식을 스캔하면") {
+                then("매칭 항목의 name 은 일본어 번역명으로 내려간다") {
+                    val memberId = 516L
+                    val path = "scan/516/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("다국어김치찌개", """{"en":"Kimchi Stew","ja":"キムチチゲ"}""")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 다국어김치찌개", "다국어김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ja")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "다국어김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].name") { value("キムチチゲ") }
+                    }
+                }
+            }
+
+            `when`("프로필에 앱 언어가 저장된 회원이 다른 lang 으로 스캔하면") {
+                then("프로필 값이 아니라 요청 lang 의 번역명이 내려간다") {
+                    val memberId = 517L
+                    val path = "scan/517/menu.jpg"
+                    seedMember(memberId, """{"appLanguage":"ko"}""")
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("프로필무시김치찌개", """{"en":"Ignored Profile Stew"}""")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 프로필무시김치찌개", "프로필무시김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "en")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "프로필무시김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].name") { value("Ignored Profile Stew") }
+                    }
+                }
+            }
+
+            `when`("lang=en 인데 영어 번역이 없는 음식을 스캔하면") {
                 then("매칭 항목의 name 은 한국어 이름으로 폴백한다") {
                     val memberId = 515L
                     val path = "scan/515/menu.jpg"
-                    seedMember(memberId, """{"appLanguage":"en"}""")
                     seedVerifiedImage(memberId, path)
                     seedReadyFood("폴백김치찌개")
                     vision.program(path, listOf(ExtractedMenu("Kimchi 폴백김치찌개", "폴백김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "en")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "폴백김치찌개")
@@ -209,6 +275,87 @@ class ScanControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].name") { value("폴백김치찌개") }
+                    }
+                }
+            }
+
+            `when`("지원 목록에 없는 lang 으로 스캔하면") {
+                then("거절하지 않고 영어 번역명으로 응답한다") {
+                    val memberId = 518L
+                    val path = "scan/518/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("미지원코드김치찌개", """{"en":"Fallback Stew"}""")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 미지원코드김치찌개", "미지원코드김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "fr")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "미지원코드김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].name") { value("Fallback Stew") }
+                    }
+                }
+            }
+
+            `when`("대소문자·지역 변형처럼 지원 코드와 정확히 일치하지 않는 lang 으로 스캔하면") {
+                then("정규화하지 않고 영어로 폴백한다") {
+                    val memberId = 521L
+                    val path = "scan/521/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("정규화없음김치찌개", """{"en":"No Normalize Stew"}""")
+
+                    listOf("EN", "ko-KR", " ko").forEach { raw ->
+                        vision.program(
+                            path,
+                            listOf(ExtractedMenu("Kimchi 정규화없음김치찌개", "정규화없음김치찌개", 9000, matchedIdx = 0)),
+                        )
+
+                        mockMvc.post("/api/v1/scans") {
+                            param("lang", raw)
+                            header("Authorization", "Bearer ${accessToken(memberId)}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = body(path, 0 to "정규화없음김치찌개")
+                        }.andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.results[0].name") { value("No Normalize Stew") }
+                        }
+                    }
+                }
+            }
+
+            `when`("lang 없이 스캔하면") {
+                then("400 COMMON-002 로 거절한다") {
+                    val memberId = 519L
+                    val path = "scan/519/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    mockMvc.post("/api/v1/scans") {
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("lang 이 공백 문자열이면") {
+                then("400 COMMON-002 로 거절한다") {
+                    val memberId = 520L
+                    val path = "scan/520/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "  ")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
                     }
                 }
             }
@@ -228,6 +375,7 @@ class ScanControllerTest : BehaviorSpec() {
                     )
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "공기밥")
@@ -247,6 +395,7 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("공기밥", "공기밥", null, matchedIdx = 0)))
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "공기밥")
@@ -265,6 +414,7 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, emptyList())
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "풍경")
@@ -283,6 +433,7 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("제육볶음", "이력제육볶음", 8000, matchedIdx = 0)))
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "제육볶음")
@@ -301,6 +452,7 @@ class ScanControllerTest : BehaviorSpec() {
                 then("400 SCAN-001 로 거절한다") {
                     val memberId = 505L
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("scan/505/unverified.jpg", 0 to "김치찌개")
@@ -320,6 +472,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(ownerId, path)
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(otherId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "비빔밥")
@@ -338,6 +491,7 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.failOn(path)
 
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "김치찌개")
@@ -351,6 +505,7 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("경로 대신 전체 URL 을 넘기면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(509L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("https://cdn.example.com/scan/509/x.jpg", 0 to "김치찌개")
@@ -364,6 +519,7 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("items 가 비어 있으면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(512L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("scan/512/x.jpg")
@@ -377,6 +533,7 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("items 의 idx 가 중복이면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(513L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("scan/513/x.jpg", 0 to "김치찌개", 0 to "비빔밥")
@@ -390,6 +547,7 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("액세스 토큰 없이 호출하면") {
                 then("401 을 반환한다") {
                     mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("scan/510/x.jpg", 0 to "김치찌개")
                     }.andExpect {

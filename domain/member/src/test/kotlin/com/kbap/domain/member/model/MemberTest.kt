@@ -16,7 +16,6 @@ class MemberTest : BehaviorSpec({
         avoidanceSubstanceCodes = emptyList(),
         spicinessPreference = -1,
         countryCode = "KR",
-        appLanguage = "ko",
         profileImageUrl = "images/default/profile/profile-default-512.png",
     )
 
@@ -51,7 +50,6 @@ class MemberTest : BehaviorSpec({
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
                     spicinessPreference = 7,
                     countryCode = CountryCode.KR,
-                    appLanguage = null,
                 )
 
                 member.updateProfile(newProfile)
@@ -106,7 +104,6 @@ class MemberTest : BehaviorSpec({
                     avoidanceSubstanceCodes = emptyList(),
                     spicinessPreference = -1,
                     countryCode = "KR",
-                    appLanguage = "ko",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 
@@ -123,7 +120,6 @@ class MemberTest : BehaviorSpec({
                     avoidanceSubstanceCodes = emptyList(),
                     spicinessPreference = 8,
                     countryCode = "KR",
-                    appLanguage = "ko",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 
@@ -147,7 +143,6 @@ class MemberTest : BehaviorSpec({
                     avoidanceSubstanceCodes = emptyList(),
                     spicinessPreference = -1,
                     countryCode = "KR",
-                    appLanguage = "ko",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 

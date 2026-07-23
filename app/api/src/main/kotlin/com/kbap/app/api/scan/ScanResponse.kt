@@ -50,15 +50,15 @@ data class ScanResponse(
         val riskLevel: String,
 
         @field:Schema(
-            description = "표시용 메뉴명. matched=true 면 음식의 회원 앱 언어 번역명(해당 언어 번역이 없거나 앱 언어 미설정이면 한국어명), " +
-                "matched=false 면 사진에 표기된 그대로의 메뉴명(외국어 병기 포함 — 비전 인식이 읽은 원문).",
+            description = "표시용 메뉴명. matched=true 면 음식의 요청 lang 번역명(해당 언어 번역이 없으면 한국어명), " +
+                "matched=false 면 아직 번역본이 없는 신규 음식이므로 비전이 정제한 표준 한국어명.",
             example = "Kimchi Stew",
             nullable = true,
         )
         val name: String?,
 
         @field:Schema(
-            description = "언어와 무관한 한국어 메뉴명. 매칭되면 음식의 표준명, 미매칭이면 사진에서 인식한 한국어명",
+            description = "언어와 무관한 한국어 메뉴명. 매칭되면 저장된 음식의 표준 한국어명, 미매칭이면 비전이 정제한 표준 한국어명",
             example = "김치찌개",
             nullable = true,
         )
