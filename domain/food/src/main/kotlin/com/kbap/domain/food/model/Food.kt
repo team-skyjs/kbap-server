@@ -42,7 +42,7 @@ class Food(
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','PENDING_REVIEW','READY')")
+    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','TEXT_READY','PENDING_REVIEW','READY')")
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -84,16 +84,29 @@ class Food(
         this.spiciness = spiciness
     }
 
-    fun transitionToPendingReviewIfComplete(): Boolean {
-        if (contentStatus != FoodContentStatus.INCOMPLETE) return true
-        val complete = !needsImage() &&
-            !needsDescription() &&
+    // 수렴 전이(KB-226): 칼럼 상태로 목표 상태를 계산한다. 콘텐츠 배치와 이미지 회수가 같은 함수를
+    // 호출하므로 텍스트/이미지 어느 쪽이 먼저 끝나도 안전하다. 검수 이후(PENDING_REVIEW·READY)는 재평가하지 않는다.
+    fun transitionByContentState(): FoodContentStatus {
+        if (contentStatus == FoodContentStatus.PENDING_REVIEW || contentStatus == FoodContentStatus.READY) {
+            return contentStatus
+        }
+        val textComplete = !needsDescription() &&
             !needsNameTranslations() &&
             !needsDescriptionTranslations() &&
             !needsAvoidanceMapping() &&
             spiciness != SPICINESS_UNASSESSED
-        if (complete) contentStatus = FoodContentStatus.PENDING_REVIEW
-        return complete
+        contentStatus = when {
+            !textComplete -> FoodContentStatus.INCOMPLETE
+            needsImage() -> FoodContentStatus.TEXT_READY
+            else -> FoodContentStatus.PENDING_REVIEW
+        }
+        return contentStatus
+    }
+
+    fun attachImage(imageRef: String) {
+        require(imageRef.isNotBlank()) { "imageRef 는 blank 일 수 없습니다" }
+        this.imageRef = imageRef
+        transitionByContentState()
     }
 
     fun koreanName(): String = koreanName

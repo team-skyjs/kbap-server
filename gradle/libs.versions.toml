@@ -17,6 +17,8 @@ firebase-admin = "9.4.3"
 # 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
 # presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
 aws-sdk = "2.48.0"
+# 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
+shedlock = "6.9.2"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -67,6 +69,11 @@ aws-s3 = { module = "software.amazon.awssdk:s3" }
 
 # --- API docs (Swagger UI) ---
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# --- Scheduler lock (KB-226): 이미지 회수 @Scheduled 를 api 2대 중 1대만 실행 ---
+# 어노테이션 AOP(shedlock-spring) 없이 core 의 DefaultLockingTaskExecutor 를 프로그래매틱으로 쓴다.
+shedlock-core = { module = "net.javacrumbs.shedlock:shedlock-core", version.ref = "shedlock" }
+shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
 # Upstage 는 OpenAI 호환 API 라 openai 스타터를 base-url 만 바꿔 재사용한다.

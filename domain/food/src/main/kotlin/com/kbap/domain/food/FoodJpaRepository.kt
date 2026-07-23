@@ -19,6 +19,21 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
+    // 이미지 제출 후보(KB-226) — 상태값으로 거르지 않는다. "이미지가 필요한가"의 진실은 imageRef 하나이고,
+    // PENDING item 미포함 조건이 중복 제출 가드를 겸한다(버튼 연타 무해).
+    @Query(
+        """
+        select f from Food f
+        where (f.imageRef is null or f.imageRef = '')
+          and not exists (
+            select 1 from ImageBatchItem i
+            where i.foodId = f.id and i.itemStatus = com.kbap.domain.food.model.ImageBatchItemStatus.PENDING
+          )
+        order by f.id asc
+        """,
+    )
+    fun findImageCandidates(): List<Food>
+
     @Query(
         """
         select f.id from Food f

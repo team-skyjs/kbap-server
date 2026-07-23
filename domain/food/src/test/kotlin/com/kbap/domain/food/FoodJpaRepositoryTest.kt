@@ -5,6 +5,8 @@ import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodAvoidanceItem
 import com.kbap.domain.food.model.FoodContentStatus
+import com.kbap.domain.food.model.ImageBatch
+import com.kbap.domain.food.model.ImageBatchItem
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -21,6 +23,12 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var foodJpaRepository: FoodJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemRepository: ImageBatchItemJpaRepository
 
     init {
         val targets = LanguageCode.entries.filter { it != LanguageCode.KO }
@@ -112,10 +120,10 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     food.descriptionTranslations = targets
                     food.avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
 
-                    val transitioned = food.transitionToPendingReviewIfComplete()
+                    val transitioned = food.transitionByContentState()
                     foodJpaRepository.save(food)
 
-                    transitioned shouldBe true
+                    transitioned shouldBe FoodContentStatus.PENDING_REVIEW
                     val reloaded = foodJpaRepository.findById(id).get()
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                     reloaded.imageRef shouldBe "s3://img/budae.jpg"
@@ -132,13 +140,73 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     val food = findIncomplete(afterId = null, size = 1).single()
                     food.imageRef = "s3://img/cheonggukjang.jpg"
 
-                    val transitioned = food.transitionToPendingReviewIfComplete()
+                    val transitioned = food.transitionByContentState()
                     foodJpaRepository.save(food)
 
-                    transitioned shouldBe false
+                    transitioned shouldBe FoodContentStatus.INCOMPLETE
                     val reloaded = foodJpaRepository.findById(id).get()
                     reloaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                     reloaded.imageRef shouldBe "s3://img/cheonggukjang.jpg"
+                }
+            }
+        }
+
+        given("findImageCandidates — 이미지 제출 후보(상태 무관, imageRef 부재 + 진행 중 배치 미포함)") {
+            `when`("INCOMPLETE·TEXT_READY 각각 이미지 없는 음식과, 이미지 있는 READY 음식이 섞여 있으면") {
+                then("이미지 없는 음식만 상태와 무관하게 후보로 반환한다") {
+                    clear()
+                    imageBatchItemRepository.deleteAll()
+                    val incompleteId = saveIncomplete("후보-마라탕")
+                    val textReadyId = foodJpaRepository.save(
+                        Food.incomplete("후보-쌀국수").apply { contentStatus = FoodContentStatus.TEXT_READY },
+                    ).id
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "완성-비빔밥",
+                            description = "이미지 보유",
+                            imageRef = "images/food/99.png",
+                            contentStatus = FoodContentStatus.READY,
+                        ),
+                    )
+
+                    val candidates = foodJpaRepository.findImageCandidates()
+
+                    candidates.map { it.id }.sorted() shouldBe listOf(incompleteId, textReadyId).sorted()
+                }
+            }
+
+            `when`("진행 중 배치(PENDING item)에 이미 포함된 음식이 있으면") {
+                then("그 음식은 후보에서 빠진다 — 버튼 연타 중복 제출 가드") {
+                    clear()
+                    imageBatchItemRepository.deleteAll()
+                    imageBatchRepository.deleteAll()
+                    val pendingFoodId = saveIncomplete("진행중-김치찌개")
+                    val freshFoodId = saveIncomplete("미제출-된장찌개")
+                    val batchId = imageBatchRepository.save(
+                        ImageBatch(openaiBatchId = "batch_x", promptVersion = "v1", model = "gpt-image-2"),
+                    ).id
+                    imageBatchItemRepository.save(ImageBatchItem(batchId = batchId, foodId = pendingFoodId))
+
+                    val candidates = foodJpaRepository.findImageCandidates()
+
+                    candidates.map { it.id } shouldBe listOf(freshFoodId)
+                }
+            }
+
+            `when`("이전 배치에서 FAILED 로 마감된 음식이면") {
+                then("PENDING 이 아니므로 다음 제출 후보에 자동 재포함된다") {
+                    clear()
+                    imageBatchItemRepository.deleteAll()
+                    imageBatchRepository.deleteAll()
+                    val failedFoodId = saveIncomplete("실패-갈비탕")
+                    val batchId = imageBatchRepository.save(
+                        ImageBatch(openaiBatchId = "batch_y", promptVersion = "v1", model = "gpt-image-2"),
+                    ).id
+                    imageBatchItemRepository.save(
+                        ImageBatchItem(batchId = batchId, foodId = failedFoodId).apply { fail("expired") },
+                    )
+
+                    foodJpaRepository.findImageCandidates().map { it.id } shouldBe listOf(failedFoodId)
                 }
             }
         }
