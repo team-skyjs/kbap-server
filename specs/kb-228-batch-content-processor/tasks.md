@@ -98,8 +98,8 @@ Gradle 멀티모듈 — 모듈 경로 그대로 사용(`core/`·`domain/food/`·
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 전체 검증: 워크트리 루트에서 `./gradlew build`(ArchUnit 포함) 전체 그린 확인 — 프로세서에 빈 스텁(`generateDescription`·`translateContent`)이 남아 있지 않고 이미지 블록·조립 주석은 유지됨을 함께 확인
-- [ ] T026 문서·PR 정합: PR #90 본문의 "(예정)" 변경 사항 섹션을 실제 구현 내용으로 갱신하고, `specs/kb-228-batch-content-processor/quickstart.md` 수동 시나리오(LLM 키 보유 시)로 로컬 배치 1회 스모크(선택)
+- [X] T025 전체 검증: 워크트리 루트에서 `./gradlew build`(ArchUnit 포함) 전체 그린 확인 — 프로세서에 빈 스텁(`generateDescription`·`translateContent`)이 남아 있지 않고 이미지 블록·조립 주석은 유지됨을 함께 확인
+- [X] T026 문서·PR 정합: PR #90 본문의 "(예정)" 변경 사항 섹션을 실제 구현 내용으로 갱신하고, `specs/kb-228-batch-content-processor/quickstart.md` 수동 시나리오(LLM 키 보유 시)로 로컬 배치 1회 스모크(선택)
 
 ---
 
