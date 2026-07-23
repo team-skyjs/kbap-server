@@ -325,6 +325,26 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     foodRepository.findImageCandidates().map { it.id } shouldBe listOf(food.id)
                 }
             }
+
+            `when`("expired 배치에 부분 완료 결과가 남아 있으면") {
+                then("이미 과금된 완성분은 회수(DONE)하고 미처리분만 FAILED 로 푼다 — 배치 100건 손실 최소화") {
+                    val done = saveTextReady("만료-완성분")
+                    val lost = saveTextReady("만료-미처리분")
+                    val batch = saveSubmittedBatch(done.id, lost.id)
+                    fakeClient.polls[batch.openaiBatchId!!] =
+                        FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.EXPIRED, "file_partial", null)
+                    fakeClient.results["file_partial"] = listOf(okResult(done.id))
+
+                    collectService.collectSubmitted()
+
+                    val itemsByFood = itemRepository.findAll().associateBy { it.foodId }
+                    itemsByFood[done.id]!!.itemStatus shouldBe ImageBatchItemStatus.DONE
+                    foodRepository.findById(done.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    itemsByFood[lost.id]!!.itemStatus shouldBe ImageBatchItemStatus.FAILED
+                    batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.FAILED
+                    foodRepository.findImageCandidates().map { it.id } shouldBe listOf(lost.id)
+                }
+            }
         }
     }
 }

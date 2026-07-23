@@ -61,14 +61,16 @@ class FoodImageBatchCollectService(
         val poll = client.status(openaiBatchId)
         when (poll.state) {
             FoodImageBatchClient.State.IN_PROGRESS -> Unit
-            FoodImageBatchClient.State.COMPLETED -> collectCompleted(batch, poll)
+            // failed/expired 도 부분 완료분은 회수한다(배치 100건 전제 — 이미 과금된 완성 이미지를
+            // 버리고 재제출하면 손실이 배치 크기에 비례). 결과 없는 잔여 PENDING 만 FAILED 로 풀어 재제출 경로로.
+            FoodImageBatchClient.State.COMPLETED -> collectResults(batch, poll, ImageBatchStatus.COLLECTED)
             FoodImageBatchClient.State.FAILED,
             FoodImageBatchClient.State.EXPIRED,
-            -> closeFailed(batch, poll.state)
+            -> collectResults(batch, poll, ImageBatchStatus.FAILED)
         }
     }
 
-    private fun collectCompleted(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll) {
+    private fun collectResults(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll, closeAs: ImageBatchStatus) {
         // PENDING 만 처리 대상 — 이미 DONE 인 항목은 건너뛴다(중단 후 재회수 멱등).
         val pendingByFoodId = itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
             .associateBy { it.foodId }
@@ -80,12 +82,12 @@ class FoodImageBatchCollectService(
                 handleResult(item, result)
             }
         }
-        // 결과 줄이 없던 항목은 실패분(error file) — 상세 대신 일괄 실패 마감해 배치를 닫는다(재제출 경로로 복구).
+        // 결과 줄이 없던 항목(error file 실패분·만료 미처리분)은 FAILED 마감 — 다음 제출에 자동 재포함.
         pendingByFoodId.values.forEach { item ->
-            saveItem(item) { it.fail("배치 결과 누락(errorFileId=${poll.errorFileId})") }
+            saveItem(item) { it.fail("배치 ${poll.state} — 결과 없음(errorFileId=${poll.errorFileId})") }
         }
         itemTransaction.executeWithoutResult {
-            batchRepository.save(batch.apply { close(ImageBatchStatus.COLLECTED) })
+            batchRepository.save(batch.apply { close(closeAs) })
         }
     }
 

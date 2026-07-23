@@ -53,23 +53,23 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
         afterSpec { clearAll() }
 
         given("이미지 일괄 제출 — 분할·메타 기록") {
-            `when`("이미지 없는 음식 25건을 제출하면") {
-                then("10건 단위 3배치로 분할 제출되고 SUBMITTED/PENDING 메타가 기록된다") {
-                    val foods = (1..25).map { foodRepository.save(Food.incomplete("제출음식$it")) }
+            `when`("이미지 없는 음식 105건을 제출하면") {
+                then("100건 단위 2배치로 분할 제출되고 SUBMITTED/PENDING 메타가 기록된다") {
+                    val foods = foodRepository.saveAll((1..105).map { Food.incomplete("제출음식$it") })
 
                     val result = submitService.submitMissingImages()
 
-                    result.submittedBatchCount shouldBe 3
-                    result.submittedFoodCount shouldBe 25
-                    fakeClient.submitted.map { it.size } shouldContainExactly listOf(10, 10, 5)
+                    result.submittedBatchCount shouldBe 2
+                    result.submittedFoodCount shouldBe 105
+                    fakeClient.submitted.map { it.size } shouldContainExactly listOf(100, 5)
 
                     val batches = batchRepository.findAll()
-                    batches.size shouldBe 3
+                    batches.size shouldBe 2
                     batches.all { it.batchStatus == ImageBatchStatus.SUBMITTED } shouldBe true
                     batches.all { it.promptVersion.isNotBlank() && it.model.isNotBlank() } shouldBe true
 
                     val items = itemRepository.findAll()
-                    items.size shouldBe 25
+                    items.size shouldBe 105
                     items.all { it.itemStatus == ImageBatchItemStatus.PENDING } shouldBe true
                     items.map { it.foodId }.sorted() shouldBe foods.map { it.id }.sorted()
                 }
