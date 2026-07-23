@@ -13,13 +13,14 @@ data class LlmModelProperties(
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
 ) {
-    // 음식 사진 생성 전용
+    // 음식 사진 생성 전용(KB-226: Batch API 일괄 제출·회수)
     data class ImageProps(
         val enabled: Boolean = false,
         val apiKey: String? = null,
         val baseUrl: String? = null,
         val model: String? = null,
         val size: String? = null,
+        val quality: String? = null,
     )
 
     // 메뉴판 사진 스캔 전용

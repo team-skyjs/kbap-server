@@ -85,9 +85,27 @@ kbap:
       image-base-url: ${CDN_BASE_URL:}
       temperature: 0.0
       max-retries: 0
+    # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 1시간 폴링 회수. 빈 조립은 무조건이고
+    # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
+    # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.
+    image:
+      api-key: ${OPENAI_API_KEY:}
+      model: gpt-image-2
+      size: 1024x1024
+      quality: medium
+      pricing:
+        input-usd-per-million-tokens: 2.5
+        output-usd-per-million-tokens: 20.0
     # 모델 1회 호출 타임아웃. OpenAI 호환 클라이언트(okhttp)의 요청 타임아웃으로 실린다.
     # 스캔 정제는 사용자 요청 경로라 초과 시 폴백(degraded=true)으로 흘린다.
     call-timeout: 5s
+  # 이미지 배치 운영 파라미터(KB-226). 배치당 10건 — 부분 회수가 빠르고 소량 신메뉴 운영에 자연스럽다.
+  # prompt 의 %s 자리에 koreanName 이 들어간다. prompt-version 은 제출 배치에 기록(재생성 트리거는 후속).
+  food-image:
+    batch-size: 10
+    prompt: 한국 음식 "%s" 의 먹음직스러운 대표 사진. 밝은 조명, 깔끔한 배경, 사실적인 음식 사진.
+    prompt-version: v1
+    collect-interval: PT1H
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).

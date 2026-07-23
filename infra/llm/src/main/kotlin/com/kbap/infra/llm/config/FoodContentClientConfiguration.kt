@@ -2,18 +2,14 @@ package com.kbap.infra.llm.config
 
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
 import com.kbap.core.food.FoodDescriptionClient
-import com.kbap.core.food.FoodImageGenerationClient
+import com.kbap.core.food.FoodImageBatchClient
 import com.kbap.core.food.FoodNameTranslationClient
-import com.kbap.core.storage.StorageObjectStore
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
-import com.kbap.infra.llm.food.OpenAiFoodImageGenerationClient
+import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.infra.llm.food.SpringAiFoodAvoidanceAssessmentClient
 import com.kbap.infra.llm.food.SpringAiFoodDescriptionClient
 import com.kbap.infra.llm.food.SpringAiFoodNameTranslationClient
-import org.springframework.ai.image.ImageModel
-import org.springframework.ai.openai.OpenAiImageModel
-import org.springframework.ai.openai.OpenAiImageOptions
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -41,22 +37,8 @@ class FoodContentClientConfiguration {
         @Value("\${kbap.llm.avoidance.min-agreement:2}") minAgreement: Int,
     ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, minAgreement)
 
-    // 이미지 생성은 텍스트 3작업 실운영 검증 후 개방 — 주석 해제 시 그대로 동작한다.
-    // @Bean
-    // @ConditionalOnProperty(prefix = "kbap.llm.image", name = ["enabled"], havingValue = "true")
-    // fun foodImageGenerationClient(
-    //     properties: LlmModelProperties,
-    //     storageObjectStore: StorageObjectStore,
-    // ): FoodImageGenerationClient =
-    //     OpenAiFoodImageGenerationClient(imageModel(properties.image), storageObjectStore)
-    //
-    // private fun imageModel(props: LlmModelProperties.ImageProps): ImageModel {
-    //     val builder = OpenAiImageOptions.builder()
-    //     builder.responseFormat("b64_json")
-    //     props.apiKey?.let { builder.apiKey(it) }
-    //     props.baseUrl?.let { builder.baseUrl(it) }
-    //     props.model?.let { builder.model(it) }
-    //     props.size?.let { builder.size(it) }
-    //     return OpenAiImageModel.builder().options(builder.build()).build()
-    // }
+    // 이미지 배치 seam(KB-226) — 빈 조립은 무조건, API 키 검증은 첫 호출 시점(관리자 제출·회수는 키 없이는 실패).
+    @Bean
+    fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
+        OpenAiFoodImageBatchClient(properties.image)
 }
