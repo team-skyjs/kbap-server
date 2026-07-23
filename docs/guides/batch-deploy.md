@@ -10,8 +10,9 @@
 |---|---|---|
 | `deploy-batch-prod.yml` | main push · 수동 | prod 배치 이미지 빌드(`Dockerfile.batch`)·푸시 + 태스크정의 리비전 갱신 |
 | `deploy-batch-dev.yml` | develop push(배치 경로 변경 시) · 수동 | dev 배치 이미지 푸시 + `batch-latest` 태그 이동 |
-| `run-batch.yml` | 수동(환경 선택) | prod: ECS run-task / dev: SSM 으로 dev EC2 에서 `docker run --rm` (둘 다 fire-and-forget) |
+| `run-batch.yml` | 수동(환경 선택) | prod: ECS run-task / dev: SSM 으로 `/opt/kbap/run-batch.sh` 호출 (둘 다 fire-and-forget) |
 | EventBridge Scheduler | 매시 17분 (인프라 소유) | prod 시간별 자동 실행 |
+| dev EC2 crontab | 매시 17분 (인프라 소유) | dev 시간별 자동 실행 — 데이터 적재 + 상시 동작 검증, `/opt/kbap/run-batch.sh` 호출 |
 
 - 빌드와 실행이 분리되어 있다: 이미지는 코드가 바뀔 때만 굽고, 실행은 준비된 이미지를
   기동만 한다. GitHub Actions 러너가 배치 종료를 관찰하지 않는다(비용 0 유지).
@@ -24,10 +25,11 @@
   사고가 나면 배치 부팅 시 `JobExplorer.findRunningJobExecutions("foodContentJob")` 로
   실행 중이면 종료하는 가드를 추가한다.
 
-## 최초 1회: dev EC2 env 파일 (인프라 소유)
+## 최초 1회: dev EC2 구성 (인프라 소유)
 
-dev 는 태스크정의가 없다. dev EC2 에 `/opt/kbap/kbap-batch.env` 를 만들어 두면 된다
-(api 의 `/opt/kbap/<container>.env` 와 같은 방식):
+dev 는 태스크정의가 없다. dev EC2 에 파일 두 개를 만들어 두면 된다.
+
+**1) `/opt/kbap/kbap-batch.env`** — api 의 `/opt/kbap/<container>.env` 와 같은 방식:
 
 ```
 SPRING_PROFILES_ACTIVE=dev
@@ -38,6 +40,32 @@ DB_USERNAME=...
 DB_PASSWORD=...
 OPENAI_API_KEY=...
 ```
+
+**2) `/opt/kbap/run-batch.sh`** — 실행 스크립트 단일 소스. crontab(시간별)과
+`run-batch.yml`(수동, SSM 경유)이 모두 이 스크립트를 호출한다:
+
+```bash
+#!/bin/bash
+set -e
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH
+REGISTRY="<account>.dkr.ecr.<region>.amazonaws.com"
+IMAGE="$REGISTRY/<repo>:batch-latest"
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin "$REGISTRY"
+docker pull "$IMAGE"
+# 일회성 실행 — 잡 종료 시 컨테이너 자동 제거(--rm), 포트 점유 없음.
+# 이름 고정이라 이전 실행이 아직 돌고 있으면 여기서 실패한다(의도된 자연 직렬화).
+docker run -d --rm --name kbap-batch --env-file /opt/kbap/kbap-batch.env "$IMAGE"
+echo "started kbap-batch ($IMAGE)"
+```
+
+**3) crontab 등록** — dev 음식 데이터 적재 + 상시 동작 검증용 시간별 실행:
+
+```
+17 * * * * /opt/kbap/run-batch.sh >> /var/log/kbap-batch-cron.log 2>&1
+```
+
+dev EC2 인스턴스 롤에 ECR pull 권한(`ecr:GetAuthorizationToken` 등)이 있어야 한다
+(api 컨테이너 배포에 이미 쓰고 있으면 추가 없음).
 
 ## 최초 1회: prod 태스크정의 등록 (인프라 소유)
 

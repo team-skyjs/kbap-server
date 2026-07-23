@@ -54,30 +54,17 @@ jobs:
           echo "started: $TASK_ARN"
           echo "결과 확인: ECS 콘솔 또는 CloudWatch 로그 그룹(/ecs/$FAMILY)"
 
-      - name: Login to ECR
-        if: inputs.environment == 'dev'
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Run container on EC2 via SSM (dev)
         if: inputs.environment == 'dev'
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          REPO: ${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}
-          REGION: ${{ vars.AWS_REGION }}
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
-          IMAGE="$REGISTRY/$REPO:batch-latest"
+          # 실행 로직은 dev EC2 의 /opt/kbap/run-batch.sh 한 곳에 둔다 — crontab(시간별)과
+          # 이 수동 트리거가 같은 스크립트를 호출한다(docs/guides/batch-deploy.md).
           read -r -d '' REMOTE <<EOF || true
           set -e
-          # SSM Run Command 는 최소 PATH 로 실행돼 /usr/local/bin 이 빠질 수 있다(aws CLI v2 위치).
           export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:\$PATH
-          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
-          docker pull $IMAGE
-          # 일회성 실행 — 잡 종료 시 컨테이너 자동 제거(--rm), 서버 포트 점유 없음.
-          # 이름 고정이라 이전 실행이 아직 돌고 있으면 여기서 실패한다(의도된 자연 직렬화).
-          docker run -d --rm --name kbap-batch --env-file /opt/kbap/kbap-batch.env $IMAGE
-          echo "started kbap-batch ($IMAGE)"
+          bash /opt/kbap/run-batch.sh
           EOF
           PARAMS=$(printf '%s' "$REMOTE" | jq -Rs '{commands: [.]}')
           CMD_ID=$(aws ssm send-command \
