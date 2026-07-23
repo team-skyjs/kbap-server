@@ -124,7 +124,7 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
                 )
 
                 food.needsNameTranslations() shouldBe true
-                food.transitionToReadyIfComplete() shouldBe false
+                food.transitionToPendingReviewIfComplete() shouldBe false
             }
         }
 
@@ -135,7 +135,7 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
                 )
 
                 food.needsDescriptionTranslations() shouldBe true
-                food.transitionToReadyIfComplete() shouldBe false
+                food.transitionToPendingReviewIfComplete() shouldBe false
             }
         }
     }
