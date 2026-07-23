@@ -59,7 +59,7 @@ jobs:
         env:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
-          # 실행 로직은 dev EC2 의 /opt/kbap/run-batch.sh 한 곳에 둔다 — crontab(시간별)과
+          # 실행 로직은 dev EC2 의 /opt/kbap/run-batch.sh 한 곳에 둔다 — EventBridge Scheduler(시간별)와
           # 이 수동 트리거가 같은 스크립트를 호출한다(docs/guides/batch-deploy.md).
           read -r -d '' REMOTE <<EOF || true
           set -e
