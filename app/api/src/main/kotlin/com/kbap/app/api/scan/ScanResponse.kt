@@ -58,7 +58,7 @@ data class ScanResponse(
         val name: String?,
 
         @field:Schema(
-            description = "언어와 무관한 한국어 메뉴명. 매칭되면 음식의 표준명, 미매칭이면 사진에서 인식한 한국어명",
+            description = "언어와 무관한 한국어 메뉴명. 매칭되면 저장된 음식의 표준 한국어명, 미매칭이면 비전이 정제한 표준 한국어명",
             example = "김치찌개",
             nullable = true,
         )
