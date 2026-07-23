@@ -30,12 +30,12 @@ class ScanService internal constructor(
 
     // 의도적 무트랜잭션 — 비전 인식(외부 호출)을 트랜잭션 밖에 두고(헌법: 외부 호출 tx 밖),
     // 매칭·이력 저장·스캔 카운트는 각 도메인 서비스·리포지토리의 트랜잭션에 위임한다.
-    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>): ScanResult {
+    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult {
     // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
     // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
 
-        // 비전 호출(비용) 전에 회원 존재를 확정하고 응답 언어를 잡는다
-        val lang = memberService.getMember(memberId).profile.appLanguage ?: LanguageCode.KO
+        // 비전 호출(비용) 전에 회원 존재를 확정한다
+        memberService.getMember(memberId)
 
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
