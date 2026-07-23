@@ -44,7 +44,7 @@ class FoodContentBatchConfig {
     fun foodContentWriter(foodRepository: FoodJpaRepository): ItemWriter<Food> =
         ItemWriter { chunk ->
             chunk.items.forEach {
-                it.transitionToReadyIfComplete()
+                it.transitionToPendingReviewIfComplete()
                 foodRepository.save(it)
             }
         }
