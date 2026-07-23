@@ -11,6 +11,7 @@ import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 // 이미지 배치 메타(KB-226) — 배치 상태의 원천은 OpenAI 가 아니라 이 테이블이다.
+// claim-first: SUBMITTING(외부 제출 전 선점) → SUBMITTED(openaiBatchId 확보) → COLLECTED/FAILED.
 @Entity
 @Table(
     name = "image_batch",
@@ -18,12 +19,12 @@ import java.time.LocalDateTime
     indexes = [Index(name = "idx_image_batch_status", columnList = "batch_status")],
 )
 class ImageBatch(
-    @Column(name = "openai_batch_id", nullable = false, length = 100)
-    var openaiBatchId: String = "",
+    @Column(name = "openai_batch_id", length = 100)
+    var openaiBatchId: String? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "batch_status", nullable = false, columnDefinition = "ENUM('SUBMITTED','COLLECTED','FAILED')")
-    var batchStatus: ImageBatchStatus = ImageBatchStatus.SUBMITTED,
+    @Column(name = "batch_status", nullable = false, columnDefinition = "ENUM('SUBMITTING','SUBMITTED','COLLECTED','FAILED')")
+    var batchStatus: ImageBatchStatus = ImageBatchStatus.SUBMITTING,
 
     @Column(name = "prompt_version", nullable = false, length = 20)
     var promptVersion: String = "",
@@ -37,8 +38,16 @@ class ImageBatch(
     @Column(name = "collected_at")
     var collectedAt: LocalDateTime? = null,
 ) : BaseEntity() {
+    fun markSubmitted(openaiBatchId: String) {
+        require(openaiBatchId.isNotBlank()) { "openaiBatchId 는 blank 일 수 없습니다" }
+        this.openaiBatchId = openaiBatchId
+        this.batchStatus = ImageBatchStatus.SUBMITTED
+    }
+
     fun close(status: ImageBatchStatus) {
-        require(status != ImageBatchStatus.SUBMITTED) { "SUBMITTED 로는 마감할 수 없습니다" }
+        require(status == ImageBatchStatus.COLLECTED || status == ImageBatchStatus.FAILED) {
+            "마감 상태는 COLLECTED/FAILED 만 가능합니다: $status"
+        }
         this.batchStatus = status
         this.collectedAt = LocalDateTime.now()
     }

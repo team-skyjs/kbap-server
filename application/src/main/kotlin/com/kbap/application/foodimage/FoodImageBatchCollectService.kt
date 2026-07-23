@@ -17,6 +17,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.LocalDateTime
 
 // 회수(KB-226): SUBMITTED 배치 폴링 → 완료분 스트리밍 파싱 → 스토리지 저장 → imageRef 갱신 + 수렴 전이 → 마감.
 // seam 3분할(상태 조회 / 바이트 이동 / DB 전이) — 부하 실측 후 바이트 이동만 워커로 들어낼 수 있는 구조.
@@ -36,14 +37,28 @@ class FoodImageBatchCollectService(
     private val itemTransaction = TransactionTemplate(transactionManager)
 
     fun collectSubmitted() {
+        recoverStaleSubmitting()
         batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTED).forEach { batch ->
             runCatching { collect(batch) }
                 .onFailure { log.error("이미지 배치 회수 실패 — 다음 틱에 재시도 batchId={}", batch.id, it) }
         }
     }
 
+    // claim-first 복구: 제출 도중 중단돼 SUBMITTING 에 머문 배치는 리스(1h) 경과 후 FAILED 로 마감 —
+    // 항목이 FAILED 로 풀리며 음식이 다음 제출 후보로 자동 복귀한다.
+    private fun recoverStaleSubmitting() {
+        val lease = LocalDateTime.now().minusHours(STALE_SUBMITTING_HOURS)
+        batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTING)
+            .filter { it.submittedAt.isBefore(lease) }
+            .forEach { batch ->
+                log.warn("SUBMITTING 잔류 배치 복구 — FAILED 마감 batchId={}", batch.id)
+                closeFailed(batch, FoodImageBatchClient.State.FAILED)
+            }
+    }
+
     private fun collect(batch: ImageBatch) {
-        val poll = client.status(batch.openaiBatchId)
+        val openaiBatchId = batch.openaiBatchId ?: return
+        val poll = client.status(openaiBatchId)
         when (poll.state) {
             FoodImageBatchClient.State.IN_PROGRESS -> Unit
             FoodImageBatchClient.State.COMPLETED -> collectCompleted(batch, poll)
@@ -80,19 +95,24 @@ class FoodImageBatchCollectService(
             saveItem(item) { it.fail(result.errorMessage ?: "이미지 데이터 없음") }
             return
         }
-        val food = foodRepository.findById(item.foodId).orElse(null)
-        if (food == null) {
-            saveItem(item) { it.fail("음식이 삭제되어 건너뜀") }
-            return
-        }
         val key = storageKeyOf(item.foodId)
         storageObjectStore.put(key, bytes, "image/png")
+        var attached = false
         itemTransaction.executeWithoutResult {
-            food.attachImage(key)
-            foodRepository.save(food)
-            itemRepository.save(item.apply { done(key) })
+            // 콘텐츠 배치가 같은 행을 병행 갱신할 수 있다 — 트랜잭션 안에서 최신 상태를 재조회해
+            // stale merge 를 없애고, 남은 경합은 Food @Version 낙관적 락이 검출한다(runCatching → 다음 틱 재시도).
+            val food = foodRepository.findById(item.foodId).orElse(null)
+            if (food == null) {
+                item.fail("음식이 삭제되어 건너뜀")
+            } else {
+                food.attachImage(key)
+                foodRepository.save(food)
+                item.done(key)
+                attached = true
+            }
+            itemRepository.save(item)
         }
-        result.usage?.let { publishCost(it) }
+        if (attached) result.usage?.let { publishCost(it) }
     }
 
     private fun closeFailed(batch: ImageBatch, state: FoodImageBatchClient.State) {
@@ -133,5 +153,8 @@ class FoodImageBatchCollectService(
     companion object {
         // 결정적 키 — 재회수·재생성이 put 덮어쓰기로 자연 멱등. 음식 사진은 환경 공용이라 무접두(KB-171).
         fun storageKeyOf(foodId: Long): String = "images/food/$foodId.png"
+
+        // 제출(claim → OpenAI 호출 → markSubmitted)은 수 초면 끝난다 — 1시간이면 확실한 잔류.
+        const val STALE_SUBMITTING_HOURS: Long = 1
     }
 }

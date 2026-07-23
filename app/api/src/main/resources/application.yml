@@ -105,7 +105,8 @@ kbap:
     batch-size: 10
     prompt: 한국 음식 "%s" 의 먹음직스러운 대표 사진. 밝은 조명, 깔끔한 배경, 사실적인 음식 사진.
     prompt-version: v1
-    collect-interval: PT1H
+    # 정시 cron — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(시간당 정확히 1회).
+    collect-cron: 0 0 * * * *
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).

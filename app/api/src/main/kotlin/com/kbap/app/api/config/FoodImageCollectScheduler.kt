@@ -18,11 +18,9 @@ class FoodImageCollectScheduler(
 ) {
     private val lockingExecutor = DefaultLockingTaskExecutor(lockProvider)
 
-    // initialDelay = 주기와 동일 — 부팅 직후 즉시 실행하지 않는다(틱을 놓쳐도 다음 틱이 회수, 멱등).
-    @Scheduled(
-        fixedDelayString = "\${kbap.food-image.collect-interval:PT1H}",
-        initialDelayString = "\${kbap.food-image.collect-interval:PT1H}",
-    )
+    // cron 정시 — 두 인스턴스가 같은 순간 깨어나 ShedLock 이 1대를 고르므로 "시간당 1회"가 성립한다.
+    // (인스턴스별 fixedDelay 는 부팅 시각 오프셋만큼 서로 다른 시각에 깨어나 시간당 2회 폴링이 된다.)
+    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 * * * *}")
     fun collect() {
         lockingExecutor.executeWithLock(
             Runnable { collectService.collectSubmitted() },

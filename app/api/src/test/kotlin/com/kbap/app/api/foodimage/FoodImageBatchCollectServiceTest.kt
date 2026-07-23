@@ -78,7 +78,12 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
         fun saveSubmittedBatch(vararg foodIds: Long): ImageBatch {
             val batch = batchRepository.save(
-                ImageBatch(openaiBatchId = "batch_test_${System.nanoTime()}", promptVersion = "v1", model = "gpt-image-2"),
+                ImageBatch(
+                    openaiBatchId = "batch_test_${System.nanoTime()}",
+                    batchStatus = ImageBatchStatus.SUBMITTED,
+                    promptVersion = "v1",
+                    model = "gpt-image-2",
+                ),
             )
             foodIds.forEach { itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = it)) }
             return batch
@@ -103,7 +108,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("스토리지 저장 → imageRef 갱신 → PENDING_REVIEW 전이 → item DONE → 배치 COLLECTED") {
                     val food = saveTextReady("갈비찜")
                     val batch = saveSubmittedBatch(food.id)
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_1")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_1")
                     fakeClient.results["file_1"] = listOf(okResult(food.id))
 
                     collectService.collectSubmitted()
@@ -125,7 +130,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("imageRef 만 저장하고 INCOMPLETE 를 유지한다") {
                     val food = foodRepository.save(Food.incomplete("이미지선도착"))
                     val batch = saveSubmittedBatch(food.id)
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_2")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_2")
                     fakeClient.results["file_2"] = listOf(okResult(food.id))
 
                     collectService.collectSubmitted()
@@ -141,7 +146,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val food1 = saveTextReady("비용음식1")
                     val food2 = saveTextReady("비용음식2")
                     val batch = saveSubmittedBatch(food1.id, food2.id)
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_3")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_3")
                     fakeClient.results["file_3"] = listOf(okResult(food1.id), okResult(food2.id))
 
                     collectService.collectSubmitted()
@@ -156,7 +161,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val ok = saveTextReady("성공음식")
                     val bad = saveTextReady("실패음식")
                     val batch = saveSubmittedBatch(ok.id, bad.id)
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_4")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_4")
                     fakeClient.results["file_4"] = listOf(
                         okResult(ok.id),
                         FoodImageBatchClient.Result(bad.id.toString(), null, "content policy violation", null),
@@ -177,7 +182,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("FAILED 로 마감해 배치를 닫는다 — 다음 제출에 자동 재포함") {
                     val missing = saveTextReady("누락음식")
                     val batch = saveSubmittedBatch(missing.id)
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_5")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_5")
                     fakeClient.results["file_5"] = emptyList()
 
                     collectService.collectSubmitted()
@@ -192,7 +197,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val food = saveTextReady("삭제음식")
                     val batch = saveSubmittedBatch(food.id)
                     foodRepository.save(food.apply { delete() })
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_6")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_6")
                     fakeClient.results["file_6"] = listOf(okResult(food.id))
 
                     collectService.collectSubmitted()
@@ -201,6 +206,57 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     item.itemStatus shouldBe ImageBatchItemStatus.FAILED
                     item.errorMsg shouldContain "삭제"
                     batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.COLLECTED
+                }
+            }
+        }
+
+        given("회수 — 결과 파일 다운로드 실패(HTTP 오류)") {
+            `when`("결과 스트리밍이 예외를 던지면") {
+                then("배치는 SUBMITTED 로 보존되고 항목은 PENDING 그대로 — 다음 틱에 재시도") {
+                    val food = saveTextReady("다운로드실패음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_broken")
+                    fakeClient.failingFiles.add("file_broken")
+
+                    collectService.collectSubmitted()
+
+                    batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.SUBMITTED
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.PENDING
+                }
+            }
+        }
+
+        given("회수 — SUBMITTING 잔류 복구(claim-first)") {
+            `when`("제출 도중 중단돼 1시간 넘게 SUBMITTING 에 머문 배치가 있으면") {
+                then("FAILED 로 마감하고 음식을 다음 제출 후보로 되돌린다") {
+                    val food = saveTextReady("잔류음식")
+                    val stale = batchRepository.save(
+                        ImageBatch(
+                            promptVersion = "v1",
+                            model = "gpt-image-2",
+                            submittedAt = java.time.LocalDateTime.now().minusHours(2),
+                        ),
+                    )
+                    itemRepository.save(ImageBatchItem(batchId = stale.id, foodId = food.id))
+
+                    collectService.collectSubmitted()
+
+                    batchRepository.findById(stale.id).get().batchStatus shouldBe ImageBatchStatus.FAILED
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
+                    foodRepository.findImageCandidates().map { it.id } shouldBe listOf(food.id)
+                }
+            }
+
+            `when`("아직 리스(1시간) 안인 SUBMITTING 배치는") {
+                then("건드리지 않는다 — 제출이 진행 중일 수 있다") {
+                    val food = saveTextReady("제출중음식")
+                    val fresh = batchRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    itemRepository.save(ImageBatchItem(batchId = fresh.id, foodId = food.id))
+
+                    collectService.collectSubmitted()
+
+                    batchRepository.findById(fresh.id).get().batchStatus shouldBe ImageBatchStatus.SUBMITTING
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.PENDING
                 }
             }
         }
@@ -229,7 +285,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val batch = saveSubmittedBatch(done.id, pending.id)
                     itemRepository.findAll().first { it.foodId == done.id }
                         .also { itemRepository.save(it.apply { done("images/food/${done.id}.png") }) }
-                    fakeClient.polls[batch.openaiBatchId] = completed("file_7")
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_7")
                     fakeClient.results["file_7"] = listOf(okResult(done.id), okResult(pending.id))
 
                     collectService.collectSubmitted()
@@ -246,7 +302,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("PENDING 전 항목 FAILED + 배치 FAILED 로 마감된다") {
                     val food = saveTextReady("배치실패음식")
                     val batch = saveSubmittedBatch(food.id)
-                    fakeClient.polls[batch.openaiBatchId] =
+                    fakeClient.polls[batch.openaiBatchId!!] =
                         FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
 
                     collectService.collectSubmitted()
@@ -260,7 +316,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("실패 음식이 자동 재포함된다 — 별도 재제출 로직 없음") {
                     val food = saveTextReady("만료음식")
                     val batch = saveSubmittedBatch(food.id)
-                    fakeClient.polls[batch.openaiBatchId] =
+                    fakeClient.polls[batch.openaiBatchId!!] =
                         FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.EXPIRED, null, null)
 
                     collectService.collectSubmitted()

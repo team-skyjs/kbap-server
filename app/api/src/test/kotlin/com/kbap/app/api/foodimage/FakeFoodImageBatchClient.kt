@@ -13,9 +13,12 @@ class FakeFoodImageBatchClient : FoodImageBatchClient {
     val submitted: MutableList<List<FoodImageBatchClient.Entry>> = mutableListOf()
     val polls: MutableMap<String, FoodImageBatchClient.BatchPoll> = mutableMapOf()
     val results: MutableMap<String, List<FoodImageBatchClient.Result>> = mutableMapOf()
+    val failingFiles: MutableSet<String> = mutableSetOf()
+    var submitFailure: RuntimeException? = null
     private var sequence = 0
 
     override fun submit(entries: List<FoodImageBatchClient.Entry>): String {
+        submitFailure?.let { throw it }
         submitted.add(entries)
         return "batch_${++sequence}"
     }
@@ -25,6 +28,7 @@ class FakeFoodImageBatchClient : FoodImageBatchClient {
             ?: FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.IN_PROGRESS, null, null)
 
     override fun streamResults(fileId: String, onItem: (FoodImageBatchClient.Result) -> Unit) {
+        check(fileId !in failingFiles) { "결과 파일 다운로드 실패: HTTP 500 fileId=$fileId" }
         results[fileId].orEmpty().forEach(onItem)
     }
 
@@ -32,6 +36,8 @@ class FakeFoodImageBatchClient : FoodImageBatchClient {
         submitted.clear()
         polls.clear()
         results.clear()
+        failingFiles.clear()
+        submitFailure = null
     }
 }
 

@@ -211,6 +211,27 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
+        given("낙관적 락(@Version) — 배치·회수 병행 갱신의 lost update 검출") {
+            `when`("같은 음식을 두 번 조회해 각각 수정 후 순서대로 저장하면") {
+                then("먼저 저장한 쪽만 성공하고 뒤(구버전)는 버전 충돌로 거부된다") {
+                    clear()
+                    val id = saveIncomplete("버전충돌-김치찜")
+                    val copy1 = foodJpaRepository.findById(id).get()
+                    val copy2 = foodJpaRepository.findById(id).get()
+
+                    copy1.imageRef = "images/food/$id.png"
+                    foodJpaRepository.saveAndFlush(copy1)
+
+                    copy2.description = "구버전 스냅샷의 설명"
+                    val stale = runCatching { foodJpaRepository.saveAndFlush(copy2) }
+
+                    stale.isFailure shouldBe true
+                    val reloaded = foodJpaRepository.findById(id).get()
+                    reloaded.imageRef shouldBe "images/food/$id.png"
+                }
+            }
+        }
+
         given("사용자 노출 조회 — READY 만 노출, PENDING_REVIEW 비노출") {
             `when`("READY 와 PENDING_REVIEW 가 섞여 있고 목록 페이지를 조회하면") {
                 then("READY 음식 id 만 반환한다") {

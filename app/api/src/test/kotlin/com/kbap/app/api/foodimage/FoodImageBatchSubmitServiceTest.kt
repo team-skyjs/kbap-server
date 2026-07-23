@@ -7,12 +7,15 @@ import com.kbap.domain.food.ImageBatchItemJpaRepository
 import com.kbap.domain.food.ImageBatchJpaRepository
 import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodContentStatus
+import com.kbap.domain.food.model.ImageBatch
+import com.kbap.domain.food.model.ImageBatchItem
 import com.kbap.domain.food.model.ImageBatchItemStatus
 import com.kbap.domain.food.model.ImageBatchStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -92,6 +95,49 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
                     result.submittedFoodCount shouldBe 0
                     fakeClient.submitted.size shouldBe 0
                     batchRepository.count() shouldBe 0
+                }
+            }
+        }
+
+        given("이미지 일괄 제출 — claim-first 실패 복구") {
+            `when`("OpenAI 제출이 실패하면") {
+                then("선점(SUBMITTING·PENDING)을 FAILED 로 즉시 해제해 음식이 다음 제출 후보로 돌아온다") {
+                    val food = foodRepository.save(Food.incomplete("제출실패음식"))
+                    fakeClient.submitFailure = RuntimeException("openai down")
+
+                    runCatching { submitService.submitMissingImages() }.isFailure shouldBe true
+
+                    batchRepository.findAll().single().batchStatus shouldBe ImageBatchStatus.FAILED
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
+                    fakeClient.submitFailure = null
+                    foodRepository.findImageCandidates().map { it.id } shouldBe listOf(food.id)
+                }
+            }
+
+            `when`("제출이 성공하면") {
+                then("배치는 openai_batch_id 를 얻고 SUBMITTED 로 확정된다") {
+                    foodRepository.save(Food.incomplete("확정음식"))
+
+                    submitService.submitMissingImages()
+
+                    val batch = batchRepository.findAll().single()
+                    batch.batchStatus shouldBe ImageBatchStatus.SUBMITTED
+                    batch.openaiBatchId!! shouldContain "batch_"
+                }
+            }
+        }
+
+        given("이미지 일괄 제출 — 음식당 진행 중 작업 1개(DB UNIQUE)") {
+            `when`("같은 음식의 PENDING 항목을 두 번 저장하려 하면(동시 제출 경합 시뮬레이션)") {
+                then("pending_food_id 생성열 UNIQUE 가 두 번째 저장을 거부한다") {
+                    val food = foodRepository.save(Food.incomplete("경합음식"))
+                    val batch1 = batchRepository.save(ImageBatch(promptVersion = "v1", model = "m"))
+                    val batch2 = batchRepository.save(ImageBatch(promptVersion = "v1", model = "m"))
+                    itemRepository.saveAndFlush(ImageBatchItem(batchId = batch1.id, foodId = food.id))
+
+                    runCatching {
+                        itemRepository.saveAndFlush(ImageBatchItem(batchId = batch2.id, foodId = food.id))
+                    }.exceptionOrNull() shouldNotBe null
                 }
             }
         }
