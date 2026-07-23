@@ -2,6 +2,7 @@ package com.kbap.app.batch.content
 
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
 import com.kbap.core.food.FoodDescriptionClient
+import com.kbap.core.food.FoodNameTranslationClient
 import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
 import com.kbap.domain.food.model.FoodAvoidanceItem
@@ -15,6 +16,7 @@ class FoodContentItemProcessor(
     transactionManager: PlatformTransactionManager,
     private val avoidanceClient: FoodAvoidanceAssessmentClient,
     private val descriptionClient: FoodDescriptionClient? = null,
+    private val nameTranslationClient: FoodNameTranslationClient? = null,
     private val candidateCodes: () -> Set<String>,
 ) : ItemProcessor<Food, Food> {
     // REQUIRES_NEW — 작업별 독립 커밋. 각 작업 결과를 즉시 커밋해 뒤 작업이 실패해도 유지된다(재실행 시 실패 작업만 재시도).
@@ -27,12 +29,12 @@ class FoodContentItemProcessor(
             generateImage(item)
             saveProgress(item)
         }
-        if (item.needsDescription() || item.needsDescriptionTranslations()) {
-            generateDescription(item)
+        if (item.needsNameTranslations()) {
+            translateName(item)
             saveProgress(item)
         }
-        if (item.needsNameTranslations()) {
-            translateContent(item)
+        if (item.needsDescription() || item.needsDescriptionTranslations()) {
+            generateDescription(item)
             saveProgress(item)
         }
         if (item.needsAvoidanceAssessment()) {
@@ -57,7 +59,11 @@ class FoodContentItemProcessor(
         food.updateDescription(content.description, content.translations.byCode())
     }
 
-    private fun translateContent(food: Food) {
+    private fun translateName(food: Food) {
+        val client = checkNotNull(nameTranslationClient) {
+            "이름 번역 클라이언트가 구성되지 않았습니다: foodId=${food.id}"
+        }
+        food.updateNameTranslations(client.call(food.koreanName).byCode())
     }
 
     private fun mapAvoidance(food: Food) {

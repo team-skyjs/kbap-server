@@ -63,6 +63,10 @@ class Food(
     fun needsAvoidanceAssessment(): Boolean =
         avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
 
+    fun updateNameTranslations(translations: Map<String, String>) {
+        this.nameTranslations = translations
+    }
+
     fun updateDescription(description: String, translations: Map<String, String>) {
         this.description = description
         this.descriptionTranslations = translations

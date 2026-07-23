@@ -86,11 +86,11 @@ Gradle 멀티모듈 — 모듈 경로 그대로 사용(`core/`·`domain/food/`·
 
 ### Tests + Implementation (US3)
 
-- [ ] T020 [P] [US3] Red: `domain/food/src/test/.../model/FoodTest.kt` — `updateNameTranslations(translations)` 전수 교체 실패 테스트, `:domain:food:test` Red 확인
-- [ ] T021 [US3] Green: `domain/food/src/main/.../model/Food.kt` 에 `updateNameTranslations` 구현, `:domain:food:test` 그린 확인
-- [ ] T022 [US3] Red: 배치 프로세서 테스트 — ① 블록: 이름 번역 미완이면 9개 전수 저장, 이름 번역만 미완인 음식은 다른 클라이언트 무호출(US3 수용 2 — 호출 카운터 페이크), 미구성(null) 시 명시 예외 실패 테스트 작성(`app/batch/src/test/.../content/`), `:app:batch:test` Red 확인
-- [ ] T023 [US3] Green: `FoodContentItemProcessor.kt` ① 블록 구현(`needsNameTranslations()` → `updateNameTranslations(texts.byCode())`·스텁 `translateContent` 제거) + `FoodContentBatchConfig.kt` 에 `ObjectProvider<FoodNameTranslationClient>` 조립 + `BatchTestClientConfig.kt` 페이크 추가, `:app:batch:test` 그린 확인
-- [ ] T024 [US3] 통합 검증: `FoodContentJobTest.kt` 전체 시나리오 — INCOMPLETE 음식 1건 → 잡 1회 실행으로 텍스트 전 항목(이름 번역·설명+번역·성분+맵기) 채움(SC-001), 이미지 미보유라 `content_status = INCOMPLETE` 유지(FR-008), `:app:batch:test` 그린 확인
+- [X] T020 [P] [US3] Red: `domain/food/src/test/.../model/FoodTest.kt` — `updateNameTranslations(translations)` 전수 교체 실패 테스트, `:domain:food:test` Red 확인
+- [X] T021 [US3] Green: `domain/food/src/main/.../model/Food.kt` 에 `updateNameTranslations` 구현, `:domain:food:test` 그린 확인
+- [X] T022 [US3] Red: 배치 프로세서 테스트 — ① 블록: 이름 번역 미완이면 9개 전수 저장, 이름 번역만 미완인 음식은 다른 클라이언트 무호출(US3 수용 2 — 호출 카운터 페이크), 미구성(null) 시 명시 예외 실패 테스트 작성(`app/batch/src/test/.../content/`), `:app:batch:test` Red 확인
+- [X] T023 [US3] Green: `FoodContentItemProcessor.kt` ① 블록 구현(`needsNameTranslations()` → `updateNameTranslations(texts.byCode())`·스텁 `translateContent` 제거) + `FoodContentBatchConfig.kt` 에 `ObjectProvider<FoodNameTranslationClient>` 조립 + `BatchTestClientConfig.kt` 페이크 추가, `:app:batch:test` 그린 확인
+- [X] T024 [US3] 통합 검증: `FoodContentJobTest.kt` 전체 시나리오 — INCOMPLETE 음식 1건 → 잡 1회 실행으로 텍스트 전 항목(이름 번역·설명+번역·성분+맵기) 채움(SC-001), 이미지 미보유라 `content_status = INCOMPLETE` 유지(FR-008), `:app:batch:test` 그린 확인
 
 **Checkpoint**: 3작업 전체 동작 — 스펙 SC-001·002 충족.
 

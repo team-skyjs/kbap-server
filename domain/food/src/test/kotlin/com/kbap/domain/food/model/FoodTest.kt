@@ -127,6 +127,33 @@ class FoodTest : BehaviorSpec({
         }
     }
 
+    given("Food.updateNameTranslations — 이름 번역 전수 교체") {
+        val allNameTargets = LanguageCode.entries.filter { it != LanguageCode.KO }
+            .associate { it.code to "name-${it.code}" }
+
+        `when`("이름 번역이 없는 음식에 9개 전수를 반영하면") {
+            then("이름 번역이 채워지고 미완 판정이 해소되며 원문 이름은 그대로다") {
+                val food = Food.incomplete("우주라면")
+
+                food.updateNameTranslations(allNameTargets)
+
+                food.nameTranslations shouldBe allNameTargets
+                food.needsNameTranslations() shouldBe false
+                food.koreanName() shouldBe "우주라면"
+            }
+        }
+
+        `when`("일부 언어만 있던 음식에 새 전수를 반영하면") {
+            then("병합 없이 전체 교체된다") {
+                val food = create(nameTranslations = mapOf("en" to "Old Name"))
+
+                food.updateNameTranslations(allNameTargets)
+
+                food.nameTranslations shouldBe allNameTargets
+            }
+        }
+    }
+
     given("Food.updateDescription — 설명 원문·번역 세트 교체") {
         val allTargets = LanguageCode.entries.filter { it != LanguageCode.KO }
             .associate { it.code to "desc-${it.code}" }

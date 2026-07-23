@@ -5,6 +5,7 @@ import com.kbap.core.food.FoodAvoidanceAssessmentClient
 import com.kbap.core.food.FoodAvoidanceAssessmentResult
 import com.kbap.core.food.FoodDescriptionClient
 import com.kbap.core.food.FoodDescriptionContent
+import com.kbap.core.food.FoodNameTranslationClient
 import com.kbap.core.food.TargetLanguageTexts
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
@@ -12,6 +13,7 @@ import com.kbap.domain.avoidance.model.AvoidanceSubstance
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
+import com.kbap.domain.food.model.FoodContentStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -38,6 +40,12 @@ class FoodContentJobTest : BehaviorSpec() {
             FoodAvoidanceAssessmentClient { koreanName, _ ->
                 if (koreanName == FAILING_FOOD) throw RuntimeException("조사 실패: $koreanName")
                 FoodAvoidanceAssessmentResult(listOf(FoodAvoidanceAssessment("EGG", 90)), 2)
+            }
+
+        @Bean
+        fun nameTranslationClient(): FoodNameTranslationClient =
+            FoodNameTranslationClient { korean ->
+                TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "$korean-${it.code}" })
             }
 
         @Bean
@@ -86,6 +94,30 @@ class FoodContentJobTest : BehaviorSpec() {
                     loadedOk2.spiciness shouldBe 2
                     loadedFailed.avoidanceSubstances shouldBe null
                     loadedFailed.spiciness shouldBe Food.SPICINESS_UNASSESSED
+                }
+            }
+        }
+
+        given("텍스트 3작업 전체 파이프라인") {
+            `when`("INCOMPLETE 음식 1건으로 잡을 1회 실행하면") {
+                then("이름 번역·설명+번역·성분+맵기가 모두 채워지고 이미지 미보유라 INCOMPLETE 로 남는다") {
+                    foodRepository.deleteAll()
+                    avoidanceRepository.deleteAll()
+                    avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
+                    val id = foodRepository.save(Food.incomplete("전체-잡곡밥")).id
+
+                    val params = JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters()
+                    val execution = jobLauncher.run(foodContentJob, params)
+
+                    execution.status shouldBe BatchStatus.COMPLETED
+                    val loaded = foodRepository.findById(id).get()
+                    loaded.needsNameTranslations() shouldBe false
+                    loaded.needsDescription() shouldBe false
+                    loaded.needsDescriptionTranslations() shouldBe false
+                    loaded.needsAvoidanceAssessment() shouldBe false
+                    loaded.spiciness shouldBe 2
+                    loaded.needsImage() shouldBe true
+                    loaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 }
             }
         }
