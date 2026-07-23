@@ -39,6 +39,19 @@ class TargetLanguageTextsTest : BehaviorSpec({
         }
     }
 
+    given("byCode 변환") {
+        `when`("9개 대상 언어 전수를 채워 변환하면") {
+            then("LanguageCode 키가 code 문자열 키로 바뀐 동일 값 맵을 반환한다") {
+                val texts = TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "번역-${it.code}" }
+                val byCode = TargetLanguageTexts(texts).byCode()
+                byCode.keys shouldBe TargetLanguageTexts.TARGET_LANGUAGES.map { it.code }.toSet()
+                TargetLanguageTexts.TARGET_LANGUAGES.forEach { lang ->
+                    byCode[lang.code] shouldBe "번역-${lang.code}"
+                }
+            }
+        }
+    }
+
     given("TARGET_LANGUAGES") {
         `when`("대상 언어 집합을 확인하면") {
             then("KO 를 제외한 전체 언어다") {

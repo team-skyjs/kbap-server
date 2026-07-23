@@ -1,5 +1,6 @@
 package com.kbap.domain.food.model
 
+import com.kbap.core.food.FoodAvoidanceAssessmentResult
 import com.kbap.core.lang.LanguageCode
 import com.kbap.core.lang.LocalizedText
 import com.kbap.core.menu.KoreanMenuNameNormalizer
@@ -54,14 +55,33 @@ class Food(
 
     fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION
 
-    fun needsNameTranslations(): Boolean = !nameTranslations.keys.containsAll(TARGET_LANG_CODES)
+    fun needsNameTranslations(): Boolean = !hasAllTargetTranslations(nameTranslations)
 
-    fun needsDescriptionTranslations(): Boolean = !descriptionTranslations.keys.containsAll(TARGET_LANG_CODES)
+    fun needsDescriptionTranslations(): Boolean = !hasAllTargetTranslations(descriptionTranslations)
+
+    private fun hasAllTargetTranslations(translations: Map<String, String>): Boolean =
+        TARGET_LANG_CODES.all { !translations[it].isNullOrBlank() }
 
     fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
 
-    fun assessAvoidance(substances: List<FoodAvoidanceItem>) {
+    fun needsAvoidanceAssessment(): Boolean =
+        avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
+
+    fun updateNameTranslations(translations: Map<String, String>) {
+        this.nameTranslations = translations
+    }
+
+    fun updateDescription(description: String, translations: Map<String, String>) {
+        this.description = description
+        this.descriptionTranslations = translations
+    }
+
+    fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
+        require(spiciness in FoodAvoidanceAssessmentResult.SPICINESS_RANGE) {
+            "spiciness 는 ${FoodAvoidanceAssessmentResult.SPICINESS_RANGE} 여야 합니다: $spiciness"
+        }
         this.avoidanceSubstances = substances
+        this.spiciness = spiciness
     }
 
     fun transitionToPendingReviewIfComplete(): Boolean {

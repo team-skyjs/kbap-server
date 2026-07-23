@@ -10,6 +10,7 @@ class FoodContentParseException(message: String, cause: Throwable? = null) : Run
 object FoodContentJsonParser {
     val objectMapper = jacksonObjectMapper()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+        .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, true)
 
     inline fun <reified T> parse(raw: String): T {
         val json = stripCodeFence(raw)
