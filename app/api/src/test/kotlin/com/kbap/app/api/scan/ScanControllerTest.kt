@@ -162,7 +162,8 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].price") { value(9000) }
                         jsonPath("$.payload.results[1].idx") { value(1) }
                         jsonPath("$.payload.results[1].matched") { value(false) }
-                        jsonPath("$.payload.results[1].name") { value("Bulgogi 미등록불고기501") }
+                        jsonPath("$.payload.results[1].name") { value("미등록불고기") }
+                        jsonPath("$.payload.results[1].koreanName") { value("미등록불고기") }
                         jsonPath("$.payload.results[1].price") { value(16000) }
                     }
                 }
@@ -189,6 +190,30 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     historyMenuName(memberId, "번역김치찌개") shouldBe "Kimchi 번역김치찌개"
+                }
+            }
+
+            `when`("등록되지 않은 신규 음식을 외국어 lang 으로 스캔하면") {
+                then("사진 표기가 아니라 표준 한국어명으로 내려간다") {
+                    val memberId = 522L
+                    val path = "scan/522/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(
+                        path,
+                        listOf(ExtractedMenu("Bulgogi Hot Pot 신규불고기522", "신규불고기522", 16000, matchedIdx = 0)),
+                    )
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "en")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "불고기")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].name") { value("신규불고기") }
+                        jsonPath("$.payload.results[0].koreanName") { value("신규불고기") }
+                    }
                 }
             }
 
