@@ -44,7 +44,6 @@ object HomeTestSeed {
         )
     }
 
-    // profile JSON 의 appLanguage 는 폐기된 키다 — 그 키가 남은 기존 row 를 Hibernate 가 읽어내는지 함께 검증하려고 남겨 둔다.
     fun seedMember(dataSource: DataSource, memberId: Long, codes: List<String>) {
         val codesJson = codes.joinToString(separator = ",", prefix = "[", postfix = "]") { "\"$it\"" }
         seedSubstanceCatalog(dataSource, *codes.toTypedArray())

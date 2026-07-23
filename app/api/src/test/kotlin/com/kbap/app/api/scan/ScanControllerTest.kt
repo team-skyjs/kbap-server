@@ -136,7 +136,6 @@ class ScanControllerTest : BehaviorSpec() {
                     val memberId = 501L
                     val path = "scan/501/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    // 요청 lang 이 ko 이므로 en 번역이 있어도 한국어명이 내려가야 한다
                     seedReadyFood("김치찌개", """{"en":"Kimchi Stew"}""")
                     vision.program(
                         path,
@@ -256,12 +255,10 @@ class ScanControllerTest : BehaviorSpec() {
             }
 
             `when`("지원 목록에 없는 lang 으로 스캔하면") {
-                then("거절하지 않고 영어 번역명으로 응답한다") {
+                then("400 COMMON-002 로 거절한다") {
                     val memberId = 518L
                     val path = "scan/518/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    seedReadyFood("미지원코드김치찌개", """{"en":"Fallback Stew"}""")
-                    vision.program(path, listOf(ExtractedMenu("Kimchi 미지원코드김치찌개", "미지원코드김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/v1/scans") {
                         param("lang", "fr")
@@ -269,8 +266,28 @@ class ScanControllerTest : BehaviorSpec() {
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, 0 to "미지원코드김치찌개")
                     }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].name") { value("Fallback Stew") }
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("대소문자·지역 변형처럼 지원 코드와 정확히 일치하지 않는 lang 으로 스캔하면") {
+                then("정규화하지 않고 400 COMMON-002 로 거절한다") {
+                    val memberId = 521L
+                    val path = "scan/521/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    listOf("EN", "ko-KR", " ko").forEach { raw ->
+                        mockMvc.post("/api/v1/scans") {
+                            param("lang", raw)
+                            header("Authorization", "Bearer ${accessToken(memberId)}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = body(path, 0 to "김치찌개")
+                        }.andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
                     }
                 }
             }

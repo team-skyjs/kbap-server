@@ -23,7 +23,7 @@
 | Context | 책임 | 비고 |
 |--------|------|------|
 | [`food`](./domains/food.md) | 검수된 음식 카탈로그 — 음식·재료·알러지/식이 매핑·9개국어 번역 | 한국어 원문 + 9개 언어 사전 번역 저장(ADR-0003). `research` 종합 결과를 영속 |
-| [`member`](./domains/member.md) | 회원·국적·언어·식이 제한 프로필·선호·랭킹 | 인증/인가는 내부 하위 영역(책임 분리). 위험도 개인화 기준 |
+| [`member`](./domains/member.md) | 회원·국적·식이 제한 프로필·선호·랭킹 | 인증/인가는 내부 하위 영역(책임 분리). 위험도 개인화 기준 |
 | [`scan`](./domains/scan.md) | 메뉴명 → 음식 매핑(또는 결과 없음)·응답 스냅샷·이력·횟수 제한 | 서버 OCR·LLM 안 함(클라가 메뉴명 추출) |
 | [`avoidance`](./domains/avoidance.md) | 사용자 조건 × 음식 재료 → 위험도(SAFE/CAUTION/DANGER/UNKNOWN) 판정 | 서비스 핵심 정책 도메인 |
 | [`research`](./domains/research.md) | 미스 메뉴 조사·종합 파이프라인 — 대기열 + 3개 LLM 병렬·종합 | 배치 전용(ADR-0004). [`kbap-data-ai-pipeline.md`](./kbap-data-ai-pipeline.md) |

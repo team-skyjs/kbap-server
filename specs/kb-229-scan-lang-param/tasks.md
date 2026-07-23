@@ -26,7 +26,7 @@
 
 **Goal**: `POST /api/v1/scans?lang={code}` — lang 필수 쿼리 파라미터로 번역 언어를 결정하고, 회원 프로필 `appLanguage` 의존을 제거한다.
 
-**Independent Test**: 프로필 설정과 무관하게 `lang=en`/`lang=ja` 로 각각 스캔해 응답 `items[].name` 언어가 요청을 따르는지, `lang=fr`(미지원) → 200 영어, lang 누락·빈 값 → 400 인지 확인.
+**Independent Test**: 프로필 설정과 무관하게 `lang=en`/`lang=ja` 로 각각 스캔해 응답 `results[].name` 언어가 요청을 따르는지, `lang=fr`(미지원) → 200 영어, lang 누락·빈 값 → 400 인지 확인.
 
 ### Tests for User Story 1 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 

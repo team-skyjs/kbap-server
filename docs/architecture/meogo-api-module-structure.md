@@ -169,7 +169,6 @@ MVP API 기준 active Bounded Context는 `kbap-api` 아래 5개 subproject로 �
 
 - 회원 상태 관리
 - 사용자 국적 관리
-- 사용자 언어 설정 관리
 - 알러지 정보 관리
 - 종교상 먹지 못하는 음식 관리
 - 비건 여부 관리

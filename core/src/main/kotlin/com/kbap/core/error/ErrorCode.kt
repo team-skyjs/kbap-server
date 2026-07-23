@@ -26,7 +26,6 @@ enum class ErrorCode(
     INVALID_NICKNAME("MEMBER-004", 400, "닉네임은 비어 있을 수 없습니다"),
     INVALID_AVOIDANCE_SUBSTANCE_CODE("MEMBER-005", 400, "지원하지 않는 기피 성분 코드입니다"),
     INVALID_COUNTRY_CODE("MEMBER-006", 400, "지원하지 않는 국가 코드입니다"),
-    UNSUPPORTED_APP_LANGUAGE("MEMBER-007", 400, "지원하지 않는 언어입니다"),
     INVALID_PROFILE_IMAGE_URL("MEMBER-008", 400, "프로필 사진 경로 형식이 올바르지 않습니다. 도메인 없는 이미지 경로(objectKey)를 512자 이내로 보내주세요"),
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 -1(미설정) 또는 0~10 사이여야 합니다"),
 

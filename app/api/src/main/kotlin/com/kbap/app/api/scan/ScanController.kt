@@ -4,6 +4,8 @@ import com.kbap.domain.scan.ScanService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
+import com.kbap.core.error.BusinessException
+import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -28,8 +30,12 @@ class ScanController(
             memberId,
             request.imagePath!!,
             request.toOcrItems(),
-            LanguageCode.from(langRequest.lang),
+            supportedLanguage(langRequest.lang),
         )
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
     }
+
+    private fun supportedLanguage(raw: String): LanguageCode =
+        LanguageCode.entries.firstOrNull { it.code == raw }
+            ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
 }

@@ -79,7 +79,6 @@ class MemberProfileTest : BehaviorSpec({
     }
 
     given("MemberProfileJson 역직렬화 — 폐기된 키가 남은 레거시 회원") {
-        // Hibernate 의 JSON 매퍼는 Boot 가 관용 설정한 ObjectMapper 가 아닐 수 있어 기본 매퍼로 검증한다.
         `when`("더 이상 쓰지 않는 appLanguage 키가 저장돼 있으면") {
             then("예외 없이 무시하고 나머지 값을 읽는다") {
                 val json = ObjectMapper().registerKotlinModule().readValue<MemberProfileJson>(

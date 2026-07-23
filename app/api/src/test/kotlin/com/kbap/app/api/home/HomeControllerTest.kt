@@ -85,7 +85,7 @@ class HomeControllerTest : BehaviorSpec() {
             }
         }
 
-        given("프로필 언어가 일본어인 회원") {
+        given("폐기된 appLanguage 키가 남아 있는 회원") {
             `when`("lang=ja 로 조회하면") {
                 then("음식명과 기피 성분명이 일본어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
@@ -99,7 +99,7 @@ class HomeControllerTest : BehaviorSpec() {
             }
 
             `when`("프로필과 다른 lang=ko 로 조회하면") {
-                then("프로필 언어를 무시하고 한국어로 내려온다") {
+                then("저장된 값과 무관하게 한국어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
                     HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
@@ -123,7 +123,7 @@ class HomeControllerTest : BehaviorSpec() {
             }
         }
 
-        given("프로필 언어를 설정하지 않은(온보딩 미완료) 회원") {
+        given("온보딩 미완료 회원") {
             `when`("lang=ja 로 조회하면") {
                 then("프로필과 무관하게 일본어로 응답한다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)

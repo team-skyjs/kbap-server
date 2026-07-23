@@ -3,8 +3,7 @@ package com.kbap.domain.member.model
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.kbap.core.lang.CountryCode
 
-// 폐기된 키(appLanguage 등)가 남은 기존 row 를 읽어야 하므로 unknown key 를 명시적으로 무시한다.
-@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonIgnoreProperties("appLanguage")
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val spicinessPreference: Int = MemberProfile.SPICINESS_UNSET,
