@@ -7,18 +7,24 @@ import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.model.LlmChatRequest
 import kotlin.math.roundToInt
 
-// 안전 직결 — 유효 모델 응답이 MIN_AGREEMENT 미만이면 종합하지 않고 예외(단일 모델 판단 금지).
+// 안전 직결 — 유효 모델 응답이 minAgreement 미만이면 종합하지 않고 예외.
+// 기본 2(단일 모델 판단 금지). 1 은 다중 모델 키 확보 전 과도기 구성용이며, 확보 후 기본값으로 복원한다.
 class SpringAiFoodAvoidanceAssessmentClient(
     private val fanoutClient: LlmFanoutClient,
+    private val minAgreement: Int = DEFAULT_MIN_AGREEMENT,
 ) : FoodAvoidanceAssessmentClient {
+
+    init {
+        require(minAgreement >= 1) { "minAgreement 는 1 이상이어야 합니다: $minAgreement" }
+    }
 
     override fun call(koreanName: String, candidateCodes: Set<String>): FoodAvoidanceAssessmentResult {
         require(candidateCodes.isNotEmpty()) { "기피성분 조사는 후보 코드가 비어 있으면 호출할 수 없습니다" }
 
         val fanout = fanoutClient.generate(LlmChatRequest(prompt = promptOf(koreanName, candidateCodes), system = SYSTEM_PROMPT))
         val validResponses = fanout.successes.mapNotNull { parseValidOrNull(it.content, candidateCodes) }
-        require(validResponses.size >= MIN_AGREEMENT) {
-            "기피성분 조사를 종합할 유효 모델 응답이 부족합니다: ${validResponses.size}/${fanout.attemptedCount()} (최소 $MIN_AGREEMENT)"
+        require(validResponses.size >= minAgreement) {
+            "기피성분 조사를 종합할 유효 모델 응답이 부족합니다: ${validResponses.size}/${fanout.attemptedCount()} (최소 $minAgreement)"
         }
         return FoodAvoidanceAssessmentResult(
             substances = aggregateSubstances(candidateCodes, validResponses.map { it.percentByCode }),
@@ -131,7 +137,7 @@ class SpringAiFoodAvoidanceAssessmentClient(
     data class AssessmentItem(val code: String = "", val inclusionPercent: Int = -1)
 
     companion object {
-        private const val MIN_AGREEMENT = 2
+        private const val DEFAULT_MIN_AGREEMENT = 2
         private const val SYSTEM_PROMPT =
             "너는 한국 음식 레시피와 알레르기·기피성분 전문가다. 반드시 지정된 JSON 형식으로만 답한다."
     }

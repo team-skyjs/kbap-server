@@ -168,6 +168,34 @@ class SpringAiFoodAvoidanceAssessmentClientTest : BehaviorSpec({
         }
     }
 
+    given("최소 합의 1 구성(단일 모델 과도기)에서 유효 응답이 1개") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 80) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("단일 모델 응답만으로 성분·맵기를 종합한다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 80))
+                result.spiciness shouldBe 3
+            }
+        }
+    }
+
+    given("최소 합의 1 구성에서도 유효 응답이 0개") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { error("호출 실패") },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            then("종합 불가로 예외를 전파한다") {
+                shouldThrow<IllegalArgumentException> { client.call("제육볶음", candidates) }
+            }
+        }
+    }
+
     given("후보 코드가 빈 집합") {
         val fanout = fanoutOf(
             AvoidanceCaller(LlmModelId.OPENAI) { error("호출되면 안 됨") },

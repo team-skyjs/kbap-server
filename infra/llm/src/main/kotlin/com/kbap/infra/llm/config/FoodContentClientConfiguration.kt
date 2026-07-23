@@ -15,6 +15,7 @@ import org.springframework.ai.image.ImageModel
 import org.springframework.ai.openai.OpenAiImageModel
 import org.springframework.ai.openai.OpenAiImageOptions
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -35,8 +36,10 @@ class FoodContentClientConfiguration {
     ): FoodDescriptionClient = SpringAiFoodDescriptionClient(caller)
 
     @Bean
-    fun foodAvoidanceAssessmentClient(fanoutClient: LlmFanoutClient): FoodAvoidanceAssessmentClient =
-        SpringAiFoodAvoidanceAssessmentClient(fanoutClient)
+    fun foodAvoidanceAssessmentClient(
+        fanoutClient: LlmFanoutClient,
+        @Value("\${kbap.llm.avoidance.min-agreement:2}") minAgreement: Int,
+    ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, minAgreement)
 
     // 이미지 생성은 텍스트 3작업 실운영 검증 후 개방 — 주석 해제 시 그대로 동작한다.
     // @Bean
