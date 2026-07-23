@@ -65,8 +65,6 @@ class FoodContentBatchConfig {
     ): Step =
         StepBuilder("foodContentStep", jobRepository)
             .chunk<Food, Food>(chunkSize)
-            // 청크 트랜잭션을 끈다(resourceless) — 외부 LLM 호출이 DB 커넥션을 청크 내내 물지 않게.
-            // DB 쓰기는 각자 자기 트랜잭션으로 커밋한다(processor 의 REQUIRES_NEW·writer 의 save).
             .transactionManager(ResourcelessTransactionManager())
             .reader(foodContentReader)
             .processor(foodContentProcessor)
@@ -77,7 +75,10 @@ class FoodContentBatchConfig {
             .build()
 
     @Bean
-    fun foodContentJob(jobRepository: JobRepository, foodContentStep: Step): Job =
+    fun foodContentJob(
+        jobRepository: JobRepository, 
+        foodContentStep: Step
+    ): Job =
         JobBuilder("foodContentJob", jobRepository)
             .incrementer(RunIdIncrementer())
             .start(foodContentStep)
