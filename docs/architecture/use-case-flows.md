@@ -212,7 +212,7 @@ sequenceDiagram
     API->>App: VerifyEmail
     App->>Member: 이메일 인증 상태 갱신 (정상)
 
-    User->>Client: 닉네임/국적/언어 + 알러지/종교/비건 (+ 매운맛/관심음식)
+    User->>Client: 닉네임/국적 + 알러지/종교/비건 (+ 매운맛/관심음식)
     Client->>API: 온보딩 제출
     API->>App: CompleteOnboarding
     App->>Member: MemberProfile + DietaryProfile + InterestedFood 저장

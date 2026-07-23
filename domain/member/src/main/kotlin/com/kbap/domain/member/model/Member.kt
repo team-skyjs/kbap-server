@@ -74,7 +74,6 @@ class Member(
         avoidanceSubstanceCodes: List<String>? = null,
         spicinessPreference: Int? = null,
         countryCode: String? = null,
-        appLanguage: String? = null,
         profileImageUrl: String? = null,
     ) {
         updateProfile(
@@ -83,7 +82,6 @@ class Member(
                 avoidanceSubstanceCodes = avoidanceSubstanceCodes,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
-                appLanguage = appLanguage,
                 profileImageUrl = profileImageUrl,
             ),
         )
@@ -94,7 +92,6 @@ class Member(
         avoidanceSubstanceCodes: List<String>,
         spicinessPreference: Int,
         countryCode: String,
-        appLanguage: String,
         profileImageUrl: String,
     ) {
         if (onboardingCompleted) {
@@ -105,7 +102,6 @@ class Member(
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
             spicinessPreference = spicinessPreference,
             countryCode = countryCode,
-            appLanguage = appLanguage,
             profileImageUrl = profileImageUrl,
         )
         onboardingCompleted = true

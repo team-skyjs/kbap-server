@@ -17,7 +17,7 @@ interface MemberApi {
     @Operation(
         summary = "온보딩 정보 제출",
         description = """
-            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·앱 언어·맵기 선호를 제출하면, 각 값을 검증한 뒤
+            로그인한 회원이 닉네임·기피 성분 코드 목록·국가·맵기 선호를 제출하면, 각 값을 검증한 뒤
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
 
@@ -35,7 +35,7 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "온보딩 완료 — 프로필 저장·상태 전이"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·언어·닉네임·사진 URL·맵기), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
@@ -54,7 +54,6 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
                                   "countryCode": "KR",
-                                  "appLanguage": "ko",
                                   "profileImageUrl": "profile-image/2026/07/18/1/abc.jpg",
                                   "spicinessPreference": 7
                                 }
@@ -67,7 +66,6 @@ interface MemberApi {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
-                                  "appLanguage": "en",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": -1
                                 }
@@ -80,7 +78,6 @@ interface MemberApi {
                                   "nickname": "さくら",
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 4
                                 }
@@ -93,7 +90,6 @@ interface MemberApi {
                                   "nickname": "Linh",
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
-                                  "appLanguage": "vi",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 8
                                 }
@@ -109,7 +105,7 @@ interface MemberApi {
     @Operation(
         summary = "내 프로필 조회",
         description = """
-            현재 회원의 프로필 정보(연동 소셜 제공자 `provider`(GOOGLE/APPLE)·닉네임·기피 성분·국가·앱 언어·프로필 사진 URL·맵기 선호 — 미설정이면 -1)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
+            현재 회원의 프로필 정보(연동 소셜 제공자 `provider`(GOOGLE/APPLE)·닉네임·기피 성분·국가·프로필 사진 URL·맵기 선호 — 미설정이면 -1)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
             다음 등급까지 남은 점수)을 함께 조회한다. 프로필 탭이 이 응답 하나로 그려지도록 랭킹 요약을 싣되,
             점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
             등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
@@ -152,11 +148,11 @@ interface MemberApi {
     @Operation(
         summary = "프로필 수정 (부분 수정)",
         description = """
-            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·앱 언어·프로필 사진·맵기 선호)을 다시 설정한다.
+            온보딩을 마친 회원이 프로필(닉네임·기피 성분·국가·프로필 사진·맵기 선호)을 다시 설정한다.
             **바꾸고 싶은 필드만** 담아 보내면 된다 — 모든 필드가 선택이며, **보내지 않은 필드는 기존 값이 유지된다.**
 
             기피 성분은 **빈 배열 `[]` 이면 전부 해제**, **미전송이면 유지**로 서로 다르게 동작한다. 그래서
-            닉네임 화면은 `nickname`·`countryCode`·`appLanguage` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
+            닉네임 화면은 `nickname`·`countryCode` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
             만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
 
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
@@ -173,7 +169,7 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "수정 성공 — 전달한 필드만 갱신(빈 본문이면 변경 없음)"),
-            ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·언어·닉네임·사진 URL·맵기) 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
@@ -186,12 +182,11 @@ interface MemberApi {
                     mediaType = "application/json",
                     examples = [
                         ExampleObject(
-                            name = "닉네임·국가·언어 화면 — 기피 성분은 유지된다",
+                            name = "닉네임·국가 화면 — 기피 성분은 유지된다",
                             value = """
                                 {
                                   "nickname": "길동이",
-                                  "countryCode": "KR",
-                                  "appLanguage": "ko"
+                                  "countryCode": "KR"
                                 }
                             """,
                         ),
@@ -250,7 +245,6 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja",
                                   "profileImageUrl": "profile-image/2026/07/18/1/new.jpg",
                                   "spicinessPreference": 3
                                 }

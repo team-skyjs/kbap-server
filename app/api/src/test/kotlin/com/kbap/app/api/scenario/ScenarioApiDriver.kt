@@ -44,7 +44,6 @@ class ScenarioApiDriver(
         nickname: String = "시나리오사용자",
         avoidanceSubstanceCodes: List<String> = emptyList(),
         countryCode: String = "US",
-        appLanguage: String = "en",
         spicinessPreference: Int = 3,
         profileImageUrl: String = "images/default/profile/profile-default-512.png",
     ): Int = post(
@@ -53,7 +52,6 @@ class ScenarioApiDriver(
             "nickname" to nickname,
             "avoidanceSubstanceCodes" to avoidanceSubstanceCodes,
             "countryCode" to countryCode,
-            "appLanguage" to appLanguage,
             "spicinessPreference" to spicinessPreference,
             "profileImageUrl" to profileImageUrl,
         ),
@@ -112,9 +110,11 @@ class ScenarioApiDriver(
     fun 업로드를_완료한다(contentType: String, size: Long): Int =
         post("/api/v1/images/complete", mapOf("path" to objectKey, "contentType" to contentType, "size" to size)).status
 
-    fun 스캔한다(vararg 메뉴명: String): JsonNode {
+    fun 스캔한다(vararg 메뉴명: String, lang: String = "en"): JsonNode {
         val items = 메뉴명.mapIndexed { idx, name -> mapOf("idx" to idx, "rawMenuName" to name) }
-        return payload(post("/api/v1/scans", mapOf("imagePath" to objectKey, "items" to items))).path("results")
+        return payload(
+            post("/api/v1/scans", mapOf("imagePath" to objectKey, "items" to items), params = arrayOf("lang" to lang)),
+        ).path("results")
     }
 
     fun 탈퇴한다(): Int =
@@ -128,9 +128,15 @@ class ScenarioApiDriver(
             params.forEach { (name, value) -> param(name, value) }
         }.andReturn().response
 
-    private fun post(path: String, body: Map<String, Any?>, authenticated: Boolean = true): MockHttpServletResponse =
+    private fun post(
+        path: String,
+        body: Map<String, Any?>,
+        authenticated: Boolean = true,
+        vararg params: Pair<String, String>,
+    ): MockHttpServletResponse =
         mockMvc.post(path) {
             if (authenticated) header("Authorization", "Bearer $accessToken")
+            params.forEach { (name, value) -> param(name, value) }
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(body)
         }.andReturn().response

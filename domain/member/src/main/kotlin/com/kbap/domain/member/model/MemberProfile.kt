@@ -4,7 +4,6 @@ import com.kbap.core.error.BusinessException
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.image.ImageUrls
 import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
 
 @ConsistentCopyVisibility
@@ -13,7 +12,6 @@ data class MemberProfile private constructor(
     val avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
     val spicinessPreference: Int,
     val countryCode: CountryCode?,
-    val appLanguage: LanguageCode?,
     val profileImageUrl: String?,
 ) {
     init {
@@ -33,7 +31,6 @@ data class MemberProfile private constructor(
         avoidanceSubstanceCodes: List<String>? = null,
         spicinessPreference: Int? = null,
         countryCode: String? = null,
-        appLanguage: String? = null,
         profileImageUrl: String? = null,
     ): MemberProfile =
         of(
@@ -43,7 +40,6 @@ data class MemberProfile private constructor(
             spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
                 ?: this.spicinessPreference,
             countryCode = countryCode?.let { validatedCountry(it) } ?: this.countryCode,
-            appLanguage = appLanguage?.let { validatedLanguage(it) } ?: this.appLanguage,
             profileImageUrl = profileImageUrl?.let { validatedImagePath(it) } ?: this.profileImageUrl,
         )
 
@@ -62,7 +58,6 @@ data class MemberProfile private constructor(
             avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
             spicinessPreference: Int,
             countryCode: CountryCode?,
-            appLanguage: LanguageCode?,
             profileImageUrl: String? = null,
         ): MemberProfile =
             MemberProfile(
@@ -70,7 +65,6 @@ data class MemberProfile private constructor(
                 avoidanceSubstanceCodes = avoidanceSubstanceCodes,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
-                appLanguage = appLanguage,
                 profileImageUrl = profileImageUrl,
             )
 
@@ -80,7 +74,6 @@ data class MemberProfile private constructor(
                 avoidanceSubstanceCodes = emptySet(),
                 spicinessPreference = SPICINESS_UNSET,
                 countryCode = null,
-                appLanguage = null,
                 profileImageUrl = null,
             )
 
@@ -96,10 +89,6 @@ data class MemberProfile private constructor(
 
         private fun validatedCountry(raw: String): CountryCode =
             CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
-
-        private fun validatedLanguage(raw: String): LanguageCode =
-            LanguageCode.entries.firstOrNull { it.code == raw }
-                ?: throw BusinessException(ErrorCode.UNSUPPORTED_APP_LANGUAGE)
 
         private fun validatedSpiciness(raw: Int): Int {
             if (raw != SPICINESS_UNSET && raw !in SPICINESS_RANGE) {

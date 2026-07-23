@@ -1,13 +1,13 @@
 package com.kbap.domain.member.model
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 
+@JsonIgnoreProperties("appLanguage")
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val spicinessPreference: Int = MemberProfile.SPICINESS_UNSET,
     val countryCode: String? = null,
-    val appLanguage: String? = null,
     val profileImageUrl: String? = null,
 ) {
     fun toDomain(nickname: String?): MemberProfile =
@@ -16,7 +16,6 @@ data class MemberProfileJson(
             avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
-            appLanguage = LanguageCode.entries.firstOrNull { it.code == appLanguage },
             // 선행 '/' 는 로드 시 제거 — 슬래시로 저장된 legacy 값을 무슬래시 키로 정규화.
             profileImageUrl = profileImageUrl?.trimStart('/'),
         )
@@ -27,7 +26,6 @@ data class MemberProfileJson(
                 avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value },
                 spicinessPreference = profile.spicinessPreference,
                 countryCode = profile.countryCode?.name,
-                appLanguage = profile.appLanguage?.code,
                 profileImageUrl = profile.profileImageUrl,
             )
     }
