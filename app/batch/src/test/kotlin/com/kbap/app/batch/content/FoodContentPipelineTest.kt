@@ -93,6 +93,16 @@ class FoodContentPipelineTest : BehaviorSpec() {
                     foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                 }
             }
+
+            `when`("미완비 음식만 라이터에 넘기면") {
+                then("전이도 저장도 하지 않고 INCOMPLETE 로 남는다") {
+                    val food = foodJpaRepository.save(Food.incomplete("미완비-잡채"))
+
+                    foodContentWriter.write(Chunk(mutableListOf(food)))
+
+                    foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                }
+            }
         }
     }
 }

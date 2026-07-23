@@ -271,5 +271,59 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("markTextReadyByIdIn / markPendingReviewByIdIn — 가드 있는 상태 벌크 전환") {
+            `when`("INCOMPLETE 3건 중 2건만 PENDING_REVIEW 로 벌크 전환하면") {
+                then("지정한 id 만 전환되고 나머지는 그대로다") {
+                    clear()
+                    val target1 = saveIncomplete("벌크-김치찌개")
+                    val target2 = saveIncomplete("벌크-된장찌개")
+                    val untouched = saveIncomplete("벌크-갈비탕")
+
+                    val updated = foodJpaRepository.markPendingReviewByIdIn(listOf(target1, target2))
+
+                    updated shouldBe 2
+                    foodJpaRepository.findById(target1).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    foodJpaRepository.findById(target2).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    foodJpaRepository.findById(untouched).get().contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                }
+            }
+
+            `when`("이미지 없는 INCOMPLETE 음식을 TEXT_READY 로 벌크 전환하면") {
+                then("전환되고 version 이 올라 병행 세션의 stale save 가 무효화된다") {
+                    clear()
+                    val id = saveIncomplete("벌크-쌀국수")
+                    val before = foodJpaRepository.findById(id).get().version
+
+                    foodJpaRepository.markTextReadyByIdIn(listOf(id)) shouldBe 1
+
+                    val reloaded = foodJpaRepository.findById(id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.TEXT_READY
+                    reloaded.version shouldBe before + 1
+                }
+            }
+
+            `when`("그 사이 이미지가 도착한(imageRef 보유) 음식을 TEXT_READY 로 전환하려 하면") {
+                then("가드에 걸려 갱신 0건 — 낡은 스냅샷이 상태를 후퇴시키지 않는다") {
+                    clear()
+                    val id = saveIncomplete("벌크-이미지선도착")
+                    val food = foodJpaRepository.findById(id).get()
+                    food.imageRef = "images/food/$id.png"
+                    foodJpaRepository.saveAndFlush(food)
+
+                    foodJpaRepository.markTextReadyByIdIn(listOf(id)) shouldBe 0
+                    foodJpaRepository.findById(id).get().contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                }
+            }
+
+            `when`("빈 id 목록으로 호출하면") {
+                then("아무것도 갱신하지 않고 0 을 반환한다") {
+                    clear()
+                    saveIncomplete("벌크-빈목록")
+
+                    foodJpaRepository.markPendingReviewByIdIn(emptyList()) shouldBe 0
+                }
+            }
+        }
     }
 }
