@@ -33,7 +33,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다 — 스펙 Assumptions + �
 
 ## R5. LLM 미구성 시 부팅 안전(boot-safety)과 클라이언트 조립
 
-- **Decision**: `foodNameTranslationClient`·`foodDescriptionClient` 빈의 `@ConditionalOnProperty(kbap.llm.openai.enabled)` 는 유지하고, **`FoodContentBatchConfig` 가 `ObjectProvider` 로 주입해 프로세서에 nullable 로 전달**한다. 프로세서는 해당 작업이 필요한데 클라이언트가 없으면 명시적 예외(`checkNotNull` — "클라이언트 미구성" 메시지)를 던져 그 음식을 skip+로그로 남긴다.
+- **Decision**: `foodNameTranslationClient`·`foodDescriptionClient` 빈의 `@ConditionalOnProperty(kbap.llm.openai.enabled)` 는 유지하고, **`FoodContentBatchConfig` 가 `ObjectProvider` 로 주입해 프로세서에 nullable 로 전달**한다. 프로세서는 해당 작업이 필요한데 클라이언트가 없으면 전용 예외(`FoodContentClientNotConfiguredException`)를 던지고, 스텝 `skipPolicy` 는 이 예외만 skip 대상에서 제외해 **잡을 FAILED 로 끝낸다**(구성 오류가 전건 skip·COMPLETED 로 위장되는 것 방지 — Codex 리뷰 반영). 음식별 LLM 예외는 기존대로 무제한 skip+로그.
 - **Rationale**: 기존 boot-safety 계약(키/플래그 부재 시 batch 부팅 성공 — `LlmConfigurationBootSafetyTest`)을 지키면서, 미구성 상태의 실행은 조용히 지나가지 않고 음식별 실패 로그로 드러난다. 기피성분 클라이언트가 이미 같은 성격(모델 0개면 호출 시점 예외)으로 동작하므로 일관적이다.
 - **Alternatives considered**: (a) 빈을 무조건 생성하고 내부에서 caller 부재 시 예외 — caller 가 `@Qualifier("openAiModelCaller")` 조건부 빈이라 결국 provider 간접화가 필요, 조립 복잡도만 이동. (b) 클라이언트 부재 시 작업 자체를 조용히 건너뜀 — 미구성이 로그 없이 영구 INCOMPLETE 를 만들어 기각(fail-loud).
 
