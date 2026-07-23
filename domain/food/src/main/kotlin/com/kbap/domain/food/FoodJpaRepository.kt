@@ -1,12 +1,31 @@
 package com.kbap.domain.food
 
 import com.kbap.domain.food.model.Food
+import com.kbap.domain.food.model.FoodContentStatus
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import org.springframework.transaction.annotation.Transactional
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
+    // 벌크 상태 전환 — 단일 UPDATE 문. 영속성 컨텍스트를 우회하므로 detached 상태의 배치 writer 전용.
+    // updatedAt 은 @UpdateTimestamp 가 안 타서 직접 갱신한다.
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query(
+        """
+        update Food f
+        set f.contentStatus = :status, f.updatedAt = current_timestamp
+        where f.id in :ids
+        """,
+    )
+    fun updateContentStatusByIdIn(
+        @Param("ids") ids: List<Long>,
+        @Param("status") status: FoodContentStatus,
+    ): Int
+
     @Query(
         """
         select f from Food f

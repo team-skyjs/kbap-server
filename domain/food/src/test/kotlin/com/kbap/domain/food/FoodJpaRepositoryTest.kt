@@ -182,5 +182,35 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("updateContentStatusByIdIn — 상태 벌크 전환") {
+            `when`("INCOMPLETE 3건 중 2건만 PENDING_REVIEW 로 벌크 전환하면") {
+                then("지정한 id 만 전환되고 나머지는 그대로다") {
+                    clear()
+                    val target1 = saveIncomplete("벌크-김치찌개")
+                    val target2 = saveIncomplete("벌크-된장찌개")
+                    val untouched = saveIncomplete("벌크-갈비탕")
+
+                    val updated = foodJpaRepository.updateContentStatusByIdIn(
+                        listOf(target1, target2),
+                        FoodContentStatus.PENDING_REVIEW,
+                    )
+
+                    updated shouldBe 2
+                    foodJpaRepository.findById(target1).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    foodJpaRepository.findById(target2).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    foodJpaRepository.findById(untouched).get().contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                }
+            }
+
+            `when`("빈 id 목록으로 호출하면") {
+                then("아무것도 갱신하지 않고 0 을 반환한다") {
+                    clear()
+                    saveIncomplete("벌크-빈목록")
+
+                    foodJpaRepository.updateContentStatusByIdIn(emptyList(), FoodContentStatus.PENDING_REVIEW) shouldBe 0
+                }
+            }
+        }
     }
 }
