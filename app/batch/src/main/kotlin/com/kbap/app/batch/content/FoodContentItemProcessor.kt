@@ -52,17 +52,15 @@ class FoodContentItemProcessor(
     }
 
     private fun generateDescription(food: Food) {
-        val client = checkNotNull(descriptionClient) {
-            "설명 생성 클라이언트가 구성되지 않았습니다: foodId=${food.id}"
-        }
+        val client = descriptionClient
+            ?: throw FoodContentClientNotConfiguredException("설명 생성 클라이언트가 구성되지 않았습니다: foodId=${food.id}")
         val content = client.call(food.koreanName)
         food.updateDescription(content.description, content.translations.byCode())
     }
 
     private fun translateName(food: Food) {
-        val client = checkNotNull(nameTranslationClient) {
-            "이름 번역 클라이언트가 구성되지 않았습니다: foodId=${food.id}"
-        }
+        val client = nameTranslationClient
+            ?: throw FoodContentClientNotConfiguredException("이름 번역 클라이언트가 구성되지 않았습니다: foodId=${food.id}")
         food.updateNameTranslations(client.call(food.koreanName).byCode())
     }
 

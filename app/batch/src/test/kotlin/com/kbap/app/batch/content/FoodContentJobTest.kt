@@ -94,6 +94,9 @@ class FoodContentJobTest : BehaviorSpec() {
                     loadedOk2.spiciness shouldBe 2
                     loadedFailed.avoidanceSubstances shouldBe null
                     loadedFailed.spiciness shouldBe Food.SPICINESS_UNASSESSED
+                    loadedFailed.needsNameTranslations() shouldBe false
+                    loadedFailed.needsDescription() shouldBe false
+                    loadedFailed.needsDescriptionTranslations() shouldBe false
                 }
             }
         }

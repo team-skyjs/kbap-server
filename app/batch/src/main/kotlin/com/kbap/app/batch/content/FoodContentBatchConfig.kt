@@ -77,8 +77,7 @@ class FoodContentBatchConfig {
             .processor(foodContentProcessor)
             .writer(foodContentWriter)
             .faultTolerant()
-            .skip(Exception::class.java)
-            .skipLimit(Long.MAX_VALUE)
+            .skipPolicy { t, _ -> t !is FoodContentClientNotConfiguredException }
             .skipListener(skipLogging())
             .build()
 

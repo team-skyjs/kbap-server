@@ -1,6 +1,7 @@
 package com.kbap.domain.food.model
 
 import com.kbap.core.risk.RiskLevel
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -58,6 +59,24 @@ class FoodAvoidanceAssessmentTest : BehaviorSpec({
                 food.needsAvoidanceMapping() shouldBe false
                 food.needsAvoidanceAssessment() shouldBe false
                 food.spiciness shouldBe 0
+            }
+        }
+
+        `when`("범위 밖 맵기(-1)를 반영하려 하면") {
+            then("예외가 발생하고 상태는 변하지 않는다") {
+                val food = foodWith(null, spiciness = Food.SPICINESS_UNASSESSED)
+
+                shouldThrow<IllegalArgumentException> { food.assessAvoidance(emptyList(), -1) }
+
+                food.avoidanceSubstances shouldBe null
+            }
+        }
+
+        `when`("범위 밖 맵기(11)를 반영하려 하면") {
+            then("예외가 발생한다") {
+                shouldThrow<IllegalArgumentException> {
+                    foodWith(null).assessAvoidance(emptyList(), 11)
+                }
             }
         }
     }

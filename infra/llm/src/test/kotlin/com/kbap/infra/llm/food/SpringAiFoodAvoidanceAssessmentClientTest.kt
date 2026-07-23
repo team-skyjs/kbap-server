@@ -98,6 +98,61 @@ class SpringAiFoodAvoidanceAssessmentClientTest : BehaviorSpec({
         }
     }
 
+    given("한 모델이 명시적 null 맵기를 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 80) },
+            AvoidanceCaller(LlmModelId.UPSTAGE) { assessmentJson(4, "PORK" to 90) },
+            AvoidanceCaller(LlmModelId.GEMINI) {
+                """{"assessments": [{"code": "PORK", "inclusionPercent": 100}], "spiciness": null}"""
+            },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("null 이 0 으로 강제 변환되지 않고 그 모델 응답은 전체 무효 처리된다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 85))
+                result.spiciness shouldBe 4
+            }
+        }
+    }
+
+    given("한 모델이 명시적 null 포함률을 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 80) },
+            AvoidanceCaller(LlmModelId.UPSTAGE) { assessmentJson(4, "PORK" to 90) },
+            AvoidanceCaller(LlmModelId.GEMINI) {
+                """{"assessments": [{"code": "PORK", "inclusionPercent": null}], "spiciness": 5}"""
+            },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("그 모델 응답은 전체 무효 처리되어 유효한 2개로만 종합한다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 85))
+                result.spiciness shouldBe 4
+            }
+        }
+    }
+
+    given("한 모델이 같은 성분 코드를 중복 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 80) },
+            AvoidanceCaller(LlmModelId.UPSTAGE) { assessmentJson(4, "PORK" to 100, "PORK" to 0) },
+            AvoidanceCaller(LlmModelId.GEMINI) { assessmentJson(5, "PORK" to 90) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("중복 응답 모델은 전체 무효 처리되어 유효한 2개로만 종합한다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 85))
+                result.spiciness shouldBe 4
+            }
+        }
+    }
+
     given("유효 응답이 1개뿐(2개는 예외)") {
         val fanout = fanoutOf(
             AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 80) },

@@ -35,7 +35,7 @@ class SpringAiFoodAvoidanceAssessmentClient(
                 val byCode = mutableMapOf<String, Int>()
                 var valid = true
                 for (item in response.assessments) {
-                    if (item.code !in candidateCodes || item.inclusionPercent !in 0..100) {
+                    if (item.code !in candidateCodes || item.inclusionPercent !in 0..100 || item.code in byCode) {
                         valid = false
                         break
                     }
