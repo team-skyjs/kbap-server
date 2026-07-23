@@ -4,7 +4,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 구현 방식 선택지가
 
 ## R1. 스캔 API 의 lang 수신 방식
 
-- **Decision**: `@Valid @ModelAttribute ScanLangRequest`(필드 `lang: String`, `@field:NotBlank`)를 기존 `@RequestBody ScanRequest` 와 **병행** 선언한다(HomeRequest 와 동일 패턴). 컨트롤러는 관용 lookup(`LanguageCode.from`)이 아니라 지원 코드와의 정확 일치로 확정하고, 일치하지 않으면 `BusinessException(UNSUPPORTED_SCAN_LANGUAGE)` 로 거절한다(R6).
+- **Decision**: `@Valid @ModelAttribute ScanLangRequest`(필드 `lang: String`, `@field:NotBlank`)를 기존 `@RequestBody ScanRequest` 와 **병행** 선언한다(HomeRequest 와 동일 패턴). 컨트롤러가 `LanguageCode.from(request.lang)` 으로 확정해 서비스에 전달한다.
 - **Rationale**: 전 API 가 요청 DTO + `@field:NotBlank` 로 검증하고 `MethodArgumentNotValidException` → `GlobalExceptionHandler` → 400 경로를 공유한다. 스캔만 `@RequestParam` 으로 받으면 (1) 빈 문자열(`lang=`)이 통과해 원칙 V 의 "비어 있으면 400" 을 어기고, (2) `@NotBlank` 를 쓰려면 컨트롤러 클래스 `@Validated` 프록시 + `ConstraintViolationException` 핸들러가 추가로 필요하다. Spring MVC 는 한 핸들러 메서드에서 `@ModelAttribute`(쿼리 바인딩)와 `@RequestBody` 를 함께 지원한다.
 - **Alternatives considered**: `@RequestParam lang: String` — 빈 값 통과·검증 경로 이원화로 기각. body(`ScanRequest`) 안에 lang 포함 — 사용자 요구가 명시적으로 request parameter 이고, 표시 언어는 리소스 표현 선택이라 쿼리가 의미상 맞아 기각.
 
@@ -32,8 +32,8 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 구현 방식 선택지가
 - **Rationale**: 스펙 FR-005·FR-006 — 프로필은 언어를 보관·노출하지 않는다. 온보딩 필수 입력이 줄어드는 방향의 변경이라 신규 클라이언트는 안 보내면 되고, 구버전은 R4 로 흡수된다.
 - **Alternatives considered**: 응답에서만 숨기고 저장 유지 — "서버에 언어 저장 경로 0개"(SC-004) 미달로 기각.
 
-## R6. 미지원 lang 코드 처리 — 스캔은 거절한다
+## R6. 미지원 lang 코드 처리 — 전사 정책(en 폴백)을 그대로 따른다
 
-- **Decision**: 스캔은 전사 정책(en 폴백)을 따르지 않고 미지원 코드를 **400 `COMMON-002`** 으로 거절한다. 에러코드는 새로 채번하지 않고 다른 API 들이 요청 검증 실패에 공통으로 쓰는 기존 `INVALID_REQUEST("COMMON-002")` 를 재사용한다 — lang 누락·공백과 미지원 코드는 클라이언트 대응이 같다. 프로필 언어 제거로 미사용이 된 `UNSUPPORTED_APP_LANGUAGE("MEMBER-007")` 는 삭제한다(번호는 재사용 금지). 확정 로직은 `:core` 가 아니라 컨트롤러가 소유한다 — ADR-0013 이 "엔드포인트별 정책은 각 컨트롤러가 소유한다" 로 정한 대로 `LanguageCode.from` 의 관용 동작은 건드리지 않는다. 결정 기록은 ADR-0014.
-- **Rationale**: 스캔 응답은 사용자가 먹을 것을 고르는 화면이라, 요청과 다른 언어의 메뉴명이 조용히 내려가면 사용자가 알아채지 못한다. ADR-0013 이 en 폴백의 근거로 든 "진입 화면이 안 열린다" 는 홈 기준 논리라 스캔에 그대로 적용되지 않는다. 헌법 원칙 V 이탈이므로 plan.md 의 Complexity Tracking 에 정당화를 기록했다.
-- **Alternatives considered**: 전사 정책대로 en 폴백 — 클라이언트 코드 오타·대소문자 오류가 200 으로 조용히 나가는 위험을 스캔에서는 감수하지 않기로 해 기각. 전용 코드 신규 채번(`SCAN-003` 등) — 클라이언트가 얻는 정보가 늘지 않는데 코드 표만 길어져 기각. `MEMBER-007` 재사용 — 스캔 엔드포인트에 MEMBER 접두 코드가 나가면 클라이언트 분기가 오독돼 기각.
+- **Decision**: 스캔도 다른 API 와 동일하게 미지원 코드를 `en` 으로 폴백한다(`LanguageCode.from`). 컨트롤러에 별도 거절 분기를 두지 않는다.
+- **Rationale**: 헌법 원칙 V·ADR-0013 이 정한 전사 정책이다. 클라이언트(앱)가 기기 언어를 지원 목록에 매핑해 보내고 미지원이면 영어를 기본값으로 쓰므로, 서버가 거절해서 얻을 실익이 없다.
+- **Alternatives considered**: 스캔만 미지원 코드를 400 으로 거절 — 검토했으나 기각. 정책이 엔드포인트별로 갈리고, 앱이 이미 지원 코드만 보내므로 거절 분기가 도달하지 않는 죽은 코드가 된다.

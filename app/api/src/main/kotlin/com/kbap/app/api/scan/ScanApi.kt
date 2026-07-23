@@ -41,7 +41,7 @@ interface ScanApi {
             ## 언어
             표시 언어는 **요청 파라미터 `lang` 만으로** 정해진다. 회원 프로필의 앱 언어는 참조하지 않는다.
             지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. `lang` 은 **필수**이며
-            누락·빈/공백과 지원 목록에 없는 코드 모두 400(COMMON-002)이다 — 다른 조회 API 의 en 폴백과 달리 스캔은 거절한다.
+            누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
         """,
     )
     @ApiResponses(
@@ -49,7 +49,7 @@ interface ScanApi {
             ApiResponse(responseCode = "200", description = "판정 성공 — 매칭 idx·위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패·지원하지 않는 lang 코드(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)",
+                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),

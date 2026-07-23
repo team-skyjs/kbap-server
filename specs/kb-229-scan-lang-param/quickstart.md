@@ -19,8 +19,8 @@ curl -X POST 'http://localhost:8080/api/v1/scans?lang=en' \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"imagePath":"scan/1/test.jpg","items":[{"idx":0,"rawMenuName":"김치찌개"}]}'
 
-# 2) 미지원 코드 → 400 COMMON-002
-curl -X POST 'http://localhost:8080/api/v1/scans?lang=fr' ...   # 400 COMMON-002
+# 2) 미지원 코드 → 200 + en 폴백
+curl -X POST 'http://localhost:8080/api/v1/scans?lang=fr' ...   # 200, 영어 번역
 
 # 3) lang 누락 → 400
 curl -X POST 'http://localhost:8080/api/v1/scans' ...           # 400

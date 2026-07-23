@@ -14,7 +14,7 @@ Content-Type: application/json
 
 - **`lang`** (query, **필수 — 신규**): 표시명 언어 코드. 지원: `ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es`.
   - 누락·빈 값·공백 → **400** (`COMMON-002` 계열 검증 실패 — 기존 GlobalExceptionHandler 경로)
-  - 지원 목록에 없는 값(`fr`·`EN`·`ko-KR` 등) → **400 `COMMON-002`** 으로 거절 (정확 일치 매칭, 정규화 없음 — 전사 en 폴백 정책의 의도적 예외)
+  - 지원 목록에 없는 값(`fr`·`EN`·`ko-KR` 등) → 거절하지 않고 **`en` 으로 응답** (정확 일치 매칭, 정규화 없음)
 - Body(`ScanRequest`: imagePath + items)는 **변경 없음**.
 
 ### Response (200 — 변경점만)
@@ -43,5 +43,5 @@ Content-Type: application/json
 
 ## Swagger 갱신
 
-- `ScanApi`: `lang` 쿼리 파라미터 문서화(지원 코드 목록 + 미지원 코드 400 `COMMON-002`).
+- `ScanApi`: `lang` 쿼리 파라미터 문서화(지원 코드 목록·en 폴백 — HomeRequest 와 동일 서술).
 - `MemberApi`: 온보딩·수정·조회 예시 JSON 에서 `appLanguage` 제거.

@@ -107,8 +107,7 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 - **표시 언어(`lang`) 규약 (KB-201 · [ADR-0013](../adr/0013-lang-english-fallback.md))** — 표시 언어를 받는 API 는 다음을 따른다.
   - `lang` 은 **필수** 쿼리 파라미터다. 기본값(`defaultValue`)을 두지 않는다. 누락·빈 값·공백은 **400 `COMMON-002`**.
   - 값이 지원 10종과 **정확히 일치**하면 그 언어, 그 외(미지원 코드·대소문자 불일치·지역 변형·앞뒤 공백)는 **`en` 폴백**. 언어 코드 값을 사유로 하는 400 은 없다.
-  - **예외 — 스캔(`POST /api/v1/scans`)은 미지원 코드를 400 `COMMON-002` 으로 거절한다**(KB-229 · [ADR-0014](../adr/0014-scan-lang-param-strict-rejection.md)). 메뉴명을 요청과 다른 언어로 조용히 내보내지 않기 위함이며, 이 엔드포인트에만 적용되는 의도적 이탈이다.
-  - 회원 프로필은 앱 언어를 보관하지 않는다 — 응답 언어는 전 API 가 요청 `lang` 으로만 정한다(KB-229 에서 마지막 예외였던 스캔 API 를 전환하고 프로필 `appLanguage` 를 제거했다).
+  - 회원 프로필은 앱 언어를 보관하지 않는다 — 응답 언어는 전 API 가 요청 `lang` 으로만 정한다(KB-229 · [ADR-0014](../adr/0014-scan-lang-unification-and-profile-language-removal.md) — 마지막 예외였던 스캔 API 를 전환하고 프로필 `appLanguage` 를 제거했다).
   - 근거: `lang` 은 사용자가 고르는 값이 아니라 기기 설정에서 흘러드는 값이라, 미지원 기기 언어에 400 을 주면 화면이 열리지 않는다. 상세·트레이드오프는 ADR-0013.
 - **외부 입력 검증은 요청 경계(컨트롤러)가 소유한다 (KB-201)** — 필수 여부·빈 값 판정은 web 계층의 **요청 DTO**(`@field:NotBlank` 등 + `@Valid @ModelAttribute`)가 처리하고, 도메인·애플리케이션 서비스는 **확정된 값**(예: `LanguageCode`)을 받는다. 타입이 계약을 강제하므로 서비스 안에 방어 코드를 두지 않는다.
   - 쿼리 파라미터에도 요청 DTO 를 쓴다 — 종래 `*Request` DTO 는 POST/PUT 본문 전용이었으나 KB-201 이 쿼리 파라미터로 확장한 첫 사례다. 신규 API 와 기존 API 이행은 이 패턴을 따른다.

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotBlank
 data class ScanLangRequest(
     @field:NotBlank(message = "lang 은 필수입니다")
     @field:Schema(
-        description = "표시명 언어 코드. 지원: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 지원 목록에 없는 값은 400 COMMON-002 으로 거절한다.",
+        description = "표시명 언어 코드. 지원: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 지원 목록에 없는 값은 en 으로 응답한다.",
         example = "en",
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
