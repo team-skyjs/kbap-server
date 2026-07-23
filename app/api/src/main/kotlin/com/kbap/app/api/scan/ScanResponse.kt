@@ -51,7 +51,7 @@ data class ScanResponse(
 
         @field:Schema(
             description = "표시용 메뉴명. matched=true 면 음식의 요청 lang 번역명(해당 언어 번역이 없으면 한국어명), " +
-                "matched=false 면 아직 번역본이 없는 신규 음식이므로 표준 한국어명.",
+                "matched=false 면 아직 번역본이 없는 신규 음식이므로 비전이 정제한 표준 한국어명.",
             example = "Kimchi Stew",
             nullable = true,
         )

@@ -51,7 +51,7 @@ class ScanService internal constructor(
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
-            val koreanName = food?.koreanName() ?: menu.koreanName
+            val koreanName = if (matched) food!!.koreanName() else menu.koreanName
             ScanResult.ItemRiskResult(
                 // LLM 이 목록에 없는 idx 를 반환하면(할루시네이션) 매칭 없음으로 처리한다.
                 idx = menu.matchedIdx?.takeIf { it in validIdxes },

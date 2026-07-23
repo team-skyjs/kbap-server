@@ -33,7 +33,7 @@ interface ScanApi {
             ## 응답
             - `idx` — 이 추출 메뉴에 매칭된 **클라이언트 OCR 항목의 idx**. 클라이언트는 이 값으로 해당 메뉴 위에 박스를 그린다. 추출됐지만 대응 OCR 이 없으면 `null`.
             - `matched` — `true` 면 조회 가능한 음식과 매칭됨(`riskLevel` 은 회피 성분 기준 판정). `false` 면 조사 대기라 `riskLevel=UNKNOWN`.
-            - `name` — 표시용 메뉴명. `matched=true` 면 요청 `lang` 의 번역명(번역 부재 시 한국어명), `matched=false` 면 아직 번역본이 없으므로 표준 한국어명. `koreanName` — 표준 한국어명(매칭 음식이 있으면 그 표준명).
+            - `name` — 표시용 메뉴명. `matched=true` 면 요청 `lang` 의 번역명(번역 부재 시 한국어명), `matched=false` 면 아직 번역본이 없으므로 비전이 정제한 표준 한국어명. `koreanName` — 표준 한국어명(매칭 음식이 있으면 그 표준명).
             - `price` — 원 단위 정수(미표기 시 null). 응답으로만 제공되며 가격은 스캔 이력에만 저장된다.
 
             메뉴판이 아닌 사진 등 추출 항목이 0개면 `results` 가 빈 배열인 정상 응답이다(실패 아님).

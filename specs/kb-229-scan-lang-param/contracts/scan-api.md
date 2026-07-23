@@ -20,7 +20,7 @@ Content-Type: application/json
 ### Response (200 — 변경점만)
 
 - `payload.results[].name`: 매칭된 메뉴는 **요청 `lang` 의 번역**으로 내려간다(번역 부재 시 `ko` 폴백). 회원 프로필 설정은 더 이상 관여하지 않는다.
-- `matched=false`(신규·조사 대기) 메뉴는 번역본이 없으므로 `name` 에 표준 한국어명이 내려간다(`koreanName` 과 같은 값). 그 외 필드는 기존과 동일.
+- `matched=false`(신규·조사 대기) 메뉴는 번역본이 없으므로 `name`·`koreanName` 모두 비전 LLM 이 정제한 표준 한국어명이 내려간다(같은 값). 그 외 필드는 기존과 동일.
 
 ### 제거되는 동작
 

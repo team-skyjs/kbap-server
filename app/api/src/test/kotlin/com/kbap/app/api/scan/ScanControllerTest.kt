@@ -162,8 +162,8 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].price") { value(9000) }
                         jsonPath("$.payload.results[1].idx") { value(1) }
                         jsonPath("$.payload.results[1].matched") { value(false) }
-                        jsonPath("$.payload.results[1].name") { value("미등록불고기") }
-                        jsonPath("$.payload.results[1].koreanName") { value("미등록불고기") }
+                        jsonPath("$.payload.results[1].name") { value("미등록불고기501") }
+                        jsonPath("$.payload.results[1].koreanName") { value("미등록불고기501") }
                         jsonPath("$.payload.results[1].price") { value(16000) }
                     }
                 }
@@ -211,8 +211,8 @@ class ScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
-                        jsonPath("$.payload.results[0].name") { value("신규불고기") }
-                        jsonPath("$.payload.results[0].koreanName") { value("신규불고기") }
+                        jsonPath("$.payload.results[0].name") { value("신규불고기522") }
+                        jsonPath("$.payload.results[0].koreanName") { value("신규불고기522") }
                     }
                 }
             }
