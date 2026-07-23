@@ -36,27 +36,50 @@ class FoodAvoidanceAssessmentTest : BehaviorSpec({
         }
     }
 
-    given("Food.assessAvoidance — 성분만 반영(맵기는 설명 작업 소관)") {
-        `when`("유효한 성분 목록을 반영하면") {
-            then("성분이 확률 내림차순으로 채워지고 조사완료로 판정되며 맵기는 건드리지 않는다") {
+    given("Food.assessAvoidance — 성분과 맵기를 함께 반영(다중 모델 종합 결과)") {
+        `when`("유효한 성분 목록과 맵기를 반영하면") {
+            then("성분이 확률 내림차순으로 채워지고 맵기도 함께 설정된다") {
                 val food = foodWith(null, spiciness = Food.SPICINESS_UNASSESSED)
 
-                food.assessAvoidance(listOf(item("EGG", 90), item("WHEAT", 100)))
+                food.assessAvoidance(listOf(item("EGG", 90), item("WHEAT", 100)), 4)
 
                 food.needsAvoidanceMapping() shouldBe false
                 food.avoidanceSubstancesByProbability() shouldBe listOf(item("WHEAT", 100), item("EGG", 90))
-                food.spiciness shouldBe Food.SPICINESS_UNASSESSED
+                food.spiciness shouldBe 4
             }
         }
 
-        `when`("빈 성분 목록을 반영하면(무성분 조사완료)") {
-            then("재조사 대상이 아니게 되고 맵기는 그대로다") {
+        `when`("빈 성분 목록과 맵기 0 을 반영하면(무성분·안 매움 조사완료)") {
+            then("재조사 대상이 아니게 되고 맵기는 0 이다") {
                 val food = foodWith(null, spiciness = Food.SPICINESS_UNASSESSED)
 
-                food.assessAvoidance(emptyList())
+                food.assessAvoidance(emptyList(), 0)
 
                 food.needsAvoidanceMapping() shouldBe false
-                food.spiciness shouldBe Food.SPICINESS_UNASSESSED
+                food.needsAvoidanceAssessment() shouldBe false
+                food.spiciness shouldBe 0
+            }
+        }
+    }
+
+    given("Food.needsAvoidanceAssessment — 성분·맵기 중 하나라도 미완이면 재판정 대상") {
+        `when`("기피성분이 미조사(null)이면") {
+            then("맵기가 채워져 있어도 true 다") {
+                foodWith(null, spiciness = 3).needsAvoidanceAssessment() shouldBe true
+            }
+        }
+
+        `when`("성분은 조사완료인데 맵기가 미판정(-1)이면") {
+            then("true 다") {
+                foodWith(listOf(item("SOYBEAN", 100)), spiciness = Food.SPICINESS_UNASSESSED)
+                    .needsAvoidanceAssessment() shouldBe true
+            }
+        }
+
+        `when`("성분·맵기 둘 다 채워졌으면") {
+            then("false 다") {
+                foodWith(emptyList(), spiciness = 0).needsAvoidanceAssessment() shouldBe false
+                foodWith(listOf(item("SOYBEAN", 100)), spiciness = 3).needsAvoidanceAssessment() shouldBe false
             }
         }
     }

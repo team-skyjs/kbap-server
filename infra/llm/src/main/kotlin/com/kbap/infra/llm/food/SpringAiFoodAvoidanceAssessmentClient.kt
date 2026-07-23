@@ -2,6 +2,7 @@ package com.kbap.infra.llm.food
 
 import com.kbap.core.food.FoodAvoidanceAssessment
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.core.food.FoodAvoidanceAssessmentResult
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.model.LlmChatRequest
 import kotlin.math.roundToInt
@@ -11,42 +12,60 @@ class SpringAiFoodAvoidanceAssessmentClient(
     private val fanoutClient: LlmFanoutClient,
 ) : FoodAvoidanceAssessmentClient {
 
-    override fun call(koreanName: String, candidateCodes: Set<String>): List<FoodAvoidanceAssessment> {
-        if (candidateCodes.isEmpty()) return emptyList()
+    override fun call(koreanName: String, candidateCodes: Set<String>): FoodAvoidanceAssessmentResult {
+        require(candidateCodes.isNotEmpty()) { "기피성분 조사는 후보 코드가 비어 있으면 호출할 수 없습니다" }
 
         val fanout = fanoutClient.generate(LlmChatRequest(prompt = promptOf(koreanName, candidateCodes), system = SYSTEM_PROMPT))
         val validResponses = fanout.successes.mapNotNull { parseValidOrNull(it.content, candidateCodes) }
         require(validResponses.size >= MIN_AGREEMENT) {
             "기피성분 조사를 종합할 유효 모델 응답이 부족합니다: ${validResponses.size}/${fanout.attemptedCount()} (최소 $MIN_AGREEMENT)"
         }
-        return aggregate(candidateCodes, validResponses)
+        return FoodAvoidanceAssessmentResult(
+            substances = aggregateSubstances(candidateCodes, validResponses.map { it.percentByCode }),
+            spiciness = validResponses.map { it.spiciness }.average().roundToInt(),
+        )
     }
 
-    private fun parseValidOrNull(raw: String, candidateCodes: Set<String>): Map<String, Int>? =
+    private fun parseValidOrNull(raw: String, candidateCodes: Set<String>): ValidResponse? =
         try {
             val response = FoodContentJsonParser.parse<AssessmentResponse>(raw)
-            val byCode = mutableMapOf<String, Int>()
-            for (item in response.assessments) {
-                if (item.code !in candidateCodes) return null
-                if (item.inclusionPercent !in 0..100) return null
-                byCode[item.code] = item.inclusionPercent
+            if (response.spiciness !in FoodAvoidanceAssessmentResult.SPICINESS_RANGE) {
+                null
+            } else {
+                val byCode = mutableMapOf<String, Int>()
+                var valid = true
+                for (item in response.assessments) {
+                    if (item.code !in candidateCodes || item.inclusionPercent !in 0..100) {
+                        valid = false
+                        break
+                    }
+                    byCode[item.code] = item.inclusionPercent
+                }
+                if (valid) ValidResponse(byCode, response.spiciness) else null
             }
-            byCode
         } catch (e: FoodContentParseException) {
             null
         }
 
-    private fun aggregate(candidateCodes: Set<String>, responses: List<Map<String, Int>>): List<FoodAvoidanceAssessment> =
+    private fun aggregateSubstances(candidateCodes: Set<String>, responses: List<Map<String, Int>>): List<FoodAvoidanceAssessment> =
         candidateCodes.mapNotNull { code ->
             val avg = responses.map { it[code] ?: 0 }.average().roundToInt()
             if (avg == 0) null else FoodAvoidanceAssessment(code, avg)
         }
 
+    private data class ValidResponse(val percentByCode: Map<String, Int>, val spiciness: Int)
+
     private fun promptOf(koreanName: String, candidateCodes: Set<String>): String =
         """
         너는 한국 음식 레시피와 알레르기·기피성분 전문가다. 아래 메뉴의 대표 레시피를 기준으로
-        기피성분의 포함 확률을 1~100 정수로 매겨라.
+        기피성분의 포함 확률을 1~100 정수로 매기고, 음식의 맵기를 0~10 정수로 판정하라.
         음식명: "$koreanName"
+
+        # spiciness (맵기) 의 의미
+        - 0: 맵지 않음 (계란말이, 치즈볼 등)
+        - 1~3: 약간 매콤 (제육볶음 순한맛, 김치찌개 등)
+        - 4~6: 보통 매움 (떡볶이, 닭갈비 등)
+        - 7~10: 매우 매움 (불닭, 매운 갈비찜, 마라 계열 등)
 
         # inclusionPercent 의 의미
         "손님이 아무 식당에서나 이 메뉴를 시켰을 때, 그 한 접시에 이 성분이 들어 있을 확률."
@@ -100,11 +119,14 @@ class SpringAiFoodAvoidanceAssessmentClient(
         - 확신 없는 성분은 지어내지 말고 낮은 값으로 두거나 생략하라.
         - 같은 code 를 중복하지 마라.
 
-        # 출력 형식 (JSON 만, 다른 텍스트·마크다운·코드펜스 금지)
-        {"assessments": [{"code": "WHEAT", "inclusionPercent": 95}, {"code": "SESAME", "inclusionPercent": 80}]}
+        # 출력 형식 (JSON 만, 다른 텍스트·마크다운·코드펜스 금지 — spiciness 필수)
+        {"assessments": [{"code": "WHEAT", "inclusionPercent": 95}, {"code": "SESAME", "inclusionPercent": 80}], "spiciness": 4}
         """.trimIndent()
 
-    data class AssessmentResponse(val assessments: List<AssessmentItem> = emptyList())
+    data class AssessmentResponse(
+        val assessments: List<AssessmentItem> = emptyList(),
+        val spiciness: Int = -1,
+    )
 
     data class AssessmentItem(val code: String = "", val inclusionPercent: Int = -1)
 

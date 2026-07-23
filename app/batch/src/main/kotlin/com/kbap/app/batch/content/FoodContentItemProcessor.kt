@@ -33,7 +33,7 @@ class FoodContentItemProcessor(
             translateContent(item)
             saveProgress(item)
         }
-        if (item.needsAvoidanceMapping()) {
+        if (item.needsAvoidanceAssessment()) {
             mapAvoidance(item)
             saveProgress(item)
         }
@@ -56,9 +56,10 @@ class FoodContentItemProcessor(
     private fun mapAvoidance(food: Food) {
         val codes = candidateCodes()
         if (codes.isEmpty()) return
-        val substances = avoidanceClient.call(food.koreanName, codes)
+        val result = avoidanceClient.call(food.koreanName, codes)
+        val substances = result.substances
             .filter { it.inclusionPercent > 0 }
             .map { FoodAvoidanceItem(code = it.code, inclusionPercent = it.inclusionPercent) }
-        food.assessAvoidance(substances)
+        food.assessAvoidance(substances, result.spiciness)
     }
 }

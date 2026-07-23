@@ -2,6 +2,7 @@ package com.kbap.app.batch.content
 
 import com.kbap.core.food.FoodAvoidanceAssessment
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.core.food.FoodAvoidanceAssessmentResult
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.domain.avoidance.model.AvoidanceSubstance
@@ -33,7 +34,7 @@ class FoodContentJobTest : BehaviorSpec() {
         fun avoidanceClient(): FoodAvoidanceAssessmentClient =
             FoodAvoidanceAssessmentClient { koreanName, _ ->
                 if (koreanName == FAILING_FOOD) throw RuntimeException("조사 실패: $koreanName")
-                listOf(FoodAvoidanceAssessment("EGG", 90))
+                FoodAvoidanceAssessmentResult(listOf(FoodAvoidanceAssessment("EGG", 90)), 2)
             }
     }
 
@@ -52,7 +53,7 @@ class FoodContentJobTest : BehaviorSpec() {
     init {
         given("청크 트랜잭션 없이(ResourcelessTransactionManager) 잡을 실행하면") {
             `when`("여러 음식 중 한 건의 기피성분 조사가 예외를 던지면") {
-                then("잡은 COMPLETED 로 끝나고, 실패 음식만 미조사(null)로 남으며 나머지는 성분이 커밋된다") {
+                then("잡은 COMPLETED 로 끝나고, 실패 음식만 미조사로 남으며 나머지는 성분·맵기가 함께 커밋된다") {
                     foodRepository.deleteAll()
                     avoidanceRepository.deleteAll()
                     avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
@@ -64,9 +65,15 @@ class FoodContentJobTest : BehaviorSpec() {
                     val execution = jobLauncher.run(foodContentJob, params)
 
                     execution.status shouldBe BatchStatus.COMPLETED
-                    foodRepository.findById(ok1).get().avoidanceSubstances.shouldNotBeNull()
-                    foodRepository.findById(ok2).get().avoidanceSubstances.shouldNotBeNull()
-                    foodRepository.findById(failed).get().avoidanceSubstances shouldBe null
+                    val loadedOk1 = foodRepository.findById(ok1).get()
+                    val loadedOk2 = foodRepository.findById(ok2).get()
+                    val loadedFailed = foodRepository.findById(failed).get()
+                    loadedOk1.avoidanceSubstances.shouldNotBeNull()
+                    loadedOk1.spiciness shouldBe 2
+                    loadedOk2.avoidanceSubstances.shouldNotBeNull()
+                    loadedOk2.spiciness shouldBe 2
+                    loadedFailed.avoidanceSubstances shouldBe null
+                    loadedFailed.spiciness shouldBe Food.SPICINESS_UNASSESSED
                 }
             }
         }

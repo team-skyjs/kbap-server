@@ -15,6 +15,8 @@ class TargetLanguageTexts(
         require(this.texts.values.none { it.isBlank() }) { "번역 값은 blank 일 수 없습니다" }
     }
 
+    fun byCode(): Map<String, String> = texts.mapKeys { (lang, _) -> lang.code }
+
     companion object {
         // KO 는 원문(source)이라 번역 대상이 아니다 — 헌법 V 사전 번역 정책의 9개 대상 언어.
         val TARGET_LANGUAGES: Set<LanguageCode> =

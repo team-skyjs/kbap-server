@@ -60,8 +60,12 @@ class Food(
 
     fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
 
-    fun assessAvoidance(substances: List<FoodAvoidanceItem>) {
+    fun needsAvoidanceAssessment(): Boolean =
+        avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
+
+    fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
         this.avoidanceSubstances = substances
+        this.spiciness = spiciness
     }
 
     fun transitionToReadyIfComplete(): Boolean {
