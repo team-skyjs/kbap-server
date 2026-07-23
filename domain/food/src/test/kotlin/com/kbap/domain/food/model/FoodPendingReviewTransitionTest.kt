@@ -116,6 +116,28 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
             }
         }
+
+        `when`("이름 번역에 9개 키가 다 있어도 값 하나(ja)가 blank 이면") {
+            then("미완으로 보고 전이하지 않는다") {
+                val food = incomplete(
+                    nameTranslations = allTargets("된장찌개") + (LanguageCode.JA.code to " "),
+                )
+
+                food.needsNameTranslations() shouldBe true
+                food.transitionToReadyIfComplete() shouldBe false
+            }
+        }
+
+        `when`("설명 번역에 9개 키가 다 있어도 값 하나(en)가 blank 이면") {
+            then("미완으로 보고 전이하지 않는다") {
+                val food = incomplete(
+                    descriptionTranslations = allTargets("hearty stew") + (LanguageCode.EN.code to ""),
+                )
+
+                food.needsDescriptionTranslations() shouldBe true
+                food.transitionToReadyIfComplete() shouldBe false
+            }
+        }
     }
 
     given("Food.transitionToPendingReviewIfComplete — 기피성분 조사 상태") {

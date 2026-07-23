@@ -1,6 +1,8 @@
 package com.kbap.app.batch.content
 
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.core.food.FoodDescriptionClient
+import com.kbap.core.food.FoodNameTranslationClient
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.domain.food.FoodJpaRepository
 import com.kbap.domain.food.model.Food
@@ -14,6 +16,7 @@ import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.infrastructure.item.ItemWriter
 import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -35,8 +38,16 @@ class FoodContentBatchConfig {
         transactionManager: PlatformTransactionManager,
         avoidanceClient: FoodAvoidanceAssessmentClient,
         avoidanceRepository: AvoidanceSubstanceJpaRepository,
+        descriptionClientProvider: ObjectProvider<FoodDescriptionClient>,
+        nameTranslationClientProvider: ObjectProvider<FoodNameTranslationClient>,
     ): FoodContentItemProcessor =
-        FoodContentItemProcessor(foodRepository, transactionManager, avoidanceClient) {
+        FoodContentItemProcessor(
+            foodRepository,
+            transactionManager,
+            avoidanceClient,
+            descriptionClientProvider.getIfAvailable(),
+            nameTranslationClientProvider.getIfAvailable(),
+        ) {
             avoidanceRepository.findAll().map { it.code.name }.toSet()
         }
 
@@ -66,8 +77,7 @@ class FoodContentBatchConfig {
             .processor(foodContentProcessor)
             .writer(foodContentWriter)
             .faultTolerant()
-            .skip(Exception::class.java)
-            .skipLimit(Long.MAX_VALUE)
+            .skipPolicy { t, _ -> t !is FoodContentClientNotConfiguredException }
             .skipListener(skipLogging())
             .build()
 

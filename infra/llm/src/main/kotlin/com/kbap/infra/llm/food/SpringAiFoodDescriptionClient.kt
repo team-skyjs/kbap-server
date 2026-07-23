@@ -17,7 +17,6 @@ class SpringAiFoodDescriptionClient(
         return FoodDescriptionContent(
             description = response.description,
             translations = TargetLanguageTexts(response.toTranslationsByLanguage()),
-            spiciness = response.spiciness,
         )
     }
 
@@ -34,16 +33,11 @@ class SpringAiFoodDescriptionClient(
         2. translations: description 을 9개 언어로 실제 번역한 값 (템플릿 문구·원문 복사 금지)
            - 언어 키(9개, 순서 고정): $KEY_ORDER
            - 9개 전수 채우고 빈 값 금지.
-        3. spiciness: 맵기 0~10 정수
-           - 0: 맵지 않음 (계란말이, 치즈볼 등)
-           - 1~3: 약간 매콤 (제육볶음 순한맛, 김치찌개 등)
-           - 4~6: 보통 매움 (떡볶이, 닭갈비 등)
-           - 7~10: 매우 매움 (불닭, 매운 갈비찜, 마라 계열 등)
 
         ## 출력 형식
 
         아래 JSON 한 줄로만 답하세요(코드펜스·다른 설명 없이). 예시(치즈볼):
-        {"description": "치즈를 넣은 반죽을 둥글게 튀긴 사이드 메뉴", "spiciness": 0, "translations": {"en": "Round fried dough balls filled with cheese.", "es": "Bolitas de masa fritas rellenas de queso.", "id": "Bola adonan goreng berisi keju.", "ja": "チーズを入れた生地を丸く揚げたサイドメニュー。", "ru": "Обжаренные шарики из теста с сырной начинкой.", "th": "แป้งทอดกลมสอดไส้ชีส", "vi": "Bột chiên tròn nhân phô mai.", "zh-Hans": "面团包入芝士后炸成圆球的小吃。", "zh-Hant": "麵團包入起司後炸成圓球的小吃。"}}
+        {"description": "치즈를 넣은 반죽을 둥글게 튀긴 사이드 메뉴", "translations": {"en": "Round fried dough balls filled with cheese.", "es": "Bolitas de masa fritas rellenas de queso.", "id": "Bola adonan goreng berisi keju.", "ja": "チーズを入れた生地を丸く揚げたサイドメニュー。", "ru": "Обжаренные шарики из теста с сырной начинкой.", "th": "แป้งทอดกลมสอดไส้ชีส", "vi": "Bột chiên tròn nhân phô mai.", "zh-Hans": "面团包入芝士后炸成圆球的小吃。", "zh-Hant": "麵團包入起司後炸成圓球的小吃。"}}
 
         ## 규칙
 
@@ -55,7 +49,6 @@ class SpringAiFoodDescriptionClient(
 
     data class DescriptionResponse(
         val description: String = "",
-        val spiciness: Int = -1,
         val translations: Map<String, String> = emptyMap(),
     ) {
         fun toTranslationsByLanguage(): Map<LanguageCode, String> =
