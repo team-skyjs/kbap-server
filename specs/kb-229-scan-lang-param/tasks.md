@@ -51,16 +51,16 @@
 
 ### Tests for User Story 2 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T006 [P] [US2] `domain/member/src/test/kotlin/com/kbap/domain/member/model/MemberProfileTest.kt`·`MemberTest.kt` — appLanguage 관련 기존 테스트 제거·수정 + **legacy JSON 관용 회귀 테스트 신규**: `"appLanguage"` 키가 포함된 JSON 을 `MemberProfileJson` 으로 역직렬화해도 예외 없이 읽히는지(Hibernate 매퍼와 동일한 기본 ObjectMapper 로 검증 — research R3). **Red 확인**
-- [ ] T007 [P] [US2] `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt` — (1) appLanguage 없는 온보딩 성공, (2) appLanguage 를 포함해 보내도 무시하고 성공(구버전 호환 — FR-007), (3) 프로필 수정 동일, (4) 내 프로필 조회 응답 JSON 에 `appLanguage` 키 부재. **Red 확인**
+- [X] T006 [P] [US2] `domain/member/src/test/kotlin/com/kbap/domain/member/model/MemberProfileTest.kt`·`MemberTest.kt` — appLanguage 관련 기존 테스트 제거·수정 + **legacy JSON 관용 회귀 테스트 신규**: `"appLanguage"` 키가 포함된 JSON 을 `MemberProfileJson` 으로 역직렬화해도 예외 없이 읽히는지(Hibernate 매퍼와 동일한 기본 ObjectMapper 로 검증 — research R3). **Red 확인**
+- [X] T007 [P] [US2] `app/api/src/test/kotlin/com/kbap/app/api/member/MemberControllerTest.kt` — (1) appLanguage 없는 온보딩 성공, (2) appLanguage 를 포함해 보내도 무시하고 성공(구버전 호환 — FR-007), (3) 프로필 수정 동일, (4) 내 프로필 조회 응답 JSON 에 `appLanguage` 키 부재. **Red 확인**
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/model/MemberProfileJson.kt` — `appLanguage` 필드 제거 + 클래스에 `@JsonIgnoreProperties(ignoreUnknown = true)` 명시(research R3)
-- [ ] T009 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/model/MemberProfile.kt`·`Member.kt` — `appLanguage` 필드·`validatedLanguage` 헬퍼·`of`/`updatedWith`/`completeOnboarding`/`updateProfile` 파라미터 제거
-- [ ] T010 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/` — `dto/MemberProfileInput.kt`·`dto/ProfileUpdateInput.kt`·`dto/MyProfileResult.kt` 에서 `appLanguage` 제거, `MemberService.kt` 전달 인자 정리 (**T006 Green 확인**)
-- [ ] T011 [US2] `app/api/src/main/kotlin/com/kbap/app/api/member/` — `OnboardingRequest.kt`·`ProfileUpdateRequest.kt`·`MyProfileResponse.kt` 에서 `appLanguage` 제거, `MemberApi.kt` swagger 예시 갱신 (**T007 Green 확인**)
-- [ ] T012 [US2] 테스트 시드·드라이버 정리 — `app/api/src/test/kotlin/com/kbap/app/api/{home/HomeTestSeed.kt, food/FoodTestSeed.kt, auth/AuthControllerTest.kt, scenario/ScenarioApiDriver.kt}` 의 appLanguage 잔재 제거, `:domain:member:test`·`:app:api:test` 통과 확인(Refactor)
+- [X] T008 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/model/MemberProfileJson.kt` — `appLanguage` 필드 제거 + 클래스에 `@JsonIgnoreProperties(ignoreUnknown = true)` 명시(research R3)
+- [X] T009 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/model/MemberProfile.kt`·`Member.kt` — `appLanguage` 필드·`validatedLanguage` 헬퍼·`of`/`updatedWith`/`completeOnboarding`/`updateProfile` 파라미터 제거
+- [X] T010 [US2] `domain/member/src/main/kotlin/com/kbap/domain/member/` — `dto/MemberProfileInput.kt`·`dto/ProfileUpdateInput.kt`·`dto/MyProfileResult.kt` 에서 `appLanguage` 제거, `MemberService.kt` 전달 인자 정리 (**T006 Green 확인**)
+- [X] T011 [US2] `app/api/src/main/kotlin/com/kbap/app/api/member/` — `OnboardingRequest.kt`·`ProfileUpdateRequest.kt`·`MyProfileResponse.kt` 에서 `appLanguage` 제거, `MemberApi.kt` swagger 예시 갱신 (**T007 Green 확인**)
+- [X] T012 [US2] 테스트 시드·드라이버 정리 — `app/api/src/test/kotlin/com/kbap/app/api/{home/HomeTestSeed.kt, food/FoodTestSeed.kt, auth/AuthControllerTest.kt, scenario/ScenarioApiDriver.kt}` 의 appLanguage 잔재 제거, `:domain:member:test`·`:app:api:test` 통과 확인(Refactor)
 
 **Checkpoint**: 서버에 언어 저장·노출 경로 0개(SC-004) — 두 스토리 모두 독립 검증 완료
 
@@ -68,7 +68,7 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T013 `./gradlew build` 전체 통과(ArchUnit `ModuleBoundaryTest` 포함) + quickstart.md 수동 확인 항목 점검(Swagger UI 에서 scans lang 파라미터 노출·member 예시 appLanguage 소멸)
+- [X] T013 `./gradlew build` 전체 통과(ArchUnit `ModuleBoundaryTest` 포함) + quickstart.md 수동 확인 항목 점검(Swagger UI 에서 scans lang 파라미터 노출·member 예시 appLanguage 소멸)
 
 ---
 

@@ -54,7 +54,6 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
                                   "countryCode": "KR",
-                                  "appLanguage": "ko",
                                   "profileImageUrl": "profile-image/2026/07/18/1/abc.jpg",
                                   "spicinessPreference": 7
                                 }
@@ -67,7 +66,6 @@ interface MemberApi {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
-                                  "appLanguage": "en",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": -1
                                 }
@@ -80,7 +78,6 @@ interface MemberApi {
                                   "nickname": "さくら",
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 4
                                 }
@@ -93,7 +90,6 @@ interface MemberApi {
                                   "nickname": "Linh",
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
-                                  "appLanguage": "vi",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": 8
                                 }
@@ -156,7 +152,7 @@ interface MemberApi {
             **바꾸고 싶은 필드만** 담아 보내면 된다 — 모든 필드가 선택이며, **보내지 않은 필드는 기존 값이 유지된다.**
 
             기피 성분은 **빈 배열 `[]` 이면 전부 해제**, **미전송이면 유지**로 서로 다르게 동작한다. 그래서
-            닉네임 화면은 `nickname`·`countryCode`·`appLanguage` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
+            닉네임 화면은 `nickname`·`countryCode` 만, 기피 성분 화면은 `avoidanceSubstanceCodes`
             만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
 
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
@@ -190,8 +186,7 @@ interface MemberApi {
                             value = """
                                 {
                                   "nickname": "길동이",
-                                  "countryCode": "KR",
-                                  "appLanguage": "ko"
+                                  "countryCode": "KR"
                                 }
                             """,
                         ),
@@ -250,7 +245,6 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "countryCode": "JP",
-                                  "appLanguage": "ja",
                                   "profileImageUrl": "profile-image/2026/07/18/1/new.jpg",
                                   "spicinessPreference": 3
                                 }

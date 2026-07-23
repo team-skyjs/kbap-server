@@ -1,13 +1,14 @@
 package com.kbap.domain.member.model
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 
+// 폐기된 키(appLanguage 등)가 남은 기존 row 를 읽어야 하므로 unknown key 를 명시적으로 무시한다.
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val spicinessPreference: Int = MemberProfile.SPICINESS_UNSET,
     val countryCode: String? = null,
-    val appLanguage: String? = null,
     val profileImageUrl: String? = null,
 ) {
     fun toDomain(nickname: String?): MemberProfile =
@@ -16,7 +17,6 @@ data class MemberProfileJson(
             avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
-            appLanguage = LanguageCode.entries.firstOrNull { it.code == appLanguage },
             // 선행 '/' 는 로드 시 제거 — 슬래시로 저장된 legacy 값을 무슬래시 키로 정규화.
             profileImageUrl = profileImageUrl?.trimStart('/'),
         )
@@ -27,7 +27,6 @@ data class MemberProfileJson(
                 avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value },
                 spicinessPreference = profile.spicinessPreference,
                 countryCode = profile.countryCode?.name,
-                appLanguage = profile.appLanguage?.code,
                 profileImageUrl = profile.profileImageUrl,
             )
     }

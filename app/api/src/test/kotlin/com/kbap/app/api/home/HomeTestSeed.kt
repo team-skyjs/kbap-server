@@ -44,7 +44,8 @@ object HomeTestSeed {
         )
     }
 
-    fun seedMember(dataSource: DataSource, memberId: Long, appLanguage: String, codes: List<String>) {
+    // profile JSON 의 appLanguage 는 폐기된 키다 — 그 키가 남은 기존 row 를 Hibernate 가 읽어내는지 함께 검증하려고 남겨 둔다.
+    fun seedMember(dataSource: DataSource, memberId: Long, codes: List<String>) {
         val codesJson = codes.joinToString(separator = ",", prefix = "[", postfix = "]") { "\"$it\"" }
         seedSubstanceCatalog(dataSource, *codes.toTypedArray())
         execute(
@@ -54,7 +55,7 @@ object HomeTestSeed {
                     "onboarding_completed, status, created_at, updated_at) " +
                     "VALUES ($memberId, 'GOOGLE', 'home-test-$memberId', NULL, '홈테스터', " +
                     """'{"avoidanceSubstanceCodes":$codesJson,"spicinessPreference":5,""" +
-                    """"countryCode":"US","appLanguage":"$appLanguage"}', """ +
+                    """"countryCode":"US","appLanguage":"en"}', """ +
                     "'ACTIVE', 1, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             ),
         )

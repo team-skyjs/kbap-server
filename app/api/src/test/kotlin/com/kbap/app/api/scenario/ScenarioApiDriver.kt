@@ -44,7 +44,6 @@ class ScenarioApiDriver(
         nickname: String = "시나리오사용자",
         avoidanceSubstanceCodes: List<String> = emptyList(),
         countryCode: String = "US",
-        appLanguage: String = "en",
         spicinessPreference: Int = 3,
         profileImageUrl: String = "images/default/profile/profile-default-512.png",
     ): Int = post(
@@ -53,7 +52,6 @@ class ScenarioApiDriver(
             "nickname" to nickname,
             "avoidanceSubstanceCodes" to avoidanceSubstanceCodes,
             "countryCode" to countryCode,
-            "appLanguage" to appLanguage,
             "spicinessPreference" to spicinessPreference,
             "profileImageUrl" to profileImageUrl,
         ),

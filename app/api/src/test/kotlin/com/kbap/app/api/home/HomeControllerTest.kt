@@ -54,7 +54,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("홈을 조회하면") {
                 then("기피 성분·인기 음식·최근 스캔 세 섹션이 한 응답에 담긴다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 7)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "en", codes = listOf("EGG"))
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 3L, scannedAt = "2026-07-01 10:00:00")
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-02 10:00:00")
 
@@ -73,7 +73,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("같은 메뉴를 여러 번 스캔했으면") {
                 then("최근 스캔에 중복 없이 최신 1건만 나타난다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 3)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "en", codes = emptyList())
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = emptyList())
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-01 10:00:00")
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 2L, scannedAt = "2026-07-02 10:00:00")
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-03 10:00:00")
@@ -89,7 +89,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("lang=ja 로 조회하면") {
                 then("음식명과 기피 성분명이 일본어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
                     val payload = payload(11L, lang = "ja")
 
@@ -101,7 +101,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("프로필과 다른 lang=ko 로 조회하면") {
                 then("프로필 언어를 무시하고 한국어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
                     val payload = payload(11L, lang = "ko")
 
@@ -113,7 +113,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("같은 lang 으로 비회원이 조회하면") {
                 then("회원과 같은 언어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "ja", codes = listOf("EGG"))
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
                     val 회원 = payload(11L, lang = "ko").path("popularFoods").single().path("name").asText()
                     val 비회원 = payload(null, lang = "ko").path("popularFoods").single().path("name").asText()
@@ -149,7 +149,7 @@ class HomeControllerTest : BehaviorSpec() {
             `when`("홈을 조회하면") {
                 then("두 섹션이 빈 배열로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 2)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "en", codes = emptyList())
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = emptyList())
 
                     val payload = payload(11L)
 
@@ -167,7 +167,7 @@ class HomeControllerTest : BehaviorSpec() {
                 then("본인 프로필 기준으로 DANGER 판정이 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
                     HomeTestSeed.seedFoodSubstance(dataSource, foodId = 1L, code = "EGG", percent = 100)
-                    HomeTestSeed.seedMember(dataSource, memberId = 11L, appLanguage = "en", codes = listOf("EGG"))
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
                     payload(11L).path("popularFoods").single().path("overallRiskStatus").asText() shouldBe "DANGER"
                 }

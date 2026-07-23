@@ -1,11 +1,12 @@
 package com.kbap.domain.member.model
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.kbap.core.error.BusinessException
 import com.kbap.core.error.ErrorCode
 import com.kbap.core.lang.CountryCode
-import com.kbap.core.lang.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -17,7 +18,6 @@ class MemberProfileTest : BehaviorSpec({
         avoidanceSubstanceCodes = emptySet(),
         spicinessPreference = spiciness,
         countryCode = null,
-        appLanguage = null,
     )
 
     fun baseProfile() = MemberProfile.of(
@@ -25,7 +25,6 @@ class MemberProfileTest : BehaviorSpec({
         avoidanceSubstanceCodes = emptySet(),
         spicinessPreference = 5,
         countryCode = CountryCode.KR,
-        appLanguage = LanguageCode.KO,
     )
 
     given("MemberProfile 맵기 선호 범위") {
@@ -79,6 +78,20 @@ class MemberProfileTest : BehaviorSpec({
         }
     }
 
+    given("MemberProfileJson 역직렬화 — 폐기된 키가 남은 레거시 회원") {
+        // Hibernate 의 JSON 매퍼는 Boot 가 관용 설정한 ObjectMapper 가 아닐 수 있어 기본 매퍼로 검증한다.
+        `when`("더 이상 쓰지 않는 appLanguage 키가 저장돼 있으면") {
+            then("예외 없이 무시하고 나머지 값을 읽는다") {
+                val json = ObjectMapper().registerKotlinModule().readValue<MemberProfileJson>(
+                    """{"appLanguage":"ko","spicinessPreference":5,"countryCode":"KR"}""",
+                )
+
+                json.toDomain("머고").spicinessPreference shouldBe 5
+                json.toDomain("머고").countryCode shouldBe CountryCode.KR
+            }
+        }
+    }
+
     given("MemberProfile.updatedWith — 맵기 선호 부분 수정") {
         `when`("맵기 선호로 -1 을 명시 전송하면") {
             then("미설정(-1)으로 되돌린다") {
@@ -101,7 +114,6 @@ class MemberProfileTest : BehaviorSpec({
                     avoidanceSubstanceCodes = emptySet(),
                     spicinessPreference = -1,
                     countryCode = null,
-                    appLanguage = null,
                 )
 
                 unset.updatedWith(spicinessPreference = 7)
@@ -175,20 +187,18 @@ class MemberProfileTest : BehaviorSpec({
     }
 
     given("MemberProfile 값 보존") {
-        `when`("닉네임·기피성분·국가·언어를 담으면") {
+        `when`("닉네임·기피성분·국가를 담으면") {
             then("그대로 보존한다") {
                 val profile = MemberProfile.of(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("MILK")),
                     spicinessPreference = 3,
                     countryCode = CountryCode.KR,
-                    appLanguage = LanguageCode.JA,
                 )
 
                 profile.nickname shouldBe "머고"
                 profile.avoidanceSubstanceCodes.map { it.value }.toSet() shouldBe setOf("PEANUT", "MILK")
                 profile.countryCode shouldBe CountryCode.KR
-                profile.appLanguage shouldBe LanguageCode.JA
             }
         }
     }
@@ -203,7 +213,6 @@ class MemberProfileTest : BehaviorSpec({
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
                     spicinessPreference = 2,
                     countryCode = CountryCode.KR,
-                    appLanguage = LanguageCode.KO,
                 )
 
                 member.updateProfile(replacement)

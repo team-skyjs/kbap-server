@@ -28,7 +28,6 @@ class MemberService internal constructor(
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
-            appLanguage = input.appLanguage,
             profileImageUrl = input.profileImageUrl,
         )
     }
@@ -40,7 +39,6 @@ class MemberService internal constructor(
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
-            appLanguage = input.appLanguage,
             profileImageUrl = input.profileImageUrl,
         )
     }
