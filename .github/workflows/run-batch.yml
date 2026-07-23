@@ -1,8 +1,11 @@
 name: Run batch (manual)
 
-# 선택한 환경에서 배치 태스크를 1회 기동한다(fire-and-forget — 기동만 확인하고 끝).
-# 진행·결과는 ECS 콘솔/CloudWatch 로그로 확인한다. prod 시간별 실행은 EventBridge Scheduler 가 담당.
+# 선택한 환경에서 배치를 1회 기동한다(fire-and-forget — 기동만 확인하고 끝).
+# - prod: ECS run-task (시간별 자동 실행은 EventBridge Scheduler 담당)
+# - dev : SSM Run Command 로 dev EC2 에서 일회성 docker run (api 와 동일한 EC2+SSM 환경)
+# 진행·결과는 CloudWatch/서버 docker logs 로 확인한다.
 # 중복 실행 방지는 의도적으로 없다 — 겹쳐도 데이터는 안전하고 LLM 중복 과금만 발생(사고 시 앱 부팅 가드 추가).
+# 단 dev 는 컨테이너 이름이 고정이라 이전 실행이 살아 있으면 docker run 이 이름 충돌로 실패한다(자연 직렬화).
 on:
   workflow_dispatch:
     inputs:
@@ -18,7 +21,7 @@ permissions:
 
 jobs:
   run:
-    name: run foodContentJob task (${{ inputs.environment }})
+    name: run foodContentJob (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
@@ -29,7 +32,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Run task
+      - name: Run task on ECS (prod)
+        if: inputs.environment == 'prod'
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           FAMILY: ${{ vars.ECS_BATCH_TASK_FAMILY }}
@@ -48,4 +52,57 @@ jobs:
             exit 1
           fi
           echo "started: $TASK_ARN"
-          echo "결과 확인: ECS 콘솔 또는 CloudWatch 로그 그룹(/ecs/<family>)"
+          echo "결과 확인: ECS 콘솔 또는 CloudWatch 로그 그룹(/ecs/$FAMILY)"
+
+      - name: Login to ECR
+        if: inputs.environment == 'dev'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Run container on EC2 via SSM (dev)
+        if: inputs.environment == 'dev'
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPO: ${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}
+          REGION: ${{ vars.AWS_REGION }}
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+        run: |
+          IMAGE="$REGISTRY/$REPO:batch-latest"
+          read -r -d '' REMOTE <<EOF || true
+          set -e
+          # SSM Run Command 는 최소 PATH 로 실행돼 /usr/local/bin 이 빠질 수 있다(aws CLI v2 위치).
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:\$PATH
+          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+          docker pull $IMAGE
+          # 일회성 실행 — 잡 종료 시 컨테이너 자동 제거(--rm), 서버 포트 점유 없음.
+          # 이름 고정이라 이전 실행이 아직 돌고 있으면 여기서 실패한다(의도된 자연 직렬화).
+          docker run -d --rm --name kbap-batch --env-file /opt/kbap/kbap-batch.env $IMAGE
+          echo "started kbap-batch ($IMAGE)"
+          EOF
+          PARAMS=$(printf '%s' "$REMOTE" | jq -Rs '{commands: [.]}')
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "run kbap-batch" \
+            --parameters "$PARAMS" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $CMD_ID"
+          STATUS=Pending
+          for _ in $(seq 1 24); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;;
+            esac
+            sleep 5
+          done
+          echo "--- remote stdout ---"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          echo "--- remote stderr ---"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text
+          echo "SSM status: $STATUS"
+          [ "$STATUS" = "Success" ]
+          echo "결과 확인: dev EC2 에서 docker logs kbap-batch (실행 중) 또는 서버 로그"

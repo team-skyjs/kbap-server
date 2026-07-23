@@ -1,8 +1,9 @@
 name: Deploy batch dev
 
-# develop 머지 시 배치 관련 경로에 변경이 있으면 dev 배치 이미지·태스크정의를 갱신한다.
+# develop 머지 시 배치 관련 경로에 변경이 있으면 dev 배치 이미지를 갱신한다.
+# dev 는 ECS 가 아니라 EC2+SSM 방식(api 와 동일 환경)이므로 여기서는 ECR 푸시까지만 한다 —
+# 실행은 run-batch.yml(dev)이 SSM 으로 dev EC2 에서 일회성 docker run 을 기동한다.
 # 공유 모듈(core·domain·infra)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
-# 실행(run-task)은 별도 — run-batch.yml 수동 트리거 또는 EventBridge Scheduler(prod).
 on:
   push:
     branches: [ "develop" ]
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "재배포할 기존 이미지 태그(batch-<sha>). 비우면 현재 커밋을 빌드한다."
+        description: "batch-latest 로 재지정할 기존 이미지 태그(batch-<sha>). 비우면 현재 커밋을 빌드한다."
         required: false
         type: string
 
@@ -27,7 +28,7 @@ permissions:
 
 jobs:
   deploy:
-    name: build batch image and register task definition (dev)
+    name: build and push batch image (dev)
     runs-on: ubuntu-latest
     environment: dev
 
@@ -51,6 +52,7 @@ jobs:
           IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          REPO="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}"
           if [ -n "$IMAGE_TAG_INPUT" ]; then
             # 롤백 입력은 ECR 태그 형식만 허용 — 셸 인젝션·잘못된 태그 차단
             case "$IMAGE_TAG_INPUT" in
@@ -66,8 +68,8 @@ jobs:
             TAG="batch-$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-          # 배치 전용 저장소(ECR_BATCH_REPOSITORY)가 있으면 그쪽으로, 없으면 api 저장소에 batch- 태그로 관리
-          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "uri=$REPO:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push batch image
         if: steps.image.outputs.build == 'true'
@@ -76,19 +78,10 @@ jobs:
             -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
-      # 태스크정의 최초 등록(family·env·secrets·로그 구성)은 인프라 소유 — docs/guides/batch-deploy.md.
-      - name: Register new task definition revision
-        env:
-          IMAGE: ${{ steps.image.outputs.uri }}
-          FAMILY: ${{ vars.ECS_BATCH_TASK_FAMILY }}
+      # run-batch.yml(dev)이 항상 최신 dev 이미지를 집도록 이동 태그를 함께 유지한다.
+      # 롤백은 image_tag 입력으로 과거 sha 태그를 batch-latest 에 재지정하는 방식.
+      - name: Point batch-latest to this image
         run: |
-          aws ecs describe-task-definition --task-definition "$FAMILY" \
-            --query taskDefinition > taskdef.json
-          jq --arg IMAGE "$IMAGE" '
-            .containerDefinitions[0].image = $IMAGE
-            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                  .compatibilities, .registeredAt, .registeredBy)
-          ' taskdef.json > new-taskdef.json
-          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
-            --query taskDefinition.taskDefinitionArn --output text)
-          echo "registered: $NEW_ARN"
+          docker pull "${{ steps.image.outputs.uri }}"
+          docker tag "${{ steps.image.outputs.uri }}" "${{ steps.image.outputs.repo }}:batch-latest"
+          docker push "${{ steps.image.outputs.repo }}:batch-latest"
