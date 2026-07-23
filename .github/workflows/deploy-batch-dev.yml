@@ -1,0 +1,94 @@
+name: Deploy batch dev
+
+# develop 머지 시 배치 관련 경로에 변경이 있으면 dev 배치 이미지·태스크정의를 갱신한다.
+# 공유 모듈(core·domain·infra)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
+# 실행(run-task)은 별도 — run-batch.yml 수동 트리거 또는 EventBridge Scheduler(prod).
+on:
+  push:
+    branches: [ "develop" ]
+    paths:
+      - "app/batch/**"
+      - "Dockerfile.batch"
+      - ".github/workflows/deploy-batch-dev.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "재배포할 기존 이미지 태그(batch-<sha>). 비우면 현재 커밋을 빌드한다."
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-batch-dev
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: build batch image and register task definition (dev)
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: image
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            # 롤백 입력은 ECR 태그 형식만 허용 — 셸 인젝션·잘못된 태그 차단
+            case "$IMAGE_TAG_INPUT" in
+              [A-Za-z0-9_]*) ;;
+              *) echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1 ;;
+            esac
+            if printf '%s' "$IMAGE_TAG_INPUT" | grep -q '[^A-Za-z0-9._-]'; then
+              echo "invalid image_tag: $IMAGE_TAG_INPUT" >&2; exit 1
+            fi
+            TAG="$IMAGE_TAG_INPUT"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            TAG="batch-$COMMIT_SHA"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          # 배치 전용 저장소(ECR_BATCH_REPOSITORY)가 있으면 그쪽으로, 없으면 api 저장소에 batch- 태그로 관리
+          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push batch image
+        if: steps.image.outputs.build == 'true'
+        run: |
+          docker build --platform linux/amd64 -f Dockerfile.batch \
+            -t "${{ steps.image.outputs.uri }}" .
+          docker push "${{ steps.image.outputs.uri }}"
+
+      # 태스크정의 최초 등록(family·env·secrets·로그 구성)은 인프라 소유 — docs/guides/batch-deploy.md.
+      - name: Register new task definition revision
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+          FAMILY: ${{ vars.ECS_BATCH_TASK_FAMILY }}
+        run: |
+          aws ecs describe-task-definition --task-definition "$FAMILY" \
+            --query taskDefinition > taskdef.json
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions[0].image = $IMAGE
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' taskdef.json > new-taskdef.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "registered: $NEW_ARN"

@@ -1,0 +1,51 @@
+name: Run batch (manual)
+
+# 선택한 환경에서 배치 태스크를 1회 기동한다(fire-and-forget — 기동만 확인하고 끝).
+# 진행·결과는 ECS 콘솔/CloudWatch 로그로 확인한다. prod 시간별 실행은 EventBridge Scheduler 가 담당.
+# 중복 실행 방지는 의도적으로 없다 — 겹쳐도 데이터는 안전하고 LLM 중복 과금만 발생(사고 시 앱 부팅 가드 추가).
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "실행 환경"
+        required: true
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run:
+    name: run foodContentJob task (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Run task
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER }}
+          FAMILY: ${{ vars.ECS_BATCH_TASK_FAMILY }}
+          SUBNETS: ${{ vars.BATCH_SUBNETS }}
+          SECURITY_GROUPS: ${{ vars.BATCH_SECURITY_GROUPS }}
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --task-definition "$FAMILY" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUPS],assignPublicIp=DISABLED}" \
+            --started-by "github-actions/${{ github.run_id }}" \
+            --query 'tasks[0].taskArn' --output text)
+          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "None" ]; then
+            echo "run-task 가 태스크를 기동하지 못했습니다(capacity/네트워크 구성 확인)" >&2
+            exit 1
+          fi
+          echo "started: $TASK_ARN"
+          echo "결과 확인: ECS 콘솔 또는 CloudWatch 로그 그룹(/ecs/<family>)"
