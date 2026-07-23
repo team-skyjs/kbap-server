@@ -101,9 +101,9 @@ class FoodContentJobTest : BehaviorSpec() {
             }
         }
 
-        given("텍스트 3작업 전체 파이프라인") {
+        given("텍스트 3작업 전체 파이프라인 — 배치는 텍스트 전담(KB-226)") {
             `when`("INCOMPLETE 음식 1건으로 잡을 1회 실행하면") {
-                then("이름 번역·설명+번역·성분+맵기가 모두 채워지고 이미지 미보유라 INCOMPLETE 로 남는다") {
+                then("텍스트 3작업이 채워지고 이미지 미보유라 TEXT_READY(이미지 대기)로 전이한다") {
                     foodRepository.deleteAll()
                     avoidanceRepository.deleteAll()
                     avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
@@ -120,7 +120,27 @@ class FoodContentJobTest : BehaviorSpec() {
                     loaded.needsAvoidanceAssessment() shouldBe false
                     loaded.spiciness shouldBe 2
                     loaded.needsImage() shouldBe true
-                    loaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                    loaded.contentStatus shouldBe FoodContentStatus.TEXT_READY
+                }
+            }
+
+            `when`("이미지만 남은(TEXT_READY) 음식이 있는 상태에서 잡을 다시 실행하면") {
+                then("INCOMPLETE 선정에서 빠져 재처리되지 않는다 — 무한 재선정 차단") {
+                    foodRepository.deleteAll()
+                    avoidanceRepository.deleteAll()
+                    avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
+                    val id = foodRepository.save(Food.incomplete("재선정-잡채밥")).id
+
+                    jobLauncher.run(foodContentJob, JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters())
+                    foodRepository.findById(id).get().contentStatus shouldBe FoodContentStatus.TEXT_READY
+
+                    val second = jobLauncher.run(
+                        foodContentJob,
+                        JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters(),
+                    )
+
+                    second.status shouldBe BatchStatus.COMPLETED
+                    second.stepExecutions.single().readCount shouldBe 0
                 }
             }
         }

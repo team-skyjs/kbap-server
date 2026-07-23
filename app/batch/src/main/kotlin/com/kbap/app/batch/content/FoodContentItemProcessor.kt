@@ -24,11 +24,8 @@ class FoodContentItemProcessor(
         propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
     }
 
+    // 이미지는 배치에서 완전히 분리(KB-226) — 관리자 일괄 제출 + api 회수가 담당하고, 배치는 텍스트 3작업 전담.
     override fun process(item: Food): Food {
-        if (item.needsImage()) {
-            generateImage(item)
-            saveProgress(item)
-        }
         if (item.needsNameTranslations()) {
             translateName(item)
             saveProgress(item)
@@ -46,9 +43,6 @@ class FoodContentItemProcessor(
 
     fun saveProgress(food: Food) {
         progressTransaction.executeWithoutResult { foodRepository.save(food) }
-    }
-
-    private fun generateImage(food: Food) {
     }
 
     private fun generateDescription(food: Food) {

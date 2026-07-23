@@ -5,7 +5,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class FoodContentFakeTest : BehaviorSpec({
-    given("4계약을 람다 페이크(SAM)로 대체") {
+    given("텍스트 3계약을 람다 페이크(SAM)로 대체") {
         `when`("각 계약을 람다로 구현해 호출하면") {
             then("외부 호출 없이 DTO 불변을 통과한 결과를 돌려준다") {
                 val nameClient = FoodNameTranslationClient { korean ->
@@ -17,14 +17,12 @@ class FoodContentFakeTest : BehaviorSpec({
                         TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "$korean-${it.code}" }),
                     )
                 }
-                val imageClient = FoodImageGenerationClient { _, storageKey -> storageKey }
                 val avoidanceClient = FoodAvoidanceAssessmentClient { _, candidateCodes ->
                     FoodAvoidanceAssessmentResult(candidateCodes.map { FoodAvoidanceAssessment(it, 50) }, 3)
                 }
 
                 nameClient.call("불고기").texts.size shouldBe 9
                 descriptionClient.call("불고기").description shouldBe "불고기 설명"
-                imageClient.call("불고기", "food/bulgogi.jpg") shouldBe "food/bulgogi.jpg"
                 avoidanceClient.call("불고기", setOf("PORK")) shouldBe
                     FoodAvoidanceAssessmentResult(listOf(FoodAvoidanceAssessment("PORK", 50)), 3)
             }
