@@ -24,6 +24,7 @@
 | [0009](./0009-food-avoidance-direct-mapping.md) | 음식↔기피성분 직접 매핑 — 레시피/재료 모델 제거 | Accepted | 2026-07-04 | specs/kb-40 · Jira KB-40 · ADR-0008 |
 | [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Accepted | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |
 | [0011](./0011-scoring-domain-in-research-batch-orchestration.md) | 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:app:batch` | Accepted | 2026-07-06 | specs/kb-53 · Jira KB-53 · ADR-0004 · ADR-0010 |
-| [0012](./0012-dissolve-persistence-module-and-ports.md) | persistence 모듈 해체·리포지토리 port 폐기 — 영속은 도메인 모듈 안에 internal | Accepted | 2026-07-13 | specs/kb-134 · Jira KB-134 · ADR-0006·0008(supersede) · 헌법 v3.0.0 |
+| [0012](./0012-dissolve-persistence-module-and-ports.md) | persistence 모듈 해체·리포지토리 port 폐기 — 영속은 도메인 모듈 안에 internal | Superseded in part by 0014 | 2026-07-13 | specs/kb-134 · Jira KB-134 · ADR-0006·0008(supersede) · 헌법 v3.0.0 |
 | [0013](./0013-lang-english-fallback.md) | 표시 언어(lang) — 필수화 + 미지원 코드 영어 폴백 | Accepted | 2026-07-20 | specs/kb-201 · Jira KB-201 · specs/008(supersede) · 헌법 v4.0.0 |
-| [0014](./0014-scan-lang-unification-and-profile-language-removal.md) | 스캔 표시 언어를 `lang` 파라미터로 통일 + 회원 프로필 언어 설정 제거 | Accepted | 2026-07-23 | specs/kb-229 · Jira KB-229 · ADR-0013(후속 해소) |
+| [0014](./0014-relax-persistence-encapsulation.md) | 영속 캡슐화 완화 — 엔티티·리포지토리 public, 소비 계층 직접 참조 | Accepted | 2026-07-22 | specs/kb-220 · Jira KB-220 · ADR-0012(supersede 일부) · 헌법 v5.0.0 |
+| [0015](./0015-scan-lang-unification-and-profile-language-removal.md) | 스캔 표시 언어를 `lang` 파라미터로 통일 + 회원 프로필 언어 설정 제거 | Accepted | 2026-07-23 | specs/kb-229 · Jira KB-229 · ADR-0013(후속 해소) |

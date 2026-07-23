@@ -1,6 +1,6 @@
 # 0012. persistence 모듈 해체·리포지토리 port 폐기 — 영속은 도메인 모듈 안에 internal
 
-- **상태**: Accepted
+- **상태**: Superseded in part by [ADR-0014](./0014-relax-persistence-encapsulation.md)(internal 캡슐화 폐기 — 영속의 도메인 모듈 소유·port 폐기는 유지)
 - **날짜**: 2026-07-13
 - **관련**: specs/kb-134-architecture-simplification · Jira KB-134(KB-101 흡수) · supersedes [ADR-0006](./0006-central-persistence-adapter-and-decoupled-batch.md)(중앙 영속 어댑터)·[ADR-0008](./0008-modular-monolith-shared-domain.md)의 영속 배치 결정(모듈러 모놀리스·batch 직접 의존은 유지) · 헌법 v3.0.0(원칙 III·IV 재정의)
 

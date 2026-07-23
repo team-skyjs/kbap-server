@@ -3,13 +3,19 @@ package com.kbap.domain.food
 import com.kbap.domain.food.model.Food
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-internal interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
-    @Query("select f.id from Food f order by f.id asc")
-    fun findFoodIds(pageable: Pageable): List<Long>
+interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
+    @Query(
+        """
+        select f from Food f
+        where f.contentStatus = 'INCOMPLETE'
+          and (:afterId is null or f.id > :afterId)
+        order by f.id asc
+        """,
+    )
+    fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 

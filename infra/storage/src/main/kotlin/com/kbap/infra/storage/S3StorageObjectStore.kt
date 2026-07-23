@@ -2,11 +2,13 @@ package com.kbap.infra.storage
 
 import com.kbap.core.storage.StorageObjectMetadata
 import com.kbap.core.storage.StorageObjectStore
+import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
+import software.amazon.awssdk.services.s3.model.PutObjectRequest
 
 class S3StorageObjectStore(
     private val s3Client: S3Client,
@@ -30,5 +32,12 @@ class S3StorageObjectStore(
 
     override fun delete(path: String) {
         s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(path).build())
+    }
+
+    override fun put(path: String, bytes: ByteArray, contentType: String) {
+        s3Client.putObject(
+            PutObjectRequest.builder().bucket(bucket).key(path).contentType(contentType).build(),
+            RequestBody.fromBytes(bytes),
+        )
     }
 }

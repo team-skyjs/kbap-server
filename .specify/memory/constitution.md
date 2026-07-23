@@ -1,6 +1,33 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 4.0.0 → 5.0.0   (개정 2026-07-22)
+Bump rationale (MAJOR): 원칙 IV 를 **비호환 재정의**한다(KB-220). KB-134 가 확립한 "엔티티·Spring Data
+  리포지토리를 Kotlin `internal` 로 감추고 도메인 서비스를 유일 공개 창구로 둔다"를 폐기한다 — 이 캡슐화는
+  배치처럼 리포지토리가 필요한 소비 계층마다 위임 전용 창구 서비스(FoodContentBatchService·
+  AvoidanceCatalogService)를 만들게 했고, 그 결과 소비 계층 성격의 데이터 접근 코드가 도메인 모듈에 섞였다.
+  엔티티·리포지토리를 public 으로 두고 소비 계층이 직접 참조한다. 유지되는 것: 도메인 로직의 도메인 서비스
+  소유, JPA 연관관계 금지(참조는 id 값), Flyway 스키마 owner(=api), 명시적 트랜잭션 경계.
+  함께: 원칙 IV 의 "도메인 모델·엔티티 분리(toDomain/from 변환)" 서술을 실제 코드(2026-07-14 대개편 —
+  엔티티=도메인 모델)와 정합화하고, 원칙 명칭을 Persistence Encapsulation → Persistence Ownership 으로 바꾼다.
+
+Modified principles:
+  III. Layered Dependency Direction — "도메인 서비스 유일 공개 창구" 조항 완화(리포지토리도 공개 API).
+  IV. Persistence Encapsulation → Persistence Ownership — internal 캡슐화 폐기·소비 계층 직접 참조 허용·
+      엔티티=도메인 모델 정합화·트랜잭션 경계 소유 조항 추가.
+
+Templates reviewed:
+  ✅ .specify/templates/plan-template.md  — Constitution Check 가 헌법을 동적 참조. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — 무관. 변경 불필요.
+  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
+
+Docs propagation: ADR-0014(ADR-0012 의 internal 캡슐화 결정 대체) · docs/architecture/meogo-conventions.md ·
+  docs/architecture/meogo-api-module-structure.md · CLAUDE.md · specs/kb-220-remove-internal/.
+
+Follow-up: 없음(KB-220 구현과 동시 반영).
+
+---
+이전 개정 이력
 Version change: 3.0.1 → 4.0.0   (개정 2026-07-20)
 Bump rationale (MAJOR): 원칙 V 의 **언어 폴백 정책을 비호환 재정의**한다(KB-201). spec 008/이슈 #18 이
   고정했던 "지원 목록에 없는 코드 → fail-fast 400 + 지원 언어 목록 안내"를 **"영어(en) 폴백"** 으로 바꾸고,
@@ -27,8 +54,6 @@ Docs propagation: ADR-0013 · docs/architecture/meogo-conventions.md "언어 / �
 
 Follow-up: 없음(KB-201 구현과 동시 반영).
 
----
-이전 개정 이력
 Version change: 3.0.0 → 3.0.1   (개정 2026-07-13)
 Bump rationale (MAJOR): 원칙 III·IV 를 **재정의**한다(비호환 재정의 = MAJOR). KB-134 에서 클린아키텍처
   ports & adapters 를 폐기했다 — 도메인 하나를 다루는 데 모델·port·엔티티·리포지토리·어댑터 다섯 조각이
@@ -105,34 +130,38 @@ Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도�
   `:common`은 앱 간 공유 계약(통합 이벤트·기술 공통)으로 web/jpa/도메인에 의존하지 않는다.
 - 모듈 간 project 의존은 **`implementation`을 기본**으로 한다. 공개 API에 타입이 드러나는
   의도적 노출에만 `api`를 쓴다(도메인 모듈 → `api(:core)`).
-- 각 도메인 모듈은 **도메인 서비스(`MemberService`·`FoodService` 등)를 유일한 공개 창구**로 둔다.
-  `:application:*`·부트앱은 도메인 서비스와 도메인 모델만 보고 영속 코드는 보지 못한다(원칙 IV).
+- 각 도메인 모듈의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
+  리포지토리 `internal` 캡슐화 폐기, 원칙 IV). 소비 계층은 도메인 로직이 필요하면 도메인 서비스를,
+  단순 영속 접근이면 리포지토리를 직접 쓴다.
   외부 시스템 클라이언트(LLM·소셜 인증 등)는 **port 인터페이스(seam)로만** 사용한다(계층 역전 금지) —
   폐기된 것은 **리포지토리 port** 이지 외부 어댑터 seam 이 아니다.
 
 Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 하되, 도메인 하나를 다루는 데 필요한
 조각 수를 최소로 유지한다(ADR-0012).
 
-### IV. Persistence Encapsulation
+### IV. Persistence Ownership
 
-JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 모듈 안에 두고 Kotlin `internal`
-로 감춘다**(ADR-0012 — `:infra:persistence` 집결 및 리포지토리 port 방식을 대체). Gradle 모듈이 컴파일
-단위이므로 `internal` 경계는 **컴파일러가 강제**한다.
+JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 모듈 안에 public 으로 둔다**
+(KB-220 — Kotlin `internal` 캡슐화 폐기, ADR-0014 가 ADR-0012 의 internal 결정을 대체). 소비 계층
+(`:application`·`:app:*`)은 단순 영속 접근이 필요하면 리포지토리·엔티티를 직접 참조한다 —
+리포지토리 위임 외 로직이 없는 **창구 서비스를 만들지 않는다**.
 
-- 도메인 모듈 밖(`:application:*`·`:app:*`)에서 엔티티·Spring Data 리포지토리를 참조하면 **컴파일이 실패**한다.
-  외부에는 **도메인 모델과 도메인 서비스만** 공개한다.
-- **도메인 모델과 JPA 엔티티는 분리**한다 — 도메인 모델은 같은 모듈 안에 있어도 **ORM 애너테이션을 갖지 않으며**,
-  변환(`Entity.toDomain()` / `Entity.from(domain)`)은 엔티티가 책임진다.
-- 영속 기술 의존(`data-jpa`)은 `implementation`으로 두어 상위 컴파일 클래스패스에 노출되지 않게 한다
-  (런타임 전이만 허용).
+- **엔티티가 곧 도메인 모델이다**(2026-07-14 대개편) — 도메인 메서드를 엔티티에 두고, 별도 도메인 모델
+  클래스·`toDomain`/`from` 변환을 만들지 않는다.
+- **도메인 로직(검증·상태 전이·정책·유비쿼터스 언어 행위)은 도메인 서비스가 소유한다.** 리포지토리 직접
+  참조는 위임뿐인 중간 계층을 없애기 위한 것이지, 비즈니스 로직을 소비 계층으로 옮기는 허가가 아니다.
+- **트랜잭션 경계는 사용하는 쪽이 명시적으로 소유한다.** 서비스 public 메서드는 명시적 `@Transactional`,
+  소비 계층이 리포지토리를 직접 쓸 때도 필요한 경계를 스스로 선언한다(예: 배치 진행 저장의
+  `TransactionTemplate(REQUIRES_NEW)` — 청크 실패에도 진행 커밋 유지).
 - **엔티티 간 JPA 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)를 두지 않는다.**
-  참조는 **id 값**으로만 들고, 연관 데이터가 필요하면 도메인 서비스가 id(목록)로 명시 조회한다.
-  지연 로딩이 없으므로 N+1·`LazyInitializationException` 이 구조적으로 발생할 수 없다.
-  외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = Flyway).
-- 이 경계는 **컴파일러(`internal`)** + **ArchUnit 테스트**(`app/api` 의 `ModuleBoundaryTest`)로 강제한다.
+  참조는 **id 값**으로만 들고, 연관 데이터는 id(목록)로 명시 조회한다(예외: 읽기 전용 연관 — conventions
+  문서 참조). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = api Flyway).
+- 경계는 **Gradle 의존 방향** + **ArchUnit 테스트**(`app/api` 의 `ModuleBoundaryTest` — 도메인→상위 계층
+  금지·`@Entity` 위치·도메인 모델 ORM-free)로 강제한다.
 
-Rationale: 도메인을 영속 기술로부터 보호하되(캡슐화 목적 불변), 별도 모듈·port·어댑터라는 비용 없이
-컴파일러가 더 강하게 지키게 한다.
+Rationale: internal 캡슐화가 강제한 "도메인 서비스 유일 창구"는 리포지토리가 필요한 소비 계층마다 위임
+전용 창구 서비스를 만들게 했고, 도메인 모듈에 소비 계층 성격의 코드가 섞였다(KB-220). 컴파일러 강제를
+포기하는 대신 조각 수를 줄이고, 도메인 로직의 소유는 규율과 리뷰로 지킨다.
 
 ### V. Domain Content Language Policy
 
@@ -206,4 +235,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md)를 참조한다.
 
-**Version**: 4.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-20
+**Version**: 5.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-22
