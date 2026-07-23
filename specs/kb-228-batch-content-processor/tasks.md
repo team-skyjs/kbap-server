@@ -67,12 +67,12 @@ Gradle 멀티모듈 — 모듈 경로 그대로 사용(`core/`·`domain/food/`·
 
 ### Tests + Implementation (US2)
 
-- [ ] T014 [US2] Red: `core/src/test/.../FoodContentDtoTest.kt` 의 `FoodDescriptionContent` 케이스를 2필드(description·translations) 생성자로 고치고 spiciness 범위 케이스 삭제, `:core:test` Red 확인(3필드 생성자 → 컴파일 Red)
-- [ ] T015 [US2] Green: `core/src/main/.../FoodDescriptionClient.kt` 에서 `FoodDescriptionContent.spiciness`·`SPICINESS_RANGE` 제거 + 파급 삭제 — `infra/llm/src/main/.../food/SpringAiFoodDescriptionClient.kt` 프롬프트 맵기 항목·`DescriptionResponse.spiciness` 삭제(삭제만), `infra/llm/src/test/.../SpringAiFoodDescriptionClientTest.kt`·`core/src/test/.../FoodContentFakeTest.kt` 정합, `:core:test :infra:llm:test` 그린 확인
-- [ ] T016 [P] [US2] Red: `domain/food/src/test/.../model/FoodTest.kt` — `updateDescription(description, translations)` 원문+번역 세트 교체(부분 병합 없음) 실패 테스트, `:domain:food:test` Red 확인
-- [ ] T017 [US2] Green: `domain/food/src/main/.../model/Food.kt` 에 `updateDescription` 구현, `:domain:food:test` 그린 확인
-- [ ] T018 [US2] Red: `app/batch/src/test/.../content/FoodContentPipelineTest.kt` 또는 신규 프로세서 테스트 — ② 블록: 플레이스홀더 설명 → 설명+번역 9개 세트 저장·맵기 불변(US2 수용 2), 클라이언트 계약 위반 예외 시 기존 값 무훼손(FR-007), 클라이언트 미구성(null) 시 명시 예외 실패 테스트 작성, `:app:batch:test` Red 확인
-- [ ] T019 [US2] Green: `app/batch/src/main/.../content/FoodContentItemProcessor.kt` ② 블록 구현(`needsDescription() ∨ needsDescriptionTranslations()` → `updateDescription(..., translations.byCode())`·스텁 `generateDescription` 제거) + `FoodContentBatchConfig.kt` 에 `ObjectProvider<FoodDescriptionClient>` 조립(부팅 안전 — research R5) + `BatchTestClientConfig.kt` 에 설명 페이크 빈 추가, `:app:batch:test` 그린 확인
+- [X] T014 [US2] Red: `core/src/test/.../FoodContentDtoTest.kt` 의 `FoodDescriptionContent` 케이스를 2필드(description·translations) 생성자로 고치고 spiciness 범위 케이스 삭제, `:core:test` Red 확인(3필드 생성자 → 컴파일 Red)
+- [X] T015 [US2] Green: `core/src/main/.../FoodDescriptionClient.kt` 에서 `FoodDescriptionContent.spiciness`·`SPICINESS_RANGE` 제거 + 파급 삭제 — `infra/llm/src/main/.../food/SpringAiFoodDescriptionClient.kt` 프롬프트 맵기 항목·`DescriptionResponse.spiciness` 삭제(삭제만), `infra/llm/src/test/.../SpringAiFoodDescriptionClientTest.kt`·`core/src/test/.../FoodContentFakeTest.kt` 정합, `:core:test :infra:llm:test` 그린 확인
+- [X] T016 [P] [US2] Red: `domain/food/src/test/.../model/FoodTest.kt` — `updateDescription(description, translations)` 원문+번역 세트 교체(부분 병합 없음) 실패 테스트, `:domain:food:test` Red 확인
+- [X] T017 [US2] Green: `domain/food/src/main/.../model/Food.kt` 에 `updateDescription` 구현, `:domain:food:test` 그린 확인
+- [X] T018 [US2] Red: `app/batch/src/test/.../content/FoodContentPipelineTest.kt` 또는 신규 프로세서 테스트 — ② 블록: 플레이스홀더 설명 → 설명+번역 9개 세트 저장·맵기 불변(US2 수용 2), 클라이언트 계약 위반 예외 시 기존 값 무훼손(FR-007), 클라이언트 미구성(null) 시 명시 예외 실패 테스트 작성, `:app:batch:test` Red 확인
+- [X] T019 [US2] Green: `app/batch/src/main/.../content/FoodContentItemProcessor.kt` ② 블록 구현(`needsDescription() ∨ needsDescriptionTranslations()` → `updateDescription(..., translations.byCode())`·스텁 `generateDescription` 제거) + `FoodContentBatchConfig.kt` 에 `ObjectProvider<FoodDescriptionClient>` 조립(부팅 안전 — research R5) + `BatchTestClientConfig.kt` 에 설명 페이크 빈 추가, `:app:batch:test` 그린 확인
 
 **Checkpoint**: US1+US2 — 설명·번역·기피성분·맵기 채워짐(이름 번역만 스텁).
 

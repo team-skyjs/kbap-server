@@ -15,7 +15,6 @@ class FoodContentFakeTest : BehaviorSpec({
                     FoodDescriptionContent(
                         "$korean 설명",
                         TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "$korean-${it.code}" }),
-                        5,
                     )
                 }
                 val imageClient = FoodImageGenerationClient { _, storageKey -> storageKey }
@@ -24,7 +23,7 @@ class FoodContentFakeTest : BehaviorSpec({
                 }
 
                 nameClient.call("불고기").texts.size shouldBe 9
-                descriptionClient.call("불고기").spiciness shouldBe 5
+                descriptionClient.call("불고기").description shouldBe "불고기 설명"
                 imageClient.call("불고기", "food/bulgogi.jpg") shouldBe "food/bulgogi.jpg"
                 avoidanceClient.call("불고기", setOf("PORK")) shouldBe
                     FoodAvoidanceAssessmentResult(listOf(FoodAvoidanceAssessment("PORK", 50)), 3)

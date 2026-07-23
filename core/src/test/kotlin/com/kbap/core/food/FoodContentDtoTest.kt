@@ -9,17 +9,17 @@ class FoodContentDtoTest : BehaviorSpec({
         TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "번역-${it.code}" })
 
     given("FoodDescriptionContent 생성") {
-        `when`("설명·번역·맵기가 정상이면") {
+        `when`("설명·번역이 정상이면") {
             then("생성에 성공한다") {
-                val content = FoodDescriptionContent("불고기 설명", validTranslations(), 3)
-                content.spiciness shouldBe 3
+                val content = FoodDescriptionContent("불고기 설명", validTranslations())
+                content.description shouldBe "불고기 설명"
             }
         }
 
         `when`("설명이 blank 이면") {
             then("예외가 발생한다") {
                 shouldThrow<IllegalArgumentException> {
-                    FoodDescriptionContent("  ", validTranslations(), 3)
+                    FoodDescriptionContent("  ", validTranslations())
                 }
             }
         }
@@ -27,7 +27,7 @@ class FoodContentDtoTest : BehaviorSpec({
         `when`("설명이 255자를 넘으면") {
             then("예외가 발생한다") {
                 shouldThrow<IllegalArgumentException> {
-                    FoodDescriptionContent("가".repeat(256), validTranslations(), 3)
+                    FoodDescriptionContent("가".repeat(256), validTranslations())
                 }
             }
         }
@@ -35,23 +35,7 @@ class FoodContentDtoTest : BehaviorSpec({
         `when`("설명이 플레이스홀더면") {
             then("예외가 발생한다") {
                 shouldThrow<IllegalArgumentException> {
-                    FoodDescriptionContent(FoodDescriptionContent.PLACEHOLDER_DESCRIPTION, validTranslations(), 3)
-                }
-            }
-        }
-
-        `when`("맵기가 범위 밖(-1)이면") {
-            then("예외가 발생한다") {
-                shouldThrow<IllegalArgumentException> {
-                    FoodDescriptionContent("불고기 설명", validTranslations(), -1)
-                }
-            }
-        }
-
-        `when`("맵기가 범위 밖(11)이면") {
-            then("예외가 발생한다") {
-                shouldThrow<IllegalArgumentException> {
-                    FoodDescriptionContent("불고기 설명", validTranslations(), 11)
+                    FoodDescriptionContent(FoodDescriptionContent.PLACEHOLDER_DESCRIPTION, validTranslations())
                 }
             }
         }

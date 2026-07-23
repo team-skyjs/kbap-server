@@ -2,6 +2,9 @@ package com.kbap.app.batch
 
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
 import com.kbap.core.food.FoodAvoidanceAssessmentResult
+import com.kbap.core.food.FoodDescriptionClient
+import com.kbap.core.food.FoodDescriptionContent
+import com.kbap.core.food.TargetLanguageTexts
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 
@@ -10,4 +13,13 @@ class BatchTestClientConfig {
     @Bean
     fun avoidanceClient(): FoodAvoidanceAssessmentClient =
         FoodAvoidanceAssessmentClient { _, _ -> FoodAvoidanceAssessmentResult(emptyList(), 0) }
+
+    @Bean
+    fun descriptionClient(): FoodDescriptionClient =
+        FoodDescriptionClient { korean ->
+            FoodDescriptionContent(
+                "$korean 설명",
+                TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "$korean-${it.code}" }),
+            )
+        }
 }

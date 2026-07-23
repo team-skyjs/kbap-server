@@ -3,6 +3,9 @@ package com.kbap.app.batch.content
 import com.kbap.core.food.FoodAvoidanceAssessment
 import com.kbap.core.food.FoodAvoidanceAssessmentClient
 import com.kbap.core.food.FoodAvoidanceAssessmentResult
+import com.kbap.core.food.FoodDescriptionClient
+import com.kbap.core.food.FoodDescriptionContent
+import com.kbap.core.food.TargetLanguageTexts
 import com.kbap.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.domain.avoidance.model.AvoidanceSubstance
@@ -35,6 +38,15 @@ class FoodContentJobTest : BehaviorSpec() {
             FoodAvoidanceAssessmentClient { koreanName, _ ->
                 if (koreanName == FAILING_FOOD) throw RuntimeException("조사 실패: $koreanName")
                 FoodAvoidanceAssessmentResult(listOf(FoodAvoidanceAssessment("EGG", 90)), 2)
+            }
+
+        @Bean
+        fun descriptionClient(): FoodDescriptionClient =
+            FoodDescriptionClient { korean ->
+                FoodDescriptionContent(
+                    "$korean 설명",
+                    TargetLanguageTexts(TargetLanguageTexts.TARGET_LANGUAGES.associateWith { "$korean-${it.code}" }),
+                )
             }
     }
 
