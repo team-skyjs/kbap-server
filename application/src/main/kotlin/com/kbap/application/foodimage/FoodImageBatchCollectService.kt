@@ -19,9 +19,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDateTime
 
-// 회수(KB-226): SUBMITTED 배치 폴링 → 완료분 스트리밍 파싱 → 스토리지 저장 → imageRef 갱신 + 수렴 전이 → 마감.
-// seam 3분할(상태 조회 / 바이트 이동 / DB 전이) — 부하 실측 후 바이트 이동만 워커로 들어낼 수 있는 구조.
-// 외부 호출(OpenAI·스토리지)은 트랜잭션 밖, DB 전이는 항목당 짧은 트랜잭션 — 중단돼도 처리분은 커밋 유지(멱등 재회수).
 @Service
 class FoodImageBatchCollectService(
     private val batchRepository: ImageBatchJpaRepository,
@@ -44,8 +41,6 @@ class FoodImageBatchCollectService(
         }
     }
 
-    // claim-first 복구: 제출 도중 중단돼 SUBMITTING 에 머문 배치는 리스(1h) 경과 후 FAILED 로 마감 —
-    // 항목이 FAILED 로 풀리며 음식이 다음 제출 후보로 자동 복귀한다.
     private fun recoverStaleSubmitting() {
         val lease = LocalDateTime.now().minusHours(STALE_SUBMITTING_HOURS)
         batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTING)
@@ -61,8 +56,6 @@ class FoodImageBatchCollectService(
         val poll = client.status(openaiBatchId)
         when (poll.state) {
             FoodImageBatchClient.State.IN_PROGRESS -> Unit
-            // failed/expired 도 부분 완료분은 회수한다(배치 100건 전제 — 이미 과금된 완성 이미지를
-            // 버리고 재제출하면 손실이 배치 크기에 비례). 결과 없는 잔여 PENDING 만 FAILED 로 풀어 재제출 경로로.
             FoodImageBatchClient.State.COMPLETED -> collectResults(batch, poll, ImageBatchStatus.COLLECTED)
             FoodImageBatchClient.State.FAILED,
             FoodImageBatchClient.State.EXPIRED,
@@ -71,7 +64,6 @@ class FoodImageBatchCollectService(
     }
 
     private fun collectResults(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll, closeAs: ImageBatchStatus) {
-        // PENDING 만 처리 대상 — 이미 DONE 인 항목은 건너뛴다(중단 후 재회수 멱등).
         val pendingByFoodId = itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
             .associateBy { it.foodId }
             .toMutableMap()
@@ -82,7 +74,6 @@ class FoodImageBatchCollectService(
                 handleResult(item, result)
             }
         }
-        // 결과 줄이 없던 항목(error file 실패분·만료 미처리분)은 FAILED 마감 — 다음 제출에 자동 재포함.
         pendingByFoodId.values.forEach { item ->
             saveItem(item) { it.fail("배치 ${poll.state} — 결과 없음(errorFileId=${poll.errorFileId})") }
         }
@@ -101,8 +92,6 @@ class FoodImageBatchCollectService(
         storageObjectStore.put(key, bytes, "image/png")
         var attached = false
         itemTransaction.executeWithoutResult {
-            // 콘텐츠 배치가 같은 행을 병행 갱신할 수 있다 — 트랜잭션 안에서 최신 상태를 재조회해
-            // stale merge 를 없애고, 남은 경합은 Food @Version 낙관적 락이 검출한다(runCatching → 다음 틱 재시도).
             val food = foodRepository.findById(item.foodId).orElse(null)
             if (food == null) {
                 item.fail("음식이 삭제되어 건너뜀")
@@ -153,10 +142,8 @@ class FoodImageBatchCollectService(
     }
 
     companion object {
-        // 결정적 키 — 재회수·재생성이 put 덮어쓰기로 자연 멱등. 음식 사진은 환경 공용이라 무접두(KB-171).
         fun storageKeyOf(foodId: Long): String = "images/food/$foodId.png"
 
-        // 제출(claim → OpenAI 호출 → markSubmitted)은 수 초면 끝난다 — 1시간이면 확실한 잔류.
         const val STALE_SUBMITTING_HOURS: Long = 1
     }
 }

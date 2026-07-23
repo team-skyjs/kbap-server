@@ -10,8 +10,6 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
-// 이미지 배치 메타(KB-226) — 배치 상태의 원천은 OpenAI 가 아니라 이 테이블이다.
-// claim-first: SUBMITTING(외부 제출 전 선점) → SUBMITTED(openaiBatchId 확보) → COLLECTED/FAILED.
 @Entity
 @Table(
     name = "image_batch",

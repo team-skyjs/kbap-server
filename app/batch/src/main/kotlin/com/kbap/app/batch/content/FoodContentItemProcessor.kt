@@ -24,8 +24,6 @@ class FoodContentItemProcessor(
         propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
     }
 
-    // 이미지는 배치에서 완전히 분리(KB-226) — 관리자 일괄 제출 + api 회수가 담당하고, 배치는 텍스트 3작업 전담.
-    // saveProgress 는 merge 가 돌려준(버전 증가 반영) 인스턴스로 이어간다 — @Version 낙관적 락과 정합.
     override fun process(item: Food): Food {
         var food = item
         if (food.needsNameTranslations()) {

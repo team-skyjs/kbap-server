@@ -13,16 +13,12 @@ import java.net.http.HttpClient
 import java.time.Duration
 import java.util.Base64
 
-// OpenAI Files/Batches API 어댑터(KB-226). Spring AI 2.0 이 Batch API 를 지원하지 않아 REST 직접 호출.
-// 결과 파일은 줄 단위 스트리밍으로 읽는다 — 상주 메모리는 한 번에 이미지 1장 수준.
 class OpenAiFoodImageBatchClient(
     private val props: LlmModelProperties.ImageProps,
     baseUrl: String = props.baseUrl ?: OPENAI_BASE_URL,
 ) : FoodImageBatchClient {
     private val objectMapper = jacksonObjectMapper()
 
-    // 키 검증을 첫 호출 시점으로 미룬다 — 미구성 환경(local·테스트)에서도 빈 조립은 성공해야 한다.
-    // 타임아웃은 회수 스케줄 락 리스(30분)보다 반드시 짧게 — 무한 대기로 락이 만료되면 이중 회수가 열린다.
     private val restClient: RestClient by lazy {
         val httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -60,8 +56,6 @@ class OpenAiFoodImageBatchClient(
         restClient.get()
             .uri("/v1/files/{id}/content", fileId)
             .exchange { _, response ->
-                // exchange 는 4xx/5xx 에 예외를 던지지 않는다 — 오류 본문을 JSONL 로 오파싱하면
-                // 전 항목이 FAILED 로 오마감되므로 즉시 예외화해 배치를 SUBMITTED 로 보존한다(다음 틱 재시도).
                 check(response.statusCode.is2xxSuccessful) {
                     "결과 파일 다운로드 실패: HTTP ${response.statusCode} fileId=$fileId"
                 }
@@ -71,7 +65,6 @@ class OpenAiFoodImageBatchClient(
             }
     }
 
-    // JSONL 1줄 = 이미지 생성 요청 1건. custom_id = food PK — 결과 매칭이 DB 조인으로 끝난다.
     internal fun requestLineOf(entry: FoodImageBatchClient.Entry): String {
         val bodyNode = objectMapper.createObjectNode().apply {
             put("prompt", entry.prompt)

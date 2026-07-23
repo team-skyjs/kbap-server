@@ -9,10 +9,6 @@ import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
-    // 벌크 상태 전환(배치 writer 전용) — 단일 UPDATE 문, 영속성 컨텍스트 우회. updatedAt 은
-    // @UpdateTimestamp 가 안 타서 직접 갱신하고, version 을 올려 병행 세션의 stale save 를 무효화한다.
-    // 가드: writer 스냅샷이 낡았을 수 있다 — 이미지가 그 사이 도착한 음식을 TEXT_READY 로 후퇴시키지
-    // 않고(INCOMPLETE + 무이미지만), 미적용 건은 다음 배치 실행이 최신 상태로 수렴한다(KB-226).
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(
@@ -57,8 +53,6 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
-    // 이미지 제출 후보(KB-226) — 상태값으로 거르지 않는다. "이미지가 필요한가"의 진실은 imageRef 하나이고,
-    // PENDING item 미포함 조건이 중복 제출 가드를 겸한다(버튼 연타 무해).
     @Query(
         """
         select f from Food f

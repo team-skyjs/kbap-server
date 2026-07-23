@@ -8,8 +8,6 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 
-// 배치 내 음식 1건(KB-226). 참조는 id 값만 — FK 는 Flyway 가 강제한다(헌법 IV).
-// food_id 가 곧 OpenAI custom_id 라 결과 매칭이 DB 조인으로 끝난다.
 @Entity
 @Table(
     name = "image_batch_item",

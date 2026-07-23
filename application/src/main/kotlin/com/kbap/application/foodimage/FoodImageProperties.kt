@@ -1,7 +1,5 @@
 package com.kbap.application.foodimage
 
-// 이미지 배치 운영 파라미터(KB-226). model 은 infra 어댑터(kbap.llm.image.model)와 같은 yml 키에서 바인딩된다.
-// 프롬프트는 설정이 아니라 코드 상수 — 프롬프트가 바뀌면 PROMPT_VERSION 을 함께 올린다(배치 메타에 기록).
 data class FoodImageProperties(
     val model: String,
     val batchSize: Int,
@@ -14,7 +12,6 @@ data class FoodImageProperties(
     companion object {
         const val PROMPT_VERSION = "v1"
 
-        // String.format 을 쓰지 않는다 — 본문에 % 문자(85~90% 등)가 있어 포맷 지시자로 오해된다.
         private const val NAME_PLACEHOLDER = "{음식명}"
 
         val PROMPT_TEMPLATE = """

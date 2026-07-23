@@ -49,9 +49,6 @@ class Food(
     @Column(name = "avoidance_substances")
     var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
 ) : BaseEntity() {
-    // 낙관적 락(KB-226): 콘텐츠 배치(텍스트)와 이미지 회수가 같은 행을 동시 갱신할 수 있다 —
-    // detached 전체 merge 의 lost update 를 버전 충돌로 검출한다(충돌 측은 스킵 후 다음 실행이 재시도).
-    // DEFAULT 0 — FoodService 네이티브 upsert 등 version 을 명시하지 않는 수기 INSERT 경로 보호.
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
@@ -91,8 +88,6 @@ class Food(
         this.spiciness = spiciness
     }
 
-    // 수렴 전이(KB-226): 칼럼 상태로 목표 상태를 계산한다. 콘텐츠 배치와 이미지 회수가 같은 함수를
-    // 호출하므로 텍스트/이미지 어느 쪽이 먼저 끝나도 안전하다. 검수 이후(PENDING_REVIEW·READY)는 재평가하지 않는다.
     fun transitionByContentState(): FoodContentStatus {
         if (contentStatus == FoodContentStatus.PENDING_REVIEW || contentStatus == FoodContentStatus.READY) {
             return contentStatus

@@ -37,7 +37,6 @@ class FoodContentClientConfiguration {
         @Value("\${kbap.llm.avoidance.min-agreement:2}") minAgreement: Int,
     ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, minAgreement)
 
-    // 이미지 배치 seam(KB-226) — 빈 조립은 무조건, API 키 검증은 첫 호출 시점(관리자 제출·회수는 키 없이는 실패).
     @Bean
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
         OpenAiFoodImageBatchClient(properties.image)

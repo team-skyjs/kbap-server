@@ -16,7 +16,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-// ShedLock + Flyway shedlock 테이블 통합 검증 — 같은 lock name 으로 동시에 실행해도 1회만 수행됨을 보장.
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
 class FoodImageCollectSchedulerLockTest : BehaviorSpec() {
@@ -50,7 +49,6 @@ class FoodImageCollectSchedulerLockTest : BehaviorSpec() {
                     }
                     firstStarted.await()
 
-                    // 락 보유 중 두 번째 실행 — 선점 실패로 즉시 스킵되어야 한다
                     executor2.executeWithLock(Runnable { executed.incrementAndGet() }, lockConfig("lock-동시실행"))
                     release.countDown()
                     holder.join()

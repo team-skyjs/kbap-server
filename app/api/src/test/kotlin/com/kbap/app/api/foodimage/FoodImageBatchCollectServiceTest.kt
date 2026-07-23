@@ -63,7 +63,6 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             costListener.events.clear()
         }
 
-        // 텍스트 4작업 완료·이미지 대기(TEXT_READY) 음식
         fun saveTextReady(name: String): Food =
             foodRepository.save(
                 Food.incomplete(name).apply {
@@ -266,7 +265,6 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("건드리지 않고 다음 틱으로 넘긴다") {
                     val food = saveTextReady("진행중음식")
                     val batch = saveSubmittedBatch(food.id)
-                    // polls 미설정 → 기본 IN_PROGRESS
 
                     collectService.collectSubmitted()
 

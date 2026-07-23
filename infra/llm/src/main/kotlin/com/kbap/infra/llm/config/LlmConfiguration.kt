@@ -100,7 +100,6 @@ class LlmConfiguration {
     @Bean
     fun llmFanoutClient(
         callers: List<LlmModelCaller>,
-        // @EnableScheduling 의 taskScheduler 도 Executor 라 타입 주입이 모호해진다 — 이름으로 고정(KB-226).
         @Qualifier("llmFanoutExecutor") executor: Executor,
         properties: LlmModelProperties,
     ): LlmFanoutClient = LlmFanoutClient(callers, executor, properties.callTimeout)
