@@ -12,7 +12,17 @@ data class LlmModelProperties(
     val gemini: ModelProps = ModelProps(),
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
+    val avoidance: AvoidanceProps = AvoidanceProps(),
 ) {
+    // 기피성분 조사 전용 OpenAI 오버라이드 — null 필드는 kbap.llm.openai 값을 상속한다.
+    data class AvoidanceProps(
+        val minAgreement: Int = 2,
+        val model: String? = null,
+        val maxOutputTokens: Int? = null,
+        val reasoningEffort: String? = null,
+        val pricing: PricingProps? = null,
+    )
+
     // 음식 사진 생성 전용
     data class ImageProps(
         val enabled: Boolean = false,
