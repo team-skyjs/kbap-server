@@ -22,7 +22,7 @@
 ```
 
 - 후보 0건이면 `submittedBatchCount: 0, submittedFoodCount: 0`으로 정상 응답.
-- 10건 단위 분할 제출(마지막 배치는 나머지).
+- 100건 단위 분할 제출(마지막 배치는 나머지).
 
 ### 실패
 
@@ -30,13 +30,13 @@
 
 ## 내부 스케줄 (외부 계약 아님 — 동작 명세)
 
-`FoodImageCollectScheduler`: `@Scheduled`(1시간 주기) + `@SchedulerLock(name = "food-image-collect", lockAtMostFor = "30m")`.
+`FoodImageCollectScheduler`: `@Scheduled`(3시간 주기, 하루 8회) + `@SchedulerLock(name = "food-image-collect", lockAtMostFor = "30m")`.
 
 1. `image_batch WHERE batch_status = 'SUBMITTED'` 조회 (0건이면 no-op)
 2. 배치별 OpenAI 상태 GET:
    - `in_progress` 등 진행 중 → 스킵
    - `completed` → 결과 JSONL 줄 단위 스트리밍: 항목별로 S3 put(`images/food/{foodId}.png` — 무접두, KB-171) → 짧은 트랜잭션(food.imageRef 갱신 + 수렴 전이 + item DONE) → LlmCallCostIncurred 발행. PENDING 아닌 항목(이미 DONE)은 건너뜀(멱등 재회수). 전 항목 처리 후 배치 COLLECTED
-   - `failed`/`expired`/`cancelled` → PENDING 항목 전부 FAILED(error_msg) + 배치 FAILED
+   - `failed`/`expired`/`cancelled` → output 파일의 부분 완료분은 회수(DONE)하고 결과 없는 PENDING 만 FAILED(error_msg) + 배치 FAILED — 이미 과금된 완성 이미지 유실 방지
 
 ## 포트 계약: FoodImageBatchClient (`:core`)
 

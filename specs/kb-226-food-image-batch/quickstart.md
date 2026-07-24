@@ -15,7 +15,7 @@ OPENAI_API_KEY=sk-... ./gradlew :app:api:bootRun
 curl -X POST http://localhost:8080/api/v1/admin/foods/images
 # → {"payload":{"submittedBatchCount":N,"submittedFoodCount":M}}
 
-# 4. 회수는 1시간 틱 — 로컬 검증은 스케줄러 빈 메서드 직접 호출 또는 틱 주기 짧게 조정
+# 4. 회수는 3시간 틱(하루 8회) — 로컬 검증은 스케줄러 빈 메서드 직접 호출 또는 틱 주기 짧게 조정
 ```
 
 ## 검증 시나리오 (Kotest, 페이크 기반)

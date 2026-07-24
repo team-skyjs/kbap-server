@@ -16,7 +16,7 @@ class FoodImageCollectScheduler(
 ) {
     private val lockingExecutor = DefaultLockingTaskExecutor(lockProvider)
 
-    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 * * * *}")
+    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 */3 * * *}")
     fun collect() {
         lockingExecutor.executeWithLock(
             Runnable { collectService.collectSubmitted() },
