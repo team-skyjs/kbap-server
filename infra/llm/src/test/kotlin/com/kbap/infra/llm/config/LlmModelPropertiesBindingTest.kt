@@ -100,6 +100,42 @@ class LlmModelPropertiesBindingTest : BehaviorSpec({
         }
     }
 
+    given("기피성분 전용 오버라이드(kbap.llm.avoidance.*)를 지정한 환경") {
+        val avoidanceRunner = runner.withPropertyValues(
+            "kbap.llm.avoidance.min-agreement=1",
+            "kbap.llm.avoidance.model=gpt-5-mini",
+            "kbap.llm.avoidance.pricing.input-usd-per-million-tokens=0.25",
+            "kbap.llm.avoidance.pricing.output-usd-per-million-tokens=2.00",
+        )
+
+        `when`("LlmModelProperties 로 바인딩하면") {
+            then("minAgreement/model/pricing 이 지정값으로 바인딩된다") {
+                avoidanceRunner.run { context ->
+                    val avoidance = context.getBean(LlmModelProperties::class.java).avoidance
+                    avoidance.minAgreement shouldBe 1
+                    avoidance.model shouldBe "gpt-5-mini"
+                    avoidance.pricing?.inputUsdPerMillionTokens shouldBe 0.25
+                    avoidance.pricing?.outputUsdPerMillionTokens shouldBe 2.00
+                }
+            }
+        }
+    }
+
+    given("기피성분 전용 오버라이드를 지정하지 않은 환경") {
+        `when`("LlmModelProperties 로 바인딩하면") {
+            then("minAgreement 기본값은 2, 오버라이드 필드는 전부 null 이다(openai 값 상속 신호)") {
+                runner.run { context ->
+                    val avoidance = context.getBean(LlmModelProperties::class.java).avoidance
+                    avoidance.minAgreement shouldBe 2
+                    avoidance.model.shouldBeNull()
+                    avoidance.maxOutputTokens.shouldBeNull()
+                    avoidance.reasoningEffort.shouldBeNull()
+                    avoidance.pricing.shouldBeNull()
+                }
+            }
+        }
+    }
+
     given("튜닝 프로퍼티를 하나도 지정하지 않은 환경") {
         `when`("LlmModelProperties 로 바인딩하면") {
             then("세 모델의 maxOutputTokens 기본값이 모두 null 이다") {

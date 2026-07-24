@@ -11,8 +11,8 @@
 | `deploy-batch-prod.yml` | main push · 수동 | prod 배치 이미지 빌드(`Dockerfile.batch`)·푸시 + 태스크정의 리비전 갱신 |
 | `deploy-batch-dev.yml` | develop push(배치 경로 변경 시) · 수동 | dev 배치 이미지 푸시 + `batch-latest` 태그 이동 |
 | `run-batch.yml` | 수동(환경 선택) | prod: ECS run-task / dev: SSM 으로 `/opt/kbap/run-batch.sh` 호출 (둘 다 fire-and-forget) |
-| EventBridge Scheduler | 매시 17분 (인프라 소유) | prod 시간별 자동 실행 |
-| dev EC2 crontab | 매시 17분 (인프라 소유) | dev 시간별 자동 실행 — 데이터 적재 + 상시 동작 검증, `/opt/kbap/run-batch.sh` 호출 |
+| EventBridge Scheduler (prod) | 매시 17분 (인프라 소유) | ECS RunTask 직접 호출 |
+| EventBridge Scheduler (dev) | 매시 17분 (인프라 소유) | SSM SendCommand 로 dev EC2 의 `/opt/kbap/run-batch.sh` 호출 — 데이터 적재 + 상시 동작 검증 |
 
 - 빌드와 실행이 분리되어 있다: 이미지는 코드가 바뀔 때만 굽고, 실행은 준비된 이미지를
   기동만 한다. GitHub Actions 러너가 배치 종료를 관찰하지 않는다(비용 0 유지).
@@ -41,8 +41,8 @@ DB_PASSWORD=...
 OPENAI_API_KEY=...
 ```
 
-**2) `/opt/kbap/run-batch.sh`** — 실행 스크립트 단일 소스. crontab(시간별)과
-`run-batch.yml`(수동, SSM 경유)이 모두 이 스크립트를 호출한다:
+**2) `/opt/kbap/run-batch.sh`** — 실행 스크립트 단일 소스. EventBridge Scheduler(시간별)와
+`run-batch.yml`(수동) 둘 다 SSM 을 거쳐 이 스크립트를 호출한다:
 
 ```bash
 #!/bin/bash
@@ -58,14 +58,25 @@ docker run -d --rm --name kbap-batch --env-file /opt/kbap/kbap-batch.env "$IMAGE
 echo "started kbap-batch ($IMAGE)"
 ```
 
-**3) crontab 등록** — dev 음식 데이터 적재 + 상시 동작 검증용 시간별 실행:
+**3) EventBridge Scheduler 등록(dev)** — 스케줄을 prod 와 같은 Scheduler 콘솔에서 관리한다.
+crontab 이 아니라 스케줄러가 SSM 으로 같은 스크립트를 호출한다:
 
-```
-17 * * * * /opt/kbap/run-batch.sh >> /var/log/kbap-batch-cron.log 2>&1
+```bash
+aws scheduler create-schedule \
+  --name kbap-batch-hourly-dev \
+  --schedule-expression "cron(17 * * * ? *)" \
+  --schedule-expression-timezone "Asia/Seoul" \
+  --flexible-time-window '{"Mode": "OFF"}' \
+  --target '{
+    "Arn": "arn:aws:scheduler:::aws-sdk:ssm:sendCommand",
+    "RoleArn": "<스케줄러 실행 롤 ARN — ssm:SendCommand 권한>",
+    "Input": "{\"InstanceIds\": [\"<dev EC2 인스턴스 ID>\"], \"DocumentName\": \"AWS-RunShellScript\", \"Parameters\": {\"commands\": [\"bash /opt/kbap/run-batch.sh\"]}}"
+  }'
 ```
 
 dev EC2 인스턴스 롤에 ECR pull 권한(`ecr:GetAuthorizationToken` 등)이 있어야 한다
-(api 컨테이너 배포에 이미 쓰고 있으면 추가 없음).
+(api 컨테이너 배포에 이미 쓰고 있으면 추가 없음). 실행 결과는 서버의
+`docker logs kbap-batch`(실행 중) 또는 SSM Run Command 이력으로 확인한다.
 
 ## 최초 1회: prod 태스크정의 등록 (인프라 소유)
 

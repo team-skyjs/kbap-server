@@ -11,7 +11,6 @@ import com.kbap.infra.llm.food.SpringAiFoodAvoidanceAssessmentClient
 import com.kbap.infra.llm.food.SpringAiFoodDescriptionClient
 import com.kbap.infra.llm.food.SpringAiFoodNameTranslationClient
 import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -34,8 +33,8 @@ class FoodContentClientConfiguration {
     @Bean
     fun foodAvoidanceAssessmentClient(
         fanoutClient: LlmFanoutClient,
-        @Value("\${kbap.llm.avoidance.min-agreement:2}") minAgreement: Int,
-    ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, minAgreement)
+        properties: LlmModelProperties,
+    ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, properties.avoidance.minAgreement)
 
     @Bean
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =

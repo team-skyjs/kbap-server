@@ -57,9 +57,67 @@ class SpringAiFoodAvoidanceAssessmentClientTest : BehaviorSpec({
 
         `when`("기피성분 조사를 호출하면") {
             val result = client.call("제육볶음", candidates)
-            then("위반 모델은 강등하고 유효한 2개로 성분·맵기를 종합한다") {
-                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 85))
+            then("후보 밖 항목만 스킵하고 그 모델도 유효 응답으로 3개 전체를 종합한다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 57))
                 result.spiciness shouldBe 4
+            }
+        }
+    }
+
+    given("최소 합의 1 구성에서 단일 모델이 후보 안·후보 밖 코드를 섞어 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "PORK" to 90, "OIL" to 80) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("예외 없이 후보 안 성분과 맵기만 종합한다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 90))
+                result.spiciness shouldBe 3
+            }
+        }
+    }
+
+    given("최소 합의 1 구성에서 단일 모델이 후보 밖 코드만 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(2, "OIL" to 80) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("아메리카노", candidates)
+            then("유효 응답으로 인정되어 성분 없음과 맵기로 종합한다") {
+                result.substances shouldBe emptyList()
+                result.spiciness shouldBe 2
+            }
+        }
+    }
+
+    given("최소 합의 1 구성에서 후보 밖 코드가 범위 밖 포함률로 중복 응답") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "OIL" to 150, "OIL" to 40, "PORK" to 80) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            val result = client.call("제육볶음", candidates)
+            then("후보 밖 항목의 범위·중복 위반은 응답 무효를 촉발하지 않고 모두 스킵된다") {
+                result.substances shouldContainExactlyInAnyOrder listOf(FoodAvoidanceAssessment("PORK", 80))
+                result.spiciness shouldBe 3
+            }
+        }
+    }
+
+    given("최소 합의 1 구성에서 후보 밖 코드와 후보 안 코드의 범위 밖 포함률이 공존") {
+        val fanout = fanoutOf(
+            AvoidanceCaller(LlmModelId.OPENAI) { assessmentJson(3, "OIL" to 50, "PORK" to 150) },
+        )
+        val client = SpringAiFoodAvoidanceAssessmentClient(fanout, minAgreement = 1)
+
+        `when`("기피성분 조사를 호출하면") {
+            then("후보 안 항목의 범위 위반은 여전히 응답 전체 무효라 종합 불가 예외를 전파한다") {
+                shouldThrow<IllegalArgumentException> { client.call("제육볶음", candidates) }
             }
         }
     }

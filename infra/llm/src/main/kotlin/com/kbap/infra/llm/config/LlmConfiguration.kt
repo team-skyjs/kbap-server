@@ -44,6 +44,22 @@ class LlmConfiguration {
         )
 
     @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.openai", name = ["enabled"], havingValue = "true")
+    fun avoidanceOpenAiModelCaller(properties: LlmModelProperties): LlmModelCaller {
+        val props = avoidanceOpenAiProps(properties.openai, properties.avoidance)
+        return SpringAiModelCaller(
+            LlmModelId.OPENAI,
+            openAiChatModel(
+                LlmModelId.OPENAI,
+                props,
+                resolveOpenAiBaseUrl(props.baseUrl),
+                properties.callTimeout,
+            ),
+            pricingOf(props, properties.usdToKrw),
+        )
+    }
+
+    @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.upstage", name = ["enabled"], havingValue = "true")
     fun upstageModelCaller(properties: LlmModelProperties): LlmModelCaller =
         SpringAiModelCaller(
@@ -97,12 +113,17 @@ class LlmConfiguration {
     @Bean
     fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
 
+    // fanout 은 기피성분 조사 전용 — 공용 openAiModelCaller(번역·설명용) 대신 avoidance 오버라이드 caller 를 태운다.
     @Bean
     fun llmFanoutClient(
-        callers: List<LlmModelCaller>,
+        @Qualifier("avoidanceOpenAiModelCaller") avoidanceOpenAiCaller: LlmModelCaller?,
+        @Qualifier("upstageModelCaller") upstageCaller: LlmModelCaller?,
+        @Qualifier("geminiModelCaller") geminiCaller: LlmModelCaller?,
+        // @EnableScheduling 의 taskScheduler 도 Executor 라 타입 주입이 모호하다 — 이름으로 고정(KB-226).
         @Qualifier("llmFanoutExecutor") executor: Executor,
         properties: LlmModelProperties,
-    ): LlmFanoutClient = LlmFanoutClient(callers, executor, properties.callTimeout)
+    ): LlmFanoutClient =
+        LlmFanoutClient(listOfNotNull(avoidanceOpenAiCaller, upstageCaller, geminiCaller), executor, properties.callTimeout)
 
     private fun openAiChatModel(
         modelId: LlmModelId,
@@ -183,6 +204,17 @@ class LlmConfiguration {
             builder.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build())
             return builder.build()
         }
+
+        internal fun avoidanceOpenAiProps(
+            openai: LlmModelProperties.ModelProps,
+            avoidance: LlmModelProperties.AvoidanceProps,
+        ): LlmModelProperties.ModelProps =
+            openai.copy(
+                model = avoidance.model ?: openai.model,
+                maxOutputTokens = avoidance.maxOutputTokens ?: openai.maxOutputTokens,
+                reasoningEffort = avoidance.reasoningEffort ?: openai.reasoningEffort,
+                pricing = avoidance.pricing ?: openai.pricing,
+            )
 
         internal fun resolveOpenAiBaseUrl(configured: String?): String = configured ?: DEFAULT_OPENAI_BASE_URL
 
