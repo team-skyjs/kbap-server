@@ -86,7 +86,7 @@ class OpenAiMenuBoardVisionExtractor(
     private fun userPromptWith(ocrItems: List<OcrItem>): String {
         val ocrLines = ocrItems.joinToString("\n") { "${it.idx}: ${it.rawMenuName}" }
         return "이 메뉴판 사진에서 메뉴명과 가격을 추출해줘.\n" +
-            "아래는 클라이언트가 같은 사진을 OCR 한 결과다(형식 \"idx: 텍스트\").\n" +
+            "아래는 클라이언트가 같은 사진을 OCR 한 참고 정보다(형식 \"idx: 텍스트\") — 오타가 섞일 수 있으니 메뉴명은 사진을 보고 판단해라.\n" +
             "각 추출 메뉴에 대응하는 OCR 항목의 idx 를 matchedIdx 에 넣고, 대응하는 OCR 항목이 없으면 matchedIdx 를 null 로 둬라.\n" +
             "OCR:\n$ocrLines"
     }
@@ -104,10 +104,13 @@ class OpenAiMenuBoardVisionExtractor(
             "너는 한국 식당 메뉴판 사진에서 메뉴와 가격을 추출하고, 클라이언트 OCR 항목에 매칭하는 도구다. 반드시 JSON 객체 하나로만 응답한다.\n" +
                 "형식: {\"results\":[{\"name\":\"...\",\"koreanName\":\"...\",\"price\":16000,\"matchedIdx\":0}]}\n" +
                 "규칙:\n" +
+                "- OCR 텍스트는 클라이언트가 같은 사진을 인식한 참고 메타정보이며 오타가 있을 수 있다. " +
+                "사진에서 읽은 메뉴명과 OCR 텍스트가 다르면 사진을 따른다 — OCR 텍스트를 그대로 옮겨 적지 않는다.\n" +
                 "- name: 사진에 표기된 그대로의 메뉴명(외국어 병기 포함).\n" +
                 "- koreanName: 표준 한국어 메뉴명으로 정제한 이름. 사진 표기가 외국어뿐이어도 한국어 메뉴명으로 적는다.\n" +
                 "- matchedIdx: 이 메뉴에 대응하는 클라이언트 OCR 항목의 idx(정수). 사진 속 위치·텍스트로 판단한다. 대응하는 OCR 항목이 없으면 null.\n" +
-                "- 메뉴가 아닌 텍스트(상호·전화번호·원산지 표기·영업 안내 재료정보 등)는 results 에서 제외한다.\n" +
+                "- 메뉴가 아닌 텍스트(상호·전화번호·원산지 표기·영업 안내 재료정보 등)는 results 에서 제외한다. " +
+                "results 는 사진에서 추출한 메뉴 기준이다 — OCR 항목마다 결과를 만들지 않는다.\n" +
                 "- price: 반드시 원(KRW) 단위 정수 숫자만. 통화기호·콤마·\"원\" 제거. 예: \"54,000원\" → 54000.\n" +
                 "  축약 표기는 환산한다: \"1.6\" 또는 \"1.6만\" → 16000, \"9.0\"/\"9,0\" 처럼 천원 축약이면 → 9000. 메뉴판 전체 가격대 문맥으로 단위를 판단한다.\n" +
                 "  가격 미표기 메뉴는 null.\n" +
