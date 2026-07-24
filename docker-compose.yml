@@ -1,45 +1,81 @@
-# 로컬 개발용 인프라(MySQL + MongoDB).
-# application-local.yml 의 기본값과 맞춘다: MySQL root/root@3306, Mongo @27017, DB명 meogo.
+# 로컬 개발용 풀스택(web 앱 + MySQL).
+# 자격증명: root/root(관리) + 앱 유저 kbap/kbap(.env 의 DB_USERNAME/DB_PASSWORD). DB명 kbap, MySQL@3306.
+# web 앱(:app:api)은 Dockerfile 로 빌드돼 8080 에 뜨고, DB healthcheck 통과 후 기동된다.
 #
 # 사용법:
-#   docker compose up -d        # 백그라운드 기동
-#   docker compose ps           # 상태 확인
-#   docker compose down         # 정지(데이터는 볼륨에 유지)
-#   docker compose down -v      # 정지 + 데이터 초기화
+#   docker compose up -d --build      # 앱 이미지 빌드 + 백그라운드 기동(전체 스택)
+#   docker compose up -d mysql       # DB 만 띄우고 앱은 로컬 bootRun 으로 돌릴 때
+#   docker compose ps                 # 상태 확인
+#   docker compose logs -f app        # 앱 로그
+#   docker compose down               # 정지(데이터는 볼륨에 유지)
+#   docker compose down -v            # 정지 + 데이터 초기화
 #
-# dev/staging/prod 는 관리형 DB(RDS / Mongo Atlas 등)를 쓰므로 이 파일은 로컬 전용이다.
+# dev/staging/prod 는 관리형 DB(RDS 등)를 쓰므로 이 파일은 로컬 전용이다.
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kbap-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # compose 네트워크 안에서는 DB 호스트가 localhost 가 아니라 서비스명(mysql)이다.
+      DB_URL: jdbc:mysql://mysql:3306/kbap
+      DB_USERNAME: ${DB_USERNAME:-kbap}
+      DB_PASSWORD: ${DB_PASSWORD:-kbap}
+      # 인증(KB-118). compose 의 .env 는 변수 보간용일 뿐 컨테이너 환경으로 자동 주입되지 않으므로
+      # 여기서 명시적으로 전달한다. JWT_SECRET 없이는 앱이 부팅하지 않는다(fail-fast).
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 을 .env 에 설정하세요 - 32바이트 이상 (openssl rand -base64 32)}"
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+      # 컨테이너 안에서 localhost 는 자기 자신 — refresh 세션 저장소는 서비스명(redis)으로 접속한다.
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   mysql:
     image: mysql:8.4
-    container_name: meogo-mysql
+    container_name: kbap-mysql
     ports:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: meogo
+      MYSQL_DATABASE: kbap
+      # 앱 전용 유저 — .env 의 DB_USERNAME/DB_PASSWORD 와 동일 값으로 생성한다(없으면 kbap 기본).
+      # docker compose 가 같은 디렉터리의 .env 를 자동 치환하므로 앱↔DB 자격증명이 한 출처(.env)로 유지된다.
+      # ⚠️ MYSQL_USER 는 데이터 볼륨 최초 init 때만 생성된다 — 기존 볼륨이 있으면
+      #    `docker compose down -v && docker compose up -d` 로 재초기화해야 유저가 만들어진다.
+      MYSQL_USER: ${DB_USERNAME:-kbap}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-kbap}
     # 음식 콘텐츠(한국어/영어)를 위해 utf8mb4 고정
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
-      - meogo-mysql-data:/var/lib/mysql
+      - kbap-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  mongo:
-    image: mongo:8
-    container_name: meogo-mongo
+  redis:
+    image: redis:8
+    container_name: kbap-redis
     ports:
-      - "27017:27017"
-    volumes:
-      - meogo-mongo-data:/data/db
+      - "6379:6379"
+    # refresh token 저장소(KB-118). TTL 로 만료가 자동 처리되므로 영속 볼륨을 두지 않는다 —
+    # 재시작 시 세션이 날아가면 사용자는 재로그인하면 된다(복구 가능한 데이터).
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+
 volumes:
-  meogo-mysql-data:
-  meogo-mongo-data:
+  kbap-mysql-data:

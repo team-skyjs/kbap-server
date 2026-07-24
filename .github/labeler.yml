@@ -1,0 +1,19 @@
+production:
+  - base-branch: ['main']
+release:
+  - base-branch: ['release']
+develop:
+  - base-branch: ['develop']
+feat:
+  - head-branch: ['^feat', 'feat']
+fix:
+  - head-branch: ['^fix', 'fix']
+hotfix:
+  - head-branch: ['^hotfix', 'hotfix']
+refactor:
+  - head-branch: ['^refactor', 'refactor']
+chore:
+  - head-branch: ['^chore', 'chore']
+docs:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.md'

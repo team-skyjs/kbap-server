@@ -23,7 +23,7 @@
 - Q: 바운딩 박스는 필수인가 선택인가? → A: **필수**. 각 scan item은 반드시 boundingBox를 포함해야 하며, 누락/검증 위반 좌표는 요청 거부(400). 위험도 판정엔 사용하지 않고 UI 오버레이/재현용으로 저장만.
 - 이미지 처리 전제(이번 범위): Lambda 이미지 압축은 **aspect ratio를 유지**해야 정규화 좌표가 그대로 유효하다. **crop/padding/rotation/orientation 보정처럼 좌표 기준을 바꾸는 처리는 이번 범위에서 하지 않는다.** 후속에 도입하면 이미지 변환 메타데이터 또는 좌표 재계산 정책을 별도로 정의해야 한다.
 - Q: mock 위험도 순환의 기준은? → A: **요청 `items` 배열 순서**(0-based index). index 0→SAFE, 1→CAUTION, 2→DANGER, 3→UNKNOWN, 이후 동일 순서 반복. `displayOrder` 같은 별도 필드는 이번 범위에서 필수로 두지 않고 서버가 배열 순서를 판정 순서로 사용.
-- Q: 음식 상세 조회에서 메뉴명이 없을 때 응답은? → A: **HTTP 404 + `ApiResponse.fail("해당 음식 정보 없음")`** (경로는 존재하나 리소스 없음; 장애·잘못된 요청 아님). menuName 누락/blank는 **HTTP 400 + `ApiResponse.fail("menuName은 필수입니다")`**.
+- Q: 음식 상세 조회에서 메뉴명이 없을 때 응답은? → A: **HTTP 400 + `BaseResponse.fail("해당 음식 정보 없음")`** (2026-06-28 갱신: 이전 404에서 변경 — 미수록 메뉴 상세 요청을 잘못된 요청으로 취급). menuName 누락/blank도 **HTTP 400 + `BaseResponse.fail("menuName은 필수입니다")`**.
 - Q: 한 스캔 요청의 최대 items 수는? → A: **100개**로 확정. 초과 시 HTTP 400 거부.
 - Q: 이번 mock slice의 FoodDetail 응답 언어 범위는? → A(2026-06-27 갱신, 이전 "ko/en 두 필드" 결정 대체): **`ko` 원문 + 9개 대상 언어 전체 지원**(헌법 V v2.0.0·ADR-0003). API 2는 **쿼리 파라미터 `lang`** 으로 대상 언어를 받아 해당 번역본을 반환하고, 미지정/미지원은 `ko` 폴백(B-2 방식). seed가 9개 번역을 직접 포함하며, 실제 번역 생성(배치)·회원 기반 언어 해석은 후속. → 이를 위해 **헌법 원칙 V를 v2.0.0으로 개정**(한·영만 → 9개국어).
 - Q: (향후 9개국어 시) 응답 언어를 무엇으로 결정하나 — 헤더 vs 회원 설정? → A: **인증된 회원의 `MemberProfile.사용 언어` 설정이 권위 출처**(member.md). `Accept-Language` 헤더는 익명/온보딩 전 폴백으로만. api/application이 하나의 target language로 해석해 유스케이스에 주입(food 도메인은 출처 모름). **인증/회원 + 9개국어 구현 이후 적용 — 이번 슬라이스 무변화.**
@@ -33,8 +33,16 @@
 - Q: 스캔 응답에 음식 상세를 모두 담을지(eager), 탭 시 별도 조회할지(lazy)? → A: **lazy 유지(2 API)**. 스캔 응답은 항목별 위험도만(가볍게), 음식 상세는 사용자가 탭할 때 API 2로 별도 호출.
 - Q: 음식 상세 응답에 무엇을 담나? → A: 대표 이미지 + **재료 목록**(재료별 `재료명`(ko/en)·`아이콘`·`포함 비율(%)`·`riskStatus`). UI의 재료 카드(예: "바지락 조개 ~50% / 문의 필요")를 구성할 구조화 값.
 - Q: 사장님 안내 설명 문장("된장찌개에는 보통 바지락 조개이(가) 들어가요 (약 50%)…")을 DB에 저장하나? → A: **저장하지 않는다.** 동적 값(음식명·재료명·포함%)은 이미 DB에 저장돼 응답에 실리고, **고정 뼈대 문구는 언어별 UI 템플릿(정적 리소스)**으로 두며, 완성 문장은 **클라이언트가 런타임에 조합**한다.
-- 재료 포함 비율은 **연속 퍼센티지(0~100%)**로 모델링한다(UI가 `~50%`·`~100%` 등 연속값 표시). `food.md`의 `0/1/2` 스코어 표기와 불일치 → plan/도메인 문서 reconcile 필요(실제 제품 UI 기준 채택).
-- 재료별 `riskStatus`(안전/문의 필요)는 본래 **사용자 식이 제한 의존(assessment)** 값이다. 이번 mock 슬라이스에선 사용자 프로필이 없으므로 **mock 값**으로 내려준다. 실제 개인화 판정은 후속.
+- 재료 포함 비율(`inclusionPercent`)은 **연속 퍼센티지(0~100%)**로 모델링한다 — **여러 레시피를 조회했을 때 해당 재료가 포함되는 정도(확률)**를 뜻하며, UI가 `~50%`·`~100%`로 표시하는 저장·표시값이다. `food.md`의 `0/1/2`는 이와 **별개 개념**으로, 후속에 LLM이 레시피를 찾아 매기는 **per-recipe 스코어링 입력값**이며 위 퍼센티지를 산출하는 데 쓰인다(이번 범위 밖). 둘은 충돌이 아니므로 `food.md`는 `0/1/2`를 '퍼센티지 산출용 스코어'로 위치시키도록 정리한다.
+- 재료별 `riskStatus`는 **4단계 `RiskLevel`(SAFE/CAUTION/DANGER/UNKNOWN)** 값으로(재료 전용 enum 없이 항목 판정과 동일 enum 재사용), 본래 **사용자 식이 제한 의존(assessment)** 값이다. 이번 mock 슬라이스에선 사용자 프로필이 없으므로 **mock 값**으로 내려준다(UI의 '안전/문의 필요' 표시는 클라이언트가 매핑). 실제 개인화 판정은 후속.
+
+### Session 2026-06-28
+
+- Q: 응답 봉투 표기를 `ApiResponse`/`data` vs `BaseResponse`/`payload` 중 무엇으로 통일? → A: **`BaseResponse<T>`(`success`/`payload`/`message`) + `BaseResponse.ok/fail`** 로 통일(실제 코드·CLAUDE.md 규약과 일치, US1 컨트롤러/테스트가 이미 사용 중).
+- Q: 재료 포함 비율을 연속 `0~100%` vs `0/1/2` 스코어 중 무엇으로? → A: **별개 개념**으로 확정. 저장·표시값 `inclusionPercent`는 **연속 `0~100%`**(여러 레시피 조회 시 포함되는 확률/정도)이고, `0/1/2`는 후속 LLM per-recipe 스코어링 입력값으로 퍼센티지 **산출에만** 쓰인다(이번 범위 밖). 충돌이 아니므로 `food.md`의 `0/1/2`는 '퍼센티지 산출용 스코어'로 위치시켜 정리.
+- Q: 재료별 `riskStatus` 값 집합을 2값 전용 enum vs 4단계 `RiskLevel` 재사용 중 무엇으로? → A: **4단계 `RiskLevel`(SAFE/CAUTION/DANGER/UNKNOWN) 재사용**(재료 전용 별도 enum 신설 안 함). UI의 '안전/문의 필요' 2상태 표시는 클라이언트가 매핑. 이번 범위는 mock 값.
+- Q: US2 미수록 메뉴의 HTTP 상태코드를 404 vs 400 중 무엇으로? → A: **400 Bad Request**로 변경(이전 2026-06-27의 404 결정 대체). 상세 조회 대상 메뉴가 DB에 없으면 `400 + BaseResponse.fail("해당 음식 정보 없음")` — 미수록 메뉴 상세 요청을 잘못된 요청으로 취급. US2는 **대기열 적재 없음**.
+- Q: 스캔(US1)에서 미수록 메뉴를 UNKNOWN으로 응답하는 real 동작·research 미스 대기열 적재의 범위는? → A: **다음 사이클**(ADR-0003/0004). 현 US1은 mock 순환 유지, 이번 US2엔 미포함.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -64,15 +72,15 @@
 
 **Why this priority**: 스캔 결과에서 개별 음식의 이해를 돕는 보조 흐름이다. P1(스캔)과 독립적으로 동작하며(탭 시에만 lazy 호출), 음식 상세 화면을 단독으로 개발·시연할 수 있다.
 
-**Independent Test**: 시드(seed)된 메뉴명을 여러 `lang`(예: `en`·`ja`)으로 조회해 해당 언어 음식명·재료명이 반환되는지, 미지원/미지정 언어는 `ko` 폴백, 없는 메뉴명은 404, menuName 누락/blank는 400으로 응답되는지로 검증한다.
+**Independent Test**: 시드(seed)된 메뉴명을 여러 `lang`(예: `en`·`ja`)으로 조회해 해당 언어 음식명·재료명이 반환되는지, 미지원/미지정 언어는 `ko` 폴백, 없는 메뉴명은 400, menuName 누락/blank는 400으로 응답되는지로 검증한다.
 
 **Acceptance Scenarios**:
 
-1. **Given** 시드 데이터에 존재하는 메뉴명("된장찌개")과 `lang=en`으로, **When** 음식 상세 조회를 요청하면, **Then** HTTP 200 + `ApiResponse.ok(FoodDetail)`로 **영어** 음식명·대표 이미지 참조와 **재료 목록**이 반환되고, 각 재료는 영어 재료명·아이콘 참조·포함 비율(%)·riskStatus(SAFE/CAUTION 등)를 포함한다.
+1. **Given** 시드 데이터에 존재하는 메뉴명("된장찌개")과 `lang=en`으로, **When** 음식 상세 조회를 요청하면, **Then** HTTP 200 + `BaseResponse.ok(FoodDetail)`로 **영어** 음식명·대표 이미지 참조와 **재료 목록**이 반환되고, 각 재료는 영어 재료명·아이콘 참조·포함 비율(%)·riskStatus(4단계 `RiskLevel`)를 포함한다.
 2. **Given** 동일 메뉴명을 다른 `lang`(`ja`·`vi` 등)으로, **When** 조회하면, **Then** 음식명·재료명이 각 언어 번역본으로 반환된다.
 3. **Given** `lang` 미지정 또는 지원하지 않는 코드(예: `lang=xx`)로, **When** 조회하면, **Then** `ko` 원문으로 폴백해 반환한다(오류 아님).
-4. **Given** 시드 데이터에 없는 메뉴명으로, **When** 조회를 요청하면, **Then** HTTP 404 + `ApiResponse.fail("해당 음식 정보 없음")`으로 응답한다(서버 장애·잘못된 요청이 아니다).
-5. **Given** menuName이 누락되었거나 빈 값일 때, **When** 조회를 요청하면, **Then** HTTP 400 + `ApiResponse.fail("menuName은 필수입니다")`로 응답한다.
+4. **Given** 시드 데이터에 없는 메뉴명으로, **When** 조회를 요청하면, **Then** HTTP 400 + `BaseResponse.fail("해당 음식 정보 없음")`으로 응답한다(미수록 메뉴 상세 요청은 잘못된 요청으로 취급).
+5. **Given** menuName이 누락되었거나 빈 값일 때, **When** 조회를 요청하면, **Then** HTTP 400 + `BaseResponse.fail("menuName은 필수입니다")`로 응답한다.
 6. **Given** 응답의 재료별 구조화 값(음식명·재료명·포함%)이 주어졌을 때, **When** 클라이언트가 "문의 필요" 재료의 안내 문구를 만들면, **Then** 서버가 완성 문장을 저장/전송하지 않고도 클라이언트가 템플릿 뼈대에 값을 끼워 문장을 조합할 수 있다.
 
 ---
@@ -85,8 +93,8 @@
 - **itemId 중복**: 한 요청 안에서 itemId가 중복되면 응답 매칭이 모호해지므로 거부한다(400).
 - **boundingBox 누락**: boundingBox는 **필수**이므로 항목에 없으면 요청을 거부한다(400).
 - **boundingBox 좌표 오류**: 정규화 좌표 검증을 위반하는 값은 거부한다(400) — `x < 0`, `y < 0`, `width ≤ 0`, `height ≤ 0`, `x + width > 1`, `y + height > 1`. boundingBox는 판정에 쓰이지 않고 저장만 하지만, 유효성은 검증한다.
-- **음식 상세 - 메뉴명 미존재**: HTTP 404 + `ApiResponse.fail("해당 음식 정보 없음")`.
-- **음식 상세 - menuName 누락/blank**: HTTP 400 + `ApiResponse.fail("menuName은 필수입니다")`.
+- **음식 상세 - 메뉴명 미존재**: HTTP 400 + `BaseResponse.fail("해당 음식 정보 없음")` (미수록 메뉴 상세 요청을 잘못된 요청으로 취급).
+- **음식 상세 - menuName 누락/blank**: HTTP 400 + `BaseResponse.fail("menuName은 필수입니다")`.
 - **음식 상세 - lang 미지정/미지원**: 오류 없이 `ko` 원문으로 폴백 반환.
 - **음식 상세 - 특정 언어 번역 누락**: 특정 음식/재료의 요청 언어 번역이 비어 있으면 그 항목만 `ko`로 폴백(전체 응답은 정상 200).
 - **재료가 없는 음식**: 재료 목록이 빈 배열로 내려갈 수 있어야 한다(오류 아님).
@@ -114,10 +122,10 @@
 - **FR-010**: 시스템은 **메뉴명 + 대상 언어(target language)를 입력받아 해당 음식의 상세 정보**를 **요청 언어로** 조회·반환할 수 있어야 한다. 응답은 **음식명**, **대표 이미지 참조**, **들어가는 재료 목록**을 포함한다. 메뉴명 매칭은 **trim 후 정확 일치**(매칭 키는 `ko` 원문 음식명)로 한다(정규화·별칭·유사도 매칭은 후속). 매칭 키와 응답 콘텐츠 언어는 분리된다.
 - **FR-010a**: 지원 언어는 **한국어(`ko`) 원문 + 9개 대상 언어**(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`)다(헌법 V·ADR-0003). 음식명·재료명은 이들 언어로 사전 번역돼 저장된 값에서 요청 언어를 선택해 반환한다.
 - **FR-010b**: 대상 언어는 **쿼리 파라미터(`lang`)로 받는다.** **미지정이거나 지원 목록에 없으면 `ko` 원문으로 폴백**해 반환한다(서버 오류 아님). (이 파라미터는 향후 회원 기반 언어 해석의 자리표시자 — 후속에 출처만 교체.)
-- **FR-010c**: 재료 목록의 각 항목은 **재료명(요청 언어)·아이콘 참조·포함 비율(0~100% 연속값)·riskStatus**를 포함한다. 포함 비율은 음식 데이터로 **저장된 값**이며, 재료별 `riskStatus`는 이번 범위에서 **mock 값**으로 부여한다(실제로는 사용자 식이 제한 의존 = 후속 assessment).
+- **FR-010c**: 재료 목록의 각 항목은 **재료명(요청 언어)·아이콘 참조·포함 비율(0~100% 연속값)·riskStatus(4단계 `RiskLevel`)**를 포함한다. 포함 비율은 음식 데이터로 **저장된 값**이며, 재료별 `riskStatus`는 **4단계 `RiskLevel`(SAFE/CAUTION/DANGER/UNKNOWN)** 값으로 이번 범위에서 **mock 값**으로 부여한다(실제로는 사용자 식이 제한 의존 = 후속 assessment). UI의 '안전/문의 필요' 2상태 표시는 클라이언트가 매핑한다.
 - **FR-010d**: 시스템은 **사장님 안내 설명 문장의 완성본을 저장·전송하지 않는다.** 응답은 문장 조합에 필요한 **동적 값(음식명·재료명·포함%·riskStatus)** 만 구조화 형태로 제공하고, 고정 뼈대 문구는 **언어별 UI 템플릿(정적 리소스)** 으로 분리하며, 완성 문장은 **클라이언트가 런타임에 조합**한다.
 - **FR-011**: 이번 범위에서 음식 상세는 **seed 데이터**에 기반하며(seed가 `ko` + 9개 언어 번역본을 직접 포함), **실제 번역 생성(LLM·`meogo-batch` 배치)·외부 데이터 수집은 수행하지 않는다**(후속).
-- **FR-012**: 조회한 메뉴명이 데이터에 없으면 시스템은 **HTTP 404 + `ApiResponse.fail("해당 음식 정보 없음")`**으로 응답한다(서버 장애·잘못된 요청이 아니라 "리소스 없음"). menuName 누락/blank는 **HTTP 400 + `ApiResponse.fail("menuName은 필수입니다")`**로 응답한다.
+- **FR-012**: 조회한 메뉴명이 데이터에 없으면 시스템은 **HTTP 400 + `BaseResponse.fail("해당 음식 정보 없음")`**으로 응답한다(미수록 메뉴 상세 요청을 잘못된 요청으로 취급 — 제품 정책). menuName 누락/blank는 **HTTP 400 + `BaseResponse.fail("menuName은 필수입니다")`**로 응답한다(메시지로 구분).
 
 #### 경계 / 교체 용이성
 
@@ -126,7 +134,7 @@
 
 #### 공통 응답 형식
 
-- **FR-015**: 모든 API 응답은 프로젝트 공통 응답 봉투 `ApiResponse<T>`(필드: `success`, `data`, `message`)로 감싸 반환해야 한다. 성공은 `ApiResponse.ok(data)`(`success=true`+`data`), 실패는 `ApiResponse.fail(message)`(`success=false`+`message`). HTTP 상태코드는 `ResponseEntity`로 표현한다(성공 200, 리소스 없음 404, 잘못된 요청 400). (코드 규약은 CLAUDE.md "API 응답 규약" 참조.)
+- **FR-015**: 모든 API 응답은 프로젝트 공통 응답 봉투 `BaseResponse<T>`(필드: `success`, `payload`, `message`)로 감싸 반환해야 한다. 성공은 `BaseResponse.ok(payload)`(`success=true`+`payload`), 실패는 `BaseResponse.fail(message)`(`success=false`+`message`). HTTP 상태코드는 `ResponseEntity`로 표현한다(성공 200, 잘못된 요청 400). (코드 규약은 CLAUDE.md "API 응답 규약" 참조.)
 
 ### Key Entities *(데이터 관련)*
 
@@ -137,12 +145,12 @@
 - **FoodDetail (음식 상세)**: 메뉴명으로 조회되는 음식 정보. 음식명을 **`ko` 원문 + 9개 대상 언어 번역본**으로 보유하고, 대표 이미지 참조(언어 무관)와 재료 목록을 가진다. 조회 시 대상 언어 값을 반환(미지원 → `ko`). 이번 범위에서는 seed 데이터(번역본 포함).
 - **Ingredient (재료)**: 재료명을 **`ko` 원문 + 9개 대상 언어 번역본**으로 보유하고, 표시용 아이콘 참조를 가진다. 여러 음식에서 공유된다(음식이 재료 전체를 소유하지 않음).
 - **LanguageCode (지원 언어)**: `ko`(원문) + 9개 대상 언어(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`). 지원 목록 밖/미지정은 `ko`로 폴백.
-- **FoodIngredient (음식–재료 관계)**: 특정 음식에 특정 재료가 들어가는 관계. **포함 비율(0~100% 연속값)**을 저장한다(UI의 `~50%`·`~100%` 표시 원천). ※ `food.md`의 `0/1/2` 스코어 표기와 불일치 — plan에서 reconcile.
-- **IngredientRiskStatus (재료 위험 상태, mock)**: 재료별 안전/문의 상태(`SAFE`/`CAUTION` 등). 본래 사용자 식이 제한 의존(assessment) 값이나 이번 범위에선 mock.
+- **FoodIngredient (음식–재료 관계)**: 특정 음식에 특정 재료가 들어가는 관계. **포함 비율(`inclusionPercent`, 0~100% 연속값)**을 저장한다 — 여러 레시피 기준 포함 확률이며 UI의 `~50%`·`~100%` 표시 원천. ※ `food.md`의 `0/1/2`는 동일 필드가 아니라 이 퍼센티지를 **산출하는 후속 LLM per-recipe 스코어링 입력값**(별개 개념, 이번 범위 밖).
+- **재료 riskStatus (재료 위험 상태, mock)**: 재료별 위험도. **항목 판정과 동일한 4단계 `RiskLevel`(`SAFE`/`CAUTION`/`DANGER`/`UNKNOWN`)을 재사용**한다(재료 전용 별도 enum 없음). 본래 사용자 식이 제한 의존(assessment) 값이나 이번 범위에선 mock. UI의 '안전/문의 필요' 2상태 표시는 클라이언트가 매핑.
 
 ## API Contract *(이번 슬라이스 한정)*
 
-> 모든 응답은 `ApiResponse<T>`로 감싼다. 경로·필드명은 plan에서 확정할 수 있으나 의미·검증 규칙은 본 계약을 따른다.
+> 모든 응답은 `BaseResponse<T>`로 감싼다. 경로·필드명은 plan에서 확정할 수 있으나 의미·검증 규칙은 본 계약을 따른다.
 
 ### API 1 — 메뉴 스캔 제출 + mock 판정
 
@@ -154,14 +162,14 @@
   - `items[].rawMenuName`: 필수, **blank 불가**
   - `items[].boundingBox`: **필수** `{ x, y, width, height }` — 정규화 비율(Double, OCR 기준 이미지 대비). 검증: `x≥0, y≥0, width>0, height>0, x+width≤1, y+height≤1`
 
-**Response (200)** — `ApiResponse.ok(...)`:
+**Response (200)** — `BaseResponse.ok(...)`:
 - `scanId`
 - `results[]`
   - `itemId`
   - `riskLevel` (`SAFE`/`CAUTION`/`DANGER`/`UNKNOWN`)
   - `reason` (mock 사유 문구)
 
-**Validation (모두 400, `ApiResponse.fail(...)`)**:
+**Validation (모두 400, `BaseResponse.fail(...)`)**:
 - `items` 빈 배열 → 400
 - `items` 100개 초과 → 400
 - itemId 누락 → 400
@@ -178,11 +186,11 @@
 - `lang`: 선택. 지원 = `ko`+9개(`zh-Hans`·`en`·`ja`·`zh-Hant`·`vi`·`id`·`th`·`ru`·`es`). **미지정/미지원 → `ko` 폴백**
 
 **Response**:
-- 존재 → **200** + `ApiResponse.ok(FoodDetail)` (음식명·재료명은 `lang` 언어, 미지원 시 `ko`)
+- 존재 → **200** + `BaseResponse.ok(FoodDetail)` (음식명·재료명은 `lang` 언어, 미지원 시 `ko`)
   - `FoodDetail`: `name`(요청 언어), `imageRef`, `ingredients[]`
-    - `ingredients[]`: `name`(요청 언어), `iconRef`, `inclusionPercent`(0~100), `riskStatus`
-- 없음 → **404** + `ApiResponse.fail("해당 음식 정보 없음")`
-- menuName 누락/blank → **400** + `ApiResponse.fail("menuName은 필수입니다")`
+    - `ingredients[]`: `name`(요청 언어), `iconRef`, `inclusionPercent`(0~100), `riskStatus`(4단계 `RiskLevel`)
+- 없음 → **400** + `BaseResponse.fail("해당 음식 정보 없음")`
+- menuName 누락/blank → **400** + `BaseResponse.fail("menuName은 필수입니다")`
 
 ## Success Criteria *(mandatory)*
 
@@ -194,7 +202,7 @@
 - **SC-004**: 사용자는 스캔 제출 후 **체감상 즉시(수 초 이내)** 결과 화면을 볼 수 있다.
 - **SC-005**: 잘못된 스캔 요청(빈 목록·100개 초과·필수 필드 누락·itemId 중복·boundingBox 누락/좌표 오류)은 **100% HTTP 400으로 거부**되며, 무엇이 잘못됐는지 알 수 있다.
 - **SC-006**: 유효한 스캔은 **scanId·항목·boundingBox·mock 판정 결과가 저장**되며, 이는 repository/service 테스트로 검증된다.
-- **SC-007**: 시드 메뉴명을 지원 언어 중 어느 `lang`으로 조회해도 **200 + 해당 언어 음식명·재료 목록(재료명·포함%·riskStatus)**이 반환되고, 미지원/미지정 `lang`은 `ko` 폴백, 없는 메뉴명은 **404**, menuName 누락/blank는 **400**으로 일관 응답한다.
+- **SC-007**: 시드 메뉴명을 지원 언어 중 어느 `lang`으로 조회해도 **200 + 해당 언어 음식명·재료 목록(재료명·포함%·riskStatus)**이 반환되고, 미지원/미지정 `lang`은 `ko` 폴백, 없는 메뉴명은 **400**, menuName 누락/blank는 **400**으로 일관 응답한다.
 - **SC-008**: 음식 상세 응답만으로 클라이언트가 상세 화면(대표 이미지 + 재료별 이름·아이콘·포함%·안전/문의 상태)을 **추가 호출 없이** 구성할 수 있고, "문의 필요" 안내 문구도 **응답의 구조화 값 + 로컬 템플릿**으로 조합 가능하다(서버가 완성 문장을 저장/전송하지 않음).
 
 ## Assumptions
@@ -214,6 +222,7 @@
 
 - 실제 위험도 판정 로직(사용자 식이 제한 × 음식 재료 비교, assessment 정책 도메인)
 - 실제 음식 데이터 생성·번역 파이프라인(LLM 호출·종합·9개국어 번역, `meogo-batch` 배치, food 캐시 미스 생성) — 이번엔 seed가 번역본 직접 보유
+- **스캔 미수록 메뉴 → `UNKNOWN` 응답**(메뉴명 DB 조회 기반 real 동작) 및 **research 미스 메뉴 대기열 적재**(메뉴명 정규화 dedup, 배치 트리거) — 다음 사이클(ADR-0003/0004). 이번 슬라이스의 US1은 mock 순환을 유지하고, US2는 미수록 메뉴를 400으로 응답하며 대기열을 두지 않는다.
 - 회원 기반 언어 해석(`MemberProfile.사용 언어`) — 이번엔 쿼리 `lang` 파라미터로 대체
 - 회원·인증·이메일 인증·식이 제한 프로필(member 도메인)
 - 스캔 결과 재열람/히스토리 조회 API

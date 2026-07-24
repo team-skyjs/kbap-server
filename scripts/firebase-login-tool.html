@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!--
+  Firebase ID 토큰 발급 도구 (백엔드 로그인 테스트용)
+
+  용도: 프론트 없이 구글/애플 로그인을 실행해 Firebase ID 토큰을 얻는다.
+        받은 토큰을 POST /api/v1/auth/login 의 idToken 으로 보낸다.
+
+  사용법:
+    1. 아래 firebaseConfig 를 채운다 — Firebase 콘솔 → 프로젝트 설정 → 일반 → "내 앱"에서
+       웹 앱(</>)을 추가(없다면)하고 표시되는 config 값을 복사한다.
+       ※ apiKey 는 공개 클라이언트 설정값이라 비밀이 아니다(서비스 계정 키와 다름).
+    2. Firebase 콘솔 → Authentication → Sign-in method 에서 Google 을 사용 설정한다.
+    3. file:// 로는 로그인 팝업이 동작하지 않으므로 로컬 서버로 연다:
+         cd scripts && python3 -m http.server 8000
+         → http://localhost:8000/firebase-login-tool.html
+       (localhost 는 Firebase 승인 도메인에 기본 포함되어 있다)
+    4. 버튼 클릭 → 구글 로그인 → 토큰과 curl 명령이 화면에 출력된다. 토큰 수명은 1시간.
+
+  애플 로그인은 Apple Developer 설정(Services ID·Team ID·Key)이 콘솔에 등록된 뒤에만 동작한다.
+-->
+<meta charset="utf-8">
+<title>Firebase 로그인 토큰 도구</title>
+<style>
+  body { font-family: sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+  button { font-size: 16px; padding: 10px 18px; margin-right: 8px; cursor: pointer; }
+  textarea { width: 100%; height: 140px; margin-top: 12px; font-family: monospace; font-size: 12px; }
+  pre { background: #f4f4f4; padding: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .meta { color: #555; font-size: 14px; }
+</style>
+
+<h1>Firebase ID 토큰 발급</h1>
+<button id="google">구글로 로그인</button>
+<button id="apple">애플로 로그인</button>
+<button id="copy" hidden>토큰 복사</button>
+<p class="meta" id="who"></p>
+<textarea id="token" placeholder="로그인하면 ID 토큰이 여기 출력됩니다" readonly></textarea>
+<pre id="curl" hidden></pre>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth, signInWithPopup, GoogleAuthProvider, OAuthProvider,
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  // ── 1. Firebase 콘솔의 웹 앱 config 로 교체 ──────────────────────────
+  const firebaseConfig = {
+    apiKey: "AIzaSyBfhr15hA-7gD3vKWruZyc5m-NkYArIg6M",
+    authDomain: "k-bap-eb032.firebaseapp.com",
+    projectId: "k-bap-eb032",
+    appId: "1:44799256321:android:f8a9fc05f0b4e861c5dd00",
+  };
+  // ────────────────────────────────────────────────────────────────────
+
+  const auth = getAuth(initializeApp(firebaseConfig));
+
+  async function login(provider) {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+      document.getElementById("who").textContent =
+        `로그인됨: ${result.user.email ?? "(이메일 없음)"} — 토큰 수명 1시간`;
+      document.getElementById("token").value = idToken;
+      const curl = document.getElementById("curl");
+      curl.hidden = false;
+      curl.textContent =
+        `curl -i -X POST localhost:8080/api/v1/auth/login \\\n` +
+        `  -H 'Content-Type: application/json' \\\n` +
+        `  -d '{"idToken":"${idToken}"}'`;
+      document.getElementById("copy").hidden = false;
+    } catch (e) {
+      document.getElementById("token").value = `실패: ${e.code ?? ""} ${e.message}`;
+    }
+  }
+
+  document.getElementById("google").onclick = () => login(new GoogleAuthProvider());
+  document.getElementById("apple").onclick = () => login(new OAuthProvider("apple.com"));
+  document.getElementById("copy").onclick = () =>
+    navigator.clipboard.writeText(document.getElementById("token").value);
+</script>

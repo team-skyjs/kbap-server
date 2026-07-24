@@ -9,6 +9,16 @@ springdoc = "2.8.6"
 kotest = "5.9.1"
 kotest-extensions-spring = "1.3.0"
 jacoco = "0.8.12"
+archunit = "1.3.0"
+jackson = "2.21.4"
+# 인증(KB-118): jjwt·firebase-admin 은 Spring Boot BOM 이 관리하지 않아 버전을 여기에 고정한다.
+jjwt = "0.12.6"
+firebase-admin = "9.4.3"
+# 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
+# presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
+aws-sdk = "2.48.0"
+# 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
+shedlock = "6.9.2"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -21,12 +31,13 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 [libraries]
 # --- Kotlin / Jackson ---
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
-jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
 
 # --- Spring framework (versions managed by the Spring Boot BOM) ---
 # application 모듈은 web/jpa 스타터 없이 @Service/@Transactional 만 필요 → 최소 의존만 얹는다.
 spring-context = { module = "org.springframework:spring-context" }
 spring-tx = { module = "org.springframework:spring-tx" }
+slf4j-api = { module = "org.slf4j:slf4j-api" }
 
 # --- Spring Boot starters (versions managed by the Spring Boot BOM) ---
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
@@ -34,23 +45,46 @@ spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-start
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
-spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-boot-starter-data-mongodb" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
 
 # --- Databases ---
 mysql-connector = { module = "com.mysql:mysql-connector-j" }
-h2 = { module = "com.h2database:h2" }
+
+# --- JPA/Hibernate 애너테이션 (버전은 Spring Boot BOM 관리) ---
+# :core 의 영속 공통(BaseEntity·IdConverter)이 compileOnly 로만 쓴다 — 런타임 제공은 도메인 모듈.
+jakarta-persistence-api = { module = "jakarta.persistence:jakarta.persistence-api" }
+hibernate-core = { module = "org.hibernate.orm:hibernate-core" }
 
 # --- DB migration ---
+# Spring Boot 4 는 autoconfig 를 기술별 모듈로 분리 — flyway-core(라이브러리)만으론
+# 마이그레이션이 자동 실행되지 않으므로 Boot 의 Flyway autoconfig 모듈을 명시 추가한다.
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
 flyway-core = { module = "org.flywaydb:flyway-core" }
 flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 
+# --- Storage (KB-145/KB-138): S3 presigned URL 발급·오브젝트 검증 (AWS SDK v2) ---
+# BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
+aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
+aws-s3 = { module = "software.amazon.awssdk:s3" }
+
 # --- API docs (Swagger UI) ---
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# --- Scheduler lock (KB-226): 이미지 회수 @Scheduled 를 api 2대 중 1대만 실행 ---
+# 어노테이션 AOP(shedlock-spring) 없이 core 의 DefaultLockingTaskExecutor 를 프로그래매틱으로 쓴다.
+shedlock-core = { module = "net.javacrumbs.shedlock:shedlock-core", version.ref = "shedlock" }
+shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
 # Upstage 는 OpenAI 호환 API 라 openai 스타터를 base-url 만 바꿔 재사용한다.
 spring-ai-starter-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
 spring-ai-starter-google-genai = { module = "org.springframework.ai:spring-ai-starter-model-google-genai" }
+
+# --- Auth (KB-118): 자체 JWT 발급/파싱 + Firebase ID 토큰 검증 ---
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
 
 # --- Test (versions managed by the Spring Boot / JUnit BOM) ---
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
@@ -61,3 +95,14 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# Testcontainers (versions managed by the Spring Boot BOM). @ServiceConnection 지원은 spring-boot-testcontainers.
+# testFixtures 등 dependency-management 가 자동 적용되지 않는 구성엔 아래 BOM 을 platform 으로 직접 얹는다.
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+# Testcontainers 2.0 부터 DB 모듈 좌표가 `mysql` → `testcontainers-mysql` 로 바뀌었다(구 `org.testcontainers:mysql` 은 1.x 까지).
+testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql" }
+# Redis 는 전용 모듈 없이 GenericContainer 로 띄운다(testcontainers 코어).
+testcontainers-core = { module = "org.testcontainers:testcontainers" }
+
+# --- Architecture boundary tests (모듈 경계 강제) ---
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }

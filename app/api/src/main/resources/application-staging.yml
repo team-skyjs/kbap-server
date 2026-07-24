@@ -1,0 +1,32 @@
+logging:
+  # 수집기가 requestId·memberId·status·elapsedMs 를 필드 단위로 검색할 수 있게 JSON 으로 출력한다.
+  # Boot 내장 structured logging — MDC 값이 최상위 필드로 자동 포함된다. (KB-130)
+  structured:
+    format:
+      console: ecs
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      ssl:
+        # 전송 중 암호화 필수 Redis(ElastiCache) 대응 — 평문 예외 환경은 REDIS_SSL_ENABLED=false (KB-169)
+        enabled: ${REDIS_SSL_ENABLED:true}
+
+kbap:
+  storage:
+    # 실 S3 버킷·공개(CDN) 베이스. bucket 이 있어야 실 발급 어댑터가 조립된다(KB-145).
+    bucket: ${STORAGE_BUCKET}
+    public-base-url: ${IMAGE_PUBLIC_BASE_URL}
+    # 공유 버킷 환경 접두 — 기본 staging, env 로 커밋 없이 변경 가능(KB-171).
+    key-prefix: ${STORAGE_KEY_PREFIX:staging}

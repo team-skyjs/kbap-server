@@ -1,36 +1,94 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 2.0.0   (개정 2026-06-27)
-Bump rationale (MAJOR): 원칙 V(Domain Content Language Policy)의 규범을 하위호환 깨짐으로 재정의.
-  - 기존: "음식 콘텐츠는 한국어·영어만 저장 / 그 외 언어 저장 금지"
-  - 변경: "한국어(ko) 원문 + 9개 대상 언어 사전 번역 저장"(ADR-0003)
-  - 명시적 금지("그 외 언어 저장하지 않는다")를 제거·역전하므로 MAJOR.
-  영향: 원칙 V 본문 교체. 원칙 I~IV·Additional Constraints·Governance 의미 불변.
-  비고: 이 개정으로 헌법 ↔ ADR-0003 상충(이전 분석 C1) 해소.
+Version change: 4.0.0 → 5.0.0   (개정 2026-07-22)
+Bump rationale (MAJOR): 원칙 IV 를 **비호환 재정의**한다(KB-220). KB-134 가 확립한 "엔티티·Spring Data
+  리포지토리를 Kotlin `internal` 로 감추고 도메인 서비스를 유일 공개 창구로 둔다"를 폐기한다 — 이 캡슐화는
+  배치처럼 리포지토리가 필요한 소비 계층마다 위임 전용 창구 서비스(FoodContentBatchService·
+  AvoidanceCatalogService)를 만들게 했고, 그 결과 소비 계층 성격의 데이터 접근 코드가 도메인 모듈에 섞였다.
+  엔티티·리포지토리를 public 으로 두고 소비 계층이 직접 참조한다. 유지되는 것: 도메인 로직의 도메인 서비스
+  소유, JPA 연관관계 금지(참조는 id 값), Flyway 스키마 owner(=api), 명시적 트랜잭션 경계.
+  함께: 원칙 IV 의 "도메인 모델·엔티티 분리(toDomain/from 변환)" 서술을 실제 코드(2026-07-14 대개편 —
+  엔티티=도메인 모델)와 정합화하고, 원칙 명칭을 Persistence Encapsulation → Persistence Ownership 으로 바꾼다.
 
 Modified principles:
-  V. Domain Content Language Policy — 저장 언어 정책을 한·영 → ko 원문 + 9개 대상 언어로 재정의
+  III. Layered Dependency Direction — "도메인 서비스 유일 공개 창구" 조항 완화(리포지토리도 공개 API).
+  IV. Persistence Encapsulation → Persistence Ownership — internal 캡슐화 폐기·소비 계층 직접 참조 허용·
+      엔티티=도메인 모델 정합화·트랜잭션 경계 소유 조항 추가.
 
-Principles defined:
-  I.   Test-First Development (NON-NEGOTIABLE)
-  II.  Bounded Contexts — No Cross-Domain Coupling
-  III. Layered Dependency Direction
-  IV.  Persistence Encapsulation
-  V.   Domain Content Language Policy (개정)
+Templates reviewed:
+  ✅ .specify/templates/plan-template.md  — Constitution Check 가 헌법을 동적 참조. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — 무관. 변경 불필요.
+  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
+
+Docs propagation: ADR-0014(ADR-0012 의 internal 캡슐화 결정 대체) · docs/architecture/meogo-conventions.md ·
+  docs/architecture/meogo-api-module-structure.md · CLAUDE.md · specs/kb-220-remove-internal/.
+
+Follow-up: 없음(KB-220 구현과 동시 반영).
+
+---
+이전 개정 이력
+Version change: 3.0.1 → 4.0.0   (개정 2026-07-20)
+Bump rationale (MAJOR): 원칙 V 의 **언어 폴백 정책을 비호환 재정의**한다(KB-201). spec 008/이슈 #18 이
+  고정했던 "지원 목록에 없는 코드 → fail-fast 400 + 지원 언어 목록 안내"를 **"영어(en) 폴백"** 으로 바꾸고,
+  대신 "미지정 → ko 기본"을 **"비어 있으면 400 거절(lang 필수)"** 로 바꾼다. 즉 **거절 지점이 '값이 틀렸을 때'
+  에서 '값을 안 채웠을 때'로 이동**한다. 근거: lang 은 사용자가 고르는 값이 아니라 기기 설정에서 흘러드는 값이라
+  서비스가 통제할 수 없고, 미지원 기기 언어 사용자에게 400 을 주면 화면(특히 홈 = 진입 화면)이 열리지 않는다.
+  함께: 외부 입력 유효성 검증을 요청 경계(컨트롤러 요청 DTO)가 소유하고 도메인·애플리케이션 서비스는 확정값을
+  받는다는 조항을 원칙 V 에 추가. 그 결과 `LanguageCode.from` 이 순수 lookup 으로 축소되고
+  `ErrorCode.UNSUPPORTED_LANGUAGE`(COMMON-001)가 삭제됐다.
+
+Modified principles:
+  V. Domain Content Language Policy — 폴백 3분기 재정의(비어 있음→400 / 번역 부재→ko / 미지원 코드→en)
+     + 검증 소유 계층(요청 경계) 조항 추가. "정확 일치·관대한 정규화 금지"는 유지(trim 도 하지 않음으로 강화).
+
+Supersedes: specs/008-unsupported-language-error/ (미지원 코드 400 결정)
+
+Templates reviewed:
+  ✅ .specify/templates/plan-template.md  — Constitution Check 가 헌법을 동적 참조. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — 무관. 변경 불필요.
+  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
+
+Docs propagation: ADR-0013 · docs/architecture/meogo-conventions.md "언어 / 데이터 정책" ·
+  specs/kb-201-home-lang-param/ · specs/008-unsupported-language-error/(superseded 표기).
+
+Follow-up: 없음(KB-201 구현과 동시 반영).
+
+Version change: 3.0.0 → 3.0.1   (개정 2026-07-13)
+Bump rationale (MAJOR): 원칙 III·IV 를 **재정의**한다(비호환 재정의 = MAJOR). KB-134 에서 클린아키텍처
+  ports & adapters 를 폐기했다 — 도메인 하나를 다루는 데 모델·port·엔티티·리포지토리·어댑터 다섯 조각이
+  두 모듈에 흩어지는 비용이, 얻는 것(영속 기술 교체 가능성)보다 크다는 판단이다. `:infra:persistence` 를
+  해체해 영속 코드를 **소유 도메인 모듈 안으로** 옮기고, 리포지토리 port 를 폐기하며, 각 도메인은
+  **도메인 서비스 하나를 public 창구**로 두고 엔티티·Spring Data 리포지토리를 **Kotlin `internal`** 로 감춘다.
+  Gradle 모듈이 컴파일 단위이므로 경계 강제 수단이 "리뷰 + ArchUnit" 에서 **컴파일러 + ArchUnit** 으로
+  오히려 강해진다. 캡슐화 목적(원칙 IV)은 유지되고 수단만 바뀐다. 함께: JPA 연관관계 전면 금지(참조는 id 값),
+  모듈 리네임(core/→domain/, 구 kernel 모듈→:core), MongoDB 스택 제거.
+
+Modified principles:
+  III. Layered Dependency Direction — port-only·runtimeOnly 조립 → 도메인 서비스 창구·직접 의존.
+  IV. Persistence Encapsulation — ":infra:persistence 에 집결" → "소유 도메인 모듈 안에 internal 로".
+
+3.0.1 (PATCH, 같은 날): :application:client 하위 모듈을 :application 단일 모듈로 평탄화(진입점별
+  분할은 실제 필요 시 재도입) — 원칙 II·III 의 괄호 표기만 동기화, 원칙 본문·의미 불변.
+
+Modified sections:
+  II. Bounded Contexts — 모듈 표기(:core:*→:domain:*)·공유 id 값 클래스의 :core 배치 반영(원칙 취지 불변).
+  Additional Constraints — MongoDB 제거, 모듈 구조 서술 갱신.
 
 Added sections: 없음 · Removed sections: 없음
 
 Templates reviewed:
   ✅ .specify/templates/plan-template.md  — Constitution Check 게이트가 헌법을 동적 참조. 변경 불필요.
-  ✅ .specify/templates/tasks-template.md — Test-First 동기화 상태 유지, 언어 정책 무관. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — Test-First 동기화 유지, 무관. 변경 불필요.
   ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
 
-Follow-up: spec 001(menu-scan-mock)의 음식 상세를 9개국어(B-2: 대상 언어 파라미터 + ko 폴백)로 갱신 필요
-  — spec.md/data-model.md/contracts/tasks.md 후속 편집 대상.
+Docs propagation: ADR-0012(ADR-0006·0008 supersede) · CLAUDE.md 모듈 구조·컨벤션 절 ·
+  docs/architecture/{kbap-conventions,kbap-api-module-structure}.md · specs/kb-134-architecture-simplification/.
+
+Follow-up: 없음(KB-134 구현과 동시 반영).
 -->
 
-# Meogo API Constitution
+# Kbap API Constitution
 
 ## Core Principles
 
@@ -48,40 +106,62 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 
 ### II. Bounded Contexts — No Cross-Domain Coupling
 
-도메인은 `meogo-api` 컨테이너 직속의 컨텍스트별 모듈(`:meogo-api:{food,member,scan,assessment,research}`)로 둔다(평탄화). (`research`는 미스 메뉴 조사·종합 파이프라인, 배치 전용 — ADR-0004.)
+도메인은 `domain/` 컨테이너 직속의 컨텍스트별 모듈(`:domain:{food,member,scan,avoidance,research}`,
+deferred placeholder `:domain:review`)로 둔다(ADR-0012). (`research`는 미스 메뉴 조사·종합 파이프라인,
+배치 전용 — ADR-0004. `avoidance`는 회피·주의 성분 카탈로그와 판정을 소유하는 컨텍스트 — 구 `assessment`.)
 
-- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:meogo-api:application`에서 한다.
+- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:application`에서 한다.
 - 다른 Aggregate·Context의 객체 전체를 직접 들지 않고 **ID·코드·스냅샷 값**으로 참조한다.
+  (예: member·food 는 회피·주의 성분을 `avoidance` 의 enum 을 import 하지 않고 코드로 참조한다.)
+  여러 컨텍스트가 공유하는 **id 값 클래스**(`FoodId`·`MemberId`)와 vocabulary(`LanguageCode`)는
+  소유 도메인이 아니라 **`:core`** 에 둔다 — 소유 도메인에 두면 참조하는 쪽에 도메인 간 의존이 생긴다.
 - Aggregate 내부 상태는 Aggregate Root를 통해서만 변경한다.
 
 Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도메인별/Worker 분리를 쉽게 한다.
 
 ### III. Layered Dependency Direction
 
-모듈 의존은 한 방향으로만 흐른다: `:meogo-api:presentation` → `:meogo-api:application` → 도메인 모듈.
-배치 앱 `:meogo-batch`도 같은 방향으로 `:meogo-api:application`을 의존한다.
+모듈 의존은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`) → `:application` → 도메인 모듈(`:domain:*`)
+→ `:core`. 두 부트앱은 공유 계층을 직접 의존해 도메인/영속을 재사용한다(ADR-0008·0012).
 
-- `:meogo-api:core`는 도메인 커널로 모두가 의존 가능, `:meogo-api:infra`는 port/adapter로만 연결한다.
-  `meogo-common`은 앱 간 공유 계약(통합 이벤트·DTO·기술 공통)으로 web/jpa/도메인에 의존하지 않는다.
+- `:core`는 도메인 커널로 모두가 의존 가능하다. 애플리케이션 코드는 **Spring-free** 이며, 전 도메인이
+  상속·사용하는 영속 공통(`BaseEntity`·`EntityStatus`·id 값 클래스와 그 `AttributeConverter`)만
+  ORM 애너테이션을 `compileOnly` 로 참조한다(런타임 제공은 도메인 모듈).
+  `:common`은 앱 간 공유 계약(통합 이벤트·기술 공통)으로 web/jpa/도메인에 의존하지 않는다.
 - 모듈 간 project 의존은 **`implementation`을 기본**으로 한다. 공개 API에 타입이 드러나는
-  의도적 노출에만 `api`를 쓴다.
-- `:meogo-api:infra`는 조립 모듈(`:meogo-api:presentation`·`:meogo-batch`)이 런타임(`runtimeOnly`)에 주입한다.
-  `:meogo-api:application`은 infra 구현체에 직접 의존하지 않는다(계층 역전 금지).
+  의도적 노출에만 `api`를 쓴다(도메인 모듈 → `api(:core)`).
+- 각 도메인 모듈의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
+  리포지토리 `internal` 캡슐화 폐기, 원칙 IV). 소비 계층은 도메인 로직이 필요하면 도메인 서비스를,
+  단순 영속 접근이면 리포지토리를 직접 쓴다.
+  외부 시스템 클라이언트(LLM·소셜 인증 등)는 **port 인터페이스(seam)로만** 사용한다(계층 역전 금지) —
+  폐기된 것은 **리포지토리 port** 이지 외부 어댑터 seam 이 아니다.
 
-Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 한다.
+Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 하되, 도메인 하나를 다루는 데 필요한
+조각 수를 최소로 유지한다(ADR-0012).
 
-### IV. Persistence Encapsulation
+### IV. Persistence Ownership
 
-JPA Entity / Mongo Document / Spring Data Repository / DomainRepository 구현체는
-도메인 모듈 내부(`infrastructure`/`adapter` 패키지)에 숨긴다.
+JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 모듈 안에 public 으로 둔다**
+(KB-220 — Kotlin `internal` 캡슐화 폐기, ADR-0014 가 ADR-0012 의 internal 결정을 대체). 소비 계층
+(`:application`·`:app:*`)은 단순 영속 접근이 필요하면 리포지토리·엔티티를 직접 참조한다 —
+리포지토리 위임 외 로직이 없는 **창구 서비스를 만들지 않는다**.
 
-- `:meogo-api:application`·`:meogo-api:presentation`은 이들을 **import 하지 않는다.** 외부에는 Domain Entity와
-  DomainRepository 인터페이스만 공개한다.
-- 영속 기술 의존(`data-jpa`/`data-mongodb`)은 `implementation`으로 두어 상위 컴파일
-  클래스패스에 노출되지 않게 한다(런타임 전이만 허용).
-- 이 경계는 패키지 가시성 + 코드 리뷰 + **ArchUnit 테스트**로 강제한다.
+- **엔티티가 곧 도메인 모델이다**(2026-07-14 대개편) — 도메인 메서드를 엔티티에 두고, 별도 도메인 모델
+  클래스·`toDomain`/`from` 변환을 만들지 않는다.
+- **도메인 로직(검증·상태 전이·정책·유비쿼터스 언어 행위)은 도메인 서비스가 소유한다.** 리포지토리 직접
+  참조는 위임뿐인 중간 계층을 없애기 위한 것이지, 비즈니스 로직을 소비 계층으로 옮기는 허가가 아니다.
+- **트랜잭션 경계는 사용하는 쪽이 명시적으로 소유한다.** 서비스 public 메서드는 명시적 `@Transactional`,
+  소비 계층이 리포지토리를 직접 쓸 때도 필요한 경계를 스스로 선언한다(예: 배치 진행 저장의
+  `TransactionTemplate(REQUIRES_NEW)` — 청크 실패에도 진행 커밋 유지).
+- **엔티티 간 JPA 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)를 두지 않는다.**
+  참조는 **id 값**으로만 들고, 연관 데이터는 id(목록)로 명시 조회한다(예외: 읽기 전용 연관 — conventions
+  문서 참조). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = api Flyway).
+- 경계는 **Gradle 의존 방향** + **ArchUnit 테스트**(`app/api` 의 `ModuleBoundaryTest` — 도메인→상위 계층
+  금지·`@Entity` 위치·도메인 모델 ORM-free)로 강제한다.
 
-Rationale: 도메인을 영속 기술로부터 보호하고, 기술 교체 시 도메인/유스케이스가 흔들리지 않게 한다.
+Rationale: internal 캡슐화가 강제한 "도메인 서비스 유일 창구"는 리포지토리가 필요한 소비 계층마다 위임
+전용 창구 서비스를 만들게 했고, 도메인 모듈에 소비 계층 성격의 코드가 섞였다(KB-220). 컴파일러 강제를
+포기하는 대신 조각 수를 줄이고, 도메인 로직의 소유는 규율과 리뷰로 지킨다.
 
 ### V. Domain Content Language Policy
 
@@ -90,27 +170,51 @@ Rationale: 도메인을 영속 기술로부터 보호하고, 기술 교체 시 �
 
 - 9개 대상 언어: `zh-Hans`(중국어 간체)·`en`(영어)·`ja`(일본어)·`zh-Hant`(중국어 번체)·`vi`(베트남어)·
   `id`(인도네시아어)·`th`(태국어)·`ru`(러시아어)·`es`(스페인어).
-- 번역은 `meogo-batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
+- 번역은 `:app:batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
 - 정적 UI 문구 번역 정책과 음식 콘텐츠 번역 정책은 **분리**한다(혼동 금지).
-- `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이며, 미지원/미지정 언어 응답 시 `ko`로 폴백한다.
+- `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이다. 표시 언어(`lang`)는 다음 세 경우로 구분한다
+  (KB-201·[ADR-0013](../../docs/adr/0013-lang-english-fallback.md) — spec 008/이슈 #18 의 fail-fast 결정을 대체):
+  (1) **비어 있음**(파라미터 누락·빈 문자열·공백) → 기본값으로 넘어가지 않고 **HTTP 400 으로 거절**한다.
+  표시 언어를 받는 API 는 `lang`을 **필수**로 두며 기본값을 두지 않는다. (2) **지원 언어이나 번역 부재**(예: `ja`
+  요청인데 해당 콘텐츠 일본어 번역 미보유) → `ko`로 폴백한다. (3) **지원 목록에 없는 코드**(값이 존재하고 지원 코드와
+  정확히 일치하지 않음 — 대소문자·지역 변형·앞뒤 공백 포함, 예: `fr`·`EN`·`ko-KR`·`" ko "`) → 거절하지 않고
+  **`en`(영어)으로 폴백**한다. 매칭은 **정확 일치**로 하고 관대한 정규화(trim·대소문자 보정)를 하지 않는다.
+  근거: `lang`은 사용자가 고르는 값이 아니라 **기기 설정에서 흘러드는 값**이라 서비스가 통제할 수 없다. 지원하지
+  않는 기기 언어(예: `fr`) 사용자에게 400을 주면 화면이 열리지 않으며, 홈처럼 진입 화면이면 앱 자체가 열리지 않는다.
+  외국인 대상 서비스에서 영어 폴백은 한국어 폴백과 달리 상당수 사용자가 읽을 수 있어 조용한 폴백의 해악이 작다.
+  **감수하는 비용**: 클라이언트의 코드 오타(`jp`)·대소문자 오류(`EN`)가 200 영어로 조용히 나가 QA 에서 드러나지
+  않을 수 있다. (1)의 필수화가 이에 대한 부분적 방어다 — "값을 안 보낸 실수"만큼은 시끄럽게 실패한다.
+- **유효성 검증은 요청 경계(컨트롤러)가 소유한다.** 외부 입력의 필수 여부·빈 값 판정은 web 계층의 요청 DTO
+  (`@field:NotBlank` 등)가 처리하고, 도메인·애플리케이션 서비스는 **확정된 값**(예: `LanguageCode`)을 받는다.
+  타입이 계약을 강제하므로 서비스 안에 방어 코드를 두지 않는다.
+- **고정 reference taxonomy — 식별자 enum + DB 단일 출처**: 운영자 런타임 편집이 없고 고정·읽기 전용인
+  기준 목록(예: 회피·주의 성분 카탈로그 — 81종)은 **데이터(ko 원문·9개 대상 언어 번역·분류)를 DB 단일 출처**로
+  두고(소프트삭제·ko 폴백 포함), **컴파일 타입 안전을 위한 식별자(코드) enum**(예: `AvoidanceSubstanceCode`)만
+  소유 컨텍스트 모듈에 둔다 — 이 enum 은 코드 상수 + **개발자 가독성용 한국어 `label`**(런타임 미사용·비권위,
+  코드 옆에서 성분을 알아보게 하는 힌트)만 가지며, 사용자 노출 표시명·9개 번역·분류 등 **콘텐츠 데이터는 이지
+  않는다**(콘텐츠는 DB 단일 출처). 식별자 enum 은 컴파일타임 코드 집합·망라 매칭(`when`)·타 컨텍스트의 타입 안전
+  참조에 쓰고, **시드 정합**(시드/DB 코드 집합 = enum 코드 집합, 그리고 `label` = 시드 korean_name)으로 드리프트를
+  배포 전 차단한다. ko 원문 + 9개 번역·ko 폴백·콘텐츠↔UI 분리는 동일하게 충족한다.
+  근거: 데이터 단일 출처(DB)로 redundancy·데이터 누수를 없애고, 식별자 enum 으로 앱 간 컴파일타임 정합을 유지한다
+  (안전 직결) — ADR-0008·spec 004·007(#21). (동적 메뉴 콘텐츠는 본 예외 대상이 아니다.)
 
 Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공하되(서비스 핵심 가치),
 데이터 품질·일관성과 번역 책임 경계(콘텐츠 vs UI)를 유지한다.
 
 ## Additional Constraints (기술·아키텍처)
 
-- 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL).
-  영속: MySQL(+H2 test) + MongoDB, 마이그레이션 Flyway. LLM: Spring AI 2.0.
-- 실행 bootJar 는 둘: `:meogo-api:presentation`(web, 진입점 `com.meogo.api.MeogoApiApplication`)와
-  `:meogo-batch`(배치, 진입점 `com.meogo.batch.MeogoBatchApplication`). 공통 빌드 설정은
-  `buildSrc` 컨벤션 플러그인(`meogo.*`)에 둔다.
+- 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스(ADR-0008·0012).
+  영속: MySQL(+통합 테스트는 MySQL Testcontainers) + Redis(refresh token), 마이그레이션 Flyway. LLM: Spring AI 2.0.
+- 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.kbap.KbapApiApplication` — 패키지 루트라 전 계층 스캔)와
+  `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`). 공통 빌드 설정은
+  `buildSrc` 컨벤션 플러그인(`kbap.*`)에 둔다.
 - 외부 LLM 등 호출을 DB 트랜잭션 안에서 길게 잡지 않는다(스캔: pending 저장 → 외부 호출 →
   결과 저장 후 completed 전환).
 - 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다.
 
 > 구속력 없는 상세 "어떻게"(패키지 레이아웃·빌딩블록·컨텍스트별 개념)는 레퍼런스로
-> [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md) 및
-> [`meogo-api-module-structure.md`](../../docs/architecture/meogo-api-module-structure.md)에 둔다.
+> [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md) 및
+> [`kbap-api-module-structure.md`](../../docs/architecture/kbap-api-module-structure.md)에 둔다.
 
 ## Development Workflow
 
@@ -129,6 +233,6 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
   PATCH=문구·오타·비의미 보정.
 - 모든 설계·PR은 본 헌법 준수를 검증한다. 위반은 정당화하거나 설계를 수정한다.
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
-  [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
+  [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md)를 참조한다.
 
-**Version**: 2.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-06-27
+**Version**: 5.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-22

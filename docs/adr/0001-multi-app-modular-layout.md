@@ -18,7 +18,7 @@
 
 레포를 **멀티앱 모노레포**로 둔다.
 
-- **`meogo-api` = 컨테이너 폴더**(빌드 파일 없음). 그 안에 leaf 모듈을 **평탄하게** 둔다: `api`(web bootJar)·`application`·`infra`·`core` + 도메인 컨텍스트 `food`/`member`/`scan`/`assessment`(+ deferred `review`). `meogo-domain` 중첩 컨테이너는 제거하고 경로는 `:meogo-api:<leaf>`.
+- **`meogo-api` = 컨테이너 폴더**(빌드 파일 없음). 그 안에 leaf 모듈을 **평탄하게** 둔다: `api`(web bootJar)·`application`·`infra`·`core` + 도메인 컨텍스트 `food`/`member`/`scan`/`avoidance`(+ deferred `review`). `meogo-domain` 중첩 컨테이너는 제거하고 경로는 `:meogo-api:<leaf>`.
 - **`meogo-batch`** = 별도 bootJar(단일 모듈). `:meogo-api:application`을 트리거하고 `:meogo-api:infra`를 `runtimeOnly`로 조립(컴파일 의존 X). flyway 는 끈다.
 - **`meogo-common`** = 최상위 공유 모듈. 통합 이벤트·공통 DTO·기술 공통(logback 조각·유틸·횡단 어노테이션). **Spring-free**, web/jpa/도메인 의존 금지(가볍게 유지 → 디커플드 컨슈머도 안전).
 - **영속은 per-domain 캡슐화 유지** — JPA Entity·Repository·adapter 는 각 도메인 모듈 내부에 숨긴다(중앙 `infra-persistence` 모듈을 두지 않는다). **Flyway 마이그레이션**은 스키마 owner 인 `:meogo-api:api`의 `src/main/resources/db/migration`에 모은다(전역 순서·단일 history).

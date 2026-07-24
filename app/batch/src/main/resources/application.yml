@@ -1,0 +1,96 @@
+spring:
+  # 루트의 .env 를 properties 형식으로 읽어 ${...} 플레이스홀더에 사용한다(없으면 조용히 건너뜀).
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: kbap-batch
+  # Spring Batch — 부팅 시 잡 자동 실행 off(기본). 실 실행 시 --spring.batch.job.enabled=true 로 켠다.
+  # RunIdIncrementer 로 실행마다 새 인스턴스가 되어 재실행(야간 반복)이 가능하다.
+  # 메타데이터 테이블(BATCH_*)은 스키마 owner=api 의 Flyway 가 생성하므로 배치는 스키마 초기화를 하지 않는다.
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: never
+  # :infra:llm 이 Spring AI 스타터(openai·google-genai)를 배치 런타임 클래스패스로 전이시킨다.
+  # 키 없이 부팅해도 벤더 자동구성이 뜨지 않도록 모든 모델 자동구성을 명시 비활성한다
+  # (LLM 빈은 :infra:llm 의 kbap.llm.* + @ConditionalOnProperty 로만 구성).
+  ai:
+    model:
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        transcription: none
+        speech: none
+# LLM 원문 응답(JSON 본문)을 로그로 보려면 DEBUG. 본문이 청크당 수만 자라 기본은 INFO(토큰/비용만).
+# 실행 인자로도 토글 가능: --logging.level.com.kbap.infra.llm.provider=DEBUG
+logging:
+  level:
+    com.kbap.infra.llm.provider: DEBUG
+# KB-182 콘텐츠 파이프라인 설정.
+# 아래 값은 "기본값"이다 — 실행 시점 인자로 덮어쓸 수 있어 재배포 없이 조정한다
+# (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
+#   ./gradlew :app:batch:bootRun --args='--spring.batch.job.enabled=true --kbap.batch.content.chunk-size=20'
+#   SPRING_BATCH_JOB_ENABLED=true KBAP_BATCH_CONTENT_CHUNK_SIZE=20 java -jar batch.jar
+kbap:
+  batch:
+    content:
+      # 한 청크(=리더 페이지 = Step 커밋 단위)로 처리할 INCOMPLETE 음식 수. 각 작업이 즉시 개별 커밋되므로
+      # 청크가 커도 재처리 시 이미 된 작업은 건너뛴다(LLM 중복 없음). 기본 10 — 운영하며 조정.
+      chunk-size: 10
+  # LLM 을 실제로 활성화하려면 kbap.llm.<openai|upstage|gemini>.enabled=true 를 준다.
+  # api-key 는 루트 .env 의 OPENAI_API_KEY/UPSTAGE_API_KEY/GOOGLE_API_KEY 가 아래 placeholder 로 주입된다
+  # (위 spring.config.import). enabled 기본 off + 키 미설정이면 caller 빈이 비어 부팅은 안전하다.
+  llm:
+    # 기피성분·맵기 종합의 최소 유효 모델 응답 수. 원칙은 2(단일 모델 판단 금지)이나,
+    # OpenAI 단일 키 과도기 동안 1 로 운영한다 — upstage/gemini 키 확보 시 이 줄을 지워 기본 2 로 복원.
+    # model 이하는 기피성분 조사 전용 OpenAI 오버라이드 — 안전 직결 판단이라 nano 보다 추론이 강한 mini 를 쓴다
+    # (nano 실측: 후보 밖 코드 혼입, KB-236). 미지정 필드(reasoning-effort·max-output-tokens 등)는
+    # kbap.llm.openai 값을 상속한다. 모델을 바꾸면 아래 단가도 함께 갱신한다.
+    avoidance:
+      min-agreement: 1
+      model: gpt-5-mini
+      pricing:
+        input-usd-per-million-tokens: 0.25
+        output-usd-per-million-tokens: 2.00
+    # LLM 비용 추적 — 호출마다 토큰 사용량과 함께 USD/KRW 비용을 로그로 남긴다.
+    # 단가는 "1백만 토큰당 USD"이며 아래 model 의 벤더 공시가(2026-07 조회)에 맞춰 둔다.
+    # 모델을 바꾸면 단가도 함께 갱신한다. 환율은 1 USD = 1,500 KRW 고정 추정.
+    usd-to-krw: 1500
+    # 모델 1회 호출 타임아웃. 스코어링은 번역 9언어+설명 생성으로 출력이 커서(모델당 5천~1만 토큰)
+    # 응답에 1분 안팎이 걸린다 — 기본 30s 로는 타임아웃 후 과금만 되고 결과가 버려지므로 넉넉히 준다.
+    call-timeout: 180s
+    openai:
+      model: gpt-5-nano
+      api-key: ${OPENAI_API_KEY:}
+      # gpt-5-nano 는 추론 모델이라 max_tokens 미지원 → maxCompletionTokens 로 실린다(reasoning-effort=minimal 로 추론 비용 최소화).
+      # low 실측 시 빈 응답(추론만 태우고 판단 0)으로 오히려 악화돼 minimal 로 복원(2026-07-07 스모크).
+      reasoning-effort: minimal
+      # 스코어링 전용 응답(c/r) 상한. 청크 10개 판단 JSON 에 넉넉.
+      max-output-tokens: 2048
+      pricing:
+        input-usd-per-million-tokens: 0.05
+        output-usd-per-million-tokens: 0.40
+    upstage:
+      # solar-pro3 은 malformed JSON(닫는 } 누락) + 저품질 판단으로 롤백(2026-07-07 스모크). solar-mini 로 복원.
+      model: solar-mini
+      api-key: ${UPSTAGE_API_KEY:}
+      # 스코어링 전용 응답(c/r) 상한. OpenAI 호환 표준 maxTokens 로 실린다.
+      max-output-tokens: 2048
+      pricing:
+        # Upstage 는 input/output 구분 없는 단일가($0.15/1M)
+        input-usd-per-million-tokens: 0.15
+        output-usd-per-million-tokens: 0.15
+    gemini:
+      model: gemini-2.5-flash-lite
+      api-key: ${GOOGLE_API_KEY:}
+      # 스코어링(c/r) + 이름 번역(t, 9언어) 응답이라 상한을 2배로 산정(R4).
+      max-output-tokens: 4096
+      pricing:
+        input-usd-per-million-tokens: 0.10
+        output-usd-per-million-tokens: 0.40
+# datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
+# 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
+# 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

@@ -1,0 +1,12 @@
+# 빌드 컨텍스트 축소 — 산출물·로컬 도구·비밀값 제외
+.git
+.gradle
+**/.gradle
+**/build
+*.iml
+.idea
+.vscode
+.env
+specs
+docs
+agent-hub

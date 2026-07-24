@@ -1,0 +1,30 @@
+package com.kbap.domain.member.dto
+
+import com.kbap.domain.member.model.Member
+
+data class MyProfileResult(
+    val memberId: Long,
+    val provider: String,
+    val nickname: String?,
+    val avoidanceSubstanceCodes: List<String>,
+    val countryCode: String?,
+    val profileImageUrl: String?,
+    val spicinessPreference: Int,
+    val onboardingCompleted: Boolean,
+    val ranking: MemberRankingResult,
+) {
+    companion object {
+        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
+            MyProfileResult(
+                memberId = member.id,
+                provider = member.provider.name,
+                nickname = member.profile.nickname,
+                avoidanceSubstanceCodes = member.profile.avoidanceSubstanceCodes.map { it.value },
+                countryCode = member.profile.countryCode?.name,
+                profileImageUrl = profileImageUrl,
+                spicinessPreference = member.profile.spicinessPreference,
+                onboardingCompleted = member.onboardingCompleted,
+                ranking = ranking,
+            )
+    }
+}

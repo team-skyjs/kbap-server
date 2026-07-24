@@ -1,12 +1,12 @@
 # research Context
 
-> 신설 배경·결정은 [ADR-0004](../../adr/0004-research-bounded-context.md). 파이프라인 전체는 [ADR-0003](../../adr/0003-pretranslated-batch-menu-pipeline.md), [`meogo-data-ai-pipeline.md`](../meogo-data-ai-pipeline.md).
+> 신설 배경·결정은 [ADR-0004](../../adr/0004-research-bounded-context.md). 파이프라인 전체는 [ADR-0003](../../adr/0003-pretranslated-batch-menu-pipeline.md), [`kbap-data-ai-pipeline.md`](../kbap-data-ai-pipeline.md).
 
 ## 1. 역할
 
 `research` 컨텍스트는 **아직 우리 DB에 없는 메뉴를 조사해 신뢰할 수 있는 음식 데이터로 만드는 지식 획득 파이프라인**을 관리한다. 캐시 미스로 적재된 메뉴명을 모아, LLM API 3개 모델(OpenAI · Upstage · Gemini)을 병렬 호출하고, 그 응답을 **종합**해 음식명·재료 정보·9개국어 번역의 후보를 만든다.
 
-`research`는 **배치에서만** 트리거된다(`meogo-batch`가 하루 1회). 사용자 API 흐름은 이 컨텍스트를 직접 호출하지 않는다.
+`research`는 **배치에서만** 트리거된다(`kbap-batch`가 하루 1회). 사용자 API 흐름은 이 컨텍스트를 직접 호출하지 않는다.
 
 `research`는 최종 음식 카탈로그를 소유하지 않는다 — 종합 결과는 `food` 컨텍스트가 `Food`/`FoodIngredient`로 영속한다. `research`는 "어떻게 그 데이터에 도달했는가"(대기열·원본 응답·종합·출처)를 책임진다. (지식 = `food`, 지식 획득 = `research`.)
 
@@ -24,10 +24,10 @@
 ## 3. 제외 기능
 
 - 최종 음식 카탈로그 영속(= `food`의 책임)
-- 사용자별 위험도 판정(= `assessment`)
+- 사용자별 위험도 판정(= `avoidance`)
 - 스캔 사건·이력·횟수 제한(= `scan`)
 - 사용자 API에서의 동기 호출(배치 전용)
-- LLM 외부 호출의 기술 구현(= `:meogo-api:infra` 어댑터, core port 구현)
+- LLM 외부 호출의 기술 구현(= `:infra:external` 어댑터, core port 구현)
 
 ## 4. 핵심 개념
 
@@ -107,14 +107,14 @@
 ## 6. 다른 컨텍스트와의 관계
 
 - `food`: 종합 결과(`SynthesizedFoodProfile`)를 넘겨 `Food`/`FoodIngredient`로 영속한다. `food`는 이를 만든 research를 **ID로만** 참조한다.
-- `scan`: 직접 의존하지 않는다. 미스 적재는 `:meogo-api:application`이 스캔 유스케이스에서 `research`에 등록한다.
-- `member`/`assessment`: 직접 관련 없다.
-- `:meogo-api:infra`: LLM 병렬 호출의 기술 구현(core port 어댑터). 호출 자체는 `:meogo-api:application`이 port로 트리거한다.
+- `scan`: 직접 의존하지 않는다. 미스 적재는 `:application`이 스캔 유스케이스에서 `research`에 등록한다.
+- `member`/`avoidance`: 직접 관련 없다.
+- `:infra:external`: LLM 병렬 호출의 기술 구현(core port 어댑터). 호출 자체는 `:application`이 port로 트리거한다.
 
 ## 7. 구현 시 주의사항
 
-- `research`는 **배치 전용** 도메인이다. web 진입점(`:meogo-api:presentation`)은 이 컨텍스트의 유스케이스를 노출하지 않는다(ArchUnit으로 강제 — ADR-0004).
-- 컨텍스트 조합(큐 읽기 → LLM 호출 → 종합 → `food` 저장)은 `meogo-batch`가 아니라 **`:meogo-api:application`의 배치 전용 유스케이스**가 한다. 배치 모듈은 그 유스케이스를 시간 맞춰 호출만 한다.
+- `research`는 **배치 전용** 도메인이다. web 진입점(`:app:api`)은 이 컨텍스트의 유스케이스를 노출하지 않는다(ArchUnit으로 강제 — ADR-0004).
+- 컨텍스트 조합(큐 읽기 → LLM 호출 → 종합 → `food` 저장)은 `kbap-batch`가 아니라 **`:application`의 배치 전용 유스케이스**가 한다. 배치 모듈은 그 유스케이스를 시간 맞춰 호출만 한다.
 - LLM 병렬 호출은 IO이므로 application이 core port로 수행하고, **종합은 순수 도메인 서비스**로 분리한다.
 - 대기열은 정규화 메뉴명으로 dedup한다 — 스캔 세션 수만큼 늘지 않게 한다.
 - 영속(JPA Entity/Repository 구현)은 모듈 내부 `infrastructure` 패키지에 숨긴다(다른 도메인과 동일).

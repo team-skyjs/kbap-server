@@ -2,13 +2,13 @@
 
 메뉴판 촬영부터 위험도 응답까지의 처리 파이프라인과, 음식 데이터 저장·번역 정책을 정의한다. 백엔드 구현의 기준 문서.
 
-> 위험도 산출 규칙 자체는 [`domains/assessment.md`](./domains/assessment.md)에 있다. 본 문서는 그 입력이 되는 **음식 정보·재료 스코어를 어떻게 만들고 저장·재사용하는가**를 다룬다.
+> 위험도 산출 규칙 자체는 [`domains/avoidance.md`](./domains/avoidance.md)에 있다. 본 문서는 그 입력이 되는 **음식 정보·재료 스코어를 어떻게 만들고 저장·재사용하는가**를 다룬다.
 >
-> **파이프라인 모델은 [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)를 따른다** — 음식 콘텐츠는 9개 언어로 사전 번역해 저장하고, 캐시 미스는 실시간 LLM 호출 없이 "결과 없음"으로 응답한다. 미스 메뉴의 조사·종합·다국어 번역은 **`research` 컨텍스트**가 소유하고 하루 1회 배치(`meogo-batch`)가 트리거하며, 종합 결과는 `food`가 영속한다.
+> **파이프라인 모델은 [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md)를 따른다** — 음식 콘텐츠는 9개 언어로 사전 번역해 저장하고, 캐시 미스는 실시간 LLM 호출 없이 "결과 없음"으로 응답한다. 미스 메뉴의 조사·종합·다국어 번역은 **`research` 컨텍스트**가 소유하고 하루 1회 배치(`kbap-batch`)가 트리거하며, 종합 결과는 `food`가 영속한다.
 
 ## 처리 흐름 (메뉴판 스캔)
 
-**스캔 응답 경로 (동기, `meogo-api`)**
+**스캔 응답 경로 (동기, `kbap-api`)**
 
 1. 클라이언트가 메뉴판 이미지에서 메뉴명 텍스트를 추출한다.
 2. 클라이언트는 추출된 메뉴명 리스트를 서버로 전달한다.
@@ -18,7 +18,7 @@
 6. 서버는 캐시 히트 메뉴에 대해 사용자 프로필을 기준으로 위험도를 계산해 응답한다.
 7. 클라이언트는 메뉴판 위에 번역명과 위험도 아이콘을 오버레이한다(미스 메뉴는 결과 없음/준비 중으로 표시).
 
-**배치 조사 경로 (비동기, 하루 1회 — `research` 소유, `meogo-batch` 트리거)**
+**배치 조사 경로 (비동기, 하루 1회 — `research` 소유, `kbap-batch` 트리거)**
 
 8. 배치가 `research` 조사 대기열의 미스 메뉴를 모아, application이 LLM API 3개 모델을 **병렬 호출**한다.
 9. `research` 종합 정책이 LLM 응답을 종합하여 음식 정보·재료 스코어·9개 언어 번역(`SynthesizedFoodProfile`)을 만든다.
@@ -33,13 +33,13 @@
 - 서버 응답을 메뉴판 위에 오버레이, 위험도 및 음식 상세 UI 표시
 - 서버로 보내는 핵심 데이터: 원본 메뉴명, 메뉴명 위치 정보, 사용자 식별 정보, 현재 언어 설정
 
-**서버 — `meogo-api` (스캔 응답, 동기)**
+**서버 — `kbap-api` (스캔 응답, 동기)**
 - 사용자 프로필 조회
 - 메뉴명 기준 DB 캐시 조회
 - 캐시 히트 메뉴에 대한 사용자 프로필 기반 위험도 계산, 클라이언트 응답 생성
 - 캐시 미스 메뉴는 결과 없음으로 응답하고 미스 메뉴명 적재
 
-**서버 — `research` 조사 파이프라인 (비동기 하루 1회, `meogo-batch` 트리거)**
+**서버 — `research` 조사 파이프라인 (비동기 하루 1회, `kbap-batch` 트리거)**
 - `research` 조사 대기열 관리(정규화 메뉴명 dedup)
 - LLM 병렬 호출(application이 port로) 및 `research` 종합 정책(순수 도메인 서비스)
 - 종합 결과를 `food`가 음식 정보·재료 스코어·9개 언어 번역으로 DB 저장
@@ -48,7 +48,7 @@
 
 ## LLM 호출 전략 (research, 배치 트리거)
 
-미스 메뉴의 재료 조사·번역은 **`research` 컨텍스트가 소유**하고 **`meogo-batch`가 하루 1회 트리거**하며, 여러 LLM API를 병렬 호출한다. 후보: **Gemini, OpenAI, Upstage**. (스캔 API는 LLM을 호출하지 않는다 — [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md).)
+미스 메뉴의 재료 조사·번역은 **`research` 컨텍스트가 소유**하고 **`kbap-batch`가 하루 1회 트리거**하며, 여러 LLM API를 병렬 호출한다. 후보: **Gemini, OpenAI, Upstage**. (스캔 API는 LLM을 호출하지 않는다 — [ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)·[ADR-0004](../adr/0004-research-bounded-context.md).)
 
 각 LLM이 생성하는 항목:
 
@@ -79,7 +79,7 @@
 
 ## 구현 포인트
 
-**백엔드 — `meogo-api`**
+**백엔드 — `kbap-api`**
 - 사용자 프로필·식이 제한 정보를 안정적으로 관리
 - 메뉴명 기준 음식 DB 캐시 조회 API 제공
 - 캐시 미스 메뉴 결과 없음 응답 + 미스 메뉴명을 `research`에 적재
@@ -87,7 +87,7 @@
 - 음식별 리뷰·평점·동일 국적 평점 API
 - 사전 번역된 UI 문구를 언어별로 제공
 
-**백엔드 — `research` (배치 전용 application 유스케이스 + `meogo-batch` 트리거)**
+**백엔드 — `research` (배치 전용 application 유스케이스 + `kbap-batch` 트리거)**
 - `research` 조사 대기열 관리(정규화 dedup), 하루 1회 처리(스케줄·재시도·부분 성공)
 - LLM API 병렬 호출(application, IO) + `research` 종합 정책(순수 도메인 서비스)
 - 종합 결과를 `food`가 음식 정보·재료 스코어·9개 언어 번역으로 저장

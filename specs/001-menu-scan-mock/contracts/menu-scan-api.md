@@ -1,8 +1,8 @@
-# Contract — API 1: 메뉴 스캔 제출 + mock 판정
+# Contract — API 1: 메뉴 스캔 제출 + mock 판정  *(US1, 구현 완료)*
 
 `POST /api/v1/menu-scans`
 
-모든 응답은 `ApiResponse<T>`로 감싼다. `Content-Type: application/json`.
+모든 응답은 `BaseResponse<T>`(필드 `success`/`payload`/`message`)로 감싼다. `Content-Type: application/json`.
 
 ## Request Body
 
@@ -10,7 +10,7 @@
 {
   "items": [
     {
-      "itemId": 0,                         // 필수, Int, 요청 내 중복 불가
+      "itemId": 0,                         // 필수, Int, 응답 매핑용 상관 키(요청 내 중복 불가, 순서 무의미)
       "rawMenuName": "된장찌개",            // 필수, blank 불가
       "boundingBox": {                     // 필수, 정규화 비율(OCR 기준 이미지 대비)
         "x": 0.12,                         // ≥ 0
@@ -25,36 +25,36 @@
 
 ### 제약
 - `items`: 필수, 최소 1개, 최대 100개
-- `items[].itemId`: 필수, 정수, 요청 내 중복 불가
+- `items[].itemId`: 필수, 정수, 요청 내 중복 불가. **응답 `results[].itemId`와 1:1 매칭하는 상관 키**(순서를 뜻하지 않음)
 - `items[].rawMenuName`: 필수, blank 불가
-- `items[].boundingBox`: 필수, **정규화 비율 좌표**(클라이언트 OCR 기준 이미지 대비, 좌상단 0,0 / 우하단 1,1). 검증: `x≥0, y≥0, width>0, height>0, x+width≤1, y+height≤1`
-- (OCR 신뢰도는 받지 않는다 — 클라이언트가 전송하지 않음)
+- `items[].boundingBox`: 필수, **정규화 비율 좌표**(OCR 기준 이미지 대비, 좌상단 0,0 / 우하단 1,1). 검증: `x≥0, y≥0, width>0, height>0, x+width≤1, y+height≤1`
+- (OCR 신뢰도는 받지 않는다)
 
-## Response 200 — `ApiResponse.ok`
+## Response 200 — `BaseResponse.ok`
 
 ```jsonc
 {
   "success": true,
-  "data": {
+  "payload": {
     "scanId": 1024,
     "results": [
-      { "itemId": 0, "riskLevel": "SAFE",    "reason": "mock: 안전으로 판정된 항목" },
-      { "itemId": 1, "riskLevel": "CAUTION",  "reason": "mock: 주의 항목 — 매장 확인 필요" },
-      { "itemId": 2, "riskLevel": "DANGER",   "reason": "mock: 위험 항목" },
-      { "itemId": 3, "riskLevel": "UNKNOWN",  "reason": "mock: 판정 대상 식별 불가" }
+      { "id": 10, "itemId": 0, "riskLevel": "SAFE",    "reason": "mock: 안전으로 판정된 항목" },
+      { "id": 11, "itemId": 1, "riskLevel": "CAUTION",  "reason": "mock: 주의 항목 — 매장 확인 필요" },
+      { "id": 12, "itemId": 2, "riskLevel": "DANGER",   "reason": "mock: 위험 항목" },
+      { "id": 13, "itemId": 3, "riskLevel": "UNKNOWN",  "reason": "mock: 판정 대상 식별 불가" }
     ]
   },
   "message": null
 }
 ```
 
-- `results`는 요청 `items`와 **itemId로 1:1 매칭**, 누락 없음.
-- `riskLevel`은 요청 배열 index 기준 `index % 4` → `0 SAFE / 1 CAUTION / 2 DANGER / 3 UNKNOWN` 순환.
+- `results`는 요청 `items`와 **itemId로 1:1 매칭**, 누락 없음. (`id`는 저장된 스캔 항목 PK.)
+- `riskLevel`은 요청 배열 index 기준 `index % 4` → `0 SAFE / 1 CAUTION / 2 DANGER / 3 UNKNOWN` 순환(mock).
 
-## Response 400 — `ApiResponse.fail`
+## Response 400 — `BaseResponse.fail`
 
 ```json
-{ "success": false, "data": null, "message": "<무엇이 잘못됐는지 식별 가능한 메시지>" }
+{ "success": false, "payload": null, "message": "<무엇이 잘못됐는지 식별 가능한 메시지>" }
 ```
 
 거부 케이스: `items` 빈 배열 · 100개 초과 · itemId 누락 · itemId 중복 · rawMenuName 누락/blank · boundingBox 누락 · boundingBox 좌표 검증 위반(`x<0`, `y<0`, `width≤0`, `height≤0`, `x+width>1`, `y+height>1`).
