@@ -46,8 +46,15 @@ kbap:
   llm:
     # 기피성분·맵기 종합의 최소 유효 모델 응답 수. 원칙은 2(단일 모델 판단 금지)이나,
     # OpenAI 단일 키 과도기 동안 1 로 운영한다 — upstage/gemini 키 확보 시 이 줄을 지워 기본 2 로 복원.
+    # model 이하는 기피성분 조사 전용 OpenAI 오버라이드 — 안전 직결 판단이라 nano 보다 추론이 강한 mini 를 쓴다
+    # (nano 실측: 후보 밖 코드 혼입, KB-236). 미지정 필드(reasoning-effort·max-output-tokens 등)는
+    # kbap.llm.openai 값을 상속한다. 모델을 바꾸면 아래 단가도 함께 갱신한다.
     avoidance:
       min-agreement: 1
+      model: gpt-5-mini
+      pricing:
+        input-usd-per-million-tokens: 0.25
+        output-usd-per-million-tokens: 2.00
     # LLM 비용 추적 — 호출마다 토큰 사용량과 함께 USD/KRW 비용을 로그로 남긴다.
     # 단가는 "1백만 토큰당 USD"이며 아래 model 의 벤더 공시가(2026-07 조회)에 맞춰 둔다.
     # 모델을 바꾸면 단가도 함께 갱신한다. 환율은 1 USD = 1,500 KRW 고정 추정.

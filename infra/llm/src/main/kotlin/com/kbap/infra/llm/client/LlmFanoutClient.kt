@@ -11,7 +11,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
 class LlmFanoutClient(
-    private val callers: List<LlmModelCaller>,
+    internal val callers: List<LlmModelCaller>,
     private val executor: Executor,
     private val callTimeout: Duration = Duration.ofSeconds(30),
 ) {

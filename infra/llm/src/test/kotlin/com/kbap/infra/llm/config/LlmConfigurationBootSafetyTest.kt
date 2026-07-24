@@ -58,15 +58,25 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                 }
             }
 
-            then("LlmModelCaller 타입 빈이 1개 등록된다") {
+            then("공용 caller 와 기피성분 전용 caller 가 각각 등록된다") {
                 activeRunner.run { context ->
-                    context.getBeanNamesForType(LlmModelCaller::class.java).size shouldBe 1
+                    context.getBeanNamesForType(LlmModelCaller::class.java).toSet() shouldBe
+                        setOf("openAiModelCaller", "avoidanceOpenAiModelCaller")
                 }
             }
 
-            then("등록된 caller 의 modelId 가 OPENAI 다") {
+            then("두 caller 모두 modelId 가 OPENAI 다") {
                 activeRunner.run { context ->
-                    context.getBean(LlmModelCaller::class.java).modelId shouldBe LlmModelId.OPENAI
+                    context.getBeansOfType(LlmModelCaller::class.java).values.forEach {
+                        it.modelId shouldBe LlmModelId.OPENAI
+                    }
+                }
+            }
+
+            then("fanout 에는 공용 caller 를 제외한 기피성분 전용 caller 만 탑승한다") {
+                activeRunner.run { context ->
+                    val fanout = context.getBean(LlmFanoutClient::class.java)
+                    fanout.callers shouldBe listOf(context.getBean("avoidanceOpenAiModelCaller"))
                 }
             }
         }
