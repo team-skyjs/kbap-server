@@ -25,31 +25,24 @@ class FoodContentItemProcessor(
     }
 
     override fun process(item: Food): Food {
-        if (item.needsImage()) {
-            generateImage(item)
-            saveProgress(item)
+        var food = item
+        if (food.needsNameTranslations()) {
+            translateName(food)
+            food = saveProgress(food)
         }
-        if (item.needsNameTranslations()) {
-            translateName(item)
-            saveProgress(item)
+        if (food.needsDescription() || food.needsDescriptionTranslations()) {
+            generateDescription(food)
+            food = saveProgress(food)
         }
-        if (item.needsDescription() || item.needsDescriptionTranslations()) {
-            generateDescription(item)
-            saveProgress(item)
+        if (food.needsAvoidanceAssessment()) {
+            mapAvoidance(food)
+            food = saveProgress(food)
         }
-        if (item.needsAvoidanceAssessment()) {
-            mapAvoidance(item)
-            saveProgress(item)
-        }
-        return item
+        return food
     }
 
-    fun saveProgress(food: Food) {
-        progressTransaction.executeWithoutResult { foodRepository.save(food) }
-    }
-
-    private fun generateImage(food: Food) {
-    }
+    fun saveProgress(food: Food): Food =
+        progressTransaction.execute { foodRepository.save(food) }!!
 
     private fun generateDescription(food: Food) {
         val client = descriptionClient

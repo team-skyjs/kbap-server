@@ -30,6 +30,7 @@ data class LlmModelProperties(
         val baseUrl: String? = null,
         val model: String? = null,
         val size: String? = null,
+        val quality: String? = null,
     )
 
     // 메뉴판 사진 스캔 전용

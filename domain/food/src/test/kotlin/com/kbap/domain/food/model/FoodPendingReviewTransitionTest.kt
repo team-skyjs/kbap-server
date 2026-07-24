@@ -10,7 +10,7 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
     fun allTargets(value: String) = targetLangs.associateWith { "$value-$it" }
 
     fun incomplete(
-        imageRef: String? = "s3://img/doenjang.jpg",
+        imageRef: String? = "images/food/1.png",
         description: String = "구수한 된장찌개",
         nameTranslations: Map<String, String> = allTargets("된장찌개"),
         descriptionTranslations: Map<String, String> = allTargets("hearty stew"),
@@ -27,157 +27,141 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
         contentStatus = FoodContentStatus.INCOMPLETE,
     )
 
-    given("Food.transitionToPendingReviewIfComplete — 4작업 완비") {
-        `when`("사진·설명·이름 번역·설명 번역이 모두 채워지고 기피성분 매핑이 있으면") {
-            then("검수 대기(PENDING_REVIEW)로 전이하고 true 를 반환한다") {
+    given("Food.transitionByContentState — 수렴표: 텍스트 완료 × 이미지 유무") {
+        `when`("텍스트 4작업이 완료되고 이미지도 있으면") {
+            then("PENDING_IMAGE 를 건너뛰고 곧장 PENDING_REVIEW 로 전이한다") {
                 val food = incomplete()
 
-                food.transitionToPendingReviewIfComplete() shouldBe true
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_REVIEW
                 food.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
             }
         }
 
-        `when`("나머지가 완비되고 맵기가 조사값 0(안 매움)이면") {
-            then("맵기 값(0~10)은 게이트가 아니므로 검수 대기로 전이한다") {
-                val food = incomplete(spiciness = 0)
-
-                food.transitionToPendingReviewIfComplete() shouldBe true
-                food.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
-            }
-        }
-
-        `when`("나머지가 완비되어도 맵기가 미조사 센티널(-1)이면") {
-            then("미조사 상태로는 전이하지 않고 INCOMPLETE 를 유지한다") {
-                val food = incomplete(spiciness = Food.SPICINESS_UNASSESSED)
-
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
-            }
-        }
-    }
-
-    given("Food.transitionToPendingReviewIfComplete — 사진 누락") {
-        `when`("imageRef 가 null 이면") {
-            then("전이하지 않고 INCOMPLETE 를 유지하며 false 를 반환한다") {
+        `when`("텍스트 4작업이 완료됐지만 이미지가 없으면") {
+            then("이미지 대기실 PENDING_IMAGE 로 전이한다") {
                 val food = incomplete(imageRef = null)
 
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
+                food.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
             }
         }
 
-        `when`("imageRef 가 blank 이면") {
-            then("전이하지 않고 false 를 반환한다") {
-                val food = incomplete(imageRef = "  ")
-
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
-            }
-        }
-    }
-
-    given("Food.transitionToPendingReviewIfComplete — 설명 미완성") {
-        `when`("description 이 blank 이면") {
-            then("전이하지 않고 false 를 반환한다") {
+        `when`("텍스트가 미완이면 이미지가 먼저 도착해 있어도") {
+            then("INCOMPLETE 를 유지한다 — 이미지는 imageRef 로만 보관") {
                 val food = incomplete(description = "")
 
-                food.transitionToPendingReviewIfComplete() shouldBe false
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                food.imageRef shouldBe "images/food/1.png"
             }
         }
 
-        `when`("description 이 placeholder(설명 준비 중) 그대로이면") {
-            then("아직 생성 전이므로 전이하지 않고 false 를 반환한다") {
-                val food = incomplete(description = Food.PLACEHOLDER_DESCRIPTION)
+        `when`("이미지가 blank 문자열이면") {
+            then("이미지 없음으로 보고 PENDING_IMAGE 로 전이한다") {
+                val food = incomplete(imageRef = "  ")
 
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
             }
         }
     }
 
-    given("Food.transitionToPendingReviewIfComplete — 번역 미완비") {
+    given("Food.transitionByContentState — 텍스트 미완 게이트") {
+        `when`("description 이 placeholder(설명 준비 중) 그대로이면") {
+            then("INCOMPLETE 를 유지한다") {
+                val food = incomplete(description = Food.PLACEHOLDER_DESCRIPTION)
+
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
+            }
+        }
+
         `when`("이름 번역이 9개 대상 언어 중 하나(ja)를 빠뜨리면") {
-            then("전이하지 않고 false 를 반환한다") {
-                val food = incomplete(
-                    nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code,
-                )
+            then("INCOMPLETE 를 유지한다") {
+                val food = incomplete(nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code)
 
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
-            }
-        }
-
-        `when`("설명 번역이 비어 있으면") {
-            then("전이하지 않고 false 를 반환한다") {
-                val food = incomplete(descriptionTranslations = emptyMap())
-
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
-            }
-        }
-
-        `when`("이름 번역에 9개 키가 다 있어도 값 하나(ja)가 blank 이면") {
-            then("미완으로 보고 전이하지 않는다") {
-                val food = incomplete(
-                    nameTranslations = allTargets("된장찌개") + (LanguageCode.JA.code to " "),
-                )
-
-                food.needsNameTranslations() shouldBe true
-                food.transitionToPendingReviewIfComplete() shouldBe false
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
             }
         }
 
         `when`("설명 번역에 9개 키가 다 있어도 값 하나(en)가 blank 이면") {
-            then("미완으로 보고 전이하지 않는다") {
+            then("INCOMPLETE 를 유지한다") {
                 val food = incomplete(
                     descriptionTranslations = allTargets("hearty stew") + (LanguageCode.EN.code to ""),
                 )
 
-                food.needsDescriptionTranslations() shouldBe true
-                food.transitionToPendingReviewIfComplete() shouldBe false
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
             }
         }
-    }
 
-    given("Food.transitionToPendingReviewIfComplete — 기피성분 조사 상태") {
-        `when`("콘텐츠 3필드가 완비되어도 기피성분이 미조사(null)이면") {
-            then("안전 직결이라 전이하지 않고 false 를 반환한다") {
+        `when`("기피성분이 미조사(null)이면") {
+            then("안전 직결이라 INCOMPLETE 를 유지한다") {
                 val food = incomplete(avoidanceSubstances = null)
 
-                food.transitionToPendingReviewIfComplete() shouldBe false
-                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
             }
         }
 
-        `when`("콘텐츠 3필드가 완비되고 기피성분이 빈 목록(무성분 조사완료)이면") {
-            then("조사완료이므로 검수 대기로 전이하고 true 를 반환한다") {
-                val food = incomplete(avoidanceSubstances = emptyList())
+        `when`("맵기가 미조사 센티널(-1)이면") {
+            then("INCOMPLETE 를 유지한다") {
+                val food = incomplete(spiciness = Food.SPICINESS_UNASSESSED)
 
-                food.transitionToPendingReviewIfComplete() shouldBe true
-                food.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                food.transitionByContentState() shouldBe FoodContentStatus.INCOMPLETE
+            }
+        }
+
+        `when`("기피성분이 빈 목록(무성분 조사완료)이고 맵기 0이면") {
+            then("조사완료로 보고 전이한다") {
+                val food = incomplete(avoidanceSubstances = emptyList(), spiciness = 0)
+
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_REVIEW
             }
         }
     }
 
-    given("Food.transitionToPendingReviewIfComplete — 완비 상태 멱등") {
+    given("Food.transitionByContentState — 검수 이후 상태는 재평가하지 않음") {
         `when`("이미 검수 대기(PENDING_REVIEW)인 음식에 다시 전이를 시도하면") {
-            then("상태 불변으로 PENDING_REVIEW 를 유지하고 true 를 반환한다") {
+            then("상태 불변으로 PENDING_REVIEW 를 유지한다") {
                 val food = incomplete()
-                food.transitionToPendingReviewIfComplete() shouldBe true
+                food.transitionByContentState()
 
-                food.transitionToPendingReviewIfComplete() shouldBe true
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_REVIEW
                 food.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
             }
         }
 
         `when`("이미 승인된(READY) 음식에 전이를 시도하면") {
-            then("재평가하지 않고 READY 를 유지하며 true 를 반환한다") {
+            then("READY 를 유지한다") {
                 val food = incomplete()
                 food.contentStatus = FoodContentStatus.READY
 
-                food.transitionToPendingReviewIfComplete() shouldBe true
-                food.contentStatus shouldBe FoodContentStatus.READY
+                food.transitionByContentState() shouldBe FoodContentStatus.READY
+            }
+        }
+    }
+
+    given("Food.attachImage — 이미지 회수의 진입점") {
+        `when`("PENDING_IMAGE(이미지만 대기) 음식에 이미지를 붙이면") {
+            then("imageRef 저장과 함께 PENDING_REVIEW 로 전이한다") {
+                val food = incomplete(imageRef = null)
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
+
+                food.attachImage("images/food/7.png")
+
+                food.imageRef shouldBe "images/food/7.png"
+                food.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+            }
+        }
+
+        `when`("텍스트 미완(INCOMPLETE) 음식에 이미지가 먼저 도착하면") {
+            then("imageRef 만 저장하고 INCOMPLETE 를 유지한다 — 이후 텍스트 완료 시 배치가 PENDING_REVIEW 로 민다") {
+                val food = incomplete(imageRef = null, description = "")
+
+                food.attachImage("images/food/8.png")
+
+                food.imageRef shouldBe "images/food/8.png"
+                food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+
+                food.description = "늦게 채워진 설명"
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_REVIEW
             }
         }
     }
@@ -201,32 +185,6 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
 
                 food.needsImage() shouldBe true
                 food.needsDescription() shouldBe false
-            }
-        }
-
-        `when`("설명이 placeholder 이면") {
-            then("needsDescription 이 true 다") {
-                incomplete(description = Food.PLACEHOLDER_DESCRIPTION).needsDescription() shouldBe true
-            }
-        }
-
-        `when`("이름 번역이 한 언어라도 빠지면") {
-            then("needsNameTranslations 가 true 다") {
-                incomplete(
-                    nameTranslations = allTargets("된장찌개") - LanguageCode.JA.code,
-                ).needsNameTranslations() shouldBe true
-            }
-        }
-
-        `when`("기피성분이 미조사(null)이면") {
-            then("needsAvoidanceMapping 이 true 다") {
-                incomplete(avoidanceSubstances = null).needsAvoidanceMapping() shouldBe true
-            }
-        }
-
-        `when`("기피성분이 빈 목록(무성분 조사완료)이면") {
-            then("조사완료라 needsAvoidanceMapping 이 false 다") {
-                incomplete(avoidanceSubstances = emptyList()).needsAvoidanceMapping() shouldBe false
             }
         }
     }

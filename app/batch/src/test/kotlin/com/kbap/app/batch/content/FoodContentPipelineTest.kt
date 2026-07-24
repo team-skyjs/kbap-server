@@ -60,6 +60,23 @@ class FoodContentPipelineTest : BehaviorSpec() {
             }
         }
 
+        given("라이터의 수렴 전이 — 텍스트 완료·이미지 없음") {
+            `when`("텍스트 3작업만 채워진 음식을 라이터에 넘기면") {
+                then("이미지 대기실 PENDING_IMAGE 로 전이되어 저장된다") {
+                    val food = foodJpaRepository.save(Food.incomplete("텍스트완료-잡채"))
+                    food.description = "쫄깃한 잡채"
+                    food.spiciness = 0
+                    food.nameTranslations = targets
+                    food.descriptionTranslations = targets
+                    food.avoidanceSubstances = emptyList()
+
+                    foodContentWriter.write(Chunk(mutableListOf(food)))
+
+                    foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+        }
+
         given("라이터의 검수 대기 전이") {
             `when`("콘텐츠가 완비된 음식을 라이터에 넘기면") {
                 then("PENDING_REVIEW 로 전이되어 저장된다") {

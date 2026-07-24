@@ -119,7 +119,8 @@ class LlmConfiguration {
         @Qualifier("avoidanceOpenAiModelCaller") avoidanceOpenAiCaller: LlmModelCaller?,
         @Qualifier("upstageModelCaller") upstageCaller: LlmModelCaller?,
         @Qualifier("geminiModelCaller") geminiCaller: LlmModelCaller?,
-        executor: Executor,
+        // @EnableScheduling 의 taskScheduler 도 Executor 라 타입 주입이 모호하다 — 이름으로 고정(KB-226).
+        @Qualifier("llmFanoutExecutor") executor: Executor,
         properties: LlmModelProperties,
     ): LlmFanoutClient =
         LlmFanoutClient(listOfNotNull(avoidanceOpenAiCaller, upstageCaller, geminiCaller), executor, properties.callTimeout)

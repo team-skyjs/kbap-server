@@ -42,13 +42,17 @@ class Food(
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','PENDING_REVIEW','READY')")
+    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','PENDING_IMAGE','PENDING_REVIEW','READY')")
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "avoidance_substances")
     var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
 ) : BaseEntity() {
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
+    var version: Long = 0
+
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
     fun needsImage(): Boolean = imageRef.isNullOrBlank()
@@ -84,16 +88,27 @@ class Food(
         this.spiciness = spiciness
     }
 
-    fun transitionToPendingReviewIfComplete(): Boolean {
-        if (contentStatus != FoodContentStatus.INCOMPLETE) return true
-        val complete = !needsImage() &&
-            !needsDescription() &&
+    fun transitionByContentState(): FoodContentStatus {
+        if (contentStatus == FoodContentStatus.PENDING_REVIEW || contentStatus == FoodContentStatus.READY) {
+            return contentStatus
+        }
+        val textComplete = !needsDescription() &&
             !needsNameTranslations() &&
             !needsDescriptionTranslations() &&
             !needsAvoidanceMapping() &&
             spiciness != SPICINESS_UNASSESSED
-        if (complete) contentStatus = FoodContentStatus.PENDING_REVIEW
-        return complete
+        contentStatus = when {
+            !textComplete -> FoodContentStatus.INCOMPLETE
+            needsImage() -> FoodContentStatus.PENDING_IMAGE
+            else -> FoodContentStatus.PENDING_REVIEW
+        }
+        return contentStatus
+    }
+
+    fun attachImage(imageRef: String) {
+        require(imageRef.isNotBlank()) { "imageRef 는 blank 일 수 없습니다" }
+        this.imageRef = imageRef
+        transitionByContentState()
     }
 
     fun koreanName(): String = koreanName

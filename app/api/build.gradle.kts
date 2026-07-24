@@ -27,6 +27,10 @@ dependencies {
     "implementation"(project(":domain:image"))
     "implementation"(project(":domain:metering"))
 
+    // 이미지 회수 스케줄 락(KB-226) — shedlock 테이블 행 원자 UPDATE 로 2대 중 1대만 틱 실행.
+    "implementation"(libs.shedlock.core)
+    "implementation"(libs.shedlock.provider.jdbc.template)
+
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
     "implementation"(libs.spring.boot.starter.actuator)
