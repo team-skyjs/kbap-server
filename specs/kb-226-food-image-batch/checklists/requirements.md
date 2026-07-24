@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain — 2026-07-24 논의로 3건 모두 확정 (FR-004: @Scheduled+ShedLock / FR-007: TEXT_READY 신설 + 수렴 전이 / FR-008: 512px 축소본 스코프 제외)
+- [x] No [NEEDS CLARIFICATION] markers remain — 2026-07-24 논의로 3건 모두 확정 (FR-004: @Scheduled+ShedLock / FR-007: PENDING_IMAGE 신설 + 수렴 전이 / FR-008: 512px 축소본 스코프 제외)
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)

@@ -25,7 +25,7 @@ curl -X POST http://localhost:8080/api/v1/admin/foods/images
 | 제출 JSONL 조립 | 페이크 `FoodImageBatchClient`가 받은 entries의 custom_id=food PK·10건 분할 확인 |
 | 중복 제출 가드 | 제출 2회 연속 호출 → 두 번째는 후보 0건 |
 | 회수 파싱·저장 | 페이크가 completed + 결과 스트림 반환 → 페이크 `StorageObjectStore`에 put, imageRef 갱신, item DONE, 배치 COLLECTED |
-| 수렴 전이 | 텍스트완료+이미지없음→TEXT_READY / 텍스트완료+이미지있음→PENDING_REVIEW / 텍스트미완+이미지도착→INCOMPLETE 유지 |
+| 수렴 전이 | 텍스트완료+이미지없음→PENDING_IMAGE / 텍스트완료+이미지있음→PENDING_REVIEW / 텍스트미완+이미지도착→INCOMPLETE 유지 |
 | 실패·만료 | 페이크가 failed/expired → item FAILED, 다음 제출 후보에 재포함 |
 | 멱등 재회수 | DONE 항목 섞인 배치 재회수 → PENDING만 처리 |
 | ShedLock | 통합 테스트(Testcontainers)에서 shedlock 테이블 선점 동작 |

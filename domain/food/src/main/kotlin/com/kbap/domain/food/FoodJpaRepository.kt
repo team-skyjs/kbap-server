@@ -14,7 +14,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom
     @Query(
         """
         update Food f
-        set f.contentStatus = com.kbap.domain.food.model.FoodContentStatus.TEXT_READY,
+        set f.contentStatus = com.kbap.domain.food.model.FoodContentStatus.PENDING_IMAGE,
             f.updatedAt = current_timestamp,
             f.version = f.version + 1
         where f.id in :ids
@@ -22,7 +22,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom
           and (f.imageRef is null or f.imageRef = '')
         """,
     )
-    fun markTextReadyByIdIn(@Param("ids") ids: List<Long>): Int
+    fun markPendingImageByIdIn(@Param("ids") ids: List<Long>): Int
 
     @Modifying(clearAutomatically = true)
     @Transactional
@@ -35,7 +35,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom
         where f.id in :ids
           and f.contentStatus in (
             com.kbap.domain.food.model.FoodContentStatus.INCOMPLETE,
-            com.kbap.domain.food.model.FoodContentStatus.TEXT_READY
+            com.kbap.domain.food.model.FoodContentStatus.PENDING_IMAGE
           )
         """,
     )

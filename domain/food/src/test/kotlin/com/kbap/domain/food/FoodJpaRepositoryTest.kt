@@ -152,13 +152,13 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("findImageCandidates — 이미지 제출 후보(상태 무관, imageRef 부재 + 진행 중 배치 미포함)") {
-            `when`("INCOMPLETE·TEXT_READY 각각 이미지 없는 음식과, 이미지 있는 READY 음식이 섞여 있으면") {
+            `when`("INCOMPLETE·PENDING_IMAGE 각각 이미지 없는 음식과, 이미지 있는 READY 음식이 섞여 있으면") {
                 then("이미지 없는 음식만 상태와 무관하게 후보로 반환한다") {
                     clear()
                     imageBatchItemRepository.deleteAll()
                     val incompleteId = saveIncomplete("후보-마라탕")
-                    val textReadyId = foodJpaRepository.save(
-                        Food.incomplete("후보-쌀국수").apply { contentStatus = FoodContentStatus.TEXT_READY },
+                    val pendingImageId = foodJpaRepository.save(
+                        Food.incomplete("후보-쌀국수").apply { contentStatus = FoodContentStatus.PENDING_IMAGE },
                     ).id
                     foodJpaRepository.save(
                         Food(
@@ -171,7 +171,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
 
                     val candidates = foodJpaRepository.findImageCandidates()
 
-                    candidates.map { it.id }.sorted() shouldBe listOf(incompleteId, textReadyId).sorted()
+                    candidates.map { it.id }.sorted() shouldBe listOf(incompleteId, pendingImageId).sorted()
                 }
             }
 
@@ -272,7 +272,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("markTextReadyByIdIn / markPendingReviewByIdIn — 가드 있는 상태 벌크 전환") {
+        given("markPendingImageByIdIn / markPendingReviewByIdIn — 가드 있는 상태 벌크 전환") {
             `when`("INCOMPLETE 3건 중 2건만 PENDING_REVIEW 로 벌크 전환하면") {
                 then("지정한 id 만 전환되고 나머지는 그대로다") {
                     clear()
@@ -289,21 +289,21 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
 
-            `when`("이미지 없는 INCOMPLETE 음식을 TEXT_READY 로 벌크 전환하면") {
+            `when`("이미지 없는 INCOMPLETE 음식을 PENDING_IMAGE 로 벌크 전환하면") {
                 then("전환되고 version 이 올라 병행 세션의 stale save 가 무효화된다") {
                     clear()
                     val id = saveIncomplete("벌크-쌀국수")
                     val before = foodJpaRepository.findById(id).get().version
 
-                    foodJpaRepository.markTextReadyByIdIn(listOf(id)) shouldBe 1
+                    foodJpaRepository.markPendingImageByIdIn(listOf(id)) shouldBe 1
 
                     val reloaded = foodJpaRepository.findById(id).get()
-                    reloaded.contentStatus shouldBe FoodContentStatus.TEXT_READY
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                     reloaded.version shouldBe before + 1
                 }
             }
 
-            `when`("그 사이 이미지가 도착한(imageRef 보유) 음식을 TEXT_READY 로 전환하려 하면") {
+            `when`("그 사이 이미지가 도착한(imageRef 보유) 음식을 PENDING_IMAGE 로 전환하려 하면") {
                 then("가드에 걸려 갱신 0건 — 낡은 스냅샷이 상태를 후퇴시키지 않는다") {
                     clear()
                     val id = saveIncomplete("벌크-이미지선도착")
@@ -311,7 +311,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     food.imageRef = "images/food/$id.png"
                     foodJpaRepository.saveAndFlush(food)
 
-                    foodJpaRepository.markTextReadyByIdIn(listOf(id)) shouldBe 0
+                    foodJpaRepository.markPendingImageByIdIn(listOf(id)) shouldBe 0
                     foodJpaRepository.findById(id).get().contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 }
             }

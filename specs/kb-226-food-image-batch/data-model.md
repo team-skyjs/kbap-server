@@ -36,7 +36,7 @@
 
 ### food
 
-- `content_status` ENUM에 **TEXT_READY** 추가: `('INCOMPLETE','TEXT_READY','PENDING_REVIEW','READY')` — Flyway MODIFY COLUMN. 기존 행 값 변경 없음.
+- `content_status` ENUM에 **PENDING_IMAGE** 추가: `('INCOMPLETE','PENDING_IMAGE','PENDING_REVIEW','READY')` — Flyway MODIFY COLUMN. 기존 행 값 변경 없음.
 - `version` BIGINT NOT NULL DEFAULT 0 — `@Version` 낙관적 락. 콘텐츠 배치(텍스트)와 이미지 회수의 병행 갱신에서 detached merge 의 lost update 를 검출한다(충돌 측은 스킵, 다음 실행이 재시도).
 - `imageRef`(기존 컬럼): 회수 시 스토리지 키로 갱신. "이미지 필요" 판단의 단일 축.
 - `Food.transitionToPendingReviewIfComplete()` → **수렴 전이 함수로 재작성**: 칼럼 상태로 목표 상태를 계산. 콘텐츠 배치·이미지 회수 양쪽이 같은 함수 호출.
@@ -48,8 +48,8 @@
 | 텍스트 4조건(번역·설명·설명번역·기피성분) | imageRef | 결과 |
 |---|---|---|
 | 미완 | 무관 | INCOMPLETE 유지 (이미지 먼저 오면 imageRef만 세팅) |
-| 완료 | 없음 | TEXT_READY |
-| 완료 | 있음 | PENDING_REVIEW (TEXT_READY 건너뜀) |
+| 완료 | 없음 | PENDING_IMAGE |
+| 완료 | 있음 | PENDING_REVIEW (PENDING_IMAGE 건너뜀) |
 
 PENDING_REVIEW → READY는 검수 승인(KB-223, 본 스펙 범위 외). READY/PENDING_REVIEW에서 후퇴 없음.
 

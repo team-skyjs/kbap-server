@@ -25,10 +25,10 @@
 
 **Purpose**: 모든 스토리가 의존하는 스키마·엔티티·상태 모델·포트. **US 착수 전 완료 필수**
 
-- [X] T003 Flyway 마이그레이션(timestamp 버전) 3건 작성 in `app/api/src/main/resources/db/migration/` — ① `image_batch`·`image_batch_item`(FK·인덱스는 data-model.md 대로), ② `shedlock` 테이블, ③ `food.content_status` ENUM에 TEXT_READY 추가(MODIFY COLUMN)
+- [X] T003 Flyway 마이그레이션(timestamp 버전) 3건 작성 in `app/api/src/main/resources/db/migration/` — ① `image_batch`·`image_batch_item`(FK·인덱스는 data-model.md 대로), ② `shedlock` 테이블, ③ `food.content_status` ENUM에 PENDING_IMAGE 추가(MODIFY COLUMN)
 - [X] T004 T003의 ENUM 변경을 테스트 손스텁 CREATE TABLE·시드에 전파 — `content_status`를 정의하는 테스트 파일 전수(`domain/scan`·`domain/bookmark`·`domain/food`·`app/api` 테스트 시드) 동기화, `./gradlew build`로 확인
-- [X] T005 [P] (Red) `Food` 수렴 전이 테스트 작성 in `domain/food/src/test/kotlin/com/kbap/domain/food/model/FoodTest.kt` — 수렴표 3행(텍스트미완→INCOMPLETE 유지·이미지선도착 imageRef만, 텍스트완료+이미지없음→TEXT_READY, 텍스트완료+이미지있음→PENDING_REVIEW 직행) + PENDING_REVIEW/READY 후퇴 없음, 실패 확인
-- [X] T006 (Green) `FoodContentStatus`에 TEXT_READY 추가 in `domain/food/src/main/kotlin/com/kbap/domain/food/model/FoodContentStatus.kt`, `Food.transitionToPendingReviewIfComplete()`를 수렴 전이 함수로 재작성 in `domain/food/src/main/kotlin/com/kbap/domain/food/model/Food.kt` — T005 통과
+- [X] T005 [P] (Red) `Food` 수렴 전이 테스트 작성 in `domain/food/src/test/kotlin/com/kbap/domain/food/model/FoodTest.kt` — 수렴표 3행(텍스트미완→INCOMPLETE 유지·이미지선도착 imageRef만, 텍스트완료+이미지없음→PENDING_IMAGE, 텍스트완료+이미지있음→PENDING_REVIEW 직행) + PENDING_REVIEW/READY 후퇴 없음, 실패 확인
+- [X] T006 (Green) `FoodContentStatus`에 PENDING_IMAGE 추가 in `domain/food/src/main/kotlin/com/kbap/domain/food/model/FoodContentStatus.kt`, `Food.transitionToPendingReviewIfComplete()`를 수렴 전이 함수로 재작성 in `domain/food/src/main/kotlin/com/kbap/domain/food/model/Food.kt` — T005 통과
 - [X] T007 [P] `ImageBatch`·`ImageBatchItem` 엔티티(BaseEntity 상속·public·JPA 연관관계 금지, batchId/foodId는 Long)와 `ImageBatchStatus`·`ImageBatchItemStatus` enum 생성 in `domain/food/src/main/kotlin/com/kbap/domain/food/model/`
 - [X] T008 [P] `ImageBatchJpaRepository`(SUBMITTED 조회)·`ImageBatchItemJpaRepository`(batchId별·PENDING food_id 집합 조회) 생성 in `domain/food/src/main/kotlin/com/kbap/domain/food/`
 - [X] T009 [P] `FoodImageBatchClient` 포트 인터페이스(submit/status/streamResults — contracts 문서 시그니처) 생성 in `core/src/main/kotlin/com/kbap/core/food/FoodImageBatchClient.kt` + 테스트 페이크 `FakeFoodImageBatchClient` in `application/src/test/kotlin/com/kbap/application/foodimage/`
@@ -62,7 +62,7 @@
 
 **Independent Test**: 페이크 클라이언트(completed+결과 스트림)·페이크 스토리지로 — put 호출·imageRef 갱신·item DONE·배치 COLLECTED·상태 전이 확인. ShedLock은 Testcontainers 통합 테스트.
 
-- [X] T018 [US2] (Red) `FoodImageBatchCollectService` 테스트 작성 in `application/src/test/kotlin/com/kbap/application/foodimage/FoodImageBatchCollectServiceTest.kt` — ① completed: 항목별 storage.put(`images/food/{foodId}.png` 결정적 키)→imageRef 갱신→수렴 전이(TEXT_READY→PENDING_REVIEW, INCOMPLETE는 유지)→item DONE, 전 항목 후 배치 COLLECTED, 장당 `LlmCallCostIncurred` 발행 ② in_progress: 스킵 ③ 멱등 재회수: DONE 항목 건너뛰고 PENDING만 처리 ④ 음식 삭제됨: item만 마감 ⑤ 항목별 error: 해당 item FAILED(error_msg), 실패 확인
+- [X] T018 [US2] (Red) `FoodImageBatchCollectService` 테스트 작성 in `application/src/test/kotlin/com/kbap/application/foodimage/FoodImageBatchCollectServiceTest.kt` — ① completed: 항목별 storage.put(`images/food/{foodId}.png` 결정적 키)→imageRef 갱신→수렴 전이(PENDING_IMAGE→PENDING_REVIEW, INCOMPLETE는 유지)→item DONE, 전 항목 후 배치 COLLECTED, 장당 `LlmCallCostIncurred` 발행 ② in_progress: 스킵 ③ 멱등 재회수: DONE 항목 건너뛰고 PENDING만 처리 ④ 음식 삭제됨: item만 마감 ⑤ 항목별 error: 해당 item FAILED(error_msg), 실패 확인
 - [X] T019 [US2] (Green) `FoodImageBatchCollectService` 구현 in `application/src/main/kotlin/com/kbap/application/foodimage/FoodImageBatchCollectService.kt` — seam 3분할(상태 조회/바이트 이동/DB 전이), 항목당 짧은 트랜잭션(TransactionTemplate), 외부 호출 트랜잭션 밖 — T018 통과
 - [X] T020 [P] [US2] `OpenAiFoodImageBatchClient.status`·`streamResults` 구현 in `infra/llm/src/main/kotlin/com/kbap/infra/llm/food/OpenAiFoodImageBatchClient.kt` — 결과 파일 줄 단위 스트리밍(전체 메모리 적재 금지), 파싱 단위 테스트(Red 먼저) in `infra/llm/src/test/kotlin/com/kbap/infra/llm/food/OpenAiFoodImageBatchClientTest.kt`
 - [X] T021 [US2] `SchedulingConfig`(@EnableScheduling·@EnableSchedulerLock·JdbcTemplateLockProvider) + `FoodImageCollectScheduler`(@Scheduled 1시간·@SchedulerLock name="food-image-collect" lockAtMostFor=30m) 생성 in `app/api/src/main/kotlin/com/kbap/app/api/config/`
@@ -89,9 +89,9 @@
 
 **Goal**: 콘텐츠 배치는 텍스트 3작업 전담 — 이미지 분기 제거, 수렴 전이 사용. 이미지만 남은 음식 재선정 0건.
 
-**Independent Test**: 텍스트 3작업 완료·이미지 미보유 음식이 배치 재실행 시 선정되지 않음(TEXT_READY라 INCOMPLETE 조회에서 제외).
+**Independent Test**: 텍스트 3작업 완료·이미지 미보유 음식이 배치 재실행 시 선정되지 않음(PENDING_IMAGE라 INCOMPLETE 조회에서 제외).
 
-- [X] T025 [US4] (Red) 기존 배치 테스트 수정·추가 in `app/batch/src/test/kotlin/com/kbap/app/batch/content/FoodContentItemProcessorTest.kt`·`FoodContentPipelineTest.kt` — 이미지 분기 없음, 텍스트 4조건 완료 시 수렴 전이로 TEXT_READY(이미지 없음)/PENDING_REVIEW(이미지 있음) 저장, 이미지만 남은 음식 재선정 0건, 실패 확인
+- [X] T025 [US4] (Red) 기존 배치 테스트 수정·추가 in `app/batch/src/test/kotlin/com/kbap/app/batch/content/FoodContentItemProcessorTest.kt`·`FoodContentPipelineTest.kt` — 이미지 분기 없음, 텍스트 4조건 완료 시 수렴 전이로 PENDING_IMAGE(이미지 없음)/PENDING_REVIEW(이미지 있음) 저장, 이미지만 남은 음식 재선정 0건, 실패 확인
 - [X] T026 [US4] (Green) `FoodContentItemProcessor`에서 `needsImage()` 분기·빈 스텁 `generateImage()` 제거 + 수렴 전이 호출 in `app/batch/src/main/kotlin/com/kbap/app/batch/content/FoodContentItemProcessor.kt`, `FoodContentBatchConfig`의 주석 처리된 이미지 클라이언트 조립 삭제 — T025 통과
 - [X] T027 [P] [US4] 대체된 동기식 구현 삭제 — `core/src/main/kotlin/com/kbap/core/food/FoodImageGenerationClient.kt`·`infra/llm/src/main/kotlin/com/kbap/infra/llm/food/OpenAiFoodImageGenerationClient.kt` 및 참조·설정 잔재 제거(`FoodContentClientConfiguration` 포함)
 

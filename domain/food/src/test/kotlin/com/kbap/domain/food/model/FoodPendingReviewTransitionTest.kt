@@ -29,7 +29,7 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
 
     given("Food.transitionByContentState — 수렴표: 텍스트 완료 × 이미지 유무") {
         `when`("텍스트 4작업이 완료되고 이미지도 있으면") {
-            then("TEXT_READY 를 건너뛰고 곧장 PENDING_REVIEW 로 전이한다") {
+            then("PENDING_IMAGE 를 건너뛰고 곧장 PENDING_REVIEW 로 전이한다") {
                 val food = incomplete()
 
                 food.transitionByContentState() shouldBe FoodContentStatus.PENDING_REVIEW
@@ -38,11 +38,11 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
         }
 
         `when`("텍스트 4작업이 완료됐지만 이미지가 없으면") {
-            then("이미지 대기실 TEXT_READY 로 전이한다") {
+            then("이미지 대기실 PENDING_IMAGE 로 전이한다") {
                 val food = incomplete(imageRef = null)
 
-                food.transitionByContentState() shouldBe FoodContentStatus.TEXT_READY
-                food.contentStatus shouldBe FoodContentStatus.TEXT_READY
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
+                food.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
             }
         }
 
@@ -57,10 +57,10 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
         }
 
         `when`("이미지가 blank 문자열이면") {
-            then("이미지 없음으로 보고 TEXT_READY 로 전이한다") {
+            then("이미지 없음으로 보고 PENDING_IMAGE 로 전이한다") {
                 val food = incomplete(imageRef = "  ")
 
-                food.transitionByContentState() shouldBe FoodContentStatus.TEXT_READY
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
             }
         }
     }
@@ -139,10 +139,10 @@ class FoodPendingReviewTransitionTest : BehaviorSpec({
     }
 
     given("Food.attachImage — 이미지 회수의 진입점") {
-        `when`("TEXT_READY(이미지만 대기) 음식에 이미지를 붙이면") {
+        `when`("PENDING_IMAGE(이미지만 대기) 음식에 이미지를 붙이면") {
             then("imageRef 저장과 함께 PENDING_REVIEW 로 전이한다") {
                 val food = incomplete(imageRef = null)
-                food.transitionByContentState() shouldBe FoodContentStatus.TEXT_READY
+                food.transitionByContentState() shouldBe FoodContentStatus.PENDING_IMAGE
 
                 food.attachImage("images/food/7.png")
 

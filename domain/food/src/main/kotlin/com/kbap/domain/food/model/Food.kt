@@ -42,7 +42,7 @@ class Food(
     var descriptionTranslations: Map<String, String> = emptyMap(),
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','TEXT_READY','PENDING_REVIEW','READY')")
+    @Column(name = "content_status", nullable = false, columnDefinition = "ENUM('INCOMPLETE','PENDING_IMAGE','PENDING_REVIEW','READY')")
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -99,7 +99,7 @@ class Food(
             spiciness != SPICINESS_UNASSESSED
         contentStatus = when {
             !textComplete -> FoodContentStatus.INCOMPLETE
-            needsImage() -> FoodContentStatus.TEXT_READY
+            needsImage() -> FoodContentStatus.PENDING_IMAGE
             else -> FoodContentStatus.PENDING_REVIEW
         }
         return contentStatus

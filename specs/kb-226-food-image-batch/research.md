@@ -14,12 +14,12 @@
   - Redis 분산락(SETNX/Redisson): 저지연 고경쟁용 — 1시간 1회 경쟁에 장점이 없고, Redis 재시작 시 락 소실로 이중 실행 가능. 기각.
   - AWS 람다 폴링/저장 워커: 폴링 대상이 우리 메타 테이블에 있어 왕복 구조 + OpenAI 키 이중 관리. 부하 분석 결과(배치 10건 ≈ 15~40MB 스트리밍 I/O, 상주 메모리 ~4MB, 제출 직후 몇 틱만 실작업) api 단독으로 충분 — 관측되지 않은 부하에 대한 선지불 금지. 회수 서비스의 seam(상태 조회/바이트 이동/DB 전이)만 갈라두어 향후 저장 워커 분리에 대비. 기각.
 
-## R2. Food 상태 모델 — TEXT_READY 신설 + 수렴 전이
+## R2. Food 상태 모델 — PENDING_IMAGE 신설 + 수렴 전이
 
-- **Decision**: `FoodContentStatus`에 `TEXT_READY` 추가. 전이는 칼럼 상태(텍스트 4조건 × imageRef)로 목표 상태를 계산하는 **수렴 함수 하나**로 통일하고, 콘텐츠 배치와 이미지 회수가 같은 함수를 호출한다.
+- **Decision**: `FoodContentStatus`에 `PENDING_IMAGE` 추가. 전이는 칼럼 상태(텍스트 4조건 × imageRef)로 목표 상태를 계산하는 **수렴 함수 하나**로 통일하고, 콘텐츠 배치와 이미지 회수가 같은 함수를 호출한다.
   - 텍스트 미완 → `INCOMPLETE` 유지 (이미지가 먼저 오면 imageRef만 세팅)
-  - 텍스트 완료 + 이미지 없음 → `TEXT_READY` (이미지 대기실 — 나가는 트리거는 이미지 도착뿐)
-  - 텍스트 완료 + 이미지 있음 → `PENDING_REVIEW` (TEXT_READY 건너뜀)
+  - 텍스트 완료 + 이미지 없음 → `PENDING_IMAGE` (이미지 대기실 — 나가는 트리거는 이미지 도착뿐)
+  - 텍스트 완료 + 이미지 있음 → `PENDING_REVIEW` (PENDING_IMAGE 건너뜀)
 - **Rationale**: 검수자가 이미지를 포함해 검수해야 하므로 이미지 없는 음식은 PENDING_REVIEW 불가. INCOMPLETE에 두면 콘텐츠 배치가 최대 24시간 동안 무한 재선정(`IncompleteFoodItemReader`는 상태만 봄). 이미지 프롬프트는 `koreanName`만 쓰므로 이미지가 텍스트보다 먼저 끝날 수 있음 — 간선 하드코딩 대신 수렴 함수로 순서 무관 안전을 보장.
 - **Alternatives considered**:
   - READY(현 PENDING_REVIEW) 조건에서 이미지 제외: 검수자가 이미지를 봐야 하므로 기각.
@@ -28,7 +28,7 @@
 ## R3. 이미지 제출 후보 선정
 
 - **Decision**: 상태값으로 필터링하지 않는다. 조건은 `imageRef IS NULL(빈 값 포함) AND food_id NOT IN (PENDING 상태 image_batch_item)` 두 개뿐.
-- **Rationale**: "이미지가 필요한가"의 진실은 imageRef 하나(단일 축). 두 번째 조건이 중복 제출 가드를 겸한다(버튼 연타 무해). 상태 필터를 쓰면 향후 prompt_version 재생성(READY 음식 대상) 케이스를 잃는다. 현 상태 모델에서 이 집합은 결과적으로 INCOMPLETE ∪ TEXT_READY와 일치.
+- **Rationale**: "이미지가 필요한가"의 진실은 imageRef 하나(단일 축). 두 번째 조건이 중복 제출 가드를 겸한다(버튼 연타 무해). 상태 필터를 쓰면 향후 prompt_version 재생성(READY 음식 대상) 케이스를 잃는다. 현 상태 모델에서 이 집합은 결과적으로 INCOMPLETE ∪ PENDING_IMAGE와 일치.
 
 ## R4. OpenAI Batch API 접근 방식
 
@@ -62,4 +62,4 @@
 ## R9. 콘텐츠 배치 정리
 
 - **Decision**: `FoodContentItemProcessor`의 `needsImage()` 분기·빈 스텁 `generateImage()` 제거, 주석 처리된 이미지 클라이언트 조립 삭제. 텍스트 4작업 완료 시 수렴 전이 함수 호출. `IncompleteFoodItemReader`는 무변경(INCOMPLETE만 선정 — 인덱스 스캔 유지).
-- **주의(구현 시)**: `content_status`는 MySQL ENUM — TEXT_READY 추가는 Flyway `MODIFY COLUMN` + 테스트 손스텁 CREATE TABLE(scan·bookmark·admin 등 content_status를 정의하는 테스트 시드) 동기화 필요. 전체 `./gradlew build`로만 잡힌다.
+- **주의(구현 시)**: `content_status`는 MySQL ENUM — PENDING_IMAGE 추가는 Flyway `MODIFY COLUMN` + 테스트 손스텁 CREATE TABLE(scan·bookmark·admin 등 content_status를 정의하는 테스트 시드) 동기화 필요. 전체 `./gradlew build`로만 잡힌다.

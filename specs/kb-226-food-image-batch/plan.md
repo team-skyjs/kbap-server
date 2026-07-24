@@ -8,7 +8,7 @@
 
 ## Summary
 
-이미지 생성을 스프링 배치에서 완전히 분리한다. 관리자가 이미지 없는 음식을 OpenAI Batch API에 일괄 제출(응답 즉시)하고, api 서버가 1시간 주기 `@Scheduled` + ShedLock(JDBC)으로 완료 배치를 회수해 S3에 저장하고 `food.imageRef`를 갱신한다. 상태의 원천은 우리 메타 테이블(`image_batch`·`image_batch_item`)이며, 제출 재실행은 빠진 것만 다시 제출하는 멱등 구조다. 음식 상태에 `TEXT_READY`(텍스트 완료·이미지 대기)를 신설하고, 전이는 칼럼 상태로 목표 상태를 계산하는 수렴 함수 하나로 통일해 텍스트/이미지 어느 쪽이 먼저 끝나도 안전하다.
+이미지 생성을 스프링 배치에서 완전히 분리한다. 관리자가 이미지 없는 음식을 OpenAI Batch API에 일괄 제출(응답 즉시)하고, api 서버가 1시간 주기 `@Scheduled` + ShedLock(JDBC)으로 완료 배치를 회수해 S3에 저장하고 `food.imageRef`를 갱신한다. 상태의 원천은 우리 메타 테이블(`image_batch`·`image_batch_item`)이며, 제출 재실행은 빠진 것만 다시 제출하는 멱등 구조다. 음식 상태에 `PENDING_IMAGE`(텍스트 완료·이미지 대기)를 신설하고, 전이는 칼럼 상태로 목표 상태를 계산하는 수렴 함수 하나로 통일해 텍스트/이미지 어느 쪽이 먼저 끝나도 안전하다.
 
 ## Technical Context
 
@@ -71,7 +71,7 @@ core/src/main/kotlin/com/kbap/core/
 domain/food/src/main/kotlin/com/kbap/domain/food/
 ├── model/
 │   ├── Food.kt                                  # 수렴 전이 함수 재작성(텍스트 4조건 × imageRef)
-│   ├── FoodContentStatus.kt                     # TEXT_READY 추가
+│   ├── FoodContentStatus.kt                     # PENDING_IMAGE 추가
 │   ├── ImageBatch.kt                            # 신규 엔티티
 │   ├── ImageBatchItem.kt                        # 신규 엔티티
 │   ├── ImageBatchStatus.kt                      # SUBMITTED/COLLECTED/FAILED
@@ -98,7 +98,7 @@ app/api/src/main/kotlin/com/kbap/app/api/
 app/api/src/main/resources/db/migration/
 ├── V<ts>__image_batch_tables.sql                # image_batch · image_batch_item
 ├── V<ts>__shedlock.sql                          # shedlock 테이블
-└── V<ts>__food_content_status_text_ready.sql    # content_status ENUM에 TEXT_READY 추가
+└── V<ts>__food_content_status_text_ready.sql    # content_status ENUM에 PENDING_IMAGE 추가
 
 app/batch/src/main/kotlin/com/kbap/app/batch/content/
 ├── FoodContentItemProcessor.kt                  # 이미지 분기·빈 스텁 제거, 수렴 전이 호출

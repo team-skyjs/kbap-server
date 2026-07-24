@@ -12,8 +12,8 @@ class FoodContentItemWriter(
 
     override fun write(chunk: Chunk<out Food>) {
         val byTarget = chunk.items.groupBy { it.transitionByContentState() }
-        byTarget[FoodContentStatus.TEXT_READY]
-            ?.let { foodRepository.markTextReadyByIdIn(it.map(Food::id)) }
+        byTarget[FoodContentStatus.PENDING_IMAGE]
+            ?.let { foodRepository.markPendingImageByIdIn(it.map(Food::id)) }
         byTarget[FoodContentStatus.PENDING_REVIEW]
             ?.let { foodRepository.markPendingReviewByIdIn(it.map(Food::id)) }
     }

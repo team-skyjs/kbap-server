@@ -157,11 +157,11 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("TEXT_READY(텍스트 완료) 음식과 INCOMPLETE 음식이 섞여 있으면") {
+            `when`("PENDING_IMAGE(텍스트 완료) 음식과 INCOMPLETE 음식이 섞여 있으면") {
                 then("상태와 무관하게 이미지 없는 둘 다 제출된다") {
                     foodRepository.save(Food.incomplete("미완음식"))
                     foodRepository.save(
-                        Food.incomplete("텍스트완료음식").apply { contentStatus = FoodContentStatus.TEXT_READY },
+                        Food.incomplete("텍스트완료음식").apply { contentStatus = FoodContentStatus.PENDING_IMAGE },
                     )
 
                     submitService.submitMissingImages().submittedFoodCount shouldBe 2

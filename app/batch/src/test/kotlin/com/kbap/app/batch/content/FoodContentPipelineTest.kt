@@ -62,7 +62,7 @@ class FoodContentPipelineTest : BehaviorSpec() {
 
         given("라이터의 수렴 전이 — 텍스트 완료·이미지 없음") {
             `when`("텍스트 3작업만 채워진 음식을 라이터에 넘기면") {
-                then("이미지 대기실 TEXT_READY 로 전이되어 저장된다") {
+                then("이미지 대기실 PENDING_IMAGE 로 전이되어 저장된다") {
                     val food = foodJpaRepository.save(Food.incomplete("텍스트완료-잡채"))
                     food.description = "쫄깃한 잡채"
                     food.spiciness = 0
@@ -72,7 +72,7 @@ class FoodContentPipelineTest : BehaviorSpec() {
 
                     foodContentWriter.write(Chunk(mutableListOf(food)))
 
-                    foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.TEXT_READY
+                    foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
         }
