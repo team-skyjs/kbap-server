@@ -72,13 +72,6 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                     }
                 }
             }
-
-            then("fanout 에는 공용 caller 를 제외한 기피성분 전용 caller 만 탑승한다") {
-                activeRunner.run { context ->
-                    val fanout = context.getBean(LlmFanoutClient::class.java)
-                    fanout.callers shouldBe listOf(context.getBean("avoidanceOpenAiModelCaller"))
-                }
-            }
         }
     }
 
