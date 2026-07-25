@@ -104,8 +104,9 @@ kbap:
   # 프롬프트는 설정이 아니라 코드 상수(FoodImageProperties.PROMPT_TEMPLATE) — 변경 시 PROMPT_VERSION 도 함께 올린다.
   food-image:
     batch-size: 100
-    # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
-    collect-cron: 0 0 */3 * * *
+    # 15분 주기 cron(하루 96회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
+    # 미완료 배치는 상태 조회만 하고 넘어가므로 주기를 줄여도 생성 비용은 늘지 않는다(KB-241).
+    collect-cron: 0 */15 * * * *
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).

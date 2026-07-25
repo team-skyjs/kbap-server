@@ -16,7 +16,7 @@ class FoodImageCollectScheduler(
 ) {
     private val lockingExecutor = DefaultLockingTaskExecutor(lockProvider)
 
-    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 */3 * * *}")
+    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 */15 * * * *}")
     fun collect() {
         lockingExecutor.executeWithLock(
             Runnable { collectService.collectSubmitted() },
@@ -27,7 +27,8 @@ class FoodImageCollectScheduler(
     companion object {
         const val LOCK_NAME = "food-image-collect"
 
-        val LOCK_AT_MOST_FOR: Duration = Duration.ofMinutes(30)
+        // 기본 주기(15분)와 동일 — 인스턴스가 죽어 락이 남아도 다음 틱이 바로 이어받는다.
+        val LOCK_AT_MOST_FOR: Duration = Duration.ofMinutes(15)
 
         val LOCK_AT_LEAST_FOR: Duration = Duration.ofMinutes(1)
     }
