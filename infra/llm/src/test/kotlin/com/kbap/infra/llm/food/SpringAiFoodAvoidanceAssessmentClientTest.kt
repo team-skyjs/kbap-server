@@ -1,6 +1,6 @@
 package com.kbap.infra.llm.food
 
-import com.kbap.core.food.FoodAvoidanceAssessment
+import com.kbap.common.core.food.FoodAvoidanceAssessment
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest

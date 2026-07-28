@@ -1,6 +1,6 @@
 package com.kbap.infra.redis
 
-import com.kbap.application.auth.token.RefreshTokenStore
+import com.kbap.common.application.auth.token.RefreshTokenStore
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import java.time.Duration

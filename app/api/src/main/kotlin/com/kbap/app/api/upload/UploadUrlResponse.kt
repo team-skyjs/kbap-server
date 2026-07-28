@@ -1,6 +1,6 @@
 package com.kbap.app.api.upload
 
-import com.kbap.application.upload.dto.PresignedUpload
+import com.kbap.common.application.upload.dto.PresignedUpload
 import java.time.Instant
 
 data class UploadUrlResponse(

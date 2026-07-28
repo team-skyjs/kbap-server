@@ -1,7 +1,7 @@
 package com.kbap.app.api.image
 
-import com.kbap.core.storage.StorageObjectMetadata
-import com.kbap.core.storage.StorageObjectStore
+import com.kbap.common.core.storage.StorageObjectMetadata
+import com.kbap.common.core.storage.StorageObjectStore
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

@@ -2,7 +2,7 @@ package com.kbap.infra.llm.food
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.core.food.FoodImageBatchClient
+import com.kbap.common.core.food.FoodImageBatchClient
 import com.kbap.infra.llm.config.LlmModelProperties
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.MediaType

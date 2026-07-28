@@ -1,8 +1,8 @@
 package com.kbap.app.batch.content
 
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
 import org.springframework.batch.infrastructure.item.Chunk
 import org.springframework.batch.infrastructure.item.ItemWriter
 

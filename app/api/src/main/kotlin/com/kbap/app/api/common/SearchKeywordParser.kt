@@ -1,7 +1,7 @@
 package com.kbap.app.api.common
 
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
 
 object SearchKeywordParser {
     fun parse(raw: String?): String {

@@ -1,9 +1,9 @@
 package com.kbap.infra.llm.menu
 
-import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.core.scan.ExtractedMenu
-import com.kbap.core.scan.MenuBoardVisionExtractor
-import com.kbap.core.scan.OcrItem
+import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.core.scan.ExtractedMenu
+import com.kbap.common.core.scan.MenuBoardVisionExtractor
+import com.kbap.common.core.scan.OcrItem
 import com.kbap.infra.llm.model.LlmPricing
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage
@@ -19,7 +19,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URI
 
-// 메뉴판 사진 URL 을 gpt-4o-mini vision 에 넘겨 메뉴명·가격을 추출하고 클라이언트 OCR idx 에 매칭한다(KB-138).
 // 이미지 바이트는 서버를 거치지 않는다 — 모델이 URL(imageBaseUrl + path)을 직접 fetch 한다.
 class OpenAiMenuBoardVisionExtractor(
     private val chatModel: ChatModel,

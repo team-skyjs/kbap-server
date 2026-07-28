@@ -1,11 +1,10 @@
 package com.kbap.domain.image.model
 
-import com.kbap.core.persistence.BaseEntity
+import com.kbap.common.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
-// 완료 검증을 통과한 업로드 이미지 기록. 스캔 등 소비 기능이 path 의 존재·소유를 확인하는 근거.
 // object_path 는 도메인 없는 오브젝트 경로만 담는다(CDN 도메인은 서버 설정 — KB-138).
 @Entity
 @Table(name = "uploaded_image")

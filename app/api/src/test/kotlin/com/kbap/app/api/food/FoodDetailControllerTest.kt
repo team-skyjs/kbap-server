@@ -1,9 +1,9 @@
 package com.kbap.app.api.food
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import org.springframework.context.annotation.Import
 
-import com.kbap.application.auth.token.TokenIssuer
-import com.kbap.domain.member.model.MemberRole
+import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired

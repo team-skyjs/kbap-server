@@ -1,12 +1,12 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.application.auth.dto.ParsedAccessToken
-import com.kbap.application.auth.dto.ParsedRefreshToken
-import com.kbap.application.auth.token.AuthTokenProperties
-import com.kbap.application.auth.token.TokenParser
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
-import com.kbap.domain.member.model.MemberRole
+import com.kbap.common.application.auth.dto.ParsedAccessToken
+import com.kbap.common.application.auth.dto.ParsedRefreshToken
+import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.application.auth.token.TokenParser
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.member.model.MemberRole
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException

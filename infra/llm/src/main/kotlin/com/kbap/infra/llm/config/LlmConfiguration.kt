@@ -1,7 +1,7 @@
 package com.kbap.infra.llm.config
 
 import com.google.genai.Client
-import com.kbap.core.scan.MenuBoardVisionExtractor
+import com.kbap.common.core.scan.MenuBoardVisionExtractor
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.menu.MenuBoardResultParser

@@ -1,7 +1,7 @@
 package com.kbap.app.api.common.auth
 
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest

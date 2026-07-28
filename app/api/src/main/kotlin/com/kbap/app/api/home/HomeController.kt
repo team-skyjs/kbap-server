@@ -4,7 +4,7 @@ import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberIdOrNull
 import com.kbap.application.home.HomeApplicationService
-import com.kbap.core.lang.LanguageCode
+import com.kbap.common.core.lang.LanguageCode
 import com.kbap.domain.bookmark.BookmarkService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity

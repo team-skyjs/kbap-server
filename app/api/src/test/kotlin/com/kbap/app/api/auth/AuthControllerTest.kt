@@ -1,14 +1,14 @@
 package com.kbap.app.api.auth
 
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.domain.member.SocialAccountDeleter
-import com.kbap.application.auth.social.SocialTokenVerifier
-import com.kbap.domain.member.model.SocialIdentity
-import com.kbap.domain.member.model.SocialProvider
-import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.core.testsupport.RedisContainerConfig
+import com.kbap.common.domain.member.SocialAccountDeleter
+import com.kbap.common.application.auth.social.SocialTokenVerifier
+import com.kbap.common.domain.member.model.SocialIdentity
+import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull

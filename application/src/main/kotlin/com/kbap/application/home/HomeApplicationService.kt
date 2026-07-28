@@ -1,12 +1,12 @@
 package com.kbap.application.home
 
-import com.kbap.domain.food.dto.FoodSummaryView
+import com.kbap.common.domain.food.dto.FoodSummaryView
 import com.kbap.application.home.dto.AvoidedSubstanceView
 import com.kbap.application.home.dto.HomeResult
-import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
-import com.kbap.domain.food.FoodService
-import com.kbap.core.lang.LanguageCode
-import com.kbap.domain.member.MemberService
+import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
+import com.kbap.common.domain.food.FoodService
+import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.domain.member.MemberService
 import com.kbap.domain.scan.ScanService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

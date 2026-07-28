@@ -1,7 +1,7 @@
 package com.kbap.infra.llm.menu
 
-import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.core.scan.OcrItem
+import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.core.scan.OcrItem
 import com.kbap.infra.llm.model.LlmPricing
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec

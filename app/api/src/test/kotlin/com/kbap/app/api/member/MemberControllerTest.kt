@@ -2,8 +2,8 @@ package com.kbap.app.api.member
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.app.api.auth.FakeSocialTokenVerifierConfig
-import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.core.testsupport.RedisContainerConfig
+import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe

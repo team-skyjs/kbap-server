@@ -1,6 +1,6 @@
 package com.kbap.app.api.common.auth
 
-import com.kbap.application.auth.token.TokenParser
+import com.kbap.common.application.auth.token.TokenParser
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory

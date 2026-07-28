@@ -1,6 +1,6 @@
 package com.kbap.app.batch
 
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.boot.test.context.SpringBootTest

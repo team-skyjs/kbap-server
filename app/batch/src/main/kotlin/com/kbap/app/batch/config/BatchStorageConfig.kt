@@ -1,6 +1,6 @@
 package com.kbap.app.batch.config
 
-import com.kbap.core.storage.StorageObjectStore
+import com.kbap.common.core.storage.StorageObjectStore
 import com.kbap.infra.storage.S3StorageObjectStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

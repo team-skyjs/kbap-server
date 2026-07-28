@@ -1,18 +1,18 @@
 package com.kbap.application.auth
 
-import com.kbap.application.auth.social.SocialTokenVerifier
-import com.kbap.application.auth.token.AuthTokenProperties
-import com.kbap.application.auth.token.TokenIssuer
-import com.kbap.application.auth.token.TokenParser
+import com.kbap.common.application.auth.social.SocialTokenVerifier
+import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.application.auth.token.TokenParser
 import com.kbap.application.auth.dto.LoginResult
 import com.kbap.application.auth.dto.RefreshResult
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
-import com.kbap.domain.member.MemberService
-import com.kbap.domain.member.SocialAccountDeleter
-import com.kbap.domain.member.model.SocialIdentity
-import com.kbap.domain.member.model.MemberRole
-import com.kbap.application.auth.token.RefreshTokenStore
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.member.MemberService
+import com.kbap.common.domain.member.SocialAccountDeleter
+import com.kbap.common.domain.member.model.SocialIdentity
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.application.auth.token.RefreshTokenStore
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

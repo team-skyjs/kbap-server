@@ -1,7 +1,7 @@
 package com.kbap.app.api.common
 
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

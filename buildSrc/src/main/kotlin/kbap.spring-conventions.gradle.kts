@@ -1,8 +1,6 @@
 import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
 import org.gradle.api.artifacts.VersionCatalogsExtension
 
-// ───────── Spring 라이브러리 공통 (core/common 제외) ─────────
-// kotlin-common 위에 kotlin-spring·dependency-management·Boot/AI BOM·공통 Spring 의존을 얹는다.
 plugins {
     id("kbap.kotlin-common")
     id("org.jetbrains.kotlin.plugin.spring")

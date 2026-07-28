@@ -2,8 +2,8 @@ package com.kbap.app.api.common.logging
 
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping

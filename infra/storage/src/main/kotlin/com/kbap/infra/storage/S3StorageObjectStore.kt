@@ -1,7 +1,7 @@
 package com.kbap.infra.storage
 
-import com.kbap.core.storage.StorageObjectMetadata
-import com.kbap.core.storage.StorageObjectStore
+import com.kbap.common.core.storage.StorageObjectMetadata
+import com.kbap.common.core.storage.StorageObjectStore
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client

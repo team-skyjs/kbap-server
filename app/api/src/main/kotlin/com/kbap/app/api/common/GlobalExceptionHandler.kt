@@ -1,7 +1,7 @@
 package com.kbap.app.api.common
 
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus

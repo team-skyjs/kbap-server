@@ -1,6 +1,6 @@
 package com.kbap.app.api.architecture
 
-import com.kbap.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
@@ -24,18 +24,21 @@ class ModuleBoundaryTest : BehaviorSpec({
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TEST_FIXTURES)
             .importPackages("com.kbap")
 
-    val core = "com.kbap.core.."
-    val anyDomain = "com.kbap.domain.."
+    val core = "com.kbap.common.core.."
+    val sharedDomain = "com.kbap.common.domain.."
+    val apiDomain = "com.kbap.domain.."
     val spring = "org.springframework.."
     val jpa = "jakarta.persistence.."
 
-    given("커널 모듈(:core) 경계") {
+    given("커널 패키지(common.core) 경계") {
         `when`("커널이 의존하는 패키지를 검사하면") {
             then("스프링·도메인·상위 계층에 의존하지 않는다") {
                 noClasses().that().resideInAPackage(core)
                     .should().dependOnClassesThat().resideInAnyPackage(
                         spring,
-                        anyDomain,
+                        sharedDomain,
+                        apiDomain,
+                        "com.kbap.common.application..",
                         "com.kbap.application..",
                         "com.kbap.infra..",
                         "com.kbap.app..",
@@ -46,11 +49,12 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("도메인 모듈(:domain:*) 경계") {
-        `when`("도메인이 상위 계층(application·infra·app·common)에 의존하는지 검사하면") {
+    given("도메인 패키지 경계") {
+        `when`("도메인이 상위 계층(application·infra·app)에 의존하는지 검사하면") {
             then("상위 계층을 알지 못한다") {
-                noClasses().that().resideInAPackage(anyDomain)
+                noClasses().that().resideInAnyPackage(sharedDomain, apiDomain)
                     .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.kbap.common.application..",
                         "com.kbap.application..",
                         "com.kbap.infra..",
                         "com.kbap.app..",
@@ -62,7 +66,7 @@ class ModuleBoundaryTest : BehaviorSpec({
 
         `when`("영속 애너테이션 없는 도메인 클래스(모델·정책·값 객체)가 jakarta.persistence 에 의존하는지 검사하면") {
             then("도메인 모델은 ORM-free 다 — 도메인 안에서 jakarta.persistence 는 엔티티·리포지토리·도메인 서비스(@Service)만 만진다") {
-                noClasses().that().resideInAPackage(anyDomain)
+                noClasses().that().resideInAnyPackage(sharedDomain, apiDomain)
                     .and().areNotAnnotatedWith("jakarta.persistence.Entity")
                     .and().areNotAnnotatedWith("jakarta.persistence.MappedSuperclass")
                     .and().areNotAnnotatedWith("jakarta.persistence.Embeddable")
@@ -76,11 +80,47 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
+    given("도메인 간 의존 방향") {
+        // 도메인 간 방향의 단일 출처 — Gradle 모듈 경계 소멸(KB-244) 후에는 이 맵만이 순환을 막는다
+        val domainPackage = mapOf(
+            "scan" to "com.kbap.domain.scan..",
+            "bookmark" to "com.kbap.domain.bookmark..",
+            "image" to "com.kbap.domain.image..",
+            "metering" to "com.kbap.domain.metering..",
+            "food" to "com.kbap.common.domain.food..",
+            "member" to "com.kbap.common.domain.member..",
+            "avoidance" to "com.kbap.common.domain.avoidance..",
+        )
+        val allowedDomainDeps = mapOf(
+            "scan" to setOf("food", "member", "image", "avoidance"),
+            "food" to setOf("member", "avoidance"),
+            "bookmark" to setOf("food", "member", "avoidance"),
+            "member" to setOf("avoidance"),
+            "image" to emptySet(),
+            "metering" to emptySet(),
+            "avoidance" to emptySet(),
+        )
+
+        allowedDomainDeps.forEach { (context, allowed) ->
+            val forbidden = (allowedDomainDeps.keys - allowed - context).sorted()
+            `when`("$context 컨텍스트가 허용 목록 $allowed 밖 도메인에 의존하는지 검사하면") {
+                then("$forbidden 을 알지 못한다") {
+                    noClasses().that().resideInAPackage(domainPackage.getValue(context))
+                        .should().dependOnClassesThat().resideInAnyPackage(
+                            *forbidden.map { domainPackage.getValue(it) }.toTypedArray(),
+                        )
+                        .allowEmptyShould(true)
+                        .check(imported)
+                }
+            }
+        }
+    }
+
     given("영속 엔티티 위치") {
         `when`("@Entity 가 붙은 클래스의 패키지를 검사하면") {
-            then("모든 JPA 엔티티는 도메인 모듈에만 존재한다") {
+            then("모든 JPA 엔티티는 도메인 패키지에만 존재한다") {
                 classes().that().areAnnotatedWith("jakarta.persistence.Entity")
-                    .should().resideInAPackage(anyDomain)
+                    .should().resideInAnyPackage(sharedDomain, apiDomain)
                     .allowEmptyShould(true)
                     .check(imported)
             }
@@ -118,10 +158,10 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("유스케이스 모듈(application) 경계") {
+    given("유스케이스·seam 패키지(application) 경계") {
         `when`("application 이 인프라·부트앱에 의존하는지 검사하면") {
             then("infra·app 구현에 직접 의존하지 않는다") {
-                noClasses().that().resideInAPackage("com.kbap.application..")
+                noClasses().that().resideInAnyPackage("com.kbap.application..", "com.kbap.common.application..")
                     .should().dependOnClassesThat().resideInAnyPackage(
                         "com.kbap.infra..",
                         "com.kbap.app..",

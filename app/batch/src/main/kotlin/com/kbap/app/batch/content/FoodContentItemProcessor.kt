@@ -1,11 +1,11 @@
 package com.kbap.app.batch.content
 
-import com.kbap.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.core.food.FoodDescriptionClient
-import com.kbap.core.food.FoodNameTranslationClient
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.common.core.food.FoodDescriptionClient
+import com.kbap.common.core.food.FoodNameTranslationClient
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import org.springframework.batch.infrastructure.item.ItemProcessor
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
