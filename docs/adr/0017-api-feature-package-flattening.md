@@ -25,8 +25,8 @@ API 요청, 외부 seam, 여러 공유 도메인과 영속을 조합하는 API �
 - `scan`·`bookmark`·`image`·`metering`의 API 전용 서비스와 결과 타입을 대응 기능 패키지로 옮긴다.
 - 기능당 타입 수가 적으므로 `dto`·`service` 같은 하위 계층 패키지를 만들지 않는다.
 - `com.kbap.domain`과 `com.kbap.application`은 API 모듈에서 사용하지 않는다.
-- `:common`의 `com.kbap.common.domain`과 `com.kbap.common.application`은 유지한다. 전자는 영속과
-  공유 도메인을, 후자는 인프라 어댑터가 구현하는 seam 계약을 소유한다.
+- `:common`의 `com.kbap.common.domain`과 `com.kbap.common.port`(구 `common.application`)는 유지한다.
+  전자는 영속과 공유 도메인을, 후자는 인프라 어댑터가 구현하는 seam 계약을 소유한다.
 - 도메인 간 의존 방향 ArchUnit 검사는 실제 도메인 코드가 있는 `com.kbap.common.domain.<context>`만
   대상으로 한다. API 기능 패키지는 컨트롤러와 유스케이스 조합을 함께 가지므로 도메인 의존 맵에 넣지 않는다.
 

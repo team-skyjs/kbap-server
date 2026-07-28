@@ -158,11 +158,50 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("영속 엔티티 위치") {
+    given("영속 소유 위치") {
         `when`("@Entity 가 붙은 클래스의 패키지를 검사하면") {
-            then("모든 JPA 엔티티는 도메인 패키지에만 존재한다") {
+            then("모든 JPA 엔티티는 도메인 패키지에만 존재한다 — 하나도 안 잡히면 스캔 자체가 깨진 것") {
                 classes().that().areAnnotatedWith("jakarta.persistence.Entity")
                     .should().resideInAPackage(sharedDomain)
+                    .check(imported)
+            }
+        }
+
+        `when`("Spring Data Repository 인터페이스의 패키지를 검사하면") {
+            then("모든 리포지토리는 도메인 패키지에만 존재한다 — 영속은 컨텍스트 불문 :common 소속") {
+                classes().that().areAssignableTo("org.springframework.data.repository.Repository")
+                    .and().resideInAPackage("com.kbap..")
+                    .should().resideInAPackage(sharedDomain)
+                    .check(imported)
+            }
+        }
+    }
+
+    given("유틸 패키지(common.util) 경계") {
+        `when`("유틸이 의존하는 패키지를 검사하면") {
+            then("상태 없는 순수 헬퍼다 — 스프링·JPA·도메인·포트·상위 계층을 모른다") {
+                noClasses().that().resideInAPackage("com.kbap.common.util..")
+                    .should().dependOnClassesThat().resideInAnyPackage(
+                        spring,
+                        jpa,
+                        sharedDomain,
+                        "com.kbap.common.port..",
+                        "com.kbap.infra..",
+                        "com.kbap.api..",
+                        "com.kbap.batch..",
+                    )
+                    .allowEmptyShould(true)
+                    .check(imported)
+            }
+        }
+    }
+
+    given("부트앱 → infra 조립 창구") {
+        `when`("api·batch 가 infra 구현을 참조하는 위치를 검사하면") {
+            then("infra 직접 참조는 조립 config 패키지에서만 한다 — 기능 코드는 common.port 계약만 본다") {
+                noClasses().that().resideInAnyPackage("com.kbap.api..", "com.kbap.batch..")
+                    .and().resideOutsideOfPackages("com.kbap.api.core.config..", "com.kbap.batch.config..")
+                    .should().dependOnClassesThat().resideInAPackage("com.kbap.infra..")
                     .allowEmptyShould(true)
                     .check(imported)
             }
@@ -194,7 +233,6 @@ class ModuleBoundaryTest : BehaviorSpec({
                 classes().that().resideInAPackage("com.kbap.api..")
                     .and().areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
                     .should(declareApiVersionedMapping)
-                    .allowEmptyShould(true)
                     .check(imported)
             }
         }

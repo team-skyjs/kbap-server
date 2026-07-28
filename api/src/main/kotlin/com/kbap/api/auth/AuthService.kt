@@ -1,7 +1,6 @@
 package com.kbap.api.auth
 
 import com.kbap.common.port.auth.SocialTokenVerifier
-import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.port.auth.RefreshTokenStore
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.auth.TokenParser
@@ -12,7 +11,9 @@ import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.member.model.SocialIdentity
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Duration
 
 @Service
 class AuthService(
@@ -22,7 +23,7 @@ class AuthService(
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
     private val socialAccountDeleter: SocialAccountDeleter,
-    private val properties: JwtTokenProperties,
+    @Value("\${kbap.auth.jwt.refresh-ttl}") private val refreshTtl: Duration,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -32,7 +33,7 @@ class AuthService(
         val memberId = member.id
 
         val refreshToken = tokenIssuer.issueRefreshToken(memberId)
-        refreshTokenStore.save(refreshToken.jti, memberId, properties.refreshTtl)
+        refreshTokenStore.save(refreshToken.jti, memberId, refreshTtl)
 
         return LoginResult(
             memberId = memberId,
@@ -60,7 +61,7 @@ class AuthService(
         }
 
         val rotated = tokenIssuer.issueRefreshToken(memberId)
-        refreshTokenStore.save(rotated.jti, memberId, properties.refreshTtl)
+        refreshTokenStore.save(rotated.jti, memberId, refreshTtl)
 
         return RefreshResult(
             accessToken = tokenIssuer.issueAccessToken(memberId, MemberRole.USER),

@@ -35,7 +35,7 @@ class FoodImageBatchCollectService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val itemTransaction = TransactionTemplate(transactionManager)
 
-    @Scheduled(cron = "0 0 */3 * * *")
+    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 */3 * * *}")
     @SchedulerLock(name = "food-image-collect", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun collectOnSchedule() = collectSubmitted()
 
