@@ -1,7 +1,7 @@
 package com.kbap.common.domain.food.model
 
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.food.KoreanMenuNameNormalizer
+import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec

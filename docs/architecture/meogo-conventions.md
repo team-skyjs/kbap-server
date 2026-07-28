@@ -23,7 +23,7 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 | 모듈 | 책임 |
 |------|------|
-| `:common` | **전 컨텍스트의 영속 계층 + api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드** — 공통 커널(`com.kbap.common.core`: 통합 에러·테스트픽스처), 도메인(`com.kbap.common.domain` — 루트에 공유 vocabulary(`LanguageCode`·`LocalizedText`·`Spiciness`·`ImageUrls`)와 영속 공통(`BaseEntity`·`EntityStatus`), `<context>` 하위에 엔티티 `model/`·리포지토리 7종 전부 + food·member·avoidance 는 도메인 서비스·dto 까지), infra 계약(`com.kbap.common.port.{llm,storage,auth}` — 구현 모듈 기준 분류) |
+| `:common` | **전 컨텍스트의 영속 계층 + api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드** — 공통 커널(`com.kbap.common.core`: 통합 에러·테스트픽스처), 도메인(`com.kbap.common.domain` — 루트에 공유 vocabulary(`LanguageCode`·`LocalizedText`·`Spiciness`)와 영속 공통(`BaseEntity`·`EntityStatus`), `<context>` 하위에 엔티티 `model/`·리포지토리 7종 전부 + food·member·avoidance 는 도메인 서비스·dto 까지), infra 계약(`com.kbap.common.port.{llm,storage,auth}` — 구현 모듈 기준 분류), 순수 유틸(`com.kbap.common.util` — `ImageUrls`·`KoreanMenuNameNormalizer`) |
 | `:api` | web bootJar — `com.kbap.api.<feature>` 기능 패키지에 Controller·API DTO·API 전용 서비스·결과 타입 배치, 인증/인가·예외 응답 변환·Flyway 스키마 owner |
 | `:batch` | 배치 bootJar. common 의 리포지토리·LLM 어댑터를 직접 조립해 잡 실행. flyway off. 음식 콘텐츠(기피성분 조사·9개국어 번역·설명) LLM 파이프라인 실행([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
 | `:infra:llm` | LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존 ([ADR-0010](../adr/0010-llm-adapter-module-named-infra-llm.md)) |

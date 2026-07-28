@@ -1,4 +1,4 @@
-package com.kbap.common.domain
+package com.kbap.common.util
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull

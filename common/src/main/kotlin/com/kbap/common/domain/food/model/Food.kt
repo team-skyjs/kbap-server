@@ -4,7 +4,7 @@ import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
 import com.kbap.common.domain.Spiciness
-import com.kbap.common.domain.food.KoreanMenuNameNormalizer
+import com.kbap.common.util.KoreanMenuNameNormalizer
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

@@ -1,4 +1,4 @@
-package com.kbap.common.domain.food
+package com.kbap.common.util
 
 import java.text.Normalizer
 

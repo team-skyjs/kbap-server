@@ -10,9 +10,9 @@ import com.kbap.common.domain.food.dto.SearchFoodsInput
 import com.kbap.common.domain.food.dto.SeedIncompleteResult
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
-import com.kbap.common.domain.ImageUrls
+import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.food.KoreanMenuNameNormalizer
+import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.common.domain.member.MemberService

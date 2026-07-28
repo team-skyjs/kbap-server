@@ -1,4 +1,4 @@
-package com.kbap.common.domain
+package com.kbap.common.util
 
 object ImageUrls {
     fun resolve(base: String, ref: String?): String? {
