@@ -4,5 +4,4 @@ plugins {
 }
 
 dependencies {
-    "api"(project(":domain:member"))    // 회원 기피 성분 → 위험도 판정
 }

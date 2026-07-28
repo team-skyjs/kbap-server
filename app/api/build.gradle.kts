@@ -20,7 +20,6 @@ dependencies {
     "implementation"(project(":infra:storage"))
 
     // 컨트롤러가 도메인 서비스를 직접 호출한다(도메인 간 단방향 의존 구조 전환).
-    "implementation"(project(":domain:member"))
     "implementation"(project(":domain:food"))
     "implementation"(project(":domain:scan"))
     "implementation"(project(":domain:bookmark"))
