@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class HomeApplicationService(
+class HomeService(
     private val memberService: MemberService,
     private val foodService: FoodService,
     private val scanService: ScanService,
