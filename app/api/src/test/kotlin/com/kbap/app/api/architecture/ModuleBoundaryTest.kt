@@ -76,6 +76,33 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
+    given("도메인 간 의존 방향") {
+        // 도메인 간 방향의 단일 출처 — Gradle 모듈 경계 소멸(KB-244) 후에는 이 맵만이 순환을 막는다
+        val allowedDomainDeps = mapOf(
+            "scan" to setOf("food", "member", "image", "avoidance"),
+            "food" to setOf("member", "avoidance"),
+            "bookmark" to setOf("food", "member", "avoidance"),
+            "member" to setOf("avoidance"),
+            "image" to emptySet(),
+            "metering" to emptySet(),
+            "avoidance" to emptySet(),
+        )
+
+        allowedDomainDeps.forEach { (context, allowed) ->
+            val forbidden = (allowedDomainDeps.keys - allowed - context).sorted()
+            `when`("$context 컨텍스트가 허용 목록 $allowed 밖 도메인에 의존하는지 검사하면") {
+                then("$forbidden 을 알지 못한다") {
+                    noClasses().that().resideInAPackage("com.kbap.domain.$context..")
+                        .should().dependOnClassesThat().resideInAnyPackage(
+                            *forbidden.map { "com.kbap.domain.$it.." }.toTypedArray(),
+                        )
+                        .allowEmptyShould(true)
+                        .check(imported)
+                }
+            }
+        }
+    }
+
     given("영속 엔티티 위치") {
         `when`("@Entity 가 붙은 클래스의 패키지를 검사하면") {
             then("모든 JPA 엔티티는 도메인 모듈에만 존재한다") {
