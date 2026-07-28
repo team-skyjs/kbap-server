@@ -4,6 +4,5 @@ plugins {
 }
 
 dependencies {
-    "api"(project(":domain:food"))              // 북마크 목록 = 음식 요약(FoodService 경유)
 
 }

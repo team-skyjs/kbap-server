@@ -7,7 +7,6 @@ dependencies {
     // Command/Result 같은 application 레벨 타입만 노출하고, 도메인 엔티티가 상위(api)의
     // 컴파일 클래스패스로 새지 않게 한다(런타임 전이는 정상 → 빈/스캔/JPA 동작).
     // 컨텍스트 간 조합은 여기서만 한다. 도메인 모듈끼리는 서로 의존하지 않는다.
-    "implementation"(project(":domain:food"))
     "implementation"(project(":domain:scan"))
     "implementation"(project(":domain:review"))
     "implementation"(project(":common"))

@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-    "api"(project(":domain:food"))   // 메뉴 매칭·미완성 등록
     "implementation"(project(":domain:image")) // 스캔 전 업로드 이미지 검증·소유 확인
 
 }

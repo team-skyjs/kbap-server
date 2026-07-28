@@ -22,7 +22,6 @@ include(
     // ── 공유 모듈 (KB-244 이행 중: core·공유 도메인·seam 이 :common 으로 합류한다) ──
     ":common",     // api·batch·infra 공유 코드 — 커널(구 :core)·공유 도메인·외부 시스템 seam
     // ── 공유 코어 + 도메인 컨텍스트 (엔티티·레포지토리·도메인 서비스, 단방향 상호 의존 허용) ──
-    ":domain:food",
     ":domain:review",
     ":domain:scan",         // 스캔 이력 컨텍스트 (KB-111) — 최근 스캔 기록·조회
     ":domain:bookmark",     // 음식 북마크 컨텍스트 (KB-139) — 즐겨찾기 등록·취소·목록
