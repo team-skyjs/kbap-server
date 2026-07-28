@@ -61,11 +61,11 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 > PR #2 브랜치는 PR #1 머지 후 develop 에서 갈라낸다(또는 PR #1 브랜치 위에 stacked)
 
-- [ ] T013 [US1] `:app:api` 에 kotlin-jpa 준비 — `app/api/build.gradle.kts` 에 kotlin-jpa(no-arg) 플러그인 추가(도메인 엔티티가 들어올 자리 — `kbap.spring-boot-application` 은 미포함), 그린 확인
-- [ ] T014 [P] [US1] `:domain:scan` 소스 이동 — `git mv domain/scan/src/main/kotlin/com/kbap/domain/scan app/api/src/main/kotlin/com/kbap/domain/scan`(test 동일), settings 제거, app:api 의 `:domain:scan` 참조 삭제
-- [ ] T015 [P] [US1] `:domain:bookmark`·`:domain:image`·`:domain:metering` 소스 이동 — T014 와 동일 절차 3종(각각 `git mv` → settings 제거 → app:api 참조 삭제), 그린 확인
-- [ ] T016 [US1] `:application` 잔여부 흡수 — `git mv application/src/main/kotlin/com/kbap/application app/api/src/main/kotlin/com/kbap/application`(test 동일, T010 이후 잔여 = Home·Auth ApplicationService 등), settings 에서 `":application"` 제거, `application/` 삭제, app:api 의 `:application` 참조 삭제
-- [ ] T017 [US1] 모듈 잔재 정리 — settings 에서 `":domain:review"` 제거·`domain/review/`·`domain/research/` 디렉터리 삭제, `domain/` 컨테이너 비면 삭제, `buildSrc/src/main/kotlin/kbap.domain-conventions.gradle.kts` 삭제, `./gradlew projects` = `:common`·`:app:api`·`:app:batch`·`:infra:{llm,auth,redis,storage}` 7개 확인
+- [X] T013 [US1] `:app:api` 에 kotlin-jpa 준비 — `app/api/build.gradle.kts` 에 kotlin-jpa(no-arg) 플러그인 추가(도메인 엔티티가 들어올 자리 — `kbap.spring-boot-application` 은 미포함), 그린 확인
+- [X] T014 [P] [US1] `:domain:scan` 소스 이동 — `git mv domain/scan/src/main/kotlin/com/kbap/domain/scan app/api/src/main/kotlin/com/kbap/domain/scan`(test 동일), settings 제거, app:api 의 `:domain:scan` 참조 삭제
+- [X] T015 [P] [US1] `:domain:bookmark`·`:domain:image`·`:domain:metering` 소스 이동 — T014 와 동일 절차 3종(각각 `git mv` → settings 제거 → app:api 참조 삭제), 그린 확인
+- [X] T016 [US1] `:application` 잔여부 흡수 — `git mv application/src/main/kotlin/com/kbap/application app/api/src/main/kotlin/com/kbap/application`(test 동일, T010 이후 잔여 = Home·Auth ApplicationService 등), settings 에서 `":application"` 제거, `application/` 삭제, app:api 의 `:application` 참조 삭제
+- [X] T017 [US1] 모듈 잔재 정리 — settings 에서 `":domain:review"` 제거·`domain/review/`·`domain/research/` 디렉터리 삭제, `domain/` 컨테이너 비면 삭제, `buildSrc/src/main/kotlin/kbap.domain-conventions.gradle.kts` 삭제, `./gradlew projects` = `:common`·`:app:api`·`:app:batch`·`:infra:{llm,auth,redis,storage}` 7개 확인
 - [ ] T018 [US1] PR #2 전반 게이트 — quickstart.md 전 명령(빌드·projects·의존 그래프·양 앱 기동) + `git log --follow` 로 이동 파일 이력 보존 스팟체크
 
 **Checkpoint**: 모듈 7개, 전체 그린, 양 앱 기동 — US1 완성. 이 시점부터 US3(문서·헌법)만 남음

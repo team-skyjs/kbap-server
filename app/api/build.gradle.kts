@@ -1,9 +1,15 @@
 plugins {
     id("kbap.spring-boot-application")
+    id("org.jetbrains.kotlin.plugin.jpa")
+}
+
+allOpen {
+    annotation("jakarta.persistence.Entity")
+    annotation("jakarta.persistence.MappedSuperclass")
+    annotation("jakarta.persistence.Embeddable")
 }
 
 dependencies {
-    "implementation"(project(":application"))
     "implementation"(project(":common"))
 
     "runtimeOnly"(project(":infra:llm"))
@@ -14,10 +20,6 @@ dependencies {
 
     "implementation"(project(":infra:storage"))
 
-    "implementation"(project(":domain:scan"))
-    "implementation"(project(":domain:bookmark"))
-    "implementation"(project(":domain:image"))
-    "implementation"(project(":domain:metering"))
 
     "implementation"(libs.shedlock.core)
     "implementation"(libs.shedlock.provider.jdbc.template)

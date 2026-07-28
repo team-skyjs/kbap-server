@@ -16,7 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest(classes = [BookmarkServiceTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class BookmarkServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
@@ -30,11 +30,21 @@ class BookmarkServiceTest : BehaviorSpec() {
     init {
         val memberId = 100L
 
+        // Flyway 실스키마 위에서 돈다 — bookmark 의 member/food FK 를 시드가 만족해야 한다
         fun clearTables() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM bookmark")
+                    // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
+                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item")
+                        .forEach { statement.execute("DELETE FROM $it") }
                     statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM member")
+                    statement.execute(
+                        "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', " +
+                            "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+                    )
                 }
             }
         }
