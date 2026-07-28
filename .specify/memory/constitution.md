@@ -249,8 +249,8 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다.
 
 > 구속력 없는 상세 "어떻게"(패키지 레이아웃·빌딩블록·컨텍스트별 개념)는 레퍼런스로
-> [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md) 및
-> [`kbap-api-module-structure.md`](../../docs/architecture/kbap-api-module-structure.md)에 둔다.
+> [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md) 및
+> [`meogo-api-module-structure.md`](../../docs/architecture/meogo-api-module-structure.md)에 둔다.
 
 ## Development Workflow
 
@@ -269,6 +269,6 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
   PATCH=문구·오타·비의미 보정.
 - 모든 설계·PR은 본 헌법 준수를 검증한다. 위반은 정당화하거나 설계를 수정한다.
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
-  [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md)를 참조한다.
+  [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
 **Version**: 6.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-28

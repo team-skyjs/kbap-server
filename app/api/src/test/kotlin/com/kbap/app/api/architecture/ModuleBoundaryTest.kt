@@ -10,6 +10,7 @@ import com.tngtech.archunit.lang.ConditionEvents
 import com.tngtech.archunit.lang.SimpleConditionEvent
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -101,6 +102,25 @@ class ModuleBoundaryTest : BehaviorSpec({
             "avoidance" to emptySet(),
         )
 
+        `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {
+            then("정확히 일치한다 — 맵에 없는 컨텍스트는 방향 검사를 우회할 수 없다") {
+                val foundContexts = imported
+                    .filter {
+                        it.packageName.startsWith("com.kbap.common.domain.") ||
+                            it.packageName.startsWith("com.kbap.domain.")
+                    }
+                    .map {
+                        it.packageName
+                            .removePrefix("com.kbap.common.domain.")
+                            .removePrefix("com.kbap.domain.")
+                            .substringBefore(".")
+                    }
+                    .toSet()
+
+                foundContexts shouldBe allowedDomainDeps.keys
+            }
+        }
+
         allowedDomainDeps.forEach { (context, allowed) ->
             val forbidden = (allowedDomainDeps.keys - allowed - context).sorted()
             `when`("$context 컨텍스트가 허용 목록 $allowed 밖 도메인에 의존하는지 검사하면") {
@@ -112,6 +132,20 @@ class ModuleBoundaryTest : BehaviorSpec({
                         .allowEmptyShould(true)
                         .check(imported)
                 }
+            }
+        }
+    }
+
+    given("JPA 연관관계 금지") {
+        `when`("엔티티 필드의 연관 애너테이션을 검사하면") {
+            then("@OneToMany·@ManyToOne·@OneToOne·@ManyToMany 를 쓰지 않는다 — 참조는 id 값 컬럼") {
+                noFields().that().areDeclaredInClassesThat().resideInAPackage("com.kbap..")
+                    .should().beAnnotatedWith("jakarta.persistence.OneToMany")
+                    .orShould().beAnnotatedWith("jakarta.persistence.ManyToOne")
+                    .orShould().beAnnotatedWith("jakarta.persistence.OneToOne")
+                    .orShould().beAnnotatedWith("jakarta.persistence.ManyToMany")
+                    .allowEmptyShould(true)
+                    .check(imported)
             }
         }
     }

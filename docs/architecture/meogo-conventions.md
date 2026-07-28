@@ -59,30 +59,17 @@ com.kbap.common.domain.food      # 루트 — 서비스·리포지토리·seam
 
 (api 전용 도메인 — 예: `com.kbap.domain.scan` — 도 동일 구조로 `:app:api` 안에 산다.)
 
-## 도메인 객체 불변성 & 영속 변환 ⭐
+## 도메인 모델 = JPA 엔티티 & 값 객체 불변성 ⭐
 
-- **도메인 ↔ JPA 변환은 JPA 엔티티 안에 둔다.** 별도 Mapper 클래스나 adapter 확장함수로 흩지 않는다. 엔티티에 도메인 복원 `toDomain()` 인스턴스 메서드와 `companion object { fun from(domain): Entity }` 팩토리를 두고, **도메인 서비스**는 `Entity.from(domain)`·`entity.toDomain()`만 호출한다. (도메인 모델 클래스는 JPA를 모른다 — ArchUnit 이 강제.)
-- **도메인 객체는 불변(immutable)으로 둔다.** 모든 상태는 `val`. 상태를 바꾸는 도메인 메서드는 객체를 변형하지 않고 **새 인스턴스를 반환**한다. 데이터 클래스의 public `copy` 노출 대신 **`private fun copy(...)`** 를 직접 두어 통제된 복제만 허용하고, 상태 변경 메서드가 이를 호출한다.
-
-```kotlin
-fun increaseStock(quantity: Int): Product {
-    val newStock = stock + quantity
-    return copy(
-        stock = newStock,
-        status = if (status == ProductStatus.SOLD_OUT && newStock > 0) ProductStatus.ON_SALE else status,
-    )
-}
-
-private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
-    Product(id, sellerId, name, price, stock, category, thumbnailUrl, status)
-```
+- **엔티티가 곧 도메인 모델이다**(2026-07-14 대개편, ADR-0012 정합). 별도 도메인 모델 클래스·`toDomain()`/`from()` 변환·Mapper 를 만들지 않는다. 도메인 메서드(`completeOnboarding`·`overallRisk` 등)를 엔티티에 두고, 상태 변경은 관리 엔티티 dirty checking 으로 반영한다(불필요한 `save()` 금지).
+- **값 객체(Value Object)는 불변으로 둔다.** 모든 상태는 `val`, 상태를 바꾸는 메서드는 **검증을 거친 새 인스턴스를 반환**한다(예: `MemberProfile.updatedWith` — 무검증 저장 경로 차단). 영속 애너테이션 없는 도메인 클래스가 jakarta.persistence 를 모르는 것은 ArchUnit(`ModuleBoundaryTest` — 도메인 모델 ORM-free 규칙)이 강제한다.
 
 ## 도메인 간 의존 규칙
 
 1. **의존 방향** — 모듈: `:app:api`·`:app:batch`·`:infra:*` → `:common` 단방향뿐(ADR-0016). 패키지: `com.kbap.app.*` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core` — ArchUnit(`ModuleBoundaryTest`)이 강제한다. 외부 시스템 클라이언트(LLM·소셜 인증·스토리지 등)는 **seam 인터페이스로만** 사용한다(인터페이스는 `:common`, 구현은 `:infra:*`, 조립은 부트앱 config).
 2. **도메인 간 의존은 단방향만, 순환 금지** — 허용 방향의 단일 출처는 `ModuleBoundaryTest` 의 도메인 간 허용 맵이다(현재 avoidance ← member ← food ← scan·bookmark, image ← scan). BC 는 서로의 객체 전체가 아니라 **ID·코드·스냅샷 값**으로 참조하고, 다중 컨텍스트 조합 유스케이스는 `com.kbap.application` 의 Application Service 에 둔다.
 3. **영속 소유** — JPA Entity / Spring Data Repository 는 각 도메인 모듈이 소유하되 **public** 이다([ADR-0014](../adr/0014-relax-persistence-encapsulation.md) — KB-220). 소비 계층(`:application`·`:app:*`)은 단순 영속 접근이면 리포지토리를 직접 쓰고, 이때 트랜잭션 경계도 스스로 선언한다(예: 배치 진행 저장의 `TransactionTemplate(REQUIRES_NEW)`). 위임 전용 창구 서비스는 만들지 않는다.
-3-1. **JPA 연관관계 금지** ⭐ — 엔티티 간 `@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany` 를 두지 않는다. 참조는 **id 값 컬럼**(공유 값 클래스 `FoodId`·`MemberId`)으로만 들고, 연관 데이터는 도메인 서비스가 id(목록)로 명시 조회한다. 지연 로딩이 없어 N+1·`LazyInitializationException` 이 구조적으로 불가하다. 외래키 제약은 Flyway 스키마가 강제한다(ON DELETE 없음 — 소프트 삭제 구조). (ArchUnit 전면 금지 규칙)
+3-1. **JPA 연관관계 금지** ⭐ — 엔티티 간 `@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany` 를 두지 않는다. 참조는 **id 값 컬럼**(`Long` — 명확한 필드명 `memberId`/`foodId`)으로만 들고, 연관 데이터는 도메인 서비스가 id(목록)로 명시 조회한다. 지연 로딩이 없어 N+1·`LazyInitializationException` 이 구조적으로 불가하다. 외래키 제약은 Flyway 스키마가 강제한다(ON DELETE 없음 — 소프트 삭제 구조). ArchUnit(`ModuleBoundaryTest` — "JPA 연관관계 금지" 규칙)이 전면 강제한다.
 4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.
 5. **공통 코드 체계** — 알러지/종교/비건 제한 코드는 `member`(사용자 조건)와 `food`(재료 매핑) 양쪽에서 비교 가능한 **공통 코드**로 둔다.
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`kbap-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
