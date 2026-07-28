@@ -1,5 +1,12 @@
 # Kbap 모듈 구조 정리
 
+> **2026-07-28 갱신([ADR-0016](../adr/0016-module-diet-three-app-modules.md), KB-244 — 최신)**: 도메인
+> 컨텍스트별 모듈(`:core`·`:domain:*`·`:application`)은 해체됐다. 현행 모듈은 **`:common`·`:app:api`·
+> `:app:batch` + `:infra:{llm,auth,redis,storage}`** 7개이며, 컨텍스트 경계는 패키지
+> (공유 `com.kbap.common.domain.<ctx>` / api 전용 `com.kbap.domain.<ctx>`) + ArchUnit 이 긋는다.
+> 권위 있는 현행 구조는 **ADR-0016 + 루트 `CLAUDE.md` "모듈 구조" + [`meogo-conventions.md`](./meogo-conventions.md)** 다.
+> 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 역사적 맥락으로 읽는다.
+
 > **2026-07-13 갱신([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md), KB-134)**: `:infra:persistence` 해체·리포지토리 port 폐기·모듈 리네임(`core/`→`domain/`, kernel→`:core`)이 반영됐다. 아래 컨텍스트별 개념 절의 "Repository 인터페이스" 표기는 도메인 서비스 창구로 읽는다.
 
 > ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `kbap-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.kbap.<layer>`(예: `com.kbap.domain.food`, `com.kbap.infra.persistence`, `com.kbap.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).

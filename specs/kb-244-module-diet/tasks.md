@@ -66,7 +66,7 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 - [X] T015 [P] [US1] `:domain:bookmark`·`:domain:image`·`:domain:metering` 소스 이동 — T014 와 동일 절차 3종(각각 `git mv` → settings 제거 → app:api 참조 삭제), 그린 확인
 - [X] T016 [US1] `:application` 잔여부 흡수 — `git mv application/src/main/kotlin/com/kbap/application app/api/src/main/kotlin/com/kbap/application`(test 동일, T010 이후 잔여 = Home·Auth ApplicationService 등), settings 에서 `":application"` 제거, `application/` 삭제, app:api 의 `:application` 참조 삭제
 - [X] T017 [US1] 모듈 잔재 정리 — settings 에서 `":domain:review"` 제거·`domain/review/`·`domain/research/` 디렉터리 삭제, `domain/` 컨테이너 비면 삭제, `buildSrc/src/main/kotlin/kbap.domain-conventions.gradle.kts` 삭제, `./gradlew projects` = `:common`·`:app:api`·`:app:batch`·`:infra:{llm,auth,redis,storage}` 7개 확인
-- [ ] T018 [US1] PR #2 전반 게이트 — quickstart.md 전 명령(빌드·projects·의존 그래프·양 앱 기동) + `git log --follow` 로 이동 파일 이력 보존 스팟체크
+- [X] T018 [US1] PR #2 전반 게이트 — quickstart.md 전 명령(빌드·projects·의존 그래프·양 앱 기동) + `git log --follow` 로 이동 파일 이력 보존 스팟체크
 
 **Checkpoint**: 모듈 7개, 전체 그린, 양 앱 기동 — US1 완성. 이 시점부터 US3(문서·헌법)만 남음
 
@@ -78,10 +78,10 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 **Independent Test**: ModuleBoundaryTest 그린 + 문서·헌법이 실측 구조(7모듈)와 일치
 
-- [ ] T019 [US3] ModuleBoundaryTest 전면 재검토 — `app/api/src/test/kotlin/com/kbap/app/api/architecture/ModuleBoundaryTest.kt` 의 기존 규칙(core Spring-free·`@Entity` 위치·도메인→상위 금지·application→infra 금지)을 새 구조에서 재확인: 패키지 기준이라 대부분 유효하나, "core Spring-free" 는 common 합류로 의미 재정의(도메인 서비스 `@Service` 는 허용, web 의존 금지로 완화), 죽은 규칙은 삭제·필요 규칙은 보강. 변경마다 Red(위반 샘플)→Green 확인
-- [ ] T020 [P] [US3] 헌법 v6.0.0 개정 — `.specify/memory/constitution.md`: 원칙 II("컨텍스트별 모듈"→"컨텍스트별 패키지 + ArchUnit"), 원칙 III(모듈 그래프 → app→common·infra→common + 패키지 방향), 원칙 IV("소유 도메인 모듈"→"소유 도메인 패키지"), 기존 `:common` 서술 대체. Sync Impact Report 작성(MAJOR 5.0.0→6.0.0, 선례 KB-134·KB-220 형식)
-- [ ] T021 [P] [US3] ADR 작성 — `docs/adr/0015-module-diet-three-modules.md`(다음 빈 번호 확인): 배경(도메인별 모듈의 관리 비용)·결정(3 앱/공유 + infra 유지·common 배치 기준)·결과(경계 강제는 ArchUnit 단독), ADR-0012·0014 와의 관계 명시
-- [ ] T022 [P] [US3] 문서 갱신 — `CLAUDE.md` 모듈 구조 절(개요·모듈 구조·컨벤션의 모듈 서술 전부)과 `docs/architecture/kbap-conventions.md`·`docs/architecture/kbap-api-module-structure.md` 를 7모듈 실측 구조로 갱신
+- [X] T019 [US3] ModuleBoundaryTest 전면 재검토 — `app/api/src/test/kotlin/com/kbap/app/api/architecture/ModuleBoundaryTest.kt` 의 기존 규칙(core Spring-free·`@Entity` 위치·도메인→상위 금지·application→infra 금지)을 새 구조에서 재확인: 패키지 기준이라 대부분 유효하나, "core Spring-free" 는 common 합류로 의미 재정의(도메인 서비스 `@Service` 는 허용, web 의존 금지로 완화), 죽은 규칙은 삭제·필요 규칙은 보강. 변경마다 Red(위반 샘플)→Green 확인
+- [X] T020 [P] [US3] 헌법 v6.0.0 개정 — `.specify/memory/constitution.md`: 원칙 II("컨텍스트별 모듈"→"컨텍스트별 패키지 + ArchUnit"), 원칙 III(모듈 그래프 → app→common·infra→common + 패키지 방향), 원칙 IV("소유 도메인 모듈"→"소유 도메인 패키지"), 기존 `:common` 서술 대체. Sync Impact Report 작성(MAJOR 5.0.0→6.0.0, 선례 KB-134·KB-220 형식)
+- [X] T021 [P] [US3] ADR 작성 — `docs/adr/0015-module-diet-three-modules.md`(다음 빈 번호 확인): 배경(도메인별 모듈의 관리 비용)·결정(3 앱/공유 + infra 유지·common 배치 기준)·결과(경계 강제는 ArchUnit 단독), ADR-0012·0014 와의 관계 명시
+- [X] T022 [P] [US3] 문서 갱신 — `CLAUDE.md` 모듈 구조 절(개요·모듈 구조·컨벤션의 모듈 서술 전부)과 `docs/architecture/kbap-conventions.md`·`docs/architecture/kbap-api-module-structure.md` 를 7모듈 실측 구조로 갱신
 - [ ] T023 [US3] PR #2 오픈 — quickstart.md 최종 전 게이트 + `-Dkotest.tags` 아크 테스트 포함 전체 실행 후 open-draft-pr-to-develop 절차로 **PR #2(api·batch 완성 + 문서)** 오픈
 
 **Checkpoint**: 전 스토리 완성 — 스펙 SC-001~004 충족

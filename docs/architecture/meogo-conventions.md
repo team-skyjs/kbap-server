@@ -19,27 +19,25 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 ## 모듈 구성 (멀티모듈)
 
-레포는 **멀티앱**이다 — `kbap-api`(web) 컨테이너와 `kbap-batch`(배치) 앱, 둘이 공유하는 `common`. `kbap-api` 컨테이너 안에 실행/조율/공통/외부 연동 + 도메인 컨텍스트 leaf 모듈이 평탄하게 들어간다. (상세: [`kbap-api-module-structure.md`](./kbap-api-module-structure.md))
+애플리케이션 모듈은 **`:common`·`:app:api`·`:app:batch` 3개** + 외부 시스템 어댑터 `:infra:*` 4종이다(KB-244, [ADR-0016](../adr/0016-module-diet-three-app-modules.md) — 도메인 컨텍스트별 모듈은 해체, 컨텍스트 경계는 패키지 + ArchUnit). 모듈 의존은 **api·batch·infra → `:common`** 단방향뿐이며 api 와 batch 는 서로를 모른다. (상세: [`kbap-api-module-structure.md`](./kbap-api-module-structure.md))
 
 | 모듈 | 책임 |
 |------|------|
-| `:app:api` | web bootJar, Controller, API DTO, 인증/인가, 예외 응답 변환, Flyway 스키마 owner |
-| `:application` | 유스케이스 조율(도메인 서비스 조합), transaction boundary, Input/Result 경계 타입, 외부 client seam 호출 |
-| `:domain:{food,member,scan,avoidance}` | Active 도메인 컨텍스트 — 도메인 모델(=JPA 엔티티) + 도메인 서비스(비즈니스 로직 소유) + Spring Data 리포지토리(공개 — [ADR-0014](../adr/0014-relax-persistence-encapsulation.md)) |
-| `:domain:research` | Active 도메인. 미스 메뉴 조사·3개 LLM 종합 정책(순수 로직 — 영속 없음). **배치 전용**(web 미노출) ([ADR-0004](../adr/0004-research-bounded-context.md)) |
-| `:domain:review` | Deferred placeholder. 현재 구현 범위 제외, 추후 리뷰 기능 재개 시 별도 컨텍스트로 다시 설계 |
-| `:core` | 공통 타입·예외·유틸·외부 client seam·공유 vocabulary(`LanguageCode`·id 값 클래스 `FoodId`/`MemberId`) + 영속 공통(`BaseEntity`·`EntityStatus`, jakarta/hibernate `compileOnly`). 애플리케이션 코드는 Spring-free |
+| `:common` | **api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드 전부** — 공통 커널(`com.kbap.common.core`: 통합 에러·vocabulary·seam·영속 공통), 공유 도메인(`com.kbap.common.domain.{food,member,avoidance}`), 인증·업로드 seam(`com.kbap.common.application.{auth,upload}`) |
+| `:app:api` | web bootJar — Controller·API DTO·인증/인가·예외 응답 변환·Flyway 스키마 owner + **api 전용 도메인**(`com.kbap.domain.{scan,bookmark,image,metering}`) + **조합 계층**(`com.kbap.application`) |
+| `:app:batch` | 배치 bootJar. common 의 리포지토리·LLM 어댑터를 직접 조립해 잡 실행. flyway off. 음식 콘텐츠(기피성분 조사·9개국어 번역·설명) LLM 파이프라인 실행([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
 | `:infra:llm` | LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존 ([ADR-0010](../adr/0010-llm-adapter-module-named-infra-llm.md)) |
-| `:app:batch` | 배치 bootJar. 도메인 서비스를 직접 조합해 잡 실행. flyway off. **미스 메뉴 재료 조사 + 9개국어 번역 LLM 파이프라인을 하루 1회 실행**([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
-| `:common` | 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback·유틸·어노테이션). web/jpa/도메인 의존 금지, Spring-free |
+| `:infra:auth` | 인증 구현 어댑터 — jjwt(자체 JWT) + firebase-admin(소셜 검증/삭제). seam 은 `common.application.auth`·`common.domain.member` |
+| `:infra:redis` | Redis 어댑터 — refresh token 세션 저장소(`RefreshTokenStore` 구현) |
+| `:infra:storage` | S3 어댑터 — presigned URL 발급(`PresignedUploadPort`)·오브젝트 검증/정리(`StorageObjectStore`) |
 
-- **패키지 레이어링** — 각 도메인 subproject 는 `com.kbap.domain.<context>` 를 루트 패키지로 삼고, 도메인 모델·도메인 서비스·영속 코드가 한 패키지에 함께 산다.
-- **얇은 Controller** — `:app:api`은 HTTP 변환·인증/인가에 집중한다. Application Service는 `:app:api`이 아니라 `:application`에 둔다.
+- **패키지 레이어링** — 도메인 컨텍스트는 패키지가 경계다: 공유 도메인 `com.kbap.common.domain.<context>`, api 전용 도메인 `com.kbap.domain.<context>`. 도메인 모델·도메인 서비스·영속 코드가 한 패키지에 함께 산다.
+- **얇은 Controller** — `:app:api`의 controller 는 HTTP 변환·인증/인가에 집중하고 도메인 서비스를 직접 호출한다. 다중 컨텍스트 조합이 필요한 유스케이스만 `com.kbap.application` 의 Application Service 를 경유한다.
 - **인증/인가** — 별도 BC로 분리하지 않고 `member` 내부 하위 영역으로 두되, 프로필/식이 제한 관리와 **패키지·책임을 분리**한다. 토큰 발급·세션·보안 필터는 도메인이 아니라 API/security 계층 책임.
 
 ## 도메인 모듈 빌딩블록 & 패키지 레이아웃
 
-한 컨텍스트 모듈(`:domain:<context>`)에 들어가는 클래스 종류와 배치([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)·[ADR-0014](../adr/0014-relax-persistence-encapsulation.md)). **전부 public 이다 — 엔티티가 곧 도메인 모델이고, 소비 계층은 리포지토리를 직접 참조할 수 있다(KB-220).**
+한 컨텍스트 패키지(공유는 `com.kbap.common.domain.<context>`, api 전용은 `com.kbap.domain.<context>`)에 들어가는 클래스 종류와 배치([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md)·[ADR-0014](../adr/0014-relax-persistence-encapsulation.md)·[ADR-0016](../adr/0016-module-diet-three-app-modules.md)). **전부 public 이다 — 엔티티가 곧 도메인 모델이고, 소비 계층은 리포지토리를 직접 참조할 수 있다(KB-220).**
 
 | 종류 | 설명 | 예시 |
 |------|------|------|
@@ -48,16 +46,18 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 | 도메인 서비스 | **비즈니스 로직 소유**(`@Service`) — 검증·상태 전이·정책·유비쿼터스 언어 행위. 리포지토리 위임만 하는 창구 메서드를 두지 않는다 | `FoodService`, `MemberService` |
 | Spring Data Repository | 기술 저장소(공개) — 도메인 로직이 필요 없는 소비 계층이 직접 참조 | `FoodJpaRepository` |
 
-**패키지 레이아웃 예시 (`domain/food`)**
+**패키지 레이아웃 예시 (공유 도메인 food — `:common`)**
 
 ```
-com.kbap.domain.food             # 루트 — 서비스·리포지토리·seam
+com.kbap.common.domain.food      # 루트 — 서비스·리포지토리·seam
 ├── FoodService.kt               # 도메인 서비스 (@Service, 비즈니스 로직)
 ├── FoodJpaRepository.kt         # Spring Data (공개)
 └── model/                       # 도메인 모델 — 엔티티·값 객체·enum
     ├── Food.kt                  # JPA 엔티티 = 도메인 모델(도메인 메서드 내장)
     └── FoodContentStatus.kt
 ```
+
+(api 전용 도메인 — 예: `com.kbap.domain.scan` — 도 동일 구조로 `:app:api` 안에 산다.)
 
 ## 도메인 객체 불변성 & 영속 변환 ⭐
 
@@ -79,8 +79,8 @@ private fun copy(stock: Int = this.stock, status: ProductStatus = this.status) =
 
 ## 도메인 간 의존 규칙
 
-1. **의존 방향** — `:app:api` → `:application` → `:domain:*` → `:core`. `:core`는 모두가 의존 가능. 외부 시스템 클라이언트(LLM·소셜 인증 등)는 **seam 인터페이스로만** 사용한다(폐기된 것은 리포지토리 port 이지 외부 어댑터 seam 이 아니다). `:app:batch`는 필요한 도메인 모듈·`:infra:llm`을 직접 의존하고, `:common`은 앱들이 공유하되 web/jpa/도메인에 의존하지 않는다.
-2. **도메인 간 직접 의존 금지** — BC는 서로의 내부 구현을 직접 알지 않는다. **조합은 `:application`의 Application Service에서** 한다. (예: 메뉴판 판정은 `scan`·`food`·`member`·`avoidance`를 쓰고, 미스 메뉴 조사는 `research`·`food`를 쓰지만 서로 직접 의존하지 않음)
+1. **의존 방향** — 모듈: `:app:api`·`:app:batch`·`:infra:*` → `:common` 단방향뿐(ADR-0016). 패키지: `com.kbap.app.*` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core` — ArchUnit(`ModuleBoundaryTest`)이 강제한다. 외부 시스템 클라이언트(LLM·소셜 인증·스토리지 등)는 **seam 인터페이스로만** 사용한다(인터페이스는 `:common`, 구현은 `:infra:*`, 조립은 부트앱 config).
+2. **도메인 간 의존은 단방향만, 순환 금지** — 허용 방향의 단일 출처는 `ModuleBoundaryTest` 의 도메인 간 허용 맵이다(현재 avoidance ← member ← food ← scan·bookmark, image ← scan). BC 는 서로의 객체 전체가 아니라 **ID·코드·스냅샷 값**으로 참조하고, 다중 컨텍스트 조합 유스케이스는 `com.kbap.application` 의 Application Service 에 둔다.
 3. **영속 소유** — JPA Entity / Spring Data Repository 는 각 도메인 모듈이 소유하되 **public** 이다([ADR-0014](../adr/0014-relax-persistence-encapsulation.md) — KB-220). 소비 계층(`:application`·`:app:*`)은 단순 영속 접근이면 리포지토리를 직접 쓰고, 이때 트랜잭션 경계도 스스로 선언한다(예: 배치 진행 저장의 `TransactionTemplate(REQUIRES_NEW)`). 위임 전용 창구 서비스는 만들지 않는다.
 3-1. **JPA 연관관계 금지** ⭐ — 엔티티 간 `@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany` 를 두지 않는다. 참조는 **id 값 컬럼**(공유 값 클래스 `FoodId`·`MemberId`)으로만 들고, 연관 데이터는 도메인 서비스가 id(목록)로 명시 조회한다. 지연 로딩이 없어 N+1·`LazyInitializationException` 이 구조적으로 불가하다. 외래키 제약은 Flyway 스키마가 강제한다(ON DELETE 없음 — 소프트 삭제 구조). (ArchUnit 전면 금지 규칙)
 4. **avoidance 입력 VO 규칙** ⭐ — `avoidance`는 `food`/`member`의 **엔티티·영속 모델에 직접 의존하지 않는다.** `avoidance`는 자기 전용 입력 VO(`AvoidanceInput`: 사용자 식이 제한 조건 + 음식 재료 목록 + 포함 스코어 + 알러지/종교/비건 매핑 + 원문 메뉴명)를 정의하고, **`:application`이 `food`·`member` 데이터를 그 VO로 변환해 전달**한다. 판정 결과(`AvoidanceResult`)도 도메인 결과 객체로 반환한다.

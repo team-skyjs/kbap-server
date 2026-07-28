@@ -1,6 +1,36 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 5.0.0 → 6.0.0   (개정 2026-07-28)
+Bump rationale (MAJOR): 원칙 II·III·IV 의 **모듈 구성 문언을 비호환 재정의**한다(KB-244, ADR-0016).
+  도메인 컨텍스트별 Gradle 모듈(:domain:*)·:core·:application 모듈을 해체하고 애플리케이션 모듈을
+  **:common·:app:api·:app:batch 3개**로 통합한다(외부 시스템 어댑터 :infra:* 4종은 유지 — 총 7모듈).
+  바운디드 컨텍스트·의존 방향·영속 소유의 **취지는 전부 유지**되고 실현 수단만 바뀐다: 컨텍스트 경계는
+  모듈이 아니라 **패키지**(com.kbap.common.domain.<ctx> — 공유 / com.kbap.domain.<ctx> — api 전용)가 긋고,
+  경계 강제는 Gradle 컴파일 차단에서 **ArchUnit(ModuleBoundaryTest — 도메인 간 허용 방향 맵 단일 출처)**
+  로 이관한다. 함께: 원칙 II 의 "도메인 모듈은 서로 직접 의존하지 않는다"(v5 까지 잔존한 구문)를 실제
+  구조(2026-07-14 이후 도메인 간 단방향 의존 허용)와 정합화하고, 원칙 III 의 구 `:common`(공유 계약,
+  jpa 비의존) 서술을 새 :common(공유 커널+도메인+seam) 정의로 대체한다.
+
+Modified principles:
+  II. Bounded Contexts — 컨텍스트별 모듈 → 컨텍스트별 패키지. 도메인 간 단방향 의존 허용(순환 금지,
+      ArchUnit 허용 맵) 정합화. 공유 vocabulary 의 :core 배치 → :common(com.kbap.common.core).
+  III. Layered Dependency Direction — 모듈 그래프(부트앱→application→도메인→core) → 부트앱·infra→:common.
+      패키지 수준 방향(app→application→domain→common.core)은 ArchUnit 이 동일하게 강제.
+  IV. Persistence Ownership — "소유 도메인 모듈 안에" → "소유 도메인 패키지 안에". 경계 강제 수단 서술 갱신.
+
+Templates reviewed:
+  ✅ .specify/templates/plan-template.md  — Constitution Check 가 헌법을 동적 참조. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — 무관. 변경 불필요.
+  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
+
+Docs propagation: ADR-0016(ADR-0012 의 모듈 구성 결정 대체) · CLAUDE.md 모듈 구조·컨벤션 절 ·
+  docs/architecture/{meogo-conventions,meogo-api-module-structure}.md · specs/kb-244-module-diet/.
+
+Follow-up: 없음(KB-244 구현과 동시 반영).
+
+---
+이전 개정 이력
 Version change: 4.0.0 → 5.0.0   (개정 2026-07-22)
 Bump rationale (MAJOR): 원칙 IV 를 **비호환 재정의**한다(KB-220). KB-134 가 확립한 "엔티티·Spring Data
   리포지토리를 Kotlin `internal` 로 감추고 도메인 서비스를 유일 공개 창구로 둔다"를 폐기한다 — 이 캡슐화는
@@ -106,44 +136,48 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 
 ### II. Bounded Contexts — No Cross-Domain Coupling
 
-도메인은 `domain/` 컨테이너 직속의 컨텍스트별 모듈(`:domain:{food,member,scan,avoidance,research}`,
-deferred placeholder `:domain:review`)로 둔다(ADR-0012). (`research`는 미스 메뉴 조사·종합 파이프라인,
-배치 전용 — ADR-0004. `avoidance`는 회피·주의 성분 카탈로그와 판정을 소유하는 컨텍스트 — 구 `assessment`.)
+도메인은 컨텍스트별 **패키지**로 둔다(ADR-0016 — 컨텍스트별 Gradle 모듈은 KB-244 에서 해체):
+공유 도메인(web·배치가 함께 사용)은 `com.kbap.common.domain.{food,member,avoidance}`(`:common`),
+api 전용 도메인은 `com.kbap.domain.{scan,bookmark,image,metering}`(`:app:api`).
 
-- **도메인 모듈은 서로 직접 의존하지 않는다.** 컨텍스트 조합은 오직 `:application`에서 한다.
+- **도메인 간 의존은 단방향만 허용하고 순환을 금지한다.** 허용 방향의 단일 출처는
+  `ModuleBoundaryTest` 의 도메인 간 허용 맵(ArchUnit)이다 — 방향 추가·변경은 이 맵 수정으로만 하며
+  리뷰에서 의식적으로 다룬다.
 - 다른 Aggregate·Context의 객체 전체를 직접 들지 않고 **ID·코드·스냅샷 값**으로 참조한다.
-  (예: member·food 는 회피·주의 성분을 `avoidance` 의 enum 을 import 하지 않고 코드로 참조한다.)
-  여러 컨텍스트가 공유하는 **id 값 클래스**(`FoodId`·`MemberId`)와 vocabulary(`LanguageCode`)는
-  소유 도메인이 아니라 **`:core`** 에 둔다 — 소유 도메인에 두면 참조하는 쪽에 도메인 간 의존이 생긴다.
+  (컴파일 타입 안전이 필요한 식별자 enum — 예: `AvoidanceSubstanceCode` — 참조는 허용 맵의 단방향 의존.)
+  여러 컨텍스트가 공유하는 vocabulary(`LanguageCode` 등)는 소유 도메인이 아니라
+  **공유 커널(`com.kbap.common.core`)** 에 둔다 — 소유 도메인에 두면 참조하는 쪽에 도메인 간 의존이 생긴다.
 - Aggregate 내부 상태는 Aggregate Root를 통해서만 변경한다.
 
 Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도메인별/Worker 분리를 쉽게 한다.
+경계의 실현 수단(모듈→패키지)이 바뀌어도 이 취지는 불변이다.
 
 ### III. Layered Dependency Direction
 
-모듈 의존은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`) → `:application` → 도메인 모듈(`:domain:*`)
-→ `:core`. 두 부트앱은 공유 계층을 직접 의존해 도메인/영속을 재사용한다(ADR-0008·0012).
+**모듈 의존**은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`)과 인프라 어댑터(`:infra:*`)가
+**`:common`** 을 의존한다(ADR-0016). api 와 batch 는 서로를 모르고, `:common` 은 어떤 모듈도 의존하지
+않는다. **패키지 의존**은 `com.kbap.app.*` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core`
+방향을 유지하며 ArchUnit(`ModuleBoundaryTest`)이 강제한다.
 
-- `:core`는 도메인 커널로 모두가 의존 가능하다. 애플리케이션 코드는 **Spring-free** 이며, 전 도메인이
-  상속·사용하는 영속 공통(`BaseEntity`·`EntityStatus`·id 값 클래스와 그 `AttributeConverter`)만
-  ORM 애너테이션을 `compileOnly` 로 참조한다(런타임 제공은 도메인 모듈).
-  `:common`은 앱 간 공유 계약(통합 이벤트·기술 공통)으로 web/jpa/도메인에 의존하지 않는다.
+- `:common` 은 **공유 커널(`com.kbap.common.core`) + 공유 도메인 + 외부 시스템 seam 인터페이스**다 —
+  배치 기준은 "api 밖(배치 또는 인프라 어댑터)이 컴파일 의존하는가" 하나다. 커널(`common.core`)은
+  **Spring-free** 를 유지한다(영속 공통 `BaseEntity`·`EntityStatus` 의 jakarta 애너테이션만 예외).
 - 모듈 간 project 의존은 **`implementation`을 기본**으로 한다. 공개 API에 타입이 드러나는
-  의도적 노출에만 `api`를 쓴다(도메인 모듈 → `api(:core)`).
-- 각 도메인 모듈의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
+  의도적 노출에만 `api`를 쓴다(`:common` → `api`(data-jpa) — 엔티티가 서비스 시그니처에 노출).
+- 각 도메인 패키지의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
   리포지토리 `internal` 캡슐화 폐기, 원칙 IV). 소비 계층은 도메인 로직이 필요하면 도메인 서비스를,
   단순 영속 접근이면 리포지토리를 직접 쓴다.
-  외부 시스템 클라이언트(LLM·소셜 인증 등)는 **port 인터페이스(seam)로만** 사용한다(계층 역전 금지) —
-  폐기된 것은 **리포지토리 port** 이지 외부 어댑터 seam 이 아니다.
+  외부 시스템 클라이언트(LLM·소셜 인증·스토리지 등)는 **seam 인터페이스로만** 사용한다(계층 역전 금지) —
+  인터페이스는 `:common`(`common.core`·`common.application`)에, 구현은 `:infra:*` 에, 조립은 부트앱 config 에 둔다.
 
 Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 하되, 도메인 하나를 다루는 데 필요한
-조각 수를 최소로 유지한다(ADR-0012).
+조각 수를 최소로 유지한다(ADR-0012·0016).
 
 ### IV. Persistence Ownership
 
-JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 모듈 안에 public 으로 둔다**
+JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 패키지 안에 public 으로 둔다**
 (KB-220 — Kotlin `internal` 캡슐화 폐기, ADR-0014 가 ADR-0012 의 internal 결정을 대체). 소비 계층
-(`:application`·`:app:*`)은 단순 영속 접근이 필요하면 리포지토리·엔티티를 직접 참조한다 —
+(조합 계층·부트앱)은 단순 영속 접근이 필요하면 리포지토리·엔티티를 직접 참조한다 —
 리포지토리 위임 외 로직이 없는 **창구 서비스를 만들지 않는다**.
 
 - **엔티티가 곧 도메인 모델이다**(2026-07-14 대개편) — 도메인 메서드를 엔티티에 두고, 별도 도메인 모델
@@ -156,8 +190,9 @@ JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메�
 - **엔티티 간 JPA 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)를 두지 않는다.**
   참조는 **id 값**으로만 들고, 연관 데이터는 id(목록)로 명시 조회한다(예외: 읽기 전용 연관 — conventions
   문서 참조). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = api Flyway).
-- 경계는 **Gradle 의존 방향** + **ArchUnit 테스트**(`app/api` 의 `ModuleBoundaryTest` — 도메인→상위 계층
-  금지·`@Entity` 위치·도메인 모델 ORM-free)로 강제한다.
+- 경계는 **모듈 간 Gradle 의존 방향**(common/api/batch/infra) + **ArchUnit 테스트**(`app/api` 의
+  `ModuleBoundaryTest` — 도메인 간 허용 방향 맵·도메인→상위 계층 금지·`@Entity` 위치·도메인 모델
+  ORM-free)로 강제한다(ADR-0016 — 도메인 간 경계는 ArchUnit 단독).
 
 Rationale: internal 캡슐화가 강제한 "도메인 서비스 유일 창구"는 리포지토리가 필요한 소비 계층마다 위임
 전용 창구 서비스를 만들게 했고, 도메인 모듈에 소비 계층 성격의 코드가 섞였다(KB-220). 컴파일러 강제를
@@ -203,7 +238,8 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 
 ## Additional Constraints (기술·아키텍처)
 
-- 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스(ADR-0008·0012).
+- 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스
+  (ADR-0008·0016 — 모듈 7개: `:common`·`:app:api`·`:app:batch`·`:infra:{llm,auth,redis,storage}`).
   영속: MySQL(+통합 테스트는 MySQL Testcontainers) + Redis(refresh token), 마이그레이션 Flyway. LLM: Spring AI 2.0.
 - 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.kbap.KbapApiApplication` — 패키지 루트라 전 계층 스캔)와
   `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`). 공통 빌드 설정은
@@ -235,4 +271,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/kbap-conventions.md`](../../docs/architecture/kbap-conventions.md)를 참조한다.
 
-**Version**: 5.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-22
+**Version**: 6.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-28

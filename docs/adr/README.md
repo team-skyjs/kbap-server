@@ -28,3 +28,4 @@
 | [0013](./0013-lang-english-fallback.md) | 표시 언어(lang) — 필수화 + 미지원 코드 영어 폴백 | Accepted | 2026-07-20 | specs/kb-201 · Jira KB-201 · specs/008(supersede) · 헌법 v4.0.0 |
 | [0014](./0014-relax-persistence-encapsulation.md) | 영속 캡슐화 완화 — 엔티티·리포지토리 public, 소비 계층 직접 참조 | Accepted | 2026-07-22 | specs/kb-220 · Jira KB-220 · ADR-0012(supersede 일부) · 헌법 v5.0.0 |
 | [0015](./0015-scan-lang-unification-and-profile-language-removal.md) | 스캔 표시 언어를 `lang` 파라미터로 통일 + 회원 프로필 언어 설정 제거 | Accepted | 2026-07-23 | specs/kb-229 · Jira KB-229 · ADR-0013(후속 해소) |
+| [0016](./0016-module-diet-three-app-modules.md) | 모듈 다이어트 — 앱 모듈 api·batch·common 3개 통합, 경계 강제 ArchUnit 이관 | Accepted | 2026-07-28 | specs/kb-244 · Jira KB-244 · ADR-0012(모듈 구성 supersede) · 헌법 v6.0.0 |
