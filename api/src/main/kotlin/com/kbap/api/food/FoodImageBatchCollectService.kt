@@ -156,7 +156,6 @@ class FoodImageBatchCollectService(
     }
 
     companion object {
-        // 파일명 규약(kbap-image-maker 와 동일): sha256(음식명) 12자리 + uuid 16자리 — 재생성마다 새 키로 CDN 캐시 자연 무효화
         fun storageKeyOf(foodName: String): String {
             val hash = HexFormat.of()
                 .formatHex(MessageDigest.getInstance("SHA-256").digest(foodName.toByteArray()))
