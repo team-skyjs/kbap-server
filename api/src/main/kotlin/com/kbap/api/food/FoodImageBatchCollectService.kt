@@ -19,7 +19,10 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.security.MessageDigest
 import java.time.LocalDateTime
+import java.util.HexFormat
+import java.util.UUID
 
 @Service
 class FoodImageBatchCollectService(
@@ -94,7 +97,12 @@ class FoodImageBatchCollectService(
             saveItem(item) { it.fail(result.errorMessage ?: "이미지 데이터 없음") }
             return
         }
-        val key = storageKeyOf(item.foodId)
+        val foodName = foodRepository.findById(item.foodId).orElse(null)?.koreanName
+        if (foodName == null) {
+            saveItem(item) { it.fail("음식이 삭제되어 건너뜀") }
+            return
+        }
+        val key = storageKeyOf(foodName)
         storageObjectStore.put(key, bytes, "image/png")
         var attached = false
         itemTransaction.executeWithoutResult {
@@ -148,7 +156,14 @@ class FoodImageBatchCollectService(
     }
 
     companion object {
-        fun storageKeyOf(foodId: Long): String = "images/food/$foodId.png"
+        // 파일명 규약(kbap-image-maker 와 동일): sha256(음식명) 12자리 + uuid 16자리 — 재생성마다 새 키로 CDN 캐시 자연 무효화
+        fun storageKeyOf(foodName: String): String {
+            val hash = HexFormat.of()
+                .formatHex(MessageDigest.getInstance("SHA-256").digest(foodName.toByteArray()))
+                .take(12)
+            val uuid = UUID.randomUUID().toString().replace("-", "").take(16)
+            return "images/food/${hash}_$uuid.png"
+        }
 
         const val STALE_SUBMITTING_HOURS: Long = 1
     }
