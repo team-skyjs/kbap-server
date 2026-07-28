@@ -18,6 +18,12 @@
 - **Rationale**: 외부 호출(S3 put)은 트랜잭션 밖이어야 한다(헌법). 현재 키는 foodId 만으로 만들 수 있었지만 새 키는 음식명이 필요하다. 읽기 1회 추가가 가장 작은 변경.
 - **Alternatives considered**: (a) 제출 시점에 ImageBatchItem 에 음식명/키를 미리 저장 — 컬럼 추가·마이그레이션이 필요해 과함. (b) put 을 트랜잭션 안으로 이동 — 헌법 위반.
 
+## R3-1. put 이후 트랜잭션 실패 재시도의 고아 객체 방지 (리뷰 반영)
+
+- **Decision**: put **전에** 생성 키를 `ImageBatchItem.fileName` 에 예약 저장하고, 재시도 시 예약 키가 있으면 재사용한다(같은 키 덮어쓰기 — 고아 없음).
+- **Rationale**: 키가 랜덤(uuid)이 되면서, put 성공 후 항목 트랜잭션이 실패(일시 DB 장애 등)하면 PENDING 재시도마다 새 키로 객체가 쌓이는 회귀가 생겼다. 예약-재사용은 delete 보상(베스트에포트)과 달리 S3 장애 시에도 누수가 없고 기존 컬럼(varchar 500)을 그대로 쓴다. 예약 쓰기 자체가 실패하면 put 전에 중단되므로 역시 고아가 없다.
+- **Alternatives considered**: 트랜잭션 실패 시 best-effort `delete(key)` — 구현은 짧지만 delete 실패 시 누수가 남고, 이 코드베이스의 페이크 통합 테스트로 실패 주입이 어렵다.
+
 ## R4. 스캔 업로드 키 구조
 
 - **Decision**: `{환경접두}/images/scans/{yyyy}/{mm}/{memberId}_{uuid}.{ext}` — 폴더는 연/월까지, 회원ID 는 파일명 접두로 이동, uuid 는 현행(전체 36자) 유지, 환경접두는 KB-171 대로 유지.

@@ -343,6 +343,41 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             }
         }
 
+        given("회수 — put 이후 트랜잭션 실패분 재시도") {
+            `when`("PENDING 항목에 직전 시도가 예약해 둔 파일명이 남아 있으면") {
+                then("새 키를 만들지 않고 예약 키를 재사용한다 — 재시도마다 고아 객체가 쌓이지 않는다") {
+                    val food = savePendingImage("재시도음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    val reservedKey = "images/food/aaaaaaaaaaaa_bbbbbbbbbbbbbbbb.png"
+                    itemRepository.save(itemRepository.findAll().single().apply { fileName = reservedKey })
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_retry")
+                    fakeClient.results["file_retry"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    fakeStorage.heads.keys.single() shouldBe reservedKey
+                    foodRepository.findById(food.id).get().imageRef shouldBe reservedKey
+                    val item = itemRepository.findAll().single()
+                    item.itemStatus shouldBe ImageBatchItemStatus.DONE
+                    item.fileName shouldBe reservedKey
+                }
+            }
+
+            `when`("예약 파일명이 없는 항목을 정상 회수하면") {
+                then("생성한 키가 put 전에 항목에 예약 저장되어 완료 키와 일치한다") {
+                    val food = savePendingImage("예약음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_reserve")
+                    fakeClient.results["file_reserve"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val item = itemRepository.findAll().single()
+                    item.fileName shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
         given("회수 — failed/expired 배치(US3)") {
             `when`("배치가 failed 로 끝나면") {
                 then("PENDING 전 항목 FAILED + 배치 FAILED 로 마감된다") {

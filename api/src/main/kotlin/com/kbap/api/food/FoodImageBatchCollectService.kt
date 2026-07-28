@@ -102,7 +102,10 @@ class FoodImageBatchCollectService(
             saveItem(item) { it.fail("음식이 삭제되어 건너뜀") }
             return
         }
-        val key = storageKeyOf(foodName)
+        // put 전에 키를 예약 저장 — put 후 트랜잭션 실패로 재시도돼도 같은 키를 덮어써 고아 객체가 안 남는다
+        val key = item.fileName ?: storageKeyOf(foodName).also { reserved ->
+            saveItem(item) { it.fileName = reserved }
+        }
         storageObjectStore.put(key, bytes, "image/png")
         var attached = false
         itemTransaction.executeWithoutResult {
