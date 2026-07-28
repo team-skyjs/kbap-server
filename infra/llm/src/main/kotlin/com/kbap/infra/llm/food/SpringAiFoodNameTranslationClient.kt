@@ -1,8 +1,8 @@
 package com.kbap.infra.llm.food
 
-import com.kbap.common.core.food.FoodNameTranslationClient
-import com.kbap.common.core.food.TargetLanguageTexts
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.port.llm.FoodNameTranslationClient
+import com.kbap.common.domain.food.model.TargetLanguageTexts
+import com.kbap.common.domain.LanguageCode
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 

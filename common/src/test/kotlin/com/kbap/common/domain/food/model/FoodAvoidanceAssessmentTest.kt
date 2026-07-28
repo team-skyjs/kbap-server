@@ -1,6 +1,6 @@
 package com.kbap.common.domain.food.model
 
-import com.kbap.common.core.risk.RiskLevel
+import com.kbap.common.domain.food.model.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe

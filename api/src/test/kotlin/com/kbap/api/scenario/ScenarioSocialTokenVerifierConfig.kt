@@ -1,7 +1,7 @@
 package com.kbap.api.scenario
 
-import com.kbap.common.application.auth.social.SocialTokenVerifier
-import com.kbap.common.domain.member.SocialAccountDeleter
+import com.kbap.common.port.auth.SocialTokenVerifier
+import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import org.springframework.boot.test.context.TestConfiguration

@@ -1,6 +1,6 @@
 package com.kbap.api.common.auth
 
-import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.port.auth.AuthTokenProperties
 import com.kbap.infra.auth.token.JwtTokenIssuer
 import com.kbap.infra.auth.token.JwtTokenParser
 import com.kbap.common.domain.member.model.MemberRole

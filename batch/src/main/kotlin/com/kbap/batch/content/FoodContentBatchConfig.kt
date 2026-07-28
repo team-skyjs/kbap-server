@@ -1,8 +1,8 @@
 package com.kbap.batch.content
 
-import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.common.core.food.FoodDescriptionClient
-import com.kbap.common.core.food.FoodNameTranslationClient
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
+import com.kbap.common.port.llm.FoodDescriptionClient
+import com.kbap.common.port.llm.FoodNameTranslationClient
 import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food

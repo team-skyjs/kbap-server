@@ -1,6 +1,5 @@
 package com.kbap.api.foodimage
 
-import com.kbap.application.foodimage.FoodImageBatchSubmitService
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository

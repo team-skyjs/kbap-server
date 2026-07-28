@@ -1,7 +1,7 @@
 package com.kbap.api.config
 
-import com.kbap.common.application.upload.PresignedUploadPort
-import com.kbap.common.core.storage.StorageObjectStore
+import com.kbap.common.port.storage.PresignedUploadPort
+import com.kbap.common.port.storage.StorageObjectStore
 import com.kbap.infra.storage.S3PresignedUploadPort
 import com.kbap.infra.storage.S3StorageObjectStore
 import org.springframework.beans.factory.annotation.Value

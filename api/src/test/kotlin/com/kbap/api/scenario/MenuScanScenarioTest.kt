@@ -2,7 +2,7 @@ package com.kbap.api.scenario
 
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.scan.FakeMenuBoardVisionExtractor
-import com.kbap.common.core.scan.ExtractedMenu
+import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.annotation.Tags

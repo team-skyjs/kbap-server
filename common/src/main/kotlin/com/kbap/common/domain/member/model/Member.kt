@@ -2,7 +2,7 @@ package com.kbap.common.domain.member.model
 
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
-import com.kbap.common.core.persistence.BaseEntity
+import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

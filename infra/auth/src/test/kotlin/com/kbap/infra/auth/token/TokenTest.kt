@@ -1,6 +1,6 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.port.auth.AuthTokenProperties
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.member.model.MemberRole

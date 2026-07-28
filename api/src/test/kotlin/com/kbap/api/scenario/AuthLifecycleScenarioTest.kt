@@ -1,6 +1,6 @@
 package com.kbap.api.scenario
 
-import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.port.auth.AuthTokenProperties
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.annotation.Tags

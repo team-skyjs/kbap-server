@@ -1,8 +1,8 @@
 package com.kbap.common.domain.avoidance.model
 
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.common.core.lang.LocalizedText
-import com.kbap.common.core.persistence.BaseEntity
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.LocalizedText
+import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

@@ -1,10 +1,16 @@
 # Kbap 모듈 구조 정리
 
-> **2026-07-28 갱신([ADR-0016](../adr/0016-module-diet-three-app-modules.md), KB-244 — 최신)**: 도메인
+> **2026-07-28 갱신([ADR-0017](../adr/0017-api-feature-package-flattening.md) — 최신)**:
+> `:api`의 `com.kbap.domain`·`com.kbap.application` 계층 패키지를 폐기하고
+> controller·request/response·API 전용 서비스·결과 타입을 `com.kbap.api.<feature>`에 함께 둔다.
+> 영속과 공유 도메인은 `com.kbap.common.domain.<context>`, 인프라 seam은
+> `com.kbap.common.port.<구현모듈>`에 유지한다. 아래 본문의 `:application`·`:domain:*` 모듈과
+> API 계층 패키지 표기는 역사적 설계 설명이며 신규 코드 배치 규칙으로 사용하지 않는다.
+
+> **2026-07-28 갱신([ADR-0016](../adr/0016-module-diet-three-app-modules.md), KB-244)**: 도메인
 > 컨텍스트별 모듈(`:core`·`:domain:*`·`:application`)은 해체됐다. 현행 모듈은 **`:common`·`:api`·
-> `:batch` + `:infra:{llm,auth,redis,storage}`** 7개이며, 컨텍스트 경계는 패키지
-> (공유 `com.kbap.common.domain.<ctx>` / api 전용 `com.kbap.domain.<ctx>`) + ArchUnit 이 긋는다.
-> 권위 있는 현행 구조는 **ADR-0016 + 루트 `CLAUDE.md` "모듈 구조" + [`meogo-conventions.md`](./meogo-conventions.md)** 다.
+> `:batch` + `:infra:{llm,auth,redis,storage}`** 7개다.
+> 권위 있는 현행 구조는 **ADR-0016·0017 + 루트 `CLAUDE.md` "모듈 구조" + [`meogo-conventions.md`](./meogo-conventions.md)** 다.
 > 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 역사적 맥락으로 읽는다.
 
 > **2026-07-13 갱신([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md), KB-134)**: `:infra:persistence` 해체·리포지토리 port 폐기·모듈 리네임(`core/`→`domain/`, kernel→`:core`)이 반영됐다. 아래 컨텍스트별 개념 절의 "Repository 인터페이스" 표기는 도메인 서비스 창구로 읽는다.

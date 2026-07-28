@@ -1,6 +1,5 @@
 package com.kbap.api.auth
 
-import com.kbap.application.auth.dto.RefreshResult
 import jakarta.validation.constraints.NotBlank
 
 data class RefreshRequest(

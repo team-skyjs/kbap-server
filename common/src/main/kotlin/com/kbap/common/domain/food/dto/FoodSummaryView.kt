@@ -1,8 +1,8 @@
 package com.kbap.common.domain.food.dto
 
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.common.core.risk.RiskLevel
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.model.RiskLevel
 
 data class FoodSummaryView(
     val foodId: Long,

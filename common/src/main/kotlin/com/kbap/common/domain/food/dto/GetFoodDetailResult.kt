@@ -1,6 +1,6 @@
 package com.kbap.common.domain.food.dto
 
-import com.kbap.common.core.risk.RiskLevel
+import com.kbap.common.domain.food.model.RiskLevel
 
 data class GetFoodDetailResult(
     val name: String,

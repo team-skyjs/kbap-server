@@ -1,8 +1,6 @@
 package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
-import com.kbap.application.home.dto.AvoidedSubstanceView
-import com.kbap.application.home.dto.HomeResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "홈 화면 응답 — 기피 성분·인기 음식·최근 스캔 세 섹션")

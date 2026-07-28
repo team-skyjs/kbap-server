@@ -1,6 +1,6 @@
 package com.kbap.infra.auth.firebase
 
-import com.kbap.common.domain.member.SocialAccountDeleter
+import com.kbap.common.port.auth.SocialAccountDeleter
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException

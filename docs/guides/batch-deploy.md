@@ -89,7 +89,7 @@ aws ecs register-task-definition --cli-input-json file://batch-taskdef.json
 
 ```json
 {
-  "family": "kbap-batch-prod",
+  "family": "kbap-prod-batch",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -115,7 +115,7 @@ aws ecs register-task-definition --cli-input-json file://batch-taskdef.json
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/kbap-batch-prod",
+          "awslogs-group": "/ecs/kbap-prod-batch",
           "awslogs-region": "<region>",
           "awslogs-stream-prefix": "batch",
           "awslogs-create-group": "true"
@@ -157,7 +157,7 @@ aws scheduler create-schedule \
     "Arn": "<ECS 클러스터 ARN>",
     "RoleArn": "<스케줄러 실행 롤 ARN — ecs:RunTask + 두 태스크 롤 iam:PassRole>",
     "EcsParameters": {
-      "TaskDefinitionArn": "arn:aws:ecs:<region>:<account>:task-definition/kbap-batch-prod",
+      "TaskDefinitionArn": "arn:aws:ecs:<region>:<account>:task-definition/kbap-prod-batch",
       "LaunchType": "FARGATE",
       "NetworkConfiguration": {
         "awsvpcConfiguration": {
@@ -170,7 +170,7 @@ aws scheduler create-schedule \
   }'
 ```
 
-실패 확인은 CloudWatch 로그(`/ecs/kbap-batch-prod`)로 한다. 알림이 필요해지면
+실패 확인은 CloudWatch 로그(`/ecs/kbap-prod-batch`)로 한다. 알림이 필요해지면
 EventBridge 규칙(ECS Task State Change, `stopCode`/`exitCode` 비정상) → SNS 를 추가한다.
 
 ## GitHub 환경별 vars
@@ -179,7 +179,7 @@ EventBridge 규칙(ECS Task State Change, `stopCode`/`exitCode` 비정상) → S
 
 | var | 값 예시 | 용도 |
 |---|---|---|
-| `ECS_BATCH_TASK_FAMILY` | `kbap-batch-prod` | 태스크정의 family |
+| `ECS_BATCH_TASK_FAMILY` | `kbap-prod-batch` | 태스크정의 family |
 | `BATCH_SUBNETS` | `subnet-aaa,subnet-bbb` | run-task awsvpc 서브넷(프라이빗 — OpenAI 아웃바운드용 NAT 필요) |
 | `BATCH_SECURITY_GROUPS` | `sg-xxx` | RDS 인바운드 허용된 SG |
 | `ECR_BATCH_REPOSITORY` | `kbap-batch` | (선택) 배치 전용 ECR 저장소 — 없으면 `ECR_REPOSITORY` 에 `batch-` 태그로 공존 |

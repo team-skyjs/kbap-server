@@ -1,8 +1,8 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.common.application.auth.dto.IssuedRefreshToken
-import com.kbap.common.application.auth.token.AuthTokenProperties
-import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.port.auth.IssuedRefreshToken
+import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.common.port.auth.TokenIssuer
 
 import com.kbap.common.domain.member.model.MemberRole
 import io.jsonwebtoken.Jwts

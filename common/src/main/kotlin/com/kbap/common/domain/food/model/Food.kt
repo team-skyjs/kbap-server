@@ -1,11 +1,12 @@
 package com.kbap.common.domain.food.model
 
-import com.kbap.common.core.food.FoodAvoidanceAssessmentResult
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.common.core.lang.LocalizedText
-import com.kbap.common.core.menu.KoreanMenuNameNormalizer
-import com.kbap.common.core.persistence.BaseEntity
-import com.kbap.common.core.risk.RiskLevel
+import com.kbap.common.domain.BaseEntity
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.LocalizedText
+import com.kbap.common.domain.Spiciness
+import com.kbap.common.domain.food.KoreanMenuNameNormalizer
+import com.kbap.common.domain.food.model.RiskLevel
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -81,8 +82,8 @@ class Food(
     }
 
     fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
-        require(spiciness in FoodAvoidanceAssessmentResult.SPICINESS_RANGE) {
-            "spiciness 는 ${FoodAvoidanceAssessmentResult.SPICINESS_RANGE} 여야 합니다: $spiciness"
+        require(spiciness in Spiciness.RANGE) {
+            "spiciness 는 ${Spiciness.RANGE} 여야 합니다: $spiciness"
         }
         this.avoidanceSubstances = substances
         this.spiciness = spiciness

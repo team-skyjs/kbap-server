@@ -1,6 +1,38 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 6.0.0 → 7.0.0   (개정 2026-07-28)
+Bump rationale (MAJOR): 원칙 II·III·IV 가 강제하던 API 모듈의 계층 패키지
+  `com.kbap.domain`·`com.kbap.application`을 폐기하고 `com.kbap.api.<feature>` 기능 패키지로
+  비호환 재정의한다(ADR-0017). `:common`의 도메인(`common.domain`)·seam(`common.port`)과
+  api·batch·infra → common 모듈 의존은 유지한다. ArchUnit 도메인 방향 검사는 실제 도메인·영속이
+  존재하는 `com.kbap.common.domain.<ctx>`만 대상으로 한다.
+
+Modified principles:
+  II. Bounded Contexts — api 전용 `com.kbap.domain.<ctx>` 경계를 폐기하고 도메인 경계를
+      `com.kbap.common.domain.<ctx>`로 일원화. API 전용 조합은 `com.kbap.api.<feature>`가 소유.
+  III. Layered Dependency Direction — api→application→domain 패키지 체인을 api 기능 패키지→common
+      방향으로 단순화. common.port(구 common.application)는 인프라 seam 계약으로만 유지.
+  IV. Persistence Ownership — ArchUnit 경계 설명에서 폐기된 api domain/application 패키지를 제거.
+
+Added sections: 없음
+Removed sections: 없음
+
+Templates reviewed:
+  ✅ .specify/templates/plan-template.md  — Constitution Check 가 헌법을 동적 참조. 변경 불필요.
+  ✅ .specify/templates/tasks-template.md — Test-First 동기화 유지, 변경 불필요.
+  ✅ .specify/templates/spec-template.md  — 헌법 결합 없음. 변경 불필요.
+  ✅ .specify/templates/commands/         — command 템플릿 없음.
+
+Docs propagation: ADR-0017(ADR-0016 패키지 결정 일부 대체) · CLAUDE.md ·
+  docs/architecture/{meogo-conventions,meogo-api-module-structure}.md.
+
+Follow-up: 없음.
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change: 5.0.0 → 6.0.0   (개정 2026-07-28)
 Bump rationale (MAJOR): 원칙 II·III·IV 의 **모듈 구성 문언을 비호환 재정의**한다(KB-244, ADR-0016).
   도메인 컨텍스트별 Gradle 모듈(:domain:*)·:core·:application 모듈을 해체하고 애플리케이션 모듈을
@@ -137,45 +169,46 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 
 ### II. Bounded Contexts — No Cross-Domain Coupling
 
-도메인은 컨텍스트별 **패키지**로 둔다(ADR-0016 — 컨텍스트별 Gradle 모듈은 KB-244 에서 해체):
-**영속(JPA 엔티티·리포지토리)은 컨텍스트 불문 `com.kbap.common.domain.<ctx>`(`:common`)**,
-도메인 서비스·dto 는 그 컨텍스트를 쓰는 앱 모듈에 둔다 — 공유 도메인(web·배치 공용)은
-`com.kbap.common.domain.{food,member,avoidance}`(`:common`), api 전용 도메인은
-`com.kbap.domain.{scan,bookmark,image,metering}`(`:api`). 한 컨텍스트가 두 패키지에 걸쳐도
-ArchUnit 은 이를 같은 컨텍스트로 묶어 방향을 검사한다.
+도메인은 컨텍스트별 **`com.kbap.common.domain.<ctx>` 패키지**로 둔다(ADR-0016·0017 —
+컨텍스트별 Gradle 모듈은 KB-244 에서 해체). JPA 엔티티·리포지토리는 모든 컨텍스트가 `:common`에
+소유하고, web·batch가 공유하는 도메인 서비스·dto도 같은 패키지에 둔다. API 앱만 소비하는 요청 조합,
+외부 seam 호출, 응답 조립은 도메인 패키지로 위장하지 않고 **`com.kbap.api.<feature>`**에 둔다.
+`:api`에서는 `com.kbap.domain`·`com.kbap.application` 패키지를 사용하지 않는다.
 
 - **도메인 간 의존은 단방향만 허용하고 순환을 금지한다.** 허용 방향의 단일 출처는
-  `ModuleBoundaryTest` 의 도메인 간 허용 맵(ArchUnit)이다 — 방향 추가·변경은 이 맵 수정으로만 하며
-  리뷰에서 의식적으로 다룬다.
+  `ModuleBoundaryTest`의 `com.kbap.common.domain.<ctx>` 허용 맵(ArchUnit)이다 — 방향 추가·변경은
+  이 맵 수정으로만 하며 리뷰에서 의식적으로 다룬다. 컨트롤러와 유스케이스 조합이 함께 있는
+  `com.kbap.api.<feature>`는 도메인 의존 맵의 대상이 아니다.
 - 다른 Aggregate·Context의 객체 전체를 직접 들지 않고 **ID·코드·스냅샷 값**으로 참조한다.
   (컴파일 타입 안전이 필요한 식별자 enum — 예: `AvoidanceSubstanceCode` — 참조는 허용 맵의 단방향 의존.)
   여러 컨텍스트가 공유하는 vocabulary(`LanguageCode` 등)는 소유 도메인이 아니라
-  **공유 커널(`com.kbap.common.core`)** 에 둔다 — 소유 도메인에 두면 참조하는 쪽에 도메인 간 의존이 생긴다.
+  **공유 도메인 vocabulary(`com.kbap.common.domain` 루트)** 에 둔다 — 소유 도메인에 두면 참조하는 쪽에 도메인 간 의존이 생긴다.
 - Aggregate 내부 상태는 Aggregate Root를 통해서만 변경한다.
 
-Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도메인별/Worker 분리를 쉽게 한다.
-경계의 실현 수단(모듈→패키지)이 바뀌어도 이 취지는 불변이다.
+Rationale: 실제 도메인·영속 코드는 컨텍스트 경계를 유지하면서, API 전용 조합 코드는 기능별로 모아
+한 유스케이스를 찾기 위해 api/domain/application 패키지를 오가는 비용을 없앤다.
 
 ### III. Layered Dependency Direction
 
 **모듈 의존**은 한 방향으로만 흐른다: 부트앱(`:api`·`:batch`)과 인프라 어댑터(`:infra:*`)가
 **`:common`** 을 의존한다(ADR-0016). api 와 batch 는 서로를 모르고, `:common` 은 어떤 모듈도 의존하지
-않는다. **패키지 의존**은 `com.kbap.{api,batch}` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core`
-방향을 유지하며 ArchUnit(`ModuleBoundaryTest`)이 강제한다.
+않는다. **패키지 의존**은 `com.kbap.{api,batch}`와 `com.kbap.infra` → `com.kbap.common.{application,domain,core}`
+방향을 유지하며 Gradle과 ArchUnit(`ModuleBoundaryTest`)이 강제한다. API 컨트롤러·유스케이스·결과 타입은
+`com.kbap.api.<feature>`에 함께 두고, `common.port.{llm,storage,auth}`는 인프라 어댑터가 구현하는 seam 계약만 소유한다.
 
-- `:common` 은 **공유 커널(`com.kbap.common.core`) + 공유 도메인 + 외부 시스템 seam 인터페이스**다 —
+- `:common` 은 **공통 에러 커널(`common.core`) + 도메인(`common.domain` — 영속 전부·공유 vocabulary·공유 도메인 서비스) + 외부 시스템 seam(`common.port`)**다 —
   배치 기준은 "api 밖(배치 또는 인프라 어댑터)이 컴파일 의존하는가" 하나다. 커널(`common.core`)은
   **Spring-free** 를 유지한다(영속 공통 `BaseEntity`·`EntityStatus` 의 jakarta 애너테이션만 예외).
 - 모듈 간 project 의존은 **`implementation`을 기본**으로 한다. 공개 API에 타입이 드러나는
   의도적 노출에만 `api`를 쓴다(`:common` → `api`(data-jpa) — 엔티티가 서비스 시그니처에 노출).
-- 각 도메인 패키지의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
+- 각 `common.domain` 패키지의 공개 API 는 **도메인 서비스(비즈니스 로직 소유)·도메인 모델·리포지토리**다(KB-220 —
   리포지토리 `internal` 캡슐화 폐기, 원칙 IV). 소비 계층은 도메인 로직이 필요하면 도메인 서비스를,
   단순 영속 접근이면 리포지토리를 직접 쓴다.
   외부 시스템 클라이언트(LLM·소셜 인증·스토리지 등)는 **seam 인터페이스로만** 사용한다(계층 역전 금지) —
-  인터페이스는 `:common`(`common.core`·`common.application`)에, 구현은 `:infra:*` 에, 조립은 부트앱 config 에 둔다.
+  인터페이스는 `:common`(`common.port.{llm,storage,auth}`)에, 구현은 `:infra:*` 에, 조립은 부트앱 config 에 둔다.
 
-Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 하되, 도메인 하나를 다루는 데 필요한
-조각 수를 최소로 유지한다(ADR-0012·0016).
+Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶이지 않게 하되, API 기능을 이해하는 데 필요한
+패키지 이동과 조각 수를 최소로 유지한다(ADR-0012·0016·0017).
 
 ### IV. Persistence Ownership
 
@@ -195,9 +228,9 @@ JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메�
 - **엔티티 간 JPA 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)를 두지 않는다.**
   참조는 **id 값**으로만 들고, 연관 데이터는 id(목록)로 명시 조회한다(예외: 읽기 전용 연관 — conventions
   문서 참조). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = api Flyway).
-- 경계는 **모듈 간 Gradle 의존 방향**(common/api/batch/infra) + **ArchUnit 테스트**(`api` 의
-  `ModuleBoundaryTest` — 도메인 간 허용 방향 맵·도메인→상위 계층 금지·`@Entity` 위치·도메인 모델
-  ORM-free)로 강제한다(ADR-0016 — 도메인 간 경계는 ArchUnit 단독).
+- 경계는 **모듈 간 Gradle 의존 방향**(common/api/batch/infra) + **ArchUnit 테스트**(`api`의
+  `ModuleBoundaryTest` — `common.domain` 간 허용 방향 맵·도메인→api/infra 금지·`@Entity` 위치·
+  도메인 모델 ORM-free·API 구 패키지 금지)로 강제한다(ADR-0016·0017).
 
 Rationale: internal 캡슐화가 강제한 "도메인 서비스 유일 창구"는 리포지토리가 필요한 소비 계층마다 위임
 전용 창구 서비스를 만들게 했고, 도메인 모듈에 소비 계층 성격의 코드가 섞였다(KB-220). 컴파일러 강제를
@@ -276,4 +309,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 6.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-28
+**Version**: 7.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-28

@@ -1,7 +1,7 @@
 package com.kbap.api.foodimage
 
-import com.kbap.common.core.food.FoodImageBatchClient
-import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.port.llm.LlmCallCostIncurred
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary

@@ -2,7 +2,7 @@ package com.kbap.common.domain.avoidance
 
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstance
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

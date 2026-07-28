@@ -6,8 +6,8 @@ import com.kbap.api.common.CursorParser
 import com.kbap.api.common.Page
 import com.kbap.api.common.SearchKeywordParser
 import com.kbap.api.common.auth.AuthMemberIdOrNull
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.domain.bookmark.BookmarkService
+import com.kbap.common.domain.LanguageCode
+import com.kbap.api.bookmark.BookmarkService
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.dto.BrowseFoodsInput
 import com.kbap.common.domain.food.dto.FoodSummaryView

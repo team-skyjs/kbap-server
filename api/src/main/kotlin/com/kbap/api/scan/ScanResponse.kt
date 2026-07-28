@@ -1,6 +1,5 @@
 package com.kbap.api.scan
 
-import com.kbap.domain.scan.dto.ScanResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "메뉴 스캔 판정 결과 — 요청 idx 로 짝이 맞는 항목별 매칭·위험도")

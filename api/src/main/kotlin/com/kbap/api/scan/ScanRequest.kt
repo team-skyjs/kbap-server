@@ -1,7 +1,7 @@
 package com.kbap.api.scan
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.kbap.common.core.scan.OcrItem
+import com.kbap.common.port.llm.OcrItem
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue

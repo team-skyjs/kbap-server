@@ -1,10 +1,9 @@
 package com.kbap.api.scan
 
-import com.kbap.domain.scan.ScanService
 import com.kbap.api.common.ApiPaths
 import com.kbap.api.common.BaseResponse
 import com.kbap.api.common.auth.AuthMemberId
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ModelAttribute

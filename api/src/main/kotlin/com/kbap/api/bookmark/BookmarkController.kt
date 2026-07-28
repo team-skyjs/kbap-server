@@ -6,8 +6,7 @@ import com.kbap.api.common.CursorParser
 import com.kbap.api.common.Page
 import com.kbap.api.common.auth.AuthMemberId
 import com.kbap.api.food.FoodSummaryResponse
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.domain.bookmark.BookmarkService
+import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

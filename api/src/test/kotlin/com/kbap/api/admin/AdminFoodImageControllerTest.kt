@@ -1,7 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.api.foodimage.FakeFoodImageBatchClient
-import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository

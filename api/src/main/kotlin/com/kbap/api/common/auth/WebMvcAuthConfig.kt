@@ -1,7 +1,7 @@
 package com.kbap.api.common.auth
 
 import com.kbap.api.common.ApiPaths
-import com.kbap.common.application.auth.token.TokenParser
+import com.kbap.common.port.auth.TokenParser
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

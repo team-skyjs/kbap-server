@@ -1,10 +1,10 @@
 package com.kbap.batch.content
 
 import com.kbap.batch.BatchTestClientConfig
-import com.kbap.common.core.food.FoodAvoidanceAssessment
-import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.common.core.food.FoodAvoidanceAssessmentResult
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.port.llm.FoodAvoidanceAssessment
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food

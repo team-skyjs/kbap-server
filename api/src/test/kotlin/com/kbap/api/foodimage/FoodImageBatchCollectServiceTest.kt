@@ -1,9 +1,8 @@
 package com.kbap.api.foodimage
 
 import com.kbap.api.image.FakeStorageObjectStore
-import com.kbap.application.foodimage.FoodImageBatchCollectService
-import com.kbap.common.core.food.FoodImageBatchClient
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository

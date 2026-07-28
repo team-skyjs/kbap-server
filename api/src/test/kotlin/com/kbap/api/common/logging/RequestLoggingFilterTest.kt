@@ -2,7 +2,7 @@ package com.kbap.api.common.logging
 
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
-import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec

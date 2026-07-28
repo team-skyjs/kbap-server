@@ -1,7 +1,7 @@
 package com.kbap.common.domain.food.model
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.kbap.common.core.risk.RiskLevel
+import com.kbap.common.domain.food.model.RiskLevel
 
 data class FoodAvoidanceItem(
     val code: String,

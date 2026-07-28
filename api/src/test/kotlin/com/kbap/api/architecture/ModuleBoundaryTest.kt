@@ -27,20 +27,39 @@ class ModuleBoundaryTest : BehaviorSpec({
 
     val core = "com.kbap.common.core.."
     val sharedDomain = "com.kbap.common.domain.."
-    val apiDomain = "com.kbap.domain.."
     val spring = "org.springframework.."
     val jpa = "jakarta.persistence.."
 
+    given("API 모듈 프로덕션 패키지 경계") {
+        `when`("구 도메인·application 패키지의 클래스 존재 여부를 검사하면") {
+            then("com.kbap.domain 과 com.kbap.application 패키지에는 클래스가 존재하지 않는다") {
+                val legacySourceFiles = mutableSetOf<String>()
+                val notExist =
+                    object : ArchCondition<JavaClass>("구 패키지에 존재하지 않는다") {
+                        override fun check(item: JavaClass, events: ConditionEvents) {
+                            val sourceFile = "${item.packageName}/${item.sourceCodeLocation.sourceFileName}"
+                            if (legacySourceFiles.add(sourceFile)) {
+                                events.add(SimpleConditionEvent.violated(item, "$sourceFile 이 구 패키지에 존재한다"))
+                            }
+                        }
+                    }
+
+                classes().that().resideInAnyPackage("com.kbap.domain..", "com.kbap.application..")
+                    .should(notExist)
+                    .allowEmptyShould(true)
+                    .check(imported)
+            }
+        }
+    }
+
     given("커널 패키지(common.core) 경계") {
         `when`("커널이 의존하는 패키지를 검사하면") {
-            then("스프링·도메인·상위 계층에 의존하지 않는다") {
+            then("스프링·도메인·포트·상위 계층에 의존하지 않는다") {
                 noClasses().that().resideInAPackage(core)
                     .should().dependOnClassesThat().resideInAnyPackage(
                         spring,
                         sharedDomain,
-                        apiDomain,
-                        "com.kbap.common.application..",
-                        "com.kbap.application..",
+                        "com.kbap.common.port..",
                         "com.kbap.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
@@ -52,12 +71,11 @@ class ModuleBoundaryTest : BehaviorSpec({
     }
 
     given("도메인 패키지 경계") {
-        `when`("도메인이 상위 계층(application·infra·부트앱)에 의존하는지 검사하면") {
-            then("상위 계층을 알지 못한다") {
-                noClasses().that().resideInAnyPackage(sharedDomain, apiDomain)
+        `when`("도메인이 포트·인프라·부트앱에 의존하는지 검사하면") {
+            then("도메인은 계약(port)과 그 구현을 알지 못한다 — 포트가 도메인 타입을 반환하는 방향만 허용") {
+                noClasses().that().resideInAPackage(sharedDomain)
                     .should().dependOnClassesThat().resideInAnyPackage(
-                        "com.kbap.common.application..",
-                        "com.kbap.application..",
+                        "com.kbap.common.port..",
                         "com.kbap.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
@@ -69,7 +87,7 @@ class ModuleBoundaryTest : BehaviorSpec({
 
         `when`("영속 애너테이션 없는 도메인 클래스(모델·정책·값 객체)가 jakarta.persistence 에 의존하는지 검사하면") {
             then("도메인 모델은 ORM-free 다 — 도메인 안에서 jakarta.persistence 는 엔티티·리포지토리·도메인 서비스(@Service)만 만진다") {
-                noClasses().that().resideInAnyPackage(sharedDomain, apiDomain)
+                noClasses().that().resideInAPackage(sharedDomain)
                     .and().areNotAnnotatedWith("jakarta.persistence.Entity")
                     .and().areNotAnnotatedWith("jakarta.persistence.MappedSuperclass")
                     .and().areNotAnnotatedWith("jakarta.persistence.Embeddable")
@@ -84,9 +102,7 @@ class ModuleBoundaryTest : BehaviorSpec({
     }
 
     given("도메인 간 의존 방향") {
-        // 한 컨텍스트는 두 모듈에 걸친다 — 엔티티·리포지토리는 common, 서비스는 api
-        fun packagesOf(context: String) =
-            listOf("com.kbap.common.domain.$context..", "com.kbap.domain.$context..")
+        fun packageOf(context: String) = "com.kbap.common.domain.$context.."
 
         val allowedDomainDeps = mapOf(
             "scan" to setOf("food", "member", "image", "avoidance"),
@@ -101,14 +117,10 @@ class ModuleBoundaryTest : BehaviorSpec({
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {
             then("정확히 일치한다 — 맵에 없는 컨텍스트는 방향 검사를 우회할 수 없다") {
                 val foundContexts = imported
-                    .filter {
-                        it.packageName.startsWith("com.kbap.common.domain.") ||
-                            it.packageName.startsWith("com.kbap.domain.")
-                    }
+                    .filter { it.packageName.startsWith("com.kbap.common.domain.") }
                     .map {
                         it.packageName
                             .removePrefix("com.kbap.common.domain.")
-                            .removePrefix("com.kbap.domain.")
                             .substringBefore(".")
                     }
                     .toSet()
@@ -121,9 +133,9 @@ class ModuleBoundaryTest : BehaviorSpec({
             val forbidden = (allowedDomainDeps.keys - allowed - context).sorted()
             `when`("$context 컨텍스트가 허용 목록 $allowed 밖 도메인에 의존하는지 검사하면") {
                 then("$forbidden 을 알지 못한다") {
-                    noClasses().that().resideInAnyPackage(*packagesOf(context).toTypedArray())
+                    noClasses().that().resideInAPackage(packageOf(context))
                         .should().dependOnClassesThat().resideInAnyPackage(
-                            *forbidden.flatMap { packagesOf(it) }.toTypedArray(),
+                            *forbidden.map { packageOf(it) }.toTypedArray(),
                         )
                         .allowEmptyShould(true)
                         .check(imported)
@@ -150,7 +162,7 @@ class ModuleBoundaryTest : BehaviorSpec({
         `when`("@Entity 가 붙은 클래스의 패키지를 검사하면") {
             then("모든 JPA 엔티티는 도메인 패키지에만 존재한다") {
                 classes().that().areAnnotatedWith("jakarta.persistence.Entity")
-                    .should().resideInAnyPackage(sharedDomain, apiDomain)
+                    .should().resideInAPackage(sharedDomain)
                     .allowEmptyShould(true)
                     .check(imported)
             }
@@ -188,11 +200,13 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("유스케이스·seam 패키지(application) 경계") {
-        `when`("application 이 인프라·부트앱에 의존하는지 검사하면") {
-            then("infra·부트앱 구현에 직접 의존하지 않는다") {
-                noClasses().that().resideInAnyPackage("com.kbap.application..", "com.kbap.common.application..")
+    given("포트 패키지(common.port) 경계") {
+        `when`("포트가 스프링·인프라·부트앱에 의존하는지 검사하면") {
+            then("포트는 순수 계약이다 — 구현 기술을 알지 못한다") {
+                noClasses().that().resideInAPackage("com.kbap.common.port..")
                     .should().dependOnClassesThat().resideInAnyPackage(
+                        spring,
+                        jpa,
                         "com.kbap.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",

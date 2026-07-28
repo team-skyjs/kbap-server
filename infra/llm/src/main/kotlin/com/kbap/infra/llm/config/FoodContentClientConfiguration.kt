@@ -1,9 +1,9 @@
 package com.kbap.infra.llm.config
 
-import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.common.core.food.FoodDescriptionClient
-import com.kbap.common.core.food.FoodImageBatchClient
-import com.kbap.common.core.food.FoodNameTranslationClient
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
+import com.kbap.common.port.llm.FoodDescriptionClient
+import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.port.llm.FoodNameTranslationClient
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient

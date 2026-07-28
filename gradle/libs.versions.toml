@@ -71,8 +71,8 @@ aws-s3 = { module = "software.amazon.awssdk:s3" }
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 # --- Scheduler lock (KB-226): 이미지 회수 @Scheduled 를 api 2대 중 1대만 실행 ---
-# 어노테이션 AOP(shedlock-spring) 없이 core 의 DefaultLockingTaskExecutor 를 프로그래매틱으로 쓴다.
-shedlock-core = { module = "net.javacrumbs.shedlock:shedlock-core", version.ref = "shedlock" }
+# @SchedulerLock 어노테이션 AOP(shedlock-spring)로 잡는다 — 잡 메서드에 @Scheduled 와 나란히 선언.
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
 shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---

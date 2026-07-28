@@ -3,8 +3,8 @@ package com.kbap.api.auth
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.domain.member.SocialAccountDeleter
-import com.kbap.common.application.auth.social.SocialTokenVerifier
+import com.kbap.common.port.auth.SocialAccountDeleter
+import com.kbap.common.port.auth.SocialTokenVerifier
 import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.core.testsupport.MySqlContainerConfig

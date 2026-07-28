@@ -1,9 +1,9 @@
 package com.kbap.infra.llm.food
 
-import com.kbap.common.core.food.FoodDescriptionClient
-import com.kbap.common.core.food.FoodDescriptionContent
-import com.kbap.common.core.food.TargetLanguageTexts
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.port.llm.FoodDescriptionClient
+import com.kbap.common.port.llm.FoodDescriptionContent
+import com.kbap.common.domain.food.model.TargetLanguageTexts
+import com.kbap.common.domain.LanguageCode
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 

@@ -3,9 +3,8 @@ package com.kbap.api.home
 import com.kbap.api.common.ApiPaths
 import com.kbap.api.common.BaseResponse
 import com.kbap.api.common.auth.AuthMemberIdOrNull
-import com.kbap.application.home.HomeApplicationService
-import com.kbap.common.core.lang.LanguageCode
-import com.kbap.domain.bookmark.BookmarkService
+import com.kbap.common.domain.LanguageCode
+import com.kbap.api.bookmark.BookmarkService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

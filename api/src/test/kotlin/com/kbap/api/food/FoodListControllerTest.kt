@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Import
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

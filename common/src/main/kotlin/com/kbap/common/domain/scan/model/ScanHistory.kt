@@ -1,6 +1,6 @@
 package com.kbap.common.domain.scan.model
 
-import com.kbap.common.core.persistence.BaseEntity
+import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Index

@@ -2,7 +2,7 @@ package com.kbap.api.scenario
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.port.auth.AuthTokenProperties
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.infra.auth.token.JwtTokenIssuer
 import org.springframework.http.MediaType

@@ -3,7 +3,6 @@ package com.kbap.api.upload
 import com.kbap.api.common.ApiPaths
 import com.kbap.api.common.BaseResponse
 import com.kbap.api.common.auth.AuthMemberId
-import com.kbap.application.upload.ImageUploadApplicationService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

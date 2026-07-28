@@ -1,7 +1,7 @@
 package com.kbap.infra.llm.food
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.core.food.FoodImageBatchClient
+import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.infra.llm.config.LlmModelProperties
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull

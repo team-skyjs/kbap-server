@@ -1,8 +1,8 @@
 package com.kbap.api.scan
 
-import com.kbap.common.core.scan.ExtractedMenu
-import com.kbap.common.core.scan.MenuBoardVisionExtractor
-import com.kbap.common.core.scan.OcrItem
+import com.kbap.common.port.llm.ExtractedMenu
+import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.OcrItem
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

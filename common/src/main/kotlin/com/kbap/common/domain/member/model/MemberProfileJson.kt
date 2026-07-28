@@ -1,7 +1,7 @@
 package com.kbap.common.domain.member.model
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.kbap.common.core.lang.CountryCode
+import com.kbap.common.domain.member.model.CountryCode
 
 @JsonIgnoreProperties("appLanguage")
 data class MemberProfileJson(
