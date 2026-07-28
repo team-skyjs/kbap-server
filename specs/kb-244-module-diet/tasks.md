@@ -82,7 +82,7 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 - [X] T020 [P] [US3] 헌법 v6.0.0 개정 — `.specify/memory/constitution.md`: 원칙 II("컨텍스트별 모듈"→"컨텍스트별 패키지 + ArchUnit"), 원칙 III(모듈 그래프 → app→common·infra→common + 패키지 방향), 원칙 IV("소유 도메인 모듈"→"소유 도메인 패키지"), 기존 `:common` 서술 대체. Sync Impact Report 작성(MAJOR 5.0.0→6.0.0, 선례 KB-134·KB-220 형식)
 - [X] T021 [P] [US3] ADR 작성 — `docs/adr/0015-module-diet-three-modules.md`(다음 빈 번호 확인): 배경(도메인별 모듈의 관리 비용)·결정(3 앱/공유 + infra 유지·common 배치 기준)·결과(경계 강제는 ArchUnit 단독), ADR-0012·0014 와의 관계 명시
 - [X] T022 [P] [US3] 문서 갱신 — `CLAUDE.md` 모듈 구조 절(개요·모듈 구조·컨벤션의 모듈 서술 전부)과 `docs/architecture/kbap-conventions.md`·`docs/architecture/kbap-api-module-structure.md` 를 7모듈 실측 구조로 갱신
-- [ ] T023 [US3] PR #2 오픈 — quickstart.md 최종 전 게이트 + `-Dkotest.tags` 아크 테스트 포함 전체 실행 후 open-draft-pr-to-develop 절차로 **PR #2(api·batch 완성 + 문서)** 오픈
+- [X] T023 [US3] PR #2 오픈 — quickstart.md 최종 전 게이트 + `-Dkotest.tags` 아크 테스트 포함 전체 실행 후 open-draft-pr-to-develop 절차로 **PR #2(api·batch 완성 + 문서)** 오픈
 
 **Checkpoint**: 전 스토리 완성 — 스펙 SC-001~004 충족
 
@@ -91,7 +91,7 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T024 [P] Jira KB-244 DoD 체크 동기화 — 6개 DoD 항목을 실측 결과로 체크·코멘트(빌드 시간 before/after 포함)
-- [ ] T025 시드-동기화 테스트 등 리소스 경로 하드코딩 스팟체크 — `AvoidanceCatalogSeedSyncTest` 의 `db/migration` 경로(리소스는 app/api 소속 그대로라 무영향 예상)와 유사 하드코딩 테스트가 이동 후에도 리소스를 실제로 읽는지 확인(빈 문자열 오진 함정)
+- [X] T025 시드-동기화 테스트 등 리소스 경로 하드코딩 스팟체크 — `AvoidanceCatalogSeedSyncTest` 의 `db/migration` 경로(리소스는 app/api 소속 그대로라 무영향 예상)와 유사 하드코딩 테스트가 이동 후에도 리소스를 실제로 읽는지 확인(빈 문자열 오진 함정)
 
 ---
 
