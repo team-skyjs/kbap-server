@@ -47,7 +47,7 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 - [X] T009 [US2] `:domain:food` 소스 이동 — 동일 절차(`git mv` → settings 제거 → scan·app:api·app:batch 의 참조 재배선), 그린 확인
 - [X] T010 [US2] `:application` seam 분리 — `application/src/main/kotlin/com/kbap/application/` 에서 인터페이스·dto 만 `common/src/main/kotlin/com/kbap/application/` 로 `git mv`: `TokenIssuer`·`TokenParser`·`SocialTokenVerifier`·`RefreshTokenStore`·`PresignedUploadPort` + 이들 시그니처가 쓰는 dto(파일 단위로 식별). ApplicationService 구현은 남긴다
 - [X] T011 [US2] infra 4종 재배선 — `infra/{auth,redis,storage}/build.gradle.kts` 의 `project(":application")` → `":common"`, `infra/auth` 의 `project(":domain:member")` → `":common"`(T008 에서 미처리 시). `application/build.gradle.kts` 은 `:common` 의존 추가. `./gradlew build` 그린
-- [ ] T012 [US2] PR #1 게이트 + draft PR — quickstart.md 전 명령 실행(빌드·projects·의존 그래프·양 앱 기동·ModuleBoundaryTest), `grep -rn 'project(":core")\|project(":domain:\(avoidance\|member\|food\)")' --include=build.gradle.kts .` 잔존 0건 확인 후 open-draft-pr-to-develop 절차로 **PR #1(common 분리)** 오픈
+- [X] T012 [US2] PR #1 게이트 + draft PR — quickstart.md 전 명령 실행(빌드·projects·의존 그래프·양 앱 기동·ModuleBoundaryTest), `grep -rn 'project(":core")\|project(":domain:\(avoidance\|member\|food\)")' --include=build.gradle.kts .` 잔존 0건 확인 후 open-draft-pr-to-develop 절차로 **PR #1(common 분리)** 오픈
 
 **Checkpoint**: 모듈 구성 core·food·member·avoidance 소멸 → `:common` 합류(16→13). batch·infra 는 `:common` 만 본다 — US2 수용 시나리오 충족
 
