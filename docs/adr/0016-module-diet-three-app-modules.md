@@ -14,9 +14,9 @@ ADR-0012 이후 구조는 도메인 컨텍스트마다 Gradle 모듈을 두는 �
 
 ## Decision
 
-애플리케이션 모듈을 **`:common`·`:app:api`·`:app:batch` 3개**로 통합하고, **`:infra:{llm,auth,redis,storage}` 4종은 유지**한다(총 7모듈 + buildSrc).
+애플리케이션 모듈을 **`:common`·`:api`·`:batch` 3개**로 통합하고, **`:infra:{llm,auth,redis,storage}` 4종은 유지**한다(총 7모듈 + buildSrc).
 
-- **배치 기준 하나**: "api 밖(배치 **또는** 인프라 어댑터)이 컴파일 의존하는가" — 그렇다면 `:common`(커널·food·member·avoidance·외부 시스템 seam 인터페이스), 아니면 `:app:api`(컨트롤러·조합 계층·scan·bookmark·image·metering).
+- **배치 기준 하나**: "api 밖(배치 **또는** 인프라 어댑터)이 컴파일 의존하는가" — 그렇다면 `:common`(커널·food·member·avoidance·외부 시스템 seam 인터페이스), 아니면 `:api`(컨트롤러·조합 계층·scan·bookmark·image·metering).
 - **패키지가 소속을 드러낸다**: common 소속 코드는 `com.kbap.common.{core, domain.<ctx>, application.<영역>}`, api 전용 도메인은 `com.kbap.domain.<ctx>` 유지.
 - **도메인 경계 강제는 ArchUnit 단독**(`ModuleBoundaryTest`): 도메인 간 허용 방향 맵(단일 출처)·계층 의존 방향·엔티티 위치·커널 Spring-free 를 패키지 기준으로 검증한다. 모듈 수준 강제는 common↔api↔batch↔infra 간 Gradle 의존으로만 남는다.
 - seam 인터페이스(TokenIssuer·TokenParser·SocialTokenVerifier·RefreshTokenStore·PresignedUploadPort)는 `:common` 에 둔다 — infra 가 참조하는 타입이 api 에 있으면 api↔infra 순환이 생긴다.

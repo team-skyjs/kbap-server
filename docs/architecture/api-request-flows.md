@@ -24,12 +24,12 @@
 ```mermaid
 sequenceDiagram
     actor Client
-    participant Controller as Controller<br/>:app:api
+    participant Controller as Controller<br/>:api
     participant UseCase as UseCase<br/>:application
     participant Core as Domain / Repository Port<br/>:core:*
     participant Persistence as Repository Adapter<br/>:infra:persistence
     participant DB as Database
-    participant Error as GlobalExceptionHandler<br/>:app:api
+    participant Error as GlobalExceptionHandler<br/>:api
 
     Client->>Controller: HTTP request
     alt 요청 검증 실패
@@ -52,14 +52,14 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor Client
-    participant Controller as FoodDetailController<br/>:app:api
+    participant Controller as FoodDetailController<br/>:api
     participant UseCase as GetFoodDetailUseCase<br/>:application
     participant Kernel as Kernel Types<br/>:core
     participant FoodCore as Food Domain / Repository Port<br/>:domain:food
     participant AvoidanceCore as Avoidance Catalog Port<br/>:domain:avoidance
     participant Persistence as Repository Adapters<br/>:infra:persistence
     participant DB as Food DB
-    participant Error as GlobalExceptionHandler<br/>:app:api
+    participant Error as GlobalExceptionHandler<br/>:api
 
     Client->>Controller: GET /api/v1/foods/detail?menuName=&lang=
     alt menuName blank
@@ -106,13 +106,13 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor Client
-    participant Controller as ScanController<br/>:app:api
+    participant Controller as ScanController<br/>:api
     participant UseCase as ScanUseCase<br/>:application
     participant Kernel as KoreanMenuNameNormalizer<br/>:core
     participant Llm as UpstageScannedNameInterpreter<br/>:infra:llm
     participant Persistence as FoodRepositoryAdapter<br/>:infra:persistence
     participant DB as food
-    participant Error as GlobalExceptionHandler<br/>:app:api
+    participant Error as GlobalExceptionHandler<br/>:api
 
     Client->>Controller: POST /api/v1/scans
     alt 요청 검증 실패 (idx 중복·blank·개수 초과)

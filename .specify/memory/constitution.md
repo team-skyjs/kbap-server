@@ -4,7 +4,7 @@ SYNC IMPACT REPORT
 Version change: 5.0.0 → 6.0.0   (개정 2026-07-28)
 Bump rationale (MAJOR): 원칙 II·III·IV 의 **모듈 구성 문언을 비호환 재정의**한다(KB-244, ADR-0016).
   도메인 컨텍스트별 Gradle 모듈(:domain:*)·:core·:application 모듈을 해체하고 애플리케이션 모듈을
-  **:common·:app:api·:app:batch 3개**로 통합한다(외부 시스템 어댑터 :infra:* 4종은 유지 — 총 7모듈).
+  **:common·:api·:batch 3개**로 통합한다(외부 시스템 어댑터 :infra:* 4종은 유지 — 총 7모듈).
   바운디드 컨텍스트·의존 방향·영속 소유의 **취지는 전부 유지**되고 실현 수단만 바뀐다: 컨텍스트 경계는
   모듈이 아니라 **패키지**(com.kbap.common.domain.<ctx> — 공유 / com.kbap.domain.<ctx> — api 전용)가 긋고,
   경계 강제는 Gradle 컴파일 차단에서 **ArchUnit(ModuleBoundaryTest — 도메인 간 허용 방향 맵 단일 출처)**
@@ -138,7 +138,7 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 
 도메인은 컨텍스트별 **패키지**로 둔다(ADR-0016 — 컨텍스트별 Gradle 모듈은 KB-244 에서 해체):
 공유 도메인(web·배치가 함께 사용)은 `com.kbap.common.domain.{food,member,avoidance}`(`:common`),
-api 전용 도메인은 `com.kbap.domain.{scan,bookmark,image,metering}`(`:app:api`).
+api 전용 도메인은 `com.kbap.domain.{scan,bookmark,image,metering}`(`:api`).
 
 - **도메인 간 의존은 단방향만 허용하고 순환을 금지한다.** 허용 방향의 단일 출처는
   `ModuleBoundaryTest` 의 도메인 간 허용 맵(ArchUnit)이다 — 방향 추가·변경은 이 맵 수정으로만 하며
@@ -154,9 +154,9 @@ Rationale: 컨텍스트 독립성을 지켜 변경 파급을 막고, 추후 도�
 
 ### III. Layered Dependency Direction
 
-**모듈 의존**은 한 방향으로만 흐른다: 부트앱(`:app:api`·`:app:batch`)과 인프라 어댑터(`:infra:*`)가
+**모듈 의존**은 한 방향으로만 흐른다: 부트앱(`:api`·`:batch`)과 인프라 어댑터(`:infra:*`)가
 **`:common`** 을 의존한다(ADR-0016). api 와 batch 는 서로를 모르고, `:common` 은 어떤 모듈도 의존하지
-않는다. **패키지 의존**은 `com.kbap.app.*` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core`
+않는다. **패키지 의존**은 `com.kbap.{api,batch}` → `com.kbap.application` → 도메인 패키지 → `com.kbap.common.core`
 방향을 유지하며 ArchUnit(`ModuleBoundaryTest`)이 강제한다.
 
 - `:common` 은 **공유 커널(`com.kbap.common.core`) + 공유 도메인 + 외부 시스템 seam 인터페이스**다 —
@@ -190,7 +190,7 @@ JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메�
 - **엔티티 간 JPA 연관관계(`@OneToMany`·`@ManyToOne`·`@OneToOne`·`@ManyToMany`)를 두지 않는다.**
   참조는 **id 값**으로만 들고, 연관 데이터는 id(목록)로 명시 조회한다(예외: 읽기 전용 연관 — conventions
   문서 참조). 외래키 제약은 코드가 아니라 **Flyway 스키마**가 강제한다(스키마 owner = api Flyway).
-- 경계는 **모듈 간 Gradle 의존 방향**(common/api/batch/infra) + **ArchUnit 테스트**(`app/api` 의
+- 경계는 **모듈 간 Gradle 의존 방향**(common/api/batch/infra) + **ArchUnit 테스트**(`api` 의
   `ModuleBoundaryTest` — 도메인 간 허용 방향 맵·도메인→상위 계층 금지·`@Entity` 위치·도메인 모델
   ORM-free)로 강제한다(ADR-0016 — 도메인 간 경계는 ArchUnit 단독).
 
@@ -205,7 +205,7 @@ Rationale: internal 캡슐화가 강제한 "도메인 서비스 유일 창구"�
 
 - 9개 대상 언어: `zh-Hans`(중국어 간체)·`en`(영어)·`ja`(일본어)·`zh-Hant`(중국어 번체)·`vi`(베트남어)·
   `id`(인도네시아어)·`th`(태국어)·`ru`(러시아어)·`es`(스페인어).
-- 번역은 `:app:batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
+- 번역은 `:batch`가 LLM으로 생성하며, 알러지/식이 제한처럼 **안전 직결 데이터는 검수 상태를 구분**한다.
 - 정적 UI 문구 번역 정책과 음식 콘텐츠 번역 정책은 **분리**한다(혼동 금지).
 - `ko`는 번역 대상이 아니라 항상 존재하는 원문(source)이다. 표시 언어(`lang`)는 다음 세 경우로 구분한다
   (KB-201·[ADR-0013](../../docs/adr/0013-lang-english-fallback.md) — spec 008/이슈 #18 의 fail-fast 결정을 대체):
@@ -239,10 +239,10 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 ## Additional Constraints (기술·아키텍처)
 
 - 스택: Kotlin 2.3 / JDK 21 toolchain / Spring Boot 4.1, Gradle 멀티모듈(Kotlin DSL) — 모듈러 모놀리스
-  (ADR-0008·0016 — 모듈 7개: `:common`·`:app:api`·`:app:batch`·`:infra:{llm,auth,redis,storage}`).
+  (ADR-0008·0016 — 모듈 7개: `:common`·`:api`·`:batch`·`:infra:{llm,auth,redis,storage}`).
   영속: MySQL(+통합 테스트는 MySQL Testcontainers) + Redis(refresh token), 마이그레이션 Flyway. LLM: Spring AI 2.0.
-- 실행 bootJar 는 둘: `:app:api`(web, 진입점 `com.kbap.KbapApiApplication` — 패키지 루트라 전 계층 스캔)와
-  `:app:batch`(배치, 진입점 `com.kbap.app.batch.KbapBatchApplication`). 공통 빌드 설정은
+- 실행 bootJar 는 둘: `:api`(web, 진입점 `com.kbap.KbapApiApplication` — 패키지 루트라 전 계층 스캔)와
+  `:batch`(배치, 진입점 `com.kbap.batch.KbapBatchApplication`). 공통 빌드 설정은
   `buildSrc` 컨벤션 플러그인(`kbap.*`)에 둔다.
 - 외부 LLM 등 호출을 DB 트랜잭션 안에서 길게 잡지 않는다(스캔: pending 저장 → 외부 호출 →
   결과 저장 후 completed 전환).

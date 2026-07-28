@@ -1,18 +1,18 @@
 # Kbap 모듈 구조 정리
 
 > **2026-07-28 갱신([ADR-0016](../adr/0016-module-diet-three-app-modules.md), KB-244 — 최신)**: 도메인
-> 컨텍스트별 모듈(`:core`·`:domain:*`·`:application`)은 해체됐다. 현행 모듈은 **`:common`·`:app:api`·
-> `:app:batch` + `:infra:{llm,auth,redis,storage}`** 7개이며, 컨텍스트 경계는 패키지
+> 컨텍스트별 모듈(`:core`·`:domain:*`·`:application`)은 해체됐다. 현행 모듈은 **`:common`·`:api`·
+> `:batch` + `:infra:{llm,auth,redis,storage}`** 7개이며, 컨텍스트 경계는 패키지
 > (공유 `com.kbap.common.domain.<ctx>` / api 전용 `com.kbap.domain.<ctx>`) + ArchUnit 이 긋는다.
 > 권위 있는 현행 구조는 **ADR-0016 + 루트 `CLAUDE.md` "모듈 구조" + [`meogo-conventions.md`](./meogo-conventions.md)** 다.
 > 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 역사적 맥락으로 읽는다.
 
 > **2026-07-13 갱신([ADR-0012](../adr/0012-dissolve-persistence-module-and-ports.md), KB-134)**: `:infra:persistence` 해체·리포지토리 port 폐기·모듈 리네임(`core/`→`domain/`, kernel→`:core`)이 반영됐다. 아래 컨텍스트별 개념 절의 "Repository 인터페이스" 표기는 도메인 서비스 창구로 읽는다.
 
-> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `kbap-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로: `:core:{kernel,food,member,scan,avoidance,research,review}` · `:application` · `:infra:persistence` · `:app:{api,batch}` · `:common`. 패키지는 `com.kbap.<layer>`(예: `com.kbap.domain.food`, `com.kbap.infra.persistence`, `com.kbap.app.api`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
+> ⚠️ **구조 갱신(2026-06-29, ADR-0008)**: `kbap-api` 컨테이너는 해체되고 **모듈러 모놀리스**로 재편됐다. 현재 권위 있는 모듈/패키지 구조는 **[ADR-0008](../adr/0008-modular-monolith-shared-domain.md)** 와 루트 `CLAUDE.md`의 "모듈 구조"다. 현 경로(KB-244, [ADR-0016](../adr/0016-module-diet-three-app-modules.md)): `:common` · `:api` · `:batch` · `:infra:{llm,auth,redis,storage}` 7개 — 그룹 컨테이너 없이 루트 직속이다. 패키지는 모듈명을 미러링해 `com.kbap.<모듈>`(예: `com.kbap.common.domain.food`, `com.kbap.api`, `com.kbap.batch`, `com.kbap.infra.llm`). 아래 본문의 **DDD 계층 책임·의존 규칙은 유효**하나, 모듈 경로/이름 표기는 위 현행을 따른다(본문 일부 옛 표기는 역사적 맥락).
 >
 > 목적: 서버의 API, Application, Domain, Core, Infra 계층 구조와 책임을 정리한 팀 공유 기준 문서.
-> 범위: 계층별 DDD 구조(API/Application/Domain/Core/Infra)에 집중한다. `:app:batch`(배치 앱)와 `:common`(공유 모듈)이 형제로 존재하며, batch 는 공유 도메인/영속을 직접 재사용한다(ADR-0008).
+> 범위: 계층별 DDD 구조(API/Application/Domain/Core/Infra)에 집중한다. `:batch`(배치 앱)와 `:common`(공유 모듈)이 형제로 존재하며, batch 는 공유 도메인/영속을 직접 재사용한다(ADR-0008).
 
 ## 1. API 서버의 역할
 
@@ -54,13 +54,13 @@ Kbap 는 멀티앱(web `kbap-api` + 배치 `kbap-batch`)이며, 도메인 컨텍
 
 `kbap-api`는 빌드 파일 없는 **컨테이너**이고, 그 안에 실행/조율/도메인/코어/인프라 leaf 모듈이 평탄하게 들어간다. 배치 앱과 공유 모듈은 형제로 둔다.
 
-- `:app:api`: web bootJar — controller, API DTO, Flyway 스키마 owner (도메인 모듈은 application 을 통해 런타임 전이 — ADR-0012 로 runtimeOnly 조립 소멸)
+- `:api`: web bootJar — controller, API DTO, Flyway 스키마 owner (도메인 모듈은 application 을 통해 런타임 전이 — ADR-0012 로 runtimeOnly 조립 소멸)
 - `:application`: 유스케이스 조율(도메인 서비스 조합), transaction boundary
 - `:domain:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 — 도메인 모델 + 도메인 서비스(public) + 영속(internal), `domain/` 컨테이너 직속
 - `:domain:review`: deferred placeholder
 - `:core`: 공통 타입·예외·유틸·외부 client seam·id 값 클래스 + 영속 공통(BaseEntity — compileOnly jakarta/hibernate)
 - `:infra:llm`: LLM 외부 연동 어댑터(Spring AI) — 배치가 직접 의존
-- `:app:batch`: 배치 bootJar — 도메인 서비스를 직접 조합해 잡 실행
+- `:batch`: 배치 bootJar — 도메인 서비스를 직접 조합해 잡 실행
 - `:common`: 앱 간 공유 — 통합 이벤트·DTO·기술 공통(logback 조각·유틸·어노테이션), Spring-free
 
 ### 3.1 왜 도메인별 subproject로 두는가
@@ -81,7 +81,7 @@ API 서버가 제품의 중심이고, 배치(`kbap-batch`)는 그 application �
 
 예를 들어 메뉴판 판정 유스케이스는 `scan`, `food`, `member`, `avoidance`를 모두 사용하지만, 이 네 컨텍스트가 서로의 내부 구현에 직접 의존하지 않는다.
 
-- `:app:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
+- `:api`은 HTTP 요청/응답과 인증/인가에 집중한다.
 - `:application`은 도메인 서비스와 외부 client seam 을 조합한다.
 - 도메인 모듈은 도메인 규칙과 영속 코드를 소유한다 — 엔티티·리포지토리는 public 이며(ADR-0014, KB-220), 도메인 로직은 도메인 서비스가, 단순 영속 접근은 소비 계층이 리포지토리 직접 참조로 수행한다.
 - `:core`는 공통 타입·공유 값 클래스·영속 공통을 제공한다.
@@ -89,9 +89,9 @@ API 서버가 제품의 중심이고, 배치(`kbap-batch`)는 그 application �
 
 도메인 컨텍스트는 별도 Gradle subproject이므로, 서로를 직접 의존성으로 선언하지 않는 한 컴파일 시점 참조가 생기지 않는다. 패키지 규칙, 코드 리뷰, ArchUnit 테스트는 이 경계를 보조로 강제한다.
 
-## 5. :app:api
+## 5. :api
 
-`:app:api`은 Spring Boot 실행 모듈이다.
+`:api`은 Spring Boot 실행 모듈이다.
 
 ### 5.1 책임
 
@@ -111,7 +111,7 @@ API 서버가 제품의 중심이고, 배치(`kbap-batch`)는 그 application �
 - 특정 LLM 응답 구조를 Controller까지 노출하지 않는다.
 - 도메인별 DB 테이블 구조를 API 응답 모델로 그대로 노출하지 않는다.
 
-Application Service는 `:app:api`이 아니라 `:application`에 둔다. `:app:api`은 HTTP 요청/응답 변환과 인증/인가 적용에 집중한다.
+Application Service는 `:api`이 아니라 `:application`에 둔다. `:api`은 HTTP 요청/응답 변환과 인증/인가 적용에 집중한다.
 
 ## 6. :application
 
@@ -264,7 +264,7 @@ MVP에서는 OCR을 서버가 직접 수행하지 않는다. 클라이언트가 
 - LlmResponse (제공자별 원본 응답)
 - SynthesizedFoodProfile (종합 결과 → `food`가 영속)
 
-> **배치 전용** — web 진입점(`:app:api`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:application`의 배치 전용 패키지에 두고 `kbap-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
+> **배치 전용** — web 진입점(`:api`)은 이 컨텍스트 유스케이스를 노출하지 않는다. 조합 유스케이스는 `:application`의 배치 전용 패키지에 두고 `kbap-batch`가 트리거하며, ArchUnit으로 web 의존을 막는다(§17, 규칙 §도메인 간 의존 8).
 
 ## 12. review context (deferred)
 
@@ -490,7 +490,7 @@ API 유스케이스 기준 트랜잭션은 다음처럼 나눈다.
 
 JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체는 각 도메인 모듈 내부에 둔다. 다만 외부 모듈이 import하지 못하도록 패키지 가시성, 모듈 API 설정, 코드 리뷰, ArchUnit 테스트로 막는다.
 
-`:app:api`와 `:application`은 JPA Entity, Mongo Document, Spring Data Repository를 import하면 안 된다.
+`:api`와 `:application`은 JPA Entity, Mongo Document, Spring Data Repository를 import하면 안 된다.
 
 이 방식의 핵심은 “외부 기술을 도메인 모듈에 둔다”가 아니라 “외부 기술 구현을 도메인 컨텍스트 내부에 숨기고, 바깥에는 도메인 언어만 공개한다”이다.
 
@@ -513,13 +513,13 @@ JPA Entity, Mongo Document, Spring Data Repository, DomainRepository 구현체�
 
 권장 구조는 다음이다.
 
-- `:app:api`: web bootJar, controller, API DTO, 조립
+- `:api`: web bootJar, controller, API DTO, 조립
 - `:application`: 유스케이스 조율, transaction boundary
 - `:core:{food,member,scan,avoidance,research}`: active 도메인 컨텍스트 (`research`는 배치 전용 조사·종합)
 - `:domain:review`: deferred placeholder
 - `:core`: 공통 타입, 예외, 이벤트, 유틸
 - `:infra:external`: 메시지큐, 외부 API, 이벤트 발행/구독 client
-- `:app:batch`: 배치 bootJar (application 트리거) · `:common`: 앱 간 공유 계약
+- `:batch`: 배치 bootJar (application 트리거) · `:common`: 앱 간 공유 계약
 
 가장 중요한 원칙은 다음이다.
 

@@ -16,9 +16,9 @@ dependencies {
     jacocoAggregation(platform("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}"))
 
     jacocoAggregation(project(":common"))
-    jacocoAggregation(project(":app:api"))
+    jacocoAggregation(project(":api"))
     jacocoAggregation(project(":infra:llm"))
-    jacocoAggregation(project(":app:batch"))
+    jacocoAggregation(project(":batch"))
 }
 
 reporting {

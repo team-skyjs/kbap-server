@@ -1,6 +1,6 @@
 # 배치 배포·실행 가이드 (foodContentJob)
 
-음식 콘텐츠 배치(:app:batch)는 상시 서비스가 아니라 **run-to-completion ECS 태스크**다.
+음식 콘텐츠 배치(:batch)는 상시 서비스가 아니라 **run-to-completion ECS 태스크**다.
 컨테이너가 기동되어 잡을 돌리고, 잡이 끝나면 JVM 종료와 함께 태스크도 내려간다.
 
 환경별 실행 기반이 다르다 — **prod 는 ECS(Fargate)**, **dev 는 api 와 동일하게 EC2+SSM**
@@ -16,7 +16,7 @@
 
 - 빌드와 실행이 분리되어 있다: 이미지는 코드가 바뀔 때만 굽고, 실행은 준비된 이미지를
   기동만 한다. GitHub Actions 러너가 배치 종료를 관찰하지 않는다(비용 0 유지).
-- `deploy-batch-dev.yml` 의 paths 필터는 `app/batch/**`·`Dockerfile.batch` 만 본다.
+- `deploy-batch-dev.yml` 의 paths 필터는 `batch/**`·`Dockerfile.batch` 만 본다.
   공유 모듈(core·domain·infra)만 바뀐 경우는 수동 실행으로 갱신한다.
 - dev 실행은 `batch-latest` 이동 태그를 쓴다. 컨테이너 이름(`kbap-batch`)이 고정이라
   이전 실행이 살아 있으면 docker run 이 이름 충돌로 실패한다 — dev 에선 이게 자연 직렬화.

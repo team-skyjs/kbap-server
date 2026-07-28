@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
 # 멀티스테이지: Gradle 로 배치 bootJar 빌드 → JRE 런타임 이미지.
-# 빌드 대상은 배치 앱(:app:batch) — run-to-completion ECS 태스크로 기동되어 잡 종료 시 함께 내려간다.
+# 빌드 대상은 배치 앱(:batch) — run-to-completion ECS 태스크로 기동되어 잡 종료 시 함께 내려간다.
 # 테스트는 CI 에서 별도 수행하므로 여기선 제외. api 이미지는 Dockerfile 로 별도 빌드·관리한다.
 
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY . .
 RUN chmod +x gradlew \
- && ./gradlew :app:batch:bootJar -x test --no-daemon \
- && find app/batch/build/libs -name '*.jar' ! -name '*-plain.jar' -exec cp {} /workspace/app.jar \;
+ && ./gradlew :batch:bootJar -x test --no-daemon \
+ && find batch/build/libs -name '*.jar' ! -name '*-plain.jar' -exec cp {} /workspace/app.jar \;
 
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
