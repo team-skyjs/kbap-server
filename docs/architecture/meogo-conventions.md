@@ -23,15 +23,15 @@ DDD 적용 방식, 모듈 구성, 도메인 간 의존 규칙을 규정하는 **
 
 | 모듈 | 책임 |
 |------|------|
-| `:common` | **api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드 전부** — 공통 커널(`com.kbap.common.core`: 통합 에러·vocabulary·seam·영속 공통), 공유 도메인(`com.kbap.common.domain.{food,member,avoidance}`), 인증·업로드 seam(`com.kbap.common.application.{auth,upload}`) |
-| `:api` | web bootJar — Controller·API DTO·인증/인가·예외 응답 변환·Flyway 스키마 owner + **api 전용 도메인**(`com.kbap.domain.{scan,bookmark,image,metering}`) + **조합 계층**(`com.kbap.application`) |
+| `:common` | **전 컨텍스트의 영속 계층 + api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드** — 공통 커널(`com.kbap.common.core`: 통합 에러·vocabulary·seam·영속 공통), 도메인 영속 `com.kbap.common.domain.<context>`(엔티티 `model/`·리포지토리 — 7종 전부. food·member·avoidance 는 도메인 서비스·dto 까지), 인증·업로드 seam(`com.kbap.common.application.{auth,upload}`) |
+| `:api` | web bootJar — Controller·API DTO·인증/인가·예외 응답 변환·Flyway 스키마 owner + **api 전용 도메인의 서비스·dto**(`com.kbap.domain.{scan,bookmark,image,metering}` — 엔티티·리포지토리는 `:common`) + **조합 계층**(`com.kbap.application`) |
 | `:batch` | 배치 bootJar. common 의 리포지토리·LLM 어댑터를 직접 조립해 잡 실행. flyway off. 음식 콘텐츠(기피성분 조사·9개국어 번역·설명) LLM 파이프라인 실행([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)) |
 | `:infra:llm` | LLM 외부 연동 어댑터(Spring AI 3모델 fan-out) — 배치가 직접 의존 ([ADR-0010](../adr/0010-llm-adapter-module-named-infra-llm.md)) |
 | `:infra:auth` | 인증 구현 어댑터 — jjwt(자체 JWT) + firebase-admin(소셜 검증/삭제). seam 은 `common.application.auth`·`common.domain.member` |
 | `:infra:redis` | Redis 어댑터 — refresh token 세션 저장소(`RefreshTokenStore` 구현) |
 | `:infra:storage` | S3 어댑터 — presigned URL 발급(`PresignedUploadPort`)·오브젝트 검증/정리(`StorageObjectStore`) |
 
-- **패키지 레이어링** — 도메인 컨텍스트는 패키지가 경계다: 공유 도메인 `com.kbap.common.domain.<context>`, api 전용 도메인 `com.kbap.domain.<context>`. 도메인 모델·도메인 서비스·영속 코드가 한 패키지에 함께 산다.
+- **패키지 레이어링** — 도메인 컨텍스트는 패키지가 경계다: 영속(엔티티·리포지토리)은 컨텍스트 불문 `com.kbap.common.domain.<context>`, 도메인 서비스·dto 는 그 컨텍스트를 쓰는 앱 모듈(공유는 `com.kbap.common.domain.<context>`, api 전용은 `com.kbap.domain.<context>`). ArchUnit 은 두 패키지를 같은 컨텍스트로 묶어 방향을 검사한다.
 - **얇은 Controller** — `:api`의 controller 는 HTTP 변환·인증/인가에 집중하고 도메인 서비스를 직접 호출한다. 다중 컨텍스트 조합이 필요한 유스케이스만 `com.kbap.application` 의 Application Service 를 경유한다.
 - **인증/인가** — 별도 BC로 분리하지 않고 `member` 내부 하위 영역으로 두되, 프로필/식이 제한 관리와 **패키지·책임을 분리**한다. 토큰 발급·세션·보안 필터는 도메인이 아니라 API/security 계층 책임.
 
@@ -57,7 +57,7 @@ com.kbap.common.domain.food      # 루트 — 서비스·리포지토리·seam
     └── FoodContentStatus.kt
 ```
 
-(api 전용 도메인 — 예: `com.kbap.domain.scan` — 도 동일 구조로 `:api` 안에 산다.)
+(api 전용 도메인은 같은 구조를 두 모듈에 나눠 담는다 — 영속(`ScanHistoryJpaRepository`·`model/ScanHistory`)은 `com.kbap.common.domain.scan`(`:common`), 도메인 서비스·dto(`ScanService`·`dto/ScanResult`)는 `com.kbap.domain.scan`(`:api`).)
 
 ## 도메인 모델 = JPA 엔티티 & 값 객체 불변성 ⭐
 

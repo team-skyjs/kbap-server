@@ -6,7 +6,8 @@ Bump rationale (MAJOR): 원칙 II·III·IV 의 **모듈 구성 문언을 비호�
   도메인 컨텍스트별 Gradle 모듈(:domain:*)·:core·:application 모듈을 해체하고 애플리케이션 모듈을
   **:common·:api·:batch 3개**로 통합한다(외부 시스템 어댑터 :infra:* 4종은 유지 — 총 7모듈).
   바운디드 컨텍스트·의존 방향·영속 소유의 **취지는 전부 유지**되고 실현 수단만 바뀐다: 컨텍스트 경계는
-  모듈이 아니라 **패키지**(com.kbap.common.domain.<ctx> — 공유 / com.kbap.domain.<ctx> — api 전용)가 긋고,
+  모듈이 아니라 **패키지**가 긋는다 — 영속(엔티티·리포지토리)은 컨텍스트 불문 com.kbap.common.domain.<ctx>,
+  도메인 서비스·dto 는 소비 앱 모듈(공유 com.kbap.common.domain.<ctx> / api 전용 com.kbap.domain.<ctx>).
   경계 강제는 Gradle 컴파일 차단에서 **ArchUnit(ModuleBoundaryTest — 도메인 간 허용 방향 맵 단일 출처)**
   로 이관한다. 함께: 원칙 II 의 "도메인 모듈은 서로 직접 의존하지 않는다"(v5 까지 잔존한 구문)를 실제
   구조(2026-07-14 이후 도메인 간 단방향 의존 허용)와 정합화하고, 원칙 III 의 구 `:common`(공유 계약,
@@ -137,8 +138,11 @@ Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 �
 ### II. Bounded Contexts — No Cross-Domain Coupling
 
 도메인은 컨텍스트별 **패키지**로 둔다(ADR-0016 — 컨텍스트별 Gradle 모듈은 KB-244 에서 해체):
-공유 도메인(web·배치가 함께 사용)은 `com.kbap.common.domain.{food,member,avoidance}`(`:common`),
-api 전용 도메인은 `com.kbap.domain.{scan,bookmark,image,metering}`(`:api`).
+**영속(JPA 엔티티·리포지토리)은 컨텍스트 불문 `com.kbap.common.domain.<ctx>`(`:common`)**,
+도메인 서비스·dto 는 그 컨텍스트를 쓰는 앱 모듈에 둔다 — 공유 도메인(web·배치 공용)은
+`com.kbap.common.domain.{food,member,avoidance}`(`:common`), api 전용 도메인은
+`com.kbap.domain.{scan,bookmark,image,metering}`(`:api`). 한 컨텍스트가 두 패키지에 걸쳐도
+ArchUnit 은 이를 같은 컨텍스트로 묶어 방향을 검사한다.
 
 - **도메인 간 의존은 단방향만 허용하고 순환을 금지한다.** 허용 방향의 단일 출처는
   `ModuleBoundaryTest` 의 도메인 간 허용 맵(ArchUnit)이다 — 방향 추가·변경은 이 맵 수정으로만 하며
@@ -175,7 +179,8 @@ Rationale: 의존 역전을 막고, 상위 계층이 하위 구현 세부에 묶
 
 ### IV. Persistence Ownership
 
-JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 패키지 안에 public 으로 둔다**
+JPA Entity / Spring Data Repository 는 **그 데이터를 소유하는 도메인 패키지(`com.kbap.common.domain.<ctx>`
+— 영속은 컨텍스트 불문 `:common`) 안에 public 으로 둔다**
 (KB-220 — Kotlin `internal` 캡슐화 폐기, ADR-0014 가 ADR-0012 의 internal 결정을 대체). 소비 계층
 (조합 계층·부트앱)은 단순 영속 접근이 필요하면 리포지토리·엔티티를 직접 참조한다 —
 리포지토리 위임 외 로직이 없는 **창구 서비스를 만들지 않는다**.

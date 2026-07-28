@@ -10,10 +10,11 @@ import com.kbap.common.core.scan.MenuBoardVisionExtractor
 import com.kbap.common.core.scan.OcrItem
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.model.Food
-import com.kbap.domain.image.ImageUploadService
 import com.kbap.common.domain.member.MemberService
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
+import com.kbap.common.domain.scan.model.ScanHistory
+import com.kbap.domain.image.ImageUploadService
 import com.kbap.domain.scan.dto.ScanResult
-import com.kbap.domain.scan.model.ScanHistory
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

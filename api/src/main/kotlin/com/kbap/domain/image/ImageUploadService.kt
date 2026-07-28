@@ -3,7 +3,8 @@ package com.kbap.domain.image
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.storage.StorageObjectStore
-import com.kbap.domain.image.model.UploadedImage
+import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.model.UploadedImage
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

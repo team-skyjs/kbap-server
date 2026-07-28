@@ -1,4 +1,4 @@
-package com.kbap.domain.bookmark.model
+package com.kbap.common.domain.bookmark.model
 
 import com.kbap.common.core.persistence.BaseEntity
 import jakarta.persistence.Column

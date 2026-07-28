@@ -84,16 +84,10 @@ class ModuleBoundaryTest : BehaviorSpec({
     }
 
     given("도메인 간 의존 방향") {
-        // 도메인 간 방향의 단일 출처 — Gradle 모듈 경계 소멸(KB-244) 후에는 이 맵만이 순환을 막는다
-        val domainPackage = mapOf(
-            "scan" to "com.kbap.domain.scan..",
-            "bookmark" to "com.kbap.domain.bookmark..",
-            "image" to "com.kbap.domain.image..",
-            "metering" to "com.kbap.domain.metering..",
-            "food" to "com.kbap.common.domain.food..",
-            "member" to "com.kbap.common.domain.member..",
-            "avoidance" to "com.kbap.common.domain.avoidance..",
-        )
+        // 한 컨텍스트는 두 모듈에 걸친다 — 엔티티·리포지토리는 common, 서비스는 api
+        fun packagesOf(context: String) =
+            listOf("com.kbap.common.domain.$context..", "com.kbap.domain.$context..")
+
         val allowedDomainDeps = mapOf(
             "scan" to setOf("food", "member", "image", "avoidance"),
             "food" to setOf("member", "avoidance"),
@@ -127,9 +121,9 @@ class ModuleBoundaryTest : BehaviorSpec({
             val forbidden = (allowedDomainDeps.keys - allowed - context).sorted()
             `when`("$context 컨텍스트가 허용 목록 $allowed 밖 도메인에 의존하는지 검사하면") {
                 then("$forbidden 을 알지 못한다") {
-                    noClasses().that().resideInAPackage(domainPackage.getValue(context))
+                    noClasses().that().resideInAnyPackage(*packagesOf(context).toTypedArray())
                         .should().dependOnClassesThat().resideInAnyPackage(
-                            *forbidden.map { domainPackage.getValue(it) }.toTypedArray(),
+                            *forbidden.flatMap { packagesOf(it) }.toTypedArray(),
                         )
                         .allowEmptyShould(true)
                         .check(imported)

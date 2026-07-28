@@ -1,11 +1,12 @@
 package com.kbap.domain.bookmark
 
 import com.kbap.common.core.lang.LanguageCode
-import com.kbap.domain.bookmark.dto.BookmarkPage
-import com.kbap.domain.bookmark.model.Bookmark
+import com.kbap.common.domain.bookmark.BookmarkJpaRepository
+import com.kbap.common.domain.bookmark.model.Bookmark
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.dto.FoodSummaryView
 import com.kbap.common.domain.member.MemberService
+import com.kbap.domain.bookmark.dto.BookmarkPage
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

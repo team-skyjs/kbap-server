@@ -1,12 +1,5 @@
 plugins {
     id("kbap.spring-boot-application")
-    id("org.jetbrains.kotlin.plugin.jpa")
-}
-
-allOpen {
-    annotation("jakarta.persistence.Entity")
-    annotation("jakarta.persistence.MappedSuperclass")
-    annotation("jakarta.persistence.Embeddable")
 }
 
 dependencies {

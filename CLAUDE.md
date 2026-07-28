@@ -30,15 +30,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
             (외부 시스템 구현체 — common 의 seam 인터페이스를 구현, 부트앱 config 가 조립)
 ```
 
-- `:common`: **api 밖(배치 또는 인프라 어댑터)이 컴파일 의존하는 코드 전부** — 배치 기준은 이 하나다. 패키지 루트 `com.kbap.common`:
+- `:common`: **영속 계층 전부 + api 밖(배치·인프라 어댑터)이 컴파일 의존하는 코드**. 패키지 루트 `com.kbap.common`:
   - `common.core` — 공통 타입·**통합 에러**(`ErrorCode` + `BusinessException`)·`RiskLevel`·vocabulary(`LanguageCode`)·외부 client seam(`MenuBoardVisionExtractor`·`StorageObjectStore` 등)·**영속 공통**(`BaseEntity`·`EntityStatus`). Spring-free 유지.
-  - `common.domain.{food,member,avoidance}` — 공유 도메인(엔티티=도메인 모델 + 도메인 서비스 + 리포지토리 + `dto/`).
+  - `common.domain.<context>` — **전 컨텍스트의 엔티티(`model/`)와 리포지토리**. 공유 도메인(food·member·avoidance)은 도메인 서비스·`dto/` 까지 여기 있고, api 전용 컨텍스트(scan·bookmark·image·metering)는 **영속만** 여기 두고 서비스는 `:api` 에 남는다.
   - `common.application.{auth,upload}` — 인증·업로드 seam 인터페이스(`TokenIssuer`·`TokenParser`·`SocialTokenVerifier`·`RefreshTokenStore`·`PresignedUploadPort`)와 dto 만.
-- `:api`: web bootJar — controller·API DTO(`*Request`/`*Response`)·`config/`(빈 조립) + **api 전용 도메인** `com.kbap.domain.{scan,bookmark,image,metering}` + **조합 계층** `com.kbap.application`(Home·Auth·FoodImage·Upload ApplicationService). 진입점 `KbapApiApplication`은 `com.kbap` 루트(스캔이 전 계층 커버). **컨트롤러는 도메인 서비스를 직접 호출**한다. DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`.
+- `:api`: web bootJar — controller·API DTO(`*Request`/`*Response`)·`config/`(빈 조립) + **api 전용 도메인의 서비스·dto** `com.kbap.domain.{scan,bookmark,image,metering}`(엔티티·리포지토리는 `:common` 소속) + **조합 계층** `com.kbap.application`(Home·Auth·FoodImage·Upload ApplicationService). 진입점 `KbapApiApplication`은 `com.kbap` 루트(스캔이 전 계층 커버). **컨트롤러는 도메인 서비스를 직접 호출**한다. DB 마이그레이션(Flyway) **스키마 owner** — `src/main/resources/db/migration`.
 - `:batch`: 배치 bootJar. **컴포넌트 스캔을 자신 + `com.kbap.infra.llm` 로 좁힌다** — 도메인 서비스 그래프(외부 seam 필요)를 올리지 않고, common 의 리포지토리를 직접 주입해 조립한다(트랜잭션 경계는 배치가 `TransactionTemplate` 로 소유). 엔티티/레포 스캔은 `@AutoConfigurationPackage("com.kbap")`. **flyway off**(스키마 owner=api). 패키지 `com.kbap.batch`.
 - `:infra:llm`(Spring AI — ADR-0010)·`:infra:auth`(jjwt+firebase-admin)·`:infra:redis`(`RedisRefreshTokenStore`)·`:infra:storage`(S3 — presign·head/delete): common 의 seam 구현체. 전부 `:common` 만 의존하고, 부트앱이 `implementation`/`runtimeOnly` 로 골라 조립한다.
 
-도메인 패키지 구성은 공유·전용 모두 동일 — **엔티티(=도메인 모델, 도메인 메서드 내장) + 도메인 서비스(`@Service`, 비즈니스 로직 소유) + 리포지토리(public) + `dto/`**, 모델은 `model/` 하위. 도메인 간 의존은 단방향만 허용 — 허용 방향의 단일 출처는 `ModuleBoundaryTest` 의 도메인 간 허용 맵(현재 avoidance ← member ← food ← scan·bookmark, image ← scan)이다. **가드레일: member 는 리프 유지**(avoidance 참조만 허용).
+도메인 패키지 구성은 공유·전용 모두 동일 — **엔티티(=도메인 모델, 도메인 메서드 내장) + 도메인 서비스(`@Service`, 비즈니스 로직 소유) + 리포지토리(public) + `dto/`**, 모델은 `model/` 하위. 단 **모듈 배치 기준은 종류로 고정**한다 — **영속(엔티티·리포지토리)은 예외 없이 `:common`, 도메인 서비스·dto 는 그 컨텍스트를 쓰는 앱 모듈**. 그래서 api 전용 컨텍스트는 한 컨텍스트가 두 모듈에 걸친다(`com.kbap.common.domain.scan` 영속 + `com.kbap.domain.scan` 서비스). 도메인 간 의존은 단방향만 허용 — 허용 방향의 단일 출처는 `ModuleBoundaryTest` 의 도메인 간 허용 맵(현재 avoidance ← member ← food ← scan·bookmark, image ← scan)이다. **가드레일: member 는 리프 유지**(avoidance 참조만 허용).
 
 `:common`→data-jpa 는 `api`(엔티티가 서비스 시그니처에 노출), 그 외 모듈 간 의존은 `implementation` 기본. 경계 강제는 — **Gradle**(모듈 간: api↔batch 상호 참조·infra→app 역참조 차단), **ArchUnit**(`ModuleBoundaryTest.kt`, Kotest 태그 `arch` — 도메인 간 허용 방향 맵·커널(common.core) Spring-free·도메인→상위 계층(application/infra/app) 금지·`@Entity` 는 도메인 패키지에만·컨트롤러 매핑 `/api/v` 시작·application→infra/app 금지). 도메인 로직의 도메인 서비스 소유는 규율·리뷰로 지킨다(ADR-0014).
 

@@ -1,15 +1,16 @@
 package com.kbap.domain.scan
 
-import com.kbap.domain.scan.model.ScanHistory
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
+import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import javax.sql.DataSource
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)

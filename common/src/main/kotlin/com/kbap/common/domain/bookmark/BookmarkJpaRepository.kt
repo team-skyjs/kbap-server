@@ -1,6 +1,6 @@
-package com.kbap.domain.bookmark
+package com.kbap.common.domain.bookmark
 
-import com.kbap.domain.bookmark.model.Bookmark
+import com.kbap.common.domain.bookmark.model.Bookmark
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query

@@ -1,6 +1,6 @@
 package com.kbap.api.image
 
-import com.kbap.domain.image.model.UploadedImage
+import com.kbap.common.domain.image.model.UploadedImage
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "업로드 완료 신고 결과 — 검증되어 기록된 이미지의 경로")

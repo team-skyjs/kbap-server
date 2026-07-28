@@ -1,4 +1,4 @@
-package com.kbap.domain.metering.model
+package com.kbap.common.domain.metering.model
 
 import com.kbap.common.core.persistence.BaseEntity
 import jakarta.persistence.Column

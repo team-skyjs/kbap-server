@@ -1,7 +1,8 @@
 package com.kbap.domain.metering
 
 import com.kbap.common.core.llm.LlmCallCostIncurred
-import com.kbap.domain.metering.model.LlmCallCost
+import com.kbap.common.domain.metering.LlmCallCostJpaRepository
+import com.kbap.common.domain.metering.model.LlmCallCost
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

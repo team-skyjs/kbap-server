@@ -1,4 +1,4 @@
-package com.kbap.domain.image.model
+package com.kbap.common.domain.image.model
 
 import com.kbap.common.core.persistence.BaseEntity
 import jakarta.persistence.Column
