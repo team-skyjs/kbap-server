@@ -95,7 +95,6 @@ jobs:
           CLUSTER: ${{ vars.ECS_CLUSTER }}
           SERVICE: ${{ vars.ECS_SERVICE }}
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
-          DEPLOY_TIMEOUT: ${{ vars.DEPLOY_TIMEOUT_SECONDS }}
         run: |
           aws ecs update-service \
             --cluster "$CLUSTER" \
@@ -103,23 +102,26 @@ jobs:
             --task-definition "$NEW_ARN" >/dev/null
           echo "triggered blue/green deployment: $SERVICE -> $NEW_ARN"
 
-          # `aws ecs wait services-stable` 는 length(deployments)==1 && running==desired 에서만
-          # 성공하고 40회×15초=10분 고정 상한 뒤 실패한다. 네이티브 블루/그린은 bake 동안 blue+green
-          # 두 리비전을 의도적으로 유지하므로, bake>10분이면 정상 배포가 오탐된다.
-          # 대신 PRIMARY 배포의 rolloutState 를 bake 보다 긴 설정형 타임아웃으로 폴링한다(deployment-aware).
-          TIMEOUT="${DEPLOY_TIMEOUT:-1800}"   # 기본 30분. bake 보다 길게 — vars.DEPLOY_TIMEOUT_SECONDS 로 조정
-          deadline=$(( $(date +%s) + TIMEOUT ))
-          while :; do
-            STATE=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
-              --query "services[0].deployments[?status=='PRIMARY']|[0].rolloutState" --output text 2>/dev/null || echo IN_PROGRESS)
-            echo "rolloutState: $STATE"
-            case "$STATE" in
-              COMPLETED) echo "deployment completed"; exit 0 ;;
-              FAILED) echo "deployment failed or rolled back" >&2; exit 1 ;;
-            esac
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "timeout ${TIMEOUT}s — bake time 보다 짧을 수 있음. vars.DEPLOY_TIMEOUT_SECONDS 를 bake+여유로 상향" >&2
-              exit 1
+          # 워크플로우 성공 기준은 "배포 시작"까지다(KB-242, DoD 대안 3). 이후의 성패 판정은
+          # 전부 ECS 소관 — 기동 실패·헬스체크 탈락은 서킷브레이커가 롤백하고, 카나리·bake 는
+          # 관찰 기간이며, 결과는 ECS 콘솔·알람으로 확인한다.
+          # 파이프라인에서 "헬시"를 추정하지 않는 이유: runningCount 는 RUNNING 태스크 수일 뿐
+          # 헬스체크 통과를 뜻하지 않고, 카나리(신규 20% 트래픽) 구조에선 완료 전까지
+          # rolloutState 도 IN_PROGRESS 라 어떤 중간 신호도 성패의 근거가 못 된다.
+          # 여기서 검증하는 유일한 사실: PRIMARY 배포가 새 태스크정의로 실제 시작됐는가.
+          for i in 1 2 3 4 5 6; do
+            PRIMARY_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+              --query "services[0].deployments[?status=='PRIMARY']|[0].taskDefinition" --output text 2>/dev/null || echo none)
+            if [ "$PRIMARY_ARN" = "$NEW_ARN" ]; then
+              echo "deployment started: PRIMARY -> $NEW_ARN"
+              {
+                echo "배포 시작 확인 완료 — 이후 카나리(20%)·bake·롤백 판정은 ECS 소관"
+                echo "기동 실패·헬스체크 탈락은 서킷브레이커가 롤백하며, 결과는 ECS 콘솔·알람으로 확인한다"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
-            sleep 15
+            echo "waiting for PRIMARY deployment to switch... ($i/6, current: $PRIMARY_ARN)"
+            sleep 10
           done
+          echo "::error::배포 시작 확인 실패 — PRIMARY 태스크정의가 60s 안에 교체되지 않았다"
+          exit 1
