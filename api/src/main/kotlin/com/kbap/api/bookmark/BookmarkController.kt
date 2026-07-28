@@ -1,10 +1,10 @@
 package com.kbap.api.bookmark
 
-import com.kbap.api.common.ApiPaths
-import com.kbap.api.common.BaseResponse
-import com.kbap.api.common.CursorParser
-import com.kbap.api.common.Page
-import com.kbap.api.common.auth.AuthMemberId
+import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.CursorParser
+import com.kbap.api.core.Page
+import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.food.FoodSummaryResponse
 import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid

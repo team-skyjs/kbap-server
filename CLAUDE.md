@@ -103,7 +103,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 컨벤션
 
 - **Kotlin 소스 주석은 "코드로 표현 불가능한 제약"만 허용한다 (2026-07-14 완화).** 코드가 하는 일·다음 줄 설명·변경 정당화 주석은 여전히 금지 — 코드는 이름과 구조로 의도를 드러내는 **self-documenting** 이 기본이다. 단 **코드 자체로는 드러나지 않는 설계 제약**은 짧은 라인 주석으로 남긴다(예: "의도적 무트랜잭션 — 제약 위반 폴백이 세션을 무효화", "읽기 전용 매핑 — 쓰기는 리포지토리 직접", 스캔 제외 사유). KDoc·서사형 블록 주석은 금지. 긴 맥락(설계 근거·트레이드오프)은 커밋 메시지·`docs/`·ADR 에 남긴다. (빌드 스크립트·Flyway SQL·yml 주석은 규약 밖.)
-- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링한다** — `:common`은 `com.kbap.common` 아래에 커널 `core`, 도메인 `domain.<context>`, 외부 시스템 seam `application.<영역>`을 둔다. `:api`는 `com.kbap.api.<feature>` 기능 패키지에 controller·request/response·서비스·결과 타입을 함께 두며, 파일 수가 적은 기능에 `service`·`dto` 하위 패키지를 만들지 않는다. 공통 web 지원은 `com.kbap.api.common`, 빈 조립은 `com.kbap.api.config`에 둔다. 배치는 `com.kbap.batch`, 인프라는 `com.kbap.infra.<어댑터>`다. **부트 진입점 `KbapApiApplication`은 패키지 루트 `com.kbap`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.kbap.batch` — 단 배치는 `scanBasePackages` 를 자신 + `com.kbap.infra.llm` 로 좁힌다(도메인 서비스 미탑재).
+- 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링한다** — `:common`은 `com.kbap.common` 아래에 커널 `core`(에러·테스트픽스처), 유틸 `util`, 도메인 `domain.<context>`, 외부 시스템 seam `port.{llm,storage,auth}`를 둔다. `:api`는 `com.kbap.api.<feature>` 기능 패키지에 controller·request/response·서비스·결과 타입을 함께 두며, 파일 수가 적은 기능에 `service`·`dto` 하위 패키지를 만들지 않는다. api 전용 공통재(BaseResponse·ApiPaths·예외핸들러·인증 부품·로깅)는 `com.kbap.api.core`, 빈 조립은 `com.kbap.api.core.config`에 둔다. 배치는 `com.kbap.batch`, 인프라는 `com.kbap.infra.<어댑터>`다. **부트 진입점 `KbapApiApplication`은 패키지 루트 `com.kbap`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.kbap.batch` — 단 배치는 `scanBasePackages` 를 자신 + `com.kbap.infra.llm` 로 좁힌다(도메인 서비스 미탑재).
 - web 실행 설정은 `api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `api/src/test/resources/application.yml`(Flyway **on** — 운영과 동일한 마이그레이션으로 Testcontainers MySQL 스키마를 만들고 Hibernate `ddl-auto=validate` 로 엔티티↔스키마 정합을 검증). 배치는 `batch/src/main/resources/application.yml`(flyway off). 로깅은 각 앱 `logback-spring.xml`이 Boot 기본(`base.xml`)을 include 한다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `kbap.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:
   - `-Xjsr305=strict` — JSR-305 nullability 애너테이션을 강제 제약으로 취급(Spring/Java API 호출 시 영향).
@@ -149,7 +149,7 @@ data class BaseResponse<T>(
 
 **모든 컨트롤러 경로는 `/api/{버전}` 으로 시작한다.** 예외 없이 버전 prefix 와 함께 노출한다(예: `POST /api/v1/scans`, `GET /api/v1/foods/detail`).
 
-- 버전 베이스는 `com.kbap.api.common.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
+- 버전 베이스는 `com.kbap.api.core.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
 - 새 버전 도입 시 `ApiPaths` 에 상수 추가(예: `const val V2 = "/api/v2"`)하고 해당 버전 컨트롤러가 참조한다. 같은 리소스의 v1·v2 컨트롤러는 서로 다른 베이스를 써 **공존**한다(기존 버전 경로는 깨지 않는다).
 - 이 규약은 **비즈니스 API(`com.kbap.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
 - 경계 강제는 ArchUnit(`ModuleBoundaryTest`)이 담당 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증한다.

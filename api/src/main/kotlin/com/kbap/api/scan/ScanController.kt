@@ -1,8 +1,8 @@
 package com.kbap.api.scan
 
-import com.kbap.api.common.ApiPaths
-import com.kbap.api.common.BaseResponse
-import com.kbap.api.common.auth.AuthMemberId
+import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity

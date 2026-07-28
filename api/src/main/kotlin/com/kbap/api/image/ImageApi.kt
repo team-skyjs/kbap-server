@@ -1,6 +1,6 @@
 package com.kbap.api.image
 
-import com.kbap.api.common.BaseResponse
+import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema

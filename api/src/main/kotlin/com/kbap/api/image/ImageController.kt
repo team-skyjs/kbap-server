@@ -1,8 +1,8 @@
 package com.kbap.api.image
 
-import com.kbap.api.common.ApiPaths
-import com.kbap.api.common.BaseResponse
-import com.kbap.api.common.auth.AuthMemberId
+import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.auth.AuthMemberId
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

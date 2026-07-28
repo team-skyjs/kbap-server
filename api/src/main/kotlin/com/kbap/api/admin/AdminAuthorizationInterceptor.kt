@@ -1,6 +1,6 @@
 package com.kbap.api.admin
 
-import com.kbap.api.common.auth.JwtAuthenticationFilter
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.MemberRole

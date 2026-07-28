@@ -1,7 +1,7 @@
 package com.kbap.api.bookmark
 
-import com.kbap.api.common.BaseResponse
-import com.kbap.api.common.Page
+import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import com.kbap.api.food.FoodSummaryResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
