@@ -1,5 +1,6 @@
-package com.kbap.api.admin
+package com.kbap.api.config
 
+import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.common.ApiPaths
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry

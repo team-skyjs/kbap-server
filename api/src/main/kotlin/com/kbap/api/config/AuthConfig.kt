@@ -1,4 +1,4 @@
-package com.kbap.api.auth
+package com.kbap.api.config
 
 import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.port.auth.SocialTokenVerifier

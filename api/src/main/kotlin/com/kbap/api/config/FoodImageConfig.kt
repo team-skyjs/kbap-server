@@ -1,4 +1,4 @@
-package com.kbap.api.foodimage
+package com.kbap.api.config
 
 import com.kbap.api.foodimage.FoodImageProperties
 import org.springframework.beans.factory.annotation.Value
