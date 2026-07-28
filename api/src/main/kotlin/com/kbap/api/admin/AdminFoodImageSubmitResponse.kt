@@ -1,6 +1,6 @@
 package com.kbap.api.admin
 
-import com.kbap.api.foodimage.FoodImageSubmitResult
+import com.kbap.api.food.FoodImageSubmitResult
 
 data class AdminFoodImageSubmitResponse(
     val submittedBatchCount: Int,

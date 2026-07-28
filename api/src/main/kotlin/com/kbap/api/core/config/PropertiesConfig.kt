@@ -1,6 +1,6 @@
 package com.kbap.api.core.config
 
-import com.kbap.api.foodimage.FoodImageProperties
+import com.kbap.api.food.FoodImageProperties
 import com.kbap.api.image.ImageUploadProperties
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean

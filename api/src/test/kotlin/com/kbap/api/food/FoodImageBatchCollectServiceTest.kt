@@ -1,4 +1,4 @@
-package com.kbap.api.foodimage
+package com.kbap.api.food
 
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.common.port.llm.FoodImageBatchClient

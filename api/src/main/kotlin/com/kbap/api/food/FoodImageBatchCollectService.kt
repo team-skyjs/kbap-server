@@ -1,4 +1,4 @@
-package com.kbap.api.foodimage
+package com.kbap.api.food
 
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.metering.LlmCallCostIncurred

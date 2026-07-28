@@ -1,4 +1,4 @@
-package com.kbap.api.foodimage
+package com.kbap.api.food
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository

@@ -1,4 +1,4 @@
-package com.kbap.api.foodimage
+package com.kbap.api.food
 
 data class FoodImageProperties(
     val model: String,

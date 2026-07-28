@@ -1,6 +1,6 @@
 package com.kbap.api.core.config
 
-import com.kbap.api.foodimage.FoodImageBatchCollectService
+import com.kbap.api.food.FoodImageBatchCollectService
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
