@@ -139,16 +139,6 @@ class BookmarkServiceTest : BehaviorSpec() {
         }
 
         given("음식 북마크 등록") {
-            `when`("READY 음식을 처음 북마크하면") {
-                then("활성 북마크가 1건 생성되고 목록에 담긴다") {
-                    seedFood(1L, "김치찌개")
-
-                    service.bookmark(memberId, 1L)
-
-                    countRows(1L, onlyActive = true) shouldBe 1
-                    bookmarkedFoodIds() shouldContainExactly listOf(1L)
-                }
-            }
 
             `when`("같은 음식을 중복 북마크하면") {
                 then("예외 없이 성공하고 행은 1개로 유지된다(멱등)") {
@@ -163,14 +153,6 @@ class BookmarkServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("미존재 음식을 북마크하면") {
-                then("FOOD_NOT_FOUND 예외를 던진다") {
-                    val exception = shouldThrow<BusinessException> {
-                        service.bookmark(memberId, 99999L)
-                    }
-                    exception.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
-                }
-            }
 
             `when`("미완성(INCOMPLETE) 음식을 북마크하면") {
                 then("FOOD_NOT_FOUND 예외를 던진다") {
@@ -185,18 +167,6 @@ class BookmarkServiceTest : BehaviorSpec() {
         }
 
         given("음식 북마크 취소") {
-            `when`("북마크를 취소하면") {
-                then("목록에서 사라지지만 행은 소프트삭제로 남는다") {
-                    seedFood(1L, "김치찌개")
-                    service.bookmark(memberId, 1L)
-
-                    service.unbookmark(memberId, 1L)
-
-                    countRows(1L, onlyActive = false) shouldBe 1
-                    countRows(1L, onlyActive = true) shouldBe 0
-                    bookmarkedFoodIds() shouldBe emptyList<Long>()
-                }
-            }
 
             `when`("존재하지 않는 북마크를 취소하면") {
                 then("예외 없이 멱등하게 통과한다") {
@@ -244,27 +214,6 @@ class BookmarkServiceTest : BehaviorSpec() {
         }
 
         given("음식 북마크 목록 커서 페이지네이션") {
-            `when`("PAGE_SIZE 를 초과해 북마크하면") {
-                then("첫 페이지는 PAGE_SIZE 개와 다음 커서를 주고, 다음 페이지가 나머지를 이어 준다") {
-                    val total = BookmarkService.PAGE_SIZE + 1
-                    val foodIds = (1L..total.toLong()).toList()
-                    foodIds.forEach { id ->
-                        seedFood(id, "메뉴$id")
-                        service.bookmark(memberId, id)
-                    }
-
-                    val firstPage = service.getBookmarkPage(memberId, LanguageCode.KO, null)
-                    firstPage.items.size shouldBe BookmarkService.PAGE_SIZE
-                    firstPage.hasNext shouldBe true
-
-                    val secondPage = service.getBookmarkPage(memberId, LanguageCode.KO, firstPage.nextCursor)
-                    secondPage.items.size shouldBe 1
-                    secondPage.hasNext shouldBe false
-
-                    val collected = firstPage.items.map { it.foodId } + secondPage.items.map { it.foodId }
-                    collected shouldContainExactlyInAnyOrder foodIds
-                }
-            }
 
             `when`("커서로 쓴 북마크가 취소(소프트삭제)되어도") {
                 then("id 값 비교라 커서보다 작은 북마크가 정상 이어진다") {

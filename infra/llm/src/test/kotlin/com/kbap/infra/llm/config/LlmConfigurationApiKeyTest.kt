@@ -10,13 +10,7 @@ class LlmConfigurationApiKeyTest : BehaviorSpec({
 
     given("OpenAI 호환 caller 가 활성 상태(enabled)로 자격증명을 검증할 때") {
         `when`("api-key 가 null 이면") {
-            then("환경변수 폴백을 허용하지 않고 예외로 즉시 실패한다") {
-                shouldThrow<IllegalStateException> {
-                    LlmConfiguration.requireOpenAiApiKey(LlmModelId.UPSTAGE, null)
-                }
-            }
-
-            then("실패 메시지에 어떤 모델(upstage)의 문제인지가 드러난다") {
+            then("예외로 즉시 실패하고 메시지에 어떤 모델(upstage)의 문제인지가 드러난다") {
                 val thrown = shouldThrow<IllegalStateException> {
                     LlmConfiguration.requireOpenAiApiKey(LlmModelId.UPSTAGE, null)
                 }

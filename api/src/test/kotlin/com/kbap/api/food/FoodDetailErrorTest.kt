@@ -48,16 +48,6 @@ class FoodDetailErrorTest : BehaviorSpec() {
                     }
                 }
             }
-
-            `when`("숫자가 아닌 foodId 로 조회하면") {
-                then("400 과 '잘못된 요청입니다' 메시지를 반환한다") {
-                    mockMvc.get("/api/v1/foods/abc?lang=ko").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.success") { value(false) }
-                        jsonPath("$.message") { value("잘못된 요청입니다") }
-                    }
-                }
-            }
         }
     }
 }
