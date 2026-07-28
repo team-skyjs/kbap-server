@@ -363,6 +363,20 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미 예약된 항목에 다른 키로 클레임을 시도하면(중첩 회수 레이스)") {
+                then("클레임이 거부되고 기존 예약 키가 유지된다 — 두 회수기가 한 키로 수렴") {
+                    val food = savePendingImage("레이스음식")
+                    saveSubmittedBatch(food.id)
+                    val item = itemRepository.findAll().single()
+
+                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_1111111111111111.png") shouldBe 1
+                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_2222222222222222.png") shouldBe 0
+
+                    itemRepository.findById(item.id).get().fileName shouldBe
+                        "images/food/aaaaaaaaaaaa_1111111111111111.png"
+                }
+            }
+
             `when`("예약 파일명이 없는 항목을 정상 회수하면") {
                 then("생성한 키가 put 전에 항목에 예약 저장되어 완료 키와 일치한다") {
                     val food = savePendingImage("예약음식")

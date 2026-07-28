@@ -107,6 +107,17 @@ class PresignedUploadServiceTest : BehaviorSpec({
             }
         }
 
+        `when`("REVIEW 용도로 요청하면") {
+            then("객체 키가 review 폴더 아래 {회원ID}_{uuid} 파일명으로 생성된다") {
+                val port = RecordingPort()
+                val service = PresignedUploadService(properties(), port)
+
+                service.issueUploadUrl(input(memberId = 42L, purpose = "REVIEW"))
+
+                port.keys.single() shouldMatch Regex("""^images/review/\d{4}/\d{2}/42_[0-9a-f-]{36}\.jpg$""")
+            }
+        }
+
         `when`("image/png 을 올리면") {
             then("객체 키 확장자가 png 다") {
                 val port = RecordingPort()
