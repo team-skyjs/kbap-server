@@ -16,7 +16,7 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 **Purpose**: 이동 시작 전 기준선 고정
 
-- [ ] T001 기준선 확인 — `./gradlew clean build` 그린 확인·소요시간 기록, `./gradlew projects` 로 16개 모듈 목록을 tasks.md 하단 Notes 에 기록
+- [X] T001 기준선 확인 — `./gradlew clean build` 그린 확인·소요시간 기록, `./gradlew projects` 로 16개 모듈 목록을 tasks.md 하단 Notes 에 기록
 
 ---
 
@@ -26,9 +26,9 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 **⚠️ CRITICAL**: T002 없이 이동을 시작하면 도메인 간 순환이 무검증 상태가 된다
 
-- [ ] T002 도메인 간 의존 방향 ArchUnit 규칙 추가(Test-First) — `app/api/src/test/kotlin/com/kbap/app/api/architecture/ModuleBoundaryTest.kt` 에 `com.kbap.domain.<ctx>` 패키지 간 허용 방향(scan→food·member·image / food→member·avoidance / member→avoidance, 역방향 금지)을 명시하는 규칙 추가. **Red 확인**: 임시 위반 코드(예: member 에서 food import)로 실패 확인 후 샘플 제거·Green
-- [ ] T003 buildSrc 아키타입 신설 — `buildSrc/src/main/kotlin/kbap.common-conventions.gradle.kts` 생성: 기존 `kbap.domain-conventions` 내용(kotlin-jpa·Boot BOM·`api`(data-jpa)·mysql runtimeOnly·테스트 공통)을 승계하되 `api(project(":core"))`·`testFixtures(project(":core"))` 참조 제거(자기 자신이 될 모듈용) + `java-test-fixtures` 플러그인과 core 의 testFixtures 의존(spring-boot-testcontainers·testcontainers-mysql 등) 포함
-- [ ] T004 `:common` 모듈 신설 — `settings.gradle.kts` 에 `":common"` 추가, `common/build.gradle.kts` 생성(`kbap.common-conventions` 적용), 빈 소스셋으로 `./gradlew :common:build` 그린 확인
+- [X] T002 도메인 간 의존 방향 ArchUnit 규칙 추가(Test-First) — `app/api/src/test/kotlin/com/kbap/app/api/architecture/ModuleBoundaryTest.kt` 에 `com.kbap.domain.<ctx>` 패키지 간 허용 방향(scan→food·member·image / food→member·avoidance / member→avoidance, 역방향 금지)을 명시하는 규칙 추가. **Red 확인**: 임시 위반 코드(예: member 에서 food import)로 실패 확인 후 샘플 제거·Green
+- [X] T003 buildSrc 아키타입 신설 — `buildSrc/src/main/kotlin/kbap.common-conventions.gradle.kts` 생성: 기존 `kbap.domain-conventions` 내용(kotlin-jpa·Boot BOM·`api`(data-jpa)·mysql runtimeOnly·테스트 공통)을 승계하되 `api(project(":core"))`·`testFixtures(project(":core"))` 참조 제거(자기 자신이 될 모듈용) + `java-test-fixtures` 플러그인과 core 의 testFixtures 의존(spring-boot-testcontainers·testcontainers-mysql 등) 포함
+- [X] T004 `:common` 모듈 신설 — `settings.gradle.kts` 에 `":common"` 추가, `common/build.gradle.kts` 생성(`kbap.common-conventions` 적용), 빈 소스셋으로 `./gradlew :common:build` 그린 확인
 
 **Checkpoint**: ArchUnit 이 도메인 방향을 감시하고 `:common` 이 비어 있는 채 빌드에 합류
 
@@ -40,9 +40,9 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 **Independent Test**: quickstart.md "의존 방향 확인" — batch·infra 의 project 의존이 `:common` 뿐, `:core`/`:domain:food` 등 잔존 참조 0건, 전체 빌드 그린
 
-- [ ] T005 [US2] `:core` 소스 이동 — `git mv core/src/main/kotlin/com/kbap/core common/src/main/kotlin/com/kbap/core` (test·testFixtures 동일), `settings.gradle.kts` 에서 `":core"` 제거, `core/` 디렉터리 삭제
-- [ ] T006 [US2] `:core` 참조 전역 재배선 — 전 `build.gradle.kts` + `buildSrc/src/main/kotlin/kbap.domain-conventions.gradle.kts` 의 `project(":core")`·`testFixtures(project(":core"))` → `":common"` 치환(infra 4종·domain 4종·app 2종·application), `./gradlew build` 그린
-- [ ] T007 [US2] `:domain:avoidance` 소스 이동 — `git mv domain/avoidance/src/main/kotlin/com/kbap/domain/avoidance common/src/main/kotlin/com/kbap/domain/avoidance`(test 동일), settings 에서 제거, member·food·app:api(testImplementation 포함) 의 `:domain:avoidance` 참조 → 삭제(공용 `:common` 전이로 충족) 또는 `":common"` 치환, 그린 확인
+- [X] T005 [US2] `:core` 소스 이동 — `git mv core/src/main/kotlin/com/kbap/core common/src/main/kotlin/com/kbap/core` (test·testFixtures 동일), `settings.gradle.kts` 에서 `":core"` 제거, `core/` 디렉터리 삭제
+- [X] T006 [US2] `:core` 참조 전역 재배선 — 전 `build.gradle.kts` + `buildSrc/src/main/kotlin/kbap.domain-conventions.gradle.kts` 의 `project(":core")`·`testFixtures(project(":core"))` → `":common"` 치환(infra 4종·domain 4종·app 2종·application), `./gradlew build` 그린
+- [X] T007 [US2] `:domain:avoidance` 소스 이동 — `git mv domain/avoidance/src/main/kotlin/com/kbap/domain/avoidance common/src/main/kotlin/com/kbap/domain/avoidance`(test 동일), settings 에서 제거, member·food·app:api(testImplementation 포함) 의 `:domain:avoidance` 참조 → 삭제(공용 `:common` 전이로 충족) 또는 `":common"` 치환, 그린 확인
 - [ ] T008 [US2] `:domain:member` 소스 이동 — 동일 절차(`git mv` → settings 제거 → food·scan·infra:auth·app:api 의 참조 재배선), 그린 확인
 - [ ] T009 [US2] `:domain:food` 소스 이동 — 동일 절차(`git mv` → settings 제거 → scan·app:api·app:batch 의 참조 재배선), 그린 확인
 - [ ] T010 [US2] `:application` seam 분리 — `application/src/main/kotlin/com/kbap/application/` 에서 인터페이스·dto 만 `common/src/main/kotlin/com/kbap/application/` 로 `git mv`: `TokenIssuer`·`TokenParser`·`SocialTokenVerifier`·`RefreshTokenStore`·`PresignedUploadPort` + 이들 시그니처가 쓰는 dto(파일 단위로 식별). ApplicationService 구현은 남긴다
@@ -111,6 +111,6 @@ US1(동작 동일성)의 게이트(전체 빌드·기동)는 두 PR 모두의 �
 
 ## Notes
 
-- T001 기준선(모듈 16개 목록·빌드 시간)은 실행 시 여기에 기록
+- **T001 기준선 (2026-07-28)**: `clean build` BUILD SUCCESSFUL **3m 21s**, 100 actionable tasks. 모듈 16개: `:core`, `:domain:{food,member,avoidance,review,scan,bookmark,image,metering}`, `:application`, `:infra:{llm,auth,redis,storage}`, `:app:{api,batch}`. 도메인 간 허용 그래프: scan→{food,member,image} · food→{member,avoidance} · bookmark→{food,member} · member→{avoidance} · image·metering·avoidance→{}. `:application` 에는 Home·Auth 외 foodimage(FoodImageBatchSubmitService 등)도 존재 — T016 이동 대상
 - 이동 태스크의 "참조 재배선" = 해당 모듈을 project() 로 참조하는 모든 build.gradle.kts + buildSrc 아키타입
 - 패키지명은 어떤 태스크에서도 바꾸지 않는다(plan Decision 4)

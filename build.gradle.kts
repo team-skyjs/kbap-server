@@ -32,7 +32,6 @@ dependencies {
     jacocoAggregation(project(":app:api"))
     jacocoAggregation(project(":domain:food"))
     jacocoAggregation(project(":domain:member"))
-    jacocoAggregation(project(":domain:avoidance"))
     jacocoAggregation(project(":domain:review"))
     jacocoAggregation(project(":domain:scan"))
     jacocoAggregation(project(":infra:llm"))

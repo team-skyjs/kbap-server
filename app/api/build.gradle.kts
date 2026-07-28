@@ -56,7 +56,6 @@ dependencies {
 
     // avoidance 회귀 테스트가 :domain:avoidance 를 직접 참조한다: 코드↔V5 시드 정합(AvoidanceCatalogSeedSyncTest)이
     // AvoidanceSubstanceCode 를, ModuleBoundaryTest 가 성분 식별자 enum 데이터 없음·엔티티 분류 저장 형식을 검증한다.
-    "testImplementation"(project(":domain:avoidance"))
 
 }
 

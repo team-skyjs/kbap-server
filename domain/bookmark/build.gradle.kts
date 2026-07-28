@@ -6,6 +6,5 @@ plugins {
 dependencies {
     "api"(project(":domain:food"))              // 북마크 목록 = 음식 요약(FoodService 경유)
     "implementation"(project(":domain:member")) // 기피 성분 조회(MemberService.getAvoidedCodes)
-    "implementation"(project(":domain:avoidance")) // 성분 식별자 enum 대조(BookmarkService) — 전이 누수였던 것을 명시
 
 }

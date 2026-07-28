@@ -5,5 +5,4 @@ plugins {
 
 dependencies {
     "api"(project(":domain:member"))    // 회원 기피 성분 → 위험도 판정
-    "api"(project(":domain:avoidance")) // 성분 카탈로그 표시명
 }

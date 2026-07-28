@@ -9,7 +9,6 @@ dependencies {
     // 컨텍스트 간 조합은 여기서만 한다. 도메인 모듈끼리는 서로 의존하지 않는다.
     "implementation"(project(":domain:food"))
     "implementation"(project(":domain:member"))
-    "implementation"(project(":domain:avoidance"))
     "implementation"(project(":domain:scan"))
     "implementation"(project(":domain:review"))
     "implementation"(project(":common"))
