@@ -3,7 +3,7 @@ package com.kbap.app.api.member
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
-import com.kbap.domain.member.MemberService
+import com.kbap.common.domain.member.MemberService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping

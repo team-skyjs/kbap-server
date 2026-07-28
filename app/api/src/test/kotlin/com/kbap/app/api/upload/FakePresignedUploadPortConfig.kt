@@ -1,7 +1,7 @@
 package com.kbap.app.api.upload
 
-import com.kbap.application.upload.PresignedUploadPort
-import com.kbap.application.upload.dto.PresignedUpload
+import com.kbap.common.application.upload.PresignedUploadPort
+import com.kbap.common.application.upload.dto.PresignedUpload
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Duration

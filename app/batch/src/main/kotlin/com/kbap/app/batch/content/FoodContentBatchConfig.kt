@@ -1,11 +1,11 @@
 package com.kbap.app.batch.content
 
-import com.kbap.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.core.food.FoodDescriptionClient
-import com.kbap.core.food.FoodNameTranslationClient
-import com.kbap.domain.avoidance.AvoidanceSubstanceJpaRepository
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.model.Food
+import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.common.core.food.FoodDescriptionClient
+import com.kbap.common.core.food.FoodNameTranslationClient
+import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder

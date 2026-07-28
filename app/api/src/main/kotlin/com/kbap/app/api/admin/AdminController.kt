@@ -3,7 +3,7 @@ package com.kbap.app.api.admin
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.application.foodimage.FoodImageBatchSubmitService
-import com.kbap.domain.food.FoodService
+import com.kbap.common.domain.food.FoodService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

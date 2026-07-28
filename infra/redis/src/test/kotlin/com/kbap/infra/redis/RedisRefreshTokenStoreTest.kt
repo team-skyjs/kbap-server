@@ -1,6 +1,6 @@
 package com.kbap.infra.redis
 
-import com.kbap.core.testsupport.RedisContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe

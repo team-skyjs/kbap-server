@@ -1,14 +1,14 @@
 package com.kbap.app.batch.content
 
 import com.kbap.app.batch.BatchTestClientConfig
-import com.kbap.core.food.FoodAvoidanceAssessment
-import com.kbap.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.core.food.FoodAvoidanceAssessmentResult
-import com.kbap.core.lang.LanguageCode
-import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.core.food.FoodAvoidanceAssessment
+import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.common.core.food.FoodAvoidanceAssessmentResult
+import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension

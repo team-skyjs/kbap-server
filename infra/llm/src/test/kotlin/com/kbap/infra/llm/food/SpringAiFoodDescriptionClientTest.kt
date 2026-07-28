@@ -1,6 +1,6 @@
 package com.kbap.infra.llm.food
 
-import com.kbap.core.food.TargetLanguageTexts
+import com.kbap.common.core.food.TargetLanguageTexts
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 import com.kbap.infra.llm.model.LlmModelId

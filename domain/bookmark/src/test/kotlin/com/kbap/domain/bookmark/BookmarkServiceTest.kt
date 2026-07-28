@@ -1,9 +1,9 @@
 package com.kbap.domain.bookmark
 
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.lang.LanguageCode
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec

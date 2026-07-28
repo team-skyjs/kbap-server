@@ -1,16 +1,16 @@
 package com.kbap.app.api.foodimage
 
 import com.kbap.application.foodimage.FoodImageBatchSubmitService
-import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.ImageBatchItemJpaRepository
-import com.kbap.domain.food.ImageBatchJpaRepository
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.food.model.FoodContentStatus
-import com.kbap.domain.food.model.ImageBatch
-import com.kbap.domain.food.model.ImageBatchItem
-import com.kbap.domain.food.model.ImageBatchItemStatus
-import com.kbap.domain.food.model.ImageBatchStatus
+import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.ImageBatchItemStatus
+import com.kbap.common.domain.food.model.ImageBatchStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly

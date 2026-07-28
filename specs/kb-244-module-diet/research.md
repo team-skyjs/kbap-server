@@ -69,19 +69,20 @@ core·food·member·avoidance·seam 이동·재배선), **PR #2 = api·batch 완
 
 **Alternatives considered**: 문자 그대로 2-pass 이동 — 중간 상태 빌드 불능 + 전 파일 2회 이동(리뷰 diff 2배).
 
-## Decision 4 — 패키지는 전부 유지, ArchUnit 은 소폭 갱신
+## Decision 4 — common 소속 패키지는 `com.kbap.common` 계층으로, 나머지 유지 (2026-07-28 개정)
 
-**Decision**: `com.kbap.core`·`com.kbap.domain.<ctx>`·`com.kbap.application`·`com.kbap.app.*`·`com.kbap.infra.*`
-패키지 이름은 그대로 두고 소속 모듈만 바꾼다. `ModuleBoundaryTest`(app/api, 146줄)는 이미 **패키지 기준**
-(`resideInAPackage("com.kbap.domain..")` 등)이라 규칙 대부분이 그대로 유효하다 — Gradle 이 막아주던
-도메인 간 순환(예: member→food 역참조)만 패키지 규칙으로 추가한다.
+**Decision**: `:common` 으로 이관된 코드는 `com.kbap.common.{core, domain.{food,member,avoidance},
+application.{auth,upload}}` 로 패키지를 개편한다(사용자 지시 — 당초 "전부 유지"에서 변경). api 전용
+도메인(`com.kbap.domain.{scan,bookmark,image,metering}`)·`com.kbap.application`(서비스부)·`com.kbap.app.*`·
+`com.kbap.infra.*` 는 유지. `ModuleBoundaryTest` 는 두 패키지 세계(common.domain / domain)를 모두 다루게
+갱신했다 — 커널·도메인 경계·엔티티 위치 규칙은 두 prefix 를 함께 검사하고, 도메인 간 방향 맵은 컨텍스트별
+패키지 매핑을 갖는다.
 
-**Rationale**: 이 작업의 위험을 "파일 이동 + 빌드 파일" 로 한정한다. 패키지까지 바꾸면 diff 가 전 소스로
-번지고 회귀 원인 추적이 불가능해진다. 배치의 `scanBasePackages`·`@AutoConfigurationPackage("com.kbap")`,
-api 진입점(`com.kbap` 루트) 도 패키지 유지 덕에 무수정이다.
+**Rationale**: 소속 모듈이 패키지에 그대로 드러나 공유/전용 구분이 import 문에서 보인다. 배치의
+`scanBasePackages`·`@AutoConfigurationPackage("com.kbap")`, api 진입점(`com.kbap` 루트)은 상위 루트가
+같아 무수정. 비용: 같은 패키지라 import 없이 참조하던 파일들(seam 소비부)에 명시 import 가 필요해졌다.
 
-**Alternatives considered**: 패키지를 모듈 구조에 맞춰 개편(`com.kbap.common.*`) — 스펙 Assumptions 에서
-범위 밖으로 명시 배제.
+**Alternatives considered**: 전부 유지(당초 결정) — 모듈-패키지 불일치가 남는다고 판단해 사용자 지시로 폐기.
 
 ## Decision 5 — buildSrc 아키타입 정리
 

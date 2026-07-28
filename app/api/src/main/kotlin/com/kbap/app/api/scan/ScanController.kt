@@ -4,7 +4,7 @@ import com.kbap.domain.scan.ScanService
 import com.kbap.app.api.common.ApiPaths
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.auth.AuthMemberId
-import com.kbap.core.lang.LanguageCode
+import com.kbap.common.core.lang.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ModelAttribute

@@ -1,10 +1,11 @@
 package com.kbap.application.upload
 
 import com.kbap.application.upload.dto.ImageUploadInput
-import com.kbap.application.upload.dto.PresignedUpload
+import com.kbap.common.application.upload.PresignedUploadPort
+import com.kbap.common.application.upload.dto.PresignedUpload
 import com.kbap.application.upload.dto.UploadPurpose
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.ZoneOffset

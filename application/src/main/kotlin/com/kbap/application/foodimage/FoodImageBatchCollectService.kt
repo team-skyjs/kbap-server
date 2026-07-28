@@ -1,15 +1,15 @@
 package com.kbap.application.foodimage
 
-import com.kbap.core.food.FoodImageBatchClient
-import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.core.storage.StorageObjectStore
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.ImageBatchItemJpaRepository
-import com.kbap.domain.food.ImageBatchJpaRepository
-import com.kbap.domain.food.model.ImageBatch
-import com.kbap.domain.food.model.ImageBatchItem
-import com.kbap.domain.food.model.ImageBatchItemStatus
-import com.kbap.domain.food.model.ImageBatchStatus
+import com.kbap.common.core.food.FoodImageBatchClient
+import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.core.storage.StorageObjectStore
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.ImageBatchItemStatus
+import com.kbap.common.domain.food.model.ImageBatchStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service

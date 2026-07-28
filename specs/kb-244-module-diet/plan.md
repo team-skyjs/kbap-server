@@ -71,9 +71,9 @@ specs/kb-244-module-diet/
 
 ```text
 common/                          # 신설 — 공유 코드 (구 core + food·member·avoidance + seam)
-├── build.gradle.kts             # kbap.common-conventions (+ core 의 testFixtures·compileOnly 승계)
-└── src/{main,test,testFixtures}/kotlin/com/kbap/
-    ├── core/                    # 패키지 불변 — BaseEntity·ErrorCode·seam(ScannedNameInterpreter·StorageObjectStore)·LanguageCode
+├── build.gradle.kts             # kbap.common-conventions (+ core 의 testFixtures 승계)
+└── src/{main,test,testFixtures}/kotlin/com/kbap/common/   # 패키지 루트 com.kbap.common (2026-07-28 지시)
+    ├── core/                    # BaseEntity·ErrorCode·seam(MenuBoardVisionExtractor·StorageObjectStore)·LanguageCode
     ├── domain/{food,member,avoidance}/   # 공유 도메인 — 엔티티·리포지토리·도메인 서비스
     └── application/             # seam 인터페이스·dto 만 (TokenIssuer·TokenParser·SocialTokenVerifier·RefreshTokenStore·PresignedUploadPort)
 

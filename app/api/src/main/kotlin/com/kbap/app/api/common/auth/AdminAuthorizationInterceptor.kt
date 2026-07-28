@@ -1,8 +1,8 @@
 package com.kbap.app.api.common.auth
 
-import com.kbap.core.error.BusinessException
-import com.kbap.core.error.ErrorCode
-import com.kbap.domain.member.model.MemberRole
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.model.MemberRole
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.web.servlet.HandlerInterceptor

@@ -1,11 +1,11 @@
 package com.kbap.app.batch
 
-import com.kbap.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.core.food.FoodAvoidanceAssessmentResult
-import com.kbap.core.food.FoodDescriptionClient
-import com.kbap.core.food.FoodDescriptionContent
-import com.kbap.core.food.FoodNameTranslationClient
-import com.kbap.core.food.TargetLanguageTexts
+import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
+import com.kbap.common.core.food.FoodAvoidanceAssessmentResult
+import com.kbap.common.core.food.FoodDescriptionClient
+import com.kbap.common.core.food.FoodDescriptionContent
+import com.kbap.common.core.food.FoodNameTranslationClient
+import com.kbap.common.core.food.TargetLanguageTexts
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 

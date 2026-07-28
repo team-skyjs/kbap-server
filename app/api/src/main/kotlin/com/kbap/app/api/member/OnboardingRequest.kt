@@ -1,6 +1,6 @@
 package com.kbap.app.api.member
 
-import com.kbap.domain.member.dto.MemberProfileInput
+import com.kbap.common.domain.member.dto.MemberProfileInput
 
 data class OnboardingRequest(
     val nickname: String,

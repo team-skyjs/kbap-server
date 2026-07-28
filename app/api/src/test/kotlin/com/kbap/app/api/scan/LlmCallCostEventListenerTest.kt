@@ -1,7 +1,7 @@
 package com.kbap.app.api.scan
 
-import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.domain.metering.LlmCallCostService
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny

@@ -1,7 +1,7 @@
 package com.kbap.app.batch.content
 
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.model.Food
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.batch.infrastructure.item.ItemStreamReader
 import org.springframework.data.domain.PageRequest

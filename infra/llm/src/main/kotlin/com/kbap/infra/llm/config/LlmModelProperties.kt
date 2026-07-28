@@ -23,7 +23,6 @@ data class LlmModelProperties(
         val pricing: PricingProps? = null,
     )
 
-    // 음식 사진 생성 전용
     data class ImageProps(
         val enabled: Boolean = false,
         val apiKey: String? = null,
@@ -33,7 +32,6 @@ data class LlmModelProperties(
         val quality: String? = null,
     )
 
-    // 메뉴판 사진 스캔 전용
     data class VisionProps(
         val enabled: Boolean = false,
         val apiKey: String? = null,

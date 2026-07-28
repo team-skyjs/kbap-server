@@ -1,11 +1,11 @@
 package com.kbap.app.api.common.auth
 
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.app.api.common.BaseResponse
 import com.kbap.app.api.common.logging.RequestLoggingFilter
-import com.kbap.application.auth.token.TokenParser
+import com.kbap.common.application.auth.token.TokenParser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

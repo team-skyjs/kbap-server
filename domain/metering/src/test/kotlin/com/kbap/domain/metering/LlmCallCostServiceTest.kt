@@ -1,7 +1,7 @@
 package com.kbap.domain.metering
 
-import com.kbap.core.llm.LlmCallCostIncurred
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.llm.LlmCallCostIncurred
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull

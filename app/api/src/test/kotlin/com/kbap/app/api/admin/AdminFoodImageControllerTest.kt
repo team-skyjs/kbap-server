@@ -1,14 +1,14 @@
 package com.kbap.app.api.admin
 
 import com.kbap.app.api.foodimage.FakeFoodImageBatchClient
-import com.kbap.application.auth.token.TokenIssuer
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.testsupport.MySqlContainerConfig
-import com.kbap.domain.food.FoodJpaRepository
-import com.kbap.domain.food.ImageBatchItemJpaRepository
-import com.kbap.domain.food.ImageBatchJpaRepository
-import com.kbap.domain.food.model.Food
-import com.kbap.domain.member.model.MemberRole
+import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe

@@ -93,7 +93,7 @@
 
 ## Assumptions
 
-- 패키지 이름(`com.kbap.*` 계층 구조)은 유지하고 코드의 소속 모듈만 바꾼다 — 패키지 대개편은 이 작업 범위 밖이다.
+- common 으로 이관되는 코드는 패키지를 `com.kbap.common.<기존 계층>`(core·domain.{food,member,avoidance}·application seam)으로 개편한다(2026-07-28 사용자 지시 — 소속 모듈이 패키지에 드러나게). api 전용 도메인·app·infra 의 패키지는 유지한다.
 - 외부 시스템 어댑터 모듈(LLM·인증·Redis·스토리지)은 제거하지 않고 유지한다 — 이 작업의 다이어트 대상은 도메인·커널·조합 계층 모듈이다.
 - common 배치 기준은 "api 밖(배치·인프라 어댑터)에서도 쓰는가" 하나다: 공통 커널·공유 엔티티/리포지토리/도메인 서비스·외부 시스템 seam 인터페이스는 common, 컨트롤러·조합 계층·api 전용 도메인은 api, 배치 잡 코드는 batch.
 - 대응 코드가 없는 빈 placeholder 모듈(review)은 제거한다.

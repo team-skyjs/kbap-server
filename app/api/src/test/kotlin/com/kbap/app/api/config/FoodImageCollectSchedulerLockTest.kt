@@ -1,6 +1,6 @@
 package com.kbap.app.api.config
 
-import com.kbap.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe

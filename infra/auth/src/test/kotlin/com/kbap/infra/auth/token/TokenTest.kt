@@ -1,9 +1,9 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.application.auth.token.AuthTokenProperties
-import com.kbap.core.error.ErrorCode
-import com.kbap.core.error.BusinessException
-import com.kbap.domain.member.model.MemberRole
+import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull

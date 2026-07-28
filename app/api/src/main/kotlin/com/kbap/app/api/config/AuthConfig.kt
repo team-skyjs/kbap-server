@@ -1,9 +1,9 @@
 package com.kbap.app.api.config
 
-import com.kbap.domain.member.SocialAccountDeleter
-import com.kbap.application.auth.social.SocialTokenVerifier
+import com.kbap.common.domain.member.SocialAccountDeleter
+import com.kbap.common.application.auth.social.SocialTokenVerifier
 import com.kbap.application.auth.social.UnavailableSocialAuth
-import com.kbap.application.auth.token.AuthTokenProperties
+import com.kbap.common.application.auth.token.AuthTokenProperties
 import com.kbap.infra.auth.firebase.FirebaseSocialAuth
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

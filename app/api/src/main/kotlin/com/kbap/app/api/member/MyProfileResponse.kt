@@ -1,7 +1,7 @@
 package com.kbap.app.api.member
 
-import com.kbap.domain.member.dto.MemberRankingResult
-import com.kbap.domain.member.dto.MyProfileResult
+import com.kbap.common.domain.member.dto.MemberRankingResult
+import com.kbap.common.domain.member.dto.MyProfileResult
 
 data class MyProfileResponse(
     val memberId: Long,

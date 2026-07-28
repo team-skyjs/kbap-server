@@ -1,6 +1,6 @@
 package com.kbap.domain.bookmark.model
 
-import com.kbap.core.persistence.BaseEntity
+import com.kbap.common.core.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table

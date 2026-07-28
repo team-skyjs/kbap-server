@@ -4,11 +4,10 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.kbap.core.scan.ExtractedMenu
+import com.kbap.common.core.scan.ExtractedMenu
 
 class MenuBoardParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
-// 비전 응답 JSON({"results":[{idx,name,koreanName,price}]})을 ExtractedMenu 목록으로 파싱한다.
 // 구조가 깨졌으면(비 JSON·results 부재) 예외 — 스캔은 이를 인식 실패로 처리한다(조용한 빈 결과 금지).
 // 이름이 빈 개별 항목은 건너뛴다(빈 results 는 정상 — 메뉴판 아닌 사진).
 class MenuBoardResultParser {

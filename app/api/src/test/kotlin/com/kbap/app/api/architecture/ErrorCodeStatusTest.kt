@@ -1,6 +1,6 @@
 package com.kbap.app.api.architecture
 
-import com.kbap.core.error.ErrorCode
+import com.kbap.common.core.error.ErrorCode
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
