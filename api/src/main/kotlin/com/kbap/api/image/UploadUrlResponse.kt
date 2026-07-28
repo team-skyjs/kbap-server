@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import com.kbap.common.port.storage.PresignedUpload
 import java.time.Instant

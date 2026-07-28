@@ -5,8 +5,6 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
 import com.kbap.common.domain.Spiciness
 import com.kbap.common.domain.food.KoreanMenuNameNormalizer
-import com.kbap.common.domain.food.model.RiskLevel
-import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

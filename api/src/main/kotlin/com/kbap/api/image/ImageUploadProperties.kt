@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import java.time.Duration
 

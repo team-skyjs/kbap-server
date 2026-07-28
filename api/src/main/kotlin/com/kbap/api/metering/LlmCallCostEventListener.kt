@@ -1,6 +1,6 @@
 package com.kbap.api.metering
 
-import com.kbap.common.port.llm.LlmCallCostIncurred
+import com.kbap.common.domain.metering.LlmCallCostIncurred
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async

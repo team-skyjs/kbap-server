@@ -1,6 +1,6 @@
 package com.kbap.infra.llm.menu
 
-import com.kbap.common.port.llm.LlmCallCostIncurred
+import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.OcrItem

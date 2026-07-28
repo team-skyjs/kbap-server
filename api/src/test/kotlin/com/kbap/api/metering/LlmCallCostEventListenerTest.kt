@@ -1,6 +1,6 @@
 package com.kbap.api.metering
 
-import com.kbap.common.port.llm.LlmCallCostIncurred
+import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny

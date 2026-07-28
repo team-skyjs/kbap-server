@@ -2,7 +2,7 @@ package com.kbap.infra.auth.token
 
 import com.kbap.common.port.auth.ParsedAccessToken
 import com.kbap.common.port.auth.ParsedRefreshToken
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.port.auth.TokenParser
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
@@ -16,7 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 
 @Component
 class JwtTokenParser(
-    properties: AuthTokenProperties,
+    properties: JwtTokenProperties,
 ) : TokenParser {
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 

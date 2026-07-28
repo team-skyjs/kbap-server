@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.PresignedUpload
@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration
 import java.time.Duration
 import java.time.Instant
 
-// 전 api 통합 테스트가 공유하는 페이크 — ImageUploadApplicationService 가 PresignedUploadPort 빈을
+// 전 api 통합 테스트가 공유하는 페이크 — PresignedUploadService 가 PresignedUploadPort 빈을
 // 요구하므로 항상 스캔되는 @Configuration 으로 제공한다(실 StorageConfig 는 kbap.storage.enabled 로 꺼져 있어 충돌 없음).
 @Configuration
 class FakePresignedUploadPortConfig {

@@ -1,7 +1,7 @@
 package com.kbap.api.auth
 
 import com.kbap.common.port.auth.SocialTokenVerifier
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.port.auth.RefreshTokenStore
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.auth.TokenParser
@@ -22,7 +22,7 @@ class AuthService(
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
     private val socialAccountDeleter: SocialAccountDeleter,
-    private val properties: AuthTokenProperties,
+    private val properties: JwtTokenProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 

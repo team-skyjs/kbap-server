@@ -2,7 +2,7 @@ package com.kbap.api.scenario
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.infra.auth.token.JwtTokenIssuer
 import org.springframework.http.MediaType
@@ -19,7 +19,7 @@ data class 응답(val 상태코드: Int, val payload: JsonNode, val code: String
 class ScenarioApiDriver(
     private val mockMvc: MockMvc,
     여정접두어: String,
-    private val authTokenProperties: AuthTokenProperties? = null,
+    private val authTokenProperties: JwtTokenProperties? = null,
 ) {
     private val objectMapper = jacksonObjectMapper()
 
@@ -74,7 +74,7 @@ class ScenarioApiDriver(
     fun 프로필을_조회한다(): 응답 = 응답으로(get("/api/v1/members/me/profile"))
 
     fun 만료된_액세스토큰으로_프로필을_조회한다(): 응답 {
-        val properties = requireNotNull(authTokenProperties) { "만료 토큰 스텝은 AuthTokenProperties 주입이 필요합니다" }
+        val properties = requireNotNull(authTokenProperties) { "만료 토큰 스텝은 JwtTokenProperties 주입이 필요합니다" }
         val expired = JwtTokenIssuer(properties.copy(accessTtl = Duration.ofMinutes(-1)))
             .issueAccessToken(memberId = 0L, role = MemberRole.USER)
         val response = mockMvc.get("/api/v1/members/me/profile") {

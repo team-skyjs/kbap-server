@@ -2,7 +2,7 @@ package com.kbap.api.config
 
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.StorageObjectStore
-import com.kbap.infra.storage.S3PresignedUploadPort
+import com.kbap.infra.storage.S3PresignedUploadAdapter
 import com.kbap.infra.storage.S3StorageObjectStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -25,5 +25,5 @@ class StorageConfig {
         @Value("\${kbap.storage.region}") region: String,
         @Value("\${kbap.storage.bucket}") bucket: String,
         @Value("\${kbap.storage.public-base-url}") publicBaseUrl: String,
-    ): PresignedUploadPort = S3PresignedUploadPort.create(region, bucket, publicBaseUrl)
+    ): PresignedUploadPort = S3PresignedUploadAdapter.create(region, bucket, publicBaseUrl)
 }

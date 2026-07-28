@@ -1,9 +1,9 @@
-package com.kbap.api.config
+package com.kbap.api.auth
 
 import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.port.auth.SocialTokenVerifier
 import com.kbap.api.auth.UnavailableSocialAuth
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.infra.auth.firebase.FirebaseSocialAuth
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -20,7 +20,7 @@ class AuthConfig {
         @Value("\${kbap.auth.jwt.secret}") secret: String,
         @Value("\${kbap.auth.jwt.access-ttl}") accessTtl: Duration,
         @Value("\${kbap.auth.jwt.refresh-ttl}") refreshTtl: Duration,
-    ): AuthTokenProperties = AuthTokenProperties(secret = secret, accessTtl = accessTtl, refreshTtl = refreshTtl)
+    ): JwtTokenProperties = JwtTokenProperties(secret = secret, accessTtl = accessTtl, refreshTtl = refreshTtl)
 
     @Bean
     fun socialTokenVerifier(

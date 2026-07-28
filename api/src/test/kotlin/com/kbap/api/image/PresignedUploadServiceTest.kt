@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 import com.kbap.common.port.storage.PresignedUploadPort
 
 import com.kbap.common.port.storage.PresignedUpload
@@ -11,7 +11,7 @@ import io.kotest.matchers.string.shouldMatch
 import java.time.Duration
 import java.time.Instant
 
-class ImageUploadApplicationServiceTest : BehaviorSpec({
+class PresignedUploadServiceTest : BehaviorSpec({
 
     class RecordingPort : PresignedUploadPort {
         val keys = mutableListOf<String>()
@@ -52,7 +52,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
     given("이미지 업로드 URL 발급") {
         `when`("지원하지 않는 용도로 요청하면") {
             then("UPLOAD-002 로 거절한다") {
-                val service = ImageUploadApplicationService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort())
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(purpose = "UNKNOWN"))
                 }
@@ -62,7 +62,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
 
         `when`("허용되지 않은 Content-Type 으로 요청하면") {
             then("UPLOAD-001 로 거절한다") {
-                val service = ImageUploadApplicationService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort())
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(contentType = "image/gif"))
                 }
@@ -72,7 +72,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
 
         `when`("허용 크기를 초과하면") {
             then("UPLOAD-003 로 거절한다") {
-                val service = ImageUploadApplicationService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort())
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(contentLength = 1_001L))
                 }
@@ -83,7 +83,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         `when`("유효한 요청이면") {
             then("규격에 맞는 객체 키로 port 에 위임하고 결과를 반환한다") {
                 val port = RecordingPort()
-                val service = ImageUploadApplicationService(properties(), port)
+                val service = PresignedUploadService(properties(), port)
 
                 val result = service.issueUploadUrl(input(memberId = 1024L, contentType = "image/jpeg"))
 
@@ -99,7 +99,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         `when`("PROFILE_IMAGE 용도로 요청하면") {
             then("객체 키가 profile 폴더 아래로 생성된다") {
                 val port = RecordingPort()
-                val service = ImageUploadApplicationService(properties(), port)
+                val service = PresignedUploadService(properties(), port)
 
                 service.issueUploadUrl(input(memberId = 7L, purpose = "PROFILE_IMAGE"))
 
@@ -110,7 +110,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         `when`("image/png 을 올리면") {
             then("객체 키 확장자가 png 다") {
                 val port = RecordingPort()
-                val service = ImageUploadApplicationService(properties(), port)
+                val service = PresignedUploadService(properties(), port)
                 service.issueUploadUrl(input(contentType = "image/png"))
                 port.keys.single() shouldMatch Regex(""".*\.png$""")
             }
@@ -119,7 +119,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         `when`("환경 접두가 dev 로 설정되면") {
             then("객체 키와 공개 URL 이 dev/ 접두로 시작한다") {
                 val port = RecordingPort()
-                val service = ImageUploadApplicationService(properties(keyPrefix = "dev"), port)
+                val service = PresignedUploadService(properties(keyPrefix = "dev"), port)
 
                 val result = service.issueUploadUrl(input(memberId = 1024L))
 
@@ -132,7 +132,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
             then("동일하게 정규화되어 중복 슬래시 없이 dev/ 로 시작한다") {
                 listOf("dev/", "/dev").forEach { prefix ->
                     val port = RecordingPort()
-                    val service = ImageUploadApplicationService(properties(keyPrefix = prefix), port)
+                    val service = PresignedUploadService(properties(keyPrefix = prefix), port)
 
                     service.issueUploadUrl(input())
 
@@ -145,7 +145,7 @@ class ImageUploadApplicationServiceTest : BehaviorSpec({
         `when`("같은 회원이 연속 두 번 발급하면") {
             then("객체 키가 서로 다르다") {
                 val port = RecordingPort()
-                val service = ImageUploadApplicationService(properties(), port)
+                val service = PresignedUploadService(properties(), port)
                 service.issueUploadUrl(input())
                 service.issueUploadUrl(input())
                 (port.keys[0] == port.keys[1]) shouldBe false

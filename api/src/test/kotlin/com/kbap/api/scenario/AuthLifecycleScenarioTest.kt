@@ -1,6 +1,6 @@
 package com.kbap.api.scenario
 
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.annotation.Tags
@@ -24,7 +24,7 @@ class AuthLifecycleScenarioTest : BehaviorSpec() {
     private lateinit var mockMvc: MockMvc
 
     @Autowired
-    private lateinit var authTokenProperties: AuthTokenProperties
+    private lateinit var authTokenProperties: JwtTokenProperties
 
     init {
         given("가입 직후 액세스 토큰이 만료된 사용자") {

@@ -1,8 +1,8 @@
-package com.kbap.common.port.auth
+package com.kbap.infra.auth.token
 
 import java.time.Duration
 
-data class AuthTokenProperties(
+data class JwtTokenProperties(
     val secret: String,
     val accessTtl: Duration,
     val refreshTtl: Duration,

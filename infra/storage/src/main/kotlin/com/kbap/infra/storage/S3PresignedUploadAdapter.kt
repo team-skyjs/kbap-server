@@ -8,14 +8,14 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 import java.time.Duration
 
-class S3PresignedUploadPort(
+class S3PresignedUploadAdapter(
     private val presigner: S3Presigner,
     private val bucket: String,
     private val publicBaseUrl: String,
 ) : PresignedUploadPort {
     companion object {
         fun create(region: String, bucket: String, publicBaseUrl: String): PresignedUploadPort =
-            S3PresignedUploadPort(S3Presigner.builder().region(Region.of(region)).build(), bucket, publicBaseUrl)
+            S3PresignedUploadAdapter(S3Presigner.builder().region(Region.of(region)).build(), bucket, publicBaseUrl)
     }
 
     override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {

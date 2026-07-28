@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.PresignedUpload
@@ -10,7 +10,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 @Service
-class ImageUploadApplicationService(
+class PresignedUploadService(
     private val properties: ImageUploadProperties,
     private val port: PresignedUploadPort,
 ) {

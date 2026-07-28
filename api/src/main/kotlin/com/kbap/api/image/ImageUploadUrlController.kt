@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import com.kbap.api.common.ApiPaths
 import com.kbap.api.common.BaseResponse
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.V1 + "/images")
 class ImageUploadUrlController(
-    private val imageUploadApplicationService: ImageUploadApplicationService,
+    private val imageUploadApplicationService: PresignedUploadService,
 ) : ImageUploadUrlApi {
     @PostMapping("/upload-url")
     override fun issueUploadUrl(

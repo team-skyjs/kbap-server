@@ -1,6 +1,6 @@
 package com.kbap.api.common.auth
 
-import com.kbap.common.port.auth.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.infra.auth.token.JwtTokenIssuer
 import com.kbap.infra.auth.token.JwtTokenParser
 import com.kbap.common.domain.member.model.MemberRole
@@ -16,7 +16,7 @@ import java.time.Duration
 
 class JwtAuthenticationFilterTest : BehaviorSpec({
 
-    val properties = AuthTokenProperties(
+    val properties = JwtTokenProperties(
         secret = "kb104-filter-test-secret-at-least-32-bytes!!",
         accessTtl = Duration.ofMinutes(30),
         refreshTtl = Duration.ofDays(14),

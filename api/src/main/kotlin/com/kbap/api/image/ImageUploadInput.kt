@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 data class ImageUploadInput(
     val memberId: Long,

@@ -1,4 +1,4 @@
-package com.kbap.api.upload
+package com.kbap.api.image
 
 import com.kbap.api.common.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
