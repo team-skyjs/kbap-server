@@ -87,7 +87,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
                 val result = service.issueUploadUrl(input(memberId = 1024L, contentType = "image/jpeg"))
 
-                port.keys.single() shouldMatch Regex("""^images/scan/\d{4}/\d{2}/1024/[0-9a-f-]{36}\.jpg$""")
+                port.keys.single() shouldMatch Regex("""^images/scans/\d{4}/\d{2}/1024_[0-9a-f-]{36}\.jpg$""")
                 port.lastContentType shouldBe "image/jpeg"
                 port.lastContentLength shouldBe 500L
                 port.lastTtl shouldBe Duration.ofMinutes(5)
@@ -103,7 +103,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
                 service.issueUploadUrl(input(memberId = 7L, purpose = "PROFILE_IMAGE"))
 
-                port.keys.single() shouldMatch Regex("""^images/profile/\d{4}/\d{2}/7/[0-9a-f-]{36}\.jpg$""")
+                port.keys.single() shouldMatch Regex("""^images/profile/\d{4}/\d{2}/7_[0-9a-f-]{36}\.jpg$""")
             }
         }
 
@@ -123,7 +123,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
                 val result = service.issueUploadUrl(input(memberId = 1024L))
 
-                port.keys.single() shouldMatch Regex("""^dev/images/scan/\d{4}/\d{2}/1024/[0-9a-f-]{36}\.jpg$""")
+                port.keys.single() shouldMatch Regex("""^dev/images/scans/\d{4}/\d{2}/1024_[0-9a-f-]{36}\.jpg$""")
                 result.publicUrl shouldBe "https://cdn.test/${port.keys.single()}"
             }
         }
@@ -136,7 +136,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
                     service.issueUploadUrl(input())
 
-                    port.keys.single() shouldMatch Regex("""^dev/images/scan/.+""")
+                    port.keys.single() shouldMatch Regex("""^dev/images/scans/.+""")
                     port.keys.single().contains("//") shouldBe false
                 }
             }

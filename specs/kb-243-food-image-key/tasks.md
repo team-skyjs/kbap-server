@@ -40,9 +40,9 @@
 
 **Independent Test**: `./gradlew :api:test --tests "com.kbap.api.image.PresignedUploadServiceTest"` — 발급 키가 새 규약과 일치하면 완결.
 
-- [ ] T004 [P] [US2] (Red) `api/src/test/kotlin/com/kbap/api/image/PresignedUploadServiceTest.kt` 수정: 스캔 발급 키 기대 정규식을 `^images/scans/\d{4}/\d{2}/1024_[0-9a-f-]{36}\.jpg$` 로, 환경접두 케이스는 `^dev/images/scans/...` 로, 프로필 케이스는 `^images/profile/\d{4}/\d{2}/7_[0-9a-f-]{36}\.jpg$` 로 교체(폴더명은 profile 유지 — research R5). 실행해 **Red 확인**.
-- [ ] T005 [US2] (Green) `api/src/main/kotlin/com/kbap/api/image/UploadPurpose.kt` 의 `MENU_SCAN("scan")` → `MENU_SCAN("scans")`, `api/src/main/kotlin/com/kbap/api/image/PresignedUploadService.kt` 의 포맷 `images/%s/%04d/%02d/%d/%s.%s` → `images/%s/%04d/%02d/%d_%s.%s`. T004 테스트 **Green 확인**.
-- [ ] T006 [US2] `./gradlew :api:test` 회귀 실행(MenuScanScenarioTest·ImageControllerTest 포함 — 경로 문자열 비의존이라 통과 예상). 통과 후 논리 단위 커밋.
+- [X] T004 [P] [US2] (Red) `api/src/test/kotlin/com/kbap/api/image/PresignedUploadServiceTest.kt` 수정: 스캔 발급 키 기대 정규식을 `^images/scans/\d{4}/\d{2}/1024_[0-9a-f-]{36}\.jpg$` 로, 환경접두 케이스는 `^dev/images/scans/...` 로, 프로필 케이스는 `^images/profile/\d{4}/\d{2}/7_[0-9a-f-]{36}\.jpg$` 로 교체(폴더명은 profile 유지 — research R5). 실행해 **Red 확인**.
+- [X] T005 [US2] (Green) `api/src/main/kotlin/com/kbap/api/image/UploadPurpose.kt` 의 `MENU_SCAN("scan")` → `MENU_SCAN("scans")`, `api/src/main/kotlin/com/kbap/api/image/PresignedUploadService.kt` 의 포맷 `images/%s/%04d/%02d/%d/%s.%s` → `images/%s/%04d/%02d/%d_%s.%s`. T004 테스트 **Green 확인**.
+- [X] T006 [US2] `./gradlew :api:test` 회귀 실행(MenuScanScenarioTest·ImageControllerTest 포함 — 경로 문자열 비의존이라 통과 예상). 통과 후 논리 단위 커밋.
 
 ---
 

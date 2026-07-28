@@ -30,7 +30,7 @@ class PresignedUploadService(
     private fun objectKey(purpose: UploadPurpose, memberId: Long, contentType: String): String {
         val date = LocalDate.now(ZoneOffset.UTC)
         val prefix = properties.keyPrefix.trim('/')
-        val baseKey = "images/%s/%04d/%02d/%d/%s.%s".format(
+        val baseKey = "images/%s/%04d/%02d/%d_%s.%s".format(
             purpose.prefix,
             date.year,
             date.monthValue,
