@@ -1,6 +1,6 @@
 package com.kbap.api.admin
 
-import com.kbap.common.util.ApiPaths
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.foodimage.FoodImageBatchSubmitService
 import com.kbap.common.domain.food.FoodService

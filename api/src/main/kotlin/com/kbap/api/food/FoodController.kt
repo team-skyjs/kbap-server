@@ -1,6 +1,6 @@
 package com.kbap.api.food
 
-import com.kbap.common.util.ApiPaths
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page

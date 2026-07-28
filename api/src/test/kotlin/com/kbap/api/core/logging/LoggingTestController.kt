@@ -1,6 +1,6 @@
 package com.kbap.api.core.logging
 
-import com.kbap.common.util.ApiPaths
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode

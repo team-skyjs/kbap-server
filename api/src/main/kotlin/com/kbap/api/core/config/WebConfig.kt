@@ -1,7 +1,7 @@
 package com.kbap.api.core.config
 
 import com.kbap.api.admin.AdminAuthorizationInterceptor
-import com.kbap.common.util.ApiPaths
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
 import com.kbap.api.core.auth.JwtAuthenticationFilter
