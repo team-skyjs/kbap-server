@@ -24,7 +24,7 @@ dependencies {
 
     // 배치는 도메인 모듈(영속 포함)을 직접 의존하므로 부팅 시 JPA/데이터소스가 필요하다(ADR-0012).
     // 통합 부팅 검증(@SpringBootTest)은 api 와 동일하게 MySQL Testcontainers 공통 설정(:core testFixtures)을 쓴다(KB-46 동등성).
-    "testImplementation"(testFixtures(project(":core")))
+    "testImplementation"(testFixtures(project(":common")))
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

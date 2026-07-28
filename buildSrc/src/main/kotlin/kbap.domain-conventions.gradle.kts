@@ -33,7 +33,7 @@ configure<DependencyManagementExtension> {
 }
 
 dependencies {
-    "api"(project(":core"))
+    "api"(project(":common"))
     "api"(libs.findLibrary("spring-boot-starter-data-jpa").get())
     "implementation"(libs.findLibrary("kotlin-reflect").get())
     "implementation"(libs.findLibrary("jackson-module-kotlin").get())
@@ -41,6 +41,6 @@ dependencies {
 
     "testImplementation"(libs.findLibrary("spring-boot-starter-test").get())
     "testImplementation"(libs.findLibrary("kotest-extensions-spring").get())
-    "testImplementation"(testFixtures(project(":core")))
+    "testImplementation"(testFixtures(project(":common")))
     "testRuntimeOnly"(libs.findLibrary("mysql-connector").get())
 }

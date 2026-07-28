@@ -6,7 +6,7 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":core"))
+    "implementation"(project(":common"))
     "implementation"(project(":application"))
 
     "implementation"(platform(libs.aws.bom))

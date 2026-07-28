@@ -7,7 +7,7 @@ plugins {
 dependencies {
     "implementation"(project(":application"))
     "implementation"(project(":domain:member"))
-    "implementation"(project(":core"))
+    "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
     "implementation"(libs.jjwt.api)

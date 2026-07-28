@@ -8,5 +8,5 @@ dependencies {
     "implementation"(libs.spring.boot.starter.data.redis)
     "implementation"(libs.spring.context)
 
-    "testImplementation"(testFixtures(project(":core")))
+    "testImplementation"(testFixtures(project(":common")))
 }

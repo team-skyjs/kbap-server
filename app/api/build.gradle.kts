@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     "implementation"(project(":application"))
-    "implementation"(project(":core"))
+    "implementation"(project(":common"))
 
     // 스캔 메뉴명 정제 LLM 어댑터(ScannedNameInterpreter). @ConditionalOnProperty 로 미구성 시 빈 미생성.
     "runtimeOnly"(project(":infra:llm"))
@@ -44,7 +44,7 @@ dependencies {
 
     // 통합 테스트 DB: MySQL Testcontainers 공통 설정을 :core testFixtures 에서 가져온다(KB-46·KB-134).
     // testFixturesApi 로 노출된 spring-boot-testcontainers·testcontainers-mysql 이 전이된다.
-    "testImplementation"(testFixtures(project(":core")))
+    "testImplementation"(testFixtures(project(":common")))
     "testRuntimeOnly"(libs.mysql.connector)
 
     // @AutoConfigureMockMvc — Boot 4.x 에서 web mvc test-slice 가 별도 모듈로 분리됐다.

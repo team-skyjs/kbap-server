@@ -12,7 +12,7 @@ dependencies {
     "implementation"(project(":domain:avoidance"))
     "implementation"(project(":domain:scan"))
     "implementation"(project(":domain:review"))
-    "implementation"(project(":core"))
+    "implementation"(project(":common"))
 
     // 서비스 계층 조립·트랜잭션 경계용 최소 Spring(@Service/@Component/@Transactional).
     // web 스타터는 얹지 않는다 — 실제 트랜잭션 매니저는 부트 앱이 런타임 주입.
