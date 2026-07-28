@@ -1,4 +1,4 @@
-package com.kbap.api.core
+package com.kbap.common.util
 
 object ApiPaths {
     const val V1 = "/api/v1"

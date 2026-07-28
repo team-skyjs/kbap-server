@@ -1,6 +1,6 @@
 package com.kbap.api.home
 
-import com.kbap.api.core.ApiPaths
+import com.kbap.common.util.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode

@@ -1,4 +1,4 @@
-package com.kbap.api.core
+package com.kbap.common.util
 
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException

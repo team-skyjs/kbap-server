@@ -1,10 +1,10 @@
 package com.kbap.api.food
 
-import com.kbap.api.core.ApiPaths
+import com.kbap.common.util.ApiPaths
 import com.kbap.api.core.BaseResponse
-import com.kbap.api.core.CursorParser
+import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page
-import com.kbap.api.core.SearchKeywordParser
+import com.kbap.common.util.SearchKeywordParser
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
 import com.kbap.api.bookmark.BookmarkService

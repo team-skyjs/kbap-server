@@ -1,6 +1,6 @@
 package com.kbap.api.auth
 
-import com.kbap.api.core.ApiPaths
+import com.kbap.common.util.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import jakarta.validation.Valid
