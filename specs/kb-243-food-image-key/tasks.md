@@ -48,8 +48,8 @@
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T007 [P] `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt` swagger 예시 `"test/images/scan/한식마당.jpg"` 를 새 규약 예시(`"dev/images/scans/2026/07/1_550e8400-e29b-41d4-a716-446655440000.jpg"`)로 갱신 — 문서 정합.
-- [ ] T008 `./gradlew build` 전체 빌드(아치 테스트 포함) 통과 확인 후 최종 커밋.
+- [X] T007 [P] `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt` swagger 예시 `"test/images/scan/한식마당.jpg"` 를 새 규약 예시(`"dev/images/scans/2026/07/1_550e8400-e29b-41d4-a716-446655440000.jpg"`)로 갱신 — 문서 정합.
+- [X] T008 `./gradlew build` 전체 빌드(아치 테스트 포함) 통과 확인 후 최종 커밋.
 
 ## Dependencies
 

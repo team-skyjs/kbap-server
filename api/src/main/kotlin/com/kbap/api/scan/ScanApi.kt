@@ -71,7 +71,7 @@ interface ScanApi {
                                 "— vision 추출 메뉴에 매칭되지 않는 노이즈는 결과에서 빠진다. '피개'는 사진 표기 그대로(찌개 깨짐).",
                             value = """
                                 {
-                                  "imagePath": "test/images/scan/한식마당.jpg",
+                                  "imagePath": "dev/images/scans/2026/07/1_550e8400-e29b-41d4-a716-446655440000.jpg",
                                   "items": [
                                     {"idx": 0, "rawMenuName": "김치피개"},
                                     {"idx": 1, "rawMenuName": "된장피개"},
