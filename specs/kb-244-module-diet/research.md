@@ -58,11 +58,10 @@ api/common 에 오염됨. (b) 현행 유지 — 스펙이 부정한 상태.
 
 ## Decision 3 — 이동 순서: api 전용 흡수 → 공유 추출, 단계마다 그린 빌드
 
-**Decision**: 사용자 지시 순서(1. api 로 합침 → 2. common 분리)를 "api 전용 코드 먼저, 공유 코드 나중"으로
-집행한다: **Stage A** api 전용 도메인(scan·bookmark·image·metering)과 application 의 서비스부를 `:app:api` 로
-흡수 → **Stage B** `:common` 신설 후 core·food·member·avoidance·seam 을 이동하고 batch·infra 의존 재배선 →
-**Stage C** 빈 모듈 제거(settings 정리)·buildSrc 아키타입 축소·문서/헌법 갱신. 각 Stage 는 전체 빌드 그린을
-유지한 채 커밋한다.
+**Decision** (2026-07-28 /speckit-tasks 에서 PR 분할 지시로 개정): **PR #1 = common 분리**(`:common` 신설 →
+core·food·member·avoidance·seam 이동·재배선), **PR #2 = api·batch 완성**(api 전용 도메인·application 서비스부
+흡수 → 모듈 제거·buildSrc 축소·문서/헌법 갱신). 각 태스크는 전체 빌드 그린을 유지한 채 커밋하고, ArchUnit
+도메인 방향 규칙은 도메인의 Gradle 경계가 사라지기 전(PR #1 서두)에 추가한다.
 
 **Rationale**: 문자 그대로 "도메인 전부를 api 로 합친 뒤 꺼내는" 순서는 중간 상태에서 `:infra:auth`(→member)·
 `:app:batch`(→food) 가 `:app:api` 를 역참조해야 해 순환으로 컴파일이 깨진다. 목적지가 Decision 2 로 이미

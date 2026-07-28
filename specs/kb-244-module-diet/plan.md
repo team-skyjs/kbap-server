@@ -9,9 +9,9 @@
 16개 Gradle 모듈(core + 도메인 8종 + application + infra 4종 + 부트앱 2종)을 7개(`:common`·`:app:api`·
 `:app:batch` + `:infra:{llm,auth,redis,storage}`)로 통합한다. 순수 구조 변경 — 기능·API·DB 스키마·패키지명
 불변, 파일 이동과 빌드 배선만 바꾼다. common 배치 기준은 "api 밖(배치·인프라 어댑터)이 컴파일 의존하는가"
-하나다. 집행 순서는 api 전용 코드 흡수(Stage A) → 공유 코드 common 추출·재배선(Stage B) → 모듈
-제거·buildSrc 축소·문서/헌법 갱신(Stage C)이며 각 Stage 는 그린 빌드로 커밋한다. 세부 결정과 근거는
-[research.md](research.md).
+하나다. 집행은 PR 2개로 나눈다(사용자 지시): **PR #1** 공유 코드 common 추출·재배선 → **PR #2** api 전용
+코드 흡수·모듈 제거·buildSrc 축소·문서/헌법 갱신. 각 태스크는 그린 빌드로 커밋한다. 세부 결정과 근거는
+[research.md](research.md), 태스크 분해는 [tasks.md](tasks.md).
 
 ## Technical Context
 
