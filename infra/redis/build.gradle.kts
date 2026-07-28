@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":application"))
+    "implementation"(project(":common"))
     "implementation"(libs.spring.boot.starter.data.redis)
     "implementation"(libs.spring.context)
 

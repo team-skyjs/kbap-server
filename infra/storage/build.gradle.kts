@@ -7,7 +7,6 @@ plugins {
 
 dependencies {
     "implementation"(project(":common"))
-    "implementation"(project(":application"))
 
     "implementation"(platform(libs.aws.bom))
     "implementation"(libs.aws.s3)

@@ -5,7 +5,6 @@ plugins {
 }
 
 dependencies {
-    "implementation"(project(":application"))
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
