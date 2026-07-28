@@ -1,6 +1,6 @@
 package com.kbap.common.domain.avoidance.model
 
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.domain.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.lang.reflect.Modifier

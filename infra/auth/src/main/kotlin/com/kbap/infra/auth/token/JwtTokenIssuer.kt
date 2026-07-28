@@ -1,8 +1,8 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.common.application.auth.dto.IssuedRefreshToken
-import com.kbap.common.application.auth.token.AuthTokenProperties
-import com.kbap.common.application.auth.token.TokenIssuer
+import com.kbap.common.port.auth.IssuedRefreshToken
+import com.kbap.infra.auth.token.JwtTokenProperties
+import com.kbap.common.port.auth.TokenIssuer
 
 import com.kbap.common.domain.member.model.MemberRole
 import io.jsonwebtoken.Jwts
@@ -15,7 +15,7 @@ const val ROLE_CLAIM: String = "role"
 
 @Component
 class JwtTokenIssuer(
-    private val properties: AuthTokenProperties,
+    private val properties: JwtTokenProperties,
 ) : TokenIssuer {
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 

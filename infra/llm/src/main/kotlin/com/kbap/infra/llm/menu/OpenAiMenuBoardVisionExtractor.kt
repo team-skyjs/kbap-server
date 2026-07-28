@@ -1,9 +1,9 @@
 package com.kbap.infra.llm.menu
 
-import com.kbap.common.core.llm.LlmCallCostIncurred
-import com.kbap.common.core.scan.ExtractedMenu
-import com.kbap.common.core.scan.MenuBoardVisionExtractor
-import com.kbap.common.core.scan.OcrItem
+import com.kbap.common.domain.metering.LlmCallCostIncurred
+import com.kbap.common.port.llm.ExtractedMenu
+import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.OcrItem
 import com.kbap.infra.llm.model.LlmPricing
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage

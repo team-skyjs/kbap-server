@@ -1,6 +1,6 @@
 package com.kbap.infra.auth.token
 
-import com.kbap.common.application.auth.token.AuthTokenProperties
+import com.kbap.infra.auth.token.JwtTokenProperties
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.member.model.MemberRole
@@ -15,7 +15,7 @@ import java.time.Duration
 class TokenTest : BehaviorSpec({
 
     val secret = "kb118-test-secret-key-at-least-32-bytes-long"
-    val properties = AuthTokenProperties(
+    val properties = JwtTokenProperties(
         secret = secret,
         accessTtl = Duration.ofMinutes(30),
         refreshTtl = Duration.ofDays(14),
@@ -101,7 +101,7 @@ class TokenTest : BehaviorSpec({
         `when`("다른 시크릿으로 서명한 refresh 토큰을 파싱하면") {
             then("INVALID_REFRESH_TOKEN 예외를 던진다") {
                 val forged = JwtTokenIssuer(
-                    AuthTokenProperties(
+                    JwtTokenProperties(
                         secret = "another-secret-key-at-least-32-bytes-long!!",
                         accessTtl = Duration.ofMinutes(30),
                         refreshTtl = Duration.ofDays(14),
@@ -163,7 +163,7 @@ class TokenTest : BehaviorSpec({
 
     given("만료된 토큰") {
         val expiredIssuer = JwtTokenIssuer(
-            AuthTokenProperties(
+            JwtTokenProperties(
                 secret = secret,
                 accessTtl = Duration.ofSeconds(-10),
                 refreshTtl = Duration.ofSeconds(-10),
@@ -193,7 +193,7 @@ class TokenTest : BehaviorSpec({
         `when`("32바이트 미만 시크릿으로 프로퍼티를 만들면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    AuthTokenProperties(
+                    JwtTokenProperties(
                         secret = "too-short",
                         accessTtl = Duration.ofMinutes(30),
                         refreshTtl = Duration.ofDays(14),

@@ -19,19 +19,13 @@ rootProject.name = "kbap-server"
 
 include(
     ":common",
-    ":domain:review",
-    ":domain:scan",
-    ":domain:bookmark",
-    ":domain:image",
-    ":domain:metering",
 
-    ":application",
 
     ":infra:llm",
     ":infra:auth",
     ":infra:redis",
     ":infra:storage",
 
-    ":app:api",
-    ":app:batch",
+    ":api",
+    ":batch",
 )

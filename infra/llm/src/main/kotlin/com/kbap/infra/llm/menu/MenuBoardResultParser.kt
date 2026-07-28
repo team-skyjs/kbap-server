@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.kbap.common.core.scan.ExtractedMenu
+import com.kbap.common.port.llm.ExtractedMenu
 
 class MenuBoardParseException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 

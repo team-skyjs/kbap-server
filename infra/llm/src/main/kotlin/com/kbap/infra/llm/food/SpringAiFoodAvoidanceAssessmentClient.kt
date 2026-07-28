@@ -1,8 +1,9 @@
 package com.kbap.infra.llm.food
 
-import com.kbap.common.core.food.FoodAvoidanceAssessment
-import com.kbap.common.core.food.FoodAvoidanceAssessmentClient
-import com.kbap.common.core.food.FoodAvoidanceAssessmentResult
+import com.kbap.common.domain.Spiciness
+import com.kbap.common.port.llm.FoodAvoidanceAssessment
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.model.LlmChatRequest
 import kotlin.math.roundToInt
@@ -35,7 +36,7 @@ class SpringAiFoodAvoidanceAssessmentClient(
     private fun parseValidOrNull(raw: String, candidateCodes: Set<String>): ValidResponse? =
         try {
             val response = FoodContentJsonParser.parse<AssessmentResponse>(raw)
-            if (response.spiciness !in FoodAvoidanceAssessmentResult.SPICINESS_RANGE) {
+            if (response.spiciness !in Spiciness.RANGE) {
                 null
             } else {
                 val byCode = mutableMapOf<String, Int>()

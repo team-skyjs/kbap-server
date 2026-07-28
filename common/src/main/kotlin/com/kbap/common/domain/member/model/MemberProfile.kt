@@ -2,9 +2,10 @@ package com.kbap.common.domain.member.model
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.core.image.ImageUrls
-import com.kbap.common.core.lang.CountryCode
+import com.kbap.common.util.ImageUrls
+import com.kbap.common.domain.Spiciness
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.member.model.CountryCode
 
 @ConsistentCopyVisibility
 data class MemberProfile private constructor(
@@ -15,7 +16,7 @@ data class MemberProfile private constructor(
     val profileImageUrl: String?,
 ) {
     init {
-        require(spicinessPreference == SPICINESS_UNSET || spicinessPreference in SPICINESS_RANGE) {
+        require(spicinessPreference == SPICINESS_UNSET || spicinessPreference in Spiciness.RANGE) {
             "member.profile.spicinessPreference 는 -1(미설정) 또는 0~10 이어야 합니다"
         }
     }
@@ -46,7 +47,6 @@ data class MemberProfile private constructor(
     companion object {
         const val SPICINESS_UNSET: Int = -1
 
-        val SPICINESS_RANGE = 0..10
 
         private const val PROFILE_IMAGE_PATH_MAX_LENGTH: Int = 512
 
@@ -91,7 +91,7 @@ data class MemberProfile private constructor(
             CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
 
         private fun validatedSpiciness(raw: Int): Int {
-            if (raw != SPICINESS_UNSET && raw !in SPICINESS_RANGE) {
+            if (raw != SPICINESS_UNSET && raw !in Spiciness.RANGE) {
                 throw BusinessException(ErrorCode.INVALID_SPICINESS_PREFERENCE)
             }
             return raw

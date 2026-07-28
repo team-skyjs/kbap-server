@@ -24,7 +24,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.core.persistence.EntityStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun increaseScanCount(@Param("memberId") memberId: Long): Int

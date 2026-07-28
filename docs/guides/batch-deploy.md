@@ -1,6 +1,6 @@
 # 배치 배포·실행 가이드 (foodContentJob)
 
-음식 콘텐츠 배치(:app:batch)는 상시 서비스가 아니라 **run-to-completion ECS 태스크**다.
+음식 콘텐츠 배치(:batch)는 상시 서비스가 아니라 **run-to-completion ECS 태스크**다.
 컨테이너가 기동되어 잡을 돌리고, 잡이 끝나면 JVM 종료와 함께 태스크도 내려간다.
 
 환경별 실행 기반이 다르다 — **prod 는 ECS(Fargate)**, **dev 는 api 와 동일하게 EC2+SSM**
@@ -16,7 +16,7 @@
 
 - 빌드와 실행이 분리되어 있다: 이미지는 코드가 바뀔 때만 굽고, 실행은 준비된 이미지를
   기동만 한다. GitHub Actions 러너가 배치 종료를 관찰하지 않는다(비용 0 유지).
-- `deploy-batch-dev.yml` 의 paths 필터는 `app/batch/**`·`Dockerfile.batch` 만 본다.
+- `deploy-batch-dev.yml` 의 paths 필터는 `batch/**`·`Dockerfile.batch` 만 본다.
   공유 모듈(core·domain·infra)만 바뀐 경우는 수동 실행으로 갱신한다.
 - dev 실행은 `batch-latest` 이동 태그를 쓴다. 컨테이너 이름(`kbap-batch`)이 고정이라
   이전 실행이 살아 있으면 docker run 이 이름 충돌로 실패한다 — dev 에선 이게 자연 직렬화.
@@ -89,7 +89,7 @@ aws ecs register-task-definition --cli-input-json file://batch-taskdef.json
 
 ```json
 {
-  "family": "kbap-batch-prod",
+  "family": "kbap-prod-batch",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -115,7 +115,7 @@ aws ecs register-task-definition --cli-input-json file://batch-taskdef.json
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/kbap-batch-prod",
+          "awslogs-group": "/ecs/kbap-prod-batch",
           "awslogs-region": "<region>",
           "awslogs-stream-prefix": "batch",
           "awslogs-create-group": "true"
@@ -157,7 +157,7 @@ aws scheduler create-schedule \
     "Arn": "<ECS 클러스터 ARN>",
     "RoleArn": "<스케줄러 실행 롤 ARN — ecs:RunTask + 두 태스크 롤 iam:PassRole>",
     "EcsParameters": {
-      "TaskDefinitionArn": "arn:aws:ecs:<region>:<account>:task-definition/kbap-batch-prod",
+      "TaskDefinitionArn": "arn:aws:ecs:<region>:<account>:task-definition/kbap-prod-batch",
       "LaunchType": "FARGATE",
       "NetworkConfiguration": {
         "awsvpcConfiguration": {
@@ -170,7 +170,7 @@ aws scheduler create-schedule \
   }'
 ```
 
-실패 확인은 CloudWatch 로그(`/ecs/kbap-batch-prod`)로 한다. 알림이 필요해지면
+실패 확인은 CloudWatch 로그(`/ecs/kbap-prod-batch`)로 한다. 알림이 필요해지면
 EventBridge 규칙(ECS Task State Change, `stopCode`/`exitCode` 비정상) → SNS 를 추가한다.
 
 ## GitHub 환경별 vars
@@ -179,7 +179,7 @@ EventBridge 규칙(ECS Task State Change, `stopCode`/`exitCode` 비정상) → S
 
 | var | 값 예시 | 용도 |
 |---|---|---|
-| `ECS_BATCH_TASK_FAMILY` | `kbap-batch-prod` | 태스크정의 family |
+| `ECS_BATCH_TASK_FAMILY` | `kbap-prod-batch` | 태스크정의 family |
 | `BATCH_SUBNETS` | `subnet-aaa,subnet-bbb` | run-task awsvpc 서브넷(프라이빗 — OpenAI 아웃바운드용 NAT 필요) |
 | `BATCH_SECURITY_GROUPS` | `sg-xxx` | RDS 인바운드 허용된 SG |
 | `ECR_BATCH_REPOSITORY` | `kbap-batch` | (선택) 배치 전용 ECR 저장소 — 없으면 `ECR_REPOSITORY` 에 `batch-` 태그로 공존 |

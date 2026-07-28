@@ -1,6 +1,6 @@
 package com.kbap.infra.auth.firebase
 
-import com.kbap.common.application.auth.social.SocialTokenVerifier
+import com.kbap.common.port.auth.SocialTokenVerifier
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.google.firebase.FirebaseApp

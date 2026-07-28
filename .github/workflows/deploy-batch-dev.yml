@@ -3,12 +3,15 @@ name: Deploy batch dev
 # develop 머지 시 배치 관련 경로에 변경이 있으면 dev 배치 이미지를 갱신한다.
 # dev 는 ECS 가 아니라 EC2+SSM 방식(api 와 동일 환경)이므로 여기서는 ECR 푸시까지만 한다 —
 # 실행은 run-batch.yml(dev)이 SSM 으로 dev EC2 에서 일회성 docker run 을 기동한다.
-# 공유 모듈(core·domain·infra)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
+# gradle 빌드 설정(buildSrc·카탈로그)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
 on:
   push:
     branches: [ "develop" ]
     paths:
-      - "app/batch/**"
+      - "batch/**"
+      - "common/**"
+      - "infra/llm/**"
+      - "infra/storage/**"
       - "Dockerfile.batch"
       - ".github/workflows/deploy-batch-dev.yml"
   workflow_dispatch:

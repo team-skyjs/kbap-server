@@ -1,6 +1,6 @@
 package com.kbap.common.domain.food.dto
 
-import com.kbap.common.core.lang.LanguageCode
+import com.kbap.common.domain.LanguageCode
 
 data class GetFoodDetailInput(
     val foodId: Long,
