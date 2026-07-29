@@ -1,5 +1,6 @@
 package com.kbap.api.core.auth
 
+import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenParser
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.MethodParameter
@@ -23,7 +24,9 @@ class AuthMemberIdOrNullArgumentResolver(
         val request = webRequest.getNativeRequest(HttpServletRequest::class.java) ?: return null
         val header = request.getHeader(AUTHORIZATION_HEADER) ?: return null
         if (!header.startsWith(BEARER_PREFIX)) return null
-        return tokenParser.parseAccessToken(header.removePrefix(BEARER_PREFIX)).memberId
+        val parsed = tokenParser.parseAccessToken(header.removePrefix(BEARER_PREFIX))
+        if (parsed.role == MemberRole.ADMIN) return null
+        return parsed.memberId
     }
 
     companion object {

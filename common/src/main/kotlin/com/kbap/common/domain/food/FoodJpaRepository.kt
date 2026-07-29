@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 
-interface FoodJpaRepository : JpaRepository<Food, Long>, FoodJpaRepositoryCustom {
+interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(
