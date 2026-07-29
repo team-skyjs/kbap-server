@@ -264,3 +264,47 @@ body {
   border-radius: 999px;
   transition: width 0.4s ease;
 }
+
+/* ---- 배너·작업 폼 ---- */
+
+.banner {
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: calc(var(--radius) - 4px);
+  margin-bottom: var(--sp-4);
+  font-weight: 700;
+}
+
+.banner-ok { background: #e4f0ea; color: var(--ok); }
+
+.banner-error { background: var(--accent-soft); color: var(--accent); }
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-strong);
+  margin-bottom: var(--sp-2);
+}
+
+.seed-input {
+  width: 100%;
+  padding: var(--sp-3);
+  font: inherit;
+  color: var(--text-strong);
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: calc(var(--radius) - 4px);
+  resize: vertical;
+  margin-bottom: var(--sp-3);
+  outline: none;
+}
+
+.seed-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.action-grid .btn-primary { width: auto; padding: 10px var(--sp-5); }

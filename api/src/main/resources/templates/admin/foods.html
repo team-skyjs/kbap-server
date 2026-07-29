@@ -6,6 +6,13 @@
     <h1 class="page-title">음식 데이터</h1>
     <p class="page-desc">전체 음식의 콘텐츠 준비 단계별 적재 현황입니다.</p>
 
+    <div class="banner banner-ok" th:if="${param.seeded != null}"
+         th:text="|시드 등록 완료 — 신규 ${param.seeded[0]}건, 중복 제외 ${param.skipped != null ? param.skipped[0] : 0}건|"></div>
+    <div class="banner banner-ok" th:if="${param.submittedFoods != null}"
+         th:text="${param.submittedFoods[0] == '0'} ? '이미지 배치 제출 — 대상이 없습니다' : |이미지 배치 제출 완료 — 음식 ${param.submittedFoods[0]}건 (배치 ${param.submittedBatches[0]}개)|"></div>
+    <div class="banner banner-error" th:if="${param.error != null}"
+         th:text="${param.error[0] == 'empty-seed'} ? '시드 입력이 비어 있습니다 — 한 줄에 하나씩 음식 이름을 입력하세요' : '처리 중 오류가 발생했습니다 — 서버 로그를 확인하세요'"></div>
+
     <div class="stat-grid">
         <div class="card stat-card stat-total">
             <div class="stat-label">전체</div>
@@ -38,6 +45,26 @@
             <div class="progress-fill" th:style="|width: ${dashboard.readyRatio}%|"></div>
         </div>
         <p class="page-desc" th:if="${dashboard.total == 0}" style="margin: 8px 0 0">아직 적재된 음식 데이터가 없습니다.</p>
+    </div>
+
+    <div class="action-grid">
+        <div class="card">
+            <h2 class="section-title">음식 시드 등록</h2>
+            <p class="page-desc">한 줄에 하나씩 한국어 음식 이름을 입력하면 미완료(INCOMPLETE) 상태로 등록됩니다.</p>
+            <form th:action="@{/admin/foods/seed}" method="post">
+                <textarea class="seed-input" name="koreanNames" rows="6"
+                          placeholder="김치찌개&#10;마라샹궈&#10;분짜"></textarea>
+                <button class="btn-primary" type="submit">시드 등록</button>
+            </form>
+        </div>
+        <div class="card">
+            <h2 class="section-title">이미지 배치 제출</h2>
+            <p class="page-desc">이미지가 없는 음식을 모아 이미지 생성 배치를 제출합니다. 결과는 정시 폴링으로 회수됩니다.</p>
+            <form th:action="@{/admin/foods/images}" method="post"
+                  onsubmit="return confirm('이미지 배치를 제출할까요?')">
+                <button class="btn-primary" type="submit">배치 제출</button>
+            </form>
+        </div>
     </div>
 </section>
 </body>

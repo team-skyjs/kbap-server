@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.food.FakeFoodImageBatchClient
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -13,8 +14,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
+import io.kotest.matchers.shouldBe
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
+import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,18 +35,35 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var fakeClient: FakeFoodImageBatchClient
+
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
         fun adminCookie(): Cookie =
             Cookie(AdminPageAuthInterceptor.COOKIE_NAME, tokenIssuer.issueAccessToken(1, MemberRole.ADMIN))
 
-        fun clearFoods() = foodJpaRepository.deleteAll()
+        fun clearFoods() {
+            dataSource.connection.use { c ->
+                c.createStatement().use {
+                    it.execute("DELETE FROM image_batch_item")
+                    it.execute("DELETE FROM image_batch")
+                    it.execute("DELETE FROM food")
+                }
+            }
+        }
 
         fun saveFood(koreanName: String, status: FoodContentStatus): Food =
             foodJpaRepository.save(
                 Food(koreanName = koreanName, description = "구수한 $koreanName", contentStatus = status),
             )
 
-        beforeContainer { clearFoods() }
+        beforeContainer {
+            clearFoods()
+            fakeClient.reset()
+        }
 
         given("음식 적재 현황 대시보드") {
             `when`("여러 준비 단계의 음식이 존재할 때 진입하면") {
@@ -108,6 +129,72 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     mockMvc.get("/admin") { cookie(adminCookie()) }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods")
+                    }
+                }
+            }
+        }
+
+        given("화면에서 음식 시드 등록") {
+            `when`("줄 단위 이름(공백 줄 포함)을 제출하면") {
+                then("등록 건수를 query parameter 로 담아 대시보드로 리다이렉트한다") {
+                    mockMvc.post("/admin/foods/seed") {
+                        cookie(adminCookie())
+                        param("koreanNames", "폼시드마라탕\n\n  \n폼시드분짜")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?seeded=2&skipped=0")
+                    }
+
+                    foodJpaRepository.count() shouldBe 2
+                }
+            }
+
+            `when`("빈 입력을 제출하면") {
+                then("오류 파라미터로 리다이렉트하고 데이터를 변경하지 않는다") {
+                    mockMvc.post("/admin/foods/seed") {
+                        cookie(adminCookie())
+                        param("koreanNames", "\n   \n")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?error=empty-seed")
+                    }
+
+                    foodJpaRepository.count() shouldBe 0
+                }
+            }
+        }
+
+        given("화면에서 이미지 배치 제출") {
+            `when`("이미지 없는 음식이 있을 때 제출하면") {
+                then("제출 건수를 query parameter 로 담아 리다이렉트한다") {
+                    saveFood("이미지폼-마라탕", FoodContentStatus.INCOMPLETE)
+
+                    mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?submittedFoods=1&submittedBatches=1")
+                    }
+
+                    fakeClient.submitted.size shouldBe 1
+                }
+            }
+
+            `when`("대상이 0건이면") {
+                then("오류가 아닌 0건 결과로 리다이렉트한다") {
+                    mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?submittedFoods=0&submittedBatches=0")
+                    }
+                }
+            }
+
+            `when`("제출 처리 중 예외가 나면") {
+                then("JSON 을 노출하지 않고 오류 파라미터로 리다이렉트한다") {
+                    saveFood("이미지폼-실패탕", FoodContentStatus.INCOMPLETE)
+                    fakeClient.submitFailure = RuntimeException("openai 다운")
+
+                    mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?error=images-failed")
                     }
                 }
             }
