@@ -2,14 +2,14 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8">
-    <title>로그인 · 먹고 Admin</title>
+    <title>로그인 · K-Bap Admin</title>
     <link rel="stylesheet" th:href="@{/assets/admin.css}">
 </head>
 <body class="login-body">
 <div class="login-card">
     <div class="login-brand">
-        <div class="brand-name">먹고</div>
-        <div class="brand-sub">Meogo Admin</div>
+        <div class="brand-name">K-Bap</div>
+        <div class="brand-sub">Admin Console</div>
     </div>
     <div class="login-error" th:if="${error}" th:text="${error}"></div>
     <form th:action="@{/admin/login}" method="post">
