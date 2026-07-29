@@ -89,11 +89,11 @@
 
 ### Tests for User Story 3 (Red 먼저) ⚠️
 
-- [ ] T020 [US3] 폼 액션 MockMvc 통합 테스트 추가 — `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt` 에 시나리오 추가: `POST /admin/foods/seed`(textarea **줄 단위 파싱** — 공백 줄 무시) 성공 → 302 `/admin/foods?seeded=N`(**결과는 flash 아닌 query parameter — 무상태, prod 2대**), **빈 입력 → 오류 파라미터·DB 무변경**, `POST /admin/foods/images` 대상 있음/0건 → 각각 결과 파라미터, 처리 중 예외 → 오류 파라미터로 리다이렉트(JSON 노출 금지). Red 확인
+- [X] T020 [US3] 폼 액션 MockMvc 통합 테스트 추가 — `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt` 에 시나리오 추가: `POST /admin/foods/seed`(textarea **줄 단위 파싱** — 공백 줄 무시) 성공 → 302 `/admin/foods?seeded=N`(**결과는 flash 아닌 query parameter — 무상태, prod 2대**), **빈 입력 → 오류 파라미터·DB 무변경**, `POST /admin/foods/images` 대상 있음/0건 → 각각 결과 파라미터, 처리 중 예외 → 오류 파라미터로 리다이렉트(JSON 노출 금지). Red 확인
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] `AdminFoodPageController` 에 seed·images POST 핸들러 구현 — textarea 입력을 줄 단위 `List<String>` 으로 변환·빈 입력 사전 검증 후 기존 `AdminController` 가 쓰는 서비스 빈 직접 호출, 결과/오류를 query parameter 로 302 리다이렉트(try/catch — 전역 JSON 핸들러로 흘리지 않음) + `templates/admin/foods.html` 에 폼·결과 배너 추가. T020 Green
+- [X] T021 [US3] `AdminFoodPageController` 에 seed·images POST 핸들러 구현 — textarea 입력을 줄 단위 `List<String>` 으로 변환·빈 입력 사전 검증 후 기존 `AdminController` 가 쓰는 서비스 빈 직접 호출, 결과/오류를 query parameter 로 302 리다이렉트(try/catch — 전역 JSON 핸들러로 흘리지 않음) + `templates/admin/foods.html` 에 폼·결과 배너 추가. T020 Green
 
 **Checkpoint**: 대시보드에서 두 작업 실행 가능 — 기존 REST(`/api/v1/admin/**`) 무변경 확인
 
@@ -107,12 +107,12 @@
 
 ### Tests for User Story 4 (Red 먼저) ⚠️
 
-- [ ] T022 [US4] 회원 화면 MockMvc 통합 테스트 — `api/src/test/kotlin/com/kbap/api/admin/AdminMemberPageControllerTest.kt`(ADMIN 쿠키). 시나리오: `GET /admin/members` 페이징(**page 1-based**, 21건 시드 → 2페이지·id desc)·빈 목록·**범위 초과/음수/비숫자 page → 1페이지 보정(오류 미노출)**, `GET /admin/members/{id}` 상세 모델(프로필·상태·**프로필 이미지는 공개 URL 로 해석**), 미존재 id → 안내 화면. Red 확인
+- [X] T022 [US4] 회원 화면 MockMvc 통합 테스트 — `api/src/test/kotlin/com/kbap/api/admin/AdminMemberPageControllerTest.kt`(ADMIN 쿠키). 시나리오: `GET /admin/members` 페이징(**page 1-based**, 21건 시드 → 2페이지·id desc)·빈 목록·**범위 초과/음수/비숫자 page → 1페이지 보정(오류 미노출)**, `GET /admin/members/{id}` 상세 모델(프로필·상태·**프로필 이미지는 공개 URL 로 해석**), 미존재 id → 안내 화면. Red 확인
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] `AdminMemberQueryService` + 뷰 모델(`AdminMemberPageView`·`AdminMemberSummaryView`·`AdminMemberDetailView`) 구현 — `api/src/main/kotlin/com/kbap/api/admin/AdminMemberQueryService.kt`(`findAll(PageRequest, id desc)`·`findById`, page 보정, 프로필 이미지 `ImageUrls.resolve` 경유 — 기존 `MemberService` 패턴, `@Transactional(readOnly = true)`)
-- [ ] T024 [US4] `AdminMemberPageController` + 템플릿 — `api/src/main/kotlin/com/kbap/api/admin/AdminMemberPageController.kt`, `api/src/main/resources/templates/admin/members.html`(테이블+페이지네이션)·`templates/admin/member-detail.html`. T022 Green
+- [X] T023 [US4] `AdminMemberQueryService` + 뷰 모델(`AdminMemberPageView`·`AdminMemberSummaryView`·`AdminMemberDetailView`) 구현 — `api/src/main/kotlin/com/kbap/api/admin/AdminMemberQueryService.kt`(`findAll(PageRequest, id desc)`·`findById`, page 보정, 프로필 이미지 `ImageUrls.resolve` 경유 — 기존 `MemberService` 패턴, `@Transactional(readOnly = true)`)
+- [X] T024 [US4] `AdminMemberPageController` + 템플릿 — `api/src/main/kotlin/com/kbap/api/admin/AdminMemberPageController.kt`, `api/src/main/resources/templates/admin/members.html`(테이블+페이지네이션)·`templates/admin/member-detail.html`. T022 Green
 
 **Checkpoint**: 전 스토리 독립 동작
 

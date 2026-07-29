@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('회원 관리', 'members', ~{:: .members-main})}">
+<body>
+<section class="members-main">
+    <h1 class="page-title">회원 관리</h1>
+    <p class="page-desc" th:text="|전체 ${#numbers.formatInteger(memberPage.totalCount, 0, 'COMMA')}명|">전체 0명</p>
+
+    <div class="card table-card" th:if="${!memberPage.items.isEmpty()}">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>닉네임</th>
+                <th>이메일</th>
+                <th>가입 경로</th>
+                <th>상태</th>
+                <th>온보딩</th>
+                <th>가입일</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="m : ${memberPage.items}">
+                <td th:text="${m.id}">1</td>
+                <td>
+                    <a class="row-link" th:href="@{|/admin/members/${m.id}|}"
+                       th:text="${m.nickname ?: '(미설정)'}">닉네임</a>
+                </td>
+                <td th:text="${m.email ?: '-'}">email</td>
+                <td th:text="${m.provider}">GOOGLE</td>
+                <td>
+                    <span class="badge"
+                          th:classappend="${m.memberStatus.name() == 'ACTIVE'} ? 'badge-ok' : 'badge-warn'"
+                          th:text="${m.memberStatus}">ACTIVE</span>
+                </td>
+                <td th:text="${m.onboardingCompleted} ? '완료' : '미완료'">완료</td>
+                <td th:text="${#temporals.format(m.createdAt, 'yyyy-MM-dd')}">2026-01-01</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card empty-state" th:if="${memberPage.items.isEmpty()}">
+        표시할 회원이 없습니다.
+    </div>
+
+    <nav class="pagination" th:if="${memberPage.totalPages > 1}">
+        <a class="page-btn" th:if="${memberPage.hasPrev}" th:href="@{/admin/members(page=${memberPage.page - 1})}">이전</a>
+        <span class="page-info" th:text="|${memberPage.page} / ${memberPage.totalPages}|">1 / 1</span>
+        <a class="page-btn" th:if="${memberPage.hasNext}" th:href="@{/admin/members(page=${memberPage.page + 1})}">다음</a>
+    </nav>
+</section>
+</body>
+</html>
