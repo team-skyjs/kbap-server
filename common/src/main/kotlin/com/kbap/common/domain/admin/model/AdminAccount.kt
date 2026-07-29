@@ -9,12 +9,12 @@ import jakarta.persistence.UniqueConstraint
 @Entity
 @Table(
     name = "admin_account",
-    uniqueConstraints = [UniqueConstraint(name = "uk_admin_account_login_id", columnNames = ["login_id"])],
+    uniqueConstraints = [UniqueConstraint(name = "uk_admin_account_admin_id", columnNames = ["admin_id"])],
 )
 class AdminAccount(
-    @Column(name = "login_id", nullable = false, length = 50)
+    @Column(name = "admin_id", nullable = false, length = 50)
     var loginId: String = "",
 
-    @Column(name = "password", nullable = false, length = 60)
+    @Column(name = "admin_pwd", nullable = false, length = 60)
     var password: String = "",
 ) : BaseEntity()
