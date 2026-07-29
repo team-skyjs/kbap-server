@@ -354,6 +354,99 @@ body {
 
 .badge-progress { background: #eae6f4; color: #5b4a9e; }
 
+/* ---- 음식 목록·상세 모달 ---- */
+
+.food-card-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.food-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.food-row-name { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+
+.food-row-name strong { color: var(--text-strong); }
+
+.food-id { color: var(--text-faint); font-size: 12px; }
+
+.food-row-meta { display: flex; align-items: center; gap: var(--sp-3); flex-shrink: 0; }
+
+.meta-item { color: var(--text-faint); font-size: 12px; }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 33, 28, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--sp-6);
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.modal {
+  width: 640px;
+  max-width: 100%;
+  background: var(--paper-raised);
+  border-radius: var(--radius);
+  border-top: 3px solid var(--accent);
+  padding: var(--sp-5);
+  box-shadow: 0 24px 60px rgba(22, 33, 28, 0.25);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-4);
+}
+
+.modal-close {
+  color: var(--text-faint);
+  text-decoration: none;
+  font-size: 18px;
+  padding: var(--sp-1) var(--sp-2);
+}
+
+.modal-close:hover { color: var(--accent); }
+
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--sp-4); }
+
+.field-select {
+  width: 100%;
+  padding: 10px var(--sp-3);
+  font: inherit;
+  color: var(--text-strong);
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: calc(var(--radius) - 4px);
+}
+
+.json-input {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-strong);
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: calc(var(--radius) - 4px);
+  resize: vertical;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--sp-4);
+}
+
+.modal-foot .btn-primary { width: auto; padding: 10px var(--sp-6); }
+
 /* ---- 테이블·상세 ---- */
 
 .table-card { padding: 0; overflow-x: auto; }

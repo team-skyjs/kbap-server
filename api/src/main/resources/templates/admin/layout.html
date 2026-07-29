@@ -17,6 +17,8 @@
             <div class="nav-group">음식 데이터</div>
             <a class="nav-link" th:href="@{/admin/foods}"
                th:classappend="${active == 'foods'} ? 'is-active'">적재 현황</a>
+            <a class="nav-link" th:href="@{/admin/foods/list}"
+               th:classappend="${active == 'food-list'} ? 'is-active'">음식 목록</a>
             <a class="nav-link" th:href="@{/admin/foods/seed}"
                th:classappend="${active == 'seed'} ? 'is-active'">음식 등록</a>
             <a class="nav-link" th:href="@{/admin/foods/images}"

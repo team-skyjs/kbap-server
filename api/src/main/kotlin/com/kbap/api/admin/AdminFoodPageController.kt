@@ -1,10 +1,12 @@
 package com.kbap.api.admin
 
 import com.kbap.api.food.FoodImageBatchSubmitService
+import com.kbap.common.domain.food.model.FoodContentStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 
@@ -21,6 +23,51 @@ class AdminFoodPageController(
     fun foods(model: Model): String {
         model.addAttribute("dashboard", adminFoodDashboardService.getDashboard())
         return "admin/foods"
+    }
+
+    @GetMapping("/admin/foods/list")
+    fun foodList(
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) detail: Long?,
+        model: Model,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage))
+        detail?.let { id -> adminFoodService.getFoodDetailOrNull(id)?.let { model.addAttribute("foodDetail", it) } }
+        return "admin/food-list"
+    }
+
+    @PostMapping("/admin/foods/{id}")
+    fun updateFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+        @RequestParam koreanName: String,
+        @RequestParam description: String,
+        @RequestParam spiciness: Int,
+        @RequestParam contentStatus: FoodContentStatus,
+        @RequestParam(defaultValue = "") imageRef: String,
+        @RequestParam(defaultValue = "") nameTranslationsJson: String,
+        @RequestParam(defaultValue = "") descriptionTranslationsJson: String,
+        @RequestParam(defaultValue = "") avoidanceSubstancesJson: String,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        val command = UpdateFoodCommand(
+            koreanName = koreanName.trim(),
+            description = description,
+            spiciness = spiciness,
+            contentStatus = contentStatus,
+            imageRef = imageRef.trim(),
+            nameTranslationsJson = nameTranslationsJson,
+            descriptionTranslationsJson = descriptionTranslationsJson,
+            avoidanceSubstancesJson = avoidanceSubstancesJson,
+        )
+        return when (adminFoodService.updateFood(id, command)) {
+            AdminFoodUpdateResult.UPDATED -> "redirect:/admin/foods/list?page=$safePage&updated=$id"
+            AdminFoodUpdateResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found"
+            AdminFoodUpdateResult.INVALID_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=invalid-name"
+            AdminFoodUpdateResult.INVALID_JSON -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=invalid-json"
+            AdminFoodUpdateResult.DUPLICATE_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=duplicate-name"
+        }
     }
 
     @GetMapping("/admin/foods/seed")
