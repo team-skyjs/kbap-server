@@ -5,9 +5,11 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.member.MemberService
+import com.kbap.api.core.Page
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -69,6 +71,26 @@ class ReviewService(
         memberService.decreaseReviewCounts(memberId, lastReviewOfFood)
     }
 
+    @Transactional(readOnly = true)
+    fun getFoodReviewPage(foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
+        foodService.getReadyFood(foodId)
+        return toPage(reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
+    }
+
+    @Transactional(readOnly = true)
+    fun getMyReviewPage(memberId: Long, cursor: Long?): Page<ReviewResponse> =
+        toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
+
+    private fun toPage(rows: List<Review>): Page<ReviewResponse> {
+        val hasNext = rows.size > PAGE_SIZE
+        val page = rows.take(PAGE_SIZE)
+        return Page(
+            items = page.map { ReviewResponse.from(it, imagePublicBaseUrl) },
+            hasNext = hasNext,
+            nextCursor = if (hasNext) page.last().id else null,
+        )
+    }
+
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findById(reviewId)
             .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
@@ -87,5 +109,9 @@ class ReviewService(
         if (!ownedPaths.containsAll(imagePaths)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
+    }
+
+    companion object {
+        const val PAGE_SIZE = 20
     }
 }

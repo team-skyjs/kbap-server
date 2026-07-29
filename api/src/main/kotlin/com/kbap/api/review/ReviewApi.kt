@@ -1,12 +1,14 @@
 package com.kbap.api.review
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 
 @Tag(name = "리뷰", description = "음식 리뷰 작성·수정·삭제 API")
@@ -63,4 +65,40 @@ interface ReviewApi {
         memberId: Long,
         @Parameter(description = "삭제할 리뷰 id", example = "42") reviewId: Long,
     ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "음식별 리뷰 목록",
+        description = """
+            음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
+            countryCode 를 주면 작성 시점 국적 스냅샷이 정확히 일치하는 리뷰만 내려간다(리뷰가 없는 코드는 빈 목록).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun listFoodReviews(
+        memberId: Long?,
+        @Parameter(description = "리뷰를 조회할 음식 id", example = "1") foodId: Long,
+        @ParameterObject request: ReviewListRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
+
+    @Operation(
+        summary = "내 리뷰 목록",
+        description = "내가 쓴 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(프로필 탭 진입).",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun listMyReviews(
+        memberId: Long,
+        @ParameterObject request: MyReviewListRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
 }
