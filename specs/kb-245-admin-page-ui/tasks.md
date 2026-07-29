@@ -16,7 +16,7 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 `:api` 에 타임리프·BCrypt 의존 추가 — `api/build.gradle.kts` 에 `"implementation"(libs.<thymeleaf-starter>)`(카탈로그 등록 필요 시 `gradle/libs.versions.toml` 함께)와 `spring-security-crypto` 추가. `./gradlew :api:compileKotlin` 통과 확인
+- [X] T001 `:api` 에 타임리프·BCrypt 의존 추가 — `api/build.gradle.kts` 에 `"implementation"(libs.<thymeleaf-starter>)`(카탈로그 등록 필요 시 `gradle/libs.versions.toml` 함께)와 `spring-security-crypto` 추가. `./gradlew :api:compileKotlin` 통과 확인
 
 ---
 
@@ -24,10 +24,10 @@
 
 **⚠️ CRITICAL**: 이 페이즈 완료 전 유저 스토리 착수 금지
 
-- [ ] T002 [Red] `AdminAccountJpaRepository` 통합 테스트 작성 — `common/src/test/kotlin/com/kbap/common/domain/admin/AdminAccountJpaRepositoryTest.kt` (기존 `FoodJpaRepositoryTest` 패턴 — Testcontainers·`@ServiceConnection`·엔티티 기반 스키마 생성). 시나리오: `findByLoginId` 존재/미존재, 소프트삭제 계정 미조회(`@SQLRestriction`). **실행해 실패(Red) 확인**
-- [ ] T003 `AdminAccount` 엔티티 + `AdminAccountJpaRepository` 구현 — `common/src/main/kotlin/com/kbap/common/domain/admin/model/AdminAccount.kt`(BaseEntity 상속, `login_id` VARCHAR(50) unique·`password` VARCHAR(60), data-model.md 참조) + `common/src/main/kotlin/com/kbap/common/domain/admin/AdminAccountJpaRepository.kt`(`findByLoginId`). T002 Green 확인
-- [ ] T004 `admin_account` Flyway 마이그레이션 작성 — `api/src/main/resources/db/migration/V<생성시각 timestamp>__create_admin_account_table.sql`(점 구분 timestamp 규칙, `uk_admin_account_login_id` unique key 포함, 독립 실행 가능하게). `./gradlew :api:test --tests "*KbapApiApplicationTests*"` 로 Flyway↔엔티티 정합(`ddl-auto=validate`) 통과 확인
-- [ ] T005 `ModuleBoundaryTest` 에 `common.domain.admin` 컨텍스트 등록(허용 맵 — 타 도메인 의존 0) — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt`. `./gradlew :api:test -Dkotest.tags="arch"` 통과 확인
+- [X] T002 [Red] `AdminAccountJpaRepository` 통합 테스트 작성 — `common/src/test/kotlin/com/kbap/common/domain/admin/AdminAccountJpaRepositoryTest.kt` (기존 `FoodJpaRepositoryTest` 패턴 — Testcontainers·`@ServiceConnection`·엔티티 기반 스키마 생성). 시나리오: `findByLoginId` 존재/미존재, 소프트삭제 계정 미조회(`@SQLRestriction`). **실행해 실패(Red) 확인**
+- [X] T003 `AdminAccount` 엔티티 + `AdminAccountJpaRepository` 구현 — `common/src/main/kotlin/com/kbap/common/domain/admin/model/AdminAccount.kt`(BaseEntity 상속, `login_id` VARCHAR(50) unique·`password` VARCHAR(60), data-model.md 참조) + `common/src/main/kotlin/com/kbap/common/domain/admin/AdminAccountJpaRepository.kt`(`findByLoginId`). T002 Green 확인
+- [X] T004 `admin_account` Flyway 마이그레이션 작성 — `api/src/main/resources/db/migration/V<생성시각 timestamp>__create_admin_account_table.sql`(점 구분 timestamp 규칙, `uk_admin_account_login_id` unique key 포함, 독립 실행 가능하게). `./gradlew :api:test --tests "*KbapApiApplicationTests*"` 로 Flyway↔엔티티 정합(`ddl-auto=validate`) 통과 확인
+- [X] T005 `ModuleBoundaryTest` 에 `common.domain.admin` 컨텍스트 등록(허용 맵 — 타 도메인 의존 0) — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt`. `./gradlew :api:test -Dkotest.tags="arch"` 통과 확인
 
 **Checkpoint**: 계정 영속 기반 완료 — US1 착수 가능
 
