@@ -7,12 +7,10 @@ import com.kbap.common.domain.food.dto.FoodSummaryView
 import com.kbap.common.domain.food.dto.GetFoodDetailInput
 import com.kbap.common.domain.food.dto.GetFoodDetailResult
 import com.kbap.common.domain.food.dto.SearchFoodsInput
-import com.kbap.common.domain.food.dto.SeedIncompleteResult
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
 import com.kbap.common.domain.member.MemberService
@@ -109,24 +107,6 @@ class FoodService(
     fun getFoodsByKoreanNames(names: Set<String>): Map<String, Food> {
         if (names.isEmpty()) return emptyMap()
         return foodRepository.findByKoreanNameIn(names).associateBy { it.koreanName }
-    }
-
-    @Transactional
-    fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
-        val names = koreanNames
-            .map { KoreanMenuNameNormalizer.matchKey(it) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-        if (names.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
-
-        val existing = foodRepository.findByKoreanNameIn(names).map { it.koreanName }.toSet()
-        val newNames = names - existing
-        val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
-        return SeedIncompleteResult(
-            requested = names.size,
-            created = created,
-            skipped = names.size - created,
-        )
     }
 
     @Transactional

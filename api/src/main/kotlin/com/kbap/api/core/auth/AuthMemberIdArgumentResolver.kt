@@ -2,6 +2,7 @@ package com.kbap.api.core.auth
 
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.member.model.MemberRole
 import org.springframework.core.MethodParameter
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
@@ -19,7 +20,10 @@ class AuthMemberIdArgumentResolver : HandlerMethodArgumentResolver {
         mavContainer: ModelAndViewContainer?,
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
-    ): Long =
-        webRequest.getAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? Long
+    ): Long {
+        val role = webRequest.getAttribute(JwtAuthenticationFilter.ROLE_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? String
+        if (role == MemberRole.ADMIN.name) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
+        return webRequest.getAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? Long
             ?: throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
+    }
 }

@@ -1,4 +1,4 @@
-package com.kbap.common.domain.food.dto
+package com.kbap.api.admin
 
 data class SeedIncompleteResult(
     val requested: Int,
