@@ -1,5 +1,6 @@
 package com.kbap.api.review
 
+import com.kbap.api.image.UploadPurpose
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodService
@@ -11,6 +12,7 @@ import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -21,7 +23,8 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    @Transactional
+    // RR 스냅샷이 회원 락 대기 전에 고정되면 첫/마지막 판정 count 가 과거를 본다 — 락 해제 후 최신 커밋을 읽도록 RC 명시
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun createReview(
         memberId: Long,
         foodId: Long,
@@ -31,7 +34,7 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
-        val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
+        val authorCountryCode = memberService.getMemberForRankingUpdate(memberId).profile.countryCode?.name
 
         val review = reviewRepository.save(
             Review(
@@ -63,9 +66,10 @@ class ReviewService(
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
+        memberService.getMemberForRankingUpdate(memberId)
         review.delete()
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
         memberService.decreaseReviewCounts(memberId, lastReviewOfFood)
@@ -115,16 +119,17 @@ class ReviewService(
 
     private fun verifyImageOwnership(memberId: Long, imagePaths: List<String>?) {
         if (imagePaths.isNullOrEmpty()) return
-        val ownedPaths = uploadedImageRepository.findByPathIn(imagePaths)
-            .filter { it.isOwnedBy(memberId) }
+        val ownedReviewPaths = uploadedImageRepository.findByPathIn(imagePaths)
+            .filter { it.isOwnedBy(memberId) && it.path.contains(REVIEW_IMAGE_PATH_SEGMENT) }
             .map { it.path }
             .toSet()
-        if (!ownedPaths.containsAll(imagePaths)) {
+        if (!ownedReviewPaths.containsAll(imagePaths)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
     }
 
     companion object {
         const val PAGE_SIZE = 20
+        val REVIEW_IMAGE_PATH_SEGMENT = "images/${UploadPurpose.REVIEW.prefix}/"
     }
 }

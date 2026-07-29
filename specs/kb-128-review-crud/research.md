@@ -7,7 +7,7 @@ Phase 0 — 스펙에 NEEDS CLARIFICATION 없음(Jira 기획 확정). 아래는 
 - **Decision**: `member.review_count`·`unique_reviewed_food_count` 는 init_schema 에 이미 존재(마이그레이션 불필요). 증감은 `MemberJpaRepository` 에 `@Modifying` JPQL 로 추가 — `increaseScanCount` 선례(`Member.kt`의 `Ranking.of(scanCount, reviewCount, uniqueReviewedFoodCount)` 가 이미 소비 중). 증가·감소 각 1개 메서드로 두 컬럼을 한 문장에 갱신: `set m.reviewCount = m.reviewCount + 1, m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + :uniqueDelta`(uniqueDelta ∈ {0,1}). 감소 쿼리는 `and m.reviewCount > 0` 가드. 공개 창구는 `MemberService`(도메인 서비스 — 반환 0건이면 `MEMBER_NOT_FOUND`).
 - **Rationale**: 읽고-더해-쓰기 금지(헌법·이슈 명시), 스캔 카운트와 동일 패턴. 두 컬럼 한 UPDATE 로 부분 갱신 상태 제거.
 - **Alternatives**: 관리 엔티티 dirty checking — 동시 요청 시 lost update, 기각. 이벤트 비동기 반영 — 과설계, 기각.
-- **첫/마지막 리뷰 판정**: 같은 트랜잭션 안에서 `countByMemberIdAndFoodId` (작성: 저장 후 count==1 → uniqueDelta=1 / 삭제: 삭제 후 count==0 → uniqueDelta=1). 동일 회원의 동시 작성·삭제가 겹치는 극단 케이스의 고유 수 오차는 감수한다 — 본인 계정 단일 사용 시나리오에서 실측 위험이 낮고, 시리얼라이즈(락)는 비용 과다.
+- **첫/마지막 리뷰 판정**: 같은 트랜잭션 안에서 `countByMemberIdAndFoodId` (작성: 저장 후 count==1 → uniqueDelta=1 / 삭제: 삭제 후 count==0 → uniqueDelta=1). 동시성은 **회원 행 X-lock**(`findByIdForRankingUpdate`, PESSIMISTIC_WRITE)으로 같은 회원의 작성/삭제 트랜잭션을 직렬화해 방어한다(2026-07-30 Codex 리뷰 지적 반영 — 감수 결정 폐기). 판정 트랜잭션은 READ_COMMITTED 명시 — RR 스냅샷이 락 대기 전에 고정되면 count 가 과거를 본다.
 
 ## R2. 국적 스냅샷 — 작성 시점 `author_country_code` VARCHAR
 
@@ -46,4 +46,5 @@ Phase 0 — 스펙에 NEEDS CLARIFICATION 없음(Jira 기획 확정). 아래는 
 ## R8. 인증·검증 경계
 
 - **Decision**: deny-by-default 화이트리스트(KB-132)라 신규 `/api/v1/reviews`·`/api/v1/foods/{id}/reviews`·`/api/v1/members/me/reviews` 는 자동 보호 — 화이트리스트 수정 없음. 컨트롤러 `@AuthMemberId`(음식 상세만 기존 `@AuthMemberIdOrNull` 유지). 요청 검증(rating 1~5·content ≤1000·images ≤3·foodId 필수)은 요청 DTO 의 Bean Validation 소유(헌법 V 검증 경계 조항), 엔티티는 `init`/도메인 메서드에서 동일 불변을 이중 방어(영속 경계).
-- **테이블명**: 단수 `review` — 기존 테이블 명명(`bookmark`·`scan_history`·`uploaded_image`) 관례를 따른다(이슈 본문의 "reviews" 표기는 복수형이지만 스키마 관례 우선).
+- **테이블명**: `food_review` — 단수 관례(`bookmark`·`scan_history`) + 앱 리뷰 등과의 혼동을 피하는 도메인 접두(2026-07-30 개명). 이슈 본문의 "reviews" 는 복수형이지만 스키마 관례 우선.
+- **이미지 용도 검증(2026-07-30 Codex 리뷰 반영)**: 소유 확인에 더해 경로의 용도 세그먼트(`images/review/`)까지 검증 — 본인 소유 PROFILE/SCAN 경로를 리뷰 사진으로 재사용하는 우회 차단(`REVIEW-003`). 용도는 presigned 키 구조에만 있고 엔티티에 컬럼이 없어 경로 세그먼트가 유일한 판별자.

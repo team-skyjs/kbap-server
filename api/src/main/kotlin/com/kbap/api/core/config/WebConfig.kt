@@ -1,6 +1,7 @@
 package com.kbap.api.core.config
 
 import com.kbap.api.admin.AdminAuthorizationInterceptor
+import com.kbap.api.admin.AdminPageAuthInterceptor
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
@@ -36,6 +37,9 @@ class WebConfig(
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(AdminAuthorizationInterceptor())
             .addPathPatterns("${ApiPaths.ADMIN}/**")
+        registry.addInterceptor(AdminPageAuthInterceptor(tokenParser))
+            .addPathPatterns("/admin/**")
+            .excludePathPatterns(AdminPageAuthInterceptor.LOGIN_PATH)
     }
 
     @Bean

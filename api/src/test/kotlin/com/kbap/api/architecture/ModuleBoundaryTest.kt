@@ -105,6 +105,7 @@ class ModuleBoundaryTest : BehaviorSpec({
         fun packageOf(context: String) = "com.kbap.common.domain.$context.."
 
         val allowedDomainDeps = mapOf(
+            "admin" to emptySet(),
             "scan" to setOf("food", "member", "image", "avoidance"),
             "food" to setOf("member", "avoidance"),
             "bookmark" to setOf("food", "member", "avoidance"),

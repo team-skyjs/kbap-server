@@ -3,13 +3,26 @@ package com.kbap.common.domain.member
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        """
+        select m from Member m
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
+        """,
+    )
+    fun findByIdForRankingUpdate(@Param("memberId") memberId: Long): Member?
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
