@@ -3,9 +3,9 @@ package com.kbap.common.domain.food
 import com.kbap.common.domain.food.model.Food
 import org.springframework.jdbc.core.JdbcTemplate
 
-class FoodJpaRepositoryCustomImpl(
+class FoodRepositoryCustomImpl(
     private val jdbcTemplate: JdbcTemplate,
-) : FoodJpaRepositoryCustom {
+) : FoodRepositoryCustom {
     override fun upsertIncomplete(foods: List<Food>) {
         val rows = foods.joinToString(", ") { "(?, ?, ?, '{}', '{}', NULL, ?, 'ACTIVE', NOW(6), NOW(6))" }
         val sql =

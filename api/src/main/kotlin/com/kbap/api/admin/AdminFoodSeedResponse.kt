@@ -1,7 +1,5 @@
 package com.kbap.api.admin
 
-import com.kbap.common.domain.food.dto.SeedIncompleteResult
-
 data class AdminFoodSeedResponse(
     val requested: Int,
     val created: Int,
