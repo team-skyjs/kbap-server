@@ -163,6 +163,50 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     foodJpaRepository.count() shouldBe 0
                 }
             }
+
+            `when`("정규화하면 남는 이름이 없는 입력(비한글)을 제출하면") {
+                then("0건 성공이 아니라 오류 파라미터로 리다이렉트한다") {
+                    mockMvc.post("/admin/foods/seed") {
+                        cookie(adminCookie())
+                        param("koreanNames", "abc\n123")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?error=no-valid-names")
+                    }
+
+                    foodJpaRepository.count() shouldBe 0
+                }
+            }
+
+            `when`("500건을 넘는 목록을 제출하면") {
+                then("REST 와 동일하게 거절한다 — 검증 경계 우회 금지") {
+                    val bulk = (1..501).joinToString("\n") { "대량폼메뉴$it" }
+
+                    mockMvc.post("/admin/foods/seed") {
+                        cookie(adminCookie())
+                        param("koreanNames", bulk)
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?error=too-many-names")
+                    }
+
+                    foodJpaRepository.count() shouldBe 0
+                }
+            }
+
+            `when`("255자를 넘는 이름이 섞여 있으면") {
+                then("거절하고 데이터를 변경하지 않는다") {
+                    mockMvc.post("/admin/foods/seed") {
+                        cookie(adminCookie())
+                        param("koreanNames", "정상김치찌개\n${"가".repeat(256)}")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods?error=name-too-long")
+                    }
+
+                    foodJpaRepository.count() shouldBe 0
+                }
+            }
         }
 
         given("화면에서 이미지 배치 제출") {

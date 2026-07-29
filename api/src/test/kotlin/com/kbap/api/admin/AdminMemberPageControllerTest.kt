@@ -113,6 +113,24 @@ class AdminMemberPageControllerTest : BehaviorSpec() {
                     memberPageOf(getMembers("?page=abc")).page shouldBe 1
                 }
             }
+
+            `when`("정지·탈퇴 회원이 섞여 있으면") {
+                then("정지(SUSPENDED)는 상태와 함께 노출되고 탈퇴(소프트 삭제)는 제외된다") {
+                    saveMember("status-active")
+                    val suspended = saveMember("status-suspended")
+                    suspended.memberStatus = MemberStatus.SUSPENDED
+                    memberJpaRepository.save(suspended)
+                    val withdrawn = saveMember("status-withdrawn")
+                    withdrawn.delete()
+                    memberJpaRepository.save(withdrawn)
+
+                    val page = memberPageOf(getMembers())
+
+                    page.totalCount shouldBe 2
+                    page.items.first { it.id == suspended.id }.memberStatus shouldBe MemberStatus.SUSPENDED
+                    page.items.none { it.id == withdrawn.id } shouldBe true
+                }
+            }
         }
 
         given("회원 상세") {

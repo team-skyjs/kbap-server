@@ -334,6 +334,13 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     saveIncomplete("집계-미완료2")
                     saveReady("집계-레디1")
                     savePendingReview("집계-검수1")
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "집계-이미지대기1",
+                            description = "구수한 집계-이미지대기1",
+                            contentStatus = FoodContentStatus.PENDING_IMAGE,
+                        ),
+                    )
 
                     val counts = foodJpaRepository.countGroupByContentStatus()
                         .associate { it.status to it.count }
@@ -342,6 +349,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                         FoodContentStatus.INCOMPLETE to 2L,
                         FoodContentStatus.READY to 1L,
                         FoodContentStatus.PENDING_REVIEW to 1L,
+                        FoodContentStatus.PENDING_IMAGE to 1L,
                     )
                 }
             }

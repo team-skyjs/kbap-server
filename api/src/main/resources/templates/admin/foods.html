@@ -11,7 +11,12 @@
     <div class="banner banner-ok" th:if="${param.submittedFoods != null}"
          th:text="${param.submittedFoods[0] == '0'} ? '이미지 배치 제출 — 대상이 없습니다' : |이미지 배치 제출 완료 — 음식 ${param.submittedFoods[0]}건 (배치 ${param.submittedBatches[0]}개)|"></div>
     <div class="banner banner-error" th:if="${param.error != null}"
-         th:text="${param.error[0] == 'empty-seed'} ? '시드 입력이 비어 있습니다 — 한 줄에 하나씩 음식 이름을 입력하세요' : '처리 중 오류가 발생했습니다 — 서버 로그를 확인하세요'"></div>
+         th:with="code=${param.error[0]}"
+         th:text="${code == 'empty-seed'} ? '시드 입력이 비어 있습니다 — 한 줄에 하나씩 음식 이름을 입력하세요'
+                : (${code == 'no-valid-names'} ? '유효한 한국어 음식 이름이 없습니다 — 한글 이름을 입력하세요'
+                : (${code == 'too-many-names'} ? '한 번에 500건까지만 등록할 수 있습니다'
+                : (${code == 'name-too-long'} ? '255자를 넘는 이름이 있습니다'
+                : '처리 중 오류가 발생했습니다 — 서버 로그를 확인하세요')))"></div>
 
     <div class="stat-grid">
         <div class="card stat-card stat-total">
