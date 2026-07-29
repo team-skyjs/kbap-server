@@ -95,9 +95,10 @@ class ReviewService(
         )
     }
 
+    // 리뷰 행 X-lock 조회 — 같은 리뷰의 동시 삭제 중복 차감, 수정의 stale ACTIVE 가 삭제를 덮어쓰는 경합 차단
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
-        val review = reviewRepository.findById(reviewId)
-            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        val review = reviewRepository.findByIdForUpdate(reviewId)
+            ?: throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }
