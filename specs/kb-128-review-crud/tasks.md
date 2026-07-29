@@ -19,13 +19,13 @@
 
 **⚠️ CRITICAL**: 이 Phase 머지(또는 최소 커밋 완료) 전에는 어떤 스토리 구현도 시작하지 않는다.
 
-- [ ] T001 [P] Red: `Review` 도메인 불변 단위 테스트 작성·실패 확인 — rating 1~5 경계(0·1·5·6), content 1000자 경계, imageRefs 3장 경계, `update` 재검증, `isOwnedBy` — `common/src/test/kotlin/com/kbap/common/domain/review/model/ReviewTest.kt`
-- [ ] T002 [P] Red: `ReviewJpaRepository` 영속 테스트 작성·실패 확인(Testcontainers) — keyset 2종(커서 null/값·21건 경계·id desc), countryCode 필터(null=전체·미존재 코드=빈 목록), `aggregateRating`(전체/국적별/0건 null), `countByMemberIdAndFoodId`, 소프트삭제 자동 제외 — `common/src/test/kotlin/com/kbap/common/domain/review/ReviewJpaRepositoryTest.kt`
-- [ ] T003 Green: `Review` 엔티티 구현 — BaseEntity 상속, memberId/foodId Long, rating TINYINT, content VARCHAR(1000) NULL, `@JdbcTypeCode(SqlTypes.JSON)` imageRefs NULL, authorCountryCode VARCHAR(10) NULL, init 불변·`update`·`isOwnedBy` — `common/src/main/kotlin/com/kbap/common/domain/review/model/Review.kt`
-- [ ] T004 Green: `ReviewJpaRepository` 구현 — data-model.md 의 keyset 2종·집계·count 쿼리 — `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt`
-- [ ] T005 Green: Flyway 마이그레이션 작성(생성 시각 timestamp 채번) — `review` 테이블+인덱스 3종(`idx_review_food_recent`·`idx_review_member_recent`·`idx_review_food_country`)+FK 2종, 단수 테이블명 — `api/src/main/resources/db/migration/V<now>__review_table.sql`
-- [ ] T006 `ModuleBoundaryTest` 허용 맵에 `"review" to emptySet()` 추가(정확 일치 검사라 필수) — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt`
-- [ ] T007 검증·Refactor: `./gradlew :common:test :api:test --tests "com.kbap.api.architecture.*" --tests "com.kbap.api.migration.*"` Green 확인(엔티티↔스키마 validate 포함) 후 커밋 → draft PR(base=develop)
+- [X] T001 [P] Red: `Review` 도메인 불변 단위 테스트 작성·실패 확인 — rating 1~5 경계(0·1·5·6), content 1000자 경계, imageRefs 3장 경계, `update` 재검증, `isOwnedBy` — `common/src/test/kotlin/com/kbap/common/domain/review/model/ReviewTest.kt`
+- [X] T002 [P] Red: `ReviewJpaRepository` 영속 테스트 작성·실패 확인(Testcontainers) — keyset 2종(커서 null/값·21건 경계·id desc), countryCode 필터(null=전체·미존재 코드=빈 목록), `aggregateRating`(전체/국적별/0건 null), `countByMemberIdAndFoodId`, 소프트삭제 자동 제외 — `common/src/test/kotlin/com/kbap/common/domain/review/ReviewJpaRepositoryTest.kt`
+- [X] T003 Green: `Review` 엔티티 구현 — BaseEntity 상속, memberId/foodId Long, rating TINYINT, content VARCHAR(1000) NULL, `@JdbcTypeCode(SqlTypes.JSON)` imageRefs NULL, authorCountryCode VARCHAR(10) NULL, init 불변·`update`·`isOwnedBy` — `common/src/main/kotlin/com/kbap/common/domain/review/model/Review.kt`
+- [X] T004 Green: `ReviewJpaRepository` 구현 — data-model.md 의 keyset 2종·집계·count 쿼리 — `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt`
+- [X] T005 Green: Flyway 마이그레이션 작성(생성 시각 timestamp 채번) — `review` 테이블+인덱스 3종(`idx_review_food_recent`·`idx_review_member_recent`·`idx_review_food_country`)+FK 2종, 단수 테이블명 — `api/src/main/resources/db/migration/V<now>__review_table.sql`
+- [X] T006 `ModuleBoundaryTest` 허용 맵에 `"review" to emptySet()` 추가(정확 일치 검사라 필수) — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt`
+- [X] T007 검증·Refactor: `./gradlew :common:test :api:test --tests "com.kbap.api.architecture.*" --tests "com.kbap.api.migration.*"` Green 확인(엔티티↔스키마 validate 포함) 후 커밋 → draft PR(base=develop)
 
 **Checkpoint**: 영속 계층 완성 — PR2 진행, PR1 머지 후 PR3·PR4 병렬 시작 가능
 
