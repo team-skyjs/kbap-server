@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam
 class AdminFoodPageController(
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminFoodService: AdminFoodService,
+    private val adminImageBatchQueryService: AdminImageBatchQueryService,
     private val foodImageBatchSubmitService: FoodImageBatchSubmitService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -22,33 +23,42 @@ class AdminFoodPageController(
         return "admin/foods"
     }
 
+    @GetMapping("/admin/foods/seed")
+    fun seedPage(): String = "admin/food-seed"
+
     @PostMapping("/admin/foods/seed")
     fun seed(@RequestParam koreanNames: String): String {
         val names = koreanNames.lines().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-        if (names.isEmpty()) return "redirect:/admin/foods?error=empty-seed"
-        if (names.size > MAX_SEED_NAMES) return "redirect:/admin/foods?error=too-many-names"
-        if (names.any { it.length > MAX_SEED_NAME_LENGTH }) return "redirect:/admin/foods?error=name-too-long"
+        if (names.isEmpty()) return "redirect:/admin/foods/seed?error=empty-seed"
+        if (names.size > MAX_SEED_NAMES) return "redirect:/admin/foods/seed?error=too-many-names"
+        if (names.any { it.length > MAX_SEED_NAME_LENGTH }) return "redirect:/admin/foods/seed?error=name-too-long"
         return try {
             val result = adminFoodService.seedIncomplete(names)
             if (result.requested == 0) {
-                "redirect:/admin/foods?error=no-valid-names"
+                "redirect:/admin/foods/seed?error=no-valid-names"
             } else {
-                "redirect:/admin/foods?seeded=${result.created}&skipped=${result.skipped}"
+                "redirect:/admin/foods/seed?seeded=${result.created}&skipped=${result.skipped}"
             }
         } catch (e: Exception) {
             log.error("화면 시드 등록 실패", e)
-            "redirect:/admin/foods?error=seed-failed"
+            "redirect:/admin/foods/seed?error=seed-failed"
         }
+    }
+
+    @GetMapping("/admin/foods/images")
+    fun imagesPage(model: Model): String {
+        model.addAttribute("batches", adminImageBatchQueryService.getRecentBatches())
+        return "admin/food-images"
     }
 
     @PostMapping("/admin/foods/images")
     fun submitImages(): String =
         try {
             val result = foodImageBatchSubmitService.submitMissingImages()
-            "redirect:/admin/foods?submittedFoods=${result.submittedFoodCount}&submittedBatches=${result.submittedBatchCount}"
+            "redirect:/admin/foods/images?submittedFoods=${result.submittedFoodCount}&submittedBatches=${result.submittedBatchCount}"
         } catch (e: Exception) {
             log.error("화면 이미지 배치 제출 실패", e)
-            "redirect:/admin/foods?error=images-failed"
+            "redirect:/admin/foods/images?error=images-failed"
         }
 
     companion object {

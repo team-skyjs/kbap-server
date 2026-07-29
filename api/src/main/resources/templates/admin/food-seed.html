@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('음식 등록', 'seed', ~{:: .seed-main})}">
+<body>
+<section class="seed-main">
+    <h1 class="page-title">음식 등록</h1>
+    <p class="page-desc">한 줄에 하나씩 한국어 음식 이름을 입력하면 미완료(INCOMPLETE) 상태로 등록됩니다.</p>
+
+    <div class="banner banner-ok" th:if="${param.seeded != null}"
+         th:text="|시드 등록 완료 — 신규 ${param.seeded[0]}건, 중복 제외 ${param.skipped != null ? param.skipped[0] : 0}건|"></div>
+    <div class="banner banner-error" th:if="${param.error != null}"
+         th:with="code=${param.error[0]}"
+         th:text="${code == 'empty-seed'} ? '시드 입력이 비어 있습니다 — 한 줄에 하나씩 음식 이름을 입력하세요'
+                : (${code == 'no-valid-names'} ? '유효한 한국어 음식 이름이 없습니다 — 한글 이름을 입력하세요'
+                : (${code == 'too-many-names'} ? '한 번에 500건까지만 등록할 수 있습니다'
+                : (${code == 'name-too-long'} ? '255자를 넘는 이름이 있습니다'
+                : '처리 중 오류가 발생했습니다 — 서버 로그를 확인하세요')))"></div>
+
+    <div class="card">
+        <form th:action="@{/admin/foods/seed}" method="post">
+            <textarea id="seedInput" class="seed-input" name="koreanNames" rows="8"
+                      placeholder="김치찌개&#10;마라샹궈&#10;분짜"></textarea>
+            <div class="chip-head">
+                <span class="stat-label">등록 예정 목록</span>
+                <span class="chip-count" id="chipCount">0건</span>
+            </div>
+            <div class="chip-list" id="chipList">
+                <span class="chip-empty">입력한 음식 이름이 여기에 표시됩니다.</span>
+            </div>
+            <button class="btn-primary" type="submit">시드 등록</button>
+        </form>
+    </div>
+
+    <script>
+        const input = document.getElementById('seedInput');
+        const chipList = document.getElementById('chipList');
+        const chipCount = document.getElementById('chipCount');
+
+        function renderChips() {
+            const names = [...new Set(
+                input.value.split('\n').map(line => line.trim()).filter(line => line.length > 0),
+            )];
+            chipCount.textContent = names.length + '건';
+            chipList.replaceChildren();
+            if (names.length === 0) {
+                const empty = document.createElement('span');
+                empty.className = 'chip-empty';
+                empty.textContent = '입력한 음식 이름이 여기에 표시됩니다.';
+                chipList.appendChild(empty);
+                return;
+            }
+            for (const name of names) {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.textContent = name;
+                chipList.appendChild(chip);
+            }
+        }
+
+        input.addEventListener('input', renderChips);
+    </script>
+</section>
+</body>
+</html>

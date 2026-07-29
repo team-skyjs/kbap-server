@@ -5,6 +5,7 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatchStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -136,6 +137,15 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
         }
 
         given("화면에서 음식 시드 등록") {
+            `when`("등록 화면에 진입하면") {
+                then("시드 입력 화면을 보여준다") {
+                    mockMvc.get("/admin/foods/seed") { cookie(adminCookie()) }.andExpect {
+                        status { isOk() }
+                        view { name("admin/food-seed") }
+                    }
+                }
+            }
+
             `when`("줄 단위 이름(공백 줄 포함)을 제출하면") {
                 then("등록 건수를 query parameter 로 담아 대시보드로 리다이렉트한다") {
                     mockMvc.post("/admin/foods/seed") {
@@ -143,7 +153,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("koreanNames", "폼시드마라탕\n\n  \n폼시드분짜")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?seeded=2&skipped=0")
+                        redirectedUrl("/admin/foods/seed?seeded=2&skipped=0")
                     }
 
                     foodJpaRepository.count() shouldBe 2
@@ -157,7 +167,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("koreanNames", "\n   \n")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?error=empty-seed")
+                        redirectedUrl("/admin/foods/seed?error=empty-seed")
                     }
 
                     foodJpaRepository.count() shouldBe 0
@@ -171,7 +181,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("koreanNames", "abc\n123")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?error=no-valid-names")
+                        redirectedUrl("/admin/foods/seed?error=no-valid-names")
                     }
 
                     foodJpaRepository.count() shouldBe 0
@@ -187,7 +197,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("koreanNames", bulk)
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?error=too-many-names")
+                        redirectedUrl("/admin/foods/seed?error=too-many-names")
                     }
 
                     foodJpaRepository.count() shouldBe 0
@@ -201,7 +211,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("koreanNames", "정상김치찌개\n${"가".repeat(256)}")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?error=name-too-long")
+                        redirectedUrl("/admin/foods/seed?error=name-too-long")
                     }
 
                     foodJpaRepository.count() shouldBe 0
@@ -211,15 +221,40 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
 
         given("화면에서 이미지 배치 제출") {
             `when`("이미지 없는 음식이 있을 때 제출하면") {
-                then("제출 건수를 query parameter 로 담아 리다이렉트한다") {
+                then("제출 건수를 담아 리다이렉트하고 배치 처리 목록에 노출된다") {
                     saveFood("이미지폼-마라탕", FoodContentStatus.INCOMPLETE)
 
                     mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?submittedFoods=1&submittedBatches=1")
+                        redirectedUrl("/admin/foods/images?submittedFoods=1&submittedBatches=1")
                     }
 
                     fakeClient.submitted.size shouldBe 1
+
+                    val result = mockMvc.get("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
+                        status { isOk() }
+                        view { name("admin/food-images") }
+                    }.andReturn()
+
+                    @Suppress("UNCHECKED_CAST")
+                    val batches = result.modelAndView!!.model["batches"] as List<AdminImageBatchView>
+                    batches.size shouldBe 1
+                    batches.first().batchStatus shouldBe ImageBatchStatus.SUBMITTED
+                    batches.first().pendingCount shouldBe 1
+                    batches.first().totalCount shouldBe 1
+                }
+            }
+
+            `when`("배치가 없을 때 처리 화면에 진입하면") {
+                then("빈 목록으로 화면을 보여준다") {
+                    val result = mockMvc.get("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
+                        status { isOk() }
+                        view { name("admin/food-images") }
+                    }.andReturn()
+
+                    @Suppress("UNCHECKED_CAST")
+                    val batches = result.modelAndView!!.model["batches"] as List<AdminImageBatchView>
+                    batches shouldBe emptyList()
                 }
             }
 
@@ -227,7 +262,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                 then("오류가 아닌 0건 결과로 리다이렉트한다") {
                     mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?submittedFoods=0&submittedBatches=0")
+                        redirectedUrl("/admin/foods/images?submittedFoods=0&submittedBatches=0")
                     }
                 }
             }
@@ -239,7 +274,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
 
                     mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods?error=images-failed")
+                        redirectedUrl("/admin/foods/images?error=images-failed")
                     }
                 }
             }

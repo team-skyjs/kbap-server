@@ -14,8 +14,14 @@
             <div class="brand-sub">Admin Console</div>
         </div>
         <nav class="nav">
+            <div class="nav-group">음식 데이터</div>
             <a class="nav-link" th:href="@{/admin/foods}"
-               th:classappend="${active == 'foods'} ? 'is-active'">음식 데이터</a>
+               th:classappend="${active == 'foods'} ? 'is-active'">적재 현황</a>
+            <a class="nav-link" th:href="@{/admin/foods/seed}"
+               th:classappend="${active == 'seed'} ? 'is-active'">음식 등록</a>
+            <a class="nav-link" th:href="@{/admin/foods/images}"
+               th:classappend="${active == 'images'} ? 'is-active'">이미지 배치</a>
+            <div class="nav-group">회원</div>
             <a class="nav-link" th:href="@{/admin/members}"
                th:classappend="${active == 'members'} ? 'is-active'">회원 관리</a>
         </nav>
