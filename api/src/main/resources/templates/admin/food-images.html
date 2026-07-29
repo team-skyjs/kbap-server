@@ -40,11 +40,11 @@
             </thead>
             <tbody>
             <tr th:each="b : ${batches}">
-                <td th:text="${b.id}">1</td>
+                <td class="mono" th:text="${b.id}">1</td>
                 <td>
                     <span class="badge"
                           th:classappend="${b.batchStatus.name() == 'COLLECTED'} ? 'badge-ok'
-                                        : (${b.batchStatus.name() == 'FAILED'} ? 'badge-warn' : 'badge-progress')"
+                                        : (${b.batchStatus.name() == 'FAILED'} ? 'badge-warn' : 'badge-info')"
                           th:text="${b.batchStatus}">SUBMITTED</span>
                 </td>
                 <td th:text="${b.model}">model</td>
@@ -52,8 +52,8 @@
                 <td th:text="${b.doneCount}">0</td>
                 <td th:text="${b.failedCount}">0</td>
                 <td th:text="${b.totalCount}">0</td>
-                <td th:text="${#temporals.format(b.submittedAt, 'MM-dd HH:mm')}">-</td>
-                <td th:text="${b.collectedAt != null ? #temporals.format(b.collectedAt, 'MM-dd HH:mm') : '-'}">-</td>
+                <td class="mono" th:text="${#temporals.format(b.submittedAt, 'MM-dd HH:mm')}">-</td>
+                <td class="mono" th:text="${b.collectedAt != null ? #temporals.format(b.collectedAt, 'MM-dd HH:mm') : '-'}">-</td>
             </tr>
             </tbody>
         </table>

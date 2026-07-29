@@ -21,10 +21,13 @@
             </thead>
             <tbody>
             <tr th:each="m : ${memberPage.items}">
-                <td th:text="${m.id}">1</td>
+                <td class="mono" th:text="${m.id}">1</td>
                 <td>
-                    <a class="row-link" th:href="@{|/admin/members/${m.id}|}"
-                       th:text="${m.nickname ?: '(미설정)'}">닉네임</a>
+                    <span class="cell-name">
+                        <span class="avatar" th:text="${#strings.substring(m.nickname ?: '?', 0, 1)}">닉</span>
+                        <a class="row-link" th:href="@{|/admin/members/${m.id}|}"
+                           th:text="${m.nickname ?: '(미설정)'}">닉네임</a>
+                    </span>
                 </td>
                 <td th:text="${m.email ?: '-'}">email</td>
                 <td th:text="${m.provider}">GOOGLE</td>
@@ -34,7 +37,7 @@
                           th:text="${m.memberStatus}">ACTIVE</span>
                 </td>
                 <td th:text="${m.onboardingCompleted} ? '완료' : '미완료'">완료</td>
-                <td th:text="${#temporals.format(m.createdAt, 'yyyy-MM-dd')}">2026-01-01</td>
+                <td class="mono" th:text="${#temporals.format(m.createdAt, 'yyyy-MM-dd')}">2026-01-01</td>
             </tr>
             </tbody>
         </table>

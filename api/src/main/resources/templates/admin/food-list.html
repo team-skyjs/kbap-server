@@ -21,7 +21,7 @@
             <div class="food-row-meta">
                 <span class="badge"
                       th:classappend="${f.contentStatus.name() == 'READY'} ? 'badge-ok'
-                                    : (${f.contentStatus.name() == 'INCOMPLETE'} ? 'badge-warn' : 'badge-progress')"
+                                    : (${f.contentStatus.name() == 'INCOMPLETE'} ? 'badge-neutral' : 'badge-info')"
                       th:text="${f.contentStatus}">READY</span>
                 <span class="meta-item" th:text="|맵기 ${f.spiciness}|">맵기 0</span>
                 <span class="meta-item" th:text="${f.hasImage} ? '이미지 ○' : '이미지 ×'">이미지 ×</span>
