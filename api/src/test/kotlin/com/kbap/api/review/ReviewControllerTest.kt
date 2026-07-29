@@ -256,6 +256,24 @@ class ReviewControllerTest : BehaviorSpec() {
                         }
                 }
             }
+            `when`("본인 소유지만 리뷰 용도가 아닌 이미지 경로로 작성하면") {
+                then("400 REVIEW-003 을 반환한다") {
+                    val token = accessToken(706L)
+                    seedVerifiedImage(706L, "images/profile/2026/07/706_profile.jpg")
+                    create(token, createBody(foodId = 700L, imagePaths = listOf("images/profile/2026/07/706_profile.jpg")))
+                        .andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("REVIEW-003") }
+                        }
+                }
+            }
+            `when`("ADMIN 토큰으로 작성하면") {
+                then("401 을 반환한다") {
+                    seedMember(707L)
+                    val adminToken = tokenIssuer.issueAccessToken(707L, MemberRole.ADMIN)
+                    create(adminToken, createBody(foodId = 700L)).andExpect { status { isUnauthorized() } }
+                }
+            }
         }
 
         given("리뷰 수정 API — PATCH /api/v1/reviews/{reviewId}") {
@@ -386,6 +404,50 @@ class ReviewControllerTest : BehaviorSpec() {
                     val reviewId = createReview(token, 730L)
                     remove(token, reviewId).andExpect { status { isOk() } }
                     rankingCounts(734L) shouldBe (0 to 0)
+                }
+            }
+            `when`("같은 회원이 같은 음식에 2건을 동시에 작성하면") {
+                then("고유 음식 수는 정확히 1 이다") {
+                    (0 until 5).forEach { round ->
+                        val memberId = 740L + round
+                        val token = accessToken(memberId)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val startGate = java.util.concurrent.CountDownLatch(1)
+                        val futures = (1..2).map {
+                            executor.submit<Long> {
+                                startGate.await()
+                                createReview(token, 730L)
+                            }
+                        }
+                        startGate.countDown()
+                        futures.forEach { it.get() }
+                        executor.shutdown()
+                        rankingCounts(memberId) shouldBe (2 to 1)
+                    }
+                }
+            }
+            `when`("같은 회원이 같은 음식의 마지막 2건을 동시에 삭제하면") {
+                then("고유 음식 수는 정확히 0 이 된다") {
+                    (0 until 5).forEach { round ->
+                        val memberId = 750L + round
+                        val token = accessToken(memberId)
+                        val first = createReview(token, 730L)
+                        val second = createReview(token, 730L)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val startGate = java.util.concurrent.CountDownLatch(1)
+                        val futures = listOf(first, second).map { reviewId ->
+                            executor.submit {
+                                startGate.await()
+                                mockMvc.delete("$path/$reviewId") {
+                                    header("Authorization", "Bearer $token")
+                                }.andReturn()
+                            }
+                        }
+                        startGate.countDown()
+                        futures.forEach { it.get() }
+                        executor.shutdown()
+                        rankingCounts(memberId) shouldBe (0 to 0)
+                    }
                 }
             }
         }
