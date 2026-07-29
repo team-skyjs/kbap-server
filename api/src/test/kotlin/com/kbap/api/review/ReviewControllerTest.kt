@@ -146,7 +146,7 @@ class ReviewControllerTest : BehaviorSpec() {
                 .path("payload").path("reviewId").asLong()
 
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long =
-            reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)))
+            reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
         given("리뷰 작성 API — POST /api/v1/reviews") {
             seedFood(700L, "김치찌개")
@@ -423,6 +423,61 @@ class ReviewControllerTest : BehaviorSpec() {
                         futures.forEach { it.get() }
                         executor.shutdown()
                         rankingCounts(memberId) shouldBe (2 to 1)
+                    }
+                }
+            }
+            `when`("같은 리뷰를 동시에 2번 삭제하면") {
+                then("정확히 1번만 성공하고 카운트는 1번만 차감된다") {
+                    (0 until 5).forEach { round ->
+                        val memberId = 760L + round
+                        val token = accessToken(memberId)
+                        val target = createReview(token, 730L)
+                        createReview(token, 731L)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val startGate = java.util.concurrent.CountDownLatch(1)
+                        val futures = (1..2).map {
+                            executor.submit<Int> {
+                                startGate.await()
+                                mockMvc.delete("$path/$target") {
+                                    header("Authorization", "Bearer $token")
+                                }.andReturn().response.status
+                            }
+                        }
+                        startGate.countDown()
+                        val statuses = futures.map { it.get() }.sorted()
+                        executor.shutdown()
+                        statuses shouldBe listOf(200, 400)
+                        rankingCounts(memberId) shouldBe (1 to 1)
+                    }
+                }
+            }
+            `when`("같은 리뷰에 수정과 삭제가 동시에 겹치면") {
+                then("리뷰는 결국 삭제 상태로 남고 카운트는 정확히 차감된다") {
+                    (0 until 5).forEach { round ->
+                        val memberId = 770L + round
+                        val token = accessToken(memberId)
+                        val target = createReview(token, 730L)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val startGate = java.util.concurrent.CountDownLatch(1)
+                        val patchFuture = executor.submit {
+                            startGate.await()
+                            update(token, target, createBody(foodId = null, rating = 5)).andReturn()
+                        }
+                        val deleteFuture = executor.submit {
+                            startGate.await()
+                            mockMvc.delete("$path/$target") {
+                                header("Authorization", "Bearer $token")
+                            }.andReturn()
+                        }
+                        startGate.countDown()
+                        patchFuture.get()
+                        deleteFuture.get()
+                        executor.shutdown()
+                        rankingCounts(memberId) shouldBe (0 to 0)
+                        update(token, target, createBody(foodId = null, rating = 4)).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("REVIEW-001") }
+                        }
                     }
                 }
             }
