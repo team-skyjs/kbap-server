@@ -20,10 +20,10 @@
 - `isOwnedBy(memberId: Long): Boolean` — 수정/삭제 권한 판정
 - 삭제는 `BaseEntity.delete()`(status=DELETED) — 목록·집계 자동 제외
 
-## Flyway: `V2026.07.29.HH.mm.ss__review_table.sql` (PR1, 생성 시각으로 채번)
+## Flyway: `V2026.07.29.HH.mm.ss__food_review_table.sql` (PR1, 생성 시각으로 채번)
 
 ```sql
-CREATE TABLE `review` (
+CREATE TABLE `food_review` (
     `id`                  bigint       NOT NULL AUTO_INCREMENT,
     `member_id`           bigint       NOT NULL,
     `food_id`             bigint       NOT NULL,
@@ -35,16 +35,16 @@ CREATE TABLE `review` (
     `created_at`          datetime(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at`          datetime(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`id`),
-    KEY `idx_review_food_recent` (`food_id`, `id` DESC),
-    KEY `idx_review_member_recent` (`member_id`, `id` DESC),
-    KEY `idx_review_food_country` (`food_id`, `author_country_code`),
-    CONSTRAINT `fk_review_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`),
-    CONSTRAINT `fk_review_food` FOREIGN KEY (`food_id`) REFERENCES `food` (`id`)
+    KEY `idx_food_review_food_recent` (`food_id`, `id` DESC),
+    KEY `idx_food_review_member_recent` (`member_id`, `id` DESC),
+    KEY `idx_food_review_food_country` (`food_id`, `author_country_code`),
+    CONSTRAINT `fk_food_review_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`),
+    CONSTRAINT `fk_food_review_food` FOREIGN KEY (`food_id`) REFERENCES `food` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
-- 테이블명 **단수 `review`** — 전 테이블 단수 관례(`bookmark`·`member`·`scan_history`).
-- 인덱스 용도: `idx_review_food_recent`=음식별 최신순 keyset, `idx_review_member_recent`=내 리뷰 keyset, `idx_review_food_country`=국적 필터 목록·같은 국적 AVG(세컨더리 인덱스에 PK 암묵 포함 → id 정렬 커버).
+- 테이블명 **`food_review`** — 단수 관례(`bookmark`·`member`) + 앱 리뷰 등과의 혼동을 피하는 도메인 접두. 엔티티·패키지명은 리뷰 컨텍스트 안이라 `Review` 유지.
+- 인덱스 용도: `idx_food_review_food_recent`=음식별 최신순 keyset, `idx_food_review_member_recent`=내 리뷰 keyset, `idx_food_review_food_country`=국적 필터 목록·같은 국적 AVG(세컨더리 인덱스에 PK 암묵 포함 → id 정렬 커버).
 - member 측 컬럼(`review_count`·`unique_reviewed_food_count`)은 init_schema 기존재 — 추가 마이그레이션 없음.
 
 ## 리포지토리: ReviewJpaRepository (`common.domain.review`)
