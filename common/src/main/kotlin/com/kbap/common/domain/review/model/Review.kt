@@ -8,7 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "review")
+@Table(name = "food_review")
 class Review(
     @Column(name = "member_id", nullable = false)
     val memberId: Long,
