@@ -18,7 +18,10 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
+import io.kotest.matchers.string.shouldStartWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -26,6 +29,10 @@ import org.springframework.context.annotation.Import
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
 class FoodImageBatchCollectServiceTest : BehaviorSpec() {
+    companion object {
+        val FOOD_IMAGE_KEY_PATTERN = Regex("""^images/food/[0-9a-f]{12}_[0-9a-f]{16}\.png$""")
+    }
+
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -111,8 +118,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     collectService.collectSubmitted()
 
-                    val key = "images/food/${food.id}.png"
-                    fakeStorage.heads.containsKey(key) shouldBe true
+                    val key = fakeStorage.heads.keys.single()
+                    key shouldMatch FOOD_IMAGE_KEY_PATTERN
+                    key shouldStartWith "images/food/b7b0c086d8e6_"
                     val reloaded = foodRepository.findById(food.id).get()
                     reloaded.imageRef shouldBe key
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
@@ -134,7 +142,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
 
                     val reloaded = foodRepository.findById(food.id).get()
-                    reloaded.imageRef shouldBe "images/food/${food.id}.png"
+                    reloaded.imageRef!! shouldMatch FOOD_IMAGE_KEY_PATTERN
                     reloaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 }
             }
@@ -290,6 +298,96 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     costListener.events.size shouldBe 1
                     itemRepository.findAll().all { it.itemStatus == ImageBatchItemStatus.DONE } shouldBe true
                     batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.COLLECTED
+                }
+            }
+        }
+
+        given("저장 키 생성 규칙") {
+            `when`("음식명으로 키를 만들면") {
+                then("images/food/{sha256 앞 12자리}_{uuid 16자리}.png 형식이고 환경접두가 없다") {
+                    val key = FoodImageBatchCollectService.storageKeyOf("불고기")
+                    key shouldMatch FOOD_IMAGE_KEY_PATTERN
+                    key shouldStartWith "images/food/0ac627c8cdea_"
+                }
+            }
+
+            `when`("같은 음식명으로 두 번 만들면") {
+                then("uuid 가 달라 서로 다른 키가 나온다") {
+                    FoodImageBatchCollectService.storageKeyOf("불고기") shouldNotBe
+                        FoodImageBatchCollectService.storageKeyOf("불고기")
+                }
+            }
+        }
+
+        given("회수 — 이미지 재생성") {
+            `when`("이미지가 이미 있는 음식을 새 배치로 다시 회수하면") {
+                then("이전 키를 덮어쓰지 않고 새 키로 저장하며 imageRef 가 새 키로 갱신된다") {
+                    val food = savePendingImage("재생성음식")
+                    val first = saveSubmittedBatch(food.id)
+                    fakeClient.polls[first.openaiBatchId!!] = completed("file_regen_1")
+                    fakeClient.results["file_regen_1"] = listOf(okResult(food.id))
+                    collectService.collectSubmitted()
+                    val firstKey = foodRepository.findById(food.id).get().imageRef!!
+
+                    val second = saveSubmittedBatch(food.id)
+                    fakeClient.polls[second.openaiBatchId!!] = completed("file_regen_2")
+                    fakeClient.results["file_regen_2"] = listOf(okResult(food.id))
+                    collectService.collectSubmitted()
+
+                    val secondKey = foodRepository.findById(food.id).get().imageRef!!
+                    secondKey shouldMatch FOOD_IMAGE_KEY_PATTERN
+                    secondKey shouldNotBe firstKey
+                    fakeStorage.heads.containsKey(firstKey) shouldBe true
+                    fakeStorage.heads.containsKey(secondKey) shouldBe true
+                }
+            }
+        }
+
+        given("회수 — put 이후 트랜잭션 실패분 재시도") {
+            `when`("PENDING 항목에 직전 시도가 예약해 둔 파일명이 남아 있으면") {
+                then("새 키를 만들지 않고 예약 키를 재사용한다 — 재시도마다 고아 객체가 쌓이지 않는다") {
+                    val food = savePendingImage("재시도음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    val reservedKey = "images/food/aaaaaaaaaaaa_bbbbbbbbbbbbbbbb.png"
+                    itemRepository.save(itemRepository.findAll().single().apply { fileName = reservedKey })
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_retry")
+                    fakeClient.results["file_retry"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    fakeStorage.heads.keys.single() shouldBe reservedKey
+                    foodRepository.findById(food.id).get().imageRef shouldBe reservedKey
+                    val item = itemRepository.findAll().single()
+                    item.itemStatus shouldBe ImageBatchItemStatus.DONE
+                    item.fileName shouldBe reservedKey
+                }
+            }
+
+            `when`("이미 예약된 항목에 다른 키로 클레임을 시도하면(중첩 회수 레이스)") {
+                then("클레임이 거부되고 기존 예약 키가 유지된다 — 두 회수기가 한 키로 수렴") {
+                    val food = savePendingImage("레이스음식")
+                    saveSubmittedBatch(food.id)
+                    val item = itemRepository.findAll().single()
+
+                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_1111111111111111.png") shouldBe 1
+                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_2222222222222222.png") shouldBe 0
+
+                    itemRepository.findById(item.id).get().fileName shouldBe
+                        "images/food/aaaaaaaaaaaa_1111111111111111.png"
+                }
+            }
+
+            `when`("예약 파일명이 없는 항목을 정상 회수하면") {
+                then("생성한 키가 put 전에 항목에 예약 저장되어 완료 키와 일치한다") {
+                    val food = savePendingImage("예약음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_reserve")
+                    fakeClient.results["file_reserve"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val item = itemRepository.findAll().single()
+                    item.fileName shouldBe fakeStorage.heads.keys.single()
                 }
             }
         }

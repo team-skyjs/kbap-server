@@ -1,7 +1,7 @@
 package com.kbap.api.image
 
 enum class UploadPurpose(val prefix: String) {
-    MENU_SCAN("scan"),
+    MENU_SCAN("scans"),
     REVIEW("review"),
     PROFILE_IMAGE("profile"),
     ;

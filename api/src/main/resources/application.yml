@@ -113,7 +113,7 @@ kbap:
     bucket: ${STORAGE_BUCKET:}
     region: ${STORAGE_REGION:ap-northeast-2}
     public-base-url: ${IMAGE_PUBLIC_BASE_URL:}
-    # 공유 버킷 환경별 폴더 접두 — 업로드 API 발급 키에만 적용, 음식 사진(images/menus)은 환경 공용이라 무접두(KB-171).
+    # 공유 버킷 환경별 폴더 접두 — 업로드 API 발급 키에만 적용, 음식 사진(images/food)은 환경 공용이라 무접두(KB-171·KB-243).
     key-prefix: ${STORAGE_KEY_PREFIX:local}
   upload:
     # presigned 발급 정책 — 허용 이미지 형식·크기 상한(bytes)·업로드 URL 만료(KB-145).
