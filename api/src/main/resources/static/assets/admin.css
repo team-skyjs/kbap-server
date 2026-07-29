@@ -206,14 +206,61 @@ body {
 
 .btn-primary:hover { background: var(--ink-700); }
 
-/* ---- 홈 빈 상태 ---- */
+/* ---- 대시보드 ---- */
 
-.empty-state { text-align: center; padding: var(--sp-7) var(--sp-5); color: var(--text-faint); }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
 
-.empty-state .empty-mark {
+.stat-card { padding: var(--sp-4); }
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.stat-num {
   font-family: var(--font-display);
-  font-size: 40px;
-  color: var(--paper-line);
-  display: block;
-  margin-bottom: var(--sp-3);
+  font-size: 30px;
+  color: var(--text-strong);
+  margin-top: var(--sp-1);
+}
+
+.stat-total { border-top: 3px solid var(--ink-800); }
+
+.stat-ready { border-top: 3px solid var(--ok); }
+
+.stat-ready .stat-num { color: var(--ok); }
+
+.ready-ratio-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--sp-2);
+}
+
+.ready-ratio-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--ok);
+}
+
+.progress {
+  height: 10px;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), #3d9a72);
+  border-radius: 999px;
+  transition: width 0.4s ease;
 }

@@ -68,14 +68,14 @@
 
 ### Tests for User Story 2 (Red 먼저) ⚠️
 
-- [ ] T015 [P] [US2] `FoodJpaRepository` 상태별 집계 통합 테스트 추가 — `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt`(상태 분포 저장 → group-by 결과, 0건 상태 미반환 확인). Red 확인
-- [ ] T016 [P] [US2] 대시보드 MockMvc 통합 테스트 — `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt`(ADMIN 쿠키). 시나리오: `GET /admin/foods` → 뷰 `admin/foods` + 모델 `AdminFoodDashboardView`(총계·상태별 4종 0 채움·readyRatio), 음식 0건 → total 0 오류 없음, 미인증 → 302 `/admin/login`. Red 확인
+- [X] T015 [P] [US2] `FoodJpaRepository` 상태별 집계 통합 테스트 추가 — `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt`(상태 분포 저장 → group-by 결과, 0건 상태 미반환 확인). Red 확인
+- [X] T016 [P] [US2] 대시보드 MockMvc 통합 테스트 — `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt`(ADMIN 쿠키). 시나리오: `GET /admin/foods` → 뷰 `admin/foods` + 모델 `AdminFoodDashboardView`(총계·상태별 4종 0 채움·readyRatio), 음식 0건 → total 0 오류 없음, 미인증 → 302 `/admin/login`. Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] `FoodJpaRepository` 에 `countGroupByContentStatus` JPQL 집계 + projection 추가 — `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt`. T015 Green
-- [ ] T018 [US2] `AdminFoodDashboardService` + `AdminFoodDashboardView` 구현(4개 상태 0 채움·readyRatio 계산, `@Transactional(readOnly = true)`) — `api/src/main/kotlin/com/kbap/api/admin/AdminFoodDashboardService.kt`
-- [ ] T019 [US2] `AdminFoodPageController` `GET /admin/foods` + 대시보드 템플릿 + 홈을 `/admin/foods` 리다이렉트로 교체 — `api/src/main/kotlin/com/kbap/api/admin/AdminFoodPageController.kt`, `api/src/main/resources/templates/admin/foods.html`(상태 카드·READY 비율 바), `AdminPageController` 홈 수정(`templates/admin/home.html` 삭제). T016 Green
+- [X] T017 [US2] `FoodJpaRepository` 에 `countGroupByContentStatus` JPQL 집계 + projection 추가 — `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt`. T015 Green
+- [X] T018 [US2] `AdminFoodDashboardService` + `AdminFoodDashboardView` 구현(4개 상태 0 채움·readyRatio 계산, `@Transactional(readOnly = true)`) — `api/src/main/kotlin/com/kbap/api/admin/AdminFoodDashboardService.kt`
+- [X] T019 [US2] `AdminFoodPageController` `GET /admin/foods` + 대시보드 템플릿 + 홈을 `/admin/foods` 리다이렉트로 교체 — `api/src/main/kotlin/com/kbap/api/admin/AdminFoodPageController.kt`, `api/src/main/resources/templates/admin/foods.html`(상태 카드·READY 비율 바), `AdminPageController` 홈 수정(`templates/admin/home.html` 삭제). T016 Green
 
 **Checkpoint**: 대시보드 단독 검증 가능
 
