@@ -22,7 +22,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
           and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
-    fun findByIdForRankingUpdate(@Param("memberId") memberId: Long): Member?
+    fun findByIdForUpdate(@Param("memberId") memberId: Long): Member?
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
