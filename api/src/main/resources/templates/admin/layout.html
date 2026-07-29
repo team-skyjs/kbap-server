@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko" th:fragment="shell(title, active, content)" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title th:text="|${title} · K-Bap Admin|">K-Bap Admin</title>
+    <link rel="stylesheet" th:href="@{/assets/admin.css}">
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-name">K-Bap</div>
+            <div class="brand-sub">Admin Console</div>
+        </div>
+        <nav class="nav">
+            <a class="nav-link" th:href="@{/admin/foods}"
+               th:classappend="${active == 'foods'} ? 'is-active'">음식 데이터</a>
+            <a class="nav-link" th:href="@{/admin/members}"
+               th:classappend="${active == 'members'} ? 'is-active'">회원 관리</a>
+        </nav>
+        <form class="logout" th:action="@{/admin/logout}" method="post">
+            <button type="submit">로그아웃</button>
+        </form>
+    </aside>
+    <main class="content" th:insert="${content}"></main>
+</div>
+</body>
+</html>
