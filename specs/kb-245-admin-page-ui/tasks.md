@@ -120,8 +120,8 @@
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T025 [P] 768px(아이패드 미니) 레이아웃 검증·디자인 다듬기 — 전 화면 가로 스크롤 없음(quickstart 시나리오 5, spec SC-005), `admin.css` 토큰 일관성
-- [ ] T026 전체 검증 — `./gradlew build`(ArchUnit 포함 전 모듈) 통과 + quickstart.md 검증 시나리오 1~4 수동 확인(로컬 bootRun + 계정 INSERT) → PR-B 오픈
+- [X] T025 [P] 768px(아이패드 미니) 레이아웃 검증·디자인 다듬기 — 전 화면 가로 스크롤 없음(quickstart 시나리오 5, spec SC-005), `admin.css` 토큰 일관성
+- [X] T026 전체 검증 — `./gradlew build`(ArchUnit 포함 전 모듈) 통과 + quickstart.md 검증 시나리오 1~4 수동 확인(로컬 bootRun + 계정 INSERT) → PR-B 오픈
 
 ---
 

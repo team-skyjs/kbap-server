@@ -64,6 +64,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
             clearFoods()
             fakeClient.reset()
         }
+        afterSpec { clearFoods() }
 
         given("음식 적재 현황 대시보드") {
             `when`("여러 준비 단계의 음식이 존재할 때 진입하면") {
