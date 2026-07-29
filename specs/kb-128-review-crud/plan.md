@@ -59,7 +59,7 @@ specs/kb-128-review-crud/
 
 ```text
 api/src/main/resources/db/migration/
-└── V2026.07.29.HH.mm.ss__review_table.sql        # PR1 — review 테이블+인덱스 3종+FK 2종
+└── V2026.07.29.HH.mm.ss__food_review_table.sql        # PR1 — food_review 테이블+인덱스 3종+FK 2종
 
 common/src/main/kotlin/com/kbap/common/domain/review/
 ├── model/Review.kt                                # PR1 — BaseEntity 상속, 불변(별점·본문·사진) 내장
