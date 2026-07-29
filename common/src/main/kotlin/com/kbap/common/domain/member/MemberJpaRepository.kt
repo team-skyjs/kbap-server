@@ -3,26 +3,13 @@ package com.kbap.common.domain.member
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
-import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query(
-        """
-        select m from Member m
-        where m.id = :memberId
-          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
-        """,
-    )
-    fun findByIdForUpdate(@Param("memberId") memberId: Long): Member?
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
@@ -46,27 +33,49 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     @Query(
         """
         update Member m
-        set m.reviewCount = m.reviewCount + 1,
-            m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + :uniqueDelta
+        set m.reviewCount = m.reviewCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
           and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
-    fun increaseReviewCounts(@Param("memberId") memberId: Long, @Param("uniqueDelta") uniqueDelta: Int): Int
+    fun increaseReviewCount(@Param("memberId") memberId: Long): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         """
         update Member m
-        set m.reviewCount = m.reviewCount - 1,
-            m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - :uniqueDelta
+        set m.reviewCount = m.reviewCount - 1
         where m.id = :memberId
           and m.reviewCount > 0
-          and m.uniqueReviewedFoodCount >= :uniqueDelta
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
           and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
-    fun decreaseReviewCounts(@Param("memberId") memberId: Long, @Param("uniqueDelta") uniqueDelta: Int): Int
+    fun decreaseReviewCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + 1
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
+        """,
+    )
+    fun increaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - 1
+        where m.id = :memberId
+          and m.uniqueReviewedFoodCount > 0
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
+        """,
+    )
+    fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
 }
