@@ -11,8 +11,8 @@
 | 컬럼 | 타입 | 제약 |
 |------|------|------|
 | (BaseEntity) `id`·`status`·`created_at`·`updated_at` | — | 공통 — 소프트삭제(`@SQLRestriction`) 상속 |
-| `login_id` | VARCHAR(50) | NOT NULL, UNIQUE(`uk_admin_account_login_id`) |
-| `password` | VARCHAR(60) | NOT NULL — BCrypt 해시(고정 60자) |
+| `admin_id` | VARCHAR(50) | NOT NULL, UNIQUE(`uk_admin_account_admin_id`) |
+| `admin_pwd` | VARCHAR(60) | NOT NULL — BCrypt 해시(고정 60자) |
 
 - 리포지토리: `AdminAccountJpaRepository.findByLoginId(loginId: String): AdminAccount?`
 - Flyway: `Vyyyy.MM.dd.HH.mm.ss__create_admin_account_table.sql`(생성 시각 timestamp 규칙) — 시드 없음(최초 계정은 운영자 수동 INSERT).

@@ -11,7 +11,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 최초 관리자 계정은 로컬 DB 에 직접 INSERT 한다(운영도 동일 — 1회성 수동 등록, 계정 화면 없음):
 
 ```sql
-INSERT INTO admin_account (login_id, password, status, created_at, updated_at)
+INSERT INTO admin_account (admin_id, admin_pwd, status, created_at, updated_at)
 VALUES ('admin', '<BCrypt 해시>', 'ACTIVE', NOW(), NOW());
 ```
 
