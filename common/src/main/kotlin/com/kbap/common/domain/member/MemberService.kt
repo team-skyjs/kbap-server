@@ -95,10 +95,10 @@ class MemberService(
         }
     }
 
-    // 리뷰 첫/마지막 판정(count)과 카운트 증감을 회원 행 X-lock 으로 직렬화 — 같은 회원 동시 작성/삭제의 고유 음식 수 오차 방지
+    // 회원 행 X-lock 조회(FOR UPDATE) — 리뷰 첫/마지막 판정과 카운트 증감을 같은 회원 기준으로 직렬화할 때 사용
     @Transactional
-    fun getMemberForRankingUpdate(memberId: Long): Member =
-        memberRepository.findByIdForRankingUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+    fun getMemberForUpdate(memberId: Long): Member =
+        memberRepository.findByIdForUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
     @Transactional
     fun increaseReviewCounts(memberId: Long, firstReviewOfFood: Boolean) {

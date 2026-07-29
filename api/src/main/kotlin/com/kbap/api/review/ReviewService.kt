@@ -34,7 +34,7 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
-        val authorCountryCode = memberService.getMemberForRankingUpdate(memberId).profile.countryCode?.name
+        val authorCountryCode = memberService.getMemberForUpdate(memberId).profile.countryCode?.name
 
         val review = reviewRepository.save(
             Review(
@@ -69,7 +69,7 @@ class ReviewService(
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
-        memberService.getMemberForRankingUpdate(memberId)
+        memberService.getMemberForUpdate(memberId)
         review.delete()
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
         memberService.decreaseReviewCounts(memberId, lastReviewOfFood)
