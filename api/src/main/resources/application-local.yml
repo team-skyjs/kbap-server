@@ -1,4 +1,7 @@
 spring:
+  # 로컬 개발 중 템플릿 수정이 재시작 없이 반영되도록 캐시 끔(운영은 기본 on 유지)
+  thymeleaf:
+    cache: false
   # 로컬은 환경변수로 덮어쓸 수 있게 하되, 없으면 localhost 기본값으로 바로 뜬다.
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/kbap}

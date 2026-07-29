@@ -1,5 +1,6 @@
 package com.kbap.common.domain.food
 
+import com.kbap.common.domain.food.dto.ImageBatchItemCount
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import org.springframework.data.jpa.repository.JpaRepository
@@ -9,6 +10,16 @@ import org.springframework.transaction.annotation.Transactional
 
 interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     fun findByBatchIdAndItemStatus(batchId: Long, itemStatus: ImageBatchItemStatus): List<ImageBatchItem>
+
+    @Query(
+        """
+        select new com.kbap.common.domain.food.dto.ImageBatchItemCount(i.batchId, i.itemStatus, count(i))
+        from ImageBatchItem i
+        where i.batchId in :batchIds
+        group by i.batchId, i.itemStatus
+        """,
+    )
+    fun countGroupByBatchIdAndStatus(batchIds: List<Long>): List<ImageBatchItemCount>
 
     @Transactional
     @Modifying(clearAutomatically = true)
