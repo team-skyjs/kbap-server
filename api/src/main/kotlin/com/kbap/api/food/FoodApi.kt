@@ -67,6 +67,10 @@ interface FoodApi {
 
             맵기(spiciness)는 0~10 정수(0=맵지 않음, 10=매우 매움)로 제공한다.
 
+            리뷰 평점: averageRating(전체 평균, 소수 첫째 자리 반올림, 리뷰 없으면 null)·reviewCount 는 항상 내려가고,
+            sameCountryAverageRating 은 국적 보유 로그인 회원에게만 값이 내려간다(비회원·국적 미보유·해당 국적 리뷰 없음이면 null).
+            같은 국적 판정은 리뷰 작성 시점 국적 스냅샷 기준이다.
+
             각 포함 기피성분의 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)는 포함 확률(inclusionPercent, 1~100) 기반 실제값이다(p<10 SAFE · 10~59 CAUTION · ≥60 DANGER).
             응답 최상위 overallRiskStatus 는 사용자 회피 목록 ∩ 음식 성분의 성분별 위험도 최악값이다(현재 회피 목록은 mock 조달).
 

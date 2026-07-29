@@ -8,7 +8,9 @@ import com.kbap.common.util.SearchKeywordParser
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
 import com.kbap.api.bookmark.BookmarkService
+import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.food.FoodService
+import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.food.dto.BrowseFoodsInput
 import com.kbap.common.domain.food.dto.FoodSummaryView
 import com.kbap.common.domain.food.dto.GetFoodDetailInput
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController
 class FoodController(
     private val foodService: FoodService,
     private val bookmarkService: BookmarkService,
+    private val reviewService: ReviewService,
+    private val memberService: MemberService,
 ) : FoodApi {
     @GetMapping
     override fun browse(
@@ -64,7 +68,9 @@ class FoodController(
             GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked)))
+        val viewerCountryCode = memberId?.let { memberService.getMemberOrNull(it)?.profile?.countryCode?.name }
+        val rating = reviewService.getFoodRatingSummary(foodId, viewerCountryCode)
+        return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, rating)))
     }
 
     private fun toPage(
