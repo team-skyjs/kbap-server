@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     fun findByPath(path: String): UploadedImage?
+
+    fun findByPathIn(paths: Collection<String>): List<UploadedImage>
 }

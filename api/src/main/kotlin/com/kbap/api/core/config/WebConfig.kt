@@ -55,6 +55,8 @@ class WebConfig(
                 "${ApiPaths.V1}/scans/*",
                 "${ApiPaths.V1}/bookmarks",
                 "${ApiPaths.V1}/bookmarks/*",
+                "${ApiPaths.V1}/reviews",
+                "${ApiPaths.V1}/reviews/*",
                 "${ApiPaths.V1}/images",
                 "${ApiPaths.V1}/images/*",
                 "${ApiPaths.V1}/auth/withdraw",

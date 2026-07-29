@@ -28,4 +28,32 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         """,
     )
     fun increaseScanCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.reviewCount = m.reviewCount + 1,
+            m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + :uniqueDelta
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
+        """,
+    )
+    fun increaseReviewCounts(@Param("memberId") memberId: Long, @Param("uniqueDelta") uniqueDelta: Int): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.reviewCount = m.reviewCount - 1,
+            m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - :uniqueDelta
+        where m.id = :memberId
+          and m.reviewCount > 0
+          and m.uniqueReviewedFoodCount >= :uniqueDelta
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
+        """,
+    )
+    fun decreaseReviewCounts(@Param("memberId") memberId: Long, @Param("uniqueDelta") uniqueDelta: Int): Int
 }
