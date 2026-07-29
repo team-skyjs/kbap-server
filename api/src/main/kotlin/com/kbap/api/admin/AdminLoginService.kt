@@ -15,8 +15,8 @@ class AdminLoginService(
     private val passwordEncoder = BCryptPasswordEncoder()
 
     @Transactional(readOnly = true)
-    fun login(loginId: String, password: String): String? {
-        val account = adminAccountJpaRepository.findByLoginId(loginId) ?: return null
+    fun login(id: String, password: String): String? {
+        val account = adminAccountJpaRepository.findByLoginId(id) ?: return null
         if (!passwordEncoder.matches(password, account.password)) return null
         return tokenIssuer.issueAccessToken(account.id, MemberRole.ADMIN)
     }

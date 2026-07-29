@@ -26,12 +26,12 @@ class AdminPageController(
 
     @PostMapping("/admin/login")
     fun login(
-        @RequestParam loginId: String,
+        @RequestParam id: String,
         @RequestParam password: String,
         response: HttpServletResponse,
         model: Model,
     ): String {
-        val token = adminLoginService.login(loginId, password)
+        val token = adminLoginService.login(id, password)
         if (token == null) {
             model.addAttribute("error", "아이디 또는 비밀번호가 올바르지 않습니다.")
             return "admin/login"

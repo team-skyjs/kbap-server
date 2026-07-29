@@ -49,7 +49,7 @@ class AdminPageControllerTest : BehaviorSpec() {
 
         fun login(loginId: String, password: String) =
             mockMvc.post("/admin/login") {
-                param("loginId", loginId)
+                param("id", loginId)
                 param("password", password)
             }
 
