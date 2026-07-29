@@ -39,49 +39,62 @@ class MemberServiceReviewCountTest : BehaviorSpec() {
         }
 
         given("리뷰 랭킹 카운트 증감") {
-            `when`("첫 리뷰로 증가시키면") {
-                then("리뷰 수 1·고유 음식 수 1 이 된다") {
+            `when`("리뷰 수와 고유 음식 수를 각각 증가시키면") {
+                then("두 카운트가 1 씩 늘어난다") {
                     val member = newMember()
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = true)
+                    memberService.increaseReviewCount(member.id)
+                    memberService.increaseUniqueReviewedFoodCount(member.id)
                     counts(member.id) shouldBe (1 to 1)
                 }
             }
-            `when`("같은 음식 추가 리뷰로 증가시키면") {
-                then("리뷰 수만 늘고 고유 음식 수는 그대로다") {
+            `when`("리뷰 수만 증가시키면") {
+                then("고유 음식 수는 그대로다") {
                     val member = newMember()
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = true)
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = false)
+                    memberService.increaseReviewCount(member.id)
+                    memberService.increaseUniqueReviewedFoodCount(member.id)
+                    memberService.increaseReviewCount(member.id)
                     counts(member.id) shouldBe (2 to 1)
                 }
             }
-            `when`("마지막이 아닌 리뷰를 감소시키면") {
-                then("리뷰 수만 줄고 고유 음식 수는 그대로다") {
+            `when`("리뷰 수만 감소시키면") {
+                then("고유 음식 수는 그대로다") {
                     val member = newMember()
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = true)
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = false)
-                    memberService.decreaseReviewCounts(member.id, lastReviewOfFood = false)
+                    memberService.increaseReviewCount(member.id)
+                    memberService.increaseUniqueReviewedFoodCount(member.id)
+                    memberService.increaseReviewCount(member.id)
+                    memberService.decreaseReviewCount(member.id)
                     counts(member.id) shouldBe (1 to 1)
                 }
             }
-            `when`("마지막 리뷰를 감소시키면") {
-                then("리뷰 수 0·고유 음식 수 0 이 된다") {
+            `when`("두 카운트를 모두 감소시키면") {
+                then("0·0 이 된다") {
                     val member = newMember()
-                    memberService.increaseReviewCounts(member.id, firstReviewOfFood = true)
-                    memberService.decreaseReviewCounts(member.id, lastReviewOfFood = true)
+                    memberService.increaseReviewCount(member.id)
+                    memberService.increaseUniqueReviewedFoodCount(member.id)
+                    memberService.decreaseReviewCount(member.id)
+                    memberService.decreaseUniqueReviewedFoodCount(member.id)
+                    counts(member.id) shouldBe (0 to 0)
+                }
+            }
+            `when`("카운트가 0 인 회원을 감소시키면") {
+                then("하한 가드로 MEMBER_NOT_FOUND 를 던지고 0 이 유지된다") {
+                    val member = newMember()
+                    shouldThrow<BusinessException> {
+                        memberService.decreaseReviewCount(member.id)
+                    }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
+                    shouldThrow<BusinessException> {
+                        memberService.decreaseUniqueReviewedFoodCount(member.id)
+                    }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
                     counts(member.id) shouldBe (0 to 0)
                 }
             }
             `when`("존재하지 않는 회원을 증가시키면") {
                 then("MEMBER_NOT_FOUND 를 던진다") {
                     shouldThrow<BusinessException> {
-                        memberService.increaseReviewCounts(Long.MAX_VALUE, firstReviewOfFood = true)
+                        memberService.increaseReviewCount(Long.MAX_VALUE)
                     }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
-                }
-            }
-            `when`("존재하지 않는 회원을 감소시키면") {
-                then("MEMBER_NOT_FOUND 를 던진다") {
                     shouldThrow<BusinessException> {
-                        memberService.decreaseReviewCounts(Long.MAX_VALUE, lastReviewOfFood = false)
+                        memberService.increaseUniqueReviewedFoodCount(Long.MAX_VALUE)
                     }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
                 }
             }

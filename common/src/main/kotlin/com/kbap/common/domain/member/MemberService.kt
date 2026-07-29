@@ -95,21 +95,30 @@ class MemberService(
         }
     }
 
-    // 회원 행 X-lock 조회(FOR UPDATE) — 리뷰 첫/마지막 판정과 카운트 증감을 같은 회원 기준으로 직렬화할 때 사용
     @Transactional
-    fun getMemberForUpdate(memberId: Long): Member =
-        memberRepository.findByIdForUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-
-    @Transactional
-    fun increaseReviewCounts(memberId: Long, firstReviewOfFood: Boolean) {
-        if (memberRepository.increaseReviewCounts(memberId, if (firstReviewOfFood) 1 else 0) == 0) {
+    fun increaseReviewCount(memberId: Long) {
+        if (memberRepository.increaseReviewCount(memberId) == 0) {
             throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
     }
 
     @Transactional
-    fun decreaseReviewCounts(memberId: Long, lastReviewOfFood: Boolean) {
-        if (memberRepository.decreaseReviewCounts(memberId, if (lastReviewOfFood) 1 else 0) == 0) {
+    fun decreaseReviewCount(memberId: Long) {
+        if (memberRepository.decreaseReviewCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    @Transactional
+    fun increaseUniqueReviewedFoodCount(memberId: Long) {
+        if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    @Transactional
+    fun decreaseUniqueReviewedFoodCount(memberId: Long) {
+        if (memberRepository.decreaseUniqueReviewedFoodCount(memberId) == 0) {
             throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
     }

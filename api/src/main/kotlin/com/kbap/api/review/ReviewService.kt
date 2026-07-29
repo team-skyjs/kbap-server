@@ -23,7 +23,9 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    // RR 스냅샷이 회원 락 대기 전에 고정되면 첫/마지막 판정 count 가 과거를 본다 — 락 해제 후 최신 커밋을 읽도록 RC 명시
+    // 카운트 UPDATE 가 잡는 회원 행 X-lock 이 첫/마지막 판정을 직렬화한다 — 판정 count 는 반드시 UPDATE 뒤에,
+    // UPDATE 는 INSERT 보다 먼저(INSERT 의 FK 검증이 member 행 S-lock 을 선점하면 X-lock 승격 데드락).
+    // RC 명시는 락 대기 후 최신 커밋을 읽기 위함(RR 스냅샷은 락 대기 전 시점으로 고정돼 과거를 본다).
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun createReview(
         memberId: Long,
@@ -34,7 +36,8 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
-        val authorCountryCode = memberService.getMemberForUpdate(memberId).profile.countryCode?.name
+        val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
+        memberService.increaseReviewCount(memberId)
 
         val review = reviewRepository.save(
             Review(
@@ -47,8 +50,9 @@ class ReviewService(
             ),
         )
 
-        val firstReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L
-        memberService.increaseReviewCounts(memberId, firstReviewOfFood)
+        if (reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L) {
+            memberService.increaseUniqueReviewedFoodCount(memberId)
+        }
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
@@ -69,10 +73,11 @@ class ReviewService(
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
-        memberService.getMemberForUpdate(memberId)
         review.delete()
-        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
-        memberService.decreaseReviewCounts(memberId, lastReviewOfFood)
+        memberService.decreaseReviewCount(memberId)
+        if (reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L) {
+            memberService.decreaseUniqueReviewedFoodCount(memberId)
+        }
     }
 
     @Transactional(readOnly = true)
