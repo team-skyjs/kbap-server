@@ -25,7 +25,6 @@ class AuthMemberIdOrNullArgumentResolver(
         val header = request.getHeader(AUTHORIZATION_HEADER) ?: return null
         if (!header.startsWith(BEARER_PREFIX)) return null
         val parsed = tokenParser.parseAccessToken(header.removePrefix(BEARER_PREFIX))
-        // 관리자 토큰의 id claim 은 admin_account.id — member id 와 충돌하므로 게스트로 취급
         if (parsed.role == MemberRole.ADMIN) return null
         return parsed.memberId
     }

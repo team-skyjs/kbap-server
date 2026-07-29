@@ -21,7 +21,6 @@ class AuthMemberIdArgumentResolver : HandlerMethodArgumentResolver {
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): Long {
-        // 관리자 토큰의 id claim 은 admin_account.id — member id 와 충돌하므로 회원 신원 해석을 거절
         val role = webRequest.getAttribute(JwtAuthenticationFilter.ROLE_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? String
         if (role == MemberRole.ADMIN.name) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         return webRequest.getAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? Long

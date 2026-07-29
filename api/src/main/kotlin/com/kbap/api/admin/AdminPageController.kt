@@ -59,7 +59,6 @@ class AdminPageController(
         }
     }
 
-    // Max-Age 미지정 세션 쿠키 — 만료는 토큰 자체 만료를 인터셉터가 검증(TTL 설정 배관 불필요)
     private fun sessionCookie(token: String): ResponseCookie =
         ResponseCookie.from(AdminPageAuthInterceptor.COOKIE_NAME, token)
             .httpOnly(true)

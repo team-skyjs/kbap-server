@@ -15,7 +15,6 @@ class AdminPageAuthInterceptor(
         response: HttpServletResponse,
         handler: Any,
     ): Boolean {
-        // Origin 검사 — Spring Security 미도입 환경의 무상태 CSRF 최소 방어(SameSite=Strict 보완)
         if (request.method == "POST" && originMismatched(request)) return redirectToLogin(response)
 
         val token = request.cookies?.firstOrNull { it.name == COOKIE_NAME }?.value
