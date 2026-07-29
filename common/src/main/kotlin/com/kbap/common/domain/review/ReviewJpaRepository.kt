@@ -1,8 +1,10 @@
 package com.kbap.common.domain.review
 
 import com.kbap.common.domain.review.model.Review
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -12,6 +14,10 @@ interface RatingAggregate {
 }
 
 interface ReviewJpaRepository : JpaRepository<Review, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Review r where r.id = :reviewId")
+    fun findByIdForUpdate(@Param("reviewId") reviewId: Long): Review?
+
     @Query(
         """
         select r from Review r
