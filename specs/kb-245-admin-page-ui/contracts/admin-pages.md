@@ -24,7 +24,7 @@
 |---|---|---|
 | `GET /admin/foods` | 적재 현황 대시보드 | 200 `admin/foods` 뷰 — model: `AdminFoodDashboardView`(total, 상태별 4종 건수, readyRatio) + query parameter 결과 배너 |
 | `POST /admin/foods/seed` | 음식 시드 등록(기존 서비스 재사용) | PRG: 302 → `/admin/foods?seeded=N`(실패: `?error=<사유코드>`) — **결과는 flash 가 아닌 query parameter**(무상태 — prod api 2대에서 flash 는 HttpSession 저장이라 유실) |
-| `POST /admin/foods/images` | 이미지 배치 제출(기존 서비스 재사용) | PRG: 302 → `/admin/foods?submitted=N`(대상 0건: `?submitted=0`) |
+| `POST /admin/foods/images` | 이미지 배치 제출(기존 서비스 재사용) | PRG: 302 → `/admin/foods?submittedFoods=N&submittedBatches=M`(대상 0건: `?submittedFoods=0&submittedBatches=0`) |
 
 - 시드 입력은 textarea **줄 단위 파싱**(공백 줄 무시). 빈 입력 → `?error=...` 리다이렉트, 데이터 무변경 (spec US3-4).
 - 폼 처리 중 예외는 뷰 컨트롤러가 잡아 `?error=...` 로 리다이렉트 — 전역 JSON 예외 응답을 노출하지 않는다.

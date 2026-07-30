@@ -72,7 +72,7 @@ class Member(
     fun updateProfile(
         nickname: String? = null,
         avoidanceSubstanceCodes: List<String>? = null,
-        spicinessPreference: Int? = null,
+        spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
     ) {
@@ -90,7 +90,7 @@ class Member(
     fun completeOnboarding(
         nickname: String,
         avoidanceSubstanceCodes: List<String>,
-        spicinessPreference: Int,
+        spicinessPreference: String,
         countryCode: String,
         profileImageUrl: String,
     ) {

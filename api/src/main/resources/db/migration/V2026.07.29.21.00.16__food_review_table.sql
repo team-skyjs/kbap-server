@@ -10,7 +10,6 @@ CREATE TABLE `food_review` (
     `content`             varchar(1000)     NULL,
     `image_refs`          json              NULL,
     `author_country_code` varchar(10)       NULL,
-    `version`             bigint        NOT NULL DEFAULT 0,
     `status`              enum('ACTIVE','DELETED') NOT NULL DEFAULT 'ACTIVE',
     `created_at`          datetime(6)   NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at`          datetime(6)   NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

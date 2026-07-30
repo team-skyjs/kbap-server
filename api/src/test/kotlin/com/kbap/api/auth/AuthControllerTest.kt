@@ -119,7 +119,7 @@ class AuthControllerTest : BehaviorSpec() {
             "nickname" to "길동이",
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
-            "spicinessPreference" to 3,
+            "spicinessPreference" to "MILD",
             "profileImageUrl" to "images/default/profile/profile-default-512.png",
         )
 
