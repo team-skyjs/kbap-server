@@ -10,7 +10,6 @@ import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -21,7 +20,7 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     fun createReview(
         memberId: Long,
         foodId: Long,
@@ -65,7 +64,7 @@ class ReviewService(
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
         review.delete()
