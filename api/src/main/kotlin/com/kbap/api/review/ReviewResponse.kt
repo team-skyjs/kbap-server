@@ -25,9 +25,6 @@ data class ReviewResponse(
     @field:Schema(description = "리뷰 사진 URL 목록(없으면 빈 배열)")
     val imageUrls: List<String>,
 
-    @field:Schema(description = "작성 시점 작성자 국적 스냅샷(국적 미보유면 null)", example = "VN")
-    val authorCountryCode: String?,
-
     @field:Schema(description = "작성 시각")
     val createdAt: LocalDateTime,
 
@@ -43,7 +40,6 @@ data class ReviewResponse(
                 rating = review.rating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
-                authorCountryCode = review.authorCountryCode,
                 createdAt = review.createdAt,
                 author = author,
             )

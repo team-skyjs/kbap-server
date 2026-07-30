@@ -142,6 +142,17 @@ class ReviewControllerTest : BehaviorSpec() {
                 header("Authorization", "Bearer $token")
             }
 
+        fun snapshotCountryOf(reviewId: Long): String? =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT author_country_code FROM food_review WHERE id = ?").use { ps ->
+                    ps.setLong(1, reviewId)
+                    ps.executeQuery().use { rs ->
+                        rs.next().shouldBeTrue()
+                        rs.getString(1)
+                    }
+                }
+            }
+
         fun reviewIdOf(result: ResultActionsDsl): Long =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8))
                 .path("payload").path("reviewId").asLong()
@@ -189,20 +200,17 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
             `when`("국적 보유 회원이 작성하면") {
-                then("작성 시점 국적 스냅샷이 담긴다") {
+                then("작성 시점 국적 스냅샷이 저장된다") {
                     val token = accessToken(702L, countryCode = "VN")
-                    create(token, createBody(foodId = 700L)).andExpect {
-                        jsonPath("$.payload.authorCountryCode") { value("VN") }
-                    }
+                    val reviewId = createReview(token, 700L)
+                    snapshotCountryOf(reviewId) shouldBe "VN"
                 }
             }
             `when`("국적 미보유 회원이 작성하면") {
-                then("국적 스냅샷이 null 이다") {
+                then("국적 스냅샷이 null 로 저장된다") {
                     val token = accessToken(703L, countryCode = null)
-                    create(token, createBody(foodId = 700L)).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.authorCountryCode") { value(null) }
-                    }
+                    val reviewId = createReview(token, 700L)
+                    snapshotCountryOf(reviewId) shouldBe null
                 }
             }
             `when`("rating 이 0 또는 6 이면") {
@@ -291,8 +299,8 @@ class ReviewControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.rating") { value(5) }
                         jsonPath("$.payload.content") { value("수정했어요") }
-                        jsonPath("$.payload.authorCountryCode") { value("JP") }
                     }
+                    snapshotCountryOf(reviewId) shouldBe "JP"
                 }
             }
             `when`("타인 리뷰를 수정하면") {
