@@ -68,7 +68,7 @@ class ReviewService(
         content: String?,
         imagePaths: List<String>?,
     ): ReviewResponse {
-        val review = getOwnedReview(memberId, reviewId)
+        val review = getMyReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
         review.update(rating = rating, content = content, imageRefs = imagePaths)
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
@@ -76,7 +76,7 @@ class ReviewService(
 
     @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
-        val review = getOwnedReview(memberId, reviewId)
+        val review = getMyReview(memberId, reviewId)
         if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
             throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         }
@@ -127,7 +127,7 @@ class ReviewService(
     private fun authorOf(memberId: Long): ReviewAuthorResponse =
         ReviewAuthorResponse.from(memberService.getMember(memberId))
 
-    private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
+    private fun getMyReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findById(reviewId)
             .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         if (!review.isOwnedBy(memberId)) {
