@@ -13,7 +13,7 @@
     </div>
 
     <div class="food-card-list" th:if="${!foodPage.items.isEmpty()}">
-        <div class="card food-row" th:each="f : ${foodPage.items}">
+        <div class="card food-row" th:each="f : ${foodPage.items}" th:id="|food-${f.id}|">
             <div class="food-row-name">
                 <span class="food-id" th:text="|#${f.id}|">#1</span>
                 <strong th:text="${f.koreanName}">김치찌개</strong>
@@ -26,7 +26,7 @@
                 <span class="meta-item" th:text="|맵기 ${f.spiciness}|">맵기 0</span>
                 <span class="meta-item" th:text="${f.hasImage} ? '이미지 ○' : '이미지 ×'">이미지 ×</span>
                 <span class="meta-item" th:text="${#temporals.format(f.updatedAt, 'MM-dd HH:mm')}">-</span>
-                <a class="page-btn" th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})}">상세보기</a>
+                <a class="page-btn" th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})} + '#food-' + ${f.id}">상세보기</a>
             </div>
         </div>
     </div>
@@ -45,7 +45,7 @@
         <div class="modal">
             <div class="modal-head">
                 <h2 class="section-title" th:text="|음식 상세 · #${foodDetail.id}|">음식 상세</h2>
-                <a class="modal-close" th:href="@{/admin/foods/list(page=${foodPage.page})}">✕</a>
+                <a class="modal-close" th:href="@{/admin/foods/list(page=${foodPage.page})} + '#food-' + ${foodDetail.id}">✕</a>
             </div>
 
             <div class="banner banner-error" th:if="${param.error != null}"
@@ -53,6 +53,14 @@
                  th:text="${code == 'invalid-json'} ? '번역/성분 JSON 형식이 잘못됐습니다'
                         : (${code == 'duplicate-name'} ? '이미 같은 이름의 음식이 있습니다'
                         : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다' : '처리 중 오류가 발생했습니다'))"></div>
+
+            <div class="field">
+                <label>이미지</label>
+                <img class="food-detail-image" th:if="${foodDetail.imageUrl != null}"
+                     th:src="${foodDetail.imageUrl}" alt="음식 이미지"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='';">
+                <div class="image-placeholder" th:style="${foodDetail.imageUrl != null} ? 'display:none'">이미지 없음</div>
+            </div>
 
             <form th:action="@{|/admin/foods/${foodDetail.id}|}" method="post">
                 <input type="hidden" name="page" th:value="${foodPage.page}">
