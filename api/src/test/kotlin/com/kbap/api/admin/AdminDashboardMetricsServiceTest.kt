@@ -169,27 +169,41 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
             }
         }
 
-        given("대시보드 지표 - 최근 7일 LLM 호출 비용") {
-            fun saveCost(costUsd: String, daysAgo: Long) {
+        given("대시보드 지표 - 최근 7일 LLM 호출 비용 리스트") {
+            fun saveCost(model: String, costUsd: String, daysAgo: Long) {
                 val cost = llmCallCostJpaRepository.save(
-                    LlmCallCost(modelName = "gpt-test", inputTokens = 10, outputTokens = 10, costUsd = BigDecimal(costUsd)),
+                    LlmCallCost(modelName = model, inputTokens = 10, outputTokens = 20, costUsd = BigDecimal(costUsd)),
                 )
                 setCreatedAt("llm_call_cost", cost.id, daysAgo)
             }
 
-            `when`("일부 날짜에만 소수 비용이 기록돼 있으면") {
-                then("일자별 합계를 소수 정밀도 그대로, 없는 날은 0 으로 집계한다") {
-                    saveCost("0.000123", daysAgo = 0)
-                    saveCost("0.000200", daysAgo = 0)
-                    saveCost("1.500000", daysAgo = 5)
-                    saveCost("9.999999", daysAgo = 9)
+            `when`("여러 모델의 소수 비용 호출이 섞여 있으면") {
+                then("최신순 7일 리스트로 날짜별 호출 횟수·비용 합계·모델별 상세를 내려준다") {
+                    saveCost("gpt-test", "0.000123", daysAgo = 0)
+                    saveCost("gpt-test", "0.000200", daysAgo = 0)
+                    saveCost("gemini-test", "0.500000", daysAgo = 0)
+                    saveCost("gpt-test", "1.500000", daysAgo = 5)
+                    saveCost("gpt-test", "9.999999", daysAgo = 9)
 
-                    val costs = service.getMetrics().weeklyLlmCostUsd
+                    val daily = service.getMetrics().llmCostDaily
 
-                    costs.size shouldBe 7
-                    costs.last().costUsd.compareTo(BigDecimal("0.000323")) shouldBe 0
-                    costs[1].costUsd.compareTo(BigDecimal("1.5")) shouldBe 0
-                    costs.count { it.costUsd.signum() == 0 } shouldBe 5
+                    daily.size shouldBe 7
+                    daily.map { it.date } shouldBe (0L..6L).map { LocalDate.now().minusDays(it) }
+
+                    val today = daily.first()
+                    today.callCount shouldBe 3
+                    today.costUsd.compareTo(BigDecimal("0.500323")) shouldBe 0
+                    today.models.size shouldBe 2
+                    val gpt = today.models.first { it.modelName == "gpt-test" }
+                    gpt.callCount shouldBe 2
+                    gpt.inputTokens shouldBe 20
+                    gpt.outputTokens shouldBe 40
+                    gpt.costUsd.compareTo(BigDecimal("0.000323")) shouldBe 0
+
+                    daily[5].callCount shouldBe 1
+                    daily[5].costUsd.compareTo(BigDecimal("1.5")) shouldBe 0
+                    daily.count { it.callCount == 0L } shouldBe 5
+                    daily.filter { it.callCount == 0L }.all { it.models.isEmpty() && it.costUsd.signum() == 0 } shouldBe true
                 }
             }
         }

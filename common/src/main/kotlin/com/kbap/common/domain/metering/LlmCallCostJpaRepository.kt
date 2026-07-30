@@ -1,6 +1,6 @@
 package com.kbap.common.domain.metering
 
-import com.kbap.common.domain.metering.dto.DailyCostSum
+import com.kbap.common.domain.metering.dto.DailyModelCostSum
 import com.kbap.common.domain.metering.model.LlmCallCost
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -10,11 +10,13 @@ import java.time.LocalDateTime
 interface LlmCallCostJpaRepository : JpaRepository<LlmCallCost, Long> {
     @Query(
         """
-        select new com.kbap.common.domain.metering.dto.DailyCostSum(cast(c.createdAt as LocalDate), sum(c.costUsd))
+        select new com.kbap.common.domain.metering.dto.DailyModelCostSum(
+            cast(c.createdAt as LocalDate), c.modelName, count(c),
+            sum(c.inputTokens), sum(c.outputTokens), sum(c.costUsd))
         from LlmCallCost c
         where c.createdAt >= :from
-        group by cast(c.createdAt as LocalDate)
+        group by cast(c.createdAt as LocalDate), c.modelName
         """,
     )
-    fun sumDailyCostUsdSince(@Param("from") from: LocalDateTime): List<DailyCostSum>
+    fun sumDailyByModelSince(@Param("from") from: LocalDateTime): List<DailyModelCostSum>
 }

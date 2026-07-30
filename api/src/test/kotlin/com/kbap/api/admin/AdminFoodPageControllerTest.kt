@@ -177,7 +177,8 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     metrics.weeklyScans.size shouldBe 7
                     metrics.weeklyScans.all { it.count == 0L } shouldBe true
                     metrics.weeklyNewFoods.all { it.count == 0L } shouldBe true
-                    metrics.weeklyLlmCostUsd.all { it.costUsd.signum() == 0 } shouldBe true
+                    metrics.llmCostDaily.size shouldBe 7
+                    metrics.llmCostDaily.all { it.callCount == 0L && it.costUsd.signum() == 0 } shouldBe true
                 }
             }
         }

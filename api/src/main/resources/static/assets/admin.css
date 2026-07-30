@@ -699,3 +699,49 @@ body {
   font-size: 12px;
   color: var(--slate);
 }
+
+/* ---- LLM 비용 레포트 모달 (kb-264) ---- */
+
+.report-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  color: var(--navy);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.report-btn:hover { background: var(--bg); }
+
+.report-modal {
+  min-width: 480px;
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow-lg);
+}
+
+.report-modal::backdrop { background: rgba(15, 23, 42, 0.4); }
+
+.report-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  color: var(--text-strong);
+  margin-bottom: var(--sp-2);
+}
+
+.report-summary { margin-bottom: var(--sp-4); color: var(--text-body); }
+
+.report-close { margin-top: var(--sp-4); text-align: right; }
+
+.report-close button {
+  padding: 6px 16px;
+  font-family: var(--font-body);
+  color: var(--text-body);
+  background: var(--neutral-bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}

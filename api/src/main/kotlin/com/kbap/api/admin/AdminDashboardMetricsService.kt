@@ -4,11 +4,11 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.metering.LlmCallCostJpaRepository
+import com.kbap.common.domain.metering.dto.DailyModelCostSum
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -28,7 +28,7 @@ class AdminDashboardMetricsService(
             totalActiveMembers = memberRepository.countByMemberStatus(MemberStatus.ACTIVE),
             weeklyScans = weeklyMetrics(today, scanHistoryRepository.countDailySince(from).associate { it.date to it.count }),
             weeklyNewFoods = weeklyMetrics(today, foodRepository.countDailyCreatedSince(from).associate { it.date to it.count }),
-            weeklyLlmCostUsd = weeklyCosts(today, llmCallCostRepository.sumDailyCostUsdSince(from).associate { it.date to it.costUsd }),
+            llmCostDaily = llmCostDaily(today, llmCallCostRepository.sumDailyByModelSince(from)),
         )
     }
 
@@ -38,17 +38,23 @@ class AdminDashboardMetricsService(
         return counts.map { (date, count) -> DailyMetricView(date, dayLabel(date), count, heightPct(count, max)) }
     }
 
-    private fun weeklyCosts(today: LocalDate, costsByDate: Map<LocalDate, BigDecimal>): List<DailyCostView> {
-        val costs = weekDates(today).map { it to (costsByDate[it] ?: BigDecimal.ZERO) }
-        val max = costs.maxOf { it.second }
-        return costs.map { (date, cost) -> DailyCostView(date, dayLabel(date), cost, heightPct(cost, max)) }
+    private fun llmCostDaily(today: LocalDate, sums: List<DailyModelCostSum>): List<LlmCostDailyView> {
+        val byDate = sums.groupBy { it.date }
+        return (0L..6L).map(today::minusDays).map { date ->
+            val models = byDate[date].orEmpty()
+                .sortedByDescending { it.costUsd }
+                .map { LlmCostModelView(it.modelName, it.callCount, it.inputTokens, it.outputTokens, it.costUsd) }
+            LlmCostDailyView(
+                date = date,
+                dayLabel = dayLabel(date),
+                callCount = models.sumOf { it.callCount },
+                costUsd = models.fold(BigDecimal.ZERO) { acc, m -> acc + m.costUsd },
+                models = models,
+            )
+        }
     }
 
     private fun heightPct(value: Long, max: Long): Int = if (max == 0L) 0 else (value * 100 / max).toInt()
-
-    private fun heightPct(value: BigDecimal, max: BigDecimal): Int =
-        if (max.signum() == 0) 0
-        else value.multiply(BigDecimal(100)).divide(max, 0, RoundingMode.HALF_UP).toInt()
 
     private fun weekDates(today: LocalDate): List<LocalDate> = (6L downTo 0L).map(today::minusDays)
 
@@ -60,7 +66,7 @@ data class AdminDashboardMetricsView(
     val totalActiveMembers: Long,
     val weeklyScans: List<DailyMetricView>,
     val weeklyNewFoods: List<DailyMetricView>,
-    val weeklyLlmCostUsd: List<DailyCostView>,
+    val llmCostDaily: List<LlmCostDailyView>,
 )
 
 data class DailyMetricView(
@@ -70,9 +76,18 @@ data class DailyMetricView(
     val heightPct: Int,
 )
 
-data class DailyCostView(
+data class LlmCostDailyView(
     val date: LocalDate,
     val dayLabel: String,
+    val callCount: Long,
     val costUsd: BigDecimal,
-    val heightPct: Int,
+    val models: List<LlmCostModelView>,
+)
+
+data class LlmCostModelView(
+    val modelName: String,
+    val callCount: Long,
+    val inputTokens: Long,
+    val outputTokens: Long,
+    val costUsd: BigDecimal,
 )
