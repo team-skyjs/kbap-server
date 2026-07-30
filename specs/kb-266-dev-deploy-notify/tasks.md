@@ -24,11 +24,11 @@
 
 **⚠️ CRITICAL**: 이 페이즈 완료 전에 스토리 구현 불가
 
-- [ ] T002 `OpenApiSnapshotTest` 작성 — `api/src/test/kotlin/com/kbap/api/openapi/OpenApiSnapshotTest.kt`: BehaviorSpec(given/when/then 한국어), 기존 통합테스트 인프라(@SpringBootTest + Testcontainers MySQL + @AutoConfigureMockMvc) 재사용, MockMvc `GET /v3/api-docs` 200 응답을 `api/build/openapi.json` 에 기록하고 유효성 assert(파싱 가능한 JSON + `paths` 비어있지 않음 + `openapi` 버전 필드 존재). Red 확인: assert 를 먼저 작성하고 기록 로직 없이 실행해 실패 확인 → 기록 로직 추가로 Green
-- [ ] T003 로컬 검증 — `./gradlew :api:test --tests '*OpenApiSnapshotTest*'` 실행 후 `jq '.paths | keys | length' api/build/openapi.json` > 0 확인 (quickstart.md "로컬 검증")
-- [ ] T004 `release-notes.yml` 골격 신규 — `.github/workflows/release-notes.yml`: `workflow_call` 트리거, inputs(`environment`/`prerelease`/`sha`/`redeploy`/`deploy_result`)·secret(`SLACK_RELEASE_WEBHOOK_URL`)·release 잡(permissions `contents: write`)·notify 잡(`needs: [release]`, `if: always()`) 빈 골격 (contracts/release-format.md 계약)
-- [ ] T005 `deploy-dev.yml` 배선 — `.github/workflows/deploy-dev.yml`: deploy 잡에 `outputs`(build 여부·배포 SHA) 노출(기존 스텝 무변경) + `release-notes.yml` 호출 잡 추가(`needs: deploy`, `if: always()`, environment=dev·prerelease=true·redeploy=build==false·deploy_result 전달, secrets 전달)
-- [ ] T006 [P] `deploy-prod.yml` 배선 — `.github/workflows/deploy-prod.yml`: T005 와 동일 패턴(environment=prod, prerelease=false)
+- [X] T002 `OpenApiSnapshotTest` 작성 — `api/src/test/kotlin/com/kbap/api/openapi/OpenApiSnapshotTest.kt`: BehaviorSpec(given/when/then 한국어), 기존 통합테스트 인프라(@SpringBootTest + Testcontainers MySQL + @AutoConfigureMockMvc) 재사용, MockMvc `GET /v3/api-docs` 200 응답을 `api/build/openapi.json` 에 기록하고 유효성 assert(파싱 가능한 JSON + `paths` 비어있지 않음 + `openapi` 버전 필드 존재). Red 확인: assert 를 먼저 작성하고 기록 로직 없이 실행해 실패 확인 → 기록 로직 추가로 Green
+- [X] T003 로컬 검증 — `./gradlew :api:test --tests '*OpenApiSnapshotTest*'` 실행 후 `jq '.paths | keys | length' api/build/openapi.json` > 0 확인 (quickstart.md "로컬 검증")
+- [X] T004 `release-notes.yml` 골격 신규 — `.github/workflows/release-notes.yml`: `workflow_call` 트리거, inputs(`environment`/`prerelease`/`sha`/`redeploy`/`deploy_result`)·secret(`SLACK_RELEASE_WEBHOOK_URL`)·release 잡(permissions `contents: write`)·notify 잡(`needs: [release]`, `if: always()`) 빈 골격 (contracts/release-format.md 계약)
+- [X] T005 `deploy-dev.yml` 배선 — `.github/workflows/deploy-dev.yml`: deploy 잡에 `outputs`(build 여부·배포 SHA) 노출(기존 스텝 무변경) + `release-notes.yml` 호출 잡 추가(`needs: deploy`, `if: always()`, environment=dev·prerelease=true·redeploy=build==false·deploy_result 전달, secrets 전달)
+- [X] T006 [P] `deploy-prod.yml` 배선 — `.github/workflows/deploy-prod.yml`: T005 와 동일 패턴(environment=prod, prerelease=false)
 
 **Checkpoint**: 스냅샷 생성 가능 + dev/prod 가 재사용 워크플로를 호출(빈 잡이라도 배포 무영향)
 
@@ -44,10 +44,10 @@
 
 > 전부 `.github/workflows/release-notes.yml` release 잡 내부 — 같은 파일이라 [P] 없음, 순차
 
-- [ ] T007 [US2] 스냅샷 생성 스텝 — `actions/checkout`(`ref: inputs.sha`) + JDK 21 셋업 + `./gradlew :api:test --tests '*OpenApiSnapshotTest*'` + jq 로 `servers` 등 환경 종속 필드 제거 정규화 (research.md R2)
-- [ ] T008 [US2] baseline 확보 스텝 — `gh release list` 로 같은 환경 `<env>-*` 최신 태그 조회 → `openapi.json` asset 다운로드, 없으면 "초기 스냅샷 모드" output 설정 (research.md R3, dev/prod 기준점 분리 = FR-006)
-- [ ] T009 [US2] oasdiff 스텝 — 버전 고정 바이너리 다운로드(+체크섬 검증, 버전·체크섬은 파일 상단 env 로), `changelog` 실행 → `openapi-diff.md`(마크다운) + json 출력에서 추가/변경/삭제/breaking 카운트·엔드포인트 목록을 잡 outputs 로 노출 (research.md R4)
-- [ ] T010 [US2] 멱등 발행 스텝 — 태그 `<env>-YYYYMMDD-<short-sha>`(KST 날짜) 조립 → `gh release view` 존재 시 skip → `gh release create --target <sha> --generate-notes --notes-start-tag <직전태그>`(prod 는 본문 상단 "배포 시작 기준" 문구, dev 는 `--prerelease`) + asset 2종 업로드 + 초기 스냅샷이면 diff 대신 "초기 OpenAPI 스냅샷" 표기 + 실패 원인 `$GITHUB_STEP_SUMMARY` 기록 (research.md R5, data-model.md)
+- [X] T007 [US2] 스냅샷 생성 스텝 — `actions/checkout`(`ref: inputs.sha`) + JDK 21 셋업 + `./gradlew :api:test --tests '*OpenApiSnapshotTest*'` + jq 로 `servers` 등 환경 종속 필드 제거 정규화 (research.md R2)
+- [X] T008 [US2] baseline 확보 스텝 — `gh release list` 로 같은 환경 `<env>-*` 최신 태그 조회 → `openapi.json` asset 다운로드, 없으면 "초기 스냅샷 모드" output 설정 (research.md R3, dev/prod 기준점 분리 = FR-006)
+- [X] T009 [US2] oasdiff 스텝 — 버전 고정 바이너리 다운로드(+체크섬 검증, 버전·체크섬은 파일 상단 env 로), `changelog` 실행 → `openapi-diff.md`(마크다운) + json 출력에서 추가/변경/삭제/breaking 카운트·엔드포인트 목록을 잡 outputs 로 노출 (research.md R4)
+- [X] T010 [US2] 멱등 발행 스텝 — 태그 `<env>-YYYYMMDD-<short-sha>`(KST 날짜) 조립 → `gh release view` 존재 시 skip → `gh release create --target <sha> --generate-notes --notes-start-tag <직전태그>`(prod 는 본문 상단 "배포 시작 기준" 문구, dev 는 `--prerelease`) + asset 2종 업로드 + 초기 스냅샷이면 diff 대신 "초기 OpenAPI 스냅샷" 표기 + 실패 원인 `$GITHUB_STEP_SUMMARY` 기록 (research.md R5, data-model.md)
 - [ ] T011 [US2] 검증 — quickstart.md 시나리오 1(릴리즈 발행·asset)·3(Re-run 멱등)·6(초기 스냅샷): API 변경 커밋을 develop 에 머지해 실배포로 확인
 
 **Checkpoint**: 릴리즈·첨부·멱등이 dev 실배포에서 확인됨 (US2 독립 완결)
@@ -62,8 +62,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] notify 잡 성공 메시지 — `.github/workflows/release-notes.yml`: release 잡 outputs 소비해 contracts/slack-message.md 형식 조립(카운트+엔드포인트 목록, 10건 초과 절단, "API 변경 없음"·"초기 스냅샷" 케이스, `[DEV]`/`[PROD]` 구분, prod "블루/그린 배포 시작" 문구) → `curl` POST(Incoming Webhook)
-- [ ] T013 [US1] notify 잡 분기 매트릭스 — deploy 실패(실행 링크 포함 실패 메시지) / redeploy=true(재배포 메시지, 릴리즈 없음) / release 실패·deploy 성공("릴리즈 노트 생성 실패" 경고 메시지) 분기, 슬랙 curl 실패는 notify 잡 실패로만 남김(배포 판정 무영향 = FR-007)
+- [X] T012 [US1] notify 잡 성공 메시지 — `.github/workflows/release-notes.yml`: release 잡 outputs 소비해 contracts/slack-message.md 형식 조립(카운트+엔드포인트 목록, 10건 초과 절단, "API 변경 없음"·"초기 스냅샷" 케이스, `[DEV]`/`[PROD]` 구분, prod "블루/그린 배포 시작" 문구) → `curl` POST(Incoming Webhook)
+- [X] T013 [US1] notify 잡 분기 매트릭스 — deploy 실패(실행 링크 포함 실패 메시지) / redeploy=true(재배포 메시지, 릴리즈 없음) / release 실패·deploy 성공("릴리즈 노트 생성 실패" 경고 메시지) 분기, 슬랙 curl 실패는 notify 잡 실패로만 남김(배포 판정 무영향 = FR-007)
 - [ ] T014 [US1] 검증 — quickstart.md 시나리오 2("API 변경 없음" 명시)·5(재배포 알림)·7(웹훅 제거 시 배포 무영향) + 성공 메시지 실수신 확인 (T001 선행 필요)
 
 **Checkpoint**: 슬랙 메시지 전 케이스가 dev 실배포에서 확인됨
@@ -83,7 +83,7 @@
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [ ] T016 quickstart.md 검증 시나리오 8종 최종 일괄 점검 — 특히 4(prod 릴리즈·"배포 시작" 문구·누적 PR 집계)·8(로그에 웹훅/토큰 노출 0) 확인 후 결과를 spec 체크 표로 기록
-- [ ] T017 [P] 전체 빌드 회귀 확인 — `./gradlew build` 통과(스냅샷 테스트 포함, ArchUnit 포함) + `deploy-batch-*`·`deploy-staging`·`run-batch` 워크플로 무변경 확인
+- [X] T017 [P] 전체 빌드 회귀 확인 — `./gradlew build` 통과(스냅샷 테스트 포함, ArchUnit 포함) + `deploy-batch-*`·`deploy-staging`·`run-batch` 워크플로 무변경 확인
 
 ---
 
