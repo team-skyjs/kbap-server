@@ -42,6 +42,36 @@ class AdminFoodServiceTest : BehaviorSpec() {
 
         beforeContainer { clearFoods() }
 
+        given("음식 상세 이미지 URL 해석(getFoodDetailOrNull)") {
+            `when`("imageRef 가 상대 키면") {
+                then("공개 베이스 URL 과 결합한 imageUrl 을 내려준다") {
+                    val food = foodJpaRepository.save(
+                        Food(koreanName = "이미지키음식", description = "설명", imageRef = "food/img/1.png"),
+                    )
+
+                    service.getFoodDetailOrNull(food.id)!!.imageUrl shouldBe "https://cdn.test/food/img/1.png"
+                }
+            }
+
+            `when`("imageRef 가 없으면") {
+                then("imageUrl 도 null 이다") {
+                    val id = saveFood("이미지없는음식")
+
+                    service.getFoodDetailOrNull(id)!!.imageUrl shouldBe null
+                }
+            }
+
+            `when`("imageRef 가 이미 절대 URL 이면") {
+                then("원문 그대로 내려준다") {
+                    val food = foodJpaRepository.save(
+                        Food(koreanName = "절대경로음식", description = "설명", imageRef = "https://other.cdn/x.png"),
+                    )
+
+                    service.getFoodDetailOrNull(food.id)!!.imageUrl shouldBe "https://other.cdn/x.png"
+                }
+            }
+        }
+
         given("관리자 음식 시드(seedIncomplete)") {
             `when`("전부 새 이름이면") {
                 then("모두 INCOMPLETE 로 생성되고 created 로 센다") {

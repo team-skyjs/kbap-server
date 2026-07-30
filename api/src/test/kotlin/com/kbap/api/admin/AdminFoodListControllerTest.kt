@@ -94,6 +94,16 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     listPageOf(getList()).items shouldBe emptyList()
                 }
             }
+
+            `when`("목록을 렌더링하면") {
+                then("각 행에 anchor id 와 fragment 포함 상세보기 링크를 내려준다") {
+                    val saved = saveFood("앵커비빔밥")
+
+                    val html = getList().response.contentAsString
+                    html shouldContain "id=\"food-${saved.id}\""
+                    html shouldContain "detail=${saved.id}#food-${saved.id}"
+                }
+            }
         }
 
         given("음식 상세 모달") {
@@ -118,6 +128,28 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     detail.spiciness shouldBe 2
                     detail.contentStatus shouldBe FoodContentStatus.READY
                     detail.nameTranslationsJson shouldContain "Bibimbap"
+
+                    result.response.contentAsString shouldContain "?page=1#food-${saved.id}"
+                }
+            }
+
+            `when`("imageRef 가 있는 음식을 detail 로 조회하면") {
+                then("해석된 공개 URL 의 이미지를 모달에 렌더링한다") {
+                    val saved = foodJpaRepository.save(
+                        Food(koreanName = "이미지모달음식", description = "설명", imageRef = "food/img/2.png"),
+                    )
+
+                    val html = getList("?detail=${saved.id}").response.contentAsString
+                    html shouldContain "https://cdn.test/food/img/2.png"
+                }
+            }
+
+            `when`("imageRef 가 없는 음식을 detail 로 조회하면") {
+                then("이미지 대신 플레이스홀더를 렌더링한다") {
+                    val saved = saveFood("이미지없는모달음식")
+
+                    val html = getList("?detail=${saved.id}").response.contentAsString
+                    html shouldContain "image-placeholder"
                 }
             }
 
@@ -146,7 +178,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", """[{"code":"PORK","inclusion_percent":80}]""")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&updated=${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&updated=${saved.id}#food-${saved.id}")
                     }
 
                     val updated = foodJpaRepository.findById(saved.id).get()
@@ -200,10 +232,46 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-json")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-json#food-${saved.id}")
                     }
 
                     foodJpaRepository.findById(saved.id).get().koreanName shouldBe "JSON오류이름"
+                }
+            }
+
+            `when`("존재하지 않는 음식을 수정 제출하면") {
+                then("not-found 오류 파라미터와 anchor 로 리다이렉트한다") {
+                    mockMvc.post("/admin/foods/999999") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("koreanName", "없는음식")
+                        param("description", "설명")
+                        param("spiciness", "0")
+                        param("contentStatus", "INCOMPLETE")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&error=not-found#food-999999")
+                    }
+                }
+            }
+
+            `when`("공백 이름으로 수정 제출하면") {
+                then("invalid-name 오류 파라미터와 anchor 로 모달을 다시 연다") {
+                    val saved = saveFood("이름검증대상")
+
+                    mockMvc.post("/admin/foods/${saved.id}") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("koreanName", "   ")
+                        param("description", "설명")
+                        param("spiciness", "0")
+                        param("contentStatus", "INCOMPLETE")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-name#food-${saved.id}")
+                    }
+
+                    foodJpaRepository.findById(saved.id).get().koreanName shouldBe "이름검증대상"
                 }
             }
 
@@ -225,7 +293,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=duplicate-name")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=duplicate-name#food-${saved.id}")
                     }
                 }
             }

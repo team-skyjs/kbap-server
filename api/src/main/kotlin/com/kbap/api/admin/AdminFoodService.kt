@@ -7,8 +7,10 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -18,6 +20,7 @@ import java.time.LocalDateTime
 @Service
 class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
+    @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val objectMapper = jacksonObjectMapper()
@@ -39,7 +42,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {
         val food = foodRepository.findById(id).orElse(null) ?: return null
-        return AdminFoodDetailView.from(food, objectMapper::writeValueAsString)
+        return AdminFoodDetailView.from(food, imagePublicBaseUrl, objectMapper::writeValueAsString)
     }
 
     @Transactional
@@ -168,6 +171,7 @@ data class AdminFoodDetailView(
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
     val imageRef: String?,
+    val imageUrl: String?,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
     val avoidanceSubstancesJson: String,
@@ -176,7 +180,7 @@ data class AdminFoodDetailView(
     val updatedAt: LocalDateTime,
 ) {
     companion object {
-        fun from(food: Food, toJson: (Any) -> String): AdminFoodDetailView =
+        fun from(food: Food, imagePublicBaseUrl: String, toJson: (Any) -> String): AdminFoodDetailView =
             AdminFoodDetailView(
                 id = food.id,
                 koreanName = food.koreanName,
@@ -184,6 +188,7 @@ data class AdminFoodDetailView(
                 spiciness = food.spiciness,
                 contentStatus = food.contentStatus,
                 imageRef = food.imageRef,
+                imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 nameTranslationsJson = toJson(food.nameTranslations),
                 descriptionTranslationsJson = toJson(food.descriptionTranslations),
                 avoidanceSubstancesJson = food.avoidanceSubstances?.let(toJson) ?: "",
