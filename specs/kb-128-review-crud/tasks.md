@@ -57,10 +57,10 @@
 
 **Independent Test**: 리뷰 21건 시드로 첫 페이지 20건·커서 이어보기·국적 필터·내 리뷰·401 을 MockMvc 단독 검증.
 
-- [ ] T017 [US3] Red: 목록 MockMvc 테스트 작성·실패 확인 — 25건 시드 keyset(20건+nextCursor→5건+hasNext false), countryCode 필터(스냅샷 기준·리뷰 없는 국적=빈 목록), 내 리뷰(본인 것만 최신순), 삭제 리뷰 미노출, 401, 비정상 cursor 400(FOOD-002), 없는 음식 400(FOOD-001) — `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt`(또는 ReviewControllerTest 에 given 추가)
-- [ ] T018 [US3] Green: `ReviewService` 에 `getFoodReviewPage(foodId, countryCode?, cursor)`·`getMyReviewPage(memberId, cursor)`(@Transactional(readOnly=true), CursorParser·PAGE_SIZE=20·+1건 트릭) + `ReviewListRequest`·`ReviewPage` — `api/src/main/kotlin/com/kbap/api/review/`
-- [ ] T019 [US3] Green: `ReviewController`/`ReviewApi` 에 GET `/foods/{foodId}/reviews`·`/members/me/reviews` 추가(응답 `Page<ReviewResponse>` 형태) — `api/src/main/kotlin/com/kbap/api/review/{ReviewApi,ReviewController}.kt`
-- [ ] T020 [US3] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 후 커밋 → draft PR
+- [X] T017 [US3] Red: 목록 MockMvc 테스트 작성·실패 확인 — 25건 시드 keyset(20건+nextCursor→5건+hasNext false), countryCode 필터(스냅샷 기준·리뷰 없는 국적=빈 목록), 내 리뷰(본인 것만 최신순), 삭제 리뷰 미노출, 401, 비정상 cursor 400(FOOD-002), 없는 음식 400(FOOD-001) — `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt`(또는 ReviewControllerTest 에 given 추가)
+- [X] T018 [US3] Green: `ReviewService` 에 `getFoodReviewPage(foodId, countryCode?, cursor)`·`getMyReviewPage(memberId, cursor)`(@Transactional(readOnly=true), CursorParser·PAGE_SIZE=20·+1건 트릭) + `ReviewListRequest`·`ReviewPage` — `api/src/main/kotlin/com/kbap/api/review/`
+- [X] T019 [US3] Green: `ReviewController`/`ReviewApi` 에 GET `/foods/{foodId}/reviews`·`/members/me/reviews` 추가(응답 `Page<ReviewResponse>` 형태) — `api/src/main/kotlin/com/kbap/api/review/{ReviewApi,ReviewController}.kt`
+- [X] T020 [US3] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 후 커밋 → draft PR
 
 ---
 

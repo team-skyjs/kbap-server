@@ -2,10 +2,17 @@ package com.kbap.api.review
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -61,4 +68,29 @@ class ReviewController(
         reviewService.deleteReview(memberId, reviewId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
+
+    @GetMapping("/foods/{foodId}/reviews")
+    override fun listFoodReviews(
+        @AuthMemberIdOrNull memberId: Long?,
+        @PathVariable foodId: Long,
+        @ModelAttribute request: ReviewListRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> {
+        memberId ?: throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
+        return ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.getFoodReviewPage(foodId, request.countryCode, CursorParser.parse(request.cursor)),
+            ),
+        )
+    }
+
+    @GetMapping("/members/me/reviews")
+    override fun listMyReviews(
+        @AuthMemberId memberId: Long,
+        @ModelAttribute request: MyReviewListRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.getMyReviewPage(memberId, CursorParser.parse(request.cursor)),
+            ),
+        )
 }
