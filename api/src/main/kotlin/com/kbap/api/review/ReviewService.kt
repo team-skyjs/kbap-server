@@ -12,7 +12,6 @@ import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -23,10 +22,7 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    // 카운트 UPDATE 가 잡는 회원 행 X-lock 이 첫/마지막 판정을 직렬화한다 — 판정 count 는 반드시 UPDATE 뒤에,
-    // UPDATE 는 INSERT 보다 먼저(INSERT 의 FK 검증이 member 행 S-lock 을 선점하면 X-lock 승격 데드락).
-    // RC 명시는 락 대기 후 최신 커밋을 읽기 위함(RR 스냅샷은 락 대기 전 시점으로 고정돼 과거를 본다).
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     fun createReview(
         memberId: Long,
         foodId: Long,
@@ -70,7 +66,7 @@ class ReviewService(
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
         review.delete()
@@ -113,7 +109,6 @@ class ReviewService(
         )
     }
 
-    // 리뷰 행 X-lock 조회 — 같은 리뷰의 동시 삭제 중복 차감, 수정의 stale ACTIVE 가 삭제를 덮어쓰는 경합 차단
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findByIdForUpdate(reviewId)
             ?: throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
