@@ -21,8 +21,8 @@ interface MemberApi {
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
             (프로필 재설정은 후속 기능). `Authorization: Bearer {accessToken}` 로 인증한다.
 
-            맵기 `spicinessPreference` 는 **필수** — -1(미설정) 또는 0~10 정수. 맵기 화면을 건너뛰면
-            클라이언트가 **-1 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, -1·0~10 외 값이면
+            맵기 `spicinessPreference` 는 **필수** — `SKIP`·`NONE`·`MILD`·`MEDIUM`·`HOT`·`EXTREME` 6단계 문자열.
+            맵기 화면을 건너뛰면 클라이언트가 **`SKIP` 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, 6단계 외 값이면
             400 MEMBER-009 로 거절한다.
 
             프로필 사진 `profileImageUrl` 은 **필수** — CDN 도메인 없는 이미지 경로(presigned 발급 응답의
@@ -55,19 +55,19 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
                                   "countryCode": "KR",
                                   "profileImageUrl": "profile-image/2026/07/18/1/abc.jpg",
-                                  "spicinessPreference": 7
+                                  "spicinessPreference": "HOT"
                                 }
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음 · 맵기 스킵(-1) · 사진 미설정(기본 이미지 경로 명시)",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · 사진 미설정(기본 이미지 경로 명시)",
                             value = """
                                 {
                                   "nickname": "John",
                                   "avoidanceSubstanceCodes": [],
                                   "countryCode": "US",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
-                                  "spicinessPreference": -1
+                                  "spicinessPreference": "SKIP"
                                 }
                             """,
                         ),
@@ -79,7 +79,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["SHRIMP", "CRAB", "MACKEREL"],
                                   "countryCode": "JP",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
-                                  "spicinessPreference": 4
+                                  "spicinessPreference": "MEDIUM"
                                 }
                             """,
                         ),
@@ -91,7 +91,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["WALNUT", "ALMOND", "CASHEW"],
                                   "countryCode": "VN",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
-                                  "spicinessPreference": 8
+                                  "spicinessPreference": "EXTREME"
                                 }
                             """,
                         ),
@@ -105,7 +105,7 @@ interface MemberApi {
     @Operation(
         summary = "내 프로필 조회",
         description = """
-            현재 회원의 프로필 정보(연동 소셜 제공자 `provider`(GOOGLE/APPLE)·닉네임·기피 성분·국가·프로필 사진 URL·맵기 선호 — 미설정이면 -1)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
+            현재 회원의 프로필 정보(연동 소셜 제공자 `provider`(GOOGLE/APPLE)·닉네임·기피 성분·국가·프로필 사진 URL·맵기 선호 — 미설정이면 `SKIP`)와 랭킹 요약(등급 키·레벨·점수·다음 등급·
             다음 등급까지 남은 점수)을 함께 조회한다. 프로필 탭이 이 응답 하나로 그려지도록 랭킹 요약을 싣되,
             점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
             등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
@@ -158,8 +158,8 @@ interface MemberApi {
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**
             (빈 문자열·전체 URL·512자 초과는 MEMBER-008 거절). 사진을 없애는 개념은 없다 — 기본 이미지로
             되돌리려면 기본 이미지 경로 `images/default/profile/profile-default-512.png` 를 명시 전송한다.
-            조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 0~10 정수로 교체하며, -1 을 명시 전송하면 미설정으로 복귀한다.
-            -1·0~10 외 값은 MEMBER-009 로 거절한다.
+            조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 `SKIP`·`NONE`·`MILD`·`MEDIUM`·`HOT`·`EXTREME` 6단계 문자열로 교체하며, `SKIP` 을 명시 전송하면 미설정으로 복귀한다.
+            6단계 외 값은 MEMBER-009 로 거절한다.
 
             검증은 **값이 전달된 필드에만** 적용한다 — 보내지 않은 필드 때문에 400 이 나지 않는다. 전달된 값이
             무효하면 요청 전체를 거절하고 프로필은 하나도 바뀌지 않는다(부분 저장 없음). 온보딩 완료 상태는
@@ -223,18 +223,18 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "맵기 변경 — 0~10 정수",
+                            name = "맵기 변경 — 6단계 문자열",
                             value = """
                                 {
-                                  "spicinessPreference": 9
+                                  "spicinessPreference": "EXTREME"
                                 }
                             """,
                         ),
                         ExampleObject(
-                            name = "맵기 설정 안 함 — -1 명시는 미전송(유지)과 다르다",
+                            name = "맵기 설정 안 함 — SKIP 명시는 미전송(유지)과 다르다",
                             value = """
                                 {
-                                  "spicinessPreference": -1
+                                  "spicinessPreference": "SKIP"
                                 }
                             """,
                         ),
@@ -246,7 +246,7 @@ interface MemberApi {
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "countryCode": "JP",
                                   "profileImageUrl": "profile-image/2026/07/18/1/new.jpg",
-                                  "spicinessPreference": 3
+                                  "spicinessPreference": "MILD"
                                 }
                             """,
                         ),

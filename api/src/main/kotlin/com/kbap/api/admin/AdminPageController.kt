@@ -47,7 +47,7 @@ class AdminPageController(
     }
 
     @GetMapping("/admin")
-    fun home(): String = "admin/home"
+    fun home(): String = "redirect:/admin/foods"
 
     private fun authenticated(request: HttpServletRequest): Boolean {
         val token = request.cookies?.firstOrNull { it.name == AdminPageAuthInterceptor.COOKIE_NAME }?.value
