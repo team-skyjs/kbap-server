@@ -716,6 +716,7 @@ body {
 .report-btn:hover { background: var(--bg); }
 
 .report-modal {
+  margin: auto;
   min-width: 480px;
   border: none;
   border-radius: var(--radius);
