@@ -33,7 +33,7 @@ class ReviewService(
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    private val writeTransaction = TransactionTemplate(transactionManager)
+    private val transactionTemplate = TransactionTemplate(transactionManager)
 
     @Transactional
     fun createReview(
@@ -74,7 +74,7 @@ class ReviewService(
         content: String?,
         imagePaths: List<String>?,
     ): ReviewResponse = retryOnceOnConflict {
-        writeTransaction.execute {
+        transactionTemplate.execute {
             val review = getOwnedReview(memberId, reviewId)
             verifyImageOwnership(memberId, imagePaths)
             review.update(rating = rating, content = content, imageRefs = imagePaths)
@@ -84,7 +84,7 @@ class ReviewService(
 
     fun deleteReview(memberId: Long, reviewId: Long) {
         retryOnceOnConflict {
-            writeTransaction.execute {
+            transactionTemplate.execute {
                 val review = getOwnedReview(memberId, reviewId)
                 if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
                     throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
