@@ -567,13 +567,47 @@ body {
 
 .meta-item { color: var(--text-faint); font-size: 12px; }
 
-.food-detail { margin-top: var(--sp-2); border-left: 3px solid var(--divider); }
+.panel-open { margin-right: 504px; }
+
+.food-row-selected { border-color: var(--navy); box-shadow: var(--shadow); }
+
+.food-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  padding: var(--sp-5);
+  z-index: 10;
+}
+
+.food-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-4);
+}
+
+.food-panel-close {
+  color: var(--text-faint);
+  text-decoration: none;
+  font-size: 18px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-sm);
+}
+
+.food-panel-close:hover { color: var(--error-text); background: var(--divider); }
 
 .food-detail-image {
   display: block;
-  max-width: 100%;
-  max-height: 320px;
-  width: auto;
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
   border-radius: var(--radius);
 }
 
