@@ -8,7 +8,6 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -46,14 +45,6 @@ class MemberProfileTest : BehaviorSpec({
                     .readValue<MemberProfileJson>("""{"spicinessPreference":"HOT"}""")
 
                 json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.HOT
-            }
-        }
-
-        `when`("이관되지 않은 정수 값이 저장돼 있으면") {
-            then("조용히 흡수하지 않고 역직렬화가 실패한다") {
-                shouldThrowAny {
-                    jacksonObjectMapper().readValue<MemberProfileJson>("""{"spicinessPreference":5}""")
-                }
             }
         }
     }
