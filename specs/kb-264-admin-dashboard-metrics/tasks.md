@@ -84,13 +84,13 @@ kbap 멀티모듈 — `common/src/main/kotlin/com/kbap/common/...`, `api/src/{ma
 
 ### Tests for User Story 3 (Red 먼저 — 실패 확인 필수) ⚠️
 
-- [ ] T012 [US3] `AdminDashboardMetricsServiceTest` 에 신규 음식 주간 집계 시나리오 추가 — given(7일 안·밖 등록 혼재) then(안쪽만 일자별 집계·7원소·0-fill). Red 확인
+- [x] T012 [US3] `AdminDashboardMetricsServiceTest` 에 신규 음식 주간 집계 시나리오 추가 — given(7일 안·밖 등록 혼재) then(안쪽만 일자별 집계·7원소·0-fill). Red 확인
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] `FoodJpaRepository` 에 일자별 신규 등록 카운트 집계 쿼리 추가(T009 와 동일 패턴). `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt`
-- [ ] T014 [US3] `AdminDashboardMetricsService` 에 `weeklyNewFoods` 구현 → T012 Green
-- [ ] T015 [US3] `foods.html` 에 신규 음식 바 차트 섹션 추가(US2 CSS 재사용). `api/src/main/resources/templates/admin/foods.html`
+- [x] T013 [US3] `FoodJpaRepository` 에 일자별 신규 등록 카운트 집계 쿼리 추가(T009 와 동일 패턴). `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt`
+- [x] T014 [US3] `AdminDashboardMetricsService` 에 `weeklyNewFoods` 구현 → T012 Green
+- [x] T015 [US3] `foods.html` 에 신규 음식 바 차트 섹션 추가(US2 CSS 재사용). `api/src/main/resources/templates/admin/foods.html`
 
 **Checkpoint**: 3지표 동작 — 단독 배포 가능.
 

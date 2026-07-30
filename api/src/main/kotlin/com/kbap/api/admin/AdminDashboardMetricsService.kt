@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
@@ -13,6 +14,7 @@ import java.util.Locale
 class AdminDashboardMetricsService(
     private val memberRepository: MemberJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val foodRepository: FoodJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getMetrics(): AdminDashboardMetricsView {
@@ -21,6 +23,7 @@ class AdminDashboardMetricsService(
         return AdminDashboardMetricsView(
             totalActiveMembers = memberRepository.countByMemberStatus(MemberStatus.ACTIVE),
             weeklyScans = weeklyMetrics(today, scanHistoryRepository.countDailySince(from).associate { it.date to it.count }),
+            weeklyNewFoods = weeklyMetrics(today, foodRepository.countDailyCreatedSince(from).associate { it.date to it.count }),
         )
     }
 
@@ -41,6 +44,7 @@ class AdminDashboardMetricsService(
 data class AdminDashboardMetricsView(
     val totalActiveMembers: Long,
     val weeklyScans: List<DailyMetricView>,
+    val weeklyNewFoods: List<DailyMetricView>,
 )
 
 data class DailyMetricView(

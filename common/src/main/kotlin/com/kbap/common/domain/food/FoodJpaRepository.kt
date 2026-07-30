@@ -1,5 +1,6 @@
 package com.kbap.common.domain.food
 
+import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.model.Food
 import org.springframework.data.domain.Pageable
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(
@@ -18,6 +20,16 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun countGroupByContentStatus(): List<FoodStatusCount>
+
+    @Query(
+        """
+        select new com.kbap.common.domain.DailyCount(cast(f.createdAt as LocalDate), count(f))
+        from Food f
+        where f.createdAt >= :from
+        group by cast(f.createdAt as LocalDate)
+        """,
+    )
+    fun countDailyCreatedSince(@Param("from") from: LocalDateTime): List<DailyCount>
 
     @Modifying(clearAutomatically = true)
     @Transactional

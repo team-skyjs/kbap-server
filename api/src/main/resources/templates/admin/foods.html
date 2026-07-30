@@ -62,6 +62,19 @@
             </div>
         </div>
     </div>
+
+    <div class="card chart-card">
+        <div class="stat-label">최근 7일 신규 등록 음식</div>
+        <div class="bar-chart">
+            <div class="bar-col" th:each="d : ${metrics.weeklyNewFoods}">
+                <span class="bar-value" th:text="${d.count}">0</span>
+                <div class="bar-track">
+                    <div class="bar-fill" th:style="|height: ${d.heightPct}%|"></div>
+                </div>
+                <span class="bar-label" th:text="${d.dayLabel}">월</span>
+            </div>
+        </div>
+    </div>
 </section>
 </body>
 </html>

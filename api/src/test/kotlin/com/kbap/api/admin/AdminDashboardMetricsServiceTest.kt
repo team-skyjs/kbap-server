@@ -1,6 +1,8 @@
 package com.kbap.api.admin
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -31,6 +33,9 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var scanHistoryJpaRepository: ScanHistoryJpaRepository
+
+    @Autowired
+    private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -131,6 +136,29 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     scans.size shouldBe 7
                     scans.all { it.count == 0L } shouldBe true
+                }
+            }
+        }
+
+        given("대시보드 지표 - 최근 7일 신규 등록 음식") {
+            fun saveFoodAt(koreanName: String, daysAgo: Long) {
+                val food = foodJpaRepository.save(Food(koreanName = koreanName, description = "설명 $koreanName"))
+                setCreatedAt("food", food.id, daysAgo)
+            }
+
+            `when`("7일 안·밖 등록 음식이 섞여 있으면") {
+                then("7일 안 등록만 일자별로 집계하고 누락일은 0 이다") {
+                    saveFoodAt("음식-오늘1", daysAgo = 0)
+                    saveFoodAt("음식-오늘2", daysAgo = 0)
+                    saveFoodAt("음식-사흘전", daysAgo = 3)
+                    saveFoodAt("음식-일주일밖", daysAgo = 8)
+
+                    val foods = service.getMetrics().weeklyNewFoods
+
+                    foods.size shouldBe 7
+                    foods.last().count shouldBe 2
+                    foods[3].count shouldBe 1
+                    foods.sumOf { it.count } shouldBe 3
                 }
             }
         }
