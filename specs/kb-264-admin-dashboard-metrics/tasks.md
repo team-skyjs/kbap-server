@@ -63,14 +63,14 @@ kbap 멀티모듈 — `common/src/main/kotlin/com/kbap/common/...`, `api/src/{ma
 
 ### Tests for User Story 2 (Red 먼저 — 실패 확인 필수) ⚠️
 
-- [ ] T007 [US2] `AdminDashboardMetricsServiceTest` 에 스캔 주간 집계 시나리오 추가 — given(특정 요일만 스캔 존재/7일 밖 이력 존재) then(해당일 카운트·나머지 0·7원소 고정·경계 제외·dayLabel 정확). Red 확인
-- [ ] T008 [US2] `AdminFoodPageControllerTest` 에 스캔 차트 렌더 시나리오 추가 — then(모델 `metrics.weeklyScans` 7원소, 뷰 렌더 성공). Red 확인
+- [x] T007 [US2] `AdminDashboardMetricsServiceTest` 에 스캔 주간 집계 시나리오 추가 — given(특정 요일만 스캔 존재/7일 밖 이력 존재) then(해당일 카운트·나머지 0·7원소 고정·경계 제외·dayLabel 정확). Red 확인
+- [x] T008 [US2] `AdminFoodPageControllerTest` 에 스캔 차트 렌더 시나리오 추가 — then(모델 `metrics.weeklyScans` 7원소, 뷰 렌더 성공). Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] `ScanHistoryJpaRepository` 에 일자별 카운트 집계 쿼리 추가 — JPQL `function('date', ...)` group-by + 프로젝션(`DailyCount`), `createdAt >= :from`. `common/src/main/kotlin/com/kbap/common/domain/scan/ScanHistoryJpaRepository.kt`
-- [ ] T010 [US2] `AdminDashboardMetricsService` 에 `weeklyScans`(`DailyMetricView(date, dayLabel, count)`) + 7일 0-fill·요일 라벨 헬퍼 구현 → T007 Green
-- [ ] T011 [US2] `foods.html` 에 스캔 바 차트 섹션 + `admin.css` 바 차트 스타일(막대 높이 % 인라인, 요일 라벨·값 표기, 전부 0 이어도 7일 축 유지) 추가. `api/src/main/resources/templates/admin/foods.html`, `api/src/main/resources/static/assets/admin.css` → T008 Green
+- [x] T009 [US2] `ScanHistoryJpaRepository` 에 일자별 카운트 집계 쿼리 추가 — JPQL `function('date', ...)` group-by + 프로젝션(`DailyCount`), `createdAt >= :from`. `common/src/main/kotlin/com/kbap/common/domain/scan/ScanHistoryJpaRepository.kt`
+- [x] T010 [US2] `AdminDashboardMetricsService` 에 `weeklyScans`(`DailyMetricView(date, dayLabel, count)`) + 7일 0-fill·요일 라벨 헬퍼 구현 → T007 Green
+- [x] T011 [US2] `foods.html` 에 스캔 바 차트 섹션 + `admin.css` 바 차트 스타일(막대 높이 % 인라인, 요일 라벨·값 표기, 전부 0 이어도 7일 축 유지) 추가. `api/src/main/resources/templates/admin/foods.html`, `api/src/main/resources/static/assets/admin.css` → T008 Green
 
 **Checkpoint**: 가입자 카드 + 스캔 차트 동작 — 단독 배포 가능.
 

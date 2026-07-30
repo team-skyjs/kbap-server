@@ -145,6 +145,15 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         model { attributeExists("dashboard", "metrics") }
                     }
                 }
+
+                then("최근 7일 스캔 차트 데이터가 7원소로 렌더된다") {
+                    val result = mockMvc.get("/admin/foods") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn()
+
+                    val metrics = result.modelAndView!!.model["metrics"] as AdminDashboardMetricsView
+                    metrics.weeklyScans.size shouldBe 7
+                }
             }
         }
 

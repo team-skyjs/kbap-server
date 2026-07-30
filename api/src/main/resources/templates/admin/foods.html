@@ -49,6 +49,19 @@
             <div class="stat-num" th:text="${#numbers.formatInteger(metrics.totalActiveMembers, 0, 'COMMA')}">0</div>
         </div>
     </div>
+
+    <div class="card chart-card">
+        <div class="stat-label">최근 7일 스캔 횟수</div>
+        <div class="bar-chart">
+            <div class="bar-col" th:each="d : ${metrics.weeklyScans}">
+                <span class="bar-value" th:text="${d.count}">0</span>
+                <div class="bar-track">
+                    <div class="bar-fill" th:style="|height: ${d.heightPct}%|"></div>
+                </div>
+                <span class="bar-label" th:text="${d.dayLabel}">월</span>
+            </div>
+        </div>
+    </div>
 </section>
 </body>
 </html>
