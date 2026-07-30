@@ -647,3 +647,102 @@ body {
 }
 
 .modal-foot .btn-primary { width: auto; padding: 10px 28px; }
+
+/* ---- 운영 지표 바 차트 (kb-264) ---- */
+
+.chart-card {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  height: 150px;
+  margin-top: var(--sp-3);
+}
+
+.bar-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.bar-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 40px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--divider);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 100%;
+  background: var(--navy);
+  border-radius: 4px 4px 0 0;
+}
+
+.bar-label {
+  font-size: 12px;
+  color: var(--slate);
+}
+
+/* ---- LLM 비용 레포트 모달 (kb-264) ---- */
+
+.report-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  color: var(--navy);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.report-btn:hover { background: var(--bg); }
+
+.report-modal {
+  margin: auto;
+  min-width: 480px;
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow-lg);
+}
+
+.report-modal::backdrop { background: rgba(15, 23, 42, 0.4); }
+
+.report-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  color: var(--text-strong);
+  margin-bottom: var(--sp-2);
+}
+
+.report-summary { margin-bottom: var(--sp-4); color: var(--text-body); }
+
+.report-close { margin-top: var(--sp-4); text-align: right; }
+
+.report-close button {
+  padding: 6px 16px;
+  font-family: var(--font-body);
+  color: var(--text-body);
+  background: var(--neutral-bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}

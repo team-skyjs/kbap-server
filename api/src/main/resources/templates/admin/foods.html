@@ -39,6 +39,107 @@
         </div>
         <p class="page-desc" th:if="${dashboard.total == 0}" style="margin: 8px 0 0">아직 적재된 음식 데이터가 없습니다.</p>
     </div>
+
+    <h1 class="page-title" style="margin-top: 32px">운영 지표</h1>
+    <p class="page-desc">가입자·사용량·비용 핵심 운영 지표입니다.</p>
+
+    <div class="stat-grid">
+        <div class="card stat-card">
+            <div class="stat-label">총 가입자 수</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(metrics.totalActiveMembers, 0, 'COMMA')}">0</div>
+        </div>
+    </div>
+
+    <div class="card chart-card">
+        <div class="stat-label">최근 7일 스캔 횟수</div>
+        <div class="bar-chart">
+            <div class="bar-col" th:each="d : ${metrics.weeklyScans}">
+                <span class="bar-value" th:text="${d.count}">0</span>
+                <div class="bar-track">
+                    <div class="bar-fill" th:style="|height: ${d.heightPct}%|"></div>
+                </div>
+                <span class="bar-label" th:text="${d.dayLabel}">월</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card chart-card">
+        <div class="stat-label">최근 7일 신규 등록 음식</div>
+        <div class="bar-chart">
+            <div class="bar-col" th:each="d : ${metrics.weeklyNewFoods}">
+                <span class="bar-value" th:text="${d.count}">0</span>
+                <div class="bar-track">
+                    <div class="bar-fill" th:style="|height: ${d.heightPct}%|"></div>
+                </div>
+                <span class="bar-label" th:text="${d.dayLabel}">월</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card table-card chart-card">
+        <div class="stat-label" style="padding: 16px 24px 0">최근 7일 LLM 호출 비용 (USD)</div>
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>날짜</th>
+                <th>요일</th>
+                <th>호출 횟수</th>
+                <th>비용(USD)</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="d, s : ${metrics.llmCostDaily}">
+                <td th:text="${d.date}">2026-07-30</td>
+                <td th:text="${d.dayLabel}">수</td>
+                <td th:text="${#numbers.formatInteger(d.callCount, 0, 'COMMA')}">0</td>
+                <td th:text="'$' + ${d.costUsd}">$0</td>
+                <td>
+                    <button type="button" class="report-btn" th:attr="data-report=|llm-report-${s.index}|">레포트</button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <dialog th:each="d, s : ${metrics.llmCostDaily}" th:id="|llm-report-${s.index}|" class="report-modal">
+        <h2 class="report-title" th:text="|LLM 호출 레포트 — ${d.date} (${d.dayLabel})|">LLM 호출 레포트</h2>
+        <p class="report-summary">
+            총 호출 <b th:text="${#numbers.formatInteger(d.callCount, 0, 'COMMA')}">0</b>회 ·
+            총 비용 <b th:text="'$' + ${d.costUsd}">$0</b>
+        </p>
+        <table class="data-table" th:if="${!d.models.isEmpty()}">
+            <thead>
+            <tr>
+                <th>모델</th>
+                <th>호출</th>
+                <th>입력 토큰</th>
+                <th>출력 토큰</th>
+                <th>비용(USD)</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="m : ${d.models}">
+                <td th:text="${m.modelName}">model</td>
+                <td th:text="${#numbers.formatInteger(m.callCount, 0, 'COMMA')}">0</td>
+                <td th:text="${#numbers.formatInteger(m.inputTokens, 0, 'COMMA')}">0</td>
+                <td th:text="${#numbers.formatInteger(m.outputTokens, 0, 'COMMA')}">0</td>
+                <td th:text="'$' + ${m.costUsd}">$0</td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="page-desc" th:if="${d.models.isEmpty()}">해당 날짜의 LLM 호출 기록이 없습니다.</p>
+        <form method="dialog" class="report-close">
+            <button type="submit">닫기</button>
+        </form>
+    </dialog>
+
+    <script>
+        document.addEventListener('click', function (e) {
+            var id = e.target && e.target.dataset ? e.target.dataset.report : null;
+            if (id) document.getElementById(id).showModal();
+        });
+    </script>
 </section>
 </body>
 </html>

@@ -136,6 +136,53 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
             }
         }
 
+        given("대시보드 운영 지표(metrics)") {
+            `when`("관리자가 적재 현황에 진입하면") {
+                then("기존 dashboard 와 함께 metrics 모델을 내려준다") {
+                    mockMvc.get("/admin/foods") { cookie(adminCookie()) }.andExpect {
+                        status { isOk() }
+                        view { name("admin/foods") }
+                        model { attributeExists("dashboard", "metrics") }
+                    }
+                }
+
+                then("최근 7일 스캔 차트 데이터가 7원소로 렌더된다") {
+                    val result = mockMvc.get("/admin/foods") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn()
+
+                    val metrics = result.modelAndView!!.model["metrics"] as AdminDashboardMetricsView
+                    metrics.weeklyScans.size shouldBe 7
+                }
+            }
+
+            `when`("회원·스캔·음식·비용 데이터가 전무한 상태로 진입하면") {
+                then("렌더가 깨지지 않고 모든 지표가 7일 축·0 값으로 표시된다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { st ->
+                            listOf(
+                                "food_review", "member_ranking_event", "bookmark", "uploaded_image",
+                                "scan_history", "image_batch_item", "image_batch",
+                                "food", "member", "llm_call_cost",
+                            ).forEach { st.execute("DELETE FROM $it") }
+                        }
+                    }
+
+                    val result = mockMvc.get("/admin/foods") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn()
+
+                    val metrics = result.modelAndView!!.model["metrics"] as AdminDashboardMetricsView
+                    metrics.totalActiveMembers shouldBe 0
+                    metrics.weeklyScans.size shouldBe 7
+                    metrics.weeklyScans.all { it.count == 0L } shouldBe true
+                    metrics.weeklyNewFoods.all { it.count == 0L } shouldBe true
+                    metrics.llmCostDaily.size shouldBe 7
+                    metrics.llmCostDaily.all { it.callCount == 0L && it.costUsd.signum() == 0 } shouldBe true
+                }
+            }
+        }
+
         given("화면에서 음식 시드 등록") {
             `when`("등록 화면에 진입하면") {
                 then("시드 입력 화면을 보여준다") {

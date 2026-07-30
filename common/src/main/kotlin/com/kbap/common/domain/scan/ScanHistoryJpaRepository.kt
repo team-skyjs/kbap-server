@@ -1,11 +1,22 @@
 package com.kbap.common.domain.scan
 
+import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.scan.model.ScanHistory
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+    @Query(
+        """
+        select new com.kbap.common.domain.DailyCount(cast(sh.createdAt as LocalDate), count(sh))
+        from ScanHistory sh
+        where sh.createdAt >= :from
+        group by cast(sh.createdAt as LocalDate)
+        """,
+    )
+    fun countDailySince(@Param("from") from: LocalDateTime): List<DailyCount>
     @Query(
         nativeQuery = true,
         value = """
