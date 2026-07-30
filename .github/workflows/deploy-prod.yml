@@ -23,6 +23,8 @@ jobs:
     name: build and blue/green deploy to prod ECS
     runs-on: ubuntu-latest
     environment: prod
+    outputs:
+      build: ${{ steps.image.outputs.build }}
 
     steps:
       - name: Checkout
@@ -125,3 +127,19 @@ jobs:
           done
           echo "::error::배포 시작 확인 실패 — PRIMARY 태스크정의가 60s 안에 교체되지 않았다"
           exit 1
+
+  # 릴리즈 노트·슬랙 알림(KB-266) — "배포 시작 확인" 시점 기준 발행, 실패해도 배포 판정에 영향 없음
+  release:
+    needs: deploy
+    if: always()
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-notes.yml
+    with:
+      environment: prod
+      prerelease: false
+      sha: ${{ github.sha }}
+      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
+      deploy_result: ${{ needs.deploy.result }}
+    secrets:
+      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}

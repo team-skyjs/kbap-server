@@ -23,6 +23,8 @@ jobs:
     name: build and deploy to kbap-api-dev
     runs-on: ubuntu-latest
     environment: dev
+    outputs:
+      build: ${{ steps.image.outputs.build }}
 
     steps:
       - name: Checkout
@@ -125,3 +127,19 @@ jobs:
             --query StandardErrorContent --output text
           echo "SSM status: $STATUS"
           [ "$STATUS" = "Success" ]
+
+  # 릴리즈 노트·슬랙 알림(KB-266) — 실패해도 배포 성공/실패 판정에 영향 없음
+  release:
+    needs: deploy
+    if: always()
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-notes.yml
+    with:
+      environment: dev
+      prerelease: true
+      sha: ${{ github.sha }}
+      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
+      deploy_result: ${{ needs.deploy.result }}
+    secrets:
+      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
