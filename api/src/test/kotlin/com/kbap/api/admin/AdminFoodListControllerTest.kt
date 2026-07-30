@@ -97,12 +97,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
             }
 
             `when`("목록을 렌더링하면") {
-                then("각 행에 anchor id 와 fragment 포함 상세보기 링크를 내려준다") {
+                then("각 행에 anchor id 와 상세보기 링크를 내려준다") {
                     val saved = saveFood("앵커비빔밥")
 
                     val html = getList().response.contentAsString
                     html shouldContain "id=\"food-${saved.id}\""
-                    html shouldContain "detail=${saved.id}#food-${saved.id}"
+                    html shouldContain "detail=${saved.id}"
                 }
             }
         }
@@ -130,7 +130,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     detail.contentStatus shouldBe FoodContentStatus.READY
                     detail.nameTranslationsJson shouldContain "Bibimbap"
 
-                    result.response.contentAsString shouldContain "?page=1#food-${saved.id}"
+                    result.response.contentAsString shouldContain "food-panel-close"
                 }
             }
 

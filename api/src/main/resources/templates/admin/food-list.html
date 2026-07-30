@@ -2,7 +2,7 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{admin/layout :: shell('음식 목록', 'food-list', ~{:: .food-list-main})}">
 <body>
-<section class="food-list-main" th:classappend="${foodDetail != null} ? 'panel-open'">
+<section class="food-list-main">
     <h1 class="page-title">음식 목록</h1>
     <p class="page-desc" th:text="|전체 ${#numbers.formatInteger(foodPage.totalCount, 0, 'COMMA')}건 · 페이지당 200건|">전체 0건</p>
 
@@ -29,9 +29,9 @@
                     <span class="meta-item" th:text="${f.hasImage} ? '이미지 ○' : '이미지 ×'">이미지 ×</span>
                     <span class="meta-item" th:text="${#temporals.format(f.updatedAt, 'MM-dd HH:mm')}">-</span>
                     <a class="page-btn" th:unless="${opened}"
-                       th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})} + '#food-' + ${f.id}">상세보기</a>
+                       th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})}">상세보기</a>
                     <a class="page-btn" th:if="${opened}"
-                       th:href="@{/admin/foods/list(page=${foodPage.page})} + '#food-' + ${f.id}">닫기</a>
+                       th:href="@{/admin/foods/list(page=${foodPage.page})}">닫기</a>
                 </div>
             </div>
         </div>
@@ -51,7 +51,7 @@
         <div class="food-panel-head">
             <h2 class="section-title" th:text="|음식 상세 · #${foodDetail.id}|">음식 상세</h2>
             <a class="food-panel-close"
-               th:href="@{/admin/foods/list(page=${foodPage.page})} + '#food-' + ${foodDetail.id}">✕</a>
+               th:href="@{/admin/foods/list(page=${foodPage.page})}">✕</a>
         </div>
 
         <div class="food-panel-body">
@@ -118,9 +118,9 @@
                         <span class="page-info"
                               th:text="|version ${foodDetail.version} · 생성 ${#temporals.format(foodDetail.createdAt, 'yyyy-MM-dd')} · 수정 ${#temporals.format(foodDetail.updatedAt, 'yyyy-MM-dd HH:mm')}|"></span>
                         <a class="page-btn" th:unless="${editMode}"
-                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id}, edit=true)} + '#food-' + ${foodDetail.id}">편집</a>
+                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id}, edit=true)}">편집</a>
                         <a class="page-btn" th:if="${editMode}"
-                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id})} + '#food-' + ${foodDetail.id}">취소</a>
+                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id})}">취소</a>
                         <button class="btn-primary" type="submit" th:if="${editMode}">저장</button>
                     </div>
                 </form>

@@ -567,8 +567,6 @@ body {
 
 .meta-item { color: var(--text-faint); font-size: 12px; }
 
-.panel-open { margin-right: 504px; }
-
 .food-row-selected { border-color: var(--navy); box-shadow: var(--shadow); }
 
 .food-panel {
