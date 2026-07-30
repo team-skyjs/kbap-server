@@ -75,6 +75,7 @@ class AdminFoodService(
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.avoidanceSubstances = avoidanceSubstances
+        food.transitionByContentState()
         return AdminFoodUpdateResult.UPDATED
     }
 
