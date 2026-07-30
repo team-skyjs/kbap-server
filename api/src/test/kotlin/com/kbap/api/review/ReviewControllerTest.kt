@@ -160,7 +160,11 @@ class ReviewControllerTest : BehaviorSpec() {
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
         given("리뷰 작성 API — POST /api/v1/reviews") {
+<<<<<<< HEAD
             seedFood(700L, "김치찌개")
+=======
+            seedFood(700L, "리뷰김치찌개")
+>>>>>>> origin/develop
 
             `when`("별점만으로 작성하면") {
                 then("200 과 리뷰를 반환한다") {
@@ -288,7 +292,11 @@ class ReviewControllerTest : BehaviorSpec() {
         }
 
         given("리뷰 수정 API — PATCH /api/v1/reviews/{reviewId}") {
+<<<<<<< HEAD
             seedFood(710L, "된장찌개")
+=======
+            seedFood(710L, "리뷰된장찌개")
+>>>>>>> origin/develop
 
             `when`("본인 리뷰의 별점·본문을 바꾸면") {
                 then("값이 반영되고 국적 스냅샷은 불변이다") {
@@ -348,7 +356,11 @@ class ReviewControllerTest : BehaviorSpec() {
         }
 
         given("리뷰 삭제 API — DELETE /api/v1/reviews/{reviewId}") {
+<<<<<<< HEAD
             seedFood(720L, "비빔밥")
+=======
+            seedFood(720L, "리뷰비빔밥")
+>>>>>>> origin/develop
 
             `when`("본인 리뷰를 삭제하면") {
                 then("200 success=true 를 반환한다") {
@@ -373,6 +385,7 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
+<<<<<<< HEAD
         fun rankingEvents(reviewId: Long): List<Triple<String, Int, Int>> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -443,6 +456,11 @@ class ReviewControllerTest : BehaviorSpec() {
         given("리뷰 랭킹 카운트 연동") {
             seedFood(730L, "불고기")
             seedFood(731L, "잡채")
+=======
+        given("리뷰 랭킹 카운트 연동") {
+            seedFood(730L, "리뷰불고기")
+            seedFood(731L, "리뷰잡채")
+>>>>>>> origin/develop
 
             `when`("첫 리뷰를 작성하면") {
                 then("리뷰 수 1·고유 음식 수 1 이 된다") {
