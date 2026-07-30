@@ -104,13 +104,13 @@ kbap 멀티모듈 — `common/src/main/kotlin/com/kbap/common/...`, `api/src/{ma
 
 ### Tests for User Story 4 (Red 먼저 — 실패 확인 필수) ⚠️
 
-- [ ] T016 [US4] `AdminDashboardMetricsServiceTest` 에 LLM 비용 주간 집계 시나리오 추가 — given(일부 날짜만 비용 기록·1달러 미만 소수 포함) then(일자별 sum·없는 날 0·소수 정밀도 유지). Red 확인
+- [x] T016 [US4] `AdminDashboardMetricsServiceTest` 에 LLM 비용 주간 집계 시나리오 추가 — given(일부 날짜만 비용 기록·1달러 미만 소수 포함) then(일자별 sum·없는 날 0·소수 정밀도 유지). Red 확인
 
 ### Implementation for User Story 4
 
-- [ ] T017 [US4] `LlmCallCostJpaRepository` 에 일자별 `sum(costUsd)` 집계 쿼리 추가(`DailyCostSum` 프로젝션). `common/src/main/kotlin/com/kbap/common/domain/metering/LlmCallCostJpaRepository.kt`
-- [ ] T018 [US4] `AdminDashboardMetricsService` 에 `weeklyLlmCostUsd`(`DailyCostView(date, dayLabel, costUsd)`) 구현 → T016 Green
-- [ ] T019 [US4] `foods.html` 에 LLM 비용 바 차트 섹션 추가(값 라벨 USD 소수 표시, BigDecimal 높이 비율 계산 주의). `api/src/main/resources/templates/admin/foods.html`
+- [x] T017 [US4] `LlmCallCostJpaRepository` 에 일자별 `sum(costUsd)` 집계 쿼리 추가(`DailyCostSum` 프로젝션). `common/src/main/kotlin/com/kbap/common/domain/metering/LlmCallCostJpaRepository.kt`
+- [x] T018 [US4] `AdminDashboardMetricsService` 에 `weeklyLlmCostUsd`(`DailyCostView(date, dayLabel, costUsd)`) 구현 → T016 Green
+- [x] T019 [US4] `foods.html` 에 LLM 비용 바 차트 섹션 추가(값 라벨 USD 소수 표시, BigDecimal 높이 비율 계산 주의). `api/src/main/resources/templates/admin/foods.html`
 
 **Checkpoint**: 4지표 전부 동작.
 

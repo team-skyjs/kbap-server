@@ -7,6 +7,8 @@ import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.domain.metering.LlmCallCostJpaRepository
+import com.kbap.common.domain.metering.model.LlmCallCost
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
@@ -15,6 +17,7 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -36,6 +39,9 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var foodJpaRepository: FoodJpaRepository
+
+    @Autowired
+    private lateinit var llmCallCostJpaRepository: LlmCallCostJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -159,6 +165,31 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     foods.last().count shouldBe 2
                     foods[3].count shouldBe 1
                     foods.sumOf { it.count } shouldBe 3
+                }
+            }
+        }
+
+        given("대시보드 지표 - 최근 7일 LLM 호출 비용") {
+            fun saveCost(costUsd: String, daysAgo: Long) {
+                val cost = llmCallCostJpaRepository.save(
+                    LlmCallCost(modelName = "gpt-test", inputTokens = 10, outputTokens = 10, costUsd = BigDecimal(costUsd)),
+                )
+                setCreatedAt("llm_call_cost", cost.id, daysAgo)
+            }
+
+            `when`("일부 날짜에만 소수 비용이 기록돼 있으면") {
+                then("일자별 합계를 소수 정밀도 그대로, 없는 날은 0 으로 집계한다") {
+                    saveCost("0.000123", daysAgo = 0)
+                    saveCost("0.000200", daysAgo = 0)
+                    saveCost("1.500000", daysAgo = 5)
+                    saveCost("9.999999", daysAgo = 9)
+
+                    val costs = service.getMetrics().weeklyLlmCostUsd
+
+                    costs.size shouldBe 7
+                    costs.last().costUsd.compareTo(BigDecimal("0.000323")) shouldBe 0
+                    costs[1].costUsd.compareTo(BigDecimal("1.5")) shouldBe 0
+                    costs.count { it.costUsd.signum() == 0 } shouldBe 5
                 }
             }
         }
