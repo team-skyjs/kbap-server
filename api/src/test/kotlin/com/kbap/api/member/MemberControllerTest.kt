@@ -72,7 +72,7 @@ class MemberControllerTest : BehaviorSpec() {
             "nickname" to "길동이",
             "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
             "countryCode" to "US",
-            "spicinessPreference" to -1,
+            "spicinessPreference" to "SKIP",
             "profileImageUrl" to defaultProfileImagePath,
         )
 
@@ -391,7 +391,7 @@ class MemberControllerTest : BehaviorSpec() {
                             "nickname" to "  길동이  ",
                             "avoidanceSubstanceCodes" to listOf("EGG", "EGG", "MILK"),
                             "countryCode" to "US",
-                            "spicinessPreference" to 3,
+                            "spicinessPreference" to "MILD",
                             "profileImageUrl" to defaultProfileImagePath,
                         ),
                     ).andExpect { status { isOk() } }
@@ -415,7 +415,7 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val profileJson = memberColumn("google-sub-fixed", "profile")!!
                     profileJson.contains("\"spicinessPreference\"") shouldBe true
-                    objectMapper.readTree(profileJson).path("spicinessPreference").asInt() shouldBe -1
+                    objectMapper.readTree(profileJson).path("spicinessPreference").asText() shouldBe "SKIP"
                 }
             }
         }
@@ -430,7 +430,7 @@ class MemberControllerTest : BehaviorSpec() {
                     token,
                     validBody() + mapOf(
                         "profileImageUrl" to "profiles/origin.jpg",
-                        "spicinessPreference" to 4,
+                        "spicinessPreference" to "MEDIUM",
                     ),
                 ).andExpect { status { isOk() } }
                 return token
@@ -446,7 +446,7 @@ class MemberControllerTest : BehaviorSpec() {
                     val payload = profilePayload(token)
                     payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/new.jpg"
                     payload.path("nickname").asText() shouldBe "길동이"
-                    payload.path("spicinessPreference").asInt() shouldBe 4
+                    payload.path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
             }
 
@@ -458,18 +458,18 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val payload = profilePayload(token)
                     payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
-                    payload.path("spicinessPreference").asInt() shouldBe 4
+                    payload.path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
             }
 
-            `when`("맵기 9 만 담아 수정하면") {
+            `when`("맵기 EXTREME 만 담아 수정하면") {
                 then("맵기는 교체되고 사진·닉네임은 유지된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("spicinessPreference" to 9)).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("spicinessPreference" to "EXTREME")).andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.path("spicinessPreference").asInt() shouldBe 9
+                    payload.path("spicinessPreference").asText() shouldBe "EXTREME"
                     payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
                     payload.path("nickname").asText() shouldBe "길동이"
                 }
@@ -489,15 +489,15 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("범위 밖 맵기를 담아 수정하면") {
+            `when`("6단계에 없는 맵기를 담아 수정하면") {
                 then("400 MEMBER-009 로 거절되고 아무 필드도 변경되지 않는다") {
                     val token = onboardedWithImageToken()
 
-                    val result = updateProfile(token, mapOf("spicinessPreference" to 11)).andReturn().response
+                    val result = updateProfile(token, mapOf("spicinessPreference" to "SUPER_HOT")).andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-009"
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 4
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
             }
 
@@ -551,7 +551,7 @@ class MemberControllerTest : BehaviorSpec() {
                         token,
                         validBody() + mapOf(
                             "profileImageUrl" to "profiles/abc.jpg",
-                            "spicinessPreference" to 7,
+                            "spicinessPreference" to "HOT",
                         ),
                     ).andExpect { status { isOk() } }
 
@@ -560,7 +560,7 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val payload = profilePayload(token)
                     payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/abc.jpg"
-                    payload.path("spicinessPreference").asInt() shouldBe 7
+                    payload.path("spicinessPreference").asText() shouldBe "HOT"
                 }
             }
 
@@ -718,9 +718,9 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
-        given("온보딩의 맵기 범위 검증 — 저장 없이 400") {
-            listOf(11, -2).forEach { spiciness ->
-                `when`("범위 밖 맵기 $spiciness 를 제출하면") {
+        given("온보딩의 맵기 단계 검증 — 저장 없이 400") {
+            listOf("SUPER_HOT", "hot", 7).forEach { spiciness ->
+                `when`("6단계에 없는 맵기 $spiciness 를 제출하면") {
                     then("400 MEMBER-009 로 거절되고 아무것도 저장되지 않는다") {
                         val token = loginAccessToken()
 
@@ -735,7 +735,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
-        given("맵기 선호 미설정(-1) — 온보딩 저장·조회") {
+        given("맵기 선호 미설정(SKIP) — 온보딩 저장·조회") {
             fun profilePayload(token: String) =
                 objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
 
@@ -752,78 +752,78 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("맵기 선호로 -1 을 명시해 온보딩하면") {
-                then("200 으로 저장되고 조회 시 -1 로 반환된다") {
+            `when`("맵기 선호로 SKIP 을 명시해 온보딩하면") {
+                then("200 으로 저장되고 조회 시 SKIP 으로 반환된다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, validBody() + ("spicinessPreference" to -1))
+                    submitOnboarding(token, validBody() + ("spicinessPreference" to "SKIP"))
                         .andExpect { status { isOk() } }
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe -1
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "SKIP"
                 }
             }
 
-            `when`("맵기 선호로 7 을 보내 온보딩하면") {
-                then("조회 시 그 값이 그대로 반환된다") {
+            `when`("맵기 선호로 HOT 을 보내 온보딩하면") {
+                then("조회 시 그 단계가 그대로 반환된다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, validBody() + ("spicinessPreference" to 7))
+                    submitOnboarding(token, validBody() + ("spicinessPreference" to "HOT"))
                         .andExpect { status { isOk() } }
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 7
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "HOT"
                 }
             }
         }
 
-        given("맵기 선호 미설정(-1) — 프로필 수정") {
+        given("맵기 선호 미설정(SKIP) — 프로필 수정") {
             fun profilePayload(token: String) =
                 objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
 
-            fun onboardWithSpiciness(spiciness: Int): String {
+            fun onboardWithSpiciness(spiciness: String): String {
                 val token = loginAccessToken()
                 submitOnboarding(token, validBody() + ("spicinessPreference" to spiciness))
                     .andExpect { status { isOk() } }
                 return token
             }
 
-            `when`("맵기 5 회원이 프로필 수정에서 -1 을 명시 전송하면") {
-                then("맵기 선호가 미설정(-1)으로 복귀한다") {
-                    val token = onboardWithSpiciness(5)
+            `when`("맵기 MEDIUM 회원이 프로필 수정에서 SKIP 을 명시 전송하면") {
+                then("맵기 선호가 미설정(SKIP)으로 복귀한다") {
+                    val token = onboardWithSpiciness("MEDIUM")
 
-                    updateProfile(token, mapOf("spicinessPreference" to -1)).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("spicinessPreference" to "SKIP")).andExpect { status { isOk() } }
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe -1
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "SKIP"
                 }
             }
 
-            `when`("맵기 7 회원이 맵기를 생략하고 다른 필드만 수정하면") {
-                then("맵기 선호는 7 로 유지된다") {
-                    val token = onboardWithSpiciness(7)
+            `when`("맵기 HOT 회원이 맵기를 생략하고 다른 필드만 수정하면") {
+                then("맵기 선호는 HOT 으로 유지된다") {
+                    val token = onboardWithSpiciness("HOT")
 
                     updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 7
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "HOT"
                 }
             }
 
-            `when`("미설정(-1) 회원이 0~10 값을 보내면") {
+            `when`("미설정(SKIP) 회원이 단계 문자열을 보내면") {
                 then("그 값으로 교체된다") {
                     val token = loginAccessToken()
                     submitOnboarding(token, validBody()).andExpect { status { isOk() } }
 
-                    updateProfile(token, mapOf("spicinessPreference" to 8)).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("spicinessPreference" to "EXTREME")).andExpect { status { isOk() } }
 
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 8
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "EXTREME"
                 }
             }
         }
 
-        given("맵기 선호 범위 밖 값 거절 — 메시지에 -1(미설정) 반영") {
+        given("맵기 선호 6단계 외 값 거절 — 메시지에 단계 목록 반영") {
             fun profilePayload(token: String) =
                 objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
 
-            `when`("온보딩에서 -2 를 보내면") {
-                then("400 MEMBER-009 로 거절되고 메시지에 -1(미설정)이 담긴다") {
+            `when`("온보딩에서 정수 -2 를 보내면") {
+                then("400 MEMBER-009 로 거절되고 메시지에 단계 목록이 담긴다") {
                     val token = loginAccessToken()
 
                     val result = submitOnboarding(token, validBody() + ("spicinessPreference" to -2))
@@ -831,23 +831,23 @@ class MemberControllerTest : BehaviorSpec() {
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-009"
-                    result.contentAsString shouldContain "-1(미설정)"
+                    result.contentAsString shouldContain "SKIP·NONE·MILD·MEDIUM·HOT·EXTREME"
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
 
-            `when`("프로필 수정에서 11 을 보내면") {
-                then("400 MEMBER-009 로 거절되고 메시지에 -1(미설정)이 담기며 맵기는 유지된다") {
+            `when`("프로필 수정에서 SUPER_HOT 을 보내면") {
+                then("400 MEMBER-009 로 거절되고 메시지에 단계 목록이 담기며 맵기는 유지된다") {
                     val token = loginAccessToken()
-                    submitOnboarding(token, validBody() + ("spicinessPreference" to 4))
+                    submitOnboarding(token, validBody() + ("spicinessPreference" to "MEDIUM"))
                         .andExpect { status { isOk() } }
 
-                    val result = updateProfile(token, mapOf("spicinessPreference" to 11)).andReturn().response
+                    val result = updateProfile(token, mapOf("spicinessPreference" to "SUPER_HOT")).andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-009"
-                    result.contentAsString shouldContain "-1(미설정)"
-                    profilePayload(token).path("spicinessPreference").asInt() shouldBe 4
+                    result.contentAsString shouldContain "SKIP·NONE·MILD·MEDIUM·HOT·EXTREME"
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
             }
         }

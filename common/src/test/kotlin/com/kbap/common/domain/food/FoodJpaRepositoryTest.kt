@@ -325,5 +325,58 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("countGroupByContentStatus — 상태별 건수 집계") {
+            `when`("여러 상태의 음식이 섞여 있으면") {
+                then("존재하는 상태만 건수와 함께 반환한다") {
+                    clear()
+                    saveIncomplete("집계-미완료1")
+                    saveIncomplete("집계-미완료2")
+                    saveReady("집계-레디1")
+                    savePendingReview("집계-검수1")
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "집계-이미지대기1",
+                            description = "구수한 집계-이미지대기1",
+                            contentStatus = FoodContentStatus.PENDING_IMAGE,
+                        ),
+                    )
+
+                    val counts = foodJpaRepository.countGroupByContentStatus()
+                        .associate { it.status to it.count }
+
+                    counts shouldBe mapOf(
+                        FoodContentStatus.INCOMPLETE to 2L,
+                        FoodContentStatus.READY to 1L,
+                        FoodContentStatus.PENDING_REVIEW to 1L,
+                        FoodContentStatus.PENDING_IMAGE to 1L,
+                    )
+                }
+            }
+
+            `when`("음식이 한 건도 없으면") {
+                then("빈 목록을 반환한다") {
+                    clear()
+
+                    foodJpaRepository.countGroupByContentStatus() shouldBe emptyList()
+                }
+            }
+
+            `when`("소프트 삭제된 음식이 있으면") {
+                then("집계에서 제외된다") {
+                    clear()
+                    val ghostId = saveIncomplete("집계-유령")
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+                    saveReady("집계-생존")
+
+                    val counts = foodJpaRepository.countGroupByContentStatus()
+                        .associate { it.status to it.count }
+
+                    counts shouldBe mapOf(FoodContentStatus.READY to 1L)
+                }
+            }
+        }
     }
 }

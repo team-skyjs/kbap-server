@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('이미지 배치', 'images', ~{:: .images-main})}">
+<body>
+<section class="images-main">
+    <h1 class="page-title">이미지 배치</h1>
+    <p class="page-desc">이미지가 없는 음식을 모아 생성 배치를 제출하고, 배치 처리 과정을 확인합니다. 결과는 정시 폴링으로 회수됩니다.</p>
+
+    <div class="banner banner-ok" th:if="${param.submittedFoods != null}"
+         th:text="${param.submittedFoods[0] == '0'} ? '이미지 배치 제출 — 대상이 없습니다' : |이미지 배치 제출 완료 — 음식 ${param.submittedFoods[0]}건 (배치 ${param.submittedBatches[0]}개)|"></div>
+    <div class="banner banner-error" th:if="${param.error != null}">처리 중 오류가 발생했습니다 — 서버 로그를 확인하세요</div>
+
+    <div class="card submit-card">
+        <div>
+            <h2 class="section-title">배치 제출</h2>
+            <p class="page-desc" style="margin: 0">이미지 미보유 음식 전체가 대상입니다.</p>
+        </div>
+        <form th:action="@{/admin/foods/images}" method="post"
+              onsubmit="return confirm('이미지 배치를 제출할까요?')">
+            <button class="btn-primary" type="submit">배치 제출</button>
+        </form>
+    </div>
+
+    <h2 class="section-title" style="margin: 24px 0 12px">최근 배치 처리 현황</h2>
+
+    <div class="card table-card" th:if="${!batches.isEmpty()}">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>상태</th>
+                <th>모델</th>
+                <th>대기</th>
+                <th>완료</th>
+                <th>실패</th>
+                <th>전체</th>
+                <th>제출 시각</th>
+                <th>회수 시각</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="b : ${batches}">
+                <td class="mono" th:text="${b.id}">1</td>
+                <td>
+                    <span class="badge"
+                          th:classappend="${b.batchStatus.name() == 'COLLECTED'} ? 'badge-ok'
+                                        : (${b.batchStatus.name() == 'FAILED'} ? 'badge-warn' : 'badge-info')"
+                          th:text="${b.batchStatus}">SUBMITTED</span>
+                </td>
+                <td th:text="${b.model}">model</td>
+                <td th:text="${b.pendingCount}">0</td>
+                <td th:text="${b.doneCount}">0</td>
+                <td th:text="${b.failedCount}">0</td>
+                <td th:text="${b.totalCount}">0</td>
+                <td class="mono" th:text="${#temporals.format(b.submittedAt, 'MM-dd HH:mm')}">-</td>
+                <td class="mono" th:text="${b.collectedAt != null ? #temporals.format(b.collectedAt, 'MM-dd HH:mm') : '-'}">-</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card empty-state" th:if="${batches.isEmpty()}">
+        아직 제출된 배치가 없습니다.
+    </div>
+</section>
+</body>
+</html>
