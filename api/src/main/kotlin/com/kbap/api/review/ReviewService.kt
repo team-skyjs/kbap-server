@@ -5,7 +5,10 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.common.domain.member.MemberService
+import com.kbap.common.domain.member.model.MemberRankingEvent
+import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
@@ -20,6 +23,7 @@ class ReviewService(
     private val foodService: FoodService,
     private val memberService: MemberService,
     private val uploadedImageRepository: UploadedImageJpaRepository,
+    private val rankingEventRepository: MemberRankingEventJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -46,9 +50,11 @@ class ReviewService(
             ),
         )
 
-        if (reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L) {
+        val firstReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L
+        if (firstReviewOfFood) {
             memberService.increaseUniqueReviewedFoodCount(memberId)
         }
+        rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood))
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
@@ -69,11 +75,16 @@ class ReviewService(
     @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
         val review = getOwnedReview(memberId, reviewId)
+        if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
+            throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        }
         review.delete()
         memberService.decreaseReviewCount(memberId)
-        if (reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L) {
+        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
+        if (lastReviewOfFood) {
             memberService.decreaseUniqueReviewedFoodCount(memberId)
         }
+        rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
 
     @Transactional(readOnly = true)

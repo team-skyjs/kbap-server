@@ -62,6 +62,7 @@ class FoodListControllerTest : BehaviorSpec() {
         fun seedFoods(count: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food")
                     (1..count).forEach { id ->
@@ -79,6 +80,7 @@ class FoodListControllerTest : BehaviorSpec() {
         fun seedLocalizedFood() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food")
                     statement.execute(

@@ -373,6 +373,73 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
+        fun rankingEvents(reviewId: Long): List<Triple<String, Int, Int>> =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT event, review_count_delta, unique_food_count_delta FROM member_ranking_event WHERE review_id = ? ORDER BY id",
+                ).use { ps ->
+                    ps.setLong(1, reviewId)
+                    ps.executeQuery().use { rs ->
+                        buildList {
+                            while (rs.next()) add(Triple(rs.getString(1), rs.getInt(2), rs.getInt(3)))
+                        }
+                    }
+                }
+            }
+
+        given("랭킹 이력 원장 — member_ranking_event") {
+            seedFood(780L, "원장김치찌개")
+            seedFood(781L, "원장잡채")
+
+            `when`("첫 리뷰를 작성하면") {
+                then("REVIEW_CREATED +1/+1 이벤트가 남는다") {
+                    val token = accessToken(780L)
+                    val reviewId = createReview(token, 780L)
+                    rankingEvents(reviewId) shouldBe listOf(Triple("REVIEW_CREATED", 1, 1))
+                }
+            }
+            `when`("같은 음식에 추가 리뷰를 작성하면") {
+                then("REVIEW_CREATED +1/0 이벤트가 남는다") {
+                    val token = accessToken(781L)
+                    createReview(token, 780L)
+                    val secondId = createReview(token, 780L)
+                    rankingEvents(secondId) shouldBe listOf(Triple("REVIEW_CREATED", 1, 0))
+                }
+            }
+            `when`("중간 리뷰를 삭제하면") {
+                then("REVIEW_DELETED -1/0 이벤트가 추가돼 이력 2건이 된다") {
+                    val token = accessToken(782L)
+                    val target = createReview(token, 780L)
+                    createReview(token, 780L)
+                    remove(token, target).andExpect { status { isOk() } }
+                    rankingEvents(target) shouldBe listOf(
+                        Triple("REVIEW_CREATED", 1, 1),
+                        Triple("REVIEW_DELETED", -1, 0),
+                    )
+                }
+            }
+            `when`("마지막 리뷰를 삭제하면") {
+                then("REVIEW_DELETED -1/-1 이벤트가 남는다") {
+                    val token = accessToken(783L)
+                    val target = createReview(token, 781L)
+                    remove(token, target).andExpect { status { isOk() } }
+                    rankingEvents(target) shouldBe listOf(
+                        Triple("REVIEW_CREATED", 1, 1),
+                        Triple("REVIEW_DELETED", -1, -1),
+                    )
+                }
+            }
+            `when`("삭제된 리뷰를 다시 삭제하려 하면") {
+                then("400 이고 삭제 이벤트는 1건만 남는다") {
+                    val token = accessToken(784L)
+                    val target = createReview(token, 781L)
+                    remove(token, target).andExpect { status { isOk() } }
+                    remove(token, target).andExpect { status { isBadRequest() } }
+                    rankingEvents(target).count { it.first == "REVIEW_DELETED" } shouldBe 1
+                }
+            }
+        }
+
         given("리뷰 랭킹 카운트 연동") {
             seedFood(730L, "리뷰불고기")
             seedFood(731L, "리뷰잡채")
