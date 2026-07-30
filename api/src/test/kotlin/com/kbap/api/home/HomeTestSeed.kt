@@ -6,6 +6,7 @@ object HomeTestSeed {
     fun reset(dataSource: DataSource) = execute(
         dataSource,
         listOf(
+            "DELETE FROM food_review",
             "DELETE FROM scan_history",
             "DELETE FROM avoidance_substance",
             "DELETE FROM food",

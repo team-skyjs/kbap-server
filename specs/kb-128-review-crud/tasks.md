@@ -70,16 +70,16 @@
 
 **Independent Test**: 국적 다른 리뷰 시드 후 상세를 비회원/국적 보유/국적 미보유로 조회해 3필드 규칙을 단독 검증.
 
-- [ ] T021 [US2] Red: 음식 상세 확장 MockMvc 테스트 작성·실패 확인 — 전체 평균 소수 1자리 반올림(예: 11/3→3.7)·reviewCount, 같은 국적 평균(스냅샷 기준 — 국적 변경 회원의 과거 리뷰 포함), null 3분기(비회원/국적 미보유/해당 국적 리뷰 0건), 리뷰 0건 음식(count 0·avg null), 삭제 리뷰 집계 제외 — `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt`(기존 FoodControllerTest 회귀 유지)
-- [ ] T022 [US2] Green: `ReviewService.getFoodRatingSummary(foodId, viewerCountryCode?)` — aggregateRating 2회(전체/국적)·소수 1자리 반올림·`RatingSummary` 결과 타입 — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
-- [ ] T023 [US2] Green: `FoodController.detail` 합성(@AuthMemberIdOrNull memberId → `MemberService.getMemberOrNull` 국적 → summary) + `FoodDetailResponse` 3필드 추가 + `FoodApi` 문서 갱신 — `api/src/main/kotlin/com/kbap/api/food/{FoodController,FoodDetailResponse,FoodApi}.kt`
-- [ ] T024 [US2] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.food.*" --tests "com.kbap.api.review.*"` Green 후 커밋 → draft PR
+- [X] T021 [US2] Red: 음식 상세 확장 MockMvc 테스트 작성·실패 확인 — 전체 평균 소수 1자리 반올림(예: 11/3→3.7)·reviewCount, 같은 국적 평균(스냅샷 기준 — 국적 변경 회원의 과거 리뷰 포함), null 3분기(비회원/국적 미보유/해당 국적 리뷰 0건), 리뷰 0건 음식(count 0·avg null), 삭제 리뷰 집계 제외 — `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt`(기존 FoodControllerTest 회귀 유지)
+- [X] T022 [US2] Green: `ReviewService.getFoodRatingSummary(foodId, viewerCountryCode?)` — aggregateRating 2회(전체/국적)·소수 1자리 반올림·`RatingSummary` 결과 타입 — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
+- [X] T023 [US2] Green: `FoodController.detail` 합성(@AuthMemberIdOrNull memberId → `MemberService.getMemberOrNull` 국적 → summary) + `FoodDetailResponse` 3필드 추가 + `FoodApi` 문서 갱신 — `api/src/main/kotlin/com/kbap/api/food/{FoodController,FoodDetailResponse,FoodApi}.kt`
+- [X] T024 [US2] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.food.*" --tests "com.kbap.api.review.*"` Green 후 커밋 → draft PR
 
 ---
 
 ## Final Phase: Polish (마지막 PR 에 포함)
 
-- [ ] T025 전체 빌드 `./gradlew build` Green(Testcontainers·arch 태그 포함) + Swagger UI 에서 Review 태그·음식 상세 스키마 육안 확인
+- [X] T025 전체 빌드 `./gradlew build` Green(Testcontainers·arch 태그 포함) + Swagger UI 에서 Review 태그·음식 상세 스키마 육안 확인
 - [ ] T026 Jira KB-128 DoD 체크 갱신·잔여 항목 확인(스탠드업 코멘트는 별도 스킬)
 
 ## Dependencies

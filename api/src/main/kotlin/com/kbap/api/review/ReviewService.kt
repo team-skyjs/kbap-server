@@ -86,6 +86,19 @@ class ReviewService(
     fun getMyReviewPage(memberId: Long, cursor: Long?): Page<ReviewResponse> =
         toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
 
+    @Transactional(readOnly = true)
+    fun getFoodRatingSummary(foodId: Long, viewerCountryCode: String?): RatingSummary {
+        val overall = reviewRepository.aggregateRating(foodId, null)
+        val sameCountry = viewerCountryCode?.let { reviewRepository.aggregateRating(foodId, it) }
+        return RatingSummary(
+            averageRating = overall.average?.roundToFirstDecimal(),
+            reviewCount = overall.reviewCount,
+            sameCountryAverageRating = sameCountry?.average?.roundToFirstDecimal(),
+        )
+    }
+
+    private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
+
     private fun toPage(rows: List<Review>): Page<ReviewResponse> {
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
