@@ -9,6 +9,7 @@ enum class ErrorCode(
     // 공통 — COMMON-001 은 폐기된 UNSUPPORTED_LANGUAGE 자리다(KB-201, 미지원 언어는 영어 폴백). 재사용 금지.
     INVALID_REQUEST("COMMON-002", 400, "잘못된 요청입니다"),
     INTERNAL_SERVER_ERROR("COMMON-003", 500, "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요"),
+    CONFLICT("COMMON-004", 409, "다른 요청과 겹쳐 처리하지 못했습니다. 잠시 후 다시 시도해 주세요"),
 
     INVALID_SOCIAL_TOKEN("AUTH-001", 401, "유효하지 않은 소셜 인증 토큰입니다"),
     UNSUPPORTED_PROVIDER("AUTH-002", 401, "지원하지 않는 소셜 로그인 제공자입니다"),
@@ -38,6 +39,10 @@ enum class ErrorCode(
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
+
+    REVIEW_NOT_FOUND("REVIEW-001", 400, "해당 리뷰를 찾을 수 없습니다"),
+    REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
+    REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
 
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),

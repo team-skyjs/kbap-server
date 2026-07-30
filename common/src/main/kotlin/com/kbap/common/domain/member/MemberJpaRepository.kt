@@ -24,8 +24,53 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun increaseScanCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.reviewCount = m.reviewCount + 1
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+        """,
+    )
+    fun increaseReviewCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.reviewCount = m.reviewCount - 1
+        where m.id = :memberId
+          and m.reviewCount > 0
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+        """,
+    )
+    fun decreaseReviewCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + 1
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+        """,
+    )
+    fun increaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - 1
+        where m.id = :memberId
+          and m.uniqueReviewedFoodCount > 0
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+        """,
+    )
+    fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
 }

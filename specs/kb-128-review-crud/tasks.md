@@ -37,15 +37,15 @@
 
 **Independent Test**: 회원 토큰으로 작성→수정→삭제 전 과정 + 랭킹 카운트 증감(첫/추가/마지막)을 MockMvc 로 단독 검증.
 
-- [ ] T008 [P] [US1] Red: `ReviewControllerTest` 작성·실패 확인 — 작성 성공(별점만/본문+사진 2장), 검증 실패(rating 0·6, content 1001자, imagePaths 4장, foodId 누락), 401(무토큰), 타인 수정/삭제 403(REVIEW-002), 없는 리뷰 400(REVIEW-001), 없는 음식 400(FOOD-001), 미소유 이미지 400(REVIEW-003), 수정 후 값 반영·스냅샷 불변, 삭제 후 재수정 400 — `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` (시드는 BookmarkControllerTest 선례의 raw JDBC INSERT 헬퍼)
-- [ ] T009 [P] [US4] Red: 랭킹 카운트 시나리오 테스트 작성·실패 확인 — 첫 리뷰(+1/+1), 같은 음식 두 번째(+1/+0), 중간 삭제(-1/-0), 마지막 삭제(-1/-1), `MemberService` 증감 단위(0건 갱신 시 MEMBER_NOT_FOUND) — T008 파일 내 given 블록 + `common/src/test/kotlin/com/kbap/common/domain/member/MemberServiceReviewCountTest.kt`
-- [ ] T010 [US4] Green: `MemberJpaRepository` 에 `increaseReviewCounts`/`decreaseReviewCounts` JPQL(@Modifying, 두 컬럼 단일 UPDATE, 감소 가드) + `MemberService` 공개 메서드 — `common/src/main/kotlin/com/kbap/common/domain/member/{MemberJpaRepository,MemberService}.kt`
-- [ ] T011 [P] [US1] Green: `ErrorCode` 에 REVIEW-001(400)·REVIEW-002(403)·REVIEW-003(400) 추가 — `common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt`
-- [ ] T012 [P] [US1] Green: `UploadedImageRepository` 에 `findByPathIn` 추가 — `common/src/main/kotlin/com/kbap/common/domain/image/UploadedImageRepository.kt` (실경로 확인 후)
-- [ ] T013 [US1] Green: `ReviewService` 구현 — `createReview`(food 존재→이미지 일괄 소유 검증→국적 스냅샷→저장→count==1 판정→랭킹 증가, `@Transactional`), `updateReview`(조회→본인→이미지 검증→update), `deleteReview`(조회→본인→delete→count==0 판정→랭킹 감소) — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
-- [ ] T014 [US1] Green: Request/Response DTO — `ReviewCreateRequest`(@NotNull foodId·rating @Min1@Max5, @Size content≤1000·imagePaths≤3)·`ReviewUpdateRequest`·`ReviewResponse`(imageUrls CDN 조립) — `api/src/main/kotlin/com/kbap/api/review/`
-- [ ] T015 [US1] Green: `ReviewApi`(swagger 전용)+`ReviewController`(@RequestMapping(ApiPaths.V1), POST/PATCH/DELETE `/reviews`, @AuthMemberId, BaseResponse 봉투) — `api/src/main/kotlin/com/kbap/api/review/{ReviewApi,ReviewController}.kt`
-- [ ] T016 [US1] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.review.*" :common:test` Green + `ErrorCodeStatusTest` 통과 확인 후 커밋 → draft PR
+- [X] T008 [P] [US1] Red: `ReviewControllerTest` 작성·실패 확인 — 작성 성공(별점만/본문+사진 2장), 검증 실패(rating 0·6, content 1001자, imagePaths 4장, foodId 누락), 401(무토큰), 타인 수정/삭제 403(REVIEW-002), 없는 리뷰 400(REVIEW-001), 없는 음식 400(FOOD-001), 미소유 이미지 400(REVIEW-003), 수정 후 값 반영·스냅샷 불변, 삭제 후 재수정 400 — `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` (시드는 BookmarkControllerTest 선례의 raw JDBC INSERT 헬퍼)
+- [X] T009 [P] [US4] Red: 랭킹 카운트 시나리오 테스트 작성·실패 확인 — 첫 리뷰(+1/+1), 같은 음식 두 번째(+1/+0), 중간 삭제(-1/-0), 마지막 삭제(-1/-1), `MemberService` 증감 단위(0건 갱신 시 MEMBER_NOT_FOUND) — T008 파일 내 given 블록 + `common/src/test/kotlin/com/kbap/common/domain/member/MemberServiceReviewCountTest.kt`
+- [X] T010 [US4] Green: `MemberJpaRepository` 에 `increaseReviewCounts`/`decreaseReviewCounts` JPQL(@Modifying, 두 컬럼 단일 UPDATE, 감소 가드) + `MemberService` 공개 메서드 — `common/src/main/kotlin/com/kbap/common/domain/member/{MemberJpaRepository,MemberService}.kt`
+- [X] T011 [P] [US1] Green: `ErrorCode` 에 REVIEW-001(400)·REVIEW-002(403)·REVIEW-003(400) 추가 — `common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt`
+- [X] T012 [P] [US1] Green: `UploadedImageRepository` 에 `findByPathIn` 추가 — `common/src/main/kotlin/com/kbap/common/domain/image/UploadedImageRepository.kt` (실경로 확인 후)
+- [X] T013 [US1] Green: `ReviewService` 구현 — `createReview`(food 존재→이미지 일괄 소유 검증→국적 스냅샷→저장→count==1 판정→랭킹 증가, `@Transactional`), `updateReview`(조회→본인→이미지 검증→update), `deleteReview`(조회→본인→delete→count==0 판정→랭킹 감소) — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
+- [X] T014 [US1] Green: Request/Response DTO — `ReviewCreateRequest`(@NotNull foodId·rating @Min1@Max5, @Size content≤1000·imagePaths≤3)·`ReviewUpdateRequest`·`ReviewResponse`(imageUrls CDN 조립) — `api/src/main/kotlin/com/kbap/api/review/`
+- [X] T015 [US1] Green: `ReviewApi`(swagger 전용)+`ReviewController`(@RequestMapping(ApiPaths.V1), POST/PATCH/DELETE `/reviews`, @AuthMemberId, BaseResponse 봉투) — `api/src/main/kotlin/com/kbap/api/review/{ReviewApi,ReviewController}.kt`
+- [X] T016 [US1] 검증·Refactor: `./gradlew :api:test --tests "com.kbap.api.review.*" :common:test` Green + `ErrorCodeStatusTest` 통과 확인 후 커밋 → draft PR
 
 **Checkpoint**: 리뷰 데이터 생성 가능 — MVP. 이후 PR3·PR4 는 서로 독립.
 
