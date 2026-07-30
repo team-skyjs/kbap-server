@@ -13,10 +13,15 @@ import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
+import jakarta.persistence.EntityManager
+import jakarta.persistence.OptimisticLockException
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class ReviewService(
@@ -26,8 +31,12 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
+    private val entityManager: EntityManager,
+    transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
+    private val writeTransaction = TransactionTemplate(transactionManager)
+
     @Transactional
     fun createReview(
         memberId: Long,
@@ -60,33 +69,37 @@ class ReviewService(
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
     }
 
-    @Transactional
     fun updateReview(
         memberId: Long,
         reviewId: Long,
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
-    ): ReviewResponse {
-        val review = getOwnedReview(memberId, reviewId)
-        verifyImageOwnership(memberId, imagePaths)
-        review.update(rating = rating, content = content, imageRefs = imagePaths)
-        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
+    ): ReviewResponse = retryOnceOnConflict {
+        writeTransaction.execute {
+            val review = getOwnedReview(memberId, reviewId)
+            verifyImageOwnership(memberId, imagePaths)
+            review.update(rating = rating, content = content, imageRefs = imagePaths)
+            ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
+        }!!
     }
 
-    @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
-        val review = getOwnedReview(memberId, reviewId)
-        if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
-            throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        retryOnceOnConflict {
+            writeTransaction.execute {
+                val review = getOwnedReview(memberId, reviewId)
+                if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
+                    throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+                }
+                review.delete()
+                memberService.decreaseReviewCount(memberId)
+                val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
+                if (lastReviewOfFood) {
+                    memberService.decreaseUniqueReviewedFoodCount(memberId)
+                }
+                rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
+            }
         }
-        review.delete()
-        memberService.decreaseReviewCount(memberId)
-        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
-        if (lastReviewOfFood) {
-            memberService.decreaseUniqueReviewedFoodCount(memberId)
-        }
-        rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
 
     @Transactional(readOnly = true)
@@ -127,9 +140,30 @@ class ReviewService(
     private fun authorOf(memberId: Long): ReviewAuthorResponse =
         ReviewAuthorResponse.from(memberService.getMember(memberId))
 
+    private fun <T> retryOnceOnConflict(block: () -> T): T =
+        try {
+            block()
+        } catch (first: Exception) {
+            if (!isOptimisticConflict(first)) throw first
+            entityManager.clear()
+            try {
+                block()
+            } catch (retry: Exception) {
+                if (!isOptimisticConflict(retry)) throw retry
+                throw BusinessException(ErrorCode.REVIEW_CONFLICT)
+            }
+        }
+
+    private fun isOptimisticConflict(e: Throwable?): Boolean =
+        when {
+            e == null -> false
+            e is OptimisticLockingFailureException || e is OptimisticLockException -> true
+            else -> isOptimisticConflict(e.cause)
+        }
+
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
-        val review = reviewRepository.findByIdForUpdate(reviewId)
-            ?: throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        val review = reviewRepository.findById(reviewId)
+            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }
