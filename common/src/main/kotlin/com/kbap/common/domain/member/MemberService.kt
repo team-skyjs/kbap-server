@@ -95,6 +95,34 @@ class MemberService(
         }
     }
 
+    @Transactional
+    fun increaseReviewCount(memberId: Long) {
+        if (memberRepository.increaseReviewCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    @Transactional
+    fun decreaseReviewCount(memberId: Long) {
+        if (memberRepository.decreaseReviewCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    @Transactional
+    fun increaseUniqueReviewedFoodCount(memberId: Long) {
+        if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
+    @Transactional
+    fun decreaseUniqueReviewedFoodCount(memberId: Long) {
+        if (memberRepository.decreaseUniqueReviewedFoodCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        }
+    }
+
     // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
     @Transactional(readOnly = true)
     fun getAvoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
