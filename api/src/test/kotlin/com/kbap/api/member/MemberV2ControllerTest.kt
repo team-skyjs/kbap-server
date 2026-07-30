@@ -7,6 +7,7 @@ import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -127,6 +128,7 @@ class MemberV2ControllerTest : BehaviorSpec() {
                     result.status shouldBe 200
                     val payload = profilePayload(token)
                     payload.path("avoidanceSubstanceCodes").map { it.asText() } shouldBe listOf("PEANUT")
+                    payload.path("profileImageUrl").asText() shouldContain "profile-default-256"
                     payload.path("spicinessPreference").asText() shouldBe "MILD"
                     payload.path("countryCode").asText() shouldBe "US"
                 }
