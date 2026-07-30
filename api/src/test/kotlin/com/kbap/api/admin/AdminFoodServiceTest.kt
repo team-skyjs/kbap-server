@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -69,6 +70,25 @@ class AdminFoodServiceTest : BehaviorSpec() {
                     )
 
                     service.getFoodDetailOrNull(food.id)!!.imageUrl shouldBe "https://other.cdn/x.png"
+                }
+            }
+        }
+
+        given("음식 상세 JSON 포맷(getFoodDetailOrNull)") {
+            `when`("번역·기피 성분이 있는 음식의 상세를 조회하면") {
+                then("JSON 필드를 줄바꿈 있는 pretty 포맷으로 내려준다") {
+                    val food = foodJpaRepository.save(
+                        Food(
+                            koreanName = "포맷음식",
+                            description = "설명",
+                            nameTranslations = mapOf("en" to "Pretty", "ja" to "プリティ"),
+                        ),
+                    )
+
+                    val detail = service.getFoodDetailOrNull(food.id)!!
+
+                    detail.nameTranslationsJson shouldContain "\n"
+                    detail.nameTranslationsJson shouldContain "\"en\""
                 }
             }
         }
