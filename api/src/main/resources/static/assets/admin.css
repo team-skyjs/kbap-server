@@ -567,6 +567,14 @@ body {
 
 .meta-item { color: var(--text-faint); font-size: 12px; }
 
+.food-row-toggle {
+  width: 88px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  box-sizing: border-box;
+}
+
 .food-row-selected { border-color: var(--navy); box-shadow: var(--shadow); }
 
 .food-panel {

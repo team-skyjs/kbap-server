@@ -28,9 +28,9 @@
                     <span class="meta-item" th:text="|맵기 ${f.spiciness}|">맵기 0</span>
                     <span class="meta-item" th:text="${f.hasImage} ? '이미지 ○' : '이미지 ×'">이미지 ×</span>
                     <span class="meta-item" th:text="${#temporals.format(f.updatedAt, 'MM-dd HH:mm')}">-</span>
-                    <a class="page-btn" th:unless="${opened}"
+                    <a class="page-btn food-row-toggle" th:unless="${opened}"
                        th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})}">상세보기</a>
-                    <a class="page-btn" th:if="${opened}"
+                    <a class="page-btn food-row-toggle" th:if="${opened}"
                        th:href="@{/admin/foods/list(page=${foodPage.page})}">닫기</a>
                 </div>
             </div>
