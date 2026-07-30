@@ -5,6 +5,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
@@ -24,6 +25,7 @@ class ReviewService(
     private val memberService: MemberService,
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
+    private val memberRepository: MemberJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -55,7 +57,7 @@ class ReviewService(
             memberService.increaseUniqueReviewedFoodCount(memberId)
         }
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood))
-        return ReviewResponse.from(review, imagePublicBaseUrl)
+        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
     }
 
     @Transactional
@@ -69,7 +71,7 @@ class ReviewService(
         val review = getOwnedReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
         review.update(rating = rating, content = content, imageRefs = imagePaths)
-        return ReviewResponse.from(review, imagePublicBaseUrl)
+        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
     }
 
     @Transactional
@@ -113,12 +115,17 @@ class ReviewService(
     private fun toPage(rows: List<Review>): Page<ReviewResponse> {
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
+        val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
+            .associate { it.id to ReviewAuthorResponse.from(it) }
         return Page(
-            items = page.map { ReviewResponse.from(it, imagePublicBaseUrl) },
+            items = page.map { ReviewResponse.from(it, imagePublicBaseUrl, authorsByMemberId[it.memberId]) },
             hasNext = hasNext,
             nextCursor = if (hasNext) page.last().id else null,
         )
     }
+
+    private fun authorOf(memberId: Long): ReviewAuthorResponse =
+        ReviewAuthorResponse.from(memberService.getMember(memberId))
 
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findByIdForUpdate(reviewId)

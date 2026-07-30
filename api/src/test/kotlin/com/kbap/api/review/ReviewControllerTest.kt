@@ -45,15 +45,16 @@ class ReviewControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE profile = VALUES(profile)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "review-test-$memberId")
-                    ps.setString(3, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
+                    ps.setString(3, "리뷰어$memberId")
+                    ps.setString(4, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
                     ps.executeUpdate()
                 }
             }
@@ -161,6 +162,9 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.foodId") { value(700) }
                         jsonPath("$.payload.content") { value(null) }
                         jsonPath("$.payload.imageUrls.length()") { value(0) }
+                        jsonPath("$.payload.author.nickname") { value("리뷰어700") }
+                        jsonPath("$.payload.author.countryCode") { value("KR") }
+                        jsonPath("$.payload.author.score") { value(15) }
                     }
                 }
             }
