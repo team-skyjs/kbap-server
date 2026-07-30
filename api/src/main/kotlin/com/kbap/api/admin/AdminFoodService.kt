@@ -42,7 +42,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {
         val food = foodRepository.findById(id).orElse(null) ?: return null
-        return AdminFoodDetailView.from(food, imagePublicBaseUrl, objectMapper::writeValueAsString)
+        return AdminFoodDetailView.from(food, imagePublicBaseUrl, objectMapper.writerWithDefaultPrettyPrinter()::writeValueAsString)
     }
 
     @Transactional
@@ -75,6 +75,7 @@ class AdminFoodService(
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.avoidanceSubstances = avoidanceSubstances
+        food.transitionByContentState()
         return AdminFoodUpdateResult.UPDATED
     }
 

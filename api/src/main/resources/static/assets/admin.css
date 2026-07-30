@@ -567,35 +567,39 @@ body {
 
 .meta-item { color: var(--text-faint); font-size: 12px; }
 
-.modal-overlay {
+.food-row-toggle {
+  width: 88px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.food-row-selected { border-color: var(--navy); box-shadow: var(--shadow); }
+
+.food-panel {
   position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: var(--sp-6);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100%;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
   overflow-y: auto;
+  padding: var(--sp-5);
   z-index: 10;
 }
 
-.modal {
-  width: 660px;
-  max-width: 100%;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  box-shadow: var(--shadow-lg);
-}
-
-.modal-head {
+.food-panel-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--sp-4);
 }
 
-.modal-close {
+.food-panel-close {
   color: var(--text-faint);
   text-decoration: none;
   font-size: 18px;
@@ -603,7 +607,24 @@ body {
   border-radius: var(--radius-sm);
 }
 
-.modal-close:hover { color: var(--error-text); background: var(--divider); }
+.food-panel-close:hover { color: var(--error-text); background: var(--divider); }
+
+.food-detail-image {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.image-placeholder {
+  padding: var(--sp-4);
+  color: var(--text-faint);
+  font-size: 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  text-align: center;
+}
 
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--sp-4); }
 

@@ -3,9 +3,11 @@ package com.kbap.api.admin
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -68,6 +70,132 @@ class AdminFoodServiceTest : BehaviorSpec() {
                     )
 
                     service.getFoodDetailOrNull(food.id)!!.imageUrl shouldBe "https://other.cdn/x.png"
+                }
+            }
+        }
+
+        given("음식 상세 JSON 포맷(getFoodDetailOrNull)") {
+            `when`("번역·기피 성분이 있는 음식의 상세를 조회하면") {
+                then("JSON 필드를 줄바꿈 있는 pretty 포맷으로 내려준다") {
+                    val food = foodJpaRepository.save(
+                        Food(
+                            koreanName = "포맷음식",
+                            description = "설명",
+                            nameTranslations = mapOf("en" to "Pretty", "ja" to "プリティ"),
+                        ),
+                    )
+
+                    val detail = service.getFoodDetailOrNull(food.id)!!
+
+                    detail.nameTranslationsJson shouldContain "\n"
+                    detail.nameTranslationsJson shouldContain "\"en\""
+                }
+            }
+        }
+
+        given("관리자 음식 수정 상태 자동 보정(updateFood)") {
+            val fullTranslationsJson =
+                """{"zh-Hans":"번","en":"번","ja":"번","zh-Hant":"번","vi":"번","id":"번","th":"번","ru":"번","es":"번"}"""
+
+            fun completeCommand(
+                koreanName: String,
+                contentStatus: FoodContentStatus,
+                spiciness: Int = 2,
+                imageRef: String = "",
+                nameTranslationsJson: String = fullTranslationsJson,
+            ) = UpdateFoodCommand(
+                koreanName = koreanName,
+                description = "완비된 설명",
+                spiciness = spiciness,
+                contentStatus = contentStatus,
+                imageRef = imageRef,
+                nameTranslationsJson = nameTranslationsJson,
+                descriptionTranslationsJson = fullTranslationsJson,
+                avoidanceSubstancesJson = """[{"code":"PORK","inclusion_percent":80}]""",
+            )
+
+            fun savedStatus(id: Long): FoodContentStatus =
+                foodJpaRepository.findById(id).get().contentStatus
+
+            fun saveIncompleteFood(koreanName: String): Long =
+                foodJpaRepository.save(Food.incomplete(koreanName)).id
+
+            `when`("검수 이전 상태를 고른 채 텍스트를 완비하고 이미지 없이 저장하면") {
+                then("PENDING_IMAGE 로 자동 보정된다") {
+                    val id = saveIncompleteFood("보정이미지대기음식")
+
+                    val result = service.updateFood(id, completeCommand("보정이미지대기음식", FoodContentStatus.INCOMPLETE))
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    savedStatus(id) shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("검수 이전 상태를 고른 채 텍스트 완비에 이미지까지 있게 저장하면") {
+                then("PENDING_REVIEW 로 자동 보정된다") {
+                    val id = saveIncompleteFood("보정검수대기음식")
+
+                    val result = service.updateFood(
+                        id,
+                        completeCommand("보정검수대기음식", FoodContentStatus.INCOMPLETE, imageRef = "food/img.png"),
+                    )
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    savedStatus(id) shouldBe FoodContentStatus.PENDING_REVIEW
+                }
+            }
+
+            `when`("검수 이전 상태를 고른 채 텍스트가 미완이면") {
+                then("INCOMPLETE 로 보정된다") {
+                    val id = saveIncompleteFood("보정미완음식")
+
+                    val result = service.updateFood(
+                        id,
+                        completeCommand("보정미완음식", FoodContentStatus.PENDING_IMAGE, spiciness = Food.SPICINESS_UNASSESSED),
+                    )
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    savedStatus(id) shouldBe FoodContentStatus.INCOMPLETE
+                }
+            }
+
+            `when`("READY 를 직접 지정해 저장하면") {
+                then("텍스트가 미완이어도 READY 가 유지된다") {
+                    val id = saveIncompleteFood("수동레디음식")
+
+                    val result = service.updateFood(
+                        id,
+                        completeCommand("수동레디음식", FoodContentStatus.READY, nameTranslationsJson = "{}"),
+                    )
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    savedStatus(id) shouldBe FoodContentStatus.READY
+                }
+            }
+
+            `when`("PENDING_REVIEW 를 직접 지정해 저장하면") {
+                then("텍스트가 미완이어도 PENDING_REVIEW 가 유지된다") {
+                    val id = saveIncompleteFood("수동검수음식")
+
+                    val result = service.updateFood(
+                        id,
+                        completeCommand("수동검수음식", FoodContentStatus.PENDING_REVIEW, nameTranslationsJson = "{}"),
+                    )
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    savedStatus(id) shouldBe FoodContentStatus.PENDING_REVIEW
+                }
+            }
+
+            `when`("중복 이름으로 검증에 실패하면") {
+                then("상태 보정 없이 기존 상태가 유지된다") {
+                    saveFood("보정중복대상음식")
+                    val id = saveIncompleteFood("보정중복시도음식")
+
+                    val result = service.updateFood(id, completeCommand("보정중복대상음식", FoodContentStatus.INCOMPLETE))
+
+                    result shouldBe AdminFoodUpdateResult.DUPLICATE_NAME
+                    savedStatus(id) shouldBe FoodContentStatus.INCOMPLETE
                 }
             }
         }

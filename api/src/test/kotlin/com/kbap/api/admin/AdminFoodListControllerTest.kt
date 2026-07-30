@@ -11,6 +11,7 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import jakarta.servlet.http.Cookie
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -96,17 +97,17 @@ class AdminFoodListControllerTest : BehaviorSpec() {
             }
 
             `when`("목록을 렌더링하면") {
-                then("각 행에 anchor id 와 fragment 포함 상세보기 링크를 내려준다") {
+                then("각 행에 anchor id 와 상세보기 링크를 내려준다") {
                     val saved = saveFood("앵커비빔밥")
 
                     val html = getList().response.contentAsString
                     html shouldContain "id=\"food-${saved.id}\""
-                    html shouldContain "detail=${saved.id}#food-${saved.id}"
+                    html shouldContain "detail=${saved.id}"
                 }
             }
         }
 
-        given("음식 상세 모달") {
+        given("음식 상세 패널") {
             `when`("detail 파라미터로 조회하면") {
                 then("전 컬럼 데이터를 모델로 내려준다") {
                     val saved = foodJpaRepository.save(
@@ -129,12 +130,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     detail.contentStatus shouldBe FoodContentStatus.READY
                     detail.nameTranslationsJson shouldContain "Bibimbap"
 
-                    result.response.contentAsString shouldContain "?page=1#food-${saved.id}"
+                    result.response.contentAsString shouldContain "food-panel-close"
                 }
             }
 
             `when`("imageRef 가 있는 음식을 detail 로 조회하면") {
-                then("해석된 공개 URL 의 이미지를 모달에 렌더링한다") {
+                then("해석된 공개 URL 의 이미지를 상세에 렌더링한다") {
                     val saved = foodJpaRepository.save(
                         Food(koreanName = "이미지모달음식", description = "설명", imageRef = "food/img/2.png"),
                     )
@@ -154,8 +155,43 @@ class AdminFoodListControllerTest : BehaviorSpec() {
             }
 
             `when`("존재하지 않는 detail id 면") {
-                then("모달 없이 목록만 보여준다") {
+                then("상세 없이 목록만 보여준다") {
                     getList("?detail=999999").modelAndView!!.model["foodDetail"] shouldBe null
+                }
+            }
+        }
+
+        given("음식 상세 패널 편집 토글") {
+            fun detailFieldTag(html: String, id: String): String =
+                Regex("""<(?:input|select|textarea)[^>]*id="$id"[^>]*>""").find(html)!!.value
+
+            val detailFieldIds = listOf(
+                "koreanName", "contentStatus", "spiciness", "imageRef", "description",
+                "nameTranslationsJson", "descriptionTranslationsJson", "avoidanceSubstancesJson",
+            )
+
+            `when`("detail 만으로 상세를 펼치면") {
+                then("전 입력이 비활성이고 저장 버튼 없이 편집 링크만 보인다") {
+                    val saved = saveFood("토글읽기음식")
+
+                    val html = getList("?page=1&detail=${saved.id}").response.contentAsString
+
+                    detailFieldIds.forEach { id -> detailFieldTag(html, id) shouldContain "disabled" }
+                    html shouldNotContain ">저장</button>"
+                    html shouldContain ">편집</a>"
+                    html shouldContain "edit=true"
+                }
+            }
+
+            `when`("edit=true 로 상세를 펼치면") {
+                then("전 입력이 활성화되고 저장 버튼과 취소 링크가 보인다") {
+                    val saved = saveFood("토글편집음식")
+
+                    val html = getList("?page=1&detail=${saved.id}&edit=true").response.contentAsString
+
+                    detailFieldIds.forEach { id -> detailFieldTag(html, id) shouldNotContain "disabled" }
+                    html shouldContain ">저장</button>"
+                    html shouldContain ">취소</a>"
                 }
             }
         }
@@ -216,7 +252,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
             }
 
             `when`("잘못된 JSON 으로 제출하면") {
-                then("오류 파라미터와 함께 모달을 다시 열고 데이터를 바꾸지 않는다") {
+                then("오류 파라미터와 함께 상세를 다시 열고 데이터를 바꾸지 않는다") {
                     val saved = saveFood("JSON오류이름")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
@@ -232,7 +268,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-json#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-json#food-${saved.id}")
                     }
 
                     foodJpaRepository.findById(saved.id).get().koreanName shouldBe "JSON오류이름"
@@ -268,7 +304,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("contentStatus", "INCOMPLETE")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-name#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-name#food-${saved.id}")
                     }
 
                     foodJpaRepository.findById(saved.id).get().koreanName shouldBe "이름검증대상"
@@ -293,7 +329,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=duplicate-name#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=duplicate-name#food-${saved.id}")
                     }
                 }
             }
