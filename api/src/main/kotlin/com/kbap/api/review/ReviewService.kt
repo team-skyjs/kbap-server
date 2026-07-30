@@ -9,15 +9,10 @@ import com.kbap.common.domain.member.MemberService
 import com.kbap.api.core.Page
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
-import jakarta.persistence.EntityManager
-import jakarta.persistence.OptimisticLockException
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class ReviewService(
@@ -25,12 +20,8 @@ class ReviewService(
     private val foodService: FoodService,
     private val memberService: MemberService,
     private val uploadedImageRepository: UploadedImageJpaRepository,
-    private val entityManager: EntityManager,
-    transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    private val transactionTemplate = TransactionTemplate(transactionManager)
-
     @Transactional
     fun createReview(
         memberId: Long,
@@ -61,31 +52,27 @@ class ReviewService(
         return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
+    @Transactional
     fun updateReview(
         memberId: Long,
         reviewId: Long,
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
-    ): ReviewResponse = retryOnceOnConflict {
-        transactionTemplate.execute {
-            val review = getOwnedReview(memberId, reviewId)
-            verifyImageOwnership(memberId, imagePaths)
-            review.update(rating = rating, content = content, imageRefs = imagePaths)
-            ReviewResponse.from(review, imagePublicBaseUrl)
-        }!!
+    ): ReviewResponse {
+        val review = getOwnedReview(memberId, reviewId)
+        verifyImageOwnership(memberId, imagePaths)
+        review.update(rating = rating, content = content, imageRefs = imagePaths)
+        return ReviewResponse.from(review, imagePublicBaseUrl)
     }
 
+    @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
-        retryOnceOnConflict {
-            transactionTemplate.execute {
-                val review = getOwnedReview(memberId, reviewId)
-                review.delete()
-                memberService.decreaseReviewCount(memberId)
-                if (reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L) {
-                    memberService.decreaseUniqueReviewedFoodCount(memberId)
-                }
-            }
+        val review = getOwnedReview(memberId, reviewId)
+        review.delete()
+        memberService.decreaseReviewCount(memberId)
+        if (reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L) {
+            memberService.decreaseUniqueReviewedFoodCount(memberId)
         }
     }
 
@@ -108,27 +95,6 @@ class ReviewService(
             nextCursor = if (hasNext) page.last().id else null,
         )
     }
-
-    private fun <T> retryOnceOnConflict(block: () -> T): T =
-        try {
-            block()
-        } catch (first: Exception) {
-            if (!isOptimisticConflict(first)) throw first
-            entityManager.clear()
-            try {
-                block()
-            } catch (retry: Exception) {
-                if (!isOptimisticConflict(retry)) throw retry
-                throw BusinessException(ErrorCode.REVIEW_CONFLICT)
-            }
-        }
-
-    private fun isOptimisticConflict(e: Throwable?): Boolean =
-        when {
-            e == null -> false
-            e is OptimisticLockingFailureException || e is OptimisticLockException -> true
-            else -> isOptimisticConflict(e.cause)
-        }
 
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findById(reviewId)
