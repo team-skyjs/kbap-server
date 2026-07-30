@@ -24,7 +24,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun increaseScanCount(@Param("memberId") memberId: Long): Int
@@ -36,7 +35,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.reviewCount = m.reviewCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun increaseReviewCount(@Param("memberId") memberId: Long): Int
@@ -49,7 +47,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         where m.id = :memberId
           and m.reviewCount > 0
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun decreaseReviewCount(@Param("memberId") memberId: Long): Int
@@ -61,7 +58,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun increaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
@@ -74,7 +70,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         where m.id = :memberId
           and m.uniqueReviewedFoodCount > 0
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
-          and m.status = com.kbap.common.domain.EntityStatus.ACTIVE
         """,
     )
     fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
