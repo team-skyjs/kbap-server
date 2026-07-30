@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('음식 목록', 'food-list', ~{:: .food-list-main})}">
+<body>
+<section class="food-list-main">
+    <h1 class="page-title">음식 목록</h1>
+    <p class="page-desc" th:text="|전체 ${#numbers.formatInteger(foodPage.totalCount, 0, 'COMMA')}건 · 페이지당 200건|">전체 0건</p>
+
+    <div class="banner banner-ok" th:if="${param.updated != null}"
+         th:text="|음식 #${param.updated[0]} 수정 완료|"></div>
+    <div class="banner banner-error" th:if="${param.error != null and param.detail == null}">
+        처리 중 오류가 발생했습니다
+    </div>
+
+    <div class="food-card-list" th:if="${!foodPage.items.isEmpty()}">
+        <div th:each="f : ${foodPage.items}" th:id="|food-${f.id}|"
+             th:with="opened=${foodDetail != null and foodDetail.id == f.id}">
+            <div class="card food-row" th:classappend="${opened} ? 'food-row-selected'">
+                <div class="food-row-name">
+                    <span class="food-id" th:text="|#${f.id}|">#1</span>
+                    <strong th:text="${f.koreanName}">김치찌개</strong>
+                </div>
+                <div class="food-row-meta">
+                    <span class="badge"
+                          th:classappend="${f.contentStatus.name() == 'READY'} ? 'badge-ok'
+                                        : (${f.contentStatus.name() == 'INCOMPLETE'} ? 'badge-neutral' : 'badge-info')"
+                          th:text="${f.contentStatus}">READY</span>
+                    <span class="meta-item" th:text="|맵기 ${f.spiciness}|">맵기 0</span>
+                    <span class="meta-item" th:text="${f.hasImage} ? '이미지 ○' : '이미지 ×'">이미지 ×</span>
+                    <span class="meta-item" th:text="${#temporals.format(f.updatedAt, 'MM-dd HH:mm')}">-</span>
+                    <a class="page-btn food-row-toggle" th:unless="${opened}"
+                       th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${f.id})}">상세보기</a>
+                    <a class="page-btn food-row-toggle" th:if="${opened}"
+                       th:href="@{/admin/foods/list(page=${foodPage.page})}">닫기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card empty-state" th:if="${foodPage.items.isEmpty()}">
+        표시할 음식이 없습니다.
+    </div>
+
+    <nav class="pagination" th:if="${foodPage.totalPages > 1}">
+        <a class="page-btn" th:if="${foodPage.hasPrev}" th:href="@{/admin/foods/list(page=${foodPage.page - 1})}">이전</a>
+        <span class="page-info" th:text="|${foodPage.page} / ${foodPage.totalPages}|">1 / 1</span>
+        <a class="page-btn" th:if="${foodPage.hasNext}" th:href="@{/admin/foods/list(page=${foodPage.page + 1})}">다음</a>
+    </nav>
+
+    <aside class="food-panel" th:if="${foodDetail != null}">
+        <div class="food-panel-head">
+            <h2 class="section-title" th:text="|음식 상세 · #${foodDetail.id}|">음식 상세</h2>
+            <a class="food-panel-close"
+               th:href="@{/admin/foods/list(page=${foodPage.page})}">✕</a>
+        </div>
+
+        <div class="food-panel-body">
+                <div class="banner banner-error" th:if="${param.error != null}"
+                     th:with="code=${param.error[0]}"
+                     th:text="${code == 'invalid-json'} ? '번역/성분 JSON 형식이 잘못됐습니다'
+                            : (${code == 'duplicate-name'} ? '이미 같은 이름의 음식이 있습니다'
+                            : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다' : '처리 중 오류가 발생했습니다'))"></div>
+
+                <div class="field">
+                    <label>이미지</label>
+                    <img class="food-detail-image" th:if="${foodDetail.imageUrl != null}"
+                         th:src="${foodDetail.imageUrl}" alt="음식 이미지"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='';">
+                    <div class="image-placeholder" th:style="${foodDetail.imageUrl != null} ? 'display:none'">이미지 없음</div>
+                </div>
+
+                <form th:action="@{|/admin/foods/${foodDetail.id}|}" method="post">
+                    <input type="hidden" name="page" th:value="${foodPage.page}">
+                    <div class="modal-grid">
+                        <div class="field">
+                            <label for="koreanName">한국어 이름</label>
+                            <input id="koreanName" name="koreanName" type="text" th:value="${foodDetail.koreanName}"
+                                   th:disabled="${!editMode}" required>
+                        </div>
+                        <div class="field">
+                            <label for="contentStatus">콘텐츠 상태</label>
+                            <select id="contentStatus" name="contentStatus" class="field-select" th:disabled="${!editMode}">
+                                <option th:each="s : ${T(com.kbap.common.domain.food.model.FoodContentStatus).values()}"
+                                        th:value="${s}" th:text="${s}" th:selected="${s == foodDetail.contentStatus}"></option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="spiciness">맵기 (-1 = 미조사)</label>
+                            <input id="spiciness" name="spiciness" type="number" min="-1" max="5" th:value="${foodDetail.spiciness}"
+                                   th:disabled="${!editMode}" required>
+                        </div>
+                        <div class="field">
+                            <label for="imageRef">이미지 키 (비우면 없음)</label>
+                            <input id="imageRef" name="imageRef" type="text" th:value="${foodDetail.imageRef}" th:disabled="${!editMode}">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="description">설명</label>
+                        <input id="description" name="description" type="text" th:value="${foodDetail.description}"
+                               th:disabled="${!editMode}" required>
+                    </div>
+                    <div class="field">
+                        <label for="nameTranslationsJson">이름 번역 JSON</label>
+                        <textarea id="nameTranslationsJson" name="nameTranslationsJson" class="json-input" rows="12"
+                                  th:disabled="${!editMode}" th:text="${foodDetail.nameTranslationsJson}"></textarea>
+                    </div>
+                    <div class="field">
+                        <label for="descriptionTranslationsJson">설명 번역 JSON</label>
+                        <textarea id="descriptionTranslationsJson" name="descriptionTranslationsJson" class="json-input" rows="12"
+                                  th:disabled="${!editMode}" th:text="${foodDetail.descriptionTranslationsJson}"></textarea>
+                    </div>
+                    <div class="field">
+                        <label for="avoidanceSubstancesJson">기피 성분 JSON (비우면 미조사)</label>
+                        <textarea id="avoidanceSubstancesJson" name="avoidanceSubstancesJson" class="json-input" rows="12"
+                                  th:disabled="${!editMode}" th:text="${foodDetail.avoidanceSubstancesJson}"></textarea>
+                    </div>
+                    <div class="modal-foot">
+                        <span class="page-info"
+                              th:text="|version ${foodDetail.version} · 생성 ${#temporals.format(foodDetail.createdAt, 'yyyy-MM-dd')} · 수정 ${#temporals.format(foodDetail.updatedAt, 'yyyy-MM-dd HH:mm')}|"></span>
+                        <a class="page-btn" th:unless="${editMode}"
+                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id}, edit=true)}">편집</a>
+                        <a class="page-btn" th:if="${editMode}"
+                           th:href="@{/admin/foods/list(page=${foodPage.page}, detail=${foodDetail.id})}">취소</a>
+                        <button class="btn-primary" type="submit" th:if="${editMode}">저장</button>
+                    </div>
+                </form>
+        </div>
+    </aside>
+</section>
+</body>
+</html>

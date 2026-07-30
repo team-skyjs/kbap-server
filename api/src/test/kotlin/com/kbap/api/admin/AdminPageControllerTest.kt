@@ -131,12 +131,12 @@ class AdminPageControllerTest : BehaviorSpec() {
             }
 
             `when`("인증 상태로 홈에 접근하면") {
-                then("홈 화면을 보여준다") {
+                then("음식 대시보드로 리다이렉트한다") {
                     val account = seedAccount()
 
                     mockMvc.get("/admin") { cookie(adminCookie(account.id)) }.andExpect {
-                        status { isOk() }
-                        view { name("admin/home") }
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods")
                     }
                 }
             }

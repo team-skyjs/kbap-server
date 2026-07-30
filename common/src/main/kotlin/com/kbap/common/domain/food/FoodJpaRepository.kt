@@ -1,5 +1,6 @@
 package com.kbap.common.domain.food
 
+import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.model.Food
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -9,6 +10,15 @@ import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
+    @Query(
+        """
+        select new com.kbap.common.domain.food.dto.FoodStatusCount(f.contentStatus, count(f))
+        from Food f
+        group by f.contentStatus
+        """,
+    )
+    fun countGroupByContentStatus(): List<FoodStatusCount>
+
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(
