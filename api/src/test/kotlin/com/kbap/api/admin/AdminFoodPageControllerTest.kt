@@ -136,6 +136,18 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
             }
         }
 
+        given("대시보드 운영 지표(metrics)") {
+            `when`("관리자가 적재 현황에 진입하면") {
+                then("기존 dashboard 와 함께 metrics 모델을 내려준다") {
+                    mockMvc.get("/admin/foods") { cookie(adminCookie()) }.andExpect {
+                        status { isOk() }
+                        view { name("admin/foods") }
+                        model { attributeExists("dashboard", "metrics") }
+                    }
+                }
+            }
+        }
+
         given("화면에서 음식 시드 등록") {
             `when`("등록 화면에 진입하면") {
                 then("시드 입력 화면을 보여준다") {

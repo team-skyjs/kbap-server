@@ -39,6 +39,16 @@
         </div>
         <p class="page-desc" th:if="${dashboard.total == 0}" style="margin: 8px 0 0">아직 적재된 음식 데이터가 없습니다.</p>
     </div>
+
+    <h1 class="page-title" style="margin-top: 32px">운영 지표</h1>
+    <p class="page-desc">가입자·사용량·비용 핵심 운영 지표입니다.</p>
+
+    <div class="stat-grid">
+        <div class="card stat-card">
+            <div class="stat-label">총 가입자 수</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(metrics.totalActiveMembers, 0, 'COMMA')}">0</div>
+        </div>
+    </div>
 </section>
 </body>
 </html>
