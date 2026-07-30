@@ -8,51 +8,23 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 class MemberProfileTest : BehaviorSpec({
 
-    fun profile(spiciness: Int) = MemberProfile.of(
-        nickname = null,
-        avoidanceSubstanceCodes = emptySet(),
-        spicinessPreference = spiciness,
-        countryCode = null,
-    )
-
     fun baseProfile() = MemberProfile.of(
         nickname = "머고",
         avoidanceSubstanceCodes = emptySet(),
-        spicinessPreference = 5,
+        spicinessPreference = SpicinessPreference.MEDIUM,
         countryCode = CountryCode.KR,
     )
 
-    given("MemberProfile 맵기 선호 범위") {
-        `when`("0~10 경계값이면") {
-            then("정상 생성된다") {
-                profile(0).spicinessPreference shouldBe 0
-                profile(10).spicinessPreference shouldBe 10
-            }
-        }
-
-        `when`("-1(미설정)이면") {
-            then("정상 생성되고 -1 을 보존한다") {
-                profile(-1).spicinessPreference shouldBe -1
-            }
-        }
-
-        `when`("-1 도 0~10 도 아닌 값이면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { profile(-2) }
-                shouldThrow<IllegalArgumentException> { profile(11) }
-            }
-        }
-    }
-
     given("MemberProfile.empty — 가입 직후 기본 프로필") {
         `when`("빈 프로필을 만들면") {
-            then("맵기 선호는 미설정(-1), 기피성분은 빈 셋이다") {
-                MemberProfile.empty().spicinessPreference shouldBe -1
+            then("맵기 선호는 미설정(SKIP), 기피성분은 빈 셋이다") {
+                MemberProfile.empty().spicinessPreference shouldBe SpicinessPreference.SKIP
                 MemberProfile.empty().avoidanceSubstanceCodes shouldBe emptySet()
             }
         }
@@ -60,20 +32,28 @@ class MemberProfileTest : BehaviorSpec({
 
     given("MemberProfileJson 역직렬화 — 레거시 회원(맵기 키 부재)") {
         `when`("spicinessPreference 키가 없는 JSON 을 읽으면") {
-            then("맵기 선호가 미설정(-1)으로 해석된다") {
+            then("맵기 선호가 미설정(SKIP)으로 해석된다") {
                 val json = jacksonObjectMapper()
                     .readValue<MemberProfileJson>("""{"avoidanceSubstanceCodes":[]}""")
 
-                json.toDomain(null).spicinessPreference shouldBe -1
+                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.SKIP
             }
         }
 
-        `when`("spicinessPreference 에 5 가 저장돼 있으면") {
-            then("기존 값 5 를 그대로 읽는다") {
+        `when`("spicinessPreference 에 단계 문자열이 저장돼 있으면") {
+            then("해당 단계로 읽는다") {
                 val json = jacksonObjectMapper()
-                    .readValue<MemberProfileJson>("""{"spicinessPreference":5}""")
+                    .readValue<MemberProfileJson>("""{"spicinessPreference":"HOT"}""")
 
-                json.toDomain(null).spicinessPreference shouldBe 5
+                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.HOT
+            }
+        }
+
+        `when`("이관되지 않은 정수 값이 저장돼 있으면") {
+            then("조용히 흡수하지 않고 역직렬화가 실패한다") {
+                shouldThrowAny {
+                    jacksonObjectMapper().readValue<MemberProfileJson>("""{"spicinessPreference":5}""")
+                }
             }
         }
     }
@@ -82,47 +62,51 @@ class MemberProfileTest : BehaviorSpec({
         `when`("더 이상 쓰지 않는 appLanguage 키가 저장돼 있으면") {
             then("예외 없이 무시하고 나머지 값을 읽는다") {
                 val json = ObjectMapper().registerKotlinModule().readValue<MemberProfileJson>(
-                    """{"appLanguage":"ko","spicinessPreference":5,"countryCode":"KR"}""",
+                    """{"appLanguage":"ko","spicinessPreference":"MEDIUM","countryCode":"KR"}""",
                 )
 
-                json.toDomain("머고").spicinessPreference shouldBe 5
+                json.toDomain("머고").spicinessPreference shouldBe SpicinessPreference.MEDIUM
                 json.toDomain("머고").countryCode shouldBe CountryCode.KR
             }
         }
     }
 
+    given("MemberProfileJson 직렬화 — 저장 표현") {
+        `when`("프로필을 JSON 으로 쓰면") {
+            then("맵기 선호가 단계 이름 문자열로 저장된다") {
+                val written = jacksonObjectMapper()
+                    .writeValueAsString(MemberProfileJson(spicinessPreference = SpicinessPreference.EXTREME))
+
+                written.contains("\"spicinessPreference\":\"EXTREME\"") shouldBe true
+            }
+        }
+    }
+
     given("MemberProfile.updatedWith — 맵기 선호 부분 수정") {
-        `when`("맵기 선호로 -1 을 명시 전송하면") {
-            then("미설정(-1)으로 되돌린다") {
-                baseProfile().updatedWith(spicinessPreference = -1)
-                    .spicinessPreference shouldBe -1
+        `when`("맵기 선호로 SKIP 을 명시 전송하면") {
+            then("미설정(SKIP)으로 되돌린다") {
+                baseProfile().updatedWith(spicinessPreference = "SKIP")
+                    .spicinessPreference shouldBe SpicinessPreference.SKIP
             }
         }
 
         `when`("맵기 선호를 전송하지 않으면(null)") {
             then("기존 값을 유지한다") {
                 baseProfile().updatedWith(spicinessPreference = null)
-                    .spicinessPreference shouldBe 5
+                    .spicinessPreference shouldBe SpicinessPreference.MEDIUM
             }
         }
 
-        `when`("미설정(-1) 상태에서 0~10 값을 전송하면") {
-            then("그 값으로 교체한다") {
-                val unset = MemberProfile.of(
-                    nickname = null,
-                    avoidanceSubstanceCodes = emptySet(),
-                    spicinessPreference = -1,
-                    countryCode = null,
-                )
-
-                unset.updatedWith(spicinessPreference = 7)
-                    .spicinessPreference shouldBe 7
+        `when`("미설정(SKIP) 상태에서 단계 문자열을 전송하면") {
+            then("그 단계로 교체한다") {
+                MemberProfile.empty().updatedWith(spicinessPreference = "MILD")
+                    .spicinessPreference shouldBe SpicinessPreference.MILD
             }
         }
 
-        `when`("맵기 선호로 -1 도 0~10 도 아닌 값을 전송하면") {
+        `when`("6단계에 없는 값을 전송하면") {
             then("MEMBER-009 로 거절한다") {
-                listOf(-2, 11).forEach { invalid ->
+                listOf("SUPER_HOT", "5", "-1", "hot").forEach { invalid ->
                     val e = shouldThrow<BusinessException> {
                         baseProfile().updatedWith(spicinessPreference = invalid)
                     }
@@ -191,7 +175,7 @@ class MemberProfileTest : BehaviorSpec({
                 val profile = MemberProfile.of(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("MILK")),
-                    spicinessPreference = 3,
+                    spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )
 
@@ -210,7 +194,7 @@ class MemberProfileTest : BehaviorSpec({
                 val replacement = MemberProfile.of(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
-                    spicinessPreference = 2,
+                    spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )
 
@@ -218,7 +202,7 @@ class MemberProfileTest : BehaviorSpec({
 
                 member.profile shouldBe replacement
                 origin.nickname shouldBe null
-                origin.spicinessPreference shouldBe -1
+                origin.spicinessPreference shouldBe SpicinessPreference.SKIP
             }
         }
     }
