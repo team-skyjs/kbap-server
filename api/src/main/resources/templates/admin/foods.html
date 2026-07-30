@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('적재 현황', 'foods', ~{:: .foods-main})}">
+<body>
+<section class="foods-main">
+    <h1 class="page-title">적재 현황</h1>
+    <p class="page-desc">전체 음식의 콘텐츠 준비 단계별 적재 현황입니다.</p>
+
+    <div class="stat-grid">
+        <div class="card stat-card stat-total">
+            <div class="stat-label">전체</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(dashboard.total, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-label">미완료</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(dashboard.incomplete, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-label">이미지 대기</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(dashboard.pendingImage, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-label">검수 대기</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(dashboard.pendingReview, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card stat-ready">
+            <div class="stat-label">준비 완료</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(dashboard.ready, 0, 'COMMA')}">0</div>
+        </div>
+    </div>
+
+    <div class="card ready-ratio">
+        <div class="ready-ratio-head">
+            <span class="stat-label">READY 비율</span>
+            <span class="ready-ratio-value" th:text="|${dashboard.readyRatio}%|">0%</span>
+        </div>
+        <div class="progress">
+            <div class="progress-fill" th:style="|width: ${dashboard.readyRatio}%|"></div>
+        </div>
+        <p class="page-desc" th:if="${dashboard.total == 0}" style="margin: 8px 0 0">아직 적재된 음식 데이터가 없습니다.</p>
+    </div>
+</section>
+</body>
+</html>

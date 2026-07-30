@@ -29,6 +29,10 @@ class Review(
     @Column(name = "author_country_code", length = 10)
     val authorCountryCode: String? = null,
 ) : BaseEntity() {
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
+    var version: Long = 0
+
     init {
         requireValid(rating, content, imageRefs)
     }

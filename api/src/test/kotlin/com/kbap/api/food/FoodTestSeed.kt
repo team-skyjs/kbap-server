@@ -79,7 +79,7 @@ object FoodTestSeed {
                 "DELETE FROM member WHERE id = $memberId",
                 "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, onboarding_completed, status, created_at, updated_at) " +
                     "VALUES ($memberId, 'GOOGLE', 'food-test-$memberId', NULL, '테스터$memberId', " +
-                    "'{\"avoidanceSubstanceCodes\":$codesJson,\"spicinessPreference\":5,\"countryCode\":\"US\"}', " +
+                    "'{\"avoidanceSubstanceCodes\":$codesJson,\"spicinessPreference\":\"MEDIUM\",\"countryCode\":\"US\"}', " +
                     "'ACTIVE', 1, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             ),
         )

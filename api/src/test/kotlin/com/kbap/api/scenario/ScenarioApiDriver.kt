@@ -44,7 +44,7 @@ class ScenarioApiDriver(
         nickname: String = "시나리오사용자",
         avoidanceSubstanceCodes: List<String> = emptyList(),
         countryCode: String = "US",
-        spicinessPreference: Int = 3,
+        spicinessPreference: String = "MILD",
         profileImageUrl: String = "images/default/profile/profile-default-512.png",
     ): Int = post(
         "/api/v1/members/me/onboarding",

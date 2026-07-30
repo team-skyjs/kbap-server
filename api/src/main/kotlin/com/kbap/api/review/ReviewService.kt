@@ -110,8 +110,8 @@ class ReviewService(
     }
 
     private fun getOwnedReview(memberId: Long, reviewId: Long): Review {
-        val review = reviewRepository.findByIdForUpdate(reviewId)
-            ?: throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        val review = reviewRepository.findById(reviewId)
+            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }

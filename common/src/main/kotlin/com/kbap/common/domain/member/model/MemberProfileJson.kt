@@ -6,7 +6,7 @@ import com.kbap.common.domain.member.model.CountryCode
 @JsonIgnoreProperties("appLanguage")
 data class MemberProfileJson(
     val avoidanceSubstanceCodes: List<String> = emptyList(),
-    val spicinessPreference: Int = MemberProfile.SPICINESS_UNSET,
+    val spicinessPreference: SpicinessPreference = SpicinessPreference.SKIP,
     val countryCode: String? = null,
     val profileImageUrl: String? = null,
 ) {

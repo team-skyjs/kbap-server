@@ -9,6 +9,7 @@ enum class ErrorCode(
     // 공통 — COMMON-001 은 폐기된 UNSUPPORTED_LANGUAGE 자리다(KB-201, 미지원 언어는 영어 폴백). 재사용 금지.
     INVALID_REQUEST("COMMON-002", 400, "잘못된 요청입니다"),
     INTERNAL_SERVER_ERROR("COMMON-003", 500, "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요"),
+    CONFLICT("COMMON-004", 409, "다른 요청과 겹쳐 처리하지 못했습니다. 잠시 후 다시 시도해 주세요"),
 
     INVALID_SOCIAL_TOKEN("AUTH-001", 401, "유효하지 않은 소셜 인증 토큰입니다"),
     UNSUPPORTED_PROVIDER("AUTH-002", 401, "지원하지 않는 소셜 로그인 제공자입니다"),
@@ -26,7 +27,7 @@ enum class ErrorCode(
     INVALID_AVOIDANCE_SUBSTANCE_CODE("MEMBER-005", 400, "지원하지 않는 기피 성분 코드입니다"),
     INVALID_COUNTRY_CODE("MEMBER-006", 400, "지원하지 않는 국가 코드입니다"),
     INVALID_PROFILE_IMAGE_URL("MEMBER-008", 400, "프로필 사진 경로 형식이 올바르지 않습니다. 도메인 없는 이미지 경로(objectKey)를 512자 이내로 보내주세요"),
-    INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 -1(미설정) 또는 0~10 사이여야 합니다"),
+    INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
