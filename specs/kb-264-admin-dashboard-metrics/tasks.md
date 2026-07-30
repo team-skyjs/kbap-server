@@ -118,8 +118,8 @@ kbap 멀티모듈 — `common/src/main/kotlin/com/kbap/common/...`, `api/src/{ma
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T020 [P] 데이터 전무(회원·스캔·음식·비용 0건) 상태에서 페이지 렌더가 깨지지 않고 7일 축·0 값이 표시되는 통합 시나리오를 `AdminFoodPageControllerTest` 에 보강(스펙 Edge Case). `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt`
-- [ ] T021 `./gradlew build` 전체 통과 확인(ArchUnit `ModuleBoundaryTest` 포함) — 회귀·경계 위반 없음(SC-003)
+- [x] T020 [P] 데이터 전무(회원·스캔·음식·비용 0건) 상태에서 페이지 렌더가 깨지지 않고 7일 축·0 값이 표시되는 통합 시나리오를 `AdminFoodPageControllerTest` 에 보강(스펙 Edge Case). `api/src/test/kotlin/com/kbap/api/admin/AdminFoodPageControllerTest.kt`
+- [x] T021 `./gradlew build` 전체 통과 확인(ArchUnit `ModuleBoundaryTest` 포함) — 회귀·경계 위반 없음(SC-003)
 - [ ] T022 quickstart.md 절차로 로컬 화면 수동 확인(`SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun` → /admin/foods)
 
 ---

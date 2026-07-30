@@ -155,6 +155,31 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     metrics.weeklyScans.size shouldBe 7
                 }
             }
+
+            `when`("회원·스캔·음식·비용 데이터가 전무한 상태로 진입하면") {
+                then("렌더가 깨지지 않고 모든 지표가 7일 축·0 값으로 표시된다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { st ->
+                            listOf(
+                                "food_review", "member_ranking_event", "bookmark", "uploaded_image",
+                                "scan_history", "image_batch_item", "image_batch",
+                                "food", "member", "llm_call_cost",
+                            ).forEach { st.execute("DELETE FROM $it") }
+                        }
+                    }
+
+                    val result = mockMvc.get("/admin/foods") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn()
+
+                    val metrics = result.modelAndView!!.model["metrics"] as AdminDashboardMetricsView
+                    metrics.totalActiveMembers shouldBe 0
+                    metrics.weeklyScans.size shouldBe 7
+                    metrics.weeklyScans.all { it.count == 0L } shouldBe true
+                    metrics.weeklyNewFoods.all { it.count == 0L } shouldBe true
+                    metrics.weeklyLlmCostUsd.all { it.costUsd.signum() == 0 } shouldBe true
+                }
+            }
         }
 
         given("화면에서 음식 시드 등록") {
