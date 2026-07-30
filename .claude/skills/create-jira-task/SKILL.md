@@ -28,6 +28,9 @@ description: "kbap/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 �
 | 제목 접두어 | `[BE] ` — 모든 summary 앞에 붙인다(예: `[BE] food 상세조회 API 응답 동결`) |
 | 레이블 | `BE` (백엔드) |
 | 할당자 | **실행자 본인**(이슈를 만드는 사람) |
+| 스프린트 | **활성 스프린트에 자동 추가** (`customfield_10020`) |
+| 에픽 | **매번 사용자에게 확인** — `parent` 필드로 지정(팀 관리 프로젝트) |
+| SP | **Claude 가 추산해 제안 → 사용자 확인** (`customfield_10016`, **최대 5점**) |
 
 > cloudId 가 바뀌었거나 확실치 않으면 `getAccessibleAtlassianResources` 로 재확인한다.
 
@@ -35,17 +38,25 @@ description: "kbap/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 �
 
 1. **실행자 본인 accountId 확인** — `atlassianUserInfo` 를 호출해 현재 인증된 사용자의 `account_id` 를 얻는다(사람마다 다르므로 하드코딩하지 말 것 — 각자 자기 자신에게 할당).
 
-2. **이슈 생성** — `createJiraIssue`:
+2. **에픽 확인 + SP 제안 (사용자 인터랙션 — 이슈 생성 전에 한 번에)**:
+   - **에픽 후보 조회** — `searchJiraIssuesUsingJql`: `project = KB AND issuetype = 에픽 AND statusCategory != Done` (fields: `summary`). 
+   - **SP 추산** — 작업 범위를 보고 팀 스케일로 추산한다: **S(1) 반나절 이내 · M(2) 1일 · L(3) 2일 · XL(5) 그 이상**. **최대 5점** — 5점이 나오면 태스크 분할을 함께 제안한다.
+   - `AskUserQuestion` **한 번**으로 에픽 선택(후보 + "에픽 없음")과 SP 확인(추산값을 추천 옵션으로)을 같이 묻는다.
+
+3. **이슈 생성** — `createJiraIssue`:
    - `cloudId` = 위 값, `projectKey` = `KB`, `issueTypeName` = `작업`
    - `summary` = **`[BE] ` 접두어 + 한 줄 제목**(무엇을 하는지 명확히). 접두어는 예외 없이 붙인다.
-   - 본문은 3단계에서 ADF 로 넣으므로, 생성 시엔 `summary` 만 줘도 된다(혹은 `contentFormat:"adf"` 로 바로 넣기).
+   - 본문은 4단계에서 ADF 로 넣으므로, 생성 시엔 `summary` 만 줘도 된다(혹은 `contentFormat:"adf"` 로 바로 넣기).
 
-3. **본문(ADF)·레이블·할당 지정** — `editJiraIssue`(`contentFormat:"adf"`):
+4. **본문(ADF)·레이블·할당·스프린트·에픽·SP 지정** — `editJiraIssue`(`contentFormat:"adf"`):
    - `fields.description` = 아래 "본문 규약"의 ADF 문서
    - `fields.labels` = `["BE"]`
    - `fields.assignee` = `{ "accountId": "<1번에서 얻은 본인 id>" }`
+   - `fields.customfield_10020` = `<활성 스프린트 id (숫자)>` — **활성 스프린트 자동 추가.** id 는 `searchJiraIssuesUsingJql` 로 `project = KB AND sprint in openSprints()` (maxResults 1, fields: `customfield_10020`) 를 조회해 `state:"active"` 인 항목의 `id` 를 쓴다. 활성 스프린트가 없으면(스프린트 사이 기간) 생략하고 보고에 명시한다.
+   - `fields.parent` = `{ "key": "<2번에서 고른 에픽 키>" }` — "에픽 없음"이면 생략.
+   - `fields.customfield_10016` = `<2번에서 확정한 SP (숫자)>`
 
-4. **보고** — 생성된 키·URL(`https://simhani1.atlassian.net/browse/<KEY>`)을 사용자에게 전달한다.
+5. **보고** — 생성된 키·URL(`https://simhani1.atlassian.net/browse/<KEY>`)과 함께 스프린트·에픽·SP 지정 결과를 사용자에게 전달한다.
 
 ## 본문 규약 (중요)
 
@@ -85,4 +96,7 @@ description: "kbap/kbap 백엔드 작업을 Jira(KB 프로젝트) 태스크로 �
 - `atlassianUserInfo` 를 건너뛰고 특정인 accountId 를 하드코딩 → 팀원이 쓰면 남에게 할당됨. **항상 실행자 본인으로.**
 - 마크다운 본문 → 체크박스/불릿 안 뜸. 반드시 `contentFormat:"adf"`.
 - `editJiraIssue` 의 `description` 만 보내면 레이블·할당은 유지된다(부분 업데이트). 반대로 새로 지정할 땐 함께 보낸다.
+- 스프린트 필드(`customfield_10020`)는 조회 시엔 배열로 오지만 **set 은 스프린트 id 숫자 하나**다. 배열로 보내면 실패.
+- 스프린트 id 를 하드코딩하지 말 것 — 스프린트는 매주 바뀐다. **항상 `openSprints()` 로 재조회.**
+- SP 5점 초과 금지 — 5점 추산이면 그대로 등록하지 말고 분할을 먼저 제안한다.
 - 되읽기 응답의 `description` 은 마크다운으로 직렬화돼 `- [ ]` 로 보이지만, 저장된 본문은 taskList(실제 체크박스)다 — Jira UI 에서 확인.
