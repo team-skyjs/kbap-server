@@ -11,6 +11,7 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import jakarta.servlet.http.Cookie
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -160,6 +161,41 @@ class AdminFoodListControllerTest : BehaviorSpec() {
             }
         }
 
+        given("음식 상세 모달 편집 토글") {
+            fun modalFieldTag(html: String, id: String): String =
+                Regex("""<(?:input|select|textarea)[^>]*id="$id"[^>]*>""").find(html)!!.value
+
+            val modalFieldIds = listOf(
+                "koreanName", "contentStatus", "spiciness", "imageRef", "description",
+                "nameTranslationsJson", "descriptionTranslationsJson", "avoidanceSubstancesJson",
+            )
+
+            `when`("detail 만으로 모달을 열면") {
+                then("전 입력이 비활성이고 저장 버튼 없이 편집 링크만 보인다") {
+                    val saved = saveFood("토글읽기음식")
+
+                    val html = getList("?page=1&detail=${saved.id}").response.contentAsString
+
+                    modalFieldIds.forEach { id -> modalFieldTag(html, id) shouldContain "disabled" }
+                    html shouldNotContain ">저장</button>"
+                    html shouldContain ">편집</a>"
+                    html shouldContain "edit=true"
+                }
+            }
+
+            `when`("edit=true 로 모달을 열면") {
+                then("전 입력이 활성화되고 저장 버튼과 취소 링크가 보인다") {
+                    val saved = saveFood("토글편집음식")
+
+                    val html = getList("?page=1&detail=${saved.id}&edit=true").response.contentAsString
+
+                    modalFieldIds.forEach { id -> modalFieldTag(html, id) shouldNotContain "disabled" }
+                    html shouldContain ">저장</button>"
+                    html shouldContain ">취소</a>"
+                }
+            }
+        }
+
         given("음식 컬럼 수정") {
             `when`("모달 폼에서 전 컬럼을 수정 제출하면") {
                 then("반영하고 목록으로 리다이렉트한다") {
@@ -232,7 +268,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-json#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-json#food-${saved.id}")
                     }
 
                     foodJpaRepository.findById(saved.id).get().koreanName shouldBe "JSON오류이름"
@@ -268,7 +304,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("contentStatus", "INCOMPLETE")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=invalid-name#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-name#food-${saved.id}")
                     }
 
                     foodJpaRepository.findById(saved.id).get().koreanName shouldBe "이름검증대상"
@@ -293,7 +329,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("avoidanceSubstancesJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&error=duplicate-name#food-${saved.id}")
+                        redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=duplicate-name#food-${saved.id}")
                     }
                 }
             }

@@ -29,10 +29,12 @@ class AdminFoodPageController(
     fun foodList(
         @RequestParam(required = false) page: String?,
         @RequestParam(required = false) detail: Long?,
+        @RequestParam(required = false) edit: Boolean?,
         model: Model,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage))
+        model.addAttribute("editMode", detail != null && edit == true)
         detail?.let { id -> adminFoodService.getFoodDetailOrNull(id)?.let { model.addAttribute("foodDetail", it) } }
         return "admin/food-list"
     }
@@ -64,9 +66,9 @@ class AdminFoodPageController(
         return when (adminFoodService.updateFood(id, command)) {
             AdminFoodUpdateResult.UPDATED -> "redirect:/admin/foods/list?page=$safePage&updated=$id#food-$id"
             AdminFoodUpdateResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found#food-$id"
-            AdminFoodUpdateResult.INVALID_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=invalid-name#food-$id"
-            AdminFoodUpdateResult.INVALID_JSON -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=invalid-json#food-$id"
-            AdminFoodUpdateResult.DUPLICATE_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&error=duplicate-name#food-$id"
+            AdminFoodUpdateResult.INVALID_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-name#food-$id"
+            AdminFoodUpdateResult.INVALID_JSON -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-json#food-$id"
+            AdminFoodUpdateResult.DUPLICATE_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=duplicate-name#food-$id"
         }
     }
 
