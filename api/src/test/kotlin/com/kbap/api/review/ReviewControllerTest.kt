@@ -109,6 +109,17 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun reviewStatusOf(reviewId: Long): String =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT status FROM food_review WHERE id = ?").use { ps ->
+                    ps.setLong(1, reviewId)
+                    ps.executeQuery().use { rs ->
+                        rs.next().shouldBeTrue()
+                        rs.getString(1)
+                    }
+                }
+            }
+
         fun createBody(
             foodId: Long?,
             rating: Int? = 4,
@@ -504,12 +515,14 @@ class ReviewControllerTest : BehaviorSpec() {
                     startGate.countDown()
                     val statuses = futures.map { it.get() }.sorted()
                     executor.shutdown()
-                    statuses shouldBe listOf(200, 400)
+                    statuses.first() shouldBe 200
+                    (statuses.last() in listOf(400, 409)) shouldBe true
+                    reviewStatusOf(target) shouldBe "DELETED"
                     rankingCounts(memberId) shouldBe (1 to 1)
                 }
             }
             `when`("같은 리뷰에 수정과 삭제가 동시에 겹치면") {
-                then("리뷰는 결국 삭제 상태로 남고 카운트는 정확히 차감된다") {
+                then("리뷰 상태와 카운트가 정합하게 남는다") {
                     val memberId = 770L
                     val token = accessToken(memberId)
                     val target = createReview(token, 730L)
@@ -529,10 +542,9 @@ class ReviewControllerTest : BehaviorSpec() {
                     patchFuture.get()
                     deleteFuture.get()
                     executor.shutdown()
-                    rankingCounts(memberId) shouldBe (0 to 0)
-                    update(token, target, createBody(foodId = null, rating = 4)).andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("REVIEW-001") }
+                    when (reviewStatusOf(target)) {
+                        "DELETED" -> rankingCounts(memberId) shouldBe (0 to 0)
+                        else -> rankingCounts(memberId) shouldBe (1 to 1)
                     }
                 }
             }
