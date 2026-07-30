@@ -3,7 +3,6 @@ package com.kbap.common.domain.member.model
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.domain.Spiciness
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.common.domain.member.model.CountryCode
 
@@ -11,16 +10,10 @@ import com.kbap.common.domain.member.model.CountryCode
 data class MemberProfile private constructor(
     val nickname: String?,
     val avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
-    val spicinessPreference: Int,
+    val spicinessPreference: SpicinessPreference,
     val countryCode: CountryCode?,
     val profileImageUrl: String?,
 ) {
-    init {
-        require(spicinessPreference == SPICINESS_UNSET || spicinessPreference in Spiciness.RANGE) {
-            "member.profile.spicinessPreference 는 -1(미설정) 또는 0~10 이어야 합니다"
-        }
-    }
-
     fun avoidedCodes(): Set<AvoidanceSubstanceCode> =
         avoidanceSubstanceCodes
             .mapNotNull { ref -> AvoidanceSubstanceCode.entries.firstOrNull { it.name == ref.value } }
@@ -30,7 +23,7 @@ data class MemberProfile private constructor(
     fun updatedWith(
         nickname: String? = null,
         avoidanceSubstanceCodes: List<String>? = null,
-        spicinessPreference: Int? = null,
+        spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
     ): MemberProfile =
@@ -45,9 +38,6 @@ data class MemberProfile private constructor(
         )
 
     companion object {
-        const val SPICINESS_UNSET: Int = -1
-
-
         private const val PROFILE_IMAGE_PATH_MAX_LENGTH: Int = 512
 
         private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
@@ -56,7 +46,7 @@ data class MemberProfile private constructor(
         internal fun of(
             nickname: String?,
             avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
-            spicinessPreference: Int,
+            spicinessPreference: SpicinessPreference,
             countryCode: CountryCode?,
             profileImageUrl: String? = null,
         ): MemberProfile =
@@ -72,7 +62,7 @@ data class MemberProfile private constructor(
             MemberProfile(
                 nickname = null,
                 avoidanceSubstanceCodes = emptySet(),
-                spicinessPreference = SPICINESS_UNSET,
+                spicinessPreference = SpicinessPreference.SKIP,
                 countryCode = null,
                 profileImageUrl = null,
             )
@@ -90,12 +80,8 @@ data class MemberProfile private constructor(
         private fun validatedCountry(raw: String): CountryCode =
             CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
 
-        private fun validatedSpiciness(raw: Int): Int {
-            if (raw != SPICINESS_UNSET && raw !in Spiciness.RANGE) {
-                throw BusinessException(ErrorCode.INVALID_SPICINESS_PREFERENCE)
-            }
-            return raw
-        }
+        private fun validatedSpiciness(raw: String): SpicinessPreference =
+            SpicinessPreference.from(raw)
 
         // 저장은 CDN 도메인 없는 경로만 — 빈 문자열·전체 URL 은 거부한다(제거 센티널 없음, 미설정=기본 이미지 경로).
         // 선행 '/' 는 저장 전 제거 — 스토리지 키 컨벤션(무슬래시)으로 통일.

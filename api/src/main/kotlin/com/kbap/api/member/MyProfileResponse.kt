@@ -10,7 +10,7 @@ data class MyProfileResponse(
     val avoidanceSubstanceCodes: List<String>,
     val countryCode: String?,
     val profileImageUrl: String?,
-    val spicinessPreference: Int,
+    val spicinessPreference: String,
     val onboardingCompleted: Boolean,
     val ranking: RankingSummary,
 ) {

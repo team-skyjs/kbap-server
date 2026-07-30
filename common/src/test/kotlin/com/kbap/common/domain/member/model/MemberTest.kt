@@ -14,7 +14,7 @@ class MemberTest : BehaviorSpec({
     fun submitOnboarding(member: Member) = member.completeOnboarding(
         nickname = "길동이",
         avoidanceSubstanceCodes = emptyList(),
-        spicinessPreference = -1,
+        spicinessPreference = "SKIP",
         countryCode = "KR",
         profileImageUrl = "images/default/profile/profile-default-512.png",
     )
@@ -48,7 +48,7 @@ class MemberTest : BehaviorSpec({
                 val newProfile = MemberProfile.of(
                     nickname = "머고",
                     avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
-                    spicinessPreference = 7,
+                    spicinessPreference = SpicinessPreference.HOT,
                     countryCode = CountryCode.KR,
                 )
 
@@ -95,58 +95,58 @@ class MemberTest : BehaviorSpec({
             }
         }
 
-        `when`("맵기 선호로 -1 을 명시해 온보딩하면") {
-            then("맵기 선호가 미설정(-1)으로 저장된다") {
+        `when`("맵기 선호로 SKIP 을 명시해 온보딩하면") {
+            then("맵기 선호가 미설정(SKIP)으로 저장된다") {
                 val member = Member.signUp(googleIdentity())
 
                 member.completeOnboarding(
                     nickname = "길동이",
                     avoidanceSubstanceCodes = emptyList(),
-                    spicinessPreference = -1,
+                    spicinessPreference = "SKIP",
                     countryCode = "KR",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 
-                member.profile.spicinessPreference shouldBe -1
+                member.profile.spicinessPreference shouldBe SpicinessPreference.SKIP
             }
         }
 
-        `when`("맵기 선호로 0~10 값을 명시해 온보딩하면") {
+        `when`("맵기 선호로 단계 문자열을 명시해 온보딩하면") {
             then("그 값이 그대로 저장된다") {
                 val member = Member.signUp(googleIdentity())
 
                 member.completeOnboarding(
                     nickname = "길동이",
                     avoidanceSubstanceCodes = emptyList(),
-                    spicinessPreference = 8,
+                    spicinessPreference = "EXTREME",
                     countryCode = "KR",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 
-                member.profile.spicinessPreference shouldBe 8
+                member.profile.spicinessPreference shouldBe SpicinessPreference.EXTREME
             }
         }
     }
 
-    given("배포 전 가입 회원(프로필에 맵기 5 저장, 온보딩 미완료)") {
+    given("배포 전 가입 회원(프로필에 맵기 MEDIUM 저장, 온보딩 미완료)") {
         fun preDeployMember(): Member =
             Member.signUp(googleIdentity()).apply {
-                profileJson = MemberProfileJson(spicinessPreference = 5)
+                profileJson = MemberProfileJson(spicinessPreference = SpicinessPreference.MEDIUM)
             }
 
-        `when`("맵기 -1 을 명시하고 온보딩하면") {
-            then("맵기 선호가 미설정(-1)으로 저장된다") {
+        `when`("맵기 SKIP 을 명시하고 온보딩하면") {
+            then("맵기 선호가 미설정(SKIP)으로 저장된다") {
                 val member = preDeployMember()
 
                 member.completeOnboarding(
                     nickname = "길동이",
                     avoidanceSubstanceCodes = emptyList(),
-                    spicinessPreference = -1,
+                    spicinessPreference = "SKIP",
                     countryCode = "KR",
                     profileImageUrl = "images/default/profile/profile-default-512.png",
                 )
 
-                member.profile.spicinessPreference shouldBe -1
+                member.profile.spicinessPreference shouldBe SpicinessPreference.SKIP
             }
         }
     }
