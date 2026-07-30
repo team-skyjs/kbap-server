@@ -103,14 +103,15 @@ class ReviewListControllerTest : BehaviorSpec() {
             cursor: String? = null,
             countryCode: String? = null,
         ): ResultActionsDsl =
-            mockMvc.get("/api/v1/foods/$foodId/reviews") {
+            mockMvc.get("/api/v1/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
+                param("foodId", foodId.toString())
                 cursor?.let { param("cursor", it) }
                 countryCode?.let { param("countryCode", it) }
             }
 
         fun myReviews(token: String?, cursor: String? = null): ResultActionsDsl =
-            mockMvc.get("/api/v1/members/me/reviews") {
+            mockMvc.get("/api/v1/reviews/me") {
                 token?.let { header("Authorization", "Bearer $it") }
                 cursor?.let { param("cursor", it) }
             }
@@ -118,7 +119,7 @@ class ReviewListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
-        given("음식별 리뷰 목록 — GET /api/v1/foods/{foodId}/reviews") {
+        given("음식별 리뷰 목록 — GET /api/v1/reviews?foodId=") {
             seedFood(800L, "목록김치찌개")
 
             `when`("리뷰 25건에서 첫 페이지를 조회하면") {
@@ -196,9 +197,17 @@ class ReviewListControllerTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("foodId 없이 조회하면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(800L)
+                    mockMvc.get("/api/v1/reviews") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect { status { isBadRequest() } }
+                }
+            }
         }
 
-        given("내 리뷰 목록 — GET /api/v1/members/me/reviews") {
+        given("내 리뷰 목록 — GET /api/v1/reviews/me") {
             seedFood(810L, "목록불고기")
             seedFood(811L, "목록잡채")
 

@@ -76,12 +76,11 @@ interface ReviewApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
-            ApiResponse(responseCode = "400", description = "미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "400", description = "foodId 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
     fun listFoodReviews(
-        memberId: Long?,
         @Parameter(description = "리뷰를 조회할 음식 id", example = "1") foodId: Long,
         @ParameterObject request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
