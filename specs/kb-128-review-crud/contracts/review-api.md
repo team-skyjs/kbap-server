@@ -47,11 +47,12 @@ Response 200:
   "reviewId": 42, "foodId": 1, "memberId": 7,
   "rating": 4, "content": "맛있어요",
   "imageUrls": ["<CDN>/images/review/2026/07/7_uuid.jpg"],
-  "authorCountryCode": "VN",
-  "createdAt": "2026-07-29T12:00:00"
+  "createdAt": "2026-07-29T12:00:00",
+  "author": { "memberId": 7, "nickname": "먹보", "countryCode": "VN", "tier": "GOURMET", "level": 2, "score": 15 }
 }
 ```
 - `imageUrls` 는 저장된 경로에 CDN 도메인을 붙여 조립(`ImageUrls` 유틸 선례). 사진 없으면 빈 배열.
+- `author` = 작성자 프로필(닉네임·랭킹 티어/점수·**현재** 국적). 탈퇴한 회원이면 null. 작성 시점 국적 스냅샷(author_country_code)은 응답에 노출하지 않는다 — 같은 국적 필터·평점의 서버 내부 기준일 뿐이고, 표시는 `author.countryCode`(현재 프로필)를 쓴다. 목록 조회는 작성자들을 일괄 조회(N+1 없음).
 
 ## 6. 음식 상세 응답 확장 — GET /api/v1/foods/{foodId} (PR4)
 

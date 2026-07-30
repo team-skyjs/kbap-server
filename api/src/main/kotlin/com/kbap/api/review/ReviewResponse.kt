@@ -25,14 +25,14 @@ data class ReviewResponse(
     @field:Schema(description = "리뷰 사진 URL 목록(없으면 빈 배열)")
     val imageUrls: List<String>,
 
-    @field:Schema(description = "작성 시점 작성자 국적 스냅샷(국적 미보유면 null)", example = "VN")
-    val authorCountryCode: String?,
-
     @field:Schema(description = "작성 시각")
     val createdAt: LocalDateTime,
+
+    @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적). 탈퇴한 회원이면 null.", nullable = true)
+    val author: ReviewAuthorResponse?,
 ) {
     companion object {
-        fun from(review: Review, imagePublicBaseUrl: String): ReviewResponse =
+        fun from(review: Review, imagePublicBaseUrl: String, author: ReviewAuthorResponse?): ReviewResponse =
             ReviewResponse(
                 reviewId = review.id,
                 foodId = review.foodId,
@@ -40,8 +40,8 @@ data class ReviewResponse(
                 rating = review.rating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
-                authorCountryCode = review.authorCountryCode,
                 createdAt = review.createdAt,
+                author = author,
             )
     }
 }

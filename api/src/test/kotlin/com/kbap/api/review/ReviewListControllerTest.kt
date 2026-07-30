@@ -46,15 +46,16 @@ class ReviewListControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE profile = VALUES(profile)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "review-list-test-$memberId")
-                    ps.setString(3, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
+                    ps.setString(3, "리뷰어$memberId")
+                    ps.setString(4, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
                     ps.executeUpdate()
                 }
             }
@@ -212,6 +213,24 @@ class ReviewListControllerTest : BehaviorSpec() {
                     val items = payloadOf(myReviews(mine)).path("items")
                     items.size() shouldBe 2
                     items.map { it.path("reviewId").asLong() } shouldBe listOf(second, first)
+                    items.first().path("author").path("nickname").asText() shouldBe "리뷰어810"
+                    items.first().path("author").path("countryCode").asText() shouldBe "KR"
+                }
+            }
+            `when`("탈퇴한 회원의 리뷰가 목록에 있으면") {
+                then("그 리뷰의 author 는 null 이다") {
+                    seedFood(820L, "목록탈퇴음식")
+                    val writer = accessToken(820L)
+                    val viewer = accessToken(821L)
+                    val reviewId = createReview(writer, 820L)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE member SET status = 'DELETED' WHERE id = 820") }
+                    }
+
+                    val items = payloadOf(foodReviews(viewer, 820L)).path("items")
+                    items.size() shouldBe 1
+                    items.first().path("reviewId").asLong() shouldBe reviewId
+                    items.first().path("author").isNull.shouldBeTrue()
                 }
             }
             `when`("내 리뷰를 삭제하면") {
