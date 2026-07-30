@@ -159,17 +159,34 @@ jobs:
             exit 0
           fi
 
-          NOTES=""
-          if [ "$ENVIRONMENT" = "prod" ]; then
-            NOTES="> 이 릴리즈는 블루/그린 **배포 시작** 확인 시점 기준이다 — 이후 카나리·bake·롤백 판정은 ECS 소관(KB-242)."$'\n\n'
-          fi
-          if [ "$INITIAL" = "true" ]; then
-            NOTES="${NOTES}**초기 OpenAPI 스냅샷** — 비교 기준 없음(다음 배포부터 diff 제공)."$'\n'
-          fi
+          # --generate-notes 는 제공 notes 뒤에 자동 본문을 붙여 순서 제어가 안 된다 —
+          # generate-notes API 로 PR 목록을 받아 "머리말 → PR 목록 → API 변경 상세" 순으로 직접 조립한다.
+          {
+            if [ "$ENVIRONMENT" = "prod" ]; then
+              echo "> 이 릴리즈는 블루/그린 **배포 시작** 확인 시점 기준이다 — 이후 카나리·bake·롤백 판정은 ECS 소관(KB-242)."
+              echo
+            fi
+            if [ "$INITIAL" = "true" ]; then
+              echo "**초기 OpenAPI 스냅샷** — 비교 기준 없음(다음 배포부터 diff 제공)."
+              echo
+            fi
+            gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" -f target_commitish="$SHA" \
+              ${PREV_TAG:+-f previous_tag_name="$PREV_TAG"} --jq .body
+            if [ -f openapi-diff.md ]; then
+              echo
+              echo "## API 변경 상세"
+              echo
+              # 릴리즈 본문 한도(125k자) 보호 — 초과분은 첨부 openapi-diff.md 로 안내
+              sed '/^# API Changelog/d' openapi-diff.md | head -c 60000
+              if [ "$(wc -c < openapi-diff.md)" -gt 60000 ]; then
+                echo
+                echo "_(길이 제한으로 절단 — 전체는 첨부 openapi-diff.md 참조)_"
+              fi
+            fi
+          } > release-body.md
 
-          ARGS=(--target "$SHA" --title "$TITLE" --generate-notes)
-          [ -n "$NOTES" ] && ARGS+=(--notes "$NOTES")
-          [ -n "$PREV_TAG" ] && ARGS+=(--notes-start-tag "$PREV_TAG")
+          ARGS=(--target "$SHA" --title "$TITLE" --notes-file release-body.md)
           [ "$PRERELEASE" = "true" ] && ARGS+=(--prerelease)
 
           ASSETS=(openapi.json)

@@ -27,7 +27,7 @@
 2. 스냅샷 생성: `./gradlew :api:test --tests '*OpenApiSnapshotTest*'` → `api/build/openapi.json`
 3. baseline: `gh release list` 에서 `<env>-*` 최신 태그 → asset `openapi.json` 다운로드. 없으면 초기 스냅샷 모드
 4. oasdiff(버전 고정 다운로드, 체크섬 검증): changelog markdown → `openapi-diff.md`, json → 카운트/목록 추출(출력으로 노출)
-5. 발행(멱등): `gh release view <tag>` 없을 때만 `gh release create <tag> --target <sha> --generate-notes --notes-start-tag <직전태그> [--prerelease]` + asset 업로드
+5. 발행(멱등): `gh release view <tag>` 없을 때만 발행. 본문은 직접 조립 — 머리말(prod "배포 시작 기준"/초기 스냅샷) → generate-notes API 의 PR 목록 → **`## API 변경 상세`(openapi-diff.md 본문 인라인, 60k자 절단 시 첨부 안내)** — 후 `gh release create <tag> --target <sha> --notes-file [--prerelease]` + asset 업로드
 6. 실패 시 원인을 `$GITHUB_STEP_SUMMARY` 에 기록
 
 ## notify 잡 계약 (`needs: [release]`, `if: always()`)
