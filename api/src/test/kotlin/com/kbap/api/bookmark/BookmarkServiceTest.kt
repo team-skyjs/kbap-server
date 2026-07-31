@@ -38,6 +38,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                     listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item")
                         .forEach { statement.execute("DELETE FROM $it") }
                     statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM member_block")
                     statement.execute("DELETE FROM member")
                     if (seedMember) {
                         statement.execute(

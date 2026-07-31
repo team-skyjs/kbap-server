@@ -51,7 +51,7 @@ class AuthControllerTest : BehaviorSpec() {
         val objectMapper = jacksonObjectMapper()
 
         fun clearMembers() {
-            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member") } }
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member_block"); it.execute("DELETE FROM member") } }
         }
 
         fun countMembers(): Int =

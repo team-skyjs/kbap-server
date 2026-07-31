@@ -85,11 +85,11 @@
 
 ### Tests for User Story 3 (Red — 먼저 작성, 실패 확인) ⚠️
 
-- [ ] T018 [US3] [Red] 차단 목록 MockMvc 테스트 추가 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`: 차단한 회원 전원 반환(닉네임·profileImageUrl 포함), 빈 목록, 닉네임 변경 후 최신 값 반영, 해제한 회원 미포함, 탈퇴한 차단 대상 미포함, 401
+- [X] T018 [US3] [Red] 차단 목록 MockMvc 테스트 추가 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`: 차단한 회원 전원 반환(닉네임·profileImageUrl 포함), 빈 목록, 닉네임 변경 후 최신 값 반영, 해제한 회원 미포함, 탈퇴한 차단 대상 미포함, 401
 
 ### Implementation for User Story 3 (Green → Refactor)
 
-- [ ] T019 [US3] 목록 엔드포인트 구현(T018 통과) — `api/src/main/kotlin/com/kbap/api/block/BlockedMemberResponse.kt`(memberId·nickname·profileImageUrl), `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`(GET: `getBlockedMemberIds` → `MemberJpaRepository.findAllById` → `ImageUrls.resolve` 조립 — 별도 창구 서비스 금지, research R6), `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`
+- [X] T019 [US3] 목록 엔드포인트 구현(T018 통과) — `api/src/main/kotlin/com/kbap/api/block/BlockedMemberResponse.kt`(memberId·nickname·profileImageUrl), `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`(GET: `getBlockedMemberIds` → `MemberJpaRepository.findAllById` → `ImageUrls.resolve` 조립 — 별도 창구 서비스 금지, research R6), `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`
 
 **Checkpoint**: 전 스토리 독립 동작
 
@@ -97,8 +97,8 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T020 전체 빌드·전 테스트 통과 확인(ArchUnit 포함, Docker 필요) — `./gradlew build` (quickstart.md 검증 명령)
-- [ ] T021 quickstart.md 수동 시나리오(1~6) 확인 후 리팩터링 여지 정리(중복 픽스처 추출 등) — 커밋은 작업 단위별로 이미 완료됐는지 점검
+- [X] T020 전체 빌드·전 테스트 통과 확인(ArchUnit 포함, Docker 필요) — `./gradlew build` (quickstart.md 검증 명령)
+- [X] T021 quickstart.md 수동 시나리오(1~6) 확인 후 리팩터링 여지 정리(중복 픽스처 추출 등) — 커밋은 작업 단위별로 이미 완료됐는지 점검
 
 ---
 

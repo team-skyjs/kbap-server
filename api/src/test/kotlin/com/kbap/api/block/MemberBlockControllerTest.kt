@@ -1,5 +1,6 @@
 package com.kbap.api.block
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.core.testsupport.MySqlContainerConfig
@@ -7,6 +8,8 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -15,6 +18,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.delete
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
@@ -154,6 +158,86 @@ class MemberBlockControllerTest : BehaviorSpec() {
                 then("401 을 반환한다") {
                     seedMember(9114L)
                     unblock(null, 9114L).andExpect { status { isUnauthorized() } }
+                }
+            }
+        }
+
+        given("차단 목록 — GET /api/v1/members/me/blocks") {
+            fun blockedList(token: String?): JsonNode =
+                mapper.readTree(
+                    mockMvc.get("/api/v1/members/me/blocks") {
+                        token?.let { header("Authorization", "Bearer $it") }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                ).path("payload")
+
+            fun updateMember(memberId: Long, column: String, value: String): Unit =
+                dataSource.connection.use { c ->
+                    c.createStatement().use { it.execute("UPDATE member SET $column = '$value' WHERE id = $memberId") }
+                }
+
+            `when`("여러 회원을 차단한 상태로 조회하면") {
+                then("전원을 닉네임·프로필 이미지와 함께 반환한다") {
+                    val token = accessToken(9121L)
+                    seedMember(9122L, nickname = "차단대상122")
+                    seedMember(9123L, nickname = "차단대상123")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("""UPDATE member SET profile = '{"profileImageUrl":"images/profile/p122.jpg"}' WHERE id = 9122""")
+                        }
+                    }
+                    block(token, 9122L).andExpect { status { isOk() } }
+                    block(token, 9123L).andExpect { status { isOk() } }
+
+                    val items = blockedList(token)
+                    items.size() shouldBe 2
+                    val byId = items.associateBy { it.path("memberId").asLong() }
+                    byId.keys shouldBe setOf(9122L, 9123L)
+                    byId.getValue(9122L).path("nickname").asText() shouldBe "차단대상122"
+                    byId.getValue(9122L).path("profileImageUrl").asText() shouldBe "https://cdn.test/images/profile/p122.jpg"
+                    byId.getValue(9123L).path("profileImageUrl").isNull.shouldBeTrue()
+                }
+            }
+            `when`("차단한 회원이 닉네임을 바꾼 뒤 조회하면") {
+                then("최신 닉네임이 보인다") {
+                    val token = accessToken(9124L)
+                    seedMember(9125L, nickname = "옛닉네임")
+                    block(token, 9125L).andExpect { status { isOk() } }
+                    updateMember(9125L, "nickname", "새닉네임")
+
+                    blockedList(token).first().path("nickname").asText() shouldBe "새닉네임"
+                }
+            }
+            `when`("차단을 해제한 회원이 있으면") {
+                then("목록에서 빠진다") {
+                    val token = accessToken(9126L)
+                    seedMember(9127L)
+                    block(token, 9127L).andExpect { status { isOk() } }
+                    mockMvc.delete("/api/v1/members/me/blocks/9127") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect { status { isOk() } }
+
+                    blockedList(token).size() shouldBe 0
+                }
+            }
+            `when`("차단한 회원이 탈퇴하면") {
+                then("목록에서 빠진다") {
+                    val token = accessToken(9128L)
+                    seedMember(9129L)
+                    block(token, 9129L).andExpect { status { isOk() } }
+                    updateMember(9129L, "status", "DELETED")
+
+                    blockedList(token).size() shouldBe 0
+                }
+            }
+            `when`("아무도 차단하지 않은 회원이 조회하면") {
+                then("빈 목록을 준다") {
+                    blockedList(accessToken(9130L)).size() shouldBe 0
+                }
+            }
+            `when`("토큰 없이 조회하면") {
+                then("401 을 반환한다") {
+                    mockMvc.get("/api/v1/members/me/blocks")
+                        .andExpect { status { isUnauthorized() } }
                 }
             }
         }

@@ -9,13 +9,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 
-@Tag(name = "회원 차단", description = "리뷰 등 UGC 노출에서 특정 회원의 글을 가리는 단방향 차단")
+@Tag(name = "회원 차단", description = "회원이 작성한 콘텐츠(UGC) 노출에서 특정 회원의 콘텐츠를 가리는 단방향 차단")
 @SecurityRequirement(name = "bearerAuth")
 interface MemberBlockApi {
     @Operation(
         summary = "회원 차단",
         description = """
-            대상 회원을 차단한다. 차단 직후부터 내가 보는 리뷰 목록에서 그 회원의 글이 사라진다(집계는 불변).
+            대상 회원을 차단한다. 차단 직후부터 내가 보는 콘텐츠 목록에서 그 회원의 콘텐츠가 보이지 않는다(집계는 불변).
             이미 차단 중이면 멱등하게 200, 해제했던 회원이면 다시 차단된다.
         """,
     )
@@ -34,7 +34,7 @@ interface MemberBlockApi {
 
     @Operation(
         summary = "회원 차단 해제",
-        description = "차단을 해제한다. 해제 직후부터 그 회원의 리뷰가 다시 보인다. 차단하지 않은 회원이어도 멱등하게 200.",
+        description = "차단을 해제한다. 해제 직후부터 그 회원의 콘텐츠가 다시 보인다. 차단하지 않은 회원이어도 멱등하게 200.",
     )
     @ApiResponses(
         value = [
@@ -46,4 +46,21 @@ interface MemberBlockApi {
         memberId: Long,
         @Parameter(description = "차단을 해제할 회원 id", example = "42") targetMemberId: Long,
     ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "내가 차단한 회원 목록",
+        description = """
+            차단 중인 회원 전체를 페이징 없이 반환한다. 닉네임·프로필 이미지는 조회 시점의 최신 값이며,
+            탈퇴한 회원은 목록에서 제외된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "차단 목록(없으면 빈 배열)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+        ],
+    )
+    fun listBlockedMembers(
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<List<BlockedMemberResponse>>>
 }
