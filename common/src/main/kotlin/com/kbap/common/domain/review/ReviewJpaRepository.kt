@@ -31,6 +31,24 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
     @Query(
         """
         select r from Review r
+        where r.foodId = :foodId
+          and (:countryCode is null or r.authorCountryCode = :countryCode)
+          and (:cursor is null or r.id < :cursor)
+          and r.id not in :excludedIds
+        order by r.id desc
+        """,
+    )
+    fun findFoodReviewPage(
+        @Param("foodId") foodId: Long,
+        @Param("countryCode") countryCode: String?,
+        @Param("cursor") cursor: Long?,
+        @Param("excludedIds") excludedIds: List<Long>,
+        pageable: Pageable,
+    ): List<Review>
+
+    @Query(
+        """
+        select r from Review r
         where r.memberId = :memberId
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
