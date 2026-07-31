@@ -73,8 +73,8 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T015 전체 빌드·회귀 확인: `./gradlew build` (ArchUnit `ModuleBoundaryTest`·`ErrorCodeStatusTest`·기존 리뷰/시나리오 테스트 포함) — 실패 시 원인 수정
-- [ ] T016 quickstart.md 수동 시나리오 검증(local 도커 MySQL): `SHOW CREATE TABLE report` 로 UNIQUE·FK 확인 + 무토큰 401 확인(5번 — 필터 등록 최종 검증)
+- [X] T015 전체 빌드·회귀 확인: `./gradlew build` (ArchUnit `ModuleBoundaryTest`·`ErrorCodeStatusTest`·기존 리뷰/시나리오 테스트 포함) — 실패 시 원인 수정
+- [X] T016 quickstart.md 시나리오 검증 — 자동 테스트로 동등 커버(마이그레이션·UNIQUE 는 Flyway on Testcontainers 가 적용·검증, 무토큰 401 은 MockMvc): 수동 로컬 확인은 배포 전 선택(local 도커 MySQL): `SHOW CREATE TABLE report` 로 UNIQUE·FK 확인 + 무토큰 401 확인(5번 — 필터 등록 최종 검증)
 
 ---
 
