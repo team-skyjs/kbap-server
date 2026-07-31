@@ -11,6 +11,8 @@ import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
+import com.kbap.common.domain.report.ReportJpaRepository
+import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
@@ -26,6 +28,7 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
+    private val reportRepository: ReportJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -90,9 +93,16 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodReviewPage(foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
+    fun getFoodReviewPage(foodId: Long, countryCode: String?, cursor: Long?, viewerMemberId: Long): Page<ReviewResponse> {
         foodService.getReadyFood(foodId)
-        return toPage(reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
+        val excludedIds = reportRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+        val pageable = PageRequest.of(0, PAGE_SIZE + 1)
+        val rows = if (excludedIds.isEmpty()) {
+            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, pageable)
+        } else {
+            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, excludedIds, pageable)
+        }
+        return toPage(rows)
     }
 
     @Transactional(readOnly = true)

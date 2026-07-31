@@ -28,6 +28,25 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
         pageable: Pageable,
     ): List<Review>
 
+    // 빈 excludedIds 는 받지 않는다(빈 not in 은 SQL 이 깨짐) — 제외가 없으면 호출부가 기본 오버로드를 쓴다.
+    @Query(
+        """
+        select r from Review r
+        where r.foodId = :foodId
+          and (:countryCode is null or r.authorCountryCode = :countryCode)
+          and (:cursor is null or r.id < :cursor)
+          and r.id not in :excludedIds
+        order by r.id desc
+        """,
+    )
+    fun findFoodReviewPage(
+        @Param("foodId") foodId: Long,
+        @Param("countryCode") countryCode: String?,
+        @Param("cursor") cursor: Long?,
+        @Param("excludedIds") excludedIds: List<Long>,
+        pageable: Pageable,
+    ): List<Review>
+
     @Query(
         """
         select r from Review r

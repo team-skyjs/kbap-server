@@ -90,6 +90,31 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
+        given("findFoodReviewPage — 제외 id 목록") {
+            val foodId = 700L
+            val saved = (1..5).map { save(memberId = it.toLong(), foodId = foodId) }
+            val excluded = listOf(saved[1].id, saved[3].id)
+
+            `when`("제외 id 목록을 주면") {
+                then("제외 id 를 뺀 최신순 목록을 준다") {
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, excluded, page(21))
+                    result.map { it.id } shouldBe listOf(saved[4].id, saved[2].id, saved[0].id)
+                }
+            }
+            `when`("커서와 함께 제외 목록을 주면") {
+                then("커서 미만에서 제외 id 만 뺀다") {
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, saved[4].id, excluded, page(21))
+                    result.map { it.id } shouldBe listOf(saved[2].id, saved[0].id)
+                }
+            }
+            `when`("국적 필터와 함께 제외 목록을 주면") {
+                then("두 조건을 모두 적용한다") {
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, "KR", null, excluded, page(21))
+                    result.map { it.id } shouldBe listOf(saved[4].id, saved[2].id, saved[0].id)
+                }
+            }
+        }
+
         given("findMemberReviewPage — 내 리뷰 keyset") {
             val memberId = 300L
             val mine = (1..3).map { save(memberId = memberId, foodId = 300L + it) }

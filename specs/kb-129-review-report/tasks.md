@@ -58,14 +58,14 @@
 
 ### Tests for User Story 2 (Red 먼저) ⚠️
 
-- [ ] T010 [P] [US2] [Red] 리포지토리 제외 쿼리 테스트 보강: `common/src/test/kotlin/com/kbap/common/domain/review/ReviewJpaRepositoryTest.kt` — `findFoodReviewPage` excludedIds 오버로드: 제외 id 미포함·커서/정렬 유지. 컴파일 실패 = Red
-- [ ] T011 [P] [US2] [Red] 목록 숨김 MockMvc 테스트 작성: `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` 보강 — ① A 신고 → A 목록에서 해당 리뷰 제외 ② B 목록엔 그대로 ③ 한 음식에서 여러 건 신고 시 전부 제외 ④ 제외로 페이지가 PAGE_SIZE 미만이어도 hasNext·nextCursor 는 조회 row 기준 규약 유지(재조회 없음) ⑤ 신고 이력 없는 회원 결과 불변. 실행해 Red 확인
+- [X] T010 [P] [US2] [Red] 리포지토리 제외 쿼리 테스트 보강: `common/src/test/kotlin/com/kbap/common/domain/review/ReviewJpaRepositoryTest.kt` — `findFoodReviewPage` excludedIds 오버로드: 제외 id 미포함·커서/정렬 유지. 컴파일 실패 = Red
+- [X] T011 [P] [US2] [Red] 목록 숨김 MockMvc 테스트 작성: `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` 보강 — ① A 신고 → A 목록에서 해당 리뷰 제외 ② B 목록엔 그대로 ③ 한 음식에서 여러 건 신고 시 전부 제외 ④ 제외로 페이지가 PAGE_SIZE 미만이어도 hasNext·nextCursor 는 조회 row 기준 규약 유지(재조회 없음) ⑤ 신고 이력 없는 회원 결과 불변. 실행해 Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] [Green] `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt` — 기존 조건 + `and r.id not in :excludedIds` 오버로드 추가(빈 목록은 받지 않는 계약 — 호출부가 분기, research R3). T010 Green 확인
-- [ ] T013 [US2] [Green] 서비스·컨트롤러 연결: `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `getFoodReviewPage(foodId, countryCode, cursor, viewerMemberId)` 로 확장, `ReportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, REVIEW)` 조회 후 **비면 기존 쿼리·있으면 오버로드** 분기 + `ReviewController.listFoodReviews` 에 `@AuthMemberId memberId` 추가 + `ReviewApi.kt` 시그니처 동기화(애너테이션 없이 타입만)
-- [ ] T014 [US2] T011 전체 Green 확인: `./gradlew :api:test --tests "com.kbap.api.review.*" :common:test --tests "com.kbap.common.domain.review.*"` — 통과 후 리팩터
+- [X] T012 [US2] [Green] `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt` — 기존 조건 + `and r.id not in :excludedIds` 오버로드 추가(빈 목록은 받지 않는 계약 — 호출부가 분기, research R3). T010 Green 확인
+- [X] T013 [US2] [Green] 서비스·컨트롤러 연결: `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `getFoodReviewPage(foodId, countryCode, cursor, viewerMemberId)` 로 확장, `ReportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, REVIEW)` 조회 후 **비면 기존 쿼리·있으면 오버로드** 분기 + `ReviewController.listFoodReviews` 에 `@AuthMemberId memberId` 추가 + `ReviewApi.kt` 시그니처 동기화(애너테이션 없이 타입만)
+- [X] T014 [US2] T011 전체 Green 확인: `./gradlew :api:test --tests "com.kbap.api.review.*" :common:test --tests "com.kbap.common.domain.review.*"` — 통과 후 리팩터
 
 **Checkpoint**: 두 스토리 모두 독립 검증 완료
 
