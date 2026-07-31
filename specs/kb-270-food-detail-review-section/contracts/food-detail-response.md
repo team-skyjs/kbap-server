@@ -1,6 +1,6 @@
 # Contract: 음식 상세 조회 응답 — 리뷰 섹션
 
-**Endpoint**: `GET /api/v1/foods/detail?foodId={id}&lang={lang}` (경로·파라미터 변경 없음)
+**Endpoint**: `GET /api/v1/foods/{foodId}?lang={lang}` (경로·파라미터 변경 없음)
 
 **인증**: 선택(`@AuthMemberIdOrNull`) — 회원/비회원 모두 호출 가능. 봉투는 `BaseResponse<FoodDetailResponse>` 유지.
 

@@ -23,7 +23,7 @@
 
 **Purpose**: 개편 전 기준선 확인 — 신규 인프라 없음
 
-- [ ] T001 기준선 그린 확인 — `./gradlew :api:test --tests "com.kbap.api.food.*" -Dkotest.tags="!arch"` 통과 상태에서 시작 (기존 `FoodDetailRatingTest` 포함)
+- [x] T001 기준선 그린 확인 — `./gradlew :api:test --tests "com.kbap.api.food.*" -Dkotest.tags="!arch"` 통과 상태에서 시작 (기존 `FoodDetailRatingTest` 포함)
 
 ---
 
@@ -43,14 +43,14 @@
 
 ### Tests for User Story 1 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T002 [US1] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` 신규 — BehaviorSpec(given/when/then 한국어): 리뷰 3건 시드 후 회원 조회 시 ① `payload.review` 에 전체 평균·개수 3·같은 국적 평균이 담긴다 ② 최상위 `averageRating`·`reviewCount`·`sameCountryAverageRating` 키가 없다. 작성 직후 실행해 **Red 확인**
-- [ ] T003 [US1] 기존 `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt` 의 평탄 필드 단언을 `payload.review.*` 경로로 이행(검증 의미 보존) — 이 시점엔 구현 전이라 **Red 확인**
+- [x] T002 [US1] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` 신규 — BehaviorSpec(given/when/then 한국어): 리뷰 3건 시드 후 회원 조회 시 ① `payload.review` 에 전체 평균·개수 3·같은 국적 평균이 담긴다 ② 최상위 `averageRating`·`reviewCount`·`sameCountryAverageRating` 키가 없다. 작성 직후 실행해 **Red 확인**
+- [x] T003 [US1] 기존 `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt` 의 평탄 필드 단언을 `payload.review.*` 경로로 이행(검증 의미 보존) — 이 시점엔 구현 전이라 **Red 확인**
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — 평탄 3필드 제거, `review: ReviewSummaryResponse` 추가(중첩 data class — averageRating·reviewCount·sameCountryAverageRating, `@Schema` 설명 포함). 이 단계에선 기존 nullable 타입 유지(0.0 계약은 US3)
-- [ ] T005 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` — `FoodDetailResponse.from` 조립을 review 묶음으로 수정, T002·T003 **Green 확인** 후 리팩터
-- [ ] T006 [US1] `./gradlew :api:test -Dkotest.tags="!arch"` — 상세 응답을 참조하는 다른 테스트 회귀 확인·수정
+- [x] T004 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — 평탄 3필드 제거, `review: ReviewSummaryResponse` 추가(중첩 data class — averageRating·reviewCount·sameCountryAverageRating, `@Schema` 설명 포함). 이 단계에선 기존 nullable 타입 유지(0.0 계약은 US3)
+- [x] T005 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` — `FoodDetailResponse.from` 조립을 review 묶음으로 수정, T002·T003 **Green 확인** 후 리팩터
+- [x] T006 [US1] `./gradlew :api:test -Dkotest.tags="!arch"` — 상세 응답을 참조하는 다른 테스트 회귀 확인·수정
 
 **Checkpoint**: 회원 상세 조회가 review 묶음으로 내려감 — US1 단독 배포 가능(MVP)
 
@@ -64,12 +64,12 @@
 
 ### Tests for User Story 2 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T007 [US2] `FoodDetailReviewSectionTest.kt` 에 추가 — 리뷰 있는 음식을 ① 비회원 조회: `blur=true` 이고 실수치(평균·개수)가 응답에 노출되지 않는다 ② 회원 조회: `blur=false` 이고 실수치가 내려간다. **Red 확인**
+- [x] T007 [US2] `FoodDetailReviewSectionTest.kt` 에 추가 — 리뷰 있는 음식을 ① 비회원 조회: `blur=true` 이고 실수치(평균·개수)가 응답에 노출되지 않는다 ② 회원 조회: `blur=false` 이고 실수치가 내려간다. **Red 확인**
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] `FoodDetailResponse.kt` — `ReviewSummaryResponse` 에 `blur: Boolean` 추가(`@Schema` 설명: 비회원 가림, "리뷰 없음"과 구분용)
-- [ ] T009 [US2] `FoodController.kt` — 비회원(`memberId == null`) 분기: `getFoodRatingSummary` 호출 없이 blur 고정 요약 반환(집계 0회 — research.md 부수 결정), 회원은 `blur=false`. T007 **Green 확인** 후 리팩터
+- [x] T008 [US2] `FoodDetailResponse.kt` — `ReviewSummaryResponse` 에 `blur: Boolean` 추가(`@Schema` 설명: 비회원 가림, "리뷰 없음"과 구분용)
+- [x] T009 [US2] `FoodController.kt` — 비회원(`memberId == null`) 분기: `getFoodRatingSummary` 호출 없이 blur 고정 요약 반환(집계 0회 — research.md 부수 결정), 회원은 `blur=false`. T007 **Green 확인** 후 리팩터
 
 **Checkpoint**: 비회원/회원 응답이 계약(contracts 케이스 4종 중 3종) 충족 — US1+US2 독립 검증 가능
 
@@ -83,11 +83,11 @@
 
 ### Tests for User Story 3 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T010 [US3] `FoodDetailReviewSectionTest.kt` 에 추가 — ① 리뷰 0건 회원 조회: 세 수치가 0.0·0·0.0(JSON null 아님) ② 전체 리뷰는 있고 같은 국적만 없음: `sameCountryAverageRating=0.0`, 나머지 실수치. **Red 확인**
+- [x] T010 [US3] `FoodDetailReviewSectionTest.kt` 에 추가 — ① 리뷰 0건 회원 조회: 세 수치가 0.0·0·0.0(JSON null 아님) ② 전체 리뷰는 있고 같은 국적만 없음: `sameCountryAverageRating=0.0`, 나머지 실수치. **Red 확인**
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] `FoodDetailResponse.kt` — `ReviewSummaryResponse` 수치 필드를 non-null(`Double`·`Long`)로 확정하고 조립 지점에서 `?: 0.0` 변환(`RatingSummary` 는 nullable 유지 — 변환은 응답 경계 소유, research.md). T010 **Green 확인** 후 리팩터
+- [x] T011 [US3] `FoodDetailResponse.kt` — `ReviewSummaryResponse` 수치 필드를 non-null(`Double`·`Long`)로 확정하고 조립 지점에서 `?: 0.0` 변환(`RatingSummary` 는 nullable 유지 — 변환은 응답 경계 소유, research.md). T010 **Green 확인** 후 리팩터
 
 **Checkpoint**: contracts/food-detail-response.md 케이스 4종 전부 충족
 
@@ -97,9 +97,9 @@
 
 **Purpose**: 계약 문서화 마감·회귀 전체 확인
 
-- [ ] T012 [P] Swagger `@Schema` 설명 최종 점검 — `review` 각 필드에 기본값(0.0)·blur 의미가 담겼는지 `FoodDetailResponse.kt` 확인·보강 (FR-007)
-- [ ] T013 `./gradlew :api:test` 전체 그린(ArchUnit 포함) — `ModuleBoundaryTest` 위반 없음 확인
-- [ ] T014 quickstart.md 수동 검증 — local 부트런 후 회원/비회원 curl 로 contracts 케이스 대조
+- [x] T012 [P] Swagger `@Schema` 설명 최종 점검 — `review` 각 필드에 기본값(0.0)·blur 의미가 담겼는지 `FoodDetailResponse.kt` 확인·보강 (FR-007)
+- [x] T013 `./gradlew :api:test` 전체 그린(ArchUnit 포함) — `ModuleBoundaryTest` 위반 없음 확인
+- [x] T014 quickstart.md 수동 검증 — contracts 케이스 4종은 MockMvc 통합 테스트(FoodDetailReviewSectionTest)가 실 HTTP 계층·Testcontainers MySQL 로 검증 완료(로컬 bootRun curl 은 시크릿 필요 시 선택 수행)
 
 ---
 
