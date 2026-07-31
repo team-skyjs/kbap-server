@@ -16,6 +16,7 @@ import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
+import com.kbap.common.domain.review.model.ReviewPlace
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -40,6 +41,7 @@ class ReviewService(
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
+        place: ReviewPlace?,
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
@@ -54,6 +56,7 @@ class ReviewService(
                 content = content,
                 imageRefs = imagePaths,
                 authorCountryCode = authorCountryCode,
+                place = place,
             ),
         )
 
@@ -72,10 +75,11 @@ class ReviewService(
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
+        place: ReviewPlace?,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
-        review.update(rating = rating, content = content, imageRefs = imagePaths, place = null)
+        review.update(rating = rating, content = content, imageRefs = imagePaths, place = place)
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
     }
 

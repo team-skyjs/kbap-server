@@ -65,13 +65,13 @@ Gradle 멀티모듈 — `:common`(도메인·seam)·`:infra:place`(신규)·`:ap
 
 ### Tests for User Story 2 (Test-First — 작성 후 반드시 Red 확인) ⚠️
 
-- [ ] T012 [US2] `ReviewControllerTest` 작성 케이스 추가 → **Red 확인**: (1) place 포함 작성 → 응답 `payload.place` 전 항목 일치, (2) place 미포함 작성 → 기존 동작 + `place == null`, (3) 항목 일부 결측 → 결측만 null, (4) `name` 101자·`latitude` 91 → 400. `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt`
+- [X] T012 [US2] `ReviewControllerTest` 작성 케이스 추가 → **Red 확인**: (1) place 포함 작성 → 응답 `payload.place` 전 항목 일치, (2) place 미포함 작성 → 기존 동작 + `place == null`, (3) 항목 일부 결측 → 결측만 null, (4) `name` 101자·`latitude` 91 → 400. `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [P] [US2] `ReviewPlaceRequest` 중첩 DTO(`@Size` 3종·`@DecimalMin/Max` 좌표) + `ReviewCreateRequest` 에 `@field:Valid val place: ReviewPlaceRequest? = null`. `api/src/main/kotlin/com/kbap/api/review/ReviewCreateRequest.kt`
-- [ ] T014 [P] [US2] `ReviewResponse` 에 `place: ReviewPlaceResponse?` + `from` 매핑(작성·수정·목록 공용 단일 지점). `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt`
-- [ ] T015 [US2] `ReviewService.createReview` 에 place 전달·엔티티 생성 연결 + 컨트롤러 DTO→도메인 변환(Green — T012 통과). `api/src/main/kotlin/com/kbap/api/review/{ReviewService,ReviewController}.kt`
+- [X] T013 [P] [US2] `ReviewPlaceRequest` 중첩 DTO(`@Size` 3종·`@DecimalMin/Max` 좌표) + `ReviewCreateRequest` 에 `@field:Valid val place: ReviewPlaceRequest? = null`. `api/src/main/kotlin/com/kbap/api/review/ReviewCreateRequest.kt`
+- [X] T014 [P] [US2] `ReviewResponse` 에 `place: ReviewPlaceResponse?` + `from` 매핑(작성·수정·목록 공용 단일 지점). `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt`
+- [X] T015 [US2] `ReviewService.createReview` 에 place 전달·엔티티 생성 연결 + 컨트롤러 DTO→도메인 변환(Green — T012 통과). `api/src/main/kotlin/com/kbap/api/review/{ReviewService,ReviewController}.kt`
 
 **Checkpoint**: 검색→선택→저장 E2E 성립
 
@@ -85,11 +85,11 @@ Gradle 멀티모듈 — `:common`(도메인·seam)·`:infra:place`(신규)·`:ap
 
 ### Tests for User Story 3 (Test-First) ⚠️
 
-- [ ] T016 [US3] 목록 조회 노출 테스트: 음식별 리뷰 목록·내 리뷰 목록에서 place 저장 리뷰는 전 항목 반환, 미저장 리뷰는 `place == null`. `ReviewResponse.from` 단일 지점 특성상 US2 완료 시 **즉시 Green 일 수 있음** — 이 경우 회귀 고정 테스트로 유지(Red 미확인 사유를 커밋 메시지에 명시). `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt`
+- [X] T016 [US3] 목록 조회 노출 테스트: 음식별 리뷰 목록·내 리뷰 목록에서 place 저장 리뷰는 전 항목 반환, 미저장 리뷰는 `place == null`. `ReviewResponse.from` 단일 지점 특성상 US2 완료 시 **즉시 Green 일 수 있음** — 이 경우 회귀 고정 테스트로 유지(Red 미확인 사유를 커밋 메시지에 명시). `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt`
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] T016 이 Red 인 경우에만: `from` 미경유 조회 경로의 place 매핑 보완(예상 지점 없음). `api/src/main/kotlin/com/kbap/api/review/` 해당 파일
+- [X] T017 [US3] (불필요 — T016 이 US2 완료 시점에 Green. `from` 미경유 조회 경로 없음) T016 이 Red 인 경우에만: `from` 미경유 조회 경로의 place 매핑 보완(예상 지점 없음). `api/src/main/kotlin/com/kbap/api/review/` 해당 파일
 
 **Checkpoint**: US1~US3 독립 검증 완료
 
@@ -103,11 +103,11 @@ Gradle 멀티모듈 — `:common`(도메인·seam)·`:infra:place`(신규)·`:ap
 
 ### Tests for User Story 4 (Test-First — 작성 후 반드시 Red 확인) ⚠️
 
-- [ ] T018 [US4] `ReviewControllerTest` 수정 케이스 추가 → **Red 확인**: (1) 다른 place 로 수정 → 교체, (2) place 생략 → 제거, (3) 없던 리뷰에 추가, (4) 수정에서도 검증 위반 400. `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt`
+- [X] T018 [US4] `ReviewControllerTest` 수정 케이스 추가 → **Red 확인**: (1) 다른 place 로 수정 → 교체, (2) place 생략 → 제거, (3) 없던 리뷰에 추가, (4) 수정에서도 검증 위반 400. `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt`
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] `ReviewUpdateRequest` 에 `@field:Valid val place: ReviewPlaceRequest? = null` 추가 + `ReviewService.updateReview` 의 `place = null` 임시 전달을 요청값 연결로 교체(Green — T018 통과). `api/src/main/kotlin/com/kbap/api/review/{ReviewCreateRequest,ReviewService,ReviewController}.kt`
+- [X] T019 [US4] `ReviewUpdateRequest` 에 `@field:Valid val place: ReviewPlaceRequest? = null` 추가 + `ReviewService.updateReview` 의 `place = null` 임시 전달을 요청값 연결로 교체(Green — T018 통과). `api/src/main/kotlin/com/kbap/api/review/{ReviewCreateRequest,ReviewService,ReviewController}.kt`
 
 **Checkpoint**: 전 스토리 독립 검증 완료
 
@@ -115,9 +115,9 @@ Gradle 멀티모듈 — `:common`(도메인·seam)·`:infra:place`(신규)·`:ap
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T020 [P] swagger 문서 보강 — `PlaceApi`·`ReviewApi` 에 검색/place 요청·응답 설명(파라미터 애너테이션 위치 규약: 문서만 인터페이스에). `api/src/main/kotlin/com/kbap/api/{place/PlaceApi,review/ReviewApi}.kt`
-- [ ] T021 [P] 프로필별 설정 — `kbap.kakao.rest-api-key` 를 `application-{local,dev,staging,prod}.yml`/환경변수 배선(키 값 자체는 커밋 금지, `.env.example` 항목 추가). `api/src/main/resources/`, `.env.example`
-- [ ] T022 전체 회귀 — `./gradlew build`(신규 모듈·ArchUnit `ModuleBoundaryTest`(port Spring-free 포함)·Flyway↔`ddl-auto=validate` 정합·기존 테스트 무회귀) + quickstart.md 검증 절차 수행
+- [X] T020 [P] swagger 문서 보강 — `PlaceApi`·`ReviewApi` 에 검색/place 요청·응답 설명(파라미터 애너테이션 위치 규약: 문서만 인터페이스에). `api/src/main/kotlin/com/kbap/api/{place/PlaceApi,review/ReviewApi}.kt`
+- [X] T021 [P] 프로필별 설정 — `kbap.kakao.rest-api-key` 를 `application-{local,dev,staging,prod}.yml`/환경변수 배선(키 값 자체는 커밋 금지, `.env.example` 항목 추가). `api/src/main/resources/`, `.env.example`
+- [X] T022 전체 회귀 — `./gradlew build`(신규 모듈·ArchUnit `ModuleBoundaryTest`(port Spring-free 포함)·Flyway↔`ddl-auto=validate` 정합·기존 테스트 무회귀) + quickstart.md 검증 절차 수행
 
 ---
 

@@ -17,8 +17,9 @@ interface ReviewApi {
     @Operation(
         summary = "리뷰 작성",
         description = """
-            음식에 리뷰를 작성한다. 별점(1~5)은 필수, 본문(최대 1000자)·사진(최대 3장)은 옵션이다.
+            음식에 리뷰를 작성한다. 별점(1~5)은 필수, 본문(최대 1000자)·사진(최대 3장)·식당(place)은 옵션이다.
             사진은 REVIEW 용도 presigned 업로드를 완료한 본인 소유 경로만 허용한다.
+            place 는 식당 검색(GET /api/v1/places)에서 고른 항목을 그대로 넣는다 — 고르지 않았으면 생략한다.
             같은 회원이 같은 음식에 여러 건 작성할 수 있다.
         """,
     )
@@ -33,7 +34,7 @@ interface ReviewApi {
 
     @Operation(
         summary = "리뷰 수정",
-        description = "본인 리뷰의 별점·본문·사진을 수정한다. content·imagePaths 는 보낸 값으로 전량 교체된다(생략 시 제거). 작성 시점 국적 스냅샷은 바뀌지 않는다.",
+        description = "본인 리뷰의 별점·본문·사진·식당을 수정한다. content·imagePaths·place 는 보낸 값으로 전량 교체된다(생략 시 제거). 작성 시점 국적 스냅샷은 바뀌지 않는다.",
     )
     @ApiResponses(
         value = [

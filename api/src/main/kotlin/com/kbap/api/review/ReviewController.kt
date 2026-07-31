@@ -36,6 +36,7 @@ class ReviewController(
                     rating = request.rating!!,
                     content = request.content,
                     imagePaths = request.imagePaths,
+                    place = request.place?.toDomain(),
                 ),
             ),
         )
@@ -54,6 +55,7 @@ class ReviewController(
                     rating = request.rating!!,
                     content = request.content,
                     imagePaths = request.imagePaths,
+                    place = request.place?.toDomain(),
                 ),
             ),
         )

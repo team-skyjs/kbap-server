@@ -326,5 +326,57 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("리뷰 목록의 식당 정보 노출") {
+            seedFood(840L, "목록순두부")
+
+            fun createReviewWithPlace(token: String, foodId: Long): Long {
+                val response = mockMvc.post("/api/v1/reviews") {
+                    header("Authorization", "Bearer $token")
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(
+                        mapOf(
+                            "foodId" to foodId,
+                            "rating" to 4,
+                            "place" to mapOf(
+                                "name" to "한밥집 강남점",
+                                "address" to "서울 강남구 테헤란로 123",
+                                "kakaoPlaceId" to "27290047",
+                                "latitude" to 37.4979502,
+                                "longitude" to 127.0276368,
+                            ),
+                        ),
+                    )
+                }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                return mapper.readTree(response).path("payload").path("reviewId").asLong()
+            }
+
+            `when`("식당 정보가 있는 리뷰와 없는 리뷰를 음식별 목록으로 조회하면") {
+                then("있는 쪽만 식당 정보를 함께 준다") {
+                    val token = accessToken(840L)
+                    val withPlace = createReviewWithPlace(token, 840L)
+                    val withoutPlace = createReview(token, 840L)
+
+                    val items = payloadOf(foodReviews(token, 840L)).path("items")
+                    val byId = items.associateBy { it.path("reviewId").asLong() }
+
+                    byId.getValue(withPlace).path("place").path("name").asText() shouldBe "한밥집 강남점"
+                    byId.getValue(withPlace).path("place").path("address").asText() shouldBe "서울 강남구 테헤란로 123"
+                    byId.getValue(withPlace).path("place").path("kakaoPlaceId").asText() shouldBe "27290047"
+                    byId.getValue(withoutPlace).path("place").isNull.shouldBeTrue()
+                }
+            }
+
+            `when`("내 리뷰 목록으로 조회하면") {
+                then("식당 정보가 함께 내려간다") {
+                    val token = accessToken(841L)
+                    createReviewWithPlace(token, 840L)
+
+                    val items = payloadOf(myReviews(token)).path("items")
+                    items.size() shouldBe 1
+                    items.first().path("place").path("name").asText() shouldBe "한밥집 강남점"
+                }
+            }
+        }
     }
 }
