@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
+import com.kbap.common.domain.block.MemberBlockService
 import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
@@ -28,6 +29,7 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
+    private val memberBlockService: MemberBlockService,
     private val reportRepository: ReportJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -93,16 +95,23 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodReviewPage(foodId: Long, countryCode: String?, cursor: Long?, viewerMemberId: Long): Page<ReviewResponse> {
+    fun getFoodReviewPage(viewerMemberId: Long, foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
         foodService.getReadyFood(foodId)
-        val excludedIds = reportRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-        val pageable = PageRequest.of(0, PAGE_SIZE + 1)
-        val rows = if (excludedIds.isEmpty()) {
-            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, pageable)
-        } else {
-            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, excludedIds, pageable)
-        }
-        return toPage(rows)
+        // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
+        val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
+        val excludedReviewIds = reportRepository
+            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+            .ifEmpty { listOf(-1L) }
+        return toPage(
+            reviewRepository.findFoodReviewPage(
+                foodId,
+                countryCode,
+                cursor,
+                excludedMemberIds,
+                excludedReviewIds,
+                PageRequest.of(0, PAGE_SIZE + 1),
+            ),
+        )
     }
 
     @Transactional(readOnly = true)

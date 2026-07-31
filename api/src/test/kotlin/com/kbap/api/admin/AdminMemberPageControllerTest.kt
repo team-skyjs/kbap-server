@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.get
+import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,13 +36,19 @@ class AdminMemberPageControllerTest : BehaviorSpec() {
     private lateinit var memberJpaRepository: MemberJpaRepository
 
     @Autowired
+    private lateinit var dataSource: DataSource
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     init {
         fun adminCookie(): Cookie =
             Cookie(AdminPageAuthInterceptor.COOKIE_NAME, tokenIssuer.issueAccessToken(1, MemberRole.ADMIN))
 
-        fun clearMembers() = memberJpaRepository.deleteAll()
+        fun clearMembers() {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member_block") } }
+            memberJpaRepository.deleteAll()
+        }
 
         fun saveMember(uid: String, nickname: String? = null, profileImageUrl: String? = null): Member =
             memberJpaRepository.save(

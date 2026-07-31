@@ -76,6 +76,7 @@ object FoodTestSeed {
         execute(
             dataSource,
             listOf(
+                "DELETE FROM member_block WHERE blocker_member_id = $memberId OR blocked_member_id = $memberId",
                 "DELETE FROM member WHERE id = $memberId",
                 "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, onboarding_completed, status, created_at, updated_at) " +
                     "VALUES ($memberId, 'GOOGLE', 'food-test-$memberId', NULL, '테스터$memberId', " +

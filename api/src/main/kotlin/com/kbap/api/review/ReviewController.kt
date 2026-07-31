@@ -75,7 +75,7 @@ class ReviewController(
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFoodReviewPage(foodId, request.countryCode, CursorParser.parse(request.cursor), memberId),
+                reviewService.getFoodReviewPage(memberId, foodId, request.countryCode, CursorParser.parse(request.cursor)),
             ),
         )
 
