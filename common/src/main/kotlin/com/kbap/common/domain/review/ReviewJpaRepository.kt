@@ -19,6 +19,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
           and (:countryCode is null or r.authorCountryCode = :countryCode)
           and (:cursor is null or r.id < :cursor)
           and r.memberId not in :excludedMemberIds
+          and r.id not in :excludedReviewIds
         order by r.id desc
         """,
     )
@@ -27,6 +28,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
         @Param("countryCode") countryCode: String?,
         @Param("cursor") cursor: Long?,
         @Param("excludedMemberIds") excludedMemberIds: List<Long>,
+        @Param("excludedReviewIds") excludedReviewIds: List<Long>,
         pageable: Pageable,
     ): List<Review>
 

@@ -47,6 +47,10 @@ enum class ErrorCode(
     SELF_BLOCK_FORBIDDEN("BLOCK-001", 400, "자기 자신은 차단할 수 없습니다"),
     BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404, "차단할 회원을 찾을 수 없습니다"),
 
+    REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
+    REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
+    REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
     IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),

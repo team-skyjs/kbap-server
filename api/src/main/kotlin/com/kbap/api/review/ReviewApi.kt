@@ -71,6 +71,7 @@ interface ReviewApi {
         description = """
             음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
             countryCode 를 주면 작성 시점 국적 스냅샷이 정확히 일치하는 리뷰만 내려간다(리뷰가 없는 코드는 빈 목록).
+            호출한 회원이 신고한 리뷰는 결과에서 제외된다(다른 회원에게는 그대로 노출).
         """,
     )
     @ApiResponses(

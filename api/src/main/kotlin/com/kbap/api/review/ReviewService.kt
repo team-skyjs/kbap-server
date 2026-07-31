@@ -12,6 +12,8 @@ import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
+import com.kbap.common.domain.report.ReportJpaRepository
+import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
@@ -28,6 +30,7 @@ class ReviewService(
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
+    private val reportRepository: ReportJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -96,8 +99,18 @@ class ReviewService(
         foodService.getReadyFood(foodId)
         // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
         val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
+        val excludedReviewIds = reportRepository
+            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+            .ifEmpty { listOf(-1L) }
         return toPage(
-            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, excludedMemberIds, PageRequest.of(0, PAGE_SIZE + 1)),
+            reviewRepository.findFoodReviewPage(
+                foodId,
+                countryCode,
+                cursor,
+                excludedMemberIds,
+                excludedReviewIds,
+                PageRequest.of(0, PAGE_SIZE + 1),
+            ),
         )
     }
 

@@ -207,6 +207,76 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
         }
 
+        given("음식별 리뷰 목록 — 신고한 리뷰 숨김") {
+            fun reportReview(token: String, reviewId: Long) {
+                mockMvc.post("/api/v1/reports") {
+                    header("Authorization", "Bearer $token")
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(
+                        mapOf("targetType" to "REVIEW", "targetId" to reviewId, "reason" to "SPAM"),
+                    )
+                }.andExpect { status { isOk() } }
+            }
+
+            `when`("회원 A 가 리뷰 하나를 신고하면") {
+                then("A 의 목록에서만 빠지고 다른 회원 B 의 목록에는 그대로 보인다") {
+                    seedFood(830L, "숨김김치찌개")
+                    val author = accessToken(8301L)
+                    val viewerA = accessToken(8302L)
+                    val viewerB = accessToken(8303L)
+                    val reported = createReview(author, 830L)
+                    val kept = createReview(author, 830L)
+
+                    reportReview(viewerA, reported)
+
+                    payloadOf(foodReviews(viewerA, 830L)).path("items")
+                        .map { it.path("reviewId").asLong() } shouldBe listOf(kept)
+                    payloadOf(foodReviews(viewerB, 830L)).path("items")
+                        .map { it.path("reviewId").asLong() } shouldBe listOf(kept, reported)
+                }
+            }
+
+            `when`("회원 A 가 한 음식에서 여러 리뷰를 신고하면") {
+                then("신고한 리뷰 전부가 A 의 목록에서 빠진다") {
+                    seedFood(831L, "숨김된장찌개")
+                    val author = accessToken(8311L)
+                    val viewer = accessToken(8312L)
+                    val reviewIds = (1..4).map { createReview(author, 831L) }
+
+                    reportReview(viewer, reviewIds[0])
+                    reportReview(viewer, reviewIds[2])
+
+                    payloadOf(foodReviews(viewer, 831L)).path("items")
+                        .map { it.path("reviewId").asLong() } shouldBe listOf(reviewIds[3], reviewIds[1])
+                }
+            }
+
+            `when`("리뷰 25건 중 3건을 신고하고 페이지를 넘기면") {
+                then("신고 리뷰를 뺀 최신순으로 채우고 hasNext·nextCursor 규약을 유지한다") {
+                    seedFood(832L, "숨김비빔밥")
+                    val author = accessToken(8321L)
+                    val viewer = accessToken(8322L)
+                    val reviewIds = (1..25).map { createReview(author, 832L) }
+                    val reportedIds = listOf(reviewIds[24], reviewIds[12], reviewIds[0])
+
+                    reportedIds.forEach { reportReview(viewer, it) }
+
+                    val first = payloadOf(foodReviews(viewer, 832L))
+                    first.path("items").size() shouldBe 20
+                    first.path("hasNext").asBoolean().shouldBeTrue()
+                    val firstIds = first.path("items").map { it.path("reviewId").asLong() }
+
+                    val second = payloadOf(foodReviews(viewer, 832L, cursor = first.path("nextCursor").asLong().toString()))
+                    second.path("items").size() shouldBe 2
+                    second.path("hasNext").asBoolean().shouldBeFalse()
+                    second.path("nextCursor").isNull.shouldBeTrue()
+
+                    val visibleIds = firstIds + second.path("items").map { it.path("reviewId").asLong() }
+                    visibleIds shouldBe reviewIds.filterNot { it in reportedIds }.sortedDescending()
+                }
+            }
+        }
+
         given("내 리뷰 목록 — GET /api/v1/reviews/me") {
             seedFood(810L, "목록불고기")
             seedFood(811L, "목록잡채")
