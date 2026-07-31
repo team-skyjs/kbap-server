@@ -44,6 +44,10 @@ enum class ErrorCode(
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
     REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
 
+    REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
+    REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
+    REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
     IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),
