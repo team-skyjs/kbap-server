@@ -72,11 +72,11 @@ class FoodController(
     }
 
     private fun reviewSummaryOf(foodId: Long, memberId: Long?): FoodDetailResponse.ReviewSummaryResponse {
-        if (memberId == null) {
-            return FoodDetailResponse.ReviewSummaryResponse.blurred()
-        }
-        val viewerCountryCode = memberService.getMemberOrNull(memberId)?.profile?.countryCode?.name
-        return FoodDetailResponse.ReviewSummaryResponse.from(reviewService.getFoodRatingSummary(foodId, viewerCountryCode))
+        val viewer = memberId?.let { memberService.getMemberOrNull(it) }
+            ?: return FoodDetailResponse.ReviewSummaryResponse.blurred()
+        return FoodDetailResponse.ReviewSummaryResponse.from(
+            reviewService.getFoodRatingSummary(foodId, viewer.profile.countryCode?.name),
+        )
     }
 
     private fun toPage(

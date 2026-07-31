@@ -137,6 +137,26 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("활성 회원이 아닌 토큰(탈퇴 회원)으로 리뷰가 있는 음식을 조회하면") {
+                then("비회원과 동일하게 blur=true 기본값이 내려간다") {
+                    detail(920L, tokenIssuer.issueAccessToken(999L, MemberRole.USER)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.blur") { value(true) }
+                        jsonPath("$.payload.review.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                    }
+                }
+            }
+            `when`("리뷰가 0건인 음식을 비회원이 조회하면") {
+                then("리뷰 없음 상태에서도 blur=true 다") {
+                    seedFood(931L, "리뷰섹션미역국")
+                    detail(931L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.blur") { value(true) }
+                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                    }
+                }
+            }
             `when`("리뷰가 0건인 음식을 회원이 조회하면") {
                 then("평균은 null 이 아니라 0.0·리뷰 수 0·같은 국적 평균 0.0 이 내려간다") {
                     seedFood(930L, "리뷰섹션순두부")
