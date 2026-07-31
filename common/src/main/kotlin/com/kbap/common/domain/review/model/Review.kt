@@ -2,6 +2,7 @@ package com.kbap.common.domain.review.model
 
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
+import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -28,6 +29,9 @@ class Review(
 
     @Column(name = "author_country_code", length = 10)
     val authorCountryCode: String? = null,
+
+    @Embedded
+    var place: ReviewPlace? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
@@ -37,11 +41,12 @@ class Review(
         requireValid(rating, content, imageRefs)
     }
 
-    fun update(rating: Int, content: String?, imageRefs: List<String>?) {
+    fun update(rating: Int, content: String?, imageRefs: List<String>?, place: ReviewPlace?) {
         requireValid(rating, content, imageRefs)
         this.rating = rating
         this.content = content
         this.imageRefs = imageRefs
+        this.place = place
     }
 
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId

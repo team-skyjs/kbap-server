@@ -75,7 +75,7 @@ class ReviewService(
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
-        review.update(rating = rating, content = content, imageRefs = imagePaths)
+        review.update(rating = rating, content = content, imageRefs = imagePaths, place = null)
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
     }
 
