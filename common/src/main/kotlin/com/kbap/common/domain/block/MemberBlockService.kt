@@ -2,9 +2,9 @@ package com.kbap.common.domain.block
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.domain.block.model.MemberBlock
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberService
-import org.springframework.dao.DataIntegrityViolationException
+import com.kbap.common.domain.member.model.Member
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class MemberBlockService(
     private val memberBlockRepository: MemberBlockJpaRepository,
     private val memberService: MemberService,
+    private val memberRepository: MemberJpaRepository,
 ) {
     @Transactional
     fun block(blockerMemberId: Long, targetMemberId: Long) {
@@ -21,16 +22,7 @@ class MemberBlockService(
         memberService.getMemberOrNull(targetMemberId)
             ?: throw BusinessException(ErrorCode.BLOCK_TARGET_NOT_FOUND)
 
-        val existing = memberBlockRepository.findAnyByPair(blockerMemberId, targetMemberId)
-        if (existing != null) {
-            existing.active()
-            return
-        }
-        try {
-            memberBlockRepository.save(MemberBlock(blockerMemberId = blockerMemberId, blockedMemberId = targetMemberId))
-        } catch (e: DataIntegrityViolationException) {
-            // 동시 차단 경합의 unique 위반 — 이미 차단됐다는 뜻이므로 멱등 성공으로 마감(최소 방어 컨벤션)
-        }
+        memberBlockRepository.upsertActive(blockerMemberId, targetMemberId)
     }
 
     @Transactional
@@ -41,4 +33,9 @@ class MemberBlockService(
     @Transactional(readOnly = true)
     fun getBlockedMemberIds(memberId: Long): List<Long> =
         memberBlockRepository.findBlockedMemberIds(memberId)
+
+    // 차단 대상의 스냅샷을 저장하지 않으므로 목록은 조회 시점의 활성 회원만 최신 값으로 로드한다(탈퇴자 자연 제외)
+    @Transactional(readOnly = true)
+    fun getBlockedMembers(memberId: Long): List<Member> =
+        memberRepository.findAllById(memberBlockRepository.findBlockedMemberIds(memberId))
 }

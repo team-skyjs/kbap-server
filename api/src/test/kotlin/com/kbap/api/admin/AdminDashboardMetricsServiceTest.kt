@@ -53,7 +53,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     listOf(
                         "food_review", "member_ranking_event", "bookmark", "uploaded_image",
                         "scan_history", "image_batch_item", "image_batch",
-                        "food", "member", "llm_call_cost",
+                        "food", "member_block", "member", "llm_call_cost",
                     ).forEach { st.execute("DELETE FROM $it") }
                 }
             }
