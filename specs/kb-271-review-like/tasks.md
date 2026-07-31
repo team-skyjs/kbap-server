@@ -70,7 +70,7 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T010 전체 회귀 + 계약 검증 — `./gradlew build`(ArchUnit `ModuleBoundaryTest` 포함, e2e·admin 등 전 모듈 회귀 — additive 필드로 기존 테스트가 깨지면 오버스펙 assertion 여부 먼저 의심), quickstart.md 검증 명령 수행, 태스크/논리 단위 커밋 정리
+- [x] T010 전체 회귀 + 계약 검증 — `./gradlew build`(ArchUnit `ModuleBoundaryTest` 포함, e2e·admin 등 전 모듈 회귀 — additive 필드로 기존 테스트가 깨지면 오버스펙 assertion 여부 먼저 의심), quickstart.md 검증 명령 수행, 태스크/논리 단위 커밋 정리
 
 ---
 
