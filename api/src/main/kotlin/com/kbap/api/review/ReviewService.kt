@@ -15,6 +15,7 @@ import com.kbap.api.core.Page
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.domain.review.ReviewLikeJpaRepository
 import com.kbap.common.domain.review.model.Review
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ReviewService(
     private val reviewRepository: ReviewJpaRepository,
+    private val reviewLikeRepository: ReviewLikeJpaRepository,
     private val foodService: FoodService,
     private val memberService: MemberService,
     private val uploadedImageRepository: UploadedImageJpaRepository,
@@ -92,6 +94,19 @@ class ReviewService(
             memberService.decreaseUniqueReviewedFoodCount(memberId)
         }
         rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
+    }
+
+    @Transactional
+    fun likeReview(memberId: Long, reviewId: Long) {
+        if (!reviewRepository.existsById(reviewId)) {
+            throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        }
+        reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
+    }
+
+    @Transactional
+    fun unlikeReview(memberId: Long, reviewId: Long) {
+        reviewLikeRepository.findByReviewIdAndMemberId(reviewId, memberId)?.delete()
     }
 
     @Transactional(readOnly = true)

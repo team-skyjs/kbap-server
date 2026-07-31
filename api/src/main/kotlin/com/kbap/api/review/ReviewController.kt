@@ -67,6 +67,24 @@ class ReviewController(
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
+    @PostMapping("/reviews/{reviewId}/like")
+    override fun like(
+        @AuthMemberId memberId: Long,
+        @PathVariable reviewId: Long,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        reviewService.likeReview(memberId, reviewId)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @DeleteMapping("/reviews/{reviewId}/like")
+    override fun unlike(
+        @AuthMemberId memberId: Long,
+        @PathVariable reviewId: Long,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        reviewService.unlikeReview(memberId, reviewId)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
     @GetMapping("/reviews")
     override fun listFoodReviews(
         @AuthMemberId memberId: Long,

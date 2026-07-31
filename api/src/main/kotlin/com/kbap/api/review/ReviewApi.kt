@@ -67,6 +67,37 @@ interface ReviewApi {
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
+        summary = "리뷰 좋아요 등록",
+        description = "리뷰에 좋아요를 등록한다. 회원당 리뷰 하나에 1개만 유지되며, 이미 좋아요한 리뷰에 다시 요청해도 성공(멱등)한다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "등록 성공(이미 좋아요한 경우 포함)"),
+            ApiResponse(responseCode = "400", description = "미존재/삭제된 리뷰(REVIEW-001)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun like(
+        memberId: Long,
+        @Parameter(description = "좋아요할 리뷰 id", example = "42") reviewId: Long,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "리뷰 좋아요 취소",
+        description = "리뷰 좋아요를 취소한다. 좋아요하지 않은 리뷰에 요청해도 성공(멱등)한다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "취소 성공(좋아요가 없던 경우 포함)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun unlike(
+        memberId: Long,
+        @Parameter(description = "좋아요를 취소할 리뷰 id", example = "42") reviewId: Long,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
         summary = "음식별 리뷰 목록",
         description = """
             음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
