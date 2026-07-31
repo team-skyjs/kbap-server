@@ -108,9 +108,9 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(900L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.averageRating") { value(3.7) }
-                        jsonPath("$.payload.reviewCount") { value(3) }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
                     }
                 }
             }
@@ -118,8 +118,8 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 then("KR 스냅샷 리뷰(4·5)의 평균 4.5 를 같은 국적 평점으로 준다") {
                     detail(900L, accessToken(903L, "KR")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.averageRating") { value(3.7) }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(4.5) }
+                        jsonPath("$.payload.review.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(4.5) }
                     }
                 }
             }
@@ -127,8 +127,8 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 then("같은 국적 평점은 null 이다") {
                     detail(900L, accessToken(904L, null)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.averageRating") { value(3.7) }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
                     }
                 }
             }
@@ -136,7 +136,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 then("같은 국적 평점은 null 이다") {
                     detail(900L, accessToken(905L, "JP")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
                     }
                 }
             }
@@ -145,9 +145,9 @@ class FoodDetailRatingTest : BehaviorSpec() {
                     seedFood(910L, "평점순두부")
                     detail(910L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.averageRating") { value(null) }
-                        jsonPath("$.payload.reviewCount") { value(0) }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.averageRating") { value(null) }
+                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
                     }
                 }
             }
@@ -160,8 +160,8 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(911L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.averageRating") { value(5.0) }
-                        jsonPath("$.payload.reviewCount") { value(1) }
+                        jsonPath("$.payload.review.averageRating") { value(5.0) }
+                        jsonPath("$.payload.review.reviewCount") { value(1) }
                     }
                 }
             }
@@ -173,7 +173,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(912L, accessToken(908L, "TH")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.sameCountryAverageRating") { value(3.0) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(3.0) }
                     }
                 }
             }

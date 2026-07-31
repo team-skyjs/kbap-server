@@ -38,19 +38,25 @@ data class FoodDetailResponse(
     @field:Schema(description = "조회 회원의 북마크 여부. 비회원 조회는 항상 false.", example = "true")
     val bookmarked: Boolean,
 
-    @field:Schema(description = "전체 리뷰 평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 null.", example = "3.7", nullable = true)
-    val averageRating: Double?,
-
-    @field:Schema(description = "리뷰 수", example = "3")
-    val reviewCount: Long,
-
-    @field:Schema(
-        description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 비회원·국적 미보유·해당 국적 리뷰 없음이면 null.",
-        example = "4.5",
-        nullable = true,
-    )
-    val sameCountryAverageRating: Double?,
+    @field:Schema(description = "리뷰 요약 — 전체 평균 별점·리뷰 수·같은 국적 평균 별점")
+    val review: ReviewSummaryResponse,
 ) {
+    @Schema(description = "음식 상세의 리뷰 요약 묶음")
+    data class ReviewSummaryResponse(
+        @field:Schema(description = "전체 리뷰 평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 null.", example = "3.7", nullable = true)
+        val averageRating: Double?,
+
+        @field:Schema(description = "리뷰 수", example = "3")
+        val reviewCount: Long,
+
+        @field:Schema(
+            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 비회원·국적 미보유·해당 국적 리뷰 없음이면 null.",
+            example = "4.5",
+            nullable = true,
+        )
+        val sameCountryAverageRating: Double?,
+    )
+
     @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
     data class IngredientResponse(
         @field:Schema(description = "요청 언어 성분명(미지원/미지정/번역 부재 시 한국어)", example = "Soybean")
@@ -88,9 +94,11 @@ data class FoodDetailResponse(
                     )
                 },
                 bookmarked = bookmarked,
-                averageRating = rating.averageRating,
-                reviewCount = rating.reviewCount,
-                sameCountryAverageRating = rating.sameCountryAverageRating,
+                review = ReviewSummaryResponse(
+                    averageRating = rating.averageRating,
+                    reviewCount = rating.reviewCount,
+                    sameCountryAverageRating = rating.sameCountryAverageRating,
+                ),
             )
     }
 }
