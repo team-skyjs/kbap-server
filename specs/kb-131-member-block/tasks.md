@@ -65,13 +65,13 @@
 
 ### Tests for User Story 2 (Red — 먼저 작성, 실패 확인) ⚠️
 
-- [ ] T014 [P] [US2] [Red] `unblock`·재차단 부활 테스트 추가 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockServiceTest.kt`: `unblock` 후 `getBlockedMemberIds` 에서 제외, 차단한 적 없는 대상 `unblock` 예외 없음(멱등), 차단→해제→재차단 시 UNIQUE 위반 없이 동일 행이 ACTIVE 로 부활(총 행 수 1)
-- [ ] T015 [P] [US2] [Red] 해제 API·재노출 MockMvc 테스트 추가 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`(DELETE `/api/v1/members/me/blocks/{memberId}` 200, 미차단 대상도 200, 401), `api/src/test/kotlin/com/kbap/api/review/ReviewBlockFilterTest.kt`(해제 후 리뷰 재노출, 재차단 후 다시 미노출)
+- [X] T014 [P] [US2] [Red] `unblock`·재차단 부활 테스트 추가 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockServiceTest.kt`: `unblock` 후 `getBlockedMemberIds` 에서 제외, 차단한 적 없는 대상 `unblock` 예외 없음(멱등), 차단→해제→재차단 시 UNIQUE 위반 없이 동일 행이 ACTIVE 로 부활(총 행 수 1)
+- [X] T015 [P] [US2] [Red] 해제 API·재노출 MockMvc 테스트 추가 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`(DELETE `/api/v1/members/me/blocks/{memberId}` 200, 미차단 대상도 200, 401), `api/src/test/kotlin/com/kbap/api/review/ReviewBlockFilterTest.kt`(해제 후 리뷰 재노출, 재차단 후 다시 미노출)
 
 ### Implementation for User Story 2 (Green → Refactor)
 
-- [ ] T016 [US2] `MemberBlockService.unblock(blockerMemberId, targetMemberId)` 구현(T014 통과) — `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockService.kt`: ACTIVE 행 조회 후 `delete()`(dirty checking), 없으면 no-op, `@Transactional`
-- [ ] T017 [US2] DELETE 엔드포인트 추가(T015 통과) — `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`, `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`
+- [X] T016 [US2] `MemberBlockService.unblock(blockerMemberId, targetMemberId)` 구현(T014 통과) — `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockService.kt`: ACTIVE 행 조회 후 `delete()`(dirty checking), 없으면 no-op, `@Transactional`
+- [X] T017 [US2] DELETE 엔드포인트 추가(T015 통과) — `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`, `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`
 
 **Checkpoint**: US1+US2 — 차단·해제·재차단 전 주기 동작
 

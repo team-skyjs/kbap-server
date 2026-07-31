@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
@@ -119,6 +120,40 @@ class MemberBlockControllerTest : BehaviorSpec() {
                 then("401 을 반환한다") {
                     seedMember(9108L)
                     block(null, 9108L).andExpect { status { isUnauthorized() } }
+                }
+            }
+        }
+
+        given("차단 해제 — DELETE /api/v1/members/me/blocks/{memberId}") {
+            fun unblock(token: String?, targetMemberId: Long): ResultActionsDsl =
+                mockMvc.delete("/api/v1/members/me/blocks/$targetMemberId") {
+                    token?.let { header("Authorization", "Bearer $it") }
+                }
+
+            `when`("차단 중인 회원을 해제하면") {
+                then("200 success 를 반환한다") {
+                    val token = accessToken(9111L)
+                    seedMember(9112L)
+                    block(token, 9112L).andExpect { status { isOk() } }
+                    unblock(token, 9112L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+                }
+            }
+            `when`("차단한 적 없는 회원을 해제하면") {
+                then("멱등하게 200 을 반환한다") {
+                    val token = accessToken(9113L)
+                    unblock(token, 999_999_999L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+                }
+            }
+            `when`("토큰 없이 요청하면") {
+                then("401 을 반환한다") {
+                    seedMember(9114L)
+                    unblock(null, 9114L).andExpect { status { isUnauthorized() } }
                 }
             }
         }

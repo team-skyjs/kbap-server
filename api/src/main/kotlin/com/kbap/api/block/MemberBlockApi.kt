@@ -2,6 +2,7 @@ package com.kbap.api.block
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -29,5 +30,20 @@ interface MemberBlockApi {
     fun block(
         memberId: Long,
         request: MemberBlockRequest,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "회원 차단 해제",
+        description = "차단을 해제한다. 해제 직후부터 그 회원의 리뷰가 다시 보인다. 차단하지 않은 회원이어도 멱등하게 200.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "해제 완료(차단하지 않았던 회원 포함)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+        ],
+    )
+    fun unblock(
+        memberId: Long,
+        @Parameter(description = "차단을 해제할 회원 id", example = "42") targetMemberId: Long,
     ): ResponseEntity<BaseResponse<Unit>>
 }

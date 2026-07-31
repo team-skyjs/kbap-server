@@ -33,6 +33,11 @@ class MemberBlockService(
         }
     }
 
+    @Transactional
+    fun unblock(blockerMemberId: Long, targetMemberId: Long) {
+        memberBlockRepository.findByBlockerMemberIdAndBlockedMemberId(blockerMemberId, targetMemberId)?.delete()
+    }
+
     @Transactional(readOnly = true)
     fun getBlockedMemberIds(memberId: Long): List<Long> =
         memberBlockRepository.findBlockedMemberIds(memberId)

@@ -10,6 +10,7 @@ import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -87,6 +88,56 @@ class MemberBlockServiceTest : BehaviorSpec() {
 
                     memberBlockService.getBlockedMemberIds(blocker.id) shouldContainExactly listOf(target.id)
                     memberBlockRepository.findAnyByPair(blocker.id, target.id).shouldNotBeNull().id shouldBe firstRowId
+                }
+            }
+        }
+
+        given("차단 해제") {
+            `when`("차단 중인 회원을 해제하면") {
+                then("차단 목록에서 빠진다") {
+                    val blocker = newMember()
+                    val target = newMember()
+                    memberBlockService.block(blocker.id, target.id)
+
+                    memberBlockService.unblock(blocker.id, target.id)
+
+                    memberBlockService.getBlockedMemberIds(blocker.id) shouldBe emptyList()
+                }
+            }
+            `when`("차단한 적 없는 회원을 해제하면") {
+                then("예외 없이 성공한다") {
+                    val blocker = newMember()
+                    memberBlockService.unblock(blocker.id, 999_999_999L)
+                    memberBlockService.getBlockedMemberIds(blocker.id) shouldBe emptyList()
+                }
+            }
+            `when`("이미 해제한 회원을 다시 해제하면") {
+                then("예외 없이 성공한다") {
+                    val blocker = newMember()
+                    val target = newMember()
+                    memberBlockService.block(blocker.id, target.id)
+                    memberBlockService.unblock(blocker.id, target.id)
+                    memberBlockService.unblock(blocker.id, target.id)
+                    memberBlockService.getBlockedMemberIds(blocker.id) shouldBe emptyList()
+                }
+            }
+        }
+
+        given("재차단 — 소프트삭제 부활") {
+            `when`("차단→해제→재차단을 수행하면") {
+                then("UNIQUE 위반 없이 기존 행이 ACTIVE 로 되살아난다") {
+                    val blocker = newMember()
+                    val target = newMember()
+                    memberBlockService.block(blocker.id, target.id)
+                    val originalRowId = memberBlockRepository.findAnyByPair(blocker.id, target.id).shouldNotBeNull().id
+                    memberBlockService.unblock(blocker.id, target.id)
+
+                    memberBlockService.block(blocker.id, target.id)
+
+                    memberBlockService.getBlockedMemberIds(blocker.id) shouldContainExactly listOf(target.id)
+                    val revived = memberBlockRepository.findAnyByPair(blocker.id, target.id).shouldNotBeNull()
+                    revived.id shouldBe originalRowId
+                    revived.isActive().shouldBeTrue()
                 }
             }
         }

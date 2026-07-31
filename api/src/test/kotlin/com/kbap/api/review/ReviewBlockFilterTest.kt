@@ -16,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
@@ -136,6 +137,26 @@ class ReviewBlockFilterTest : BehaviorSpec() {
                     summaryAfter.path("reviewCount").asLong() shouldBe 3L
                     summaryAfter.path("averageRating").asDouble() shouldBe
                         (summaryBefore.path("averageRating").asDouble() plusOrMinus 0.0001)
+                }
+            }
+            `when`("차단을 해제하면") {
+                then("그 회원의 리뷰가 다시 보이고, 재차단하면 다시 사라진다") {
+                    seedFood(9220L, "차단필터비빔밥")
+                    val viewerToken = accessToken(9221L)
+                    val writerToken = accessToken(9222L)
+                    val reviewId = createReview(writerToken, 9220L, 4)
+
+                    blockMember(viewerToken, 9222L)
+                    foodReviewItems(viewerToken, 9220L).size() shouldBe 0
+
+                    mockMvc.delete("/api/v1/members/me/blocks/9222") {
+                        header("Authorization", "Bearer $viewerToken")
+                    }.andExpect { status { isOk() } }
+                    foodReviewItems(viewerToken, 9220L).map { it.path("reviewId").asLong() }
+                        .shouldBe(listOf(reviewId))
+
+                    blockMember(viewerToken, 9222L)
+                    foodReviewItems(viewerToken, 9220L).size() shouldBe 0
                 }
             }
             `when`("차단하지 않은 회원이 조회하면") {
