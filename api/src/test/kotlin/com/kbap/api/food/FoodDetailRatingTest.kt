@@ -100,7 +100,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
         given("음식 상세 평점 확장 — GET /api/v1/foods/{foodId}") {
             `when`("별점 4·5·2 리뷰가 있는 음식을 국적 미보유 회원이 조회하면") {
-                then("전체 평균 3.7(소수 1자리 반올림)·리뷰 수 3·같은 국적 평점 null 을 준다") {
+                then("전체 평균 3.7(소수 1자리 반올림)·리뷰 수 3·같은 국적 평점 0.0 을 준다") {
                     seedFood(900L, "평점김치찌개")
                     createReview(900L, "KR", 900L, 4)
                     createReview(901L, "KR", 900L, 5)
@@ -110,7 +110,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.review.averageRating") { value(3.7) }
                         jsonPath("$.payload.review.reviewCount") { value(3) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
                     }
                 }
             }
@@ -124,21 +124,21 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 }
             }
             `when`("해당 국적 리뷰가 없는 회원이 조회하면") {
-                then("같은 국적 평점은 null 이다") {
+                then("같은 국적 평점은 0.0 이다") {
                     detail(900L, accessToken(905L, "JP")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
                     }
                 }
             }
             `when`("리뷰가 없는 음식을 회원이 조회하면") {
-                then("평균 null·리뷰 수 0 을 준다") {
+                then("평균 0.0·리뷰 수 0 을 준다") {
                     seedFood(910L, "평점순두부")
                     detail(910L, accessToken(904L, null)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.averageRating") { value(null) }
+                        jsonPath("$.payload.review.averageRating") { value(0.0) }
                         jsonPath("$.payload.review.reviewCount") { value(0) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(null) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
                     }
                 }
             }

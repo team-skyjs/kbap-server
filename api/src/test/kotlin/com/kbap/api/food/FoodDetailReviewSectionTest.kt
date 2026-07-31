@@ -137,6 +137,28 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("리뷰가 0건인 음식을 회원이 조회하면") {
+                then("평균은 null 이 아니라 0.0·리뷰 수 0·같은 국적 평균 0.0 이 내려간다") {
+                    seedFood(930L, "리뷰섹션순두부")
+                    detail(930L, accessToken(923L, "KR")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                        jsonPath("$.payload.review.blur") { value(false) }
+                    }
+                }
+            }
+            `when`("전체 리뷰는 있으나 같은 국적 리뷰가 없는 회원이 조회하면") {
+                then("같은 국적 평균만 0.0 이고 나머지는 실수치다") {
+                    detail(920L, accessToken(924L, "JP")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                    }
+                }
+            }
         }
     }
 }

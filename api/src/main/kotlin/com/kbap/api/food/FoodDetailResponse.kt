@@ -43,18 +43,17 @@ data class FoodDetailResponse(
 ) {
     @Schema(description = "음식 상세의 리뷰 요약 묶음")
     data class ReviewSummaryResponse(
-        @field:Schema(description = "전체 리뷰 평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 null.", example = "3.7", nullable = true)
-        val averageRating: Double?,
+        @field:Schema(description = "전체 리뷰 평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 0.0 — null 없음.", example = "3.7")
+        val averageRating: Double,
 
         @field:Schema(description = "리뷰 수", example = "3")
         val reviewCount: Long,
 
         @field:Schema(
-            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 국적 미보유·해당 국적 리뷰 없음이면 null.",
+            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 국적 미보유·해당 국적 리뷰 없음이면 0.0 — null 없음.",
             example = "4.5",
-            nullable = true,
         )
-        val sameCountryAverageRating: Double?,
+        val sameCountryAverageRating: Double,
 
         @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 회원 조회는 false.", example = "false")
         val blur: Boolean,
@@ -62,9 +61,9 @@ data class FoodDetailResponse(
         companion object {
             fun from(rating: RatingSummary): ReviewSummaryResponse =
                 ReviewSummaryResponse(
-                    averageRating = rating.averageRating,
+                    averageRating = rating.averageRating ?: 0.0,
                     reviewCount = rating.reviewCount,
-                    sameCountryAverageRating = rating.sameCountryAverageRating,
+                    sameCountryAverageRating = rating.sameCountryAverageRating ?: 0.0,
                     blur = false,
                 )
 
