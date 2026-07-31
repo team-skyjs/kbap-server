@@ -107,6 +107,7 @@ class ReviewService(
             averageRating = overall.average?.roundToFirstDecimal(),
             reviewCount = overall.reviewCount,
             sameCountryAverageRating = sameCountry?.average?.roundToFirstDecimal(),
+            sameCountryReviewCount = sameCountry?.reviewCount ?: 0,
         )
     }
 

@@ -38,19 +38,52 @@ data class FoodDetailResponse(
     @field:Schema(description = "조회 회원의 북마크 여부. 비회원 조회는 항상 false.", example = "true")
     val bookmarked: Boolean,
 
-    @field:Schema(description = "전체 리뷰 평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 null.", example = "3.7", nullable = true)
-    val averageRating: Double?,
-
-    @field:Schema(description = "리뷰 수", example = "3")
-    val reviewCount: Long,
-
-    @field:Schema(
-        description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 비회원·국적 미보유·해당 국적 리뷰 없음이면 null.",
-        example = "4.5",
-        nullable = true,
-    )
-    val sameCountryAverageRating: Double?,
+    @field:Schema(description = "리뷰 요약 — 전체 평균 별점·리뷰 수·같은 국적 평균 별점")
+    val review: ReviewSummaryResponse,
 ) {
+    @Schema(description = "음식 상세의 리뷰 요약 묶음 — 전체(overall)·같은 국적(sameCountry) 평점을 같은 형태로 제공")
+    data class ReviewSummaryResponse(
+        @field:Schema(description = "전체 사용자 리뷰 요약")
+        val overall: ReviewRatingResponse,
+
+        @field:Schema(description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰 요약. 국적 미보유·해당 국적 리뷰 없음이면 기본값(0.0·0).")
+        val sameCountry: ReviewRatingResponse,
+
+        @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 활성 회원 조회는 false.", example = "false")
+        val blur: Boolean,
+    ) {
+        @Schema(description = "리뷰 평점 요약 — 평균 별점·리뷰 수")
+        data class ReviewRatingResponse(
+            @field:Schema(description = "평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 0.0 — null 없음.", example = "3.7")
+            val averageRating: Double,
+
+            @field:Schema(description = "리뷰 수", example = "3")
+            val reviewCount: Long,
+        )
+
+        companion object {
+            fun from(rating: RatingSummary): ReviewSummaryResponse =
+                ReviewSummaryResponse(
+                    overall = ReviewRatingResponse(
+                        averageRating = rating.averageRating ?: 0.0,
+                        reviewCount = rating.reviewCount,
+                    ),
+                    sameCountry = ReviewRatingResponse(
+                        averageRating = rating.sameCountryAverageRating ?: 0.0,
+                        reviewCount = rating.sameCountryReviewCount,
+                    ),
+                    blur = false,
+                )
+
+            fun blurred(): ReviewSummaryResponse =
+                ReviewSummaryResponse(
+                    overall = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
+                    sameCountry = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
+                    blur = true,
+                )
+        }
+    }
+
     @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
     data class IngredientResponse(
         @field:Schema(description = "요청 언어 성분명(미지원/미지정/번역 부재 시 한국어)", example = "Soybean")
@@ -71,7 +104,7 @@ data class FoodDetailResponse(
     )
 
     companion object {
-        fun from(result: GetFoodDetailResult, bookmarked: Boolean, rating: RatingSummary): FoodDetailResponse =
+        fun from(result: GetFoodDetailResult, bookmarked: Boolean, review: ReviewSummaryResponse): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
@@ -88,9 +121,7 @@ data class FoodDetailResponse(
                     )
                 },
                 bookmarked = bookmarked,
-                averageRating = rating.averageRating,
-                reviewCount = rating.reviewCount,
-                sameCountryAverageRating = rating.sameCountryAverageRating,
+                review = review,
             )
     }
 }
