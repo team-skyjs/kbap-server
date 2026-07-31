@@ -97,7 +97,6 @@ class ReviewService(
     @Transactional(readOnly = true)
     fun getFoodReviewPage(viewerMemberId: Long, foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
         foodService.getReadyFood(foodId)
-        // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
         val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
         val excludedReviewIds = reportRepository
             .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)

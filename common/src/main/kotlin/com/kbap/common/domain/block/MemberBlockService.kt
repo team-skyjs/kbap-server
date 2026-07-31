@@ -34,7 +34,6 @@ class MemberBlockService(
     fun getBlockedMemberIds(memberId: Long): List<Long> =
         memberBlockRepository.findBlockedMemberIds(memberId)
 
-    // 차단 대상의 스냅샷을 저장하지 않으므로 목록은 조회 시점의 활성 회원만 최신 값으로 로드한다(탈퇴자 자연 제외)
     @Transactional(readOnly = true)
     fun getBlockedMembers(memberId: Long): List<Member> =
         memberRepository.findAllById(memberBlockRepository.findBlockedMemberIds(memberId))
