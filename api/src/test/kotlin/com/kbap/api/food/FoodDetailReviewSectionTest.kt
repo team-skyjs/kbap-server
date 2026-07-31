@@ -116,6 +116,27 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("리뷰가 있는 같은 음식을 비회원이 조회하면") {
+                then("blur=true 이고 실수치 대신 기본값이 내려간다") {
+                    detail(920L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.blur") { value(true) }
+                        jsonPath("$.payload.review.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                    }
+                }
+            }
+            `when`("같은 음식을 회원이 조회하면") {
+                then("blur=false 이고 실수치가 내려간다") {
+                    detail(920L, accessToken(923L, "KR")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.review.blur") { value(false) }
+                        jsonPath("$.payload.review.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.reviewCount") { value(3) }
+                    }
+                }
+            }
         }
     }
 }

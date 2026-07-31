@@ -50,12 +50,28 @@ data class FoodDetailResponse(
         val reviewCount: Long,
 
         @field:Schema(
-            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 비회원·국적 미보유·해당 국적 리뷰 없음이면 null.",
+            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰의 평균 별점(소수 첫째 자리 반올림). 국적 미보유·해당 국적 리뷰 없음이면 null.",
             example = "4.5",
             nullable = true,
         )
         val sameCountryAverageRating: Double?,
-    )
+
+        @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 회원 조회는 false.", example = "false")
+        val blur: Boolean,
+    ) {
+        companion object {
+            fun from(rating: RatingSummary): ReviewSummaryResponse =
+                ReviewSummaryResponse(
+                    averageRating = rating.averageRating,
+                    reviewCount = rating.reviewCount,
+                    sameCountryAverageRating = rating.sameCountryAverageRating,
+                    blur = false,
+                )
+
+            fun blurred(): ReviewSummaryResponse =
+                ReviewSummaryResponse(averageRating = 0.0, reviewCount = 0, sameCountryAverageRating = 0.0, blur = true)
+        }
+    }
 
     @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
     data class IngredientResponse(
@@ -77,7 +93,7 @@ data class FoodDetailResponse(
     )
 
     companion object {
-        fun from(result: GetFoodDetailResult, bookmarked: Boolean, rating: RatingSummary): FoodDetailResponse =
+        fun from(result: GetFoodDetailResult, bookmarked: Boolean, review: ReviewSummaryResponse): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
@@ -94,11 +110,7 @@ data class FoodDetailResponse(
                     )
                 },
                 bookmarked = bookmarked,
-                review = ReviewSummaryResponse(
-                    averageRating = rating.averageRating,
-                    reviewCount = rating.reviewCount,
-                    sameCountryAverageRating = rating.sameCountryAverageRating,
-                ),
+                review = review,
             )
     }
 }

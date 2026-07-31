@@ -68,9 +68,15 @@ class FoodController(
             GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        val viewerCountryCode = memberId?.let { memberService.getMemberOrNull(it)?.profile?.countryCode?.name }
-        val rating = reviewService.getFoodRatingSummary(foodId, viewerCountryCode)
-        return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, rating)))
+        return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId))))
+    }
+
+    private fun reviewSummaryOf(foodId: Long, memberId: Long?): FoodDetailResponse.ReviewSummaryResponse {
+        if (memberId == null) {
+            return FoodDetailResponse.ReviewSummaryResponse.blurred()
+        }
+        val viewerCountryCode = memberService.getMemberOrNull(memberId)?.profile?.countryCode?.name
+        return FoodDetailResponse.ReviewSummaryResponse.from(reviewService.getFoodRatingSummary(foodId, viewerCountryCode))
     }
 
     private fun toPage(
