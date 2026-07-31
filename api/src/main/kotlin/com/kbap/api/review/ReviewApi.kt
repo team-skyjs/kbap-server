@@ -81,6 +81,7 @@ interface ReviewApi {
         ],
     )
     fun listFoodReviews(
+        memberId: Long,
         @Parameter(description = "리뷰를 조회할 음식 id", example = "1") foodId: Long,
         @ParameterObject request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>

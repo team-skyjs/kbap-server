@@ -40,7 +40,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("cursor null, size 21 로 조회하면") {
                 then("최신(id desc) 21건을 준다") {
-                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, page(21))
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(-1L), page(21))
                     result.size shouldBe 21
                     result.first().id shouldBe saved.last().id
                     result.map { it.id } shouldBe result.map { it.id }.sortedDescending()
@@ -49,7 +49,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             `when`("cursor 를 21번째 리뷰 id 로 주면") {
                 then("그보다 작은 id 만 준다") {
                     val cursor = saved[4].id
-                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, cursor, page(21))
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, cursor, listOf(-1L), page(21))
                     result.size shouldBe 4
                     result.all { it.id < cursor } shouldBe true
                 }
@@ -57,7 +57,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             `when`("다른 음식의 리뷰가 있으면") {
                 save(memberId = 999L, foodId = 101L)
                 then("대상 음식 리뷰만 준다") {
-                    val result = reviewJpaRepository.findFoodReviewPage(101L, null, null, page(21))
+                    val result = reviewJpaRepository.findFoodReviewPage(101L, null, null, listOf(-1L), page(21))
                     result.size shouldBe 1
                     result.first().foodId shouldBe 101L
                 }
@@ -73,19 +73,19 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("countryCode 를 KR 로 주면") {
                 then("KR 스냅샷 리뷰만 준다") {
-                    val result = reviewJpaRepository.findFoodReviewPage(foodId, "KR", null, page(21))
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, "KR", null, listOf(-1L), page(21))
                     result.size shouldBe 2
                     result.all { it.authorCountryCode == "KR" } shouldBe true
                 }
             }
             `when`("countryCode 를 null 로 주면") {
                 then("국적 미보유 리뷰까지 전체를 준다") {
-                    reviewJpaRepository.findFoodReviewPage(foodId, null, null, page(21)).size shouldBe 4
+                    reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(-1L), page(21)).size shouldBe 4
                 }
             }
             `when`("리뷰가 없는 국적 코드를 주면") {
                 then("빈 목록을 준다") {
-                    reviewJpaRepository.findFoodReviewPage(foodId, "JP", null, page(21)).shouldBeEmpty()
+                    reviewJpaRepository.findFoodReviewPage(foodId, "JP", null, listOf(-1L), page(21)).shouldBeEmpty()
                 }
             }
         }
@@ -110,6 +110,24 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
+        given("findFoodReviewPage — 차단 회원 제외 필터") {
+            val foodId = 700L
+            val kept = save(memberId = 701L, foodId = foodId)
+            save(memberId = 702L, foodId = foodId)
+
+            `when`("excludedMemberIds 에 작성자를 넣으면") {
+                then("그 작성자의 리뷰만 빠진다") {
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(702L), page(21))
+                    result.map { it.id } shouldBe listOf(kept.id)
+                }
+            }
+            `when`("센티널 -1 만 넣으면") {
+                then("아무도 제외되지 않는다") {
+                    reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(-1L), page(21)).size shouldBe 2
+                }
+            }
+        }
+
         given("소프트 삭제된 리뷰") {
             val foodId = 400L
             val kept = save(memberId = 1L, foodId = foodId, rating = 5)
@@ -119,7 +137,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("목록을 조회하면") {
                 then("삭제 리뷰는 제외된다") {
-                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, page(21))
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(-1L), page(21))
                     result.map { it.id } shouldBe listOf(kept.id)
                 }
             }

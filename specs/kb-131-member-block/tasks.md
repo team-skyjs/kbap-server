@@ -16,8 +16,8 @@
 
 **Purpose**: 스키마·에러 코드 등 코드 그래프와 독립인 선행물
 
-- [ ] T001 [P] Flyway 마이그레이션 작성 — `api/src/main/resources/db/migration/V<생성시점 로컬시각>__member_block_table.sql` (data-model.md 의 SQL 그대로: `member_block` 테이블, UNIQUE(blocker_member_id, blocked_member_id), FK 2개, 파일명 timestamp 는 생성 시점에 채번)
-- [ ] T002 [P] `ErrorCode` 에 `SELF_BLOCK_FORBIDDEN("BLOCK-001", 400)`·`BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404)` 추가 — `common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt` (형식·유일성은 기존 `ErrorCodeStatusTest` 가 자동 검증)
+- [X] T001 [P] Flyway 마이그레이션 작성 — `api/src/main/resources/db/migration/V<생성시점 로컬시각>__member_block_table.sql` (data-model.md 의 SQL 그대로: `member_block` 테이블, UNIQUE(blocker_member_id, blocked_member_id), FK 2개, 파일명 timestamp 는 생성 시점에 채번)
+- [X] T002 [P] `ErrorCode` 에 `SELF_BLOCK_FORBIDDEN("BLOCK-001", 400)`·`BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404)` 추가 — `common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt` (형식·유일성은 기존 `ErrorCodeStatusTest` 가 자동 검증)
 
 ---
 
@@ -25,9 +25,9 @@
 
 **Purpose**: 모든 스토리가 딛는 엔티티·리포지토리·ArchUnit 경계. **⚠️ 이 단계 완료 전 스토리 작업 시작 금지**
 
-- [ ] T003 `ModuleBoundaryTest` 의 `allowedDomainDeps` 에 `"block" to setOf("member")` 추가 — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt` (⚠️ `common.domain.block` 패키지 생성과 같은 커밋 — foundContexts 일치 검사가 패키지 등장 즉시 깨짐, quickstart 참조)
-- [ ] T004 [Red] `MemberBlockJpaRepository` Testcontainers 테스트 작성 후 실패 확인 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockJpaRepositoryTest.kt`: 저장 후 `findBlockedMemberIds` 로 ACTIVE 만 조회, `delete()` 후 일반 조회 미노출, `findAnyByPair`(native)는 DELETED 행도 반환, `findByBlockerMemberIdAndBlockedMemberId` 는 ACTIVE 만
-- [ ] T005 [Green] `MemberBlock` 엔티티(`@Table("member_block")`, `blockerMemberId`·`blockedMemberId`, BaseEntity 상속) + `MemberBlockJpaRepository`(JPQL projection `findBlockedMemberIds`, native `findAnyByPair` LIMIT 1, 파생 `findByBlockerMemberIdAndBlockedMemberId`) 구현으로 T004 통과 — `common/src/main/kotlin/com/kbap/common/domain/block/model/MemberBlock.kt`, `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockJpaRepository.kt`
+- [X] T003 `ModuleBoundaryTest` 의 `allowedDomainDeps` 에 `"block" to setOf("member")` 추가 — `api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt` (⚠️ `common.domain.block` 패키지 생성과 같은 커밋 — foundContexts 일치 검사가 패키지 등장 즉시 깨짐, quickstart 참조)
+- [X] T004 [Red] `MemberBlockJpaRepository` Testcontainers 테스트 작성 후 실패 확인 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockJpaRepositoryTest.kt`: 저장 후 `findBlockedMemberIds` 로 ACTIVE 만 조회, `delete()` 후 일반 조회 미노출, `findAnyByPair`(native)는 DELETED 행도 반환, `findByBlockerMemberIdAndBlockedMemberId` 는 ACTIVE 만
+- [X] T005 [Green] `MemberBlock` 엔티티(`@Table("member_block")`, `blockerMemberId`·`blockedMemberId`, BaseEntity 상속) + `MemberBlockJpaRepository`(JPQL projection `findBlockedMemberIds`, native `findAnyByPair` LIMIT 1, 파생 `findByBlockerMemberIdAndBlockedMemberId`) 구현으로 T004 통과 — `common/src/main/kotlin/com/kbap/common/domain/block/model/MemberBlock.kt`, `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockJpaRepository.kt`
 
 **Checkpoint**: `./gradlew :common:test :api:test --tests "*ModuleBoundaryTest"` 통과 — 스토리 구현 시작 가능
 
@@ -41,17 +41,17 @@
 
 ### Tests for User Story 1 (Red — 먼저 작성, 실패 확인) ⚠️
 
-- [ ] T006 [P] [US1] [Red] `MemberBlockService.block()` 테스트 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockServiceTest.kt` (Testcontainers): 신규 차단 저장, 자기 차단 → `BLOCK-001`, 미존재·탈퇴 회원 → `BLOCK-002`, 이미 차단 중 재호출 → 예외 없이 성공(행 1개 유지), `getBlockedMemberIds` 반환
-- [ ] T007 [P] [US1] [Red] 차단 등록 API MockMvc 테스트 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`: POST `/api/v1/members/me/blocks` 200(신규·중복 동일), 400 `BLOCK-001`(자기), 404 `BLOCK-002`(없는 회원), 400 `COMMON-002`(memberId 누락), 401(무토큰)
-- [ ] T008 [P] [US1] [Red] 리뷰 목록 차단 필터 MockMvc 테스트 — `api/src/test/kotlin/com/kbap/api/review/ReviewBlockFilterTest.kt`: 차단 후 `GET /api/v1/reviews` 에 차단 회원 리뷰 미노출, 차단당한 쪽(B)이 조회하면 A 리뷰 그대로(단방향), 음식 상세 평균 별점·리뷰 수 차단 전후 동일
+- [X] T006 [P] [US1] [Red] `MemberBlockService.block()` 테스트 — `common/src/test/kotlin/com/kbap/common/domain/block/MemberBlockServiceTest.kt` (Testcontainers): 신규 차단 저장, 자기 차단 → `BLOCK-001`, 미존재·탈퇴 회원 → `BLOCK-002`, 이미 차단 중 재호출 → 예외 없이 성공(행 1개 유지), `getBlockedMemberIds` 반환
+- [X] T007 [P] [US1] [Red] 차단 등록 API MockMvc 테스트 — `api/src/test/kotlin/com/kbap/api/block/MemberBlockControllerTest.kt`: POST `/api/v1/members/me/blocks` 200(신규·중복 동일), 400 `BLOCK-001`(자기), 404 `BLOCK-002`(없는 회원), 400 `COMMON-002`(memberId 누락), 401(무토큰)
+- [X] T008 [P] [US1] [Red] 리뷰 목록 차단 필터 MockMvc 테스트 — `api/src/test/kotlin/com/kbap/api/review/ReviewBlockFilterTest.kt`: 차단 후 `GET /api/v1/reviews` 에 차단 회원 리뷰 미노출, 차단당한 쪽(B)이 조회하면 A 리뷰 그대로(단방향), 음식 상세 평균 별점·리뷰 수 차단 전후 동일
 
 ### Implementation for User Story 1 (Green → Refactor)
 
-- [ ] T009 [US1] `MemberBlockService` 구현(T006 통과) — `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockService.kt`: `block(blockerMemberId, targetMemberId)`(self → BLOCK-001, `MemberService.getMemberOrNull` null → BLOCK-002, `findAnyByPair` 로 부활·no-op·save 분기, `DataIntegrityViolationException` 멱등 폴백 — research R1), `getBlockedMemberIds(memberId)`, 명시적 `@Transactional`
-- [ ] T010 [US1] `ReviewJpaRepository.findFoodReviewPage` 에 `excludedMemberIds: List<Long>` 파라미터·`and r.memberId not in :excludedMemberIds` 조건 추가 — `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt` (`findMemberReviewPage`·`aggregateRating` 무변경 — research R4·R5)
-- [ ] T011 [US1] `ReviewService.getFoodReviewPage` 에 `viewerMemberId: Long` 추가, `MemberBlockService.getBlockedMemberIds` 조회 후 빈 목록이면 `-1` 센티널로 전달(짧은 라인 주석으로 사유 명시 — research R2) — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
-- [ ] T012 [US1] `ReviewController.listFoodReviews` 에 `@AuthMemberId memberId` 추가 + `ReviewApi` 인터페이스 파라미터 타입만 동기화(애너테이션 중복 금지) — `api/src/main/kotlin/com/kbap/api/review/ReviewController.kt`, `api/src/main/kotlin/com/kbap/api/review/ReviewApi.kt`
-- [ ] T013 [US1] 차단 등록 엔드포인트 구현(T007·T008 통과) — `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`(POST `/api/v1/members/me/blocks`, `ApiPaths.V1` 상수, `BaseResponse.ok(Unit)`), `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`(swagger 문서 애너테이션만), `api/src/main/kotlin/com/kbap/api/block/MemberBlockRequest.kt`(`@field:NotNull memberId`)
+- [X] T009 [US1] `MemberBlockService` 구현(T006 통과) — `common/src/main/kotlin/com/kbap/common/domain/block/MemberBlockService.kt`: `block(blockerMemberId, targetMemberId)`(self → BLOCK-001, `MemberService.getMemberOrNull` null → BLOCK-002, `findAnyByPair` 로 부활·no-op·save 분기, `DataIntegrityViolationException` 멱등 폴백 — research R1), `getBlockedMemberIds(memberId)`, 명시적 `@Transactional`
+- [X] T010 [US1] `ReviewJpaRepository.findFoodReviewPage` 에 `excludedMemberIds: List<Long>` 파라미터·`and r.memberId not in :excludedMemberIds` 조건 추가 — `common/src/main/kotlin/com/kbap/common/domain/review/ReviewJpaRepository.kt` (`findMemberReviewPage`·`aggregateRating` 무변경 — research R4·R5)
+- [X] T011 [US1] `ReviewService.getFoodReviewPage` 에 `viewerMemberId: Long` 추가, `MemberBlockService.getBlockedMemberIds` 조회 후 빈 목록이면 `-1` 센티널로 전달(짧은 라인 주석으로 사유 명시 — research R2) — `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt`
+- [X] T012 [US1] `ReviewController.listFoodReviews` 에 `@AuthMemberId memberId` 추가 + `ReviewApi` 인터페이스 파라미터 타입만 동기화(애너테이션 중복 금지) — `api/src/main/kotlin/com/kbap/api/review/ReviewController.kt`, `api/src/main/kotlin/com/kbap/api/review/ReviewApi.kt`
+- [X] T013 [US1] 차단 등록 엔드포인트 구현(T007·T008 통과) — `api/src/main/kotlin/com/kbap/api/block/MemberBlockController.kt`(POST `/api/v1/members/me/blocks`, `ApiPaths.V1` 상수, `BaseResponse.ok(Unit)`), `api/src/main/kotlin/com/kbap/api/block/MemberBlockApi.kt`(swagger 문서 애너테이션만), `api/src/main/kotlin/com/kbap/api/block/MemberBlockRequest.kt`(`@field:NotNull memberId`)
 
 **Checkpoint**: US1 단독 검증 — 차단 → 리뷰 미노출 → 집계 불변. MVP 배포 가능
 

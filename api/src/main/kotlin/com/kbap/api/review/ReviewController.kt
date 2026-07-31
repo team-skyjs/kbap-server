@@ -69,12 +69,13 @@ class ReviewController(
 
     @GetMapping("/reviews")
     override fun listFoodReviews(
+        @AuthMemberId memberId: Long,
         @RequestParam foodId: Long,
         @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFoodReviewPage(foodId, request.countryCode, CursorParser.parse(request.cursor)),
+                reviewService.getFoodReviewPage(memberId, foodId, request.countryCode, CursorParser.parse(request.cursor)),
             ),
         )
 

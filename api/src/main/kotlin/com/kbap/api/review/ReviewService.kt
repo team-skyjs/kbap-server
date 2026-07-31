@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
+import com.kbap.common.domain.block.MemberBlockService
 import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
@@ -26,6 +27,7 @@ class ReviewService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
+    private val memberBlockService: MemberBlockService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -90,9 +92,13 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodReviewPage(foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
+    fun getFoodReviewPage(viewerMemberId: Long, foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
         foodService.getReadyFood(foodId)
-        return toPage(reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
+        // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
+        val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
+        return toPage(
+            reviewRepository.findFoodReviewPage(foodId, countryCode, cursor, excludedMemberIds, PageRequest.of(0, PAGE_SIZE + 1)),
+        )
     }
 
     @Transactional(readOnly = true)
