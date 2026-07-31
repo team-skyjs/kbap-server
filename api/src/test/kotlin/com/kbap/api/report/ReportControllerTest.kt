@@ -2,8 +2,12 @@ package com.kbap.api.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.domain.report.model.ReportReason
+import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -17,6 +21,8 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @SpringBootTest
@@ -33,6 +39,9 @@ class ReportControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
+
+    @Autowired
+    private lateinit var reportService: ReportService
 
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
@@ -271,11 +280,55 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("탈퇴한 회원의 기존 토큰으로 신고하면") {
+                then("400 MEMBER-003 으로 거절하고 신고는 저장되지 않는다") {
+                    seedReview(reviewId = 8115L, authorMemberId = 8151L, foodId = 8181L)
+                    val token = accessToken(8116L)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE member SET status = 'DELETED' WHERE id = 8116") }
+                    }
+
+                    report(token, body(targetId = 8115L)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
+                    }
+                    reportCountOf(8116L, 8115L) shouldBe 0
+                }
+            }
+
             `when`("토큰 없이 신고하면") {
                 then("401 로 거절한다 — 인증 필터에 /reports 가 등록돼 있어야 한다") {
                     report(null, body(targetId = 8101L)).andExpect {
                         status { isUnauthorized() }
                     }
+                }
+            }
+        }
+
+        given("동시 중복 신고 경합") {
+            `when`("같은 회원이 같은 대상을 두 스레드에서 동시에 신고하면") {
+                then("한 건만 저장되고 나머지 한 건은 REPORT-002 로 거절된다") {
+                    seedReview(reviewId = 8117L, authorMemberId = 8151L, foodId = 8181L)
+                    seedMember(8118L)
+
+                    val start = CountDownLatch(1)
+                    val executor = Executors.newFixedThreadPool(2)
+                    val outcomes = (1..2).map {
+                        executor.submit<Result<Unit>> {
+                            start.await()
+                            runCatching {
+                                reportService.createReport(8118L, ReportTargetType.REVIEW, 8117L, ReportReason.SPAM, null)
+                            }
+                        }
+                    }
+                    start.countDown()
+                    val results = outcomes.map { it.get() }
+                    executor.shutdown()
+
+                    results.count { it.isSuccess } shouldBe 1
+                    val rejected = results.single { it.isFailure }.exceptionOrNull()
+                    (rejected as BusinessException).errorCode shouldBe ErrorCode.REPORT_DUPLICATED
+                    reportCountOf(8118L, 8117L) shouldBe 1
                 }
             }
         }

@@ -28,7 +28,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
         pageable: Pageable,
     ): List<Review>
 
-    // 빈 excludedIds 는 받지 않는다(빈 not in 은 SQL 이 깨짐) — 제외가 없으면 호출부가 기본 오버로드를 쓴다.
     @Query(
         """
         select r from Review r

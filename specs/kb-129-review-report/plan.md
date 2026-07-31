@@ -104,4 +104,4 @@ common/src/test/kotlin/com/kbap/common/domain/report/  # 도메인·영속 테�
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| `reports.target_id` 에 FK 없음 (원칙 IV 는 "FK 는 Flyway 스키마가 강제"가 기본) | 대상이 다형(target_type + target_id — REVIEW 이후 게시글 확장)이라 단일 FK 를 걸 수 없다 | 리뷰 전용 `review_reports` + FK 는 clarify 에서 기각(게시글 신고 추가 시 테이블 신설·데이터 이관 필요). 대상 존재 검증은 유스케이스(`ReportService`)가 리뷰 조회로 수행하고, 리뷰 삭제 후에도 신고 기록은 보존하는 요구(spec Edge Case)와도 FK ON DELETE 부재가 정합 |
+| `report.target_id` 에 FK 없음 (원칙 IV 는 "FK 는 Flyway 스키마가 강제"가 기본) | 대상이 다형(target_type + target_id — REVIEW 이후 게시글 확장)이라 단일 FK 를 걸 수 없다 | 리뷰 전용 `review_reports` + FK 는 clarify 에서 기각(게시글 신고 추가 시 테이블 신설·데이터 이관 필요). 대상 존재 검증은 유스케이스(`ReportService`)가 리뷰 조회로 수행하고, 리뷰 삭제 후에도 신고 기록은 보존하는 요구(spec Edge Case)와도 FK ON DELETE 부재가 정합 |

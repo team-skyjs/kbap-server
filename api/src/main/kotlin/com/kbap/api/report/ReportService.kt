@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.Report
+import com.kbap.common.domain.member.MemberService
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 class ReportService(
     private val reportRepository: ReportJpaRepository,
     private val reviewRepository: ReviewJpaRepository,
+    private val memberService: MemberService,
 ) {
     @Transactional
     fun createReport(
@@ -24,6 +26,7 @@ class ReportService(
         reason: ReportReason,
         detail: String?,
     ) {
+        memberService.getMember(reporterMemberId)
         verifyReportable(reporterMemberId, targetType, targetId)
         if (reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)) {
             throw BusinessException(ErrorCode.REPORT_DUPLICATED)
@@ -39,7 +42,6 @@ class ReportService(
                 ),
             )
         } catch (_: DataIntegrityViolationException) {
-            // 동시 중복 신고 경합 — UNIQUE 제약이 최종 방어(research R2)
             throw BusinessException(ErrorCode.REPORT_DUPLICATED)
         }
     }

@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 
-// UNIQUE 를 엔티티에도 선언한다 — :common 영속 테스트는 Flyway 없이 엔티티로 스키마를 생성한다.
 @Entity
 @Table(
     name = "report",

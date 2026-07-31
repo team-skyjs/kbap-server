@@ -4,13 +4,13 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 구현 방식이
 
 ## R1. 신고 엔드포인트·저장 모델 일반화
 
-- **Decision**: `POST /api/v1/reports` 단일 창구(body: targetType·targetId·reason·detail) + 단일 `reports` 테이블(target_type + target_id, UNIQUE(reporter_member_id, target_type, target_id)).
+- **Decision**: `POST /api/v1/reports` 단일 창구(body: targetType·targetId·reason·detail) + 단일 `report` 테이블(target_type + target_id, UNIQUE(reporter_member_id, target_type, target_id)).
 - **Rationale**: 신고 대상이 커뮤니티 게시글로 확장될 예정(clarify 세션 결정). 대상 추가가 enum 값 + 유스케이스 분기 추가로 끝나고 엔드포인트·테이블·FE 플로우가 불변.
 - **Alternatives considered**: `POST /reviews/{reviewId}/reports`(Jira 원안 — 대상마다 경로·테이블 신설 필요, 기각), `POST /reports/reviews/{reviewId}`(경로 타입 분리 — 대상마다 엔드포인트 증가, 기각).
 
 ## R2. 중복 신고 방어 — UNIQUE 제약 + 위반 변환
 
-- **Decision**: `reports` 에 UNIQUE(reporter_member_id, target_type, target_id). 유스케이스는 `existsBy` 선조회로 친절한 409 를 주고, 동시 요청 경합은 save 시 `DataIntegrityViolationException` 을 잡아 같은 409(`REPORT_DUPLICATED`)로 변환한다.
+- **Decision**: `report` 에 UNIQUE(reporter_member_id, target_type, target_id). 유스케이스는 `existsBy` 선조회로 친절한 409 를 주고, 동시 요청 경합은 save 시 `DataIntegrityViolationException` 을 잡아 같은 409(`REPORT_DUPLICATED`)로 변환한다.
 - **Rationale**: 프로젝트 동시성 규칙(2026-07-30 고정) — 치명 정합만 최소 수단(unique 제약)으로 막고 격리수준은 손대지 않는다. 신고 취소가 없어 소프트 삭제 행이 UNIQUE 와 충돌할 일도 없다(Jira 분석 그대로). IDENTITY 전략이라 `save()` 가 즉시 INSERT 를 치므로 위반은 save 호출 지점에서 잡힌다.
 - **Alternatives considered**: 선조회만(경합 시 500 유출 — 기각), `INSERT IGNORE` 네이티브(성공/중복 구분 모호 — 기각), 격리수준 조정(프로젝트 금지 — 기각).
 
@@ -41,6 +41,6 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 구현 방식이
 
 ## R7. 마이그레이션 — timestamp 버전 1건, FK 없음
 
-- **Decision**: `V2026.08.01.**__report_table.sql` 1건 — `reports`(id, reporter_member_id, target_type VARCHAR(20), target_id, reason VARCHAR(20), detail VARCHAR(500) NULL, status, created_at, updated_at, UNIQUE(reporter_member_id, target_type, target_id)). FK 는 걸지 않는다.
-- **Rationale**: 대상이 다형이라 FK 불가(plan Complexity Tracking). 소프트 삭제 공통 컬럼(status)은 BaseEntity 규약. 다른 마이그레이션과 순서 독립.
-- **Alternatives considered**: review FK 부착(다형 확장 불가 — 기각).
+- **Decision**: `V2026.08.01.**__report_table.sql` 1건 — `report`(id, reporter_member_id, target_type VARCHAR(20), target_id, reason VARCHAR(20), detail VARCHAR(500) NULL, status, created_at, updated_at, UNIQUE(reporter_member_id, target_type, target_id)). 신고자(reporter_member_id → member)에는 FK 를 걸고, 다형 대상인 target_id 에만 FK 를 두지 않는다.
+- **Rationale**: 대상이 다형이라 target_id FK 불가(plan Complexity Tracking). 소프트 삭제 공통 컬럼(status)은 BaseEntity 규약. 다른 마이그레이션과 순서 독립.
+- **Alternatives considered**: target_id 에 review FK 부착(다형 확장 불가 — 기각).
