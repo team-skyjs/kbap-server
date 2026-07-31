@@ -64,7 +64,7 @@ class ReviewService(
             memberService.increaseUniqueReviewedFoodCount(memberId)
         }
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood))
-        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
+        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount = 0, likedByMe = false)
     }
 
     @Transactional
@@ -78,7 +78,9 @@ class ReviewService(
         val review = getMyReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
         review.update(rating = rating, content = content, imageRefs = imagePaths)
-        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId))
+        val likeCount = reviewLikeRepository.countByReviewIds(listOf(review.id)).singleOrNull()?.likeCount ?: 0
+        val likedByMe = reviewLikeRepository.findLikedReviewIds(memberId, listOf(review.id)).isNotEmpty()
+        return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount, likedByMe)
     }
 
     @Transactional
@@ -126,12 +128,13 @@ class ReviewService(
                 excludedReviewIds,
                 PageRequest.of(0, PAGE_SIZE + 1),
             ),
+            viewerMemberId,
         )
     }
 
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, cursor: Long?): Page<ReviewResponse> =
-        toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)))
+        toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId)
 
     @Transactional(readOnly = true)
     fun getFoodRatingSummary(foodId: Long, viewerCountryCode: String?): RatingSummary {
@@ -147,13 +150,32 @@ class ReviewService(
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
-    private fun toPage(rows: List<Review>): Page<ReviewResponse> {
+    private fun toPage(rows: List<Review>, viewerMemberId: Long): Page<ReviewResponse> {
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it) }
+        val reviewIds = page.map { it.id }
+        val likeCountsByReviewId = if (reviewIds.isEmpty()) {
+            emptyMap()
+        } else {
+            reviewLikeRepository.countByReviewIds(reviewIds).associate { it.reviewId to it.likeCount }
+        }
+        val likedReviewIds = if (reviewIds.isEmpty()) {
+            emptySet()
+        } else {
+            reviewLikeRepository.findLikedReviewIds(viewerMemberId, reviewIds).toSet()
+        }
         return Page(
-            items = page.map { ReviewResponse.from(it, imagePublicBaseUrl, authorsByMemberId[it.memberId]) },
+            items = page.map {
+                ReviewResponse.from(
+                    it,
+                    imagePublicBaseUrl,
+                    authorsByMemberId[it.memberId],
+                    likeCount = likeCountsByReviewId[it.id] ?: 0,
+                    likedByMe = it.id in likedReviewIds,
+                )
+            },
             hasNext = hasNext,
             nextCursor = if (hasNext) page.last().id else null,
         )

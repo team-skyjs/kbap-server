@@ -58,11 +58,11 @@
 
 ### Tests for User Story 2 (Test-First — 먼저 작성하고 Red 확인) ⚠️
 
-- [ ] T008 [US2] 목록 응답 좋아요 필드 테스트 추가(Red 확인) in `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` — 기존 스펙에 given 블록 추가: ① 좋아요 3건 리뷰 → `likeCount=3` ② 조회 회원이 누른 리뷰 `likedByMe=true`·안 누른 리뷰 `false` 혼재 목록 ③ 좋아요 0건 → `0`/`false` ④ 취소(소프트삭제)된 좋아요는 수·여부에서 제외 ⑤ `/reviews/me` 도 동일 필드 포함 → 실행해 Red 확인
+- [x] T008 [US2] 목록 응답 좋아요 필드 테스트 추가(Red 확인) in `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` — 기존 스펙에 given 블록 추가: ① 좋아요 3건 리뷰 → `likeCount=3` ② 조회 회원이 누른 리뷰 `likedByMe=true`·안 누른 리뷰 `false` 혼재 목록 ③ 좋아요 0건 → `0`/`false` ④ 취소(소프트삭제)된 좋아요는 수·여부에서 제외 ⑤ `/reviews/me` 도 동일 필드 포함 → 실행해 Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] 응답 확장으로 T008 Green 확인 — `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt` 에 `likeCount: Long`·`likedByMe: Boolean` 추가(`from` 파라미터 확장, swagger `@field:Schema` 포함) + `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` 의 `toPage` 에서 배치 enrich(페이지 reviewId 목록 → `countByReviewIds` Map + `findLikedReviewIds` Set, 쿼리 2개 — 리뷰별 N+1 금지. `toPage` 호출부에 viewer memberId 전달: `getMyReviewPage` 는 본인, `getFoodReviewPage` 는 viewerMemberId) + 생성/수정 단건 응답은 `likeCount=0`(생성)·집계 조회(수정)로 채움. `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 확인 (기존 ReviewControllerTest·ReviewBlockFilterTest 회귀 포함)
+- [x] T009 [US2] 응답 확장으로 T008 Green 확인 — `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt` 에 `likeCount: Long`·`likedByMe: Boolean` 추가(`from` 파라미터 확장, swagger `@field:Schema` 포함) + `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` 의 `toPage` 에서 배치 enrich(페이지 reviewId 목록 → `countByReviewIds` Map + `findLikedReviewIds` Set, 쿼리 2개 — 리뷰별 N+1 금지. `toPage` 호출부에 viewer memberId 전달: `getMyReviewPage` 는 본인, `getFoodReviewPage` 는 viewerMemberId) + 생성/수정 단건 응답은 `likeCount=0`(생성)·집계 조회(수정)로 채움. `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 확인 (기존 ReviewControllerTest·ReviewBlockFilterTest 회귀 포함)
 
 **Checkpoint**: 두 스토리 모두 독립 동작.
 
