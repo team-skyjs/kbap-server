@@ -38,13 +38,13 @@
 
 ### Tests for User Story 1 (Red 먼저) ⚠️
 
-- [ ] T006 [US1] [Red] MockMvc 테스트 작성: `api/src/test/kotlin/com/kbap/api/report/ReportControllerTest.kt` (기존 `review/ReviewControllerTest` 픽스처 패턴 재사용). 시나리오: ① 타인 리뷰 신고 200 + report 행 저장 ② detail 500자 경계(500 허용·501 거절 400) ③ 자기 리뷰 400 `REPORT-001` ④ 같은 대상 재신고 409 `REPORT-002` ⑤ 없는/삭제된 리뷰 404 `REPORT-003` ⑥ targetType·targetId·reason 누락 및 미정의 enum 값 400 ⑦ 토큰 없이 401(**필터 등록 검증** — contracts/report-api.md). 실행해 Red 확인
+- [X] T006 [US1] [Red] MockMvc 테스트 작성: `api/src/test/kotlin/com/kbap/api/report/ReportControllerTest.kt` (기존 `review/ReviewControllerTest` 픽스처 패턴 재사용). 시나리오: ① 타인 리뷰 신고 200 + report 행 저장 ② detail 500자 경계(500 허용·501 거절 400) ③ 자기 리뷰 400 `REPORT-001` ④ 같은 대상 재신고 409 `REPORT-002` ⑤ 없는/삭제된 리뷰 404 `REPORT-003` ⑥ targetType·targetId·reason 누락 및 미정의 enum 값 400 ⑦ 토큰 없이 401(**필터 등록 검증** — contracts/report-api.md). 실행해 Red 확인
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] [Green] 요청 DTO·유스케이스 구현: `api/src/main/kotlin/com/kbap/api/report/ReportCreateRequest.kt`(`@field:NotNull` targetType/targetId/reason, `@field:Size(max=500)` detail) + `ReportService.kt` — `@Transactional createReport`: REVIEW 대상 조회(없으면 `REPORT_TARGET_NOT_FOUND`) → 자기 콘텐츠 거절(`REPORT_SELF_TARGET`) → `existsBy` 선조회(`REPORT_DUPLICATED`) → save, `DataIntegrityViolationException` catch → `REPORT_DUPLICATED`(동시 경합, research R2)
-- [ ] T008 [US1] [Green] HTTP 경계 구현: `ReportController.kt`(`@PostMapping(ApiPaths.V1 + "/reports")`, `@AuthMemberId`, `BaseResponse<Unit>`) + `ReportApi.kt`(swagger 애너테이션만 — 파라미터 애너테이션 위치 규약) + `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` 인증 필터 include 에 `"${ApiPaths.V1}/reports"` 추가
-- [ ] T009 [US1] T006 전체 Green 확인: `./gradlew :api:test --tests "com.kbap.api.report.*"` — 통과 후 리팩터(중복 픽스처 정리 등)
+- [X] T007 [US1] [Green] 요청 DTO·유스케이스 구현: `api/src/main/kotlin/com/kbap/api/report/ReportCreateRequest.kt`(`@field:NotNull` targetType/targetId/reason, `@field:Size(max=500)` detail) + `ReportService.kt` — `@Transactional createReport`: REVIEW 대상 조회(없으면 `REPORT_TARGET_NOT_FOUND`) → 자기 콘텐츠 거절(`REPORT_SELF_TARGET`) → `existsBy` 선조회(`REPORT_DUPLICATED`) → save, `DataIntegrityViolationException` catch → `REPORT_DUPLICATED`(동시 경합, research R2)
+- [X] T008 [US1] [Green] HTTP 경계 구현: `ReportController.kt`(`@PostMapping(ApiPaths.V1 + "/reports")`, `@AuthMemberId`, `BaseResponse<Unit>`) + `ReportApi.kt`(swagger 애너테이션만 — 파라미터 애너테이션 위치 규약) + `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` 인증 필터 include 에 `"${ApiPaths.V1}/reports"` 추가
+- [X] T009 [US1] T006 전체 Green 확인: `./gradlew :api:test --tests "com.kbap.api.report.*"` — 통과 후 리팩터(중복 픽스처 정리 등)
 
 **Checkpoint**: 신고 접수 단독 배포 가능 (MVP)
 
