@@ -17,10 +17,9 @@
 
 | 필드 | 타입 | 규칙 |
 |------|------|------|
-| `averageRating` | `Double` (non-null) | 전체 평균 별점, 소수 첫째 자리 반올림. 리뷰 없음 → `0.0` |
-| `reviewCount` | `Long` (non-null) | 활성 리뷰 수. 없음 → `0` |
-| `sameCountryAverageRating` | `Double` (non-null) | 같은 국적(작성 시점 스냅샷) 평균. 해당 리뷰 없음·국적 미보유 → `0.0` |
-| `blur` | `Boolean` | 비회원 조회 `true` / 회원 조회 `false` |
+| `overall` | `ReviewRatingResponse` | 전체 사용자 리뷰 요약 — `averageRating`(소수 첫째 자리 반올림, 없음 → `0.0`)·`reviewCount` |
+| `sameCountry` | `ReviewRatingResponse` | 같은 국적(작성 시점 스냅샷) 리뷰 요약 — 같은 형태. 해당 리뷰 없음·국적 미보유 → `0.0`·`0` |
+| `blur` | `Boolean` | 비회원·탈퇴 회원 토큰 조회 `true` / 활성 회원 조회 `false` |
 
 **불변식**:
 

@@ -92,7 +92,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
 
         given("음식 상세 리뷰 섹션 — GET /api/v1/foods/{foodId}") {
             `when`("별점 4·5·2 리뷰가 있는 음식을 KR 회원이 조회하면") {
-                then("리뷰 요약(전체 평균·개수·같은 국적 평균)이 review 묶음으로 내려간다") {
+                then("전체·같은 국적 리뷰 요약이 각각의 묶음으로 내려간다") {
                     seedFood(920L, "리뷰섹션김치찌개")
                     createReview(920L, "KR", 920L, 4)
                     createReview(921L, "KR", 920L, 5)
@@ -100,9 +100,10 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
 
                     detail(920L, accessToken(923L, "KR")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.averageRating") { value(3.7) }
-                        jsonPath("$.payload.review.reviewCount") { value(3) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(4.5) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountry.averageRating") { value(4.5) }
+                        jsonPath("$.payload.review.sameCountry.reviewCount") { value(2) }
                     }
                 }
             }
@@ -121,9 +122,9 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     detail(920L).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.review.blur") { value(true) }
-                        jsonPath("$.payload.review.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.reviewCount") { value(0) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
                     }
                 }
             }
@@ -132,8 +133,8 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     detail(920L, accessToken(923L, "KR")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.review.blur") { value(false) }
-                        jsonPath("$.payload.review.averageRating") { value(3.7) }
-                        jsonPath("$.payload.review.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
                     }
                 }
             }
@@ -142,8 +143,8 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     detail(920L, tokenIssuer.issueAccessToken(999L, MemberRole.USER)).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.review.blur") { value(true) }
-                        jsonPath("$.payload.review.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
                     }
                 }
             }
@@ -153,7 +154,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     detail(931L).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.review.blur") { value(true) }
-                        jsonPath("$.payload.review.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
                     }
                 }
             }
@@ -162,9 +163,9 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     seedFood(930L, "리뷰섹션순두부")
                     detail(930L, accessToken(923L, "KR")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.reviewCount") { value(0) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
                         jsonPath("$.payload.review.blur") { value(false) }
                     }
                 }
@@ -173,9 +174,9 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 then("같은 국적 평균만 0.0 이고 나머지는 실수치다") {
                     detail(920L, accessToken(924L, "JP")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.averageRating") { value(3.7) }
-                        jsonPath("$.payload.review.reviewCount") { value(3) }
-                        jsonPath("$.payload.review.sameCountryAverageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
                     }
                 }
             }
