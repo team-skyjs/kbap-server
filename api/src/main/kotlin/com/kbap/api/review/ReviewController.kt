@@ -71,17 +71,13 @@ class ReviewController(
     override fun like(
         @AuthMemberId memberId: Long,
         @PathVariable reviewId: Long,
+        @RequestParam liked: Boolean,
     ): ResponseEntity<BaseResponse<Unit>> {
-        reviewService.likeReview(memberId, reviewId)
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
-    @DeleteMapping("/reviews/{reviewId}/like")
-    override fun unlike(
-        @AuthMemberId memberId: Long,
-        @PathVariable reviewId: Long,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        reviewService.unlikeReview(memberId, reviewId)
+        if (liked) {
+            reviewService.likeReview(memberId, reviewId)
+        } else {
+            reviewService.unlikeReview(memberId, reviewId)
+        }
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 

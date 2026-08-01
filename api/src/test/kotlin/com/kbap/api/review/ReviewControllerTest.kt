@@ -310,6 +310,7 @@ class ReviewControllerTest : BehaviorSpec() {
                     val reviewId = createReview(token, 710L, rating = 3)
                     mockMvc.post("/api/v1/reviews/$reviewId/like") {
                         header("Authorization", "Bearer $token")
+                        param("liked", "true")
                     }.andExpect { status { isOk() } }
                     update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요")).andExpect {
                         status { isOk() }

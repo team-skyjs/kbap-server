@@ -1,37 +1,26 @@
 # API Contract: 리뷰 좋아요 (kb-271)
 
-모든 응답은 `ResponseEntity<BaseResponse<T>>` 봉투 규약을 따른다. 경로 베이스는 `ApiPaths.V1`(`/api/v1`). 두 엔드포인트 모두 인증 필수(`@AuthMemberId`) — 보호 경로다.
+모든 응답은 `ResponseEntity<BaseResponse<T>>` 봉투 규약을 따른다. 경로 베이스는 `ApiPaths.V1`(`/api/v1`). 인증 필수(`@AuthMemberId`) — 보호 경로다.
 
-## 1. 좋아요 등록
+## 1. 좋아요 등록/취소 (상태 지정)
 
 ```
-POST /api/v1/reviews/{reviewId}/like
+POST /api/v1/reviews/{reviewId}/like?liked={true|false}
 Authorization: Bearer <access token>
 ```
 
 | 항목 | 값 |
 |------|-----|
 | Path | `reviewId: Long` — 대상 리뷰 id |
+| Query | `liked: Boolean` (필수) — `true` 등록, `false` 취소 |
 | Body | 없음 |
 | 성공 | `200 OK` — `{"success": true, "payload": null}` (`BaseResponse<Unit>`) |
-| 멱등 | 이미 좋아요한 리뷰에 재요청해도 200 성공, 상태 변화 없음 |
-| 실패 | `400` `REVIEW-001` — 리뷰가 없거나 삭제됨 |
+| 멱등 | 같은 상태로 재요청해도 200 성공, 상태 변화 없음. `liked=false` 는 좋아요가 없어도(미등록·이미 취소·리뷰 없음) 200 no-op |
+| 실패 | `400` — `liked` 파라미터 누락 |
+| 실패 | `400` `REVIEW-001` — `liked=true` 인데 리뷰가 없거나 삭제됨 |
 | 실패 | `401` — 미인증 (기존 인증 규약) |
 
-## 2. 좋아요 취소
-
-```
-DELETE /api/v1/reviews/{reviewId}/like
-Authorization: Bearer <access token>
-```
-
-| 항목 | 값 |
-|------|-----|
-| Path | `reviewId: Long` — 대상 리뷰 id |
-| Body | 없음 |
-| 성공 | `200 OK` — `{"success": true, "payload": null}` (`BaseResponse<Unit>`) |
-| 멱등 | 좋아요가 없는 상태(미등록·이미 취소·리뷰 없음)여도 200 성공, no-op |
-| 실패 | `401` — 미인증 |
+토글이 아니라 **상태 지정**이다 — 클라이언트가 목표 상태를 보내므로 서버 상태와 어긋나도 의도가 반전되지 않는다.
 
 ## 3. 기존 목록/단건 응답 확장 — `ReviewResponse`
 

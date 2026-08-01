@@ -13,7 +13,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
-import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.post
 import java.util.concurrent.atomic.AtomicLong
 import javax.sql.DataSource
@@ -116,11 +115,13 @@ class ReviewLikeControllerTest : BehaviorSpec() {
         fun like(reviewId: Long, token: String?): ResultActionsDsl =
             mockMvc.post("/api/v1/reviews/$reviewId/like") {
                 token?.let { header("Authorization", "Bearer $it") }
+                param("liked", "true")
             }
 
         fun unlike(reviewId: Long, token: String): ResultActionsDsl =
-            mockMvc.delete("/api/v1/reviews/$reviewId/like") {
+            mockMvc.post("/api/v1/reviews/$reviewId/like") {
                 header("Authorization", "Bearer $token")
+                param("liked", "false")
             }
 
         given("좋아요 등록") {
@@ -170,6 +171,14 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             `when`("토큰 없이 등록하면") {
                 then("401 을 준다") {
                     like(1L, token = null).andExpect { status { isUnauthorized() } }
+                }
+            }
+            `when`("liked 파라미터 없이 요청하면") {
+                then("400 을 준다") {
+                    val reviewId = seedReview(authorMemberId = 8108L)
+                    mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                        header("Authorization", "Bearer ${accessToken(8008L)}")
+                    }.andExpect { status { isBadRequest() } }
                 }
             }
         }

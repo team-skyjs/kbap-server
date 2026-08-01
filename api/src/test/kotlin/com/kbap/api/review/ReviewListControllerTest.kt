@@ -281,12 +281,14 @@ class ReviewListControllerTest : BehaviorSpec() {
             fun like(token: String, reviewId: Long) {
                 mockMvc.post("/api/v1/reviews/$reviewId/like") {
                     header("Authorization", "Bearer $token")
+                    param("liked", "true")
                 }.andExpect { status { isOk() } }
             }
 
             fun unlike(token: String, reviewId: Long) {
-                mockMvc.delete("/api/v1/reviews/$reviewId/like") {
+                mockMvc.post("/api/v1/reviews/$reviewId/like") {
                     header("Authorization", "Bearer $token")
+                    param("liked", "false")
                 }.andExpect { status { isOk() } }
             }
 

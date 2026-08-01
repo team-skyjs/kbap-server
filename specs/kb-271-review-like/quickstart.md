@@ -26,10 +26,10 @@
 ./gradlew :api:bootRun     # SPRING_PROFILES_ACTIVE=local
 
 # 좋아요 등록 → 멱등 재등록 → 목록에서 likeCount/likedByMe 확인 → 취소
-curl -X POST   -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/reviews/1/like
-curl -X POST   -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/reviews/1/like   # 그대로 성공
-curl           -H "Authorization: Bearer $TOKEN" "localhost:8080/api/v1/reviews?foodId=1"
-curl -X DELETE -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/reviews/1/like
+curl -X POST -H "Authorization: Bearer $TOKEN" "localhost:8080/api/v1/reviews/1/like?liked=true"
+curl -X POST -H "Authorization: Bearer $TOKEN" "localhost:8080/api/v1/reviews/1/like?liked=true"   # 그대로 성공
+curl         -H "Authorization: Bearer $TOKEN" "localhost:8080/api/v1/reviews?foodId=1"
+curl -X POST -H "Authorization: Bearer $TOKEN" "localhost:8080/api/v1/reviews/1/like?liked=false"
 ```
 
 ## 주의 지점
