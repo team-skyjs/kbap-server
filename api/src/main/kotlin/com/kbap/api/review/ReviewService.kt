@@ -151,21 +151,17 @@ class ReviewService(
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
     private fun toPage(rows: List<Review>, viewerMemberId: Long): Page<ReviewResponse> {
+        if (rows.isEmpty()) {
+            return Page(items = emptyList(), hasNext = false, nextCursor = null)
+        }
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it) }
         val reviewIds = page.map { it.id }
-        val likeCountsByReviewId = if (reviewIds.isEmpty()) {
-            emptyMap()
-        } else {
-            reviewLikeRepository.countByReviewIds(reviewIds).associate { it.reviewId to it.likeCount }
-        }
-        val likedReviewIds = if (reviewIds.isEmpty()) {
-            emptySet()
-        } else {
-            reviewLikeRepository.findLikedReviewIds(viewerMemberId, reviewIds).toSet()
-        }
+        val likeCountsByReviewId = reviewLikeRepository.countByReviewIds(reviewIds)
+            .associate { it.reviewId to it.likeCount }
+        val likedReviewIds = reviewLikeRepository.findLikedReviewIds(viewerMemberId, reviewIds).toSet()
         return Page(
             items = page.map {
                 ReviewResponse.from(
