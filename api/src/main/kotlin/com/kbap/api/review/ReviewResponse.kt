@@ -30,9 +30,21 @@ data class ReviewResponse(
 
     @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적). 탈퇴한 회원이면 null.", nullable = true)
     val author: ReviewAuthorResponse?,
+
+    @field:Schema(description = "좋아요 수", example = "3")
+    val likeCount: Long,
+
+    @field:Schema(description = "조회 회원이 좋아요를 눌렀는지", example = "true")
+    val likedByMe: Boolean,
 ) {
     companion object {
-        fun from(review: Review, imagePublicBaseUrl: String, author: ReviewAuthorResponse?): ReviewResponse =
+        fun from(
+            review: Review,
+            imagePublicBaseUrl: String,
+            author: ReviewAuthorResponse?,
+            likeCount: Long,
+            likedByMe: Boolean,
+        ): ReviewResponse =
             ReviewResponse(
                 reviewId = review.id,
                 foodId = review.foodId,
@@ -42,6 +54,8 @@ data class ReviewResponse(
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt,
                 author = author,
+                likeCount = likeCount,
+                likedByMe = likedByMe,
             )
     }
 }

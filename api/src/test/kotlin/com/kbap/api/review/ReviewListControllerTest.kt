@@ -277,6 +277,97 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
         }
 
+        given("리뷰 목록 — 좋아요 수와 내 좋아요 여부") {
+            fun like(token: String, reviewId: Long) {
+                mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                    header("Authorization", "Bearer $token")
+                    param("liked", "true")
+                }.andExpect { status { isOk() } }
+            }
+
+            fun unlike(token: String, reviewId: Long) {
+                mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                    header("Authorization", "Bearer $token")
+                    param("liked", "false")
+                }.andExpect { status { isOk() } }
+            }
+
+            `when`("리뷰에 회원 3명이 좋아요를 눌렀으면") {
+                then("likeCount 3, 누른 회원에겐 likedByMe true 로 내려간다") {
+                    seedFood(840L, "좋아요김치찌개")
+                    val author = accessToken(8401L)
+                    val viewer = accessToken(8402L)
+                    val reviewId = createReview(author, 840L)
+                    like(viewer, reviewId)
+                    like(accessToken(8403L), reviewId)
+                    like(accessToken(8404L), reviewId)
+
+                    val item = payloadOf(foodReviews(viewer, 840L)).path("items").single()
+                    item.path("reviewId").asLong() shouldBe reviewId
+                    item.path("likeCount").asLong() shouldBe 3L
+                    item.path("likedByMe").asBoolean().shouldBeTrue()
+                }
+            }
+            `when`("좋아요한 리뷰와 안 한 리뷰가 섞여 있으면") {
+                then("리뷰별로 likedByMe 가 정확히 갈린다") {
+                    seedFood(841L, "좋아요된장찌개")
+                    val author = accessToken(8411L)
+                    val viewer = accessToken(8412L)
+                    val liked = createReview(author, 841L)
+                    val notLiked = createReview(author, 841L)
+                    like(viewer, liked)
+
+                    val byId = payloadOf(foodReviews(viewer, 841L)).path("items").associateBy { it.path("reviewId").asLong() }
+                    byId.getValue(liked).path("likedByMe").asBoolean().shouldBeTrue()
+                    byId.getValue(liked).path("likeCount").asLong() shouldBe 1L
+                    byId.getValue(notLiked).path("likedByMe").asBoolean().shouldBeFalse()
+                    byId.getValue(notLiked).path("likeCount").asLong() shouldBe 0L
+                }
+            }
+            `when`("좋아요가 하나도 없는 리뷰를 조회하면") {
+                then("필드가 존재하며 likeCount 0·likedByMe false 다") {
+                    seedFood(842L, "좋아요비빔밥")
+                    val author = accessToken(8421L)
+                    createReview(author, 842L)
+
+                    val item = payloadOf(foodReviews(author, 842L)).path("items").single()
+                    item.has("likeCount").shouldBeTrue()
+                    item.has("likedByMe").shouldBeTrue()
+                    item.path("likeCount").asLong() shouldBe 0L
+                    item.path("likedByMe").asBoolean().shouldBeFalse()
+                }
+            }
+            `when`("좋아요를 취소하면") {
+                then("수와 여부에서 즉시 빠진다") {
+                    seedFood(843L, "좋아요불고기")
+                    val author = accessToken(8431L)
+                    val viewer = accessToken(8432L)
+                    val reviewId = createReview(author, 843L)
+                    like(viewer, reviewId)
+                    unlike(viewer, reviewId)
+
+                    val item = payloadOf(foodReviews(viewer, 843L)).path("items").single()
+                    item.path("likeCount").asLong() shouldBe 0L
+                    item.path("likedByMe").asBoolean().shouldBeFalse()
+                }
+            }
+            `when`("내 리뷰 목록을 조회하면") {
+                then("동일하게 likeCount·likedByMe 가 포함된다") {
+                    seedFood(844L, "좋아요잡채")
+                    val author = accessToken(8441L)
+                    val other = accessToken(8442L)
+                    val reviewId = createReview(author, 844L)
+                    like(other, reviewId)
+                    like(author, reviewId)
+
+                    val item = payloadOf(myReviews(author)).path("items").single()
+                    item.path("reviewId").asLong() shouldBe reviewId
+                    item.path("likeCount").asLong() shouldBe 2L
+                    item.path("likedByMe").asBoolean().shouldBeTrue()
+                }
+            }
+        }
+
         given("내 리뷰 목록 — GET /api/v1/reviews/me") {
             seedFood(810L, "목록불고기")
             seedFood(811L, "목록잡채")

@@ -67,6 +67,27 @@ interface ReviewApi {
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
+        summary = "리뷰 좋아요 등록/취소",
+        description = """
+            리뷰 좋아요 상태를 지정한다. liked=true 는 등록, liked=false 는 취소.
+            회원당 리뷰 하나에 좋아요는 1개만 유지되며, 같은 상태로 다시 요청해도 성공(멱등)한다.
+            등록(liked=true)은 리뷰가 존재해야 하고, 취소(liked=false)는 좋아요가 없어도 성공한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "처리 성공(같은 상태 재요청 포함)"),
+            ApiResponse(responseCode = "400", description = "liked 파라미터 누락, 등록 시 미존재/삭제된 리뷰(REVIEW-001)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun like(
+        memberId: Long,
+        @Parameter(description = "대상 리뷰 id", example = "42") reviewId: Long,
+        @Parameter(description = "지정할 좋아요 상태 — true 등록, false 취소", example = "true") liked: Boolean,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
         summary = "음식별 리뷰 목록",
         description = """
             음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.

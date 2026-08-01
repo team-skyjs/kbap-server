@@ -187,6 +187,8 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.author.nickname") { value("리뷰어700") }
                         jsonPath("$.payload.author.countryCode") { value("KR") }
                         jsonPath("$.payload.author.score") { value(15) }
+                        jsonPath("$.payload.likeCount") { value(0) }
+                        jsonPath("$.payload.likedByMe") { value(false) }
                     }
                 }
             }
@@ -306,10 +308,16 @@ class ReviewControllerTest : BehaviorSpec() {
                 then("값이 반영되고 국적 스냅샷은 불변이다") {
                     val token = accessToken(710L, countryCode = "JP")
                     val reviewId = createReview(token, 710L, rating = 3)
+                    mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                        header("Authorization", "Bearer $token")
+                        param("liked", "true")
+                    }.andExpect { status { isOk() } }
                     update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.rating") { value(5) }
                         jsonPath("$.payload.content") { value("수정했어요") }
+                        jsonPath("$.payload.likeCount") { value(1) }
+                        jsonPath("$.payload.likedByMe") { value(true) }
                     }
                     snapshotCountryOf(reviewId) shouldBe "JP"
                 }
