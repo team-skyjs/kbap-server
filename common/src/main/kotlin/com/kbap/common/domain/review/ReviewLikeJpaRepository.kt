@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
-import org.springframework.transaction.annotation.Transactional
 
 interface ReviewLikeCount {
     val reviewId: Long
@@ -14,8 +13,7 @@ interface ReviewLikeCount {
 
 interface ReviewLikeJpaRepository : JpaRepository<ReviewLike, Long> {
     // 신규·중복·재등록(부활)을 한 문장으로 원자 처리 — 트랜잭션 안 save() 예외 폴백은 rollback-only 마킹으로 불가
-    // @Modifying 쿼리는 CRUD 메서드와 달리 자동 트랜잭션이 없어 자체 선언(호출부 트랜잭션엔 REQUIRED 로 참여)
-    @Transactional
+    // 자동 트랜잭션 없음(@Modifying) — 호출자가 트랜잭션 경계를 소유해야 한다
     @Modifying
     @Query(
         value = """

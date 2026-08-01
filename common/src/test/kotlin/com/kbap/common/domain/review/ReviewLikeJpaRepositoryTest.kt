@@ -12,6 +12,7 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.transaction.support.TransactionTemplate
 
 @SpringBootTest(classes = [ReviewTestApp::class])
 @Import(MySqlContainerConfig::class)
@@ -21,10 +22,16 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
     @Autowired
     private lateinit var reviewLikeRepository: ReviewLikeJpaRepository
 
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
+
     init {
+        fun upsertActive(reviewId: Long, memberId: Long): Unit =
+            transactionTemplate.executeWithoutResult { reviewLikeRepository.upsertActive(reviewId, memberId) }
+
         given("upsertActive — 좋아요 등록") {
             `when`("처음 등록하면") {
-                reviewLikeRepository.upsertActive(reviewId = 100L, memberId = 1L)
+                upsertActive(reviewId = 100L, memberId = 1L)
                 then("ACTIVE 행이 생긴다") {
                     val found = reviewLikeRepository.findByReviewIdAndMemberId(100L, 1L)
                     found.shouldNotBeNull()
@@ -32,8 +39,8 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
                 }
             }
             `when`("같은 쌍으로 다시 등록하면") {
-                reviewLikeRepository.upsertActive(reviewId = 101L, memberId = 1L)
-                reviewLikeRepository.upsertActive(reviewId = 101L, memberId = 1L)
+                upsertActive(reviewId = 101L, memberId = 1L)
+                upsertActive(reviewId = 101L, memberId = 1L)
                 then("행은 여전히 1개다") {
                     reviewLikeRepository.countByReviewIds(listOf(101L))
                         .single().let {
@@ -47,7 +54,7 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
         given("취소와 재등록 — 부활") {
             val reviewId = 200L
             val memberId = 2L
-            reviewLikeRepository.upsertActive(reviewId, memberId)
+            upsertActive(reviewId, memberId)
             val originalId = reviewLikeRepository.findByReviewIdAndMemberId(reviewId, memberId).shouldNotBeNull().id
 
             `when`("소프트 삭제하면") {
@@ -59,7 +66,7 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
                 }
             }
             `when`("취소 후 다시 등록하면") {
-                reviewLikeRepository.upsertActive(reviewId, memberId)
+                upsertActive(reviewId, memberId)
                 then("같은 행이 ACTIVE 로 부활한다") {
                     val revived = reviewLikeRepository.findByReviewIdAndMemberId(reviewId, memberId)
                     revived.shouldNotBeNull()
@@ -69,11 +76,11 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("countByReviewIds — 리뷰별 좋아요 수 배치 집계") {
-            reviewLikeRepository.upsertActive(reviewId = 300L, memberId = 1L)
-            reviewLikeRepository.upsertActive(reviewId = 300L, memberId = 2L)
-            reviewLikeRepository.upsertActive(reviewId = 300L, memberId = 3L)
-            reviewLikeRepository.upsertActive(reviewId = 301L, memberId = 1L)
-            reviewLikeRepository.upsertActive(reviewId = 302L, memberId = 9L)
+            upsertActive(reviewId = 300L, memberId = 1L)
+            upsertActive(reviewId = 300L, memberId = 2L)
+            upsertActive(reviewId = 300L, memberId = 3L)
+            upsertActive(reviewId = 301L, memberId = 1L)
+            upsertActive(reviewId = 302L, memberId = 9L)
             reviewLikeRepository.findByReviewIdAndMemberId(302L, 9L).shouldNotBeNull().let {
                 it.delete()
                 reviewLikeRepository.save(it)
@@ -90,10 +97,10 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
 
         given("findLikedReviewIds — 조회 회원의 좋아요 여부 배치 로드") {
             val memberId = 40L
-            reviewLikeRepository.upsertActive(reviewId = 400L, memberId = memberId)
-            reviewLikeRepository.upsertActive(reviewId = 401L, memberId = memberId)
-            reviewLikeRepository.upsertActive(reviewId = 402L, memberId = 41L)
-            reviewLikeRepository.upsertActive(reviewId = 403L, memberId = memberId)
+            upsertActive(reviewId = 400L, memberId = memberId)
+            upsertActive(reviewId = 401L, memberId = memberId)
+            upsertActive(reviewId = 402L, memberId = 41L)
+            upsertActive(reviewId = 403L, memberId = memberId)
             reviewLikeRepository.findByReviewIdAndMemberId(403L, memberId).shouldNotBeNull().let {
                 it.delete()
                 reviewLikeRepository.save(it)
