@@ -13,6 +13,8 @@
 
     <div class="banner banner-ok" th:if="${param.updated != null}"
          th:text="|음식 #${param.updated[0]} 수정 완료|"></div>
+    <div class="banner banner-ok" th:if="${param.deleted != null}"
+         th:text="|음식 #${param.deleted[0]} 삭제 완료|"></div>
     <div class="banner banner-error" th:if="${param.error != null and param.detail == null}">
         처리 중 오류가 발생했습니다
     </div>
@@ -134,6 +136,15 @@
                         <button class="btn-primary" type="submit" th:if="${editMode}">저장</button>
                     </div>
                 </form>
+
+                <div class="field" th:unless="${editMode}">
+                    <p class="page-info">삭제된 음식의 이름은 계속 점유되어, 같은 이름을 다시 시드하면 등록이 누락됩니다.</p>
+                    <form th:action="@{|/admin/foods/${foodDetail.id}/delete|}" method="post"
+                          onsubmit="return confirm('이 음식을 삭제할까요? 삭제된 이름은 계속 점유되어 같은 이름을 다시 시드하면 등록이 누락됩니다.')">
+                        <input type="hidden" name="page" th:value="${foodPage.page}">
+                        <button class="page-btn" type="submit">삭제</button>
+                    </form>
+                </div>
         </div>
     </aside>
 </section>

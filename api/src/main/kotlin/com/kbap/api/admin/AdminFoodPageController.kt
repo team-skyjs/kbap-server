@@ -80,6 +80,18 @@ class AdminFoodPageController(
         }
     }
 
+    @PostMapping("/admin/foods/{id}/delete")
+    fun deleteFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return when (adminFoodService.deleteFood(id)) {
+            AdminFoodDeleteResult.DELETED -> "redirect:/admin/foods/list?page=$safePage&deleted=$id"
+            AdminFoodDeleteResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found"
+        }
+    }
+
     private fun listRedirect(page: Int, q: String?, anchorId: Long, vararg params: Pair<String, Any>): String {
         val builder = UriComponentsBuilder.fromPath("/admin/foods/list").queryParam("page", page)
         q?.trim()?.takeIf { it.isNotEmpty() }?.let { builder.queryParam("q", it) }

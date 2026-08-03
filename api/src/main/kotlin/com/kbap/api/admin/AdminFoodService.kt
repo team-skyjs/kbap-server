@@ -87,6 +87,13 @@ class AdminFoodService(
         json.takeIf { it.isNotBlank() }?.let { objectMapper.readValue<Map<String, String>>(it) } ?: emptyMap()
 
     @Transactional
+    fun deleteFood(id: Long): AdminFoodDeleteResult {
+        val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
+        food.delete()
+        return AdminFoodDeleteResult.DELETED
+    }
+
+    @Transactional
     fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
         val names = koreanNames
             .map { KoreanMenuNameNormalizer.matchKey(it) }
@@ -118,6 +125,11 @@ class AdminFoodService(
     companion object {
         const val LIST_PAGE_SIZE = 200
     }
+}
+
+enum class AdminFoodDeleteResult {
+    DELETED,
+    NOT_FOUND,
 }
 
 enum class AdminFoodUpdateResult {
