@@ -74,6 +74,18 @@ class AdminFoodPageController(
         }
     }
 
+    @PostMapping("/admin/foods/{id}/delete")
+    fun deleteFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return when (adminFoodService.deleteFood(id)) {
+            AdminFoodDeleteResult.DELETED -> "redirect:/admin/foods/list?page=$safePage&deleted=$id"
+            AdminFoodDeleteResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found"
+        }
+    }
+
     @GetMapping("/admin/foods/seed")
     fun seedPage(): String = "admin/food-seed"
 

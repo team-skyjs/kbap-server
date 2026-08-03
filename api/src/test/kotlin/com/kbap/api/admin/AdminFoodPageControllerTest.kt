@@ -16,6 +16,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -262,6 +264,75 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     }
 
                     foodJpaRepository.count() shouldBe 0
+                }
+            }
+        }
+
+        given("관리자 음식 삭제") {
+            `when`("상세 패널에서 삭제를 확정하면") {
+                then("소프트 삭제하고 현재 페이지 유지로 목록에 리다이렉트한다") {
+                    val food = saveFood("폼삭제마라탕", FoodContentStatus.READY)
+
+                    mockMvc.post("/admin/foods/${food.id}/delete") {
+                        cookie(adminCookie())
+                        param("page", "3")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=3&deleted=${food.id}")
+                    }
+
+                    foodJpaRepository.findById(food.id).isPresent shouldBe false
+                }
+            }
+
+            `when`("존재하지 않는 음식을 삭제하면") {
+                then("not-found 오류 파라미터로 리다이렉트한다") {
+                    mockMvc.post("/admin/foods/999999/delete") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&error=not-found")
+                    }
+                }
+            }
+
+            `when`("삭제 완료 파라미터로 목록에 돌아오면") {
+                then("삭제 완료 배너를 보여준다") {
+                    val body = mockMvc.get("/admin/foods/list?deleted=42") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    body shouldContain "삭제 완료"
+                }
+            }
+
+            `when`("READY 음식을 삭제한 뒤 사용자 검색을 호출하면") {
+                then("검색 결과에 노출되지 않는다") {
+                    val food = saveFood("폼삭제검색불고기", FoodContentStatus.READY)
+
+                    mockMvc.get("/api/v1/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8) shouldContain "폼삭제검색불고기"
+
+                    mockMvc.post("/admin/foods/${food.id}/delete") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                    }.andExpect { status { is3xxRedirection() } }
+
+                    mockMvc.get("/api/v1/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8) shouldNotContain "폼삭제검색불고기"
+                }
+            }
+
+            `when`("상세 패널을 열면") {
+                then("동명 재시드 누락 안내 문구를 보여준다") {
+                    val food = saveFood("폼삭제안내순대국", FoodContentStatus.READY)
+
+                    val body = mockMvc.get("/admin/foods/list?detail=${food.id}") { cookie(adminCookie()) }
+                        .andExpect { status { isOk() } }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+
+                    body shouldContain "같은 이름을 다시 시드하면 등록이 누락됩니다"
                 }
             }
         }

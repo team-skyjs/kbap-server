@@ -296,5 +296,56 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("관리자 음식 삭제(deleteFood)") {
+            fun rawStatus(id: Long): String? =
+                dataSource.connection.use { connection ->
+                    connection.prepareStatement("SELECT status FROM food WHERE id = ?").use { statement ->
+                        statement.setLong(1, id)
+                        statement.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+                    }
+                }
+
+            `when`("존재하는 음식을 삭제하면") {
+                then("DELETED 를 반환하고 row 는 DELETED 상태로 보존되며 상세 조회에서 사라진다") {
+                    val id = saveFood("삭제불고기")
+
+                    val result = service.deleteFood(id)
+
+                    result shouldBe AdminFoodDeleteResult.DELETED
+                    rawStatus(id) shouldBe "DELETED"
+                    service.getFoodDetailOrNull(id) shouldBe null
+                }
+            }
+
+            `when`("존재하지 않는 id 를 삭제하면") {
+                then("NOT_FOUND 를 반환한다") {
+                    service.deleteFood(999_999) shouldBe AdminFoodDeleteResult.NOT_FOUND
+                }
+            }
+
+            `when`("이미 삭제된 음식을 다시 삭제하면") {
+                then("NOT_FOUND 를 반환하고 상태는 DELETED 그대로다") {
+                    val id = saveFood("삭제재시도갈비탕")
+                    service.deleteFood(id)
+
+                    service.deleteFood(id) shouldBe AdminFoodDeleteResult.NOT_FOUND
+                    rawStatus(id) shouldBe "DELETED"
+                }
+            }
+
+            `when`("삭제된 음식이 섞여 있는 목록을 조회하면") {
+                then("삭제된 음식은 items 와 totalCount 모두에서 제외된다") {
+                    val survivorId = saveFood("삭제목록남는음식")
+                    val deletedId = saveFood("삭제목록사라지는음식")
+                    service.deleteFood(deletedId)
+
+                    val page = service.getFoodPage(1)
+
+                    page.totalCount shouldBe 1
+                    page.items.map { it.id } shouldBe listOf(survivorId)
+                }
+            }
+        }
     }
 }
