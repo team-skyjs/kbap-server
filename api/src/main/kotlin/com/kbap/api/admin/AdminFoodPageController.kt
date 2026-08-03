@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.util.UriComponentsBuilder
+import java.net.URLEncoder
 
 @Controller
 class AdminFoodPageController(
@@ -84,19 +84,23 @@ class AdminFoodPageController(
     fun deleteFood(
         @PathVariable id: Long,
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         return when (adminFoodService.deleteFood(id)) {
-            AdminFoodDeleteResult.DELETED -> "redirect:/admin/foods/list?page=$safePage&deleted=$id"
-            AdminFoodDeleteResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found"
+            AdminFoodDeleteResult.DELETED -> listRedirect(safePage, q, id, "deleted" to id)
+            AdminFoodDeleteResult.NOT_FOUND -> listRedirect(safePage, q, id, "error" to "not-found")
         }
     }
 
+    // form-encode 강제 — UriComponentsBuilder.encode() 는 + 를 남겨 수신측 form-decode 가 공백으로 뭉갠다
     private fun listRedirect(page: Int, q: String?, anchorId: Long, vararg params: Pair<String, Any>): String {
-        val builder = UriComponentsBuilder.fromPath("/admin/foods/list").queryParam("page", page)
-        q?.trim()?.takeIf { it.isNotEmpty() }?.let { builder.queryParam("q", it) }
-        params.forEach { (name, value) -> builder.queryParam(name, value) }
-        return "redirect:" + builder.fragment("food-$anchorId").encode().build().toUriString()
+        val query = buildList {
+            add("page" to page.toString())
+            q?.trim()?.takeIf { it.isNotEmpty() }?.let { add("q" to it) }
+            params.forEach { (name, value) -> add(name to value.toString()) }
+        }.joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, Charsets.UTF_8)}" }
+        return "redirect:/admin/foods/list?$query#food-$anchorId"
     }
 
     @GetMapping("/admin/foods/seed")

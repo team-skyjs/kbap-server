@@ -278,10 +278,25 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("page", "3")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=3&deleted=${food.id}")
+                        redirectedUrl("/admin/foods/list?page=3&deleted=${food.id}#food-${food.id}")
                     }
 
                     foodJpaRepository.findById(food.id).isPresent shouldBe false
+                }
+            }
+
+            `when`("검색어가 유지된 목록에서 삭제하면") {
+                then("특수문자 검색어도 form-encode 되어 검색 상태를 유지한 채 리다이렉트한다") {
+                    val food = saveFood("검색유지삭제A+B", FoodContentStatus.READY)
+
+                    mockMvc.post("/admin/foods/${food.id}/delete") {
+                        cookie(adminCookie())
+                        param("page", "2")
+                        param("q", "A+B")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=2&q=A%2BB&deleted=${food.id}#food-${food.id}")
+                    }
                 }
             }
 
@@ -292,7 +307,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("page", "1")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&error=not-found")
+                        redirectedUrl("/admin/foods/list?page=1&error=not-found#food-999999")
                     }
                 }
             }
