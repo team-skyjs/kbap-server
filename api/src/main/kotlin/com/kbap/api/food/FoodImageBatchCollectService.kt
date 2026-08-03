@@ -113,7 +113,7 @@ class FoodImageBatchCollectService(
             if (food == null) {
                 item.fail("음식이 삭제되어 건너뜀")
             } else {
-                food.attachImage(key)
+                food.attachImage(webpRefOf(key))
                 foodRepository.save(food)
                 item.done(key)
                 attached = true
@@ -166,6 +166,9 @@ class FoodImageBatchCollectService(
             val uuid = UUID.randomUUID().toString().replace("-", "").take(16)
             return "images/food/${hash}_$uuid.png"
         }
+
+        fun webpRefOf(pngKey: String): String =
+            "images/webp/food/" + pngKey.removePrefix("images/food/").removeSuffix(".png") + ".webp"
 
         const val STALE_SUBMITTING_HOURS: Long = 1
     }

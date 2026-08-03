@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Import
 class FoodImageBatchCollectServiceTest : BehaviorSpec() {
     companion object {
         val FOOD_IMAGE_KEY_PATTERN = Regex("""^images/food/[0-9a-f]{12}_[0-9a-f]{16}\.png$""")
+        val WEBP_REF_PATTERN = Regex("""^images/webp/food/[0-9a-f]{12}_[0-9a-f]{16}\.webp$""")
     }
 
     override fun extensions() = listOf(SpringExtension)
@@ -110,7 +111,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
         given("회수 — completed 배치") {
             `when`("PENDING_IMAGE 음식의 이미지가 완성돼 있으면") {
-                then("스토리지 저장 → imageRef 갱신 → PENDING_REVIEW 전이 → item DONE → 배치 COLLECTED") {
+                then("스토리지엔 png 원본 저장 → imageRef 는 webp 경로 → PENDING_REVIEW 전이 → item DONE → 배치 COLLECTED") {
                     val food = savePendingImage("갈비찜")
                     val batch = saveSubmittedBatch(food.id)
                     fakeClient.polls[batch.openaiBatchId!!] = completed("file_1")
@@ -122,7 +123,8 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     key shouldMatch FOOD_IMAGE_KEY_PATTERN
                     key shouldStartWith "images/food/b7b0c086d8e6_"
                     val reloaded = foodRepository.findById(food.id).get()
-                    reloaded.imageRef shouldBe key
+                    reloaded.imageRef shouldBe FoodImageBatchCollectService.webpRefOf(key)
+                    reloaded.imageRef!! shouldMatch WEBP_REF_PATTERN
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                     val item = itemRepository.findAll().single()
                     item.itemStatus shouldBe ImageBatchItemStatus.DONE
@@ -142,7 +144,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
 
                     val reloaded = foodRepository.findById(food.id).get()
-                    reloaded.imageRef!! shouldMatch FOOD_IMAGE_KEY_PATTERN
+                    reloaded.imageRef!! shouldMatch WEBP_REF_PATTERN
                     reloaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 }
             }
@@ -319,26 +321,48 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             }
         }
 
+        given("webp 기록 경로 매핑") {
+            `when`("png 저장 키를 변환본 경로로 바꾸면") {
+                then("images/webp/food/ 아래 같은 파일명의 .webp 가 된다") {
+                    FoodImageBatchCollectService.webpRefOf("images/food/abc123abc123_0123456789abcdef.png") shouldBe
+                        "images/webp/food/abc123abc123_0123456789abcdef.webp"
+                }
+            }
+
+            `when`("생성된 저장 키를 매핑하면") {
+                then("파일명이 보존되고 webp 경로 형식을 만족한다") {
+                    val pngKey = FoodImageBatchCollectService.storageKeyOf("불고기")
+
+                    val ref = FoodImageBatchCollectService.webpRefOf(pngKey)
+
+                    ref shouldMatch WEBP_REF_PATTERN
+                    ref.removePrefix("images/webp/food/").removeSuffix(".webp") shouldBe
+                        pngKey.removePrefix("images/food/").removeSuffix(".png")
+                }
+            }
+        }
+
         given("회수 — 이미지 재생성") {
             `when`("이미지가 이미 있는 음식을 새 배치로 다시 회수하면") {
-                then("이전 키를 덮어쓰지 않고 새 키로 저장하며 imageRef 가 새 키로 갱신된다") {
+                then("이전 키를 덮어쓰지 않고 새 키로 저장하며 imageRef 가 새 webp 경로로 갱신된다") {
                     val food = savePendingImage("재생성음식")
                     val first = saveSubmittedBatch(food.id)
                     fakeClient.polls[first.openaiBatchId!!] = completed("file_regen_1")
                     fakeClient.results["file_regen_1"] = listOf(okResult(food.id))
                     collectService.collectSubmitted()
-                    val firstKey = foodRepository.findById(food.id).get().imageRef!!
+                    val firstRef = foodRepository.findById(food.id).get().imageRef!!
 
                     val second = saveSubmittedBatch(food.id)
                     fakeClient.polls[second.openaiBatchId!!] = completed("file_regen_2")
                     fakeClient.results["file_regen_2"] = listOf(okResult(food.id))
                     collectService.collectSubmitted()
 
-                    val secondKey = foodRepository.findById(food.id).get().imageRef!!
-                    secondKey shouldMatch FOOD_IMAGE_KEY_PATTERN
-                    secondKey shouldNotBe firstKey
-                    fakeStorage.heads.containsKey(firstKey) shouldBe true
-                    fakeStorage.heads.containsKey(secondKey) shouldBe true
+                    val secondRef = foodRepository.findById(food.id).get().imageRef!!
+                    secondRef shouldMatch WEBP_REF_PATTERN
+                    secondRef shouldNotBe firstRef
+                    fakeStorage.heads.keys.all { it matches FOOD_IMAGE_KEY_PATTERN } shouldBe true
+                    fakeStorage.heads.keys.map { FoodImageBatchCollectService.webpRefOf(it) }
+                        .toSet() shouldBe setOf(firstRef, secondRef)
                 }
             }
         }
@@ -356,7 +380,8 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
 
                     fakeStorage.heads.keys.single() shouldBe reservedKey
-                    foodRepository.findById(food.id).get().imageRef shouldBe reservedKey
+                    foodRepository.findById(food.id).get().imageRef shouldBe
+                        "images/webp/food/aaaaaaaaaaaa_bbbbbbbbbbbbbbbb.webp"
                     val item = itemRepository.findAll().single()
                     item.itemStatus shouldBe ImageBatchItemStatus.DONE
                     item.fileName shouldBe reservedKey
