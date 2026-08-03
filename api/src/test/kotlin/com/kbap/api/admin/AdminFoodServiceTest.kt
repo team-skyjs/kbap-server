@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
@@ -43,6 +44,99 @@ class AdminFoodServiceTest : BehaviorSpec() {
             foodJpaRepository.findByKoreanNameIn(names).associateBy { it.koreanName }
 
         beforeContainer { clearFoods() }
+
+        given("관리자 음식 목록 검색(getFoodPage)") {
+            val allNames = listOf("검색김치찌개", "검색김치볶음밥", "검색된장찌개")
+            val kimchiNames = listOf("검색김치찌개", "검색김치볶음밥")
+
+            fun saveSearchFixtures() = allNames.forEach { saveFood(it) }
+
+            fun namesOf(view: AdminFoodListPageView): List<String> = view.items.map { it.koreanName }
+
+            `when`("검색어가 음식명 일부와 일치하면") {
+                then("일치하는 음식만 반환한다") {
+                    saveSearchFixtures()
+
+                    namesOf(service.getFoodPage(1, "김치")) shouldContainExactlyInAnyOrder kimchiNames
+                }
+            }
+
+            `when`("검색어가 null 이면") {
+                then("전체 목록을 반환하고 query 는 null 이다") {
+                    saveSearchFixtures()
+
+                    val view = service.getFoodPage(1, null)
+
+                    namesOf(view) shouldContainExactlyInAnyOrder allNames
+                    view.query shouldBe null
+                }
+            }
+
+            `when`("검색어가 빈 문자열이거나 공백뿐이면") {
+                then("전체 목록을 반환하고 query 는 null 이다") {
+                    saveSearchFixtures()
+
+                    listOf("", "   ").forEach { blank ->
+                        val view = service.getFoodPage(1, blank)
+
+                        namesOf(view) shouldContainExactlyInAnyOrder allNames
+                        view.query shouldBe null
+                    }
+                }
+            }
+
+            `when`("검색어 앞뒤에 공백이 있으면") {
+                then("트림한 검색어로 일치를 판단하고 query 에도 트림한 값을 담는다") {
+                    saveSearchFixtures()
+
+                    val view = service.getFoodPage(1, "  김치  ")
+
+                    namesOf(view) shouldContainExactlyInAnyOrder kimchiNames
+                    view.query shouldBe "김치"
+                }
+            }
+
+            `when`("검색어로 조회하면") {
+                then("검색 결과 기준으로 totalCount 와 페이지 정보를 계산한다") {
+                    saveSearchFixtures()
+
+                    val view = service.getFoodPage(1, "김치")
+
+                    view.totalCount shouldBe 2
+                    view.totalPages shouldBe 1
+                    view.hasPrev shouldBe false
+                    view.hasNext shouldBe false
+                }
+            }
+
+            `when`("검색어와 일치하는 음식이 소프트 삭제됐으면") {
+                then("검색 결과에서 제외한다") {
+                    val ghostId = saveFood("검색유령김치전")
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+                    saveFood("검색생존김치전")
+
+                    namesOf(service.getFoodPage(1, "김치전")) shouldContainExactlyInAnyOrder listOf("검색생존김치전")
+                }
+            }
+
+            `when`("검색 결과가 페이지 크기를 초과하면") {
+                then("검색 결과 기준으로 페이지네이션한다") {
+                    foodJpaRepository.saveAll((1..201).map { Food(koreanName = "페이징김치$it", description = "구수한 페이징김치$it") })
+                    saveFood("페이징된장찌개")
+
+                    val view = service.getFoodPage(1, "페이징김치")
+
+                    view.items.size shouldBe 200
+                    view.totalCount shouldBe 201
+                    view.totalPages shouldBe 2
+                    view.hasNext shouldBe true
+
+                    service.getFoodPage(2, "페이징김치").items.size shouldBe 1
+                }
+            }
+        }
 
         given("음식 상세 이미지 URL 해석(getFoodDetailOrNull)") {
             `when`("imageRef 가 상대 키면") {
@@ -296,5 +390,6 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 }
             }
         }
+
     }
 }

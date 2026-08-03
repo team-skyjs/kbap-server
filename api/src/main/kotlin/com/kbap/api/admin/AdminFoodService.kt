@@ -26,9 +26,12 @@ class AdminFoodService(
     private val objectMapper = jacksonObjectMapper()
 
     @Transactional(readOnly = true)
-    fun getFoodPage(page: Int): AdminFoodListPageView {
+    fun getFoodPage(page: Int, query: String? = null): AdminFoodListPageView {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, LIST_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result = foodRepository.findAll(pageable)
+        val result =
+            if (keyword == null) foodRepository.findAll(pageable)
+            else foodRepository.findByKoreanNameContaining(keyword, pageable)
         return AdminFoodListPageView(
             items = result.content.map { AdminFoodSummaryView.from(it) },
             page = page,
@@ -36,6 +39,7 @@ class AdminFoodService(
             totalCount = result.totalElements,
             hasPrev = page > 1,
             hasNext = page < result.totalPages,
+            query = keyword,
         )
     }
 
@@ -142,6 +146,7 @@ data class AdminFoodListPageView(
     val totalCount: Long,
     val hasPrev: Boolean,
     val hasNext: Boolean,
+    val query: String? = null,
 )
 
 data class AdminFoodSummaryView(
