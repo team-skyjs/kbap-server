@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Import
 @Import(MySqlContainerConfig::class)
 class FoodImageBatchCollectServiceTest : BehaviorSpec() {
     companion object {
-        val FOOD_IMAGE_KEY_PATTERN = Regex("""^images/food/[0-9a-f]{12}_[0-9a-f]{16}\.png$""")
+        val FOOD_IMAGE_KEY_PATTERN = Regex("""^images/webp/food/[0-9a-f]{12}_[0-9a-f]{16}\.webp$""")
     }
 
     override fun extensions() = listOf(SpringExtension)
@@ -120,7 +120,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     val key = fakeStorage.heads.keys.single()
                     key shouldMatch FOOD_IMAGE_KEY_PATTERN
-                    key shouldStartWith "images/food/b7b0c086d8e6_"
+                    key shouldStartWith "images/webp/food/b7b0c086d8e6_"
                     val reloaded = foodRepository.findById(food.id).get()
                     reloaded.imageRef shouldBe key
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
@@ -289,7 +289,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val pending = savePendingImage("미처리")
                     val batch = saveSubmittedBatch(done.id, pending.id)
                     itemRepository.findAll().first { it.foodId == done.id }
-                        .also { itemRepository.save(it.apply { done("images/food/${done.id}.png") }) }
+                        .also { itemRepository.save(it.apply { done("images/webp/food/${done.id}.webp") }) }
                     fakeClient.polls[batch.openaiBatchId!!] = completed("file_7")
                     fakeClient.results["file_7"] = listOf(okResult(done.id), okResult(pending.id))
 
@@ -304,10 +304,10 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
         given("저장 키 생성 규칙") {
             `when`("음식명으로 키를 만들면") {
-                then("images/food/{sha256 앞 12자리}_{uuid 16자리}.png 형식이고 환경접두가 없다") {
+                then("images/webp/food/{sha256 앞 12자리}_{uuid 16자리}.webp 형식이고 환경접두가 없다") {
                     val key = FoodImageBatchCollectService.storageKeyOf("불고기")
                     key shouldMatch FOOD_IMAGE_KEY_PATTERN
-                    key shouldStartWith "images/food/0ac627c8cdea_"
+                    key shouldStartWith "images/webp/food/0ac627c8cdea_"
                 }
             }
 
@@ -327,18 +327,18 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     fakeClient.polls[first.openaiBatchId!!] = completed("file_regen_1")
                     fakeClient.results["file_regen_1"] = listOf(okResult(food.id))
                     collectService.collectSubmitted()
-                    val firstKey = foodRepository.findById(food.id).get().imageRef!!
+                    val firstRef = foodRepository.findById(food.id).get().imageRef!!
 
                     val second = saveSubmittedBatch(food.id)
                     fakeClient.polls[second.openaiBatchId!!] = completed("file_regen_2")
                     fakeClient.results["file_regen_2"] = listOf(okResult(food.id))
                     collectService.collectSubmitted()
 
-                    val secondKey = foodRepository.findById(food.id).get().imageRef!!
-                    secondKey shouldMatch FOOD_IMAGE_KEY_PATTERN
-                    secondKey shouldNotBe firstKey
-                    fakeStorage.heads.containsKey(firstKey) shouldBe true
-                    fakeStorage.heads.containsKey(secondKey) shouldBe true
+                    val secondRef = foodRepository.findById(food.id).get().imageRef!!
+                    secondRef shouldMatch FOOD_IMAGE_KEY_PATTERN
+                    secondRef shouldNotBe firstRef
+                    fakeStorage.heads.containsKey(firstRef) shouldBe true
+                    fakeStorage.heads.containsKey(secondRef) shouldBe true
                 }
             }
         }
@@ -348,7 +348,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("새 키를 만들지 않고 예약 키를 재사용한다 — 재시도마다 고아 객체가 쌓이지 않는다") {
                     val food = savePendingImage("재시도음식")
                     val batch = saveSubmittedBatch(food.id)
-                    val reservedKey = "images/food/aaaaaaaaaaaa_bbbbbbbbbbbbbbbb.png"
+                    val reservedKey = "images/webp/food/aaaaaaaaaaaa_bbbbbbbbbbbbbbbb.webp"
                     itemRepository.save(itemRepository.findAll().single().apply { fileName = reservedKey })
                     fakeClient.polls[batch.openaiBatchId!!] = completed("file_retry")
                     fakeClient.results["file_retry"] = listOf(okResult(food.id))
@@ -369,11 +369,11 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     saveSubmittedBatch(food.id)
                     val item = itemRepository.findAll().single()
 
-                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_1111111111111111.png") shouldBe 1
-                    itemRepository.reserveFileName(item.id, "images/food/aaaaaaaaaaaa_2222222222222222.png") shouldBe 0
+                    itemRepository.reserveFileName(item.id, "images/webp/food/aaaaaaaaaaaa_1111111111111111.webp") shouldBe 1
+                    itemRepository.reserveFileName(item.id, "images/webp/food/aaaaaaaaaaaa_2222222222222222.webp") shouldBe 0
 
                     itemRepository.findById(item.id).get().fileName shouldBe
-                        "images/food/aaaaaaaaaaaa_1111111111111111.png"
+                        "images/webp/food/aaaaaaaaaaaa_1111111111111111.webp"
                 }
             }
 

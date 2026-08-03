@@ -106,7 +106,7 @@ class FoodImageBatchCollectService(
             if (itemRepository.reserveFileName(item.id, candidate) > 0) candidate
             else itemRepository.findById(item.id).get().fileName!!
         }
-        storageObjectStore.put(key, bytes, "image/png")
+        storageObjectStore.put(key, bytes, "image/webp")
         var attached = false
         itemTransaction.executeWithoutResult {
             val food = foodRepository.findById(item.foodId).orElse(null)
@@ -164,7 +164,7 @@ class FoodImageBatchCollectService(
                 .formatHex(MessageDigest.getInstance("SHA-256").digest(foodName.toByteArray()))
                 .take(12)
             val uuid = UUID.randomUUID().toString().replace("-", "").take(16)
-            return "images/food/${hash}_$uuid.png"
+            return "images/webp/food/${hash}_$uuid.webp"
         }
 
         const val STALE_SUBMITTING_HOURS: Long = 1

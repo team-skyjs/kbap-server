@@ -30,6 +30,8 @@ data class LlmModelProperties(
         val model: String? = null,
         val size: String? = null,
         val quality: String? = null,
+        val outputFormat: String? = null,
+        val outputCompression: Int? = null,
     )
 
     data class VisionProps(

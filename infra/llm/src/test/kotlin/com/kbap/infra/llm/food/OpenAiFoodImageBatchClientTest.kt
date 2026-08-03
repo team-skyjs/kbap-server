@@ -17,6 +17,8 @@ class OpenAiFoodImageBatchClientTest : BehaviorSpec({
             model = "gpt-image-2",
             size = "1024x1024",
             quality = "medium",
+            outputFormat = "webp",
+            outputCompression = 80,
         ),
     )
 
@@ -36,7 +38,16 @@ class OpenAiFoodImageBatchClientTest : BehaviorSpec({
             }
         }
 
-        `when`("model·size·quality 미설정이면") {
+        `when`("출력 포맷이 설정돼 있으면") {
+            then("body 에 output_format·output_compression 을 실어 webp 원본을 받는다") {
+                val node = mapper.readTree(client.requestLineOf(FoodImageBatchClient.Entry("42", "p")))
+
+                node.path("body").path("output_format").asText() shouldBe "webp"
+                node.path("body").path("output_compression").asInt() shouldBe 80
+            }
+        }
+
+        `when`("model·size·quality·출력 포맷 미설정이면") {
             then("body 에 해당 필드를 넣지 않는다 — OpenAI 기본값 사용") {
                 val bare = OpenAiFoodImageBatchClient(LlmModelProperties.ImageProps(apiKey = "k"))
 
@@ -44,6 +55,8 @@ class OpenAiFoodImageBatchClientTest : BehaviorSpec({
 
                 node.path("body").has("model") shouldBe false
                 node.path("body").has("size") shouldBe false
+                node.path("body").has("output_format") shouldBe false
+                node.path("body").has("output_compression") shouldBe false
             }
         }
     }
