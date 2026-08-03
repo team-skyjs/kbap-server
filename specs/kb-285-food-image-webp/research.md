@@ -1,5 +1,18 @@
 # Research: 음식 사진 WebP 변환본 서빙
 
+> **R6(2026-08-04)이 R1·R2·R4·R5 를 대체한다.** 아래 R1~R5 는 "PNG 로 받아 Lambda 가 변환"을 전제한 초기 결정이며, 실측 후 "**생성 시점부터 webp 로 받기**"로 방향을 바꿨다. 이력 보존용으로 남긴다.
+
+## R6. PNG 원본을 보존할 가치가 있는가 (초기 전제 폐기)
+
+- **Decision**: 이미지 생성 요청에 `output_format=webp`·`output_compression=80` 을 실어 **처음부터 webp 를 받는다**. PNG 무손실 마스터를 보존하지 않고, 변환 Lambda·트리거·IAM 롤·실패 알림을 전부 폐기한다. 저장 경로는 백필된 기존 자산과 같은 `images/webp/food/` 를 쓴다.
+- **Rationale**: 운영 이미지 13장 실측에서 quality 80 webp 가 **92.9% 감소**(24.97MB→1.78MB, 평균 1,921KB→137KB)로 확인됐고 육안 열화가 없었다. 반면 PNG 마스터가 실제로 필요한 용도는 인쇄물 정도뿐이다 — 다중 해상도 파생·차세대 포맷 전환·배경 제거·비전 재검수는 전부 webp 원본에서 해도 결과가 같다. 결정적으로 **재생성 비용이 낮아**(전량 재생성 $10 안팎) "마스터 분실 = 복구 불가"가 아니다. 그 보험료로 Lambda·레이어·롤·트리거·DLQ 를 상시 운영하는 건 수지가 맞지 않는다.
+- **부수 효과**: put 키와 `food.image_ref` 가 다시 같아져 `webpRefOf` 분기가 사라진다(R1·R2 의 문제 자체가 소멸). 배포 순서 결합(인프라 선행)과 변환 지연 구간(R5)도 함께 사라진다.
+- **되돌릴 수 있는 결정**: 기존 620 장 PNG 는 그대로 남아 있고, 마스터가 필요해지면 그 시점부터 다시 PNG 로 받으면 된다. 잃는 것은 전환~복귀 사이 생성분의 마스터뿐이다.
+- **전제(검증 필요)**: 사용 모델(`gpt-image-2`)이 Batch API 요청 body 의 `output_format`·`output_compression` 을 수용해야 한다. 미지원이면 배치 전량이 400 으로 실패하므로 **배포 전 단건 호출로 확인**한다. 미지원 시 R1~R5 의 Lambda 구조로 복귀한다.
+- **Alternatives considered**: PNG 유지 + Lambda(초기안) — 실측 후 이득 대비 상시 운영 비용이 크다고 판단. 두 벌 저장(원본+변환본) — 스토리지 비용은 사소하나 파이프라인 조각 수가 문제였다.
+
+---
+
 ## R1. 변환본 경로 매핑을 어디에 두는가
 
 - **Decision**: `FoodImageBatchCollectService.companion` 에 순수 함수 `webpRefOf(pngKey: String): String` 을 추가한다(`storageKeyOf` 바로 옆). 규칙은 접두 `images/food/` → `images/webp/food/`, 확장자 `.png` → `.webp`.

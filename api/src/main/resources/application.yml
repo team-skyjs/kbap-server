@@ -93,6 +93,8 @@ kbap:
       model: gpt-image-2
       size: 1024x1024
       quality: medium
+      output-format: webp
+      output-compression: 80
       pricing:
         input-usd-per-million-tokens: 2.5
         output-usd-per-million-tokens: 20.0

@@ -1,8 +1,8 @@
 # Quickstart / 런북: 음식 사진 WebP 변환본 서빙
 
-## 0. AWS 계정 확인 — 팀 계정으로 전환 (§2·§3 작업 전 필수)
+## 0. AWS 계정 확인 — 팀 계정으로 전환 (S3·DB 작업 전 필수)
 
-**로컬 `aws` CLI 의 `default` 프로필은 팀 계정이 아니다.** 확인 없이 §2(Lambda·IAM·알람)를 실행하면 엉뚱한 계정에 리소스를 만들거나 AccessDenied 로 실패한다.
+**로컬 `aws` CLI 의 `default` 프로필은 팀 계정이 아니다.** 확인 없이 버킷 작업을 실행하면 엉뚱한 계정을 보거나 AccessDenied 로 실패한다.
 
 ### 0-1. 지금 누구인지 확인
 
@@ -28,7 +28,7 @@ export AWS_PROFILE=kbap-prod-deployer AWS_REGION=ap-northeast-2
 aws sts get-caller-identity   # Account 가 118178010621 인지 재확인
 ```
 
-**주의**: `kbap-prod-deployer` 는 배포용 IAM 사용자라 권한이 좁다. 실측 결과 `s3:ListAllMyBuckets` 는 거부되고(버킷 이름을 알고 접근해야 한다), Lambda·IAM 은 조회만 확인됐다. **Lambda 함수 생성·실행 롤 생성 권한은 없을 가능성이 높다** — AccessDenied 가 나면 권한을 넓히려 하지 말고 0-3 의 콘솔 경로로 간다.
+**주의**: `kbap-prod-deployer` 는 배포용 IAM 사용자라 권한이 매우 좁다. 실측 결과 `kbap-assets-kr` 에 대해 `s3:ListBucket`·`s3:GetObject` 모두 거부되고 자기 IAM 정책 조회도 안 된다. 이미지 자산 작업에는 별도 사용자 **`kbap-cli`**(로컬 프로필 `kbap-s3`) 를 쓴다 — `images/*` 읽기 + `images/webp/*` 쓰기만 허용되며, **원본을 덮어쓰거나 삭제하는 것이 권한상 불가능**하다.
 
 프로필이 아예 없는 새 머신이라면:
 
@@ -42,7 +42,7 @@ aws configure --profile kbap-prod-deployer   # region: ap-northeast-2, output: j
 2. 팀 계정으로 로그인한다.
 3. 우측 상단 계정 번호가 **`118178010621`** 인지 확인한다.
 4. 리전을 **서울 `ap-northeast-2`** 로 맞춘다.
-5. S3 에서 대상 버킷(`STORAGE_BUCKET` 환경변수 값 — 저장소에 하드코딩돼 있지 않다)의 `images/food/` 아래에 PNG 원본이 실제로 보이는지 확인한다. 안 보이면 계정·리전·버킷 중 하나가 틀린 것이다.
+5. S3 에서 대상 버킷 `kbap-assets-kr`(=`STORAGE_BUCKET` — 저장소에 하드코딩돼 있지 않다)의 `images/webp/food/` 아래에 자산이 보이는지 확인한다. 안 보이면 계정·리전·버킷 중 하나가 틀린 것이다.
 
 ### 0-4. §3(백필 SQL)의 DB 접속도 같은 원칙
 
@@ -53,25 +53,27 @@ aws configure --profile kbap-prod-deployer   # region: ap-northeast-2, output: j
 ## 1. 코드 변경 확인 (로컬)
 
 ```bash
-./gradlew :api:test --tests "com.kbap.api.food.FoodImageBatchCollectServiceTest"
+./gradlew build
 ```
 
-기대: 회수 후 `food.image_ref` = `images/webp/food/….webp`, `fakeStorage` put 키 = `images/food/….png`, `image_batch_item.file_name` = png 키.
+기대: 요청 body 에 `output_format=webp`·`output_compression=80` 이 실리고(`OpenAiFoodImageBatchClientTest`), 회수 시 `images/webp/food/{sha12}_{uuid16}.webp` 키로 저장·기록된다(`FoodImageBatchCollectServiceTest`).
 
-## 2. 인프라 설정 (저장소 밖 — AWS 콘솔/CLI)
+## 2. 배포 전 필수 검증 — 모델이 output_format 을 받는가
 
-변환 Lambda 는 이 repo 에 코드가 없다. 아래 요건만 만족하면 백엔드와 계약이 맞는다.
+`gpt-image-2` 가 Batch API 요청 body 의 `output_format`·`output_compression` 을 수용하는지 **단건 호출로 먼저 확인**한다. 미지원이면 배치 전량이 400 으로 실패한다.
 
-| 항목 | 값 |
-|------|-----|
-| 트리거 | 이미지 버킷 `s3:ObjectCreated:*`, prefix `images/food/`, suffix `.png` |
-| 출력 키 | `images/webp/food/{원본과 동일한 파일명}.webp` |
-| 변환 | 동일 해상도(리사이즈 금지), WebP 인코딩 |
-| Content-Type | `image/webp` |
-| IAM | 원본 `s3:GetObject` on `images/food/*`, 변환본 `s3:PutObject` on `images/webp/food/*` — 그 외 권한 없음 |
-| 실패 인지 | Lambda DLQ 또는 `Errors` 지표 CloudWatch 알람 |
+```bash
+curl -s https://api.openai.com/v1/images/generations \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-image-2","prompt":"김치찌개 사진","size":"1024x1024","quality":"medium","output_format":"webp","output_compression":80}' \
+  | head -c 300
+```
 
-주의: 출력 prefix(`images/webp/food/`)가 트리거 prefix(`images/food/`)와 겹치지 않으므로 재귀 호출은 발생하지 않는다.
+- 200 + `b64_json` → 지원. 그대로 배포한다.
+- 400 `Unknown parameter` → 미지원. 이 브랜치를 배포하지 말고 research.md R1~R5(PNG + 변환 Lambda) 구조로 복귀한다.
+
+응답 base64 를 디코드해 `file` 로 포맷을 확인하면 확실하다.
 
 ## 3. 기존 적재분 백필 (운영 DB, Flyway 아님)
 
@@ -81,7 +83,14 @@ aws configure --profile kbap-prod-deployer   # region: ap-northeast-2, output: j
 SELECT COUNT(*) FROM food WHERE image_ref LIKE 'images/food/%.png';
 ```
 
-변환본이 실제로 존재하는지 표본 몇 건을 S3 에서 확인한 뒤 실행한다(Lambda 배포 이전 적재분은 변환본이 없으므로, 필요하면 원본을 재저장하거나 일괄 변환을 먼저 돌린다).
+**변환본이 전부 존재하는지 먼저 대조한다.** 하나라도 빠지면 그 음식만 빈 이미지가 된다.
+
+```bash
+export AWS_PROFILE=kbap-s3 AWS_REGION=ap-northeast-2
+aws s3 ls s3://kbap-assets-kr/images/webp/food/ --recursive | grep -c '\.webp$'
+```
+
+이 값이 위 SQL 건수 이상이어야 한다. 미변환분이 남았으면 로컬 변환 루프(`cwebp -q 80 -m 6`)를 먼저 마저 돌린다.
 
 ```sql
 UPDATE food
@@ -102,13 +111,23 @@ SELECT COUNT(*) FROM food WHERE image_ref LIKE 'images/webp/food/%.webp';
 ## 4. dev 검증
 
 1. 관리자 화면에서 이미지 배치를 제출하고 회수 스케줄(또는 수동 트리거)을 태운다.
-2. S3 에 `images/food/….png` 원본과 `images/webp/food/….webp` 변환본이 둘 다 생겼는지 확인한다.
+2. S3 `images/webp/food/` 에 새 `.webp` 객체가 생겼는지, 크기가 200KB 안팎인지 확인한다(PNG 였다면 2MB 대).
 3. 해당 음식의 상세 API 응답 `imageUrl` 이 `.webp` 로 끝나는지 확인한다.
-4. 앱에서 목록·상세 이미지가 정상 렌더링되고, 네트워크 탭에서 장당 전송량이 기존 대비 크게 줄었는지 본다.
+4. 앱에서 목록·상세 이미지가 정상 렌더링되고 화질 열화가 없는지 본다.
+
+## 5. 전환 후 정리 (§2 검증 통과 시)
+
+PNG 를 더 이상 만들지 않으므로 변환 파이프라인 일체를 폐기한다.
+
+- Lambda `convert-food-image-png-to-webp` + Pillow 레이어 + 실행 롤
+- S3 이벤트 알림(트리거) — 버킷 속성 → 이벤트 알림에서 제거
+- 임시 IAM 사용자 `kbap-cli` 액세스 키
+
+기존 `images/food/*.png` 620장은 남겨둔다 — 지워도 얻는 게 없고(스토리지 비용 무시 가능) 되돌릴 여지만 없앤다.
 
 ## 롤백
 
-코드 롤백(이전 커밋)만으로 신규 기록이 PNG 경로로 돌아간다. 원본 PNG 는 계속 보존되므로, 이미 갱신된 `image_ref` 는 역방향 UPDATE 로 되돌릴 수 있다.
+코드 롤백(이전 커밋)이면 다시 PNG 로 받는다. 기존 PNG 원본이 그대로 있어 `image_ref` 도 역방향 UPDATE 로 되돌릴 수 있다(전환 이후 생성분은 webp 만 존재하므로 대상에서 빼야 한다).
 
 ```sql
 UPDATE food

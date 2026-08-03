@@ -7,7 +7,7 @@
 | 항목 | 변경 전 | 변경 후 |
 |------|---------|---------|
 | 값 형식 | `images/food/{sha12}_{uuid16}.png` | `images/webp/food/{sha12}_{uuid16}.webp` |
-| 가리키는 객체 | S3 원본(PNG, 약 2MB) | S3 변환본(WebP, 약 1/10) |
+| 가리키는 객체 | S3 PNG(약 2MB) | S3 WebP(약 1/10, 생성 시점부터 webp) |
 | 작성 주체 | `FoodImageBatchCollectService.handleResult` | 동일 |
 | 소비 | `ImageUrls.resolve(cdnBase, imageRef)` | 동일(규칙 불변) |
 
@@ -17,16 +17,16 @@
 
 ## image_batch_item.file_name (varchar(500), nullable)
 
-**변경 없음.** PNG 업로드 키를 예약하는 값으로 유지한다(`images/food/….png`). put 대상 키와 항상 같아야 재시도 시 고아 객체가 생기지 않는다.
+**의미 변경 없음.** 업로드 키를 예약하는 값이며, 값 형식만 저장 키를 따라 `images/webp/food/….webp` 가 된다. put 대상 키와 항상 같아야 재시도 시 고아 객체가 생기지 않는다.
 
 ## S3 객체 레이아웃
 
-| 경로 | 포맷 | 생성 주체 | 보존 |
+| 경로 | 포맷 | 생성 주체 | 비고 |
 |------|------|-----------|------|
-| `images/food/{name}.png` | PNG 1024×1024 | 회수기(`storageObjectStore.put`) | 영구(재가공 대비) |
-| `images/webp/food/{name}.webp` | WebP 1024×1024(리사이즈 없음) | S3 PutObject 이벤트 → Lambda | 서빙용 |
+| `images/webp/food/{name}.webp` | WebP 1024×1024 | 회수기(`storageObjectStore.put`) | 유일한 서빙 자산 |
+| `images/food/{name}.png` | PNG 1024×1024 | (전환 이전 적재분) | 삭제하지 않고 방치 |
 
-파일명(`{sha12}_{uuid16}`)은 두 경로에서 동일하다 — 이 대응이 백필 SQL 과 `webpRefOf` 매핑의 근거다.
+전환 이전 자산은 같은 파일명으로 webp 사본을 만들어 두었다 — 이 대응이 백필 SQL 의 근거다. 전환 이후 생성분은 webp 만 존재한다.
 
 ## 상태 전이
 

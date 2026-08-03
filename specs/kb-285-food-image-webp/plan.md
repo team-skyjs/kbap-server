@@ -6,9 +6,11 @@
 
 ## Summary
 
-이미지 배치 회수(`FoodImageBatchCollectService.handleResult`)에서 **S3 업로드 키(PNG)와 DB 기록 값(webp)을 분리**한다. 지금은 같은 문자열 `key` 하나가 `storageObjectStore.put` · `food.attachImage` · `item.done` 세 곳에 쓰이는데, `attachImage` 에만 webp 경로를 넘긴다. 매핑은 순수 함수 `webpRefOf(pngKey)` — `images/food/X.png` → `images/webp/food/X.webp` — 하나로 고정한다. 나머지(파일명 예약, 재시도 멱등, 비용 이벤트, 상태 전이)는 전부 그대로 둔다.
+**이미지를 생성 시점부터 webp 로 받는다**(R6 — 초기안 "PNG 로 받아 Lambda 가 변환" 폐기). 배치 요청 body 에 `output_format=webp`·`output_compression=80` 을 실어 OpenAI 가 webp 바이트를 돌려주게 하고, 회수기는 그 바이트를 `images/webp/food/{sha12}_{uuid16}.webp` 로 올린다. put 키와 `food.image_ref` 가 같은 값이라 경로 매핑 분기가 없다.
 
-변환 자체(S3 PutObject → Lambda → `images/webp/food/`)와 IAM·DLQ·알람은 이 저장소 밖 인프라 작업이라 코드 변경이 없고, 절차만 [quickstart.md](./quickstart.md) 에 런북으로 남긴다. 기존 적재분의 `image_ref` 는 Flyway 없이 운영 DB에 단발 UPDATE 로 갱신한다(같은 런북).
+근거는 실측이다 — 운영 이미지 13장을 quality 80 webp 로 변환하니 **92.9% 감소**(24.97MB→1.78MB)에 육안 열화가 없었다. PNG 무손실 마스터가 실제로 필요한 용도(인쇄물)가 없고 재생성 비용도 낮아, 그 보험을 위해 변환 Lambda·레이어·IAM 롤·트리거·실패 알림을 상시 운영할 이유가 없다.
+
+기존 적재분(620장)은 이미 `images/webp/food/` 로 변환해 뒀고, `image_ref` 는 Flyway 없이 운영 DB에 단발 UPDATE 로 갱신한다([quickstart.md](./quickstart.md) §3).
 
 ## Technical Context
 
@@ -64,14 +66,18 @@ contracts/ 는 만들지 않는다 — 노출 API 의 필드·타입·경로가 
 ### Source Code (repository root)
 
 ```text
+infra/llm/
+├── src/main/kotlin/com/kbap/infra/llm/config/LlmModelProperties.kt   # ImageProps 에 outputFormat·outputCompression
+├── src/main/kotlin/com/kbap/infra/llm/food/OpenAiFoodImageBatchClient.kt  # 요청 body 에 두 필드 실음
+└── src/test/kotlin/com/kbap/infra/llm/food/OpenAiFoodImageBatchClientTest.kt
+
 api/
-├── src/main/kotlin/com/kbap/api/food/
-│   └── FoodImageBatchCollectService.kt      # 변경: put 키(png) ↔ attachImage 값(webp) 분리 + webpRefOf 추가
-└── src/test/kotlin/com/kbap/api/food/
-    └── FoodImageBatchCollectServiceTest.kt  # 변경: webp 기대값 + 매핑 규칙 테스트
+├── src/main/kotlin/com/kbap/api/food/FoodImageBatchCollectService.kt  # storageKeyOf → webp 키, put content-type
+├── src/main/resources/application.yml                                 # kbap.llm.image.output-format/compression
+└── src/test/kotlin/com/kbap/api/food/FoodImageBatchCollectServiceTest.kt
 ```
 
-**Structure Decision**: 기존 파일 2개만 손댄다. `webpRefOf` 는 `storageKeyOf` 와 짝이므로 같은 `FoodImageBatchCollectService.companion` 에 둔다 — 자동 기록 경로의 유일한 작성자가 이 서비스라 공용 유틸(`common.util`)로 올릴 이유가 없다(관리자 화면의 `imageRef` 직접 입력은 운영자가 값을 그대로 넣는 별개 경로).
+**Structure Decision**: 출력 포맷은 `size`·`quality` 와 같은 성격의 요청 파라미터라 `ImageProps` 에 설정으로 두고 `requestLineOf` 가 null 아닐 때만 실어보낸다(미설정 시 OpenAI 기본값 = png). 저장 경로는 백필된 기존 자산과 같은 `images/webp/food/` 를 재사용해 카탈로그를 한 곳에 모은다 — 새 prefix 를 만들면 기존 620장을 다시 옮기고 백필을 다시 해야 한다.
 
 ## Complexity Tracking
 
