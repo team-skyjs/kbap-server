@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
+import java.net.URLEncoder
 
 @Controller
 class AdminFoodPageController(
@@ -30,12 +31,13 @@ class AdminFoodPageController(
     @GetMapping("/admin/foods/list")
     fun foodList(
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
         @RequestParam(required = false) detail: Long?,
         @RequestParam(required = false) edit: Boolean?,
         model: Model,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
-        model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage))
+        model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage, q))
         model.addAttribute("editMode", detail != null && edit == true)
         detail?.let { id -> adminFoodService.getFoodDetailOrNull(id)?.let { model.addAttribute("foodDetail", it) } }
         return "admin/food-list"
@@ -45,6 +47,7 @@ class AdminFoodPageController(
     fun updateFood(
         @PathVariable id: Long,
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
         @RequestParam koreanName: String,
         @RequestParam description: String,
         @RequestParam spiciness: Int,
@@ -66,11 +69,14 @@ class AdminFoodPageController(
             avoidanceSubstancesJson = avoidanceSubstancesJson,
         )
         return when (adminFoodService.updateFood(id, command)) {
-            AdminFoodUpdateResult.UPDATED -> "redirect:/admin/foods/list?page=$safePage&updated=$id#food-$id"
-            AdminFoodUpdateResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found#food-$id"
-            AdminFoodUpdateResult.INVALID_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-name#food-$id"
-            AdminFoodUpdateResult.INVALID_JSON -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-json#food-$id"
-            AdminFoodUpdateResult.DUPLICATE_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=duplicate-name#food-$id"
+            AdminFoodUpdateResult.UPDATED -> listRedirect(safePage, q, id, "updated" to id)
+            AdminFoodUpdateResult.NOT_FOUND -> listRedirect(safePage, q, id, "error" to "not-found")
+            AdminFoodUpdateResult.INVALID_NAME ->
+                listRedirect(safePage, q, id, "detail" to id, "edit" to true, "error" to "invalid-name")
+            AdminFoodUpdateResult.INVALID_JSON ->
+                listRedirect(safePage, q, id, "detail" to id, "edit" to true, "error" to "invalid-json")
+            AdminFoodUpdateResult.DUPLICATE_NAME ->
+                listRedirect(safePage, q, id, "detail" to id, "edit" to true, "error" to "duplicate-name")
         }
     }
 
@@ -78,12 +84,23 @@ class AdminFoodPageController(
     fun deleteFood(
         @PathVariable id: Long,
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         return when (adminFoodService.deleteFood(id)) {
-            AdminFoodDeleteResult.DELETED -> "redirect:/admin/foods/list?page=$safePage&deleted=$id"
-            AdminFoodDeleteResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found"
+            AdminFoodDeleteResult.DELETED -> listRedirect(safePage, q, id, "deleted" to id)
+            AdminFoodDeleteResult.NOT_FOUND -> listRedirect(safePage, q, id, "error" to "not-found")
         }
+    }
+
+    // form-encode 강제 — UriComponentsBuilder.encode() 는 + 를 남겨 수신측 form-decode 가 공백으로 뭉갠다
+    private fun listRedirect(page: Int, q: String?, anchorId: Long, vararg params: Pair<String, Any>): String {
+        val query = buildList {
+            add("page" to page.toString())
+            q?.trim()?.takeIf { it.isNotEmpty() }?.let { add("q" to it) }
+            params.forEach { (name, value) -> add(name to value.toString()) }
+        }.joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, Charsets.UTF_8)}" }
+        return "redirect:/admin/foods/list?$query#food-$anchorId"
     }
 
     @GetMapping("/admin/foods/seed")

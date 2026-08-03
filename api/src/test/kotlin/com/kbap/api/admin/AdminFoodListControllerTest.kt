@@ -13,6 +13,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import jakarta.servlet.http.Cookie
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -331,6 +333,130 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=duplicate-name#food-${saved.id}")
                     }
+                }
+            }
+        }
+
+        given("음식명 검색") {
+            `when`("q 파라미터로 검색하면") {
+                then("음식명이 부분 일치하는 음식만 렌더링한다") {
+                    saveFood("검색렌더김치찌개")
+                    saveFood("검색렌더순두부찌개")
+
+                    val result = getList("?q=김치")
+
+                    result.response.contentAsString shouldContain "검색렌더김치찌개"
+                    result.response.contentAsString shouldNotContain "검색렌더순두부찌개"
+                    listPageOf(result).totalCount shouldBe 1
+                }
+            }
+
+            `when`("q 없이 조회하면") {
+                then("기존과 동일하게 전체 음식을 렌더링한다") {
+                    saveFood("검색렌더김치찌개")
+                    saveFood("검색렌더순두부찌개")
+
+                    listPageOf(getList()).totalCount shouldBe 2
+                }
+            }
+        }
+
+        given("음식명 검색 상태 유지") {
+            val encodedQ = URLEncoder.encode("김치", StandardCharsets.UTF_8)
+
+            fun updateParams(koreanName: String, nameTranslationsJson: String = "{}"): Map<String, String> = mapOf(
+                "page" to "1",
+                "koreanName" to koreanName,
+                "description" to "설명",
+                "spiciness" to "0",
+                "contentStatus" to "INCOMPLETE",
+                "imageRef" to "",
+                "nameTranslationsJson" to nameTranslationsJson,
+                "descriptionTranslationsJson" to "{}",
+                "avoidanceSubstancesJson" to "",
+            )
+
+            fun postUpdate(id: Long, q: String, koreanName: String, nameTranslationsJson: String = "{}") =
+                mockMvc.post("/admin/foods/$id") {
+                    cookie(adminCookie())
+                    param("q", q)
+                    updateParams(koreanName, nameTranslationsJson).forEach { (k, v) -> param(k, v) }
+                }
+
+            `when`("검색 상태에서 결과가 여러 페이지면") {
+                then("페이지 이동·상세보기 링크가 검색어를 유지한다") {
+                    foodJpaRepository.saveAll((1..201).map { Food(koreanName = "유지김치$it", description = "구수한 유지김치$it") })
+
+                    val html = getList("?q=김치").response.contentAsString
+
+                    html shouldContain "page=2&amp;q=$encodedQ"
+                    html shouldContain "q=$encodedQ&amp;detail="
+                }
+            }
+
+            `when`("검색 상태에서 상세를 편집 모드로 열면") {
+                then("편집 관련 링크와 수정 폼 hidden 입력이 검색어를 유지한다") {
+                    val saved = saveFood("유지편집김치찌개")
+
+                    val html = getList("?q=김치&detail=${saved.id}&edit=true").response.contentAsString
+
+                    html shouldContain "q=$encodedQ&amp;detail=${saved.id}"
+                    html shouldContain "name=\"q\" value=\"김치\""
+                }
+            }
+
+            `when`("검색어와 함께 수정을 제출하면") {
+                then("성공 redirect 가 인코딩된 검색어와 앵커를 유지한다") {
+                    val saved = saveFood("유지수정김치찌개")
+
+                    postUpdate(saved.id, "김치", "유지수정김치찌개").andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&q=$encodedQ&updated=${saved.id}#food-${saved.id}")
+                    }
+                }
+            }
+
+            `when`("검색어와 함께 잘못된 JSON 으로 제출하면") {
+                then("오류 redirect 도 검색어를 유지한다") {
+                    val saved = saveFood("유지오류김치찌개")
+
+                    postUpdate(saved.id, "김치", "유지오류김치찌개", nameTranslationsJson = "{잘못된}").andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&q=$encodedQ&detail=${saved.id}&edit=true&error=invalid-json#food-${saved.id}")
+                    }
+                }
+            }
+
+            `when`("공백뿐인 검색어로 제출하면") {
+                then("redirect 에 q 파라미터를 붙이지 않는다") {
+                    val saved = saveFood("유지블랭크김치찌개")
+
+                    postUpdate(saved.id, "   ", "유지블랭크김치찌개").andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&updated=${saved.id}#food-${saved.id}")
+                    }
+                }
+            }
+        }
+
+        given("음식명 검색 빈 결과") {
+            `when`("일치하는 음식이 없는 검색어로 조회하면") {
+                then("빈 결과 안내와 전체 목록 복귀 링크를 렌더링한다") {
+                    saveFood("빈결과된장찌개")
+
+                    val html = getList("?q=아무도없는음식명").response.contentAsString
+
+                    html shouldContain "검색 결과가 없습니다"
+                    html shouldContain "href=\"/admin/foods/list\">전체 목록"
+                }
+            }
+
+            `when`("검색 없이 음식이 하나도 없으면") {
+                then("기존 빈 목록 안내를 유지하고 전체 목록 링크는 없다") {
+                    val html = getList().response.contentAsString
+
+                    html shouldContain "표시할 음식이 없습니다"
+                    html shouldNotContain ">전체 목록"
                 }
             }
         }
