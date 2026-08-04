@@ -92,10 +92,9 @@ class CommunityService(
         return assemble(listOf(posting), lang).first()
     }
 
-    // 커서보다 최신인 글 수 = 이미 소비한 페이지 분량. LIMIT 프로젝션이라 깊은 커서에도 스캔이 21행에서 멈춘다.
+    // 게스트는 첫 페이지만 — 커서가 있다는 것 자체가 두 번째 페이지 이후 요청이다.
     private fun verifyGuestPageAccess(viewerMemberId: Long?, cursor: Long?) {
-        if (viewerMemberId != null || cursor == null) return
-        if (postingRepository.findIdsFrom(cursor, PageRequest.of(0, PAGE_SIZE + 1)).size > PAGE_SIZE) {
+        if (viewerMemberId == null && cursor != null) {
             throw BusinessException(ErrorCode.COMMUNITY_LOGIN_REQUIRED)
         }
     }

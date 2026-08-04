@@ -240,7 +240,7 @@ class PostingReadControllerTest : BehaviorSpec() {
             }
         }
 
-        given("게스트 2페이지 게이트") {
+        given("게스트 첫 페이지 게이트") {
             clearPostings()
             seedMember(9500L)
             (1..45).forEach { seedPosting(950000L + it, memberId = 9500L) }
@@ -252,25 +252,15 @@ class PostingReadControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items.length()") { value(20) }
                         jsonPath("$.payload.items[0].postId") { value(950045) }
                         jsonPath("$.payload.items[0].author.memberId") { value(9500) }
+                        jsonPath("$.payload.hasNext") { value(true) }
                         jsonPath("$.payload.nextCursor") { value(950026) }
                     }
                 }
             }
 
-            `when`("게스트가 2페이지를 조회하면") {
-                then("정상 반환한다") {
-                    feed(token = null, cursor = "950026").andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.items.length()") { value(20) }
-                        jsonPath("$.payload.items[0].postId") { value(950025) }
-                        jsonPath("$.payload.nextCursor") { value(950006) }
-                    }
-                }
-            }
-
-            `when`("게스트가 3페이지를 조회하면") {
+            `when`("게스트가 다음 페이지 커서로 조회하면") {
                 then("401 COMMUNITY-005 로 거절한다") {
-                    feed(token = null, cursor = "950006").andExpect {
+                    feed(token = null, cursor = "950026").andExpect {
                         status { isUnauthorized() }
                         jsonPath("$.success") { value(false) }
                         jsonPath("$.code") { value("COMMUNITY-005") }
@@ -287,12 +277,12 @@ class PostingReadControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("회원이 같은 3페이지 커서로 조회하면") {
+            `when`("회원이 같은 커서로 조회하면") {
                 then("제한 없이 반환한다") {
-                    feed(accessToken(9590L), cursor = "950006").andExpect {
+                    feed(accessToken(9590L), cursor = "950026").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.items.length()") { value(5) }
-                        jsonPath("$.payload.hasNext") { value(false) }
+                        jsonPath("$.payload.items.length()") { value(20) }
+                        jsonPath("$.payload.hasNext") { value(true) }
                     }
                 }
             }
@@ -319,14 +309,14 @@ class PostingReadControllerTest : BehaviorSpec() {
             }
         }
 
-        given("게스트 게이트 — 글이 허용 범위보다 적으면") {
+        given("게스트 게이트 — 글이 한 페이지보다 적으면") {
             clearPostings()
             seedMember(9501L)
-            (1..30).forEach { seedPosting(950100L + it, memberId = 9501L) }
+            (1..10).forEach { seedPosting(950100L + it, memberId = 9501L) }
 
-            `when`("게스트가 마지막 페이지까지 조회하면") {
-                then("게이트 없이 정상 종료한다") {
-                    feed(token = null, cursor = "950111").andExpect {
+            `when`("게스트가 첫 페이지를 조회하면") {
+                then("게이트 없이 전부 보고 정상 종료한다") {
+                    feed(token = null).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.items.length()") { value(10) }
                         jsonPath("$.payload.hasNext") { value(false) }

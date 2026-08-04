@@ -16,14 +16,11 @@
 # 1. 게스트 첫 페이지
 curl "localhost:8080/api/v1/community/posts?lang=en"
 
-# 2. 게스트 2페이지 (1페이지 응답의 nextCursor 사용)
+# 2. 게스트가 커서 포함 조회 → 401 COMMUNITY-005 (첫 페이지만 허용)
 curl "localhost:8080/api/v1/community/posts?lang=en&cursor=<nextCursor>"
 
-# 3. 게스트 3페이지 → 401 COMMUNITY-005
-curl "localhost:8080/api/v1/community/posts?lang=en&cursor=<2페이지 nextCursor>"
-
-# 4. 회원 3페이지 → 200
-curl -H "Authorization: Bearer <access>" "localhost:8080/api/v1/community/posts?lang=en&cursor=<2페이지 nextCursor>"
+# 3. 회원이 같은 커서로 조회 → 200
+curl -H "Authorization: Bearer <access>" "localhost:8080/api/v1/community/posts?lang=en&cursor=<nextCursor>"
 
 # 5. 상세 (게스트 가능)
 curl "localhost:8080/api/v1/community/posts/1?lang=en"
@@ -33,7 +30,7 @@ curl "localhost:8080/api/v1/community/posts/1?lang=en"
 
 | 위치 | 변경 |
 |------|------|
-| `common/.../domain/community/PostingJpaRepository.kt` | `findPage` + `findIdsFrom`(게이트용) 추가 |
+| `common/.../domain/community/PostingJpaRepository.kt` | `findPage`(exists(Member) 포함) 추가 |
 | `common/.../core/error/ErrorCode.kt` | `COMMUNITY_LOGIN_REQUIRED`(COMMUNITY-005, 401) 추가 |
 | `api/.../community/CommunityService.kt` | `getPostingPage`·`getPosting` + 단일 조립 함수 추가 |
 | `api/.../community/PostingItemResponse.kt` | 신규 — author·foodTags·counts 포함 응답 |

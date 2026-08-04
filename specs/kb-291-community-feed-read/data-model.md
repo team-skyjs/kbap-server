@@ -21,7 +21,8 @@
 | 메서드 | 형태 | 용도 |
 |--------|------|------|
 | `findPage(cursor, pageable)` | `@Query` — `cursor null 이면 전체, 아니면 id < :cursor` + `exists(Member)`, id DESC | 피드 페이지(PAGE_SIZE+1 건) — 탈퇴 작성자 글 제외(R8) |
-| `findIdsFrom(cursor, pageable)` | `@Query` id 프로젝션 — `id >= :cursor` + `exists(Member)`, LIMIT PAGE_SIZE+1 | 게스트 게이트 판정(R2) — 결과 > PAGE_SIZE 면 차단. 피드와 동일 가시성, LIMIT 로 최악 스캔 21행 고정 |
+
+게스트 게이트(R2)는 커서 존재 여부만 보는 서비스 로직이라 별도 쿼리가 없다.
 
 둘 다 `@SQLRestriction` 으로 ACTIVE 만 본다 — status 조건을 손으로 달지 않는다(컨벤션).
 

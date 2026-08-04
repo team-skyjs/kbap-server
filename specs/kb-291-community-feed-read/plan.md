@@ -6,7 +6,7 @@
 
 ## Summary
 
-KB-290 게시글 도메인 위에 읽기 API 두 개를 얹는다: 최신순 커서 페이징 피드(`GET /api/v1/community/posts`)와 글 상세(`GET /api/v1/community/posts/{postId}`). 둘 다 게스트 접근 가능하되 피드는 2페이지(40건) 게이트 — 초과 커서는 `COMMUNITY-005`(401) 로 로그인 유도. 탈퇴 작성자의 글은 조회에서 숨긴다(member 소프트 삭제 + exists 서브쿼리가 판정을 공짜로 준다). 스키마 변경 없음, 신규 쿼리 2개·에러 코드 1개·필터 GET 예외 1건. 조회·조립 경로를 `CommunityService` 한 곳에 모아 후속 차단·신고·번역 태스크의 단일 수정 지점을 만든다.
+KB-290 게시글 도메인 위에 읽기 API 두 개를 얹는다: 최신순 커서 페이징 피드(`GET /api/v1/community/posts`)와 글 상세(`GET /api/v1/community/posts/{postId}`). 둘 다 게스트 접근 가능하되 피드는 첫 페이지(20건)만 — 커서를 포함한 게스트 요청은 `COMMUNITY-005`(401) 로 로그인 유도. 탈퇴 작성자의 글은 조회에서 숨긴다(member 소프트 삭제 + exists 서브쿼리가 판정을 공짜로 준다). 스키마 변경 없음, 신규 쿼리 2개·에러 코드 1개·필터 GET 예외 1건. 조회·조립 경로를 `CommunityService` 한 곳에 모아 후속 차단·신고·번역 태스크의 단일 수정 지점을 만든다.
 
 ## Technical Context
 
@@ -62,7 +62,7 @@ specs/kb-291-community-feed-read/
 ```text
 common/src/main/kotlin/com/kbap/common/
 ├── core/error/ErrorCode.kt                      # [수정] COMMUNITY_LOGIN_REQUIRED(COMMUNITY-005, 401)
-└── domain/community/PostingJpaRepository.kt     # [수정] findPage(@Query keyset) · findIdsFrom(게이트용 LIMIT 프로젝션)
+└── domain/community/PostingJpaRepository.kt     # [수정] findPage(@Query keyset + exists(Member))
 
 api/src/main/kotlin/com/kbap/api/
 ├── community/
@@ -83,7 +83,7 @@ api/src/test/kotlin/com/kbap/api/
 
 ## 설계 핵심 (research.md 요약)
 
-1. **커서 게이트(R2)**: 게스트 + 커서 존재 시 `findIdsFrom(cursor, LIMIT 21).size > PAGE_SIZE` 면 `COMMUNITY-005`. 커서 위치 기반이라 임의 커서 우회 불가, 상태 추적 불필요. LIMIT 프로젝션이라 악의적 깊은 커서에도 스캔 최대 21행.
+1. **커서 게이트(R2, 개정 2026-08-04)**: 게스트 + 커서 존재 = 즉시 `COMMUNITY-005`(첫 페이지만 허용). DB 질의 없는 널 체크 한 줄 — 판정 쿼리 삭제.
 2. **필터 예외(R5, 사용자 확정)**: 같은 리소스 같은 경로 원칙. `shouldNotFilter` 는 GET + `^/api/v1/community/posts$`·`^/api/v1/community/posts/\d+$` 정확 일치만 — 후속 댓글 GET 은 계속 보호된다.
 3. **만료 토큰(R4)**: 조용한 게스트 강등 금지 — `@AuthMemberIdOrNull` 기존 동작(만료 → AUTH-004) 유지로 회원이 게이트에 오인 차단되는 일을 막는다.
 4. **탈퇴 작성자 글 숨김(R8, 개정 2026-08-04)**: 피드·게이트 쿼리 `exists(Member)` + 상세 `existsById` 검증 — 탈퇴 작성자 글은 존재 자체를 숨긴다(COMMUNITY-001). 댓글의 "(삭제)" 표기는 KB-292 몫.

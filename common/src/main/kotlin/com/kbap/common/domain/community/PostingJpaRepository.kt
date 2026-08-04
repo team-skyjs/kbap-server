@@ -17,16 +17,4 @@ interface PostingJpaRepository : JpaRepository<Posting, Long> {
         """,
     )
     fun findPage(@Param("cursor") cursor: Long?, pageable: Pageable): List<Posting>
-
-    // 게스트 게이트 판정 전용 — 피드와 같은 가시성(탈퇴 작성자 제외)으로 세야 커서 위치가 어긋나지 않는다.
-    // LIMIT 프로젝션으로 깊은 커서에도 스캔을 페이지 크기+1 행에 고정한다.
-    @Query(
-        """
-        select p.id from Posting p
-        where p.id >= :cursor
-          and exists (select m.id from Member m where m.id = p.memberId)
-        order by p.id
-        """,
-    )
-    fun findIdsFrom(@Param("cursor") cursor: Long, pageable: Pageable): List<Long>
 }
