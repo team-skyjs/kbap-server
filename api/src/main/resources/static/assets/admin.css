@@ -594,6 +594,9 @@ body {
 
 .food-card-body { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 
+/* 긴 음식명이 배지를 찌그러뜨리지 않게 — 줄어드는 쪽은 이름(말줄임)이다 */
+.food-card-body .badge { flex-shrink: 0; }
+
 .food-card-name {
   color: var(--text-strong);
   font-weight: 700;
@@ -612,7 +615,8 @@ body {
 
 .food-search input[type="search"] { flex: 1; max-width: 320px; }
 
-.food-search-status { width: auto; }
+/* .field-select 의 width:100% 를 이긴다 — 선언 순서에 기대지 않도록 특이도로 고정 */
+.food-search .field-select { width: auto; }
 
 .food-modal {
   width: 720px;
