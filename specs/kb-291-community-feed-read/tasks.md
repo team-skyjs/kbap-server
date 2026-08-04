@@ -34,7 +34,7 @@
 
 **Purpose**: 게스트 GET 이 401 로 막히지 않도록 인증 필터 예외 확보 — 모든 스토리의 게스트·선택 인증 시나리오가 이것에 막힌다
 
-- [X] T003 `api/src/test/kotlin/com/kbap/api/community/CommunityPostingReadControllerTest.kt` 신규 생성 — 필터 예외 Red 테스트 2건: `given("비로그인 게스트") when("GET /api/v1/community/posts?lang=en") then("401 이 아니라 200")`, `when("GET /api/v1/community/posts/1?lang=en") then("401 이 아니라 200/400 계열")`. 실행해 **Red 확인**(현재는 필터가 401 INVALID_ACCESS_TOKEN 반환)
+- [X] T003 `api/src/test/kotlin/com/kbap/api/community/PostingReadControllerTest.kt` 신규 생성 — 필터 예외 Red 테스트 2건: `given("비로그인 게스트") when("GET /api/v1/community/posts?lang=en") then("401 이 아니라 200")`, `when("GET /api/v1/community/posts/1?lang=en") then("401 이 아니라 200/400 계열")`. 실행해 **Red 확인**(현재는 필터가 401 INVALID_ACCESS_TOKEN 반환)
 - [X] T004 `api/src/main/kotlin/com/kbap/api/core/auth/JwtAuthenticationFilter.kt` 에 `shouldNotFilter` 오버라이드 추가 — 생성자에 예외 패턴 목록(기본 빈 목록) 주입, **GET + `^/api/v1/community/posts$`·`^/api/v1/community/posts/\d+$` 정확 일치**만 건너뜀. `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` 등록부에서 패턴 전달. 컨트롤러가 아직 없으므로 T003 은 404/400 까지 내려가면 통과로 본다(401 탈출이 목적)
 
 **Checkpoint**: 게스트 GET 이 필터를 통과 — 이후 모든 스토리 착수 가능
@@ -49,14 +49,14 @@
 
 ### Tests (Red 먼저 — 구현 전 실행해 실패 확인)
 
-- [X] T005 [US1] `api/src/test/kotlin/com/kbap/api/community/CommunityPostingReadControllerTest.kt` 에 US1 시나리오 추가 — 회원 토큰으로: 커서 없이 최신 20건+nextCursor / nextCursor 이어받기(중복 없음) / 남은 글 < 20 이면 hasNext=false / 빈 피드 `items:[]` / 삭제 글 제외 / 사진·태그 없는 글 빈 배열 / foodTags 가 `{foodId, name}` (lang=en 이면 영어 이름, 번역 부재 시 ko 폴백) / lang 누락 400 / 잘못된 커서(`abc`·`-1`) 400 INVALID_CURSOR / likeCount·dislikeCount·commentCount = 0. 실행해 **Red 확인**
+- [X] T005 [US1] `api/src/test/kotlin/com/kbap/api/community/PostingReadControllerTest.kt` 에 US1 시나리오 추가 — 회원 토큰으로: 커서 없이 최신 20건+nextCursor / nextCursor 이어받기(중복 없음) / 남은 글 < 20 이면 hasNext=false / 빈 피드 `items:[]` / 삭제 글 제외 / 사진·태그 없는 글 빈 배열 / foodTags 가 `{foodId, name}` (lang=en 이면 영어 이름, 번역 부재 시 ko 폴백) / lang 누락 400 / 잘못된 커서(`abc`·`-1`) 400 INVALID_CURSOR / likeCount·dislikeCount·commentCount = 0. 실행해 **Red 확인**
 
 ### Implementation (Green)
 
-- [X] T006 [P] [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityPostingItemResponse.kt` 신규 — `CommunityPostingItemResponse`(postId·author·content·imageUrls·foodTags·likeCount·dislikeCount·commentCount·createdAt) + `CommunityAuthorResponse`(memberId?·nickname·profileImageUrl?) + `CommunityFoodTagResponse`(foodId·name), swagger `@Schema` 포함 (data-model.md 표 그대로)
-- [X] T007 [P] [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityPostingListRequest.kt` 신규 — `lang`(`@field:NotBlank`)·`cursor`(String?, `CursorParser.parse` 는 서비스/컨트롤러에서) — 기존 `HomeRequest`·`ReviewListRequest` 스타일
-- [X] T008 [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityService.kt` 에 조회 추가 — `@Transactional(readOnly = true) fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<CommunityPostingItemResponse>`: `findPage(cursor, PAGE_SIZE+1)` → hasNext/take 패턴(ReviewService.toPage 선례) → **단일 조립 함수** `assemble(postings, lang)`(회원 `findAllById` 일괄 + `foodService.getReadyFoodsByIds` 일괄 + 항목 매핑, 카운트 0 고정, `ImageUrls.resolve`). `PAGE_SIZE = 20` companion. 활성 회원 작성자는 실제 닉네임·프로필 이미지 URL
-- [X] T009 [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityController.kt` + `CommunityApi.kt` 에 `GET /community/posts` 추가 — `@AuthMemberIdOrNull memberId`, `@Valid @ModelAttribute CommunityPostingListRequest`, `LanguageCode.from(request.lang)`, `ResponseEntity<BaseResponse<Page<CommunityPostingItemResponse>>>`. swagger 문서는 CommunityApi 인터페이스에만. T005 실행해 **Green 확인**
+- [X] T006 [P] [US1] `api/src/main/kotlin/com/kbap/api/community/PostingItemResponse.kt` 신규 — `PostingItemResponse`(postId·author·content·imageUrls·foodTags·likeCount·dislikeCount·commentCount·createdAt) + `PostingAuthorResponse`(memberId?·nickname·profileImageUrl?) + `PostingFoodTagResponse`(foodId·name), swagger `@Schema` 포함 (data-model.md 표 그대로)
+- [X] T007 [P] [US1] `api/src/main/kotlin/com/kbap/api/community/PostingListRequest.kt` 신규 — `lang`(`@field:NotBlank`)·`cursor`(String?, `CursorParser.parse` 는 서비스/컨트롤러에서) — 기존 `HomeRequest`·`ReviewListRequest` 스타일
+- [X] T008 [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityService.kt` 에 조회 추가 — `@Transactional(readOnly = true) fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<PostingItemResponse>`: `findPage(cursor, PAGE_SIZE+1)` → hasNext/take 패턴(ReviewService.toPage 선례) → **단일 조립 함수** `assemble(postings, lang)`(회원 `findAllById` 일괄 + `foodService.getReadyFoodsByIds` 일괄 + 항목 매핑, 카운트 0 고정, `ImageUrls.resolve`). `PAGE_SIZE = 20` companion. 활성 회원 작성자는 실제 닉네임·프로필 이미지 URL
+- [X] T009 [US1] `api/src/main/kotlin/com/kbap/api/community/CommunityController.kt` + `CommunityApi.kt` 에 `GET /community/posts` 추가 — `@AuthMemberIdOrNull memberId`, `@Valid @ModelAttribute PostingListRequest`, `LanguageCode.from(request.lang)`, `ResponseEntity<BaseResponse<Page<PostingItemResponse>>>`. swagger 문서는 CommunityApi 인터페이스에만. T005 실행해 **Green 확인**
 
 **Checkpoint**: 회원 피드 완전 동작 — MVP 배포 가능
 
@@ -70,7 +70,7 @@
 
 ### Tests (Red 먼저)
 
-- [X] T010 [US2] `CommunityPostingReadControllerTest.kt` 에 US2 시나리오 추가 — 게스트로: 1페이지 200(회원과 동일 형태) / 2페이지 200 / 3페이지 커서 401 + code=COMMUNITY-005 / 임의 깊은 커서(예: 1) 도 401 COMMUNITY-005 / 글이 40건 미만이면 끝까지 hasNext=false 정상 종료 / 같은 3페이지 커서 + 회원 토큰 200 / 만료·위조 토큰은 AUTH 오류(게스트 강등 아님). 실행해 **Red 확인**
+- [X] T010 [US2] `PostingReadControllerTest.kt` 에 US2 시나리오 추가 — 게스트로: 1페이지 200(회원과 동일 형태) / 2페이지 200 / 3페이지 커서 401 + code=COMMUNITY-005 / 임의 깊은 커서(예: 1) 도 401 COMMUNITY-005 / 글이 40건 미만이면 끝까지 hasNext=false 정상 종료 / 같은 3페이지 커서 + 회원 토큰 200 / 만료·위조 토큰은 AUTH 오류(게스트 강등 아님). 실행해 **Red 확인**
 
 ### Implementation (Green)
 
@@ -88,11 +88,11 @@
 
 ### Tests (Red 먼저)
 
-- [X] T012 [US3] `CommunityPostingReadControllerTest.kt` 에 US3 시나리오 추가 — 회원 상세 200(본문·사진 전체·foodTags·카운트 0) / 게스트 상세 200(회원과 동일, 게이트 없음) / 삭제된 글 400 COMMUNITY-001 / 미존재 id 400 COMMUNITY-001 / lang 누락 400. 실행해 **Red 확인**
+- [X] T012 [US3] `PostingReadControllerTest.kt` 에 US3 시나리오 추가 — 회원 상세 200(본문·사진 전체·foodTags·카운트 0) / 게스트 상세 200(회원과 동일, 게이트 없음) / 삭제된 글 400 COMMUNITY-001 / 미존재 id 400 COMMUNITY-001 / lang 누락 400. 실행해 **Red 확인**
 
 ### Implementation (Green)
 
-- [X] T013 [US3] `CommunityService` 에 `@Transactional(readOnly = true) fun getPosting(postId: Long, lang: LanguageCode): CommunityPostingItemResponse` 추가 — `findById` orElseThrow COMMUNITY_POSTING_NOT_FOUND(소프트 삭제는 `@SQLRestriction` 이 자동 제외) → US1 의 `assemble` 재사용(FR-010 단일 경로). `CommunityController`/`CommunityApi` 에 `GET /community/posts/{postId}`(`@AuthMemberIdOrNull`, lang 필수) 추가. T012 실행해 **Green 확인**
+- [X] T013 [US3] `CommunityService` 에 `@Transactional(readOnly = true) fun getPosting(postId: Long, lang: LanguageCode): PostingItemResponse` 추가 — `findById` orElseThrow COMMUNITY_POSTING_NOT_FOUND(소프트 삭제는 `@SQLRestriction` 이 자동 제외) → US1 의 `assemble` 재사용(FR-010 단일 경로). `CommunityController`/`CommunityApi` 에 `GET /community/posts/{postId}`(`@AuthMemberIdOrNull`, lang 필수) 추가. T012 실행해 **Green 확인**
 
 **Checkpoint**: 공유 링크 착지점 동작
 
@@ -106,11 +106,11 @@
 
 ### Tests (Red 먼저)
 
-- [X] T014 [US4] `CommunityPostingReadControllerTest.kt` 에 US4 시나리오 추가 — 작성자 탈퇴 후: 피드에서 글 유지 + author.memberId=null + nickname="탈퇴한 사용자" + profileImageUrl=null / 상세도 동일 / 활성 회원 글은 실제 닉네임·프로필. 실행해 **Red 확인** (T008 구현이 이미 통과시킬 수 있음 — 그 경우 Red 없이 회귀 고정 테스트로 기록)
+- [X] T014 [US4] `PostingReadControllerTest.kt` 에 US4 시나리오 추가 — 작성자 탈퇴 후: 피드에서 글 유지 + author.memberId=null + nickname="탈퇴한 사용자" + profileImageUrl=null / 상세도 동일 / 활성 회원 글은 실제 닉네임·프로필. 실행해 **Red 확인** (T008 구현이 이미 통과시킬 수 있음 — 그 경우 Red 없이 회귀 고정 테스트로 기록)
 
 ### Implementation (Green)
 
-- [X] T015 [US4] `assemble` 의 익명화 분기 확정 — `memberRepository.findAllById` 결과에 없는 memberId(탈퇴 = status DELETED, `@SQLRestriction` 제외)는 `CommunityAuthorResponse(memberId = null, nickname = "탈퇴한 사용자", profileImageUrl = null)`. 문구 상수는 `CommunityService` companion `WITHDRAWN_AUTHOR_NICKNAME`. T014 실행해 **Green 확인**
+- [X] T015 [US4] `assemble` 의 익명화 분기 확정 — `memberRepository.findAllById` 결과에 없는 memberId(탈퇴 = status DELETED, `@SQLRestriction` 제외)는 `PostingAuthorResponse(memberId = null, nickname = "탈퇴한 사용자", profileImageUrl = null)`. 문구 상수는 `CommunityService` companion `WITHDRAWN_AUTHOR_NICKNAME`. T014 실행해 **Green 확인**
 
 **Checkpoint**: 전 스토리 수용 시나리오 충족
 
@@ -141,7 +141,7 @@ Phase 6 US4 (T014 Red → T015 Green)   ← assemble 익명화 분기 (US2·US3 
 Phase 7 (T016 병렬 · T017 → T018)
 ```
 
-- **스토리 간 병렬**: US2(T010~T011)와 US3(T012~T013)은 서로 독립 — 단 둘 다 `CommunityService.kt`·`CommunityPostingReadControllerTest.kt` 를 수정하므로 같은 워킹카피에서는 순차 권장
+- **스토리 간 병렬**: US2(T010~T011)와 US3(T012~T013)은 서로 독립 — 단 둘 다 `CommunityService.kt`·`PostingReadControllerTest.kt` 를 수정하므로 같은 워킹카피에서는 순차 권장
 - **파일 병렬 [P]**: T001/T002(다른 모듈), T006/T007(신규 파일 2개), T016(문서 전용)
 
 ## Implementation Strategy
@@ -152,5 +152,5 @@ Phase 7 (T016 병렬 · T017 → T018)
 
 **주의**:
 - 통합 테스트 시드: 회원·음식은 기존 테스트 픽스처 패턴(Testcontainers MySQL + Flyway 시드) 재사용. 음식 태그 테스트는 READY 상태 음식 필요
-- `CommunityControllerTest`(KB-290 작성분)와 파일 분리 유지 — 읽기 테스트는 `CommunityPostingReadControllerTest`
+- `CommunityControllerTest`(KB-290 작성분)와 파일 분리 유지 — 읽기 테스트는 `PostingReadControllerTest`
 - Kotlin 주석 금지 규약: 게이트 LIMIT 근거 같은 "코드로 표현 불가능한 제약"만 한 줄 주석 허용

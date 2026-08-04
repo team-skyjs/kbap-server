@@ -69,14 +69,14 @@ api/src/main/kotlin/com/kbap/api/
 │   ├── CommunityService.kt                      # [수정] getPostingPage·getPosting + 단일 조립 함수(R10)
 │   ├── CommunityController.kt                   # [수정] GET 2개(@AuthMemberIdOrNull)
 │   ├── CommunityApi.kt                          # [수정] swagger 문서
-│   ├── CommunityPostingListRequest.kt                  # [신규] lang 필수·cursor 선택
-│   └── CommunityPostingItemResponse.kt             # [신규] + CommunityAuthorResponse·CommunityFoodTagResponse
+│   ├── PostingListRequest.kt                  # [신규] lang 필수·cursor 선택
+│   └── PostingItemResponse.kt             # [신규] + PostingAuthorResponse·PostingFoodTagResponse
 └── core/
     ├── auth/JwtAuthenticationFilter.kt          # [수정] shouldNotFilter — GET 게스트 예외(R5)
     └── config/WebConfig.kt                      # [수정] 예외 패턴 2건 주입
 
 api/src/test/kotlin/com/kbap/api/
-└── community/CommunityPostingReadControllerTest.kt     # [신규] 피드·게이트·상세·익명화·태그 통합 테스트
+└── community/PostingReadControllerTest.kt     # [신규] 피드·게이트·상세·익명화·태그 통합 테스트
 ```
 
 **Structure Decision**: 기존 `com.kbap.api.community` 기능 패키지에 읽기 유스케이스를 합류시킨다(ADR-0017 — 기능 패키지에 controller·DTO·서비스 동거). 영속 쿼리만 소유 도메인 패키지(`common.domain.community`)에 추가한다. 신규 모듈·패키지·마이그레이션 없음.

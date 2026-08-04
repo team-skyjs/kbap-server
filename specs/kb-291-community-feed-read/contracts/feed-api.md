@@ -13,7 +13,7 @@ GET /api/v1/community/posts?lang={lang}&cursor={cursor}
 | lang | O | 표시 언어. 빈 값 → 400(COMMON-002 계열 검증 오류). 미지원 코드 → en 폴백, 번역 부재 → ko 폴백 |
 | cursor | X | 이전 응답의 `nextCursor`. 생략 시 첫 페이지. 숫자 아님·음수 → `INVALID_CURSOR` |
 
-**성공 200** — `BaseResponse<Page<CommunityPostingItemResponse>>`:
+**성공 200** — `BaseResponse<Page<PostingItemResponse>>`:
 
 ```json
 {
@@ -69,7 +69,7 @@ GET /api/v1/community/posts?lang={lang}&cursor={cursor}
 GET /api/v1/community/posts/{postId}?lang={lang}
 ```
 
-**성공 200** — `BaseResponse<CommunityPostingItemResponse>` (피드 항목과 동일 형태, 게스트 제한 없음):
+**성공 200** — `BaseResponse<PostingItemResponse>` (피드 항목과 동일 형태, 게스트 제한 없음):
 
 ```json
 {

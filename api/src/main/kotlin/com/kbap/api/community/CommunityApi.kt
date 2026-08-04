@@ -30,7 +30,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
-    fun create(memberId: Long, request: CommunityCreateRequest): ResponseEntity<BaseResponse<CommunityPostingResponse>>
+    fun create(memberId: Long, request: PostingCreateRequest): ResponseEntity<BaseResponse<PostingResponse>>
 
     @Operation(
         summary = "게시글 수정",
@@ -53,8 +53,8 @@ interface CommunityApi {
     fun update(
         memberId: Long,
         postId: Long,
-        request: CommunityUpdateRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingResponse>>
+        request: PostingUpdateRequest,
+    ): ResponseEntity<BaseResponse<PostingResponse>>
 
     @Operation(
         summary = "게시글 삭제",
@@ -89,8 +89,8 @@ interface CommunityApi {
     )
     fun getPostingPage(
         memberId: Long?,
-        request: CommunityPostingListRequest,
-    ): ResponseEntity<BaseResponse<Page<CommunityPostingItemResponse>>>
+        request: PostingListRequest,
+    ): ResponseEntity<BaseResponse<Page<PostingItemResponse>>>
 
     @Operation(
         summary = "글 상세 조회",
@@ -108,6 +108,6 @@ interface CommunityApi {
     fun getPosting(
         memberId: Long?,
         postId: Long,
-        request: CommunityPostingDetailRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingItemResponse>>
+        request: PostingDetailRequest,
+    ): ResponseEntity<BaseResponse<PostingItemResponse>>
 }

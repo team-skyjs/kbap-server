@@ -27,19 +27,19 @@
 
 ## 읽기 표현 (api — `com.kbap.api.community`)
 
-### CommunityPostingItemResponse — 피드 항목이자 상세 응답 (동일 형태)
+### PostingItemResponse — 피드 항목이자 상세 응답 (동일 형태)
 
 | 필드 | 타입 | 소스 |
 |------|------|------|
 | postId | Long | Posting.id |
-| author | CommunityAuthorResponse | member 일괄 조회 + 익명화 규칙 |
+| author | PostingAuthorResponse | member 일괄 조회 + 익명화 규칙 |
 | content | String | Posting.content |
 | imageUrls | List<String> | imageRefs → ImageUrls.resolve (첫 장이 커버) |
-| foodTags | List<CommunityFoodTagResponse> | foodIds → Food.displayName(lang), 미존재 id 제외 |
+| foodTags | List<PostingFoodTagResponse> | foodIds → Food.displayName(lang), 미존재 id 제외 |
 | likeCount / dislikeCount / commentCount | Int | 상수 0 (R9) |
 | createdAt | LocalDateTime | Posting.createdAt |
 
-### CommunityAuthorResponse
+### PostingAuthorResponse
 
 | 필드 | 활성 회원 | 탈퇴 회원 |
 |------|-----------|-----------|
@@ -47,7 +47,7 @@
 | nickname | profile.nickname | `"탈퇴한 사용자"` |
 | profileImageUrl | ImageUrls.resolve(profile.profileImageUrl) | null (FE 기본 아바타) |
 
-### CommunityFoodTagResponse
+### PostingFoodTagResponse
 
 | 필드 | 타입 |
 |------|------|
@@ -56,7 +56,7 @@
 
 ### 페이지 봉투
 
-`api.core.Page<CommunityPostingItemResponse>` 재사용 — `items` / `hasNext` / `nextCursor`.
+`api.core.Page<PostingItemResponse>` 재사용 — `items` / `hasNext` / `nextCursor`.
 
 ## 상태·전이
 

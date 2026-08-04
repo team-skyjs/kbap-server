@@ -31,7 +31,7 @@ class CommunityService(
         content: String,
         imagePaths: List<String>?,
         foodIds: List<Long>?,
-    ): CommunityPostingResponse {
+    ): PostingResponse {
         verifyImageOwnership(memberId, imagePaths)
         verifyFoodTags(foodIds)
 
@@ -43,7 +43,7 @@ class CommunityService(
                 foodIds = foodIds,
             ),
         )
-        return CommunityPostingResponse.from(posting, imagePublicBaseUrl)
+        return PostingResponse.from(posting, imagePublicBaseUrl)
     }
 
     @Transactional
@@ -53,13 +53,13 @@ class CommunityService(
         content: String,
         imagePaths: List<String>?,
         foodIds: List<Long>?,
-    ): CommunityPostingResponse {
+    ): PostingResponse {
         val posting = getMyPosting(memberId, postId)
         verifyImageOwnership(memberId, imagePaths)
         verifyFoodTags(foodIds)
 
         posting.update(content = content, imageRefs = imagePaths, foodIds = foodIds)
-        return CommunityPostingResponse.from(posting, imagePublicBaseUrl)
+        return PostingResponse.from(posting, imagePublicBaseUrl)
     }
 
     @Transactional
@@ -68,7 +68,7 @@ class CommunityService(
     }
 
     @Transactional(readOnly = true)
-    fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<CommunityPostingItemResponse> {
+    fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<PostingItemResponse> {
         verifyGuestPageAccess(viewerMemberId, cursor)
         val rows = postingRepository.findPage(cursor, PageRequest.of(0, PAGE_SIZE + 1))
         val hasNext = rows.size > PAGE_SIZE
@@ -81,7 +81,7 @@ class CommunityService(
     }
 
     @Transactional(readOnly = true)
-    fun getPosting(postId: Long, lang: LanguageCode): CommunityPostingItemResponse {
+    fun getPosting(postId: Long, lang: LanguageCode): PostingItemResponse {
         val posting = postingRepository.findById(postId).orElseThrow {
             BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
         }
@@ -97,19 +97,19 @@ class CommunityService(
     }
 
     // 피드·상세 공용 단일 조립 지점 — 차단 필터·신고 숨김·번역 후속 태스크는 여기만 고친다.
-    private fun assemble(postings: List<Posting>, lang: LanguageCode): List<CommunityPostingItemResponse> {
+    private fun assemble(postings: List<Posting>, lang: LanguageCode): List<PostingItemResponse> {
         if (postings.isEmpty()) return emptyList()
         val authorsById = memberRepository.findAllById(postings.map { it.memberId }.toSet()).associateBy { it.id }
         val taggedFoodIds = postings.flatMap { it.foodIds.orEmpty() }.distinct()
         val foodsById = foodService.getReadyFoodsByIds(taggedFoodIds).associateBy { it.id }
         return postings.map { posting ->
-            CommunityPostingItemResponse(
+            PostingItemResponse(
                 postId = posting.id,
                 author = authorsById[posting.memberId]?.let { authorOf(it) } ?: WITHDRAWN_AUTHOR,
                 content = posting.content,
                 imageUrls = posting.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 foodTags = posting.foodIds.orEmpty().mapNotNull { foodId ->
-                    foodsById[foodId]?.let { CommunityFoodTagResponse(foodId = foodId, name = it.displayName(lang)) }
+                    foodsById[foodId]?.let { PostingFoodTagResponse(foodId = foodId, name = it.displayName(lang)) }
                 },
                 likeCount = 0,
                 dislikeCount = 0,
@@ -119,8 +119,8 @@ class CommunityService(
         }
     }
 
-    private fun authorOf(member: Member): CommunityAuthorResponse =
-        CommunityAuthorResponse(
+    private fun authorOf(member: Member): PostingAuthorResponse =
+        PostingAuthorResponse(
             memberId = member.id,
             nickname = member.profile.nickname,
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
@@ -155,7 +155,7 @@ class CommunityService(
     companion object {
         const val PAGE_SIZE = 20
 
-        private val WITHDRAWN_AUTHOR = CommunityAuthorResponse(
+        private val WITHDRAWN_AUTHOR = PostingAuthorResponse(
             memberId = null,
             nickname = WITHDRAWN_AUTHOR_NICKNAME,
             profileImageUrl = null,

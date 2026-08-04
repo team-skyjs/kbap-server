@@ -18,7 +18,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class CommunityPostingReadControllerTest : BehaviorSpec() {
+class PostingReadControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired

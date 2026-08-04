@@ -27,8 +27,8 @@ class CommunityController(
     @PostMapping("/community/posts")
     override fun create(
         @AuthMemberId memberId: Long,
-        @Valid @RequestBody request: CommunityCreateRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingResponse>> =
+        @Valid @RequestBody request: PostingCreateRequest,
+    ): ResponseEntity<BaseResponse<PostingResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
                 communityService.createPosting(
@@ -44,8 +44,8 @@ class CommunityController(
     override fun update(
         @AuthMemberId memberId: Long,
         @PathVariable postId: Long,
-        @Valid @RequestBody request: CommunityUpdateRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingResponse>> =
+        @Valid @RequestBody request: PostingUpdateRequest,
+    ): ResponseEntity<BaseResponse<PostingResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
                 communityService.updatePosting(
@@ -70,8 +70,8 @@ class CommunityController(
     @GetMapping("/community/posts")
     override fun getPostingPage(
         @AuthMemberIdOrNull memberId: Long?,
-        @Valid @ModelAttribute request: CommunityPostingListRequest,
-    ): ResponseEntity<BaseResponse<Page<CommunityPostingItemResponse>>> =
+        @Valid @ModelAttribute request: PostingListRequest,
+    ): ResponseEntity<BaseResponse<Page<PostingItemResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
                 communityService.getPostingPage(
@@ -86,8 +86,8 @@ class CommunityController(
     override fun getPosting(
         @AuthMemberIdOrNull memberId: Long?,
         @PathVariable postId: Long,
-        @Valid @ModelAttribute request: CommunityPostingDetailRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingItemResponse>> =
+        @Valid @ModelAttribute request: PostingDetailRequest,
+    ): ResponseEntity<BaseResponse<PostingItemResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(communityService.getPosting(postId, LanguageCode.from(request.lang))),
         )

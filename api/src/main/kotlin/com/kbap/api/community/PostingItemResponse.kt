@@ -4,12 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 @Schema(description = "커뮤니티 피드 항목이자 글 상세 응답")
-data class CommunityPostingItemResponse(
+data class PostingItemResponse(
     @field:Schema(description = "게시글 id", example = "42")
     val postId: Long,
 
     @field:Schema(description = "작성자 표시 정보")
-    val author: CommunityAuthorResponse,
+    val author: PostingAuthorResponse,
 
     @field:Schema(description = "본문", example = "오늘 김치찌개 최고였다")
     val content: String,
@@ -18,7 +18,7 @@ data class CommunityPostingItemResponse(
     val imageUrls: List<String>,
 
     @field:Schema(description = "음식 태그 목록(없으면 빈 배열)")
-    val foodTags: List<CommunityFoodTagResponse>,
+    val foodTags: List<PostingFoodTagResponse>,
 
     @field:Schema(description = "좋아요 수(리액션 도입 전까지 0)", example = "0")
     val likeCount: Int,
@@ -34,7 +34,7 @@ data class CommunityPostingItemResponse(
 )
 
 @Schema(description = "게시글 작성자 표시 정보 — 탈퇴 회원이면 memberId 가 null 이고 닉네임·프로필이 익명 표기로 대체된다")
-data class CommunityAuthorResponse(
+data class PostingAuthorResponse(
     @field:Schema(description = "작성자 회원 id(탈퇴 회원이면 null)", example = "7", nullable = true)
     val memberId: Long?,
 
@@ -46,7 +46,7 @@ data class CommunityAuthorResponse(
 )
 
 @Schema(description = "게시글 음식 태그")
-data class CommunityFoodTagResponse(
+data class PostingFoodTagResponse(
     @field:Schema(description = "음식 id", example = "12")
     val foodId: Long,
 
