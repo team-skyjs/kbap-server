@@ -251,3 +251,6 @@ firebase-service-account*.json
 
 # SpecKit 브랜치 로컬 상태 — 브랜치마다 값이 달라 커밋하면 머지 충돌 100% (2026-07-20)
 .specify/feature.json
+
+# Eclipse/VS Code Java 확장이 만드는 컴파일 산출물 — Gradle 은 build/ 를 쓴다
+bin/

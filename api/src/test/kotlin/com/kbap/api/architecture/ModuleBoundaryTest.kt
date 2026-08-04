@@ -116,6 +116,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "avoidance" to emptySet(),
             "review" to emptySet(),
             "report" to emptySet(),
+            "community" to emptySet(),
         )
 
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {

@@ -1,10 +1,10 @@
 package com.kbap.api.review
 
-import com.kbap.api.image.UploadPurpose
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.UploadedImageService
+import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.common.domain.block.MemberBlockService
@@ -28,7 +28,7 @@ class ReviewService(
     private val reviewLikeRepository: ReviewLikeJpaRepository,
     private val foodService: FoodService,
     private val memberService: MemberService,
-    private val uploadedImageRepository: UploadedImageJpaRepository,
+    private val uploadedImageService: UploadedImageService,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
@@ -190,18 +190,12 @@ class ReviewService(
     }
 
     private fun verifyImageOwnership(memberId: Long, imagePaths: List<String>?) {
-        if (imagePaths.isNullOrEmpty()) return
-        val ownedReviewPaths = uploadedImageRepository.findByPathIn(imagePaths)
-            .filter { it.isOwnedBy(memberId) && it.path.contains(REVIEW_IMAGE_PATH_SEGMENT) }
-            .map { it.path }
-            .toSet()
-        if (!ownedReviewPaths.containsAll(imagePaths)) {
+        if (!uploadedImageService.ownsAllImages(memberId, imagePaths, UploadPurpose.REVIEW)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
     }
 
     companion object {
         const val PAGE_SIZE = 20
-        val REVIEW_IMAGE_PATH_SEGMENT = "images/${UploadPurpose.REVIEW.prefix}/"
     }
 }

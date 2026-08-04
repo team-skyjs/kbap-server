@@ -35,7 +35,7 @@ class BookmarkServiceTest : BehaviorSpec() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
-                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item")
+                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item", "community_post")
                         .forEach { statement.execute("DELETE FROM $it") }
                     statement.execute("DELETE FROM food")
                     statement.execute("DELETE FROM member_block")

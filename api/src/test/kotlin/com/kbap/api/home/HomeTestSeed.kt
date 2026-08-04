@@ -9,6 +9,8 @@ object HomeTestSeed {
             "DELETE FROM member_block",
             "DELETE FROM member_ranking_event",
             "DELETE FROM food_review",
+            "DELETE FROM community_post",
+            "DELETE FROM uploaded_image",
             "DELETE FROM scan_history",
             "DELETE FROM avoidance_substance",
             "DELETE FROM food",
