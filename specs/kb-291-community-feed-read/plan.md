@@ -6,7 +6,7 @@
 
 ## Summary
 
-KB-290 게시글 도메인 위에 읽기 API 두 개를 얹는다: 최신순 커서 페이징 피드(`GET /api/v1/community/posts`)와 글 상세(`GET /api/v1/community/posts/{postId}`). 둘 다 게스트 접근 가능하되 피드는 2페이지(40건) 게이트 — 초과 커서는 `COMMUNITY-005`(401) 로 로그인 유도. 탈퇴 작성자는 조회 시점에 익명화(member 소프트 삭제가 판정을 공짜로 준다). 스키마 변경 없음, 신규 쿼리 2개·에러 코드 1개·필터 GET 예외 1건. 조회·조립 경로를 `CommunityService` 한 곳에 모아 후속 차단·신고·번역 태스크의 단일 수정 지점을 만든다.
+KB-290 게시글 도메인 위에 읽기 API 두 개를 얹는다: 최신순 커서 페이징 피드(`GET /api/v1/community/posts`)와 글 상세(`GET /api/v1/community/posts/{postId}`). 둘 다 게스트 접근 가능하되 피드는 2페이지(40건) 게이트 — 초과 커서는 `COMMUNITY-005`(401) 로 로그인 유도. 탈퇴 작성자의 글은 조회에서 숨긴다(member 소프트 삭제 + exists 서브쿼리가 판정을 공짜로 준다). 스키마 변경 없음, 신규 쿼리 2개·에러 코드 1개·필터 GET 예외 1건. 조회·조립 경로를 `CommunityService` 한 곳에 모아 후속 차단·신고·번역 태스크의 단일 수정 지점을 만든다.
 
 ## Technical Context
 
@@ -86,7 +86,7 @@ api/src/test/kotlin/com/kbap/api/
 1. **커서 게이트(R2)**: 게스트 + 커서 존재 시 `findIdsFrom(cursor, LIMIT 21).size > PAGE_SIZE` 면 `COMMUNITY-005`. 커서 위치 기반이라 임의 커서 우회 불가, 상태 추적 불필요. LIMIT 프로젝션이라 악의적 깊은 커서에도 스캔 최대 21행.
 2. **필터 예외(R5, 사용자 확정)**: 같은 리소스 같은 경로 원칙. `shouldNotFilter` 는 GET + `^/api/v1/community/posts$`·`^/api/v1/community/posts/\d+$` 정확 일치만 — 후속 댓글 GET 은 계속 보호된다.
 3. **만료 토큰(R4)**: 조용한 게스트 강등 금지 — `@AuthMemberIdOrNull` 기존 동작(만료 → AUTH-004) 유지로 회원이 게이트에 오인 차단되는 일을 막는다.
-4. **익명화(R8)**: `findAllById` 결과 부재 = 탈퇴. `memberId: null` + "탈퇴한 사용자" + `profileImageUrl: null`.
+4. **탈퇴 작성자 글 숨김(R8, 개정 2026-08-04)**: 피드·게이트 쿼리 `exists(Member)` + 상세 `existsById` 검증 — 탈퇴 작성자 글은 존재 자체를 숨긴다(COMMUNITY-001). 댓글의 "(삭제)" 표기는 KB-292 몫.
 5. **음식 태그(R6, 사용자 확정)**: `{foodId, name}` — `getReadyFoodsByIds` 일괄 조회 + `displayName(lang)`. 미존재 id 는 태그만 탈락(글은 정상).
 6. **카운트(R9)**: like/dislike/comment 0 고정 — 계약 자리만 확정.
 

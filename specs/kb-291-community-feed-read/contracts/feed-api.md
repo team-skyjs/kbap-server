@@ -33,8 +33,8 @@ GET /api/v1/community/posts?lang={lang}&cursor={cursor}
       },
       {
         "postId": 41,
-        "author": { "memberId": null, "nickname": "탈퇴한 사용자", "profileImageUrl": null },
-        "content": "탈퇴해도 글은 남는다",
+        "author": { "memberId": 8, "nickname": "두번째작성자", "profileImageUrl": null },
+        "content": "프로필 사진 없는 회원의 글",
         "imageUrls": [],
         "foodTags": [],
         "likeCount": 0,
@@ -50,7 +50,7 @@ GET /api/v1/community/posts?lang={lang}&cursor={cursor}
 ```
 
 - 페이지 크기 20. `imageUrls[0]` 이 피드 커버. 빈 피드는 `items: []`, `hasNext: false`, `nextCursor: null`.
-- `author.memberId == null` ⇔ 탈퇴 작성자(FE 로컬라이즈 분기 키).
+- **탈퇴 작성자의 글은 피드·상세 어디에도 노출되지 않는다**(상세는 COMMUNITY-001). `author.memberId` 는 항상 non-null.
 
 **실패**:
 
@@ -92,7 +92,7 @@ GET /api/v1/community/posts/{postId}?lang={lang}
 
 | 상황 | HTTP | code |
 |------|------|------|
-| 삭제·미존재 글 | 400 | `COMMUNITY-001` (기존 NOT_FOUND) |
+| 삭제·미존재 글, 탈퇴 작성자의 글 | 400 | `COMMUNITY-001` (기존 NOT_FOUND) |
 | lang 누락·빈 값 | 400 | 검증 오류 |
 
 ## 인증 필터 변경

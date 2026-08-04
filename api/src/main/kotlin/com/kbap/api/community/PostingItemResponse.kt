@@ -33,15 +33,15 @@ data class PostingItemResponse(
     val createdAt: LocalDateTime,
 )
 
-@Schema(description = "게시글 작성자 표시 정보 — 탈퇴 회원이면 memberId 가 null 이고 닉네임·프로필이 익명 표기로 대체된다")
+@Schema(description = "게시글 작성자 표시 정보 — 탈퇴 작성자의 글은 조회 자체에서 제외되므로 항상 활성 회원이다")
 data class PostingAuthorResponse(
-    @field:Schema(description = "작성자 회원 id(탈퇴 회원이면 null)", example = "7", nullable = true)
-    val memberId: Long?,
+    @field:Schema(description = "작성자 회원 id", example = "7")
+    val memberId: Long,
 
-    @field:Schema(description = "닉네임(탈퇴 회원이면 \"탈퇴한 사용자\")", example = "먹보", nullable = true)
+    @field:Schema(description = "닉네임(미설정이면 null)", example = "먹보", nullable = true)
     val nickname: String?,
 
-    @field:Schema(description = "프로필 이미지 URL(없거나 탈퇴 회원이면 null — 클라이언트가 기본 아바타 표시)", nullable = true)
+    @field:Schema(description = "프로필 이미지 URL(없으면 null — 클라이언트가 기본 아바타 표시)", nullable = true)
     val profileImageUrl: String?,
 )
 

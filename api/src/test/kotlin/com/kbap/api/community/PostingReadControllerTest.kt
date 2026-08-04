@@ -403,7 +403,7 @@ class PostingReadControllerTest : BehaviorSpec() {
             }
         }
 
-        given("탈퇴 작성자 익명화") {
+        given("탈퇴 작성자의 글 숨김") {
             clearPostings()
             seedMember(9700L)
             seedMember(9701L, profileJson = """{"countryCode":"KR","profileImageUrl":"images/profile/9701.jpg"}""")
@@ -412,33 +412,34 @@ class PostingReadControllerTest : BehaviorSpec() {
             withdrawMember(9700L)
 
             `when`("피드를 조회하면") {
-                then("탈퇴 작성자만 익명 표기되고 콘텐츠는 유지된다") {
+                then("탈퇴 작성자의 글은 목록에서 제외된다") {
                     feed(accessToken(9790L)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.items.length()") { value(1) }
                         jsonPath("$.payload.items[0].postId") { value(970002) }
                         jsonPath("$.payload.items[0].author.memberId") { value(9701) }
                         jsonPath("$.payload.items[0].author.nickname") { value("피드테스터9701") }
                         jsonPath("$.payload.items[0].author.profileImageUrl") {
                             value("https://cdn.test/images/profile/9701.jpg")
                         }
-                        jsonPath("$.payload.items[1].postId") { value(970001) }
-                        jsonPath("$.payload.items[1].content") { value("탈퇴 전에 쓴 글") }
-                        jsonPath("$.payload.items[1].author.memberId") { value(null) }
-                        jsonPath("$.payload.items[1].author.nickname") { value("탈퇴한 사용자") }
-                        jsonPath("$.payload.items[1].author.profileImageUrl") { value(null) }
                     }
                 }
             }
 
             `when`("탈퇴 작성자의 글 상세를 조회하면") {
-                then("동일한 익명 표기가 적용된다") {
+                then("400 COMMUNITY-001 로 거절한다") {
                     detail(token = null, postId = 970001L).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMUNITY-001") }
+                    }
+                }
+            }
+
+            `when`("활성 회원의 글 상세를 조회하면") {
+                then("정상 반환한다") {
+                    detail(token = null, postId = 970002L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.content") { value("탈퇴 전에 쓴 글") }
-                        jsonPath("$.payload.author.memberId") { value(null) }
-                        jsonPath("$.payload.author.nickname") { value("탈퇴한 사용자") }
-                        jsonPath("$.payload.author.profileImageUrl") { value(null) }
+                        jsonPath("$.payload.author.memberId") { value(9701) }
                     }
                 }
             }

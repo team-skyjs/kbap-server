@@ -7,10 +7,26 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface PostingJpaRepository : JpaRepository<Posting, Long> {
-    @Query("select p from Posting p where :cursor is null or p.id < :cursor order by p.id desc")
+    // exists(Member) = 탈퇴 작성자 글 숨김 — Member 의 @SQLRestriction(ACTIVE)이 서브쿼리에도 적용된다.
+    @Query(
+        """
+        select p from Posting p
+        where (:cursor is null or p.id < :cursor)
+          and exists (select m.id from Member m where m.id = p.memberId)
+        order by p.id desc
+        """,
+    )
     fun findPage(@Param("cursor") cursor: Long?, pageable: Pageable): List<Posting>
 
-    // 게스트 게이트 판정 전용 — LIMIT 프로젝션으로 깊은 커서에도 스캔을 페이지 크기+1 행에 고정한다.
-    @Query("select p.id from Posting p where p.id >= :cursor order by p.id")
+    // 게스트 게이트 판정 전용 — 피드와 같은 가시성(탈퇴 작성자 제외)으로 세야 커서 위치가 어긋나지 않는다.
+    // LIMIT 프로젝션으로 깊은 커서에도 스캔을 페이지 크기+1 행에 고정한다.
+    @Query(
+        """
+        select p.id from Posting p
+        where p.id >= :cursor
+          and exists (select m.id from Member m where m.id = p.memberId)
+        order by p.id
+        """,
+    )
     fun findIdsFrom(@Param("cursor") cursor: Long, pageable: Pageable): List<Long>
 }

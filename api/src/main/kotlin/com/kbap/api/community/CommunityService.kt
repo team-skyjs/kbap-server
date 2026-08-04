@@ -85,6 +85,10 @@ class CommunityService(
         val posting = postingRepository.findById(postId).orElseThrow {
             BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
         }
+        // 탈퇴 작성자의 글은 피드와 동일하게 존재 자체를 숨긴다
+        if (!memberRepository.existsById(posting.memberId)) {
+            throw BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
+        }
         return assemble(listOf(posting), lang).first()
     }
 
@@ -105,7 +109,7 @@ class CommunityService(
         return postings.map { posting ->
             PostingItemResponse(
                 postId = posting.id,
-                author = authorsById[posting.memberId]?.let { authorOf(it) } ?: WITHDRAWN_AUTHOR,
+                author = authorOf(authorsById.getValue(posting.memberId)),
                 content = posting.content,
                 imageUrls = posting.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 foodTags = posting.foodIds.orEmpty().mapNotNull { foodId ->
@@ -154,13 +158,5 @@ class CommunityService(
 
     companion object {
         const val PAGE_SIZE = 20
-
-        private val WITHDRAWN_AUTHOR = PostingAuthorResponse(
-            memberId = null,
-            nickname = WITHDRAWN_AUTHOR_NICKNAME,
-            profileImageUrl = null,
-        )
-
-        const val WITHDRAWN_AUTHOR_NICKNAME = "탈퇴한 사용자"
     }
 }

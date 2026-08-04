@@ -20,8 +20,8 @@
 
 | 메서드 | 형태 | 용도 |
 |--------|------|------|
-| `findPage(cursor, pageable)` | `@Query` — `cursor null 이면 전체, 아니면 id < :cursor`, id DESC | 피드 페이지(PAGE_SIZE+1 건) |
-| `findIdsFrom(cursor, pageable)` | `@Query` id 프로젝션 — `id >= :cursor`, LIMIT PAGE_SIZE+1 | 게스트 게이트 판정(R2) — 결과 > PAGE_SIZE 면 차단. LIMIT 로 최악 스캔을 21행에 고정 |
+| `findPage(cursor, pageable)` | `@Query` — `cursor null 이면 전체, 아니면 id < :cursor` + `exists(Member)`, id DESC | 피드 페이지(PAGE_SIZE+1 건) — 탈퇴 작성자 글 제외(R8) |
+| `findIdsFrom(cursor, pageable)` | `@Query` id 프로젝션 — `id >= :cursor` + `exists(Member)`, LIMIT PAGE_SIZE+1 | 게스트 게이트 판정(R2) — 결과 > PAGE_SIZE 면 차단. 피드와 동일 가시성, LIMIT 로 최악 스캔 21행 고정 |
 
 둘 다 `@SQLRestriction` 으로 ACTIVE 만 본다 — status 조건을 손으로 달지 않는다(컨벤션).
 
@@ -39,13 +39,13 @@
 | likeCount / dislikeCount / commentCount | Int | 상수 0 (R9) |
 | createdAt | LocalDateTime | Posting.createdAt |
 
-### PostingAuthorResponse
+### PostingAuthorResponse — 노출되는 글의 작성자는 항상 활성 회원(탈퇴 글은 조회 제외)
 
-| 필드 | 활성 회원 | 탈퇴 회원 |
-|------|-----------|-----------|
-| memberId | Long | **null** (FE 분기 키) |
-| nickname | profile.nickname | `"탈퇴한 사용자"` |
-| profileImageUrl | ImageUrls.resolve(profile.profileImageUrl) | null (FE 기본 아바타) |
+| 필드 | 값 |
+|------|----|
+| memberId | Long (non-null) |
+| nickname | profile.nickname (미설정 시 null) |
+| profileImageUrl | ImageUrls.resolve(profile.profileImageUrl) — 없으면 null(FE 기본 아바타) |
 
 ### PostingFoodTagResponse
 
@@ -60,7 +60,7 @@
 
 ## 상태·전이
 
-새 상태 없음. 익명화는 저장 상태가 아니라 **조회 시점 판정**(member 조회 결과 부재 = 탈퇴)이다.
+새 상태 없음. 탈퇴 작성자 글 숨김은 저장 상태가 아니라 **조회 시점 판정**(member ACTIVE 존재 여부)이다.
 
 ## 조립 흐름 (단일 경로 — FR-010)
 
@@ -69,7 +69,7 @@
 상세: findById(postId)        ─┴→ assemble(postings, lang):
                                     1. memberRepository.findAllById(작성자 id 집합)
                                     2. foodService.getReadyFoodsByIds(태그 id 합집합)
-                                    3. 항목별 매핑(익명화·태그 이름·URL 변환·카운트 0)
+                                    3. 항목별 매핑(태그 이름·URL 변환·카운트 0)
 ```
 
 쿼리 횟수는 페이지당 고정(피드 1 + 회원 1 + 음식 1)— 항목 수 비례 아님(SC-005).

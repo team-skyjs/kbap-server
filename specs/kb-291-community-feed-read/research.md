@@ -52,13 +52,13 @@
 
 **Decision**: 피드·상세 모두 `lang` **필수**(`@field:NotBlank`), `LanguageCode.from` 으로 변환. 헌법 V 3분기(빈 값 400 / 번역 부재 ko / 미지원 코드 en) 그대로.
 
-## R8. 탈퇴 작성자 익명화
+## R8. 탈퇴 작성자 글 숨김 (개정 2026-08-04 — 익명화 노출안 폐기, 사용자 결정)
 
-**Decision**: 페이지 작성자를 `memberRepository.findAllById(memberIds)` 로 일괄 조회한다. 탈퇴 회원은 `withdraw()` 가 `delete()`(status=DELETED)를 호출하므로 `@SQLRestriction` 에 걸러져 결과에 없다 → 그 글의 작성자는 `nickname = "탈퇴한 사용자"`, `profileImageUrl = null`, `memberId = null` 로 응답한다(FE 는 null 이미지에 기본 아바타를 그린다).
+**Decision**: 탈퇴 작성자의 글은 피드·상세에서 **존재 자체를 숨긴다**. 피드·게이트 쿼리에 `exists (select m.id from Member m where m.id = p.memberId)` 를 넣는다 — Member 의 `@SQLRestriction(ACTIVE)` 이 서브쿼리에도 적용돼 탈퇴(소프트 삭제) 회원이 자동 제외된다. 상세는 `findById` 후 `memberRepository.existsById` 로 검증해 COMMUNITY-001 로 거절한다. 게이트 카운트도 같은 가시성으로 세야 커서 위치가 어긋나지 않는다.
 
-**Rationale**: 별도 상태 질의 없이 소프트 삭제 모델이 익명화 판정을 공짜로 준다. 리뷰(`author: null`)와 달리 작성자 줄이 항상 렌더링돼야 하므로 서버가 문구를 채운다(Jira 명시).
+**Rationale**: 글은 피드의 1급 콘텐츠라 익명 잔존 가치가 낮다(초기 익명화안 폐기). 데이터는 보존한다. 같은 트랜잭션(REPEATABLE READ 스냅샷) 안에서 피드 쿼리와 작성자 일괄 조회가 같은 스냅샷을 보므로, 노출된 글의 작성자는 항상 조회된다 — `PostingAuthorResponse.memberId` 를 non-null 로 확정.
 
-**감수하는 비용**: "탈퇴한 사용자" 문구는 한국어 고정이다. UI 문구 다국어화는 정적 UI 번역 정책(FE 소관, 헌법 V 분리 원칙) 대상이라 서버 콘텐츠 번역과 섞지 않는다. FE 가 필요 시 `memberId == null` 로 분기해 자체 로컬라이즈할 수 있게 필드 계약을 남긴다.
+**후속 정책 기록**: 탈퇴 회원의 **댓글**은 숨기지 않고 "(삭제)" 표기로 남긴다(스레드 맥락 보존) — 댓글 태스크(KB-292)에서 구현.
 
 ## R9. 리액션·댓글 카운트
 
