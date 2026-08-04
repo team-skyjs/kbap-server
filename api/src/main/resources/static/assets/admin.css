@@ -354,6 +354,7 @@ body {
 .seed-main .btn-primary { width: auto; }
 
 .seed-input,
+.text-input,
 .json-input {
   width: 100%;
   padding: 12px 14px;
@@ -363,15 +364,17 @@ body {
   border: 1px solid transparent;
   border-radius: var(--radius);
   resize: vertical;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .seed-input { margin-bottom: var(--sp-4); }
 
-.seed-input:hover, .json-input:hover { border-color: var(--border); }
+.seed-input:hover, .text-input:hover, .json-input:hover { border-color: var(--border); }
 
-.seed-input:focus, .json-input:focus {
+.seed-input:focus, .text-input:focus, .json-input:focus {
   background: var(--surface);
   border-color: var(--navy);
   box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.09);

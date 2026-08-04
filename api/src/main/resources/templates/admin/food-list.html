@@ -113,8 +113,8 @@
                     </div>
                     <div class="field">
                         <label for="description">설명</label>
-                        <input id="description" name="description" type="text" th:value="${foodDetail.description}"
-                               th:disabled="${!editMode}" required>
+                        <textarea id="description" name="description" class="text-input" rows="3"
+                                  th:disabled="${!editMode}" th:text="${foodDetail.description}" required></textarea>
                     </div>
                     <div class="field">
                         <label for="nameTranslationsJson">이름 번역 JSON</label>
