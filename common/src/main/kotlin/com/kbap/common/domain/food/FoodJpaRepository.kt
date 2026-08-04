@@ -3,6 +3,7 @@ package com.kbap.common.domain.food
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -73,6 +74,8 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
+
+    fun findByContentStatusOrderByIdAsc(contentStatus: FoodContentStatus, pageable: Pageable): List<Food>
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 

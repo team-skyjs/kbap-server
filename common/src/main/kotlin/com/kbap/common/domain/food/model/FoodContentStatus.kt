@@ -4,5 +4,7 @@ enum class FoodContentStatus {
     INCOMPLETE,
     PENDING_IMAGE,
     PENDING_REVIEW,
+    REVIEWED,
+    REVIEW_REJECTED,
     READY,
 }
