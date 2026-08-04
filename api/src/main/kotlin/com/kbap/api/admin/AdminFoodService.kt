@@ -26,20 +26,24 @@ class AdminFoodService(
     private val objectMapper = jacksonObjectMapper()
 
     @Transactional(readOnly = true)
-    fun getFoodPage(page: Int, query: String? = null): AdminFoodListPageView {
+    fun getFoodPage(page: Int, query: String? = null, status: FoodContentStatus? = null): AdminFoodListPageView {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, LIST_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result =
-            if (keyword == null) foodRepository.findAll(pageable)
-            else foodRepository.findByKoreanNameContaining(keyword, pageable)
+        val result = when {
+            keyword == null && status == null -> foodRepository.findAll(pageable)
+            keyword == null -> foodRepository.findByContentStatus(status!!, pageable)
+            status == null -> foodRepository.findByKoreanNameContaining(keyword, pageable)
+            else -> foodRepository.findByKoreanNameContainingAndContentStatus(keyword, status, pageable)
+        }
         return AdminFoodListPageView(
-            items = result.content.map { AdminFoodSummaryView.from(it) },
+            items = result.content.map { AdminFoodSummaryView.from(it, imagePublicBaseUrl) },
             page = page,
             totalPages = result.totalPages,
             totalCount = result.totalElements,
             hasPrev = page > 1,
             hasNext = page < result.totalPages,
             query = keyword,
+            status = status,
         )
     }
 
@@ -159,6 +163,7 @@ data class AdminFoodListPageView(
     val hasPrev: Boolean,
     val hasNext: Boolean,
     val query: String? = null,
+    val status: FoodContentStatus? = null,
 )
 
 data class AdminFoodSummaryView(
@@ -166,17 +171,17 @@ data class AdminFoodSummaryView(
     val koreanName: String,
     val contentStatus: FoodContentStatus,
     val spiciness: Int,
-    val hasImage: Boolean,
+    val imageUrl: String?,
     val updatedAt: LocalDateTime,
 ) {
     companion object {
-        fun from(food: Food): AdminFoodSummaryView =
+        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodSummaryView =
             AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.koreanName,
                 contentStatus = food.contentStatus,
                 spiciness = food.spiciness,
-                hasImage = !food.imageRef.isNullOrBlank(),
+                imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 updatedAt = food.updatedAt,
             )
     }
