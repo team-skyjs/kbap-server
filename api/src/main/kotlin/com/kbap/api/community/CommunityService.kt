@@ -1,13 +1,19 @@
 package com.kbap.api.community
 
+import com.kbap.api.core.Page
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.community.PostingJpaRepository
 import com.kbap.common.domain.community.model.Posting
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.model.Member
+import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,6 +22,7 @@ class CommunityService(
     private val postingRepository: PostingJpaRepository,
     private val foodService: FoodService,
     private val uploadedImageService: UploadedImageService,
+    private val memberRepository: MemberJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -24,7 +31,7 @@ class CommunityService(
         content: String,
         imagePaths: List<String>?,
         foodIds: List<Long>?,
-    ): CommunityPostingResponse {
+    ): PostingResponse {
         verifyImageOwnership(memberId, imagePaths)
         verifyFoodTags(foodIds)
 
@@ -36,7 +43,7 @@ class CommunityService(
                 foodIds = foodIds,
             ),
         )
-        return CommunityPostingResponse.from(posting, imagePublicBaseUrl)
+        return PostingResponse.from(posting, imagePublicBaseUrl)
     }
 
     @Transactional
@@ -46,19 +53,81 @@ class CommunityService(
         content: String,
         imagePaths: List<String>?,
         foodIds: List<Long>?,
-    ): CommunityPostingResponse {
+    ): PostingResponse {
         val posting = getMyPosting(memberId, postId)
         verifyImageOwnership(memberId, imagePaths)
         verifyFoodTags(foodIds)
 
         posting.update(content = content, imageRefs = imagePaths, foodIds = foodIds)
-        return CommunityPostingResponse.from(posting, imagePublicBaseUrl)
+        return PostingResponse.from(posting, imagePublicBaseUrl)
     }
 
     @Transactional
     fun deletePosting(memberId: Long, postId: Long) {
         getMyPosting(memberId, postId).delete()
     }
+
+    @Transactional(readOnly = true)
+    fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<PostingItemResponse> {
+        verifyGuestPageAccess(viewerMemberId, cursor)
+        val rows = postingRepository.findPage(cursor, PageRequest.of(0, PAGE_SIZE + 1))
+        val hasNext = rows.size > PAGE_SIZE
+        val page = rows.take(PAGE_SIZE)
+        return Page(
+            items = assemble(page, lang),
+            hasNext = hasNext,
+            nextCursor = if (hasNext) page.last().id else null,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getPosting(postId: Long, lang: LanguageCode): PostingItemResponse {
+        val posting = postingRepository.findById(postId).orElseThrow {
+            BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
+        }
+        // 탈퇴 작성자의 글은 피드와 동일하게 존재 자체를 숨긴다
+        if (!memberRepository.existsById(posting.memberId)) {
+            throw BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
+        }
+        return assemble(listOf(posting), lang).first()
+    }
+
+    // 게스트는 첫 페이지만 — 커서가 있다는 것 자체가 두 번째 페이지 이후 요청이다.
+    private fun verifyGuestPageAccess(viewerMemberId: Long?, cursor: Long?) {
+        if (viewerMemberId == null && cursor != null) {
+            throw BusinessException(ErrorCode.COMMUNITY_LOGIN_REQUIRED)
+        }
+    }
+
+    // 피드·상세 공용 단일 조립 지점 — 차단 필터·신고 숨김·번역 후속 태스크는 여기만 고친다.
+    private fun assemble(postings: List<Posting>, lang: LanguageCode): List<PostingItemResponse> {
+        if (postings.isEmpty()) return emptyList()
+        val authorsById = memberRepository.findAllById(postings.map { it.memberId }.toSet()).associateBy { it.id }
+        val taggedFoodIds = postings.flatMap { it.foodIds.orEmpty() }.distinct()
+        val foodsById = foodService.getReadyFoodsByIds(taggedFoodIds).associateBy { it.id }
+        return postings.map { posting ->
+            PostingItemResponse(
+                postId = posting.id,
+                author = authorOf(authorsById.getValue(posting.memberId)),
+                content = posting.content,
+                imageUrls = posting.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
+                foodTags = posting.foodIds.orEmpty().mapNotNull { foodId ->
+                    foodsById[foodId]?.let { PostingFoodTagResponse(foodId = foodId, name = it.displayName(lang)) }
+                },
+                likeCount = 0,
+                dislikeCount = 0,
+                commentCount = 0,
+                createdAt = posting.createdAt,
+            )
+        }
+    }
+
+    private fun authorOf(member: Member): PostingAuthorResponse =
+        PostingAuthorResponse(
+            memberId = member.id,
+            nickname = member.profile.nickname,
+            profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
+        )
 
     private fun getMyPosting(memberId: Long, postId: Long): Posting {
         val posting = postingRepository.findById(postId).orElseThrow {
@@ -84,5 +153,9 @@ class CommunityService(
         if (foodService.getReadyFoodsByIds(foodIds).size != foodIds.size) {
             throw BusinessException(ErrorCode.COMMUNITY_FOOD_TAG_INVALID)
         }
+    }
+
+    companion object {
+        const val PAGE_SIZE = 20
     }
 }

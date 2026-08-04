@@ -47,8 +47,8 @@
 
 ### Implementation for User Story 1
 
-- [X] T009 [P] [US1] `CommunityCreateRequest` 작성 — `api/src/main/kotlin/com/kbap/api/community/CommunityCreateRequest.kt` (`content` `@field:NotBlank @field:Size(max=2000)`, `imagePaths` `@field:Size(max=4)`, `foodIds` `@field:Size(max=3)`)
-- [X] T010 [P] [US1] `CommunityPostingResponse` 작성 — `api/src/main/kotlin/com/kbap/api/community/CommunityPostingResponse.kt` (postId·content·imageUrls(공개 base-url 조합)·foodIds·editedAt·createdAt, `from(Posting, baseUrl)` 팩토리)
+- [X] T009 [P] [US1] `PostingCreateRequest` 작성 — `api/src/main/kotlin/com/kbap/api/community/PostingCreateRequest.kt` (`content` `@field:NotBlank @field:Size(max=2000)`, `imagePaths` `@field:Size(max=4)`, `foodIds` `@field:Size(max=3)`)
+- [X] T010 [P] [US1] `PostingResponse` 작성 — `api/src/main/kotlin/com/kbap/api/community/PostingResponse.kt` (postId·content·imageUrls(공개 base-url 조합)·foodIds·editedAt·createdAt, `from(Posting, baseUrl)` 팩토리)
 - [X] T011 [US1] `CommunityService.createPosting` 구현 — `api/src/main/kotlin/com/kbap/api/community/CommunityService.kt` (`@Transactional`, `FoodService.getReadyFood` 로 foodIds 전수 검증(중복은 엔티티 require)·`UploadedImageJpaRepository` 소유 검증(ReviewService.verifyImageOwnership 패턴 — 실패 시 COMMUNITY-003/004), `PostingJpaRepository.save`)
 - [X] T012 [US1] `CommunityApi` 인터페이스 + `CommunityController` POST 엔드포인트 구현 — `api/src/main/kotlin/com/kbap/api/community/CommunityApi.kt`·`CommunityController.kt` (`@RequestMapping(ApiPaths.V1)`+`@PostMapping("/community/posts")`, `@AuthMemberId`, swagger 문서는 Api 인터페이스에만) — T008 Green 확인
 - [X] T013 [US1] `WebConfig` JwtAuthenticationFilter 에 보호 경로 추가 — `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` (`${ApiPaths.V1}/community/posts`·`${ApiPaths.V1}/community/posts/*` — 미등록 시 게스트 401 테스트가 Red 로 남는다)

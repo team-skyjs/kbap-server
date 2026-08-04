@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 
 @Schema(description = "커뮤니티 게시글 작성 요청")
-data class CommunityCreateRequest(
+data class PostingCreateRequest(
     @field:NotBlank(message = "content 는 필수입니다")
     @field:Size(max = Posting.MAX_CONTENT_LENGTH, message = "본문은 최대 2000자입니다")
     @field:Schema(description = "본문(필수, 최대 2000자)", example = "오늘 김치찌개 최고였다", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -22,7 +22,7 @@ data class CommunityCreateRequest(
 )
 
 @Schema(description = "커뮤니티 게시글 수정 요청 — content·imagePaths·foodIds 는 보낸 값으로 전량 교체된다")
-data class CommunityUpdateRequest(
+data class PostingUpdateRequest(
     @field:NotBlank(message = "content 는 필수입니다")
     @field:Size(max = Posting.MAX_CONTENT_LENGTH, message = "본문은 최대 2000자입니다")
     @field:Schema(description = "본문(필수, 최대 2000자)", example = "다시 보니 별로였다", requiredMode = Schema.RequiredMode.REQUIRED)

@@ -52,7 +52,16 @@ class WebConfig(
 
     @Bean
     fun jwtAuthenticationFilterRegistration(): FilterRegistrationBean<JwtAuthenticationFilter> =
-        FilterRegistrationBean(JwtAuthenticationFilter(tokenParser)).apply {
+        FilterRegistrationBean(
+            JwtAuthenticationFilter(
+                tokenParser,
+                // 게스트 열람 API — GET + 정확 일치 두 경로만. 더 깊은 경로(댓글 등)는 계속 보호된다.
+                guestExemptions = listOf(
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.V1}/community/posts$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.V1}/community/posts/\\d+$")),
+                ),
+            ),
+        ).apply {
             addUrlPatterns(
                 "${ApiPaths.V1}/members/*",
                 "${ApiPaths.V2}/members/*",

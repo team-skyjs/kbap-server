@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 @Schema(description = "커뮤니티 게시글 단건 응답")
-data class CommunityPostingResponse(
+data class PostingResponse(
     @field:Schema(description = "게시글 id", example = "42")
     val postId: Long,
 
@@ -29,8 +29,8 @@ data class CommunityPostingResponse(
     val editedAt: LocalDateTime?,
 ) {
     companion object {
-        fun from(posting: Posting, imagePublicBaseUrl: String): CommunityPostingResponse =
-            CommunityPostingResponse(
+        fun from(posting: Posting, imagePublicBaseUrl: String): PostingResponse =
+            PostingResponse(
                 postId = posting.id,
                 memberId = posting.memberId,
                 content = posting.content,

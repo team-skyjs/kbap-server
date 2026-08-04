@@ -18,7 +18,7 @@ Request (JSON):
 - `imagePaths`: 선택, `@Size(max=4)` — 리스트 순서 = 표시 순서, 첫 원소 = 커버. 본인이 업로드 완료(검증)한 key 만 허용
 - `foodIds`: 선택, `@Size(max=3)` — READY 음식만, 중복 불가
 
-Response 200 — `BaseResponse<CommunityPostingResponse>`:
+Response 200 — `BaseResponse<PostingResponse>`:
 
 ```json
 {
@@ -46,7 +46,7 @@ Response 200 — `BaseResponse<CommunityPostingResponse>`:
 
 Request: 작성과 동일 body(전체 교체 의미론 — 사진·태그 생략/빈 배열이면 제거).
 
-Response 200 — `BaseResponse<CommunityPostingResponse>` (수정 반영본, `editedAt` 포함).
+Response 200 — `BaseResponse<PostingResponse>` (수정 반영본, `editedAt` 포함).
 
 오류: 작성 오류 + 아래.
 
@@ -68,5 +68,5 @@ Response 200 — `BaseResponse<Unit>` (`payload` 없음).
 
 ## 스코프 밖 (후속 태스크)
 
-- 피드 목록·글 상세 조회 — KB-291 (이 계약의 `CommunityPostingResponse` 를 기반으로 확장)
+- 피드 목록·글 상세 조회 — KB-291 (이 계약의 `PostingResponse` 를 기반으로 확장)
 - 장소 태그 — 제공 불가로 제외(요청·응답에 필드 자체를 두지 않음)

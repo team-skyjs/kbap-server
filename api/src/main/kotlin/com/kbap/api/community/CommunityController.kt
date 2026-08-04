@@ -2,10 +2,16 @@ package com.kbap.api.community
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -21,8 +27,8 @@ class CommunityController(
     @PostMapping("/community/posts")
     override fun create(
         @AuthMemberId memberId: Long,
-        @Valid @RequestBody request: CommunityCreateRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingResponse>> =
+        @Valid @RequestBody request: PostingCreateRequest,
+    ): ResponseEntity<BaseResponse<PostingResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
                 communityService.createPosting(
@@ -38,8 +44,8 @@ class CommunityController(
     override fun update(
         @AuthMemberId memberId: Long,
         @PathVariable postId: Long,
-        @Valid @RequestBody request: CommunityUpdateRequest,
-    ): ResponseEntity<BaseResponse<CommunityPostingResponse>> =
+        @Valid @RequestBody request: PostingUpdateRequest,
+    ): ResponseEntity<BaseResponse<PostingResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
                 communityService.updatePosting(
@@ -60,4 +66,28 @@ class CommunityController(
         communityService.deletePosting(memberId, postId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
+
+    @GetMapping("/community/posts")
+    override fun getPostingPage(
+        @AuthMemberIdOrNull memberId: Long?,
+        @Valid @ModelAttribute request: PostingListRequest,
+    ): ResponseEntity<BaseResponse<Page<PostingItemResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                communityService.getPostingPage(
+                    viewerMemberId = memberId,
+                    cursor = CursorParser.parse(request.cursor),
+                    lang = LanguageCode.from(request.lang),
+                ),
+            ),
+        )
+
+    @GetMapping("/community/posts/{postId}")
+    override fun getPosting(
+        @PathVariable postId: Long,
+        @Valid @ModelAttribute request: PostingDetailRequest,
+    ): ResponseEntity<BaseResponse<PostingItemResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(communityService.getPosting(postId, LanguageCode.from(request.lang))),
+        )
 }

@@ -71,8 +71,8 @@ api/src/main/kotlin/com/kbap/api/community/
 ├── CommunityApi.kt                   # swagger 문서 인터페이스
 ├── CommunityController.kt            # POST/PUT/DELETE, @AuthMemberId
 ├── CommunityService.kt               # 유스케이스 조합 (@Transactional, 음식 READY·이미지 소유 검증)
-├── CommunityCreateRequest.kt         # content·imagePaths·foodIds (Bean Validation)
-└── CommunityPostingResponse.kt
+├── PostingCreateRequest.kt         # content·imagePaths·foodIds (Bean Validation)
+└── PostingResponse.kt
 
 api/src/main/kotlin/com/kbap/api/image/UploadPurpose.kt          # COMMUNITY("community") 추가
 
