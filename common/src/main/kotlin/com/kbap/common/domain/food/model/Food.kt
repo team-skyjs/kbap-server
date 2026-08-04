@@ -55,7 +55,7 @@ class Food(
     @Column(name = "content_review_attempts", nullable = false, columnDefinition = "int not null default 0")
     var contentReviewAttempts: Int = 0,
 
-    @Column(name = "content_review_rejection_reason", columnDefinition = "TEXT")
+    @Column(name = "content_review_rejection_reason", length = MAX_REJECTION_REASON_LENGTH)
     var contentReviewRejectionReason: String? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
@@ -112,7 +112,11 @@ class Food(
         require(rejectedFields.isNotEmpty()) { "탈락 결과에는 문제 필드가 최소 1개 있어야 합니다" }
         if (contentReviewAttempts >= MAX_CONTENT_REVIEW_ATTEMPTS) {
             contentStatus = FoodContentStatus.REVIEW_REJECTED
-            contentReviewRejectionReason = reason?.lineSequence()?.take(MAX_REJECTION_REASON_LINES)?.joinToString("\n")
+            contentReviewRejectionReason = reason
+                ?.lineSequence()
+                ?.take(MAX_REJECTION_REASON_LINES)
+                ?.joinToString("\n")
+                ?.take(MAX_REJECTION_REASON_LENGTH)
             return
         }
         rejectedFields.forEach(::clearField)
@@ -186,6 +190,8 @@ class Food(
         const val MAX_CONTENT_REVIEW_ATTEMPTS = 2
 
         const val MAX_REJECTION_REASON_LINES = 10
+
+        const val MAX_REJECTION_REASON_LENGTH = 1000
 
         // 콘텐츠 채움 배치가 되돌리면 안 되는 상태 — 검수·승인 단계는 사람/AI 판정이 소유한다.
         private val TERMINAL_CONTENT_STATUSES = setOf(

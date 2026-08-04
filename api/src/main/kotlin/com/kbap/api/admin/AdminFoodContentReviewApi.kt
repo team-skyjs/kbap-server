@@ -49,7 +49,7 @@ interface AdminFoodContentReviewApi {
             - `passed=false` 이고 `contentReviewAttempts < 2` → `rejectedFields` 로 지목된 필드만 미채움으로 되돌리고
               시도 횟수를 1 올린 뒤 **INCOMPLETE**(이미지만 문제면 **PENDING_IMAGE**)로 롤백. 콘텐츠 채움 배치가 재생성한다.
             - `passed=false` 이고 `contentReviewAttempts >= 2` → 콘텐츠를 그대로 둔 채 **REVIEW_REJECTED** 로 전이하고
-              `reason` 을 최대 10줄까지 저장한다(이후 사람이 판단).
+              `reason` 을 최대 10줄·1000자까지 저장한다(넘치면 잘라서 보관, 이후 사람이 판단).
             - 탈락인데 `rejectedFields` 가 비었거나, PENDING_REVIEW 가 아닌 음식이면 400(COMMON-002) 이다.
         """,
     )

@@ -6,4 +6,4 @@ ALTER TABLE food
 
 ALTER TABLE food
     ADD COLUMN content_review_attempts INT NOT NULL DEFAULT 0 AFTER content_status,
-    ADD COLUMN content_review_rejection_reason TEXT NULL AFTER content_review_attempts;
+    ADD COLUMN content_review_rejection_reason VARCHAR(1000) NULL AFTER content_review_attempts;

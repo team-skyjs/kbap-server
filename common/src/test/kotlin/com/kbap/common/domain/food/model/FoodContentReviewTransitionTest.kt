@@ -144,6 +144,16 @@ class FoodContentReviewTransitionTest : BehaviorSpec({
                 food.contentReviewRejectionReason shouldBe (1..Food.MAX_REJECTION_REASON_LINES).joinToString("\n") { "사유 $it" }
             }
         }
+
+        `when`("한 줄짜리 사유가 컬럼 길이를 넘으면") {
+            then("컬럼 길이까지만 잘라 저장한다 — 저장 실패로 검수 결과를 잃지 않는다") {
+                val food = pendingReview(contentReviewAttempts = Food.MAX_CONTENT_REVIEW_ATTEMPTS)
+
+                food.rejectContentReview(setOf(FoodContentReviewField.DESCRIPTION), "가".repeat(1_500))
+
+                food.contentReviewRejectionReason shouldBe "가".repeat(Food.MAX_REJECTION_REASON_LENGTH)
+            }
+        }
     }
 
     given("Food.transitionByContentState — 검수 단계 보호") {
