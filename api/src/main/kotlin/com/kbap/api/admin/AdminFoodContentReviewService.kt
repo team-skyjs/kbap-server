@@ -4,46 +4,46 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
-import com.kbap.common.domain.food.model.FoodReviewField
+import com.kbap.common.domain.food.model.FoodContentReviewField
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class AdminFoodReviewService(
+class AdminFoodContentReviewService(
     private val foodRepository: FoodJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun getReviewTargets(limit: Int): AdminFoodReviewTargetsResponse {
-        require(limit in 1..MAX_REVIEW_TARGETS) { "limit 은 1..$MAX_REVIEW_TARGETS 여야 합니다: $limit" }
+    fun getContentReviewTargets(limit: Int): AdminFoodContentReviewTargetsResponse {
+        require(limit in 1..MAX_CONTENT_REVIEW_TARGETS) { "limit 은 1..$MAX_CONTENT_REVIEW_TARGETS 여야 합니다: $limit" }
         val targets = foodRepository.findByContentStatusOrderByIdAsc(
             FoodContentStatus.PENDING_REVIEW,
             PageRequest.of(0, limit),
         )
-        return AdminFoodReviewTargetsResponse.from(targets, imagePublicBaseUrl)
+        return AdminFoodContentReviewTargetsResponse.from(targets, imagePublicBaseUrl)
     }
 
     @Transactional
-    fun applyReviewResult(
+    fun applyContentReviewResult(
         foodId: Long,
         passed: Boolean,
-        rejectedFields: Set<FoodReviewField>,
+        rejectedFields: Set<FoodContentReviewField>,
         reason: String?,
-    ): AdminFoodReviewResultResponse {
+    ): AdminFoodContentReviewResultResponse {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         if (passed) {
-            food.passReview()
+            food.passContentReview()
         } else {
-            food.rejectReview(rejectedFields, reason)
+            food.rejectContentReview(rejectedFields, reason)
         }
-        return AdminFoodReviewResultResponse.from(food)
+        return AdminFoodContentReviewResultResponse.from(food)
     }
 
     companion object {
-        const val DEFAULT_REVIEW_TARGETS = 50
+        const val DEFAULT_CONTENT_REVIEW_TARGETS = 50
 
-        const val MAX_REVIEW_TARGETS = 200
+        const val MAX_CONTENT_REVIEW_TARGETS = 200
     }
 }

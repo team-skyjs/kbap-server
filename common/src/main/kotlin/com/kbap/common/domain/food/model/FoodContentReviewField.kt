@@ -1,6 +1,6 @@
 package com.kbap.common.domain.food.model
 
-enum class FoodReviewField {
+enum class FoodContentReviewField {
     DESCRIPTION,
     NAME_TRANSLATIONS,
     DESCRIPTION_TRANSLATIONS,

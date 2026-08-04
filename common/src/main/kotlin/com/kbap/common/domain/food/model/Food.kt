@@ -52,11 +52,11 @@ class Food(
     @Column(name = "avoidance_substances")
     var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
 
-    @Column(name = "review_attempts", nullable = false, columnDefinition = "int not null default 0")
-    var reviewAttempts: Int = 0,
+    @Column(name = "content_review_attempts", nullable = false, columnDefinition = "int not null default 0")
+    var contentReviewAttempts: Int = 0,
 
-    @Column(name = "review_rejection_reason", columnDefinition = "TEXT")
-    var reviewRejectionReason: String? = null,
+    @Column(name = "content_review_rejection_reason", columnDefinition = "TEXT")
+    var contentReviewRejectionReason: String? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
@@ -97,7 +97,7 @@ class Food(
         this.spiciness = spiciness
     }
 
-    fun passReview() {
+    fun passContentReview() {
         if (contentStatus == FoodContentStatus.REVIEWED) return
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
             "검수 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
@@ -105,30 +105,30 @@ class Food(
         contentStatus = FoodContentStatus.REVIEWED
     }
 
-    fun rejectReview(rejectedFields: Set<FoodReviewField>, reason: String?) {
+    fun rejectContentReview(rejectedFields: Set<FoodContentReviewField>, reason: String?) {
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
             "검수 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
         require(rejectedFields.isNotEmpty()) { "탈락 결과에는 문제 필드가 최소 1개 있어야 합니다" }
-        if (reviewAttempts >= MAX_REVIEW_ATTEMPTS) {
+        if (contentReviewAttempts >= MAX_CONTENT_REVIEW_ATTEMPTS) {
             contentStatus = FoodContentStatus.REVIEW_REJECTED
-            reviewRejectionReason = reason?.lineSequence()?.take(MAX_REJECTION_REASON_LINES)?.joinToString("\n")
+            contentReviewRejectionReason = reason?.lineSequence()?.take(MAX_REJECTION_REASON_LINES)?.joinToString("\n")
             return
         }
         rejectedFields.forEach(::clearField)
-        reviewAttempts++
+        contentReviewAttempts++
         contentStatus = FoodContentStatus.INCOMPLETE
         transitionByContentState()
     }
 
-    private fun clearField(field: FoodReviewField) {
+    private fun clearField(field: FoodContentReviewField) {
         when (field) {
-            FoodReviewField.DESCRIPTION -> description = PLACEHOLDER_DESCRIPTION
-            FoodReviewField.NAME_TRANSLATIONS -> nameTranslations = emptyMap()
-            FoodReviewField.DESCRIPTION_TRANSLATIONS -> descriptionTranslations = emptyMap()
-            FoodReviewField.AVOIDANCE_SUBSTANCES -> avoidanceSubstances = null
-            FoodReviewField.SPICINESS -> spiciness = SPICINESS_UNASSESSED
-            FoodReviewField.IMAGE -> imageRef = null
+            FoodContentReviewField.DESCRIPTION -> description = PLACEHOLDER_DESCRIPTION
+            FoodContentReviewField.NAME_TRANSLATIONS -> nameTranslations = emptyMap()
+            FoodContentReviewField.DESCRIPTION_TRANSLATIONS -> descriptionTranslations = emptyMap()
+            FoodContentReviewField.AVOIDANCE_SUBSTANCES -> avoidanceSubstances = null
+            FoodContentReviewField.SPICINESS -> spiciness = SPICINESS_UNASSESSED
+            FoodContentReviewField.IMAGE -> imageRef = null
         }
     }
 
@@ -183,7 +183,7 @@ class Food(
 
         const val SPICINESS_UNASSESSED = -1
 
-        const val MAX_REVIEW_ATTEMPTS = 2
+        const val MAX_CONTENT_REVIEW_ATTEMPTS = 2
 
         const val MAX_REJECTION_REASON_LINES = 10
 

@@ -13,22 +13,22 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.ADMIN + "/foods/reviews")
-class AdminFoodReviewController(
-    private val adminFoodReviewService: AdminFoodReviewService,
-) : AdminFoodReviewApi {
+@RequestMapping(ApiPaths.ADMIN + "/foods/content-reviews")
+class AdminFoodContentReviewController(
+    private val adminFoodContentReviewService: AdminFoodContentReviewService,
+) : AdminFoodContentReviewApi {
     @GetMapping
-    override fun getReviewTargets(
-        @RequestParam(defaultValue = "${AdminFoodReviewService.DEFAULT_REVIEW_TARGETS}") limit: Int,
-    ): ResponseEntity<BaseResponse<AdminFoodReviewTargetsResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(adminFoodReviewService.getReviewTargets(limit)))
+    override fun getContentReviewTargets(
+        @RequestParam(defaultValue = "${AdminFoodContentReviewService.DEFAULT_CONTENT_REVIEW_TARGETS}") limit: Int,
+    ): ResponseEntity<BaseResponse<AdminFoodContentReviewTargetsResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(adminFoodContentReviewService.getContentReviewTargets(limit)))
 
     @PostMapping("/{foodId}")
-    override fun applyReviewResult(
+    override fun applyContentReviewResult(
         @PathVariable foodId: Long,
-        @Valid @RequestBody request: AdminFoodReviewResultRequest,
-    ): ResponseEntity<BaseResponse<AdminFoodReviewResultResponse>> {
-        val result = adminFoodReviewService.applyReviewResult(
+        @Valid @RequestBody request: AdminFoodContentReviewResultRequest,
+    ): ResponseEntity<BaseResponse<AdminFoodContentReviewResultResponse>> {
+        val result = adminFoodContentReviewService.applyContentReviewResult(
             foodId = foodId,
             passed = request.passed!!,
             rejectedFields = request.rejectedFields.orEmpty(),

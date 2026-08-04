@@ -15,7 +15,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBod
 
 @Tag(name = "관리자 음식 AI 검수", description = "관리자 전용 — 외부 AI 검수 파이프라인이 검수 대상을 받아가고 결과를 반영하는 API")
 @SecurityRequirement(name = "bearerAuth")
-interface AdminFoodReviewApi {
+interface AdminFoodContentReviewApi {
     @Operation(
         summary = "검수 대상 음식 조회",
         description = """
@@ -23,7 +23,7 @@ interface AdminFoodReviewApi {
 
             - `avoidanceSubstances` 는 미조사(null)여도 빈 배열로 내려간다 — PENDING_REVIEW 는 이미 조사가 끝난 상태다.
             - `imageUrl` 은 공개 이미지 URL 이며, 이미지가 없으면 null 이다.
-            - `reviewAttempts` 는 지금까지의 AI 검수 탈락 횟수다(0·1). 2 이상은 REVIEW_REJECTED 로 빠져 대상에 없다.
+            - `contentReviewAttempts` 는 지금까지의 AI 검수 탈락 횟수다(0·1). 2 이상은 REVIEW_REJECTED 로 빠져 대상에 없다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
     )
@@ -35,10 +35,10 @@ interface AdminFoodReviewApi {
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
-    fun getReviewTargets(
+    fun getContentReviewTargets(
         @Parameter(description = "한 번에 받아갈 최대 건수(1..200)", example = "50")
         limit: Int,
-    ): ResponseEntity<BaseResponse<AdminFoodReviewTargetsResponse>>
+    ): ResponseEntity<BaseResponse<AdminFoodContentReviewTargetsResponse>>
 
     @Operation(
         summary = "검수 결과 반영",
@@ -46,9 +46,9 @@ interface AdminFoodReviewApi {
             음식 1건의 AI 검수 판정을 반영한다. 상태 전이·컬럼 롤백·시도 횟수 증가는 모두 서버가 수행한다.
 
             - `passed=true` → **REVIEWED**(사람 승인 대기). 콘텐츠·시도 횟수는 그대로. 이미 REVIEWED 면 멱등 성공.
-            - `passed=false` 이고 `reviewAttempts < 2` → `rejectedFields` 로 지목된 필드만 미채움으로 되돌리고
+            - `passed=false` 이고 `contentReviewAttempts < 2` → `rejectedFields` 로 지목된 필드만 미채움으로 되돌리고
               시도 횟수를 1 올린 뒤 **INCOMPLETE**(이미지만 문제면 **PENDING_IMAGE**)로 롤백. 콘텐츠 채움 배치가 재생성한다.
-            - `passed=false` 이고 `reviewAttempts >= 2` → 콘텐츠를 그대로 둔 채 **REVIEW_REJECTED** 로 전이하고
+            - `passed=false` 이고 `contentReviewAttempts >= 2` → 콘텐츠를 그대로 둔 채 **REVIEW_REJECTED** 로 전이하고
               `reason` 을 최대 10줄까지 저장한다(이후 사람이 판단).
             - 탈락인데 `rejectedFields` 가 비었거나, PENDING_REVIEW 가 아닌 음식이면 400(COMMON-002) 이다.
         """,
@@ -65,14 +65,14 @@ interface AdminFoodReviewApi {
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
-    fun applyReviewResult(
+    fun applyContentReviewResult(
         @Parameter(description = "검수 결과를 반영할 음식 id", example = "1")
         foodId: Long,
         @SwaggerRequestBody(
             required = true,
             content = [
                 Content(
-                    schema = Schema(implementation = AdminFoodReviewResultRequest::class),
+                    schema = Schema(implementation = AdminFoodContentReviewResultRequest::class),
                     examples = [
                         ExampleObject(name = "통과", value = """{"passed": true}"""),
                         ExampleObject(
@@ -83,6 +83,6 @@ interface AdminFoodReviewApi {
                 ),
             ],
         )
-        request: AdminFoodReviewResultRequest,
-    ): ResponseEntity<BaseResponse<AdminFoodReviewResultResponse>>
+        request: AdminFoodContentReviewResultRequest,
+    ): ResponseEntity<BaseResponse<AdminFoodContentReviewResultResponse>>
 }

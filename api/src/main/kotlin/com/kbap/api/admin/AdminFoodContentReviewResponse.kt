@@ -5,16 +5,16 @@ import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 
-data class AdminFoodReviewTargetsResponse(
-    val items: List<AdminFoodReviewTarget>,
+data class AdminFoodContentReviewTargetsResponse(
+    val items: List<AdminFoodContentReviewTarget>,
 ) {
     companion object {
-        fun from(foods: List<Food>, imagePublicBaseUrl: String): AdminFoodReviewTargetsResponse =
-            AdminFoodReviewTargetsResponse(foods.map { AdminFoodReviewTarget.from(it, imagePublicBaseUrl) })
+        fun from(foods: List<Food>, imagePublicBaseUrl: String): AdminFoodContentReviewTargetsResponse =
+            AdminFoodContentReviewTargetsResponse(foods.map { AdminFoodContentReviewTarget.from(it, imagePublicBaseUrl) })
     }
 }
 
-data class AdminFoodReviewTarget(
+data class AdminFoodContentReviewTarget(
     val foodId: Long,
     val koreanName: String,
     val description: String,
@@ -23,11 +23,11 @@ data class AdminFoodReviewTarget(
     val avoidanceSubstances: List<FoodAvoidanceItem>,
     val spiciness: Int,
     val imageUrl: String?,
-    val reviewAttempts: Int,
+    val contentReviewAttempts: Int,
 ) {
     companion object {
-        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodReviewTarget =
-            AdminFoodReviewTarget(
+        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodContentReviewTarget =
+            AdminFoodContentReviewTarget(
                 foodId = food.id,
                 koreanName = food.koreanName,
                 description = food.description,
@@ -36,24 +36,24 @@ data class AdminFoodReviewTarget(
                 avoidanceSubstances = food.avoidanceSubstances.orEmpty(),
                 spiciness = food.spiciness,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
-                reviewAttempts = food.reviewAttempts,
+                contentReviewAttempts = food.contentReviewAttempts,
             )
     }
 }
 
-data class AdminFoodReviewResultResponse(
+data class AdminFoodContentReviewResultResponse(
     val foodId: Long,
     val contentStatus: FoodContentStatus,
-    val reviewAttempts: Int,
-    val reviewRejectionReason: String?,
+    val contentReviewAttempts: Int,
+    val contentReviewRejectionReason: String?,
 ) {
     companion object {
-        fun from(food: Food): AdminFoodReviewResultResponse =
-            AdminFoodReviewResultResponse(
+        fun from(food: Food): AdminFoodContentReviewResultResponse =
+            AdminFoodContentReviewResultResponse(
                 foodId = food.id,
                 contentStatus = food.contentStatus,
-                reviewAttempts = food.reviewAttempts,
-                reviewRejectionReason = food.reviewRejectionReason,
+                contentReviewAttempts = food.contentReviewAttempts,
+                contentReviewRejectionReason = food.contentReviewRejectionReason,
             )
     }
 }

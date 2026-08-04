@@ -5,5 +5,5 @@ ALTER TABLE food
         NOT NULL DEFAULT 'READY';
 
 ALTER TABLE food
-    ADD COLUMN review_attempts INT NOT NULL DEFAULT 0 AFTER content_status,
-    ADD COLUMN review_rejection_reason TEXT NULL AFTER review_attempts;
+    ADD COLUMN content_review_attempts INT NOT NULL DEFAULT 0 AFTER content_status,
+    ADD COLUMN content_review_rejection_reason TEXT NULL AFTER content_review_attempts;

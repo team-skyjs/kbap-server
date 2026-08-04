@@ -29,7 +29,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class AdminFoodReviewControllerTest : BehaviorSpec() {
+class AdminFoodContentReviewControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -47,7 +47,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/admin/foods/reviews"
+        val path = "/api/v1/admin/foods/content-reviews"
         val targetLangs = LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }
 
         fun allTargets(value: String) = targetLangs.associateWith { "$value-$it" }
@@ -67,7 +67,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
         fun saveFood(
             rawName: String,
             contentStatus: FoodContentStatus = FoodContentStatus.PENDING_REVIEW,
-            reviewAttempts: Int = 0,
+            contentReviewAttempts: Int = 0,
         ): Food = foodJpaRepository.save(
             Food(
                 koreanName = namePrefix + rawName,
@@ -78,7 +78,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
                 descriptionTranslations = allTargets("stew"),
                 avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
                 contentStatus = contentStatus,
-                reviewAttempts = reviewAttempts,
+                contentReviewAttempts = contentReviewAttempts,
             ),
         )
 
@@ -112,7 +112,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].koreanName") { value("검수테스트-된장찌개") }
                         jsonPath("$.payload.items[0].description") { value("구수한 된장찌개") }
                         jsonPath("$.payload.items[0].spiciness") { value(3) }
-                        jsonPath("$.payload.items[0].reviewAttempts") { value(0) }
+                        jsonPath("$.payload.items[0].contentReviewAttempts") { value(0) }
                         jsonPath("$.payload.items[0].avoidanceSubstances[0].code") { value("SOYBEAN") }
                         jsonPath("$.payload.items[0].nameTranslations.en") { value("된장찌개-en") }
                         jsonPath("$.payload.items[0].imageUrl") { exists() }
@@ -175,7 +175,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
                     postResult(food.id, mapOf("passed" to true)).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.contentStatus") { value("REVIEWED") }
-                        jsonPath("$.payload.reviewAttempts") { value(0) }
+                        jsonPath("$.payload.contentReviewAttempts") { value(0) }
                     }
 
                     val saved = reloaded(food.id)
@@ -222,8 +222,8 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
                     ).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.contentStatus") { value("INCOMPLETE") }
-                        jsonPath("$.payload.reviewAttempts") { value(1) }
-                        jsonPath("$.payload.reviewRejectionReason") { doesNotExist() }
+                        jsonPath("$.payload.contentReviewAttempts") { value(1) }
+                        jsonPath("$.payload.contentReviewRejectionReason") { doesNotExist() }
                     }
 
                     val saved = reloaded(food.id)
@@ -236,7 +236,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
             `when`("재시도를 모두 쓴 음식이 탈락하면") {
                 then("콘텐츠를 유지한 채 REVIEW_REJECTED 로 전이하고 사유를 저장한다") {
                     clearFoods()
-                    val food = saveFood("된장찌개", reviewAttempts = Food.MAX_REVIEW_ATTEMPTS)
+                    val food = saveFood("된장찌개", contentReviewAttempts = Food.MAX_CONTENT_REVIEW_ATTEMPTS)
 
                     postResult(
                         food.id,
@@ -248,7 +248,7 @@ class AdminFoodReviewControllerTest : BehaviorSpec() {
                     ).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.contentStatus") { value("REVIEW_REJECTED") }
-                        jsonPath("$.payload.reviewRejectionReason") { value("설명이 여전히 부정확함") }
+                        jsonPath("$.payload.contentReviewRejectionReason") { value("설명이 여전히 부정확함") }
                     }
 
                     reloaded(food.id).description shouldBe "구수한 된장찌개"
