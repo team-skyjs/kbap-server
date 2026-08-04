@@ -90,4 +90,40 @@ class CommunityController(
         ResponseEntity.ok(
             BaseResponse.ok(communityService.getPosting(postId, LanguageCode.from(request.lang))),
         )
+
+    @PostMapping("/community/posts/{postId}/comments")
+    override fun createComment(
+        @AuthMemberId memberId: Long,
+        @PathVariable postId: Long,
+        @Valid @RequestBody request: CommentCreateRequest,
+    ): ResponseEntity<BaseResponse<CommentResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                communityService.createComment(
+                    memberId = memberId,
+                    postId = postId,
+                    content = request.content!!,
+                    parentCommentId = request.parentCommentId,
+                ),
+            ),
+        )
+
+    @PutMapping("/community/comments/{commentId}")
+    override fun updateComment(
+        @AuthMemberId memberId: Long,
+        @PathVariable commentId: Long,
+        @Valid @RequestBody request: CommentUpdateRequest,
+    ): ResponseEntity<BaseResponse<CommentResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(communityService.updateComment(memberId, commentId, request.content!!)),
+        )
+
+    @DeleteMapping("/community/comments/{commentId}")
+    override fun removeComment(
+        @AuthMemberId memberId: Long,
+        @PathVariable commentId: Long,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        communityService.deleteComment(memberId, commentId)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
 }
