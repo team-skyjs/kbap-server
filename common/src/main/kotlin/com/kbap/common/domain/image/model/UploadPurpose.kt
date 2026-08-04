@@ -1,4 +1,4 @@
-package com.kbap.api.image
+package com.kbap.common.domain.image.model
 
 enum class UploadPurpose(val prefix: String) {
     MENU_SCAN("scans"),

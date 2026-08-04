@@ -4,6 +4,7 @@ import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.PresignedUpload
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.image.model.UploadPurpose
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.ZoneOffset

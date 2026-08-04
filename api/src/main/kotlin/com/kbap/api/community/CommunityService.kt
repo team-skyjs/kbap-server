@@ -1,12 +1,12 @@
 package com.kbap.api.community
 
-import com.kbap.api.image.UploadPurpose
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.community.PostingJpaRepository
 import com.kbap.common.domain.community.model.Posting
 import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.UploadedImageService
+import com.kbap.common.domain.image.model.UploadPurpose
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class CommunityService(
     private val postingRepository: PostingJpaRepository,
     private val foodService: FoodService,
-    private val uploadedImageRepository: UploadedImageJpaRepository,
+    private val uploadedImageService: UploadedImageService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -71,12 +71,7 @@ class CommunityService(
     }
 
     private fun verifyImageOwnership(memberId: Long, imagePaths: List<String>?) {
-        if (imagePaths.isNullOrEmpty()) return
-        val ownedCommunityPaths = uploadedImageRepository.findByPathIn(imagePaths)
-            .filter { it.isOwnedBy(memberId) && it.path.contains(COMMUNITY_IMAGE_PATH_SEGMENT) }
-            .map { it.path }
-            .toSet()
-        if (!ownedCommunityPaths.containsAll(imagePaths)) {
+        if (!uploadedImageService.ownsAllImages(memberId, imagePaths, UploadPurpose.COMMUNITY)) {
             throw BusinessException(ErrorCode.COMMUNITY_IMAGE_NOT_VERIFIED)
         }
     }
@@ -89,9 +84,5 @@ class CommunityService(
         if (foodService.getReadyFoodsByIds(foodIds).size != foodIds.size) {
             throw BusinessException(ErrorCode.COMMUNITY_FOOD_TAG_INVALID)
         }
-    }
-
-    companion object {
-        val COMMUNITY_IMAGE_PATH_SEGMENT = "images/${UploadPurpose.COMMUNITY.prefix}/"
     }
 }
