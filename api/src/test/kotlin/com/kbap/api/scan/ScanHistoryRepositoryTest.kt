@@ -38,9 +38,9 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     statement.execute("DELETE FROM member")
                     listOf(11L, 99L).forEach { memberId ->
                         statement.execute(
-                            "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
                                 "onboarding_completed, status, created_at, updated_at) " +
-                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', " +
+                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', 'ACTIVE', 1, 'ACTIVE', " +
                                 "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                         )
                     }

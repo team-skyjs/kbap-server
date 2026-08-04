@@ -57,11 +57,9 @@ object HomeTestSeed {
         execute(
             dataSource,
             listOf(
-                "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, " +
+                "INSERT INTO member (id, provider, provider_uid, email, nickname, avoidance_substance_codes, spiciness_preference, country_code, member_status, " +
                     "onboarding_completed, status, created_at, updated_at) " +
-                    "VALUES ($memberId, 'GOOGLE', 'home-test-$memberId', NULL, '홈테스터', " +
-                    """'{"avoidanceSubstanceCodes":$codesJson,"spicinessPreference":"MEDIUM",""" +
-                    """"countryCode":"US","appLanguage":"en"}', """ +
+                    "VALUES ($memberId, 'GOOGLE', 'home-test-$memberId', NULL, '홈테스터', '$codesJson', 'MEDIUM', 'US', " +
                     "'ACTIVE', 1, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             ),
         )

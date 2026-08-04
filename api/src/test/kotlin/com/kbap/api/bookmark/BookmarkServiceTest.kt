@@ -44,9 +44,9 @@ class BookmarkServiceTest : BehaviorSpec() {
                     statement.execute("DELETE FROM member")
                     if (seedMember) {
                         statement.execute(
-                            "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
                                 "onboarding_completed, status, created_at, updated_at) " +
-                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', " +
+                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', 'ACTIVE', 1, 'ACTIVE', " +
                                 "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                         )
                     }
