@@ -81,6 +81,14 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun findByKoreanNameContaining(koreanName: String, pageable: Pageable): Page<Food>
 
+    fun findByContentStatus(contentStatus: FoodContentStatus, pageable: Pageable): Page<Food>
+
+    fun findByKoreanNameContainingAndContentStatus(
+        koreanName: String,
+        contentStatus: FoodContentStatus,
+        pageable: Pageable,
+    ): Page<Food>
+
     @Query(
         """
         select f from Food f

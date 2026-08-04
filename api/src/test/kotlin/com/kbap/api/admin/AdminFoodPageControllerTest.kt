@@ -278,7 +278,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("page", "3")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=3&deleted=${food.id}#food-${food.id}")
+                        redirectedUrl("/admin/foods/list?page=3&deleted=${food.id}")
                     }
 
                     foodJpaRepository.findById(food.id).isPresent shouldBe false
@@ -295,7 +295,53 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("q", "A+B")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=2&q=A%2BB&deleted=${food.id}#food-${food.id}")
+                        redirectedUrl("/admin/foods/list?page=2&q=A%2BB&deleted=${food.id}")
+                    }
+                }
+            }
+
+            `when`("상태 필터가 걸린 목록에서 삭제하면") {
+                then("상태 필터를 유지한 채 리다이렉트한다") {
+                    val food = saveFood("상태유지삭제음식", FoodContentStatus.PENDING_REVIEW)
+
+                    mockMvc.post("/admin/foods/${food.id}/delete") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("status", "PENDING_REVIEW")
+                    }.andExpect {
+                        status { is3xxRedirection() }
+                        redirectedUrl("/admin/foods/list?page=1&status=PENDING_REVIEW&deleted=${food.id}")
+                    }
+                }
+            }
+
+            `when`("상태 필터가 걸린 목록에서 수정하면") {
+                then("성공·오류 리다이렉트 모두 상태 필터를 유지한다") {
+                    val food = saveFood("상태유지수정음식", FoodContentStatus.PENDING_REVIEW)
+
+                    fun postUpdate(nameTranslationsJson: String) =
+                        mockMvc.post("/admin/foods/${food.id}") {
+                            cookie(adminCookie())
+                            param("page", "1")
+                            param("status", "PENDING_REVIEW")
+                            param("koreanName", "상태유지수정음식")
+                            param("description", "설명")
+                            param("spiciness", "0")
+                            param("contentStatus", "PENDING_REVIEW")
+                            param("imageRef", "")
+                            param("nameTranslationsJson", nameTranslationsJson)
+                            param("descriptionTranslationsJson", "{}")
+                            param("avoidanceSubstancesJson", "")
+                        }
+
+                    postUpdate("{}").andExpect {
+                        redirectedUrl("/admin/foods/list?page=1&status=PENDING_REVIEW&updated=${food.id}")
+                    }
+                    postUpdate("{잘못된}").andExpect {
+                        redirectedUrl(
+                            "/admin/foods/list?page=1&status=PENDING_REVIEW" +
+                                "&detail=${food.id}&edit=true&error=invalid-json",
+                        )
                     }
                 }
             }
@@ -307,7 +353,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("page", "1")
                     }.andExpect {
                         status { is3xxRedirection() }
-                        redirectedUrl("/admin/foods/list?page=1&error=not-found#food-999999")
+                        redirectedUrl("/admin/foods/list?page=1&error=not-found")
                     }
                 }
             }
