@@ -1,6 +1,7 @@
 package com.kbap.api.community
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -68,4 +69,45 @@ interface CommunityApi {
         ],
     )
     fun remove(memberId: Long, postId: Long): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "피드 목록 조회",
+        description = """
+            커뮤니티 피드를 최신순 커서 페이징으로 조회한다. 게스트(비로그인)도 조회할 수 있다.
+            각 항목은 작성자·본문·사진(첫 장이 커버)·음식 태그(요청 언어 이름)·좋아요/싫어요/댓글 수·작성 시각을 포함한다.
+            좋아요·싫어요·댓글 수는 해당 기능 도입 전까지 0 으로 응답한다.
+            게스트는 최신 2페이지(40건)까지만 조회할 수 있고, 그 범위를 넘는 커서는 COMMUNITY-005 로 거절된다 — 로그인 화면으로 유도한다.
+            탈퇴한 회원의 글은 본문·사진·태그를 유지한 채 작성자만 익명 표기(memberId=null, "탈퇴한 사용자", 프로필 null)로 응답한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — items/hasNext/nextCursor"),
+            ApiResponse(responseCode = "400", description = "lang 누락, 잘못된 커서 형식(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "게스트 허용 범위 초과(COMMUNITY-005), 만료 토큰(AUTH-004)"),
+        ],
+    )
+    fun getFeedPage(
+        memberId: Long?,
+        request: CommunityFeedRequest,
+    ): ResponseEntity<BaseResponse<Page<CommunityFeedItemResponse>>>
+
+    @Operation(
+        summary = "글 상세 조회",
+        description = """
+            게시글 한 건의 상세를 조회한다. 게스트(비로그인)도 제한 없이 조회할 수 있다.
+            응답 형태는 피드 항목과 동일하며 사진 전체를 포함한다. 댓글 목록은 별도 API(회원 전용)로 제공된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "미존재/삭제된 게시글(COMMUNITY-001), lang 누락"),
+        ],
+    )
+    fun getPosting(
+        memberId: Long?,
+        postId: Long,
+        request: CommunityPostingDetailRequest,
+    ): ResponseEntity<BaseResponse<CommunityFeedItemResponse>>
 }

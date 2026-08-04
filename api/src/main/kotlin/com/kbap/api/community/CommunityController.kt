@@ -2,10 +2,16 @@ package com.kbap.api.community
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -60,4 +66,29 @@ class CommunityController(
         communityService.deletePosting(memberId, postId)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
+
+    @GetMapping("/community/posts")
+    override fun getFeedPage(
+        @AuthMemberIdOrNull memberId: Long?,
+        @Valid @ModelAttribute request: CommunityFeedRequest,
+    ): ResponseEntity<BaseResponse<Page<CommunityFeedItemResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                communityService.getFeedPage(
+                    viewerMemberId = memberId,
+                    cursor = CursorParser.parse(request.cursor),
+                    lang = LanguageCode.from(request.lang),
+                ),
+            ),
+        )
+
+    @GetMapping("/community/posts/{postId}")
+    override fun getPosting(
+        @AuthMemberIdOrNull memberId: Long?,
+        @PathVariable postId: Long,
+        @Valid @ModelAttribute request: CommunityPostingDetailRequest,
+    ): ResponseEntity<BaseResponse<CommunityFeedItemResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(communityService.getPosting(postId, LanguageCode.from(request.lang))),
+        )
 }

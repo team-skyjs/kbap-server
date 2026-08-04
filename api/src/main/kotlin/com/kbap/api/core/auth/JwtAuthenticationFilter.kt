@@ -15,8 +15,14 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 class JwtAuthenticationFilter(
     private val tokenParser: TokenParser,
+    private val guestExemptions: List<GuestExemption> = emptyList(),
 ) : OncePerRequestFilter() {
+    data class GuestExemption(val method: String, val path: Regex)
+
     private val objectMapper = jacksonObjectMapper()
+
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
+        guestExemptions.any { request.method == it.method && it.path.matches(request.requestURI) }
 
     override fun doFilterInternal(
         request: HttpServletRequest,
