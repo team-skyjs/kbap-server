@@ -41,7 +41,31 @@ class PostingReadControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun clearPostings(): Unit = execute("DELETE FROM community_post")
+        fun clearPostings() {
+            // FK 순서: 자기참조(parent_id) 대댓글 → 댓글 → 글
+            execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
+            execute("DELETE FROM community_comment")
+            execute("DELETE FROM community_post")
+        }
+
+        fun seedComment(
+            commentId: Long,
+            postId: Long,
+            memberId: Long,
+            parentId: Long? = null,
+            status: String = "ACTIVE",
+        ): Unit =
+            execute(
+                """
+                INSERT INTO community_comment (id, post_id, member_id, parent_id, content, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, '카운트용 댓글', ?, NOW(6), NOW(6))
+                """,
+                commentId,
+                postId,
+                memberId,
+                parentId,
+                status,
+            )
 
         fun seedMember(memberId: Long, profileJson: String = """{"countryCode":"KR"}"""): Unit =
             execute(
@@ -430,6 +454,40 @@ class PostingReadControllerTest : BehaviorSpec() {
                     detail(token = null, postId = 970002L).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.author.memberId") { value(9701) }
+                    }
+                }
+            }
+        }
+
+        given("피드·상세 commentCount 반영") {
+            clearPostings()
+            seedMember(9800L)
+            seedPosting(980001L, memberId = 9800L, content = "댓글 달린 글")
+            seedPosting(980002L, memberId = 9800L, content = "댓글 없는 글")
+            seedComment(980101L, 980001L, 9800L)
+            seedComment(980102L, 980001L, 9800L)
+            seedComment(980103L, 980001L, 9800L, parentId = 980101L)
+            seedComment(980104L, 980001L, 9800L, parentId = 980101L, status = "DELETED")
+            seedComment(980105L, 980001L, 9800L, status = "DELETED")
+            seedComment(980106L, 980001L, 9800L, parentId = 980105L, status = "DELETED")
+
+            `when`("피드를 조회하면") {
+                then("삭제분을 제외한 댓글+대댓글 수를 글마다 반환한다") {
+                    feed(accessToken(9890L)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].postId") { value(980002) }
+                        jsonPath("$.payload.items[0].commentCount") { value(0) }
+                        jsonPath("$.payload.items[1].postId") { value(980001) }
+                        jsonPath("$.payload.items[1].commentCount") { value(3) }
+                    }
+                }
+            }
+
+            `when`("상세를 조회하면") {
+                then("동일한 commentCount 를 반환한다") {
+                    detail(accessToken(9890L), 980001L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.commentCount") { value(3) }
                     }
                 }
             }

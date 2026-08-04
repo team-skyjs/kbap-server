@@ -135,6 +135,27 @@ interface CommunityApi {
     ): ResponseEntity<BaseResponse<CommentResponse>>
 
     @Operation(
+        summary = "댓글 목록 조회",
+        description = """
+            글의 댓글을 등록순(오래된 순) 커서 페이징으로 조회한다(회원 전용 — 게스트는 401, FE 는 commentCount 만 노출하고 블러 처리).
+            커서는 최상위 댓글에만 적용되며(페이지 20건), 각 항목의 replies 에 해당 댓글의 대댓글 전량이 등록순으로 중첩된다.
+            삭제된 댓글·대댓글(통삭제 포함)은 제외된다. 탈퇴한 작성자는 memberId null + "탈퇴한 사용자" 로 익명화된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — items/hasNext/nextCursor"),
+            ApiResponse(responseCode = "400", description = "미존재/삭제된 게시글(COMMUNITY-001), 잘못된 커서 형식(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun getCommentPage(
+        memberId: Long,
+        postId: Long,
+        cursor: String?,
+    ): ResponseEntity<BaseResponse<Page<CommentItemResponse>>>
+
+    @Operation(
         summary = "댓글 수정",
         description = "본인 댓글의 본문을 수정한다. 답글 소속(부모 댓글)은 바꿀 수 없다. 수정 시각(editedAt)이 기록된다.",
     )

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -106,6 +107,16 @@ class CommunityController(
                     parentCommentId = request.parentCommentId,
                 ),
             ),
+        )
+
+    @GetMapping("/community/posts/{postId}/comments")
+    override fun getCommentPage(
+        @AuthMemberId memberId: Long,
+        @PathVariable postId: Long,
+        @RequestParam(required = false) cursor: String?,
+    ): ResponseEntity<BaseResponse<Page<CommentItemResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(communityService.getCommentPage(postId, CursorParser.parse(cursor))),
         )
 
     @PutMapping("/community/comments/{commentId}")
