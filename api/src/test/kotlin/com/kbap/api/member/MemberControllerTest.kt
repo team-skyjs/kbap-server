@@ -39,6 +39,8 @@ class MemberControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.createStatement().use {
                     it.execute("DELETE FROM member_block")
+                    it.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
+                    it.execute("DELETE FROM community_comment")
                     it.execute("DELETE FROM community_post")
                     it.execute("DELETE FROM member")
                 }

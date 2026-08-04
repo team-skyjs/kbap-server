@@ -49,6 +49,8 @@ enum class ErrorCode(
     COMMUNITY_IMAGE_NOT_VERIFIED("COMMUNITY-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
     COMMUNITY_FOOD_TAG_INVALID("COMMUNITY-004", 400, "태그할 수 없는 음식입니다"),
     COMMUNITY_LOGIN_REQUIRED("COMMUNITY-005", 401, "로그인이 필요합니다"),
+    COMMUNITY_COMMENT_NOT_FOUND("COMMUNITY-006", 400, "해당 댓글을 찾을 수 없습니다"),
+    COMMUNITY_COMMENT_FORBIDDEN("COMMUNITY-007", 403, "본인이 작성한 댓글만 수정·삭제할 수 있습니다"),
 
     SELF_BLOCK_FORBIDDEN("BLOCK-001", 400, "자기 자신은 차단할 수 없습니다"),
     BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404, "차단할 회원을 찾을 수 없습니다"),

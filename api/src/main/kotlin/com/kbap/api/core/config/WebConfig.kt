@@ -73,6 +73,7 @@ class WebConfig(
                 "${ApiPaths.V1}/reviews/*",
                 "${ApiPaths.V1}/community/posts",
                 "${ApiPaths.V1}/community/posts/*",
+                "${ApiPaths.V1}/community/comments/*",
                 "${ApiPaths.V1}/reports",
                 "${ApiPaths.V1}/images",
                 "${ApiPaths.V1}/images/*",

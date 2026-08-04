@@ -4,7 +4,9 @@ import com.kbap.api.core.Page
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.community.CommentJpaRepository
 import com.kbap.common.domain.community.PostingJpaRepository
+import com.kbap.common.domain.community.model.Comment
 import com.kbap.common.domain.community.model.Posting
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageService
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class CommunityService(
     private val postingRepository: PostingJpaRepository,
+    private val commentRepository: CommentJpaRepository,
     private val foodService: FoodService,
     private val uploadedImageService: UploadedImageService,
     private val memberRepository: MemberJpaRepository,
@@ -82,6 +85,108 @@ class CommunityService(
 
     @Transactional(readOnly = true)
     fun getPosting(postId: Long, lang: LanguageCode): PostingItemResponse {
+        return assemble(listOf(getVisiblePosting(postId)), lang).first()
+    }
+
+    @Transactional(readOnly = true)
+    fun getCommentPage(postId: Long, cursor: Long?): Page<CommentItemResponse> {
+        getVisiblePosting(postId)
+        val rows = commentRepository.findTopLevelPage(postId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
+        val hasNext = rows.size > PAGE_SIZE
+        val page = rows.take(PAGE_SIZE)
+        val repliesByParentId = if (page.isEmpty()) {
+            emptyMap()
+        } else {
+            commentRepository.findByParentIdInOrderByIdAsc(page.map { it.id }).groupBy { it.parentId!! }
+        }
+        val authorsById = memberRepository
+            .findAllById((page + repliesByParentId.values.flatten()).map { it.memberId }.toSet())
+            .associateBy { it.id }
+
+        fun authorOf(memberId: Long): CommentAuthorResponse =
+            authorsById[memberId]?.let {
+                CommentAuthorResponse(
+                    memberId = it.id,
+                    nickname = it.profile.nickname,
+                    profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, it.profile.profileImageUrl),
+                )
+            } ?: WITHDRAWN_AUTHOR
+
+        return Page(
+            items = page.map { comment ->
+                CommentItemResponse(
+                    commentId = comment.id,
+                    author = authorOf(comment.memberId),
+                    content = comment.content,
+                    createdAt = comment.createdAt,
+                    editedAt = comment.editedAt,
+                    replies = repliesByParentId[comment.id].orEmpty().map { reply ->
+                        CommentReplyResponse(
+                            commentId = reply.id,
+                            author = authorOf(reply.memberId),
+                            content = reply.content,
+                            createdAt = reply.createdAt,
+                            editedAt = reply.editedAt,
+                        )
+                    },
+                )
+            },
+            hasNext = hasNext,
+            nextCursor = if (hasNext) page.last().id else null,
+        )
+    }
+
+    @Transactional
+    fun createComment(memberId: Long, postId: Long, content: String, parentCommentId: Long?): CommentResponse {
+        getVisiblePosting(postId)
+        val comment = commentRepository.save(
+            Comment(
+                postId = postId,
+                memberId = memberId,
+                content = content,
+                parentId = parentCommentId?.let { resolveTopLevelParentId(postId, it) },
+            ),
+        )
+        return CommentResponse.from(comment)
+    }
+
+    @Transactional
+    fun updateComment(memberId: Long, commentId: Long, content: String): CommentResponse {
+        val comment = getMyComment(memberId, commentId)
+        comment.update(content)
+        return CommentResponse.from(comment)
+    }
+
+    @Transactional
+    fun deleteComment(memberId: Long, commentId: Long) {
+        val comment = getMyComment(memberId, commentId)
+        comment.delete()
+        if (!comment.isReply) {
+            commentRepository.softDeleteReplies(comment.id)
+        }
+    }
+
+    private fun resolveTopLevelParentId(postId: Long, parentCommentId: Long): Long {
+        val parent = commentRepository.findById(parentCommentId).orElseThrow {
+            BusinessException(ErrorCode.COMMUNITY_COMMENT_NOT_FOUND)
+        }
+        if (parent.postId != postId) {
+            throw BusinessException(ErrorCode.COMMUNITY_COMMENT_NOT_FOUND)
+        }
+        return parent.parentId ?: parent.id
+    }
+
+    private fun getMyComment(memberId: Long, commentId: Long): Comment {
+        val comment = commentRepository.findById(commentId).orElseThrow {
+            BusinessException(ErrorCode.COMMUNITY_COMMENT_NOT_FOUND)
+        }
+        if (!comment.isOwnedBy(memberId)) {
+            throw BusinessException(ErrorCode.COMMUNITY_COMMENT_FORBIDDEN)
+        }
+        return comment
+    }
+
+    private fun getVisiblePosting(postId: Long): Posting {
         val posting = postingRepository.findById(postId).orElseThrow {
             BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
         }
@@ -89,7 +194,7 @@ class CommunityService(
         if (!memberRepository.existsById(posting.memberId)) {
             throw BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
         }
-        return assemble(listOf(posting), lang).first()
+        return posting
     }
 
     // 게스트는 첫 페이지만 — 커서가 있다는 것 자체가 두 번째 페이지 이후 요청이다.
@@ -105,6 +210,8 @@ class CommunityService(
         val authorsById = memberRepository.findAllById(postings.map { it.memberId }.toSet()).associateBy { it.id }
         val taggedFoodIds = postings.flatMap { it.foodIds.orEmpty() }.distinct()
         val foodsById = foodService.getReadyFoodsByIds(taggedFoodIds).associateBy { it.id }
+        val commentCountByPostId = commentRepository.countByPostIds(postings.map { it.id })
+            .associate { it.postId to it.commentCount }
         return postings.map { posting ->
             PostingItemResponse(
                 postId = posting.id,
@@ -116,7 +223,7 @@ class CommunityService(
                 },
                 likeCount = 0,
                 dislikeCount = 0,
-                commentCount = 0,
+                commentCount = (commentCountByPostId[posting.id] ?: 0L).toInt(),
                 createdAt = posting.createdAt,
             )
         }
@@ -157,5 +264,7 @@ class CommunityService(
 
     companion object {
         const val PAGE_SIZE = 20
+        private val WITHDRAWN_AUTHOR =
+            CommentAuthorResponse(memberId = null, nickname = "(삭제)", profileImageUrl = null)
     }
 }

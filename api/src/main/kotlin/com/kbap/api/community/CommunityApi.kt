@@ -109,4 +109,84 @@ interface CommunityApi {
         postId: Long,
         request: PostingDetailRequest,
     ): ResponseEntity<BaseResponse<PostingItemResponse>>
+
+    @Operation(
+        summary = "댓글 작성",
+        description = """
+            게시글에 댓글을 작성한다(회원 전용). 본문은 최대 2000자 텍스트뿐이다(사진·태그 불가).
+            @멘션은 본문 텍스트의 일부로 취급하며 서버가 별도 저장·해석하지 않는다.
+            parentCommentId 를 보내면 답글이 된다 — 대댓글 id 를 보내도 그 최상위 댓글의 대댓글로 정규화된다(1depth 고정).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "작성 성공"),
+            ApiResponse(
+                responseCode = "400",
+                description = "검증 실패(본문 길이), 미존재/삭제된 게시글(COMMUNITY-001), 미존재/삭제된 부모 댓글(COMMUNITY-006)",
+            ),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun createComment(
+        memberId: Long,
+        postId: Long,
+        request: CommentCreateRequest,
+    ): ResponseEntity<BaseResponse<CommentResponse>>
+
+    @Operation(
+        summary = "댓글 목록 조회",
+        description = """
+            글의 댓글을 등록순(오래된 순) 커서 페이징으로 조회한다(회원 전용 — 게스트는 401, FE 는 commentCount 만 노출하고 블러 처리).
+            커서는 최상위 댓글에만 적용되며(페이지 20건), 각 항목의 replies 에 해당 댓글의 대댓글 전량이 등록순으로 중첩된다.
+            삭제된 댓글·대댓글(통삭제 포함)은 제외된다. 탈퇴한 작성자는 memberId null + "(삭제)" 로 익명화된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — items/hasNext/nextCursor"),
+            ApiResponse(responseCode = "400", description = "미존재/삭제된 게시글(COMMUNITY-001), 잘못된 커서 형식(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun getCommentPage(
+        memberId: Long,
+        postId: Long,
+        cursor: String?,
+    ): ResponseEntity<BaseResponse<Page<CommentItemResponse>>>
+
+    @Operation(
+        summary = "댓글 수정",
+        description = "본인 댓글의 본문을 수정한다. 답글 소속(부모 댓글)은 바꿀 수 없다. 수정 시각(editedAt)이 기록된다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "수정 성공"),
+            ApiResponse(responseCode = "400", description = "검증 실패(본문 길이), 미존재/삭제된 댓글(COMMUNITY-006)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+            ApiResponse(responseCode = "403", description = "타인 댓글(COMMUNITY-007)"),
+        ],
+    )
+    fun updateComment(
+        memberId: Long,
+        commentId: Long,
+        request: CommentUpdateRequest,
+    ): ResponseEntity<BaseResponse<CommentResponse>>
+
+    @Operation(
+        summary = "댓글 삭제",
+        description = """
+            본인 댓글을 삭제한다(소프트 삭제). 최상위 댓글을 삭제하면 하위 대댓글까지 모두 보이지 않게 되고(통삭제),
+            대댓글을 삭제하면 해당 대댓글만 보이지 않는다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "삭제 성공"),
+            ApiResponse(responseCode = "400", description = "미존재/이미 삭제된 댓글(COMMUNITY-006)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+            ApiResponse(responseCode = "403", description = "타인 댓글(COMMUNITY-007)"),
+        ],
+    )
+    fun removeComment(memberId: Long, commentId: Long): ResponseEntity<BaseResponse<Unit>>
 }
