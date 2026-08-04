@@ -194,7 +194,7 @@ class CommentReadControllerTest : BehaviorSpec() {
 
                     val author = payload.path("items")[0].path("author")
                     author.path("memberId").isNull shouldBe true
-                    author.path("nickname").asText() shouldBe "탈퇴한 사용자"
+                    author.path("nickname").asText() shouldBe "(삭제)"
                     author.path("profileImageUrl").isNull shouldBe true
                     payload.path("items")[0].path("content").asText() shouldBe "탈퇴 전에 남긴 댓글"
                 }

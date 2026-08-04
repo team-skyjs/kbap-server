@@ -36,12 +36,12 @@ data class CommentReplyResponse(
     val createdAt: LocalDateTime,
 )
 
-@Schema(description = "댓글 작성자 표시 정보 — 탈퇴한 작성자는 memberId null + \"탈퇴한 사용자\" 로 익명화된다")
+@Schema(description = "댓글 작성자 표시 정보 — 탈퇴한 작성자는 memberId null + \"(삭제)\" 로 익명화된다")
 data class CommentAuthorResponse(
     @field:Schema(description = "작성자 회원 id(탈퇴한 작성자는 null)", example = "7", nullable = true)
     val memberId: Long?,
 
-    @field:Schema(description = "닉네임(미설정이면 null, 탈퇴한 작성자는 \"탈퇴한 사용자\")", example = "먹보", nullable = true)
+    @field:Schema(description = "닉네임(미설정이면 null, 탈퇴한 작성자는 \"(삭제)\")", example = "먹보", nullable = true)
     val nickname: String?,
 
     @field:Schema(description = "프로필 이미지 URL(없으면 null — 클라이언트가 기본 아바타 표시)", nullable = true)

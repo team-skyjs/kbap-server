@@ -263,6 +263,6 @@ class CommunityService(
     companion object {
         const val PAGE_SIZE = 20
         private val WITHDRAWN_AUTHOR =
-            CommentAuthorResponse(memberId = null, nickname = "탈퇴한 사용자", profileImageUrl = null)
+            CommentAuthorResponse(memberId = null, nickname = "(삭제)", profileImageUrl = null)
     }
 }

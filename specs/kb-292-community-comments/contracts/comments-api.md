@@ -82,7 +82,7 @@ Response payload (`Page<CommentItemResponse>`):
       "replies": [
         {
           "commentId": 55,
-          "author": { "memberId": null, "nickname": "탈퇴한 사용자", "profileImageUrl": null },
+          "author": { "memberId": null, "nickname": "(삭제)", "profileImageUrl": null },
           "content": "저도 먹어봤는데 최고예요 @먹보",
           "createdAt": "2026-08-04T22:00:00"
         }

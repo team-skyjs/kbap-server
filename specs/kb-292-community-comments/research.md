@@ -24,7 +24,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없었다. 아래는 설계 갈림
 
 ## R4. 탈퇴 작성자 익명화 — 작성자 lookup miss 를 익명 표기로 치환
 
-- **Decision**: 목록 조립 시 `MemberJpaRepository.findAllById`(active 만 반환 — `@SQLRestriction`) lookup 에 없는 작성자는 `author = { memberId: null, nickname: "탈퇴한 사용자", profileImageUrl: null }` 로 응답한다. 댓글 본문은 그대로 유지한다.
+- **Decision**: 목록 조립 시 `MemberJpaRepository.findAllById`(active 만 반환 — `@SQLRestriction`) lookup 에 없는 작성자는 `author = { memberId: null, nickname: "(삭제)", profileImageUrl: null }` 로 응답한다. 댓글 본문은 그대로 유지한다.
 - **Rationale**: 피드 조립(`CommunityService.assemble`)과 같은 일괄 lookup 패턴을 재사용하되, 게시글(작성자 탈퇴 시 글 자체 숨김)과 달리 댓글은 스레드 문맥 보존을 위해 익명화 유지(Jira 명시). lookup miss = 탈퇴가 이미 시스템의 사실 표현이므로 별도 상태 컬럼이 필요 없다.
 - **Alternatives considered**: 댓글에 탈퇴 여부 별도 표시 필드(boolean) 추가 — `memberId: null` 이 이미 그 신호라 중복이어서 기각. FE 다국어 표기가 필요해지면 그때 flag 를 추가한다.
 

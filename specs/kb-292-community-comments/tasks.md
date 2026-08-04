@@ -50,9 +50,9 @@
 
 **Independent Test**: 댓글 25건+대댓글을 심고 커서 2페이지로 나눠 조회 — 등록순·중복/누락 없음·익명화 확인.
 
-- [x] T011 [US2] `api/src/test/kotlin/com/kbap/api/community/CommentReadControllerTest.kt` 목록 통합 테스트 작성 — 등록순 정렬(top-level·replies 각각)·커서 페이징(21건 → hasNext/nextCursor, 2페이지 합집합=전체·교집합=∅)·대댓글 중첩·**탈퇴 작성자 익명화(memberId null·"탈퇴한 사용자")**·게스트 401·없는 글 `COMMUNITY-001`·커서 형식 오류 `INVALID_CURSOR`. **Red 확인**
+- [x] T011 [US2] `api/src/test/kotlin/com/kbap/api/community/CommentReadControllerTest.kt` 목록 통합 테스트 작성 — 등록순 정렬(top-level·replies 각각)·커서 페이징(21건 → hasNext/nextCursor, 2페이지 합집합=전체·교집합=∅)·대댓글 중첩·**탈퇴 작성자 익명화(memberId null·"(삭제)")**·게스트 401·없는 글 `COMMUNITY-001`·커서 형식 오류 `INVALID_CURSOR`. **Red 확인**
 - [x] T012 [P] [US2] `api/src/main/kotlin/com/kbap/api/community/CommentItemResponse.kt` 생성 — commentId·author(`CommentAuthorResponse`: memberId nullable·nickname·profileImageUrl)·content·createdAt·`replies: List<CommentReplyResponse>`(동파일, replies 필드 제외 동일 구조). editedAt 미노출
-- [x] T013 [US2] `CommunityService.kt` 에 `getCommentPage(memberId, postId, cursor)` 추가 — 글 존재 검증 → `findTopLevelPage`(PAGE_SIZE+1) → `findByParentIdInOrderByIdAsc` 일괄 로드 → 작성자 일괄 lookup(miss = `{memberId: null, nickname: "탈퇴한 사용자", profileImageUrl: null}`) → `Page<CommentItemResponse>` 조립. `@Transactional(readOnly = true)`
+- [x] T013 [US2] `CommunityService.kt` 에 `getCommentPage(memberId, postId, cursor)` 추가 — 글 존재 검증 → `findTopLevelPage`(PAGE_SIZE+1) → `findByParentIdInOrderByIdAsc` 일괄 로드 → 작성자 일괄 lookup(miss = `{memberId: null, nickname: "(삭제)", profileImageUrl: null}`) → `Page<CommentItemResponse>` 조립. `@Transactional(readOnly = true)`
 - [x] T014 [US2] `CommunityApi.kt` 문서 + `CommunityController.kt` 에 `GET /community/posts/{postId}/comments` 매핑(`@AuthMemberId`·`CursorParser`) → T011 **Green 확인** 후 리팩터
 
 **Checkpoint**: 작성+목록으로 댓글 스레드 왕복 완성.
