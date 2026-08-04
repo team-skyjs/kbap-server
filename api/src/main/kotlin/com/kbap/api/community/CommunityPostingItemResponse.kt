@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 @Schema(description = "커뮤니티 피드 항목이자 글 상세 응답")
-data class CommunityFeedItemResponse(
+data class CommunityPostingItemResponse(
     @field:Schema(description = "게시글 id", example = "42")
     val postId: Long,
 

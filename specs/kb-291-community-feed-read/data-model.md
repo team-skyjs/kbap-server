@@ -20,14 +20,14 @@
 
 | 메서드 | 형태 | 용도 |
 |--------|------|------|
-| `findFeedPage(cursor, pageable)` | `@Query` — `cursor null 이면 전체, 아니면 id < :cursor`, id DESC | 피드 페이지(PAGE_SIZE+1 건) |
+| `findPage(cursor, pageable)` | `@Query` — `cursor null 이면 전체, 아니면 id < :cursor`, id DESC | 피드 페이지(PAGE_SIZE+1 건) |
 | `findIdsFrom(cursor, pageable)` | `@Query` id 프로젝션 — `id >= :cursor`, LIMIT PAGE_SIZE+1 | 게스트 게이트 판정(R2) — 결과 > PAGE_SIZE 면 차단. LIMIT 로 최악 스캔을 21행에 고정 |
 
 둘 다 `@SQLRestriction` 으로 ACTIVE 만 본다 — status 조건을 손으로 달지 않는다(컨벤션).
 
 ## 읽기 표현 (api — `com.kbap.api.community`)
 
-### CommunityFeedItemResponse — 피드 항목이자 상세 응답 (동일 형태)
+### CommunityPostingItemResponse — 피드 항목이자 상세 응답 (동일 형태)
 
 | 필드 | 타입 | 소스 |
 |------|------|------|
@@ -56,7 +56,7 @@
 
 ### 페이지 봉투
 
-`api.core.Page<CommunityFeedItemResponse>` 재사용 — `items` / `hasNext` / `nextCursor`.
+`api.core.Page<CommunityPostingItemResponse>` 재사용 — `items` / `hasNext` / `nextCursor`.
 
 ## 상태·전이
 
@@ -65,7 +65,7 @@
 ## 조립 흐름 (단일 경로 — FR-010)
 
 ```
-피드: findFeedPage(cursor, 21) ─┐
+피드: findPage(cursor, 21) ─┐
 상세: findById(postId)        ─┴→ assemble(postings, lang):
                                     1. memberRepository.findAllById(작성자 id 집합)
                                     2. foodService.getReadyFoodsByIds(태그 id 합집합)

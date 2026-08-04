@@ -68,9 +68,9 @@ class CommunityService(
     }
 
     @Transactional(readOnly = true)
-    fun getFeedPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<CommunityFeedItemResponse> {
-        verifyGuestFeedAccess(viewerMemberId, cursor)
-        val rows = postingRepository.findFeedPage(cursor, PageRequest.of(0, PAGE_SIZE + 1))
+    fun getPostingPage(viewerMemberId: Long?, cursor: Long?, lang: LanguageCode): Page<CommunityPostingItemResponse> {
+        verifyGuestPageAccess(viewerMemberId, cursor)
+        val rows = postingRepository.findPage(cursor, PageRequest.of(0, PAGE_SIZE + 1))
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
         return Page(
@@ -81,7 +81,7 @@ class CommunityService(
     }
 
     @Transactional(readOnly = true)
-    fun getPosting(postId: Long, lang: LanguageCode): CommunityFeedItemResponse {
+    fun getPosting(postId: Long, lang: LanguageCode): CommunityPostingItemResponse {
         val posting = postingRepository.findById(postId).orElseThrow {
             BusinessException(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
         }
@@ -89,7 +89,7 @@ class CommunityService(
     }
 
     // 커서보다 최신인 글 수 = 이미 소비한 페이지 분량. LIMIT 프로젝션이라 깊은 커서에도 스캔이 21행에서 멈춘다.
-    private fun verifyGuestFeedAccess(viewerMemberId: Long?, cursor: Long?) {
+    private fun verifyGuestPageAccess(viewerMemberId: Long?, cursor: Long?) {
         if (viewerMemberId != null || cursor == null) return
         if (postingRepository.findIdsFrom(cursor, PageRequest.of(0, PAGE_SIZE + 1)).size > PAGE_SIZE) {
             throw BusinessException(ErrorCode.COMMUNITY_LOGIN_REQUIRED)
@@ -97,13 +97,13 @@ class CommunityService(
     }
 
     // 피드·상세 공용 단일 조립 지점 — 차단 필터·신고 숨김·번역 후속 태스크는 여기만 고친다.
-    private fun assemble(postings: List<Posting>, lang: LanguageCode): List<CommunityFeedItemResponse> {
+    private fun assemble(postings: List<Posting>, lang: LanguageCode): List<CommunityPostingItemResponse> {
         if (postings.isEmpty()) return emptyList()
         val authorsById = memberRepository.findAllById(postings.map { it.memberId }.toSet()).associateBy { it.id }
         val taggedFoodIds = postings.flatMap { it.foodIds.orEmpty() }.distinct()
         val foodsById = foodService.getReadyFoodsByIds(taggedFoodIds).associateBy { it.id }
         return postings.map { posting ->
-            CommunityFeedItemResponse(
+            CommunityPostingItemResponse(
                 postId = posting.id,
                 author = authorsById[posting.memberId]?.let { authorOf(it) } ?: WITHDRAWN_AUTHOR,
                 content = posting.content,

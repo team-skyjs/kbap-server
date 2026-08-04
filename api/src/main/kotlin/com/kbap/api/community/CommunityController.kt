@@ -68,13 +68,13 @@ class CommunityController(
     }
 
     @GetMapping("/community/posts")
-    override fun getFeedPage(
+    override fun getPostingPage(
         @AuthMemberIdOrNull memberId: Long?,
-        @Valid @ModelAttribute request: CommunityFeedRequest,
-    ): ResponseEntity<BaseResponse<Page<CommunityFeedItemResponse>>> =
+        @Valid @ModelAttribute request: CommunityPostingListRequest,
+    ): ResponseEntity<BaseResponse<Page<CommunityPostingItemResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                communityService.getFeedPage(
+                communityService.getPostingPage(
                     viewerMemberId = memberId,
                     cursor = CursorParser.parse(request.cursor),
                     lang = LanguageCode.from(request.lang),
@@ -87,7 +87,7 @@ class CommunityController(
         @AuthMemberIdOrNull memberId: Long?,
         @PathVariable postId: Long,
         @Valid @ModelAttribute request: CommunityPostingDetailRequest,
-    ): ResponseEntity<BaseResponse<CommunityFeedItemResponse>> =
+    ): ResponseEntity<BaseResponse<CommunityPostingItemResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(communityService.getPosting(postId, LanguageCode.from(request.lang))),
         )

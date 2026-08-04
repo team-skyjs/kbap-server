@@ -33,14 +33,14 @@ curl "localhost:8080/api/v1/community/posts/1?lang=en"
 
 | 위치 | 변경 |
 |------|------|
-| `common/.../domain/community/PostingJpaRepository.kt` | `findFeedPage` + `findIdsFrom`(게이트용) 추가 |
+| `common/.../domain/community/PostingJpaRepository.kt` | `findPage` + `findIdsFrom`(게이트용) 추가 |
 | `common/.../core/error/ErrorCode.kt` | `COMMUNITY_LOGIN_REQUIRED`(COMMUNITY-005, 401) 추가 |
-| `api/.../community/CommunityService.kt` | `getFeedPage`·`getPosting` + 단일 조립 함수 추가 |
-| `api/.../community/CommunityFeedItemResponse.kt` | 신규 — author·foodTags·counts 포함 응답 |
-| `api/.../community/CommunityFeedRequest.kt` | 신규 — lang 필수·cursor 선택 |
+| `api/.../community/CommunityService.kt` | `getPostingPage`·`getPosting` + 단일 조립 함수 추가 |
+| `api/.../community/CommunityPostingItemResponse.kt` | 신규 — author·foodTags·counts 포함 응답 |
+| `api/.../community/CommunityPostingListRequest.kt` | 신규 — lang 필수·cursor 선택 |
 | `api/.../community/CommunityController.kt`·`CommunityApi.kt` | GET 2개 추가(`@AuthMemberIdOrNull`) |
 | `api/.../core/auth/JwtAuthenticationFilter.kt` | GET 게스트 예외(`shouldNotFilter`) 추가 |
 | `api/.../core/config/WebConfig.kt` | 예외 패턴 주입 |
-| `api/src/test/.../community/CommunityFeedControllerTest.kt` | 신규 — 피드·게이트·상세·익명화 통합 테스트 |
+| `api/src/test/.../community/CommunityPostingReadControllerTest.kt` | 신규 — 피드·게이트·상세·익명화 통합 테스트 |
 
 Flyway 마이그레이션 없음.

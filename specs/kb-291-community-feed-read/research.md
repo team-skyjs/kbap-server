@@ -68,7 +68,7 @@
 
 ## R10. 단일 조회 경로 (FR-010)
 
-**Decision**: 조회 유스케이스를 `CommunityService` 의 두 public 메서드(`getFeedPage`·`getPosting`)로 두되, **게시글 → 응답 조립을 private 함수 하나**(작성자·음식 태그 일괄 로드 + 매핑)로 모은다. 피드와 상세가 같은 조립 함수를 지난다.
+**Decision**: 조회 유스케이스를 `CommunityService` 의 두 public 메서드(`getPostingPage`·`getPosting`)로 두되, **게시글 → 응답 조립을 private 함수 하나**(작성자·음식 태그 일괄 로드 + 매핑)로 모은다. 피드와 상세가 같은 조립 함수를 지난다.
 
 **Rationale**: 후속 차단 필터·신고 숨김·번역은 이 서비스의 조회 쿼리(차단)·조립 함수(번역) 한 곳만 고치면 피드·상세에 동시 반영된다. 리뷰의 차단 제외 패턴(`excludedMemberIds`, -1 센티널)을 그대로 이식할 수 있는 자리다. 별도 Reader 클래스는 현재 조각 수만 늘려 기각(컨벤션 — 위임 전용 계층 금지).
 

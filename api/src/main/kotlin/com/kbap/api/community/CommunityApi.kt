@@ -87,10 +87,10 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "게스트 허용 범위 초과(COMMUNITY-005), 만료 토큰(AUTH-004)"),
         ],
     )
-    fun getFeedPage(
+    fun getPostingPage(
         memberId: Long?,
-        request: CommunityFeedRequest,
-    ): ResponseEntity<BaseResponse<Page<CommunityFeedItemResponse>>>
+        request: CommunityPostingListRequest,
+    ): ResponseEntity<BaseResponse<Page<CommunityPostingItemResponse>>>
 
     @Operation(
         summary = "글 상세 조회",
@@ -109,5 +109,5 @@ interface CommunityApi {
         memberId: Long?,
         postId: Long,
         request: CommunityPostingDetailRequest,
-    ): ResponseEntity<BaseResponse<CommunityFeedItemResponse>>
+    ): ResponseEntity<BaseResponse<CommunityPostingItemResponse>>
 }
