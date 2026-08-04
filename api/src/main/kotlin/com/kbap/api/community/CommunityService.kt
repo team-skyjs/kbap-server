@@ -119,12 +119,14 @@ class CommunityService(
                     author = authorOf(comment.memberId),
                     content = comment.content,
                     createdAt = comment.createdAt,
+                    editedAt = comment.editedAt,
                     replies = repliesByParentId[comment.id].orEmpty().map { reply ->
                         CommentReplyResponse(
                             commentId = reply.id,
                             author = authorOf(reply.memberId),
                             content = reply.content,
                             createdAt = reply.createdAt,
+                            editedAt = reply.editedAt,
                         )
                     },
                 )

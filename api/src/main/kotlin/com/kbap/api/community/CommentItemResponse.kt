@@ -17,6 +17,9 @@ data class CommentItemResponse(
     @field:Schema(description = "작성 시각")
     val createdAt: LocalDateTime,
 
+    @field:Schema(description = "수정 시각(수정한 적 없으면 null) — 표시 여부는 클라이언트 판단", nullable = true)
+    val editedAt: LocalDateTime?,
+
     @field:Schema(description = "대댓글 목록(등록순, 없으면 빈 배열)")
     val replies: List<CommentReplyResponse>,
 )
@@ -34,6 +37,9 @@ data class CommentReplyResponse(
 
     @field:Schema(description = "작성 시각")
     val createdAt: LocalDateTime,
+
+    @field:Schema(description = "수정 시각(수정한 적 없으면 null) — 표시 여부는 클라이언트 판단", nullable = true)
+    val editedAt: LocalDateTime?,
 )
 
 @Schema(description = "댓글 작성자 표시 정보 — 탈퇴한 작성자는 memberId null + \"(삭제)\" 로 익명화된다")

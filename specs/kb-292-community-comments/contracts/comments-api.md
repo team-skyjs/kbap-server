@@ -95,7 +95,7 @@ Response payload (`Page<CommentItemResponse>`):
 ```
 
 - `author.memberId = null` ⇔ 탈퇴 작성자(익명화). 활성 회원은 피드 작성자 표기와 동일 규칙(닉네임 미설정 null·프로필 이미지 URL resolve).
-- `editedAt` 은 목록에 노출하지 않는다(수정 표시 없음 — 게시글과 동일 정책).
+- `editedAt` 을 목록 항목·대댓글에도 노출한다(수정한 적 없으면 null) — "(수정됨)" 표시 여부는 FE 판단(2026-08-05 개정, 게시글의 미노출 정책과 분리).
 
 | 상황 | HTTP | code |
 |------|------|------|

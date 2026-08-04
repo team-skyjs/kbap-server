@@ -86,11 +86,12 @@ class CommentReadControllerTest : BehaviorSpec() {
             content: String = "댓글 $commentId",
             parentId: Long? = null,
             status: String = "ACTIVE",
+            edited: Boolean = false,
         ): Unit =
             execute(
                 """
-                INSERT INTO community_comment (id, post_id, member_id, parent_id, content, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, NOW(6), NOW(6))
+                INSERT INTO community_comment (id, post_id, member_id, parent_id, content, edited_at, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ${if (edited) "NOW(6)" else "NULL"}, ?, NOW(6), NOW(6))
                 ON DUPLICATE KEY UPDATE id = id
                 """,
                 commentId,
@@ -116,8 +117,8 @@ class CommentReadControllerTest : BehaviorSpec() {
                     seedPost(8700L, 8600L)
                     seedMember(8601L)
                     seedComment(87001L, 8700L, 8601L, content = "첫 댓글")
-                    seedComment(87002L, 8700L, 8600L, content = "둘째 댓글")
-                    seedComment(87003L, 8700L, 8600L, content = "첫 댓글의 답1", parentId = 87001L)
+                    seedComment(87002L, 8700L, 8600L, content = "둘째 댓글", edited = true)
+                    seedComment(87003L, 8700L, 8600L, content = "첫 댓글의 답1", parentId = 87001L, edited = true)
                     seedComment(87004L, 8700L, 8601L, content = "첫 댓글의 답2", parentId = 87001L)
                     val token = accessToken(8602L)
 
@@ -131,10 +132,14 @@ class CommentReadControllerTest : BehaviorSpec() {
                     payload.path("items").size() shouldBe 2
                     payload.path("items")[0].path("commentId").asLong() shouldBe 87001L
                     payload.path("items")[0].path("author").path("nickname").asText() shouldBe "댓글독자8601"
+                    payload.path("items")[0].path("editedAt").isNull shouldBe true
                     payload.path("items")[0].path("replies").size() shouldBe 2
                     payload.path("items")[0].path("replies")[0].path("commentId").asLong() shouldBe 87003L
+                    payload.path("items")[0].path("replies")[0].path("editedAt").isNull shouldBe false
                     payload.path("items")[0].path("replies")[1].path("commentId").asLong() shouldBe 87004L
+                    payload.path("items")[0].path("replies")[1].path("editedAt").isNull shouldBe true
                     payload.path("items")[1].path("commentId").asLong() shouldBe 87002L
+                    payload.path("items")[1].path("editedAt").isNull shouldBe false
                     payload.path("items")[1].path("replies").size() shouldBe 0
                     payload.path("hasNext").asBoolean() shouldBe false
                 }
