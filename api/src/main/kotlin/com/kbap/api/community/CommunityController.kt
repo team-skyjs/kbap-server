@@ -84,7 +84,6 @@ class CommunityController(
 
     @GetMapping("/community/posts/{postId}")
     override fun getPosting(
-        @AuthMemberIdOrNull memberId: Long?,
         @PathVariable postId: Long,
         @Valid @ModelAttribute request: PostingDetailRequest,
     ): ResponseEntity<BaseResponse<PostingItemResponse>> =

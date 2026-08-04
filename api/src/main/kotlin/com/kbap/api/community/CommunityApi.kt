@@ -106,7 +106,6 @@ interface CommunityApi {
         ],
     )
     fun getPosting(
-        memberId: Long?,
         postId: Long,
         request: PostingDetailRequest,
     ): ResponseEntity<BaseResponse<PostingItemResponse>>
