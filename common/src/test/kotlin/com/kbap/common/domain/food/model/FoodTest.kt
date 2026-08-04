@@ -32,7 +32,7 @@ class FoodTest : BehaviorSpec({
             then("이름·설명·맵기를 그대로 보존한다") {
                 val food = create()
 
-                food.koreanName() shouldBe "된장찌개"
+                food.koreanName shouldBe "된장찌개"
                 food.description shouldBe "구수한 한국식 된장찌개"
                 food.spiciness shouldBe 3
             }
@@ -74,7 +74,7 @@ class FoodTest : BehaviorSpec({
             then("한국어 원문 이름을 반환한다") {
                 val food = create(nameTranslations = mapOf("en" to "Doenjang Stew"))
 
-                food.koreanName() shouldBe "된장찌개"
+                food.koreanName shouldBe "된장찌개"
             }
         }
     }
@@ -122,7 +122,7 @@ class FoodTest : BehaviorSpec({
                 val food = create(avoidanceSubstances = emptyList())
 
                 food.avoidanceSubstancesByProbability() shouldBe emptyList()
-                food.koreanName() shouldBe "된장찌개"
+                food.koreanName shouldBe "된장찌개"
             }
         }
     }
@@ -139,7 +139,7 @@ class FoodTest : BehaviorSpec({
 
                 food.nameTranslations shouldBe allNameTargets
                 food.needsNameTranslations() shouldBe false
-                food.koreanName() shouldBe "우주라면"
+                food.koreanName shouldBe "우주라면"
             }
         }
 
@@ -198,7 +198,7 @@ class FoodTest : BehaviorSpec({
             then("한국어명만 갖고 INCOMPLETE 상태이며 성분은 미조사(null)다") {
                 val food = Food.incomplete("우주라면")
 
-                food.koreanName() shouldBe "우주라면"
+                food.koreanName shouldBe "우주라면"
                 food.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                 food.isReady() shouldBe false
                 food.avoidanceSubstances shouldBe null
@@ -224,6 +224,63 @@ class FoodTest : BehaviorSpec({
                 shouldThrow<IllegalArgumentException> {
                     Food.incomplete("가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH + 1))
                 }
+            }
+        }
+    }
+
+    given("Food.incomplete — 표시명(원본 표기) 보존") {
+        `when`("매칭용 정규화명과 원본 표기를 함께 주면") {
+            then("두 이름을 각각 보존한다") {
+                val food = Food.incomplete("들깨칼국수", "들깨 칼국수")
+
+                food.koreanName shouldBe "들깨칼국수"
+                food.displayName shouldBe "들깨 칼국수"
+            }
+        }
+
+        `when`("원본 표기를 생략하면") {
+            then("매칭용 이름을 표시명으로 쓴다") {
+                Food.incomplete("우주라면").displayName shouldBe "우주라면"
+            }
+        }
+
+        `when`("표시명이 blank 이면") {
+            then("예외를 던진다") {
+                shouldThrow<IllegalArgumentException> { Food.incomplete("우주라면", " ") }
+            }
+        }
+
+        `when`("표시명이 컬럼 길이(255)를 넘으면") {
+            then("도메인이 거절한다") {
+                shouldThrow<IllegalArgumentException> {
+                    Food.incomplete("우주라면", "가".repeat(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH + 1))
+                }
+            }
+        }
+    }
+
+    given("Food.displayName(lang) — 한국어 표시값은 표시명") {
+        `when`("표시명이 매칭용 이름과 다르면") {
+            then("한국어 요청에 표시명(띄어쓰기 보존)을 반환한다") {
+                val food = Food.incomplete("들깨칼국수", "들깨 칼국수")
+
+                food.displayName(LanguageCode.KO) shouldBe "들깨 칼국수"
+            }
+        }
+
+        `when`("표시명이 비어 있으면(백필 이전 데이터)") {
+            then("매칭용 이름으로 폴백한다") {
+                val food = create().apply { displayName = "" }
+
+                food.displayName(LanguageCode.KO) shouldBe "된장찌개"
+            }
+        }
+
+        `when`("번역이 없는 지원 언어로 조회하면") {
+            then("표시명으로 폴백한다") {
+                val food = Food.incomplete("들깨칼국수", "들깨 칼국수")
+
+                food.displayName(LanguageCode.JA) shouldBe "들깨 칼국수"
             }
         }
     }

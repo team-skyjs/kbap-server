@@ -378,5 +378,32 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("upsertIncomplete — 매칭용 이름과 표시명 분리 저장") {
+            `when`("match key 와 원본 표기로 적재하면") {
+                then("두 이름을 각각 저장한다") {
+                    clear()
+
+                    foodJpaRepository.upsertIncomplete(listOf(Food.incomplete("들깨칼국수", "들깨 칼국수")))
+
+                    val saved = foodJpaRepository.findByKoreanNameIn(setOf("들깨칼국수")).single()
+                    saved.koreanName shouldBe "들깨칼국수"
+                    saved.displayName shouldBe "들깨 칼국수"
+                }
+            }
+
+            `when`("같은 match key 를 다른 표기로 다시 적재하면") {
+                then("신규 행 없이 먼저 저장된 표시명을 유지한다") {
+                    clear()
+                    foodJpaRepository.upsertIncomplete(listOf(Food.incomplete("들깨칼국수", "들깨 칼국수")))
+
+                    foodJpaRepository.upsertIncomplete(listOf(Food.incomplete("들깨칼국수", "들깨칼국수")))
+
+                    val rows = foodJpaRepository.findByKoreanNameIn(setOf("들깨칼국수"))
+                    rows.size shouldBe 1
+                    rows.single().displayName shouldBe "들깨 칼국수"
+                }
+            }
+        }
     }
 }

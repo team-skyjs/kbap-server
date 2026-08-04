@@ -133,6 +133,25 @@ class FoodDescriptionProcessorTest : BehaviorSpec() {
             }
         }
 
+        given("generateDescription — LLM 에 넘기는 이름") {
+            `when`("표시명이 match key 와 다르면") {
+                then("띄어쓰기가 살아 있는 표시명을 넘긴다") {
+                    val food = saveNeedingOnlyDescription("칼국수생성")
+                    food.displayName = "들깨 칼국수"
+                    foodJpaRepository.save(food)
+                    var received: String? = null
+                    val client = FoodDescriptionClient { korean ->
+                        received = korean
+                        FoodDescriptionContent("설명", fullTranslations("desc"))
+                    }
+
+                    processor(client).process(foodJpaRepository.findById(food.id).get())
+
+                    received shouldBe "들깨 칼국수"
+                }
+            }
+        }
+
         given("generateDescription — client 미구성") {
             `when`("설명이 필요한데 descriptionClient 가 없으면") {
                 then("명시적 예외로 실패한다(조용한 영구 INCOMPLETE 방지)") {

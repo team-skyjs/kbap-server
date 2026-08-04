@@ -4,6 +4,7 @@ import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
 import com.kbap.common.port.llm.FoodDescriptionClient
 import com.kbap.common.port.llm.FoodNameTranslationClient
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import org.springframework.batch.infrastructure.item.ItemProcessor
@@ -47,20 +48,20 @@ class FoodContentItemProcessor(
     private fun generateDescription(food: Food) {
         val client = descriptionClient
             ?: throw FoodContentClientNotConfiguredException("설명 생성 클라이언트가 구성되지 않았습니다: foodId=${food.id}")
-        val content = client.call(food.koreanName)
+        val content = client.call(food.displayName(LanguageCode.KO))
         food.updateDescription(content.description, content.translations.byCode())
     }
 
     private fun translateName(food: Food) {
         val client = nameTranslationClient
             ?: throw FoodContentClientNotConfiguredException("이름 번역 클라이언트가 구성되지 않았습니다: foodId=${food.id}")
-        food.updateNameTranslations(client.call(food.koreanName).byCode())
+        food.updateNameTranslations(client.call(food.displayName(LanguageCode.KO)).byCode())
     }
 
     private fun mapAvoidance(food: Food) {
         val codes = candidateCodes()
         if (codes.isEmpty()) return
-        val result = avoidanceClient.call(food.koreanName, codes)
+        val result = avoidanceClient.call(food.displayName(LanguageCode.KO), codes)
         val substances = result.substances
             .filter { it.inclusionPercent > 0 }
             .map { FoodAvoidanceItem(code = it.code, inclusionPercent = it.inclusionPercent) }

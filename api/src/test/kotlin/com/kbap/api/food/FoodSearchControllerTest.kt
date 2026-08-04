@@ -322,6 +322,54 @@ class FoodSearchControllerTest : BehaviorSpec() {
             }
         }
 
+        given("메뉴 검색 API — 표시명 띄어쓰기와 무관한 매칭 (KB-298)") {
+            fun seedSpacedFood() {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute("DELETE FROM member_ranking_event")
+                        statement.execute("DELETE FROM food_review")
+                        statement.execute("DELETE FROM food")
+                        statement.execute(
+                            "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
+                                "VALUES (620, '들깨칼국수', '들깨 칼국수', 'kalguksu.png', '들깨 칼국수 설명', 0, " +
+                                "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        )
+                    }
+                }
+            }
+
+            `when`("화면 표기 그대로(공백 포함) 검색하면") {
+                then("표시명을 그대로 담은 결과를 돌려준다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "들깨 칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+
+            `when`("공백 없이 검색하면") {
+                then("같은 음식을 찾는다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "들깨칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+        }
+
         given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {
             `when`("일본어 번역명에만 있는 키워드를 lang=ja 로 검색하면") {
                 then("해당 메뉴가 결과에 포함된다") {

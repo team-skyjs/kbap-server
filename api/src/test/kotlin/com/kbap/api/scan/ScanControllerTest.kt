@@ -89,6 +89,32 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun deleteFood(matchKey: String): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement("DELETE FROM food WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, matchKey)
+                    ps.executeUpdate()
+                }
+            }
+
+        fun updateDisplayName(matchKey: String, displayName: String): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE food SET display_name = ? WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, displayName); ps.setString(2, matchKey)
+                    ps.executeUpdate()
+                }
+            }
+
+        fun foodNames(matchKey: String): List<Pair<String, String>> =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT korean_name, display_name FROM food WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, matchKey)
+                    ps.executeQuery().use { rs ->
+                        buildList { while (rs.next()) add(rs.getString(1) to rs.getString(2)) }
+                    }
+                }
+            }
+
         fun scanCountOf(memberId: Long): Int =
             dataSource.connection.use { c ->
                 c.prepareStatement("SELECT scan_count FROM member WHERE id = ?").use { ps ->
@@ -552,6 +578,81 @@ class ScanControllerTest : BehaviorSpec() {
                         content = body("scan/510/x.jpg", 0 to "김치찌개")
                     }.andExpect {
                         status { isUnauthorized() }
+                    }
+                }
+            }
+        }
+
+        given("스캔 DB miss 적재 — 표시명(원본 표기) 보존") {
+            `when`("띄어쓰기가 있는 미등록 메뉴를 스캔하면") {
+                then("응답에 원본 표기가 담기고 DB 는 표시명·match key 를 나눠 저장한다") {
+                    val memberId = 530L
+                    val path = "scan/530/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("들깨칼국수")
+                    vision.program(path, listOf(ExtractedMenu("Kalguksu 들깨 칼국수", "들깨 칼국수", 11000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "들깨 칼국수")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].name") { value("들깨 칼국수") }
+                        jsonPath("$.payload.results[0].koreanName") { value("들깨 칼국수") }
+                    }
+
+                    foodNames("들깨칼국수") shouldBe listOf("들깨칼국수" to "들깨 칼국수")
+                }
+            }
+
+            `when`("표기만 다른 같은 메뉴를 다시 스캔하면") {
+                then("신규 음식 없이 먼저 저장된 표시명을 유지한다") {
+                    val memberId = 531L
+                    val path = "scan/531/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("순두부찌개")
+                    vision.program(path, listOf(ExtractedMenu("Sundubu 순두부 찌개", "순두부 찌개", 9000, matchedIdx = 0)))
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "순두부 찌개")
+                    }.andExpect { status { isOk() } }
+
+                    vision.program(path, listOf(ExtractedMenu("Sundubu 순두부찌개", "순두부찌개", 9000, matchedIdx = 0)))
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "순두부찌개")
+                    }.andExpect { status { isOk() } }
+
+                    foodNames("순두부찌개") shouldBe listOf("순두부찌개" to "순두부 찌개")
+                }
+            }
+
+            `when`("매칭된 음식이 표시명을 갖고 있으면") {
+                then("응답 name·koreanName 이 표시명으로 내려간다") {
+                    val memberId = 532L
+                    val path = "scan/532/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("표시명김치찌개")
+                    updateDisplayName("표시명김치찌개", "표시명 김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 표시명김치찌개", "표시명김치찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "표시명김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].name") { value("표시명 김치찌개") }
+                        jsonPath("$.payload.results[0].koreanName") { value("표시명 김치찌개") }
                     }
                 }
             }

@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -45,7 +46,7 @@ class FoodImageBatchSubmitService(
             }
             try {
                 val entries = chunk.map {
-                    FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.koreanName))
+                    FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.displayName(LanguageCode.KO)))
                 }
                 val openaiBatchId = client.submit(entries)
                 metaTransaction.executeWithoutResult {
