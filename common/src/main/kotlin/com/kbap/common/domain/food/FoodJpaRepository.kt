@@ -79,13 +79,21 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
-    fun findByKoreanNameContaining(koreanName: String, pageable: Pageable): Page<Food>
-
-    fun findByContentStatus(contentStatus: FoodContentStatus, pageable: Pageable): Page<Food>
-
-    fun findByKoreanNameContainingAndContentStatus(
-        koreanName: String,
-        contentStatus: FoodContentStatus,
+    @Query(
+        """
+        select f from Food f
+        where (:contentStatus is null or f.contentStatus = :contentStatus)
+          and (
+            :matchKeyword is null
+            or f.koreanName like concat('%', :matchKeyword, '%')
+            or f.displayName like concat('%', :rawKeyword, '%')
+          )
+        """,
+    )
+    fun searchAdminFoodPage(
+        @Param("matchKeyword") matchKeyword: String?,
+        @Param("rawKeyword") rawKeyword: String?,
+        @Param("contentStatus") contentStatus: FoodContentStatus?,
         pageable: Pageable,
     ): Page<Food>
 
@@ -122,11 +130,12 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
           and f.content_status = 'READY'
           and (:cursor is null or f.id < :cursor)
           and (
-            f.korean_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
+            f.korean_name collate utf8mb4_unicode_ci like concat('%', :matchKw, '%') escape '\\'
+            or f.display_name collate utf8mb4_unicode_ci like concat('%', :rawKw, '%') escape '\\'
             or (
               :jsonPath is not null
               and json_unquote(json_extract(f.name_translations, :jsonPath)) collate utf8mb4_unicode_ci
-                like concat('%', :kw, '%') escape '\\'
+                like concat('%', :rawKw, '%') escape '\\'
             )
           )
         order by f.id desc
@@ -134,7 +143,8 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun searchFoodPageIds(
-        @Param("kw") keyword: String,
+        @Param("matchKw") matchKeyword: String,
+        @Param("rawKw") rawKeyword: String,
         @Param("jsonPath") jsonPath: String?,
         @Param("cursor") cursor: Long?,
         @Param("size") size: Int,

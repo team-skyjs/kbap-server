@@ -13,7 +13,8 @@ class FoodRepositoryCustomImpl(
             insert into food (korean_name, display_name, description, spiciness, name_translations, description_translations,
                               avoidance_substances, content_status, status, created_at, updated_at)
             values $rows
-            on duplicate key update id = id
+            on duplicate key update
+                display_name = if(food.display_name = '', values(display_name), food.display_name)
             """.trimIndent()
         val params: List<Any> = foods.flatMap {
             listOf(it.koreanName, it.displayName, it.description, it.spiciness, it.contentStatus.name)

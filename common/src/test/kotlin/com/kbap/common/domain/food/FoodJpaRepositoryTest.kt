@@ -252,7 +252,8 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     savePendingReview("탐색-된장찌개")
 
                     val ids = foodJpaRepository.searchFoodPageIds(
-                        keyword = "탐색",
+                        matchKeyword = "탐색",
+                        rawKeyword = "탐색",
                         jsonPath = null,
                         cursor = null,
                         size = 10,
@@ -402,6 +403,21 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     val rows = foodJpaRepository.findByKoreanNameIn(setOf("들깨칼국수"))
                     rows.size shouldBe 1
                     rows.single().displayName shouldBe "들깨 칼국수"
+                }
+            }
+
+            `when`("표시명이 비어 있는 기존 행에 다시 적재하면") {
+                then("빈 표시명을 새 표기로 채운다(백필 누락·구버전 쓰기 자가 치유)") {
+                    clear()
+                    val blank = foodJpaRepository.save(Food.incomplete("순두부찌개"))
+                    blank.displayName = ""
+                    foodJpaRepository.save(blank)
+
+                    foodJpaRepository.upsertIncomplete(listOf(Food.incomplete("순두부찌개", "순두부 찌개")))
+
+                    val rows = foodJpaRepository.findByKoreanNameIn(setOf("순두부찌개"))
+                    rows.size shouldBe 1
+                    rows.single().displayName shouldBe "순두부 찌개"
                 }
             }
         }

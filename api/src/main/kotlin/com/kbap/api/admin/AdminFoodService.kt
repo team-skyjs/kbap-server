@@ -28,16 +28,15 @@ class AdminFoodService(
 
     @Transactional(readOnly = true)
     fun getFoodPage(page: Int, query: String? = null, status: FoodContentStatus? = null): AdminFoodListPageView {
-        // 관리자 검색어도 match key 기준 — 화면 표기(공백 포함)로 찾아도 걸리게 한다
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
-            ?.let { KoreanMenuNameNormalizer.matchKey(it).ifBlank { it } }
         val pageable = PageRequest.of(page - 1, LIST_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result = when {
-            keyword == null && status == null -> foodRepository.findAll(pageable)
-            keyword == null -> foodRepository.findByContentStatus(status!!, pageable)
-            status == null -> foodRepository.findByKoreanNameContaining(keyword, pageable)
-            else -> foodRepository.findByKoreanNameContainingAndContentStatus(keyword, status, pageable)
-        }
+        // match key 컬럼에는 정규화 검색어를, 표기 그대로인 display_name 에는 원문 검색어를 태운다
+        val result = foodRepository.searchAdminFoodPage(
+            matchKeyword = keyword?.let { KoreanMenuNameNormalizer.matchKey(it).ifBlank { it } },
+            rawKeyword = keyword,
+            contentStatus = status,
+            pageable = pageable,
+        )
         return AdminFoodListPageView(
             items = result.content.map { AdminFoodSummaryView.from(it, imagePublicBaseUrl) },
             page = page,

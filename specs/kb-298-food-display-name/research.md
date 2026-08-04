@@ -32,11 +32,25 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 선택지
 
 `ScanHistory.koreanName` 은 이미 원본 표기를 저장(스펙 Assumption — 변경 대상 아님).
 
-## R4. KO 검색 회귀 방지
+## R4. KO 검색 회귀 방지 (Codex 리뷰 후 개정)
 
-- **Decision**: `FoodService.getFoodsByKeyword` 의 KO 분기에서 키워드를 `KoreanMenuNameNormalizer.matchKey` 로 정규화해 `korean_name` LIKE 에 태운다(정규화 결과 blank 면 기존 키워드 그대로).
-- **Rationale**: 화면이 "김치 찌개" 를 보여주기 시작하면 사용자가 그 표기대로 검색한다 — 정규화 없이는 매칭 실패(눈에 보이는 회귀). 키워드 정규화는 공백 유무 불문 매칭을 만들며 검색 대상 컬럼·인덱스·쿼리 형태는 그대로다.
-- **Alternatives considered**: `display_name` LIKE 로 교체 — 공백 없이 검색("김치찌개")하면 표시명("김치 찌개")과 미매칭, 역방향 회귀. 두 컬럼 OR — 쿼리 확장 대비 이득 없음(정규화 키워드가 두 케이스 모두 커버). 기각.
+- **Decision**: 검색어를 두 갈래로 쓴다 — **match key 컬럼(`korean_name`)에는 정규화 검색어**, **표기 그대로인 컬럼(`display_name`·번역 JSON)에는 원문 검색어**(각각 따로 LIKE 이스케이프). 사용자 검색(`FoodService.getFoodsByKeyword`)과 관리자 목록 검색(`AdminFoodService.getFoodPage`)에 동일 적용.
+- **Rationale**: 정규화만 하면 띄어쓰기 무관 매칭은 얻지만 **표시명에만 있는 영문·숫자 조각을 잃는다** — "BHC 치킨"(match key "치킨")을 "BHC" 로 검색하면 0건. 반대로 원문만 쓰면 "김치찌개" 로 "김치 찌개" 를 못 찾는다. 두 컬럼을 각자 맞는 검색어로 OR 하면 두 실패 모드가 모두 사라진다.
+- **초기 결정과의 차이**: 최초엔 "정규화 키워드 하나가 두 케이스를 모두 커버한다"고 보고 두 컬럼 OR 을 기각했으나, Codex 리뷰가 반례("BHC")를 제시해 뒤집었다. 정규화 키워드는 한글 조각만 커버한다.
+- **감수하는 비용**: 한글과 비한글이 섞인 검색어("김치 500g")는 `korean_name` 분기에서 비한글 부분이 떨어져 나가 결과가 넓어질 수 있다. 0건보다 낫다고 판단해 수용한다.
+- **Alternatives considered**: `display_name` LIKE 단독 교체 — 공백 없이 검색하면 미매칭, 역방향 회귀. 기각.
+
+## R7. 빈 표시명 자가 치유 (Codex 리뷰 반영)
+
+- **Decision**: 스캔 적재 upsert 의 충돌 절을 `on duplicate key update display_name = if(food.display_name = '', values(display_name), food.display_name)` 으로 바꾼다.
+- **Rationale**: `DEFAULT ''` 는 영구 존치라, 롤링 배포 중 구버전 인스턴스가 쓰거나 raw INSERT 가 들어오면 백필 이후에도 빈 표시명 행이 생길 수 있다(운영 api 2대). 조건부 채움은 first-write-wins 를 깨지 않으면서(비어 있을 때만 채움) 그런 행을 다음 스캔에 자동 복구한다. 읽기 폴백과 합쳐 2중 방어.
+- **Alternatives considered**: 2단계 롤아웃 후 `DEFAULT` 제거 — 마이그레이션 1건이 더 필요하고, 흩어진 raw INSERT 테스트 시드가 전부 깨진다. 이득 대비 비용이 커 기각(빈 값이 사용자에게 노출되지 않는다는 점이 이미 폴백으로 보장됨).
+
+## R8. 이전 정규화에서 건너뛴 행 마무리 (Codex 리뷰 반영)
+
+- **Decision**: 신규 마이그레이션에서 display_name 백필 **뒤에** `korean_name` 정규화를 한 번 더 돌린다(V2026.07.21 과 동일 조건 — 충돌·빈 결과 행은 제외).
+- **Rationale**: 이전 마이그레이션은 정규화하면 이름이 뭉개져 보이는 문제 때문에 일부 행을 "수동 정리 대상" 으로 남겼고, 그 행들은 `korean_name != matchKey(korean_name)` 상태다. 이제 백필이 원본 표기를 `display_name` 에 보존하므로 **정규화가 무손실**이 되어 미룰 이유가 없다. 순서가 중요하다(백필 → 정규화).
+- **남는 것**: unique 충돌 행은 병합 판단이 필요해 그대로 둔다. 앱이 match key 로 조회하므로 이 행들은 지금처럼 스캔 매칭에서 빠진 상태가 유지된다(수동 정리 대상).
 
 ## R5. 관리자 음식명 수정 의미론
 

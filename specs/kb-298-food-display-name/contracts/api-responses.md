@@ -21,8 +21,8 @@
 |-----|---------|------------|
 | 관리자 음식 수정 | `koreanName` | 입력 = 표기 교정값 → `display_name` 저장 + `korean_name = matchKey(입력)` 재정규화. 중복 검사는 match key 기준(409 조건 동일) |
 | 관리자 시드 등록 (`POST /api/v1/admin/foods/seed`) | `koreanNames[]` | 입력 원본 표기 → `display_name`, `matchKey(입력)` → `korean_name`. 중복 판정은 match key 기준(기존과 동일 건수 응답) |
-| 음식 검색 (`keyword`, lang=ko) | `keyword` | 서버가 match key 로 정규화해 매칭 — 공백 유무 불문 동일 결과("김치 찌개" = "김치찌개"). 정규화 결과가 빈 문자열이면(영문·기호 검색어) 원 키워드를 그대로 이스케이프해 사용 |
-| 관리자 음식 목록 검색 (`query`) | `query` | 동일하게 match key 정규화 — 운영자가 화면 표기로 검색해도 찾힌다 |
+| 음식 검색 (`keyword`) | `keyword` | match key 컬럼에는 정규화 검색어, 표시명·번역에는 원문 검색어로 OR 매칭 — 공백 유무 불문("김치 찌개" = "김치찌개")이면서 표시명에만 있는 영문·숫자 조각("BHC")도 찾힌다 |
+| 관리자 음식 목록 검색 (`query`) | `query` | 동일한 두 갈래 매칭 |
 
 ## 클라이언트 호환성
 
