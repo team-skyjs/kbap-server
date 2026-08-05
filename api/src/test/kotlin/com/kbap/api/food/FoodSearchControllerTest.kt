@@ -369,32 +369,6 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("표시명에만 있는 영문·숫자 조각으로 검색하면") {
-                then("match key 에서 지워진 조각이어도 표시명으로 찾는다") {
-                    dataSource.connection.use { connection ->
-                        connection.createStatement().use { statement ->
-                            statement.execute("DELETE FROM member_ranking_event")
-                            statement.execute("DELETE FROM food_review")
-                            statement.execute("DELETE FROM food")
-                            statement.execute(
-                                "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
-                                    "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                                    "VALUES (621, '치킨', 'BHC 치킨', 'chicken.png', '치킨 설명', 0, " +
-                                    "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                            )
-                        }
-                    }
-
-                    mockMvc.get("/api/v1/foods/search") {
-                        param("keyword", "BHC")
-                        param("lang", "ko")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.items.length()") { value(1) }
-                        jsonPath("$.payload.items[0].name") { value("BHC 치킨") }
-                    }
-                }
-            }
         }
 
         given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {

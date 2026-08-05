@@ -252,8 +252,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     savePendingReview("탐색-된장찌개")
 
                     val ids = foodJpaRepository.searchFoodPageIds(
-                        matchKeyword = "탐색",
-                        rawKeyword = "탐색",
+                        keyword = "탐색",
                         jsonPath = null,
                         cursor = null,
                         size = 10,

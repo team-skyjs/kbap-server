@@ -45,17 +45,10 @@ class FoodService(
     @Transactional(readOnly = true)
     internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        // match key 컬럼(korean_name)에는 같은 규칙으로 정규화한 검색어를, 표기 그대로인 컬럼
-        // (display_name·번역)에는 원문 검색어를 태운다 — 띄어쓰기 무관 매칭과 영문·숫자 조각 매칭을 함께 얻는다
-        val matchKeyword = KoreanMenuNameNormalizer.matchKey(keyword).ifBlank { keyword }
+        // korean_name 은 match key 라 화면 표기(띄어쓰기 포함)로 들어온 검색어를 같은 규칙으로 정규화해 맞춘다
+        val koreanKeyword = KoreanMenuNameNormalizer.matchKey(keyword).ifBlank { keyword }
         return loadDescending(
-            foodRepository.searchFoodPageIds(
-                matchKeyword = escapeLikeWildcards(matchKeyword),
-                rawKeyword = escapeLikeWildcards(keyword),
-                jsonPath = jsonPath,
-                cursor = cursor,
-                size = size,
-            ),
+            foodRepository.searchFoodPageIds(escapeLikeWildcards(koreanKeyword), jsonPath, cursor, size),
         )
     }
 
