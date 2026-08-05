@@ -61,8 +61,8 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("표시명 띄어쓰기를 포함해 검색하면") {
-                then("match key 정규화로 같은 음식을 찾는다") {
+            `when`("표시명 표기 그대로 검색하면") {
+                then("표시명 부분 일치로 찾는다") {
                     foodJpaRepository.save(
                         Food(koreanName = "검색들깨칼국수", displayName = "검색 들깨 칼국수", description = "설명"),
                     )

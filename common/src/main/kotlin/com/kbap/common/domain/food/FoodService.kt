@@ -10,7 +10,6 @@ import com.kbap.common.domain.food.dto.SearchFoodsInput
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
 import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
@@ -45,10 +44,8 @@ class FoodService(
     @Transactional(readOnly = true)
     internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        // korean_name 은 match key 라 화면 표기(띄어쓰기 포함)로 들어온 검색어를 같은 규칙으로 정규화해 맞춘다
-        val koreanKeyword = KoreanMenuNameNormalizer.matchKey(keyword).ifBlank { keyword }
         return loadDescending(
-            foodRepository.searchFoodPageIds(escapeLikeWildcards(koreanKeyword), jsonPath, cursor, size),
+            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size),
         )
     }
 

@@ -25,7 +25,7 @@ class Food(
     var koreanName: String = "",
 
     @Column(name = "display_name", nullable = false, length = 255)
-    var displayName: String = "",
+    var displayName: String = koreanName,
 
     @Column(name = "image_ref", length = 500)
     var imageRef: String? = null,

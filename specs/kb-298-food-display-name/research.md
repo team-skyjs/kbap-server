@@ -14,6 +14,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 선택지
 
 - **Decision**: `VARCHAR(255) NOT NULL DEFAULT ''` + 백필 UPDATE, 읽기 시 `displayName.ifBlank { koreanName }` 폴백.
 - **Rationale**: 테스트 다수(`AdminControllerTest`·`BookmarkControllerTest`·`FoodTestSeed` 등 10+ 파일)가 raw `insert into food (...)` 시드를 쓴다. DEFAULT 없이 NOT NULL 로 만들면 전부 수정해야 한다(메모리: food 컬럼 추가 시 전체 build 로만 잡히는 함정). DEFAULT '' 는 시드 무수정 흡수 + 프로덕션 백필로 FR-005(빈 표시명 0건) 충족, 폴백은 혹시 남을 빈 값의 화면 노출을 차단(edge case 방어).
+- **엔티티 기본값**: 생성자에서 `var displayName: String = koreanName` 으로 두어(Kotlin 은 뒤 파라미터가 앞 파라미터를 참조할 수 있다) 엔티티로 만드는 모든 경로가 자동으로 표시명을 갖는다. JPA 라이프사이클 콜백보다 단순하고 안전하다.
 - **Alternatives considered**: nullable 컬럼 — Kotlin 프로퍼티가 `String?` 이 되어 소비처 전부에 null 분기 전파. 기각.
 
 ## R3. 소비처 교체 지점 — 전수 조사 결과
@@ -32,12 +33,15 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 선택지
 
 `ScanHistory.koreanName` 은 이미 원본 표기를 저장(스펙 Assumption — 변경 대상 아님).
 
-## R4. KO 검색 회귀 방지
+## R4. 검색 기준 컬럼 — 표시명(display_name)
 
-- **Decision**: `FoodService.getFoodsByKeyword` 의 KO 분기와 관리자 목록 검색에서 키워드를 `KoreanMenuNameNormalizer.matchKey` 로 정규화해 `korean_name` LIKE 에 태운다(정규화 결과 blank 면 원 키워드 그대로, 이스케이프 유지).
-- **Rationale**: 화면이 "김치 찌개" 를 보여주기 시작하면 사용자가 그 표기대로 검색한다 — 정규화 없이는 매칭 실패이고, 이는 **이 PR 이 스스로 만드는 회귀**라 최소한으로 막아야 한다. 검색 대상 컬럼·인덱스·쿼리 형태는 그대로다.
-- **알려진 한계(의도적 보류)**: `display_name` 은 검색 대상이 아니다. 표시명에만 있는 영문·숫자 조각으로는 못 찾는다(예: 표시명 "BHC 치킨", match key "치킨" → "BHC" 검색 시 0건). 한글·비한글이 섞인 검색어는 `korean_name` 분기에서 비한글 부분이 떨어져 결과가 넓어질 수 있다. Codex 리뷰가 두 컬럼 OR 매칭을 제안했고 한 번 구현했으나, **검색 자체를 별도 솔루션으로 교체할 예정**이라 임시 확장을 걷어내고 최소 정규화만 남겼다(2026-08-05 결정).
-- **Alternatives considered**: `display_name` LIKE 단독 교체 — 공백 없이 검색하면 미매칭, 역방향 회귀. 기각. 두 컬럼 OR — 위 한계를 해소하지만 곧 교체될 구현에 쿼리·분기를 늘리는 비용이라 보류.
+- **Decision**: 사용자 검색·관리자 목록 검색 모두 **`display_name` 부분 일치**로 찾는다(검색어는 원문 그대로, LIKE 이스케이프만 적용). match key 정규화는 검색에 쓰지 않는다.
+- **Rationale**: 사용자는 **화면에 보이는 이름을 그대로 입력**한다. 검색 대상이 화면 표기와 같으면 입력·결과·표시가 한 축으로 정렬돼 UX 가 자연스럽고, 표시명에만 있는 영문·숫자 조각("BHC 치킨" 의 "BHC")도 그대로 찾힌다. 검색 대상 컬럼만 바뀌고 쿼리 형태·이스케이프 로직은 그대로다.
+- **감수하는 비용**: 띄어쓰기를 생략한 검색어("들깨칼국수")는 공백이 있는 표시명("들깨 칼국수")과 LIKE 로 매칭되지 않는다. 형태소·오타 보정과 함께 **후속 검색 솔루션(Elastic 등)에서 해소**할 영역으로 두고, 여기서 정규화·다중 컬럼으로 부분 대응하지 않는다(곧 교체될 구현에 분기를 늘리지 않는다).
+- **전제**: `display_name` 이 빈 행은 검색에 걸리지 않는다. 마이그레이션 백필 + 엔티티 기본값(`displayName = koreanName`) + 자가 치유 upsert(R7) 3중으로 빈 값이 남지 않게 한다.
+- **Alternatives considered**:
+  - match key 정규화 검색(`korean_name`): 띄어쓰기 무관 매칭은 얻지만 표시명의 영문·숫자 조각을 잃고, 검색 대상이 화면 표기와 어긋난다. 기각.
+  - 두 컬럼 OR(정규화+원문): 두 실패 모드를 모두 없애지만 쿼리·분기가 늘고 곧 교체될 구현이라 보류.
 
 ## R5. 관리자 음식명 수정 의미론
 

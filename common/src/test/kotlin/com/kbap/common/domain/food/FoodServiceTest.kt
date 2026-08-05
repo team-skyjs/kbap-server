@@ -453,14 +453,15 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("검색어 가운데에 _ 가 섞여 있으면 (김_치)") {
-                then("임의 1문자로 해석하지 않고 한글만 남긴 match key(김치)로 매칭한다") {
+                then("임의 1문자로 해석하지 않아 김밥치즈 는 매칭되지 않는다") {
                     clearFoods()
-                    val kimchiStew = saveFood("김치찌개")
+                    saveFood("김치찌개")
                     saveFood("김밥치즈")
+                    val underscore = saveFood("김_치")
 
                     val page = service.getFoodsByKeyword("김_치", LanguageCode.KO, null, 20)
 
-                    page.map { it.id } shouldBe listOf(kimchiStew)
+                    page.map { it.id } shouldBe listOf(underscore)
                 }
             }
 

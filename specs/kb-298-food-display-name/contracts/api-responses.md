@@ -21,8 +21,8 @@
 |-----|---------|------------|
 | 관리자 음식 수정 | `koreanName` | 입력 = 표기 교정값 → `display_name` 저장 + `korean_name = matchKey(입력)` 재정규화. 중복 검사는 match key 기준(409 조건 동일) |
 | 관리자 시드 등록 (`POST /api/v1/admin/foods/seed`) | `koreanNames[]` | 입력 원본 표기 → `display_name`, `matchKey(입력)` → `korean_name`. 중복 판정은 match key 기준(기존과 동일 건수 응답) |
-| 음식 검색 (`keyword`) | `keyword` | 서버가 match key 로 정규화해 `korean_name` 매칭 — 공백 유무 불문 동일 결과("김치 찌개" = "김치찌개"). 정규화 결과가 비면 원 키워드를 이스케이프해 사용. `display_name` 은 검색 대상이 아니다(별도 검색 솔루션으로 교체 예정) |
-| 관리자 음식 목록 검색 (`query`) | `query` | 동일하게 match key 정규화 |
+| 음식 검색 (`keyword`) | `keyword` | 검색 대상이 `korean_name`(match key) → **`display_name`(화면 표기)** 로 바뀐다. 화면에 보이는 이름 그대로 검색하며 표시명에만 있는 영문·숫자 조각도 찾힌다. 띄어쓰기를 생략한 검색어는 공백 있는 표시명과 매칭되지 않는다(후속 검색 솔루션에서 해소) |
+| 관리자 음식 목록 검색 (`query`) | `query` | 동일하게 `display_name` 부분 일치 |
 
 ## 클라이언트 호환성
 
