@@ -21,6 +21,6 @@
 
 ## 배포 메모
 
-- 마이그레이션 3파일이 한 릴리스에 포함된다: schema → backfill → drop (timestamp 순).
-- 롤링 배포 윈도우 동안 구 인스턴스의 member 조회가 실패할 수 있다(research.md R3) — 저트래픽 시간대 배포.
-- 실패 시나리오: backfill 실패 → drop 미실행, JSON 원본 보존 → 원인 수정 후 재배포(Flyway 재시도).
+- 마이그레이션 3파일이 한 릴리스에 포함된다: schema → backfill → profile nullable 전환 (timestamp 순). **컬럼 drop 은 후속 릴리스**(research.md R3).
+- 컬럼이 남아 있어 구 인스턴스 조회는 롤링 윈도우 중에도 동작한다. 엣지는 새 코드가 만든 회원(profile NULL)을 구 코드가 읽는 짧은 구간뿐.
+- 실패 시나리오: backfill 실패 → JSON 원본 보존 → 원인 수정 후 재배포(Flyway 재시도).

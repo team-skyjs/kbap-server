@@ -37,11 +37,11 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 설계 갈림길 4건을 �
 **Decision**: Flyway 마이그레이션 3개(점 구분 timestamp 버전, 생성 시각 순서대로):
 1. **schema** — `ALTER TABLE member ADD COLUMN` 4종(단일 값 3 + `avoidance_substance_codes` JSON).
 2. **backfill** — 단일 UPDATE: 단일 값 3종은 `JSON_UNQUOTE(JSON_EXTRACT(...))`(이미지 경로는 `TRIM(LEADING '/')` 로 legacy 슬래시 정규화), 코드 목록은 `JSON_EXTRACT(profile, '$.avoidanceSubstanceCodes')` 배열을 그대로 이관(속성 결손 시 빈 배열). 소프트 삭제 회원 포함 전 행 대상.
-3. **drop** — `ALTER TABLE member DROP COLUMN profile`.
+3. **nullable 전환** — `ALTER TABLE member MODIFY COLUMN profile json NULL`. 신규 코드가 이 컬럼을 매핑하지 않으므로(신규 가입 행 NULL) NOT NULL 을 해제한다. **컬럼 drop 은 평탄화 안정화 확인 후 후속 릴리스로 분리**(2026-08-06 결정 — 초기 drop 안을 대체. 구코드가 JSON 을 계속 읽을 수 있어 롤링 윈도우·롤백 리스크가 사라진다).
 
 **Rationale**: 단계 분리로 FR-007 충족 — backfill 이 실패하면 drop 은 실행되지 않아 JSON 원본이 보존되고 재시도 가능하다(MySQL DDL 은 비트랜잭션이므로 한 파일에 섞으면 부분 적용 위험). 같은 브랜치에서 생성돼 timestamp 순서가 보장되므로 상호 순서 의존이 병렬 브랜치 out-of-order 규칙과 충돌하지 않는다.
 
-**배포 주의(롤링 윈도우)**: 운영 api 2대 롤링 배포 시, 새 인스턴스 기동(Flyway 로 drop 적용) 후 구 인스턴스가 내려가기 전까지 구 코드의 member SELECT(profile 컬럼 포함)가 실패한다. 회원 수·트래픽 규모상 짧은 윈도우를 감수한다(전 회차 spiciness JSON 재작성 마이그레이션과 동일한 수용 기준). drop 만 후속 릴리스로 미루는 expand-contract 는 팀 규모 대비 과하다고 판단 — 배포 시점만 저트래픽 시간대로 잡는다.
+**배포 주의(롤링 윈도우)**: 컬럼이 남아 있으므로 구 인스턴스의 member SELECT 는 계속 동작한다. 유일한 엣지는 윈도우 중 **새 코드가 만든 회원(profile NULL)** 을 구 코드가 읽는 경우 — 회원가입 직후 조회가 구 인스턴스로 라우팅되는 짧은 구간뿐이라 감수한다.
 
 **Alternatives considered**: 단일 파일 통합 — 실패 시 부분 적용 상태(컬럼은 생겼는데 백필 안 됨 + DDL 은 롤백 불가)로 재시도 복잡. 기각.
 

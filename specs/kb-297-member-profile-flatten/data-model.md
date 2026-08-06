@@ -4,7 +4,7 @@
 
 | 컬럼 | 타입 | 제약 | 변경 |
 |------|------|------|------|
-| `profile` | json | NOT NULL | **삭제** (drop 마이그레이션) |
+| `profile` | json | NULL 로 완화 | **매핑 해제 + nullable 전환** — drop 은 안정화 후 후속 릴리스(R3, 2026-08-06 결정) |
 | `spiciness_preference` | ENUM('SKIP','NONE','MILD','MEDIUM','HOT','EXTREME') | NOT NULL DEFAULT 'SKIP' | **추가** |
 | `country_code` | VARCHAR(2) | NULL | **추가** |
 | `profile_image_url` | VARCHAR(512) | NULL | **추가** |
