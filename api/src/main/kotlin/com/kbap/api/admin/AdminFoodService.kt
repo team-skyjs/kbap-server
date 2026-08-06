@@ -72,7 +72,6 @@ class AdminFoodService(
             return AdminFoodUpdateResult.INVALID_JSON
         }
 
-        // 입력은 화면 표기(display) — match key 는 같은 정규화 규칙으로 다시 뽑아 스캔 매칭 드리프트를 막는다
         val matchKey = KoreanMenuNameNormalizer.matchKey(command.koreanName)
         if (matchKey.isEmpty()) return AdminFoodUpdateResult.INVALID_NAME
 

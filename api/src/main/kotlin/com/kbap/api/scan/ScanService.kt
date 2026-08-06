@@ -72,7 +72,6 @@ class ScanService(
     fun getRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 
-    // 매칭·중복 방지는 정규화 match key(korean_name) 기준, 화면 표기는 추출 원본(display_name) 기준이다
     private fun resolveFoods(extracted: List<ExtractedMenu>): Map<String, Food> {
         val displayNamesByMatchKey = extracted
             .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) to it.koreanName }

@@ -20,7 +20,6 @@ import org.hibernate.type.SqlTypes
     uniqueConstraints = [UniqueConstraint(name = "uq_food_korean_name", columnNames = ["korean_name"])],
 )
 class Food(
-    // 중복 방지 match key — KoreanMenuNameNormalizer.matchKey 결과를 유지한다(표시용 아님)
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",
 
