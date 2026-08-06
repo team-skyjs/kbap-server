@@ -61,6 +61,16 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("표시명 표기 그대로 검색하면") {
+                then("표시명 부분 일치로 찾는다") {
+                    foodJpaRepository.save(
+                        Food(koreanName = "검색들깨칼국수", displayName = "검색 들깨 칼국수", description = "설명"),
+                    )
+
+                    namesOf(service.getFoodPage(1, "검색 들깨")) shouldContainExactlyInAnyOrder listOf("검색 들깨 칼국수")
+                }
+            }
+
             `when`("검색어가 null 이면") {
                 then("전체 목록을 반환하고 query 는 null 이다") {
                     saveSearchFixtures()
@@ -214,6 +224,30 @@ class AdminFoodServiceTest : BehaviorSpec() {
             fun saveIncompleteFood(koreanName: String): Long =
                 foodJpaRepository.save(Food.incomplete(koreanName)).id
 
+            `when`("띄어쓰기를 넣어 이름을 교정하면") {
+                then("표시명은 교정 표기로, 매칭용 이름은 재정규화된 match key 로 저장된다") {
+                    val id = saveIncompleteFood("교정들깨칼국수")
+
+                    val result = service.updateFood(id, completeCommand("교정 들깨 칼국수", FoodContentStatus.INCOMPLETE))
+
+                    result shouldBe AdminFoodUpdateResult.UPDATED
+                    val saved = foodJpaRepository.findById(id).get()
+                    saved.displayName shouldBe "교정 들깨 칼국수"
+                    saved.koreanName shouldBe "교정들깨칼국수"
+                }
+            }
+
+            `when`("다른 음식과 match key 가 겹치는 표기로 교정하면") {
+                then("중복으로 거절한다") {
+                    saveIncompleteFood("중복부대찌개")
+                    val id = saveIncompleteFood("교정대상음식")
+
+                    val result = service.updateFood(id, completeCommand("중복 부대 찌개", FoodContentStatus.INCOMPLETE))
+
+                    result shouldBe AdminFoodUpdateResult.DUPLICATE_NAME
+                }
+            }
+
             `when`("검수 이전 상태를 고른 채 텍스트를 완비하고 이미지 없이 저장하면") {
                 then("PENDING_IMAGE 로 자동 보정된다") {
                     val id = saveIncompleteFood("보정이미지대기음식")
@@ -313,6 +347,16 @@ class AdminFoodServiceTest : BehaviorSpec() {
                     result shouldBe SeedIncompleteResult(requested = 1, created = 1, skipped = 0)
                     foodsByNames(setOf("김치찌개")).keys shouldBe setOf("김치찌개")
                     foodJpaRepository.count() shouldBe 1
+                }
+            }
+
+            `when`("띄어쓰기가 있는 표기로 시드하면") {
+                then("표시명에 원본 표기를 보존한다") {
+                    service.seedIncomplete(setOf("시드 들깨 칼국수"))
+
+                    val food = foodsByNames(setOf("시드들깨칼국수")).getValue("시드들깨칼국수")
+                    food.koreanName shouldBe "시드들깨칼국수"
+                    food.displayName shouldBe "시드 들깨 칼국수"
                 }
             }
 

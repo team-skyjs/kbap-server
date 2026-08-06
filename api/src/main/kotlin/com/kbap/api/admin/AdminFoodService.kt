@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodAvoidanceItem
@@ -32,8 +33,8 @@ class AdminFoodService(
         val result = when {
             keyword == null && status == null -> foodRepository.findAll(pageable)
             keyword == null -> foodRepository.findByContentStatus(status!!, pageable)
-            status == null -> foodRepository.findByKoreanNameContaining(keyword, pageable)
-            else -> foodRepository.findByKoreanNameContainingAndContentStatus(keyword, status, pageable)
+            status == null -> foodRepository.findByDisplayNameContaining(keyword, pageable)
+            else -> foodRepository.findByDisplayNameContainingAndContentStatus(keyword, status, pageable)
         }
         return AdminFoodListPageView(
             items = result.content.map { AdminFoodSummaryView.from(it, imagePublicBaseUrl) },
@@ -71,11 +72,15 @@ class AdminFoodService(
             return AdminFoodUpdateResult.INVALID_JSON
         }
 
-        val duplicated = foodRepository.findByKoreanNameIn(setOf(command.koreanName))
+        val matchKey = KoreanMenuNameNormalizer.matchKey(command.koreanName)
+        if (matchKey.isEmpty()) return AdminFoodUpdateResult.INVALID_NAME
+
+        val duplicated = foodRepository.findByKoreanNameIn(setOf(matchKey))
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
 
-        food.koreanName = command.koreanName
+        food.koreanName = matchKey
+        food.displayName = command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
@@ -99,27 +104,32 @@ class AdminFoodService(
 
     @Transactional
     fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
-        val names = koreanNames
-            .map { KoreanMenuNameNormalizer.matchKey(it) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-        if (names.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+        val displayNamesByMatchKey = koreanNames
+            .map { KoreanMenuNameNormalizer.matchKey(it) to it }
+            .filter { (matchKey, _) -> matchKey.isNotEmpty() }
+            .distinctBy { (matchKey, _) -> matchKey }
+            .toMap()
+        if (displayNamesByMatchKey.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
 
-        val existing = foodRepository.findByKoreanNameIn(names).map { it.koreanName }.toSet()
-        val newNames = names - existing
+        val requested = displayNamesByMatchKey.size
+        val existing = foodRepository.findByKoreanNameIn(displayNamesByMatchKey.keys).map { it.koreanName }.toSet()
+        val newNames = displayNamesByMatchKey - existing
         val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
         return SeedIncompleteResult(
-            requested = names.size,
+            requested = requested,
             created = created,
-            skipped = names.size - created,
+            skipped = requested - created,
         )
     }
 
-    private fun upsertAndResolve(koreanNames: Set<String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(koreanNames.map { Food.incomplete(it) })
+    private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
+        foodRepository.upsertIncomplete(
+            displayNamesByMatchKey.map { (matchKey, displayName) -> Food.incomplete(matchKey, displayName) },
+        )
 
-        val resolved = foodRepository.findByKoreanNameIn(koreanNames).associateBy { it.koreanName }
-        val unresolved = koreanNames - resolved.keys
+        val matchKeys = displayNamesByMatchKey.keys
+        val resolved = foodRepository.findByKoreanNameIn(matchKeys).associateBy { it.koreanName }
+        val unresolved = matchKeys - resolved.keys
         if (unresolved.isNotEmpty()) {
             log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
         }
@@ -178,7 +188,7 @@ data class AdminFoodSummaryView(
         fun from(food: Food, imagePublicBaseUrl: String): AdminFoodSummaryView =
             AdminFoodSummaryView(
                 id = food.id,
-                koreanName = food.koreanName,
+                koreanName = food.displayName(LanguageCode.KO),
                 contentStatus = food.contentStatus,
                 spiciness = food.spiciness,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
@@ -206,7 +216,7 @@ data class AdminFoodDetailView(
         fun from(food: Food, imagePublicBaseUrl: String, toJson: (Any) -> String): AdminFoodDetailView =
             AdminFoodDetailView(
                 id = food.id,
-                koreanName = food.koreanName,
+                koreanName = food.displayName(LanguageCode.KO),
                 description = food.description,
                 spiciness = food.spiciness,
                 contentStatus = food.contentStatus,

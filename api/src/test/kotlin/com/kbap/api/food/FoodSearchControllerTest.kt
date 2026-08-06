@@ -46,21 +46,21 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food")
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (601, '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
+                            "VALUES (601, '김치찌개', '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
                             "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (602, '김치볶음밥', 'kimchi-rice.png', '김치볶음밥 설명', 3, " +
+                            "VALUES (602, '김치볶음밥', '김치볶음밥', 'kimchi-rice.png', '김치볶음밥 설명', 3, " +
                             "'{\"en\":\"Kimchi Fried Rice\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (603, '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
+                            "VALUES (603, '된장찌개', '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
                             "'{\"en\":\"Doenjang Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                 }
@@ -75,9 +75,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food")
                     (1..count).forEach { index ->
                         statement.execute(
-                            "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                            "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                                 "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                                "VALUES (${700 + index}, '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
+                                "VALUES (${700 + index}, '검색메뉴$index', '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
                                 "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                         )
                     }
@@ -92,9 +92,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food")
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (610, '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
+                            "VALUES (610, '냉면', '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
                             "'{\"ja\":\"レイメン\",\"en\":\"Cold Noodles\"}', '{}', '[]', " +
                             "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
@@ -320,6 +320,55 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     item.get("koreanName").isNull shouldBe true
                 }
             }
+        }
+
+        given("메뉴 검색 API — 표시명 띄어쓰기와 무관한 매칭 (KB-298)") {
+            fun seedSpacedFood() {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute("DELETE FROM member_ranking_event")
+                        statement.execute("DELETE FROM food_review")
+                        statement.execute("DELETE FROM food")
+                        statement.execute(
+                            "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
+                                "VALUES (620, '들깨칼국수', '들깨 칼국수', 'kalguksu.png', '들깨 칼국수 설명', 0, " +
+                                "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        )
+                    }
+                }
+            }
+
+            `when`("화면 표기 그대로(공백 포함) 검색하면") {
+                then("표시명을 그대로 담은 결과를 돌려준다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "들깨 칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+
+            `when`("표시명에만 있는 영문 조각으로 검색하면") {
+                then("match key 에서 지워진 조각이어도 표시명으로 찾는다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+
         }
 
         given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {

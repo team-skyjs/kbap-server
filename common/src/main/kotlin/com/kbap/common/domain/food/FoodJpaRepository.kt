@@ -79,12 +79,12 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
-    fun findByKoreanNameContaining(koreanName: String, pageable: Pageable): Page<Food>
+    fun findByDisplayNameContaining(displayName: String, pageable: Pageable): Page<Food>
 
     fun findByContentStatus(contentStatus: FoodContentStatus, pageable: Pageable): Page<Food>
 
-    fun findByKoreanNameContainingAndContentStatus(
-        koreanName: String,
+    fun findByDisplayNameContainingAndContentStatus(
+        displayName: String,
         contentStatus: FoodContentStatus,
         pageable: Pageable,
     ): Page<Food>
@@ -122,7 +122,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
           and f.content_status = 'READY'
           and (:cursor is null or f.id < :cursor)
           and (
-            f.korean_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
+            f.display_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
             or (
               :jsonPath is not null
               and json_unquote(json_extract(f.name_translations, :jsonPath)) collate utf8mb4_unicode_ci

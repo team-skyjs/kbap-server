@@ -44,7 +44,9 @@ class FoodService(
     @Transactional(readOnly = true)
     internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        return loadDescending(foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size))
+        return loadDescending(
+            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size),
+        )
     }
 
     @Transactional(readOnly = true)
@@ -72,7 +74,7 @@ class FoodService(
 
         return GetFoodDetailResult(
             name = foodName,
-            koreanName = food.koreanName().takeIf { it != foodName },
+            koreanName = food.displayName(LanguageCode.KO).takeIf { it != foodName },
             imageRef = resolveImageUrl(food),
             description = description,
             spiciness = food.spiciness,
@@ -110,16 +112,17 @@ class FoodService(
     }
 
     @Transactional
-    fun createIncomplete(koreanNames: Set<String>): Map<String, Food> {
-        if (koreanNames.isEmpty()) return emptyMap()
-        return upsertAndResolve(koreanNames)
+    fun createIncomplete(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
+        if (displayNamesByMatchKey.isEmpty()) return emptyMap()
+        return upsertAndResolve(displayNamesByMatchKey)
     }
 
-    private fun upsertAndResolve(koreanNames: Set<String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(koreanNames.map { Food.incomplete(it) })
+    private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
+        foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.incomplete(matchKey, displayName) })
 
-        val resolved = foodRepository.findByKoreanNameIn(koreanNames).associateBy { it.koreanName }
-        val unresolved = koreanNames - resolved.keys
+        val matchKeys = displayNamesByMatchKey.keys
+        val resolved = foodRepository.findByKoreanNameIn(matchKeys).associateBy { it.koreanName }
+        val unresolved = matchKeys - resolved.keys
         if (unresolved.isNotEmpty()) {
             log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
         }

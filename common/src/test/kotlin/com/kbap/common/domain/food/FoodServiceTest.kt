@@ -43,6 +43,8 @@ class FoodServiceTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
+        fun incompleteNames(vararg matchKeys: String): Map<String, String> = matchKeys.associateWith { it }
+
         fun clearFoods() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
@@ -586,7 +588,7 @@ class FoodServiceTest : BehaviorSpec() {
             `when`("미완성(INCOMPLETE) 음식이 이름과 일치하면") {
                 then("스캔 매칭 대상이므로 포함된다") {
                     clearFoods()
-                    service.createIncomplete(setOf("우주라면"))
+                    service.createIncomplete(incompleteNames("우주라면"))
 
                     val found = service.getFoodsByKoreanNames(setOf("우주라면"))
 
@@ -631,7 +633,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("모두 INCOMPLETE 로 저장되고 이름별 음식 맵을 돌려준다") {
                     clearFoods()
 
-                    val created = service.createIncomplete(setOf("마라샹궈", "우주라면", "탕후루"))
+                    val created = service.createIncomplete(incompleteNames("마라샹궈", "우주라면", "탕후루"))
 
                     created.keys shouldBe setOf("마라샹궈", "우주라면", "탕후루")
                     created.values.forEach {
@@ -644,9 +646,9 @@ class FoodServiceTest : BehaviorSpec() {
             `when`("이미 있는 이름과 새 이름이 섞여 있으면") {
                 then("기존 음식은 재사용하고 새 이름만 삽입한다") {
                     clearFoods()
-                    val existingId = service.createIncomplete(setOf("마라탕")).getValue("마라탕").id
+                    val existingId = service.createIncomplete(incompleteNames("마라탕")).getValue("마라탕").id
 
-                    val created = service.createIncomplete(setOf("마라탕", "탕수육"))
+                    val created = service.createIncomplete(incompleteNames("마라탕", "탕수육"))
 
                     created.getValue("마라탕").id shouldBe existingId
                     foodJpaRepository.count() shouldBe 2
@@ -658,7 +660,7 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     val readyId = saveFood("완성-비빔밥")
 
-                    val created = service.createIncomplete(setOf("완성-비빔밥"))
+                    val created = service.createIncomplete(incompleteNames("완성-비빔밥"))
 
                     created.getValue("완성-비빔밥").id shouldBe readyId
                     created.getValue("완성-비빔밥").isReady() shouldBe true
@@ -668,7 +670,20 @@ class FoodServiceTest : BehaviorSpec() {
 
             `when`("빈 집합으로 호출하면") {
                 then("쿼리 없이 빈 맵을 돌려준다") {
-                    service.createIncomplete(emptySet()) shouldBe emptyMap<String, Food>()
+                    service.createIncomplete(emptyMap()) shouldBe emptyMap<String, Food>()
+                }
+            }
+
+            `when`("match key 와 원본 표기가 다르면") {
+                then("표시명에 원본 표기를 저장하고 키는 match key 로 돌려준다") {
+                    clearFoods()
+
+                    val created = service.createIncomplete(mapOf("들깨칼국수" to "들깨 칼국수"))
+
+                    val food = created.getValue("들깨칼국수")
+                    food.koreanName shouldBe "들깨칼국수"
+                    food.displayName shouldBe "들깨 칼국수"
+                    food.displayName(LanguageCode.KO) shouldBe "들깨 칼국수"
                 }
             }
 
@@ -680,7 +695,7 @@ class FoodServiceTest : BehaviorSpec() {
                     ghost.delete()
                     foodJpaRepository.save(ghost)
 
-                    val created = service.createIncomplete(setOf("유령-라면", "신규-라면"))
+                    val created = service.createIncomplete(incompleteNames("유령-라면", "신규-라면"))
 
                     created shouldNotContainKey "유령-라면"
                     created.getValue("신규-라면").shouldNotBeNull()
@@ -693,7 +708,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("upsert 경로가 기피성분 NULL(미조사)·맵기 -1 로 저장한다") {
                     clearFoods()
 
-                    val created = service.createIncomplete(setOf("센티널-우주라면")).getValue("센티널-우주라면")
+                    val created = service.createIncomplete(incompleteNames("센티널-우주라면")).getValue("센티널-우주라면")
 
                     created.contentStatus shouldBe FoodContentStatus.INCOMPLETE
                     created.avoidanceSubstances shouldBe null
@@ -707,7 +722,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("READY 음식만 반환한다") {
                     clearFoods()
                     val ready = saveFood("완성-비빔밥")
-                    service.createIncomplete(setOf("미완성-우주라면"))
+                    service.createIncomplete(incompleteNames("미완성-우주라면"))
 
                     service.getFoods(null, 20).map { it.id } shouldBe listOf(ready)
                 }
@@ -716,7 +731,7 @@ class FoodServiceTest : BehaviorSpec() {
             `when`("미완성 음식을 id 로 상세 조회하면") {
                 then("FOOD_NOT_FOUND 예외를 던진다") {
                     clearFoods()
-                    val incompleteId = service.createIncomplete(setOf("미완성-마라탕")).getValue("미완성-마라탕").id
+                    val incompleteId = service.createIncomplete(incompleteNames("미완성-마라탕")).getValue("미완성-마라탕").id
 
                     shouldThrow<BusinessException> {
                         service.getReadyFood(incompleteId)
@@ -728,7 +743,7 @@ class FoodServiceTest : BehaviorSpec() {
                 then("네이티브 검색 쿼리도 READY 음식만 반환한다") {
                     clearFoods()
                     val ready = saveFood("완성-라면")
-                    service.createIncomplete(setOf("미완성-라면"))
+                    service.createIncomplete(incompleteNames("미완성-라면"))
 
                     service.getFoodsByKeyword("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
                 }

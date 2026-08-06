@@ -23,6 +23,9 @@ class Food(
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",
 
+    @Column(name = "display_name", nullable = false, length = 255)
+    var displayName: String = koreanName,
+
     @Column(name = "image_ref", length = 500)
     var imageRef: String? = null,
 
@@ -159,8 +162,6 @@ class Food(
         transitionByContentState()
     }
 
-    fun koreanName(): String = koreanName
-
     fun displayName(lang: LanguageCode): String = localizedName().resolve(lang)
 
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
@@ -177,7 +178,7 @@ class Food(
     }
 
     private fun localizedName(): LocalizedText =
-        LocalizedText(korean = koreanName, translations = resolveLangs(nameTranslations))
+        LocalizedText(korean = displayName.ifBlank { koreanName }, translations = resolveLangs(nameTranslations))
 
     private fun localizedDescription(): LocalizedText =
         LocalizedText(korean = description, translations = resolveLangs(descriptionTranslations))
@@ -205,13 +206,18 @@ class Food(
         private val TARGET_LANG_CODES: Set<String> =
             LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }.toSet()
 
-        fun incomplete(koreanName: String): Food {
+        fun incomplete(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
+            require(displayName.isNotBlank()) { "food.displayName 은 blank 일 수 없습니다" }
             require(koreanName.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH) {
                 "food.koreanName 은 ${KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH}자를 넘을 수 없습니다"
             }
+            require(displayName.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH) {
+                "food.displayName 은 ${KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH}자를 넘을 수 없습니다"
+            }
             return Food(
                 koreanName = koreanName,
+                displayName = displayName,
                 description = PLACEHOLDER_DESCRIPTION,
                 spiciness = SPICINESS_UNASSESSED,
                 contentStatus = FoodContentStatus.INCOMPLETE,

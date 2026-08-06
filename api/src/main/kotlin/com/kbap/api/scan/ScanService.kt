@@ -50,7 +50,7 @@ class ScanService(
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
-            val koreanName = if (matched) food!!.koreanName() else menu.koreanName
+            val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
                 idx = menu.matchedIdx?.takeIf { it in validIdxes },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
@@ -72,14 +72,14 @@ class ScanService(
     fun getRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
         scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
 
-    // 저장·조회 모두 정규화된 이름 기준 — korean_name 은 항상 정규화 상태를 유지한다
     private fun resolveFoods(extracted: List<ExtractedMenu>): Map<String, Food> {
-        val matchKeys = extracted
-            .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) }
-            .filter { it.isNotBlank() }
-            .toSet()
-        val known = foodService.getFoodsByKoreanNames(matchKeys)
-        val registered = foodService.createIncomplete(matchKeys - known.keys)
+        val displayNamesByMatchKey = extracted
+            .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) to it.koreanName }
+            .filter { (matchKey, _) -> matchKey.isNotBlank() }
+            .distinctBy { (matchKey, _) -> matchKey }
+            .toMap()
+        val known = foodService.getFoodsByKoreanNames(displayNamesByMatchKey.keys)
+        val registered = foodService.createIncomplete(displayNamesByMatchKey - known.keys)
         return known + registered
     }
 

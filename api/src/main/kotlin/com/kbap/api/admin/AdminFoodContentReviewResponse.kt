@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodAvoidanceItem
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -29,7 +30,7 @@ data class AdminFoodContentReviewTarget(
         fun from(food: Food, imagePublicBaseUrl: String): AdminFoodContentReviewTarget =
             AdminFoodContentReviewTarget(
                 foodId = food.id,
-                koreanName = food.koreanName,
+                koreanName = food.displayName(LanguageCode.KO),
                 description = food.description,
                 nameTranslations = food.nameTranslations,
                 descriptionTranslations = food.descriptionTranslations,

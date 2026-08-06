@@ -31,15 +31,16 @@ object ScenarioFoodSeed {
             """{"code":"${it.key}","inclusion_percent":${it.value}}"""
         }
         return connection.prepareStatement(
-            "INSERT INTO food (korean_name, image_ref, description, name_translations, description_translations, " +
+            "INSERT INTO food (korean_name, display_name, image_ref, description, name_translations, description_translations, " +
                 "avoidance_substances, spiciness, content_status, status, created_at, updated_at) " +
-                "VALUES (?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+                "VALUES (?, ?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             Statement.RETURN_GENERATED_KEYS,
         ).use { ps ->
             ps.setString(1, koreanName)
-            ps.setString(2, "$koreanName 시나리오 설명")
-            ps.setString(3, avoidanceSubstancesJson)
-            ps.setInt(4, spiciness)
+            ps.setString(2, koreanName)
+            ps.setString(3, "$koreanName 시나리오 설명")
+            ps.setString(4, avoidanceSubstancesJson)
+            ps.setInt(5, spiciness)
             ps.executeUpdate()
             ps.generatedKeys.use { keys -> keys.next(); keys.getLong(1) }
         }
