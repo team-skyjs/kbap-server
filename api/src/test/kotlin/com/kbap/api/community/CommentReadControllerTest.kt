@@ -48,9 +48,9 @@ class CommentReadControllerTest : BehaviorSpec() {
         fun seedMember(memberId: Long, nickname: String = "댓글독자$memberId"): Unit =
             execute(
                 """
-                INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
+                INSERT INTO member (id, provider, provider_uid, nickname, country_code, member_status,
                                     onboarding_completed, status, created_at, updated_at)
-                VALUES (?, 'GOOGLE', ?, ?, '{"countryCode":"KR"}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                VALUES (?, 'GOOGLE', ?, ?, 'KR', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                 ON DUPLICATE KEY UPDATE id = id
                 """,
                 memberId,

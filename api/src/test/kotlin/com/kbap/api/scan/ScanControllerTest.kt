@@ -38,19 +38,18 @@ class ScanControllerTest : BehaviorSpec() {
     init {
         val mapper = jacksonObjectMapper()
 
-        fun seedMember(memberId: Long, profile: String = "{}"): Unit =
+        fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "scan-test-$memberId")
-                    ps.setString(3, profile)
                     ps.executeUpdate()
                 }
             }
@@ -233,27 +232,6 @@ class ScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].name") { value("キムチチゲ") }
-                    }
-                }
-            }
-
-            `when`("프로필에 앱 언어가 저장된 회원이 다른 lang 으로 스캔하면") {
-                then("프로필 값이 아니라 요청 lang 의 번역명이 내려간다") {
-                    val memberId = 517L
-                    val path = "scan/517/menu.jpg"
-                    seedMember(memberId, """{"appLanguage":"ko"}""")
-                    seedVerifiedImage(memberId, path)
-                    seedReadyFood("프로필무시김치찌개", """{"en":"Ignored Profile Stew"}""")
-                    vision.program(path, listOf(ExtractedMenu("Kimchi 프로필무시김치찌개", "프로필무시김치찌개", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/v1/scans") {
-                        param("lang", "en")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "프로필무시김치찌개")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].name") { value("Ignored Profile Stew") }
                     }
                 }
             }

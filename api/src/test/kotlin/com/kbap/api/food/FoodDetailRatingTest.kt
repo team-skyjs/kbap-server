@@ -41,15 +41,15 @@ class FoodDetailRatingTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, country_code, member_status,
                                         onboarding_completed, status, created_at, updated_at)
                     VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE profile = VALUES(profile)
+                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "food-rating-test-$memberId")
-                    ps.setString(3, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
+                    ps.setString(3, countryCode)
                     ps.executeUpdate()
                 }
             }

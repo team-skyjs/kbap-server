@@ -31,9 +31,19 @@ class Member(
     @Column(name = "nickname", length = 30)
     var nickname: String? = null,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "spiciness_preference", nullable = false, columnDefinition = "ENUM('SKIP','NONE','MILD','MEDIUM','HOT','EXTREME') default 'SKIP'")
+    var spicinessPreference: SpicinessPreference = SpicinessPreference.SKIP,
+
+    @Column(name = "country_code", length = 2)
+    var countryCode: String? = null,
+
+    @Column(name = "profile_image_url", length = 512)
+    var profileImageUrl: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "profile", nullable = false)
-    var profileJson: MemberProfileJson = MemberProfileJson(),
+    @Column(name = "avoidance_substance_codes", nullable = false)
+    var avoidanceSubstanceCodes: List<String> = emptyList(),
 
     @Enumerated(EnumType.STRING)
     @Column(name = "member_status", nullable = false, columnDefinition = "ENUM('ACTIVE','SUSPENDED') default 'ACTIVE'")
@@ -55,7 +65,13 @@ class Member(
         get() = SocialIdentity(provider = provider, providerUserId = providerUid, email = email)
 
     val profile: MemberProfile
-        get() = profileJson.toDomain(nickname)
+        get() = MemberProfile.of(
+            nickname = nickname,
+            avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
+            spicinessPreference = spicinessPreference,
+            countryCode = CountryCode.from(countryCode),
+            profileImageUrl = profileImageUrl,
+        )
 
     val ranking: Ranking
         get() = Ranking.of(
@@ -66,7 +82,10 @@ class Member(
 
     internal fun updateProfile(profile: MemberProfile) {
         nickname = profile.nickname
-        profileJson = MemberProfileJson.from(profile)
+        spicinessPreference = profile.spicinessPreference
+        countryCode = profile.countryCode?.name
+        profileImageUrl = profile.profileImageUrl
+        avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value }
     }
 
     fun updateProfile(

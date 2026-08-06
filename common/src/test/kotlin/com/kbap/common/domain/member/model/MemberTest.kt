@@ -131,7 +131,7 @@ class MemberTest : BehaviorSpec({
     given("배포 전 가입 회원(프로필에 맵기 MEDIUM 저장, 온보딩 미완료)") {
         fun preDeployMember(): Member =
             Member.signUp(googleIdentity()).apply {
-                profileJson = MemberProfileJson(spicinessPreference = SpicinessPreference.MEDIUM)
+                spicinessPreference = SpicinessPreference.MEDIUM
             }
 
         `when`("맵기 SKIP 을 명시하고 온보딩하면") {

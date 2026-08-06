@@ -67,18 +67,18 @@ class PostingReadControllerTest : BehaviorSpec() {
                 status,
             )
 
-        fun seedMember(memberId: Long, profileJson: String = """{"countryCode":"KR"}"""): Unit =
+        fun seedMember(memberId: Long, profileImageUrl: String? = null): Unit =
             execute(
                 """
-                INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
-                                    onboarding_completed, status, created_at, updated_at)
-                VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                INSERT INTO member (id, provider, provider_uid, nickname, country_code, profile_image_url,
+                                    member_status, onboarding_completed, status, created_at, updated_at)
+                VALUES (?, 'GOOGLE', ?, ?, 'KR', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                 ON DUPLICATE KEY UPDATE id = id
                 """,
                 memberId,
                 "feed-test-$memberId",
                 "피드테스터$memberId",
-                profileJson,
+                profileImageUrl,
             )
 
         fun withdrawMember(memberId: Long): Unit =
@@ -420,7 +420,7 @@ class PostingReadControllerTest : BehaviorSpec() {
         given("탈퇴 작성자의 글 숨김") {
             clearPostings()
             seedMember(9700L)
-            seedMember(9701L, profileJson = """{"countryCode":"KR","profileImageUrl":"images/profile/9701.jpg"}""")
+            seedMember(9701L, profileImageUrl = "images/profile/9701.jpg")
             seedPosting(970001L, memberId = 9700L, content = "탈퇴 전에 쓴 글")
             seedPosting(970002L, memberId = 9701L, content = "활성 회원 글")
             withdrawMember(9700L)

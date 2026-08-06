@@ -1,9 +1,5 @@
 package com.kbap.common.domain.member.model
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.CountryCode
@@ -25,50 +21,6 @@ class MemberProfileTest : BehaviorSpec({
             then("맵기 선호는 미설정(SKIP), 기피성분은 빈 셋이다") {
                 MemberProfile.empty().spicinessPreference shouldBe SpicinessPreference.SKIP
                 MemberProfile.empty().avoidanceSubstanceCodes shouldBe emptySet()
-            }
-        }
-    }
-
-    given("MemberProfileJson 역직렬화 — 레거시 회원(맵기 키 부재)") {
-        `when`("spicinessPreference 키가 없는 JSON 을 읽으면") {
-            then("맵기 선호가 미설정(SKIP)으로 해석된다") {
-                val json = jacksonObjectMapper()
-                    .readValue<MemberProfileJson>("""{"avoidanceSubstanceCodes":[]}""")
-
-                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.SKIP
-            }
-        }
-
-        `when`("spicinessPreference 에 단계 문자열이 저장돼 있으면") {
-            then("해당 단계로 읽는다") {
-                val json = jacksonObjectMapper()
-                    .readValue<MemberProfileJson>("""{"spicinessPreference":"HOT"}""")
-
-                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.HOT
-            }
-        }
-    }
-
-    given("MemberProfileJson 역직렬화 — 폐기된 키가 남은 레거시 회원") {
-        `when`("더 이상 쓰지 않는 appLanguage 키가 저장돼 있으면") {
-            then("예외 없이 무시하고 나머지 값을 읽는다") {
-                val json = ObjectMapper().registerKotlinModule().readValue<MemberProfileJson>(
-                    """{"appLanguage":"ko","spicinessPreference":"MEDIUM","countryCode":"KR"}""",
-                )
-
-                json.toDomain("머고").spicinessPreference shouldBe SpicinessPreference.MEDIUM
-                json.toDomain("머고").countryCode shouldBe CountryCode.KR
-            }
-        }
-    }
-
-    given("MemberProfileJson 직렬화 — 저장 표현") {
-        `when`("프로필을 JSON 으로 쓰면") {
-            then("맵기 선호가 단계 이름 문자열로 저장된다") {
-                val written = jacksonObjectMapper()
-                    .writeValueAsString(MemberProfileJson(spicinessPreference = SpicinessPreference.EXTREME))
-
-                written.contains("\"spicinessPreference\":\"EXTREME\"") shouldBe true
             }
         }
     }

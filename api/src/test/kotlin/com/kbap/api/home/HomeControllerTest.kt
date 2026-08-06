@@ -130,9 +130,9 @@ class HomeControllerTest : BehaviorSpec() {
                     dataSource.connection.use { c ->
                         c.createStatement().use {
                             it.execute(
-                                "INSERT INTO member (id, provider, provider_uid, email, nickname, profile, member_status, " +
+                                "INSERT INTO member (id, provider, provider_uid, email, nickname, member_status, " +
                                     "onboarding_completed, status, created_at, updated_at) " +
-                                    "VALUES (12, 'GOOGLE', 'home-test-nolang', NULL, NULL, '{}', " +
+                                    "VALUES (12, 'GOOGLE', 'home-test-nolang', NULL, NULL, " +
                                     "'ACTIVE', 0, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                             )
                         }
