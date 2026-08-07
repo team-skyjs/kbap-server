@@ -74,8 +74,8 @@
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T019 quickstart.md 검증 절차 전체 수행(`./gradlew build` + 명시된 테스트 필터) 및 스펙 SC-001~004 대조. 결과를 커밋 메시지에 요약
-- [ ] T020 [P] 지식 위키 `../kbap-agenthub/wiki/food-content-pipeline.md` 의 상태 머신 섹션을 신 4상태 기준으로 갱신(구 머신은 "개편 전" 표기 유지)
+- [X] T019 quickstart.md 검증 절차 전체 수행(`./gradlew build` + 명시된 테스트 필터) 및 스펙 SC-001~004 대조. 결과를 커밋 메시지에 요약
+- [X] T020 [P] 지식 위키 `../kbap-agenthub/wiki/food-content-pipeline.md` 의 상태 머신 섹션을 신 4상태 기준으로 갱신(구 머신은 "개편 전" 표기 유지)
 
 ---
 
