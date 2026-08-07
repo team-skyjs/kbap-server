@@ -84,6 +84,9 @@ jobs:
           # AWS CLI v2 는 /usr/local/bin/aws 라 보정하지 않으면 'aws: command not found' 로 죽는다.
           export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:\$PATH
           aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
+          # 배포마다 고유 sha 태그 이미지가 쌓여 디스크가 고갈된다(2026-08-07 no space left 장애).
+          # pull 전에 컨테이너가 참조하지 않는 이미지를 전부 정리한다.
+          docker image prune -af 2>/dev/null || true
           docker pull $IMAGE
           docker stop $CONTAINER 2>/dev/null || true
           docker rm $CONTAINER 2>/dev/null || true
