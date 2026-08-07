@@ -8,7 +8,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
@@ -76,7 +76,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     spiciness = 2
                     nameTranslations = targets
                     descriptionTranslations = targets
-                    avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
+                    ingredients = listOf(FoodIngredient("SOYBEAN", 100))
                     contentStatus = FoodContentStatus.PENDING_IMAGE
                 },
             )

@@ -1,7 +1,7 @@
 package com.kbap.common.domain.food
 
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
@@ -69,8 +69,8 @@ class FoodServiceTest : BehaviorSpec() {
                 spiciness = spiciness,
                 nameTranslations = nameTranslations,
                 descriptionTranslations = descriptionTranslations,
-                avoidanceSubstances = substances.map { (code, percent) ->
-                    FoodAvoidanceItem(code = code, inclusionPercent = percent)
+                ingredients = substances.map { (code, percent) ->
+                    FoodIngredient(code = code, inclusionPercent = percent)
                 },
             )
             return foodJpaRepository.save(food).id
@@ -93,17 +93,17 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val loaded = service.getReadyFood(id)
                     loaded.imageRef shouldBe "doenjang.png"
-                    loaded.avoidanceSubstances.orEmpty().map { it.code }
+                    loaded.ingredients.orEmpty().map { it.code }
                         .shouldContainExactlyInAnyOrder("CLAM", "SOY", "MILK")
-                    loaded.avoidanceSubstances.orEmpty().map { it.inclusionPercent }
+                    loaded.ingredients.orEmpty().map { it.inclusionPercent }
                         .shouldContainExactlyInAnyOrder(50, 100, 90)
-                    loaded.avoidanceSubstances.orEmpty().first { it.code == "SOY" }
+                    loaded.ingredients.orEmpty().first { it.code == "SOY" }
                         .inclusionPercent shouldBe 100
                 }
             }
 
             `when`("저장 순서가 확률 내림차순이 아니게 심겨 있으면") {
-                then("avoidanceSubstancesByProbability 가 확률 내림차순으로 정렬해 복원한다") {
+                then("ingredientsByProbability 가 확률 내림차순으로 정렬해 복원한다") {
                     val id = saveFood(
                         "정렬복원-부대찌개",
                         substances = listOf(
@@ -113,7 +113,7 @@ class FoodServiceTest : BehaviorSpec() {
                         ),
                     )
 
-                    val ordered = service.getReadyFood(id).avoidanceSubstancesByProbability()
+                    val ordered = service.getReadyFood(id).ingredientsByProbability()
                     ordered.map { it.inclusionPercent } shouldBe listOf(100, 80, 50)
                     ordered.map { it.code } shouldBe listOf("SOY", "WHEAT", "CLAM")
                 }
@@ -220,7 +220,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val id = saveFood("성분없음-흰밥", substances = emptyList())
 
                     val loaded = service.getReadyFood(id)
-                    loaded.avoidanceSubstances shouldBe emptyList<FoodAvoidanceItem>()
+                    loaded.ingredients shouldBe emptyList<FoodIngredient>()
                 }
             }
 
@@ -254,7 +254,7 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val loaded = service.getReadyFood(id)
 
-                    loaded.avoidanceSubstances.orEmpty().size shouldBe 4
+                    loaded.ingredients.orEmpty().size shouldBe 4
                     loaded.nameTranslations.size shouldBe 2
                     statistics.prepareStatementCount shouldBe 1
                 }
@@ -711,7 +711,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val created = service.createIncomplete(incompleteNames("센티널-우주라면")).getValue("센티널-우주라면")
 
                     created.contentStatus shouldBe FoodContentStatus.FAILED
-                    created.avoidanceSubstances shouldBe null
+                    created.ingredients shouldBe null
                     created.spiciness shouldBe Food.SPICINESS_UNASSESSED
                 }
             }
@@ -757,7 +757,7 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                                    "description_translations, ingredient, content_status, status, created_at, updated_at) " +
                                     "VALUES ('오타상태', '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIV', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }
@@ -771,7 +771,7 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                                    "description_translations, ingredient, content_status, status, created_at, updated_at) " +
                                     "VALUES ('오타완성상태', '설명', 0, '{}', '{}', '[]', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }

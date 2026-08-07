@@ -331,7 +331,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                             param("imageRef", "")
                             param("nameTranslationsJson", nameTranslationsJson)
                             param("descriptionTranslationsJson", "{}")
-                            param("avoidanceSubstancesJson", "")
+                            param("ingredientsJson", "")
                         }
 
                     postUpdate("{}").andExpect {

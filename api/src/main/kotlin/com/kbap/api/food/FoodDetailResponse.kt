@@ -112,7 +112,7 @@ data class FoodDetailResponse(
                 description = result.description,
                 spiciness = result.spiciness,
                 overallRiskStatus = result.overallRiskStatus.name,
-                ingredients = result.avoidanceSubstances.map {
+                ingredients = result.ingredients.map {
                     IngredientResponse(
                         name = it.name,
                         iconRef = it.iconRef,

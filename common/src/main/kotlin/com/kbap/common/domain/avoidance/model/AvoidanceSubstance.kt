@@ -12,7 +12,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "avoidance_substance")
+@Table(name = "ingredients")
 class AvoidanceSubstance(
     @Enumerated(EnumType.STRING)
     @Column(name = "code", nullable = false, length = 40)

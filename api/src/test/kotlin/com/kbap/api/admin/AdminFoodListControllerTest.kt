@@ -349,7 +349,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             val detailFieldIds = listOf(
                 "koreanName", "contentStatus", "spiciness", "imageRef", "description",
-                "nameTranslationsJson", "descriptionTranslationsJson", "avoidanceSubstancesJson",
+                "nameTranslationsJson", "descriptionTranslationsJson", "ingredientsJson",
             )
 
             `when`("detail 만으로 상세를 펼치면") {
@@ -409,7 +409,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("imageRef", "food/1.png")
                         param("nameTranslationsJson", """{"en":"Edited"}""")
                         param("descriptionTranslationsJson", """{"en":"Edited desc"}""")
-                        param("avoidanceSubstancesJson", """[{"code":"PORK","inclusion_percent":80}]""")
+                        param("ingredientsJson", """[{"code":"PORK","inclusion_percent":80}]""")
                     }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&updated=${saved.id}")
@@ -422,11 +422,11 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     updated.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                     updated.imageRef shouldBe "food/1.png"
                     updated.nameTranslations shouldBe mapOf("en" to "Edited")
-                    updated.avoidanceSubstances!!.single().code shouldBe "PORK"
+                    updated.ingredients!!.single().code shouldBe "PORK"
                 }
             }
 
-            `when`("빈 avoidanceSubstancesJson 과 빈 imageRef 로 제출하면") {
+            `when`("빈 ingredientsJson 과 빈 imageRef 로 제출하면") {
                 then("각각 미조사(null)로 반영된다") {
                     val saved = saveFood("널수정이름")
 
@@ -440,12 +440,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("imageRef", "")
                         param("nameTranslationsJson", "{}")
                         param("descriptionTranslationsJson", "{}")
-                        param("avoidanceSubstancesJson", "")
+                        param("ingredientsJson", "")
                     }.andExpect { status { is3xxRedirection() } }
 
                     val updated = foodJpaRepository.findById(saved.id).get()
                     updated.imageRef shouldBe null
-                    updated.avoidanceSubstances shouldBe null
+                    updated.ingredients shouldBe null
                 }
             }
 
@@ -463,7 +463,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("imageRef", "")
                         param("nameTranslationsJson", "{잘못된}")
                         param("descriptionTranslationsJson", "{}")
-                        param("avoidanceSubstancesJson", "")
+                        param("ingredientsJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-json")
@@ -524,7 +524,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("imageRef", "")
                         param("nameTranslationsJson", "{}")
                         param("descriptionTranslationsJson", "{}")
-                        param("avoidanceSubstancesJson", "")
+                        param("ingredientsJson", "")
                     }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=duplicate-name")
@@ -569,7 +569,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 "imageRef" to "",
                 "nameTranslationsJson" to nameTranslationsJson,
                 "descriptionTranslationsJson" to "{}",
-                "avoidanceSubstancesJson" to "",
+                "ingredientsJson" to "",
             )
 
             fun postUpdate(id: Long, q: String, koreanName: String, nameTranslationsJson: String = "{}") =

@@ -215,7 +215,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 imageRef = imageRef,
                 nameTranslationsJson = nameTranslationsJson,
                 descriptionTranslationsJson = fullTranslationsJson,
-                avoidanceSubstancesJson = """[{"code":"PORK","inclusion_percent":80}]""",
+                ingredientsJson = """[{"code":"PORK","inclusion_percent":80}]""",
             )
 
             fun savedStatus(id: Long): FoodContentStatus =

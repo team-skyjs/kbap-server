@@ -7,7 +7,7 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -76,7 +76,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                 spiciness = 3,
                 nameTranslations = allTargets(rawName),
                 descriptionTranslations = allTargets("stew"),
-                avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
+                ingredients = listOf(FoodIngredient("SOYBEAN", 100)),
                 contentStatus = contentStatus,
                 contentReviewAttempts = contentReviewAttempts,
             ),
@@ -113,7 +113,8 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].description") { value("구수한 된장찌개") }
                         jsonPath("$.payload.items[0].spiciness") { value(3) }
                         jsonPath("$.payload.items[0].contentReviewAttempts") { value(0) }
-                        jsonPath("$.payload.items[0].avoidanceSubstances[0].code") { value("SOYBEAN") }
+                        jsonPath("$.payload.items[0].ingredients[0].code") { value("SOYBEAN") }
+                        jsonPath("$.payload.items[0].avoidanceSubstances") { doesNotExist() }
                         jsonPath("$.payload.items[0].nameTranslations.en") { value("된장찌개-en") }
                         jsonPath("$.payload.items[0].imageUrl") { exists() }
                     }

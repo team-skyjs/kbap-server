@@ -17,7 +17,7 @@ class FoodApprovalTransitionTest : BehaviorSpec({
         spiciness = 3,
         nameTranslations = allTargets("된장찌개"),
         descriptionTranslations = allTargets("hearty stew"),
-        avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100)),
+        ingredients = listOf(FoodIngredient("SOYBEAN", 100)),
         contentStatus = status,
     )
 
@@ -72,7 +72,7 @@ class FoodApprovalTransitionTest : BehaviorSpec({
 
                 target.description shouldBe "구수한 된장찌개"
                 target.imageRef shouldBe "images/food/1.webp"
-                target.avoidanceSubstances shouldBe listOf(FoodAvoidanceItem("SOYBEAN", 100))
+                target.ingredients shouldBe listOf(FoodIngredient("SOYBEAN", 100))
                 target.nameTranslations shouldBe allTargets("된장찌개")
             }
         }
@@ -173,7 +173,7 @@ class FoodApprovalTransitionTest : BehaviorSpec({
                 target.contentStatus shouldBe FoodContentStatus.FAILED
                 target.koreanName shouldBe "된장찌개"
                 target.displayName shouldBe "된장찌개 (2인분)"
-                target.avoidanceSubstances shouldBe null
+                target.ingredients shouldBe null
                 target.spiciness shouldBe Food.SPICINESS_UNASSESSED
                 target.description shouldBe Food.PLACEHOLDER_DESCRIPTION
             }

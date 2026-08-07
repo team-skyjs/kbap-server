@@ -21,7 +21,7 @@ interface AdminFoodContentReviewApi {
         description = """
             콘텐츠와 이미지가 모두 채워져 관리자 승인을 기다리는 **PENDING_REVIEW** 음식을 판단에 필요한 필드와 함께 반환한다.
 
-            - `avoidanceSubstances` 는 미조사(null)여도 빈 배열로 내려간다.
+            - `ingredients` 는 미조사(null)여도 빈 배열로 내려간다.
             - `imageUrl` 은 공개 이미지 URL 이며, 이미지가 없으면 null 이다.
             - `contentReviewAttempts` 는 지금까지의 반려 횟수다(관리자 판단 참고용).
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.

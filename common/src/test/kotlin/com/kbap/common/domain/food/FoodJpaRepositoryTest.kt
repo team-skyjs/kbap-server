@@ -3,7 +3,7 @@ package com.kbap.common.domain.food
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem

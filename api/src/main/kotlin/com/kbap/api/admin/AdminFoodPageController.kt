@@ -57,7 +57,7 @@ class AdminFoodPageController(
         @RequestParam(defaultValue = "") imageRef: String,
         @RequestParam(defaultValue = "") nameTranslationsJson: String,
         @RequestParam(defaultValue = "") descriptionTranslationsJson: String,
-        @RequestParam(defaultValue = "") avoidanceSubstancesJson: String,
+        @RequestParam(defaultValue = "") ingredientsJson: String,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         val command = UpdateFoodCommand(
@@ -68,7 +68,7 @@ class AdminFoodPageController(
             imageRef = imageRef.trim(),
             nameTranslationsJson = nameTranslationsJson,
             descriptionTranslationsJson = descriptionTranslationsJson,
-            avoidanceSubstancesJson = avoidanceSubstancesJson,
+            ingredientsJson = ingredientsJson,
         )
         return when (adminFoodService.updateFood(id, command)) {
             AdminFoodUpdateResult.UPDATED -> listRedirect(safePage, q, status, "updated" to id)

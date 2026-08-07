@@ -6,7 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
@@ -61,13 +61,13 @@ class AdminFoodService(
 
         val nameTranslations: Map<String, String>
         val descriptionTranslations: Map<String, String>
-        val avoidanceSubstances: List<FoodAvoidanceItem>?
+        val ingredients: List<FoodIngredient>?
         try {
             nameTranslations = parseMap(command.nameTranslationsJson)
             descriptionTranslations = parseMap(command.descriptionTranslationsJson)
-            avoidanceSubstances = command.avoidanceSubstancesJson
+            ingredients = command.ingredientsJson
                 .takeIf { it.isNotBlank() }
-                ?.let { objectMapper.readValue<List<FoodAvoidanceItem>>(it) }
+                ?.let { objectMapper.readValue<List<FoodIngredient>>(it) }
         } catch (e: JacksonException) {
             return AdminFoodUpdateResult.INVALID_JSON
         }
@@ -87,7 +87,7 @@ class AdminFoodService(
         food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
-        food.avoidanceSubstances = avoidanceSubstances
+        food.ingredients = ingredients
         return AdminFoodUpdateResult.UPDATED
     }
 
@@ -161,7 +161,7 @@ data class UpdateFoodCommand(
     val imageRef: String,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
-    val avoidanceSubstancesJson: String,
+    val ingredientsJson: String,
 )
 
 data class AdminFoodListPageView(
@@ -206,7 +206,7 @@ data class AdminFoodDetailView(
     val imageUrl: String?,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
-    val avoidanceSubstancesJson: String,
+    val ingredientsJson: String,
     val version: Long,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
@@ -223,7 +223,7 @@ data class AdminFoodDetailView(
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 nameTranslationsJson = toJson(food.nameTranslations),
                 descriptionTranslationsJson = toJson(food.descriptionTranslations),
-                avoidanceSubstancesJson = food.avoidanceSubstances?.let(toJson) ?: "",
+                ingredientsJson = food.ingredients?.let(toJson) ?: "",
                 version = food.version,
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,

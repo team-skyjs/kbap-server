@@ -55,7 +55,7 @@ class FoodService(
         val food = getReadyFood(input.foodId)
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
-        val orderedSubstances = food.avoidanceSubstancesByProbability()
+        val orderedSubstances = food.ingredientsByProbability()
             .filter { it.code in userAvoidedCodes }
         val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.code) }.toSet()
         val catalog = (if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes)).associateBy { it.code }
@@ -63,8 +63,8 @@ class FoodService(
         val foodName = food.displayName(lang)
         val description = food.description(lang)
 
-        val avoidanceSubstances = orderedSubstances.map { substance ->
-            GetFoodDetailResult.AvoidanceSubstanceView(
+        val ingredients = orderedSubstances.map { substance ->
+            GetFoodDetailResult.IngredientView(
                 name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.code)).displayName(lang),
                 iconRef = null,
                 inclusionProbability = substance.inclusionPercent,
@@ -79,7 +79,7 @@ class FoodService(
             description = description,
             spiciness = food.spiciness,
             overallRiskStatus = food.overallRisk(userAvoidedCodes),
-            avoidanceSubstances = avoidanceSubstances,
+            ingredients = ingredients,
         )
     }
 

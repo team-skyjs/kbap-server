@@ -57,16 +57,16 @@
 
 ### Tests for User Story 2 (Red 먼저 — 작성 직후 실패 확인) ⚠️
 
-- [ ] T012 [P] [US2] 관리자 검수 응답 `ingredients` 필드 계약 실패 테스트(구 `avoidanceSubstances` 부재 포함). `api/src/test/kotlin/com/kbap/api/admin/AdminFoodContentReviewControllerTest.kt`
-- [ ] T013 [P] [US2] 개명 데이터 보존 실패 테스트 — 구 컬럼·구 테이블에 시드 후 마이그레이션 적용 시 값 동일 검증(Testcontainers). `api/src/test/kotlin/com/kbap/api/food/IngredientRenameMigrationTest.kt` (신규)
+- [X] T012 [P] [US2] 관리자 검수 응답 `ingredients` 필드 계약 실패 테스트(구 `avoidanceSubstances` 부재 포함). `api/src/test/kotlin/com/kbap/api/admin/AdminFoodContentReviewControllerTest.kt`
+- [X] T013 [P] [US2] 개명 데이터 보존 실패 테스트 — 구 컬럼·구 테이블에 시드 후 마이그레이션 적용 시 값 동일 검증(Testcontainers). `api/src/test/kotlin/com/kbap/api/food/IngredientRenameMigrationTest.kt` (신규)
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Flyway 개명 마이그레이션 — `ALTER TABLE food RENAME COLUMN avoidance_substances TO ingredient` + `RENAME TABLE avoidance_substance TO ingredients`. `api/src/main/resources/db/migration/V<생성시각>__ingredient_rename.sql`
-- [ ] T015 [US2] 도메인 개명 — `FoodAvoidanceItem.kt`→`FoodIngredient.kt`, `Food.avoidanceSubstances`→`ingredients`(`@Column(name = "ingredient")`), `avoidanceSubstancesByProbability()`→`ingredientsByProbability()`, `needsAvoidance*` 주석 블록 내 명칭은 보존. `common/src/main/kotlin/com/kbap/common/domain/food/model/{FoodAvoidanceItem→FoodIngredient,Food}.kt`
-- [ ] T016 [P] [US2] 카탈로그 엔티티 `@Table(name = "ingredients")` 갱신. `common/src/main/kotlin/com/kbap/common/domain/avoidance/model/AvoidanceSubstance.kt`
-- [ ] T017 [US2] 소비 계층 개명 전파 — `common/src/main/kotlin/com/kbap/common/domain/food/{FoodService,FoodRepositoryCustomImpl,dto/GetFoodDetailResult}.kt`, `api/src/main/kotlin/com/kbap/api/admin/{AdminFoodContentReviewApi,AdminFoodContentReviewResponse,AdminFoodPageController,AdminFoodService}.kt`, `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt`(내부 참조만 — 외부 필드 기존부터 `ingredients`)
-- [ ] T018 [US2] 테스트 시드·손스텁 SQL 개명 + `AvoidanceCatalogSeedSyncTest` 하드코딩 경로·테이블명 참조 점검 + 전체 빌드 그린 — `api/src/test`·`common/src/test`·`batch/src/test`(주석 블록 내부는 그대로) 전수, `./gradlew build` 통과
+- [X] T014 [US2] Flyway 개명 마이그레이션 — `ALTER TABLE food RENAME COLUMN avoidance_substances TO ingredient` + `RENAME TABLE avoidance_substance TO ingredients`. `api/src/main/resources/db/migration/V<생성시각>__ingredient_rename.sql`
+- [X] T015 [US2] 도메인 개명 — `FoodAvoidanceItem.kt`→`FoodIngredient.kt`, `Food.avoidanceSubstances`→`ingredients`(`@Column(name = "ingredient")`), `avoidanceSubstancesByProbability()`→`ingredientsByProbability()`, `needsAvoidance*` 주석 블록 내 명칭은 보존. `common/src/main/kotlin/com/kbap/common/domain/food/model/{FoodAvoidanceItem→FoodIngredient,Food}.kt`
+- [X] T016 [P] [US2] 카탈로그 엔티티 `@Table(name = "ingredients")` 갱신. `common/src/main/kotlin/com/kbap/common/domain/avoidance/model/AvoidanceSubstance.kt`
+- [X] T017 [US2] 소비 계층 개명 전파 — `common/src/main/kotlin/com/kbap/common/domain/food/{FoodService,FoodRepositoryCustomImpl,dto/GetFoodDetailResult}.kt`, `api/src/main/kotlin/com/kbap/api/admin/{AdminFoodContentReviewApi,AdminFoodContentReviewResponse,AdminFoodPageController,AdminFoodService}.kt`, `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt`(내부 참조만 — 외부 필드 기존부터 `ingredients`)
+- [X] T018 [US2] 테스트 시드·손스텁 SQL 개명 + `AvoidanceCatalogSeedSyncTest` 하드코딩 경로·테이블명 참조 점검 + 전체 빌드 그린 — `api/src/test`·`common/src/test`·`batch/src/test`(주석 블록 내부는 그대로) 전수, `./gradlew build` 통과
 
 **Checkpoint**: 두 스토리 모두 단독 검증 가능
 

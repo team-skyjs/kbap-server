@@ -51,8 +51,8 @@ class Food(
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "avoidance_substances")
-    var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
+    @Column(name = "ingredient")
+    var ingredients: List<FoodIngredient>? = emptyList(),
 
     @Column(name = "content_review_attempts", nullable = false, columnDefinition = "int not null default 0")
     var contentReviewAttempts: Int = 0,
@@ -169,13 +169,13 @@ class Food(
 
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
 
-    fun avoidanceSubstancesByProbability(): List<FoodAvoidanceItem> =
-        avoidanceSubstances.orEmpty().sortedByDescending { it.inclusionPercent }
+    fun ingredientsByProbability(): List<FoodIngredient> =
+        ingredients.orEmpty().sortedByDescending { it.inclusionPercent }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
         // 미조사(null)를 SAFE 로 은폐하지 않는다 — 안전 직결이라 fail-closed.
-        val substances = avoidanceSubstances ?: return RiskLevel.UNKNOWN
+        val substances = ingredients ?: return RiskLevel.UNKNOWN
         val targeted = substances.filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
@@ -223,7 +223,7 @@ class Food(
                 description = PLACEHOLDER_DESCRIPTION,
                 spiciness = SPICINESS_UNASSESSED,
                 contentStatus = FoodContentStatus.FAILED,
-                avoidanceSubstances = null,
+                ingredients = null,
             )
         }
 

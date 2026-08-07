@@ -68,7 +68,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     (1..count).forEach { id ->
                         statement.execute(
                             "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                                "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
+                                "name_translations, description_translations, ingredient, status, created_at, updated_at) " +
                                 "VALUES ($id, '목록메뉴$id', 'menu-$id.png', '목록메뉴$id 설명', 0, '{}', '{}', '[]', " +
                                 "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                         )
@@ -85,7 +85,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredient, status, created_at, updated_at) " +
                             "VALUES (500, '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
                             "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
