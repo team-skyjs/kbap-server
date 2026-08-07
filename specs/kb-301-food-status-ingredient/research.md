@@ -22,7 +22,8 @@
 ## R4. MySQL ENUM 컬럼 변경 전략
 
 - **Decision**: 상태 변경은 3단계 — (1) ENUM 을 신구 합집합으로 확장 MODIFY, (2) 매핑 UPDATE(REVIEWED→PENDING_REVIEW, REVIEW_REJECTED·INCOMPLETE→FAILED), (3) 최종 4값 `ENUM('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')` 로 축소 MODIFY. 개명(`avoidance_substances`→`ingredients` RENAME COLUMN + `avoidance_substance`→`ingredients` RENAME TABLE)은 **별도 마이그레이션 파일**로 분리한다(tasks 단계 조정 — US1/US2 스토리 독립 구현·순서 독립 규약 부합).
-- **Rationale**: MySQL 은 ENUM 정의에 없는 값이 행에 있으면 축소 MODIFY 가 실패하므로 확장→UPDATE→축소 순서가 필수. 타임스탬프 버전·독립 실행 규약 준수.
+- **Rationale**: MySQL 은 ENUM 정의에 없는 값이 행에 있으면 축소 MODIFY 가 실패하므로 확장→UPDATE→축소 순서가 필수. 1단계의 구 값(INCOMPLETE·REVIEWED·REVIEW_REJECTED)은 기존 행 이관용 일시 정의이고 3단계에서 사라진다. 타임스탬프 버전·독립 실행 규약 준수.
+- **DEFAULT 제거 (2026-08-08 사용자 지적)**: 구 스키마의 `DEFAULT 'READY'` 를 복원했다가 폐기했다. 새 모델에서 READY 는 사용자 노출 상태라 상태를 빠뜨린 INSERT 가 콘텐츠 없는 음식을 즉시 노출시킨다(fail-open). 프로덕션 raw INSERT(`upsertIncomplete`)는 상태를 명시하므로 기본값에 의존하는 코드가 없고, 기대던 테스트 시드 3곳은 의도를 명시하도록 고쳤다. `FAILED` 기본값 대신 **무기본값**을 택한 이유: 상태는 파이프라인이 결정하는 값이라 암묵값이 있으면 안 되고, 누락 시 MySQL 이 즉시 에러를 내 진단이 명확하다.
 - **Alternatives considered**: VARCHAR 전환 — 기존 스키마가 ENUM 이라 일관 유지, 기각.
 
 ## R5. ingredients 명칭 계열

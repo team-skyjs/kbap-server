@@ -92,10 +92,10 @@ class FoodStatusMigrationMappingTest : BehaviorSpec() {
 
         given("food 상태 간소화 마이그레이션") {
             `when`("마이그레이션이 적용된 스키마를 보면") {
-                then("content_status 는 신규 4값만 허용하고 기본값 READY 를 유지한다") {
+                then("content_status 는 신규 4값만 허용하고 기본값을 갖지 않는다") {
                     statusColumn("COLUMN_TYPE") shouldBe "enum('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')"
-                    // MODIFY COLUMN 은 정의를 통째로 갈아끼워 DEFAULT 를 지운다 — status 를 생략하는 시드 INSERT 가 전부 깨진다
-                    statusColumn("COLUMN_DEFAULT") shouldBe "READY"
+                    // 기본값이 있으면 상태를 빠뜨린 INSERT 가 조용히 특정 상태로 들어간다 — 상태는 항상 명시해야 한다
+                    statusColumn("COLUMN_DEFAULT") shouldBe null
                 }
             }
 
@@ -113,7 +113,7 @@ class FoodStatusMigrationMappingTest : BehaviorSpec() {
                         """
                         ALTER TABLE food MODIFY COLUMN content_status
                             ENUM('INCOMPLETE','PENDING_IMAGE','PENDING_REVIEW','REVIEWED','REVIEW_REJECTED','READY','FAILED')
-                            NOT NULL DEFAULT 'READY'
+                            NOT NULL
                         """,
                     )
                     legacyByName.forEach { (name, status) -> insertLegacyFood(name, status) }

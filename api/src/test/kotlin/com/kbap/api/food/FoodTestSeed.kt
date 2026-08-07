@@ -113,12 +113,13 @@ object FoodTestSeed {
         nameTranslations: Map<String, String> = emptyMap(),
         descriptionTranslations: Map<String, String> = emptyMap(),
         ingredients: List<Pair<String, Int>> = emptyList(),
+        contentStatus: String = "READY",
         status: String = "ACTIVE",
     ) =
-        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, ingredients, status, created_at, updated_at) " +
+        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
             "VALUES ($id, '$koreanName', ${imageRef?.let { "'$it'" } ?: "NULL"}, '$description', $spiciness, " +
             "'${jsonObject(nameTranslations)}', '${jsonObject(descriptionTranslations)}', '${jsonArray(ingredients)}', " +
-            "'$status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            "'$contentStatus', '$status', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 
     private fun jsonObject(entries: Map<String, String>) =
         entries.entries.joinToString(separator = ",", prefix = "{", postfix = "}") { (key, value) ->
