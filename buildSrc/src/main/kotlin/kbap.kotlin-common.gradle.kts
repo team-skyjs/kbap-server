@@ -47,7 +47,4 @@ dependencies {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     System.getProperty("kotest.tags")?.let { systemProperty("kotest.tags", it) }
-    System.getProperties().stringPropertyNames()
-        .filter { it.endsWith(".smoke.enabled") }
-        .forEach { systemProperty(it, System.getProperty(it)) }
 }

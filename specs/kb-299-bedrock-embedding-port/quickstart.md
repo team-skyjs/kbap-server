@@ -30,6 +30,5 @@ class SomeCaller(private val embeddingClient: TextEmbeddingClient) {
 
 ```bash
 ./gradlew :infra:llm:test                          # 페이크 단위 + 구성 테스트 (AWS 불필요)
-./gradlew :infra:llm:test --tests "*EmbeddingSmokeTest" -Dembedding.smoke.enabled=true   # 실호출 스모크(AWS 자격증명 필요)
 ./gradlew build                                     # 전체 회귀(미설정 부팅 안전 포함)
 ```
