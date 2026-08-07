@@ -32,7 +32,7 @@ object ScenarioFoodSeed {
         }
         return connection.prepareStatement(
             "INSERT INTO food (korean_name, display_name, image_ref, description, name_translations, description_translations, " +
-                "ingredient, spiciness, content_status, status, created_at, updated_at) " +
+                "ingredients, spiciness, content_status, status, created_at, updated_at) " +
                 "VALUES (?, ?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             Statement.RETURN_GENERATED_KEYS,
         ).use { ps ->

@@ -757,7 +757,7 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, ingredient, content_status, status, created_at, updated_at) " +
+                                    "description_translations, ingredients, content_status, status, created_at, updated_at) " +
                                     "VALUES ('오타상태', '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIV', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }
@@ -771,7 +771,7 @@ class FoodServiceTest : BehaviorSpec() {
                         dataSource.connection.use { c ->
                             c.prepareStatement(
                                 "INSERT INTO food (korean_name, description, spiciness, name_translations, " +
-                                    "description_translations, ingredient, content_status, status, created_at, updated_at) " +
+                                    "description_translations, ingredients, content_status, status, created_at, updated_at) " +
                                     "VALUES ('오타완성상태', '설명', 0, '{}', '{}', '[]', 'REDY', 'ACTIVE', NOW(6), NOW(6))",
                             ).use { it.executeUpdate() }
                         }

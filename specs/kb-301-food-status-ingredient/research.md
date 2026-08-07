@@ -1,4 +1,4 @@
-# Research: food 상태 enum 간소화 및 ingredient 개명 (KB-301)
+# Research: food 상태 enum 간소화 및 ingredients 개명 (KB-301)
 
 ## R1. fail 상태 명칭
 
@@ -21,15 +21,15 @@
 
 ## R4. MySQL ENUM 컬럼 변경 전략
 
-- **Decision**: 상태 변경은 3단계 — (1) ENUM 을 신구 합집합으로 확장 MODIFY, (2) 매핑 UPDATE(REVIEWED→PENDING_REVIEW, REVIEW_REJECTED·INCOMPLETE→FAILED), (3) 최종 4값 `ENUM('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')` 로 축소 MODIFY. 개명(`avoidance_substances`→`ingredient` RENAME COLUMN + `avoidance_substance`→`ingredients` RENAME TABLE)은 **별도 마이그레이션 파일**로 분리한다(tasks 단계 조정 — US1/US2 스토리 독립 구현·순서 독립 규약 부합).
+- **Decision**: 상태 변경은 3단계 — (1) ENUM 을 신구 합집합으로 확장 MODIFY, (2) 매핑 UPDATE(REVIEWED→PENDING_REVIEW, REVIEW_REJECTED·INCOMPLETE→FAILED), (3) 최종 4값 `ENUM('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')` 로 축소 MODIFY. 개명(`avoidance_substances`→`ingredients` RENAME COLUMN + `avoidance_substance`→`ingredients` RENAME TABLE)은 **별도 마이그레이션 파일**로 분리한다(tasks 단계 조정 — US1/US2 스토리 독립 구현·순서 독립 규약 부합).
 - **Rationale**: MySQL 은 ENUM 정의에 없는 값이 행에 있으면 축소 MODIFY 가 실패하므로 확장→UPDATE→축소 순서가 필수. 타임스탬프 버전·독립 실행 규약 준수.
 - **Alternatives considered**: VARCHAR 전환 — 기존 스키마가 ENUM 이라 일관 유지, 기각.
 
-## R5. ingredient 명칭 계열
+## R5. ingredients 명칭 계열
 
-- **Decision**: DB 컬럼 `ingredient`(사용자 지정, 단수). 엔티티 필드 `ingredients`(List — Kotlin 컬렉션 관례), 값 타입 `FoodAvoidanceItem` → `FoodIngredient`, API 응답 필드 `ingredients` 로 전 계층 일관 개명. `avoidanceSubstancesByProbability()` → `ingredientsByProbability()`.
-- **Rationale**: 저장 명칭은 사용자 지정 그대로, 코드·응답은 컬렉션 의미를 드러내는 복수형. avoidance(기피 판정) 어휘는 회원의 기피 설정(avoidance 컨텍스트)에만 남아 의미가 분리된다.
-- **Alternatives considered**: 전부 단수 `ingredient` — 컬렉션 필드 관례 위반, 기각.
+- **Decision**: DB 컬럼 `ingredients`(2026-08-08 사용자 확정 — 음식의 재료 목록이므로 복수). 엔티티 필드 `ingredients`, 값 타입 `FoodAvoidanceItem` → `FoodIngredient`, API 응답 필드 `ingredients` 로 전 계층 일관 개명. `avoidanceSubstancesByProbability()` → `ingredientsByProbability()`.
+- **Rationale**: 이 데이터는 음식의 재료 목록이지 기피성분이 아니다 — 기피는 회원 프로필이 이 코드를 참조할 때만 생기는 의미다. 저장·코드·응답 전 계층을 복수 `ingredients` 로 통일한다. 카탈로그 테이블도 `ingredients` 라 이름이 겹치지만 대상이 달라(테이블 vs food 컬럼) 충돌하지 않는다.
+- **Alternatives considered**: 컬럼만 단수 `ingredient` — 최초 지시를 문자 그대로 따랐다가 사용자 정정으로 폐기(목록 의미가 드러나지 않음).
 
 ## R7. 성분 카탈로그 테이블 개명 (2026-08-08 사용자 추가)
 

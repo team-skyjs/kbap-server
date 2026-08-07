@@ -5,10 +5,10 @@
 | 항목 | 변경 전 | 변경 후 |
 |------|---------|---------|
 | `content_status` | ENUM 6값 (INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_REJECTED·READY) | ENUM 4값 **(FAILED·PENDING_IMAGE·PENDING_REVIEW·READY)** |
-| `avoidance_substances` (JSON) | `[{code, inclusion_percent}]` | 컬럼명 **`ingredient`** 로 개명 — 값 형식·데이터 불변 |
+| `avoidance_substances` (JSON) | `[{code, inclusion_percent}]` | 컬럼명 **`ingredients`** 로 개명 — 값 형식·데이터 불변 |
 | `content_review_attempts`·`content_review_rejection_reason` | 반려 재시도 로직이 사용 | 컬럼 유지, 관리자 참고 정보로만 사용(재시도 로직 폐기) |
 
-엔티티 대응: `contentStatus: FoodContentStatus`(4값), `avoidanceSubstances: List<FoodAvoidanceItem>?` → `ingredients: List<FoodIngredient>?`(nullable = 미조사 센티널 유지).
+엔티티 대응: `contentStatus: FoodContentStatus`(4값), `avoidanceSubstances: List<FoodAvoidanceItem>?` → `ingredients: List<FoodIngredient>?`(`@Column(name = "ingredients")`, nullable = 미조사 센티널 유지).
 
 ## 상태 머신 (신)
 

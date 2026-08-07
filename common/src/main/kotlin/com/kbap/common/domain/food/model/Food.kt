@@ -51,7 +51,7 @@ class Food(
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "ingredient")
+    @Column(name = "ingredients")
     var ingredients: List<FoodIngredient>? = emptyList(),
 
     @Column(name = "content_review_attempts", nullable = false, columnDefinition = "int not null default 0")

@@ -55,8 +55,8 @@ class IngredientRenameMigrationTest : BehaviorSpec() {
 
         given("음식 재료 명칭 개명 마이그레이션") {
             `when`("food 테이블 컬럼을 보면") {
-                then("ingredient 로 개명되고 구 컬럼은 남지 않는다") {
-                    columnExists("food", "ingredient") shouldBe true
+                then("ingredients 로 개명되고 구 컬럼은 남지 않는다") {
+                    columnExists("food", "ingredients") shouldBe true
                     columnExists("food", "avoidance_substances") shouldBe false
                 }
             }

@@ -1,4 +1,4 @@
-# Feature Specification: food 상태 enum 간소화 및 기피성분 컬럼명 ingredient 변경
+# Feature Specification: food 상태 enum 간소화 및 기피성분 컬럼명 ingredients 변경
 
 **Feature Branch**: `kb-301-food-status-ingredient`
 

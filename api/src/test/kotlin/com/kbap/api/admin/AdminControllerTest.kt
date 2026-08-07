@@ -49,7 +49,7 @@ class AdminControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (korean_name, description, spiciness, name_translations,
-                                      description_translations, ingredient, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     """,
@@ -132,7 +132,7 @@ class AdminControllerTest : BehaviorSpec() {
 
                     dataSource.connection.use { c ->
                         c.prepareStatement(
-                            "SELECT spiciness, ingredient FROM food WHERE korean_name = ?",
+                            "SELECT spiciness, ingredients FROM food WHERE korean_name = ?",
                         ).use { ps ->
                             ps.setString(1, "센티널마라탕")
                             ps.executeQuery().use { rs ->

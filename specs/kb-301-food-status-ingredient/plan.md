@@ -1,4 +1,4 @@
-# Implementation Plan: food 상태 enum 간소화 및 기피성분 컬럼명 ingredient 변경
+# Implementation Plan: food 상태 enum 간소화 및 기피성분 컬럼명 ingredients 변경
 
 **Branch**: `kb-301-food-status-ingredient` | **Date**: 2026-08-08 | **Spec**: [spec.md](spec.md)
 
@@ -6,7 +6,7 @@
 
 ## Summary
 
-food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_REJECTED·READY)에서 4값(**FAILED·PENDING_IMAGE·PENDING_REVIEW·READY**)으로 간소화하고, `avoidance_substances` JSON 컬럼을 **`ingredient`** 로, 성분 카탈로그 테이블 `avoidance_substance` 를 **`ingredients`** 로 개명한다(R7 — 코드 어휘는 avoidance 유지). 접근: Flyway 3단계 ENUM 변경(확장→매핑 UPDATE→축소)+컬럼 RENAME 단일 마이그레이션, 엔티티 상태 전이 메서드를 승인 플로우(approve/reject/resubmit/attachImage)로 재배선, INCOMPLETE 전제인 배치 콘텐츠 잡·배치 전용 공용 코드는 **삭제하지 않고 전량 주석 처리로 보존**(사용자 결정 — research R2, 최종 삭제는 KB-302), 개명은 도메인→응답 전 계층 일관 적용. 상세 결정은 [research.md](research.md), 모델·매핑은 [data-model.md](data-model.md), 계약 변경은 [contracts/api-changes.md](contracts/api-changes.md).
+food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_REJECTED·READY)에서 4값(**FAILED·PENDING_IMAGE·PENDING_REVIEW·READY**)으로 간소화하고, `avoidance_substances` JSON 컬럼을 **`ingredients`** 로, 성분 카탈로그 테이블 `avoidance_substance` 를 **`ingredients`** 로 개명한다(R7 — 코드 어휘는 avoidance 유지). 접근: Flyway 3단계 ENUM 변경(확장→매핑 UPDATE→축소)+컬럼 RENAME 단일 마이그레이션, 엔티티 상태 전이 메서드를 승인 플로우(approve/reject/resubmit/attachImage)로 재배선, INCOMPLETE 전제인 배치 콘텐츠 잡·배치 전용 공용 코드는 **삭제하지 않고 전량 주석 처리로 보존**(사용자 결정 — research R2, 최종 삭제는 KB-302), 개명은 도메인→응답 전 계층 일관 적용. 상세 결정은 [research.md](research.md), 모델·매핑은 [data-model.md](data-model.md), 계약 변경은 [contracts/api-changes.md](contracts/api-changes.md).
 
 ## Technical Context
 
@@ -14,7 +14,7 @@ food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_
 
 **Primary Dependencies**: Spring Boot 4.1 (web·validation·data-jpa), Flyway(+flyway-mysql), springdoc
 
-**Storage**: MySQL (`food` 테이블 — content_status ENUM·ingredient JSON), 마이그레이션 Flyway(owner=`:api`)
+**Storage**: MySQL (`food` 테이블 — content_status ENUM·ingredients JSON), 마이그레이션 Flyway(owner=`:api`)
 
 **Testing**: Kotest BehaviorSpec(한국어 given/when/then) + JUnit 플랫폼, 통합은 MySQL Testcontainers(`@ServiceConnection`) + Flyway on + `ddl-auto=validate`
 
@@ -38,7 +38,7 @@ food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_
 | II. Bounded Contexts | PASS | food 컨텍스트 내부 변경. 도메인 간 의존 방향 변화 없음(`ModuleBoundaryTest` 맵 무수정). avoidance 어휘는 회원 기피 컨텍스트에 그대로 |
 | III. Layered Dependency | PASS | 모듈 그래프 불변. batch 콘텐츠 잡 삭제는 batch→common 의존을 줄이는 방향 |
 | IV. Persistence Ownership | PASS | 상태 전이는 엔티티(=도메인 모델) 메서드 소유, 스키마는 api Flyway 소유, JPA 연관 신설 없음 |
-| V. Language Policy | PASS | 번역·언어 정책 접점 없음. ingredient 데이터(성분 코드·확률) 값 불변 |
+| V. Language Policy | PASS | 번역·언어 정책 접점 없음. ingredients 데이터(성분 코드·확률) 값 불변 |
 
 **Post-design 재평가**: PASS — Phase 1 산출물이 신규 모듈·계층·연관을 도입하지 않음. Complexity Tracking 해당 없음.
 

@@ -53,7 +53,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, description, spiciness, " +
-                            "name_translations, description_translations, ingredient, content_status, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
                             "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                     )
