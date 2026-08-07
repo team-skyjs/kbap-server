@@ -47,4 +47,8 @@ dependencies {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     System.getProperty("kotest.tags")?.let { systemProperty("kotest.tags", it) }
+    // 스모크 스펙(@EnabledIf)은 테스트 JVM 의 시스템 프로퍼티를 읽는다 — Gradle CLI -D 값을 전달.
+    System.getProperties().stringPropertyNames()
+        .filter { it.endsWith(".smoke.enabled") }
+        .forEach { systemProperty(it, System.getProperty(it)) }
 }
