@@ -50,7 +50,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **백엔드 아키텍처**(DDD·바운디드 컨텍스트·모듈 구성·데이터/AI 파이프라인) → [`docs/architecture/`](docs/architecture/). 강제 규칙은 `docs/architecture/meogo-conventions.md`.
 - **의사결정 기록(ADR)** → [`docs/adr/`](docs/adr/). SpecKit 사이클마다 중요한 결정을 남긴다.
 - **구현 설계**(기능별 "어떻게") → SpecKit `specs/NNN-slug/`(spec·plan·tasks). 교차-컨텍스트 흐름은 `mermaid-flows` 스킬로 시퀀스 다이어그램을 그린다.
-- **제품 개요·기획 PRD("무엇을/왜")** → 공유 허브 `agent-hub/`(이 repo에선 git-ignored, 별도 서브모듈로 관리). 구현 세부는 여기 두지 않는다.
+- **프로젝트 도메인 지식·데일리 작업 로그** → 지식 위키 `../kbap-agenthub/`(kbap·kbap-langchain 공유, 독립 repo). 아래 "지식 위키" 섹션 참조.
+
+## 지식 위키 (kbap-agenthub)
+
+- 위치: `../kbap-agenthub` — kbap·kbap-langchain 이 공유하는 지식 위키(독립 repo). 도메인 맥락이 필요하면 **`../kbap-agenthub/INDEX.md`(색인)를 먼저 읽고** 필요한 문서만 골라 읽는다 — 위키 본문을 통째로 로드하지 않는다.
+- **자동 축적 (작업 중 상시)**: 코드로 알 수 없는 도메인 지식·중요 결정이 나오면 `../kbap-agenthub/wiki/<kebab-case-topic>.md` 에 기록하고 `INDEX.md` 에 한 줄 추가 후 허브에서 커밋. 기록 규칙 상세는 허브의 `CLAUDE.md`. (데일리 작업 요약은 `/clear` 시 SessionEnd 훅이 자동 기록 — 세션 중 신경 쓰지 않는다.)
 
 ## 기술 스택
 
@@ -96,7 +101,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 특정 폴더에 **그 폴더 작업 시 꼭 지켜야 할 규칙/관례**(코드만 봐선 알 수 없고, 일관되게 강제돼야 하는 것)가 있다고 판단되면, **그 폴더에 `CLAUDE.md`를 만들지 사용자에게 먼저 물어본다.** 임의로 만들지 않는다.
 - 이유: 하위 폴더의 `CLAUDE.md`는 그 하위 트리의 파일을 다룰 때 자동 로드되므로, 규칙을 "가장 가까운 곳"에 두면 매번 확실히 적용되고 노이즈도 없다.
-- 규칙은 가장 좁은 적용 범위의 폴더에 둔다(예: PRD 전용 규칙 → `agent-hub/prd/CLAUDE.md`). 상세 템플릿/레퍼런스는 같은 폴더의 다른 문서로 분리하고 `CLAUDE.md`엔 핵심 규칙+포인터만 둔다.
+- 규칙은 가장 좁은 적용 범위의 폴더에 둔다. 상세 템플릿/레퍼런스는 같은 폴더의 다른 문서로 분리하고 `CLAUDE.md`엔 핵심 규칙+포인터만 둔다.
 
 ## 디렉터리 생성 규칙
 
