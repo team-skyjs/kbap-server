@@ -221,9 +221,6 @@ build/
 # 위 *.jar 규칙이 래퍼 jar까지 무시하므로 예외로 다시 포함(없으면 clone 후 ./gradlew 실패)
 !gradle/wrapper/gradle-wrapper.jar
 
-### PRD 원천 ###
-/agent-hub/
-
 ### codegraph 인덱스 (머신 로컬 심볼릭 링크 — 재생성 가능) ###
 /.codegraph
 
