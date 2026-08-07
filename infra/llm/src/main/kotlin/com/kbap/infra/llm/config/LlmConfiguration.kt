@@ -2,13 +2,18 @@ package com.kbap.infra.llm.config
 
 import com.google.genai.Client
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
+import com.kbap.infra.llm.embedding.SpringAiTextEmbeddingClient
 import com.kbap.infra.llm.menu.MenuBoardResultParser
 import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.infra.llm.model.LlmModelId
 import com.kbap.infra.llm.model.LlmPricing
 import com.kbap.infra.llm.provider.SpringAiModelCaller
+import io.micrometer.observation.ObservationRegistry
+import org.springframework.ai.bedrock.titan.BedrockTitanEmbeddingModel
+import org.springframework.ai.bedrock.titan.api.TitanEmbeddingBedrockApi
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatModel
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions
@@ -107,6 +112,17 @@ class LlmConfiguration {
             pricing = pricing,
             configuredModelName = props.model.orEmpty(),
             eventPublisher = eventPublisher,
+        )
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
+    fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient {
+        val props = properties.embedding
+        val api = TitanEmbeddingBedrockApi(props.model, props.region, props.timeout)
+        return SpringAiTextEmbeddingClient(
+            BedrockTitanEmbeddingModel(api, ObservationRegistry.NOOP),
+            props.dimension,
         )
     }
 

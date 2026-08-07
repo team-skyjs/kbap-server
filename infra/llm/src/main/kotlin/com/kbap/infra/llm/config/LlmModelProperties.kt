@@ -13,7 +13,16 @@ data class LlmModelProperties(
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
     val avoidance: AvoidanceProps = AvoidanceProps(),
+    val embedding: EmbeddingProps = EmbeddingProps(),
 ) {
+    data class EmbeddingProps(
+        val enabled: Boolean = false,
+        val model: String = "amazon.titan-embed-text-v2:0",
+        val region: String = "ap-northeast-2",
+        val dimension: Int = 1024,
+        val timeout: Duration = Duration.ofSeconds(30),
+    )
+
     // 기피성분 조사 전용 OpenAI 오버라이드 — null 필드는 kbap.llm.openai 값을 상속한다.
     data class AvoidanceProps(
         val minAgreement: Int = 2,
