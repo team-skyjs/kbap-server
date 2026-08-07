@@ -87,13 +87,6 @@ class Food(
             ?.take(MAX_REJECTION_REASON_LENGTH)
     }
 
-    fun resubmit() {
-        require(contentStatus == FoodContentStatus.FAILED) {
-            "재투입 대상(FAILED)이 아닙니다: $contentStatus"
-        }
-        contentStatus = FoodContentStatus.PENDING_IMAGE
-    }
-
     fun attachImage(imageRef: String) {
         require(imageRef.isNotBlank()) { "imageRef 는 blank 일 수 없습니다" }
         require(contentStatus == FoodContentStatus.PENDING_IMAGE) {

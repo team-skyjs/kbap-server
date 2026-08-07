@@ -40,6 +40,7 @@
 
 ## R6. 승인 플로우 재배선 (구 검수 메서드 대체)
 
-- **Decision**: `passContentReview`(PENDING_REVIEW→REVIEWED) → **`approve`**(PENDING_REVIEW→READY). `rejectContentReview`(필드 초기화+재시도 카운트+INCOMPLETE 회귀) → **`reject`**(PENDING_REVIEW→FAILED, 사유 기록만 — 필드 초기화·재시도 카운트 로직 폐기). 관리자 수정 완료 시 **`resubmit`**(FAILED→PENDING_IMAGE). `attachImage` 는 PENDING_IMAGE→PENDING_REVIEW 고정 전이.
+- **Decision**: `passContentReview`(PENDING_REVIEW→REVIEWED) → **`approve`**(PENDING_REVIEW→READY). `rejectContentReview`(필드 초기화+재시도 카운트+INCOMPLETE 회귀) → **`reject`**(PENDING_REVIEW→FAILED, 사유 기록만 — 필드 초기화 폐기, 반려 횟수는 관리자 참고용으로 누적). `attachImage` 는 PENDING_IMAGE→PENDING_REVIEW 고정 전이.
+- **구현 시 조정**: FAILED→PENDING_IMAGE 전용 메서드(`resubmit`)는 프로덕션 호출부가 없어 두지 않았다 — 관리자는 음식 수정 폼에서 상태를 직접 지정한다. KB-302 가 전용 버튼을 붙일 때 도입한다.
 - **Rationale**: 배치 재채움이 없으므로 반려 시 필드를 비울 이유가 없다(데이터 보존). READY 승격이 별도 수동 단계였던 REVIEWED 를 접고 승인=READY 로 직결(스펙 FR-002). `content_review_attempts`·`content_review_rejection_reason` 컬럼은 관리자 참고 정보로 유지(스펙 Assumption).
 - **Alternatives considered**: REVIEWED 유지(승인 2단계) — 스펙이 4상태로 확정, 기각.

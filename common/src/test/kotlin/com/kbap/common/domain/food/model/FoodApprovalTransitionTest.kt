@@ -82,7 +82,7 @@ class FoodApprovalTransitionTest : BehaviorSpec({
                 val target = food(FoodContentStatus.PENDING_REVIEW)
 
                 target.reject(null)
-                target.resubmit()
+                target.contentStatus = FoodContentStatus.PENDING_IMAGE
                 target.attachImage("images/food/2.webp")
                 target.reject(null)
 
@@ -114,24 +114,6 @@ class FoodApprovalTransitionTest : BehaviorSpec({
         `when`("승인 대기가 아닌 음식을 반려하려 하면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> { food(FoodContentStatus.PENDING_IMAGE).reject(null) }
-            }
-        }
-    }
-
-    given("Food.resubmit — 관리자 수정 완료 후 재투입") {
-        `when`("관리자 확인 필요(FAILED) 음식을 재투입하면") {
-            then("이미지 대기(PENDING_IMAGE)로 전이한다") {
-                val target = food(FoodContentStatus.FAILED, imageRef = null)
-
-                target.resubmit()
-
-                target.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
-            }
-        }
-
-        `when`("FAILED 가 아닌 음식을 재투입하려 하면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { food(FoodContentStatus.READY).resubmit() }
             }
         }
     }

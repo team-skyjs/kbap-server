@@ -44,21 +44,11 @@ class FoodStatusMigrationMappingTest : BehaviorSpec() {
             execute(*statements.toTypedArray())
         }
 
-        fun columnType(): String =
+        fun statusColumn(field: String): String? =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'food' AND COLUMN_NAME = 'content_status'
-                    """,
-                ).use { ps -> ps.executeQuery().use { rs -> rs.next(); rs.getString(1) } }
-            }
-
-        fun columnDefault(): String? =
-            dataSource.connection.use { c ->
-                c.prepareStatement(
-                    """
-                    SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS
+                    SELECT $field FROM information_schema.COLUMNS
                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'food' AND COLUMN_NAME = 'content_status'
                     """,
                 ).use { ps -> ps.executeQuery().use { rs -> rs.next(); rs.getString(1) } }
@@ -103,9 +93,9 @@ class FoodStatusMigrationMappingTest : BehaviorSpec() {
         given("food 상태 간소화 마이그레이션") {
             `when`("마이그레이션이 적용된 스키마를 보면") {
                 then("content_status 는 신규 4값만 허용하고 기본값 READY 를 유지한다") {
-                    columnType() shouldBe "enum('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')"
+                    statusColumn("COLUMN_TYPE") shouldBe "enum('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')"
                     // MODIFY COLUMN 은 정의를 통째로 갈아끼워 DEFAULT 를 지운다 — status 를 생략하는 시드 INSERT 가 전부 깨진다
-                    columnDefault() shouldBe "READY"
+                    statusColumn("COLUMN_DEFAULT") shouldBe "READY"
                 }
             }
 
@@ -136,7 +126,7 @@ class FoodStatusMigrationMappingTest : BehaviorSpec() {
                     statusOf("마이그레이션검수완료") shouldBe "PENDING_REVIEW"
                     statusOf("마이그레이션검수탈락") shouldBe "FAILED"
                     statusOf("마이그레이션미완성") shouldBe "FAILED"
-                    columnType() shouldBe "enum('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')"
+                    statusColumn("COLUMN_TYPE") shouldBe "enum('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')"
 
                     deleteFoods(legacyByName.keys)
                 }
