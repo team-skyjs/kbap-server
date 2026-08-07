@@ -119,7 +119,6 @@ class LlmConfiguration {
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
     fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient {
         val props = properties.embedding
-        // TitanEmbeddingBedrockApi 3-인자 생성자 = AWS 기본 자격증명 체인(EC2 역할/로컬 프로필) — api-key 미사용.
         val api = TitanEmbeddingBedrockApi(props.model, props.region, props.timeout)
         return SpringAiTextEmbeddingClient(
             BedrockTitanEmbeddingModel(api, ObservationRegistry.NOOP),

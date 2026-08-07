@@ -15,7 +15,6 @@ data class LlmModelProperties(
     val avoidance: AvoidanceProps = AvoidanceProps(),
     val embedding: EmbeddingProps = EmbeddingProps(),
 ) {
-    // Bedrock 임베딩(KB-299) — api-key 없음: 자격증명은 AWS 기본 체인(EC2 역할/로컬 프로필).
     data class EmbeddingProps(
         val enabled: Boolean = false,
         val model: String = "amazon.titan-embed-text-v2:0",
