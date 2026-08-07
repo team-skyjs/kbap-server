@@ -31,7 +31,6 @@ class AdminFoodContentReviewController(
         val result = adminFoodContentReviewService.applyContentReviewResult(
             foodId = foodId,
             passed = request.passed!!,
-            rejectedFields = request.rejectedFields.orEmpty(),
             reason = request.reason,
         )
         return ResponseEntity.ok(BaseResponse.ok(result))

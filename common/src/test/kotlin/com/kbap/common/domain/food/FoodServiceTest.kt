@@ -710,7 +710,7 @@ class FoodServiceTest : BehaviorSpec() {
 
                     val created = service.createIncomplete(incompleteNames("센티널-우주라면")).getValue("센티널-우주라면")
 
-                    created.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                    created.contentStatus shouldBe FoodContentStatus.FAILED
                     created.avoidanceSubstances shouldBe null
                     created.spiciness shouldBe Food.SPICINESS_UNASSESSED
                 }

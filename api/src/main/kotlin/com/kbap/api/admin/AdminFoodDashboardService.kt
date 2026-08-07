@@ -19,7 +19,7 @@ class AdminFoodDashboardService(
         val ready = countOf(FoodContentStatus.READY)
         return AdminFoodDashboardView(
             total = total,
-            incomplete = countOf(FoodContentStatus.INCOMPLETE),
+            failed = countOf(FoodContentStatus.FAILED),
             pendingImage = countOf(FoodContentStatus.PENDING_IMAGE),
             pendingReview = countOf(FoodContentStatus.PENDING_REVIEW),
             ready = ready,
@@ -30,7 +30,7 @@ class AdminFoodDashboardService(
 
 data class AdminFoodDashboardView(
     val total: Long,
-    val incomplete: Long,
+    val failed: Long,
     val pendingImage: Long,
     val pendingReview: Long,
     val ready: Long,

@@ -118,7 +118,7 @@ class FoodService(
     }
 
     private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.incomplete(matchKey, displayName) })
+        foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.failed(matchKey, displayName) })
 
         val matchKeys = displayNamesByMatchKey.keys
         val resolved = foodRepository.findByKoreanNameIn(matchKeys).associateBy { it.koreanName }

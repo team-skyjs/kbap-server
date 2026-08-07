@@ -161,7 +161,7 @@ class CommunityControllerTest : BehaviorSpec() {
             seedFood(9100L, "커뮤니티김치찌개")
             seedFood(9101L, "커뮤니티된장찌개")
             seedFood(9102L, "커뮤니티불고기")
-            seedFood(9103L, "커뮤니티준비중", contentStatus = "INCOMPLETE")
+            seedFood(9103L, "커뮤니티준비중", contentStatus = "FAILED")
 
             `when`("본문만으로 작성하면") {
                 then("200 과 게시글을 반환한다") {

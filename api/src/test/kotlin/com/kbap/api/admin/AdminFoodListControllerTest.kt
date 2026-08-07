@@ -147,7 +147,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
                     val html = getList().response.contentAsString
 
-                    listOf("badge-ok", "badge-neutral", "badge-progress", "badge-info", "badge-warn")
+                    listOf("badge-ok", "badge-progress", "badge-info", "badge-warn")
                         .forEach { html shouldContain it }
                 }
             }
@@ -240,7 +240,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 then("오류 없이 빈 결과 안내를 렌더링한다") {
                     saveFood("다른상태음식", FoodContentStatus.READY)
 
-                    val html = getList("?status=REVIEW_REJECTED").response.contentAsString
+                    val html = getList("?status=FAILED").response.contentAsString
 
                     html shouldContain "food-grid-viewport"
                     html shouldContain "결과가 없습니다"
@@ -436,7 +436,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("koreanName", "널수정이름")
                         param("description", "설명")
                         param("spiciness", "0")
-                        param("contentStatus", "INCOMPLETE")
+                        param("contentStatus", "FAILED")
                         param("imageRef", "")
                         param("nameTranslationsJson", "{}")
                         param("descriptionTranslationsJson", "{}")
@@ -459,7 +459,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("koreanName", "JSON오류이름")
                         param("description", "설명")
                         param("spiciness", "0")
-                        param("contentStatus", "INCOMPLETE")
+                        param("contentStatus", "FAILED")
                         param("imageRef", "")
                         param("nameTranslationsJson", "{잘못된}")
                         param("descriptionTranslationsJson", "{}")
@@ -481,7 +481,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("koreanName", "없는음식")
                         param("description", "설명")
                         param("spiciness", "0")
-                        param("contentStatus", "INCOMPLETE")
+                        param("contentStatus", "FAILED")
                     }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&error=not-found")
@@ -499,7 +499,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("koreanName", "   ")
                         param("description", "설명")
                         param("spiciness", "0")
-                        param("contentStatus", "INCOMPLETE")
+                        param("contentStatus", "FAILED")
                     }.andExpect {
                         status { is3xxRedirection() }
                         redirectedUrl("/admin/foods/list?page=1&detail=${saved.id}&edit=true&error=invalid-name")
@@ -520,7 +520,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("koreanName", "중복대상이름")
                         param("description", "설명")
                         param("spiciness", "0")
-                        param("contentStatus", "INCOMPLETE")
+                        param("contentStatus", "FAILED")
                         param("imageRef", "")
                         param("nameTranslationsJson", "{}")
                         param("descriptionTranslationsJson", "{}")
@@ -565,7 +565,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 "koreanName" to koreanName,
                 "description" to "설명",
                 "spiciness" to "0",
-                "contentStatus" to "INCOMPLETE",
+                "contentStatus" to "FAILED",
                 "imageRef" to "",
                 "nameTranslationsJson" to nameTranslationsJson,
                 "descriptionTranslationsJson" to "{}",

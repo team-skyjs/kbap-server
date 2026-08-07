@@ -88,7 +88,6 @@ class AdminFoodService(
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.avoidanceSubstances = avoidanceSubstances
-        food.transitionByContentState()
         return AdminFoodUpdateResult.UPDATED
     }
 
@@ -124,7 +123,7 @@ class AdminFoodService(
 
     private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
         foodRepository.upsertIncomplete(
-            displayNamesByMatchKey.map { (matchKey, displayName) -> Food.incomplete(matchKey, displayName) },
+            displayNamesByMatchKey.map { (matchKey, displayName) -> Food.failed(matchKey, displayName) },
         )
 
         val matchKeys = displayNamesByMatchKey.keys

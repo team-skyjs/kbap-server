@@ -102,7 +102,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                     clearFoods()
                     val target = saveFood("된장찌개")
                     saveFood("김치찌개", FoodContentStatus.READY)
-                    saveFood("순두부", FoodContentStatus.INCOMPLETE)
+                    saveFood("순두부", FoodContentStatus.FAILED)
 
                     getTargets().andExpect {
                         status { isOk() }
@@ -166,20 +166,20 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("검수 결과 반영 API — 통과") {
-            `when`("PENDING_REVIEW 음식이 통과하면") {
-                then("REVIEWED 로 전이하고 콘텐츠·시도 횟수는 그대로다") {
+        given("승인 결과 반영 API — 승인") {
+            `when`("승인 대기(PENDING_REVIEW) 음식을 승인하면") {
+                then("READY 로 전이해 사용자 조회에 노출된다") {
                     clearFoods()
                     val food = saveFood("된장찌개")
 
                     postResult(food.id, mapOf("passed" to true)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.contentStatus") { value("REVIEWED") }
+                        jsonPath("$.payload.contentStatus") { value("READY") }
                         jsonPath("$.payload.contentReviewAttempts") { value(0) }
                     }
 
                     val saved = reloaded(food.id)
-                    saved.contentStatus shouldBe FoodContentStatus.REVIEWED
+                    saved.contentStatus shouldBe FoodContentStatus.READY
                     saved.description shouldBe "구수한 된장찌개"
                 }
             }
@@ -206,91 +206,48 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("검수 결과 반영 API — 탈락") {
-            `when`("재시도 여력이 남은 음식이 설명 문제로 탈락하면") {
-                then("설명만 비우고 INCOMPLETE 로 롤백하며 시도 횟수를 올린다") {
+        given("승인 결과 반영 API — 반려") {
+            `when`("승인 대기 음식을 반려하면") {
+                then("FAILED 로 전이하고 사유를 저장하며 콘텐츠는 보존한다") {
                     clearFoods()
                     val food = saveFood("된장찌개")
 
                     postResult(
                         food.id,
-                        mapOf(
-                            "passed" to false,
-                            "rejectedFields" to listOf("DESCRIPTION"),
-                            "reason" to "설명이 음식과 무관함",
-                        ),
+                        mapOf("passed" to false, "reason" to "설명이 음식과 무관함"),
                     ).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.contentStatus") { value("INCOMPLETE") }
+                        jsonPath("$.payload.contentStatus") { value("FAILED") }
                         jsonPath("$.payload.contentReviewAttempts") { value(1) }
-                        jsonPath("$.payload.contentReviewRejectionReason") { doesNotExist() }
+                        jsonPath("$.payload.contentReviewRejectionReason") { value("설명이 음식과 무관함") }
                     }
 
                     val saved = reloaded(food.id)
-                    saved.needsDescription() shouldBe true
+                    saved.description shouldBe "구수한 된장찌개"
                     saved.nameTranslations.keys.sorted() shouldContainExactly targetLangs.sorted()
                     saved.imageRef shouldBe "images/food/된장찌개.webp"
                 }
             }
 
-            `when`("재시도를 모두 쓴 음식이 탈락하면") {
-                then("콘텐츠를 유지한 채 REVIEW_REJECTED 로 전이하고 사유를 저장한다") {
+            `when`("사유 없이 반려하면") {
+                then("사유 없이도 FAILED 로 전이한다") {
                     clearFoods()
-                    val food = saveFood("된장찌개", contentReviewAttempts = Food.MAX_CONTENT_REVIEW_ATTEMPTS)
+                    val food = saveFood("된장찌개")
 
-                    postResult(
-                        food.id,
-                        mapOf(
-                            "passed" to false,
-                            "rejectedFields" to listOf("DESCRIPTION"),
-                            "reason" to "설명이 여전히 부정확함",
-                        ),
-                    ).andExpect {
+                    postResult(food.id, mapOf("passed" to false)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.contentStatus") { value("REVIEW_REJECTED") }
-                        jsonPath("$.payload.contentReviewRejectionReason") { value("설명이 여전히 부정확함") }
-                    }
-
-                    reloaded(food.id).description shouldBe "구수한 된장찌개"
-                }
-            }
-
-            `when`("탈락인데 문제 필드가 비어 있으면") {
-                then("400 으로 거절한다") {
-                    clearFoods()
-                    val food = saveFood("된장찌개")
-
-                    postResult(food.id, mapOf("passed" to false, "reason" to "그냥 별로")).andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                        jsonPath("$.payload.contentStatus") { value("FAILED") }
+                        jsonPath("$.payload.contentReviewRejectionReason") { doesNotExist() }
                     }
                 }
             }
 
-            `when`("알 수 없는 문제 필드가 오면") {
+            `when`("승인 대기가 아닌 음식에 결과가 도착하면") {
                 then("400 으로 거절한다") {
                     clearFoods()
-                    val food = saveFood("된장찌개")
+                    val food = saveFood("된장찌개", FoodContentStatus.FAILED)
 
-                    postResult(
-                        food.id,
-                        mapOf("passed" to false, "rejectedFields" to listOf("UNKNOWN_FIELD")),
-                    ).andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
-                    }
-                }
-            }
-
-            `when`("검수 대상이 아닌 음식에 결과가 도착하면") {
-                then("400 으로 거절한다") {
-                    clearFoods()
-                    val food = saveFood("된장찌개", FoodContentStatus.INCOMPLETE)
-
-                    postResult(
-                        food.id,
-                        mapOf("passed" to false, "rejectedFields" to listOf("DESCRIPTION")),
-                    ).andExpect {
+                    postResult(food.id, mapOf("passed" to false, "reason" to "이미 반려됨")).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
                     }

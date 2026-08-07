@@ -37,9 +37,8 @@
                     <strong class="food-card-name" th:text="${f.koreanName}" th:title="${f.koreanName}">김치찌개</strong>
                     <span class="badge"
                           th:classappend="${f.contentStatus.name() == 'READY'} ? 'badge-ok'
-                                        : (${f.contentStatus.name() == 'INCOMPLETE'} ? 'badge-neutral'
-                                        : (${f.contentStatus.name() == 'REVIEW_REJECTED'} ? 'badge-warn'
-                                        : (${f.contentStatus.name() == 'REVIEWED'} ? 'badge-info' : 'badge-progress')))"
+                                        : (${f.contentStatus.name() == 'FAILED'} ? 'badge-warn'
+                                        : (${f.contentStatus.name() == 'PENDING_REVIEW'} ? 'badge-info' : 'badge-progress'))"
                           th:text="${f.contentStatus}">READY</span>
                 </div>
             </a>

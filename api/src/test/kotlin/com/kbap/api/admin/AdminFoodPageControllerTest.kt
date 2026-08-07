@@ -72,8 +72,8 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
         given("음식 적재 현황 대시보드") {
             `when`("여러 준비 단계의 음식이 존재할 때 진입하면") {
                 then("전체 건수·상태별 4종(0 채움)·READY 비율을 모델로 내려준다") {
-                    saveFood("대시-미완료1", FoodContentStatus.INCOMPLETE)
-                    saveFood("대시-미완료2", FoodContentStatus.INCOMPLETE)
+                    saveFood("대시-미완료1", FoodContentStatus.FAILED)
+                    saveFood("대시-미완료2", FoodContentStatus.FAILED)
                     saveFood("대시-검수", FoodContentStatus.PENDING_REVIEW)
                     saveFood("대시-레디", FoodContentStatus.READY)
 
@@ -85,7 +85,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                                 "dashboard",
                                 AdminFoodDashboardView(
                                     total = 4,
-                                    incomplete = 2,
+                                    failed = 2,
                                     pendingImage = 0,
                                     pendingReview = 1,
                                     ready = 1,
@@ -107,7 +107,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                                 "dashboard",
                                 AdminFoodDashboardView(
                                     total = 0,
-                                    incomplete = 0,
+                                    failed = 0,
                                     pendingImage = 0,
                                     pendingReview = 0,
                                     ready = 0,
@@ -401,7 +401,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
         given("화면에서 이미지 배치 제출") {
             `when`("이미지 없는 음식이 있을 때 제출하면") {
                 then("제출 건수를 담아 리다이렉트하고 배치 처리 목록에 노출된다") {
-                    saveFood("이미지폼-마라탕", FoodContentStatus.INCOMPLETE)
+                    saveFood("이미지폼-마라탕", FoodContentStatus.PENDING_IMAGE)
 
                     mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {
                         status { is3xxRedirection() }
@@ -448,7 +448,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
 
             `when`("제출 처리 중 예외가 나면") {
                 then("JSON 을 노출하지 않고 오류 파라미터로 리다이렉트한다") {
-                    saveFood("이미지폼-실패탕", FoodContentStatus.INCOMPLETE)
+                    saveFood("이미지폼-실패탕", FoodContentStatus.PENDING_IMAGE)
                     fakeClient.submitFailure = RuntimeException("openai 다운")
 
                     mockMvc.post("/admin/foods/images") { cookie(adminCookie()) }.andExpect {

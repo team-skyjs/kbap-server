@@ -92,7 +92,7 @@ class AdminControllerTest : BehaviorSpec() {
 
         given("관리자 신규 음식 적재 — 정상 흐름") {
             `when`("신규·기존·중복·공백이 섞인 목록을 제출하면") {
-                then("정제 후 신규만 INCOMPLETE 로 생성되고 카운트를 돌려준다") {
+                then("정제 후 신규만 FAILED 로 생성되고 카운트를 돌려준다") {
                     seedExistingFood("기존비빔밥")
 
                     postSeed(seedBody(listOf("신규마라샹궈", "기존비빔밥", " 신규마라샹궈 ", "신규탕후루", "  ")))
@@ -105,8 +105,8 @@ class AdminControllerTest : BehaviorSpec() {
                         }
 
                     countFoods() shouldBe 3
-                    contentStatusOf("신규마라샹궈") shouldBe "INCOMPLETE"
-                    contentStatusOf("신규탕후루") shouldBe "INCOMPLETE"
+                    contentStatusOf("신규마라샹궈") shouldBe "FAILED"
+                    contentStatusOf("신규탕후루") shouldBe "FAILED"
                     contentStatusOf("기존비빔밥") shouldBe "READY"
                 }
             }
@@ -122,7 +122,7 @@ class AdminControllerTest : BehaviorSpec() {
                         }
 
                     countFoods() shouldBe 1
-                    contentStatusOf("김치찌개") shouldBe "INCOMPLETE"
+                    contentStatusOf("김치찌개") shouldBe "FAILED"
                 }
             }
 
@@ -217,7 +217,7 @@ class AdminControllerTest : BehaviorSpec() {
                             jsonPath("$.payload.created") { value(1) }
                         }
 
-                    contentStatusOf("관리자마라탕") shouldBe "INCOMPLETE"
+                    contentStatusOf("관리자마라탕") shouldBe "FAILED"
                 }
             }
         }
