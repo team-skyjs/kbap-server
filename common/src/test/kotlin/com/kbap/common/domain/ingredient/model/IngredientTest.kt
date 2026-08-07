@@ -1,17 +1,17 @@
-package com.kbap.common.domain.avoidance.model
+package com.kbap.common.domain.ingredient.model
 
 import com.kbap.common.domain.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import java.lang.reflect.Modifier
 
-class AvoidanceSubstanceTest : BehaviorSpec({
+class IngredientTest : BehaviorSpec({
     fun substance(
-        code: AvoidanceSubstanceCode = AvoidanceSubstanceCode.PEANUT,
+        code: IngredientCode = IngredientCode.PEANUT,
         koreanName: String = "땅콩",
         translations: Map<String, String> = emptyMap(),
-    ): AvoidanceSubstance =
-        AvoidanceSubstance(code = code, koreanName = koreanName, translations = translations)
+    ): Ingredient =
+        Ingredient(code = code, koreanName = koreanName, translations = translations)
 
     given("표시명 displayName") {
         `when`("언어가 KO 이면") {
@@ -19,7 +19,7 @@ class AvoidanceSubstanceTest : BehaviorSpec({
                 substance(koreanName = "땅콩").displayName(LanguageCode.KO) shouldBe "땅콩"
             }
             then("코드가 같아도 한국어명이 다르면 저장된 한국어명을 반환한다") {
-                substance(code = AvoidanceSubstanceCode.PEANUT, koreanName = "땅콩-운영자수정")
+                substance(code = IngredientCode.PEANUT, koreanName = "땅콩-운영자수정")
                     .displayName(LanguageCode.KO) shouldBe "땅콩-운영자수정"
             }
         }
@@ -49,16 +49,16 @@ class AvoidanceSubstanceTest : BehaviorSpec({
     given("성분 코드 식별자 enum") {
         `when`("전체 코드를 조회하면") {
             then("정확히 81종이다") {
-                AvoidanceSubstanceCode.entries.size shouldBe 81
+                IngredientCode.entries.size shouldBe 81
             }
             then("코드는 모두 유일하다") {
-                AvoidanceSubstanceCode.entries.map { it.name }.distinct().size shouldBe 81
+                IngredientCode.entries.map { it.name }.distinct().size shouldBe 81
             }
         }
 
         `when`("enum 의 선언 필드를 리플렉션으로 확인하면") {
             then("개발 가독성 label 만 허용하고 콘텐츠 데이터(번역·분류 등)는 갖지 않는다") {
-                val instanceFieldNames = AvoidanceSubstanceCode::class.java.declaredFields
+                val instanceFieldNames = IngredientCode::class.java.declaredFields
                     .filterNot { Modifier.isStatic(it.modifiers) }
                     .map { it.name }
 

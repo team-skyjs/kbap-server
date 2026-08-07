@@ -6,7 +6,7 @@
 
 ## Summary
 
-food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_REJECTED·READY)에서 4값(**FAILED·PENDING_IMAGE·PENDING_REVIEW·READY**)으로 간소화하고, `avoidance_substances` JSON 컬럼을 **`ingredients`** 로, 성분 카탈로그 테이블 `avoidance_substance` 를 **`ingredients`** 로 개명한다(R7 — 코드 어휘는 avoidance 유지). 접근: Flyway 3단계 ENUM 변경(확장→매핑 UPDATE→축소)+컬럼 RENAME 단일 마이그레이션, 엔티티 상태 전이 메서드를 승인 플로우(approve/reject/resubmit/attachImage)로 재배선, INCOMPLETE 전제인 배치 콘텐츠 잡·배치 전용 공용 코드는 **삭제하지 않고 전량 주석 처리로 보존**(사용자 결정 — research R2, 최종 삭제는 KB-302), 개명은 도메인→응답 전 계층 일관 적용. 상세 결정은 [research.md](research.md), 모델·매핑은 [data-model.md](data-model.md), 계약 변경은 [contracts/api-changes.md](contracts/api-changes.md).
+food 상태를 6값(INCOMPLETE·PENDING_IMAGE·PENDING_REVIEW·REVIEWED·REVIEW_REJECTED·READY)에서 4값(**FAILED·PENDING_IMAGE·PENDING_REVIEW·READY**)으로 간소화하고, `avoidance_substances` JSON 컬럼을 **`ingredients`** 로, 성분 카탈로그 테이블 `avoidance_substance` 를 **`ingredients`** 로 개명한다(R7 — 카탈로그 코드 어휘까지 재료로 개명, 회원 기피 설정은 유지). 접근: Flyway 3단계 ENUM 변경(확장→매핑 UPDATE→축소)+컬럼 RENAME 단일 마이그레이션, 엔티티 상태 전이 메서드를 승인 플로우(approve/reject/resubmit/attachImage)로 재배선, INCOMPLETE 전제인 배치 콘텐츠 잡·배치 전용 공용 코드는 **삭제하지 않고 전량 주석 처리로 보존**(사용자 결정 — research R2, 최종 삭제는 KB-302), 개명은 도메인→응답 전 계층 일관 적용. 상세 결정은 [research.md](research.md), 모델·매핑은 [data-model.md](data-model.md), 계약 변경은 [contracts/api-changes.md](contracts/api-changes.md).
 
 ## Technical Context
 

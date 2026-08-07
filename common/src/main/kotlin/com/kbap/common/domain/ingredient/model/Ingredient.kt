@@ -1,4 +1,4 @@
-package com.kbap.common.domain.avoidance.model
+package com.kbap.common.domain.ingredient.model
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
@@ -13,10 +13,10 @@ import org.hibernate.type.SqlTypes
 
 @Entity
 @Table(name = "ingredients")
-class AvoidanceSubstance(
+class Ingredient(
     @Enumerated(EnumType.STRING)
     @Column(name = "code", nullable = false, length = 40)
-    var code: AvoidanceSubstanceCode = AvoidanceSubstanceCode.EGG,
+    var code: IngredientCode = IngredientCode.EGG,
 
     @Column(name = "korean_name", nullable = false, length = 100)
     var koreanName: String = "",

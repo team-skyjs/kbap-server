@@ -165,7 +165,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedAvoidanceSubstance(foodId: Long, substanceCode: String, inclusionPercent: Int) {
+        fun seedIngredient(foodId: Long, substanceCode: String, inclusionPercent: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute(
@@ -258,7 +258,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
             `when`("SOY 를 회피하는 회원이 SOY 를 100% 포함하는 메뉴를 검색하면") {
                 then("실 스택(프로필 조회 → 성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
                     seedSearchableFoods()
-                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+                    seedIngredient(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
                     FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
                     val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
 
@@ -278,7 +278,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
             `when`("성분이 없는 메뉴를 검색하면") {
                 then("위험도는 SAFE 다") {
                     seedSearchableFoods()
-                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+                    seedIngredient(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
 
                     val json = mockMvc.get("/api/v1/foods/search?lang=ko") {
                         param("keyword", "된장찌개")

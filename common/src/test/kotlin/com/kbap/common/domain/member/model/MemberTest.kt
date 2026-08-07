@@ -47,7 +47,7 @@ class MemberTest : BehaviorSpec({
                 val member = Member.signUp(googleIdentity())
                 val newProfile = MemberProfile.of(
                     nickname = "머고",
-                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
+                    avoidanceSubstanceCodes = setOf(AvoidedIngredientCodeRef("PEANUT")),
                     spicinessPreference = SpicinessPreference.HOT,
                     countryCode = CountryCode.KR,
                 )

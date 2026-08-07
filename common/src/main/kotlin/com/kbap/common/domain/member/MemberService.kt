@@ -6,7 +6,7 @@ import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.dto.MemberProfileInput
 import com.kbap.common.domain.member.dto.MemberRankingResult
 import com.kbap.common.domain.member.dto.MyProfileResult
@@ -125,7 +125,7 @@ class MemberService(
 
     // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
     @Transactional(readOnly = true)
-    fun getAvoidedCodes(memberId: Long?): Set<AvoidanceSubstanceCode> {
+    fun getAvoidedCodes(memberId: Long?): Set<IngredientCode> {
         if (memberId == null) return emptySet()
         return getMemberOrNull(memberId)?.profile?.avoidedCodes() ?: emptySet()
     }

@@ -31,12 +31,14 @@
 - **Rationale**: 이 데이터는 음식의 재료 목록이지 기피성분이 아니다 — 기피는 회원 프로필이 이 코드를 참조할 때만 생기는 의미다. 저장·코드·응답 전 계층을 복수 `ingredients` 로 통일한다. 카탈로그 테이블도 `ingredients` 라 이름이 겹치지만 대상이 달라(테이블 vs food 컬럼) 충돌하지 않는다.
 - **Alternatives considered**: 컬럼만 단수 `ingredient` — 최초 지시를 문자 그대로 따랐다가 사용자 정정으로 폐기(목록 의미가 드러나지 않음).
 
-## R7. 성분 카탈로그 테이블 개명 (2026-08-08 사용자 추가)
+## R7. 성분 카탈로그 개명 (2026-08-08 사용자 확정 — 2회 정정 반영)
 
-- **Decision**: `avoidance_substance` 테이블(81종 카탈로그)을 **`ingredients`** 로 개명한다(RENAME TABLE — 같은 마이그레이션 파일). 엔티티 `@Table` 만 갱신하고 **클래스·enum 명(`AvoidanceSubstance`·`AvoidanceSubstanceCode`)과 avoidance 컨텍스트 패키지는 유지**한다.
-- **Rationale**: 카탈로그는 음식 관점에서 재료 사전이고, 기피는 회원 프로필이 이 코드를 참조할 때의 관계 의미다(사용자 설명). 코드 어휘까지 개명하면 기피 판정·프로필 전반(타 컨텍스트 다수)이 흔들리므로 저장 명칭만 바꾼다. RENAME TABLE 은 참조 FK 를 MySQL 이 자동 추적한다.
-- **주의**: 기존 시드 마이그레이션(`V2026.07.16.21.38.42__seed_avoidance_catalog.sql`)은 적용 완료본이라 수정 금지 — 시드-동기화 테스트(`AvoidanceCatalogSeedSyncTest`)의 하드코딩 경로는 그대로 유효하나, 테이블명을 읽는 검증이 있으면 함께 갱신. 스캔 테스트 손스텁 CREATE TABLE 도 개명 대상.
-- **Alternatives considered**: 클래스·enum 동시 개명 — 접점 폭발(프로필·판정·시드 정합 전반) 대비 이득 없음, 기각. 단수 `ingredient` — 사용자 지정이 복수형 `ingredients`(food 쪽 JSON 컬럼 `ingredient` 와 구분됨), 지정대로 따름.
+- **Decision**: 카탈로그(81종)를 **재료 개념으로 전면 개명**한다 — 테이블 `avoidance_substance` → **`ingredients`**, 패키지 `common.domain.avoidance` → **`common.domain.ingredient`**, 엔티티 `AvoidanceSubstance` → **`Ingredient`**, 코드 enum `AvoidanceSubstanceCode` → **`IngredientCode`**, 리포지토리 → `IngredientJpaRepository`. 회원 쪽 참조 값타입 `AvoidanceSubstanceCodeRef` → `AvoidedIngredientCodeRef`(내부 전용).
+- **Rationale**: 이 카탈로그는 음식의 재료 사전이다. 기피는 **회원 프로필이 그 코드를 참조할 때만** 생기는 관계 의미이므로, 카탈로그 자체의 어휘에 기피를 섞지 않는다(사용자 지적).
+- **유지 대상 — 회원의 기피 설정**: `member.avoidance_substance_codes` 컬럼과 `avoidanceSubstanceCodes` 필드는 그대로 둔다. 후자는 온보딩·프로필 **요청·응답의 클라이언트 계약 필드**라 개명하면 앱이 깨진다. 의미도 "회원이 기피하는 재료 코드"로 정확하다.
+- **경계 강제**: ArchUnit 도메인 허용 맵의 `"avoidance"` 키를 `"ingredient"` 로 함께 갱신했다(`ModuleBoundaryTest`).
+- **주의**: 적용 완료된 시드 마이그레이션(`V2026.07.16.21.38.42__seed_avoidance_catalog.sql`)은 수정 금지 — 신규 마이그레이션에서 RENAME 만 수행한다. 시드-동기화 테스트는 `IngredientCatalogSeedSyncTest` 로 개명했고 리소스 경로는 그대로다.
+- **Alternatives considered**: 저장 명칭만 바꾸고 클래스·enum 유지 — 최초 결정이었으나 "엔티티명도 바꿔라" 는 사용자 지시로 폐기(엔티티가 `Ingredient` 인데 코드 enum 이 `AvoidanceSubstanceCode` 면 같은 불일치가 남는다).
 
 ## R6. 승인 플로우 재배선 (구 검수 메서드 대체)
 

@@ -35,10 +35,11 @@
 | REVIEW_REJECTED | FAILED | 관리자 확인 필요 |
 | INCOMPLETE | FAILED | 배치 미채움 영구 미완성 → 관리자/재수집 대상 |
 
-## ingredients (구 avoidance_substance 테이블 — 개명만, R7)
+## ingredients (구 avoidance_substance 카탈로그 — 개명, R7)
 
-- `avoidance_substance`(81종 카탈로그: code PK·korean_name·translations) → **RENAME TABLE `ingredients`**. 데이터·스키마 구조 불변.
-- 엔티티 `AvoidanceSubstance` 의 `@Table(name = "ingredients")` 만 갱신 — 클래스·enum(`AvoidanceSubstanceCode`)·avoidance 패키지 어휘는 유지(기피는 프로필 쪽 관계 의미).
+- 테이블 `avoidance_substance`(code PK·korean_name·translations) → **RENAME TABLE `ingredients`**. 데이터·스키마 구조 불변.
+- 코드도 함께 개명: 패키지 `common.domain.avoidance` → `common.domain.ingredient`, 엔티티 `AvoidanceSubstance` → `Ingredient`, enum `AvoidanceSubstanceCode` → `IngredientCode`, 리포지토리 → `IngredientJpaRepository`.
+- **회원 기피 설정은 유지**: `member.avoidance_substance_codes` 컬럼·`avoidanceSubstanceCodes` API 필드(온보딩·프로필 클라이언트 계약). 참조 값타입만 `AvoidedIngredientCodeRef` 로 개명.
 - 적용 완료된 시드 마이그레이션은 수정 금지. 신규 마이그레이션에서 RENAME 만 수행.
 
 ## FoodIngredient (구 FoodAvoidanceItem — 개명만)

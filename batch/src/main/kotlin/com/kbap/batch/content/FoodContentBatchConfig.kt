@@ -5,7 +5,7 @@
 // import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
 // import com.kbap.common.port.llm.FoodDescriptionClient
 // import com.kbap.common.port.llm.FoodNameTranslationClient
-// import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
+// import com.kbap.common.domain.ingredient.IngredientJpaRepository
 // import com.kbap.common.domain.food.FoodJpaRepository
 // import com.kbap.common.domain.food.model.Food
 // import org.slf4j.LoggerFactory
@@ -39,7 +39,7 @@
 //         foodRepository: FoodJpaRepository,
 //         transactionManager: PlatformTransactionManager,
 //         avoidanceClient: FoodAvoidanceAssessmentClient,
-//         avoidanceRepository: AvoidanceSubstanceJpaRepository,
+//         avoidanceRepository: IngredientJpaRepository,
 //         descriptionClientProvider: ObjectProvider<FoodDescriptionClient>,
 //         nameTranslationClientProvider: ObjectProvider<FoodNameTranslationClient>,
 //     ): FoodContentItemProcessor =

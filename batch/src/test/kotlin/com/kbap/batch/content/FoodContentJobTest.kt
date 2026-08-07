@@ -10,9 +10,9 @@
 // import com.kbap.common.port.llm.FoodNameTranslationClient
 // import com.kbap.common.domain.food.model.TargetLanguageTexts
 // import com.kbap.common.core.testsupport.MySqlContainerConfig
-// import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
-// import com.kbap.common.domain.avoidance.model.AvoidanceSubstance
-// import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+// import com.kbap.common.domain.ingredient.IngredientJpaRepository
+// import com.kbap.common.domain.ingredient.model.Ingredient
+// import com.kbap.common.domain.ingredient.model.IngredientCode
 // import com.kbap.common.domain.food.FoodJpaRepository
 // import com.kbap.common.domain.food.model.Food
 // import com.kbap.common.domain.food.model.FoodContentStatus
@@ -70,7 +70,7 @@
 //     private lateinit var foodRepository: FoodJpaRepository
 //
 //     @Autowired
-//     private lateinit var avoidanceRepository: AvoidanceSubstanceJpaRepository
+//     private lateinit var avoidanceRepository: IngredientJpaRepository
 //
 //     init {
 //         given("청크 트랜잭션 없이(ResourcelessTransactionManager) 잡을 실행하면") {
@@ -78,7 +78,7 @@
 //                 then("잡은 COMPLETED 로 끝나고, 실패 음식만 미조사로 남으며 나머지는 성분·맵기가 함께 커밋된다") {
 //                     foodRepository.deleteAll()
 //                     avoidanceRepository.deleteAll()
-//                     avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
+//                     avoidanceRepository.save(Ingredient(code = IngredientCode.EGG, koreanName = "달걀"))
 //                     val ok1 = foodRepository.save(Food.incomplete("성공-김밥")).id
 //                     val failed = foodRepository.save(Food.incomplete(FAILING_FOOD)).id
 //                     val ok2 = foodRepository.save(Food.incomplete("성공-비빔밥")).id
@@ -108,7 +108,7 @@
 //                 then("텍스트 3작업이 채워지고 이미지 미보유라 PENDING_IMAGE(이미지 대기)로 전이한다") {
 //                     foodRepository.deleteAll()
 //                     avoidanceRepository.deleteAll()
-//                     avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
+//                     avoidanceRepository.save(Ingredient(code = IngredientCode.EGG, koreanName = "달걀"))
 //                     val id = foodRepository.save(Food.incomplete("전체-잡곡밥")).id
 //
 //                     val params = JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters()
@@ -130,7 +130,7 @@
 //                 then("INCOMPLETE 선정에서 빠져 재처리되지 않는다 — 무한 재선정 차단") {
 //                     foodRepository.deleteAll()
 //                     avoidanceRepository.deleteAll()
-//                     avoidanceRepository.save(AvoidanceSubstance(code = AvoidanceSubstanceCode.EGG, koreanName = "달걀"))
+//                     avoidanceRepository.save(Ingredient(code = IngredientCode.EGG, koreanName = "달걀"))
 //                     val id = foodRepository.save(Food.incomplete("재선정-잡채밥")).id
 //
 //                     jobLauncher.run(foodContentJob, JobParametersBuilder().addLong("run.id", System.nanoTime()).toJobParameters())
