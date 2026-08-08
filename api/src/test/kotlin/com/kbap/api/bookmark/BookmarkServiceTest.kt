@@ -59,7 +59,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
                             "VALUES ($id, '$koreanName', NULL, '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "NOW(6), NOW(6))",
                     )
@@ -157,9 +157,9 @@ class BookmarkServiceTest : BehaviorSpec() {
             }
 
 
-            `when`("미완성(INCOMPLETE) 음식을 북마크하면") {
+            `when`("미완성(FAILED) 음식을 북마크하면") {
                 then("FOOD_NOT_FOUND 예외를 던진다") {
-                    seedFood(2L, "미완성찌개", contentStatus = "INCOMPLETE")
+                    seedFood(2L, "미완성찌개", contentStatus = "FAILED")
 
                     val exception = shouldThrow<BusinessException> {
                         service.bookmark(memberId, 2L)

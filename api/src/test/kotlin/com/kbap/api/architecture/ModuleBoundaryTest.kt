@@ -1,6 +1,6 @@
 package com.kbap.api.architecture
 
-import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
@@ -107,13 +107,13 @@ class ModuleBoundaryTest : BehaviorSpec({
         val allowedDomainDeps = mapOf(
             "admin" to emptySet(),
             "block" to setOf("member"),
-            "scan" to setOf("food", "member", "image", "avoidance"),
-            "food" to setOf("member", "avoidance"),
-            "bookmark" to setOf("food", "member", "avoidance"),
-            "member" to setOf("avoidance"),
+            "scan" to setOf("food", "member", "image", "ingredient"),
+            "food" to setOf("member", "ingredient"),
+            "bookmark" to setOf("food", "member", "ingredient"),
+            "member" to setOf("ingredient"),
             "image" to emptySet(),
             "metering" to emptySet(),
-            "avoidance" to emptySet(),
+            "ingredient" to emptySet(),
             "review" to emptySet(),
             "report" to emptySet(),
             "community" to emptySet(),
@@ -261,9 +261,9 @@ class ModuleBoundaryTest : BehaviorSpec({
     }
 
     given("성분 식별자 enum 콘텐츠 데이터 없음 회귀") {
-        `when`("AvoidanceSubstanceCode 의 선언 필드를 리플렉션으로 확인하면") {
+        `when`("IngredientCode 의 선언 필드를 리플렉션으로 확인하면") {
             then("개발 가독성 label 만 허용하고 콘텐츠 데이터(번역·분류 등)는 갖지 않는다") {
-                val instanceFieldNames = AvoidanceSubstanceCode::class.java.declaredFields
+                val instanceFieldNames = IngredientCode::class.java.declaredFields
                     .filterNot { Modifier.isStatic(it.modifiers) }
                     .map { it.name }
 

@@ -4,7 +4,6 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
-import com.kbap.common.domain.food.model.FoodContentReviewField
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -29,14 +28,13 @@ class AdminFoodContentReviewService(
     fun applyContentReviewResult(
         foodId: Long,
         passed: Boolean,
-        rejectedFields: Set<FoodContentReviewField>,
         reason: String?,
     ): AdminFoodContentReviewResultResponse {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         if (passed) {
-            food.passContentReview()
+            food.approve()
         } else {
-            food.rejectContentReview(rejectedFields, reason)
+            food.reject(reason)
         }
         return AdminFoodContentReviewResultResponse.from(food)
     }

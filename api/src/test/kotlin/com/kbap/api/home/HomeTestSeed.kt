@@ -14,7 +14,7 @@ object HomeTestSeed {
             "DELETE FROM community_post",
             "DELETE FROM uploaded_image",
             "DELETE FROM scan_history",
-            "DELETE FROM avoidance_substance",
+            "DELETE FROM ingredients",
             "DELETE FROM food",
             "DELETE FROM member",
         ),
@@ -24,7 +24,7 @@ object HomeTestSeed {
         dataSource,
         (1..count).map { id ->
             "INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations, " +
-                "description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                "description_translations, ingredients, content_status, status, created_at, updated_at) " +
                 "VALUES ($id, '메뉴$id', 'menu-$id.png', '메뉴$id 설명', 0, " +
                 """'{"en":"Menu$id","ja":"メニュー$id"}', '{"en":"Menu$id desc"}', '[]', """ +
                 "'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
@@ -34,7 +34,7 @@ object HomeTestSeed {
     fun seedSubstanceCatalog(dataSource: DataSource, vararg codes: String) = execute(
         dataSource,
         codes.mapIndexed { index, code ->
-            "INSERT IGNORE INTO avoidance_substance (id, code, korean_name, translations, status, created_at, updated_at) " +
+            "INSERT IGNORE INTO ingredients (id, code, korean_name, translations, status, created_at, updated_at) " +
                 "VALUES (${900 + index}, '$code', '${koreanNameOf(code)}', '${translationsOf(code)}', " +
                 "'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         },
@@ -45,7 +45,7 @@ object HomeTestSeed {
         execute(
             dataSource,
             listOf(
-                "UPDATE food SET avoidance_substances = JSON_ARRAY_APPEND(avoidance_substances, '$', " +
+                "UPDATE food SET ingredients = JSON_ARRAY_APPEND(ingredients, '$', " +
                     "JSON_OBJECT('code', '$code', 'inclusion_percent', $percent)) WHERE id = $foodId",
             ),
         )

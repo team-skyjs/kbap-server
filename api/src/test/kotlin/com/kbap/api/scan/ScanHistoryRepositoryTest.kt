@@ -53,7 +53,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
                             "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                     )
@@ -128,7 +128,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
             `when`("완성(READY)되지 않은 음식 이력이 섞여 있으면") {
                 then("READY 음식만 반환한다") {
                     seedFood(1L, "김치찌개")
-                    seedFood(2L, "미완성찌개", contentStatus = "INCOMPLETE")
+                    seedFood(2L, "미완성찌개", contentStatus = "FAILED")
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 

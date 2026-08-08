@@ -41,6 +41,9 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
     private lateinit var fakeClient: FakeFoodImageBatchClient
 
     init {
+        fun pendingImage(koreanName: String): Food =
+            Food.failed(koreanName).apply { contentStatus = FoodContentStatus.PENDING_IMAGE }
+
         fun clearAll() {
             itemRepository.deleteAll()
             batchRepository.deleteAll()
@@ -54,7 +57,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
         given("이미지 일괄 제출 — 분할·메타 기록") {
             `when`("이미지 없는 음식 105건을 제출하면") {
                 then("100건 단위 2배치로 분할 제출되고 SUBMITTED/PENDING 메타가 기록된다") {
-                    val foods = foodRepository.saveAll((1..105).map { Food.incomplete("제출음식$it") })
+                    val foods = foodRepository.saveAll((1..105).map { pendingImage("제출음식$it") })
 
                     val result = submitService.submitMissingImages()
 
@@ -76,7 +79,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
 
             `when`("제출된 entries 를 보면") {
                 then("custom_id 는 food PK 이고 프롬프트에 음식 이름이 들어 있다") {
-                    val food = foodRepository.save(Food.incomplete("마라샹궈"))
+                    val food = foodRepository.save(pendingImage("마라샹궈"))
 
                     submitService.submitMissingImages()
 
@@ -101,7 +104,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
         given("이미지 일괄 제출 — claim-first 실패 복구") {
             `when`("OpenAI 제출이 실패하면") {
                 then("선점(SUBMITTING·PENDING)을 FAILED 로 즉시 해제해 음식이 다음 제출 후보로 돌아온다") {
-                    val food = foodRepository.save(Food.incomplete("제출실패음식"))
+                    val food = foodRepository.save(pendingImage("제출실패음식"))
                     fakeClient.submitFailure = RuntimeException("openai down")
 
                     runCatching { submitService.submitMissingImages() }.isFailure shouldBe true
@@ -115,7 +118,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
 
             `when`("제출이 성공하면") {
                 then("배치는 openai_batch_id 를 얻고 SUBMITTED 로 확정된다") {
-                    foodRepository.save(Food.incomplete("확정음식"))
+                    foodRepository.save(pendingImage("확정음식"))
 
                     submitService.submitMissingImages()
 
@@ -129,7 +132,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
         given("이미지 일괄 제출 — 음식당 진행 중 작업 1개(DB UNIQUE)") {
             `when`("같은 음식의 PENDING 항목을 두 번 저장하려 하면(동시 제출 경합 시뮬레이션)") {
                 then("pending_food_id 생성열 UNIQUE 가 두 번째 저장을 거부한다") {
-                    val food = foodRepository.save(Food.incomplete("경합음식"))
+                    val food = foodRepository.save(pendingImage("경합음식"))
                     val batch1 = batchRepository.save(ImageBatch(promptVersion = "v1", model = "m"))
                     val batch2 = batchRepository.save(ImageBatch(promptVersion = "v1", model = "m"))
                     itemRepository.saveAndFlush(ImageBatchItem(batchId = batch1.id, foodId = food.id))
@@ -144,7 +147,7 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
         given("이미지 일괄 제출 — 멱등(중복 제출 가드)") {
             `when`("같은 상태에서 제출을 연속 두 번 호출하면") {
                 then("두 번째는 진행 중 배치 포함이라 0건 제출된다") {
-                    foodRepository.save(Food.incomplete("연타음식"))
+                    foodRepository.save(pendingImage("연타음식"))
 
                     val first = submitService.submitMissingImages()
                     val second = submitService.submitMissingImages()
@@ -156,14 +159,14 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("PENDING_IMAGE(텍스트 완료) 음식과 INCOMPLETE 음식이 섞여 있으면") {
-                then("상태와 무관하게 이미지 없는 둘 다 제출된다") {
-                    foodRepository.save(Food.incomplete("미완음식"))
+            `when`("PENDING_IMAGE 음식과 FAILED 음식이 섞여 있으면") {
+                then("PENDING_IMAGE 만 제출된다 — FAILED 는 관리자 확인 대상이라 이미지 생성에서 제외된다") {
+                    foodRepository.save(Food.failed("확인필요음식"))
                     foodRepository.save(
-                        Food.incomplete("텍스트완료음식").apply { contentStatus = FoodContentStatus.PENDING_IMAGE },
+                        pendingImage("이미지대기음식"),
                     )
 
-                    submitService.submitMissingImages().submittedFoodCount shouldBe 2
+                    submitService.submitMissingImages().submittedFoodCount shouldBe 1
                 }
             }
         }

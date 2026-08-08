@@ -8,7 +8,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
@@ -71,13 +71,13 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
         fun savePendingImage(name: String): Food =
             foodRepository.save(
-                Food.incomplete(name).apply {
+                Food.failed(name).apply {
                     description = "구수한 $name"
                     spiciness = 2
                     nameTranslations = targets
                     descriptionTranslations = targets
-                    avoidanceSubstances = listOf(FoodAvoidanceItem("SOYBEAN", 100))
-                    transitionByContentState()
+                    ingredients = listOf(FoodIngredient("SOYBEAN", 100))
+                    contentStatus = FoodContentStatus.PENDING_IMAGE
                 },
             )
 
@@ -132,9 +132,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("텍스트 미완(INCOMPLETE) 음식의 이미지가 먼저 도착하면") {
-                then("imageRef 만 저장하고 INCOMPLETE 를 유지한다") {
-                    val food = foodRepository.save(Food.incomplete("이미지선도착"))
+            `when`("제출 이후 이미지 대기가 아니게 된 음식의 결과가 도착하면") {
+                then("그 아이템만 실패로 마감하고 음식 상태·이미지는 건드리지 않는다") {
+                    val food = foodRepository.save(Food.failed("상태이탈음식"))
                     val batch = saveSubmittedBatch(food.id)
                     fakeClient.polls[batch.openaiBatchId!!] = completed("file_2")
                     fakeClient.results["file_2"] = listOf(okResult(food.id))
@@ -142,8 +142,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
 
                     val reloaded = foodRepository.findById(food.id).get()
-                    reloaded.imageRef!! shouldMatch FOOD_IMAGE_KEY_PATTERN
-                    reloaded.contentStatus shouldBe FoodContentStatus.INCOMPLETE
+                    reloaded.imageRef shouldBe null
+                    reloaded.contentStatus shouldBe FoodContentStatus.FAILED
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
                 }
             }
 
@@ -329,6 +330,11 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
                     val firstRef = foodRepository.findById(food.id).get().imageRef!!
 
+                    // 회수로 PENDING_REVIEW 가 된 음식을 관리자가 다시 이미지 대기로 돌려놓은 상황
+                    foodRepository.save(
+                        foodRepository.findById(food.id).get()
+                            .apply { contentStatus = FoodContentStatus.PENDING_IMAGE },
+                    )
                     val second = saveSubmittedBatch(food.id)
                     fakeClient.polls[second.openaiBatchId!!] = completed("file_regen_2")
                     fakeClient.results["file_regen_2"] = listOf(okResult(food.id))

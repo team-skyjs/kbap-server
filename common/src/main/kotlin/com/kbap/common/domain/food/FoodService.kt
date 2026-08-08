@@ -11,8 +11,8 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
-import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
+import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
-    private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
+    private val ingredientRepository: IngredientJpaRepository,
     private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -55,20 +55,20 @@ class FoodService(
         val food = getReadyFood(input.foodId)
 
         val userAvoidedCodes = avoidedCodeNames(input.memberId)
-        val orderedSubstances = food.avoidanceSubstancesByProbability()
+        val orderedIngredients = food.ingredientsByProbability()
             .filter { it.code in userAvoidedCodes }
-        val codes = orderedSubstances.map { AvoidanceSubstanceCode.valueOf(it.code) }.toSet()
-        val catalog = (if (codes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(codes)).associateBy { it.code }
+        val codes = orderedIngredients.map { IngredientCode.valueOf(it.code) }.toSet()
+        val catalog = (if (codes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(codes)).associateBy { it.code }
 
         val foodName = food.displayName(lang)
         val description = food.description(lang)
 
-        val avoidanceSubstances = orderedSubstances.map { substance ->
-            GetFoodDetailResult.AvoidanceSubstanceView(
-                name = catalog.getValue(AvoidanceSubstanceCode.valueOf(substance.code)).displayName(lang),
+        val ingredients = orderedIngredients.map { ingredient ->
+            GetFoodDetailResult.IngredientView(
+                name = catalog.getValue(IngredientCode.valueOf(ingredient.code)).displayName(lang),
                 iconRef = null,
-                inclusionProbability = substance.inclusionPercent,
-                riskStatus = substance.riskLevel(),
+                inclusionProbability = ingredient.inclusionPercent,
+                riskStatus = ingredient.riskLevel(),
             )
         }
 
@@ -79,7 +79,7 @@ class FoodService(
             description = description,
             spiciness = food.spiciness,
             overallRiskStatus = food.overallRisk(userAvoidedCodes),
-            avoidanceSubstances = avoidanceSubstances,
+            ingredients = ingredients,
         )
     }
 
@@ -118,7 +118,7 @@ class FoodService(
     }
 
     private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.incomplete(matchKey, displayName) })
+        foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.failed(matchKey, displayName) })
 
         val matchKeys = displayNamesByMatchKey.keys
         val resolved = foodRepository.findByKoreanNameIn(matchKeys).associateBy { it.koreanName }

@@ -8,6 +8,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -65,8 +66,8 @@ class AdminFoodImageControllerTest : BehaviorSpec() {
         given("관리자 이미지 일괄 제출 API") {
             `when`("이미지 없는 음식 2건이 있는 상태에서 제출하면") {
                 then("200 + 배치/음식 카운트를 즉시 반환한다") {
-                    foodRepository.save(Food.incomplete("제출김치찌개"))
-                    foodRepository.save(Food.incomplete("제출된장찌개"))
+                    foodRepository.save(Food.failed("제출김치찌개").apply { contentStatus = FoodContentStatus.PENDING_IMAGE })
+                    foodRepository.save(Food.failed("제출된장찌개").apply { contentStatus = FoodContentStatus.PENDING_IMAGE })
 
                     postSubmit().andExpect {
                         status { isOk() }

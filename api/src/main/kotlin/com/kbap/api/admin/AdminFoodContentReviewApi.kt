@@ -13,17 +13,17 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
-@Tag(name = "관리자 음식 AI 검수", description = "관리자 전용 — 외부 AI 검수 파이프라인이 검수 대상을 받아가고 결과를 반영하는 API")
+@Tag(name = "관리자 음식 승인", description = "관리자 전용 — 이미지까지 채워진 음식을 승인해 조회 가능(READY)으로 올리거나 반려하는 API")
 @SecurityRequirement(name = "bearerAuth")
 interface AdminFoodContentReviewApi {
     @Operation(
-        summary = "검수 대상 음식 조회",
+        summary = "승인 대기 음식 조회",
         description = """
-            콘텐츠가 모두 채워져 검수를 기다리는 **PENDING_REVIEW** 음식을 판단에 필요한 필드와 함께 반환한다.
+            콘텐츠와 이미지가 모두 채워져 관리자 승인을 기다리는 **PENDING_REVIEW** 음식을 판단에 필요한 필드와 함께 반환한다.
 
-            - `avoidanceSubstances` 는 미조사(null)여도 빈 배열로 내려간다 — PENDING_REVIEW 는 이미 조사가 끝난 상태다.
+            - `ingredients` 는 미조사(null)여도 빈 배열로 내려간다.
             - `imageUrl` 은 공개 이미지 URL 이며, 이미지가 없으면 null 이다.
-            - `contentReviewAttempts` 는 지금까지의 AI 검수 탈락 횟수다(0·1). 2 이상은 REVIEW_REJECTED 로 빠져 대상에 없다.
+            - `contentReviewAttempts` 는 지금까지의 반려 횟수다(관리자 판단 참고용).
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
     )
@@ -41,24 +41,22 @@ interface AdminFoodContentReviewApi {
     ): ResponseEntity<BaseResponse<AdminFoodContentReviewTargetsResponse>>
 
     @Operation(
-        summary = "검수 결과 반영",
+        summary = "승인 결과 반영",
         description = """
-            음식 1건의 AI 검수 판정을 반영한다. 상태 전이·컬럼 롤백·시도 횟수 증가는 모두 서버가 수행한다.
+            음식 1건의 관리자 판정을 반영한다. 상태 전이는 서버가 수행한다.
 
-            - `passed=true` → **REVIEWED**(사람 승인 대기). 콘텐츠·시도 횟수는 그대로. 이미 REVIEWED 면 멱등 성공.
-            - `passed=false` 이고 `contentReviewAttempts < 2` → `rejectedFields` 로 지목된 필드만 미채움으로 되돌리고
-              시도 횟수를 1 올린 뒤 **INCOMPLETE**(이미지만 문제면 **PENDING_IMAGE**)로 롤백. 콘텐츠 채움 배치가 재생성한다.
-            - `passed=false` 이고 `contentReviewAttempts >= 2` → 콘텐츠를 그대로 둔 채 **REVIEW_REJECTED** 로 전이하고
-              `reason` 을 최대 10줄·1000자까지 저장한다(넘치면 잘라서 보관, 이후 사람이 판단).
-            - 탈락인데 `rejectedFields` 가 비었거나, PENDING_REVIEW 가 아닌 음식이면 400(COMMON-002) 이다.
+            - `passed=true` → **READY**(사용자 조회 노출). 이미 READY 면 멱등 성공.
+            - `passed=false` → **FAILED**(관리자 확인 필요). 콘텐츠는 그대로 보존하고 반려 횟수를 1 올린 뒤
+              `reason` 을 최대 10줄·1000자까지 저장한다(넘치면 잘라서 보관).
+            - PENDING_REVIEW 가 아닌 음식이면 400(COMMON-002) 이다.
         """,
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "반영 성공 — 전이 후 상태·시도 횟수 반환"),
+            ApiResponse(responseCode = "200", description = "반영 성공 — 전이 후 상태·반려 횟수 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "검증 실패(COMMON-002 — passed 누락·rejectedFields 없음·검수 대상 아님) 또는 음식 없음(FOOD-001)",
+                description = "검증 실패(COMMON-002 — passed 누락·승인 대상 아님) 또는 음식 없음(FOOD-001)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
@@ -66,7 +64,7 @@ interface AdminFoodContentReviewApi {
         ],
     )
     fun applyContentReviewResult(
-        @Parameter(description = "검수 결과를 반영할 음식 id", example = "1")
+        @Parameter(description = "승인 결과를 반영할 음식 id", example = "1")
         foodId: Long,
         @SwaggerRequestBody(
             required = true,
@@ -74,10 +72,10 @@ interface AdminFoodContentReviewApi {
                 Content(
                     schema = Schema(implementation = AdminFoodContentReviewResultRequest::class),
                     examples = [
-                        ExampleObject(name = "통과", value = """{"passed": true}"""),
+                        ExampleObject(name = "승인", value = """{"passed": true}"""),
                         ExampleObject(
-                            name = "탈락 — 설명·설명 번역 재생성",
-                            value = """{"passed": false, "rejectedFields": ["DESCRIPTION", "DESCRIPTION_TRANSLATIONS"], "reason": "설명이 음식과 무관함"}""",
+                            name = "반려",
+                            value = """{"passed": false, "reason": "설명이 음식과 무관함"}""",
                         ),
                     ],
                 ),

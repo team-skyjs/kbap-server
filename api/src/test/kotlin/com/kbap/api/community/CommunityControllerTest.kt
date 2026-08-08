@@ -70,7 +70,7 @@ class CommunityControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, '설명', 0, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
@@ -161,7 +161,7 @@ class CommunityControllerTest : BehaviorSpec() {
             seedFood(9100L, "커뮤니티김치찌개")
             seedFood(9101L, "커뮤니티된장찌개")
             seedFood(9102L, "커뮤니티불고기")
-            seedFood(9103L, "커뮤니티준비중", contentStatus = "INCOMPLETE")
+            seedFood(9103L, "커뮤니티준비중", contentStatus = "FAILED")
 
             `when`("본문만으로 작성하면") {
                 then("200 과 게시글을 반환한다") {

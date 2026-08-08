@@ -3,7 +3,6 @@ package com.kbap.common.domain.food.model
 import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
-import com.kbap.common.domain.Spiciness
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -47,13 +46,13 @@ class Food(
     @Column(
         name = "content_status",
         nullable = false,
-        columnDefinition = "ENUM('INCOMPLETE','PENDING_IMAGE','PENDING_REVIEW','REVIEWED','REVIEW_REJECTED','READY')",
+        columnDefinition = "ENUM('FAILED','PENDING_IMAGE','PENDING_REVIEW','READY')",
     )
     var contentStatus: FoodContentStatus = FoodContentStatus.READY,
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "avoidance_substances")
-    var avoidanceSubstances: List<FoodAvoidanceItem>? = emptyList(),
+    @Column(name = "ingredients")
+    var ingredients: List<FoodIngredient>? = emptyList(),
 
     @Column(name = "content_review_attempts", nullable = false, columnDefinition = "int not null default 0")
     var contentReviewAttempts: Int = 0,
@@ -67,112 +66,109 @@ class Food(
 
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
-    fun needsImage(): Boolean = imageRef.isNullOrBlank()
-
-    fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION
-
-    fun needsNameTranslations(): Boolean = !hasAllTargetTranslations(nameTranslations)
-
-    fun needsDescriptionTranslations(): Boolean = !hasAllTargetTranslations(descriptionTranslations)
-
-    private fun hasAllTargetTranslations(translations: Map<String, String>): Boolean =
-        TARGET_LANG_CODES.all { !translations[it].isNullOrBlank() }
-
-    fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
-
-    fun needsAvoidanceAssessment(): Boolean =
-        avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
-
-    fun updateNameTranslations(translations: Map<String, String>) {
-        this.nameTranslations = translations
-    }
-
-    fun updateDescription(description: String, translations: Map<String, String>) {
-        this.description = description
-        this.descriptionTranslations = translations
-    }
-
-    fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
-        require(spiciness in Spiciness.RANGE) {
-            "spiciness 는 ${Spiciness.RANGE} 여야 합니다: $spiciness"
-        }
-        this.avoidanceSubstances = substances
-        this.spiciness = spiciness
-    }
-
-    fun passContentReview() {
-        if (contentStatus == FoodContentStatus.REVIEWED) return
+    fun approve() {
+        if (contentStatus == FoodContentStatus.READY) return
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "검수 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
+            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
-        contentStatus = FoodContentStatus.REVIEWED
+        contentStatus = FoodContentStatus.READY
     }
 
-    fun rejectContentReview(rejectedFields: Set<FoodContentReviewField>, reason: String?) {
+    fun reject(reason: String?) {
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "검수 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
+            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
-        require(rejectedFields.isNotEmpty()) { "탈락 결과에는 문제 필드가 최소 1개 있어야 합니다" }
-        if (contentReviewAttempts >= MAX_CONTENT_REVIEW_ATTEMPTS) {
-            contentStatus = FoodContentStatus.REVIEW_REJECTED
-            contentReviewRejectionReason = reason
-                ?.lineSequence()
-                ?.take(MAX_REJECTION_REASON_LINES)
-                ?.joinToString("\n")
-                ?.take(MAX_REJECTION_REASON_LENGTH)
-            return
-        }
-        rejectedFields.forEach(::clearField)
+        contentStatus = FoodContentStatus.FAILED
         contentReviewAttempts++
-        contentStatus = FoodContentStatus.INCOMPLETE
-        transitionByContentState()
-    }
-
-    private fun clearField(field: FoodContentReviewField) {
-        when (field) {
-            FoodContentReviewField.DESCRIPTION -> description = PLACEHOLDER_DESCRIPTION
-            FoodContentReviewField.NAME_TRANSLATIONS -> nameTranslations = emptyMap()
-            FoodContentReviewField.DESCRIPTION_TRANSLATIONS -> descriptionTranslations = emptyMap()
-            FoodContentReviewField.AVOIDANCE_SUBSTANCES -> avoidanceSubstances = null
-            FoodContentReviewField.SPICINESS -> spiciness = SPICINESS_UNASSESSED
-            FoodContentReviewField.IMAGE -> imageRef = null
-        }
-    }
-
-    fun transitionByContentState(): FoodContentStatus {
-        if (contentStatus in TERMINAL_CONTENT_STATUSES) {
-            return contentStatus
-        }
-        val textComplete = !needsDescription() &&
-            !needsNameTranslations() &&
-            !needsDescriptionTranslations() &&
-            !needsAvoidanceMapping() &&
-            spiciness != SPICINESS_UNASSESSED
-        contentStatus = when {
-            !textComplete -> FoodContentStatus.INCOMPLETE
-            needsImage() -> FoodContentStatus.PENDING_IMAGE
-            else -> FoodContentStatus.PENDING_REVIEW
-        }
-        return contentStatus
+        contentReviewRejectionReason = reason
+            ?.lineSequence()
+            ?.take(MAX_REJECTION_REASON_LINES)
+            ?.joinToString("\n")
+            ?.take(MAX_REJECTION_REASON_LENGTH)
     }
 
     fun attachImage(imageRef: String) {
         require(imageRef.isNotBlank()) { "imageRef 는 blank 일 수 없습니다" }
+        require(contentStatus == FoodContentStatus.PENDING_IMAGE) {
+            "이미지 부착 대상(PENDING_IMAGE)이 아닙니다: $contentStatus"
+        }
         this.imageRef = imageRef
-        transitionByContentState()
+        contentStatus = FoodContentStatus.PENDING_REVIEW
     }
+
+    // KB-301: 콘텐츠 채움이 kbap-langchain 으로 이관돼 아래 단계 판정·전이는 쓰이지 않는다. 최종 삭제는 KB-302.
+    // fun needsImage(): Boolean = imageRef.isNullOrBlank()
+    //
+    // fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION
+    //
+    // fun needsNameTranslations(): Boolean = !hasAllTargetTranslations(nameTranslations)
+    //
+    // fun needsDescriptionTranslations(): Boolean = !hasAllTargetTranslations(descriptionTranslations)
+    //
+    // private fun hasAllTargetTranslations(translations: Map<String, String>): Boolean =
+    //     TARGET_LANG_CODES.all { !translations[it].isNullOrBlank() }
+    //
+    // fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
+    //
+    // fun needsAvoidanceAssessment(): Boolean =
+    //     avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
+    //
+    // fun updateNameTranslations(translations: Map<String, String>) {
+    //     this.nameTranslations = translations
+    // }
+    //
+    // fun updateDescription(description: String, translations: Map<String, String>) {
+    //     this.description = description
+    //     this.descriptionTranslations = translations
+    // }
+    //
+    // fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
+    //     require(spiciness in Spiciness.RANGE) {
+    //         "spiciness 는 ${Spiciness.RANGE} 여야 합니다: $spiciness"
+    //     }
+    //     this.avoidanceSubstances = substances
+    //     this.spiciness = spiciness
+    // }
+    //
+    // private fun clearField(field: FoodContentReviewField) {
+    //     when (field) {
+    //         FoodContentReviewField.DESCRIPTION -> description = PLACEHOLDER_DESCRIPTION
+    //         FoodContentReviewField.NAME_TRANSLATIONS -> nameTranslations = emptyMap()
+    //         FoodContentReviewField.DESCRIPTION_TRANSLATIONS -> descriptionTranslations = emptyMap()
+    //         FoodContentReviewField.AVOIDANCE_SUBSTANCES -> avoidanceSubstances = null
+    //         FoodContentReviewField.SPICINESS -> spiciness = SPICINESS_UNASSESSED
+    //         FoodContentReviewField.IMAGE -> imageRef = null
+    //     }
+    // }
+    //
+    // fun transitionByContentState(): FoodContentStatus {
+    //     if (contentStatus in TERMINAL_CONTENT_STATUSES) {
+    //         return contentStatus
+    //     }
+    //     val textComplete = !needsDescription() &&
+    //         !needsNameTranslations() &&
+    //         !needsDescriptionTranslations() &&
+    //         !needsAvoidanceMapping() &&
+    //         spiciness != SPICINESS_UNASSESSED
+    //     contentStatus = when {
+    //         !textComplete -> FoodContentStatus.INCOMPLETE
+    //         needsImage() -> FoodContentStatus.PENDING_IMAGE
+    //         else -> FoodContentStatus.PENDING_REVIEW
+    //     }
+    //     return contentStatus
+    // }
 
     fun displayName(lang: LanguageCode): String = localizedName().resolve(lang)
 
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
 
-    fun avoidanceSubstancesByProbability(): List<FoodAvoidanceItem> =
-        avoidanceSubstances.orEmpty().sortedByDescending { it.inclusionPercent }
+    fun ingredientsByProbability(): List<FoodIngredient> =
+        ingredients.orEmpty().sortedByDescending { it.inclusionPercent }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
         // 미조사(null)를 SAFE 로 은폐하지 않는다 — 안전 직결이라 fail-closed.
-        val substances = avoidanceSubstances ?: return RiskLevel.UNKNOWN
+        val substances = ingredients ?: return RiskLevel.UNKNOWN
         val targeted = substances.filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
     }
@@ -188,25 +184,24 @@ class Food(
 
         const val SPICINESS_UNASSESSED = -1
 
-        const val MAX_CONTENT_REVIEW_ATTEMPTS = 2
-
         const val MAX_REJECTION_REASON_LINES = 10
 
         const val MAX_REJECTION_REASON_LENGTH = 1000
 
-        // 콘텐츠 채움 배치가 되돌리면 안 되는 상태 — 검수·승인 단계는 사람/AI 판정이 소유한다.
-        private val TERMINAL_CONTENT_STATUSES = setOf(
-            FoodContentStatus.PENDING_REVIEW,
-            FoodContentStatus.REVIEWED,
-            FoodContentStatus.REVIEW_REJECTED,
-            FoodContentStatus.READY,
-        )
+        // KB-301: 단계별 완성도 판정이 사라져 쓰이지 않는다. 최종 삭제는 KB-302.
+        // const val MAX_CONTENT_REVIEW_ATTEMPTS = 2
+        //
+        // private val TERMINAL_CONTENT_STATUSES = setOf(
+        //     FoodContentStatus.PENDING_REVIEW,
+        //     FoodContentStatus.REVIEWED,
+        //     FoodContentStatus.REVIEW_REJECTED,
+        //     FoodContentStatus.READY,
+        // )
+        //
+        // private val TARGET_LANG_CODES: Set<String> =
+        //     LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }.toSet()
 
-        // READY 완비 판정 기준 — ko 원문 제외 9개 대상 언어(헌법 V 사전 번역 정책).
-        private val TARGET_LANG_CODES: Set<String> =
-            LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }.toSet()
-
-        fun incomplete(koreanName: String, displayName: String = koreanName): Food {
+        fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
             require(displayName.isNotBlank()) { "food.displayName 은 blank 일 수 없습니다" }
             require(koreanName.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH) {
@@ -220,8 +215,8 @@ class Food(
                 displayName = displayName,
                 description = PLACEHOLDER_DESCRIPTION,
                 spiciness = SPICINESS_UNASSESSED,
-                contentStatus = FoodContentStatus.INCOMPLETE,
-                avoidanceSubstances = null,
+                contentStatus = FoodContentStatus.FAILED,
+                ingredients = null,
             )
         }
 

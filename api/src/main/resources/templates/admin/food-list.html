@@ -37,9 +37,8 @@
                     <strong class="food-card-name" th:text="${f.koreanName}" th:title="${f.koreanName}">김치찌개</strong>
                     <span class="badge"
                           th:classappend="${f.contentStatus.name() == 'READY'} ? 'badge-ok'
-                                        : (${f.contentStatus.name() == 'INCOMPLETE'} ? 'badge-neutral'
-                                        : (${f.contentStatus.name() == 'REVIEW_REJECTED'} ? 'badge-warn'
-                                        : (${f.contentStatus.name() == 'REVIEWED'} ? 'badge-info' : 'badge-progress')))"
+                                        : (${f.contentStatus.name() == 'FAILED'} ? 'badge-warn'
+                                        : (${f.contentStatus.name() == 'PENDING_REVIEW'} ? 'badge-info' : 'badge-progress'))"
                           th:text="${f.contentStatus}">READY</span>
                 </div>
             </a>
@@ -127,9 +126,9 @@
                                   th:disabled="${!editMode}" th:text="${foodDetail.descriptionTranslationsJson}"></textarea>
                     </div>
                     <div class="field">
-                        <label for="avoidanceSubstancesJson">기피 성분 JSON (비우면 미조사)</label>
-                        <textarea id="avoidanceSubstancesJson" name="avoidanceSubstancesJson" class="json-input" rows="6"
-                                  th:disabled="${!editMode}" th:text="${foodDetail.avoidanceSubstancesJson}"></textarea>
+                        <label for="ingredientsJson">재료 JSON (비우면 미조사)</label>
+                        <textarea id="ingredientsJson" name="ingredientsJson" class="json-input" rows="6"
+                                  th:disabled="${!editMode}" th:text="${foodDetail.ingredientsJson}"></textarea>
                     </div>
                     <div class="modal-foot">
                         <span class="page-info"

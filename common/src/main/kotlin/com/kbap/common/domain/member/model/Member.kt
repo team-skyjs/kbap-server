@@ -67,7 +67,7 @@ class Member(
     val profile: MemberProfile
         get() = MemberProfile.of(
             nickname = nickname,
-            avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidanceSubstanceCodeRef(it) }.toSet(),
+            avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidedIngredientCodeRef(it) }.toSet(),
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
             profileImageUrl = profileImageUrl,

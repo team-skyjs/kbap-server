@@ -1,42 +1,44 @@
-package com.kbap.batch.content
-
-import com.kbap.common.domain.food.FoodJpaRepository
-import com.kbap.common.domain.food.model.Food
-import org.springframework.batch.infrastructure.item.ExecutionContext
-import org.springframework.batch.infrastructure.item.ItemStreamReader
-import org.springframework.data.domain.PageRequest
-
-// 재시작 복원 지점은 "마지막으로 넘긴 음식 id"라 버퍼에 남은 미처리 건을 건너뛰지 않는다.
-class IncompleteFoodItemReader(
-    private val foodRepository: FoodJpaRepository,
-    private val pageSize: Int,
-) : ItemStreamReader<Food> {
-    private val buffer = ArrayDeque<Food>()
-    private var lastReadId: Long? = null
-
-    override fun open(executionContext: ExecutionContext) {
-        lastReadId = if (executionContext.containsKey(CURSOR_KEY)) executionContext.getLong(CURSOR_KEY) else null
-        buffer.clear()
-    }
-
-    override fun read(): Food? {
-        if (buffer.isEmpty()) {
-            val page = foodRepository.findIncompleteAfter(lastReadId, PageRequest.of(0, pageSize))
-            if (page.isEmpty()) return null
-            buffer.addAll(page)
-        }
-        return buffer.removeFirst().also { lastReadId = it.id }
-    }
-
-    override fun update(executionContext: ExecutionContext) {
-        lastReadId?.let { executionContext.putLong(CURSOR_KEY, it) }
-    }
-
-    override fun close() {
-        buffer.clear()
-    }
-
-    companion object {
-        private const val CURSOR_KEY = "food.content.lastReadId"
-    }
-}
+// KB-301: 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼 이 잡은 더 이상 실행하지 않는다.
+// 복구 가능성을 위해 원본을 주석으로 보존한다 — 최종 삭제는 KB-302.
+// package com.kbap.batch.content
+//
+// import com.kbap.common.domain.food.FoodJpaRepository
+// import com.kbap.common.domain.food.model.Food
+// import org.springframework.batch.infrastructure.item.ExecutionContext
+// import org.springframework.batch.infrastructure.item.ItemStreamReader
+// import org.springframework.data.domain.PageRequest
+//
+// // 재시작 복원 지점은 "마지막으로 넘긴 음식 id"라 버퍼에 남은 미처리 건을 건너뛰지 않는다.
+// class IncompleteFoodItemReader(
+//     private val foodRepository: FoodJpaRepository,
+//     private val pageSize: Int,
+// ) : ItemStreamReader<Food> {
+//     private val buffer = ArrayDeque<Food>()
+//     private var lastReadId: Long? = null
+//
+//     override fun open(executionContext: ExecutionContext) {
+//         lastReadId = if (executionContext.containsKey(CURSOR_KEY)) executionContext.getLong(CURSOR_KEY) else null
+//         buffer.clear()
+//     }
+//
+//     override fun read(): Food? {
+//         if (buffer.isEmpty()) {
+//             val page = foodRepository.findIncompleteAfter(lastReadId, PageRequest.of(0, pageSize))
+//             if (page.isEmpty()) return null
+//             buffer.addAll(page)
+//         }
+//         return buffer.removeFirst().also { lastReadId = it.id }
+//     }
+//
+//     override fun update(executionContext: ExecutionContext) {
+//         lastReadId?.let { executionContext.putLong(CURSOR_KEY, it) }
+//     }
+//
+//     override fun close() {
+//         buffer.clear()
+//     }
+//
+//     companion object {
+//         private const val CURSOR_KEY = "food.content.lastReadId"
+//     }
+// }

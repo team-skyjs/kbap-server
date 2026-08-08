@@ -1,6 +1,6 @@
-package com.kbap.common.domain.avoidance.model
+package com.kbap.common.domain.ingredient.model
 
-enum class AvoidanceSubstanceCode(val label: String) {
+enum class IngredientCode(val label: String) {
     EGG("계란"),
     MILK("우유"),
     DAIRY("유제품"),

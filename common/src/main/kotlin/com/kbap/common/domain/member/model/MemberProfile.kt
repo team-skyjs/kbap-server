@@ -3,20 +3,20 @@ package com.kbap.common.domain.member.model
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.CountryCode
 
 @ConsistentCopyVisibility
 data class MemberProfile private constructor(
     val nickname: String?,
-    val avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
+    val avoidanceSubstanceCodes: Set<AvoidedIngredientCodeRef>,
     val spicinessPreference: SpicinessPreference,
     val countryCode: CountryCode?,
     val profileImageUrl: String?,
 ) {
-    fun avoidedCodes(): Set<AvoidanceSubstanceCode> =
+    fun avoidedCodes(): Set<IngredientCode> =
         avoidanceSubstanceCodes
-            .mapNotNull { ref -> AvoidanceSubstanceCode.entries.firstOrNull { it.name == ref.value } }
+            .mapNotNull { ref -> IngredientCode.entries.firstOrNull { it.name == ref.value } }
             .toSet()
 
     // 검증 있는 copy — 전달된 필드만 검증 후 교체, null 은 기존 값 유지.
@@ -40,12 +40,12 @@ data class MemberProfile private constructor(
     companion object {
         private const val PROFILE_IMAGE_PATH_MAX_LENGTH: Int = 512
 
-        private val CATALOG_CODES: Set<String> = AvoidanceSubstanceCode.entries.map { it.name }.toSet()
+        private val CATALOG_CODES: Set<String> = IngredientCode.entries.map { it.name }.toSet()
 
         // hydration 전용 — 검증은 updatedWith 경유가 유일 경로(무검증 저장 차단)
         internal fun of(
             nickname: String?,
-            avoidanceSubstanceCodes: Set<AvoidanceSubstanceCodeRef>,
+            avoidanceSubstanceCodes: Set<AvoidedIngredientCodeRef>,
             spicinessPreference: SpicinessPreference,
             countryCode: CountryCode?,
             profileImageUrl: String? = null,
@@ -70,11 +70,11 @@ data class MemberProfile private constructor(
         private fun validatedNickname(raw: String): String =
             raw.trim().ifBlank { throw BusinessException(ErrorCode.INVALID_NICKNAME) }
 
-        private fun validatedCodes(raw: List<String>): Set<AvoidanceSubstanceCodeRef> {
+        private fun validatedCodes(raw: List<String>): Set<AvoidedIngredientCodeRef> {
             if (raw.any { it !in CATALOG_CODES }) {
                 throw BusinessException(ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
             }
-            return raw.map { AvoidanceSubstanceCodeRef(it) }.toSet()
+            return raw.map { AvoidedIngredientCodeRef(it) }.toSet()
         }
 
         private fun validatedCountry(raw: String): CountryCode =

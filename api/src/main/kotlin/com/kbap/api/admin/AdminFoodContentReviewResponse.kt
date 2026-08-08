@@ -2,7 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 
@@ -21,7 +21,7 @@ data class AdminFoodContentReviewTarget(
     val description: String,
     val nameTranslations: Map<String, String>,
     val descriptionTranslations: Map<String, String>,
-    val avoidanceSubstances: List<FoodAvoidanceItem>,
+    val ingredients: List<FoodIngredient>,
     val spiciness: Int,
     val imageUrl: String?,
     val contentReviewAttempts: Int,
@@ -34,7 +34,7 @@ data class AdminFoodContentReviewTarget(
                 description = food.description,
                 nameTranslations = food.nameTranslations,
                 descriptionTranslations = food.descriptionTranslations,
-                avoidanceSubstances = food.avoidanceSubstances.orEmpty(),
+                ingredients = food.ingredients.orEmpty(),
                 spiciness = food.spiciness,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 contentReviewAttempts = food.contentReviewAttempts,

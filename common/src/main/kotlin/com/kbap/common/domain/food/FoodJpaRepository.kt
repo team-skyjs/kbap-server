@@ -33,47 +33,48 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun countDailyCreatedSince(@Param("from") from: LocalDateTime): List<DailyCount>
 
-    @Modifying(clearAutomatically = true)
-    @Transactional
-    @Query(
-        """
-        update Food f
-        set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE,
-            f.updatedAt = current_timestamp,
-            f.version = f.version + 1
-        where f.id in :ids
-          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE
-          and (f.imageRef is null or f.imageRef = '')
-        """,
-    )
-    fun markPendingImageByIdIn(@Param("ids") ids: List<Long>): Int
-
-    @Modifying(clearAutomatically = true)
-    @Transactional
-    @Query(
-        """
-        update Food f
-        set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_REVIEW,
-            f.updatedAt = current_timestamp,
-            f.version = f.version + 1
-        where f.id in :ids
-          and f.contentStatus in (
-            com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE,
-            com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
-          )
-        """,
-    )
-    fun markPendingReviewByIdIn(@Param("ids") ids: List<Long>): Int
-
-    @Query(
-        """
-        select f from Food f
-        where f.contentStatus = 'INCOMPLETE'
-          and (:afterId is null or f.id > :afterId)
-        order by f.id asc
-        """,
-    )
-    fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
+    // KB-301: 콘텐츠 채움 배치가 쓰던 INCOMPLETE 기반 읽기·벌크 전이. 최종 삭제는 KB-302.
+    // @Modifying(clearAutomatically = true)
+    // @Transactional
+    // @Query(
+    //     """
+    //     update Food f
+    //     set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE,
+    //         f.updatedAt = current_timestamp,
+    //         f.version = f.version + 1
+    //     where f.id in :ids
+    //       and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE
+    //       and (f.imageRef is null or f.imageRef = '')
+    //     """,
+    // )
+    // fun markPendingImageByIdIn(@Param("ids") ids: List<Long>): Int
+    //
+    // @Modifying(clearAutomatically = true)
+    // @Transactional
+    // @Query(
+    //     """
+    //     update Food f
+    //     set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_REVIEW,
+    //         f.updatedAt = current_timestamp,
+    //         f.version = f.version + 1
+    //     where f.id in :ids
+    //       and f.contentStatus in (
+    //         com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE,
+    //         com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+    //       )
+    //     """,
+    // )
+    // fun markPendingReviewByIdIn(@Param("ids") ids: List<Long>): Int
+    //
+    // @Query(
+    //     """
+    //     select f from Food f
+    //     where f.contentStatus = 'INCOMPLETE'
+    //       and (:afterId is null or f.id > :afterId)
+    //     order by f.id asc
+    //     """,
+    // )
+    // fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
 
     fun findByContentStatusOrderByIdAsc(contentStatus: FoodContentStatus, pageable: Pageable): List<Food>
 
@@ -92,7 +93,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(
         """
         select f from Food f
-        where (f.imageRef is null or f.imageRef = '')
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
           and not exists (
             select 1 from ImageBatchItem i
             where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING

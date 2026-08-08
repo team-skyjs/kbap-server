@@ -69,7 +69,7 @@ class ReviewControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id

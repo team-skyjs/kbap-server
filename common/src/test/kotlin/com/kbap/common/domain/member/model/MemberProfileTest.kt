@@ -117,7 +117,7 @@ class MemberProfileTest : BehaviorSpec({
             then("그대로 보존한다") {
                 val profile = MemberProfile.of(
                     nickname = "머고",
-                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("MILK")),
+                    avoidanceSubstanceCodes = setOf(AvoidedIngredientCodeRef("PEANUT"), AvoidedIngredientCodeRef("MILK")),
                     spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )
@@ -136,7 +136,7 @@ class MemberProfileTest : BehaviorSpec({
                 val member = Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-1", null))
                 val replacement = MemberProfile.of(
                     nickname = "머고",
-                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
+                    avoidanceSubstanceCodes = setOf(AvoidedIngredientCodeRef("PEANUT")),
                     spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )

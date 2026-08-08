@@ -49,7 +49,7 @@ class AdminControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     """,
@@ -92,7 +92,7 @@ class AdminControllerTest : BehaviorSpec() {
 
         given("관리자 신규 음식 적재 — 정상 흐름") {
             `when`("신규·기존·중복·공백이 섞인 목록을 제출하면") {
-                then("정제 후 신규만 INCOMPLETE 로 생성되고 카운트를 돌려준다") {
+                then("정제 후 신규만 FAILED 로 생성되고 카운트를 돌려준다") {
                     seedExistingFood("기존비빔밥")
 
                     postSeed(seedBody(listOf("신규마라샹궈", "기존비빔밥", " 신규마라샹궈 ", "신규탕후루", "  ")))
@@ -105,8 +105,8 @@ class AdminControllerTest : BehaviorSpec() {
                         }
 
                     countFoods() shouldBe 3
-                    contentStatusOf("신규마라샹궈") shouldBe "INCOMPLETE"
-                    contentStatusOf("신규탕후루") shouldBe "INCOMPLETE"
+                    contentStatusOf("신규마라샹궈") shouldBe "FAILED"
+                    contentStatusOf("신규탕후루") shouldBe "FAILED"
                     contentStatusOf("기존비빔밥") shouldBe "READY"
                 }
             }
@@ -122,7 +122,7 @@ class AdminControllerTest : BehaviorSpec() {
                         }
 
                     countFoods() shouldBe 1
-                    contentStatusOf("김치찌개") shouldBe "INCOMPLETE"
+                    contentStatusOf("김치찌개") shouldBe "FAILED"
                 }
             }
 
@@ -132,7 +132,7 @@ class AdminControllerTest : BehaviorSpec() {
 
                     dataSource.connection.use { c ->
                         c.prepareStatement(
-                            "SELECT spiciness, avoidance_substances FROM food WHERE korean_name = ?",
+                            "SELECT spiciness, ingredients FROM food WHERE korean_name = ?",
                         ).use { ps ->
                             ps.setString(1, "센티널마라탕")
                             ps.executeQuery().use { rs ->
@@ -217,7 +217,7 @@ class AdminControllerTest : BehaviorSpec() {
                             jsonPath("$.payload.created") { value(1) }
                         }
 
-                    contentStatusOf("관리자마라탕") shouldBe "INCOMPLETE"
+                    contentStatusOf("관리자마라탕") shouldBe "FAILED"
                 }
             }
         }
