@@ -611,6 +611,33 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("닉네임을 생략하고 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() - "nickname").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("닉네임에 null 을 명시해 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("nickname" to null))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
             `when`("기본 이미지 경로로 온보딩하면") {
                 then("200 으로 저장되고 조회 응답엔 CDN 도메인이 조합된 기본 이미지 URL 이 담긴다") {
                     val token = loginAccessToken()
