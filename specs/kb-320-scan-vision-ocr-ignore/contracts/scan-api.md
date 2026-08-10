@@ -1,48 +1,88 @@
-# Contract: 스캔 HTTP API (불변 — 회귀 기준선)
+# Contract: 스캔 API — v1 동결 · v2 신규
 
-**Owner**: `api/src/main/kotlin/com/kbap/api/scan/` (`ScanController`·`ScanRequest`·`ScanResponse`)
+**Owner**: `api/src/main/kotlin/com/kbap/api/scan/`
 
-**Asserted by**: `ScanControllerTest` (기존 테스트가 이미 전 항목을 덮는다)
+**Asserted by**: `ScanControllerTest`
 
-이 문서는 **바꿀 것이 아니라 깨지지 않았음을 증명할 대상**이다. FR-007(계약 불변)이 릴리스 조건이므로, 아래 표에서 하나라도 달라지면 이번 변경은 실패다.
+계약은 **URL 경로가 결정한다**. `X-API-Version` 헤더는 스캔에서 동작을 가르지 않는다(온보딩은 계속 사용).
 
-## `POST /api/v1/scans`
+## 한눈에
+
+| | `POST /api/v1/scans` (동결) | `POST /api/v2/scans` (신규) |
+|---|---|---|
+| 요청 | `imagePath` + `items` **필수**(1~100) | `imagePath` 만 |
+| 판독 근거 | 사진 + 클라이언트 OCR 병용 | 사진 단독(서버 OCR) |
+| 응답 `idx` | 있음 | **없음** |
+| 응답 `similarFood` | **없음** | 있음 |
+| 헤더 분기 | 없음 | 없음 |
+
+---
+
+## v1 — `POST /api/v1/scans` (동결)
+
+**이 표는 바꿀 것이 아니라 깨지지 않았음을 증명할 대상이다.** KB-319 이전 계약과 동일해야 한다.
 
 ### 요청
 
-| 위치 | 필드 | 타입 | 검증 | 이번 변경 |
-|------|------|------|------|-----------|
-| query | `lang` | String | 필수(헌법 원칙 V — 비어 있으면 400) | 불변 |
-| body | `imagePath` | String | `@NotBlank`, `@Size(max=512)`, `http(s)://` 로 시작 금지 | 불변 |
-| body | `items` | Array | `@NotEmpty`, `@Size(max=100)` | 불변 — **비어 있으면 여전히 400** |
-| body | `items[].idx` | Int | `@NotNull`, 요청 내 중복 금지(`AssertTrue`) | 불변 |
-| body | `items[].rawMenuName` | String | `@NotBlank` | 불변 — **필수로 유지, 판독에는 미사용** |
-
-`items` 를 선택 필드로 바꾸거나 상한을 손대지 않는다. 판독에 안 쓴다고 계약에서 빼면 배포된 앱의 매칭이 깨진다.
+| 위치 | 필드 | 타입 | 검증 |
+|------|------|------|------|
+| query | `lang` | String | 필수(헌법 원칙 V — 비어 있으면 400) |
+| body | `imagePath` | String | `@NotBlank`, `@Size(max=512)`, `http(s)://` 로 시작 금지 |
+| body | `items` | Array | **`@NotEmpty`**, `@Size(max=100)` |
+| body | `items[].idx` | Int | `@NotNull`, 요청 내 중복 금지(`AssertTrue`) |
+| body | `items[].rawMenuName` | String | `@NotBlank` |
 
 ### 응답 (`BaseResponse<ScanResponse>`)
 
-| 필드 | 타입 | 이번 변경 |
-|------|------|-----------|
-| `degraded` | Boolean | 불변 |
-| `results[].idx` | Int? | **값의 산출 규칙만 강화**(중복 시 이후 항목 null) — 타입·의미 불변 |
-| `results[].matched` | Boolean | 불변 |
-| `results[].foodId` | Long? | 불변 |
-| `results[].riskLevel` | String | 불변 |
-| `results[].name` | String? | 불변 |
-| `results[].koreanName` | String? | 불변 |
-| `results[].price` | Int? | 불변 |
+`degraded` · `results[]{ idx?, matched, foodId?, riskLevel, name?, koreanName?, price? }`
 
-### 오류
+`similarFood` 필드는 **존재하지 않는다**(v2 전용).
 
-| 상황 | 상태 | 코드 | 이번 변경 |
-|------|------|------|-----------|
-| 비전 판독 실패·형식 오류·타임아웃 | 503 | `SCAN-002` (`MENU_BOARD_RECOGNITION_FAILED`) | 불변 — 새 모델의 실패도 같은 경로로 흐른다 |
-| 요청 검증 실패 | 400 | 기존 코드 | 불변 |
-| 미인증 | 401 | 기존 코드 | 불변 |
+### `idx` 불변식
 
-## 회귀 판정 방법
+| 불변식 | 강제 지점 |
+|--------|-----------|
+| `idx ∈ 요청의 idx 집합` | `ScanService` — `takeIf { it in validIdxes }` |
+| **`idx` 는 한 응답에서 최대 1회** | `ScanService` — `usedIdxes.add(it)` (KB-320 신규) |
+| 대응 OCR 없으면 `null` | 모델이 `matchedIdx = null` |
 
-`./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"` 가 **수정 없이** 통과해야 한다. 기존 테스트를 고쳐야 통과한다면 계약이 깨진 것이다 — 이번 변경에서 이 파일에 허용되는 편집은 **테스트 추가뿐**이다(기존 given/when/then 블록의 기대값 수정 금지).
+중복 시 **먼저 나온 결과가 갖는다** — `map` 이 순서를 보장하므로 같은 입력에 같은 결과가 나온다. 뒤 결과도 응답에는 남는다(메뉴 소실 금지).
 
-예외: `ScanService.kt:34-35` 의 주석 처리된 소유권 검증과 짝인 비활성 테스트 2건(`xwhen`)은 이번 범위 밖으로 그대로 둔다.
+### 회귀 판정
+
+`./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"` 가 **기존 v1 시나리오를 수정 없이** 통과해야 한다. 이 파일에 허용되는 편집은 **테스트 추가뿐**이다.
+
+---
+
+## v2 — `POST /api/v2/scans` (신규)
+
+### 요청
+
+| 위치 | 필드 | 타입 | 검증 |
+|------|------|------|------|
+| query | `lang` | String | 필수 |
+| body | `imagePath` | String | `@NotBlank`, `@Size(max=512)`, `http(s)://` 금지 |
+
+`items` 는 **계약에 없다**. 본문에 섞여 들어와도 무시한다(400 아님).
+
+### 응답 (`BaseResponse<ScanV2Response>`)
+
+`degraded` · `results[]{ matched, foodId?, riskLevel, name?, koreanName?, price?, similarFood? }`
+
+`idx` 는 **없다** — 서버가 클라이언트 화면의 박스를 알지 못한다.
+
+`similarFood{ foodId, name, koreanName?, description, imageRef? }` — 미등록(`matched=false`) 메뉴의 유사 음식 대체. `foodId` 는 항상 조회 가능한 등록 음식이라 음식 상세 API 와 연동된다. 임계 미달·검색 장애·미구성이면 해당 항목만 `null` 이고 스캔 자체는 성공한다(부분 성공).
+
+### 인증
+
+`/api/v2/scans` 는 `WebConfig` 의 보호 경로 목록에 등록돼 있어야 한다. **누락하면 전 시나리오가 401 로 실패한다** — 이번 작업에서 실제로 밟은 함정.
+
+---
+
+## 오류 (두 경로 공통)
+
+| 상황 | 상태 | 코드 |
+|------|------|------|
+| 비전 판독 실패·형식 오류·타임아웃 | 503 | `SCAN-002` |
+| 요청 검증 실패 | 400 | `COMMON-002` |
+| 미인증 | 401 | — |

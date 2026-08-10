@@ -46,74 +46,16 @@ description: "Task list for kb-320 스캔 비전 모델 교체 및 사진 단독
 
 ---
 
-## Phase 3: User Story 1 - 저품질 OCR 기기에서도 정확한 스캔 (Priority: P1) 🎯 MVP
+## Phase 3~5: 프롬프트 사진 단독화 + 헤더 버저닝 — **철회** (2026-08-11)
 
-**Goal**: 판독(메뉴명·가격)의 진실 출처를 사진 하나로 좁힌다. OCR 텍스트가 오탈자 교정 기준·메뉴 후보 목록·존재 판정 근거로 쓰이지 않는다.
+KB-319(PR #141)가 같은 목표를 서버 OCR 로 먼저 구현·머지한 사실이 확인돼 이 구간의 산출물을 전부 되돌렸다.
+근거는 research R9·R10, 대체 설계는 Phase 9.
 
-**Independent Test**: 캡처한 프롬프트가 contracts/vision-prompt.md 의 P1·P2·P4 를 만족한다. 배포 전 수동 대조(quickstart §4)에서 정확 OCR/오염 OCR 두 요청의 결과 집합이 같다.
-
-### Tests for User Story 1 (REQUIRED — 먼저 쓰고 FAIL 확인) ⚠️
-
-- [x] T003 [US1] `infra/llm/src/test/kotlin/com/kbap/infra/llm/menu/OpenAiMenuBoardVisionExtractorTest.kt` 에 **P2 테스트** 추가 — `given("사진 단독 판독 프롬프트") / when("extract 를 호출하면") / then("OCR 을 오탈자 교정 기준으로 삼으라는 지시가 없다")`. 현행 `[진실의 출처]` 절의 교정 지시 문구(`"되지불고기"`·`OCR 오탈자 교정`·`OCR 을 보존한다`)가 프롬프트에 **없어야** 한다. 현행 프롬프트에서 반드시 FAIL
-- [x] T004 [US1] 같은 파일에 **P1 테스트** 추가 — 판독 근거를 사진으로 한정하는 지시(`[판독 — 사진 단독]` 절 헤더)가 프롬프트에 존재한다. 현행에서 FAIL
-- [x] T005 [US1] 같은 파일에 **P4 테스트** 추가 — 사진에서 판독됐으나 대응 OCR 이 없는 메뉴도 결과에 포함하라는 지시가 존재한다. 현행에서 FAIL
-- [x] T006 [US1] 같은 파일에 **P5 테스트** 추가 — `OcrItem(0, "김치찌개")`·`OcrItem(7, "삼겹살")` 을 넘겼을 때 프롬프트에 `0: 김치찌개`·`7: 삼겹살` 두 줄이 모두 실린다 (현행도 통과할 수 있음 — 회귀 고정용)
-
-> T003~T006 은 같은 파일을 편집하므로 **순차**로 쓴다. 한 번에 몰아 쓰고 `./gradlew :infra:llm:test --tests "*OpenAiMenuBoardVisionExtractorTest*"` 로 Red 를 확인한다.
-
-### Implementation for User Story 1
-
-- [x] T007 [US1] `infra/llm/src/main/kotlin/com/kbap/infra/llm/menu/OpenAiMenuBoardVisionExtractor.kt` 의 `SYSTEM_PROMPT` 에서 **`[진실의 출처]` 절 전체를 `[판독 — 사진 단독]` 으로 교체**한다. 새 절은 (a) 메뉴명·가격의 근거는 사진 픽셀뿐이고 OCR 텍스트는 판독에 쓰지 않는다, (b) 사진에서 읽히는 메뉴는 OCR 대응 유무와 무관하게 전부 결과에 넣는다, (c) 사진에서 확실히 읽히지 않는 글자는 추측해 채우지 않는다 를 지시한다. contracts/vision-prompt.md 의 "제거되는 것" 두 문장은 반드시 사라진다
-- [x] T008 [US1] 같은 파일에서 `[matchedIdx — 커버리지]` 절을 **`[매칭 — OCR 참조표]`** 로 재라벨하고 도입 문장을 "아래 OCR 목록은 판독 근거가 아니라, 이미 판독한 메뉴를 클라이언트 화면 항목에 잇기 위한 참조표다"로 바꾼다. 절 순서는 `[역할+형식] → [판독 — 사진 단독] → [규칙] → [매칭 — OCR 참조표]` 로 두어 판독이 매칭보다 앞에 오게 한다. `[규칙]` 절(name·koreanName·price·비메뉴 제외·사이즈 분리)은 **한 글자도 건드리지 않는다**
-- [x] T009 [US1] 같은 파일의 `userPromptWith` 헤더 문장에서 OCR 을 판단 기준으로 언급하는 부분(`오탈자가 섞여 있을 수 있으니 사진을 기준으로 판단하고`)을 걷어내고, OCR 블록을 매칭용 참조표로 소개하는 문장으로 바꾼다. `"idx: 텍스트"` 줄 형식 자체는 유지(P5)
-- [x] T010 [US1] `./gradlew :infra:llm:test` 로 T003~T006 Green 확인 + `MenuBoardResultParserTest`·비용 이벤트 테스트가 여전히 통과하는지 확인
-
-**Checkpoint**: 프롬프트가 판독/매칭을 분리했고 계약 테스트가 이를 고정한다
-
----
-
-## Phase 4: User Story 2 - 화면의 박스에 위험도가 그대로 붙는다 (Priority: P1)
-
-**Goal**: 판독 근거가 바뀌어도 `idx` 가 계속 올바른 OCR 항목을 가리키고, 한 응답에서 중복되지 않는다.
-
-**Independent Test**: `ScanControllerTest` 에서 같은 `matchedIdx` 를 가진 결과가 둘일 때 뒤엣것의 `idx` 가 null 로 떨어진다. 요청 집합 밖 `idx` 는 기존대로 null.
-
-**의존**: T002(캡처 헬퍼). T012~T014 는 `ScanService`/`ScanControllerTest` 파일이라 US1 과 **병렬 가능**.
-
-### Tests for User Story 2 (REQUIRED — 먼저 쓰고 FAIL 확인) ⚠️
-
-- [x] T011 [P] [US2] `infra/llm/src/test/kotlin/com/kbap/infra/llm/menu/OpenAiMenuBoardVisionExtractorTest.kt` 에 **P6 테스트** 추가 — 한 `idx` 를 여러 result 에 쓰지 말라는 지시가 프롬프트에 유지된다 (T007~T009 재작성 중 유실 방지용 회귀 고정). ※ US1 과 같은 파일이므로 T003~T006 과 함께 작성하고 Red 를 한 번에 확인해도 된다
-- [x] T012 [P] [US2] `api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` 에 **중복 idx 테스트 추가** — `FakeMenuBoardVisionExtractor` 가 같은 `matchedIdx = 0` 을 가진 `ExtractedMenu` 2건을 반환하도록 program 하고, 응답 `results` 에서 `idx = 0` 은 **첫 번째 결과에만** 붙고 두 번째는 `null` 임을 검증한다. 두 결과 모두 응답에는 남아야 한다(메뉴 소실 금지). 현행 구현에서 FAIL
-
-### Implementation for User Story 2
-
-- [x] T013 [US2] `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt` 의 `extracted.map { ... }` 을 순회하며 **이미 사용한 idx 집합**을 들고, `idx = menu.matchedIdx?.takeIf { it in validIdxes && usedIdxes.add(it) }` 형태로 중복을 null 로 떨어뜨린다. `map` 이 순서를 보장하므로 "먼저 나온 쪽 우선"이 결정적으로 성립한다(data-model.md)
-- [x] T014 [US2] `./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"` 로 T012 Green + **기존 테스트 전부 무수정 통과** 확인
-
-**Checkpoint**: `idx` 불변식 2개(요청 집합 내 · 응답 내 유일)가 서버에서 강제된다
-
----
-
-## Phase 5: User Story 3 - 기존 클라이언트가 수정 없이 계속 동작한다 (Priority: P1)
-
-**Goal**: 요청/응답 계약과 검증 규칙·오류 코드가 그대로임을 증명한다.
-
-**Independent Test**: contracts/scan-api.md 의 표 전 항목이 기존 테스트로 덮이고, 기존 테스트를 **고치지 않고** 통과한다.
-
-**의존**: 없음(US1·US2 와 병렬 가능). 단 최종 판정은 US1·US2 구현 후에 한다.
-
-### Tests for User Story 3 (REQUIRED) ⚠️
-
-- [x] T015 [P] [US3] `api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` 에 **OCR 텍스트 미유입 테스트** 추가 — `items` 의 `rawMenuName` 을 사진과 무관한 문자열(예: `"XXX오탈자XXX"`)로 보내고 `FakeMenuBoardVisionExtractor` 는 정상 메뉴를 반환할 때, 응답의 `name`·`koreanName` 어디에도 그 문자열이 나타나지 않음을 검증한다 (`ScanService` 가 OCR 텍스트를 읽지 않는다는 회귀 고정)
-
-### Implementation for User Story 3
-
-- [x] T016 [US3] contracts/scan-api.md 의 요청·응답·오류 표를 `ScanRequest.kt`·`ScanResponse.kt`·`ScanApi.kt` 실제 코드와 대조해 **차이가 없음을 확인**한다. 차이가 있으면 코드가 아니라 이번 변경을 되돌린다(계약이 정답)
-- [x] T017 [US3] `git diff -- api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` 로 **추가만 있고 기존 블록 수정이 없음**을 확인한다. 기존 기대값을 고쳐야 통과한다면 계약이 깨진 것이다
-
-**Checkpoint**: 배포된 앱이 수정 없이 동작함이 증명됐다
-
----
+- [~] T003~T011 프롬프트 계약 테스트(P1~P7) — 프롬프트를 바꾸지 않으므로 철회
+- [~] T007~T009 `PHOTO_ONLY_SYSTEM_PROMPT` 재작성 — 철회. develop 의 `SERVER_OCR_SYSTEM_PROMPT` 가 대체
+- [~] `MenuBoardReadingMode` seam 인자 · `X-API-Version 2026.08.08` 게이트 — 철회
+- [x] T012~T014 `idx` 중복 서버 가드 + 테스트 — **유지**(v1 전용, Phase 9 에서 재적용)
+- [x] T015~T017 v1 계약 회귀 증명 — **유지**
 
 ## Phase 6: User Story 4 - 스캔 비용이 계속 집계된다 (Priority: P2)
 
@@ -142,7 +84,7 @@ description: "Task list for kb-320 스캔 비전 모델 교체 및 사진 단독
 **Purpose**: 결정적 검증으로 닫을 수 없는 항목(파라미터 호환·비용·지연·정확도)을 실측으로 닫는다
 
 - [x] T022 `./gradlew build` 전체 통과 확인 (MySQL Testcontainers — Docker 필요)
-- [ ] T023 **실 API 스모크** — quickstart.md §3 절차대로 실 키로 스캔 1회 호출. `temperature: 1.0` 수용 여부, `response_format=json_object` 호환, `completionTokens`(추론 토큰 포함), 왕복 지연, `costUsd`/`costKrw`, `llm_call_cost.model_name` 을 기록한다. **200 이 아니거나 파싱 실패면 여기서 멈추고** research R2 의 폴백(responseFormat 조건부 해제)을 검토한다
+- [ ] T023 **실 API 스모크**(v1·v2 양쪽) — quickstart.md §3 절차대로 실 키로 스캔 1회 호출. `temperature: 1.0` 수용 여부, `response_format=json_object` 호환, `completionTokens`(추론 토큰 포함), 왕복 지연, `costUsd`/`costKrw`, `llm_call_cost.model_name` 을 기록한다. **200 이 아니거나 파싱 실패면 여기서 멈추고** research R2 의 폴백(responseFormat 조건부 해제)을 검토한다
 - [ ] T024 T023 결과를 plan.md 의 수용 기준과 대조 — p50 8초 이내 & 스캔 1회 비용이 현행의 5배 이내. **초과하면 머지하지 않고** `VisionProps.reasoningEffort` 추가를 후속 작업으로 연다(research R3)
 - [ ] T025 **수동 정확도 대조** — quickstart.md §4 절차대로 메뉴판 사진 3~5장에 정확 OCR(A)/오염 OCR(B) 두 요청을 보내고 표를 채운다. SC-001(A·B 결과 동일)·SC-002(누락 메뉴 포함)·FR-003(가짜 항목 배제)·SC-003(오탈자 교정)·SC-004(idx 중복 0) 판정
 - [ ] T026 T025 의 표를 PR 본문에 붙인다 — 자동화 회귀 스위트가 없어 이것이 유일한 정확도 근거다
@@ -170,6 +112,24 @@ description: "Task list for kb-320 스캔 비전 모델 교체 및 사진 단독
 - [x] T039 `./gradlew build` 전체 통과 확인
 
 **Checkpoint**: 채팅·비전이 `gpt-5.6-luna` 단일 벤더로 통일되고 Upstage·Gemini·fan-out 코드가 사라졌다. 이미지 생성(`gpt-image-2`)·임베딩(Bedrock Titan)은 채팅 모델이 아니라 유지.
+
+---
+
+## Phase 9: 스캔 v1/v2 경로 분리 (2026-08-11 최종 설계)
+
+**대체 대상**: Phase 3~5 의 헤더 버저닝. **근거**: research R9.
+
+- [x] T040 develop 병합 — KB-319 반영. 충돌 6파일은 develop 쪽 채택 후 이 브랜치 고유분만 재적용
+- [x] T041 v1 복원 — `ScanController` 헤더 분기 제거, `ScanRequest.items` 를 `@NotEmpty` 필수로 되돌림, `ScanResponse` 에서 `similarFood` 제거
+- [x] T042 v1 swagger 복원 — `ScanApi` 에서 `X-API-Version` 파라미터·계약 버전 분기 설명·서버 OCR 예시 제거
+- [x] T043 v2 신설 — `ScanV2Controller`(`ApiPaths.V2 + "/scans"`)·`ScanV2Api`·`ScanV2Request`(imagePath 만)·`ScanV2Response`(idx 없음, similarFood 있음)
+- [x] T044 `ScanService` 진입점 분리 — `scanMenuBoardImage`(v1) / `scanMenuBoardImageV2`(v2, `ocrItems=emptyList()`·`similarFoodFallback=true`), 내부 `scan()` 공유
+- [x] T045 `WebConfig` 보호 경로에 `/api/v2/scans` 등록 — **누락 시 v2 전 시나리오가 401 로 실패**(실제로 밟음)
+- [x] T046 테스트 이관 — KB-319 의 헤더 시나리오 8건을 v2 경로로, 버전 폴백 시나리오 2건은 경로 분리로 의미가 사라져 제거
+- [x] T047 v1 회귀 테스트 재추가 — `idx` 중복 가드·OCR 텍스트 미유입 2건
+- [x] T048 `./gradlew build` 전 모듈 그린
+
+**Checkpoint**: 계약을 경로가 결정한다. 스캔에서 `X-API-Version` 참조가 0건이다.
 
 ---
 
