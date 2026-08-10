@@ -1,14 +1,14 @@
-# Contract: 온보딩 API (X-App-Version 헤더 분기)
+# Contract: 온보딩 API (X-API-Version 헤더 분기)
 
-> 2026-08-10 개정 2: `X-App-Version` 요청 헤더(선택)의 **버전 값**으로 신·구 동작을 분기한다(사용자 결정). `1.1.0` 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정하고, 그 외(미전송·`1.1.0` 미만·형식 오류)는 종전 계약(두 필드 필수) 그대로다.
+> 2026-08-10 개정 3: 헤더를 앱 버전이 아니라 **API 계약 버전 `X-API-Version`(정수, 기본 1)**으로 확정한다(사용자 결정 — 앱 버전은 호출 앱 트래킹 용도, 동작 분기는 클라이언트가 선언하는 계약 버전). `2` 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정하고, 그 외(미전송·`1`·형식 오류)는 v1 계약(두 필드 필수) 그대로다.
 
 ## `POST /api/v1/members/me/onboarding`
 
 인증: `Authorization: Bearer {accessToken}` (필수)
 
-헤더: `X-App-Version: 1.1.0` (선택) — semver 형태(`major[.minor[.patch]]`, 빠진 파트는 0)로 파싱해 **`1.1.0` 이상이면** 서버 자동 지정으로 분기한다. 파싱 불가(오타·비정상 값)는 헤더 미전송과 동일하게 구버전 동작으로 폴백한다. 1.0.0 앱은 이 헤더를 보내지 않는다.
+헤더: `X-API-Version: 2` (선택) — 클라이언트가 기대하는 **온보딩 계약 버전**(정수). `toIntOrNull` 로 읽어 **`2` 이상이면** 서버 자동 지정으로 분기한다. 파싱 불가(오타·비정상 값)·미전송은 기본값 `1`(v1 계약)로 폴백한다. 1.0.0 앱은 이 헤더를 보내지 않는다. 앱 빌드 버전과 무관한 값이므로 iOS/Android 버전 번호가 갈라져도 임계값이 흔들리지 않는다.
 
-### Request — `X-App-Version >= 1.1.0` (신버전 앱)
+### Request — `X-API-Version >= 2` (신버전 앱)
 
 ```json
 {
@@ -26,7 +26,7 @@
 
 닉네임은 서버가 영숫자 6자 코드(예: `K7M2XB`)로 생성하고, 프로필 사진은 아바타 6종 후보에서 무작위로 고른다. 요청에 `nickname`·`profileImageUrl` 을 담아 보내도 **무시**된다(오류 아님). 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
 
-### Request — 헤더 미전송·`1.1.0` 미만·형식 오류 (1.0.0 앱, 종전 계약 불변)
+### Request — 헤더 미전송·`1`·형식 오류 (1.0.0 앱, v1 계약 불변)
 
 ```json
 {
@@ -79,11 +79,10 @@
 
 | 검증 대상 | 테스트 |
 |-----------|--------|
-| `1.1.0`·상위 버전 헤더 + 닉네임·사진 없이 → 200 + 자동 지정 | `MemberControllerTest` (MockMvc + Testcontainers) |
-| 헤더 + 닉네임·사진 전송 → 무시되고 서버 지정값 저장 | `MemberControllerTest` |
-| 헤더가 있어도 필수 필드(국가) 누락 → `COMMON-002` | `MemberControllerTest` |
-| `1.1.0` 미만·형식 오류 헤더 → 구버전 계약(생략 시 400) | `MemberControllerTest` |
-| 헤더 없음 + 닉네임/사진 생략·null → 400 `COMMON-002` (종전 계약) | `MemberControllerTest` |
+| 버전 `2`·상위 헤더 + 닉네임·사진 없이 → 200 + 자동 지정 | `MemberControllerTest` (MockMvc + Testcontainers) |
+| 버전 `2` + 닉네임·사진 전송 → 무시되고 서버 지정값 저장 | `MemberControllerTest` |
+| 버전 `2` 라도 필수 필드(국가) 누락 → `COMMON-002` | `MemberControllerTest` |
+| 버전 `1`·형식 오류 헤더 → v1 계약(생략 시 400) | `MemberControllerTest` |
+| 헤더 없음 + 닉네임/사진 생략·null → 400 `COMMON-002` (v1 계약) | `MemberControllerTest` |
 | 헤더 없음 + 전송값 그대로 저장 | `MemberControllerTest` 기존 시나리오 |
-| 버전 파싱·비교(파트 생략·오타·숫자 비교) | `AppVersionTest` (단위) |
 | 닉네임 생성 형식·중복, 이미지 후보 유효성·분포 | `OnboardingProfileDefaultsTest` (단위) |

@@ -9,12 +9,12 @@
 ```
 
 1. 로그인해 access token 확보 (`POST /api/v1/auth/login`).
-2. **온보딩** — `X-App-Version` 헤더와 함께 닉네임·사진 없이:
+2. **온보딩** — `X-API-Version: 2` 헤더와 함께 닉네임·사진 없이:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -H 'X-App-Version: 1.1.0' \
+  -H 'X-API-Version: 2' \
   -d '{"avoidanceSubstanceCodes":["EGG"],"countryCode":"US","spicinessPreference":"SKIP"}'
 ```
 
@@ -35,7 +35,7 @@ curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
 # → 200, 조회 시 nickname == "길동이" (랜덤으로 덮이지 않음)
 ```
 
-Swagger UI: `http://localhost:8080/swagger-ui.html` — "회원" 태그의 온보딩에서 `X-App-Version` 헤더 파라미터와 분기 동작이 안내된다.
+Swagger UI: `http://localhost:8080/swagger-ui.html` — "회원" 태그의 온보딩에서 `X-API-Version` 헤더 파라미터와 분기 동작이 안내된다.
 
 ## 테스트
 

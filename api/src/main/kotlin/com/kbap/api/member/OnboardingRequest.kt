@@ -11,8 +11,8 @@ data class OnboardingRequest(
     val profileImageUrl: String? = null,
     val spicinessPreference: String,
 ) {
-    // serverAssignsProfile(X-App-Version >= 1.1.0) — 닉네임·사진은 보내도 무시하고 null 로 넘겨 서버가 랜덤 지정.
-    // 그 외(미전송·미만·형식 오류)는 구버전 앱 계약 그대로 두 필드 필수다(누락 시 400 COMMON-002).
+    // serverAssignsProfile(X-API-Version >= 2) — 닉네임·사진은 보내도 무시하고 null 로 넘겨 서버가 랜덤 지정.
+    // 그 외(미전송·1·형식 오류)는 v1 계약 그대로 두 필드 필수다(누락 시 400 COMMON-002).
     fun toInput(memberId: Long, serverAssignsProfile: Boolean): MemberProfileInput =
         MemberProfileInput(
             memberId = memberId,

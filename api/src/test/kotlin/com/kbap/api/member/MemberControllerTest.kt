@@ -57,10 +57,10 @@ class MemberControllerTest : BehaviorSpec() {
             return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
         }
 
-        fun submitOnboarding(token: String?, body: Map<String, Any?>, appVersion: String? = null) =
+        fun submitOnboarding(token: String?, body: Map<String, Any?>, apiVersion: String? = null) =
             mockMvc.post("/api/v1/members/me/onboarding") {
                 if (token != null) header("Authorization", "Bearer $token")
-                if (appVersion != null) header("X-App-Version", appVersion)
+                if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
             }
@@ -667,18 +667,18 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
-        given("X-App-Version 헤더 온보딩 — 닉네임·프로필 사진 서버 자동 지정") {
-            val headerBody = mapOf(
+        given("X-API-Version 2 온보딩 — 닉네임·프로필 사진 서버 자동 지정") {
+            val v2Body = mapOf(
                 "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
                 "countryCode" to "US",
                 "spicinessPreference" to "SKIP",
             )
 
-            `when`("헤더와 함께 닉네임·사진 없이 온보딩하면") {
+            `when`("버전 2 헤더와 함께 닉네임·사진 없이 온보딩하면") {
                 then("200 으로 완료되고 닉네임은 영숫자 6자 코드, 사진은 아바타 후보 중 하나로 지정된다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, headerBody, appVersion = "1.1.0").andExpect { status { isOk() } }
+                    submitOnboarding(token, v2Body, apiVersion = "2").andExpect { status { isOk() } }
 
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
                     memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
@@ -687,17 +687,17 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("헤더와 함께 닉네임·사진을 담아 보내면") {
+            `when`("버전 2 헤더와 함께 닉네임·사진을 담아 보내면") {
                 then("보낸 값은 무시되고 서버 지정값이 저장된다") {
                     val token = loginAccessToken()
 
                     submitOnboarding(
                         token,
-                        headerBody + mapOf(
+                        v2Body + mapOf(
                             "nickname" to "내가정한닉",
                             "profileImageUrl" to "images/default/profile/profile-default-512.png",
                         ),
-                        appVersion = "1.1.0",
+                        apiVersion = "2",
                     ).andExpect { status { isOk() } }
 
                     memberColumn("google-sub-fixed", "nickname") shouldNotBe "내가정한닉"
@@ -707,11 +707,11 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("헤더가 있어도 필수 항목인 countryCode 를 누락하면") {
+            `when`("버전 2 헤더가 있어도 필수 항목인 countryCode 를 누락하면") {
                 then("400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, headerBody - "countryCode", appVersion = "1.1.0")
+                    val result = submitOnboarding(token, v2Body - "countryCode", apiVersion = "2")
                         .andReturn().response
 
                     result.status shouldBe 400
@@ -719,11 +719,11 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("1.1.0 미만 버전 헤더로 닉네임·사진 없이 온보딩하면") {
-                then("구버전 계약대로 400 과 COMMON-002 로 거절된다") {
+            `when`("버전 1 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("v1 계약대로 400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, headerBody, appVersion = "1.0.9").andReturn().response
+                    val result = submitOnboarding(token, v2Body, apiVersion = "1").andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
@@ -732,21 +732,21 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
             `when`("형식이 잘못된 버전 헤더로 닉네임·사진 없이 온보딩하면") {
-                then("구버전 계약대로 400 과 COMMON-002 로 거절된다") {
+                then("v1 계약대로 400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, headerBody, appVersion = "beta").andReturn().response
+                    val result = submitOnboarding(token, v2Body, apiVersion = "beta").andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
                 }
             }
 
-            `when`("1.1.0 보다 높은 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+            `when`("2 보다 높은 버전 헤더로 닉네임·사진 없이 온보딩하면") {
                 then("200 으로 완료되고 서버가 지정한다") {
                     val token = loginAccessToken()
 
-                    submitOnboarding(token, headerBody, appVersion = "1.2.0").andExpect { status { isOk() } }
+                    submitOnboarding(token, v2Body, apiVersion = "3").andExpect { status { isOk() } }
 
                     memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
                 }

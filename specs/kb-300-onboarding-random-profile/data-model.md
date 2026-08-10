@@ -73,7 +73,7 @@ completeOnboarding(input):
 
 **위치**: `api/src/main/kotlin/com/kbap/api/member/OnboardingRequest.kt`·`MemberController.kt`
 
-| 필드 | 타입 | 헤더 >= 1.1.0 | 미전송·미만·형식 오류 |
+| 필드 | 타입 | X-API-Version >= 2 | 미전송·1·형식 오류 |
 |------|------|-----------|-----------|
 | `nickname` | `String?` (기본 `null`) | 무시 — 서버 지정 | **필수** — 누락 시 400 `COMMON-002` |
 | `avoidanceSubstanceCodes` | `List<String>` (기본 `emptyList()`) | 선택 | 선택 |
@@ -81,15 +81,15 @@ completeOnboarding(input):
 | `profileImageUrl` | `String?` (기본 `null`) | 무시 — 서버 지정 | **필수** — 누락 시 400 `COMMON-002` |
 | `spicinessPreference` | `String` | 필수 | 필수 |
 
-`MemberController` 가 `@RequestHeader("X-App-Version", required = false)` 를 받아 `AppVersion.parseOrNull(헤더) >= 1.1.0` 판정으로 `toInput(memberId, serverAssignsProfile)` 을 분기한다. `serverAssignsProfile = true` 면 두 필드를 null 로 넘겨 `MemberService` 가 추첨으로 채우고, `false` 면 두 필드 null 시 `BusinessException(INVALID_REQUEST)` — Jackson 역직렬화 거절이 담당하던 종전 400 `COMMON-002` 를 동일 코드로 유지한다. `api.core.AppVersion` 은 semver 파싱(빠진 파트 0, 음수·오타는 null)과 숫자 비교만 담당한다.
+`MemberController` 가 `@RequestHeader("X-API-Version", required = false)` 를 받아 `(toIntOrNull ?: 1) >= 2` 판정으로 `toInput(memberId, serverAssignsProfile)` 을 분기한다. `serverAssignsProfile = true` 면 두 필드를 null 로 넘겨 `MemberService` 가 추첨으로 채우고, `false` 면 두 필드 null 시 `BusinessException(INVALID_REQUEST)` — Jackson 역직렬화 거절이 담당하던 종전 400 `COMMON-002` 를 동일 코드로 유지한다.
 
 ## 상태 전이
 
 | 시점 | `onboardingCompleted` | `nickname` | `profile_image_url` |
 |------|----------------------|-----------|--------------------|
 | 소셜 가입 직후(`Member.signUp`) | `false` | `null` | `null` |
-| 온보딩 완료 — 헤더 없음·1.1.0 미만(구 앱) | `true` | 클라이언트 전송값 | 클라이언트 전송값 |
-| 온보딩 완료 — 헤더 >= 1.1.0(신 앱) | `true` | 생성 코드(`K7M2XB`) | 후보 추첨값 |
+| 온보딩 완료 — 계약 v1(헤더 없음·1) | `true` | 클라이언트 전송값 | 클라이언트 전송값 |
+| 온보딩 완료 — 계약 v2(X-API-Version >= 2) | `true` | 생성 코드(`K7M2XB`) | 후보 추첨값 |
 | 이후 프로필 수정 | `true` | 사용자 지정값 | 사용자 지정값 |
 | 온보딩 재시도 | `true` (불변) | 불변 | 불변 — `ONBOARDING_ALREADY_COMPLETED` |
 
