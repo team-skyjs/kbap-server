@@ -165,7 +165,7 @@ description: "Task list for kb-320 스캔 비전 모델 교체 및 사진 단독
 - [x] T034 설정 테스트 갱신 — `LlmConfigurationOptionsTest`(upstage/gemini 케이스 제거), `LlmConfigurationBootSafetyTest`(fan-out 빈 검증 → 조건부 조립·키 누락 fail-fast 검증), `LlmConfigurationApiKeyTest`(프로퍼티 경로 기반), `LlmConfigurationBaseUrlTest`, `LlmSmokeTest`(3모델 fan-out → luna 단일 호출)
 - [x] T035 빌드 의존성 제거 — `infra/llm/build.gradle.kts` 의 `spring-ai-starter-google-genai`, `gradle/libs.versions.toml` 항목
 - [x] T036 설정 파일 정리 — api yml 의 `kbap.llm.upstage` 블록 삭제(미사용 빈 + 부팅 시 `UPSTAGE_API_KEY` 강제였다), batch yml 의 `upstage`·`gemini` 블록 삭제 및 `openai.model` → `gpt-5.6-luna`(단가 0.2/1.2, max-output-tokens 4096)
-- [x] T037 배포 설정 정리 — `.env.example`·`docker-compose.prod.yml` 에서 `UPSTAGE_API_KEY`·`GOOGLE_API_KEY` 제거하고 실제 부팅 필수 키인 `OPENAI_API_KEY`·`CDN_BASE_URL` 로 교체
+- [x] T037 배포 설정 정리 — `.env.example`·`docker-compose.prod.yml` 에서 `UPSTAGE_API_KEY`·`GOOGLE_API_KEY` 제거하고 실제 부팅 필수 키인 `OPENAI_API_KEY`·`IMAGE_PUBLIC_BASE_URL` 로 교체
 - [x] T038 `CLAUDE.md` 기술 스택의 LLM 문단을 실제 구조(OpenAI 단일 벤더·fan-out 없음)로 갱신
 - [x] T039 `./gradlew build` 전체 통과 확인
 

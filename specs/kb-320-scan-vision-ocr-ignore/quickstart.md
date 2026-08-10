@@ -21,16 +21,16 @@
 SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 ```
 
-vision 빈은 `kbap.llm.vision.enabled=true` 가 기본이라 **`OPENAI_API_KEY` 가 없으면 부팅에 실패한다**(의도된 fail-fast). 스캔을 쓰지 않을 때는 `VISION_ENABLED=false`.
+vision 빈은 `kbap.llm.vision.enabled=true` 가 기본이라 **`OPENAI_API_KEY` 가 없으면 부팅에 실패한다**(의도된 fail-fast). 스캔은 필수 기능이라 끄는 스위치를 두지 않는다.
 
-필요 환경변수: `OPENAI_API_KEY`, `CDN_BASE_URL`(모델이 사진을 fetch 할 도메인).
+필요 환경변수: `OPENAI_API_KEY`, `IMAGE_PUBLIC_BASE_URL`(모델이 사진을 fetch 할 도메인).
 
 ## 3. 실 API 스모크 — 파라미터 호환·토큰·지연 실측 (배포 전 1회, 수동)
 
 research R2·R3 를 닫는 단계다. **이걸 건너뛰고 배포하면 첫 스캔에서 죽을 수 있다.**
 
 ```bash
-OPENAI_API_KEY=<real> CDN_BASE_URL=<real> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
+OPENAI_API_KEY=<real> IMAGE_PUBLIC_BASE_URL=<real> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 # 다른 터미널에서 실제 메뉴판 사진 경로로 1회 호출
 curl -X POST "http://localhost:8080/api/v1/scans?lang=ko" \
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
@@ -41,7 +41,8 @@ curl -X POST "http://localhost:8080/api/v1/scans?lang=ko" \
 
 | 항목 | 어디서 | 통과 기준 |
 |------|--------|-----------|
-| `temperature` 미전송으로 400 이 안 남 | 응답 상태 | 200 (503 SCAN-002 면 서버 로그의 원인 확인) |
+| `image-base-url` 플레이스홀더 해석 | 부팅 로그 | `kbap.llm.vision.image-base-url` 이 `${kbap.storage.public-base-url}` 을 참조하는데 **api 테스트는 이 yml 을 읽지 않아 CI 로 검증되지 않는다** — 부팅 성공 + 스캔 요청의 이미지 URL 이 CDN 도메인으로 나가는지 확인 |
+| `temperature: 1.0` 수용 | 응답 상태 | 200 (503 SCAN-002 면 서버 로그의 원인 확인) |
 | `response_format=json_object` 호환 | 응답 상태 + 파싱 성공 | 200 + `results` 채워짐. 실패 시 research R2 의 폴백(responseFormat 조건부 해제) |
 | 출력 토큰 증가폭 | 앱 로그 `vision 토큰 사용량 ... completionTokens=` | 추론 토큰 포함값 기록 |
 | 지연 | 호출 왕복 시간 | p50 8초 이내 |
