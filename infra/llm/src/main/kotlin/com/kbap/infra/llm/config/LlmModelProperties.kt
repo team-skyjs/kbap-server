@@ -5,9 +5,7 @@ import java.time.Duration
 
 @ConfigurationProperties("kbap.llm")
 data class LlmModelProperties(
-    val callTimeout: Duration = Duration.ofSeconds(30),
     val usdToKrw: Double = 1500.0,
-    val openai: ModelProps = ModelProps(),
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
     val embedding: EmbeddingProps = EmbeddingProps(),
@@ -44,18 +42,6 @@ data class LlmModelProperties(
             inputUsdPerMillionTokens = 0.2,
             outputUsdPerMillionTokens = 1.2,
         ),
-    )
-
-    data class ModelProps(
-        val enabled: Boolean = false,
-        val apiKey: String? = null,
-        val baseUrl: String? = null,
-        val model: String? = null,
-        val maxOutputTokens: Int? = null,
-        val reasoningEffort: String? = null,
-        val temperature: Double? = null,
-        val maxRetries: Int? = null,
-        val pricing: PricingProps = PricingProps(),
     )
 
     data class PricingProps(

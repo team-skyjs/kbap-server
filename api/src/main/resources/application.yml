@@ -86,9 +86,6 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 2.5
         output-usd-per-million-tokens: 20.0
-    # 채팅 모델 1회 호출 타임아웃. OpenAI 클라이언트(okhttp)의 요청 타임아웃으로 실린다.
-    # 스캔 vision 은 자체 타임아웃(kbap.llm.vision.timeout, 기본 60s)을 쓴다.
-    call-timeout: 5s
   # 이미지 배치 운영 파라미터(KB-226). 배치당 100건 — 한 번에 제작해 한 번에 회수(운영 결정).
   # 배치 단위 실패/만료의 손실을 줄이기 위해 회수는 failed/expired 배치의 부분 완료분도 거둬들인다.
   # 프롬프트는 설정이 아니라 코드 상수(FoodImageProperties.PROMPT_TEMPLATE) — 변경 시 PROMPT_VERSION 도 함께 올린다.
