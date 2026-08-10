@@ -32,7 +32,7 @@ class FoodContentClientConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.openai", name = ["enabled"], havingValue = "true")
     fun foodAvoidanceAssessmentClient(
-        @Qualifier("avoidanceOpenAiModelCaller") caller: LlmModelCaller,
+        @Qualifier("openAiModelCaller") caller: LlmModelCaller,
     ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(caller)
 
     @Bean

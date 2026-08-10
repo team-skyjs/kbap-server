@@ -7,7 +7,6 @@ import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 
-// 안전 직결 — 응답이 계약(후보 코드·포함률 범위·맵기 범위)을 어기면 종합하지 않고 예외.
 class SpringAiFoodAvoidanceAssessmentClient(
     private val caller: LlmModelCaller,
 ) : FoodAvoidanceAssessmentClient {

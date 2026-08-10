@@ -85,14 +85,14 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                 }
             }
 
-            then("공용 caller 와 기피성분 전용 caller 가 각각 등록된다") {
+            then("caller 는 공용 하나만 등록된다") {
                 activeRunner.run { context ->
                     context.getBeanNamesForType(LlmModelCaller::class.java).toSet() shouldBe
-                        setOf("openAiModelCaller", "avoidanceOpenAiModelCaller")
+                        setOf("openAiModelCaller")
                 }
             }
 
-            then("기피성분 조사 클라이언트가 기피성분 전용 caller 로 조립된다") {
+            then("기피성분 조사 클라이언트가 공용 caller 로 조립된다") {
                 activeRunner.run { context ->
                     context.getBean(FoodAvoidanceAssessmentClient::class.java).shouldNotBeNull()
                 }

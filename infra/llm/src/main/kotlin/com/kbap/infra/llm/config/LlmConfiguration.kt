@@ -41,22 +41,6 @@ class LlmConfiguration {
         )
 
     @Bean
-    @ConditionalOnProperty(prefix = "kbap.llm.openai", name = ["enabled"], havingValue = "true")
-    fun avoidanceOpenAiModelCaller(properties: LlmModelProperties): LlmModelCaller {
-        val props = avoidanceOpenAiProps(properties.openai, properties.avoidance)
-        return SpringAiModelCaller(
-            props.model.orEmpty(),
-            openAiChatModel(
-                props,
-                resolveOpenAiBaseUrl(props.baseUrl),
-                properties.callTimeout,
-                OPENAI_API_KEY_PROPERTY,
-            ),
-            pricingOf(props, properties.usdToKrw),
-        )
-    }
-
-    @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.vision", name = ["enabled"], havingValue = "true")
     fun menuBoardVisionExtractor(
         properties: LlmModelProperties,
@@ -128,7 +112,6 @@ class LlmConfiguration {
             builder.timeout(callTimeout)
             props.maxRetries?.let { builder.maxRetries(it) }
             props.model?.let { builder.model(it) }
-            // 추론 모델은 max_tokens 를 받지 않는다 — 전 모델이 OpenAI 추론 계열이므로 항상 maxCompletionTokens.
             props.maxOutputTokens?.let { builder.maxCompletionTokens(it) }
             props.temperature?.let { builder.temperature(it) }
             props.reasoningEffort?.let { builder.reasoningEffort(it) }
@@ -154,17 +137,6 @@ class LlmConfiguration {
             builder.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build())
             return builder.build()
         }
-
-        internal fun avoidanceOpenAiProps(
-            openai: LlmModelProperties.ModelProps,
-            avoidance: LlmModelProperties.AvoidanceProps,
-        ): LlmModelProperties.ModelProps =
-            openai.copy(
-                model = avoidance.model ?: openai.model,
-                maxOutputTokens = avoidance.maxOutputTokens ?: openai.maxOutputTokens,
-                reasoningEffort = avoidance.reasoningEffort ?: openai.reasoningEffort,
-                pricing = avoidance.pricing ?: openai.pricing,
-            )
 
         internal fun resolveOpenAiBaseUrl(configured: String?): String = configured ?: DEFAULT_OPENAI_BASE_URL
 
