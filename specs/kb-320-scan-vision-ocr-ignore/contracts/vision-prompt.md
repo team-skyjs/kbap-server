@@ -17,17 +17,21 @@
 | `SYSTEM_PROMPT` | `ocrItems` 가 **비어 있지 않음** (= v1) | `[진실의 출처]` 절에서 사진과 OCR 을 대조해 오탈자를 교정하고, `matchedIdx` 로 클라이언트 항목에 매칭 |
 | `SERVER_OCR_SYSTEM_PROMPT` | `ocrItems` 가 **비어 있음** (= v2) | **POC(`메뉴판 ocr 테스트.html` 의 `VISION_PROMPT`) 원문**. 사진에서 직접 읽고 한국어 음식명만 남긴다 |
 
-### v2 프롬프트 = POC 원문 (2026-08-11)
+### v2 프롬프트 = POC 원문 그대로 (2026-08-11)
 
-v2 는 로컬 POC 에서 검증한 프롬프트를 그대로 쓴다. **응답 포맷만** 서버 계약에 맞췄다:
+v2 시스템 프롬프트는 로컬 POC(`메뉴판 ocr 테스트.html` 의 `VISION_PROMPT`)를 **한 글자도 바꾸지 않고** 쓴다. user 메시지도 POC 문구(`이 메뉴판 사진에서 메뉴명과 가격을 추출하라.`)다.
 
-| POC | 서버 | 이유 |
-|-----|------|------|
-| `[{...}]` 배열 | `{"results": [{...}]}` 객체 | `MenuBoardResultParser` 가 `results` 봉투를 요구 |
-| `price` 미확인 시 `0` | `null` | `0` 은 "0원으로 표기됨"과 구분되지 않는다. 응답 계약상 미표기는 null |
-| `name` 만 | `name` 만 (그대로) | `koreanName` 은 **파서가 `name` 으로 채운다** — POC 규칙상 `name` 이 이미 순수 한국어 음식명이라 곧 DB 조회 키다 |
+임피던스는 전부 **서버 쪽**에서 맞춘다 — 프롬프트를 서버 계약에 맞추는 게 아니라 서버가 POC 출력을 받아들인다:
 
-프롬프트 본문(추출 규칙)은 한 글자도 바꾸지 않았다. 모델에게 같은 값을 두 번 쓰게 하는 대신 파서에 1줄 폴백을 둔 것이 유일한 코드 측 조정이다(`MenuBoardResultParserTest` 가 고정).
+| POC 출력 | 서버 조정 지점 |
+|----------|----------------|
+| 최상위 JSON **배열** `[{...}]` | `MenuBoardResultParser` 가 배열·`{"results":[...]}` 봉투를 **둘 다** 받는다 |
+| `price` 미확인 시 **`0`** | 파서가 `0` 을 `null`(미표기)로 정규화한다 |
+| `koreanName` **없음** | 파서가 `name` 으로 채운다 — POC 규칙상 `name` 이 이미 순수 한국어 음식명이라 곧 DB 조회 키다 |
+
+**`response_format=json_object` 강제를 해제했다.** OpenAI 가 json_object 를 강제하면 최상위 배열 출력이 불가능해 POC 프롬프트의 지시와 모순된다. 형식은 각 프롬프트가 지시하고 파서가 배열·객체·코드펜스를 모두 받는다. v1 은 프롬프트가 `{"results":...}` 객체를 명시하므로 영향이 없다.
+
+조정 지점 3개 + 형식 해제는 전부 `MenuBoardResultParserTest` 가 고정한다(배열 파싱·코드펜스 배열·`price 0`→null·`koreanName` 폴백).
 
 분기는 `extract()` 안의 `if (ocrItems.isEmpty())` 하나다. seam 시그니처는 `extract(imagePath, ocrItems)` 그대로이며 이 브랜치가 한때 추가했던 `MenuBoardReadingMode` 인자는 **철회했다**.
 

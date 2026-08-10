@@ -118,5 +118,41 @@ class MenuBoardResultParserTest : BehaviorSpec({
                 result[0].name shouldBe "제육볶음"
             }
         }
+
+        `when`("최상위가 JSON 배열이면(스캔 v2 POC 프롬프트 출력)") {
+            then("results 봉투 없이도 파싱한다") {
+                val raw = """[{"name":"김치찌개","price":9000},{"name":"제육볶음","price":8000}]"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 2
+                result[0].name shouldBe "김치찌개"
+                result[0].koreanName shouldBe "김치찌개"
+                result[0].priceKrw shouldBe 9000
+                result[1].name shouldBe "제육볶음"
+            }
+        }
+
+        `when`("코드펜스로 감싼 JSON 배열이면") {
+            then("펜스를 벗기고 파싱한다") {
+                val raw = "```json\n[{\"name\":\"라면\",\"price\":4000}]\n```"
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].priceKrw shouldBe 4000
+            }
+        }
+
+        `when`("price 가 0 이면(POC 의 가격 미확인 규약)") {
+            then("가격 미표기(null)로 정규화한다") {
+                val raw = """[{"name":"공기밥","price":0}]"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].priceKrw shouldBe null
+            }
+        }
     }
 })

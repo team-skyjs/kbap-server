@@ -12,7 +12,6 @@ import io.micrometer.observation.ObservationRegistry
 import org.springframework.ai.bedrock.titan.BedrockTitanEmbeddingModel
 import org.springframework.ai.bedrock.titan.api.TitanEmbeddingBedrockApi
 import org.springframework.ai.openai.OpenAiChatModel
-import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -85,7 +84,6 @@ class LlmConfiguration {
             props.maxRetries?.let { builder.maxRetries(it) }
             props.model?.let { builder.model(it) }
             props.temperature?.let { builder.temperature(it) }
-            builder.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build())
             return builder.build()
         }
 

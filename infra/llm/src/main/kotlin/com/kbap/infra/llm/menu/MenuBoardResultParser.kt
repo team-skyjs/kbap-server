@@ -14,14 +14,17 @@ class MenuBoardResultParser {
 
     fun parse(raw: String): List<ExtractedMenu> {
         val json = stripCodeFence(raw)
-        val envelope = try {
-            objectMapper.readValue<ResultEnvelope>(json)
+        val items = try {
+            if (json.startsWith("[")) {
+                objectMapper.readValue<List<MenuItem>>(json)
+            } else {
+                objectMapper.readValue<ResultEnvelope>(json).results
+                    ?: throw MenuBoardParseException("메뉴판 인식 응답에 results 가 없습니다: $raw")
+            }
         } catch (e: JacksonException) {
             throw MenuBoardParseException("메뉴판 인식 응답을 파싱하지 못했습니다: $raw", e)
         }
-        val results = envelope.results
-            ?: throw MenuBoardParseException("메뉴판 인식 응답에 results 가 없습니다: $raw")
-        return results.mapNotNull { it.toExtractedMenuOrNull() }
+        return items.mapNotNull { it.toExtractedMenuOrNull() }
     }
 
     private fun stripCodeFence(raw: String): String {
@@ -40,13 +43,12 @@ class MenuBoardResultParser {
     ) {
         fun toExtractedMenuOrNull(): ExtractedMenu? {
             val trimmedName = name?.trim().orEmpty()
-            // v2 프롬프트는 한국어 음식명만 뽑아 name 하나로 준다 — koreanName 이 없으면 그 값이 곧 조회 키다.
             val trimmedKorean = koreanName?.trim()?.ifBlank { null } ?: trimmedName
             if (trimmedName.isBlank() || trimmedKorean.isBlank()) return null
             return ExtractedMenu(
                 name = trimmedName,
                 koreanName = trimmedKorean,
-                priceKrw = price?.takeIf { it >= 0 },
+                priceKrw = price?.takeIf { it > 0 },
                 matchedIdx = matchedIdx,
             )
         }
