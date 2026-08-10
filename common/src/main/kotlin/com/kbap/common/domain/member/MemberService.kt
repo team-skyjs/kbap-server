@@ -2,6 +2,7 @@ package com.kbap.common.domain.member
 
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
+import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
@@ -24,11 +25,11 @@ class MemberService(
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
         getMember(input.memberId).completeOnboarding(
-            nickname = input.nickname,
+            nickname = input.nickname ?: OnboardingProfileDefaults.randomNickname(),
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
-            profileImageUrl = input.profileImageUrl,
+            profileImageUrl = input.profileImageUrl ?: OnboardingProfileDefaults.randomProfileImagePath(),
         )
     }
 

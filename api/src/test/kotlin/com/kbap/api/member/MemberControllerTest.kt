@@ -4,11 +4,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.auth.FakeSocialTokenVerifierConfig
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
+import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -55,9 +57,10 @@ class MemberControllerTest : BehaviorSpec() {
             return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
         }
 
-        fun submitOnboarding(token: String?, body: Map<String, Any?>) =
+        fun submitOnboarding(token: String?, body: Map<String, Any?>, apiVersion: String? = null) =
             mockMvc.post("/api/v1/members/me/onboarding") {
                 if (token != null) header("Authorization", "Bearer $token")
+                if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
             }
@@ -587,7 +590,7 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진을 생략하고 온보딩하면") {
+            `when`("버전 헤더 없이 사진을 생략하고 온보딩하면") {
                 then("400 과 COMMON-002 로 거절되고 온보딩은 완료되지 않는다") {
                     val token = loginAccessToken()
 
@@ -599,7 +602,7 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진에 null 을 명시해 온보딩하면") {
+            `when`("버전 헤더 없이 사진에 null 을 명시해 온보딩하면") {
                 then("400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
 
@@ -608,6 +611,33 @@ class MemberControllerTest : BehaviorSpec() {
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("버전 헤더 없이 닉네임을 생략하고 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() - "nickname").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("버전 헤더 없이 닉네임에 null 을 명시해 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("nickname" to null))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
 
@@ -633,6 +663,92 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+        }
+
+        given("X-API-Version 2026.08.07 온보딩 — 닉네임·프로필 사진 서버 자동 지정") {
+            val v2Body = mapOf(
+                "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
+                "countryCode" to "US",
+                "spicinessPreference" to "SKIP",
+            )
+
+            `when`("2026.08.07 헤더와 함께 닉네임·사진 없이 온보딩하면") {
+                then("200 으로 완료되고 닉네임은 영숫자 6자 코드, 사진은 아바타 후보 중 하나로 지정된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, v2Body, apiVersion = "2026.08.07").andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
+                }
+            }
+
+            `when`("2026.08.07 헤더와 함께 닉네임·사진을 담아 보내면") {
+                then("보낸 값은 무시되고 서버 지정값이 저장된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(
+                        token,
+                        v2Body + mapOf(
+                            "nickname" to "내가정한닉",
+                            "profileImageUrl" to "images/default/profile/profile-default-512.png",
+                        ),
+                        apiVersion = "2026.08.07",
+                    ).andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "nickname") shouldNotBe "내가정한닉"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
+                }
+            }
+
+            `when`("2026.08.07 헤더가 있어도 필수 항목인 countryCode 를 누락하면") {
+                then("400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, v2Body - "countryCode", apiVersion = "2026.08.07")
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("2026.08.07 이전 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("종전 계약대로 400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, v2Body, apiVersion = "2026.08.06").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("형식이 잘못된 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("종전 계약대로 400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, v2Body, apiVersion = "beta").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("2026.08.07 보다 높은 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("200 으로 완료되고 서버가 지정한다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, v2Body, apiVersion = "2026.09.01").andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
                 }
             }
         }
