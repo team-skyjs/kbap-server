@@ -1,7 +1,6 @@
 package com.kbap.infra.llm.menu
 
 import com.kbap.common.domain.metering.LlmCallCostIncurred
-import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.infra.llm.model.LlmPricing
 import io.kotest.assertions.throwables.shouldThrow
@@ -12,6 +11,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.SystemMessage
+import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.metadata.ChatResponseMetadata
 import org.springframework.ai.chat.metadata.DefaultUsage
 import org.springframework.ai.chat.metadata.Usage
@@ -45,30 +46,6 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             override fun call(prompt: Prompt): ChatResponse = throw RuntimeException("vision 호출 실패")
         }
 
-    fun chatModelCapturing(captured: MutableList<Prompt>, response: ChatResponse): ChatModel =
-        object : ChatModel {
-            override fun call(prompt: Prompt): ChatResponse {
-                captured.add(prompt)
-                return response
-            }
-        }
-
-    fun promptTextOf(prompt: Prompt): String = prompt.instructions.joinToString("\n") { it.text.orEmpty() }
-
-    fun capturePromptFor(ocrItems: List<OcrItem>, mode: MenuBoardReadingMode): String {
-        val captured = mutableListOf<Prompt>()
-        val response = responseOf("""{"results":[]}""", "gpt-test", DefaultUsage(10, 10, 20))
-        val extractor = OpenAiMenuBoardVisionExtractor(
-            chatModel = chatModelCapturing(captured, response),
-            parser = MenuBoardResultParser(),
-            imageBaseUrl = "https://cdn.test",
-            pricing = pricing,
-            configuredModelName = "gpt-test",
-        )
-        extractor.extract("scan/1/menu.jpg", ocrItems, mode)
-        return promptTextOf(captured.single())
-    }
-
     fun extractorRecording(
         chatModel: ChatModel,
         configuredModelName: String = "gpt-4o-mini",
@@ -100,7 +77,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
+                extractor.extract("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 val event = recorded.first()
@@ -124,7 +101,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     configuredModelName = "gpt-4o-mini",
                 )
 
-                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
+                extractor.extract("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 recorded.first().modelName shouldBe "gpt-4o-mini"
@@ -140,7 +117,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
+                extractor.extract("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 recorded.first().inputTokens shouldBe 0L
@@ -157,7 +134,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                shouldThrow<MenuBoardParseException> { extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY) }
+                shouldThrow<MenuBoardParseException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
 
                 recorded shouldHaveSize 1
             }
@@ -167,7 +144,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("과금이 없으므로 이벤트를 발행하지 않는다") {
                 val (extractor, recorded) = extractorRecording(chatModelThrowing())
 
-                shouldThrow<RuntimeException> { extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY) }
+                shouldThrow<RuntimeException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
 
                 recorded.shouldBeEmpty()
             }
@@ -190,7 +167,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = throwingPublisher,
                 )
 
-                val result = extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
+                val result = extractor.extract("scan/1/menu.jpg", ocrItems)
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
@@ -198,100 +175,57 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
         }
     }
 
-    given("모델에 보내는 프롬프트") {
-        val items = listOf(
-            OcrItem(idx = 0, rawMenuName = "김치찌개"),
-            OcrItem(idx = 7, rawMenuName = "삼겹살"),
+    given("서버 OCR 프롬프트 분기 — 스캔 v2") {
+        fun promptCapturing(response: ChatResponse): Pair<ChatModel, () -> Prompt> {
+            var captured: Prompt? = null
+            val chatModel = object : ChatModel {
+                override fun call(prompt: Prompt): ChatResponse {
+                    captured = prompt
+                    return response
+                }
+            }
+            return chatModel to { captured!! }
+        }
+
+        val response = responseOf(
+            text = """{"results":[{"name":"김치찌개","koreanName":"김치찌개","price":9000}]}""",
+            model = "gpt-4o-mini-2024-07-18",
+            usage = DefaultUsage(100, 50, 150),
         )
 
-        `when`("판독 지시를 확인하면") {
-            then("메뉴명·가격의 근거를 사진으로 한정하는 절이 있다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
+        `when`("ocrItems 가 비어 있으면") {
+            then("클라이언트 힌트·matchedIdx 지시가 없는 프롬프트로 호출하고 추출·정제 규칙은 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
 
-                prompt shouldContain "[판독 — 사진 단독]"
-            }
+                val result = extractor.extract("scan/1/menu.jpg", emptyList())
 
-            then("OCR 을 오탈자 교정 기준으로 삼으라는 지시가 없다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
+                result shouldHaveSize 1
+                result.first().matchedIdx shouldBe null
 
-                prompt shouldNotContain "[진실의 출처]"
-                prompt shouldNotContain "오탈자"
-                prompt shouldNotContain "OCR 을 보존한다"
-            }
-
-            then("대응 OCR 이 없는 메뉴도 결과에 넣으라는 지시가 있다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
-
-                prompt shouldContain "메뉴를 결과에서 빼지 마라"
-            }
-        }
-
-        `when`("매칭 지시를 확인하면") {
-            then("OCR 목록이 판독 근거가 아닌 매칭 참조표로 제시된다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
-
-                prompt shouldContain "[매칭 — OCR 참조표]"
-                prompt shouldContain "판독 근거가 아니라"
-            }
-
-            then("한 idx 를 여러 결과에 쓰지 말라는 지시가 유지된다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
-
-                prompt shouldContain "중복 금지"
+                val prompt = capturedPrompt()
+                val systemText = prompt.instructions.first { it is SystemMessage }.text
+                systemText shouldNotContain "matchedIdx"
+                systemText shouldNotContain "OCR"
+                systemText shouldContain "koreanName"
+                systemText shouldContain "원(KRW) 단위 정수"
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldNotContain "OCR"
             }
         }
 
-        `when`("OCR 항목을 넘기면") {
-            then("모든 항목이 \"idx: 텍스트\" 줄로 실린다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
+        `when`("ocrItems 가 있으면") {
+            then("기존 힌트 프롬프트(OCR 목록·matchedIdx 지시)를 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
 
-                prompt shouldContain "0: 김치찌개"
-                prompt shouldContain "7: 삼겹살"
-            }
-        }
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 3, rawMenuName = "김치피개")))
 
-        `when`("응답 형식 지시를 확인하면") {
-            then("JSON 객체 단독 응답 형식이 유지된다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
-
-                prompt shouldContain """{"results":"""
-            }
-        }
-    }
-
-    given("구버전 앱을 위한 OCR 병용 프롬프트") {
-        val items = listOf(
-            OcrItem(idx = 0, rawMenuName = "김치찌개"),
-            OcrItem(idx = 7, rawMenuName = "삼겹살"),
-        )
-
-        `when`("OCR_ASSISTED 모드로 extract 를 호출하면") {
-            then("종전 [진실의 출처] 절이 그대로 실린다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
-
-                prompt shouldContain "[진실의 출처]"
-                prompt shouldContain "OCR 오탈자 교정"
-                prompt shouldContain "OCR 을 보존한다"
-            }
-
-            then("사진 단독 판독 절은 실리지 않는다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
-
-                prompt shouldNotContain "[판독 — 사진 단독]"
-                prompt shouldNotContain "[매칭 — OCR 참조표]"
-            }
-
-            then("OCR 항목은 두 모드 모두 같은 형식으로 실린다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
-
-                prompt shouldContain "0: 김치찌개"
-                prompt shouldContain "7: 삼겹살"
-            }
-
-            then("JSON 객체 단독 응답 형식은 두 모드가 동일하다") {
-                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
-
-                prompt shouldContain """{"results":"""
+                val prompt = capturedPrompt()
+                prompt.instructions.first { it is SystemMessage }.text shouldContain "matchedIdx"
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldContain "OCR:"
+                userText shouldContain "3: 김치피개"
             }
         }
     }
@@ -319,7 +253,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
                 )
 
-                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 0, rawMenuName = "김치찌개")))
 
                 recorded shouldHaveSize 1
                 recorded.first().costUsd shouldBe BigDecimal("1.400000")

@@ -6,7 +6,6 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.domain.food.FoodService
@@ -25,21 +24,28 @@ class ScanService(
     private val memberService: MemberService,
     private val imageUploadService: ImageUploadService,
     private val visionExtractor: MenuBoardVisionExtractor,
+    private val similarFoodResolver: SimilarFoodResolver,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scanMenuBoardImage(
+    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult =
+        scan(memberId, imagePath, ocrItems, lang, similarFoodFallback = false)
+
+    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode): ScanResult =
+        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, similarFoodFallback = true)
+
+    private fun scan(
         memberId: Long,
         imagePath: String,
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
-        readingMode: MenuBoardReadingMode,
+        similarFoodFallback: Boolean,
     ): ScanResult {
         memberService.getMember(memberId)
 
         val extracted = try {
-            visionExtractor.extract(imagePath, ocrItems, readingMode)
+            visionExtractor.extract(imagePath, ocrItems)
         } catch (e: Exception) {
             log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
@@ -49,6 +55,7 @@ class ScanService(
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
         val validIdxes = ocrItems.map { it.idx }.toSet()
         val usedIdxes = mutableSetOf<Int>()
+        val similarFoodsByName = resolveSimilarFoods(similarFoodFallback, extracted, foodsByMatchKey)
 
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
@@ -62,6 +69,7 @@ class ScanService(
                 name = if (matched) food!!.displayName(lang) else koreanName,
                 koreanName = koreanName,
                 price = menu.priceKrw,
+                similarFood = if (matched) null else similarFoodsByName[menu.koreanName]?.let { toSimilarFood(it, lang) },
             )
         }
 
@@ -69,6 +77,29 @@ class ScanService(
         memberService.increaseScanCount(memberId)
 
         return ScanResult(items = items, degraded = false)
+    }
+
+    private fun resolveSimilarFoods(
+        enabled: Boolean,
+        extracted: List<ExtractedMenu>,
+        foodsByMatchKey: Map<String, Food>,
+    ): Map<String, Food> {
+        if (!enabled) return emptyMap()
+        val missNames = extracted
+            .filter { foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(it.koreanName)]?.isReady() != true }
+            .map { it.koreanName }
+        return similarFoodResolver.resolveSimilarFoods(missNames)
+    }
+
+    private fun toSimilarFood(food: Food, lang: LanguageCode): ScanResult.SimilarFood {
+        val name = food.displayName(lang)
+        return ScanResult.SimilarFood(
+            foodId = food.id,
+            name = name,
+            koreanName = food.displayName(LanguageCode.KO).takeIf { it != name },
+            description = food.description(lang),
+            imageRef = foodService.resolveImageUrl(food),
+        )
     }
 
     @Transactional(readOnly = true)

@@ -3,7 +3,6 @@ package com.kbap.api.scan
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
@@ -15,6 +14,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
@@ -35,6 +35,9 @@ class ScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var vision: FakeMenuBoardVisionExtractor
+
+    @Autowired
+    private lateinit var similarSearch: FakeSimilarFoodSearch
 
     init {
         val mapper = jacksonObjectMapper()
@@ -102,6 +105,14 @@ class ScanControllerTest : BehaviorSpec() {
                 c.prepareStatement("UPDATE food SET display_name = ? WHERE korean_name = ?").use { ps ->
                     ps.setString(1, displayName); ps.setString(2, matchKey)
                     ps.executeUpdate()
+                }
+            }
+
+        fun foodIdOf(koreanName: String): Long =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
                 }
             }
 
@@ -419,78 +430,6 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("X-API-Version 헤더 없이 요청하면") {
-                then("구버전 앱 계약대로 OCR 병용 판독으로 폴백한다") {
-                    val memberId = 542L
-                    val path = "scan/542/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개542", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/v1/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
-                    }.andExpect {
-                        status { isOk() }
-                    }
-
-                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.OCR_ASSISTED
-                }
-            }
-
-            `when`("X-API-Version 이 2026.08.08 이상이면") {
-                then("사진 단독 판독으로 동작한다") {
-                    val memberId = 543L
-                    val path = "scan/543/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개543", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/v1/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        header("X-API-Version", "2026.08.08")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
-                    }.andExpect {
-                        status { isOk() }
-                    }
-
-                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.PHOTO_ONLY
-                }
-            }
-
-            `when`("X-API-Version 이 임계값 미만이거나 파싱 불가하면") {
-                then("종전 OCR 병용 판독으로 폴백한다") {
-                    val memberId = 544L
-                    val path = "scan/544/menu.jpg"
-                    val brokenPath = "scan/544/broken.jpg"
-                    seedVerifiedImage(memberId, path)
-                    seedVerifiedImage(memberId, brokenPath)
-                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개544", 9000, matchedIdx = 0)))
-                    vision.program(brokenPath, listOf(ExtractedMenu("김치찌개", "김치찌개544b", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/v1/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        header("X-API-Version", "2026.08.07")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
-                    }.andExpect { status { isOk() } }
-
-                    mockMvc.post("/api/v1/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        header("X-API-Version", "not-a-version")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(brokenPath, 0 to "김치찌개")
-                    }.andExpect { status { isOk() } }
-
-                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.OCR_ASSISTED
-                    vision.receivedModes[brokenPath] shouldBe MenuBoardReadingMode.OCR_ASSISTED
-                }
-            }
-
             `when`("클라이언트 OCR 텍스트가 사진과 전혀 다르면") {
                 then("응답의 name·koreanName 어디에도 OCR 텍스트가 섞이지 않는다") {
                     val memberId = 541L
@@ -751,6 +690,185 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].name") { value("표시명 김치찌개") }
                         jsonPath("$.payload.results[0].koreanName") { value("표시명 김치찌개") }
+                    }
+                }
+            }
+        }
+
+        given("스캔 v2 — POST /api/v2/scans 서버 OCR") {
+            beforeContainer { similarSearch.reset() }
+
+            fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
+
+            fun v2Scan(memberId: Long, path: String, lang: String = "ko", content: String = v2Body(path)) =
+                mockMvc.post("/api/v2/scans") {
+                    param("lang", lang)
+                    header("Authorization", "Bearer ${accessToken(memberId)}")
+                    contentType = MediaType.APPLICATION_JSON
+                    this.content = content
+                }
+
+            `when`("items 없이 사진 경로만으로 스캔하면") {
+                then("200 으로 응답하고 서버 추출 결과가 idx null 로 내려가며 이력·카운트가 기록된다") {
+                    val memberId = 601L
+                    val path = "scan/601/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("서버김치찌개", """{"en":"Server Kimchi Stew"}""")
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 서버김치찌개", "서버김치찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results.length()") { value(1) }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].name") { value("서버김치찌개") }
+                        jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
+                        jsonPath("$.payload.results[0].similarFood") { value(null) }
+                    }
+
+                    vision.receivedOcrItems[path] shouldBe emptyList()
+                    val (imagePath, price, _) = historyRow(memberId, "서버김치찌개")
+                    imagePath shouldBe path
+                    price shouldBe 9000
+                    scanCountOf(memberId) shouldBe 1
+                }
+            }
+
+            `when`("v2 요청 본문에 items 가 섞여 들어오면") {
+                then("무시되고 서버 OCR(빈 힌트)로 추출한다") {
+                    val memberId = 602L
+                    val path = "scan/602/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("공기밥", "공기밥", 1000, matchedIdx = null)))
+
+                    v2Scan(memberId, path, content = body(path, 0 to "공기밥")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                    }
+
+                    vision.receivedOcrItems[path] shouldBe emptyList()
+                }
+            }
+
+            `when`("미등록 메뉴에 충분히 비슷한 등록 음식이 있으면") {
+                then("similarFood 에 그 음식의 요청 언어명·설명·식별자가 담긴다") {
+                    val memberId = 603L
+                    val path = "scan/603/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("할머니손맛찌개603")
+                    seedReadyFood("유사김치찌개603", """{"en":"Similar Kimchi Stew"}""")
+                    val similarFoodId = foodIdOf("유사김치찌개603")
+                    vision.program(path, listOf(ExtractedMenu("할머니손맛찌개", "할머니손맛찌개603", 12000, matchedIdx = null)))
+                    similarSearch.program("할머니손맛찌개603", similarFoodId, score = 0.92)
+
+                    v2Scan(memberId, path, lang = "en").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
+                        jsonPath("$.payload.results[0].similarFood.foodId") { value(similarFoodId) }
+                        jsonPath("$.payload.results[0].similarFood.name") { value("Similar Kimchi Stew") }
+                        jsonPath("$.payload.results[0].similarFood.koreanName") { value("유사김치찌개603") }
+                        jsonPath("$.payload.results[0].similarFood.description") { value("설명") }
+                    }
+                }
+            }
+
+            `when`("유사 음식의 foodId 로 상세를 조회하면") {
+                then("정상 조회된다 — 유사 대체는 항상 등록 음식이다") {
+                    val memberId = 604L
+                    val path = "scan/604/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("모르는찌개604")
+                    seedReadyFood("유사김치찌개604")
+                    val similarFoodId = foodIdOf("유사김치찌개604")
+                    vision.program(path, listOf(ExtractedMenu("모르는찌개", "모르는찌개604", null, matchedIdx = null)))
+                    similarSearch.program("모르는찌개604", similarFoodId, score = 0.9)
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+
+                    mockMvc.get("/api/v1/foods/$similarFoodId") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                    }.andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("유사도 점수가 임계 미만이면") {
+                then("similarFood 없이 미등록 응답한다") {
+                    val memberId = 605L
+                    val path = "scan/605/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("동떨어진메뉴605")
+                    seedReadyFood("유사김치찌개605")
+                    vision.program(path, listOf(ExtractedMenu("동떨어진메뉴", "동떨어진메뉴605", null, matchedIdx = null)))
+                    similarSearch.program("동떨어진메뉴605", foodIdOf("유사김치찌개605"), score = -1.0)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].similarFood") { value(null) }
+                    }
+                }
+            }
+
+            `when`("검색된 foodId 가 조회 불가(미등록·삭제)면") {
+                then("similarFood 없이 미등록 응답한다") {
+                    val memberId = 606L
+                    val path = "scan/606/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("고아메뉴606")
+                    vision.program(path, listOf(ExtractedMenu("고아메뉴", "고아메뉴606", null, matchedIdx = null)))
+                    similarSearch.program("고아메뉴606", foodId = 999_999_999L, score = 0.95)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].similarFood") { value(null) }
+                    }
+                }
+            }
+
+            `when`("벡터 검색이 실패하면") {
+                then("스캔은 성공하고 해당 항목만 similarFood 없이 내려간다(부분 성공)") {
+                    val memberId = 607L
+                    val path = "scan/607/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("장애메뉴607")
+                    vision.program(path, listOf(ExtractedMenu("장애메뉴", "장애메뉴607", null, matchedIdx = null)))
+                    similarSearch.failSearch()
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].similarFood") { value(null) }
+                    }
+                }
+            }
+
+            `when`("imagePath 를 누락하면") {
+                then("400 COMMON-002 로 거절한다") {
+                    v2Scan(608L, "unused", content = "{}").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("v1 경로로 미등록 메뉴를 스캔하면") {
+                then("응답에 similarFood 필드 자체가 없다(v1 동결 계약)") {
+                    val memberId = 611L
+                    val path = "scan/611/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("브이원미등록611")
+                    seedReadyFood("유사김치찌개611")
+                    vision.program(path, listOf(ExtractedMenu("브이원미등록", "브이원미등록611", null, matchedIdx = 0)))
+                    similarSearch.program("브이원미등록611", foodIdOf("유사김치찌개611"), score = 0.99)
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "브이원미등록")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].similarFood") { doesNotExist() }
                     }
                 }
             }

@@ -13,22 +13,21 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/scans")
-class ScanController(
+@RequestMapping(ApiPaths.V2 + "/scans")
+class ScanV2Controller(
     private val scanService: ScanService,
-) : ScanApi {
+) : ScanV2Api {
     @PostMapping
     override fun scan(
         @AuthMemberId memberId: Long,
         @Valid @ModelAttribute langRequest: ScanLangRequest,
-        @Valid @RequestBody request: ScanRequest,
-    ): ResponseEntity<BaseResponse<ScanResponse>> {
-        val result = scanService.scanMenuBoardImage(
+        @Valid @RequestBody request: ScanV2Request,
+    ): ResponseEntity<BaseResponse<ScanV2Response>> {
+        val result = scanService.scanMenuBoardImageV2(
             memberId,
             request.imagePath!!,
-            request.toOcrItems(),
             LanguageCode.from(langRequest.lang),
         )
-        return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
+        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result)))
     }
 }
