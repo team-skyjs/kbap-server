@@ -94,5 +94,29 @@ class MenuBoardResultParserTest : BehaviorSpec({
                 shouldThrow<MenuBoardParseException> { parser.parse("메뉴를 찾을 수 없습니다") }
             }
         }
+
+        `when`("koreanName 없이 name 만 있는 항목이면(스캔 v2 프롬프트)") {
+            then("koreanName 을 name 으로 채운다") {
+                val raw = """{"results":[{"name":"김치찌개","price":9000}]}"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].name shouldBe "김치찌개"
+                result[0].koreanName shouldBe "김치찌개"
+                result[0].matchedIdx shouldBe null
+            }
+        }
+
+        `when`("name 도 koreanName 도 없는 항목이면") {
+            then("그 항목만 건너뛴다") {
+                val raw = """{"results":[{"price":9000},{"name":"제육볶음","price":8000}]}"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].name shouldBe "제육볶음"
+            }
+        }
     }
 })

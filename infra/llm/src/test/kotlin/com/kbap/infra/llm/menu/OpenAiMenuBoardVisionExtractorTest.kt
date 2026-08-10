@@ -207,8 +207,9 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val systemText = prompt.instructions.first { it is SystemMessage }.text
                 systemText shouldNotContain "matchedIdx"
                 systemText shouldNotContain "OCR"
-                systemText shouldContain "koreanName"
-                systemText shouldContain "원(KRW) 단위 정수"
+                systemText shouldContain "메뉴명은 한국어 음식명만 남겨라"
+                systemText shouldContain "가격을 찾지 못했거나 확실하지 않은 메뉴는 price를 null로 하라"
+                systemText shouldContain """{"results": [{"name": "메뉴명", "price": 8000}]}"""
                 val userText = prompt.instructions.first { it is UserMessage }.text
                 userText shouldNotContain "OCR"
             }

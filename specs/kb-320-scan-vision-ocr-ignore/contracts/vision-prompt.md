@@ -15,7 +15,19 @@
 | 프롬프트 | 선택 조건 | 성격 |
 |----------|-----------|------|
 | `SYSTEM_PROMPT` | `ocrItems` 가 **비어 있지 않음** (= v1) | `[진실의 출처]` 절에서 사진과 OCR 을 대조해 오탈자를 교정하고, `matchedIdx` 로 클라이언트 항목에 매칭 |
-| `SERVER_OCR_SYSTEM_PROMPT` | `ocrItems` 가 **비어 있음** (= v2) | 사진 픽셀이 유일한 근거. 클라이언트 힌트·`matchedIdx` 지시 없음. 응답 형식에도 `matchedIdx` 가 없다 |
+| `SERVER_OCR_SYSTEM_PROMPT` | `ocrItems` 가 **비어 있음** (= v2) | **POC(`메뉴판 ocr 테스트.html` 의 `VISION_PROMPT`) 원문**. 사진에서 직접 읽고 한국어 음식명만 남긴다 |
+
+### v2 프롬프트 = POC 원문 (2026-08-11)
+
+v2 는 로컬 POC 에서 검증한 프롬프트를 그대로 쓴다. **응답 포맷만** 서버 계약에 맞췄다:
+
+| POC | 서버 | 이유 |
+|-----|------|------|
+| `[{...}]` 배열 | `{"results": [{...}]}` 객체 | `MenuBoardResultParser` 가 `results` 봉투를 요구 |
+| `price` 미확인 시 `0` | `null` | `0` 은 "0원으로 표기됨"과 구분되지 않는다. 응답 계약상 미표기는 null |
+| `name` 만 | `name` 만 (그대로) | `koreanName` 은 **파서가 `name` 으로 채운다** — POC 규칙상 `name` 이 이미 순수 한국어 음식명이라 곧 DB 조회 키다 |
+
+프롬프트 본문(추출 규칙)은 한 글자도 바꾸지 않았다. 모델에게 같은 값을 두 번 쓰게 하는 대신 파서에 1줄 폴백을 둔 것이 유일한 코드 측 조정이다(`MenuBoardResultParserTest` 가 고정).
 
 분기는 `extract()` 안의 `if (ocrItems.isEmpty())` 하나다. seam 시그니처는 `extract(imagePath, ocrItems)` 그대로이며 이 브랜치가 한때 추가했던 `MenuBoardReadingMode` 인자는 **철회했다**.
 

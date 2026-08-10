@@ -40,7 +40,8 @@ class MenuBoardResultParser {
     ) {
         fun toExtractedMenuOrNull(): ExtractedMenu? {
             val trimmedName = name?.trim().orEmpty()
-            val trimmedKorean = koreanName?.trim().orEmpty()
+            // v2 프롬프트는 한국어 음식명만 뽑아 name 하나로 준다 — koreanName 이 없으면 그 값이 곧 조회 키다.
+            val trimmedKorean = koreanName?.trim()?.ifBlank { null } ?: trimmedName
             if (trimmedName.isBlank() || trimmedKorean.isBlank()) return null
             return ExtractedMenu(
                 name = trimmedName,
