@@ -7,7 +7,9 @@ description: "Task list for 온보딩 시 닉네임·프로필 사진 랜덤 지
 
 **Input**: Design documents from `specs/kb-300-onboarding-random-profile/`
 
-**Prerequisites**: [plan.md](./plan.md) · [spec.md](./spec.md) · [research.md](./research.md) · [data-model.md](./data-model.md) · [contracts/member-onboarding-v2.md](./contracts/member-onboarding-v2.md)
+**Prerequisites**: [plan.md](./plan.md) · [spec.md](./spec.md) · [research.md](./research.md) · [data-model.md](./data-model.md) · [contracts/member-onboarding.md](./contracts/member-onboarding.md)
+
+> **2026-08-10 개정**: v2 온보딩 엔드포인트 분리안을 철회하고 **v1 온보딩의 `nickname`·`profileImageUrl` 을 nullable 로 완화**하는 설계로 변경했다(사용자 결정, research R1). 아래 [X] 태스크 중 v2 산출물(`OnboardingV2Request`·`MemberV2Controller` 온보딩·`MemberV2ControllerTest` 온보딩 시나리오)은 개정 시점에 제거되고 같은 시나리오가 `OnboardingRequest` 완화 + `MemberControllerTest` 로 재배치됐다. 태스크 본문은 실행 이력으로 남긴다.
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (헌법 원칙 I). 각 스토리는 구현 전에 실패하는 테스트를 먼저 쓰고 **Red 를 눈으로 확인**한다.
 
@@ -93,7 +95,7 @@ description: "Task list for 온보딩 시 닉네임·프로필 사진 랜덤 지
 
 - [X] T014 [P] ArchUnit 경계 확인: `./gradlew :api:test --tests "*ModuleBoundaryTest"` — 신규 컨트롤러 매핑이 `/api/v` 규약을 지키는지, `common.domain` 이 api/infra 를 참조하지 않는지 검증
 - [X] T015 전체 빌드 그린: `./gradlew build` (`:common`·`:api`·`:batch`·`:infra:*` 전 모듈 컴파일 + 테스트)
-- [ ] T016 [P] Swagger 육안 확인: `./gradlew :api:bootRun` 후 `http://localhost:8080/swagger-ui.html` 의 "회원 (v2)" 태그에 온보딩이 노출되고 요청 스키마에 `nickname`·`profileImageUrl` 이 **없는지** 확인 ([quickstart.md](./quickstart.md) 수동 절차)
+- [ ] T016 [P] Swagger 육안 확인: `./gradlew :api:bootRun` 후 `http://localhost:8080/swagger-ui.html` 의 "회원" 태그 온보딩에서 `nickname`·`profileImageUrl` 이 **선택 필드**로 안내되는지 확인 ([quickstart.md](./quickstart.md) 수동 절차)
 - [X] T017 [P] 주석 규약 점검: 신규·수정 Kotlin 파일에 KDoc·서사형 주석이 없는지 확인. 코드로 드러나지 않는 설계 제약만 짧은 라인 주석으로 남긴다(예: `MemberProfileInput` 의 `null = 서버 지정` 규약)
 
 ---

@@ -1,13 +1,13 @@
 # Phase 0 Research: 온보딩 시 닉네임·프로필 사진 랜덤 지정
 
-## R1. 구버전(1.0.0) 앱과의 공존 수단
+## R1. 구버전(1.0.0) 앱과의 공존 수단 (2026-08-10 개정)
 
-**Decision**: 새 온보딩을 **`POST /api/v2/members/me/onboarding`** 로 열고, v1 온보딩은 그대로 둔다. 앱 버전 식별 장치를 도입하지 않는다.
+**Decision**: **기존 v1 온보딩의 `nickname`·`profileImageUrl` 을 선택(nullable) 필드로 완화**한다 — 미전송·null 이면 서버가 랜덤 지정한다. 별도 v2 엔드포인트·앱 버전 식별 장치를 도입하지 않는다.
 
-**Rationale**: 이 저장소는 이미 같은 문제를 같은 방법으로 푼 선례가 있다 — `ApiPaths.V2` 상수와 `MemberV2Controller`(`PATCH /api/v2/members/me/profile`, KB-297 국적 변경 불가). 클라이언트가 호출하는 경로 자체가 버전이므로 헤더·강제 업데이트 없이 신·구가 공존하고, ArchUnit(`ModuleBoundaryTest`)의 `/api/v` 검사도 그대로 통과한다. 서버만 먼저 배포해도 구버전 앱은 v1 경로를 계속 쓰므로 영향이 0이다.
+**Rationale**: 1.0.0 앱은 다섯 필드를 항상 전부 보내므로 필수→선택 완화는 기존 유효 요청을 전부 그대로 받는다(하위 호환 완화). 엔드포인트 하나로 신·구가 공존하고, swagger 문서·클라이언트 안내도 한 곳에 남는다. 서버만 먼저 배포해도 구버전 앱 영향이 0이다.
 
 **Alternatives considered**:
-- *요청 본문의 필드 유무로 분기(닉네임 없으면 랜덤)* — 하나의 엔드포인트가 두 계약을 갖게 되고, 구버전의 오타·누락이 400 대신 조용히 랜덤 지정으로 흘러 QA 에서 안 드러난다. 기각.
+- *`POST /api/v2/members/me/onboarding` 신설(KB-297 v2 경로 선례)* — 초안 결정. 계약 격리는 명확하나 엔드포인트·요청 DTO·swagger·테스트가 한 벌씩 늘고, 클라이언트가 온보딩만 v2 로 갈아타는 반쪽 버전 상태가 생긴다. "구버전의 필드 누락 오타가 400 대신 조용히 랜덤 지정으로 흘러간다"는 우려는 감수하기로 하고 **2026-08-10 사용자 결정으로 철회**.
 - *`X-App-Version` 헤더 도입* — 헤더 미전송 시 기본 동작을 정해야 하고 모든 클라이언트가 협조해야 한다. 지금 필요 없는 인프라. 기각.
 - *v1 을 즉시 교체하고 강제 업데이트* — 강제 업데이트 장치가 없으므로 신규 가입이 막히는 서비스 장애. 기각(spec US2).
 
@@ -15,14 +15,14 @@
 
 **Decision**: `MemberService.completeOnboarding`(도메인 서비스)이 소유한다. `MemberProfileInput.nickname`·`profileImageUrl` 을 `String?`(기본 `null`)로 완화하고, **null 이면** 후보에서 추첨해 채운 뒤 `Member.completeOnboarding` 에 넘긴다.
 
-**Rationale**: "가입자에게 어떤 기본 정체성을 부여하는가"는 표현 계층 관심사가 아니라 도메인 정책이다. 헌법 IV — 도메인 로직(정책)은 도메인 서비스가 소유하고, 리포지토리 직접 참조 허용이 로직을 소비 계층으로 옮기는 허가는 아니다. 또 도메인 서비스에 두면 v1/v2 어느 경로로 들어와도 검증(`MemberProfile.updatedWith`)을 동일하게 통과한다.
+**Rationale**: "가입자에게 어떤 기본 정체성을 부여하는가"는 표현 계층 관심사가 아니라 도메인 정책이다. 헌법 IV — 도메인 로직(정책)은 도메인 서비스가 소유하고, 리포지토리 직접 참조 허용이 로직을 소비 계층으로 옮기는 허가는 아니다. 또 도메인 서비스에 두면 어떤 요청 형태로 들어와도 검증(`MemberProfile.updatedWith`)을 동일하게 통과한다.
 
-`null = 서버 지정` 규약이 암묵적이라는 점은 인정한다. 대신 v1 요청 DTO(`OnboardingRequest`)가 **non-null 코틀린 타입**을 유지하므로 v1 경로에서는 null 이 도달할 수 없고, 규약이 새는 범위가 v2 하나로 닫힌다.
+`null = 서버 지정` 규약이 암묵적이라는 점은 인정한다 — 요청 DTO(`OnboardingRequest`)와 `MemberProfileInput` 의 주석·swagger 문서가 규약을 명시한다.
 
 **Alternatives considered**:
-- *`OnboardingV2Request.toInput()` 에서 추첨* — 정책이 web DTO 로 샌다. 헌법 IV 위반. 기각.
+- *`OnboardingRequest.toInput()` 에서 추첨* — 정책이 web DTO 로 샌다. 헌법 IV 위반. 기각.
 - *`completeOnboardingWithRandomProfile(...)` 별도 서비스 메서드* — 유비쿼터스 언어가 아닌 구현 서술형 이름이고(CLAUDE.md 네이밍 규약), 본문이 기존 메서드와 90% 중복된다. 기각.
-- *`MemberProfileInput` 을 v1/v2 두 타입으로 분리* — 도메인 dto 가 HTTP 버전을 알게 된다. 기각.
+- *`MemberProfileInput` 을 두 타입으로 분리* — 도메인 dto 가 HTTP 요청 형태를 알게 된다. 기각.
 
 ## R3. 상수·생성기의 표현과 위치
 
@@ -89,12 +89,12 @@ images/webp/default_profile/avatar-teal.png
 
 **Impact**: 후보 6종이면 SC-004(한 값 점유율 30% 미만)가 기대값 16.7%로 여유 있게 성립한다. 기존 기본 이미지(`images/default/profile/profile-default-512.png`)는 후보에 넣지 않는다 — v1 클라이언트가 명시 전송하는 값이지 랜덤 아바타가 아니다.
 
-## R7. v1 온보딩의 향후 처리
+## R7. v1 온보딩의 향후 처리 (2026-08-10 개정)
 
-**Decision**: 이번 작업에서 v1 온보딩을 삭제하지도, 동작을 바꾸지도 않는다. swagger 설명에 "구버전 앱 전용" 안내만 덧붙이는 선에서 끝낸다(선택).
+**Decision**: v1 온보딩이 유일한 온보딩 경로로 남는다 — 필드 완화(R1)로 신·구 계약을 모두 수용하므로 별도 정리 작업이 없다.
 
-**Rationale**: 1.0.0 사용률이 남아 있는 동안 v1 은 유일한 가입 경로다. 제거는 사용률 지표를 보고 별도 티켓으로 판단할 일이다(spec Assumptions).
+**Rationale**: 1.0.0 앱의 기존 요청과 신버전 앱의 축소 요청이 같은 엔드포인트에서 동작한다. 삭제·폐기 대상 경로 자체가 생기지 않았다.
 
 **Alternatives considered**:
 - *v1 을 `@Deprecated` 로 컴파일 경고화* — 서버 내부 경고일 뿐 클라이언트에 전달되지 않는다. 실익 없음. 기각.
-- *v1 이 내부적으로 v2 를 호출하도록 통합* — 계약이 다른 두 경로를 억지로 합치는 것. 회귀 위험만 늘어난다. 기각.
+- *v1 온보딩 폐기 예고(deprecation 공지)* — 필드 완화로 v1 이 곧 신규 계약이 됐다. 폐기 대상이 아니다. 불필요.

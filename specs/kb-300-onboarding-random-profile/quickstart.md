@@ -9,10 +9,10 @@
 ```
 
 1. 로그인해 access token 확보 (`POST /api/v1/auth/login`).
-2. **v2 온보딩** — 닉네임·사진 없이:
+2. **온보딩** — 닉네임·사진 없이:
 
 ```bash
-curl -X POST http://localhost:8080/api/v2/members/me/onboarding \
+curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"avoidanceSubstanceCodes":["EGG"],"countryCode":"US","spicinessPreference":"SKIP"}'
 ```
@@ -25,7 +25,7 @@ curl http://localhost:8080/api/v1/members/me/profile -H "Authorization: Bearer $
 # payload.profileImageUrl → 공개 베이스 URL + images/webp/default_profile/avatar-{amber|navy|olive|orange|plum|teal}.png
 ```
 
-4. **v1 회귀** — 다른 계정으로 기존 형식이 그대로 동작하는지:
+4. **기존 형식 회귀** — 다른 계정으로 닉네임·사진을 보내는 기존 요청이 그대로 동작하는지:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
@@ -34,17 +34,16 @@ curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
 # → 200, 조회 시 nickname == "길동이" (랜덤으로 덮이지 않음)
 ```
 
-Swagger UI: `http://localhost:8080/swagger-ui.html` — "회원 (v2)" 태그에 온보딩이 추가된다.
+Swagger UI: `http://localhost:8080/swagger-ui.html` — "회원" 태그의 온보딩에서 `nickname`·`profileImageUrl` 이 선택 필드로 안내된다.
 
 ## 테스트
 
 ```bash
 ./gradlew :common:test --tests "*OnboardingProfileDefaultsTest"   # 후보 상수 유효성·분포 (단위, 빠름)
-./gradlew :api:test --tests "*MemberV2ControllerTest"             # v2 온보딩 (Testcontainers)
-./gradlew :api:test --tests "*MemberControllerTest"               # v1 회귀 가드 — 무수정 전량 통과
+./gradlew :api:test --tests "*MemberControllerTest"               # 온보딩 자동 지정 + 기존 시나리오 회귀 (Testcontainers)
 ./gradlew build                                                    # 전체
 ```
 
 ## 롤백
 
-DB 스키마 변경이 없으므로 서버 리비전 롤백만으로 되돌아간다. 롤백 후 v2 로 온보딩한 회원은 이미 지정된 닉네임·사진을 그대로 유지하며(일반 프로필 값과 구분되지 않음), v1 경로는 전 구간 영향이 없다.
+DB 스키마 변경이 없으므로 서버 리비전 롤백만으로 되돌아간다. 롤백 후 자동 지정으로 온보딩한 회원은 이미 지정된 닉네임·사진을 그대로 유지하며(일반 프로필 값과 구분되지 않음), 닉네임·사진을 보내던 기존 요청은 전 구간 영향이 없다.

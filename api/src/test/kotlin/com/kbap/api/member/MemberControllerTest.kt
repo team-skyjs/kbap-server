@@ -4,11 +4,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.auth.FakeSocialTokenVerifierConfig
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
+import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -588,53 +590,48 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
             `when`("사진을 생략하고 온보딩하면") {
-                then("400 과 COMMON-002 로 거절되고 온보딩은 완료되지 않는다") {
+                then("200 으로 완료되고 서버가 기본 아바타 중 하나를 랜덤 지정한다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, validBody() - "profileImageUrl").andReturn().response
+                    submitOnboarding(token, validBody() - "profileImageUrl").andExpect { status { isOk() } }
 
-                    result.status shouldBe 400
-                    result.contentAsString shouldContain "COMMON-002"
-                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
             }
 
             `when`("사진에 null 을 명시해 온보딩하면") {
-                then("400 과 COMMON-002 로 거절된다") {
+                then("200 으로 완료되고 서버가 기본 아바타 중 하나를 랜덤 지정한다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, validBody() + ("profileImageUrl" to null))
-                        .andReturn().response
+                    submitOnboarding(token, validBody() + ("profileImageUrl" to null))
+                        .andExpect { status { isOk() } }
 
-                    result.status shouldBe 400
-                    result.contentAsString shouldContain "COMMON-002"
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
             }
 
             `when`("닉네임을 생략하고 온보딩하면") {
-                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                then("200 으로 완료되고 서버가 영숫자 6자 코드 닉네임을 지정한다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, validBody() - "nickname").andReturn().response
+                    submitOnboarding(token, validBody() - "nickname").andExpect { status { isOk() } }
 
-                    result.status shouldBe 400
-                    result.contentAsString shouldContain "COMMON-002"
-                    memberColumn("google-sub-fixed", "nickname") shouldBe null
-                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
                 }
             }
 
             `when`("닉네임에 null 을 명시해 온보딩하면") {
-                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                then("200 으로 완료되고 서버가 영숫자 6자 코드 닉네임을 지정한다") {
                     val token = loginAccessToken()
 
-                    val result = submitOnboarding(token, validBody() + ("nickname" to null))
-                        .andReturn().response
+                    submitOnboarding(token, validBody() + ("nickname" to null))
+                        .andExpect { status { isOk() } }
 
-                    result.status shouldBe 400
-                    result.contentAsString shouldContain "COMMON-002"
-                    memberColumn("google-sub-fixed", "nickname") shouldBe null
-                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
                 }
             }
 

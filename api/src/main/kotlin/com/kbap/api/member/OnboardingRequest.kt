@@ -3,10 +3,10 @@ package com.kbap.api.member
 import com.kbap.common.domain.member.dto.MemberProfileInput
 
 data class OnboardingRequest(
-    val nickname: String,
+    val nickname: String? = null,
     val avoidanceSubstanceCodes: List<String> = emptyList(),
     val countryCode: String,
-    val profileImageUrl: String,
+    val profileImageUrl: String? = null,
     val spicinessPreference: String,
 ) {
     fun toInput(memberId: Long): MemberProfileInput =

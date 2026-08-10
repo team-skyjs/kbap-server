@@ -6,7 +6,6 @@ import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.member.MemberService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PatchMapping
-import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -16,15 +15,6 @@ import org.springframework.web.bind.annotation.RestController
 class MemberV2Controller(
     private val memberService: MemberService,
 ) : MemberV2Api {
-    @PostMapping("/me/onboarding")
-    override fun completeOnboarding(
-        @AuthMemberId memberId: Long,
-        @RequestBody request: OnboardingV2Request,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        memberService.completeOnboarding(request.toInput(memberId))
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
     @PatchMapping("/me/profile")
     override fun updateProfile(
         @AuthMemberId memberId: Long,
