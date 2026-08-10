@@ -4,32 +4,24 @@ import com.kbap.common.domain.Spiciness
 import com.kbap.common.port.llm.FoodAvoidanceAssessment
 import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
 import com.kbap.common.port.llm.FoodAvoidanceAssessmentResult
-import com.kbap.infra.llm.client.LlmFanoutClient
+import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
-import kotlin.math.roundToInt
 
-// 안전 직결 — 유효 모델 응답이 minAgreement 미만이면 종합하지 않고 예외.
-// 기본 2(단일 모델 판단 금지). 1 은 다중 모델 키 확보 전 과도기 구성용이며, 확보 후 기본값으로 복원한다.
+// 안전 직결 — 응답이 계약(후보 코드·포함률 범위·맵기 범위)을 어기면 종합하지 않고 예외.
 class SpringAiFoodAvoidanceAssessmentClient(
-    private val fanoutClient: LlmFanoutClient,
-    private val minAgreement: Int = DEFAULT_MIN_AGREEMENT,
+    private val caller: LlmModelCaller,
 ) : FoodAvoidanceAssessmentClient {
-
-    init {
-        require(minAgreement >= 1) { "minAgreement 는 1 이상이어야 합니다: $minAgreement" }
-    }
 
     override fun call(koreanName: String, candidateCodes: Set<String>): FoodAvoidanceAssessmentResult {
         require(candidateCodes.isNotEmpty()) { "기피성분 조사는 후보 코드가 비어 있으면 호출할 수 없습니다" }
 
-        val fanout = fanoutClient.generate(LlmChatRequest(prompt = promptOf(koreanName, candidateCodes), system = SYSTEM_PROMPT))
-        val validResponses = fanout.successes.mapNotNull { parseValidOrNull(it.content, candidateCodes) }
-        require(validResponses.size >= minAgreement) {
-            "기피성분 조사를 종합할 유효 모델 응답이 부족합니다: ${validResponses.size}/${fanout.attemptedCount()} (최소 $minAgreement)"
+        val raw = caller.call(LlmChatRequest(prompt = promptOf(koreanName, candidateCodes), system = SYSTEM_PROMPT))
+        val response = requireNotNull(parseValidOrNull(raw, candidateCodes)) {
+            "기피성분 조사 응답이 계약을 어겨 종합할 수 없습니다"
         }
         return FoodAvoidanceAssessmentResult(
-            substances = aggregateSubstances(candidateCodes, validResponses.map { it.percentByCode }),
-            spiciness = validResponses.map { it.spiciness }.average().roundToInt(),
+            substances = aggregateSubstances(candidateCodes, response.percentByCode),
+            spiciness = response.spiciness,
         )
     }
 
@@ -56,10 +48,10 @@ class SpringAiFoodAvoidanceAssessmentClient(
             null
         }
 
-    private fun aggregateSubstances(candidateCodes: Set<String>, responses: List<Map<String, Int>>): List<FoodAvoidanceAssessment> =
+    private fun aggregateSubstances(candidateCodes: Set<String>, percentByCode: Map<String, Int>): List<FoodAvoidanceAssessment> =
         candidateCodes.mapNotNull { code ->
-            val avg = responses.map { it[code] ?: 0 }.average().roundToInt()
-            if (avg == 0) null else FoodAvoidanceAssessment(code, avg)
+            val percent = percentByCode[code] ?: 0
+            if (percent == 0) null else FoodAvoidanceAssessment(code, percent)
         }
 
     private data class ValidResponse(val percentByCode: Map<String, Int>, val spiciness: Int)
@@ -140,7 +132,6 @@ class SpringAiFoodAvoidanceAssessmentClient(
     data class AssessmentItem(val code: String = "", val inclusionPercent: Int = -1)
 
     companion object {
-        private const val DEFAULT_MIN_AGREEMENT = 2
         private const val SYSTEM_PROMPT =
             "너는 한국 음식 레시피와 알레르기·기피성분 전문가다. 반드시 지정된 JSON 형식으로만 답한다."
     }

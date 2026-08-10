@@ -3,14 +3,12 @@ package com.kbap.infra.llm.food
 import com.kbap.common.domain.food.model.TargetLanguageTexts
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
-import com.kbap.infra.llm.model.LlmModelId
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
 private class StubCaller(val response: (LlmChatRequest) -> String) : LlmModelCaller {
     var lastRequest: LlmChatRequest? = null
-    override val modelId = LlmModelId.OPENAI
     override fun call(request: LlmChatRequest): String {
         lastRequest = request
         return response(request)

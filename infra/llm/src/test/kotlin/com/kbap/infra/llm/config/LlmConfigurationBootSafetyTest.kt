@@ -1,23 +1,23 @@
 package com.kbap.infra.llm.config
 
+import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
-import com.kbap.infra.llm.model.LlmModelId
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.boot.context.annotation.UserConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
-import java.util.concurrent.Executor
 
 class LlmConfigurationBootSafetyTest : BehaviorSpec({
 
     val runner = ApplicationContextRunner()
-        .withConfiguration(UserConfigurations.of(LlmConfiguration::class.java))
+        .withConfiguration(
+            UserConfigurations.of(LlmConfiguration::class.java, FoodContentClientConfiguration::class.java),
+        )
 
-    given("API 키·활성 플래그가 하나도 없는 기본 환경(세 모델 enabled=false)") {
+    given("API 키·활성 플래그가 하나도 없는 기본 환경") {
         `when`("LlmConfiguration 으로 컨텍스트를 로딩하면") {
             then("컨텍스트 로딩이 실패 없이 완료된다") {
                 runner.run { context ->
@@ -31,15 +31,9 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                 }
             }
 
-            then("LlmFanoutClient 빈은 존재한다(빈 caller 리스트 주입)") {
+            then("기피성분 조사 클라이언트 빈도 없다(caller 없이 조립하지 않는다)") {
                 runner.run { context ->
-                    context.getBean(LlmFanoutClient::class.java).shouldNotBeNull()
-                }
-            }
-
-            then("fan-out 실행용 Executor 빈이 존재한다") {
-                runner.run { context ->
-                    context.getBean(Executor::class.java).shouldNotBeNull()
+                    context.getBeanNamesForType(FoodAvoidanceAssessmentClient::class.java).size shouldBe 0
                 }
             }
 
@@ -77,11 +71,11 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
         }
     }
 
-    given("openai 만 enabled=true 로 활성화하고 더미 키·모델을 지정한 환경") {
+    given("openai 를 enabled=true 로 활성화하고 더미 키·모델을 지정한 환경") {
         val activeRunner = runner.withPropertyValues(
             "kbap.llm.openai.enabled=true",
             "kbap.llm.openai.api-key=dummy-key",
-            "kbap.llm.openai.model=gpt-4o-mini",
+            "kbap.llm.openai.model=gpt-5.6-luna",
         )
 
         `when`("LlmConfiguration 으로 컨텍스트를 로딩하면") {
@@ -98,32 +92,23 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                 }
             }
 
-            then("두 caller 모두 modelId 가 OPENAI 다") {
+            then("기피성분 조사 클라이언트가 기피성분 전용 caller 로 조립된다") {
                 activeRunner.run { context ->
-                    context.getBeansOfType(LlmModelCaller::class.java).values.forEach {
-                        it.modelId shouldBe LlmModelId.OPENAI
-                    }
+                    context.getBean(FoodAvoidanceAssessmentClient::class.java).shouldNotBeNull()
                 }
             }
         }
     }
 
-    given("OpenAI 호환 upstage 를 enabled=true 로 켜고 더미 api-key 를 지정한 환경") {
-        val keyPresentRunner = runner.withPropertyValues(
-            "kbap.llm.upstage.enabled=true",
-            "kbap.llm.upstage.api-key=dummy-key",
+    given("openai 를 켰지만 api-key 가 비어 있는 환경") {
+        val missingKeyRunner = runner.withPropertyValues(
+            "kbap.llm.openai.enabled=true",
         )
 
         `when`("LlmConfiguration 으로 컨텍스트를 로딩하면") {
-            then("컨텍스트 로딩이 실패 없이 완료된다") {
-                keyPresentRunner.run { context ->
-                    context.startupFailure.shouldBeNull()
-                }
-            }
-
-            then("등록된 caller 의 modelId 가 UPSTAGE 다") {
-                keyPresentRunner.run { context ->
-                    context.getBean(LlmModelCaller::class.java).modelId shouldBe LlmModelId.UPSTAGE
+            then("어떤 프로퍼티가 비었는지 알려주며 부팅에 실패한다") {
+                missingKeyRunner.run { context ->
+                    context.startupFailure.shouldNotBeNull()
                 }
             }
         }

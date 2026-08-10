@@ -391,6 +391,56 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("두 추출 메뉴가 같은 OCR idx 를 물고 오면") {
+                then("먼저 나온 항목만 idx 를 갖고 뒤 항목은 null 이며 두 메뉴 모두 남는다") {
+                    val memberId = 540L
+                    val path = "scan/540/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(
+                        path,
+                        listOf(
+                            ExtractedMenu("김치찌개(소)", "김치찌개소540", 8000, matchedIdx = 0),
+                            ExtractedMenu("김치찌개(대)", "김치찌개대540", 12000, matchedIdx = 0),
+                        ),
+                    )
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results.length()") { value(2) }
+                        jsonPath("$.payload.results[0].idx") { value(0) }
+                        jsonPath("$.payload.results[1].idx") { value(null) }
+                        jsonPath("$.payload.results[1].koreanName") { value("김치찌개대540") }
+                    }
+                }
+            }
+
+            `when`("클라이언트 OCR 텍스트가 사진과 전혀 다르면") {
+                then("응답의 name·koreanName 어디에도 OCR 텍스트가 섞이지 않는다") {
+                    val memberId = 541L
+                    val path = "scan/541/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("된장찌개", "된장찌개541", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "XXX오탈자XXX")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results.length()") { value(1) }
+                        jsonPath("$.payload.results[0].idx") { value(0) }
+                        jsonPath("$.payload.results[0].name") { value("된장찌개541") }
+                        jsonPath("$.payload.results[0].koreanName") { value("된장찌개541") }
+                    }
+                }
+            }
+
             `when`("가격이 표기되지 않은 메뉴가 섞여 있으면") {
                 then("그 메뉴의 price 는 null 로 내려간다") {
                     val memberId = 502L

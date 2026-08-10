@@ -8,6 +8,8 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.metadata.ChatResponseMetadata
 import org.springframework.ai.chat.metadata.DefaultUsage
@@ -41,6 +43,30 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
         object : ChatModel {
             override fun call(prompt: Prompt): ChatResponse = throw RuntimeException("vision 호출 실패")
         }
+
+    fun chatModelCapturing(captured: MutableList<Prompt>, response: ChatResponse): ChatModel =
+        object : ChatModel {
+            override fun call(prompt: Prompt): ChatResponse {
+                captured.add(prompt)
+                return response
+            }
+        }
+
+    fun promptTextOf(prompt: Prompt): String = prompt.instructions.joinToString("\n") { it.text.orEmpty() }
+
+    fun capturePromptFor(ocrItems: List<OcrItem>): String {
+        val captured = mutableListOf<Prompt>()
+        val response = responseOf("""{"results":[]}""", "gpt-test", DefaultUsage(10, 10, 20))
+        val extractor = OpenAiMenuBoardVisionExtractor(
+            chatModel = chatModelCapturing(captured, response),
+            parser = MenuBoardResultParser(),
+            imageBaseUrl = "https://cdn.test",
+            pricing = pricing,
+            configuredModelName = "gpt-test",
+        )
+        extractor.extract("scan/1/menu.jpg", ocrItems)
+        return promptTextOf(captured.single())
+    }
 
     fun extractorRecording(
         chatModel: ChatModel,
@@ -167,6 +193,99 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
+            }
+        }
+    }
+
+    given("모델에 보내는 프롬프트") {
+        val items = listOf(
+            OcrItem(idx = 0, rawMenuName = "김치찌개"),
+            OcrItem(idx = 7, rawMenuName = "삼겹살"),
+        )
+
+        `when`("판독 지시를 확인하면") {
+            then("메뉴명·가격의 근거를 사진으로 한정하는 절이 있다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain "[판독 — 사진 단독]"
+            }
+
+            then("OCR 을 오탈자 교정 기준으로 삼으라는 지시가 없다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldNotContain "[진실의 출처]"
+                prompt shouldNotContain "오탈자"
+                prompt shouldNotContain "OCR 을 보존한다"
+            }
+
+            then("대응 OCR 이 없는 메뉴도 결과에 넣으라는 지시가 있다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain "메뉴를 결과에서 빼지 마라"
+            }
+        }
+
+        `when`("매칭 지시를 확인하면") {
+            then("OCR 목록이 판독 근거가 아닌 매칭 참조표로 제시된다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain "[매칭 — OCR 참조표]"
+                prompt shouldContain "판독 근거가 아니라"
+            }
+
+            then("한 idx 를 여러 결과에 쓰지 말라는 지시가 유지된다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain "중복 금지"
+            }
+        }
+
+        `when`("OCR 항목을 넘기면") {
+            then("모든 항목이 \"idx: 텍스트\" 줄로 실린다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain "0: 김치찌개"
+                prompt shouldContain "7: 삼겹살"
+            }
+        }
+
+        `when`("응답 형식 지시를 확인하면") {
+            then("JSON 객체 단독 응답 형식이 유지된다") {
+                val prompt = capturePromptFor(items)
+
+                prompt shouldContain """{"results":"""
+            }
+        }
+    }
+
+    given("교체된 vision 모델 단가") {
+        `when`("입력·출력 각 100만 토큰을 쓴 응답을 받으면") {
+            then("입력 0.2 / 출력 1.2 단가로 비용이 산정된다") {
+                val lunaPricing = LlmPricing(
+                    inputUsdPerMillionTokens = 0.2,
+                    outputUsdPerMillionTokens = 1.2,
+                    usdToKrw = 1500.0,
+                )
+                val recorded = mutableListOf<LlmCallCostIncurred>()
+                val response = responseOf(
+                    text = """{"results":[]}""",
+                    model = "gpt-5.6-luna",
+                    usage = DefaultUsage(1_000_000, 1_000_000, 2_000_000),
+                )
+                val extractor = OpenAiMenuBoardVisionExtractor(
+                    chatModel = chatModelReturning(response),
+                    parser = MenuBoardResultParser(),
+                    imageBaseUrl = "https://cdn.test",
+                    pricing = lunaPricing,
+                    configuredModelName = "gpt-5.6-luna",
+                    eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
+                )
+
+                extractor.extract("scan/1/menu.jpg", ocrItems)
+
+                recorded shouldHaveSize 1
+                recorded.first().costUsd shouldBe BigDecimal("1.400000")
+                recorded.first().costKrw shouldBe BigDecimal("2100.00")
             }
         }
     }

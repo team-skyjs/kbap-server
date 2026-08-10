@@ -4,7 +4,6 @@ import com.kbap.common.port.llm.FoodAvoidanceAssessmentClient
 import com.kbap.common.port.llm.FoodDescriptionClient
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.FoodNameTranslationClient
-import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.infra.llm.food.SpringAiFoodAvoidanceAssessmentClient
@@ -31,10 +30,10 @@ class FoodContentClientConfiguration {
     ): FoodDescriptionClient = SpringAiFoodDescriptionClient(caller)
 
     @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.openai", name = ["enabled"], havingValue = "true")
     fun foodAvoidanceAssessmentClient(
-        fanoutClient: LlmFanoutClient,
-        properties: LlmModelProperties,
-    ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(fanoutClient, properties.avoidance.minAgreement)
+        @Qualifier("avoidanceOpenAiModelCaller") caller: LlmModelCaller,
+    ): FoodAvoidanceAssessmentClient = SpringAiFoodAvoidanceAssessmentClient(caller)
 
     @Bean
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =

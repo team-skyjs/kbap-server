@@ -78,9 +78,8 @@ shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.
 shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
-# Upstage 는 OpenAI 호환 API 라 openai 스타터를 base-url 만 바꿔 재사용한다.
+# 채팅·비전은 OpenAI 단일 벤더(KB-320), 임베딩만 Bedrock Titan.
 spring-ai-starter-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
-spring-ai-starter-google-genai = { module = "org.springframework.ai:spring-ai-starter-model-google-genai" }
 spring-ai-starter-bedrock = { module = "org.springframework.ai:spring-ai-starter-model-bedrock" }
 
 # --- Auth (KB-118): 자체 JWT 발급/파싱 + Firebase ID 토큰 검증 ---

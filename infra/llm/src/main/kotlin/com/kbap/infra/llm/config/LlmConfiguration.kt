@@ -1,34 +1,26 @@
 package com.kbap.infra.llm.config
 
-import com.google.genai.Client
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.kbap.infra.llm.client.LlmFanoutClient
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.embedding.SpringAiTextEmbeddingClient
 import com.kbap.infra.llm.menu.MenuBoardResultParser
 import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
-import com.kbap.infra.llm.model.LlmModelId
 import com.kbap.infra.llm.model.LlmPricing
 import com.kbap.infra.llm.provider.SpringAiModelCaller
 import io.micrometer.observation.ObservationRegistry
 import org.springframework.ai.bedrock.titan.BedrockTitanEmbeddingModel
 import org.springframework.ai.bedrock.titan.api.TitanEmbeddingBedrockApi
 import org.springframework.ai.chat.model.ChatModel
-import org.springframework.ai.google.genai.GoogleGenAiChatModel
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat
 import org.springframework.ai.openai.OpenAiChatOptions
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Duration
-import java.util.concurrent.Executor
-import java.util.concurrent.Executors
 
 @Configuration
 @EnableConfigurationProperties(LlmModelProperties::class)
@@ -38,12 +30,12 @@ class LlmConfiguration {
     @ConditionalOnProperty(prefix = "kbap.llm.openai", name = ["enabled"], havingValue = "true")
     fun openAiModelCaller(properties: LlmModelProperties): LlmModelCaller =
         SpringAiModelCaller(
-            LlmModelId.OPENAI,
+            properties.openai.model.orEmpty(),
             openAiChatModel(
-                LlmModelId.OPENAI,
                 properties.openai,
                 resolveOpenAiBaseUrl(properties.openai.baseUrl),
                 properties.callTimeout,
+                OPENAI_API_KEY_PROPERTY,
             ),
             pricingOf(properties.openai, properties.usdToKrw),
         )
@@ -53,39 +45,16 @@ class LlmConfiguration {
     fun avoidanceOpenAiModelCaller(properties: LlmModelProperties): LlmModelCaller {
         val props = avoidanceOpenAiProps(properties.openai, properties.avoidance)
         return SpringAiModelCaller(
-            LlmModelId.OPENAI,
+            props.model.orEmpty(),
             openAiChatModel(
-                LlmModelId.OPENAI,
                 props,
                 resolveOpenAiBaseUrl(props.baseUrl),
                 properties.callTimeout,
+                OPENAI_API_KEY_PROPERTY,
             ),
             pricingOf(props, properties.usdToKrw),
         )
     }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "kbap.llm.upstage", name = ["enabled"], havingValue = "true")
-    fun upstageModelCaller(properties: LlmModelProperties): LlmModelCaller =
-        SpringAiModelCaller(
-            LlmModelId.UPSTAGE,
-            openAiChatModel(
-                LlmModelId.UPSTAGE,
-                properties.upstage,
-                properties.upstage.baseUrl ?: DEFAULT_UPSTAGE_BASE_URL,
-                properties.callTimeout,
-            ),
-            pricingOf(properties.upstage, properties.usdToKrw),
-        )
-
-    @Bean
-    @ConditionalOnProperty(prefix = "kbap.llm.gemini", name = ["enabled"], havingValue = "true")
-    fun geminiModelCaller(properties: LlmModelProperties): LlmModelCaller =
-        SpringAiModelCaller(
-            LlmModelId.GEMINI,
-            geminiChatModel(properties.gemini),
-            pricingOf(properties.gemini, properties.usdToKrw),
-        )
 
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.vision", name = ["enabled"], havingValue = "true")
@@ -126,29 +95,14 @@ class LlmConfiguration {
         )
     }
 
-    @Bean
-    fun llmFanoutExecutor(): Executor = Executors.newVirtualThreadPerTaskExecutor()
-
-    // fanout 은 기피성분 조사 전용 — 공용 openAiModelCaller(번역·설명용) 대신 avoidance 오버라이드 caller 를 태운다.
-    @Bean
-    fun llmFanoutClient(
-        @Qualifier("avoidanceOpenAiModelCaller") avoidanceOpenAiCaller: LlmModelCaller?,
-        @Qualifier("upstageModelCaller") upstageCaller: LlmModelCaller?,
-        @Qualifier("geminiModelCaller") geminiCaller: LlmModelCaller?,
-        // @EnableScheduling 의 taskScheduler 도 Executor 라 타입 주입이 모호하다 — 이름으로 고정(KB-226).
-        @Qualifier("llmFanoutExecutor") executor: Executor,
-        properties: LlmModelProperties,
-    ): LlmFanoutClient =
-        LlmFanoutClient(listOfNotNull(avoidanceOpenAiCaller, upstageCaller, geminiCaller), executor, properties.callTimeout)
-
     private fun openAiChatModel(
-        modelId: LlmModelId,
         props: LlmModelProperties.ModelProps,
         baseUrl: String,
         callTimeout: Duration,
+        apiKeyProperty: String,
     ): ChatModel =
         OpenAiChatModel.builder()
-            .options(openAiChatOptions(modelId, props, baseUrl, callTimeout))
+            .options(openAiChatOptions(props, baseUrl, callTimeout, apiKeyProperty))
             .build()
 
     private fun pricingOf(props: LlmModelProperties.ModelProps, usdToKrw: Double): LlmPricing =
@@ -158,46 +112,26 @@ class LlmConfiguration {
             usdToKrw = usdToKrw,
         )
 
-    private fun geminiChatModel(props: LlmModelProperties.ModelProps): ChatModel {
-        val client = Client.builder()
-            .apiKey(props.apiKey)
-            .build()
-        return GoogleGenAiChatModel.builder()
-            .genAiClient(client)
-            .options(geminiChatOptions(props))
-            .build()
-    }
-
     companion object {
         internal const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
-        private const val DEFAULT_UPSTAGE_BASE_URL = "https://api.upstage.ai/v1"
+        internal const val OPENAI_API_KEY_PROPERTY = "kbap.llm.openai.api-key"
 
         internal fun openAiChatOptions(
-            modelId: LlmModelId,
             props: LlmModelProperties.ModelProps,
             baseUrl: String,
             callTimeout: Duration,
+            apiKeyProperty: String = OPENAI_API_KEY_PROPERTY,
         ): OpenAiChatOptions {
             val builder = OpenAiChatOptions.builder()
-            builder.apiKey(requireOpenAiApiKey(modelId, props.apiKey))
+            builder.apiKey(requireOpenAiApiKey(apiKeyProperty, props.apiKey))
             builder.baseUrl(baseUrl)
             builder.timeout(callTimeout)
             props.maxRetries?.let { builder.maxRetries(it) }
             props.model?.let { builder.model(it) }
-            props.maxOutputTokens?.let {
-                if (modelId == LlmModelId.OPENAI) builder.maxCompletionTokens(it) else builder.maxTokens(it)
-            }
+            // 추론 모델은 max_tokens 를 받지 않는다 — 전 모델이 OpenAI 추론 계열이므로 항상 maxCompletionTokens.
+            props.maxOutputTokens?.let { builder.maxCompletionTokens(it) }
             props.temperature?.let { builder.temperature(it) }
-            if (modelId == LlmModelId.OPENAI) {
-                props.reasoningEffort?.let { builder.reasoningEffort(it) }
-            }
-            return builder.build()
-        }
-
-        internal fun geminiChatOptions(props: LlmModelProperties.ModelProps): GoogleGenAiChatOptions {
-            val builder = GoogleGenAiChatOptions.builder()
-            props.model?.let { builder.model(it) }
-            props.maxOutputTokens?.let { builder.maxOutputTokens(it) }
+            props.reasoningEffort?.let { builder.reasoningEffort(it) }
             return builder.build()
         }
 
@@ -234,11 +168,10 @@ class LlmConfiguration {
 
         internal fun resolveOpenAiBaseUrl(configured: String?): String = configured ?: DEFAULT_OPENAI_BASE_URL
 
-        internal fun requireOpenAiApiKey(modelId: LlmModelId, configured: String?): String {
+        internal fun requireOpenAiApiKey(property: String, configured: String?): String {
             if (configured.isNullOrBlank()) {
-                val property = "kbap.llm.${modelId.name.lowercase()}.api-key"
                 throw IllegalStateException(
-                    "LLM 모델 $modelId 의 api-key 가 비어 있습니다. $property 를 설정하세요" +
+                    "LLM api-key 가 비어 있습니다. $property 를 설정하세요" +
                         "(배포 환경변수로 주입 — 환경변수 폴백은 허용하지 않습니다).",
                 )
             }

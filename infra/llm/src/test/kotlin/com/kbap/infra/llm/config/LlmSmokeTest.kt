@@ -1,13 +1,13 @@
 package com.kbap.infra.llm.config
 
-import com.kbap.infra.llm.client.LlmFanoutClient
+import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
 import io.kotest.core.annotation.EnabledIf
 import io.kotest.core.annotation.EnabledCondition
 import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.string.shouldNotBeBlank
+import org.springframework.beans.factory.getBean
 import org.springframework.boot.context.annotation.UserConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import kotlin.reflect.KClass
@@ -29,25 +29,18 @@ class LlmSmokeTest : BehaviorSpec({
         .withPropertyValues(
             "kbap.llm.openai.enabled=true",
             "kbap.llm.openai.api-key=${System.getenv("OPENAI_API_KEY") ?: ""}",
-            "kbap.llm.openai.model=gpt-4o-mini",
-            "kbap.llm.upstage.enabled=true",
-            "kbap.llm.upstage.api-key=${System.getenv("UPSTAGE_API_KEY") ?: ""}",
-            "kbap.llm.upstage.model=solar-pro",
-            "kbap.llm.gemini.enabled=true",
-            "kbap.llm.gemini.api-key=${System.getenv("GEMINI_API_KEY") ?: ""}",
-            "kbap.llm.gemini.model=gemini-2.0-flash",
+            "kbap.llm.openai.model=gpt-5.6-luna",
         )
 
-    given("실 API 키로 OpenAI·Upstage·Gemini 세 모델을 모두 활성화한 구성(수동 실행: quickstart §3, -Dllm.smoke.enabled=true)") {
-        `when`("단일 프롬프트로 LlmFanoutClient.generate 를 실호출하면") {
-            then("세 모델이 모두 성공해 successes 가 3개이고 failures 는 비어 있다") {
+    given("실 API 키로 luna 를 활성화한 구성(수동 실행: quickstart §3, -Dllm.smoke.enabled=true)") {
+        `when`("단일 프롬프트로 caller 를 실호출하면") {
+            then("비어 있지 않은 응답이 돌아온다") {
                 runner.run { context ->
-                    val client = context.getBean(LlmFanoutClient::class.java)
+                    val caller = context.getBean<LlmModelCaller>("openAiModelCaller")
 
-                    val result = client.generate(LlmChatRequest(prompt = "ping"))
+                    val content = caller.call(LlmChatRequest(prompt = "ping"))
 
-                    result.successes shouldHaveSize 3
-                    result.failures.shouldBeEmpty()
+                    content.shouldNotBeBlank()
                 }
             }
         }

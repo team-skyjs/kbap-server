@@ -3,14 +3,12 @@ package com.kbap.infra.llm.food
 import com.kbap.common.domain.food.model.TargetLanguageTexts
 import com.kbap.infra.llm.client.LlmModelCaller
 import com.kbap.infra.llm.model.LlmChatRequest
-import com.kbap.infra.llm.model.LlmModelId
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
 
 private class DescStubCaller(val response: String) : LlmModelCaller {
-    override val modelId = LlmModelId.OPENAI
     var lastPrompt: String? = null
     override fun call(request: LlmChatRequest): String {
         lastPrompt = request.prompt

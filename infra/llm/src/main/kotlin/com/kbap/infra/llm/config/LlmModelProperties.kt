@@ -8,8 +8,6 @@ data class LlmModelProperties(
     val callTimeout: Duration = Duration.ofSeconds(30),
     val usdToKrw: Double = 1500.0,
     val openai: ModelProps = ModelProps(),
-    val upstage: ModelProps = ModelProps(),
-    val gemini: ModelProps = ModelProps(),
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
     val avoidance: AvoidanceProps = AvoidanceProps(),
@@ -25,7 +23,6 @@ data class LlmModelProperties(
 
     // 기피성분 조사 전용 OpenAI 오버라이드 — null 필드는 kbap.llm.openai 값을 상속한다.
     data class AvoidanceProps(
-        val minAgreement: Int = 2,
         val model: String? = null,
         val maxOutputTokens: Int? = null,
         val reasoningEffort: String? = null,
@@ -53,10 +50,10 @@ data class LlmModelProperties(
         val maxRetries: Int? = null,
         // vision 은 사진 해석이라 텍스트 정제(call-timeout)보다 오래 걸린다 — 전용 타임아웃.
         val timeout: Duration = Duration.ofSeconds(60),
-        // gpt-4o-mini 기본 단가(1M 토큰당 USD) — 토큰·비용 로깅용.
+        // gpt-5.6-luna 기본 단가(1M 토큰당 USD) — 토큰·비용 로깅용. 모델 교체 시 이 값도 함께 옮긴다.
         val pricing: PricingProps = PricingProps(
-            inputUsdPerMillionTokens = 0.15,
-            outputUsdPerMillionTokens = 0.60,
+            inputUsdPerMillionTokens = 0.2,
+            outputUsdPerMillionTokens = 1.2,
         ),
     )
 

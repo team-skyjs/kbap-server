@@ -46,13 +46,15 @@ class ScanService(
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
         val validIdxes = ocrItems.map { it.idx }.toSet()
+        // 한 화면 항목에 위험도가 겹쳐 그려지지 않도록, 같은 idx 는 먼저 나온 결과만 갖는다.
+        val usedIdxes = mutableSetOf<Int>()
 
         val items = extracted.map { menu ->
             val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
-                idx = menu.matchedIdx?.takeIf { it in validIdxes },
+                idx = menu.matchedIdx?.takeIf { it in validIdxes && usedIdxes.add(it) },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
                 matched = matched,
                 foodId = food?.id,
