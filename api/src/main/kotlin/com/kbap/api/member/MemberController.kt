@@ -1,6 +1,7 @@
 package com.kbap.api.member
 
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.AppVersion
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.member.MemberService
@@ -18,13 +19,17 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberService: MemberService,
 ) : MemberApi {
+    private val profileAutoAssignSince = AppVersion(1, 1, 0)
+
     @PostMapping("/me/onboarding")
     override fun completeOnboarding(
         @AuthMemberId memberId: Long,
         @RequestHeader(value = "X-App-Version", required = false) appVersion: String?,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = appVersion != null))
+        val serverAssignsProfile =
+            AppVersion.parseOrNull(appVersion)?.let { it >= profileAutoAssignSince } == true
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 

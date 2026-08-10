@@ -718,6 +718,39 @@ class MemberControllerTest : BehaviorSpec() {
                     result.contentAsString shouldContain "COMMON-002"
                 }
             }
+
+            `when`("1.1.0 미만 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("구버전 계약대로 400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, headerBody, appVersion = "1.0.9").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("형식이 잘못된 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("구버전 계약대로 400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, headerBody, appVersion = "beta").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("1.1.0 보다 높은 버전 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("200 으로 완료되고 서버가 지정한다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, headerBody, appVersion = "1.2.0").andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                }
+            }
         }
 
         given("온보딩의 프로필 사진 경로 검증 — 저장 없이 400") {

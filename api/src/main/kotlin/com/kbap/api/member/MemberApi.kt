@@ -27,11 +27,12 @@ interface MemberApi {
             맵기 화면을 건너뛰면 클라이언트가 **`SKIP` 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, 6단계 외 값이면
             400 MEMBER-009 로 거절한다.
 
-            **`X-App-Version` 헤더(선택)로 신·구 동작을 분기한다.** 헤더를 보내면(신버전 앱) 닉네임은 서버가
-            영숫자 6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 — 요청에 `nickname`·
-            `profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
+            **`X-App-Version` 헤더(선택)의 버전으로 신·구 동작을 분기한다.** 헤더가 `1.1.0` 이상이면
+            닉네임은 서버가 영숫자 6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 —
+            요청에 `nickname`·`profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로
+            언제든 변경할 수 있다.
 
-            헤더가 없으면(구버전 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
+            헤더가 없거나 `1.1.0` 미만·형식 오류면(구버전 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
             미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로
             (presigned 발급 응답의 `objectKey`)를 보내고, 사진 미설정 회원은 기본 이미지 경로
             `images/default/profile/profile-default-512.png` 를 명시 전송한다. 빈 문자열·전체 URL
@@ -52,7 +53,7 @@ interface MemberApi {
             name = "X-App-Version",
             `in` = ParameterIn.HEADER,
             required = false,
-            description = "클라이언트 앱 버전(예: 1.1.0). 존재 여부로만 분기한다 — 보내면 닉네임·프로필 사진을 서버가 랜덤 지정",
+            description = "클라이언트 앱 버전(예: 1.1.0). 1.1.0 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정. 미만·형식 오류·미전송이면 종전 계약",
             example = "1.1.0",
         )
         appVersion: String?,
