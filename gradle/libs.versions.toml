@@ -31,6 +31,8 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 [libraries]
 # --- Kotlin / Jackson ---
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+# 벡터 검색(KB-319): DocumentDB(MongoDB 호환) 접근 — 버전은 Spring Boot BOM 이 관리.
+mongodb-driver-sync = { module = "org.mongodb:mongodb-driver-sync" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
 
 # --- Spring framework (versions managed by the Spring Boot BOM) ---

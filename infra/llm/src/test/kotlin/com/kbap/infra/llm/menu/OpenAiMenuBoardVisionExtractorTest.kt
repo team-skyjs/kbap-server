@@ -8,7 +8,11 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.SystemMessage
+import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.metadata.ChatResponseMetadata
 import org.springframework.ai.chat.metadata.DefaultUsage
 import org.springframework.ai.chat.metadata.Usage
@@ -167,6 +171,61 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
+            }
+        }
+    }
+
+    given("서버 OCR 프롬프트 분기 — 스캔 v2") {
+        fun promptCapturing(response: ChatResponse): Pair<ChatModel, () -> Prompt> {
+            var captured: Prompt? = null
+            val chatModel = object : ChatModel {
+                override fun call(prompt: Prompt): ChatResponse {
+                    captured = prompt
+                    return response
+                }
+            }
+            return chatModel to { captured!! }
+        }
+
+        val response = responseOf(
+            text = """{"results":[{"name":"김치찌개","koreanName":"김치찌개","price":9000}]}""",
+            model = "gpt-4o-mini-2024-07-18",
+            usage = DefaultUsage(100, 50, 150),
+        )
+
+        `when`("ocrItems 가 비어 있으면") {
+            then("클라이언트 힌트·matchedIdx 지시가 없는 프롬프트로 호출하고 추출·정제 규칙은 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
+
+                val result = extractor.extract("scan/1/menu.jpg", emptyList())
+
+                result shouldHaveSize 1
+                result.first().matchedIdx shouldBe null
+
+                val prompt = capturedPrompt()
+                val systemText = prompt.instructions.first { it is SystemMessage }.text
+                systemText shouldNotContain "matchedIdx"
+                systemText shouldNotContain "OCR"
+                systemText shouldContain "koreanName"
+                systemText shouldContain "원(KRW) 단위 정수"
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldNotContain "OCR"
+            }
+        }
+
+        `when`("ocrItems 가 있으면") {
+            then("기존 힌트 프롬프트(OCR 목록·matchedIdx 지시)를 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
+
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 3, rawMenuName = "김치피개")))
+
+                val prompt = capturedPrompt()
+                prompt.instructions.first { it is SystemMessage }.text shouldContain "matchedIdx"
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldContain "OCR:"
+                userText shouldContain "3: 김치피개"
             }
         }
     }
