@@ -1,6 +1,7 @@
 package com.kbap.infra.llm.menu
 
 import com.kbap.common.domain.metering.LlmCallCostIncurred
+import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.infra.llm.model.LlmPricing
 import io.kotest.assertions.throwables.shouldThrow
@@ -54,7 +55,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
     fun promptTextOf(prompt: Prompt): String = prompt.instructions.joinToString("\n") { it.text.orEmpty() }
 
-    fun capturePromptFor(ocrItems: List<OcrItem>): String {
+    fun capturePromptFor(ocrItems: List<OcrItem>, mode: MenuBoardReadingMode): String {
         val captured = mutableListOf<Prompt>()
         val response = responseOf("""{"results":[]}""", "gpt-test", DefaultUsage(10, 10, 20))
         val extractor = OpenAiMenuBoardVisionExtractor(
@@ -64,7 +65,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             pricing = pricing,
             configuredModelName = "gpt-test",
         )
-        extractor.extract("scan/1/menu.jpg", ocrItems)
+        extractor.extract("scan/1/menu.jpg", ocrItems, mode)
         return promptTextOf(captured.single())
     }
 
@@ -99,7 +100,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
 
                 recorded shouldHaveSize 1
                 val event = recorded.first()
@@ -123,7 +124,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     configuredModelName = "gpt-4o-mini",
                 )
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
 
                 recorded shouldHaveSize 1
                 recorded.first().modelName shouldBe "gpt-4o-mini"
@@ -139,7 +140,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
 
                 recorded shouldHaveSize 1
                 recorded.first().inputTokens shouldBe 0L
@@ -156,7 +157,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                shouldThrow<MenuBoardParseException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardParseException> { extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY) }
 
                 recorded shouldHaveSize 1
             }
@@ -166,7 +167,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("과금이 없으므로 이벤트를 발행하지 않는다") {
                 val (extractor, recorded) = extractorRecording(chatModelThrowing())
 
-                shouldThrow<RuntimeException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<RuntimeException> { extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY) }
 
                 recorded.shouldBeEmpty()
             }
@@ -189,7 +190,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = throwingPublisher,
                 )
 
-                val result = extractor.extract("scan/1/menu.jpg", ocrItems)
+                val result = extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
@@ -205,13 +206,13 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
         `when`("판독 지시를 확인하면") {
             then("메뉴명·가격의 근거를 사진으로 한정하는 절이 있다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldContain "[판독 — 사진 단독]"
             }
 
             then("OCR 을 오탈자 교정 기준으로 삼으라는 지시가 없다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldNotContain "[진실의 출처]"
                 prompt shouldNotContain "오탈자"
@@ -219,7 +220,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             }
 
             then("대응 OCR 이 없는 메뉴도 결과에 넣으라는 지시가 있다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldContain "메뉴를 결과에서 빼지 마라"
             }
@@ -227,14 +228,14 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
         `when`("매칭 지시를 확인하면") {
             then("OCR 목록이 판독 근거가 아닌 매칭 참조표로 제시된다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldContain "[매칭 — OCR 참조표]"
                 prompt shouldContain "판독 근거가 아니라"
             }
 
             then("한 idx 를 여러 결과에 쓰지 말라는 지시가 유지된다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldContain "중복 금지"
             }
@@ -242,7 +243,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
         `when`("OCR 항목을 넘기면") {
             then("모든 항목이 \"idx: 텍스트\" 줄로 실린다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
 
                 prompt shouldContain "0: 김치찌개"
                 prompt shouldContain "7: 삼겹살"
@@ -251,7 +252,44 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
         `when`("응답 형식 지시를 확인하면") {
             then("JSON 객체 단독 응답 형식이 유지된다") {
-                val prompt = capturePromptFor(items)
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.PHOTO_ONLY)
+
+                prompt shouldContain """{"results":"""
+            }
+        }
+    }
+
+    given("구버전 앱을 위한 OCR 병용 프롬프트") {
+        val items = listOf(
+            OcrItem(idx = 0, rawMenuName = "김치찌개"),
+            OcrItem(idx = 7, rawMenuName = "삼겹살"),
+        )
+
+        `when`("OCR_ASSISTED 모드로 extract 를 호출하면") {
+            then("종전 [진실의 출처] 절이 그대로 실린다") {
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
+
+                prompt shouldContain "[진실의 출처]"
+                prompt shouldContain "OCR 오탈자 교정"
+                prompt shouldContain "OCR 을 보존한다"
+            }
+
+            then("사진 단독 판독 절은 실리지 않는다") {
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
+
+                prompt shouldNotContain "[판독 — 사진 단독]"
+                prompt shouldNotContain "[매칭 — OCR 참조표]"
+            }
+
+            then("OCR 항목은 두 모드 모두 같은 형식으로 실린다") {
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
+
+                prompt shouldContain "0: 김치찌개"
+                prompt shouldContain "7: 삼겹살"
+            }
+
+            then("JSON 객체 단독 응답 형식은 두 모드가 동일하다") {
+                val prompt = capturePromptFor(items, MenuBoardReadingMode.OCR_ASSISTED)
 
                 prompt shouldContain """{"results":"""
             }
@@ -281,7 +319,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
                 )
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.extract("scan/1/menu.jpg", ocrItems, MenuBoardReadingMode.PHOTO_ONLY)
 
                 recorded shouldHaveSize 1
                 recorded.first().costUsd shouldBe BigDecimal("1.400000")

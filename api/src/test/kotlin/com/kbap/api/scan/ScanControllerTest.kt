@@ -3,6 +3,7 @@ package com.kbap.api.scan
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
+import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
@@ -415,6 +416,78 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[1].idx") { value(null) }
                         jsonPath("$.payload.results[1].koreanName") { value("김치찌개대540") }
                     }
+                }
+            }
+
+            `when`("X-API-Version 헤더 없이 요청하면") {
+                then("구버전 앱 계약대로 OCR 병용 판독으로 폴백한다") {
+                    val memberId = 542L
+                    val path = "scan/542/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개542", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                    }
+
+                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.OCR_ASSISTED
+                }
+            }
+
+            `when`("X-API-Version 이 2026.08.08 이상이면") {
+                then("사진 단독 판독으로 동작한다") {
+                    val memberId = 543L
+                    val path = "scan/543/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개543", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "2026.08.08")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                    }
+
+                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.PHOTO_ONLY
+                }
+            }
+
+            `when`("X-API-Version 이 임계값 미만이거나 파싱 불가하면") {
+                then("종전 OCR 병용 판독으로 폴백한다") {
+                    val memberId = 544L
+                    val path = "scan/544/menu.jpg"
+                    val brokenPath = "scan/544/broken.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedVerifiedImage(memberId, brokenPath)
+                    vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개544", 9000, matchedIdx = 0)))
+                    vision.program(brokenPath, listOf(ExtractedMenu("김치찌개", "김치찌개544b", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "2026.08.07")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect { status { isOk() } }
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "not-a-version")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(brokenPath, 0 to "김치찌개")
+                    }.andExpect { status { isOk() } }
+
+                    vision.receivedModes[path] shouldBe MenuBoardReadingMode.OCR_ASSISTED
+                    vision.receivedModes[brokenPath] shouldBe MenuBoardReadingMode.OCR_ASSISTED
                 }
             }
 

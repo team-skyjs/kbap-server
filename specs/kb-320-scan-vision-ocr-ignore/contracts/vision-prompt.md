@@ -1,5 +1,16 @@
 # Contract: 비전 프롬프트 (이번 변경의 대상)
 
+> **2026-08-11 개정 — 프롬프트가 두 벌이다.** 구버전 앱의 동작을 보존하기 위해 `X-API-Version` 으로 분기한다.
+>
+> | 모드 | 조건 | 프롬프트 |
+> |------|------|----------|
+> | `PHOTO_ONLY` | `X-API-Version >= 2026.08.08` | 아래 P1~P7 계약 (사진 단독 판독) |
+> | `OCR_ASSISTED` | 미전송·이전 버전·파싱 불가 | 종전 `[진실의 출처]` 프롬프트를 **한 글자도 바꾸지 않고** 보존 |
+>
+> 아래 P1~P7 은 `PHOTO_ONLY` 모드에만 적용된다. `OCR_ASSISTED` 모드의 계약은 "종전 프롬프트 원문 유지" 하나이며,
+> 테스트가 `[진실의 출처]`·`OCR 오탈자 교정`·`OCR 을 보존한다` 존재와 사진 단독 절 부재를 함께 고정한다.
+> 모델은 두 모드가 같다(`gpt-5.6-luna`) — 프롬프트만 다르므로 구버전 동작이 완전히 재현되지는 않는다(연구 R2 참조).
+
 **Owner**: `infra/llm/.../menu/OpenAiMenuBoardVisionExtractor.kt` (코드 상수)
 
 **Asserted by**: `OpenAiMenuBoardVisionExtractorTest` — 가짜 `ChatModel` 로 `Prompt` 를 캡처해 검증

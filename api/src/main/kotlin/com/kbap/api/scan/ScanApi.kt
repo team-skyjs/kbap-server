@@ -2,6 +2,8 @@ package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -38,6 +40,14 @@ interface ScanApi {
 
             메뉴판이 아닌 사진 등 추출 항목이 0개면 `results` 가 빈 배열인 정상 응답이다(실패 아님).
 
+            ## 판독 근거 — `X-API-Version` 으로 분기
+            - **`2026.08.08` 이상**: 메뉴명·가격은 **사진만으로** 판독한다. 보낸 OCR 항목은 판단에 쓰지 않고,
+              판독이 끝난 메뉴를 화면 항목에 잇는 **매칭 참조표**로만 쓴다. 기기 OCR 품질이 낮아도 결과가 흔들리지 않고,
+              OCR 이 놓친 메뉴도 결과에 나온다(그 경우 `idx` 는 `null`).
+            - **미전송·이전 버전·파싱 불가**: 종전 동작 — OCR 항목을 오탈자 교정 기준·메뉴 후보로 함께 사용한다.
+
+            요청 본문 계약은 두 경우 모두 같다(`items` 필수). 구버전 앱은 헤더를 보내지 않으므로 계약이 문자 그대로 보존된다.
+
             ## 언어
             표시 언어는 **요청 파라미터 `lang` 만으로** 정해진다. 회원 프로필의 앱 언어는 참조하지 않는다.
             지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. `lang` 은 **필수**이며
@@ -58,6 +68,15 @@ interface ScanApi {
     )
     fun scan(
         memberId: Long,
+        @Parameter(
+            name = "X-API-Version",
+            `in` = ParameterIn.HEADER,
+            required = false,
+            description = "계약 버전(`yyyy.mm.sprint차수`). `2026.08.08` 이상이면 사진 단독 판독, " +
+                "미전송·이전 버전·파싱 불가는 종전 OCR 병용 판독으로 폴백한다.",
+            example = "2026.08.08",
+        )
+        apiVersion: String?,
         @ParameterObject langRequest: ScanLangRequest,
         @SwaggerRequestBody(
             required = true,

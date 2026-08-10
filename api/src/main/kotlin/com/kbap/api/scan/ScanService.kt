@@ -6,6 +6,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.port.llm.ExtractedMenu
+import com.kbap.common.port.llm.MenuBoardReadingMode
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.domain.food.FoodService
@@ -28,11 +29,17 @@ class ScanService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult {
+    fun scanMenuBoardImage(
+        memberId: Long,
+        imagePath: String,
+        ocrItems: List<OcrItem>,
+        lang: LanguageCode,
+        readingMode: MenuBoardReadingMode,
+    ): ScanResult {
         memberService.getMember(memberId)
 
         val extracted = try {
-            visionExtractor.extract(imagePath, ocrItems)
+            visionExtractor.extract(imagePath, ocrItems, readingMode)
         } catch (e: Exception) {
             log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
