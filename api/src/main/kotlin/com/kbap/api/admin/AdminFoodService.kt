@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
@@ -14,7 +15,6 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -27,9 +27,9 @@ import java.time.LocalDateTime
 class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
+    private val foodService: FoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
     private val objectMapper = jacksonObjectMapper()
 
     @Transactional(readOnly = true)
@@ -162,26 +162,12 @@ class AdminFoodService(
         val requested = displayNamesByMatchKey.size
         val existing = foodRepository.findByKoreanNameIn(displayNamesByMatchKey.keys).map { it.koreanName }.toSet()
         val newNames = displayNamesByMatchKey - existing
-        val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
+        val created = if (newNames.isEmpty()) 0 else foodService.createIncomplete(newNames).size
         return SeedIncompleteResult(
             requested = requested,
             created = created,
             skipped = requested - created,
         )
-    }
-
-    private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(
-            displayNamesByMatchKey.map { (matchKey, displayName) -> Food.failed(matchKey, displayName) },
-        )
-
-        val matchKeys = displayNamesByMatchKey.keys
-        val resolved = foodRepository.findByKoreanNameIn(matchKeys).associateBy { it.koreanName }
-        val unresolved = matchKeys - resolved.keys
-        if (unresolved.isNotEmpty()) {
-            log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
-        }
-        return resolved
     }
 
     companion object {

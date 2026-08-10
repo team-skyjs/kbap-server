@@ -15,7 +15,8 @@ object HomeTestSeed {
             "DELETE FROM uploaded_image",
             "DELETE FROM scan_history",
             "DELETE FROM ingredients",
-            "DELETE FROM food",
+            "DELETE FROM food_content_outbox",
+        "DELETE FROM food",
             "DELETE FROM member",
         ),
     )
