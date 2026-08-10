@@ -49,7 +49,7 @@ recordContentFailure(kind, reason)
 - `idx_fco_status_id (outbox_status, id)` — 발행 대상 조회
 - `idx_fco_food_id (food_id)` — 중복 확인·이력 조회
 
-외래키는 두지 않는다(소프트 삭제 구조 — 프로젝트 규약).
+`food_id` 에 외래키를 건다(`fk_food_content_outbox_food`, ON DELETE 없음) — food 를 참조하는 기존 테이블(bookmark·scan_history·image_batch_item·food_review)이 전부 지키는 규약이다.
 
 ### 수명주기
 
