@@ -1,6 +1,7 @@
 package com.kbap.api.member
 
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.ApiVersion
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.member.MemberService
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberService: MemberService,
 ) : MemberApi {
-    // 온보딩 계약 v2 = 닉네임·사진 서버 자동 지정. 미전송·파싱 불가는 v1(종전 계약)로 폴백.
-    private val profileAutoAssignApiVersion = 2
+    // 2026.08.07 계약부터 닉네임·사진 서버 자동 지정. 미전송·이전 버전·파싱 불가는 종전 계약으로 폴백.
+    private val profileAutoAssignSince = ApiVersion(2026, 8, 7)
 
     @PostMapping("/me/onboarding")
     override fun completeOnboarding(
@@ -27,7 +28,8 @@ class MemberController(
         @RequestHeader(value = "X-API-Version", required = false) apiVersion: String?,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        val serverAssignsProfile = (apiVersion?.trim()?.toIntOrNull() ?: 1) >= profileAutoAssignApiVersion
+        val serverAssignsProfile =
+            ApiVersion.parseOrNull(apiVersion)?.let { it >= profileAutoAssignSince } == true
         memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }

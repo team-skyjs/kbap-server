@@ -9,12 +9,12 @@
 ```
 
 1. 로그인해 access token 확보 (`POST /api/v1/auth/login`).
-2. **온보딩** — `X-API-Version: 2` 헤더와 함께 닉네임·사진 없이:
+2. **온보딩** — `X-API-Version: 2026.08.07` 헤더와 함께 닉네임·사진 없이:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/members/me/onboarding \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -H 'X-API-Version: 2' \
+  -H 'X-API-Version: 2026.08.07' \
   -d '{"avoidanceSubstanceCodes":["EGG"],"countryCode":"US","spicinessPreference":"SKIP"}'
 ```
 

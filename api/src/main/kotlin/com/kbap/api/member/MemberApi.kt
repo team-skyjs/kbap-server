@@ -27,12 +27,12 @@ interface MemberApi {
             맵기 화면을 건너뛰면 클라이언트가 **`SKIP` 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, 6단계 외 값이면
             400 MEMBER-009 로 거절한다.
 
-            **`X-API-Version` 헤더(선택)의 계약 버전으로 신·구 동작을 분기한다.** `2` 이상이면
-            닉네임은 서버가 영숫자 6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 —
-            요청에 `nickname`·`profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로
-            언제든 변경할 수 있다.
+            **`X-API-Version` 헤더(선택)의 계약 버전으로 신·구 동작을 분기한다.** 계약 버전은
+            `yyyy.mm.sprint차수` 표기(캘린더 버저닝)로, **`2026.08.07` 이상이면** 닉네임은 서버가 영숫자
+            6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 — 요청에 `nickname`·
+            `profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
 
-            헤더가 없거나 `1`·형식 오류면(v1 계약 — 1.0.0 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
+            헤더가 없거나 `2026.08.07` 이전·형식 오류면(1.0.0 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
             미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로
             (presigned 발급 응답의 `objectKey`)를 보내고, 사진 미설정 회원은 기본 이미지 경로
             `images/default/profile/profile-default-512.png` 를 명시 전송한다. 빈 문자열·전체 URL
@@ -53,8 +53,8 @@ interface MemberApi {
             name = "X-API-Version",
             `in` = ParameterIn.HEADER,
             required = false,
-            description = "클라이언트가 기대하는 온보딩 계약 버전(정수, 기본 1). 2 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정. 미전송·형식 오류면 v1 종전 계약",
-            example = "2",
+            description = "클라이언트가 기대하는 계약 버전 — yyyy.mm.sprint차수. 2026.08.07 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정. 미전송·이전·형식 오류면 종전 계약",
+            example = "2026.08.07",
         )
         apiVersion: String?,
         @SwaggerRequestBody(
@@ -76,7 +76,7 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · X-API-Version: 2 — 닉네임·사진 서버 자동 지정",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · X-API-Version: 2026.08.07 — 닉네임·사진 서버 자동 지정",
                             value = """
                                 {
                                   "avoidanceSubstanceCodes": [],

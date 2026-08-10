@@ -11,7 +11,7 @@ description: "Task list for 온보딩 시 닉네임·프로필 사진 랜덤 지
 
 > **2026-08-10 개정**: v2 온보딩 엔드포인트 분리안을 철회하고 **v1 온보딩의 `nickname`·`profileImageUrl` 을 nullable 로 완화**하는 설계로 변경했다(사용자 결정, research R1). 아래 [X] 태스크 중 v2 산출물(`OnboardingV2Request`·`MemberV2Controller` 온보딩·`MemberV2ControllerTest` 온보딩 시나리오)은 개정 시점에 제거되고 같은 시나리오가 `OnboardingRequest` 완화 + `MemberControllerTest` 로 재배치됐다. 태스크 본문은 실행 이력으로 남긴다.
 >
-> **2026-08-10 개정 2·3**: 무조건 nullable 완화 대신 헤더 분기로 바꾸고(개정 2 — 앱 버전 `X-App-Version >= 1.1.0`), 같은 날 **계약 버전 `X-API-Version`(정수, 기본 1)이 `2` 이상인지로 확정**했다(개정 3 — 앱 버전은 트래킹 관심사, 분기 근거는 클라이언트가 선언하는 계약 버전. research R1). 미전송·`1`·형식 오류면 두 필드 필수·누락 시 400 이라는 1.0.0 계약이 그대로 복원됐고, `2` 이상이면 서버가 랜덤 지정한다. 개정 2의 semver 유틸(`AppVersion`·`AppVersionTest`)은 개정 3에서 제거. 계약·검증 시나리오는 [contracts/member-onboarding.md](./contracts/member-onboarding.md) 참조.
+> **2026-08-10 개정 2~4**: 무조건 nullable 완화 대신 헤더 분기로 바꾸고(개정 2 — 앱 버전 `X-App-Version >= 1.1.0`), 분기 근거를 앱 버전에서 **클라이언트가 선언하는 계약 버전 `X-API-Version`**으로(개정 3 — 앱 버전은 트래킹 관심사), 표기를 **캘린더 버저닝 `yyyy.mm.sprint차수`**로 확정했다(개정 4 — 토스페이먼츠 커스텀, 비호환 변경만 새 버전 릴리즈. research R1). 이번 온보딩 계약은 `2026.08.07` — 이상이면 서버가 랜덤 지정하고, 미전송·이전·형식 오류면 두 필드 필수·누락 시 400 이라는 1.0.0 계약이 그대로다. 버전 파싱·비교는 `api.core.ApiVersion`(단위 테스트 `ApiVersionTest`). 계약·검증 시나리오는 [contracts/member-onboarding.md](./contracts/member-onboarding.md) 참조.
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (헌법 원칙 I). 각 스토리는 구현 전에 실패하는 테스트를 먼저 쓰고 **Red 를 눈으로 확인**한다.
 
