@@ -49,7 +49,7 @@ images/webp/default_profile/avatar-teal.png
 | `profileImageUrl` | `String` | `String?` (기본 `null`) | **`null` = 서버가 후보에서 추첨** |
 | `spicinessPreference` | `String` | `String` | 불변 — 여전히 필수 |
 
-`null = 서버 지정` 규약은 이 dto 와 `OnboardingRequest` 의 주석·swagger 문서가 명시한다.
+`null = 서버 지정` 규약은 이 dto 와 `OnboardingRequest` 의 주석·swagger 문서가 명시한다. null 이 만들어지는 조건(`X-App-Version` 헤더 존재)은 web 계층이 소유한다.
 
 ## 변경: `MemberService.completeOnboarding`
 
@@ -69,27 +69,27 @@ completeOnboarding(input):
 
 `Member.completeOnboarding` 은 **변경하지 않는다** — 시그니처의 non-null 계약이 그대로 유지되고, 이미 온보딩한 회원에 대한 `ONBOARDING_ALREADY_COMPLETED` 가드도 그대로다. 추첨은 가드 통과 여부와 무관하게 인자 평가 시점에 일어나지만 부작용이 없으므로(순수 함수) 문제되지 않는다.
 
-## 변경: `OnboardingRequest` (2026-08-10 개정 — v2 요청 DTO 신설안 철회)
+## 변경: `OnboardingRequest`·`MemberController` (2026-08-10 개정 2 — 헤더 분기)
 
-**위치**: `api/src/main/kotlin/com/kbap/api/member/OnboardingRequest.kt`
+**위치**: `api/src/main/kotlin/com/kbap/api/member/OnboardingRequest.kt`·`MemberController.kt`
 
-| 필드 | 타입 | 필수 |
-|------|------|------|
-| `nickname` | `String?` (기본 `null`) | 선택 — 미전송·null 이면 서버 지정 |
-| `avoidanceSubstanceCodes` | `List<String>` (기본 `emptyList()`) | 선택 |
-| `countryCode` | `String` | 필수 |
-| `profileImageUrl` | `String?` (기본 `null`) | 선택 — 미전송·null 이면 서버 지정 |
-| `spicinessPreference` | `String` | 필수 |
+| 필드 | 타입 | 헤더 있음 | 헤더 없음 |
+|------|------|-----------|-----------|
+| `nickname` | `String?` (기본 `null`) | 무시 — 서버 지정 | **필수** — 누락 시 400 `COMMON-002` |
+| `avoidanceSubstanceCodes` | `List<String>` (기본 `emptyList()`) | 선택 | 선택 |
+| `countryCode` | `String` | 필수 | 필수 |
+| `profileImageUrl` | `String?` (기본 `null`) | 무시 — 서버 지정 | **필수** — 누락 시 400 `COMMON-002` |
+| `spicinessPreference` | `String` | 필수 | 필수 |
 
-`toInput(memberId)` 는 두 필드를 그대로 전달한다 — 값이 있으면 저장(FR-007), null 이면 `MemberService` 가 추첨으로 채운다.
+`MemberController` 가 `@RequestHeader("X-App-Version", required = false)` 를 받아 `toInput(memberId, serverAssignsProfile = 헤더 존재)` 로 분기한다. `serverAssignsProfile = true` 면 두 필드를 null 로 넘겨 `MemberService` 가 추첨으로 채우고, `false` 면 두 필드 null 시 `BusinessException(INVALID_REQUEST)` — Jackson 역직렬화 거절이 담당하던 종전 400 `COMMON-002` 를 동일 코드로 유지한다.
 
 ## 상태 전이
 
 | 시점 | `onboardingCompleted` | `nickname` | `profile_image_url` |
 |------|----------------------|-----------|--------------------|
 | 소셜 가입 직후(`Member.signUp`) | `false` | `null` | `null` |
-| 온보딩 완료 — 닉네임·사진 전송 | `true` | 클라이언트 전송값 | 클라이언트 전송값 |
-| 온보딩 완료 — 닉네임·사진 미전송 | `true` | 생성 코드(`K7M2XB`) | 후보 추첨값 |
+| 온보딩 완료 — 헤더 없음(구 앱) | `true` | 클라이언트 전송값 | 클라이언트 전송값 |
+| 온보딩 완료 — X-App-Version 헤더(신 앱) | `true` | 생성 코드(`K7M2XB`) | 후보 추첨값 |
 | 이후 프로필 수정 | `true` | 사용자 지정값 | 사용자 지정값 |
 | 온보딩 재시도 | `true` (불변) | 불변 | 불변 — `ONBOARDING_ALREADY_COMPLETED` |
 

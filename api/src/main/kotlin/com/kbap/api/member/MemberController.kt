@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -20,9 +21,10 @@ class MemberController(
     @PostMapping("/me/onboarding")
     override fun completeOnboarding(
         @AuthMemberId memberId: Long,
+        @RequestHeader(value = "X-App-Version", required = false) appVersion: String?,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        memberService.completeOnboarding(request.toInput(memberId))
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = appVersion != null))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 

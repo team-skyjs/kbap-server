@@ -2,6 +2,8 @@ package com.kbap.api.member
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -25,12 +27,15 @@ interface MemberApi {
             맵기 화면을 건너뛰면 클라이언트가 **`SKIP` 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, 6단계 외 값이면
             400 MEMBER-009 로 거절한다.
 
-            닉네임 `nickname` 은 **선택** — 미전송·null 이면 서버가 영숫자 6자 코드로 자동 지정한다.
-            지정된 닉네임은 프로필 수정 API 로 언제든 변경할 수 있다.
+            **`X-App-Version` 헤더(선택)로 신·구 동작을 분기한다.** 헤더를 보내면(신버전 앱) 닉네임은 서버가
+            영숫자 6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 — 요청에 `nickname`·
+            `profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
 
-            프로필 사진 `profileImageUrl` 은 **선택** — 보낼 경우 CDN 도메인 없는 이미지 경로(presigned 발급
-            응답의 `objectKey`)를 보낸다. 미전송·null 이면 서버가 기본 아바타 중 하나를 랜덤 지정한다.
-            빈 문자열·전체 URL(`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
+            헤더가 없으면(구버전 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
+            미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로
+            (presigned 발급 응답의 `objectKey`)를 보내고, 사진 미설정 회원은 기본 이미지 경로
+            `images/default/profile/profile-default-512.png` 를 명시 전송한다. 빈 문자열·전체 URL
+            (`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
             조회 응답에서는 설정된 CDN 도메인이 조합된 완전한 URL 로 내려간다.
         """,
     )
@@ -43,6 +48,14 @@ interface MemberApi {
     )
     fun completeOnboarding(
         memberId: Long,
+        @Parameter(
+            name = "X-App-Version",
+            `in` = ParameterIn.HEADER,
+            required = false,
+            description = "클라이언트 앱 버전(예: 1.1.0). 존재 여부로만 분기한다 — 보내면 닉네임·프로필 사진을 서버가 랜덤 지정",
+            example = "1.1.0",
+        )
+        appVersion: String?,
         @SwaggerRequestBody(
             required = true,
             content = [
@@ -62,7 +75,7 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · 닉네임·사진 미전송(서버 자동 지정)",
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · X-App-Version 헤더 전송 — 닉네임·사진 서버 자동 지정",
                             value = """
                                 {
                                   "avoidanceSubstanceCodes": [],

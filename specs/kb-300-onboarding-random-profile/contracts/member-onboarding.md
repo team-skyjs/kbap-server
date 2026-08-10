@@ -1,12 +1,14 @@
-# Contract: 온보딩 API (v1 완화)
+# Contract: 온보딩 API (X-App-Version 헤더 분기)
 
-> 2026-08-10 개정: 별도 v2 엔드포인트를 열지 않고 **기존 v1 온보딩의 `nickname`·`profileImageUrl` 을 선택 필드로 완화**한다(사용자 결정). 미전송·null 이면 서버가 랜덤 지정한다.
+> 2026-08-10 개정 2: `X-App-Version` 요청 헤더(선택)의 **존재 여부**로 신·구 동작을 분기한다(사용자 결정). 헤더를 보내면 닉네임·프로필 사진을 서버가 랜덤 지정하고, 헤더가 없으면 종전 계약(두 필드 필수) 그대로다.
 
 ## `POST /api/v1/members/me/onboarding`
 
 인증: `Authorization: Bearer {accessToken}` (필수)
 
-### Request
+헤더: `X-App-Version: 1.1.0` (선택) — 값은 앱 버전 문자열이지만 **존재 여부로만 분기**하며 파싱·비교하지 않는다. 1.0.0 앱은 이 헤더를 보내지 않는다.
+
+### Request — 헤더 있음 (신버전 앱)
 
 ```json
 {
@@ -18,45 +20,55 @@
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| `nickname` | `string` | 선택 | 미전송·null 이면 서버가 영숫자 6자 코드(예: `K7M2XB`)로 생성. 전송하면 그대로 저장(FR-007) |
 | `avoidanceSubstanceCodes` | `string[]` | 선택 (기본 `[]`) | 기피 성분 코드. 카탈로그에 없는 코드는 400 `MEMBER-005` |
 | `countryCode` | `string` | **필수** | ISO 2자리. 미지원 코드는 400 `MEMBER-006` |
-| `profileImageUrl` | `string` | 선택 | 미전송·null 이면 서버가 아바타 6종 후보에서 무작위 지정. 전송하면 그대로 저장 |
 | `spicinessPreference` | `string` | **필수** | `SKIP`·`NONE`·`MILD`·`MEDIUM`·`HOT`·`EXTREME`. 그 외는 400 `MEMBER-009` |
 
-**하위 호환**: 1.0.0 앱은 다섯 필드를 항상 전부 보내므로 동작이 하나도 달라지지 않는다 — 필수→선택 완화는 기존 유효 요청을 전부 그대로 받는다. 달라지는 것은 "닉네임·사진 미전송이 400 이 아니라 자동 지정"이라는 점뿐이며, 이 요청은 신버전 앱만 보낸다.
+닉네임은 서버가 영숫자 6자 코드(예: `K7M2XB`)로 생성하고, 프로필 사진은 아바타 6종 후보에서 무작위로 고른다. 요청에 `nickname`·`profileImageUrl` 을 담아 보내도 **무시**된다(오류 아님). 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
 
-`countryCode`·`spicinessPreference` 누락은 Jackson 역직렬화 실패 → 400 `COMMON-002`(기존 `GlobalExceptionHandler` 경로, 종전과 동일).
+### Request — 헤더 없음 (1.0.0 앱, 종전 계약 불변)
+
+```json
+{
+  "nickname": "길동이",
+  "avoidanceSubstanceCodes": ["EGG", "MILK"],
+  "countryCode": "US",
+  "profileImageUrl": "images/default/profile/profile-default-512.png",
+  "spicinessPreference": "SKIP"
+}
+```
+
+`nickname`·`profileImageUrl` 은 **필수** — 미전송·null 이면 400 `COMMON-002`. 전송된 값은 그대로 저장되며 랜덤 값으로 덮어써지지 않는다(FR-007). 구버전 앱의 필드 누락 버그가 조용히 랜덤 지정으로 흘러가지 않고 종전처럼 400 으로 드러난다.
 
 ### Response
 
-성공 `200`:
+성공 `200` (두 경로 동일):
 
 ```json
 { "success": true, "payload": null, "message": null, "code": null }
 ```
 
-(종전과 동일한 `BaseResponse<Unit>` 봉투. 지정된 닉네임·사진은 응답에 담지 않고 `GET /api/v1/members/me/profile` 로 확인한다.)
+(지정된 닉네임·사진은 응답에 담지 않고 `GET /api/v1/members/me/profile` 로 확인한다.)
 
 ### 오류
 
 | 상태 | code | 조건 |
 |------|------|------|
-| 400 | `COMMON-002` | 필수 필드(국가·맵기) 누락·타입 불일치 |
+| 400 | `COMMON-002` | 필수 필드 누락·타입 불일치 — 헤더 없으면 닉네임·사진도 필수 |
 | 400 | `MEMBER-002` | 이미 온보딩을 완료한 회원 |
 | 400 | `MEMBER-003` | 회원을 찾을 수 없음 |
-| 400 | `MEMBER-004` | 닉네임을 **보냈는데** 비어 있음(공백) |
+| 400 | `MEMBER-004` | (헤더 없음) 보낸 닉네임이 비어 있음 |
 | 400 | `MEMBER-005` | 지원하지 않는 기피 성분 코드 |
 | 400 | `MEMBER-006` | 지원하지 않는 국가 코드 |
-| 400 | `MEMBER-008` | 사진 경로를 **보냈는데** 형식 위반(빈 문자열·절대 URL·512자 초과) |
+| 400 | `MEMBER-008` | (헤더 없음) 보낸 사진 경로 형식 위반(빈 문자열·절대 URL·512자 초과) |
 | 400 | `MEMBER-009` | 잘못된 맵기 선호 |
 | 401 | — | 토큰 부재·위조·만료 |
 
-서버 생성 닉네임·후보 이미지 경로는 배포 전 단위 테스트(`OnboardingProfileDefaultsTest`)가 유효성을 보장하므로 자동 지정 경로에서 `MEMBER-004`/`MEMBER-008` 은 발생하지 않는다.
+서버 생성 닉네임·후보 이미지 경로는 배포 전 단위 테스트(`OnboardingProfileDefaultsTest`)가 유효성을 보장하므로 헤더 경로에서 `MEMBER-004`/`MEMBER-008` 은 발생하지 않는다.
 
 ## 사후 동작 동등성 (FR-009)
 
-닉네임·사진을 보냈든 자동 지정받았든 다음이 동일하다:
+온보딩 경로(헤더 유무)와 무관하게 다음이 동일하다:
 
 - `GET /api/v1/members/me/profile` 응답 형식·필드 — 프로필 사진은 두 경우 모두 공개 베이스 URL 이 붙은 절대 URL 로 내려간다.
 - `PATCH /api/v1|v2/members/me/profile` 로 닉네임·사진 변경 가능.
@@ -67,8 +79,9 @@
 
 | 검증 대상 | 테스트 |
 |-----------|--------|
-| 닉네임·사진 생략/null → 200 + 자동 지정 | `MemberControllerTest` (MockMvc + Testcontainers) |
-| 닉네임·사진 전송 시 그대로 저장(랜덤으로 덮이지 않음) | `MemberControllerTest` 기존 시나리오 |
-| 필수 필드(국가·맵기) 누락 → `COMMON-002` | `MemberControllerTest` |
-| 재온보딩 → `MEMBER-002` / 미인증 → 401 | `MemberControllerTest` |
+| 헤더 + 닉네임·사진 없이 → 200 + 자동 지정 | `MemberControllerTest` (MockMvc + Testcontainers) |
+| 헤더 + 닉네임·사진 전송 → 무시되고 서버 지정값 저장 | `MemberControllerTest` |
+| 헤더가 있어도 필수 필드(국가) 누락 → `COMMON-002` | `MemberControllerTest` |
+| 헤더 없음 + 닉네임/사진 생략·null → 400 `COMMON-002` (종전 계약) | `MemberControllerTest` |
+| 헤더 없음 + 전송값 그대로 저장 | `MemberControllerTest` 기존 시나리오 |
 | 닉네임 생성 형식·중복, 이미지 후보 유효성·분포 | `OnboardingProfileDefaultsTest` (단위) |

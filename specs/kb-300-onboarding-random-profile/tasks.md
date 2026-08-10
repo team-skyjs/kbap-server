@@ -10,6 +10,8 @@ description: "Task list for 온보딩 시 닉네임·프로필 사진 랜덤 지
 **Prerequisites**: [plan.md](./plan.md) · [spec.md](./spec.md) · [research.md](./research.md) · [data-model.md](./data-model.md) · [contracts/member-onboarding.md](./contracts/member-onboarding.md)
 
 > **2026-08-10 개정**: v2 온보딩 엔드포인트 분리안을 철회하고 **v1 온보딩의 `nickname`·`profileImageUrl` 을 nullable 로 완화**하는 설계로 변경했다(사용자 결정, research R1). 아래 [X] 태스크 중 v2 산출물(`OnboardingV2Request`·`MemberV2Controller` 온보딩·`MemberV2ControllerTest` 온보딩 시나리오)은 개정 시점에 제거되고 같은 시나리오가 `OnboardingRequest` 완화 + `MemberControllerTest` 로 재배치됐다. 태스크 본문은 실행 이력으로 남긴다.
+>
+> **2026-08-10 개정 2**: 무조건 nullable 완화 대신 **`X-App-Version` 헤더(선택) 존재 여부로 분기**한다(사용자 결정, research R1 개정 2). 헤더가 없으면 두 필드 필수·누락 시 400 이라는 1.0.0 계약이 그대로 복원됐고, 헤더가 있으면 서버가 랜덤 지정한다. 계약·검증 시나리오는 [contracts/member-onboarding.md](./contracts/member-onboarding.md) 참조.
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (헌법 원칙 I). 각 스토리는 구현 전에 실패하는 테스트를 먼저 쓰고 **Red 를 눈으로 확인**한다.
 

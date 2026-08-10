@@ -6,14 +6,14 @@
 
 ## Summary
 
-온보딩에서 닉네임·프로필 사진을 보내지 않으면 서버가 상수 후보에서 무작위로 지정한다. **별도 v2 엔드포인트를 열지 않고 기존 v1 온보딩의 두 필드를 선택(nullable)으로 완화**한다(2026-08-10 개정 — 사용자 결정, 초안의 v2 경로 분리안 철회). 1.0.0 앱은 다섯 필드를 항상 전부 보내므로 필수→선택 완화로 기존 요청의 동작은 하나도 달라지지 않는다. 강제 업데이트·버전 헤더를 새로 도입하지 않는다.
+온보딩 요청의 **`X-App-Version` 헤더(선택) 존재 여부**로 신·구 동작을 분기한다(2026-08-10 개정 2 — 사용자 결정. 초안의 v2 경로 분리안과 개정 1의 무조건 nullable 완화안을 대체). 헤더를 보내면(신버전 앱) 닉네임·프로필 사진을 서버가 상수 후보에서 무작위 지정하고 — 보내도 무시 — 헤더가 없으면(1.0.0 앱) 두 필드 필수·누락 시 400 이라는 종전 계약이 그대로 유지된다. 별도 v2 엔드포인트·강제 업데이트는 도입하지 않는다.
 
 변경 4지점:
 
 1. `common.domain.member.model.OnboardingProfileDefaults` 신규 — 닉네임 생성기(영숫자 6자 코드) + 프로필 이미지 경로 후보 6종 상수·무작위 선택.
 2. `MemberProfileInput.nickname`·`profileImageUrl` 을 `String?`(기본 `null`)로 완화 — **null = 서버가 랜덤 지정**.
 3. `MemberService.completeOnboarding` 이 null 을 후보 추첨으로 채운 뒤 기존 `Member.completeOnboarding` 에 넘긴다(정책은 도메인 서비스 소유 — 헌법 IV).
-4. `OnboardingRequest.nickname`·`profileImageUrl` 을 `String? = null` 로 완화하고 `MemberApi` swagger 를 선택 필드로 갱신.
+4. `MemberController.completeOnboarding` 이 `@RequestHeader("X-App-Version", required = false)` 를 받아 `OnboardingRequest.toInput(memberId, serverAssignsProfile = 헤더 존재)` 로 분기 — 헤더 있으면 두 필드를 null 로 넘기고(랜덤 지정), 없으면 두 필드 누락 시 400 `COMMON-002`(종전 계약).
 
 v2 쪽(`MemberV2Controller`·`MemberV2Api`)은 손대지 않는다. DB 스키마·Flyway 마이그레이션 없음.
 
@@ -33,7 +33,7 @@ v2 쪽(`MemberV2Controller`·`MemberV2Api`)은 손대지 않는다. DB 스키마
 
 **Performance Goals**: 온보딩 지연 영향 없음 — 추첨은 인메모리 리스트 인덱싱 1회
 
-**Constraints**: 1.0.0 앱이 보내는 기존 유효 요청의 동작 불변(필수→선택 완화는 하위 호환). 앱 버전 식별 수단 없음 → 분기는 요청 필드 null 여부로
+**Constraints**: 1.0.0 앱(헤더 미전송)의 온보딩 계약 완전 불변 — 요청 형식·검증·오류 코드 종전 그대로. 분기는 `X-App-Version` 헤더 존재 여부로만(값 파싱·비교 없음)
 
 **Scale/Scope**: 신규 파일 2개(상수 1·테스트 1), 수정 파일 5개 내외. 마이그레이션 0건
 
@@ -84,9 +84,9 @@ common/src/test/kotlin/com/kbap/common/domain/member/
 └── model/OnboardingProfileDefaultsTest.kt  # 신규 — 닉네임 형식·중복, 이미지 후보 유효성·분포
 
 api/src/main/kotlin/com/kbap/api/member/
-├── OnboardingRequest.kt                    # 수정 — nickname·profileImageUrl 을 String? = null 로
-├── MemberApi.kt                            # 수정 — 두 필드 선택 안내·예시 갱신
-├── MemberController.kt                     # 무변경
+├── OnboardingRequest.kt                    # 수정 — nullable 필드 + toInput(serverAssignsProfile) 분기
+├── MemberController.kt                     # 수정 — X-App-Version 헤더(선택) 수신
+├── MemberApi.kt                            # 수정 — 헤더 분기 안내·@Parameter(HEADER)·예시 갱신
 └── MemberV2Api.kt / MemberV2Controller.kt  # 무변경 (기존 v2 프로필 수정만 유지)
 
 api/src/test/kotlin/com/kbap/api/member/
