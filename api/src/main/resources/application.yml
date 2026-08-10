@@ -57,13 +57,13 @@ kbap:
       refresh-ttl: 14d
   llm:
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. ScanService 가 이 빈에 의존하므로
-    # 기본 on — enabled=false 면 부팅에 실패한다. VISION_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
+    # 기본 on — enabled=false 면 부팅에 실패한다. OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
     # image-base-url(CDN 도메인)에 오브젝트 path 를 붙여 모델이 fetch 할 전체 URL 을 만든다(DB 엔 path 만 저장).
     # KB-320: gpt-4o-mini -> gpt-5.6-luna. 추론 모델이라 기본값 외 temperature 를 거부할 수 있어 기본값 1.0 을 보낸다
     # (온도 0 의 결정적 판정은 추론 모델에서 어차피 보장되지 않는다). 출력 토큰에 추론 토큰이 포함돼 비용이 늘어난다.
     vision:
       enabled: ${VISION_ENABLED:true}
-      api-key: ${VISION_API_KEY:}
+      api-key: ${OPENAI_API_KEY:}
       model: gpt-5.6-luna
       image-base-url: ${CDN_BASE_URL:}
       temperature: 1.0

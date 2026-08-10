@@ -21,16 +21,16 @@
 SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 ```
 
-vision 빈은 `kbap.llm.vision.enabled=true` 가 기본이라 **`VISION_API_KEY` 가 없으면 부팅에 실패한다**(의도된 fail-fast). 스캔을 쓰지 않을 때는 `VISION_ENABLED=false`.
+vision 빈은 `kbap.llm.vision.enabled=true` 가 기본이라 **`OPENAI_API_KEY` 가 없으면 부팅에 실패한다**(의도된 fail-fast). 스캔을 쓰지 않을 때는 `VISION_ENABLED=false`.
 
-필요 환경변수: `VISION_API_KEY`(OpenAI 키), `CDN_BASE_URL`(모델이 사진을 fetch 할 도메인).
+필요 환경변수: `OPENAI_API_KEY`, `CDN_BASE_URL`(모델이 사진을 fetch 할 도메인).
 
 ## 3. 실 API 스모크 — 파라미터 호환·토큰·지연 실측 (배포 전 1회, 수동)
 
 research R2·R3 를 닫는 단계다. **이걸 건너뛰고 배포하면 첫 스캔에서 죽을 수 있다.**
 
 ```bash
-VISION_API_KEY=<real> CDN_BASE_URL=<real> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
+OPENAI_API_KEY=<real> CDN_BASE_URL=<real> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 # 다른 터미널에서 실제 메뉴판 사진 경로로 1회 호출
 curl -X POST "http://localhost:8080/api/v1/scans?lang=ko" \
   -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
