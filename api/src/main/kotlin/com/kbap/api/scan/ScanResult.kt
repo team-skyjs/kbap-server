@@ -12,5 +12,14 @@ data class ScanResult(
         val name: String?,
         val koreanName: String?,
         val price: Int?,
+        val similarFood: SimilarFood? = null,
+    )
+
+    data class SimilarFood(
+        val foodId: Long,
+        val name: String,
+        val koreanName: String?,
+        val description: String,
+        val imageRef: String?,
     )
 }
