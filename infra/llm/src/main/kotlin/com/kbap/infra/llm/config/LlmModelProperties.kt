@@ -39,9 +39,7 @@ data class LlmModelProperties(
         val imageBaseUrl: String = "",
         val temperature: Double? = null,
         val maxRetries: Int? = null,
-        // vision 은 사진 해석이라 텍스트 정제(call-timeout)보다 오래 걸린다 — 전용 타임아웃.
         val timeout: Duration = Duration.ofSeconds(60),
-        // gpt-5.6-luna 기본 단가(1M 토큰당 USD) — 토큰·비용 로깅용. 모델 교체 시 이 값도 함께 옮긴다.
         val pricing: PricingProps = PricingProps(
             inputUsdPerMillionTokens = 0.2,
             outputUsdPerMillionTokens = 1.2,

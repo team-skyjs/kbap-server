@@ -28,12 +28,7 @@ class ScanService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // 의도적 무트랜잭션 — 비전 인식(외부 호출)을 트랜잭션 밖에 두고(헌법: 외부 호출 tx 밖),
-    // 매칭·이력 저장·스캔 카운트는 각 도메인 서비스·리포지토리의 트랜잭션에 위임한다.
     fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult {
-    // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
-    // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-
         memberService.getMember(memberId)
 
         val extracted = try {
@@ -46,7 +41,6 @@ class ScanService(
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
         val validIdxes = ocrItems.map { it.idx }.toSet()
-        // 한 화면 항목에 위험도가 겹쳐 그려지지 않도록, 같은 idx 는 먼저 나온 결과만 갖는다.
         val usedIdxes = mutableSetOf<Int>()
 
         val items = extracted.map { menu ->

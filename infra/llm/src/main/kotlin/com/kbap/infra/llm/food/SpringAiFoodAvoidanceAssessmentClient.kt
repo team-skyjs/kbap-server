@@ -33,7 +33,6 @@ class SpringAiFoodAvoidanceAssessmentClient(
                 val byCode = mutableMapOf<String, Int>()
                 var valid = true
                 for (item in response.assessments) {
-                    // 후보 밖 코드는 존재하지 않는 항목 취급 — percent·중복 검사 없이 항목만 스킵(KB-236)
                     if (item.code !in candidateCodes) continue
                     if (item.inclusionPercent !in 0..100 || item.code in byCode) {
                         valid = false

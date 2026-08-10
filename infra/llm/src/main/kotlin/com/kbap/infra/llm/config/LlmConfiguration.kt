@@ -49,8 +49,6 @@ class LlmConfiguration {
         val props = properties.vision
         val chatModel = OpenAiChatModel.builder()
             .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            // OpenAiChatOptions.timeout 은 spring-ai-openai 2.0 에서 소비되지 않는다(죽은 필드) —
-            // 실제 okhttp 타임아웃은 http client 빌더로만 설정된다. vision 은 사진 해석이라 기본값(짧음)으로는 초과한다.
             .httpClientBuilderCustomizer { it.timeout(props.timeout) }
             .build()
         val pricing = LlmPricing(

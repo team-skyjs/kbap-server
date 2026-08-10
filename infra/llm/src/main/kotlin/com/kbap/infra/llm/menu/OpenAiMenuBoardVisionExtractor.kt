@@ -19,7 +19,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URI
 
-// 이미지 바이트는 서버를 거치지 않는다 — 모델이 URL(imageBaseUrl + path)을 직접 fetch 한다.
 class OpenAiMenuBoardVisionExtractor(
     private val chatModel: ChatModel,
     private val parser: MenuBoardResultParser,
