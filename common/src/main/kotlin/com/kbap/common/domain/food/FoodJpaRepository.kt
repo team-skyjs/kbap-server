@@ -47,6 +47,19 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         pageable: Pageable,
     ): Page<Food>
 
+    fun findByDisplayNameContainingOrderByIdAsc(displayName: String): List<Food>
+
+    fun findByContentStatusAndDisplayNameContainingOrderByIdAsc(
+        contentStatus: FoodContentStatus,
+        displayName: String,
+    ): List<Food>
+
+    fun countByDisplayNameContaining(displayName: String): Long
+
+    fun countByContentStatus(contentStatus: FoodContentStatus): Long
+
+    fun countByDisplayNameContainingAndContentStatus(displayName: String, contentStatus: FoodContentStatus): Long
+
     @Query(
         """
         select f from Food f

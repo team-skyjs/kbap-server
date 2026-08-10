@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 
 class FoodApplyContentTest : BehaviorSpec({
     val translations = mapOf("en" to "Perilla Kalguksu", "ja" to "えごまカルグクス")
-    val ingredients = listOf(FoodIngredient(code = "PERILLA", inclusionPercent = 100))
+    val ingredients = listOf(FoodIngredient(code = "SESAME", inclusionPercent = 100))
 
     fun food(status: FoodContentStatus, imageRef: String?) =
         Food(

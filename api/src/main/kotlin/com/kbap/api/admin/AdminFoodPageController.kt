@@ -111,6 +111,26 @@ class AdminFoodPageController(
         return "redirect:/admin/foods/list?$query"
     }
 
+    @PostMapping("/admin/foods/recollect")
+    fun recollect(
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return try {
+            val result = adminFoodService.requestRecollect(q, parseStatus(status))
+            when {
+                result.exceeded -> listRedirect(safePage, q, status, "recollectError" to "too-many", "recollectMax" to result.max)
+                result.requested == 0L -> listRedirect(safePage, q, status, "recollectError" to "no-target")
+                else -> listRedirect(safePage, q, status, "recollected" to result.created, "recollectSkipped" to result.skipped)
+            }
+        } catch (e: Exception) {
+            log.error("재수집 요청 실패", e)
+            listRedirect(safePage, q, status, "recollectError" to "failed")
+        }
+    }
+
     @GetMapping("/admin/foods/seed")
     fun seedPage(): String = "admin/food-seed"
 

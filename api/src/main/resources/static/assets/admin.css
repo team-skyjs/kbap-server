@@ -351,6 +351,10 @@ body {
 
 .banner-error { background: var(--error-bg); color: var(--error-text); }
 
+.banner-warn { background: var(--warning-bg); color: var(--warning-text); }
+
+.banner-warn p { margin: var(--sp-2) 0 0; font-weight: 400; white-space: pre-line; }
+
 .seed-main .btn-primary { width: auto; }
 
 .seed-input,

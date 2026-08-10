@@ -22,7 +22,7 @@
   "nameTranslations": { "en": "...", "ja": "...", "zh-Hans": "...", "zh-Hant": "...",
                         "vi": "...", "id": "...", "th": "...", "ru": "...", "es": "..." },
   "descriptionTranslations": { /* 동일 9키 */ },
-  "ingredients": [ { "code": "PERILLA", "inclusion_percent": 100 } ]
+  "ingredients": [ { "code": "SESAME", "inclusion_percent": 100 } ]
 }
 
 // passed: false — 판정 실패

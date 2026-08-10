@@ -4,8 +4,12 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentFailureKind
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
@@ -13,6 +17,7 @@ import com.kbap.common.util.KoreanMenuNameNormalizer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,6 +26,7 @@ import java.time.LocalDateTime
 @Service
 class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
+    private val outboxRepository: FoodContentOutboxJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -102,6 +108,49 @@ class AdminFoodService(
     }
 
     @Transactional
+    fun requestRecollect(
+        query: String?,
+        status: FoodContentStatus?,
+        max: Int = RECOLLECT_MAX,
+    ): AdminFoodRecollectResult {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
+        val requested = countRecollectTargets(keyword, status)
+        if (requested == 0L) return AdminFoodRecollectResult(requested = 0, created = 0, skipped = 0, max = max)
+        if (requested > max) {
+            return AdminFoodRecollectResult(requested = requested, created = 0, skipped = 0, exceeded = true, max = max)
+        }
+
+        val targets = getRecollectTargets(keyword, status)
+        val alreadyPending = outboxRepository
+            .findByFoodIdInAndOutboxStatus(targets.map { it.id }, FoodContentOutboxStatus.PENDING)
+            .map { it.foodId }
+            .toSet()
+        val created = targets.filterNot { it.id in alreadyPending }
+        outboxRepository.saveAll(created.map { FoodContentOutbox.pending(it.id, it.displayName) })
+
+        return AdminFoodRecollectResult(
+            requested = requested,
+            created = created.size.toLong(),
+            skipped = requested - created.size,
+            max = max,
+        )
+    }
+
+    private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
+        keyword == null && status == null -> foodRepository.count()
+        keyword == null -> foodRepository.countByContentStatus(status!!)
+        status == null -> foodRepository.countByDisplayNameContaining(keyword)
+        else -> foodRepository.countByDisplayNameContainingAndContentStatus(keyword, status)
+    }
+
+    private fun getRecollectTargets(keyword: String?, status: FoodContentStatus?): List<Food> = when {
+        keyword == null && status == null -> foodRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        keyword == null -> foodRepository.findByContentStatusOrderByIdAsc(status!!, Pageable.unpaged())
+        status == null -> foodRepository.findByDisplayNameContainingOrderByIdAsc(keyword)
+        else -> foodRepository.findByContentStatusAndDisplayNameContainingOrderByIdAsc(status, keyword)
+    }
+
+    @Transactional
     fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
         val displayNamesByMatchKey = koreanNames
             .map { KoreanMenuNameNormalizer.matchKey(it) to it }
@@ -137,8 +186,18 @@ class AdminFoodService(
 
     companion object {
         const val LIST_PAGE_SIZE = 200
+
+        const val RECOLLECT_MAX = 500
     }
 }
+
+data class AdminFoodRecollectResult(
+    val requested: Long,
+    val created: Long,
+    val skipped: Long,
+    val exceeded: Boolean = false,
+    val max: Int = AdminFoodService.RECOLLECT_MAX,
+)
 
 enum class AdminFoodDeleteResult {
     DELETED,
@@ -179,6 +238,7 @@ data class AdminFoodSummaryView(
     val id: Long,
     val koreanName: String,
     val contentStatus: FoodContentStatus,
+    val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
     val imageUrl: String?,
     val updatedAt: LocalDateTime,
@@ -189,6 +249,7 @@ data class AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
                 contentStatus = food.contentStatus,
+                contentFailureKind = food.contentFailureKind,
                 spiciness = food.spiciness,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 updatedAt = food.updatedAt,
@@ -202,6 +263,8 @@ data class AdminFoodDetailView(
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
+    val contentFailureKind: FoodContentFailureKind?,
+    val contentReviewRejectionReason: String?,
     val imageRef: String?,
     val imageUrl: String?,
     val nameTranslationsJson: String,
@@ -219,6 +282,8 @@ data class AdminFoodDetailView(
                 description = food.description,
                 spiciness = food.spiciness,
                 contentStatus = food.contentStatus,
+                contentFailureKind = food.contentFailureKind,
+                contentReviewRejectionReason = food.contentReviewRejectionReason,
                 imageRef = food.imageRef,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 nameTranslationsJson = toJson(food.nameTranslations),

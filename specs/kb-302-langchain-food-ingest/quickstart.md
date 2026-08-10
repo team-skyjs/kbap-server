@@ -42,7 +42,7 @@ curl -X POST localhost:8080/api/v1/admin/foods/contents \
     "spiciness": 2,
     "nameTranslations": {"en":"Perilla Kalguksu","ja":"えごまカルグクス","zh-Hans":"紫苏刀削面","zh-Hant":"紫蘇刀削麵","vi":"Mì Kalguksu tía tô","id":"Kalguksu Perilla","th":"คัลกุกซูงาขี้ม้อน","ru":"Кальгуксу с периллой","es":"Kalguksu de perilla"},
     "descriptionTranslations": {"en":"...","ja":"...","zh-Hans":"...","zh-Hant":"...","vi":"...","id":"...","th":"...","ru":"...","es":"..."},
-    "ingredients": [{"code":"PERILLA","inclusion_percent":100}]
+    "ingredients": [{"code":"SESAME","inclusion_percent":100}]
   }'
 ```
 
