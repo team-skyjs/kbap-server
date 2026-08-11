@@ -351,6 +351,10 @@ body {
 
 .banner-error { background: var(--error-bg); color: var(--error-text); }
 
+.banner-warn { background: var(--warning-bg); color: var(--warning-text); }
+
+.banner-warn p { margin: var(--sp-2) 0 0; font-weight: 400; white-space: pre-line; }
+
 .seed-main .btn-primary { width: auto; }
 
 .seed-input,
@@ -522,6 +526,25 @@ body {
 .page-btn:hover { border-color: var(--navy); }
 
 .page-info { color: var(--text-faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.page-arrow { padding: 8px 12px; }
+
+.page-num {
+  min-width: 34px;
+  padding: 8px 0;
+  border-radius: var(--radius);
+  color: var(--text-strong);
+  text-align: center;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease;
+}
+
+.page-num:hover { background: var(--surface); }
+
+.page-num-active { background: var(--border); font-weight: 800; }
 
 /* ---- 상세(회원) ---- */
 

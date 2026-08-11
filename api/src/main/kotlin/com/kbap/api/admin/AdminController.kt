@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.ADMIN + "/foods")
+@RequestMapping(ApiPaths.ADMIN + "/foods", version = "1.0+")
 class AdminController(
     private val adminFoodService: AdminFoodService,
     private val foodImageBatchSubmitService: FoodImageBatchSubmitService,

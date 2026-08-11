@@ -47,7 +47,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/admin/foods/content-reviews"
+        val path = "/api/admin/foods/content-reviews"
         val targetLangs = LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }
 
         fun allTargets(value: String) = targetLangs.associateWith { "$value-$it" }
@@ -58,6 +58,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
         fun clearFoods(): Unit =
             dataSource.connection.use { c ->
                 c.createStatement().use {
+                    it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
                     it.execute("DELETE FROM food")

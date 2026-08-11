@@ -94,6 +94,12 @@ class ScanControllerTest : BehaviorSpec() {
 
         fun deleteFood(matchKey: String): Unit =
             dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "DELETE FROM food_content_outbox WHERE food_id IN (SELECT id FROM food WHERE korean_name = ?)",
+                ).use { ps ->
+                    ps.setString(1, matchKey)
+                    ps.executeUpdate()
+                }
                 c.prepareStatement("DELETE FROM food WHERE korean_name = ?").use { ps ->
                     ps.setString(1, matchKey)
                     ps.executeUpdate()
@@ -123,6 +129,20 @@ class ScanControllerTest : BehaviorSpec() {
                     ps.executeQuery().use { rs ->
                         buildList { while (rs.next()) add(rs.getString(1) to rs.getString(2)) }
                     }
+                }
+            }
+
+        fun pendingOutboxNames(matchKey: String): List<String> =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    SELECT o.display_name FROM food_content_outbox o
+                    JOIN food f ON f.id = o.food_id
+                    WHERE f.korean_name = ? AND o.outbox_status = 'PENDING'
+                    """,
+                ).use { ps ->
+                    ps.setString(1, matchKey)
+                    ps.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString(1)) } }
                 }
             }
 
@@ -642,6 +662,25 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     foodNames("들깨칼국수") shouldBe listOf("들깨칼국수" to "들깨 칼국수")
+                }
+            }
+
+            `when`("미등록 메뉴가 등록되면") {
+                then("콘텐츠 수집 요청이 대기 상태로 함께 쌓인다") {
+                    val memberId = 533L
+                    val path = "scan/533/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    deleteFood("수집대기국수")
+                    vision.program(path, listOf(ExtractedMenu("Guksu 수집대기국수", "수집대기국수", 8000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "수집대기국수")
+                    }.andExpect { status { isOk() } }
+
+                    pendingOutboxNames("수집대기국수") shouldBe listOf("수집대기국수")
                 }
             }
 

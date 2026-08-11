@@ -150,6 +150,18 @@ class ReviewService(
         toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId, lang)
 
     @Transactional(readOnly = true)
+    fun getFoodRatings(foodIds: List<Long>): Map<Long, FoodRating> {
+        val distinctIds = foodIds.distinct()
+        if (distinctIds.isEmpty()) return emptyMap()
+        return reviewRepository.aggregateRatingsByFoodIds(distinctIds).associate {
+            it.foodId to FoodRating(
+                averageRating = (it.average ?: 0.0).roundToFirstDecimal(),
+                reviewCount = it.reviewCount,
+            )
+        }
+    }
+
+    @Transactional(readOnly = true)
     fun getFoodRatingSummary(foodId: Long, viewerCountryCode: String?): RatingSummary {
         val overall = reviewRepository.aggregateRating(foodId, null)
         val sameCountry = viewerCountryCode?.let { reviewRepository.aggregateRating(foodId, it) }
@@ -215,3 +227,8 @@ class ReviewService(
         const val PAGE_SIZE = 20
     }
 }
+
+data class FoodRating(
+    val averageRating: Double,
+    val reviewCount: Long,
+)

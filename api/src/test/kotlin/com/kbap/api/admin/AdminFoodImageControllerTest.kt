@@ -46,7 +46,7 @@ class AdminFoodImageControllerTest : BehaviorSpec() {
     private lateinit var fakeClient: FakeFoodImageBatchClient
 
     init {
-        val path = "/api/v1/admin/foods/images"
+        val path = "/api/admin/foods/images"
 
         fun clearAll() {
             itemRepository.deleteAll()

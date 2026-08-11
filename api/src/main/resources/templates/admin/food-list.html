@@ -16,10 +16,25 @@
         <button class="page-btn" type="submit">검색</button>
     </form>
 
+    <form class="food-search" method="post" th:action="@{/admin/foods/recollect}"
+          th:onsubmit="|return confirm('현재 조건에 걸린 ${foodPage.totalCount}건의 콘텐츠를 다시 수집 요청합니다. 진행할까요?')|">
+        <input type="hidden" name="page" th:value="${foodPage.page}">
+        <input type="hidden" name="q" th:value="${foodPage.query}">
+        <input type="hidden" name="status" th:value="${foodPage.status}">
+        <span class="page-info" th:text="|현재 조건 ${#numbers.formatInteger(foodPage.totalCount, 0, 'COMMA')}건|">0건</span>
+        <button class="page-btn" type="submit">콘텐츠 재수집 요청</button>
+    </form>
+
     <div class="banner banner-ok" th:if="${param.updated != null}"
          th:text="|음식 #${param.updated[0]} 수정 완료|"></div>
     <div class="banner banner-ok" th:if="${param.deleted != null}"
          th:text="|음식 #${param.deleted[0]} 삭제 완료|"></div>
+    <div class="banner banner-ok" th:if="${param.recollected != null}"
+         th:text="|재수집 요청 ${param.recollected[0]}건 등록 · 이미 대기 중이라 건너뜀 ${param.recollectSkipped[0]}건|"></div>
+    <div class="banner banner-error" th:if="${param.recollectError != null}"
+         th:with="code=${param.recollectError[0]}"
+         th:text="${code == 'too-many'} ? |대상이 1회 상한(${param.recollectMax[0]}건)을 넘습니다. 검색어·상태로 범위를 좁혀 주세요|
+                : (${code == 'no-target'} ? '조건에 걸린 음식이 없습니다' : '재수집 요청 중 오류가 발생했습니다')"></div>
     <div class="banner banner-error" th:if="${param.error != null and param.detail == null}">
         처리 중 오류가 발생했습니다
     </div>
@@ -40,6 +55,8 @@
                                         : (${f.contentStatus.name() == 'FAILED'} ? 'badge-warn'
                                         : (${f.contentStatus.name() == 'PENDING_REVIEW'} ? 'badge-info' : 'badge-progress'))"
                           th:text="${f.contentStatus}">READY</span>
+                    <span class="badge badge-warn" th:if="${f.contentFailureKind != null and f.contentFailureKind.name() == 'INGREDIENT_GUARD'}"
+                          title="재료 판정 미달 — 사람이 재료를 확인해야 합니다">재료 확인</span>
                 </div>
             </a>
         </div>
@@ -54,10 +71,15 @@
         </div>
     </div>
 
-    <nav class="pagination" th:if="${foodPage.totalPages > 1}">
-        <a class="page-btn" th:if="${foodPage.hasPrev}" th:href="@{/admin/foods/list(page=${foodPage.page - 1}, q=${foodPage.query}, status=${foodPage.status})}">이전</a>
-        <span class="page-info" th:text="|${foodPage.page} / ${foodPage.totalPages}|">1 / 1</span>
-        <a class="page-btn" th:if="${foodPage.hasNext}" th:href="@{/admin/foods/list(page=${foodPage.page + 1}, q=${foodPage.query}, status=${foodPage.status})}">다음</a>
+    <nav class="pagination" th:if="${foodPage.totalPages > 1}"
+         th:with="winStart=${T(java.lang.Math).max(1, T(java.lang.Math).min(foodPage.page - 4, foodPage.totalPages - 9))},
+                  winEnd=${T(java.lang.Math).min(foodPage.totalPages, winStart + 9)}">
+        <a class="page-btn page-arrow" th:if="${foodPage.hasPrev}" th:href="@{/admin/foods/list(page=${foodPage.page - 1}, q=${foodPage.query}, status=${foodPage.status})}">&lsaquo;</a>
+        <a class="page-num" th:each="p : ${#numbers.sequence(winStart, winEnd)}"
+           th:classappend="${p == foodPage.page} ? 'page-num-active'"
+           th:href="@{/admin/foods/list(page=${p}, q=${foodPage.query}, status=${foodPage.status})}"
+           th:text="${p}">1</a>
+        <a class="page-btn page-arrow" th:if="${foodPage.hasNext}" th:href="@{/admin/foods/list(page=${foodPage.page + 1}, q=${foodPage.query}, status=${foodPage.status})}">&rsaquo;</a>
     </nav>
 
     <dialog class="food-modal" th:if="${foodDetail != null}"
@@ -74,6 +96,15 @@
                      th:text="${code == 'invalid-json'} ? '번역/성분 JSON 형식이 잘못됐습니다'
                             : (${code == 'duplicate-name'} ? '이미 같은 이름의 음식이 있습니다'
                             : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다' : '처리 중 오류가 발생했습니다'))"></div>
+
+                <div class="banner banner-warn" th:if="${foodDetail.contentFailureKind != null}">
+                    <strong th:text="|수집 실패 · ${foodDetail.contentFailureKind}|">수집 실패</strong>
+                    <span th:text="${foodDetail.contentFailureKind.name() == 'NOT_FOOD'} ? '음식이 아니거나 이름을 읽을 수 없습니다 — 이름을 고쳐 재수집하거나 삭제하세요'
+                                 : (${foodDetail.contentFailureKind.name() == 'INGREDIENT_GUARD'} ? '재료 판정이 임계값에 못 미쳤습니다 — 안전 직결이라 사람이 재료를 확인해야 합니다'
+                                 : '설명·번역 품질이 판정을 통과하지 못했습니다')"></span>
+                    <p th:if="${foodDetail.contentReviewRejectionReason != null}"
+                       th:text="${foodDetail.contentReviewRejectionReason}"></p>
+                </div>
 
                 <div class="field">
                     <label>이미지</label>
