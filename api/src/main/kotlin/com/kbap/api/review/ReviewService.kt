@@ -2,6 +2,8 @@ package com.kbap.api.review
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
@@ -27,6 +29,7 @@ class ReviewService(
     private val reviewRepository: ReviewJpaRepository,
     private val reviewLikeRepository: ReviewLikeJpaRepository,
     private val foodService: FoodService,
+    private val foodRepository: FoodJpaRepository,
     private val memberService: MemberService,
     private val uploadedImageService: UploadedImageService,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
@@ -112,29 +115,39 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodReviewPage(viewerMemberId: Long, foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
-        foodService.getReadyFood(foodId)
-        // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
-        val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
-        val excludedReviewIds = reportRepository
-            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-            .ifEmpty { listOf(-1L) }
+    fun getReviewPage(
+        viewerMemberId: Long,
+        foodId: Long?,
+        countryCode: String?,
+        lang: LanguageCode,
+        cursor: Long?,
+    ): Page<ReviewResponse> {
+        foodId?.let { foodService.getReadyFood(it) }
         return toPage(
-            reviewRepository.findFoodReviewPage(
+            reviewRepository.findReviewPage(
                 foodId,
                 countryCode,
                 cursor,
-                excludedMemberIds,
-                excludedReviewIds,
+                excludedMemberIds(viewerMemberId),
+                excludedReviewIds(viewerMemberId),
                 PageRequest.of(0, PAGE_SIZE + 1),
             ),
             viewerMemberId,
+            lang,
         )
     }
 
+    private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
+        memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
+
+    private fun excludedReviewIds(viewerMemberId: Long): List<Long> =
+        reportRepository
+            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+            .ifEmpty { listOf(-1L) }
+
     @Transactional(readOnly = true)
-    fun getMyReviewPage(memberId: Long, cursor: Long?): Page<ReviewResponse> =
-        toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId)
+    fun getMyReviewPage(memberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
+        toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId, lang)
 
     @Transactional(readOnly = true)
     fun getFoodRatingSummary(foodId: Long, viewerCountryCode: String?): RatingSummary {
@@ -150,7 +163,7 @@ class ReviewService(
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
-    private fun toPage(rows: List<Review>, viewerMemberId: Long): Page<ReviewResponse> {
+    private fun toPage(rows: List<Review>, viewerMemberId: Long, lang: LanguageCode): Page<ReviewResponse> {
         if (rows.isEmpty()) {
             return Page(items = emptyList(), hasNext = false, nextCursor = null)
         }
@@ -158,6 +171,8 @@ class ReviewService(
         val page = rows.take(PAGE_SIZE)
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it) }
+        val foodsByFoodId = foodRepository.findAllById(page.map { it.foodId }.toSet())
+            .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
         val reviewIds = page.map { it.id }
         val likeCountsByReviewId = reviewLikeRepository.countByReviewIds(reviewIds)
             .associate { it.reviewId to it.likeCount }
@@ -170,6 +185,7 @@ class ReviewService(
                     authorsByMemberId[it.memberId],
                     likeCount = likeCountsByReviewId[it.id] ?: 0,
                     likedByMe = it.id in likedReviewIds,
+                    food = foodsByFoodId[it.foodId],
                 )
             },
             hasNext = hasNext,

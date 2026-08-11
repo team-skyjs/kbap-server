@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBod
 @SecurityRequirement(name = "bearerAuth")
 interface MemberApi {
     @Operation(
-        summary = "온보딩 정보 제출",
+        summary = "온보딩 정보 제출 (X-API-Version 1.0 — 종전 계약)",
         description = """
             로그인한 회원이 닉네임·기피 성분 코드 목록·국가·맵기 선호를 제출하면, 각 값을 검증한 뒤
             프로필로 저장하고 온보딩을 완료 상태로 전이한다. 이미 완료한 회원의 재제출은 거절된다
@@ -27,12 +27,10 @@ interface MemberApi {
             맵기 화면을 건너뛰면 클라이언트가 **`SKIP` 을 명시 전송**한다. 미전송이면 필수 누락으로 400 COMMON-002, 6단계 외 값이면
             400 MEMBER-009 로 거절한다.
 
-            **`X-API-Version` 헤더(선택)의 계약 버전으로 신·구 동작을 분기한다.** 계약 버전은
-            `yyyy.mm.sprint차수` 표기(캘린더 버저닝)로, **`2026.08.07` 이상이면** 닉네임은 서버가 영숫자
-            6자 코드로, 프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 — 요청에 `nickname`·
-            `profileImageUrl` 을 담아도 무시된다. 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
+            **버전은 `X-API-Version` 요청 헤더로 전달한다** — 미전송·`1.0` 은 이 종전 계약, `1.1` 이상은
+            닉네임·사진 서버 자동 지정 계약(아래 별도 오퍼레이션), 지원 목록에 없는 버전은 400.
 
-            헤더가 없거나 `2026.08.07` 이전·형식 오류면(1.0.0 앱) 종전 계약 그대로다: `nickname`·`profileImageUrl` 은 **필수**이며
+            종전 계약에서 `nickname`·`profileImageUrl` 은 **필수**이며
             미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로
             (presigned 발급 응답의 `objectKey`)를 보내고, 사진 미설정 회원은 기본 이미지 경로
             `images/default/profile/profile-default-512.png` 를 명시 전송한다. 빈 문자열·전체 URL
@@ -43,20 +41,12 @@ interface MemberApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "온보딩 완료 — 프로필 저장·상태 전이"),
-            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기), 이미 온보딩 완료, 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기), 이미 온보딩 완료, 미지원 X-API-Version, 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
     fun completeOnboarding(
         memberId: Long,
-        @Parameter(
-            name = "X-API-Version",
-            `in` = ParameterIn.HEADER,
-            required = false,
-            description = "클라이언트가 기대하는 계약 버전 — yyyy.mm.sprint차수. 2026.08.07 이상이면 닉네임·프로필 사진을 서버가 랜덤 지정. 미전송·이전·형식 오류면 종전 계약",
-            example = "2026.08.07",
-        )
-        apiVersion: String?,
         @SwaggerRequestBody(
             required = true,
             content = [
@@ -72,16 +62,6 @@ interface MemberApi {
                                   "countryCode": "KR",
                                   "profileImageUrl": "profile-image/2026/07/18/1/abc.jpg",
                                   "spicinessPreference": "HOT"
-                                }
-                            """,
-                        ),
-                        ExampleObject(
-                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) · X-API-Version: 2026.08.07 — 닉네임·사진 서버 자동 지정",
-                            value = """
-                                {
-                                  "avoidanceSubstanceCodes": [],
-                                  "countryCode": "US",
-                                  "spicinessPreference": "SKIP"
                                 }
                             """,
                         ),
@@ -106,6 +86,47 @@ interface MemberApi {
                                   "countryCode": "VN",
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": "EXTREME"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        request: OnboardingRequest,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "온보딩 정보 제출 (X-API-Version 1.1 — 닉네임·사진 서버 자동 지정)",
+        description = """
+            `X-API-Version: 1.1` 이상으로 제출하는 온보딩 계약. 닉네임은 서버가 영숫자 6자 코드로,
+            프로필 사진은 기본 아바타 중 하나로 **랜덤 지정**한다 — 요청에 `nickname`·`profileImageUrl` 을
+            담아도 무시된다. 지정된 값은 프로필 수정 API 로 언제든 변경할 수 있다.
+            그 외 필드 검증·완료 전이 규칙은 1.0 계약과 동일하다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "온보딩 완료 — 서버 지정 프로필 저장·상태 전이"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·맵기), 이미 온보딩 완료, 미지원 X-API-Version, 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+        ],
+    )
+    fun completeOnboardingWithServerProfile(
+        memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "미국 · 기피 음식 없음 · 맵기 스킵(SKIP) — 닉네임·사진 서버 자동 지정",
+                            value = """
+                                {
+                                  "avoidanceSubstanceCodes": [],
+                                  "countryCode": "US",
+                                  "spicinessPreference": "SKIP"
                                 }
                             """,
                         ),

@@ -113,13 +113,13 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             }
 
         fun like(reviewId: Long, token: String?): ResultActionsDsl =
-            mockMvc.post("/api/v1/reviews/$reviewId/like") {
+            mockMvc.post("/api/reviews/$reviewId/like") {
                 token?.let { header("Authorization", "Bearer $it") }
                 param("liked", "true")
             }
 
         fun unlike(reviewId: Long, token: String): ResultActionsDsl =
-            mockMvc.post("/api/v1/reviews/$reviewId/like") {
+            mockMvc.post("/api/reviews/$reviewId/like") {
                 header("Authorization", "Bearer $token")
                 param("liked", "false")
             }
@@ -176,7 +176,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             `when`("liked 파라미터 없이 요청하면") {
                 then("400 을 준다") {
                     val reviewId = seedReview(authorMemberId = 8108L)
-                    mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                    mockMvc.post("/api/reviews/$reviewId/like") {
                         header("Authorization", "Bearer ${accessToken(8008L)}")
                     }.andExpect { status { isBadRequest() } }
                 }
