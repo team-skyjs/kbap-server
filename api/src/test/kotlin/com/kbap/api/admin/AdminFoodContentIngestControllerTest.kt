@@ -125,6 +125,29 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("벡터 메타데이터용 긴 설명이 함께 오면") {
+                then("긴 설명이 저장된다") {
+                    clearFoods()
+                    val food = saveFood("들깨수제비", FoodContentStatus.FAILED, null)
+
+                    ingest(passedBody(food.id, longDescription = "들깨" .repeat(400))).andExpect { status { isOk() } }
+
+                    reloaded(food.id).longDescription shouldBe "들깨".repeat(400)
+                }
+            }
+
+            `when`("긴 설명 없이 재적재되면") {
+                then("이전 긴 설명은 지워진다") {
+                    clearFoods()
+                    val food = saveFood("김치수제비", FoodContentStatus.FAILED, null)
+                    ingest(passedBody(food.id, longDescription = "긴 설명")).andExpect { status { isOk() } }
+
+                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
+
+                    reloaded(food.id).longDescription.shouldBeNull()
+                }
+            }
+
             `when`("직전 실패 기록이 있는 음식이면") {
                 then("실패 유형과 사유가 지워진다") {
                     clearFoods()

@@ -22,6 +22,7 @@ class FoodApplyContentTest : BehaviorSpec({
     fun Food.applySample() =
         applyContent(
             description = "들깨를 곱게 갈아 넣어 고소한 칼국수",
+            longDescription = "들깨를 곱게 갈아 넣어 고소한 칼국수 — 벡터 메타데이터",
             spiciness = 2,
             nameTranslations = translations,
             descriptionTranslations = translations,
@@ -36,6 +37,7 @@ class FoodApplyContentTest : BehaviorSpec({
 
             then("텍스트만 갱신되고 상태와 사진은 그대로다") {
                 target.description shouldBe "들깨를 곱게 갈아 넣어 고소한 칼국수"
+                target.longDescription shouldBe "들깨를 곱게 갈아 넣어 고소한 칼국수 — 벡터 메타데이터"
                 target.spiciness shouldBe 2
                 target.nameTranslations shouldBe translations
                 target.descriptionTranslations shouldBe translations

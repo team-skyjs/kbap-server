@@ -96,6 +96,20 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("긴 설명이 1000자를 넘으면") {
+                then("거절한다") {
+                    clearFoods()
+                    val food = saveFood("들깨국수")
+
+                    ingest(passedBody(food.id, longDescription = "가".repeat(1001))).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+
+                    reloaded(food.id).description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                }
+            }
+
             `when`("번역 값이 비어 있으면") {
                 then("거절한다") {
                     clearFoods()
