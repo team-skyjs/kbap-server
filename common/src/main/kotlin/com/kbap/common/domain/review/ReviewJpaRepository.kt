@@ -27,7 +27,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
           and r.memberId not in :excludedMemberIds
           and r.id not in :excludedReviewIds
           and exists (select 1 from Food f where f.id = r.foodId)
-          and exists (select 1 from Member m where m.id = r.memberId)
         order by r.id desc
         """,
     )

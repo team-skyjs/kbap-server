@@ -48,6 +48,9 @@ data class ReviewResponse(
     @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적). 탈퇴한 회원이면 null.", nullable = true)
     val author: ReviewAuthorResponse?,
 
+    @field:Schema(description = "작성자가 탈퇴했는지 — true 면 author 가 null 이고 클라이언트가 로케일에 맞는 탈퇴 표시를 붙인다", example = "false")
+    val authorWithdrawn: Boolean,
+
     @field:Schema(description = "좋아요 수", example = "3")
     val likeCount: Long,
 
@@ -73,6 +76,7 @@ data class ReviewResponse(
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt,
                 author = author,
+                authorWithdrawn = author == null,
                 likeCount = likeCount,
                 likedByMe = likedByMe,
                 food = food,

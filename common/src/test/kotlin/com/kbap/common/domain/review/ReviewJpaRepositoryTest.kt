@@ -343,7 +343,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                 }
             }
             `when`("작성자가 탈퇴하면") {
-                then("그 작성자의 리뷰가 피드에서 빠진다") {
+                then("그 작성자의 리뷰도 피드에 남는다") {
                     val food = saveFood("전체피드탈퇴음식")
                     val kept = save(memberId = 906L, foodId = food.id)
                     val withdrawn = save(memberId = 907L, foodId = food.id)
@@ -351,22 +351,21 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
                     val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
                     result.map { it.id }.contains(kept.id) shouldBe true
-                    result.map { it.id }.contains(withdrawn.id) shouldBe false
+                    result.map { it.id }.contains(withdrawn.id) shouldBe true
                 }
             }
         }
 
-        given("findReviewPage — 탈퇴 회원 제외") {
+        given("findReviewPage — 탈퇴 회원 포함") {
             `when`("작성자가 탈퇴하면") {
-                then("그 작성자의 리뷰가 목록에서 빠진다") {
+                then("그 작성자의 리뷰도 목록에 남는다") {
                     val foodId = 760L
                     val kept = save(memberId = 761L, foodId = foodId)
                     val withdrawn = save(memberId = 762L, foodId = foodId)
                     withdrawMember(762L)
 
                     val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
-                    result.map { it.id } shouldBe listOf(kept.id)
-                    result.map { it.id }.contains(withdrawn.id) shouldBe false
+                    result.map { it.id } shouldBe listOf(withdrawn.id, kept.id)
                 }
             }
         }
