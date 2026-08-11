@@ -1,8 +1,10 @@
 # API Contract: 리뷰 목록 — 전체 피드 및 음식 정보 보강
 
-공통: 인증 필수(`@AuthMemberId`), 응답 봉투 `ResponseEntity<BaseResponse<T>>`, 경로 베이스 `ApiPaths.V1`.
+공통: 인증 필수(`@AuthMemberId`), 응답 봉투 `ResponseEntity<BaseResponse<T>>`.
 
-## 1. GET /api/v1/reviews/feed (신규)
+**버저닝 (2026-08-11 개정)**: 리뷰 API 는 URI 버전을 쓰지 않는다 — 경로 베이스 `ApiPaths.API`(`/api`), 버전은 **`API-Version` 요청 헤더**로 전달한다(Spring Framework 7 네이티브 버저닝, 현재 `1.0`). 헤더 미전송 시 기본 `1.0`, 미지원 버전은 400. ArchUnit 의 `/api/v` URI 강제 규칙은 삭제했다. (member 온보딩의 `X-API-Version` 은 열린 날짜 계약 버전으로 별개 규약 — 혼동 금지.)
+
+## 1. GET /api/reviews/feed (신규)
 
 전체 리뷰 피드 — 음식 무관 최신순, 무한 스크롤.
 
@@ -14,11 +16,11 @@
 - 정렬: 최신 작성순(id desc). 페이지 크기 20.
 - 제외: 조회 회원이 차단한 회원의 리뷰, 조회 회원이 신고한 리뷰, **탈퇴한 회원의 리뷰**, 소프트 삭제된 음식의 리뷰. (탈퇴 회원 제외는 음식별 조회에도 동일 적용 — 2026-08-11 결정, author 는 목록 응답에서 항상 존재)
 
-## 2. GET /api/v1/reviews (변경 — `lang` 추가)
+## 2. GET /api/reviews (변경 — `lang` 추가)
 
 기존 `foodId`(필수)·`countryCode`·`cursor` 유지, **`lang` 필수 추가**.
 
-## 3. GET /api/v1/reviews/me (변경 — `lang` 추가)
+## 3. GET /api/reviews/me (변경 — `lang` 추가)
 
 기존 `cursor` 유지, **`lang` 필수 추가**.
 

@@ -85,7 +85,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
 
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long {
-            val response = mockMvc.post("/api/v1/reviews") {
+            val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
@@ -94,7 +94,7 @@ class ReviewListControllerTest : BehaviorSpec() {
         }
 
         fun deleteReview(token: String, reviewId: Long) {
-            mockMvc.delete("/api/v1/reviews/$reviewId") {
+            mockMvc.delete("/api/reviews/$reviewId") {
                 header("Authorization", "Bearer $token")
             }.andExpect { status { isOk() } }
         }
@@ -106,7 +106,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             countryCode: String? = null,
             lang: String? = "en",
         ): ResultActionsDsl =
-            mockMvc.get("/api/v1/reviews") {
+            mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
                 param("foodId", foodId.toString())
                 cursor?.let { param("cursor", it) }
@@ -115,7 +115,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
 
         fun myReviews(token: String?, cursor: String? = null, lang: String? = "en"): ResultActionsDsl =
-            mockMvc.get("/api/v1/reviews/me") {
+            mockMvc.get("/api/reviews/me") {
                 token?.let { header("Authorization", "Bearer $it") }
                 cursor?.let { param("cursor", it) }
                 lang?.let { param("lang", it) }
@@ -124,7 +124,7 @@ class ReviewListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
-        given("음식별 리뷰 목록 — GET /api/v1/reviews?foodId=") {
+        given("음식별 리뷰 목록 — GET /api/reviews?foodId=") {
             seedFood(800L, "목록김치찌개")
 
             `when`("리뷰 25건에서 첫 페이지를 조회하면") {
@@ -205,7 +205,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("foodId 없이 조회하면") {
                 then("400 을 반환한다") {
                     val token = accessToken(800L)
-                    mockMvc.get("/api/v1/reviews") {
+                    mockMvc.get("/api/reviews") {
                         header("Authorization", "Bearer $token")
                     }.andExpect { status { isBadRequest() } }
                 }
@@ -284,14 +284,14 @@ class ReviewListControllerTest : BehaviorSpec() {
 
         given("리뷰 목록 — 좋아요 수와 내 좋아요 여부") {
             fun like(token: String, reviewId: Long) {
-                mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                mockMvc.post("/api/reviews/$reviewId/like") {
                     header("Authorization", "Bearer $token")
                     param("liked", "true")
                 }.andExpect { status { isOk() } }
             }
 
             fun unlike(token: String, reviewId: Long) {
-                mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                mockMvc.post("/api/reviews/$reviewId/like") {
                     header("Authorization", "Bearer $token")
                     param("liked", "false")
                 }.andExpect { status { isOk() } }
@@ -448,7 +448,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
         }
 
-        given("내 리뷰 목록 — GET /api/v1/reviews/me") {
+        given("내 리뷰 목록 — GET /api/reviews/me") {
             seedFood(810L, "목록불고기")
             seedFood(811L, "목록잡채")
 

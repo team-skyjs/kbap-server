@@ -39,7 +39,7 @@ class ReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/reviews"
+        val path = "/api/reviews"
 
         fun seedMember(memberId: Long, countryCode: String? = "KR"): Unit =
             dataSource.connection.use { c ->
@@ -171,7 +171,7 @@ class ReviewControllerTest : BehaviorSpec() {
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long =
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
-        given("리뷰 작성 API — POST /api/v1/reviews") {
+        given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")
 
             `when`("별점만으로 작성하면") {
@@ -314,14 +314,14 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("리뷰 수정 API — PATCH /api/v1/reviews/{reviewId}") {
+        given("리뷰 수정 API — PATCH /api/reviews/{reviewId}") {
             seedFood(710L, "리뷰된장찌개")
 
             `when`("본인 리뷰의 별점·본문을 바꾸면") {
                 then("값이 반영되고 국적 스냅샷은 불변이다") {
                     val token = accessToken(710L, countryCode = "JP")
                     val reviewId = createReview(token, 710L, rating = 3)
-                    mockMvc.post("/api/v1/reviews/$reviewId/like") {
+                    mockMvc.post("/api/reviews/$reviewId/like") {
                         header("Authorization", "Bearer $token")
                         param("liked", "true")
                     }.andExpect { status { isOk() } }
@@ -380,7 +380,7 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("리뷰 삭제 API — DELETE /api/v1/reviews/{reviewId}") {
+        given("리뷰 삭제 API — DELETE /api/reviews/{reviewId}") {
             seedFood(720L, "리뷰비빔밥")
 
             `when`("본인 리뷰를 삭제하면") {

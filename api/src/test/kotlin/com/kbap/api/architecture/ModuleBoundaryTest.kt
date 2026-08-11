@@ -213,36 +213,6 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("컨트롤러 경로 규약") {
-        `when`("@RestController 클래스의 @RequestMapping 을 검사하면") {
-            then("모든 컨트롤러 매핑은 /api/v 로 시작한다") {
-                val declareApiVersionedMapping =
-                    object : ArchCondition<JavaClass>("클래스 레벨 @RequestMapping 이 /api/v 로 시작한다") {
-                        override fun check(item: JavaClass, events: ConditionEvents) {
-                            val mapping = item.annotations.firstOrNull {
-                                it.rawType.name == "org.springframework.web.bind.annotation.RequestMapping"
-                            }
-                            if (mapping == null) {
-                                events.add(SimpleConditionEvent.violated(item, "${item.name} 에 클래스 레벨 @RequestMapping 이 없다"))
-                                return
-                            }
-                            val paths = listOf("value", "path")
-                                .mapNotNull { mapping.get(it).orElse(null) }
-                                .flatMap { raw -> (raw as? Array<*>)?.filterIsInstance<String>() ?: emptyList() }
-                            if (paths.isEmpty() || paths.any { !it.startsWith("/api/v") }) {
-                                events.add(SimpleConditionEvent.violated(item, "${item.name} 매핑 $paths 가 /api/v 로 시작하지 않는다"))
-                            }
-                        }
-                    }
-
-                classes().that().resideInAPackage("com.kbap.api..")
-                    .and().areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
-                    .should(declareApiVersionedMapping)
-                    .check(imported)
-            }
-        }
-    }
-
     given("포트 패키지(common.port) 경계") {
         `when`("포트가 스프링·인프라·부트앱에 의존하는지 검사하면") {
             then("포트는 순수 계약이다 — 구현 기술을 알지 못한다") {

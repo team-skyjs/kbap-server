@@ -79,7 +79,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
             }
 
         fun createReview(token: String, foodId: Long, rating: Int): Long {
-            val response = mockMvc.post("/api/v1/reviews") {
+            val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
@@ -97,7 +97,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
 
         fun foodReviewItems(token: String, foodId: Long): JsonNode =
             mapper.readTree(
-                mockMvc.get("/api/v1/reviews") {
+                mockMvc.get("/api/reviews") {
                     header("Authorization", "Bearer $token")
                     param("foodId", foodId.toString())
                     param("lang", "ko")

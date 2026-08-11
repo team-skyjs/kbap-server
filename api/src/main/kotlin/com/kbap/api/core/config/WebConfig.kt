@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -21,6 +22,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
+    // 헤더 버저닝(리뷰 API — KB-321). 헤더 미전송은 기본 1.0, 미지원 버전은 400.
+    // X-API-Version 은 member 온보딩의 열린 날짜 계약 버전이라 못 쓴다(닫힌 지원 집합 검증과 충돌).
+    override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
+        configurer.useRequestHeader("API-Version")
+            .setDefaultVersion("1.0")
+    }
+
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/api/**")
             .allowedOriginPatterns("*")
@@ -70,8 +78,8 @@ class WebConfig(
                 "${ApiPaths.V2}/scans",
                 "${ApiPaths.V1}/bookmarks",
                 "${ApiPaths.V1}/bookmarks/*",
-                "${ApiPaths.V1}/reviews",
-                "${ApiPaths.V1}/reviews/*",
+                "${ApiPaths.API}/reviews",
+                "${ApiPaths.API}/reviews/*",
                 "${ApiPaths.V1}/community/posts",
                 "${ApiPaths.V1}/community/posts/*",
                 "${ApiPaths.V1}/community/comments/*",
