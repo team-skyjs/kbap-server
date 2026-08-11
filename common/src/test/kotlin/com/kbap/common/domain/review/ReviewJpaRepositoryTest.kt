@@ -1,6 +1,8 @@
 package com.kbap.common.domain.review
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.review.model.Review
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -21,6 +23,9 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var reviewJpaRepository: ReviewJpaRepository
+
+    @Autowired
+    private lateinit var foodJpaRepository: FoodJpaRepository
 
     init {
         fun save(
@@ -200,6 +205,86 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val aggregate = reviewJpaRepository.aggregateRating(501L, null)
                     aggregate.reviewCount shouldBe 0L
                     aggregate.average.shouldBeNull()
+                }
+            }
+        }
+
+        given("findGlobalReviewPage — 전체 피드 keyset") {
+            fun saveFood(koreanName: String): Food = foodJpaRepository.save(Food(koreanName = koreanName))
+
+            val foodA = saveFood("전체피드음식A")
+            val foodB = saveFood("전체피드음식B")
+            val saved = (1..25).map { save(memberId = it.toLong(), foodId = if (it % 2 == 0) foodA.id else foodB.id) }
+
+            `when`("cursor null, size 21 로 조회하면") {
+                then("음식 구분 없이 최신(id desc) 21건을 준다") {
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(-1L), page(21))
+                    result.size shouldBe 21
+                    result.first().id shouldBe saved.last().id
+                    result.map { it.id } shouldBe result.map { it.id }.sortedDescending()
+                    result.map { it.foodId }.toSet() shouldBe setOf(foodA.id, foodB.id)
+                }
+            }
+            `when`("cursor 를 다섯 번째 리뷰 id 로 주면") {
+                then("그보다 작은 id 만 준다") {
+                    val cursor = saved[4].id
+                    val result = reviewJpaRepository.findGlobalReviewPage(cursor, listOf(-1L), listOf(-1L), page(21))
+                    result.all { it.id < cursor } shouldBe true
+                    result.map { it.id } shouldBe saved.take(4).map { it.id }.sortedDescending()
+                }
+            }
+            `when`("가장 오래된 리뷰 id 를 cursor 로 주면") {
+                then("빈 목록을 준다") {
+                    reviewJpaRepository.findGlobalReviewPage(saved.first().id, listOf(-1L), listOf(-1L), page(21))
+                        .shouldBeEmpty()
+                }
+            }
+        }
+
+        given("findGlobalReviewPage — 제외 규칙") {
+            fun saveFood(koreanName: String): Food = foodJpaRepository.save(Food(koreanName = koreanName))
+
+            `when`("excludedMemberIds 에 작성자를 넣으면") {
+                then("그 작성자의 리뷰가 빠진다") {
+                    val food = saveFood("전체피드차단음식")
+                    val kept = save(memberId = 901L, foodId = food.id)
+                    save(memberId = 902L, foodId = food.id)
+
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(902L), listOf(-1L), page(21))
+                    result.map { it.id }.contains(kept.id) shouldBe true
+                    result.all { it.memberId != 902L } shouldBe true
+                }
+            }
+            `when`("excludedReviewIds 에 리뷰를 넣으면") {
+                then("그 리뷰가 빠진다") {
+                    val food = saveFood("전체피드신고음식")
+                    val kept = save(memberId = 903L, foodId = food.id)
+                    val reported = save(memberId = 903L, foodId = food.id)
+
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(reported.id), page(21))
+                    result.map { it.id }.contains(kept.id) shouldBe true
+                    result.map { it.id }.contains(reported.id) shouldBe false
+                }
+            }
+            `when`("음식이 소프트 삭제되면") {
+                then("그 음식의 리뷰가 피드에서 빠진다") {
+                    val alive = saveFood("전체피드생존음식")
+                    val deleted = saveFood("전체피드삭제음식")
+                    val kept = save(memberId = 904L, foodId = alive.id)
+                    val orphaned = save(memberId = 904L, foodId = deleted.id)
+                    deleted.delete()
+                    foodJpaRepository.save(deleted)
+
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(-1L), page(100))
+                    result.map { it.id }.contains(kept.id) shouldBe true
+                    result.map { it.id }.contains(orphaned.id) shouldBe false
+                }
+            }
+            `when`("food 행이 없는 foodId 의 리뷰가 있으면") {
+                then("피드에서 빠진다") {
+                    val ghost = save(memberId = 905L, foodId = 999_999L)
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(-1L), page(100))
+                    result.map { it.id }.contains(ghost.id) shouldBe false
                 }
             }
         }

@@ -114,23 +114,39 @@ class ReviewService(
     @Transactional(readOnly = true)
     fun getFoodReviewPage(viewerMemberId: Long, foodId: Long, countryCode: String?, cursor: Long?): Page<ReviewResponse> {
         foodService.getReadyFood(foodId)
-        // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
-        val excludedMemberIds = memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
-        val excludedReviewIds = reportRepository
-            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-            .ifEmpty { listOf(-1L) }
         return toPage(
             reviewRepository.findFoodReviewPage(
                 foodId,
                 countryCode,
                 cursor,
-                excludedMemberIds,
-                excludedReviewIds,
+                excludedMemberIds(viewerMemberId),
+                excludedReviewIds(viewerMemberId),
                 PageRequest.of(0, PAGE_SIZE + 1),
             ),
             viewerMemberId,
         )
     }
+
+    @Transactional(readOnly = true)
+    fun getFeedReviewPage(viewerMemberId: Long, cursor: Long?): Page<ReviewResponse> =
+        toPage(
+            reviewRepository.findGlobalReviewPage(
+                cursor,
+                excludedMemberIds(viewerMemberId),
+                excludedReviewIds(viewerMemberId),
+                PageRequest.of(0, PAGE_SIZE + 1),
+            ),
+            viewerMemberId,
+        )
+
+    // 빈 목록의 NOT IN 은 방언별 렌더링이 갈려 -1 센티널로 통일(id 는 IDENTITY ≥ 1)
+    private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
+        memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
+
+    private fun excludedReviewIds(viewerMemberId: Long): List<Long> =
+        reportRepository
+            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+            .ifEmpty { listOf(-1L) }
 
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, cursor: Long?): Page<ReviewResponse> =

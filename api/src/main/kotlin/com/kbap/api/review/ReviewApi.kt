@@ -88,6 +88,25 @@ interface ReviewApi {
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
+        summary = "전체 리뷰 피드",
+        description = """
+            음식 지정 없이 서비스 전체 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(리뷰 피드 화면).
+            호출한 회원이 차단한 회원의 리뷰·신고한 리뷰·삭제된 음식의 리뷰는 결과에서 제외된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "lang 누락, 비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+        ],
+    )
+    fun listFeedReviews(
+        memberId: Long,
+        @ParameterObject request: FeedReviewListRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
+
+    @Operation(
         summary = "음식별 리뷰 목록",
         description = """
             음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
