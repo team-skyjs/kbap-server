@@ -469,7 +469,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("탈퇴한 회원의 리뷰가 목록에 있으면") {
-                then("리뷰가 노출되고 author.withdrawn 이 true 로 내려간다") {
+                then("리뷰가 노출되고 author 는 null, authorWithdrawn 이 true 로 내려간다") {
                     seedFood(820L, "목록탈퇴음식")
                     val writer = accessToken(820L)
                     val viewer = accessToken(821L)
@@ -482,8 +482,10 @@ class ReviewListControllerTest : BehaviorSpec() {
                     val items = payloadOf(foodReviews(viewer, 820L)).path("items")
                     items.size() shouldBe 2
                     val byId = items.associateBy { it.path("reviewId").asLong() }
-                    byId.getValue(withdrawn).path("author").path("withdrawn").asBoolean() shouldBe true
-                    byId.getValue(kept).path("author").path("withdrawn").asBoolean() shouldBe false
+                    byId.getValue(withdrawn).path("author").isNull shouldBe true
+                    byId.getValue(withdrawn).path("authorWithdrawn").asBoolean() shouldBe true
+                    byId.getValue(kept).path("author").isNull shouldBe false
+                    byId.getValue(kept).path("authorWithdrawn").asBoolean() shouldBe false
                 }
             }
             `when`("내 리뷰를 삭제하면") {

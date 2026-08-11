@@ -3,7 +3,7 @@ package com.kbap.api.review
 import com.kbap.common.domain.member.model.Member
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "리뷰 작성자 프로필 — 탈퇴 회원의 리뷰도 목록에 노출되며 withdrawn 으로 구분한다")
+@Schema(description = "리뷰 작성자 프로필 — 탈퇴 회원이면 author 자체가 null 로 내려간다")
 data class ReviewAuthorResponse(
     @field:Schema(description = "작성자 회원 id", example = "7")
     val memberId: Long,
@@ -22,9 +22,6 @@ data class ReviewAuthorResponse(
 
     @field:Schema(description = "랭킹 점수", example = "15")
     val score: Int,
-
-    @field:Schema(description = "탈퇴한 회원인지 — true 면 클라이언트가 탈퇴 표시를 붙인다", example = "false")
-    val withdrawn: Boolean,
 ) {
     companion object {
         fun from(member: Member): ReviewAuthorResponse =
@@ -35,7 +32,6 @@ data class ReviewAuthorResponse(
                 tier = member.ranking.tier.key,
                 level = member.ranking.tier.level,
                 score = member.ranking.score,
-                withdrawn = member.isDeleted(),
             )
     }
 }

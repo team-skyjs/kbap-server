@@ -150,7 +150,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("작성자가 탈퇴하면") {
-                then("그 작성자의 리뷰가 피드에 남고 author.withdrawn 이 true 다") {
+                then("그 작성자의 리뷰가 피드에 남고 author 는 null, authorWithdrawn 이 true 다") {
                     seedFood(908L, "피드탈퇴음식")
                     val writer = accessToken(9008L)
                     val viewer = accessToken(9009L)
@@ -161,7 +161,8 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
 
                     val item = payloadOf(feed(viewer)).path("items")
                         .first { it.path("reviewId").asLong() == withdrawn }
-                    item.path("author").path("withdrawn").asBoolean() shouldBe true
+                    item.path("author").isNull shouldBe true
+                    item.path("authorWithdrawn").asBoolean() shouldBe true
                 }
             }
             `when`("내가 차단한 회원의 리뷰가 있으면") {

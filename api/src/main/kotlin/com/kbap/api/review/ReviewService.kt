@@ -181,7 +181,7 @@ class ReviewService(
         }
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
-        val authorsByMemberId = memberRepository.findAllByIdIncludingWithdrawn(page.map { it.memberId }.toSet())
+        val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it) }
         val foodsByFoodId = foodRepository.findAllById(page.map { it.foodId }.toSet())
             .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
