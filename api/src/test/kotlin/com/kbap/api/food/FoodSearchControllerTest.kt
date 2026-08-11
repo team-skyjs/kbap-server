@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
@@ -604,6 +605,40 @@ class FoodSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.payload") { value(null) }
                         jsonPath("$.message") { value("검색어를 입력해 주세요") }
                     }
+                }
+            }
+        }
+        given("메뉴 검색 API — 리뷰 평점·리뷰 수") {
+            fun seedReview(memberId: Long, foodId: Long, rating: Int) {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute(
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
+                                "onboarding_completed, status, created_at, updated_at) " +
+                                "VALUES ($memberId, 'GOOGLE', 'search-rating-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                                "ON DUPLICATE KEY UPDATE id = id",
+                        )
+                        statement.execute(
+                            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                "VALUES ($memberId, $foodId, $rating, 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                }
+            }
+
+            `when`("리뷰가 있는 음식을 검색하면") {
+                then("검색 결과 항목에 평점·리뷰 수가 담긴다") {
+                    seedSearchableFoods()
+                    seedReview(320L, 601L, 4)
+                    seedReview(321L, 601L, 5)
+
+                    val json = mockMvc.get("/api/v1/foods/search?lang=ko") {
+                        param("keyword", "김치찌개")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("review").path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 2L
                 }
             }
         }

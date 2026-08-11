@@ -85,9 +85,11 @@ class FoodController(
         nextCursor: Long?,
         memberId: Long?,
     ): Page<FoodSummaryResponse> {
-        val bookmarkedIds = bookmarkService.getBookmarkedFoodIds(memberId, items.map { it.foodId })
+        val foodIds = items.map { it.foodId }
+        val bookmarkedIds = bookmarkService.getBookmarkedFoodIds(memberId, foodIds)
+        val ratings = reviewService.getFoodRatings(foodIds)
         return Page(
-            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds) },
+            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds, ratings[it.foodId]) },
             hasNext = hasNext,
             nextCursor = nextCursor,
         )

@@ -50,6 +50,37 @@ class HomeControllerTest : BehaviorSpec() {
             HomeTestSeed.reset(dataSource)
         }
 
+        given("홈 응답의 음식 카드 — 리뷰 평점·리뷰 수") {
+            `when`("리뷰 있는 음식이 인기 음식·최근 스캔에 포함되면") {
+                then("두 섹션 카드 모두에 review 객체가 담기고 리뷰 없는 음식은 0.0·0 이다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 2)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
+                    HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-02 10:00:00")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                    "VALUES (11, 1, 4, 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                        }
+                    }
+
+                    val payload = payload(11L)
+                    val popularById = payload.path("popularFoods").toList()
+                        .associateBy { it.path("foodId").asLong() }
+
+                    popularById.getValue(1L).path("review").path("averageRating").asDouble() shouldBe 4.0
+                    popularById.getValue(1L).path("review").path("count").asLong() shouldBe 1L
+                    popularById.getValue(2L).path("review").path("averageRating").asDouble() shouldBe 0.0
+                    popularById.getValue(2L).path("review").path("count").asLong() shouldBe 0L
+
+                    val recent = payload.path("recentScans").single()
+                    recent.path("review").path("averageRating").asDouble() shouldBe 4.0
+                    recent.path("review").path("count").asLong() shouldBe 1L
+                }
+            }
+        }
+
         given("기피 성분과 스캔 이력이 있는 회원") {
             `when`("홈을 조회하면") {
                 then("기피 성분·인기 음식·최근 스캔 세 섹션이 한 응답에 담긴다") {

@@ -371,6 +371,38 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
+        given("aggregateRatingsByFoodIds — 배치 평점 집계") {
+            `when`("여러 음식의 리뷰를 한 번에 집계하면") {
+                then("음식별 평균·건수를 주고 리뷰 없는 음식은 결과에 없다") {
+                    save(memberId = 950L, foodId = 1100L, rating = 4)
+                    save(memberId = 951L, foodId = 1100L, rating = 5)
+                    save(memberId = 952L, foodId = 1100L, rating = 4)
+                    save(memberId = 950L, foodId = 1101L, rating = 2)
+
+                    val byFoodId = reviewJpaRepository.aggregateRatingsByFoodIds(listOf(1100L, 1101L, 1102L))
+                        .associateBy { it.foodId }
+
+                    byFoodId.keys shouldBe setOf(1100L, 1101L)
+                    byFoodId.getValue(1100L).reviewCount shouldBe 3L
+                    byFoodId.getValue(1100L).average.shouldNotBeNull() shouldBe (13.0 / 3 plusOrMinus 0.0001)
+                    byFoodId.getValue(1101L).reviewCount shouldBe 1L
+                    byFoodId.getValue(1101L).average.shouldNotBeNull() shouldBe (2.0 plusOrMinus 0.0001)
+                }
+            }
+            `when`("소프트 삭제된 리뷰가 있으면") {
+                then("집계에서 빠진다") {
+                    save(memberId = 953L, foodId = 1103L, rating = 5)
+                    val deleted = save(memberId = 954L, foodId = 1103L, rating = 1)
+                    deleted.delete()
+                    reviewJpaRepository.save(deleted)
+
+                    val aggregate = reviewJpaRepository.aggregateRatingsByFoodIds(listOf(1103L)).single()
+                    aggregate.reviewCount shouldBe 1L
+                    aggregate.average.shouldNotBeNull() shouldBe (5.0 plusOrMinus 0.0001)
+                }
+            }
+        }
+
         given("countByMemberIdAndFoodId — 첫/마지막 리뷰 판정") {
             val memberId = 600L
             val foodId = 600L

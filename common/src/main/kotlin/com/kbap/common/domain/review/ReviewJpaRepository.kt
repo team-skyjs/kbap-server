@@ -11,6 +11,12 @@ interface RatingAggregate {
     val reviewCount: Long
 }
 
+interface FoodRatingAggregate {
+    val foodId: Long
+    val average: Double?
+    val reviewCount: Long
+}
+
 interface ReviewJpaRepository : JpaRepository<Review, Long> {
     @Query(
         """
@@ -60,6 +66,16 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
         @Param("foodId") foodId: Long,
         @Param("countryCode") countryCode: String?,
     ): RatingAggregate
+
+    @Query(
+        """
+        select r.foodId as foodId, avg(r.rating) as average, count(r) as reviewCount
+        from Review r
+        where r.foodId in :foodIds
+        group by r.foodId
+        """,
+    )
+    fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 }
