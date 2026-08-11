@@ -7,7 +7,7 @@
 
 ## 엔드포인트
 
-`POST /api/v1/admin/foods/contents` — ADMIN JWT(머신 인증). 음식 단건.
+`POST /api/admin/foods/contents` — ADMIN JWT(머신 인증), `X-API-Version: 1.0` 헤더(생략 시 기본 1.0). 음식 단건.
 
 ## 요청 본문
 

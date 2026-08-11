@@ -33,7 +33,7 @@ order by r.id desc limit 10;
 ### 3. 적재 API 직접 호출
 
 ```bash
-curl -X POST localhost:8080/api/v1/admin/foods/contents \
+curl -X POST localhost:8080/api/admin/foods/contents \
   -H "Authorization: Bearer $ADMIN_JWT" -H 'Content-Type: application/json' \
   -d '{
     "foodId": 1,
@@ -65,7 +65,7 @@ select id from food where content_status = 'PENDING_IMAGE' and image_ref is not 
 ### 4. 실패 결과
 
 ```bash
-curl -X POST localhost:8080/api/v1/admin/foods/contents \
+curl -X POST localhost:8080/api/admin/foods/contents \
   -H "Authorization: Bearer $ADMIN_JWT" -H 'Content-Type: application/json' \
   -d '{"foodId":1,"passed":false,"failureKind":"INGREDIENT_GUARD","reason":"기피성분 62점 < 임계값 80: 견과 교차오염 확인 필요"}'
 ```

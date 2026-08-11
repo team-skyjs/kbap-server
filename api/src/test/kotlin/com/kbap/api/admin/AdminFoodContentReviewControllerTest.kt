@@ -47,7 +47,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/admin/foods/content-reviews"
+        val path = "/api/admin/foods/content-reviews"
         val targetLangs = LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }
 
         fun allTargets(value: String) = targetLangs.associateWith { "$value-$it" }

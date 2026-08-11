@@ -3,7 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.domain.LanguageCode
 
 object AdminFoodContentIngestTestSupport {
-    const val PATH = "/api/v1/admin/foods/contents"
+    const val PATH = "/api/admin/foods/contents"
 
     val targetLangs: List<String> = LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }
 

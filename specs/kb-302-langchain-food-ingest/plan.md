@@ -6,7 +6,7 @@
 
 ## Summary
 
-외부 콘텐츠 생성 파이프라인(kbap-langchain 람다)에 보낼 음식 콘텐츠 수집 요청을 **아웃박스 테이블**(`food_content_outbox`)에 쌓고, 파이프라인이 돌려준 결과를 적재한다. 결과는 `POST /api/v1/admin/foods/contents` 로 도착하며 **`foodId` 로만 대상을 특정**한다.
+외부 콘텐츠 생성 파이프라인(kbap-langchain 람다)에 보낼 음식 콘텐츠 수집 요청을 **아웃박스 테이블**(`food_content_outbox`)에 쌓고, 파이프라인이 돌려준 결과를 적재한다. 결과는 `POST /api/admin/foods/contents` 로 도착하며 **`foodId` 로만 대상을 특정**한다.
 
 **큐 발행은 이번 범위 밖이다** — 아웃박스 행을 SQS 로 내보내는 주체는 후속 티켓의 배치 잡이 소유한다. 이번 작업이 끝나면 `PENDING` 행이 쌓이고, 발행은 아직 일어나지 않는다. 그래서 발행 seam(`common.port.mq`)·SQS 어댑터 모듈(`:infra:mq`)·스케줄러를 **만들지 않는다**(소비자 없는 인터페이스를 미리 두지 않는다). 메시지 계약만 [contracts/mq-message.md](./contracts/mq-message.md) 에 합의된 상태로 남겨 후속 티켓이 그대로 쓴다.
 
@@ -80,7 +80,7 @@ common/src/main/kotlin/com/kbap/common/domain/food/
 └── FoodService.kt                       # 변경: createIncomplete 가 아웃박스 행도 적재
 
 api/src/main/kotlin/com/kbap/api/admin/
-├── AdminFoodContentIngestController.kt  # 신규: POST /api/v1/admin/foods/contents
+├── AdminFoodContentIngestController.kt  # 신규: POST /api/admin/foods/contents
 ├── AdminFoodContentIngestApi.kt         # 신규: swagger 문서 전용 인터페이스
 ├── AdminFoodContentIngestRequest.kt     # 신규: 요청 DTO + 검증
 ├── AdminFoodContentIngestService.kt     # 신규: 조회 → 엔티티 위임

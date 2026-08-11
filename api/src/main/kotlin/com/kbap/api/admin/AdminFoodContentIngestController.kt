@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.ADMIN + "/foods/contents")
+@RequestMapping(ApiPaths.ADMIN + "/foods/contents", version = "1.0+")
 class AdminFoodContentIngestController(
     private val adminFoodContentIngestService: AdminFoodContentIngestService,
 ) : AdminFoodContentIngestApi {
