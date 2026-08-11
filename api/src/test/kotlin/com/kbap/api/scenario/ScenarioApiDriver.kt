@@ -113,7 +113,7 @@ class ScenarioApiDriver(
     fun 스캔한다(vararg 메뉴명: String, lang: String = "en"): JsonNode {
         val items = 메뉴명.mapIndexed { idx, name -> mapOf("idx" to idx, "rawMenuName" to name) }
         return payload(
-            post("/api/v1/scans", mapOf("imagePath" to objectKey, "items" to items), params = arrayOf("lang" to lang)),
+            post("/api/scans", mapOf("imagePath" to objectKey, "items" to items), params = arrayOf("lang" to lang)),
         ).path("results")
     }
 
