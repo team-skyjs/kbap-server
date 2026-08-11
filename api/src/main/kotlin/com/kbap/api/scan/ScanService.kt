@@ -42,7 +42,7 @@ class ScanService(
         lang: LanguageCode,
         similarFoodFallback: Boolean,
     ): ScanResult {
-        val member = memberService.getMember(memberId)
+        memberService.getMember(memberId)
 
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
@@ -76,7 +76,7 @@ class ScanService(
         recordHistory(memberId, imagePath, extracted, items)
         memberService.increaseScanCount(memberId)
 
-        return ScanResult(items = items, degraded = false, currency = member.profile.currency)
+        return ScanResult(items = items, degraded = false)
     }
 
     private fun resolveSimilarFoods(

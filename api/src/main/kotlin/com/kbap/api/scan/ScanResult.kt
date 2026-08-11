@@ -1,11 +1,8 @@
 package com.kbap.api.scan
 
-import com.kbap.common.domain.CurrencyCode
-
 data class ScanResult(
     val items: List<ItemRiskResult>,
     val degraded: Boolean,
-    val currency: CurrencyCode? = null,
 ) {
     data class ItemRiskResult(
         val idx: Int?,

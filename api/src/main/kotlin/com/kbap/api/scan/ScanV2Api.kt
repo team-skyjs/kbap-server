@@ -2,6 +2,7 @@ package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -43,6 +44,11 @@ interface ScanV2Api {
             ## 언어
             표시 언어는 **요청 파라미터 `lang` 만으로** 정해진다. 지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es.
             `lang` 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
+
+            ## 통화
+            응답의 `currency`(통화 환산 정보)는 **요청 파라미터 `currency` 만으로** 정해진다 — 회원 프로필 통화 설정을 읽지 않는다.
+            `currency` 는 **필수**이며 누락은 400(COMMON-002), 지원 목록에 없는 값은 400(MEMBER-010)으로 거절하고
+            스캔은 실행되지 않는다.
         """,
     )
     @ApiResponses(
@@ -50,7 +56,7 @@ interface ScanV2Api {
             ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격·유사 음식 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)",
+                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·지원하지 않는 통화 코드(MEMBER-010)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
@@ -60,6 +66,13 @@ interface ScanV2Api {
     fun scan(
         memberId: Long,
         @ParameterObject langRequest: ScanLangRequest,
+        @Parameter(
+            description = "환산 통화의 ISO 4217 코드(예: USD·JPY). 필수 — 회원 프로필 통화 설정과 무관하게 " +
+                "이 값으로 환산 정보를 응답한다. 누락은 400(COMMON-002), 지원 목록에 없는 값은 400(MEMBER-010).",
+            example = "USD",
+            required = true,
+        )
+        currency: String,
         @SwaggerRequestBody(required = true, content = [Content(schema = Schema(implementation = ScanV2Request::class))])
         request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>>

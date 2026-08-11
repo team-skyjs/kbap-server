@@ -751,9 +751,16 @@ class ScanControllerTest : BehaviorSpec() {
 
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
-            fun v2Scan(memberId: Long, path: String, lang: String = "ko", content: String = v2Body(path)) =
+            fun v2Scan(
+                memberId: Long,
+                path: String,
+                lang: String = "ko",
+                currency: String? = "USD",
+                content: String = v2Body(path),
+            ) =
                 mockMvc.post("/api/scans") {
                     param("lang", lang)
+                    currency?.let { param("currency", it) }
                     header("Authorization", "Bearer ${accessToken(memberId)}")
                     header("X-API-Version", "2.0")
                     contentType = MediaType.APPLICATION_JSON
@@ -925,19 +932,53 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("통화(USD)가 설정된 회원이 v2 스캔하면") {
-                then("응답 수준 currency 에 통화 코드와 1단위당 원화 스냅샷 값이 담긴다") {
+            `when`("currency 파라미터 없이 v2 스캔하면") {
+                then("400 COMMON-002 로 거절하고 스캔은 실행되지 않는다") {
                     val memberId = 621L
                     val path = "scan/621/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    seedReadyFood("통화김치찌개")
+                    setMemberCurrency(memberId, "USD")
                     vision.program(path, listOf(ExtractedMenu("통화김치찌개", "통화김치찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path, currency = null).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+
+                    scanCountOf(memberId) shouldBe 0
+                }
+            }
+
+            `when`("통화(USD)가 설정된 회원이 currency=JPY 파라미터로 v2 스캔하면") {
+                then("프로필을 무시하고 파라미터 통화 기준 환산 정보가 담긴다") {
+                    val memberId = 624L
+                    val path = "scan/624/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("파라미터통화찌개")
+                    vision.program(path, listOf(ExtractedMenu("파라미터통화찌개", "파라미터통화찌개", 9000, matchedIdx = null)))
                     setMemberCurrency(memberId, "USD")
 
-                    val json = v2Scan(memberId, path).andExpect {
+                    val json = v2Scan(memberId, path, currency = "JPY").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].matched") { value(true) }
-                        jsonPath("$.payload.results[0].price") { value(9000) }
+                        jsonPath("$.payload.currency.code") { value("JPY") }
+                    }.andReturn().response.contentAsString
+
+                    val krwPerUnit = mapper.readTree(json)
+                        .path("payload").path("currency").path("krwPerUnit").decimalValue()
+                    krwPerUnit.compareTo(BigDecimal("8.8906")) shouldBe 0
+                }
+            }
+
+            `when`("통화가 설정되지 않은 회원이 currency=USD 파라미터로 v2 스캔하면") {
+                then("파라미터 통화 기준 환산 정보가 담긴다") {
+                    val memberId = 625L
+                    val path = "scan/625/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("무프로필파라미터찌개")
+                    vision.program(path, listOf(ExtractedMenu("무프로필파라미터찌개", "무프로필파라미터찌개", 8000, matchedIdx = null)))
+
+                    val json = v2Scan(memberId, path, currency = "USD").andExpect {
+                        status { isOk() }
                         jsonPath("$.payload.currency.code") { value("USD") }
                     }.andReturn().response.contentAsString
 
@@ -947,19 +988,19 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("통화가 설정되지 않은 회원이 v2 스캔하면") {
-                then("스캔은 성공하고 currency 만 null 이다") {
-                    val memberId = 622L
-                    val path = "scan/622/menu.jpg"
+            `when`("지원하지 않는 currency 값으로 v2 스캔하면") {
+                then("400 MEMBER-010 으로 거절하고 스캔은 실행되지 않는다") {
+                    val memberId = 626L
+                    val path = "scan/626/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    seedReadyFood("무통화김치찌개")
-                    vision.program(path, listOf(ExtractedMenu("무통화김치찌개", "무통화김치찌개", 8000, matchedIdx = null)))
+                    vision.program(path, listOf(ExtractedMenu("차단찌개", "차단찌개626", 7000, matchedIdx = null)))
 
-                    v2Scan(memberId, path).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].matched") { value(true) }
-                        jsonPath("$.payload.currency") { value(null) }
+                    v2Scan(memberId, path, currency = "XXX").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-010") }
                     }
+
+                    scanCountOf(memberId) shouldBe 0
                 }
             }
 

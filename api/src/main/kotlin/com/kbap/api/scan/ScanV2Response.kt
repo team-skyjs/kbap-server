@@ -1,5 +1,6 @@
 package com.kbap.api.scan
 
+import com.kbap.common.domain.CurrencyCode
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 
@@ -17,11 +18,10 @@ data class ScanV2Response(
     val results: List<ItemRiskResponse>,
 
     @field:Schema(
-        description = "회원 프로필 통화의 환산 정보. 환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다. " +
-            "회원에 통화가 설정되지 않았으면 null.",
-        nullable = true,
+        description = "요청 currency 파라미터 기준 통화 환산 정보 — 회원 프로필 통화 설정을 읽지 않는다. " +
+            "환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
     )
-    val currency: CurrencyResponse?,
+    val currency: CurrencyResponse,
 ) {
     @Schema(description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
@@ -94,7 +94,7 @@ data class ScanV2Response(
         val imageRef: String?,
     )
 
-    @Schema(description = "회원 통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
+    @Schema(description = "통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
     data class CurrencyResponse(
         @field:Schema(description = "회원 프로필 통화의 ISO 4217 코드", example = "USD")
         val code: String,
@@ -104,10 +104,10 @@ data class ScanV2Response(
     )
 
     companion object {
-        fun from(result: ScanResult): ScanV2Response =
+        fun from(result: ScanResult, currency: CurrencyCode): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
-                currency = result.currency?.let { CurrencyResponse(code = it.name, krwPerUnit = it.krwPerUnit) },
+                currency = CurrencyResponse(code = currency.name, krwPerUnit = currency.krwPerUnit),
                 results = result.items.map {
                     ItemRiskResponse(
                         matched = it.matched,
