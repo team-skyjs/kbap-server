@@ -31,7 +31,8 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     statement.execute("DELETE FROM community_comment")
                     listOf("scan_history", "bookmark", "uploaded_image", "image_batch_item", "community_post")
                         .forEach { statement.execute("DELETE FROM $it") }
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute("DELETE FROM member_block")
                     statement.execute("DELETE FROM member")
                     listOf(11L, 99L).forEach { memberId ->

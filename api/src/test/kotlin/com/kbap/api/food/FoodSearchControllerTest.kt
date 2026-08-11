@@ -45,7 +45,8 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
@@ -73,7 +74,8 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     (1..count).forEach { index ->
                         statement.execute(
                             "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
@@ -91,7 +93,8 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
@@ -329,7 +332,8 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     connection.createStatement().use { statement ->
                         statement.execute("DELETE FROM member_ranking_event")
                         statement.execute("DELETE FROM food_review")
-                        statement.execute("DELETE FROM food")
+                        statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                         statement.execute(
                             "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                                 "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +

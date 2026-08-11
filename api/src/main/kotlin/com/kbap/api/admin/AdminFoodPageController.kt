@@ -16,6 +16,7 @@ class AdminFoodPageController(
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminFoodService: AdminFoodService,
+    private val adminFoodOutboxQueryService: AdminFoodOutboxQueryService,
     private val adminImageBatchQueryService: AdminImageBatchQueryService,
     private val foodImageBatchSubmitService: FoodImageBatchSubmitService,
 ) {
@@ -24,6 +25,7 @@ class AdminFoodPageController(
     @GetMapping("/admin/foods")
     fun foods(model: Model): String {
         model.addAttribute("dashboard", adminFoodDashboardService.getDashboard())
+        model.addAttribute("outbox", adminFoodOutboxQueryService.getOutboxDashboard())
         model.addAttribute("metrics", adminDashboardMetricsService.getMetrics())
         return "admin/foods"
     }
@@ -109,6 +111,26 @@ class AdminFoodPageController(
             params.forEach { (name, value) -> add(name to value.toString()) }
         }.joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, Charsets.UTF_8)}" }
         return "redirect:/admin/foods/list?$query"
+    }
+
+    @PostMapping("/admin/foods/recollect")
+    fun recollect(
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return try {
+            val result = adminFoodService.requestRecollect(q, parseStatus(status))
+            when {
+                result.exceeded -> listRedirect(safePage, q, status, "recollectError" to "too-many", "recollectMax" to result.max)
+                result.requested == 0L -> listRedirect(safePage, q, status, "recollectError" to "no-target")
+                else -> listRedirect(safePage, q, status, "recollected" to result.created, "recollectSkipped" to result.skipped)
+            }
+        } catch (e: Exception) {
+            log.error("재수집 요청 실패", e)
+            listRedirect(safePage, q, status, "recollectError" to "failed")
+        }
     }
 
     @GetMapping("/admin/foods/seed")

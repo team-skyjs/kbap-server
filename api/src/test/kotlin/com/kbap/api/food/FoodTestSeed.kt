@@ -101,6 +101,7 @@ object FoodTestSeed {
         "DELETE FROM food_review",
         "DELETE FROM scan_history",
         "DELETE FROM ingredients",
+        "DELETE FROM food_content_outbox",
         "DELETE FROM food",
     )
 

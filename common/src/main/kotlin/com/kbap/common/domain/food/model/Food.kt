@@ -59,6 +59,13 @@ class Food(
 
     @Column(name = "content_review_rejection_reason", length = MAX_REJECTION_REASON_LENGTH)
     var contentReviewRejectionReason: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+        name = "content_failure_kind",
+        columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD')",
+    )
+    var contentFailureKind: FoodContentFailureKind? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
@@ -80,11 +87,41 @@ class Food(
         }
         contentStatus = FoodContentStatus.FAILED
         contentReviewAttempts++
-        contentReviewRejectionReason = reason
+        contentReviewRejectionReason = truncateReason(reason)
+    }
+
+    private fun truncateReason(reason: String?): String? =
+        reason
             ?.lineSequence()
             ?.take(MAX_REJECTION_REASON_LINES)
             ?.joinToString("\n")
             ?.take(MAX_REJECTION_REASON_LENGTH)
+
+    fun applyContent(
+        description: String,
+        spiciness: Int,
+        nameTranslations: Map<String, String>,
+        descriptionTranslations: Map<String, String>,
+        ingredients: List<FoodIngredient>,
+    ) {
+        this.description = description
+        this.spiciness = spiciness
+        this.nameTranslations = nameTranslations
+        this.descriptionTranslations = descriptionTranslations
+        this.ingredients = ingredients
+        contentFailureKind = null
+        contentReviewRejectionReason = null
+        if (contentStatus == FoodContentStatus.READY) return
+        // 사진이 있으면 PENDING_IMAGE 를 건너뛴다 — 이미지 생성 후보(findImageCandidates)가 그 상태만 보므로 재생성이 원천 차단된다.
+        contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
+    }
+
+    fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
+        contentFailureKind = kind
+        contentReviewAttempts++
+        contentReviewRejectionReason = truncateReason(reason)
+        if (contentStatus == FoodContentStatus.READY) return
+        contentStatus = FoodContentStatus.FAILED
     }
 
     fun attachImage(imageRef: String) {
@@ -95,68 +132,6 @@ class Food(
         this.imageRef = imageRef
         contentStatus = FoodContentStatus.PENDING_REVIEW
     }
-
-    // KB-301: 콘텐츠 채움이 kbap-langchain 으로 이관돼 아래 단계 판정·전이는 쓰이지 않는다. 최종 삭제는 KB-302.
-    // fun needsImage(): Boolean = imageRef.isNullOrBlank()
-    //
-    // fun needsDescription(): Boolean = description.isBlank() || description == PLACEHOLDER_DESCRIPTION
-    //
-    // fun needsNameTranslations(): Boolean = !hasAllTargetTranslations(nameTranslations)
-    //
-    // fun needsDescriptionTranslations(): Boolean = !hasAllTargetTranslations(descriptionTranslations)
-    //
-    // private fun hasAllTargetTranslations(translations: Map<String, String>): Boolean =
-    //     TARGET_LANG_CODES.all { !translations[it].isNullOrBlank() }
-    //
-    // fun needsAvoidanceMapping(): Boolean = avoidanceSubstances == null
-    //
-    // fun needsAvoidanceAssessment(): Boolean =
-    //     avoidanceSubstances == null || spiciness == SPICINESS_UNASSESSED
-    //
-    // fun updateNameTranslations(translations: Map<String, String>) {
-    //     this.nameTranslations = translations
-    // }
-    //
-    // fun updateDescription(description: String, translations: Map<String, String>) {
-    //     this.description = description
-    //     this.descriptionTranslations = translations
-    // }
-    //
-    // fun assessAvoidance(substances: List<FoodAvoidanceItem>, spiciness: Int) {
-    //     require(spiciness in Spiciness.RANGE) {
-    //         "spiciness 는 ${Spiciness.RANGE} 여야 합니다: $spiciness"
-    //     }
-    //     this.avoidanceSubstances = substances
-    //     this.spiciness = spiciness
-    // }
-    //
-    // private fun clearField(field: FoodContentReviewField) {
-    //     when (field) {
-    //         FoodContentReviewField.DESCRIPTION -> description = PLACEHOLDER_DESCRIPTION
-    //         FoodContentReviewField.NAME_TRANSLATIONS -> nameTranslations = emptyMap()
-    //         FoodContentReviewField.DESCRIPTION_TRANSLATIONS -> descriptionTranslations = emptyMap()
-    //         FoodContentReviewField.AVOIDANCE_SUBSTANCES -> avoidanceSubstances = null
-    //         FoodContentReviewField.SPICINESS -> spiciness = SPICINESS_UNASSESSED
-    //         FoodContentReviewField.IMAGE -> imageRef = null
-    //     }
-    // }
-    //
-    // fun transitionByContentState(): FoodContentStatus {
-    //     if (contentStatus in TERMINAL_CONTENT_STATUSES) {
-    //         return contentStatus
-    //     }
-    //     val textComplete = !needsDescription() &&
-    //         !needsNameTranslations() &&
-    //         !needsDescriptionTranslations() &&
-    //         !needsAvoidanceMapping() &&
-    //         spiciness != SPICINESS_UNASSESSED
-    //     contentStatus = when {
-    //         !textComplete -> FoodContentStatus.INCOMPLETE
-    //         needsImage() -> FoodContentStatus.PENDING_IMAGE
-    //         else -> FoodContentStatus.PENDING_REVIEW
-    //     }
-    //     return contentStatus
-    // }
 
     fun displayName(lang: LanguageCode): String = localizedName().resolve(lang)
 
@@ -187,19 +162,6 @@ class Food(
         const val MAX_REJECTION_REASON_LINES = 10
 
         const val MAX_REJECTION_REASON_LENGTH = 1000
-
-        // KB-301: 단계별 완성도 판정이 사라져 쓰이지 않는다. 최종 삭제는 KB-302.
-        // const val MAX_CONTENT_REVIEW_ATTEMPTS = 2
-        //
-        // private val TERMINAL_CONTENT_STATUSES = setOf(
-        //     FoodContentStatus.PENDING_REVIEW,
-        //     FoodContentStatus.REVIEWED,
-        //     FoodContentStatus.REVIEW_REJECTED,
-        //     FoodContentStatus.READY,
-        // )
-        //
-        // private val TARGET_LANG_CODES: Set<String> =
-        //     LanguageCode.entries.filter { it != LanguageCode.KO }.map { it.code }.toSet()
 
         fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }

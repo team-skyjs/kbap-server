@@ -37,11 +37,11 @@ class AdminControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/admin/foods"
+        val path = "/api/admin/foods"
 
         fun clearFoods(): Unit =
             dataSource.connection.use { c ->
-                c.createStatement().use { it.execute("DELETE FROM food") }
+                c.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food") }
             }
 
         fun seedExistingFood(koreanName: String): Unit =

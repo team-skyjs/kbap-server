@@ -1,6 +1,8 @@
 package com.kbap.common.domain.food
 
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.dto.BrowseFoodsInput
 import com.kbap.common.domain.food.dto.FoodPage
 import com.kbap.common.domain.food.dto.FoodSummaryView
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
@@ -126,7 +129,19 @@ class FoodService(
         if (unresolved.isNotEmpty()) {
             log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
         }
+        enqueueContentRequests(resolved.values)
         return resolved
+    }
+
+    private fun enqueueContentRequests(foods: Collection<Food>) {
+        if (foods.isEmpty()) return
+        val alreadyPending = outboxRepository
+            .findByFoodIdInAndOutboxStatus(foods.map { it.id }, FoodContentOutboxStatus.PENDING)
+            .map { it.foodId }
+            .toSet()
+        outboxRepository.saveAll(
+            foods.filterNot { it.id in alreadyPending }.map { FoodContentOutbox.pending(it.id, it.displayName) },
+        )
     }
 
     private fun avoidedCodeNames(memberId: Long?): Set<String> =
