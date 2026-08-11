@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.shouldBe
@@ -239,6 +240,60 @@ class FoodListControllerTest : BehaviorSpec() {
                     item.path("name").asText() shouldBe "김치찌개"
                     item.has("koreanName") shouldBe true
                     item.get("koreanName").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 리뷰 평점·리뷰 수") {
+            fun seedReview(memberId: Long, foodId: Long, rating: Int, status: String = "ACTIVE") {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute(
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
+                                "onboarding_completed, status, created_at, updated_at) " +
+                                "VALUES ($memberId, 'GOOGLE', 'food-rating-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                                "ON DUPLICATE KEY UPDATE id = id",
+                        )
+                        statement.execute(
+                            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                "VALUES ($memberId, $foodId, $rating, '$status', NOW(6), NOW(6))",
+                        )
+                    }
+                }
+            }
+
+            `when`("리뷰가 있는 음식과 없는 음식을 함께 조회하면") {
+                then("리뷰 있는 음식은 소수 1자리 평점·건수, 없는 음식은 null·0 이다") {
+                    seedFoods(2)
+                    seedReview(310L, 1L, 4)
+                    seedReview(311L, 1L, 5)
+                    seedReview(312L, 1L, 4)
+
+                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val byId = mapper.readTree(json).path("payload").path("items").toList()
+                        .associateBy { it.path("foodId").asLong() }
+
+                    byId.getValue(1L).path("averageRating").asDouble() shouldBe (4.3 plusOrMinus 0.0001)
+                    byId.getValue(1L).path("reviewCount").asLong() shouldBe 3L
+                    byId.getValue(2L).has("averageRating") shouldBe true
+                    byId.getValue(2L).get("averageRating").isNull shouldBe true
+                    byId.getValue(2L).path("reviewCount").asLong() shouldBe 0L
+                }
+            }
+
+            `when`("소프트 삭제된 리뷰가 있으면") {
+                then("집계에서 빠진 값이 내려간다") {
+                    seedFoods(1)
+                    seedReview(313L, 1L, 5)
+                    seedReview(314L, 1L, 1, status = "DELETED")
+
+                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("averageRating").asDouble() shouldBe (5.0 plusOrMinus 0.0001)
+                    item.path("reviewCount").asLong() shouldBe 1L
                 }
             }
         }

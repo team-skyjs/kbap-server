@@ -1,5 +1,6 @@
 package com.kbap.api.food
 
+import com.kbap.api.review.FoodRating
 import com.kbap.common.domain.food.dto.FoodSummaryView
 
 data class FoodSummaryResponse(
@@ -10,9 +11,11 @@ data class FoodSummaryResponse(
     val spiciness: Int,
     val overallRiskStatus: String,
     val bookmarked: Boolean,
+    val averageRating: Double?,
+    val reviewCount: Long,
 ) {
     companion object {
-        fun from(view: FoodSummaryView, bookmarked: Boolean) = FoodSummaryResponse(
+        fun from(view: FoodSummaryView, bookmarked: Boolean, rating: FoodRating?) = FoodSummaryResponse(
             foodId = view.foodId,
             name = view.name,
             koreanName = view.koreanName,
@@ -20,6 +23,8 @@ data class FoodSummaryResponse(
             spiciness = view.spiciness,
             overallRiskStatus = view.overallRiskStatus.name,
             bookmarked = bookmarked,
+            averageRating = rating?.averageRating,
+            reviewCount = rating?.reviewCount ?: 0,
         )
     }
 }

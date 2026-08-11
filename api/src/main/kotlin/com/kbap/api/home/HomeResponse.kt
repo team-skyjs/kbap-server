@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
+import com.kbap.api.review.FoodRating
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "홈 화면 응답 — 기피 성분·인기 음식·최근 스캔 세 섹션")
@@ -19,11 +20,20 @@ data class HomeResponse(
     val recentScans: List<FoodSummaryResponse>,
 ) {
     companion object {
-        fun from(result: HomeResult, authenticated: Boolean, bookmarkedFoodIds: Set<Long>) = HomeResponse(
+        fun from(
+            result: HomeResult,
+            authenticated: Boolean,
+            bookmarkedFoodIds: Set<Long>,
+            ratings: Map<Long, FoodRating>,
+        ) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
-            popularFoods = result.popularFoods.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds) },
-            recentScans = result.recentScans.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds) },
+            popularFoods = result.popularFoods.map {
+                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+            },
+            recentScans = result.recentScans.map {
+                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+            },
         )
     }
 }
