@@ -12,6 +12,7 @@ object AdminFoodContentIngestTestSupport {
     fun passedBody(
         foodId: Long,
         description: String = "들깨를 곱게 갈아 넣어 고소한 칼국수",
+        longDescription: String? = null,
         spiciness: Int = 2,
         nameTranslations: Map<String, String> = allTargets("칼국수"),
         descriptionTranslations: Map<String, String> = allTargets("noodle"),
@@ -20,6 +21,7 @@ object AdminFoodContentIngestTestSupport {
         "foodId" to foodId,
         "passed" to true,
         "description" to description,
+        "longDescription" to longDescription,
         "spiciness" to spiciness,
         "nameTranslations" to nameTranslations,
         "descriptionTranslations" to descriptionTranslations,

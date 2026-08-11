@@ -22,6 +22,7 @@ interface AdminFoodContentIngestApi {
             - 대상은 **`foodId` 로만** 특정한다. 없거나 삭제된 음식이면 400(FOOD-001) 이며, 호출자는 사람 판단 경로(DLQ)로 보낸다.
             - **상태는 서버가 정한다.** 이미 서비스 중(READY)이면 텍스트만 덮고 상태를 바꾸지 않는다(재수집 중 노출 끊김 방지).
               그 외에는 사진이 있으면 `PENDING_REVIEW`, 없으면 `PENDING_IMAGE` 로 간다. **기존 사진은 어떤 경우에도 교체하지 않는다.**
+            - `longDescription`(선택, 최대 1000자)은 벡터 DB 메타데이터 용도다 — **사용자에게 노출되지 않으며**, 미전송 시 기존 값을 지운다(적재는 전체 교체).
             - `nameTranslations`·`descriptionTranslations` 는 9개 대상 언어를 모두 채워야 한다(`ko` 는 원문이라 제외).
             - `ingredients` 는 필수이며 빈 배열을 허용한다 — **빈 배열은 "조사했고 해당 없음"(SAFE)** 이고 누락은 미조사(UNKNOWN)라 의미가 다르다.
             - 실패(`passed=false`)는 `failureKind` 3값과 `reason` 을 요구한다. `reason` 은 표시 전용이며 분기에 쓰지 않는다.
@@ -41,6 +42,7 @@ interface AdminFoodContentIngestApi {
                           "displayName": "들깨 칼국수",
                           "passed": true,
                           "description": "들깨를 곱게 갈아 넣어 고소한 칼국수",
+                          "longDescription": "들깨 칼국수는 곱게 간 들깨를 육수에 풀어 …(벡터 검색 메타데이터용 긴 설명, 최대 1000자)",
                           "spiciness": 2,
                           "nameTranslations": {"en":"Perilla Kalguksu","ja":"えごまカルグクス","zh-Hans":"紫苏刀削面","zh-Hant":"紫蘇刀削麵","vi":"Mì tía tô","id":"Kalguksu Perilla","th":"คัลกุกซูงาขี้ม้อน","ru":"Кальгуксу с периллой","es":"Kalguksu de perilla"},
                           "descriptionTranslations": {"en":"...","ja":"...","zh-Hans":"...","zh-Hant":"...","vi":"...","id":"...","th":"...","ru":"...","es":"..."},

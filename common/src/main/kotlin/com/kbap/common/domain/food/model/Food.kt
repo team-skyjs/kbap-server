@@ -31,6 +31,9 @@ class Food(
     @Column(name = "description", nullable = false, length = 255)
     var description: String = "",
 
+    @Column(name = "long_description", length = MAX_LONG_DESCRIPTION_LENGTH)
+    var longDescription: String? = null,
+
     @Column(name = "spiciness", nullable = false)
     var spiciness: Int = 0,
 
@@ -99,12 +102,14 @@ class Food(
 
     fun applyContent(
         description: String,
+        longDescription: String?,
         spiciness: Int,
         nameTranslations: Map<String, String>,
         descriptionTranslations: Map<String, String>,
         ingredients: List<FoodIngredient>,
     ) {
         this.description = description
+        this.longDescription = longDescription
         this.spiciness = spiciness
         this.nameTranslations = nameTranslations
         this.descriptionTranslations = descriptionTranslations
@@ -156,6 +161,8 @@ class Food(
 
     companion object {
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
+        const val MAX_LONG_DESCRIPTION_LENGTH = 1000
 
         const val SPICINESS_UNASSESSED = -1
 

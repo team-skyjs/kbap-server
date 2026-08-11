@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
@@ -19,6 +20,7 @@ data class AdminFoodContentIngestRequest(
     val passed: Boolean? = null,
 
     val description: String? = null,
+    val longDescription: String? = null,
     val spiciness: Int? = null,
     val nameTranslations: Map<String, String>? = null,
     val descriptionTranslations: Map<String, String>? = null,
@@ -29,6 +31,10 @@ data class AdminFoodContentIngestRequest(
     @AssertTrue(message = "description 은 1~255자여야 합니다")
     fun isDescriptionValid(): Boolean =
         !isPassed() || description?.isNotBlank() == true && description.length <= MAX_DESCRIPTION_LENGTH
+
+    @AssertTrue(message = "longDescription 은 1000자 이하여야 합니다")
+    fun isLongDescriptionValid(): Boolean =
+        longDescription == null || longDescription.length <= Food.MAX_LONG_DESCRIPTION_LENGTH
 
     @AssertTrue(message = "spiciness 는 0~10 이어야 합니다")
     fun isSpicinessValid(): Boolean = !isPassed() || spiciness in SPICINESS_RANGE

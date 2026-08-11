@@ -23,6 +23,7 @@ class AdminFoodContentIngestController(
             adminFoodContentIngestService.ingestContent(
                 foodId = foodId,
                 description = request.description!!,
+                longDescription = request.longDescription,
                 spiciness = request.spiciness!!,
                 nameTranslations = request.nameTranslations!!,
                 descriptionTranslations = request.descriptionTranslations!!,

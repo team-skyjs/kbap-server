@@ -17,6 +17,7 @@ class AdminFoodContentIngestService(
     fun ingestContent(
         foodId: Long,
         description: String,
+        longDescription: String?,
         spiciness: Int,
         nameTranslations: Map<String, String>,
         descriptionTranslations: Map<String, String>,
@@ -24,6 +25,7 @@ class AdminFoodContentIngestService(
     ) {
         getFood(foodId).applyContent(
             description = description,
+            longDescription = longDescription,
             spiciness = spiciness,
             nameTranslations = nameTranslations,
             descriptionTranslations = descriptionTranslations,
