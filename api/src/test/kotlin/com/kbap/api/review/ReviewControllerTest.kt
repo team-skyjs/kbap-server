@@ -181,7 +181,8 @@ class ReviewControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.rating") { value(5) }
-                        jsonPath("$.payload.foodId") { value(700) }
+                        jsonPath("$.payload.foodId") { doesNotExist() }
+                        jsonPath("$.payload.memberId") { doesNotExist() }
                         jsonPath("$.payload.content") { value(null) }
                         jsonPath("$.payload.imageUrls.length()") { value(0) }
                         jsonPath("$.payload.author.nickname") { value("리뷰어700") }

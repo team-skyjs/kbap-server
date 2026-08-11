@@ -179,6 +179,8 @@ class ReviewFeedControllerTest : BehaviorSpec() {
                     item.path("food").path("name").asText() shouldBe "Kimbap"
                     item.path("food").path("imageUrl").asText() shouldBe "https://cdn.test/images/food/905.jpg"
                     item.path("author").path("nickname").asText() shouldBe "피더9007"
+                    item.has("foodId") shouldBe false
+                    item.has("memberId") shouldBe false
                 }
             }
             `when`("lang 없이 조회하면") {

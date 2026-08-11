@@ -31,8 +31,6 @@
     "items": [
       {
         "reviewId": 42,
-        "foodId": 1,
-        "memberId": 7,
         "rating": 4,
         "content": "정말 맛있어요",
         "imageUrls": ["https://cdn.example.com/review/1.jpg"],
@@ -54,7 +52,8 @@
 ```
 
 - `food`: **신규 중첩 객체.** 목록 조회에서 채워지며, 음식이 삭제된 리뷰(음식별·내 리뷰 경로)는 `null`. 리뷰 생성·수정 응답(`POST /reviews`·`PATCH /reviews/{id}`)에서도 `null`.
-- 기존 필드는 이름·타입·의미 모두 불변(하위 호환 — 필드 추가만).
+- **top-level `foodId`·`memberId` 는 제거** — `food.foodId`·`author.memberId` 와 중복이라 뺐다(2026-08-11 결정). 음식 식별은 `food.foodId`, 작성자 식별은 `author.memberId` 를 쓴다. 생성·수정 응답에는 둘 다 없다(클라이언트가 요청 맥락으로 보유).
+- 그 외 기존 필드는 이름·타입·의미 불변.
 - `author` 객체 구조는 기존 `ReviewAuthorResponse` 그대로.
 - `food.imageUrl` 은 `kbap.storage.public-base-url` 기준으로 해석된 절대 URL(리뷰 `imageUrls` 와 동일 규칙).
 

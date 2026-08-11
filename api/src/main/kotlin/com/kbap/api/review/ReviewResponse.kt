@@ -33,12 +33,6 @@ data class ReviewResponse(
     @field:Schema(description = "리뷰 id", example = "42")
     val reviewId: Long,
 
-    @field:Schema(description = "리뷰 대상 음식 id", example = "1")
-    val foodId: Long,
-
-    @field:Schema(description = "작성자 회원 id", example = "7")
-    val memberId: Long,
-
     @field:Schema(description = "별점(1~5)", example = "4")
     val rating: Int,
 
@@ -74,8 +68,6 @@ data class ReviewResponse(
         ): ReviewResponse =
             ReviewResponse(
                 reviewId = review.id,
-                foodId = review.foodId,
-                memberId = review.memberId,
                 rating = review.rating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
