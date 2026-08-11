@@ -18,26 +18,27 @@ aggregateRatingsByFoodIds(foodIds: List<Long>): List<FoodRatingAggregate>
 ## DTO 변경
 
 ```
-FoodSummaryView (common.domain.food.dto)     # 기존 필드 유지 + 추가
+FoodSummaryResponse (api.food)               # 응답 계층에만 필드 추가
 ├── averageRating: Double?                   # 소수 1자리 반올림, 리뷰 0건 null
 └── reviewCount: Long                        # 0건 0
 
-FoodSummaryResponse (api.food)               # view 미러링 + 추가
-├── averageRating: Double?
+FoodRating (api.review)                      # ReviewService.getFoodRatings 결과 값
+├── averageRating: Double
 └── reviewCount: Long
 ```
 
-- `FoodSummaryView.from(food, lang, userAvoidedCodes, imageUrl, averageRating, reviewCount)` — review 타입을 모른 채 값만 받는다(R4).
-- 반올림은 상세와 동일 공식(`Math.round(avg * 10) / 10.0`) — 조립 지점에서 적용.
+- **`FoodSummaryView`(common) 는 무변경** — view 에 필드를 넣으면 `FoodService`(common.domain.food)가 review 리포지토리를 참조해 도메인 방향 맵에 food→review 가 생기므로, 합류를 api 응답 계층으로 옮겼다(구현 시 확정).
+- 집계 조회는 `ReviewService.getFoodRatings(foodIds)`(distinct·빈 목록 가드·상세와 동일 반올림 `Math.round(avg * 10) / 10.0`), 컨트롤러는 서비스만 호출한다(리포지토리 직접 호출 금지 규칙).
 
-## 조립처 (5곳 — 배치 집계 맵 합류)
+## 조립처 (컨트롤러 3곳 — 배치 집계 맵 합류)
 
 | 조립처 | 화면 |
 |--------|------|
-| `FoodService.foodPage` | 음식 목록(browse)·검색 |
-| `HomeService` | 홈 인기 음식 + 최근 스캔 |
-| `BookmarkService` | 북마크 목록 |
-| `AdminFoodService` | 어드민 음식 그리드 |
+| `FoodController.toPage` | 음식 목록(browse)·검색 |
+| `HomeController` → `HomeResponse.from` | 홈 인기 음식 + 최근 스캔 |
+| `BookmarkController.list` | 북마크 목록 |
+
+(어드민 그리드는 별도 `AdminFoodSummaryView` 스키마라 대상 아님)
 
 ## 상태 전이
 

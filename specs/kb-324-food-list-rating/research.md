@@ -23,3 +23,9 @@
 - **Decision**: `FoodSummaryView.from` 은 평점 값 2개를 파라미터로 받을 뿐 review 타입을 모른다. 집계 조회·합류는 소비 계층(api 서비스·FoodService 조립부)이 수행한다.
 - **Rationale**: `common.domain` 간 허용 방향 맵에 food→review 를 추가하지 않아도 된다(`ModuleBoundaryTest` 무변경). 리포지토리 직접 참조는 KB-220 규칙상 허용.
 - **Alternatives considered**: FoodSummaryView 가 RatingAggregate 타입을 직접 수용(food→review 도메인 의존 발생으로 기각).
+
+## R5. 비회원 노출 — 목록 공개·상세 blur 존치 (리뷰 후 확정)
+
+- **Decision**: 목록·홈·검색의 평점·리뷰 수는 비회원에게도 공개한다. 상세의 리뷰 섹션 blur(비회원 0.0·blur=true)는 가입 유도 정책으로 그대로 둔다.
+- **Rationale**: 홈 인기 섹션은 비회원 진입 화면이라 가리면 "— · 0" 문제가 비회원에게 재현된다. 상세 blur 는 리뷰 상세 열람 유도가 목적이고, 목록의 집계 수치 공개와 목적이 달라 공존 가능(Codex 독립 리뷰가 충돌을 지적했고 제품 결정으로 비대칭을 확정).
+- **Alternatives considered**: 목록도 가림(비회원 홈 카드가 다시 비어 보여 기각), 상세 overall 공개(가입 유도 정책 완화라 별도 논의로 기각).
