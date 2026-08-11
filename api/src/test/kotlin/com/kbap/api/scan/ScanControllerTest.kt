@@ -16,6 +16,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import java.math.BigDecimal
 import javax.sql.DataSource
 
 @SpringBootTest
@@ -61,6 +62,17 @@ class ScanControllerTest : BehaviorSpec() {
         fun accessToken(memberId: Long): String {
             seedMember(memberId)
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
+
+        fun setMemberCurrency(memberId: Long, currency: String) {
+            seedMember(memberId)
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET currency = ? WHERE id = ?").use { ps ->
+                    ps.setString(1, currency)
+                    ps.setLong(2, memberId)
+                    ps.executeUpdate()
+                }
+            }
         }
 
         fun seedVerifiedImage(memberId: Long, path: String) {
@@ -909,6 +921,65 @@ class ScanControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].similarFood") { doesNotExist() }
+                    }
+                }
+            }
+
+            `when`("통화(USD)가 설정된 회원이 v2 스캔하면") {
+                then("응답 수준 currency 에 통화 코드와 1단위당 원화 스냅샷 값이 담긴다") {
+                    val memberId = 621L
+                    val path = "scan/621/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("통화김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("통화김치찌개", "통화김치찌개", 9000, matchedIdx = null)))
+                    setMemberCurrency(memberId, "USD")
+
+                    val json = v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].price") { value(9000) }
+                        jsonPath("$.payload.currency.code") { value("USD") }
+                    }.andReturn().response.contentAsString
+
+                    val krwPerUnit = mapper.readTree(json)
+                        .path("payload").path("currency").path("krwPerUnit").decimalValue()
+                    krwPerUnit.compareTo(BigDecimal("1416.0000")) shouldBe 0
+                }
+            }
+
+            `when`("통화가 설정되지 않은 회원이 v2 스캔하면") {
+                then("스캔은 성공하고 currency 만 null 이다") {
+                    val memberId = 622L
+                    val path = "scan/622/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("무통화김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("무통화김치찌개", "무통화김치찌개", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.currency") { value(null) }
+                    }
+                }
+            }
+
+            `when`("통화(USD)가 설정된 회원이 v1 경로로 스캔하면") {
+                then("응답에 currency 필드 자체가 없다(v1 동결 계약)") {
+                    val memberId = 623L
+                    val path = "scan/623/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("브이원통화찌개")
+                    vision.program(path, listOf(ExtractedMenu("브이원통화", "브이원통화찌개", 7000, matchedIdx = 0)))
+                    setMemberCurrency(memberId, "USD")
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "브이원통화")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.currency") { doesNotExist() }
                     }
                 }
             }
