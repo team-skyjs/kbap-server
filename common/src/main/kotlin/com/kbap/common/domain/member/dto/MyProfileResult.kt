@@ -10,6 +10,7 @@ data class MyProfileResult(
     val countryCode: String?,
     val profileImageUrl: String?,
     val spicinessPreference: String,
+    val currency: String?,
     val onboardingCompleted: Boolean,
     val ranking: MemberRankingResult,
 ) {
@@ -23,6 +24,7 @@ data class MyProfileResult(
                 countryCode = member.profile.countryCode?.name,
                 profileImageUrl = profileImageUrl,
                 spicinessPreference = member.profile.spicinessPreference.name,
+                currency = member.profile.currency?.name,
                 onboardingCompleted = member.onboardingCompleted,
                 ranking = ranking,
             )

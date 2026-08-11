@@ -11,6 +11,7 @@ data class MyProfileResponse(
     val countryCode: String?,
     val profileImageUrl: String?,
     val spicinessPreference: String,
+    val currency: String?,
     val onboardingCompleted: Boolean,
     val ranking: RankingSummary,
 ) {
@@ -43,6 +44,7 @@ data class MyProfileResponse(
                 countryCode = result.countryCode,
                 profileImageUrl = result.profileImageUrl,
                 spicinessPreference = result.spicinessPreference,
+                currency = result.currency,
                 onboardingCompleted = result.onboardingCompleted,
                 ranking = RankingSummary.from(result.ranking),
             )

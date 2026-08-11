@@ -2,6 +2,7 @@ package com.kbap.common.domain.member.model
 
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -41,6 +42,9 @@ class Member(
     @Column(name = "profile_image_url", length = 512)
     var profileImageUrl: String? = null,
 
+    @Column(name = "currency", length = 3)
+    var currency: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "avoidance_substance_codes", nullable = false)
     var avoidanceSubstanceCodes: List<String> = emptyList(),
@@ -71,6 +75,7 @@ class Member(
             spicinessPreference = spicinessPreference,
             countryCode = CountryCode.from(countryCode),
             profileImageUrl = profileImageUrl,
+            currency = CurrencyCode.from(currency),
         )
 
     val ranking: Ranking
@@ -85,6 +90,7 @@ class Member(
         spicinessPreference = profile.spicinessPreference
         countryCode = profile.countryCode?.name
         profileImageUrl = profile.profileImageUrl
+        currency = profile.currency?.name
         avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value }
     }
 
@@ -94,6 +100,7 @@ class Member(
         spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
+        currency: String? = null,
     ) {
         updateProfile(
             profile.updatedWith(
@@ -102,6 +109,7 @@ class Member(
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
                 profileImageUrl = profileImageUrl,
+                currency = currency,
             ),
         )
     }
@@ -122,6 +130,7 @@ class Member(
             spicinessPreference = spicinessPreference,
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
+            currency = CountryCode.from(countryCode)?.currency?.name,
         )
         onboardingCompleted = true
     }

@@ -8,6 +8,7 @@ data class ProfileUpdateRequest(
     val countryCode: String? = null,
     val profileImageUrl: String? = null,
     val spicinessPreference: String? = null,
+    val currency: String? = null,
 ) {
     fun toInput(memberId: Long): ProfileUpdateInput =
         ProfileUpdateInput(
@@ -17,5 +18,6 @@ data class ProfileUpdateRequest(
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
             spicinessPreference = spicinessPreference,
+            currency = currency,
         )
 }

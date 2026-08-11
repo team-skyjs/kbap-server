@@ -1053,5 +1053,84 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("회원 통화 — 국가 자동 지정과 개별 변경") {
+            fun currencyOf(token: String): String =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                    .path("payload").path("currency").asText()
+
+            `when`("일본으로 온보딩하면") {
+                then("통화가 JPY 로 자동 지정된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("온보딩 요청에 통화를 실어 보내면") {
+                then("무시되고 국가 기준 통화가 지정된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody() + mapOf("countryCode" to "JP", "currency" to "USD")).andReturn()
+
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("프로필 수정으로 통화만 바꾸면") {
+                then("통화가 교체되고 국가는 그대로다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    updateProfile(token, mapOf("currency" to "KRW")).andReturn()
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload")
+                    payload.path("currency").asText() shouldBe "KRW"
+                    payload.path("countryCode").asText() shouldBe "JP"
+                }
+            }
+
+            `when`("프로필 수정으로 국가만 바꾸면") {
+                then("통화는 바뀌지 않는다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    updateProfile(token, mapOf("countryCode" to "US")).andReturn()
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload")
+                    payload.path("countryCode").asText() shouldBe "US"
+                    payload.path("currency").asText() shouldBe "JPY"
+                }
+            }
+
+            `when`("지원하지 않는 통화로 수정하면") {
+                then("400 MEMBER-010 으로 거절하고 기존 통화를 유지한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    val result = updateProfile(token, mapOf("currency" to "XAU")).andReturn().response
+
+                    result.status shouldBe 400
+                    objectMapper.readTree(result.contentAsString).path("code").asText() shouldBe "MEMBER-010"
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("온보딩 미완료 회원이 조회하면") {
+                then("통화가 비어 있고 조회는 정상이다") {
+                    val token = loginAccessToken()
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    result.status shouldBe 200
+                    objectMapper.readTree(result.contentAsString)
+                        .path("payload").path("currency").isNull shouldBe true
+                }
+            }
+        }
     }
 }
