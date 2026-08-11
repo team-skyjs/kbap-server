@@ -12,7 +12,7 @@ import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
-@Tag(name = "메뉴 스캔 v2", description = "메뉴판 사진 스캔·판정 API — 서버 OCR + 유사 음식 폴백")
+@Tag(name = "메뉴 스캔 v2", description = "메뉴판 사진 스캔·판정 API — 서버 OCR + 유사 음식 폴백. 경로 /api/scans + X-API-Version 2.0 이상")
 @SecurityRequirement(name = "bearerAuth")
 interface ScanV2Api {
     @Operation(
@@ -23,7 +23,7 @@ interface ScanV2Api {
             결과에 영향을 주지 않는 것이 v1 과의 핵심 차이다.
 
             ## v1 과의 차이
-            | | v1 (`/api/v1/scans`) | v2 (이 API) |
+            | | v1 (X-API-Version 미전송·1.x) | v2 (X-API-Version 2.0 이상) |
             |---|---|---|
             | 요청 | `imagePath` + `items`(클라이언트 OCR, 필수) | `imagePath` 만 |
             | 판독 근거 | 사진 + 클라이언트 OCR 병용 | **사진 단독** |

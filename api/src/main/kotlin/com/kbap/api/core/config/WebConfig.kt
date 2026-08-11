@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -21,6 +22,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
+    override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
+        configurer.useRequestHeader("X-API-Version")
+            .setDefaultVersion("1.0")
+    }
+
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/api/**")
             .allowedOriginPatterns("*")
@@ -67,11 +73,12 @@ class WebConfig(
                 "${ApiPaths.V2}/members/*",
                 "${ApiPaths.V1}/scans",
                 "${ApiPaths.V1}/scans/*",
-                "${ApiPaths.V2}/scans",
+                "${ApiPaths.API}/scans",
+                "${ApiPaths.API}/scans/*",
                 "${ApiPaths.V1}/bookmarks",
                 "${ApiPaths.V1}/bookmarks/*",
-                "${ApiPaths.V1}/reviews",
-                "${ApiPaths.V1}/reviews/*",
+                "${ApiPaths.API}/reviews",
+                "${ApiPaths.API}/reviews/*",
                 "${ApiPaths.V1}/community/posts",
                 "${ApiPaths.V1}/community/posts/*",
                 "${ApiPaths.V1}/community/comments/*",

@@ -695,15 +695,16 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
-        given("스캔 v2 — POST /api/v2/scans 서버 OCR") {
+        given("스캔 v2 — POST /api/scans (X-API-Version 2.0) 서버 OCR") {
             beforeContainer { similarSearch.reset() }
 
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
             fun v2Scan(memberId: Long, path: String, lang: String = "ko", content: String = v2Body(path)) =
-                mockMvc.post("/api/v2/scans") {
+                mockMvc.post("/api/scans") {
                     param("lang", lang)
                     header("Authorization", "Bearer ${accessToken(memberId)}")
+                    header("X-API-Version", "2.0")
                     contentType = MediaType.APPLICATION_JSON
                     this.content = content
                 }

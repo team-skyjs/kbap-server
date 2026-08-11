@@ -1,7 +1,6 @@
 package com.kbap.api.member
 
 import com.kbap.api.core.ApiPaths
-import com.kbap.api.core.ApiVersion
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.member.MemberService
@@ -10,7 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -19,18 +17,21 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberService: MemberService,
 ) : MemberApi {
-    // 2026.08.07 계약부터 닉네임·사진 서버 자동 지정. 미전송·이전 버전·파싱 불가는 종전 계약으로 폴백.
-    private val profileAutoAssignSince = ApiVersion(2026, 8, 7)
-
-    @PostMapping("/me/onboarding")
+    @PostMapping("/me/onboarding", version = "1.0")
     override fun completeOnboarding(
         @AuthMemberId memberId: Long,
-        @RequestHeader(value = "X-API-Version", required = false) apiVersion: String?,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        val serverAssignsProfile =
-            ApiVersion.parseOrNull(apiVersion)?.let { it >= profileAutoAssignSince } == true
-        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile))
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = false))
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @PostMapping("/me/onboarding", version = "1.1+")
+    override fun completeOnboardingWithServerProfile(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: OnboardingRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = true))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 

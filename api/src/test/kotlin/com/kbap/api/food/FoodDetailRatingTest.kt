@@ -78,7 +78,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
         fun createReview(memberId: Long, countryCode: String?, foodId: Long, rating: Int): Long {
             val token = accessToken(memberId, countryCode)
-            val response = mockMvc.post("/api/v1/reviews") {
+            val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
@@ -87,7 +87,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
         }
 
         fun deleteReview(memberId: Long, reviewId: Long) {
-            mockMvc.delete("/api/v1/reviews/$reviewId") {
+            mockMvc.delete("/api/reviews/$reviewId") {
                 header("Authorization", "Bearer ${accessToken(memberId)}")
             }.andExpect { status { isOk() } }
         }

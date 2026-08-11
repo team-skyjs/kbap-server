@@ -77,7 +77,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
 
         fun createReview(memberId: Long, countryCode: String?, foodId: Long, rating: Int) {
             val token = accessToken(memberId, countryCode)
-            mockMvc.post("/api/v1/reviews") {
+            mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
