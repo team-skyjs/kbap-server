@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
 @SpringBootTest
-@Import(MySqlContainerConfig::class, BatchTestClientConfig::class)
+@Import(MySqlContainerConfig::class)
 class KbapBatchApplicationTests : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

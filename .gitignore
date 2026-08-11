@@ -235,7 +235,10 @@ build/
 # API 키 등은 .env로 관리하며 절대 커밋하지 않는다.
 .env
 *.env
+# .env.local·.env.bak 같은 접미 변형도 막는다 — `*.env` 는 이름이 .env 로 끝나는 것만 잡는다.
+.env.*
 !*.env.example
+!.env.example
 
 # IntelliJ IDEA — 프로젝트 IDE 설정 전체 제외
 .idea/

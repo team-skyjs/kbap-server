@@ -385,7 +385,6 @@ class ScanControllerTest : BehaviorSpec() {
                         path,
                         listOf(
                             ExtractedMenu("공기밥", "공기밥", 1000, matchedIdx = 0),
-                            // LLM 이 목록에 없는 idx(99)를 준 경우도 서버가 null 로 방어한다.
                             ExtractedMenu("서비스반찬", "서비스반찬", null, matchedIdx = 99),
                         ),
                     )
@@ -399,6 +398,56 @@ class ScanControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.results[0].idx") { value(0) }
                         jsonPath("$.payload.results[1].idx") { value(null) }
+                    }
+                }
+            }
+
+            `when`("두 추출 메뉴가 같은 OCR idx 를 물고 오면") {
+                then("먼저 나온 항목만 idx 를 갖고 뒤 항목은 null 이며 두 메뉴 모두 남는다") {
+                    val memberId = 540L
+                    val path = "scan/540/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(
+                        path,
+                        listOf(
+                            ExtractedMenu("김치찌개(소)", "김치찌개소540", 8000, matchedIdx = 0),
+                            ExtractedMenu("김치찌개(대)", "김치찌개대540", 12000, matchedIdx = 0),
+                        ),
+                    )
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results.length()") { value(2) }
+                        jsonPath("$.payload.results[0].idx") { value(0) }
+                        jsonPath("$.payload.results[1].idx") { value(null) }
+                        jsonPath("$.payload.results[1].koreanName") { value("김치찌개대540") }
+                    }
+                }
+            }
+
+            `when`("클라이언트 OCR 텍스트가 사진과 전혀 다르면") {
+                then("응답의 name·koreanName 어디에도 OCR 텍스트가 섞이지 않는다") {
+                    val memberId = 541L
+                    val path = "scan/541/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("된장찌개", "된장찌개541", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/v1/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "XXX오탈자XXX")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results.length()") { value(1) }
+                        jsonPath("$.payload.results[0].idx") { value(0) }
+                        jsonPath("$.payload.results[0].name") { value("된장찌개541") }
+                        jsonPath("$.payload.results[0].koreanName") { value("된장찌개541") }
                     }
                 }
             }
@@ -463,7 +512,6 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            // TODO ScanService 의 소유 검증(verifyImageAccess) 주석 해제 시 xwhen → when 으로 함께 복구
             xwhen("검증되지 않은(신고 안 된) 이미지 경로로 스캔하면") {
                 then("400 SCAN-001 로 거절한다") {
                     val memberId = 505L
@@ -479,7 +527,6 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            // TODO ScanService 의 소유 검증(verifyImageAccess) 주석 해제 시 xwhen → when 으로 함께 복구
             xwhen("다른 회원이 업로드한 이미지 경로로 스캔하면") {
                 then("본인 소유가 아니므로 400 SCAN-001 로 거절한다") {
                     val ownerId = 506L
@@ -648,16 +695,15 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
-        given("스캔 v2 — X-API-Version 2026.08.07 이상 서버 OCR") {
+        given("스캔 v2 — POST /api/v2/scans 서버 OCR") {
             beforeContainer { similarSearch.reset() }
 
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
-            fun v2Scan(memberId: Long, path: String, lang: String = "ko", apiVersion: String = "2026.08.07", content: String = v2Body(path)) =
-                mockMvc.post("/api/v1/scans") {
+            fun v2Scan(memberId: Long, path: String, lang: String = "ko", content: String = v2Body(path)) =
+                mockMvc.post("/api/v2/scans") {
                     param("lang", lang)
                     header("Authorization", "Bearer ${accessToken(memberId)}")
-                    header("X-API-Version", apiVersion)
                     contentType = MediaType.APPLICATION_JSON
                     this.content = content
                 }
@@ -673,7 +719,6 @@ class ScanControllerTest : BehaviorSpec() {
                     v2Scan(memberId, path).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results.length()") { value(1) }
-                        jsonPath("$.payload.results[0].idx") { value(null) }
                         jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].name") { value("서버김치찌개") }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
@@ -688,8 +733,8 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("items 를 보내면서 v2 헤더로 스캔하면") {
-                then("items 는 무시되고 서버 OCR(빈 힌트)로 추출한다") {
+            `when`("v2 요청 본문에 items 가 섞여 들어오면") {
+                then("무시되고 서버 OCR(빈 힌트)로 추출한다") {
                     val memberId = 602L
                     val path = "scan/602/menu.jpg"
                     seedVerifiedImage(memberId, path)
@@ -697,7 +742,7 @@ class ScanControllerTest : BehaviorSpec() {
 
                     v2Scan(memberId, path, content = body(path, 0 to "공기밥")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].idx") { value(null) }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
                     }
 
                     vision.receivedOcrItems[path] shouldBe emptyList()
@@ -797,7 +842,7 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("v2 헤더가 있어도 imagePath 를 누락하면") {
+            `when`("imagePath 를 누락하면") {
                 then("400 COMMON-002 로 거절한다") {
                     v2Scan(608L, "unused", content = "{}").andExpect {
                         status { isBadRequest() }
@@ -806,34 +851,8 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("2026.08.07 미만 버전 헤더로 items 없이 스캔하면") {
-                then("종전 계약대로 400 COMMON-002 로 거절한다") {
-                    val memberId = 609L
-                    val path = "scan/609/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-
-                    v2Scan(memberId, path, apiVersion = "2026.08.06").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("형식이 잘못된 버전 헤더로 items 없이 스캔하면") {
-                then("종전 계약대로 400 COMMON-002 로 거절한다") {
-                    val memberId = 610L
-                    val path = "scan/610/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-
-                    v2Scan(memberId, path, apiVersion = "beta").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("v1 경로(헤더 없음)로 미등록 메뉴를 스캔하면") {
-                then("similarFood 는 항상 null 이다") {
+            `when`("v1 경로로 미등록 메뉴를 스캔하면") {
+                then("응답에 similarFood 필드 자체가 없다(v1 동결 계약)") {
                     val memberId = 611L
                     val path = "scan/611/menu.jpg"
                     seedVerifiedImage(memberId, path)
@@ -849,7 +868,7 @@ class ScanControllerTest : BehaviorSpec() {
                         content = body(path, 0 to "브이원미등록")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.results[0].similarFood") { value(null) }
+                        jsonPath("$.payload.results[0].similarFood") { doesNotExist() }
                     }
                 }
             }

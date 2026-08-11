@@ -24,11 +24,9 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
-        // Flyway 실스키마 위에서 돈다 — scan_history 의 member/food FK 를 시드가 만족해야 한다
         fun clearTables() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
                     statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
                     statement.execute("DELETE FROM community_comment")
                     listOf("scan_history", "bookmark", "uploaded_image", "image_batch_item", "community_post")

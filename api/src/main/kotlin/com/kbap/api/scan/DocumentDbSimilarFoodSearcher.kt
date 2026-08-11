@@ -10,7 +10,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
-// DocumentDB 벡터 검색 문법($search.vectorSearch)은 MongoDB Atlas($vectorSearch)와 다르다 — contracts/vector-food-document.md.
 class DocumentDbSimilarFoodSearcher(
     private val collection: MongoCollection<Document>,
 ) : SimilarFoodSearcher {

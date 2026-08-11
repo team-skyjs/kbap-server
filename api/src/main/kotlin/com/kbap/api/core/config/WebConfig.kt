@@ -67,6 +67,7 @@ class WebConfig(
                 "${ApiPaths.V2}/members/*",
                 "${ApiPaths.V1}/scans",
                 "${ApiPaths.V1}/scans/*",
+                "${ApiPaths.V2}/scans",
                 "${ApiPaths.V1}/bookmarks",
                 "${ApiPaths.V1}/bookmarks/*",
                 "${ApiPaths.V1}/reviews",

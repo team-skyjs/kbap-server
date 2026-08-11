@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
@@ -22,22 +23,20 @@ data class ScanRequest(
     )
     val imagePath: String?,
 
-    // 필수 여부는 계약 버전에 따라 갈린다 — v1(헤더 없음)은 컨트롤러가 누락·빈 목록을 400 COMMON-002 로 거절(종전 계약),
-    // v2(X-API-Version >= 2026.08.07)는 서버가 OCR 하므로 보내도 무시한다.
+    @field:NotEmpty(message = "items 는 최소 1개 이상이어야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(
-        description = "클라이언트가 같은 사진을 OCR 한 항목 목록(1~100개). 각 항목의 idx 로 응답 결과와 매칭해 UI 박스를 그린다. " +
-            "X-API-Version 2026.08.07 이상(서버 OCR)에서는 불필요하며 보내도 무시된다.",
+        description = "클라이언트가 같은 사진을 OCR 한 항목 목록(1~100개). 각 항목의 idx 로 응답 결과와 매칭해 UI 박스를 그린다.",
     )
-    val items: List<@Valid ScanItemRequest>? = null,
+    val items: List<@Valid ScanItemRequest> = emptyList(),
 ) {
-    fun toOcrItems(): List<OcrItem> = items.orEmpty().map { OcrItem(idx = it.idx!!, rawMenuName = it.rawMenuName!!) }
+    fun toOcrItems(): List<OcrItem> = items.map { OcrItem(idx = it.idx!!, rawMenuName = it.rawMenuName!!) }
 
     @get:JsonIgnore
     @get:AssertTrue(message = "idx 는 요청 안에서 중복될 수 없습니다")
     val idxUnique: Boolean
         get() {
-            val indexes = items.orEmpty().mapNotNull { it.idx }
+            val indexes = items.mapNotNull { it.idx }
             return indexes.size == indexes.toSet().size
         }
 

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component
 
 @Component
 class SimilarFoodResolver(
-    // nullable 주입 = 선택 의존 — 임베딩·검색 빈이 없는 환경(local 등)에서는 유사 폴백이 no-op 이다.
     private val embeddingClient: TextEmbeddingClient?,
     private val searcher: SimilarFoodSearcher?,
     private val foodService: FoodService,
@@ -17,7 +16,6 @@ class SimilarFoodResolver(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // 유사 대체는 부가 정보 — 외부 장애 시 빈 결과로 스캔을 살린다(부분 성공).
     fun resolveSimilarFoods(koreanNames: List<String>): Map<String, Food> {
         val embeddingClient = embeddingClient ?: return emptyMap()
         val searcher = searcher ?: return emptyMap()

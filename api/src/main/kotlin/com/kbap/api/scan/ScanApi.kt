@@ -2,8 +2,6 @@ package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -25,16 +23,6 @@ interface ScanApi {
             서버가 비전 인식으로 메뉴명·가격을 추출하고 각 메뉴를 클라이언트 OCR 항목의 idx 에 매칭해 돌려준다.
             저장된 음식과 매칭해 항목별 위험도도 함께 준다. 로그인 필수 API 로, 매칭된 완성(READY) 음식은 회원별 스캔 이력으로 기록한다.
             이미지는 전체 URL 이 아니라 오브젝트 경로만 넘긴다(CDN 도메인은 서버가 관리).
-
-            ## 계약 버전 분기 (X-API-Version 헤더)
-            `X-API-Version` 헤더(선택, `yyyy.mm.sprint차수`)가 **`2026.08.07` 이상이면 서버 OCR 계약**으로 동작한다:
-            - 요청은 `imagePath` 만으로 성립하고 `items` 는 보내도 무시된다. 응답 `results[].idx` 는 항상 null(박스 매칭 없음).
-            - 서버가 사진에서 직접 메뉴명·가격을 추출·정제한다.
-            - 미등록(matched=false) 메뉴는 벡터 유사 검색으로 **비슷한 등록 음식**을 찾아 `similarFood` 에 담는다 — 클라이언트는
-              "정확 매칭 아님" 주의 표시와 함께 보여준다. 충분히 비슷한 음식이 없거나 검색이 불가하면 `similarFood` 는 null 이고
-              스캔 자체는 성공한다.
-            헤더가 없거나 `2026.08.07` 미만·형식 오류면(구버전 앱) 종전 계약 그대로다 — `items` 1개 이상 필수(누락 시 400 COMMON-002),
-            `similarFood` 는 항상 null.
 
             ## 추출·매칭 흐름
             1. 비전 인식이 사진에서 메뉴별 표기 이름·표준 한국어 이름·가격을 추출한다(가격 축약 표기는 원 단위 정수로 복원).
@@ -70,14 +58,6 @@ interface ScanApi {
     )
     fun scan(
         memberId: Long,
-        @Parameter(
-            name = "X-API-Version",
-            `in` = ParameterIn.HEADER,
-            required = false,
-            description = "클라이언트가 기대하는 계약 버전 — yyyy.mm.sprint차수. 2026.08.07 이상이면 서버 OCR·유사 음식 폴백. 미전송·이전·형식 오류면 종전 계약",
-            example = "2026.08.07",
-        )
-        apiVersion: String?,
         @ParameterObject langRequest: ScanLangRequest,
         @SwaggerRequestBody(
             required = true,
@@ -85,14 +65,6 @@ interface ScanApi {
                 Content(
                     schema = Schema(implementation = ScanRequest::class),
                     examples = [
-                        ExampleObject(
-                            name = "서버 OCR — X-API-Version 2026.08.07 이상, 사진 경로만",
-                            value = """
-                                {
-                                  "imagePath": "dev/images/scans/2026/08/1_550e8400-e29b-41d4-a716-446655440000.jpg"
-                                }
-                            """,
-                        ),
                         ExampleObject(
                             name = "한식마당 메뉴판 (노이즈 포함)",
                             description = "클라이언트 OCR 항목(idx+텍스트). 메뉴 사이에 상호·원산지·가격파편·영업안내 노이즈가 섞여 있다 " +

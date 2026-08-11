@@ -29,18 +29,19 @@ class ScanService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // 의도적 무트랜잭션 — 비전 인식·유사 검색(외부 호출)을 트랜잭션 밖에 두고(헌법: 외부 호출 tx 밖),
-    // 매칭·이력 저장·스캔 카운트는 각 도메인 서비스·리포지토리의 트랜잭션에 위임한다.
-    fun scanMenuBoardImage(
+    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult =
+        scan(memberId, imagePath, ocrItems, lang, similarFoodFallback = false)
+
+    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode): ScanResult =
+        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, similarFoodFallback = true)
+
+    private fun scan(
         memberId: Long,
         imagePath: String,
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
-        similarFoodFallback: Boolean = false,
+        similarFoodFallback: Boolean,
     ): ScanResult {
-    // TODO     imageUploadService.verifyImageAccess(memberId, imagePath)
-    // TODO        ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-
         memberService.getMember(memberId)
 
         val extracted = try {
@@ -53,6 +54,7 @@ class ScanService(
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
         val validIdxes = ocrItems.map { it.idx }.toSet()
+        val usedIdxes = mutableSetOf<Int>()
         val similarFoodsByName = resolveSimilarFoods(similarFoodFallback, extracted, foodsByMatchKey)
 
         val items = extracted.map { menu ->
@@ -60,7 +62,7 @@ class ScanService(
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
-                idx = menu.matchedIdx?.takeIf { it in validIdxes },
+                idx = menu.matchedIdx?.takeIf { it in validIdxes && usedIdxes.add(it) },
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
                 matched = matched,
                 foodId = food?.id,

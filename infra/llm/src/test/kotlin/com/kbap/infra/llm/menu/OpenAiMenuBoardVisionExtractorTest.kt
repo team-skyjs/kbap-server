@@ -207,8 +207,9 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val systemText = prompt.instructions.first { it is SystemMessage }.text
                 systemText shouldNotContain "matchedIdx"
                 systemText shouldNotContain "OCR"
-                systemText shouldContain "koreanName"
-                systemText shouldContain "원(KRW) 단위 정수"
+                systemText shouldContain "메뉴명은 한국어 음식명만 남겨라"
+                systemText shouldContain "가격을 찾지 못했거나 확실하지 않은 메뉴는 price를 0으로 하라"
+                systemText shouldContain """[{"name": "메뉴명", "price": 8000}]"""
                 val userText = prompt.instructions.first { it is UserMessage }.text
                 userText shouldNotContain "OCR"
             }
@@ -226,6 +227,38 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val userText = prompt.instructions.first { it is UserMessage }.text
                 userText shouldContain "OCR:"
                 userText shouldContain "3: 김치피개"
+            }
+        }
+    }
+
+    given("교체된 vision 모델 단가") {
+        `when`("입력·출력 각 100만 토큰을 쓴 응답을 받으면") {
+            then("입력 0.2 / 출력 1.2 단가로 비용이 산정된다") {
+                val lunaPricing = LlmPricing(
+                    inputUsdPerMillionTokens = 0.2,
+                    outputUsdPerMillionTokens = 1.2,
+                    usdToKrw = 1500.0,
+                )
+                val recorded = mutableListOf<LlmCallCostIncurred>()
+                val response = responseOf(
+                    text = """{"results":[]}""",
+                    model = "gpt-5.6-luna",
+                    usage = DefaultUsage(1_000_000, 1_000_000, 2_000_000),
+                )
+                val extractor = OpenAiMenuBoardVisionExtractor(
+                    chatModel = chatModelReturning(response),
+                    parser = MenuBoardResultParser(),
+                    imageBaseUrl = "https://cdn.test",
+                    pricing = lunaPricing,
+                    configuredModelName = "gpt-5.6-luna",
+                    eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
+                )
+
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 0, rawMenuName = "김치찌개")))
+
+                recorded shouldHaveSize 1
+                recorded.first().costUsd shouldBe BigDecimal("1.400000")
+                recorded.first().costKrw shouldBe BigDecimal("2100.00")
             }
         }
     }

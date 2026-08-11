@@ -94,5 +94,65 @@ class MenuBoardResultParserTest : BehaviorSpec({
                 shouldThrow<MenuBoardParseException> { parser.parse("메뉴를 찾을 수 없습니다") }
             }
         }
+
+        `when`("koreanName 없이 name 만 있는 항목이면(스캔 v2 프롬프트)") {
+            then("koreanName 을 name 으로 채운다") {
+                val raw = """{"results":[{"name":"김치찌개","price":9000}]}"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].name shouldBe "김치찌개"
+                result[0].koreanName shouldBe "김치찌개"
+                result[0].matchedIdx shouldBe null
+            }
+        }
+
+        `when`("name 도 koreanName 도 없는 항목이면") {
+            then("그 항목만 건너뛴다") {
+                val raw = """{"results":[{"price":9000},{"name":"제육볶음","price":8000}]}"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].name shouldBe "제육볶음"
+            }
+        }
+
+        `when`("최상위가 JSON 배열이면(스캔 v2 POC 프롬프트 출력)") {
+            then("results 봉투 없이도 파싱한다") {
+                val raw = """[{"name":"김치찌개","price":9000},{"name":"제육볶음","price":8000}]"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 2
+                result[0].name shouldBe "김치찌개"
+                result[0].koreanName shouldBe "김치찌개"
+                result[0].priceKrw shouldBe 9000
+                result[1].name shouldBe "제육볶음"
+            }
+        }
+
+        `when`("코드펜스로 감싼 JSON 배열이면") {
+            then("펜스를 벗기고 파싱한다") {
+                val raw = "```json\n[{\"name\":\"라면\",\"price\":4000}]\n```"
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].priceKrw shouldBe 4000
+            }
+        }
+
+        `when`("price 가 0 이면(POC 의 가격 미확인 규약)") {
+            then("가격 미표기(null)로 정규화한다") {
+                val raw = """[{"name":"공기밥","price":0}]"""
+
+                val result = MenuBoardResultParser().parse(raw)
+
+                result shouldHaveSize 1
+                result[0].priceKrw shouldBe null
+            }
+        }
     }
 })
