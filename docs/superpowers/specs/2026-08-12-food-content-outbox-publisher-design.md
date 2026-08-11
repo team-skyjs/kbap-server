@@ -141,8 +141,8 @@ Spring Batch 스텝은 `ResourcelessTransactionManager`를 사용한다. DB 조�
 
 ## 설정
 
-- `kbap.mq.food-content-queue-url`: 필수 음식 콘텐츠 큐 URL
-- `kbap.batch.food-content-publisher.page-size`: 양수 페이지 크기, 기본값 100
+- `kbap.batch.food-content-outbox.queue-url`: 필수 음식 콘텐츠 큐 URL. 잡 활성화 시 비어 있으면 구성 단계에서 실패한다.
+- `kbap.batch.food-content-outbox.page-size`: 양수 페이지 크기, 기본값 100
 - AWS 자격 증명과 리전: AWS 기본 공급자 체인
 
 어댑터는 페이지 크기와 관계없이 SQS 요청당 최대 10건 제한을 지킨다. 비밀 값과 자격 증명은 저장소 파일에 추가하지 않는다.

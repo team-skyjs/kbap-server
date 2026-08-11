@@ -2,6 +2,7 @@ package com.kbap.infra.mq
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.mq.FoodContentEvent
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -29,6 +30,14 @@ class SqsFoodContentEventPublisherTest : BehaviorSpec({
         .build()
 
     given("음식 콘텐츠 이벤트 발행") {
+        `when`("큐 URL이 비어 있으면") {
+            then("구성 단계에서 즉시 실패한다") {
+                shouldThrow<IllegalArgumentException> {
+                    SqsFoodContentEventPublisher(mock(SqsClient::class.java), mapper, " ")
+                }
+            }
+        }
+
         `when`("11건 이상을 발행하면") {
             then("SQS 제한에 맞춰 10건씩 나누고 계약 JSON을 보낸다") {
                 val sqsClient = mock(SqsClient::class.java)

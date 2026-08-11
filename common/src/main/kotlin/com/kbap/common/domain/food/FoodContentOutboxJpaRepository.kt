@@ -85,7 +85,7 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
             SET attempts = attempts + 1,
                 updated_at = CURRENT_TIMESTAMP(6)
             WHERE id IN (:ids)
-              AND outbox_status = 'PENDING'
+              AND outbox_status IN ('PENDING', 'COMPLETE')
               AND status = 'ACTIVE'
         """,
         nativeQuery = true,

@@ -190,12 +190,20 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                         .single()
 
                     ingest(passedBody(food.id, outbox.id)).andExpect { status { isOk() } }
-                    ingest(passedBody(food.id, outbox.id)).andExpect {
+                    ingest(
+                        passedBody(
+                            food.id,
+                            outbox.id,
+                            description = "중복 요청이 덮어쓰면 안 되는 설명",
+                        ),
+                    ).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-004") }
                     }
 
-                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    val updated = reloaded(food.id)
+                    updated.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    updated.description shouldBe "들깨를 곱게 갈아 넣어 고소한 칼국수"
                     outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
                         FoodContentOutboxStatus.COMPLETE
                 }

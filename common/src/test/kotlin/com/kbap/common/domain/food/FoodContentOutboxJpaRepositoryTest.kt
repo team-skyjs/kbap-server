@@ -184,6 +184,24 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                     (completed.sentAt != null) shouldBe true
                 }
             }
+
+            `when`("콜백이 먼저 완료한 요청의 발행 실패를 뒤늦게 기록하면") {
+                clear()
+                val food = saveFood("수제비")
+                val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                transactionTemplate.execute { outboxRepository.completeIfProcessable(outbox.id, food.id) }
+
+                then("완료 상태를 유지하면서 시도 횟수만 기록한다") {
+                    transactionTemplate.execute {
+                        outboxRepository.recordPublishFailed(setOf(outbox.id))
+                    }
+
+                    val completed = outboxRepository.findById(outbox.id).orElseThrow()
+                    completed.outboxStatus shouldBe FoodContentOutboxStatus.COMPLETE
+                    completed.attempts shouldBe 1
+                    completed.sentAt shouldBe null
+                }
+            }
         }
     }
 }

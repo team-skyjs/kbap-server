@@ -14,6 +14,10 @@ class SqsFoodContentEventPublisher(
     private val objectMapper: ObjectMapper,
     private val queueUrl: String,
 ) : FoodContentEventPublisher {
+    init {
+        require(queueUrl.isNotBlank()) { "queueUrl은 비어 있을 수 없습니다" }
+    }
+
     override fun publish(events: List<FoodContentEvent>): FoodContentPublishResult {
         val succeeded = mutableSetOf<Long>()
         val failed = mutableSetOf<Long>()
