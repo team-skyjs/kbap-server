@@ -18,7 +18,7 @@ class FoodContentOutbox(
     var displayName: String = "",
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "outbox_status", nullable = false, columnDefinition = "ENUM('PENDING','SENT')")
+    @Column(name = "outbox_status", nullable = false, columnDefinition = "ENUM('PENDING','SENT','COMPLETE')")
     var outboxStatus: FoodContentOutboxStatus = FoodContentOutboxStatus.PENDING,
 
     @Column(name = "attempts", nullable = false)
@@ -29,8 +29,12 @@ class FoodContentOutbox(
 ) : BaseEntity() {
     fun markSent() {
         attempts++
-        outboxStatus = FoodContentOutboxStatus.SENT
-        sentAt = LocalDateTime.now()
+        if (outboxStatus == FoodContentOutboxStatus.PENDING) {
+            outboxStatus = FoodContentOutboxStatus.SENT
+        }
+        if (sentAt == null) {
+            sentAt = LocalDateTime.now()
+        }
     }
 
     fun markFailed() {

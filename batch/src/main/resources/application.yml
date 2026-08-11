@@ -40,6 +40,10 @@ kbap:
       # 한 청크(=리더 페이지 = Step 커밋 단위)로 처리할 INCOMPLETE 음식 수. 각 작업이 즉시 개별 커밋되므로
       # 청크가 커도 재처리 시 이미 된 작업은 건너뛴다(LLM 중복 없음). 기본 10 — 운영하며 조정.
       chunk-size: 10
+    food-content-outbox:
+      queue-url: ${FOOD_CONTENT_QUEUE_URL:}
+      region: ${AWS_REGION:ap-northeast-2}
+      page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
   # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 LLM 을 호출하지 않는다.
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.

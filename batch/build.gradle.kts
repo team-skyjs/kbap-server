@@ -8,6 +8,9 @@ dependencies {
     "implementation"(project(":common"))
 
     "implementation"(project(":infra:storage"))
+    "implementation"(project(":infra:mq"))
+    "implementation"(platform(libs.aws.bom))
+    "implementation"(libs.aws.sqs)
 
     "implementation"(libs.spring.boot.starter)
 
