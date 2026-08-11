@@ -149,6 +149,41 @@ class ReviewFeedControllerTest : BehaviorSpec() {
                     authorIds.contains(reported) shouldBe true
                 }
             }
+            `when`("작성자가 탈퇴하면") {
+                then("그 작성자의 리뷰가 피드에서 빠진다") {
+                    seedFood(908L, "피드탈퇴음식")
+                    val writer = accessToken(9008L)
+                    val viewer = accessToken(9009L)
+                    val withdrawn = createReview(writer, 908L)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE member SET status = 'DELETED' WHERE id = 9008") }
+                    }
+
+                    payloadOf(feed(viewer)).path("items")
+                        .map { it.path("reviewId").asLong() }
+                        .contains(withdrawn) shouldBe false
+                }
+            }
+            `when`("내가 차단한 회원의 리뷰가 있으면") {
+                then("내 피드에서만 빠진다") {
+                    seedFood(909L, "피드차단음식")
+                    val author = accessToken(9010L)
+                    val viewer = accessToken(9011L)
+                    val blocked = createReview(author, 909L)
+                    mockMvc.post("/api/v1/members/me/blocks") {
+                        header("Authorization", "Bearer $viewer")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(mapOf("memberId" to 9010L))
+                    }.andExpect { status { isOk() } }
+
+                    payloadOf(feed(viewer)).path("items")
+                        .map { it.path("reviewId").asLong() }
+                        .contains(blocked) shouldBe false
+                    payloadOf(feed(author)).path("items")
+                        .map { it.path("reviewId").asLong() }
+                        .contains(blocked) shouldBe true
+                }
+            }
             `when`("음식이 소프트 삭제되면") {
                 then("그 음식의 리뷰가 피드에서 빠진다") {
                     seedFood(903L, "피드삭제음식")

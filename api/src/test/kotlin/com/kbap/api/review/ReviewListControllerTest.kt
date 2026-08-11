@@ -468,19 +468,19 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("탈퇴한 회원의 리뷰가 목록에 있으면") {
-                then("그 리뷰의 author 는 null 이다") {
+                then("그 리뷰는 목록에서 제외된다") {
                     seedFood(820L, "목록탈퇴음식")
                     val writer = accessToken(820L)
                     val viewer = accessToken(821L)
-                    val reviewId = createReview(writer, 820L)
+                    val kept = createReview(viewer, 820L)
+                    createReview(writer, 820L)
                     dataSource.connection.use { c ->
                         c.createStatement().use { it.execute("UPDATE member SET status = 'DELETED' WHERE id = 820") }
                     }
 
                     val items = payloadOf(foodReviews(viewer, 820L)).path("items")
                     items.size() shouldBe 1
-                    items.first().path("reviewId").asLong() shouldBe reviewId
-                    items.first().path("author").isNull.shouldBeTrue()
+                    items.first().path("reviewId").asLong() shouldBe kept
                 }
             }
             `when`("내 리뷰를 삭제하면") {

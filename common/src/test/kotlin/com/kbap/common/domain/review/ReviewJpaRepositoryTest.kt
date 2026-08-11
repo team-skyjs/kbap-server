@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
+import javax.sql.DataSource
 
 @SpringBootTest(classes = [ReviewTestApp::class])
 @Import(MySqlContainerConfig::class)
@@ -27,15 +28,46 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
     @Autowired
     private lateinit var foodJpaRepository: FoodJpaRepository
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
+        fun seedMember(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO member (id, provider, provider_uid, avoidance_substance_codes,
+                                        onboarding_completed, scan_count, review_count, unique_reviewed_food_count,
+                                        status, created_at, updated_at)
+                    VALUES (?, 'GOOGLE', ?, '[]', 1, 0, 0, 0, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE id = id
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setString(2, "review-repo-test-$memberId")
+                    ps.executeUpdate()
+                }
+            }
+
+        fun withdrawMember(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET status = 'DELETED' WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+
         fun save(
             memberId: Long,
             foodId: Long,
             rating: Int = 4,
             countryCode: String? = "KR",
-        ): Review = reviewJpaRepository.save(
-            Review(memberId = memberId, foodId = foodId, rating = rating, authorCountryCode = countryCode),
-        )
+        ): Review {
+            seedMember(memberId)
+            return reviewJpaRepository.save(
+                Review(memberId = memberId, foodId = foodId, rating = rating, authorCountryCode = countryCode),
+            )
+        }
 
         fun page(size: Int) = PageRequest.of(0, size)
 
@@ -285,6 +317,33 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val ghost = save(memberId = 905L, foodId = 999_999L)
                     val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(-1L), page(100))
                     result.map { it.id }.contains(ghost.id) shouldBe false
+                }
+            }
+            `when`("작성자가 탈퇴하면") {
+                then("그 작성자의 리뷰가 피드에서 빠진다") {
+                    val food = saveFood("전체피드탈퇴음식")
+                    val kept = save(memberId = 906L, foodId = food.id)
+                    val withdrawn = save(memberId = 907L, foodId = food.id)
+                    withdrawMember(907L)
+
+                    val result = reviewJpaRepository.findGlobalReviewPage(null, listOf(-1L), listOf(-1L), page(100))
+                    result.map { it.id }.contains(kept.id) shouldBe true
+                    result.map { it.id }.contains(withdrawn.id) shouldBe false
+                }
+            }
+        }
+
+        given("findFoodReviewPage — 탈퇴 회원 제외") {
+            `when`("작성자가 탈퇴하면") {
+                then("그 작성자의 리뷰가 목록에서 빠진다") {
+                    val foodId = 760L
+                    val kept = save(memberId = 761L, foodId = foodId)
+                    val withdrawn = save(memberId = 762L, foodId = foodId)
+                    withdrawMember(762L)
+
+                    val result = reviewJpaRepository.findFoodReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
+                    result.map { it.id } shouldBe listOf(kept.id)
+                    result.map { it.id }.contains(withdrawn.id) shouldBe false
                 }
             }
         }

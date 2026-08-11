@@ -3,7 +3,7 @@ package com.kbap.api.review
 import com.kbap.common.domain.member.model.Member
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "리뷰 작성자 프로필 — 탈퇴한 회원이면 author 자체가 null")
+@Schema(description = "리뷰 작성자 프로필 — 탈퇴 회원의 리뷰는 목록에서 제외되므로 목록 응답에선 항상 존재한다")
 data class ReviewAuthorResponse(
     @field:Schema(description = "작성자 회원 id", example = "7")
     val memberId: Long,
