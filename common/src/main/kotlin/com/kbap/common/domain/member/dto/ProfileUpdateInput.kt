@@ -7,4 +7,5 @@ data class ProfileUpdateInput(
     val countryCode: String? = null,
     val profileImageUrl: String? = null,
     val spicinessPreference: String? = null,
+    val currency: String? = null,
 )

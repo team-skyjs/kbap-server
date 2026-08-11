@@ -155,12 +155,15 @@ data class BaseResponse<T>(
 
 ### API 엔드포인트 경로 규약 (고정)
 
-**모든 컨트롤러 경로는 `/api/{버전}` 으로 시작한다.** 예외 없이 버전 prefix 와 함께 노출한다(예: `POST /api/v1/scans`, `GET /api/v1/foods/detail`).
+**모든 컨트롤러 경로는 `/api` 로 시작하고, 버저닝은 URL 이 아니라 `X-API-Version` 헤더가 담당한다**(2026-08-11, KB-321/#144 — Spring 네이티브 API 버저닝 도입).
 
-- 버전 베이스는 `com.kbap.api.core.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
-- 새 버전 도입 시 `ApiPaths` 에 상수 추가(예: `const val V2 = "/api/v2"`)하고 해당 버전 컨트롤러가 참조한다. 같은 리소스의 v1·v2 컨트롤러는 서로 다른 베이스를 써 **공존**한다(기존 버전 경로는 깨지 않는다).
+- 경로 베이스는 `com.kbap.api.core.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val API = "/api"`). 경로 문자열에 `/api` 를 직접 하드코딩하지 않는다.
+- **신규 리소스는 `ApiPaths.API + "/<리소스>"`**(예: `/api/scans`·`/api/reviews`)에 둔다. `WebConfig.configureApiVersioning` 이 헤더 `X-API-Version` 을 읽고 **기본값은 `1.0`** 이다(헤더 없는 구 클라이언트 = 1.0).
+- **기존 엔드포인트의 새 버전은 경로를 바꾸지 않고 같은 컨트롤러에서 `version` 만 올린다** — `@PatchMapping("/me/profile")`(기본) 옆에 `@PatchMapping("/me/profile", version = "1.1+")` 를 두는 식이다(`MemberController` 의 프로필 수정·온보딩 `1.0`/`1.1+`). **`*V2Controller`·`*V2Api` 같은 버전별 클래스를 만들지 않는다** — 클라이언트는 URL 을 그대로 두고 헤더만 올린다. 버전 조건이 있는 매핑이 없는 매핑보다 우선하므로 기본 버전 핸들러는 `version` 없이 둔다.
+- **버전 번호는 앱 릴리스 마커다** — 엔드포인트마다 따로 세지 않는다. 같은 릴리스에서 바뀐 엔드포인트들은 같은 번호를 쓴다(온보딩 자동 지정과 프로필 국적 잠금이 둘 다 `1.1+`). 그래서 **클래스·DTO 이름에 버전 번호를 박지 않는다** — 번호는 옮겨 다니고 이름은 남아 거짓이 된다. 계약의 차이로 이름 짓는다(`ProfileUpdateNoCountryRequest`).
+- **`ApiPaths.V1`(`/api/v1`) 은 레거시 베이스**다. 1.0 앱이 쓰는 기존 경로라 유지하며 그 아래 엔드포인트의 버전 분기도 여기서 한다. 다만 **새 리소스를 여기에 추가하지 않고**, `/api/v2` 같은 새 URL 버전 세그먼트도 만들지 않는다(`V2` 상수는 KB-322 에서 제거).
 - 이 규약은 **비즈니스 API(`com.kbap.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
-- 경계 강제는 ArchUnit(`ModuleBoundaryTest`)이 담당 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증한다.
+- **새 경로는 `WebConfig` 의 JWT 보호 경로(`addUrlPatterns`)에 반드시 등록한다** — 누락하면 그 엔드포인트의 전 시나리오가 401 로 실패한다(실제로 두 번 밟은 함정).
 
 ### 파라미터 애너테이션 위치 (고정)
 

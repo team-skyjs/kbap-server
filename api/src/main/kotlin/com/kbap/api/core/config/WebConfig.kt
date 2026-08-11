@@ -70,7 +70,6 @@ class WebConfig(
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.V1}/members/*",
-                "${ApiPaths.V2}/members/*",
                 "${ApiPaths.V1}/scans",
                 "${ApiPaths.V1}/scans/*",
                 "${ApiPaths.API}/scans",

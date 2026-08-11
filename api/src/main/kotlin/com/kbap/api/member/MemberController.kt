@@ -59,4 +59,13 @@ class MemberController(
         memberService.updateProfile(request.toInput(memberId))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
+
+    @PatchMapping("/me/profile", version = "1.1+")
+    override fun updateProfile(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: ProfileUpdateNoCountryRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        memberService.updateProfile(request.toInput(memberId))
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
 }

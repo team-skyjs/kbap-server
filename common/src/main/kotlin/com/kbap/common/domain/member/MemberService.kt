@@ -41,6 +41,7 @@ class MemberService(
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
             profileImageUrl = input.profileImageUrl,
+            currency = input.currency,
         )
     }
 
@@ -58,7 +59,6 @@ class MemberService(
     fun getRanking(memberId: Long): MemberRankingResult =
         MemberRankingResult.from(getMember(memberId).ranking)
 
-    // 소셜 계정 삭제(외부 호출)는 AuthApplicationService 가 트랜잭션 밖에서 선행한다.
     @Transactional
     fun withdraw(memberId: Long) {
         getMember(memberId).withdraw()
@@ -75,8 +75,6 @@ class MemberService(
             MemberStatus.ACTIVE,
         )
 
-    // 의도적 무트랜잭션: unique 제약 위반 폴백(가입 경합)이 세션을 무효화하므로 단일 트랜잭션으로
-    // 묶을 수 없다 — 각 레포지토리 호출이 자체 트랜잭션으로 돈다.
     fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
         findByIdentity(identity)?.let { return it to false }
 
@@ -124,7 +122,6 @@ class MemberService(
         }
     }
 
-    // 회원이 기피하는 성분 코드 집합 — 게스트(null)·미존재·미등록이면 빈 집합.
     @Transactional(readOnly = true)
     fun getAvoidedCodes(memberId: Long?): Set<IngredientCode> {
         if (memberId == null) return emptySet()

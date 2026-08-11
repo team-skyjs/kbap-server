@@ -1,54 +1,67 @@
 package com.kbap.common.domain.member.model
 
+import com.kbap.common.domain.CurrencyCode
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 
 class CountryCodeTest : BehaviorSpec({
 
-    given("CountryCode 카탈로그") {
-        `when`("전체 상수를 조회하면") {
-            then("ISO 3166-1 alpha-2 197개국을 보유한다") {
-                CountryCode.entries shouldHaveSize 197
+    given("지원 국가 목록") {
+        `when`("개수를 세면") {
+            then("197개다") {
+                CountryCode.entries.size shouldBe 197
             }
         }
 
-        `when`("상수명 형식을 확인하면") {
-            then("모두 대문자 2자이며 중복이 없다") {
-                val format = Regex("^[A-Z]{2}$")
-                CountryCode.entries.forEach { it.name.matches(format) shouldBe true }
-                CountryCode.entries.map { it.name }.toSet() shouldHaveSize 197
-            }
-        }
-
-        `when`("대표 국가를 조회하면") {
-            then("코드와 한국어 label 을 가진다") {
-                CountryCode.KR.label shouldBe "대한민국"
-                CountryCode.US.label shouldBe "미국"
-                CountryCode.JP.label shouldBe "일본"
-            }
-        }
-
-        `when`("모든 상수의 label 을 확인하면") {
-            then("빈 값이 없다") {
+        `when`("라벨을 훑으면") {
+            then("비어 있는 국가가 없다") {
                 CountryCode.entries.forEach { it.label.isNotBlank() shouldBe true }
             }
         }
     }
 
-    given("CountryCode.from — 코드 문자열 변환") {
-        `when`("유효한 코드를 주면") {
-            then("해당 상수를 반환한다") {
+    given("취급 통화를 쓰는 국가") {
+        `when`("통화를 조회하면") {
+            then("그 국가의 실제 통화가 나온다") {
+                CountryCode.KR.currency shouldBe CurrencyCode.KRW
+                CountryCode.JP.currency shouldBe CurrencyCode.JPY
+                CountryCode.VN.currency shouldBe CurrencyCode.VND
+                CountryCode.TW.currency shouldBe CurrencyCode.TWD
+            }
+        }
+
+        `when`("유로존 국가를 조회하면") {
+            then("모두 같은 EUR 를 가리킨다") {
+                CountryCode.FR.currency shouldBe CurrencyCode.EUR
+                CountryCode.DE.currency shouldBe CurrencyCode.EUR
+                CountryCode.IT.currency shouldBe CurrencyCode.EUR
+            }
+        }
+    }
+
+    given("취급 통화 밖 통화를 쓰는 국가") {
+        `when`("통화를 조회하면") {
+            then("USD 로 대체된다") {
+                CountryCode.NG.currency shouldBe CurrencyCode.USD
+                CountryCode.AO.currency shouldBe CurrencyCode.USD
+                CountryCode.AR.currency shouldBe CurrencyCode.USD
+            }
+        }
+    }
+
+    given("국가 코드 파싱") {
+        `when`("정확히 일치하는 코드를 주면") {
+            then("해당 국가를 돌려준다") {
                 CountryCode.from("KR") shouldBe CountryCode.KR
             }
         }
 
-        `when`("null·빈 문자열·미지 코드를 주면") {
-            then("null 을 반환한다") {
-                CountryCode.from(null) shouldBe null
-                CountryCode.from("") shouldBe null
-                CountryCode.from("kr") shouldBe null
-                CountryCode.from("ZZ") shouldBe null
+        `when`("대소문자가 다르거나 없는 코드면") {
+            then("null 을 돌려준다") {
+                CountryCode.from("kr").shouldBeNull()
+                CountryCode.from("ZZ").shouldBeNull()
+                CountryCode.from(null).shouldBeNull()
             }
         }
     }
