@@ -17,8 +17,8 @@ data class ScanV2Response(
     val results: List<ItemRiskResponse>,
 
     @field:Schema(
-        description = "회원 프로필 통화의 환산 정보. 환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다. " +
-            "회원에 통화가 설정되지 않았으면 null.",
+        description = "통화 환산 정보 — 요청 currency 파라미터가 회원 프로필 통화보다 우선하고, 미전달 시 프로필 통화, " +
+            "둘 다 없으면 null. 환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
         nullable = true,
     )
     val currency: CurrencyResponse?,
@@ -94,7 +94,7 @@ data class ScanV2Response(
         val imageRef: String?,
     )
 
-    @Schema(description = "회원 통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
+    @Schema(description = "통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
     data class CurrencyResponse(
         @field:Schema(description = "회원 프로필 통화의 ISO 4217 코드", example = "USD")
         val code: String,

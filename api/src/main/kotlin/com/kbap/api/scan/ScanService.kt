@@ -2,6 +2,7 @@ package com.kbap.api.scan
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
@@ -32,8 +33,20 @@ class ScanService(
     fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult =
         scan(memberId, imagePath, ocrItems, lang, similarFoodFallback = false)
 
-    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode): ScanResult =
-        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, similarFoodFallback = true)
+    fun scanMenuBoardImageV2(
+        memberId: Long,
+        imagePath: String,
+        lang: LanguageCode,
+        requestedCurrency: CurrencyCode? = null,
+    ): ScanResult =
+        scan(
+            memberId,
+            imagePath,
+            ocrItems = emptyList(),
+            lang = lang,
+            similarFoodFallback = true,
+            requestedCurrency = requestedCurrency,
+        )
 
     private fun scan(
         memberId: Long,
@@ -41,6 +54,7 @@ class ScanService(
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
         similarFoodFallback: Boolean,
+        requestedCurrency: CurrencyCode? = null,
     ): ScanResult {
         val member = memberService.getMember(memberId)
 
@@ -76,7 +90,7 @@ class ScanService(
         recordHistory(memberId, imagePath, extracted, items)
         memberService.increaseScanCount(memberId)
 
-        return ScanResult(items = items, degraded = false, currency = member.profile.currency)
+        return ScanResult(items = items, degraded = false, currency = requestedCurrency ?: member.profile.currency)
     }
 
     private fun resolveSimilarFoods(
