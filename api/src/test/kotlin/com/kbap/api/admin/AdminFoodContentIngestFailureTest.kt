@@ -6,7 +6,10 @@ import com.kbap.api.admin.AdminFoodContentIngestTestSupport.PATH
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.failedBody
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
@@ -38,6 +41,9 @@ class AdminFoodContentIngestFailureTest : BehaviorSpec() {
     private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
+    private lateinit var outboxRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
@@ -58,8 +64,8 @@ class AdminFoodContentIngestFailureTest : BehaviorSpec() {
                 }
             }
 
-        fun saveFood(rawName: String, contentStatus: FoodContentStatus): Food =
-            foodJpaRepository.save(
+        fun saveFood(rawName: String, contentStatus: FoodContentStatus): Food {
+            val food = foodJpaRepository.save(
                 Food(
                     koreanName = namePrefix + rawName,
                     displayName = namePrefix + rawName,
@@ -70,13 +76,23 @@ class AdminFoodContentIngestFailureTest : BehaviorSpec() {
                     contentStatus = contentStatus,
                 ),
             )
+            outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+            return food
+        }
 
-        fun ingest(body: Map<String, Any?>): ResultActionsDsl =
-            mockMvc.post(PATH) {
+        fun ingest(body: Map<String, Any?>): ResultActionsDsl {
+            val foodId = body.getValue("foodId") as Long
+            val outboxId = body["outboxId"] ?: outboxRepository
+                .findByFoodIdInAndOutboxStatus(setOf(foodId), FoodContentOutboxStatus.PENDING)
+                .singleOrNull()
+                ?.id
+                ?: 999_999L
+            return mockMvc.post(PATH) {
                 header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(body)
+                content = mapper.writeValueAsString(body + ("outboxId" to outboxId))
             }
+        }
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 

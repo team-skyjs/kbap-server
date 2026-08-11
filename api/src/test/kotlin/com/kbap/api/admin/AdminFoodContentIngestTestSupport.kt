@@ -11,6 +11,7 @@ object AdminFoodContentIngestTestSupport {
 
     fun passedBody(
         foodId: Long,
+        outboxId: Long? = null,
         description: String = "들깨를 곱게 갈아 넣어 고소한 칼국수",
         longDescription: String? = null,
         spiciness: Int = 2,
@@ -19,6 +20,7 @@ object AdminFoodContentIngestTestSupport {
         ingredients: List<Map<String, Any>> = listOf(mapOf("code" to "SESAME", "inclusion_percent" to 100)),
     ): Map<String, Any?> = mapOf(
         "foodId" to foodId,
+        "outboxId" to outboxId,
         "passed" to true,
         "description" to description,
         "longDescription" to longDescription,
@@ -30,10 +32,12 @@ object AdminFoodContentIngestTestSupport {
 
     fun failedBody(
         foodId: Long,
+        outboxId: Long? = null,
         failureKind: String = "JUDGE_REJECTED",
         reason: String = "번역 점수 78점으로 임계값 미달",
     ): Map<String, Any?> = mapOf(
         "foodId" to foodId,
+        "outboxId" to outboxId,
         "passed" to false,
         "failureKind" to failureKind,
         "reason" to reason,

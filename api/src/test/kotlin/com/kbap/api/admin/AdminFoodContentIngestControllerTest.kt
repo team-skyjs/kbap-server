@@ -7,7 +7,10 @@ import com.kbap.api.admin.AdminFoodContentIngestTestSupport.allTargets
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.passedBody
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -38,6 +41,9 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
     private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
+    private lateinit var outboxRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
@@ -58,8 +64,8 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun saveFood(rawName: String, contentStatus: FoodContentStatus, imageRef: String?): Food =
-            foodJpaRepository.save(
+        fun saveFood(rawName: String, contentStatus: FoodContentStatus, imageRef: String?): Food {
+            val food = foodJpaRepository.save(
                 Food(
                     koreanName = namePrefix + rawName,
                     displayName = namePrefix + rawName,
@@ -70,13 +76,26 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                     ingredients = null,
                 ),
             )
+            outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+            return food
+        }
 
-        fun ingest(body: Map<String, Any?>): ResultActionsDsl =
-            mockMvc.post(PATH) {
+        fun ingest(body: Map<String, Any?>): ResultActionsDsl {
+            val foodId = body.getValue("foodId") as Long
+            val outboxId = body["outboxId"] ?: outboxRepository
+                .findByFoodIdInAndOutboxStatus(setOf(foodId), FoodContentOutboxStatus.PENDING)
+                .singleOrNull()
+                ?.id
+                ?: foodJpaRepository.findById(foodId).orElse(null)?.let {
+                    outboxRepository.save(FoodContentOutbox.pending(it.id, it.displayName)).id
+                }
+                ?: 999_999L
+            return mockMvc.post(PATH) {
                 header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(body)
+                content = mapper.writeValueAsString(body + ("outboxId" to outboxId))
             }
+        }
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 
@@ -163,14 +182,22 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
             }
 
             `when`("같은 결과가 두 번 도착하면") {
-                then("둘 다 성공으로 처리한다") {
+                then("두 번째 요청은 이미 처리된 계약 응답으로 거절한다") {
                     clearFoods()
                     val food = saveFood("메밀국수", FoodContentStatus.FAILED, null)
+                    val outbox = outboxRepository
+                        .findByFoodIdInAndOutboxStatus(setOf(food.id), FoodContentOutboxStatus.PENDING)
+                        .single()
 
-                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
-                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
+                    ingest(passedBody(food.id, outbox.id)).andExpect { status { isOk() } }
+                    ingest(passedBody(food.id, outbox.id)).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-004") }
+                    }
 
                     reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodContentOutboxStatus.COMPLETE
                 }
             }
 

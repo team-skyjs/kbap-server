@@ -9,7 +9,10 @@ import com.kbap.api.admin.AdminFoodContentIngestTestSupport.passedBody
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -39,6 +42,9 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
     private lateinit var foodJpaRepository: FoodJpaRepository
 
     @Autowired
+    private lateinit var outboxRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
@@ -59,8 +65,8 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                 }
             }
 
-        fun saveFood(rawName: String): Food =
-            foodJpaRepository.save(
+        fun saveFood(rawName: String): Food {
+            val food = foodJpaRepository.save(
                 Food(
                     koreanName = namePrefix + rawName,
                     displayName = namePrefix + rawName,
@@ -70,17 +76,64 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                     ingredients = null,
                 ),
             )
+            outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+            return food
+        }
 
-        fun ingest(body: Map<String, Any?>, token: String? = tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)): ResultActionsDsl =
-            mockMvc.post(PATH) {
+        fun ingest(
+            body: Map<String, Any?>,
+            token: String? = tokenIssuer.issueAccessToken(0, MemberRole.ADMIN),
+            fillOutboxId: Boolean = true,
+        ): ResultActionsDsl {
+            val foodId = body.getValue("foodId") as Long
+            val outboxId = body["outboxId"] ?: outboxRepository
+                .findByFoodIdInAndOutboxStatus(setOf(foodId), FoodContentOutboxStatus.PENDING)
+                .singleOrNull()
+                ?.id
+                ?: 999_999L
+            val requestBody = if (fillOutboxId) body + ("outboxId" to outboxId) else body - "outboxId"
+            return mockMvc.post(PATH) {
                 token?.let { header("Authorization", "Bearer $it") }
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(body)
+                content = mapper.writeValueAsString(requestBody)
             }
+        }
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 
         given("계약 위반 요청") {
+            `when`("outboxId가 없으면") {
+                then("저장하지 않고 거절한다") {
+                    clearFoods()
+                    val food = saveFood("아웃박스없는국수")
+
+                    ingest(passedBody(food.id), fillOutboxId = false).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+
+                    reloaded(food.id).description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                }
+            }
+
+            `when`("outboxId와 foodId 조합이 맞지 않으면") {
+                then("저장하지 않고 거절한다") {
+                    clearFoods()
+                    val first = saveFood("첫국수")
+                    val second = saveFood("둘국수")
+                    val firstOutbox = outboxRepository
+                        .findByFoodIdInAndOutboxStatus(setOf(first.id), FoodContentOutboxStatus.PENDING)
+                        .single()
+
+                    ingest(passedBody(second.id, firstOutbox.id)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+
+                    reloaded(second.id).description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                }
+            }
+
             `when`("번역이 9개 언어를 다 채우지 않으면") {
                 then("저장하지 않고 거절한다") {
                     clearFoods()
@@ -202,13 +255,13 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
         }
 
         given("대상 음식을 찾을 수 없는 요청") {
-            `when`("없는 foodId 이면") {
-                then("음식 없음으로 거절한다") {
+            `when`("아웃박스가 없는 foodId 이면") {
+                then("계약 위반으로 거절한다") {
                     clearFoods()
 
                     ingest(passedBody(999_999)).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value(ErrorCode.FOOD_NOT_FOUND.code) }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
                     }
                 }
             }
@@ -217,6 +270,9 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                 then("되살리지 않고 거절한다 — 관리자의 삭제 의도를 자동 호출이 뒤집지 않는다") {
                     clearFoods()
                     val food = saveFood("삭제국수")
+                    val outbox = outboxRepository
+                        .findByFoodIdInAndOutboxStatus(setOf(food.id), FoodContentOutboxStatus.PENDING)
+                        .single()
                     food.delete()
                     foodJpaRepository.save(food)
 
@@ -224,6 +280,8 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                         status { isBadRequest() }
                         jsonPath("$.code") { value(ErrorCode.FOOD_NOT_FOUND.code) }
                     }
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodContentOutboxStatus.PENDING
                 }
             }
         }

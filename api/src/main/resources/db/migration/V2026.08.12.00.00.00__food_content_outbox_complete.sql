@@ -1,0 +1,2 @@
+ALTER TABLE food_content_outbox
+    MODIFY COLUMN outbox_status ENUM ('PENDING','SENT','COMPLETE') NOT NULL DEFAULT 'PENDING';

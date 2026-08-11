@@ -12,6 +12,10 @@ import jakarta.validation.constraints.Positive
 data class AdminFoodContentIngestRequest(
     @field:NotNull
     @field:Positive
+    val outboxId: Long? = null,
+
+    @field:NotNull
+    @field:Positive
     val foodId: Long? = null,
 
     val displayName: String? = null,

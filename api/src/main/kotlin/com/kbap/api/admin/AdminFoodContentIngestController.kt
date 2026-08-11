@@ -19,8 +19,10 @@ class AdminFoodContentIngestController(
         @Valid @RequestBody request: AdminFoodContentIngestRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         val foodId = request.foodId!!
+        val outboxId = request.outboxId!!
         if (request.passed!!) {
             adminFoodContentIngestService.ingestContent(
+                outboxId = outboxId,
                 foodId = foodId,
                 description = request.description!!,
                 longDescription = request.longDescription,
@@ -31,6 +33,7 @@ class AdminFoodContentIngestController(
             )
         } else {
             adminFoodContentIngestService.ingestFailure(
+                outboxId = outboxId,
                 foodId = foodId,
                 failureKind = request.failureKind!!,
                 reason = request.reason!!,
