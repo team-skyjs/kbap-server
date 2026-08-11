@@ -37,7 +37,7 @@
         "content": "정말 맛있어요",
         "imageUrls": ["https://cdn.example.com/review/1.jpg"],
         "createdAt": "2026-08-11T12:00:00",
-        "author": { "nickname": "김밥러버", "ranking": "SILVER", "countryCode": "VN" },
+        "author": { "memberId": 7, "nickname": "김밥러버", "countryCode": "VN", "tier": "GOURMET", "level": 2, "score": 15 },
         "likeCount": 3,
         "likedByMe": true,
         "food": {
@@ -48,14 +48,15 @@
       }
     ],
     "hasNext": true,
-    "nextCursor": "42"
+    "nextCursor": 42
   }
 }
 ```
 
 - `food`: **신규 중첩 객체.** 목록 조회에서 채워지며, 음식이 삭제된 리뷰(음식별·내 리뷰 경로)는 `null`. 리뷰 생성·수정 응답(`POST /reviews`·`PATCH /reviews/{id}`)에서도 `null`.
 - 기존 필드는 이름·타입·의미 모두 불변(하위 호환 — 필드 추가만).
-- `author` 객체 구조는 기존 `ReviewAuthorResponse` 그대로(예시는 축약).
+- `author` 객체 구조는 기존 `ReviewAuthorResponse` 그대로.
+- `food.imageUrl` 은 `kbap.storage.public-base-url` 기준으로 해석된 절대 URL(리뷰 `imageUrls` 와 동일 규칙).
 
 ## 오류
 

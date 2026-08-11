@@ -65,17 +65,17 @@
 
 ### Tests for User Story 2 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T008 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` 보강 — 음식별·내 리뷰 조회에 `lang` 필수(누락 400)·`food` 객체(name lang 해석, 번역 부재 ko 폴백, 미지원 코드 en 폴백, imageUrl)·기존 필드 유지·(내 리뷰) 삭제 음식 리뷰의 `food=null`. Red 확인
-- [ ] T009 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewFeedControllerTest.kt` 보강 — 피드 응답 `food` 객체 검증(이름 해석·이미지 URL). Red 확인
-- [ ] T010 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` 보강 — 생성·수정 응답의 `food=null` 유지 검증. Red 확인
+- [X] T008 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewListControllerTest.kt` 보강 — 음식별·내 리뷰 조회에 `lang` 필수(누락 400)·`food` 객체(name lang 해석, 번역 부재 ko 폴백, 미지원 코드 en 폴백, imageUrl)·기존 필드 유지·(내 리뷰) 삭제 음식 리뷰의 `food=null`. Red 확인
+- [X] T009 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewFeedControllerTest.kt` 보강 — 피드 응답 `food` 객체 검증(이름 해석·이미지 URL). Red 확인
+- [X] T010 [P] [US2] Red: `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` 보강 — 생성·수정 응답의 `food=null` 유지 검증. Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T011 [P] [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt` 에 `ReviewFoodResponse`(foodId·name·imageUrl) 추가, `ReviewResponse.food: ReviewFoodResponse? = null` 필드 추가(`from` 파라미터 기본값 null — 생성·수정 경로 무변경)
-- [ ] T012 [P] [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewListRequest.kt` 의 `ReviewListRequest`·`MyReviewListRequest` 에 `lang: String`(`@field:NotBlank`) 추가
-- [ ] T013 [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `toPage` 에 `lang: LanguageCode` 전달 + `FoodJpaRepository.findAllById(foodIds)` 배치 조회로 `food` 합류(`Food.displayName(lang)`·`ImageUrls.resolve`), 조회에 없는 foodId 는 `food=null`. 목록 3개 서비스 메서드 시그니처에 lang 반영
-- [ ] T014 [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewController.kt` 기존 목록 2개에 lang 바인딩(`LanguageCode.from`) + `api/src/main/kotlin/com/kbap/api/review/ReviewApi.kt` swagger 문서 갱신. T008~T010 Green 확인
-- [ ] T015 [US2] Refactor: 배치 조회 3종(작성자·좋아요·음식) 조립 정리 후 `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 유지 확인
+- [X] T011 [P] [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewResponse.kt` 에 `ReviewFoodResponse`(foodId·name·imageUrl) 추가, `ReviewResponse.food: ReviewFoodResponse? = null` 필드 추가(`from` 파라미터 기본값 null — 생성·수정 경로 무변경)
+- [X] T012 [P] [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewListRequest.kt` 의 `ReviewListRequest`·`MyReviewListRequest` 에 `lang: String`(`@field:NotBlank`) 추가
+- [X] T013 [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `toPage` 에 `lang: LanguageCode` 전달 + `FoodJpaRepository.findAllById(foodIds)` 배치 조회로 `food` 합류(`Food.displayName(lang)`·`ImageUrls.resolve`), 조회에 없는 foodId 는 `food=null`. 목록 3개 서비스 메서드 시그니처에 lang 반영
+- [X] T014 [US2] Green: `api/src/main/kotlin/com/kbap/api/review/ReviewController.kt` 기존 목록 2개에 lang 바인딩(`LanguageCode.from`) + `api/src/main/kotlin/com/kbap/api/review/ReviewApi.kt` swagger 문서 갱신. T008~T010 Green 확인
+- [X] T015 [US2] Refactor: 배치 조회 3종(작성자·좋아요·음식) 조립 정리 후 `./gradlew :api:test --tests "com.kbap.api.review.*"` Green 유지 확인
 
 **Checkpoint**: 세 목록 경로 모두 리뷰 카드 완성 정보(음식+작성자) 반환 — US1·US2 독립 검증 완료
 
@@ -83,8 +83,8 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T016 계약 대조: `specs/kb-321-review-feed-food-info/contracts/review-feed-api.md` 의 파라미터·응답 예시·오류 표와 구현 일치 확인(불일치 시 계약 문서 갱신)
-- [ ] T017 전체 검증: `./gradlew build` (ArchUnit `arch` 태그 포함 — 컨트롤러 `/api/v` 규약·도메인 방향 맵) Green 확인
+- [X] T016 계약 대조: `specs/kb-321-review-feed-food-info/contracts/review-feed-api.md` 의 파라미터·응답 예시·오류 표와 구현 일치 확인(불일치 시 계약 문서 갱신)
+- [X] T017 전체 검증: `./gradlew build` (ArchUnit `arch` 태그 포함 — 컨트롤러 `/api/v` 규약·도메인 방향 맵) Green 확인
 
 ---
 

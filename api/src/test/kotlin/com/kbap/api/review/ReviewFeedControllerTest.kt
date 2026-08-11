@@ -163,6 +163,24 @@ class ReviewFeedControllerTest : BehaviorSpec() {
                     ids.contains(orphaned) shouldBe false
                 }
             }
+            `when`("리뷰의 음식에 요청 언어 번역과 이미지가 있으면") {
+                then("food 객체에 번역 이름과 이미지 URL 이 내려간다") {
+                    seedFood(905L, "피드음식정보김밥", imageRef = "images/food/905.jpg")
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("""UPDATE food SET name_translations = '{"en":"Kimbap"}' WHERE id = 905""")
+                            .use { it.executeUpdate() }
+                    }
+                    val token = accessToken(9007L)
+                    val reviewId = createReview(token, 905L)
+
+                    val item = payloadOf(feed(token, lang = "en")).path("items")
+                        .single { it.path("reviewId").asLong() == reviewId }
+                    item.path("food").path("foodId").asLong() shouldBe 905L
+                    item.path("food").path("name").asText() shouldBe "Kimbap"
+                    item.path("food").path("imageUrl").asText() shouldBe "https://cdn.test/images/food/905.jpg"
+                    item.path("author").path("nickname").asText() shouldBe "피더9007"
+                }
+            }
             `when`("lang 없이 조회하면") {
                 then("400 을 반환한다") {
                     val token = accessToken(9005L)

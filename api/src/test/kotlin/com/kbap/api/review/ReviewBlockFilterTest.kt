@@ -100,6 +100,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
                 mockMvc.get("/api/v1/reviews") {
                     header("Authorization", "Bearer $token")
                     param("foodId", foodId.toString())
+                    param("lang", "ko")
                 }.andReturn().response.getContentAsString(Charsets.UTF_8),
             ).path("payload").path("items")
 

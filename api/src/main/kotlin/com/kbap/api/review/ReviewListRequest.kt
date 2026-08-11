@@ -18,6 +18,10 @@ data class FeedReviewListRequest(
 
 @Schema(description = "음식별 리뷰 목록 조회 파라미터")
 data class ReviewListRequest(
+    @field:NotBlank(message = "lang 은 필수입니다")
+    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
+    val lang: String,
+
     @field:Schema(description = "다음 페이지 커서(이전 응답의 nextCursor). 생략 시 첫 페이지", example = "42")
     val cursor: String? = null,
 
@@ -27,6 +31,10 @@ data class ReviewListRequest(
 
 @Schema(description = "내 리뷰 목록 조회 파라미터")
 data class MyReviewListRequest(
+    @field:NotBlank(message = "lang 은 필수입니다")
+    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
+    val lang: String,
+
     @field:Schema(description = "다음 페이지 커서(이전 응답의 nextCursor). 생략 시 첫 페이지", example = "42")
     val cursor: String? = null,
 )

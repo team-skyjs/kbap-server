@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -88,7 +89,7 @@ class ReviewController(
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFeedReviewPage(memberId, CursorParser.parse(request.cursor)),
+                reviewService.getFeedReviewPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor)),
             ),
         )
 
@@ -96,22 +97,28 @@ class ReviewController(
     override fun listFoodReviews(
         @AuthMemberId memberId: Long,
         @RequestParam foodId: Long,
-        @ModelAttribute request: ReviewListRequest,
+        @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFoodReviewPage(memberId, foodId, request.countryCode, CursorParser.parse(request.cursor)),
+                reviewService.getFoodReviewPage(
+                    memberId,
+                    foodId,
+                    request.countryCode,
+                    LanguageCode.from(request.lang),
+                    CursorParser.parse(request.cursor),
+                ),
             ),
         )
 
     @GetMapping("/reviews/me")
     override fun listMyReviews(
         @AuthMemberId memberId: Long,
-        @ModelAttribute request: MyReviewListRequest,
+        @Valid @ModelAttribute request: MyReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getMyReviewPage(memberId, CursorParser.parse(request.cursor)),
+                reviewService.getMyReviewPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor)),
             ),
         )
 }

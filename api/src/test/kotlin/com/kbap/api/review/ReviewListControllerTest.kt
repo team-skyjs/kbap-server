@@ -65,19 +65,21 @@ class ReviewListControllerTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
-        fun seedFood(id: Long, koreanName: String): Unit =
+        fun seedFood(id: Long, koreanName: String, nameTranslations: String = "{}", imageRef: String? = null): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO food (id, korean_name, description, spiciness, name_translations,
+                    INSERT INTO food (id, korean_name, image_ref, description, spiciness, name_translations,
                                       description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
-                    VALUES (?, ?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, ?, ?, '설명', 0, ?, '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
                 ).use { ps ->
                     ps.setLong(1, id)
                     ps.setString(2, koreanName)
+                    ps.setString(3, imageRef)
+                    ps.setString(4, nameTranslations)
                     ps.executeUpdate()
                 }
             }
@@ -102,18 +104,21 @@ class ReviewListControllerTest : BehaviorSpec() {
             foodId: Long,
             cursor: String? = null,
             countryCode: String? = null,
+            lang: String? = "en",
         ): ResultActionsDsl =
             mockMvc.get("/api/v1/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
                 param("foodId", foodId.toString())
                 cursor?.let { param("cursor", it) }
                 countryCode?.let { param("countryCode", it) }
+                lang?.let { param("lang", it) }
             }
 
-        fun myReviews(token: String?, cursor: String? = null): ResultActionsDsl =
+        fun myReviews(token: String?, cursor: String? = null, lang: String? = "en"): ResultActionsDsl =
             mockMvc.get("/api/v1/reviews/me") {
                 token?.let { header("Authorization", "Bearer $it") }
                 cursor?.let { param("cursor", it) }
+                lang?.let { param("lang", it) }
             }
 
         fun payloadOf(result: ResultActionsDsl): JsonNode =
@@ -364,6 +369,81 @@ class ReviewListControllerTest : BehaviorSpec() {
                     item.path("reviewId").asLong() shouldBe reviewId
                     item.path("likeCount").asLong() shouldBe 2L
                     item.path("likedByMe").asBoolean().shouldBeTrue()
+                }
+            }
+        }
+
+        given("리뷰 목록 — 음식 정보(food) 포함") {
+            `when`("번역이 있는 언어로 조회하면") {
+                then("food.name 은 해당 언어 번역, imageUrl 은 음식 대표 이미지다") {
+                    seedFood(850L, "음식정보김치찌개", """{"vi":"Canh kimchi"}""", "images/food/850.jpg")
+                    val token = accessToken(8501L)
+                    val reviewId = createReview(token, 850L)
+
+                    val item = payloadOf(foodReviews(token, 850L, lang = "vi")).path("items")
+                        .single { it.path("reviewId").asLong() == reviewId }
+                    item.path("food").path("foodId").asLong() shouldBe 850L
+                    item.path("food").path("name").asText() shouldBe "Canh kimchi"
+                    item.path("food").path("imageUrl").asText() shouldBe "https://cdn.test/images/food/850.jpg"
+                }
+            }
+            `when`("번역이 없는 지원 언어로 조회하면") {
+                then("food.name 은 한국어 원문으로 폴백한다") {
+                    seedFood(851L, "음식정보된장찌개", """{"vi":"Canh tương"}""")
+                    val token = accessToken(8502L)
+                    createReview(token, 851L)
+
+                    val item = payloadOf(foodReviews(token, 851L, lang = "ja")).path("items").first()
+                    item.path("food").path("name").asText() shouldBe "음식정보된장찌개"
+                    item.path("food").path("imageUrl").isNull.shouldBeTrue()
+                }
+            }
+            `when`("지원 목록에 없는 lang 으로 조회하면") {
+                then("food.name 은 영어 번역으로 폴백한다") {
+                    seedFood(852L, "음식정보비빔밥", """{"en":"Bibimbap"}""")
+                    val token = accessToken(8503L)
+                    createReview(token, 852L)
+
+                    val item = payloadOf(foodReviews(token, 852L, lang = "fr")).path("items").first()
+                    item.path("food").path("name").asText() shouldBe "Bibimbap"
+                }
+            }
+            `when`("내 리뷰 목록을 조회하면") {
+                then("동일하게 food 객체가 포함된다") {
+                    seedFood(853L, "음식정보불고기", """{"en":"Bulgogi"}""")
+                    val token = accessToken(8504L)
+                    val reviewId = createReview(token, 853L)
+
+                    val item = payloadOf(myReviews(token, lang = "en")).path("items")
+                        .single { it.path("reviewId").asLong() == reviewId }
+                    item.path("food").path("foodId").asLong() shouldBe 853L
+                    item.path("food").path("name").asText() shouldBe "Bulgogi"
+                }
+            }
+            `when`("내 리뷰의 음식이 소프트 삭제되면") {
+                then("그 리뷰의 food 는 null 이고 리뷰 자체는 보인다") {
+                    seedFood(854L, "음식정보삭제음식")
+                    val token = accessToken(8505L)
+                    val reviewId = createReview(token, 854L)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET status = 'DELETED' WHERE id = 854") }
+                    }
+
+                    val item = payloadOf(myReviews(token)).path("items")
+                        .single { it.path("reviewId").asLong() == reviewId }
+                    item.path("food").isNull.shouldBeTrue()
+                }
+            }
+            `when`("lang 없이 음식별 목록을 조회하면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(8506L)
+                    foodReviews(token, 850L, lang = null).andExpect { status { isBadRequest() } }
+                }
+            }
+            `when`("lang 없이 내 리뷰 목록을 조회하면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(8506L)
+                    myReviews(token, lang = null).andExpect { status { isBadRequest() } }
                 }
             }
         }

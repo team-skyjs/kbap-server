@@ -112,12 +112,13 @@ interface ReviewApi {
             음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
             countryCode 를 주면 작성 시점 국적 스냅샷이 정확히 일치하는 리뷰만 내려간다(리뷰가 없는 코드는 빈 목록).
             호출한 회원이 신고한 리뷰는 결과에서 제외된다(다른 회원에게는 그대로 노출).
+            각 리뷰에는 음식 요약(food — lang 으로 해석한 이름·대표 이미지)이 포함된다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
-            ApiResponse(responseCode = "400", description = "foodId 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "400", description = "foodId·lang 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
@@ -129,12 +130,15 @@ interface ReviewApi {
 
     @Operation(
         summary = "내 리뷰 목록",
-        description = "내가 쓴 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(프로필 탭 진입).",
+        description = """
+            내가 쓴 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(프로필 탭 진입).
+            각 리뷰에는 음식 요약(food — lang 으로 해석한 이름·대표 이미지)이 포함되며, 음식이 삭제됐으면 food 는 null 이다.
+        """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
-            ApiResponse(responseCode = "400", description = "비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "400", description = "lang 누락, 비정상 커서(FOOD-002)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )

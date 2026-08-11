@@ -189,6 +189,18 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.author.score") { value(15) }
                         jsonPath("$.payload.likeCount") { value(0) }
                         jsonPath("$.payload.likedByMe") { value(false) }
+                        jsonPath("$.payload.food") { value(null) }
+                    }
+                }
+            }
+            `when`("작성한 리뷰를 수정하면") {
+                then("수정 응답에도 food 는 null 로 유지된다") {
+                    val token = accessToken(709L)
+                    val reviewId = createReview(token, 700L)
+                    update(token, reviewId, createBody(foodId = null, rating = 3)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.rating") { value(3) }
+                        jsonPath("$.payload.food") { value(null) }
                     }
                 }
             }
