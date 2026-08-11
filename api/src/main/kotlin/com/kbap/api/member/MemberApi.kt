@@ -296,4 +296,50 @@ interface MemberApi {
         )
         request: ProfileUpdateRequest,
     ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "프로필 수정 (부분 수정) — X-API-Version 2.0 이상",
+        description = """
+            같은 경로 `PATCH /api/v1/members/me/profile` 을 `X-API-Version: 2.0` 이상으로 호출하면 이 버전으로 라우팅된다.
+            클라이언트는 URL 을 바꾸지 않고 헤더만 올리면 된다(헤더가 없거나 2.0 미만이면 위의 기본 버전이 응답한다).
+
+            기본 버전과의 유일한 차이는 **국적(countryCode)을 수정할 수 없다**는 점이다 — 국적은 최초 온보딩에서
+            확정되며, 요청에 countryCode 를 포함해 보내도 알 수 없는 필드로 무시된다(오류 아님).
+            통화(currency)는 국적과 무관하게 바꿀 수 있다. 나머지 필드의 의미·검증은 기본 버전과 동일하다.
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "수정 완료"),
+            ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·닉네임·사진 URL·맵기·통화) 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+        ],
+    )
+    fun updateProfileV2(
+        memberId: Long,
+        @SwaggerRequestBody(
+            required = true,
+            content = [
+                Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "닉네임·기피 성분·통화 수정 — 국적 필드 없음",
+                            value = """
+                                {
+                                  "nickname": "새닉네임",
+                                  "avoidanceSubstanceCodes": ["PEANUT"],
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
+                                  "spicinessPreference": "MILD",
+                                  "currency": "USD"
+                                }
+                            """,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        request: ProfileUpdateV2Request,
+    ): ResponseEntity<BaseResponse<Unit>>
 }

@@ -7,7 +7,6 @@ import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -23,7 +22,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class, RedisContainerConfig::class, FakeSocialTokenVerifierConfig::class)
-class MemberV2ControllerTest : BehaviorSpec() {
+class MemberProfileUpdateV2Test : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -74,7 +73,7 @@ class MemberV2ControllerTest : BehaviorSpec() {
         }
 
         fun updateProfileV2(token: String?, body: Map<String, Any?>, apiVersion: String? = "2.0") =
-            mockMvc.patch("/api/members/me/profile") {
+            mockMvc.patch("/api/v1/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
                 if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
@@ -175,34 +174,30 @@ class MemberV2ControllerTest : BehaviorSpec() {
             }
         }
 
-        given("버전 헤더로만 라우팅되는 경로") {
-            `when`("X-API-Version 없이 같은 경로를 호출하면") {
-                then("기본 버전 1.0 으로 해석돼 이 엔드포인트에 도달하지 않는다") {
+        given("같은 경로를 버전 헤더로만 가르는 라우팅") {
+            `when`("X-API-Version 없이 호출하면") {
+                then("기본 버전 1.0 으로 해석돼 국적까지 수정되는 계약이 동작한다") {
                     val token = onboardedToken()
 
                     val result = updateProfileV2(
                         token,
-                        mapOf("nickname" to "새닉"),
+                        mapOf("countryCode" to "JP"),
                         apiVersion = null,
                     ).andReturn().response
 
-                    result.status shouldNotBe 200
-                    profilePayload(token).path("nickname").asText() shouldBe "길동이"
+                    result.status shouldBe 200
+                    profilePayload(token).path("countryCode").asText() shouldBe "JP"
                 }
             }
 
-            `when`("v1 경로를 버전 헤더 없이 호출하면") {
-                then("국적까지 수정되는 v1 계약이 그대로 동작한다") {
+            `when`("X-API-Version 2.0 으로 호출하면") {
+                then("같은 요청이라도 국적은 무시된다") {
                     val token = onboardedToken()
 
-                    val result = mockMvc.patch("/api/v1/members/me/profile") {
-                        header("Authorization", "Bearer $token")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = objectMapper.writeValueAsString(mapOf("countryCode" to "JP"))
-                    }.andReturn().response
+                    val result = updateProfileV2(token, mapOf("countryCode" to "JP")).andReturn().response
 
                     result.status shouldBe 200
-                    profilePayload(token).path("countryCode").asText() shouldBe "JP"
+                    profilePayload(token).path("countryCode").asText() shouldBe "US"
                 }
             }
         }
