@@ -24,7 +24,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class ReviewFeedControllerTest : BehaviorSpec() {
+class GlobalReviewListControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired

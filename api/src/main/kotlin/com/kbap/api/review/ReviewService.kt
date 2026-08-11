@@ -138,7 +138,7 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFeedReviewPage(viewerMemberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
+    fun getGlobalReviewPage(viewerMemberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
         toPage(
             reviewRepository.findGlobalReviewPage(
                 cursor,
