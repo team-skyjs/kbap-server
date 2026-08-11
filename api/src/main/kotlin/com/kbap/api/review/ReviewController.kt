@@ -82,26 +82,15 @@ class ReviewController(
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
-    @GetMapping("/reviews/feed")
-    override fun listGlobalReviews(
-        @AuthMemberId memberId: Long,
-        @Valid @ModelAttribute request: ReviewPageRequest,
-    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
-        ResponseEntity.ok(
-            BaseResponse.ok(
-                reviewService.getGlobalReviewPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor)),
-            ),
-        )
-
     @GetMapping("/reviews")
-    override fun listFoodReviews(
+    override fun listReviews(
         @AuthMemberId memberId: Long,
-        @RequestParam foodId: Long,
+        @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFoodReviewPage(
+                reviewService.getReviewPage(
                     memberId,
                     foodId,
                     request.countryCode,

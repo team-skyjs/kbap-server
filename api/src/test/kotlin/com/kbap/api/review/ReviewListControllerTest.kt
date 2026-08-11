@@ -203,11 +203,12 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("foodId 없이 조회하면") {
-                then("400 을 반환한다") {
+                then("전체 리뷰 목록으로 동작한다") {
                     val token = accessToken(800L)
                     mockMvc.get("/api/reviews") {
                         header("Authorization", "Bearer $token")
-                    }.andExpect { status { isBadRequest() } }
+                        param("lang", "en")
+                    }.andExpect { status { isOk() } }
                 }
             }
         }

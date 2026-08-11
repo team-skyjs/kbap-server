@@ -91,43 +91,25 @@ interface ReviewApi {
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
-        summary = "전체 리뷰 목록",
+        summary = "리뷰 목록 (전체·음식별)",
         description = """
-            음식 지정 없이 서비스 전체 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(리뷰 피드 화면).
-            호출한 회원이 차단한 회원의 리뷰·신고한 리뷰·탈퇴한 회원의 리뷰·삭제된 음식의 리뷰는 결과에서 제외된다.
-        """,
-    )
-    @ApiResponses(
-        value = [
-            ApiResponse(responseCode = "200", description = "조회 성공"),
-            ApiResponse(responseCode = "400", description = "lang 누락, 비정상 커서(FOOD-002)"),
-            ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
-        ],
-    )
-    fun listGlobalReviews(
-        memberId: Long,
-        @ParameterObject request: ReviewPageRequest,
-    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
-
-    @Operation(
-        summary = "음식별 리뷰 목록",
-        description = """
-            음식의 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
+            리뷰를 최신순 20건 keyset 커서 방식으로 조회한다.
+            foodId 를 주면 그 음식의 리뷰만, 생략하면 서비스 전체 리뷰를 내려준다(리뷰 피드 화면).
             countryCode 를 주면 작성 시점 국적 스냅샷이 정확히 일치하는 리뷰만 내려간다(리뷰가 없는 코드는 빈 목록).
-            호출한 회원이 신고한 리뷰·차단한 회원의 리뷰(다른 회원에게는 그대로 노출)와 탈퇴한 회원의 리뷰는 결과에서 제외된다.
+            호출한 회원이 신고한 리뷰·차단한 회원의 리뷰(다른 회원에게는 그대로 노출)와 탈퇴한 회원의 리뷰·삭제된 음식의 리뷰는 결과에서 제외된다.
             각 리뷰에는 음식 요약(food — lang 으로 해석한 이름·대표 이미지)이 포함된다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
-            ApiResponse(responseCode = "400", description = "foodId·lang 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
+            ApiResponse(responseCode = "400", description = "lang 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
-    fun listFoodReviews(
+    fun listReviews(
         memberId: Long,
-        @Parameter(description = "리뷰를 조회할 음식 id", example = "1") foodId: Long,
+        @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,
         @ParameterObject request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
 

@@ -15,28 +15,9 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
     @Query(
         """
         select r from Review r
-        where r.foodId = :foodId
+        where (:foodId is null or r.foodId = :foodId)
           and (:countryCode is null or r.authorCountryCode = :countryCode)
           and (:cursor is null or r.id < :cursor)
-          and r.memberId not in :excludedMemberIds
-          and r.id not in :excludedReviewIds
-          and exists (select 1 from Member m where m.id = r.memberId)
-        order by r.id desc
-        """,
-    )
-    fun findFoodReviewPage(
-        @Param("foodId") foodId: Long,
-        @Param("countryCode") countryCode: String?,
-        @Param("cursor") cursor: Long?,
-        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
-        @Param("excludedReviewIds") excludedReviewIds: List<Long>,
-        pageable: Pageable,
-    ): List<Review>
-
-    @Query(
-        """
-        select r from Review r
-        where (:cursor is null or r.id < :cursor)
           and r.memberId not in :excludedMemberIds
           and r.id not in :excludedReviewIds
           and exists (select 1 from Food f where f.id = r.foodId)
@@ -44,7 +25,9 @@ interface ReviewJpaRepository : JpaRepository<Review, Long> {
         order by r.id desc
         """,
     )
-    fun findGlobalReviewPage(
+    fun findReviewPage(
+        @Param("foodId") foodId: Long?,
+        @Param("countryCode") countryCode: String?,
         @Param("cursor") cursor: Long?,
         @Param("excludedMemberIds") excludedMemberIds: List<Long>,
         @Param("excludedReviewIds") excludedReviewIds: List<Long>,

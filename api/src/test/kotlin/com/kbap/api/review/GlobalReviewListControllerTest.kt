@@ -98,7 +98,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
         }
 
         fun feed(token: String?, lang: String? = "en", cursor: String? = null): ResultActionsDsl =
-            mockMvc.get("/api/reviews/feed") {
+            mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
                 lang?.let { param("lang", it) }
                 cursor?.let { param("cursor", it) }
@@ -107,7 +107,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
-        given("전체 리뷰 피드 — GET /api/reviews/feed") {
+        given("전체 리뷰 목록 — GET /api/reviews (foodId 없음)") {
             `when`("여러 음식의 리뷰 25건에서 첫 페이지를 조회하면") {
                 then("음식 구분 없이 최신순 20건과 다음 커서를 주고, 커서로 나머지를 잇는다") {
                     seedFood(900L, "피드김치찌개")
@@ -221,7 +221,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
             `when`("X-API-Version 1.0 헤더로 조회하면") {
                 then("정상 조회된다") {
                     val token = accessToken(9012L)
-                    mockMvc.get("/api/reviews/feed") {
+                    mockMvc.get("/api/reviews") {
                         header("Authorization", "Bearer $token")
                         header("X-API-Version", "1.0")
                         param("lang", "en")
@@ -231,7 +231,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
             `when`("지원하지 않는 버전 헤더로 조회하면") {
                 then("400 을 반환한다") {
                     val token = accessToken(9012L)
-                    mockMvc.get("/api/reviews/feed") {
+                    mockMvc.get("/api/reviews") {
                         header("Authorization", "Bearer $token")
                         header("X-API-Version", "9.9")
                         param("lang", "en")

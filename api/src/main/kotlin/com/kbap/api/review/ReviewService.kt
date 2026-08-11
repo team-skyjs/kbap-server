@@ -115,16 +115,16 @@ class ReviewService(
     }
 
     @Transactional(readOnly = true)
-    fun getFoodReviewPage(
+    fun getReviewPage(
         viewerMemberId: Long,
-        foodId: Long,
+        foodId: Long?,
         countryCode: String?,
         lang: LanguageCode,
         cursor: Long?,
     ): Page<ReviewResponse> {
-        foodService.getReadyFood(foodId)
+        foodId?.let { foodService.getReadyFood(it) }
         return toPage(
-            reviewRepository.findFoodReviewPage(
+            reviewRepository.findReviewPage(
                 foodId,
                 countryCode,
                 cursor,
@@ -136,19 +136,6 @@ class ReviewService(
             lang,
         )
     }
-
-    @Transactional(readOnly = true)
-    fun getGlobalReviewPage(viewerMemberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
-        toPage(
-            reviewRepository.findGlobalReviewPage(
-                cursor,
-                excludedMemberIds(viewerMemberId),
-                excludedReviewIds(viewerMemberId),
-                PageRequest.of(0, PAGE_SIZE + 1),
-            ),
-            viewerMemberId,
-            lang,
-        )
 
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
