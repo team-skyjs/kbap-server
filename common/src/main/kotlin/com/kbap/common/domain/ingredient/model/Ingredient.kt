@@ -24,6 +24,9 @@ class Ingredient(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "translations", nullable = false)
     var translations: Map<String, String> = emptyMap(),
+
+    @Column(name = "image_path", length = 255)
+    var imagePath: String? = null,
 ) : BaseEntity() {
     fun displayName(lang: LanguageCode): String =
         LocalizedText(korean = koreanName, translations = resolveTranslations()).resolve(lang)
