@@ -16,6 +16,7 @@ class AdminFoodPageController(
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminFoodService: AdminFoodService,
+    private val adminFoodOutboxQueryService: AdminFoodOutboxQueryService,
     private val adminImageBatchQueryService: AdminImageBatchQueryService,
     private val foodImageBatchSubmitService: FoodImageBatchSubmitService,
 ) {
@@ -24,6 +25,7 @@ class AdminFoodPageController(
     @GetMapping("/admin/foods")
     fun foods(model: Model): String {
         model.addAttribute("dashboard", adminFoodDashboardService.getDashboard())
+        model.addAttribute("outbox", adminFoodOutboxQueryService.getOutboxDashboard())
         model.addAttribute("metrics", adminDashboardMetricsService.getMetrics())
         return "admin/foods"
     }

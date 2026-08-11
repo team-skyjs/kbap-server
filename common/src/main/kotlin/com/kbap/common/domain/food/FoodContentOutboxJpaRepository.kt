@@ -10,4 +10,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun findByFoodIdInAndOutboxStatus(foodIds: Collection<Long>, outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
     fun findByOutboxStatusOrderByIdAsc(outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
+
+    fun countByOutboxStatus(outboxStatus: FoodContentOutboxStatus): Long
+
+    fun findTop20ByOrderByIdDesc(): List<FoodContentOutbox>
 }

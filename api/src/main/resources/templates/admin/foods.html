@@ -40,6 +40,50 @@
         <p class="page-desc" th:if="${dashboard.total == 0}" style="margin: 8px 0 0">아직 적재된 음식 데이터가 없습니다.</p>
     </div>
 
+    <h1 class="page-title" style="margin-top: 32px">수집 요청 (아웃박스)</h1>
+    <p class="page-desc">랭체인 콘텐츠 수집 요청의 발행 진행 상황입니다. 발행 배치가 붙기 전까지는 대기 상태로 쌓입니다.</p>
+
+    <div class="stat-grid">
+        <div class="card stat-card">
+            <div class="stat-label">발행 대기</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(outbox.pending, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-label">발행 완료</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(outbox.sent, 0, 'COMMA')}">0</div>
+        </div>
+    </div>
+
+    <div class="card table-card" th:if="${!outbox.recent.isEmpty()}">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>음식</th>
+                <th>상태</th>
+                <th>시도</th>
+                <th>요청 시각</th>
+                <th>발행 시각</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="r : ${outbox.recent}">
+                <td>
+                    <a class="row-link" th:href="@{/admin/foods/list(detail=${r.foodId})}" th:text="${r.displayName}">칼국수</a>
+                </td>
+                <td>
+                    <span class="badge"
+                          th:classappend="${r.outboxStatus.name() == 'SENT'} ? 'badge-ok' : 'badge-progress'"
+                          th:text="${r.outboxStatus.name() == 'SENT'} ? '발행 완료' : '대기'">대기</span>
+                </td>
+                <td th:text="${r.attempts}">0</td>
+                <td th:text="${#temporals.format(r.createdAt, 'MM-dd HH:mm')}">01-01 00:00</td>
+                <td th:text="${r.sentAt != null} ? ${#temporals.format(r.sentAt, 'MM-dd HH:mm')} : '—'">—</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card empty-state" th:if="${outbox.recent.isEmpty()}">아직 수집 요청이 없습니다.</div>
+
     <h1 class="page-title" style="margin-top: 32px">운영 지표</h1>
     <p class="page-desc">가입자·사용량·비용 핵심 운영 지표입니다.</p>
 
