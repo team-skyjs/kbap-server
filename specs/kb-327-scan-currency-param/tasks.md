@@ -82,6 +82,7 @@
 
 - [X] T008 `api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` — `v2Scan` 헬퍼 기본 `currency = "USD"` 로 전 v2 시나리오가 필수 계약을 충족하게 하고, KB-323 의 프로필 fallback 시나리오 2건(프로필 USD → USD / 미설정 → null)을 제거·대체: 신규 "currency 누락 → 400 COMMON-002 · 스캔 미실행" 시나리오 추가 후 **Red 확인**(당시 구현은 fallback 200)
 - [X] T009 구현: `ScanV2Controller` — `@RequestParam currency: String`(필수, 누락은 Spring 검증 → `GlobalExceptionHandler` 의 `ErrorResponse` 분기에서 400 COMMON-002), `ScanService.scanMenuBoardImageV2` — `requestedCurrency: CurrencyCode`(non-null)·프로필 통화 참조 제거(`member.profile.currency` 미사용), `ScanV2Api`/`ScanV2Response` — 필수·프로필 미참조로 문서 갱신 — **Green 확인** 후 spec·plan·research·data-model·contracts·quickstart 정합화
+- [X] T010 Refactor: 서비스의 순수 통과 파라미터 제거 — `ScanService.scanMenuBoardImageV2` 시그니처에서 `requestedCurrency` 제거, `ScanResult.currency` 필드 제거(KB-323 이전 형태 복귀), 통화 결합을 컨트롤러 응답 조립로 이동(`ScanV2Response.from(result, currency)` — currency 필드 non-null 화). 검증은 스캔 실행 전 유지(미지원 값 → 스캔 카운트 미증가 테스트가 고정). 테스트 무수정 **Green 확인**(계약 불변 증명)
 
 ---
 

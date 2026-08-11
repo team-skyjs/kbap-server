@@ -1,5 +1,6 @@
 package com.kbap.api.scan
 
+import com.kbap.common.domain.CurrencyCode
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 
@@ -20,7 +21,7 @@ data class ScanV2Response(
         description = "요청 currency 파라미터 기준 통화 환산 정보 — 회원 프로필 통화 설정을 읽지 않는다. " +
             "환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
     )
-    val currency: CurrencyResponse?,
+    val currency: CurrencyResponse,
 ) {
     @Schema(description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
@@ -103,10 +104,10 @@ data class ScanV2Response(
     )
 
     companion object {
-        fun from(result: ScanResult): ScanV2Response =
+        fun from(result: ScanResult, currency: CurrencyCode): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
-                currency = result.currency?.let { CurrencyResponse(code = it.name, krwPerUnit = it.krwPerUnit) },
+                currency = CurrencyResponse(code = currency.name, krwPerUnit = currency.krwPerUnit),
                 results = result.items.map {
                     ItemRiskResponse(
                         matched = it.matched,

@@ -28,13 +28,13 @@ class ScanV2Controller(
         @RequestParam currency: String,
         @Valid @RequestBody request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>> {
+        val requestedCurrency = requestedCurrency(currency)
         val result = scanService.scanMenuBoardImageV2(
             memberId,
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
-            requestedCurrency(currency),
         )
-        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result)))
+        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency)))
     }
 
     private fun requestedCurrency(raw: String): CurrencyCode =

@@ -71,10 +71,9 @@ api/src/main/kotlin/com/kbap/api/scan/
 │                         #        CurrencyCode 확정(잘못된 값 → BusinessException(INVALID_CURRENCY_CODE))
 │                         #        후 서비스에 전달 — 검증은 요청 경계 소유(헌법 V), 누락은 Spring 이 400 처리
 ├── ScanV2Api.kt          # [수정] currency 파라미터 swagger @Parameter(required) 문서 (인터페이스는 문서만 — 규약)
-├── ScanService.kt        # [수정] scanMenuBoardImageV2 에 requestedCurrency: CurrencyCode(non-null) 추가,
-│                         #        응답 통화 = requestedCurrency — 프로필 통화 미참조
-├── ScanV2Response.kt     # [수정] currency 필드 @Schema 설명 갱신 (파라미터 단일 출처)
-├── ScanResult.kt         # [불변] currency: CurrencyCode? 유지 (v1 경로는 null)
+├── ScanService.kt        # [수정] member.profile.currency 참조 제거 — 통화는 스캔 유스케이스 밖(시그니처 통화 무관)
+├── ScanV2Response.kt     # [수정] from(result, currency: CurrencyCode) — 응답 조립 시 결합, currency 필드 non-null
+├── ScanResult.kt         # [수정] currency 필드 제거 (KB-323 이전 형태로 복귀 — 통화는 결과 타입 소관 아님)
 ├── ScanController.kt     # [불변] 1.0 — currency 파라미터·응답 없음
 └── ScanLangRequest.kt    # [불변] lang 전용 홀더 유지 (research R1)
 
@@ -84,7 +83,7 @@ api/src/test/kotlin/com/kbap/api/scan/
 common/                   # [불변] CurrencyCode·ErrorCode.INVALID_CURRENCY_CODE 재사용
 ```
 
-**Structure Decision**: 변경을 `:api` 의 scan 기능 패키지 안에 가둔다. 검증(필수·raw → `CurrencyCode`)은 컨트롤러가 소유하고 서비스는 확정 타입만 받는다 — 계층별 책임이 헌법 V(경계 검증)와 기존 `LanguageCode.from` 패턴에 정렬된다. 스캔 경로가 회원 프로필 통화를 아예 읽지 않으므로 비회원 스캔이 도입돼도 통화 계약은 수정 없이 동일하다.
+**Structure Decision**: 변경을 `:api` 의 scan 기능 패키지 안에 가둔다. 통화는 스캔 유스케이스에 개입하지 않으므로(환산은 클라이언트 소관 — KB-323) **요청 경계 안에서 시작과 끝을 맺는다**: 컨트롤러가 검증(필수·raw → `CurrencyCode`, 스캔 실행 전 차단)하고 응답 조립(`ScanV2Response.from(result, currency)`)에서 결합한다. `ScanService`/`ScanResult` 는 통화를 모른다 — 서비스에 순수 통과 파라미터를 두지 않는다. 스캔 경로가 회원 프로필 통화를 아예 읽지 않으므로 비회원 스캔이 도입돼도 통화 계약은 수정 없이 동일하다.
 
 ## Complexity Tracking
 
