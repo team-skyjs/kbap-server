@@ -22,7 +22,7 @@ import javax.sql.DataSource
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class, RedisContainerConfig::class, FakeSocialTokenVerifierConfig::class)
-class MemberProfileUpdateV2Test : BehaviorSpec() {
+class MemberProfileUpdateVersionTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -72,7 +72,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
             return token
         }
 
-        fun updateProfileV2(token: String?, body: Map<String, Any?>, apiVersion: String? = "2.0") =
+        fun updateProfileNoCountry(token: String?, body: Map<String, Any?>, apiVersion: String? = "1.1") =
             mockMvc.patch("/api/v1/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
                 if (apiVersion != null) header("X-API-Version", apiVersion)
@@ -91,12 +91,12 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
             clearMembers()
         }
 
-        given("v2 프로필 수정 — 국적 변경 불가") {
+        given("1.1 프로필 수정 — 국적 변경 불가") {
             `when`("온보딩을 완료한 회원이 닉네임을 수정하면") {
                 then("200 으로 응답하고 닉네임은 변경되며 국적은 온보딩 값 그대로다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(token, mapOf("nickname" to "새닉")).andReturn().response
+                    val result = updateProfileNoCountry(token, mapOf("nickname" to "새닉")).andReturn().response
 
                     result.status shouldBe 200
                     val payload = profilePayload(token)
@@ -109,7 +109,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 then("200 으로 응답하되 해당 값은 무시되고 국적은 그대로다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(
+                    val result = updateProfileNoCountry(
                         token,
                         mapOf("nickname" to "새닉", "countryCode" to "JP"),
                     ).andReturn().response
@@ -125,7 +125,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 then("각 항목은 반영되고 국적은 그대로다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(
+                    val result = updateProfileNoCountry(
                         token,
                         mapOf(
                             "avoidanceSubstanceCodes" to listOf("PEANUT"),
@@ -147,7 +147,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 then("통화만 바뀌고 국적은 그대로다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(token, mapOf("currency" to "JPY")).andReturn().response
+                    val result = updateProfileNoCountry(token, mapOf("currency" to "JPY")).andReturn().response
 
                     result.status shouldBe 200
                     val payload = profilePayload(token)
@@ -160,7 +160,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 then("400 과 MEMBER-010 으로 거절된다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(token, mapOf("currency" to "XXX")).andReturn().response
+                    val result = updateProfileNoCountry(token, mapOf("currency" to "XXX")).andReturn().response
 
                     result.status shouldBe 400
                     objectMapper.readTree(result.contentAsString).path("code").asText() shouldBe "MEMBER-010"
@@ -169,7 +169,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
 
             `when`("인증 없이 수정하면") {
                 then("401 로 거절된다") {
-                    updateProfileV2(null, mapOf("nickname" to "새닉")).andReturn().response.status shouldBe 401
+                    updateProfileNoCountry(null, mapOf("nickname" to "새닉")).andReturn().response.status shouldBe 401
                 }
             }
         }
@@ -179,7 +179,7 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 then("기본 버전 1.0 으로 해석돼 국적까지 수정되는 계약이 동작한다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(
+                    val result = updateProfileNoCountry(
                         token,
                         mapOf("countryCode" to "JP"),
                         apiVersion = null,
@@ -190,11 +190,11 @@ class MemberProfileUpdateV2Test : BehaviorSpec() {
                 }
             }
 
-            `when`("X-API-Version 2.0 으로 호출하면") {
+            `when`("X-API-Version 1.1 으로 호출하면") {
                 then("같은 요청이라도 국적은 무시된다") {
                     val token = onboardedToken()
 
-                    val result = updateProfileV2(token, mapOf("countryCode" to "JP")).andReturn().response
+                    val result = updateProfileNoCountry(token, mapOf("countryCode" to "JP")).andReturn().response
 
                     result.status shouldBe 200
                     profilePayload(token).path("countryCode").asText() shouldBe "US"

@@ -298,10 +298,12 @@ interface MemberApi {
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
-        summary = "프로필 수정 (부분 수정) — X-API-Version 2.0 이상",
+        operationId = "updateProfileNoCountry",
+        summary = "프로필 수정 (부분 수정) — X-API-Version 1.1 이상",
         description = """
-            같은 경로 `PATCH /api/v1/members/me/profile` 을 `X-API-Version: 2.0` 이상으로 호출하면 이 버전으로 라우팅된다.
-            클라이언트는 URL 을 바꾸지 않고 헤더만 올리면 된다(헤더가 없거나 2.0 미만이면 위의 기본 버전이 응답한다).
+            같은 경로 `PATCH /api/v1/members/me/profile` 을 `X-API-Version: 1.1` 이상으로 호출하면 이 버전으로 라우팅된다.
+            클라이언트는 URL 을 바꾸지 않고 헤더만 올리면 된다(헤더가 없거나 1.1 미만이면 위의 기본 버전이 응답한다).
+            온보딩의 `1.1` 과 같은 릴리스 마커다.
 
             기본 버전과의 유일한 차이는 **국적(countryCode)을 수정할 수 없다**는 점이다 — 국적은 최초 온보딩에서
             확정되며, 요청에 countryCode 를 포함해 보내도 알 수 없는 필드로 무시된다(오류 아님).
@@ -316,7 +318,7 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
-    fun updateProfileV2(
+    fun updateProfile(
         memberId: Long,
         @SwaggerRequestBody(
             required = true,
@@ -340,6 +342,6 @@ interface MemberApi {
                 ),
             ],
         )
-        request: ProfileUpdateV2Request,
+        request: ProfileUpdateNoCountryRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 }
