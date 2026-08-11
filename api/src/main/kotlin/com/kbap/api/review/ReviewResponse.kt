@@ -45,7 +45,7 @@ data class ReviewResponse(
     @field:Schema(description = "작성 시각")
     val createdAt: LocalDateTime,
 
-    @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적). 탈퇴한 회원이면 null.", nullable = true)
+    @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적·탈퇴 여부). 회원 행이 없으면 null.", nullable = true)
     val author: ReviewAuthorResponse?,
 
     @field:Schema(description = "좋아요 수", example = "3")

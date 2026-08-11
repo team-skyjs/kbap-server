@@ -11,6 +11,9 @@ import org.springframework.data.repository.query.Param
 interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
 
+    @Query("select * from member where id in (:ids)", nativeQuery = true)
+    fun findAllByIdIncludingWithdrawn(@Param("ids") ids: Collection<Long>): List<Member>
+
     fun countByMemberStatus(memberStatus: MemberStatus): Long
 
     fun findByProviderAndProviderUidAndMemberStatus(
