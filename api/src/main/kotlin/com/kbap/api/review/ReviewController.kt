@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.API, version = "1.0")
+@RequestMapping(ApiPaths.API, version = "1.0+")
 class ReviewController(
     private val reviewService: ReviewService,
 ) : ReviewApi {

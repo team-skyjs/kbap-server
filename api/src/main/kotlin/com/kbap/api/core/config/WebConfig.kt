@@ -23,7 +23,7 @@ class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
-        configurer.useRequestHeader("API-Version")
+        configurer.useRequestHeader("X-API-Version")
             .setDefaultVersion("1.0")
     }
 

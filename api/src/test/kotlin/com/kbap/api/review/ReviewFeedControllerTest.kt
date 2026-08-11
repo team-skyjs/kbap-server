@@ -218,12 +218,12 @@ class ReviewFeedControllerTest : BehaviorSpec() {
                     item.has("memberId") shouldBe false
                 }
             }
-            `when`("API-Version 1.0 헤더로 조회하면") {
+            `when`("X-API-Version 1.0 헤더로 조회하면") {
                 then("정상 조회된다") {
                     val token = accessToken(9012L)
                     mockMvc.get("/api/reviews/feed") {
                         header("Authorization", "Bearer $token")
-                        header("API-Version", "1.0")
+                        header("X-API-Version", "1.0")
                         param("lang", "en")
                     }.andExpect { status { isOk() } }
                 }
@@ -233,7 +233,7 @@ class ReviewFeedControllerTest : BehaviorSpec() {
                     val token = accessToken(9012L)
                     mockMvc.get("/api/reviews/feed") {
                         header("Authorization", "Bearer $token")
-                        header("API-Version", "9.9")
+                        header("X-API-Version", "9.9")
                         param("lang", "en")
                     }.andExpect { status { isBadRequest() } }
                 }

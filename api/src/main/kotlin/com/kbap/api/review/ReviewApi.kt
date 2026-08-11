@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity
 
 @Tag(
     name = "리뷰",
-    description = "음식 리뷰 작성·수정·삭제 API — 경로는 /api/reviews(URI 무버전), 버전은 API-Version 헤더(기본 1.0, 미지원 버전 400)로 전달한다",
+    description = "음식 리뷰 작성·수정·삭제 API — 경로는 /api/reviews(URI 무버전), 버전은 X-API-Version 헤더(기본 1.0, 미지원 버전 400)로 전달한다",
 )
 @SecurityRequirement(name = "bearerAuth")
 interface ReviewApi {

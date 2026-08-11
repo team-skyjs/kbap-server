@@ -2,7 +2,7 @@
 
 공통: 인증 필수(`@AuthMemberId`), 응답 봉투 `ResponseEntity<BaseResponse<T>>`.
 
-**버저닝 (2026-08-11 개정)**: 리뷰 API 는 URI 버전을 쓰지 않는다 — 경로 베이스 `ApiPaths.API`(`/api`), 버전은 **`API-Version` 요청 헤더**로 전달한다(Spring Framework 7 네이티브 버저닝, 현재 `1.0`). 헤더 미전송 시 기본 `1.0`, 미지원 버전은 400. ArchUnit 의 `/api/v` URI 강제 규칙은 삭제했다. (member 온보딩의 `X-API-Version` 은 열린 날짜 계약 버전으로 별개 규약 — 혼동 금지.)
+**버저닝 (2026-08-11 개정)**: 리뷰 API 는 URI 버전을 쓰지 않는다 — 경로 베이스 `ApiPaths.API`(`/api`), 버전은 **`X-API-Version` 요청 헤더**로 전달한다(Spring Framework 7 네이티브 버저닝, 현재 `1.0`). 헤더 미전송 시 기본 `1.0`, 미지원 버전은 400. ArchUnit 의 `/api/v` URI 강제 규칙은 삭제했다. 온보딩도 같은 헤더의 1.0/1.1 로 이관됐다(구 날짜 계약 폐기).
 
 ## 1. GET /api/reviews/feed (신규)
 
