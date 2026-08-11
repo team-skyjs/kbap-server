@@ -8,12 +8,15 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 
-@Tag(name = "재료", description = "재료 카탈로그 조회 API")
+@Tag(name = "재료", description = "재료 카탈로그 조회 API — 경로는 /api/ingredients(URI 무버전), 버전은 X-API-Version 헤더(기본 1.0, 미지원 버전 400)로 전달한다")
 interface IngredientApi {
     @Operation(
         summary = "재료 카탈로그 목록 조회",
         description = """
             온보딩 기피 재료 선택 화면용 재료 카탈로그 전체 목록을 내려준다 — 재료 코드·표시명·이미지 URL.
+
+            ## 버전
+            `X-API-Version` 헤더 미전송·`1.0` 은 현재 계약이다(신규 API — 1.0 이 최초 버전).
 
             ## 인증 (불필요)
             **인증 없이 호출하는 공개 API** 다. `Authorization` 헤더가 있어도 검사하지 않는다(무효 토큰이어도 200).
