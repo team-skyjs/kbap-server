@@ -202,6 +202,41 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                     completed.sentAt shouldBe null
                 }
             }
+
+            `when`("다른 발행자가 먼저 성공을 기록한 요청의 발행 결과를 뒤늦게 기록하면") {
+                clear()
+                val succeededFood = saveFood("감자전")
+                val failedFood = saveFood("김치전")
+                val succeededOutbox = outboxRepository.save(
+                    FoodContentOutbox.pending(succeededFood.id, succeededFood.displayName),
+                )
+                val failedOutbox = outboxRepository.save(
+                    FoodContentOutbox.pending(failedFood.id, failedFood.displayName),
+                )
+                transactionTemplate.execute {
+                    outboxRepository.recordPublishSucceeded(setOf(succeededOutbox.id, failedOutbox.id))
+                }
+
+                then("SENT 상태에서도 각 실제 시도를 추가로 기록하고 최초 발행 시각을 유지한다") {
+                    val succeededSentAt = outboxRepository.findById(succeededOutbox.id).orElseThrow().sentAt
+                    val failedSentAt = outboxRepository.findById(failedOutbox.id).orElseThrow().sentAt
+
+                    transactionTemplate.execute {
+                        outboxRepository.recordPublishSucceeded(setOf(succeededOutbox.id))
+                        outboxRepository.recordPublishFailed(setOf(failedOutbox.id))
+                    }
+
+                    val succeeded = outboxRepository.findById(succeededOutbox.id).orElseThrow()
+                    succeeded.outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                    succeeded.attempts shouldBe 2
+                    succeeded.sentAt shouldBe succeededSentAt
+
+                    val failed = outboxRepository.findById(failedOutbox.id).orElseThrow()
+                    failed.outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                    failed.attempts shouldBe 2
+                    failed.sentAt shouldBe failedSentAt
+                }
+            }
         }
     }
 }
