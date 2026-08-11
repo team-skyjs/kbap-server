@@ -25,7 +25,7 @@ class ScanV2Controller(
     override fun scan(
         @AuthMemberId memberId: Long,
         @Valid @ModelAttribute langRequest: ScanLangRequest,
-        @RequestParam(required = false) currency: String?,
+        @RequestParam currency: String,
         @Valid @RequestBody request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>> {
         val result = scanService.scanMenuBoardImageV2(
@@ -37,6 +37,6 @@ class ScanV2Controller(
         return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result)))
     }
 
-    private fun requestedCurrency(raw: String?): CurrencyCode? =
-        raw?.let { CurrencyCode.from(it) ?: throw BusinessException(ErrorCode.INVALID_CURRENCY_CODE) }
+    private fun requestedCurrency(raw: String): CurrencyCode =
+        CurrencyCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_CURRENCY_CODE)
 }

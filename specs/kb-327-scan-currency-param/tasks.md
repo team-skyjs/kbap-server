@@ -72,7 +72,16 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [X] T007 전체 검증: `./gradlew :api:test` (ArchUnit `ModuleBoundaryTest` 포함 — 허용 맵 수정 불필요 확인) 통과 후 `./gradlew build` 로 전 모듈 통과 확인. quickstart.md 시나리오 6건과 대조하고, Swagger `X-API-Version: 2.0` 그룹에 `currency` 파라미터가 노출되는지 확인
+- [X] T007 전체 검증: `./gradlew :api:test` (ArchUnit `ModuleBoundaryTest` 포함 — 허용 맵 수정 불필요 확인) 통과 후 `./gradlew build` 로 전 모듈 통과 확인. quickstart.md 시나리오와 대조하고, Swagger `X-API-Version: 2.0` 그룹에 `currency` 파라미터가 노출되는지 확인
+
+---
+
+## Phase 6: 계약 개정 — currency 필수화·프로필 fallback 제거 (2026-08-12)
+
+> 사용자 결정: fallback 경로가 남으면 회원/비회원의 미전달 동작이 갈라진다 — `currency` 를 필수로 하고 스캔 경로의 프로필 통화 참조를 제거한다 (research R2 개정). US2 는 "미전달 시 기존 동작 보존"에서 "누락 시 명시적 거절"로 대체됐다.
+
+- [X] T008 `api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` — `v2Scan` 헬퍼 기본 `currency = "USD"` 로 전 v2 시나리오가 필수 계약을 충족하게 하고, KB-323 의 프로필 fallback 시나리오 2건(프로필 USD → USD / 미설정 → null)을 제거·대체: 신규 "currency 누락 → 400 COMMON-002 · 스캔 미실행" 시나리오 추가 후 **Red 확인**(당시 구현은 fallback 200)
+- [X] T009 구현: `ScanV2Controller` — `@RequestParam currency: String`(필수, 누락은 Spring 검증 → `GlobalExceptionHandler` 의 `ErrorResponse` 분기에서 400 COMMON-002), `ScanService.scanMenuBoardImageV2` — `requestedCurrency: CurrencyCode`(non-null)·프로필 통화 참조 제거(`member.profile.currency` 미사용), `ScanV2Api`/`ScanV2Response` — 필수·프로필 미참조로 문서 갱신 — **Green 확인** 후 spec·plan·research·data-model·contracts·quickstart 정합화
 
 ---
 

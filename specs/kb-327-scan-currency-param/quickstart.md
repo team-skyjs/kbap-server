@@ -19,11 +19,10 @@
 |---|------------------------|-----------|-----------|
 | 1 | USD | `currency=JPY` | 200 · `payload.currency == { "code": "JPY", "krwPerUnit": 8.8906 }` — 프로필 무시 |
 | 2 | 미설정 | `currency=USD` | 200 · `payload.currency.code == "USD"` |
-| 3 | USD | (파라미터 없음) | 200 · `payload.currency.code == "USD"` — 기존 동작 |
-| 4 | 미설정 | (파라미터 없음) | 200 · `payload.currency == null` — 기존 동작 |
-| 5 | 무관 | `currency=XXX` | 400 · `code == "MEMBER-010"` · 스캔 횟수 미증가 |
-| 6 | USD | 1.0 호출(`X-API-Version` 생략, `/api/v1/scans`) | 기존 1.0 응답 그대로 — `currency` 필드 없음 |
+| 3 | 무관 | (파라미터 없음) | 400 · `code == "COMMON-002"` · 스캔 횟수 미증가 |
+| 4 | 무관 | `currency=XXX` | 400 · `code == "MEMBER-010"` · 스캔 횟수 미증가 |
+| 5 | USD | 1.0 호출(`X-API-Version` 생략, `/api/v1/scans`) | 기존 1.0 응답 그대로 — `currency` 필드 없음 |
 
 ## Swagger 확인
 
-`/swagger-ui` 의 `X-API-Version: 2.0` 그룹에서 `POST /api/scans` 에 `currency` 선택 파라미터(설명: 파라미터 우선·프로필 fallback·잘못된 값 MEMBER-010)가 노출되는지 확인한다.
+`/swagger-ui` 의 `X-API-Version: 2.0` 그룹에서 `POST /api/scans` 에 `currency` 필수 파라미터(설명: 프로필 미참조·누락 COMMON-002·잘못된 값 MEMBER-010)가 노출되는지 확인한다.

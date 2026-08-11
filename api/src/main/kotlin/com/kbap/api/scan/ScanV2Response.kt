@@ -17,9 +17,8 @@ data class ScanV2Response(
     val results: List<ItemRiskResponse>,
 
     @field:Schema(
-        description = "통화 환산 정보 — 요청 currency 파라미터가 회원 프로필 통화보다 우선하고, 미전달 시 프로필 통화, " +
-            "둘 다 없으면 null. 환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
-        nullable = true,
+        description = "요청 currency 파라미터 기준 통화 환산 정보 — 회원 프로필 통화 설정을 읽지 않는다. " +
+            "환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
     )
     val currency: CurrencyResponse?,
 ) {
