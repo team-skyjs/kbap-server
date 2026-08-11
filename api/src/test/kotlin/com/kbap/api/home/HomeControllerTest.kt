@@ -52,7 +52,7 @@ class HomeControllerTest : BehaviorSpec() {
 
         given("홈 응답의 음식 카드 — 리뷰 평점·리뷰 수") {
             `when`("리뷰 있는 음식이 인기 음식·최근 스캔에 포함되면") {
-                then("두 섹션 카드 모두에 평점·리뷰 수가 담기고 리뷰 없는 음식은 null·0 이다") {
+                then("두 섹션 카드 모두에 review 객체가 담기고 리뷰 없는 음식은 0.0·0 이다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 2)
                     HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
                     HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-02 10:00:00")
@@ -69,14 +69,14 @@ class HomeControllerTest : BehaviorSpec() {
                     val popularById = payload.path("popularFoods").toList()
                         .associateBy { it.path("foodId").asLong() }
 
-                    popularById.getValue(1L).path("averageRating").asDouble() shouldBe 4.0
-                    popularById.getValue(1L).path("reviewCount").asLong() shouldBe 1L
-                    popularById.getValue(2L).get("averageRating").isNull shouldBe true
-                    popularById.getValue(2L).path("reviewCount").asLong() shouldBe 0L
+                    popularById.getValue(1L).path("review").path("averageRating").asDouble() shouldBe 4.0
+                    popularById.getValue(1L).path("review").path("count").asLong() shouldBe 1L
+                    popularById.getValue(2L).path("review").path("averageRating").asDouble() shouldBe 0.0
+                    popularById.getValue(2L).path("review").path("count").asLong() shouldBe 0L
 
                     val recent = payload.path("recentScans").single()
-                    recent.path("averageRating").asDouble() shouldBe 4.0
-                    recent.path("reviewCount").asLong() shouldBe 1L
+                    recent.path("review").path("averageRating").asDouble() shouldBe 4.0
+                    recent.path("review").path("count").asLong() shouldBe 1L
                 }
             }
         }

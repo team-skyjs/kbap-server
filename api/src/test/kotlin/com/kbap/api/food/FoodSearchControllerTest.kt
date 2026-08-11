@@ -637,8 +637,8 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val item = mapper.readTree(json).path("payload").path("items").path(0)
 
-                    item.path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
-                    item.path("reviewCount").asLong() shouldBe 2L
+                    item.path("review").path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 2L
                 }
             }
         }

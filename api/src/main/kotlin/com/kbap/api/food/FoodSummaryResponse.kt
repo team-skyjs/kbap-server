@@ -11,9 +11,13 @@ data class FoodSummaryResponse(
     val spiciness: Int,
     val overallRiskStatus: String,
     val bookmarked: Boolean,
-    val averageRating: Double?,
-    val reviewCount: Long,
+    val review: ReviewInfoResponse,
 ) {
+    data class ReviewInfoResponse(
+        val averageRating: Double,
+        val count: Long,
+    )
+
     companion object {
         fun from(view: FoodSummaryView, bookmarked: Boolean, rating: FoodRating?) = FoodSummaryResponse(
             foodId = view.foodId,
@@ -23,8 +27,10 @@ data class FoodSummaryResponse(
             spiciness = view.spiciness,
             overallRiskStatus = view.overallRiskStatus.name,
             bookmarked = bookmarked,
-            averageRating = rating?.averageRating,
-            reviewCount = rating?.reviewCount ?: 0,
+            review = ReviewInfoResponse(
+                averageRating = rating?.averageRating ?: 0.0,
+                count = rating?.reviewCount ?: 0,
+            ),
         )
     }
 }

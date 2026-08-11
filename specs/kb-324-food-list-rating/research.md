@@ -12,11 +12,11 @@
 - **Rationale**: 요청 문구는 목록·홈 인기·검색이지만, 응답 스키마(`FoodSummaryResponse`)를 북마크·어드민·최근 스캔도 공유한다. 필드만 추가하고 일부 경로에서 채우지 않으면 그 화면들이 똑같은 "— · 0" 버그를 새로 얻는다.
 - **Alternatives considered**: 세 경로만 채우고 나머지는 null/0(스키마 공유 화면 간 불일치로 기각).
 
-## R3. 값 표현 — 상세 overall 과 동일 규칙
+## R3. 값 표현 — 상세 overall 과 동일 규칙 (2026-08-11 2차 개정)
 
-- **Decision**: `averageRating: Double?`(리뷰 0건 → **null**), `reviewCount: Long`(0건 → 0). 평균은 소수 1자리 반올림 — 상세 `getFoodRatingSummary` 의 `roundToFirstDecimal` 과 동일 공식.
-- **Rationale**: FR-003(목록=상세 일치). 0건의 평점은 "없음"이 진실이고 FE 의 "—" 표시와 대응한다. 상세 응답이 0건을 0.0 으로 내리는 것은 상세 DTO 의 기존 계약이라 손대지 않는다(목록은 null — 계약 문서에 명시).
-- **Alternatives considered**: 0건도 0.0(평점 0점과 구분 불가로 기각), 반올림을 FE 위임(두 화면 값 불일치 위험으로 기각).
+- **Decision**: 두 값을 중첩 `review` 객체(`review.averageRating: Double`·`review.count: Long`)로 묶어 내린다. **리뷰 0건은 `0.0`·`0`** — 상세 `review.overall` 과 0건 포함 완전 일치. 평균은 소수 1자리 반올림(상세 `roundToFirstDecimal` 동일 공식).
+- **Rationale**: 상세의 `review` 섹션과 구조 대칭 + 목록·상세 값 규약이 예외 없이 단일해진다. FE 는 `review.count == 0` 으로 "—" 를 분기한다(사용자 확정).
+- **개정 이력**: 초기안은 0건 `averageRating: null`(평점 0점과 구분)이었으나, Codex 리뷰가 상세 0.0 과의 표현 불일치를 지적했고 사용자 결정으로 0.0 통일 + 객체 묶음으로 확정.
 
 ## R4. 도메인 경계 — food 가 review 를 알지 않게
 

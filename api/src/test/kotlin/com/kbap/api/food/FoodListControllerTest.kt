@@ -263,7 +263,7 @@ class FoodListControllerTest : BehaviorSpec() {
             }
 
             `when`("리뷰가 있는 음식과 없는 음식을 함께 조회하면") {
-                then("리뷰 있는 음식은 소수 1자리 평점·건수, 없는 음식은 null·0 이다") {
+                then("리뷰 있는 음식은 소수 1자리 평점·건수, 없는 음식은 0.0·0 이다") {
                     seedFoods(2)
                     seedReview(310L, 1L, 4)
                     seedReview(311L, 1L, 5)
@@ -274,11 +274,11 @@ class FoodListControllerTest : BehaviorSpec() {
                     val byId = mapper.readTree(json).path("payload").path("items").toList()
                         .associateBy { it.path("foodId").asLong() }
 
-                    byId.getValue(1L).path("averageRating").asDouble() shouldBe (4.3 plusOrMinus 0.0001)
-                    byId.getValue(1L).path("reviewCount").asLong() shouldBe 3L
-                    byId.getValue(2L).has("averageRating") shouldBe true
-                    byId.getValue(2L).get("averageRating").isNull shouldBe true
-                    byId.getValue(2L).path("reviewCount").asLong() shouldBe 0L
+                    byId.getValue(1L).path("review").path("averageRating").asDouble() shouldBe (4.3 plusOrMinus 0.0001)
+                    byId.getValue(1L).path("review").path("count").asLong() shouldBe 3L
+                    byId.getValue(2L).has("review") shouldBe true
+                    byId.getValue(2L).path("review").path("averageRating").asDouble() shouldBe (0.0 plusOrMinus 0.0001)
+                    byId.getValue(2L).path("review").path("count").asLong() shouldBe 0L
                 }
             }
 
@@ -292,8 +292,8 @@ class FoodListControllerTest : BehaviorSpec() {
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val item = mapper.readTree(json).path("payload").path("items").path(0)
 
-                    item.path("averageRating").asDouble() shouldBe (5.0 plusOrMinus 0.0001)
-                    item.path("reviewCount").asLong() shouldBe 1L
+                    item.path("review").path("averageRating").asDouble() shouldBe (5.0 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 1L
                 }
             }
         }

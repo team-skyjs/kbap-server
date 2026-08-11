@@ -225,8 +225,8 @@ class BookmarkControllerTest : BehaviorSpec() {
                     val item = mapper.readTree(listJson(token)).path("payload").path("items")
                         .single { it.path("foodId").asLong() == 31L }
 
-                    item.path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
-                    item.path("reviewCount").asLong() shouldBe 2L
+                    item.path("review").path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 2L
                 }
             }
         }

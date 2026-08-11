@@ -21,19 +21,21 @@
   "spiciness": 0,
   "overallRiskStatus": "SAFE",
   "bookmarked": false,
-  "averageRating": 4.3,
-  "reviewCount": 3
+  "review": {
+    "averageRating": 4.3,
+    "count": 3
+  }
 }
 ```
 
 | 필드 | 타입 | 의미 |
 |------|------|------|
-| `averageRating` | Double, nullable | 전체(overall) 평균 평점, 소수 1자리 반올림. **리뷰 0건이면 `null`**("—" 표시) |
-| `reviewCount` | Long | 리뷰 수. 0건이면 `0` |
+| `review` | Object | 리뷰 요약(항상 존재) |
+| `review.averageRating` | Double | 전체(overall) 평균 평점, 소수 1자리 반올림. **리뷰 0건이면 `0.0`**(2026-08-11 개정 — 초기 null 안 폐기, FE 는 `review.count == 0` 으로 "—" 분기) |
+| `review.count` | Long | 리뷰 수. 0건이면 `0` |
 
 ## 규칙
 
-- **리뷰가 1건 이상일 때** 값은 음식 상세 `FoodDetailResponse.review.overall` 과 일치한다(같은 집계: 소프트 삭제 리뷰 제외, 탈퇴·차단 회원 리뷰 포함, 동일 소수 1자리 반올림).
-- **리뷰 0건의 표현은 경로별로 다르다**: 목록은 `averageRating: null`(FE "—" 처리, 신규 필드라 하위 호환 부담 없음), 상세는 기존 계약대로 `0.0`. 값 일치 규약은 0건 표현에는 적용되지 않는다.
+- 값은 음식 상세 `FoodDetailResponse.review.overall` 과 **0건 포함 완전 일치**한다(같은 집계: 소프트 삭제 리뷰 제외, 탈퇴·차단 회원 리뷰 포함, 동일 소수 1자리 반올림, 0건은 양쪽 모두 `0.0`·`0`).
 - 국적별(sameCountry) 집계는 목록에 내리지 않는다 — 상세 전용.
 - **비회원에게도 목록·홈·검색의 평점·리뷰 수는 공개한다**(2026-08-11 결정 — Codex 리뷰 지적 후 확정). 상세의 리뷰 섹션 blur(비회원 가림)는 가입 유도 정책으로 존치하며, 두 정책의 비대칭은 의도된 것이다.
