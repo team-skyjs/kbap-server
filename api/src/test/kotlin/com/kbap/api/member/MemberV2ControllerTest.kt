@@ -7,6 +7,7 @@ import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -72,9 +73,10 @@ class MemberV2ControllerTest : BehaviorSpec() {
             return token
         }
 
-        fun updateProfileV2(token: String?, body: Map<String, Any?>) =
-            mockMvc.patch("/api/v2/members/me/profile") {
+        fun updateProfileV2(token: String?, body: Map<String, Any?>, apiVersion: String? = "2.0") =
+            mockMvc.patch("/api/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
+                if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
             }
@@ -142,9 +144,65 @@ class MemberV2ControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("통화를 수정하면") {
+                then("통화만 바뀌고 국적은 그대로다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfileV2(token, mapOf("currency" to "JPY")).andReturn().response
+
+                    result.status shouldBe 200
+                    val payload = profilePayload(token)
+                    payload.path("currency").asText() shouldBe "JPY"
+                    payload.path("countryCode").asText() shouldBe "US"
+                }
+            }
+
+            `when`("지원하지 않는 통화 코드를 보내면") {
+                then("400 과 MEMBER-010 으로 거절된다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfileV2(token, mapOf("currency" to "XXX")).andReturn().response
+
+                    result.status shouldBe 400
+                    objectMapper.readTree(result.contentAsString).path("code").asText() shouldBe "MEMBER-010"
+                }
+            }
+
             `when`("인증 없이 수정하면") {
                 then("401 로 거절된다") {
                     updateProfileV2(null, mapOf("nickname" to "새닉")).andReturn().response.status shouldBe 401
+                }
+            }
+        }
+
+        given("버전 헤더로만 라우팅되는 경로") {
+            `when`("X-API-Version 없이 같은 경로를 호출하면") {
+                then("기본 버전 1.0 으로 해석돼 이 엔드포인트에 도달하지 않는다") {
+                    val token = onboardedToken()
+
+                    val result = updateProfileV2(
+                        token,
+                        mapOf("nickname" to "새닉"),
+                        apiVersion = null,
+                    ).andReturn().response
+
+                    result.status shouldNotBe 200
+                    profilePayload(token).path("nickname").asText() shouldBe "길동이"
+                }
+            }
+
+            `when`("v1 경로를 버전 헤더 없이 호출하면") {
+                then("국적까지 수정되는 v1 계약이 그대로 동작한다") {
+                    val token = onboardedToken()
+
+                    val result = mockMvc.patch("/api/v1/members/me/profile") {
+                        header("Authorization", "Bearer $token")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = objectMapper.writeValueAsString(mapOf("countryCode" to "JP"))
+                    }.andReturn().response
+
+                    result.status shouldBe 200
+                    profilePayload(token).path("countryCode").asText() shouldBe "JP"
                 }
             }
         }

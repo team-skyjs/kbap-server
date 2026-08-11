@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
-@Tag(name = "회원 (v2)", description = "프로필 API v2 — 국적 변경 불가")
+@Tag(name = "회원 v2", description = "프로필 수정 API — 국적 변경 불가. 경로 /api/members + X-API-Version 2.0 이상")
 @SecurityRequirement(name = "bearerAuth")
 interface MemberV2Api {
     @Operation(
@@ -20,7 +20,9 @@ interface MemberV2Api {
             보낸 필드만 갱신하고 보내지 않은 필드는 유지한다(부분 수정). v1 과 달리 **국적(countryCode)은
             수정할 수 없다** — 국적은 최초 온보딩에서 확정되며, 요청에 countryCode 를 포함해 보내도
             알 수 없는 필드로 무시된다(오류 아님). 나머지 필드의 의미·검증은 v1 과 동일하다.
-            `Authorization: Bearer {accessToken}` 로 인증한다.
+            통화(currency)는 국적과 무관하게 바꿀 수 있다 — 지원 목록 밖 값은 400(MEMBER-010).
+            `X-API-Version: 2.0` 이상을 함께 보내야 이 버전으로 라우팅된다(헤더가 없으면 기본 1.0 으로 해석돼
+            이 엔드포인트에 도달하지 않는다). `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
     @ApiResponses(
@@ -39,13 +41,14 @@ interface MemberV2Api {
                     mediaType = "application/json",
                     examples = [
                         ExampleObject(
-                            name = "닉네임·기피 성분 수정 — 국적 필드 없음",
+                            name = "닉네임·기피 성분·통화 수정 — 국적 필드 없음",
                             value = """
                                 {
                                   "nickname": "새닉네임",
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "profileImageUrl": "images/default/profile/profile-default-512.png",
-                                  "spicinessPreference": "MILD"
+                                  "spicinessPreference": "MILD",
+                                  "currency": "USD"
                                 }
                             """,
                         ),
