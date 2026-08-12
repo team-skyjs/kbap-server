@@ -1,7 +1,6 @@
 package com.kbap.common.domain.member.model
 
 object OnboardingProfileDefaults {
-    // 스토리지 키 컨벤션(무슬래시) — MemberProfile 이 저장 시 선행 '/' 를 제거하므로 상수도 슬래시 없이 둔다.
     val PROFILE_IMAGE_PATHS: List<String> = listOf(
         "images/webp/default_profile/avatar-amber.png",
         "images/webp/default_profile/avatar-navy.png",
@@ -11,15 +10,17 @@ object OnboardingProfileDefaults {
         "images/webp/default_profile/avatar-teal.png",
     )
 
-    // 시각적으로 혼동되는 0·O·1·I 를 뺀 집합 — 사용자가 닉네임을 옮겨 적을 수 있어야 한다.
-    private const val NICKNAME_CODE_CHARS: String = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-    private const val NICKNAME_CODE_LENGTH: Int = 6
+    val NICKNAME_POOL: List<String> = listOf(
+        "Bibimbap", "Kimchi", "Tteokbokki", "Bulgogi", "Japchae",
+        "Gimbap", "Mandu", "Samgyetang", "Galbi", "Naengmyeon",
+        "Sundubu", "Doenjang", "Gochujang", "Pajeon", "Hotteok",
+        "Bingsu", "Jjajangmyeon", "Jjamppong", "Dakgalbi", "Samgyeopsal",
+        "Kalguksu", "Songpyeon", "Yukgaejang", "Bossam", "Jokbal",
+        "HaemulTang", "Gamjatang", "Miyeokguk", "Omurice", "Dakjuk",
+    )
 
     fun randomNickname(): String =
-        (1..NICKNAME_CODE_LENGTH)
-            .map { NICKNAME_CODE_CHARS.random() }
-            .joinToString("")
+        "${NICKNAME_POOL.random()}_${(0..9999).random().toString().padStart(4, '0')}"
 
     fun randomProfileImagePath(): String = PROFILE_IMAGE_PATHS.random()
 }

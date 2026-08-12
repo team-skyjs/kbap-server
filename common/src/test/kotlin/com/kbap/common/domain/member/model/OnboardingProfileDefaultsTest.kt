@@ -16,23 +16,21 @@ class OnboardingProfileDefaultsTest : BehaviorSpec({
 
     given("온보딩 자동 지정 닉네임") {
         `when`("닉네임을 생성하면") {
-            then("영숫자 6자 코드 형식이고 저장 가능한 길이 안에 있다") {
+            then("한식명_4자리 숫자 형식이고 저장 가능한 길이 안에 있다") {
                 repeat(DRAWS) {
                     val nickname = OnboardingProfileDefaults.randomNickname()
 
-                    nickname shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
-                    nickname.length shouldBe 6
-                    nickname.trim() shouldBe nickname
+                    nickname shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    OnboardingProfileDefaults.NICKNAME_POOL shouldContain nickname.substringBefore("_")
                     (nickname.length <= NICKNAME_COLUMN_MAX_LENGTH) shouldBe true
                 }
             }
         }
 
-        `when`("혼동하기 쉬운 문자를 확인하면") {
-            then("0·O·1·I 가 한 번도 나오지 않는다") {
-                val generated = (1..DRAWS).map { OnboardingProfileDefaults.randomNickname() }
-
-                generated.none { it.any { ch -> ch in "0O1I" } } shouldBe true
+        `when`("한식명 풀을 확인하면") {
+            then("정본 30종이고 중복이 없다") {
+                OnboardingProfileDefaults.NICKNAME_POOL.size shouldBe 30
+                OnboardingProfileDefaults.NICKNAME_POOL.distinct().size shouldBe 30
             }
         }
 
@@ -78,7 +76,7 @@ class OnboardingProfileDefaultsTest : BehaviorSpec({
                         profileImageUrl = path,
                     )
 
-                    profile.nickname!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                    profile.nickname!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
                     profile.profileImageUrl shouldBe path
                 }
             }
