@@ -21,6 +21,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
 import java.security.MessageDigest
 import java.time.Instant
+import javax.sql.DataSource
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -35,6 +36,9 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var dataSource: DataSource
 
     init {
         val embeddingModel = "amazon.titan-embed-text-v2:0"
@@ -51,7 +55,11 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
             foodRepository.deleteAll()
         }
 
-        fun saveReadyFood(koreanName: String, longDescription: String?): Food = foodRepository.save(
+        fun saveFood(
+            koreanName: String,
+            longDescription: String?,
+            contentStatus: FoodContentStatus = FoodContentStatus.READY,
+        ): Food = foodRepository.save(
             Food(
                 koreanName = koreanName,
                 displayName = koreanName,
@@ -60,9 +68,20 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                 longDescription = longDescription,
                 spiciness = 3,
                 ingredients = listOf(FoodIngredient("SOYBEAN", 100)),
-                contentStatus = FoodContentStatus.READY,
+                contentStatus = contentStatus,
             ),
         )
+
+        fun saveReadyFood(koreanName: String, longDescription: String?): Food = saveFood(koreanName, longDescription)
+
+        fun softDelete(food: Food) {
+            dataSource.connection.use { connection ->
+                connection.prepareStatement("UPDATE food SET status = 'DELETED' WHERE id = ?").use {
+                    it.setLong(1, food.id)
+                    it.executeUpdate()
+                }
+            }
+        }
 
         fun processor(
             embeddingClient: TextEmbeddingClient,
@@ -188,7 +207,9 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     clear()
                     val food = saveReadyFood("잔치국수", null)
                     val outbox = outboxRepository.save(
-                        FoodVectorOutbox.upsert(food.id).apply { attempts = FoodVectorOutbox.MAX_ATTEMPTS - 1 },
+                        FoodVectorOutbox.upsert(food.id).apply {
+                            repeat(FoodVectorOutbox.MAX_ATTEMPTS - 1) { recordFailure("이전 실행 실패") }
+                        },
                     )
                     val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
                     val vectorStore = InMemoryFoodVectorStore()
@@ -199,6 +220,104 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     reloaded.outboxStatus shouldBe FoodVectorOutboxStatus.FAILED
                     reloaded.attempts shouldBe FoodVectorOutbox.MAX_ATTEMPTS
                     outboxRepository.findPendingAfterId(0, 10) shouldBe emptyList()
+                }
+            }
+        }
+
+        given("제거 대기 건 처리") {
+            `when`("적재된 문서가 있으면") {
+                then("문서를 제거하고 완료 처리한다") {
+                    clear()
+                    val food = saveReadyFood("메밀국수", "메밀면을 차가운 육수에 말아 먹는 국수")
+                    val outbox = outboxRepository.save(FoodVectorOutbox.delete(food.id))
+                    val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
+                    val vectorStore = InMemoryFoodVectorStore()
+                    vectorStore.documents[food.id] = document(
+                        foodId = food.id,
+                        name = "메밀국수",
+                        longDescription = "메밀면을 차가운 육수에 말아 먹는 국수",
+                        embeddingHash = expectedHash("메밀국수", "메밀면을 차가운 육수에 말아 먹는 국수"),
+                        embeddingModel = embeddingModel,
+                        embeddingDimension = embeddingDimension,
+                    )
+
+                    processor(embeddingClient, vectorStore).syncAll()
+
+                    vectorStore.documents[food.id] shouldBe null
+                    embeddingClient.requests shouldBe emptyList()
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodVectorOutboxStatus.COMPLETE
+                }
+            }
+
+            `when`("제거할 문서가 이미 없으면") {
+                then("실패가 아니라 완료로 처리한다 — 제거는 멱등이다") {
+                    clear()
+                    val food = saveReadyFood("비빔냉면", "매콤한 양념에 비벼 먹는 냉면")
+                    val outbox = outboxRepository.save(FoodVectorOutbox.delete(food.id))
+                    val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
+                    val vectorStore = InMemoryFoodVectorStore()
+
+                    val summary = processor(embeddingClient, vectorStore).syncAll()
+
+                    embeddingClient.requests shouldBe emptyList()
+                    vectorStore.documents[food.id] shouldBe null
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodVectorOutboxStatus.COMPLETE
+                    summary shouldBe FoodVectorSyncSummary(attempted = 1, completed = 1, failed = 0)
+                }
+            }
+        }
+
+        given("적재 대기 건의 처리 시점 자격 재검사") {
+            `when`("음식이 조회 가능 상태에서 벗어났으면") {
+                then("적재하지 않고 남아 있는 문서를 제거한 뒤 완료 처리한다") {
+                    clear()
+                    val food = saveFood("수제비", "밀가루 반죽을 떼어 넣고 끓인 국물 요리", FoodContentStatus.PENDING_REVIEW)
+                    val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
+                    val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
+                    val vectorStore = InMemoryFoodVectorStore()
+                    vectorStore.documents[food.id] = document(
+                        foodId = food.id,
+                        name = "수제비",
+                        longDescription = "예전 설명",
+                        embeddingHash = expectedHash("수제비", "예전 설명"),
+                        embeddingModel = embeddingModel,
+                        embeddingDimension = embeddingDimension,
+                    )
+
+                    processor(embeddingClient, vectorStore).syncAll()
+
+                    embeddingClient.requests shouldBe emptyList()
+                    vectorStore.documents[food.id] shouldBe null
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodVectorOutboxStatus.COMPLETE
+                }
+            }
+
+            `when`("음식이 삭제됐으면") {
+                then("적재하지 않고 남아 있는 문서를 제거한 뒤 완료 처리한다") {
+                    clear()
+                    val food = saveReadyFood("칼제비", "칼국수와 수제비를 함께 넣고 끓인 요리")
+                    val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
+                    softDelete(food)
+                    val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
+                    val vectorStore = InMemoryFoodVectorStore()
+                    vectorStore.documents[food.id] = document(
+                        foodId = food.id,
+                        name = "칼제비",
+                        longDescription = "칼국수와 수제비를 함께 넣고 끓인 요리",
+                        embeddingHash = expectedHash("칼제비", "칼국수와 수제비를 함께 넣고 끓인 요리"),
+                        embeddingModel = embeddingModel,
+                        embeddingDimension = embeddingDimension,
+                    )
+
+                    processor(embeddingClient, vectorStore).syncAll()
+
+                    embeddingClient.requests shouldBe emptyList()
+                    vectorStore.documents[food.id] shouldBe null
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodVectorOutboxStatus.COMPLETE
                 }
             }
         }

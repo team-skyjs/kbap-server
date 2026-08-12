@@ -18,7 +18,7 @@ import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.infrastructure.repeat.RepeatStatus
 import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,7 +26,7 @@ import org.springframework.transaction.PlatformTransactionManager
 
 @Configuration
 @EnableConfigurationProperties(FoodVectorProperties::class)
-@ConditionalOnProperty(prefix = "kbap.vector", name = ["enabled"], havingValue = "true")
+@ConditionalOnExpression("\${kbap.vector.enabled:false} and \${kbap.llm.embedding.enabled:false}")
 class FoodVectorSyncBatchConfig {
     @Bean(destroyMethod = "close")
     fun foodVectorMongoClient(properties: FoodVectorProperties): MongoClient = MongoClients.create(properties.uri)
@@ -42,8 +42,8 @@ class FoodVectorSyncBatchConfig {
         embeddingClient: TextEmbeddingClient,
         vectorStore: FoodVectorStore,
         transactionManager: PlatformTransactionManager,
-        @Value("\${kbap.llm.embedding.model:amazon.titan-embed-text-v2:0}") embeddingModel: String,
-        @Value("\${kbap.llm.embedding.dimension:256}") embeddingDimension: Int,
+        @Value("\${kbap.llm.embedding.model}") embeddingModel: String,
+        @Value("\${kbap.llm.embedding.dimension}") embeddingDimension: Int,
         @Value("\${kbap.batch.food-vector.page-size:100}") pageSize: Int,
     ): FoodVectorSyncProcessor =
         FoodVectorSyncProcessor(

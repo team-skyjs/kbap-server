@@ -5,9 +5,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
-import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
-import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -38,23 +36,12 @@ class AdminFoodContentReviewService(
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         if (passed) {
             if (food.approve()) {
-                enqueueVectorUpsert(food.id)
+                vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
             }
         } else {
             food.reject(reason)
         }
         return AdminFoodContentReviewResultResponse.from(food)
-    }
-
-    private fun enqueueVectorUpsert(foodId: Long) {
-        val alreadyPending = vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
-            foodId,
-            FoodVectorOutboxOperation.UPSERT,
-            FoodVectorOutboxStatus.PENDING,
-        )
-        if (!alreadyPending) {
-            vectorOutboxRepository.save(FoodVectorOutbox.upsert(foodId))
-        }
     }
 
     companion object {

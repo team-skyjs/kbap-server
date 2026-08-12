@@ -4,6 +4,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.vector.FoodVectorDocument
 import com.kbap.common.domain.food.vector.FoodVectorDocuments
 import com.kbap.common.domain.food.vector.FoodVectorStore
@@ -55,7 +56,10 @@ class FoodVectorSyncProcessor(
 
     private fun sync(outbox: FoodVectorOutbox): Boolean =
         try {
-            upsertDocument(outbox.foodId)
+            when (outbox.operation) {
+                FoodVectorOutboxOperation.UPSERT -> upsertDocument(outbox.foodId)
+                FoodVectorOutboxOperation.DELETE -> vectorStore.delete(outbox.foodId)
+            }
             recordResult(outbox.id) { it.complete() }
             true
         } catch (e: Exception) {
@@ -65,7 +69,12 @@ class FoodVectorSyncProcessor(
         }
 
     private fun upsertDocument(foodId: Long) {
-        val food = readFood(foodId) ?: throw IllegalStateException("동기화 대상 음식이 없습니다: foodId=$foodId")
+        val food = readFood(foodId)
+        if (food == null || !food.isReady()) {
+            vectorStore.delete(foodId)
+            return
+        }
+
         val longDescription = food.longDescription
         check(!longDescription.isNullOrBlank()) { "긴 설명이 비어 있어 임베딩할 수 없습니다: foodId=$foodId" }
 
