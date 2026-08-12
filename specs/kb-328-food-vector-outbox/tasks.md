@@ -70,13 +70,13 @@
 
 ### Tests for User Story 2 (REQUIRED — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T019 [P] [US2] `api/src/test/kotlin/com/kbap/api/admin/AdminFoodServiceVectorOutboxTest.kt` — `updateFood` 결과 READY 면 UPSERT / READY→비READY 변경이면 DELETE / `deleteFood` 는 DELETE 생성 (Red)
-- [ ] T020 [P] [US2] `batch/src/test/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessorTest.kt` 확장 — DELETE: 문서 제거·문서 부재도 COMPLETE(멱등) / UPSERT 처리 시점에 음식이 비READY·DELETED 면 적재 없이 문서 제거 후 COMPLETE (Red)
+- [X] T019 [P] [US2] `api/src/test/kotlin/com/kbap/api/admin/AdminFoodServiceVectorOutboxTest.kt` — `updateFood` 결과 READY 면 UPSERT / READY→비READY 변경이면 DELETE / `deleteFood` 는 DELETE 생성 (Red)
+- [X] T020 [P] [US2] `batch/src/test/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessorTest.kt` 확장 — DELETE: 문서 제거·문서 부재도 COMPLETE(멱등) / UPSERT 처리 시점에 음식이 비READY·DELETED 면 적재 없이 문서 제거 후 COMPLETE (Red)
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodService.kt` — `updateFood` 끝에서 변경 전/후 content_status 비교 훅(UPSERT/DELETE), `deleteFood` 에 DELETE 생성 (기존 `@Transactional` 안)
-- [ ] T022 [US2] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessor.kt` — DELETE 처리·UPSERT 자격 재검사(soft-delete 우회 조회 포함 여부는 `@SQLRestriction` 특성 고려해 foodId 존재 판정으로 구현), T019·T020 그린 확인
+- [X] T021 [US2] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodService.kt` — `updateFood` 끝에서 변경 전/후 content_status 비교 훅(UPSERT/DELETE), `deleteFood` 에 DELETE 생성 (기존 `@Transactional` 안)
+- [X] T022 [US2] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessor.kt` — DELETE 처리·UPSERT 자격 재검사(soft-delete 우회 조회 포함 여부는 `@SQLRestriction` 특성 고려해 foodId 존재 판정으로 구현), T019·T020 그린 확인
 
 **Checkpoint**: 벡터 저장소가 MySQL 과 계속 정합 (US1·US2 독립 동작)
 
@@ -90,11 +90,11 @@
 
 ### Tests for User Story 3 (REQUIRED — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T023 [US3] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxBackfillTest.kt` — **별도 백필 마이그레이션 파일**의 SQL 리소스를 읽어 시드된 Testcontainers DB(READY·ACTIVE 2건 + PENDING_REVIEW 1건 + DELETED 1건)에 실행, READY·ACTIVE 만 PENDING 생성 검증. **주의**: 시드-동기화 테스트 함정 — 리소스 경로 하드코딩 시 파일명 변경과 함께 갱신, `given` 설명에 버전 번호 금지 (Red)
+- [X] T023 [US3] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxBackfillTest.kt` — **별도 백필 마이그레이션 파일**의 SQL 리소스를 읽어 시드된 Testcontainers DB(READY·ACTIVE 2건 + PENDING_REVIEW 1건 + DELETED 1건)에 실행, READY·ACTIVE 만 PENDING 생성 검증. **주의**: 시드-동기화 테스트 함정 — 리소스 경로 하드코딩 시 파일명 변경과 함께 갱신, `given` 설명에 버전 번호 금지 (Red)
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] **별도 Flyway 파일** `api/src/main/resources/db/migration/V<생성시각 timestamp>__food_vector_outbox_backfill.sql` 에 `INSERT INTO food_vector_outbox … SELECT id, 'UPSERT', 'PENDING' … FROM food WHERE content_status='READY' AND status='ACTIVE'` 작성 — T010 파일은 수정하지 않는다(US1 이 먼저 배포되면 checksum 파손 — DB 리뷰 Major#2, R9 개정), T023 그린 확인
+- [X] T024 [US3] **별도 Flyway 파일** `api/src/main/resources/db/migration/V<생성시각 timestamp>__food_vector_outbox_backfill.sql` 에 `INSERT INTO food_vector_outbox … SELECT id, 'UPSERT', 'PENDING' … FROM food WHERE content_status='READY' AND status='ACTIVE'` 작성 — T010 파일은 수정하지 않는다(US1 이 먼저 배포되면 checksum 파손 — DB 리뷰 Major#2, R9 개정), T023 그린 확인
 
 **Checkpoint**: 배포 시 기존 READY 전량이 첫 배치에서 적재됨
 
@@ -108,12 +108,12 @@
 
 ### Tests for User Story 4 (REQUIRED — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T025 [P] [US4] `api/src/test/kotlin/com/kbap/api/admin/AdminVectorOutboxPageTest.kt` — 대시보드 모델에 상태별 카운트·FAILED 목록(최신순 상한 20, last_error 포함), `POST /admin/foods/vector-outboxes/{id}/retry` 가 FAILED→PENDING(attempts=0)·비FAILED no-op·리다이렉트 (Red)
+- [X] T025 [P] [US4] `api/src/test/kotlin/com/kbap/api/admin/AdminVectorOutboxPageTest.kt` — 대시보드 모델에 상태별 카운트·FAILED 목록(최신순 상한 20, last_error 포함), `POST /admin/foods/vector-outboxes/{id}/retry` 가 FAILED→PENDING(attempts=0)·비FAILED no-op·리다이렉트 (Red)
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodDashboardService.kt` — 벡터 아웃박스 카운트·FAILED 목록 조회 + 재처리 메서드(`@Transactional`)
-- [ ] T027 [US4] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodPageController.kt` — retry POST 매핑 + 음식 대시보드 Thymeleaf 템플릿(해당 컨트롤러가 렌더하는 뷰, `api/src/main/resources/templates/`)에 벡터 아웃박스 섹션 추가, T025 그린 확인
+- [X] T026 [US4] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodDashboardService.kt` — 벡터 아웃박스 카운트·FAILED 목록 조회 + 재처리 메서드(`@Transactional`)
+- [X] T027 [US4] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodPageController.kt` — retry POST 매핑 + 음식 대시보드 Thymeleaf 템플릿(해당 컨트롤러가 렌더하는 뷰, `api/src/main/resources/templates/`)에 벡터 아웃박스 섹션 추가, T025 그린 확인
 
 **Checkpoint**: 전 스토리 독립 동작
 
@@ -121,9 +121,9 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T028 `./gradlew build` 전체 그린(ArchUnit `ModuleBoundaryTest` 포함 — 신규 vector 패키지가 도메인 방향 맵 위반 없는지 확인)
+- [X] T028 `./gradlew build` 전체 그린(ArchUnit `ModuleBoundaryTest` 포함 — 신규 vector 패키지가 도메인 방향 맵 위반 없는지 확인)
 - [ ] T029 [P] quickstart.md 3~5절 dev 수동 검증 — 배치 실행·DocumentDB 문서 v2 필드·hash 스킵 로그·삭제 반영 (DocumentDB 는 Testcontainers 불가라 수동 필수)
-- [ ] T030 [P] 지식 위키 `../kbap-agenthub/wiki/food-content-pipeline.md` 에 READY 이후 벡터 동기화 단계(아웃박스·hash 멱등·FAILED 재처리) 추가 + INDEX.md 갱신
+- [X] T030 [P] 지식 위키 `../kbap-agenthub/wiki/food-content-pipeline.md` 에 READY 이후 벡터 동기화 단계(아웃박스·hash 멱등·FAILED 재처리) 추가 + INDEX.md 갱신
 
 ---
 
