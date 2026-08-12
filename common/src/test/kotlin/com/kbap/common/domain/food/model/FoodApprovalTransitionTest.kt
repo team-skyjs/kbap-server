@@ -43,6 +43,22 @@ class FoodApprovalTransitionTest : BehaviorSpec({
             }
         }
 
+        `when`("승인 대기 음식이 실제로 조회 가능으로 전이하면") {
+            then("전이가 일어났음을 true 로 알린다 — 호출부가 후속 처리를 걸 수 있다") {
+                val target = food(FoodContentStatus.PENDING_REVIEW)
+
+                target.approve() shouldBe true
+            }
+        }
+
+        `when`("이미 조회 가능한 음식에 승인이 다시 도착하면") {
+            then("전이가 없었음을 false 로 알린다 — 후속 처리를 중복해서 걸지 않는다") {
+                val target = food(FoodContentStatus.READY)
+
+                target.approve() shouldBe false
+            }
+        }
+
         listOf(FoodContentStatus.FAILED, FoodContentStatus.PENDING_IMAGE).forEach { status ->
             `when`("$status 음식을 승인하려 하면") {
                 then("예외를 던진다") {

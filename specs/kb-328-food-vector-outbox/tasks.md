@@ -14,8 +14,8 @@
 
 **Purpose**: 의존성·설정 준비 (코드 변경 없음)
 
-- [ ] T001 [P] `common/build.gradle.kts` 에 mongodb-driver-sync 의존 추가(`libs` 카탈로그 좌표 재사용), `api/build.gradle.kts` 에서 해당 의존 제거 — `:api` 는 `:common` 경유로 획득
-- [ ] T002 [P] `batch/src/main/resources/application.yml` 에 `kbap.llm.embedding.{enabled(env 주입, 기본 false), dimension: 256}` 와 `kbap.vector.{enabled, uri, database: kbap, collection: foods}`(env 주입) 신설 — api yml 의 기존 표기와 동일 형식
+- [X] T001 [P] `common/build.gradle.kts` 에 mongodb-driver-sync 의존 추가(`libs` 카탈로그 좌표 재사용), `api/build.gradle.kts` 에서 해당 의존 제거 — `:api` 는 `:common` 경유로 획득
+- [X] T002 [P] `batch/src/main/resources/application.yml` 에 `kbap.llm.embedding.{enabled(env 주입, 기본 false), dimension: 256}` 와 `kbap.vector.{enabled, uri, database: kbap, collection: foods}`(env 주입) 신설 — api yml 의 기존 표기와 동일 형식
 
 ---
 
@@ -25,9 +25,9 @@
 
 **⚠️ CRITICAL**: 리팩터링이므로 새 Red 테스트 없음 — 기존 scan 테스트 그린 유지가 검증 기준
 
-- [ ] T003 `common/src/main/kotlin/com/kbap/common/domain/food/vector/` 신설: `FoodVectorSearcher`(기존 `api/.../scan/SimilarFoodSearcher` 이사, 반환 타입 포함)·`FoodVectorProperties`(`kbap.vector.*` 홀더 이사)·`FoodVectorDocuments`(문서 필드명 상수 — `foodId`·`embedding` 등, searcher 파이프라인이 즉시 사용)·`DocumentDbFoodVectorSearcher`(기존 `DocumentDbSimilarFoodSearcher` 구현 이사, 스테레오타입 없는 plain class)
-- [ ] T004 api 참조 전환: `api/src/main/kotlin/com/kbap/api/scan/SimilarFoodResolver.kt`·`ScanService.kt` 가 새 seam 을 참조, searcher·MongoClient 빈 조립을 `api/src/main/kotlin/com/kbap/api/core/config/` 로 이동(`@ConditionalOnProperty(kbap.vector.enabled)`), 구 `api/.../scan/{SimilarFoodSearcher,DocumentDbSimilarFoodSearcher}.kt` 삭제, `api/src/test/kotlin/com/kbap/api/scan/FakeSimilarFoodSearch.kt` 등 테스트 대역 갱신
-- [ ] T005 `./gradlew :common:build :api:test --tests "com.kbap.api.scan.*"` 그린 확인 — 이사 완료 체크포인트
+- [X] T003 `common/src/main/kotlin/com/kbap/common/domain/food/vector/` 신설: `FoodVectorSearcher`(기존 `api/.../scan/SimilarFoodSearcher` 이사, 반환 타입 포함)·`FoodVectorProperties`(`kbap.vector.*` 홀더 이사)·`FoodVectorDocuments`(문서 필드명 상수 — `foodId`·`embedding` 등, searcher 파이프라인이 즉시 사용)·`DocumentDbFoodVectorSearcher`(기존 `DocumentDbSimilarFoodSearcher` 구현 이사, 스테레오타입 없는 plain class)
+- [X] T004 api 참조 전환: `api/src/main/kotlin/com/kbap/api/scan/SimilarFoodResolver.kt`·`ScanService.kt` 가 새 seam 을 참조, searcher·MongoClient 빈 조립을 `api/src/main/kotlin/com/kbap/api/core/config/` 로 이동(`@ConditionalOnProperty(kbap.vector.enabled)`), 구 `api/.../scan/{SimilarFoodSearcher,DocumentDbSimilarFoodSearcher}.kt` 삭제, `api/src/test/kotlin/com/kbap/api/scan/FakeSimilarFoodSearch.kt` 등 테스트 대역 갱신
+- [X] T005 `./gradlew :common:build :api:test --tests "com.kbap.api.scan.*"` 그린 확인 — 이사 완료 체크포인트
 
 **Checkpoint**: 벡터 접근 코드가 `:common` 단일 소유 — 이후 스토리 병렬 진행 가능
 
@@ -41,22 +41,22 @@
 
 ### Tests for User Story 1 (REQUIRED — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T006 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/model/FoodTest.kt` — `approve()` 가 실제 전이 시 true, 이미 READY 면 false 반환 검증 (Red)
-- [ ] T007 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxJpaRepositoryTest.kt` (Testcontainers) — PENDING 커서 페이징(`findPendingAfterId`)·동일 (foodId, operation) PENDING 중복 억제·COMPLETE/실패(attempts·last_error)/FAILED/재처리 전이 쿼리 (Red)
-- [ ] T008 [P] [US1] `api/src/test/kotlin/com/kbap/api/admin/AdminFoodContentReviewVectorOutboxTest.kt` — 승인(PENDING_REVIEW→READY) 시 같은 트랜잭션에서 UPSERT/PENDING 생성, 이미 READY 재승인 시 미생성 (Red)
-- [ ] T009 [P] [US1] `batch/src/test/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessorTest.kt` (fake `TextEmbeddingClient`·fake `FoodVectorStore`) — 문서 없음→임베딩·upsert·COMPLETE / hash 동일→임베딩 0회 COMPLETE / hash 변경→재임베딩 / longDescription null·blank→실패 기록 / attempts 5 도달→FAILED (Red)
+- [X] T006 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/model/FoodTest.kt` — `approve()` 가 실제 전이 시 true, 이미 READY 면 false 반환 검증 (Red)
+- [X] T007 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxJpaRepositoryTest.kt` (Testcontainers) — PENDING 커서 페이징(`findPendingAfterId`)·동일 (foodId, operation) PENDING 중복 억제·COMPLETE/실패(attempts·last_error)/FAILED/재처리 전이 쿼리 (Red)
+- [X] T008 [P] [US1] `api/src/test/kotlin/com/kbap/api/admin/AdminFoodContentReviewVectorOutboxTest.kt` — 승인(PENDING_REVIEW→READY) 시 같은 트랜잭션에서 UPSERT/PENDING 생성, 이미 READY 재승인 시 미생성 (Red)
+- [X] T009 [P] [US1] `batch/src/test/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessorTest.kt` (fake `TextEmbeddingClient`·fake `FoodVectorStore`) — 문서 없음→임베딩·upsert·COMPLETE / hash 동일→임베딩 0회 COMPLETE / hash 변경→재임베딩 / longDescription null·blank→실패 기록 / attempts 5 도달→FAILED (Red)
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Flyway `api/src/main/resources/db/migration/V<생성시각 timestamp>__food_vector_outbox_table.sql` — data-model.md 1절 스키마(테이블·ENUM·인덱스 2종·FK)
-- [ ] T011 [P] [US1] `common/src/main/kotlin/com/kbap/common/domain/food/model/FoodVectorOutbox.kt` — BaseEntity 상속 엔티티 + `FoodVectorOutboxOperation`·`FoodVectorOutboxStatus` enum + 팩토리 `upsert(foodId)`/`delete(foodId)` + 실패 기록·FAILED 전이·재처리 도메인 메서드(MAX_ATTEMPTS=5)
-- [ ] T012 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/FoodVectorOutboxJpaRepository.kt` — T007 이 요구하는 쿼리 전부(커서 페이징·exists 중복 억제·`countByOutboxStatus`·FAILED 목록)
-- [ ] T013 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/model/Food.kt` — `approve()` 반환을 Boolean 으로 변경(전이 시에만 true), 기존 호출부 컴파일 갱신
-- [ ] T014 [US1] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodContentReviewService.kt` — 승인 전이(true) 시 UPSERT 아웃박스 생성(PENDING 중복 억제), 기존 `@Transactional` 안
-- [ ] T015 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/vector/FoodVectorStore.kt`(seam — `findEmbeddingHash(foodId)`/`upsert(document)`/`delete(foodId)`) + `DocumentDbFoodVectorStore.kt`(replace upsert·plain class) + `FoodVectorDocuments` 에 v2 필드·`sha256:` hash 규약(contracts/vector-food-document-v2.md) 반영
-- [ ] T016 [US1] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessor.kt` — TransactionTemplate 로 (조회)→(트랜잭션 밖 임베딩·스토어)→(결과 반영) 분리, 임베딩 원문 `koreanName\nlongDescription`·hash 계산, data-model.md 3절 UPSERT 판정 구현
-- [ ] T017 [US1] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncBatchConfig.kt` — `foodVectorSyncJob`/step(Tasklet·RunIdIncrementer·ResourcelessTransactionManager, 기존 `FoodContentOutboxBatchConfig` 패턴) + MongoClient·store 빈 조립(`@ConditionalOnProperty`) + `FoodVectorSyncSummary.kt` 로그
-- [ ] T018 [US1] T006~T009 그린 확인 후 리팩터: `./gradlew :common:test :api:test :batch:test`
+- [X] T010 [P] [US1] Flyway `api/src/main/resources/db/migration/V<생성시각 timestamp>__food_vector_outbox_table.sql` — data-model.md 1절 스키마(테이블·ENUM·인덱스 2종·FK)
+- [X] T011 [P] [US1] `common/src/main/kotlin/com/kbap/common/domain/food/model/FoodVectorOutbox.kt` — BaseEntity 상속 엔티티 + `FoodVectorOutboxOperation`·`FoodVectorOutboxStatus` enum + 팩토리 `upsert(foodId)`/`delete(foodId)` + 실패 기록·FAILED 전이·재처리 도메인 메서드(MAX_ATTEMPTS=5)
+- [X] T012 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/FoodVectorOutboxJpaRepository.kt` — T007 이 요구하는 쿼리 전부(커서 페이징·exists 중복 억제·`countByOutboxStatus`·FAILED 목록)
+- [X] T013 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/model/Food.kt` — `approve()` 반환을 Boolean 으로 변경(전이 시에만 true), 기존 호출부 컴파일 갱신
+- [X] T014 [US1] `api/src/main/kotlin/com/kbap/api/admin/AdminFoodContentReviewService.kt` — 승인 전이(true) 시 UPSERT 아웃박스 생성(PENDING 중복 억제), 기존 `@Transactional` 안
+- [X] T015 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/vector/FoodVectorStore.kt`(seam — `findEmbeddingHash(foodId)`/`upsert(document)`/`delete(foodId)`) + `DocumentDbFoodVectorStore.kt`(replace upsert·plain class) + `FoodVectorDocuments` 에 v2 필드·`sha256:` hash 규약(contracts/vector-food-document-v2.md) 반영
+- [X] T016 [US1] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncProcessor.kt` — TransactionTemplate 로 (조회)→(트랜잭션 밖 임베딩·스토어)→(결과 반영) 분리, 임베딩 원문 `koreanName\nlongDescription`·hash 계산, data-model.md 3절 UPSERT 판정 구현
+- [X] T017 [US1] `batch/src/main/kotlin/com/kbap/batch/vector/FoodVectorSyncBatchConfig.kt` — `foodVectorSyncJob`/step(Tasklet·RunIdIncrementer·ResourcelessTransactionManager, 기존 `FoodContentOutboxBatchConfig` 패턴) + MongoClient·store 빈 조립(`@ConditionalOnProperty`) + `FoodVectorSyncSummary.kt` 로그
+- [X] T018 [US1] T006~T009 그린 확인 후 리팩터: `./gradlew :common:test :api:test :batch:test`
 
 **Checkpoint**: 승인 → 배치 → 벡터 문서 적재 전 구간 동작 (MVP)
 

@@ -76,12 +76,13 @@ class Food(
 
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
-    fun approve() {
-        if (contentStatus == FoodContentStatus.READY) return
+    fun approve(): Boolean {
+        if (contentStatus == FoodContentStatus.READY) return false
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
             "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
         contentStatus = FoodContentStatus.READY
+        return true
     }
 
     fun reject(reason: String?) {
