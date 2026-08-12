@@ -12,7 +12,12 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
         val alreadyPending =
             existsByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
         if (!alreadyPending) {
-            save(FoodVectorOutbox(foodId = foodId, operation = operation))
+            save(
+                when (operation) {
+                    FoodVectorOutboxOperation.UPSERT -> FoodVectorOutbox.upsert(foodId)
+                    FoodVectorOutboxOperation.DELETE -> FoodVectorOutbox.delete(foodId)
+                },
+            )
         }
     }
 

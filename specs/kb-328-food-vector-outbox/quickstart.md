@@ -32,6 +32,8 @@
 
 ## 선행조건 (백필·배치 실행 전 필수)
 
+- **배치 부팅 확인**: `kbap.vector.enabled=true` + `kbap.llm.embedding.enabled=true` 조합으로 batch 앱이 정상 부팅하는지 dev 에서 1회 확인 — `@ConditionalOnExpression` 조립과 임베딩 model/dimension 프로퍼티(기본값 없음, 누락 시 부팅 실패)는 DocumentDB 재현 불가로 자동 테스트가 못 덮는다.
+
 - DocumentDB `kbap.foods` 에 `foodId` unique 인덱스 존재 확인: `db.foods.getIndexes()` — 없으면 `db.foods.createIndex({foodId: 1}, {unique: true})`. KB-318 구축분은 `embedding` 벡터 인덱스만 보장하므로 **백필 전 반드시 확인**(없으면 건당 풀스캔 + 중복 문서 위험 — DB 리뷰 Major#1).
 
 ## 운영 참고

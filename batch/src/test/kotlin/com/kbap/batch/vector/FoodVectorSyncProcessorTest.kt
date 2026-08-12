@@ -105,6 +105,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
                     val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
                     val vectorStore = InMemoryFoodVectorStore()
+                    val startedAt = Instant.now()
 
                     val summary = processor(embeddingClient, vectorStore).syncAll()
 
@@ -120,6 +121,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     document.embeddingDimension shouldBe embeddingDimension
                     document.embeddingHash shouldBe
                         expectedHash("김치찌개", "잘 익은 김치와 돼지고기를 넣고 끓인 한국의 대표적인 찌개")
+                    document.indexedAt.isBefore(startedAt) shouldBe false
                     outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
                         FoodVectorOutboxStatus.COMPLETE
                     summary shouldBe FoodVectorSyncSummary(attempted = 1, completed = 1, failed = 0)
@@ -220,6 +222,39 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     reloaded.outboxStatus shouldBe FoodVectorOutboxStatus.FAILED
                     reloaded.attempts shouldBe FoodVectorOutbox.MAX_ATTEMPTS
                     outboxRepository.findPendingAfterId(0, 10) shouldBe emptyList()
+                }
+            }
+        }
+
+        given("외부 호출 실패 처리") {
+            val failingEmbedding = TextEmbeddingClient { throw IllegalStateException("임베딩 호출 실패") }
+            val failingStore = object : FoodVectorStore {
+                override fun findEmbeddingHash(foodId: Long): String? = null
+
+                override fun upsert(document: FoodVectorDocument) = throw IllegalStateException("문서 저장 실패")
+
+                override fun delete(foodId: Long) = Unit
+            }
+
+            listOf(
+                "임베딩 호출이 실패하면" to { failingEmbedding to InMemoryFoodVectorStore() as FoodVectorStore },
+                "문서 저장이 실패하면" to { RecordingEmbeddingClient(embeddingDimension) as TextEmbeddingClient to failingStore },
+            ).forEach { (label, collaborators) ->
+                `when`(label) {
+                    then("시도 횟수와 실패 원인을 기록하고 대기 상태로 남겨 다음 배치에서 재시도한다") {
+                        clear()
+                        val food = saveReadyFood("들깨칼국수", "들깨가루를 풀어 고소하게 끓인 칼국수")
+                        val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
+                        val (embeddingClient, vectorStore) = collaborators()
+
+                        val summary = processor(embeddingClient, vectorStore).syncAll()
+
+                        val reloaded = outboxRepository.findById(outbox.id).orElseThrow()
+                        reloaded.outboxStatus shouldBe FoodVectorOutboxStatus.PENDING
+                        reloaded.attempts shouldBe 1
+                        reloaded.lastError shouldNotBe null
+                        summary shouldBe FoodVectorSyncSummary(attempted = 1, completed = 0, failed = 1)
+                    }
                 }
             }
         }

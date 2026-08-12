@@ -26,8 +26,15 @@ class AdminFoodPageController(
     fun foods(model: Model): String {
         model.addAttribute("dashboard", adminFoodDashboardService.getDashboard())
         model.addAttribute("outbox", adminFoodOutboxQueryService.getOutboxDashboard())
+        model.addAttribute("vectorOutbox", adminFoodDashboardService.getVectorOutboxDashboard())
         model.addAttribute("metrics", adminDashboardMetricsService.getMetrics())
         return "admin/foods"
+    }
+
+    @PostMapping("/admin/foods/vector-outboxes/{outboxId}/retry")
+    fun retryVectorOutbox(@PathVariable outboxId: Long): String {
+        adminFoodDashboardService.retryVectorOutbox(outboxId)
+        return "redirect:/admin/foods"
     }
 
     @GetMapping("/admin/foods/list")
