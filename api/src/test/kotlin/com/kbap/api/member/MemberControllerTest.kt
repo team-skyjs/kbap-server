@@ -681,7 +681,7 @@ class MemberControllerTest : BehaviorSpec() {
                     submitOnboarding(token, v2Body, apiVersion = "1.1").andExpect { status { isOk() } }
 
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
-                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
                     val stored = memberColumn("google-sub-fixed", "profile_image_url")
                     OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
@@ -701,7 +701,7 @@ class MemberControllerTest : BehaviorSpec() {
                     ).andExpect { status { isOk() } }
 
                     memberColumn("google-sub-fixed", "nickname") shouldNotBe "내가정한닉"
-                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-HJ-NP-Z2-9]{6}$")
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
                     val stored = memberColumn("google-sub-fixed", "profile_image_url")
                     OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
