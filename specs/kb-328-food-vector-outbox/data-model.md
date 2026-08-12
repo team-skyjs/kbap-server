@@ -70,7 +70,7 @@ PENDING 아웃박스 1건에 대해, 처리 시점 MySQL 최신 상태 기준:
 | 아웃박스 | 음식 상태 (처리 시점) | 문서 hash | 행동 |
 |----------|----------------------|-----------|------|
 | UPSERT | READY·ACTIVE, longDescription 있음 | 문서 없음 | 임베딩 → insert → COMPLETE |
-| UPSERT | 동상 | hash 동일 | 임베딩 생략, 메타데이터만 갱신 → COMPLETE |
+| UPSERT | 동상 | hash 동일 | 임베딩·문서 갱신 생략 → COMPLETE (메타데이터 스냅샷은 재작성 안 함 — 읽기 경로가 MySQL 재조회라 무해) |
 | UPSERT | 동상 | hash 다름 | 재임베딩 → 교체 → COMPLETE |
 | UPSERT | READY·ACTIVE, longDescription null/blank | — | 실패 기록 (attempts+1, last_error) |
 | UPSERT | 비READY 또는 DELETED | — | 문서 있으면 제거 → COMPLETE (자격 재검사) |

@@ -90,11 +90,11 @@
 
 ### Tests for User Story 3 (REQUIRED — 먼저 작성, Red 확인) ⚠️
 
-- [ ] T023 [US3] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxBackfillTest.kt` — 마이그레이션 SQL 리소스를 읽어 시드된 Testcontainers DB(READY·ACTIVE 2건 + PENDING_REVIEW 1건 + DELETED 1건)에 실행, READY·ACTIVE 만 PENDING 생성 검증. **주의**: 시드-동기화 테스트 함정 — 리소스 경로 하드코딩 시 파일명 변경과 함께 갱신, `given` 설명에 버전 번호 금지 (Red)
+- [ ] T023 [US3] `common/src/test/kotlin/com/kbap/common/domain/food/FoodVectorOutboxBackfillTest.kt` — **별도 백필 마이그레이션 파일**의 SQL 리소스를 읽어 시드된 Testcontainers DB(READY·ACTIVE 2건 + PENDING_REVIEW 1건 + DELETED 1건)에 실행, READY·ACTIVE 만 PENDING 생성 검증. **주의**: 시드-동기화 테스트 함정 — 리소스 경로 하드코딩 시 파일명 변경과 함께 갱신, `given` 설명에 버전 번호 금지 (Red)
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] T010 마이그레이션 파일에 `INSERT INTO food_vector_outbox … SELECT id, 'UPSERT', 'PENDING' … WHERE content_status='READY' AND status='ACTIVE'` 백필 추가 — 같은 브랜치/PR 내 미적용 마이그레이션이라 파일 수정 안전(공유 DB 적용 전), T023 그린 확인
+- [ ] T024 [US3] **별도 Flyway 파일** `api/src/main/resources/db/migration/V<생성시각 timestamp>__food_vector_outbox_backfill.sql` 에 `INSERT INTO food_vector_outbox … SELECT id, 'UPSERT', 'PENDING' … FROM food WHERE content_status='READY' AND status='ACTIVE'` 작성 — T010 파일은 수정하지 않는다(US1 이 먼저 배포되면 checksum 파손 — DB 리뷰 Major#2, R9 개정), T023 그린 확인
 
 **Checkpoint**: 배포 시 기존 READY 전량이 첫 배치에서 적재됨
 

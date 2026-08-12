@@ -30,6 +30,10 @@
    - 같은 job 재실행 → 임베딩 호출 없이 즉시 COMPLETE(hash 스킵, 로그 요약으로 확인).
 5. 멱등 시나리오: 음식 설명 수정 → 새 UPSERT 행 → 배치 실행 → hash 불일치로 재임베딩·문서 교체. 삭제 → DELETE 행 → 배치 실행 → 문서 제거, 스캔 유사 음식 후보에서 제외 확인.
 
+## 선행조건 (백필·배치 실행 전 필수)
+
+- DocumentDB `kbap.foods` 에 `foodId` unique 인덱스 존재 확인: `db.foods.getIndexes()` — 없으면 `db.foods.createIndex({foodId: 1}, {unique: true})`. KB-318 구축분은 `embedding` 벡터 인덱스만 보장하므로 **백필 전 반드시 확인**(없으면 건당 풀스캔 + 중복 문서 위험 — DB 리뷰 Major#1).
+
 ## 운영 참고
 
 - 배치는 run-to-completion ECS 태스크 — 기존 `foodContentOutboxPublishJob` 과 동일한 방식으로 스케줄/수동 트리거.
