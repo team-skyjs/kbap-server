@@ -76,7 +76,7 @@ data class AdminVectorOutboxRowView(
             AdminVectorOutboxRowView(
                 outboxId = outbox.id,
                 foodId = outbox.foodId,
-                displayName = displayName ?: "삭제된 음식",
+                displayName = displayName ?: "삭제된 음식(#${outbox.foodId})",
                 operation = outbox.operation,
                 attempts = outbox.attempts,
                 lastError = outbox.lastError,

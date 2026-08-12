@@ -128,6 +128,18 @@ class AdminVectorOutboxPageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("존재하지 않는 건에 재처리를 지시하면") {
+                then("오류 없이 대시보드로 돌려보낸다") {
+                    clear()
+
+                    mockMvc.post("/admin/foods/vector-outboxes/999999/retry") { cookie(adminCookie()) }
+                        .andExpect {
+                            status { is3xxRedirection() }
+                            redirectedUrl("/admin/foods")
+                        }
+                }
+            }
+
             `when`("실패 상태가 아닌 건에 재처리를 지시하면") {
                 then("아무것도 바꾸지 않고 대시보드로 돌려보낸다") {
                     clear()
