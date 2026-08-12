@@ -31,11 +31,12 @@
 - **Rationale**: 외부 호출(임베딩·DocumentDB)을 DB 트랜잭션 안에서 잡지 않는다(헌법 Additional Constraints). `FoodContentOutboxPublisher` 가 정확히 같은 구조를 이미 검증했다.
 - 근거 코드: `batch/src/main/kotlin/com/kbap/batch/outbox/FoodContentOutboxBatchConfig.kt`, `FoodContentOutboxPublisher.kt`.
 
-## R5. DocumentDB 쓰기 어댑터는 `:batch` 내부 — 신규 모듈·common port 없음 (KB-319 선례 승계)
+## R5. 벡터 저장소 접근은 `:common` 의 food 컨텍스트 소유 — food 의 제2 영속으로 취급 (2026-08-12 개정)
 
-- **Decision**: 배치 내부에 `fun interface FoodVectorStore`(upsert/delete/findHash 유사 시그니처) seam 을 두고, mongodb-driver-sync 기반 thin adapter + `kbap.vector.*` 프로퍼티 조건부 조립(`@ConditionalOnProperty`)으로 구현한다. `:batch` build 에 mongodb-driver-sync 의존을 추가한다.
-- **Rationale**: KB-319 가 읽기 경로에서 동일 결정을 이미 내렸다(`api/.../scan/SimilarFoodSearcher.kt` — api 내부 fun interface, 신규 모듈·port 기각). 소비자가 배치 하나뿐이고, DocumentDB 는 Testcontainers 재현이 안 돼 어댑터를 얇게 유지하고 로직은 seam 뒤에서 fake 로 테스트한다. api(읽기)와 batch(쓰기)는 서로를 모르는 모듈이라 공유하려면 :common 승격이 필요한데, "api 밖이 컴파일 의존하는가" 기준을 둘 다 충족하지 못한다(각자 자기 것만 쓴다).
-- **Alternatives considered**: (a) `common.port.vector` 신설 + `:infra:documentdb` 모듈 — 소비자 1개에 모듈 1개는 과잉, KB-319 에서 기각된 안의 재탕. (b) api 의 검색 빈 재사용 — api·batch 상호 미의존 원칙 위반.
+- **Decision**: 벡터 저장소 seam·어댑터를 `com.kbap.common.domain.food.vector` 에 둔다 — `fun interface FoodVectorSearcher`(검색, 기존 api 것 이사)·`fun interface FoodVectorStore`(upsert/delete/findHash)와 mongodb-driver-sync 기반 thin adapter(`DocumentDbFoodVectorStore` 등, 스테레오타입 없는 plain class). mongodb-driver-sync 의존은 `:common` 에 추가한다. **빈 조립은 각 부트앱 config** 가 `kbap.vector.*` 프로퍼티 + `@ConditionalOnProperty` 로 소유한다 — api 는 searcher 만, batch 는 store 만 조립(배치는 컴포넌트 스캔을 좁혀 두므로 plain class 라야 api 에서도 오등록이 없다).
+- **Rationale**: 초안(배치 내부 어댑터, KB-319 선례 승계)은 "소비자가 하나"라는 전제였는데 KB-328 로 DocumentDB 소비자가 api(읽기)·batch(쓰기) 둘이 된다. 연결 설정(uri·database·collection)과 문서 필드명(`embedding`·`foodId` 등)은 reader/writer 가 공유하는 암묵 계약이라 두 모듈이 각자 하드코딩하면 드리프트가 조용한 검색 파손으로 이어진다 — 단일 출처가 필요하다. 벡터 문서는 외부 SaaS 클라이언트가 아니라 **food 데이터의 또 다른 영속**이므로, "영속은 컨텍스트 불문 `:common` 소유"(헌법 IV)와 ":common = api 밖이 컴파일 의존하는 코드" 배치 기준에 따라 food 도메인 패키지에 둔다(MySQL 리포지토리·mysql-connector 가 `:common` 에 있는 것과 동형).
+- **Alternatives considered**: (a) 배치 내부 어댑터(초안) — 소비자 2개가 된 시점에 계약 이원화 리스크로 기각. (b) `common.port.vector` + `:infra:vector` 모듈 신설 — 헌법 III 문언에는 가장 충실하나, 벡터 저장소는 seam 교체 가능성(외부 시스템)보다 영속 소유(도메인 데이터) 성격이 강하고, 소비자 둘을 위해 모듈을 늘리는 비용 대비 이득이 없어 기각. (c) api 빈 재사용 — api·batch 상호 미의존 위반.
+- **이사 범위**: 기존 `api/.../scan/{SimilarFoodSearcher,DocumentDbSimilarFoodSearcher}.kt` 의 검색 구현·`kbap.vector.*` 프로퍼티 홀더를 `:common` 으로 옮기고 scan 코드는 새 위치를 참조한다(동작 무변경 리팩터링).
 
 ## R6. 임베딩 입력·embeddingHash 규약
 
