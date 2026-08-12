@@ -44,10 +44,23 @@ kbap:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
-  # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 LLM 을 호출하지 않는다.
+  # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.
     usd-to-krw: 1500
+    # 벡터 동기화 배치(KB-328)의 적재 임베딩 — Bedrock Titan V2, 검색측(KB-319)과 256차원 고정.
+    # 기본 off — 미활성이면 벡터 동기화만 조용히 생략되고 나머지 배치는 정상 동작한다.
+    embedding:
+      enabled: ${EMBEDDING_ENABLED:false}
+      dimension: 256
+  # 음식 벡터 저장소(KB-318 DocumentDB) — 기본 off(로컬 등 클러스터 없는 환경 부팅 안전).
+  # 문서·검색 계약: specs/kb-328-food-vector-outbox/contracts/vector-food-document-v2.md
+  vector:
+    enabled: ${VECTOR_ENABLED:false}
+    # TLS·CA 번들 포함 연결 문자열 — 시크릿이므로 환경 변수로만 주입한다.
+    uri: ${VECTOR_DB_URI:}
+    database: ${VECTOR_DB_DATABASE:kbap}
+    collection: ${VECTOR_DB_COLLECTION:foods}
 # datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
 # 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
 # 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

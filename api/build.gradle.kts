@@ -17,8 +17,6 @@ dependencies {
     "implementation"(libs.shedlock.spring)
     "implementation"(libs.shedlock.provider.jdbc.template)
 
-    "implementation"(libs.mongodb.driver.sync)
-
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.validation)
     "implementation"(libs.spring.boot.starter.actuator)

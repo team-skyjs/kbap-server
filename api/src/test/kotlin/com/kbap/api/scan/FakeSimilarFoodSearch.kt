@@ -1,16 +1,18 @@
 package com.kbap.api.scan
 
+import com.kbap.common.domain.food.vector.FoodVectorMatch
+import com.kbap.common.domain.food.vector.FoodVectorSearcher
 import com.kbap.common.port.llm.TextEmbeddingClient
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
-class FakeSimilarFoodSearch : TextEmbeddingClient, SimilarFoodSearcher {
-    private val documentsByName = mutableMapOf<String, SimilarFoodDocument>()
+class FakeSimilarFoodSearch : TextEmbeddingClient, FoodVectorSearcher {
+    private val documentsByName = mutableMapOf<String, FoodVectorMatch>()
     private val embeddedNames = mutableListOf<String>()
     private var failSearch = false
 
     fun program(koreanName: String, foodId: Long, score: Double) {
-        documentsByName[koreanName] = SimilarFoodDocument(foodId, score)
+        documentsByName[koreanName] = FoodVectorMatch(foodId, score)
     }
 
     fun failSearch() {
@@ -29,7 +31,7 @@ class FakeSimilarFoodSearch : TextEmbeddingClient, SimilarFoodSearcher {
             floatArrayOf((embeddedNames.size - 1).toFloat())
         }
 
-    override fun search(embedding: FloatArray, limit: Int): List<SimilarFoodDocument> {
+    override fun search(embedding: FloatArray, limit: Int): List<FoodVectorMatch> {
         if (failSearch) throw RuntimeException("vector 검색 실패(테스트)")
         val name = embeddedNames[embedding[0].toInt()]
         return listOfNotNull(documentsByName[name])
