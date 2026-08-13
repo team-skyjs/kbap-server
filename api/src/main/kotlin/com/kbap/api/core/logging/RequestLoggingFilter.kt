@@ -32,6 +32,8 @@ class RequestLoggingFilter : OncePerRequestFilter() {
         val requestId = UUID.randomUUID().toString()
         MDC.put(REQUEST_ID_KEY, requestId)
         response.setHeader(REQUEST_ID_HEADER, requestId)
+        putClientHeader(request, OS_VERSION_HEADER, OS_VERSION_KEY)
+        putClientHeader(request, APP_VERSION_HEADER, APP_VERSION_KEY)
 
         val path = requestPath(request)
         val startedAt = System.nanoTime()
@@ -50,6 +52,10 @@ class RequestLoggingFilter : OncePerRequestFilter() {
         }
     }
 
+    private fun putClientHeader(request: HttpServletRequest, header: String, mdcKey: String) {
+        request.getHeader(header)?.takeIf { it.isNotBlank() }?.let { MDC.put(mdcKey, it.take(64)) }
+    }
+
     private fun requestPath(request: HttpServletRequest): String {
         // 한글 검색어 등 퍼센트 인코딩을 풀어 사람이 읽게 남긴다. 깨진 인코딩이면
         // 로깅 실패가 요청 처리로 번지지 않게 인코딩된 원문 그대로 둔다.
@@ -61,6 +67,10 @@ class RequestLoggingFilter : OncePerRequestFilter() {
     companion object {
         const val REQUEST_ID_KEY: String = "requestId"
         const val MEMBER_ID_KEY: String = "memberId"
+        const val OS_VERSION_KEY: String = "osVersion"
+        const val APP_VERSION_KEY: String = "appVersion"
         const val REQUEST_ID_HEADER: String = "X-Request-Id"
+        const val OS_VERSION_HEADER: String = "X-OS-Version"
+        const val APP_VERSION_HEADER: String = "X-App-Version"
     }
 }

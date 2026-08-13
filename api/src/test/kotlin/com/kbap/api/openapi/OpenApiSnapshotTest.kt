@@ -89,6 +89,46 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     versionHeaderOf("/api/reviews", "get")!!.path("schema").path("default").asText() shouldBe "1.0"
                 }
             }
+
+            `when`("헤더 필수 여부를 보면") {
+                then("/api 오퍼레이션은 필수, 예외인 app-version 조회는 선택이다") {
+                    val document = objectMapper.readTree(
+                        mockMvc.get("/v3/api-docs").andReturn().response.contentAsString,
+                    )
+
+                    fun versionHeaderOf(path: String, method: String) =
+                        document.path("paths").path(path).path(method).path("parameters")
+                            .first { it.path("name").asText() == "X-API-Version" }
+
+                    versionHeaderOf("/api/reviews", "get").path("required").asBoolean().shouldBeTrue()
+                    versionHeaderOf("/api/app-version", "get").path("required").asBoolean().shouldBeFalse()
+                }
+            }
+        }
+
+        given("클라이언트 버전 헤더 파라미터") {
+            `when`("문서의 각 오퍼레이션을 보면") {
+                then("관리자 외 전 오퍼레이션은 선택 헤더 둘을 받고 관리자 오퍼레이션은 받지 않는다") {
+                    val document = docOf("/v3/api-docs")
+                    val clientVersionHeaders = listOf("X-OS-Version", "X-App-Version")
+
+                    fun paramsOf(operation: com.fasterxml.jackson.databind.JsonNode) =
+                        operation.path("parameters").filter { it.path("name").asText() in clientVersionHeaders }
+
+                    val (adminOps, clientOps) = document.path("paths").properties()
+                        .flatMap { (path, methods) -> methods.properties().map { path to it.value } }
+                        .partition { (path, _) -> path.startsWith("/api/admin") || path.startsWith("/admin") }
+
+                    adminOps.isNotEmpty().shouldBeTrue()
+                    clientOps.isNotEmpty().shouldBeTrue()
+                    adminOps.forEach { (_, operation) -> paramsOf(operation).size shouldBe 0 }
+                    clientOps.forEach { (_, operation) ->
+                        val params = paramsOf(operation)
+                        params.map { it.path("name").asText() }.shouldContainAll(clientVersionHeaders)
+                        params.forEach { it.path("required").asBoolean().shouldBeFalse() }
+                    }
+                }
+            }
         }
 
         given("버전 그룹 문서") {

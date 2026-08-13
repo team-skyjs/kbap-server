@@ -1,9 +1,12 @@
 package com.kbap.api.core.config
 
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.api.core.logging.RequestLoggingFilter
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.security.SecurityScheme
@@ -31,7 +34,9 @@ class OpenApiConfig {
 
     @Bean
     fun openApi(): OpenAPI =
-        OpenAPI().components(
+        OpenAPI().info(
+            Info().title("kbap API").description(NOTICE),
+        ).components(
             Components().addSecuritySchemes(
                 BEARER_AUTH,
                 SecurityScheme()
@@ -48,15 +53,19 @@ class OpenApiConfig {
         val declaredVersions by lazy {
             routesOf(handlerMappings).associate { it.handlerMethod to it.declaredVersion }
         }
+        val requiredMethods by lazy {
+            routesOf(handlerMappings).filter { headerRequired(it.path) }.map { it.handlerMethod }.toSet()
+        }
         return OperationCustomizer { operation, handlerMethod ->
             if (operation.parameters.orEmpty().none { it.name == API_VERSION_HEADER }) {
                 val declared = declaredVersions[handlerMethod.method]
+                val required = handlerMethod.method in requiredMethods
                 operation.addParametersItem(
                     Parameter()
                         .`in`("header")
                         .name(API_VERSION_HEADER)
-                        .required(false)
-                        .description(versionDescription(declared))
+                        .required(required)
+                        .description(versionDescription(declared, required))
                         .schema(StringSchema().apply { declared?.let { _default(it.removeSuffix("+")) } }),
                 )
             }
@@ -65,34 +74,54 @@ class OpenApiConfig {
     }
 
     @Bean
+    fun clientVersionHeadersCustomizer(): OperationCustomizer =
+        OperationCustomizer { operation, handlerMethod ->
+            if (!handlerMethod.beanType.packageName.startsWith(ADMIN_PACKAGE)) {
+                CLIENT_VERSION_HEADERS.forEach { (name, description) ->
+                    if (operation.parameters.orEmpty().none { it.name == name }) {
+                        operation.addParametersItem(
+                            Parameter()
+                                .`in`("header")
+                                .name(name)
+                                .required(false)
+                                .description(description)
+                                .schema(StringSchema()),
+                        )
+                    }
+                }
+            }
+            operation
+        }
+
+    @Bean
     fun apiVersion10Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("1.0", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("1.0", handlerMappings, operationCustomizers)
 
     @Bean
     fun apiVersion11Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("1.1", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("1.1", handlerMappings, operationCustomizers)
 
     @Bean
     fun apiVersion20Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("2.0", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("2.0", handlerMappings, operationCustomizers)
 
     private fun versionDoc(
         version: String,
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        headerCustomizer: OperationCustomizer,
+        operationCustomizers: List<OperationCustomizer>,
     ): GroupedOpenApi {
         val served by lazy { servedMethods(version, handlerMappings) }
         return GroupedOpenApi.builder()
             .group(version)
             .displayName("X-API-Version $version")
             .addOpenApiMethodFilter { it in served }
-            .addOperationCustomizer(headerCustomizer)
+            .apply { operationCustomizers.forEach { addOperationCustomizer(it) } }
             .build()
     }
 
@@ -139,14 +168,42 @@ class OpenApiConfig {
     companion object {
         const val BEARER_AUTH: String = "bearerAuth"
         const val API_VERSION_HEADER: String = "X-API-Version"
+        private const val ADMIN_PACKAGE: String = "com.kbap.api.admin"
+        private val NOTICE: String = """
+            ## 공지
+            ### 공통 헤더
+            | 헤더 | 필수 | 용도 |
+            |------|------|------|
+            | `X-API-Version` | **필수** | 응답 계약 선택. 누락·미지원 버전은 400(COMMON-002). 유일 예외: `GET /api/app-version` |
+            | `X-OS-Version` | 선택 | 클라이언트 OS·버전(예: iOS `iOS 18.1`, AOS `AOS 14`) — 서버 로그 분석용. **모든 요청에 넣어 보내주세요** |
+            | `X-App-Version` | 선택 | 클라이언트 앱 버전(예: `2.3.0`) — 서버 로그 분석용. **모든 요청에 넣어 보내주세요** |
 
-        private fun versionDescription(declared: String?): String = when {
-            declared == null ->
-                "요청 API 버전. 이 오퍼레이션은 버전을 가리지 않으므로 보내지 않아도 된다. 미전송이면 기본 1.0 으로 해석한다."
-            declared.endsWith("+") ->
-                "요청 API 버전. **이 오퍼레이션은 `${declared.removeSuffix("+")}` 이상에서 응답한다** — 값을 비우면 기본 1.0 으로 해석돼 다른 버전의 핸들러가 처리한다. 매핑에 없는 버전은 400."
-            else ->
-                "요청 API 버전. **이 오퍼레이션은 `$declared` 에서만 응답한다** — 값을 비우면 기본 1.0 으로 해석돼 다른 버전의 핸들러가 처리한다. 매핑에 없는 버전은 400."
+            응답의 `X-Request-Id` 헤더는 서버가 부여하는 요청 상관 키입니다 — 문의 시 함께 전달하면 로그 추적이 빠릅니다.
+
+            버전별 계약 차이는 우측 상단 그룹 선택(`X-API-Version 1.0/1.1/2.0`)으로 확인하세요.
+            """.trimIndent()
+        private val CLIENT_VERSION_HEADERS: Map<String, String> = mapOf(
+            RequestLoggingFilter.OS_VERSION_HEADER to
+                "클라이언트 OS·버전(예: iOS `iOS 18.1`, AOS `AOS 14`). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
+            RequestLoggingFilter.APP_VERSION_HEADER to
+                "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
+        )
+
+        private fun headerRequired(path: String): Boolean =
+            path.startsWith("${ApiPaths.API}/") && path != "${ApiPaths.API}/app-version"
+
+        private fun versionDescription(declared: String?, required: Boolean): String {
+            val enforcement =
+                if (required) "**필수 헤더** — 누락·미지원 버전은 400(COMMON-002)."
+                else "이 오퍼레이션은 예외적으로 헤더 없이 동작한다 — 미전송이면 1.0 으로 해석한다."
+            return when {
+                declared == null ->
+                    "요청 API 버전. 이 오퍼레이션은 버전을 가리지 않는다 — 지원하는 아무 버전이나 보낸다. $enforcement"
+                declared.endsWith("+") ->
+                    "요청 API 버전. **이 오퍼레이션은 `${declared.removeSuffix("+")}` 이상에서 응답한다** — 그 미만 버전은 다른 계약의 핸들러가 처리한다. $enforcement"
+                else ->
+                    "요청 API 버전. **이 오퍼레이션은 `$declared` 에서만 응답한다** — 다른 버전은 다른 계약의 핸들러가 처리한다. $enforcement"
+            }
         }
 
         private fun serves(declared: String?, version: String): Boolean = when {
