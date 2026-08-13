@@ -1,5 +1,6 @@
 package com.kbap.api.core.config
 
+import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.api.core.logging.RequestLoggingFilter
@@ -52,15 +53,19 @@ class OpenApiConfig {
         val declaredVersions by lazy {
             routesOf(handlerMappings).associate { it.handlerMethod to it.declaredVersion }
         }
+        val requiredMethods by lazy {
+            routesOf(handlerMappings).filter { headerRequired(it.path) }.map { it.handlerMethod }.toSet()
+        }
         return OperationCustomizer { operation, handlerMethod ->
             if (operation.parameters.orEmpty().none { it.name == API_VERSION_HEADER }) {
                 val declared = declaredVersions[handlerMethod.method]
+                val required = handlerMethod.method in requiredMethods
                 operation.addParametersItem(
                     Parameter()
                         .`in`("header")
                         .name(API_VERSION_HEADER)
-                        .required(false)
-                        .description(versionDescription(declared))
+                        .required(required)
+                        .description(versionDescription(declared, required))
                         .schema(StringSchema().apply { declared?.let { _default(it.removeSuffix("+")) } }),
                 )
             }
@@ -184,13 +189,21 @@ class OpenApiConfig {
                 "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
         )
 
-        private fun versionDescription(declared: String?): String = when {
-            declared == null ->
-                "요청 API 버전. 이 오퍼레이션은 버전을 가리지 않으므로 보내지 않아도 된다. 미전송이면 기본 1.0 으로 해석한다."
-            declared.endsWith("+") ->
-                "요청 API 버전. **이 오퍼레이션은 `${declared.removeSuffix("+")}` 이상에서 응답한다** — 값을 비우면 기본 1.0 으로 해석돼 다른 버전의 핸들러가 처리한다. 매핑에 없는 버전은 400."
-            else ->
-                "요청 API 버전. **이 오퍼레이션은 `$declared` 에서만 응답한다** — 값을 비우면 기본 1.0 으로 해석돼 다른 버전의 핸들러가 처리한다. 매핑에 없는 버전은 400."
+        private fun headerRequired(path: String): Boolean =
+            path.startsWith("${ApiPaths.API}/") && path != "${ApiPaths.API}/app-version"
+
+        private fun versionDescription(declared: String?, required: Boolean): String {
+            val enforcement =
+                if (required) "**필수 헤더** — 누락·미지원 버전은 400(COMMON-002)."
+                else "이 오퍼레이션은 예외적으로 헤더 없이 동작한다 — 미전송이면 1.0 으로 해석한다."
+            return when {
+                declared == null ->
+                    "요청 API 버전. 이 오퍼레이션은 버전을 가리지 않는다 — 지원하는 아무 버전이나 보낸다. $enforcement"
+                declared.endsWith("+") ->
+                    "요청 API 버전. **이 오퍼레이션은 `${declared.removeSuffix("+")}` 이상에서 응답한다** — 그 미만 버전은 다른 계약의 핸들러가 처리한다. $enforcement"
+                else ->
+                    "요청 API 버전. **이 오퍼레이션은 `$declared` 에서만 응답한다** — 다른 버전은 다른 계약의 핸들러가 처리한다. $enforcement"
+            }
         }
 
         private fun serves(declared: String?, version: String): Boolean = when {

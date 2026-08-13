@@ -89,6 +89,21 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     versionHeaderOf("/api/reviews", "get")!!.path("schema").path("default").asText() shouldBe "1.0"
                 }
             }
+
+            `when`("헤더 필수 여부를 보면") {
+                then("/api 오퍼레이션은 필수, 예외인 app-version 조회는 선택이다") {
+                    val document = objectMapper.readTree(
+                        mockMvc.get("/v3/api-docs").andReturn().response.contentAsString,
+                    )
+
+                    fun versionHeaderOf(path: String, method: String) =
+                        document.path("paths").path(path).path(method).path("parameters")
+                            .first { it.path("name").asText() == "X-API-Version" }
+
+                    versionHeaderOf("/api/reviews", "get").path("required").asBoolean().shouldBeTrue()
+                    versionHeaderOf("/api/app-version", "get").path("required").asBoolean().shouldBeFalse()
+                }
+            }
         }
 
         given("클라이언트 버전 헤더 파라미터") {
