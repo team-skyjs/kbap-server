@@ -2,6 +2,7 @@ package com.kbap.api.core.config
 
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.api.core.logging.RequestLoggingFilter
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.media.StringSchema
@@ -65,34 +66,54 @@ class OpenApiConfig {
     }
 
     @Bean
+    fun clientVersionHeadersCustomizer(): OperationCustomizer =
+        OperationCustomizer { operation, handlerMethod ->
+            if (!handlerMethod.beanType.packageName.startsWith(ADMIN_PACKAGE)) {
+                CLIENT_VERSION_HEADERS.forEach { (name, description) ->
+                    if (operation.parameters.orEmpty().none { it.name == name }) {
+                        operation.addParametersItem(
+                            Parameter()
+                                .`in`("header")
+                                .name(name)
+                                .required(false)
+                                .description(description)
+                                .schema(StringSchema()),
+                        )
+                    }
+                }
+            }
+            operation
+        }
+
+    @Bean
     fun apiVersion10Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("1.0", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("1.0", handlerMappings, operationCustomizers)
 
     @Bean
     fun apiVersion11Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("1.1", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("1.1", handlerMappings, operationCustomizers)
 
     @Bean
     fun apiVersion20Doc(
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        apiVersionHeaderCustomizer: OperationCustomizer,
-    ): GroupedOpenApi = versionDoc("2.0", handlerMappings, apiVersionHeaderCustomizer)
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("2.0", handlerMappings, operationCustomizers)
 
     private fun versionDoc(
         version: String,
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        headerCustomizer: OperationCustomizer,
+        operationCustomizers: List<OperationCustomizer>,
     ): GroupedOpenApi {
         val served by lazy { servedMethods(version, handlerMappings) }
         return GroupedOpenApi.builder()
             .group(version)
             .displayName("X-API-Version $version")
             .addOpenApiMethodFilter { it in served }
-            .addOperationCustomizer(headerCustomizer)
+            .apply { operationCustomizers.forEach { addOperationCustomizer(it) } }
             .build()
     }
 
@@ -139,6 +160,13 @@ class OpenApiConfig {
     companion object {
         const val BEARER_AUTH: String = "bearerAuth"
         const val API_VERSION_HEADER: String = "X-API-Version"
+        private const val ADMIN_PACKAGE: String = "com.kbap.api.admin"
+        private val CLIENT_VERSION_HEADERS: Map<String, String> = mapOf(
+            RequestLoggingFilter.OS_VERSION_HEADER to
+                "클라이언트 OS 버전(예: iOS 18.1). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
+            RequestLoggingFilter.APP_VERSION_HEADER to
+                "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
+        )
 
         private fun versionDescription(declared: String?): String = when {
             declared == null ->

@@ -91,6 +91,31 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("클라이언트 버전 헤더 파라미터") {
+            `when`("문서의 각 오퍼레이션을 보면") {
+                then("관리자 외 전 오퍼레이션은 선택 헤더 둘을 받고 관리자 오퍼레이션은 받지 않는다") {
+                    val document = docOf("/v3/api-docs")
+                    val clientVersionHeaders = listOf("X-OS-Version", "X-App-Version")
+
+                    fun paramsOf(operation: com.fasterxml.jackson.databind.JsonNode) =
+                        operation.path("parameters").filter { it.path("name").asText() in clientVersionHeaders }
+
+                    val (adminOps, clientOps) = document.path("paths").properties()
+                        .flatMap { (path, methods) -> methods.properties().map { path to it.value } }
+                        .partition { (path, _) -> path.startsWith("/api/admin") || path.startsWith("/admin") }
+
+                    adminOps.isNotEmpty().shouldBeTrue()
+                    clientOps.isNotEmpty().shouldBeTrue()
+                    adminOps.forEach { (_, operation) -> paramsOf(operation).size shouldBe 0 }
+                    clientOps.forEach { (_, operation) ->
+                        val params = paramsOf(operation)
+                        params.map { it.path("name").asText() }.shouldContainAll(clientVersionHeaders)
+                        params.forEach { it.path("required").asBoolean().shouldBeFalse() }
+                    }
+                }
+            }
+        }
+
         given("버전 그룹 문서") {
             `when`("매핑에 선언된 버전을 모으면") {
                 then("모든 선언 버전이 그룹으로 노출된다 — 새 버전 추가 시 OpenApiConfig 에 그룹 빈을 함께 추가해야 한다") {
