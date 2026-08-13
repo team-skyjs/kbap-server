@@ -19,7 +19,6 @@
 |------|------|------|------|
 | name | `place_name` | `String?` | `@Column(length = 100)` — 초과 시 `require` 실패 |
 | address | `place_address` | `String?` | `@Column(length = 200)` |
-| kakaoPlaceId | `kakao_place_id` | `String?` | `@Column(length = 30)` |
 | latitude | `place_latitude` | `BigDecimal?` | `decimal(10,7)`, -90 ~ 90 |
 | longitude | `place_longitude` | `BigDecimal?` | `decimal(10,7)`, -180 ~ 180 |
 
@@ -34,7 +33,6 @@
 ALTER TABLE `food_review`
     ADD COLUMN `place_name`      varchar(100)  NULL,
     ADD COLUMN `place_address`   varchar(200)  NULL,
-    ADD COLUMN `kakao_place_id`  varchar(30)   NULL,
     ADD COLUMN `place_latitude`  decimal(10,7) NULL,
     ADD COLUMN `place_longitude` decimal(10,7) NULL;
 ```

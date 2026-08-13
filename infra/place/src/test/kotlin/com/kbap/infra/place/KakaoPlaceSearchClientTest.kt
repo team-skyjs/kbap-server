@@ -75,7 +75,6 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
 
                 result.size shouldBe 2
                 result[0].name shouldBe "한밥집 강남점"
-                result[0].kakaoPlaceId shouldBe "27290047"
                 result[0].latitude shouldBe BigDecimal("37.4979502")
                 result[0].longitude shouldBe BigDecimal("127.0276368")
                 server.verify()

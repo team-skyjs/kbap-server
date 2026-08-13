@@ -63,7 +63,7 @@ data class ReviewUpdateRequest(
 @Schema(
     description = "리뷰에 함께 저장할 위치 정보. 세 형태 — ① 식당 검색(GET /api/places)에서 고른 항목 그대로(KAKAO_PLACE), " +
         "② GPS 미동의 시 사용자가 입력한 식당명 텍스트만(MANUAL), ③ 식당 미선택 + GPS 동의 시 작성자 좌표만(AUTHOR_LOCATION). " +
-        "출처는 서버가 유도한다(kakaoPlaceId 있음 → KAKAO_PLACE, name 만 → MANUAL, 좌표만 → AUTHOR_LOCATION)",
+        "출처는 서버가 유도한다(name+좌표 양쪽 → KAKAO_PLACE, name 만 → MANUAL, 좌표만 → AUTHOR_LOCATION)",
 )
 data class ReviewPlaceRequest(
     @field:Size(max = ReviewPlace.MAX_NAME_LENGTH, message = "식당명은 최대 100자입니다")
@@ -73,10 +73,6 @@ data class ReviewPlaceRequest(
     @field:Size(max = ReviewPlace.MAX_ADDRESS_LENGTH, message = "주소는 최대 200자입니다")
     @field:Schema(description = "주소", example = "서울 강남구 테헤란로 123")
     val address: String? = null,
-
-    @field:Size(max = ReviewPlace.MAX_KAKAO_PLACE_ID_LENGTH, message = "카카오 장소 id 는 최대 30자입니다")
-    @field:Schema(description = "카카오 장소 id", example = "27290047")
-    val kakaoPlaceId: String? = null,
 
     @field:DecimalMin(value = "-90", message = "위도는 -90 이상이어야 합니다")
     @field:DecimalMax(value = "90", message = "위도는 90 이하여야 합니다")
@@ -88,22 +84,16 @@ data class ReviewPlaceRequest(
     @field:Schema(description = "경도", example = "127.0276368")
     val longitude: BigDecimal? = null,
 ) {
-    @get:AssertTrue(message = "식당명 없이 위치를 저장하려면 latitude·longitude 를 모두 보내야 합니다")
+    @get:AssertTrue(message = "latitude·longitude 는 함께 보내거나 함께 생략해야 합니다")
     @get:Schema(hidden = true)
     val coordinatesComplete: Boolean
-        get() = name != null || (latitude != null) == (longitude != null)
-
-    @get:AssertTrue(message = "카카오 장소 id 가 있으면 식당명도 함께 보내야 합니다")
-    @get:Schema(hidden = true)
-    val kakaoPlaceNamed: Boolean
-        get() = kakaoPlaceId == null || name != null
+        get() = (latitude != null) == (longitude != null)
 
     fun toDomain(): ReviewPlace? = when {
-        kakaoPlaceId != null -> ReviewPlace(
+        name != null && latitude != null && longitude != null -> ReviewPlace(
             source = PlaceSource.KAKAO_PLACE,
             name = name,
             address = address,
-            kakaoPlaceId = kakaoPlaceId,
             latitude = latitude,
             longitude = longitude,
         )
@@ -111,8 +101,6 @@ data class ReviewPlaceRequest(
             source = PlaceSource.MANUAL,
             name = name,
             address = address,
-            latitude = latitude,
-            longitude = longitude,
         )
         latitude != null && longitude != null -> ReviewPlace(
             source = PlaceSource.AUTHOR_LOCATION,

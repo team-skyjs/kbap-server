@@ -15,7 +15,6 @@
   "place": {
     "name": "한밥집 강남점",
     "address": "서울 강남구 테헤란로 123",
-    "kakaoPlaceId": "27290047",
     "latitude": 37.4979502,
     "longitude": 127.0276368
   }
@@ -23,10 +22,10 @@
 ```
 
 - `place` — **선택**(생략/null 허용). 세 형태가 유효하며 출처는 서버가 유도한다:
-  - **식당 선택**(`kakaoPlaceId` 있음, `name` 필수): 검색 결과 항목 그대로 → `place_source=KAKAO_PLACE`
+  - **식당 선택**(`name`+좌표 양쪽): 검색 결과 항목 그대로 → `place_source=KAKAO_PLACE`
   - **사용자 입력 텍스트**(GPS 미동의): `name` 만 → `place_source=MANUAL`
   - **작성자 좌표**(식당 미선택 + GPS 동의): `latitude`·`longitude` 둘 다 필수, 식당 항목 없음 → `place_source=AUTHOR_LOCATION`. 좌표는 반올림 없이 원값 저장.
-  - `name` 없이 좌표가 한쪽만 오면 400, `kakaoPlaceId` 만 있고 `name` 없으면 400. 빈 객체 `{}` 는 위치 없음으로 정규화.
+  - 좌표가 한쪽만 오면 400. 빈 객체 `{}` 는 위치 없음으로 정규화. 외부 지도 제공자 식별자(kakao place id)는 받지도 저장하지도 않는다 — 딥링크·클러스터링은 명·주소·좌표로 충분.
 - 수정(PUT)은 전량 교체: `place` 생략 시 기존 장소 정보 **제거**(content·imagePaths 와 동일 규칙).
 - 검증 실패(길이 초과·좌표 범위 밖) → HTTP 400 + `BaseResponse.fail`(기존 validation 공통 처리, `COMMON` 에러 코드) — 새 `ErrorCode` 채번 없음.
 
@@ -34,7 +33,6 @@
 |------|------|------|
 | place.name | string? | 최대 100자 |
 | place.address | string? | 최대 200자 |
-| place.kakaoPlaceId | string? | 최대 30자 |
 | place.latitude | number? | -90 ~ 90 (name 없으면 longitude 와 함께 필수) |
 | place.longitude | number? | -180 ~ 180 (name 없으면 latitude 와 함께 필수) |
 
@@ -55,7 +53,6 @@
   "place": {
     "name": "한밥집 강남점",
     "address": "서울 강남구 테헤란로 123",
-    "kakaoPlaceId": "27290047",
     "latitude": 37.4979502,
     "longitude": 127.0276368
   }

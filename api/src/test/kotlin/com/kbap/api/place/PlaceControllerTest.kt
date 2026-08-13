@@ -80,7 +80,6 @@ class PlaceControllerTest : BehaviorSpec() {
                         FoundPlace(
                             name = "한밥집 강남점",
                             address = "서울 강남구 테헤란로 123",
-                            kakaoPlaceId = "27290047",
                             latitude = BigDecimal("37.4979502"),
                             longitude = BigDecimal("127.0276368"),
                         ),
@@ -92,7 +91,6 @@ class PlaceControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items.length()") { value(1) }
                         jsonPath("$.payload.items[0].name") { value("한밥집 강남점") }
                         jsonPath("$.payload.items[0].address") { value("서울 강남구 테헤란로 123") }
-                        jsonPath("$.payload.items[0].kakaoPlaceId") { value("27290047") }
                         jsonPath("$.payload.items[0].latitude") { value(37.4979502) }
                         jsonPath("$.payload.items[0].longitude") { value(127.0276368) }
                     }

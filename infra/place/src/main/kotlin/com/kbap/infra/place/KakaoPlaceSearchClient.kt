@@ -65,7 +65,6 @@ private data class KakaoKeywordSearchResponse(
 )
 
 private data class KakaoPlaceDocument(
-    val id: String? = null,
     @param:JsonProperty("place_name") val placeName: String? = null,
     @param:JsonProperty("address_name") val addressName: String? = null,
     @param:JsonProperty("road_address_name") val roadAddressName: String? = null,
@@ -77,7 +76,6 @@ private data class KakaoPlaceDocument(
         return FoundPlace(
             name = name,
             address = roadAddressName?.takeIf { it.isNotBlank() } ?: addressName?.takeIf { it.isNotBlank() },
-            kakaoPlaceId = id?.takeIf { it.isNotBlank() },
             latitude = y?.toBigDecimalOrNull(),
             longitude = x?.toBigDecimalOrNull(),
         )

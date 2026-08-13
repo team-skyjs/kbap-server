@@ -102,9 +102,6 @@ data class ReviewPlaceResponse(
     @field:Schema(description = "주소", example = "서울 강남구 테헤란로 123")
     val address: String?,
 
-    @field:Schema(description = "카카오 장소 id", example = "27290047")
-    val kakaoPlaceId: String?,
-
     @field:Schema(description = "위도", example = "37.4979502")
     val latitude: BigDecimal?,
 
@@ -117,7 +114,6 @@ data class ReviewPlaceResponse(
                 source = place.source,
                 name = place.name,
                 address = place.address,
-                kakaoPlaceId = place.kakaoPlaceId,
                 latitude = place.latitude,
                 longitude = place.longitude,
             )

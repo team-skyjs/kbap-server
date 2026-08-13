@@ -9,7 +9,6 @@ fun interface PlaceSearchClient {
 data class FoundPlace(
     val name: String,
     val address: String?,
-    val kakaoPlaceId: String?,
     val latitude: BigDecimal?,
     val longitude: BigDecimal?,
 ) {

@@ -18,9 +18,6 @@ class ReviewPlace(
     @Column(name = "place_address", length = MAX_ADDRESS_LENGTH)
     val address: String? = null,
 
-    @Column(name = "kakao_place_id", length = MAX_KAKAO_PLACE_ID_LENGTH)
-    val kakaoPlaceId: String? = null,
-
     @Column(name = "place_latitude", precision = COORDINATE_PRECISION, scale = COORDINATE_SCALE)
     val latitude: BigDecimal? = null,
 
@@ -30,25 +27,20 @@ class ReviewPlace(
     init {
         val nameValue = name
         val addressValue = address
-        val kakaoPlaceIdValue = kakaoPlaceId
         val latitudeValue = latitude
         val longitudeValue = longitude
         require(nameValue == null || nameValue.length <= MAX_NAME_LENGTH) { "식당명은 최대 ${MAX_NAME_LENGTH}자입니다" }
         require(addressValue == null || addressValue.length <= MAX_ADDRESS_LENGTH) { "주소는 최대 ${MAX_ADDRESS_LENGTH}자입니다" }
-        require(kakaoPlaceIdValue == null || kakaoPlaceIdValue.length <= MAX_KAKAO_PLACE_ID_LENGTH) {
-            "카카오 장소 id 는 최대 ${MAX_KAKAO_PLACE_ID_LENGTH}자입니다"
-        }
         require(latitudeValue == null || latitudeValue in LATITUDE_RANGE) { "위도는 -90~90 이어야 합니다: $latitudeValue" }
         require(longitudeValue == null || longitudeValue in LONGITUDE_RANGE) { "경도는 -180~180 이어야 합니다: $longitudeValue" }
     }
 
     fun isEmpty(): Boolean =
-        name == null && address == null && kakaoPlaceId == null && latitude == null && longitude == null
+        name == null && address == null && latitude == null && longitude == null
 
     companion object {
         const val MAX_NAME_LENGTH = 100
         const val MAX_ADDRESS_LENGTH = 200
-        const val MAX_KAKAO_PLACE_ID_LENGTH = 30
         const val COORDINATE_PRECISION = 10
         const val COORDINATE_SCALE = 7
         val LATITUDE_RANGE = BigDecimal("-90")..BigDecimal("90")

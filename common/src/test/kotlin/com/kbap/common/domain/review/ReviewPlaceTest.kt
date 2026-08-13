@@ -8,19 +8,17 @@ import java.math.BigDecimal
 
 class ReviewPlaceTest : BehaviorSpec({
     given("리뷰 식당 정보 생성") {
-        `when`("식당명·주소·카카오 장소 id·좌표를 모두 주면") {
+        `when`("식당명·주소·좌표를 모두 주면") {
             then("그대로 보관한다") {
                 val place = ReviewPlace(
                     name = "한밥집 강남점",
                     address = "서울 강남구 테헤란로 123",
-                    kakaoPlaceId = "27290047",
                     latitude = BigDecimal("37.4979502"),
                     longitude = BigDecimal("127.0276368"),
                 )
 
                 place.name shouldBe "한밥집 강남점"
                 place.address shouldBe "서울 강남구 테헤란로 123"
-                place.kakaoPlaceId shouldBe "27290047"
                 place.latitude shouldBe BigDecimal("37.4979502")
                 place.longitude shouldBe BigDecimal("127.0276368")
             }
@@ -56,14 +54,6 @@ class ReviewPlaceTest : BehaviorSpec({
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
                     ReviewPlace(address = "가".repeat(ReviewPlace.MAX_ADDRESS_LENGTH + 1))
-                }
-            }
-        }
-
-        `when`("카카오 장소 id 가 30자를 넘으면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> {
-                    ReviewPlace(kakaoPlaceId = "1".repeat(ReviewPlace.MAX_KAKAO_PLACE_ID_LENGTH + 1))
                 }
             }
         }

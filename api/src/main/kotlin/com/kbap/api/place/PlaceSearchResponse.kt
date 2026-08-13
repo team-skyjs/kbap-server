@@ -23,9 +23,6 @@ data class PlaceItemResponse(
     @field:Schema(description = "주소(도로명 우선, 없으면 지번)", example = "서울 강남구 테헤란로 123")
     val address: String?,
 
-    @field:Schema(description = "카카오 장소 id", example = "27290047")
-    val kakaoPlaceId: String?,
-
     @field:Schema(description = "위도", example = "37.4979502")
     val latitude: BigDecimal?,
 
@@ -37,7 +34,6 @@ data class PlaceItemResponse(
             PlaceItemResponse(
                 name = place.name,
                 address = place.address,
-                kakaoPlaceId = place.kakaoPlaceId,
                 latitude = place.latitude,
                 longitude = place.longitude,
             )

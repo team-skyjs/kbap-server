@@ -517,7 +517,6 @@ class ReviewListControllerTest : BehaviorSpec() {
                             "place" to mapOf(
                                 "name" to "한밥집 강남점",
                                 "address" to "서울 강남구 테헤란로 123",
-                                "kakaoPlaceId" to "27290047",
                                 "latitude" to 37.4979502,
                                 "longitude" to 127.0276368,
                             ),
@@ -538,7 +537,6 @@ class ReviewListControllerTest : BehaviorSpec() {
 
                     byId.getValue(withPlace).path("place").path("name").asText() shouldBe "한밥집 강남점"
                     byId.getValue(withPlace).path("place").path("address").asText() shouldBe "서울 강남구 테헤란로 123"
-                    byId.getValue(withPlace).path("place").path("kakaoPlaceId").asText() shouldBe "27290047"
                     byId.getValue(withoutPlace).path("place").isNull.shouldBeTrue()
                 }
             }

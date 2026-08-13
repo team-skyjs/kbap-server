@@ -24,7 +24,6 @@
       {
         "name": "한밥집 강남점",
         "address": "서울 강남구 테헤란로 123",
-        "kakaoPlaceId": "27290047",
         "latitude": 37.4979502,
         "longitude": 127.0276368
       }
@@ -49,5 +48,5 @@
 
 ## 내부 계약 (참고 — seam)
 
-- `common.port.place.PlaceSearchClient.search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace>` — Spring-free 계약. `FoundPlace(name·address·kakaoPlaceId·latitude·longitude — 전 항목 nullable, name 은 카카오가 항상 주므로 non-null)`.
+- `common.port.place.PlaceSearchClient.search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace>` — Spring-free 계약. `FoundPlace(name·address·latitude·longitude — name 외 전 항목 nullable)`.
 - 구현 `:infra:place` `KakaoPlaceSearchClient` — `GET https://dapi.kakao.com/v2/local/search/keyword.json?query=&x=&y=&sort=distance&size=5` (x=경도, y=위도 — 가까운 순 상위 5건), 헤더 `Authorization: KakaoAK <kbap.kakao.rest-api-key>`. 실패·키 미설정 → `BusinessException(PLACE-001)`.
