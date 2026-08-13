@@ -6,7 +6,11 @@
 
 ## Summary
 
-스캔 2.0(서버 OCR)의 비전 시스템 프롬프트(`SERVER_OCR_SYSTEM_PROMPT`)에 1.0 의 환각 제외 규칙과 등가인 지시를 추가한다: 사진이 메뉴판으로 추정되지 않거나 메뉴를 확인할 수 없으면 빈 배열을 반환하고, 사진에서 읽히지 않는 메뉴를 지어내지 않는다. **서버 코드 변경 없음** — 빈 배열은 기존 파서·서비스 경로를 그대로 타고 200 + 빈 items 로 나가며, 이것이 1.0 의 주 경로와 동일한 처리다.
+(2026-08-13 2차 개정 — 목표 확인: 클라이언트가 "메뉴판 아님"을 에러로 처리할 수 있어야 한다.)
+
+스캔 2.0(서버 OCR)의 비전 시스템 프롬프트(`SERVER_OCR_SYSTEM_PROMPT`)에 환각 제외 규칙을 추가해 "메뉴판 아님 = 빈 추출"을 결정적 신호로 만들고, v2 경로에서 빈 추출을 **400 SCAN-003(`MENU_BOARD_NOT_DETECTED`)** 으로 변환한다. 클라이언트는 SCAN-003 으로 재촬영 안내를 분기하고, SCAN-002(503)는 시스템 장애 전용으로 남는다. 1.0 스캔은 무변경(빈 추출 → 200 빈 results).
+
+변경: `SERVER_OCR_SYSTEM_PROMPT`(infra:llm) + `ErrorCode.MENU_BOARD_NOT_DETECTED`(common) + `ScanService.scan()` v2 분기 한 줄(api) + `ScanV2Api` 문서 + `ScanControllerTest` v2 케이스.
 
 ## Technical Context
 
