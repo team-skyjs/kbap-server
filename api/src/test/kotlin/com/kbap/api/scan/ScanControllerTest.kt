@@ -1039,6 +1039,119 @@ class ScanControllerTest : BehaviorSpec() {
                     }
                 }
             }
+
+            fun setMemberAvoidances(memberId: Long, vararg codes: String) {
+                seedMember(memberId)
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        "UPDATE member SET avoidance_substance_codes = ?, onboarding_completed = 1 WHERE id = ?",
+                    ).use { ps ->
+                        ps.setString(1, mapper.writeValueAsString(codes.toList()))
+                        ps.setLong(2, memberId)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+
+            fun markOnboardingIncomplete(memberId: Long) {
+                seedMember(memberId)
+                dataSource.connection.use { c ->
+                    c.prepareStatement("UPDATE member SET onboarding_completed = 0 WHERE id = ?").use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+
+            fun setFoodIngredients(koreanName: String, ingredientsJson: String) {
+                dataSource.connection.use { c ->
+                    c.prepareStatement("UPDATE food SET ingredients = ? WHERE korean_name = ?").use { ps ->
+                        ps.setString(1, ingredientsJson)
+                        ps.setString(2, koreanName)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+
+            `when`("기피성분(PEANUT·SHRIMP) 등록 회원이 새우 성분 음식을 스캔하면") {
+                then("항목에 기피성분 전체가 번역명·겹침 여부·경고 수준과 함께 나열된다") {
+                    val memberId = 631L
+                    val path = "scan/631/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SHRIMP", "PEANUT")
+                    seedReadyFood("기피새우볶음밥", """{"en":"Shrimp Fried Rice"}""")
+                    setFoodIngredients("기피새우볶음밥", """[{"code":"SHRIMP","inclusion_percent":80}]""")
+                    vision.program(path, listOf(ExtractedMenu("새우볶음밥", "기피새우볶음밥", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path, lang = "en").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(2) }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("PEANUT") }
+                        jsonPath("$.payload.results[0].avoidances[0].name") { value("Peanut") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(false) }
+                        jsonPath("$.payload.results[0].avoidances[0].riskLevel") { value(null) }
+                        jsonPath("$.payload.results[0].avoidances[1].code") { value("SHRIMP") }
+                        jsonPath("$.payload.results[0].avoidances[1].name") { value("Shrimp") }
+                        jsonPath("$.payload.results[0].avoidances[1].overlapped") { value(true) }
+                        jsonPath("$.payload.results[0].avoidances[1].riskLevel") { value("DANGER") }
+                    }
+                }
+            }
+
+            `when`("기피성분 등록 회원의 스캔 결과에 미매칭 메뉴가 있으면") {
+                then("유사 음식 대체가 있어도 해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
+                    val memberId = 633L
+                    val path = "scan/633/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SHRIMP")
+                    deleteFood("미매칭기피찌개")
+                    seedReadyFood("기피유사김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("미매칭기피찌개", "미매칭기피찌개", 8000, matchedIdx = null)))
+                    similarSearch.program("미매칭기피찌개", foodIdOf("기피유사김치찌개"), score = 0.95)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(false) }
+                        jsonPath("$.payload.results[0].similarFood.foodId") { value(foodIdOf("기피유사김치찌개")) }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(0) }
+                    }
+                }
+            }
+
+            `when`("온보딩은 완료했지만 기피성분이 없는 회원이 v2 스캔하면") {
+                then("매칭 항목의 avoidances 는 빈 배열이다 — 기피 0개와 판정 불가(null)를 구분한다") {
+                    val memberId = 634L
+                    val path = "scan/634/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId)
+                    seedReadyFood("무기피김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("무기피찌개", "무기피김치찌개", 6000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(0) }
+                    }
+                }
+            }
+
+            `when`("온보딩을 완료하지 않은 회원이 v2 스캔하면") {
+                then("기피 정보 주체가 없어 항목의 avoidances 가 null 이다") {
+                    val memberId = 632L
+                    val path = "scan/632/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    markOnboardingIncomplete(memberId)
+                    seedReadyFood("게스트김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("게스트찌개", "게스트김치찌개", 7000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].matched") { value(true) }
+                        jsonPath("$.payload.results[0].avoidances") { value(null) }
+                    }
+                }
+            }
         }
     }
 }

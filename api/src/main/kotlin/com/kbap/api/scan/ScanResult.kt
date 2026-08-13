@@ -13,6 +13,14 @@ data class ScanResult(
         val koreanName: String?,
         val price: Int?,
         val similarFood: SimilarFood? = null,
+        val avoidances: List<AvoidanceOverlap>? = emptyList(),
+    )
+
+    data class AvoidanceOverlap(
+        val code: String,
+        val name: String,
+        val overlapped: Boolean,
+        val riskLevel: String?,
     )
 
     data class SimilarFood(

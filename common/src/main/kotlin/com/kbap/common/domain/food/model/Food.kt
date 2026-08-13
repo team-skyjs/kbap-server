@@ -146,10 +146,13 @@ class Food(
         ingredients.orEmpty().sortedByDescending { it.inclusionPercent }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
-        if (!isReady()) return RiskLevel.UNKNOWN
-        val substances = ingredients ?: return RiskLevel.UNKNOWN
-        val targeted = substances.filter { it.code in avoidedCodes }
-        return RiskLevel.aggregate(targeted.map { it.riskLevel() })
+        if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN
+        return RiskLevel.aggregate(overlappedIngredients(avoidedCodes).map { it.riskLevel() })
+    }
+
+    fun overlappedIngredients(avoidedCodes: Set<String>): List<FoodIngredient> {
+        if (!isReady()) return emptyList()
+        return ingredients.orEmpty().filter { it.code in avoidedCodes }
     }
 
     private fun localizedName(): LocalizedText =

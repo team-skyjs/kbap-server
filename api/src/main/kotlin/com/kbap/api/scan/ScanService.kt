@@ -10,7 +10,11 @@ import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.ingredient.IngredientJpaRepository
+import com.kbap.common.domain.ingredient.model.Ingredient
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.MemberService
+import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.api.image.ImageUploadService
@@ -26,6 +30,7 @@ class ScanService(
     private val visionExtractor: MenuBoardVisionExtractor,
     private val similarFoodResolver: SimilarFoodResolver,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val ingredientRepository: IngredientJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -42,7 +47,7 @@ class ScanService(
         lang: LanguageCode,
         similarFoodFallback: Boolean,
     ): ScanResult {
-        memberService.getMember(memberId)
+        val member = memberService.getMember(memberId)
 
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
@@ -55,7 +60,9 @@ class ScanService(
         }
 
         val foodsByMatchKey = resolveFoods(extracted)
-        val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
+        val orderedAvoidedCodes = member.profile.avoidedCodes().sortedBy { it.ordinal }
+        val avoidedCodes = orderedAvoidedCodes.map { it.name }.toSet()
+        val avoidanceCatalog = loadAvoidanceCatalog(orderedAvoidedCodes)
         val validIdxes = ocrItems.map { it.idx }.toSet()
         val usedIdxes = mutableSetOf<Int>()
         val similarFoodsByName = resolveSimilarFoods(similarFoodFallback, extracted, foodsByMatchKey)
@@ -73,6 +80,7 @@ class ScanService(
                 koreanName = koreanName,
                 price = menu.priceKrw,
                 similarFood = if (matched) null else similarFoodsByName[menu.koreanName]?.let { toSimilarFood(it, lang) },
+                avoidances = toAvoidances(member, matched, food, orderedAvoidedCodes, avoidanceCatalog, lang),
             )
         }
 
@@ -80,6 +88,34 @@ class ScanService(
         memberService.increaseScanCount(memberId)
 
         return ScanResult(items = items, degraded = false)
+    }
+
+    private fun loadAvoidanceCatalog(avoidedCodes: List<IngredientCode>): Map<IngredientCode, Ingredient> {
+        if (avoidedCodes.isEmpty()) return emptyMap()
+        return ingredientRepository.findByCodeIn(avoidedCodes.toSet()).associateBy { it.code }
+    }
+
+    private fun toAvoidances(
+        member: Member,
+        matched: Boolean,
+        food: Food?,
+        orderedAvoidedCodes: List<IngredientCode>,
+        catalog: Map<IngredientCode, Ingredient>,
+        lang: LanguageCode,
+    ): List<ScanResult.AvoidanceOverlap>? {
+        if (!member.onboardingCompleted) return null
+        if (!matched || food == null) return emptyList()
+        val overlappedByCode = food.overlappedIngredients(orderedAvoidedCodes.map { it.name }.toSet())
+            .associateBy { it.code }
+        return orderedAvoidedCodes.map { code ->
+            val overlapped = overlappedByCode[code.name]
+            ScanResult.AvoidanceOverlap(
+                code = code.name,
+                name = catalog[code]?.displayName(lang) ?: code.label,
+                overlapped = overlapped != null,
+                riskLevel = overlapped?.riskLevel()?.name,
+            )
+        }
     }
 
     private fun resolveSimilarFoods(
