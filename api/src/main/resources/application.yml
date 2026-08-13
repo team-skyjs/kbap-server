@@ -86,7 +86,7 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 2.5
         output-usd-per-million-tokens: 20.0
-    # 스캔 v2 유사 폴백(KB-319)의 검색 질의 임베딩 — Bedrock Titan V2, 저장측(KB-318)과 256차원 고정.
+    # 스캔 v2 유사 폴백(KB-319)의 검색 질의 임베딩 — OpenAI text-embedding-3-small, 저장측과 256차원 고정(KB-328 전환).
     # 기본 off — 미활성이면 유사 폴백만 조용히 생략되고 스캔은 정상 동작한다(부분 성공).
     embedding:
       enabled: ${EMBEDDING_ENABLED:false}
