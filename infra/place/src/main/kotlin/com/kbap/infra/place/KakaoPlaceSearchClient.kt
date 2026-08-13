@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.place.FoundPlace
 import com.kbap.common.port.place.PlaceSearchClient
+import com.kbap.common.port.place.PlaceSearchPage
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.http.converter.HttpMessageConversionException
@@ -24,33 +25,51 @@ class KakaoPlaceSearchClient internal constructor(
 ) : PlaceSearchClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace> {
+    override fun searchNearby(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace> =
+        callKakao(query, longitude, latitude, page = 1, size = NEARBY_LIMIT)
+            .documents.mapNotNull { it.toFoundPlace() }
+
+    override fun searchPage(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchPage {
+        val response = callKakao(query, longitude, latitude, page = page, size = SEARCH_PAGE_SIZE)
+        return PlaceSearchPage(
+            items = response.documents.mapNotNull { it.toFoundPlace() },
+            hasNext = !response.meta.isEnd,
+        )
+    }
+
+    private fun callKakao(
+        query: String,
+        longitude: BigDecimal,
+        latitude: BigDecimal,
+        page: Int,
+        size: Int,
+    ): KakaoKeywordSearchResponse {
         if (apiKey.isBlank()) {
             log.warn("카카오 REST 키가 설정돼 있지 않아 장소 검색을 수행할 수 없다")
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         }
-        val response = try {
+        return try {
             kakaoLocalApi.searchKeyword(
                 query = query,
                 x = longitude.toPlainString(),
                 y = latitude.toPlainString(),
                 sort = "distance",
-                size = TOP_LIMIT,
+                page = page,
+                size = size,
             )
         } catch (e: RestClientException) {
-            log.warn("카카오 장소 검색 실패: query={}", query, e)
+            log.warn("카카오 장소 검색 실패: query={} page={}", query, page, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         } catch (e: HttpMessageConversionException) {
-            log.warn("카카오 장소 검색 응답 파싱 실패: query={}", query, e)
+            log.warn("카카오 장소 검색 응답 파싱 실패: query={} page={}", query, page, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         }
-
-        return response.documents.mapNotNull { it.toFoundPlace() }
     }
 
     companion object {
         const val BASE_URL = "https://dapi.kakao.com"
-        const val TOP_LIMIT = 10
+        const val NEARBY_LIMIT = 10
+        const val SEARCH_PAGE_SIZE = 15
 
         fun create(apiKey: String): KakaoPlaceSearchClient {
             val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()

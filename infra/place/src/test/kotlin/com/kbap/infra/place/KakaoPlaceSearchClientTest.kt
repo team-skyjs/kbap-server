@@ -54,8 +54,8 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
     }
 
     given("카카오 장소 검색") {
-        `when`("검색이 성공하면") {
-            then("문서를 FoundPlace 목록으로 매핑한다") {
+        `when`("주변 조회가 성공하면") {
+            then("음식점 키워드·상위 10건 요청으로 FoundPlace 목록을 매핑한다") {
                 val (client, server) = fixture()
                 server.expect(
                     requestTo(
@@ -67,11 +67,12 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                     .andExpect(queryParam("x", LNG.toPlainString()))
                     .andExpect(queryParam("y", LAT.toPlainString()))
                     .andExpect(queryParam("sort", "distance"))
-                    .andExpect(queryParam("size", KakaoPlaceSearchClient.TOP_LIMIT.toString()))
+                    .andExpect(queryParam("page", "1"))
+                    .andExpect(queryParam("size", KakaoPlaceSearchClient.NEARBY_LIMIT.toString()))
                     .andExpect(header("Authorization", "KakaoAK test-key"))
                     .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
 
-                val result = client.search("음식점", LNG, LAT)
+                val result = client.searchNearby("음식점", LNG, LAT)
 
                 result.size shouldBe 2
                 result[0].name shouldBe "한밥집 강남점"
@@ -81,13 +82,53 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
             }
         }
 
+        `when`("키워드 페이지 검색이 성공하면") {
+            then("페이지·페이지당 15건 요청으로 목록과 hasNext 를 매핑한다") {
+                val (client, server) = fixture()
+                server.expect(
+                    requestTo(
+                        org.hamcrest.Matchers.containsString(
+                            "query=" + URLEncoder.encode("마리김밥", StandardCharsets.UTF_8),
+                        ),
+                    ),
+                )
+                    .andExpect(queryParam("page", "3"))
+                    .andExpect(queryParam("size", KakaoPlaceSearchClient.SEARCH_PAGE_SIZE.toString()))
+                    .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
+
+                val result = client.searchPage("마리김밥", LNG, LAT, page = 3)
+
+                result.items.size shouldBe 2
+                result.hasNext shouldBe true
+                server.verify()
+            }
+        }
+
+        `when`("키워드 검색이 마지막 페이지이면") {
+            then("hasNext 가 false 다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
+                    .andRespond(
+                        withSuccess(
+                            """{"documents": [], "meta": {"is_end": true}}""",
+                            MediaType.APPLICATION_JSON,
+                        ),
+                    )
+
+                val result = client.searchPage("마리김밥", LNG, LAT, page = 1)
+
+                result.items.size shouldBe 0
+                result.hasNext shouldBe false
+            }
+        }
+
         `when`("도로명주소가 비어 있으면") {
             then("지번주소로 대체한다") {
                 val (client, server) = fixture()
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
 
-                val result = client.search("음식점", LNG, LAT)
+                val result = client.searchNearby("음식점", LNG, LAT)
 
                 result[0].address shouldBe "서울 강남구 테헤란로 123"
                 result[1].address shouldBe "서울 서대문구 창천동 45"
@@ -105,7 +146,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                         ),
                     )
 
-                val result = client.search("음식점", LNG, LAT)
+                val result = client.searchNearby("음식점", LNG, LAT)
 
                 result.size shouldBe 0
             }
@@ -117,7 +158,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withServerError())
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
+                val exception = shouldThrow<BusinessException> { client.searchNearby("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
             }
@@ -129,7 +170,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withStatus(HttpStatus.UNAUTHORIZED))
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
+                val exception = shouldThrow<BusinessException> { client.searchNearby("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
             }
@@ -141,7 +182,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON))
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
+                val exception = shouldThrow<BusinessException> { client.searchNearby("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
             }
@@ -151,7 +192,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
             then("외부 호출 없이 PLACE-001 로 실패한다") {
                 val (client, server) = fixture(apiKey = "")
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
+                val exception = shouldThrow<BusinessException> { client.searchNearby("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
                 server.verify()

@@ -13,12 +13,18 @@ internal interface KakaoLocalApi {
         @RequestParam x: String,
         @RequestParam y: String,
         @RequestParam sort: String,
+        @RequestParam page: Int,
         @RequestParam size: Int,
     ): KakaoKeywordSearchResponse
 }
 
 internal data class KakaoKeywordSearchResponse(
     val documents: List<KakaoPlaceDocument> = emptyList(),
+    val meta: KakaoMeta = KakaoMeta(),
+)
+
+internal data class KakaoMeta(
+    @param:JsonProperty("is_end") val isEnd: Boolean = true,
 )
 
 internal data class KakaoPlaceDocument(

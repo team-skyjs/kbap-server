@@ -28,7 +28,7 @@
 
 ```bash
 KBAP_KAKAO_REST_API_KEY=<키> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
-# Swagger UI: GET /api/places?latitude=37.4979502&longitude=127.0276368 → 결과 항목을 그대로 POST /api/reviews 의 place 로 전달 → 응답 place 확인
+# Swagger UI: GET /api/places/nearby?latitude=&longitude= (탑10) 또는 /api/places/search?query=&latitude=&longitude=&page= → 결과 항목을 그대로 POST /api/reviews 의 place 로 전달 → 응답 place 확인
 ```
 
 ## 주의점

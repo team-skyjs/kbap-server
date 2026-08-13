@@ -78,7 +78,6 @@ class WebConfig(
                 "${ApiPaths.V1}/bookmarks/*",
                 "${ApiPaths.API}/reviews",
                 "${ApiPaths.API}/reviews/*",
-                "${ApiPaths.API}/places",
                 "${ApiPaths.API}/places/*",
                 "${ApiPaths.V1}/community/posts",
                 "${ApiPaths.V1}/community/posts/*",

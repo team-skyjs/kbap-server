@@ -1,17 +1,35 @@
 package com.kbap.api.place
 
 import com.kbap.common.port.place.FoundPlace
+import com.kbap.common.port.place.PlaceSearchPage
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 
-@Schema(description = "주변 식당 검색 결과 — 가까운 순 최대 5건")
-data class PlaceSearchResponse(
-    @field:Schema(description = "검색된 식당 목록(없으면 빈 배열)")
+@Schema(description = "주변 식당 탑10 응답 — 가까운 순 최대 10건")
+data class PlaceNearbyResponse(
+    @field:Schema(description = "주변 식당 목록(없으면 빈 배열)")
     val items: List<PlaceItemResponse>,
 ) {
     companion object {
-        fun from(places: List<FoundPlace>): PlaceSearchResponse =
-            PlaceSearchResponse(items = places.map(PlaceItemResponse::from))
+        fun from(places: List<FoundPlace>): PlaceNearbyResponse =
+            PlaceNearbyResponse(items = places.map(PlaceItemResponse::from))
+    }
+}
+
+@Schema(description = "식당 키워드 검색 응답 — 가까운 순, 페이지당 최대 15건")
+data class PlaceSearchPageResponse(
+    @field:Schema(description = "검색된 식당 목록(없으면 빈 배열)")
+    val items: List<PlaceItemResponse>,
+
+    @field:Schema(description = "다음 페이지 존재 여부", example = "true")
+    val hasNext: Boolean,
+) {
+    companion object {
+        fun from(page: PlaceSearchPage): PlaceSearchPageResponse =
+            PlaceSearchPageResponse(
+                items = page.items.map(PlaceItemResponse::from),
+                hasNext = page.hasNext,
+            )
     }
 }
 
