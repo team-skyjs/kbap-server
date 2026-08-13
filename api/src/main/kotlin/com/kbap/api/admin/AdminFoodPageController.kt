@@ -9,12 +9,14 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
+import java.net.URLEncoder
 
 @Controller
 class AdminFoodPageController(
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminFoodService: AdminFoodService,
+    private val adminFoodOutboxQueryService: AdminFoodOutboxQueryService,
     private val adminImageBatchQueryService: AdminImageBatchQueryService,
     private val foodImageBatchSubmitService: FoodImageBatchSubmitService,
 ) {
@@ -23,6 +25,7 @@ class AdminFoodPageController(
     @GetMapping("/admin/foods")
     fun foods(model: Model): String {
         model.addAttribute("dashboard", adminFoodDashboardService.getDashboard())
+        model.addAttribute("outbox", adminFoodOutboxQueryService.getOutboxDashboard())
         model.addAttribute("metrics", adminDashboardMetricsService.getMetrics())
         return "admin/foods"
     }
@@ -30,12 +33,14 @@ class AdminFoodPageController(
     @GetMapping("/admin/foods/list")
     fun foodList(
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
         @RequestParam(required = false) detail: Long?,
         @RequestParam(required = false) edit: Boolean?,
         model: Model,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
-        model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage))
+        model.addAttribute("foodPage", adminFoodService.getFoodPage(safePage, q, parseStatus(status)))
         model.addAttribute("editMode", detail != null && edit == true)
         detail?.let { id -> adminFoodService.getFoodDetailOrNull(id)?.let { model.addAttribute("foodDetail", it) } }
         return "admin/food-list"
@@ -45,6 +50,8 @@ class AdminFoodPageController(
     fun updateFood(
         @PathVariable id: Long,
         @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
         @RequestParam koreanName: String,
         @RequestParam description: String,
         @RequestParam spiciness: Int,
@@ -52,7 +59,7 @@ class AdminFoodPageController(
         @RequestParam(defaultValue = "") imageRef: String,
         @RequestParam(defaultValue = "") nameTranslationsJson: String,
         @RequestParam(defaultValue = "") descriptionTranslationsJson: String,
-        @RequestParam(defaultValue = "") avoidanceSubstancesJson: String,
+        @RequestParam(defaultValue = "") ingredientsJson: String,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         val command = UpdateFoodCommand(
@@ -63,14 +70,66 @@ class AdminFoodPageController(
             imageRef = imageRef.trim(),
             nameTranslationsJson = nameTranslationsJson,
             descriptionTranslationsJson = descriptionTranslationsJson,
-            avoidanceSubstancesJson = avoidanceSubstancesJson,
+            ingredientsJson = ingredientsJson,
         )
         return when (adminFoodService.updateFood(id, command)) {
-            AdminFoodUpdateResult.UPDATED -> "redirect:/admin/foods/list?page=$safePage&updated=$id#food-$id"
-            AdminFoodUpdateResult.NOT_FOUND -> "redirect:/admin/foods/list?page=$safePage&error=not-found#food-$id"
-            AdminFoodUpdateResult.INVALID_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-name#food-$id"
-            AdminFoodUpdateResult.INVALID_JSON -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=invalid-json#food-$id"
-            AdminFoodUpdateResult.DUPLICATE_NAME -> "redirect:/admin/foods/list?page=$safePage&detail=$id&edit=true&error=duplicate-name#food-$id"
+            AdminFoodUpdateResult.UPDATED -> listRedirect(safePage, q, status, "updated" to id)
+            AdminFoodUpdateResult.NOT_FOUND -> listRedirect(safePage, q, status, "error" to "not-found")
+            AdminFoodUpdateResult.INVALID_NAME ->
+                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-name")
+            AdminFoodUpdateResult.INVALID_JSON ->
+                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-json")
+            AdminFoodUpdateResult.DUPLICATE_NAME ->
+                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "duplicate-name")
+        }
+    }
+
+    @PostMapping("/admin/foods/{id}/delete")
+    fun deleteFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return when (adminFoodService.deleteFood(id)) {
+            AdminFoodDeleteResult.DELETED -> listRedirect(safePage, q, status, "deleted" to id)
+            AdminFoodDeleteResult.NOT_FOUND -> listRedirect(safePage, q, status, "error" to "not-found")
+        }
+    }
+
+    // 알 수 없는 값은 400 이 아니라 필터 해제로 흡수한다 — enum 직접 바인딩은 변환 실패로 화면이 열리지 않는다
+    private fun parseStatus(status: String?): FoodContentStatus? =
+        FoodContentStatus.entries.find { it.name == status }
+
+    // form-encode 강제 — UriComponentsBuilder.encode() 는 + 를 남겨 수신측 form-decode 가 공백으로 뭉갠다
+    private fun listRedirect(page: Int, q: String?, status: String?, vararg params: Pair<String, Any>): String {
+        val query = buildList {
+            add("page" to page.toString())
+            q?.trim()?.takeIf { it.isNotEmpty() }?.let { add("q" to it) }
+            parseStatus(status)?.let { add("status" to it.name) }
+            params.forEach { (name, value) -> add(name to value.toString()) }
+        }.joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, Charsets.UTF_8)}" }
+        return "redirect:/admin/foods/list?$query"
+    }
+
+    @PostMapping("/admin/foods/recollect")
+    fun recollect(
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+    ): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return try {
+            val result = adminFoodService.requestRecollect(q, parseStatus(status))
+            when {
+                result.exceeded -> listRedirect(safePage, q, status, "recollectError" to "too-many", "recollectMax" to result.max)
+                result.requested == 0L -> listRedirect(safePage, q, status, "recollectError" to "no-target")
+                else -> listRedirect(safePage, q, status, "recollected" to result.created, "recollectSkipped" to result.skipped)
+            }
+        } catch (e: Exception) {
+            log.error("재수집 요청 실패", e)
+            listRedirect(safePage, q, status, "recollectError" to "failed")
         }
     }
 

@@ -6,6 +6,7 @@ import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.food.FoodSummaryResponse
+import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.V1 + "/bookmarks")
 class BookmarkController(
     private val bookmarkService: BookmarkService,
+    private val reviewService: ReviewService,
 ) : BookmarkApi {
     @PostMapping
     override fun register(
@@ -47,10 +49,11 @@ class BookmarkController(
         @Valid @ModelAttribute request: BookmarkListRequest,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = bookmarkService.getBookmarkPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor))
+        val ratings = reviewService.getFoodRatings(result.items.map { it.foodId })
         return ResponseEntity.ok(
             BaseResponse.ok(
                 Page(
-                    items = result.items.map { FoodSummaryResponse.from(it, bookmarked = true) },
+                    items = result.items.map { FoodSummaryResponse.from(it, bookmarked = true, ratings[it.foodId]) },
                     hasNext = result.hasNext,
                     nextCursor = result.nextCursor,
                 ),

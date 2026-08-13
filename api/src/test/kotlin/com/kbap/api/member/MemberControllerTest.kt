@@ -4,11 +4,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.auth.FakeSocialTokenVerifierConfig
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
+import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -36,7 +38,15 @@ class MemberControllerTest : BehaviorSpec() {
         val objectMapper = jacksonObjectMapper()
 
         fun clearMembers() {
-            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM member_block"); it.execute("DELETE FROM member") } }
+            dataSource.connection.use { c ->
+                c.createStatement().use {
+                    it.execute("DELETE FROM member_block")
+                    it.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
+                    it.execute("DELETE FROM community_comment")
+                    it.execute("DELETE FROM community_post")
+                    it.execute("DELETE FROM member")
+                }
+            }
         }
 
         fun loginAccessToken(): String {
@@ -47,9 +57,10 @@ class MemberControllerTest : BehaviorSpec() {
             return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
         }
 
-        fun submitOnboarding(token: String?, body: Map<String, Any?>) =
+        fun submitOnboarding(token: String?, body: Map<String, Any?>, apiVersion: String? = null) =
             mockMvc.post("/api/v1/members/me/onboarding") {
                 if (token != null) header("Authorization", "Bearer $token")
+                if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
             }
@@ -413,9 +424,7 @@ class MemberControllerTest : BehaviorSpec() {
 
                     updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
 
-                    val profileJson = memberColumn("google-sub-fixed", "profile")!!
-                    profileJson.contains("\"spicinessPreference\"") shouldBe true
-                    objectMapper.readTree(profileJson).path("spicinessPreference").asText() shouldBe "SKIP"
+                    memberColumn("google-sub-fixed", "spiciness_preference") shouldBe "SKIP"
                 }
             }
         }
@@ -555,8 +564,7 @@ class MemberControllerTest : BehaviorSpec() {
                         ),
                     ).andExpect { status { isOk() } }
 
-                    val storedProfile = objectMapper.readTree(memberColumn("google-sub-fixed", "profile")!!)
-                    storedProfile.path("profileImageUrl").asText() shouldBe "profiles/abc.jpg"
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe "profiles/abc.jpg"
 
                     val payload = profilePayload(token)
                     payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/abc.jpg"
@@ -571,8 +579,8 @@ class MemberControllerTest : BehaviorSpec() {
                     dataSource.connection.use { c ->
                         c.createStatement().use {
                             it.execute(
-                                "UPDATE member SET profile = JSON_SET(profile, '$.profileImageUrl', " +
-                                    "'https://legacy-cdn.example.com/old.jpg') WHERE provider_uid = 'google-sub-fixed'",
+                                "UPDATE member SET profile_image_url = 'https://legacy-cdn.example.com/old.jpg' " +
+                                    "WHERE provider_uid = 'google-sub-fixed'",
                             )
                         }
                     }
@@ -582,7 +590,7 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진을 생략하고 온보딩하면") {
+            `when`("버전 헤더 없이 사진을 생략하고 온보딩하면") {
                 then("400 과 COMMON-002 로 거절되고 온보딩은 완료되지 않는다") {
                     val token = loginAccessToken()
 
@@ -594,7 +602,7 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진에 null 을 명시해 온보딩하면") {
+            `when`("버전 헤더 없이 사진에 null 을 명시해 온보딩하면") {
                 then("400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
 
@@ -603,6 +611,33 @@ class MemberControllerTest : BehaviorSpec() {
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("버전 헤더 없이 닉네임을 생략하고 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() - "nickname").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("버전 헤더 없이 닉네임에 null 을 명시해 온보딩하면") {
+                then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, validBody() + ("nickname" to null))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
 
@@ -632,65 +667,86 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
-        given("기본 이미지 백필 마이그레이션 — 기존 null 저장 회원") {
-            fun profilePayload(token: String) =
-                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+        given("X-API-Version 1.1 온보딩 — 닉네임·프로필 사진 서버 자동 지정") {
+            val v2Body = mapOf(
+                "avoidanceSubstanceCodes" to listOf("EGG", "MILK"),
+                "countryCode" to "US",
+                "spicinessPreference" to "SKIP",
+            )
 
-            fun backfillSql(): String {
-                val resource = javaClass.classLoader
-                    .getResource("db/migration/V2026.07.20.14.04.38__backfill_default_profile_image.sql")
-                resource shouldNotBe null
-                return resource!!.readText().trim().trimEnd(';')
-            }
-
-            fun runProfileSql(sql: String) {
-                dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
-            }
-
-            `when`("사진이 JSON null 로 저장된 회원에게 백필을 적용하면") {
-                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+            `when`("1.1 헤더와 함께 닉네임·사진 없이 온보딩하면") {
+                then("200 으로 완료되고 닉네임은 영숫자 6자 코드, 사진은 아바타 후보 중 하나로 지정된다") {
                     val token = loginAccessToken()
-                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
-                        .andExpect { status { isOk() } }
-                    runProfileSql(
-                        "UPDATE member SET profile = JSON_SET(profile, '$.profileImageUrl', CAST('null' AS JSON)) " +
-                            "WHERE provider_uid = 'google-sub-fixed'",
-                    )
 
-                    runProfileSql(backfillSql())
+                    submitOnboarding(token, v2Body, apiVersion = "1.1").andExpect { status { isOk() } }
 
-                    profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
             }
 
-            `when`("사진 키 자체가 없는 회원에게 백필을 적용하면") {
-                then("기본 이미지 경로가 채워져 완전한 URL 로 노출된다") {
+            `when`("1.1 헤더와 함께 닉네임·사진을 담아 보내면") {
+                then("보낸 값은 무시되고 서버 지정값이 저장된다") {
                     val token = loginAccessToken()
-                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
-                        .andExpect { status { isOk() } }
-                    runProfileSql(
-                        "UPDATE member SET profile = JSON_REMOVE(profile, '$.profileImageUrl') " +
-                            "WHERE provider_uid = 'google-sub-fixed'",
-                    )
 
-                    runProfileSql(backfillSql())
+                    submitOnboarding(
+                        token,
+                        v2Body + mapOf(
+                            "nickname" to "내가정한닉",
+                            "profileImageUrl" to "images/default/profile/profile-default-512.png",
+                        ),
+                        apiVersion = "1.1",
+                    ).andExpect { status { isOk() } }
 
-                    profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                    memberColumn("google-sub-fixed", "nickname") shouldNotBe "내가정한닉"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    val stored = memberColumn("google-sub-fixed", "profile_image_url")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
                 }
             }
 
-            `when`("사진이 이미 설정된 회원에게 백필을 적용하면") {
-                then("기존 저장값이 변경되지 않는다") {
+            `when`("1.1 헤더가 있어도 필수 항목인 countryCode 를 누락하면") {
+                then("400 과 COMMON-002 로 거절된다") {
                     val token = loginAccessToken()
-                    submitOnboarding(token, validBody() + ("profileImageUrl" to "profiles/origin.jpg"))
-                        .andExpect { status { isOk() } }
 
-                    runProfileSql(backfillSql())
+                    val result = submitOnboarding(token, v2Body - "countryCode", apiVersion = "1.1")
+                        .andReturn().response
 
-                    profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/profiles/origin.jpg"
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                }
+            }
+
+            `when`("1.0 헤더로 닉네임·사진 없이 온보딩하면") {
+                then("종전 계약대로 400 과 COMMON-002 로 거절된다") {
+                    val token = loginAccessToken()
+
+                    val result = submitOnboarding(token, v2Body, apiVersion = "1.0").andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "COMMON-002"
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                }
+            }
+
+            `when`("형식이 잘못된 버전 헤더로 온보딩하면") {
+                then("400 으로 거절된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, v2Body, apiVersion = "beta").andReturn()
+                        .response.status shouldBe 400
+                }
+            }
+
+            `when`("지원하지 않는 버전 헤더로 온보딩하면") {
+                then("400 으로 거절되고 온보딩은 완료되지 않는다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, v2Body, apiVersion = "9.9").andReturn()
+                        .response.status shouldBe 400
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
         }
@@ -992,6 +1048,85 @@ class MemberControllerTest : BehaviorSpec() {
                     summary.path("pointsToNext").isNull shouldBe true
                     detail.path("nextTier").isNull shouldBe true
                     detail.path("pointsToNext").isNull shouldBe true
+                }
+            }
+        }
+
+        given("회원 통화 — 국가 자동 지정과 개별 변경") {
+            fun currencyOf(token: String): String =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                    .path("payload").path("currency").asText()
+
+            `when`("일본으로 온보딩하면") {
+                then("통화가 JPY 로 자동 지정된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("온보딩 요청에 통화를 실어 보내면") {
+                then("무시되고 국가 기준 통화가 지정된다") {
+                    val token = loginAccessToken()
+
+                    submitOnboarding(token, validBody() + mapOf("countryCode" to "JP", "currency" to "USD")).andReturn()
+
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("프로필 수정으로 통화만 바꾸면") {
+                then("통화가 교체되고 국가는 그대로다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    updateProfile(token, mapOf("currency" to "KRW")).andReturn()
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload")
+                    payload.path("currency").asText() shouldBe "KRW"
+                    payload.path("countryCode").asText() shouldBe "JP"
+                }
+            }
+
+            `when`("프로필 수정으로 국가만 바꾸면") {
+                then("통화는 바뀌지 않는다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    updateProfile(token, mapOf("countryCode" to "US")).andReturn()
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload")
+                    payload.path("countryCode").asText() shouldBe "US"
+                    payload.path("currency").asText() shouldBe "JPY"
+                }
+            }
+
+            `when`("지원하지 않는 통화로 수정하면") {
+                then("400 MEMBER-010 으로 거절하고 기존 통화를 유지한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("countryCode" to "JP")).andReturn()
+
+                    val result = updateProfile(token, mapOf("currency" to "XAU")).andReturn().response
+
+                    result.status shouldBe 400
+                    objectMapper.readTree(result.contentAsString).path("code").asText() shouldBe "MEMBER-010"
+                    currencyOf(token) shouldBe "JPY"
+                }
+            }
+
+            `when`("온보딩 미완료 회원이 조회하면") {
+                then("통화가 비어 있고 조회는 정상이다") {
+                    val token = loginAccessToken()
+
+                    val result = getMyProfile(token).andReturn().response
+
+                    result.status shouldBe 200
+                    objectMapper.readTree(result.contentAsString)
+                        .path("payload").path("currency").isNull shouldBe true
                 }
             }
         }

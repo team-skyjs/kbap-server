@@ -9,9 +9,9 @@ data class GetFoodDetailResult(
     val description: String,
     val spiciness: Int,
     val overallRiskStatus: RiskLevel,
-    val avoidanceSubstances: List<AvoidanceSubstanceView>,
+    val ingredients: List<IngredientView>,
 ) {
-    data class AvoidanceSubstanceView(
+    data class IngredientView(
         val name: String,
         val iconRef: String?,
         val inclusionProbability: Int,

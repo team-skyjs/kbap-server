@@ -8,6 +8,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -44,9 +45,9 @@ class BookmarkControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
                 ).use { ps ->
@@ -66,7 +67,7 @@ class BookmarkControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, image_ref, description, spiciness,
-                                      name_translations, description_translations, avoidance_substances, content_status, status,
+                                      name_translations, description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, ?, '설명', 0, ?, '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE content_status = 'READY', name_translations = VALUES(name_translations),
@@ -195,6 +196,37 @@ class BookmarkControllerTest : BehaviorSpec() {
                     mockMvc.patch("$path/1").andExpect {
                         status { isUnauthorized() }
                     }
+                }
+            }
+        }
+
+        given("음식 북마크 목록 — 리뷰 평점·리뷰 수") {
+            `when`("리뷰가 있는 음식을 북마크하고 목록을 조회하면") {
+                then("항목에 평점·리뷰 수가 담긴다") {
+                    val token = accessToken(260L)
+                    seedFood(31L, "평점김치찌개")
+                    seedMember(261L)
+                    seedMember(262L)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("DELETE FROM food_review WHERE food_id = 31")
+                            it.execute(
+                                "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                    "VALUES (261, 31, 5, 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                            it.execute(
+                                "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                    "VALUES (262, 31, 4, 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                        }
+                    }
+                    register(token, 31L).andExpect { status { isOk() } }
+
+                    val item = mapper.readTree(listJson(token)).path("payload").path("items")
+                        .single { it.path("foodId").asLong() == 31L }
+
+                    item.path("review").path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 2L
                 }
             }
         }

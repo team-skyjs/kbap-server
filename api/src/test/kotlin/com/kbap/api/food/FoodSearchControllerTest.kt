@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
@@ -44,24 +45,25 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (601, '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
-                            "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES (601, '김치찌개', '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
+                            "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (602, '김치볶음밥', 'kimchi-rice.png', '김치볶음밥 설명', 3, " +
-                            "'{\"en\":\"Kimchi Fried Rice\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES (602, '김치볶음밥', '김치볶음밥', 'kimchi-rice.png', '김치볶음밥 설명', 3, " +
+                            "'{\"en\":\"Kimchi Fried Rice\"}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (603, '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
-                            "'{\"en\":\"Doenjang Stew\"}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES (603, '된장찌개', '된장찌개', 'doenjang.png', '된장찌개 설명', 0, " +
+                            "'{\"en\":\"Doenjang Stew\"}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                 }
             }
@@ -72,13 +74,14 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     (1..count).forEach { index ->
                         statement.execute(
-                            "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                                "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                                "VALUES (${700 + index}, '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
-                                "'{}', '{}', '[]', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                                "VALUES (${700 + index}, '검색메뉴$index', '검색메뉴$index', 'menu-$index.png', '검색메뉴$index 설명', 0, " +
+                                "'{}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                         )
                     }
                 }
@@ -90,13 +93,14 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute(
-                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, status, created_at, updated_at) " +
-                            "VALUES (610, '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES (610, '냉면', '냉면', 'naengmyeon.png', '냉면 설명', 0, " +
                             "'{\"ja\":\"レイメン\",\"en\":\"Cold Noodles\"}', '{}', '[]', " +
-                            "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                            "'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                 }
             }
@@ -111,9 +115,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute(
-                        "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                        "INSERT INTO member (id, provider, provider_uid, member_status, " +
                             "onboarding_completed, status, created_at, updated_at) " +
-                            "VALUES ($memberId, 'GOOGLE', 'food-bm-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                            "VALUES ($memberId, 'GOOGLE', 'food-bm-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
                             "ON DUPLICATE KEY UPDATE id = id",
                     )
                     statement.execute(
@@ -165,17 +169,17 @@ class FoodSearchControllerTest : BehaviorSpec() {
             }
         }
 
-        fun seedAvoidanceSubstance(foodId: Long, substanceCode: String, inclusionPercent: Int) {
+        fun seedIngredient(foodId: Long, substanceCode: String, inclusionPercent: Int) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute(
-                        "INSERT IGNORE INTO avoidance_substance " +
+                        "INSERT IGNORE INTO ingredients " +
                             "(code, korean_name, translations, status, created_at, updated_at) " +
                             "VALUES ('$substanceCode', '$substanceCode', '{}', " +
                             "'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                     )
                     statement.execute(
-                        "UPDATE food SET avoidance_substances = JSON_ARRAY_APPEND(avoidance_substances, '$', " +
+                        "UPDATE food SET ingredients = JSON_ARRAY_APPEND(ingredients, '$', " +
                             "JSON_OBJECT('code', '$substanceCode', 'inclusion_percent', $inclusionPercent)) " +
                             "WHERE id = $foodId",
                     )
@@ -258,7 +262,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
             `when`("SOY 를 회피하는 회원이 SOY 를 100% 포함하는 메뉴를 검색하면") {
                 then("실 스택(프로필 조회 → 성분 fetch → 카탈로그 조회 → 위험도 산출)이 DANGER 를 계산해 내려준다") {
                     seedSearchableFoods()
-                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+                    seedIngredient(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
                     FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
                     val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
 
@@ -278,7 +282,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
             `when`("성분이 없는 메뉴를 검색하면") {
                 then("위험도는 SAFE 다") {
                     seedSearchableFoods()
-                    seedAvoidanceSubstance(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
+                    seedIngredient(foodId = 601L, substanceCode = "SOY", inclusionPercent = 100)
 
                     val json = mockMvc.get("/api/v1/foods/search?lang=ko") {
                         param("keyword", "된장찌개")
@@ -320,6 +324,56 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     item.get("koreanName").isNull shouldBe true
                 }
             }
+        }
+
+        given("메뉴 검색 API — 표시명 띄어쓰기와 무관한 매칭 (KB-298)") {
+            fun seedSpacedFood() {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute("DELETE FROM member_ranking_event")
+                        statement.execute("DELETE FROM food_review")
+                        statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
+                        statement.execute(
+                            "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                                "VALUES (620, '들깨칼국수', '들깨 칼국수', 'kalguksu.png', '들깨 칼국수 설명', 0, " +
+                                "'{}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        )
+                    }
+                }
+            }
+
+            `when`("화면 표기 그대로(공백 포함) 검색하면") {
+                then("표시명을 그대로 담은 결과를 돌려준다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "들깨 칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+
+            `when`("표시명에만 있는 영문 조각으로 검색하면") {
+                then("match key 에서 지워진 조각이어도 표시명으로 찾는다") {
+                    seedSpacedFood()
+
+                    mockMvc.get("/api/v1/foods/search") {
+                        param("keyword", "칼국수")
+                        param("lang", "ko")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].name") { value("들깨 칼국수") }
+                    }
+                }
+            }
+
         }
 
         given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {
@@ -555,6 +609,40 @@ class FoodSearchControllerTest : BehaviorSpec() {
                         jsonPath("$.payload") { value(null) }
                         jsonPath("$.message") { value("검색어를 입력해 주세요") }
                     }
+                }
+            }
+        }
+        given("메뉴 검색 API — 리뷰 평점·리뷰 수") {
+            fun seedReview(memberId: Long, foodId: Long, rating: Int) {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute(
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
+                                "onboarding_completed, status, created_at, updated_at) " +
+                                "VALUES ($memberId, 'GOOGLE', 'search-rating-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                                "ON DUPLICATE KEY UPDATE id = id",
+                        )
+                        statement.execute(
+                            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                "VALUES ($memberId, $foodId, $rating, 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                }
+            }
+
+            `when`("리뷰가 있는 음식을 검색하면") {
+                then("검색 결과 항목에 평점·리뷰 수가 담긴다") {
+                    seedSearchableFoods()
+                    seedReview(320L, 601L, 4)
+                    seedReview(321L, 601L, 5)
+
+                    val json = mockMvc.get("/api/v1/foods/search?lang=ko") {
+                        param("keyword", "김치찌개")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("review").path("averageRating").asDouble() shouldBe (4.5 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 2L
                 }
             }
         }

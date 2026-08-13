@@ -6,6 +6,7 @@ import com.kbap.common.port.storage.StorageObjectStore
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
@@ -106,17 +107,21 @@ class FoodImageBatchCollectService(
             if (itemRepository.reserveFileName(item.id, candidate) > 0) candidate
             else itemRepository.findById(item.id).get().fileName!!
         }
-        storageObjectStore.put(key, bytes, "image/png")
+        storageObjectStore.put(key, bytes, "image/webp")
         var attached = false
         itemTransaction.executeWithoutResult {
             val food = foodRepository.findById(item.foodId).orElse(null)
-            if (food == null) {
-                item.fail("음식이 삭제되어 건너뜀")
-            } else {
-                food.attachImage(key)
-                foodRepository.save(food)
-                item.done(key)
-                attached = true
+            when {
+                food == null -> item.fail("음식이 삭제되어 건너뜀")
+                // 제출 이후 관리자·파이프라인이 상태를 옮겼을 수 있다 — 전이 예외로 배치 전체가 멈추지 않게 아이템만 마감한다
+                food.contentStatus != FoodContentStatus.PENDING_IMAGE ->
+                    item.fail("이미지 대기 상태가 아니어서 건너뜀(${food.contentStatus})")
+                else -> {
+                    food.attachImage(key)
+                    foodRepository.save(food)
+                    item.done(key)
+                    attached = true
+                }
             }
             itemRepository.save(item)
         }
@@ -164,7 +169,7 @@ class FoodImageBatchCollectService(
                 .formatHex(MessageDigest.getInstance("SHA-256").digest(foodName.toByteArray()))
                 .take(12)
             val uuid = UUID.randomUUID().toString().replace("-", "").take(16)
-            return "images/food/${hash}_$uuid.png"
+            return "images/webp/food/${hash}_$uuid.webp"
         }
 
         const val STALE_SUBMITTING_HOURS: Long = 1

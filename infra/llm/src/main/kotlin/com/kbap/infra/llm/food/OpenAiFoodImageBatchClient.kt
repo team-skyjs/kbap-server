@@ -71,6 +71,8 @@ class OpenAiFoodImageBatchClient(
             props.model?.let { put("model", it) }
             props.size?.let { put("size", it) }
             props.quality?.let { put("quality", it) }
+            props.outputFormat?.let { put("output_format", it) }
+            props.outputCompression?.let { put("output_compression", it) }
         }
         val line = objectMapper.createObjectNode().apply {
             put("custom_id", entry.customId)

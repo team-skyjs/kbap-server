@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -21,6 +22,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
+    override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
+        configurer.useRequestHeader("X-API-Version")
+            .setDefaultVersion("1.0")
+    }
+
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/api/**")
             .allowedOriginPatterns("*")
@@ -52,18 +58,31 @@ class WebConfig(
 
     @Bean
     fun jwtAuthenticationFilterRegistration(): FilterRegistrationBean<JwtAuthenticationFilter> =
-        FilterRegistrationBean(JwtAuthenticationFilter(tokenParser)).apply {
+        FilterRegistrationBean(
+            JwtAuthenticationFilter(
+                tokenParser,
+                // 게스트 열람 API — GET + 정확 일치 두 경로만. 더 깊은 경로(댓글 등)는 계속 보호된다.
+                guestExemptions = listOf(
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.V1}/community/posts$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.V1}/community/posts/\\d+$")),
+                ),
+            ),
+        ).apply {
             addUrlPatterns(
                 "${ApiPaths.V1}/members/*",
-                "${ApiPaths.V2}/members/*",
                 "${ApiPaths.V1}/scans",
                 "${ApiPaths.V1}/scans/*",
+                "${ApiPaths.API}/scans",
+                "${ApiPaths.API}/scans/*",
                 "${ApiPaths.V1}/bookmarks",
                 "${ApiPaths.V1}/bookmarks/*",
-                "${ApiPaths.V1}/reviews",
-                "${ApiPaths.V1}/reviews/*",
-                "${ApiPaths.V1}/places",
-                "${ApiPaths.V1}/places/*",
+                "${ApiPaths.API}/reviews",
+                "${ApiPaths.API}/reviews/*",
+                "${ApiPaths.API}/places",
+                "${ApiPaths.API}/places/*",
+                "${ApiPaths.V1}/community/posts",
+                "${ApiPaths.V1}/community/posts/*",
+                "${ApiPaths.V1}/community/comments/*",
                 "${ApiPaths.V1}/reports",
                 "${ApiPaths.V1}/images",
                 "${ApiPaths.V1}/images/*",

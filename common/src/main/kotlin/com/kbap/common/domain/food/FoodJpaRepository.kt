@@ -3,6 +3,8 @@ package com.kbap.common.domain.food
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
@@ -31,54 +33,37 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun countDailyCreatedSince(@Param("from") from: LocalDateTime): List<DailyCount>
 
-    @Modifying(clearAutomatically = true)
-    @Transactional
-    @Query(
-        """
-        update Food f
-        set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE,
-            f.updatedAt = current_timestamp,
-            f.version = f.version + 1
-        where f.id in :ids
-          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE
-          and (f.imageRef is null or f.imageRef = '')
-        """,
-    )
-    fun markPendingImageByIdIn(@Param("ids") ids: List<Long>): Int
-
-    @Modifying(clearAutomatically = true)
-    @Transactional
-    @Query(
-        """
-        update Food f
-        set f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_REVIEW,
-            f.updatedAt = current_timestamp,
-            f.version = f.version + 1
-        where f.id in :ids
-          and f.contentStatus in (
-            com.kbap.common.domain.food.model.FoodContentStatus.INCOMPLETE,
-            com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
-          )
-        """,
-    )
-    fun markPendingReviewByIdIn(@Param("ids") ids: List<Long>): Int
-
-    @Query(
-        """
-        select f from Food f
-        where f.contentStatus = 'INCOMPLETE'
-          and (:afterId is null or f.id > :afterId)
-        order by f.id asc
-        """,
-    )
-    fun findIncompleteAfter(@Param("afterId") afterId: Long?, pageable: Pageable): List<Food>
+    fun findByContentStatusOrderByIdAsc(contentStatus: FoodContentStatus, pageable: Pageable): List<Food>
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
+    fun findByDisplayNameContaining(displayName: String, pageable: Pageable): Page<Food>
+
+    fun findByContentStatus(contentStatus: FoodContentStatus, pageable: Pageable): Page<Food>
+
+    fun findByDisplayNameContainingAndContentStatus(
+        displayName: String,
+        contentStatus: FoodContentStatus,
+        pageable: Pageable,
+    ): Page<Food>
+
+    fun findByDisplayNameContainingOrderByIdAsc(displayName: String): List<Food>
+
+    fun findByContentStatusAndDisplayNameContainingOrderByIdAsc(
+        contentStatus: FoodContentStatus,
+        displayName: String,
+    ): List<Food>
+
+    fun countByDisplayNameContaining(displayName: String): Long
+
+    fun countByContentStatus(contentStatus: FoodContentStatus): Long
+
+    fun countByDisplayNameContainingAndContentStatus(displayName: String, contentStatus: FoodContentStatus): Long
+
     @Query(
         """
         select f from Food f
-        where (f.imageRef is null or f.imageRef = '')
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
           and not exists (
             select 1 from ImageBatchItem i
             where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
@@ -108,7 +93,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
           and f.content_status = 'READY'
           and (:cursor is null or f.id < :cursor)
           and (
-            f.korean_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
+            f.display_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
             or (
               :jsonPath is not null
               and json_unquote(json_extract(f.name_translations, :jsonPath)) collate utf8mb4_unicode_ci

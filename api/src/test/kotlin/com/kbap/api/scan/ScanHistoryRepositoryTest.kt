@@ -24,21 +24,22 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
-        // Flyway 실스키마 위에서 돈다 — scan_history 의 member/food FK 를 시드가 만족해야 한다
         fun clearTables() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
-                    listOf("scan_history", "bookmark", "uploaded_image", "image_batch_item")
+                    statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
+                    statement.execute("DELETE FROM community_comment")
+                    listOf("scan_history", "bookmark", "uploaded_image", "image_batch_item", "community_post")
                         .forEach { statement.execute("DELETE FROM $it") }
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute("DELETE FROM member_block")
                     statement.execute("DELETE FROM member")
                     listOf(11L, 99L).forEach { memberId ->
                         statement.execute(
-                            "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
                                 "onboarding_completed, status, created_at, updated_at) " +
-                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', " +
+                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', 'ACTIVE', 1, 'ACTIVE', " +
                                 "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                         )
                     }
@@ -51,7 +52,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
                             "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                     )
@@ -126,7 +127,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
             `when`("완성(READY)되지 않은 음식 이력이 섞여 있으면") {
                 then("READY 음식만 반환한다") {
                     seedFood(1L, "김치찌개")
-                    seedFood(2L, "미완성찌개", contentStatus = "INCOMPLETE")
+                    seedFood(2L, "미완성찌개", contentStatus = "FAILED")
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 

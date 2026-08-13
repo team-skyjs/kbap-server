@@ -1,11 +1,8 @@
 package com.kbap.common.domain.member.model
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.member.model.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -25,50 +22,6 @@ class MemberProfileTest : BehaviorSpec({
             then("맵기 선호는 미설정(SKIP), 기피성분은 빈 셋이다") {
                 MemberProfile.empty().spicinessPreference shouldBe SpicinessPreference.SKIP
                 MemberProfile.empty().avoidanceSubstanceCodes shouldBe emptySet()
-            }
-        }
-    }
-
-    given("MemberProfileJson 역직렬화 — 레거시 회원(맵기 키 부재)") {
-        `when`("spicinessPreference 키가 없는 JSON 을 읽으면") {
-            then("맵기 선호가 미설정(SKIP)으로 해석된다") {
-                val json = jacksonObjectMapper()
-                    .readValue<MemberProfileJson>("""{"avoidanceSubstanceCodes":[]}""")
-
-                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.SKIP
-            }
-        }
-
-        `when`("spicinessPreference 에 단계 문자열이 저장돼 있으면") {
-            then("해당 단계로 읽는다") {
-                val json = jacksonObjectMapper()
-                    .readValue<MemberProfileJson>("""{"spicinessPreference":"HOT"}""")
-
-                json.toDomain(null).spicinessPreference shouldBe SpicinessPreference.HOT
-            }
-        }
-    }
-
-    given("MemberProfileJson 역직렬화 — 폐기된 키가 남은 레거시 회원") {
-        `when`("더 이상 쓰지 않는 appLanguage 키가 저장돼 있으면") {
-            then("예외 없이 무시하고 나머지 값을 읽는다") {
-                val json = ObjectMapper().registerKotlinModule().readValue<MemberProfileJson>(
-                    """{"appLanguage":"ko","spicinessPreference":"MEDIUM","countryCode":"KR"}""",
-                )
-
-                json.toDomain("머고").spicinessPreference shouldBe SpicinessPreference.MEDIUM
-                json.toDomain("머고").countryCode shouldBe CountryCode.KR
-            }
-        }
-    }
-
-    given("MemberProfileJson 직렬화 — 저장 표현") {
-        `when`("프로필을 JSON 으로 쓰면") {
-            then("맵기 선호가 단계 이름 문자열로 저장된다") {
-                val written = jacksonObjectMapper()
-                    .writeValueAsString(MemberProfileJson(spicinessPreference = SpicinessPreference.EXTREME))
-
-                written.contains("\"spicinessPreference\":\"EXTREME\"") shouldBe true
             }
         }
     }
@@ -165,7 +118,7 @@ class MemberProfileTest : BehaviorSpec({
             then("그대로 보존한다") {
                 val profile = MemberProfile.of(
                     nickname = "머고",
-                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT"), AvoidanceSubstanceCodeRef("MILK")),
+                    avoidanceSubstanceCodes = setOf(AvoidedIngredientCodeRef("PEANUT"), AvoidedIngredientCodeRef("MILK")),
                     spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )
@@ -184,7 +137,7 @@ class MemberProfileTest : BehaviorSpec({
                 val member = Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-1", null))
                 val replacement = MemberProfile.of(
                     nickname = "머고",
-                    avoidanceSubstanceCodes = setOf(AvoidanceSubstanceCodeRef("PEANUT")),
+                    avoidanceSubstanceCodes = setOf(AvoidedIngredientCodeRef("PEANUT")),
                     spicinessPreference = SpicinessPreference.MILD,
                     countryCode = CountryCode.KR,
                 )
@@ -194,6 +147,118 @@ class MemberProfileTest : BehaviorSpec({
                 member.profile shouldBe replacement
                 origin.nickname shouldBe null
                 origin.spicinessPreference shouldBe SpicinessPreference.SKIP
+            }
+        }
+    }
+
+    given("온보딩 — 국가 기준 통화 자동 지정") {
+        fun onboardedMember(countryCode: String): Member {
+            val member = Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-currency-$countryCode", null))
+            member.completeOnboarding(
+                nickname = "머고",
+                avoidanceSubstanceCodes = emptyList(),
+                spicinessPreference = "MEDIUM",
+                countryCode = countryCode,
+                profileImageUrl = "profile/default.webp",
+            )
+            return member
+        }
+
+        `when`("일본으로 온보딩하면") {
+            then("통화가 엔으로 지정된다") {
+                onboardedMember("JP").profile.currency shouldBe CurrencyCode.JPY
+            }
+        }
+
+        `when`("유로존 국가로 온보딩하면") {
+            then("통화가 유로로 지정된다") {
+                onboardedMember("FR").profile.currency shouldBe CurrencyCode.EUR
+            }
+        }
+
+        `when`("취급 통화 밖 통화를 쓰는 국가로 온보딩하면") {
+            then("통화가 달러로 대체 지정된다") {
+                onboardedMember("NG").profile.currency shouldBe CurrencyCode.USD
+            }
+        }
+
+        `when`("온보딩 전이면") {
+            then("통화가 비어 있다") {
+                Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "sub-currency-none", null))
+                    .profile.currency shouldBe null
+            }
+        }
+    }
+
+    given("MemberProfile.updatedWith — 통화 부분 수정") {
+        fun profileWith(currency: CurrencyCode?) = MemberProfile.of(
+            nickname = "머고",
+            avoidanceSubstanceCodes = emptySet(),
+            spicinessPreference = SpicinessPreference.MEDIUM,
+            countryCode = CountryCode.KR,
+            currency = currency,
+        )
+
+        `when`("지원하는 통화를 전송하면") {
+            then("그 통화로 교체된다") {
+                profileWith(CurrencyCode.KRW).updatedWith(currency = "JPY").currency shouldBe CurrencyCode.JPY
+            }
+        }
+
+        `when`("통화를 전송하지 않으면") {
+            then("기존 통화가 유지된다") {
+                profileWith(CurrencyCode.JPY).updatedWith(nickname = "새이름").currency shouldBe CurrencyCode.JPY
+            }
+        }
+
+        `when`("지원하지 않는 통화를 전송하면") {
+            then("MEMBER-010 으로 거절한다") {
+                val e = shouldThrow<BusinessException> { profileWith(CurrencyCode.KRW).updatedWith(currency = "XAU") }
+                e.errorCode shouldBe ErrorCode.INVALID_CURRENCY_CODE
+            }
+        }
+
+        `when`("대소문자·공백이 다른 값을 전송하면") {
+            then("정규화하지 않고 거절한다") {
+                shouldThrow<BusinessException> { profileWith(CurrencyCode.KRW).updatedWith(currency = "jpy") }
+                shouldThrow<BusinessException> { profileWith(CurrencyCode.KRW).updatedWith(currency = " JPY ") }
+            }
+        }
+    }
+
+    given("국가와 통화의 독립성") {
+        val profile = MemberProfile.of(
+            nickname = "머고",
+            avoidanceSubstanceCodes = emptySet(),
+            spicinessPreference = SpicinessPreference.MEDIUM,
+            countryCode = CountryCode.JP,
+            currency = CurrencyCode.JPY,
+        )
+
+        `when`("국가만 미국으로 바꾸면") {
+            then("국가만 바뀌고 통화는 그대로다") {
+                val updated = profile.updatedWith(countryCode = "US")
+
+                updated.countryCode shouldBe CountryCode.US
+                updated.currency shouldBe CurrencyCode.JPY
+            }
+        }
+
+        `when`("국가와 통화를 함께 보내면") {
+            then("둘 다 요청대로 저장된다") {
+                val updated = profile.updatedWith(countryCode = "US", currency = "KRW")
+
+                updated.countryCode shouldBe CountryCode.US
+                updated.currency shouldBe CurrencyCode.KRW
+            }
+        }
+
+        `when`("통화만 바꾸면") {
+            then("통화만 바뀌고 국가는 그대로다") {
+                val updated = profile.updatedWith(currency = "KRW")
+
+                updated.countryCode shouldBe CountryCode.JP
+                updated.currency shouldBe CurrencyCode.KRW
             }
         }
     }

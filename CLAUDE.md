@@ -50,13 +50,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **백엔드 아키텍처**(DDD·바운디드 컨텍스트·모듈 구성·데이터/AI 파이프라인) → [`docs/architecture/`](docs/architecture/). 강제 규칙은 `docs/architecture/meogo-conventions.md`.
 - **의사결정 기록(ADR)** → [`docs/adr/`](docs/adr/). SpecKit 사이클마다 중요한 결정을 남긴다.
 - **구현 설계**(기능별 "어떻게") → SpecKit `specs/NNN-slug/`(spec·plan·tasks). 교차-컨텍스트 흐름은 `mermaid-flows` 스킬로 시퀀스 다이어그램을 그린다.
-- **제품 개요·기획 PRD("무엇을/왜")** → 공유 허브 `agent-hub/`(이 repo에선 git-ignored, 별도 서브모듈로 관리). 구현 세부는 여기 두지 않는다.
+- **프로젝트 도메인 지식·데일리 작업 로그** → 지식 위키 `../kbap-agenthub/`(kbap·kbap-langchain 공유, 독립 repo). 아래 "지식 위키" 섹션 참조.
+
+## 지식 위키 (kbap-agenthub)
+
+- 위치: `../kbap-agenthub` — kbap·kbap-langchain 이 공유하는 지식 위키(독립 repo). 도메인 맥락이 필요하면 **`../kbap-agenthub/INDEX.md`(색인)를 먼저 읽고** 필요한 문서만 골라 읽는다 — 위키 본문을 통째로 로드하지 않는다.
+- **자동 축적 (작업 중 상시)**: 코드로 알 수 없는 도메인 지식·중요 결정이 나오면 `../kbap-agenthub/wiki/<kebab-case-topic>.md` 에 기록하고 `INDEX.md` 에 한 줄 추가 후 허브에서 커밋. 기록 규칙 상세는 허브의 `CLAUDE.md`. (데일리 작업 요약은 `/clear` 시 SessionEnd 훅이 자동 기록 — 세션 중 신경 쓰지 않는다.)
 
 ## 기술 스택
 
 - **Kotlin 2.3** / **JVM (Java 21 toolchain)** — Gradle toolchain이 JDK를 해석하므로 로컬 `JAVA_HOME`에 묶이지 않는다(`settings.gradle.kts`의 foojay-resolver가 자동 프로비저닝).
 - **Spring Boot 4.1** — web/validation/actuator/data-jpa/data-redis 스타터. 영속: **MySQL**(prod, `mysql-connector-j`, 통합 테스트는 MySQL Testcontainers) + **Redis**(refresh token — KB-118). DB 마이그레이션: **Flyway**(+flyway-mysql). API 문서: **springdoc-openapi**(Swagger UI). 인증: 자체 JWT(jjwt) + Firebase ID 토큰 검증(firebase-admin) — 구현은 `:infra:auth`, refresh token 저장은 `:infra:redis`.
-- **LLM: Spring AI 2.0**(Boot 4 호환 라인) — 전용 모듈 **`:infra:llm`**(ADR-0010)에 `spring-ai-starter-model-openai` + `spring-ai-starter-model-google-genai`. 공개 API `LlmFanoutClient`·값타입·구성이 이 모듈에 응집되고 **`:batch`가 `implementation`으로 직접 의존**해 잡에서 호출(seam 은 `:common` 의 `common.port.llm`). 3개 모델(OpenAI·Upstage·Gemini)을 `kbap.llm.*` 프로퍼티 + `@ConditionalOnProperty`로 명시 구성: Upstage는 OpenAI 호환이라 openai 스타터를 base-url만 교체해 재사용, Gemini는 google-genai 스타터(API 키 방식). 키/활성 플래그가 없으면 caller 빈이 미생성돼 batch/web 부팅이 안전하며, Spring AI 자동구성 유입은 `application.yml`의 `spring.ai.model.*=none`으로 차단. fan-out은 JDK21 가상스레드 + `CompletableFuture`, 단일모델 seam `LlmModelCaller`로 부분실패를 페이크 단위검증(헌법 I).
+- **LLM: Spring AI 2.0**(Boot 4 호환 라인) — 전용 모듈 **`:infra:llm`**(ADR-0010)에 `spring-ai-starter-model-openai` + `spring-ai-starter-model-bedrock`. seam 은 `:common` 의 `common.port.llm` 3종(`MenuBoardVisionExtractor`·`FoodImageBatchClient`·`TextEmbeddingClient`)뿐이고 구현·구성이 이 모듈에 응집된다. **소비자는 `:api` 하나**다 — 음식 콘텐츠 채움이 kbap-langchain 으로 이관되면서(KB-301) 배치용 채팅 caller·fan-out·다중 벤더가 전부 제거됐다(KB-320). `kbap.llm.*` 프로퍼티 + `@ConditionalOnProperty`로 명시 구성한다: `vision`(메뉴판 스캔, `gpt-5.6-luna`)·`image`(`gpt-image-2` 배치 이미지 생성)·`embedding`(Bedrock Titan). api 는 `vision.enabled: true` 고정 — 스캔이 필수 기능이라 `OPENAI_API_KEY` 없이는 부팅하지 않는다. vision 전용 환경변수는 없다(사진 fetch 도메인은 `kbap.storage.public-base-url` 을 참조). Spring AI 자동구성 유입은 `application.yml`의 `spring.ai.model.*=none`으로 차단.
 - 빌드 도구: **Gradle (Kotlin DSL)**, 래퍼 사용.
 - 테스트: **JUnit 5 플랫폼**(`useJUnitPlatform`) + **Kotest**(`kotest-runner-junit5` + `kotest-assertions-core`). Spring 모듈은 `spring-boot-starter-test`도 추가.
 
@@ -96,7 +101,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 특정 폴더에 **그 폴더 작업 시 꼭 지켜야 할 규칙/관례**(코드만 봐선 알 수 없고, 일관되게 강제돼야 하는 것)가 있다고 판단되면, **그 폴더에 `CLAUDE.md`를 만들지 사용자에게 먼저 물어본다.** 임의로 만들지 않는다.
 - 이유: 하위 폴더의 `CLAUDE.md`는 그 하위 트리의 파일을 다룰 때 자동 로드되므로, 규칙을 "가장 가까운 곳"에 두면 매번 확실히 적용되고 노이즈도 없다.
-- 규칙은 가장 좁은 적용 범위의 폴더에 둔다(예: PRD 전용 규칙 → `agent-hub/prd/CLAUDE.md`). 상세 템플릿/레퍼런스는 같은 폴더의 다른 문서로 분리하고 `CLAUDE.md`엔 핵심 규칙+포인터만 둔다.
+- 규칙은 가장 좁은 적용 범위의 폴더에 둔다. 상세 템플릿/레퍼런스는 같은 폴더의 다른 문서로 분리하고 `CLAUDE.md`엔 핵심 규칙+포인터만 둔다.
 
 ## 디렉터리 생성 규칙
 
@@ -104,7 +109,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 컨벤션
 
-- **Kotlin 소스 주석은 "코드로 표현 불가능한 제약"만 허용한다 (2026-07-14 완화).** 코드가 하는 일·다음 줄 설명·변경 정당화 주석은 여전히 금지 — 코드는 이름과 구조로 의도를 드러내는 **self-documenting** 이 기본이다. 단 **코드 자체로는 드러나지 않는 설계 제약**은 짧은 라인 주석으로 남긴다(예: "의도적 무트랜잭션 — 제약 위반 폴백이 세션을 무효화", "읽기 전용 매핑 — 쓰기는 리포지토리 직접", 스캔 제외 사유). KDoc·서사형 블록 주석은 금지. 긴 맥락(설계 근거·트레이드오프)은 커밋 메시지·`docs/`·ADR 에 남긴다. (빌드 스크립트·Flyway SQL·yml 주석은 규약 밖.)
+- **Kotlin 소스 주석을 작성하지 않는다 (2026-08-11 강화 — 종전 "표현 불가능한 제약 허용" 폐지).** 코드는 이름과 구조로 의도를 드러내는 **self-documenting** 이 원칙이며, 신규 코드에 라인 주석·KDoc·블록 주석을 달지 않는다. 설계 제약·근거·트레이드오프는 커밋 메시지·`docs/`·ADR·지식 위키에 남긴다. (빌드 스크립트·Flyway SQL·yml 주석은 규약 밖. 기존 주석은 만나는 김에 정리하되 일괄 퍼지는 별도 작업으로.)
 - 소스는 각 모듈의 `src/main/kotlin/...`, 테스트는 `src/test/kotlin/...`에서 동일 구조로 미러링한다. **패키지는 모듈 경로를 미러링한다** — `:common`은 `com.kbap.common` 아래에 커널 `core`(에러·테스트픽스처), 유틸 `util`, 도메인 `domain.<context>`, 외부 시스템 seam `port.{llm,storage,auth}`를 둔다. `:api`는 `com.kbap.api.<feature>` 기능 패키지에 controller·request/response·서비스·결과 타입을 함께 두며, 파일 수가 적은 기능에 `service`·`dto` 하위 패키지를 만들지 않는다. api 전용 공통재(BaseResponse·ApiPaths·예외핸들러·인증 부품·로깅)는 `com.kbap.api.core`, 빈 조립은 `com.kbap.api.core.config`에 둔다. 배치는 `com.kbap.batch`, 인프라는 `com.kbap.infra.<어댑터>`다. **부트 진입점 `KbapApiApplication`은 패키지 루트 `com.kbap`** 에 두어 기본 컴포넌트 스캔·AutoConfigurationPackages 가 전 계층(엔티티·리포지토리 포함)을 커버한다(별도 `scanBasePackages` 불필요). 배치 진입점은 `com.kbap.batch` — 단 배치는 `scanBasePackages` 를 자신 + `com.kbap.infra.llm` 로 좁힌다(도메인 서비스 미탑재).
 - web 실행 설정은 `api/src/main/resources/`에 YAML로 둔다: 베이스 `application.yml` + 프로필별 `application-{local,dev,staging,prod}.yml`. 확장자는 `.yml`로 통일한다(`.yaml` 아님). 테스트용 오버라이드는 `api/src/test/resources/application.yml`(Flyway **on** — 운영과 동일한 마이그레이션으로 Testcontainers MySQL 스키마를 만들고 Hibernate `ddl-auto=validate` 로 엔티티↔스키마 정합을 검증). 배치는 `batch/src/main/resources/application.yml`(flyway off). 로깅은 각 앱 `logback-spring.xml`이 Boot 기본(`base.xml`)을 include 한다.
 - 컴파일러 엄격성 플래그는 `buildSrc`의 `kbap.kotlin-common` 컨벤션 플러그인에서 전 모듈에 일괄 적용되며, 신규 코드도 이를 준수해야 한다:
@@ -150,12 +155,15 @@ data class BaseResponse<T>(
 
 ### API 엔드포인트 경로 규약 (고정)
 
-**모든 컨트롤러 경로는 `/api/{버전}` 으로 시작한다.** 예외 없이 버전 prefix 와 함께 노출한다(예: `POST /api/v1/scans`, `GET /api/v1/foods/detail`).
+**모든 컨트롤러 경로는 `/api` 로 시작하고, 버저닝은 URL 이 아니라 `X-API-Version` 헤더가 담당한다**(2026-08-11, KB-321/#144 — Spring 네이티브 API 버저닝 도입).
 
-- 버전 베이스는 `com.kbap.api.core.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val V1 = "/api/v1"`). 컨트롤러는 이 상수에 리소스 경로만 이어 붙인다 — `@RequestMapping(ApiPaths.V1 + "/scans")`. 경로 문자열에 `/api/v1` 을 직접 하드코딩하지 않는다.
-- 새 버전 도입 시 `ApiPaths` 에 상수 추가(예: `const val V2 = "/api/v2"`)하고 해당 버전 컨트롤러가 참조한다. 같은 리소스의 v1·v2 컨트롤러는 서로 다른 베이스를 써 **공존**한다(기존 버전 경로는 깨지 않는다).
+- 경로 베이스는 `com.kbap.api.core.ApiPaths` 의 상수로 **단일 출처** 관리한다(`const val API = "/api"`). 경로 문자열에 `/api` 를 직접 하드코딩하지 않는다.
+- **신규 리소스는 `ApiPaths.API + "/<리소스>"`**(예: `/api/scans`·`/api/reviews`)에 둔다. `WebConfig.configureApiVersioning` 이 헤더 `X-API-Version` 을 읽고 **기본값은 `1.0`** 이다(헤더 없는 구 클라이언트 = 1.0).
+- **기존 엔드포인트의 새 버전은 경로를 바꾸지 않고 같은 컨트롤러에서 `version` 만 올린다** — `@PatchMapping("/me/profile")`(기본) 옆에 `@PatchMapping("/me/profile", version = "1.1+")` 를 두는 식이다(`MemberController` 의 프로필 수정·온보딩 `1.0`/`1.1+`). **`*V2Controller`·`*V2Api` 같은 버전별 클래스를 만들지 않는다** — 클라이언트는 URL 을 그대로 두고 헤더만 올린다. 버전 조건이 있는 매핑이 없는 매핑보다 우선하므로 기본 버전 핸들러는 `version` 없이 둔다.
+- **버전 번호는 앱 릴리스 마커다** — 엔드포인트마다 따로 세지 않는다. 같은 릴리스에서 바뀐 엔드포인트들은 같은 번호를 쓴다(온보딩 자동 지정과 프로필 국적 잠금이 둘 다 `1.1+`). 그래서 **클래스·DTO 이름에 버전 번호를 박지 않는다** — 번호는 옮겨 다니고 이름은 남아 거짓이 된다. 계약의 차이로 이름 짓는다(`ProfileUpdateNoCountryRequest`).
+- **`ApiPaths.V1`(`/api/v1`) 은 레거시 베이스**다. 1.0 앱이 쓰는 기존 경로라 유지하며 그 아래 엔드포인트의 버전 분기도 여기서 한다. 다만 **새 리소스를 여기에 추가하지 않고**, `/api/v2` 같은 새 URL 버전 세그먼트도 만들지 않는다(`V2` 상수는 KB-322 에서 제거).
 - 이 규약은 **비즈니스 API(`com.kbap.api` 컨트롤러)** 에만 적용한다. actuator·springdoc(Swagger UI) 등 프레임워크 경로는 규약 밖이며 자체 경로를 유지한다.
-- 경계 강제는 ArchUnit(`ModuleBoundaryTest`)이 담당 — 모든 컨트롤러 매핑이 `/api/v` 로 시작하는지 검증한다.
+- **새 경로는 `WebConfig` 의 JWT 보호 경로(`addUrlPatterns`)에 반드시 등록한다** — 누락하면 그 엔드포인트의 전 시나리오가 401 로 실패한다(실제로 두 번 밟은 함정).
 
 ### 파라미터 애너테이션 위치 (고정)
 

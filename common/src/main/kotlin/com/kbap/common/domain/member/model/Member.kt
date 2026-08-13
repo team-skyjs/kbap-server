@@ -2,6 +2,7 @@ package com.kbap.common.domain.member.model
 
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
+import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -31,9 +32,22 @@ class Member(
     @Column(name = "nickname", length = 30)
     var nickname: String? = null,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "spiciness_preference", nullable = false, columnDefinition = "ENUM('SKIP','NONE','MILD','MEDIUM','HOT','EXTREME') default 'SKIP'")
+    var spicinessPreference: SpicinessPreference = SpicinessPreference.SKIP,
+
+    @Column(name = "country_code", length = 2)
+    var countryCode: String? = null,
+
+    @Column(name = "profile_image_url", length = 512)
+    var profileImageUrl: String? = null,
+
+    @Column(name = "currency", length = 3)
+    var currency: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "profile", nullable = false)
-    var profileJson: MemberProfileJson = MemberProfileJson(),
+    @Column(name = "avoidance_substance_codes", nullable = false)
+    var avoidanceSubstanceCodes: List<String> = emptyList(),
 
     @Enumerated(EnumType.STRING)
     @Column(name = "member_status", nullable = false, columnDefinition = "ENUM('ACTIVE','SUSPENDED') default 'ACTIVE'")
@@ -55,7 +69,14 @@ class Member(
         get() = SocialIdentity(provider = provider, providerUserId = providerUid, email = email)
 
     val profile: MemberProfile
-        get() = profileJson.toDomain(nickname)
+        get() = MemberProfile.of(
+            nickname = nickname,
+            avoidanceSubstanceCodes = avoidanceSubstanceCodes.map { AvoidedIngredientCodeRef(it) }.toSet(),
+            spicinessPreference = spicinessPreference,
+            countryCode = CountryCode.from(countryCode),
+            profileImageUrl = profileImageUrl,
+            currency = CurrencyCode.from(currency),
+        )
 
     val ranking: Ranking
         get() = Ranking.of(
@@ -66,7 +87,11 @@ class Member(
 
     internal fun updateProfile(profile: MemberProfile) {
         nickname = profile.nickname
-        profileJson = MemberProfileJson.from(profile)
+        spicinessPreference = profile.spicinessPreference
+        countryCode = profile.countryCode?.name
+        profileImageUrl = profile.profileImageUrl
+        currency = profile.currency?.name
+        avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value }
     }
 
     fun updateProfile(
@@ -75,6 +100,7 @@ class Member(
         spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
+        currency: String? = null,
     ) {
         updateProfile(
             profile.updatedWith(
@@ -83,6 +109,7 @@ class Member(
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
                 profileImageUrl = profileImageUrl,
+                currency = currency,
             ),
         )
     }
@@ -103,6 +130,7 @@ class Member(
             spicinessPreference = spicinessPreference,
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
+            currency = CountryCode.from(countryCode)?.currency?.name,
         )
         onboardingCompleted = true
     }

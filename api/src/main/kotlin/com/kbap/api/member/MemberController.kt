@@ -17,12 +17,21 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberService: MemberService,
 ) : MemberApi {
-    @PostMapping("/me/onboarding")
+    @PostMapping("/me/onboarding", version = "1.0")
     override fun completeOnboarding(
         @AuthMemberId memberId: Long,
         @RequestBody request: OnboardingRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
-        memberService.completeOnboarding(request.toInput(memberId))
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = false))
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @PostMapping("/me/onboarding", version = "1.1+")
+    override fun completeOnboardingWithServerProfile(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: OnboardingRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        memberService.completeOnboarding(request.toInput(memberId, serverAssignsProfile = true))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
@@ -46,6 +55,15 @@ class MemberController(
     override fun updateProfile(
         @AuthMemberId memberId: Long,
         @RequestBody request: ProfileUpdateRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        memberService.updateProfile(request.toInput(memberId))
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @PatchMapping("/me/profile", version = "1.1+")
+    override fun updateProfile(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: ProfileUpdateNoCountryRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         memberService.updateProfile(request.toInput(memberId))
         return ResponseEntity.ok(BaseResponse.ok(Unit))

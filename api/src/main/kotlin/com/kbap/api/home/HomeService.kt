@@ -1,7 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.common.domain.food.dto.FoodSummaryView
-import com.kbap.common.domain.avoidance.AvoidanceSubstanceJpaRepository
+import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.member.MemberService
@@ -14,7 +14,7 @@ class HomeService(
     private val memberService: MemberService,
     private val foodService: FoodService,
     private val scanService: ScanService,
-    private val avoidanceSubstanceRepository: AvoidanceSubstanceJpaRepository,
+    private val ingredientRepository: IngredientJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
@@ -23,7 +23,7 @@ class HomeService(
         val avoidedRefs = avoidedCodes.map { it.name }.toSet()
 
         return HomeResult(
-            avoidedSubstances = (if (avoidedCodes.isEmpty()) emptyList() else avoidanceSubstanceRepository.findByCodeIn(avoidedCodes))
+            avoidedSubstances = (if (avoidedCodes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(avoidedCodes))
                 .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
             popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },

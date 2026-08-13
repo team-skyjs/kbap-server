@@ -28,10 +28,12 @@ enum class ErrorCode(
     INVALID_COUNTRY_CODE("MEMBER-006", 400, "지원하지 않는 국가 코드입니다"),
     INVALID_PROFILE_IMAGE_URL("MEMBER-008", 400, "프로필 사진 경로 형식이 올바르지 않습니다. 도메인 없는 이미지 경로(objectKey)를 512자 이내로 보내주세요"),
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
+    INVALID_CURRENCY_CODE("MEMBER-010", 400, "지원하지 않는 통화 코드입니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
     BLANK_SEARCH_KEYWORD("FOOD-003", 400, "검색어를 입력해 주세요"),
+    FOOD_CONTENT_REQUEST_ALREADY_COMPLETED("FOOD-004", 409, "이미 처리된 음식 콘텐츠 수집 요청입니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
@@ -45,6 +47,14 @@ enum class ErrorCode(
     REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
 
     PLACE_SEARCH_FAILED("PLACE-001", 502, "식당 검색에 실패했습니다. 잠시 후 다시 시도해 주세요"),
+
+    COMMUNITY_POSTING_NOT_FOUND("COMMUNITY-001", 400, "해당 게시글을 찾을 수 없습니다"),
+    COMMUNITY_POSTING_FORBIDDEN("COMMUNITY-002", 403, "본인이 작성한 게시글만 수정·삭제할 수 있습니다"),
+    COMMUNITY_IMAGE_NOT_VERIFIED("COMMUNITY-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
+    COMMUNITY_FOOD_TAG_INVALID("COMMUNITY-004", 400, "태그할 수 없는 음식입니다"),
+    COMMUNITY_LOGIN_REQUIRED("COMMUNITY-005", 401, "로그인이 필요합니다"),
+    COMMUNITY_COMMENT_NOT_FOUND("COMMUNITY-006", 400, "해당 댓글을 찾을 수 없습니다"),
+    COMMUNITY_COMMENT_FORBIDDEN("COMMUNITY-007", 403, "본인이 작성한 댓글만 수정·삭제할 수 있습니다"),
 
     SELF_BLOCK_FORBIDDEN("BLOCK-001", 400, "자기 자신은 차단할 수 없습니다"),
     BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404, "차단할 회원을 찾을 수 없습니다"),

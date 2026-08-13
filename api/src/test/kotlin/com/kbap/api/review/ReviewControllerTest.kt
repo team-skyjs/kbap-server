@@ -39,22 +39,22 @@ class ReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/reviews"
+        val path = "/api/reviews"
 
         fun seedMember(memberId: Long, countryCode: String? = "KR"): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, nickname, country_code, member_status,
                                         onboarding_completed, status, created_at, updated_at)
                     VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE profile = VALUES(profile)
+                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "review-test-$memberId")
                     ps.setString(3, "리뷰어$memberId")
-                    ps.setString(4, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
+                    ps.setString(4, countryCode)
                     ps.executeUpdate()
                 }
             }
@@ -69,7 +69,7 @@ class ReviewControllerTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
@@ -201,7 +201,7 @@ class ReviewControllerTest : BehaviorSpec() {
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long =
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
-        given("리뷰 작성 API — POST /api/v1/reviews") {
+        given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")
 
             `when`("별점만으로 작성하면") {
@@ -211,12 +211,27 @@ class ReviewControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.rating") { value(5) }
-                        jsonPath("$.payload.foodId") { value(700) }
+                        jsonPath("$.payload.foodId") { doesNotExist() }
+                        jsonPath("$.payload.memberId") { doesNotExist() }
                         jsonPath("$.payload.content") { value(null) }
                         jsonPath("$.payload.imageUrls.length()") { value(0) }
                         jsonPath("$.payload.author.nickname") { value("리뷰어700") }
                         jsonPath("$.payload.author.countryCode") { value("KR") }
                         jsonPath("$.payload.author.score") { value(15) }
+                        jsonPath("$.payload.likeCount") { value(0) }
+                        jsonPath("$.payload.likedByMe") { value(false) }
+                        jsonPath("$.payload.food") { value(null) }
+                    }
+                }
+            }
+            `when`("작성한 리뷰를 수정하면") {
+                then("수정 응답에도 food 는 null 로 유지된다") {
+                    val token = accessToken(709L)
+                    val reviewId = createReview(token, 700L)
+                    update(token, reviewId, createBody(foodId = null, rating = 3)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.rating") { value(3) }
+                        jsonPath("$.payload.food") { value(null) }
                     }
                 }
             }
@@ -329,17 +344,23 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("리뷰 수정 API — PATCH /api/v1/reviews/{reviewId}") {
+        given("리뷰 수정 API — PATCH /api/reviews/{reviewId}") {
             seedFood(710L, "리뷰된장찌개")
 
             `when`("본인 리뷰의 별점·본문을 바꾸면") {
                 then("값이 반영되고 국적 스냅샷은 불변이다") {
                     val token = accessToken(710L, countryCode = "JP")
                     val reviewId = createReview(token, 710L, rating = 3)
+                    mockMvc.post("/api/reviews/$reviewId/like") {
+                        header("Authorization", "Bearer $token")
+                        param("liked", "true")
+                    }.andExpect { status { isOk() } }
                     update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.rating") { value(5) }
                         jsonPath("$.payload.content") { value("수정했어요") }
+                        jsonPath("$.payload.likeCount") { value(1) }
+                        jsonPath("$.payload.likedByMe") { value(true) }
                     }
                     snapshotCountryOf(reviewId) shouldBe "JP"
                 }
@@ -535,7 +556,7 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
-        given("리뷰 삭제 API — DELETE /api/v1/reviews/{reviewId}") {
+        given("리뷰 삭제 API — DELETE /api/reviews/{reviewId}") {
             seedFood(720L, "리뷰비빔밥")
 
             `when`("본인 리뷰를 삭제하면") {

@@ -44,9 +44,9 @@ class MemberBlockControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, nickname, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, '{}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE nickname = VALUES(nickname)
                     """,
                 ).use { ps ->
@@ -182,7 +182,7 @@ class MemberBlockControllerTest : BehaviorSpec() {
                     seedMember(9123L, nickname = "차단대상123")
                     dataSource.connection.use { c ->
                         c.createStatement().use {
-                            it.execute("""UPDATE member SET profile = '{"profileImageUrl":"images/profile/p122.jpg"}' WHERE id = 9122""")
+                            it.execute("UPDATE member SET profile_image_url = 'images/profile/p122.jpg' WHERE id = 9122")
                         }
                     }
                     block(token, 9122L).andExpect { status { isOk() } }

@@ -40,15 +40,15 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, country_code, member_status,
                                         onboarding_completed, status, created_at, updated_at)
                     VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE profile = VALUES(profile)
+                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "review-section-test-$memberId")
-                    ps.setString(3, if (countryCode == null) "{}" else """{"countryCode":"$countryCode"}""")
+                    ps.setString(3, countryCode)
                     ps.executeUpdate()
                 }
             }
@@ -63,7 +63,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
@@ -77,7 +77,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
 
         fun createReview(memberId: Long, countryCode: String?, foodId: Long, rating: Int) {
             val token = accessToken(memberId, countryCode)
-            mockMvc.post("/api/v1/reviews") {
+            mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))

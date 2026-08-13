@@ -3,15 +3,21 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodAvoidanceItem
+import com.kbap.common.domain.food.model.FoodContentFailureKind
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,22 +26,31 @@ import java.time.LocalDateTime
 @Service
 class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
+    private val outboxRepository: FoodContentOutboxJpaRepository,
+    private val foodService: FoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
     private val objectMapper = jacksonObjectMapper()
 
     @Transactional(readOnly = true)
-    fun getFoodPage(page: Int): AdminFoodListPageView {
+    fun getFoodPage(page: Int, query: String? = null, status: FoodContentStatus? = null): AdminFoodListPageView {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, LIST_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result = foodRepository.findAll(pageable)
+        val result = when {
+            keyword == null && status == null -> foodRepository.findAll(pageable)
+            keyword == null -> foodRepository.findByContentStatus(status!!, pageable)
+            status == null -> foodRepository.findByDisplayNameContaining(keyword, pageable)
+            else -> foodRepository.findByDisplayNameContainingAndContentStatus(keyword, status, pageable)
+        }
         return AdminFoodListPageView(
-            items = result.content.map { AdminFoodSummaryView.from(it) },
+            items = result.content.map { AdminFoodSummaryView.from(it, imagePublicBaseUrl) },
             page = page,
             totalPages = result.totalPages,
             totalCount = result.totalElements,
             hasPrev = page > 1,
             hasNext = page < result.totalPages,
+            query = keyword,
+            status = status,
         )
     }
 
@@ -52,30 +67,33 @@ class AdminFoodService(
 
         val nameTranslations: Map<String, String>
         val descriptionTranslations: Map<String, String>
-        val avoidanceSubstances: List<FoodAvoidanceItem>?
+        val ingredients: List<FoodIngredient>?
         try {
             nameTranslations = parseMap(command.nameTranslationsJson)
             descriptionTranslations = parseMap(command.descriptionTranslationsJson)
-            avoidanceSubstances = command.avoidanceSubstancesJson
+            ingredients = command.ingredientsJson
                 .takeIf { it.isNotBlank() }
-                ?.let { objectMapper.readValue<List<FoodAvoidanceItem>>(it) }
+                ?.let { objectMapper.readValue<List<FoodIngredient>>(it) }
         } catch (e: JacksonException) {
             return AdminFoodUpdateResult.INVALID_JSON
         }
 
-        val duplicated = foodRepository.findByKoreanNameIn(setOf(command.koreanName))
+        val matchKey = KoreanMenuNameNormalizer.matchKey(command.koreanName)
+        if (matchKey.isEmpty()) return AdminFoodUpdateResult.INVALID_NAME
+
+        val duplicated = foodRepository.findByKoreanNameIn(setOf(matchKey))
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
 
-        food.koreanName = command.koreanName
+        food.koreanName = matchKey
+        food.displayName = command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
         food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
-        food.avoidanceSubstances = avoidanceSubstances
-        food.transitionByContentState()
+        food.ingredients = ingredients
         return AdminFoodUpdateResult.UPDATED
     }
 
@@ -83,37 +101,93 @@ class AdminFoodService(
         json.takeIf { it.isNotBlank() }?.let { objectMapper.readValue<Map<String, String>>(it) } ?: emptyMap()
 
     @Transactional
-    fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
-        val names = koreanNames
-            .map { KoreanMenuNameNormalizer.matchKey(it) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-        if (names.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+    fun deleteFood(id: Long): AdminFoodDeleteResult {
+        val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
+        food.delete()
+        return AdminFoodDeleteResult.DELETED
+    }
 
-        val existing = foodRepository.findByKoreanNameIn(names).map { it.koreanName }.toSet()
-        val newNames = names - existing
-        val created = if (newNames.isEmpty()) 0 else upsertAndResolve(newNames).size
-        return SeedIncompleteResult(
-            requested = names.size,
-            created = created,
-            skipped = names.size - created,
+    @Transactional
+    fun requestRecollect(
+        query: String?,
+        status: FoodContentStatus?,
+        max: Int = RECOLLECT_MAX,
+    ): AdminFoodRecollectResult {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
+        val requested = countRecollectTargets(keyword, status)
+        if (requested == 0L) return AdminFoodRecollectResult(requested = 0, created = 0, skipped = 0, max = max)
+        if (requested > max) {
+            return AdminFoodRecollectResult(requested = requested, created = 0, skipped = 0, exceeded = true, max = max)
+        }
+
+        val targets = getRecollectTargets(keyword, status)
+        val alreadyPending = outboxRepository
+            .findByFoodIdInAndOutboxStatus(targets.map { it.id }, FoodContentOutboxStatus.PENDING)
+            .map { it.foodId }
+            .toSet()
+        val created = targets.filterNot { it.id in alreadyPending }
+        outboxRepository.saveAll(created.map { FoodContentOutbox.pending(it.id, it.displayName) })
+
+        return AdminFoodRecollectResult(
+            requested = requested,
+            created = created.size.toLong(),
+            skipped = requested - created.size,
+            max = max,
         )
     }
 
-    private fun upsertAndResolve(koreanNames: Set<String>): Map<String, Food> {
-        foodRepository.upsertIncomplete(koreanNames.map { Food.incomplete(it) })
+    private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
+        keyword == null && status == null -> foodRepository.count()
+        keyword == null -> foodRepository.countByContentStatus(status!!)
+        status == null -> foodRepository.countByDisplayNameContaining(keyword)
+        else -> foodRepository.countByDisplayNameContainingAndContentStatus(keyword, status)
+    }
 
-        val resolved = foodRepository.findByKoreanNameIn(koreanNames).associateBy { it.koreanName }
-        val unresolved = koreanNames - resolved.keys
-        if (unresolved.isNotEmpty()) {
-            log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
-        }
-        return resolved
+    private fun getRecollectTargets(keyword: String?, status: FoodContentStatus?): List<Food> = when {
+        keyword == null && status == null -> foodRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        keyword == null -> foodRepository.findByContentStatusOrderByIdAsc(status!!, Pageable.unpaged())
+        status == null -> foodRepository.findByDisplayNameContainingOrderByIdAsc(keyword)
+        else -> foodRepository.findByContentStatusAndDisplayNameContainingOrderByIdAsc(status, keyword)
+    }
+
+    @Transactional
+    fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
+        val displayNamesByMatchKey = koreanNames
+            .map { KoreanMenuNameNormalizer.matchKey(it) to it }
+            .filter { (matchKey, _) -> matchKey.isNotEmpty() }
+            .distinctBy { (matchKey, _) -> matchKey }
+            .toMap()
+        if (displayNamesByMatchKey.isEmpty()) return SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+
+        val requested = displayNamesByMatchKey.size
+        val existing = foodRepository.findByKoreanNameIn(displayNamesByMatchKey.keys).map { it.koreanName }.toSet()
+        val newNames = displayNamesByMatchKey - existing
+        val created = if (newNames.isEmpty()) 0 else foodService.createIncomplete(newNames).size
+        return SeedIncompleteResult(
+            requested = requested,
+            created = created,
+            skipped = requested - created,
+        )
     }
 
     companion object {
         const val LIST_PAGE_SIZE = 200
+
+        const val RECOLLECT_MAX = 500
     }
+}
+
+data class AdminFoodRecollectResult(
+    val requested: Long,
+    val created: Long,
+    val skipped: Long,
+    val exceeded: Boolean = false,
+    val max: Int = AdminFoodService.RECOLLECT_MAX,
+)
+
+enum class AdminFoodDeleteResult {
+    DELETED,
+    NOT_FOUND,
 }
 
 enum class AdminFoodUpdateResult {
@@ -132,7 +206,7 @@ data class UpdateFoodCommand(
     val imageRef: String,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
-    val avoidanceSubstancesJson: String,
+    val ingredientsJson: String,
 )
 
 data class AdminFoodListPageView(
@@ -142,24 +216,28 @@ data class AdminFoodListPageView(
     val totalCount: Long,
     val hasPrev: Boolean,
     val hasNext: Boolean,
+    val query: String? = null,
+    val status: FoodContentStatus? = null,
 )
 
 data class AdminFoodSummaryView(
     val id: Long,
     val koreanName: String,
     val contentStatus: FoodContentStatus,
+    val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
-    val hasImage: Boolean,
+    val imageUrl: String?,
     val updatedAt: LocalDateTime,
 ) {
     companion object {
-        fun from(food: Food): AdminFoodSummaryView =
+        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodSummaryView =
             AdminFoodSummaryView(
                 id = food.id,
-                koreanName = food.koreanName,
+                koreanName = food.displayName(LanguageCode.KO),
                 contentStatus = food.contentStatus,
+                contentFailureKind = food.contentFailureKind,
                 spiciness = food.spiciness,
-                hasImage = !food.imageRef.isNullOrBlank(),
+                imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 updatedAt = food.updatedAt,
             )
     }
@@ -171,11 +249,13 @@ data class AdminFoodDetailView(
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
+    val contentFailureKind: FoodContentFailureKind?,
+    val contentReviewRejectionReason: String?,
     val imageRef: String?,
     val imageUrl: String?,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
-    val avoidanceSubstancesJson: String,
+    val ingredientsJson: String,
     val version: Long,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
@@ -184,15 +264,17 @@ data class AdminFoodDetailView(
         fun from(food: Food, imagePublicBaseUrl: String, toJson: (Any) -> String): AdminFoodDetailView =
             AdminFoodDetailView(
                 id = food.id,
-                koreanName = food.koreanName,
+                koreanName = food.displayName(LanguageCode.KO),
                 description = food.description,
                 spiciness = food.spiciness,
                 contentStatus = food.contentStatus,
+                contentFailureKind = food.contentFailureKind,
+                contentReviewRejectionReason = food.contentReviewRejectionReason,
                 imageRef = food.imageRef,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 nameTranslationsJson = toJson(food.nameTranslations),
                 descriptionTranslationsJson = toJson(food.descriptionTranslations),
-                avoidanceSubstancesJson = food.avoidanceSubstances?.let(toJson) ?: "",
+                ingredientsJson = food.ingredients?.let(toJson) ?: "",
                 version = food.version,
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,

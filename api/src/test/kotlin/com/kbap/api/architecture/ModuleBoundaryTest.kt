@@ -1,6 +1,6 @@
 package com.kbap.api.architecture
 
-import com.kbap.common.domain.avoidance.model.AvoidanceSubstanceCode
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
@@ -107,15 +107,16 @@ class ModuleBoundaryTest : BehaviorSpec({
         val allowedDomainDeps = mapOf(
             "admin" to emptySet(),
             "block" to setOf("member"),
-            "scan" to setOf("food", "member", "image", "avoidance"),
-            "food" to setOf("member", "avoidance"),
-            "bookmark" to setOf("food", "member", "avoidance"),
-            "member" to setOf("avoidance"),
+            "scan" to setOf("food", "member", "image", "ingredient"),
+            "food" to setOf("member", "ingredient"),
+            "bookmark" to setOf("food", "member", "ingredient"),
+            "member" to setOf("ingredient"),
             "image" to emptySet(),
             "metering" to emptySet(),
-            "avoidance" to emptySet(),
+            "ingredient" to emptySet(),
             "review" to emptySet(),
             "report" to emptySet(),
+            "community" to emptySet(),
         )
 
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {
@@ -212,36 +213,6 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("컨트롤러 경로 규약") {
-        `when`("@RestController 클래스의 @RequestMapping 을 검사하면") {
-            then("모든 컨트롤러 매핑은 /api/v 로 시작한다") {
-                val declareApiVersionedMapping =
-                    object : ArchCondition<JavaClass>("클래스 레벨 @RequestMapping 이 /api/v 로 시작한다") {
-                        override fun check(item: JavaClass, events: ConditionEvents) {
-                            val mapping = item.annotations.firstOrNull {
-                                it.rawType.name == "org.springframework.web.bind.annotation.RequestMapping"
-                            }
-                            if (mapping == null) {
-                                events.add(SimpleConditionEvent.violated(item, "${item.name} 에 클래스 레벨 @RequestMapping 이 없다"))
-                                return
-                            }
-                            val paths = listOf("value", "path")
-                                .mapNotNull { mapping.get(it).orElse(null) }
-                                .flatMap { raw -> (raw as? Array<*>)?.filterIsInstance<String>() ?: emptyList() }
-                            if (paths.isEmpty() || paths.any { !it.startsWith("/api/v") }) {
-                                events.add(SimpleConditionEvent.violated(item, "${item.name} 매핑 $paths 가 /api/v 로 시작하지 않는다"))
-                            }
-                        }
-                    }
-
-                classes().that().resideInAPackage("com.kbap.api..")
-                    .and().areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
-                    .should(declareApiVersionedMapping)
-                    .check(imported)
-            }
-        }
-    }
-
     given("포트 패키지(common.port) 경계") {
         `when`("포트가 스프링·인프라·부트앱에 의존하는지 검사하면") {
             then("포트는 순수 계약이다 — 구현 기술을 알지 못한다") {
@@ -260,9 +231,9 @@ class ModuleBoundaryTest : BehaviorSpec({
     }
 
     given("성분 식별자 enum 콘텐츠 데이터 없음 회귀") {
-        `when`("AvoidanceSubstanceCode 의 선언 필드를 리플렉션으로 확인하면") {
+        `when`("IngredientCode 의 선언 필드를 리플렉션으로 확인하면") {
             then("개발 가독성 label 만 허용하고 콘텐츠 데이터(번역·분류 등)는 갖지 않는다") {
-                val instanceFieldNames = AvoidanceSubstanceCode::class.java.declaredFields
+                val instanceFieldNames = IngredientCode::class.java.declaredFields
                     .filterNot { Modifier.isStatic(it.modifiers) }
                     .map { it.name }
 

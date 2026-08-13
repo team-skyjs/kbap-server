@@ -42,14 +42,14 @@ class MigrationValidationTest : BehaviorSpec() {
                     dataSource.connection.use { conn ->
                         conn.createStatement().use { st ->
                             st.executeQuery(
-                                "SELECT COUNT(*) AS cnt FROM avoidance_substance WHERE status = 'ACTIVE'",
+                                "SELECT COUNT(*) AS cnt FROM ingredients WHERE status = 'ACTIVE'",
                             ).use { rs ->
                                 rs.next()
                                 rs.getInt("cnt") shouldBe 81
                             }
                             st.executeQuery(
                                 "SELECT korean_name, JSON_LENGTH(translations) AS langs " +
-                                    "FROM avoidance_substance WHERE code = 'EGG'",
+                                    "FROM ingredients WHERE code = 'EGG'",
                             ).use { rs ->
                                 rs.next() shouldBe true
                                 rs.getString("korean_name") shouldBe "계란"

@@ -23,11 +23,10 @@ data class ScanRequest(
     )
     val imagePath: String?,
 
-    @field:NotEmpty(message = "items 는 최소 1개여야 합니다")
+    @field:NotEmpty(message = "items 는 최소 1개 이상이어야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(
         description = "클라이언트가 같은 사진을 OCR 한 항목 목록(1~100개). 각 항목의 idx 로 응답 결과와 매칭해 UI 박스를 그린다.",
-        requiredMode = Schema.RequiredMode.REQUIRED,
     )
     val items: List<@Valid ScanItemRequest> = emptyList(),
 ) {

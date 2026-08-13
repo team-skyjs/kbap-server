@@ -14,7 +14,7 @@ class LlmConfigurationBaseUrlTest : BehaviorSpec({
 
         `when`("base-url 을 명시적으로 지정했으면") {
             then("지정한 값을 그대로 사용한다") {
-                LlmConfiguration.resolveOpenAiBaseUrl("https://api.upstage.ai/v1") shouldBe "https://api.upstage.ai/v1"
+                LlmConfiguration.resolveOpenAiBaseUrl("https://proxy.internal/v1") shouldBe "https://proxy.internal/v1"
             }
         }
     }

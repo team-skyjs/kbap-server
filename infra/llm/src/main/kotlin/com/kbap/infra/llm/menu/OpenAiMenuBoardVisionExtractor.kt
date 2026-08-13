@@ -19,7 +19,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URI
 
-// 이미지 바이트는 서버를 거치지 않는다 — 모델이 URL(imageBaseUrl + path)을 직접 fetch 한다.
 class OpenAiMenuBoardVisionExtractor(
     private val chatModel: ChatModel,
     private val parser: MenuBoardResultParser,
@@ -35,7 +34,8 @@ class OpenAiMenuBoardVisionExtractor(
         val media = Media.builder().mimeType(mimeTypeOf(imagePath)).data(imageUrl).build()
         val userMessage = UserMessage.builder().text(userPromptWith(ocrItems)).media(media).build()
 
-        val response = chatModel.call(Prompt(listOf(SystemMessage(SYSTEM_PROMPT), userMessage)))
+        val systemPrompt = if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT
+        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
         val cost = costIncurredFrom(response)
         publishCost(cost)
         logTokenUsage(cost, response.metadata.usage.totalTokens)
@@ -83,6 +83,7 @@ class OpenAiMenuBoardVisionExtractor(
     }
 
     private fun userPromptWith(ocrItems: List<OcrItem>): String {
+        if (ocrItems.isEmpty()) return "이 메뉴판 사진에서 메뉴명과 가격을 추출하라."
         val ocrLines = ocrItems.joinToString("\n") { "${it.idx}: ${it.rawMenuName}" }
         val header = """
             이 메뉴판 사진에서 메뉴명과 가격을 추출해줘.
@@ -122,6 +123,18 @@ class OpenAiMenuBoardVisionExtractor(
             - 각 메뉴를 OCR 목록의 idx 에 매칭한다. 사진 위치가 아니라 텍스트 내용으로 매칭한다(OCR 순서는 사진 배치와 다를 수 있다).
             - 사진에서 하나의 메뉴로 확인되는 항목은 반드시 하나의 result 로 커버한다. 단 한 메뉴가 여러 OCR 조각(예: "삼겹"+"살")으로 쪼개졌으면 조각들을 합쳐 하나의 result 로 만들고 matchedIdx 는 그중 한 조각의 idx 하나만 준다 — 남은 조각 idx 로 별도 result 를 만들지 않는다. 대응 OCR 이 없으면 matchedIdx 는 null.
             - 한 idx 는 최대 하나의 result 에만 쓴다(중복 금지). 한 OCR 항목에 여러 메뉴가 병합돼 있거나 사이즈로 나뉘면, 그중 하나에만 그 idx 를 주고 나머지는 null.
+        """.trimIndent()
+
+        private val SERVER_OCR_SYSTEM_PROMPT = """
+            너는 메뉴판 분석 전문가다.
+            주어진 메뉴판 사진에서 모든 메뉴명과 가격을 직접 읽어 추출하라.
+            메뉴명은 한국어 음식명만 남겨라. 외국어 병기, 수량·단위 표기, 괄호 설명 등 음식명이 아닌 부가 정보는 모두 제거하라.
+            가격은 숫자만 남겨라 (통화 기호, 단위, 구분자 제거).
+            메뉴가 아닌 텍스트(가게 이름, 전화번호, 안내문 등)는 제외하라.
+            가격을 찾지 못했거나 확실하지 않은 메뉴는 price를 0으로 하라.
+
+            반드시 아래 JSON 배열만 출력하라. 설명, 마크다운 코드펜스 금지.
+            [{"name": "메뉴명", "price": 8000}]
         """.trimIndent()
     }
 }

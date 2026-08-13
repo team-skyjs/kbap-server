@@ -1,0 +1,44 @@
+package com.kbap.api.admin
+
+import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.BaseResponse
+import jakarta.validation.Valid
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping(ApiPaths.ADMIN + "/foods/contents", version = "1.0+")
+class AdminFoodContentIngestController(
+    private val adminFoodContentIngestService: AdminFoodContentIngestService,
+) : AdminFoodContentIngestApi {
+    @PostMapping
+    override fun ingestContent(
+        @Valid @RequestBody request: AdminFoodContentIngestRequest,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        val foodId = request.foodId!!
+        val outboxId = request.outboxId!!
+        if (request.passed!!) {
+            adminFoodContentIngestService.ingestContent(
+                outboxId = outboxId,
+                foodId = foodId,
+                description = request.description!!,
+                longDescription = request.longDescription,
+                spiciness = request.spiciness!!,
+                nameTranslations = request.nameTranslations!!,
+                descriptionTranslations = request.descriptionTranslations!!,
+                ingredients = request.ingredients!!,
+            )
+        } else {
+            adminFoodContentIngestService.ingestFailure(
+                outboxId = outboxId,
+                foodId = foodId,
+                failureKind = request.failureKind!!,
+                reason = request.reason!!,
+            )
+        }
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+}

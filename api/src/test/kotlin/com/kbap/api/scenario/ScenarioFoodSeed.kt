@@ -27,32 +27,33 @@ object ScenarioFoodSeed {
         substances: Map<String, Int>,
     ): Long {
         substances.keys.forEach { code -> ensureSubstance(connection, code) }
-        val avoidanceSubstancesJson = substances.entries.joinToString(separator = ",", prefix = "[", postfix = "]") {
+        val ingredientsJson = substances.entries.joinToString(separator = ",", prefix = "[", postfix = "]") {
             """{"code":"${it.key}","inclusion_percent":${it.value}}"""
         }
         return connection.prepareStatement(
-            "INSERT INTO food (korean_name, image_ref, description, name_translations, description_translations, " +
-                "avoidance_substances, spiciness, content_status, status, created_at, updated_at) " +
-                "VALUES (?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+            "INSERT INTO food (korean_name, display_name, image_ref, description, name_translations, description_translations, " +
+                "ingredients, spiciness, content_status, status, created_at, updated_at) " +
+                "VALUES (?, ?, NULL, ?, '{}', '{}', ?, ?, 'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             Statement.RETURN_GENERATED_KEYS,
         ).use { ps ->
             ps.setString(1, koreanName)
-            ps.setString(2, "$koreanName 시나리오 설명")
-            ps.setString(3, avoidanceSubstancesJson)
-            ps.setInt(4, spiciness)
+            ps.setString(2, koreanName)
+            ps.setString(3, "$koreanName 시나리오 설명")
+            ps.setString(4, ingredientsJson)
+            ps.setInt(5, spiciness)
             ps.executeUpdate()
             ps.generatedKeys.use { keys -> keys.next(); keys.getLong(1) }
         }
     }
 
     private fun ensureSubstance(connection: Connection, code: String) {
-        val exists = connection.prepareStatement("SELECT 1 FROM avoidance_substance WHERE code = ?").use { ps ->
+        val exists = connection.prepareStatement("SELECT 1 FROM ingredients WHERE code = ?").use { ps ->
             ps.setString(1, code)
             ps.executeQuery().use { it.next() }
         }
         if (exists) return
         connection.prepareStatement(
-            "INSERT INTO avoidance_substance (code, korean_name, translations, status, created_at, updated_at) " +
+            "INSERT INTO ingredients (code, korean_name, translations, status, created_at, updated_at) " +
                 "VALUES (?, ?, '{}', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
         ).use { ps ->
             ps.setString(1, code)

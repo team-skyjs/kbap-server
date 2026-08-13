@@ -35,16 +35,19 @@ class BookmarkServiceTest : BehaviorSpec() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
-                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item")
+                    statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
+                    statement.execute("DELETE FROM community_comment")
+                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item", "community_post")
                         .forEach { statement.execute("DELETE FROM $it") }
-                    statement.execute("DELETE FROM food")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food")
                     statement.execute("DELETE FROM member_block")
                     statement.execute("DELETE FROM member")
                     if (seedMember) {
                         statement.execute(
-                            "INSERT INTO member (id, provider, provider_uid, profile, member_status, " +
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
                                 "onboarding_completed, status, created_at, updated_at) " +
-                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', '{}', 'ACTIVE', 1, 'ACTIVE', " +
+                                "VALUES ($memberId, 'GOOGLE', 'uid-$memberId', 'ACTIVE', 1, 'ACTIVE', " +
                                 "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                         )
                     }
@@ -57,7 +60,7 @@ class BookmarkServiceTest : BehaviorSpec() {
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
-                            "name_translations, description_translations, avoidance_substances, content_status, status, created_at, updated_at) " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
                             "VALUES ($id, '$koreanName', NULL, '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
                             "NOW(6), NOW(6))",
                     )
@@ -155,9 +158,9 @@ class BookmarkServiceTest : BehaviorSpec() {
             }
 
 
-            `when`("미완성(INCOMPLETE) 음식을 북마크하면") {
+            `when`("미완성(FAILED) 음식을 북마크하면") {
                 then("FOOD_NOT_FOUND 예외를 던진다") {
-                    seedFood(2L, "미완성찌개", contentStatus = "INCOMPLETE")
+                    seedFood(2L, "미완성찌개", contentStatus = "FAILED")
 
                     val exception = shouldThrow<BusinessException> {
                         service.bookmark(memberId, 2L)

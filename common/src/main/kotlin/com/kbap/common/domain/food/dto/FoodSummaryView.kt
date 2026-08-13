@@ -18,7 +18,7 @@ data class FoodSummaryView(
             return FoodSummaryView(
                 foodId = food.id,
                 name = localizedName,
-                koreanName = food.koreanName().takeIf { it != localizedName },
+                koreanName = food.displayName(LanguageCode.KO).takeIf { it != localizedName },
                 imageRef = imageUrl,
                 spiciness = food.spiciness,
                 overallRiskStatus = food.overallRisk(userAvoidedCodes),

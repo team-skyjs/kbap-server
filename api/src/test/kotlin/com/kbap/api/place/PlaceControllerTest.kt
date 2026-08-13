@@ -38,7 +38,7 @@ class PlaceControllerTest : BehaviorSpec() {
     private lateinit var fakePlaceSearchClient: FakePlaceSearchClient
 
     init {
-        val path = "/api/v1/places"
+        val path = "/api/places"
 
         fun accessToken(memberId: Long): String {
             dataSource.connection.use { c ->
@@ -66,7 +66,7 @@ class PlaceControllerTest : BehaviorSpec() {
                 page?.let { param("page", it.toString()) }
             }
 
-        given("장소 검색 API — GET /api/v1/places") {
+        given("장소 검색 API — GET /api/places") {
             `when`("키워드로 검색하면") {
                 then("검색 결과 목록을 반환한다") {
                     fakePlaceSearchClient.reset()

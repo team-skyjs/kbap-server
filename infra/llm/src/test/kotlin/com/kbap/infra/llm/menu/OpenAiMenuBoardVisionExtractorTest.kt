@@ -8,7 +8,11 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.SystemMessage
+import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.metadata.ChatResponseMetadata
 import org.springframework.ai.chat.metadata.DefaultUsage
 import org.springframework.ai.chat.metadata.Usage
@@ -167,6 +171,94 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
+            }
+        }
+    }
+
+    given("서버 OCR 프롬프트 분기 — 스캔 v2") {
+        fun promptCapturing(response: ChatResponse): Pair<ChatModel, () -> Prompt> {
+            var captured: Prompt? = null
+            val chatModel = object : ChatModel {
+                override fun call(prompt: Prompt): ChatResponse {
+                    captured = prompt
+                    return response
+                }
+            }
+            return chatModel to { captured!! }
+        }
+
+        val response = responseOf(
+            text = """{"results":[{"name":"김치찌개","koreanName":"김치찌개","price":9000}]}""",
+            model = "gpt-4o-mini-2024-07-18",
+            usage = DefaultUsage(100, 50, 150),
+        )
+
+        `when`("ocrItems 가 비어 있으면") {
+            then("클라이언트 힌트·matchedIdx 지시가 없는 프롬프트로 호출하고 추출·정제 규칙은 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
+
+                val result = extractor.extract("scan/1/menu.jpg", emptyList())
+
+                result shouldHaveSize 1
+                result.first().matchedIdx shouldBe null
+
+                val prompt = capturedPrompt()
+                val systemText = prompt.instructions.first { it is SystemMessage }.text
+                systemText shouldNotContain "matchedIdx"
+                systemText shouldNotContain "OCR"
+                systemText shouldContain "메뉴명은 한국어 음식명만 남겨라"
+                systemText shouldContain "가격을 찾지 못했거나 확실하지 않은 메뉴는 price를 0으로 하라"
+                systemText shouldContain """[{"name": "메뉴명", "price": 8000}]"""
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldNotContain "OCR"
+            }
+        }
+
+        `when`("ocrItems 가 있으면") {
+            then("기존 힌트 프롬프트(OCR 목록·matchedIdx 지시)를 유지한다") {
+                val (chatModel, capturedPrompt) = promptCapturing(response)
+                val (extractor, _) = extractorRecording(chatModel)
+
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 3, rawMenuName = "김치피개")))
+
+                val prompt = capturedPrompt()
+                prompt.instructions.first { it is SystemMessage }.text shouldContain "matchedIdx"
+                val userText = prompt.instructions.first { it is UserMessage }.text
+                userText shouldContain "OCR:"
+                userText shouldContain "3: 김치피개"
+            }
+        }
+    }
+
+    given("교체된 vision 모델 단가") {
+        `when`("입력·출력 각 100만 토큰을 쓴 응답을 받으면") {
+            then("입력 0.2 / 출력 1.2 단가로 비용이 산정된다") {
+                val lunaPricing = LlmPricing(
+                    inputUsdPerMillionTokens = 0.2,
+                    outputUsdPerMillionTokens = 1.2,
+                    usdToKrw = 1500.0,
+                )
+                val recorded = mutableListOf<LlmCallCostIncurred>()
+                val response = responseOf(
+                    text = """{"results":[]}""",
+                    model = "gpt-5.6-luna",
+                    usage = DefaultUsage(1_000_000, 1_000_000, 2_000_000),
+                )
+                val extractor = OpenAiMenuBoardVisionExtractor(
+                    chatModel = chatModelReturning(response),
+                    parser = MenuBoardResultParser(),
+                    imageBaseUrl = "https://cdn.test",
+                    pricing = lunaPricing,
+                    configuredModelName = "gpt-5.6-luna",
+                    eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
+                )
+
+                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 0, rawMenuName = "김치찌개")))
+
+                recorded shouldHaveSize 1
+                recorded.first().costUsd shouldBe BigDecimal("1.400000")
+                recorded.first().costKrw shouldBe BigDecimal("2100.00")
             }
         }
     }

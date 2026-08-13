@@ -11,7 +11,7 @@ data class UploadUrlRequest(
     @field:Schema(
         description = "업로드 용도",
         example = "MENU_SCAN",
-        allowableValues = ["MENU_SCAN", "REVIEW", "PROFILE_IMAGE"],
+        allowableValues = ["MENU_SCAN", "REVIEW", "PROFILE_IMAGE", "COMMUNITY"],
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
     val purpose: String?,

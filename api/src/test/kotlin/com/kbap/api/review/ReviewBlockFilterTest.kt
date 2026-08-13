@@ -43,9 +43,9 @@ class ReviewBlockFilterTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, nickname, profile, member_status,
+                    INSERT INTO member (id, provider, provider_uid, nickname, country_code, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, '{"countryCode":"KR"}', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, 'KR', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
                 ).use { ps ->
@@ -66,7 +66,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
                 c.prepareStatement(
                     """
                     INSERT INTO food (id, korean_name, description, spiciness, name_translations,
-                                      description_translations, avoidance_substances, content_status, status,
+                                      description_translations, ingredients, content_status, status,
                                       created_at, updated_at)
                     VALUES (?, ?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
@@ -79,7 +79,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
             }
 
         fun createReview(token: String, foodId: Long, rating: Int): Long {
-            val response = mockMvc.post("/api/v1/reviews") {
+            val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
@@ -97,9 +97,10 @@ class ReviewBlockFilterTest : BehaviorSpec() {
 
         fun foodReviewItems(token: String, foodId: Long): JsonNode =
             mapper.readTree(
-                mockMvc.get("/api/v1/reviews") {
+                mockMvc.get("/api/reviews") {
                     header("Authorization", "Bearer $token")
                     param("foodId", foodId.toString())
+                    param("lang", "ko")
                 }.andReturn().response.getContentAsString(Charsets.UTF_8),
             ).path("payload").path("items")
 

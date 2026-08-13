@@ -3,7 +3,6 @@ package com.kbap.api.admin
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
-import com.kbap.common.domain.member.model.MemberProfileJson
 import com.kbap.common.domain.member.model.SpicinessPreference
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.MemberRole
@@ -57,7 +56,7 @@ class AdminMemberPageControllerTest : BehaviorSpec() {
                     providerUid = uid,
                     email = "$uid@test.com",
                     nickname = nickname,
-                    profileJson = MemberProfileJson(profileImageUrl = profileImageUrl),
+                    profileImageUrl = profileImageUrl,
                 ),
             )
 
@@ -145,7 +144,7 @@ class AdminMemberPageControllerTest : BehaviorSpec() {
             `when`("존재하는 회원을 조회하면") {
                 then("프로필(이미지는 공개 URL)과 상태를 내려준다") {
                     val saved = saveMember("detail-uid", nickname = "상세닉네임", profileImageUrl = "profile/1.jpg")
-                        .apply { profileJson = profileJson.copy(spicinessPreference = SpicinessPreference.EXTREME) }
+                        .apply { spicinessPreference = SpicinessPreference.EXTREME }
                         .let { memberJpaRepository.save(it) }
 
                     val result = mockMvc.get("/admin/members/${saved.id}") { cookie(adminCookie()) }

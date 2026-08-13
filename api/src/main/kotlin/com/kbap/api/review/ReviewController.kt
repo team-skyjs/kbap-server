@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -19,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1)
+@RequestMapping(ApiPaths.API, version = "1.0+")
 class ReviewController(
     private val reviewService: ReviewService,
 ) : ReviewApi {
@@ -69,26 +70,46 @@ class ReviewController(
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
-    @GetMapping("/reviews")
-    override fun listFoodReviews(
+    @PostMapping("/reviews/{reviewId}/like")
+    override fun like(
         @AuthMemberId memberId: Long,
-        @RequestParam foodId: Long,
-        @ModelAttribute request: ReviewListRequest,
+        @PathVariable reviewId: Long,
+        @RequestParam liked: Boolean,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        if (liked) {
+            reviewService.likeReview(memberId, reviewId)
+        } else {
+            reviewService.unlikeReview(memberId, reviewId)
+        }
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @GetMapping("/reviews")
+    override fun listReviews(
+        @AuthMemberId memberId: Long,
+        @RequestParam(required = false) foodId: Long?,
+        @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getFoodReviewPage(memberId, foodId, request.countryCode, CursorParser.parse(request.cursor)),
+                reviewService.getReviewPage(
+                    memberId,
+                    foodId,
+                    request.countryCode,
+                    LanguageCode.from(request.lang),
+                    CursorParser.parse(request.cursor),
+                ),
             ),
         )
 
     @GetMapping("/reviews/me")
     override fun listMyReviews(
         @AuthMemberId memberId: Long,
-        @ModelAttribute request: MyReviewListRequest,
+        @Valid @ModelAttribute request: ReviewPageRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.getMyReviewPage(memberId, CursorParser.parse(request.cursor)),
+                reviewService.getMyReviewPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor)),
             ),
         )
 }
