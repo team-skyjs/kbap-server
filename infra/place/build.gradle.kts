@@ -8,4 +8,5 @@ dependencies {
     "implementation"(libs.spring.web)
     "implementation"(libs.spring.context)
     "implementation"(libs.slf4j.api)
+    "implementation"("tools.jackson.module:jackson-module-kotlin")
 }

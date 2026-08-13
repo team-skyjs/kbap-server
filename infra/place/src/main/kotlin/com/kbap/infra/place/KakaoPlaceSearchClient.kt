@@ -1,7 +1,5 @@
 package com.kbap.infra.place
 
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.place.FoundPlace
@@ -9,8 +7,10 @@ import com.kbap.common.port.place.PlaceSearchClient
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.http.converter.HttpMessageConversionException
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.kotlinModule
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.support.RestClientAdapter
 import org.springframework.web.service.invoker.HttpServiceProxyFactory
@@ -59,14 +59,12 @@ class KakaoPlaceSearchClient internal constructor(
         }
 
         internal fun create(apiKey: String, restClientBuilder: RestClient.Builder): KakaoPlaceSearchClient {
-            val mapper = jacksonObjectMapper()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            val mapper = JsonMapper.builder().addModule(kotlinModule()).build()
             val restClient = restClientBuilder
                 .baseUrl(BASE_URL)
                 .defaultHeader("Authorization", "KakaoAK $apiKey")
-                .messageConverters { converters ->
-                    converters.clear()
-                    converters.add(MappingJackson2HttpMessageConverter(mapper))
+                .configureMessageConverters { converters ->
+                    converters.disableDefaults().withJsonConverter(JacksonJsonHttpMessageConverter(mapper))
                 }
                 .build()
             val kakaoLocalApi = HttpServiceProxyFactory
