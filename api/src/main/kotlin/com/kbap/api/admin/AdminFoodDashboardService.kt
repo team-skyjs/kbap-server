@@ -1,14 +1,21 @@
 package com.kbap.api.admin
 
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 import kotlin.math.round
 
 @Service
 class AdminFoodDashboardService(
     private val foodRepository: FoodJpaRepository,
+    private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getDashboard(): AdminFoodDashboardView {
@@ -25,6 +32,69 @@ class AdminFoodDashboardService(
             ready = ready,
             readyRatio = if (total == 0L) 0.0 else round(ready * 1000.0 / total) / 10.0,
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getVectorOutboxDashboard(): AdminVectorOutboxDashboardView {
+        val failures = vectorOutboxRepository.findTop20ByOutboxStatusOrderByIdDesc(FoodVectorOutboxStatus.FAILED)
+        val displayNames = foodRepository.findAllById(failures.map { it.foodId })
+            .associate { it.id to it.displayName }
+        return AdminVectorOutboxDashboardView(
+            pending = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.PENDING),
+            complete = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.COMPLETE),
+            failed = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.FAILED),
+            unenqueued = foodRepository.countReadyWithoutVectorUpsertOutbox(),
+            failures = failures.map { AdminVectorOutboxRowView.from(it, displayNames[it.foodId]) },
+        )
+    }
+
+    @Transactional
+    fun enqueueReadyFoodsForVectorSync() {
+        val targetIds = foodRepository.findReadyIdsWithoutVectorUpsertOutbox(PageRequest.of(0, ENQUEUE_MAX))
+        vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
+    }
+
+    @Transactional
+    fun retryVectorOutbox(outboxId: Long) {
+        val outbox = vectorOutboxRepository.findById(outboxId).orElse(null) ?: return
+        if (outbox.outboxStatus == FoodVectorOutboxStatus.FAILED) {
+            outbox.retry()
+        }
+    }
+
+    companion object {
+        const val ENQUEUE_MAX = 500
+    }
+}
+
+data class AdminVectorOutboxDashboardView(
+    val pending: Long,
+    val complete: Long,
+    val failed: Long,
+    val unenqueued: Long,
+    val failures: List<AdminVectorOutboxRowView>,
+)
+
+data class AdminVectorOutboxRowView(
+    val outboxId: Long,
+    val foodId: Long,
+    val displayName: String,
+    val operation: FoodVectorOutboxOperation,
+    val attempts: Int,
+    val lastError: String?,
+    val updatedAt: LocalDateTime,
+) {
+    companion object {
+        fun from(outbox: FoodVectorOutbox, displayName: String?): AdminVectorOutboxRowView =
+            AdminVectorOutboxRowView(
+                outboxId = outbox.id,
+                foodId = outbox.foodId,
+                displayName = displayName ?: "삭제된 음식(#${outbox.foodId})",
+                operation = outbox.operation,
+                attempts = outbox.attempts,
+                lastError = outbox.lastError,
+                updatedAt = outbox.updatedAt,
+            )
     }
 }
 

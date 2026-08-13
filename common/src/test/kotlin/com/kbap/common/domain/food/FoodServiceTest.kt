@@ -49,6 +49,7 @@ class FoodServiceTest : BehaviorSpec() {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
                 statement.execute("DELETE FROM food")
                 }
             }

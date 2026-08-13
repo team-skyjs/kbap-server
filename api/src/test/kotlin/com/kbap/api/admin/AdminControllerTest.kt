@@ -41,7 +41,7 @@ class AdminControllerTest : BehaviorSpec() {
 
         fun clearFoods(): Unit =
             dataSource.connection.use { c ->
-                c.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food") }
+                c.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food_vector_outbox"); it.execute("DELETE FROM food") }
             }
 
         fun seedExistingFood(koreanName: String): Unit =

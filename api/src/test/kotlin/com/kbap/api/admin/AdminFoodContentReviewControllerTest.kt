@@ -52,7 +52,6 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
 
         fun allTargets(value: String) = targetLangs.associateWith { "$value-$it" }
 
-        // 음식명은 unique 라 스펙이 끝나고 남는 행이 다른 스펙의 고정 시드와 충돌한다 — 접두로 이름 공간을 분리한다.
         val namePrefix = "검수테스트-"
 
         fun clearFoods(): Unit =
@@ -61,6 +60,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                     it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
+                    it.execute("DELETE FROM food_vector_outbox")
                     it.execute("DELETE FROM food")
                 }
             }

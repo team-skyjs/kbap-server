@@ -33,7 +33,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
     init {
         fun clearFoods() {
             dataSource.connection.use { connection ->
-                connection.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food") }
+                connection.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food_vector_outbox"); it.execute("DELETE FROM food") }
             }
         }
 

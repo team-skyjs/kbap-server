@@ -66,6 +66,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
                 statement.execute("DELETE FROM food")
                     (1..count).forEach { id ->
                         statement.execute(
@@ -85,6 +86,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM member_ranking_event")
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
                 statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +

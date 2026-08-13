@@ -12,9 +12,10 @@ data class LlmModelProperties(
 ) {
     data class EmbeddingProps(
         val enabled: Boolean = false,
-        val model: String = "amazon.titan-embed-text-v2:0",
-        val region: String = "ap-northeast-2",
-        val dimension: Int = 1024,
+        val apiKey: String? = null,
+        val baseUrl: String? = null,
+        val model: String = "text-embedding-3-small",
+        val dimension: Int = 256,
         val timeout: Duration = Duration.ofSeconds(30),
     )
 

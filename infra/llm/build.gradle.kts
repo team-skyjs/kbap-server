@@ -6,5 +6,4 @@ dependencies {
     "implementation"(project(":common"))
 
     "implementation"(libs.spring.ai.starter.openai)
-    "implementation"(libs.spring.ai.starter.bedrock)
 }

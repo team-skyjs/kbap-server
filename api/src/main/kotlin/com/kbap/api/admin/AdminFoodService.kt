@@ -7,7 +7,9 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodService
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
@@ -27,6 +29,7 @@ import java.time.LocalDateTime
 class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
+    private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
     private val foodService: FoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -85,6 +88,7 @@ class AdminFoodService(
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
 
+        val wasReady = food.isReady()
         food.koreanName = matchKey
         food.displayName = command.koreanName
         food.description = command.description
@@ -94,6 +98,10 @@ class AdminFoodService(
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.ingredients = ingredients
+        when {
+            food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+            wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
+        }
         return AdminFoodUpdateResult.UPDATED
     }
 
@@ -104,6 +112,7 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
     }
 

@@ -83,9 +83,8 @@ shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.
 shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
-# 채팅·비전은 OpenAI 단일 벤더(KB-320), 임베딩만 Bedrock Titan.
+# 채팅·비전·임베딩 전부 OpenAI 단일 벤더(KB-320, 임베딩은 KB-328 에서 Bedrock Titan → OpenAI 전환).
 spring-ai-starter-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
-spring-ai-starter-bedrock = { module = "org.springframework.ai:spring-ai-starter-model-bedrock" }
 
 # --- Auth (KB-118): 자체 JWT 발급/파싱 + Firebase ID 토큰 검증 ---
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }

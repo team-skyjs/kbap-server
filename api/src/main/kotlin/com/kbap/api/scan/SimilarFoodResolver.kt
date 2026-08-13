@@ -2,6 +2,7 @@ package com.kbap.api.scan
 
 import com.kbap.common.domain.food.FoodService
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.vector.FoodVectorSearcher
 import com.kbap.common.port.llm.TextEmbeddingClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class SimilarFoodResolver(
     private val embeddingClient: TextEmbeddingClient?,
-    private val searcher: SimilarFoodSearcher?,
+    private val searcher: FoodVectorSearcher?,
     private val foodService: FoodService,
     @Value("\${kbap.vector.similarity-threshold:0.0}") private val similarityThreshold: Double,
 ) {

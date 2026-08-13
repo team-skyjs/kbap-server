@@ -30,16 +30,15 @@ class BookmarkServiceTest : BehaviorSpec() {
     init {
         val memberId = 100L
 
-        // Flyway 실스키마 위에서 돈다 — bookmark 의 member/food FK 를 시드가 만족해야 한다
         fun resetTables(seedMember: Boolean = true) {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    // food·member 를 참조하는 자식 테이블 전체를 먼저 비운다(전체 앱 컨텍스트 = 공유 DB)
                     statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
                     statement.execute("DELETE FROM community_comment")
                     listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item", "community_post")
                         .forEach { statement.execute("DELETE FROM $it") }
                     statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
                 statement.execute("DELETE FROM food")
                     statement.execute("DELETE FROM member_block")
                     statement.execute("DELETE FROM member")

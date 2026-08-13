@@ -57,32 +57,44 @@ class AdminFoodOutboxDashboardTest : BehaviorSpec() {
                     it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
+                    it.execute("DELETE FROM food_vector_outbox")
                     it.execute("DELETE FROM food")
                 }
             }
 
-        fun saveOutbox(rawName: String, sent: Boolean = false): FoodContentOutbox {
+        fun saveOutbox(rawName: String, sent: Boolean = false, complete: Boolean = false): FoodContentOutbox {
             val food = foodRepository.save(Food.failed(namePrefix + rawName))
             val outbox = FoodContentOutbox.pending(food.id, food.displayName)
             if (sent) outbox.markSent()
-            return outboxRepository.save(outbox)
+            val saved = outboxRepository.save(outbox)
+            if (complete) {
+                dataSource.connection.use { c ->
+                    c.prepareStatement("UPDATE food_content_outbox SET outbox_status = 'COMPLETE' WHERE id = ?").use { ps ->
+                        ps.setLong(1, saved.id)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+            return saved
         }
 
         given("수집 요청 현황 조회") {
-            `when`("대기·발행 완료 요청이 섞여 있으면") {
-                then("상태별 건수와 최신순 목록을 담는다") {
+            `when`("대기·발행됨·수집 완료 요청이 섞여 있으면") {
+                then("세 상태의 건수와 최신순 목록을 담는다") {
                     clearFoods()
                     saveOutbox("칼국수")
                     saveOutbox("콩국수")
                     saveOutbox("잔치국수", sent = true)
+                    saveOutbox("비빔국수", sent = true, complete = true)
 
                     val view = adminFoodOutboxQueryService.getOutboxDashboard()
 
                     view.pending shouldBe 2
                     view.sent shouldBe 1
-                    view.recent.first().displayName shouldBe "${namePrefix}잔치국수"
+                    view.complete shouldBe 1
+                    view.recent.first().displayName shouldBe "${namePrefix}비빔국수"
                     view.recent.map { it.displayName } shouldBe listOf(
-                        "${namePrefix}잔치국수", "${namePrefix}콩국수", "${namePrefix}칼국수",
+                        "${namePrefix}비빔국수", "${namePrefix}잔치국수", "${namePrefix}콩국수", "${namePrefix}칼국수",
                     )
                 }
             }
@@ -95,6 +107,7 @@ class AdminFoodOutboxDashboardTest : BehaviorSpec() {
 
                     view.pending shouldBe 0
                     view.sent shouldBe 0
+                    view.complete shouldBe 0
                     view.recent shouldBe emptyList()
                 }
             }

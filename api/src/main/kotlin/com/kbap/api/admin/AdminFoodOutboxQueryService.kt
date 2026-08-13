@@ -16,6 +16,7 @@ class AdminFoodOutboxQueryService(
         AdminFoodOutboxDashboardView(
             pending = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.PENDING),
             sent = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.SENT),
+            complete = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.COMPLETE),
             recent = outboxRepository.findTop20ByOrderByIdDesc().map(AdminFoodOutboxRowView::from),
         )
 }
@@ -23,6 +24,7 @@ class AdminFoodOutboxQueryService(
 data class AdminFoodOutboxDashboardView(
     val pending: Long,
     val sent: Long,
+    val complete: Long,
     val recent: List<AdminFoodOutboxRowView>,
 )
 

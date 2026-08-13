@@ -102,6 +102,7 @@ object FoodTestSeed {
         "DELETE FROM scan_history",
         "DELETE FROM ingredients",
         "DELETE FROM food_content_outbox",
+        "DELETE FROM food_vector_outbox",
         "DELETE FROM food",
     )
 

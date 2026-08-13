@@ -1,5 +1,7 @@
 # Feature Specification: 임베딩 생성 포트 및 인프라 어댑터
 
+> **SUPERSEDED (2026-08-13, KB-328)** — 이 스펙의 Bedrock Titan 어댑터·AWS 의존은 KB-328 에서 OpenAI `text-embedding-3-small`(Spring AI `OpenAiEmbeddingModel`)로 전면 대체·제거됐다. 유효하게 남은 것은 `common.port.llm.TextEmbeddingClient` seam 계약뿐이다. 현행 설계는 `specs/kb-328-food-vector-outbox/` 참조.
+
 **Feature Branch**: `kb-299-bedrock-embedding-port`
 
 **Created**: 2026-08-07

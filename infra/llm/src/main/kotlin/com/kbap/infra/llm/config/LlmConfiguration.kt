@@ -3,14 +3,11 @@ package com.kbap.infra.llm.config
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.kbap.infra.llm.embedding.SpringAiTextEmbeddingClient
+import com.kbap.infra.llm.embedding.OpenAiTextEmbeddingClient
 import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.infra.llm.menu.MenuBoardResultParser
 import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.infra.llm.model.LlmPricing
-import io.micrometer.observation.ObservationRegistry
-import org.springframework.ai.bedrock.titan.BedrockTitanEmbeddingModel
-import org.springframework.ai.bedrock.titan.api.TitanEmbeddingBedrockApi
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -56,14 +53,8 @@ class LlmConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
-    fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient {
-        val props = properties.embedding
-        val api = TitanEmbeddingBedrockApi(props.model, props.region, props.timeout)
-        return SpringAiTextEmbeddingClient(
-            BedrockTitanEmbeddingModel(api, ObservationRegistry.NOOP),
-            props.dimension,
-        )
-    }
+    fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient =
+        OpenAiTextEmbeddingClient(properties.embedding)
 
     companion object {
         internal const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"

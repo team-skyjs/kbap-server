@@ -76,12 +76,13 @@ class Food(
 
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
-    fun approve() {
-        if (contentStatus == FoodContentStatus.READY) return
+    fun approve(): Boolean {
+        if (contentStatus == FoodContentStatus.READY) return false
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
             "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
         contentStatus = FoodContentStatus.READY
+        return true
     }
 
     fun reject(reason: String?) {
@@ -117,7 +118,6 @@ class Food(
         contentFailureKind = null
         contentReviewRejectionReason = null
         if (contentStatus == FoodContentStatus.READY) return
-        // 사진이 있으면 PENDING_IMAGE 를 건너뛴다 — 이미지 생성 후보(findImageCandidates)가 그 상태만 보므로 재생성이 원천 차단된다.
         contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
     }
 
@@ -147,7 +147,6 @@ class Food(
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady()) return RiskLevel.UNKNOWN
-        // 미조사(null)를 SAFE 로 은폐하지 않는다 — 안전 직결이라 fail-closed.
         val substances = ingredients ?: return RiskLevel.UNKNOWN
         val targeted = substances.filter { it.code in avoidedCodes }
         return RiskLevel.aggregate(targeted.map { it.riskLevel() })
