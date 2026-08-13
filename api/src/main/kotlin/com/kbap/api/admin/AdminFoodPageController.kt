@@ -111,11 +111,9 @@ class AdminFoodPageController(
         }
     }
 
-    // 알 수 없는 값은 400 이 아니라 필터 해제로 흡수한다 — enum 직접 바인딩은 변환 실패로 화면이 열리지 않는다
     private fun parseStatus(status: String?): FoodContentStatus? =
         FoodContentStatus.entries.find { it.name == status }
 
-    // form-encode 강제 — UriComponentsBuilder.encode() 는 + 를 남겨 수신측 form-decode 가 공백으로 뭉갠다
     private fun listRedirect(page: Int, q: String?, status: String?, vararg params: Pair<String, Any>): String {
         val query = buildList {
             add("page" to page.toString())
@@ -185,7 +183,6 @@ class AdminFoodPageController(
         }
 
     companion object {
-        // REST(AdminFoodSeedRequest)와 동일한 검증 경계 — 폼 경로가 우회하지 않게 유지
         const val MAX_SEED_NAMES = 500
         const val MAX_SEED_NAME_LENGTH = 255
     }
