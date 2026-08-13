@@ -443,6 +443,18 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("place 를 빈 객체로 보내면") {
+                then("식당 없음으로 정규화되어 응답의 place 는 null 이다") {
+                    val token = accessToken(755L)
+                    val result = create(token, createBody(foodId = 750L, rating = 4, place = emptyMap())).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.place") { value(null) }
+                    }
+
+                    storedPlaceOf(reviewIdOf(result)) shouldBe listOf(null, null, null, null, null)
+                }
+            }
+
             `when`("식당 정보 일부 항목만 주면") {
                 then("결측 항목은 null 로 저장된다") {
                     val token = accessToken(752L)

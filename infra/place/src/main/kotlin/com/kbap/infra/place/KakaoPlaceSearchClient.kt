@@ -37,7 +37,7 @@ class KakaoPlaceSearchClient(
                 .retrieve()
                 .body(KakaoKeywordSearchResponse::class.java)
         } catch (e: RestClientException) {
-            log.warn("카카오 장소 검색 실패: query={} x={} y={} page={}", query, longitude, latitude, page, e)
+            log.warn("카카오 장소 검색 실패: query={} page={}", query, page, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         } ?: throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
 

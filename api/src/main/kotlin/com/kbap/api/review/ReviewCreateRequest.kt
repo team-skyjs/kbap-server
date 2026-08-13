@@ -82,11 +82,11 @@ data class ReviewPlaceRequest(
     @field:Schema(description = "경도", example = "127.0276368")
     val longitude: BigDecimal? = null,
 ) {
-    fun toDomain(): ReviewPlace = ReviewPlace(
+    fun toDomain(): ReviewPlace? = ReviewPlace(
         name = name,
         address = address,
         kakaoPlaceId = kakaoPlaceId,
         latitude = latitude,
         longitude = longitude,
-    )
+    ).takeUnless { it.isEmpty() }
 }
