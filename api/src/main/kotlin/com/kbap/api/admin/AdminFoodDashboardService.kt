@@ -5,7 +5,6 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
-
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
