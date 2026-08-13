@@ -49,8 +49,12 @@
             <div class="stat-num" th:text="${#numbers.formatInteger(outbox.pending, 0, 'COMMA')}">0</div>
         </div>
         <div class="card stat-card">
-            <div class="stat-label">발행 완료</div>
+            <div class="stat-label">발행됨 (수집 중)</div>
             <div class="stat-num" th:text="${#numbers.formatInteger(outbox.sent, 0, 'COMMA')}">0</div>
+        </div>
+        <div class="card stat-card">
+            <div class="stat-label">수집 완료</div>
+            <div class="stat-num" th:text="${#numbers.formatInteger(outbox.complete, 0, 'COMMA')}">0</div>
         </div>
     </div>
 
@@ -72,8 +76,8 @@
                 </td>
                 <td>
                     <span class="badge"
-                          th:classappend="${r.outboxStatus.name() == 'SENT'} ? 'badge-ok' : 'badge-progress'"
-                          th:text="${r.outboxStatus.name() == 'SENT'} ? '발행 완료' : '대기'">대기</span>
+                          th:classappend="${r.outboxStatus.name() == 'COMPLETE'} ? 'badge-ok' : 'badge-progress'"
+                          th:text="${r.outboxStatus.name() == 'COMPLETE'} ? '수집 완료' : (${r.outboxStatus.name() == 'SENT'} ? '발행됨' : '대기')">대기</span>
                 </td>
                 <td th:text="${r.attempts}">0</td>
                 <td th:text="${#temporals.format(r.createdAt, 'MM-dd HH:mm')}">01-01 00:00</td>
