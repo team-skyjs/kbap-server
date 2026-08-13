@@ -26,6 +26,7 @@ include(
     ":infra:redis",
     ":infra:storage",
     ":infra:mq",
+    ":infra:place",
 
     ":api",
     ":batch",

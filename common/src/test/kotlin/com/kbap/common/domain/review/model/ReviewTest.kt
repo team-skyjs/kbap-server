@@ -71,7 +71,7 @@ class ReviewTest : BehaviorSpec({
         `when`("rating·content·imageRefs 를 바꾸면") {
             then("값이 반영된다") {
                 val target = review(imageRefs = listOf("a"))
-                target.update(rating = 5, content = null, imageRefs = null)
+                target.update(rating = 5, content = null, imageRefs = null, place = null)
                 target.rating shouldBe 5
                 target.content.shouldBeNull()
                 target.imageRefs.shouldBeNull()
@@ -79,27 +79,27 @@ class ReviewTest : BehaviorSpec({
         }
         `when`("rating 을 범위 밖으로 바꾸면") {
             then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { review().update(rating = 0, content = null, imageRefs = null) }
+                shouldThrow<IllegalArgumentException> { review().update(rating = 0, content = null, imageRefs = null, place = null) }
             }
         }
         `when`("content 를 1001자로 바꾸면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    review().update(rating = 4, content = "가".repeat(1001), imageRefs = null)
+                    review().update(rating = 4, content = "가".repeat(1001), imageRefs = null, place = null)
                 }
             }
         }
         `when`("imageRefs 를 4장으로 바꾸면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    review().update(rating = 4, content = null, imageRefs = listOf("a", "b", "c", "d"))
+                    review().update(rating = 4, content = null, imageRefs = listOf("a", "b", "c", "d"), place = null)
                 }
             }
         }
         `when`("수정해도") {
             then("authorCountryCode 는 그대로다") {
                 val target = review(authorCountryCode = "VN")
-                target.update(rating = 5, content = "updated", imageRefs = null)
+                target.update(rating = 5, content = "updated", imageRefs = null, place = null)
                 target.authorCountryCode shouldBe "VN"
             }
         }

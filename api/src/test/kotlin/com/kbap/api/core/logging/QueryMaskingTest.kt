@@ -31,6 +31,13 @@ class QueryMaskingTest : BehaviorSpec({
             }
         }
 
+        `when`("운영 마스킹 목록으로 좌표 파라미터가 들어오면") {
+            then("위도·경도 값을 가린다") {
+                maskQuery("latitude=37.4979502&longitude=127.0276368&page=1", MASKED_QUERY_PARAMS) shouldBe
+                    "latitude=***&longitude=***&page=1"
+            }
+        }
+
         `when`("쿼리가 없으면") {
             then("null 을 돌려준다") {
                 maskQuery(null, setOf("token")) shouldBe null

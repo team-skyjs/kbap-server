@@ -13,6 +13,8 @@ dependencies {
 
     "implementation"(project(":infra:storage"))
 
+    "implementation"(project(":infra:place"))
+
 
     "implementation"(libs.shedlock.spring)
     "implementation"(libs.shedlock.provider.jdbc.template)

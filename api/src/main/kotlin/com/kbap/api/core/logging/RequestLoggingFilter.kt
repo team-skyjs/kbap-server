@@ -10,7 +10,7 @@ import java.net.URLDecoder
 import java.util.UUID
 
 // 로그에 남길 때 값을 가릴 쿼리 파라미터명. 민감 파라미터가 생기면 여기에 등록한다.
-internal val MASKED_QUERY_PARAMS: Set<String> = emptySet()
+internal val MASKED_QUERY_PARAMS: Set<String> = setOf("latitude", "longitude")
 
 internal fun maskQuery(query: String?, maskedParams: Set<String>): String? {
     if (query.isNullOrBlank()) return null

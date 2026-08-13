@@ -39,6 +39,8 @@ jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-
 # application 모듈은 web/jpa 스타터 없이 @Service/@Transactional 만 필요 → 최소 의존만 얹는다.
 spring-context = { module = "org.springframework:spring-context" }
 spring-tx = { module = "org.springframework:spring-tx" }
+# 외부 REST 호출 어댑터(:infra:place)가 RestClient 만 쓴다 — 서버 스타터(tomcat) 없이 spring-web 만.
+spring-web = { module = "org.springframework:spring-web" }
 slf4j-api = { module = "org.slf4j:slf4j-api" }
 
 # --- Spring Boot starters (versions managed by the Spring Boot BOM) ---

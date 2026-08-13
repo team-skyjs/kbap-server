@@ -2,9 +2,12 @@ package com.kbap.api.review
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
+import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.util.ImageUrls
 import io.swagger.v3.oas.annotations.media.Schema
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 @Schema(description = "리뷰 대상 음식 요약 — 목록 조회에서만 채워지며, 음식이 삭제됐으면 null")
@@ -59,6 +62,9 @@ data class ReviewResponse(
 
     @field:Schema(description = "리뷰 대상 음식 요약. 목록 조회에서만 채워지고 작성·수정 응답과 삭제된 음식이면 null", nullable = true)
     val food: ReviewFoodResponse? = null,
+
+    @field:Schema(description = "작성 시 고른 식당 정보. 고르지 않았으면 null.", nullable = true)
+    val place: ReviewPlaceResponse? = null,
 ) {
     companion object {
         fun from(
@@ -80,6 +86,36 @@ data class ReviewResponse(
                 likeCount = likeCount,
                 likedByMe = likedByMe,
                 food = food,
+                place = review.place?.let(ReviewPlaceResponse::from),
+            )
+    }
+}
+
+@Schema(description = "리뷰에 저장된 위치 정보 — 각 항목은 저장 당시 결측이면 null")
+data class ReviewPlaceResponse(
+    @field:Schema(description = "위치 출처 — KAKAO_PLACE(검색에서 고른 식당) / MANUAL(사용자 입력 식당명 텍스트) / AUTHOR_LOCATION(작성자 좌표, 식당 항목 null)")
+    val source: PlaceSource?,
+
+    @field:Schema(description = "식당명", example = "한밥집 강남점")
+    val name: String?,
+
+    @field:Schema(description = "주소", example = "서울 강남구 테헤란로 123")
+    val address: String?,
+
+    @field:Schema(description = "위도", example = "37.4979502")
+    val latitude: BigDecimal?,
+
+    @field:Schema(description = "경도", example = "127.0276368")
+    val longitude: BigDecimal?,
+) {
+    companion object {
+        fun from(place: ReviewPlace): ReviewPlaceResponse =
+            ReviewPlaceResponse(
+                source = place.source,
+                name = place.name,
+                address = place.address,
+                latitude = place.latitude,
+                longitude = place.longitude,
             )
     }
 }
