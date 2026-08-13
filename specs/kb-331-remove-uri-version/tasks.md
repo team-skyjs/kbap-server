@@ -12,13 +12,13 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 테스트 공통 MockMvc 기본 헤더 주입 — `MockMvcBuilderCustomizer` 빈(`defaultRequest` 에 `X-API-Version: 1.0`)을 컴포넌트 스캔되는 테스트 설정으로 추가 in `api/src/test/kotlin/com/kbap/api/core/config/MockMvcDefaultVersionConfig.kt` (기존 `FakeVisionConfig` 와 같은 방식 — test classpath 의 `@Configuration` 은 전 통합 테스트에 스캔됨. 기존에 헤더를 명시하는 테스트(scan v2)와의 병합에서 명시 값이 이기는지 확인)
+- [X] T001 테스트 공통 MockMvc 기본 헤더 주입 — `MockMvcBuilderCustomizer` 빈(`defaultRequest` 에 `X-API-Version: 1.0`)을 컴포넌트 스캔되는 테스트 설정으로 추가 in `api/src/test/kotlin/com/kbap/api/core/config/MockMvcDefaultVersionConfig.kt` (기존 `FakeVisionConfig` 와 같은 방식 — test classpath 의 `@Configuration` 은 전 통합 테스트에 스캔됨. 기존에 헤더를 명시하는 테스트(scan v2)와의 병합에서 명시 값이 이기는지 확인)
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T002 `GlobalExceptionHandler` 에 `MissingApiVersionException`·`InvalidApiVersionException` 핸들러 추가 — 400 + `BaseResponse.fail("COMMON-002", ...)` 봉투 (현재는 `Exception` 폴백으로 500 COMMON-003 유출) in `api/src/main/kotlin/com/kbap/api/core/GlobalExceptionHandler.kt`
+- [X] T002 `GlobalExceptionHandler` 버전 예외 처리 확인 — **변경 불필요로 판명**: 기존 `handleUnexpected` 의 `ErrorResponse` 분기가 `MissingApiVersionException`(ResponseStatusException 계열)의 400 을 보존해 COMMON-002 봉투로 응답한다(수동 curl 로 확인). research R2 의 "500 유출" 우려는 코드 재확인에서 기각
 
 **Checkpoint**: 컴파일 + 기존 테스트 영향 없음(`./gradlew :api:compileKotlin`)
 
@@ -30,10 +30,10 @@
 
 **Independent Test**: 기존 테스트 전부가 새 경로로 그린 + `grep 'api/v1'` 0건
 
-- [ ] T003 [US1] 컨트롤러 12개 매핑 `ApiPaths.V1` → `ApiPaths.API` 치환 in `api/src/main/kotlin/com/kbap/api/{home/HomeController,bookmark/BookmarkController,auth/AuthController,member/MemberController,scan/ScanController,image/ImageUploadUrlController,image/ImageController,report/ReportController,food/FoodController,community/CommunityController,block/MemberBlockController}.kt` (v1 스캔은 `/api/scans` 로 이동해 v2 와 동일 경로 — 버전 속성 분기 확인)
-- [ ] T004 [US1] `WebConfig` JWT `addUrlPatterns` 13항목·게스트 예외 정규식 2건 `ApiPaths.V1` → `ApiPaths.API` 치환 + `ApiPaths.V1` 상수 삭제 in `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt`, `api/src/main/kotlin/com/kbap/api/core/ApiPaths.kt`
-- [ ] T005 [P] [US1] swagger `*Api` 인터페이스·요청 DTO 문구의 `/api/v1` 서술을 새 경로로 갱신 in `api/src/main/kotlin/com/kbap/api/**/*Api.kt` (`grep -rln 'api/v1' api/src/main` 으로 전수 확인)
-- [ ] T006 [US1] 기존 테스트 33파일의 `/api/v1` 경로를 `/api` 로 치환 후 `./gradlew :api:test` 그린 확인 in `api/src/test/kotlin/**` (치환 후 `grep -rn 'api/v1' api/src` 0건)
+- [X] T003 [US1] 컨트롤러 12개 매핑 `ApiPaths.V1` → `ApiPaths.API` 치환 in `api/src/main/kotlin/com/kbap/api/{home/HomeController,bookmark/BookmarkController,auth/AuthController,member/MemberController,scan/ScanController,image/ImageUploadUrlController,image/ImageController,report/ReportController,food/FoodController,community/CommunityController,block/MemberBlockController}.kt` (v1 스캔은 `/api/scans` 로 이동해 v2 와 동일 경로 — 버전 속성 분기 확인)
+- [X] T004 [US1] `WebConfig` JWT `addUrlPatterns` 13항목·게스트 예외 정규식 2건 `ApiPaths.V1` → `ApiPaths.API` 치환 + `ApiPaths.V1` 상수 삭제 in `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt`, `api/src/main/kotlin/com/kbap/api/core/ApiPaths.kt`
+- [X] T005 [P] [US1] swagger `*Api` 인터페이스·요청 DTO 문구의 `/api/v1` 서술을 새 경로로 갱신 in `api/src/main/kotlin/com/kbap/api/**/*Api.kt` (`grep -rln 'api/v1' api/src/main` 으로 전수 확인)
+- [X] T006 [US1] 기존 테스트 33파일의 `/api/v1` 경로를 `/api` 로 치환 후 `./gradlew :api:test` 그린 확인 in `api/src/test/kotlin/**` (치환 후 `grep -rn 'api/v1' api/src` 0건)
 
 **Checkpoint**: 전체 기존 테스트 그린 — 경로 이동 완결 (MVP)
 
@@ -45,8 +45,8 @@
 
 **Independent Test**: quickstart 수동 curl 4종 — 무헤더 비즈니스 API 400 COMMON-002 · app-version 무헤더 200 · 헤더 요청 정상 · 구 경로 404
 
-- [ ] T007 [US2] `WebConfig.configureApiVersioning` 개정 — `setDefaultVersion("1.0")` 제거, `setVersionRequired(true)` 명시, 헤더 리졸버 뒤 폴백 리졸버 추가(경로가 `/api/` 로 시작하지 않거나 `/api/app-version` 이면 "1.0" 반환) in `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt`
-- [ ] T008 [US2] `./gradlew :api:test` 그린 확인(T001 기본 헤더 주입으로 기존 테스트가 헤더 요청이 됨) + local bootRun 으로 quickstart 수동 curl 4종 검증, 결과를 PR 본문에 기록 (**포트 8082 사용** — 8080 은 kb-274, 8081 은 kb-328 세션 점유: `SERVER_PORT=8082 SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun`, 검증 후 즉시 종료)
+- [X] T007 [US2] `WebConfig.configureApiVersioning` 개정 — `setDefaultVersion("1.0")` 제거, `setVersionRequired(true)` 명시, 헤더 리졸버 뒤 폴백 리졸버 추가(경로가 `/api/` 로 시작하지 않거나 `/api/app-version` 이면 "1.0" 반환) in `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt`
+- [X] T008 [US2] `./gradlew :api:test` 그린 확인(T001 기본 헤더 주입으로 기존 테스트가 헤더 요청이 됨) + local bootRun 으로 quickstart 수동 curl 4종 검증, 결과를 PR 본문에 기록 (**포트 8082 사용** — 8080 은 kb-274, 8081 은 kb-328 세션 점유: `SERVER_PORT=8082 SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun`, 검증 후 즉시 종료)
 
 **Checkpoint**: 필수화 동작 확인 — 전 스토리 완결
 
@@ -54,8 +54,8 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T009 [P] 문서 갱신 — CLAUDE.md "API 엔드포인트 경로 규약" 절(V1 레거시 서술 제거·헤더 필수·app-version 예외)과 `docs/architecture/meogo-conventions.md` 대응 절 개정 in `CLAUDE.md`, `docs/architecture/meogo-conventions.md`
-- [ ] T010 전체 회귀 `./gradlew build` + `grep -rn 'ApiPaths.V1\|api/v1' api common infra batch --include='*.kt'` 0건 확인, Kotlin 주석 0건 점검
+- [X] T009 [P] 문서 갱신 — CLAUDE.md "API 엔드포인트 경로 규약" 절(V1 레거시 서술 제거·헤더 필수·app-version 예외)과 `docs/architecture/meogo-conventions.md` 대응 절 개정 in `CLAUDE.md`, `docs/architecture/meogo-conventions.md`
+- [X] T010 전체 회귀 `./gradlew build` + `grep -rn 'ApiPaths.V1\|api/v1' api common infra batch --include='*.kt'` 0건 확인, Kotlin 주석 0건 점검
 
 ---
 

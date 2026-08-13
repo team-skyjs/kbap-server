@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.accept.ApiVersionResolver
 import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
@@ -24,8 +25,17 @@ class WebConfig(
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader("X-API-Version")
-            .setDefaultVersion("1.0")
+            .useVersionResolver(exemptPathVersionResolver())
+            .setVersionRequired(true)
     }
+
+    private fun exemptPathVersionResolver() =
+        ApiVersionResolver { request ->
+            "1.0".takeIf {
+                !request.requestURI.startsWith("${ApiPaths.API}/") ||
+                    request.requestURI == ApiPaths.API + "/app-version"
+            }
+        }
 
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/api/**")
@@ -70,8 +80,6 @@ class WebConfig(
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.API}/members/*",
-                "${ApiPaths.API}/scans",
-                "${ApiPaths.API}/scans/*",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
                 "${ApiPaths.API}/bookmarks",
