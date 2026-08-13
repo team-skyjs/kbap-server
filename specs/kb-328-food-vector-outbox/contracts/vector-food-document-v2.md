@@ -12,7 +12,7 @@ KB-319 의 `vector-food-document.md` 계약을 대체(상위호환 확장)한다
 | imageRef | string | — | MySQL `food.image_ref` 스냅샷 |
 | embedding | float[256] | ✔ | cosine 벡터 인덱스 대상 (기존 인덱스 그대로) |
 | embeddingHash | string | ✔ | `sha256:<hex>` — SHA-256(`{model}|{dimension}|{name}\n{longDescription}`) |
-| embeddingModel | string | ✔ | 예: `amazon.titan-embed-text-v2:0` |
+| embeddingModel | string | ✔ | 예: `text-embedding-3-small` |
 | embeddingDimension | int | ✔ | 256 |
 | indexedAt | ISO-8601 UTC | ✔ | 적재 시각 |
 

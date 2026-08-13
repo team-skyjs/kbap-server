@@ -54,7 +54,7 @@ FAILED  → PENDING    관리자 재처리 (attempts=0, last_error 유지)
   "imageRef": "images/food/12.webp",
   "embedding": [0.01, …],                        // float 256, cosine 벡터 인덱스 (기존)
   "embeddingHash": "sha256:…",                   // SHA-256(model|dimension|name\nlongDescription)
-  "embeddingModel": "amazon.titan-embed-text-v2:0",
+  "embeddingModel": "text-embedding-3-small",
   "embeddingDimension": 256,
   "indexedAt": "2026-08-12T10:00:00Z"
 }

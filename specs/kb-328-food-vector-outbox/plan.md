@@ -12,7 +12,7 @@
 
 **Language/Version**: Kotlin 2.3 / JVM 21 toolchain
 
-**Primary Dependencies**: Spring Boot 4.1, Spring Batch(기존 `:batch`), Spring AI 2.0 Bedrock(`:infra:llm` — `TextEmbeddingClient` seam), mongodb-driver-sync(`:api` 개별 의존 → **`:common` 으로 승격** — 읽기·쓰기 공용)
+**Primary Dependencies**: Spring Boot 4.1, Spring Batch(기존 `:batch`), OpenAI text-embedding-3-small(`:infra:llm` 의 직접 HTTP 어댑터 — `TextEmbeddingClient` seam, 2026-08-13 Bedrock Titan 에서 전환·AWS 의존 소거), mongodb-driver-sync(`:api` 개별 의존 → **`:common` 으로 승격** — 읽기·쓰기 공용)
 
 **Storage**: MySQL(`food_vector_outbox` 신규 테이블, Flyway owner = api) + AWS DocumentDB(`kbap.foods` 컬렉션, cosine 벡터 인덱스 — KB-318 기구축)
 

@@ -3,7 +3,7 @@ package com.kbap.infra.llm.config
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.kbap.infra.llm.embedding.BedrockTitanTextEmbeddingClient
+import com.kbap.infra.llm.embedding.OpenAiTextEmbeddingClient
 import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.infra.llm.menu.MenuBoardResultParser
 import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
@@ -15,8 +15,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient
 import java.time.Duration
 
 @Configuration
@@ -53,25 +51,10 @@ class LlmConfiguration {
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
         OpenAiFoodImageBatchClient(properties.image)
 
-    @Bean(destroyMethod = "close")
-    @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
-    fun bedrockRuntimeClient(properties: LlmModelProperties): BedrockRuntimeClient =
-        BedrockRuntimeClient.builder()
-            .region(Region.of(properties.embedding.region))
-            .overrideConfiguration { it.apiCallTimeout(properties.embedding.timeout) }
-            .build()
-
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
-    fun textEmbeddingClient(
-        bedrockRuntimeClient: BedrockRuntimeClient,
-        properties: LlmModelProperties,
-    ): TextEmbeddingClient =
-        BedrockTitanTextEmbeddingClient(
-            bedrockRuntimeClient,
-            properties.embedding.model,
-            properties.embedding.dimension,
-        )
+    fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient =
+        OpenAiTextEmbeddingClient(properties.embedding)
 
     companion object {
         internal const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"

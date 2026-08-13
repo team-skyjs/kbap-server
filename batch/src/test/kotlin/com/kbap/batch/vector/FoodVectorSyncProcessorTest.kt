@@ -41,7 +41,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
-        val embeddingModel = "amazon.titan-embed-text-v2:0"
+        val embeddingModel = "text-embedding-3-small"
         val embeddingDimension = 256
 
         fun expectedHash(name: String, longDescription: String): String {
