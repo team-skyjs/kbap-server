@@ -373,7 +373,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                 then("검색 결과에 노출되지 않는다") {
                     val food = saveFood("폼삭제검색불고기", FoodContentStatus.READY)
 
-                    mockMvc.get("/api/v1/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
+                    mockMvc.get("/api/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
                         .andReturn().response.getContentAsString(Charsets.UTF_8) shouldContain "폼삭제검색불고기"
 
                     mockMvc.post("/admin/foods/${food.id}/delete") {
@@ -381,7 +381,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                         param("page", "1")
                     }.andExpect { status { is3xxRedirection() } }
 
-                    mockMvc.get("/api/v1/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
+                    mockMvc.get("/api/foods/search?lang=ko") { param("keyword", "폼삭제검색불고기") }
                         .andReturn().response.getContentAsString(Charsets.UTF_8) shouldNotContain "폼삭제검색불고기"
                 }
             }

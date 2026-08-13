@@ -31,7 +31,7 @@ class PostingReadControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     init {
-        val path = "/api/v1/community/posts"
+        val path = "/api/community/posts"
 
         fun execute(sql: String, vararg params: Any?): Unit =
             dataSource.connection.use { c ->
@@ -168,7 +168,7 @@ class PostingReadControllerTest : BehaviorSpec() {
             }
         }
 
-        given("피드 목록 API — GET /api/v1/community/posts") {
+        given("피드 목록 API — GET /api/community/posts") {
             clearPostings()
             seedMember(9400L)
             seedFood(9401L, "피드김치찌개", """{"en":"Feed Kimchi Stew"}""")
@@ -350,7 +350,7 @@ class PostingReadControllerTest : BehaviorSpec() {
             }
         }
 
-        given("글 상세 API — GET /api/v1/community/posts/{postId}") {
+        given("글 상세 API — GET /api/community/posts/{postId}") {
             clearPostings()
             seedMember(9600L)
             seedFood(9601L, "상세김치찌개", """{"en":"Detail Kimchi Stew"}""")

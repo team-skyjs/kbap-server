@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/auth")
+@RequestMapping(ApiPaths.API + "/auth")
 class AuthController(
     private val authService: AuthService,
 ) : AuthApi {

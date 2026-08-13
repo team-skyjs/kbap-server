@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/images")
+@RequestMapping(ApiPaths.API + "/images")
 class ImageController(
     private val imageUploadService: ImageUploadService,
 ) : ImageApi {

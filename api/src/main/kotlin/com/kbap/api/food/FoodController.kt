@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/foods")
+@RequestMapping(ApiPaths.API + "/foods")
 class FoodController(
     private val foodService: FoodService,
     private val bookmarkService: BookmarkService,

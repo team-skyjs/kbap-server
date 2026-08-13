@@ -41,10 +41,10 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
             return objectMapper.writeValueAsString(map)
         }
 
-        given("업로드 URL 발급 API — POST /api/v1/images/upload-url") {
+        given("업로드 URL 발급 API — POST /api/images/upload-url") {
             `when`("유효한 요청이면") {
                 then("200 과 업로드·공개 URL 을 반환한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body()
@@ -62,7 +62,7 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
 
             `when`("액세스 토큰 없이 호출하면") {
                 then("401 을 반환한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body()
                     }.andExpect {
@@ -73,7 +73,7 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
 
             `when`("허용되지 않은 Content-Type 이면") {
                 then("400·UPLOAD-001 로 거절한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(contentType = "image/gif")
@@ -86,7 +86,7 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
 
             `when`("지원하지 않는 용도이면") {
                 then("400·UPLOAD-002 로 거절한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(purpose = "UNKNOWN")
@@ -99,7 +99,7 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
 
             `when`("허용 크기를 초과하면") {
                 then("400·UPLOAD-003 로 거절한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(contentLength = 2_000_000L)
@@ -112,7 +112,7 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
 
             `when`("필수 필드가 빠지면") {
                 then("400 으로 거절한다") {
-                    mockMvc.post("/api/v1/images/upload-url") {
+                    mockMvc.post("/api/images/upload-url") {
                         header("Authorization", "Bearer ${accessToken()}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(contentLength = null)

@@ -177,7 +177,7 @@ class AdminPageControllerTest : BehaviorSpec() {
                     val account = seedAccount()
                     val adminToken = tokenIssuer.issueAccessToken(account.id, MemberRole.ADMIN)
 
-                    mockMvc.get("/api/v1/members/me/profile") {
+                    mockMvc.get("/api/members/me/profile") {
                         header("Authorization", "Bearer $adminToken")
                     }.andExpect {
                         status { isUnauthorized() }

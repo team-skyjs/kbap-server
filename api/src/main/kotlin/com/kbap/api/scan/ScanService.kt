@@ -50,6 +50,9 @@ class ScanService(
             log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
         }
+        if (similarFoodFallback && extracted.isEmpty()) {
+            throw BusinessException(ErrorCode.MENU_BOARD_NOT_DETECTED)
+        }
 
         val foodsByMatchKey = resolveFoods(extracted)
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
