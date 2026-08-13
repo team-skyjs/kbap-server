@@ -48,7 +48,7 @@ kbap:
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.
     usd-to-krw: 1500
-    # 벡터 동기화 배치(KB-328)의 적재 임베딩 — Bedrock Titan V2, 검색측(KB-319)과 256차원 고정.
+    # 벡터 동기화 배치(KB-328)의 적재 임베딩 — OpenAI text-embedding-3-small, 검색측(KB-319)과 256차원 고정.
     # 기본 off — 미활성이면 벡터 동기화만 조용히 생략되고 나머지 배치는 정상 동작한다.
     embedding:
       enabled: ${EMBEDDING_ENABLED:false}
