@@ -32,7 +32,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
         given("음식 상세 조회 — 단일 설명·맵기 응답") {
             `when`("lang=en 으로 설명 번역이 있는 foodId 를 조회하면") {
                 then("설명을 영어로, 맵기를 정수로 응답에 포함한다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -45,7 +45,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
 
             `when`("lang 을 지정하지 않으면") {
                 then("설명을 한국어 원문으로 반환한다") {
-                    mockMvc.get("/api/v1/foods/1?lang=ko").andExpect {
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_KO) }
                     }
@@ -54,7 +54,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
 
             `when`("lang=en 이지만 설명 번역이 부재하면") {
                 then("설명은 한국어로 폴백하고 음식명은 영어를 유지한다") {
-                    mockMvc.get("/api/v1/foods/2") {
+                    mockMvc.get("/api/foods/2") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -67,7 +67,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
 
             `when`("음식 상세를 조회하면") {
                 then("간단·자세 설명 필드는 응답에서 사라지고 단일 설명 필드만 존재한다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }

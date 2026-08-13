@@ -38,7 +38,7 @@ class HomeGuestTest : BehaviorSpec() {
                 then("개인화 섹션은 빈 배열이고 인기 음식만 영어로 내려온다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 7)
 
-                    val json = mockMvc.get("/api/v1/home?lang=en").andExpect {
+                    val json = mockMvc.get("/api/home?lang=en").andExpect {
                         status { isOk() }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val payload = mapper.readTree(json).path("payload")
@@ -58,7 +58,7 @@ class HomeGuestTest : BehaviorSpec() {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
                     HomeTestSeed.seedFoodSubstance(dataSource, foodId = 1L, code = "EGG", percent = 100)
 
-                    val json = mockMvc.get("/api/v1/home?lang=en").andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val json = mockMvc.get("/api/home?lang=en").andReturn().response.getContentAsString(Charsets.UTF_8)
                     val food = mapper.readTree(json).path("payload").path("popularFoods").single()
 
                     food.path("overallRiskStatus").asText() shouldBe "SAFE"
@@ -69,7 +69,7 @@ class HomeGuestTest : BehaviorSpec() {
         given("위조된 토큰을 지닌 요청") {
             `when`("홈을 조회하면") {
                 then("비회원으로 폴백하지 않고 401 로 거절한다") {
-                    mockMvc.get("/api/v1/home?lang=en") {
+                    mockMvc.get("/api/home?lang=en") {
                         header("Authorization", "Bearer forged.token.value")
                     }.andExpect {
                         status { isUnauthorized() }
@@ -82,7 +82,7 @@ class HomeGuestTest : BehaviorSpec() {
         given("lang 을 보내지 않은 요청") {
             `when`("홈을 조회하면") {
                 then("400 COMMON-002 로 거절한다") {
-                    mockMvc.get("/api/v1/home").andExpect {
+                    mockMvc.get("/api/home").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.success") { value(false) }
                         jsonPath("$.code") { value("COMMON-002") }
@@ -96,7 +96,7 @@ class HomeGuestTest : BehaviorSpec() {
                 then("일본어 번역명으로 응답한다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
 
-                    val json = mockMvc.get("/api/v1/home?lang=ja").andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val json = mockMvc.get("/api/home?lang=ja").andReturn().response.getContentAsString(Charsets.UTF_8)
 
                     mapper.readTree(json).path("payload").path("popularFoods").single()
                         .path("name").asText() shouldBe "メニュー1"
@@ -107,7 +107,7 @@ class HomeGuestTest : BehaviorSpec() {
                 then("한국어 원문명으로 응답한다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
 
-                    val json = mockMvc.get("/api/v1/home?lang=ko").andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val json = mockMvc.get("/api/home?lang=ko").andReturn().response.getContentAsString(Charsets.UTF_8)
 
                     mapper.readTree(json).path("payload").path("popularFoods").single()
                         .path("name").asText() shouldBe "메뉴1"
@@ -120,7 +120,7 @@ class HomeGuestTest : BehaviorSpec() {
                 then("400 이 아니라 영어로 응답한다") {
                     HomeTestSeed.seedReadyFoods(dataSource, count = 1)
 
-                    val json = mockMvc.get("/api/v1/home?lang=fr").andExpect {
+                    val json = mockMvc.get("/api/home?lang=fr").andExpect {
                         status { isOk() }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 

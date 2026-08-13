@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1)
+@RequestMapping(ApiPaths.API)
 class CommunityController(
     private val communityService: CommunityService,
 ) : CommunityApi {

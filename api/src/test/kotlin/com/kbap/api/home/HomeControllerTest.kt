@@ -37,7 +37,7 @@ class HomeControllerTest : BehaviorSpec() {
     init {
         fun token(memberId: Long) = tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
 
-        fun home(memberId: Long?, lang: String = "en") = mockMvc.get("/api/v1/home?lang=$lang") {
+        fun home(memberId: Long?, lang: String = "en") = mockMvc.get("/api/home?lang=$lang") {
             memberId?.let { header("Authorization", "Bearer ${token(it)}") }
         }
 

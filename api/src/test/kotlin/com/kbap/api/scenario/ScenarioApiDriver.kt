@@ -34,7 +34,7 @@ class ScenarioApiDriver(
     fun 재로그인한다(): Boolean = 로그인()
 
     private fun 로그인(): Boolean {
-        val payload = payload(post("/api/v1/auth/login", mapOf("idToken" to idToken), authenticated = false))
+        val payload = payload(post("/api/auth/login", mapOf("idToken" to idToken), authenticated = false))
         accessToken = payload.path("accessToken").asText()
         refreshToken = payload.path("refreshToken").asText()
         return payload.path("newMember").asBoolean()
@@ -47,7 +47,7 @@ class ScenarioApiDriver(
         spicinessPreference: String = "MILD",
         profileImageUrl: String = "images/default/profile/profile-default-512.png",
     ): Int = post(
-        "/api/v1/members/me/onboarding",
+        "/api/members/me/onboarding",
         mapOf(
             "nickname" to nickname,
             "avoidanceSubstanceCodes" to avoidanceSubstanceCodes,
@@ -57,27 +57,27 @@ class ScenarioApiDriver(
         ),
     ).status
 
-    fun 홈을_조회한다(): JsonNode = payload(get("/api/v1/home", "lang" to "ko"))
+    fun 홈을_조회한다(): JsonNode = payload(get("/api/home", "lang" to "ko"))
 
     fun 음식을_검색한다(keyword: String): JsonNode {
-        val items = payload(get("/api/v1/foods/search", "keyword" to keyword, "lang" to "ko")).path("items")
+        val items = payload(get("/api/foods/search", "keyword" to keyword, "lang" to "ko")).path("items")
         foodId = items.firstOrNull()?.path("foodId")?.asLong() ?: 0
         return items
     }
 
-    fun 음식_상세를_조회한다(): JsonNode = payload(get("/api/v1/foods/$foodId", "lang" to "ko"))
+    fun 음식_상세를_조회한다(): JsonNode = payload(get("/api/foods/$foodId", "lang" to "ko"))
 
-    fun 북마크한다(): Int = post("/api/v1/bookmarks", mapOf("foodId" to foodId)).status
+    fun 북마크한다(): Int = post("/api/bookmarks", mapOf("foodId" to foodId)).status
 
-    fun 북마크_목록을_조회한다(): JsonNode = payload(get("/api/v1/bookmarks", "lang" to "ko")).path("items")
+    fun 북마크_목록을_조회한다(): JsonNode = payload(get("/api/bookmarks", "lang" to "ko")).path("items")
 
-    fun 프로필을_조회한다(): 응답 = 응답으로(get("/api/v1/members/me/profile"))
+    fun 프로필을_조회한다(): 응답 = 응답으로(get("/api/members/me/profile"))
 
     fun 만료된_액세스토큰으로_프로필을_조회한다(): 응답 {
         val properties = requireNotNull(authTokenProperties) { "만료 토큰 스텝은 JwtTokenProperties 주입이 필요합니다" }
         val expired = JwtTokenIssuer(properties.copy(accessTtl = Duration.ofMinutes(-1)))
             .issueAccessToken(memberId = 0L, role = MemberRole.USER)
-        val response = mockMvc.get("/api/v1/members/me/profile") {
+        val response = mockMvc.get("/api/members/me/profile") {
             header("Authorization", "Bearer $expired")
         }.andReturn().response
         return 응답으로(response)
@@ -85,21 +85,21 @@ class ScenarioApiDriver(
 
     fun 토큰을_갱신한다(): String {
         val 구토큰 = refreshToken
-        val payload = payload(post("/api/v1/auth/refresh", mapOf("refreshToken" to 구토큰), authenticated = false))
+        val payload = payload(post("/api/auth/refresh", mapOf("refreshToken" to 구토큰), authenticated = false))
         accessToken = payload.path("accessToken").asText()
         refreshToken = payload.path("refreshToken").asText()
         return 구토큰
     }
 
     fun 구_리프레시토큰으로_갱신을_시도한다(구토큰: String): 응답 =
-        응답으로(post("/api/v1/auth/refresh", mapOf("refreshToken" to 구토큰), authenticated = false))
+        응답으로(post("/api/auth/refresh", mapOf("refreshToken" to 구토큰), authenticated = false))
 
-    fun 로그아웃한다(): Int = post("/api/v1/auth/logout", mapOf("refreshToken" to refreshToken)).status
+    fun 로그아웃한다(): Int = post("/api/auth/logout", mapOf("refreshToken" to refreshToken)).status
 
     fun 업로드URL을_발급받는다(contentType: String, contentLength: Long): JsonNode {
         val payload = payload(
             post(
-                "/api/v1/images/upload-url",
+                "/api/images/upload-url",
                 mapOf("purpose" to "MENU_SCAN", "contentType" to contentType, "contentLength" to contentLength),
             ),
         )
@@ -108,17 +108,17 @@ class ScenarioApiDriver(
     }
 
     fun 업로드를_완료한다(contentType: String, size: Long): Int =
-        post("/api/v1/images/complete", mapOf("path" to objectKey, "contentType" to contentType, "size" to size)).status
+        post("/api/images/complete", mapOf("path" to objectKey, "contentType" to contentType, "size" to size)).status
 
     fun 스캔한다(vararg 메뉴명: String, lang: String = "en"): JsonNode {
         val items = 메뉴명.mapIndexed { idx, name -> mapOf("idx" to idx, "rawMenuName" to name) }
         return payload(
-            post("/api/v1/scans", mapOf("imagePath" to objectKey, "items" to items), params = arrayOf("lang" to lang)),
+            post("/api/scans", mapOf("imagePath" to objectKey, "items" to items), params = arrayOf("lang" to lang)),
         ).path("results")
     }
 
     fun 탈퇴한다(): Int =
-        mockMvc.patch("/api/v1/auth/withdraw") {
+        mockMvc.patch("/api/auth/withdraw") {
             header("Authorization", "Bearer $accessToken")
         }.andReturn().response.status
 

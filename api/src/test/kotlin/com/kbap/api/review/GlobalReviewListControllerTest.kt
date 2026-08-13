@@ -133,7 +133,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val viewer = accessToken(9003L)
                     val reported = createReview(author, 902L)
                     val kept = createReview(author, 902L)
-                    mockMvc.post("/api/v1/reports") {
+                    mockMvc.post("/api/reports") {
                         header("Authorization", "Bearer $viewer")
                         contentType = MediaType.APPLICATION_JSON
                         content = mapper.writeValueAsString(
@@ -171,7 +171,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val author = accessToken(9010L)
                     val viewer = accessToken(9011L)
                     val blocked = createReview(author, 909L)
-                    mockMvc.post("/api/v1/members/me/blocks") {
+                    mockMvc.post("/api/members/me/blocks") {
                         header("Authorization", "Bearer $viewer")
                         contentType = MediaType.APPLICATION_JSON
                         content = mapper.writeValueAsString(mapOf("memberId" to 9010L))

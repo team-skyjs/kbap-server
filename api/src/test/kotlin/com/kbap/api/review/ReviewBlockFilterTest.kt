@@ -88,7 +88,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
         }
 
         fun blockMember(token: String, targetMemberId: Long) {
-            mockMvc.post("/api/v1/members/me/blocks") {
+            mockMvc.post("/api/members/me/blocks") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(mapOf("memberId" to targetMemberId))
@@ -106,7 +106,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
 
         fun ratingSummary(token: String, foodId: Long): JsonNode =
             mapper.readTree(
-                mockMvc.get("/api/v1/foods/$foodId") {
+                mockMvc.get("/api/foods/$foodId") {
                     header("Authorization", "Bearer $token")
                     param("lang", "ko")
                 }.andReturn().response.getContentAsString(Charsets.UTF_8),
@@ -150,7 +150,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
                     blockMember(viewerToken, 9222L)
                     foodReviewItems(viewerToken, 9220L).size() shouldBe 0
 
-                    mockMvc.delete("/api/v1/members/me/blocks/9222") {
+                    mockMvc.delete("/api/members/me/blocks/9222") {
                         header("Authorization", "Bearer $viewerToken")
                     }.andExpect { status { isOk() } }
                     foodReviewItems(viewerToken, 9220L).map { it.path("reviewId").asLong() }

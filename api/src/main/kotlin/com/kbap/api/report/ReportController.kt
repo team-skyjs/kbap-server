@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1)
+@RequestMapping(ApiPaths.API)
 class ReportController(
     private val reportService: ReportService,
 ) : ReportApi {
