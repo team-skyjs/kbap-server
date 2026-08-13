@@ -50,7 +50,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
     fun fixture(apiKey: String = "test-key"): Pair<KakaoPlaceSearchClient, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return KakaoPlaceSearchClient(builder.build(), apiKey) to server
+        return KakaoPlaceSearchClient.create(apiKey, builder) to server
     }
 
     given("카카오 장소 검색") {
@@ -84,7 +84,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
         `when`("도로명주소가 비어 있으면") {
             then("지번주소로 대체한다") {
                 val (client, server) = fixture()
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
 
                 val result = client.search("음식점", LNG, LAT)
@@ -97,7 +97,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
         `when`("결과가 없으면") {
             then("빈 목록을 반환한다") {
                 val (client, server) = fixture()
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(
                         withSuccess(
                             """{"documents": [], "meta": {"is_end": true}}""",
@@ -114,7 +114,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
         `when`("카카오가 5xx 로 실패하면") {
             then("PLACE-001 로 감싼다") {
                 val (client, server) = fixture()
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withServerError())
 
                 val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
@@ -126,7 +126,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
         `when`("카카오가 401 로 거절하면") {
             then("PLACE-001 로 감싼다") {
                 val (client, server) = fixture()
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withStatus(HttpStatus.UNAUTHORIZED))
 
                 val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
@@ -138,7 +138,7 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
         `when`("응답이 JSON 이 아니면") {
             then("PLACE-001 로 감싼다") {
                 val (client, server) = fixture()
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.BASE_URL)))
                     .andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON))
 
                 val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
