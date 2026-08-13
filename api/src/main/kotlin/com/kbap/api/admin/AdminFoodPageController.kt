@@ -31,6 +31,12 @@ class AdminFoodPageController(
         return "admin/foods"
     }
 
+    @PostMapping("/admin/foods/vector-outboxes/enqueue")
+    fun enqueueVectorOutboxes(): String {
+        adminFoodDashboardService.enqueueReadyFoodsForVectorSync()
+        return "redirect:/admin/foods"
+    }
+
     @PostMapping("/admin/foods/vector-outboxes/{outboxId}/retry")
     fun retryVectorOutbox(@PathVariable outboxId: Long): String {
         adminFoodDashboardService.retryVectorOutbox(outboxId)

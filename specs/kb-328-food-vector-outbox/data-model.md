@@ -40,7 +40,7 @@ FAILED  → PENDING    관리자 재처리 (attempts=0, last_error 유지)
 | 수정 (`AdminFoodService.updateFood`) | 수정 후 content_status = READY | UPSERT |
 | 수정 (동상) | READY → 비READY 로 변경 | DELETE |
 | 삭제 (`AdminFoodService.deleteFood`) | 항상 | DELETE |
-| 백필 (Flyway 1회) | content_status='READY' AND status='ACTIVE' | UPSERT |
+| 관리자 수동 적재 (화면 액션, 2026-08-13 개정 — 구 Flyway 백필 대체) | content_status='READY' AND status='ACTIVE', 1회 상한 | UPSERT |
 
 동일 (food_id, operation) 의 PENDING 이 이미 있으면 생성을 생략한다(중복 억제 — 없어도 수렴하지만 행 낭비 방지). 서로 다른 operation 은 억제하지 않는다 — 각 건이 처리 시점 최신 상태를 재검사하므로 순서와 무관하게 수렴.
 

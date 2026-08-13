@@ -4,12 +4,16 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import jakarta.servlet.http.Cookie
@@ -62,6 +66,27 @@ class AdminVectorOutboxPageTest : BehaviorSpec() {
 
         fun saveFoodId(rawName: String): Long = foodRepository.save(Food.failed(namePrefix + rawName)).id
 
+        fun saveReadyFood(rawName: String): Food = foodRepository.save(
+            Food(
+                koreanName = namePrefix + rawName,
+                displayName = namePrefix + rawName,
+                imageRef = "images/food/$rawName.webp",
+                description = "구수한 $rawName",
+                longDescription = "$rawName 는 한국의 대표적인 국물 요리다",
+                spiciness = 3,
+                ingredients = listOf(FoodIngredient("SOYBEAN", 100)),
+                contentStatus = FoodContentStatus.READY,
+            ),
+        )
+
+        fun softDelete(food: Food): Unit =
+            dataSource.connection.use { connection ->
+                connection.prepareStatement("UPDATE food SET status = 'DELETED' WHERE id = ?").use {
+                    it.setLong(1, food.id)
+                    it.executeUpdate()
+                }
+            }
+
         fun renderedCount(body: String, outboxStatus: FoodVectorOutboxStatus): String? =
             Regex("""id="vector-outbox-count-$outboxStatus"[^>]*>([\d,]+)<""").find(body)?.groupValues?.get(1)
 
@@ -105,6 +130,42 @@ class AdminVectorOutboxPageTest : BehaviorSpec() {
                     renderedCount(body, FoodVectorOutboxStatus.PENDING) shouldBe "2"
                     renderedCount(body, FoodVectorOutboxStatus.COMPLETE) shouldBe "1"
                     renderedCount(body, FoodVectorOutboxStatus.FAILED) shouldBe "1"
+                }
+            }
+        }
+
+        given("관리자 수동 벡터 적재") {
+            `when`("조회 가능·활성 음식과 그 밖의 음식이 섞인 상태에서 적재를 지시하면") {
+                then("조회 가능·활성 음식만 적재 대기 건으로 쌓고 대시보드로 돌려보낸다") {
+                    clear()
+                    val first = saveReadyFood("김치찌개")
+                    val second = saveReadyFood("된장찌개")
+                    foodRepository.save(Food.failed("${namePrefix}순두부찌개"))
+                    softDelete(saveReadyFood("부대찌개"))
+
+                    mockMvc.post("/admin/foods/vector-outboxes/enqueue") { cookie(adminCookie()) }
+                        .andExpect {
+                            status { is3xxRedirection() }
+                            redirectedUrl("/admin/foods")
+                        }
+
+                    val outboxes = vectorOutboxRepository.findAll()
+                    outboxes.map { it.foodId } shouldContainExactlyInAnyOrder listOf(first.id, second.id)
+                    outboxes.map { it.operation }.toSet() shouldBe setOf(FoodVectorOutboxOperation.UPSERT)
+                    outboxes.map { it.outboxStatus }.toSet() shouldBe setOf(FoodVectorOutboxStatus.PENDING)
+                }
+            }
+
+            `when`("이미 적재 대기 중인 음식에 다시 지시하면") {
+                then("중복해서 쌓지 않는다") {
+                    clear()
+                    val food = saveReadyFood("청국장")
+                    vectorOutboxRepository.save(FoodVectorOutbox.upsert(food.id))
+
+                    mockMvc.post("/admin/foods/vector-outboxes/enqueue") { cookie(adminCookie()) }
+                        .andExpect { status { is3xxRedirection() } }
+
+                    vectorOutboxRepository.findAll().map { it.foodId } shouldBe listOf(food.id)
                 }
             }
         }

@@ -35,6 +35,23 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun findByContentStatusOrderByIdAsc(contentStatus: FoodContentStatus, pageable: Pageable): List<Food>
 
+    @Query(
+        """
+        select f.id
+        from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+          and not exists (
+            select 1
+            from FoodVectorOutbox o
+            where o.foodId = f.id
+              and o.operation = com.kbap.common.domain.food.model.FoodVectorOutboxOperation.UPSERT
+              and o.outboxStatus = com.kbap.common.domain.food.model.FoodVectorOutboxStatus.PENDING
+          )
+        order by f.id asc
+        """,
+    )
+    fun findReadyIdsWithoutPendingVectorUpsert(pageable: Pageable): List<Long>
+
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
     fun findByDisplayNameContaining(displayName: String, pageable: Pageable): Page<Food>

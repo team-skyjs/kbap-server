@@ -55,11 +55,12 @@
 - **Decision**: `batch/src/main/resources/application.yml` 에 `kbap.llm.embedding.{enabled,dimension: 256,...}`(env 주입)과 `kbap.vector.{enabled,uri,database: kbap,collection: foods}` 를 추가한다. 미설정(로컬 등)이면 관련 빈이 안 뜨고 job 은 구성 실패로 조기 종료 — 스캔 필수 기능인 api 와 달리 배치는 명시 opt-in.
 - **Rationale**: 현재 배치엔 embedding·vector 설정이 전혀 없다(차원 256 은 api yml 에만 있음 — 탐색 확인). `:batch` 는 이미 `com.kbap.infra.llm` 을 스캔하므로 프로퍼티만 주면 `TextEmbeddingClient` 빈이 뜬다.
 
-## R9. 백필은 Flyway 데이터 마이그레이션 1건
+## R9. 기존 데이터 적재는 관리자 수동 지시 — Flyway 백필 폐기 (2026-08-13 재개정)
 
-- **Decision**: `INSERT INTO food_vector_outbox (food_id, operation, outbox_status, ...) SELECT id, 'UPSERT', 'PENDING', ... FROM food WHERE content_status='READY' AND status='ACTIVE'` 를 테이블 생성 마이그레이션 직후 버전으로 넣는다.
-- **Rationale**: 스키마 owner(api Flyway)가 배포 시 정확히 1회 실행을 보장한다 — 수동 SQL·일회성 관리자 버튼보다 재현 가능하고, 이후 증분은 R3 훅이 담당한다. 마이그레이션 독립성 규칙(다른 미적용 마이그레이션 순서 비의존)도 충족 — 테이블 생성과 같은 파일로 합치면 더 단순하므로 **한 파일**(생성 + 백필)로 간다.
-- **Alternatives considered**: 관리자 백필 버튼 — 실행 여부가 사람 기억에 의존, 기각.
+- **Decision**: 배포 시 자동 백필(Flyway INSERT…SELECT)을 폐기하고, 관리자 화면에서 READY·활성 음식의 UPSERT 아웃박스를 수동 생성하는 액션을 둔다(`requestRecollect` 와 같은 패턴 — 상한·중복 억제 적용).
+- **Rationale**: 운영 계획이 "기존 음식 전체를 랭체인 재수집으로 콘텐츠 최신화(긴 설명 채움) → 그 다음 벡터 적재"라서, 배포 시점 자동 백필은 낡은/빈 콘텐츠를 적재하고 실패(긴 설명 공백)만 쌓는다. 적재 시점은 재수집 완료 여부를 아는 관리자가 통제해야 한다. 자동 백필의 장점이던 "실행 보장"은 이 운영 순서에서는 오히려 이르게 실행되는 단점이 된다. 블루/그린 갭 보정 절차도 함께 소멸한다(수동 지시는 갭 개념이 없음).
+- **1차 결정 이력**: 초안은 테이블 생성 마이그레이션과 한 파일 → DB 리뷰(Major#2)로 별도 파일 분리 → 본 개정으로 폐기.
+- **주의(운영 갭)**: 랭체인 재수집(`applyContent`)이 READY 음식의 콘텐츠를 갱신하는 경로에는 벡터 UPSERT 훅이 없다 — "재수집 완료 후 수동 적재" 순서면 문제없지만, 운영 중 READY 음식을 재수집하면 벡터가 stale 해지므로 수동 재적재로 커버한다(훅 추가는 후속 판단).
 
 ## R10. 관리자 실패 조회·재처리는 기존 관리자 화면(Thymeleaf) 확장
 

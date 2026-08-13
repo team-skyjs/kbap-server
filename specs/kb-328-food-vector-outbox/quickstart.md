@@ -11,7 +11,7 @@
 
 ## 로컬 수동 검증 (docker-compose MySQL 기준)
 
-1. api 기동 → Flyway 가 `food_vector_outbox` 생성 + READY 백필 수행:
+1. api 기동 → Flyway 가 `food_vector_outbox` 테이블 생성(자동 백필 없음 — 적재는 관리자 화면에서 수동 지시):
    ```bash
    SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
    # 확인: SELECT outbox_status, COUNT(*) FROM food_vector_outbox GROUP BY 1;
@@ -36,14 +36,13 @@
 
 - DocumentDB `kbap.foods` 에 `foodId` unique 인덱스 존재 확인: `db.foods.getIndexes()` — 없으면 `db.foods.createIndex({foodId: 1}, {unique: true})`. KB-318 구축분은 `embedding` 벡터 인덱스만 보장하므로 **백필 전 반드시 확인**(없으면 건당 풀스캔 + 중복 문서 위험 — DB 리뷰 Major#1).
 
-## 배포 절차 (순서 고정)
+## 기존 데이터 적재 운영 순서 (2026-08-13 개정 — 자동 백필 없음)
 
-1. **인덱스 확인**(위 선행조건) → 2. **백필 마이그레이션 배포**(api) → 3. **첫 `foodVectorSyncJob` 실행**. 인덱스 없이 백필분 첫 배치를 돌리면 건당 풀스캔이 READY 전건 배수로 터진다.
-4. **블루/그린 공존 갭 보정**: 백필 SELECT 시점 이후~구 리비전 종료 전에 구 리비전(훅 없음)이 승인한 음식은 아웃박스가 영구 누락된다(자가 치유 없음). 배포 완료 후 아래로 확인하고, 결과가 있으면 백필 INSERT 를 수동 1회 재실행:
-   ```sql
-   SELECT f.id FROM food f LEFT JOIN food_vector_outbox o ON o.food_id = f.id
-   WHERE f.content_status='READY' AND f.status='ACTIVE' AND o.id IS NULL;
-   ```
+1. **인덱스 확인**(위 선행조건) — 수동 적재분 첫 배치 전 필수. 없으면 건당 풀스캔이 READY 전건 배수로 터진다.
+2. **배포** — 배포만으로는 벡터 적재가 일어나지 않는다(자동 백필 폐기).
+3. **랭체인 재수집** — 관리자 재수집으로 기존 음식 콘텐츠(긴 설명 포함) 최신화(1회 500건 상한, 나눠 실행).
+4. **관리자 벡터 적재 지시** — `/admin/foods` 의 벡터 적재 액션으로 원하는 음식의 UPSERT 아웃박스 생성.
+5. **`foodVectorSyncJob` 실행** — 이후 신규 건은 승인·수정·삭제 트리거가 증분 처리.
 
 ## 운영 참고
 

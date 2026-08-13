@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -47,11 +48,21 @@ class AdminFoodDashboardService(
     }
 
     @Transactional
+    fun enqueueReadyFoodsForVectorSync() {
+        foodRepository.findReadyIdsWithoutPendingVectorUpsert(PageRequest.of(0, ENQUEUE_MAX))
+            .forEach { vectorOutboxRepository.enqueueIfAbsent(it, FoodVectorOutboxOperation.UPSERT) }
+    }
+
+    @Transactional
     fun retryVectorOutbox(outboxId: Long) {
         val outbox = vectorOutboxRepository.findById(outboxId).orElse(null) ?: return
         if (outbox.outboxStatus == FoodVectorOutboxStatus.FAILED) {
             outbox.retry()
         }
+    }
+
+    companion object {
+        const val ENQUEUE_MAX = 500
     }
 }
 
