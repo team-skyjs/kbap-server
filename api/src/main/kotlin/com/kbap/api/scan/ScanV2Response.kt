@@ -74,6 +74,35 @@ data class ScanV2Response(
             nullable = true,
         )
         val similarFood: SimilarFoodResponse?,
+
+        @field:Schema(
+            description = "요청 회원의 기피성분 전체와 이 메뉴와의 겹침 여부. 온보딩 미완료(프로필 없음) 회원은 null. " +
+                "프로필은 있으나 기피 미등록이면 빈 배열. matched=false(degraded 포함)면 항상 빈 배열 — 겹침 판정 불가" +
+                "(riskLevel UNKNOWN 과 일관, similarFood 성분으로 대체 판정하지 않음). 순서는 성분 카탈로그 선언 순서로 고정.",
+            nullable = true,
+        )
+        val avoidances: List<AvoidanceOverlapResponse>?,
+    )
+
+    @Schema(description = "기피성분 1건의 겹침 판정 — 표시명·경고 수준은 음식 상세의 성분 규칙과 동일")
+    data class AvoidanceOverlapResponse(
+        @field:Schema(description = "성분 코드 식별자", example = "SHRIMP")
+        val code: String,
+
+        @field:Schema(description = "성분 표시명 — 요청 lang 번역, 번역 부재 시 한국어 원문", example = "Shrimp")
+        val name: String,
+
+        @field:Schema(description = "이 메뉴의 성분 데이터에 해당 성분이 존재하는지(포함 확률 임계값 없음)", example = "true")
+        val overlapped: Boolean,
+
+        @field:Schema(
+            description = "겹친 성분의 경고 수준 — 포함 확률 기반(10 미만 SAFE / 10~59 CAUTION / 60 이상 DANGER). " +
+                "overlapped=false 면 null.",
+            example = "DANGER",
+            allowableValues = ["SAFE", "CAUTION", "DANGER"],
+            nullable = true,
+        )
+        val riskLevel: String?,
     )
 
     @Schema(description = "유사 음식 대체 결과 — 필드 의미는 음식 상세 응답과 동일")
@@ -123,6 +152,14 @@ data class ScanV2Response(
                                 koreanName = similar.koreanName,
                                 description = similar.description,
                                 imageRef = similar.imageRef,
+                            )
+                        },
+                        avoidances = it.avoidances?.map { avoidance ->
+                            AvoidanceOverlapResponse(
+                                code = avoidance.code,
+                                name = avoidance.name,
+                                overlapped = avoidance.overlapped,
+                                riskLevel = avoidance.riskLevel,
                             )
                         },
                     )
