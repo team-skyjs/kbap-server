@@ -53,16 +53,25 @@ class LlmConfiguration {
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
         OpenAiFoodImageBatchClient(properties.image)
 
+    @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
+    fun bedrockRuntimeClient(properties: LlmModelProperties): BedrockRuntimeClient =
+        BedrockRuntimeClient.builder()
+            .region(Region.of(properties.embedding.region))
+            .overrideConfiguration { it.apiCallTimeout(properties.embedding.timeout) }
+            .build()
+
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
-    fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient {
-        val props = properties.embedding
-        val bedrockRuntimeClient = BedrockRuntimeClient.builder()
-            .region(Region.of(props.region))
-            .overrideConfiguration { it.apiCallTimeout(props.timeout) }
-            .build()
-        return BedrockTitanTextEmbeddingClient(bedrockRuntimeClient, props.model, props.dimension)
-    }
+    fun textEmbeddingClient(
+        bedrockRuntimeClient: BedrockRuntimeClient,
+        properties: LlmModelProperties,
+    ): TextEmbeddingClient =
+        BedrockTitanTextEmbeddingClient(
+            bedrockRuntimeClient,
+            properties.embedding.model,
+            properties.embedding.dimension,
+        )
 
     companion object {
         internal const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"

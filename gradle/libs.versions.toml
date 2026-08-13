@@ -69,6 +69,7 @@ flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 # --- Storage (KB-145/KB-138): S3 presigned URL 발급·오브젝트 검증 (AWS SDK v2) ---
 # BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
+aws-bedrockruntime = { module = "software.amazon.awssdk:bedrockruntime" }
 aws-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sqs = { module = "software.amazon.awssdk:sqs" }
 
