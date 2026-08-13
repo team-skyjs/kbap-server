@@ -49,9 +49,9 @@ private class FakeOpenAi(private val respond: (JsonNode) -> String) {
 
 private fun embeddingResponse(vararg indexedVectors: Pair<Int, FloatArray>): String {
     val data = indexedVectors.joinToString(",") { (index, vector) ->
-        """{"index":$index,"embedding":[${vector.joinToString(",")}]}"""
+        """{"object":"embedding","index":$index,"embedding":[${vector.joinToString(",")}]}"""
     }
-    return """{"data":[$data]}"""
+    return """{"object":"list","model":"$MODEL","data":[$data],"usage":{"prompt_tokens":1,"total_tokens":1}}"""
 }
 
 private fun markedVector(marker: Float, size: Int = DIMENSION): FloatArray =
@@ -64,7 +64,7 @@ private fun client(baseUrl: String) = OpenAiTextEmbeddingClient(
         model = MODEL,
         dimension = DIMENSION,
     ),
-    baseUrl,
+    "$baseUrl/v1",
 )
 
 class OpenAiTextEmbeddingClientTest : BehaviorSpec({
