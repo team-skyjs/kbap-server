@@ -8,8 +8,8 @@ import java.math.BigDecimal
 class PlaceSearchService(
     private val placeSearchClient: PlaceSearchClient,
 ) {
-    fun searchPlaces(latitude: BigDecimal, longitude: BigDecimal, page: Int): PlaceSearchResponse =
-        PlaceSearchResponse.from(placeSearchClient.search(RESTAURANT_KEYWORD, longitude, latitude, page))
+    fun searchPlaces(latitude: BigDecimal, longitude: BigDecimal): PlaceSearchResponse =
+        PlaceSearchResponse.from(placeSearchClient.search(RESTAURANT_KEYWORD, longitude, latitude))
 
     companion object {
         const val RESTAURANT_KEYWORD = "음식점"

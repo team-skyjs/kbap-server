@@ -8,7 +8,6 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.place.FoundPlace
 import com.kbap.common.port.place.PlaceSearchClient
-import com.kbap.common.port.place.PlaceSearchResult
 import org.slf4j.LoggerFactory
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
@@ -22,7 +21,7 @@ class KakaoPlaceSearchClient(
     private val mapper = jacksonObjectMapper()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult {
+    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace> {
         if (apiKey.isBlank()) {
             log.warn("카카오 REST 키가 설정돼 있지 않아 장소 검색을 수행할 수 없다")
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
@@ -34,44 +33,35 @@ class KakaoPlaceSearchClient(
                         .queryParam("x", longitude.toPlainString())
                         .queryParam("y", latitude.toPlainString())
                         .queryParam("sort", "distance")
-                        .queryParam("page", page)
-                        .queryParam("size", PAGE_SIZE)
+                        .queryParam("size", TOP_LIMIT)
                         .build()
                 }
                 .header("Authorization", "KakaoAK $apiKey")
                 .retrieve()
                 .body(String::class.java)
         } catch (e: RestClientException) {
-            log.warn("카카오 장소 검색 실패: query={} page={}", query, page, e)
+            log.warn("카카오 장소 검색 실패: query={}", query, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         } ?: throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
 
         val response = try {
             mapper.readValue(body, KakaoKeywordSearchResponse::class.java)
         } catch (e: JacksonException) {
-            log.warn("카카오 장소 검색 응답 파싱 실패: query={} page={}", query, page, e)
+            log.warn("카카오 장소 검색 응답 파싱 실패: query={}", query, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         }
 
-        return PlaceSearchResult(
-            items = response.documents.mapNotNull { it.toFoundPlace() },
-            hasNext = !response.meta.isEnd,
-        )
+        return response.documents.mapNotNull { it.toFoundPlace() }
     }
 
     companion object {
         const val SEARCH_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
-        const val PAGE_SIZE = 15
+        const val TOP_LIMIT = 5
     }
 }
 
 private data class KakaoKeywordSearchResponse(
     val documents: List<KakaoPlaceDocument> = emptyList(),
-    val meta: KakaoMeta = KakaoMeta(),
-)
-
-private data class KakaoMeta(
-    @param:JsonProperty("is_end") val isEnd: Boolean = true,
 )
 
 private data class KakaoPlaceDocument(

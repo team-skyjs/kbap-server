@@ -63,13 +63,11 @@ class PlaceControllerTest : BehaviorSpec() {
             token: String?,
             latitude: String? = "37.4979502",
             longitude: String? = "127.0276368",
-            page: Int? = null,
         ): ResultActionsDsl =
             mockMvc.get(path) {
                 token?.let { header("Authorization", "Bearer $it") }
                 latitude?.let { param("latitude", it) }
                 longitude?.let { param("longitude", it) }
-                page?.let { param("page", it.toString()) }
             }
 
         given("주변 식당 검색 API — GET /api/places") {
@@ -84,7 +82,6 @@ class PlaceControllerTest : BehaviorSpec() {
                             latitude = BigDecimal("37.4979502"),
                             longitude = BigDecimal("127.0276368"),
                         ),
-                        hasNext = true,
                     )
 
                     search(accessToken(800L)).andExpect {
@@ -96,24 +93,12 @@ class PlaceControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].kakaoPlaceId") { value("27290047") }
                         jsonPath("$.payload.items[0].latitude") { value(37.4979502) }
                         jsonPath("$.payload.items[0].longitude") { value(127.0276368) }
-                        jsonPath("$.payload.hasNext") { value(true) }
                     }
                     fakePlaceSearchClient.requests.last() shouldBe RecordedSearch(
                         query = PlaceSearchService.RESTAURANT_KEYWORD,
                         longitude = BigDecimal("127.0276368"),
                         latitude = BigDecimal("37.4979502"),
-                        page = 1,
                     )
-                }
-            }
-
-            `when`("page 를 지정하면") {
-                then("해당 페이지로 검색한다") {
-                    fakePlaceSearchClient.reset()
-
-                    search(accessToken(801L), page = 3).andExpect { status { isOk() } }
-
-                    fakePlaceSearchClient.requests.last().page shouldBe 3
                 }
             }
 
@@ -125,7 +110,6 @@ class PlaceControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.items.length()") { value(0) }
-                        jsonPath("$.payload.hasNext") { value(false) }
                     }
                 }
             }

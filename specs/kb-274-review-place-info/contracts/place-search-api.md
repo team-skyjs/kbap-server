@@ -12,7 +12,6 @@
 |----------|------|------|------|
 | latitude | decimal | ✅ | -90~90. 누락·범위 밖 → HTTP 400(기존 validation 공통 처리) |
 | longitude | decimal | ✅ | -180~180. 누락·범위 밖 → HTTP 400 |
-| page | int | — | 기본 1, 1~45(카카오 허용 범위) |
 
 **성공 응답** (`BaseResponse.ok`)
 
@@ -28,13 +27,12 @@
         "latitude": 37.4979502,
         "longitude": 127.0276368
       }
-    ],
-    "hasNext": true
+    ]
   }
 }
 ```
 
-- `items` — 페이지당 최대 15건(카카오 기본). 결과 없음은 빈 배열 + `hasNext: false`(오류 아님).
+- `items` — 가까운 순 최대 5건(페이징 없음). 결과 없음은 빈 배열(오류 아님).
 - 항목 스키마는 리뷰 저장 `place` 요청과 동일 형태 — 클라이언트는 선택한 item 을 그대로 리뷰 작성 `place` 로 전달한다.
 - 카카오 응답의 항목 결측(예: 도로명주소 없음)은 해당 필드 `null` 로 반환.
 
@@ -42,7 +40,7 @@
 
 | 상황 | HTTP | code |
 |------|------|------|
-| latitude·longitude 누락·범위 밖, page 범위 밖 | 400 | 기존 validation 공통 코드 |
+| latitude·longitude 누락·범위 밖 | 400 | 기존 validation 공통 코드 |
 | 미인증 | 401 | 기존 인증 공통 코드 |
 | 카카오 호출 실패(장애·타임아웃·키 미설정) | 502 | `PLACE-001` (신규 채번 — 외부 장소 검색 실패) |
 
@@ -50,5 +48,5 @@
 
 ## 내부 계약 (참고 — seam)
 
-- `common.port.place.PlaceSearchClient.search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult` — Spring-free 계약. `PlaceSearchResult(items: List<FoundPlace>, hasNext: Boolean)`, `FoundPlace(name·address·kakaoPlaceId·latitude·longitude — 전 항목 nullable, name 은 카카오가 항상 주므로 non-null)`.
-- 구현 `:infra:place` `KakaoPlaceSearchClient` — `GET https://dapi.kakao.com/v2/local/search/keyword.json?query=&x=&y=&sort=distance&page=&size=15` (x=경도, y=위도 — 가까운 순 정렬), 헤더 `Authorization: KakaoAK <kbap.kakao.rest-api-key>`. 실패·키 미설정 → `BusinessException(PLACE-001)`.
+- `common.port.place.PlaceSearchClient.search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace>` — Spring-free 계약. `FoundPlace(name·address·kakaoPlaceId·latitude·longitude — 전 항목 nullable, name 은 카카오가 항상 주므로 non-null)`.
+- 구현 `:infra:place` `KakaoPlaceSearchClient` — `GET https://dapi.kakao.com/v2/local/search/keyword.json?query=&x=&y=&sort=distance&size=5` (x=경도, y=위도 — 가까운 순 상위 5건), 헤더 `Authorization: KakaoAK <kbap.kakao.rest-api-key>`. 실패·키 미설정 → `BusinessException(PLACE-001)`.

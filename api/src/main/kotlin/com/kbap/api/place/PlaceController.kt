@@ -20,5 +20,5 @@ class PlaceController(
         @AuthMemberId memberId: Long,
         @Valid @ModelAttribute request: PlaceSearchRequest,
     ): ResponseEntity<BaseResponse<PlaceSearchResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(placeSearchService.searchPlaces(request.latitude!!, request.longitude!!, request.page)))
+        ResponseEntity.ok(BaseResponse.ok(placeSearchService.searchPlaces(request.latitude!!, request.longitude!!)))
 }

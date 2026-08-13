@@ -2,7 +2,6 @@ package com.kbap.api.place
 
 import com.kbap.common.port.place.FoundPlace
 import com.kbap.common.port.place.PlaceSearchClient
-import com.kbap.common.port.place.PlaceSearchResult
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
@@ -12,28 +11,27 @@ data class RecordedSearch(
     val query: String,
     val longitude: BigDecimal,
     val latitude: BigDecimal,
-    val page: Int,
 )
 
 class FakePlaceSearchClient : PlaceSearchClient {
     val requests: MutableList<RecordedSearch> = mutableListOf()
-    var result: PlaceSearchResult = PlaceSearchResult(items = emptyList(), hasNext = false)
+    var result: List<FoundPlace> = emptyList()
     var failure: RuntimeException? = null
 
-    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult {
-        requests.add(RecordedSearch(query, longitude, latitude, page))
+    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace> {
+        requests.add(RecordedSearch(query, longitude, latitude))
         failure?.let { throw it }
         return result
     }
 
     fun reset() {
         requests.clear()
-        result = PlaceSearchResult(items = emptyList(), hasNext = false)
+        result = emptyList()
         failure = null
     }
 
-    fun returns(vararg places: FoundPlace, hasNext: Boolean = false) {
-        result = PlaceSearchResult(items = places.toList(), hasNext = hasNext)
+    fun returns(vararg places: FoundPlace) {
+        result = places.toList()
     }
 }
 

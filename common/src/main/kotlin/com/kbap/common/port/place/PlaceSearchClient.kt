@@ -3,13 +3,8 @@ package com.kbap.common.port.place
 import java.math.BigDecimal
 
 fun interface PlaceSearchClient {
-    fun search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult
+    fun search(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace>
 }
-
-data class PlaceSearchResult(
-    val items: List<FoundPlace>,
-    val hasNext: Boolean,
-)
 
 data class FoundPlace(
     val name: String,

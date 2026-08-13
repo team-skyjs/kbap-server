@@ -47,16 +47,16 @@ private val LAT = BigDecimal("37.4979502")
 private val LNG = BigDecimal("127.0276368")
 
 class KakaoPlaceSearchClientTest : BehaviorSpec({
-    fun fixture(apiKey: String = "test-key"): Triple<KakaoPlaceSearchClient, MockRestServiceServer, RestClient.Builder> {
+    fun fixture(apiKey: String = "test-key"): Pair<KakaoPlaceSearchClient, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return Triple(KakaoPlaceSearchClient(builder.build(), apiKey), server, builder)
+        return KakaoPlaceSearchClient(builder.build(), apiKey) to server
     }
 
     given("카카오 장소 검색") {
         `when`("검색이 성공하면") {
             then("문서를 FoundPlace 목록으로 매핑한다") {
-                val (client, server, _) = fixture()
+                val (client, server) = fixture()
                 server.expect(
                     requestTo(
                         org.hamcrest.Matchers.containsString(
@@ -67,38 +67,37 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                     .andExpect(queryParam("x", LNG.toPlainString()))
                     .andExpect(queryParam("y", LAT.toPlainString()))
                     .andExpect(queryParam("sort", "distance"))
-                    .andExpect(queryParam("page", "1"))
+                    .andExpect(queryParam("size", KakaoPlaceSearchClient.TOP_LIMIT.toString()))
                     .andExpect(header("Authorization", "KakaoAK test-key"))
                     .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
 
-                val result = client.search("음식점", LNG, LAT, 1)
+                val result = client.search("음식점", LNG, LAT)
 
-                result.items.size shouldBe 2
-                result.items[0].name shouldBe "한밥집 강남점"
-                result.items[0].kakaoPlaceId shouldBe "27290047"
-                result.items[0].latitude shouldBe BigDecimal("37.4979502")
-                result.items[0].longitude shouldBe BigDecimal("127.0276368")
-                result.hasNext shouldBe true
+                result.size shouldBe 2
+                result[0].name shouldBe "한밥집 강남점"
+                result[0].kakaoPlaceId shouldBe "27290047"
+                result[0].latitude shouldBe BigDecimal("37.4979502")
+                result[0].longitude shouldBe BigDecimal("127.0276368")
                 server.verify()
             }
         }
 
         `when`("도로명주소가 비어 있으면") {
             then("지번주소로 대체한다") {
-                val (client, server, _) = fixture()
+                val (client, server) = fixture()
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
                     .andRespond(withSuccess(SUCCESS_BODY, MediaType.APPLICATION_JSON))
 
-                val result = client.search("음식점", LNG, LAT, 1)
+                val result = client.search("음식점", LNG, LAT)
 
-                result.items[0].address shouldBe "서울 강남구 테헤란로 123"
-                result.items[1].address shouldBe "서울 서대문구 창천동 45"
+                result[0].address shouldBe "서울 강남구 테헤란로 123"
+                result[1].address shouldBe "서울 서대문구 창천동 45"
             }
         }
 
-        `when`("마지막 페이지이면") {
-            then("hasNext 가 false 다") {
-                val (client, server, _) = fixture()
+        `when`("결과가 없으면") {
+            then("빈 목록을 반환한다") {
+                val (client, server) = fixture()
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
                     .andRespond(
                         withSuccess(
@@ -107,20 +106,19 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
                         ),
                     )
 
-                val result = client.search("음식점", LNG, LAT, 1)
+                val result = client.search("음식점", LNG, LAT)
 
-                result.items.size shouldBe 0
-                result.hasNext shouldBe false
+                result.size shouldBe 0
             }
         }
 
         `when`("카카오가 5xx 로 실패하면") {
             then("PLACE-001 로 감싼다") {
-                val (client, server, _) = fixture()
+                val (client, server) = fixture()
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
                     .andRespond(withServerError())
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT, 1) }
+                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
             }
@@ -128,11 +126,23 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
 
         `when`("카카오가 401 로 거절하면") {
             then("PLACE-001 로 감싼다") {
-                val (client, server, _) = fixture()
+                val (client, server) = fixture()
                 server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
                     .andRespond(withStatus(HttpStatus.UNAUTHORIZED))
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT, 1) }
+                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
+
+                exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
+            }
+        }
+
+        `when`("응답이 JSON 이 아니면") {
+            then("PLACE-001 로 감싼다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(KakaoPlaceSearchClient.SEARCH_URL)))
+                    .andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON))
+
+                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
             }
@@ -140,9 +150,9 @@ class KakaoPlaceSearchClientTest : BehaviorSpec({
 
         `when`("REST 키가 설정돼 있지 않으면") {
             then("외부 호출 없이 PLACE-001 로 실패한다") {
-                val (client, server, _) = fixture(apiKey = "")
+                val (client, server) = fixture(apiKey = "")
 
-                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT, 1) }
+                val exception = shouldThrow<BusinessException> { client.search("음식점", LNG, LAT) }
 
                 exception.errorCode shouldBe ErrorCode.PLACE_SEARCH_FAILED
                 server.verify()
