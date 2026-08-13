@@ -22,7 +22,6 @@ class ReviewPlace(
     val longitude: BigDecimal? = null,
 ) {
     init {
-        // allOpen(kotlin-jpa) 이 프로퍼티를 open 으로 만들어 스마트 캐스트가 안 되므로 로컬로 받는다.
         val nameValue = name
         val addressValue = address
         val kakaoPlaceIdValue = kakaoPlaceId

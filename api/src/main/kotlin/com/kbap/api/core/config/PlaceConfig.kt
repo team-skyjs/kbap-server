@@ -11,8 +11,6 @@ import org.springframework.web.client.RestClient
 import java.net.http.HttpClient
 import java.time.Duration
 
-// 검색 제공자 교체 지점 — 컨트롤러는 PlaceSearchClient 만 알고, 구현 선택은 여기서만 한다.
-// 키가 없어도 빈은 조립한다(부팅 유지) — 실제 호출만 PLACE-001 로 실패한다.
 @Configuration
 class PlaceConfig {
     @Bean
