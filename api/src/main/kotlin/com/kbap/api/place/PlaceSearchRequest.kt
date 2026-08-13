@@ -1,15 +1,26 @@
 package com.kbap.api.place
 
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.DecimalMax
+import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
+import java.math.BigDecimal
 
-@Schema(description = "식당 검색 요청")
+@Schema(description = "주변 식당 검색 요청")
 data class PlaceSearchRequest(
-    @field:NotBlank(message = "query 는 필수입니다")
-    @field:Schema(description = "검색 키워드(빈/공백 불가)", example = "한밥집", requiredMode = Schema.RequiredMode.REQUIRED)
-    val query: String? = null,
+    @field:NotNull(message = "latitude 는 필수입니다")
+    @field:DecimalMin(value = "-90", message = "latitude 는 -90 이상이어야 합니다")
+    @field:DecimalMax(value = "90", message = "latitude 는 90 이하여야 합니다")
+    @field:Schema(description = "사용자 위치 위도(-90~90)", example = "37.4979502", requiredMode = Schema.RequiredMode.REQUIRED)
+    val latitude: BigDecimal? = null,
+
+    @field:NotNull(message = "longitude 는 필수입니다")
+    @field:DecimalMin(value = "-180", message = "longitude 는 -180 이상이어야 합니다")
+    @field:DecimalMax(value = "180", message = "longitude 는 180 이하여야 합니다")
+    @field:Schema(description = "사용자 위치 경도(-180~180)", example = "127.0276368", requiredMode = Schema.RequiredMode.REQUIRED)
+    val longitude: BigDecimal? = null,
 
     @field:Min(value = 1, message = "page 는 1 이상이어야 합니다")
     @field:Max(value = MAX_PAGE.toLong(), message = "page 는 $MAX_PAGE 이하여야 합니다")

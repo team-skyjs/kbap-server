@@ -17,7 +17,7 @@ class KakaoPlaceSearchClient(
 ) : PlaceSearchClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun search(query: String, page: Int): PlaceSearchResult {
+    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult {
         if (apiKey.isBlank()) {
             log.warn("카카오 REST 키가 설정돼 있지 않아 장소 검색을 수행할 수 없다")
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
@@ -26,6 +26,9 @@ class KakaoPlaceSearchClient(
             restClient.get()
                 .uri(SEARCH_URL) { builder ->
                     builder.queryParam("query", query)
+                        .queryParam("x", longitude.toPlainString())
+                        .queryParam("y", latitude.toPlainString())
+                        .queryParam("sort", "distance")
                         .queryParam("page", page)
                         .queryParam("size", PAGE_SIZE)
                         .build()
@@ -34,7 +37,7 @@ class KakaoPlaceSearchClient(
                 .retrieve()
                 .body(KakaoKeywordSearchResponse::class.java)
         } catch (e: RestClientException) {
-            log.warn("카카오 장소 검색 실패: query={} page={}", query, page, e)
+            log.warn("카카오 장소 검색 실패: query={} x={} y={} page={}", query, longitude, latitude, page, e)
             throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
         } ?: throw BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
 

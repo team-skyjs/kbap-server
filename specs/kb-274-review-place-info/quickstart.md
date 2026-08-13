@@ -28,13 +28,13 @@
 
 ```bash
 KBAP_KAKAO_REST_API_KEY=<키> SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
-# Swagger UI: GET /api/v1/places?query=한밥집 → 결과 항목을 그대로 POST /api/v1/reviews 의 place 로 전달 → 응답 place 확인
+# Swagger UI: GET /api/places?latitude=37.4979502&longitude=127.0276368 → 결과 항목을 그대로 POST /api/reviews 의 place 로 전달 → 응답 place 확인
 ```
 
 ## 주의점
 
 - **신규 모듈 `:infra:place`** — `settings.gradle.kts` include + `kbap.spring-conventions` 플러그인 + api `build.gradle.kts` 의 `"implementation"(project(":infra:place"))`. 모듈 build 파일 의존성은 문자열 표기.
-- **보호 경로 등록** — `WebConfig` 의 `JwtAuthenticationFilter` 패턴에 `/api/v1/places`·`/api/v1/places/*` 추가(누락하면 미인증 접근 허용 — 조용한 보안 결함).
+- **보호 경로 등록** — `WebConfig` 의 `JwtAuthenticationFilter` 패턴에 `/api/places`·`/api/places/*` 추가(누락하면 미인증 접근 허용 — 조용한 보안 결함).
 - **`ErrorCode` 채번** — `PLACE-001`(502). `ErrorCodeStatusTest` 가 형식·유일성을 강제한다.
 - `Review.update` 시그니처가 바뀌므로 기존 호출부(ReviewService.updateReview) 컴파일 에러를 함께 수정.
 - 테스트 시드(FoodTestSeed·HomeTestSeed 등)의 `food_review` INSERT 는 컬럼 목록 명시라 nullable 컬럼 추가에 영향 없음 — 손대지 않는다.

@@ -507,7 +507,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             seedFood(840L, "목록순두부")
 
             fun createReviewWithPlace(token: String, foodId: Long): Long {
-                val response = mockMvc.post("/api/v1/reviews") {
+                val response = mockMvc.post("/api/reviews") {
                     header("Authorization", "Bearer $token")
                     contentType = MediaType.APPLICATION_JSON
                     content = mapper.writeValueAsString(

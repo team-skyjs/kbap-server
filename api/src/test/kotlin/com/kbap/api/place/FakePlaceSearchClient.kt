@@ -6,14 +6,22 @@ import com.kbap.common.port.place.PlaceSearchResult
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import java.math.BigDecimal
+
+data class RecordedSearch(
+    val query: String,
+    val longitude: BigDecimal,
+    val latitude: BigDecimal,
+    val page: Int,
+)
 
 class FakePlaceSearchClient : PlaceSearchClient {
-    val requests: MutableList<Pair<String, Int>> = mutableListOf()
+    val requests: MutableList<RecordedSearch> = mutableListOf()
     var result: PlaceSearchResult = PlaceSearchResult(items = emptyList(), hasNext = false)
     var failure: RuntimeException? = null
 
-    override fun search(query: String, page: Int): PlaceSearchResult {
-        requests.add(query to page)
+    override fun search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult {
+        requests.add(RecordedSearch(query, longitude, latitude, page))
         failure?.let { throw it }
         return result
     }

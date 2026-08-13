@@ -1,16 +1,17 @@
 # API Contract: 장소(식당) 검색 — 신규 엔드포인트 (kb-274)
 
-리뷰 API 와 분리된 **별도 컨트롤러**(`com.kbap.api.place.PlaceController`). 서버가 카카오 로컬 키워드 검색을 대신 호출한다. 응답은 `BaseResponse<T>` 봉투, 경로는 `ApiPaths.V1` 기준.
+리뷰 API 와 분리된 **별도 컨트롤러**(`com.kbap.api.place.PlaceController`). 서버가 카카오 로컬 키워드 검색을 대신 호출한다 — 검색 키워드는 서버가 `음식점` 으로 고정하고, 클라이언트는 사용자 위치(위도·경도)만 보낸다. 응답은 `BaseResponse<T>` 봉투, 경로는 신규 리소스 규약(KB-321)에 따라 `ApiPaths.API` 기준.
 
-## GET /api/v1/places
+## GET /api/places
 
-**인증**: 필수 — `JwtAuthenticationFilter` 보호 경로(`/api/v1/places`, `/api/v1/places/*`) + `@AuthMemberId`.
+**인증**: 필수 — `JwtAuthenticationFilter` 보호 경로(`/api/places`, `/api/places/*`) + `@AuthMemberId`.
 
 **Query Parameters**
 
 | 파라미터 | 타입 | 필수 | 제약 |
 |----------|------|------|------|
-| query | string | ✅ | 빈 값(누락·공백) → HTTP 400(기존 validation 공통 처리) |
+| latitude | decimal | ✅ | -90~90. 누락·범위 밖 → HTTP 400(기존 validation 공통 처리) |
+| longitude | decimal | ✅ | -180~180. 누락·범위 밖 → HTTP 400 |
 | page | int | — | 기본 1, 1~45(카카오 허용 범위) |
 
 **성공 응답** (`BaseResponse.ok`)
@@ -41,7 +42,7 @@
 
 | 상황 | HTTP | code |
 |------|------|------|
-| query 빈 값·page 범위 밖 | 400 | 기존 validation 공통 코드 |
+| latitude·longitude 누락·범위 밖, page 범위 밖 | 400 | 기존 validation 공통 코드 |
 | 미인증 | 401 | 기존 인증 공통 코드 |
 | 카카오 호출 실패(장애·타임아웃·키 미설정) | 502 | `PLACE-001` (신규 채번 — 외부 장소 검색 실패) |
 
@@ -49,5 +50,5 @@
 
 ## 내부 계약 (참고 — seam)
 
-- `common.port.place.PlaceSearchClient.search(query: String, page: Int): PlaceSearchResult` — Spring-free 계약. `PlaceSearchResult(items: List<FoundPlace>, hasNext: Boolean)`, `FoundPlace(name·address·kakaoPlaceId·latitude·longitude — 전 항목 nullable, name 은 카카오가 항상 주므로 non-null)`.
-- 구현 `:infra:place` `KakaoPlaceSearchClient` — `GET https://dapi.kakao.com/v2/local/search/keyword.json?query=&page=&size=15`, 헤더 `Authorization: KakaoAK <kbap.kakao.rest-api-key>`. 실패·키 미설정 → `BusinessException(PLACE-001)`.
+- `common.port.place.PlaceSearchClient.search(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchResult` — Spring-free 계약. `PlaceSearchResult(items: List<FoundPlace>, hasNext: Boolean)`, `FoundPlace(name·address·kakaoPlaceId·latitude·longitude — 전 항목 nullable, name 은 카카오가 항상 주므로 non-null)`.
+- 구현 `:infra:place` `KakaoPlaceSearchClient` — `GET https://dapi.kakao.com/v2/local/search/keyword.json?query=&x=&y=&sort=distance&page=&size=15` (x=경도, y=위도 — 가까운 순 정렬), 헤더 `Authorization: KakaoAK <kbap.kakao.rest-api-key>`. 실패·키 미설정 → `BusinessException(PLACE-001)`.
