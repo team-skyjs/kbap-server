@@ -63,11 +63,13 @@ class PlaceControllerTest : BehaviorSpec() {
             token: String?,
             latitude: String? = "37.4979502",
             longitude: String? = "127.0276368",
+            query: String? = null,
         ): ResultActionsDsl =
             mockMvc.get(path) {
                 token?.let { header("Authorization", "Bearer $it") }
                 latitude?.let { param("latitude", it) }
                 longitude?.let { param("longitude", it) }
+                query?.let { param("query", it) }
             }
 
         given("주변 식당 검색 API — GET /api/places") {
@@ -99,6 +101,26 @@ class PlaceControllerTest : BehaviorSpec() {
                         longitude = BigDecimal("127.0276368"),
                         latitude = BigDecimal("37.4979502"),
                     )
+                }
+            }
+
+            `when`("query 를 지정하면") {
+                then("해당 키워드로 검색한다") {
+                    fakePlaceSearchClient.reset()
+
+                    search(accessToken(801L), query = "마리김밥").andExpect { status { isOk() } }
+
+                    fakePlaceSearchClient.requests.last().query shouldBe "마리김밥"
+                }
+            }
+
+            `when`("query 가 공백이면") {
+                then("기본 키워드(음식점)로 검색한다") {
+                    fakePlaceSearchClient.reset()
+
+                    search(accessToken(808L), query = "   ").andExpect { status { isOk() } }
+
+                    fakePlaceSearchClient.requests.last().query shouldBe PlaceSearchService.RESTAURANT_KEYWORD
                 }
             }
 

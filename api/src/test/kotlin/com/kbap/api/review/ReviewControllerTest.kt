@@ -470,6 +470,36 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("GPS 미동의로 식당명 텍스트만 보내면") {
+                then("MANUAL 출처로 식당명만 저장된다") {
+                    val token = accessToken(758L)
+                    val result = create(
+                        token,
+                        createBody(foodId = 750L, rating = 4, place = mapOf("name" to "우리동네밥집")),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.place.source") { value("MANUAL") }
+                        jsonPath("$.payload.place.name") { value("우리동네밥집") }
+                        jsonPath("$.payload.place.kakaoPlaceId") { value(null) }
+                        jsonPath("$.payload.place.latitude") { value(null) }
+                    }
+
+                    val reviewId = reviewIdOf(result)
+                    storedPlaceSourceOf(reviewId) shouldBe "MANUAL"
+                    storedPlaceOf(reviewId) shouldBe listOf("우리동네밥집", null, null, null, null)
+                }
+            }
+
+            `when`("카카오 장소 id 만 있고 식당명이 없으면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(759L)
+                    create(
+                        token,
+                        createBody(foodId = 750L, rating = 4, place = mapOf("kakaoPlaceId" to "27290047")),
+                    ).andExpect { status { isBadRequest() } }
+                }
+            }
+
             `when`("식당명 없이 위도만 보내면") {
                 then("400 을 반환한다") {
                     val token = accessToken(757L)

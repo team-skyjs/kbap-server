@@ -56,7 +56,7 @@ class KakaoPlaceSearchClient(
 
     companion object {
         const val SEARCH_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
-        const val TOP_LIMIT = 5
+        const val TOP_LIMIT = 10
     }
 }
 

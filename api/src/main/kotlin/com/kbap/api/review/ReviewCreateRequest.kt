@@ -61,8 +61,9 @@ data class ReviewUpdateRequest(
 )
 
 @Schema(
-    description = "리뷰에 함께 저장할 위치 정보. 식당 검색(GET /api/places)에서 고른 항목이면 그대로 보내고(name 필수), " +
-        "식당을 고르지 않았으면 동의받은 작성자 좌표만(latitude·longitude) 보낸다",
+    description = "리뷰에 함께 저장할 위치 정보. 세 형태 — ① 식당 검색(GET /api/places)에서 고른 항목 그대로(KAKAO_PLACE), " +
+        "② GPS 미동의 시 사용자가 입력한 식당명 텍스트만(MANUAL), ③ 식당 미선택 + GPS 동의 시 작성자 좌표만(AUTHOR_LOCATION). " +
+        "출처는 서버가 유도한다(kakaoPlaceId 있음 → KAKAO_PLACE, name 만 → MANUAL, 좌표만 → AUTHOR_LOCATION)",
 )
 data class ReviewPlaceRequest(
     @field:Size(max = ReviewPlace.MAX_NAME_LENGTH, message = "식당명은 최대 100자입니다")
@@ -92,12 +93,24 @@ data class ReviewPlaceRequest(
     val coordinatesComplete: Boolean
         get() = name != null || (latitude != null) == (longitude != null)
 
+    @get:AssertTrue(message = "카카오 장소 id 가 있으면 식당명도 함께 보내야 합니다")
+    @get:Schema(hidden = true)
+    val kakaoPlaceNamed: Boolean
+        get() = kakaoPlaceId == null || name != null
+
     fun toDomain(): ReviewPlace? = when {
-        name != null -> ReviewPlace(
+        kakaoPlaceId != null -> ReviewPlace(
             source = PlaceSource.KAKAO_PLACE,
             name = name,
             address = address,
             kakaoPlaceId = kakaoPlaceId,
+            latitude = latitude,
+            longitude = longitude,
+        )
+        name != null -> ReviewPlace(
+            source = PlaceSource.MANUAL,
+            name = name,
+            address = address,
             latitude = latitude,
             longitude = longitude,
         )
