@@ -40,7 +40,7 @@
 
 ## R6. 임베딩 입력·embeddingHash 규약
 
-- **Decision**: 임베딩 원문은 `koreanName + "\n" + longDescription`(KB-319 계약 "저장 = 이름 + 긴 설명 결합" 승계). `embeddingHash = SHA-256(model|dimension|원문)`. 배치는 기존 문서의 hash 와 비교해 동일하면 임베딩 호출 없이 메타데이터만 갱신 후 COMPLETE, 다르면 재임베딩. `longDescription` 이 null/blank 면 임베딩하지 않고 실패 기록(attempts+1, last_error) — 데이터 문제를 드러낸다(스펙 edge case).
+- **Decision**: 임베딩 원문은 `koreanName + "\n" + longDescription`(KB-319 계약 "저장 = 이름 + 긴 설명 결합" 승계). `embeddingHash = SHA-256(model|dimension|원문)`. 배치는 기존 문서의 hash 와 비교해 동일하면 임베딩 호출·문서 재작성 없이 COMPLETE(완전 스킵 — spec US2 AS2·data-model 3절과 동일 계약), 다르면 재임베딩. `longDescription` 이 null/blank 면 임베딩하지 않고 실패 기록(attempts+1, last_error) — 데이터 문제를 드러낸다(스펙 edge case).
 - **Rationale**: hash 에 모델·차원을 포함해야 모델 교체 시 자동 재임베딩된다. 질의 측(스캔)이 정제된 표준 한국어명 단독으로 검색하므로 저장 이름은 `koreanName`(정규화 matchKey)이다.
 - **Alternatives considered**: 임베딩 벡터 자체의 hash — 임베딩을 호출해야 hash 가 나와 "호출 생략" 목적에 모순, 기각.
 
@@ -60,7 +60,7 @@
 - **Decision**: 배포 시 자동 백필(Flyway INSERT…SELECT)을 폐기하고, 관리자 화면에서 READY·활성 음식의 UPSERT 아웃박스를 수동 생성하는 액션을 둔다(`requestRecollect` 와 같은 패턴 — 상한·중복 억제 적용).
 - **Rationale**: 운영 계획이 "기존 음식 전체를 랭체인 재수집으로 콘텐츠 최신화(긴 설명 채움) → 그 다음 벡터 적재"라서, 배포 시점 자동 백필은 낡은/빈 콘텐츠를 적재하고 실패(긴 설명 공백)만 쌓는다. 적재 시점은 재수집 완료 여부를 아는 관리자가 통제해야 한다. 자동 백필의 장점이던 "실행 보장"은 이 운영 순서에서는 오히려 이르게 실행되는 단점이 된다. 블루/그린 갭 보정 절차도 함께 소멸한다(수동 지시는 갭 개념이 없음).
 - **1차 결정 이력**: 초안은 테이블 생성 마이그레이션과 한 파일 → DB 리뷰(Major#2)로 별도 파일 분리 → 본 개정으로 폐기.
-- **주의(운영 갭)**: 랭체인 재수집(`applyContent`)이 READY 음식의 콘텐츠를 갱신하는 경로에는 벡터 UPSERT 훅이 없다 — "재수집 완료 후 수동 적재" 순서면 문제없지만, 운영 중 READY 음식을 재수집하면 벡터가 stale 해지므로 수동 재적재로 커버한다(훅 추가는 후속 판단).
+- **주의(운영 갭, 2026-08-13 정정)**: 랭체인 재수집(`applyContent`)이 READY 음식의 콘텐츠를 갱신하는 경로에는 벡터 UPSERT 훅이 없다 — "재수집 완료 후 수동 적재" 순서면 문제없다. 단 **이미 적재된(COMPLETE) 음식이 재수집으로 갱신되면 재적재 수단이 관리자 폼 수정 훅·FAILED 재처리뿐**이다(수동 적재 버튼은 any-exists 제외라 초기 적재 전용 — 구 "수동 재적재로 커버" 문구는 오기). 운영 중 READY 재수집이 상시화되면 `applyContent` 훅 추가가 필요하다(FR-002 의 "설명 변경 경로"를 관리자 폼으로 한정할지와 함께 결정).
 
 ## R10. 관리자 실패 조회·재처리는 기존 관리자 화면(Thymeleaf) 확장
 

@@ -3,14 +3,11 @@ package com.kbap.infra.llm.config
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.kbap.infra.llm.embedding.SpringAiTextEmbeddingClient
+import com.kbap.infra.llm.embedding.BedrockTitanTextEmbeddingClient
 import com.kbap.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.infra.llm.menu.MenuBoardResultParser
 import com.kbap.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.infra.llm.model.LlmPricing
-import io.micrometer.observation.ObservationRegistry
-import org.springframework.ai.bedrock.titan.BedrockTitanEmbeddingModel
-import org.springframework.ai.bedrock.titan.api.TitanEmbeddingBedrockApi
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -18,6 +15,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient
 import java.time.Duration
 
 @Configuration
@@ -58,11 +57,11 @@ class LlmConfiguration {
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")
     fun textEmbeddingClient(properties: LlmModelProperties): TextEmbeddingClient {
         val props = properties.embedding
-        val api = TitanEmbeddingBedrockApi(props.model, props.region, props.timeout)
-        return SpringAiTextEmbeddingClient(
-            BedrockTitanEmbeddingModel(api, ObservationRegistry.NOOP),
-            props.dimension,
-        )
+        val bedrockRuntimeClient = BedrockRuntimeClient.builder()
+            .region(Region.of(props.region))
+            .overrideConfiguration { it.apiCallTimeout(props.timeout) }
+            .build()
+        return BedrockTitanTextEmbeddingClient(bedrockRuntimeClient, props.model, props.dimension)
     }
 
     companion object {

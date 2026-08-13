@@ -6,7 +6,7 @@
 
 ## Summary
 
-관리자 승인(PENDING_REVIEW → READY)·READY 이후 변경·삭제 시 같은 트랜잭션에서 `food_vector_outbox`(UPSERT|DELETE) 를 생성하고, `:batch` 의 `foodVectorSyncJob` 이 PENDING 을 읽어 처리 시점 최신 MySQL 데이터(koreanName + longDescription)를 임베딩해 DocumentDB `kbap.foods` 에 foodId 기준 upsert/delete 한다. `embeddingHash` 로 멱등을 보장하고(hash 동일 → 임베딩 생략), 실패는 attempts/last_error 로 기록해 5회 초과 시 FAILED 로 격리, 관리자 화면에서 조회·재처리한다. 기존 READY 음식은 테이블 생성 Flyway 마이그레이션의 INSERT…SELECT 백필로 1회 적재한다. 구조는 기존 `food_content_outbox` 파이프라인(엔티티·커서 페이징 리포지토리·Tasklet 배치·짧은 트랜잭션 분리·관리자 대시보드)의 검증된 패턴을 복제·확장하며, 벡터 저장소 접근(seam·어댑터·연결 설정·문서 필드명)은 api(읽기)·batch(쓰기) 공용이 되므로 **food 컨텍스트의 제2 영속으로서 `:common` 에 단일 소유**시킨다(기존 api 내부 검색 어댑터 이사 포함) — 상세 결정과 근거는 [research.md](research.md) R1–R10.
+관리자 승인(PENDING_REVIEW → READY)·READY 이후 변경·삭제 시 같은 트랜잭션에서 `food_vector_outbox`(UPSERT|DELETE) 를 생성하고, `:batch` 의 `foodVectorSyncJob` 이 PENDING 을 읽어 처리 시점 최신 MySQL 데이터(koreanName + longDescription)를 임베딩해 DocumentDB `kbap.foods` 에 foodId 기준 upsert/delete 한다. `embeddingHash` 로 멱등을 보장하고(hash 동일 → 임베딩 생략), 실패는 attempts/last_error 로 기록해 5회 초과 시 FAILED 로 격리, 관리자 화면에서 조회·재처리한다. 기존 READY 음식은 자동 백필 없이 랭체인 재수집 후 관리자 화면의 수동 적재 액션(미적재분 500건 단위)으로 적재한다(2026-08-13 재개정 — R9). 구조는 기존 `food_content_outbox` 파이프라인(엔티티·커서 페이징 리포지토리·Tasklet 배치·짧은 트랜잭션 분리·관리자 대시보드)의 검증된 패턴을 복제·확장하며, 벡터 저장소 접근(seam·어댑터·연결 설정·문서 필드명)은 api(읽기)·batch(쓰기) 공용이 되므로 **food 컨텍스트의 제2 영속으로서 `:common` 에 단일 소유**시킨다(기존 api 내부 검색 어댑터 이사 포함) — 상세 결정과 근거는 [research.md](research.md) R1–R10.
 
 ## Technical Context
 
@@ -85,7 +85,7 @@ api/src/main/kotlin/com/kbap/api/scan/    # 수정 — SimilarFood* 를 common v
 api/src/main/kotlin/com/kbap/api/core/config/
                                           # 수정 — searcher 빈 조립(@ConditionalOnProperty kbap.vector.enabled)
 api/src/main/resources/db/migration/
-└── V<timestamp>__food_vector_outbox_table.sql   # 신규 — 테이블 + READY 백필 INSERT…SELECT
+└── V<timestamp>__food_vector_outbox_table.sql   # 신규 — 테이블 생성 (백필 없음 — 수동 적재, R9 재개정)
 
 batch/src/main/kotlin/com/kbap/batch/vector/
 ├── FoodVectorSyncBatchConfig.kt         # 신규 — foodVectorSyncJob/step (Tasklet) + store 빈 조립
