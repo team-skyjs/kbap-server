@@ -5,6 +5,7 @@ import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.api.core.logging.RequestLoggingFilter
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.security.SecurityScheme
@@ -32,7 +33,9 @@ class OpenApiConfig {
 
     @Bean
     fun openApi(): OpenAPI =
-        OpenAPI().components(
+        OpenAPI().info(
+            Info().title("kbap API").description(NOTICE),
+        ).components(
             Components().addSecuritySchemes(
                 BEARER_AUTH,
                 SecurityScheme()
@@ -161,9 +164,22 @@ class OpenApiConfig {
         const val BEARER_AUTH: String = "bearerAuth"
         const val API_VERSION_HEADER: String = "X-API-Version"
         private const val ADMIN_PACKAGE: String = "com.kbap.api.admin"
+        private val NOTICE: String = """
+            ## 공지
+            ### 공통 헤더
+            | 헤더 | 필수 | 용도 |
+            |------|------|------|
+            | `X-API-Version` | **필수** | 응답 계약 선택. 누락·미지원 버전은 400(COMMON-002). 유일 예외: `GET /api/app-version` |
+            | `X-OS-Version` | 선택 | 클라이언트 OS·버전(예: iOS `iOS 18.1`, AOS `AOS 14`) — 서버 로그 분석용. **모든 요청에 넣어 보내주세요** |
+            | `X-App-Version` | 선택 | 클라이언트 앱 버전(예: `2.3.0`) — 서버 로그 분석용. **모든 요청에 넣어 보내주세요** |
+
+            응답의 `X-Request-Id` 헤더는 서버가 부여하는 요청 상관 키입니다 — 문의 시 함께 전달하면 로그 추적이 빠릅니다.
+
+            버전별 계약 차이는 우측 상단 그룹 선택(`X-API-Version 1.0/1.1/2.0`)으로 확인하세요.
+            """.trimIndent()
         private val CLIENT_VERSION_HEADERS: Map<String, String> = mapOf(
             RequestLoggingFilter.OS_VERSION_HEADER to
-                "클라이언트 OS 버전(예: iOS 18.1). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
+                "클라이언트 OS·버전(예: iOS `iOS 18.1`, AOS `AOS 14`). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
             RequestLoggingFilter.APP_VERSION_HEADER to
                 "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
         )
