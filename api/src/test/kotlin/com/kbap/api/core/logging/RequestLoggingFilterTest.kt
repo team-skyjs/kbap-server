@@ -102,6 +102,29 @@ class RequestLoggingFilterTest : BehaviorSpec() {
                 }
             }
 
+            `when`("OS·앱 버전 헤더를 보내면") {
+                then("요청 로그에 두 버전이 담긴다") {
+                    mockMvc.get("/api/test-logging/ok") {
+                        header("X-OS-Version", "iOS 18.1")
+                        header("X-App-Version", "2.3.0")
+                    }.andReturn()
+
+                    val entry = eventsOf("RequestLoggingFilter").first()
+                    entry.mdcPropertyMap["osVersion"] shouldBe "iOS 18.1"
+                    entry.mdcPropertyMap["appVersion"] shouldBe "2.3.0"
+                }
+            }
+
+            `when`("OS·앱 버전 헤더 없이 요청하면") {
+                then("버전 필드 없이 로그가 남는다") {
+                    callOk()
+
+                    val entry = eventsOf("RequestLoggingFilter").first()
+                    entry.mdcPropertyMap["osVersion"] shouldBe null
+                    entry.mdcPropertyMap["appVersion"] shouldBe null
+                }
+            }
+
             `when`("요청 처리가 끝나면") {
                 then("상관 컨텍스트가 정리되어 다음 요청 로그를 오염시키지 않는다") {
                     callOk().requestId() shouldNotBe null
