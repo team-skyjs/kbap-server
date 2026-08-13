@@ -150,6 +150,17 @@ class ReviewControllerTest : BehaviorSpec() {
             longitude?.let { put("longitude", it) }
         }
 
+        fun storedPlaceSourceOf(reviewId: Long): String? =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT place_source FROM food_review WHERE id = ?").use { ps ->
+                    ps.setLong(1, reviewId)
+                    ps.executeQuery().use { rs ->
+                        rs.next().shouldBeTrue()
+                        rs.getString(1)
+                    }
+                }
+            }
+
         fun storedPlaceOf(reviewId: Long): List<String?> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -414,11 +425,12 @@ class ReviewControllerTest : BehaviorSpec() {
             seedFood(750L, "리뷰순두부")
 
             `when`("검색에서 고른 식당 정보와 함께 작성하면") {
-                then("응답과 저장 값에 식당 정보가 담긴다") {
+                then("KAKAO_PLACE 출처로 응답과 저장 값에 식당 정보가 담긴다") {
                     val token = accessToken(750L)
                     val result = create(token, createBody(foodId = 750L, rating = 4, place = placeBody()))
                         .andExpect {
                             status { isOk() }
+                            jsonPath("$.payload.place.source") { value("KAKAO_PLACE") }
                             jsonPath("$.payload.place.name") { value("한밥집 강남점") }
                             jsonPath("$.payload.place.address") { value("서울 강남구 테헤란로 123") }
                             jsonPath("$.payload.place.kakaoPlaceId") { value("27290047") }
@@ -426,8 +438,49 @@ class ReviewControllerTest : BehaviorSpec() {
                             jsonPath("$.payload.place.longitude") { value(127.0276368) }
                         }
 
-                    storedPlaceOf(reviewIdOf(result)).take(3) shouldBe
+                    val reviewId = reviewIdOf(result)
+                    storedPlaceSourceOf(reviewId) shouldBe "KAKAO_PLACE"
+                    storedPlaceOf(reviewId).take(3) shouldBe
                         listOf("한밥집 강남점", "서울 강남구 테헤란로 123", "27290047")
+                }
+            }
+
+            `when`("식당 없이 작성자 좌표만 보내면") {
+                then("AUTHOR_LOCATION 출처로 좌표가 원값 그대로 저장된다") {
+                    val token = accessToken(756L)
+                    val result = create(
+                        token,
+                        createBody(
+                            foodId = 750L,
+                            rating = 4,
+                            place = placeBody(name = null, address = null, kakaoPlaceId = null),
+                        ),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.place.source") { value("AUTHOR_LOCATION") }
+                        jsonPath("$.payload.place.name") { value(null) }
+                        jsonPath("$.payload.place.latitude") { value(37.4979502) }
+                        jsonPath("$.payload.place.longitude") { value(127.0276368) }
+                    }
+
+                    val reviewId = reviewIdOf(result)
+                    storedPlaceSourceOf(reviewId) shouldBe "AUTHOR_LOCATION"
+                    storedPlaceOf(reviewId) shouldBe
+                        listOf(null, null, null, "37.4979502", "127.0276368")
+                }
+            }
+
+            `when`("식당명 없이 위도만 보내면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(757L)
+                    create(
+                        token,
+                        createBody(
+                            foodId = 750L,
+                            rating = 4,
+                            place = placeBody(name = null, address = null, kakaoPlaceId = null, longitude = null),
+                        ),
+                    ).andExpect { status { isBadRequest() } }
                 }
             }
 

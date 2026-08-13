@@ -2,6 +2,7 @@ package com.kbap.api.review
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.util.ImageUrls
@@ -90,8 +91,11 @@ data class ReviewResponse(
     }
 }
 
-@Schema(description = "리뷰에 저장된 식당 정보 — 각 항목은 저장 당시 결측이면 null")
+@Schema(description = "리뷰에 저장된 위치 정보 — 각 항목은 저장 당시 결측이면 null")
 data class ReviewPlaceResponse(
+    @field:Schema(description = "위치 출처 — KAKAO_PLACE(검색에서 고른 식당) 또는 AUTHOR_LOCATION(작성자 좌표, 식당 항목 null)")
+    val source: PlaceSource?,
+
     @field:Schema(description = "식당명", example = "한밥집 강남점")
     val name: String?,
 
@@ -110,6 +114,7 @@ data class ReviewPlaceResponse(
     companion object {
         fun from(place: ReviewPlace): ReviewPlaceResponse =
             ReviewPlaceResponse(
+                source = place.source,
                 name = place.name,
                 address = place.address,
                 kakaoPlaceId = place.kakaoPlaceId,

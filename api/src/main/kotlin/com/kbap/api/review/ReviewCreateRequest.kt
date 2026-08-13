@@ -1,9 +1,11 @@
 package com.kbap.api.review
 
+import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
+import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Max
@@ -33,7 +35,7 @@ data class ReviewCreateRequest(
     val imagePaths: List<String>? = null,
 
     @field:Valid
-    @field:Schema(description = "식당 검색(GET /api/v1/places)에서 고른 식당(옵션). 고르지 않았으면 생략한다")
+    @field:Schema(description = "위치 정보(옵션) — 검색에서 고른 식당 또는 동의받은 작성자 좌표. 없으면 생략한다")
     val place: ReviewPlaceRequest? = null,
 )
 
@@ -54,11 +56,14 @@ data class ReviewUpdateRequest(
     val imagePaths: List<String>? = null,
 
     @field:Valid
-    @field:Schema(description = "식당 정보(생략 시 기존 식당 정보 제거)")
+    @field:Schema(description = "위치 정보(생략 시 기존 위치 정보 제거)")
     val place: ReviewPlaceRequest? = null,
 )
 
-@Schema(description = "리뷰에 함께 저장할 식당 정보 — 전 항목 선택값(검색 결과의 결측을 그대로 허용)")
+@Schema(
+    description = "리뷰에 함께 저장할 위치 정보. 식당 검색(GET /api/places)에서 고른 항목이면 그대로 보내고(name 필수), " +
+        "식당을 고르지 않았으면 동의받은 작성자 좌표만(latitude·longitude) 보낸다",
+)
 data class ReviewPlaceRequest(
     @field:Size(max = ReviewPlace.MAX_NAME_LENGTH, message = "식당명은 최대 100자입니다")
     @field:Schema(description = "식당명", example = "한밥집 강남점")
@@ -82,11 +87,25 @@ data class ReviewPlaceRequest(
     @field:Schema(description = "경도", example = "127.0276368")
     val longitude: BigDecimal? = null,
 ) {
-    fun toDomain(): ReviewPlace? = ReviewPlace(
-        name = name,
-        address = address,
-        kakaoPlaceId = kakaoPlaceId,
-        latitude = latitude,
-        longitude = longitude,
-    ).takeUnless { it.isEmpty() }
+    @get:AssertTrue(message = "식당명 없이 위치를 저장하려면 latitude·longitude 를 모두 보내야 합니다")
+    @get:Schema(hidden = true)
+    val coordinatesComplete: Boolean
+        get() = name != null || (latitude != null) == (longitude != null)
+
+    fun toDomain(): ReviewPlace? = when {
+        name != null -> ReviewPlace(
+            source = PlaceSource.KAKAO_PLACE,
+            name = name,
+            address = address,
+            kakaoPlaceId = kakaoPlaceId,
+            latitude = latitude,
+            longitude = longitude,
+        )
+        latitude != null && longitude != null -> ReviewPlace(
+            source = PlaceSource.AUTHOR_LOCATION,
+            latitude = latitude,
+            longitude = longitude,
+        )
+        else -> null
+    }
 }

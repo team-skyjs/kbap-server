@@ -22,7 +22,10 @@
 }
 ```
 
-- `place` — **선택**(생략/null 허용). 내부 항목도 전부 선택(항목 단위 결측 허용).
+- `place` — **선택**(생략/null 허용). 두 형태만 유효하다:
+  - **식당 선택**: 검색 결과 항목 그대로(`name` 필수, 나머지 결측 허용) → `place_source=KAKAO_PLACE`
+  - **작성자 좌표**(식당 미선택 + 사용자 동의): `latitude`·`longitude` 둘 다 필수, 식당 항목 없음 → `place_source=AUTHOR_LOCATION`. 좌표는 반올림 없이 원값 저장.
+  - `name` 없이 좌표가 한쪽만 오면 400. 빈 객체 `{}` 는 위치 없음으로 정규화.
 - 수정(PUT)은 전량 교체: `place` 생략 시 기존 장소 정보 **제거**(content·imagePaths 와 동일 규칙).
 - 검증 실패(길이 초과·좌표 범위 밖) → HTTP 400 + `BaseResponse.fail`(기존 validation 공통 처리, `COMMON` 에러 코드) — 새 `ErrorCode` 채번 없음.
 
@@ -31,8 +34,8 @@
 | place.name | string? | 최대 100자 |
 | place.address | string? | 최대 200자 |
 | place.kakaoPlaceId | string? | 최대 30자 |
-| place.latitude | number? | -90 ~ 90 |
-| place.longitude | number? | -180 ~ 180 |
+| place.latitude | number? | -90 ~ 90 (name 없으면 longitude 와 함께 필수) |
+| place.longitude | number? | -180 ~ 180 (name 없으면 latitude 와 함께 필수) |
 
 ## 응답 델타 — 리뷰가 노출되는 모든 조회
 

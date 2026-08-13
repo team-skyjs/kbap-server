@@ -2,10 +2,16 @@ package com.kbap.common.domain.review.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Embeddable
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import java.math.BigDecimal
 
 @Embeddable
 class ReviewPlace(
+    @Enumerated(EnumType.STRING)
+    @Column(name = "place_source", length = 20)
+    val source: PlaceSource? = null,
+
     @Column(name = "place_name", length = MAX_NAME_LENGTH)
     val name: String? = null,
 
