@@ -36,7 +36,7 @@ class FoodDetailLangTest : BehaviorSpec() {
         given("음식 상세 조회 다국어 처리") {
             `when`("lang=ja 로 조회하면") {
                 then("일본어 음식명을 반환한다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "ja")
                     }.andExpect {
                         status { isOk() }
@@ -50,7 +50,7 @@ class FoodDetailLangTest : BehaviorSpec() {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 13L, "SOY", "WHEAT", "CLAM")
                     val token = tokenIssuer.issueAccessToken(13L, MemberRole.USER)
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "ja")
                         header("Authorization", "Bearer $token")
                     }.andExpect {
@@ -65,7 +65,7 @@ class FoodDetailLangTest : BehaviorSpec() {
 
             `when`("지원하지 않는 lang=xx 로 조회하면") {
                 then("400 이 아니라 영어 음식명을 반환한다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "xx")
                     }.andExpect {
                         status { isOk() }
@@ -76,7 +76,7 @@ class FoodDetailLangTest : BehaviorSpec() {
 
             `when`("lang=ko 로 조회하면") {
                 then("한국어 음식명을 반환한다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }
@@ -89,7 +89,7 @@ class FoodDetailLangTest : BehaviorSpec() {
         given("음식 상세 조회 — 언어 무관 한국어 메뉴명(koreanName)") {
             `when`("lang=ja 로 조회하면(지역화명이 한국어와 다름)") {
                 then("지역화명은 일본어이고 koreanName 에 한국어 원문을 담는다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "ja")
                     }.andExpect {
                         status { isOk() }
@@ -101,7 +101,7 @@ class FoodDetailLangTest : BehaviorSpec() {
 
             `when`("lang=ko 로 조회하면(지역화명이 곧 한국어)") {
                 then("koreanName 은 응답에 명시적 null 로 존재한다") {
-                    val json = mockMvc.get("/api/v1/foods/1") {
+                    val json = mockMvc.get("/api/foods/1") {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }

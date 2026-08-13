@@ -41,7 +41,7 @@ class CommunityControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/community/posts"
+        val path = "/api/community/posts"
 
         fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
@@ -157,7 +157,7 @@ class CommunityControllerTest : BehaviorSpec() {
                 }
             }
 
-        given("게시글 작성 API — POST /api/v1/community/posts") {
+        given("게시글 작성 API — POST /api/community/posts") {
             seedFood(9100L, "커뮤니티김치찌개")
             seedFood(9101L, "커뮤니티된장찌개")
             seedFood(9102L, "커뮤니티불고기")
@@ -330,7 +330,7 @@ class CommunityControllerTest : BehaviorSpec() {
             }
         }
 
-        given("게시글 수정 API — PUT /api/v1/community/posts/{postId}") {
+        given("게시글 수정 API — PUT /api/community/posts/{postId}") {
             seedFood(9200L, "커뮤니티수정김치")
             seedFood(9201L, "커뮤니티수정된장")
 
@@ -425,7 +425,7 @@ class CommunityControllerTest : BehaviorSpec() {
             }
         }
 
-        given("게시글 삭제 API — DELETE /api/v1/community/posts/{postId}") {
+        given("게시글 삭제 API — DELETE /api/community/posts/{postId}") {
             fun createPosting(token: String): Long =
                 postingIdOf(create(token, createBody()).andExpect { status { isOk() } })
 

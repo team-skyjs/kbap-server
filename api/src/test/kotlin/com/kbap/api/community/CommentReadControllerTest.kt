@@ -103,7 +103,7 @@ class CommentReadControllerTest : BehaviorSpec() {
             )
 
         fun list(token: String?, postId: Long, cursor: String? = null): ResultActionsDsl =
-            mockMvc.get("/api/v1/community/posts/$postId/comments") {
+            mockMvc.get("/api/community/posts/$postId/comments") {
                 cursor?.let { param("cursor", it) }
                 token?.let { header("Authorization", "Bearer $it") }
             }
@@ -111,7 +111,7 @@ class CommentReadControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
-        given("댓글 목록 API — GET /api/v1/community/posts/{postId}/comments") {
+        given("댓글 목록 API — GET /api/community/posts/{postId}/comments") {
             `when`("댓글과 대댓글이 섞여 있으면") {
                 then("최상위는 등록순으로, 대댓글은 각 댓글 아래 등록순으로 중첩된다") {
                     seedPost(8700L, 8600L)

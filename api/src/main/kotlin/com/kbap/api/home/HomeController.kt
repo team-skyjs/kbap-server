@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/home")
+@RequestMapping(ApiPaths.API + "/home")
 class HomeController(
     private val homeService: HomeService,
     private val bookmarkService: BookmarkService,

@@ -50,7 +50,7 @@ class MemberControllerTest : BehaviorSpec() {
         }
 
         fun loginAccessToken(): String {
-            val response = mockMvc.post("/api/v1/auth/login") {
+            val response = mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("idToken" to "valid-token"))
             }.andReturn().response
@@ -58,7 +58,7 @@ class MemberControllerTest : BehaviorSpec() {
         }
 
         fun submitOnboarding(token: String?, body: Map<String, Any?>, apiVersion: String? = null) =
-            mockMvc.post("/api/v1/members/me/onboarding") {
+            mockMvc.post("/api/members/me/onboarding") {
                 if (token != null) header("Authorization", "Bearer $token")
                 if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
@@ -66,12 +66,12 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun getMyProfile(token: String?) =
-            mockMvc.get("/api/v1/members/me/profile") {
+            mockMvc.get("/api/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 
         fun updateProfile(token: String?, body: Map<String, Any?>) =
-            mockMvc.patch("/api/v1/members/me/profile") {
+            mockMvc.patch("/api/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)
@@ -96,7 +96,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun getMyRanking(token: String?) =
-            mockMvc.get("/api/v1/members/me/ranking") {
+            mockMvc.get("/api/members/me/ranking") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 

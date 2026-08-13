@@ -57,12 +57,12 @@ class RequestLoggingFilterTest : BehaviorSpec() {
 
         fun MvcResult.requestId(): String? = response.getHeader("X-Request-Id")
 
-        fun callOk(): MvcResult = mockMvc.get("/api/v1/test-logging/ok").andReturn()
+        fun callOk(): MvcResult = mockMvc.get("/api/test-logging/ok").andReturn()
 
-        fun callBusinessError(): MvcResult = mockMvc.get("/api/v1/test-logging/business").andReturn()
+        fun callBusinessError(): MvcResult = mockMvc.get("/api/test-logging/business").andReturn()
 
         fun callWithToken(memberId: Long): MvcResult =
-            mockMvc.get("/api/v1/members/me/profile") {
+            mockMvc.get("/api/members/me/profile") {
                 header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(memberId, MemberRole.USER)}")
             }.andReturn()
 
@@ -76,7 +76,7 @@ class RequestLoggingFilterTest : BehaviorSpec() {
 
             `when`("인증 없이 인증 필요 API 를 호출해 401 로 거절되면") {
                 then("거절 응답에도 상관 키 헤더가 실린다") {
-                    val result = mockMvc.get("/api/v1/members/me/profile").andReturn()
+                    val result = mockMvc.get("/api/members/me/profile").andReturn()
 
                     result.response.status shouldBe 401
                     result.requestId() shouldNotBe null
@@ -130,14 +130,14 @@ class RequestLoggingFilterTest : BehaviorSpec() {
         given("요청 흐름 요약 로그") {
             `when`("요청이 정상 처리되면") {
                 then("같은 상관 키로 진입·응답 로그가 한 쌍 남는다") {
-                    val result = mockMvc.get("/api/v1/test-logging/ok?keyword=kimchi").andReturn()
+                    val result = mockMvc.get("/api/test-logging/ok?keyword=kimchi").andReturn()
 
                     val events = eventsOf("RequestLoggingFilter")
                     events shouldHaveSize 2
 
                     val (entry, exit) = events
                     entry.formattedMessage shouldContain "GET"
-                    entry.formattedMessage shouldContain "/api/v1/test-logging/ok?keyword=kimchi"
+                    entry.formattedMessage shouldContain "/api/test-logging/ok?keyword=kimchi"
                     exit.formattedMessage shouldContain "200"
 
                     entry.mdcPropertyMap["requestId"] shouldBe result.requestId()
@@ -147,7 +147,7 @@ class RequestLoggingFilterTest : BehaviorSpec() {
 
             `when`("한글 검색어처럼 퍼센트 인코딩된 쿼리로 요청하면") {
                 then("진입 로그에는 디코딩된 원문으로 남는다") {
-                    mockMvc.get(URI.create("/api/v1/test-logging/ok?keyword=%EA%B9%80%EC%B9%98")).andReturn()
+                    mockMvc.get(URI.create("/api/test-logging/ok?keyword=%EA%B9%80%EC%B9%98")).andReturn()
 
                     eventsOf("RequestLoggingFilter").first().formattedMessage shouldContain "keyword=김치"
                 }

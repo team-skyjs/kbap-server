@@ -46,7 +46,7 @@ class ReportControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/reports"
+        val path = "/api/reports"
 
         fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
@@ -142,7 +142,7 @@ class ReportControllerTest : BehaviorSpec() {
                 content = body
             }
 
-        given("신고 접수 API — POST /api/v1/reports") {
+        given("신고 접수 API — POST /api/reports") {
             `when`("타인의 리뷰를 사유와 함께 신고하면") {
                 then("200 을 반환하고 신고가 저장된다") {
                     seedReview(reviewId = 8101L, authorMemberId = 8151L, foodId = 8181L)

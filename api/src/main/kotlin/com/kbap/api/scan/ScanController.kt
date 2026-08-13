@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/scans")
+@RequestMapping(ApiPaths.API + "/scans")
 class ScanController(
     private val scanService: ScanService,
 ) : ScanApi {

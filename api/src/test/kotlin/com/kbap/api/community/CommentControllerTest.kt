@@ -94,21 +94,21 @@ class CommentControllerTest : BehaviorSpec() {
             )
 
         fun create(token: String?, postId: Long, body: String): ResultActionsDsl =
-            mockMvc.post("/api/v1/community/posts/$postId/comments") {
+            mockMvc.post("/api/community/posts/$postId/comments") {
                 token?.let { header("Authorization", "Bearer $it") }
                 contentType = MediaType.APPLICATION_JSON
                 content = body
             }
 
         fun update(token: String, commentId: Long, body: String): ResultActionsDsl =
-            mockMvc.put("/api/v1/community/comments/$commentId") {
+            mockMvc.put("/api/community/comments/$commentId") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = body
             }
 
         fun remove(token: String, commentId: Long): ResultActionsDsl =
-            mockMvc.delete("/api/v1/community/comments/$commentId") {
+            mockMvc.delete("/api/community/comments/$commentId") {
                 header("Authorization", "Bearer $token")
             }
 
@@ -127,7 +127,7 @@ class CommentControllerTest : BehaviorSpec() {
                 }
             }
 
-        given("댓글 작성 API — POST /api/v1/community/posts/{postId}/comments") {
+        given("댓글 작성 API — POST /api/community/posts/{postId}/comments") {
             seedPost(8100L, 8000L)
 
             `when`("최상위 댓글을 작성하면") {
@@ -272,7 +272,7 @@ class CommentControllerTest : BehaviorSpec() {
             }
         }
 
-        given("댓글 수정 API — PUT /api/v1/community/comments/{commentId}") {
+        given("댓글 수정 API — PUT /api/community/comments/{commentId}") {
             seedPost(8200L, 8000L)
 
             `when`("본인 댓글의 본문을 수정하면") {
@@ -329,7 +329,7 @@ class CommentControllerTest : BehaviorSpec() {
             }
         }
 
-        given("댓글 삭제 API — DELETE /api/v1/community/comments/{commentId}") {
+        given("댓글 삭제 API — DELETE /api/community/comments/{commentId}") {
             seedPost(8300L, 8000L)
 
             `when`("대댓글이 달린 최상위 댓글을 삭제하면") {

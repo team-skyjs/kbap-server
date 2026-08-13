@@ -47,7 +47,7 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
         }
 
         fun loginAccessToken(): String {
-            val response = mockMvc.post("/api/v1/auth/login") {
+            val response = mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("idToken" to "valid-token"))
             }.andReturn().response
@@ -56,7 +56,7 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
 
         fun onboardedToken(): String {
             val token = loginAccessToken()
-            mockMvc.post("/api/v1/members/me/onboarding") {
+            mockMvc.post("/api/members/me/onboarding") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(
@@ -73,7 +73,7 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
         }
 
         fun updateProfileNoCountry(token: String?, body: Map<String, Any?>, apiVersion: String? = "1.1") =
-            mockMvc.patch("/api/v1/members/me/profile") {
+            mockMvc.patch("/api/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
                 if (apiVersion != null) header("X-API-Version", apiVersion)
                 contentType = MediaType.APPLICATION_JSON
@@ -82,7 +82,7 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
 
         fun profilePayload(token: String) =
             objectMapper.readTree(
-                mockMvc.get("/api/v1/members/me/profile") {
+                mockMvc.get("/api/members/me/profile") {
                     header("Authorization", "Bearer $token")
                 }.andReturn().response.contentAsString,
             ).path("payload")

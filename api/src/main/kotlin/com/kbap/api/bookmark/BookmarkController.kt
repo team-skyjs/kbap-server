@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/bookmarks")
+@RequestMapping(ApiPaths.API + "/bookmarks")
 class BookmarkController(
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,

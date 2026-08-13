@@ -86,7 +86,6 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                             .shouldBeTrue()
                     }
 
-                    versionHeaderOf("/api/scans", "post")!!.path("schema").path("default").asText() shouldBe "2.0"
                     versionHeaderOf("/api/reviews", "get")!!.path("schema").path("default").asText() shouldBe "1.0"
                 }
             }
@@ -106,7 +105,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             `when`("/v3/api-docs/1.0 을 조회하면") {
                 then("온보딩은 종전 계약 오퍼레이션 하나만 실리고 헤더 파라미터도 하나다") {
                     val onboarding = docOf("/v3/api-docs/1.0")
-                        .path("paths").path("/api/v1/members/me/onboarding").path("post")
+                        .path("paths").path("/api/members/me/onboarding").path("post")
 
                     onboarding.path("operationId").asText() shouldBe "completeOnboarding"
                     versionParamsOf(onboarding).size shouldBe 1
@@ -115,16 +114,17 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
 
             `when`("/v3/api-docs/1.1 을 조회하면") {
-                then("온보딩은 서버 자동 지정 계약이, 프로필 수정은 국적 제외 계약이 실리고 2.0 전용 스캔은 빠진다") {
+                then("온보딩은 서버 자동 지정 계약이, 프로필 수정은 국적 제외 계약이 실리고 스캔은 v1 계약이 실린다") {
                     val document = docOf("/v3/api-docs/1.1")
-                    val onboarding = document.path("paths").path("/api/v1/members/me/onboarding").path("post")
-                    val profilePatch = document.path("paths").path("/api/v1/members/me/profile").path("patch")
+                    val onboarding = document.path("paths").path("/api/members/me/onboarding").path("post")
+                    val profilePatch = document.path("paths").path("/api/members/me/profile").path("patch")
 
                     onboarding.path("operationId").asText() shouldBe "completeOnboardingWithServerProfile"
                     versionParamsOf(onboarding).size shouldBe 1
                     versionParamsOf(onboarding).single().path("schema").path("default").asText() shouldBe "1.1"
                     versionParamsOf(profilePatch).single().path("schema").path("default").asText() shouldBe "1.1"
-                    document.path("paths").has("/api/scans").shouldBeFalse()
+                    document.path("paths").path("/api/scans").path("post")
+                        .path("operationId").asText() shouldBe "scan"
                 }
             }
 
@@ -133,7 +133,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     val document = docOf("/v3/api-docs/2.0")
 
                     document.path("paths").has("/api/scans").shouldBeTrue()
-                    document.path("paths").path("/api/v1/members/me/onboarding").path("post")
+                    document.path("paths").path("/api/members/me/onboarding").path("post")
                         .path("operationId").asText() shouldBe "completeOnboardingWithServerProfile"
 
                     document.path("paths").properties()
