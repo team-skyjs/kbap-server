@@ -25,11 +25,12 @@
 - **주의(탐색에서 확인된 함정)**: `Food.approve()` 는 이미 READY 면 no-op 으로 조기 return 하고 전이 여부를 반환하지 않는다 → 전이 발생 여부를 알 수 있게 반환값(Boolean) 추가가 필요하다. `AdminFoodService.updateFood` 는 도메인 메서드를 우회해 필드 직접 대입하므로(contentStatus 폼 지정 포함) 훅은 서비스 메서드 끝에서 변경 전/후 상태를 비교해 건다.
 - **Alternatives considered**: JPA EntityListener·도메인 이벤트 — 전이 의미(승인 vs 폼 수정)를 리스너가 구분할 수 없고 배치 기준(api 밖 소비 없음)에도 안 맞아 기각.
 
-## R4. 배치 job 은 기존 `foodContentOutboxPublishJob` 패턴 복제 — Tasklet + 짧은 트랜잭션 분리
+## R4. 배치 job 은 chunk 지향 Reader/Processor/Writer — 단 스텝 트랜잭션은 Resourceless (2026-08-13 개정)
 
-- **Decision**: `:batch` 에 `foodVectorSyncJob`(Tasklet, `RunIdIncrementer`, step 트랜잭션은 `ResourcelessTransactionManager`)을 추가한다. 처리 루프는 `TransactionTemplate` 로 (1) PENDING 페이지 조회+음식 로드 → (2) 트랜잭션 밖에서 임베딩·DocumentDB 호출 → (3) 결과 반영(COMPLETE/attempts/FAILED) 트랜잭션. 실행은 기존과 동일하게 run-to-completion(ECS 태스크, `--spring.batch.job.enabled=true`).
-- **Rationale**: 외부 호출(임베딩·DocumentDB)을 DB 트랜잭션 안에서 잡지 않는다(헌법 Additional Constraints). `FoodContentOutboxPublisher` 가 정확히 같은 구조를 이미 검증했다.
-- 근거 코드: `batch/src/main/kotlin/com/kbap/batch/outbox/FoodContentOutboxBatchConfig.kt`, `FoodContentOutboxPublisher.kt`.
+- **Decision**: `foodVectorSyncJob` 은 chunk 지향 스텝으로 구성한다 — `FoodVectorOutboxItemReader`(PENDING 커서 페이징, `ItemStream.open` 상태 리셋) → `FoodVectorSyncItemProcessor`(판정·임베딩·DocumentDB 반영, 예외를 `Outcome` 으로 변환해 행 단위 격리) → `FoodVectorSyncResultWriter`(청크당 짧은 트랜잭션 1회로 아웃박스 상태 일괄 기록). **스텝 트랜잭션은 `ResourcelessTransactionManager`** — chunk 의 구조(역할 분리·반복·스텝 메타)만 취하고 트랜잭션 의미론(청크 롤백·프레임워크 retry/skip)은 쓰지 않는다. 실행은 run-to-completion(ECS, `--spring.batch.job.name=foodVectorSyncJob`).
+- **Rationale**: 처리 본체가 외부 호출(임베딩·DocumentDB)이라 청크 DB 트랜잭션·롤백·프레임워크 재시도는 정합성을 못 지킨다(롤백해도 외부 반영은 안 되돌아감) — 재시도는 아웃박스 attempts, 멱등은 embeddingHash 가 소유한다(헌법 Additional Constraints). 그 제약 안에서 chunk 구조가 주는 실측 이득 — `BATCH_STEP_EXECUTION` 의 read/write/commit count 실값, 결과 기록의 청크 단위 커밋(건별→청크별), 표준 역할 분리 — 은 파일 2개 비용보다 크다.
+- **이력**: 초안은 Tasklet 통짜(콘텐츠 발행 잡 패턴 복제 — "표준 기능을 안 쓸 거면 구조도 최소" 판단)였으나, 구조적 이점 재평가로 chunk 전환. 콘텐츠 발행 잡(Tasklet)과 스타일이 갈리는 것은 감수 — 워크로드 형태가 다르고(벌크 SQS 발행 vs 행 단위 판정) 기존 잡 개조는 범위 밖.
+- 근거 코드: `batch/src/main/kotlin/com/kbap/batch/vector/{FoodVectorOutboxItemReader,FoodVectorSyncItemProcessor,FoodVectorSyncResultWriter,FoodVectorSyncBatchConfig}.kt`.
 
 ## R5. 벡터 저장소 접근은 `:common` 의 food 컨텍스트 소유 — food 의 제2 영속으로 취급 (2026-08-12 개정)
 

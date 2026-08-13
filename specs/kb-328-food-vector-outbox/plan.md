@@ -88,9 +88,10 @@ api/src/main/resources/db/migration/
 └── V<timestamp>__food_vector_outbox_table.sql   # 신규 — 테이블 생성 (백필 없음 — 수동 적재, R9 재개정)
 
 batch/src/main/kotlin/com/kbap/batch/vector/
-├── FoodVectorSyncBatchConfig.kt         # 신규 — foodVectorSyncJob/step (Tasklet) + store 빈 조립
-├── FoodVectorSyncProcessor.kt           # 신규 — 페이지 조회→임베딩/스토어(트랜잭션 밖)→결과 반영
-└── FoodVectorSyncSummary.kt             # 신규 — 실행 결과 요약(로그)
+├── FoodVectorSyncBatchConfig.kt         # 신규 — chunk 스텝·잡 + store 빈 조립 (스텝 트랜잭션은 Resourceless)
+├── FoodVectorOutboxItemReader.kt        # 신규 — PENDING 커서 페이징 리더 (ItemStream)
+├── FoodVectorSyncItemProcessor.kt       # 신규 — 판정·임베딩·DocumentDB 반영 (외부 호출 트랜잭션 밖, 예외→Outcome)
+└── FoodVectorSyncResultWriter.kt        # 신규 — 청크 단위 아웃박스 상태 기록 + Outcome/Summary 타입
 batch/src/main/resources/application.yml  # 수정 — kbap.llm.embedding.*(dimension 256)·kbap.vector.* 신설
 
 api/src/test/kotlin/com/kbap/api/admin/   # 승인·수정·삭제 훅 통합 테스트
