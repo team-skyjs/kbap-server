@@ -792,6 +792,21 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("메뉴판이 아닌 사진이라 추출 항목이 0개면") {
+                then("400 SCAN-003 으로 거절한다") {
+                    val memberId = 620L
+                    val path = "scan/620/landscape.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, emptyList())
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.code") { value("SCAN-003") }
+                    }
+                }
+            }
+
             `when`("v2 요청 본문에 items 가 섞여 들어오면") {
                 then("무시되고 서버 OCR(빈 힌트)로 추출한다") {
                     val memberId = 602L
