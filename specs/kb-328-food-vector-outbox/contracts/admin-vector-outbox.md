@@ -10,7 +10,8 @@ REST admin API 를 만들지 않는다 — 기존 관리자 화면(`/admin/foods
 ## 수동 벡터 적재 (2026-08-13 추가 — 구 Flyway 백필 대체)
 
 - `POST /admin/foods/vector-outboxes/enqueue` (form)
-- 효과: **READY·ACTIVE 음식만** 대상으로 UPSERT/PENDING 아웃박스 생성. 같은 (foodId, UPSERT) PENDING 존재 시 건너뜀(중복 억제). **1회 지시당 상한 500건**(재수집 `RECOLLECT_MAX` 와 동형) — 대상이 더 많으면 반복 지시.
+- 효과: **READY·ACTIVE 이면서 UPSERT 아웃박스가 아예 없는(미적재) 음식만** 대상으로 UPSERT/PENDING 생성 — 상태 무관 any-exists 제외라 반복 클릭 시 배치 실행 여부와 무관하게 다음 건들로 전진한다. **1회 지시당 상한 500건** — 대시보드의 "미적재 READY 음식" 카운트(`vector-outbox-count-UNENQUEUED`)가 0 이 될 때까지 반복 지시.
+- **초기 적재 전용** — 이미 적재된(COMPLETE) 음식의 재적재는 이 버튼으로 불가. 재적재 경로는 관리자 수정 훅·FAILED 재처리이며, 랭체인 재수집 후 재적재는 후속 판단(R9).
 - 응답: 대시보드로 redirect. 처리 자체는 다음 `foodVectorSyncJob` 실행이 담당.
 
 ## 재처리

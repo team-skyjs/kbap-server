@@ -5,6 +5,7 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -43,14 +44,15 @@ class AdminFoodDashboardService(
             pending = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.PENDING),
             complete = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.COMPLETE),
             failed = vectorOutboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.FAILED),
+            unenqueued = foodRepository.countReadyWithoutVectorUpsertOutbox(),
             failures = failures.map { AdminVectorOutboxRowView.from(it, displayNames[it.foodId]) },
         )
     }
 
     @Transactional
     fun enqueueReadyFoodsForVectorSync() {
-        foodRepository.findReadyIdsWithoutPendingVectorUpsert(PageRequest.of(0, ENQUEUE_MAX))
-            .forEach { vectorOutboxRepository.enqueueIfAbsent(it, FoodVectorOutboxOperation.UPSERT) }
+        val targetIds = foodRepository.findReadyIdsWithoutVectorUpsertOutbox(PageRequest.of(0, ENQUEUE_MAX))
+        vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
     }
 
     @Transactional
@@ -70,6 +72,7 @@ data class AdminVectorOutboxDashboardView(
     val pending: Long,
     val complete: Long,
     val failed: Long,
+    val unenqueued: Long,
     val failures: List<AdminVectorOutboxRowView>,
 )
 

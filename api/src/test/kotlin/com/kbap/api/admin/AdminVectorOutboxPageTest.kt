@@ -156,6 +156,21 @@ class AdminVectorOutboxPageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미 적재를 마친 음식에 다시 지시하면") {
+                then("새 대기 건을 쌓지 않는다 — 배치가 사이에 돌아도 같은 음식이 다시 뽑히지 않는다") {
+                    clear()
+                    val food = saveReadyFood("갈비탕")
+                    val completed = vectorOutboxRepository.save(
+                        FoodVectorOutbox.upsert(food.id).apply { complete() },
+                    )
+
+                    mockMvc.post("/admin/foods/vector-outboxes/enqueue") { cookie(adminCookie()) }
+                        .andExpect { status { is3xxRedirection() } }
+
+                    vectorOutboxRepository.findAll().map { it.id } shouldBe listOf(completed.id)
+                }
+            }
+
             `when`("이미 적재 대기 중인 음식에 다시 지시하면") {
                 then("중복해서 쌓지 않는다") {
                     clear()

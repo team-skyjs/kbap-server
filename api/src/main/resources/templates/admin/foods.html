@@ -88,10 +88,15 @@
     <p class="page-desc">검색용 벡터 저장소 반영 현황입니다. 실패 건은 재처리하면 다음 배치에서 다시 시도합니다.</p>
 
     <form th:action="@{/admin/foods/vector-outboxes/enqueue}" method="post" style="margin-bottom: 12px">
-        <button type="submit" class="btn">조회 가능 음식 적재 요청</button>
+        <button type="submit" class="btn">미적재 음식 벡터 적재</button>
     </form>
 
     <div class="stat-grid">
+        <div class="card stat-card">
+            <div class="stat-label">미적재 READY 음식</div>
+            <div class="stat-num" id="vector-outbox-count-UNENQUEUED"
+                 th:text="${#numbers.formatInteger(vectorOutbox.unenqueued, 0, 'COMMA')}">0</div>
+        </div>
         <div class="card stat-card">
             <div class="stat-label">동기화 대기</div>
             <div class="stat-num" id="vector-outbox-count-PENDING"
