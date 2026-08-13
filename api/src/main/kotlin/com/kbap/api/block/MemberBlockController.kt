@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/members/me/blocks")
+@RequestMapping(ApiPaths.API + "/members/me/blocks")
 class MemberBlockController(
     private val memberBlockService: MemberBlockService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,

@@ -52,7 +52,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
         }
 
         fun registerBookmark(token: String, foodId: Long) =
-            mockMvc.post("/api/v1/bookmarks") {
+            mockMvc.post("/api/bookmarks") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = """{"foodId":$foodId}"""
@@ -64,7 +64,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     val token = accessToken(31L)
                     registerBookmark(token, 1L)
 
-                    mockMvc.get("/api/v1/foods/1?lang=ko") {
+                    mockMvc.get("/api/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
@@ -77,11 +77,11 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 then("bookmarked=false 를 반환한다") {
                     val token = accessToken(32L)
                     registerBookmark(token, 1L)
-                    mockMvc.patch("/api/v1/bookmarks/1") {
+                    mockMvc.patch("/api/bookmarks/1") {
                         header("Authorization", "Bearer $token")
                     }.andExpect { status { isOk() } }
 
-                    mockMvc.get("/api/v1/foods/1?lang=ko") {
+                    mockMvc.get("/api/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
@@ -92,7 +92,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
 
             `when`("비회원이 상세를 조회하면") {
                 then("bookmarked=false 를 반환한다") {
-                    mockMvc.get("/api/v1/foods/1?lang=ko").andExpect {
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.bookmarked") { value(false) }
                     }
@@ -105,7 +105,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     registerBookmark(tokenA, 1L)
                     val tokenB = accessToken(34L)
 
-                    mockMvc.get("/api/v1/foods/1?lang=ko") {
+                    mockMvc.get("/api/foods/1?lang=ko") {
                         header("Authorization", "Bearer $tokenB")
                     }.andExpect {
                         status { isOk() }
@@ -121,7 +121,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
                     val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                         header("Authorization", "Bearer $token")
                     }.andExpect {
@@ -146,7 +146,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 12L, "SOY", "CLAM")
                     val token = tokenIssuer.issueAccessToken(12L, MemberRole.USER)
 
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                         header("Authorization", "Bearer $token")
                     }.andExpect {
@@ -164,7 +164,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
 
             `when`("비회원이 성분이 있는 foodId 를 조회하면") {
                 then("교집합이 없으므로 ingredients 는 빈 배열이고 overallRiskStatus 는 SAFE 다") {
-                    mockMvc.get("/api/v1/foods/1") {
+                    mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -179,7 +179,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 then("200 과 함께 ingredients 를 빈 배열로 반환한다") {
                     FoodTestSeed.seedPlainRice(dataSource)
 
-                    mockMvc.get("/api/v1/foods/3") {
+                    mockMvc.get("/api/foods/3") {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }

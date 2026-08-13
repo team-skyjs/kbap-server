@@ -85,12 +85,12 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
         }
 
         fun detail(foodId: Long, token: String? = null): ResultActionsDsl =
-            mockMvc.get("/api/v1/foods/$foodId") {
+            mockMvc.get("/api/foods/$foodId") {
                 param("lang", "ko")
                 token?.let { header("Authorization", "Bearer $it") }
             }
 
-        given("음식 상세 리뷰 섹션 — GET /api/v1/foods/{foodId}") {
+        given("음식 상세 리뷰 섹션 — GET /api/foods/{foodId}") {
             `when`("별점 4·5·2 리뷰가 있는 음식을 KR 회원이 조회하면") {
                 then("전체·같은 국적 리뷰 요약이 각각의 묶음으로 내려간다") {
                     seedFood(920L, "리뷰섹션김치찌개")

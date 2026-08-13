@@ -63,7 +63,7 @@ class MemberBlockControllerTest : BehaviorSpec() {
         }
 
         fun block(token: String?, targetMemberId: Long?): ResultActionsDsl =
-            mockMvc.post("/api/v1/members/me/blocks") {
+            mockMvc.post("/api/members/me/blocks") {
                 token?.let { header("Authorization", "Bearer $it") }
                 contentType = MediaType.APPLICATION_JSON
                 content = mapper.writeValueAsString(
@@ -71,7 +71,7 @@ class MemberBlockControllerTest : BehaviorSpec() {
                 )
             }
 
-        given("차단 등록 — POST /api/v1/members/me/blocks") {
+        given("차단 등록 — POST /api/members/me/blocks") {
             `when`("다른 회원을 차단하면") {
                 then("200 success 를 반환한다") {
                     val token = accessToken(9101L)
@@ -128,9 +128,9 @@ class MemberBlockControllerTest : BehaviorSpec() {
             }
         }
 
-        given("차단 해제 — DELETE /api/v1/members/me/blocks/{memberId}") {
+        given("차단 해제 — DELETE /api/members/me/blocks/{memberId}") {
             fun unblock(token: String?, targetMemberId: Long): ResultActionsDsl =
-                mockMvc.delete("/api/v1/members/me/blocks/$targetMemberId") {
+                mockMvc.delete("/api/members/me/blocks/$targetMemberId") {
                     token?.let { header("Authorization", "Bearer $it") }
                 }
 
@@ -162,10 +162,10 @@ class MemberBlockControllerTest : BehaviorSpec() {
             }
         }
 
-        given("차단 목록 — GET /api/v1/members/me/blocks") {
+        given("차단 목록 — GET /api/members/me/blocks") {
             fun blockedList(token: String?): JsonNode =
                 mapper.readTree(
-                    mockMvc.get("/api/v1/members/me/blocks") {
+                    mockMvc.get("/api/members/me/blocks") {
                         token?.let { header("Authorization", "Bearer $it") }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8),
                 ).path("payload")
@@ -212,7 +212,7 @@ class MemberBlockControllerTest : BehaviorSpec() {
                     val token = accessToken(9126L)
                     seedMember(9127L)
                     block(token, 9127L).andExpect { status { isOk() } }
-                    mockMvc.delete("/api/v1/members/me/blocks/9127") {
+                    mockMvc.delete("/api/members/me/blocks/9127") {
                         header("Authorization", "Bearer $token")
                     }.andExpect { status { isOk() } }
 
@@ -236,7 +236,7 @@ class MemberBlockControllerTest : BehaviorSpec() {
             }
             `when`("토큰 없이 조회하면") {
                 then("401 을 반환한다") {
-                    mockMvc.get("/api/v1/members/me/blocks")
+                    mockMvc.get("/api/members/me/blocks")
                         .andExpect { status { isUnauthorized() } }
                 }
             }

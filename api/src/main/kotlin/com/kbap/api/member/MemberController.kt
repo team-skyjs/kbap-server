@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(ApiPaths.V1 + "/members")
+@RequestMapping(ApiPaths.API + "/members")
 class MemberController(
     private val memberService: MemberService,
 ) : MemberApi {

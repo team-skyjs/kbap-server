@@ -108,7 +108,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     seedBookmarkRow(300L, 2L)
                     val token = tokenIssuer.issueAccessToken(300L, MemberRole.USER)
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko") {
+                    val json = mockMvc.get("/api/foods?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val byId = mapper.readTree(json).path("payload").path("items").toList()
@@ -125,7 +125,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     seedFoods(3)
                     seedBookmarkRow(301L, 2L)
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                    val json = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val items = mapper.readTree(json).path("payload").path("items").toList()
 
@@ -142,7 +142,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("200 과 함께 최신순 20개·hasNext·nextCursor 를 BaseResponse 봉투로 반환한다") {
                     seedFoods(25)
 
-                    mockMvc.get("/api/v1/foods?lang=ko").andExpect {
+                    mockMvc.get("/api/foods?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.items.length()") { value(20) }
@@ -156,12 +156,12 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("두 페이지 사이 foodId 가 겹치지 않는다") {
                     seedFoods(25)
 
-                    val firstJson = mockMvc.get("/api/v1/foods?lang=ko")
+                    val firstJson = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val firstIds = foodIdsOf(firstJson)
                     val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
 
-                    val secondJson = mockMvc.get("/api/v1/foods?lang=ko") {
+                    val secondJson = mockMvc.get("/api/foods?lang=ko") {
                         param("cursor", nextCursor.toString())
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val secondIds = foodIdsOf(secondJson)
@@ -178,7 +178,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("항목 표시명이 영어로 지역화된다") {
                     seedLocalizedFood()
 
-                    mockMvc.get("/api/v1/foods") {
+                    mockMvc.get("/api/foods") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -191,7 +191,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("항목 표시명이 한국어로 폴백된다") {
                     seedLocalizedFood()
 
-                    mockMvc.get("/api/v1/foods?lang=ko").andExpect {
+                    mockMvc.get("/api/foods?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.items[0].name") { value("김치찌개") }
                     }
@@ -202,7 +202,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("foodId·imageRef·spiciness·overallRiskStatus 필드 계약을 만족한다") {
                     seedLocalizedFood()
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                    val json = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val item = mapper.readTree(json).path("payload").path("items").path(0)
 
@@ -223,7 +223,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("항목 koreanName 에 한국어 원문을 담는다") {
                     seedLocalizedFood()
 
-                    mockMvc.get("/api/v1/foods") {
+                    mockMvc.get("/api/foods") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
@@ -237,7 +237,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("항목 koreanName 은 응답에 명시적 null 로 존재한다") {
                     seedLocalizedFood()
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                    val json = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val item = mapper.readTree(json).path("payload").path("items").path(0)
 
@@ -273,7 +273,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     seedReview(311L, 1L, 5)
                     seedReview(312L, 1L, 4)
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                    val json = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val byId = mapper.readTree(json).path("payload").path("items").toList()
                         .associateBy { it.path("foodId").asLong() }
@@ -292,7 +292,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     seedReview(313L, 1L, 5)
                     seedReview(314L, 1L, 1, status = "DELETED")
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko")
+                    val json = mockMvc.get("/api/foods?lang=ko")
                         .andReturn().response.getContentAsString(Charsets.UTF_8)
                     val item = mapper.readTree(json).path("payload").path("items").path(0)
 
@@ -307,7 +307,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("200 과 함께 빈 배열·hasNext=false·nextCursor=null 을 BaseResponse 봉투로 반환한다") {
                     seedFoods(3)
 
-                    val json = mockMvc.get("/api/v1/foods?lang=ko") {
+                    val json = mockMvc.get("/api/foods?lang=ko") {
                         param("cursor", "1")
                     }.andExpect {
                         status { isOk() }
@@ -325,7 +325,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
                     seedFoods(3)
 
-                    mockMvc.get("/api/v1/foods?lang=ko") {
+                    mockMvc.get("/api/foods?lang=ko") {
                         param("cursor", "abc")
                     }.andExpect {
                         status { isBadRequest() }
@@ -339,7 +339,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
                     seedFoods(3)
 
-                    mockMvc.get("/api/v1/foods?lang=ko") {
+                    mockMvc.get("/api/foods?lang=ko") {
                         param("cursor", "-1")
                     }.andExpect {
                         status { isBadRequest() }
@@ -353,7 +353,7 @@ class FoodListControllerTest : BehaviorSpec() {
                 then("400 이 아니라 200 과 success=true 로 응답한다") {
                     seedFoods(3)
 
-                    mockMvc.get("/api/v1/foods") {
+                    mockMvc.get("/api/foods") {
                         param("lang", "xx")
                     }.andExpect {
                         status { isOk() }

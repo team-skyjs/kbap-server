@@ -84,7 +84,7 @@ class AuthControllerTest : BehaviorSpec() {
             }
 
         fun login(idToken: String = "valid-token") =
-            mockMvc.post("/api/v1/auth/login") {
+            mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("idToken" to idToken))
             }
@@ -93,31 +93,31 @@ class AuthControllerTest : BehaviorSpec() {
             objectMapper.readTree(response.contentAsString).path("payload").path(field).asText()
 
         fun refresh(refreshToken: String?) =
-            mockMvc.post("/api/v1/auth/refresh") {
+            mockMvc.post("/api/auth/refresh") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("refreshToken" to refreshToken))
             }
 
         fun logout(refreshToken: String?) =
-            mockMvc.post("/api/v1/auth/logout") {
+            mockMvc.post("/api/auth/logout") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("refreshToken" to refreshToken))
             }
 
         fun withdraw(token: String?) =
-            mockMvc.patch("/api/v1/auth/withdraw") {
+            mockMvc.patch("/api/auth/withdraw") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 
         fun loginAccessToken(): String = bodyToken(login().andReturn().response, "accessToken")
 
         fun getMyProfile(token: String?) =
-            mockMvc.get("/api/v1/members/me/profile") {
+            mockMvc.get("/api/members/me/profile") {
                 if (token != null) header("Authorization", "Bearer $token")
             }
 
         fun submitOnboarding(token: String, body: Map<String, Any?>) =
-            mockMvc.post("/api/v1/members/me/onboarding") {
+            mockMvc.post("/api/members/me/onboarding") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(body)

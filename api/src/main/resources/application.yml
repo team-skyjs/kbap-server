@@ -45,7 +45,7 @@ kbap:
       # 서비스 계정 키를 주는 방법은 두 가지이며 json 이 우선한다.
       #  1) credentials-json — 키 파일 내용(base64 권장). 파일을 두지 않아도 되므로 머신·컨테이너·CI 어디서나 동일하다.
       #  2) credentials-path — 키 파일 경로. 파일 마운트를 쓰는 배포 환경용.
-      # 둘 다 없으면 항상 거절하는 폴백 검증기가 등록되어 부팅은 정상이고 /api/v1/auth/login 만 401 이다.
+      # 둘 다 없으면 항상 거절하는 폴백 검증기가 등록되어 부팅은 정상이고 /api/auth/login 만 401 이다.
       # 키는 저장소에 커밋하지 않는다 — 주입 경로는 .env.example / specs/kb-118-firebase-jwt-auth/quickstart.md.
       credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
       credentials-path: ${FIREBASE_CREDENTIALS_PATH:}

@@ -56,7 +56,7 @@ interface ScanV2Api {
             ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격·유사 음식 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·지원하지 않는 통화 코드(MEMBER-010)",
+                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·지원하지 않는 통화 코드(MEMBER-010)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),

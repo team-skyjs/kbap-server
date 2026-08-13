@@ -299,7 +299,7 @@ interface MemberApi {
         operationId = "updateProfileNoCountry",
         summary = "프로필 수정 (부분 수정) — X-API-Version 1.1 이상",
         description = """
-            같은 경로 `PATCH /api/v1/members/me/profile` 을 `X-API-Version: 1.1` 이상으로 호출하면 이 버전으로 라우팅된다.
+            같은 경로 `PATCH /api/members/me/profile` 을 `X-API-Version: 1.1` 이상으로 호출하면 이 버전으로 라우팅된다.
             클라이언트는 URL 을 바꾸지 않고 헤더만 올리면 된다(헤더가 없거나 1.1 미만이면 위의 기본 버전이 응답한다).
             온보딩의 `1.1` 과 같은 릴리스 마커다.
 

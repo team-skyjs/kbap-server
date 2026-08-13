@@ -23,7 +23,7 @@ class CorsConfigTest : BehaviorSpec() {
         given("CORS 프리플라이트 요청") {
             `when`("다른 Origin 에서 /api 경로로 GET 프리플라이트를 보내면") {
                 then("요청 Origin 을 반사한 Access-Control-Allow-Origin 과 credentials 허용 헤더를 응답한다") {
-                    mockMvc.options("/api/v1/foods/1") {
+                    mockMvc.options("/api/foods/1") {
                         header("Origin", "http://localhost:3000")
                         header("Access-Control-Request-Method", "GET")
                     }.andExpect {

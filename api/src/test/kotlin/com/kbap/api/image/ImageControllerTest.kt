@@ -66,13 +66,13 @@ class ImageControllerTest : BehaviorSpec() {
         fun body(path: String, contentType: String, size: Long) =
             mapper.writeValueAsString(mapOf("path" to path, "contentType" to contentType, "size" to size))
 
-        given("업로드 완료 신고 — POST /api/v1/images/complete") {
+        given("업로드 완료 신고 — POST /api/images/complete") {
             `when`("실제 오브젝트가 사진이고 신고값과 일치하면") {
                 then("200 과 경로를 반환하고 이미지를 기록한다") {
                     val path = "scan/1/success.jpg"
                     storage.stub(path, "image/jpeg", 1048576)
 
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(1L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, "image/jpeg", 1048576)
@@ -91,7 +91,7 @@ class ImageControllerTest : BehaviorSpec() {
                     val path = "scan/2/clip.mp4"
                     storage.stub(path, "video/mp4", 5048576)
 
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(2L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, "video/mp4", 5048576)
@@ -110,7 +110,7 @@ class ImageControllerTest : BehaviorSpec() {
                     val path = "scan/3/mismatch.jpg"
                     storage.stub(path, "image/jpeg", 2048)
 
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(3L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, "image/jpeg", 9999)
@@ -128,7 +128,7 @@ class ImageControllerTest : BehaviorSpec() {
                 then("400 IMAGE-003 으로 거절한다") {
                     val path = "scan/4/missing.jpg"
 
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(4L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body(path, "image/jpeg", 1024)
@@ -145,7 +145,7 @@ class ImageControllerTest : BehaviorSpec() {
                     storage.stub(path, "image/png", 3000)
 
                     repeat(2) {
-                        mockMvc.post("/api/v1/images/complete") {
+                        mockMvc.post("/api/images/complete") {
                             header("Authorization", "Bearer ${accessToken(5L)}")
                             contentType = MediaType.APPLICATION_JSON
                             content = body(path, "image/png", 3000)
@@ -159,7 +159,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("경로 대신 전체 URL 을 넘기면") {
                 then("400 으로 거절한다(경로만 허용)") {
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(6L)}")
                         contentType = MediaType.APPLICATION_JSON
                         content = body("https://cdn.example.com/scan/6/x.jpg", "image/jpeg", 1024)
@@ -172,7 +172,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("액세스 토큰 없이 호출하면") {
                 then("401 을 반환한다") {
-                    mockMvc.post("/api/v1/images/complete") {
+                    mockMvc.post("/api/images/complete") {
                         contentType = MediaType.APPLICATION_JSON
                         content = body("scan/7/x.jpg", "image/jpeg", 1024)
                     }.andExpect {

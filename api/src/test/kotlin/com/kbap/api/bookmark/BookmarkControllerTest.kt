@@ -39,7 +39,7 @@ class BookmarkControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        val path = "/api/v1/bookmarks"
+        val path = "/api/bookmarks"
 
         fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
@@ -105,7 +105,7 @@ class BookmarkControllerTest : BehaviorSpec() {
             dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
         }
 
-        given("음식 북마크 등록 API — POST /api/v1/bookmarks") {
+        given("음식 북마크 등록 API — POST /api/bookmarks") {
             `when`("유효한 foodId 로 등록하면") {
                 then("200 과 success=true 를 반환하고 목록에 담긴다") {
                     val token = accessToken(200L)
@@ -158,7 +158,7 @@ class BookmarkControllerTest : BehaviorSpec() {
             }
         }
 
-        given("음식 북마크 취소 API — PATCH /api/v1/bookmarks/{foodId}") {
+        given("음식 북마크 취소 API — PATCH /api/bookmarks/{foodId}") {
             `when`("등록한 음식을 취소하면") {
                 then("200 과 success=true 를 반환하고 목록에서 사라진다") {
                     val token = accessToken(210L)
@@ -231,7 +231,7 @@ class BookmarkControllerTest : BehaviorSpec() {
             }
         }
 
-        given("음식 북마크 목록 API — GET /api/v1/bookmarks") {
+        given("음식 북마크 목록 API — GET /api/bookmarks") {
             `when`("여러 음식을 순서대로 등록하고 목록을 조회하면") {
                 then("최근 등록한 음식이 맨 앞에 오는 최신순으로 반환한다") {
                     val token = accessToken(220L)
