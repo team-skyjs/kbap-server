@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API)
 class PlaceController(
-    private val placeSearchService: PlaceSearchService,
+    private val placeService: PlaceService,
 ) : PlaceApi {
     @GetMapping("/places/nearby")
     override fun getNearbyPlaces(
         @AuthMemberId memberId: Long,
         @Valid @ModelAttribute request: PlaceNearbyRequest,
     ): ResponseEntity<BaseResponse<PlaceNearbyResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(placeSearchService.getNearbyPlaces(request.latitude!!, request.longitude!!)))
+        ResponseEntity.ok(BaseResponse.ok(placeService.getNearbyPlaces(request.latitude!!, request.longitude!!)))
 
     @GetMapping("/places/search")
     override fun searchPlaces(
@@ -29,7 +29,7 @@ class PlaceController(
     ): ResponseEntity<BaseResponse<PlaceSearchPageResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                placeSearchService.searchPlacePage(request.query!!, request.latitude!!, request.longitude!!, request.page),
+                placeService.searchPlacePage(request.query!!, request.latitude!!, request.longitude!!, request.page),
             ),
         )
 }

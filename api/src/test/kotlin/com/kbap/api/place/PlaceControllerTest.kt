@@ -107,7 +107,7 @@ class PlaceControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.hasNext") { doesNotExist() }
                     }
                     fakePlaceSearchClient.requests.last() shouldBe RecordedSearch(
-                        query = PlaceSearchService.RESTAURANT_KEYWORD,
+                        query = PlaceService.RESTAURANT_KEYWORD,
                         longitude = BigDecimal("127.0276368"),
                         latitude = BigDecimal("37.4979502"),
                         page = null,

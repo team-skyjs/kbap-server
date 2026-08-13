@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service
 import java.math.BigDecimal
 
 @Service
-class PlaceSearchService(
+class PlaceService(
     private val placeSearchClient: PlaceSearchClient,
 ) {
     fun getNearbyPlaces(latitude: BigDecimal, longitude: BigDecimal): PlaceNearbyResponse =
