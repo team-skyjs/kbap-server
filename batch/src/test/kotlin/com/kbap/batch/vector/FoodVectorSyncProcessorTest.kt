@@ -15,6 +15,8 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import org.springframework.batch.infrastructure.item.Chunk
+import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -86,15 +88,18 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
         fun processor(
             embeddingClient: TextEmbeddingClient,
             vectorStore: FoodVectorStore,
-        ) = FoodVectorSyncProcessor(
-            outboxRepository,
-            foodRepository,
-            embeddingClient,
-            vectorStore,
-            transactionManager,
-            embeddingModel,
-            embeddingDimension,
-            pageSize = 2,
+        ) = FoodVectorSyncStepDriver(
+            reader = FoodVectorOutboxItemReader(outboxRepository, transactionManager, pageSize = 2),
+            itemProcessor = FoodVectorSyncItemProcessor(
+                foodRepository,
+                transactionManager,
+                embeddingClient,
+                vectorStore,
+                embeddingModel,
+                embeddingDimension,
+            ),
+            writer = FoodVectorSyncResultWriter(outboxRepository, transactionManager),
+            chunkSize = 2,
         )
 
         given("적재 대기 건 처리") {
@@ -398,5 +403,29 @@ private class InMemoryFoodVectorStore : FoodVectorStore {
 
     override fun delete(foodId: Long) {
         documents.remove(foodId)
+    }
+}
+
+private class FoodVectorSyncStepDriver(
+    private val reader: FoodVectorOutboxItemReader,
+    private val itemProcessor: FoodVectorSyncItemProcessor,
+    private val writer: FoodVectorSyncResultWriter,
+    private val chunkSize: Int,
+) {
+    fun syncAll(): FoodVectorSyncSummary {
+        reader.open(ExecutionContext())
+        val pending = mutableListOf<FoodVectorSyncOutcome>()
+        while (true) {
+            val item = reader.read() ?: break
+            pending += requireNotNull(itemProcessor.process(item))
+            if (pending.size == chunkSize) {
+                writer.write(Chunk(pending.toList()))
+                pending.clear()
+            }
+        }
+        if (pending.isNotEmpty()) {
+            writer.write(Chunk(pending.toList()))
+        }
+        return writer.summary()
     }
 }
