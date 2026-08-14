@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -27,10 +29,39 @@ class IngredientControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     private fun getIngredients(query: String) =
         mockMvc.get("/api/ingredients$query").andReturn().response.getContentAsString(Charsets.UTF_8)
+
+    private fun seedMember(memberId: Long): Unit =
+        dataSource.connection.use { c ->
+            c.prepareStatement(
+                """
+                INSERT INTO member (id, provider, provider_uid, member_status,
+                                    onboarding_completed, status, created_at, updated_at)
+                VALUES (?, 'GOOGLE', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                ON DUPLICATE KEY UPDATE id = id
+                """,
+            ).use { ps ->
+                ps.setLong(1, memberId)
+                ps.setString(2, "ingredient-test-$memberId")
+                ps.executeUpdate()
+            }
+        }
+
+    private fun accessToken(memberId: Long): String {
+        seedMember(memberId)
+        return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+    }
+
+    private fun getDiets(query: String, token: String) =
+        mockMvc.get("/api/ingredients/diets$query") {
+            header("Authorization", "Bearer $token")
+        }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
     init {
         beforeSpec {
@@ -98,6 +129,67 @@ class IngredientControllerTest : BehaviorSpec() {
 
                     mapper.readTree(json).path("payload").path("ingredients")
                         .first().path("name").asText() shouldBe "Egg"
+                }
+            }
+        }
+
+        given("diet 카테고리별 회피 재료 매핑 조회") {
+            `when`("유효 토큰으로 lang=ko 조회하면") {
+                then("15종 카테고리가 기획 순서로, 카테고리별 재료가 id·이름과 함께 내려온다") {
+                    val json = getDiets("?lang=ko", accessToken(9101L))
+
+                    val diets = mapper.readTree(json).path("payload").path("diets")
+                    diets.size() shouldBe 15
+                    diets.first().path("code").asText() shouldBe "VEGAN"
+                    diets.first().path("name").asText() shouldBe "비건"
+                    diets.first().path("ingredients").size() shouldBe 41
+
+                    val glutenFree = diets.first { it.path("code").asText() == "GLUTEN_FREE" }
+                    glutenFree.path("ingredients").map { it.path("name").asText() } shouldBe
+                        listOf("밀", "보리", "호밀", "귀리")
+
+                    val ingredientIds = glutenFree.path("ingredients").map { it.path("id").asLong() }
+                    ingredientIds shouldBe ingredientIds.sorted()
+                }
+            }
+
+            `when`("토큰 없이 조회하면") {
+                then("401 로 거절한다") {
+                    mockMvc.get("/api/ingredients/diets?lang=ko").andExpect {
+                        status { isUnauthorized() }
+                    }
+                }
+            }
+
+            `when`("lang 없이 조회하면") {
+                then("400 COMMON-002 로 거절한다") {
+                    mockMvc.get("/api/ingredients/diets") {
+                        header("Authorization", "Bearer ${accessToken(9101L)}")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("지원 언어 lang=en 으로 조회하면") {
+                then("재료명이 영어 표시명으로 내려오고 카테고리명은 한국어를 유지한다") {
+                    val json = getDiets("?lang=en", accessToken(9101L))
+
+                    val glutenFree = mapper.readTree(json).path("payload").path("diets")
+                        .first { it.path("code").asText() == "GLUTEN_FREE" }
+                    glutenFree.path("name").asText() shouldBe "글루텐 프리"
+                    glutenFree.path("ingredients").first().path("name").asText() shouldBe "Wheat"
+                }
+            }
+
+            `when`("지원하지 않는 lang=fr 로 조회하면") {
+                then("400 이 아니라 영어 표시명으로 응답한다") {
+                    val json = getDiets("?lang=fr", accessToken(9101L))
+
+                    mapper.readTree(json).path("payload").path("diets")
+                        .first { it.path("code").asText() == "GLUTEN_FREE" }
+                        .path("ingredients").first().path("name").asText() shouldBe "Wheat"
                 }
             }
         }

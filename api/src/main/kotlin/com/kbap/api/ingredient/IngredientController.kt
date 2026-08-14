@@ -22,4 +22,12 @@ class IngredientController(
         ResponseEntity.ok(
             BaseResponse.ok(ingredientQueryService.getIngredients(LanguageCode.from(request.lang))),
         )
+
+    @GetMapping("/diets")
+    override fun getDietIngredientMappings(
+        @Valid @ModelAttribute request: DietListRequest,
+    ): ResponseEntity<BaseResponse<DietListResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(ingredientQueryService.getDietIngredientMappings(LanguageCode.from(request.lang))),
+        )
 }

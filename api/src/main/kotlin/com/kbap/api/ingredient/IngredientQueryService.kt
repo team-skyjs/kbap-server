@@ -24,4 +24,21 @@ class IngredientQueryService(
                 )
             },
         )
+
+    @Transactional(readOnly = true)
+    fun getDietIngredientMappings(lang: LanguageCode): DietListResponse {
+        val ingredientsByCode = ingredientRepository.findAll().associateBy { it.code }
+        return DietListResponse(
+            diets = DietCategory.entries.map { category ->
+                DietItemResponse(
+                    code = category.name,
+                    name = category.koreanName,
+                    ingredients = category.avoidedIngredients
+                        .mapNotNull { ingredientsByCode[it] }
+                        .sortedBy { it.id }
+                        .map { DietIngredientResponse(id = it.id, name = it.displayName(lang)) },
+                )
+            },
+        )
+    }
 }
