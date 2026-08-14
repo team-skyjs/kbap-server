@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API + "/ingredients")
 class IngredientController(
-    private val ingredientQueryService: IngredientQueryService,
+    private val ingredientService: IngredientService,
 ) : IngredientApi {
     @GetMapping
     override fun getIngredients(
         @Valid @ModelAttribute request: IngredientListRequest,
     ): ResponseEntity<BaseResponse<IngredientListResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(ingredientQueryService.getIngredients(LanguageCode.from(request.lang))),
+            BaseResponse.ok(ingredientService.getIngredients(LanguageCode.from(request.lang))),
         )
 
     @GetMapping("/diets")
@@ -28,6 +28,6 @@ class IngredientController(
         @Valid @ModelAttribute request: DietListRequest,
     ): ResponseEntity<BaseResponse<DietListResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(ingredientQueryService.getDietIngredientMappings(LanguageCode.from(request.lang))),
+            BaseResponse.ok(ingredientService.getDietIngredientMappings(LanguageCode.from(request.lang))),
         )
 }
