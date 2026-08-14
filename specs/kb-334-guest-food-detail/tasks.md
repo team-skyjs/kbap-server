@@ -71,8 +71,8 @@
 
 ## Phase 4: Polish & Cross-Cutting
 
-- [ ] T010 [P] `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt` 등 기존 상세 스위트 전체 회귀 — 회원 응답 불변(SC-004) 확인 (`./gradlew :api:test --tests "com.kbap.api.food.*"`)
-- [ ] T011 전체 빌드·테스트 그린 확인 (`./gradlew test`) 후 quickstart.md 수동 검증 절차로 계약 문서와 실응답 대조
+- [X] T010 [P] `api/src/test/kotlin/com/kbap/api/food/FoodDetailRatingTest.kt` 등 기존 상세 스위트 전체 회귀 — 회원 응답 불변(SC-004) 확인 (`./gradlew :api:test --tests "com.kbap.api.food.*"`)
+- [X] T011 전체 빌드·테스트 그린 확인 (`./gradlew test`) 후 quickstart.md 수동 검증 절차로 계약 문서와 실응답 대조
 
 ---
 
