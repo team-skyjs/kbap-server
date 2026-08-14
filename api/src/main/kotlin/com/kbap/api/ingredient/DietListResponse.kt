@@ -22,6 +22,8 @@ data class DietItemResponse(
 data class DietIngredientResponse(
     @field:Schema(description = "재료 id", example = "26")
     val id: Long,
+    @field:Schema(description = "재료 코드(클라이언트 분기용 안정 식별자)", example = "WHEAT")
+    val code: String,
     @field:Schema(description = "요청 언어 표시명(번역 부재 시 한국어)", example = "Wheat")
     val name: String,
 )

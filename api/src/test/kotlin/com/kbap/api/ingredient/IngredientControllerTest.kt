@@ -147,6 +147,8 @@ class IngredientControllerTest : BehaviorSpec() {
                     val glutenFree = diets.first { it.path("code").asText() == "GLUTEN_FREE" }
                     glutenFree.path("ingredients").map { it.path("name").asText() } shouldBe
                         listOf("밀", "보리", "호밀", "귀리")
+                    glutenFree.path("ingredients").map { it.path("code").asText() } shouldBe
+                        listOf("WHEAT", "BARLEY", "RYE", "OAT")
 
                     val ingredientIds = glutenFree.path("ingredients").map { it.path("id").asLong() }
                     ingredientIds shouldBe ingredientIds.sorted()

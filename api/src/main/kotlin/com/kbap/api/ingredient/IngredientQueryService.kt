@@ -36,7 +36,7 @@ class IngredientQueryService(
                     ingredients = category.avoidedIngredients
                         .mapNotNull { ingredientsByCode[it] }
                         .sortedBy { it.id }
-                        .map { DietIngredientResponse(id = it.id, name = it.displayName(lang)) },
+                        .map { DietIngredientResponse(id = it.id, code = it.code.name, name = it.displayName(lang)) },
                 )
             },
         )

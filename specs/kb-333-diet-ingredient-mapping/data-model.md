@@ -53,6 +53,7 @@ DietListResponse
     ├── name: String                         # 한국어 표시명(예: "비건")
     └── ingredients: List<DietIngredientResponse>   # 재료 id 오름차순
         ├── id: Long                         # ingredients.id
+        ├── code: String                     # 재료 코드(예: "WHEAT") — 클라이언트 분기용 안정 식별자
         └── name: String                     # 요청 lang 표시명(미지원 코드→en, 번역 부재→ko)
 ```
 

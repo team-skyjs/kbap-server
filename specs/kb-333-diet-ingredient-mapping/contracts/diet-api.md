@@ -26,18 +26,18 @@ X-API-Version: 1.0
         "code": "VEGAN",
         "name": "비건",
         "ingredients": [
-          { "id": 1, "name": "Egg" },
-          { "id": 2, "name": "Milk" }
+          { "id": 1, "code": "EGG", "name": "Egg" },
+          { "id": 2, "code": "MILK", "name": "Milk" }
         ]
       },
       {
         "code": "GLUTEN_FREE",
         "name": "글루텐 프리",
         "ingredients": [
-          { "id": 26, "name": "Wheat" },
-          { "id": 28, "name": "Barley" },
-          { "id": 29, "name": "Rye" },
-          { "id": 30, "name": "Oat" }
+          { "id": 26, "code": "WHEAT", "name": "Wheat" },
+          { "id": 28, "code": "BARLEY", "name": "Barley" },
+          { "id": 29, "code": "RYE", "name": "Rye" },
+          { "id": 30, "code": "OAT", "name": "Oat" }
         ]
       }
     ]
