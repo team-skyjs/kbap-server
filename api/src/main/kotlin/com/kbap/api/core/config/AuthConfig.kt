@@ -3,8 +3,8 @@ package com.kbap.api.core.config
 import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.port.auth.SocialTokenVerifier
 import com.kbap.api.auth.UnavailableSocialAuth
-import com.kbap.infra.auth.token.JwtTokenProperties
-import com.kbap.infra.auth.firebase.FirebaseSocialAuth
+import com.kbap.api.infra.auth.token.JwtTokenProperties
+import com.kbap.api.infra.auth.firebase.FirebaseSocialAuth
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean

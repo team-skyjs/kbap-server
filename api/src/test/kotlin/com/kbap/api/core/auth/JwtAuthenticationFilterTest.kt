@@ -1,8 +1,8 @@
 package com.kbap.api.core.auth
 
-import com.kbap.infra.auth.token.JwtTokenProperties
-import com.kbap.infra.auth.token.JwtTokenIssuer
-import com.kbap.infra.auth.token.JwtTokenParser
+import com.kbap.api.infra.auth.token.JwtTokenProperties
+import com.kbap.api.infra.auth.token.JwtTokenIssuer
+import com.kbap.api.infra.auth.token.JwtTokenParser
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull

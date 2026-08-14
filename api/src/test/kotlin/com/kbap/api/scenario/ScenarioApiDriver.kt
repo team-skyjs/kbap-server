@@ -2,9 +2,9 @@ package com.kbap.api.scenario
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.infra.auth.token.JwtTokenProperties
+import com.kbap.api.infra.auth.token.JwtTokenProperties
 import com.kbap.common.domain.member.model.MemberRole
-import com.kbap.infra.auth.token.JwtTokenIssuer
+import com.kbap.api.infra.auth.token.JwtTokenIssuer
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc

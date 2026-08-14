@@ -1,6 +1,6 @@
 # ADR-0010: LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존
 
-- **상태**: Accepted (2026-07-06)
+- **상태**: Superseded by ADR-0018
 - **관련**: [specs/kb-49-llm-client-foundation](../../specs/kb-49-llm-client-foundation/plan.md) · Jira KB-49 · [ADR-0008](./0008-modular-monolith-shared-domain.md)(모듈러 모놀리스·batch 직접 의존). ADR-0008 의 "(external/ LLM 등 외부 — 추후 LLM 착수 시 추가)" 예고를 구체화한다.
 
 ## Context

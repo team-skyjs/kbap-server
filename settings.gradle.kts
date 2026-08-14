@@ -19,15 +19,6 @@ rootProject.name = "kbap-server"
 
 include(
     ":common",
-
-
-    ":infra:llm",
-    ":infra:auth",
-    ":infra:redis",
-    ":infra:storage",
-    ":infra:mq",
-    ":infra:place",
-
     ":api",
     ":batch",
 )

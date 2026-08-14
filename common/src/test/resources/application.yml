@@ -1,4 +1,15 @@
 spring:
+  ai:
+    model:
+      # 어댑터(common.infra.llm)가 이 모듈로 들어오며 Spring AI 스타터가 클래스패스에 올라온다(ADR-0018).
+      # 키 없이 자동구성이 떠서 테스트 컨텍스트가 깨지지 않도록 api 와 동일하게 전부 비활성.
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        transcription: none
+        speech: none
   # 영속 어댑터 테스트: MySQL Testcontainers(@ServiceConnection)에 붙되, 이 모듈엔 마이그레이션이 없으므로
   # 스키마는 Hibernate 가 엔티티에서 생성한다(어댑터 매핑 검증 목적, KB-46 D-3).
   # 컨테이너는 테스트 후 폐기되는 일회용이라 drop 이 불필요하다. create-drop 은 fresh DB 에서
