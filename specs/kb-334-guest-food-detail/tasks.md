@@ -39,13 +39,13 @@
 
 ### Tests (Red — 먼저 작성하고 실패 확인) ⚠️
 
-- [ ] T004 [US2] `api/src/test/kotlin/com/kbap/api/food/FoodDetailControllerTest.kt` — 비회원 시나리오 추가: 인증 없이 조회하면 `overallRiskStatus` 가 null 이고 `bookmarked` 는 false, `ingredients` 는 빈 배열이다. 기피성분 겹치는 회원 조회는 기존 위험도(DANGER 등) 유지. 작성 후 Red 확인
+- [X] T004 [US2] `api/src/test/kotlin/com/kbap/api/food/FoodDetailControllerTest.kt` — 비회원 시나리오 추가: 인증 없이 조회하면 `overallRiskStatus` 가 null 이고 `bookmarked` 는 false, `ingredients` 는 빈 배열이다. 기피성분 겹치는 회원 조회는 기존 위험도(DANGER 등) 유지. 작성 후 Red 확인
 
 ### Implementation (Green)
 
-- [ ] T005 [P] [US2] `api/src/main/kotlin/com/kbap/api/food/GetFoodDetailResult.kt` — `overallRiskStatus: RiskLevel` → `RiskLevel?`
-- [ ] T006 [US2] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` — `getDetail` 에서 `input.memberId == null` 이면 `overallRiskStatus = null`, 회원이면 기존 `food.overallRisk(userAvoidedCodes)` 유지
-- [ ] T007 [US2] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `overallRiskStatus: String` → `String?`(`result.overallRiskStatus?.name`), swagger `@Schema` nullable(비회원 null 설명) 반영. T004 Green 확인
+- [X] T005 [P] [US2] `api/src/main/kotlin/com/kbap/api/food/GetFoodDetailResult.kt` — `overallRiskStatus: RiskLevel` → `RiskLevel?`
+- [X] T006 [US2] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` — `getDetail` 에서 `input.memberId == null` 이면 `overallRiskStatus = null`, 회원이면 기존 `food.overallRisk(userAvoidedCodes)` 유지
+- [X] T007 [US2] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `overallRiskStatus: String` → `String?`(`result.overallRiskStatus?.name`), swagger `@Schema` nullable(비회원 null 설명) 반영. T004 Green 확인
 
 **Checkpoint**: US1·US2 각각 독립 동작
 

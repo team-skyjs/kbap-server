@@ -25,11 +25,12 @@ data class FoodDetailResponse(
     val spiciness: Int,
 
     @field:Schema(
-        description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값)",
+        description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값). 비회원 조회는 판별하지 않고 null — 비회원 응답 판별 기준.",
         example = "DANGER",
         allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
+        nullable = true,
     )
-    val overallRiskStatus: String,
+    val overallRiskStatus: String?,
 
     @field:Schema(description = "포함 기피성분 목록(포함 확률 내림차순)")
     val ingredients: List<IngredientResponse>,
@@ -110,7 +111,7 @@ data class FoodDetailResponse(
                 imageRef = result.imageRef,
                 description = result.description,
                 spiciness = result.spiciness,
-                overallRiskStatus = result.overallRiskStatus.name,
+                overallRiskStatus = result.overallRiskStatus?.name,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
                         name = it.name,

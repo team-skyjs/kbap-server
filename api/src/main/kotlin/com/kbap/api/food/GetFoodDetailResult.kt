@@ -8,7 +8,7 @@ data class GetFoodDetailResult(
     val imageRef: String?,
     val description: String,
     val spiciness: Int,
-    val overallRiskStatus: RiskLevel,
+    val overallRiskStatus: RiskLevel?,
     val ingredients: List<IngredientView>,
 ) {
     data class IngredientView(

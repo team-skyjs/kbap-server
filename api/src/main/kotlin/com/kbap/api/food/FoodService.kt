@@ -77,7 +77,7 @@ class FoodService(
             imageRef = resolveImageUrl(food),
             description = description,
             spiciness = food.spiciness,
-            overallRiskStatus = food.overallRisk(userAvoidedCodes),
+            overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
             ingredients = ingredients,
         )
     }

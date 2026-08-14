@@ -6,6 +6,7 @@ import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import org.hamcrest.CoreMatchers.nullValue
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -163,24 +164,27 @@ class FoodDetailControllerTest : BehaviorSpec() {
             }
 
             `when`("비회원이 성분이 있는 foodId 를 조회하면") {
-                then("교집합이 없으므로 ingredients 는 빈 배열이고 overallRiskStatus 는 SAFE 다") {
+                then("위험도는 판별하지 않아 null 이고 ingredients 는 빈 배열, bookmarked 는 false 다") {
                     mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.overallRiskStatus") { value("SAFE") }
+                        jsonPath("$.payload.overallRiskStatus") { value(nullValue()) }
                         jsonPath("$.payload.ingredients.length()") { value(0) }
+                        jsonPath("$.payload.bookmarked") { value(false) }
                     }
                 }
             }
 
-            `when`("포함 기피 성분이 하나도 없는 foodId 를 조회하면") {
-                then("200 과 함께 ingredients 를 빈 배열로 반환한다") {
+            `when`("포함 기피 성분이 하나도 없는 foodId 를 회원이 조회하면") {
+                then("200 과 함께 overallRiskStatus 는 SAFE, ingredients 는 빈 배열로 반환한다") {
                     FoodTestSeed.seedPlainRice(dataSource)
+                    val token = accessToken(35L)
 
                     mockMvc.get("/api/foods/3") {
                         param("lang", "ko")
+                        header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
