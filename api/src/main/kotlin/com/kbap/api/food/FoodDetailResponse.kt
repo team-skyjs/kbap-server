@@ -51,9 +51,6 @@ data class FoodDetailResponse(
             nullable = true,
         )
         val sameCountry: ReviewRatingResponse?,
-
-        @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 활성 회원 조회는 false.", example = "false")
-        val blur: Boolean,
     ) {
         @Schema(description = "리뷰 평점 요약 — 평균 별점·리뷰 수")
         data class ReviewRatingResponse(
@@ -79,7 +76,6 @@ data class FoodDetailResponse(
                     } else {
                         null
                     },
-                    blur = false,
                 )
         }
     }

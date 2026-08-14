@@ -59,11 +59,11 @@
 
 ### Tests (Red — 먼저 작성하고 실패 확인) ⚠️
 
-- [ ] T008 [US3] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` — 응답 JSON 의 `review` 객체에 `blur` 키가 존재하지 않음을 회원·비회원 각각 단언(기존 blur 단언은 이 시점에 새 계약 단언으로 교체). 작성 후 Red 확인
+- [X] T008 [US3] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` — 응답 JSON 의 `review` 객체에 `blur` 키가 존재하지 않음을 회원·비회원 각각 단언(기존 blur 단언은 이 시점에 새 계약 단언으로 교체). 작성 후 Red 확인
 
 ### Implementation (Green)
 
-- [ ] T009 [US3] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `ReviewSummaryResponse.blur` 프로퍼티·`blurred()` 팩토리 삭제, 잔여 참조 전수 제거(`rg -n "blur" api/src` 로 0건 확인). T008 Green 확인
+- [X] T009 [US3] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `ReviewSummaryResponse.blur` 프로퍼티·`blurred()` 팩토리 삭제, 잔여 참조 전수 제거(`rg -n "blur" api/src` 로 0건 확인). T008 Green 확인
 
 **Checkpoint**: 전 스토리 완료
 

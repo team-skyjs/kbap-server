@@ -125,14 +125,15 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                         jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
                         jsonPath("$.payload.review.overall.reviewCount") { value(3) }
                         jsonPath("$.payload.review.sameCountry") { value(nullValue()) }
+                        jsonPath("$.payload.review.blur") { doesNotExist() }
                     }
                 }
             }
             `when`("같은 음식을 회원이 조회하면") {
-                then("blur=false 이고 실수치가 내려간다") {
+                then("실수치가 내려가고 blur 필드는 존재하지 않는다") {
                     detail(920L, accessToken(923L, "KR")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.blur") { value(false) }
+                        jsonPath("$.payload.review.blur") { doesNotExist() }
                         jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
                         jsonPath("$.payload.review.overall.reviewCount") { value(3) }
                     }
@@ -167,7 +168,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                         jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
                         jsonPath("$.payload.review.overall.reviewCount") { value(0) }
                         jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.blur") { value(false) }
+                        jsonPath("$.payload.review.blur") { doesNotExist() }
                     }
                 }
             }
