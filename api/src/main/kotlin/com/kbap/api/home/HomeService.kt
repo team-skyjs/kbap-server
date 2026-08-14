@@ -1,10 +1,10 @@
 package com.kbap.api.home
 
-import com.kbap.common.domain.food.dto.FoodSummaryView
+import com.kbap.api.food.FoodSummaryView
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
-import com.kbap.common.domain.food.FoodService
+import com.kbap.api.food.FoodService
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.member.MemberService
 import com.kbap.api.scan.ScanService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

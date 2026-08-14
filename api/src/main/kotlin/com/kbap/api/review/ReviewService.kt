@@ -4,13 +4,13 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
-import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.image.UploadedImageService
+import com.kbap.api.food.FoodService
+import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
-import com.kbap.common.domain.block.MemberBlockService
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.block.MemberBlockService
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page

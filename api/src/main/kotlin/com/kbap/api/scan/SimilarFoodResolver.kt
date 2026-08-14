@@ -1,6 +1,6 @@
 package com.kbap.api.scan
 
-import com.kbap.common.domain.food.FoodService
+import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.vector.FoodVectorSearcher
 import com.kbap.common.port.llm.TextEmbeddingClient

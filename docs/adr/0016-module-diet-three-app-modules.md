@@ -1,6 +1,6 @@
 # 0016. 모듈 다이어트 — 애플리케이션 모듈을 api·batch·common 3개로 통합하고 경계 강제를 ArchUnit 으로 이관
 
-- **상태**: Superseded in part by ADR-0017
+- **상태**: Superseded in part by ADR-0017 · ADR-0018
 - **날짜**: 2026-07-28
 - **관련**: specs/kb-244-module-diet, ADR-0008, ADR-0012, ADR-0014
 

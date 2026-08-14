@@ -6,7 +6,7 @@ import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.auth.TokenParser
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.member.MemberService
 import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.member.model.SocialIdentity

@@ -1,7 +1,7 @@
 package com.kbap.api.core.config
 
 import com.kbap.common.port.place.PlaceSearchClient
-import com.kbap.infra.place.KakaoPlaceSearchClient
+import com.kbap.api.infra.place.KakaoPlaceSearchClient
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean

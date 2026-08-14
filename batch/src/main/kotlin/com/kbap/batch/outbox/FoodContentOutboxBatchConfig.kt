@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.port.mq.FoodContentEventPublisher
-import com.kbap.infra.mq.SqsFoodContentEventPublisher
+import com.kbap.common.infra.mq.SqsFoodContentEventPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder

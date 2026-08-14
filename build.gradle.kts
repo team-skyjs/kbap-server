@@ -17,7 +17,6 @@ dependencies {
 
     jacocoAggregation(project(":common"))
     jacocoAggregation(project(":api"))
-    jacocoAggregation(project(":infra:llm"))
     jacocoAggregation(project(":batch"))
 }
 

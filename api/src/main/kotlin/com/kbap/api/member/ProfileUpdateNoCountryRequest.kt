@@ -1,6 +1,5 @@
 package com.kbap.api.member
 
-import com.kbap.common.domain.member.dto.ProfileUpdateInput
 
 data class ProfileUpdateNoCountryRequest(
     val nickname: String? = null,

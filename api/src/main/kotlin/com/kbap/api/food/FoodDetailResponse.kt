@@ -1,7 +1,6 @@
 package com.kbap.api.food
 
 import com.kbap.api.review.RatingSummary
-import com.kbap.common.domain.food.dto.GetFoodDetailResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "음식 상세 — 요청 언어 음식명·설명·맵기·대표 이미지·포함 기피성분 목록")

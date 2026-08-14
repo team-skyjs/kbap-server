@@ -60,7 +60,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                         spring,
                         sharedDomain,
                         "com.kbap.common.port..",
-                        "com.kbap.infra..",
+                        "com.kbap.common.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
                     )
@@ -76,7 +76,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                 noClasses().that().resideInAPackage(sharedDomain)
                     .should().dependOnClassesThat().resideInAnyPackage(
                         "com.kbap.common.port..",
-                        "com.kbap.infra..",
+                        "com.kbap.common.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
                     )
@@ -107,9 +107,9 @@ class ModuleBoundaryTest : BehaviorSpec({
         val allowedDomainDeps = mapOf(
             "admin" to emptySet(),
             "appversion" to emptySet(),
-            "block" to setOf("member"),
+            "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
-            "food" to setOf("member", "ingredient"),
+            "food" to emptySet(),
             "bookmark" to setOf("food", "member", "ingredient"),
             "member" to setOf("ingredient"),
             "image" to emptySet(),
@@ -192,7 +192,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                         jpa,
                         sharedDomain,
                         "com.kbap.common.port..",
-                        "com.kbap.infra..",
+                        "com.kbap.common.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
                     )
@@ -202,12 +202,20 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
     }
 
-    given("부트앱 → infra 조립 창구") {
-        `when`("api·batch 가 infra 구현을 참조하는 위치를 검사하면") {
-            then("infra 직접 참조는 조립 config 패키지에서만 한다 — 기능 코드는 common.port 계약만 본다") {
+    given("어댑터 구현 조립 창구") {
+        `when`("api·batch 기능 코드가 어댑터 구현 패키지를 참조하는 위치를 검사하면") {
+            then("어댑터 직접 참조는 조립 config 패키지와 어댑터 자신 안에서만 한다 — 기능 코드는 common.port 계약만 본다") {
                 noClasses().that().resideInAnyPackage("com.kbap.api..", "com.kbap.batch..")
-                    .and().resideOutsideOfPackages("com.kbap.api.core.config..", "com.kbap.batch.config..")
-                    .should().dependOnClassesThat().resideInAPackage("com.kbap.infra..")
+                    .and().resideOutsideOfPackages(
+                        "com.kbap.api.core.config..",
+                        "com.kbap.api.infra..",
+                        "com.kbap.batch.config..",
+                        "com.kbap.batch.outbox..",
+                    )
+                    .should().dependOnClassesThat().resideInAnyPackage(
+                        "com.kbap.common.infra..",
+                        "com.kbap.api.infra..",
+                    )
                     .allowEmptyShould(true)
                     .check(imported)
             }
@@ -221,7 +229,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .should().dependOnClassesThat().resideInAnyPackage(
                         spring,
                         jpa,
-                        "com.kbap.infra..",
+                        "com.kbap.common.infra..",
                         "com.kbap.api..",
                         "com.kbap.batch..",
                     )

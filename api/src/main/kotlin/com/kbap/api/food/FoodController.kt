@@ -9,12 +9,7 @@ import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
 import com.kbap.api.bookmark.BookmarkService
 import com.kbap.api.review.ReviewService
-import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.member.MemberService
-import com.kbap.common.domain.food.dto.BrowseFoodsInput
-import com.kbap.common.domain.food.dto.FoodSummaryView
-import com.kbap.common.domain.food.dto.GetFoodDetailInput
-import com.kbap.common.domain.food.dto.SearchFoodsInput
+import com.kbap.api.member.MemberService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

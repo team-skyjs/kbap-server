@@ -3,9 +3,9 @@ package com.kbap.api.bookmark
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.bookmark.BookmarkJpaRepository
 import com.kbap.common.domain.bookmark.model.Bookmark
-import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.food.dto.FoodSummaryView
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.food.FoodService
+import com.kbap.api.food.FoodSummaryView
+import com.kbap.api.member.MemberService
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

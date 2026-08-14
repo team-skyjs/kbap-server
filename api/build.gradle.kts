@@ -5,15 +5,17 @@ plugins {
 dependencies {
     "implementation"(project(":common"))
 
-    "runtimeOnly"(project(":infra:llm"))
+    "implementation"(libs.firebase.admin)
+    "implementation"(libs.jjwt.api)
+    "runtimeOnly"(libs.jjwt.impl)
+    "runtimeOnly"(libs.jjwt.jackson)
 
-    "implementation"(project(":infra:auth"))
+    "implementation"(libs.spring.boot.starter.data.redis)
 
-    "runtimeOnly"(project(":infra:redis"))
+    "implementation"(platform(libs.aws.bom))
+    "implementation"(libs.aws.s3)
 
-    "implementation"(project(":infra:storage"))
-
-    "implementation"(project(":infra:place"))
+    "implementation"("tools.jackson.module:jackson-module-kotlin")
 
 
     "implementation"(libs.shedlock.spring)
@@ -31,6 +33,8 @@ dependencies {
     "runtimeOnly"(libs.flyway.mysql)
 
     "testImplementation"(testFixtures(project(":common")))
+    "testImplementation"(libs.jjwt.impl)
+    "testImplementation"(libs.jjwt.jackson)
     "testRuntimeOnly"(libs.mysql.connector)
 
     "testImplementation"(libs.spring.boot.webmvc.test)

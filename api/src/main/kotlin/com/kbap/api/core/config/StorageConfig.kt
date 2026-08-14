@@ -2,8 +2,8 @@ package com.kbap.api.core.config
 
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.StorageObjectStore
-import com.kbap.infra.storage.S3PresignedUploadAdapter
-import com.kbap.infra.storage.S3StorageObjectStore
+import com.kbap.api.infra.storage.S3PresignedUploadAdapter
+import com.kbap.api.infra.storage.S3StorageObjectStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
