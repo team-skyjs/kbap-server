@@ -4,14 +4,13 @@
 
 ```http
 GET /api/ingredients/diets?lang=en HTTP/1.1
-Authorization: Bearer <access-token>
 X-API-Version: 1.0
 ```
 
 | 항목 | 값 |
 |------|-----|
 | 경로 | 기존 `IngredientController`(`ApiPaths.API + "/ingredients"`)의 `@GetMapping("/diets")` (버전 매핑 없는 기본 핸들러) |
-| 인증 | JWT 필수 — `WebConfig` JWT 필터 `addUrlPatterns` 에 `/api/ingredients/diets` 등록 (기존 `/api/ingredients` 는 공개 유지) |
+| 인증 | 불필요 — 비회원(가입 전 온보딩)도 호출하는 공개 API. `Authorization` 헤더가 있어도 검사하지 않는다 (2026-08-14 개정) |
 | `X-API-Version` | 필수(전역 규약) — 누락·미지원이면 400 COMMON-002 |
 | `lang` (query, 필수) | 표시명 언어 코드. 지원: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 미지원 코드 → en 폴백, 번역 부재 → ko 폴백. 누락·공백 → 400 |
 
@@ -57,7 +56,6 @@ X-API-Version: 1.0
 |------|------|------|------|
 | `lang` 누락·빈 값 | 400 | COMMON-002 (validation) | `@field:NotBlank` |
 | `X-API-Version` 누락·미지원 | 400 | COMMON-002 | 전역 규약 |
-| 토큰 없음·만료 | 401 | AUTH-* | access 만료 AUTH-004 → refresh 흐름 |
 
 ## swagger
 

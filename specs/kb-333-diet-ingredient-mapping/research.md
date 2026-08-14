@@ -35,8 +35,8 @@ Phase 0 산출물. Technical Context 에 NEEDS CLARIFICATION 은 없었고, 설�
 
 ## R5. 인증·경로 보호
 
-- **Decision**: `WebConfig` 의 JWT 필터 `addUrlPatterns` 에 `${ApiPaths.API}/ingredients/diets` 를 추가한다(FR-007).
-- **Rationale**: 식단 선택은 로그인 후 화면(온보딩·프로필)이다. 기존 `/api/ingredients` 는 비보호 공개지만, 이 기능의 스펙이 인증을 요구하므로 하위 경로만 정확히 등록한다(`/api/ingredients` 전체를 보호로 바꾸지 않는다 — 기존 공개 계약 불변). 신규 경로 미등록은 이 레포에서 두 번 밟은 함정 — DoD 항목으로 강제한다.
+- **Decision (2026-08-14 개정)**: JWT 보호 경로에 등록하지 않는다 — 인증 없이 호출하는 공개 API 다(기존 `/api/ingredients` 와 동일).
+- **Rationale**: 식단 선택은 **가입 전 온보딩 화면**에서도 이뤄져 비회원이 호출한다(초기 결정 "로그인 후 화면" 전제가 틀려 머지 직후 정정 — PR #164 초기 구현은 보호 경로였다). 공개 근거는 재료 카탈로그와 같은 정적 기준 정보라 노출 위험이 없다는 것.
 
 ## R6. 재료 id·이름 해석
 

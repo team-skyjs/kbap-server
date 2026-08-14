@@ -19,7 +19,6 @@
 ./gradlew :api:bootRun   # SPRING_PROFILES_ACTIVE=local
 
 curl -s "http://localhost:8080/api/ingredients/diets?lang=en" \
-  -H "Authorization: Bearer <access-token>" \
   -H "X-API-Version: 1.0" | jq '.payload.diets[] | {code, name, count: (.ingredients | length)}'
 ```
 
