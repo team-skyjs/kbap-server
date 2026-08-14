@@ -32,7 +32,7 @@ description: "kbap-server 에서 현재 feature 브랜치를 base=develop 으로
 5. **PR 본문 작성** — **`.github/PULL_REQUEST_TEMPLATE.md` 포맷을 그대로 따른다**(섹션·순서 고정). 스크래치패드에 마크다운으로 채워 `--body-file` 로 전달(셸 이스케이프 회피). 고정 섹션:
    - `### Issue Number` — **닫는 이슈마다 `- close #이슈번호`**(예: `- close #15`). **후속/참조 이슈는 `close` 없이 `#번호` 만**. (default 브랜치 머지 시 종료 — base 가 develop 이어도 develop→main 도달 시 닫힘.)
    - **Jira 링크(태스크가 Jira 로 추적되면)** — 본문 상단에 `> **Jira:** [KB-NN](https://<site>.atlassian.net/browse/KB-NN)` 를 넣고 본문에 `Refs KB-NN` 을 적는다. 대응 GitHub 이슈가 없으면 `### Issue Number` 의 `- close #` 는 비운다(Jira 로만 추적). **Jira 이슈에는 별도 완료/DoD 코멘트를 달지 않는다** — PR 본문 링크로 충분하다(GitHub for Jira 앱 설치 시 커밋의 `KB-NN` 로 Development 패널 자동 연동).
-   - `## 무엇을 / 왜` · `## 변경 사항` · `## 설계 / 결정` · `## 테스트 / 검증`(`./gradlew build` 결과) · `## 범위 밖 / 후속`
+   - `## 무엇을 / 왜`(문제·해결 2~4문장, 파일 나열 금지) · `## 변경 사항`(커밋 단위가 아니라 기능·모듈 단위) · `## 기능 흐름`(동작 흐름이 바뀐 경우만 — mermaid flowchart 로 정상 흐름·중요 실패 분기, 흐름 변화 없으면 섹션 삭제)
    - **닫는 이슈가 있으면 `### Issue Number` 의 `close` 를 절대 빠뜨리지 않는다.**
    - Claude 가 작성한 PR 이면 본문 끝에:
      ```

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class IngredientQueryService(
+class IngredientService(
     private val ingredientRepository: IngredientJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -24,4 +24,21 @@ class IngredientQueryService(
                 )
             },
         )
+
+    @Transactional(readOnly = true)
+    fun getDietIngredientMappings(lang: LanguageCode): DietListResponse {
+        val ingredientsByCode = ingredientRepository.findAll().associateBy { it.code }
+        return DietListResponse(
+            diets = DietCategory.entries.map { category ->
+                DietItemResponse(
+                    code = category.name,
+                    name = category.koreanName,
+                    ingredients = category.avoidedIngredients
+                        .mapNotNull { ingredientsByCode[it] }
+                        .sortedBy { it.id }
+                        .map { DietIngredientResponse(id = it.id, code = it.code.name, name = it.displayName(lang)) },
+                )
+            },
+        )
+    }
 }
