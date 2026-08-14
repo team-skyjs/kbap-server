@@ -4,7 +4,6 @@ import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
-import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
@@ -49,8 +48,9 @@ interface IngredientApi {
             ## 버전
             `X-API-Version` 헤더 미전송·`1.0` 은 현재 계약이다(신규 API — 1.0 이 최초 버전).
 
-            ## 인증 (필요)
-            JWT 보호 API 다 — `Authorization: Bearer <access-token>` 없으면 401.
+            ## 인증 (불필요)
+            **인증 없이 호출하는 공개 API** 다 — 온보딩(가입 전) 화면에서 비회원도 호출한다.
+            `Authorization` 헤더가 있어도 검사하지 않는다(무효 토큰이어도 200).
 
             ## 응답 구조
             카테고리는 기획 표 순서로 15종 전체가 내려온다. 각 카테고리는 `code`(분기용 안정 식별자)와
@@ -66,10 +66,8 @@ interface IngredientApi {
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 카테고리 15종 전체와 매핑 재료"),
             ApiResponse(responseCode = "400", description = "lang 누락·빈/공백"),
-            ApiResponse(responseCode = "401", description = "토큰 없음·무효·만료"),
         ],
     )
-    @SecurityRequirement(name = "bearerAuth")
     fun getDietIngredientMappings(
         @ParameterObject request: DietListRequest,
     ): ResponseEntity<BaseResponse<DietListResponse>>

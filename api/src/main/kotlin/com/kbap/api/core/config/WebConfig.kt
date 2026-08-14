@@ -91,7 +91,6 @@ class WebConfig(
                 "${ApiPaths.API}/reports",
                 "${ApiPaths.API}/images",
                 "${ApiPaths.API}/images/*",
-                "${ApiPaths.API}/ingredients/diets",
                 "${ApiPaths.API}/auth/withdraw",
                 "${ApiPaths.ADMIN}/*",
             )
