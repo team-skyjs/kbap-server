@@ -1,6 +1,6 @@
 package com.kbap.api.home
 
-import com.kbap.common.domain.food.dto.FoodSummaryView
+import com.kbap.api.food.FoodSummaryView
 
 data class HomeResult(
     val avoidedSubstances: List<AvoidedSubstanceView>,

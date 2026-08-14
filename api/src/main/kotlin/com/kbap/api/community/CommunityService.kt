@@ -8,8 +8,8 @@ import com.kbap.common.domain.community.CommentJpaRepository
 import com.kbap.common.domain.community.PostingJpaRepository
 import com.kbap.common.domain.community.model.Comment
 import com.kbap.common.domain.community.model.Posting
-import com.kbap.common.domain.food.FoodService
-import com.kbap.common.domain.image.UploadedImageService
+import com.kbap.api.food.FoodService
+import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member

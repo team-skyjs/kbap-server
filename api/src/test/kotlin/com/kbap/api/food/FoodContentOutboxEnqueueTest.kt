@@ -1,6 +1,8 @@
-package com.kbap.common.domain.food
+package com.kbap.api.food
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import io.kotest.core.spec.style.BehaviorSpec
@@ -12,7 +14,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 
-@SpringBootTest(classes = [FoodServiceTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class FoodContentOutboxEnqueueTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

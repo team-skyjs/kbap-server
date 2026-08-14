@@ -1,21 +1,17 @@
-package com.kbap.common.domain.food
+package com.kbap.api.food
 
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
-import com.kbap.common.domain.food.dto.BrowseFoodsInput
-import com.kbap.common.domain.food.dto.FoodPage
-import com.kbap.common.domain.food.dto.FoodSummaryView
-import com.kbap.common.domain.food.dto.GetFoodDetailInput
-import com.kbap.common.domain.food.dto.GetFoodDetailResult
-import com.kbap.common.domain.food.dto.SearchFoodsInput
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest

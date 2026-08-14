@@ -4,7 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.Report
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository

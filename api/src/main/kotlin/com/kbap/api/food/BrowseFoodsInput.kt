@@ -1,9 +1,8 @@
-package com.kbap.common.domain.food.dto
+package com.kbap.api.food
 
 import com.kbap.common.domain.LanguageCode
 
-data class SearchFoodsInput(
-    val keyword: String,
+data class BrowseFoodsInput(
     val cursor: Long?,
     val lang: LanguageCode,
     val memberId: Long? = null,

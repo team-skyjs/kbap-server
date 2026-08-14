@@ -1,10 +1,11 @@
-package com.kbap.common.domain.food
+package com.kbap.api.food
 
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import io.kotest.assertions.throwables.shouldThrow
@@ -22,10 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest(
-    classes = [FoodServiceTestApp::class],
-    properties = ["spring.jpa.properties.hibernate.generate_statistics=true"],
-)
+@SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
 @Import(MySqlContainerConfig::class)
 class FoodServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

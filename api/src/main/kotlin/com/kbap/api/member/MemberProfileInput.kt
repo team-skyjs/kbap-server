@@ -1,4 +1,4 @@
-package com.kbap.common.domain.member.dto
+package com.kbap.api.member
 
 data class MemberProfileInput(
     val memberId: Long,

@@ -1,4 +1,4 @@
-package com.kbap.common.domain.food.dto
+package com.kbap.api.food
 
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.LanguageCode

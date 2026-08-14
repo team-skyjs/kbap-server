@@ -1,10 +1,11 @@
-package com.kbap.common.domain.block
+package com.kbap.api.block
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.block.MemberBlockJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
-import com.kbap.common.domain.member.MemberService
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
@@ -19,7 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
-@SpringBootTest(classes = [BlockTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class MemberBlockServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

@@ -1,5 +1,6 @@
-package com.kbap.common.domain.member
+package com.kbap.api.member
 
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
@@ -8,10 +9,6 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.ingredient.model.IngredientCode
-import com.kbap.common.domain.member.dto.MemberProfileInput
-import com.kbap.common.domain.member.dto.MemberRankingResult
-import com.kbap.common.domain.member.dto.MyProfileResult
-import com.kbap.common.domain.member.dto.ProfileUpdateInput
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service

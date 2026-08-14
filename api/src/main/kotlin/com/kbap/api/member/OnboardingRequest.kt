@@ -2,7 +2,6 @@ package com.kbap.api.member
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.domain.member.dto.MemberProfileInput
 
 data class OnboardingRequest(
     val nickname: String? = null,

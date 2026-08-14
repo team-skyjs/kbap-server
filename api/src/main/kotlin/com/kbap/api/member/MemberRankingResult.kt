@@ -1,4 +1,4 @@
-package com.kbap.common.domain.member.dto
+package com.kbap.api.member
 
 import com.kbap.common.domain.member.model.Ranking
 
