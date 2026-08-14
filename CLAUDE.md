@@ -2,16 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 하네스: SpecKit·TDD 개발 팀
+## 구현 방식
 
-**목표:** 헌법 원칙 I(Test-First)을 강제하며 test-writer→implementer→(code-reviewer∥database-expert) 에이전트 팀으로 task 를 Red→Green→Refactor→리뷰까지 구동한다.
-
-**트리거:** 기능/task 를 TDD 로 구현하거나(예: "TDD 로 구현해", "tasks.md 진행", "US2 구현", "테스트부터 짜고 구현"), 구현 결과를 검토/재실행/부분 보완할 때 `tdd-harness-orchestrator` 스킬을 사용하라. 단순 질문·단발 수정은 직접 응답 가능. (에이전트: `.claude/agents/`, 스킬: `.claude/skills/`.)
-
-**변경 이력:**
-| 날짜 | 변경 내용 | 대상 | 사유 |
-|------|----------|------|------|
-| 2026-06-28 | 초기 구성 — test-writer·implementer·code-reviewer·database-expert 4에이전트 + 5스킬(역할 4 + 오케스트레이터 1) | 전체 | SpecKit·TDD 역할 분담 자동화 요청 |
+구현(`/speckit-implement`·tasks.md 진행·단발 수정)은 **메인 세션이 직접 수행**한다 — 멀티에이전트 TDD 하네스(tdd-harness-orchestrator·test-writer·implementer)는 2026-08-14 제거했다(구현 단계가 느려지고 과한 코드가 나오는 문제). 헌법 원칙 I(Test-First: Red→Green→Refactor)은 그대로 유효하며 직접 구현에서 지킨다. 리뷰는 필요할 때만 `kbap-code-review`·`kbap-db-review` 스킬(에이전트: code-reviewer·database-expert)을 명시 호출한다.
 
 ## 개요
 

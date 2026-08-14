@@ -13,7 +13,7 @@ TDD 한 사이클(테스트+구현) 직후, 결과물이 헌법·컨벤션·요�
 2. **변경 파일 읽기** — 테스트와 구현을 함께 본다.
 3. **체크리스트 적용** — 아래 항목을 순서대로 점검.
 4. **분류·보고** — `[Blocker|Major|Minor] 파일:라인 — 문제 — 근거 — 제안`.
-5. **게이트 판정** — Blocker 0 이면 통과, 있으면 implementer 에 수정 요청.
+5. **게이트 판정** — Blocker 0 이면 통과, 있으면 수정 요청 목록을 보고한다.
 
 ## 심각도 기준
 
@@ -60,7 +60,7 @@ TDD 한 사이클(테스트+구현) 직후, 결과물이 헌법·컨벤션·요�
 
 [Major] application/.../GetFoodDetailUseCase.kt:30 — lang 미지원 폴백 테스트 없음
   근거: contracts food-detail-api — 미지원/미지정 lang 은 ko 폴백. 회귀 위험.
-  제안: ko 폴백 then 추가를 test-writer 에 요청.
+  제안: ko 폴백 then 테스트 추가.
 ```
 
 마지막에 **요약(Blocker n / Major n / Minor n)과 게이트 판정**을 명시한다.
