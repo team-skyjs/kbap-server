@@ -45,8 +45,11 @@ data class FoodDetailResponse(
         @field:Schema(description = "전체 사용자 리뷰 요약")
         val overall: ReviewRatingResponse,
 
-        @field:Schema(description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰 요약. 국적 미보유·해당 국적 리뷰 없음이면 기본값(0.0·0).")
-        val sameCountry: ReviewRatingResponse,
+        @field:Schema(
+            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰 요약. 국적 미보유·해당 국적 리뷰 없음이면 기본값(0.0·0). 비회원 조회는 null.",
+            nullable = true,
+        )
+        val sameCountry: ReviewRatingResponse?,
 
         @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 활성 회원 조회는 false.", example = "false")
         val blur: Boolean,
@@ -61,24 +64,21 @@ data class FoodDetailResponse(
         )
 
         companion object {
-            fun from(rating: RatingSummary): ReviewSummaryResponse =
+            fun from(rating: RatingSummary, sameCountryVisible: Boolean): ReviewSummaryResponse =
                 ReviewSummaryResponse(
                     overall = ReviewRatingResponse(
                         averageRating = rating.averageRating ?: 0.0,
                         reviewCount = rating.reviewCount,
                     ),
-                    sameCountry = ReviewRatingResponse(
-                        averageRating = rating.sameCountryAverageRating ?: 0.0,
-                        reviewCount = rating.sameCountryReviewCount,
-                    ),
+                    sameCountry = if (sameCountryVisible) {
+                        ReviewRatingResponse(
+                            averageRating = rating.sameCountryAverageRating ?: 0.0,
+                            reviewCount = rating.sameCountryReviewCount,
+                        )
+                    } else {
+                        null
+                    },
                     blur = false,
-                )
-
-            fun blurred(): ReviewSummaryResponse =
-                ReviewSummaryResponse(
-                    overall = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
-                    sameCountry = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
-                    blur = true,
                 )
         }
     }

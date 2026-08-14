@@ -20,12 +20,12 @@
 
 ### Tests (Red — 먼저 작성하고 실패 확인) ⚠️
 
-- [ ] T001 [US1] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` — 비회원 시나리오 추가: 리뷰 있는 음식을 인증 없이 조회하면 `review.overall` 이 실제 집계값이고 `review.sameCountry` 는 null 이다. 국적 보유 회원 조회는 overall·sameCountry 모두 기존 수치. 국적 없는 회원은 sameCountry `{0.0, 0}`. 작성 후 실행해 Red 확인 (`./gradlew :api:test --tests "*FoodDetailReviewSectionTest"`)
+- [X] T001 [US1] `api/src/test/kotlin/com/kbap/api/food/FoodDetailReviewSectionTest.kt` — 비회원 시나리오 추가: 리뷰 있는 음식을 인증 없이 조회하면 `review.overall` 이 실제 집계값이고 `review.sameCountry` 는 null 이다. 국적 보유 회원 조회는 overall·sameCountry 모두 기존 수치. 국적 없는 회원은 sameCountry `{0.0, 0}`. 작성 후 실행해 Red 확인 (`./gradlew :api:test --tests "*FoodDetailReviewSectionTest"`)
 
 ### Implementation (Green)
 
-- [ ] T002 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `ReviewSummaryResponse.sameCountry` 를 `ReviewRatingResponse?` 로 완화, `from(rating, sameCountryVisible)` 형태로 비회원 조립 지원(형태는 구현 재량 — null 주입이 가능하면 됨). swagger `@Schema` nullable 반영
-- [ ] T003 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` — `reviewSummaryOf` 개편: 비회원(활성 회원 조회 실패 포함)도 `reviewService.getFoodRatingSummary(foodId, null)` 로 overall 을 집계하고 `sameCountry = null` 로 조립. `blurred()` 조기 반환 제거. T001 Green 확인
+- [X] T002 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodDetailResponse.kt` — `ReviewSummaryResponse.sameCountry` 를 `ReviewRatingResponse?` 로 완화, `from(rating, sameCountryVisible)` 형태로 비회원 조립 지원(형태는 구현 재량 — null 주입이 가능하면 됨). swagger `@Schema` nullable 반영
+- [X] T003 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` — `reviewSummaryOf` 개편: 비회원(활성 회원 조회 실패 포함)도 `reviewService.getFoodRatingSummary(foodId, null)` 로 overall 을 집계하고 `sameCountry = null` 로 조립. `blurred()` 조기 반환 제거. T001 Green 확인
 
 **Checkpoint**: 비회원 리뷰 공개 동작 — MVP 완성 지점
 

@@ -6,6 +6,7 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
+import org.hamcrest.CoreMatchers.nullValue
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -118,13 +119,12 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 }
             }
             `when`("리뷰가 있는 같은 음식을 비회원이 조회하면") {
-                then("blur=true 이고 실수치 대신 기본값이 내려간다") {
+                then("전체 리뷰 요약은 실수치이고 같은 국적 요약은 null 이다") {
                     detail(920L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.blur") { value(true) }
-                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountry") { value(nullValue()) }
                     }
                 }
             }
@@ -139,22 +139,23 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 }
             }
             `when`("활성 회원이 아닌 토큰(탈퇴 회원)으로 리뷰가 있는 음식을 조회하면") {
-                then("비회원과 동일하게 blur=true 기본값이 내려간다") {
+                then("비회원과 동일하게 전체 실수치·같은 국적 null 이 내려간다") {
                     detail(920L, tokenIssuer.issueAccessToken(999L, MemberRole.USER)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.blur") { value(true) }
-                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.review.sameCountry") { value(nullValue()) }
                     }
                 }
             }
             `when`("리뷰가 0건인 음식을 비회원이 조회하면") {
-                then("리뷰 없음 상태에서도 blur=true 다") {
+                then("전체 요약은 기본값(0.0·0)이고 같은 국적 요약은 null 이다") {
                     seedFood(931L, "리뷰섹션미역국")
                     detail(931L).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.blur") { value(true) }
+                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
                         jsonPath("$.payload.review.overall.reviewCount") { value(0) }
+                        jsonPath("$.payload.review.sameCountry") { value(nullValue()) }
                     }
                 }
             }
