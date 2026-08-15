@@ -44,7 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 지식 위키 (kbap-agenthub)
 
 - 위치: `../kbap-agenthub` — kbap·kbap-langchain 이 공유하는 지식 위키(독립 repo). 도메인 맥락이 필요하면 **`../kbap-agenthub/INDEX.md`(색인)를 먼저 읽고** 필요한 문서만 골라 읽는다 — 위키 본문을 통째로 로드하지 않는다.
-- **자동 축적 (작업 중 상시)**: 코드로 알 수 없는 도메인 지식·중요 결정이 나오면 `../kbap-agenthub/wiki/<kebab-case-topic>.md` 에 기록하고 `INDEX.md` 에 한 줄 추가 후 허브에서 커밋. 기록 규칙 상세는 허브의 `CLAUDE.md`. (데일리 작업 요약은 `/clear` 시 SessionEnd 훅이 자동 기록 — 세션 중 신경 쓰지 않는다.)
+- **자동 축적 (작업 중 상시)**: 코드로 알 수 없는 도메인 지식·중요 결정이 나오면 `../kbap-agenthub/wiki/<kebab-case-topic>.md` 에 기록하고 `INDEX.md` 에 한 줄 추가 후 허브에서 커밋. 기록 규칙 상세는 허브의 `CLAUDE.md`. (데일리 보고서는 사용자가 원하는 시점에 `daily-report` 스킬로 생성 — 자동 훅 없음.)
 
 ## 기술 스택
 
