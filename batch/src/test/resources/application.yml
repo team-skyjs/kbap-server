@@ -1,13 +1,19 @@
 spring:
   application:
     name: kbap-batch
-  # 부팅 검증만 — 잡은 자동 실행하지 않는다. 테스트는 Flyway off 라 Batch 메타 테이블을
-  # Spring Batch 자체 initializer 가 Testcontainer 에 생성한다(운영은 api Flyway 소유).
+  # 부팅 검증만 — 잡은 자동 실행하지 않는다.
   batch:
     job:
       enabled: false
-    jdbc:
-      initialize-schema: always
+  # 이 모듈엔 Flyway 가 없으므로(스키마 owner=api) Batch 메타 테이블을 드라이버에 딸린
+  # 공식 DDL 로 직접 만든다. Boot 4 는 spring.batch.jdbc.initialize-schema 를 더 이상 읽지 않는다.
+  # 테스트 클래스마다 컨텍스트가 갈리는데 MySQL 컨테이너는 공유되므로 두 번째 컨텍스트의
+  # CREATE TABLE 은 중복 오류가 난다 — continue-on-error 로 흘린다.
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+      schema-locations: classpath:org/springframework/batch/core/schema-mysql.sql
   # :infra:llm 이 Spring AI 스타터(openai·google-genai)를 배치 런타임/테스트 클래스패스로 전이시킨다.
   # 키 없이 컨텍스트를 로딩해도 벤더 자동구성이 뜨지 않도록 모든 모델 자동구성을 명시 비활성한다
   # (LLM 빈은 :infra:llm 의 kbap.llm.* + @ConditionalOnProperty 로만 구성 — 키 없으면 빈 미생성).

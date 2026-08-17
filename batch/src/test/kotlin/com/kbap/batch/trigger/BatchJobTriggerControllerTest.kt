@@ -3,6 +3,7 @@ package com.kbap.batch.trigger
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldNotBe
 import org.hamcrest.Matchers.containsString
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -41,21 +42,28 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
                             jsonPath("$.jobName") { value("foodContentOutboxPublishJob") }
                             jsonPath("$.status") { value("COMPLETED") }
                             jsonPath("$.exitCode") { value("COMPLETED") }
+                            jsonPath("$.executionId") { exists() }
                         }
                 }
             }
 
             `when`("앞선 실행이 끝난 뒤 다시 트리거하면") {
-                then("잡이 다시 실행된다") {
-                    mockMvc.post("/internal/batch/jobs/foodContentOutboxPublishJob")
+                then("잡이 다시 실행되고 새 executionId 를 받는다") {
+                    val first = mockMvc.post("/internal/batch/jobs/foodContentOutboxPublishJob")
                         .andExpect { status { isOk() } }
-                    mockMvc.post("/internal/batch/jobs/foodContentOutboxPublishJob")
+                        .andReturn().response.contentAsString
+                    val second = mockMvc.post("/internal/batch/jobs/foodContentOutboxPublishJob")
                         .andExpect {
                             status { isOk() }
                             jsonPath("$.status") { value("COMPLETED") }
                         }
+                        .andReturn().response.contentAsString
+
+                    executionIdOf(second) shouldNotBe executionIdOf(first)
                 }
             }
         }
     }
+
+    private fun executionIdOf(body: String): Int = com.jayway.jsonpath.JsonPath.read(body, "$.executionId")
 }
