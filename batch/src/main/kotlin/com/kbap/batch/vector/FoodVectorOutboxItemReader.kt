@@ -4,15 +4,11 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.batch.infrastructure.item.ItemStreamReader
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
 
 class FoodVectorOutboxItemReader(
     private val outboxRepository: FoodVectorOutboxJpaRepository,
-    transactionManager: PlatformTransactionManager,
     private val pageSize: Int,
 ) : ItemStreamReader<FoodVectorOutbox> {
-    private val transactionTemplate = TransactionTemplate(transactionManager)
     private var cursor = 0L
     private val buffer = ArrayDeque<FoodVectorOutbox>()
     private var exhausted = false
@@ -29,9 +25,7 @@ class FoodVectorOutboxItemReader(
 
     override fun read(): FoodVectorOutbox? {
         if (buffer.isEmpty() && !exhausted) {
-            val page = transactionTemplate.execute {
-                outboxRepository.findPendingAfterId(cursor, pageSize)
-            }.orEmpty()
+            val page = outboxRepository.findPendingAfterId(cursor, pageSize)
             if (page.isEmpty()) {
                 exhausted = true
             } else {
