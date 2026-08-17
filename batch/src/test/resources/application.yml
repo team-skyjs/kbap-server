@@ -27,3 +27,8 @@ spring:
       ddl-auto: none
     properties:
       jakarta.persistence.schema-generation.database.action: create
+# 잡 빈은 상시 등록되므로(트리거 실행) 모든 배치 테스트 컨텍스트가 아웃박스 설정을 필요로 한다.
+kbap:
+  batch:
+    food-content-outbox:
+      queue-url: https://sqs.ap-northeast-2.amazonaws.com/123456789012/test-food-content

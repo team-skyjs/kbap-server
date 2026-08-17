@@ -10,12 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
-@SpringBootTest(
-    properties = [
-        "spring.batch.job.enabled=true",
-        "kbap.batch.food-content-outbox.queue-url=https://sqs.ap-northeast-2.amazonaws.com/123456789012/food-content",
-    ],
-)
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class FoodContentOutboxBatchConfigTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
@@ -25,8 +20,8 @@ class FoodContentOutboxBatchConfigTest : BehaviorSpec() {
     private lateinit var job: Job
 
     init {
-        given("아웃박스 발행 잡 활성화") {
-            `when`("배치 애플리케이션을 기동하면") {
+        given("상시 기동된 배치 애플리케이션") {
+            `when`("부팅 자동 실행이 꺼진 채로 기동하면") {
                 then("실행 가능한 잡이 구성된다") {
                     job.name shouldBe "foodContentOutboxPublishJob"
                 }

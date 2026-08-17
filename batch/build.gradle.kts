@@ -11,8 +11,10 @@ dependencies {
     "implementation"(libs.spring.boot.starter)
 
     "implementation"("org.springframework.boot:spring-boot-starter-batch")
+    "implementation"(libs.spring.boot.starter.web)
 
     "testImplementation"(testFixtures(project(":common")))
+    "testImplementation"(libs.spring.boot.webmvc.test)
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
