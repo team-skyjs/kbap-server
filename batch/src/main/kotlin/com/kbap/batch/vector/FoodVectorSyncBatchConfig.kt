@@ -78,7 +78,8 @@ class FoodVectorSyncBatchConfig {
         @Value("\${kbap.batch.food-vector.page-size:100}") pageSize: Int,
     ): Step =
         StepBuilder("foodVectorSyncStep", jobRepository)
-            .chunk<FoodVectorOutbox, FoodVectorSyncOutcome>(pageSize, ResourcelessTransactionManager())
+            .chunk<FoodVectorOutbox, FoodVectorSyncOutcome>(pageSize)
+            .transactionManager(ResourcelessTransactionManager())
             .reader(reader)
             .processor(processor)
             .writer(writer)
