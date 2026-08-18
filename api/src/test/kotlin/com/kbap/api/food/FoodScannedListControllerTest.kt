@@ -112,9 +112,11 @@ class FoodScannedListControllerTest : BehaviorSpec() {
             lang: String? = "en",
             cursor: String? = null,
             keyword: String? = null,
+            scope: String? = "scanned",
         ): ResultActionsDsl =
-            mockMvc.get("/api/foods/scanned") {
+            mockMvc.get("/api/foods/search") {
                 token?.let { header("Authorization", "Bearer $it") }
+                scope?.let { param("scope", it) }
                 lang?.let { param("lang", it) }
                 cursor?.let { param("cursor", it) }
                 keyword?.let { param("keyword", it) }
@@ -123,7 +125,7 @@ class FoodScannedListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
-        given("스캔 음식 목록 — GET /api/foods/scanned") {
+        given("스캔 음식 검색 — GET /api/foods/search?scope=scanned") {
             `when`("음식 A→B→A 순으로 스캔한 회원이 조회하면") {
                 then("중복 없이 마지막 스캔 시점 내림차순 [A, B] 로 내려간다") {
                     val token = accessToken(5601L)
@@ -160,8 +162,24 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("토큰 없이 조회하면") {
-                then("401 을 반환한다") {
-                    scanned(null).andExpect { status { isUnauthorized() } }
+                then("401 AUTH-003 을 반환한다 — scope=scanned 는 회원 전용") {
+                    scanned(null).andExpect {
+                        status { isUnauthorized() }
+                        jsonPath("$.code") { value("AUTH-003") }
+                    }
+                }
+            }
+            `when`("지원하지 않는 scope 값으로 조회하면") {
+                then("400 COMMON-002 를 반환한다") {
+                    scanned(accessToken(5610L), scope = "bookmarked").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+            `when`("빈 keyword 로 조회하면") {
+                then("400 을 반환한다 — 옵션이지만 빈/공백은 불가") {
+                    scanned(accessToken(5610L), keyword = " ").andExpect { status { isBadRequest() } }
                 }
             }
             `when`("스캔 음식이 21개인 회원이 조회하면") {

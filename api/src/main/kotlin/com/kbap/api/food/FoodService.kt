@@ -36,7 +36,11 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun searchFoodPage(input: SearchFoodsInput): FoodPage =
-        foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        if (input.scope == FoodSearchScope.SCANNED) {
+            getScannedFoodPage(requireNotNull(input.memberId), input.keyword, input.lang, input.cursor)
+        } else {
+            foodPage(getFoodsByKeyword(requireNotNull(input.keyword), input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
@@ -48,8 +52,7 @@ class FoodService(
             foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
         )
 
-    @Transactional(readOnly = true)
-    fun getScannedFoodPage(memberId: Long, keyword: String?, lang: LanguageCode, cursor: Long?): FoodPage {
+    private fun getScannedFoodPage(memberId: Long, keyword: String?, lang: LanguageCode, cursor: Long?): FoodPage {
         val cursorLastScannedAt = cursor?.let {
             scanHistoryRepository.findLastScannedAt(memberId, it)
                 ?: throw BusinessException(ErrorCode.INVALID_CURSOR)

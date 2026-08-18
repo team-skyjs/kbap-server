@@ -36,6 +36,13 @@
 - **Decision**: `WebConfig` JWT 보호 경로에 `/api/foods/scanned` 를 **정확 패턴으로 추가**(foods 하위 나머지는 비회원 공개 유지). `X-API-Version` 은 기존 무버전 매핑(1.0 기본) — 신규 엔드포인트라 버전 분기 없음.
 - **Rationale**: 신규 보호 경로 등록 누락은 두 번 밟은 함정([[review-domain-pitfalls]]) — 전 시나리오 401 로 깨진다. 반대로 이 API 는 등록해야 401 이 계약이 된다(FR-004).
 
+## R8. (개정 2026-08-19) 별도 경로 → 기존 검색 엔드포인트 `scope` 파라미터 통합
+
+- **Decision**: `GET /api/foods/scanned` 를 없애고 `GET /api/foods/search` 에 `scope=all|scanned`(기본 all) 파라미터로 통합한다. 분기는 `FoodService.searchFoodPage` 안 조건문이 소유한다.
+- **Rationale**: 클라이언트 검색 화면이 탭(일반/태그) 하나의 UI 라 단일 엔드포인트가 자연스럽고, `GET /api/reviews` 의 foodId 파라미터 통합(#144) 선례와 정합. 파라미터 이름은 UI 용어(tab)·모호어(type) 대신 검색 범위를 뜻하는 `scope`, 값은 데이터 의미인 `scanned`.
+- **비용(감수)**: scope=scanned 의 회원 전용 보호를 URL 필터로 못 건다(필터는 파라미터를 모름) — 컨트롤러 분기가 401(AUTH-003, 필터와 동일 코드)을 소유한다. keyword 필수성(all 필수·scanned 옵션)과 커서 의미(등록순 vs 최신 스캔순)가 scope 에 따라 갈리는 조건부 계약을 문서·테스트로 고정한다.
+- **Alternatives considered**: `tab=food|tag` — UI 용어가 API 에 새어 화면 개편 시 이름이 거짓이 됨. `type` — 무엇의 타입인지 모호. boolean `scannedOnly` — 제3 범위(북마크 등) 확장 시 재설계.
+
 ## R7. 스키마·인덱스
 
 - **Decision**: 마이그레이션 없음. 기존 인덱스 `idx_scan_history_recent(member_id, created_at)` 로 회원 필터 후 집계 — 스캔 이력 규모(회원당 수십~수백 건)에서 충분하다.

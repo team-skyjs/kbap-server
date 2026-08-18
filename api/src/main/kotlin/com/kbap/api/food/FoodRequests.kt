@@ -17,20 +17,11 @@ data class FoodBrowseRequest(
 
 @Schema(description = "음식 검색 요청")
 data class FoodSearchRequest(
-    @field:Schema(description = "검색어(빈/공백 불가). 한국어명 또는 요청 언어 번역명에 부분 일치", example = "김치")
+    @field:Schema(description = "검색어. scope=all 이면 필수(빈/공백 400), scope=scanned 면 옵션(미지정 시 스캔 목록 전체). 한국어명 또는 요청 언어 번역명에 부분 일치", example = "김치")
     val keyword: String? = null,
-    @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지", example = "42")
-    val cursor: String? = null,
-    @field:NotBlank(message = "lang 은 필수입니다")
-    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
-    val lang: String,
-)
-
-@Schema(description = "스캔 음식 목록 조회 요청 (리뷰 태그 후보)")
-data class FoodScannedRequest(
-    @field:Schema(description = "음식명 필터(옵션, 빈/공백 불가). 한국어명 또는 요청 언어 번역명에 부분 일치. 미지정 시 전체", example = "김치")
-    val keyword: String? = null,
-    @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지", example = "42")
+    @field:Schema(description = "검색 범위 — all(기본, 전체 음식)·scanned(본인 스캔 음식, 회원 전용·최신 스캔순). 그 외 값은 400", example = "all")
+    val scope: String? = null,
+    @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지. scope 간 커서는 호환되지 않는다", example = "42")
     val cursor: String? = null,
     @field:NotBlank(message = "lang 은 필수입니다")
     @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
