@@ -213,10 +213,10 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("전부 동점(별점 4)인 리뷰 25건을 평점 높은 순으로 끝까지 페이징하면") {
                 then("중복·누락 없이 모든 리뷰가 정확히 한 번씩 최신순으로 나온다") {
                     seedFood(863L, "페이징감자탕")
-                    val created = (1..25).map { createReview(accessToken(8630L + it), 863L, rating = 4) }
+                    val created = (1..55).map { createReview(accessToken(8630L + it), 863L, rating = 4) }
 
                     val first = payloadOf(foodReviews(null, 863L, sort = "rating_high"))
-                    first.path("items").size() shouldBe 20
+                    first.path("items").size() shouldBe 50
                     first.path("hasNext").asBoolean().shouldBeTrue()
 
                     val all = traverseAll(863L, "rating_high")
@@ -233,7 +233,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                     likeReview(accessToken(8633L), liked1)
 
                     val all = traverseAll(863L, "helpful")
-                    all.size shouldBe 25
+                    all.size shouldBe 55
                     all.toSet() shouldBe created.toSet()
                     all.take(2) shouldBe listOf(liked2, liked1)
                 }
@@ -308,10 +308,10 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("리뷰 25건에서 첫 페이지를 조회하면") {
                 then("최신순 20건과 다음 커서를 주고, 커서로 나머지 5건을 잇는다") {
                     val token = accessToken(800L)
-                    val reviewIds = (1..25).map { createReview(token, 800L) }
+                    val reviewIds = (1..55).map { createReview(token, 800L) }
 
                     val first = payloadOf(foodReviews(token, 800L))
-                    first.path("items").size() shouldBe 20
+                    first.path("items").size() shouldBe 50
                     first.path("items").first().path("reviewId").asLong() shouldBe reviewIds.last()
                     first.path("hasNext").asBoolean().shouldBeTrue()
                     val nextCursor = first.path("nextCursor").asLong()
@@ -361,7 +361,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                 then("회원과 동일한 목록이 내려가고 likedByMe 는 전부 false 다") {
                     accessToken(800L)
                     val guest = payloadOf(foodReviews(null, 800L))
-                    guest.path("items").size() shouldBe 20
+                    guest.path("items").size() shouldBe 50
                     guest.path("hasNext").asBoolean().shouldBeTrue()
                     guest.path("items").forEach { it.path("likedByMe").asBoolean().shouldBeFalse() }
 
@@ -457,13 +457,13 @@ class ReviewListControllerTest : BehaviorSpec() {
                     seedFood(832L, "숨김비빔밥")
                     val author = accessToken(8321L)
                     val viewer = accessToken(8322L)
-                    val reviewIds = (1..25).map { createReview(author, 832L) }
+                    val reviewIds = (1..55).map { createReview(author, 832L) }
                     val reportedIds = listOf(reviewIds[24], reviewIds[12], reviewIds[0])
 
                     reportedIds.forEach { reportReview(viewer, it) }
 
                     val first = payloadOf(foodReviews(viewer, 832L))
-                    first.path("items").size() shouldBe 20
+                    first.path("items").size() shouldBe 50
                     first.path("hasNext").asBoolean().shouldBeTrue()
                     val firstIds = first.path("items").map { it.path("reviewId").asLong() }
 
@@ -699,7 +699,7 @@ class ReviewListControllerTest : BehaviorSpec() {
         }
 
         given("리뷰 목록 — 세부 평가 노출") {
-            seedFood(860L, "목록세부평가찌개")
+            seedFood(866L, "목록세부평가찌개")
 
             fun createReviewWithExtras(token: String, foodId: Long, servingSpeed: Int, staffKindness: Int): Long {
                 val response = mockMvc.post("/api/reviews") {
@@ -715,10 +715,10 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("세부 평가가 있는 리뷰와 없는 리뷰를 목록으로 조회하면") {
                 then("저장한 값은 그대로, 없는 리뷰는 0 으로 내려간다") {
                     val token = accessToken(8601L)
-                    createReviewWithExtras(token, 860L, 5, 2)
-                    val plain = createReview(token, 860L)
+                    createReviewWithExtras(token, 866L, 5, 2)
+                    val plain = createReview(token, 866L)
 
-                    val items = payloadOf(foodReviews(token, 860L)).path("items")
+                    val items = payloadOf(foodReviews(token, 866L)).path("items")
                     items.size() shouldBe 2
                     items.first().path("reviewId").asLong() shouldBe plain
                     items.first().path("servingSpeed").asInt() shouldBe 0
@@ -730,7 +730,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("내 리뷰 목록을 조회하면") {
                 then("세부 평가 값이 동일하게 내려간다") {
                     val token = accessToken(8602L)
-                    createReviewWithExtras(token, 860L, 1, 5)
+                    createReviewWithExtras(token, 866L, 1, 5)
                     val items = payloadOf(myReviews(token)).path("items")
                     items.first().path("servingSpeed").asInt() shouldBe 1
                     items.first().path("staffKindness").asInt() shouldBe 5

@@ -123,13 +123,13 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     seedFood(900L, "피드김치찌개")
                     seedFood(901L, "피드된장찌개")
                     val token = accessToken(9001L)
-                    val reviewIds = (1..25).map { createReview(token, if (it % 2 == 0) 900L else 901L) }
+                    val reviewIds = (1..55).map { createReview(token, if (it % 2 == 0) 900L else 901L) }
 
                     val first = payloadOf(feed(token))
-                    first.path("items").size() shouldBe 20
+                    first.path("items").size() shouldBe 50
                     first.path("hasNext").asBoolean().shouldBeTrue()
                     first.path("items").map { it.path("reviewId").asLong() } shouldBe
-                        reviewIds.takeLast(20).sortedDescending()
+                        reviewIds.takeLast(50).sortedDescending()
 
                     val second = payloadOf(feed(token, cursor = first.path("nextCursor").asLong().toString()))
                     second.path("items").map { it.path("reviewId").asLong() }.take(5) shouldBe
