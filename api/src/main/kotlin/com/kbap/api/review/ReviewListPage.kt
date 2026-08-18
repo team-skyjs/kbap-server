@@ -12,7 +12,7 @@ data class ReviewListPage(
 
     @field:Schema(
         description = "다음 페이지 커서(불투명 문자열 — 그대로 되돌려준다). 발급된 정렬 기준에 종속. 마지막 페이지면 null",
-        example = "17_204",
+        example = "MTdfMjA0",
         nullable = true,
     )
     val nextCursor: String? = null,

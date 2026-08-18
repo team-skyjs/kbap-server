@@ -23,13 +23,13 @@
 
 - **응답 `nextCursor` 가 number → string 으로 바뀐다** (리뷰 목록만 — `/reviews/me`·다른 목록 API 는 불변). 클라이언트는 불투명 문자열로 취급해 그대로 되돌려준다.
 - `sort` 생략(LATEST) 시 커서 값은 기존과 동일한 숫자 문자열(`"42"`) — 구 클라이언트 동작 불변.
-- 커서는 발급된 정렬 기준에 종속: 형식이 다른 정렬에 재사용하면 400 FOOD-002, 형식이 같은 다른 지표 정렬에 재사용하면 파싱은 되나 순서 보장 없음.
+- 지표 정렬 커서는 (지표값, id) 를 base64url(패딩 없음)로 인코딩한 불투명 토큰이다(예: "MTdfMjA0"). 커서는 발급된 정렬 기준에 종속: 디코딩·형식 검증 실패는 400 FOOD-002, 형식이 같은 다른 지표 정렬에 재사용하면 파싱은 되나 순서 보장 없음.
 - 페이징 중 지표 값(좋아요 수 등)이 변하면 항목이 페이지 간 이동할 수 있다 — 중복·누락 없음만 보장(keyset 특성).
 
 ## 응답 예 (sort=helpful, 2페이지째 요청)
 
 ```
-GET /api/reviews?lang=en&sort=helpful&cursor=17_204
+GET /api/reviews?lang=en&sort=helpful&cursor=MTdfMjA0
 ```
 
 ```json
@@ -38,7 +38,7 @@ GET /api/reviews?lang=en&sort=helpful&cursor=17_204
   "payload": {
     "items": [ { "reviewId": 203, "likeCount": 17, "...": "기존 항목 형태 그대로" } ],
     "hasNext": true,
-    "nextCursor": "12_180"
+    "nextCursor": "MTJfMTgw"
   }
 }
 ```

@@ -23,16 +23,16 @@ class ReviewListCursorTest : BehaviorSpec({
                 position.id shouldBe 42L
             }
         }
-        `when`("지표 정렬에서 복합 커서를 파싱하면") {
-            then("지표와 id 가 채워진다") {
-                val position = ReviewListCursor.parse("4_123", ReviewSort.RATING)!!
+        `when`("지표 정렬에서 base64 복합 커서를 파싱하면") {
+            then("디코딩해 지표와 id 가 채워진다") {
+                val position = ReviewListCursor.parse("NF8xMjM", ReviewSort.RATING)!!
                 position.metric shouldBe 4L
                 position.id shouldBe 123L
             }
         }
-        `when`("LATEST 정렬에 복합 형식 커서를 주면") {
+        `when`("지표 정렬에 인코딩 없는 원문 복합 커서를 주면") {
             then("FOOD-002 로 거절한다") {
-                shouldThrow<BusinessException> { ReviewListCursor.parse("4_123", ReviewSort.LATEST) }
+                shouldThrow<BusinessException> { ReviewListCursor.parse("4_123", ReviewSort.RATING) }
                     .errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
@@ -42,22 +42,22 @@ class ReviewListCursorTest : BehaviorSpec({
                     .errorCode shouldBe ErrorCode.INVALID_CURSOR
             }
         }
-        `when`("음수·비숫자·조각 초과 커서를 주면") {
+        `when`("깨진 커서를 주면") {
             then("전부 FOOD-002 로 거절한다") {
-                listOf("-1", "abc").forEach { raw ->
+                listOf("-1", "abc", "4_123").forEach { raw ->
                     shouldThrow<BusinessException> { ReviewListCursor.parse(raw, ReviewSort.LATEST) }
                         .errorCode shouldBe ErrorCode.INVALID_CURSOR
                 }
-                listOf("-1_2", "a_2", "1_b", "1_2_3", "_", "1_").forEach { raw ->
+                listOf("!!!", "LTFfMg", "YV8y", "MV9i", "MV8yXzM", "Xw", "MV8").forEach { raw ->
                     shouldThrow<BusinessException> { ReviewListCursor.parse(raw, ReviewSort.RATING) }
                         .errorCode shouldBe ErrorCode.INVALID_CURSOR
                 }
             }
         }
         `when`("커서를 인코딩하면") {
-            then("LATEST 는 id 단일, 지표 정렬은 metric_id 형식이다") {
+            then("LATEST 는 id 단일 숫자, 지표 정렬은 metric_id 의 base64url(패딩 없음)이다") {
                 ReviewListCursor.encode(ReviewSort.LATEST, metric = 7L, id = 42L) shouldBe "42"
-                ReviewListCursor.encode(ReviewSort.FOOD_REVIEW_COUNT, metric = 7L, id = 42L) shouldBe "7_42"
+                ReviewListCursor.encode(ReviewSort.FOOD_REVIEW_COUNT, metric = 7L, id = 42L) shouldBe "N180Mg"
             }
         }
         `when`("인코딩한 커서를 같은 정렬로 되파싱하면") {
