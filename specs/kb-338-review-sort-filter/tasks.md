@@ -14,14 +14,14 @@
 
 ## Phase 1: Foundational — 정렬 enum·커서 코덱
 
-- [ ] T001 커서 코덱 단위 테스트(Red) — `api/src/test/kotlin/com/kbap/api/review/ReviewListCursorTest.kt`: LATEST 숫자 파싱·지표 정렬 `"{metric}_{id}"` 파싱/인코딩·형식 불일치 FOOD-002·음수/비숫자 FOOD-002
-- [ ] T002 `common/src/main/kotlin/com/kbap/common/domain/review/ReviewSort.kt` — 정렬 5종 enum(리포지토리 계약 소유). `api/src/main/kotlin/com/kbap/api/review/ReviewListCursor.kt` — 커서 코덱(Green)
+- [X] T001 커서 코덱 단위 테스트(Red) — `api/src/test/kotlin/com/kbap/api/review/ReviewListCursorTest.kt`: LATEST 숫자 파싱·지표 정렬 `"{metric}_{id}"` 파싱/인코딩·형식 불일치 FOOD-002·음수/비숫자 FOOD-002
+- [X] T002 `common/src/main/kotlin/com/kbap/common/domain/review/ReviewSort.kt` — 정렬 5종 enum(리포지토리 계약 소유). `api/src/main/kotlin/com/kbap/api/review/ReviewListCursor.kt` — 커서 코덱(Green)
 
 ## Phase 2: User Story 1 - 정렬 5종 (Priority: P1) 🎯 MVP
 
-- [ ] T003 [US1] `GlobalReviewListControllerTest`(Red) — 평점↑↓·helpful·음식 리뷰 수 정렬 순서와 동점 최신 우선, sort 생략 = 최신순 불변, 허용값 밖 400 COMMON-002
-- [ ] T004 [US1] `common/.../review/ReviewRepositoryCustom(Impl).kt` — 동적 JPQL: 정렬별 order/커서 조건(helpful 은 entity join+group by+having, 음식 리뷰 수는 상관 서브쿼리), (review, metric) 행 반환. 기존 `@Query findReviewPage` 대체·삭제
-- [ ] T005 [US1] `ReviewService`·`ReviewController`·`ReviewListRequest`·`ReviewListPage`·`ReviewApi` — sort 파라미터 바인딩→enum, 복합 커서 해석/발급, 리뷰 목록 전용 봉투(nextCursor String), `getRecentFoodReviews` 는 새 계약의 LATEST 경로 재사용. T003 Green
+- [X] T003 [US1] `GlobalReviewListControllerTest`(Red) — 평점↑↓·helpful·음식 리뷰 수 정렬 순서와 동점 최신 우선, sort 생략 = 최신순 불변, 허용값 밖 400 COMMON-002
+- [X] T004 [US1] `common/.../review/ReviewRepositoryCustom(Impl).kt` — 동적 JPQL: 정렬별 order/커서 조건(helpful 은 entity join+group by+having, 음식 리뷰 수는 상관 서브쿼리), (review, metric) 행 반환. 기존 `@Query findReviewPage` 대체·삭제
+- [X] T005 [US1] `ReviewService`·`ReviewController`·`ReviewListRequest`·`ReviewListPage`·`ReviewApi` — sort 파라미터 바인딩→enum, 복합 커서 해석/발급, 리뷰 목록 전용 봉투(nextCursor String), `getRecentFoodReviews` 는 새 계약의 LATEST 경로 재사용. T003 Green
 
 ## Phase 3: User Story 2 - 별점 구간 필터 (Priority: P1)
 

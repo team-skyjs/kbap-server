@@ -105,6 +105,9 @@ class ReviewListControllerTest : BehaviorSpec() {
             cursor: String? = null,
             countryCode: String? = null,
             lang: String? = "en",
+            sort: String? = null,
+            minRating: Int? = null,
+            maxRating: Int? = null,
         ): ResultActionsDsl =
             mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
@@ -112,7 +115,17 @@ class ReviewListControllerTest : BehaviorSpec() {
                 cursor?.let { param("cursor", it) }
                 countryCode?.let { param("countryCode", it) }
                 lang?.let { param("lang", it) }
+                sort?.let { param("sort", it) }
+                minRating?.let { param("minRating", it.toString()) }
+                maxRating?.let { param("maxRating", it.toString()) }
             }
+
+        fun likeReview(token: String, reviewId: Long) {
+            mockMvc.post("/api/reviews/$reviewId/like") {
+                header("Authorization", "Bearer $token")
+                param("liked", "true")
+            }.andExpect { status { isOk() } }
+        }
 
         fun myReviews(token: String?, cursor: String? = null, lang: String? = "en"): ResultActionsDsl =
             mockMvc.get("/api/reviews/me") {
@@ -123,6 +136,61 @@ class ReviewListControllerTest : BehaviorSpec() {
 
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+        fun reviewIdsOf(result: ResultActionsDsl): List<Long> =
+            payloadOf(result).path("items").map { it.path("reviewId").asLong() }
+
+        given("리뷰 목록 정렬 — GET /api/reviews?sort=") {
+            `when`("평점이 다른 리뷰들을 평점 높은 순으로 조회하면") {
+                then("별점 내림차순, 동점은 최신 우선이다") {
+                    seedFood(860L, "정렬김치찌개")
+                    val r1 = createReview(accessToken(8601L), 860L, rating = 2)
+                    val r2 = createReview(accessToken(8602L), 860L, rating = 5)
+                    val r3 = createReview(accessToken(8603L), 860L, rating = 3)
+                    val r4 = createReview(accessToken(8604L), 860L, rating = 5)
+                    val r5 = createReview(accessToken(8605L), 860L, rating = 1)
+
+                    reviewIdsOf(foodReviews(null, 860L, sort = "RATING_DESC")) shouldBe
+                        listOf(r4, r2, r3, r1, r5)
+                }
+            }
+            `when`("같은 리뷰들을 평점 낮은 순으로 조회하면") {
+                then("별점 오름차순, 동점은 최신 우선이다") {
+                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "RATING_ASC"))
+                    payloadOf(foodReviews(null, 860L, sort = "RATING_ASC")).path("items")
+                        .map { it.path("rating").asInt() } shouldBe listOf(1, 2, 3, 5, 5)
+                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "RATING_DESC")).takeLast(3).reversed()
+                }
+            }
+            `when`("좋아요 수가 다른 리뷰들을 helpful 내림차순으로 조회하면") {
+                then("좋아요 수 내림차순, 동점은 최신 우선이다") {
+                    seedFood(861L, "정렬된장찌개")
+                    val r1 = createReview(accessToken(8611L), 861L, rating = 4)
+                    val r2 = createReview(accessToken(8612L), 861L, rating = 4)
+                    val r3 = createReview(accessToken(8613L), 861L, rating = 4)
+                    likeReview(accessToken(8611L), r2)
+                    likeReview(accessToken(8612L), r2)
+                    likeReview(accessToken(8613L), r1)
+
+                    reviewIdsOf(foodReviews(null, 861L, sort = "HELPFUL_DESC")) shouldBe
+                        listOf(r2, r1, r3)
+                }
+            }
+            `when`("sort 를 생략하면") {
+                then("기존과 동일한 최신순이다") {
+                    val ids = reviewIdsOf(foodReviews(null, 861L))
+                    ids shouldBe ids.sortedDescending()
+                }
+            }
+            `when`("허용값 밖 sort 로 조회하면") {
+                then("400 COMMON-002 를 반환한다") {
+                    foodReviews(null, 861L, sort = "RANDOM").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+        }
 
         given("음식별 리뷰 목록 — GET /api/reviews?foodId=") {
             seedFood(800L, "목록김치찌개")

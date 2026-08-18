@@ -17,6 +17,7 @@ import com.kbap.api.core.Page
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
@@ -124,20 +125,32 @@ class ReviewService(
         foodId: Long?,
         countryCode: String?,
         lang: LanguageCode,
-        cursor: Long?,
-    ): Page<ReviewResponse> {
+        sort: ReviewSort,
+        minRating: Int?,
+        maxRating: Int?,
+        cursor: ReviewListCursor.Position?,
+    ): ReviewListPage {
         foodId?.let { foodService.getReadyFood(it) }
-        return toPage(
-            reviewRepository.findReviewPage(
-                foodId,
-                countryCode,
-                cursor,
-                viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-                viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
-                PageRequest.of(0, PAGE_SIZE + 1),
-            ),
-            viewerMemberId,
-            lang,
+        val rows = reviewRepository.findReviewPage(
+            foodId = foodId,
+            countryCode = countryCode,
+            minRating = minRating,
+            maxRating = maxRating,
+            sort = sort,
+            metricCursor = cursor?.metric,
+            idCursor = cursor?.id,
+            excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
+            excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+            limit = PAGE_SIZE + 1,
+        )
+        val hasNext = rows.size > PAGE_SIZE
+        val page = rows.take(PAGE_SIZE)
+        return ReviewListPage(
+            items = toResponses(page.map { it.review }, viewerMemberId, lang, includeFood = true),
+            hasNext = hasNext,
+            nextCursor = page.lastOrNull()
+                ?.takeIf { hasNext }
+                ?.let { ReviewListCursor.encode(sort, it.metric, it.review.id) },
         )
     }
 
@@ -183,13 +196,17 @@ class ReviewService(
     fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
         toResponses(
             reviewRepository.findReviewPage(
-                foodId,
-                null,
-                null,
-                viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-                viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
-                PageRequest.of(0, RECENT_REVIEWS_SIZE),
-            ),
+                foodId = foodId,
+                countryCode = null,
+                minRating = null,
+                maxRating = null,
+                sort = ReviewSort.LATEST,
+                metricCursor = null,
+                idCursor = null,
+                excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
+                excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+                limit = RECENT_REVIEWS_SIZE,
+            ).map { it.review },
             viewerMemberId,
             lang,
             includeFood = false,
