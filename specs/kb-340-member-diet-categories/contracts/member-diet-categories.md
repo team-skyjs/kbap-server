@@ -16,7 +16,7 @@
 ## 프로필 수정 — PATCH /api/members/me/profile (1.0·1.1+ 두 DTO 모두)
 
 ```jsonc
-{ "dietCategories": ["HALAL"] }   // 추가 — 누락 = 기존 유지, [] = 전체 해제(기존 필드 규칙 동일)
+{ "dietCategories": ["MUSLIM"] }   // 추가 — 누락 = 기존 유지, [] = 전체 해제(기존 필드 규칙 동일)
 ```
 
 ## 내 프로필 조회 — GET /api/members/me/profile

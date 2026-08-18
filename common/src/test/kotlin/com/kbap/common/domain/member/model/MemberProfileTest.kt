@@ -3,6 +3,7 @@ package com.kbap.common.domain.member.model
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.CurrencyCode
+import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.member.model.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -16,6 +17,53 @@ class MemberProfileTest : BehaviorSpec({
         spicinessPreference = SpicinessPreference.MEDIUM,
         countryCode = CountryCode.KR,
     )
+
+    given("MemberProfile — diet 카테고리 복수 선택") {
+        `when`("diet 2종을 지정하면") {
+            then("집합으로 저장된다") {
+                baseProfile().updatedWith(dietCategories = listOf("VEGAN", "GLUTEN_FREE"))
+                    .dietCategories shouldBe setOf(DietCategory.VEGAN, DietCategory.GLUTEN_FREE)
+            }
+        }
+
+        `when`("같은 diet 를 중복으로 지정하면") {
+            then("한 번만 저장된다") {
+                baseProfile().updatedWith(dietCategories = listOf("VEGAN", "VEGAN"))
+                    .dietCategories shouldBe setOf(DietCategory.VEGAN)
+            }
+        }
+
+        `when`("지원하지 않는 diet 값을 지정하면") {
+            then("MEMBER-011 로 거절한다") {
+                val e = shouldThrow<BusinessException> {
+                    baseProfile().updatedWith(dietCategories = listOf("KETO"))
+                }
+                e.errorCode shouldBe ErrorCode.INVALID_DIET_CATEGORY
+            }
+        }
+
+        `when`("diet 를 전송하지 않으면(null)") {
+            then("기존 선택을 유지한다") {
+                baseProfile().updatedWith(dietCategories = listOf("MUSLIM"))
+                    .updatedWith(dietCategories = null)
+                    .dietCategories shouldBe setOf(DietCategory.MUSLIM)
+            }
+        }
+
+        `when`("빈 목록을 전송하면") {
+            then("전부 해제된다") {
+                baseProfile().updatedWith(dietCategories = listOf("MUSLIM"))
+                    .updatedWith(dietCategories = emptyList())
+                    .dietCategories shouldBe emptySet<DietCategory>()
+            }
+        }
+
+        `when`("빈 프로필을 만들면") {
+            then("diet 는 빈 집합이다") {
+                MemberProfile.empty().dietCategories shouldBe emptySet<DietCategory>()
+            }
+        }
+    }
 
     given("MemberProfile.empty — 가입 직후 기본 프로필") {
         `when`("빈 프로필을 만들면") {

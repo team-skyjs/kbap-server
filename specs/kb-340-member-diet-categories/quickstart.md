@@ -26,9 +26,9 @@ curl -s localhost:8080/api/members/me/profile -H "Authorization: Bearer $TOKEN" 
 
 ```bash
 # 교체
-curl -s -X PATCH .../members/me/profile -d '{"dietCategories":["HALAL"]}'        # → ["HALAL"]
+curl -s -X PATCH .../members/me/profile -d '{"dietCategories":["MUSLIM"]}'        # → ["MUSLIM"]
 # 누락 = 유지
-curl -s -X PATCH .../members/me/profile -d '{"nickname":"새닉"}'                  # → ["HALAL"] 유지
+curl -s -X PATCH .../members/me/profile -d '{"nickname":"새닉"}'                  # → ["MUSLIM"] 유지
 # 빈 배열 = 전체 해제
 curl -s -X PATCH .../members/me/profile -d '{"dietCategories":[]}'                # → []
 ```

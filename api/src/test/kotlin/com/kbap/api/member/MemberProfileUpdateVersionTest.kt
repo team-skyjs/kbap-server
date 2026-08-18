@@ -91,6 +91,18 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
             clearMembers()
         }
 
+        given("1.1 프로필 수정 — diet 카테고리") {
+            `when`("1.1 경로로 diet 를 교체하면") {
+                then("반영되고 조회에 그대로 담긴다") {
+                    val token = onboardedToken()
+                    updateProfileNoCountry(token, mapOf("dietCategories" to listOf("VEGAN", "GLUTEN_FREE")))
+                        .andReturn().response.status shouldBe 200
+                    profilePayload(token).path("dietCategories").map { it.asText() }.toSet() shouldBe
+                        setOf("VEGAN", "GLUTEN_FREE")
+                }
+            }
+        }
+
         given("1.1 프로필 수정 — 국적 변경 불가") {
             `when`("온보딩을 완료한 회원이 닉네임을 수정하면") {
                 then("200 으로 응답하고 닉네임은 변경되며 국적은 온보딩 값 그대로다") {

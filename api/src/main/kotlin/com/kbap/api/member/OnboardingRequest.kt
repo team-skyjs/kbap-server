@@ -6,6 +6,7 @@ import com.kbap.common.core.error.ErrorCode
 data class OnboardingRequest(
     val nickname: String? = null,
     val avoidanceSubstanceCodes: List<String> = emptyList(),
+    val dietCategories: List<String> = emptyList(),
     val countryCode: String,
     val profileImageUrl: String? = null,
     val spicinessPreference: String,
@@ -15,6 +16,7 @@ data class OnboardingRequest(
             memberId = memberId,
             nickname = if (serverAssignsProfile) null else requireField(nickname),
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+            dietCategories = dietCategories,
             countryCode = countryCode,
             profileImageUrl = if (serverAssignsProfile) null else requireField(profileImageUrl),
             spicinessPreference = spicinessPreference,

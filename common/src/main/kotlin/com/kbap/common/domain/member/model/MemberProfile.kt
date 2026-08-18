@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.CurrencyCode
+import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.CountryCode
 
@@ -11,6 +12,7 @@ import com.kbap.common.domain.member.model.CountryCode
 data class MemberProfile private constructor(
     val nickname: String?,
     val avoidanceSubstanceCodes: Set<AvoidedIngredientCodeRef>,
+    val dietCategories: Set<DietCategory>,
     val spicinessPreference: SpicinessPreference,
     val countryCode: CountryCode?,
     val profileImageUrl: String?,
@@ -24,6 +26,7 @@ data class MemberProfile private constructor(
     fun updatedWith(
         nickname: String? = null,
         avoidanceSubstanceCodes: List<String>? = null,
+        dietCategories: List<String>? = null,
         spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
@@ -33,6 +36,7 @@ data class MemberProfile private constructor(
             nickname = nickname?.let { validatedNickname(it) } ?: this.nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes?.let { validatedCodes(it) }
                 ?: this.avoidanceSubstanceCodes,
+            dietCategories = dietCategories?.let { validatedDiets(it) } ?: this.dietCategories,
             spicinessPreference = spicinessPreference?.let { validatedSpiciness(it) }
                 ?: this.spicinessPreference,
             countryCode = countryCode?.let { validatedCountry(it) } ?: this.countryCode,
@@ -52,10 +56,12 @@ data class MemberProfile private constructor(
             countryCode: CountryCode?,
             profileImageUrl: String? = null,
             currency: CurrencyCode? = null,
+            dietCategories: Set<DietCategory> = emptySet(),
         ): MemberProfile =
             MemberProfile(
                 nickname = nickname,
                 avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+                dietCategories = dietCategories,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
                 profileImageUrl = profileImageUrl,
@@ -66,6 +72,7 @@ data class MemberProfile private constructor(
             MemberProfile(
                 nickname = null,
                 avoidanceSubstanceCodes = emptySet(),
+                dietCategories = emptySet(),
                 spicinessPreference = SpicinessPreference.SKIP,
                 countryCode = null,
                 profileImageUrl = null,
@@ -81,6 +88,12 @@ data class MemberProfile private constructor(
             }
             return raw.map { AvoidedIngredientCodeRef(it) }.toSet()
         }
+
+        private fun validatedDiets(raw: List<String>): Set<DietCategory> =
+            raw.map { code ->
+                DietCategory.entries.firstOrNull { it.name == code }
+                    ?: throw BusinessException(ErrorCode.INVALID_DIET_CATEGORY)
+            }.toSet()
 
         private fun validatedCountry(raw: String): CountryCode =
             CountryCode.from(raw) ?: throw BusinessException(ErrorCode.INVALID_COUNTRY_CODE)
