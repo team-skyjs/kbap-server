@@ -86,7 +86,7 @@ class ModuleBoundaryTest : BehaviorSpec({
         }
 
         `when`("영속 애너테이션 없는 도메인 클래스(모델·정책·값 객체)가 jakarta.persistence 에 의존하는지 검사하면") {
-            then("도메인 모델은 ORM-free 다 — 도메인 안에서 jakarta.persistence 는 엔티티·리포지토리·도메인 서비스(@Service)만 만진다") {
+            then("도메인 모델은 ORM-free 다 — 도메인 안에서 jakarta.persistence 는 엔티티·리포지토리(커스텀 구현 포함)·도메인 서비스(@Service)만 만진다") {
                 noClasses().that().resideInAPackage(sharedDomain)
                     .and().areNotAnnotatedWith("jakarta.persistence.Entity")
                     .and().areNotAnnotatedWith("jakarta.persistence.MappedSuperclass")
@@ -94,6 +94,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .and().areNotAnnotatedWith("jakarta.persistence.Converter")
                     .and().areNotAnnotatedWith("org.springframework.stereotype.Service")
                     .and().areNotAssignableTo("org.springframework.data.repository.Repository")
+                    .and().haveSimpleNameNotEndingWith("RepositoryCustomImpl")
                     .should().dependOnClassesThat().resideInAPackage(jpa)
                     .allowEmptyShould(true)
                     .check(imported)
