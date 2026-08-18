@@ -126,6 +126,8 @@ class ReviewControllerTest : BehaviorSpec() {
             content: String? = null,
             imagePaths: List<String>? = null,
             place: Map<String, Any?>? = null,
+            servingSpeed: Int? = null,
+            staffKindness: Int? = null,
         ): String = mapper.writeValueAsString(
             buildMap {
                 foodId?.let { put("foodId", it) }
@@ -133,6 +135,8 @@ class ReviewControllerTest : BehaviorSpec() {
                 content?.let { put("content", it) }
                 imagePaths?.let { put("imagePaths", it) }
                 place?.let { put("place", it) }
+                servingSpeed?.let { put("servingSpeed", it) }
+                staffKindness?.let { put("staffKindness", it) }
             },
         )
 
@@ -422,6 +426,65 @@ class ReviewControllerTest : BehaviorSpec() {
                     update(token, reviewId, createBody(foodId = null, rating = 5)).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("REVIEW-001") }
+                    }
+                }
+            }
+        }
+
+        given("리뷰 세부 평가 — 제공 속도·직원 친절도") {
+            seedFood(760L, "세부평가김치찌개")
+
+            `when`("두 항목을 1~5 로 제출해 작성하면") {
+                then("응답에 제출한 값이 그대로 담긴다") {
+                    val token = accessToken(765L)
+                    create(token, createBody(foodId = 760L, rating = 4, servingSpeed = 5, staffKindness = 3)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.servingSpeed") { value(5) }
+                        jsonPath("$.payload.staffKindness") { value(3) }
+                    }
+                }
+            }
+            `when`("두 항목 없이 작성하면") {
+                then("둘 다 0(평가 안 함)으로 내려간다") {
+                    val token = accessToken(765L)
+                    create(token, createBody(foodId = 760L, rating = 4)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.servingSpeed") { value(0) }
+                        jsonPath("$.payload.staffKindness") { value(0) }
+                    }
+                }
+            }
+            `when`("항목 값이 0~5 범위를 벗어나면") {
+                then("400 을 반환한다") {
+                    val token = accessToken(765L)
+                    create(token, createBody(foodId = 760L, rating = 4, servingSpeed = 6))
+                        .andExpect { status { isBadRequest() } }
+                    create(token, createBody(foodId = 760L, rating = 4, staffKindness = -1))
+                        .andExpect { status { isBadRequest() } }
+                }
+            }
+            `when`("수정에서 한 항목은 0 으로 지우고 다른 항목은 누락하면") {
+                then("둘 다 0 으로 저장된다 — 전체 교체 계약") {
+                    val token = accessToken(766L)
+                    val reviewId = reviewIdOf(
+                        create(token, createBody(foodId = 760L, rating = 4, servingSpeed = 4, staffKindness = 2))
+                            .andExpect { status { isOk() } },
+                    )
+                    update(token, reviewId, createBody(foodId = null, rating = 5, servingSpeed = 0)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.servingSpeed") { value(0) }
+                        jsonPath("$.payload.staffKindness") { value(0) }
+                    }
+                }
+            }
+            `when`("수정에서 두 항목을 1~5 로 바꾸면") {
+                then("바뀐 값이 응답에 담긴다") {
+                    val token = accessToken(766L)
+                    val reviewId = createReview(token, 760L)
+                    update(token, reviewId, createBody(foodId = null, rating = 5, servingSpeed = 1, staffKindness = 5)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.servingSpeed") { value(1) }
+                        jsonPath("$.payload.staffKindness") { value(5) }
                     }
                 }
             }

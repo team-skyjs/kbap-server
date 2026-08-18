@@ -215,6 +215,27 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("세부 평가가 담긴 리뷰가 있는 음식을 비회원이 조회하면") {
+                then("recentReviews 항목에 servingSpeed·staffKindness 가 내려가고 없는 리뷰는 0 이다") {
+                    seedFood(935L, "리뷰섹션칼국수")
+                    val token = accessToken(927L, "KR")
+                    mockMvc.post("/api/reviews") {
+                        header("Authorization", "Bearer $token")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(
+                            mapOf("foodId" to 935L, "rating" to 4, "servingSpeed" to 2, "staffKindness" to 5),
+                        )
+                    }.andExpect { status { isOk() } }
+                    createReview(928L, "KR", 935L, 3)
+                    detail(935L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.recentReviews[0].servingSpeed") { value(0) }
+                        jsonPath("$.payload.recentReviews[0].staffKindness") { value(0) }
+                        jsonPath("$.payload.recentReviews[1].servingSpeed") { value(2) }
+                        jsonPath("$.payload.recentReviews[1].staffKindness") { value(5) }
+                    }
+                }
+            }
             `when`("리뷰가 0건인 음식을 회원이 조회하면") {
                 then("평균은 null 이 아니라 0.0·리뷰 수 0·같은 국적 평균 0.0 이 내려간다") {
                     seedFood(930L, "리뷰섹션순두부")

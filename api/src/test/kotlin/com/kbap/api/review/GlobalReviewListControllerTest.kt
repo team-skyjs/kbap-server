@@ -272,5 +272,28 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("전체 리뷰 목록 — 세부 평가 노출") {
+            `when`("비회원이 세부 평가가 담긴 리뷰를 피드로 조회하면") {
+                then("servingSpeed·staffKindness 가 회원 저장값 그대로 내려간다") {
+                    seedFood(960L, "피드세부평가찌개")
+                    val token = accessToken(9060L)
+                    val reviewId = mapper.readTree(
+                        mockMvc.post("/api/reviews") {
+                            header("Authorization", "Bearer $token")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(
+                                mapOf("foodId" to 960L, "rating" to 4, "servingSpeed" to 3, "staffKindness" to 4),
+                            )
+                        }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("reviewId").asLong()
+
+                    val items = payloadOf(feed(null)).path("items")
+                    items.first().path("reviewId").asLong() shouldBe reviewId
+                    items.first().path("servingSpeed").asInt() shouldBe 3
+                    items.first().path("staffKindness").asInt() shouldBe 4
+                }
+            }
+        }
     }
 }

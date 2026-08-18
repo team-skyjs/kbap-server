@@ -26,6 +26,16 @@ data class ReviewCreateRequest(
     @field:Schema(description = "별점(1~5 정수)", example = "4", requiredMode = Schema.RequiredMode.REQUIRED)
     val rating: Int?,
 
+    @field:Min(0, message = "servingSpeed 는 0 이상이어야 합니다")
+    @field:Max(5, message = "servingSpeed 는 5 이하여야 합니다")
+    @field:Schema(description = "제공 속도 평가(0~5 정수) — 0 은 평가 안 함, 누락 시 0", example = "5")
+    val servingSpeed: Int? = null,
+
+    @field:Min(0, message = "staffKindness 는 0 이상이어야 합니다")
+    @field:Max(5, message = "staffKindness 는 5 이하여야 합니다")
+    @field:Schema(description = "직원 친절도 평가(0~5 정수) — 0 은 평가 안 함, 누락 시 0", example = "4")
+    val staffKindness: Int? = null,
+
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
     @field:Schema(description = "리뷰 본문(옵션, 최대 1000자)", example = "정말 맛있어요")
     val content: String? = null,
@@ -46,6 +56,16 @@ data class ReviewUpdateRequest(
     @field:Max(5, message = "rating 은 5 이하여야 합니다")
     @field:Schema(description = "별점(1~5 정수)", example = "5", requiredMode = Schema.RequiredMode.REQUIRED)
     val rating: Int?,
+
+    @field:Min(0, message = "servingSpeed 는 0 이상이어야 합니다")
+    @field:Max(5, message = "servingSpeed 는 5 이하여야 합니다")
+    @field:Schema(description = "제공 속도 평가(0~5 정수) — 0 은 평가 안 함, 생략 시 0 으로 교체", example = "5")
+    val servingSpeed: Int? = null,
+
+    @field:Min(0, message = "staffKindness 는 0 이상이어야 합니다")
+    @field:Max(5, message = "staffKindness 는 5 이하여야 합니다")
+    @field:Schema(description = "직원 친절도 평가(0~5 정수) — 0 은 평가 안 함, 생략 시 0 으로 교체", example = "4")
+    val staffKindness: Int? = null,
 
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
     @field:Schema(description = "리뷰 본문(생략 시 본문 제거)", example = "다시 먹어보니 더 맛있네요")

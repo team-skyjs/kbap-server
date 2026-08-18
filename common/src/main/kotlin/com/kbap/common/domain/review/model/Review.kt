@@ -20,6 +20,12 @@ class Review(
     @Column(nullable = false, columnDefinition = "TINYINT")
     var rating: Int,
 
+    @Column(name = "serving_speed_rating", nullable = false, columnDefinition = "TINYINT")
+    var servingSpeedRating: Int = 0,
+
+    @Column(name = "staff_kindness_rating", nullable = false, columnDefinition = "TINYINT")
+    var staffKindnessRating: Int = 0,
+
     @Column(length = MAX_CONTENT_LENGTH)
     var content: String? = null,
 
@@ -38,12 +44,21 @@ class Review(
     var version: Long = 0
 
     init {
-        requireValid(rating, content, imageRefs)
+        requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
     }
 
-    fun update(rating: Int, content: String?, imageRefs: List<String>?, place: ReviewPlace?) {
-        requireValid(rating, content, imageRefs)
+    fun update(
+        rating: Int,
+        servingSpeedRating: Int,
+        staffKindnessRating: Int,
+        content: String?,
+        imageRefs: List<String>?,
+        place: ReviewPlace?,
+    ) {
+        requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
         this.rating = rating
+        this.servingSpeedRating = servingSpeedRating
+        this.staffKindnessRating = staffKindnessRating
         this.content = content
         this.imageRefs = imageRefs
         this.place = place
@@ -51,14 +66,23 @@ class Review(
 
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId
 
-    private fun requireValid(rating: Int, content: String?, imageRefs: List<String>?) {
+    private fun requireValid(
+        rating: Int,
+        servingSpeedRating: Int,
+        staffKindnessRating: Int,
+        content: String?,
+        imageRefs: List<String>?,
+    ) {
         require(rating in RATING_RANGE) { "rating 은 1~5 여야 합니다: $rating" }
+        require(servingSpeedRating in EXTRA_RATING_RANGE) { "servingSpeedRating 은 0~5 여야 합니다: $servingSpeedRating" }
+        require(staffKindnessRating in EXTRA_RATING_RANGE) { "staffKindnessRating 은 0~5 여야 합니다: $staffKindnessRating" }
         require(content == null || content.length <= MAX_CONTENT_LENGTH) { "content 는 최대 ${MAX_CONTENT_LENGTH}자입니다" }
         require(imageRefs == null || imageRefs.size <= MAX_IMAGE_COUNT) { "사진은 최대 ${MAX_IMAGE_COUNT}장입니다" }
     }
 
     companion object {
         val RATING_RANGE = 1..5
+        val EXTRA_RATING_RANGE = 0..5
         const val MAX_CONTENT_LENGTH = 1000
         const val MAX_IMAGE_COUNT = 3
     }

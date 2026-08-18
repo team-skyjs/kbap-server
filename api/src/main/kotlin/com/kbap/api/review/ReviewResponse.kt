@@ -40,6 +40,12 @@ data class ReviewResponse(
     @field:Schema(description = "별점(1~5)", example = "4")
     val rating: Int,
 
+    @field:Schema(description = "제공 속도 평가 — 항상 0~5 정수, 0 은 평가 안 함", example = "5")
+    val servingSpeed: Int,
+
+    @field:Schema(description = "직원 친절도 평가 — 항상 0~5 정수, 0 은 평가 안 함", example = "4")
+    val staffKindness: Int,
+
     @field:Schema(description = "리뷰 본문(없으면 null)", example = "정말 맛있어요")
     val content: String?,
 
@@ -80,6 +86,8 @@ data class ReviewResponse(
             ReviewResponse(
                 reviewId = review.id,
                 rating = review.rating,
+                servingSpeed = review.servingSpeedRating,
+                staffKindness = review.staffKindnessRating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
