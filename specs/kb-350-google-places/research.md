@@ -48,3 +48,4 @@
 - **Rationale**: 외국인 대상 서비스 — 식당명·주소도 사용자 언어로. 서비스 공통 lang 규약과 동일해 클라이언트가 이미 아는 패턴. 구글 지원 언어에 10종 전부 포함됨을 문서로 확인.
 - **Alternatives considered**: languageCode "ko" 고정(초안 — 다국어 요구로 폐기), 구글 코드 미매핑 zh-Hans 직접 전달(구글 표기가 zh-CN/zh-TW 라 결과 언어 미보장 — 기각), lang 선택 파라미터(헌법 V 의 "표시 언어는 필수" 원칙 위배 — 기각).
 - **근거 문서**: [Google Maps Platform 지원 언어](https://developers.google.com/maps/faq#languagesupport) — zh-CN(간체)·zh-TW(번체) 표기 명시, ko·en·ja·vi·id·th·ru·es 지원.
+- **언어 폴백(2026-08-19 확인)**: `languageCode` 는 **단일 값만** 지원(우선순위 목록 불가, 잘못된 코드는 INVALID_ARGUMENT). 요청 언어 번역이 없으면 구글이 "closest match" 로 폴백 — 현지 언어(한국 식당 → 한국어) + 필요시 사용자 문자로 음역. 원하는 우선순위(자국어→영어→한국어)는 1·3순위가 자동 충족되고 영어 중간 단계는 음역이 대체한다. en 2차 호출 폴백은 비용·지연 2배 + 번역 부재 판별 불가로 기각(Text Search 문서 languageCode 절 인용 확인).
