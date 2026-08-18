@@ -43,11 +43,19 @@ class BatchJdbcJobRepositoryConfigTest : BehaviorSpec() {
 
                 then("JobInstance 와 StepExecution 도 조회된다") {
                     val execution = jobOperator.start(job, JobParameters())
+                    awaitFinished(execution.id)
 
                     jobRepository.getJobInstances(job.name, 0, 10).shouldNotBeEmpty()
                     jobRepository.getJobExecution(execution.id)?.stepExecutions.orEmpty().shouldNotBeEmpty()
                 }
             }
+        }
+    }
+
+    private fun awaitFinished(executionId: Long) {
+        repeat(100) {
+            if (jobRepository.getJobExecution(executionId)?.status?.isRunning() == false) return
+            Thread.sleep(100)
         }
     }
 }

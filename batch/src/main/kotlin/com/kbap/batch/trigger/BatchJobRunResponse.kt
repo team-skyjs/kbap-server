@@ -19,7 +19,7 @@ data class BatchJobRunResponse(
                 message = execution.allFailureExceptions.firstOrNull()?.message,
             )
 
-        fun notFound(jobName: String, knownJobNames: Collection<String>): BatchJobRunResponse =
+        fun jobNotFound(jobName: String, knownJobNames: Collection<String>): BatchJobRunResponse =
             BatchJobRunResponse(
                 jobName = jobName,
                 executionId = null,
@@ -28,13 +28,22 @@ data class BatchJobRunResponse(
                 message = "실행 가능한 잡: ${knownJobNames.sorted().joinToString(", ")}",
             )
 
-        fun alreadyRunning(jobName: String): BatchJobRunResponse =
+        fun executionNotFound(executionId: Long): BatchJobRunResponse =
+            BatchJobRunResponse(
+                jobName = "",
+                executionId = executionId,
+                status = "NOT_FOUND",
+                exitCode = null,
+                message = "해당 실행 기록이 없습니다.",
+            )
+
+        fun alreadyRunning(jobName: String, executionId: Long?): BatchJobRunResponse =
             BatchJobRunResponse(
                 jobName = jobName,
-                executionId = null,
+                executionId = executionId,
                 status = "ALREADY_RUNNING",
                 exitCode = null,
-                message = "이미 실행 중입니다. 끝난 뒤 다시 트리거하세요.",
+                message = "이미 실행 중입니다. 해당 실행이 끝난 뒤 다시 트리거하세요.",
             )
     }
 }
