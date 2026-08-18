@@ -193,6 +193,28 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("다른 음식에만 리뷰가 있는 상태에서 리뷰 0건인 음식을 조회하면") {
+                then("recentReviews 는 다른 음식 리뷰를 섞지 않고 빈 배열이다") {
+                    seedFood(932L, "리뷰섹션된장찌개")
+                    detail(932L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.recentReviews.length()") { value(0) }
+                    }
+                }
+            }
+            `when`("자기 리뷰 1건과 다른 음식 최신 리뷰들이 함께 있는 음식을 조회하면") {
+                then("recentReviews 는 조회한 음식의 리뷰만 담는다") {
+                    seedFood(933L, "리뷰섹션비빔밥")
+                    seedFood(934L, "리뷰섹션불고기")
+                    createReview(925L, "KR", 933L, 3)
+                    createReview(926L, "KR", 934L, 5)
+                    detail(933L).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.recentReviews.length()") { value(1) }
+                        jsonPath("$.payload.recentReviews[0].rating") { value(3) }
+                    }
+                }
+            }
             `when`("리뷰가 0건인 음식을 회원이 조회하면") {
                 then("평균은 null 이 아니라 0.0·리뷰 수 0·같은 국적 평균 0.0 이 내려간다") {
                     seedFood(930L, "리뷰섹션순두부")
