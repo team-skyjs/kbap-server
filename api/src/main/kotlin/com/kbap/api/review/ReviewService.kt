@@ -44,6 +44,8 @@ class ReviewService(
         memberId: Long,
         foodId: Long,
         rating: Int,
+        servingSpeed: Int?,
+        staffKindness: Int?,
         content: String?,
         imagePaths: List<String>?,
         place: ReviewPlace?,
@@ -58,6 +60,8 @@ class ReviewService(
                 memberId = memberId,
                 foodId = foodId,
                 rating = rating,
+                servingSpeedRating = servingSpeed ?: 0,
+                staffKindnessRating = staffKindness ?: 0,
                 content = content,
                 imageRefs = imagePaths,
                 authorCountryCode = authorCountryCode,
@@ -78,13 +82,22 @@ class ReviewService(
         memberId: Long,
         reviewId: Long,
         rating: Int,
+        servingSpeed: Int?,
+        staffKindness: Int?,
         content: String?,
         imagePaths: List<String>?,
         place: ReviewPlace?,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyImageOwnership(memberId, imagePaths)
-        review.update(rating = rating, content = content, imageRefs = imagePaths, place = place)
+        review.update(
+            rating = rating,
+            servingSpeedRating = servingSpeed ?: 0,
+            staffKindnessRating = staffKindness ?: 0,
+            content = content,
+            imageRefs = imagePaths,
+            place = place,
+        )
         val likeCount = reviewLikeRepository.countByReviewIds(listOf(review.id)).singleOrNull()?.likeCount ?: 0
         val likedByMe = reviewLikeRepository.findLikedReviewIds(memberId, listOf(review.id)).isNotEmpty()
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount, likedByMe)

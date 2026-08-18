@@ -520,6 +520,46 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
         }
 
+        given("리뷰 목록 — 세부 평가 노출") {
+            seedFood(860L, "목록세부평가찌개")
+
+            fun createReviewWithExtras(token: String, foodId: Long, servingSpeed: Int, staffKindness: Int): Long {
+                val response = mockMvc.post("/api/reviews") {
+                    header("Authorization", "Bearer $token")
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(
+                        mapOf("foodId" to foodId, "rating" to 4, "servingSpeed" to servingSpeed, "staffKindness" to staffKindness),
+                    )
+                }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                return mapper.readTree(response).path("payload").path("reviewId").asLong()
+            }
+
+            `when`("세부 평가가 있는 리뷰와 없는 리뷰를 목록으로 조회하면") {
+                then("저장한 값은 그대로, 없는 리뷰는 0 으로 내려간다") {
+                    val token = accessToken(8601L)
+                    createReviewWithExtras(token, 860L, 5, 2)
+                    val plain = createReview(token, 860L)
+
+                    val items = payloadOf(foodReviews(token, 860L)).path("items")
+                    items.size() shouldBe 2
+                    items.first().path("reviewId").asLong() shouldBe plain
+                    items.first().path("servingSpeed").asInt() shouldBe 0
+                    items.first().path("staffKindness").asInt() shouldBe 0
+                    items.last().path("servingSpeed").asInt() shouldBe 5
+                    items.last().path("staffKindness").asInt() shouldBe 2
+                }
+            }
+            `when`("내 리뷰 목록을 조회하면") {
+                then("세부 평가 값이 동일하게 내려간다") {
+                    val token = accessToken(8602L)
+                    createReviewWithExtras(token, 860L, 1, 5)
+                    val items = payloadOf(myReviews(token)).path("items")
+                    items.first().path("servingSpeed").asInt() shouldBe 1
+                    items.first().path("staffKindness").asInt() shouldBe 5
+                }
+            }
+        }
+
         given("리뷰 목록의 식당 정보 노출") {
             seedFood(840L, "목록순두부")
 
