@@ -24,14 +24,18 @@ data class ReviewListRequest(
     @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
     val lang: String,
 
-    @field:Schema(description = "다음 페이지 커서(이전 응답의 nextCursor). 생략 시 첫 페이지", example = "42")
+    @field:Schema(
+        description = "다음 페이지 커서 — 이전 응답의 nextCursor 를 해석 없이 그대로 전달(불투명 토큰). 생략 시 첫 페이지. " +
+            "커서는 발급 시점의 정렬·필터 조합에 종속되므로, 정렬 옵션이나 필터를 바꾸면 커서를 버리고 첫 페이지부터 다시 조회해야 한다(다른 조합의 커서는 400 또는 순서 미보장).",
+        example = "MTdfMjA0",
+    )
     val cursor: String? = null,
 
     @field:Schema(description = "작성 시점 국적 스냅샷 필터(ISO-2 대문자, 정확 일치). 생략 시 전체", example = "VN")
     val countryCode: String? = null,
 
     @field:Schema(
-        description = "정렬(소문자 정확 일치). 생략 시 latest(최신순)",
+        description = "정렬(소문자 정확 일치). 생략 시 latest(최신순). 정렬을 바꾸면 기존 커서는 무효 — 첫 페이지부터 재조회",
         example = "rating_high",
         allowableValues = ["latest", "rating_high", "rating_low", "food_review_count", "helpful"],
     )
