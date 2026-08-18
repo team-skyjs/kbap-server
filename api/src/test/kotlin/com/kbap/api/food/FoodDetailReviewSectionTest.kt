@@ -41,15 +41,16 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, country_code, member_status,
+                    INSERT INTO member (id, provider, provider_uid, country_code, profile_image_url, member_status,
                                         onboarding_completed, status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)
                     ps.setString(2, "review-section-test-$memberId")
                     ps.setString(3, countryCode)
+                    ps.setString(4, "profiles/$memberId.png")
                     ps.executeUpdate()
                 }
             }
@@ -137,7 +138,10 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                         jsonPath("$.payload.recentReviews.length()") { value(3) }
                         jsonPath("$.payload.recentReviews[0].rating") { value(2) }
                         jsonPath("$.payload.recentReviews[0].author.countryCode") { value("VN") }
+                        jsonPath("$.payload.recentReviews[0].author.profileImageUrl") { value("https://cdn.test/profiles/922.png") }
                         jsonPath("$.payload.recentReviews[0].likedByMe") { value(false) }
+                        jsonPath("$.payload.recentReviews[0].food") { doesNotExist() }
+                        jsonPath("$.payload.recentReviews[0].createdAt") { isNumber() }
                         jsonPath("$.payload.recentReviews[1].rating") { value(5) }
                         jsonPath("$.payload.recentReviews[1].likedByMe") { value(false) }
                         jsonPath("$.payload.recentReviews[2].rating") { value(4) }

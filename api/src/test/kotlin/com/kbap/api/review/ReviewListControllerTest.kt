@@ -422,7 +422,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("내 리뷰의 음식이 소프트 삭제되면") {
-                then("그 리뷰의 food 는 null 이고 리뷰 자체는 보인다") {
+                then("그 리뷰의 food 필드는 생략되고 리뷰 자체는 보인다") {
                     seedFood(854L, "음식정보삭제음식")
                     val token = accessToken(8505L)
                     val reviewId = createReview(token, 854L)
@@ -432,7 +432,7 @@ class ReviewListControllerTest : BehaviorSpec() {
 
                     val item = payloadOf(myReviews(token)).path("items")
                         .single { it.path("reviewId").asLong() == reviewId }
-                    item.path("food").isNull.shouldBeTrue()
+                    item.has("food").shouldBeFalse()
                 }
             }
             `when`("lang 없이 음식별 목록을 조회하면") {

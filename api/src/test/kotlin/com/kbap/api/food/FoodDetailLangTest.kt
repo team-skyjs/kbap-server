@@ -40,7 +40,7 @@ class FoodDetailLangTest : BehaviorSpec() {
                         param("lang", "ja")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.name") { value("テンジャンチゲ") }
+                        jsonPath("$.payload.food.name") { value("テンジャンチゲ") }
                     }
                 }
             }
@@ -55,10 +55,10 @@ class FoodDetailLangTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.ingredients[0].name") { value("대두") }
-                        jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
-                        jsonPath("$.payload.ingredients[2].name") { value("조개") }
-                        jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
+                        jsonPath("$.payload.food.ingredients[0].name") { value("대두") }
+                        jsonPath("$.payload.food.ingredients[0].inclusionPercent") { value(100) }
+                        jsonPath("$.payload.food.ingredients[2].name") { value("조개") }
+                        jsonPath("$.payload.food.ingredients[2].inclusionPercent") { value(50) }
                     }
                 }
             }
@@ -69,7 +69,7 @@ class FoodDetailLangTest : BehaviorSpec() {
                         param("lang", "xx")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.name") { value("Doenjang Stew") }
+                        jsonPath("$.payload.food.name") { value("Doenjang Stew") }
                     }
                 }
             }
@@ -80,7 +80,7 @@ class FoodDetailLangTest : BehaviorSpec() {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.name") { value("된장찌개") }
+                        jsonPath("$.payload.food.name") { value("된장찌개") }
                     }
                 }
             }
@@ -93,8 +93,8 @@ class FoodDetailLangTest : BehaviorSpec() {
                         param("lang", "ja")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.name") { value("テンジャンチゲ") }
-                        jsonPath("$.payload.koreanName") { value("된장찌개") }
+                        jsonPath("$.payload.food.name") { value("テンジャンチゲ") }
+                        jsonPath("$.payload.food.koreanName") { value("된장찌개") }
                     }
                 }
             }
@@ -105,12 +105,12 @@ class FoodDetailLangTest : BehaviorSpec() {
                         param("lang", "ko")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.name") { value("된장찌개") }
+                        jsonPath("$.payload.food.name") { value("된장찌개") }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
-                    val payload = jacksonObjectMapper().readTree(json).path("payload")
-                    payload.has("koreanName") shouldBe true
-                    payload.get("koreanName").isNull shouldBe true
+                    val food = jacksonObjectMapper().readTree(json).path("payload").path("food")
+                    food.has("koreanName") shouldBe true
+                    food.get("koreanName").isNull shouldBe true
                 }
             }
         }

@@ -106,3 +106,12 @@
 - **MVP = Phase 1**(리뷰 공개) — 이 것만으로도 클라이언트 요청의 핵심 가치 전달.
 - 단일 세션 직접 구현(CLAUDE.md — 멀티에이전트 금지). 스토리(논리 단위)마다 커밋.
 - 3개 스토리가 같은 응답 계약의 세 측면이라 실제 작업량은 반나절(SP 1) — 페이즈는 검증 단위로만 쓴다.
+
+---
+
+## Phase 8: 2026-08-18 2차 확장 — food 묶음·recentReviews 슬림화
+
+- [X] T019 [US6] 상세 테스트 스위트 — Red: 음식 고유 필드가 `food.*` 로 중첩, `recentReviews[].food` 키 부재, `author.profileImageUrl`·`createdAt`(number) 단언
+- [X] T020 [US6] `FoodDetailResponse` — 음식 고유 정보를 `FoodResponse` 중첩 객체로 묶음(FR-010)
+- [X] T021 [US6] `ReviewResponse` — `food` 필드 `@JsonInclude(NON_NULL)`(비채움 맥락 키 생략), `createdAt` epoch millis 전환. `ReviewAuthorResponse` 에 `profileImageUrl` 추가(FR-011)
+- [X] T022 [US6] 리뷰 테스트 3건(작성·수정·목록의 food null 단언)을 키 생략 계약으로 갱신, `FoodApi` 문서 갱신, api 전체 그린

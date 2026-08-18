@@ -6,9 +6,10 @@ import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.util.ImageUrls
+import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
-import java.time.LocalDateTime
+import java.time.ZoneId
 
 @Schema(description = "리뷰 대상 음식 요약 — 목록 조회에서만 채워지며, 음식이 삭제됐으면 null")
 data class ReviewFoodResponse(
@@ -45,8 +46,8 @@ data class ReviewResponse(
     @field:Schema(description = "리뷰 사진 URL 목록(없으면 빈 배열)")
     val imageUrls: List<String>,
 
-    @field:Schema(description = "작성 시각")
-    val createdAt: LocalDateTime,
+    @field:Schema(description = "작성 시각(epoch millis)", example = "1755142800000")
+    val createdAt: Long,
 
     @field:Schema(description = "작성자 프로필(닉네임·랭킹·현재 국적). 탈퇴한 회원이면 null.", nullable = true)
     val author: ReviewAuthorResponse?,
@@ -60,7 +61,8 @@ data class ReviewResponse(
     @field:Schema(description = "조회 회원이 좋아요를 눌렀는지", example = "true")
     val likedByMe: Boolean,
 
-    @field:Schema(description = "리뷰 대상 음식 요약. 목록 조회에서만 채워지고 작성·수정 응답과 삭제된 음식이면 null", nullable = true)
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "리뷰 대상 음식 요약. 목록 조회에서만 채워지며, 채워지지 않는 맥락(작성·수정 응답·음식 상세 동봉·삭제된 음식)에서는 필드 자체가 생략된다.", nullable = true)
     val food: ReviewFoodResponse? = null,
 
     @field:Schema(description = "작성 시 고른 식당 정보. 고르지 않았으면 null.", nullable = true)
@@ -80,7 +82,7 @@ data class ReviewResponse(
                 rating = review.rating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
-                createdAt = review.createdAt,
+                createdAt = review.createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
                 author = author,
                 authorWithdrawn = author == null,
                 likeCount = likeCount,

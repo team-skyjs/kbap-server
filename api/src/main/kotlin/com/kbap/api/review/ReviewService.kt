@@ -216,7 +216,7 @@ class ReviewService(
     ): List<ReviewResponse> {
         if (page.isEmpty()) return emptyList()
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
-            .associate { it.id to ReviewAuthorResponse.from(it) }
+            .associate { it.id to ReviewAuthorResponse.from(it, imagePublicBaseUrl) }
         val foodsByFoodId = if (includeFood) {
             foodRepository.findAllById(page.map { it.foodId }.toSet())
                 .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
@@ -242,7 +242,7 @@ class ReviewService(
     }
 
     private fun authorOf(memberId: Long): ReviewAuthorResponse =
-        ReviewAuthorResponse.from(memberService.getMember(memberId))
+        ReviewAuthorResponse.from(memberService.getMember(memberId), imagePublicBaseUrl)
 
     private fun getMyReview(memberId: Long, reviewId: Long): Review {
         val review = reviewRepository.findById(reviewId)
