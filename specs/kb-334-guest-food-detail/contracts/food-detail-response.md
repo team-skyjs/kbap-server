@@ -1,8 +1,6 @@
 # Contract: GET /api/foods/{foodId} 응답 (KB-334, 2026-08-18 2차 개정)
 
-무버전 매핑 즉시 변경 — 이 계약이 유일본이다(구 계약 공존 없음). `X-API-Version` 헤더는 기존 규약대로 필수.
-
-응답은 세 층: **`food`**(음식 고유 — 조회자 무관) · **조회자 맥락**(`overallRiskStatus`·`avoidedIngredients`·`bookmarked`) · **리뷰**(`reviewSummary`·`recentReviews`).
+무버전 매핑 즉시 변경 — 이 계약이 유일본이다(구 계약 공존 없음). `X-API-Version` 헤더는 기존 규약대로 필수. 음식 필드는 최상위 평탄 구조를 유지한다(`food` 묶음 제안은 철회).
 
 ## 비회원 (Authorization 없음)
 
@@ -10,19 +8,17 @@
 {
   "success": true,
   "payload": {
-    "food": {
-      "name": "Doenjang Stew",
-      "koreanName": "된장찌개",
-      "imageRef": "https://cdn.../doenjang.png",
-      "description": "A hearty Korean soybean paste stew.",
-      "spiciness": 3,
-      "ingredients": [
-        { "code": "SOY",   "name": "Soybean", "inclusionPercent": 100 },
-        { "code": "WHEAT", "name": "Wheat",   "inclusionPercent": 80 },
-        { "code": "CLAM",  "name": "Clam",    "inclusionPercent": 50 }
-      ]
-    },
+    "name": "Doenjang Stew",
+    "koreanName": "된장찌개",
+    "imageRef": "https://cdn.../doenjang.png",
+    "description": "A hearty Korean soybean paste stew.",
+    "spiciness": 3,
     "overallRiskStatus": null,
+    "ingredients": [
+      { "code": "SOY",   "name": "Soybean", "inclusionPercent": 100 },
+      { "code": "WHEAT", "name": "Wheat",   "inclusionPercent": 80 },
+      { "code": "CLAM",  "name": "Clam",    "inclusionPercent": 50 }
+    ],
     "avoidedIngredients": null,
     "bookmarked": false,
     "reviewSummary": {
@@ -47,8 +43,17 @@
 ```json
 {
   "payload": {
-    "food": { "...": "비회원과 동일" },
+    "name": "Doenjang Stew",
+    "koreanName": "된장찌개",
+    "imageRef": "https://cdn.../doenjang.png",
+    "description": "A hearty Korean soybean paste stew.",
+    "spiciness": 3,
     "overallRiskStatus": "DANGER",
+    "ingredients": [
+      { "code": "SOY",   "name": "Soybean", "inclusionPercent": 100 },
+      { "code": "WHEAT", "name": "Wheat",   "inclusionPercent": 80 },
+      { "code": "CLAM",  "name": "Clam",    "inclusionPercent": 50 }
+    ],
     "avoidedIngredients": [
       { "code": "SOY",  "riskStatus": "DANGER" },
       { "code": "CLAM", "riskStatus": "CAUTION" }
@@ -67,7 +72,8 @@
 
 | 필드 | 비회원 | 회원 |
 |------|--------|------|
-| `food` | 음식 고유 정보(재료 전체 포함, 확률 내림차순) — **공통** | 동일 |
+| `name`·`koreanName`·`imageRef`·`description`·`spiciness` | 음식 고유 정보 — **공통** | 동일 |
+| `ingredients` | 재료 전체 `{code, name, inclusionPercent}` 확률 내림차순 — **공통** | 동일 |
 | `overallRiskStatus` | **항상 null** (비회원 판별 기준) | `SAFE \| CAUTION \| DANGER \| UNKNOWN` — 기존 정책 불변 |
 | `avoidedIngredients` | **항상 null** | 회피 교집합 `{code, riskStatus}` 확률 내림차순 (겹침 없으면 `[]`) |
 | `bookmarked` | 항상 `false` | 실제 북마크 여부 |

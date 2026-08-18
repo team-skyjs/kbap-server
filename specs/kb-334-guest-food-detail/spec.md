@@ -100,7 +100,7 @@
 - **FR-007** (2026-08-18): `ingredients` 는 음식 재료 **전체** 목록으로 재정의한다 — 항목 `{code, name(요청 언어), inclusionPercent}`, 확률 내림차순, 회원·비회원 공통.
 - **FR-008** (2026-08-18): 조회자 회피 교집합은 `avoidedIngredients` — 항목 `{code, riskStatus}`, 회원은 배열(겹침 없으면 빈 배열), 비회원은 `null`.
 - **FR-009** (2026-08-18): 리뷰 요약 필드는 `review` → `reviewSummary` 로 개명하고, `recentReviews` 에 최신순 최대 5개 리뷰를 리뷰 목록 API 의 `ReviewResponse` 형태로 동봉한다. 비회원의 `likedByMe` 는 false, 차단/신고 제외는 회원 조회에만 적용한다.
-- **FR-010** (2026-08-18 2차): 음식 고유 정보(name·koreanName·imageRef·description·spiciness·ingredients)는 `food` 객체로 묶는다 — 조회자 맥락 필드(overallRiskStatus·avoidedIngredients·bookmarked)·리뷰 필드와 층을 분리.
+- **FR-010** (2026-08-18 2차, **철회**): 음식 고유 정보의 `food` 객체 묶음 — 제안 단계에서 미승인으로 철회, 음식 필드는 최상위 평탄 유지.
 - **FR-011** (2026-08-18 2차): `recentReviews` 항목에서 `food` 필드는 생략한다(이 음식에 대한 리뷰라 중복). `ReviewResponse` 공통으로 — `createdAt` 은 epoch millis(long), `author` 에 `profileImageUrl` 을 포함한다(리뷰 목록·작성·수정 응답에도 동일 적용).
 
 ### Key Entities

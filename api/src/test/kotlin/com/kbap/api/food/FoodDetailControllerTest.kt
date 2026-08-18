@@ -128,20 +128,20 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.food.name") { value("Doenjang Stew") }
-                        jsonPath("$.payload.food.imageRef") { value("https://cdn.test/doenjang.png") }
-                        jsonPath("$.payload.food.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
-                        jsonPath("$.payload.food.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
+                        jsonPath("$.payload.name") { value("Doenjang Stew") }
+                        jsonPath("$.payload.imageRef") { value("https://cdn.test/doenjang.png") }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
+                        jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
                         jsonPath("$.payload.overallRiskStatus") { value("DANGER") }
-                        jsonPath("$.payload.food.ingredients.length()") { value(3) }
-                        jsonPath("$.payload.food.ingredients[0].code") { value("SOY") }
-                        jsonPath("$.payload.food.ingredients[0].name") { value("Soybean") }
-                        jsonPath("$.payload.food.ingredients[0].inclusionPercent") { value(100) }
-                        jsonPath("$.payload.food.ingredients[1].code") { value("WHEAT") }
-                        jsonPath("$.payload.food.ingredients[1].name") { value("Wheat") }
-                        jsonPath("$.payload.food.ingredients[1].inclusionPercent") { value(80) }
-                        jsonPath("$.payload.food.ingredients[2].code") { value("CLAM") }
-                        jsonPath("$.payload.food.ingredients[2].inclusionPercent") { value(50) }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.ingredients[0].code") { value("SOY") }
+                        jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
+                        jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
+                        jsonPath("$.payload.ingredients[1].code") { value("WHEAT") }
+                        jsonPath("$.payload.ingredients[1].name") { value("Wheat") }
+                        jsonPath("$.payload.ingredients[1].inclusionPercent") { value(80) }
+                        jsonPath("$.payload.ingredients[2].code") { value("CLAM") }
+                        jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
                         jsonPath("$.payload.avoidedIngredients.length()") { value(1) }
                         jsonPath("$.payload.avoidedIngredients[0].code") { value("SOY") }
                         jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("DANGER") }
@@ -159,7 +159,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.food.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
                         jsonPath("$.payload.avoidedIngredients.length()") { value(2) }
                         jsonPath("$.payload.avoidedIngredients[0].code") { value("SOY") }
                         jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("DANGER") }
@@ -177,9 +177,9 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.overallRiskStatus") { value(nullValue()) }
-                        jsonPath("$.payload.food.ingredients.length()") { value(3) }
-                        jsonPath("$.payload.food.ingredients[0].code") { value("SOY") }
-                        jsonPath("$.payload.food.ingredients[0].name") { value("Soybean") }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.ingredients[0].code") { value("SOY") }
+                        jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
                         jsonPath("$.payload.avoidedIngredients") { value(nullValue()) }
                         jsonPath("$.payload.bookmarked") { value(false) }
                     }
@@ -197,9 +197,9 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.food.name") { value("흰밥") }
+                        jsonPath("$.payload.name") { value("흰밥") }
                         jsonPath("$.payload.overallRiskStatus") { value("SAFE") }
-                        jsonPath("$.payload.food.ingredients.length()") { value(0) }
+                        jsonPath("$.payload.ingredients.length()") { value(0) }
                         jsonPath("$.payload.avoidedIngredients.length()") { value(0) }
                     }
                 }

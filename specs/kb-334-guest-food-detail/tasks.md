@@ -112,6 +112,6 @@
 ## Phase 8: 2026-08-18 2차 확장 — food 묶음·recentReviews 슬림화
 
 - [X] T019 [US6] 상세 테스트 스위트 — Red: 음식 고유 필드가 `food.*` 로 중첩, `recentReviews[].food` 키 부재, `author.profileImageUrl`·`createdAt`(number) 단언
-- [X] T020 [US6] `FoodDetailResponse` — 음식 고유 정보를 `FoodResponse` 중첩 객체로 묶음(FR-010)
+- [X] T020 [US6] (철회) food 객체 묶음 — 미승인 제안으로 원복, 음식 필드 최상위 평탄 유지
 - [X] T021 [US6] `ReviewResponse` — `food` 필드 `@JsonInclude(NON_NULL)`(비채움 맥락 키 생략), `createdAt` epoch millis 전환. `ReviewAuthorResponse` 에 `profileImageUrl` 추가(FR-011)
 - [X] T022 [US6] 리뷰 테스트 3건(작성·수정·목록의 food null 단언)을 키 생략 계약으로 갱신, `FoodApi` 문서 갱신, api 전체 그린

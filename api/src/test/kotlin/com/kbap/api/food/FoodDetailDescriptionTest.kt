@@ -37,8 +37,8 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
-                        jsonPath("$.payload.food.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
-                        jsonPath("$.payload.food.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
+                        jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
                     }
                 }
             }
@@ -47,7 +47,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
                 then("설명을 한국어 원문으로 반환한다") {
                     mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.food.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_KO) }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_KO) }
                     }
                 }
             }
@@ -58,9 +58,9 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.food.name") { value("Bibimbap") }
-                        jsonPath("$.payload.food.description") { value(FoodTestSeed.BIBIMBAP_DESCRIPTION_KO) }
-                        jsonPath("$.payload.food.spiciness") { value(FoodTestSeed.BIBIMBAP_SPICINESS) }
+                        jsonPath("$.payload.name") { value("Bibimbap") }
+                        jsonPath("$.payload.description") { value(FoodTestSeed.BIBIMBAP_DESCRIPTION_KO) }
+                        jsonPath("$.payload.spiciness") { value(FoodTestSeed.BIBIMBAP_SPICINESS) }
                     }
                 }
             }
@@ -71,7 +71,7 @@ class FoodDetailDescriptionTest : BehaviorSpec() {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.food.description") { isNotEmpty() }
+                        jsonPath("$.payload.description") { isNotEmpty() }
                         jsonPath("$.payload.briefDescription") { doesNotExist() }
                         jsonPath("$.payload.detailedDescription") { doesNotExist() }
                     }

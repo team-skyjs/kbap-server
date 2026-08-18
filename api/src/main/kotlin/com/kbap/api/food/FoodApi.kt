@@ -67,10 +67,7 @@ interface FoodApi {
 
             맵기(spiciness)는 0~10 정수(0=맵지 않음, 10=매우 매움)로 제공한다.
 
-            응답은 세 층이다 — 음식 고유 정보는 food 객체(name·koreanName·imageRef·description·spiciness·ingredients)로 묶여 조회자와 무관하게 동일하고,
-            조회자 맥락(overallRiskStatus·avoidedIngredients·bookmarked)과 리뷰(reviewSummary·recentReviews)가 최상위에 온다.
-
-            food.ingredients 는 음식 재료 전체({code, name(요청 언어), inclusionPercent}, 확률 내림차순)이고,
+            ingredients 는 음식 재료 전체({code, name(요청 언어), inclusionPercent}, 확률 내림차순)로 회원·비회원 공통이고,
             avoidedIngredients 는 조회 회원 회피성분과의 교집합({code, riskStatus}, 확률 내림차순)이다. riskStatus 는 포함 확률 기반
             실제값(p<10 SAFE · 10~59 CAUTION · ≥60 DANGER)이며, UI 는 code 로 두 목록을 조인한다. 비회원 조회의 avoidedIngredients 는 null 이다(회원의 겹침 없음은 빈 배열).
 

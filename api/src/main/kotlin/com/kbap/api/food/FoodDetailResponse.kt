@@ -4,10 +4,29 @@ import com.kbap.api.review.RatingSummary
 import com.kbap.api.review.ReviewResponse
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "음식 상세 — 음식 고유 정보(food)·조회자 맥락(위험도·회피 교집합·북마크)·리뷰(요약·최근 목록)")
+@Schema(description = "음식 상세 — 음식 정보·조회자 맥락(위험도·회피 교집합·북마크)·리뷰(요약·최근 목록)")
 data class FoodDetailResponse(
-    @field:Schema(description = "음식 고유 정보 — 조회자와 무관하게 동일")
-    val food: FoodResponse,
+    @field:Schema(description = "요청 언어 음식명(미지원/미지정 시 한국어)", example = "Doenjang Stew")
+    val name: String,
+
+    @field:Schema(
+        description = "언어 무관 한국어 음식명. 지역화 음식명이 곧 한국어면(lang=ko·번역 부재 폴백) null.",
+        example = "된장찌개",
+        nullable = true,
+    )
+    val koreanName: String?,
+
+    @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
+    val imageRef: String?,
+
+    @field:Schema(description = "요청 언어 설명(미지원/미지정/번역 부재 시 한국어)", example = "A hearty Korean soybean paste stew.")
+    val description: String,
+
+    @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
+    val spiciness: Int,
+
+    @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
+    val ingredients: List<IngredientResponse>,
 
     @field:Schema(
         description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값). 비회원 조회는 판별하지 않고 null — 비회원 응답 판별 기준.",
@@ -32,31 +51,6 @@ data class FoodDetailResponse(
     @field:Schema(description = "최신순 최근 리뷰(최대 5개) — 리뷰 목록 API 와 동일한 항목 형태(food 는 항상 null). 비회원 조회의 likedByMe 는 항상 false.")
     val recentReviews: List<ReviewResponse>,
 ) {
-    @Schema(description = "음식 고유 정보 — 요청 언어 음식명·설명·맵기·대표 이미지·재료 전체 목록")
-    data class FoodResponse(
-        @field:Schema(description = "요청 언어 음식명(미지원/미지정 시 한국어)", example = "Doenjang Stew")
-        val name: String,
-
-        @field:Schema(
-            description = "언어 무관 한국어 음식명. 지역화 음식명이 곧 한국어면(lang=ko·번역 부재 폴백) null.",
-            example = "된장찌개",
-            nullable = true,
-        )
-        val koreanName: String?,
-
-        @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
-        val imageRef: String?,
-
-        @field:Schema(description = "요청 언어 설명(미지원/미지정/번역 부재 시 한국어)", example = "A hearty Korean soybean paste stew.")
-        val description: String,
-
-        @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
-        val spiciness: Int,
-
-        @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
-        val ingredients: List<IngredientResponse>,
-    )
-
     @Schema(description = "음식 상세의 리뷰 요약 묶음 — 전체(overall)·같은 국적(sameCountry) 평점을 같은 형태로 제공")
     data class ReviewSummaryResponse(
         @field:Schema(description = "전체 사용자 리뷰 요약")
@@ -129,20 +123,18 @@ data class FoodDetailResponse(
             recentReviews: List<ReviewResponse>,
         ): FoodDetailResponse =
             FoodDetailResponse(
-                food = FoodResponse(
-                    name = result.name,
-                    koreanName = result.koreanName,
-                    imageRef = result.imageRef,
-                    description = result.description,
-                    spiciness = result.spiciness,
-                    ingredients = result.ingredients.map {
-                        IngredientResponse(
-                            code = it.code,
-                            name = it.name,
-                            inclusionPercent = it.inclusionPercent,
-                        )
-                    },
-                ),
+                name = result.name,
+                koreanName = result.koreanName,
+                imageRef = result.imageRef,
+                description = result.description,
+                spiciness = result.spiciness,
+                ingredients = result.ingredients.map {
+                    IngredientResponse(
+                        code = it.code,
+                        name = it.name,
+                        inclusionPercent = it.inclusionPercent,
+                    )
+                },
                 overallRiskStatus = result.overallRiskStatus?.name,
                 avoidedIngredients = result.avoidedIngredients?.map {
                     AvoidedIngredientResponse(
