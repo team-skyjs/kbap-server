@@ -14,13 +14,13 @@
 
 **Independent Test**: A→B→A 스캔 회원 조회 → [A, B]. 스캔 없음 → 빈 목록. 비회원 → 401. 21건 이상 → 커서 연결. keyword → 스캔 범위 안에서만 매칭.
 
-- [ ] T001 [US1] **Red**: `api/src/test/kotlin/com/kbap/api/food/FoodScannedListControllerTest.kt` 신규 작성(BehaviorSpec + MySqlContainerConfig + MockMvc, scan_history 시드는 SQL INSERT) — 시나리오: (1) A→B→A 스캔 → [A, B] 중복 없이 최신 스캔순, (2) 스캔 이력 없음 → 빈 목록, (3) READY 아닌 음식·food_id null(미매칭) 스캔 제외, (4) 비회원 401, (5) 스캔 음식 21개 → 첫 페이지 20건+nextCursor, 커서로 나머지 1건·hasNext=false, (6) keyword 필터 — 스캔 음식만 매칭·스캔 안 한 음식은 키워드 일치해도 제외, (7) lang 누락 400, (8) 비정상 커서(`abc`) 400. 실행해 **실패(Red) 확인**(404/401)
-- [ ] T002 [P] [US1] 스캔 리포지토리 쿼리 추가 — `common/src/main/kotlin/com/kbap/common/domain/scan/ScanHistoryJpaRepository.kt`: data-model.md 의 파생 테이블 native 쿼리 `findScannedFoodPageIds(memberId, kw, jsonPath, cursorLastScannedAt, cursorFoodId, size)` + 커서 재계산 `findLastScannedAt(memberId, foodId): LocalDateTime?`
-- [ ] T003 [P] [US1] 요청 DTO 신규 — `api/src/main/kotlin/com/kbap/api/food/FoodScannedRequest.kt`: `lang`(필수, 기존 검증 수위)·`cursor`(옵션)·`keyword`(옵션) — `FoodSearchRequest` 동형, keyword 만 옵션
-- [ ] T004 [US1] 서비스 조합 — `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt`: `getScannedFoodPage(memberId, keyword, lang, cursor)` `@Transactional(readOnly = true)` — `SearchKeywordParser`·jsonPath(기존 검색과 동일 구성) 준비, 커서 있으면 `findLastScannedAt` 재계산(null → `BusinessException` 400, 기존 비정상 커서 규약), `PAGE_SIZE + 1` 조회로 hasNext·nextCursor(마지막 foodId) 판정, ids 순서 보존 음식 로드(associateBy+mapNotNull)까지 담아 반환
-- [ ] T005 [US1] 컨트롤러·스웨거 — `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` 에 `@GetMapping("/scanned")` + `@AuthMemberId` + 기존 `toPage` 재사용, `api/src/main/kotlin/com/kbap/api/food/FoodApi.kt` 에 오퍼레이션 문서(회원 전용·중복 제거·최신 스캔순·keyword 규칙·커서 규약)
-- [ ] T006 [US1] JWT 보호 경로 등록 — `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` `addUrlPatterns` 에 `/api/foods/scanned` 정확 패턴 추가(foods 나머지는 비회원 공개 유지)
-- [ ] T007 [US1] **Green 확인**: `./gradlew :api:test --tests "com.kbap.api.food.FoodScannedListControllerTest"` — 전 시나리오 그린, 실패 시 쿼리·조립 보완
+- [x] T001 [US1] **Red**: `api/src/test/kotlin/com/kbap/api/food/FoodScannedListControllerTest.kt` 신규 작성(BehaviorSpec + MySqlContainerConfig + MockMvc, scan_history 시드는 SQL INSERT) — 시나리오: (1) A→B→A 스캔 → [A, B] 중복 없이 최신 스캔순, (2) 스캔 이력 없음 → 빈 목록, (3) READY 아닌 음식·food_id null(미매칭) 스캔 제외, (4) 비회원 401, (5) 스캔 음식 21개 → 첫 페이지 20건+nextCursor, 커서로 나머지 1건·hasNext=false, (6) keyword 필터 — 스캔 음식만 매칭·스캔 안 한 음식은 키워드 일치해도 제외, (7) lang 누락 400, (8) 비정상 커서(`abc`) 400. 실행해 **실패(Red) 확인**(404/401)
+- [x] T002 [P] [US1] 스캔 리포지토리 쿼리 추가 — `common/src/main/kotlin/com/kbap/common/domain/scan/ScanHistoryJpaRepository.kt`: data-model.md 의 파생 테이블 native 쿼리 `findScannedFoodPageIds(memberId, kw, jsonPath, cursorLastScannedAt, cursorFoodId, size)` + 커서 재계산 `findLastScannedAt(memberId, foodId): LocalDateTime?`
+- [x] T003 [P] [US1] 요청 DTO 신규 — `api/src/main/kotlin/com/kbap/api/food/FoodScannedRequest.kt`: `lang`(필수, 기존 검증 수위)·`cursor`(옵션)·`keyword`(옵션) — `FoodSearchRequest` 동형, keyword 만 옵션
+- [x] T004 [US1] 서비스 조합 — `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt`: `getScannedFoodPage(memberId, keyword, lang, cursor)` `@Transactional(readOnly = true)` — `SearchKeywordParser`·jsonPath(기존 검색과 동일 구성) 준비, 커서 있으면 `findLastScannedAt` 재계산(null → `BusinessException` 400, 기존 비정상 커서 규약), `PAGE_SIZE + 1` 조회로 hasNext·nextCursor(마지막 foodId) 판정, ids 순서 보존 음식 로드(associateBy+mapNotNull)까지 담아 반환
+- [x] T005 [US1] 컨트롤러·스웨거 — `api/src/main/kotlin/com/kbap/api/food/FoodController.kt` 에 `@GetMapping("/scanned")` + `@AuthMemberId` + 기존 `toPage` 재사용, `api/src/main/kotlin/com/kbap/api/food/FoodApi.kt` 에 오퍼레이션 문서(회원 전용·중복 제거·최신 스캔순·keyword 규칙·커서 규약)
+- [x] T006 [US1] JWT 보호 경로 등록 — `api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt` `addUrlPatterns` 에 `/api/foods/scanned` 정확 패턴 추가(foods 나머지는 비회원 공개 유지)
+- [x] T007 [US1] **Green 확인**: `./gradlew :api:test --tests "com.kbap.api.food.FoodScannedListControllerTest"` — 전 시나리오 그린, 실패 시 쿼리·조립 보완
 
 **Checkpoint**: US1 완결 — 기능 전체가 이 스토리 하나다.
 
@@ -28,8 +28,8 @@
 
 ## Phase 2: Polish & Cross-Cutting
 
-- [ ] T008 기존 회귀 확인 — `./gradlew :api:test --tests "com.kbap.api.food.*" --tests "com.kbap.api.home.*"` (음식 목록·검색·홈 recentScans 무회귀)
-- [ ] T009 전체 빌드 그린 — `./gradlew build` (OpenAPI 스냅샷·ArchUnit 포함). 필요시 quickstart.md 수동 검증
+- [x] T008 기존 회귀 확인 — `./gradlew :api:test --tests "com.kbap.api.food.*" --tests "com.kbap.api.home.*"` (음식 목록·검색·홈 recentScans 무회귀)
+- [x] T009 전체 빌드 그린 — `./gradlew build` (OpenAPI 스냅샷·ArchUnit 포함). 필요시 quickstart.md 수동 검증
 
 ---
 

@@ -11,6 +11,7 @@ import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.api.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -23,6 +24,7 @@ class FoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -41,12 +43,32 @@ class FoodService(
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
     @Transactional(readOnly = true)
-    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
-        val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        return loadDescending(
-            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size),
+    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+        loadDescending(
+            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
         )
+
+    @Transactional(readOnly = true)
+    fun getScannedFoodPage(memberId: Long, keyword: String?, lang: LanguageCode, cursor: Long?): FoodPage {
+        val cursorLastScannedAt = cursor?.let {
+            scanHistoryRepository.findLastScannedAt(memberId, it)
+                ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
+        }
+        val ids = scanHistoryRepository.findScannedFoodPageIds(
+            memberId,
+            keyword?.let(::escapeLikeWildcards),
+            keyword?.let { translationJsonPath(lang) },
+            cursorLastScannedAt,
+            cursor,
+            PAGE_SIZE + 1,
+        )
+        if (ids.isEmpty()) return FoodPage(items = emptyList(), nextCursor = null, hasNext = false)
+        val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
+        return foodPage(ids.mapNotNull { foodsById[it] }, lang, memberId)
     }
+
+    private fun translationJsonPath(lang: LanguageCode): String? =
+        if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {

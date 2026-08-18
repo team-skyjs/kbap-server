@@ -5,6 +5,7 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page
 import com.kbap.common.util.SearchKeywordParser
+import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
 import com.kbap.api.bookmark.BookmarkService
@@ -49,6 +50,20 @@ class FoodController(
                 lang = LanguageCode.from(request.lang),
                 memberId = memberId,
             ),
+        )
+        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+    }
+
+    @GetMapping("/scanned")
+    override fun scanned(
+        @Valid @ModelAttribute request: FoodScannedRequest,
+        @AuthMemberId memberId: Long,
+    ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
+        val result = foodService.getScannedFoodPage(
+            memberId = memberId,
+            keyword = request.keyword?.let(SearchKeywordParser::parse),
+            lang = LanguageCode.from(request.lang),
+            cursor = CursorParser.parse(request.cursor),
         )
         return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
     }
