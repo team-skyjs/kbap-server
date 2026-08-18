@@ -110,7 +110,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
                     header("Authorization", "Bearer $token")
                     param("lang", "ko")
                 }.andReturn().response.getContentAsString(Charsets.UTF_8),
-            ).path("payload").path("review").path("overall")
+            ).path("payload").path("reviewSummary").path("overall")
 
         given("차단과 음식 리뷰 목록 필터") {
             `when`("A 가 B 를 차단하면") {

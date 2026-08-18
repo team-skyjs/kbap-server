@@ -1,9 +1,10 @@
 package com.kbap.api.food
 
 import com.kbap.api.review.RatingSummary
+import com.kbap.api.review.ReviewResponse
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "음식 상세 — 요청 언어 음식명·설명·맵기·대표 이미지·포함 기피성분 목록")
+@Schema(description = "음식 상세 — 음식 정보·조회자 맥락(위험도·회피 교집합·북마크)·리뷰(요약·최근 목록)")
 data class FoodDetailResponse(
     @field:Schema(description = "요청 언어 음식명(미지원/미지정 시 한국어)", example = "Doenjang Stew")
     val name: String,
@@ -24,32 +25,42 @@ data class FoodDetailResponse(
     @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
     val spiciness: Int,
 
+    @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
+    val ingredients: List<IngredientResponse>,
+
     @field:Schema(
-        description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값)",
+        description = "음식 종합 위험도(사용자 회피 ∩ 음식 성분의 성분별 위험도 최악값). 비회원 조회는 판별하지 않고 null — 비회원 응답 판별 기준.",
         example = "DANGER",
         allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
+        nullable = true,
     )
-    val overallRiskStatus: String,
+    val overallRiskStatus: String?,
 
-    @field:Schema(description = "포함 기피성분 목록(포함 확률 내림차순)")
-    val ingredients: List<IngredientResponse>,
+    @field:Schema(
+        description = "조회 회원의 회피성분 ∩ 음식 재료(포함 확률 내림차순). 겹침 없으면 빈 배열, 비회원 조회는 null.",
+        nullable = true,
+    )
+    val avoidedIngredients: List<AvoidedIngredientResponse>?,
 
     @field:Schema(description = "조회 회원의 북마크 여부. 비회원 조회는 항상 false.", example = "true")
     val bookmarked: Boolean,
 
     @field:Schema(description = "리뷰 요약 — 전체 평균 별점·리뷰 수·같은 국적 평균 별점")
-    val review: ReviewSummaryResponse,
+    val reviewSummary: ReviewSummaryResponse,
+
+    @field:Schema(description = "최신순 최근 리뷰(최대 5개) — 리뷰 목록 API 와 동일한 항목 형태(food 는 항상 null). 비회원 조회의 likedByMe 는 항상 false.")
+    val recentReviews: List<ReviewResponse>,
 ) {
     @Schema(description = "음식 상세의 리뷰 요약 묶음 — 전체(overall)·같은 국적(sameCountry) 평점을 같은 형태로 제공")
     data class ReviewSummaryResponse(
         @field:Schema(description = "전체 사용자 리뷰 요약")
         val overall: ReviewRatingResponse,
 
-        @field:Schema(description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰 요약. 국적 미보유·해당 국적 리뷰 없음이면 기본값(0.0·0).")
-        val sameCountry: ReviewRatingResponse,
-
-        @field:Schema(description = "비회원 가림 여부 — true 면 수치는 기본값(0.0·0)이며 '리뷰 없음'과 구분용. 활성 회원 조회는 false.", example = "false")
-        val blur: Boolean,
+        @field:Schema(
+            description = "조회 회원과 같은 국적(작성 시점 스냅샷 기준) 리뷰 요약. 국적 미보유·해당 국적 리뷰 없음이면 기본값(0.0·0). 비회원 조회는 null.",
+            nullable = true,
+        )
+        val sameCountry: ReviewRatingResponse?,
     ) {
         @Schema(description = "리뷰 평점 요약 — 평균 별점·리뷰 수")
         data class ReviewRatingResponse(
@@ -61,66 +72,79 @@ data class FoodDetailResponse(
         )
 
         companion object {
-            fun from(rating: RatingSummary): ReviewSummaryResponse =
+            fun from(rating: RatingSummary, sameCountryVisible: Boolean): ReviewSummaryResponse =
                 ReviewSummaryResponse(
                     overall = ReviewRatingResponse(
                         averageRating = rating.averageRating ?: 0.0,
                         reviewCount = rating.reviewCount,
                     ),
-                    sameCountry = ReviewRatingResponse(
-                        averageRating = rating.sameCountryAverageRating ?: 0.0,
-                        reviewCount = rating.sameCountryReviewCount,
-                    ),
-                    blur = false,
-                )
-
-            fun blurred(): ReviewSummaryResponse =
-                ReviewSummaryResponse(
-                    overall = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
-                    sameCountry = ReviewRatingResponse(averageRating = 0.0, reviewCount = 0),
-                    blur = true,
+                    sameCountry = if (sameCountryVisible) {
+                        ReviewRatingResponse(
+                            averageRating = rating.sameCountryAverageRating ?: 0.0,
+                            reviewCount = rating.sameCountryReviewCount,
+                        )
+                    } else {
+                        null
+                    },
                 )
         }
     }
 
-    @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
+    @Schema(description = "음식 재료 — 성분 코드·요청 언어 성분명·포함 확률")
     data class IngredientResponse(
+        @field:Schema(description = "성분 코드(고정 카탈로그 식별자)", example = "SOY")
+        val code: String,
+
         @field:Schema(description = "요청 언어 성분명(미지원/미지정/번역 부재 시 한국어)", example = "Soybean")
         val name: String,
 
-        @field:Schema(description = "성분 아이콘 참조(현재 미제공)", example = "clam.png", nullable = true)
-        val iconRef: String?,
-
         @field:Schema(description = "포함 확률(1~100)", example = "100")
         val inclusionPercent: Int,
+    )
+
+    @Schema(description = "조회 회원 회피성분과 겹치는 재료 — 코드·포함 확률 기반 위험도. UI 는 code 로 ingredients 항목과 조인한다.")
+    data class AvoidedIngredientResponse(
+        @field:Schema(description = "성분 코드", example = "SOY")
+        val code: String,
 
         @field:Schema(
-            description = "포함 확률 기반 실제 기피성분 위험도",
-            example = "SAFE",
+            description = "포함 확률 기반 위험도",
+            example = "DANGER",
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
         val riskStatus: String,
     )
 
     companion object {
-        fun from(result: GetFoodDetailResult, bookmarked: Boolean, review: ReviewSummaryResponse): FoodDetailResponse =
+        fun from(
+            result: GetFoodDetailResult,
+            bookmarked: Boolean,
+            reviewSummary: ReviewSummaryResponse,
+            recentReviews: List<ReviewResponse>,
+        ): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
                 imageRef = result.imageRef,
                 description = result.description,
                 spiciness = result.spiciness,
-                overallRiskStatus = result.overallRiskStatus.name,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
+                        code = it.code,
                         name = it.name,
-                        iconRef = it.iconRef,
-                        inclusionPercent = it.inclusionProbability,
+                        inclusionPercent = it.inclusionPercent,
+                    )
+                },
+                overallRiskStatus = result.overallRiskStatus?.name,
+                avoidedIngredients = result.avoidedIngredients?.map {
+                    AvoidedIngredientResponse(
+                        code = it.code,
                         riskStatus = it.riskStatus.name,
                     )
                 },
                 bookmarked = bookmarked,
-                review = review,
+                reviewSummary = reviewSummary,
+                recentReviews = recentReviews,
             )
     }
 }

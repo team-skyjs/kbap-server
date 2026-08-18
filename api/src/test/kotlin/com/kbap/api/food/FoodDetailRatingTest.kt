@@ -108,9 +108,9 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(900L, accessToken(909L, null)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
-                        jsonPath("$.payload.review.overall.reviewCount") { value(3) }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
+                        jsonPath("$.payload.reviewSummary.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(0.0) }
                     }
                 }
             }
@@ -118,8 +118,8 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 then("KR 스냅샷 리뷰(4·5)의 평균 4.5 를 같은 국적 평점으로 준다") {
                     detail(900L, accessToken(903L, "KR")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.overall.averageRating") { value(3.7) }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(4.5) }
+                        jsonPath("$.payload.reviewSummary.overall.averageRating") { value(3.7) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(4.5) }
                     }
                 }
             }
@@ -127,7 +127,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 then("같은 국적 평점은 0.0 이다") {
                     detail(900L, accessToken(905L, "JP")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(0.0) }
                     }
                 }
             }
@@ -136,9 +136,9 @@ class FoodDetailRatingTest : BehaviorSpec() {
                     seedFood(910L, "평점순두부")
                     detail(910L, accessToken(904L, null)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.overall.averageRating") { value(0.0) }
-                        jsonPath("$.payload.review.overall.reviewCount") { value(0) }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(0.0) }
+                        jsonPath("$.payload.reviewSummary.overall.averageRating") { value(0.0) }
+                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(0.0) }
                     }
                 }
             }
@@ -151,8 +151,8 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(911L, accessToken(904L, null)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.overall.averageRating") { value(5.0) }
-                        jsonPath("$.payload.review.overall.reviewCount") { value(1) }
+                        jsonPath("$.payload.reviewSummary.overall.averageRating") { value(5.0) }
+                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(1) }
                     }
                 }
             }
@@ -164,7 +164,7 @@ class FoodDetailRatingTest : BehaviorSpec() {
 
                     detail(912L, accessToken(908L, "TH")).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.review.sameCountry.averageRating") { value(3.0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(3.0) }
                     }
                 }
             }

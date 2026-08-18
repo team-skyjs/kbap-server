@@ -67,14 +67,20 @@ interface FoodApi {
 
             맵기(spiciness)는 0~10 정수(0=맵지 않음, 10=매우 매움)로 제공한다.
 
-            리뷰 요약은 review 중첩 객체로 내려간다 — review.overall(전체 사용자)·review.sameCountry(같은 국적, 작성 시점 스냅샷 기준)가
-            같은 형태(averageRating: 평균 별점 소수 첫째 자리 반올림 · reviewCount: 리뷰 수)로 제공되고, review.blur 가 붙는다.
-            수치는 null 없이 항상 숫자이며 해당 값이 없으면 0.0·0 이다.
-            blur 는 활성 회원 조회면 false, 비회원(또는 탈퇴 회원 토큰) 조회면 true 이고 이때 수치는 전부 기본값(0.0·0)이다.
-            클라이언트 판별 규칙: blur=true → 로그인 유도 가림 상태, blur=false && overall.reviewCount==0 → 리뷰 없음 상태.
+            ingredients 는 음식 재료 전체({code, name(요청 언어), inclusionPercent}, 확률 내림차순)로 회원·비회원 공통이고,
+            avoidedIngredients 는 조회 회원 회피성분과의 교집합({code, riskStatus}, 확률 내림차순)이다. riskStatus 는 포함 확률 기반
+            실제값(p<10 SAFE · 10~59 CAUTION · ≥60 DANGER)이며, UI 는 code 로 두 목록을 조인한다. 비회원 조회의 avoidedIngredients 는 null 이다(회원의 겹침 없음은 빈 배열).
 
-            각 포함 기피성분의 위험도(riskStatus: SAFE/CAUTION/DANGER/UNKNOWN)는 포함 확률(inclusionPercent, 1~100) 기반 실제값이다(p<10 SAFE · 10~59 CAUTION · ≥60 DANGER).
-            응답 최상위 overallRiskStatus 는 사용자 회피 목록 ∩ 음식 성분의 성분별 위험도 최악값이다(현재 회피 목록은 mock 조달).
+            리뷰는 두 필드로 내려간다 — reviewSummary.overall(전체 사용자)·reviewSummary.sameCountry(같은 국적, 작성 시점 스냅샷 기준)가
+            같은 형태(averageRating: 평균 별점 소수 첫째 자리 반올림 · reviewCount: 리뷰 수)로 제공되고,
+            recentReviews 는 최신순 최대 5개 리뷰를 리뷰 목록 API(GET /api/reviews)와 동일한 항목 형태로 동봉한다
+            (이 음식에 대한 리뷰이므로 항목의 food 필드는 생략, createdAt 은 epoch millis, author 에 profileImageUrl 포함).
+            overall 은 회원·비회원 모두 실제 집계값이며 수치는 null 없이 항상 숫자다(해당 값이 없으면 0.0·0).
+            sameCountry 는 비회원(또는 탈퇴 회원 토큰) 조회면 null, 회원 조회면 항상 객체다(국적 미보유·해당 국적 리뷰 없음이면 0.0·0).
+            recentReviews 의 likedByMe 는 비회원 조회면 항상 false 이고, 차단·신고 리뷰 제외는 회원 조회에만 적용된다.
+
+            응답 최상위 overallRiskStatus 는 사용자 회피 목록 ∩ 음식 성분의 성분별 위험도 최악값이며, 비회원 조회는 판별하지 않고 null 이다.
+            클라이언트 판별 규칙: overallRiskStatus == null → 비회원 조회 응답(로그인 유도 등 비회원 UI 분기 기준).
 
             존재하지 않는 foodId, 소프트삭제된 음식, 숫자가 아닌 foodId 는 모두 400 으로 응답한다.
         """,
