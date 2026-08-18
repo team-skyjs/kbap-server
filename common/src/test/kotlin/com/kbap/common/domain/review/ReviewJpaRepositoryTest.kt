@@ -90,13 +90,35 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
         fun page(size: Int) = PageRequest.of(0, size)
 
+        fun findReviewPage(
+            foodId: Long?,
+            countryCode: String?,
+            cursor: Long?,
+            excludedMemberIds: List<Long>,
+            excludedReviewIds: List<Long>,
+            pageable: PageRequest,
+        ): List<Review> =
+            reviewJpaRepository.findReviewPage(
+                foodId = foodId,
+                countryCode = countryCode,
+                minRating = null,
+                maxRating = null,
+                sort = ReviewSort.LATEST,
+                descending = true,
+                metricCursor = null,
+                idCursor = cursor,
+                excludedMemberIds = excludedMemberIds,
+                excludedReviewIds = excludedReviewIds,
+                limit = pageable.pageSize,
+            ).map { it.review }
+
         given("findReviewPage — 음식별 최신순 keyset") {
             val foodId = 100L
             val saved = (1..25).map { save(memberId = it.toLong(), foodId = foodId) }
 
             `when`("cursor null, size 21 로 조회하면") {
                 then("최신(id desc) 21건을 준다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
                     result.size shouldBe 21
                     result.first().id shouldBe saved.last().id
                     result.map { it.id } shouldBe result.map { it.id }.sortedDescending()
@@ -105,7 +127,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             `when`("cursor 를 21번째 리뷰 id 로 주면") {
                 then("그보다 작은 id 만 준다") {
                     val cursor = saved[4].id
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, cursor, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, null, cursor, listOf(-1L), listOf(-1L), page(21))
                     result.size shouldBe 4
                     result.all { it.id < cursor } shouldBe true
                 }
@@ -113,7 +135,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             `when`("다른 음식의 리뷰가 있으면") {
                 save(memberId = 999L, foodId = 101L)
                 then("대상 음식 리뷰만 준다") {
-                    val result = reviewJpaRepository.findReviewPage(101L, null, null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(101L, null, null, listOf(-1L), listOf(-1L), page(21))
                     result.size shouldBe 1
                     result.first().foodId shouldBe 101L
                 }
@@ -129,19 +151,19 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("countryCode 를 KR 로 주면") {
                 then("KR 스냅샷 리뷰만 준다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, "KR", null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, "KR", null, listOf(-1L), listOf(-1L), page(21))
                     result.size shouldBe 2
                     result.all { it.authorCountryCode == "KR" } shouldBe true
                 }
             }
             `when`("countryCode 를 null 로 주면") {
                 then("국적 미보유 리뷰까지 전체를 준다") {
-                    reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21)).size shouldBe 4
+                    findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21)).size shouldBe 4
                 }
             }
             `when`("리뷰가 없는 국적 코드를 주면") {
                 then("빈 목록을 준다") {
-                    reviewJpaRepository.findReviewPage(foodId, "JP", null, listOf(-1L), listOf(-1L), page(21)).shouldBeEmpty()
+                    findReviewPage(foodId, "JP", null, listOf(-1L), listOf(-1L), page(21)).shouldBeEmpty()
                 }
             }
         }
@@ -153,19 +175,19 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("제외 id 목록을 주면") {
                 then("제외 id 를 뺀 최신순 목록을 준다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), excluded, page(21))
+                    val result = findReviewPage(foodId, null, null, listOf(-1L), excluded, page(21))
                     result.map { it.id } shouldBe listOf(saved[4].id, saved[2].id, saved[0].id)
                 }
             }
             `when`("커서와 함께 제외 목록을 주면") {
                 then("커서 미만에서 제외 id 만 뺀다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, saved[4].id, listOf(-1L), excluded, page(21))
+                    val result = findReviewPage(foodId, null, saved[4].id, listOf(-1L), excluded, page(21))
                     result.map { it.id } shouldBe listOf(saved[2].id, saved[0].id)
                 }
             }
             `when`("국적 필터와 함께 제외 목록을 주면") {
                 then("두 조건을 모두 적용한다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, "KR", null, listOf(-1L), excluded, page(21))
+                    val result = findReviewPage(foodId, "KR", null, listOf(-1L), excluded, page(21))
                     result.map { it.id } shouldBe listOf(saved[4].id, saved[2].id, saved[0].id)
                 }
             }
@@ -198,13 +220,13 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("excludedMemberIds 에 작성자를 넣으면") {
                 then("그 작성자의 리뷰만 빠진다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(702L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, null, null, listOf(702L), listOf(-1L), page(21))
                     result.map { it.id } shouldBe listOf(kept.id)
                 }
             }
             `when`("센티널 -1 만 넣으면") {
                 then("아무도 제외되지 않는다") {
-                    reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21)).size shouldBe 2
+                    findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21)).size shouldBe 2
                 }
             }
         }
@@ -218,7 +240,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("목록을 조회하면") {
                 then("삭제 리뷰는 제외된다") {
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
                     result.map { it.id } shouldBe listOf(kept.id)
                 }
             }
@@ -269,7 +291,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("cursor null, size 21 로 조회하면") {
                 then("음식 구분 없이 최신(id desc) 21건을 준다") {
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(21))
                     result.size shouldBe 21
                     result.first().id shouldBe saved.last().id
                     result.map { it.id } shouldBe result.map { it.id }.sortedDescending()
@@ -279,14 +301,14 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             `when`("cursor 를 다섯 번째 리뷰 id 로 주면") {
                 then("그보다 작은 id 만 최신순으로 준다") {
                     val cursor = saved[4].id
-                    val result = reviewJpaRepository.findReviewPage(null, null, cursor, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(null, null, cursor, listOf(-1L), listOf(-1L), page(21))
                     result.all { it.id < cursor } shouldBe true
                     result.map { it.id }.take(4) shouldBe saved.take(4).map { it.id }.sortedDescending()
                 }
             }
             `when`("가장 오래된 리뷰 id 를 cursor 로 주면") {
                 then("이 목록의 리뷰는 더 이상 나오지 않는다") {
-                    val result = reviewJpaRepository.findReviewPage(null, null, saved.first().id, listOf(-1L), listOf(-1L), page(100))
+                    val result = findReviewPage(null, null, saved.first().id, listOf(-1L), listOf(-1L), page(100))
                     val savedIds = saved.map { it.id }.toSet()
                     result.none { it.id in savedIds } shouldBe true
                 }
@@ -302,7 +324,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val kept = save(memberId = 901L, foodId = food.id)
                     save(memberId = 902L, foodId = food.id)
 
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(902L), listOf(-1L), page(21))
+                    val result = findReviewPage(null, null, null, listOf(902L), listOf(-1L), page(21))
                     result.map { it.id }.contains(kept.id) shouldBe true
                     result.all { it.memberId != 902L } shouldBe true
                 }
@@ -313,7 +335,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val kept = save(memberId = 903L, foodId = food.id)
                     val reported = save(memberId = 903L, foodId = food.id)
 
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(reported.id), page(21))
+                    val result = findReviewPage(null, null, null, listOf(-1L), listOf(reported.id), page(21))
                     result.map { it.id }.contains(kept.id) shouldBe true
                     result.map { it.id }.contains(reported.id) shouldBe false
                 }
@@ -327,7 +349,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     deleted.delete()
                     foodJpaRepository.save(deleted)
 
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
+                    val result = findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
                     result.map { it.id }.contains(kept.id) shouldBe true
                     result.map { it.id }.contains(orphaned.id) shouldBe false
                 }
@@ -338,7 +360,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val ghost = reviewJpaRepository.save(
                         Review(memberId = 905L, foodId = 999_999L, rating = 4, authorCountryCode = "KR"),
                     )
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
+                    val result = findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
                     result.map { it.id }.contains(ghost.id) shouldBe false
                 }
             }
@@ -349,7 +371,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val withdrawn = save(memberId = 907L, foodId = food.id)
                     withdrawMember(907L)
 
-                    val result = reviewJpaRepository.findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
+                    val result = findReviewPage(null, null, null, listOf(-1L), listOf(-1L), page(100))
                     result.map { it.id }.contains(kept.id) shouldBe true
                     result.map { it.id }.contains(withdrawn.id) shouldBe true
                 }
@@ -364,7 +386,7 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
                     val withdrawn = save(memberId = 762L, foodId = foodId)
                     withdrawMember(762L)
 
-                    val result = reviewJpaRepository.findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
+                    val result = findReviewPage(foodId, null, null, listOf(-1L), listOf(-1L), page(21))
                     result.map { it.id } shouldBe listOf(withdrawn.id, kept.id)
                 }
             }

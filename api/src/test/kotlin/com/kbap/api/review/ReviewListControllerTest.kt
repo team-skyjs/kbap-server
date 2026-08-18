@@ -105,6 +105,9 @@ class ReviewListControllerTest : BehaviorSpec() {
             cursor: String? = null,
             countryCode: String? = null,
             lang: String? = "en",
+            sort: String? = null,
+            minRating: Int? = null,
+            maxRating: Int? = null,
         ): ResultActionsDsl =
             mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
@@ -112,7 +115,17 @@ class ReviewListControllerTest : BehaviorSpec() {
                 cursor?.let { param("cursor", it) }
                 countryCode?.let { param("countryCode", it) }
                 lang?.let { param("lang", it) }
+                sort?.let { param("sort", it) }
+                minRating?.let { param("minRating", it.toString()) }
+                maxRating?.let { param("maxRating", it.toString()) }
             }
+
+        fun likeReview(token: String, reviewId: Long) {
+            mockMvc.post("/api/reviews/$reviewId/like") {
+                header("Authorization", "Bearer $token")
+                param("liked", "true")
+            }.andExpect { status { isOk() } }
+        }
 
         fun myReviews(token: String?, cursor: String? = null, lang: String? = "en"): ResultActionsDsl =
             mockMvc.get("/api/reviews/me") {
@@ -123,6 +136,171 @@ class ReviewListControllerTest : BehaviorSpec() {
 
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+        fun reviewIdsOf(result: ResultActionsDsl): List<Long> =
+            payloadOf(result).path("items").map { it.path("reviewId").asLong() }
+
+        fun traverseAll(foodId: Long, sort: String?): List<Long> {
+            val collected = mutableListOf<Long>()
+            var cursor: String? = null
+            repeat(10) {
+                val response = foodReviews(null, foodId, cursor = cursor, sort = sort).andReturn().response
+                check(response.status == 200) {
+                    "순회 중 HTTP ${response.status} (cursor=$cursor): ${response.getContentAsString(Charsets.UTF_8)}"
+                }
+                val payload = mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("payload")
+                collected += payload.path("items").map { it.path("reviewId").asLong() }
+                cursor = payload.path("nextCursor").textValue() ?: return collected
+            }
+            error("페이지 순회가 10회를 초과했다 — 커서가 전진하지 않는다 (마지막 커서: $cursor)")
+        }
+
+        given("리뷰 목록 정렬 — GET /api/reviews?sort=") {
+            `when`("평점이 다른 리뷰들을 평점 높은 순으로 조회하면") {
+                then("별점 내림차순, 동점은 최신 우선이다") {
+                    seedFood(860L, "정렬김치찌개")
+                    val r1 = createReview(accessToken(8601L), 860L, rating = 2)
+                    val r2 = createReview(accessToken(8602L), 860L, rating = 5)
+                    val r3 = createReview(accessToken(8603L), 860L, rating = 3)
+                    val r4 = createReview(accessToken(8604L), 860L, rating = 5)
+                    val r5 = createReview(accessToken(8605L), 860L, rating = 1)
+
+                    reviewIdsOf(foodReviews(null, 860L, sort = "rating_high")) shouldBe
+                        listOf(r4, r2, r3, r1, r5)
+                }
+            }
+            `when`("같은 리뷰들을 평점 낮은 순으로 조회하면") {
+                then("별점 오름차순, 동점은 최신 우선이다") {
+                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "rating_low"))
+                    payloadOf(foodReviews(null, 860L, sort = "rating_low")).path("items")
+                        .map { it.path("rating").asInt() } shouldBe listOf(1, 2, 3, 5, 5)
+                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "rating_high")).takeLast(3).reversed()
+                }
+            }
+            `when`("좋아요 수가 다른 리뷰들을 helpful 내림차순으로 조회하면") {
+                then("좋아요 수 내림차순, 동점은 최신 우선이다") {
+                    seedFood(861L, "정렬된장찌개")
+                    val r1 = createReview(accessToken(8611L), 861L, rating = 4)
+                    val r2 = createReview(accessToken(8612L), 861L, rating = 4)
+                    val r3 = createReview(accessToken(8613L), 861L, rating = 4)
+                    likeReview(accessToken(8611L), r2)
+                    likeReview(accessToken(8612L), r2)
+                    likeReview(accessToken(8613L), r1)
+
+                    reviewIdsOf(foodReviews(null, 861L, sort = "helpful")) shouldBe
+                        listOf(r2, r1, r3)
+                }
+            }
+            `when`("sort 를 생략하면") {
+                then("기존과 동일한 최신순이다") {
+                    val ids = reviewIdsOf(foodReviews(null, 861L))
+                    ids shouldBe ids.sortedDescending()
+                }
+            }
+            `when`("허용값 밖 sort 로 조회하면") {
+                then("대문자 표기를 포함해 400 COMMON-002 를 반환한다") {
+                    listOf("RANDOM", "HELPFUL_DESC", "Rating_High", "rating", "desc").forEach { invalid ->
+                        foodReviews(null, 861L, sort = invalid).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
+                    }
+                }
+            }
+        }
+
+        given("정렬별 커서 페이징 정합 — 동점 경계") {
+            `when`("전부 동점(별점 4)인 리뷰 25건을 평점 높은 순으로 끝까지 페이징하면") {
+                then("중복·누락 없이 모든 리뷰가 정확히 한 번씩 최신순으로 나온다") {
+                    seedFood(863L, "페이징감자탕")
+                    val created = (1..25).map { createReview(accessToken(8630L + it), 863L, rating = 4) }
+
+                    val first = payloadOf(foodReviews(null, 863L, sort = "rating_high"))
+                    first.path("items").size() shouldBe 20
+                    first.path("hasNext").asBoolean().shouldBeTrue()
+
+                    val all = traverseAll(863L, "rating_high")
+                    all shouldBe created.sortedDescending()
+                }
+            }
+            `when`("좋아요가 섞인 같은 목록을 helpful 내림차순으로 끝까지 페이징하면") {
+                then("좋아요 수 우선·동점 최신순으로 중복·누락 없이 나온다") {
+                    val created = traverseAll(863L, null)
+                    val liked2 = created[10]
+                    val liked1 = created[20]
+                    likeReview(accessToken(8631L), liked2)
+                    likeReview(accessToken(8632L), liked2)
+                    likeReview(accessToken(8633L), liked1)
+
+                    val all = traverseAll(863L, "helpful")
+                    all.size shouldBe 25
+                    all.toSet() shouldBe created.toSet()
+                    all.take(2) shouldBe listOf(liked2, liked1)
+                }
+            }
+            `when`("LATEST 형식 커서를 지표 정렬에 재사용하면") {
+                then("400 FOOD-002 를 반환한다") {
+                    foodReviews(null, 863L, cursor = "42", sort = "rating_high").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-002") }
+                    }
+                }
+            }
+        }
+
+        given("리뷰 목록 별점 구간 필터 — GET /api/reviews?minRating=&maxRating=") {
+            `when`("별점 1~5 리뷰에서 1~3점 구간으로 조회하면") {
+                then("구간 안 리뷰만 최신순으로 내려간다") {
+                    seedFood(862L, "필터부대찌개")
+                    val r1 = createReview(accessToken(8621L, "KR"), 862L, rating = 1)
+                    val r2 = createReview(accessToken(8622L, "VN"), 862L, rating = 2)
+                    val r3 = createReview(accessToken(8623L, "KR"), 862L, rating = 3)
+                    createReview(accessToken(8624L, "VN"), 862L, rating = 4)
+                    createReview(accessToken(8625L, "KR"), 862L, rating = 5)
+
+                    reviewIdsOf(foodReviews(null, 862L, minRating = 1, maxRating = 3)) shouldBe
+                        listOf(r3, r2, r1)
+                }
+            }
+            `when`("하한=상한=3 으로 조회하면") {
+                then("3점 리뷰만 내려간다") {
+                    val items = payloadOf(foodReviews(null, 862L, minRating = 3, maxRating = 3)).path("items")
+                    items.size() shouldBe 1
+                    items.first().path("rating").asInt() shouldBe 3
+                }
+            }
+            `when`("별점 구간과 국적 필터·정렬을 함께 지정하면") {
+                then("전 조건의 교집합이 정렬 순서로 내려간다") {
+                    val ids = reviewIdsOf(
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating_low"),
+                    )
+                    payloadOf(
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating_low"),
+                    ).path("items").map { it.path("rating").asInt() } shouldBe listOf(3, 5)
+                    ids.size shouldBe 2
+                }
+            }
+            `when`("하한이 상한보다 크면") {
+                then("400 COMMON-002 를 반환한다") {
+                    foodReviews(null, 862L, minRating = 4, maxRating = 2).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+            `when`("범위 밖 별점(0·6)으로 조회하면") {
+                then("400 COMMON-002 를 반환한다") {
+                    foodReviews(null, 862L, minRating = 0).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                    foodReviews(null, 862L, maxRating = 6).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+        }
 
         given("음식별 리뷰 목록 — GET /api/reviews?foodId=") {
             seedFood(800L, "목록김치찌개")

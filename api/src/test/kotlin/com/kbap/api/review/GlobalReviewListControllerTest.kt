@@ -99,11 +99,19 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
             return mapper.readTree(response).path("payload").path("reviewId").asLong()
         }
 
-        fun feed(token: String?, lang: String? = "en", cursor: String? = null): ResultActionsDsl =
+        fun feed(
+            token: String?,
+            lang: String? = "en",
+            cursor: String? = null,
+            sort: String? = null,
+            countryCode: String? = null,
+        ): ResultActionsDsl =
             mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
                 lang?.let { param("lang", it) }
                 cursor?.let { param("cursor", it) }
+                sort?.let { param("sort", it) }
+                countryCode?.let { param("countryCode", it) }
             }
 
         fun payloadOf(result: ResultActionsDsl): JsonNode =
@@ -245,6 +253,27 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 then("400 을 반환한다") {
                     val token = accessToken(9005L)
                     feed(token, lang = null).andExpect { status { isBadRequest() } }
+                }
+            }
+            `when`("리뷰 수가 다른 음식들의 리뷰를 음식 리뷰 수 많은 순으로 조회하면") {
+                then("소속 음식의 리뷰 수 내림차순, 같은 음식 안에서는 최신 우선이다") {
+                    seedFood(960L, "정렬피드갈비탕")
+                    seedFood(961L, "정렬피드육개장")
+                    val a = accessToken(9601L, "ZW")
+                    val b = accessToken(9602L, "ZW")
+                    val c = accessToken(9603L, "ZW")
+                    val f1r1 = createReview(a, 960L)
+                    val f1r2 = createReview(b, 960L)
+                    val f2r1 = createReview(c, 961L)
+                    val f1r3 = createReview(c, 960L)
+
+                    val ids = mapper.readTree(
+                        feed(null, sort = "food_review_count", countryCode = "ZW")
+                            .andExpect { status { isOk() } }
+                            .andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items").map { it.path("reviewId").asLong() }
+
+                    ids shouldBe listOf(f1r3, f1r2, f1r1, f2r1)
                 }
             }
             `when`("토큰 없이 전체 피드를 조회하면") {

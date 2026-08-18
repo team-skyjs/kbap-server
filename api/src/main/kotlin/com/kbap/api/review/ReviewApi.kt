@@ -113,7 +113,7 @@ interface ReviewApi {
         memberId: Long?,
         @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,
         @ParameterObject request: ReviewListRequest,
-    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
+    ): ResponseEntity<BaseResponse<ReviewListPage>>
 
     @Operation(
         summary = "내 리뷰 목록",

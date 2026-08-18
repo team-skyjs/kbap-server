@@ -1,6 +1,8 @@
 package com.kbap.api.review
 
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 
 private const val LANG_DESCRIPTION =
@@ -27,5 +29,22 @@ data class ReviewListRequest(
 
     @field:Schema(description = "작성 시점 국적 스냅샷 필터(ISO-2 대문자, 정확 일치). 생략 시 전체", example = "VN")
     val countryCode: String? = null,
+
+    @field:Schema(
+        description = "정렬(소문자 정확 일치). 생략 시 latest(최신순)",
+        example = "rating_high",
+        allowableValues = ["latest", "rating_high", "rating_low", "food_review_count", "helpful"],
+    )
+    val sort: String? = null,
+
+    @field:Min(1)
+    @field:Max(5)
+    @field:Schema(description = "별점 하한(이상, 1~5). 생략 시 하한 없음", example = "1")
+    val minRating: Int? = null,
+
+    @field:Min(1)
+    @field:Max(5)
+    @field:Schema(description = "별점 상한(이하, 1~5, minRating 이상). 생략 시 상한 없음", example = "3")
+    val maxRating: Int? = null,
 )
 

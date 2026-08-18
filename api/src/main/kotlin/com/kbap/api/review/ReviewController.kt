@@ -5,7 +5,10 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -94,18 +97,41 @@ class ReviewController(
         @AuthMemberIdOrNull memberId: Long?,
         @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
-    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
-        ResponseEntity.ok(
+    ): ResponseEntity<BaseResponse<ReviewListPage>> {
+        val (sort, descending) = parseSort(request.sort)
+        validateRatingRange(request.minRating, request.maxRating)
+        return ResponseEntity.ok(
             BaseResponse.ok(
                 reviewService.getReviewPage(
                     memberId,
                     foodId,
                     request.countryCode,
                     LanguageCode.from(request.lang),
-                    CursorParser.parse(request.cursor),
+                    sort,
+                    descending,
+                    request.minRating,
+                    request.maxRating,
+                    ReviewListCursor.parse(request.cursor, sort),
                 ),
             ),
         )
+    }
+
+    private fun parseSort(raw: String?): Pair<ReviewSort, Boolean> =
+        when (raw) {
+            null, "latest" -> ReviewSort.LATEST to true
+            "rating_high" -> ReviewSort.RATING to true
+            "rating_low" -> ReviewSort.RATING to false
+            "food_review_count" -> ReviewSort.FOOD_REVIEW_COUNT to true
+            "helpful" -> ReviewSort.HELPFUL to true
+            else -> throw BusinessException(ErrorCode.INVALID_REQUEST)
+        }
+
+    private fun validateRatingRange(minRating: Int?, maxRating: Int?) {
+        if (minRating != null && maxRating != null && minRating > maxRating) {
+            throw BusinessException(ErrorCode.INVALID_REQUEST)
+        }
+    }
 
     @GetMapping("/reviews/me")
     override fun listMyReviews(
