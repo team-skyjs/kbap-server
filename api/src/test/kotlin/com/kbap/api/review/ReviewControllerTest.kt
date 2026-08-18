@@ -17,6 +17,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.delete
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
@@ -494,12 +495,12 @@ class ReviewControllerTest : BehaviorSpec() {
             seedFood(750L, "리뷰순두부")
 
             `when`("검색에서 고른 식당 정보와 함께 작성하면") {
-                then("KAKAO_PLACE 출처로 응답과 저장 값에 식당 정보가 담긴다") {
+                then("GOOGLE_PLACE 출처로 응답과 저장 값에 식당 정보가 담긴다") {
                     val token = accessToken(750L)
                     val result = create(token, createBody(foodId = 750L, rating = 4, place = placeBody()))
                         .andExpect {
                             status { isOk() }
-                            jsonPath("$.payload.place.source") { value("KAKAO_PLACE") }
+                            jsonPath("$.payload.place.source") { value("GOOGLE_PLACE") }
                             jsonPath("$.payload.place.name") { value("한밥집 강남점") }
                             jsonPath("$.payload.place.address") { value("서울 강남구 테헤란로 123") }
                             jsonPath("$.payload.place.latitude") { value(37.4979502) }
@@ -507,9 +508,36 @@ class ReviewControllerTest : BehaviorSpec() {
                         }
 
                     val reviewId = reviewIdOf(result)
-                    storedPlaceSourceOf(reviewId) shouldBe "KAKAO_PLACE"
+                    storedPlaceSourceOf(reviewId) shouldBe "GOOGLE_PLACE"
                     storedPlaceOf(reviewId) shouldBe
                         listOf("한밥집 강남점", "서울 강남구 테헤란로 123", "37.4979502", "127.0276368")
+                }
+            }
+
+            `when`("과거 KAKAO_PLACE 출처로 저장된 리뷰를 조회하면") {
+                then("출처가 KAKAO_PLACE 그대로 내려간다") {
+                    seedFood(753L, "리뷰카카오보존")
+                    accessToken(753L)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            """
+                            INSERT INTO food_review (id, member_id, food_id, rating, place_source, place_name,
+                                                     place_latitude, place_longitude, status, created_at, updated_at)
+                            VALUES (7530, 753, 753, 4, 'KAKAO_PLACE', '옛한밥집', 37.4979502, 127.0276368,
+                                    'ACTIVE', NOW(6), NOW(6))
+                            ON DUPLICATE KEY UPDATE place_source = VALUES(place_source)
+                            """,
+                        ).use { it.executeUpdate() }
+                    }
+
+                    mockMvc.get(path) {
+                        param("foodId", "753")
+                        param("lang", "en")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].place.source") { value("KAKAO_PLACE") }
+                        jsonPath("$.payload.items[0].place.name") { value("옛한밥집") }
+                    }
                 }
             }
 
