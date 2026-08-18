@@ -11,6 +11,7 @@ import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.api.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -23,6 +24,7 @@ class FoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -34,19 +36,46 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun searchFoodPage(input: SearchFoodsInput): FoodPage =
-        foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        if (input.scope == FoodSearchScope.SCANNED) {
+            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang)
+            FoodPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
+        } else {
+            foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
     @Transactional(readOnly = true)
-    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
-        val jsonPath = if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
-        return loadDescending(
-            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), jsonPath, cursor, size),
+    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
+        loadDescending(
+            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
         )
+
+    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
+        val ids = scanHistoryRepository.findScannedFoodIds(memberId, escapeLikeWildcards(keyword), translationJsonPath(lang))
+        return loadInGivenOrder(ids)
     }
+
+    @Transactional(readOnly = true)
+    fun getScannedFoodPage(memberId: Long, lang: LanguageCode, cursor: Long?): FoodPage {
+        val cursorLastScannedAt = cursor?.let {
+            scanHistoryRepository.findLastScannedAt(memberId, it)
+                ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
+        }
+        val ids = scanHistoryRepository.findScannedFoodPageIds(memberId, cursorLastScannedAt, cursor, PAGE_SIZE + 1)
+        return foodPage(loadInGivenOrder(ids), lang, memberId)
+    }
+
+    private fun loadInGivenOrder(ids: List<Long>): List<Food> {
+        if (ids.isEmpty()) return emptyList()
+        val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
+        return ids.mapNotNull { foodsById[it] }
+    }
+
+    private fun translationJsonPath(lang: LanguageCode): String? =
+        if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
@@ -150,13 +179,16 @@ class FoodService(
         val items = rows.take(PAGE_SIZE)
         val nextCursor = if (hasNext) items.last().id else null
 
-        val userAvoidedCodes = avoidedCodeNames(memberId)
-
         return FoodPage(
-            items = items.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) },
+            items = summaryViews(items, lang, memberId),
             nextCursor = nextCursor,
             hasNext = hasNext,
         )
+    }
+
+    private fun summaryViews(rows: List<Food>, lang: LanguageCode, memberId: Long?): List<FoodSummaryView> {
+        val userAvoidedCodes = avoidedCodeNames(memberId)
+        return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
