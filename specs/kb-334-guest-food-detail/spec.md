@@ -56,6 +56,30 @@
 
 ---
 
+### User Story 4 - 음식 재료 전체 공개 + 사용자 교집합 필드 분리 (Priority: P1, 2026-08-18 확장)
+
+상세 화면이 음식의 **재료 전체 목록**(코드·번역 표시명·포함 확률)을 회원·비회원 공통으로 보여주고, 조회자 회피성분과의 **교집합은 별도 필드**(코드·위험도)로 내려 UI 가 재료 목록 위에 사용자 맥락을 얹는다. 기존 `ingredients`(교집합 전용) 계약을 재편한다.
+
+**Acceptance Scenarios**:
+
+1. **Given** 재료 3종(SOY 100%·CLAM 50%·WHEAT 5%)인 음식, **When** 누구든 상세를 조회하면, **Then** `ingredients` 는 확률 내림차순 3건 — 각 항목 `{code, name(요청 언어 번역), inclusionPercent}`.
+2. **Given** SOY·CLAM 회피 회원, **When** 상세를 조회하면, **Then** `avoidedIngredients` 는 `[{code: SOY, riskStatus: DANGER}, {code: CLAM, riskStatus: CAUTION}]` (확률 내림차순, 확률 기반 위험도).
+3. **Given** 비회원, **When** 상세를 조회하면, **Then** `avoidedIngredients` 는 `null` 이다 (빈 배열 아님 — 회피 없음(빈 배열)과 판별 안 함(null)을 구분).
+
+---
+
+### User Story 5 - 최근 리뷰 5개 동봉 + 리뷰 필드 개편 (Priority: P1, 2026-08-18 확장)
+
+상세 응답이 음식의 **최신 리뷰 최대 5개**를 함께 내려 별도 목록 호출 없이 첫 화면을 그린다. 항목 형태는 리뷰 목록 API 의 `ReviewResponse` 와 동일(클라이언트가 이미 아는 계약). 요약 필드는 `review` → `reviewSummary` 로 개명해 목록(`recentReviews`)과 구분한다.
+
+**Acceptance Scenarios**:
+
+1. **Given** 리뷰 7건인 음식, **When** 상세를 조회하면, **Then** `recentReviews` 는 최신순 5건이고 각 항목은 리뷰 목록 API 와 같은 형태다.
+2. **Given** 비회원 조회, **When** 응답을 받으면, **Then** `recentReviews` 의 `likedByMe` 는 전부 false 다.
+3. **Given** 임의 조회, **When** 응답을 받으면, **Then** 요약은 `reviewSummary` 키로 내려가고 `review` 키는 존재하지 않는다.
+
+---
+
 ### Edge Cases
 
 - 국적이 없는(미설정) **회원**이 조회하면? — 기존 동작 유지: `sameCountry` 는 기본값 `{0.0, 0}` (회원 응답은 blur 제거 외 불변이라는 원칙). null 은 비회원 전용 시그널로 남긴다.
@@ -73,6 +97,9 @@
 - **FR-004**: 비회원의 음식 상세 조회 응답에서 `review.sameCountry` 는 `null` 이어야 한다. 국적 보유 회원의 `sameCountry` 는 기존 수치 그대로다.
 - **FR-005**: 회원·비회원 공통으로 `review` 객체에서 `blur` 필드를 제거해야 한다.
 - **FR-006**: 위 변경은 음식 상세 단건 조회에 한정한다 — 목록/검색 응답의 비회원 처리(북마크 false·요약 정책)는 불변이다.
+- **FR-007** (2026-08-18): `ingredients` 는 음식 재료 **전체** 목록으로 재정의한다 — 항목 `{code, name(요청 언어), inclusionPercent}`, 확률 내림차순, 회원·비회원 공통.
+- **FR-008** (2026-08-18): 조회자 회피 교집합은 `avoidedIngredients` — 항목 `{code, riskStatus}`, 회원은 배열(겹침 없으면 빈 배열), 비회원은 `null`.
+- **FR-009** (2026-08-18): 리뷰 요약 필드는 `review` → `reviewSummary` 로 개명하고, `recentReviews` 에 최신순 최대 5개 리뷰를 리뷰 목록 API 의 `ReviewResponse` 형태로 동봉한다. 비회원의 `likedByMe` 는 false, 차단/신고 제외는 회원 조회에만 적용한다.
 
 ### Key Entities
 

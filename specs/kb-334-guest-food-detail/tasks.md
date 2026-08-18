@@ -76,6 +76,24 @@
 
 ---
 
+## Phase 5: User Story 4 - 재료 전체 공개 + avoidedIngredients 분리 (2026-08-18 확장)
+
+- [ ] T012 [US4] `FoodDetailControllerTest` — Red: 상세 응답의 `ingredients` 가 재료 전체(`{code, name, inclusionPercent}` 확률 내림차순, 회원·비회원 공통)이고, 회피 회원은 `avoidedIngredients` 에 `{code, riskStatus}` 교집합, 비회원은 `avoidedIngredients` null 단언
+- [ ] T013 [US4] `FoodService.getDetail`·`GetFoodDetailResult` — 전체 재료(카탈로그 번역명 조인) + 교집합(회원 List/비회원 null) 이원 산출로 재편
+- [ ] T014 [US4] `FoodDetailResponse` — `ingredients` 항목 `{code, name, inclusionPercent}` 재정의, `avoidedIngredients: List<{code, riskStatus}>?` 신설, swagger 갱신. T012 Green
+
+## Phase 6: User Story 5 - reviewSummary 개명 + recentReviews 동봉 (2026-08-18 확장)
+
+- [ ] T015 [US5] `FoodDetailReviewSectionTest` — Red: 요약이 `reviewSummary` 키로 내려가고 `review` 키 부재, `recentReviews` 가 최신순 최대 5개(`ReviewResponse` 형태), 비회원 `likedByMe` 전부 false 단언
+- [ ] T016 [US5] `ReviewService` — 비회원 조회 가능한 최근 리뷰 로더(`getRecentFoodReviews(foodId, viewerMemberId: Long?, lang)` 5개 고정, 차단/신고 제외는 회원만) 추가
+- [ ] T017 [US5] `FoodDetailResponse`·`FoodController` — `review`→`reviewSummary` 개명, `recentReviews: List<ReviewResponse>` 조립, `FoodApi` 문서 갱신. T015 Green
+
+## Phase 7: Polish (확장분)
+
+- [ ] T018 전체 스위트 그린(`./gradlew test`) + 계약 문서와 실응답 대조, PR #167 본문 갱신
+
+---
+
 ## Dependencies & Execution Order
 
 - Setup/Foundational 페이즈 없음 — 기존 프로젝트, 신규 인프라 0.
