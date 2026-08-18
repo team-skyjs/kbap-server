@@ -1,5 +1,6 @@
 package com.kbap.api.place
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.place.PlaceSearchClient
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
@@ -8,13 +9,9 @@ import java.math.BigDecimal
 class PlaceService(
     private val placeSearchClient: PlaceSearchClient,
 ) {
-    fun getNearbyPlaces(latitude: BigDecimal, longitude: BigDecimal): PlaceNearbyResponse =
-        PlaceNearbyResponse.from(placeSearchClient.searchNearby(RESTAURANT_KEYWORD, longitude, latitude))
+    fun getNearbyPlaces(latitude: BigDecimal, longitude: BigDecimal, lang: LanguageCode): PlaceNearbyResponse =
+        PlaceNearbyResponse.from(placeSearchClient.searchNearbyRestaurants(longitude, latitude, lang))
 
-    fun searchPlacePage(query: String, latitude: BigDecimal, longitude: BigDecimal, page: Int): PlaceSearchPageResponse =
-        PlaceSearchPageResponse.from(placeSearchClient.searchPage(query.trim(), longitude, latitude, page))
-
-    companion object {
-        const val RESTAURANT_KEYWORD = "음식점"
-    }
+    fun searchPlaces(query: String, latitude: BigDecimal, longitude: BigDecimal, lang: LanguageCode): PlaceSearchListResponse =
+        PlaceSearchListResponse.from(placeSearchClient.searchByKeyword(query.trim(), longitude, latitude, lang))
 }

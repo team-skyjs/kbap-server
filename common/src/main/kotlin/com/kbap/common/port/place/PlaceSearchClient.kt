@@ -1,17 +1,13 @@
 package com.kbap.common.port.place
 
+import com.kbap.common.domain.LanguageCode
 import java.math.BigDecimal
 
 interface PlaceSearchClient {
-    fun searchNearby(query: String, longitude: BigDecimal, latitude: BigDecimal): List<FoundPlace>
+    fun searchNearbyRestaurants(longitude: BigDecimal, latitude: BigDecimal, lang: LanguageCode): List<FoundPlace>
 
-    fun searchPage(query: String, longitude: BigDecimal, latitude: BigDecimal, page: Int): PlaceSearchPage
+    fun searchByKeyword(query: String, longitude: BigDecimal, latitude: BigDecimal, lang: LanguageCode): List<FoundPlace>
 }
-
-data class PlaceSearchPage(
-    val items: List<FoundPlace>,
-    val hasNext: Boolean,
-)
 
 data class FoundPlace(
     val name: String,

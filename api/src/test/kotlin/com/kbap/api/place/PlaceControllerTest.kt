@@ -3,6 +3,7 @@ package com.kbap.api.place
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.place.FoundPlace
@@ -61,11 +62,13 @@ class PlaceControllerTest : BehaviorSpec() {
             token: String?,
             latitude: String? = "37.4979502",
             longitude: String? = "127.0276368",
+            lang: String? = "en",
         ): ResultActionsDsl =
             mockMvc.get("/api/places/nearby") {
                 token?.let { header("Authorization", "Bearer $it") }
                 latitude?.let { param("latitude", it) }
                 longitude?.let { param("longitude", it) }
+                lang?.let { param("lang", it) }
             }
 
         fun search(
@@ -73,6 +76,7 @@ class PlaceControllerTest : BehaviorSpec() {
             query: String? = "마리김밥",
             latitude: String? = "37.4979502",
             longitude: String? = "127.0276368",
+            lang: String? = "en",
             page: Int? = null,
         ): ResultActionsDsl =
             mockMvc.get("/api/places/search") {
@@ -80,6 +84,7 @@ class PlaceControllerTest : BehaviorSpec() {
                 query?.let { param("query", it) }
                 latitude?.let { param("latitude", it) }
                 longitude?.let { param("longitude", it) }
+                lang?.let { param("lang", it) }
                 page?.let { param("page", it.toString()) }
             }
 
@@ -90,13 +95,13 @@ class PlaceControllerTest : BehaviorSpec() {
             longitude = BigDecimal("127.0276368"),
         )
 
-        given("주변 식당 탑10 API — GET /api/places/nearby") {
-            `when`("위도·경도로 조회하면") {
-                then("음식점 키워드 고정으로 주변 식당 목록을 반환한다") {
+        given("주변 식당 조회 API — GET /api/places/nearby") {
+            `when`("위도·경도·lang 으로 조회하면") {
+                then("요청 언어가 seam 에 전달되고 주변 식당 목록을 반환한다") {
                     fakePlaceSearchClient.reset()
                     fakePlaceSearchClient.returns(foundPlace)
 
-                    nearby(accessToken(800L)).andExpect {
+                    nearby(accessToken(800L), lang = "vi").andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.items.length()") { value(1) }
@@ -107,11 +112,29 @@ class PlaceControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.hasNext") { doesNotExist() }
                     }
                     fakePlaceSearchClient.requests.last() shouldBe RecordedSearch(
-                        query = PlaceService.RESTAURANT_KEYWORD,
+                        query = null,
                         longitude = BigDecimal("127.0276368"),
                         latitude = BigDecimal("37.4979502"),
-                        page = null,
+                        lang = LanguageCode.VI,
                     )
+                }
+            }
+
+            `when`("지원 목록에 없는 lang 으로 조회하면") {
+                then("en 으로 폴백해 전달한다") {
+                    fakePlaceSearchClient.reset()
+
+                    nearby(accessToken(801L), lang = "fr").andExpect { status { isOk() } }
+
+                    fakePlaceSearchClient.requests.last().lang shouldBe LanguageCode.EN
+                }
+            }
+
+            `when`("lang 파라미터가 없으면") {
+                then("400 을 반환한다") {
+                    fakePlaceSearchClient.reset()
+
+                    nearby(accessToken(802L), lang = null).andExpect { status { isBadRequest() } }
                 }
             }
 
@@ -119,7 +142,7 @@ class PlaceControllerTest : BehaviorSpec() {
                 then("빈 목록을 반환한다") {
                     fakePlaceSearchClient.reset()
 
-                    nearby(accessToken(801L)).andExpect {
+                    nearby(accessToken(803L)).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.items.length()") { value(0) }
                     }
@@ -130,7 +153,7 @@ class PlaceControllerTest : BehaviorSpec() {
                 then("400 을 반환한다") {
                     fakePlaceSearchClient.reset()
 
-                    nearby(accessToken(802L), latitude = null).andExpect { status { isBadRequest() } }
+                    nearby(accessToken(804L), latitude = null).andExpect { status { isBadRequest() } }
                 }
             }
 
@@ -138,7 +161,7 @@ class PlaceControllerTest : BehaviorSpec() {
                 then("400 을 반환한다") {
                     fakePlaceSearchClient.reset()
 
-                    nearby(accessToken(803L), longitude = "-180.1").andExpect { status { isBadRequest() } }
+                    nearby(accessToken(805L), longitude = "-180.1").andExpect { status { isBadRequest() } }
                 }
             }
 
@@ -155,7 +178,7 @@ class PlaceControllerTest : BehaviorSpec() {
                     fakePlaceSearchClient.reset()
                     fakePlaceSearchClient.failure = BusinessException(ErrorCode.PLACE_SEARCH_FAILED)
 
-                    nearby(accessToken(804L)).andExpect {
+                    nearby(accessToken(806L)).andExpect {
                         status { isBadGateway() }
                         jsonPath("$.code") { value("PLACE-001") }
                     }
@@ -164,42 +187,42 @@ class PlaceControllerTest : BehaviorSpec() {
         }
 
         given("식당 키워드 검색 API — GET /api/places/search") {
-            `when`("키워드와 위도·경도로 검색하면") {
-                then("가까운 순 목록과 hasNext 를 반환한다") {
+            `when`("키워드·위도·경도·lang 으로 검색하면") {
+                then("단일 목록을 반환하고 hasNext 는 존재하지 않는다") {
                     fakePlaceSearchClient.reset()
-                    fakePlaceSearchClient.returns(foundPlace, hasNext = true)
+                    fakePlaceSearchClient.returns(foundPlace)
 
-                    search(accessToken(810L)).andExpect {
+                    search(accessToken(810L), lang = "ja").andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.items.length()") { value(1) }
                         jsonPath("$.payload.items[0].name") { value("한밥집 강남점") }
-                        jsonPath("$.payload.hasNext") { value(true) }
+                        jsonPath("$.payload.hasNext") { doesNotExist() }
                     }
                     fakePlaceSearchClient.requests.last() shouldBe RecordedSearch(
                         query = "마리김밥",
                         longitude = BigDecimal("127.0276368"),
                         latitude = BigDecimal("37.4979502"),
-                        page = 1,
+                        lang = LanguageCode.JA,
                     )
                 }
             }
 
-            `when`("page 를 지정하면") {
-                then("해당 페이지로 검색한다") {
+            `when`("구 page 파라미터를 함께 보내면") {
+                then("400 없이 무시된다") {
                     fakePlaceSearchClient.reset()
 
                     search(accessToken(811L), page = 3).andExpect { status { isOk() } }
 
-                    fakePlaceSearchClient.requests.last().page shouldBe 3
+                    fakePlaceSearchClient.requests.last().query shouldBe "마리김밥"
                 }
             }
 
-            `when`("page 가 범위를 벗어나면") {
+            `when`("lang 파라미터가 없으면") {
                 then("400 을 반환한다") {
                     fakePlaceSearchClient.reset()
 
-                    search(accessToken(812L), page = 46).andExpect { status { isBadRequest() } }
+                    search(accessToken(812L), lang = null).andExpect { status { isBadRequest() } }
                 }
             }
 
