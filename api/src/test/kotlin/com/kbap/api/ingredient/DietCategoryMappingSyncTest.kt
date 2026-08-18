@@ -1,5 +1,6 @@
 package com.kbap.api.ingredient
 
+import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder

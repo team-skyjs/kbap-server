@@ -24,6 +24,7 @@ class MemberService(
         getMember(input.memberId).completeOnboarding(
             nickname = input.nickname ?: OnboardingProfileDefaults.randomNickname(),
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            dietCategories = input.dietCategories,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
             profileImageUrl = input.profileImageUrl ?: OnboardingProfileDefaults.randomProfileImagePath(),
@@ -35,6 +36,7 @@ class MemberService(
         getMember(input.memberId).updateProfile(
             nickname = input.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
+            dietCategories = input.dietCategories,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
             profileImageUrl = input.profileImageUrl,

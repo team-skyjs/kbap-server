@@ -3,6 +3,7 @@ package com.kbap.common.domain.member.model
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.CurrencyCode
+import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -49,6 +50,10 @@ class Member(
     @Column(name = "avoidance_substance_codes", nullable = false)
     var avoidanceSubstanceCodes: List<String> = emptyList(),
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "diet_categories", nullable = false)
+    var dietCategories: List<String> = emptyList(),
+
     @Enumerated(EnumType.STRING)
     @Column(name = "member_status", nullable = false, columnDefinition = "ENUM('ACTIVE','SUSPENDED') default 'ACTIVE'")
     var memberStatus: MemberStatus = MemberStatus.ACTIVE,
@@ -76,6 +81,7 @@ class Member(
             countryCode = CountryCode.from(countryCode),
             profileImageUrl = profileImageUrl,
             currency = CurrencyCode.from(currency),
+            dietCategories = dietCategories.mapNotNull { code -> DietCategory.entries.firstOrNull { it.name == code } }.toSet(),
         )
 
     val ranking: Ranking
@@ -92,11 +98,13 @@ class Member(
         profileImageUrl = profile.profileImageUrl
         currency = profile.currency?.name
         avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value }
+        dietCategories = profile.dietCategories.map { it.name }
     }
 
     fun updateProfile(
         nickname: String? = null,
         avoidanceSubstanceCodes: List<String>? = null,
+        dietCategories: List<String>? = null,
         spicinessPreference: String? = null,
         countryCode: String? = null,
         profileImageUrl: String? = null,
@@ -106,6 +114,7 @@ class Member(
             profile.updatedWith(
                 nickname = nickname,
                 avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+                dietCategories = dietCategories,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
                 profileImageUrl = profileImageUrl,
@@ -117,6 +126,7 @@ class Member(
     fun completeOnboarding(
         nickname: String,
         avoidanceSubstanceCodes: List<String>,
+        dietCategories: List<String> = emptyList(),
         spicinessPreference: String,
         countryCode: String,
         profileImageUrl: String,
@@ -127,6 +137,7 @@ class Member(
         updateProfile(
             nickname = nickname,
             avoidanceSubstanceCodes = avoidanceSubstanceCodes,
+            dietCategories = dietCategories,
             spicinessPreference = spicinessPreference,
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,

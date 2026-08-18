@@ -1,4 +1,4 @@
-package com.kbap.api.ingredient
+package com.kbap.common.domain.ingredient.model
 
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.model.IngredientCode.*

@@ -36,10 +36,10 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO member (id, provider, provider_uid, avoidance_substance_codes,
+                    INSERT INTO member (id, provider, provider_uid, avoidance_substance_codes, diet_categories,
                                         onboarding_completed, scan_count, review_count, unique_reviewed_food_count,
                                         status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, '[]', 1, 0, 0, 0, 'ACTIVE', NOW(6), NOW(6))
+                    VALUES (?, 'GOOGLE', ?, '[]', '[]', 1, 0, 0, 0, 'ACTIVE', NOW(6), NOW(6))
                     ON DUPLICATE KEY UPDATE id = id
                     """,
                 ).use { ps ->

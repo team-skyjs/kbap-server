@@ -1,6 +1,7 @@
 package com.kbap.api.ingredient
 
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value

@@ -391,6 +391,82 @@ class MemberControllerTest : BehaviorSpec() {
             }
         }
 
+        given("diet 카테고리 복수 선택 — 온보딩·수정·조회") {
+            fun dietColumn(): List<String> =
+                objectMapper.readTree(memberColumn("google-sub-fixed", "diet_categories")).map { it.asText() }
+
+            `when`("온보딩에 diet 2종을 포함해 제출하면") {
+                then("DB 에 배열로 저장되고 조회 응답에 그대로 담긴다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + mapOf("dietCategories" to listOf("VEGAN", "GLUTEN_FREE")))
+                        .andExpect { status { isOk() } }
+                    dietColumn().toSet() shouldBe setOf("VEGAN", "GLUTEN_FREE")
+                    getMyProfile(token).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.dietCategories.length()") { value(2) }
+                    }
+                }
+            }
+            `when`("diet 없이 온보딩하면") {
+                then("빈 배열로 저장되고 조회 응답도 빈 배열이다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+                    dietColumn() shouldBe emptyList()
+                    getMyProfile(token).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.dietCategories.length()") { value(0) }
+                    }
+                }
+            }
+            `when`("수정으로 diet 를 교체·유지·해제하면") {
+                then("교체는 반영, 누락은 유지, 빈 배열은 전체 해제된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + mapOf("dietCategories" to listOf("VEGAN")))
+                        .andExpect { status { isOk() } }
+
+                    updateProfile(token, mapOf("dietCategories" to listOf("MUSLIM"))).andExpect { status { isOk() } }
+                    dietColumn() shouldBe listOf("MUSLIM")
+
+                    updateProfile(token, mapOf("nickname" to "유지확인")).andExpect { status { isOk() } }
+                    dietColumn() shouldBe listOf("MUSLIM")
+
+                    updateProfile(token, mapOf("dietCategories" to emptyList<String>())).andExpect { status { isOk() } }
+                    dietColumn() shouldBe emptyList()
+                }
+            }
+            `when`("지원하지 않는 diet 값을 보내면") {
+                then("400 MEMBER-011 로 거절되고 저장되지 않는다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("dietCategories" to listOf("KETO"))).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-011") }
+                    }
+                    dietColumn() shouldBe emptyList()
+                }
+            }
+            `when`("같은 diet 를 중복으로 보내면") {
+                then("한 번만 저장된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + mapOf("dietCategories" to listOf("VEGAN", "VEGAN")))
+                        .andExpect { status { isOk() } }
+                    dietColumn() shouldBe listOf("VEGAN")
+                }
+            }
+            `when`("조회 응답을 보면") {
+                then("기존 avoidanceSubstanceCodes 는 직접 지정분만 담는 의미 그대로다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + mapOf("dietCategories" to listOf("VEGAN")))
+                        .andExpect { status { isOk() } }
+                    getMyProfile(token).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.avoidanceSubstanceCodes.length()") { value(2) }
+                        jsonPath("$.payload.dietCategories[0]") { value("VEGAN") }
+                    }
+                }
+            }
+        }
+
         given("온보딩 입력 정규화") {
             `when`("닉네임 앞뒤 공백과 중복 성분 코드를 제출하면") {
                 then("공백은 제거되고 성분은 중복 없이 저장된다") {
