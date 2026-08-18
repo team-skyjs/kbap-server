@@ -49,7 +49,7 @@ class FoodController(
             throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         }
         val keyword = when (scope) {
-            FoodSearchScope.SCANNED -> request.keyword?.let(SearchKeywordParser::parse)
+            FoodSearchScope.SCANNED -> request.keyword?.let { SearchKeywordParser.parse(it) }
             FoodSearchScope.ALL -> SearchKeywordParser.parse(request.keyword)
         }
         val result = foodService.searchFoodPage(
