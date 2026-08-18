@@ -1,4 +1,4 @@
-# Specification Quality Checklist: 리뷰 평가 항목 3종 추가 — 제공 속도·직원 친절도·매장 찾기 쉬움
+# Specification Quality Checklist: 리뷰 평가 항목 추가 — 제공 속도·직원 친절도
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-08-18
@@ -32,5 +32,5 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- 명확화 3건 응답 반영 완료(2026-08-18) — 전 항목 통과, `/speckit-plan` 진행 가능.
-- 미기입의 응답 표현(null vs 0)은 plan 단계에서 클라이언트와 조율해 확정한다(Assumptions 참조).
+- 명확화 반영 완료(2026-08-18, plan 단계 확정 포함 — 2종 축소·0~5 단일 규약) — 전 항목 통과.
+- 응답 표현은 항상 0~5 숫자(0=평가 안 함)로 확정 — null 미사용.
