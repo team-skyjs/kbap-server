@@ -31,14 +31,11 @@ data class ReviewListRequest(
     val countryCode: String? = null,
 
     @field:Schema(
-        description = "정렬 기준(소문자 정확 일치). 생략 시 latest(최신순). 방향은 desc 파라미터가 결정",
-        example = "rating",
-        allowableValues = ["latest", "rating", "food_review_count", "helpful"],
+        description = "정렬(소문자 정확 일치). 생략 시 latest(최신순)",
+        example = "rating_high",
+        allowableValues = ["latest", "rating_high", "rating_low", "food_review_count", "helpful"],
     )
     val sort: String? = null,
-
-    @field:Schema(description = "내림차순 여부. 생략 시 true — rating 낮은 순은 sort=rating&desc=false", example = "true")
-    val desc: Boolean = true,
 
     @field:Min(1)
     @field:Max(5)

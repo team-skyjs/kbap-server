@@ -6,8 +6,7 @@
 
 | 파라미터 | 필수 | 허용값 | 기본 | 의미 |
 |---|---|---|---|---|
-| `sort` | X | `latest` \| `rating` \| `food_review_count` \| `helpful` (소문자 정확 일치) | `latest` | 정렬 기준. 허용값 밖 → 400 COMMON-002 |
-| `desc` | X | `true` \| `false` | `true` | 내림차순 여부 — 평점 낮은 순 = `sort=rating&desc=false` |
+| `sort` | X | `latest` \| `rating_high` \| `rating_low` \| `food_review_count` \| `helpful` (소문자 정확 일치) | `latest` | 정렬 — 값 하나가 UI 정렬 옵션 하나와 1:1. 허용값 밖 → 400 COMMON-002 |
 | `minRating` | X | 1~5 정수 | 없음 | 별점 하한(이상) |
 | `maxRating` | X | 1~5 정수, `minRating` 이상 | 없음 | 별점 상한(이하). `min>max`·범위 밖 → 400 COMMON-002 |
 

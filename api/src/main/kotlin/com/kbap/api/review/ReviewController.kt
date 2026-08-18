@@ -94,7 +94,7 @@ class ReviewController(
         @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<ReviewListPage>> {
-        val sort = parseSort(request.sort)
+        val (sort, descending) = parseSort(request.sort)
         validateRatingRange(request.minRating, request.maxRating)
         return ResponseEntity.ok(
             BaseResponse.ok(
@@ -104,7 +104,7 @@ class ReviewController(
                     request.countryCode,
                     LanguageCode.from(request.lang),
                     sort,
-                    request.desc,
+                    descending,
                     request.minRating,
                     request.maxRating,
                     ReviewListCursor.parse(request.cursor, sort),
@@ -113,11 +113,15 @@ class ReviewController(
         )
     }
 
-    private fun parseSort(raw: String?): ReviewSort {
-        if (raw == null) return ReviewSort.LATEST
-        return ReviewSort.entries.firstOrNull { it.name.lowercase() == raw }
-            ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
-    }
+    private fun parseSort(raw: String?): Pair<ReviewSort, Boolean> =
+        when (raw) {
+            null, "latest" -> ReviewSort.LATEST to true
+            "rating_high" -> ReviewSort.RATING to true
+            "rating_low" -> ReviewSort.RATING to false
+            "food_review_count" -> ReviewSort.FOOD_REVIEW_COUNT to true
+            "helpful" -> ReviewSort.HELPFUL to true
+            else -> throw BusinessException(ErrorCode.INVALID_REQUEST)
+        }
 
     private fun validateRatingRange(minRating: Int?, maxRating: Int?) {
         if (minRating != null && maxRating != null && minRating > maxRating) {

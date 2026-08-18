@@ -106,7 +106,6 @@ class ReviewListControllerTest : BehaviorSpec() {
             countryCode: String? = null,
             lang: String? = "en",
             sort: String? = null,
-            desc: Boolean? = null,
             minRating: Int? = null,
             maxRating: Int? = null,
         ): ResultActionsDsl =
@@ -117,7 +116,6 @@ class ReviewListControllerTest : BehaviorSpec() {
                 countryCode?.let { param("countryCode", it) }
                 lang?.let { param("lang", it) }
                 sort?.let { param("sort", it) }
-                desc?.let { param("desc", it.toString()) }
                 minRating?.let { param("minRating", it.toString()) }
                 maxRating?.let { param("maxRating", it.toString()) }
             }
@@ -167,16 +165,16 @@ class ReviewListControllerTest : BehaviorSpec() {
                     val r4 = createReview(accessToken(8604L), 860L, rating = 5)
                     val r5 = createReview(accessToken(8605L), 860L, rating = 1)
 
-                    reviewIdsOf(foodReviews(null, 860L, sort = "rating")) shouldBe
+                    reviewIdsOf(foodReviews(null, 860L, sort = "rating_high")) shouldBe
                         listOf(r4, r2, r3, r1, r5)
                 }
             }
             `when`("같은 리뷰들을 평점 낮은 순으로 조회하면") {
                 then("별점 오름차순, 동점은 최신 우선이다") {
-                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "rating", desc = false))
-                    payloadOf(foodReviews(null, 860L, sort = "rating", desc = false)).path("items")
+                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "rating_low"))
+                    payloadOf(foodReviews(null, 860L, sort = "rating_low")).path("items")
                         .map { it.path("rating").asInt() } shouldBe listOf(1, 2, 3, 5, 5)
-                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "rating")).takeLast(3).reversed()
+                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "rating_high")).takeLast(3).reversed()
                 }
             }
             `when`("좋아요 수가 다른 리뷰들을 helpful 내림차순으로 조회하면") {
@@ -201,7 +199,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
             `when`("허용값 밖 sort 로 조회하면") {
                 then("대문자 표기를 포함해 400 COMMON-002 를 반환한다") {
-                    listOf("RANDOM", "HELPFUL_DESC", "Rating_Desc").forEach { invalid ->
+                    listOf("RANDOM", "HELPFUL_DESC", "Rating_High", "rating", "desc").forEach { invalid ->
                         foodReviews(null, 861L, sort = invalid).andExpect {
                             status { isBadRequest() }
                             jsonPath("$.code") { value("COMMON-002") }
@@ -217,11 +215,11 @@ class ReviewListControllerTest : BehaviorSpec() {
                     seedFood(863L, "페이징감자탕")
                     val created = (1..25).map { createReview(accessToken(8630L + it), 863L, rating = 4) }
 
-                    val first = payloadOf(foodReviews(null, 863L, sort = "rating"))
+                    val first = payloadOf(foodReviews(null, 863L, sort = "rating_high"))
                     first.path("items").size() shouldBe 20
                     first.path("hasNext").asBoolean().shouldBeTrue()
 
-                    val all = traverseAll(863L, "rating")
+                    val all = traverseAll(863L, "rating_high")
                     all shouldBe created.sortedDescending()
                 }
             }
@@ -242,7 +240,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
             `when`("LATEST 형식 커서를 지표 정렬에 재사용하면") {
                 then("400 FOOD-002 를 반환한다") {
-                    foodReviews(null, 863L, cursor = "42", sort = "rating").andExpect {
+                    foodReviews(null, 863L, cursor = "42", sort = "rating_high").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-002") }
                     }
@@ -274,10 +272,10 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("별점 구간과 국적 필터·정렬을 함께 지정하면") {
                 then("전 조건의 교집합이 정렬 순서로 내려간다") {
                     val ids = reviewIdsOf(
-                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating", desc = false),
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating_low"),
                     )
                     payloadOf(
-                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating", desc = false),
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating_low"),
                     ).path("items").map { it.path("rating").asInt() } shouldBe listOf(3, 5)
                     ids.size shouldBe 2
                 }
