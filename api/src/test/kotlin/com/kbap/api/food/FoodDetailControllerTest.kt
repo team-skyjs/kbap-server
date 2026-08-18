@@ -118,7 +118,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
 
         given("음식 상세 조회 API") {
             `when`("SOY 를 회피하는 회원이 lang=en 으로 수록된 foodId 를 조회하면") {
-                then("200 과 함께 회원 기피 성분과 겹치는 성분만 동결 계약(ingredients[].{name,iconRef,inclusionPercent,riskStatus})으로 반환한다") {
+                then("재료 전체가 확률 내림차순으로 내려가고 겹치는 성분은 avoidedIngredients 에 code·riskStatus 로 내려간다") {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 11L, "SOY")
                     val token = tokenIssuer.issueAccessToken(11L, MemberRole.USER)
 
@@ -133,17 +133,24 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.description") { value(FoodTestSeed.DOENJANG_DESCRIPTION_EN) }
                         jsonPath("$.payload.spiciness") { value(FoodTestSeed.DOENJANG_SPICINESS) }
                         jsonPath("$.payload.overallRiskStatus") { value("DANGER") }
-                        jsonPath("$.payload.ingredients.length()") { value(1) }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.ingredients[0].code") { value("SOY") }
                         jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
-                        jsonPath("$.payload.ingredients[0].iconRef") { value(null) }
                         jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
-                        jsonPath("$.payload.ingredients[0].riskStatus") { value("DANGER") }
+                        jsonPath("$.payload.ingredients[1].code") { value("WHEAT") }
+                        jsonPath("$.payload.ingredients[1].name") { value("Wheat") }
+                        jsonPath("$.payload.ingredients[1].inclusionPercent") { value(80) }
+                        jsonPath("$.payload.ingredients[2].code") { value("CLAM") }
+                        jsonPath("$.payload.ingredients[2].inclusionPercent") { value(50) }
+                        jsonPath("$.payload.avoidedIngredients.length()") { value(1) }
+                        jsonPath("$.payload.avoidedIngredients[0].code") { value("SOY") }
+                        jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("DANGER") }
                     }
                 }
             }
 
             `when`("SOY 와 CLAM 을 회피하는 회원이 조회하면") {
-                then("겹치는 두 성분만 확률 내림차순으로 반환하고 WHEAT 는 제외한다") {
+                then("avoidedIngredients 에 겹치는 두 성분만 확률 내림차순으로 내려가고 WHEAT 는 제외한다") {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 12L, "SOY", "CLAM")
                     val token = tokenIssuer.issueAccessToken(12L, MemberRole.USER)
 
@@ -152,33 +159,35 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.ingredients.length()") { value(2) }
-                        jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
-                        jsonPath("$.payload.ingredients[0].inclusionPercent") { value(100) }
-                        jsonPath("$.payload.ingredients[0].riskStatus") { value("DANGER") }
-                        jsonPath("$.payload.ingredients[1].name") { value("Clam") }
-                        jsonPath("$.payload.ingredients[1].inclusionPercent") { value(50) }
-                        jsonPath("$.payload.ingredients[1].riskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.avoidedIngredients.length()") { value(2) }
+                        jsonPath("$.payload.avoidedIngredients[0].code") { value("SOY") }
+                        jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("DANGER") }
+                        jsonPath("$.payload.avoidedIngredients[1].code") { value("CLAM") }
+                        jsonPath("$.payload.avoidedIngredients[1].riskStatus") { value("CAUTION") }
                     }
                 }
             }
 
             `when`("비회원이 성분이 있는 foodId 를 조회하면") {
-                then("위험도는 판별하지 않아 null 이고 ingredients 는 빈 배열, bookmarked 는 false 다") {
+                then("재료 전체는 동일하게 내려가고 avoidedIngredients·overallRiskStatus 는 null, bookmarked 는 false 다") {
                     mockMvc.get("/api/foods/1") {
                         param("lang", "en")
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.overallRiskStatus") { value(nullValue()) }
-                        jsonPath("$.payload.ingredients.length()") { value(0) }
+                        jsonPath("$.payload.ingredients.length()") { value(3) }
+                        jsonPath("$.payload.ingredients[0].code") { value("SOY") }
+                        jsonPath("$.payload.ingredients[0].name") { value("Soybean") }
+                        jsonPath("$.payload.avoidedIngredients") { value(nullValue()) }
                         jsonPath("$.payload.bookmarked") { value(false) }
                     }
                 }
             }
 
             `when`("포함 기피 성분이 하나도 없는 foodId 를 회원이 조회하면") {
-                then("200 과 함께 overallRiskStatus 는 SAFE, ingredients 는 빈 배열로 반환한다") {
+                then("overallRiskStatus 는 SAFE, ingredients·avoidedIngredients 는 빈 배열로 반환한다") {
                     FoodTestSeed.seedPlainRice(dataSource)
                     val token = accessToken(35L)
 
@@ -191,6 +200,7 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.name") { value("흰밥") }
                         jsonPath("$.payload.overallRiskStatus") { value("SAFE") }
                         jsonPath("$.payload.ingredients.length()") { value(0) }
+                        jsonPath("$.payload.avoidedIngredients.length()") { value(0) }
                     }
                 }
             }

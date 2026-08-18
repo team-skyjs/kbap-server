@@ -78,9 +78,9 @@
 
 ## Phase 5: User Story 4 - 재료 전체 공개 + avoidedIngredients 분리 (2026-08-18 확장)
 
-- [ ] T012 [US4] `FoodDetailControllerTest` — Red: 상세 응답의 `ingredients` 가 재료 전체(`{code, name, inclusionPercent}` 확률 내림차순, 회원·비회원 공통)이고, 회피 회원은 `avoidedIngredients` 에 `{code, riskStatus}` 교집합, 비회원은 `avoidedIngredients` null 단언
-- [ ] T013 [US4] `FoodService.getDetail`·`GetFoodDetailResult` — 전체 재료(카탈로그 번역명 조인) + 교집합(회원 List/비회원 null) 이원 산출로 재편
-- [ ] T014 [US4] `FoodDetailResponse` — `ingredients` 항목 `{code, name, inclusionPercent}` 재정의, `avoidedIngredients: List<{code, riskStatus}>?` 신설, swagger 갱신. T012 Green
+- [X] T012 [US4] `FoodDetailControllerTest` — Red: 상세 응답의 `ingredients` 가 재료 전체(`{code, name, inclusionPercent}` 확률 내림차순, 회원·비회원 공통)이고, 회피 회원은 `avoidedIngredients` 에 `{code, riskStatus}` 교집합, 비회원은 `avoidedIngredients` null 단언
+- [X] T013 [US4] `FoodService.getDetail`·`GetFoodDetailResult` — 전체 재료(카탈로그 번역명 조인) + 교집합(회원 List/비회원 null) 이원 산출로 재편
+- [X] T014 [US4] `FoodDetailResponse` — `ingredients` 항목 `{code, name, inclusionPercent}` 재정의, `avoidedIngredients: List<{code, riskStatus}>?` 신설, swagger 갱신. T012 Green
 
 ## Phase 6: User Story 5 - reviewSummary 개명 + recentReviews 동봉 (2026-08-18 확장)
 

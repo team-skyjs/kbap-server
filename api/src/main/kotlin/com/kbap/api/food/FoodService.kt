@@ -53,32 +53,34 @@ class FoodService(
         val lang = input.lang
         val food = getReadyFood(input.foodId)
 
-        val userAvoidedCodes = avoidedCodeNames(input.memberId)
-        val orderedIngredients = food.ingredientsByProbability()
-            .filter { it.code in userAvoidedCodes }
-        val codes = orderedIngredients.map { IngredientCode.valueOf(it.code) }.toSet()
+        val allIngredients = food.ingredientsByProbability()
+        val codes = allIngredients.map { IngredientCode.valueOf(it.code) }.toSet()
         val catalog = (if (codes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(codes)).associateBy { it.code }
 
+        val userAvoidedCodes = avoidedCodeNames(input.memberId)
         val foodName = food.displayName(lang)
-        val description = food.description(lang)
-
-        val ingredients = orderedIngredients.map { ingredient ->
-            GetFoodDetailResult.IngredientView(
-                name = catalog.getValue(IngredientCode.valueOf(ingredient.code)).displayName(lang),
-                iconRef = null,
-                inclusionProbability = ingredient.inclusionPercent,
-                riskStatus = ingredient.riskLevel(),
-            )
-        }
 
         return GetFoodDetailResult(
             name = foodName,
             koreanName = food.displayName(LanguageCode.KO).takeIf { it != foodName },
             imageRef = resolveImageUrl(food),
-            description = description,
+            description = food.description(lang),
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
-            ingredients = ingredients,
+            ingredients = allIngredients.map { ingredient ->
+                GetFoodDetailResult.IngredientView(
+                    code = ingredient.code,
+                    name = catalog.getValue(IngredientCode.valueOf(ingredient.code)).displayName(lang),
+                    inclusionPercent = ingredient.inclusionPercent,
+                )
+            },
+            avoidedIngredients = if (input.memberId == null) {
+                null
+            } else {
+                allIngredients
+                    .filter { it.code in userAvoidedCodes }
+                    .map { GetFoodDetailResult.AvoidedIngredientView(code = it.code, riskStatus = it.riskLevel()) }
+            },
         )
     }
 

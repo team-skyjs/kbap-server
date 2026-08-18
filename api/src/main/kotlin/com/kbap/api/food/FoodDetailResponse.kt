@@ -32,8 +32,14 @@ data class FoodDetailResponse(
     )
     val overallRiskStatus: String?,
 
-    @field:Schema(description = "포함 기피성분 목록(포함 확률 내림차순)")
+    @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
     val ingredients: List<IngredientResponse>,
+
+    @field:Schema(
+        description = "조회 회원의 회피성분 ∩ 음식 재료(포함 확률 내림차순). 겹침 없으면 빈 배열, 비회원 조회는 null.",
+        nullable = true,
+    )
+    val avoidedIngredients: List<AvoidedIngredientResponse>?,
 
     @field:Schema(description = "조회 회원의 북마크 여부. 비회원 조회는 항상 false.", example = "true")
     val bookmarked: Boolean,
@@ -80,20 +86,26 @@ data class FoodDetailResponse(
         }
     }
 
-    @Schema(description = "포함 기피성분 — 요청 언어 성분명·아이콘·포함 확률·포함 확률 기반 위험도")
+    @Schema(description = "음식 재료 — 성분 코드·요청 언어 성분명·포함 확률")
     data class IngredientResponse(
+        @field:Schema(description = "성분 코드(고정 카탈로그 식별자)", example = "SOY")
+        val code: String,
+
         @field:Schema(description = "요청 언어 성분명(미지원/미지정/번역 부재 시 한국어)", example = "Soybean")
         val name: String,
 
-        @field:Schema(description = "성분 아이콘 참조(현재 미제공)", example = "clam.png", nullable = true)
-        val iconRef: String?,
-
         @field:Schema(description = "포함 확률(1~100)", example = "100")
         val inclusionPercent: Int,
+    )
+
+    @Schema(description = "조회 회원 회피성분과 겹치는 재료 — 코드·포함 확률 기반 위험도. UI 는 code 로 ingredients 항목과 조인한다.")
+    data class AvoidedIngredientResponse(
+        @field:Schema(description = "성분 코드", example = "SOY")
+        val code: String,
 
         @field:Schema(
-            description = "포함 확률 기반 실제 기피성분 위험도",
-            example = "SAFE",
+            description = "포함 확률 기반 위험도",
+            example = "DANGER",
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
         val riskStatus: String,
@@ -110,9 +122,14 @@ data class FoodDetailResponse(
                 overallRiskStatus = result.overallRiskStatus?.name,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
+                        code = it.code,
                         name = it.name,
-                        iconRef = it.iconRef,
-                        inclusionPercent = it.inclusionProbability,
+                        inclusionPercent = it.inclusionPercent,
+                    )
+                },
+                avoidedIngredients = result.avoidedIngredients?.map {
+                    AvoidedIngredientResponse(
+                        code = it.code,
                         riskStatus = it.riskStatus.name,
                     )
                 },
