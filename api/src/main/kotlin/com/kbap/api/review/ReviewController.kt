@@ -104,6 +104,7 @@ class ReviewController(
                     request.countryCode,
                     LanguageCode.from(request.lang),
                     sort,
+                    request.desc,
                     request.minRating,
                     request.maxRating,
                     ReviewListCursor.parse(request.cursor, sort),
@@ -114,7 +115,7 @@ class ReviewController(
 
     private fun parseSort(raw: String?): ReviewSort {
         if (raw == null) return ReviewSort.LATEST
-        return ReviewSort.entries.firstOrNull { it.name == raw }
+        return ReviewSort.entries.firstOrNull { it.name.lowercase() == raw }
             ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
     }
 

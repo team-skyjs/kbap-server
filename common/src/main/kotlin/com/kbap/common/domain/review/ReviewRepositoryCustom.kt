@@ -14,6 +14,7 @@ interface ReviewRepositoryCustom {
         minRating: Int?,
         maxRating: Int?,
         sort: ReviewSort,
+        descending: Boolean,
         metricCursor: Long?,
         idCursor: Long?,
         excludedMemberIds: List<Long>,

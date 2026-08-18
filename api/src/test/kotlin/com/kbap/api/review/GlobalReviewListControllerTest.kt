@@ -268,7 +268,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val f1r3 = createReview(c, 960L)
 
                     val ids = mapper.readTree(
-                        feed(null, sort = "FOOD_REVIEW_COUNT_DESC", countryCode = "ZW")
+                        feed(null, sort = "food_review_count", countryCode = "ZW")
                             .andExpect { status { isOk() } }
                             .andReturn().response.getContentAsString(Charsets.UTF_8),
                     ).path("payload").path("items").map { it.path("reviewId").asLong() }

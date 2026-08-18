@@ -106,6 +106,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             countryCode: String? = null,
             lang: String? = "en",
             sort: String? = null,
+            desc: Boolean? = null,
             minRating: Int? = null,
             maxRating: Int? = null,
         ): ResultActionsDsl =
@@ -116,6 +117,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                 countryCode?.let { param("countryCode", it) }
                 lang?.let { param("lang", it) }
                 sort?.let { param("sort", it) }
+                desc?.let { param("desc", it.toString()) }
                 minRating?.let { param("minRating", it.toString()) }
                 maxRating?.let { param("maxRating", it.toString()) }
             }
@@ -143,12 +145,16 @@ class ReviewListControllerTest : BehaviorSpec() {
         fun traverseAll(foodId: Long, sort: String?): List<Long> {
             val collected = mutableListOf<Long>()
             var cursor: String? = null
-            do {
-                val payload = payloadOf(foodReviews(null, foodId, cursor = cursor, sort = sort))
+            repeat(10) {
+                val response = foodReviews(null, foodId, cursor = cursor, sort = sort).andReturn().response
+                check(response.status == 200) {
+                    "순회 중 HTTP ${response.status} (cursor=$cursor): ${response.getContentAsString(Charsets.UTF_8)}"
+                }
+                val payload = mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("payload")
                 collected += payload.path("items").map { it.path("reviewId").asLong() }
-                cursor = payload.path("nextCursor").takeUnless { it.isNull }?.asText()
-            } while (cursor != null)
-            return collected
+                cursor = payload.path("nextCursor").textValue() ?: return collected
+            }
+            error("페이지 순회가 10회를 초과했다 — 커서가 전진하지 않는다 (마지막 커서: $cursor)")
         }
 
         given("리뷰 목록 정렬 — GET /api/reviews?sort=") {
@@ -161,16 +167,16 @@ class ReviewListControllerTest : BehaviorSpec() {
                     val r4 = createReview(accessToken(8604L), 860L, rating = 5)
                     val r5 = createReview(accessToken(8605L), 860L, rating = 1)
 
-                    reviewIdsOf(foodReviews(null, 860L, sort = "RATING_DESC")) shouldBe
+                    reviewIdsOf(foodReviews(null, 860L, sort = "rating")) shouldBe
                         listOf(r4, r2, r3, r1, r5)
                 }
             }
             `when`("같은 리뷰들을 평점 낮은 순으로 조회하면") {
                 then("별점 오름차순, 동점은 최신 우선이다") {
-                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "RATING_ASC"))
-                    payloadOf(foodReviews(null, 860L, sort = "RATING_ASC")).path("items")
+                    val ids = reviewIdsOf(foodReviews(null, 860L, sort = "rating", desc = false))
+                    payloadOf(foodReviews(null, 860L, sort = "rating", desc = false)).path("items")
                         .map { it.path("rating").asInt() } shouldBe listOf(1, 2, 3, 5, 5)
-                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "RATING_DESC")).takeLast(3).reversed()
+                    ids.take(3) shouldBe reviewIdsOf(foodReviews(null, 860L, sort = "rating")).takeLast(3).reversed()
                 }
             }
             `when`("좋아요 수가 다른 리뷰들을 helpful 내림차순으로 조회하면") {
@@ -183,7 +189,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                     likeReview(accessToken(8612L), r2)
                     likeReview(accessToken(8613L), r1)
 
-                    reviewIdsOf(foodReviews(null, 861L, sort = "HELPFUL_DESC")) shouldBe
+                    reviewIdsOf(foodReviews(null, 861L, sort = "helpful")) shouldBe
                         listOf(r2, r1, r3)
                 }
             }
@@ -194,10 +200,12 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("허용값 밖 sort 로 조회하면") {
-                then("400 COMMON-002 를 반환한다") {
-                    foodReviews(null, 861L, sort = "RANDOM").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
+                then("대문자 표기를 포함해 400 COMMON-002 를 반환한다") {
+                    listOf("RANDOM", "HELPFUL_DESC", "Rating_Desc").forEach { invalid ->
+                        foodReviews(null, 861L, sort = invalid).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
                     }
                 }
             }
@@ -209,11 +217,11 @@ class ReviewListControllerTest : BehaviorSpec() {
                     seedFood(863L, "페이징감자탕")
                     val created = (1..25).map { createReview(accessToken(8630L + it), 863L, rating = 4) }
 
-                    val first = payloadOf(foodReviews(null, 863L, sort = "RATING_DESC"))
+                    val first = payloadOf(foodReviews(null, 863L, sort = "rating"))
                     first.path("items").size() shouldBe 20
                     first.path("hasNext").asBoolean().shouldBeTrue()
 
-                    val all = traverseAll(863L, "RATING_DESC")
+                    val all = traverseAll(863L, "rating")
                     all shouldBe created.sortedDescending()
                 }
             }
@@ -226,7 +234,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                     likeReview(accessToken(8632L), liked2)
                     likeReview(accessToken(8633L), liked1)
 
-                    val all = traverseAll(863L, "HELPFUL_DESC")
+                    val all = traverseAll(863L, "helpful")
                     all.size shouldBe 25
                     all.toSet() shouldBe created.toSet()
                     all.take(2) shouldBe listOf(liked2, liked1)
@@ -234,7 +242,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             }
             `when`("LATEST 형식 커서를 지표 정렬에 재사용하면") {
                 then("400 FOOD-002 를 반환한다") {
-                    foodReviews(null, 863L, cursor = "42", sort = "RATING_DESC").andExpect {
+                    foodReviews(null, 863L, cursor = "42", sort = "rating").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-002") }
                     }
@@ -266,10 +274,10 @@ class ReviewListControllerTest : BehaviorSpec() {
             `when`("별점 구간과 국적 필터·정렬을 함께 지정하면") {
                 then("전 조건의 교집합이 정렬 순서로 내려간다") {
                     val ids = reviewIdsOf(
-                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "RATING_ASC"),
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating", desc = false),
                     )
                     payloadOf(
-                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "RATING_ASC"),
+                        foodReviews(null, 862L, countryCode = "KR", minRating = 2, maxRating = 5, sort = "rating", desc = false),
                     ).path("items").map { it.path("rating").asInt() } shouldBe listOf(3, 5)
                     ids.size shouldBe 2
                 }

@@ -6,7 +6,8 @@
 
 | 파라미터 | 필수 | 허용값 | 기본 | 의미 |
 |---|---|---|---|---|
-| `sort` | X | `LATEST` \| `RATING_DESC` \| `RATING_ASC` \| `FOOD_REVIEW_COUNT_DESC` \| `HELPFUL_DESC` | `LATEST` | 정렬 기준. 허용값 밖 → 400 COMMON-002 |
+| `sort` | X | `latest` \| `rating` \| `food_review_count` \| `helpful` (소문자 정확 일치) | `latest` | 정렬 기준. 허용값 밖 → 400 COMMON-002 |
+| `desc` | X | `true` \| `false` | `true` | 내림차순 여부 — 평점 낮은 순 = `sort=rating&desc=false` |
 | `minRating` | X | 1~5 정수 | 없음 | 별점 하한(이상) |
 | `maxRating` | X | 1~5 정수, `minRating` 이상 | 없음 | 별점 상한(이하). `min>max`·범위 밖 → 400 COMMON-002 |
 
@@ -26,10 +27,10 @@
 - 커서는 발급된 정렬 기준에 종속: 형식이 다른 정렬에 재사용하면 400 FOOD-002, 형식이 같은 다른 지표 정렬에 재사용하면 파싱은 되나 순서 보장 없음.
 - 페이징 중 지표 값(좋아요 수 등)이 변하면 항목이 페이지 간 이동할 수 있다 — 중복·누락 없음만 보장(keyset 특성).
 
-## 응답 예 (HELPFUL_DESC, 2페이지째 요청)
+## 응답 예 (sort=helpful, 2페이지째 요청)
 
 ```
-GET /api/reviews?lang=en&sort=HELPFUL_DESC&cursor=17_204
+GET /api/reviews?lang=en&sort=helpful&cursor=17_204
 ```
 
 ```json

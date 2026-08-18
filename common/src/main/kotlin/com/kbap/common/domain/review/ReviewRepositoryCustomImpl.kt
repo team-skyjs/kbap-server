@@ -12,6 +12,7 @@ class ReviewRepositoryCustomImpl(
         minRating: Int?,
         maxRating: Int?,
         sort: ReviewSort,
+        descending: Boolean,
         metricCursor: Long?,
         idCursor: Long?,
         excludedMemberIds: List<Long>,
@@ -30,32 +31,34 @@ class ReviewRepositoryCustomImpl(
 
         val metricExpr = when (sort) {
             ReviewSort.LATEST -> "r.id"
-            ReviewSort.RATING_DESC, ReviewSort.RATING_ASC -> "r.rating"
-            ReviewSort.FOOD_REVIEW_COUNT_DESC -> "(select count(r2) from Review r2 where r2.foodId = r.foodId)"
-            ReviewSort.HELPFUL_DESC -> "count(l)"
+            ReviewSort.RATING -> "r.rating"
+            ReviewSort.FOOD_REVIEW_COUNT -> "(select count(r2) from Review r2 where r2.foodId = r.foodId)"
+            ReviewSort.HELPFUL -> "count(l)"
         }
+        val metricComparator = if (descending) "<" else ">"
+        val direction = if (descending) "desc" else "asc"
         val hasCursor = idCursor != null
-        val cursorCondition = when (sort) {
-            ReviewSort.LATEST -> "r.id < :idCursor"
-            ReviewSort.RATING_ASC -> "($metricExpr > :metricCursor or ($metricExpr = :metricCursor and r.id < :idCursor))"
-            else -> "($metricExpr < :metricCursor or ($metricExpr = :metricCursor and r.id < :idCursor))"
+        val cursorCondition = if (sort == ReviewSort.LATEST) {
+            "r.id $metricComparator :idCursor"
+        } else {
+            "($metricExpr $metricComparator :metricCursor or ($metricExpr = :metricCursor and r.id < :idCursor))"
         }
-        val orderDirection = if (sort == ReviewSort.RATING_ASC) "asc" else "desc"
+        val orderClause = if (sort == ReviewSort.LATEST) "r.id $direction" else "$metricExpr $direction, r.id desc"
 
-        val jpql = if (sort == ReviewSort.HELPFUL_DESC) {
+        val jpql = if (sort == ReviewSort.HELPFUL) {
             buildString {
                 append("select r, count(l) from Review r left join ReviewLike l on l.reviewId = r.id")
                 append(" where ").append(conditions.joinToString(" and "))
                 append(" group by r")
                 if (hasCursor) append(" having ").append(cursorCondition)
-                append(" order by count(l) desc, r.id desc")
+                append(" order by ").append(orderClause)
             }
         } else {
             buildString {
                 if (hasCursor) conditions += cursorCondition
                 append("select r, $metricExpr from Review r")
                 append(" where ").append(conditions.joinToString(" and "))
-                append(" order by $metricExpr $orderDirection, r.id desc")
+                append(" order by ").append(orderClause)
             }
         }
 
@@ -71,8 +74,7 @@ class ReviewRepositoryCustomImpl(
             query.setParameter("idCursor", idCursor)
             when (sort) {
                 ReviewSort.LATEST -> Unit
-                ReviewSort.RATING_DESC, ReviewSort.RATING_ASC ->
-                    query.setParameter("metricCursor", requireNotNull(metricCursor).toInt())
+                ReviewSort.RATING -> query.setParameter("metricCursor", requireNotNull(metricCursor).toInt())
                 else -> query.setParameter("metricCursor", requireNotNull(metricCursor))
             }
         }
