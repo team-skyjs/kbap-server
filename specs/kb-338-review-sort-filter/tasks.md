@@ -25,18 +25,18 @@
 
 ## Phase 3: User Story 2 - 별점 구간 필터 (Priority: P1)
 
-- [ ] T006 [US2] `ReviewListControllerTest`(Red) — 1~3점 구간·단일 점수(min=max)·기존 필터(foodId·countryCode)/정렬과 조합·min>max 400·범위 밖 400
-- [ ] T007 [US2] `ReviewListRequest`(@Min/@Max)·컨트롤러 교차 검증·JPQL rating 조건 추가. T006 Green
+- [X] T006 [US2] `ReviewListControllerTest`(Red) — 1~3점 구간·단일 점수(min=max)·기존 필터(foodId·countryCode)/정렬과 조합·min>max 400·범위 밖 400
+- [X] T007 [US2] `ReviewListRequest`(@Min/@Max)·컨트롤러 교차 검증·JPQL rating 조건 추가. T006 Green
 
 ## Phase 4: User Story 3 - 커서 페이징 정합 (Priority: P1)
 
-- [ ] T008 [US3] `ReviewListControllerTest`(Red) — 동점(같은 별점) 25건이 페이지 경계에 걸린 상태로 RATING_DESC 전량 순회 시 중복·누락 0, HELPFUL_DESC 전량 순회, 형식 불일치 커서(LATEST 커서를 RATING_DESC 에) 400 FOOD-002
-- [ ] T009 [US3] 커서 조건 구현 보정(필요시). T008 Green 확인
+- [X] T008 [US3] `ReviewListControllerTest`(Red) — 동점(같은 별점) 25건이 페이지 경계에 걸린 상태로 RATING_DESC 전량 순회 시 중복·누락 0, HELPFUL_DESC 전량 순회, 형식 불일치 커서(LATEST 커서를 RATING_DESC 에) 400 FOOD-002
+- [X] T009 [US3] 커서 조건 구현 보정(필요시). T008 Green 확인
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T010 [P] 리뷰 스위트 전체 회귀 + 전체 빌드 그린 (`./gradlew test`) — 기존 시나리오 회귀 0(SC-004)
-- [ ] T011 `kbap-db-review` 스킬로 신규 동적 쿼리 성능 검토(quickstart 필수 후속) — 인덱스/비정규화 후속 여부 확정
+- [X] T010 [P] 리뷰 스위트 전체 회귀 + 전체 빌드 그린 (`./gradlew test`) — 기존 시나리오 회귀 0(SC-004)
+- [X] T011 `kbap-db-review` 스킬로 신규 동적 쿼리 성능 검토(quickstart 필수 후속) — 인덱스/비정규화 후속 여부 확정
 - [ ] T012 swagger 확인·계약 문서와 실응답 대조, PR 생성
 
 ---
