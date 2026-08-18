@@ -180,8 +180,25 @@ class ReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("토큰 없이 조회하면") {
-                then("401 을 반환한다") {
-                    foodReviews(null, 800L).andExpect { status { isUnauthorized() } }
+                then("회원과 동일한 목록이 내려가고 likedByMe 는 전부 false 다") {
+                    accessToken(800L)
+                    val guest = payloadOf(foodReviews(null, 800L))
+                    guest.path("items").size() shouldBe 20
+                    guest.path("hasNext").asBoolean().shouldBeTrue()
+                    guest.path("items").forEach { it.path("likedByMe").asBoolean().shouldBeFalse() }
+
+                    val member = payloadOf(foodReviews(accessToken(800L), 800L))
+                    guest.path("items").first().path("reviewId").asLong() shouldBe
+                        member.path("items").first().path("reviewId").asLong()
+                }
+            }
+            `when`("토큰 없이 커서로 다음 페이지를 조회하면") {
+                then("keyset 페이징이 회원과 동일하게 동작한다") {
+                    val first = payloadOf(foodReviews(null, 800L))
+                    val nextCursor = first.path("nextCursor").asLong()
+                    val second = payloadOf(foodReviews(null, 800L, cursor = nextCursor.toString()))
+                    second.path("items").size() shouldBe 5
+                    second.path("hasNext").asBoolean().shouldBeFalse()
                 }
             }
             `when`("비정상 커서로 조회하면") {
