@@ -44,7 +44,12 @@
 - **(재개정 2026-08-19)** keyword 는 scope 무관 **필수**로 통일 — 이 API 는 검색 전용이고, 검색어 입력 전 초기 화면(스캔 목록)은 별도의 스캔 내역 조회가 담당하기로 클라이언트 플로우가 확정됐다. 이로써 두 scope 의 계약 차이는 인증(401)과 정렬·커서 의미만 남는다. 초기 화면용 스캔 내역 조회 GET API 는 현재 없음(홈 recentScans 동봉뿐) — 별도 태스크 필요.
 - **Alternatives considered**: `tab=food|tag` — UI 용어가 API 에 새어 화면 개편 시 이름이 거짓이 됨. `type` — 무엇의 타입인지 모호. boolean `scannedOnly` — 제3 범위(북마크 등) 확장 시 재설계.
 
-## R9. (재개정 2026-08-19) scanned 페이징 폐기 — 매칭 전체 단일 응답
+## R10. (2026-08-19) 초기 화면용 스캔 음식 목록 API 부활 — GET /api/foods/scanned
+
+- **Decision**: 검색어 입력 전 초기 화면은 홈 recentScans(10개 고정 동봉) 재사용 대신 **독립 목록 API** 로 제공한다 — `GET /api/foods/scanned`(회원 전용·JWT 보호 경로), keyword 없음, 커서 페이징(20건). R3/R4 의 복합 keyset·커서 재계산 설계를 이 API 가 그대로 사용한다(검색 API 에서는 R9 로 폐기, 목록 API 에서는 응답 상한·무한스크롤이 목적이라 유효).
+- **Rationale**: 태그 화면 진입마다 홈 전체 페이로드를 받는 건 어색하고, 목록은 검색과 달리 keyword 로 모수가 좁혀지지 않아 전체 반환 시 상한이 없다.
+
+## R9. (재개정 2026-08-19) scanned 검색 페이징 폐기 — 매칭 전체 단일 응답
 
 - **Decision**: scope=scanned 는 페이징하지 않는다 — 매칭 전체를 한 번에 반환(응답 봉투는 Page 유지, hasNext 항상 false·nextCursor 항상 null·cursor 무시). R3 의 복합 keyset·R4 의 커서 재계산은 폐기하고 쿼리를 단순 group by + 정렬로 되돌린다.
 - **Rationale**: 정렬키가 집계값(max(created_at))이라 커서가 있어도 파생 집계는 매 페이지 전체 재계산된다 — 커서가 DB 비용을 줄이지 못한다. keyword 필수화(R8 재개정)로 결과 모수도 검색어로 좁혀진 내 스캔 음식뿐이라 단일 응답이 소박하다.

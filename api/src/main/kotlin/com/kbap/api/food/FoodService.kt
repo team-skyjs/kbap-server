@@ -55,6 +55,20 @@ class FoodService(
 
     private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
         val ids = scanHistoryRepository.findScannedFoodIds(memberId, escapeLikeWildcards(keyword), translationJsonPath(lang))
+        return loadInGivenOrder(ids)
+    }
+
+    @Transactional(readOnly = true)
+    fun getScannedFoodPage(memberId: Long, lang: LanguageCode, cursor: Long?): FoodPage {
+        val cursorLastScannedAt = cursor?.let {
+            scanHistoryRepository.findLastScannedAt(memberId, it)
+                ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
+        }
+        val ids = scanHistoryRepository.findScannedFoodPageIds(memberId, cursorLastScannedAt, cursor, PAGE_SIZE + 1)
+        return foodPage(loadInGivenOrder(ids), lang, memberId)
+    }
+
+    private fun loadInGivenOrder(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()
         val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
         return ids.mapNotNull { foodsById[it] }

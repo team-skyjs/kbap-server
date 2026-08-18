@@ -28,6 +28,15 @@ data class FoodSearchRequest(
     val lang: String,
 )
 
+@Schema(description = "스캔 음식 목록 조회 요청 (리뷰 태그 초기 화면)")
+data class FoodScannedRequest(
+    @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지", example = "42")
+    val cursor: String? = null,
+    @field:NotBlank(message = "lang 은 필수입니다")
+    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
+    val lang: String,
+)
+
 @Schema(description = "음식 상세 조회 요청")
 data class FoodDetailRequest(
     @field:NotBlank(message = "lang 은 필수입니다")

@@ -69,6 +69,35 @@ interface FoodApi {
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
 
     @Operation(
+        summary = "스캔 음식 목록 조회 (리뷰 태그 초기 화면, 회원 전용)",
+        description = """
+            본인 스캔 이력에 매칭된 음식을 중복 없이 마지막 스캔 시점 내림차순으로 한 페이지 20개씩 조회한다.
+            리뷰 태그 화면의 검색어 입력 전 초기 목록 용도다 — 같은 음식을 여러 번 스캔했어도 한 번만 나오고, 재스캔하면 맨 앞으로 올라온다.
+            검색어로 거르는 조회는 음식 검색 API(scope=scanned)를 사용한다.
+
+            삭제·비공개 음식과 음식 마스터에 매칭되지 않은 스캔 항목은 제외되며, 스캔 이력이 없으면 빈 목록이다.
+
+            페이지네이션은 no-offset(cursor/keyset) 방식이다 — 직전 페이지 nextCursor(마지막 항목 foodId)를 cursor 로 넘기면 이어진다.
+            형식이 잘못됐거나 본인 스캔 이력에 없는 음식의 커서는 400(FOOD-002)이다.
+
+            회원 전용 API 다 — 인증 없는 호출은 401 이다.
+
+            지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. lang 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 스캔 음식 요약(≤20, 최신 스캔순)·nextCursor·hasNext 반환. 항목 형태는 음식 목록과 동일"),
+            ApiResponse(responseCode = "400", description = "잘못된 커서(형식·본인 스캔 이력에 없음) 또는 lang 누락·빈/공백"),
+            ApiResponse(responseCode = "401", description = "인증 없음 — 회원 전용"),
+        ],
+    )
+    fun scanned(
+        @ParameterObject request: FoodScannedRequest,
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
+
+    @Operation(
         summary = "음식 상세 조회",
         description = """
             안정적 식별자 foodId(음식 목록·검색이 각 항목에 내려주는 숫자 id)로 음식 상세를 조회한다. 요청 언어(lang)에 맞춰 음식명·설명(description)·맵기(spiciness)·포함 기피성분명을 반환하며,

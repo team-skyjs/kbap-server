@@ -1,6 +1,19 @@
-# API Contract: 스캔 음식 검색 (리뷰 태그 후보) — GET /api/foods/search?scope=scanned
+# API Contract: 스캔 음식 검색·목록 (리뷰 태그 후보)
 
-별도 경로가 아니라 **기존 음식 검색 엔드포인트의 `scope` 파라미터**로 제공한다(2026-08-19 확정 — 초기 설계 `GET /api/foods/scanned` 를 통합으로 대체).
+리뷰 태그 화면은 두 API 로 구성한다(2026-08-19 확정):
+- **초기 화면(검색어 입력 전)** — `GET /api/foods/scanned` (스캔 음식 목록, 커서 페이징)
+- **검색어 입력 후** — `GET /api/foods/search?scope=scanned` (검색, 무페이징)
+
+## GET /api/foods/scanned — 스캔 음식 목록 (회원 전용)
+
+| 파라미터 | 필수 | 설명 |
+|---|---|---|
+| `lang` | O | 표시 언어 — 기존 규칙 동일 |
+| `cursor` | X | 직전 페이지 nextCursor(Long, 마지막 항목 foodId). 형식 오류·본인 스캔 이력에 없는 foodId 는 400(FOOD-002) |
+
+- 인증 없으면 401(JWT 보호 경로 등록). 본인 스캔 이력 매칭 READY 음식만, 중복 제거·마지막 스캔 시점 내림차순, 한 페이지 20건.
+- 커서 페이징: 정렬키가 집계값이라 서버가 커서 foodId 의 last_scanned_at 을 재계산해 (last_scanned_at, food_id) 복합 keyset 으로 절단.
+- 응답은 기존 `Page<FoodSummaryResponse>` 동일.
 
 ## GET /api/foods/search
 

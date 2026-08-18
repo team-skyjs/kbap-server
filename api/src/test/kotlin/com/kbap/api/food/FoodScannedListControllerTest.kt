@@ -125,6 +125,82 @@ class FoodScannedListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
+        fun scannedList(token: String?, lang: String? = "en", cursor: String? = null): ResultActionsDsl =
+            mockMvc.get("/api/foods/scanned") {
+                token?.let { header("Authorization", "Bearer $it") }
+                lang?.let { param("lang", it) }
+                cursor?.let { param("cursor", it) }
+            }
+
+        given("스캔 음식 목록 — GET /api/foods/scanned") {
+            `when`("음식 A→B→A 순으로 스캔한 회원이 목록을 조회하면") {
+                then("중복 없이 마지막 스캔 시점 내림차순 [A, B] 로 내려간다") {
+                    val token = accessToken(5611L)
+                    seedFood(5751L, "목록김치찌개", "List Kimchi Stew")
+                    seedFood(5752L, "목록비빔밥", "List Bibimbap")
+                    seedScan(5611L, 5751L, 1)
+                    seedScan(5611L, 5752L, 2)
+                    seedScan(5611L, 5751L, 3)
+
+                    val payload = payloadOf(scannedList(token))
+                    payload.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5751L, 5752L)
+                    payload.path("hasNext").asBoolean().shouldBeFalse()
+                    payload.path("nextCursor").isNull.shouldBeTrue()
+                }
+            }
+            `when`("스캔 음식이 21개인 회원이 목록을 조회하면") {
+                then("첫 페이지 20건과 커서, 다음 페이지 1건으로 이어진다") {
+                    val token = accessToken(5612L)
+                    (1..21).forEach { i ->
+                        seedFood(5760L + i, "목록페이징$i")
+                        seedScan(5612L, 5760L + i, i)
+                    }
+
+                    val first = payloadOf(scannedList(token))
+                    first.path("items").size() shouldBe 20
+                    first.path("items").first().path("foodId").asLong() shouldBe 5781L
+                    first.path("hasNext").asBoolean().shouldBeTrue()
+                    val nextCursor = first.path("nextCursor").asLong()
+                    nextCursor shouldBe 5762L
+
+                    val second = payloadOf(scannedList(token, cursor = nextCursor.toString()))
+                    second.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5761L)
+                    second.path("hasNext").asBoolean().shouldBeFalse()
+                    second.path("nextCursor").isNull.shouldBeTrue()
+                }
+            }
+            `when`("스캔 이력이 없는 회원이 목록을 조회하면") {
+                then("빈 목록이 내려간다") {
+                    payloadOf(scannedList(accessToken(5613L))).path("items").size() shouldBe 0
+                }
+            }
+            `when`("토큰 없이 목록을 조회하면") {
+                then("401 을 반환한다 — 회원 전용") {
+                    scannedList(null).andExpect { status { isUnauthorized() } }
+                }
+            }
+            `when`("비정상 형식·미보유 foodId 커서로 목록을 조회하면") {
+                then("둘 다 400 FOOD-002 를 반환한다") {
+                    val token = accessToken(5614L)
+                    seedFood(5753L, "목록커서찌개")
+                    seedScan(5614L, 5753L, 1)
+                    scannedList(token, cursor = "abc").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-002") }
+                    }
+                    scannedList(token, cursor = "999999").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-002") }
+                    }
+                }
+            }
+            `when`("lang 없이 목록을 조회하면") {
+                then("400 을 반환한다") {
+                    scannedList(accessToken(5613L), lang = null).andExpect { status { isBadRequest() } }
+                }
+            }
+        }
+
         given("스캔 음식 검색 — GET /api/foods/search?scope=scanned") {
             `when`("음식 A→B→A 순으로 스캔한 회원이 조회하면") {
                 then("중복 없이 마지막 스캔 시점 내림차순 [A, B] 로 내려간다") {
