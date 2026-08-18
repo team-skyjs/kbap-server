@@ -94,7 +94,7 @@ interface ReviewApi {
     @Operation(
         summary = "리뷰 목록 (전체·음식별) — 비회원 조회 가능",
         description = """
-            리뷰를 20건 keyset 커서 방식으로 조회한다. 인증 없이(비회원) 호출할 수 있다.
+            리뷰를 50건 keyset 커서 방식으로 조회한다. 인증 없이(비회원) 호출할 수 있다.
             정렬(sort)·필터(foodId·countryCode·minRating·maxRating)를 조합할 수 있으며, 커서는 발급 시점의 정렬·필터 조합에 종속된다 —
             정렬 옵션이나 필터를 바꾸면 기존 커서를 버리고 첫 페이지부터 다시 조회해야 한다(다른 조합의 커서는 400 또는 순서 미보장).
             nextCursor 는 불투명 토큰이다(해석·조립 금지, 그대로 echo).
@@ -121,7 +121,7 @@ interface ReviewApi {
     @Operation(
         summary = "내 리뷰 목록",
         description = """
-            내가 쓴 리뷰를 최신순 20건 keyset 커서 방식으로 조회한다(프로필 탭 진입).
+            내가 쓴 리뷰를 최신순 50건 keyset 커서 방식으로 조회한다(프로필 탭 진입).
             각 리뷰에는 음식 요약(food — lang 으로 해석한 이름·대표 이미지)이 포함되며, 음식이 삭제됐으면 food 는 null 이다.
         """,
     )
