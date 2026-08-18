@@ -180,16 +180,16 @@ class ReviewControllerTest : BehaviorSpec() {
                 content = body
             }
 
-        fun update(token: String, reviewId: Long, body: String): ResultActionsDsl =
+        fun update(token: String?, reviewId: Long, body: String): ResultActionsDsl =
             mockMvc.patch("$path/$reviewId") {
-                header("Authorization", "Bearer $token")
+                token?.let { header("Authorization", "Bearer $it") }
                 contentType = MediaType.APPLICATION_JSON
                 content = body
             }
 
-        fun remove(token: String, reviewId: Long): ResultActionsDsl =
+        fun remove(token: String?, reviewId: Long): ResultActionsDsl =
             mockMvc.delete("$path/$reviewId") {
-                header("Authorization", "Bearer $token")
+                token?.let { header("Authorization", "Bearer $it") }
             }
 
         fun snapshotCountryOf(reviewId: Long): String? =
@@ -311,6 +311,14 @@ class ReviewControllerTest : BehaviorSpec() {
             `when`("토큰 없이 작성하면") {
                 then("401 을 반환한다") {
                     create(null, createBody(foodId = 700L)).andExpect { status { isUnauthorized() } }
+                }
+            }
+            `when`("토큰 없이 수정·삭제하면") {
+                then("목록 GET 개방과 무관하게 둘 다 401 을 반환한다") {
+                    val reviewId = createReview(accessToken(705L), 700L)
+                    update(null, reviewId, createBody(foodId = null, rating = 3))
+                        .andExpect { status { isUnauthorized() } }
+                    remove(null, reviewId).andExpect { status { isUnauthorized() } }
                 }
             }
             `when`("존재하지 않는 음식에 작성하면") {

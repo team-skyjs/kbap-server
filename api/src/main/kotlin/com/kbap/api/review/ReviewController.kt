@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.util.CursorParser
 import jakarta.validation.Valid
@@ -86,7 +87,7 @@ class ReviewController(
 
     @GetMapping("/reviews")
     override fun listReviews(
-        @AuthMemberId memberId: Long,
+        @AuthMemberIdOrNull memberId: Long?,
         @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =

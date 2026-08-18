@@ -120,7 +120,7 @@ class ReviewService(
 
     @Transactional(readOnly = true)
     fun getReviewPage(
-        viewerMemberId: Long,
+        viewerMemberId: Long?,
         foodId: Long?,
         countryCode: String?,
         lang: LanguageCode,
@@ -132,8 +132,8 @@ class ReviewService(
                 foodId,
                 countryCode,
                 cursor,
-                excludedMemberIds(viewerMemberId),
-                excludedReviewIds(viewerMemberId),
+                viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
+                viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
                 PageRequest.of(0, PAGE_SIZE + 1),
             ),
             viewerMemberId,
@@ -195,7 +195,7 @@ class ReviewService(
             includeFood = false,
         )
 
-    private fun toPage(rows: List<Review>, viewerMemberId: Long, lang: LanguageCode): Page<ReviewResponse> {
+    private fun toPage(rows: List<Review>, viewerMemberId: Long?, lang: LanguageCode): Page<ReviewResponse> {
         if (rows.isEmpty()) {
             return Page(items = emptyList(), hasNext = false, nextCursor = null)
         }

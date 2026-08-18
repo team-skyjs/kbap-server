@@ -8,7 +8,9 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -245,9 +247,19 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     feed(token, lang = null).andExpect { status { isBadRequest() } }
                 }
             }
-            `when`("토큰 없이 조회하면") {
-                then("401 을 반환한다") {
-                    feed(null).andExpect { status { isUnauthorized() } }
+            `when`("토큰 없이 전체 피드를 조회하면") {
+                then("200 과 함께 피드가 내려가고 likedByMe 는 전부 false 다") {
+                    val guest = mapper.readTree(
+                        feed(null).andExpect { status { isOk() } }
+                            .andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload")
+                    guest.path("items").size() shouldBeGreaterThan 0
+                    guest.path("items").forEach { it.path("likedByMe").asBoolean().shouldBeFalse() }
+                }
+            }
+            `when`("토큰 없이 lang 없이 조회하면") {
+                then("비회원도 동일하게 400 이다") {
+                    feed(null, lang = null).andExpect { status { isBadRequest() } }
                 }
             }
             `when`("비정상 커서로 조회하면") {
