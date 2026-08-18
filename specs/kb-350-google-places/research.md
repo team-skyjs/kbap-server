@@ -41,3 +41,10 @@
 - 조립: `PlaceConfig` — `kbap.kakao.rest-api-key` → `kbap.google.places-api-key` 교체.
 - 리뷰 연계: `ReviewPlace.source`(enum 문자열 저장) — `PlaceSource` 에 값 추가만으로 저장·응답 모두 동작(컬럼 길이 확인 필요).
 - 테스트 선례: `KakaoPlaceSearchClientTest` 가 RestClient.Builder 주입 + MockRestServiceServer 패턴 — 구글 테스트가 동일 패턴 사용.
+
+## Decision 7: 다국어 지원 — lang 필수 + 어댑터 코드 매핑 (2026-08-19 추가)
+
+- **Decision**: 주변·검색 요청에 `lang` 을 필수로 받아(헌법 V — 빈 값 400·미지원 en 폴백, `LanguageCode.from` 재사용) 구글 `languageCode` 로 전달한다. 코드 매핑은 어댑터 소유: `zh-Hans → zh-CN`, `zh-Hant → zh-TW`, 나머지 8종은 동일 표기.
+- **Rationale**: 외국인 대상 서비스 — 식당명·주소도 사용자 언어로. 서비스 공통 lang 규약과 동일해 클라이언트가 이미 아는 패턴. 구글 지원 언어에 10종 전부 포함됨을 문서로 확인.
+- **Alternatives considered**: languageCode "ko" 고정(초안 — 다국어 요구로 폐기), 구글 코드 미매핑 zh-Hans 직접 전달(구글 표기가 zh-CN/zh-TW 라 결과 언어 미보장 — 기각), lang 선택 파라미터(헌법 V 의 "표시 언어는 필수" 원칙 위배 — 기각).
+- **근거 문서**: [Google Maps Platform 지원 언어](https://developers.google.com/maps/faq#languagesupport) — zh-CN(간체)·zh-TW(번체) 표기 명시, ko·en·ja·vi·id·th·ru·es 지원.

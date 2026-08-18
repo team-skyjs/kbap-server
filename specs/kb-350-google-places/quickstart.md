@@ -18,16 +18,16 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 TOKEN=<accessToken>
 
 # 화면 진입: 주변 식당 20건 (거리순)
-curl -s "http://localhost:8080/api/places/nearby?latitude=37.4979&longitude=127.0276" \
+curl -s "http://localhost:8080/api/places/nearby?latitude=37.4979&longitude=127.0276&lang=en" \
   -H "X-API-Version: 1.0" -H "Authorization: Bearer $TOKEN" | jq '.payload.items | length'
 
 # 키워드 검색: 단일 20건, hasNext 없음
-curl -s "http://localhost:8080/api/places/search?query=김치찌개&latitude=37.4979&longitude=127.0276" \
+curl -s "http://localhost:8080/api/places/search?query=김치찌개&latitude=37.4979&longitude=127.0276&lang=vi" \
   -H "X-API-Version: 1.0" -H "Authorization: Bearer $TOKEN" | jq '{count: (.payload.items|length), hasNext: .payload.hasNext}'
 # 기대: hasNext = null (필드 없음)
 
 # 구 page 파라미터 무시 확인 (400 아님)
-curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:8080/api/places/search?query=a&latitude=37.5&longitude=127.0&page=3" \
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:8080/api/places/search?query=a&latitude=37.5&longitude=127.0&lang=en&page=3" \
   -H "X-API-Version: 1.0" -H "Authorization: Bearer $TOKEN"
 
 # 키 미설정으로 부팅 → 검색만 502 PLACE-001 (부팅은 정상이어야 함)

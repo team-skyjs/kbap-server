@@ -4,8 +4,8 @@
 
 ## GET /api/places/nearby — 화면 진입 시 주변 식당
 
-- 요청: `latitude`·`longitude` (불변)
-- 응답: 근처 식당 **최대 20건**, 거리순 (기존 형태 그대로)
+- 요청: `latitude`·`longitude` + **`lang` 필수 신설**(서비스 공통 규칙 — 빈 값 400, 미지원 코드 en 폴백)
+- 응답: 근처 식당 **최대 20건**, 거리순 — 식당명·주소가 lang 언어로 내려간다
 
 ```json
 { "success": true, "payload": { "items": [
@@ -15,7 +15,7 @@
 
 ## GET /api/places/search — 키워드 검색
 
-- 요청: `query`·`latitude`·`longitude` — **`page` 파라미터 삭제** (보내도 400 없이 무시 — 전환기 호환)
+- 요청: `query`·`latitude`·`longitude` + **`lang` 필수 신설** — **`page` 파라미터 삭제** (보내도 400 없이 무시 — 전환기 호환)
 - 응답: 관련도순 **최대 20건 단일 응답** — **`hasNext` 필드 삭제** (페이징 없음)
 
 ```json
@@ -34,6 +34,7 @@
 
 ## 클라이언트 공유 요점
 
+0. **`lang` 파라미터 필수 신설** — 다른 API 와 같은 언어 규칙(ko·zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es, 누락 400). 결과 식당명·주소가 해당 언어로 내려온다.
 1. 검색 응답에서 `hasNext` 가 사라지고 `page` 요청 파라미터가 무의미해진다 — 더보기 UI 제거.
 2. 리뷰 작성 시 검색 결과 선택이면 `source: "GOOGLE_PLACE"` 로 전송.
 3. 과거 리뷰 조회에는 `KAKAO_PLACE` 가 계속 내려온다 — 분기 유지 필요.

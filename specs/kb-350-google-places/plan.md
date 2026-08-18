@@ -6,7 +6,7 @@
 
 ## Summary
 
-`common.port.place.PlaceSearchClient` seam 뒤의 카카오 어댑터를 Google Places API (New) 어댑터로 교체한다. 주변 조회는 Nearby Search(New — `includedTypes: restaurant`·`rankPreference: DISTANCE`·≤20건), 키워드 검색은 Text Search(New — `textQuery`+`locationBias`·≤20건 단일 응답)로 매핑하고, **seam 에서 페이지 개념을 제거**한다(`searchPage` → 단일 목록). API 응답에서 `hasNext`·`page` 가 사라지고, 리뷰 장소 출처에 `GOOGLE_PLACE` 를 추가한다(기존 값 보존). 어댑터는 카카오 구현과 같은 골격(RestClient + HTTP interface + **자체 Jackson3 매퍼** — Boot4 이중 클래스패스 함정 대응)으로 작성한다.
+`common.port.place.PlaceSearchClient` seam 뒤의 카카오 어댑터를 Google Places API (New) 어댑터로 교체한다. 주변 조회는 Nearby Search(New — `includedTypes: restaurant`·`rankPreference: DISTANCE`·≤20건), 키워드 검색은 Text Search(New — `textQuery`+`locationBias`·≤20건 단일 응답)로 매핑하고, **seam 에서 페이지 개념을 제거**한다(`searchPage` → 단일 목록). **표시 언어(lang)를 필수로 받아**(헌법 V 규약 — 빈 값 400·미지원 en 폴백) 구글 `languageCode` 로 전달한다 — `zh-Hans/zh-Hant` 는 구글 표기 `zh-CN/zh-TW` 로 어댑터가 매핑. API 응답에서 `hasNext`·`page` 가 사라지고, 리뷰 장소 출처에 `GOOGLE_PLACE` 를 추가한다(기존 값 보존). 어댑터는 카카오 구현과 같은 골격(RestClient + HTTP interface + **자체 Jackson3 매퍼** — Boot4 이중 클래스패스 함정 대응)으로 작성한다.
 
 ## Technical Context
 
@@ -34,7 +34,7 @@
 - **II. Bounded Contexts**: PASS — seam 계약 수정은 `common.port.place`, 구현은 `api.infra.place`, 조립은 `PlaceConfig`(ADR-0018 구조 그대로). `PlaceSource` 는 review 도메인 모델 소속 유지.
 - **III. Layered Dependency Direction**: PASS — 새 의존 없음.
 - **IV. Persistence Ownership**: PASS — 엔티티·스키마 무변경(enum 값 추가는 코드 값·컬럼 그대로).
-- **V. Language Policy**: PASS — 음식 콘텐츠 번역 정책과 무관(장소명은 구글 `languageCode: ko` 로 요청 — UI 문구 아님).
+- **V. Language Policy**: PASS — 표시 언어를 받는 API 규약을 그대로 따른다: `lang` 필수(빈 값 400), 미지원 코드는 en 폴백, 검증은 요청 경계(DTO `@NotBlank` + `LanguageCode.from`)가 소유하고 seam·어댑터는 확정된 `LanguageCode` 를 받는다.
 
 **위반 없음.**
 
@@ -57,8 +57,8 @@ specs/kb-350-google-places/
 
 ```text
 common/src/main/kotlin/com/kbap/common/port/place/
-└── PlaceSearchClient.kt        # seam 재정의 — searchNearbyRestaurants(lon,lat)·searchByKeyword(query,lon,lat)
-                                #   둘 다 List<FoundPlace>(≤20). PlaceSearchPage dto 삭제
+└── PlaceSearchClient.kt        # seam 재정의 — searchNearbyRestaurants(lon,lat,lang)·searchByKeyword(query,lon,lat,lang)
+                                #   둘 다 List<FoundPlace>(≤20), lang: LanguageCode. PlaceSearchPage dto 삭제
 
 api/src/main/kotlin/com/kbap/api/infra/place/
 ├── GooglePlacesApi.kt          # (신규) HTTP interface — POST places:searchText·places:searchNearby + 응답 DTO
@@ -67,8 +67,8 @@ api/src/main/kotlin/com/kbap/api/infra/place/
 └── KakaoPlaceSearchClient.kt   # 삭제
 
 api/src/main/kotlin/com/kbap/api/place/
-├── PlaceService.kt             # RESTAURANT_KEYWORD 삭제 — nearby 는 타입 기반, 검색은 단일 목록
-├── PlaceSearchRequest.kt       # page 파라미터 제거(바인딩은 무시 — DTO 필드 삭제로 자동 무시)
+├── PlaceService.kt             # RESTAURANT_KEYWORD 삭제 — nearby 는 타입 기반, 검색은 단일 목록, lang 전달
+├── PlaceSearchRequest.kt       # page 제거 + lang 필수 추가(nearby 요청 DTO 에도 — 헌법 V 규약)
 ├── PlaceSearchResponse.kt      # PlaceSearchPageResponse(hasNext) → 단일 items 응답
 └── PlaceApi.kt                 # swagger — 제공자·20건 단일·page 제거 문서화
 
@@ -87,8 +87,10 @@ common/src/main/kotlin/com/kbap/common/domain/review/model/PlaceSource.kt
 
 | 용도 | 엔드포인트 | 핵심 요청 | 정렬 |
 |---|---|---|---|
-| 주변 식당 | `POST /v1/places:searchNearby` | `includedTypes: ["restaurant"]`·`maxResultCount: 20`·`locationRestriction.circle(center, radius 500m)`·`languageCode: "ko"` | `rankPreference: DISTANCE` (카카오 sort=distance 동작 보존) |
-| 키워드 검색 | `POST /v1/places:searchText` | `textQuery`·`pageSize: 20`·`locationBias.circle(center, radius 2000m)`·`languageCode: "ko"` | 기본(RELEVANCE) |
+| 주변 식당 | `POST /v1/places:searchNearby` | `includedTypes: ["restaurant"]`·`maxResultCount: 20`·`locationRestriction.circle(center, radius 500m)`·`languageCode: <lang 매핑>` | `rankPreference: DISTANCE` (카카오 sort=distance 동작 보존) |
+| 키워드 검색 | `POST /v1/places:searchText` | `textQuery`·`pageSize: 20`·`locationBias.circle(center, radius 2000m)`·`languageCode: <lang 매핑>` | 기본(RELEVANCE) |
+
+- **다국어(FR-007)**: 요청 `lang`(LanguageCode 10종)을 구글 `languageCode` 로 전달. 코드 매핑은 어댑터 소유 — `zh-Hans → zh-CN`, `zh-Hant → zh-TW`, 나머지 8종(ko·en·ja·vi·id·th·ru·es)은 동일 표기([구글 지원 언어 문서](https://developers.google.com/maps/faq#languagesupport) 검증). 결과 식당명·주소가 해당 언어로 내려온다(구글이 번역 미보유 시 현지어 반환 — 그대로 수용).
 
 - 공통 헤더: `X-Goog-Api-Key`, **`X-Goog-FieldMask: places.displayName,places.formattedAddress,places.location`** (FieldMask 누락 시 구글이 오류 — 필수. 필드를 좁게 유지해 과금 SKU 도 최소화)
 - 응답 매핑: `displayName.text` → name, `formattedAddress` → address, `location.latitude/longitude` → 좌표. `FoundPlace` 형태 불변.
