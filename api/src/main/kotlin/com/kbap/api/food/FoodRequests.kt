@@ -17,7 +17,7 @@ data class FoodBrowseRequest(
 
 @Schema(description = "음식 검색 요청")
 data class FoodSearchRequest(
-    @field:Schema(description = "검색어. scope=all 이면 필수(빈/공백 400), scope=scanned 면 옵션(미지정 시 스캔 목록 전체). 한국어명 또는 요청 언어 번역명에 부분 일치", example = "김치")
+    @field:Schema(description = "검색어(필수, 빈/공백 400). 한국어명 또는 요청 언어 번역명에 부분 일치. 검색어 입력 전 초기 화면은 이 API 가 아니라 스캔 내역 조회를 사용한다", example = "김치")
     val keyword: String? = null,
     @field:Schema(description = "검색 범위 — all(기본, 전체 음식)·scanned(본인 스캔 음식, 회원 전용·최신 스캔순). 그 외 값은 400", example = "all")
     val scope: String? = null,

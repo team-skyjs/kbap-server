@@ -43,10 +43,12 @@ interface FoodApi {
             페이지네이션은 offset 이 아니라 no-offset(cursor/keyset) 방식이다 — 직전 페이지 nextCursor(마지막 항목 foodId)를 cursor 로 넘기면 다음 20개가 이어진다.
             매칭 음식이 없으면 오류가 아니라 빈 목록을 반환한다. 검색어 없이 전체를 훑는 조회는 음식 목록 조회 API 를 사용한다.
 
+            keyword 는 scope 무관 **필수**(누락·빈/공백 400)다 — 검색어 입력 전 초기 화면은 이 API 가 아니라 스캔 내역 조회로 구성한다.
+
             scope 파라미터로 검색 범위를 고른다(미지정 시 all):
-            - **scope=all**(기본) — 전체 음식을 최신 등록순(foodId 내림차순)으로. keyword 는 필수(빈/공백 400). 비회원 사용 가능.
-            - **scope=scanned** — 본인 스캔 이력에 매칭된 음식만, 중복 없이 마지막 스캔 시점 내림차순(리뷰 태그 후보 용도 — 재스캔하면 맨 앞으로).
-              **회원 전용**(인증 없으면 401). keyword 는 옵션(미지정 시 스캔 목록 전체). 삭제·비공개 음식과 음식 미매칭 스캔 항목은 제외되고 스캔 이력이 없으면 빈 목록이다.
+            - **scope=all**(기본) — 전체 음식을 최신 등록순(foodId 내림차순)으로. 비회원 사용 가능.
+            - **scope=scanned** — 본인 스캔 이력에 매칭된 음식만, 중복 없이 마지막 스캔 시점 내림차순(리뷰 태그 검색 용도 — 재스캔하면 맨 앞으로).
+              **회원 전용**(인증 없으면 401). 삭제·비공개 음식과 음식 미매칭 스캔 항목은 제외되고 매칭 없으면 빈 목록이다.
               형식이 잘못됐거나 본인 스캔 이력에 없는 음식의 커서는 400(FOOD-002)이다.
 
             scope 값이 all·scanned 외면 400(COMMON-002)이고, scope 간 커서는 호환되지 않는다.
@@ -57,7 +59,7 @@ interface FoodApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 매칭 음식 요약(≤20)·nextCursor·hasNext 반환. 각 항목 bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
-            ApiResponse(responseCode = "400", description = "빈/공백 검색어(scope=all), 지원하지 않는 scope, 잘못된 커서(형식·음수·scanned 의 미보유 foodId), 또는 lang 누락·빈/공백"),
+            ApiResponse(responseCode = "400", description = "검색어 누락·빈/공백, 지원하지 않는 scope, 잘못된 커서(형식·음수·scanned 의 미보유 foodId), 또는 lang 누락·빈/공백"),
             ApiResponse(responseCode = "401", description = "scope=scanned 를 인증 없이 호출"),
         ],
     )

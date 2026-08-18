@@ -40,7 +40,8 @@
 
 - **Decision**: `GET /api/foods/scanned` 를 없애고 `GET /api/foods/search` 에 `scope=all|scanned`(기본 all) 파라미터로 통합한다. 분기는 `FoodService.searchFoodPage` 안 조건문이 소유한다.
 - **Rationale**: 클라이언트 검색 화면이 탭(일반/태그) 하나의 UI 라 단일 엔드포인트가 자연스럽고, `GET /api/reviews` 의 foodId 파라미터 통합(#144) 선례와 정합. 파라미터 이름은 UI 용어(tab)·모호어(type) 대신 검색 범위를 뜻하는 `scope`, 값은 데이터 의미인 `scanned`.
-- **비용(감수)**: scope=scanned 의 회원 전용 보호를 URL 필터로 못 건다(필터는 파라미터를 모름) — 컨트롤러 분기가 401(AUTH-003, 필터와 동일 코드)을 소유한다. keyword 필수성(all 필수·scanned 옵션)과 커서 의미(등록순 vs 최신 스캔순)가 scope 에 따라 갈리는 조건부 계약을 문서·테스트로 고정한다.
+- **비용(감수)**: scope=scanned 의 회원 전용 보호를 URL 필터로 못 건다(필터는 파라미터를 모름) — 컨트롤러 분기가 401(AUTH-003, 필터와 동일 코드)을 소유한다. 커서 의미(등록순 vs 최신 스캔순)가 scope 에 따라 갈리는 점은 문서·테스트로 고정한다.
+- **(재개정 2026-08-19)** keyword 는 scope 무관 **필수**로 통일 — 이 API 는 검색 전용이고, 검색어 입력 전 초기 화면(스캔 목록)은 별도의 스캔 내역 조회가 담당하기로 클라이언트 플로우가 확정됐다. 이로써 두 scope 의 계약 차이는 인증(401)과 정렬·커서 의미만 남는다. 초기 화면용 스캔 내역 조회 GET API 는 현재 없음(홈 recentScans 동봉뿐) — 별도 태스크 필요.
 - **Alternatives considered**: `tab=food|tag` — UI 용어가 API 에 새어 화면 개편 시 이름이 거짓이 됨. `type` — 무엇의 타입인지 모호. boolean `scannedOnly` — 제3 범위(북마크 등) 확장 시 재설계.
 
 ## R7. 스키마·인덱스

@@ -111,7 +111,7 @@ class FoodScannedListControllerTest : BehaviorSpec() {
             token: String?,
             lang: String? = "en",
             cursor: String? = null,
-            keyword: String? = null,
+            keyword: String? = "스캔",
             scope: String? = "scanned",
         ): ResultActionsDsl =
             mockMvc.get("/api/foods/search") {
@@ -177,8 +177,9 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                     }
                 }
             }
-            `when`("빈 keyword 로 조회하면") {
-                then("400 을 반환한다 — 옵션이지만 빈/공백은 불가") {
+            `when`("keyword 를 누락하거나 빈 값으로 조회하면") {
+                then("400 을 반환한다 — 검색어 없는 초기 화면은 스캔 내역 조회가 담당한다") {
+                    scanned(accessToken(5610L), keyword = null).andExpect { status { isBadRequest() } }
                     scanned(accessToken(5610L), keyword = " ").andExpect { status { isBadRequest() } }
                 }
             }
@@ -203,8 +204,8 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                     second.path("nextCursor").isNull.shouldBeTrue()
                 }
             }
-            `when`("keyword 로 조회하면") {
-                then("본인 스캔 음식 범위 안에서만 이름이 매칭된다") {
+            `when`("keyword 가 스캔 안 한 음식과도 일치하면") {
+                then("본인 스캔 음식 범위 안에서만 매칭된다") {
                     val token = accessToken(5605L)
                     seedFood(5605L, "필터김치찌개", "Filter Kimchi Stew")
                     seedFood(5606L, "필터불고기", "Filter Bulgogi")

@@ -35,12 +35,14 @@ class FoodService(
         foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(input: SearchFoodsInput): FoodPage =
-        if (input.scope == FoodSearchScope.SCANNED) {
-            getScannedFoodPage(requireNotNull(input.memberId), input.keyword, input.lang, input.cursor)
+    fun searchFoodPage(input: SearchFoodsInput): FoodPage {
+        val rows = if (input.scope == FoodSearchScope.SCANNED) {
+            getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang, input.cursor, PAGE_SIZE + 1)
         } else {
-            foodPage(getFoodsByKeyword(requireNotNull(input.keyword), input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+            getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1)
         }
+        return foodPage(rows, input.lang, input.memberId)
+    }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
@@ -52,22 +54,22 @@ class FoodService(
             foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
         )
 
-    private fun getScannedFoodPage(memberId: Long, keyword: String?, lang: LanguageCode, cursor: Long?): FoodPage {
+    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
         val cursorLastScannedAt = cursor?.let {
             scanHistoryRepository.findLastScannedAt(memberId, it)
                 ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
         }
         val ids = scanHistoryRepository.findScannedFoodPageIds(
             memberId,
-            keyword?.let(::escapeLikeWildcards),
-            keyword?.let { translationJsonPath(lang) },
+            escapeLikeWildcards(keyword),
+            translationJsonPath(lang),
             cursorLastScannedAt,
             cursor,
-            PAGE_SIZE + 1,
+            size,
         )
-        if (ids.isEmpty()) return FoodPage(items = emptyList(), nextCursor = null, hasNext = false)
+        if (ids.isEmpty()) return emptyList()
         val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
-        return foodPage(ids.mapNotNull { foodsById[it] }, lang, memberId)
+        return ids.mapNotNull { foodsById[it] }
     }
 
     private fun translationJsonPath(lang: LanguageCode): String? =
