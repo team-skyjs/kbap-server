@@ -35,14 +35,13 @@ class FoodService(
         foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(input: SearchFoodsInput): FoodPage {
-        val rows = if (input.scope == FoodSearchScope.SCANNED) {
-            getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang, input.cursor, PAGE_SIZE + 1)
+    fun searchFoodPage(input: SearchFoodsInput): FoodPage =
+        if (input.scope == FoodSearchScope.SCANNED) {
+            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang)
+            FoodPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
         } else {
-            getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1)
+            foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
         }
-        return foodPage(rows, input.lang, input.memberId)
-    }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
@@ -54,19 +53,8 @@ class FoodService(
             foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
         )
 
-    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> {
-        val cursorLastScannedAt = cursor?.let {
-            scanHistoryRepository.findLastScannedAt(memberId, it)
-                ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
-        }
-        val ids = scanHistoryRepository.findScannedFoodPageIds(
-            memberId,
-            escapeLikeWildcards(keyword),
-            translationJsonPath(lang),
-            cursorLastScannedAt,
-            cursor,
-            size,
-        )
+    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
+        val ids = scanHistoryRepository.findScannedFoodIds(memberId, escapeLikeWildcards(keyword), translationJsonPath(lang))
         if (ids.isEmpty()) return emptyList()
         val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
         return ids.mapNotNull { foodsById[it] }
@@ -177,13 +165,16 @@ class FoodService(
         val items = rows.take(PAGE_SIZE)
         val nextCursor = if (hasNext) items.last().id else null
 
-        val userAvoidedCodes = avoidedCodeNames(memberId)
-
         return FoodPage(
-            items = items.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) },
+            items = summaryViews(items, lang, memberId),
             nextCursor = nextCursor,
             hasNext = hasNext,
         )
+    }
+
+    private fun summaryViews(rows: List<Food>, lang: LanguageCode, memberId: Long?): List<FoodSummaryView> {
+        val userAvoidedCodes = avoidedCodeNames(memberId)
+        return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)

@@ -184,24 +184,19 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("스캔 음식이 21개인 회원이 조회하면") {
-                then("첫 페이지 20건과 커서, 다음 페이지 1건으로 이어진다") {
+                then("페이징 없이 매칭 전체가 최신 스캔순으로 한 번에 내려간다") {
                     val token = accessToken(5604L)
                     (1..21).forEach { i ->
                         seedFood(5700L + i, "스캔페이징$i")
                         seedScan(5604L, 5700L + i, i)
                     }
 
-                    val first = payloadOf(scanned(token))
-                    first.path("items").size() shouldBe 20
-                    first.path("items").first().path("foodId").asLong() shouldBe 5721L
-                    first.path("hasNext").asBoolean().shouldBeTrue()
-                    val nextCursor = first.path("nextCursor").asLong()
-                    nextCursor shouldBe 5702L
-
-                    val second = payloadOf(scanned(token, cursor = nextCursor.toString()))
-                    second.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5701L)
-                    second.path("hasNext").asBoolean().shouldBeFalse()
-                    second.path("nextCursor").isNull.shouldBeTrue()
+                    val payload = payloadOf(scanned(token))
+                    payload.path("items").size() shouldBe 21
+                    payload.path("items").first().path("foodId").asLong() shouldBe 5721L
+                    payload.path("items").last().path("foodId").asLong() shouldBe 5701L
+                    payload.path("hasNext").asBoolean().shouldBeFalse()
+                    payload.path("nextCursor").isNull.shouldBeTrue()
                 }
             }
             `when`("keyword 가 스캔 안 한 음식과도 일치하면") {
@@ -232,23 +227,22 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                     scanned(accessToken(5607L), lang = null).andExpect { status { isBadRequest() } }
                 }
             }
-            `when`("비정상 커서로 조회하면") {
-                then("400 FOOD-002 를 반환한다") {
+            `when`("비정상 형식의 커서로 조회하면") {
+                then("400 FOOD-002 를 반환한다 — 형식 검증은 scope 공통") {
                     scanned(accessToken(5608L), cursor = "abc").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-002") }
                     }
                 }
             }
-            `when`("스캔 이력이 없는 foodId 를 커서로 주면") {
-                then("400 FOOD-002 를 반환한다") {
+            `when`("정상 형식의 커서를 주면") {
+                then("scanned 는 페이징이 없어 커서가 무시되고 전체가 내려간다") {
                     val token = accessToken(5609L)
                     seedFood(5609L, "스캔커서찌개")
                     seedScan(5609L, 5609L, 1)
-                    scanned(token, cursor = "999999").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("FOOD-002") }
-                    }
+                    val payload = payloadOf(scanned(token, cursor = "999999"))
+                    payload.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5609L)
+                    payload.path("hasNext").asBoolean().shouldBeFalse()
                 }
             }
         }
