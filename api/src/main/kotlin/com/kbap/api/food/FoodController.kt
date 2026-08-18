@@ -63,7 +63,10 @@ class FoodController(
             GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        return ResponseEntity.ok(BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId))))
+        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, LanguageCode.from(request.lang))
+        return ResponseEntity.ok(
+            BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews)),
+        )
     }
 
     private fun reviewSummaryOf(foodId: Long, memberId: Long?): FoodDetailResponse.ReviewSummaryResponse {

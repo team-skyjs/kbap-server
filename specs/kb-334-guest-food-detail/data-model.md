@@ -11,14 +11,16 @@
 | `overallRiskStatus` | `RiskLevel` | `RiskLevel?` — 비회원 조회 시 null | FR-001 |
 | 나머지 필드 | — | 무변경 | |
 
-### FoodDetailResponse (API 응답)
+### FoodDetailResponse (API 응답, 2026-08-18 개정 반영)
 
 | 필드 | 현행 | 변경 | 근거 |
 |------|------|------|------|
 | `overallRiskStatus` | `String` | `String?` — 비회원 null | FR-001 |
 | `bookmarked` | `Boolean` (비회원 false) | 무변경 | FR-002 |
-| `ingredients` | `List<IngredientResponse>` (비회원 빈 배열) | 무변경 | 스펙 결정 |
-| `review` | `ReviewSummaryResponse` | 구조 변경 (아래) | FR-003~005 |
+| `ingredients` | 교집합 `{name, iconRef, inclusionPercent, riskStatus}` | 재료 전체 `{code, name, inclusionPercent}` 공통 | FR-007 |
+| `avoidedIngredients` | (없음) | 신설 — `List<{code, riskStatus}>?`, 비회원 null | FR-008 |
+| `review` | `ReviewSummaryResponse` | `reviewSummary` 로 개명 + 구조 변경 (아래) | FR-003~005·009 |
+| `recentReviews` | (없음) | 신설 — 최신순 최대 5개 `ReviewResponse` | FR-009 |
 
 ### FoodDetailResponse.ReviewSummaryResponse
 

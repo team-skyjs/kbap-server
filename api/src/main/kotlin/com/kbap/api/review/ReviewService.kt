@@ -179,34 +179,66 @@ class ReviewService(
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
+    @Transactional(readOnly = true)
+    fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
+        toResponses(
+            reviewRepository.findReviewPage(
+                foodId,
+                null,
+                null,
+                viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
+                viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+                PageRequest.of(0, RECENT_REVIEWS_SIZE),
+            ),
+            viewerMemberId,
+            lang,
+            includeFood = false,
+        )
+
     private fun toPage(rows: List<Review>, viewerMemberId: Long, lang: LanguageCode): Page<ReviewResponse> {
         if (rows.isEmpty()) {
             return Page(items = emptyList(), hasNext = false, nextCursor = null)
         }
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
-        val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
-            .associate { it.id to ReviewAuthorResponse.from(it) }
-        val foodsByFoodId = foodRepository.findAllById(page.map { it.foodId }.toSet())
-            .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
-        val reviewIds = page.map { it.id }
-        val likeCountsByReviewId = reviewLikeRepository.countByReviewIds(reviewIds)
-            .associate { it.reviewId to it.likeCount }
-        val likedReviewIds = reviewLikeRepository.findLikedReviewIds(viewerMemberId, reviewIds).toSet()
         return Page(
-            items = page.map {
-                ReviewResponse.from(
-                    it,
-                    imagePublicBaseUrl,
-                    authorsByMemberId[it.memberId],
-                    likeCount = likeCountsByReviewId[it.id] ?: 0,
-                    likedByMe = it.id in likedReviewIds,
-                    food = foodsByFoodId[it.foodId],
-                )
-            },
+            items = toResponses(page, viewerMemberId, lang, includeFood = true),
             hasNext = hasNext,
             nextCursor = if (hasNext) page.last().id else null,
         )
+    }
+
+    private fun toResponses(
+        page: List<Review>,
+        viewerMemberId: Long?,
+        lang: LanguageCode,
+        includeFood: Boolean,
+    ): List<ReviewResponse> {
+        if (page.isEmpty()) return emptyList()
+        val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
+            .associate { it.id to ReviewAuthorResponse.from(it) }
+        val foodsByFoodId = if (includeFood) {
+            foodRepository.findAllById(page.map { it.foodId }.toSet())
+                .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
+        } else {
+            emptyMap()
+        }
+        val reviewIds = page.map { it.id }
+        val likeCountsByReviewId = reviewLikeRepository.countByReviewIds(reviewIds)
+            .associate { it.reviewId to it.likeCount }
+        val likedReviewIds = viewerMemberId
+            ?.let { reviewLikeRepository.findLikedReviewIds(it, reviewIds).toSet() }
+            .orEmpty()
+        return page.map {
+            ReviewResponse.from(
+                it,
+                imagePublicBaseUrl,
+                authorsByMemberId[it.memberId],
+                likeCount = likeCountsByReviewId[it.id] ?: 0,
+                likedByMe = it.id in likedReviewIds,
+                food = foodsByFoodId[it.foodId],
+            )
+        }
     }
 
     private fun authorOf(memberId: Long): ReviewAuthorResponse =
@@ -229,6 +261,7 @@ class ReviewService(
 
     companion object {
         const val PAGE_SIZE = 20
+        const val RECENT_REVIEWS_SIZE = 5
     }
 }
 

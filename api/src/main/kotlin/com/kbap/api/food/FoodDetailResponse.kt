@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.api.review.RatingSummary
+import com.kbap.api.review.ReviewResponse
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "음식 상세 — 요청 언어 음식명·설명·맵기·대표 이미지·포함 기피성분 목록")
@@ -45,7 +46,10 @@ data class FoodDetailResponse(
     val bookmarked: Boolean,
 
     @field:Schema(description = "리뷰 요약 — 전체 평균 별점·리뷰 수·같은 국적 평균 별점")
-    val review: ReviewSummaryResponse,
+    val reviewSummary: ReviewSummaryResponse,
+
+    @field:Schema(description = "최신순 최근 리뷰(최대 5개) — 리뷰 목록 API 와 동일한 항목 형태(food 는 항상 null). 비회원 조회의 likedByMe 는 항상 false.")
+    val recentReviews: List<ReviewResponse>,
 ) {
     @Schema(description = "음식 상세의 리뷰 요약 묶음 — 전체(overall)·같은 국적(sameCountry) 평점을 같은 형태로 제공")
     data class ReviewSummaryResponse(
@@ -112,7 +116,12 @@ data class FoodDetailResponse(
     )
 
     companion object {
-        fun from(result: GetFoodDetailResult, bookmarked: Boolean, review: ReviewSummaryResponse): FoodDetailResponse =
+        fun from(
+            result: GetFoodDetailResult,
+            bookmarked: Boolean,
+            reviewSummary: ReviewSummaryResponse,
+            recentReviews: List<ReviewResponse>,
+        ): FoodDetailResponse =
             FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
@@ -134,7 +143,8 @@ data class FoodDetailResponse(
                     )
                 },
                 bookmarked = bookmarked,
-                review = review,
+                reviewSummary = reviewSummary,
+                recentReviews = recentReviews,
             )
     }
 }

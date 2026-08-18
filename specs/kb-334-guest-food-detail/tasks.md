@@ -84,13 +84,13 @@
 
 ## Phase 6: User Story 5 - reviewSummary 개명 + recentReviews 동봉 (2026-08-18 확장)
 
-- [ ] T015 [US5] `FoodDetailReviewSectionTest` — Red: 요약이 `reviewSummary` 키로 내려가고 `review` 키 부재, `recentReviews` 가 최신순 최대 5개(`ReviewResponse` 형태), 비회원 `likedByMe` 전부 false 단언
-- [ ] T016 [US5] `ReviewService` — 비회원 조회 가능한 최근 리뷰 로더(`getRecentFoodReviews(foodId, viewerMemberId: Long?, lang)` 5개 고정, 차단/신고 제외는 회원만) 추가
-- [ ] T017 [US5] `FoodDetailResponse`·`FoodController` — `review`→`reviewSummary` 개명, `recentReviews: List<ReviewResponse>` 조립, `FoodApi` 문서 갱신. T015 Green
+- [X] T015 [US5] `FoodDetailReviewSectionTest` — Red: 요약이 `reviewSummary` 키로 내려가고 `review` 키 부재, `recentReviews` 가 최신순 최대 5개(`ReviewResponse` 형태), 비회원 `likedByMe` 전부 false 단언
+- [X] T016 [US5] `ReviewService` — 비회원 조회 가능한 최근 리뷰 로더(`getRecentFoodReviews(foodId, viewerMemberId: Long?, lang)` 5개 고정, 차단/신고 제외는 회원만) 추가
+- [X] T017 [US5] `FoodDetailResponse`·`FoodController` — `review`→`reviewSummary` 개명, `recentReviews: List<ReviewResponse>` 조립, `FoodApi` 문서 갱신. T015 Green
 
 ## Phase 7: Polish (확장분)
 
-- [ ] T018 전체 스위트 그린(`./gradlew test`) + 계약 문서와 실응답 대조, PR #167 본문 갱신
+- [X] T018 전체 스위트 그린(`./gradlew test`) + 계약 문서와 실응답 대조, PR #167 본문 갱신
 
 ---
 
