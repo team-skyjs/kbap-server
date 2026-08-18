@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -24,8 +25,8 @@ class BatchJobTriggerController(
 ) {
     private val jobsByName = jobs.associateBy { it.name }
 
-    @PostMapping("/jobs/{jobName}")
-    fun runJob(@PathVariable jobName: String): ResponseEntity<BatchJobRunResponse> {
+    @PostMapping("/jobs")
+    fun runJob(@RequestParam jobName: String): ResponseEntity<BatchJobRunResponse> {
         val job = jobsByName[jobName]
             ?: return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(BatchJobRunResponse.jobNotFound(jobName, jobsByName.keys))

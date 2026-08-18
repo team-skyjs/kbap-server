@@ -37,7 +37,7 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
         given("상시 기동된 배치 애플리케이션") {
             `when`("등록되지 않은 잡 이름으로 트리거하면") {
                 then("404 와 실행 가능한 잡 목록을 반환한다") {
-                    mockMvc.post("/internal/batch/jobs/unknownJob")
+                    mockMvc.post("/internal/batch/jobs?jobName=unknownJob")
                         .andExpect {
                             status { isNotFound() }
                             jsonPath("$.status") { value("NOT_FOUND") }
@@ -84,7 +84,7 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
                 then("409 와 실행 중인 executionId 를 반환한다") {
                     val runningId = trigger(SlowJobTestConfig.JOB_NAME)
 
-                    mockMvc.post("/internal/batch/jobs/${SlowJobTestConfig.JOB_NAME}")
+                    mockMvc.post("/internal/batch/jobs?jobName=${SlowJobTestConfig.JOB_NAME}")
                         .andExpect {
                             status { isConflict() }
                             jsonPath("$.status") { value("ALREADY_RUNNING") }
@@ -98,7 +98,7 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
     }
 
     private fun trigger(jobName: String): Long {
-        val body = mockMvc.post("/internal/batch/jobs/$jobName")
+        val body = mockMvc.post("/internal/batch/jobs?jobName=$jobName")
             .andExpect { status { isAccepted() } }
             .andReturn().response.contentAsString
         return com.jayway.jsonpath.JsonPath.read<Int>(body, "$.executionId").toLong()
