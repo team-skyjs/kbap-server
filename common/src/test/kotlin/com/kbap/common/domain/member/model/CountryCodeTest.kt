@@ -26,8 +26,8 @@ class CountryCodeTest : BehaviorSpec({
             then("그 국가의 실제 통화가 나온다") {
                 CountryCode.KR.currency shouldBe CurrencyCode.KRW
                 CountryCode.JP.currency shouldBe CurrencyCode.JPY
-                CountryCode.VN.currency shouldBe CurrencyCode.VND
-                CountryCode.TW.currency shouldBe CurrencyCode.TWD
+                CountryCode.IS.currency shouldBe CurrencyCode.ISK
+                CountryCode.RO.currency shouldBe CurrencyCode.RON
             }
         }
 
@@ -46,6 +46,21 @@ class CountryCodeTest : BehaviorSpec({
                 CountryCode.NG.currency shouldBe CurrencyCode.USD
                 CountryCode.AO.currency shouldBe CurrencyCode.USD
                 CountryCode.AR.currency shouldBe CurrencyCode.USD
+            }
+        }
+
+        `when`("제공처 미지원으로 통화가 폐기된 국가를 조회하면") {
+            then("USD 로 대체된다") {
+                CountryCode.VN.currency shouldBe CurrencyCode.USD
+                CountryCode.TW.currency shouldBe CurrencyCode.USD
+                CountryCode.SA.currency shouldBe CurrencyCode.USD
+                CountryCode.AE.currency shouldBe CurrencyCode.USD
+            }
+        }
+
+        `when`("전 국가의 통화를 훑으면") {
+            then("모두 취급 통화 30종 안이다") {
+                CountryCode.entries.forEach { CurrencyCode.from(it.currency.name) shouldBe it.currency }
             }
         }
     }

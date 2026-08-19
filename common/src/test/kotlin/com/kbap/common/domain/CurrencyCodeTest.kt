@@ -1,38 +1,24 @@
 package com.kbap.common.domain
 
-import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
-import java.math.BigDecimal
 
 class CurrencyCodeTest : BehaviorSpec({
 
     given("취급 통화 목록") {
-        `when`("전 통화를 훑으면") {
-            then("모두 0 보다 큰 환율을 갖는다") {
-                CurrencyCode.entries.forEach { currency ->
-                    withClue(currency.name) { (currency.krwPerUnit > BigDecimal.ZERO) shouldBe true }
-                }
+        `when`("전 통화를 나열하면") {
+            then("환율 제공처 지원 통화 전부 + 원화 = 30종이다") {
+                CurrencyCode.entries.map { it.name } shouldContainExactly listOf(
+                    "AUD", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "EUR", "GBP", "HKD",
+                    "HUF", "IDR", "ILS", "INR", "ISK", "JPY", "KRW", "MXN", "MYR", "NOK",
+                    "NZD", "PHP", "PLN", "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
+                )
             }
 
             then("라벨이 비어 있는 통화가 없다") {
-                CurrencyCode.entries.forEach { currency ->
-                    withClue(currency.name) { currency.label.isNotBlank() shouldBe true }
-                }
-            }
-
-            then("기준 통화 KRW 의 환율은 1 이다") {
-                CurrencyCode.KRW.krwPerUnit.compareTo(BigDecimal.ONE) shouldBe 0
-            }
-        }
-    }
-
-    given("1 원 미만 가치의 통화") {
-        `when`("자릿수를 확인하면") {
-            then("4자리로 보존돼 반올림 손실이 없다") {
-                CurrencyCode.VND.krwPerUnit shouldBe BigDecimal("0.0544")
-                CurrencyCode.IDR.krwPerUnit shouldBe BigDecimal("0.0805")
+                CurrencyCode.entries.forEach { it.label.isNotBlank() shouldBe true }
             }
         }
     }
@@ -42,6 +28,17 @@ class CurrencyCodeTest : BehaviorSpec({
             then("해당 통화를 돌려준다") {
                 CurrencyCode.from("KRW") shouldBe CurrencyCode.KRW
                 CurrencyCode.from("JPY") shouldBe CurrencyCode.JPY
+                CurrencyCode.from("ISK") shouldBe CurrencyCode.ISK
+                CurrencyCode.from("RON") shouldBe CurrencyCode.RON
+            }
+        }
+
+        `when`("제공처 미지원으로 폐기된 코드를 주면") {
+            then("null 을 돌려준다") {
+                listOf(
+                    "AED", "BDT", "BHD", "BND", "EGP", "FJD", "JOD", "KHR", "KWD",
+                    "KZT", "MNT", "NPR", "PKR", "QAR", "RUB", "SAR", "TWD", "VND",
+                ).forEach { CurrencyCode.from(it).shouldBeNull() }
             }
         }
 
