@@ -19,9 +19,11 @@ data class ScanV2Response(
 
     @field:Schema(
         description = "요청 currency 파라미터 기준 통화 환산 정보 — 회원 프로필 통화 설정을 읽지 않는다. " +
-            "환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다.",
+            "환산(price ÷ krwPerUnit)과 통화별 반올림은 클라이언트가 수행한다. " +
+            "환율 제공처 조회에 실패한 요청은 이 필드만 null 이고 스캔 결과는 정상이다.",
+        nullable = true,
     )
-    val currency: CurrencyResponse,
+    val currency: CurrencyResponse?,
 ) {
     @Schema(description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
@@ -104,20 +106,20 @@ data class ScanV2Response(
         val riskLevel: String?,
     )
 
-    @Schema(description = "통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
+    @Schema(description = "통화 환산 정보 — 환율 제공처의 최근 고시값(일 1회 갱신 수준)이며 실시간 시세가 아니다")
     data class CurrencyResponse(
-        @field:Schema(description = "회원 프로필 통화의 ISO 4217 코드", example = "USD")
+        @field:Schema(description = "요청 currency 파라미터의 ISO 4217 코드", example = "USD")
         val code: String,
 
-        @field:Schema(description = "해당 통화 1단위당 원화 금액. 클라이언트 환산식: price ÷ krwPerUnit", example = "1416.0000")
+        @field:Schema(description = "해당 통화 1단위당 원화 금액(소수 4자리). 클라이언트 환산식: price ÷ krwPerUnit", example = "1410.0726")
         val krwPerUnit: BigDecimal,
     )
 
     companion object {
-        fun from(result: ScanResult, currency: CurrencyCode): ScanV2Response =
+        fun from(result: ScanResult, currency: CurrencyCode, krwPerUnit: BigDecimal?): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
-                currency = CurrencyResponse(code = currency.name, krwPerUnit = currency.krwPerUnit),
+                currency = krwPerUnit?.let { CurrencyResponse(code = currency.name, krwPerUnit = it) },
                 results = result.items.map {
                     ItemRiskResponse(
                         matched = it.matched,
