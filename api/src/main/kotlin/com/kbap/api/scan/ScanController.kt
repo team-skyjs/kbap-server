@@ -28,6 +28,7 @@ class ScanController(
             request.imagePath!!,
             request.toOcrItems(),
             LanguageCode.from(langRequest.lang),
+            request.requestId,
         )
         return ResponseEntity.ok(BaseResponse.ok(ScanResponse.from(result)))
     }

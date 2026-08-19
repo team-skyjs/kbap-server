@@ -4,7 +4,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -23,7 +25,7 @@ import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@Import(MySqlContainerConfig::class, RedisContainerConfig::class)
 class ScanControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -38,6 +40,9 @@ class ScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var vision: FakeMenuBoardVisionExtractor
+
+    @Autowired
+    private lateinit var reservationStore: ScanReservationStore
 
     init {
         val mapper = jacksonObjectMapper()
@@ -863,6 +868,28 @@ class ScanControllerTest : BehaviorSpec() {
 
                     v2Scan(memberId, path).andExpect { status { isOk() } }
                     scanCountOf(memberId) shouldBe 4
+                }
+            }
+            `when`("이미 처리 중인 requestId 로 스캔이 중복 전달되면") {
+                then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
+                    val memberId = 645L
+                    val path = "scan/645/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    reservationStore.reserve(memberId, "dup-req-645", 0, 3)
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        param("currency", "USD")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "2.0")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(mapOf("imagePath" to path, "requestId" to "dup-req-645"))
+                    }.andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("SCAN-005") }
+                    }
+                    scanCountOf(memberId) shouldBe 0
+                    scanHistoryCount(memberId) shouldBe 0
                 }
             }
             `when`("잠긴 회원이 리뷰를 작성하면") {

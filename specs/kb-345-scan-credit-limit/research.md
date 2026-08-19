@@ -18,13 +18,19 @@
 - **Rationale**: scan() 이 v1/v2 유일 경로라 한 곳 판정으로 충분. 403 은 인증됐지만 이용 자격이 없는 상태(REVIEW_FORBIDDEN 403 선례). 메시지가 곧 해제 방법 안내이고 클라이언트는 code 로 분기.
 - **Alternatives considered**: 컨트롤러 판정 — v1/v2 두 곳 중복. 400 — 요청 잘못이 아니라 자격 문제라 403 이 정확.
 
-## R4. 카운트·동시성 — (재개정 2026-08-19: 원자 선점 + 보상)
+## R4. 카운트·동시성 — (재재개정 2026-08-19: Redis 예약 슬롯)
 
-- **초안 폐기**: "판정(read) 후 성공 시 카운트" 구조는 판정~카운트 사이에 LLM 호출(수 초)이 껴서, 동시 버스트 N개가 전부 게이트를 통과해 **무제한 유료 스캔**이 가능하다는 리뷰 지적으로 폐기 — "1~2회 초과 감수" 전제가 창의 길이를 과소평가했다.
-- **Decision**: 비전 호출 **전에 조건부 원자 UPDATE 로 선점**한다 — `update member set scan_count = scan_count + 1 where id = ? and (scan_unlocked or scan_count < :limit)`, 0행이면 403 SCAN-004. 실패 경로(비전 실패·비메뉴판 등)는 **보상 UPDATE(-1, `scan_count > 0` 가드)** 로 반환 — 실패 미소모(FR-004)는 순효과로 유지된다. 선점·보상은 각각 독립된 짧은 트랜잭션이고 LLM 호출은 트랜잭션 밖(사가의 최소형 — 로컬 커밋 + 보상).
-- **분산 유효성**: 조정자가 앱 인스턴스가 아니라 공유 MySQL — 행 잠금이 전 커넥션을 직렬화하므로 운영 api 2대에서도 성립. 인스턴스 로컬 상태 없음.
-- **감수**: 보상 전 프로세스 크래시 시 무료 1회 유실(빈도 극저·피해 1회 — 복구 인프라 불가). 처리 중 선점분이 scan_count 에 잠깐 반영(랭킹 순간 +1).
-- **Alternatives considered**: 비관 잠금으로 스캔 전체 직렬화 — 외부 호출을 트랜잭션·잠금 안에 가둬 커넥션 고갈(헌법 위배). 낙관 @Version — 같은 효과를 더 복잡하게. Redis 분산락 — DB 원자 UPDATE 로 충분한 문제에 인프라 추가. 전부 기각.
+- **초안 폐기**: "판정(read) 후 성공 시 카운트" 구조는 판정~카운트 사이에 LLM 호출(수 초)이 껴서, 동시 버스트 N개가 전부 게이트를 통과해 **무제한 유료 스캔**이 가능하다는 리뷰 지적으로 폐기.
+- **2차안(조건부 원자 UPDATE 선점 + 보상 UPDATE) 폐기**: MySQL 행 잠금으로 분산 안전은 성립하나, (1) 보상 전 크래시 시 무료 1회 영구 유실, (2) 처리 중 선점분이 `scan_count`(랭킹 데이터)에 순간 오염, (3) 확정 스캔만 담아야 할 컬럼에 in-flight 상태가 섞이는 의미 훼손 — Redis 예약안이 세 가지를 모두 해소해 교체.
+- **Decision (최종)**: **MySQL = Source of Truth**(`scan_count` 는 확정 성공 스캔만), **Redis ZSET = per-request in-flight 예약**.
+  - 키: `scan:reservations:{memberId}`, member=`requestId`(클라이언트 UUID, 미제공 시 서버 생성), score=만료 timestamp.
+  - 예약은 **Lua 스크립트 하나로 원자 실행**: 만료분 ZREMRANGEBYSCORE 정리 → requestId 중복(ZSCORE) 검사 → `dbScanCount + ZCARD >= 3` 검사 → ZADD + PEXPIRE. 결과 1=예약/2=중복(409 SCAN-005)/0=한도(403 SCAN-004).
+  - 성공 순서 엄수: LLM 성공 → **DB scanCount+1 커밋** → 그 후 Redis 예약 제거(commit-before-release — 역순이면 슬롯 반납~커밋 사이 창에 한도 초과 통과 가능).
+  - LLM 실패(비메뉴판 포함): scanCount 미증가, 예약만 제거 — 기회 보존(FR-004).
+  - 크래시·release 실패: 예약 TTL(기본 300초, `SCAN_RESERVATION_TTL_SECONDS`)로 자생 회수 — 무료 횟수 영구 유실 없음.
+  - 해금 회원(`scan_unlocked`)은 예약 로직을 타지 않는다(카운트 증가만 수행 — 랭킹 유지).
+- **경계**: seam `common.port.scan.ScanReservationStore`(Spring-free), 구현 `api.infra.redis.RedisScanReservationStore`(ADR-0018 api 전용 어댑터 위치). LLM 호출은 어떤 DB 트랜잭션·잠금 밖, 앱 로컬 락 없음(EC2 2대).
+- **Alternatives considered**: 비관 잠금 직렬화 — 외부 호출을 잠금 안에 가둠, 기각. 조건부 원자 UPDATE 선점 — 위 폐기 사유. 크레딧 원장 테이블 — 고정 한도 3회에 과설계.
 
 ## R5. 소급·마이그레이션
 

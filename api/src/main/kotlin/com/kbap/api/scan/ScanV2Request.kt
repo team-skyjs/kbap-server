@@ -16,4 +16,12 @@ data class ScanV2Request(
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
     val imagePath: String?,
+
+    @field:Size(max = 64, message = "requestId 는 최대 64자입니다")
+    @field:Schema(
+        description = "스캔 요청 고유 식별자(옵션, UUID 권장). 네트워크 재시도로 같은 요청이 중복 전달돼도 무료 슬롯을 " +
+            "이중으로 예약하지 않기 위한 멱등 키 — 같은 requestId 가 처리 중이면 409(SCAN-005). 미전송 시 서버가 생성한다(멱등 미보장).",
+        example = "3f1c9a2e-8d4b-4f6a-9c1d-2b7e5a0f4c88",
+    )
+    val requestId: String? = null,
 )

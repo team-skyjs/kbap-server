@@ -15,6 +15,9 @@ import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
+import com.kbap.common.port.scan.ScanReservationResult
+import com.kbap.common.port.scan.ScanReservationStore
+import java.util.UUID
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.api.image.ImageUploadService
@@ -28,16 +31,22 @@ class ScanService(
     private val memberService: MemberService,
     private val imageUploadService: ImageUploadService,
     private val visionExtractor: MenuBoardVisionExtractor,
+    private val reservationStore: ScanReservationStore,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scanMenuBoardImage(memberId: Long, imagePath: String, ocrItems: List<OcrItem>, lang: LanguageCode): ScanResult =
-        scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false)
+    fun scanMenuBoardImage(
+        memberId: Long,
+        imagePath: String,
+        ocrItems: List<OcrItem>,
+        lang: LanguageCode,
+        requestId: String?,
+    ): ScanResult = scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false, requestId = requestId)
 
-    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode): ScanResult =
-        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
+    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, requestId: String?): ScanResult =
+        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, requestId = requestId)
 
     private fun scan(
         memberId: Long,
@@ -45,23 +54,38 @@ class ScanService(
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
         requireDetectedMenu: Boolean,
+        requestId: String?,
     ): ScanResult {
         val member = memberService.getMember(memberId)
-        memberService.reserveScan(memberId)
+        if (member.scanUnlocked) {
+            val result = doScan(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
+            memberService.increaseScanCount(memberId)
+            return result
+        }
+
+        val reservationId = requestId ?: UUID.randomUUID().toString()
+        when (reservationStore.reserve(memberId, reservationId, member.scanCount, Member.FREE_SCAN_LIMIT)) {
+            ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+            ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
+            ScanReservationResult.RESERVED -> Unit
+        }
         try {
-            return scanReserved(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
+            val result = doScan(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
+            memberService.increaseScanCount(memberId)
+            releaseReservationQuietly(memberId, reservationId)
+            return result
         } catch (e: Exception) {
-            releaseScanQuietly(memberId)
+            releaseReservationQuietly(memberId, reservationId)
             throw e
         }
     }
 
-    private fun releaseScanQuietly(memberId: Long) {
-        runCatching { memberService.releaseScan(memberId) }
-            .onFailure { log.warn("스캔 선점 반환 실패 — 무료 1회 유실 가능, memberId={}", memberId, it) }
+    private fun releaseReservationQuietly(memberId: Long, reservationId: String) {
+        runCatching { reservationStore.release(memberId, reservationId) }
+            .onFailure { log.warn("스캔 예약 해제 실패 — TTL 만료로 회수됨, memberId={}", memberId, it) }
     }
 
-    private fun scanReserved(
+    private fun doScan(
         member: Member,
         memberId: Long,
         imagePath: String,

@@ -70,3 +70,14 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - 판정~카운트 사이 동시 초과는 감수(헌법) — 동시성 테스트 작성하지 않는다.
 - 재잠금 배치는 별도 태스크(Jira 미등록 상태) — 이 기능 머지 후 등록 권장.
 - 커밋 단위: 단일 feature 커밋.
+
+---
+
+## 재작업 (2026-08-19 — Redis 예약 슬롯 교체, research R4 재재개정)
+
+- [x] R001 seam `common/src/main/kotlin/com/kbap/common/port/scan/ScanReservationStore.kt` — reserve(memberId, requestId, confirmedCount, limit)/release + 결과 enum(RESERVED/LIMIT_EXCEEDED/DUPLICATE_REQUEST)
+- [x] R002 어댑터 `api/src/main/kotlin/com/kbap/api/infra/redis/RedisScanReservationStore.kt` — ZSET `scan:reservations:{memberId}` + Lua(만료 정리→중복→ZCARD 한도→ZADD+PEXPIRE), TTL `kbap.scan.reservation-ttl-seconds`(기본 300)
+- [x] R003 `ScanService.scan` 재배선 — 해금 회원은 예약 미경유, 예약→doScan→DB 커밋→release 순서(commit-before-release), 실패 시 release 만
+- [x] R004 2차안 롤백 — `MemberJpaRepository.reserveScan/releaseScan` 제거, `increaseScanCount` 복원, `MemberScanReservationTest` 삭제
+- [x] R005 requestId — ScanRequest/ScanV2Request 선택 필드(최대 64자), 중복 409 `SCAN-005`(ErrorCode·swagger)
+- [x] R006 테스트 — `RedisScanReservationStoreTest`(동시 5스레드 정확성·중복·만료 회수·멱등 release), ScanControllerTest Redis 컨테이너 추가 + 중복 requestId 409 시나리오

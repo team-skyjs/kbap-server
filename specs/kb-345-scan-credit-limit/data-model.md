@@ -21,6 +21,11 @@ ALTER TABLE member
 ## 쿼리 변경
 
 - `MemberJpaRepository.increaseReviewCount`: `set m.reviewCount = m.reviewCount + 1, m.scanUnlocked = true` — 리뷰 작성 = 즉시·원자 해금.
+
+## Redis (비영속 — in-flight 예약)
+
+- 키 `scan:reservations:{memberId}` (ZSET): member=requestId, score=만료 timestamp(ms). TTL 기본 300초(`SCAN_RESERVATION_TTL_SECONDS`).
+- MySQL 이 Source of Truth — `scan_count` 는 확정 성공 스캔만. Redis 에 scanCount 를 복제하지 않으며, 예약은 성공 커밋 후·실패 시 즉시 제거되고 크래시 시 TTL 로 자생 소멸한다.
 - 신규 쿼리 없음 — 판정은 `ScanService` 가 이미 로드하는 `member` 로 수행.
 
 ## ErrorCode

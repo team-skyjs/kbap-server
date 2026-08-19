@@ -69,9 +69,9 @@ api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt                 # �
 
 ## 구현 노트 (Phase 1 설계 확정)
 
-- (재개정 2026-08-19) 게이트 = `MemberJpaRepository.reserveScan` 조건부 원자 UPDATE(비전 호출 전 선점, 0행 → 403) + 실패 경로 `releaseScan` 보상 — research R4 참조. `Member.isScanAllowed()` 는 게이트가 UPDATE 로 이동하며 제거.
+- (재재개정 2026-08-19) 게이트 = **Redis ZSET 예약 슬롯**(seam `common.port.scan.ScanReservationStore`, 구현 `api.infra.redis.RedisScanReservationStore` — Lua 원자: 만료 정리→requestId 중복→`dbScanCount+ZCARD>=3`→ZADD). 성공 = DB `increaseScanCount` 커밋 후 예약 제거, 실패 = 예약만 제거(횟수 미소모), 크래시 = TTL(기본 300초) 자생 회수. `scan_count` 는 확정 성공만 담는다(Source of Truth). requestId 중복은 409 SCAN-005. research R4 참조. 2차안(DB 조건부 UPDATE 선점+보상)과 `Member.isScanAllowed()` 는 제거.
 - `FREE_SCAN_LIMIT = 3` 은 `Member` companion 상수.
-- 동시성은 치명 경로로 승격(무제한 유료 스캔 노출) — 원자 선점의 동시 테스트(`MemberScanReservationTest`)를 둔다.
+- 동시성은 치명 경로로 승격(무제한 유료 스캔 노출) — 예약 원자성의 동시 테스트(`RedisScanReservationStoreTest`)를 둔다.
 - 리뷰 삭제(`decreaseReviewCount`)는 건드리지 않는다 — 재잠금은 별도 태스크(배치)가 `scanUnlocked && reviewCount = 0` 회원을 회수.
 - OpenAPI 스냅샷 변경(403 응답 추가) 시 갱신 절차대로 재생성.
 

@@ -23,6 +23,14 @@ data class ScanRequest(
     )
     val imagePath: String?,
 
+    @field:Size(max = 64, message = "requestId 는 최대 64자입니다")
+    @field:Schema(
+        description = "스캔 요청 고유 식별자(옵션, UUID 권장). 재시도 중복 전달 시 무료 슬롯 이중 예약을 막는 멱등 키 — " +
+            "같은 requestId 가 처리 중이면 409(SCAN-005). 미전송 시 서버가 생성한다(멱등 미보장).",
+        example = "3f1c9a2e-8d4b-4f6a-9c1d-2b7e5a0f4c88",
+    )
+    val requestId: String? = null,
+
     @field:NotEmpty(message = "items 는 최소 1개 이상이어야 합니다")
     @field:Size(max = MAX_ITEMS, message = "items 는 최대 ${MAX_ITEMS}개입니다")
     @field:Schema(

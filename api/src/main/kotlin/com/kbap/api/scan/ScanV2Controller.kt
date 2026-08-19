@@ -33,6 +33,7 @@ class ScanV2Controller(
             memberId,
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
+            request.requestId,
         )
         return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency)))
     }

@@ -87,16 +87,10 @@ class MemberService(
     }
 
     @Transactional
-    fun reserveScan(memberId: Long) {
-        if (memberRepository.reserveScan(memberId, Member.FREE_SCAN_LIMIT) == 0) {
-            getMember(memberId)
-            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+    fun increaseScanCount(memberId: Long) {
+        if (memberRepository.increaseScanCount(memberId) == 0) {
+            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
-    }
-
-    @Transactional
-    fun releaseScan(memberId: Long) {
-        memberRepository.releaseScan(memberId)
     }
 
     @Transactional
