@@ -2,6 +2,7 @@ package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -12,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
+
+const val IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 
 @Tag(name = "메뉴 스캔", description = "메뉴판 사진 스캔·판정 API")
 @SecurityRequirement(name = "bearerAuth")
@@ -54,12 +57,19 @@ interface ScanApi {
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
-            ApiResponse(responseCode = "409", description = "같은 requestId 의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
+            ApiResponse(responseCode = "409", description = "같은 Idempotency-Key 의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002) — 잠시 후 재시도"),
         ],
     )
     fun scan(
         memberId: Long,
+        @Parameter(
+            name = IDEMPOTENCY_KEY_HEADER,
+            description = "스캔 요청 멱등 키(옵션, UUID 권장). 네트워크 재시도로 같은 요청이 중복 전달돼도 무료 슬롯을 " +
+                "이중으로 예약하지 않는다 — 같은 키가 처리 중이면 409(SCAN-005). 미전송 시 서버가 생성한다(멱등 미보장).",
+            example = "3f1c9a2e-8d4b-4f6a-9c1d-2b7e5a0f4c88",
+        )
+        idempotencyKey: String?,
         @ParameterObject langRequest: ScanLangRequest,
         @SwaggerRequestBody(
             required = true,

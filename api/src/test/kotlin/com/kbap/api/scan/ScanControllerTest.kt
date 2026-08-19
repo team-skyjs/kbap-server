@@ -870,7 +870,7 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 4
                 }
             }
-            `when`("이미 처리 중인 requestId 로 스캔이 중복 전달되면") {
+            `when`("이미 처리 중인 Idempotency-Key 로 스캔이 중복 전달되면") {
                 then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
                     val memberId = 645L
                     val path = "scan/645/menu.jpg"
@@ -882,8 +882,9 @@ class ScanControllerTest : BehaviorSpec() {
                         param("currency", "USD")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         header("X-API-Version", "2.0")
+                        header("Idempotency-Key", "dup-req-645")
                         contentType = MediaType.APPLICATION_JSON
-                        content = mapper.writeValueAsString(mapOf("imagePath" to path, "requestId" to "dup-req-645"))
+                        content = v2Body(path)
                     }.andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("SCAN-005") }

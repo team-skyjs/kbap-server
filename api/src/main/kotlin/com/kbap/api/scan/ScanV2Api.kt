@@ -60,12 +60,19 @@ interface ScanV2Api {
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
-            ApiResponse(responseCode = "409", description = "같은 requestId 의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
+            ApiResponse(responseCode = "409", description = "같은 Idempotency-Key 의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002) — 잠시 후 재시도"),
         ],
     )
     fun scan(
         memberId: Long,
+        @Parameter(
+            name = IDEMPOTENCY_KEY_HEADER,
+            description = "스캔 요청 멱등 키(옵션, UUID 권장). 네트워크 재시도로 같은 요청이 중복 전달돼도 무료 슬롯을 " +
+                "이중으로 예약하지 않는다 — 같은 키가 처리 중이면 409(SCAN-005). 미전송 시 서버가 생성한다(멱등 미보장).",
+            example = "3f1c9a2e-8d4b-4f6a-9c1d-2b7e5a0f4c88",
+        )
+        idempotencyKey: String?,
         @ParameterObject langRequest: ScanLangRequest,
         @Parameter(
             description = "환산 통화의 ISO 4217 코드(예: USD·JPY). 필수 — 회원 프로필 통화 설정과 무관하게 " +

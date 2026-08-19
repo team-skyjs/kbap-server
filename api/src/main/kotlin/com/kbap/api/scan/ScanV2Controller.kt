@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -24,6 +25,7 @@ class ScanV2Controller(
     @PostMapping
     override fun scan(
         @AuthMemberId memberId: Long,
+        @RequestHeader(IDEMPOTENCY_KEY_HEADER, required = false) idempotencyKey: String?,
         @Valid @ModelAttribute langRequest: ScanLangRequest,
         @RequestParam currency: String,
         @Valid @RequestBody request: ScanV2Request,
@@ -33,7 +35,7 @@ class ScanV2Controller(
             memberId,
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
-            request.requestId,
+            idempotencyKey,
         )
         return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency)))
     }
