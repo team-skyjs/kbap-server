@@ -64,6 +64,9 @@ class Member(
     @Column(name = "scan_count", nullable = false)
     var scanCount: Int = 0,
 
+    @Column(name = "scan_unlocked", nullable = false)
+    var scanUnlocked: Boolean = false,
+
     @Column(name = "review_count", nullable = false)
     var reviewCount: Int = 0,
 
@@ -146,12 +149,15 @@ class Member(
         onboardingCompleted = true
     }
 
+    fun canScan(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT
+
     fun withdraw() {
         providerUid = deletedProviderUid(id)
         delete()
     }
 
     companion object {
+        const val FREE_SCAN_LIMIT: Int = 3
         const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"
 
         private fun deletedProviderUid(memberId: Long): String = "$DELETED_PROVIDER_UID_PREFIX$memberId"

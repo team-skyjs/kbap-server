@@ -47,6 +47,9 @@ class ScanService(
         requireDetectedMenu: Boolean,
     ): ScanResult {
         val member = memberService.getMember(memberId)
+        if (!member.canScan()) {
+            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+        }
 
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
