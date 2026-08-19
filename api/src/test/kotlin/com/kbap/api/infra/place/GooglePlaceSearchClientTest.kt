@@ -25,6 +25,7 @@ private const val SUCCESS_BODY = """
 {
   "places": [
     {
+      "id": "ChIJgangnam001",
       "displayName": { "text": "한밥집 강남점", "languageCode": "ko" },
       "formattedAddress": "서울 강남구 테헤란로 123",
       "location": { "latitude": 37.4979502, "longitude": 127.0276368 }
@@ -72,6 +73,7 @@ class GooglePlaceSearchClientTest : BehaviorSpec({
                 val result = client.searchNearbyRestaurants(LNG, LAT, LanguageCode.KO)
 
                 result.size shouldBe 2
+                result[0].placeId shouldBe "ChIJgangnam001"
                 result[0].name shouldBe "한밥집 강남점"
                 result[0].address shouldBe "서울 강남구 테헤란로 123"
                 result[0].latitude shouldBe BigDecimal("37.4979502")

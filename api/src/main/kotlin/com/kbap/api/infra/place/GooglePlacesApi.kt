@@ -38,6 +38,7 @@ internal data class GooglePlacesResponse(
 )
 
 internal data class GooglePlace(
+    val id: String? = null,
     val displayName: GoogleLocalizedText? = null,
     val formattedAddress: String? = null,
     val location: GoogleCoordinates? = null,
@@ -45,6 +46,7 @@ internal data class GooglePlace(
     fun toFoundPlace(): FoundPlace? {
         val name = displayName?.text?.takeIf { it.isNotBlank() } ?: return null
         return FoundPlace(
+            placeId = id?.takeIf { it.isNotBlank() },
             name = name,
             address = formattedAddress?.takeIf { it.isNotBlank() },
             latitude = location?.latitude?.let(BigDecimal::valueOf),

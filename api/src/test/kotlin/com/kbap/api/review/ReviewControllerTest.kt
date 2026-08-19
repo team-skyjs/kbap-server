@@ -142,11 +142,13 @@ class ReviewControllerTest : BehaviorSpec() {
         )
 
         fun placeBody(
+            placeId: String? = "ChIJgangnam001",
             name: String? = "한밥집 강남점",
             address: String? = "서울 강남구 테헤란로 123",
             latitude: Double? = 37.4979502,
             longitude: Double? = 127.0276368,
         ): Map<String, Any?> = buildMap {
+            placeId?.let { put("placeId", it) }
             name?.let { put("name", it) }
             address?.let { put("address", it) }
             latitude?.let { put("latitude", it) }
@@ -167,13 +169,13 @@ class ReviewControllerTest : BehaviorSpec() {
         fun storedPlaceOf(reviewId: Long): List<String?> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "SELECT place_name, place_address, place_latitude, place_longitude " +
+                    "SELECT place_name, place_address, place_latitude, place_longitude, place_id, place_address_ko " +
                         "FROM food_review WHERE id = ?",
                 ).use { ps ->
                     ps.setLong(1, reviewId)
                     ps.executeQuery().use { rs ->
                         rs.next().shouldBeTrue()
-                        (1..4).map { rs.getString(it) }
+                        (1..6).map { rs.getString(it) }
                     }
                 }
             }
@@ -501,6 +503,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         .andExpect {
                             status { isOk() }
                             jsonPath("$.payload.place.source") { value("GOOGLE_PLACE") }
+                            jsonPath("$.payload.place.placeId") { value("ChIJgangnam001") }
                             jsonPath("$.payload.place.name") { value("한밥집 강남점") }
                             jsonPath("$.payload.place.address") { value("서울 강남구 테헤란로 123") }
                             jsonPath("$.payload.place.latitude") { value(37.4979502) }
@@ -510,7 +513,7 @@ class ReviewControllerTest : BehaviorSpec() {
                     val reviewId = reviewIdOf(result)
                     storedPlaceSourceOf(reviewId) shouldBe "GOOGLE_PLACE"
                     storedPlaceOf(reviewId) shouldBe
-                        listOf("한밥집 강남점", "서울 강남구 테헤란로 123", "37.4979502", "127.0276368")
+                        listOf("한밥집 강남점", "서울 강남구 테헤란로 123", "37.4979502", "127.0276368", "ChIJgangnam001", null)
                 }
             }
 
@@ -562,7 +565,7 @@ class ReviewControllerTest : BehaviorSpec() {
                     val reviewId = reviewIdOf(result)
                     storedPlaceSourceOf(reviewId) shouldBe "AUTHOR_LOCATION"
                     storedPlaceOf(reviewId) shouldBe
-                        listOf(null, null, "37.4979502", "127.0276368")
+                        listOf(null, null, "37.4979502", "127.0276368", null, null)
                 }
             }
 
@@ -581,7 +584,7 @@ class ReviewControllerTest : BehaviorSpec() {
 
                     val reviewId = reviewIdOf(result)
                     storedPlaceSourceOf(reviewId) shouldBe "MANUAL"
-                    storedPlaceOf(reviewId) shouldBe listOf("우리동네밥집", null, null, null)
+                    storedPlaceOf(reviewId) shouldBe listOf("우리동네밥집", null, null, null, null, null)
                 }
             }
 
@@ -607,7 +610,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.place") { value(null) }
                     }
 
-                    storedPlaceOf(reviewIdOf(result)) shouldBe listOf(null, null, null, null)
+                    storedPlaceOf(reviewIdOf(result)) shouldBe listOf(null, null, null, null, null, null)
                 }
             }
 
@@ -619,7 +622,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.place") { value(null) }
                     }
 
-                    storedPlaceOf(reviewIdOf(result)) shouldBe listOf(null, null, null, null)
+                    storedPlaceOf(reviewIdOf(result)) shouldBe listOf(null, null, null, null, null, null)
                 }
             }
 
@@ -641,7 +644,7 @@ class ReviewControllerTest : BehaviorSpec() {
                     }
 
                     storedPlaceOf(reviewIdOf(result)) shouldBe
-                        listOf("한밥집 강남점", "서울 강남구 테헤란로 123", null, null)
+                        listOf("한밥집 강남점", "서울 강남구 테헤란로 123", null, null, null, null)
                 }
             }
 
@@ -703,7 +706,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.place") { value(null) }
                     }
 
-                    storedPlaceOf(reviewId) shouldBe listOf(null, null, null, null)
+                    storedPlaceOf(reviewId) shouldBe listOf(null, null, null, null, null, null)
                 }
             }
 

@@ -85,7 +85,7 @@ class GooglePlaceSearchClient internal constructor(
 
     companion object {
         const val BASE_URL = "https://places.googleapis.com"
-        const val FIELD_MASK = "places.displayName,places.formattedAddress,places.location"
+        const val FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location"
         const val RESTAURANT_TYPE = "restaurant"
         const val RESULT_LIMIT = 20
         const val NEARBY_RADIUS_METERS = 500.0

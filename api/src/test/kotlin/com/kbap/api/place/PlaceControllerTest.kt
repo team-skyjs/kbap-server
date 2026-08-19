@@ -89,6 +89,7 @@ class PlaceControllerTest : BehaviorSpec() {
             }
 
         val foundPlace = FoundPlace(
+            placeId = "ChIJgangnam001",
             name = "한밥집 강남점",
             address = "서울 강남구 테헤란로 123",
             latitude = BigDecimal("37.4979502"),
@@ -105,6 +106,7 @@ class PlaceControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                         jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].placeId") { value("ChIJgangnam001") }
                         jsonPath("$.payload.items[0].name") { value("한밥집 강남점") }
                         jsonPath("$.payload.items[0].address") { value("서울 강남구 테헤란로 123") }
                         jsonPath("$.payload.items[0].latitude") { value(37.4979502) }

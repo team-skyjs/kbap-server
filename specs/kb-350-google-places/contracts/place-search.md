@@ -9,7 +9,7 @@
 
 ```json
 { "success": true, "payload": { "items": [
-  { "name": "한밥집 강남점", "address": "서울 강남구 테헤란로 123", "latitude": 37.4979502, "longitude": 127.0276368 }
+  { "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4", "name": "한밥집 강남점", "address": "서울 강남구 테헤란로 123", "latitude": 37.4979502, "longitude": 127.0276368 }
 ] } }
 ```
 
@@ -19,7 +19,7 @@
 - 응답: 관련도순 **최대 20건 단일 응답** — **`hasNext` 필드 삭제** (페이징 없음)
 
 ```json
-{ "success": true, "payload": { "items": [ { "name": "...", "address": "...", "latitude": ..., "longitude": ... } ] } }
+{ "success": true, "payload": { "items": [ { "placeId": "...", "name": "...", "address": "...", "latitude": ..., "longitude": ... } ] } }
 ```
 
 ## 리뷰 장소 출처 (place.source)
@@ -31,10 +31,12 @@
 | `MANUAL` / `AUTHOR_LOCATION` | 불변 |
 
 - 리뷰 작성/수정 요청의 `place.source` 에 `GOOGLE_PLACE` 허용, 조회 응답에도 노출.
+- **`place.placeId` 신설** — 검색 응답의 `placeId` 를 그대로 보낸다(선택, 최대 255자). `GOOGLE_PLACE` 출처(name+좌표)일 때만 저장되고 MANUAL·AUTHOR_LOCATION 에선 무시된다. 조회 응답 `place.placeId` 로 되돌아온다(그 외 출처는 null).
+- 식당명·주소는 **작성자가 검색한 언어의 스냅샷**으로 저장·노출된다. 조회자 언어로 다시 번역하지 않는다(호출 비용). 한국어 주소는 백오피스가 `placeId` 로 필요할 때 조회하는 후속 경로용 컬럼(`place_address_ko`)만 선점, 지금은 항상 null·응답 미노출.
 
 ## 클라이언트 공유 요점
 
 0. **`lang` 파라미터 필수 신설** — 다른 API 와 같은 언어 규칙(ko·zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es, 누락 400). 결과 식당명·주소가 해당 언어로 내려온다.
 1. 검색 응답에서 `hasNext` 가 사라지고 `page` 요청 파라미터가 무의미해진다 — 더보기 UI 제거.
-2. 리뷰 작성 시 검색 결과 선택이면 `source: "GOOGLE_PLACE"` 로 전송.
+2. 리뷰 작성 시 검색 결과 선택이면 `source: "GOOGLE_PLACE"` 로 전송하고, **검색 응답의 `placeId` 를 `place.placeId` 로 함께 보낸다.**
 3. 과거 리뷰 조회에는 `KAKAO_PLACE` 가 계속 내려온다 — 분기 유지 필요.

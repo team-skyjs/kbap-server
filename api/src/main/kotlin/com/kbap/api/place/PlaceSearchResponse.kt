@@ -28,6 +28,9 @@ data class PlaceSearchListResponse(
 
 @Schema(description = "검색된 식당 — 이 값을 리뷰 작성 요청의 place 로 그대로 보낸다")
 data class PlaceItemResponse(
+    @field:Schema(description = "Google 장소 식별자(언어 무관) — 리뷰 작성 요청의 place.placeId 로 그대로 보낸다", example = "ChIJN1t_tDeuEmsRUsoyG83frY4")
+    val placeId: String?,
+
     @field:Schema(description = "식당명(요청 언어, 번역 부재 시 현지어)", example = "한밥집 강남점")
     val name: String,
 
@@ -43,6 +46,7 @@ data class PlaceItemResponse(
     companion object {
         fun from(place: FoundPlace): PlaceItemResponse =
             PlaceItemResponse(
+                placeId = place.placeId,
                 name = place.name,
                 address = place.address,
                 latitude = place.latitude,
