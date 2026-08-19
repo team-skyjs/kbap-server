@@ -12,7 +12,7 @@ data class ScanResult(
         val name: String?,
         val koreanName: String?,
         val price: Int?,
-        val similarFood: SimilarFood? = null,
+        val imageRef: String,
         val avoidances: List<AvoidanceOverlap>? = emptyList(),
     )
 
@@ -21,13 +21,5 @@ data class ScanResult(
         val name: String,
         val overlapped: Boolean,
         val riskLevel: String?,
-    )
-
-    data class SimilarFood(
-        val foodId: Long,
-        val name: String,
-        val koreanName: String?,
-        val description: String,
-        val imageRef: String?,
     )
 }

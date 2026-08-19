@@ -13,7 +13,7 @@ import org.springdoc.core.annotations.ParameterObject
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
 
-@Tag(name = "메뉴 스캔 v2", description = "메뉴판 사진 스캔·판정 API — 서버 OCR + 유사 음식 폴백. 경로 /api/scans + X-API-Version 2.0 이상")
+@Tag(name = "메뉴 스캔 v2", description = "메뉴판 사진 스캔·판정 API — 서버 OCR. 경로 /api/scans + X-API-Version 2.0 이상")
 @SecurityRequirement(name = "bearerAuth")
 interface ScanV2Api {
     @Operation(
@@ -29,17 +29,16 @@ interface ScanV2Api {
             | 요청 | `imagePath` + `items`(클라이언트 OCR, 필수) | `imagePath` 만 |
             | 판독 근거 | 사진 + 클라이언트 OCR 병용 | **사진 단독** |
             | 응답 `idx` | 있음(OCR 항목 매칭 키) | **없음** — 클라이언트가 그릴 박스를 서버가 알지 못한다 |
-            | 유사 음식 폴백 | 없음 | 미등록 메뉴에 `similarFood` 대체 제공 |
 
             v1 은 구버전 앱 계약으로 동결한다. 신규 클라이언트는 이 API 를 쓴다.
 
             ## 흐름
             1. 서버 비전이 사진에서 메뉴별 표기 이름·표준 한국어 이름·가격을 추출한다(가격 축약 표기는 원 단위 정수로 복원).
             2. 표준 한국어명으로 저장된 음식을 조회한다. 처음 보는 음식이면 조사 대기 상태로 등록한다.
-            3. 매칭에 실패한(미등록) 메뉴는 벡터 유사 검색으로 비슷한 등록 음식을 찾아 `similarFood` 로 함께 준다.
-               임계 미달·검색 장애·미구성이면 해당 항목만 `similarFood: null` 이고 스캔 자체는 성공한다.
+            3. 매칭에 실패한(미등록) 메뉴는 대체 없이 추출 결과 그대로(정제 한국어명·가격·riskLevel UNKNOWN) 내려간다 — v1 과 동일 원칙.
+            4. 항목마다 음식 사진 URL(`imageRef`)이 함께 내려간다 — 매칭 음식은 대표 이미지, 비매칭·이미지 없는 음식은 디폴트 음식 이미지.
 
-            메뉴판이 아닌 사진 등 추출 항목이 0개면 `results` 가 빈 배열인 정상 응답이다(실패 아님).
+            메뉴판이 아닌 사진 등 추출 항목이 0개면 400(SCAN-003)으로 거절한다 — 재촬영 안내.
 
             ## 언어
             표시 언어는 **요청 파라미터 `lang` 만으로** 정해진다. 지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es.
@@ -53,7 +52,7 @@ interface ScanV2Api {
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격·유사 음식 반환"),
+            ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
                 description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·지원하지 않는 통화 코드(MEMBER-010)",
