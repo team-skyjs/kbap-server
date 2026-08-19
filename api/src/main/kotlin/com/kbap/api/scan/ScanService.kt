@@ -77,6 +77,7 @@ class ScanService(
                 name = if (matched) food!!.displayName(lang) else koreanName,
                 koreanName = koreanName,
                 price = menu.priceKrw,
+                imageRef = foodService.resolveImageUrlOrDefault(food.takeIf { matched }),
                 avoidances = toAvoidances(member, matched, food, orderedAvoidedCodes, avoidanceCatalog, lang),
             )
         }

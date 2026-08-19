@@ -12,6 +12,7 @@ data class ScanResult(
         val name: String?,
         val koreanName: String?,
         val price: Int?,
+        val imageRef: String,
         val avoidances: List<AvoidanceOverlap>? = emptyList(),
     )
 

@@ -116,6 +116,14 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun setFoodImage(koreanName: String, imageRef: String): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE food SET image_ref = ? WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, imageRef); ps.setString(2, koreanName)
+                    ps.executeUpdate()
+                }
+            }
+
         fun updateDisplayName(matchKey: String, displayName: String): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement("UPDATE food SET display_name = ? WHERE korean_name = ?").use { ps ->
@@ -769,6 +777,7 @@ class ScanControllerTest : BehaviorSpec() {
                     val path = "scan/601/menu.jpg"
                     seedVerifiedImage(memberId, path)
                     seedReadyFood("서버김치찌개", """{"en":"Server Kimchi Stew"}""")
+                    setFoodImage("서버김치찌개", "images/webp/server-kimchi.webp")
                     vision.program(path, listOf(ExtractedMenu("Kimchi 서버김치찌개", "서버김치찌개", 9000, matchedIdx = null)))
 
                     v2Scan(memberId, path).andExpect {
@@ -777,6 +786,7 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].name") { value("서버김치찌개") }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
+                        jsonPath("$.payload.results[0].imageRef") { value("https://cdn.test/images/webp/server-kimchi.webp") }
                     }
 
                     vision.receivedOcrItems[path] shouldBe emptyList()
@@ -832,6 +842,7 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
                         jsonPath("$.payload.results[0].koreanName") { value("완전미등록찌개630") }
                         jsonPath("$.payload.results[0].price") { value(12000) }
+                        jsonPath("$.payload.results[0].imageRef") { value("https://cdn.test/images/webp/default_miss_food/food_not_found.png") }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     responseBody shouldNotContain "similarFood"
                 }

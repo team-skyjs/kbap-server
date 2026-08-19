@@ -193,6 +193,10 @@ class FoodService(
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
+    fun resolveImageUrlOrDefault(food: Food?): String =
+        food?.let { resolveImageUrl(it) }
+            ?: requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, DEFAULT_FOOD_IMAGE_PATH))
+
     private fun escapeLikeWildcards(keyword: String): String =
         keyword
             .replace("\\", "\\\\")
@@ -206,5 +210,6 @@ class FoodService(
 
     companion object {
         const val PAGE_SIZE = 20
+        const val DEFAULT_FOOD_IMAGE_PATH = "images/webp/default_miss_food/food_not_found.png"
     }
 }

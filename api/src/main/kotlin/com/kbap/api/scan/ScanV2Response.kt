@@ -68,6 +68,13 @@ data class ScanV2Response(
         val price: Int?,
 
         @field:Schema(
+            description = "음식 사진 URL. matched=true 면 음식 대표 이미지, 비매칭이거나 대표 이미지가 없으면 " +
+                "디폴트 음식 이미지 경로가 내려간다 — 항상 값이 있다.",
+            example = "https://cdn.example.com/images/webp/kimchi-stew.webp",
+        )
+        val imageRef: String,
+
+        @field:Schema(
             description = "요청 회원의 기피성분 전체와 이 메뉴와의 겹침 여부. 온보딩 미완료(프로필 없음) 회원은 null. " +
                 "프로필은 있으나 기피 미등록이면 빈 배열. matched=false(degraded 포함)면 항상 빈 배열 — 겹침 판정 불가" +
                 "(riskLevel UNKNOWN 과 일관). 순서는 성분 카탈로그 선언 순서로 고정.",
@@ -119,6 +126,7 @@ data class ScanV2Response(
                         name = it.name,
                         koreanName = it.koreanName,
                         price = it.price,
+                        imageRef = it.imageRef,
                         avoidances = it.avoidances?.map { avoidance ->
                             AvoidanceOverlapResponse(
                                 code = avoidance.code,

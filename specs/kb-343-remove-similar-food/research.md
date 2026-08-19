@@ -26,3 +26,9 @@
 
 - **Decision**: 기존 `ScanControllerTest` 의 similarFood 시나리오를 "필드 부재" 검증으로 전환(Red: `similarFood` 가 응답에 존재하지 않음 + 비매칭 항목의 이름·가격·UNKNOWN 유지 + 검색 미호출). v2 빈 추출 400·v1 무변경·매칭 항목 회귀는 기존 테스트 유지로 커버.
 - **Rationale**: 제거 기능의 Red 는 "없어야 할 것이 아직 있음"으로 표현된다.
+
+## R6. (재개정 2026-08-19) v2 항목 imageRef 신설
+
+- **Decision**: v2 항목 공통으로 `imageRef: String`(항상 값) 신설 — 매칭 음식은 `resolveImageUrl`(대표 이미지), 비매칭·대표 이미지 부재는 디폴트 `images/webp/default_miss_food/food_not_found.png`(S3 업로드 완료, `FoodService.DEFAULT_FOOD_IMAGE_PATH` 상수). v1 은 동결 계약이라 제외.
+- **Rationale**: similarFood 제거로 응답에서 이미지가 사라졌는데 스캔 카드에 사진 노출 요구가 확정됨 — 상세 후속 조회 없이 카드 렌더 가능. non-null 로 고정해 클라이언트 분기(placeholder) 제거.
+- **Alternatives considered**: nullable imageRef(비매칭 null) — 클라이언트 placeholder 분기 필요, 원 요구(디폴트 path 서버 제공)와 불일치. 기각.
