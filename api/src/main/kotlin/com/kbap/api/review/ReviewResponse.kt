@@ -103,8 +103,11 @@ data class ReviewResponse(
 
 @Schema(description = "리뷰에 저장된 위치 정보 — 각 항목은 저장 당시 결측이면 null")
 data class ReviewPlaceResponse(
-    @field:Schema(description = "위치 출처 — KAKAO_PLACE(검색에서 고른 식당) / MANUAL(사용자 입력 식당명 텍스트) / AUTHOR_LOCATION(작성자 좌표, 식당 항목 null)")
+    @field:Schema(description = "위치 출처 — GOOGLE_PLACE(검색에서 고른 식당) / MANUAL(사용자 입력 식당명 텍스트) / AUTHOR_LOCATION(작성자 좌표, 식당 항목 null) / KAKAO_PLACE(과거 저장분)")
     val source: PlaceSource?,
+
+    @field:Schema(description = "Google 장소 식별자(GOOGLE_PLACE 출처일 때만, 그 외 null)", example = "ChIJN1t_tDeuEmsRUsoyG83frY4")
+    val placeId: String?,
 
     @field:Schema(description = "식당명", example = "한밥집 강남점")
     val name: String?,
@@ -122,6 +125,7 @@ data class ReviewPlaceResponse(
         fun from(place: ReviewPlace): ReviewPlaceResponse =
             ReviewPlaceResponse(
                 source = place.source,
+                placeId = place.placeId,
                 name = place.name,
                 address = place.address,
                 latitude = place.latitude,
