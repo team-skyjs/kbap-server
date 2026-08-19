@@ -51,13 +51,14 @@ class ScanService(
         try {
             return scanReserved(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
         } catch (e: Exception) {
-            try {
-                memberService.releaseScan(memberId)
-            } catch (releaseFailure: Exception) {
-                log.warn("스캔 선점 반환 실패 — memberId={}", memberId, releaseFailure)
-            }
+            releaseScanQuietly(memberId)
             throw e
         }
+    }
+
+    private fun releaseScanQuietly(memberId: Long) {
+        runCatching { memberService.releaseScan(memberId) }
+            .onFailure { log.warn("스캔 선점 반환 실패 — 무료 1회 유실 가능, memberId={}", memberId, it) }
     }
 
     private fun scanReserved(
