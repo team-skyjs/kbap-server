@@ -151,22 +151,22 @@ class MemberTest : BehaviorSpec({
         }
     }
 
-    given("Member.canScan — 스캔 이용 판정") {
+    given("Member.isScanAllowed — 스캔 이용 판정") {
         `when`("성공 스캔이 3회 미만이면") {
             then("해금 여부와 무관하게 스캔할 수 있다") {
-                Member.signUp(googleIdentity()).apply { scanCount = 0 }.canScan() shouldBe true
-                Member.signUp(googleIdentity()).apply { scanCount = 2 }.canScan() shouldBe true
+                Member.signUp(googleIdentity()).apply { scanCount = 0 }.isScanAllowed() shouldBe true
+                Member.signUp(googleIdentity()).apply { scanCount = 2 }.isScanAllowed() shouldBe true
             }
         }
         `when`("성공 스캔이 3회 이상이고 해금되지 않았으면") {
             then("스캔할 수 없다 — 경계 3 포함") {
-                Member.signUp(googleIdentity()).apply { scanCount = 3 }.canScan() shouldBe false
-                Member.signUp(googleIdentity()).apply { scanCount = 10 }.canScan() shouldBe false
+                Member.signUp(googleIdentity()).apply { scanCount = 3 }.isScanAllowed() shouldBe false
+                Member.signUp(googleIdentity()).apply { scanCount = 10 }.isScanAllowed() shouldBe false
             }
         }
         `when`("해금된 회원이면") {
             then("횟수와 무관하게 스캔할 수 있다") {
-                Member.signUp(googleIdentity()).apply { scanCount = 10; scanUnlocked = true }.canScan() shouldBe true
+                Member.signUp(googleIdentity()).apply { scanCount = 10; scanUnlocked = true }.isScanAllowed() shouldBe true
             }
         }
     }

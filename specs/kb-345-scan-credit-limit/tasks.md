@@ -10,12 +10,12 @@
 
 ## Phase 1: Foundational (Blocking Prerequisites)
 
-**Purpose**: `scan_unlocked` 컬럼 + SCAN-004 + `Member.canScan()` 판정식.
+**Purpose**: `scan_unlocked` 컬럼 + SCAN-004 + `Member.isScanAllowed()` 판정식.
 
 - [x] T001 [P] Flyway 마이그레이션 — `api/src/main/resources/db/migration/V<생성시각>__member_scan_unlocked.sql`: `ALTER TABLE member ADD COLUMN scan_unlocked tinyint(1) NOT NULL DEFAULT 0` (파일명 timestamp 포맷, 백필 없음)
 - [x] T002 [P] 에러 코드 추가 — `common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt`: `SCAN_LIMIT_EXCEEDED("SCAN-004", 403, "무료 스캔 횟수를 모두 사용했습니다. 리뷰를 작성하면 무제한으로 이용할 수 있어요")`
-- [x] T003 **Red(도메인)**: `common/src/test/kotlin/com/kbap/common/domain/member/model/MemberTest.kt` 에 `canScan` 시나리오 추가 — (1) scanCount 0·2 → true, (2) scanCount 3·10 + 미해금 → false(경계 3 포함), (3) scanCount 10 + 해금 → true. 실행해 **실패(Red) 확인**(컴파일 에러도 Red)
-- [x] T004 도메인 확장(Green) — `common/src/main/kotlin/com/kbap/common/domain/member/model/Member.kt`: `@Column(name = "scan_unlocked", nullable = false) var scanUnlocked: Boolean = false` 필드, `FREE_SCAN_LIMIT = 3` companion 상수, `fun canScan(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT`. `./gradlew :common:test --tests "*MemberTest"` 그린
+- [x] T003 **Red(도메인)**: `common/src/test/kotlin/com/kbap/common/domain/member/model/MemberTest.kt` 에 `isScanAllowed` 시나리오 추가 — (1) scanCount 0·2 → true, (2) scanCount 3·10 + 미해금 → false(경계 3 포함), (3) scanCount 10 + 해금 → true. 실행해 **실패(Red) 확인**(컴파일 에러도 Red)
+- [x] T004 도메인 확장(Green) — `common/src/main/kotlin/com/kbap/common/domain/member/model/Member.kt`: `@Column(name = "scan_unlocked", nullable = false) var scanUnlocked: Boolean = false` 필드, `FREE_SCAN_LIMIT = 3` companion 상수, `fun isScanAllowed(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT`. `./gradlew :common:test --tests "*MemberTest"` 그린
 
 **Checkpoint**: `./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"` 그린 — 기존 회귀 없음(컬럼 DEFAULT 하위호환).
 
@@ -28,7 +28,7 @@
 **Independent Test**: scan_count=3·리뷰 0건 회원 스캔 → 403. 실패 스캔 미소모. 해금 회원은 통과.
 
 - [x] T005 [US1] **Red**: `api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt` 시나리오 추가(scan_count 는 SQL UPDATE 시드) — (1) scan_count=3·미해금 회원 v2 스캔 → 403 SCAN-004, (2) 반복 시도 계속 403 + scan_count 불변·scan_history 0건(비전 호출 전 거절 — vision.program 없이도 403 이어야 함), (3) scan_count=2 회원 비메뉴판 실패(400 SCAN-003) 후 scan_count 불변 → 이어서 성공 스캔 가능(3회째), (4) v1 경로도 scan_count=3 이면 403, (5) scan_count=3 + scan_unlocked=1 → 정상 200. 실행해 **실패(Red) 확인**
-- [x] T006 [US1] 판정 구현(Green) — `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt`: `scan()` 의 member 로드 직후 `if (!member.canScan()) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)` (이미지 검증·비전 호출 전). `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt`·`ScanV2Api.kt` 에 403 응답 문서 추가. **Green 확인**: `./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"`
+- [x] T006 [US1] 판정 구현(Green) — `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt`: `scan()` 의 member 로드 직후 `if (!member.isScanAllowed()) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)` (이미지 검증·비전 호출 전). `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt`·`ScanV2Api.kt` 에 403 응답 문서 추가. **Green 확인**: `./gradlew :api:test --tests "com.kbap.api.scan.ScanControllerTest"`
 
 **Checkpoint**: 제한 경로 완결(MVP).
 

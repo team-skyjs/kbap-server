@@ -35,7 +35,7 @@
 - **I. Test-First**: 4회째 403·실패 미소모·해금 즉시 시나리오 Red 선작성 후 구현. 통과.
 - **II. Bounded Contexts**: member 도메인(플래그·UPDATE)과 api scan 기능(판정) — 기존 방향 그대로(scan→member 는 이미 소비 중). 통과.
 - **III. Layered Dependency Direction**: api → common 유지. 통과.
-- **IV. Persistence Ownership**: 컬럼은 member 도메인 소유, 해금은 리포지토리 원자 UPDATE(카운트 UPDATE 와 동일 패턴). 판정식은 Member 도메인 메서드(`canScan()`)로 엔티티가 소유. 통과.
+- **IV. Persistence Ownership**: 컬럼은 member 도메인 소유, 해금은 리포지토리 원자 UPDATE(카운트 UPDATE 와 동일 패턴). 판정식은 Member 도메인 메서드(`isScanAllowed()`)로 엔티티가 소유. 통과.
 - **V. Domain Content Language Policy**: 무관(숫자·불리언 정책). 에러 메시지는 code 분기 규약 그대로. 통과.
 
 ## Project Structure
@@ -58,14 +58,14 @@ specs/kb-345-scan-credit-limit/
 ```text
 api/src/main/resources/db/migration/V<timestamp>__member_scan_unlocked.sql  # ALTER TABLE member ADD COLUMN
 common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt              # SCAN_LIMIT_EXCEEDED("SCAN-004", 403)
-common/src/main/kotlin/com/kbap/common/domain/member/model/Member.kt        # scanUnlocked 필드 + canScan(limit) 도메인 메서드
+common/src/main/kotlin/com/kbap/common/domain/member/model/Member.kt        # scanUnlocked 필드 + isScanAllowed(limit) 도메인 메서드
 common/src/main/kotlin/com/kbap/common/domain/member/MemberJpaRepository.kt # increaseReviewCount 에 scanUnlocked=true 동승
 api/src/main/kotlin/com/kbap/api/scan/ScanService.kt                        # scan() 초입 판정 — 미허용 403 SCAN-004
 api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt·ScanV2Api.kt               # swagger 403 문서
 api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt                 # 제한·해금 시나리오
 ```
 
-**Structure Decision**: 판정식은 `Member.canScan()` 도메인 메서드로 엔티티가 소유(무료 한도 상수 포함), ScanService 는 호출만 — 정책 숫자가 서비스에 흩어지지 않는다. 해금은 기존 원자 UPDATE 동승이라 리뷰 쪽 코드 변경이 0줄이다.
+**Structure Decision**: 판정식은 `Member.isScanAllowed()` 도메인 메서드로 엔티티가 소유(무료 한도 상수 포함), ScanService 는 호출만 — 정책 숫자가 서비스에 흩어지지 않는다. 해금은 기존 원자 UPDATE 동승이라 리뷰 쪽 코드 변경이 0줄이다.
 
 ## 구현 노트 (Phase 1 설계 확정)
 

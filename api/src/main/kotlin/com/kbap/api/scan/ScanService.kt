@@ -47,7 +47,7 @@ class ScanService(
         requireDetectedMenu: Boolean,
     ): ScanResult {
         val member = memberService.getMember(memberId)
-        if (!member.canScan()) {
+        if (!member.isScanAllowed()) {
             throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
 
