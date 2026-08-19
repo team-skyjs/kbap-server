@@ -47,10 +47,27 @@ class ScanService(
         requireDetectedMenu: Boolean,
     ): ScanResult {
         val member = memberService.getMember(memberId)
-        if (!member.isScanAllowed()) {
-            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+        memberService.reserveScan(memberId)
+        try {
+            return scanReserved(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
+        } catch (e: Exception) {
+            try {
+                memberService.releaseScan(memberId)
+            } catch (releaseFailure: Exception) {
+                log.warn("스캔 선점 반환 실패 — memberId={}", memberId, releaseFailure)
+            }
+            throw e
         }
+    }
 
+    private fun scanReserved(
+        member: Member,
+        memberId: Long,
+        imagePath: String,
+        ocrItems: List<OcrItem>,
+        lang: LanguageCode,
+        requireDetectedMenu: Boolean,
+    ): ScanResult {
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
         } catch (e: Exception) {
@@ -86,7 +103,6 @@ class ScanService(
         }
 
         recordHistory(memberId, imagePath, extracted, items)
-        memberService.increaseScanCount(memberId)
 
         return ScanResult(items = items, degraded = false)
     }

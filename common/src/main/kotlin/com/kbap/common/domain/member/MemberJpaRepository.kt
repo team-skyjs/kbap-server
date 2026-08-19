@@ -26,9 +26,21 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.scanCount = m.scanCount + 1
         where m.id = :memberId
           and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and (m.scanUnlocked = true or m.scanCount < :limit)
         """,
     )
-    fun increaseScanCount(@Param("memberId") memberId: Long): Int
+    fun reserveScan(@Param("memberId") memberId: Long, @Param("limit") limit: Int): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.scanCount = m.scanCount - 1
+        where m.id = :memberId
+          and m.scanCount > 0
+        """,
+    )
+    fun releaseScan(@Param("memberId") memberId: Long): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

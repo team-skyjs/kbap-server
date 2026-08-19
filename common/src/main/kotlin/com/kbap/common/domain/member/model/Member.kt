@@ -149,8 +149,6 @@ class Member(
         onboardingCompleted = true
     }
 
-    fun isScanAllowed(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT
-
     fun withdraw() {
         providerUid = deletedProviderUid(id)
         delete()

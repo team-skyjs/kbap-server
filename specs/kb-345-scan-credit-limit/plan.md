@@ -69,9 +69,9 @@ api/src/test/kotlin/com/kbap/api/scan/ScanControllerTest.kt                 # �
 
 ## 구현 노트 (Phase 1 설계 확정)
 
-- 판정 위치: `scan()` 의 `memberService.getMember(memberId)` 직후 — 이미지 검증(`verifyImageAccess`)·비전 호출 전. 거절 시 이력·카운트·비용 전부 미발생(FR-003).
+- (재개정 2026-08-19) 게이트 = `MemberJpaRepository.reserveScan` 조건부 원자 UPDATE(비전 호출 전 선점, 0행 → 403) + 실패 경로 `releaseScan` 보상 — research R4 참조. `Member.isScanAllowed()` 는 게이트가 UPDATE 로 이동하며 제거.
 - `FREE_SCAN_LIMIT = 3` 은 `Member` companion 상수.
-- 동시 초과(판정~카운트 사이 race)는 감수 — 동시성 테스트 작성하지 않는다(헌법 — 치명 경로 아님).
+- 동시성은 치명 경로로 승격(무제한 유료 스캔 노출) — 원자 선점의 동시 테스트(`MemberScanReservationTest`)를 둔다.
 - 리뷰 삭제(`decreaseReviewCount`)는 건드리지 않는다 — 재잠금은 별도 태스크(배치)가 `scanUnlocked && reviewCount = 0` 회원을 회수.
 - OpenAPI 스냅샷 변경(403 응답 추가) 시 갱신 절차대로 재생성.
 
