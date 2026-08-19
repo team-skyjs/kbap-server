@@ -68,17 +68,9 @@ data class ScanV2Response(
         val price: Int?,
 
         @field:Schema(
-            description = "미등록(matched=false) 메뉴의 유사 음식 대체 결과. 값이 있으면 클라이언트는 '정확 매칭 아님' 주의 표시와 " +
-                "함께 이 음식을 보여준다. foodId 는 항상 조회 가능한 등록 음식이라 상세 조회 API 와 연동된다. " +
-                "matched=true 이거나 충분히 비슷한 음식이 없으면 null.",
-            nullable = true,
-        )
-        val similarFood: SimilarFoodResponse?,
-
-        @field:Schema(
             description = "요청 회원의 기피성분 전체와 이 메뉴와의 겹침 여부. 온보딩 미완료(프로필 없음) 회원은 null. " +
                 "프로필은 있으나 기피 미등록이면 빈 배열. matched=false(degraded 포함)면 항상 빈 배열 — 겹침 판정 불가" +
-                "(riskLevel UNKNOWN 과 일관, similarFood 성분으로 대체 판정하지 않음). 순서는 성분 카탈로그 선언 순서로 고정.",
+                "(riskLevel UNKNOWN 과 일관). 순서는 성분 카탈로그 선언 순서로 고정.",
             nullable = true,
         )
         val avoidances: List<AvoidanceOverlapResponse>?,
@@ -105,24 +97,6 @@ data class ScanV2Response(
         val riskLevel: String?,
     )
 
-    @Schema(description = "유사 음식 대체 결과 — 필드 의미는 음식 상세 응답과 동일")
-    data class SimilarFoodResponse(
-        @field:Schema(description = "유사 음식 식별자(PK) — 음식 상세 조회 가능", example = "12")
-        val foodId: Long,
-
-        @field:Schema(description = "요청 언어 음식명(번역 부재 시 한국어)", example = "Kimchi Stew")
-        val name: String,
-
-        @field:Schema(description = "언어 무관 한국어 음식명. 지역화 음식명이 곧 한국어면 null.", example = "김치찌개", nullable = true)
-        val koreanName: String?,
-
-        @field:Schema(description = "요청 언어 설명(번역 부재 시 한국어)", example = "Spicy fermented cabbage stew.")
-        val description: String,
-
-        @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "https://cdn.example.com/foods/12.jpg", nullable = true)
-        val imageRef: String?,
-    )
-
     @Schema(description = "통화 환산 정보 — 값은 참고용 고정 스냅샷이며 실시간 시세가 아니다")
     data class CurrencyResponse(
         @field:Schema(description = "회원 프로필 통화의 ISO 4217 코드", example = "USD")
@@ -145,15 +119,6 @@ data class ScanV2Response(
                         name = it.name,
                         koreanName = it.koreanName,
                         price = it.price,
-                        similarFood = it.similarFood?.let { similar ->
-                            SimilarFoodResponse(
-                                foodId = similar.foodId,
-                                name = similar.name,
-                                koreanName = similar.koreanName,
-                                description = similar.description,
-                                imageRef = similar.imageRef,
-                            )
-                        },
                         avoidances = it.avoidances?.map { avoidance ->
                             AvoidanceOverlapResponse(
                                 code = avoidance.code,

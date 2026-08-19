@@ -8,6 +8,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -36,9 +37,6 @@ class ScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var vision: FakeMenuBoardVisionExtractor
-
-    @Autowired
-    private lateinit var similarSearch: FakeSimilarFoodSearch
 
     init {
         val mapper = jacksonObjectMapper()
@@ -747,8 +745,6 @@ class ScanControllerTest : BehaviorSpec() {
         }
 
         given("스캔 v2 — POST /api/scans (X-API-Version 2.0) 서버 OCR") {
-            beforeContainer { similarSearch.reset() }
-
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
             fun v2Scan(
@@ -781,7 +777,6 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].matched") { value(true) }
                         jsonPath("$.payload.results[0].name") { value("서버김치찌개") }
                         jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
-                        jsonPath("$.payload.results[0].similarFood") { value(null) }
                     }
 
                     vision.receivedOcrItems[path] shouldBe emptyList()
@@ -823,96 +818,22 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("미등록 메뉴에 충분히 비슷한 등록 음식이 있으면") {
-                then("similarFood 에 그 음식의 요청 언어명·설명·식별자가 담긴다") {
-                    val memberId = 603L
-                    val path = "scan/603/menu.jpg"
+            `when`("미등록 메뉴를 스캔하면") {
+                then("similarFood 키 자체가 없고 1.0 원칙대로 추출 결과 그대로 내려간다") {
+                    val memberId = 630L
+                    val path = "scan/630/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    deleteFood("할머니손맛찌개603")
-                    seedReadyFood("유사김치찌개603", """{"en":"Similar Kimchi Stew"}""")
-                    val similarFoodId = foodIdOf("유사김치찌개603")
-                    vision.program(path, listOf(ExtractedMenu("할머니손맛찌개", "할머니손맛찌개603", 12000, matchedIdx = null)))
-                    similarSearch.program("할머니손맛찌개603", similarFoodId, score = 0.92)
+                    deleteFood("완전미등록찌개630")
+                    vision.program(path, listOf(ExtractedMenu("완전미등록찌개", "완전미등록찌개630", 12000, matchedIdx = null)))
 
-                    v2Scan(memberId, path, lang = "en").andExpect {
+                    val responseBody = v2Scan(memberId, path).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
                         jsonPath("$.payload.results[0].riskLevel") { value("UNKNOWN") }
-                        jsonPath("$.payload.results[0].similarFood.foodId") { value(similarFoodId) }
-                        jsonPath("$.payload.results[0].similarFood.name") { value("Similar Kimchi Stew") }
-                        jsonPath("$.payload.results[0].similarFood.koreanName") { value("유사김치찌개603") }
-                        jsonPath("$.payload.results[0].similarFood.description") { value("설명") }
-                    }
-                }
-            }
-
-            `when`("유사 음식의 foodId 로 상세를 조회하면") {
-                then("정상 조회된다 — 유사 대체는 항상 등록 음식이다") {
-                    val memberId = 604L
-                    val path = "scan/604/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    deleteFood("모르는찌개604")
-                    seedReadyFood("유사김치찌개604")
-                    val similarFoodId = foodIdOf("유사김치찌개604")
-                    vision.program(path, listOf(ExtractedMenu("모르는찌개", "모르는찌개604", null, matchedIdx = null)))
-                    similarSearch.program("모르는찌개604", similarFoodId, score = 0.9)
-
-                    v2Scan(memberId, path).andExpect { status { isOk() } }
-
-                    mockMvc.get("/api/foods/$similarFoodId") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                    }.andExpect { status { isOk() } }
-                }
-            }
-
-            `when`("유사도 점수가 임계 미만이면") {
-                then("similarFood 없이 미등록 응답한다") {
-                    val memberId = 605L
-                    val path = "scan/605/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    deleteFood("동떨어진메뉴605")
-                    seedReadyFood("유사김치찌개605")
-                    vision.program(path, listOf(ExtractedMenu("동떨어진메뉴", "동떨어진메뉴605", null, matchedIdx = null)))
-                    similarSearch.program("동떨어진메뉴605", foodIdOf("유사김치찌개605"), score = -1.0)
-
-                    v2Scan(memberId, path).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].matched") { value(false) }
-                        jsonPath("$.payload.results[0].similarFood") { value(null) }
-                    }
-                }
-            }
-
-            `when`("검색된 foodId 가 조회 불가(미등록·삭제)면") {
-                then("similarFood 없이 미등록 응답한다") {
-                    val memberId = 606L
-                    val path = "scan/606/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    deleteFood("고아메뉴606")
-                    vision.program(path, listOf(ExtractedMenu("고아메뉴", "고아메뉴606", null, matchedIdx = null)))
-                    similarSearch.program("고아메뉴606", foodId = 999_999_999L, score = 0.95)
-
-                    v2Scan(memberId, path).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].similarFood") { value(null) }
-                    }
-                }
-            }
-
-            `when`("벡터 검색이 실패하면") {
-                then("스캔은 성공하고 해당 항목만 similarFood 없이 내려간다(부분 성공)") {
-                    val memberId = 607L
-                    val path = "scan/607/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    deleteFood("장애메뉴607")
-                    vision.program(path, listOf(ExtractedMenu("장애메뉴", "장애메뉴607", null, matchedIdx = null)))
-                    similarSearch.failSearch()
-
-                    v2Scan(memberId, path).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].similarFood") { value(null) }
-                    }
+                        jsonPath("$.payload.results[0].koreanName") { value("완전미등록찌개630") }
+                        jsonPath("$.payload.results[0].price") { value(12000) }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    responseBody shouldNotContain "similarFood"
                 }
             }
 
@@ -933,7 +854,6 @@ class ScanControllerTest : BehaviorSpec() {
                     deleteFood("브이원미등록611")
                     seedReadyFood("유사김치찌개611")
                     vision.program(path, listOf(ExtractedMenu("브이원미등록", "브이원미등록611", null, matchedIdx = 0)))
-                    similarSearch.program("브이원미등록611", foodIdOf("유사김치찌개611"), score = 0.99)
 
                     mockMvc.post("/api/scans") {
                         param("lang", "ko")
@@ -1100,20 +1020,17 @@ class ScanControllerTest : BehaviorSpec() {
             }
 
             `when`("기피성분 등록 회원의 스캔 결과에 미매칭 메뉴가 있으면") {
-                then("유사 음식 대체가 있어도 해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
+                then("해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
                     val memberId = 633L
                     val path = "scan/633/menu.jpg"
                     seedVerifiedImage(memberId, path)
                     setMemberAvoidances(memberId, "SHRIMP")
                     deleteFood("미매칭기피찌개")
-                    seedReadyFood("기피유사김치찌개")
                     vision.program(path, listOf(ExtractedMenu("미매칭기피찌개", "미매칭기피찌개", 8000, matchedIdx = null)))
-                    similarSearch.program("미매칭기피찌개", foodIdOf("기피유사김치찌개"), score = 0.95)
 
                     v2Scan(memberId, path).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
-                        jsonPath("$.payload.results[0].similarFood.foodId") { value(foodIdOf("기피유사김치찌개")) }
                         jsonPath("$.payload.results[0].avoidances.length()") { value(0) }
                     }
                 }
