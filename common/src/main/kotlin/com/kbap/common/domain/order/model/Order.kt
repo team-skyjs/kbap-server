@@ -11,7 +11,7 @@ import java.time.ZoneId
 @Entity
 @Table(
     name = "orders",
-    indexes = [Index(name = "idx_orders_recent", columnList = "member_id, created_at")],
+    indexes = [Index(name = "idx_orders_recent", columnList = "member_id, id")],
 )
 class Order(
     @Column(name = "member_id", nullable = false)

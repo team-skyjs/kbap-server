@@ -56,9 +56,6 @@ data class OrderDetailResponse(
     @field:Schema(description = "주문 총가격 — 가격이 있는 항목의 (단가 × 수량) 합", example = "38500")
     val totalPrice: Int,
 
-    @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개")
-    val thumbnails: List<String>,
-
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
 )
@@ -76,4 +73,10 @@ data class OrderItemResponse(
 
     @field:Schema(description = "음식 식별자", example = "7")
     val foodId: Long,
+
+    @field:Schema(
+        description = "음식 사진 URL — 음식에 사진이 없으면 기본 대체 이미지",
+        example = "https://cdn.example.com/images/webp/sundubu.webp",
+    )
+    val imageRef: String,
 )

@@ -6,10 +6,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.Size
 import java.math.BigDecimal
 
@@ -54,6 +56,7 @@ data class OrderCreateRequest(
 @Schema(description = "주문 항목 — 저장 시점 스냅샷")
 data class OrderItemRequest(
     @field:NotNull(message = "foodId 는 필수입니다")
+    @field:Positive(message = "foodId 는 양수여야 합니다")
     @field:Schema(description = "음식 식별자 — 스캔 응답의 foodId 그대로", example = "7")
     val foodId: Long? = null,
 
@@ -64,13 +67,20 @@ data class OrderItemRequest(
 
     @field:NotNull(message = "quantity 는 필수입니다")
     @field:Min(value = 1, message = "quantity 는 1 이상이어야 합니다")
+    @field:Max(value = MAX_QUANTITY, message = "quantity 는 $MAX_QUANTITY 이하여야 합니다")
     @field:Schema(description = "수량", example = "2")
     val quantity: Int? = null,
 
     @field:Min(value = 0, message = "price 는 0 이상이어야 합니다")
+    @field:Max(value = MAX_PRICE, message = "price 는 $MAX_PRICE 이하여야 합니다")
     @field:Schema(description = "단가 스냅샷(원화). 스캔에서 가격 미인식이면 생략", example = "9000", nullable = true)
     val price: Int? = null,
 ) {
     fun toItem(orderId: Long): OrderItem =
         OrderItem.place(orderId = orderId, foodId = foodId!!, menuName = menuName!!, quantity = quantity!!, price = price)
+
+    companion object {
+        const val MAX_QUANTITY = 999L
+        const val MAX_PRICE = 10_000_000L
+    }
 }

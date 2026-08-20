@@ -241,7 +241,10 @@ class OrderControllerTest : BehaviorSpec() {
                     seedVerifiedImage(memberId, path)
 
                     placeOrder(accessToken(memberId), orderBody(path, emptyList()))
-                        .andExpect { status { isBadRequest() } }
+                        .andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
                 }
             }
 
@@ -305,6 +308,55 @@ class OrderControllerTest : BehaviorSpec() {
                 then("401 로 거절된다") {
                     placeOrder(null, orderBody("order/920/menu.jpg", listOf(itemJson("무인증찌개", 1, 5000, 1L))))
                         .andExpect { status { isUnauthorized() } }
+                }
+            }
+
+            `when`("존재하지 않는 음식으로 주문하면") {
+                then("400 ORDER-001 로 거절된다") {
+                    val memberId = 921L
+                    val path = "order/921/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("유령찌개", 1, 5000, 987654L))))
+                        .andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("ORDER-001") }
+                        }
+                }
+            }
+
+            `when`("foodId 가 0 이하이면") {
+                then("400 으로 거절된다") {
+                    val memberId = 922L
+                    val path = "order/922/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("영푸드찌개", 1, 5000, 0L))))
+                        .andExpect { status { isBadRequest() } }
+                }
+            }
+
+            `when`("항목이 50개를 넘으면") {
+                then("400 으로 거절된다") {
+                    val memberId = 923L
+                    val path = "order/923/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("대량주문찌개")
+
+                    placeOrder(accessToken(memberId), orderBody(path, (1..51).map { itemJson("대량주문찌개", 1, 1000, food) }))
+                        .andExpect { status { isBadRequest() } }
+                }
+            }
+
+            `when`("수량이 상한을 넘으면") {
+                then("400 으로 거절된다") {
+                    val memberId = 924L
+                    val path = "order/924/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("초과수량찌개")
+
+                    placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("초과수량찌개", 1000, 1000, food))))
+                        .andExpect { status { isBadRequest() } }
                 }
             }
         }
@@ -410,6 +462,15 @@ class OrderControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("커서 형식이 올바르지 않으면") {
+                then("400 FOOD-002 로 거절된다") {
+                    listOrders(accessToken(936L), "?cursor=abc").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-002") }
+                    }
+                }
+            }
+
             `when`("주문이 없는 회원이 조회하면") {
                 then("총 주문 수 0 과 빈 목록을 준다") {
                     listOrders(accessToken(934L)).andExpect {
@@ -469,6 +530,8 @@ class OrderControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].quantity") { value(2) }
                         jsonPath("$.payload.items[0].price") { value(1000) }
                         jsonPath("$.payload.items[0].foodId") { value(foodA) }
+                        jsonPath("$.payload.items[0].imageRef") { exists() }
+                        jsonPath("$.payload.thumbnails") { doesNotExist() }
                     }
                 }
             }
@@ -493,6 +556,24 @@ class OrderControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.totalPrice") { value(9000) }
                         jsonPath("$.payload.items[1].price") { value(null) }
                     }
+                }
+            }
+
+            `when`("사진이 없는 음식을 주문했다면") {
+                then("상세의 imageRef 가 기본 대체 이미지로 내려간다") {
+                    val memberId = 946L
+                    val token = accessToken(memberId)
+                    val path = "order/946/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("상세이미지없음")
+                    val orderId = orderIdOf(
+                        placeOrder(token, orderBody(path, listOf(itemJson("상세이미지없음", 1, 5000, food))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    val json = orderDetail(token, orderId).andReturn().response.contentAsString
+                    val imageRef = mapper.readTree(json).path("payload").path("items")[0].path("imageRef").asText()
+                    imageRef.contains("food_not_found") shouldBe true
                 }
             }
 

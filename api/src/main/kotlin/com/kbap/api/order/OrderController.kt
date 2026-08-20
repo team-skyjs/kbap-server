@@ -3,7 +3,6 @@ package com.kbap.api.order
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
-import com.kbap.common.port.place.ReverseGeocoder
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -18,19 +17,13 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/orders")
 class OrderController(
     private val orderService: OrderService,
-    private val reverseGeocoder: ReverseGeocoder,
 ) : OrderApi {
     @PostMapping
     override fun placeOrder(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: OrderCreateRequest,
-    ): ResponseEntity<BaseResponse<OrderCreateResponse>> {
-        val roadAddress = request.latitude?.let { latitude ->
-            reverseGeocoder.getRoadAddressOrNull(latitude, request.longitude!!)
-        }
-        val orderId = orderService.createOrder(memberId, request, roadAddress)
-        return ResponseEntity.ok(BaseResponse.ok(OrderCreateResponse(orderId)))
-    }
+    ): ResponseEntity<BaseResponse<OrderCreateResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(OrderCreateResponse(orderService.createOrder(memberId, request))))
 
     @GetMapping
     override fun getOrders(

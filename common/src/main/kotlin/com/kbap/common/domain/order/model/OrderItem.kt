@@ -30,6 +30,10 @@ class OrderItem(
     companion object {
         const val MAX_MENU_NAME_LENGTH = 100
 
+        fun totalQuantityOf(items: List<OrderItem>): Int = items.sumOf { it.quantity }
+
+        fun totalPriceOf(items: List<OrderItem>): Int = items.sumOf { (it.price ?: 0) * it.quantity }
+
         fun place(orderId: Long, foodId: Long, menuName: String, quantity: Int, price: Int?): OrderItem {
             require(menuName.isNotBlank()) { "menuName 은 blank 일 수 없습니다" }
             require(menuName.length <= MAX_MENU_NAME_LENGTH) { "menuName 은 최대 ${MAX_MENU_NAME_LENGTH}자입니다" }

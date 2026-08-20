@@ -14,7 +14,7 @@ CREATE TABLE `orders` (
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_orders_image_path` (`image_path`),
-  KEY `idx_orders_recent` (`member_id`, `created_at`),
+  KEY `idx_orders_recent` (`member_id`, `id`),
   CONSTRAINT `fk_orders_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

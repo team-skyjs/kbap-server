@@ -1,5 +1,6 @@
 package com.kbap.api.infra.place
 
+import com.kbap.common.domain.order.model.Order
 import com.kbap.common.port.place.ReverseGeocoder
 import org.slf4j.LoggerFactory
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -50,15 +51,20 @@ class GoogleGeocoder internal constructor(
                 key = apiKey,
             )
             if (response.status != "OK") {
-                log.warn("역지오코딩 결과 없음: status={} latitude={} longitude={}", response.status, latitude, longitude)
+                log.warn("역지오코딩 결과 없음: status={}", response.status)
                 return null
             }
-            response.results.firstOrNull()?.formattedAddress?.takeIf { it.isNotBlank() }
+            val address = response.results.firstOrNull()?.formattedAddress?.takeIf { it.isNotBlank() }
+            if (address == null) {
+                log.warn("역지오코딩 응답에 주소가 없음: status={}", response.status)
+                return null
+            }
+            address.take(Order.MAX_ADDRESS_LENGTH)
         } catch (e: RestClientException) {
-            log.warn("역지오코딩 실패: latitude={} longitude={}", latitude, longitude, e)
+            log.warn("역지오코딩 실패: {}", e.javaClass.simpleName)
             null
         } catch (e: HttpMessageConversionException) {
-            log.warn("역지오코딩 응답 파싱 실패: latitude={} longitude={}", latitude, longitude, e)
+            log.warn("역지오코딩 응답 파싱 실패: {}", e.javaClass.simpleName)
             null
         }
     }

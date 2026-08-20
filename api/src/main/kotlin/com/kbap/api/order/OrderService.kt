@@ -9,6 +9,7 @@ import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
+import com.kbap.common.port.place.ReverseGeocoder
 import com.kbap.common.util.CursorParser
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
@@ -22,19 +23,42 @@ class OrderService(
     private val imageUploadService: ImageUploadService,
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
+    private val reverseGeocoder: ReverseGeocoder,
 ) {
-    @Transactional
-    fun createOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
+    fun createOrder(memberId: Long, request: OrderCreateRequest): Long {
+        verifyOrderable(memberId, request)
+        val roadAddress = request.latitude?.let { reverseGeocoder.getRoadAddressOrNull(it, request.longitude!!) }
+        return saveOrder(memberId, request, roadAddress)
+    }
+
+    @Transactional(readOnly = true)
+    fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
         imageUploadService.verifyImageAccess(memberId, request.imagePath!!)
             ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        if (orderRepository.existsByImagePath(request.imagePath)) {
+            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
+        }
+        val foodIds = request.items.map { it.foodId!! }.distinct()
+        if (foodService.getReadyFoodsByIds(foodIds).size != foodIds.size) {
+            throw BusinessException(ErrorCode.ORDER_INVALID)
+        }
+    }
+
+    @Transactional
+    fun saveOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
         val order = try {
             orderRepository.saveAndFlush(request.toOrder(memberId, roadAddress))
         } catch (e: DataIntegrityViolationException) {
-            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
+            if (isImagePathConflict(e)) throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
+            throw e
         }
         orderItemRepository.saveAll(request.items.map { it.toItem(order.id) })
         return order.id
     }
+
+    private fun isImagePathConflict(e: DataIntegrityViolationException): Boolean =
+        generateSequence(e as Throwable) { it.cause }
+            .any { it.message?.contains(IMAGE_PATH_UNIQUE_KEY) == true }
 
     @Transactional(readOnly = true)
     fun getOrderPage(memberId: Long, rawCursor: String?, size: Int): OrderListPage {
@@ -57,16 +81,21 @@ class OrderService(
             .filter { it.memberId == memberId }
             .orElseThrow { BusinessException(ErrorCode.ORDER_NOT_FOUND) }
         val items = orderItemRepository.findByOrderIdOrderByIdAsc(order.id)
-        val thumbnailsByFoodId = resolveThumbnails(items)
+        val imageRefsByFoodId = resolveThumbnails(items)
         return OrderDetailResponse(
             orderId = order.id,
             orderedAt = order.orderedAt(),
             roadAddress = order.roadAddress,
-            totalQuantity = items.sumOf { it.quantity },
-            totalPrice = items.sumOf { (it.price ?: 0) * it.quantity },
-            thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { thumbnailsByFoodId[it.foodId] },
+            totalQuantity = OrderItem.totalQuantityOf(items),
+            totalPrice = OrderItem.totalPriceOf(items),
             items = items.map {
-                OrderItemResponse(menuName = it.menuName, quantity = it.quantity, price = it.price, foodId = it.foodId)
+                OrderItemResponse(
+                    menuName = it.menuName,
+                    quantity = it.quantity,
+                    price = it.price,
+                    foodId = it.foodId,
+                    imageRef = imageRefsByFoodId.getValue(it.foodId),
+                )
             },
         )
     }
@@ -83,7 +112,7 @@ class OrderService(
                 orderId = order.id,
                 orderedAt = order.orderedAt(),
                 roadAddress = order.roadAddress,
-                totalQuantity = items.sumOf { it.quantity },
+                totalQuantity = OrderItem.totalQuantityOf(items),
                 thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { thumbnailsByFoodId[it.foodId] },
             )
         }
@@ -98,6 +127,7 @@ class OrderService(
 
     companion object {
         const val MAX_PAGE_SIZE = 30
+        private const val IMAGE_PATH_UNIQUE_KEY = "uq_orders_image_path"
         private const val MAX_THUMBNAILS = 4
     }
 }

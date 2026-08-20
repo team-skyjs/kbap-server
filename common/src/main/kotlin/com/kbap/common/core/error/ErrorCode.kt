@@ -65,9 +65,9 @@ enum class ErrorCode(
     REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
 
-    ORDER_INVALID("ORDER-001", 400, "주문 내용이 올바르지 않습니다"),
-    ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문을 찾을 수 없습니다"),
-    ORDER_ALREADY_PLACED("ORDER-003", 409, "이미 주문한 스캔입니다"),
+    ORDER_INVALID("ORDER-001", 400, "주문 정보가 올바르지 않습니다"),
+    ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
+    ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),
 
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
