@@ -30,14 +30,14 @@
 ## GET /api/orders?cursor=&size= — 리스트 (최신순)
 
 ```json
-{ "totalCount": 14, "items": [
+{ "items": [
     { "orderId": 123, "orderedAt": 1765700640000, "roadAddress": "서울 중구 소공로 51", 
       "totalQuantity": 6, "thumbnails": ["https://…/a.webp", "https://…/food_not_found.png"] }
   ], "hasNext": true, "nextCursor": "123" }
 ```
 
 - `size` 기본 10·최대 30(초과 값은 30으로 자름). `cursor` = 직전 응답 `nextCursor` 그대로(불투명 문자열 — 형식이 잘못되면 400 `FOOD-002`(공용 커서 오류 코드)).
-- `totalCount` = 회원 총 주문 수. `orderedAt` = 밀리초 epoch. `roadAddress` null 가능.
+- `orderedAt` = 밀리초 epoch. `roadAddress` null 가능. **총 주문 수는 내려주지 않는다** — 커서 페이징이라 전체 개수가 불필요하고 리뷰 목록 계약과 동일하다.
 - `thumbnails` 최대 4 — 앞 4개 항목 순서대로. 음식 이미지가 없으면 **기본 대체 이미지 URL**(`images/webp/default_miss_food/food_not_found.png`)로 채워진다.
 
 ## GET /api/orders/{orderId} — 상세

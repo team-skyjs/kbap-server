@@ -4,9 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "주문 리스트 페이지 — 최신 주문 순, 커서 기반")
 data class OrderListPage(
-    @field:Schema(description = "회원의 총 주문 수", example = "14")
-    val totalCount: Long,
-
     @field:Schema(description = "주문 카드 목록")
     val items: List<OrderSummaryResponse>,
 

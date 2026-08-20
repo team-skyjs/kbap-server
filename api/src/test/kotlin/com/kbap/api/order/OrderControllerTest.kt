@@ -372,7 +372,7 @@ class OrderControllerTest : BehaviorSpec() {
 
         given("주문 리스트 조회 API — GET /api/orders") {
             `when`("주문 3건을 저장한 회원이 조회하면") {
-                then("총 주문 수와 최신순 목록이 내려간다") {
+                then("최신순 목록이 내려간다") {
                     val memberId = 930L
                     val token = accessToken(memberId)
                     val food = seedReadyFood("리스트순두부")
@@ -385,7 +385,7 @@ class OrderControllerTest : BehaviorSpec() {
 
                     val json = listOrders(token).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.totalCount") { value(3) }
+                        jsonPath("$.payload.totalCount") { doesNotExist() }
                         jsonPath("$.payload.items.length()") { value(3) }
                         jsonPath("$.payload.hasNext") { value(false) }
                     }.andReturn().response.contentAsString
@@ -472,10 +472,9 @@ class OrderControllerTest : BehaviorSpec() {
             }
 
             `when`("주문이 없는 회원이 조회하면") {
-                then("총 주문 수 0 과 빈 목록을 준다") {
+                then("빈 목록을 준다") {
                     listOrders(accessToken(934L)).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.totalCount") { value(0) }
                         jsonPath("$.payload.items.length()") { value(0) }
                         jsonPath("$.payload.hasNext") { value(false) }
                     }

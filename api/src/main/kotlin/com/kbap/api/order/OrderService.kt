@@ -68,7 +68,6 @@ class OrderService(
         val hasNext = orders.size > pageSize
         val pageOrders = orders.take(pageSize)
         return OrderListPage(
-            totalCount = orderRepository.countByMemberId(memberId),
             items = summarize(pageOrders),
             hasNext = hasNext,
             nextCursor = pageOrders.lastOrNull()?.id?.toString()?.takeIf { hasNext },

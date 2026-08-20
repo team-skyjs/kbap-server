@@ -34,6 +34,7 @@ interface OrderApi {
         summary = "주문 리스트 조회",
         description = """
             본인의 주문을 최신순으로 조회한다. 커서 기반 페이지이며 `nextCursor` 를 그대로 되돌려주면 다음 페이지다.
+            총 주문 수는 내려주지 않는다 — 커서 페이징이라 전체 개수를 알 필요가 없고, 리뷰 목록 계약과 동일하다.
 
             - 썸네일은 최대 4개이고, 음식 사진이 없으면 기본 대체 이미지 URL 이 채워진다.
             - `orderedAt` 은 epoch milliseconds, `roadAddress` 는 위치 미동의·변환 실패 시 null 이다.

@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface OrderJpaRepository : JpaRepository<Order, Long> {
-    fun countByMemberId(memberId: Long): Long
-
     fun existsByImagePath(imagePath: String): Boolean
 
     @Query(
