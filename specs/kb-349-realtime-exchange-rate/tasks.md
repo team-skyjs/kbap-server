@@ -44,7 +44,7 @@
 - [x] T013 [US2] `common/src/main/kotlin/com/kbap/common/domain/CurrencyCode.kt` 재작성 — `krwPerUnit` 필드 삭제, 30종(label 유지·ISK "아이슬란드 크로나"·RON "루마니아 레우" 추가)
 - [x] T014 [US2] `common/src/main/kotlin/com/kbap/common/domain/member/model/CountryCode.kt` 수정 — 폐기 통화 참조 18개국 → `CurrencyCode.USD`, `IS→ISK`, `RO→RON` (컴파일러가 전수 강제). T011·T012 Green 확인
 - [x] T015 [US2] `common/src/test/kotlin/com/kbap/common/domain/CurrencyRateSnapshotTest.kt` 삭제 (research R7 — 정밀도 회귀는 T003 의 IDR 0.0789 가 계승)
-- [x] T016 [US2] Flyway 신설 `api/src/main/resources/db/migration/V<생성시각 timestamp>__member_currency_remap.sql` — `UPDATE member SET currency='USD' WHERE currency IN ('AED','BDT','BHD','BND','EGP','FJD','JOD','KHR','KWD','KZT','MNT','NPR','PKR','QAR','RUB','SAR','TWD','VND');` + 헤더 주석(KB-349 경위·IS/RO 기존 회원 불변 사유)
+- [x] T016 [US2] ~~Flyway 신설~~ **취소(2026-08-19 사용자 확정)** — 운영자 수동 UPDATE 로 대체. 원 계획: `api/src/main/resources/db/migration/V<생성시각 timestamp>__member_currency_remap.sql` — `UPDATE member SET currency='USD' WHERE currency IN ('AED','BDT','BHD','BND','EGP','FJD','JOD','KHR','KWD','KZT','MNT','NPR','PKR','QAR','RUB','SAR','TWD','VND');` + 헤더 주석(KB-349 경위·IS/RO 기존 회원 불변 사유)
 - [x] T017 [US2] `api/src/test/kotlin/com/kbap/api/member/CurrencyBackfillSyncTest.kt` 삭제 → 같은 자리에 `CurrencyRemapSyncTest.kt` 신설 — (KB-322 백필 SQL 의 통화 집합 − 현재 CurrencyCode 집합) == T016 UPDATE 의 IN 목록, IN 목록 ∩ 현재 enum == 공집합, 두 SQL 파일 모두 비어 있지 않음(경로 오탈 방어). `given` 문구에 파일 버전 박지 않기
 - [x] T018 [US2] 폐기 통화 잔존 참조 정리 — `grep -rn "VND\|TWD\|SAR\b" --include="*.kt" api common` 으로 테스트·픽스처의 폐기 코드 사용처(예: `ScanControllerTest` 의 지원 통화 파라미터, `MemberProfileTest`·프로필 컨트롤러 테스트의 통화 값)를 30종 내 코드로 교체하고, 폐기 코드 400 거절(`INVALID_CURRENCY_CODE`) 케이스를 프로필 수정 테스트에 유지·보강
 

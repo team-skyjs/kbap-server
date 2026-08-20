@@ -45,8 +45,8 @@
 - **Decision**:
   - `CurrencyCode`: `krwPerUnit` 필드 삭제, 30종으로 교체(label 유지 — 개발자 가독성용). `from()` 은 그대로 → 폐기 코드는 프로필 수정에서 `INVALID_CURRENCY_CODE`(spec US2-3).
   - `CountryCode`: 폐기 통화를 가리키던 18개국 → `USD`, `IS→ISK`, `RO→RON`. 컴파일러가 197개 전수를 강제하므로 누락 불가.
-  - Flyway `V<ts>__member_currency_remap.sql`: `UPDATE member SET currency='USD' WHERE currency IN ('AED',…,'VND')`(18종). IS/RO 기존 회원은 건드리지 않는다(spec: 폐기 통화만 이관 — 사용자가 고른 값을 말없이 바꾸지 않는 KB-322 원칙과 일관).
-  - `CurrencyBackfillSyncTest`(KB-322 SQL ↔ enum 전수 대조) 는 재매핑 후 **참으로 유지될 수 없다** → 삭제하고 `CurrencyRemapSyncTest` 로 대체: "KB-322 백필 SQL 에 등장하는 통화 집합 − 현재 `CurrencyCode` 집합 == 이번 UPDATE 의 IN 목록". 두 파일 + enum 만으로 드리프트를 잡는다(파일명 하드코딩 함정은 CLAUDE.md 규약대로 `given` 문구에 버전을 박지 않는다).
+  - 기존 회원 이관: **Flyway 미사용 — 운영자 수동 UPDATE**(2026-08-19 사용자 확정. dev 실측 대상이 BDT 1건). 실행할 SQL: `UPDATE member SET currency='USD' WHERE currency IN ('AED','BDT','BHD','BND','EGP','FJD','JOD','KHR','KWD','KZT','MNT','NPR','PKR','QAR','RUB','SAR','TWD','VND');` — 환경별(dev·staging·prod) 배포 전후 각 1회. IS/RO 기존 회원은 건드리지 않는다(사용자 값을 말없이 바꾸지 않는 KB-322 원칙).
+  - `CurrencyBackfillSyncTest`(KB-322 SQL ↔ enum 전수 대조) 는 축소 후 **참으로 유지될 수 없다** → 삭제하고 `CurrencyRemapSyncTest` 로 대체: "KB-322 백필 SQL 통화 집합 − 현재 enum == 폐기 18종 고정 목록"(수동 UPDATE 의 IN 목록과 같은 집합) + "역방향 차집합 == ISK·RON". enum 이 바뀌면 테스트가 먼저 깨져 수동 SQL 목록 갱신을 강제한다.
 - **Rationale**: 하드코딩 환율 제거(FR-001)·지원 목록 고정(FR-002)·기존 회원 무오류(FR-004).
 
 ## R7. 테스트 전략

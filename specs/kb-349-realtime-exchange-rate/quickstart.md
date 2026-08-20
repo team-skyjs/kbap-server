@@ -30,6 +30,6 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://localhost:8080/api/scan
 
 ## 구현 후 확인
 
-- Flyway 적용 후 `SELECT currency, COUNT(*) FROM member GROUP BY currency` 에 폐기 18종이 0건.
+- 배포 전후 운영자가 수동 실행: `UPDATE member SET currency='USD' WHERE currency IN ('AED','BDT','BHD','BND','EGP','FJD','JOD','KHR','KWD','KZT','MNT','NPR','PKR','QAR','RUB','SAR','TWD','VND');` → `SELECT currency, COUNT(*) FROM member GROUP BY currency` 로 폐기 18종 0건 확인(dev 실측 대상 BDT 1건).
 - agent-hub `wiki/member-currency.md` 의 "환율 — 고정 스냅샷이다" 절을 "frankfurter 요청마다 조회·30종·캐시 없음(검토 경위 포함)" 으로 갱신(KB-349 머지 시).
 - 프론트 공유: contracts/scan-v2-currency.md 의 "클라이언트 공유 요점" 3건.
