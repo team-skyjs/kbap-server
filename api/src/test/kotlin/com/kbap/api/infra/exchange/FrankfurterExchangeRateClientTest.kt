@@ -14,7 +14,8 @@ import org.springframework.test.web.client.response.MockRestResponseCreators.wit
 import org.springframework.web.client.RestClient
 import java.math.BigDecimal
 
-private const val LATEST_URL = "${FrankfurterExchangeRateClient.BASE_URL}/v1/latest?base=EUR"
+private const val BASE_URL = "https://exchange.test"
+private const val LATEST_URL = "$BASE_URL/v1/latest?base=EUR"
 
 private const val SUCCESS_BODY = """
 {
@@ -29,7 +30,7 @@ class FrankfurterExchangeRateClientTest : BehaviorSpec({
     fun fixture(): Pair<FrankfurterExchangeRateClient, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return FrankfurterExchangeRateClient.create(FrankfurterExchangeRateClient.BASE_URL, builder) to server
+        return FrankfurterExchangeRateClient.create(BASE_URL, builder) to server
     }
 
     given("frankfurter 환율 조회") {

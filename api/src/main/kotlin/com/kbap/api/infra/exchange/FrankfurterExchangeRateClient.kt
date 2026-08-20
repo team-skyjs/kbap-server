@@ -49,7 +49,6 @@ class FrankfurterExchangeRateClient internal constructor(
     }
 
     companion object {
-        const val BASE_URL = "https://api.frankfurter.dev"
         private const val SCALE = 4
         private val KRW_PER_KRW = BigDecimal("1.0000")
 
