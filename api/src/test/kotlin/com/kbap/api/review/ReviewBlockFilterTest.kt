@@ -39,6 +39,10 @@ class ReviewBlockFilterTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
+        afterSpec {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM scan_history") } }
+        }
+
         fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(

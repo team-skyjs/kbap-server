@@ -96,6 +96,7 @@ class FoodService(
             description = food.description(lang),
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
+            reviewEligible = input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) },
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
                     code = ingredient.code,

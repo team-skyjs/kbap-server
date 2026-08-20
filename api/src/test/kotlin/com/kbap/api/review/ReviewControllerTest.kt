@@ -40,6 +40,10 @@ class ReviewControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
+        afterSpec {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM scan_history") } }
+        }
+
         val path = "/api/reviews"
 
         fun seedMember(memberId: Long, countryCode: String? = "KR"): Unit =

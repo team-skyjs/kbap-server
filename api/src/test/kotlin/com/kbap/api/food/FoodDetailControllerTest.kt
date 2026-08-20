@@ -33,6 +33,10 @@ class FoodDetailControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     init {
+        afterSpec {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM scan_history") } }
+        }
+
         beforeTest {
             dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
             FoodTestSeed.seedDoenjangStew(dataSource)
@@ -111,6 +115,59 @@ class FoodDetailControllerTest : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.bookmarked") { value(false) }
+                    }
+                }
+            }
+        }
+
+        given("음식 상세 조회 API — 리뷰 작성 자격(reviewEligible)") {
+            fun seedScan(memberId: Long, foodId: Long) {
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        """
+                        INSERT INTO scan_history (member_id, price, food_id, status, created_at, updated_at)
+                        VALUES (?, NULL, ?, 'ACTIVE', NOW(6), NOW(6))
+                        """,
+                    ).use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.setLong(2, foodId)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+
+            `when`("음식을 스캔한 이력이 있는 회원이 조회하면") {
+                then("reviewEligible=true 다") {
+                    val token = accessToken(36L)
+                    seedScan(36L, 1L)
+
+                    mockMvc.get("/api/foods/1?lang=ko") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.reviewEligible") { value(true) }
+                    }
+                }
+            }
+
+            `when`("스캔 이력이 없는 회원이 조회하면") {
+                then("reviewEligible=false 다") {
+                    val token = accessToken(37L)
+
+                    mockMvc.get("/api/foods/1?lang=ko") {
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.reviewEligible") { value(false) }
+                    }
+                }
+            }
+
+            `when`("비회원이 조회하면") {
+                then("reviewEligible=null 이다 — 비회원 판별 축") {
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.reviewEligible") { value(nullValue()) }
                     }
                 }
             }
