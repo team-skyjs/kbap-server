@@ -25,7 +25,7 @@
 - **Decision (최종)**: **MySQL = Source of Truth**(`scan_count` 는 확정 성공 스캔만), **Redis ZSET = per-request in-flight 예약**.
   - 키: `scan:reservations:{memberId}`, member=`requestId`(클라이언트 UUID, 미제공 시 서버 생성), score=만료 timestamp.
   - 예약은 **Lua 스크립트 하나로 원자 실행**: 만료분 ZREMRANGEBYSCORE 정리 → requestId 중복(ZSCORE) 검사 → `dbScanCount + ZCARD >= 3` 검사 → ZADD + PEXPIRE. 결과 1=예약/2=중복(409 SCAN-005)/0=한도(403 SCAN-004).
-  - 성공 순서 엄수: LLM 성공 → **DB scanCount+1 커밋** → 그 후 Redis 예약 제거(commit-before-release — 역순이면 슬롯 반납~커밋 사이 창에 한도 초과 통과 가능). 순서는 코드 배치가 아니라 **구조로 보장**한다 — 별도 빈 `ScanConfirmService.confirmScan`(`@Transactional` — 자기 호출 프록시 우회를 피하는 추출) 커밋 안에서 `ScanConfirmed` 이벤트를 발행하고 `@TransactionalEventListener(AFTER_COMMIT)` 가 release 를 수행(2026-08-20). 실패 경로 release 는 catch 에서 즉시 실행(트랜잭션 없음 — 이벤트 미적용).
+  - 성공 순서 엄수: LLM 성공 → **DB scanCount+1 커밋** → 그 후 Redis 예약 제거(commit-before-release — 역순이면 슬롯 반납~커밋 사이 창에 한도 초과 통과 가능). 순서는 코드 배치가 아니라 **구조로 보장**한다 — `TransactionTemplate` 커밋 안에서 `ScanConfirmed` 이벤트를 발행하고 `@TransactionalEventListener(AFTER_COMMIT)` 가 release 를 수행(2026-08-20). 실패 경로 release 는 catch 에서 즉시 실행(트랜잭션 없음 — 이벤트 미적용).
   - LLM 실패(비메뉴판 포함): scanCount 미증가, 예약만 제거 — 기회 보존(FR-004).
   - 크래시·release 실패: 예약 TTL(기본 300초, `SCAN_RESERVATION_TTL_SECONDS`)로 자생 회수 — 무료 횟수 영구 유실 없음.
   - 해금 회원(`scan_unlocked`)은 예약 로직을 타지 않는다(카운트 증가만 수행 — 랭킹 유지).

@@ -25,9 +25,11 @@ import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.api.image.ImageUploadService
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.event.TransactionalEventListener
+import org.springframework.transaction.support.TransactionTemplate
 
 data class ScanConfirmed(
     val memberId: Long,
@@ -44,7 +46,8 @@ class ScanService(
     private val ticketCodec: ScanTicketCodec,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
-    private val scanConfirmService: ScanConfirmService,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val transactionTemplate: TransactionTemplate,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -91,7 +94,10 @@ class ScanService(
         }
         try {
             val result = doScan(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
-            scanConfirmService.confirmScan(memberId, reservationKey)
+            transactionTemplate.executeWithoutResult {
+                memberService.increaseScanCount(memberId)
+                eventPublisher.publishEvent(ScanConfirmed(memberId, reservationKey))
+            }
             return result
         } catch (e: Exception) {
             releaseReservationQuietly(memberId, reservationKey)
