@@ -89,3 +89,4 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - [x] R012 AFTER_COMMIT 이벤트 제거 — ScanConfirmed·리스너·confirmScan 이 퍼사드의 "커밋 후 다음 줄 release" 와 동일 보장의 간접화라 삭제, 퍼사드가 increaseScanCount → release 인라인 수행
 - [x] R013 ScanTicketService 분리 — 발급은 독립 유스케이스라 퍼사드에서 분리(ScanTicketController → ScanTicketIssueService), verify 는 스캔 흐름 첫 단계라 퍼사드 유지
 - [x] R014 v1 크레딧 제한 제외 — 퍼사드 v1/v2 경로 분리(v1 은 게이트·티켓 없이 스캔+카운트만), ScanApi 403 문서 제거, v1 403 테스트를 정상 스캔 검증으로 교체
+- [x] R015 Codex 리뷰 반영 — (1) 예약 확보 직후 DB 카운트 재확인(낡은 confirmedCount 인터리빙 봉합), (2) 해금 회원도 예약 경유(limit=MAX — jti 중복 409 전 회원 적용, 시나리오 추가), (3) spec/quickstart 를 v2 전용·티켓 플로우로 정정

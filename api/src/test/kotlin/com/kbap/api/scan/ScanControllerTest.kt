@@ -975,6 +975,22 @@ class ScanControllerTest : BehaviorSpec() {
                     scanHistoryCount(memberId) shouldBe 0
                 }
             }
+            `when`("해금 회원이 처리 중인 같은 티켓으로 중복 전송하면") {
+                then("해금 여부와 무관하게 409 SCAN-005 로 이중 소모가 방지된다") {
+                    val memberId = 652L
+                    val path = "scan/652/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setScanUnlocked(memberId)
+                    val ticket = issueTicket(memberId)
+                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
+
+                    v2Scan(memberId, path, ticket = ticket).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("SCAN-005") }
+                    }
+                    scanHistoryCount(memberId) shouldBe 0
+                }
+            }
             `when`("잠긴 회원이 리뷰를 작성하면") {
                 then("즉시 해금되어 스캔이 성공하고, 리뷰를 삭제해도 해금이 유지된다") {
                     val memberId = 644L

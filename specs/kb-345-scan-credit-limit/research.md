@@ -28,7 +28,7 @@
   - 성공 순서 엄수: LLM 성공 → **DB scanCount+1 커밋** → 그 후 Redis 예약 제거(commit-before-release — 역순이면 슬롯 반납~커밋 사이 창에 한도 초과 통과 가능). 순서는 코드 배치가 아니라 **구조로 보장**한다 — `TransactionTemplate` 커밋 안에서 `ScanConfirmed` 이벤트를 발행하고 `@TransactionalEventListener(AFTER_COMMIT)` 가 release 를 수행(2026-08-20). 실패 경로 release 는 catch 에서 즉시 실행(트랜잭션 없음 — 이벤트 미적용).
   - LLM 실패(비메뉴판 포함): scanCount 미증가, 예약만 제거 — 기회 보존(FR-004).
   - 크래시·release 실패: 예약 TTL(기본 300초, `SCAN_RESERVATION_TTL_SECONDS`)로 자생 회수 — 무료 횟수 영구 유실 없음.
-  - 해금 회원(`scan_unlocked`)은 예약 로직을 타지 않는다(카운트 증가만 수행 — 랭킹 유지).
+  - 해금 회원(`scan_unlocked`)도 예약은 탄다 — 단 한도만 무제한(limit=Int.MAX). jti 중복 방어(409)가 전 회원에 적용되게 하기 위함(2026-08-20 Codex 리뷰 반영). 확보 직후 DB 카운트를 재확인해, member 로드~예약 사이 낡은 카운트로 한도를 넘는 인터리빙을 봉합(한도 도달이면 release 후 403).
 - **경계**: seam `common.port.scan.ScanReservationStore`(Spring-free), 구현 `api.infra.redis.RedisScanReservationStore`(ADR-0018 api 전용 어댑터 위치). LLM 호출은 어떤 DB 트랜잭션·잠금 밖, 앱 로컬 락 없음(EC2 2대).
 - **Alternatives considered**: 비관 잠금 직렬화 — 외부 호출을 잠금 안에 가둠, 기각. 조건부 원자 UPDATE 선점 — 위 폐기 사유. 크레딧 원장 테이블 — 고정 한도 3회에 과설계.
 

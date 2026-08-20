@@ -36,18 +36,15 @@ class ScanFacade(
     fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, scanTicket: String): ScanResult {
         val jti = ticketManager.verify(scanTicket, memberId)
         val member = memberService.getMember(memberId)
-        if (member.scanUnlocked) {
-            val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
-            memberService.increaseScanCount(memberId)
-            return result
-        }
-
-        when (reservationStore.reserve(memberId, jti, member.scanCount, Member.FREE_SCAN_LIMIT)) {
+        when (reservationStore.reserve(memberId, jti, member.scanCount, limitFor(member))) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             ScanReservationResult.RESERVED -> Unit
         }
         try {
+            if (!member.scanUnlocked && !memberService.getMember(memberId).isScanAllowed()) {
+                throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+            }
             val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
             memberService.increaseScanCount(memberId)
             releaseReservationQuietly(memberId, jti)
@@ -57,6 +54,9 @@ class ScanFacade(
             throw e
         }
     }
+
+    private fun limitFor(member: Member): Int =
+        if (member.scanUnlocked) Int.MAX_VALUE else Member.FREE_SCAN_LIMIT
 
     private fun releaseReservationQuietly(memberId: Long, reservationId: String) {
         runCatching { reservationStore.release(memberId, reservationId) }

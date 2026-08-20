@@ -7,13 +7,15 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 # 신규 회원 토큰 $TOKEN (리뷰 0건·스캔 0회)
 ```
 
-## 1. 무료 3회 소진 → 4회째 403
+## 1. 티켓 발급 → 스캔, 무료 3회 소진 → 4회째 발급 403
 
 ```bash
-# 성공 스캔 3회 수행 후
-curl -s -X POST localhost:8080/api/scans -H "Authorization: Bearer $TOKEN" -H "X-API-Version: 2.0" ... 
-# 4회째 → 403 {"code":"SCAN-004","message":"무료 스캔 횟수를 모두 사용했습니다. ..."}
+# 매 스캔 시도 전 티켓 발급
+TICKET=$(curl -s -X POST localhost:8080/api/scans/tickets -H "Authorization: Bearer $TOKEN" -H "X-API-Version: 2.0" | jq -r .payload.ticket)
+curl -s -X POST localhost:8080/api/scans -H "Authorization: Bearer $TOKEN" -H "X-API-Version: 2.0" -H "X-Scan-Ticket: $TICKET" ...
+# 성공 스캔 3회 수행 후 4회째 발급 → 403 {"code":"SCAN-004", ...} — 업로드 전에 차단
 # 반복 시도해도 계속 403 — 로그에 비전 호출·이력 기록 없음
+# 티켓 없이/위조 티켓으로 스캔 강행 → 400 (SCAN-007)
 ```
 
 ## 2. 실패 스캔은 미소모
@@ -30,10 +32,10 @@ curl -s -X POST localhost:8080/api/reviews ... -d '{"foodId": 1, "rating": 5}'
 # 직후 스캔 → 200 (대기·재로그인 없음), 이후 몇 회든 무제한
 ```
 
-## 4. v1 경로도 동일
+## 4. v1 은 제한 밖
 
 ```bash
-# 잠긴 회원으로 v1(무버전) 스캔 → 동일 403 SCAN-004
+# 잠긴 회원으로 v1(무버전) 스캔 → 정상 200, scan_count 만 누적 (구버전 앱 계약 보존 — 크레딧은 v2 전용)
 ```
 
 ## 5. DB 확인
