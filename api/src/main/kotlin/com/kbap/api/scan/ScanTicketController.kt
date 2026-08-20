@@ -11,13 +11,13 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API + "/scans/tickets")
 class ScanTicketController(
-    private val scanTicketService: ScanTicketService,
+    private val scanTicketIssueService: ScanTicketIssueService,
 ) : ScanTicketApi {
     @PostMapping
     override fun issueTicket(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<ScanTicketResponse>> {
-        val issued = scanTicketService.issueScanTicket(memberId)
+        val issued = scanTicketIssueService.issueScanTicket(memberId)
         return ResponseEntity.ok(BaseResponse.ok(ScanTicketResponse.from(issued)))
     }
 }

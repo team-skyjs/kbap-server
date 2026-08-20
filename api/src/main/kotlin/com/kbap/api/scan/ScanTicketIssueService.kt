@@ -8,7 +8,7 @@ import com.kbap.common.port.scan.ScanTicketCodec
 import org.springframework.stereotype.Service
 
 @Service
-class ScanTicketService(
+class ScanTicketIssueService(
     private val memberService: MemberService,
     private val ticketCodec: ScanTicketCodec,
 ) {
