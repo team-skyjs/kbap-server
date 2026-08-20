@@ -24,6 +24,7 @@ internal interface FrankfurterApi {
 }
 
 internal data class FrankfurterLatestResponse(
+    val date: String? = null,
     val rates: Map<String, BigDecimal> = emptyMap(),
 )
 
@@ -35,10 +36,13 @@ class FrankfurterExchangeRateClient internal constructor(
     override fun getKrwPerUnitOrNull(currency: CurrencyCode): BigDecimal? {
         if (currency == CurrencyCode.KRW) return KRW_PER_KRW
         return try {
-            val rates = frankfurterApi.latestByEur().rates
+            val response = frankfurterApi.latestByEur()
+            val rates = response.rates
             val krwPerEur = rates[CurrencyCode.KRW.name] ?: return null
             val targetPerEur = if (currency == CurrencyCode.EUR) BigDecimal.ONE else rates[currency.name] ?: return null
-            krwPerEur.divide(targetPerEur, SCALE, RoundingMode.HALF_UP)
+            val krwPerUnit = krwPerEur.divide(targetPerEur, SCALE, RoundingMode.HALF_UP)
+            log.info("환율 응답: currency={} krwPerUnit={} rateDate={}", currency, krwPerUnit, response.date)
+            krwPerUnit
         } catch (e: RestClientException) {
             log.warn("환율 조회 실패: currency={}", currency, e)
             null
