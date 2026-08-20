@@ -222,6 +222,21 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
+        fun seedScanOf(memberId: Long, foodId: Long) {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO scan_history (member_id, price, food_id, status, created_at, updated_at)
+                    VALUES (?, NULL, ?, 'ACTIVE', NOW(6), NOW(6))
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setLong(2, foodId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
         fun setScanUnlocked(memberId: Long) {
             dataSource.connection.use { c ->
                 c.prepareStatement("UPDATE member SET scan_unlocked = 1 WHERE id = ?").use { ps ->
@@ -993,6 +1008,7 @@ class ScanControllerTest : BehaviorSpec() {
 
                     ticketRequest(memberId).andExpect { status { isForbidden() } }
 
+                    seedScanOf(memberId, foodIdOf("정책해금찌개"))
                     val reviewId = mapper.readTree(
                         mockMvc.post("/api/reviews") {
                             header("Authorization", "Bearer ${accessToken(memberId)}")

@@ -51,6 +51,7 @@ enum class ErrorCode(
     REVIEW_NOT_FOUND("REVIEW-001", 400, "해당 리뷰를 찾을 수 없습니다"),
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
     REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
+    REVIEW_NOT_ELIGIBLE("REVIEW-004", 403, "스캔 이력이 있는 음식에만 리뷰를 작성할 수 있습니다"),
 
     PLACE_SEARCH_FAILED("PLACE-001", 502, "식당 검색에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 

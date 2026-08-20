@@ -21,6 +21,7 @@ import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -38,6 +39,7 @@ class ReviewService(
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
     private val reportRepository: ReportJpaRepository,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -52,6 +54,9 @@ class ReviewService(
         place: ReviewPlace?,
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
+        if (!scanHistoryRepository.existsByMemberIdAndFoodId(memberId, foodId)) {
+            throw BusinessException(ErrorCode.REVIEW_NOT_ELIGIBLE)
+        }
         verifyImageOwnership(memberId, imagePaths)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         memberService.increaseReviewCount(memberId)

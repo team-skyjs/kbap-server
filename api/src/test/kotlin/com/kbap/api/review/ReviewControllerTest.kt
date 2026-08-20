@@ -60,8 +60,22 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun accessToken(memberId: Long, countryCode: String? = "KR"): String {
+        fun seedScanOfAllFoods(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO scan_history (member_id, price, food_id, status, created_at, updated_at)
+                    SELECT ?, NULL, id, 'ACTIVE', NOW(6), NOW(6) FROM food
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+
+        fun accessToken(memberId: Long, countryCode: String? = "KR", scannedAllFoods: Boolean = true): String {
             seedMember(memberId, countryCode)
+            if (scannedAllFoods) seedScanOfAllFoods(memberId)
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
@@ -925,6 +939,92 @@ class ReviewControllerTest : BehaviorSpec() {
                     when (reviewStatusOf(target)) {
                         "DELETED" -> rankingCounts(memberId) shouldBe (0 to 0)
                         else -> rankingCounts(memberId) shouldBe (1 to 1)
+                    }
+                }
+            }
+        }
+
+        given("리뷰 작성 자격 — 스캔 이력 검증") {
+            seedFood(870L, "자격김치찌개")
+
+            fun countReviews(memberId: Long, foodId: Long): Long =
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        "SELECT COUNT(*) FROM food_review WHERE member_id = ? AND food_id = ?",
+                    ).use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.setLong(2, foodId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getLong(1)
+                        }
+                    }
+                }
+
+            fun seedScan(memberId: Long, foodId: Long): Unit =
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        """
+                        INSERT INTO scan_history (member_id, price, food_id, status, created_at, updated_at)
+                        VALUES (?, NULL, ?, 'ACTIVE', NOW(6), NOW(6))
+                        """,
+                    ).use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.setLong(2, foodId)
+                        ps.executeUpdate()
+                    }
+                }
+
+            `when`("스캔 이력이 없는 음식에 리뷰를 작성하면") {
+                then("403 REVIEW-004 로 거절되고 리뷰는 저장되지 않는다") {
+                    val token = accessToken(870L, scannedAllFoods = false)
+                    create(token, createBody(foodId = 870L, rating = 4)).andExpect {
+                        status { isForbidden() }
+                        jsonPath("$.code") { value("REVIEW-004") }
+                    }
+                    countReviews(870L, 870L) shouldBe 0L
+                }
+            }
+
+            `when`("본인이 스캔해 매칭에 성공한 음식이면") {
+                then("작성이 성공한다") {
+                    val token = accessToken(871L, scannedAllFoods = false)
+                    seedScan(871L, 870L)
+                    create(token, createBody(foodId = 870L, rating = 4)).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("다른 회원만 그 음식을 스캔했으면") {
+                then("거절된다 — 자격은 본인 이력 기준이다") {
+                    accessToken(872L)
+                    val token = accessToken(873L, scannedAllFoods = false)
+                    create(token, createBody(foodId = 870L, rating = 4)).andExpect {
+                        status { isForbidden() }
+                        jsonPath("$.code") { value("REVIEW-004") }
+                    }
+                }
+            }
+
+            `when`("기작성 리뷰를 스캔 이력 삭제 후 수정하면") {
+                then("재검증 없이 성공한다") {
+                    val token = accessToken(874L, scannedAllFoods = false)
+                    seedScan(874L, 870L)
+                    val reviewId = createReview(token, 870L)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "UPDATE scan_history SET status = 'DELETED' WHERE member_id = 874",
+                        ).use { it.executeUpdate() }
+                    }
+                    update(token, reviewId, createBody(foodId = null, rating = 5)).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("존재하지 않는 음식에 작성하면") {
+                then("자격 오류가 아니라 FOOD-001 로 거절된다") {
+                    val token = accessToken(875L, scannedAllFoods = false)
+                    create(token, createBody(foodId = 999870L, rating = 4)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
                     }
                 }
             }
