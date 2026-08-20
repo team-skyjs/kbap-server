@@ -2,12 +2,12 @@ package com.kbap.common.domain.member.model
 
 object OnboardingProfileDefaults {
     val PROFILE_IMAGE_PATHS: List<String> = listOf(
-        "images/webp/default_profile/avatar-amber.png",
-        "images/webp/default_profile/avatar-navy.png",
-        "images/webp/default_profile/avatar-olive.png",
-        "images/webp/default_profile/avatar-orange.png",
-        "images/webp/default_profile/avatar-plum.png",
-        "images/webp/default_profile/avatar-teal.png",
+        "images/webp/default_profile/avatar1.webp",
+        "images/webp/default_profile/avatar2.webp",
+        "images/webp/default_profile/avatar3.webp",
+        "images/webp/default_profile/avatar4.webp",
+        "images/webp/default_profile/avatar5.webp",
+        "images/webp/default_profile/avatar6.webp",
     )
 
     val NICKNAME_POOL: List<String> = listOf(
