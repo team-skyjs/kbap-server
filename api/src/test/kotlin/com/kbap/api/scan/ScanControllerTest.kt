@@ -870,6 +870,21 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 4
                 }
             }
+            `when`("LLM 서버 장애(timeout·5xx·연결 실패)로 스캔이 실패하면") {
+                then("503 SCAN-006 으로 구분 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 646L
+                    val path = "scan/646/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.unavailableOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-006") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
             `when`("이미 처리 중인 Idempotency-Key 로 스캔이 중복 전달되면") {
                 then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
                     val memberId = 645L

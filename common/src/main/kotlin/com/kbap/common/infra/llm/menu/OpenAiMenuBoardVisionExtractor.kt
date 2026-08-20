@@ -3,6 +3,7 @@ package com.kbap.common.infra.llm.menu
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.infra.llm.model.LlmPricing
 import org.slf4j.LoggerFactory
@@ -12,7 +13,9 @@ import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.ai.content.Media
+import org.springframework.ai.retry.TransientAiException
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.web.client.ResourceAccessException
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
 import java.math.BigDecimal
@@ -35,7 +38,13 @@ class OpenAiMenuBoardVisionExtractor(
         val userMessage = UserMessage.builder().text(userPromptWith(ocrItems)).media(media).build()
 
         val systemPrompt = if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT
-        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
+        val response = try {
+            chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
+        } catch (e: TransientAiException) {
+            throw MenuBoardVisionUnavailableException(e)
+        } catch (e: ResourceAccessException) {
+            throw MenuBoardVisionUnavailableException(e)
+        }
         val cost = costIncurredFrom(response)
         publishCost(cost)
         logTokenUsage(cost, response.metadata.usage.totalTokens)

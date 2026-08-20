@@ -81,3 +81,4 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - [x] R004 2차안 롤백 — `MemberJpaRepository.reserveScan/releaseScan` 제거, `increaseScanCount` 복원, `MemberScanReservationTest` 삭제
 - [x] R005 멱등 키 — `Idempotency-Key` 요청 헤더(선택, 두 컨트롤러 `@RequestHeader`), 중복 409 `SCAN-005`(ErrorCode·swagger)
 - [x] R006 테스트 — `RedisScanReservationStoreTest`(동시 5스레드 정확성·중복·만료 회수·멱등 release), ScanControllerTest Redis 컨테이너 추가 + 처리 중 Idempotency-Key 중복 409 시나리오
+- [x] R007 LLM 서버 장애 코드 분리 — port 예외 `MenuBoardVisionUnavailableException`, 어댑터가 `TransientAiException`/`ResourceAccessException` 번역, 503 `SCAN-006`(재시도 유도 모달 분기), ScanControllerTest 장애 시 횟수 미소모 시나리오

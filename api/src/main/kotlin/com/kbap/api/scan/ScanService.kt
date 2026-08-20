@@ -7,6 +7,7 @@ import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.model.Food
@@ -95,6 +96,9 @@ class ScanService(
     ): ScanResult {
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
+        } catch (e: MenuBoardVisionUnavailableException) {
+            log.warn("메뉴판 비전 서버 장애 — imagePath={}", imagePath, e)
+            throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)
         } catch (e: Exception) {
             log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
