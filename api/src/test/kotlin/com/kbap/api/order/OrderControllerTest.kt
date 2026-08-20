@@ -395,6 +395,7 @@ class OrderControllerTest : BehaviorSpec() {
                     ids shouldBe ids.sortedDescending()
                     items[0].path("totalQuantity").asInt() shouldBe 3
                     (items[0].path("orderedAt").asLong() > 0) shouldBe true
+                    items[0].path("scanImageUrl").asText() shouldBe "https://cdn.test/order/930/menu-3.jpg"
                 }
             }
 

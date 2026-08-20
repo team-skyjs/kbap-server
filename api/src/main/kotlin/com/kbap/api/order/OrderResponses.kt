@@ -34,6 +34,12 @@ data class OrderSummaryResponse(
 
     @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개. 음식 사진이 없으면 기본 대체 이미지")
     val thumbnails: List<String>,
+
+    @field:Schema(
+        description = "주문 시점에 스캔했던 메뉴판 사진 URL",
+        example = "https://cdn.example.com/scan/42/menu.jpg",
+    )
+    val scanImageUrl: String,
 )
 
 @Schema(description = "주문 상세 — 카드 정보 + 메뉴별 내역")

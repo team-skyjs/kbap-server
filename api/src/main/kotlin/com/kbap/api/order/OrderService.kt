@@ -10,6 +10,8 @@ import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.util.CursorParser
+import com.kbap.common.util.ImageUrls
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -22,6 +24,7 @@ class OrderService(
     private val imageUploadService: ImageUploadService,
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
+    @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
     fun createOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
@@ -109,6 +112,7 @@ class OrderService(
                 roadAddress = order.roadAddress,
                 totalQuantity = OrderItem.totalQuantityOf(items),
                 thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { thumbnailsByFoodId[it.foodId] },
+                scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
             )
         }
     }
