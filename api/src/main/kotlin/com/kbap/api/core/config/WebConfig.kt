@@ -87,6 +87,8 @@ class WebConfig(
                 "${ApiPaths.API}/reviews",
                 "${ApiPaths.API}/reviews/*",
                 "${ApiPaths.API}/places/*",
+                "${ApiPaths.API}/orders",
+                "${ApiPaths.API}/orders/*",
                 "${ApiPaths.API}/community/posts",
                 "${ApiPaths.API}/community/posts/*",
                 "${ApiPaths.API}/community/comments/*",

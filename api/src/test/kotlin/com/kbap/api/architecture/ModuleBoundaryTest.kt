@@ -115,6 +115,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "member" to setOf("ingredient"),
             "image" to emptySet(),
             "metering" to emptySet(),
+            "order" to emptySet(),
             "ingredient" to emptySet(),
             "review" to emptySet(),
             "report" to emptySet(),
