@@ -25,7 +25,7 @@ class ScanV2Controller(
     @PostMapping
     override fun scan(
         @AuthMemberId memberId: Long,
-        @RequestHeader(IDEMPOTENCY_KEY_HEADER, required = false) idempotencyKey: String?,
+        @RequestHeader(SCAN_TICKET_HEADER) scanTicket: String,
         @Valid @ModelAttribute langRequest: ScanLangRequest,
         @RequestParam currency: String,
         @Valid @RequestBody request: ScanV2Request,
@@ -35,7 +35,7 @@ class ScanV2Controller(
             memberId,
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
-            idempotencyKey,
+            scanTicket,
         )
         return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency)))
     }

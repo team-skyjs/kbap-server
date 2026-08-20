@@ -68,6 +68,20 @@ class ScanControllerTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
+        fun ticketRequest(memberId: Long) =
+            mockMvc.post("/api/scans/tickets") {
+                header("Authorization", "Bearer ${accessToken(memberId)}")
+            }
+
+        fun issueTicket(memberId: Long): String =
+            mapper.readTree(
+                ticketRequest(memberId).andReturn().response.getContentAsString(Charsets.UTF_8),
+            ).path("payload").path("ticket").asText()
+
+        fun jtiOf(ticket: String): String =
+            mapper.readTree(java.util.Base64.getUrlDecoder().decode(ticket.split(".")[1]))
+                .path("jti").asText()
+
         fun setMemberCurrency(memberId: Long, currency: String) {
             seedMember(memberId)
             dataSource.connection.use { c ->
@@ -796,29 +810,75 @@ class ScanControllerTest : BehaviorSpec() {
         given("스캔 이용 정책 — 무료 3회·리뷰 해금") {
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
-            fun v2Scan(memberId: Long, path: String) =
+            fun v2Scan(memberId: Long, path: String, ticket: String = issueTicket(memberId)) =
                 mockMvc.post("/api/scans") {
                     param("lang", "ko")
                     param("currency", "USD")
                     header("Authorization", "Bearer ${accessToken(memberId)}")
                     header("X-API-Version", "2.0")
+                    header("X-Scan-Ticket", ticket)
                     contentType = MediaType.APPLICATION_JSON
                     content = v2Body(path)
                 }
 
-            `when`("무료 3회를 소진한 미해금 회원이 v2 스캔하면") {
-                then("403 SCAN-004 로 거절되고 반복해도 비용·이력·카운트가 발생하지 않는다") {
+            `when`("무료 3회를 소진한 미해금 회원이 티켓 발급을 요청하면") {
+                then("403 SCAN-004 로 업로드 전에 차단되고 반복해도 비용·이력·카운트가 발생하지 않는다") {
                     val memberId = 640L
                     setScanCount(memberId, 3)
 
                     repeat(2) {
-                        v2Scan(memberId, "scan/640/menu.jpg").andExpect {
+                        ticketRequest(memberId).andExpect {
                             status { isForbidden() }
                             jsonPath("$.code") { value("SCAN-004") }
                         }
                     }
                     scanCountOf(memberId) shouldBe 3
                     scanHistoryCount(memberId) shouldBe 0
+                }
+            }
+            `when`("잔여 슬롯이 있는 회원이 티켓 발급을 요청하면") {
+                then("서명 티켓과 유효 시간이 내려간다") {
+                    val memberId = 647L
+                    ticketRequest(memberId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.ticket") { isNotEmpty() }
+                        jsonPath("$.payload.expiresInSeconds") { value(300) }
+                    }
+                }
+            }
+            `when`("티켓 없이 v2 스캔을 호출하면") {
+                then("400 으로 거절된다") {
+                    val memberId = 648L
+                    val path = "scan/648/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        param("currency", "USD")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "2.0")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = v2Body(path)
+                    }.andExpect { status { isBadRequest() } }
+                    scanCountOf(memberId) shouldBe 0
+                }
+            }
+            `when`("위조되었거나 타인의 티켓으로 v2 스캔하면") {
+                then("400 SCAN-007 로 거절되고 횟수가 소모되지 않는다") {
+                    val memberId = 649L
+                    val otherId = 650L
+                    val path = "scan/649/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    v2Scan(memberId, path, ticket = "forged.ticket.value").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("SCAN-007") }
+                    }
+                    v2Scan(memberId, path, ticket = issueTicket(otherId)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("SCAN-007") }
+                    }
+                    scanCountOf(memberId) shouldBe 0
                 }
             }
             `when`("2회 소진 회원의 스캔이 실패하면") {
@@ -885,22 +945,15 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 2
                 }
             }
-            `when`("이미 처리 중인 Idempotency-Key 로 스캔이 중복 전달되면") {
+            `when`("이미 처리 중인 티켓으로 스캔이 중복 전달되면") {
                 then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
                     val memberId = 645L
                     val path = "scan/645/menu.jpg"
                     seedVerifiedImage(memberId, path)
-                    reservationStore.reserve(memberId, "dup-req-645", 0, 3)
+                    val ticket = issueTicket(memberId)
+                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
 
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        param("currency", "USD")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        header("X-API-Version", "2.0")
-                        header("Idempotency-Key", "dup-req-645")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = v2Body(path)
-                    }.andExpect {
+                    v2Scan(memberId, path, ticket = ticket).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("SCAN-005") }
                     }
@@ -917,7 +970,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(memberId, path)
                     vision.program(path, listOf(ExtractedMenu("정책해금찌개", "정책해금찌개", 9000, matchedIdx = null)))
 
-                    v2Scan(memberId, path).andExpect { status { isForbidden() } }
+                    ticketRequest(memberId).andExpect { status { isForbidden() } }
 
                     val reviewId = mapper.readTree(
                         mockMvc.post("/api/reviews") {
@@ -954,6 +1007,7 @@ class ScanControllerTest : BehaviorSpec() {
                     currency?.let { param("currency", it) }
                     header("Authorization", "Bearer ${accessToken(memberId)}")
                     header("X-API-Version", "2.0")
+                    header("X-Scan-Ticket", issueTicket(memberId))
                     contentType = MediaType.APPLICATION_JSON
                     this.content = content
                 }

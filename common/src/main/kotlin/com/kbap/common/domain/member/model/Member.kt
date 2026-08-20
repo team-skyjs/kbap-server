@@ -154,6 +154,8 @@ class Member(
         delete()
     }
 
+    fun isScanAllowed(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT
+
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3
         const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"

@@ -55,24 +55,24 @@ interface ScanV2Api {
             ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·지원하지 않는 통화 코드(MEMBER-010)",
+                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·유효하지 않은 스캔 티켓(SCAN-007 — 티켓 재발급 후 재시도)·지원하지 않는 통화 코드(MEMBER-010)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
-            ApiResponse(responseCode = "409", description = "같은 Idempotency-Key 의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
+            ApiResponse(responseCode = "409", description = "같은 티켓의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
         ],
     )
     fun scan(
         memberId: Long,
         @Parameter(
-            name = IDEMPOTENCY_KEY_HEADER,
-            description = "스캔 요청 멱등 키(옵션, UUID 권장). 네트워크 재시도로 같은 요청이 중복 전달돼도 무료 슬롯을 " +
-                "이중으로 예약하지 않는다 — 같은 키가 처리 중이면 409(SCAN-005). 미전송 시 서버가 생성한다(멱등 미보장).",
-            example = "3f1c9a2e-8d4b-4f6a-9c1d-2b7e5a0f4c88",
+            name = SCAN_TICKET_HEADER,
+            description = "POST /api/scans/tickets 로 발급받은 서버 서명 스캔 티켓(필수). 시도 단위로 발급받으며, " +
+                "위조·만료·타인 티켓은 400(SCAN-007). 같은 티켓이 처리 중이면 409(SCAN-005)로 이중 소모가 방지된다.",
+            required = true,
         )
-        idempotencyKey: String?,
+        scanTicket: String,
         @ParameterObject langRequest: ScanLangRequest,
         @Parameter(
             description = "환산 통화의 ISO 4217 코드(예: USD·JPY). 필수 — 회원 프로필 통화 설정과 무관하게 " +

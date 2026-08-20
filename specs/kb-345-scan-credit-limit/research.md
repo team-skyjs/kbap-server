@@ -32,6 +32,13 @@
 - **경계**: seam `common.port.scan.ScanReservationStore`(Spring-free), 구현 `api.infra.redis.RedisScanReservationStore`(ADR-0018 api 전용 어댑터 위치). LLM 호출은 어떤 DB 트랜잭션·잠금 밖, 앱 로컬 락 없음(EC2 2대).
 - **Alternatives considered**: 비관 잠금 직렬화 — 외부 호출을 잠금 안에 가둠, 기각. 조건부 원자 UPDATE 선점 — 위 폐기 사유. 크레딧 원장 테이블 — 고정 한도 3회에 과설계.
 
+## R4-1. 멱등 키 조작 방어 — 서버 발급 스캔 티켓 (2026-08-20 추가)
+
+- **Decision**: 클라이언트 생성 멱등 키를 폐기하고 **서버 서명 티켓**(`POST /api/scans/tickets` → jjwt HMAC, claims: memberId·jti·exp 300초)으로 대체. v2 스캔은 `X-Scan-Ticket` 헤더 필수, jti 가 Redis 예약 키. 발급 시 `Member.isScanAllowed()` 선검사로 소진 회원을 **업로드 전에** 403 차단.
+- **Rationale**: 클라이언트 UUID 조작으로 한도가 뚫리진 않지만(판정은 확정 횟수+예약 수), 발급 단계가 있으면 (1) 업로드 비용 없는 조기 차단, (2) 향후 발급 rate limit·사전 조건(캡차 등)의 단일 관문, (3) 멱등 키 품질의 서버 보장을 얻는다. seam `common.port.scan.ScanTicketCodec`, 구현 `api.infra.auth.token.JwtScanTicketCodec`(기존 jwt secret 재사용, TokenType.SCAN_TICKET).
+- **범위 밖(후속)**: 발급 rate limit Redis 카운팅(예: 5분 5회). 티켓의 완료-후 재사용 차단(완료 이력 미보관 — in-flight 중복만 차단).
+- **Alternatives considered**: 예약 경로 인라인 rate limit(발급 API 없이) — 조기 차단·관문 확장성이 없어 사용자 선택으로 기각. Redis 저장형 티켓 — stateless 서명으로 충분.
+
 ## R5. 소급·마이그레이션
 
 - **Decision**: `DEFAULT false` 단순 컬럼 추가 — 기존 회원 백필 없음(확정). 배포 즉시 정책 일괄 적용: 기존 성공 스캔 3회 이상·해금 안 된 회원은 잠기고, 새 리뷰 작성으로 해금.

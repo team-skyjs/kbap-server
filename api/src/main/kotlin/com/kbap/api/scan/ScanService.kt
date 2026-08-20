@@ -16,8 +16,10 @@ import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
+import com.kbap.common.port.scan.IssuedScanTicket
 import com.kbap.common.port.scan.ScanReservationResult
 import com.kbap.common.port.scan.ScanReservationStore
+import com.kbap.common.port.scan.ScanTicketCodec
 import java.util.UUID
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
@@ -33,21 +35,31 @@ class ScanService(
     private val imageUploadService: ImageUploadService,
     private val visionExtractor: MenuBoardVisionExtractor,
     private val reservationStore: ScanReservationStore,
+    private val ticketCodec: ScanTicketCodec,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    fun issueScanTicket(memberId: Long): IssuedScanTicket {
+        val member = memberService.getMember(memberId)
+        if (!member.isScanAllowed()) {
+            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+        }
+        return ticketCodec.issue(memberId)
+    }
 
     fun scanMenuBoardImage(
         memberId: Long,
         imagePath: String,
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
-        requestId: String?,
-    ): ScanResult = scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false, requestId = requestId)
+    ): ScanResult = scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false, reservationId = null)
 
-    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, requestId: String?): ScanResult =
-        scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, requestId = requestId)
+    fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, scanTicket: String): ScanResult {
+        val jti = ticketCodec.verify(scanTicket, memberId)
+        return scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, reservationId = jti)
+    }
 
     private fun scan(
         memberId: Long,
@@ -55,7 +67,7 @@ class ScanService(
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
         requireDetectedMenu: Boolean,
-        requestId: String?,
+        reservationId: String?,
     ): ScanResult {
         val member = memberService.getMember(memberId)
         if (member.scanUnlocked) {
@@ -64,8 +76,8 @@ class ScanService(
             return result
         }
 
-        val reservationId = requestId ?: UUID.randomUUID().toString()
-        when (reservationStore.reserve(memberId, reservationId, member.scanCount, Member.FREE_SCAN_LIMIT)) {
+        val reservationKey = reservationId ?: UUID.randomUUID().toString()
+        when (reservationStore.reserve(memberId, reservationKey, member.scanCount, Member.FREE_SCAN_LIMIT)) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             ScanReservationResult.RESERVED -> Unit
@@ -73,10 +85,10 @@ class ScanService(
         try {
             val result = doScan(member, memberId, imagePath, ocrItems, lang, requireDetectedMenu)
             memberService.increaseScanCount(memberId)
-            releaseReservationQuietly(memberId, reservationId)
+            releaseReservationQuietly(memberId, reservationKey)
             return result
         } catch (e: Exception) {
-            releaseReservationQuietly(memberId, reservationId)
+            releaseReservationQuietly(memberId, reservationKey)
             throw e
         }
     }
