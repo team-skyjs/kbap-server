@@ -14,7 +14,9 @@ import com.kbap.common.util.CursorParser
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class OrderService(
@@ -24,15 +26,17 @@ class OrderService(
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
     private val reverseGeocoder: ReverseGeocoder,
+    transactionManager: PlatformTransactionManager,
 ) {
+    private val writeTransaction = TransactionTemplate(transactionManager)
+
     fun createOrder(memberId: Long, request: OrderCreateRequest): Long {
         verifyOrderable(memberId, request)
         val roadAddress = request.latitude?.let { reverseGeocoder.getRoadAddressOrNull(it, request.longitude!!) }
-        return saveOrder(memberId, request, roadAddress)
+        return writeTransaction.execute { saveOrder(memberId, request, roadAddress) }!!
     }
 
-    @Transactional(readOnly = true)
-    fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
+    private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
         imageUploadService.verifyImageAccess(memberId, request.imagePath!!)
             ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         if (orderRepository.existsByImagePath(request.imagePath)) {
@@ -44,8 +48,7 @@ class OrderService(
         }
     }
 
-    @Transactional
-    fun saveOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
+    private fun saveOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
         val order = try {
             orderRepository.saveAndFlush(request.toOrder(memberId, roadAddress))
         } catch (e: DataIntegrityViolationException) {
