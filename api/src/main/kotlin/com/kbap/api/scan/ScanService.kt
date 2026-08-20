@@ -74,7 +74,7 @@ class ScanService(
             )
         }
 
-        recordHistory(member.id, imagePath, extracted, items)
+        recordHistory(member.id, extracted, items)
 
         return ScanResult(items = items, degraded = false)
     }
@@ -124,7 +124,6 @@ class ScanService(
 
     private fun recordHistory(
         memberId: Long,
-        imagePath: String,
         extracted: List<ExtractedMenu>,
         items: List<ScanResult.ItemRiskResult>,
     ) {
@@ -132,9 +131,6 @@ class ScanService(
         val histories = extracted.mapIndexed { index, menu ->
             ScanHistory.record(
                 memberId = memberId,
-                imagePath = imagePath,
-                menuName = menu.name,
-                koreanName = menu.koreanName,
                 price = menu.priceKrw,
                 foodId = items[index].foodId,
             )

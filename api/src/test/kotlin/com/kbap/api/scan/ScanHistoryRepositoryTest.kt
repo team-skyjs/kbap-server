@@ -96,14 +96,8 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
 
                     repository.saveAll(
                         listOf(
-                            ScanHistory.record(
-                                memberId = 11L, imagePath = "scan/11/a.jpg",
-                                menuName = "김치찌개", koreanName = "김치찌개", price = 9000, foodId = 1L,
-                            ),
-                            ScanHistory.record(
-                                memberId = 11L, imagePath = "scan/11/a.jpg",
-                                menuName = "비빔밥", koreanName = "비빔밥", price = 8000, foodId = 2L,
-                            ),
+                            ScanHistory.record(memberId = 11L, price = 9000, foodId = 1L),
+                            ScanHistory.record(memberId = 11L, price = 8000, foodId = 2L),
                         ),
                     )
 

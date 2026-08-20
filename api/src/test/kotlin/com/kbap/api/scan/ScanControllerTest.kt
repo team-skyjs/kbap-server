@@ -10,6 +10,7 @@ import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -195,28 +196,19 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun historyRow(memberId: Long, koreanName: String): Triple<String, Int?, Long?> =
+        fun historyRow(memberId: Long, koreanName: String): Pair<Int?, Long?> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "SELECT image_path, price, food_id FROM scan_history WHERE member_id = ? AND korean_name = ?",
+                    "SELECT sh.price, sh.food_id FROM scan_history sh JOIN food f ON f.id = sh.food_id " +
+                        "WHERE sh.member_id = ? AND f.korean_name = ?",
                 ).use { ps ->
                     ps.setLong(1, memberId); ps.setString(2, koreanName)
                     ps.executeQuery().use { rs ->
                         rs.next()
                         val price = rs.getInt("price").takeUnless { rs.wasNull() }
                         val foodId = rs.getLong("food_id").takeUnless { rs.wasNull() }
-                        Triple(rs.getString("image_path"), price, foodId)
+                        price to foodId
                     }
-                }
-            }
-
-        fun historyMenuName(memberId: Long, koreanName: String): String =
-            dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "SELECT menu_name FROM scan_history WHERE member_id = ? AND korean_name = ?",
-                ).use { ps ->
-                    ps.setLong(1, memberId); ps.setString(2, koreanName)
-                    ps.executeQuery().use { rs -> rs.next(); rs.getString(1) }
                 }
             }
 
@@ -331,7 +323,7 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].koreanName") { value("번역김치찌개") }
                     }
 
-                    historyMenuName(memberId, "번역김치찌개") shouldBe "Kimchi 번역김치찌개"
+                    historyRow(memberId, "번역김치찌개").second shouldNotBe null
                 }
             }
 
@@ -609,8 +601,7 @@ class ScanControllerTest : BehaviorSpec() {
                         content = body(path, 0 to "제육볶음")
                     }.andExpect { status { isOk() } }
 
-                    val (imagePath, price, foodId) = historyRow(memberId, "이력제육볶음")
-                    imagePath shouldBe path
+                    val (price, foodId) = historyRow(memberId, "이력제육볶음")
                     price shouldBe 8000
                     (foodId != null) shouldBe true
                     scanCountOf(memberId) shouldBe 1
@@ -1086,8 +1077,7 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     vision.receivedOcrItems[path] shouldBe emptyList()
-                    val (imagePath, price, _) = historyRow(memberId, "서버김치찌개")
-                    imagePath shouldBe path
+                    val (price, _) = historyRow(memberId, "서버김치찌개")
                     price shouldBe 9000
                     scanCountOf(memberId) shouldBe 1
                 }

@@ -90,3 +90,4 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - [x] R013 ScanTicketService 분리 — 발급은 독립 유스케이스라 퍼사드에서 분리(ScanTicketController → ScanTicketIssueService), verify 는 스캔 흐름 첫 단계라 퍼사드 유지
 - [x] R014 v1 크레딧 제한 제외 — 퍼사드 v1/v2 경로 분리(v1 은 게이트·티켓 없이 스캔+카운트만), ScanApi 403 문서 제거, v1 403 테스트를 정상 스캔 검증으로 교체
 - [x] R015 Codex 리뷰 반영 — (1) 예약 확보 직후 DB 카운트 재확인(낡은 confirmedCount 인터리빙 봉합), (2) 해금 회원도 예약 경유(limit=MAX — jti 중복 409 전 회원 적용, 시나리오 추가), (3) spec/quickstart 를 v2 전용·티켓 플로우로 정정
+- [x] R016 scan_history 스냅샷 컬럼 사용 중단 — image_path·menu_name·korean_name 을 엔티티에서 제거(이름은 food_id 조인, 사진↔메뉴 연결은 orders/KB-337 소유). 마이그레이션은 expand/contract 1단계로 nullable 완화만(구 리비전 배포 창 보호), 물리 DROP 은 후속 2단계
