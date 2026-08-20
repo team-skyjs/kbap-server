@@ -1,6 +1,6 @@
 package com.kbap.common.port.scan
 
-interface ScanTicketCodec {
+interface ScanTicketManager {
     fun issue(memberId: Long): IssuedScanTicket
 
     fun verify(ticket: String, memberId: Long): String

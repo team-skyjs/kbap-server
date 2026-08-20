@@ -8,7 +8,7 @@ import com.kbap.common.domain.member.model.Member
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.port.scan.ScanReservationResult
 import com.kbap.common.port.scan.ScanReservationStore
-import com.kbap.common.port.scan.ScanTicketCodec
+import com.kbap.common.port.scan.ScanTicketManager
 import java.util.UUID
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -18,7 +18,7 @@ class ScanFacade(
     private val scanService: ScanService,
     private val memberService: MemberService,
     private val reservationStore: ScanReservationStore,
-    private val ticketCodec: ScanTicketCodec,
+    private val ticketManager: ScanTicketManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -30,7 +30,7 @@ class ScanFacade(
     ): ScanResult = scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false, reservationId = null)
 
     fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, scanTicket: String): ScanResult {
-        val jti = ticketCodec.verify(scanTicket, memberId)
+        val jti = ticketManager.verify(scanTicket, memberId)
         return scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, reservationId = jti)
     }
 

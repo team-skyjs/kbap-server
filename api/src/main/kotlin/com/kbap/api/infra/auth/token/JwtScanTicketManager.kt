@@ -3,7 +3,7 @@ package com.kbap.api.infra.auth.token
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.scan.IssuedScanTicket
-import com.kbap.common.port.scan.ScanTicketCodec
+import com.kbap.common.port.scan.ScanTicketManager
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
@@ -14,10 +14,10 @@ import java.util.UUID
 import javax.crypto.spec.SecretKeySpec
 
 @Component
-class JwtScanTicketCodec(
+class JwtScanTicketManager(
     properties: JwtTokenProperties,
     @Value("\${kbap.scan.ticket-ttl-seconds:300}") private val ticketTtlSeconds: Long,
-) : ScanTicketCodec {
+) : ScanTicketManager {
     private val key = SecretKeySpec(properties.secret.toByteArray(), "HmacSHA256")
 
     override fun issue(memberId: Long): IssuedScanTicket {
