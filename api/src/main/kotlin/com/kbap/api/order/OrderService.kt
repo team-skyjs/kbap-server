@@ -11,12 +11,9 @@ import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.port.place.ReverseGeocoder
 import com.kbap.common.util.CursorParser
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class OrderService(
@@ -26,17 +23,16 @@ class OrderService(
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
     private val reverseGeocoder: ReverseGeocoder,
-    transactionManager: PlatformTransactionManager,
+    private val orderWriter: OrderWriter,
 ) {
-    private val writeTransaction = TransactionTemplate(transactionManager)
-
     fun createOrder(memberId: Long, request: OrderCreateRequest): Long {
         verifyOrderable(memberId, request)
         val roadAddress = request.latitude?.let { reverseGeocoder.getRoadAddressOrNull(it, request.longitude!!) }
-        return writeTransaction.execute { saveOrder(memberId, request, roadAddress) }!!
+        return orderWriter.placeOrder(memberId, request, roadAddress)
     }
 
-    private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
+    @Transactional(readOnly = true)
+    fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
         imageUploadService.verifyImageAccess(memberId, request.imagePath!!)
             ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         if (orderRepository.existsByImagePath(request.imagePath)) {
@@ -47,21 +43,6 @@ class OrderService(
             throw BusinessException(ErrorCode.ORDER_INVALID)
         }
     }
-
-    private fun saveOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
-        val order = try {
-            orderRepository.saveAndFlush(request.toOrder(memberId, roadAddress))
-        } catch (e: DataIntegrityViolationException) {
-            if (isImagePathConflict(e)) throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
-            throw e
-        }
-        orderItemRepository.saveAll(request.items.map { it.toItem(order.id) })
-        return order.id
-    }
-
-    private fun isImagePathConflict(e: DataIntegrityViolationException): Boolean =
-        generateSequence(e as Throwable) { it.cause }
-            .any { it.message?.contains(IMAGE_PATH_UNIQUE_KEY) == true }
 
     @Transactional(readOnly = true)
     fun getOrderPage(memberId: Long, rawCursor: String?, size: Int): OrderListPage {
@@ -129,7 +110,6 @@ class OrderService(
 
     companion object {
         const val MAX_PAGE_SIZE = 30
-        private const val IMAGE_PATH_UNIQUE_KEY = "uq_orders_image_path"
         private const val MAX_THUMBNAILS = 4
     }
 }
