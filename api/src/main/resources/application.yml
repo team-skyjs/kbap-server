@@ -109,10 +109,13 @@ kbap:
   # 이미지 배치 운영 파라미터(KB-226). 배치당 100건 — 한 번에 제작해 한 번에 회수(운영 결정).
   # 배치 단위 실패/만료의 손실을 줄이기 위해 회수는 failed/expired 배치의 부분 완료분도 거둬들인다.
   # 프롬프트는 설정이 아니라 코드 상수(FoodImageProperties.PROMPT_TEMPLATE) — 변경 시 PROMPT_VERSION 도 함께 올린다.
-  # 리뷰 작성 화면의 식당 검색(KB-274). 서버가 카카오 로컬 검색을 대신 호출해 REST 키를 클라이언트에 노출하지 않는다.
-  # 키가 없어도 부팅은 정상이고 GET /api/v1/places 만 PLACE-001(502) 로 실패한다 — 리뷰 작성은 식당 없이 계속 가능.
-  kakao:
-    rest-api-key: ${KAKAO_REST_API_KEY:}
+  # 리뷰 작성 화면의 식당 검색(KB-274, KB-350 구글 전환). 서버가 Google Places API 를 대신 호출해 키를 클라이언트에 노출하지 않는다.
+  # 키가 없어도 부팅은 정상이고 장소 검색만 PLACE-001(502) 로 실패한다 — 리뷰 작성은 식당 없이 계속 가능.
+  google:
+    places-api-key: ${GOOGLE_PLACES_API_KEY:}
+  # 스캔 2.0 환율(KB-349). frankfurter(ECB) 를 스캔 요청마다 호출한다 — 키 불필요, 실패 시 응답 currency 만 null(스캔은 정상).
+  exchange:
+    base-url: https://api.frankfurter.dev
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).

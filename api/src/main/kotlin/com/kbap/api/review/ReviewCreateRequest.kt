@@ -81,11 +81,15 @@ data class ReviewUpdateRequest(
 )
 
 @Schema(
-    description = "리뷰에 함께 저장할 위치 정보. 세 형태 — ① 식당 검색(GET /api/places)에서 고른 항목 그대로(KAKAO_PLACE), " +
+    description = "리뷰에 함께 저장할 위치 정보. 세 형태 — ① 식당 검색(GET /api/places/nearby·search)에서 고른 항목 그대로(GOOGLE_PLACE), " +
         "② GPS 미동의 시 사용자가 입력한 식당명 텍스트만(MANUAL), ③ 식당 미선택 + GPS 동의 시 작성자 좌표만(AUTHOR_LOCATION). " +
-        "출처는 서버가 유도한다(name+좌표 양쪽 → KAKAO_PLACE, name 만 → MANUAL, 좌표만 → AUTHOR_LOCATION)",
+        "출처는 서버가 유도한다(name+좌표 양쪽 → GOOGLE_PLACE, name 만 → MANUAL, 좌표만 → AUTHOR_LOCATION)",
 )
 data class ReviewPlaceRequest(
+    @field:Size(max = ReviewPlace.MAX_PLACE_ID_LENGTH, message = "placeId 는 최대 255자입니다")
+    @field:Schema(description = "Google 장소 식별자 — 식당 검색 응답의 placeId 그대로. GOOGLE_PLACE 출처일 때만 저장된다", example = "ChIJN1t_tDeuEmsRUsoyG83frY4")
+    val placeId: String? = null,
+
     @field:Size(max = ReviewPlace.MAX_NAME_LENGTH, message = "식당명은 최대 100자입니다")
     @field:Schema(description = "식당명", example = "한밥집 강남점")
     val name: String? = null,
@@ -111,7 +115,8 @@ data class ReviewPlaceRequest(
 
     fun toDomain(): ReviewPlace? = when {
         name != null && latitude != null && longitude != null -> ReviewPlace(
-            source = PlaceSource.KAKAO_PLACE,
+            source = PlaceSource.GOOGLE_PLACE,
+            placeId = placeId,
             name = name,
             address = address,
             latitude = latitude,
