@@ -39,7 +39,7 @@ class FoodScannedListControllerTest : BehaviorSpec() {
 
     override suspend fun afterSpec(spec: io.kotest.core.spec.Spec) {
         dataSource.connection.use { c ->
-            c.prepareStatement("DELETE FROM scan_history WHERE image_path = 'scans/test.jpg'").use { it.executeUpdate() }
+            c.prepareStatement("DELETE FROM scan_history WHERE member_id BETWEEN 5600 AND 5799").use { it.executeUpdate() }
         }
     }
 
@@ -94,9 +94,9 @@ class FoodScannedListControllerTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
-                    INSERT INTO scan_history (member_id, image_path, menu_name, korean_name, price, food_id,
+                    INSERT INTO scan_history (member_id, price, food_id,
                                               status, created_at, updated_at)
-                    VALUES (?, 'scans/test.jpg', '메뉴', '메뉴', NULL, ?,
+                    VALUES (?, NULL, ?,
                             'ACTIVE', DATE_ADD(NOW(6), INTERVAL ? SECOND), NOW(6))
                     """,
                 ).use { ps ->
