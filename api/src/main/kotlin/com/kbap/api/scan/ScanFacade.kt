@@ -9,7 +9,6 @@ import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.port.scan.ScanReservationResult
 import com.kbap.common.port.scan.ScanReservationStore
 import com.kbap.common.port.scan.ScanTicketManager
-import java.util.UUID
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -27,41 +26,34 @@ class ScanFacade(
         imagePath: String,
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
-    ): ScanResult = scan(memberId, imagePath, ocrItems, lang, requireDetectedMenu = false, reservationId = null)
+    ): ScanResult {
+        val member = memberService.getMember(memberId)
+        val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu = false)
+        memberService.increaseScanCount(memberId)
+        return result
+    }
 
     fun scanMenuBoardImageV2(memberId: Long, imagePath: String, lang: LanguageCode, scanTicket: String): ScanResult {
         val jti = ticketManager.verify(scanTicket, memberId)
-        return scan(memberId, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, reservationId = jti)
-    }
-
-    private fun scan(
-        memberId: Long,
-        imagePath: String,
-        ocrItems: List<OcrItem>,
-        lang: LanguageCode,
-        requireDetectedMenu: Boolean,
-        reservationId: String?,
-    ): ScanResult {
         val member = memberService.getMember(memberId)
         if (member.scanUnlocked) {
-            val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu)
+            val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
             memberService.increaseScanCount(memberId)
             return result
         }
 
-        val reservationKey = reservationId ?: UUID.randomUUID().toString()
-        when (reservationStore.reserve(memberId, reservationKey, member.scanCount, Member.FREE_SCAN_LIMIT)) {
+        when (reservationStore.reserve(memberId, jti, member.scanCount, Member.FREE_SCAN_LIMIT)) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             ScanReservationResult.RESERVED -> Unit
         }
         try {
-            val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu)
+            val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
             memberService.increaseScanCount(memberId)
-            releaseReservationQuietly(memberId, reservationKey)
+            releaseReservationQuietly(memberId, jti)
             return result
         } catch (e: Exception) {
-            releaseReservationQuietly(memberId, reservationKey)
+            releaseReservationQuietly(memberId, jti)
             throw e
         }
     }

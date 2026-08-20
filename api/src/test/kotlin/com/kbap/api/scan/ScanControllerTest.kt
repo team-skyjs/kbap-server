@@ -913,19 +913,21 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
             `when`("무료 3회를 소진한 미해금 회원이 v1 로 스캔하면") {
-                then("동일하게 403 SCAN-004 다") {
+                then("v1 은 크레딧 제한 밖이라 정상 스캔되고 카운트만 누적된다") {
                     val memberId = 642L
+                    val path = "scan/642/menu.jpg"
                     setScanCount(memberId, 3)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("브이원찌개")
+                    vision.program(path, listOf(ExtractedMenu("브이원찌개", "브이원찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/642/menu.jpg", 0 to "아무거나")
-                    }.andExpect {
-                        status { isForbidden() }
-                        jsonPath("$.code") { value("SCAN-004") }
-                    }
+                        content = body(path, 0 to "브이원찌개")
+                    }.andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 4
                 }
             }
             `when`("3회를 소진했지만 해금된 회원이면") {
@@ -1003,7 +1005,7 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
             `when`("해금 후 10회까지 스캔한 회원이 리뷰 삭제로 배치 재잠금되면") {
-                then("누적 카운트가 한도를 넘겨 있어도 발급·v1 스캔이 모두 403 으로 잠긴다") {
+                then("누적 카운트가 한도를 넘겨 있어도 티켓 발급이 403 으로 잠긴다") {
                     val memberId = 651L
                     val path = "scan/651/menu.jpg"
                     setScanCount(memberId, 10)
@@ -1017,18 +1019,11 @@ class ScanControllerTest : BehaviorSpec() {
 
                     relockScanByBatch(memberId)
 
-                    ticketRequest(memberId).andExpect {
-                        status { isForbidden() }
-                        jsonPath("$.code") { value("SCAN-004") }
-                    }
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "재잠금찌개")
-                    }.andExpect {
-                        status { isForbidden() }
-                        jsonPath("$.code") { value("SCAN-004") }
+                    repeat(2) {
+                        ticketRequest(memberId).andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.code") { value("SCAN-004") }
+                        }
                     }
                     scanCountOf(memberId) shouldBe 11
                     scanHistoryCount(memberId) shouldBe 1

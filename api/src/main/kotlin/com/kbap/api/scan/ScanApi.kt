@@ -53,7 +53,6 @@ interface ScanApi {
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
-            ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
         ],
     )
