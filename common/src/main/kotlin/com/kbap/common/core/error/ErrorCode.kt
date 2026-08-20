@@ -45,7 +45,7 @@ enum class ErrorCode(
     MENU_BOARD_NOT_DETECTED("SCAN-003", 400, "메뉴판을 인식하지 못했습니다. 메뉴판이 잘 보이게 다시 찍어주세요"),
     SCAN_LIMIT_EXCEEDED("SCAN-004", 403, "무료 스캔 횟수를 모두 사용했습니다. 리뷰를 작성하면 무제한으로 이용할 수 있어요"),
     DUPLICATE_SCAN_REQUEST("SCAN-005", 409, "이미 처리 중인 스캔 요청입니다"),
-    SCAN_VISION_UNAVAILABLE("SCAN-006", 503, "스캔 서버에 일시적인 문제가 발생했습니다. 다시 시도해 주세요"),
+    SCAN_VISION_UNAVAILABLE("SCAN-006", 503, "일시적인 문제로 스캔하지 못했어요. 다시 시도해 주세요"),
 
     REVIEW_NOT_FOUND("REVIEW-001", 400, "해당 리뷰를 찾을 수 없습니다"),
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),

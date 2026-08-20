@@ -13,6 +13,7 @@ dependencies {
     "api"(libs.mongodb.driver.sync)
 
     "implementation"(libs.spring.ai.starter.openai)
+    "implementation"("org.springframework.ai:spring-ai-retry")
 
     "implementation"(platform(libs.aws.bom))
     "implementation"(libs.aws.sqs)
