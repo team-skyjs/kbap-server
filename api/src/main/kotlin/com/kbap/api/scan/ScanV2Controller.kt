@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API + "/scans", version = "2.0+")
 class ScanV2Controller(
-    private val scanService: ScanService,
+    private val scanFacade: ScanFacade,
 ) : ScanV2Api {
     @PostMapping
     override fun scan(
@@ -31,7 +31,7 @@ class ScanV2Controller(
         @Valid @RequestBody request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>> {
         val requestedCurrency = requestedCurrency(currency)
-        val result = scanService.scanMenuBoardImageV2(
+        val result = scanFacade.scanMenuBoardImageV2(
             memberId,
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
