@@ -6,7 +6,6 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.port.llm.OcrItem
-import com.kbap.common.port.scan.IssuedScanTicket
 import com.kbap.common.port.scan.ScanReservationResult
 import com.kbap.common.port.scan.ScanReservationStore
 import com.kbap.common.port.scan.ScanTicketCodec
@@ -22,14 +21,6 @@ class ScanFacade(
     private val ticketCodec: ScanTicketCodec,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-
-    fun issueScanTicket(memberId: Long): IssuedScanTicket {
-        val member = memberService.getMember(memberId)
-        if (!member.isScanAllowed()) {
-            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
-        }
-        return ticketCodec.issue(memberId)
-    }
 
     fun scanMenuBoardImage(
         memberId: Long,
