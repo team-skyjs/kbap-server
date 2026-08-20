@@ -14,28 +14,19 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
-import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-
-data class ScanConfirmed(
-    val memberId: Long,
-    val reservationKey: String,
-)
 
 @Service
 class ScanService(
     private val foodService: FoodService,
-    private val memberService: MemberService,
     private val visionExtractor: MenuBoardVisionExtractor,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
-    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -86,12 +77,6 @@ class ScanService(
         recordHistory(member.id, imagePath, extracted, items)
 
         return ScanResult(items = items, degraded = false)
-    }
-
-    @Transactional
-    fun confirmScan(memberId: Long, reservationKey: String) {
-        memberService.increaseScanCount(memberId)
-        eventPublisher.publishEvent(ScanConfirmed(memberId, reservationKey))
     }
 
     @Transactional(readOnly = true)

@@ -13,7 +13,6 @@ import com.kbap.common.port.scan.ScanTicketCodec
 import java.util.UUID
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.event.TransactionalEventListener
 
 @Service
 class ScanFacade(
@@ -67,17 +66,13 @@ class ScanFacade(
         }
         try {
             val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu)
-            scanService.confirmScan(memberId, reservationKey)
+            memberService.increaseScanCount(memberId)
+            releaseReservationQuietly(memberId, reservationKey)
             return result
         } catch (e: Exception) {
             releaseReservationQuietly(memberId, reservationKey)
             throw e
         }
-    }
-
-    @TransactionalEventListener
-    fun releaseReservationOnCommit(event: ScanConfirmed) {
-        releaseReservationQuietly(event.memberId, event.reservationKey)
     }
 
     private fun releaseReservationQuietly(memberId: Long, reservationId: String) {

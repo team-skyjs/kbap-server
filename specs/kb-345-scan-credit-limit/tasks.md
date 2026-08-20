@@ -86,3 +86,4 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - [x] R009 성공 release 를 AFTER_COMMIT 이벤트로 구조화 — `TransactionTemplate`(카운트 증가+`ScanConfirmed` 발행 커밋) + `@TransactionalEventListener` release. commit-before-release 가 코드 배치 관례에서 구조 보장으로 승격
 - [x] R010 재잠금 회귀 시나리오 — 해금 후 10회 스캔 회원이 배치 재잠금(scan_unlocked=false)되면 누적 카운트(11)가 한도(3)를 초과한 상태 그대로 발급·v1 스캔 403 잠금 확인(ScanControllerTest)
 - [x] R011 퍼사드 분리 — `ScanFacade`(api.scan)가 티켓 발급·verify·예약·보상·AFTER_COMMIT release 오케스트레이션을 소유, `ScanService` 는 스캔 본체(LLM·매칭·이력)와 `@Transactional confirmScan`(카운트+이벤트)·이력 조회만. TransactionTemplate 제거, 컨트롤러 3개는 퍼사드 호출. 미사용 imageUploadService 의존 제거
+- [x] R012 AFTER_COMMIT 이벤트 제거 — ScanConfirmed·리스너·confirmScan 이 퍼사드의 "커밋 후 다음 줄 release" 와 동일 보장의 간접화라 삭제, 퍼사드가 increaseScanCount → release 인라인 수행
