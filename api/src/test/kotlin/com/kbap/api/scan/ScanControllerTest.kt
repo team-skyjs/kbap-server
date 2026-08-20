@@ -38,6 +38,9 @@ class ScanControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var vision: FakeMenuBoardVisionExtractor
 
+    @Autowired
+    private lateinit var exchangeRate: FakeExchangeRateClient
+
     init {
         val mapper = jacksonObjectMapper()
 
@@ -911,7 +914,7 @@ class ScanControllerTest : BehaviorSpec() {
 
                     val krwPerUnit = mapper.readTree(json)
                         .path("payload").path("currency").path("krwPerUnit").decimalValue()
-                    krwPerUnit.compareTo(BigDecimal("8.8906")) shouldBe 0
+                    krwPerUnit.compareTo(BigDecimal("9.9999")) shouldBe 0
                 }
             }
 
@@ -930,7 +933,28 @@ class ScanControllerTest : BehaviorSpec() {
 
                     val krwPerUnit = mapper.readTree(json)
                         .path("payload").path("currency").path("krwPerUnit").decimalValue()
-                    krwPerUnit.compareTo(BigDecimal("1416.0000")) shouldBe 0
+                    krwPerUnit.compareTo(BigDecimal("1400.5000")) shouldBe 0
+                }
+            }
+
+            `when`("환율 제공처 조회가 실패하면") {
+                then("스캔 결과는 정상이고 currency 만 null 이다") {
+                    val memberId = 627L
+                    val path = "scan/627/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("환율장애찌개")
+                    vision.program(path, listOf(ExtractedMenu("환율장애찌개", "환율장애찌개", 9000, matchedIdx = null)))
+
+                    exchangeRate.failAll = true
+                    try {
+                        v2Scan(memberId, path, currency = "USD").andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.currency") { value(null) }
+                            jsonPath("$.payload.results[0].name") { value("환율장애찌개") }
+                        }
+                    } finally {
+                        exchangeRate.failAll = false
+                    }
                 }
             }
 

@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.port.exchange.ExchangeRateClient
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ModelAttribute
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/scans", version = "2.0+")
 class ScanV2Controller(
     private val scanService: ScanService,
+    private val exchangeRateClient: ExchangeRateClient,
 ) : ScanV2Api {
     @PostMapping
     override fun scan(
@@ -34,7 +36,8 @@ class ScanV2Controller(
             request.imagePath!!,
             LanguageCode.from(langRequest.lang),
         )
-        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency)))
+        val krwPerUnit = exchangeRateClient.getKrwPerUnitOrNull(requestedCurrency)
+        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency, krwPerUnit)))
     }
 
     private fun requestedCurrency(raw: String): CurrencyCode =
