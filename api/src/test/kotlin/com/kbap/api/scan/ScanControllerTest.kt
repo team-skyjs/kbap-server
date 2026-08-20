@@ -236,6 +236,15 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
+        fun relockScanByBatch(memberId: Long) {
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET scan_unlocked = 0 WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
         fun scanUnlockedOf(memberId: Long): Boolean =
             dataSource.connection.use { c ->
                 c.prepareStatement("SELECT scan_unlocked FROM member WHERE id = ?").use { ps ->
@@ -988,6 +997,38 @@ class ScanControllerTest : BehaviorSpec() {
                     }.andExpect { status { isOk() } }
                     scanUnlockedOf(memberId) shouldBe true
                     v2Scan(memberId, path).andExpect { status { isOk() } }
+                }
+            }
+            `when`("해금 후 10회까지 스캔한 회원이 리뷰 삭제로 배치 재잠금되면") {
+                then("누적 카운트가 한도를 넘겨 있어도 발급·v1 스캔이 모두 403 으로 잠긴다") {
+                    val memberId = 651L
+                    val path = "scan/651/menu.jpg"
+                    setScanCount(memberId, 10)
+                    setScanUnlocked(memberId)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("재잠금찌개")
+                    vision.program(path, listOf(ExtractedMenu("재잠금찌개", "재잠금찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 11
+
+                    relockScanByBatch(memberId)
+
+                    ticketRequest(memberId).andExpect {
+                        status { isForbidden() }
+                        jsonPath("$.code") { value("SCAN-004") }
+                    }
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "재잠금찌개")
+                    }.andExpect {
+                        status { isForbidden() }
+                        jsonPath("$.code") { value("SCAN-004") }
+                    }
+                    scanCountOf(memberId) shouldBe 11
+                    scanHistoryCount(memberId) shouldBe 1
                 }
             }
         }

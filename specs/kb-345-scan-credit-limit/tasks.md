@@ -84,3 +84,4 @@ Foundational: T001 ∥ T002 → T003(Red) → T004(Green) → checkpoint
 - [x] R007 LLM 서버 장애 코드 분리 — port 예외 `MenuBoardVisionUnavailableException`, 어댑터가 `TransientAiException`/`ResourceAccessException` 번역, 503 `SCAN-006`(재시도 유도 모달 분기), ScanControllerTest 장애 시 횟수 미소모 시나리오
 - [x] R008 서버 발급 스캔 티켓 — seam `ScanTicketCodec`(port.scan) + `JwtScanTicketCodec`(api.infra.auth.token, TokenType.SCAN_TICKET·TTL `kbap.scan.ticket-ttl-seconds`), `POST /api/scans/tickets`(발급 시 isScanAllowed 선검사 403), v2 스캔 `X-Scan-Ticket` 필수(jti=예약 키, 위조·만료·타인 400 SCAN-007), Idempotency-Key 헤더 폐기, 테스트(발급 200/403·티켓 누락 400·위조/타인 SCAN-007·처리 중 중복 409)
 - [x] R009 성공 release 를 AFTER_COMMIT 이벤트로 구조화 — `TransactionTemplate`(카운트 증가+`ScanConfirmed` 발행 커밋) + `@TransactionalEventListener` release. commit-before-release 가 코드 배치 관례에서 구조 보장으로 승격
+- [x] R010 재잠금 회귀 시나리오 — 해금 후 10회 스캔 회원이 배치 재잠금(scan_unlocked=false)되면 누적 카운트(11)가 한도(3)를 초과한 상태 그대로 발급·v1 스캔 403 잠금 확인(ScanControllerTest)
