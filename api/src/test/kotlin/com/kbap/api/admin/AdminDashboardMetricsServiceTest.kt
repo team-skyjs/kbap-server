@@ -76,7 +76,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
         fun saveScan(memberId: Long, daysAgo: Long) {
             val scan = scanHistoryJpaRepository.save(
-                ScanHistory(memberId = memberId, imagePath = "scan/img.png", menuName = "menu", koreanName = "메뉴"),
+                ScanHistory(memberId = memberId),
             )
             setCreatedAt("scan_history", scan.id, daysAgo)
         }

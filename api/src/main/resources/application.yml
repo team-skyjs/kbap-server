@@ -40,6 +40,11 @@ spring:
         speech: none
 
 kbap:
+  scan:
+    # 스캔 예약(무료 슬롯 선점)의 TTL — LLM 최대 타임아웃보다 충분히 길게. 프로세스가 죽어 해제를 못 해도 만료로 슬롯이 복구된다.
+    reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
+    # 스캔 티켓(발급형 자격 증명)의 유효 시간 — 발급~스캔 호출 사이(사진 촬영·업로드)를 감당할 만큼.
+    ticket-ttl-seconds: ${SCAN_TICKET_TTL_SECONDS:300}
   auth:
     firebase:
       # 서비스 계정 키를 주는 방법은 두 가지이며 json 이 우선한다.

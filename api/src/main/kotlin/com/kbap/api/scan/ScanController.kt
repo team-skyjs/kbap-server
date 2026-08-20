@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API + "/scans")
 class ScanController(
-    private val scanService: ScanService,
+    private val scanFacade: ScanFacade,
 ) : ScanApi {
     @PostMapping
     override fun scan(
@@ -23,7 +23,7 @@ class ScanController(
         @Valid @ModelAttribute langRequest: ScanLangRequest,
         @Valid @RequestBody request: ScanRequest,
     ): ResponseEntity<BaseResponse<ScanResponse>> {
-        val result = scanService.scanMenuBoardImage(
+        val result = scanFacade.scanMenuBoardImage(
             memberId,
             request.imagePath!!,
             request.toOcrItems(),

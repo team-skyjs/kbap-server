@@ -4,10 +4,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -15,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
@@ -22,7 +26,7 @@ import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@Import(MySqlContainerConfig::class, RedisContainerConfig::class)
 class ScanControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -37,6 +41,9 @@ class ScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var vision: FakeMenuBoardVisionExtractor
+
+    @Autowired
+    private lateinit var reservationStore: ScanReservationStore
 
     @Autowired
     private lateinit var exchangeRate: FakeExchangeRateClient
@@ -64,6 +71,20 @@ class ScanControllerTest : BehaviorSpec() {
             seedMember(memberId)
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
+
+        fun ticketRequest(memberId: Long) =
+            mockMvc.post("/api/scans/tickets") {
+                header("Authorization", "Bearer ${accessToken(memberId)}")
+            }
+
+        fun issueTicket(memberId: Long): String =
+            mapper.readTree(
+                ticketRequest(memberId).andReturn().response.getContentAsString(Charsets.UTF_8),
+            ).path("payload").path("ticket").asText()
+
+        fun jtiOf(ticket: String): String =
+            mapper.readTree(java.util.Base64.getUrlDecoder().decode(ticket.split(".")[1]))
+                .path("jti").asText()
 
         fun setMemberCurrency(memberId: Long, currency: String) {
             seedMember(memberId)
@@ -175,28 +196,63 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun historyRow(memberId: Long, koreanName: String): Triple<String, Int?, Long?> =
+        fun historyRow(memberId: Long, koreanName: String): Pair<Int?, Long?> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "SELECT image_path, price, food_id FROM scan_history WHERE member_id = ? AND korean_name = ?",
+                    "SELECT sh.price, sh.food_id FROM scan_history sh JOIN food f ON f.id = sh.food_id " +
+                        "WHERE sh.member_id = ? AND f.korean_name = ?",
                 ).use { ps ->
                     ps.setLong(1, memberId); ps.setString(2, koreanName)
                     ps.executeQuery().use { rs ->
                         rs.next()
                         val price = rs.getInt("price").takeUnless { rs.wasNull() }
                         val foodId = rs.getLong("food_id").takeUnless { rs.wasNull() }
-                        Triple(rs.getString("image_path"), price, foodId)
+                        price to foodId
                     }
                 }
             }
 
-        fun historyMenuName(memberId: Long, koreanName: String): String =
+        fun setScanCount(memberId: Long, count: Int) {
+            seedMember(memberId)
             dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "SELECT menu_name FROM scan_history WHERE member_id = ? AND korean_name = ?",
-                ).use { ps ->
-                    ps.setLong(1, memberId); ps.setString(2, koreanName)
-                    ps.executeQuery().use { rs -> rs.next(); rs.getString(1) }
+                c.prepareStatement("UPDATE member SET scan_count = ? WHERE id = ?").use { ps ->
+                    ps.setInt(1, count); ps.setLong(2, memberId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun setScanUnlocked(memberId: Long) {
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET scan_unlocked = 1 WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun relockScanByBatch(memberId: Long) {
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET scan_unlocked = 0 WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun scanUnlockedOf(memberId: Long): Boolean =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT scan_unlocked FROM member WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getBoolean(1) }
+                }
+            }
+
+        fun scanHistoryCount(memberId: Long): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT COUNT(*) FROM scan_history WHERE member_id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
                 }
             }
 
@@ -267,7 +323,7 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].koreanName") { value("번역김치찌개") }
                     }
 
-                    historyMenuName(memberId, "번역김치찌개") shouldBe "Kimchi 번역김치찌개"
+                    historyRow(memberId, "번역김치찌개").second shouldNotBe null
                 }
             }
 
@@ -545,8 +601,7 @@ class ScanControllerTest : BehaviorSpec() {
                         content = body(path, 0 to "제육볶음")
                     }.andExpect { status { isOk() } }
 
-                    val (imagePath, price, foodId) = historyRow(memberId, "이력제육볶음")
-                    imagePath shouldBe path
+                    val (price, foodId) = historyRow(memberId, "이력제육볶음")
                     price shouldBe 8000
                     (foodId != null) shouldBe true
                     scanCountOf(memberId) shouldBe 1
@@ -755,6 +810,234 @@ class ScanControllerTest : BehaviorSpec() {
             }
         }
 
+        given("스캔 이용 정책 — 무료 3회·리뷰 해금") {
+            fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
+
+            fun v2Scan(memberId: Long, path: String, ticket: String = issueTicket(memberId)) =
+                mockMvc.post("/api/scans") {
+                    param("lang", "ko")
+                    param("currency", "USD")
+                    header("Authorization", "Bearer ${accessToken(memberId)}")
+                    header("X-API-Version", "2.0")
+                    header("X-Scan-Ticket", ticket)
+                    contentType = MediaType.APPLICATION_JSON
+                    content = v2Body(path)
+                }
+
+            `when`("무료 3회를 소진한 미해금 회원이 티켓 발급을 요청하면") {
+                then("403 SCAN-004 로 업로드 전에 차단되고 반복해도 비용·이력·카운트가 발생하지 않는다") {
+                    val memberId = 640L
+                    setScanCount(memberId, 3)
+
+                    repeat(2) {
+                        ticketRequest(memberId).andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.code") { value("SCAN-004") }
+                        }
+                    }
+                    scanCountOf(memberId) shouldBe 3
+                    scanHistoryCount(memberId) shouldBe 0
+                }
+            }
+            `when`("잔여 슬롯이 있는 회원이 티켓 발급을 요청하면") {
+                then("서명 티켓과 유효 시간이 내려간다") {
+                    val memberId = 647L
+                    ticketRequest(memberId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.ticket") { isNotEmpty() }
+                        jsonPath("$.payload.expiresInSeconds") { value(300) }
+                    }
+                }
+            }
+            `when`("티켓 없이 v2 스캔을 호출하면") {
+                then("400 으로 거절된다") {
+                    val memberId = 648L
+                    val path = "scan/648/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        param("currency", "USD")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        header("X-API-Version", "2.0")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = v2Body(path)
+                    }.andExpect { status { isBadRequest() } }
+                    scanCountOf(memberId) shouldBe 0
+                }
+            }
+            `when`("위조되었거나 타인의 티켓으로 v2 스캔하면") {
+                then("400 SCAN-007 로 거절되고 횟수가 소모되지 않는다") {
+                    val memberId = 649L
+                    val otherId = 650L
+                    val path = "scan/649/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+
+                    v2Scan(memberId, path, ticket = "forged.ticket.value").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("SCAN-007") }
+                    }
+                    v2Scan(memberId, path, ticket = issueTicket(otherId)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("SCAN-007") }
+                    }
+                    scanCountOf(memberId) shouldBe 0
+                }
+            }
+            `when`("2회 소진 회원의 스캔이 실패하면") {
+                then("횟수가 소모되지 않고 이어서 3회째 성공 스캔이 가능하다") {
+                    val memberId = 641L
+                    val failPath = "scan/641/landscape.jpg"
+                    val okPath = "scan/641/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, failPath)
+                    seedVerifiedImage(memberId, okPath)
+                    seedReadyFood("정책김치찌개")
+                    vision.program(failPath, emptyList())
+                    vision.program(okPath, listOf(ExtractedMenu("정책김치찌개", "정책김치찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, failPath).andExpect { status { isBadRequest() } }
+                    scanCountOf(memberId) shouldBe 2
+
+                    v2Scan(memberId, okPath).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 3
+                }
+            }
+            `when`("무료 3회를 소진한 미해금 회원이 v1 로 스캔하면") {
+                then("v1 은 크레딧 제한 밖이라 정상 스캔되고 카운트만 누적된다") {
+                    val memberId = 642L
+                    val path = "scan/642/menu.jpg"
+                    setScanCount(memberId, 3)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("브이원찌개")
+                    vision.program(path, listOf(ExtractedMenu("브이원찌개", "브이원찌개", 9000, matchedIdx = 0)))
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "브이원찌개")
+                    }.andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 4
+                }
+            }
+            `when`("3회를 소진했지만 해금된 회원이면") {
+                then("제한 없이 스캔된다") {
+                    val memberId = 643L
+                    val path = "scan/643/menu.jpg"
+                    setScanCount(memberId, 3)
+                    setScanUnlocked(memberId)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("정책김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("정책김치찌개", "정책김치찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 4
+                }
+            }
+            `when`("LLM 서버 장애(timeout·5xx·연결 실패)로 스캔이 실패하면") {
+                then("503 SCAN-006 으로 구분 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 646L
+                    val path = "scan/646/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.unavailableOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-006") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("이미 처리 중인 티켓으로 스캔이 중복 전달되면") {
+                then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
+                    val memberId = 645L
+                    val path = "scan/645/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val ticket = issueTicket(memberId)
+                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
+
+                    v2Scan(memberId, path, ticket = ticket).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("SCAN-005") }
+                    }
+                    scanCountOf(memberId) shouldBe 0
+                    scanHistoryCount(memberId) shouldBe 0
+                }
+            }
+            `when`("해금 회원이 처리 중인 같은 티켓으로 중복 전송하면") {
+                then("해금 여부와 무관하게 409 SCAN-005 로 이중 소모가 방지된다") {
+                    val memberId = 652L
+                    val path = "scan/652/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setScanUnlocked(memberId)
+                    val ticket = issueTicket(memberId)
+                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
+
+                    v2Scan(memberId, path, ticket = ticket).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("SCAN-005") }
+                    }
+                    scanHistoryCount(memberId) shouldBe 0
+                }
+            }
+            `when`("잠긴 회원이 리뷰를 작성하면") {
+                then("즉시 해금되어 스캔이 성공하고, 리뷰를 삭제해도 해금이 유지된다") {
+                    val memberId = 644L
+                    val path = "scan/644/menu.jpg"
+                    setScanCount(memberId, 3)
+                    seedReadyFood("정책해금찌개")
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("정책해금찌개", "정책해금찌개", 9000, matchedIdx = null)))
+
+                    ticketRequest(memberId).andExpect { status { isForbidden() } }
+
+                    val reviewId = mapper.readTree(
+                        mockMvc.post("/api/reviews") {
+                            header("Authorization", "Bearer ${accessToken(memberId)}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("foodId" to foodIdOf("정책해금찌개"), "rating" to 5))
+                        }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("reviewId").asLong()
+
+                    scanUnlockedOf(memberId) shouldBe true
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+
+                    mockMvc.delete("/api/reviews/$reviewId") {
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                    }.andExpect { status { isOk() } }
+                    scanUnlockedOf(memberId) shouldBe true
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                }
+            }
+            `when`("해금 후 10회까지 스캔한 회원이 리뷰 삭제로 배치 재잠금되면") {
+                then("누적 카운트가 한도를 넘겨 있어도 티켓 발급이 403 으로 잠긴다") {
+                    val memberId = 651L
+                    val path = "scan/651/menu.jpg"
+                    setScanCount(memberId, 10)
+                    setScanUnlocked(memberId)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("재잠금찌개")
+                    vision.program(path, listOf(ExtractedMenu("재잠금찌개", "재잠금찌개", 9000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 11
+
+                    relockScanByBatch(memberId)
+
+                    repeat(2) {
+                        ticketRequest(memberId).andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.code") { value("SCAN-004") }
+                        }
+                    }
+                    scanCountOf(memberId) shouldBe 11
+                    scanHistoryCount(memberId) shouldBe 1
+                }
+            }
+        }
+
         given("스캔 v2 — POST /api/scans (X-API-Version 2.0) 서버 OCR") {
             fun v2Body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
 
@@ -770,6 +1053,7 @@ class ScanControllerTest : BehaviorSpec() {
                     currency?.let { param("currency", it) }
                     header("Authorization", "Bearer ${accessToken(memberId)}")
                     header("X-API-Version", "2.0")
+                    header("X-Scan-Ticket", issueTicket(memberId))
                     contentType = MediaType.APPLICATION_JSON
                     this.content = content
                 }
@@ -793,8 +1077,7 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     vision.receivedOcrItems[path] shouldBe emptyList()
-                    val (imagePath, price, _) = historyRow(memberId, "서버김치찌개")
-                    imagePath shouldBe path
+                    val (price, _) = historyRow(memberId, "서버김치찌개")
                     price shouldBe 9000
                     scanCountOf(memberId) shouldBe 1
                 }
