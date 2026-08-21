@@ -624,5 +624,55 @@ class OrderControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("주문 저장·조회 — 준비중(미등록·FAILED) 음식 포함") {
+            fun seedFailedFood(koreanName: String): Long {
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        """
+                        INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
+                                          ingredients, content_status, status, created_at, updated_at)
+                        VALUES (?, '설명', 0, '{}', '{}', '[]', 'FAILED', 'ACTIVE', NOW(6), NOW(6))
+                        ON DUPLICATE KEY UPDATE content_status = 'FAILED'
+                        """,
+                    ).use { ps -> ps.setString(1, koreanName); ps.executeUpdate() }
+                }
+                return dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
+                        ps.setString(1, koreanName)
+                        ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); rs.getLong(1) }
+                    }
+                }
+            }
+
+            `when`("준비중 음식이 섞인 메뉴로 주문하면") {
+                then("거절하지 않고 저장되며 상세에 항목이 그대로 내려간다(사진은 기본 이미지)") {
+                    val memberId = 950L
+                    val token = accessToken(memberId)
+                    val path = "order/950/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val ready = seedReadyFood("준비완료김밥")
+                    val incomplete = seedFailedFood("준비중김밥")
+
+                    val orderId = orderIdOf(
+                        placeOrder(
+                            token,
+                            orderBody(path, listOf(itemJson("준비완료김밥", 1, 2500, ready), itemJson("준비중김밥", 2, 3000, incomplete))),
+                        ).andExpect { status { isOk() } },
+                    )
+
+                    orderDetail(token, orderId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.items[1].foodId") { value(incomplete) }
+                        jsonPath("$.payload.items[1].menuName") { value("준비중김밥") }
+                        jsonPath("$.payload.totalQuantity") { value(3) }
+                    }
+                    val json = orderDetail(token, orderId).andReturn().response.contentAsString
+                    mapper.readTree(json).path("payload").path("items")[1].path("imageRef").asText()
+                        .contains("food_not_found") shouldBe true
+                }
+            }
+        }
     }
 }

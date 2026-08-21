@@ -39,7 +39,7 @@ class OrderService(
             throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
         }
         val foodIds = request.items.map { it.foodId!! }.distinct()
-        if (foodService.getReadyFoodsByIds(foodIds).size != foodIds.size) {
+        if (foodRepository.findByIdIn(foodIds).size != foodIds.size) {
             throw BusinessException(ErrorCode.ORDER_INVALID)
         }
     }
