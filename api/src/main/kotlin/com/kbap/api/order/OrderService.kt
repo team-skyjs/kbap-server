@@ -5,6 +5,7 @@ import com.kbap.api.image.ImageUploadService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
@@ -40,7 +41,7 @@ class OrderService(
         }
         val foodIds = request.items.map { it.foodId!! }.distinct()
         if (foodRepository.findByIdIn(foodIds).size != foodIds.size) {
-            throw BusinessException(ErrorCode.ORDER_INVALID)
+            throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         }
     }
 
@@ -79,7 +80,7 @@ class OrderService(
             .filter { it.memberId == memberId }
             .orElseThrow { BusinessException(ErrorCode.ORDER_NOT_FOUND) }
         val items = orderItemRepository.findByOrderIdOrderByIdAsc(order.id)
-        val imageRefsByFoodId = resolveThumbnails(items)
+        val foodsById = loadFoodsById(items)
         return OrderDetailResponse(
             orderId = order.id,
             orderedAt = order.orderedAt(),
@@ -87,12 +88,14 @@ class OrderService(
             totalQuantity = OrderItem.totalQuantityOf(items),
             totalPrice = OrderItem.totalPriceOf(items),
             items = items.map {
+                val food = foodsById[it.foodId]
                 OrderItemResponse(
                     menuName = it.menuName,
                     quantity = it.quantity,
                     price = it.price,
                     foodId = it.foodId,
-                    imageRef = imageRefsByFoodId.getValue(it.foodId),
+                    imageRef = foodService.resolveImageUrlOrDefault(food),
+                    ready = food?.isReady() == true,
                 )
             },
         )
@@ -118,10 +121,14 @@ class OrderService(
     }
 
     private fun resolveThumbnails(items: List<OrderItem>): Map<Long, String> {
+        val foodsById = loadFoodsById(items)
+        return items.map { it.foodId }.distinct().associateWith { foodService.resolveImageUrlOrDefault(foodsById[it]) }
+    }
+
+    private fun loadFoodsById(items: List<OrderItem>): Map<Long, Food> {
         val foodIds = items.map { it.foodId }.distinct()
         if (foodIds.isEmpty()) return emptyMap()
-        val foodsById = foodRepository.findAllById(foodIds).associateBy { it.id }
-        return foodIds.associateWith { foodService.resolveImageUrlOrDefault(foodsById[it]) }
+        return foodRepository.findAllById(foodIds).associateBy { it.id }
     }
 
     companion object {

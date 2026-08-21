@@ -24,7 +24,7 @@ interface OrderApi {
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "저장 성공"),
-        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만) 또는 이미지 미검증(SCAN-001)"),
+        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만), 이미지 미검증(SCAN-001), 존재하지 않는 음식(FOOD-001)"),
         ApiResponse(responseCode = "409", description = "이미 주문한 스캔(ORDER-003)"),
     )
     @SecurityRequirement(name = "bearerAuth")
