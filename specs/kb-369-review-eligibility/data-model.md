@@ -18,7 +18,7 @@ scan_history
 
 ## 응답 모델 변경
 
-- `GetFoodDetailResult` / `FoodDetailResponse`: `reviewEligible: Boolean?` 추가 — memberId null(비회원)이면 null.
+- `GetFoodDetailResult` / `FoodDetailResponse`: `reviewEligible: Boolean` 추가 — memberId null(비회원)이면 false.
 
 ## 에러 코드
 

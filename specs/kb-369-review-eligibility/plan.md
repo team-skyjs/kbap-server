@@ -6,7 +6,7 @@
 
 ## Summary
 
-리뷰 작성(POST /api/reviews)에 "요청 회원의 활성 스캔 이력에 해당 음식 존재" 자격 검증을 추가하고(위반 시 신규 `REVIEW-004`), 음식 상세(GET /api/foods/{foodId}) 응답에 같은 기준의 `reviewEligible`(회원 true/false·비회원 null)을 추가한다. 판정은 양쪽 모두 `scan_history` 에 대한 단일 exists 쿼리 — `ScanHistoryJpaRepository.existsByMemberIdAndFoodId` 파생 쿼리 하나를 신설해 공유한다. 수정(PATCH)은 재검증하지 않는다(본인 리뷰 검증이 자격을 전이 보장).
+리뷰 작성(POST /api/reviews)에 "요청 회원의 활성 스캔 이력에 해당 음식 존재" 자격 검증을 추가하고(위반 시 신규 `REVIEW-004`), 음식 상세(GET /api/foods/{foodId}) 응답에 같은 기준의 `reviewEligible`(회원 true/false·비회원 항상 false)을 추가한다. 판정은 양쪽 모두 `scan_history` 에 대한 단일 exists 쿼리 — `ScanHistoryJpaRepository.existsByMemberIdAndFoodId` 파생 쿼리 하나를 신설해 공유한다. 수정(PATCH)은 재검증하지 않는다(본인 리뷰 검증이 자격을 전이 보장).
 
 ## Technical Context
 
@@ -65,8 +65,8 @@ api/src/main/kotlin/com/kbap/api/
 ├── review/ReviewService.kt                     # createReview 에 자격 검증(스캔 이력 exists)
 ├── review/ReviewApi.kt                         # swagger — 403 REVIEW-004 문서화
 ├── food/FoodService.kt                         # getDetail 에 reviewEligible 판정
-├── food/GetFoodDetailResult.kt                 # reviewEligible: Boolean? 추가
-├── food/FoodDetailResponse.kt                  # reviewEligible: Boolean? 추가 + swagger
+├── food/GetFoodDetailResult.kt                 # reviewEligible: Boolean 추가
+├── food/FoodDetailResponse.kt                  # reviewEligible: Boolean 추가 + swagger
 └── food/FoodApi.kt                             # swagger 설명 갱신(필요 시)
 
 api/src/test/kotlin/com/kbap/api/
@@ -82,7 +82,7 @@ api/src/test/kotlin/com/kbap/api/
 1. **판정 기준 = `scan_history` exists (member_id, food_id)**: `@SQLRestriction("status='ACTIVE'")` 가 활성 이력만 보게 하고, `food_id IS NULL`(매칭 실패 스캔) 행은 foodId 조건에 자연히 걸러진다. 스펙의 "활성·매칭 성공 이력" 그대로.
 2. **에러 코드 `REVIEW-004` / HTTP 403**: 인증은 됐으나 자격이 없는 상태 — REVIEW-002(403, 본인 아님)와 같은 축. FE 는 코드로만 분기.
 3. **검증 위치·순서**: `ReviewService.createReview` 에서 `getReadyFood`(음식 오류 우선 — FR-006) 다음, 이미지 검증 앞에 둔다. `updateReview` 는 손대지 않는다.
-4. **상세 응답**: `GetFoodDetailResult`·`FoodDetailResponse` 에 `reviewEligible: Boolean?` — `input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) }`. FoodService 는 이미 scanHistoryRepository 를 주입받고 있다.
+4. **상세 응답**: `GetFoodDetailResult`·`FoodDetailResponse` 에 `reviewEligible: Boolean` — `input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) } ?: false`. FoodService 는 이미 scanHistoryRepository 를 주입받고 있다.
 5. **인덱스 추가 없음**: exists 는 `idx_scan_history_recent(member_id, …)` member_id 프리픽스로 회원당 이력만 훑는다(회원당 수십 건 수준). 실측 문제 시 후속.
 
 ## Blast Radius — 기존 테스트 시드 보강

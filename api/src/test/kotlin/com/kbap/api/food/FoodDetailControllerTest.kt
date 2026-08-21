@@ -164,10 +164,10 @@ class FoodDetailControllerTest : BehaviorSpec() {
             }
 
             `when`("비회원이 조회하면") {
-                then("reviewEligible=null 이다 — 비회원 판별 축") {
+                then("reviewEligible=false 다 — bookmarked 와 같은 축") {
                     mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.reviewEligible") { value(nullValue()) }
+                        jsonPath("$.payload.reviewEligible") { value(false) }
                     }
                 }
             }

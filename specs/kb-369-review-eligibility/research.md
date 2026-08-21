@@ -20,7 +20,7 @@
 
 ## Decision 4 — 상세 응답 필드
 
-- **Decision**: `reviewEligible: Boolean?` — 회원 true/false, 비회원 null(overallRiskStatus 와 같은 비회원 판별 축). is 접두 없는 기존 Boolean 응답 컨벤션(`bookmarked`·`likedByMe`) 준수. 명칭은 클라이언트에 제안 후 확정(스캔 여부가 아니라 자격 의미 — 규칙이 바뀌어도 이름이 안 낡음).
+- **Decision**: `reviewEligible: Boolean` — 회원 true/false, 비회원 항상 false(bookmarked 와 같은 축 — 당초 null 안이었으나 2026-08-21 사용자 결정으로 변경, 비회원 판별은 overallRiskStatus 가 담당). is 접두 없는 기존 Boolean 응답 컨벤션(`bookmarked`·`likedByMe`) 준수. 명칭은 클라이언트에 제안 후 확정(스캔 여부가 아니라 자격 의미 — 규칙이 바뀌어도 이름이 안 낡음).
 - **Rationale**: 진입 시점 게이트(US2). 작성 검증과 같은 쿼리를 써서 FR-005(정합)를 구조로 보장.
 - **Alternatives considered**: `scannedByMe`(클라이언트 원안) — 자격 의미로 대체 제안. `isReviewWritable` — is 접두가 응답 컨벤션 위반. 기각.
 
