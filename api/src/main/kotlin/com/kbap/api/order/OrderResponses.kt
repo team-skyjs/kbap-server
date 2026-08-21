@@ -32,7 +32,7 @@ data class OrderSummaryResponse(
     @field:Schema(description = "주문한 음식 총 수량", example = "6")
     val totalQuantity: Int,
 
-    @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개. 음식 사진이 없으면 기본 대체 이미지")
+    @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개. READY 음식만 실사진, 준비중이거나 사진이 없으면 기본 대체 이미지")
     val thumbnails: List<String>,
 
     @field:Schema(
@@ -78,7 +78,7 @@ data class OrderItemResponse(
     val foodId: Long,
 
     @field:Schema(
-        description = "음식 사진 URL — 음식에 사진이 없으면 기본 대체 이미지",
+        description = "음식 사진 URL — READY 음식만 실사진, 준비중(ready=false)이거나 사진이 없으면 기본 대체 이미지",
         example = "https://cdn.example.com/images/webp/sundubu.webp",
     )
     val imageRef: String,
