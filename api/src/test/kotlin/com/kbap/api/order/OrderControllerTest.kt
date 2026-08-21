@@ -312,7 +312,7 @@ class OrderControllerTest : BehaviorSpec() {
             }
 
             `when`("존재하지 않는 음식으로 주문하면") {
-                then("400 ORDER-001 로 거절된다") {
+                then("400 FOOD-001 로 거절된다") {
                     val memberId = 921L
                     val path = "order/921/menu.jpg"
                     seedVerifiedImage(memberId, path)
@@ -320,7 +320,7 @@ class OrderControllerTest : BehaviorSpec() {
                     placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("유령찌개", 1, 5000, 987654L))))
                         .andExpect {
                             status { isBadRequest() }
-                            jsonPath("$.code") { value("ORDER-001") }
+                            jsonPath("$.code") { value("FOOD-001") }
                         }
                 }
             }
@@ -664,8 +664,10 @@ class OrderControllerTest : BehaviorSpec() {
                     orderDetail(token, orderId).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.items[0].ready") { value(true) }
                         jsonPath("$.payload.items[1].foodId") { value(incomplete) }
                         jsonPath("$.payload.items[1].menuName") { value("준비중김밥") }
+                        jsonPath("$.payload.items[1].ready") { value(false) }
                         jsonPath("$.payload.totalQuantity") { value(3) }
                     }
                     val json = orderDetail(token, orderId).andReturn().response.contentAsString

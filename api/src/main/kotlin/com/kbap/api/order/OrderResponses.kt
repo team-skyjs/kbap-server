@@ -82,4 +82,10 @@ data class OrderItemResponse(
         example = "https://cdn.example.com/images/webp/sundubu.webp",
     )
     val imageRef: String,
+
+    @field:Schema(
+        description = "음식이 공개(READY) 상태인지. false 면 준비중 음식이라 음식 상세(GET /api/foods/{foodId})가 FOOD-001 — 상세 링크를 비활성화한다.",
+        example = "true",
+    )
+    val ready: Boolean,
 )
