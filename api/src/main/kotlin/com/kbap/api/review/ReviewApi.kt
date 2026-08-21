@@ -31,6 +31,7 @@ interface ReviewApi {
             ApiResponse(responseCode = "200", description = "작성 성공"),
             ApiResponse(responseCode = "400", description = "검증 실패(별점 범위·본문 길이·사진 수), 미존재 음식(FOOD-001), 미소유 이미지(REVIEW-003)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
+            ApiResponse(responseCode = "403", description = "스캔 이력 없는 음식(REVIEW-004) — 스캔 유도 안내로 분기"),
         ],
     )
     fun create(memberId: Long, request: ReviewCreateRequest): ResponseEntity<BaseResponse<ReviewResponse>>

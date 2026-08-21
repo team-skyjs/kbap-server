@@ -37,6 +37,10 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
+        afterSpec {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM scan_history") } }
+        }
+
         fun seedMember(memberId: Long, countryCode: String? = "KR"): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -55,8 +59,22 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 }
             }
 
+        fun seedScanOfAllFoods(memberId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO scan_history (member_id, price, food_id, status, created_at, updated_at)
+                    SELECT ?, NULL, id, 'ACTIVE', NOW(6), NOW(6) FROM food
+                    """,
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+
         fun accessToken(memberId: Long, countryCode: String? = "KR"): String {
             seedMember(memberId, countryCode)
+            seedScanOfAllFoods(memberId)
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 

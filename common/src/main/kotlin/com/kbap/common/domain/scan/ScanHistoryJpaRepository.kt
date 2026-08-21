@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+    fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
+
     @Query(
         """
         select new com.kbap.common.domain.DailyCount(cast(sh.createdAt as LocalDate), count(sh))

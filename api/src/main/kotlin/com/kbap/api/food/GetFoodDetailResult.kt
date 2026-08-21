@@ -11,6 +11,7 @@ data class GetFoodDetailResult(
     val overallRiskStatus: RiskLevel?,
     val ingredients: List<IngredientView>,
     val avoidedIngredients: List<AvoidedIngredientView>?,
+    val reviewEligible: Boolean,
 ) {
     data class IngredientView(
         val code: String,
