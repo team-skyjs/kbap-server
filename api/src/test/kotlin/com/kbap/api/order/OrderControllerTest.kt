@@ -626,16 +626,16 @@ class OrderControllerTest : BehaviorSpec() {
         }
 
         given("주문 저장·조회 — 준비중(미등록·FAILED) 음식 포함") {
-            fun seedFailedFood(koreanName: String): Long {
+            fun seedUnreadyFood(koreanName: String, contentStatus: String): Long {
                 dataSource.connection.use { c ->
                     c.prepareStatement(
                         """
                         INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
                                           ingredients, content_status, status, created_at, updated_at)
-                        VALUES (?, '설명', 0, '{}', '{}', '[]', 'FAILED', 'ACTIVE', NOW(6), NOW(6))
-                        ON DUPLICATE KEY UPDATE content_status = 'FAILED'
+                        VALUES (?, '설명', 0, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))
+                        ON DUPLICATE KEY UPDATE content_status = VALUES(content_status)
                         """,
-                    ).use { ps -> ps.setString(1, koreanName); ps.executeUpdate() }
+                    ).use { ps -> ps.setString(1, koreanName); ps.setString(2, contentStatus); ps.executeUpdate() }
                 }
                 return dataSource.connection.use { c ->
                     c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
@@ -652,7 +652,7 @@ class OrderControllerTest : BehaviorSpec() {
                     val path = "order/950/menu.jpg"
                     seedVerifiedImage(memberId, path)
                     val ready = seedReadyFood("준비완료김밥")
-                    val incomplete = seedFailedFood("준비중김밥")
+                    val incomplete = seedUnreadyFood("준비중김밥", "FAILED")
 
                     val orderId = orderIdOf(
                         placeOrder(
@@ -673,6 +673,31 @@ class OrderControllerTest : BehaviorSpec() {
                     val json = orderDetail(token, orderId).andReturn().response.contentAsString
                     mapper.readTree(json).path("payload").path("items")[1].path("imageRef").asText()
                         .contains("food_not_found") shouldBe true
+                }
+            }
+
+            `when`("사진은 있지만 검수 전(PENDING_REVIEW)인 음식을 주문하면") {
+                then("상세 항목과 리스트 썸네일 모두 실사진 대신 기본 대체 이미지다") {
+                    val memberId = 951L
+                    val token = accessToken(memberId)
+                    val path = "order/951/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val pending = seedUnreadyFood("검수전김밥", "PENDING_REVIEW")
+                    setFoodImage(pending, "images/webp/pending-kimbap.webp")
+
+                    val orderId = orderIdOf(
+                        placeOrder(token, orderBody(path, listOf(itemJson("검수전김밥", 1, 3000, pending))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    val detail = mapper.readTree(orderDetail(token, orderId).andReturn().response.contentAsString)
+                        .path("payload").path("items")[0]
+                    detail.path("ready").asBoolean() shouldBe false
+                    detail.path("imageRef").asText().contains("food_not_found") shouldBe true
+
+                    val card = mapper.readTree(listOrders(token).andReturn().response.contentAsString)
+                        .path("payload").path("items")[0]
+                    card.path("thumbnails")[0].asText().contains("food_not_found") shouldBe true
                 }
             }
         }

@@ -39,7 +39,7 @@
 
 - `size` 기본 10·최대 30(초과 값은 30으로 자름). `cursor` = 직전 응답 `nextCursor` 그대로(불투명 문자열 — 형식이 잘못되면 400 `FOOD-002`(공용 커서 오류 코드)).
 - `orderedAt` = 밀리초 epoch. `roadAddress` null 가능. **총 주문 수는 내려주지 않는다** — 커서 페이징이라 전체 개수가 불필요하고 리뷰 목록 계약과 동일하다.
-- `thumbnails` 최대 4 — 앞 4개 항목 순서대로. 음식 이미지가 없으면 **기본 대체 이미지 URL**(`images/webp/default_miss_food/food_not_found.png`)로 채워진다.
+- `thumbnails` 최대 4 — 앞 4개 항목 순서대로. **READY 음식만 실사진**, 그 외(준비중·사진 없음)는 **기본 대체 이미지 URL**(`images/webp/default_miss_food/food_not_found.png`)로 채워진다(KB-372 — 검수 전 사진 비노출).
 - `scanImageUrl` — 주문 시점에 스캔했던 메뉴판 사진 URL(저장된 `image_path` 를 공개 URL 로 변환). 항상 존재한다.
 
 ## GET /api/orders/{orderId} — 상세
@@ -55,7 +55,7 @@
 
 - `totalPrice` = price 있는 항목의 price×quantity 합(전 항목 price null 이면 0).
 - **상세에는 `thumbnails` 가 없다** — 음식 사진은 항목마다 `items[].imageRef` 로 내려간다(사진 없으면 기본 대체 이미지). 리스트의 `thumbnails` 는 카드용으로 유지.
-- `items[].ready` — 음식이 READY 인지(KB-371). false 면 준비중 음식이라 음식 상세(`GET /api/foods/{foodId}`)가 `FOOD-001` 이므로 **상세 링크를 비활성화**한다. 기본 이미지 URL 문자열로 판별하지 말 것.
+- `items[].ready` — 음식이 READY 인지(KB-371). `ready=false` 항목의 `imageRef` 는 사진이 있어도 항상 기본 대체 이미지다(KB-372). false 면 준비중 음식이라 음식 상세(`GET /api/foods/{foodId}`)가 `FOOD-001` 이므로 **상세 링크를 비활성화**한다. 기본 이미지 URL 문자열로 판별하지 말 것.
 - 본인 주문 아님·부재 → 404 `ORDER-002`(소유 노출 방지 — 동일 코드).
 
 ## 클라이언트 공유 요점

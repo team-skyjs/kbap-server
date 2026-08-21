@@ -94,7 +94,7 @@ class OrderService(
                     quantity = it.quantity,
                     price = it.price,
                     foodId = it.foodId,
-                    imageRef = foodService.resolveImageUrlOrDefault(food),
+                    imageRef = publicImageUrlOf(food),
                     ready = food?.isReady() == true,
                 )
             },
@@ -122,8 +122,11 @@ class OrderService(
 
     private fun resolveThumbnails(items: List<OrderItem>): Map<Long, String> {
         val foodsById = loadFoodsById(items)
-        return items.map { it.foodId }.distinct().associateWith { foodService.resolveImageUrlOrDefault(foodsById[it]) }
+        return items.map { it.foodId }.distinct().associateWith { publicImageUrlOf(foodsById[it]) }
     }
+
+    private fun publicImageUrlOf(food: Food?): String =
+        foodService.resolveImageUrlOrDefault(food?.takeIf { it.isReady() })
 
     private fun loadFoodsById(items: List<OrderItem>): Map<Long, Food> {
         val foodIds = items.map { it.foodId }.distinct()
