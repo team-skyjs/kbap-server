@@ -1,0 +1,82 @@
+global:
+  namespace: kbap
+
+image:
+  api:
+    repository: "<ecr-account>.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api"
+    tag: "latest"
+  batch:
+    repository: "<ecr-account>.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch"
+    tag: "latest"
+  pullPolicy: IfNotPresent
+
+api:
+  enabled: true
+  name: kbap-api
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: "25%"
+      maxUnavailable: "25%"
+  topologySpreadConstraints: []
+  serviceAccount:
+    create: true
+    name: kbap-api
+    automount: true
+    annotations: {}
+  containerPort: 8080
+  startupPath: /actuator/health/liveness
+  readinessPath: /actuator/health/readiness
+  livenessPath: /actuator/health/liveness
+  nodeSelector:
+    workload: api
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    SPRING_PROFILES_ACTIVE: dev
+    STORAGE_BUCKET: "<dev-bucket>"
+    CDN_BASE_URL: "<cdn-base-url>"
+    IMAGE_PUBLIC_BASE_URL: "<image-public-base-url>"
+  envFrom:
+    - secretRef:
+        name: kbap-api-secrets
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+  podAnnotations: {}
+  network:
+    targetGroup:
+      enabled: false
+      arn: ""
+
+batch:
+  enabled: true
+  name: kbap-batch
+  replicas: 1
+  containerPort: 8080
+  nodeSelector:
+    workload: ops
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8080
+  env:
+    SPRING_PROFILES_ACTIVE: dev
+    SPRING_BATCH_JOB_ENABLED: "true"
+  envFrom:
+    - secretRef:
+        name: kbap-batch-secrets
+  resources:
+    requests:
+      cpu: 300m
+      memory: 768Mi
+    limits:
+      cpu: 750m
+      memory: 1536Mi
+  podAnnotations: {}

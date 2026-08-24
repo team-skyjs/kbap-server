@@ -1,0 +1,48 @@
+{{- if .Values.batch.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kbap.batch.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "kbap.labels" . | nindent 4 }}
+    app: {{ .Values.batch.name }}
+spec:
+  replicas: {{ .Values.batch.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.batch.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.batch.name }}
+        {{- include "kbap.labels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.batch.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: batch
+          image: {{ printf "%s:%s" .Values.image.batch.repository .Values.image.batch.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- range $key, $value := .Values.batch.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          envFrom:
+            {{- range .Values.batch.envFrom }}
+            - secretRef:
+                name: {{ .secretRef.name }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.batch.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.batch.nodeSelector | nindent 8 }}
+      tolerations:
+        - key: dedicated
+          value: ops
+          operator: Equal
+          effect: NoSchedule
+{{- end }}

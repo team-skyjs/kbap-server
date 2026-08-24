@@ -1,0 +1,16 @@
+{{- if and .Values.api.enabled .Values.api.network.targetGroup.enabled (ne .Values.api.network.targetGroup.arn "") }}
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: {{ include "kbap.api.fullname" . }}-tgb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.api.name }}
+    {{- include "kbap.labels" . | nindent 4 }}
+spec:
+  serviceRef:
+    name: {{ .Values.api.name }}
+    port: {{ .Values.api.containerPort }}
+  targetGroupARN: {{ .Values.api.network.targetGroup.arn }}
+  targetType: ip
+{{- end }}
