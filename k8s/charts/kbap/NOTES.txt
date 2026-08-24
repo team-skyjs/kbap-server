@@ -1,0 +1,20 @@
+1) 배포
+helm upgrade --install kbap-dev ./k8s/charts/kbap \
+  -n kbap-dev --create-namespace \
+  -f k8s/charts/kbap/values-dev.yaml
+
+2) 값 수정
+- values-dev.yaml / values-prod.yaml 의 <...> 문자열을 실제 값으로 바꿉니다.
+
+3) API만 재배포
+helm upgrade --install kbap-dev ./k8s/charts/kbap \
+  -n kbap-dev \
+  -f k8s/charts/kbap/values-dev.yaml \
+  --set batch.enabled=false
+
+4) 이미지 태그만 변경해 빠른 재배포
+helm upgrade --install kbap-dev ./k8s/charts/kbap \
+  -n kbap-dev \
+  -f k8s/charts/kbap/values-dev.yaml \
+  --set image.api.tag=<새-태그> \
+  --set image.batch.tag=<새-태그>

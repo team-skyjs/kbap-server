@@ -1,0 +1,55 @@
+global:
+  namespace: kbap-dev
+
+image:
+  api:
+    repository: "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api"
+    tag: "f5fd3c6e94e40bc92b4de93d0dbbc5f4ba5b5795"
+  batch:
+    repository: "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch"
+    tag: "<git-sha>"
+
+api:
+  enabled: true
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  topologySpreadConstraints:
+    - maxSkew: 1
+      minDomains: 2
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app: kbap-api
+  nodeSelector:
+    workload: api
+  env:
+    SPRING_PROFILES_ACTIVE: dev
+    DB_URL: "jdbc:mysql://kbap-db-devstg.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-dev"
+    DB_USERNAME: root
+    REDIS_HOST: "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.apn2.cache.amazonaws.com"
+    REDIS_PORT: "6379"
+    STORAGE_BUCKET: "kbap-assets-kr"
+    CDN_BASE_URL: "https://d29c1cr2ng7w0.cloudfront.net"
+    IMAGE_PUBLIC_BASE_URL: "https://d29c1cr2ng7w0.cloudfront.net/"
+  network:
+    targetGroup:
+      enabled: true
+      arn: "arn:aws:elasticloadbalancing:ap-northeast-2:118178010621:targetgroup/kbap-devstg-dev-eks-tg/e10162b67fa78a2b"
+
+batch:
+  enabled: false
+  replicas: 1
+  nodeSelector:
+    workload: ops
+  env:
+    SPRING_PROFILES_ACTIVE: dev
+    DB_URL: "jdbc:mysql://kbap-db-devstg.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-dev"
+    DB_USERNAME: root
+    REDIS_HOST: "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.apn2.cache.amazonaws.com"
+    SPRING_BATCH_JOB_ENABLED: "true"
+    FOOD_CONTENT_QUEUE_URL: "<dev-food-content-outbox-queue-url>"

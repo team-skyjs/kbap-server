@@ -1,0 +1,19 @@
+{{- if .Values.batch.enabled }}
+{{- if .Values.batch.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.batch.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.batch.name }}
+    {{- include "kbap.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.batch.service.type }}
+  selector:
+    app: {{ .Values.batch.name }}
+  ports:
+    - port: {{ .Values.batch.service.port }}
+      targetPort: {{ .Values.batch.containerPort }}
+{{- end }}
+{{- end }}
