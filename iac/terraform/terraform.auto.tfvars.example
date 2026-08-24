@@ -1,7 +1,7 @@
 cluster_name             = "kbap-dev-eks"
 aws_profile              = "kbap-infra"
 vpc_name                 = "kbap-devstg-vpc"
-admin_cidr               = "1.242.186.114/32"
+admin_cidr               = "<your-public-ip>/32"
 kubernetes_version       = "1.36"
 
 eks_public_subnet_a_cidr = "10.0.32.0/24"

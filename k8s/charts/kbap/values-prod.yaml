@@ -4,7 +4,7 @@ global:
 image:
   api:
     repository: "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api"
-    tag: "<release-tag>"
+    tag: "f5fd3c6e94e40bc92b4de93d0dbbc5f4ba5b5795"
   batch:
     repository: "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch"
     tag: "<release-tag>"
@@ -29,7 +29,7 @@ api:
     workload: api
   env:
     SPRING_PROFILES_ACTIVE: prod
-    DB_URL: "jdbc:mysql://kbap-db-prod.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap"
+    DB_URL: "jdbc:mysql://kbap-db-prod.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-prod"
     DB_USERNAME: root
     REDIS_HOST: "kbap-prod-redis-0001-001.kbap-prod-redis.fu1mox.apn2.cache.amazonaws.com"
     REDIS_PORT: "6379"
@@ -48,7 +48,7 @@ batch:
     workload: ops
   env:
     SPRING_PROFILES_ACTIVE: prod
-    DB_URL: "jdbc:mysql://kbap-db-prod.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap"
+    DB_URL: "jdbc:mysql://kbap-db-prod.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-prod"
     DB_USERNAME: root
     REDIS_HOST: "kbap-prod-redis-0001-001.kbap-prod-redis.fu1mox.apn2.cache.amazonaws.com"
     SPRING_BATCH_JOB_ENABLED: "true"
