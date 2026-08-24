@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 # 멀티스테이지: Gradle 로 배치 bootJar 빌드 → JRE 런타임 이미지.
-# 빌드 대상은 배치 앱(:batch) — run-to-completion ECS 태스크로 기동되어 잡 종료 시 함께 내려간다.
+# 빌드 대상은 배치 앱(:batch) — 상시 기동되며 잡은 POST /internal/batch/jobs?jobName= 로 비동기 트리거하고
+# GET /internal/batch/executions/{id} 로 결과를 폴링한다.
+# 8080 은 도커 네트워크 안에서만 쓰므로 호스트로 publish 하지 않는다(트리거 클라이언트는 같은 네트워크의 젠킨스).
 # 테스트는 CI 에서 별도 수행하므로 여기선 제외. api 이미지는 Dockerfile 로 별도 빌드·관리한다.
 
 FROM eclipse-temurin:21-jdk AS build

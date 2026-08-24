@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.time.Instant
 import javax.sql.DataSource
@@ -89,16 +90,18 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
             embeddingClient: TextEmbeddingClient,
             vectorStore: FoodVectorStore,
         ) = FoodVectorSyncStepDriver(
-            reader = FoodVectorOutboxItemReader(outboxRepository, transactionManager, pageSize = 2),
+            reader = FoodVectorOutboxItemReader(outboxRepository, pageSize = 2),
             itemProcessor = FoodVectorSyncItemProcessor(
                 foodRepository,
-                transactionManager,
+                outboxRepository,
                 embeddingClient,
                 vectorStore,
                 embeddingModel,
                 embeddingDimension,
             ),
-            writer = FoodVectorSyncResultWriter(outboxRepository, transactionManager),
+            writer = FoodVectorSyncResultWriter(outboxRepository),
+            skipListener = FoodVectorOutboxSkipListener(outboxRepository),
+            transactionTemplate = TransactionTemplate(transactionManager),
             chunkSize = 2,
         )
 
@@ -189,7 +192,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
         given("적재할 수 없는 음식 처리") {
             listOf("긴 설명이 없으면" to null, "긴 설명이 공백뿐이면" to "   ").forEach { (label, longDescription) ->
                 `when`(label) {
-                    then("임베딩 없이 실패로 기록하고 대기 상태를 유지한다") {
+                    then("재시도해도 달라질 수 없으므로 즉시 실패로 격리한다") {
                         clear()
                         val food = saveReadyFood("칼국수", longDescription)
                         val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
@@ -201,24 +204,25 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                         embeddingClient.requests shouldBe emptyList()
                         vectorStore.documents[food.id] shouldBe null
                         val reloaded = outboxRepository.findById(outbox.id).orElseThrow()
-                        reloaded.outboxStatus shouldBe FoodVectorOutboxStatus.PENDING
+                        reloaded.outboxStatus shouldBe FoodVectorOutboxStatus.FAILED
                         reloaded.attempts shouldBe 1
                         reloaded.lastError shouldNotBe null
+                        outboxRepository.findPendingAfterId(0, 10) shouldBe emptyList()
                         summary shouldBe FoodVectorSyncSummary(attempted = 1, completed = 0, failed = 1)
                     }
                 }
             }
 
-            `when`("실패가 최대 시도 횟수에 도달하면") {
+            `when`("일시 실패가 최대 시도 횟수에 도달하면") {
                 then("실패 상태로 격리해 다음 배치가 다시 집지 않는다") {
                     clear()
-                    val food = saveReadyFood("잔치국수", null)
+                    val food = saveReadyFood("잔치국수", "멸치 육수에 소면을 말아 먹는 국수")
                     val outbox = outboxRepository.save(
                         FoodVectorOutbox.upsert(food.id).apply {
                             repeat(FoodVectorOutbox.MAX_ATTEMPTS - 1) { recordFailure("이전 실행 실패") }
                         },
                     )
-                    val embeddingClient = RecordingEmbeddingClient(embeddingDimension)
+                    val embeddingClient = TextEmbeddingClient { throw IllegalStateException("임베딩 호출 실패") }
                     val vectorStore = InMemoryFoodVectorStore()
 
                     processor(embeddingClient, vectorStore).syncAll()
@@ -246,7 +250,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                 "문서 저장이 실패하면" to { RecordingEmbeddingClient(embeddingDimension) as TextEmbeddingClient to failingStore },
             ).forEach { (label, collaborators) ->
                 `when`(label) {
-                    then("시도 횟수와 실패 원인을 기록하고 대기 상태로 남겨 다음 배치에서 재시도한다") {
+                    then("재시도가 소진되면 시도 횟수와 원인을 기록하고 대기 상태로 남긴다") {
                         clear()
                         val food = saveReadyFood("들깨칼국수", "들깨가루를 풀어 고소하게 끓인 칼국수")
                         val outbox = outboxRepository.save(FoodVectorOutbox.upsert(food.id))
@@ -410,22 +414,46 @@ private class FoodVectorSyncStepDriver(
     private val reader: FoodVectorOutboxItemReader,
     private val itemProcessor: FoodVectorSyncItemProcessor,
     private val writer: FoodVectorSyncResultWriter,
+    private val skipListener: FoodVectorOutboxSkipListener,
+    private val transactionTemplate: TransactionTemplate,
     private val chunkSize: Int,
 ) {
     fun syncAll(): FoodVectorSyncSummary {
         reader.open(ExecutionContext())
-        val pending = mutableListOf<FoodVectorSyncOutcome>()
+        var written = 0
+        var skipped = 0
+        var filtered = 0
         while (true) {
-            val item = reader.read() ?: break
-            pending += requireNotNull(itemProcessor.process(item))
-            if (pending.size == chunkSize) {
-                writer.write(Chunk(pending.toList()))
-                pending.clear()
+            var exhausted = false
+            transactionTemplate.executeWithoutResult {
+                val processed = mutableListOf<FoodVectorOutbox>()
+                while (processed.size < chunkSize) {
+                    val item = reader.read()
+                    if (item == null) {
+                        exhausted = true
+                        break
+                    }
+                    try {
+                        val result = itemProcessor.process(item)
+                        if (result == null) filtered++ else processed += result
+                    } catch (e: Exception) {
+                        skipListener.onSkipInProcess(item, e)
+                        skipped++
+                    }
+                }
+                if (processed.isNotEmpty()) {
+                    writer.write(Chunk(processed.toList()))
+                    written += processed.size
+                }
             }
+            if (exhausted) break
         }
-        if (pending.isNotEmpty()) {
-            writer.write(Chunk(pending.toList()))
-        }
-        return writer.summary()
+        return FoodVectorSyncSummary(attempted = written + skipped + filtered, completed = written, failed = skipped + filtered)
     }
 }
+
+data class FoodVectorSyncSummary(
+    val attempted: Int,
+    val completed: Int,
+    val failed: Int,
+)

@@ -39,6 +39,12 @@ class FoodVectorOutbox(
         }
     }
 
+    fun failPermanently(error: String?) {
+        attempts++
+        lastError = error?.take(MAX_LAST_ERROR_LENGTH)
+        outboxStatus = FoodVectorOutboxStatus.FAILED
+    }
+
     fun retry() {
         outboxStatus = FoodVectorOutboxStatus.PENDING
         attempts = 0

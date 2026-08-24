@@ -16,7 +16,6 @@ import org.springframework.batch.infrastructure.repeat.RepeatStatus
 import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
@@ -24,7 +23,6 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
 
 @Configuration
-@ConditionalOnProperty(prefix = "spring.batch.job", name = ["enabled"], havingValue = "true")
 class FoodContentOutboxBatchConfig {
     @Bean
     @ConditionalOnMissingBean(ObjectMapper::class)
