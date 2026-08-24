@@ -1,0 +1,31 @@
+cluster_name             = "kbap-dev-eks"
+aws_profile              = "kbap-infra"
+vpc_name                 = "kbap-devstg-vpc"
+admin_cidr               = "1.242.186.114/32"
+kubernetes_version       = "1.36"
+
+eks_public_subnet_a_cidr = "10.0.32.0/24"
+eks_public_subnet_b_cidr = "10.0.33.0/24"
+
+api_node_instance_types = ["t3.medium"]
+api_node_capacity_type  = "SPOT"
+
+ops_node_instance_types = ["t3.medium"]
+ops_node_capacity_type  = "SPOT"
+
+node_disk_size = 30
+cloudwatch_log_retention_days = 7
+
+api_service_account_name      = "kbap-api"
+api_service_account_namespace = "kbap-dev"
+api_s3_bucket_name           = "kbap-assets-kr"
+api_s3_key_prefix            = "dev"
+
+addon_versions = {
+  vpc_cni                         = "v1.22.4-eksbuild.3"
+  coredns                         = "v1.14.3-eksbuild.3"
+  kube_proxy                      = "v1.36.0-eksbuild.14"
+  eks_pod_identity_agent          = "v1.3.10-eksbuild.3"
+  aws_ebs_csi_driver              = "v1.64.0-eksbuild.1"
+  amazon_cloudwatch_observability = "v6.5.0-eksbuild.1"
+}
