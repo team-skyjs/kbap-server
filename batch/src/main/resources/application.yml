@@ -40,6 +40,12 @@ server:
 #   ./gradlew :batch:bootRun --args='--kbap.batch.food-content-outbox.page-size=200'
 kbap:
   batch:
+    # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
+    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다. 기본 on 이며 끄는 용도로만 이 값을 쓴다
+    # (테스트는 src/test/resources 에서 off — 켜 두면 정각을 넘길 때 잡이 실제로 발사된다).
+    # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
+    scheduler:
+      enabled: ${BATCH_SCHEDULER_ENABLED:true}
     food-content-outbox:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}

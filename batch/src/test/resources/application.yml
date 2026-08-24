@@ -36,5 +36,8 @@ spring:
 # 잡 빈은 상시 등록되므로(트리거 실행) 모든 배치 테스트 컨텍스트가 아웃박스 설정을 필요로 한다.
 kbap:
   batch:
+    # 인앱 스케줄러는 테스트에서 끈다 — 켜 두면 테스트 실행이 정각을 넘길 때 잡이 실제로 발사된다.
+    scheduler:
+      enabled: false
     food-content-outbox:
       queue-url: https://sqs.ap-northeast-2.amazonaws.com/123456789012/test-food-content
