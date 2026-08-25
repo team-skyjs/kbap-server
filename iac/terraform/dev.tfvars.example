@@ -1,0 +1,19 @@
+env       = "dev"
+vpc_name  = "kbap-devstg-vpc"
+subdomain = "dev-ecs"
+
+spring_profile     = "dev"
+storage_key_prefix = "dev"
+
+api_image   = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api:<git-sha>"
+batch_image = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch:<git-sha>"
+
+db_url                  = "jdbc:mysql://kbap-db-devstg.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-dev"
+redis_host              = "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.apn2.cache.amazonaws.com"
+rds_security_group_id   = "sg-00be0b3653aa0b87f"
+redis_security_group_id = "sg-0de1e4bfcad5ec753"
+
+# 기본값: t3.medium × (api 2 + batch 1), api 태스크 2, 로그 7일, 카나리 20% · 15분, 구버전 유지 15분
+
+admin_cidr       = "<your-public-ip>/32"
+bastion_key_name = "kbpa-devstg"
