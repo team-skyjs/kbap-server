@@ -36,7 +36,7 @@ interface AdminFoodApi {
         @Parameter(description = "삭제 포함") includeDeleted: Boolean,
         @Parameter(description = "정렬", example = "updatedAt,asc") sort: String,
         @Parameter(example = "1") page: Int,
-        @Parameter(description = "최대 200", example = "50") size: Int,
+        @Parameter(description = "기본 200, 최대 200", example = "200") size: Int,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>>
 
     @Operation(

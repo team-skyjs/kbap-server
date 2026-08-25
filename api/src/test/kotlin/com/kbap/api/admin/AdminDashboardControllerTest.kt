@@ -55,11 +55,11 @@ class AdminDashboardControllerTest : BehaviorSpec() {
             objectMapper.readValue<Map<String, Any?>>(result.response.contentAsString)["payload"] as Map<String, Any?>
 
         beforeContainer {
-            dataSource.connection.use { c ->
-                c.createStatement().use { st ->
-                    listOf("food_content_outbox", "food_vector_outbox", "food").forEach { st.execute("DELETE FROM $it") }
-                }
-            }
+            AdminTestTables.clear(dataSource, "food_content_outbox", "food_vector_outbox", "food")
+        }
+
+        afterSpec {
+            AdminTestTables.clear(dataSource, "food_content_outbox", "food_vector_outbox", "food")
         }
 
         given("GET /api/admin/dashboard") {
@@ -89,6 +89,19 @@ class AdminDashboardControllerTest : BehaviorSpec() {
                     outbox["stuckCount"] shouldBe 1
                     outbox["stuckHours"] shouldBe 3
                     outbox["canceled"] shouldBe 0
+                    @Suppress("UNCHECKED_CAST")
+                    val stuckRows = outbox["stuck"] as List<Map<String, Any?>>
+                    stuckRows.single()["outboxId"] shouldBe stuck.id.toInt()
+                    stuckRows.single()["displayName"] shouldBe "대시보드음식"
+
+                    @Suppress("UNCHECKED_CAST")
+                    val vector = p["vectorOutbox"] as Map<String, Any?>
+                    (vector["failures"] as List<*>).size shouldBe 0
+
+                    @Suppress("UNCHECKED_CAST")
+                    val generating = p["generatingPreview"] as List<Map<String, Any?>>
+                    generating.single()["status"] shouldBe "SENT"
+                    generating.single()["foodId"] shouldBe food.id.toInt()
 
                     @Suppress("UNCHECKED_CAST")
                     val metrics = p["metrics"] as Map<String, Any?>
@@ -102,6 +115,23 @@ class AdminDashboardControllerTest : BehaviorSpec() {
                     day.containsKey("costKrw") shouldBe true
                     day.containsKey("heightPct") shouldBe false
                     day.containsKey("dayLabel") shouldBe false
+                }
+            }
+
+            `when`("검수·이미지 대기 음식이 있으면") {
+                then("캐러셀 미리보기에 최근 수정순으로 최대 14건이 온다") {
+                    repeat(15) { foodRepository.save(Food(koreanName = "검수대기$it", description = "설명", contentStatus = FoodContentStatus.PENDING_REVIEW)) }
+                    val image = foodRepository.save(Food(koreanName = "이미지대기", description = "설명", contentStatus = FoodContentStatus.PENDING_IMAGE))
+
+                    val p = payload(get())
+                    @Suppress("UNCHECKED_CAST")
+                    val review = p["pendingReviewPreview"] as List<Map<String, Any?>>
+                    review.size shouldBe 14
+                    review.first()["koreanName"] shouldBe "검수대기14"
+                    review.first().containsKey("imageUrl") shouldBe true
+                    @Suppress("UNCHECKED_CAST")
+                    val pendingImage = p["pendingImagePreview"] as List<Map<String, Any?>>
+                    pendingImage.single()["id"] shouldBe image.id.toInt()
                 }
             }
 

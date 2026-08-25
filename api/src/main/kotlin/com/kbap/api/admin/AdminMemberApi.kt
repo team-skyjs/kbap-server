@@ -34,9 +34,9 @@ interface AdminMemberApi {
         size: Int,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>>
 
-    @Operation(summary = "회원 상세", description = "외부 계정 식별자는 제공하지 않고 이메일은 마스킹한다. 스캔 크레딧·랭킹(점수·다음 등급)·활동 집계(실제 행 수)·최근 스캔/리뷰/주문 5건·제재 사유/시각 포함. 탈퇴 회원도 조회된다.")
+    @Operation(summary = "회원 상세", description = "기본은 이메일 마스킹·`providerUid` null. `reveal=true` 면 원문 이메일·providerUid 를 내려주고 감사 로그(MEMBER_PII_REVEAL)를 남긴다(`revealed:true`). 스캔 크레딧·랭킹(점수·다음 등급)·활동 집계(실제 행 수)·최근 스캔/리뷰/주문 5건·제재 사유/시각 포함. 탈퇴 회원도 조회된다.")
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "조회"), ApiResponse(responseCode = "400", description = "없는 회원(MEMBER-003)")])
-    fun getMember(id: Long): ResponseEntity<BaseResponse<AdminMemberDetailResponse>>
+    fun getMember(id: Long, @Parameter(description = "개인정보 원문 노출(감사 기록)") reveal: Boolean, adminId: Long): ResponseEntity<BaseResponse<AdminMemberDetailResponse>>
 
     @Operation(summary = "랭킹 점수 변동 내역", description = "리뷰 작성/삭제로 인한 점수 변동 원장(최신순 페이지).")
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "조회")])

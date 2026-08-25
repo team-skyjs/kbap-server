@@ -286,3 +286,19 @@ Task: "T016 AuthAdminId 리졸버"  Task: "T017 페이지 인터셉터 속성"  
 ## 구현 후 정정 (2026-08-25)
 
 - 읽기/쓰기 서비스·컨트롤러 분리(`*QueryService`/`*CommandService`, `*QueryController`/`*CommandController`)는 사용자 지시로 **통합**했다 — `AdminFoodService`·`AdminFoodController`/`AdminFoodApi`·`AdminFoodDtos`, `AdminMemberService`, `AdminAuditLogService`. 위 태스크 본문의 분리 클래스명은 작성 당시 기록이며 현재 코드는 기능 단위 단일 서비스다.
+
+## FE 요구 반영 (2026-08-25, `contracts/admin-phase3.md`)
+
+React UI 킷이 요구한 계약 중 미반영분을 같은 브랜치에서 추가했다(Phase 3 로 미뤘던 도메인 포함).
+
+- [x] 대시보드 `stuck[]`·`failures[]`·`pendingReviewPreview`·`pendingImagePreview`·`generatingPreview` — `AdminDashboardController.kt`·`AdminFoodOutboxQueryService.kt`
+- [x] 음식 목록 `size` 기본 200 — `AdminFoodController.kt`
+- [x] 회원 상세 `reveal=true`(원문 이메일·providerUid + 감사 `MEMBER_PII_REVEAL`) — `AdminMemberService.kt`·`AdminMemberController.kt`
+- [x] 신고 큐 — `AdminReport{Service,Dtos,Api,Controller}.kt`, `Report` 처리 컬럼 마이그레이션, `ReportTargetType` POST·COMMENT + 사용자 `ReportService` 대상 검증 확장
+- [x] 리뷰 관리 — `AdminReview{Service,Dtos,Api,Controller}.kt`, `ReviewAdminQueryRepositoryCustom(Impl)`
+- [x] 커뮤니티 관리 — `AdminCommunity{Service,Dtos,Api,Controller}.kt`, 댓글 삭제 포함 네이티브 조회
+- [x] 주문·스캔 조회 — `AdminOrder{Service,Dtos,Api,Controller}.kt`·`AdminScanController.kt`
+- [x] 앱 버전 감사 + 이력 — `AdminAppVersionService.kt`(`APP_VERSION_UPDATE`)·`GET /history`
+- [x] 관리자 계정 관리 — `AdminAccountController.kt`(목록·생성·내 비밀번호·삭제), `admin_account.last_login_at/password_changed_at` 마이그레이션, 로그인 시 갱신
+- [x] 테스트 — `AdminReportControllerTest`·`AdminReviewControllerTest`·`AdminCommunityControllerTest`·`AdminOrderScanControllerTest`·`AdminAccountControllerTest`·`AdminAppVersionHistoryTest` + 대시보드/회원 테스트 케이스 추가, `AdminTestTables` 정리 헬퍼
+

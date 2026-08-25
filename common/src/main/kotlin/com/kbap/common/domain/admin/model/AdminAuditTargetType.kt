@@ -8,4 +8,9 @@ enum class AdminAuditTargetType {
     IMAGE_BATCH,
     APP_VERSION,
     ADMIN_ACCOUNT,
+    REPORT,
+    REVIEW,
+    POST,
+    COMMENT,
+    ORDER,
 }

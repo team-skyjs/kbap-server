@@ -36,7 +36,7 @@ class AdminFoodController(
         @RequestParam(defaultValue = "false") includeDeleted: Boolean,
         @RequestParam(defaultValue = "id,desc") sort: String,
         @RequestParam(defaultValue = "1") page: Int,
-        @RequestParam(defaultValue = "50") size: Int,
+        @RequestParam(defaultValue = "200") size: Int,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>> {
         val (sortField, descending) = parseSort(sort)
         val filter = AdminFoodFilter(

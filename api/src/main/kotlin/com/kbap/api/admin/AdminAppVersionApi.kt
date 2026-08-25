@@ -40,5 +40,9 @@ interface AdminAppVersionApi {
             ApiResponse(responseCode = "403", description = "관리자 아님(AUTH-008)"),
         ],
     )
-    fun updateAppVersion(request: AdminAppVersionUpdateRequest): ResponseEntity<BaseResponse<AppVersionResponse>>
+    fun updateAppVersion(request: AdminAppVersionUpdateRequest, adminId: Long): ResponseEntity<BaseResponse<AppVersionResponse>>
+
+    @Operation(summary = "앱 버전 변경 이력", description = "감사 로그(target=APP_VERSION) — 변경자(`adminLoginId`)·시각·`before`/`after`(바뀐 필드만), 최신순")
+    @ApiResponses(value = [ApiResponse(responseCode = "200", description = "조회 성공")])
+    fun getHistory(page: Int, size: Int): ResponseEntity<BaseResponse<AdminAuditLogPageResponse>>
 }

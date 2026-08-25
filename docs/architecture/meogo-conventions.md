@@ -136,3 +136,7 @@ V<version>__<description>.sql
 - **콘텐츠 검증 단일 출처**: `FoodContentValidator.validate(candidate, requireComplete)` — READY/PENDING_REVIEW 는 `requireComplete=true`. 검증 실패는 `FOOD-006`(payload `errors[{field,code,message}]`).
 - **목록은 네이티브 프로젝션**(`FoodAdminQueryRepositoryCustomImpl`·`MemberAdminQueryRepositoryCustomImpl`): 삭제/탈퇴 행 포함 조회와 JSON 검색이 필요해 `@SQLRestriction` 을 우회한다. 정렬 컬럼은 enum 화이트리스트로만 받는다.
 - **구 Thymeleaf 화면**은 React 전환 완료까지 병행 — 편집 폼은 `version` hidden 을 제출하고 상태는 읽기 전용, 승인/반려는 폼 2개로 신 서비스를 재사용한다.
+- **기능 단위 단일 서비스·컨트롤러**: `AdminFoodService`·`AdminMemberService`·`AdminReportService` 처럼 조회와 조작을 한 클래스에 둔다. `*QueryService`/`*CommandService`, `*QueryController`/`*CommandController` 로 읽기/쓰기를 쪼개지 않는다 — 크기 부담은 DTO 파일(`AdminFoodDtos.kt`)이나 하위 기능(파이프라인)으로 나눈다.
+- **관리자 삭제는 중복 구현**: 사용자 삭제 규칙(리뷰 랭킹 차감·댓글 트리 블라인드)이 필요해도 사용자 서비스에 "관리자 모드" 플래그를 넣지 않고 관리자 서비스가 같은 규칙을 다시 쓴다. 수정 쿼리(`@Modifying(clearAutomatically)`)를 호출한 뒤에는 앞서 로드한 엔티티가 detached 되므로 응답은 다시 조회한 인스턴스로 만든다.
+- **개인정보 원문은 감사 경로로만**: 마스킹 해제 조회(`reveal=true`)는 쓰기 트랜잭션에서 `MEMBER_PII_REVEAL` 을 남긴다(`readOnly` 트랜잭션에서는 감사 insert 가 flush 되지 않는다).
+- **테스트 정리**: 관리자 통합 테스트는 `AdminTestTables.clear(...)` 로 before/after 모두 비운다 — FK 검사를 끄고 AUTO_INCREMENT 를 1 로 되돌려, 고정 id 로 시드하는 다른 스펙(리뷰 목록 900번대 등)과 자동 id 가 충돌하지 않게 한다.

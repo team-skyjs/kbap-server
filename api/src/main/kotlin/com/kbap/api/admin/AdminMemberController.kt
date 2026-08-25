@@ -48,8 +48,12 @@ class AdminMemberController(
     }
 
     @GetMapping("/{id}")
-    override fun getMember(@PathVariable id: Long): ResponseEntity<BaseResponse<AdminMemberDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(adminMemberService.getMemberDetail(id)))
+    override fun getMember(
+        @PathVariable id: Long,
+        @RequestParam(defaultValue = "false") reveal: Boolean,
+        @AuthAdminId adminId: Long,
+    ): ResponseEntity<BaseResponse<AdminMemberDetailResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(if (reveal) adminMemberService.revealMemberDetail(adminId, id) else adminMemberService.getMemberDetail(id)))
 
     @GetMapping("/{id}/ranking-events")
     override fun getRankingEvents(

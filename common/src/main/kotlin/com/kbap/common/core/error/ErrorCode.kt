@@ -21,6 +21,10 @@ enum class ErrorCode(
     ADMIN_FORBIDDEN("AUTH-008", 403, "관리자만 사용할 수 있는 API 입니다"),
     ADMIN_LOGIN_FAILED("AUTH-009", 401, "아이디 또는 비밀번호가 올바르지 않습니다"),
     ADMIN_LOGIN_LOCKED("AUTH-010", 403, "로그인 실패가 반복되어 잠시 잠겼습니다. 15분 후 다시 시도해 주세요"),
+    ADMIN_ACCOUNT_DUPLICATED("AUTH-011", 409, "이미 사용 중인 관리자 아이디입니다"),
+    ADMIN_PASSWORD_MISMATCH("AUTH-012", 400, "현재 비밀번호가 올바르지 않습니다"),
+    ADMIN_SELF_ACTION_FORBIDDEN("AUTH-013", 400, "자기 자신의 계정에는 할 수 없는 조작입니다"),
+    ADMIN_ACCOUNT_NOT_FOUND("AUTH-014", 404, "해당 관리자 계정을 찾을 수 없습니다"),
 
     DUPLICATE_SOCIAL_IDENTITY("MEMBER-001", 409, "이미 가입된 소셜 계정입니다"),
     ONBOARDING_ALREADY_COMPLETED("MEMBER-002", 400, "이미 온보딩을 완료했습니다"),
@@ -78,6 +82,8 @@ enum class ErrorCode(
     REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
     REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+    REPORT_ALREADY_HANDLED("REPORT-004", 409, "이미 처리된 신고입니다"),
+    REPORT_NOT_FOUND("REPORT-005", 404, "해당 신고를 찾을 수 없습니다"),
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),

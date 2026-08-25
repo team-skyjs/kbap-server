@@ -30,6 +30,8 @@ data class AdminMemberDetailResponse(
     val id: Long,
     val nickname: String?,
     val email: String?,
+    val providerUid: String?,
+    val revealed: Boolean,
     val provider: SocialProvider,
     val memberStatus: MemberStatus,
     val suspendedAt: LocalDateTime?,

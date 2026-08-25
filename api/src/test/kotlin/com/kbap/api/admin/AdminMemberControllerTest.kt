@@ -113,6 +113,19 @@ class AdminMemberControllerTest : BehaviorSpec() {
             accountDeleter.reset()
         }
 
+        given("GET /api/admin/members/{id}?reveal=true") {
+            `when`("원문 노출로 조회하면") {
+                then("이메일 원문과 providerUid 가 오고 감사 로그 MEMBER_PII_REVEAL 이 남는다") {
+                    val m = seed("reveal-uid", nickname = "rv", email = "reveal@test.com")
+                    val p = payload(get("/${m.id}?reveal=true"))
+                    p["email"] shouldBe "reveal@test.com"
+                    p["providerUid"] shouldBe "reveal-uid"
+                    p["revealed"] shouldBe true
+                    auditLogRepository.findAll().single().action shouldBe AdminAuditAction.MEMBER_PII_REVEAL
+                }
+            }
+        }
+
         given("GET /api/admin/members") {
             `when`("검색·필터·탈퇴 포함을 조합하면") {
                 then("조건에 맞는 회원만 오고 이메일은 마스킹된다") {
@@ -148,7 +161,8 @@ class AdminMemberControllerTest : BehaviorSpec() {
 
                     val p = payload(get("/${member.id}"))
 
-                    p.containsKey("providerUid") shouldBe false
+                    p["providerUid"].shouldBeNull()
+                    p["revealed"] shouldBe false
                     p["email"] shouldBe "de***@test.com"
                     @Suppress("UNCHECKED_CAST")
                     val scan = p["scan"] as Map<String, Any?>

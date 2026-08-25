@@ -1,10 +1,12 @@
 package com.kbap.api.report
 
+import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.community.CommentJpaRepository
+import com.kbap.common.domain.community.PostingJpaRepository
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.Report
-import com.kbap.api.member.MemberService
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
@@ -16,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional
 class ReportService(
     private val reportRepository: ReportJpaRepository,
     private val reviewRepository: ReviewJpaRepository,
+    private val postingRepository: PostingJpaRepository,
+    private val commentRepository: CommentJpaRepository,
     private val memberService: MemberService,
 ) {
     @Transactional
@@ -47,14 +51,11 @@ class ReportService(
     }
 
     private fun verifyReportable(reporterMemberId: Long, targetType: ReportTargetType, targetId: Long) {
-        when (targetType) {
-            ReportTargetType.REVIEW -> {
-                val review = reviewRepository.findById(targetId)
-                    .orElseThrow { BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND) }
-                if (review.isOwnedBy(reporterMemberId)) {
-                    throw BusinessException(ErrorCode.REPORT_SELF_TARGET)
-                }
-            }
-        }
+        val ownedByReporter = when (targetType) {
+            ReportTargetType.REVIEW -> reviewRepository.findById(targetId).orElse(null)?.isOwnedBy(reporterMemberId)
+            ReportTargetType.POST -> postingRepository.findById(targetId).orElse(null)?.isOwnedBy(reporterMemberId)
+            ReportTargetType.COMMENT -> commentRepository.findById(targetId).orElse(null)?.isOwnedBy(reporterMemberId)
+        } ?: throw BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND)
+        if (ownedByReporter) throw BusinessException(ErrorCode.REPORT_SELF_TARGET)
     }
 }

@@ -274,7 +274,7 @@ class ReportControllerTest : BehaviorSpec() {
                 then("400 으로 거절한다") {
                     val token = accessToken(8114L)
 
-                    report(token, body(targetType = "POST", targetId = 8101L)).andExpect {
+                    report(token, body(targetType = "PLACE", targetId = 8101L)).andExpect {
                         status { isBadRequest() }
                     }
                 }

@@ -99,8 +99,20 @@ class AdminMemberService(
     }
 
     @Transactional(readOnly = true)
-    fun getMemberDetail(id: Long): AdminMemberDetailResponse {
-        val member = memberRepository.findByIdIncludingWithdrawn(id) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+    fun getMemberDetail(id: Long): AdminMemberDetailResponse = toDetail(getMemberIncludingWithdrawn(id), reveal = false)
+
+    @Transactional
+    fun revealMemberDetail(adminId: Long, id: Long): AdminMemberDetailResponse {
+        val member = getMemberIncludingWithdrawn(id)
+        auditRecorder.record(adminId, AdminAuditAction.MEMBER_PII_REVEAL, AdminAuditTargetType.MEMBER, member.id, null, null)
+        return toDetail(member, reveal = true)
+    }
+
+    private fun getMemberIncludingWithdrawn(id: Long): Member =
+        memberRepository.findByIdIncludingWithdrawn(id) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+
+    private fun toDetail(member: Member, reveal: Boolean): AdminMemberDetailResponse {
+        val id = member.id
         val ranking = member.ranking
         val recentScans = scanHistoryRepository.findTop5ByMemberIdOrderByIdDesc(id)
         val recentReviews = reviewRepository.findMemberReviewPage(id, null, PageRequest.of(0, RECENT_LIMIT))
@@ -111,7 +123,9 @@ class AdminMemberService(
         return AdminMemberDetailResponse(
             id = member.id,
             nickname = member.nickname,
-            email = maskEmail(member.email),
+            email = if (reveal) member.email else maskEmail(member.email),
+            providerUid = if (reveal) member.providerUid else null,
+            revealed = reveal,
             provider = member.provider,
             memberStatus = member.memberStatus,
             suspendedAt = member.suspendedAt,

@@ -20,6 +20,10 @@
 5. **모든 관리자 쓰기 조작은 `admin_audit_log` 에 명시 기록**한다(`AdminAuditRecorder`, `MANDATORY` 전파, 변경 필드만 before/after). AOP 를 쓰지 않는다.
 6. 목록 조회는 **네이티브 프로젝션**으로 `@SQLRestriction` 을 우회(삭제/탈퇴 포함)하고 JSON 검색을 지원한다.
 7. 정지 회원은 `MEMBER-012` 전용 오류 — `findOrSignUp` 이 상태 무관 조회 후 판정한다.
+8. **React 킷이 요구한 화면 도메인(신고·리뷰·커뮤니티·주문·스캔·앱 버전 이력·관리자 계정)도 같은 관리자 REST 층에 둔다** — 기능 단위 단일 서비스(`AdminReportService`·`AdminReviewService`·`AdminCommunityService`·`AdminOrderService`·`AdminScanService`·`AdminAccountService`), 읽기/쓰기 분리 없음. 관리자 삭제는 사용자 삭제 규칙(리뷰 랭킹 차감·댓글 트리 블라인드)을 관리자 서비스가 **중복 구현**한다 — 사용자 서비스의 소유권 검사를 우회하는 플래그를 두지 않는다.
+9. **신고 처리는 대상 단위**다 — 한 신고를 처리하면 같은 대상의 미처리 신고가 같은 결과로 닫힌다. 결과는 DISMISSED·CONTENT_DELETED·MEMBER_SUSPENDED 세 가지뿐이고 부수효과(콘텐츠 삭제·작성자 정지)는 기존 관리자 서비스를 호출한다. 신고 대상 타입은 REVIEW·POST·COMMENT 로 넓힌다.
+10. **개인정보 원문 노출은 별도 읽기 경로**(`reveal=true`)로 감사 로그(`MEMBER_PII_REVEAL`)를 남긴다 — 기본 응답은 마스킹.
+11. **앱 버전 이력은 감사 로그를 재사용**한다(target=APP_VERSION). 별도 이력 테이블을 만들지 않는다.
 
 ## 결과
 

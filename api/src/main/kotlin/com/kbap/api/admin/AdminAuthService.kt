@@ -45,6 +45,7 @@ class AdminAuthService(
             throw BusinessException(ErrorCode.ADMIN_LOGIN_FAILED)
         }
         loginAttemptStore.reset(loginId)
+        account.recordLogin()
         auditRecorder.record(account.id, AdminAuditAction.ADMIN_LOGIN, AdminAuditTargetType.ADMIN_ACCOUNT, account.id, null, null)
         return issue(account.id)
     }

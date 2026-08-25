@@ -21,6 +21,10 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     fun findTop20ByOrderByIdDesc(): List<FoodContentOutbox>
 
+    fun findTop20ByOutboxStatusAndSentAtBeforeOrderBySentAtAsc(outboxStatus: FoodContentOutboxStatus, before: LocalDateTime): List<FoodContentOutbox>
+
+    fun findTop14ByOutboxStatusInOrderByIdDesc(statuses: Collection<FoodContentOutboxStatus>): List<FoodContentOutbox>
+
     fun findTop10ByFoodIdOrderByIdDesc(foodId: Long): List<FoodContentOutbox>
 
     fun countByOutboxStatusAndSentAtBefore(outboxStatus: FoodContentOutboxStatus, before: LocalDateTime): Long

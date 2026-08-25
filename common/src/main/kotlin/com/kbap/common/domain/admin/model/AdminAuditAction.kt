@@ -3,6 +3,9 @@ package com.kbap.common.domain.admin.model
 enum class AdminAuditAction {
     ADMIN_LOGIN,
     ADMIN_LOGIN_LOCKED,
+    ADMIN_ACCOUNT_CREATE,
+    ADMIN_ACCOUNT_DELETE,
+    ADMIN_PASSWORD_CHANGE,
     FOOD_UPDATE,
     FOOD_APPROVE,
     FOOD_REJECT,
@@ -25,5 +28,12 @@ enum class AdminAuditAction {
     MEMBER_SCAN_UNLOCK,
     MEMBER_WITHDRAW,
     MEMBER_WITHDRAW_FAILED,
+    MEMBER_PII_REVEAL,
+    REPORT_HANDLE,
+    REVIEW_DELETE,
+    REVIEW_IMAGES_REMOVE,
+    POST_DELETE,
+    COMMENT_DELETE,
+    ORDER_DELETE,
     APP_VERSION_UPDATE,
 }
