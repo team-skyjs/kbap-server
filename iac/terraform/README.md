@@ -13,13 +13,15 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 | 진입 | ALB(80→443 리다이렉트, `*.kbap.site` ACM) + Route53 alias `<subdomain>.kbap.site` |
 | 로그 | CloudWatch `/kbap/<env>/api`·`/kbap/<env>/batch`, **보관 7일**, Container Insights, 대시보드 `kbap-<env>-ecs` |
 | 시크릿 | SSM SecureString `/kbap/<env>/<NAME>` → 태스크 정의 `secrets` 로 주입 (값은 Terraform 밖) |
-| AWS 권한 | 태스크 롤(api: S3 접두사 한정, batch: SQS+S3) — 액세스 키를 env 에 넣지 않는다 |
+| AWS 권한 | 태스크 롤(api: S3 접두사 한정, batch: SQS+S3+ECS Exec 채널) — 액세스 키를 env 에 넣지 않는다. 배치 원격 실행은 환경별 운영 사용자 `kbap-<env>-ecs-batch-operator`(아래 절) |
 
 ## 소유권 경계
 
 | 대상 | 소유자 |
 |---|---|
 | 클러스터·ASG·ALB·타깃그룹·CodeDeploy·IAM·로그그룹·대시보드 | Terraform |
+| 배치 운영 IAM 사용자·정책(`kbap-<env>-ecs-batch-operator`) | Terraform |
+| 운영 사용자 **액세스 키** | 사람(콘솔 발급) → 젠킨스 크리덴셜 — Terraform·레포에 두지 않는다 |
 | 태스크 정의 **리비전**(이미지 태그)·리스너의 blue/green 포워딩·서비스 desired | 배포 스크립트 / CodeDeploy (`lifecycle.ignore_changes`) |
 | SSM 파라미터(이름·값 모두) | 사람/CI (`aws ssm put-parameter`) — Terraform 은 ARN 문자열만 참조 |
 | RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가) |
@@ -60,6 +62,55 @@ prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한�
 5. 15분 뒤 blue 종료 → 완료
 
 **batch — 롤링 (`iac/scripts/deploy-batch.sh <env> <tag>`)**: 단일 인스턴스·고정 포트라 구 태스크를 먼저 내리고 신 태스크를 올린다(잠깐 다운). 서킷브레이커로 기동 실패 시 자동 롤백.
+
+## 배치 잡 원격 실행 (ECS Exec)
+
+배치 잡 트리거(`POST /internal/batch/jobs`)는 클러스터 내부에서만 열려 있고 인증이 없다. 클러스터 밖(홈서버 젠킨스·운영자 PC)에서는 **ECS Exec** 로 배치 컨테이너 안에서 `curl localhost:8080` 을 실행한다 — 컨테이너가 SSM 채널을 아웃바운드로 열어 두므로 **인바운드 포트 개방 0, 추가 비용 0**, 접근 통제는 IAM 이 담당한다.
+
+**전제 (호출 호스트)**
+
+- AWS CLI v2 + Session Manager plugin: `brew install --cask session-manager-plugin`
+- 환경별 운영 자격증명 프로필 `kbap-<env>-batch-operator` — IAM 사용자는 Terraform 이 만들고(`terraform output batch_operator_user_name`), **액세스 키는 콘솔에서 발급**해 `aws configure --profile kbap-dev-batch-operator` 로 등록한다. dev 키로는 prod 클러스터·api 컨테이너에 접근할 수 없다(정책이 클러스터·`batch` 컨테이너로 한정).
+- 배치 서비스에 Exec 가 적용된 태스크가 떠 있어야 한다 — **Terraform apply 후 배치를 한 번 재배포**해야 새 태스크에 에이전트가 주입된다:
+  ```bash
+  aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-batch --force-new-deployment --profile kbap-infra
+  aws ecs describe-tasks --cluster kbap-dev-ecs-cluster --tasks <task-arn> --profile kbap-dev-batch-operator \
+    --query 'tasks[0].containers[0].managedAgents[?name==`ExecuteCommandAgent`].lastStatus'   # RUNNING
+  ```
+
+**실행·조회**
+
+```bash
+iac/scripts/batch-job.sh run    dev <jobName>       # 202 접수 → {"jobName","executionId","status":"STARTED",...}
+iac/scripts/batch-job.sh status dev <executionId>   # 200 → status COMPLETED / FAILED / STARTED
+```
+
+| exit | 의미 |
+|---|---|
+| 0 | 접수(202) / 조회(200) — 본문은 배치 앱 응답 JSON 그대로 |
+| 1 | 잡 이름 없음 / 실행 기록 없음(404) — `message` 에 실행 가능 잡 목록 |
+| 2 | 같은 잡이 이미 실행 중(409) — `executionId` 로 진행 중 실행 확인 |
+| 3 | 전제 미충족: 플러그인 없음 / 배치 태스크 없음(미기동·Exec 미적용) |
+| 4 | 예상 밖 HTTP 응답(원문 stderr) |
+| ≥100 | aws cli 오류 — 교차 환경·타 컨테이너는 `AccessDeniedException` |
+
+`run` 은 잡 완료를 기다리지 않는다(잡 실행 시간만큼 세션을 붙잡지 않기 위해). 젠킨스 파이프라인은 `run` 의 `executionId` 를 파싱해 `status` 를 폴링한다:
+
+```groovy
+withAWS(credentials: "aws-${ENV}") {
+  def id = sh(script: "iac/scripts/batch-job.sh run ${ENV} ${JOB}", returnStdout: true).trim()
+             .replaceAll(/.*"executionId":(\d+).*/, '$1')
+  waitUntil {
+    sleep 30
+    def s = sh(script: "iac/scripts/batch-job.sh status ${ENV} ${id}", returnStdout: true)
+    s.contains('"COMPLETED"') || s.contains('"FAILED"')
+  }
+}
+```
+
+정기 실행은 배치 앱의 인앱 스케줄러가 하며, 이 경로는 수동·임시 실행용이다. 배치 트리거 포트 SG 규칙은 그대로다 — 인스턴스 IP:8080 은 인터넷에서 계속 닿지 않는다.
+
+적용 상태: dev 부터 적용·검증(절차 `specs/kb-374-batch-ecs-exec/quickstart.md`) 후 prod 는 잡 미실행 시간대에 같은 절차로 — 배치 재배포가 잠깐 다운을 동반한다.
 
 ## 카나리 파라미터 바꾸기
 

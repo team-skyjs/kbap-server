@@ -127,12 +127,59 @@ data "aws_iam_policy_document" "batch_task" {
     actions   = ["s3:GetObject", "s3:PutObject"]
     resources = ["arn:aws:s3:::${var.storage_bucket}/images/*"]
   }
+  # ECS Exec — 컨테이너에 주입되는 SSM 에이전트가 제어/데이터 채널을 아웃바운드로 연다(리소스 한정 불가 액션)
+  statement {
+    sid = "EcsExecChannel"
+    actions = [
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "batch_task" {
   name   = "sqs-s3"
   role   = aws_iam_role.batch_task.id
   policy = data.aws_iam_policy_document.batch_task.json
+}
+
+# --- batch 운영 사용자 (원격 잡 실행 — 이 환경 클러스터의 batch 컨테이너에만 ECS Exec) ---
+# 액세스 키는 만들지 않는다 — state 에 시크릿을 남기지 않기 위해 콘솔에서 발급해 젠킨스 크리덴셜에만 둔다.
+resource "aws_iam_user" "batch_operator" {
+  name = "${local.name_prefix}-batch-operator"
+  tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "batch_operator" {
+  statement {
+    sid       = "FindBatchTask"
+    actions   = ["ecs:ListTasks", "ecs:DescribeTasks"]
+    resources = ["*"]
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [aws_ecs_cluster.this.arn]
+    }
+  }
+  statement {
+    sid       = "ExecIntoBatchOnly"
+    actions   = ["ecs:ExecuteCommand"]
+    resources = ["arn:aws:ecs:${var.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.this.name}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:container-name"
+      values   = [local.batch_container_name]
+    }
+  }
+}
+
+resource "aws_iam_user_policy" "batch_operator" {
+  name   = "batch-remote-run"
+  user   = aws_iam_user.batch_operator.name
+  policy = data.aws_iam_policy_document.batch_operator.json
 }
 
 # --- CodeDeploy (ECS 블루/그린) ---
