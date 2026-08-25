@@ -12,19 +12,32 @@ class AdminFoodOutboxQueryService(
     private val outboxRepository: FoodContentOutboxJpaRepository,
 ) {
     @Transactional(readOnly = true)
-    fun getOutboxDashboard(): AdminFoodOutboxDashboardView =
+    fun getOutboxDashboard(stuckHours: Int = DEFAULT_STUCK_HOURS): AdminFoodOutboxDashboardView =
         AdminFoodOutboxDashboardView(
             pending = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.PENDING),
             sent = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.SENT),
             complete = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.COMPLETE),
+            canceled = outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.CANCELED),
+            stuckCount = outboxRepository.countByOutboxStatusAndSentAtBefore(
+                FoodContentOutboxStatus.SENT,
+                LocalDateTime.now().minusHours(stuckHours.toLong()),
+            ),
+            stuckHours = stuckHours,
             recent = outboxRepository.findTop20ByOrderByIdDesc().map(AdminFoodOutboxRowView::from),
         )
+
+    companion object {
+        const val DEFAULT_STUCK_HOURS = 3
+    }
 }
 
 data class AdminFoodOutboxDashboardView(
     val pending: Long,
     val sent: Long,
     val complete: Long,
+    val canceled: Long,
+    val stuckCount: Long,
+    val stuckHours: Int,
     val recent: List<AdminFoodOutboxRowView>,
 )
 

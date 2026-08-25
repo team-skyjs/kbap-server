@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.admin.model.AdminAuditAction
+import com.kbap.common.domain.admin.model.AdminAuditTargetType
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
@@ -31,6 +33,7 @@ class AdminFoodService(
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
     private val foodService: FoodService,
+    private val auditRecorder: AdminAuditRecorder,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val objectMapper = jacksonObjectMapper()
@@ -64,8 +67,9 @@ class AdminFoodService(
     }
 
     @Transactional
-    fun updateFood(id: Long, command: UpdateFoodCommand): AdminFoodUpdateResult {
+    fun updateFood(id: Long, command: UpdateFoodCommand, expectedVersion: Long, adminId: Long): AdminFoodUpdateResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodUpdateResult.NOT_FOUND
+        if (expectedVersion != food.version) return AdminFoodUpdateResult.STALE
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
 
         val nameTranslations: Map<String, String>
@@ -81,27 +85,37 @@ class AdminFoodService(
             return AdminFoodUpdateResult.INVALID_JSON
         }
 
-        val matchKey = KoreanMenuNameNormalizer.matchKey(command.koreanName)
-        if (matchKey.isEmpty()) return AdminFoodUpdateResult.INVALID_NAME
+        val errors = FoodContentValidator.validate(
+            FoodContentCandidate(
+                koreanName = command.koreanName,
+                description = command.description,
+                longDescription = food.longDescription,
+                spiciness = command.spiciness,
+                nameTranslations = nameTranslations,
+                descriptionTranslations = descriptionTranslations,
+                ingredients = ingredients,
+            ),
+            requireComplete = AdminFoodCommandService.requiresCompleteContent(food),
+        )
+        if (errors.any { it.field == "koreanName" }) return AdminFoodUpdateResult.INVALID_NAME
+        if (errors.isNotEmpty()) return AdminFoodUpdateResult.INVALID_CONTENT
 
+        val matchKey = KoreanMenuNameNormalizer.matchKey(command.koreanName)
         val duplicated = foodRepository.findByKoreanNameIn(setOf(matchKey))
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
 
-        val wasReady = food.isReady()
+        val before = AdminFoodCommandService.snapshot(food)
         food.koreanName = matchKey
         food.displayName = command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
-        food.contentStatus = command.contentStatus
         food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.ingredients = ingredients
-        when {
-            food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
-            wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
-        }
+        if (food.isReady()) vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+        auditRecorder.record(adminId, AdminAuditAction.FOOD_UPDATE, AdminAuditTargetType.FOOD, food.id, before, AdminFoodCommandService.snapshot(food))
         return AdminFoodUpdateResult.UPDATED
     }
 
@@ -170,12 +184,17 @@ class AdminFoodService(
 
         val requested = displayNamesByMatchKey.size
         val existing = foodRepository.findByKoreanNameIn(displayNamesByMatchKey.keys).map { it.koreanName }.toSet()
-        val newNames = displayNamesByMatchKey - existing
-        val created = if (newNames.isEmpty()) 0 else foodService.createIncomplete(newNames).size
+        val blockedByDeleted = foodRepository.findDeletedKoreanNamesIn(displayNamesByMatchKey.keys - existing).toSet()
+        val newNames = displayNamesByMatchKey - existing - blockedByDeleted
+        val createdFoods = if (newNames.isEmpty()) emptyMap() else foodService.createIncomplete(newNames)
+        val created = createdFoods.size
         return SeedIncompleteResult(
             requested = requested,
             created = created,
             skipped = requested - created,
+            createdIds = createdFoods.values.map { it.id },
+            skippedNames = displayNamesByMatchKey.filterKeys { it in existing }.values.toList(),
+            blockedByDeletedNames = displayNamesByMatchKey.filterKeys { it in blockedByDeleted }.values.toList(),
         )
     }
 
@@ -202,8 +221,10 @@ enum class AdminFoodDeleteResult {
 enum class AdminFoodUpdateResult {
     UPDATED,
     NOT_FOUND,
+    STALE,
     INVALID_NAME,
     INVALID_JSON,
+    INVALID_CONTENT,
     DUPLICATE_NAME,
 }
 
@@ -211,7 +232,6 @@ data class UpdateFoodCommand(
     val koreanName: String,
     val description: String,
     val spiciness: Int,
-    val contentStatus: FoodContentStatus,
     val imageRef: String,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,

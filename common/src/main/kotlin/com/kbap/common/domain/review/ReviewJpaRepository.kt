@@ -56,4 +56,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
+
+    fun countByMemberId(memberId: Long): Long
 }

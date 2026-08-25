@@ -81,9 +81,55 @@ class Food(
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
             "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
         }
+        requireApprovable()
         contentStatus = FoodContentStatus.READY
         return true
     }
+
+    fun allowedTransitions(): Set<FoodTransition> = when (contentStatus) {
+        FoodContentStatus.PENDING_REVIEW -> setOf(FoodTransition.APPROVE, FoodTransition.REJECT)
+        FoodContentStatus.FAILED -> setOf(FoodTransition.RESUBMIT)
+        FoodContentStatus.READY -> setOf(FoodTransition.UNPUBLISH)
+        FoodContentStatus.PENDING_IMAGE -> emptySet()
+    }
+
+    fun transition(transition: FoodTransition, reason: String? = null) {
+        if (transition !in allowedTransitions()) {
+            throw transitionException("NOT_ALLOWED", "$contentStatus 상태에서 $transition 전이는 허용되지 않습니다")
+        }
+        when (transition) {
+            FoodTransition.APPROVE -> approve()
+            FoodTransition.REJECT -> {
+                if (reason.isNullOrBlank()) throw transitionException("REASON_REQUIRED", "반려 사유는 필수입니다")
+                reject(reason)
+            }
+            FoodTransition.RESUBMIT -> resubmit()
+            FoodTransition.UNPUBLISH -> contentStatus = FoodContentStatus.PENDING_REVIEW
+        }
+    }
+
+    fun replaceImage(imageRef: String) {
+        require(imageRef.isNotBlank()) { "imageRef 는 blank 일 수 없습니다" }
+        this.imageRef = imageRef
+        if (contentStatus == FoodContentStatus.PENDING_IMAGE) contentStatus = FoodContentStatus.PENDING_REVIEW
+    }
+
+    private fun requireApprovable() {
+        if (ingredients == null) throw transitionException("NO_INGREDIENTS", "재료가 조사되지 않은 음식은 승인할 수 없습니다")
+        if (imageRef.isNullOrBlank()) throw transitionException("NO_IMAGE", "이미지가 없는 음식은 승인할 수 없습니다")
+    }
+
+    private fun resubmit() {
+        if (description == PLACEHOLDER_DESCRIPTION || ingredients == null) {
+            throw transitionException("CONTENT_INCOMPLETE", "콘텐츠(설명·재료)가 채워지지 않은 음식은 재제출할 수 없습니다")
+        }
+        contentFailureKind = null
+        contentReviewRejectionReason = null
+        contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
+    }
+
+    private fun transitionException(reason: String, message: String) =
+        FoodTransitionException(reason = reason, allowed = allowedTransitions(), message = message)
 
     fun reject(reason: String?) {
         require(contentStatus == FoodContentStatus.PENDING_REVIEW) {

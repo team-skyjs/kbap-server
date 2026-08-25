@@ -2,9 +2,12 @@ package com.kbap.api.admin
 
 import com.kbap.api.food.FakeFoodImageBatchClient
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.admin.AdminAuditLogJpaRepository
+import com.kbap.common.domain.admin.model.AdminAuditAction
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.ImageBatchStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -39,6 +42,9 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
+    private lateinit var auditLogRepository: AdminAuditLogJpaRepository
+
+    @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
 
     @Autowired
@@ -56,6 +62,7 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     it.execute("DELETE FROM image_batch")
                     it.execute("DELETE FROM food_vector_outbox")
                     it.execute("DELETE FROM food")
+                    it.execute("DELETE FROM admin_audit_log")
                 }
             }
         }
@@ -319,17 +326,18 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
 
             `when`("상태 필터가 걸린 목록에서 수정하면") {
                 then("성공·오류 리다이렉트 모두 상태 필터를 유지한다") {
-                    val food = saveFood("상태유지수정음식", FoodContentStatus.PENDING_REVIEW)
+                    val food = saveFood("상태유지수정음식", FoodContentStatus.FAILED)
 
-                    fun postUpdate(nameTranslationsJson: String) =
+                    fun postUpdate(nameTranslationsJson: String, version: Long = food.version, spiciness: String = "0", contentStatus: String? = null) =
                         mockMvc.post("/admin/foods/${food.id}") {
                             cookie(adminCookie())
                             param("page", "1")
                             param("status", "PENDING_REVIEW")
+                            param("version", version.toString())
                             param("koreanName", "상태유지수정음식")
                             param("description", "설명")
-                            param("spiciness", "0")
-                            param("contentStatus", "PENDING_REVIEW")
+                            param("spiciness", spiciness)
+                            contentStatus?.let { param("contentStatus", it) }
                             param("imageRef", "")
                             param("nameTranslationsJson", nameTranslationsJson)
                             param("descriptionTranslationsJson", "{}")
@@ -339,12 +347,123 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                     postUpdate("{}").andExpect {
                         redirectedUrl("/admin/foods/list?page=1&status=PENDING_REVIEW&updated=${food.id}")
                     }
-                    postUpdate("{잘못된}").andExpect {
+                    postUpdate("{잘못된}", version = food.version + 1).andExpect {
                         redirectedUrl(
                             "/admin/foods/list?page=1&status=PENDING_REVIEW" +
                                 "&detail=${food.id}&edit=true&error=invalid-json",
                         )
                     }
+                }
+            }
+
+            `when`("이전 버전으로 수정하면") {
+                then("stale 오류로 돌아가고 저장되지 않는다") {
+                    val food = saveFood("버전충돌음식", FoodContentStatus.FAILED)
+
+                    mockMvc.post("/admin/foods/${food.id}") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("version", (food.version + 7).toString())
+                        param("koreanName", "버전충돌음식")
+                        param("description", "바뀐 설명")
+                        param("spiciness", "0")
+                    }.andExpect {
+                        redirectedUrl("/admin/foods/list?page=1&detail=${food.id}&edit=true&error=stale")
+                    }
+
+                    foodJpaRepository.findById(food.id).get().description shouldBe "구수한 버전충돌음식"
+                }
+            }
+
+            `when`("맵기 8 인 음식을 수정하고 contentStatus 파라미터를 함께 보내면") {
+                then("저장은 성공하고 상태는 바뀌지 않으며 감사 이력이 남는다") {
+                    val food = saveFood("맵기여덟음식", FoodContentStatus.FAILED)
+
+                    mockMvc.post("/admin/foods/${food.id}") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("version", food.version.toString())
+                        param("koreanName", "맵기여덟음식")
+                        param("description", "매운 설명")
+                        param("spiciness", "8")
+                        param("contentStatus", "READY")
+                    }.andExpect {
+                        redirectedUrl("/admin/foods/list?page=1&updated=${food.id}")
+                    }
+
+                    val saved = foodJpaRepository.findById(food.id).get()
+                    saved.spiciness shouldBe 8
+                    saved.contentStatus shouldBe FoodContentStatus.FAILED
+                    auditLogRepository.findAll().single { it.targetId == food.id }.action shouldBe AdminAuditAction.FOOD_UPDATE
+                }
+            }
+
+            `when`("카탈로그에 없는 재료 코드로 수정하면") {
+                then("invalid-content 오류로 돌아간다") {
+                    val food = saveFood("재료오류음식", FoodContentStatus.FAILED)
+
+                    mockMvc.post("/admin/foods/${food.id}") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("version", food.version.toString())
+                        param("koreanName", "재료오류음식")
+                        param("description", "설명")
+                        param("spiciness", "0")
+                        param("ingredientsJson", """[{"code":"PEANUTS","inclusion_percent":50}]""")
+                    }.andExpect {
+                        redirectedUrl("/admin/foods/list?page=1&detail=${food.id}&edit=true&error=invalid-content")
+                    }
+                }
+            }
+
+            `when`("승인 대기 음식 상세의 승인·반려 폼을 제출하면") {
+                then("승인은 READY, 사유 있는 반려는 FAILED, 사유 없는 반려는 오류로 돌아간다") {
+                    val approving = foodJpaRepository.save(
+                        Food(
+                            koreanName = "승인폼음식",
+                            imageRef = "images/food/approve.webp",
+                            description = "설명",
+                            ingredients = listOf(FoodIngredient("SOY", 100)),
+                            contentStatus = FoodContentStatus.PENDING_REVIEW,
+                        ),
+                    )
+                    val rejecting = saveFood("반려폼음식", FoodContentStatus.PENDING_REVIEW)
+
+                    mockMvc.post("/admin/foods/${approving.id}/approve") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                    }.andExpect { redirectedUrl("/admin/foods/list?page=1&detail=${approving.id}&reviewed=${approving.id}") }
+
+                    mockMvc.post("/admin/foods/${rejecting.id}/reject") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("reason", " ")
+                    }.andExpect { redirectedUrl("/admin/foods/list?page=1&detail=${rejecting.id}&error=reason-required") }
+
+                    mockMvc.post("/admin/foods/${rejecting.id}/reject") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                        param("reason", "사진 불량")
+                    }.andExpect { redirectedUrl("/admin/foods/list?page=1&detail=${rejecting.id}&reviewed=${rejecting.id}") }
+
+                    foodJpaRepository.findById(approving.id).get().contentStatus shouldBe FoodContentStatus.READY
+                    foodJpaRepository.findById(rejecting.id).get().let {
+                        it.contentStatus shouldBe FoodContentStatus.FAILED
+                        it.contentReviewRejectionReason shouldBe "사진 불량"
+                    }
+                }
+            }
+
+            `when`("이미지 없는 승인 대기 음식을 승인 폼으로 승인하면") {
+                then("transition 오류로 돌아가고 상태는 유지된다") {
+                    val food = saveFood("이미지없는승인음식", FoodContentStatus.PENDING_REVIEW)
+
+                    mockMvc.post("/admin/foods/${food.id}/approve") {
+                        cookie(adminCookie())
+                        param("page", "1")
+                    }.andExpect { redirectedUrl("/admin/foods/list?page=1&detail=${food.id}&error=transition") }
+
+                    foodJpaRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                 }
             }
 

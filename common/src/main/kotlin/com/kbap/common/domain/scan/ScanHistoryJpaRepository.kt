@@ -10,6 +10,12 @@ import java.time.LocalDateTime
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
 
+    fun countByFoodId(foodId: Long): Long
+
+    fun countByMemberId(memberId: Long): Long
+
+    fun findTop5ByMemberIdOrderByIdDesc(memberId: Long): List<ScanHistory>
+
     @Query(
         """
         select new com.kbap.common.domain.DailyCount(cast(sh.createdAt as LocalDate), count(sh))

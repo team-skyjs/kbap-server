@@ -1,7 +1,10 @@
 package com.kbap.api.admin
 
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.api.food.FoodImageBatchSubmitService
+import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.food.model.FoodContentStatus
+import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
@@ -13,6 +16,7 @@ import java.net.URLEncoder
 
 @Controller
 class AdminFoodPageController(
+    private val adminFoodCommandService: AdminFoodCommandService,
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminFoodService: AdminFoodService,
@@ -65,37 +69,74 @@ class AdminFoodPageController(
         @RequestParam(required = false) page: String?,
         @RequestParam(required = false) q: String?,
         @RequestParam(required = false) status: String?,
+        @RequestParam version: Long,
         @RequestParam koreanName: String,
         @RequestParam description: String,
         @RequestParam spiciness: Int,
-        @RequestParam contentStatus: FoodContentStatus,
         @RequestParam(defaultValue = "") imageRef: String,
         @RequestParam(defaultValue = "") nameTranslationsJson: String,
         @RequestParam(defaultValue = "") descriptionTranslationsJson: String,
         @RequestParam(defaultValue = "") ingredientsJson: String,
+        request: HttpServletRequest,
     ): String {
         val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
         val command = UpdateFoodCommand(
             koreanName = koreanName.trim(),
             description = description,
             spiciness = spiciness,
-            contentStatus = contentStatus,
             imageRef = imageRef.trim(),
             nameTranslationsJson = nameTranslationsJson,
             descriptionTranslationsJson = descriptionTranslationsJson,
             ingredientsJson = ingredientsJson,
         )
-        return when (adminFoodService.updateFood(id, command)) {
+        val editError = { code: String -> listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to code) }
+        return when (adminFoodService.updateFood(id, command, version, adminId(request))) {
             AdminFoodUpdateResult.UPDATED -> listRedirect(safePage, q, status, "updated" to id)
             AdminFoodUpdateResult.NOT_FOUND -> listRedirect(safePage, q, status, "error" to "not-found")
-            AdminFoodUpdateResult.INVALID_NAME ->
-                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-name")
-            AdminFoodUpdateResult.INVALID_JSON ->
-                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-json")
-            AdminFoodUpdateResult.DUPLICATE_NAME ->
-                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "duplicate-name")
+            AdminFoodUpdateResult.STALE -> editError("stale")
+            AdminFoodUpdateResult.INVALID_NAME -> editError("invalid-name")
+            AdminFoodUpdateResult.INVALID_JSON -> editError("invalid-json")
+            AdminFoodUpdateResult.INVALID_CONTENT -> editError("invalid-content")
+            AdminFoodUpdateResult.DUPLICATE_NAME -> editError("duplicate-name")
         }
     }
+
+    @PostMapping("/admin/foods/{id}/approve")
+    fun approveFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+        request: HttpServletRequest,
+    ): String = reviewRedirect(id, page, q, status) { adminFoodCommandService.approve(adminId(request), id) }
+
+    @PostMapping("/admin/foods/{id}/reject")
+    fun rejectFood(
+        @PathVariable id: Long,
+        @RequestParam(required = false) page: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) status: String?,
+        @RequestParam(defaultValue = "") reason: String,
+        request: HttpServletRequest,
+    ): String {
+        if (reason.isBlank()) {
+            return listRedirect((page?.toIntOrNull() ?: 1).coerceAtLeast(1), q, status, "detail" to id, "error" to "reason-required")
+        }
+        return reviewRedirect(id, page, q, status) { adminFoodCommandService.reject(adminId(request), id, reason.trim()) }
+    }
+
+    private fun reviewRedirect(id: Long, page: String?, q: String?, status: String?, action: () -> Unit): String {
+        val safePage = (page?.toIntOrNull() ?: 1).coerceAtLeast(1)
+        return try {
+            action()
+            listRedirect(safePage, q, status, "detail" to id, "reviewed" to id)
+        } catch (e: BusinessException) {
+            listRedirect(safePage, q, status, "detail" to id, "error" to "transition")
+        }
+    }
+
+    private fun adminId(request: HttpServletRequest): Long =
+        request.getAttribute(JwtAuthenticationFilter.ADMIN_ID_ATTRIBUTE) as Long
 
     @PostMapping("/admin/foods/{id}/delete")
     fun deleteFood(

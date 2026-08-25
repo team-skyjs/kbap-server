@@ -18,7 +18,7 @@ class FoodContentOutbox(
     var displayName: String = "",
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "outbox_status", nullable = false, columnDefinition = "ENUM('PENDING','SENT','COMPLETE')")
+    @Column(name = "outbox_status", nullable = false, columnDefinition = "ENUM('PENDING','SENT','COMPLETE','CANCELED')")
     var outboxStatus: FoodContentOutboxStatus = FoodContentOutboxStatus.PENDING,
 
     @Column(name = "attempts", nullable = false)
@@ -26,6 +26,12 @@ class FoodContentOutbox(
 
     @Column(name = "sent_at")
     var sentAt: LocalDateTime? = null,
+
+    @Column(name = "last_error", length = MAX_LAST_ERROR_LENGTH)
+    var lastError: String? = null,
+
+    @Column(name = "last_failed_at")
+    var lastFailedAt: LocalDateTime? = null,
 ) : BaseEntity() {
     fun markSent() {
         attempts++
@@ -41,7 +47,25 @@ class FoodContentOutbox(
         attempts++
     }
 
+    fun isStuck(threshold: LocalDateTime): Boolean =
+        outboxStatus == FoodContentOutboxStatus.SENT && sentAt?.isBefore(threshold) == true
+
+    fun requeue(): Boolean {
+        if (outboxStatus != FoodContentOutboxStatus.SENT) return false
+        outboxStatus = FoodContentOutboxStatus.PENDING
+        sentAt = null
+        return true
+    }
+
+    fun cancel(): Boolean {
+        if (outboxStatus != FoodContentOutboxStatus.PENDING && outboxStatus != FoodContentOutboxStatus.SENT) return false
+        outboxStatus = FoodContentOutboxStatus.CANCELED
+        return true
+    }
+
     companion object {
+        const val MAX_LAST_ERROR_LENGTH = 500
+
         fun pending(foodId: Long, displayName: String): FoodContentOutbox {
             require(displayName.isNotBlank()) { "foodContentOutbox.displayName 은 blank 일 수 없습니다" }
             return FoodContentOutbox(foodId = foodId, displayName = displayName)

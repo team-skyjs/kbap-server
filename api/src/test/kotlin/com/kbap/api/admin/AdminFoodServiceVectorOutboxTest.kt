@@ -58,29 +58,32 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
             ),
         )
 
-        fun updateCommand(food: Food, contentStatus: FoodContentStatus, description: String = "수정한 설명") =
+        val fullTranslationsJson =
+            """{"zh-Hans":"번","en":"번","ja":"번","zh-Hant":"번","vi":"번","id":"번","th":"번","ru":"번","es":"번"}"""
+
+        fun updateCommand(food: Food, description: String = "수정한 설명") =
             UpdateFoodCommand(
                 koreanName = food.displayName,
                 description = description,
                 spiciness = food.spiciness,
-                contentStatus = contentStatus,
                 imageRef = food.imageRef.orEmpty(),
-                nameTranslationsJson = "",
-                descriptionTranslationsJson = "",
-                ingredientsJson = "",
+                nameTranslationsJson = fullTranslationsJson,
+                descriptionTranslationsJson = fullTranslationsJson,
+                ingredientsJson = """[{"code":"SOY","inclusion_percent":100}]""",
             )
+
+        fun update(food: Food) = service.updateFood(food.id, updateCommand(food), food.version, adminId = 1L)
 
         fun outboxesOf(food: Food): List<FoodVectorOutbox> =
             vectorOutboxRepository.findAll().filter { it.foodId == food.id }
 
         given("관리자 음식 수정") {
-            `when`("수정 결과가 조회 가능이면") {
+            `when`("조회 가능(READY) 음식을 수정하면") {
                 then("벡터 적재 대기 건을 쌓는다") {
                     clear()
                     val food = saveFood("김치찌개", FoodContentStatus.READY)
 
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY)) shouldBe
-                        AdminFoodUpdateResult.UPDATED
+                    update(food) shouldBe AdminFoodUpdateResult.UPDATED
 
                     val outboxes = outboxesOf(food)
                     outboxes.size shouldBe 1
@@ -89,38 +92,12 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
                 }
             }
 
-            `when`("조회 불가이던 음식이 조회 가능으로 승격되면") {
-                then("벡터 적재 대기 건을 쌓는다") {
-                    clear()
-                    val food = saveFood("갈비탕", FoodContentStatus.PENDING_REVIEW)
-
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY))
-
-                    val outboxes = outboxesOf(food)
-                    outboxes.size shouldBe 1
-                    outboxes.first().operation shouldBe FoodVectorOutboxOperation.UPSERT
-                }
-            }
-
-            `when`("조회 가능이던 음식이 조회 불가로 바뀌면") {
-                then("벡터 제거 대기 건을 쌓는다 — 검색 후보에서 빠져야 한다") {
-                    clear()
-                    val food = saveFood("된장찌개", FoodContentStatus.READY)
-
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.PENDING_REVIEW))
-
-                    val outboxes = outboxesOf(food)
-                    outboxes.size shouldBe 1
-                    outboxes.first().operation shouldBe FoodVectorOutboxOperation.DELETE
-                }
-            }
-
-            `when`("조회 불가인 음식을 조회 불가인 채로 수정하면") {
+            `when`("조회 불가인 음식을 수정하면") {
                 then("대기 건을 쌓지 않는다 — 벡터 저장소와 무관한 변경이다") {
                     clear()
                     val food = saveFood("순두부찌개", FoodContentStatus.PENDING_REVIEW)
 
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.PENDING_REVIEW))
+                    update(food) shouldBe AdminFoodUpdateResult.UPDATED
 
                     outboxesOf(food) shouldBe emptyList()
                 }
@@ -132,7 +109,7 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
                     val food = saveFood("부대찌개", FoodContentStatus.READY)
                     vectorOutboxRepository.save(FoodVectorOutbox.upsert(food.id))
 
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY))
+                    update(food)
 
                     outboxesOf(food).size shouldBe 1
                 }

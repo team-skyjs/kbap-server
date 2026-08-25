@@ -95,7 +95,13 @@
                      th:with="code=${param.error[0]}"
                      th:text="${code == 'invalid-json'} ? '번역/성분 JSON 형식이 잘못됐습니다'
                             : (${code == 'duplicate-name'} ? '이미 같은 이름의 음식이 있습니다'
-                            : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다' : '처리 중 오류가 발생했습니다'))"></div>
+                            : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다'
+                            : (${code == 'stale'} ? '다른 사람이 먼저 수정했습니다 — 상세를 다시 열어 최신 내용으로 편집하세요'
+                            : (${code == 'invalid-content'} ? '콘텐츠 검증에 실패했습니다 — 설명 1~255자, 맵기 0~10, 번역 9개 언어, 재료 코드는 카탈로그 코드·비율 1~100'
+                            : (${code == 'reason-required'} ? '반려 사유를 입력하세요'
+                            : (${code == 'transition'} ? '현재 상태에서 허용되지 않는 조작입니다(재료·이미지가 없으면 승인할 수 없습니다)'
+                            : '처리 중 오류가 발생했습니다'))))))"></div>
+                <div class="banner banner-info" th:if="${param.reviewed != null}">검수 결과가 반영됐습니다</div>
 
                 <div class="banner banner-warn" th:if="${foodDetail.contentFailureKind != null}">
                     <strong th:text="|수집 실패 · ${foodDetail.contentFailureKind}|">수집 실패</strong>
@@ -118,6 +124,7 @@
                     <input type="hidden" name="page" th:value="${foodPage.page}">
                     <input type="hidden" name="q" th:value="${foodPage.query}">
                     <input type="hidden" name="status" th:value="${foodPage.status}">
+                    <input type="hidden" name="version" th:value="${foodDetail.version}">
                     <div class="modal-grid">
                         <div class="field">
                             <label for="koreanName">한국어 이름</label>
@@ -125,15 +132,13 @@
                                    th:disabled="${!editMode}" required>
                         </div>
                         <div class="field">
-                            <label for="contentStatus">콘텐츠 상태</label>
-                            <select id="contentStatus" name="contentStatus" class="field-select" th:disabled="${!editMode}">
-                                <option th:each="s : ${T(com.kbap.common.domain.food.model.FoodContentStatus).values()}"
-                                        th:value="${s}" th:text="${s}" th:selected="${s == foodDetail.contentStatus}"></option>
-                            </select>
+                            <label for="contentStatus">콘텐츠 상태 (승인·반려·전이로만 변경)</label>
+                            <input id="contentStatus" type="text" class="field-select"
+                                   th:value="|${foodDetail.contentStatus.displayName} (${foodDetail.contentStatus})|" disabled>
                         </div>
                         <div class="field">
-                            <label for="spiciness">맵기 (-1 = 미조사)</label>
-                            <input id="spiciness" name="spiciness" type="number" min="-1" max="5" th:value="${foodDetail.spiciness}"
+                            <label for="spiciness">맵기 (0~10, -1 = 미조사)</label>
+                            <input id="spiciness" name="spiciness" type="number" min="-1" max="10" th:value="${foodDetail.spiciness}"
                                    th:disabled="${!editMode}" required>
                         </div>
                         <div class="field">
@@ -171,6 +176,23 @@
                         <button class="btn btn-primary" type="submit" th:if="${editMode}">저장</button>
                     </div>
                 </form>
+
+                <div class="field" th:if="${!editMode and foodDetail.contentStatus.name() == 'PENDING_REVIEW'}">
+                    <label>검수</label>
+                    <form th:action="@{|/admin/foods/${foodDetail.id}/approve|}" method="post" style="display:inline">
+                        <input type="hidden" name="page" th:value="${foodPage.page}">
+                        <input type="hidden" name="q" th:value="${foodPage.query}">
+                        <input type="hidden" name="status" th:value="${foodPage.status}">
+                        <button class="btn btn-primary" type="submit">승인</button>
+                    </form>
+                    <form th:action="@{|/admin/foods/${foodDetail.id}/reject|}" method="post" style="display:inline">
+                        <input type="hidden" name="page" th:value="${foodPage.page}">
+                        <input type="hidden" name="q" th:value="${foodPage.query}">
+                        <input type="hidden" name="status" th:value="${foodPage.status}">
+                        <input name="reason" type="text" class="text-input" placeholder="반려 사유(필수)" required>
+                        <button class="btn btn-danger" type="submit">반려</button>
+                    </form>
+                </div>
 
                 <div class="field" th:unless="${editMode}">
                     <p class="page-info">삭제된 음식의 이름은 계속 점유되어, 같은 이름을 다시 시드하면 등록이 누락됩니다.</p>

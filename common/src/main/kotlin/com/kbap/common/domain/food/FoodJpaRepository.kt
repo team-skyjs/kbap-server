@@ -13,7 +13,17 @@ import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
-interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
+interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom, FoodAdminQueryRepositoryCustom {
+    @Query(nativeQuery = true, value = "select * from food f where f.id = :id")
+    fun findByIdIncludingDeleted(@Param("id") id: Long): Food?
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(nativeQuery = true, value = "update food set status = 'ACTIVE', updated_at = current_timestamp(6) where id = :id and status = 'DELETED'")
+    fun restore(@Param("id") id: Long): Int
+
+    @Query(nativeQuery = true, value = "select f.korean_name from food f where f.korean_name in (:names) and f.status = 'DELETED'")
+    fun findDeletedKoreanNamesIn(@Param("names") names: Collection<String>): List<String>
+
     @Query(
         """
         select new com.kbap.common.domain.food.dto.FoodStatusCount(f.contentStatus, count(f))
