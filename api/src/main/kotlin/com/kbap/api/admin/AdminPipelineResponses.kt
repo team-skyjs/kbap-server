@@ -129,8 +129,6 @@ data class AdminFoodBulkRequest(
     @field:NotEmpty val ids: List<Long>?,
 )
 
-data class AdminFoodBulkItemResult(val id: Long, val ok: Boolean, val code: String? = null, val message: String? = null)
-
-data class AdminFoodBulkResponse(val results: List<AdminFoodBulkItemResult>, val succeeded: Int, val failed: Int)
+data class AdminFoodBulkResponse(val action: AdminFoodBulkAction, val ids: List<Long>, val count: Int)
 
 fun totalPagesOf(totalCount: Long, size: Int): Int = if (totalCount == 0L) 0 else ((totalCount - 1) / size + 1).toInt()

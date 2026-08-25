@@ -14,7 +14,7 @@
 ## 결정
 
 1. **REST 층을 정식 관리자 API 로 승격**하고 구 화면은 React 전환이 끝날 때까지 **그대로 병행**한다. 구 화면은 신 서비스(`AdminFoodService`·검증기)를 공유하도록 최소 수정(버전 hidden·맵기 범위·상태 읽기 전용·승인/반려 폼)만 한다.
-2. **관리자 자격을 회원 자격과 분리**한다 — 갱신 토큰에 `role` 클레임을 넣어 회원/관리자 refresh 를 교차 거부하고, 필터는 ADMIN 토큰에 `authAdminId` 속성·MDC `adminId` 만 심는다(`@AuthAdminId`). 관리자 TTL 은 `kbap.auth.admin.*`. 로그인 5회 실패 시 15분 잠금(Redis).
+2. **관리자 자격을 회원 자격과 분리**한다 — 로그인은 액세스 토큰 하나(`kbap.auth.admin.access-ttl`, 8h)만 발급하고 갱신 토큰·로그아웃·로그인 잠금은 두지 않는다(만료되면 다시 로그인). 필터는 ADMIN 토큰에 `authAdminId` 속성·MDC `adminId` 만 심는다(`@AuthAdminId`).
 3. **상태 전이는 `Food` 도메인이 소유**한다 — `allowedTransitions()`·`transition()`(APPROVE/REJECT/RESUBMIT/UNPUBLISH), APPROVE 전제(재료 조사됨·이미지 있음). 수정 API 는 상태를 받지 않는다.
 4. **콘텐츠 검증 규칙은 `FoodContentValidator` 하나**가 소유하고 랭체인 적재·REST 수정·구 화면 수정이 공유한다. READY/PENDING_REVIEW 는 완성 규칙(번역 9개·재료 필수), 그 외 상태는 부분 콘텐츠를 허용하되 재료 코드·비율 규칙은 항상 적용한다.
 5. **모든 관리자 쓰기 조작은 `admin_audit_log` 에 명시 기록**한다(`AdminAuditRecorder`, `MANDATORY` 전파, 변경 필드만 before/after). AOP 를 쓰지 않는다.
@@ -33,6 +33,6 @@
 
 ## 대안
 
-- 관리자 전용 refresh 저장소 분리 — 포트·어댑터·조립 3조각 추가, 클레임 방식과 안전성 동일. 기각.
+- 갱신 토큰 회전·로그인 5회 잠금·수동 회수 ShedLock·일괄 작업 건별 REQUIRES_NEW — 처음엔 넣었다가 2026-08-25 걷어냈다. 운영자 콘솔 규모에서 부가 방어가 주는 이득보다 코드·설정·테스트 부담이 컸고, 동시성은 헌법대로 치명 경로만 막는다(회수 cron 과 수동 회수가 겹치면 두 번 도는 것을 감수).
 - Hibernate Envers — 전 엔티티 이력 + 관리자 외 변경이 섞임. 기각.
 - 구 화면 완전 무수정 — 백도어 잔존·규칙 이중화. 기각.

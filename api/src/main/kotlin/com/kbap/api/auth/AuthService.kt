@@ -53,8 +53,6 @@ class AuthService(
             throw e
         }
 
-        if (parsed.role != MemberRole.USER) throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
-
         val memberId = refreshTokenStore.consume(parsed.jti)
             ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
 

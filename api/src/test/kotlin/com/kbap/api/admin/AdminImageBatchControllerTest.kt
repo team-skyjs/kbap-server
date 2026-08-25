@@ -19,8 +19,6 @@ import com.kbap.common.port.llm.FoodImageBatchClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import net.javacrumbs.shedlock.core.LockConfiguration
-import net.javacrumbs.shedlock.core.LockProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
@@ -30,8 +28,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
-import java.time.Duration
-import java.time.Instant
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,9 +49,6 @@ class AdminImageBatchControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
-
-    @Autowired
-    private lateinit var lockProvider: LockProvider
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
@@ -134,18 +127,6 @@ class AdminImageBatchControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("스케줄 락이 잡혀 있으면") {
-                then("409 FOOD-008") {
-                    val lock = lockProvider.lock(LockConfiguration(Instant.now(), FoodImageBatchCollectService.LOCK_NAME, Duration.ofMinutes(5), Duration.ZERO)).get()
-                    try {
-                        val result = post("/collect")
-                        result.response.status shouldBe 409
-                        json(result)["code"] shouldBe "FOOD-008"
-                    } finally {
-                        lock.unlock()
-                    }
-                }
-            }
         }
 
         given("실패 아이템 재제출") {

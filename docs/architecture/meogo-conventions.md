@@ -130,13 +130,14 @@ V<version>__<description>.sql
 
 ## 관리자 API (KB-375, ADR-0019)
 
-- **자격 분리**: `/api/admin/**` 는 관리자 JWT(role=ADMIN) 전용. 컨트롤러는 `@AuthAdminId adminId: Long` 으로 조작자를 받고 감사 기록에 넘긴다. 회원 리졸버(`@AuthMemberId`)는 ADMIN 을 거부하고, 갱신 토큰은 `role` 클레임으로 회원/관리자 경로를 교차 거부한다.
+- **자격 분리**: `/api/admin/**` 는 관리자 JWT(role=ADMIN) 전용. 로그인은 액세스 토큰 하나(8h)만 — 갱신·로그아웃·잠금 없음. 컨트롤러는 `@AuthAdminId adminId: Long` 으로 조작자를 받고 감사 기록에 넘긴다. 회원 리졸버(`@AuthMemberId`)는 ADMIN 을 거부한다.
 - **감사 기록은 명시 호출**: 관리자 쓰기 서비스는 같은 트랜잭션 안에서 `AdminAuditRecorder.record(adminId, action, targetType, targetId, before, after, note)` 를 부른다(`MANDATORY` 전파 — 트랜잭션 밖 호출은 예외). before/after 는 변경된 필드만 남는다. 랭체인 콜백은 조작자 0(시스템).
 - **상태 전이는 도메인**: `Food.transition(FoodTransition, reason)` 만 상태를 바꾼다. 수정 API/폼은 `contentStatus` 를 받지 않는다. 위반은 `FoodTransitionException` → `FOOD-005`(payload `reason`·`allowed[]`).
 - **콘텐츠 검증 단일 출처**: `FoodContentValidator.validate(candidate, requireComplete)` — READY/PENDING_REVIEW 는 `requireComplete=true`. 검증 실패는 `FOOD-006`(payload `errors[{field,code,message}]`).
 - **목록은 네이티브 프로젝션**(`FoodAdminQueryRepositoryCustomImpl`·`MemberAdminQueryRepositoryCustomImpl`): 삭제/탈퇴 행 포함 조회와 JSON 검색이 필요해 `@SQLRestriction` 을 우회한다. 정렬 컬럼은 enum 화이트리스트로만 받는다.
 - **구 Thymeleaf 화면**은 React 전환 완료까지 병행 — 편집 폼은 `version` hidden 을 제출하고 상태는 읽기 전용, 승인/반려는 폼 2개로 신 서비스를 재사용한다.
 - **기능 단위 단일 서비스·컨트롤러**: `AdminFoodService`·`AdminMemberService`·`AdminReportService` 처럼 조회와 조작을 한 클래스에 둔다. `*QueryService`/`*CommandService`, `*QueryController`/`*CommandController` 로 읽기/쓰기를 쪼개지 않는다 — 크기 부담은 DTO 파일(`AdminFoodDtos.kt`)이나 하위 기능(파이프라인)으로 나눈다.
+- **부가 방어를 쌓지 않는다**: 로그인 실패 잠금·토큰 회전·수동 작업의 분산 락·일괄 작업의 건별 독립 트랜잭션 같은 "고도화"는 넣지 않는다. 겹침·경합은 감수하고, 일괄은 한 트랜잭션에서 건별 결과만 돌려준다.
 - **관리자 삭제는 중복 구현**: 사용자 삭제 규칙(리뷰 랭킹 차감·댓글 트리 블라인드)이 필요해도 사용자 서비스에 "관리자 모드" 플래그를 넣지 않고 관리자 서비스가 같은 규칙을 다시 쓴다. 수정 쿼리(`@Modifying(clearAutomatically)`)를 호출한 뒤에는 앞서 로드한 엔티티가 detached 되므로 응답은 다시 조회한 인스턴스로 만든다.
 - **개인정보 원문은 감사 경로로만**: 마스킹 해제 조회(`reveal=true`)는 쓰기 트랜잭션에서 `MEMBER_PII_REVEAL` 을 남긴다(`readOnly` 트랜잭션에서는 감사 insert 가 flush 되지 않는다).
 - **테스트 정리**: 관리자 통합 테스트는 `AdminTestTables.clear(...)` 로 before/after 모두 비운다 — FK 검사를 끄고 AUTO_INCREMENT 를 1 로 되돌려, 고정 id 로 시드하는 다른 스펙(리뷰 목록 900번대 등)과 자동 id 가 충돌하지 않게 한다.

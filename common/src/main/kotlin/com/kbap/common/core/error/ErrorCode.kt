@@ -20,7 +20,6 @@ enum class ErrorCode(
     SOCIAL_ACCOUNT_DELETE_FAILED("AUTH-007", 500, "소셜 계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요"),
     ADMIN_FORBIDDEN("AUTH-008", 403, "관리자만 사용할 수 있는 API 입니다"),
     ADMIN_LOGIN_FAILED("AUTH-009", 401, "아이디 또는 비밀번호가 올바르지 않습니다"),
-    ADMIN_LOGIN_LOCKED("AUTH-010", 403, "로그인 실패가 반복되어 잠시 잠겼습니다. 15분 후 다시 시도해 주세요"),
     ADMIN_ACCOUNT_DUPLICATED("AUTH-011", 409, "이미 사용 중인 관리자 아이디입니다"),
     ADMIN_PASSWORD_MISMATCH("AUTH-012", 400, "현재 비밀번호가 올바르지 않습니다"),
     ADMIN_SELF_ACTION_FORBIDDEN("AUTH-013", 400, "자기 자신의 계정에는 할 수 없는 조작입니다"),
@@ -45,8 +44,6 @@ enum class ErrorCode(
     FOOD_INVALID_TRANSITION("FOOD-005", 409, "현재 상태에서 허용되지 않는 전이입니다"),
     FOOD_INVALID_CONTENT("FOOD-006", 400, "음식 콘텐츠가 검증 규칙에 맞지 않습니다"),
     DUPLICATE_FOOD_NAME("FOOD-007", 409, "같은 이름의 음식이 이미 있습니다"),
-    IMAGE_COLLECT_IN_PROGRESS("FOOD-008", 409, "이미지 배치 회수가 이미 진행 중입니다"),
-    IMAGE_REGENERATION_IN_PROGRESS("FOOD-009", 409, "이미지 생성이 이미 진행 중인 음식입니다"),
     FOOD_CONTENT_REQUEST_NOT_PENDING("FOOD-010", 409, "현재 상태에서 처리할 수 없는 수집 요청입니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),

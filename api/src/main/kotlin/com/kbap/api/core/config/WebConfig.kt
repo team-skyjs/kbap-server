@@ -56,7 +56,7 @@ class WebConfig(
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(AdminAuthorizationInterceptor())
             .addPathPatterns("${ApiPaths.ADMIN}/**")
-            .excludePathPatterns(AdminAuthController.LOGIN_PATH, AdminAuthController.REFRESH_PATH)
+            .excludePathPatterns(AdminAuthController.LOGIN_PATH)
         registry.addInterceptor(AdminPageAuthInterceptor(tokenParser))
             .addPathPatterns("/admin/**")
             .excludePathPatterns(AdminPageAuthInterceptor.LOGIN_PATH)
@@ -79,7 +79,6 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
                     JwtAuthenticationFilter.GuestExemption("POST", Regex("^${AdminAuthController.LOGIN_PATH}$")),
-                    JwtAuthenticationFilter.GuestExemption("POST", Regex("^${AdminAuthController.REFRESH_PATH}$")),
                 ),
             ),
         ).apply {

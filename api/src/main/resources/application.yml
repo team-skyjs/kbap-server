@@ -61,12 +61,8 @@ kbap:
       access-ttl: 30m
       refresh-ttl: 14d
     admin:
-      # 관리자 SPA 세션(KB-375). 회원보다 짧은 refresh — 콘솔은 인터넷 노출이라 탈취 창을 좁힌다.
-      access-ttl: 1h
-      refresh-ttl: 7d
-      # 로그인 실패 잠금 — 연속 실패 max-attempts 회면 lock-duration 동안 거부(Redis 카운터).
-      login-lock-max-attempts: 5
-      login-lock-duration: 15m
+      # 관리자 SPA 세션(KB-375). 갱신 토큰 없이 액세스 토큰 하나 — 만료되면 다시 로그인한다.
+      access-ttl: 8h
   llm:
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. 스캔은 필수 기능이라 끄는 스위치를 두지 않는다 —
     # ScanService 가 이 빈에 의존하므로 OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.

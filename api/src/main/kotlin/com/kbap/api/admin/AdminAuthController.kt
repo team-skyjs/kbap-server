@@ -22,24 +22,7 @@ class AdminAuthController(
         return ResponseEntity.ok(BaseResponse.ok(AdminTokenResponse.from(tokens)))
     }
 
-    @PostMapping("/refresh")
-    override fun refresh(
-        @Valid @RequestBody request: AdminRefreshRequest,
-    ): ResponseEntity<BaseResponse<AdminTokenResponse>> {
-        val tokens = adminAuthService.refresh(request.refreshToken!!)
-        return ResponseEntity.ok(BaseResponse.ok(AdminTokenResponse.from(tokens)))
-    }
-
-    @PostMapping("/logout")
-    override fun logout(
-        @RequestBody(required = false) request: AdminLogoutRequest?,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        adminAuthService.logout(request?.refreshToken)
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
     companion object {
         const val LOGIN_PATH: String = ApiPaths.ADMIN + "/auth/login"
-        const val REFRESH_PATH: String = ApiPaths.ADMIN + "/auth/refresh"
     }
 }

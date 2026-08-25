@@ -7,12 +7,11 @@
 ```json
 { "id": "ops", "password": "…" }
 ```
-→ 200 `{ "accessToken": "…", "refreshToken": "…", "expiresIn": 3600 }`
+→ 200 `{ "accessToken": "…", "expiresIn": 28800 }` — 갱신 토큰 없음, 만료(8h) 시 재로그인
 
 | 상황 | 응답 |
 |---|---|
 | 아이디/비밀번호 불일치 | 401 `AUTH-009` (실패 횟수 +1) |
-| 5회 실패 후(15분) | 403 `AUTH-010` — 잠금 중엔 정답도 거부, 잠금 시간 연장 없음 |
 | 성공 | 실패 카운터 리셋, 감사 `ADMIN_LOGIN` |
 
 ## POST /api/admin/auth/refresh

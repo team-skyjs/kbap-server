@@ -24,17 +24,12 @@ import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.port.storage.StorageObjectStore
-import net.javacrumbs.shedlock.core.LockConfiguration
-import net.javacrumbs.shedlock.core.LockProvider
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.Duration
-import java.time.Instant
 import java.time.LocalDateTime
 
 @Service
@@ -51,13 +46,9 @@ class AdminFoodPipelineService(
     private val adminFoodService: AdminFoodService,
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val auditRecorder: AdminAuditRecorder,
-    private val lockProvider: LockProvider,
     transactionManager: PlatformTransactionManager,
 ) {
     private val auditTransaction = TransactionTemplate(transactionManager)
-    private val itemTransaction = TransactionTemplate(transactionManager).apply {
-        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
-    }
 
     @Transactional
     fun recollectOne(adminId: Long, foodId: Long): AdminRecollectOneResponse {
@@ -148,14 +139,7 @@ class AdminFoodPipelineService(
     }
 
     fun collectImagesNow(adminId: Long): AdminImageCollectResponse {
-        val lock = lockProvider.lock(
-            LockConfiguration(Instant.now(), FoodImageBatchCollectService.LOCK_NAME, Duration.ofMinutes(30), Duration.ZERO),
-        ).orElseThrow { BusinessException(ErrorCode.IMAGE_COLLECT_IN_PROGRESS) }
-        val summary = try {
-            collectService.collectSubmitted()
-        } finally {
-            lock.unlock()
-        }
+        val summary = collectService.collectSubmitted()
         audit(
             adminId, AdminAuditAction.IMAGE_COLLECT, AdminAuditTargetType.IMAGE_BATCH, null, null,
             mapOf("collectedBatches" to summary.collectedBatches, "doneItems" to summary.doneItems, "failedItems" to summary.failedItems),
@@ -239,24 +223,23 @@ class AdminFoodPipelineService(
         return AdminVectorRetryAllResponse(retried)
     }
 
+    @Transactional
     fun bulk(adminId: Long, action: AdminFoodBulkAction, ids: List<Long>): AdminFoodBulkResponse {
         if (ids.size > BULK_MAX) throw BusinessException(ErrorCode.INVALID_REQUEST)
-        val results = ids.distinct().map { id ->
+        val targets = ids.distinct()
+        targets.forEach { id ->
             try {
-                itemTransaction.executeWithoutResult {
-                    when (action) {
-                        AdminFoodBulkAction.APPROVE -> adminFoodService.approve(adminId, id)
-                        AdminFoodBulkAction.RECOLLECT -> recollectOne(adminId, id)
-                        AdminFoodBulkAction.DELETE -> adminFoodService.deleteFood(adminId, id)
-                    }
+                when (action) {
+                    AdminFoodBulkAction.APPROVE -> adminFoodService.approve(adminId, id)
+                    AdminFoodBulkAction.RECOLLECT -> recollectOne(adminId, id)
+                    AdminFoodBulkAction.DELETE -> adminFoodService.deleteFood(adminId, id)
                 }
-                AdminFoodBulkItemResult(id = id, ok = true)
             } catch (e: BusinessException) {
-                AdminFoodBulkItemResult(id = id, ok = false, code = e.errorCode.code, message = e.errorCode.message)
+                throw BusinessException(e.errorCode, payload = mapOf("failedId" to id, "detail" to e.payload))
             }
         }
-        audit(adminId, AdminAuditAction.FOOD_BULK, AdminAuditTargetType.FOOD, null, null, mapOf("action" to action.name, "ids" to ids), note = "ids=$ids")
-        return AdminFoodBulkResponse(results, succeeded = results.count { it.ok }, failed = results.count { !it.ok })
+        audit(adminId, AdminAuditAction.FOOD_BULK, AdminAuditTargetType.FOOD, null, null, mapOf("action" to action.name, "ids" to targets), note = "ids=$targets")
+        return AdminFoodBulkResponse(action = action, ids = targets, count = targets.size)
     }
 
     private fun mutateContentOutbox(

@@ -83,9 +83,9 @@
 | GET | `/api/admin/accounts` | `{items[{id, loginId, lastLoginAt, passwordChangedAt, createdAt}]}` |
 | POST | `/api/admin/accounts` `{loginId, password}` | 아이디 4~50자 `[a-zA-Z0-9._-]`, 비밀번호 8자+. 중복 409 AUTH-011. 감사 `ADMIN_ACCOUNT_CREATE` |
 | PATCH | `/api/admin/accounts/me/password` `{currentPassword, newPassword}` | 불일치 400 AUTH-012. 감사 `ADMIN_PASSWORD_CHANGE` |
-| DELETE | `/api/admin/accounts/{id}` | 본인 400 AUTH-013, 없음 404 AUTH-014. 소프트 삭제 — refresh 거부, access 는 만료(1h)까지 유효. 감사 `ADMIN_ACCOUNT_DELETE` |
+| DELETE | `/api/admin/accounts/{id}` | 본인 400 AUTH-013, 없음 404 AUTH-014. 소프트 삭제 — 이미 발급된 액세스 토큰은 만료(8h)까지 유효. 감사 `ADMIN_ACCOUNT_DELETE` |
 
-- 로그인 성공 시 `last_login_at` 갱신. 5회 실패 15분 잠금은 기존 로그인 API(AUTH-010).
+- 로그인 성공 시 `last_login_at` 갱신. 로그인 실패 잠금은 두지 않는다.
 - 스키마: `admin_account.last_login_at/password_changed_at` (`V2026.08.25.16.52.02`).
 - 소프트 삭제된 계정의 `admin_id` 는 UNIQUE 에 남아 같은 아이디로 재생성할 수 없다(의도 — 감사 로그의 adminLoginId 보존).
 
@@ -100,4 +100,4 @@
 | 음식 상세 `outboxes[]`·`imageItems[]`·`vectorOutbox` 평면 | `history.{contentOutboxes, imageItems, vectorOutboxes, reviewSummary, scanMatchCount, bookmarkCount, auditLogs}` | 이력 묶음 |
 | 회원 프로필 `{nicknameReset, profileImageReset}` | `{resetNickname, resetProfileImage}` | 기존 계약 |
 | 콘텐츠 아웃박스 고착 24h | `stuckHours` 기본 3h(대시보드 응답에 명시, 목록 API 는 파라미터) | 운영 기준 |
-| 관리자 TTL 8h | access 1h + refresh 7d(회전) | 탈취 시 노출 최소화 |
+| 관리자 TTL 8h | access 8h 단일 토큰(갱신 없음) | 동일 |

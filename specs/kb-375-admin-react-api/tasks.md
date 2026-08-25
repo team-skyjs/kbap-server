@@ -302,3 +302,7 @@ React UI 킷이 요구한 계약 중 미반영분을 같은 브랜치에서 추�
 - [x] 관리자 계정 관리 — `AdminAccountController.kt`(목록·생성·내 비밀번호·삭제), `admin_account.last_login_at/password_changed_at` 마이그레이션, 로그인 시 갱신
 - [x] 테스트 — `AdminReportControllerTest`·`AdminReviewControllerTest`·`AdminCommunityControllerTest`·`AdminOrderScanControllerTest`·`AdminAccountControllerTest`·`AdminAppVersionHistoryTest` + 대시보드/회원 테스트 케이스 추가, `AdminTestTables` 정리 헬퍼
 
+## 부가 기능 제거 (2026-08-25)
+
+사용자 지시("고도화 기능 불필요, 동시성도 마찬가지")로 걷어냈다: 로그인 5회 잠금(Redis `LoginAttemptStore`·AUTH-010), 관리자 갱신 토큰 회전·로그아웃·refresh role 클레임(관리자는 8h 액세스 토큰 하나), 수동 회수 ShedLock(FOOD-008)·이미지 재생성 진행중 검사(FOOD-009), 일괄 작업 건별 REQUIRES_NEW 와 강제 탈퇴 실패 별도 트랜잭션 감사(MEMBER_WITHDRAW_FAILED). 위 태스크 본문의 해당 언급은 작성 당시 기록.
+

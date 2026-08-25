@@ -80,7 +80,7 @@
 |---|---|---|
 | `DELETE /api/admin/foods/{id}` | — | 소프트 삭제 + 벡터 DELETE. 이미 삭제 200 멱등 |
 | `POST /api/admin/foods/{id}/restore` | — | 활성화 + 벡터 UPSERT(READY 였으면). 동명 활성 음식 존재 409 `FOOD-007` |
-| `POST /api/admin/foods/bulk` | `{ "action": "APPROVE|RECOLLECT|DELETE", "ids": [..] }` (≤500, 초과 400) | `{ "results": [ { "id": 1, "ok": true }, { "id": 2, "ok": false, "code": "FOOD-005", "message": "…" } ], "succeeded": 1, "failed": 1 }` — 건별 독립 트랜잭션 |
+| `POST /api/admin/foods/bulk` | `{ "action": "APPROVE|RECOLLECT|DELETE", "ids": [..] }` (≤500, 초과 400) | `{ "action": "APPROVE", "ids": [1, 2], "count": 2 }` — 한 트랜잭션: 한 건이라도 실패하면 전부 롤백하고 그 건의 코드로 응답(`payload.failedId`) |
 
 ## 재수집
 
@@ -93,7 +93,7 @@
 
 | 메서드·경로 | 본문 | 결과 |
 |---|---|---|
-| `POST /api/admin/foods/{id}/image/regenerate` | — | 상태 무관 단건 배치 제출 `{ "batchId": 12, "itemId": 40 }`. 진행 중 아이템 있으면 409 `FOOD-009`. READY 유지 |
+| `POST /api/admin/foods/{id}/image/regenerate` | — | 상태 무관 단건 배치 제출 `{ "batchId": 12, "itemId": 40 }`. READY 유지(진행 중 검사 없음 — 겹치면 두 번 생성) |
 | `POST /api/admin/foods/{id}/image/upload-url` | `{ "contentType": "image/webp", "contentLength": 123456 }` | `{ uploadUrl, requiredHeaders, objectKey, expiresAt }` (형식 UPLOAD-001, 크기 UPLOAD-003) |
 | `PUT /api/admin/foods/{id}/image` | `{ "objectKey": "…" }` | 저장소 존재·형식 확인(없으면 400 IMAGE-003) → `imageRef` 교체, READY 면 벡터 UPSERT. PENDING_IMAGE 였으면 PENDING_REVIEW 로 |
 
@@ -105,7 +105,7 @@
 | `GET /api/admin/foods/images/candidates/count` | `{ "count": 17 }` — 다음 제출 대상(PENDING_IMAGE ∧ 진행 중 아이템 없음) |
 | `POST /api/admin/foods/images` | (현행) `{ submittedBatchCount, submittedFoodCount }` |
 | `GET /api/admin/foods/images/{batchId}` | `{ …배치…, items: [ { itemId, foodId, displayName, status, fileName, errorMsg } ] }` |
-| `POST /api/admin/foods/images/collect` | 즉시 회수 `{ "collectedBatches": 2, "doneItems": 30, "failedItems": 1 }`. 락 점유 중 409 `FOOD-008` |
+| `POST /api/admin/foods/images/collect` | 즉시 회수 `{ "collectedBatches": 2, "doneItems": 30, "failedItems": 1 }`. cron 과 겹쳐도 막지 않는다 |
 | `POST /api/admin/foods/images/items/resubmit` | `{ "itemIds": [..] }` → 대상 음식 단건 배치 `{ batchId, itemCount }` |
 
 ## 콘텐츠 아웃박스

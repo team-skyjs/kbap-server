@@ -95,7 +95,7 @@ class AdminFoodImageReplaceTest : BehaviorSpec() {
 
         given("이미지 재생성") {
             `when`("READY 음식에 요청하면") {
-                then("상태를 유지한 채 단건 배치·아이템이 생기고, 진행 중 재요청은 409") {
+                then("상태를 유지한 채 단건 배치·아이템이 생긴다") {
                     val food = seed("재생성음식", FoodContentStatus.READY)
 
                     val result = post("/${food.id}/image/regenerate")
@@ -106,10 +106,6 @@ class AdminFoodImageReplaceTest : BehaviorSpec() {
                     itemRepository.findTop10ByFoodIdOrderByIdDesc(food.id).single().id shouldBe (p["itemId"] as Int).toLong()
                     foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.READY
                     fakeClient.submitted.single().single().customId shouldBe food.id.toString()
-
-                    val again = post("/${food.id}/image/regenerate")
-                    again.response.status shouldBe 409
-                    json(again)["code"] shouldBe "FOOD-009"
                 }
             }
         }

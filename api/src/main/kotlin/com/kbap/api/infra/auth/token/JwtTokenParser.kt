@@ -35,10 +35,7 @@ class JwtTokenParser(
         requireTokenType(claims, TokenType.REFRESH, ErrorCode.INVALID_REFRESH_TOKEN)
         val memberId = claims.subject?.toLongOrNull() ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         val jti = claims.id ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
-        val role = (claims[ROLE_CLAIM] as? String)
-            ?.let { name -> MemberRole.entries.firstOrNull { it.name == name } }
-            ?: MemberRole.USER
-        return ParsedRefreshToken(memberId = memberId, jti = jti, role = role)
+        return ParsedRefreshToken(memberId = memberId, jti = jti)
     }
 
     private fun requireTokenType(claims: Claims, expected: TokenType, onMismatch: ErrorCode) {

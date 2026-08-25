@@ -4,7 +4,6 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.api.admin.AdminTestTokens.adminHeaders
 import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
 import com.kbap.common.domain.admin.AdminAccountJpaRepository
 import com.kbap.common.domain.admin.AdminAuditLogJpaRepository
 import com.kbap.common.domain.admin.model.AdminAuditAction
@@ -30,7 +29,7 @@ import javax.sql.DataSource
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class)
+@Import(MySqlContainerConfig::class)
 class AdminAccountControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

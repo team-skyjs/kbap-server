@@ -26,7 +26,6 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
@@ -49,9 +48,7 @@ class AdminMemberService(
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val separateTransaction = TransactionTemplate(transactionManager).apply {
-        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
-    }
+    private val transaction = TransactionTemplate(transactionManager)
 
     @Transactional(readOnly = true)
     fun getMemberPage(page: Int): AdminMemberPageView {
@@ -231,15 +228,9 @@ class AdminMemberService(
             socialAccountDeleter.delete(member.provider, member.providerUid)
         } catch (e: Exception) {
             log.error("관리자 강제 탈퇴 — 소셜 계정 삭제 실패 memberId={}", memberId, e)
-            separateTransaction.executeWithoutResult {
-                auditRecorder.record(
-                    adminId, AdminAuditAction.MEMBER_WITHDRAW_FAILED, AdminAuditTargetType.MEMBER, memberId,
-                    null, null, note = e.message ?: e.javaClass.simpleName,
-                )
-            }
             throw BusinessException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
         }
-        return separateTransaction.execute {
+        return transaction.execute {
             val managed = memberRepository.findById(memberId).orElse(null)
             if (managed != null) {
                 managed.withdraw()

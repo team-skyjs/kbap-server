@@ -122,21 +122,22 @@ class AdminFoodLifecycleControllerTest : BehaviorSpec() {
 
         given("일괄 작업") {
             `when`("승인 3건 중 1건이 이미지가 없으면") {
-                then("건별 결과가 오고 나머지는 READY 가 된다") {
+                then("전부 롤백되고 실패한 건의 코드가 온다; 전부 가능하면 한 번에 READY 가 된다") {
                     val a = seed("일괄A", FoodContentStatus.PENDING_REVIEW)
                     val b = seed("일괄B", FoodContentStatus.PENDING_REVIEW, imageRef = null)
                     val c = seed("일괄C", FoodContentStatus.PENDING_REVIEW)
 
-                    val result = payload(post("/bulk", """{"action":"APPROVE","ids":[${a.id},${b.id},${c.id}]}"""))
-
-                    result["succeeded"] shouldBe 2
-                    result["failed"] shouldBe 1
+                    val failed = post("/bulk", """{"action":"APPROVE","ids":[${a.id},${b.id},${c.id}]}""")
+                    failed.response.status shouldBe 409
+                    json(failed)["code"] shouldBe "FOOD-005"
                     @Suppress("UNCHECKED_CAST")
-                    val failed = (result["results"] as List<Map<String, Any?>>).single { it["ok"] == false }
-                    failed["id"] shouldBe b.id.toInt()
-                    failed["code"] shouldBe "FOOD-005"
+                    (json(failed)["payload"] as Map<String, Any?>)["failedId"] shouldBe b.id.toInt()
+                    foodRepository.findById(a.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    foodRepository.findById(c.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+
+                    val ok = payload(post("/bulk", """{"action":"APPROVE","ids":[${a.id},${c.id}]}"""))
+                    ok["count"] shouldBe 2
                     foodRepository.findById(a.id).get().contentStatus shouldBe FoodContentStatus.READY
-                    foodRepository.findById(b.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                     foodRepository.findById(c.id).get().contentStatus shouldBe FoodContentStatus.READY
                 }
             }
@@ -153,7 +154,7 @@ class AdminFoodLifecycleControllerTest : BehaviorSpec() {
                     val a = seed("일괄재수집A")
                     val b = seed("일괄재수집B")
 
-                    payload(post("/bulk", """{"action":"RECOLLECT","ids":[${a.id},${b.id}]}"""))["succeeded"] shouldBe 2
+                    payload(post("/bulk", """{"action":"RECOLLECT","ids":[${a.id},${b.id}]}"""))["count"] shouldBe 2
 
                     contentOutboxRepository.count() shouldBe 2
                 }

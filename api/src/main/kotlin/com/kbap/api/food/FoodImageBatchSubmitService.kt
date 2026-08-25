@@ -37,9 +37,6 @@ class FoodImageBatchSubmitService(
     fun submitForFoods(foodIds: Collection<Long>): FoodImageSubmitResult {
         val foods = foodRepository.findAllById(foodIds.toSet())
         if (foods.isEmpty()) throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
-        if (foods.any { itemRepository.existsByFoodIdAndItemStatus(it.id, ImageBatchItemStatus.PENDING) }) {
-            throw BusinessException(ErrorCode.IMAGE_REGENERATION_IN_PROGRESS)
-        }
         return submit(foods)
     }
 

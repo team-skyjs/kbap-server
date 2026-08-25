@@ -284,7 +284,6 @@ class AdminMemberControllerTest : BehaviorSpec() {
                     result.response.status shouldBe 500
                     json(result)["code"] shouldBe "AUTH-007"
                     memberRepository.findById(other.id).isPresent shouldBe true
-                    auditLogRepository.findAll().any { it.action == AdminAuditAction.MEMBER_WITHDRAW_FAILED && it.targetId == other.id } shouldBe true
                 }
             }
         }

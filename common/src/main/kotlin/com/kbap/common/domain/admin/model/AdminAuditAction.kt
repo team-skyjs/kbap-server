@@ -2,7 +2,6 @@ package com.kbap.common.domain.admin.model
 
 enum class AdminAuditAction {
     ADMIN_LOGIN,
-    ADMIN_LOGIN_LOCKED,
     ADMIN_ACCOUNT_CREATE,
     ADMIN_ACCOUNT_DELETE,
     ADMIN_PASSWORD_CHANGE,
@@ -27,7 +26,6 @@ enum class AdminAuditAction {
     MEMBER_PROFILE_RESET,
     MEMBER_SCAN_UNLOCK,
     MEMBER_WITHDRAW,
-    MEMBER_WITHDRAW_FAILED,
     MEMBER_PII_REVEAL,
     REPORT_HANDLE,
     REVIEW_DELETE,

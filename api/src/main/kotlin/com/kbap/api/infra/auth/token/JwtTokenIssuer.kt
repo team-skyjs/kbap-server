@@ -29,16 +29,15 @@ class JwtTokenIssuer(
             .compact()
     }
 
-    override fun issueRefreshToken(memberId: Long, role: MemberRole): IssuedRefreshToken {
+    override fun issueRefreshToken(memberId: Long): IssuedRefreshToken {
         val now = System.currentTimeMillis()
         val jti = UUID.randomUUID().toString()
         val token = Jwts.builder()
             .subject(memberId.toString())
             .claim(TokenType.CLAIM, TokenType.REFRESH.name)
-            .claim(ROLE_CLAIM, role.name)
             .id(jti)
             .issuedAt(Date(now))
-            .expiration(Date(now + properties.refreshTtl(role).toMillis()))
+            .expiration(Date(now + properties.refreshTtl.toMillis()))
             .signWith(key)
             .compact()
         return IssuedRefreshToken(token = token, jti = jti)

@@ -8,7 +8,6 @@ data class JwtTokenProperties(
     val accessTtl: Duration,
     val refreshTtl: Duration,
     val adminAccessTtl: Duration = accessTtl,
-    val adminRefreshTtl: Duration = refreshTtl,
 ) {
     init {
         require(secret.toByteArray().size >= MIN_SECRET_BYTES) {
@@ -17,8 +16,6 @@ data class JwtTokenProperties(
     }
 
     fun accessTtl(role: MemberRole): Duration = if (role == MemberRole.ADMIN) adminAccessTtl else accessTtl
-
-    fun refreshTtl(role: MemberRole): Duration = if (role == MemberRole.ADMIN) adminRefreshTtl else refreshTtl
 
     companion object {
         private const val MIN_SECRET_BYTES = 32

@@ -89,7 +89,7 @@ interface AdminFoodPipelineApi {
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "재시도 건수")])
     fun retryAllFailedVectors(adminId: Long): ResponseEntity<BaseResponse<AdminVectorRetryAllResponse>>
 
-    @Operation(summary = "일괄 작업", description = "APPROVE·RECOLLECT·DELETE 를 최대 500건에 건별 독립 트랜잭션으로 수행하고 건별 성공/실패 코드를 돌려준다.")
+    @Operation(summary = "일괄 작업", description = "APPROVE·RECOLLECT·DELETE 를 최대 500건에 한 트랜잭션으로 수행한다 — 한 건이라도 실패하면 전부 롤백하고 그 건의 오류 코드(payload.failedId)로 응답한다.")
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "건별 결과"), ApiResponse(responseCode = "400", description = "500건 초과(COMMON-002)")])
     fun bulk(request: AdminFoodBulkRequest, adminId: Long): ResponseEntity<BaseResponse<AdminFoodBulkResponse>>
 }
