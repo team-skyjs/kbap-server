@@ -67,12 +67,11 @@ class MemberService(
     fun getMemberOrNull(memberId: Long): Member? =
         memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
-    private fun findByIdentity(identity: SocialIdentity): Member? =
-        memberRepository.findByProviderAndProviderUidAndMemberStatus(
-            identity.provider,
-            identity.providerUserId,
-            MemberStatus.ACTIVE,
-        )
+    private fun findByIdentity(identity: SocialIdentity): Member? {
+        val member = memberRepository.findByProviderAndProviderUid(identity.provider, identity.providerUserId) ?: return null
+        if (member.isSuspended()) throw BusinessException(ErrorCode.MEMBER_SUSPENDED)
+        return member
+    }
 
     fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
         findByIdentity(identity)?.let { return it to false }
@@ -128,6 +127,9 @@ class MemberService(
     }
 
     @Transactional(readOnly = true)
-    fun getMember(memberId: Long): Member =
-        getMemberOrNull(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+    fun getMember(memberId: Long): Member {
+        val member = memberRepository.findById(memberId).orElse(null) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        if (member.isSuspended()) throw BusinessException(ErrorCode.MEMBER_SUSPENDED)
+        return member
+    }
 }

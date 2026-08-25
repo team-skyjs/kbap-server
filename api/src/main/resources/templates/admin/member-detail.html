@@ -22,7 +22,7 @@
                     <dt>이메일</dt>
                     <dd th:text="${member.email ?: '-'}">email</dd>
                     <dt>가입 경로</dt>
-                    <dd th:text="|${member.provider} (${member.providerUid})|">GOOGLE</dd>
+                    <dd th:text="${member.provider}">GOOGLE</dd>
                     <dt>상태</dt>
                     <dd>
                         <span class="badge"

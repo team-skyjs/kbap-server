@@ -44,7 +44,7 @@
 
 ### Decision 7 — 목록 검색·삭제 포함 조회는 네이티브 프로젝션
 
-- **Decision**: 음식·회원 관리자 목록은 `FoodAdminQueryRepositoryImpl`/`MemberAdminQueryRepositoryImpl`(각 도메인 패키지의 Custom 리포지토리, `EntityManager` 네이티브 SQL 동적 조립)이 **엔티티가 아닌 프로젝션 행**(`AdminFoodRow`, `AdminMemberRow`)을 돌려준다. 재료 검색은 `JSON_SEARCH(ingredients, 'one', :code, NULL, '$[*].code') IS NOT NULL`, 번역명 검색은 `JSON_SEARCH(name_translations, 'one', :kw...)`, id 검색은 `q` 가 숫자일 때. `includeDeleted`/`includeWithdrawn` 은 `status` 조건을 빼는 것으로 구현. 삭제 음식 상세·복구는 네이티브 `findByIdIncludingDeleted`·`restore(id)` UPDATE.
+- **Decision**: 음식·회원 관리자 목록은 `FoodAdminQueryRepositoryCustomImpl`/`MemberAdminQueryRepositoryCustomImpl`(각 도메인 패키지의 Custom 리포지토리, `EntityManager` 네이티브 SQL 동적 조립)이 **엔티티가 아닌 프로젝션 행**(`AdminFoodRow`, `AdminMemberRow`)을 돌려준다. 재료 검색은 `JSON_SEARCH(ingredients, 'one', :code, NULL, '$[*].code') IS NOT NULL`, 번역명 검색은 `JSON_SEARCH(name_translations, 'one', :kw...)`, id 검색은 `q` 가 숫자일 때. `includeDeleted`/`includeWithdrawn` 은 `status` 조건을 빼는 것으로 구현. 삭제 음식 상세·복구는 네이티브 `findByIdIncludingDeleted`·`restore(id)` UPDATE.
 - **Rationale**: `@SQLRestriction("status='ACTIVE'")` 는 JPQL/파생 쿼리에서 우회 불가 — 삭제·탈퇴 행을 보려면 네이티브가 유일. JSON 컬럼 검색도 네이티브 함수. 정렬·필터 조합이 많아 파생 쿼리 폭발을 피한다(현재 4개 조합 × 4 메서드 = 8개).
 - **Alternatives considered**: QueryDSL 도입 — 신규 의존·코드젠, JSON 함수는 결국 템플릿. 기각. `@Filter` 로 SQLRestriction 대체 — 전 엔티티 영향. 기각.
 
@@ -140,3 +140,12 @@
 ### Decision 22 — 테스트 전략
 
 - **Decision**: 신 REST 는 컨트롤러 통합 테스트(`@SpringBootTest` + MockMvc + Testcontainers, BehaviorSpec) 를 엔드포인트 묶음별 1파일. 도메인 전이(`Food.allowedTransitions`/`replaceImage`)와 검증기(`FoodContentValidator`)는 순수 단위 테스트. 관리자 토큰 헬퍼는 테스트 공용 `AdminTestTokens`(api test fixtures) 로 통합해 20개 파일의 로컬 헬퍼 중복을 더 늘리지 않는다. 구 화면 회귀는 기존 7개 페이지 테스트 그대로 + 버전/승인 폼 시나리오 추가.
+
+## 구현 중 확정된 편차 (2026-08-25)
+
+- **D5 보완 — 부분 콘텐츠 허용**: 검증기에 `requireComplete` 를 두어 READY/PENDING_REVIEW 만 완성 규칙(번역 9개·재료 필수·설명 필수·맵기 0~10)을 요구한다. FAILED/PENDING_IMAGE 는 이름 교정 같은 운영이 막히지 않게 부분 콘텐츠를 허용하되 재료 코드·비율·길이 규칙은 항상 적용한다(앱 상세 500 방지 목적은 유지).
+- **D9 보완**: 회수(`handleResult`)는 상태 무관으로 `Food.replaceImage` 를 적용한다 — 제출 후 상태가 바뀐 음식도 이미지는 받는다(아이템 DONE). 기존 "PENDING_IMAGE 아니면 아이템 실패" 규칙 폐지.
+- **복구 이름 충돌 없음**: `uq_food_korean_name` 이 삭제 행에도 걸려 동명 활성 음식이 생길 수 없다 → `FOOD-007` 복구 분기 제거.
+- **조건 일괄 재수집 필터**: 기존 `q`·`status` 만 유지(재료·실패유형 필터는 개별 재수집이 대체 — YAGNI).
+- **`contentStatus` 거절**: Jackson 전역 설정이 미지 필드를 무시하므로 `@field:Null` 로 명시 거절(400 COMMON-002).
+- **구 화면 페이지 테스트**: 페이지 로그인이 Redis(갱신 토큰·잠금)를 쓰게 되어 `AdminPageControllerTest` 에 `RedisContainerConfig` 를 추가했다.

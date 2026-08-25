@@ -127,3 +127,12 @@ V<version>__<description>.sql
 ### 검증
 
 테스트 스위트는 H2 + flyway off 라 마이그레이션을 실행하지 않는다. Flyway 실동작(정렬·out-of-order·checksum)은 **로컬 docker MySQL** 부팅으로 실측 검증한다(절차: `specs/kb-44-flyway-timestamp-versioning/quickstart.md`).
+
+## 관리자 API (KB-375, ADR-0019)
+
+- **자격 분리**: `/api/admin/**` 는 관리자 JWT(role=ADMIN) 전용. 컨트롤러는 `@AuthAdminId adminId: Long` 으로 조작자를 받고 감사 기록에 넘긴다. 회원 리졸버(`@AuthMemberId`)는 ADMIN 을 거부하고, 갱신 토큰은 `role` 클레임으로 회원/관리자 경로를 교차 거부한다.
+- **감사 기록은 명시 호출**: 관리자 쓰기 서비스는 같은 트랜잭션 안에서 `AdminAuditRecorder.record(adminId, action, targetType, targetId, before, after, note)` 를 부른다(`MANDATORY` 전파 — 트랜잭션 밖 호출은 예외). before/after 는 변경된 필드만 남는다. 랭체인 콜백은 조작자 0(시스템).
+- **상태 전이는 도메인**: `Food.transition(FoodTransition, reason)` 만 상태를 바꾼다. 수정 API/폼은 `contentStatus` 를 받지 않는다. 위반은 `FoodTransitionException` → `FOOD-005`(payload `reason`·`allowed[]`).
+- **콘텐츠 검증 단일 출처**: `FoodContentValidator.validate(candidate, requireComplete)` — READY/PENDING_REVIEW 는 `requireComplete=true`. 검증 실패는 `FOOD-006`(payload `errors[{field,code,message}]`).
+- **목록은 네이티브 프로젝션**(`FoodAdminQueryRepositoryCustomImpl`·`MemberAdminQueryRepositoryCustomImpl`): 삭제/탈퇴 행 포함 조회와 JSON 검색이 필요해 `@SQLRestriction` 을 우회한다. 정렬 컬럼은 enum 화이트리스트로만 받는다.
+- **구 Thymeleaf 화면**은 React 전환 완료까지 병행 — 편집 폼은 `version` hidden 을 제출하고 상태는 읽기 전용, 승인/반려는 폼 2개로 신 서비스를 재사용한다.
