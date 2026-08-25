@@ -1,0 +1,15 @@
+env       = "prod"
+vpc_name  = "kbap-prod-vpc"
+subdomain = "prod-ecs"
+
+spring_profile     = "prod"
+storage_key_prefix = "prod"
+
+api_image   = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api:<release-tag>"
+batch_image = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch:<release-tag>"
+
+# 스키마명은 현재 운영 중인 ECS 태스크 정의(kbap-prod-api)와 동일하게 /kbap — 변경 시 반드시 재확인
+db_url                  = "jdbc:mysql://kbap-db-prod.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap"
+redis_host              = "kbap-prod-redis-0001-001.kbap-prod-redis.fu1mox.apn2.cache.amazonaws.com"
+rds_security_group_id   = "sg-0ae5dcd7bd3580cb3"
+redis_security_group_id = "sg-0fd902271294eb663"
