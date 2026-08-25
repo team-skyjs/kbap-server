@@ -59,6 +59,12 @@ data class OrderDetailResponse(
     @field:Schema(description = "주문 총가격 — 가격이 있는 항목의 (단가 × 수량) 합", example = "38500")
     val totalPrice: Int,
 
+    @field:Schema(
+        description = "주문 시점에 스캔했던 메뉴판 사진 URL — 목록의 scanImageUrl 과 동일",
+        example = "https://cdn.example.com/scan/42/menu.jpg",
+    )
+    val scanImageUrl: String,
+
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
 )
