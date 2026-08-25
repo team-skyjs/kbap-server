@@ -1,22 +1,18 @@
-# 외부 노출은 Cloudflare Tunnel(cloudflared) 로만 — 호스트 포트를 열지 않는다.
-# 준비: 같은 폴더 .env 에 TUNNEL_TOKEN=<Zero Trust 대시보드에서 발급한 토큰> (gitignore 대상)
+# 외부 노출은 홈서버의 기존 Cloudflare Tunnel 이 담당 — 호스트 포트를 열지 않는다.
+# 젠킨스를 기존 외부 네트워크(monitor-net)에 붙여 cloudflared 가 컨테이너 이름(kbap-jenkins:8080)으로 닿게 한다.
 services:
   jenkins:
     build: .
     container_name: kbap-jenkins
     volumes:
       - jenkins-home:/var/jenkins_home
+    networks:
+      - monitor-net
     restart: unless-stopped
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: kbap-cloudflared
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    depends_on:
-      - jenkins
-    restart: unless-stopped
+networks:
+  monitor-net:
+    external: true
 
 volumes:
   jenkins-home: {}
