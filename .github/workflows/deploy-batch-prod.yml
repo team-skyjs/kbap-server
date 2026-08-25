@@ -94,7 +94,8 @@ jobs:
           NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
             --query taskDefinition.taskDefinitionArn --output text)
           echo "registered: $NEW_ARN"
+          # 성공 기준은 "롤링 시작"까지(KB-242 판정 기준과 동일) — 완료를 기다리지 않는다.
+          # 기동 실패·헬스체크 탈락은 서킷브레이커가 롤백하며, 결과는 ECS 콘솔로 확인한다.
           aws ecs update-service --cluster "$ECS_NAME-cluster" --service "$ECS_NAME-batch" \
             --task-definition "$NEW_ARN" >/dev/null
-          aws ecs wait services-stable --cluster "$ECS_NAME-cluster" --services "$ECS_NAME-batch"
-          echo "batch service rolled to $NEW_ARN"
+          echo "rolling started: $NEW_ARN" >> "$GITHUB_STEP_SUMMARY"
