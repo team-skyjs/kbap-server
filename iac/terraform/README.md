@@ -68,7 +68,7 @@ prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한�
 ## 알아둘 것
 
 - **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
-- 인스턴스 사이징: t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB. 블루/그린 중 api 인스턴스당 1536 × 2 = 3072 MiB 가 올라가므로 **태스크 메모리를 1536 이상으로 올리면 카나리가 배치 실패**한다.
+- 인스턴스 사이징: 평상시 **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread). 카나리 진행 중(최대 30분)에만 구버전 1 + 신버전 1 로 **인스턴스당 2개**가 잠깐 공존한다. t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB 라 1536 × 2 = 3072 MiB 까지는 들어가지만, **태스크 메모리를 더 올리면 카나리 중 신버전이 배치되지 못해 배포가 멈춘다**.
 - 시크릿 4 KB 초과(Firebase JSON 이 큰 경우)는 SSM Advanced tier 로 파라미터를 바꾼다.
 - prod 는 새 스키마 `kbap-prod` 를 쓴다(운영 `/kbap` 무접촉). apply 전에 `CREATE DATABASE `kbap-prod`` 를 해 두면 Flyway 가 첫 기동 때 스키마를 채운다 — 즉 **prod-ecs 는 빈 데이터로 시작**하며, 운영 데이터 이전은 별도 작업이다.
 - 기존 prod ECS 를 지우기 전까지 `kbap-prod-api` 태스크 정의 패밀리와 이름이 겹치지 않는다(새 이름은 `kbap-prod-ecs-*`).
