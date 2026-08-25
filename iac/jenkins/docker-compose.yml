@@ -1,11 +1,21 @@
+# 외부 노출은 Cloudflare Tunnel(cloudflared) 로만 — 호스트 포트를 열지 않는다.
+# 준비: 같은 폴더 .env 에 TUNNEL_TOKEN=<Zero Trust 대시보드에서 발급한 토큰> (gitignore 대상)
 services:
   jenkins:
     build: .
     container_name: kbap-jenkins
-    ports:
-      - "8080:8080"
     volumes:
       - jenkins-home:/var/jenkins_home
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: kbap-cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - jenkins
     restart: unless-stopped
 
 volumes:
