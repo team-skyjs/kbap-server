@@ -88,10 +88,8 @@ class AdminFoodPipelineControllerTest : BehaviorSpec() {
         @Suppress("UNCHECKED_CAST")
         fun items(r: MvcResult) = payload(r)["items"] as List<Map<String, Any?>>
 
-        fun ageSentAt(outboxId: Long, hours: Int) {
-            dataSource.connection.use { c ->
-                c.createStatement().use { it.execute("UPDATE food_content_outbox SET sent_at = DATE_SUB(NOW(6), INTERVAL $hours HOUR) WHERE id = $outboxId") }
-            }
+        fun ageSentAt(outboxId: Long, hours: Long) {
+            AdminTestTables.ageSentAt(dataSource, outboxId, hours)
         }
 
         beforeContainer {

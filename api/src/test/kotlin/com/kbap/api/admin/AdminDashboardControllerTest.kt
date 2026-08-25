@@ -68,11 +68,7 @@ class AdminDashboardControllerTest : BehaviorSpec() {
                     val food = foodRepository.save(Food(koreanName = "대시보드음식", description = "설명", contentStatus = FoodContentStatus.READY))
                     val stuck = FoodContentOutbox.pending(food.id, "대시보드음식").apply { markSent() }
                     contentOutboxRepository.save(stuck)
-                    dataSource.connection.use { c ->
-                        c.createStatement().use {
-                            it.execute("UPDATE food_content_outbox SET sent_at = DATE_SUB(NOW(6), INTERVAL 4 HOUR) WHERE id = ${stuck.id}")
-                        }
-                    }
+                    AdminTestTables.ageSentAt(dataSource, stuck.id, 4)
 
                     val result = get()
                     result.response.status shouldBe 200
