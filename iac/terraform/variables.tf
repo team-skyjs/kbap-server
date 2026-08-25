@@ -43,6 +43,12 @@ variable "batch_instance_count" {
   default = 1
 }
 
+variable "batch_desired_count" {
+  description = "batch 태스크 수 — 0 이면 배치를 띄우지 않는다(인스턴스도 0 으로 맞출 것)"
+  type        = number
+  default     = 1
+}
+
 variable "api_desired_count" {
   type    = number
   default = 2

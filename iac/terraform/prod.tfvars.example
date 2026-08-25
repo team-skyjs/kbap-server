@@ -5,6 +5,10 @@ subdomain = "prod-ecs"
 spring_profile     = "prod"
 storage_key_prefix = "prod"
 
+# prod 배치는 기존 운영 배치(kbap-prod-cluster)와 같은 SQS 큐를 바라보므로 이중 운영을 피해 당분간 띄우지 않는다
+batch_instance_count = 0
+batch_desired_count  = 0
+
 api_image   = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api:<release-tag>"
 batch_image = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch:<release-tag>"
 

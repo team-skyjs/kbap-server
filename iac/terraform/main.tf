@@ -10,6 +10,7 @@ module "ecs_environment" {
   instance_type        = var.instance_type
   api_instance_count   = var.api_instance_count
   batch_instance_count = var.batch_instance_count
+  batch_desired_count  = var.batch_desired_count
   api_desired_count    = var.api_desired_count
 
   api_image   = var.api_image

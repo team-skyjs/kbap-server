@@ -65,7 +65,7 @@ resource "aws_ecs_service" "batch" {
   name            = local.batch_service_name
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.batch.arn
-  desired_count   = 1
+  desired_count   = var.batch_desired_count
   launch_type     = "EC2"
 
   placement_constraints {
