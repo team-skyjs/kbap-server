@@ -1,8 +1,10 @@
 package com.kbap.api.core.config
 
+import com.kbap.api.admin.AdminAuthController
 import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.admin.AdminPageAuthInterceptor
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.auth.AuthAdminIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
 import com.kbap.api.core.auth.JwtAuthenticationFilter
@@ -48,11 +50,13 @@ class WebConfig(
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(AuthMemberIdArgumentResolver())
         resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser))
+        resolvers.add(AuthAdminIdArgumentResolver())
     }
 
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(AdminAuthorizationInterceptor())
             .addPathPatterns("${ApiPaths.ADMIN}/**")
+            .excludePathPatterns(AdminAuthController.LOGIN_PATH, AdminAuthController.REFRESH_PATH)
         registry.addInterceptor(AdminPageAuthInterceptor(tokenParser))
             .addPathPatterns("/admin/**")
             .excludePathPatterns(AdminPageAuthInterceptor.LOGIN_PATH)
@@ -74,6 +78,8 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption("POST", Regex("^${AdminAuthController.LOGIN_PATH}$")),
+                    JwtAuthenticationFilter.GuestExemption("POST", Regex("^${AdminAuthController.REFRESH_PATH}$")),
                 ),
             ),
         ).apply {

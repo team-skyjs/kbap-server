@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenParser
@@ -25,6 +26,8 @@ class AdminPageAuthInterceptor(
             return redirectToLogin(response)
         }
         if (parsed.role != MemberRole.ADMIN) return redirectToLogin(response)
+        request.setAttribute(JwtAuthenticationFilter.ADMIN_ID_ATTRIBUTE, parsed.memberId)
+        request.setAttribute(JwtAuthenticationFilter.ROLE_ATTRIBUTE, parsed.roleName)
         return true
     }
 

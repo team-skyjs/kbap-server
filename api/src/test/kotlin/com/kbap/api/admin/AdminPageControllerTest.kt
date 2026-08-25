@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.core.testsupport.RedisContainerConfig
 import com.kbap.common.domain.admin.AdminAccountJpaRepository
 import com.kbap.common.domain.admin.model.AdminAccount
 import com.kbap.common.domain.member.model.MemberRole
@@ -23,7 +24,7 @@ import org.springframework.test.web.servlet.post
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@Import(MySqlContainerConfig::class, RedisContainerConfig::class)
 class AdminPageControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

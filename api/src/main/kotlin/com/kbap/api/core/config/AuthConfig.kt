@@ -20,7 +20,16 @@ class AuthConfig {
         @Value("\${kbap.auth.jwt.secret}") secret: String,
         @Value("\${kbap.auth.jwt.access-ttl}") accessTtl: Duration,
         @Value("\${kbap.auth.jwt.refresh-ttl}") refreshTtl: Duration,
-    ): JwtTokenProperties = JwtTokenProperties(secret = secret, accessTtl = accessTtl, refreshTtl = refreshTtl)
+        @Value("\${kbap.auth.admin.access-ttl:\${kbap.auth.jwt.access-ttl}}") adminAccessTtl: Duration,
+        @Value("\${kbap.auth.admin.refresh-ttl:\${kbap.auth.jwt.refresh-ttl}}") adminRefreshTtl: Duration,
+    ): JwtTokenProperties =
+        JwtTokenProperties(
+            secret = secret,
+            accessTtl = accessTtl,
+            refreshTtl = refreshTtl,
+            adminAccessTtl = adminAccessTtl,
+            adminRefreshTtl = adminRefreshTtl,
+        )
 
     @Bean
     fun socialTokenVerifier(

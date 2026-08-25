@@ -19,6 +19,8 @@ enum class ErrorCode(
     EXPIRED_REFRESH_TOKEN("AUTH-006", 401, "만료된 리프레시 토큰입니다. 다시 로그인해 주세요"),
     SOCIAL_ACCOUNT_DELETE_FAILED("AUTH-007", 500, "소셜 계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요"),
     ADMIN_FORBIDDEN("AUTH-008", 403, "관리자만 사용할 수 있는 API 입니다"),
+    ADMIN_LOGIN_FAILED("AUTH-009", 401, "아이디 또는 비밀번호가 올바르지 않습니다"),
+    ADMIN_LOGIN_LOCKED("AUTH-010", 403, "로그인 실패가 반복되어 잠시 잠겼습니다. 15분 후 다시 시도해 주세요"),
 
     DUPLICATE_SOCIAL_IDENTITY("MEMBER-001", 409, "이미 가입된 소셜 계정입니다"),
     ONBOARDING_ALREADY_COMPLETED("MEMBER-002", 400, "이미 온보딩을 완료했습니다"),
@@ -30,11 +32,18 @@ enum class ErrorCode(
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
     INVALID_CURRENCY_CODE("MEMBER-010", 400, "지원하지 않는 통화 코드입니다"),
     INVALID_DIET_CATEGORY("MEMBER-011", 400, "지원하지 않는 diet 카테고리입니다"),
+    MEMBER_SUSPENDED("MEMBER-012", 403, "이용이 정지된 계정입니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
     BLANK_SEARCH_KEYWORD("FOOD-003", 400, "검색어를 입력해 주세요"),
     FOOD_CONTENT_REQUEST_ALREADY_COMPLETED("FOOD-004", 409, "이미 처리된 음식 콘텐츠 수집 요청입니다"),
+    FOOD_INVALID_TRANSITION("FOOD-005", 409, "현재 상태에서 허용되지 않는 전이입니다"),
+    FOOD_INVALID_CONTENT("FOOD-006", 400, "음식 콘텐츠가 검증 규칙에 맞지 않습니다"),
+    DUPLICATE_FOOD_NAME("FOOD-007", 409, "같은 이름의 음식이 이미 있습니다"),
+    IMAGE_COLLECT_IN_PROGRESS("FOOD-008", 409, "이미지 배치 회수가 이미 진행 중입니다"),
+    IMAGE_REGENERATION_IN_PROGRESS("FOOD-009", 409, "이미지 생성이 이미 진행 중인 음식입니다"),
+    FOOD_CONTENT_REQUEST_NOT_PENDING("FOOD-010", 409, "현재 상태에서 처리할 수 없는 수집 요청입니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),

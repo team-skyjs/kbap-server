@@ -1,6 +1,7 @@
 package com.kbap.api.core.config
 
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.auth.AuthAdminId
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.api.core.logging.RequestLoggingFilter
@@ -30,6 +31,7 @@ class OpenApiConfig {
         SpringDocUtils.getConfig()
             .addAnnotationsToIgnore(AuthMemberId::class.java)
             .addAnnotationsToIgnore(AuthMemberIdOrNull::class.java)
+            .addAnnotationsToIgnore(AuthAdminId::class.java)
     }
 
     @Bean
@@ -110,6 +112,15 @@ class OpenApiConfig {
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
         operationCustomizers: List<OperationCustomizer>,
     ): GroupedOpenApi = versionDoc("2.0", handlerMappings, operationCustomizers)
+
+    @Bean
+    fun adminDoc(operationCustomizers: List<OperationCustomizer>): GroupedOpenApi =
+        GroupedOpenApi.builder()
+            .group("admin")
+            .displayName("관리자 API (/api/admin)")
+            .pathsToMatch("${ApiPaths.ADMIN}/**")
+            .apply { operationCustomizers.forEach { addOperationCustomizer(it) } }
+            .build()
 
     private fun versionDoc(
         version: String,
