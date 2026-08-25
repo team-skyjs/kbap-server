@@ -46,5 +46,8 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Kotest 발견 단계가 classgraph 로 테스트 클래스패스 전체를 스캔한다 — 워커 기본 힙(512m)으로는
+    // api 모듈에서 OutOfMemoryError("failed to discover tests")가 난다(CI 에서 먼저 드러남).
+    maxHeapSize = "2g"
     System.getProperty("kotest.tags")?.let { systemProperty("kotest.tags", it) }
 }
