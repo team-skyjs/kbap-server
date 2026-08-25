@@ -47,9 +47,9 @@
 
 - [x] T005 `iac/terraform/modules/ecs-environment/batch.tf` — `resource "aws_ecs_service" "batch"` 에 `enable_execute_command = true` 추가(`launch_type` 다음 줄). `lifecycle.ignore_changes` 는 `[task_definition]` 그대로 유지
 - [x] T006 `iac/terraform/modules/ecs-environment/iam.tf` — `data "aws_iam_policy_document" "batch_task"` 에 statement 추가: `sid = "EcsExecChannel"`, actions `ssmmessages:CreateControlChannel`·`CreateDataChannel`·`OpenControlChannel`·`OpenDataChannel`, resources `["*"]` (contracts/operator-iam-policy.md 태스크 역할 절)
-- [ ] T007 정적 검증: `cd iac/terraform && terraform fmt -recursive && terraform validate` 통과, `terraform plan -var-file=dev.tfvars` 결과가 **`aws_ecs_service.batch`(in-place: enable_execute_command) + `aws_iam_role_policy.batch_task`(in-place) 2건만**인지 확인 — SG·태스크 정의·ALB 변경이 보이면 중단
-- [ ] T008 dev apply + 배치 강제 재배포: `terraform apply -var-file=dev.tfvars` → `aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-batch --force-new-deployment --profile kbap-infra` → `aws ecs wait services-stable` (research R5 — 에이전트는 새 태스크부터 주입)
-- [ ] T009 Green 관측: `aws ecs describe-tasks ... --query 'tasks[0].containers[0].managedAgents[?name==\`ExecuteCommandAgent\`].lastStatus'` → `RUNNING`, T004 의 명령이 이제 성공
+- [x] T007 (validate/fmt 통과. plan 은 ECS state 유실로 50개 실물을 import 블록으로 먼저 편입 — "50 import / 2 add / 9 change / 0 destroy") 정적 검증: `cd iac/terraform && terraform fmt -recursive && terraform validate` 통과, `terraform plan -var-file=dev.tfvars` 결과가 **`aws_ecs_service.batch`(in-place: enable_execute_command) + `aws_iam_role_policy.batch_task`(in-place) 2건만**인지 확인 — SG·태스크 정의·ALB 변경이 보이면 중단
+- [x] T008 (apply 2026-08-25 15:06 성공. 배치 인스턴스는 삭제된 인스턴스 프로파일로 에이전트가 죽어 있어 ASG 리프레시로 교체 → 서비스 running 1/1 COMPLETED) dev apply + 배치 강제 재배포: `terraform apply -var-file=dev.tfvars` → `aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-batch --force-new-deployment --profile kbap-infra` → `aws ecs wait services-stable` (research R5 — 에이전트는 새 태스크부터 주입)
+- [x] T009 (Green 2026-08-25 15:10: 배치 태스크 kbap-dev-ecs-batch:3 → enableExecuteCommand=true, ExecuteCommandAgent=RUNNING) Green 관측: `aws ecs describe-tasks ... --query 'tasks[0].containers[0].managedAgents[?name==\`ExecuteCommandAgent\`].lastStatus'` → `RUNNING`, T004 의 명령이 이제 성공
 
 **Checkpoint**: Exec 채널 준비 — 스토리 구현 시작 가능
 
@@ -90,7 +90,7 @@
 
 - [x] T016 [US2] `iac/terraform/modules/ecs-environment/iam.tf` — 섹션 `# --- batch 운영 사용자 (원격 잡 실행) ---` 추가: `resource "aws_iam_user" "batch_operator"`(name `${local.name_prefix}-batch-operator`, tags), `data "aws_iam_policy_document" "batch_operator"` 2 statement — (1) `ecs:ListTasks`·`ecs:DescribeTasks` on `*`, condition `ArnEquals ecs:cluster = aws_ecs_cluster.this.arn`; (2) `ecs:ExecuteCommand` on `"arn:aws:ecs:${var.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.this.name}/*"`, condition `StringEquals ecs:container-name = local.batch_container_name` — `resource "aws_iam_user_policy" "batch_operator"` 로 부착. **`aws_iam_access_key` 는 만들지 않는다**(research R3)
 - [x] T017 [P] [US2] `iac/terraform/modules/ecs-environment/outputs.tf` 에 `output "batch_operator_user_name" { value = aws_iam_user.batch_operator.name }` 추가, `iac/terraform/outputs.tf` 에 동명 패스스루 추가
-- [ ] T018 [US2] 정적 검증: `terraform fmt -recursive && terraform validate`, `terraform plan -var-file=dev.tfvars` 가 `aws_iam_user.batch_operator`·`aws_iam_user_policy.batch_operator` 신규 2건(+ output)만 추가함을 확인 → `terraform apply -var-file=dev.tfvars`
+- [x] T018 (T008 과 같은 apply 에서 aws_iam_user/aws_iam_user_policy.batch_operator 생성됨) [US2] 정적 검증: `terraform fmt -recursive && terraform validate`, `terraform plan -var-file=dev.tfvars` 가 `aws_iam_user.batch_operator`·`aws_iam_user_policy.batch_operator` 신규 2건(+ output)만 추가함을 확인 → `terraform apply -var-file=dev.tfvars`
 - [ ] T019 [US2] 액세스 키 발급(사람): 콘솔 IAM → `kbap-dev-ecs-batch-operator` → 액세스 키 생성 → `aws configure --profile kbap-dev-batch-operator`. 키는 어떤 파일·레포에도 커밋하지 않는다
 - [ ] T020 [US2] Green 확인 — quickstart 6단계: `AWS_PROFILE=kbap-dev-batch-operator` 로 (a) `list-tasks --cluster kbap-prod-ecs-cluster` AccessDenied, (b) api 태스크에 `--container api` execute-command AccessDenied, (c) `iac/scripts/batch-job.sh run dev <jobName>` 성공(운영 사용자 자격증명만으로 US1 경로 재현). 세 결과를 기록
 

@@ -2,6 +2,18 @@
 
 구현 전에 확정하는 검증 절차다. 아래 항목이 전부 통과해야 Green.
 
+## dev 실측 기록 (2026-08-25)
+
+| 단계 | 결과 |
+|---|---|
+| 0 | AWS CLI 2.36 ✓ · **Session Manager plugin 미설치**(pkg 설치에 sudo 필요 — 사람이 `brew install --cask session-manager-plugin`) |
+| 1 | `eclipse-temurin:21-jre` 에 curl 8.18 포함 → Dockerfile 무변경 |
+| 2 | ECS state 가 유실돼 있어(워크트리 삭제로 추정) 실물 50개를 `import` 블록으로 먼저 편입 — plan "50 import / 2 add / 9 change / 0 destroy", 15:06 apply 성공. state 는 워크트리 로컬 + 메인 체크아웃 `terraform.tfstate.d/dev-ecs/` 백업(S3 백엔드는 사용자 결정으로 미도입) |
+| 3 | 운영 사용자 `kbap-dev-ecs-batch-operator` 생성됨 — 액세스 키 발급은 사람 몫(미완) |
+| 4 | 강제 재배포 전 **부수 장애 발견·복구**: 인스턴스 3대가 삭제된 프로파일 `kbap-dev-ecs-instance-profile`(10:23 리네임 apply 잔재)을 물고 있어 10:2x 부터 ECS·SSM 에이전트 단절 → batch ASG 리프레시(신규 인스턴스) + api 는 프로파일 재연결 후 ASG 리프레시로 교체 → 3대 모두 `agentConnected=true`. 배치 태스크 `kbap-dev-ecs-batch:3` 에서 `enableExecuteCommand=true`, `ExecuteCommandAgent=RUNNING` ✓ |
+| 5~7 | 미실행 — 플러그인(0단계)·운영 키(3단계) 확보 후 진행 |
+| 8 | README 절 작성 완료, 재현 검증은 5단계 이후 |
+
 ## 0. 호출 호스트 준비 (한 번)
 
 ```bash
