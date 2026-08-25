@@ -19,9 +19,9 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 
 | 대상 | 소유자 |
 |---|---|
-| 클러스터·ASG·ALB·타깃그룹·CodeDeploy·IAM·로그그룹·대시보드·SSM 파라미터 *자리* | Terraform |
+| 클러스터·ASG·ALB·타깃그룹·CodeDeploy·IAM·로그그룹·대시보드 | Terraform |
 | 태스크 정의 **리비전**(이미지 태그)·리스너의 blue/green 포워딩·서비스 desired | 배포 스크립트 / CodeDeploy (`lifecycle.ignore_changes`) |
-| SSM 파라미터 **값** | 사람/CI (`aws ssm put-parameter --overwrite`) |
+| SSM 파라미터(이름·값 모두) | 사람/CI (`aws ssm put-parameter`) — Terraform 은 ARN 문자열만 참조 |
 | RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가) |
 
 ## 처음 세우기 (dev)
@@ -34,7 +34,7 @@ terraform plan  -var-file=dev.tfvars
 terraform apply -var-file=dev.tfvars
 ```
 
-apply 직후 태스크는 시크릿이 `CHANGE_ME` 라 부팅에 실패한다. 값을 넣고 서비스를 재시작한다:
+**apply 전에** 시크릿을 SSM 에 등록해 둔다(없으면 태스크가 기동 못 함). 이미 등록돼 있으면 건너뛴다:
 
 ```bash
 for k in DB_PASSWORD JWT_SECRET OPENAI_API_KEY GOOGLE_PLACES_API_KEY; do
@@ -43,8 +43,6 @@ done
 aws ssm put-parameter --profile kbap-infra --name /kbap/dev/FIREBASE_CREDENTIALS_JSON \
   --type SecureString --overwrite --value "$(cat firebase-service-account.json)"
 
-aws ecs update-service --profile kbap-infra --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-batch --force-new-deployment
-iac/scripts/deploy-api.sh dev <git-sha> kbap-infra    # api 는 CodeDeploy 경유 (아래)
 ```
 
 확인: `https://dev-ecs.kbap.site/actuator/health` → CloudWatch 대시보드 `kbap-dev-ecs`.

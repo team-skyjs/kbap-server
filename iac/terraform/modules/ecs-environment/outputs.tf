@@ -39,8 +39,8 @@ output "instance_security_group_id" {
 }
 
 output "ssm_secret_parameters" {
-  description = "실값을 넣어야 하는 SSM 파라미터 이름 (CHANGE_ME 로 생성됨)"
-  value       = [for p in aws_ssm_parameter.secret : p.name]
+  description = "태스크가 참조하는 SSM 파라미터 이름 — apply 전에 값이 등록돼 있어야 태스크가 기동한다"
+  value       = [for name in local.secret_names : "${local.ssm_prefix}/${name}"]
 }
 
 output "log_groups" {

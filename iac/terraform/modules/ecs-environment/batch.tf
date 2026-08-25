@@ -39,7 +39,7 @@ resource "aws_ecs_task_definition" "batch" {
 
       secrets = [for name in var.batch_secret_names : {
         name      = name
-        valueFrom = aws_ssm_parameter.secret[name].arn
+        valueFrom = local.secret_arns[name]
       }]
 
       logConfiguration = {

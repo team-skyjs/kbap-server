@@ -40,7 +40,7 @@ resource "aws_ecs_task_definition" "api" {
 
       secrets = [for name in var.api_secret_names : {
         name      = name
-        valueFrom = aws_ssm_parameter.secret[name].arn
+        valueFrom = local.secret_arns[name]
       }]
 
       healthCheck = {
