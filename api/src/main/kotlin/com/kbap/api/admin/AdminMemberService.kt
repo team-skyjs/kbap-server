@@ -11,21 +11,28 @@ import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.port.auth.SocialAccountDeleter
+import com.kbap.common.domain.admin.model.AdminAuditAction
+import com.kbap.common.domain.admin.model.AdminAuditTargetType
 import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.util.ImageUrls
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 
 @Service
-class AdminMemberQueryService(
+class AdminMemberService(
     private val memberRepository: MemberJpaRepository,
     private val foodRepository: FoodJpaRepository,
     private val reviewRepository: ReviewJpaRepository,
@@ -36,8 +43,16 @@ class AdminMemberQueryService(
     private val reportRepository: ReportJpaRepository,
     private val memberBlockRepository: MemberBlockJpaRepository,
     private val rankingEventRepository: MemberRankingEventJpaRepository,
+    private val socialAccountDeleter: SocialAccountDeleter,
+    private val auditRecorder: AdminAuditRecorder,
+    transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+    private val separateTransaction = TransactionTemplate(transactionManager).apply {
+        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+    }
+
     @Transactional(readOnly = true)
     fun getMemberPage(page: Int): AdminMemberPageView {
         val pageable = PageRequest.of(page - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
@@ -149,6 +164,89 @@ class AdminMemberQueryService(
         )
     }
 
+    @Transactional
+    fun changeStatus(adminId: Long, memberId: Long, status: MemberStatus, reason: String?): AdminMemberActionResponse {
+        val member = getMember(memberId)
+        val before = member.memberStatus
+        when (status) {
+            MemberStatus.SUSPENDED -> {
+                if (reason.isNullOrBlank()) throw BusinessException(ErrorCode.INVALID_REQUEST)
+                member.suspend(reason.trim())
+            }
+            MemberStatus.ACTIVE -> member.reinstate()
+        }
+        if (before != member.memberStatus) {
+            auditRecorder.record(
+                adminId, AdminAuditAction.MEMBER_STATUS, AdminAuditTargetType.MEMBER, member.id,
+                mapOf("memberStatus" to before.name), mapOf("memberStatus" to member.memberStatus.name), note = reason,
+            )
+        }
+        return toActionResponse(member)
+    }
+
+    @Transactional
+    fun resetProfile(adminId: Long, memberId: Long, resetNickname: Boolean, resetProfileImage: Boolean): AdminMemberActionResponse {
+        if (!resetNickname && !resetProfileImage) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val member = getMember(memberId)
+        val before = mapOf("nickname" to member.nickname, "profileImageUrl" to member.profileImageUrl)
+        if (resetNickname) member.resetNickname()
+        if (resetProfileImage) member.resetProfileImage()
+        auditRecorder.record(
+            adminId, AdminAuditAction.MEMBER_PROFILE_RESET, AdminAuditTargetType.MEMBER, member.id,
+            before, mapOf("nickname" to member.nickname, "profileImageUrl" to member.profileImageUrl),
+        )
+        return toActionResponse(member)
+    }
+
+    @Transactional
+    fun unlockScan(adminId: Long, memberId: Long): AdminMemberActionResponse {
+        val member = getMember(memberId)
+        val before = member.scanUnlocked
+        member.unlockScan()
+        auditRecorder.record(
+            adminId, AdminAuditAction.MEMBER_SCAN_UNLOCK, AdminAuditTargetType.MEMBER, member.id,
+            mapOf("scanUnlocked" to before), mapOf("scanUnlocked" to true),
+        )
+        return toActionResponse(member)
+    }
+
+    fun withdraw(adminId: Long, memberId: Long): AdminMemberActionResponse {
+        val member = memberRepository.findByIdIncludingWithdrawn(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        if (member.isDeleted()) return toActionResponse(member)
+        try {
+            socialAccountDeleter.delete(member.provider, member.providerUid)
+        } catch (e: Exception) {
+            log.error("관리자 강제 탈퇴 — 소셜 계정 삭제 실패 memberId={}", memberId, e)
+            separateTransaction.executeWithoutResult {
+                auditRecorder.record(
+                    adminId, AdminAuditAction.MEMBER_WITHDRAW_FAILED, AdminAuditTargetType.MEMBER, memberId,
+                    null, null, note = e.message ?: e.javaClass.simpleName,
+                )
+            }
+            throw BusinessException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
+        }
+        return separateTransaction.execute {
+            val managed = memberRepository.findById(memberId).orElse(null)
+            if (managed != null) {
+                managed.withdraw()
+                auditRecorder.record(adminId, AdminAuditAction.MEMBER_WITHDRAW, AdminAuditTargetType.MEMBER, memberId, null, null)
+            }
+            toActionResponse(managed ?: member)
+        }!!
+    }
+
+    private fun getMember(memberId: Long): Member =
+        memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
+
+    private fun toActionResponse(member: Member) = AdminMemberActionResponse(
+        id = member.id,
+        memberStatus = member.memberStatus,
+        nickname = member.nickname,
+        profileImageUrl = member.profileImageUrl,
+        scanUnlocked = member.scanUnlocked,
+        withdrawn = member.isDeleted(),
+    )
+
     companion object {
         const val PAGE_SIZE = 20
         const val RECENT_LIMIT = 5
@@ -187,7 +285,7 @@ data class AdminMemberSummaryView(
             AdminMemberSummaryView(
                 id = member.id,
                 nickname = member.nickname,
-                email = AdminMemberQueryService.maskEmail(member.email),
+                email = AdminMemberService.maskEmail(member.email),
                 provider = member.provider,
                 memberStatus = member.memberStatus,
                 onboardingCompleted = member.onboardingCompleted,
@@ -218,7 +316,7 @@ data class AdminMemberDetailView(
             return AdminMemberDetailView(
                 id = member.id,
                 nickname = member.nickname,
-                email = AdminMemberQueryService.maskEmail(member.email),
+                email = AdminMemberService.maskEmail(member.email),
                 provider = member.provider,
                 memberStatus = member.memberStatus,
                 onboardingCompleted = member.onboardingCompleted,

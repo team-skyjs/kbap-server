@@ -50,7 +50,6 @@ class AdminFoodPipelineService(
     private val storageObjectStore: StorageObjectStore,
     private val adminFoodService: AdminFoodService,
     private val adminFoodDashboardService: AdminFoodDashboardService,
-    private val adminFoodCommandService: AdminFoodCommandService,
     private val auditRecorder: AdminAuditRecorder,
     private val lockProvider: LockProvider,
     transactionManager: PlatformTransactionManager,
@@ -246,9 +245,9 @@ class AdminFoodPipelineService(
             try {
                 itemTransaction.executeWithoutResult {
                     when (action) {
-                        AdminFoodBulkAction.APPROVE -> adminFoodCommandService.approve(adminId, id)
+                        AdminFoodBulkAction.APPROVE -> adminFoodService.approve(adminId, id)
                         AdminFoodBulkAction.RECOLLECT -> recollectOne(adminId, id)
-                        AdminFoodBulkAction.DELETE -> adminFoodCommandService.deleteFood(adminId, id)
+                        AdminFoodBulkAction.DELETE -> adminFoodService.deleteFood(adminId, id)
                     }
                 }
                 AdminFoodBulkItemResult(id = id, ok = true)

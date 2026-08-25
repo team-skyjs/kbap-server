@@ -103,13 +103,12 @@ api/src/main/kotlin/com/kbap/api/
 ├── food/FoodImageBatchCollectService.kt             # replaceImage 사용·collect 결과 반환
 └── admin/
     ├── AdminAuthController.kt · AdminAuthApi.kt · AdminAuthService.kt(login/refresh/logout + 잠금)   # AdminLoginService 확장
-    ├── AdminAuditRecorder.kt · AdminAuditLogController.kt · AdminAuditLogApi.kt · AdminAuditQueryService.kt
+    ├── AdminAuditRecorder.kt · AdminAuditLogController.kt · AdminAuditLogApi.kt · AdminAuditLogService.kt
     ├── AdminDashboardController.kt · AdminDashboardApi.kt   # AdminFoodDashboardService·AdminDashboardMetricsService 확장(days·label·costKrw·stuck)
     ├── FoodContentValidator.kt · FieldError.kt      # 검증 단일 출처 (AdminFoodContentIngestRequest 가 위임)
-    ├── AdminFoodQueryController.kt · AdminFoodQueryApi.kt · AdminFoodQueryService.kt      # 목록·상세(이력 동봉)·카탈로그
-    ├── AdminFoodCommandController.kt · AdminFoodCommandApi.kt · AdminFoodCommandService.kt  # PUT·approve/reject/transitions·delete/restore·bulk·recollect·seed(확장)
+    ├── AdminFoodController.kt · AdminFoodApi.kt · AdminFoodService.kt(확장) · AdminFoodDtos.kt   # 목록·상세(이력 동봉)·카탈로그·PUT·approve/reject/transitions·delete/restore — 읽기/쓰기 분리 없음
     ├── AdminFoodPipelineController.kt · AdminFoodPipelineApi.kt · AdminFoodPipelineService.kt   # 이미지 재생성/업로드/배치/회수/재제출·콘텐츠 아웃박스·벡터 아웃박스
-    ├── AdminMemberController.kt · AdminMemberApi.kt · AdminMemberQueryService.kt(확장) · AdminMemberCommandService.kt
+    ├── AdminMemberController.kt · AdminMemberApi.kt · AdminMemberService.kt(구 AdminMemberQueryService 확장 — 조작 메서드 동거)
     ├── AdminFoodService.kt                          # updateFood(version, 검증기)·contentStatus 제거·seedIncomplete 확장  ← 구 화면 공유
     ├── AdminFoodPageController.kt                   # version 파라미터·approve/reject 폼·감사 기록
     └── AdminPageAuthInterceptor.kt                  # authAdminId 속성 공급
@@ -122,7 +121,7 @@ batch/src/main/kotlin/com/kbap/batch/outbox/FoodContentOutboxPublisher.kt   # re
 
 api/src/test/kotlin/com/kbap/api/admin/
 ├── AdminTestTokens.kt(공용 헬퍼) · AdminAuthControllerTest · AdminAuditLogControllerTest · AdminDashboardControllerTest
-├── AdminFoodQueryControllerTest · AdminFoodCommandControllerTest · AdminFoodTransitionTest(단위) · FoodContentValidatorTest(단위)
+├── AdminFoodBrowseControllerTest · AdminFoodEditControllerTest · AdminFoodTransitionTest(단위) · FoodContentValidatorTest(단위)
 ├── AdminFoodPipelineControllerTest · AdminFoodImageReplaceTest · AdminContentOutboxControllerTest
 ├── AdminMemberControllerTest · AdminMemberSuspensionLoginTest
 └── (기존 20개 유지 + AdminFoodPageControllerTest 에 version/approve 시나리오)

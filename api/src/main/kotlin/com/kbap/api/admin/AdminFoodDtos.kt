@@ -143,3 +143,38 @@ data class AdminFoodHistoryResponse(
     val bookmarkCount: Long = 0,
     val auditLogs: List<AdminAuditLogResponse> = emptyList(),
 )
+
+data class AdminFoodListItemResponse(
+    val id: Long,
+    val displayName: String,
+    val koreanName: String,
+    val contentStatus: AdminFoodStatusResponse,
+    val contentFailureKind: String?,
+    val spiciness: Int,
+    val hasImage: Boolean,
+    val imageUrl: String?,
+    val contentReviewAttempts: Int,
+    val reviewCount: Long,
+    val vectorSyncStatus: String,
+    val deleted: Boolean,
+    val updatedAt: LocalDateTime,
+)
+
+data class AdminFoodListResponse(
+    val items: List<AdminFoodListItemResponse>,
+    val page: Int,
+    val size: Int,
+    val totalCount: Long,
+    val totalPages: Int,
+)
+
+data class AdminIngredientCatalogResponse(
+    val items: List<AdminIngredientCatalogItem>,
+)
+
+data class AdminIngredientCatalogItem(
+    val code: String,
+    val koreanName: String,
+    val translations: Map<String, String>,
+    val imageUrl: String?,
+)

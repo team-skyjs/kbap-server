@@ -16,7 +16,6 @@ import java.net.URLEncoder
 
 @Controller
 class AdminFoodPageController(
-    private val adminFoodCommandService: AdminFoodCommandService,
     private val adminFoodDashboardService: AdminFoodDashboardService,
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminFoodService: AdminFoodService,
@@ -108,7 +107,7 @@ class AdminFoodPageController(
         @RequestParam(required = false) q: String?,
         @RequestParam(required = false) status: String?,
         request: HttpServletRequest,
-    ): String = reviewRedirect(id, page, q, status) { adminFoodCommandService.approve(adminId(request), id) }
+    ): String = reviewRedirect(id, page, q, status) { adminFoodService.approve(adminId(request), id) }
 
     @PostMapping("/admin/foods/{id}/reject")
     fun rejectFood(
@@ -122,7 +121,7 @@ class AdminFoodPageController(
         if (reason.isBlank()) {
             return listRedirect((page?.toIntOrNull() ?: 1).coerceAtLeast(1), q, status, "detail" to id, "error" to "reason-required")
         }
-        return reviewRedirect(id, page, q, status) { adminFoodCommandService.reject(adminId(request), id, reason.trim()) }
+        return reviewRedirect(id, page, q, status) { adminFoodService.reject(adminId(request), id, reason.trim()) }
     }
 
     private fun reviewRedirect(id: Long, page: String?, q: String?, status: String?, action: () -> Unit): String {

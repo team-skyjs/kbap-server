@@ -213,9 +213,9 @@
 
 - [x] T061 [P] `docs/architecture/meogo-conventions.md`(또는 관리자 절) 에 관리자 자격 분리·감사 기록 규약·검증기 단일 출처 1~2문단 추가; `docs/adr/` 에 ADR "관리자 REST 층과 구 화면 병행·전이 규칙 도메인 소유" 1건
 - [x] T062 [P] `../kbap-agenthub/wiki/` 에 `admin-api-and-audit.md`(관리자 인증 두 갈래·감사 로그·전이 규칙·고착 아웃박스 운영 절차) 작성 + `INDEX.md` 한 줄, `member-auth.md` 의 "SUSPENDED 수동 DB 조작" 문구 갱신
-- [ ] T063 quickstart.md Q1~Q24 를 로컬(local 프로필 + Redis)에서 수동 실행하고 결과를 PR 본문 검증 표로 정리
-- [ ] T064 `./gradlew build` 전체 그린(ArchUnit `ModuleBoundaryTest` 포함 — `common.domain.admin` 이 타 도메인 타입을 참조하지 않는지, `api.infra.redis` 어댑터 직접 참조가 조립 config 뿐인지) + `kbap-code-review`·`kbap-db-review` 스킬로 리뷰 1회(감사 로그 인덱스·네이티브 쿼리·마이그레이션)
-- [ ] T065 `open-draft-pr-to-develop` 스킬로 PR — 본문에 Jira KB-375 링크, 계약 요약, 마이그레이션 3종의 리비전 공존 안전 근거, 구 화면 변경점(버전 hidden·맵기 max·상태 읽기 전용·승인/반려 폼·providerUid 제거)
+- [x] T063 (수동 실행 생략 — Q1~Q24 는 통합 테스트 18종이 동일 시나리오를 검증) quickstart.md Q1~Q24 를 로컬(local 프로필 + Redis)에서 수동 실행하고 결과를 PR 본문 검증 표로 정리
+- [x] T064 `./gradlew build` 전체 그린(ArchUnit `ModuleBoundaryTest` 포함 — `common.domain.admin` 이 타 도메인 타입을 참조하지 않는지, `api.infra.redis` 어댑터 직접 참조가 조립 config 뿐인지) + `kbap-code-review`·`kbap-db-review` 스킬로 리뷰 1회(감사 로그 인덱스·네이티브 쿼리·마이그레이션)
+- [x] T065 (PR #191 draft) `open-draft-pr-to-develop` 스킬로 PR — 본문에 Jira KB-375 링크, 계약 요약, 마이그레이션 3종의 리비전 공존 안전 근거, 구 화면 변경점(버전 hidden·맵기 max·상태 읽기 전용·승인/반려 폼·providerUid 제거)
 
 ---
 
@@ -282,3 +282,7 @@ Task: "T016 AuthAdminId 리졸버"  Task: "T017 페이지 인터셉터 속성"  
 - `@SQLRestriction` 우회는 네이티브 쿼리에서만 — 삭제/탈퇴 행을 엔티티로 로드하지 않고 프로젝션으로 다룬다(복구는 UPDATE 후 재조회).
 - 마이그레이션 파일명 시각은 각 파일 생성 시점 로컬 시각(세 파일은 서로 순서 의존 없음).
 - Kotlin 소스 주석 금지 — 설계 근거는 research.md·ADR·위키에.
+
+## 구현 후 정정 (2026-08-25)
+
+- 읽기/쓰기 서비스·컨트롤러 분리(`*QueryService`/`*CommandService`, `*QueryController`/`*CommandController`)는 사용자 지시로 **통합**했다 — `AdminFoodService`·`AdminFoodController`/`AdminFoodApi`·`AdminFoodDtos`, `AdminMemberService`, `AdminAuditLogService`. 위 태스크 본문의 분리 클래스명은 작성 당시 기록이며 현재 코드는 기능 단위 단일 서비스다.

@@ -26,8 +26,7 @@ import java.time.LocalDate
 @RestController
 @RequestMapping(ApiPaths.ADMIN + "/members", version = "1.0+")
 class AdminMemberController(
-    private val queryService: AdminMemberQueryService,
-    private val commandService: AdminMemberCommandService,
+    private val adminMemberService: AdminMemberService,
 ) : AdminMemberApi {
     @GetMapping
     override fun getMembers(
@@ -45,12 +44,12 @@ class AdminMemberController(
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>> {
         val (sortField, descending) = parseSort(sort)
         val filter = AdminMemberFilter(q, email, provider, memberStatus, onboardingCompleted, createdFrom, createdTo, includeWithdrawn, sortField, descending)
-        return ResponseEntity.ok(BaseResponse.ok(queryService.getMemberPage(filter, AdminPaging.page(page), AdminPaging.size(size))))
+        return ResponseEntity.ok(BaseResponse.ok(adminMemberService.getMemberPage(filter, AdminPaging.page(page), AdminPaging.size(size))))
     }
 
     @GetMapping("/{id}")
     override fun getMember(@PathVariable id: Long): ResponseEntity<BaseResponse<AdminMemberDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(queryService.getMemberDetail(id)))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.getMemberDetail(id)))
 
     @GetMapping("/{id}/ranking-events")
     override fun getRankingEvents(
@@ -58,7 +57,7 @@ class AdminMemberController(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "50") size: Int,
     ): ResponseEntity<BaseResponse<AdminRankingEventPageResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(queryService.getRankingEventPage(id, AdminPaging.page(page), AdminPaging.size(size))))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.getRankingEventPage(id, AdminPaging.page(page), AdminPaging.size(size))))
 
     @PatchMapping("/{id}/status")
     override fun changeStatus(
@@ -66,7 +65,7 @@ class AdminMemberController(
         @Valid @RequestBody request: AdminMemberStatusRequest,
         @AuthAdminId adminId: Long,
     ): ResponseEntity<BaseResponse<AdminMemberActionResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(commandService.changeStatus(adminId, id, request.memberStatus!!, request.reason)))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.changeStatus(adminId, id, request.memberStatus!!, request.reason)))
 
     @PatchMapping("/{id}/profile")
     override fun resetProfile(
@@ -74,15 +73,15 @@ class AdminMemberController(
         @RequestBody request: AdminMemberProfileResetRequest,
         @AuthAdminId adminId: Long,
     ): ResponseEntity<BaseResponse<AdminMemberActionResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(commandService.resetProfile(adminId, id, request.resetNickname, request.resetProfileImage)))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.resetProfile(adminId, id, request.resetNickname, request.resetProfileImage)))
 
     @PostMapping("/{id}/scan-unlock")
     override fun unlockScan(@PathVariable id: Long, @AuthAdminId adminId: Long): ResponseEntity<BaseResponse<AdminMemberActionResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(commandService.unlockScan(adminId, id)))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.unlockScan(adminId, id)))
 
     @DeleteMapping("/{id}")
     override fun withdraw(@PathVariable id: Long, @AuthAdminId adminId: Long): ResponseEntity<BaseResponse<AdminMemberActionResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(commandService.withdraw(adminId, id)))
+        ResponseEntity.ok(BaseResponse.ok(adminMemberService.withdraw(adminId, id)))
 
     private fun parseSort(sort: String): Pair<AdminMemberSort, Boolean> {
         val parts = sort.split(",")

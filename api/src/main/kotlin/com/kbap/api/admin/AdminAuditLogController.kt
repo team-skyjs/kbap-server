@@ -18,7 +18,7 @@ import java.time.LocalDateTime
 @RestController
 @RequestMapping(ApiPaths.ADMIN + "/audit-logs", version = "1.0+")
 class AdminAuditLogController(
-    private val adminAuditQueryService: AdminAuditQueryService,
+    private val adminAuditLogService: AdminAuditLogService,
 ) : AdminAuditLogApi {
     @GetMapping
     override fun getAuditLogs(
@@ -34,7 +34,7 @@ class AdminAuditLogController(
         val safePage = AdminPaging.page(page)
         val safeSize = AdminPaging.size(size)
         val filter = AdminAuditLogFilter(targetType, targetId, adminAccountId, action, from, to)
-        return ResponseEntity.ok(BaseResponse.ok(adminAuditQueryService.getAuditLogPage(filter, safePage, safeSize)))
+        return ResponseEntity.ok(BaseResponse.ok(adminAuditLogService.getAuditLogPage(filter, safePage, safeSize)))
     }
 }
 

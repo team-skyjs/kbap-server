@@ -34,7 +34,7 @@ import org.springframework.test.web.servlet.put
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(MySqlContainerConfig::class)
-class AdminFoodCommandControllerTest : BehaviorSpec() {
+class AdminFoodEditControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired

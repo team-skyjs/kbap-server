@@ -32,7 +32,7 @@ data class AdminAuditLogPageResponse(
 )
 
 @Service
-class AdminAuditQueryService(
+class AdminAuditLogService(
     private val auditLogRepository: AdminAuditLogJpaRepository,
     private val adminAccountRepository: AdminAccountJpaRepository,
 ) {
