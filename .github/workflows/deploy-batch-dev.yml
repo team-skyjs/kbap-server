@@ -1,8 +1,7 @@
 name: Deploy batch dev
 
-# develop 머지 시 배치 관련 경로에 변경이 있으면 dev 배치 이미지를 갱신한다.
-# dev 는 ECS 가 아니라 EC2+SSM 방식(api 와 동일 환경)이므로 여기서는 ECR 푸시까지만 한다 —
-# 실행은 run-batch.yml(dev)이 SSM 으로 dev EC2 에서 일회성 docker run 을 기동한다.
+# develop 머지 시 배치 관련 경로에 변경이 있으면 dev ECS batch 서비스를 롤링 교체한다.
+# batch 는 상시 1대(단일 인스턴스) — min 0/max 100 롤링이라 구 태스크 종료 → 신 태스크 기동 순.
 # gradle 빌드 설정(buildSrc·카탈로그)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
 on:
   push:
@@ -10,14 +9,12 @@ on:
     paths:
       - "batch/**"
       - "common/**"
-      - "infra/llm/**"
-      - "infra/storage/**"
       - "Dockerfile.batch"
       - ".github/workflows/deploy-batch-dev.yml"
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "batch-latest 로 재지정할 기존 이미지 태그(batch-<sha>). 비우면 현재 커밋을 빌드한다."
+        description: "재배포할 기존 이미지 태그(batch-<sha>). 비우면 현재 커밋을 빌드한다."
         required: false
         type: string
 
@@ -31,9 +28,11 @@ permissions:
 
 jobs:
   deploy:
-    name: build and push batch image (dev)
+    name: build and roll batch service (dev)
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      ECS_NAME: kbap-dev-ecs
 
     steps:
       - name: Checkout
@@ -71,7 +70,6 @@ jobs:
             TAG="batch-$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
           echo "uri=$REPO:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push batch image
@@ -81,10 +79,22 @@ jobs:
             -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
-      # run-batch.yml(dev)이 항상 최신 dev 이미지를 집도록 이동 태그를 함께 유지한다.
-      # 롤백은 image_tag 입력으로 과거 sha 태그를 batch-latest 에 재지정하는 방식.
-      - name: Point batch-latest to this image
+      # 태스크정의 원본은 Terraform 소유 — 최신 리비전 복제 후 이미지만 교체(api 배포와 동일 패턴).
+      - name: Register task definition and roll the service
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          docker pull "${{ steps.image.outputs.uri }}"
-          docker tag "${{ steps.image.outputs.uri }}" "${{ steps.image.outputs.repo }}:batch-latest"
-          docker push "${{ steps.image.outputs.repo }}:batch-latest"
+          aws ecs describe-task-definition --task-definition "$ECS_NAME-batch" \
+            --query taskDefinition > taskdef.json
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions |= map(if .name == "batch" then .image = $IMAGE else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+          ' taskdef.json > new-taskdef.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "registered: $NEW_ARN"
+          aws ecs update-service --cluster "$ECS_NAME-cluster" --service "$ECS_NAME-batch" \
+            --task-definition "$NEW_ARN" >/dev/null
+          aws ecs wait services-stable --cluster "$ECS_NAME-cluster" --services "$ECS_NAME-batch"
+          echo "batch service rolled to $NEW_ARN"

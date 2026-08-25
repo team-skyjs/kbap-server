@@ -20,9 +20,11 @@ permissions:
 
 jobs:
   deploy:
-    name: build and blue/green deploy to prod ECS
+    name: build and canary deploy to prod ECS
     runs-on: ubuntu-latest
     environment: prod
+    env:
+      ECS_NAME: kbap-prod-ecs
     outputs:
       build: ${{ steps.image.outputs.build }}
 
@@ -69,66 +71,56 @@ jobs:
           docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
+      # 태스크정의 원본(env·secrets·헬스체크·로그 구성)은 Terraform 소유(iac/terraform) —
+      # 파이프라인은 최신 리비전을 복제해 이미지만 교체한다.
       - name: Register new task definition revision
         id: taskdef
         env:
           IMAGE: ${{ steps.image.outputs.uri }}
-          CLUSTER: ${{ vars.ECS_CLUSTER }}
-          SERVICE: ${{ vars.ECS_SERVICE }}
         run: |
-          CURRENT_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
-            --query 'services[0].taskDefinition' --output text)
-          aws ecs describe-task-definition --task-definition "$CURRENT_ARN" \
+          aws ecs describe-task-definition --task-definition "$ECS_NAME-api" \
             --query taskDefinition > taskdef.json
           jq --arg IMAGE "$IMAGE" '
-            .containerDefinitions[0].image = $IMAGE
+            .containerDefinitions |= map(if .name == "api" then .image = $IMAGE else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                  .compatibilities, .registeredAt, .registeredBy)
+                  .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
           ' taskdef.json > new-taskdef.json
           NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      # 블루/그린 전략·타깃그룹·bake time·리스너는 ECS 서비스에 미리 구성돼 있어야 한다(인프라 소유).
-      # 여기서 --deployment-configuration 을 넘기지 않는 것은 의도적 — 넘기면 미지정 하위필드(bakeTime·
-      # 서킷브레이커)가 기본값으로 덮어써진다. 파이프라인은 태스크정의만 교체해 블루/그린을 트리거한다.
-      - name: Update ECS service (native blue/green)
+      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
+      # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지(KB-242 판정 기준
+      # 유지) — 이후 성패는 CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백).
+      - name: Create CodeDeploy canary deployment
         env:
-          CLUSTER: ${{ vars.ECS_CLUSTER }}
-          SERVICE: ${{ vars.ECS_SERVICE }}
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
+          IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          aws ecs update-service \
-            --cluster "$CLUSTER" \
-            --service "$SERVICE" \
-            --task-definition "$NEW_ARN" >/dev/null
-          echo "triggered blue/green deployment: $SERVICE -> $NEW_ARN"
+          APPSPEC=$(jq -n --arg arn "$NEW_ARN" '{
+            version: 0.0,
+            Resources: [{ TargetService: { Type: "AWS::ECS::Service",
+              Properties: { TaskDefinition: $arn,
+                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 } } } }]
+          }')
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name "$ECS_NAME-api" \
+            --deployment-group-name "$ECS_NAME-api" \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":$(jq -Rs . <<<"$APPSPEC")}}" \
+            --description "deploy $IMAGE" \
+            --query deploymentId --output text)
+          echo "deployment: $DEPLOYMENT_ID"
+          STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+            --query deploymentInfo.status --output text)
+          {
+            echo "CodeDeploy 카나리 배포 생성: \`$DEPLOYMENT_ID\` (status: $STATUS)"
+            echo '```'
+            echo "watch:    aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query 'deploymentInfo.[status,deploymentOverview]'"
+            echo "rollback: aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          # 워크플로우 성공 기준은 "배포 시작"까지다(KB-242, DoD 대안 3). 이후의 성패 판정은
-          # 전부 ECS 소관 — 기동 실패·헬스체크 탈락은 서킷브레이커가 롤백하고, 카나리·bake 는
-          # 관찰 기간이며, 결과는 ECS 콘솔·알람으로 확인한다.
-          # 파이프라인에서 "헬시"를 추정하지 않는 이유: runningCount 는 RUNNING 태스크 수일 뿐
-          # 헬스체크 통과를 뜻하지 않고, 카나리(신규 20% 트래픽) 구조에선 완료 전까지
-          # rolloutState 도 IN_PROGRESS 라 어떤 중간 신호도 성패의 근거가 못 된다.
-          # 여기서 검증하는 유일한 사실: PRIMARY 배포가 새 태스크정의로 실제 시작됐는가.
-          for i in 1 2 3 4 5 6; do
-            PRIMARY_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
-              --query "services[0].deployments[?status=='PRIMARY']|[0].taskDefinition" --output text 2>/dev/null || echo none)
-            if [ "$PRIMARY_ARN" = "$NEW_ARN" ]; then
-              echo "deployment started: PRIMARY -> $NEW_ARN"
-              {
-                echo "배포 시작 확인 완료 — 이후 카나리(20%)·bake·롤백 판정은 ECS 소관"
-                echo "기동 실패·헬스체크 탈락은 서킷브레이커가 롤백하며, 결과는 ECS 콘솔·알람으로 확인한다"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            echo "waiting for PRIMARY deployment to switch... ($i/6, current: $PRIMARY_ARN)"
-            sleep 10
-          done
-          echo "::error::배포 시작 확인 실패 — PRIMARY 태스크정의가 60s 안에 교체되지 않았다"
-          exit 1
-
-  # 릴리즈 노트·슬랙 알림(KB-266) — "배포 시작 확인" 시점 기준 발행, 실패해도 배포 판정에 영향 없음
+  # 릴리즈 노트·슬랙 알림(KB-266) — "배포 생성" 시점 기준 발행, 실패해도 배포 판정에 영향 없음
   release:
     needs: deploy
     if: always()

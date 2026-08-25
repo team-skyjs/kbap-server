@@ -1,10 +1,16 @@
 name: Deploy batch prod
 
-# 배치는 상시 서비스가 아니라 run-to-completion 태스크 — 여기서는 이미지 빌드·푸시와
-# 태스크정의 리비전 갱신까지만 한다. 실행은 run-batch-prod.yml 이 시간별로 트리거한다.
+# main 머지 시 prod ECS batch 서비스의 태스크정의를 갱신한다.
+# prod batch 는 현재 desired_count 0(미기동) — 리비전만 갱신해 두고, 켜는 시점(desired 1)은
+# 인프라(Terraform batch_desired_count) 소관이다. desired 0 이면 update-service 는 태스크를 띄우지 않는다.
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "batch/**"
+      - "common/**"
+      - "Dockerfile.batch"
+      - ".github/workflows/deploy-batch-prod.yml"
   workflow_dispatch:
     inputs:
       image_tag:
@@ -22,9 +28,11 @@ permissions:
 
 jobs:
   deploy:
-    name: build batch image and register task definition
+    name: build and roll batch service (prod)
     runs-on: ubuntu-latest
     environment: prod
+    env:
+      ECS_NAME: kbap-prod-ecs
 
     steps:
       - name: Checkout
@@ -46,6 +54,7 @@ jobs:
           IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          REPO="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}"
           if [ -n "$IMAGE_TAG_INPUT" ]; then
             # 롤백 입력은 ECR 태그 형식만 허용 — 셸 인젝션·잘못된 태그 차단
             case "$IMAGE_TAG_INPUT" in
@@ -61,8 +70,7 @@ jobs:
             TAG="batch-$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-          # 배치 전용 저장소(ECR_BATCH_REPOSITORY)가 있으면 그쪽으로, 없으면 api 저장소에 batch- 태그로 관리
-          echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
+          echo "uri=$REPO:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push batch image
         if: steps.image.outputs.build == 'true'
@@ -71,20 +79,22 @@ jobs:
             -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
-      # 태스크정의 최초 등록(family·env·secrets·로그 구성)은 인프라 소유 — docs/guides/batch-deploy.md.
-      # 파이프라인은 최신 리비전을 복제해 이미지만 교체한다(api 배포와 동일 패턴).
-      - name: Register new task definition revision
+      # 태스크정의 원본은 Terraform 소유 — 최신 리비전 복제 후 이미지만 교체(api 배포와 동일 패턴).
+      - name: Register task definition and roll the service
         env:
           IMAGE: ${{ steps.image.outputs.uri }}
-          FAMILY: ${{ vars.ECS_BATCH_TASK_FAMILY }}
         run: |
-          aws ecs describe-task-definition --task-definition "$FAMILY" \
+          aws ecs describe-task-definition --task-definition "$ECS_NAME-batch" \
             --query taskDefinition > taskdef.json
           jq --arg IMAGE "$IMAGE" '
-            .containerDefinitions[0].image = $IMAGE
+            .containerDefinitions |= map(if .name == "batch" then .image = $IMAGE else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                  .compatibilities, .registeredAt, .registeredBy)
+                  .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
           ' taskdef.json > new-taskdef.json
           NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
             --query taskDefinition.taskDefinitionArn --output text)
           echo "registered: $NEW_ARN"
+          aws ecs update-service --cluster "$ECS_NAME-cluster" --service "$ECS_NAME-batch" \
+            --task-definition "$NEW_ARN" >/dev/null
+          aws ecs wait services-stable --cluster "$ECS_NAME-cluster" --services "$ECS_NAME-batch"
+          echo "batch service rolled to $NEW_ARN"
