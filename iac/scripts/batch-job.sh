@@ -13,7 +13,8 @@ usage() {
 CMD="${1:-}"
 ENV="${2:-}"
 ARG="${3:-}"
-PROFILE="${4:-${AWS_PROFILE:-kbap-${ENV}-batch-operator}}"
+PROFILE="${4:-${AWS_PROFILE:-}}"
+[[ -z "$PROFILE" && -z "${AWS_ACCESS_KEY_ID:-}" ]] && PROFILE="kbap-${ENV}-batch-operator"
 REGION="ap-northeast-2"
 
 [[ "$CMD" == "run" || "$CMD" == "status" ]] || usage
@@ -30,7 +31,10 @@ SERVICE="kbap-${ENV}-ecs-batch"
 CONTAINER="batch"
 BASE="http://localhost:8080/internal/batch"
 
-aws() { command aws --profile "$PROFILE" --region "$REGION" "$@"; }
+aws() {
+  if [[ -n "$PROFILE" ]]; then command aws --profile "$PROFILE" --region "$REGION" "$@"
+  else command aws --region "$REGION" "$@"; fi
+}
 
 TASK=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" --desired-status RUNNING \
   --query 'taskArns[0]' --output text)
