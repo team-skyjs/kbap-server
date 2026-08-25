@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "api" {
         interval    = 15
         timeout     = 5
         retries     = 3
-        startPeriod = 90
+        startPeriod = 150
       }
 
       logConfiguration = {
@@ -97,7 +97,7 @@ resource "aws_ecs_service" "api" {
     container_port   = 8080
   }
 
-  health_check_grace_period_seconds = 120
+  health_check_grace_period_seconds = 180
 
   tags = local.common_tags
 
