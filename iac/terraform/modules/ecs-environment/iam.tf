@@ -30,7 +30,7 @@ data "aws_iam_policy_document" "codedeploy_assume" {
 
 # --- 컨테이너 인스턴스 (EC2) ---
 resource "aws_iam_role" "instance" {
-  name               = "${local.name_prefix}-instance-role"
+  name               = "${local.name_prefix}-container-instance-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
   tags               = local.common_tags
 }
@@ -46,13 +46,13 @@ resource "aws_iam_role_policy_attachment" "instance_ssm" {
 }
 
 resource "aws_iam_instance_profile" "instance" {
-  name = "${local.name_prefix}-instance-profile"
+  name = "${local.name_prefix}-container-instance-profile"
   role = aws_iam_role.instance.name
 }
 
 # --- 태스크 실행 롤 (ECR pull · 로그 · SSM 시크릿 주입) ---
 resource "aws_iam_role" "task_execution" {
-  name               = "${local.name_prefix}-task-execution-role"
+  name               = "${local.name_prefix}-task-exec-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
   tags               = local.common_tags
 }
