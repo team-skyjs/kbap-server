@@ -194,3 +194,18 @@ variable "batch_http_port" {
   type        = number
   default     = 8080
 }
+
+variable "admin_cidr" {
+  description = "bastion SSH 접근 허용 CIDR (관리자 공인 IP/32)"
+  type        = string
+}
+
+variable "bastion_instance_type" {
+  type    = string
+  default = "t3.nano"
+}
+
+variable "bastion_key_name" {
+  description = "bastion EC2 키페어 이름 (SSH 터널용)"
+  type        = string
+}

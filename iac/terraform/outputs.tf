@@ -45,3 +45,7 @@ output "log_groups" {
 output "dashboard_name" {
   value = module.ecs_environment.dashboard_name
 }
+
+output "bastion_public_ip" {
+  value = module.ecs_environment.bastion_public_ip
+}

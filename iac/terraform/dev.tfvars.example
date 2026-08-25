@@ -14,3 +14,6 @@ rds_security_group_id   = "sg-00be0b3653aa0b87f"
 redis_security_group_id = "sg-0de1e4bfcad5ec753"
 
 # 기본값: t3.medium × (api 2 + batch 1), api 태스크 2, 로그 7일, 카나리 20% · 15분, 구버전 유지 15분
+
+admin_cidr       = "<your-public-ip>/32"
+bastion_key_name = "kbpa-devstg"

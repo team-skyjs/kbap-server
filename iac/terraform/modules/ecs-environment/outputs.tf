@@ -53,3 +53,7 @@ output "log_groups" {
 output "dashboard_name" {
   value = aws_cloudwatch_dashboard.this.dashboard_name
 }
+
+output "bastion_public_ip" {
+  value = aws_instance.bastion.public_ip
+}

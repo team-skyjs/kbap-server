@@ -33,4 +33,8 @@ module "ecs_environment" {
   canary_percentage             = var.canary_percentage
   canary_interval_minutes       = var.canary_interval_minutes
   blue_termination_wait_minutes = var.blue_termination_wait_minutes
+
+  admin_cidr            = var.admin_cidr
+  bastion_instance_type = var.bastion_instance_type
+  bastion_key_name      = var.bastion_key_name
 }

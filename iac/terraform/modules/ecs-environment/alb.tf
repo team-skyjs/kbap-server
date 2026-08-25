@@ -64,14 +64,6 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-resource "aws_route53_record" "api" {
-  zone_id = data.aws_route53_zone.this.zone_id
-  name    = local.fqdn
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.this.dns_name
-    zone_id                = aws_lb.this.zone_id
-    evaluate_target_health = true
-  }
-}
+# DNS 는 Terraform 이 소유하지 않는다 — blue/green cutover 는 사람이 판단해 스왑한다(iac/scripts 참고).
+# 레코드는 Route53 에서 직접 관리: <env>.kbap.site 가 이 ALB 를 가리키도록 UPSERT.
+# (aws_route53_record 를 두면 apply 때마다 <subdomain>.kbap.site 로 되돌려 cutover 를 되돌린다)

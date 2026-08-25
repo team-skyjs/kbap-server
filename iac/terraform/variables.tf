@@ -130,3 +130,16 @@ variable "blue_termination_wait_minutes" {
   type    = number
   default = 15
 }
+
+variable "admin_cidr" {
+  type = string
+}
+
+variable "bastion_instance_type" {
+  type    = string
+  default = "t3.nano"
+}
+
+variable "bastion_key_name" {
+  type = string
+}
