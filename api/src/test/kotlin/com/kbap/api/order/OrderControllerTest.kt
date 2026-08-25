@@ -525,6 +525,7 @@ class OrderControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.orderId") { value(orderId) }
                         jsonPath("$.payload.totalQuantity") { value(3) }
                         jsonPath("$.payload.totalPrice") { value(5000) }
+                        jsonPath("$.payload.scanImageUrl") { value("https://cdn.test/order/940/menu.jpg") }
                         jsonPath("$.payload.items.length()") { value(2) }
                         jsonPath("$.payload.items[0].menuName") { value("상세순두부") }
                         jsonPath("$.payload.items[0].quantity") { value(2) }
@@ -533,6 +534,30 @@ class OrderControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].imageRef") { exists() }
                         jsonPath("$.payload.thumbnails") { doesNotExist() }
                     }
+                }
+            }
+
+            `when`("목록과 상세를 같은 주문으로 조회하면") {
+                then("두 응답의 메뉴판 사진 URL 이 동일하다") {
+                    val memberId = 948L
+                    val token = accessToken(memberId)
+                    val path = "order/948/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("상세목록일치")
+                    val orderId = orderIdOf(
+                        placeOrder(token, orderBody(path, listOf(itemJson("상세목록일치", 1, 5000, food))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    val listJson = listOrders(token).andReturn().response.contentAsString
+                    val listScanUrl = mapper.readTree(listJson).path("payload").path("items")
+                        .first { it.path("orderId").asLong() == orderId }
+                        .path("scanImageUrl").asText()
+                    val detailJson = orderDetail(token, orderId).andReturn().response.contentAsString
+                    val detailScanUrl = mapper.readTree(detailJson).path("payload").path("scanImageUrl").asText()
+
+                    detailScanUrl shouldBe listScanUrl
+                    detailScanUrl shouldBe "https://cdn.test/order/948/menu.jpg"
                 }
             }
 
