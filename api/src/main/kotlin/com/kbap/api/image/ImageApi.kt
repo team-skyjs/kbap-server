@@ -1,6 +1,8 @@
 package com.kbap.api.image
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -37,6 +39,11 @@ interface ImageApi {
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.NOT_IMAGE_FILE,
+        ErrorCode.UPLOAD_MISMATCH,
+        ErrorCode.UPLOADED_OBJECT_NOT_FOUND,
     )
     fun complete(
         memberId: Long,

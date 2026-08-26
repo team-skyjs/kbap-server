@@ -1,6 +1,8 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -77,5 +79,6 @@ interface AdminFoodContentIngestApi {
             ApiResponse(responseCode = "409", description = "같은 아웃박스 요청이 이미 처리됨(FOOD-004)"),
         ],
     )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_CONTENT_REQUEST_ALREADY_COMPLETED)
     fun ingestContent(request: AdminFoodContentIngestRequest): ResponseEntity<BaseResponse<Unit>>
 }

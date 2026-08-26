@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.api.core.logging.RequestLoggingFilter
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
@@ -35,7 +36,7 @@ class OpenApiConfig {
     @Bean
     fun openApi(): OpenAPI =
         OpenAPI().info(
-            Info().title("kbap API").description(NOTICE),
+            Info().title("kbap API").description(NOTICE + "\n\n" + errorCodeSection()),
         ).components(
             Components().addSecuritySchemes(
                 BEARER_AUTH,
@@ -72,6 +73,19 @@ class OpenApiConfig {
             operation
         }
     }
+
+    @Bean
+    fun apiErrorCodesCustomizer(): OperationCustomizer =
+        OperationCustomizer { operation, handlerMethod ->
+            val codes = AnnotatedElementUtils
+                .findMergedAnnotation(handlerMethod.method, ApiErrors::class.java)
+                ?.codes.orEmpty()
+            if (codes.isNotEmpty()) {
+                operation.description = (operation.description?.trimEnd()?.plus("\n\n").orEmpty()) +
+                    endpointErrorTable(codes.toList())
+            }
+            operation
+        }
 
     @Bean
     fun clientVersionHeadersCustomizer(): OperationCustomizer =
@@ -188,6 +202,36 @@ class OpenApiConfig {
             RequestLoggingFilter.APP_VERSION_HEADER to
                 "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
         )
+
+        private fun endpointErrorTable(codes: List<ErrorCode>): String {
+            val rows = codes.distinct()
+                .sortedWith(compareBy({ it.code.substringBefore('-') }, { it.code }))
+                .map { "| `${it.code}` | ${it.status} | ${it.message} |" }
+            return (
+                listOf(
+                    "## 발생 가능한 에러 코드",
+                    "이 API 가 반환할 수 있는 도메인 실패 코드입니다. 인증·검증 등 공통 코드는 문서 상단 표를 참조하세요.",
+                    "",
+                    "| code | HTTP | message |",
+                    "|------|------|---------|",
+                ) + rows
+            ).joinToString("\n")
+        }
+
+        private fun errorCodeSection(): String {
+            val rows = ErrorCode.entries
+                .sortedWith(compareBy({ it.code.substringBefore('-') }, { it.code }))
+                .map { "| `${it.code}` | ${it.status} | ${it.message} |" }
+            return (
+                listOf(
+                    "## 에러 코드",
+                    "실패 응답은 `BaseResponse.code` 로 분기하세요 — `message` 는 표시용이라 문구가 바뀌어도 `code` 는 안정적입니다.",
+                    "",
+                    "| code | HTTP | message |",
+                    "|------|------|---------|",
+                ) + rows
+            ).joinToString("\n")
+        }
 
         private fun headerRequired(path: String): Boolean =
             path.startsWith("${ApiPaths.API}/") && path != "${ApiPaths.API}/app-version"

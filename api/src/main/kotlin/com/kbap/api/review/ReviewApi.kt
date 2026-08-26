@@ -2,6 +2,8 @@ package com.kbap.api.review
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -34,6 +36,11 @@ interface ReviewApi {
             ApiResponse(responseCode = "403", description = "스캔 이력 없는 음식(REVIEW-004) — 스캔 유도 안내로 분기"),
         ],
     )
+    @ApiErrors(
+        ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.REVIEW_NOT_ELIGIBLE,
+        ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
+    )
     fun create(memberId: Long, request: ReviewCreateRequest): ResponseEntity<BaseResponse<ReviewResponse>>
 
     @Operation(
@@ -47,6 +54,11 @@ interface ReviewApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
             ApiResponse(responseCode = "403", description = "타인 리뷰(REVIEW-002)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.REVIEW_NOT_FOUND,
+        ErrorCode.REVIEW_FORBIDDEN,
+        ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
     )
     fun update(
         memberId: Long,
@@ -65,6 +77,10 @@ interface ReviewApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
             ApiResponse(responseCode = "403", description = "타인 리뷰(REVIEW-002)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.REVIEW_NOT_FOUND,
+        ErrorCode.REVIEW_FORBIDDEN,
     )
     fun remove(
         memberId: Long,
@@ -86,6 +102,7 @@ interface ReviewApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+    @ApiErrors(ErrorCode.REVIEW_NOT_FOUND)
     fun like(
         memberId: Long,
         @Parameter(description = "대상 리뷰 id", example = "42") reviewId: Long,
@@ -113,6 +130,10 @@ interface ReviewApi {
             ApiResponse(responseCode = "400", description = "lang 누락, 미존재 음식(FOOD-001), 비정상 커서(FOOD-002)"),
         ],
     )
+    @ApiErrors(
+        ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.INVALID_CURSOR,
+    )
     fun listReviews(
         memberId: Long?,
         @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,
@@ -133,6 +154,7 @@ interface ReviewApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
     fun listMyReviews(
         memberId: Long,
         @ParameterObject request: ReviewPageRequest,

@@ -1,6 +1,8 @@
 package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -37,5 +39,6 @@ interface ScanTicketApi {
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
         ],
     )
+    @ApiErrors(ErrorCode.SCAN_LIMIT_EXCEEDED)
     fun issueTicket(memberId: Long): ResponseEntity<BaseResponse<ScanTicketResponse>>
 }

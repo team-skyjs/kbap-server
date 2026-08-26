@@ -1,6 +1,8 @@
 package com.kbap.api.auth
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -30,6 +32,9 @@ interface AuthApi {
             ApiResponse(responseCode = "400", description = "idToken 누락"),
             ApiResponse(responseCode = "401", description = "토큰 검증 실패(서명 불일치·만료·수신자 불일치) 또는 미지원 provider"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.DUPLICATE_SOCIAL_IDENTITY,
     )
     fun login(
         request: LoginRequest,
@@ -94,6 +99,10 @@ interface AuthApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
             ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원 데이터는 변경되지 않음"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED,
     )
     fun withdraw(
         memberId: Long,

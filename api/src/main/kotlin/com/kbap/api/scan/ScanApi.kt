@@ -1,6 +1,8 @@
 package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -49,12 +51,16 @@ interface ScanApi {
             ApiResponse(responseCode = "200", description = "판정 성공 — 매칭 idx·위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)",
+                description = "요청 검증 실패(COMMON-002)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
+        ErrorCode.SCAN_VISION_UNAVAILABLE,
     )
     fun scan(
         memberId: Long,

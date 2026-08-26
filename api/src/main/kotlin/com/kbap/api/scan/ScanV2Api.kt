@@ -1,6 +1,8 @@
 package com.kbap.api.scan
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -55,7 +57,7 @@ interface ScanV2Api {
             ApiResponse(responseCode = "200", description = "판정 성공 — 항목별 위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·유효하지 않은 스캔 티켓(SCAN-007 — 티켓 재발급 후 재시도)·지원하지 않는 통화 코드(MEMBER-010)",
+                description = "요청 검증 실패(COMMON-002)·메뉴판으로 인식되지 않는 사진(SCAN-003 — 재촬영 안내)·유효하지 않은 스캔 티켓(SCAN-007 — 티켓 재발급 후 재시도)·지원하지 않는 통화 코드(MEMBER-010)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
@@ -63,6 +65,15 @@ interface ScanV2Api {
             ApiResponse(responseCode = "409", description = "같은 티켓의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.INVALID_SCAN_TICKET,
+        ErrorCode.SCAN_LIMIT_EXCEEDED,
+        ErrorCode.DUPLICATE_SCAN_REQUEST,
+        ErrorCode.INVALID_CURRENCY_CODE,
+        ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
+        ErrorCode.MENU_BOARD_NOT_DETECTED,
+        ErrorCode.SCAN_VISION_UNAVAILABLE,
     )
     fun scan(
         memberId: Long,

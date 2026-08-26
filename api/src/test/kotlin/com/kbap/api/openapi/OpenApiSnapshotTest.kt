@@ -1,6 +1,7 @@
 package com.kbap.api.openapi
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -179,6 +180,29 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     document.path("paths").properties()
                         .flatMap { (_, methods) -> methods.properties().map { it.value } }
                         .forEach { operation -> versionParamsOf(operation).size shouldBe 1 }
+                }
+            }
+        }
+
+        given("에러 코드 섹션") {
+            `when`("문서 설명(info.description)을 보면") {
+                then("전 에러 코드가 표로 실리고 버전 그룹 문서에도 나온다") {
+                    val fullDescription = docOf("/v3/api-docs").path("info").path("description").asText()
+                    ErrorCode.entries.forEach { errorCode ->
+                        fullDescription.contains(errorCode.code).shouldBeTrue()
+                    }
+                    docOf("/v3/api-docs/1.0").path("info").path("description").asText()
+                        .contains("AUTH-004").shouldBeTrue()
+                }
+            }
+
+            `when`("@ApiErrors 를 단 엔드포인트를 보면") {
+                then("그 오퍼레이션 설명에 발생 가능한 에러 코드 표가 붙는다") {
+                    val scanDesc = docOf("/v3/api-docs/1.0")
+                        .path("paths").path("/api/scans").path("post").path("description").asText()
+                    scanDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
+                    scanDesc.contains("SCAN-002").shouldBeTrue()
+                    scanDesc.contains("SCAN-006").shouldBeTrue()
                 }
             }
         }
