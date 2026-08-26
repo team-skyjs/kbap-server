@@ -1,6 +1,8 @@
 package com.kbap.api.community
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.api.core.Page
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -30,6 +32,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_IMAGE_NOT_VERIFIED, ErrorCode.COMMUNITY_FOOD_TAG_INVALID)
     fun create(memberId: Long, request: PostingCreateRequest): ResponseEntity<BaseResponse<PostingResponse>>
 
     @Operation(
@@ -50,6 +53,12 @@ interface CommunityApi {
             ApiResponse(responseCode = "403", description = "타인 게시글(COMMUNITY-002)"),
         ],
     )
+        @ApiErrors(
+        ErrorCode.COMMUNITY_POSTING_NOT_FOUND,
+        ErrorCode.COMMUNITY_POSTING_FORBIDDEN,
+        ErrorCode.COMMUNITY_IMAGE_NOT_VERIFIED,
+        ErrorCode.COMMUNITY_FOOD_TAG_INVALID,
+    )
     fun update(
         memberId: Long,
         postId: Long,
@@ -68,6 +77,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "403", description = "타인 게시글(COMMUNITY-002)"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_POSTING_NOT_FOUND, ErrorCode.COMMUNITY_POSTING_FORBIDDEN)
     fun remove(memberId: Long, postId: Long): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
@@ -87,6 +97,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "게스트 허용 범위 초과(COMMUNITY-005), 만료 토큰(AUTH-004)"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_LOGIN_REQUIRED, ErrorCode.INVALID_CURSOR)
     fun getPostingPage(
         memberId: Long?,
         request: PostingListRequest,
@@ -105,6 +116,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "400", description = "미존재/삭제된 게시글(COMMUNITY-001), lang 누락"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_POSTING_NOT_FOUND)
     fun getPosting(
         postId: Long,
         request: PostingDetailRequest,
@@ -128,6 +140,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_POSTING_NOT_FOUND, ErrorCode.COMMUNITY_COMMENT_NOT_FOUND)
     fun createComment(
         memberId: Long,
         postId: Long,
@@ -149,6 +162,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_POSTING_NOT_FOUND, ErrorCode.INVALID_CURSOR)
     fun getCommentPage(
         memberId: Long,
         postId: Long,
@@ -167,6 +181,7 @@ interface CommunityApi {
             ApiResponse(responseCode = "403", description = "타인 댓글(COMMUNITY-007)"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_COMMENT_NOT_FOUND, ErrorCode.COMMUNITY_COMMENT_FORBIDDEN)
     fun updateComment(
         memberId: Long,
         commentId: Long,
@@ -188,5 +203,6 @@ interface CommunityApi {
             ApiResponse(responseCode = "403", description = "타인 댓글(COMMUNITY-007)"),
         ],
     )
+        @ApiErrors(ErrorCode.COMMUNITY_COMMENT_NOT_FOUND, ErrorCode.COMMUNITY_COMMENT_FORBIDDEN)
     fun removeComment(memberId: Long, commentId: Long): ResponseEntity<BaseResponse<Unit>>
 }

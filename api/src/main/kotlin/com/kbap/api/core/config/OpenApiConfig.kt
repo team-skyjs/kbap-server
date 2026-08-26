@@ -75,6 +75,19 @@ class OpenApiConfig {
     }
 
     @Bean
+    fun apiErrorCodesCustomizer(): OperationCustomizer =
+        OperationCustomizer { operation, handlerMethod ->
+            val codes = AnnotatedElementUtils
+                .findMergedAnnotation(handlerMethod.method, ApiErrors::class.java)
+                ?.codes.orEmpty()
+            if (codes.isNotEmpty()) {
+                operation.description = (operation.description?.trimEnd()?.plus("\n\n").orEmpty()) +
+                    endpointErrorTable(codes.toList())
+            }
+            operation
+        }
+
+    @Bean
     fun clientVersionHeadersCustomizer(): OperationCustomizer =
         OperationCustomizer { operation, handlerMethod ->
             if (!handlerMethod.beanType.packageName.startsWith(ADMIN_PACKAGE)) {
@@ -189,6 +202,21 @@ class OpenApiConfig {
             RequestLoggingFilter.APP_VERSION_HEADER to
                 "클라이언트 앱 버전(예: 2.3.0). 로깅 전용 선택 헤더 — 보내지 않아도 동작한다.",
         )
+
+        private fun endpointErrorTable(codes: List<ErrorCode>): String {
+            val rows = codes.distinct()
+                .sortedWith(compareBy({ it.code.substringBefore('-') }, { it.code }))
+                .map { "| `${it.code}` | ${it.status} | ${it.message} |" }
+            return (
+                listOf(
+                    "## 발생 가능한 에러 코드",
+                    "이 API 가 반환할 수 있는 도메인 실패 코드입니다. 인증·검증 등 공통 코드는 문서 상단 표를 참조하세요.",
+                    "",
+                    "| code | HTTP | message |",
+                    "|------|------|---------|",
+                ) + rows
+            ).joinToString("\n")
+        }
 
         private fun errorCodeSection(): String {
             val rows = ErrorCode.entries

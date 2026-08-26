@@ -1,6 +1,8 @@
 package com.kbap.api.report
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -27,6 +29,11 @@ interface ReportApi {
             ApiResponse(responseCode = "404", description = "존재하지 않거나 삭제된 대상(REPORT-003)"),
             ApiResponse(responseCode = "409", description = "이미 신고한 대상(REPORT-002)"),
         ],
+    )
+        @ApiErrors(
+        ErrorCode.REPORT_SELF_TARGET,
+        ErrorCode.REPORT_TARGET_NOT_FOUND,
+        ErrorCode.REPORT_DUPLICATED,
     )
     fun create(memberId: Long, request: ReportCreateRequest): ResponseEntity<BaseResponse<Unit>>
 }

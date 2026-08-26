@@ -1,6 +1,8 @@
 package com.kbap.api.order
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -28,6 +30,11 @@ interface OrderApi {
         ApiResponse(responseCode = "409", description = "이미 주문한 스캔(ORDER-003)"),
     )
     @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(
+        ErrorCode.SCAN_IMAGE_NOT_VERIFIED,
+        ErrorCode.ORDER_ALREADY_PLACED,
+        ErrorCode.FOOD_NOT_FOUND,
+    )
     fun placeOrder(memberId: Long, request: OrderCreateRequest): ResponseEntity<BaseResponse<OrderCreateResponse>>
 
     @Operation(
@@ -43,6 +50,7 @@ interface OrderApi {
     )
     @ApiResponses(ApiResponse(responseCode = "200", description = "조회 성공"))
     @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
     fun getOrders(memberId: Long, cursor: String?, size: Int): ResponseEntity<BaseResponse<OrderListPage>>
 
     @Operation(
@@ -60,5 +68,6 @@ interface OrderApi {
         ApiResponse(responseCode = "404", description = "주문 없음 또는 타인의 주문(ORDER-002)"),
     )
     @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
     fun getOrderDetail(memberId: Long, orderId: Long): ResponseEntity<BaseResponse<OrderDetailResponse>>
 }

@@ -1,6 +1,8 @@
 package com.kbap.api.block
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -26,6 +28,10 @@ interface MemberBlockApi {
             ApiResponse(responseCode = "404", description = "존재하지 않거나 탈퇴한 회원(BLOCK-002)"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.SELF_BLOCK_FORBIDDEN,
+        ErrorCode.BLOCK_TARGET_NOT_FOUND,
     )
     fun block(
         memberId: Long,

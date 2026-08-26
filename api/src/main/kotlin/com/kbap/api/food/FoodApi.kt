@@ -2,6 +2,8 @@ package com.kbap.api.food
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -30,6 +32,7 @@ interface FoodApi {
             ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 lang 누락·빈/공백"),
         ],
     )
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
     fun browse(
         @ParameterObject request: FoodBrowseRequest,
         memberId: Long?,
@@ -63,6 +66,10 @@ interface FoodApi {
             ApiResponse(responseCode = "401", description = "scope=scanned 를 인증 없이 호출"),
         ],
     )
+    @ApiErrors(
+        ErrorCode.BLANK_SEARCH_KEYWORD,
+        ErrorCode.INVALID_CURSOR,
+    )
     fun search(
         @ParameterObject request: FoodSearchRequest,
         memberId: Long?,
@@ -92,6 +99,7 @@ interface FoodApi {
             ApiResponse(responseCode = "401", description = "인증 없음 — 회원 전용"),
         ],
     )
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
     fun scanned(
         @ParameterObject request: FoodScannedRequest,
         memberId: Long,
@@ -134,6 +142,7 @@ interface FoodApi {
             ),
         ],
     )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND)
     fun detail(
         @Parameter(description = "조회할 음식의 안정적 식별자(음식 목록/검색이 내려준 숫자 id)", required = true, example = "1")
         foodId: Long,

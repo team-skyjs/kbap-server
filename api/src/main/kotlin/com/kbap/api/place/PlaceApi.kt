@@ -1,6 +1,8 @@
 package com.kbap.api.place
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -30,6 +32,7 @@ interface PlaceApi {
             ApiResponse(responseCode = "502", description = "외부 장소 검색 실패(PLACE-001) — 리뷰 작성은 식당 없이 계속 가능"),
         ],
     )
+    @ApiErrors(ErrorCode.PLACE_SEARCH_FAILED)
     fun getNearbyPlaces(
         memberId: Long,
         @ParameterObject request: PlaceNearbyRequest,
@@ -54,6 +57,7 @@ interface PlaceApi {
             ApiResponse(responseCode = "502", description = "외부 장소 검색 실패(PLACE-001) — 리뷰 작성은 식당 없이 계속 가능"),
         ],
     )
+    @ApiErrors(ErrorCode.PLACE_SEARCH_FAILED)
     fun searchPlaces(
         memberId: Long,
         @ParameterObject request: PlaceSearchRequest,

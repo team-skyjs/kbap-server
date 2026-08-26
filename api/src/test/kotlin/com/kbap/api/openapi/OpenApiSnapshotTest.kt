@@ -195,6 +195,16 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                         .contains("AUTH-004").shouldBeTrue()
                 }
             }
+
+            `when`("@ApiErrors 를 단 엔드포인트를 보면") {
+                then("그 오퍼레이션 설명에 발생 가능한 에러 코드 표가 붙는다") {
+                    val scanDesc = docOf("/v3/api-docs/1.0")
+                        .path("paths").path("/api/scans").path("post").path("description").asText()
+                    scanDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
+                    scanDesc.contains("SCAN-003").shouldBeTrue()
+                    scanDesc.contains("SCAN-006").shouldBeTrue()
+                }
+            }
         }
     }
 }

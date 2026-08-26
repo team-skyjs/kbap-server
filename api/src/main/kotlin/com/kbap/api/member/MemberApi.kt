@@ -1,6 +1,8 @@
 package com.kbap.api.member
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -42,6 +44,16 @@ interface MemberApi {
             ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기), 이미 온보딩 완료, 미지원 X-API-Version, 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.ONBOARDING_ALREADY_COMPLETED,
+        ErrorCode.INVALID_NICKNAME,
+        ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE,
+        ErrorCode.INVALID_DIET_CATEGORY,
+        ErrorCode.INVALID_COUNTRY_CODE,
+        ErrorCode.INVALID_PROFILE_IMAGE_URL,
+        ErrorCode.INVALID_SPICINESS_PREFERENCE,
     )
     fun completeOnboarding(
         memberId: Long,
@@ -110,6 +122,14 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.ONBOARDING_ALREADY_COMPLETED,
+        ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE,
+        ErrorCode.INVALID_DIET_CATEGORY,
+        ErrorCode.INVALID_COUNTRY_CODE,
+        ErrorCode.INVALID_SPICINESS_PREFERENCE,
+    )
     fun completeOnboardingWithServerProfile(
         memberId: Long,
         @SwaggerRequestBody(
@@ -153,6 +173,9 @@ interface MemberApi {
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+    )
     fun getMyProfile(
         memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>>
@@ -174,6 +197,9 @@ interface MemberApi {
             ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
     )
     fun getMyRanking(
         memberId: Long,
@@ -210,6 +236,16 @@ interface MemberApi {
             ApiResponse(responseCode = "400", description = "전달된 값의 검증 실패(기피 성분·국가·닉네임·사진 URL·맵기) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.INVALID_NICKNAME,
+        ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE,
+        ErrorCode.INVALID_DIET_CATEGORY,
+        ErrorCode.INVALID_COUNTRY_CODE,
+        ErrorCode.INVALID_PROFILE_IMAGE_URL,
+        ErrorCode.INVALID_SPICINESS_PREFERENCE,
+        ErrorCode.INVALID_CURRENCY_CODE,
     )
     fun updateProfile(
         memberId: Long,
@@ -315,6 +351,15 @@ interface MemberApi {
             ApiResponse(responseCode = "400", description = "입력 검증 실패(기피 성분·닉네임·사진 URL·맵기·통화) 또는 회원을 찾을 수 없음"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.INVALID_NICKNAME,
+        ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE,
+        ErrorCode.INVALID_DIET_CATEGORY,
+        ErrorCode.INVALID_PROFILE_IMAGE_URL,
+        ErrorCode.INVALID_SPICINESS_PREFERENCE,
+        ErrorCode.INVALID_CURRENCY_CODE,
     )
     fun updateProfile(
         memberId: Long,

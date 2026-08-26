@@ -1,6 +1,8 @@
 package com.kbap.api.image
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -32,6 +34,11 @@ interface ImageUploadUrlApi {
             ApiResponse(responseCode = "400", description = "미지원 용도(UPLOAD-002)·미지원 Content-Type(UPLOAD-001)·크기 초과(UPLOAD-003)·요청 검증 실패"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
         ],
+    )
+    @ApiErrors(
+        ErrorCode.UNSUPPORTED_UPLOAD_PURPOSE,
+        ErrorCode.UNSUPPORTED_IMAGE_CONTENT_TYPE,
+        ErrorCode.IMAGE_TOO_LARGE,
     )
     fun issueUploadUrl(
         memberId: Long,
