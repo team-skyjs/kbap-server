@@ -1,6 +1,7 @@
 package com.kbap.api.openapi
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -179,6 +180,19 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     document.path("paths").properties()
                         .flatMap { (_, methods) -> methods.properties().map { it.value } }
                         .forEach { operation -> versionParamsOf(operation).size shouldBe 1 }
+                }
+            }
+        }
+
+        given("에러 코드 섹션") {
+            `when`("문서 설명(info.description)을 보면") {
+                then("전 에러 코드가 표로 실리고 버전 그룹 문서에도 나온다") {
+                    val fullDescription = docOf("/v3/api-docs").path("info").path("description").asText()
+                    ErrorCode.entries.forEach { errorCode ->
+                        fullDescription.contains(errorCode.code).shouldBeTrue()
+                    }
+                    docOf("/v3/api-docs/1.0").path("info").path("description").asText()
+                        .contains("AUTH-004").shouldBeTrue()
                 }
             }
         }
