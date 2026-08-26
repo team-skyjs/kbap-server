@@ -201,7 +201,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     val scanDesc = docOf("/v3/api-docs/1.0")
                         .path("paths").path("/api/scans").path("post").path("description").asText()
                     scanDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
-                    scanDesc.contains("SCAN-003").shouldBeTrue()
+                    scanDesc.contains("SCAN-002").shouldBeTrue()
                     scanDesc.contains("SCAN-006").shouldBeTrue()
                 }
             }

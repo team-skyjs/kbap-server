@@ -51,7 +51,7 @@ interface ScanApi {
             ApiResponse(responseCode = "200", description = "판정 성공 — 매칭 idx·위험도·가격 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "요청 검증 실패(COMMON-002)·검증되지 않았거나 접근할 수 없는 이미지(SCAN-001)",
+                description = "요청 검증 실패(COMMON-002)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
@@ -60,7 +60,6 @@ interface ScanApi {
     )
     @ApiErrors(
         ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
-        ErrorCode.MENU_BOARD_NOT_DETECTED,
         ErrorCode.SCAN_VISION_UNAVAILABLE,
     )
     fun scan(
