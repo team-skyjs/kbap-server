@@ -18,6 +18,10 @@ output "batch_service_name" {
   value = module.ecs_environment.batch_service_name
 }
 
+output "batch_operator_user_name" {
+  value = module.ecs_environment.batch_operator_user_name
+}
+
 output "api_task_family" {
   value = module.ecs_environment.api_task_family
 }

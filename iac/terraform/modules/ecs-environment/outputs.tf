@@ -18,6 +18,10 @@ output "batch_service_name" {
   value = aws_ecs_service.batch.name
 }
 
+output "batch_operator_user_name" {
+  value = aws_iam_user.batch_operator.name
+}
+
 output "api_task_family" {
   value = aws_ecs_task_definition.api.family
 }

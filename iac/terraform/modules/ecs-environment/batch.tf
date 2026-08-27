@@ -68,6 +68,9 @@ resource "aws_ecs_service" "batch" {
   desired_count   = var.batch_desired_count
   launch_type     = "EC2"
 
+  # 잡 원격 트리거 — 운영자가 aws ecs execute-command 로 컨테이너 안에서 트리거 HTTP 를 호출한다(포트 개방 없음)
+  enable_execute_command = true
+
   placement_constraints {
     type       = "memberOf"
     expression = "attribute:workload == batch"
