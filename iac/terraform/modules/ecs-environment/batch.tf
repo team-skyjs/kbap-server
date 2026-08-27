@@ -42,6 +42,15 @@ resource "aws_ecs_task_definition" "batch" {
         valueFrom = local.secret_arns[name]
       }]
 
+      # 응답 불능(프로세스 생존·앱 먹통) 시 ECS 가 태스크를 교체한다 — actuator 는 KB-380 부터 포함
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health/readiness || exit 1"]
+        interval    = 15
+        timeout     = 5
+        retries     = 3
+        startPeriod = 150
+      }
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
