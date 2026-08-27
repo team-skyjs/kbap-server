@@ -63,11 +63,12 @@ prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한�
 
 **batch — 롤링 (`iac/scripts/deploy-batch.sh <env> <tag>`)**: 단일 인스턴스·고정 포트라 구 태스크를 먼저 내리고 신 태스크를 올린다(잠깐 다운). 서킷브레이커로 기동 실패 시 자동 롤백.
 
-**batch 컨테이너 헬스체크(KB-380) 처음 적용 순서** — 태스크 정의는 `ignore_changes = [container_definitions]` 라 일반 apply 로는 리비전이 안 생기고, 헬스체크가 `/actuator/health/readiness` 를 치므로 actuator 가 있는 이미지가 먼저 떠 있어야 한다:
+**batch 컨테이너 헬스체크(KB-380) 처음 적용 순서** — 태스크 정의는 `ignore_changes = [container_definitions]` 라 일반 apply 로는 리비전이 안 생긴다. CI 는 최신 리비전을 복제해 이미지만 바꾸므로 **terraform 으로 리비전을 먼저 등록한 뒤 CI 를 태운다**:
 
-1. actuator 포함 batch 이미지 배포 (`deploy-batch.sh`)
-2. `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch` — 헬스체크가 담긴 새 리비전 등록(서비스는 아직 구 리비전)
-3. batch 재배포 1회 — `deploy-batch.sh` 가 최신 리비전을 복제하므로 헬스체크가 승계된다. `aws ecs describe-tasks … --query 'tasks[].containers[].healthStatus'` 가 `HEALTHY` 면 끝
+1. **머지 전** `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch` — 헬스체크가 담긴 새 리비전 등록. 서비스는 `ignore_changes = [task_definition]` 이라 그대로(실행 중 태스크 무영향)
+2. PR 머지 → CI(`deploy-batch.sh`)가 그 리비전을 복제해 actuator 포함 이미지로 배포 → 헬스체크 승계. `aws ecs describe-tasks … --query 'tasks[].containers[].healthStatus'` 가 `HEALTHY` 면 끝
+
+1 과 2 사이에 actuator 없는 구 이미지로 CI 를 돌리면 헬스체크 실패로 롤백되므로 창을 짧게 가져간다.
 
 ## 배치 잡 원격 실행 (ECS Exec)
 

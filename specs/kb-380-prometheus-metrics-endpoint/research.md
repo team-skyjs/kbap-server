@@ -28,7 +28,7 @@
 
 - **Decision**: `terraform apply -replace=module.ecs_environment.aws_ecs_task_definition.batch`. 서비스는 `ignore_changes=[task_definition]` 이라 terraform 이 배포를 일으키지 않고, 다음 CI 배포(`deploy-batch.sh` 의 `describe-task-definition FAMILY` = 최신 ACTIVE 리비전 복제 + 이미지 교체)가 헬스체크를 승계한다. api 태스크 정의는 건드리지 않는다.
 - **Rationale**: `ignore_changes` 는 config 변경도 무시하므로 일반 apply 로는 리비전이 안 만들어진다.
-- **순서**: 헬스체크가 `/actuator/health/readiness` 를 치므로 **actuator 가 있는 batch 이미지가 먼저 배포**돼야 한다. 순서가 뒤집히면(terraform 리비전을 구 이미지가 승계) 헬스체크 실패로 서킷브레이커 롤백 — 안전하지만 배포가 막힌다. quickstart 에 순서 고정.
+- **순서**: terraform `-replace` 는 리비전을 등록만 하고 서비스에 붙이지 않으므로 **머지 전에 먼저** 한다 → 머지 후 CI 가 그 리비전을 복제해 actuator 포함 이미지로 배포하면 한 번에 끝(재배포 불필요). 그 사이 구 이미지로 CI 가 돌면 헬스체크 실패로 서킷브레이커 롤백 — 안전하지만 막히므로 창을 짧게.
 
 ## R-6. Spring Batch 6 잡 메트릭이 나오는 조건
 

@@ -13,23 +13,23 @@ batch: `./gradlew :batch:bootRun` 후 잡을 한 번 트리거(`POST localhost:8
 
 ## dev 롤아웃 (순서 — R-5)
 
-1. **앱 배포 먼저** — 평소 CI 경로(`deploy-api.sh dev <tag>`, `deploy-batch.sh dev <tag>`). api 는 태스크 정의 변경이 없으므로 이걸로 끝.
+1. **머지 전 terraform** — batch 태스크 정의에 헬스체크 리비전을 등록한다. 서비스는 `ignore_changes=[task_definition]` 이라 실행 중 태스크에 영향 없음.
+   ```bash
+   cd iac/terraform
+   terraform plan  -var-file=dev.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch   # diff 가 healthCheck 뿐인지
+   terraform apply -var-file=dev.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch
+   ```
+2. **PR 머지** → CI(`deploy-dev.yml`·`deploy-batch-dev.yml`)가 api·batch 를 배포. batch 는 1 의 리비전을 복제하므로 헬스체크가 승계된다.
    확인:
    ```bash
-   # ALB 콘솔: 타깃 전부 healthy 유지 (헬스체크 경로 무변경)
+   aws ecs describe-task-definition --task-definition kbap-dev-ecs-batch --query 'taskDefinition.containerDefinitions[0].healthCheck'
+   aws ecs describe-tasks --cluster kbap-dev-ecs-cluster --tasks <batch task arn> --query 'tasks[].containers[].healthStatus'   # HEALTHY
+   # ALB 콘솔: api 타깃 전부 healthy 유지 (헬스체크 경로 무변경)
    # 인스턴스 안(SSM 세션)
    PORT=$(docker port <api-container> 8080 | cut -d: -f2); curl -s localhost:$PORT/actuator/prometheus | grep -c 'application="kbap-api"'
    ```
-2. **terraform** — batch 태스크 정의에 헬스체크 리비전 강제
-   ```bash
-   cd iac/terraform
-   terraform apply -var-file=dev.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch
-   ```
-   서비스는 아직 구 리비전(`ignore_changes`). 
-3. **batch CI 재배포 1회**(이미지 태그 동일해도 됨) → 새 리비전이 헬스체크를 승계.
-   확인: `aws ecs describe-tasks … --query 'tasks[].containers[].healthStatus'` → `HEALTHY`; `describe-task-definition kbap-dev-ecs-batch` 에 `healthCheck` 존재(US4).
 
-prod 는 같은 순서. batch 는 prod desired 0 이라 2 단계까지만(태스크 정의 갱신).
+1 과 2 사이에 actuator 없는 구 이미지로 CI 가 돌면 헬스체크 실패로 서킷브레이커 롤백 — 창을 짧게. prod 는 같은 순서(`prod.tfvars`), batch 는 desired 0 이라 1 단계만.
 
 ## 되돌리기
 
