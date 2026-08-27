@@ -55,6 +55,8 @@
 
 ---
 
+> **2026-08-27 변경**: `iac/scripts/batch-job.sh` 는 레포에서 제거했다(사용자 결정 — 젠킨스 compose 와 함께 홈서버 개인 구성으로 분류). 원격 실행 절차는 README 의 `aws ecs execute-command` 원명령으로 문서화하며, 아래 스크립트 관련 태스크 기록은 당시 이력이다.
+
 ## Phase 3: User Story 1 - 운영자가 클러스터 밖에서 배치 잡을 실행한다 (Priority: P1) 🎯 MVP
 
 **Goal**: `iac/scripts/batch-job.sh run|status` 로 클라우드 밖에서 잡 실행 지시·상태 조회. 배치 포트는 계속 미개방.

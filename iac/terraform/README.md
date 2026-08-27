@@ -78,35 +78,25 @@ prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한�
     --query 'tasks[0].containers[0].managedAgents[?name==`ExecuteCommandAgent`].lastStatus'   # RUNNING
   ```
 
-**실행·조회**
+**실행·조회** — 실행 중 배치 태스크를 찾아 컨테이너 안에서 트리거 HTTP 를 호출한다(래퍼 스크립트는 레포에 두지 않는다 — 호출 호스트의 젠킨스/셸에서 아래를 그대로 쓴다):
 
 ```bash
-iac/scripts/batch-job.sh run    dev <jobName>       # 202 접수 → {"jobName","executionId","status":"STARTED",...}
-iac/scripts/batch-job.sh status dev <executionId>   # 200 → status COMPLETED / FAILED / STARTED
+export AWS_PROFILE=kbap-dev-batch-operator AWS_REGION=ap-northeast-2
+TASK=$(aws ecs list-tasks --cluster kbap-dev-ecs-cluster --service-name kbap-dev-ecs-batch \
+  --desired-status RUNNING --query 'taskArns[0]' --output text)
+
+# 실행 — 202 → {"jobName","executionId","status":"STARTED",...} / 404 잡 없음 / 409 이미 실행 중
+aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --container batch --interactive \
+  --command "curl -s -w '\n%{http_code}' -X POST 'http://localhost:8080/internal/batch/jobs?jobName=<jobName>'"
+
+# 조회 — 200 → status COMPLETED / FAILED / STARTED
+aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --container batch --interactive \
+  --command "curl -s -w '\n%{http_code}' 'http://localhost:8080/internal/batch/executions/<executionId>'"
 ```
 
-| exit | 의미 |
-|---|---|
-| 0 | 접수(202) / 조회(200) — 본문은 배치 앱 응답 JSON 그대로 |
-| 1 | 잡 이름 없음 / 실행 기록 없음(404) — `message` 에 실행 가능 잡 목록 |
-| 2 | 같은 잡이 이미 실행 중(409) — `executionId` 로 진행 중 실행 확인 |
-| 3 | 전제 미충족: 플러그인 없음 / 배치 태스크 없음(미기동·Exec 미적용) |
-| 4 | 예상 밖 HTTP 응답(원문 stderr) |
-| ≥100 | aws cli 오류 — 교차 환경·타 컨테이너는 `AccessDeniedException` |
+`execute-command` 출력은 세션 시작/종료 안내가 앞뒤로 붙는다 — 마지막 3자리 숫자 줄이 HTTP 코드, 그 앞의 `{` 로 시작하는 줄이 본문이다. 교차 환경 클러스터·`api` 컨테이너를 지정하면 `AccessDeniedException`, 태스크가 없으면(미기동·Exec 미적용) `list-tasks` 가 `None` 을 돌려준다.
 
-`run` 은 잡 완료를 기다리지 않는다(잡 실행 시간만큼 세션을 붙잡지 않기 위해). 젠킨스 파이프라인은 `run` 의 `executionId` 를 파싱해 `status` 를 폴링한다:
-
-```groovy
-withAWS(credentials: "aws-${ENV}") {
-  def id = sh(script: "iac/scripts/batch-job.sh run ${ENV} ${JOB}", returnStdout: true).trim()
-             .replaceAll(/.*"executionId":(\d+).*/, '$1')
-  waitUntil {
-    sleep 30
-    def s = sh(script: "iac/scripts/batch-job.sh status ${ENV} ${id}", returnStdout: true)
-    s.contains('"COMPLETED"') || s.contains('"FAILED"')
-  }
-}
-```
+실행 호출은 잡 완료를 기다리지 않는다(잡 실행 시간만큼 세션을 붙잡지 않기 위해). 젠킨스는 실행 응답의 `executionId` 를 파싱해 조회를 30초 간격으로 폴링하고, `FAILED` 면 빌드를 실패시킨다.
 
 정기 실행은 배치 앱의 인앱 스케줄러가 하며, 이 경로는 수동·임시 실행용이다. 배치 트리거 포트 SG 규칙은 그대로다 — 인스턴스 IP:8080 은 인터넷에서 계속 닿지 않는다.
 

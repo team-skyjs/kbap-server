@@ -59,10 +59,11 @@ aws ecs describe-tasks --cluster kbap-dev-ecs-cluster --tasks $TASK --profile kb
 ## 5. 잡 원격 실행·조회 (US1)
 
 ```bash
-iac/scripts/batch-job.sh run dev <jobName>        # 기대: exit 0, JSON 에 executionId·status STARTED
-iac/scripts/batch-job.sh status dev <executionId> # 기대: exit 0, status → COMPLETED (또는 FAILED — 잡 자체 결과)
-iac/scripts/batch-job.sh run dev no-such-job      # 기대: exit 1, message 에 실행 가능 잡 목록
-iac/scripts/batch-job.sh run dev <jobName>  (실행 중에 재호출)  # 기대: exit 2, ALREADY_RUNNING + executionId
+# README "실행·조회" 의 execute-command 를 그대로 사용(래퍼 스크립트는 레포 밖 — 사용자 결정으로 미포함)
+POST jobs?jobName=<jobName>          # 기대: 202, JSON 에 executionId·status STARTED
+GET  executions/<executionId>        # 기대: 200, status → COMPLETED (또는 FAILED — 잡 자체 결과)
+POST jobs?jobName=no-such-job        # 기대: 404, message 에 실행 가능 잡 목록
+POST jobs?jobName=<jobName> (실행 중 재호출)  # 기대: 409, ALREADY_RUNNING + executionId
 ```
 
 ## 6. 권한 경계 (US2)
