@@ -54,7 +54,7 @@
   - `curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/actuator/env` → 404
   - `curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/actuator/health/readiness` → 200
   결과를 PR 본문용으로 기록
-- [ ] T006 [US1] 커밋: `feat(api): Prometheus 메트릭 엔드포인트 노출 (KB-380)` — T001~T003
+- [X] T006 [US1] 커밋: `feat(api): Prometheus 메트릭 엔드포인트 노출 (KB-380)` — T001~T003
 
 **Checkpoint**: api 단독으로 KB-381 Alloy 가 긁을 수 있는 상태(MVP). 인프라 변경 없이 dev 배포 가능
 
@@ -78,7 +78,7 @@
   - `curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/actuator/env` → 404
 - [X] T011 [US2] **스킵 — T010 에서 잡 메트릭 존재 확인(코드 변경 불필요)** (조건부 — T010 에서 잡 메트릭 부재일 때만) `batch/src/main/kotlin/com/kbap/batch/config/BatchJdbcJobRepositoryConfig.kt` 에 `io.micrometer.observation.ObservationRegistry` 생성자 주입 + `override fun getObservationRegistry(): ObservationRegistry = observationRegistry` 추가(주석 없음). T010 의 grep 재확인. 결과(수행 여부와 근거)를 research R-6 아래 한 줄로 기록
 - [X] T012 [US2] `iac/terraform/modules/ecs-environment/batch.tf` batch 컨테이너 정의(`portMappings` 다음, `environment` 앞)에 `healthCheck` 블록 추가 — `api.tf` 것과 동일: `command = ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health/readiness || exit 1"]`, `interval 15`, `timeout 5`, `retries 3`, `startPeriod 150`. `terraform -chdir=iac/terraform fmt` 실행(init 돼 있으면 `validate` 도)
-- [ ] T013 [US2] 커밋: `feat(batch): Prometheus 메트릭 노출 + ECS 컨테이너 헬스체크 (KB-380)` — T007~T012
+- [X] T013 [US2] 커밋: `feat(batch): Prometheus 메트릭 노출 + ECS 컨테이너 헬스체크 (KB-380)` — T007~T012
 
 **Checkpoint**: 인프라 diff 는 `batch.tf` 헬스체크뿐(SC-002)
 
@@ -94,7 +94,7 @@
 
 - [X] T014 [US3] `iac/scripts/deploy-batch.sh` 확인 — `jq` 가 `.containerDefinitions` 전체를 복제하고 `.image` 만 교체하므로 `healthCheck` 가 승계됨을 확인(변경 불필요 예상). 승계되지 않는 구조였다면 보존 로직 추가
 - [X] T015 [US3] `iac/terraform/README.md` 갱신 — (a) "## 배포" batch 항목에 헬스체크 롤아웃 순서 3줄: ① actuator 포함 batch 이미지 먼저 배포 ② `terraform apply -replace=module.ecs_environment.aws_ecs_task_definition.batch` ③ batch 재배포 1회로 승계; (b) "## 알아둘 것" 에 두 줄: 구 이미지(actuator 없음)를 새 리비전에 올리면 헬스체크 실패 → 서킷브레이커 롤백(되돌릴 땐 healthCheck 제거 후 `-replace` 먼저) / `/actuator/**` 공개 차단은 ALB 리스너 규칙 후속 — 차단 목록 대신 `/api/*` 허용 목록 권장(경로 정규화 우회 방지, research R-3)
-- [ ] T016 [US3] 커밋: `docs(infra): batch 헬스체크 롤아웃 순서·공개 차단 후속 메모 (KB-380)` — T015
+- [X] T016 [US3] 커밋: `docs(infra): batch 헬스체크 롤아웃 순서·공개 차단 후속 메모 (KB-380)` — T015
 - [ ] T017 [US3] dev 롤아웃 — **사용자 수행**(AWS 자격증명 필요). quickstart "dev 롤아웃" 1~3 단계 순서대로 실행하고 확인 결과(api 컨테이너 `application="kbap-api"` grep 수, batch `healthStatus`, 리비전의 `healthCheck`, ALB 타깃 healthy 유지)를 기록
 
 **Checkpoint**: 세 스토리 완료. prod 는 별도 배포 창에서 같은 순서
@@ -103,9 +103,9 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T018 `./gradlew build` 전체(ArchUnit `arch` 태그 포함) 통과 확인
-- [ ] T019 [P] Jira KB-380 DoD 문구를 최종 설계에 맞게 갱신(Atlassian MCP `editJiraIssue`, ADF) — "management.server.port=8081"·"8081 portMappings"·"healthCheck → 8081"·"통합 테스트(BehaviorSpec)" 항목을 "8080·`/actuator` 유지, 공개 차단은 ALB 규칙 후속(별도 태스크)"·"batch.tf healthCheck 신설(`/actuator/health/readiness`)"·"로컬 curl + dev 확인으로 검증(테스트 코드 없음)" 으로 교체. ALB 허용 목록 규칙을 새 태스크로 등록할지 사용자에게 제안
-- [ ] T020 [P] 지식 위키 `../kbap-agenthub/wiki/` 에 결정 기록 — "관측 경계: 앱은 노출만, 공개 차단은 ALB 허용 목록" + "ECS `ignore_changes=[container_definitions]` 하에서 헬스체크 반영은 `-replace` → CI 재배포 승계" + "R-6 판정 결과"(INDEX.md 한 줄 추가, 허브에서 커밋)
+- [X] T018 `./gradlew build` 전체(ArchUnit `arch` 태그 포함) 통과 확인
+- [X] T019 [P] Jira KB-380 DoD 문구를 최종 설계에 맞게 갱신(Atlassian MCP `editJiraIssue`, ADF) — "management.server.port=8081"·"8081 portMappings"·"healthCheck → 8081"·"통합 테스트(BehaviorSpec)" 항목을 "8080·`/actuator` 유지, 공개 차단은 ALB 규칙 후속(별도 태스크)"·"batch.tf healthCheck 신설(`/actuator/health/readiness`)"·"로컬 curl + dev 확인으로 검증(테스트 코드 없음)" 으로 교체. ALB 허용 목록 규칙을 새 태스크로 등록할지 사용자에게 제안
+- [X] T020 [P] 지식 위키 `../kbap-agenthub/wiki/` 에 결정 기록 — "관측 경계: 앱은 노출만, 공개 차단은 ALB 허용 목록" + "ECS `ignore_changes=[container_definitions]` 하에서 헬스체크 반영은 `-replace` → CI 재배포 승계" + "R-6 판정 결과"(INDEX.md 한 줄 추가, 허브에서 커밋)
 - [ ] T021 `open-draft-pr-to-develop` 스킬로 base=develop draft PR 생성 — 제목 `feat(observability): api·batch Prometheus 메트릭 노출 + batch ECS 헬스체크 (KB-380)`, 본문에 설계 요점(8080 유지·공개 차단 후속·롤아웃 순서·테스트 없음 결정)과 T005/T010/T017 검증 결과
 
 ---
