@@ -63,6 +63,12 @@ prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한�
 
 **batch — 롤링 (`iac/scripts/deploy-batch.sh <env> <tag>`)**: 단일 인스턴스·고정 포트라 구 태스크를 먼저 내리고 신 태스크를 올린다(잠깐 다운). 서킷브레이커로 기동 실패 시 자동 롤백.
 
+**batch 컨테이너 헬스체크(KB-380) 처음 적용 순서** — 태스크 정의는 `ignore_changes = [container_definitions]` 라 일반 apply 로는 리비전이 안 생기고, 헬스체크가 `/actuator/health/readiness` 를 치므로 actuator 가 있는 이미지가 먼저 떠 있어야 한다:
+
+1. actuator 포함 batch 이미지 배포 (`deploy-batch.sh`)
+2. `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch` — 헬스체크가 담긴 새 리비전 등록(서비스는 아직 구 리비전)
+3. batch 재배포 1회 — `deploy-batch.sh` 가 최신 리비전을 복제하므로 헬스체크가 승계된다. `aws ecs describe-tasks … --query 'tasks[].containers[].healthStatus'` 가 `HEALTHY` 면 끝
+
 ## 배치 잡 원격 실행 (ECS Exec)
 
 배치 잡 트리거(`POST /internal/batch/jobs`)는 클러스터 내부에서만 열려 있고 인증이 없다. 클러스터 밖(홈서버 젠킨스·운영자 PC)에서는 **ECS Exec** 로 배치 컨테이너 안에서 `curl localhost:8080` 을 실행한다 — 컨테이너가 SSM 채널을 아웃바운드로 열어 두므로 **인바운드 포트 개방 0, 추가 비용 0**, 접근 통제는 IAM 이 담당한다.
@@ -111,5 +117,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 - **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
 - 인스턴스 사이징: 평상시 **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread). 카나리 진행 중(최대 30분)에만 구버전 1 + 신버전 1 로 **인스턴스당 2개**가 잠깐 공존한다. t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB 라 1536 × 2 = 3072 MiB 까지는 들어가지만, **태스크 메모리를 더 올리면 카나리 중 신버전이 배치되지 못해 배포가 멈춘다**.
 - 시크릿 4 KB 초과(Firebase JSON 이 큰 경우)는 SSM Advanced tier 로 파라미터를 바꾼다.
+- **batch 헬스체크 이후 구 이미지(actuator 없음) 재배포는 실패한다** — 새 리비전이 `/actuator/health/readiness` 를 치므로 서킷브레이커가 롤백한다. 되돌려야 하면 `batch.tf` 의 `healthCheck` 를 지우고 `-replace` 로 리비전을 먼저 갱신한다.
+- **`/actuator/**`(prometheus·health)는 api 서비스 포트(8080)에 그대로 열려 있고 앱은 접근 제어를 하지 않는다.** 공개 차단은 ALB 리스너 규칙으로 후속 처리한다 — `/actuator/*` 차단 목록은 `//actuator/…`·`/%61ctuator/…` 처럼 ALB(raw 경로 매칭)와 Tomcat(정규화·디코딩 후 라우팅)이 다르게 보는 경로를 놓치므로 **`/api/*` 만 forward 하는 허용 목록**으로 만든다. ALB 헬스체크는 리스너 규칙을 거치지 않아 `/actuator/health/readiness` 는 계속 통과한다(specs/kb-380 research R-3).
 - prod 는 새 스키마 `kbap-prod` 를 쓴다(운영 `/kbap` 무접촉). apply 전에 `CREATE DATABASE `kbap-prod`` 를 해 두면 Flyway 가 첫 기동 때 스키마를 채운다 — 즉 **prod-ecs 는 빈 데이터로 시작**하며, 운영 데이터 이전은 별도 작업이다.
 - 기존 prod ECS 를 지우기 전까지 `kbap-prod-api` 태스크 정의 패밀리와 이름이 겹치지 않는다(새 이름은 `kbap-prod-ecs-*`).

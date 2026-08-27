@@ -19,4 +19,4 @@
 | 스레드 | `jvm_threads_live_threads` · `jvm_threads_states_threads` | 〃 |
 | DB 커넥션 풀 | `hikaricp_connections_active` · `_pending` · `_max` | Boot `DataSourcePoolMetricsAutoConfiguration` |
 | HTTP 요청 | `http_server_requests_seconds_count\|_sum\|_max{uri,method,status,outcome}` | Spring MVC 관측(자동) |
-| 배치 잡·스텝 (batch 만) | `spring_batch_job_seconds_*{name,status}` · `spring_batch_step_seconds_*` | Spring Batch 6 관측 + `DefaultMeterObservationHandler` (R-6) |
+| 배치 잡·스텝 (batch 만) | `spring_batch_job_seconds_*{spring_batch_job_name,spring_batch_job_status}` · `spring_batch_step_seconds_*{spring_batch_step_name,spring_batch_step_status}` | Spring Batch 6 관측 + `DefaultMeterObservationHandler` (R-6) |

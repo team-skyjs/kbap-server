@@ -71,12 +71,12 @@
 - [X] T007 [P] [US2] `batch/build.gradle.kts` dependencies 에 `"implementation"(libs.spring.boot.starter.actuator)` + `"runtimeOnly"(libs.micrometer.registry.prometheus)` 추가
 - [X] T008 [P] [US2] `batch/src/main/resources/application.yml` 에 `management:` 블록 추가 — api 와 동일 2개 + yml 주석 한 줄(KB-380, ECS 컨테이너 헬스체크가 readiness 를 본다)
 - [X] T009 [US2] `./gradlew :batch:compileKotlin :batch:test` — 기존 테스트(`KbapBatchApplicationTests`·`BatchJobTriggerControllerTest`·`BatchJdbcJobRepositoryConfigTest`) 회귀 없음. actuator 추가로 컨텍스트에 빈이 늘어나므로 부팅 실패가 없는지 확인
-- [ ] T010 [US2] 로컬 판정(R-6) — `SPRING_PROFILES_ACTIVE=local ./gradlew :batch:bootRun` 후:
+- [X] T010 [US2] 로컬 판정(R-6) — `SPRING_PROFILES_ACTIVE=local ./gradlew :batch:bootRun` 후:
   - `curl -s localhost:8080/actuator/prometheus | grep -c 'application="kbap-batch"'` → 0 초과
   - `curl -s -X POST 'localhost:8080/internal/batch/jobs?jobName=foodContentOutboxPublishJob'` → 202, `executionId` 로 `GET /internal/batch/executions/{id}` 가 COMPLETED 될 때까지 확인
   - `curl -s localhost:8080/actuator/prometheus | grep -E '^spring_batch_(job|step)_seconds_count'` → 있으면 T011 건너뜀, **없으면 T011 수행**
   - `curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/actuator/env` → 404
-- [ ] T011 [US2] (조건부 — T010 에서 잡 메트릭 부재일 때만) `batch/src/main/kotlin/com/kbap/batch/config/BatchJdbcJobRepositoryConfig.kt` 에 `io.micrometer.observation.ObservationRegistry` 생성자 주입 + `override fun getObservationRegistry(): ObservationRegistry = observationRegistry` 추가(주석 없음). T010 의 grep 재확인. 결과(수행 여부와 근거)를 research R-6 아래 한 줄로 기록
+- [X] T011 [US2] **스킵 — T010 에서 잡 메트릭 존재 확인(코드 변경 불필요)** (조건부 — T010 에서 잡 메트릭 부재일 때만) `batch/src/main/kotlin/com/kbap/batch/config/BatchJdbcJobRepositoryConfig.kt` 에 `io.micrometer.observation.ObservationRegistry` 생성자 주입 + `override fun getObservationRegistry(): ObservationRegistry = observationRegistry` 추가(주석 없음). T010 의 grep 재확인. 결과(수행 여부와 근거)를 research R-6 아래 한 줄로 기록
 - [X] T012 [US2] `iac/terraform/modules/ecs-environment/batch.tf` batch 컨테이너 정의(`portMappings` 다음, `environment` 앞)에 `healthCheck` 블록 추가 — `api.tf` 것과 동일: `command = ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health/readiness || exit 1"]`, `interval 15`, `timeout 5`, `retries 3`, `startPeriod 150`. `terraform -chdir=iac/terraform fmt` 실행(init 돼 있으면 `validate` 도)
 - [ ] T013 [US2] 커밋: `feat(batch): Prometheus 메트릭 노출 + ECS 컨테이너 헬스체크 (KB-380)` — T007~T012
 

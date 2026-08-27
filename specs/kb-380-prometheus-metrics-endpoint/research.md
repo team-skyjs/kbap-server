@@ -35,6 +35,7 @@
 - **Decision**: batch 에 actuator + prometheus 레지스트리를 추가하면 Boot 4.1 `BatchObservationAutoConfiguration`(조건: `ObservationRegistry` 빈 존재)이 `BatchObservabilityBeanPostProcessor` 를 등록하고, 이 BPP 가 `AbstractJob`·`AbstractStep`·`TaskExecutorJobOperator` 에 ObservationRegistry 를 주입한다. Boot 의 `DefaultMeterObservationHandler` 가 관측을 `spring.batch.job`·`spring.batch.step` 타이머로 바꿔 `spring_batch_job_seconds_*` 로 나온다. **코드 변경 없이 동작하는지 테스트가 판정**하고, NOOP 로 남으면 `BatchJdbcJobRepositoryConfig`(`DefaultBatchConfiguration` 상속)에 `getObservationRegistry()` 를 Boot 빈으로 override 한다.
 - **Rationale**: `AbstractJob` 바이트코드에 "No ObservationRegistry has been set, defaulting to ObservationRegistry NOOP" — 주입이 안 되면 잡 메트릭이 조용히 빠진다. `DefaultBatchConfiguration` 직접 상속 구조에서 Boot `BatchAutoConfiguration` 본체는 백오프하지만 관측 자동구성은 별도 클래스라 살아 있다.
 - **Alternatives considered**: `JobBuilder(...).observationRegistry(...)` 잡마다 명시 — BPP 가 되면 불필요.
+- **판정 결과(2026-08-27, 로컬 bootRun)**: 코드 변경 없이 동작 — `foodContentOutboxPublishJob` 1회 완료 후 `spring_batch_job_seconds_count{spring_batch_job_name="foodContentOutboxPublishJob",spring_batch_job_status="COMPLETED"} 1`·`spring_batch_step_seconds_count{spring_batch_step_name="foodContentOutboxPublishStep",…} 1` 확인. `getObservationRegistry()` override 불필요(T011 스킵). 레이블은 `name`/`status` 가 아니라 `spring_batch_job_name`·`spring_batch_job_status`(스텝은 `spring_batch_step_*`) — 대시보드·알림 쿼리에서 이 이름을 쓴다.
 
 ## R-7. 검증 전략 — 자동화 테스트 없음
 

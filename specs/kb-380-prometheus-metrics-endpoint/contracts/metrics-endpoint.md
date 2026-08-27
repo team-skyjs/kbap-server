@@ -18,7 +18,7 @@ api·batch 모두 **서비스 포트 8080 하나**. 태스크 정의 `portMappin
 ## 필수 메트릭 패밀리
 
 api: `jvm_memory_used_bytes`, `jvm_gc_pause_seconds`, `jvm_threads_live_threads`, `hikaricp_connections_active`, `http_server_requests_seconds`.
-batch: 위 전부(`http_server_requests` 는 트리거 API 호출 시) + `spring_batch_job_seconds`, `spring_batch_step_seconds`.
+batch: 위 전부(`http_server_requests` 는 트리거 API 호출 시) + `spring_batch_job_seconds{spring_batch_job_name,spring_batch_job_status}`, `spring_batch_step_seconds{spring_batch_step_name,spring_batch_step_status}` (로컬 실증 2026-08-27).
 
 ## 인프라 측 계약 (terraform)
 
