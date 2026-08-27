@@ -106,7 +106,7 @@
 - [X] T018 `./gradlew build` 전체(ArchUnit `arch` 태그 포함) 통과 확인
 - [X] T019 [P] Jira KB-380 DoD 문구를 최종 설계에 맞게 갱신(Atlassian MCP `editJiraIssue`, ADF) — "management.server.port=8081"·"8081 portMappings"·"healthCheck → 8081"·"통합 테스트(BehaviorSpec)" 항목을 "8080·`/actuator` 유지, 공개 차단은 ALB 규칙 후속(별도 태스크)"·"batch.tf healthCheck 신설(`/actuator/health/readiness`)"·"로컬 curl + dev 확인으로 검증(테스트 코드 없음)" 으로 교체. ALB 허용 목록 규칙을 새 태스크로 등록할지 사용자에게 제안
 - [X] T020 [P] 지식 위키 `../kbap-agenthub/wiki/` 에 결정 기록 — "관측 경계: 앱은 노출만, 공개 차단은 ALB 허용 목록" + "ECS `ignore_changes=[container_definitions]` 하에서 헬스체크 반영은 `-replace` → CI 재배포 승계" + "R-6 판정 결과"(INDEX.md 한 줄 추가, 허브에서 커밋)
-- [ ] T021 `open-draft-pr-to-develop` 스킬로 base=develop draft PR 생성 — 제목 `feat(observability): api·batch Prometheus 메트릭 노출 + batch ECS 헬스체크 (KB-380)`, 본문에 설계 요점(8080 유지·공개 차단 후속·롤아웃 순서·테스트 없음 결정)과 T005/T010/T017 검증 결과
+- [X] T021 `open-draft-pr-to-develop` 스킬로 base=develop draft PR 생성 — 제목 `feat(observability): api·batch Prometheus 메트릭 노출 + batch ECS 헬스체크 (KB-380)`, 본문에 설계 요점(8080 유지·공개 차단 후속·롤아웃 순서·테스트 없음 결정)과 T005/T010/T017 검증 결과
 
 ---
 
