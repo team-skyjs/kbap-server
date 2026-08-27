@@ -1,3 +1,14 @@
+# 관측(KB-380): /actuator/prometheus 로 JVM·HikariCP·HTTP 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공한다.
+# 관리 포트는 분리하지 않는다(8080 공유) — api 외 경로의 공개 차단은 ALB 리스너 규칙으로 후속 처리(specs/kb-380 research R-3).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 logging:
   # Boot 기본 콘솔 패턴의 correlation 자리에 삽입된다 — logback-spring.xml 수정 없이
   # 전 로그 라인에 요청 상관 키·회원 식별자가 붙는다(값이 없으면 빈 칸). (KB-130)
