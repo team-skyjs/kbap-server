@@ -24,3 +24,6 @@ bastion_key_name = "kbap-prod"
 # 관측(KB-381): 각 EC2 의 Alloy DAEMON 이 앱·호스트 메트릭을 홈서버 Prometheus 로 push 한다.
 # 토큰은 SSM /kbap/<env>/CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (SecureString) 에 미리 등록.
 home_prometheus_remote_write_url = "https://prom-write.handev.site/api/v1/write"
+
+# 공개 진입점 차단(KB-390): prod 는 Swagger·OpenAPI 문서도 막는다.
+blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]

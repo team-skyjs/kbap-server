@@ -227,3 +227,9 @@ variable "alloy_secret_names" {
   type        = list(string)
   default     = ["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
 }
+
+variable "blocked_path_patterns" {
+  description = "공개 진입점(HTTPS 리스너)에서 404 로 막을 ALB path-pattern 목록(최대 5개). 허용 목록이 아니라 거부 규칙인 이유: CodeDeploy 가 blue/green 전환 때 리스너의 기본 액션만 바꾸므로 forward 규칙을 따로 두면 전환을 못 따라간다. `*` 는 `/` 를 포함해 //actuator/… 같은 변형도 잡는다."
+  type        = list(string)
+  default     = ["*actuator*"]
+}

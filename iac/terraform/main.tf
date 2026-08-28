@@ -40,4 +40,6 @@ module "ecs_environment" {
 
   home_prometheus_remote_write_url = var.home_prometheus_remote_write_url
   alloy_image                      = var.alloy_image
+
+  blocked_path_patterns = var.blocked_path_patterns
 }

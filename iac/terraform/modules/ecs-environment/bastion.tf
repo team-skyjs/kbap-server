@@ -63,4 +63,10 @@ resource "aws_instance" "bastion" {
   }
 
   tags = merge(local.common_tags, { Name = "${local.name_prefix}-bastion" })
+
+  # AMI 는 최초 생성 시점의 값으로 고정한다 — SSM "latest" 파라미터가 갱신될 때마다 plan 에 드리프트가 잡히고,
+  # 적용하면 bastion 이 교체된다(SSH 호스트키·공인 IP 변경). 이미지 갱신은 인스턴스 교체로 사람이 결정한다. (KB-390 import 에서 확인)
+  lifecycle {
+    ignore_changes = [ami]
+  }
 }

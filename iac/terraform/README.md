@@ -47,9 +47,27 @@ aws ssm put-parameter --profile kbap-infra --name /kbap/dev/FIREBASE_CREDENTIALS
 
 ```
 
-확인: `https://dev-ecs.kbap.site/actuator/health` → CloudWatch 대시보드 `kbap-dev-ecs`.
+확인: `https://dev.kbap.site/api/app-version` 200 → CloudWatch 대시보드 `kbap-dev-ecs`. (`/actuator/**`·`/swagger-ui/**`·`/v3/api-docs` 는 ALB 규칙이 404 로 막는다 — 아래 "관리 경로 차단".)
 
-prod 는 `prod.tfvars.example` 로 동일하게 — state 는 **terraform workspace** 로 분리돼 있다(`dev-ecs` / `prod`, `terraform.tfstate.d/`). apply 전에 반드시 `terraform workspace select dev-ecs`(또는 `prod`) 후 `terraform workspace show` 로 확인한다. state 와 `*.tfvars` 는 apply 한 머신(현재 맥미니)에만 있고 git 에 없다 — 다른 머신에서 apply 하면 전체를 새로 만들려 드니 하지 말 것. S3 백엔드 전환은 별도 태스크.
+prod 는 `prod.tfvars.example` 로 동일하게.
+
+## state — S3 백엔드 + workspace (KB-390)
+
+state 는 **S3 `kbap-terraform-state`**(키 `ecs/terraform.tfstate`, 프로필 `kbap-infra`, `use_lockfile` 잠금)에 있고 환경은 **workspace `dev` / `prod`** 로 나뉜다(S3 키 `env:/<ws>/ecs/terraform.tfstate`). 로컬 `terraform.tfstate*`·`terraform.tfstate.d/` 는 쓰지 않는다 — 있으면 `_local-state-archive/`(gitignore) 로 치운다.
+
+```bash
+terraform init                     # 백엔드는 versions.tf 에 고정 — 옵션 없음
+terraform workspace select dev     # 또는 prod. apply 전 반드시 `terraform workspace show`
+terraform plan -var-file=dev.tfvars
+```
+
+- 처음 세우는 머신: `aws configure --profile kbap-infra`(관리자 키) → `terraform init` → `workspace select` → `<env>.tfvars` 복원 → `plan` 이 **No changes** 여야 시작 가능. tfvars 는 git 에 없다 — `iac/scripts/gen-import-blocks.sh <env>` 가 AWS 실물에서 `<env>.tfvars.generated` 를 뽑아 주니 예시 파일과 대조해 `<env>.tfvars` 로 복사한다(집 IP 등 실값은 지식 위키).
+- **state 를 잃었을 때(import 복구)**: `gen-import-blocks.sh <env>` → `import.<env>.tf` 생성(리소스별 `import {}` 블록) → `plan -out` 으로 게이트 — **`N to import` + 의도한 `to add` + `0 to destroy`, replacement 0** 이어야 apply. apply 후 `import.<env>.tf` 삭제 → 재plan No changes. 2026-08-28 복구 기록: dev 55 import, prod 50 import(+ KB-374 배치 운영자 IAM 2 add).
+- 동시 apply 는 S3 lockfile 이 막는다. 다른 사람이 plan 중이면 lock 오류가 나니 기다린다.
+
+## 관리 경로 차단 (KB-390)
+
+`blocked_path_patterns`(dev `["*actuator*"]`, prod `["*actuator*","*swagger*","*api-docs*"]`)이 HTTPS 리스너 priority 10 **fixed-response 404** 규칙이 된다. default action(forward)만 CodeDeploy 가 만지므로 카나리와 충돌하지 않는다. ALB 는 매칭 전에 퍼센트 디코딩을 하므로 `/%61ctuator` 우회도 404 — WAF 불필요. Alloy 는 호스트 네트워크에서 컨테이너 포트로 직접 긁어 영향 없다.
 
 ## 배포
 
