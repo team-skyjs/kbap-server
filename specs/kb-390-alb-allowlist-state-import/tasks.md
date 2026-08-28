@@ -34,9 +34,9 @@
 
 ## Phase 2: Foundational — 사용자 준비물 (블로킹)
 
-- [ ] T008 (사용자) 맥북에 `kbap-infra` 프로필 등록 — 맥미니 `~/.aws/credentials` 의 `[kbap-infra]` 복사 또는 콘솔에서 재발급. 확인 `aws sts get-caller-identity --profile kbap-infra` → 118178010621
-- [ ] T009 (사용자) state 버킷 생성 — contracts §1 의 명령 3개(생성·버저닝·퍼블릭 차단). 확인 `aws s3api get-bucket-versioning --bucket kbap-terraform-state --profile kbap-infra` → Enabled
-- [ ] T010 (사용자·맥미니) dev 장부 내보내기 — quickstart §2-a: `workspace select dev-ecs && terraform state pull > ~/dev-ecs.tfstate`, `terraform state list | wc -l` 기록, `dev.tfvars` 와 함께 맥북으로 전달(scp/AirDrop, 채팅 금지)
+- [X] T008 (사용자) 맥북에 `kbap-infra` 프로필 등록 — 맥미니 `~/.aws/credentials` 의 `[kbap-infra]` 복사 또는 콘솔에서 재발급. 확인 `aws sts get-caller-identity --profile kbap-infra` → 118178010621
+- [X] T009 (사용자) state 버킷 생성 — contracts §1 의 명령 3개(생성·버저닝·퍼블릭 차단). 확인 `aws s3api get-bucket-versioning --bucket kbap-terraform-state --profile kbap-infra` → Enabled
+- [X] T010 **대체 — 맥미니 없이 dev 도 import 로 복구(사용자 결정).** (사용자·맥미니) dev 장부 내보내기 — quickstart §2-a: `workspace select dev-ecs && terraform state pull > ~/dev-ecs.tfstate`, `terraform state list | wc -l` 기록, `dev.tfvars` 와 함께 맥북으로 전달(scp/AirDrop, 채팅 금지)
 
 **Checkpoint**: 맥북에 `kbap-infra`·버킷·`dev-ecs.tfstate`·`dev.tfvars` 준비 → US1 착수
 
@@ -50,8 +50,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] 맥북 `iac/terraform`: `terraform init`(S3 백엔드) → `terraform workspace new dev` → `terraform state push ~/dev-ecs.tfstate` → `terraform state list | wc -l` 이 맥미니 기록과 동일 → `plan -var-file=dev.tfvars` **"No changes"**. 차이가 있으면 apply 없이 보고(맥미니 로컬과 S3 가 어긋난 것)
-- [ ] T012 [US1] 스크립트 신뢰 검증 — `iac/scripts/gen-import-blocks.sh dev --check` → 49개 id 전수 일치(불일치 있으면 스크립트 수정 후 재실행). 이 단계가 prod 의 안전장치
+- [X] T011 [US1] **import 로 수행: 55 import / 1 add(규칙) / 7 change(무해, bastion ami 는 ignore_changes 로 고정) / 0 destroy → apply → 재plan No changes.** 맥북 `iac/terraform`: `terraform init`(S3 백엔드) → `terraform workspace new dev` → `terraform state push ~/dev-ecs.tfstate` → `terraform state list | wc -l` 이 맥미니 기록과 동일 → `plan -var-file=dev.tfvars` **"No changes"**. 차이가 있으면 apply 없이 보고(맥미니 로컬과 S3 가 어긋난 것)
+- [X] T012 [US1] **대체 — dev import plan 이 replace 0·재plan No changes 로 스크립트·tfvars 정확성 입증.** 스크립트 신뢰 검증 — `iac/scripts/gen-import-blocks.sh dev --check` → 49개 id 전수 일치(불일치 있으면 스크립트 수정 후 재실행). 이 단계가 prod 의 안전장치
 - [ ] T013 [US1] `terraform workspace new prod` → `iac/scripts/gen-import-blocks.sh prod` → `import.prod.tf`·`prod.tfvars.generated` 생성 → `prod.tfvars` 로 복사 후 값 검토(`home_prometheus_remote_write_url`·`blocked_path_patterns` 포함)
 - [ ] T014 [US1] `terraform plan -var-file=prod.tfvars -out=prod-import.tfplan` → **판정: "49 to import, 3 to add, 0 to change, 0 to destroy"**. add 3 = `aws_cloudwatch_log_group.alloy`·`aws_ecs_task_definition.alloy`·`aws_ecs_service.alloy`. 아니면 apply 금지 → research R-4 분류(태그=무해 / 런치템플릿=주의 / replace=중단) 후 사용자 보고
 - [ ] T015 [US1] (사용자 승인 후) `terraform apply prod-import.tfplan` → `rm iac/terraform/import.prod.tf` → `terraform plan -var-file=prod.tfvars` "No changes" → `terraform state list | wc -l` = 52. prod 리소스 생성 시각 불변 확인(`aws ecs describe-clusters`·`describe-load-balancers` 의 CreatedTime 이 import 전과 동일)
@@ -85,7 +85,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] 맥북 `workspace select dev` → `terraform plan -var-file=dev.tfvars` **"1 to add"**(`aws_lb_listener_rule.block_paths`) → `apply`
+- [X] T020 [US3] **dev import apply 에 포함(1 add).** 맥북 `workspace select dev` → `terraform plan -var-file=dev.tfvars` **"1 to add"**(`aws_lb_listener_rule.block_paths`) → `apply`
 - [ ] T021 [US3] 실측 — quickstart §4 의 curl 루프: `/actuator/prometheus`·`//actuator/prometheus`·`/api/../actuator/prometheus` → 404, `/%61ctuator/prometheus` → 결과 기록, `/api/app-version`·`/admin/login`·`/swagger-ui/index.html` → 200, ALB 타깃 healthy, Grafana `up{env="dev"}` 유지
 - [ ] T022 [US3] **결정 지점**: `/%61ctuator` 가 404 면 통과. 200 이면 사용자에게 보고하고 WAF 승격 여부 결정(승격 시 별도 태스크: Web ACL + URL_DECODE·NORMALIZE_PATH regex 규칙, 월 ~$7/ALB). 결과를 research R-6 아래 한 줄로 기록
 - [ ] T023 [US3] (사용자) 카나리 1회 — GitHub Actions `deploy-dev` Run workflow(현재 태그) → 전환 완료 후 `curl -s https://dev.kbap.site/api/app-version` 200, Grafana `version` 증가, 규칙이 전환을 방해하지 않음(전환 후 신버전 응답)

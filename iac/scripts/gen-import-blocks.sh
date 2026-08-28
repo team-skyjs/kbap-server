@@ -35,6 +35,15 @@ for svc in api batch; do
   add "aws_ecs_task_definition.$svc" "$(one "$(aws ecs describe-task-definition --task-definition "$P-$svc" --query taskDefinition.taskDefinitionArn)" "taskdef $svc")"
 done
 
+# Alloy DAEMON(KB-381)은 이미 적용된 환경(dev)에서만 존재 — 있으면 import, 없으면(prod 첫 적용) plan 의 "3 to add" 로 생성된다
+if [ -n "$(aws ecs describe-services --cluster "$CLUSTER" --services "$P-alloy" --query 'services[?status==`ACTIVE`].serviceName')" ]; then
+  add aws_ecs_service.alloy "$CLUSTER/$P-alloy"
+  add aws_ecs_task_definition.alloy "$(one "$(aws ecs describe-task-definition --task-definition "$P-alloy" --query taskDefinition.taskDefinitionArn)" "taskdef alloy")"
+  add aws_cloudwatch_log_group.alloy "/kbap/$ENV/alloy"
+else
+  echo "  (alloy 없음 — plan 에서 3 to add 로 생성됨)" >&2
+fi
+
 # --- CloudWatch ---
 for lg in api batch; do
   one "$(aws logs describe-log-groups --log-group-name-prefix "/kbap/$ENV/$lg" --query "logGroups[?logGroupName=='/kbap/$ENV/$lg'].logGroupName")" "log group $lg" >/dev/null
@@ -56,20 +65,21 @@ add aws_codedeploy_deployment_group.api "$P-api:$P-api"
 BLUE_WAIT=$(printf '%s' "$DG" | awk '{print $2}')
 
 # --- IAM ---
-declare -A ROLE=( [instance]="$P-container-instance-role" [task_execution]="$P-task-exec-role" [api_task]="$P-api-task-role" [batch_task]="$P-batch-task-role" [codedeploy]="$P-codedeploy-role" )
+# macOS 기본 bash 3.2 — 연관 배열 없이 함수로
+role_name() { case "$1" in instance) echo "$P-container-instance-role";; task_execution) echo "$P-task-exec-role";; api_task) echo "$P-api-task-role";; batch_task) echo "$P-batch-task-role";; codedeploy) echo "$P-codedeploy-role";; esac; }
 for k in instance task_execution api_task batch_task codedeploy; do
-  one "$(aws iam get-role --role-name "${ROLE[$k]}" --query Role.RoleName)" "role $k" >/dev/null
-  add "aws_iam_role.$k" "${ROLE[$k]}"
+  one "$(aws iam get-role --role-name "$(role_name $k)" --query Role.RoleName)" "role $k" >/dev/null
+  add "aws_iam_role.$k" "$(role_name $k)"
 done
 one "$(aws iam get-instance-profile --instance-profile-name "$P-container-instance-profile" --query InstanceProfile.InstanceProfileName)" "instance profile" >/dev/null
 add aws_iam_instance_profile.instance "$P-container-instance-profile"
-add aws_iam_role_policy.task_execution_secrets "${ROLE[task_execution]}:ssm-secrets"
-add aws_iam_role_policy.api_task "${ROLE[api_task]}:s3-storage"
-add aws_iam_role_policy.batch_task "${ROLE[batch_task]}:sqs-s3"
-add aws_iam_role_policy_attachment.instance_ecs "${ROLE[instance]}/arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-add aws_iam_role_policy_attachment.instance_ssm "${ROLE[instance]}/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-add aws_iam_role_policy_attachment.task_execution_managed "${ROLE[task_execution]}/arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-add aws_iam_role_policy_attachment.codedeploy_ecs "${ROLE[codedeploy]}/arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
+add aws_iam_role_policy.task_execution_secrets "$(role_name task_execution):ssm-secrets"
+add aws_iam_role_policy.api_task "$(role_name api_task):s3-storage"
+add aws_iam_role_policy.batch_task "$(role_name batch_task):sqs-s3"
+add aws_iam_role_policy_attachment.instance_ecs "$(role_name instance)/arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+add aws_iam_role_policy_attachment.instance_ssm "$(role_name instance)/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+add aws_iam_role_policy_attachment.task_execution_managed "$(role_name task_execution)/arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+add aws_iam_role_policy_attachment.codedeploy_ecs "$(role_name codedeploy)/arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
 one "$(aws iam get-user --user-name "$P-batch-operator" --query User.UserName)" "iam user" >/dev/null
 add aws_iam_user.batch_operator "$P-batch-operator"
 add aws_iam_user_policy.batch_operator "$P-batch-operator:batch-remote-run"
