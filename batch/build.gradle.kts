@@ -10,6 +10,8 @@ dependencies {
 
     "implementation"("org.springframework.boot:spring-boot-starter-batch")
     "implementation"(libs.spring.boot.starter.web)
+    "implementation"(libs.spring.boot.starter.actuator)
+    "runtimeOnly"(libs.micrometer.registry.prometheus)
 
     "testImplementation"(testFixtures(project(":common")))
     "testImplementation"(libs.spring.boot.webmvc.test)
