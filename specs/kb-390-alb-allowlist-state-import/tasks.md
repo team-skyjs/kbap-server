@@ -71,7 +71,7 @@
 ### Implementation for User Story 2
 
 - [X] T018 **2/2 running, 로그 udev 경고만.** [US2] AWS 확인 — `aws ecs describe-services --cluster kbap-prod-ecs-cluster --services kbap-prod-ecs-alloy --profile kbap-prod-deployer --region ap-northeast-2 --query 'services[0].{running:runningCount,pending:pendingCount}'` running = 인스턴스 수(api 2 + batch 풀 N); `aws logs tail /kbap/prod/alloy --since 5m | grep -iE "403|401|error" | grep -v udev` 비어 있음
-- [ ] T019 [US2] (사용자·Grafana) `up{env="prod", job="prometheus.scrape.ecs_apps"}` → 2행(`instance=prod-api-…`, `version=<리비전>`); `count by (host) (node_memory_MemAvailable_bytes{env="prod"})` = 인스턴스 수; `jvm_memory_used_bytes{env="prod",application="kbap-api",area="heap"}` 15s 그래프; dev 와 섞이지 않음(`env` 전환). 결과 숫자 보고 → tasks 반영
+- [X] T019 **Grafana 에서 2행 확인(사용자).** [US2] (사용자·Grafana) `up{env="prod", job="prometheus.scrape.ecs_apps"}` → 2행(`instance=prod-api-…`, `version=<리비전>`); `count by (host) (node_memory_MemAvailable_bytes{env="prod"})` = 인스턴스 수; `jvm_memory_used_bytes{env="prod",application="kbap-api",area="heap"}` 15s 그래프; dev 와 섞이지 않음(`env` 전환). 결과 숫자 보고 → tasks 반영
 
 **Checkpoint**: KB-381 DoD 마지막 항목(prod) 닫힘
 
