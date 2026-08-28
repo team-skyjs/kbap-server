@@ -1,16 +1,14 @@
 package com.kbap.api.food
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.ingredient.IngredientTestSeed
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class IngredientRenameMigrationTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -18,6 +16,8 @@ class IngredientRenameMigrationTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
+        beforeSpec { IngredientTestSeed.restoreCatalog(dataSource) }
+
         fun columnExists(table: String, column: String): Boolean =
             dataSource.connection.use { c ->
                 c.prepareStatement(

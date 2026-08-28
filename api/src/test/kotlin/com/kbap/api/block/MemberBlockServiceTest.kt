@@ -1,8 +1,8 @@
 package com.kbap.api.block
 
+import com.kbap.api.IntegrationTest
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.block.MemberBlockJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.api.member.MemberService
@@ -17,11 +17,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class MemberBlockServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

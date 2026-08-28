@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.food.FoodTestSeed
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -10,14 +11,11 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CyclicBarrier
 import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class AdminFoodServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -31,11 +29,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
-        fun clearFoods() {
-            dataSource.connection.use { connection ->
-                connection.createStatement().use { it.execute("DELETE FROM food_content_outbox"); it.execute("DELETE FROM food_vector_outbox"); it.execute("DELETE FROM food") }
-            }
-        }
+        fun clearFoods() = FoodTestSeed.clearFoods(dataSource)
 
         fun saveFood(koreanName: String): Long =
             foodJpaRepository.save(Food(koreanName = koreanName, description = "구수한 $koreanName")).id

@@ -1,10 +1,10 @@
 package com.kbap.api.food
 
+import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -19,12 +19,9 @@ import io.kotest.matchers.shouldBe
 import jakarta.persistence.EntityManagerFactory
 import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest(properties = ["spring.jpa.properties.hibernate.generate_statistics=true"])
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class FoodServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -43,15 +40,7 @@ class FoodServiceTest : BehaviorSpec() {
     init {
         fun incompleteNames(vararg matchKeys: String): Map<String, String> = matchKeys.associateWith { it }
 
-        fun clearFoods() {
-            dataSource.connection.use { connection ->
-                connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food")
-                }
-            }
-        }
+        fun clearFoods() = FoodTestSeed.clearFoods(dataSource)
 
         fun saveFood(
             koreanName: String,

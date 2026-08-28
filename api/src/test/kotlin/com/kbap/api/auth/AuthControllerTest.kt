@@ -1,26 +1,16 @@
 package com.kbap.api.auth
 
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.port.auth.SocialAccountDeleter
-import com.kbap.common.port.auth.SocialTokenVerifier
-import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
@@ -29,9 +19,7 @@ import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class, FakeSocialTokenVerifierConfig::class)
+@IntegrationTest
 class AuthControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -50,17 +38,7 @@ class AuthControllerTest : BehaviorSpec() {
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun clearMembers() {
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM member_block")
-                    it.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
-                    it.execute("DELETE FROM community_comment")
-                    it.execute("DELETE FROM community_post")
-                    it.execute("DELETE FROM member")
-                }
-            }
-        }
+        fun clearMembers() = TestTables.clearAll(dataSource)
 
         fun countMembers(): Int =
             dataSource.connection.use { c ->
@@ -83,7 +61,7 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun login(idToken: String = "valid-token") =
+        fun login(idToken: String = FakeSocialTokenVerifier.DEFAULT_SUB) =
             mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
                 content = objectMapper.writeValueAsString(mapOf("idToken" to idToken))
@@ -437,57 +415,4 @@ class AuthControllerTest : BehaviorSpec() {
             }
         }
     }
-}
-
-class FakeSocialTokenVerifier : SocialTokenVerifier {
-    private var failure: ErrorCode? = null
-
-    override fun verify(idToken: String): SocialIdentity {
-        failure?.let { throw BusinessException(it) }
-        return SocialIdentity(SocialProvider.GOOGLE, DEFAULT_SUB, "user@gmail.com")
-    }
-
-    fun failWith(errorCode: ErrorCode) {
-        failure = errorCode
-    }
-
-    fun reset() {
-        failure = null
-    }
-
-    companion object {
-        const val DEFAULT_SUB: String = "google-sub-fixed"
-    }
-}
-
-class FakeSocialAccountDeleter : SocialAccountDeleter {
-    val deleted: MutableList<Pair<SocialProvider, String>> = mutableListOf()
-    private var failing = false
-
-    override fun delete(provider: SocialProvider, providerUserId: String) {
-        if (failing) {
-            throw IllegalStateException("인증 제공자 계정 삭제 실패 시뮬레이션")
-        }
-        deleted += provider to providerUserId
-    }
-
-    fun fail() {
-        failing = true
-    }
-
-    fun reset() {
-        deleted.clear()
-        failing = false
-    }
-}
-
-@TestConfiguration
-class FakeSocialTokenVerifierConfig {
-    @Bean
-    @Primary
-    fun fakeSocialTokenVerifier(): FakeSocialTokenVerifier = FakeSocialTokenVerifier()
-
-    @Bean
-    @Primary
-    fun fakeSocialAccountDeleter(): FakeSocialAccountDeleter = FakeSocialAccountDeleter()
 }

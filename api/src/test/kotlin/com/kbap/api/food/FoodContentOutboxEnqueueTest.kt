@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.FoodContentOutbox
@@ -9,13 +10,11 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class FoodContentOutboxEnqueueTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -31,11 +30,11 @@ class FoodContentOutboxEnqueueTest : BehaviorSpec() {
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
-        fun clear() {
-            outboxRepository.deleteAll()
-            foodRepository.deleteAll()
-        }
+        fun clear() = TestTables.clearAll(dataSource)
 
         fun pending(): List<FoodContentOutbox> =
             outboxRepository.findByOutboxStatusOrderByIdAsc(FoodContentOutboxStatus.PENDING)

@@ -1,7 +1,6 @@
 package com.kbap.api.scenario
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
+import com.kbap.api.IntegrationTest
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -9,15 +8,10 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class, ScenarioSocialTokenVerifierConfig::class)
+@IntegrationTest
 @Tags("scenario")
 class HappyPathScenarioTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

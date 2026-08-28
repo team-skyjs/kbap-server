@@ -1,10 +1,9 @@
 package com.kbap.api.scenario
 
+import com.kbap.api.IntegrationTest
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.scan.FakeMenuBoardVisionExtractor
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -12,15 +11,10 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class, ScenarioSocialTokenVerifierConfig::class)
+@IntegrationTest
 @Tags("scenario")
 class MenuScanScenarioTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

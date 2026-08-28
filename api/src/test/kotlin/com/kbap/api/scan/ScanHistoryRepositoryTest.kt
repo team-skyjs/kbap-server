@@ -1,6 +1,7 @@
 package com.kbap.api.scan
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
@@ -9,11 +10,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class ScanHistoryRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -25,17 +23,9 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
 
     init {
         fun clearTables() {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
-                    statement.execute("DELETE FROM community_comment")
-                    listOf("scan_history", "bookmark", "uploaded_image", "image_batch_item", "community_post")
-                        .forEach { statement.execute("DELETE FROM $it") }
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food")
-                    statement.execute("DELETE FROM member_block")
-                    statement.execute("DELETE FROM member")
                     listOf(11L, 99L).forEach { memberId ->
                         statement.execute(
                             "INSERT INTO member (id, provider, provider_uid, member_status, " +

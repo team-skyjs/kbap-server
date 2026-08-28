@@ -1,10 +1,9 @@
 package com.kbap.api.scan
 
+import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
@@ -13,9 +12,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
@@ -24,9 +20,7 @@ import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class)
+@IntegrationTest
 class ScanControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
