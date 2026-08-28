@@ -28,7 +28,7 @@
 - [X] T004 `iac/terraform/modules/ecs-environment/alb.tf` 에 `aws_lb_listener_rule.block_paths` — contracts §2 그대로(HTTPS 리스너, priority 10, `path_pattern { values = var.blocked_path_patterns }`, `fixed-response 404 text/plain`). 주석: 기본 액션은 CodeDeploy 소유라 건드리지 않음, `%61` 우회는 실측(R-6)
 - [X] T005 `iac/scripts/gen-import-blocks.sh` 작성 — `usage: gen-import-blocks.sh <dev|prod> [--check] [aws-profile]`(기본 `kbap-infra`, 리전 고정). contracts/import-ids.md 의 49개를 순서대로 조회해 `iac/terraform/import.<env>.tf`(`import { to = module.ecs_environment.<addr>  id = "<id>" }`)와 `<env>.tfvars.generated`(research R-5 표) 를 쓴다. SG 규칙은 `describe-security-group-rules --filters Name=group-id` 결과를 방향·포트·referenced-group/cidr 로 매칭. 조회 실패·복수 매칭은 `>&2` 로 출력하고 **exit 1**(부분 파일 남기지 않음). `--check`: 파일을 쓰지 않고 `terraform state show <addr>` 의 id 와 대조해 불일치 목록 출력, 전수 일치면 exit 0
 - [X] T006 `bash -n iac/scripts/gen-import-blocks.sh` + `shellcheck`(있으면) + `/opt/homebrew/bin/terraform fmt -recursive iac/terraform` + 스크래치 복사본 `terraform init -backend=false && terraform validate`
-- [ ] T007 커밋: `feat(infra): terraform S3 백엔드·prod import 스크립트·ALB 관리경로 거부 규칙 (KB-390)` — T001~T005(apply 는 아직)
+- [X] T007 커밋: `feat(infra): terraform S3 백엔드·prod import 스크립트·ALB 관리경로 거부 규칙 (KB-390)` — T001~T005(apply 는 아직)
 
 ---
 
