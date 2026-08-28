@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface IngredientJpaRepository : JpaRepository<Ingredient, Long> {
     fun findByCodeIn(codes: Set<IngredientCode>): List<Ingredient>
+
+    fun findAllByOrderByCode(): List<Ingredient>
 }

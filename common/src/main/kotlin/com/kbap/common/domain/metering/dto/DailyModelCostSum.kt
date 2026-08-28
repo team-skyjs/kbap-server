@@ -10,4 +10,5 @@ data class DailyModelCostSum(
     val inputTokens: Long,
     val outputTokens: Long,
     val costUsd: BigDecimal,
+    val costKrw: BigDecimal,
 )

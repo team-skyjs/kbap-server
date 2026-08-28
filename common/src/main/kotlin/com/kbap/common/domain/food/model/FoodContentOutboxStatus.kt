@@ -4,4 +4,5 @@ enum class FoodContentOutboxStatus {
     PENDING,
     SENT,
     COMPLETE,
+    CANCELED,
 }

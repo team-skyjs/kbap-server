@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam
 
 @Controller
 class AdminPageController(
-    private val adminLoginService: AdminLoginService,
+    private val adminAuthService: AdminAuthService,
     private val tokenParser: TokenParser,
 ) {
     @GetMapping("/admin/login")
@@ -31,9 +31,10 @@ class AdminPageController(
         response: HttpServletResponse,
         model: Model,
     ): String {
-        val token = adminLoginService.login(id, password)
-        if (token == null) {
-            model.addAttribute("error", "아이디 또는 비밀번호가 올바르지 않습니다.")
+        val token = try {
+            adminAuthService.login(id, password).accessToken
+        } catch (e: BusinessException) {
+            model.addAttribute("error", e.errorCode.message)
             return "admin/login"
         }
         response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie(token).toString())

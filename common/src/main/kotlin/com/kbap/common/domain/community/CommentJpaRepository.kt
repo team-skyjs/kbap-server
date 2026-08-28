@@ -8,6 +8,11 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface CommentJpaRepository : JpaRepository<Comment, Long> {
+    @Query(nativeQuery = true, value = "select * from community_comment c where c.post_id = :postId order by c.id asc")
+    fun findAllByPostIdIncludingDeleted(@Param("postId") postId: Long): List<Comment>
+
+    fun countByPostId(postId: Long): Long
+
     @Query(
         """
         select c from Comment c

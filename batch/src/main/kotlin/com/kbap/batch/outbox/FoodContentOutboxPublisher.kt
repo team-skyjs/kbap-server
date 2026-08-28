@@ -47,7 +47,7 @@ class FoodContentOutboxPublisher(
                     outboxRepository.recordPublishSucceeded(result.succeededOutboxIds)
                 }
                 if (result.failedOutboxIds.isNotEmpty()) {
-                    outboxRepository.recordPublishFailed(result.failedOutboxIds)
+                    outboxRepository.recordPublishFailed(result.failedOutboxIds, PUBLISH_FAILURE_ERROR)
                 }
             }
 
@@ -57,5 +57,9 @@ class FoodContentOutboxPublisher(
         }
 
         return FoodContentOutboxPublishSummary(attempted, succeeded, failed)
+    }
+
+    companion object {
+        const val PUBLISH_FAILURE_ERROR = "SQS 발행 실패 — 다음 주기에 재시도"
     }
 }

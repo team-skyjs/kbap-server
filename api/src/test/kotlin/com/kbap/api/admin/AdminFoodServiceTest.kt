@@ -197,43 +197,48 @@ class AdminFoodServiceTest : BehaviorSpec() {
             }
         }
 
-        given("관리자 음식 수정 상태 지정(updateFood)") {
+        given("관리자 음식 수정(updateFood)") {
             val fullTranslationsJson =
                 """{"zh-Hans":"번","en":"번","ja":"번","zh-Hant":"번","vi":"번","id":"번","th":"번","ru":"번","es":"번"}"""
 
             fun completeCommand(
                 koreanName: String,
-                contentStatus: FoodContentStatus,
                 spiciness: Int = 2,
                 imageRef: String = "",
                 nameTranslationsJson: String = fullTranslationsJson,
+                ingredientsJson: String = """[{"code":"PORK","inclusion_percent":80}]""",
             ) = UpdateFoodCommand(
                 koreanName = koreanName,
                 description = "완비된 설명",
                 spiciness = spiciness,
-                contentStatus = contentStatus,
                 imageRef = imageRef,
                 nameTranslationsJson = nameTranslationsJson,
                 descriptionTranslationsJson = fullTranslationsJson,
-                ingredientsJson = """[{"code":"PORK","inclusion_percent":80}]""",
+                ingredientsJson = ingredientsJson,
             )
 
             fun savedStatus(id: Long): FoodContentStatus =
                 foodJpaRepository.findById(id).get().contentStatus
 
+            fun versionOf(id: Long): Long = foodJpaRepository.findById(id).get().version
+
             fun saveIncompleteFood(koreanName: String): Long =
                 foodJpaRepository.save(Food.failed(koreanName)).id
 
+            fun update(id: Long, command: UpdateFoodCommand, version: Long = versionOf(id)) =
+                service.updateFood(id, command, version, adminId = 1L)
+
             `when`("띄어쓰기를 넣어 이름을 교정하면") {
-                then("표시명은 교정 표기로, 매칭용 이름은 재정규화된 match key 로 저장된다") {
+                then("표시명은 교정 표기로, 매칭용 이름은 재정규화된 match key 로 저장되고 상태는 그대로다") {
                     val id = saveIncompleteFood("교정들깨칼국수")
 
-                    val result = service.updateFood(id, completeCommand("교정 들깨 칼국수", FoodContentStatus.FAILED))
+                    val result = update(id, completeCommand("교정 들깨 칼국수"))
 
                     result shouldBe AdminFoodUpdateResult.UPDATED
                     val saved = foodJpaRepository.findById(id).get()
                     saved.displayName shouldBe "교정 들깨 칼국수"
                     saved.koreanName shouldBe "교정들깨칼국수"
+                    saved.contentStatus shouldBe FoodContentStatus.FAILED
                 }
             }
 
@@ -242,65 +247,52 @@ class AdminFoodServiceTest : BehaviorSpec() {
                     saveIncompleteFood("중복부대찌개")
                     val id = saveIncompleteFood("교정대상음식")
 
-                    val result = service.updateFood(id, completeCommand("중복 부대 찌개", FoodContentStatus.FAILED))
+                    val result = update(id, completeCommand("중복 부대 찌개"))
 
                     result shouldBe AdminFoodUpdateResult.DUPLICATE_NAME
                 }
             }
 
-            `when`("관리자가 이미지 대기 상태를 골라 저장하면") {
-                then("고른 상태를 그대로 저장한다 — 서버가 완성도로 보정하지 않는다") {
-                    val id = saveIncompleteFood("수동이미지대기음식")
+            `when`("이전 버전으로 저장하면") {
+                then("STALE 로 거절하고 아무것도 바뀌지 않는다") {
+                    val id = saveIncompleteFood("버전충돌음식")
 
-                    val result = service.updateFood(
-                        id,
-                        completeCommand("수동이미지대기음식", FoodContentStatus.PENDING_IMAGE),
-                    )
+                    val result = update(id, completeCommand("버전충돌음식"), version = versionOf(id) + 3)
 
-                    result shouldBe AdminFoodUpdateResult.UPDATED
-                    savedStatus(id) shouldBe FoodContentStatus.PENDING_IMAGE
+                    result shouldBe AdminFoodUpdateResult.STALE
+                    foodJpaRepository.findById(id).get().description shouldBe Food.PLACEHOLDER_DESCRIPTION
                 }
             }
 
-            `when`("관리자가 확인 필요 상태를 골라 저장하면") {
-                then("텍스트가 완비돼 있어도 FAILED 를 유지한다") {
-                    val id = saveIncompleteFood("수동확인필요음식")
+            `when`("미완성(FAILED) 음식을 번역·재료 없이 저장하면") {
+                then("부분 콘텐츠를 허용한다") {
+                    val id = saveIncompleteFood("부분저장음식")
 
-                    val result = service.updateFood(
-                        id,
-                        completeCommand("수동확인필요음식", FoodContentStatus.FAILED, imageRef = "food/img.png"),
-                    )
+                    val result = update(id, completeCommand("부분저장음식", nameTranslationsJson = "{}", ingredientsJson = ""))
 
                     result shouldBe AdminFoodUpdateResult.UPDATED
-                    savedStatus(id) shouldBe FoodContentStatus.FAILED
                 }
             }
 
-            `when`("READY 를 직접 지정해 저장하면") {
-                then("READY 가 유지된다") {
-                    val id = saveIncompleteFood("수동레디음식")
+            `when`("카탈로그에 없는 재료 코드나 범위 밖 비율이면") {
+                then("상태와 무관하게 INVALID_CONTENT 로 거절한다") {
+                    val id = saveIncompleteFood("재료검증음식")
 
-                    val result = service.updateFood(
-                        id,
-                        completeCommand("수동레디음식", FoodContentStatus.READY, nameTranslationsJson = "{}"),
-                    )
+                    update(id, completeCommand("재료검증음식", ingredientsJson = """[{"code":"PEANUTS","inclusion_percent":80}]""")) shouldBe
+                        AdminFoodUpdateResult.INVALID_CONTENT
+                    update(id, completeCommand("재료검증음식", ingredientsJson = """[{"code":"PORK","inclusion_percent":0}]""")) shouldBe
+                        AdminFoodUpdateResult.INVALID_CONTENT
+                }
+            }
 
-                    result shouldBe AdminFoodUpdateResult.UPDATED
+            `when`("READY 음식을 번역이 빠진 채 저장하면") {
+                then("완성 규칙을 요구해 INVALID_CONTENT 로 거절한다") {
+                    val id = foodJpaRepository.save(
+                        Food(koreanName = "레디검증음식", description = "설명", contentStatus = FoodContentStatus.READY),
+                    ).id
+
+                    update(id, completeCommand("레디검증음식", nameTranslationsJson = "{}")) shouldBe AdminFoodUpdateResult.INVALID_CONTENT
                     savedStatus(id) shouldBe FoodContentStatus.READY
-                }
-            }
-
-            `when`("PENDING_REVIEW 를 직접 지정해 저장하면") {
-                then("PENDING_REVIEW 가 유지된다") {
-                    val id = saveIncompleteFood("수동검수음식")
-
-                    val result = service.updateFood(
-                        id,
-                        completeCommand("수동검수음식", FoodContentStatus.PENDING_REVIEW, nameTranslationsJson = "{}"),
-                    )
-
-                    result shouldBe AdminFoodUpdateResult.UPDATED
-                    savedStatus(id) shouldBe FoodContentStatus.PENDING_REVIEW
                 }
             }
 
@@ -309,7 +301,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
                     saveFood("보정중복대상음식")
                     val id = saveIncompleteFood("보정중복시도음식")
 
-                    val result = service.updateFood(id, completeCommand("보정중복대상음식", FoodContentStatus.FAILED))
+                    val result = update(id, completeCommand("보정중복대상음식"))
 
                     result shouldBe AdminFoodUpdateResult.DUPLICATE_NAME
                     savedStatus(id) shouldBe FoodContentStatus.FAILED
@@ -322,7 +314,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 then("모두 FAILED 로 생성되고 created 로 센다") {
                     val result = service.seedIncomplete(setOf("시드마라샹궈", "시드탕후루", "시드쌀국수"))
 
-                    result shouldBe SeedIncompleteResult(requested = 3, created = 3, skipped = 0)
+                    result.let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(3, 3, 0)
                     foodJpaRepository.count() shouldBe 3
                     foodsByNames(setOf("시드마라샹궈", "시드탕후루", "시드쌀국수"))
                         .values.forEach { it.isReady() shouldBe false }
@@ -333,7 +325,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 then("정규화(NFC·한글만)된 이름으로 저장·중복 판정한다") {
                     val result = service.seedIncomplete(setOf("김치 찌개", "김치찌개", "Kimchi 김치찌개!", "abc123"))
 
-                    result shouldBe SeedIncompleteResult(requested = 1, created = 1, skipped = 0)
+                    result.let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(1, 1, 0)
                     foodsByNames(setOf("김치찌개")).keys shouldBe setOf("김치찌개")
                     foodJpaRepository.count() shouldBe 1
                 }
@@ -355,7 +347,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
 
                     val result = service.seedIncomplete(setOf("시드비빔밥", "시드김치찌개", "시드잡채"))
 
-                    result shouldBe SeedIncompleteResult(requested = 3, created = 2, skipped = 1)
+                    result.let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(3, 2, 1)
                     foodJpaRepository.count() shouldBe 3
                     foodsByNames(setOf("시드비빔밥")).getValue("시드비빔밥").id shouldBe existingId
                 }
@@ -368,15 +360,15 @@ class AdminFoodServiceTest : BehaviorSpec() {
 
                     val result = service.seedIncomplete(setOf("시드국밥", "시드냉면"))
 
-                    result shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
+                    result.let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(2, 0, 2)
                     foodJpaRepository.count() shouldBe 2
                 }
             }
 
             `when`("빈 집합이거나 정규화 후 남는 이름이 없으면") {
                 then("쿼리 없이 (0,0,0) 을 돌려준다") {
-                    service.seedIncomplete(emptySet()) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
-                    service.seedIncomplete(setOf("abc", "123", "  ")) shouldBe SeedIncompleteResult(requested = 0, created = 0, skipped = 0)
+                    service.seedIncomplete(emptySet()).let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(0, 0, 0)
+                    service.seedIncomplete(setOf("abc", "123", "  ")).let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(0, 0, 0)
                 }
             }
 
@@ -384,8 +376,8 @@ class AdminFoodServiceTest : BehaviorSpec() {
                 then("두 번째는 created=0 으로 성공하고 행 수가 늘지 않는다") {
                     val names = setOf("멱등마라탕", "멱등탕수육")
 
-                    service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 2, skipped = 0)
-                    service.seedIncomplete(names) shouldBe SeedIncompleteResult(requested = 2, created = 0, skipped = 2)
+                    service.seedIncomplete(names).let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(2, 2, 0)
+                    service.seedIncomplete(names).let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(2, 0, 2)
                     foodJpaRepository.count() shouldBe 2
                 }
             }
@@ -399,7 +391,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
 
                     val result = service.seedIncomplete(setOf("유령시드라면", "생존시드라면"))
 
-                    result shouldBe SeedIncompleteResult(requested = 2, created = 1, skipped = 1)
+                    result.let { Triple(it.requested, it.created, it.skipped) } shouldBe Triple(2, 1, 1)
                     foodsByNames(setOf("생존시드라면")).keys shouldBe setOf("생존시드라면")
                 }
             }

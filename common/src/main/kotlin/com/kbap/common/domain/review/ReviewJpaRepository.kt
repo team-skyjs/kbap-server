@@ -17,7 +17,7 @@ interface FoodRatingAggregate {
     val reviewCount: Long
 }
 
-interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom, ReviewAdminQueryRepositoryCustom {
     @Query(
         """
         select r from Review r
@@ -56,4 +56,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
+
+    fun countByMemberId(memberId: Long): Long
 }

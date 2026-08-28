@@ -46,6 +46,9 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Kotest 발견 단계가 classgraph 로 테스트 클래스패스 전체를 스캔한다 — 워커 기본 힙(512m)으로는
+    // api 모듈에서 OutOfMemoryError("failed to discover tests")가 난다(CI 에서 먼저 드러남).
+    maxHeapSize = "2g"
     System.getProperty("kotest.tags")?.let { systemProperty("kotest.tags", it) }
     // Kotest 는 시작 시 classgraph 로 테스트 클래스패스 전체 jar 를 스캔해 AbstractProjectConfig·@AutoScan 을 찾는다.
     // 이 레포는 둘 다 쓰지 않는데, prometheus 클라이언트(protobuf 쉐이딩) jar 추가 후 CI 워커 기본 힙(512m)에서

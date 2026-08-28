@@ -2,13 +2,39 @@ package com.kbap.common.domain.scan
 
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.scan.model.ScanHistory
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+    @Query(
+        """
+        select s from ScanHistory s
+        where (:memberId is null or s.memberId = :memberId)
+          and (:unmatched is null or (:unmatched = true and s.foodId is null) or (:unmatched = false and s.foodId is not null))
+          and (:from is null or s.createdAt >= :from)
+          and (:to is null or s.createdAt < :to)
+        order by s.id desc
+        """,
+    )
+    fun findAdminPage(
+        @Param("memberId") memberId: Long?,
+        @Param("unmatched") unmatched: Boolean?,
+        @Param("from") from: LocalDateTime?,
+        @Param("to") to: LocalDateTime?,
+        pageable: Pageable,
+    ): Page<ScanHistory>
+
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
+
+    fun countByFoodId(foodId: Long): Long
+
+    fun countByMemberId(memberId: Long): Long
+
+    fun findTop5ByMemberIdOrderByIdDesc(memberId: Long): List<ScanHistory>
 
     @Query(
         """

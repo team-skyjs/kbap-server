@@ -8,8 +8,13 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-interface MemberJpaRepository : JpaRepository<Member, Long> {
+interface MemberJpaRepository : JpaRepository<Member, Long>, MemberAdminQueryRepositoryCustom {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
+
+    fun findByProviderAndProviderUid(provider: SocialProvider, providerUid: String): Member?
+
+    @Query(nativeQuery = true, value = "select * from member m where m.id = :id")
+    fun findByIdIncludingWithdrawn(@Param("id") id: Long): Member?
 
     fun countByMemberStatus(memberStatus: MemberStatus): Long
 

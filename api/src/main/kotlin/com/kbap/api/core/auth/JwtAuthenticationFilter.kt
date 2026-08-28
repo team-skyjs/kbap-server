@@ -5,6 +5,7 @@ import com.kbap.common.core.error.BusinessException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.logging.RequestLoggingFilter
+import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenParser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -32,10 +33,14 @@ class JwtAuthenticationFilter(
         try {
             val token = bearerToken(request)
             val parsed = tokenParser.parseAccessToken(token)
-            request.setAttribute(MEMBER_ID_ATTRIBUTE, parsed.memberId)
             request.setAttribute(ROLE_ATTRIBUTE, parsed.roleName)
-            // 정리는 바깥 RequestLoggingFilter 의 MDC.clear() 가 일괄 담당한다.
-            MDC.put(RequestLoggingFilter.MEMBER_ID_KEY, parsed.memberId.toString())
+            if (parsed.role == MemberRole.ADMIN) {
+                request.setAttribute(ADMIN_ID_ATTRIBUTE, parsed.memberId)
+                MDC.put(RequestLoggingFilter.ADMIN_ID_KEY, parsed.memberId.toString())
+            } else {
+                request.setAttribute(MEMBER_ID_ATTRIBUTE, parsed.memberId)
+                MDC.put(RequestLoggingFilter.MEMBER_ID_KEY, parsed.memberId.toString())
+            }
             filterChain.doFilter(request, response)
         } catch (e: BusinessException) {
             writeUnauthorized(response, e)
@@ -59,6 +64,7 @@ class JwtAuthenticationFilter(
 
     companion object {
         const val MEMBER_ID_ATTRIBUTE: String = "authMemberId"
+        const val ADMIN_ID_ATTRIBUTE: String = "authAdminId"
         const val ROLE_ATTRIBUTE: String = "authMemberRole"
         private const val AUTHORIZATION_HEADER: String = "Authorization"
         private const val BEARER_PREFIX: String = "Bearer "

@@ -2,10 +2,13 @@ package com.kbap.common.domain.food
 
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long> {
     fun existsByFoodIdAndOutboxStatus(foodId: Long, outboxStatus: FoodContentOutboxStatus): Boolean
@@ -17,6 +20,14 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun countByOutboxStatus(outboxStatus: FoodContentOutboxStatus): Long
 
     fun findTop20ByOrderByIdDesc(): List<FoodContentOutbox>
+
+    fun findTop20ByOutboxStatusAndSentAtBeforeOrderBySentAtAsc(outboxStatus: FoodContentOutboxStatus, before: LocalDateTime): List<FoodContentOutbox>
+
+    fun findTop14ByOutboxStatusInOrderByIdDesc(statuses: Collection<FoodContentOutboxStatus>): List<FoodContentOutbox>
+
+    fun findTop10ByFoodIdOrderByIdDesc(foodId: Long): List<FoodContentOutbox>
+
+    fun countByOutboxStatusAndSentAtBefore(outboxStatus: FoodContentOutboxStatus, before: LocalDateTime): Long
 
     @Query(
         value = """
@@ -83,6 +94,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         value = """
             UPDATE food_content_outbox
             SET attempts = attempts + 1,
+                last_error = :error,
+                last_failed_at = CURRENT_TIMESTAMP(6),
                 updated_at = CURRENT_TIMESTAMP(6)
             WHERE id IN (:ids)
               AND outbox_status IN ('PENDING', 'SENT', 'COMPLETE')
@@ -90,5 +103,21 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         """,
         nativeQuery = true,
     )
-    fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
+    fun recordPublishFailed(@Param("ids") ids: Collection<Long>, @Param("error") error: String?): Int
+
+    fun recordPublishFailed(ids: Collection<Long>): Int = recordPublishFailed(ids, null)
+
+    @Query(
+        """
+        select o from FoodContentOutbox o
+        where (:status is null or o.outboxStatus = :status)
+          and (:foodId is null or o.foodId = :foodId)
+        order by o.id desc
+        """,
+    )
+    fun findPage(
+        @Param("status") status: FoodContentOutboxStatus?,
+        @Param("foodId") foodId: Long?,
+        pageable: Pageable,
+    ): Page<FoodContentOutbox>
 }

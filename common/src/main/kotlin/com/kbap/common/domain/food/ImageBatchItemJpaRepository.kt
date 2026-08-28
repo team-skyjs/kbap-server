@@ -11,6 +11,12 @@ import org.springframework.transaction.annotation.Transactional
 interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     fun findByBatchIdAndItemStatus(batchId: Long, itemStatus: ImageBatchItemStatus): List<ImageBatchItem>
 
+    fun findTop10ByFoodIdOrderByIdDesc(foodId: Long): List<ImageBatchItem>
+
+    fun existsByFoodIdAndItemStatus(foodId: Long, itemStatus: ImageBatchItemStatus): Boolean
+
+    fun findByBatchIdOrderByIdAsc(batchId: Long): List<ImageBatchItem>
+
     @Query(
         """
         select new com.kbap.common.domain.food.dto.ImageBatchItemCount(i.batchId, i.itemStatus, count(i))

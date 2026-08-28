@@ -133,7 +133,7 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             }
 
             `when`("제출 이후 이미지 대기가 아니게 된 음식의 결과가 도착하면") {
-                then("그 아이템만 실패로 마감하고 음식 상태·이미지는 건드리지 않는다") {
+                then("이미지는 교체하되 상태는 그대로 두고 아이템을 완료로 마감한다") {
                     val food = foodRepository.save(Food.failed("상태이탈음식"))
                     val batch = saveSubmittedBatch(food.id)
                     fakeClient.polls[batch.openaiBatchId!!] = completed("file_2")
@@ -142,9 +142,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     collectService.collectSubmitted()
 
                     val reloaded = foodRepository.findById(food.id).get()
-                    reloaded.imageRef shouldBe null
+                    reloaded.imageRef shouldBe fakeStorage.heads.keys.single()
                     reloaded.contentStatus shouldBe FoodContentStatus.FAILED
-                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.DONE
                 }
             }
 

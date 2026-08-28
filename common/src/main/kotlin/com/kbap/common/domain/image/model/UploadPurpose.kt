@@ -5,6 +5,7 @@ enum class UploadPurpose(val prefix: String) {
     REVIEW("review"),
     PROFILE_IMAGE("profile"),
     COMMUNITY("community"),
+    FOOD("food"),
     ;
 
     companion object {

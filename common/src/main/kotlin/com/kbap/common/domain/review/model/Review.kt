@@ -66,6 +66,10 @@ class Review(
 
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId
 
+    fun removeImages() {
+        imageRefs = null
+    }
+
     private fun requireValid(
         rating: Int,
         servingSpeedRating: Int,

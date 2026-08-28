@@ -62,6 +62,9 @@ class AdminFoodListControllerTest : BehaviorSpec() {
         fun saveFood(koreanName: String): Food =
             foodJpaRepository.save(Food(koreanName = koreanName, description = "구수한 $koreanName"))
 
+        fun saveEditableFood(koreanName: String): Food =
+            foodJpaRepository.save(Food(koreanName = koreanName, description = "구수한 $koreanName", contentStatus = FoodContentStatus.FAILED))
+
         fun listPageOf(result: MvcResult): AdminFoodListPageView =
             result.modelAndView!!.model["foodPage"] as AdminFoodListPageView
 
@@ -350,7 +353,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 Regex("""<(?:input|select|textarea)[^>]*id="$id"[^>]*>""").find(html)!!.value
 
             val detailFieldIds = listOf(
-                "koreanName", "contentStatus", "spiciness", "imageRef", "description",
+                "koreanName", "spiciness", "imageRef", "description",
                 "nameTranslationsJson", "descriptionTranslationsJson", "ingredientsJson",
             )
 
@@ -399,11 +402,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
         given("음식 컬럼 수정") {
             `when`("모달 폼에서 전 컬럼을 수정 제출하면") {
                 then("반영하고 목록으로 리다이렉트한다") {
-                    val saved = saveFood("수정전이름")
+                    val saved = saveEditableFood("수정전이름")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "수정후이름")
                         param("description", "수정된 설명")
                         param("spiciness", "3")
@@ -421,7 +425,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     updated.koreanName shouldBe "수정후이름"
                     updated.description shouldBe "수정된 설명"
                     updated.spiciness shouldBe 3
-                    updated.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    updated.contentStatus shouldBe FoodContentStatus.FAILED
                     updated.imageRef shouldBe "food/1.png"
                     updated.nameTranslations shouldBe mapOf("en" to "Edited")
                     updated.ingredients!!.single().code shouldBe "PORK"
@@ -430,11 +434,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("빈 ingredientsJson 과 빈 imageRef 로 제출하면") {
                 then("각각 미조사(null)로 반영된다") {
-                    val saved = saveFood("널수정이름")
+                    val saved = saveEditableFood("널수정이름")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "널수정이름")
                         param("description", "설명")
                         param("spiciness", "0")
@@ -453,11 +458,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("잘못된 JSON 으로 제출하면") {
                 then("오류 파라미터와 함께 상세를 다시 열고 데이터를 바꾸지 않는다") {
-                    val saved = saveFood("JSON오류이름")
+                    val saved = saveEditableFood("JSON오류이름")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "JSON오류이름")
                         param("description", "설명")
                         param("spiciness", "0")
@@ -480,6 +486,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     mockMvc.post("/admin/foods/999999") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "없는음식")
                         param("description", "설명")
                         param("spiciness", "0")
@@ -493,11 +500,12 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("공백 이름으로 수정 제출하면") {
                 then("invalid-name 오류 파라미터와 anchor 로 모달을 다시 연다") {
-                    val saved = saveFood("이름검증대상")
+                    val saved = saveEditableFood("이름검증대상")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "   ")
                         param("description", "설명")
                         param("spiciness", "0")
@@ -513,12 +521,13 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("다른 음식과 중복되는 이름으로 수정하면") {
                 then("중복 오류 파라미터로 리다이렉트한다") {
-                    saveFood("중복대상이름")
-                    val saved = saveFood("중복시도이름")
+                    saveEditableFood("중복대상이름")
+                    val saved = saveEditableFood("중복시도이름")
 
                     mockMvc.post("/admin/foods/${saved.id}") {
                         cookie(adminCookie())
                         param("page", "1")
+                        param("version", "0")
                         param("koreanName", "중복대상이름")
                         param("description", "설명")
                         param("spiciness", "0")
@@ -538,8 +547,8 @@ class AdminFoodListControllerTest : BehaviorSpec() {
         given("음식명 검색") {
             `when`("q 파라미터로 검색하면") {
                 then("음식명이 부분 일치하는 음식만 렌더링한다") {
-                    saveFood("검색렌더김치찌개")
-                    saveFood("검색렌더순두부찌개")
+                    saveEditableFood("검색렌더김치찌개")
+                    saveEditableFood("검색렌더순두부찌개")
 
                     val result = getList("?q=김치")
 
@@ -551,8 +560,8 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("q 없이 조회하면") {
                 then("기존과 동일하게 전체 음식을 렌더링한다") {
-                    saveFood("검색렌더김치찌개")
-                    saveFood("검색렌더순두부찌개")
+                    saveEditableFood("검색렌더김치찌개")
+                    saveEditableFood("검색렌더순두부찌개")
 
                     listPageOf(getList()).totalCount shouldBe 2
                 }
@@ -564,6 +573,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             fun updateParams(koreanName: String, nameTranslationsJson: String = "{}"): Map<String, String> = mapOf(
                 "page" to "1",
+                "version" to "0",
                 "koreanName" to koreanName,
                 "description" to "설명",
                 "spiciness" to "0",
@@ -594,7 +604,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("검색 상태에서 상세를 편집 모드로 열면") {
                 then("편집 관련 링크와 수정 폼 hidden 입력이 검색어를 유지한다") {
-                    val saved = saveFood("유지편집김치찌개")
+                    val saved = saveEditableFood("유지편집김치찌개")
 
                     val html = getList("?q=김치&detail=${saved.id}&edit=true").response.contentAsString
 
@@ -605,7 +615,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("검색어와 함께 수정을 제출하면") {
                 then("성공 redirect 가 인코딩된 검색어와 앵커를 유지한다") {
-                    val saved = saveFood("유지수정김치찌개")
+                    val saved = saveEditableFood("유지수정김치찌개")
 
                     postUpdate(saved.id, "김치", "유지수정김치찌개").andExpect {
                         status { is3xxRedirection() }
@@ -616,7 +626,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("검색어와 함께 잘못된 JSON 으로 제출하면") {
                 then("오류 redirect 도 검색어를 유지한다") {
-                    val saved = saveFood("유지오류김치찌개")
+                    val saved = saveEditableFood("유지오류김치찌개")
 
                     postUpdate(saved.id, "김치", "유지오류김치찌개", nameTranslationsJson = "{잘못된}").andExpect {
                         status { is3xxRedirection() }
@@ -627,7 +637,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
 
             `when`("공백뿐인 검색어로 제출하면") {
                 then("redirect 에 q 파라미터를 붙이지 않는다") {
-                    val saved = saveFood("유지블랭크김치찌개")
+                    val saved = saveEditableFood("유지블랭크김치찌개")
 
                     postUpdate(saved.id, "   ", "유지블랭크김치찌개").andExpect {
                         status { is3xxRedirection() }

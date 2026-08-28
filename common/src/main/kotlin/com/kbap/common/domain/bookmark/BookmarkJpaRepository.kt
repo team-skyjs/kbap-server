@@ -9,6 +9,10 @@ import org.springframework.data.repository.query.Param
 interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
     fun findByMemberIdAndFoodId(memberId: Long, foodId: Long): Bookmark?
 
+    fun countByFoodId(foodId: Long): Long
+
+    fun countByMemberId(memberId: Long): Long
+
     fun findByMemberIdAndFoodIdIn(memberId: Long, foodIds: Collection<Long>): List<Bookmark>
 
     @Query(

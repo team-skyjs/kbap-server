@@ -71,6 +71,9 @@ kbap:
       # access 는 stateless 라 만료 전 무효화가 불가능하므로 짧게, refresh 는 Redis 폐기가 가능하므로 길게.
       access-ttl: 30m
       refresh-ttl: 14d
+    admin:
+      # 관리자 SPA 세션(KB-375). 갱신 토큰 없이 액세스 토큰 하나 — 만료되면 다시 로그인한다.
+      access-ttl: 8h
   llm:
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. 스캔은 필수 기능이라 끄는 스위치를 두지 않는다 —
     # ScanService 가 이 빈에 의존하므로 OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.

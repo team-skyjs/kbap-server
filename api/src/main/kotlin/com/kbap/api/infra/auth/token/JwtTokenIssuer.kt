@@ -1,10 +1,8 @@
 package com.kbap.api.infra.auth.token
 
-import com.kbap.common.port.auth.IssuedRefreshToken
-import com.kbap.api.infra.auth.token.JwtTokenProperties
-import com.kbap.common.port.auth.TokenIssuer
-
 import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.IssuedRefreshToken
+import com.kbap.common.port.auth.TokenIssuer
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
 import java.util.Date
@@ -26,7 +24,7 @@ class JwtTokenIssuer(
             .claim(TokenType.CLAIM, TokenType.ACCESS.name)
             .claim(ROLE_CLAIM, role.name)
             .issuedAt(Date(now))
-            .expiration(Date(now + properties.accessTtl.toMillis()))
+            .expiration(Date(now + properties.accessTtl(role).toMillis()))
             .signWith(key)
             .compact()
     }

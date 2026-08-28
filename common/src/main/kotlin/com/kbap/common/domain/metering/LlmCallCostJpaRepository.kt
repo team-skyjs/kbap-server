@@ -12,7 +12,7 @@ interface LlmCallCostJpaRepository : JpaRepository<LlmCallCost, Long> {
         """
         select new com.kbap.common.domain.metering.dto.DailyModelCostSum(
             cast(c.createdAt as LocalDate), c.modelName, count(c),
-            sum(c.inputTokens), sum(c.outputTokens), sum(c.costUsd))
+            sum(c.inputTokens), sum(c.outputTokens), sum(c.costUsd), sum(c.costKrw))
         from LlmCallCost c
         where c.createdAt >= :from
         group by cast(c.createdAt as LocalDate), c.modelName

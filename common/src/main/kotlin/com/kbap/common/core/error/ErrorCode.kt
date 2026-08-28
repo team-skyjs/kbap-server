@@ -19,6 +19,11 @@ enum class ErrorCode(
     EXPIRED_REFRESH_TOKEN("AUTH-006", 401, "만료된 리프레시 토큰입니다. 다시 로그인해 주세요"),
     SOCIAL_ACCOUNT_DELETE_FAILED("AUTH-007", 500, "소셜 계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요"),
     ADMIN_FORBIDDEN("AUTH-008", 403, "관리자만 사용할 수 있는 API 입니다"),
+    ADMIN_LOGIN_FAILED("AUTH-009", 401, "아이디 또는 비밀번호가 올바르지 않습니다"),
+    ADMIN_ACCOUNT_DUPLICATED("AUTH-011", 409, "이미 사용 중인 관리자 아이디입니다"),
+    ADMIN_PASSWORD_MISMATCH("AUTH-012", 400, "현재 비밀번호가 올바르지 않습니다"),
+    ADMIN_SELF_ACTION_FORBIDDEN("AUTH-013", 400, "자기 자신의 계정에는 할 수 없는 조작입니다"),
+    ADMIN_ACCOUNT_NOT_FOUND("AUTH-014", 404, "해당 관리자 계정을 찾을 수 없습니다"),
 
     DUPLICATE_SOCIAL_IDENTITY("MEMBER-001", 409, "이미 가입된 소셜 계정입니다"),
     ONBOARDING_ALREADY_COMPLETED("MEMBER-002", 400, "이미 온보딩을 완료했습니다"),
@@ -30,11 +35,16 @@ enum class ErrorCode(
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
     INVALID_CURRENCY_CODE("MEMBER-010", 400, "지원하지 않는 통화 코드입니다"),
     INVALID_DIET_CATEGORY("MEMBER-011", 400, "지원하지 않는 diet 카테고리입니다"),
+    MEMBER_SUSPENDED("MEMBER-012", 403, "이용이 정지된 계정입니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
     BLANK_SEARCH_KEYWORD("FOOD-003", 400, "검색어를 입력해 주세요"),
     FOOD_CONTENT_REQUEST_ALREADY_COMPLETED("FOOD-004", 409, "이미 처리된 음식 콘텐츠 수집 요청입니다"),
+    FOOD_INVALID_TRANSITION("FOOD-005", 409, "현재 상태에서 허용되지 않는 전이입니다"),
+    FOOD_INVALID_CONTENT("FOOD-006", 400, "음식 콘텐츠가 검증 규칙에 맞지 않습니다"),
+    DUPLICATE_FOOD_NAME("FOOD-007", 409, "같은 이름의 음식이 이미 있습니다"),
+    FOOD_CONTENT_REQUEST_NOT_PENDING("FOOD-010", 409, "현재 상태에서 처리할 수 없는 수집 요청입니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
@@ -69,6 +79,8 @@ enum class ErrorCode(
     REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
     REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+    REPORT_ALREADY_HANDLED("REPORT-004", 409, "이미 처리된 신고입니다"),
+    REPORT_NOT_FOUND("REPORT-005", 404, "해당 신고를 찾을 수 없습니다"),
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),

@@ -27,6 +27,8 @@ interface MemberBlockJpaRepository : JpaRepository<MemberBlock, Long> {
 
     fun findByBlockerMemberIdAndBlockedMemberId(blockerMemberId: Long, blockedMemberId: Long): MemberBlock?
 
+    fun countByBlockerMemberId(blockerMemberId: Long): Long
+
     // 상태 무시 native 조회 — @SQLRestriction(ACTIVE)을 우회해 DELETED 행을 찾아 재차단 시 부활시킨다.
     @Query(
         value = "SELECT * FROM member_block WHERE blocker_member_id = :blockerMemberId AND blocked_member_id = :blockedMemberId LIMIT 1",

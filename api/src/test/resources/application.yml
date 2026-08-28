@@ -26,6 +26,8 @@ kbap:
       secret: kb118-test-secret-key-at-least-32-bytes-long
       access-ttl: 30m
       refresh-ttl: 14d
+    admin:
+      access-ttl: 8h
   # 이미지 업로드 정책(KB-145). 실 S3 는 미구성(bucket 없음) — PresignedUploadPort 는 테스트 페이크 빈으로 대체한다.
   storage:
     public-base-url: https://cdn.test

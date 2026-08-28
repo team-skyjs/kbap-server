@@ -40,15 +40,26 @@ class FoodImageBatchCollectService(
     private val itemTransaction = TransactionTemplate(transactionManager)
 
     @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 */3 * * *}")
-    @SchedulerLock(name = "food-image-collect", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
+    @SchedulerLock(name = LOCK_NAME, lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun collectOnSchedule() = collectSubmitted()
 
-    fun collectSubmitted() {
+    fun collectSubmitted(): ImageCollectSummary {
         recoverStaleSubmitting()
+        var collectedBatches = 0
+        var doneItems = 0
+        var failedItems = 0
         batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTED).forEach { batch ->
             runCatching { collect(batch) }
+                .onSuccess { outcome ->
+                    if (outcome != null) {
+                        collectedBatches++
+                        doneItems += outcome.done
+                        failedItems += outcome.failed
+                    }
+                }
                 .onFailure { log.error("이미지 배치 회수 실패 — 다음 틱에 재시도 batchId={}", batch.id, it) }
         }
+        return ImageCollectSummary(collectedBatches, doneItems, failedItems)
     }
 
     private fun recoverStaleSubmitting() {
@@ -61,11 +72,11 @@ class FoodImageBatchCollectService(
             }
     }
 
-    private fun collect(batch: ImageBatch) {
-        val openaiBatchId = batch.openaiBatchId ?: return
+    private fun collect(batch: ImageBatch): CollectOutcome? {
+        val openaiBatchId = batch.openaiBatchId ?: return null
         val poll = client.status(openaiBatchId)
-        when (poll.state) {
-            FoodImageBatchClient.State.IN_PROGRESS -> Unit
+        return when (poll.state) {
+            FoodImageBatchClient.State.IN_PROGRESS -> null
             FoodImageBatchClient.State.COMPLETED -> collectResults(batch, poll, ImageBatchStatus.COLLECTED)
             FoodImageBatchClient.State.FAILED,
             FoodImageBatchClient.State.EXPIRED,
@@ -73,35 +84,39 @@ class FoodImageBatchCollectService(
         }
     }
 
-    private fun collectResults(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll, closeAs: ImageBatchStatus) {
+    private fun collectResults(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll, closeAs: ImageBatchStatus): CollectOutcome {
         val pendingByFoodId = itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
             .associateBy { it.foodId }
             .toMutableMap()
+        var done = 0
+        var failed = 0
         poll.outputFileId?.let { fileId ->
             client.streamResults(fileId) { result ->
                 val foodId = result.customId.toLongOrNull() ?: return@streamResults
                 val item = pendingByFoodId.remove(foodId) ?: return@streamResults
-                handleResult(item, result)
+                if (handleResult(item, result)) done++ else failed++
             }
         }
         pendingByFoodId.values.forEach { item ->
             saveItem(item) { it.fail("배치 ${poll.state} — 결과 없음(errorFileId=${poll.errorFileId})") }
+            failed++
         }
         itemTransaction.executeWithoutResult {
             batchRepository.save(batch.apply { close(closeAs) })
         }
+        return CollectOutcome(done, failed)
     }
 
-    private fun handleResult(item: ImageBatchItem, result: FoodImageBatchClient.Result) {
+    private fun handleResult(item: ImageBatchItem, result: FoodImageBatchClient.Result): Boolean {
         val bytes = result.bytes
         if (result.errorMessage != null || bytes == null) {
             saveItem(item) { it.fail(result.errorMessage ?: "이미지 데이터 없음") }
-            return
+            return false
         }
         val foodName = foodRepository.findById(item.foodId).orElse(null)?.koreanName
         if (foodName == null) {
             saveItem(item) { it.fail("음식이 삭제되어 건너뜀") }
-            return
+            return false
         }
         val key = item.fileName ?: storageKeyOf(foodName).let { candidate ->
             if (itemRepository.reserveFileName(item.id, candidate) > 0) candidate
@@ -111,22 +126,21 @@ class FoodImageBatchCollectService(
         var attached = false
         itemTransaction.executeWithoutResult {
             val food = foodRepository.findById(item.foodId).orElse(null)
-            when {
-                food == null -> item.fail("음식이 삭제되어 건너뜀")
-                // 제출 이후 관리자·파이프라인이 상태를 옮겼을 수 있다 — 전이 예외로 배치 전체가 멈추지 않게 아이템만 마감한다
-                food.contentStatus != FoodContentStatus.PENDING_IMAGE ->
-                    item.fail("이미지 대기 상태가 아니어서 건너뜀(${food.contentStatus})")
-                else -> {
-                    food.attachImage(key)
-                    foodRepository.save(food)
-                    item.done(key)
-                    attached = true
-                }
+            if (food == null) {
+                item.fail("음식이 삭제되어 건너뜀")
+            } else {
+                food.replaceImage(key)
+                foodRepository.save(food)
+                item.done(key)
+                attached = true
             }
             itemRepository.save(item)
         }
         if (attached) result.usage?.let { publishCost(it) }
+        return attached
     }
+
+    private data class CollectOutcome(val done: Int, val failed: Int)
 
     private fun closeFailed(batch: ImageBatch, state: FoodImageBatchClient.State) {
         itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING).forEach { item ->
@@ -173,5 +187,13 @@ class FoodImageBatchCollectService(
         }
 
         const val STALE_SUBMITTING_HOURS: Long = 1
+
+        const val LOCK_NAME: String = "food-image-collect"
     }
 }
+
+data class ImageCollectSummary(
+    val collectedBatches: Int,
+    val doneItems: Int,
+    val failedItems: Int,
+)

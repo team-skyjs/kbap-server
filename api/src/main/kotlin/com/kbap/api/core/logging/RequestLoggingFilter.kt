@@ -67,6 +67,7 @@ class RequestLoggingFilter : OncePerRequestFilter() {
     companion object {
         const val REQUEST_ID_KEY: String = "requestId"
         const val MEMBER_ID_KEY: String = "memberId"
+        const val ADMIN_ID_KEY: String = "adminId"
         const val OS_VERSION_KEY: String = "osVersion"
         const val APP_VERSION_KEY: String = "appVersion"
         const val REQUEST_ID_HEADER: String = "X-Request-Id"

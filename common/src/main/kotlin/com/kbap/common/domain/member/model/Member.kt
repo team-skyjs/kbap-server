@@ -13,6 +13,7 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -57,6 +58,12 @@ class Member(
     @Enumerated(EnumType.STRING)
     @Column(name = "member_status", nullable = false, columnDefinition = "ENUM('ACTIVE','SUSPENDED') default 'ACTIVE'")
     var memberStatus: MemberStatus = MemberStatus.ACTIVE,
+
+    @Column(name = "suspended_at")
+    var suspendedAt: LocalDateTime? = null,
+
+    @Column(name = "suspend_reason", length = MAX_SUSPEND_REASON_LENGTH)
+    var suspendReason: String? = null,
 
     @Column(name = "onboarding_completed", nullable = false)
     var onboardingCompleted: Boolean = false,
@@ -156,8 +163,38 @@ class Member(
 
     fun isScanAllowed(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT
 
+    fun isSuspended(): Boolean = memberStatus == MemberStatus.SUSPENDED
+
+    fun suspend(reason: String) {
+        require(reason.isNotBlank()) { "정지 사유는 비어 있을 수 없습니다" }
+        if (isSuspended()) return
+        memberStatus = MemberStatus.SUSPENDED
+        suspendedAt = LocalDateTime.now()
+        suspendReason = reason.take(MAX_SUSPEND_REASON_LENGTH)
+    }
+
+    fun reinstate() {
+        memberStatus = MemberStatus.ACTIVE
+        suspendedAt = null
+        suspendReason = null
+    }
+
+    fun unlockScan() {
+        scanUnlocked = true
+    }
+
+    fun resetNickname() {
+        nickname = "$DEFAULT_NICKNAME_PREFIX$id"
+    }
+
+    fun resetProfileImage() {
+        profileImageUrl = null
+    }
+
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3
+        const val MAX_SUSPEND_REASON_LENGTH: Int = 500
+        const val DEFAULT_NICKNAME_PREFIX: String = "사용자"
         const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"
 
         private fun deletedProviderUid(memberId: Long): String = "$DELETED_PROVIDER_UID_PREFIX$memberId"

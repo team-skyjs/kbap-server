@@ -1,14 +1,17 @@
 package com.kbap.api.food
 
-import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import com.kbap.common.domain.food.model.ImageBatchStatus
+import com.kbap.common.port.llm.FoodImageBatchClient
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
@@ -27,10 +30,20 @@ class FoodImageBatchSubmitService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val metaTransaction = TransactionTemplate(transactionManager)
 
-    fun submitMissingImages(): FoodImageSubmitResult {
-        val candidates = foodRepository.findImageCandidates()
+    fun countCandidates(): Int = foodRepository.findImageCandidates().size
+
+    fun submitMissingImages(): FoodImageSubmitResult = submit(foodRepository.findImageCandidates())
+
+    fun submitForFoods(foodIds: Collection<Long>): FoodImageSubmitResult {
+        val foods = foodRepository.findAllById(foodIds.toSet())
+        if (foods.isEmpty()) throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        return submit(foods)
+    }
+
+    private fun submit(candidates: List<Food>): FoodImageSubmitResult {
         var submittedBatchCount = 0
         var submittedFoodCount = 0
+        val batchIds = mutableListOf<Long>()
         candidates.chunked(properties.batchSize).forEach { chunk ->
             val batch = try {
                 metaTransaction.execute {
@@ -62,12 +75,14 @@ class FoodImageBatchSubmitService(
             }
             submittedBatchCount++
             submittedFoodCount += chunk.size
+            batchIds += batch.id
         }
-        return FoodImageSubmitResult(submittedBatchCount, submittedFoodCount)
+        return FoodImageSubmitResult(submittedBatchCount, submittedFoodCount, batchIds)
     }
 }
 
 data class FoodImageSubmitResult(
     val submittedBatchCount: Int,
     val submittedFoodCount: Int,
+    val batchIds: List<Long> = emptyList(),
 )
