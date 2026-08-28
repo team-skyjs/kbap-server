@@ -15,7 +15,7 @@ class FakeSocialTokenVerifier : SocialTokenVerifier {
 
     override fun verify(idToken: String): SocialIdentity {
         failure?.let { throw BusinessException(it) }
-        return SocialIdentity(SocialProvider.GOOGLE, idToken, DEFAULT_EMAIL)
+        return SocialIdentity(SocialProvider.GOOGLE, idToken, "user@gmail.com")
     }
 
     fun failWith(errorCode: ErrorCode) {
@@ -28,7 +28,6 @@ class FakeSocialTokenVerifier : SocialTokenVerifier {
 
     companion object {
         const val DEFAULT_SUB: String = "google-sub-fixed"
-        const val DEFAULT_EMAIL: String = "user@gmail.com"
     }
 }
 

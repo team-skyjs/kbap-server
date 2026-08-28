@@ -1,7 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
-import com.kbap.api.food.FoodTestSeed
+import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -29,7 +29,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     init {
-        fun clearFoods() = FoodTestSeed.clearFoods(dataSource)
+        fun clearFoods() = TestTables.clearAll(dataSource)
 
         fun saveFood(koreanName: String): Long =
             foodJpaRepository.save(Food(koreanName = koreanName, description = "구수한 $koreanName")).id

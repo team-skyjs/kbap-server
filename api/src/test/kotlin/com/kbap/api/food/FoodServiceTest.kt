@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -40,7 +41,7 @@ class FoodServiceTest : BehaviorSpec() {
     init {
         fun incompleteNames(vararg matchKeys: String): Map<String, String> = matchKeys.associateWith { it }
 
-        fun clearFoods() = FoodTestSeed.clearFoods(dataSource)
+        fun clearFoods() = TestTables.clearAll(dataSource)
 
         fun saveFood(
             koreanName: String,

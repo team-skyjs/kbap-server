@@ -89,10 +89,6 @@ object FoodTestSeed {
 
     fun clear(dataSource: DataSource) = execute(dataSource, clearStatements())
 
-    fun clearFoods(dataSource: DataSource) = execute(dataSource, foodStatements())
-
-    private fun clearStatements() = foodStatements() + "DELETE FROM ingredients"
-
     private fun execute(dataSource: DataSource, statements: List<String>) {
         dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
@@ -101,13 +97,14 @@ object FoodTestSeed {
         }
     }
 
-    private fun foodStatements() = listOf(
+    private fun clearStatements() = listOf(
         "DELETE FROM review_like",
         "DELETE FROM member_ranking_event",
         "DELETE FROM food_review",
         "DELETE FROM bookmark",
         "DELETE FROM scan_history",
         "DELETE FROM image_batch_item",
+        "DELETE FROM ingredients",
         "DELETE FROM food_content_outbox",
         "DELETE FROM food_vector_outbox",
         "DELETE FROM food",
