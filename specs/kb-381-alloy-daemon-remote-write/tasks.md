@@ -133,9 +133,9 @@
 
 - [X] T029 `iac/terraform/README.md` 에 "## 관측 — Alloy DAEMON" 절: 구성 요약(DAEMON·host net·docker.sock·unix exporter), 필요 입력(tfvars 2개·SSM 2개·홈서버/Cloudflare 전제), 라벨 규약(env/application/instance/version/host), 카나리 메모리 여유(api 1536×2 + Alloy 128), **403=유실 주의**, 설정 변경 절차(템플릿 수정 → apply → DAEMON 롤링), 되돌리기
 - [ ] T030 prod 적용 — **사용자 수행**: `prod.tfvars` 변수 추가 → `terraform apply -var-file=prod.tfvars` → `up{env="prod"}` 확인(batch 풀은 호스트 메트릭만). 홈 Prometheus 를 잠시 내렸다 올려 재전송 확인
-- [ ] T031 [P] Jira KB-381 DoD 갱신(Atlassian MCP `editJiraIssue`): "설정은 SSM Parameter 주입" → "terraform templatefile → env 주입(SSM 은 토큰만)", 검증 결과·리비전 번호 기록. KB-383 에 "version 변수 전제 충족" 코멘트는 불필요(DoD 에 이미 반영)
-- [ ] T032 [P] 위키 `../kbap-agenthub/wiki/observability-app-metrics-and-ecs-healthcheck.md` 갱신 — Alloy 구성 확정(host net·templatefile 전달·403 유실·카나리 타깃 2배), INDEX 한 줄 갱신, 허브 커밋
-- [ ] T033 `open-draft-pr-to-develop` 스킬로 draft PR — 제목 `feat(infra): ECS Alloy DAEMON — 앱·호스트 메트릭을 홈 Prometheus 로 remote_write`, 본문에 설계 요점·라벨 규약·dev 검증 결과(T015·T017·T019~T021·T025·T028)
+- [X] T031 [P] Jira KB-381 DoD 갱신(Atlassian MCP `editJiraIssue`): "설정은 SSM Parameter 주입" → "terraform templatefile → env 주입(SSM 은 토큰만)", 검증 결과·리비전 번호 기록. KB-383 에 "version 변수 전제 충족" 코멘트는 불필요(DoD 에 이미 반영)
+- [X] T032 [P] 위키 `../kbap-agenthub/wiki/observability-app-metrics-and-ecs-healthcheck.md` 갱신 — Alloy 구성 확정(host net·templatefile 전달·403 유실·카나리 타깃 2배), INDEX 한 줄 갱신, 허브 커밋
+- [X] T033 `open-draft-pr-to-develop` 스킬로 draft PR — 제목 `feat(infra): ECS Alloy DAEMON — 앱·호스트 메트릭을 홈 Prometheus 로 remote_write`, 본문에 설계 요점·라벨 규약·dev 검증 결과(T015·T017·T019~T021·T025·T028)
 
 ---
 
