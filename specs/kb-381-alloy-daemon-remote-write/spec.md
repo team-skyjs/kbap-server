@@ -16,7 +16,7 @@ KB-380 으로 api·batch 는 자기 내부 상태(JVM·커넥션 풀·엔드포�
 
 **Why this priority**: 에픽의 핵심 경로다. 이게 없으면 KB-380 의 노출은 아무 가치가 없고, 뒤의 대시보드·알림(KB-383)도 볼 데이터가 없다.
 
-**Independent Test**: dev 에 적용한 뒤 홈서버 Grafana 탐색기에서 `up{env="dev", application="kbap-api"}` 를 조회해 실행 중인 api 태스크 수만큼 값 1 의 시계열이 보이고, 그중 하나의 JVM 힙 사용량이 시간에 따라 그려지면 통과. `application="kbap-batch"` 도 동일.
+**Independent Test**: dev 에 적용한 뒤 홈서버 Grafana 탐색기에서 `up{env="dev", job="prometheus.scrape.ecs_apps"}` 를 조회해 실행 중인 api·batch 태스크 수만큼 값 1 의 시계열(`instance=dev-api-…`/`dev-batch-…`)이 보이고, 그중 하나의 JVM 힙 사용량이 시간에 따라 그려지면 통과.
 
 **Acceptance Scenarios**:
 
