@@ -143,3 +143,13 @@ variable "bastion_instance_type" {
 variable "bastion_key_name" {
   type = string
 }
+
+variable "home_prometheus_remote_write_url" {
+  description = "홈서버 Prometheus remote_write 수신 URL (Cloudflare Tunnel 공개 호스트)"
+  type        = string
+}
+
+variable "alloy_image" {
+  type    = string
+  default = "grafana/alloy:v1.19.2"
+}

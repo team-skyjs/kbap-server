@@ -109,6 +109,37 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 
 적용 상태: dev 부터 적용·검증(절차 `specs/kb-374-batch-ecs-exec/quickstart.md`) 후 prod 는 잡 미실행 시간대에 같은 절차로 — 배치 재배포가 잠깐 다운을 동반한다.
 
+## 관측 — Alloy DAEMON (KB-381)
+
+각 EC2 에 Grafana Alloy 를 **ECS DAEMON 서비스(host 네트워크)** 로 1개씩 띄운다. Alloy 는 docker.sock 으로 같은 호스트의 api·batch 컨테이너를 찾아 `/actuator/prometheus`(8080, KB-380)를 15초마다 읽고, `prometheus.exporter.unix` 로 호스트 CPU·메모리·디스크까지 함께 **홈서버 Prometheus 로 remote_write** 한다. 앱·ALB·SG·api/batch 태스크 정의는 건드리지 않는다. 파일: `modules/ecs-environment/alloy.tf` + `alloy.config.alloy.tftpl`.
+
+**필요 입력**
+
+| 어디 | 무엇 |
+|---|---|
+| tfvars | `home_prometheus_remote_write_url` (Cloudflare Tunnel 공개 호스트, `/api/v1/write` 까지) · `alloy_image`(기본 태그 고정) |
+| SSM SecureString | `/kbap/<env>/CF_ACCESS_CLIENT_ID` · `/kbap/<env>/CF_ACCESS_CLIENT_SECRET` — Cloudflare Access 서비스 토큰(env 마다 1쌍). 실행 롤 정책이 `/kbap/<env>/*` 라 IAM 변경 없음 |
+| 홈서버 | Prometheus `--web.enable-remote-write-receiver`, Tunnel 공개 호스트 → `prometheus:9090`, Access 앱(Service Auth 정책) |
+
+**라벨 규약** (Alloy relabel — 앱 변경 0)
+
+| 라벨 | 값 | 출처 |
+|---|---|---|
+| `env` | `dev` \| `prod` | external_labels |
+| `host` | EC2 호스트명 | host 네트워크의 컨테이너 hostname |
+| `application` | `kbap-api` \| `kbap-batch` | 앱(Micrometer 태그) |
+| `instance` | `<env>-<container>-<task id 6자>` | ECS 도커 라벨 task-arn — **태스크 단위**(카나리 중 한 호스트에 2개 공존) |
+| `version` | 태스크 정의 리비전 | ECS 도커 라벨 task-definition-version — 배포마다 증가 → blue/green 비교 |
+
+**설정 변경**: `alloy.config.alloy.tftpl` 수정 → `terraform apply` → 새 태스크 정의 리비전으로 DAEMON 이 인스턴스마다 롤링(min healthy 0 — 수십 초 수집 공백, 앱 무영향). 저장소 이전·복사본 fan-out 도 템플릿의 `remote_write` 만 바꾼다. 문법 점검: 템플릿을 치환해 `docker run --rm -v $PWD/c.alloy:/c.alloy grafana/alloy:<tag> fmt /c.alloy`.
+
+**알아둘 것**
+- **403 은 유실이다** — Cloudflare Access 가 토큰을 거부하면 remote_write 는 4xx 를 재시도하지 않고 버린다(WAL 재전송은 연결 실패·5xx 만). 토큰 오설정은 `aws logs tail /kbap/<env>/alloy` 의 `non-recoverable error … 403` 으로 즉시 드러난다. 홈서버 다운은 WAL(약 2시간)로 복구 시 백필.
+- 카나리 중 `up{application="kbap-api"}` 타깃이 2배(구+신)로 보이고 전환 후 구 타깃은 5분 뒤 stale — 정상.
+- 인스턴스 교체(instance refresh) 후 새 호스트의 Alloy 는 자동 배치, 5분 안에 새 `host` 라벨이 나타난다. 사람 개입 없음.
+- 메모리: Alloy 예약 128 MiB 가 카나리 여유(3.6 GiB − 1536×2)에서 빠진다. api 태스크 메모리를 올릴 때 이 몫도 계산에 넣을 것.
+- 되돌리기: `terraform destroy -target=module.ecs_environment.aws_ecs_service.alloy` (앱 무영향). 홈서버 쪽은 Access 토큰 폐기만으로 즉시 차단.
+
 ## 카나리 파라미터 바꾸기
 
 `canary_percentage`·`canary_interval_minutes`·`blue_termination_wait_minutes` (tfvars). 바꾸면 배포 구성(`aws_codedeploy_deployment_config`)이 새로 만들어진다.

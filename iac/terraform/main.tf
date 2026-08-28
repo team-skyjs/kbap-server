@@ -37,4 +37,7 @@ module "ecs_environment" {
   admin_cidr            = var.admin_cidr
   bastion_instance_type = var.bastion_instance_type
   bastion_key_name      = var.bastion_key_name
+
+  home_prometheus_remote_write_url = var.home_prometheus_remote_write_url
+  alloy_image                      = var.alloy_image
 }
