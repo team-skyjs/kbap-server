@@ -49,7 +49,7 @@ aws ssm put-parameter --profile kbap-infra --name /kbap/dev/FIREBASE_CREDENTIALS
 
 확인: `https://dev-ecs.kbap.site/actuator/health` → CloudWatch 대시보드 `kbap-dev-ecs`.
 
-prod 는 `prod.tfvars.example` 로 동일하게 — state 는 dev 와 분리한다(로컬이면 디렉터리 분리 또는 `-state=prod.tfstate`, S3 백엔드면 `key` 분리).
+prod 는 `prod.tfvars.example` 로 동일하게 — state 는 **terraform workspace** 로 분리돼 있다(`dev-ecs` / `prod`, `terraform.tfstate.d/`). apply 전에 반드시 `terraform workspace select dev-ecs`(또는 `prod`) 후 `terraform workspace show` 로 확인한다. state 와 `*.tfvars` 는 apply 한 머신(현재 맥미니)에만 있고 git 에 없다 — 다른 머신에서 apply 하면 전체를 새로 만들려 드니 하지 말 것. S3 백엔드 전환은 별도 태스크.
 
 ## 배포
 

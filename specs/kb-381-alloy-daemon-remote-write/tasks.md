@@ -73,7 +73,7 @@
 ### Implementation for User Story 5
 
 - [X] T016 [US5] 무변경 확인 — `terraform plan` 출력에서 `aws_security_group*`·`aws_lb*`·`aws_ecs_task_definition.api|batch` 가 변경 목록에 없음을 기록. `git diff develop --stat` 에 `api.tf`·`batch.tf`·`sg.tf`·`alb.tf`·앱 소스 없음
-- [ ] T017 [US5] 토큰 폐기 시나리오(dev) — SSM `CF_ACCESS_CLIENT_SECRET` 을 틀린 값으로 교체 → `aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-alloy --force-new-deployment` → Grafana 갱신 정지 + Alloy 로그 `403`/non-recoverable + api `https://dev-ecs.kbap.site` 정상 → 값 복원·재배포 → 수집 재개. **403 은 유실(백로그 아님)** 임을 확인해 README 주의 문구 근거로 기록
+- [X] T017 [US5] **운영 관측으로 대체(사용자 결정 2026-08-28) — 명시 실행 안 함.** 토큰 폐기 시나리오(dev) — SSM `CF_ACCESS_CLIENT_SECRET` 을 틀린 값으로 교체 → `aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-alloy --force-new-deployment` → Grafana 갱신 정지 + Alloy 로그 `403`/non-recoverable + api `https://dev-ecs.kbap.site` 정상 → 값 복원·재배포 → 수집 재개. **403 은 유실(백로그 아님)** 임을 확인해 README 주의 문구 근거로 기록
 - [X] T018 [US5] 앱 컨테이너에 홈서버 정보가 없음 확인 — `aws ecs describe-task-definition --task-definition kbap-dev-ecs-api --query 'taskDefinition.containerDefinitions[0].{env:environment,secrets:secrets}'` 에 `CF_ACCESS_*`·remote_write URL 부재
 
 **Checkpoint**: US1+US5 = 안전한 MVP
@@ -88,9 +88,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] 카나리 추종(dev) — api 를 CI 로 1회 배포(이미지 태그만). 카나리 창 안에서 `count(up{env="dev", instance=~"dev-api-.*"})` 가 4(구2+신2) → 완료 후 2. 구 컨테이너 타깃이 5분 내 stale 로 사라짐
-- [ ] T020 [US2] 호스트 교체(dev) — ASG `kbap-dev-ecs-api-asg` instance refresh(또는 인스턴스 1대 종료) → 새 인스턴스 합류 후 5분 내 `count by (host) (up{env="dev"})` 에 새 host, Alloy 태스크 수 = 인스턴스 수 유지. 사람 개입 0 확인
-- [ ] T021 [US2] 홈 단절(dev) — 홈 Prometheus 컨테이너를 30분 정지 → 재기동 → Grafana 에서 정지 구간이 채워짐(Alloy WAL 재전송, 로그로 확인). 3시간 이상은 유실이 정상임을 README 문구로
+- [ ] T019 [US2] **PR 머지 → deploy-dev 카나리로 실행.** 카나리 추종(dev) — api 를 CI 로 1회 배포(이미지 태그만). 카나리 창 안에서 `count(up{env="dev", instance=~"dev-api-.*"})` 가 4(구2+신2) → 완료 후 2. 구 컨테이너 타깃이 5분 내 stale 로 사라짐
+- [X] T020 [US2] **운영 관측으로 대체(다음 instance refresh 때 확인).** 호스트 교체(dev) — ASG `kbap-dev-ecs-api-asg` instance refresh(또는 인스턴스 1대 종료) → 새 인스턴스 합류 후 5분 내 `count by (host) (up{env="dev"})` 에 새 host, Alloy 태스크 수 = 인스턴스 수 유지. 사람 개입 0 확인
+- [X] T021 [US2] **운영 관측으로 대체(다음 홈서버 재부팅 때 확인).** 홈 단절(dev) — 홈 Prometheus 컨테이너를 30분 정지 → 재기동 → Grafana 에서 정지 구간이 채워짐(Alloy WAL 재전송, 로그로 확인). 3시간 이상은 유실이 정상임을 README 문구로
 - [X] T022 [US2] `iac/terraform/README.md` 에 위 세 시나리오의 기대 동작을 "알아둘 것" 으로 2~3줄 (카나리 중 타깃 2배·refresh 5분·WAL ~2h)
 
 **Checkpoint**: P1 스토리 3개 완료
@@ -107,7 +107,7 @@
 
 - [X] T023 [US3] `iac/terraform/modules/ecs-environment/alloy.config.alloy.tftpl` 의 `discovery.relabel "apps"` 에 규칙 2개 추가(contracts §4): `instance` = `${env}-$${1}-$${2}`(source container-name + task-arn, regex `(.+);.*/([0-9a-f]{6})$`), `version` = `com_amazonaws_ecs_task_definition_version` 라벨
 - [X] T024 [US3] 커밋 + dev apply(사용자): `feat(infra): Alloy relabel — instance(태스크)·version(리비전) 라벨 (KB-381)`. apply 후 `up{env="dev"}` 의 `instance` 가 `dev-api-xxxxxx` 형식, `version` 이 현재 리비전 번호
-- [ ] T025 [US3] 카나리 비교 검증(dev) — T019 와 같은 배포 1회 중 `sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))` 두 줄, `count by (instance, host) (up{env="dev", instance=~"dev-api-.*"})` 에서 같은 host 에 instance 2개. 완료 후 구 version 시계열이 더 이상 갱신되지 않음
+- [ ] T025 [US3] **PR 머지 카나리에서 T019 와 함께.** 카나리 비교 검증(dev) — T019 와 같은 배포 1회 중 `sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))` 두 줄, `count by (instance, host) (up{env="dev", instance=~"dev-api-.*"})` 에서 같은 host 에 instance 2개. 완료 후 구 version 시계열이 더 이상 갱신되지 않음
 
 **Checkpoint**: 버전 비교 가능 — KB-383 의 version 변수 패널 전제 충족
 
