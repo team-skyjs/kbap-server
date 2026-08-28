@@ -98,9 +98,9 @@
 ## Phase 6: Polish & Cross-Cutting
 
 - [X] T025 `iac/terraform/README.md` 개정 — "처음 세우기": S3 백엔드·`kbap-infra`·workspace `dev`/`prod`·버킷 생성(1회)·tfvars 복원표(예시 대비 다른 항목 이름만, 값은 위키/로컬) / "알아둘 것": 로컬 state 금지·잠금 해제(`terraform force-unlock <id>`)·prod import 절차(`gen-import-blocks.sh` + plan 게이트)·거부 규칙(새 공개 경로는 규칙 무관, 차단 패턴 추가는 tfvars)·`%61` 판정 결과·WAF 조건. 종전 "state 는 맥미니에만" 문구 제거
-- [ ] T026 [P] Jira 갱신(Atlassian MCP): KB-390 DoD 를 거부 규칙·실측 결과로 갱신, KB-381 DoD-6(prod) 완료 체크, KB-379 에픽 본문에 state 복구 완료 한 줄
-- [ ] T027 [P] 위키 `terraform-state-workspaces-and-aws-profiles.md` 개정 — S3 백엔드 전환 완료·workspace 이름 변경(`dev-ecs`→`dev`)·import 절차와 plan 게이트·tfvars 복원 값(집 IP 등 실값은 여기)·`_local-state-archive` 보관 기간; `observability-…` 문서에 prod Alloy 확인·거부 규칙 실측 한 줄; INDEX 갱신; 허브 커밋·푸시
-- [ ] T028 커밋·`open-draft-pr-to-develop` — 제목 `feat(infra): terraform S3 백엔드 전환·prod state 복구·ALB 관리경로 차단`, 본문에 plan 게이트 결과(dev No changes / prod 49 import + 3 add / 규칙 1 add)·curl 표·Grafana prod 확인·`%61` 판정
+- [X] T026 [P] Jira 갱신(Atlassian MCP): KB-390 DoD 를 거부 규칙·실측 결과로 갱신, KB-381 DoD-6(prod) 완료 체크, KB-379 에픽 본문에 state 복구 완료 한 줄
+- [X] T027 [P] 위키 `terraform-state-workspaces-and-aws-profiles.md` 개정 — S3 백엔드 전환 완료·workspace 이름 변경(`dev-ecs`→`dev`)·import 절차와 plan 게이트·tfvars 복원 값(집 IP 등 실값은 여기)·`_local-state-archive` 보관 기간; `observability-…` 문서에 prod Alloy 확인·거부 규칙 실측 한 줄; INDEX 갱신; 허브 커밋·푸시
+- [X] T028 커밋·`open-draft-pr-to-develop` — 제목 `feat(infra): terraform S3 백엔드 전환·prod state 복구·ALB 관리경로 차단`, 본문에 plan 게이트 결과(dev No changes / prod 49 import + 3 add / 규칙 1 add)·curl 표·Grafana prod 확인·`%61` 판정
 
 ---
 
