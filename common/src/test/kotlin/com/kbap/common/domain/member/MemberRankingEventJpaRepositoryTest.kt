@@ -14,7 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
 
-@SpringBootTest(classes = [MemberServiceTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class MemberRankingEventJpaRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 import javax.sql.DataSource
 
-@SpringBootTest(classes = [ReviewTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class ReviewJpaRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
