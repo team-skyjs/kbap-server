@@ -135,7 +135,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 
 **알아둘 것**
 - **403 은 유실이다** — Cloudflare Access 가 토큰을 거부하면 remote_write 는 4xx 를 재시도하지 않고 버린다(WAL 재전송은 연결 실패·5xx 만). 토큰 오설정은 `aws logs tail /kbap/<env>/alloy` 의 `non-recoverable error … 403` 으로 즉시 드러난다. 홈서버 다운은 WAL(약 2시간)로 복구 시 백필.
-- 카나리 중 `up{application="kbap-api"}` 타깃이 2배(구+신)로 보이고 전환 후 구 타깃은 5분 뒤 stale — 정상.
+- 카나리 중 `up{instance=~"<env>-api-.*"}` 타깃이 2배(구+신)로 보이고 전환 후 구 타깃은 5분 뒤 stale — 정상. `application` 은 앱이 메트릭 안에 붙이는 라벨이라 `up` 에는 없다(타깃 조회는 `job`·`instance`).
 - 인스턴스 교체(instance refresh) 후 새 호스트의 Alloy 는 자동 배치, 5분 안에 새 `host` 라벨이 나타난다. 사람 개입 없음.
 - 메모리: Alloy 예약 128 MiB 가 카나리 여유(3.6 GiB − 1536×2)에서 빠진다. api 태스크 메모리를 올릴 때 이 몫도 계산에 넣을 것.
 - 되돌리기: `terraform destroy -target=module.ecs_environment.aws_ecs_service.alloy` (앱 무영향). 홈서버 쪽은 Access 토큰 폐기만으로 즉시 차단.

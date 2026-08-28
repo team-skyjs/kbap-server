@@ -57,8 +57,8 @@
 - [X] T011 [P] [US1] `iac/terraform/modules/ecs-environment/outputs.tf` 에 `alloy_service_name` 추가
 - [X] T012 [US1] 로컬 문법 점검 — quickstart §1: 템플릿을 sed 로 치환해 `docker run --rm -v …:/c.alloy grafana/alloy:<tag> fmt /c.alloy` 통과. 로컬에 terraform 이 있으면 `terraform -chdir=iac/terraform fmt -recursive` 도(없으면 정렬은 손으로 `api.tf` 스타일에 맞춤)
 - [X] T013 [US1] 커밋: `feat(infra): ECS Alloy DAEMON — actuator 수집 → 홈 Prometheus remote_write (KB-381)` — T001~T011
-- [ ] T014 [US1] dev apply — **사용자 수행**(state 있는 머신): `terraform plan -var-file=dev.tfvars` 가 신규 3 리소스(log group·task definition·service)뿐인지 확인 후 apply. `aws ecs list-tasks --cluster kbap-dev-ecs-cluster --service-name kbap-dev-ecs-alloy` 가 인스턴스 수와 같음, `aws logs tail /kbap/dev/alloy` 에 remote_write 오류 없음
-- [ ] T015 [US1] dev 검증 — 홈 Grafana Explore: `up{env="dev"}` = 태스크 수(api 2 + batch 1), `jvm_memory_used_bytes{env="dev",application="kbap-api",area="heap"}` 15s 그래프, batch 잡 1회 트리거(ECS Exec) 후 `spring_batch_job_seconds_count{env="dev"}` 증가. 결과 기록(PR 본문용)
+- [X] T014 [US1] dev apply — **사용자 수행**(state 있는 머신): `terraform plan -var-file=dev.tfvars` 가 신규 3 리소스(log group·task definition·service)뿐인지 확인 후 apply. `aws ecs list-tasks --cluster kbap-dev-ecs-cluster --service-name kbap-dev-ecs-alloy` 가 인스턴스 수와 같음, `aws logs tail /kbap/dev/alloy` 에 remote_write 오류 없음
+- [X] T015 [US1] dev 검증 — 홈 Grafana Explore: `up{env="dev", job="prometheus.scrape.ecs_apps"}` = 태스크 수(api 2 + batch 1), `jvm_memory_used_bytes{env="dev",application="kbap-api",area="heap"}` 15s 그래프, batch 잡 1회 트리거(ECS Exec) 후 `spring_batch_job_seconds_count{env="dev"}` 증가. 결과 기록(PR 본문용)
 
 **Checkpoint**: 앱 메트릭이 홈서버에 쌓임(MVP). KB-383 대시보드 착수 가능
 
@@ -72,9 +72,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T016 [US5] 무변경 확인 — `terraform plan` 출력에서 `aws_security_group*`·`aws_lb*`·`aws_ecs_task_definition.api|batch` 가 변경 목록에 없음을 기록. `git diff develop --stat` 에 `api.tf`·`batch.tf`·`sg.tf`·`alb.tf`·앱 소스 없음
+- [X] T016 [US5] 무변경 확인 — `terraform plan` 출력에서 `aws_security_group*`·`aws_lb*`·`aws_ecs_task_definition.api|batch` 가 변경 목록에 없음을 기록. `git diff develop --stat` 에 `api.tf`·`batch.tf`·`sg.tf`·`alb.tf`·앱 소스 없음
 - [ ] T017 [US5] 토큰 폐기 시나리오(dev) — SSM `CF_ACCESS_CLIENT_SECRET` 을 틀린 값으로 교체 → `aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-alloy --force-new-deployment` → Grafana 갱신 정지 + Alloy 로그 `403`/non-recoverable + api `https://dev-ecs.kbap.site` 정상 → 값 복원·재배포 → 수집 재개. **403 은 유실(백로그 아님)** 임을 확인해 README 주의 문구 근거로 기록
-- [ ] T018 [US5] 앱 컨테이너에 홈서버 정보가 없음 확인 — `aws ecs describe-task-definition --task-definition kbap-dev-ecs-api --query 'taskDefinition.containerDefinitions[0].{env:environment,secrets:secrets}'` 에 `CF_ACCESS_*`·remote_write URL 부재
+- [X] T018 [US5] 앱 컨테이너에 홈서버 정보가 없음 확인 — `aws ecs describe-task-definition --task-definition kbap-dev-ecs-api --query 'taskDefinition.containerDefinitions[0].{env:environment,secrets:secrets}'` 에 `CF_ACCESS_*`·remote_write URL 부재
 
 **Checkpoint**: US1+US5 = 안전한 MVP
 
@@ -88,7 +88,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] 카나리 추종(dev) — api 를 CI 로 1회 배포(이미지 태그만). 카나리 창 안에서 `count(up{env="dev",application="kbap-api"})` 가 4(구2+신2) → 완료 후 2. 구 컨테이너 타깃이 5분 내 stale 로 사라짐
+- [ ] T019 [US2] 카나리 추종(dev) — api 를 CI 로 1회 배포(이미지 태그만). 카나리 창 안에서 `count(up{env="dev", instance=~"dev-api-.*"})` 가 4(구2+신2) → 완료 후 2. 구 컨테이너 타깃이 5분 내 stale 로 사라짐
 - [ ] T020 [US2] 호스트 교체(dev) — ASG `kbap-dev-ecs-api-asg` instance refresh(또는 인스턴스 1대 종료) → 새 인스턴스 합류 후 5분 내 `count by (host) (up{env="dev"})` 에 새 host, Alloy 태스크 수 = 인스턴스 수 유지. 사람 개입 0 확인
 - [ ] T021 [US2] 홈 단절(dev) — 홈 Prometheus 컨테이너를 30분 정지 → 재기동 → Grafana 에서 정지 구간이 채워짐(Alloy WAL 재전송, 로그로 확인). 3시간 이상은 유실이 정상임을 README 문구로
 - [X] T022 [US2] `iac/terraform/README.md` 에 위 세 시나리오의 기대 동작을 "알아둘 것" 으로 2~3줄 (카나리 중 타깃 2배·refresh 5분·WAL ~2h)
@@ -106,8 +106,8 @@
 ### Implementation for User Story 3
 
 - [X] T023 [US3] `iac/terraform/modules/ecs-environment/alloy.config.alloy.tftpl` 의 `discovery.relabel "apps"` 에 규칙 2개 추가(contracts §4): `instance` = `${env}-$${1}-$${2}`(source container-name + task-arn, regex `(.+);.*/([0-9a-f]{6})$`), `version` = `com_amazonaws_ecs_task_definition_version` 라벨
-- [ ] T024 [US3] 커밋 + dev apply(사용자): `feat(infra): Alloy relabel — instance(태스크)·version(리비전) 라벨 (KB-381)`. apply 후 `up{env="dev"}` 의 `instance` 가 `dev-api-xxxxxx` 형식, `version` 이 현재 리비전 번호
-- [ ] T025 [US3] 카나리 비교 검증(dev) — T019 와 같은 배포 1회 중 `sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))` 두 줄, `count by (instance, host) (up{env="dev",application="kbap-api"})` 에서 같은 host 에 instance 2개. 완료 후 구 version 시계열이 더 이상 갱신되지 않음
+- [X] T024 [US3] 커밋 + dev apply(사용자): `feat(infra): Alloy relabel — instance(태스크)·version(리비전) 라벨 (KB-381)`. apply 후 `up{env="dev"}` 의 `instance` 가 `dev-api-xxxxxx` 형식, `version` 이 현재 리비전 번호
+- [ ] T025 [US3] 카나리 비교 검증(dev) — T019 와 같은 배포 1회 중 `sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))` 두 줄, `count by (instance, host) (up{env="dev", instance=~"dev-api-.*"})` 에서 같은 host 에 instance 2개. 완료 후 구 version 시계열이 더 이상 갱신되지 않음
 
 **Checkpoint**: 버전 비교 가능 — KB-383 의 version 변수 패널 전제 충족
 
@@ -123,7 +123,7 @@
 
 - [X] T026 [US4] `iac/terraform/modules/ecs-environment/alloy.tf` 태스크 정의에 호스트 볼륨 3개(`proc`→`/proc`, `sys`→`/sys`, `root`→`/`)와 컨테이너 `mountPoints`(`/host/proc`·`/host/sys`·`/host/root`, `readOnly=true`) 추가
 - [X] T027 [US4] `alloy.config.alloy.tftpl` 에 `prometheus.exporter.unix "host"`(procfs/sysfs/rootfs 경로, `filesystem { mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker/.+)($|/)" }`) + `prometheus.scrape "host"`(15s → remote_write.home) 추가(contracts §4)
-- [ ] T028 [US4] 커밋 + dev apply(사용자): `feat(infra): Alloy unix exporter — 호스트 CPU·메모리·디스크 (KB-381)`. 검증: `count by (host) (node_memory_MemAvailable_bytes{env="dev"})` = 인스턴스 수, `1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}` 가 0~1 사이 값. `node_filesystem_*` 에 `/var/lib/docker/...` 오버레이가 없음
+- [X] T028 [US4] 커밋 + dev apply(사용자): `feat(infra): Alloy unix exporter — 호스트 CPU·메모리·디스크 (KB-381)`. 검증: `count by (host) (node_memory_MemAvailable_bytes{env="dev"})` = 인스턴스 수, `1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}` 가 0~1 사이 값. `node_filesystem_*` 에 `/var/lib/docker/...` 오버레이가 없음
 
 **Checkpoint**: 전 스토리 완료(dev)
 

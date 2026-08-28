@@ -114,7 +114,7 @@ prometheus.remote_write "home" {
 ## 6. Grafana 에서의 기대 조회 (검증 기준)
 
 ```promql
-up{env="dev"}                                                     # 앱 태스크 수만큼 1
+up{env="dev", job="prometheus.scrape.ecs_apps"}                  # 앱 태스크 수만큼 1 (instance=dev-api-xxxxxx / dev-batch-xxxxxx, version=<리비전>)
 count by (host) (node_memory_MemAvailable_bytes{env="dev"})       # 인스턴스 수
 sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))
 ```

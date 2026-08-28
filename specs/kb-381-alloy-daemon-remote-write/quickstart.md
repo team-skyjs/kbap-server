@@ -44,14 +44,14 @@ tfvars 에 `home_prometheus_remote_write_url`·`alloy_image` 추가.
 # US1 — 조회
 aws ecs list-tasks --cluster kbap-dev-ecs-cluster --service-name kbap-dev-ecs-alloy --query 'length(taskArns)'   # = 인스턴스 수
 # Grafana Explore (Prometheus DS):
-#   up{env="dev"}                        → api 태스크 수 + batch 1 만큼 1
+#   up{env="dev", job="prometheus.scrape.ecs_apps"}   → api 태스크 수 + batch 1 만큼 1
 #   count by (host) (node_memory_MemAvailable_bytes{env="dev"})   → 인스턴스 수
 #   jvm_memory_used_bytes{env="dev",application="kbap-api",area="heap"}  → 15s 간격 그래프
 # batch 잡 1회 트리거(ECS Exec, README) 후 spring_batch_job_seconds_count{env="dev"} 증가
 
 # US3 — 카나리 버전 비교: api 배포 1회 후 카나리 창 안에서
 #   sum by (version) (rate(http_server_requests_seconds_count{env="dev",application="kbap-api"}[5m]))  → 두 줄
-#   count by (instance, host) (up{env="dev",application="kbap-api"})  → 같은 host 에 instance 2개
+#   count by (instance, host) (up{env="dev", instance=~"dev-api-.*"})  → 같은 host 에 instance 2개
 
 # US2 — 스케일/교체: ASG instance refresh 1대 → 5분 내 새 host 라벨 등장, 옛 host 시계열 stale
 # US2 — 단절: 홈 Prometheus 30분 정지 → 재기동 → 그래프 공백이 채워짐(Alloy 로그에 재전송)

@@ -11,7 +11,9 @@
 | `application` | `kbap-api` \| `kbap-batch` | 앱(Micrometer 공통 태그, KB-380) | ✓ | — |
 | `instance` | `<env>-<container>-<task id 6자>` | relabel(도커 라벨 task-arn) | ✓ | 호스트명(exporter 기본) |
 | `version` | ECS 태스크 정의 리비전(`42`) | relabel(도커 라벨 task-definition-version) | ✓ | — |
-| `job` | `ecs-apps` \| `host` | scrape 컴포넌트 이름 | ✓ | ✓ |
+| `job` | `prometheus.scrape.ecs_apps` \| `integrations/unix` | scrape 컴포넌트 / exporter 기본값 | ✓ | ✓ |
+
+`application` 은 **앱이 메트릭 안에 붙이는 라벨**이라 `up` 같은 타깃 메트릭에는 없다 — 타깃 단위 조회는 `job`·`instance` 로 한다(`up{job="prometheus.scrape.ecs_apps", instance=~"dev-api-.*"}`). 타깃 라벨로 `application` 을 덧붙이면 honor_labels=false 기본에서 앱 라벨이 `exported_application` 으로 밀려나므로 넣지 않는다(실측 2026-08-28).
 
 카디널리티: 배포 1회 = 태스크당 새 `instance`·`version` 조합 → 시계열 세트 하나 추가(태스크당 ~1.5k). 15일 보존 × 하루 수 회 배포 = 수만 시리즈 — 홈 Prometheus 에 부담 없음.
 
