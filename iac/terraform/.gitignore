@@ -6,3 +6,7 @@
 crash.log
 .terraform.lock.hcl
 terraform.tfstate.d/
+# KB-390: import 블록·생성된 tfvars 초안·로컬 state 아카이브는 일시 파일
+import.*.tf
+*.tfvars.generated
+_local-state-archive/
