@@ -1,6 +1,6 @@
 package com.kbap.batch.vector
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.batch.BatchIntegrationTest
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -18,16 +18,13 @@ import io.kotest.matchers.shouldNotBe
 import org.springframework.batch.infrastructure.item.Chunk
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.time.Instant
 import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@BatchIntegrationTest
 class FoodVectorSyncProcessorTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

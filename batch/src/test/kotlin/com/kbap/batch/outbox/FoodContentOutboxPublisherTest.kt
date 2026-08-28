@@ -1,6 +1,6 @@
 package com.kbap.batch.outbox
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.batch.BatchIntegrationTest
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -13,13 +13,10 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionSynchronizationManager
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@BatchIntegrationTest
 class FoodContentOutboxPublisherTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

@@ -1,32 +1,17 @@
 package com.kbap.batch.trigger
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.batch.BatchIntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.hamcrest.Matchers.containsString
-import org.springframework.batch.core.job.Job
-import org.springframework.batch.core.job.builder.JobBuilder
-import org.springframework.batch.core.job.parameters.RunIdIncrementer
-import org.springframework.batch.core.repository.JobRepository
-import org.springframework.batch.core.step.Step
-import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.batch.infrastructure.repeat.RepeatStatus
-import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, SlowJobTestConfig::class)
+@BatchIntegrationTest
 class BatchJobTriggerControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -113,31 +98,5 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
             Thread.sleep(100)
         }
         return "TIMEOUT"
-    }
-}
-
-@TestConfiguration
-class SlowJobTestConfig {
-    @Bean
-    fun slowTestStep(jobRepository: JobRepository): Step =
-        StepBuilder("slowTestStep", jobRepository)
-            .tasklet(
-                { _, _ ->
-                    Thread.sleep(1500)
-                    RepeatStatus.FINISHED
-                },
-                ResourcelessTransactionManager(),
-            )
-            .build()
-
-    @Bean
-    fun slowTestJob(jobRepository: JobRepository, slowTestStep: Step): Job =
-        JobBuilder(JOB_NAME, jobRepository)
-            .incrementer(RunIdIncrementer())
-            .start(slowTestStep)
-            .build()
-
-    companion object {
-        const val JOB_NAME = "slowTestJob"
     }
 }

@@ -1,6 +1,6 @@
 package com.kbap.batch.config
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.batch.BatchIntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -11,11 +11,8 @@ import org.springframework.batch.core.launch.JobOperator
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@BatchIntegrationTest
 class BatchJdbcJobRepositoryConfigTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
