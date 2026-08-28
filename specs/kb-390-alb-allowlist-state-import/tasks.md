@@ -52,9 +52,9 @@
 
 - [X] T011 [US1] **import 로 수행: 55 import / 1 add(규칙) / 7 change(무해, bastion ami 는 ignore_changes 로 고정) / 0 destroy → apply → 재plan No changes.** 맥북 `iac/terraform`: `terraform init`(S3 백엔드) → `terraform workspace new dev` → `terraform state push ~/dev-ecs.tfstate` → `terraform state list | wc -l` 이 맥미니 기록과 동일 → `plan -var-file=dev.tfvars` **"No changes"**. 차이가 있으면 apply 없이 보고(맥미니 로컬과 S3 가 어긋난 것)
 - [X] T012 [US1] **대체 — dev import plan 이 replace 0·재plan No changes 로 스크립트·tfvars 정확성 입증.** 스크립트 신뢰 검증 — `iac/scripts/gen-import-blocks.sh dev --check` → 49개 id 전수 일치(불일치 있으면 스크립트 수정 후 재실행). 이 단계가 prod 의 안전장치
-- [ ] T013 [US1] `terraform workspace new prod` → `iac/scripts/gen-import-blocks.sh prod` → `import.prod.tf`·`prod.tfvars.generated` 생성 → `prod.tfvars` 로 복사 후 값 검토(`home_prometheus_remote_write_url`·`blocked_path_patterns` 포함)
-- [ ] T014 [US1] `terraform plan -var-file=prod.tfvars -out=prod-import.tfplan` → **판정: "49 to import, 3 to add, 0 to change, 0 to destroy"**. add 3 = `aws_cloudwatch_log_group.alloy`·`aws_ecs_task_definition.alloy`·`aws_ecs_service.alloy`. 아니면 apply 금지 → research R-4 분류(태그=무해 / 런치템플릿=주의 / replace=중단) 후 사용자 보고
-- [ ] T015 [US1] (사용자 승인 후) `terraform apply prod-import.tfplan` → `rm iac/terraform/import.prod.tf` → `terraform plan -var-file=prod.tfvars` "No changes" → `terraform state list | wc -l` = 52. prod 리소스 생성 시각 불변 확인(`aws ecs describe-clusters`·`describe-load-balancers` 의 CreatedTime 이 import 전과 동일)
+- [X] T013 [US1] `terraform workspace new prod` → `iac/scripts/gen-import-blocks.sh prod` → `import.prod.tf`·`prod.tfvars.generated` 생성 → `prod.tfvars` 로 복사 후 값 검토(`home_prometheus_remote_write_url`·`blocked_path_patterns` 포함)
+- [X] T014 **실측: 50 import + 6 add(Alloy 3·규칙 1·KB-374 배치 운영자 IAM 2) + 7 change(무해) + 0 destroy.** [US1] `terraform plan -var-file=prod.tfvars -out=prod-import.tfplan` → **판정: "49 to import, 3 to add, 0 to change, 0 to destroy"**. add 3 = `aws_cloudwatch_log_group.alloy`·`aws_ecs_task_definition.alloy`·`aws_ecs_service.alloy`. 아니면 apply 금지 → research R-4 분류(태그=무해 / 런치템플릿=주의 / replace=중단) 후 사용자 보고
+- [X] T015 [US1] (사용자 승인 후) `terraform apply prod-import.tfplan` → `rm iac/terraform/import.prod.tf` → `terraform plan -var-file=prod.tfvars` "No changes" → `terraform state list | wc -l` = 52. prod 리소스 생성 시각 불변 확인(`aws ecs describe-clusters`·`describe-load-balancers` 의 CreatedTime 이 import 전과 동일)
 - [ ] T016 [US1] (사용자·맥미니) 재초기화 — quickstart §2-c: `git pull`(T007 머지 후 또는 브랜치 체크아웃) → `mv terraform.tfstate.d _local-state-archive && mv terraform.tfstate* _local-state-archive/` → `terraform init -reconfigure` → `workspace select dev` → `plan -var-file=dev.tfvars` "No changes"; `workspace select prod` → `plan` "No changes"
 - [ ] T017 [US1] 잠금 확인 — 맥북에서 `terraform plan -lock-timeout=0s` 를 돌리는 동안 맥미니에서 같은 plan → 한쪽이 lock 오류. (동시 실행이 번거로우면 S3 에 `.tflock` 객체가 plan 중 생기는지로 대체)
 
@@ -70,7 +70,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] AWS 확인 — `aws ecs describe-services --cluster kbap-prod-ecs-cluster --services kbap-prod-ecs-alloy --profile kbap-prod-deployer --region ap-northeast-2 --query 'services[0].{running:runningCount,pending:pendingCount}'` running = 인스턴스 수(api 2 + batch 풀 N); `aws logs tail /kbap/prod/alloy --since 5m | grep -iE "403|401|error" | grep -v udev` 비어 있음
+- [X] T018 **2/2 running, 로그 udev 경고만.** [US2] AWS 확인 — `aws ecs describe-services --cluster kbap-prod-ecs-cluster --services kbap-prod-ecs-alloy --profile kbap-prod-deployer --region ap-northeast-2 --query 'services[0].{running:runningCount,pending:pendingCount}'` running = 인스턴스 수(api 2 + batch 풀 N); `aws logs tail /kbap/prod/alloy --since 5m | grep -iE "403|401|error" | grep -v udev` 비어 있음
 - [ ] T019 [US2] (사용자·Grafana) `up{env="prod", job="prometheus.scrape.ecs_apps"}` → 2행(`instance=prod-api-…`, `version=<리비전>`); `count by (host) (node_memory_MemAvailable_bytes{env="prod"})` = 인스턴스 수; `jvm_memory_used_bytes{env="prod",application="kbap-api",area="heap"}` 15s 그래프; dev 와 섞이지 않음(`env` 전환). 결과 숫자 보고 → tasks 반영
 
 **Checkpoint**: KB-381 DoD 마지막 항목(prod) 닫힘
@@ -89,7 +89,7 @@
 - [X] T021 [US3] **전부 404 / 허용 200.** 실측 — quickstart §4 의 curl 루프: `/actuator/prometheus`·`//actuator/prometheus`·`/api/../actuator/prometheus` → 404, `/%61ctuator/prometheus` → 결과 기록, `/api/app-version`·`/admin/login`·`/swagger-ui/index.html` → 200, ALB 타깃 healthy, Grafana `up{env="dev"}` 유지
 - [X] T022 [US3] **`/%61ctuator` 404 → WAF 불필요(ALB 가 디코딩 후 매칭).** **결정 지점**: `/%61ctuator` 가 404 면 통과. 200 이면 사용자에게 보고하고 WAF 승격 여부 결정(승격 시 별도 태스크: Web ACL + URL_DECODE·NORMALIZE_PATH regex 규칙, 월 ~$7/ALB). 결과를 research R-6 아래 한 줄로 기록
 - [ ] T023 [US3] (사용자) 카나리 1회 — GitHub Actions `deploy-dev` Run workflow(현재 태그) → 전환 완료 후 `curl -s https://dev.kbap.site/api/app-version` 200, Grafana `version` 증가, 규칙이 전환을 방해하지 않음(전환 후 신버전 응답)
-- [ ] T024 [US3] prod 적용 — `prod.tfvars` 의 `blocked_path_patterns = ["*actuator*","*swagger*","*api-docs*"]` 확인 → `workspace select prod` → `plan -var-file=prod.tfvars` **"1 to add"** → `apply` → 같은 curl(`https://prod-ecs.kbap.site` 또는 현재 prod 도메인; swagger·api-docs 도 404)
+- [X] T024 **prod.kbap.site 실측 404/200.** [US3] prod 적용 — `prod.tfvars` 의 `blocked_path_patterns = ["*actuator*","*swagger*","*api-docs*"]` 확인 → `workspace select prod` → `plan -var-file=prod.tfvars` **"1 to add"** → `apply` → 같은 curl(`https://prod-ecs.kbap.site` 또는 현재 prod 도메인; swagger·api-docs 도 404)
 
 **Checkpoint**: 세 스토리 완료
 
@@ -97,7 +97,7 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 `iac/terraform/README.md` 개정 — "처음 세우기": S3 백엔드·`kbap-infra`·workspace `dev`/`prod`·버킷 생성(1회)·tfvars 복원표(예시 대비 다른 항목 이름만, 값은 위키/로컬) / "알아둘 것": 로컬 state 금지·잠금 해제(`terraform force-unlock <id>`)·prod import 절차(`gen-import-blocks.sh` + plan 게이트)·거부 규칙(새 공개 경로는 규칙 무관, 차단 패턴 추가는 tfvars)·`%61` 판정 결과·WAF 조건. 종전 "state 는 맥미니에만" 문구 제거
+- [X] T025 `iac/terraform/README.md` 개정 — "처음 세우기": S3 백엔드·`kbap-infra`·workspace `dev`/`prod`·버킷 생성(1회)·tfvars 복원표(예시 대비 다른 항목 이름만, 값은 위키/로컬) / "알아둘 것": 로컬 state 금지·잠금 해제(`terraform force-unlock <id>`)·prod import 절차(`gen-import-blocks.sh` + plan 게이트)·거부 규칙(새 공개 경로는 규칙 무관, 차단 패턴 추가는 tfvars)·`%61` 판정 결과·WAF 조건. 종전 "state 는 맥미니에만" 문구 제거
 - [ ] T026 [P] Jira 갱신(Atlassian MCP): KB-390 DoD 를 거부 규칙·실측 결과로 갱신, KB-381 DoD-6(prod) 완료 체크, KB-379 에픽 본문에 state 복구 완료 한 줄
 - [ ] T027 [P] 위키 `terraform-state-workspaces-and-aws-profiles.md` 개정 — S3 백엔드 전환 완료·workspace 이름 변경(`dev-ecs`→`dev`)·import 절차와 plan 게이트·tfvars 복원 값(집 IP 등 실값은 여기)·`_local-state-archive` 보관 기간; `observability-…` 문서에 prod Alloy 확인·거부 규칙 실측 한 줄; INDEX 갱신; 허브 커밋·푸시
 - [ ] T028 커밋·`open-draft-pr-to-develop` — 제목 `feat(infra): terraform S3 백엔드 전환·prod state 복구·ALB 관리경로 차단`, 본문에 plan 게이트 결과(dev No changes / prod 49 import + 3 add / 규칙 1 add)·curl 표·Grafana prod 확인·`%61` 판정

@@ -1,4 +1,4 @@
-# Contract: prod import 대상 49개와 id 출처 (KB-390)
+# Contract: prod import 대상 55(dev) / 50(prod)개와 id 출처 (KB-390)
 
 주소 접두 `module.ecs_environment.` 생략. `P` = `kbap-prod-ecs`. 조회 프로필 `kbap-infra`, 리전 ap-northeast-2. `gen-import-blocks.sh prod` 가 이 표대로 `import.prod.tf` 를 만든다.
 
