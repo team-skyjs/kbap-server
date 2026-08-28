@@ -19,6 +19,7 @@ enum class ErrorCode(
     EXPIRED_REFRESH_TOKEN("AUTH-006", 401, "만료된 리프레시 토큰입니다. 다시 로그인해 주세요"),
     SOCIAL_ACCOUNT_DELETE_FAILED("AUTH-007", 500, "소셜 계정 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요"),
     ADMIN_FORBIDDEN("AUTH-008", 403, "관리자만 사용할 수 있는 API 입니다"),
+    ADMIN_LOGIN_FAILED("AUTH-009", 401, "아이디 또는 비밀번호가 올바르지 않습니다"),
 
     DUPLICATE_SOCIAL_IDENTITY("MEMBER-001", 409, "이미 가입된 소셜 계정입니다"),
     ONBOARDING_ALREADY_COMPLETED("MEMBER-002", 400, "이미 온보딩을 완료했습니다"),

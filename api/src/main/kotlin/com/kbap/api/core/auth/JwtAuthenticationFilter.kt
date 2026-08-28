@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.MDC
 import org.springframework.http.MediaType
+import org.springframework.web.cors.CorsUtils
 import org.springframework.web.filter.OncePerRequestFilter
 
 class JwtAuthenticationFilter(
@@ -22,7 +23,8 @@ class JwtAuthenticationFilter(
     private val objectMapper = jacksonObjectMapper()
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean =
-        guestExemptions.any { request.method == it.method && it.path.matches(request.requestURI) }
+        CorsUtils.isPreFlightRequest(request) ||
+            guestExemptions.any { request.method == it.method && it.path.matches(request.requestURI) }
 
     override fun doFilterInternal(
         request: HttpServletRequest,

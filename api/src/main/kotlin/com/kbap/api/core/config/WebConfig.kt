@@ -38,6 +38,11 @@ class WebConfig(
         }
 
     override fun addCorsMappings(registry: CorsRegistry) {
+        registry.addMapping("${ApiPaths.ADMIN}/**")
+            .allowedOriginPatterns(*ADMIN_SPA_ORIGIN_PATTERNS)
+            .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true)
         registry.addMapping("/api/**")
             .allowedOriginPatterns("*")
             .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
@@ -53,6 +58,7 @@ class WebConfig(
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(AdminAuthorizationInterceptor())
             .addPathPatterns("${ApiPaths.ADMIN}/**")
+            .excludePathPatterns(ADMIN_LOGIN_PATH)
         registry.addInterceptor(AdminPageAuthInterceptor(tokenParser))
             .addPathPatterns("/admin/**")
             .excludePathPatterns(AdminPageAuthInterceptor.LOGIN_PATH)
@@ -71,6 +77,7 @@ class WebConfig(
             JwtAuthenticationFilter(
                 tokenParser,
                 guestExemptions = listOf(
+                    JwtAuthenticationFilter.GuestExemption("POST", Regex("^$ADMIN_LOGIN_PATH$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
@@ -99,4 +106,14 @@ class WebConfig(
                 "${ApiPaths.ADMIN}/*",
             )
         }
+
+    companion object {
+        const val ADMIN_LOGIN_PATH = "${ApiPaths.ADMIN}/auth/login"
+
+        val ADMIN_SPA_ORIGIN_PATTERNS = arrayOf(
+            "https://kbap-admin.pages.dev",
+            "https://*.kbap-admin.pages.dev",
+            "http://localhost:5173",
+        )
+    }
 }
