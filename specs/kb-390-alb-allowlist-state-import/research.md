@@ -44,6 +44,7 @@
 - **경로 변형**: ALB `path-pattern` 의 `*` 는 `/` 를 포함한 임의 문자열이라 `*actuator*` 가 `//actuator/…`·`/./actuator`·`/api/../actuator` 를 전부 잡는다(Tomcat 정규화 전 원문에 "actuator" 가 그대로 있음). **퍼센트 인코딩(`/%61ctuator`)은 ALB 가 매칭 전에 디코딩하는지 문서로 확정하지 못했다** → dev 적용 후 curl 로 실측(quickstart). 통과하면 끝, 새면 **WAF Web ACL**(URL_DECODE + NORMALIZE_PATH 변환 후 regex 차단, 월 ~$7/ALB)로 승격 — 이 결정 지점을 tasks 에 둔다.
 - **부수 효과**: 경로에 "actuator" 가 들어간 정상 경로는 없다(코드 확인). prod 의 `*swagger*`·`*api-docs*` 도 동일. 헬스체크(리스너 규칙 미경유)·Alloy(docker 네트워크) 무영향.
 - **Alternatives**: 앱 필터 — 사용자 기각(KB-380). WAF 먼저 — 비용, 실측 후 필요 시.
+- **실측 결과(dev, 2026-08-28)**: `/actuator/prometheus`·`//actuator/prometheus`·`/api/../actuator/prometheus`·**`/%61ctuator/prometheus`**·`/Actuator/prometheus`·`/actuator/health` 전부 **404** — ALB 는 path-pattern 매칭 전에 퍼센트 디코딩을 한다. 허용 경로(`/api/app-version`·`/admin/login`·`/swagger-ui/index.html`·`/v3/api-docs`) 200 유지. **WAF 승격 불필요.**
 
 ## R-7. prod Alloy
 

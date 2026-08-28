@@ -86,8 +86,8 @@
 ### Implementation for User Story 3
 
 - [X] T020 [US3] **dev import apply 에 포함(1 add).** 맥북 `workspace select dev` → `terraform plan -var-file=dev.tfvars` **"1 to add"**(`aws_lb_listener_rule.block_paths`) → `apply`
-- [ ] T021 [US3] 실측 — quickstart §4 의 curl 루프: `/actuator/prometheus`·`//actuator/prometheus`·`/api/../actuator/prometheus` → 404, `/%61ctuator/prometheus` → 결과 기록, `/api/app-version`·`/admin/login`·`/swagger-ui/index.html` → 200, ALB 타깃 healthy, Grafana `up{env="dev"}` 유지
-- [ ] T022 [US3] **결정 지점**: `/%61ctuator` 가 404 면 통과. 200 이면 사용자에게 보고하고 WAF 승격 여부 결정(승격 시 별도 태스크: Web ACL + URL_DECODE·NORMALIZE_PATH regex 규칙, 월 ~$7/ALB). 결과를 research R-6 아래 한 줄로 기록
+- [X] T021 [US3] **전부 404 / 허용 200.** 실측 — quickstart §4 의 curl 루프: `/actuator/prometheus`·`//actuator/prometheus`·`/api/../actuator/prometheus` → 404, `/%61ctuator/prometheus` → 결과 기록, `/api/app-version`·`/admin/login`·`/swagger-ui/index.html` → 200, ALB 타깃 healthy, Grafana `up{env="dev"}` 유지
+- [X] T022 [US3] **`/%61ctuator` 404 → WAF 불필요(ALB 가 디코딩 후 매칭).** **결정 지점**: `/%61ctuator` 가 404 면 통과. 200 이면 사용자에게 보고하고 WAF 승격 여부 결정(승격 시 별도 태스크: Web ACL + URL_DECODE·NORMALIZE_PATH regex 규칙, 월 ~$7/ALB). 결과를 research R-6 아래 한 줄로 기록
 - [ ] T023 [US3] (사용자) 카나리 1회 — GitHub Actions `deploy-dev` Run workflow(현재 태그) → 전환 완료 후 `curl -s https://dev.kbap.site/api/app-version` 200, Grafana `version` 증가, 규칙이 전환을 방해하지 않음(전환 후 신버전 응답)
 - [ ] T024 [US3] prod 적용 — `prod.tfvars` 의 `blocked_path_patterns = ["*actuator*","*swagger*","*api-docs*"]` 확인 → `workspace select prod` → `plan -var-file=prod.tfvars` **"1 to add"** → `apply` → 같은 curl(`https://prod-ecs.kbap.site` 또는 현재 prod 도메인; swagger·api-docs 도 404)
 

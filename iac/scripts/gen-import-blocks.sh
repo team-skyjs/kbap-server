@@ -80,9 +80,13 @@ add aws_iam_role_policy_attachment.instance_ecs "$(role_name instance)/arn:aws:i
 add aws_iam_role_policy_attachment.instance_ssm "$(role_name instance)/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 add aws_iam_role_policy_attachment.task_execution_managed "$(role_name task_execution)/arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 add aws_iam_role_policy_attachment.codedeploy_ecs "$(role_name codedeploy)/arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
-one "$(aws iam get-user --user-name "$P-batch-operator" --query User.UserName)" "iam user" >/dev/null
-add aws_iam_user.batch_operator "$P-batch-operator"
-add aws_iam_user_policy.batch_operator "$P-batch-operator:batch-remote-run"
+# 배치 운영자 IAM 사용자(KB-374)는 그 이후에 만든 환경에만 있다 — 없으면 plan 의 "to add" 로 생성된다
+if [ -n "$(aws iam get-user --user-name "$P-batch-operator" --query User.UserName 2>/dev/null)" ]; then
+  add aws_iam_user.batch_operator "$P-batch-operator"
+  add aws_iam_user_policy.batch_operator "$P-batch-operator:batch-remote-run"
+else
+  echo "  (batch-operator IAM 사용자 없음 — plan 에서 2 to add 로 생성됨)" >&2
+fi
 
 # --- ALB ---
 ALB=$(one "$(aws elbv2 describe-load-balancers --names "$P-alb" --query 'LoadBalancers[0].[LoadBalancerArn,VpcId]' | tr '\t' '\n' | head -1)" alb)
