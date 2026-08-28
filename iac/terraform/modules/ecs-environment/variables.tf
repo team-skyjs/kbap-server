@@ -209,3 +209,21 @@ variable "bastion_key_name" {
   description = "bastion EC2 키페어 이름 (SSH 터널용)"
   type        = string
 }
+
+# --- 관측: Grafana Alloy DAEMON (KB-381) ---
+variable "home_prometheus_remote_write_url" {
+  description = "홈서버 Prometheus remote_write 수신 URL — Cloudflare Tunnel 공개 호스트 (예: https://prom-write.example.com/api/v1/write)"
+  type        = string
+}
+
+variable "alloy_image" {
+  description = "Grafana Alloy 이미지 (태그 고정 — latest 금지)"
+  type        = string
+  default     = "grafana/alloy:v1.19.2"
+}
+
+variable "alloy_secret_names" {
+  description = "Alloy 태스크에 SSM SecureString 으로 주입할 환경변수 이름 — Cloudflare Access 서비스 토큰. 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type SecureString"
+  type        = list(string)
+  default     = ["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+}

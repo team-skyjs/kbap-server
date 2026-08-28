@@ -61,3 +61,7 @@ output "dashboard_name" {
 output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
 }
+
+output "alloy_service_name" {
+  value = aws_ecs_service.alloy.name
+}
