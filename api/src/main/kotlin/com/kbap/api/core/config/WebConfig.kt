@@ -14,6 +14,9 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.accept.ApiVersionResolver
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import org.springframework.web.filter.CorsFilter
 import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
@@ -38,11 +41,6 @@ class WebConfig(
         }
 
     override fun addCorsMappings(registry: CorsRegistry) {
-        registry.addMapping("${ApiPaths.ADMIN}/**")
-            .allowedOriginPatterns(*ADMIN_SPA_ORIGIN_PATTERNS)
-            .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-            .allowedHeaders("*")
-            .allowCredentials(true)
         registry.addMapping("/api/**")
             .allowedOriginPatterns("*")
             .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
@@ -63,6 +61,26 @@ class WebConfig(
             .addPathPatterns("/admin/**")
             .excludePathPatterns(AdminPageAuthInterceptor.LOGIN_PATH)
     }
+
+    @Bean
+    fun adminCorsFilterRegistration(): FilterRegistrationBean<CorsFilter> =
+        FilterRegistrationBean(CorsFilter(adminCorsConfigurationSource())).apply {
+            order = Ordered.HIGHEST_PRECEDENCE + 1
+            addUrlPatterns("${ApiPaths.ADMIN}/*")
+        }
+
+    private fun adminCorsConfigurationSource(): UrlBasedCorsConfigurationSource =
+        UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration(
+                "${ApiPaths.ADMIN}/**",
+                CorsConfiguration().apply {
+                    allowedOriginPatterns = ADMIN_SPA_ORIGIN_PATTERNS
+                    allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                    allowedHeaders = listOf("*")
+                    allowCredentials = true
+                },
+            )
+        }
 
     @Bean
     fun requestLoggingFilterRegistration(): FilterRegistrationBean<RequestLoggingFilter> =
@@ -110,7 +128,7 @@ class WebConfig(
     companion object {
         const val ADMIN_LOGIN_PATH = "${ApiPaths.ADMIN}/auth/login"
 
-        val ADMIN_SPA_ORIGIN_PATTERNS = arrayOf(
+        val ADMIN_SPA_ORIGIN_PATTERNS = listOf(
             "https://kbap-admin.pages.dev",
             "https://*.kbap-admin.pages.dev",
             "http://localhost:5173",

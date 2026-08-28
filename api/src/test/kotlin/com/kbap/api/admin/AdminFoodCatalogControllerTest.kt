@@ -182,6 +182,27 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("허용 오리진에서 토큰 없이 실제 요청을 보내면") {
+                then("401 응답에도 CORS 헤더가 중복 없이 실린다") {
+                    mockMvc.get(path) { header("Origin", spaOrigin) }.andExpect {
+                        status { isUnauthorized() }
+                        header { stringValues("Access-Control-Allow-Origin", spaOrigin) }
+                    }
+                }
+            }
+
+            `when`("허용 오리진에서 위조된 토큰으로 실제 요청을 보내면") {
+                then("401 응답에도 CORS 헤더가 실린다") {
+                    mockMvc.get(path) {
+                        header("Origin", spaOrigin)
+                        header("Authorization", "Bearer forged-token")
+                    }.andExpect {
+                        status { isUnauthorized() }
+                        header { stringValues("Access-Control-Allow-Origin", spaOrigin) }
+                    }
+                }
+            }
+
             `when`("허용 목록 밖 오리진에서 어드민 API 프리플라이트를 보내면") {
                 then("거절한다") {
                     preflight(path, "https://evil.example.com").andExpect {
