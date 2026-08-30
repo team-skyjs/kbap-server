@@ -37,8 +37,9 @@ data class LlmModelProperties(
         val model: String? = null,
         val imageBaseUrl: String = "",
         val temperature: Double? = null,
-        val maxRetries: Int? = null,
+        val maxRetries: Int = 0,
         val timeout: Duration = Duration.ofSeconds(60),
+        val retryBudget: Duration = Duration.ofSeconds(10),
         val pricing: PricingProps = PricingProps(
             inputUsdPerMillionTokens = 0.2,
             outputUsdPerMillionTokens = 1.2,

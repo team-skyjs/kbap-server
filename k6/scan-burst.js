@@ -53,11 +53,12 @@ export default function () {
   const scanOk = check(scanRes, { 'L2 scan 200': (r) => r.status === 200 });
   if (!scanOk) {
     const body = String(scanRes.body);
-    if (scanRes.status === 429) {
+    if (scanRes.status === 429 || body.includes('SCAN-008')) {
+      // 앱은 OpenAI rate-limit 을 503 SCAN-008 로 응답한다(KB-394) — payload.retryAfterSeconds 가 있으면 벤더 Retry-After
       scanRateLimited.add(1);
-      console.warn('L2 429 — 앱이 직접 429 (드묾, Spring AI 재시도 소진 케이스)');
+      console.warn(`L2 rate-limited ${scanRes.status}: ${body.slice(0, 160)}`);
     } else if (scanRes.status === 503 || body.includes('SCAN_VISION_UNAVAILABLE') || body.includes('SCAN-')) {
-      // 앱은 OpenAI rate-limit 을 503 SCAN-002/SCAN_VISION_UNAVAILABLE 로 응답(429 아님)
+      // SCAN-006(서버 장애·quota 소진) / SCAN-002(인식 실패)
       scanVisionUnavailable.add(1);
       console.warn(`L2 ${scanRes.status} vision-unavailable: ${body.slice(0, 160)}`);
     } else {

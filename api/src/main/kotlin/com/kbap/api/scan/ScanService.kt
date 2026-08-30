@@ -7,6 +7,8 @@ import com.kbap.common.util.KoreanMenuNameNormalizer
 import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
+import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.api.food.FoodService
@@ -39,6 +41,22 @@ class ScanService(
     ): ScanResult {
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
+        } catch (e: MenuBoardVisionRateLimitedException) {
+            log.warn(
+                "메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}",
+                if (e.exhausted) "EXHAUSTED" else "IMMEDIATE",
+                e.retryAfterSeconds,
+                e.message,
+                imagePath,
+                e,
+            )
+            throw BusinessException(
+                ErrorCode.SCAN_RATE_LIMITED,
+                payload = e.retryAfterSeconds?.let { mapOf("retryAfterSeconds" to it) },
+            )
+        } catch (e: MenuBoardVisionQuotaExhaustedException) {
+            log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)
+            throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)
         } catch (e: MenuBoardVisionUnavailableException) {
             log.warn("메뉴판 비전 서버 장애 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)

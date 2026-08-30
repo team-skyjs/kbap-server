@@ -670,6 +670,25 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("벤더 요청 한도 초과로 스캔이 실패하면") {
+                then("503 SCAN-008 로 응답한다") {
+                    val memberId = 507L
+                    val path = "scan/507/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.rateLimitedOn(path)
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                    }
+                }
+            }
+
             `when`("경로 대신 전체 URL 을 넘기면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/scans") {
@@ -957,6 +976,58 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.code") { value("SCAN-006") }
                     }
                     scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("벤더 요청 한도 초과(429)로 스캔이 실패하면") {
+                then("503 SCAN-008 로 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 653L
+                    val path = "scan/653/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.rateLimitedOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("벤더 잔액·한도 소진(insufficient_quota)으로 스캔이 실패하면") {
+                then("503 SCAN-006 으로 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 654L
+                    val path = "scan/654/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.quotaExhaustedOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-006") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("벤더가 Retry-After 를 함께 준 429 로 스캔이 실패하면") {
+                then("payload.retryAfterSeconds 로 재시도 권고 초를 내려주고, 없으면 payload 가 null 이다") {
+                    val memberId = 655L
+                    val withHint = "scan/655/menu.jpg"
+                    val withoutHint = "scan/655/menu2.jpg"
+                    seedVerifiedImage(memberId, withHint)
+                    seedVerifiedImage(memberId, withoutHint)
+                    vision.rateLimitedOn(withHint, retryAfterSeconds = 20)
+                    vision.rateLimitedOn(withoutHint)
+
+                    v2Scan(memberId, withHint).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                        jsonPath("$.payload.retryAfterSeconds") { value(20) }
+                    }
+                    v2Scan(memberId, withoutHint).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                        jsonPath("$.payload") { value(null) }
+                    }
                 }
             }
             `when`("이미 처리 중인 티켓으로 스캔이 중복 전달되면") {
