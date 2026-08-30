@@ -1,0 +1,9 @@
+{
+  "memberId": 35,
+  "foodId": 1,
+  "foodKeyword": "김치",
+  "blockedMemberId": 36,
+  "reviewId": 1,
+  "orderId": 1,
+  "scanImagePath": "test/images/scan/hansik-madang.jpg"
+}

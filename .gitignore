@@ -140,6 +140,10 @@ fabric.properties
 hs_err_pid*
 replay_pid*
 
+k6/fixtures/dev.json
+artifacts/performance/
+*.jfr
+
 ### Kotlin ###
 # Compiled class file
 
