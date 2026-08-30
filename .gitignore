@@ -218,6 +218,9 @@ $RECYCLE.BIN/
 .gradle/
 build/
 .kotlin/
+
+# Local git worktrees
+.worktrees/
 # 위 *.jar 규칙이 래퍼 jar까지 무시하므로 예외로 다시 포함(없으면 clone 후 ./gradlew 실패)
 !gradle/wrapper/gradle-wrapper.jar
 
