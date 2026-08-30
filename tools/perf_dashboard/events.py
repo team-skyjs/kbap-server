@@ -1,3 +1,4 @@
+import json
 import re
 import threading
 from collections import deque
@@ -8,30 +9,50 @@ from .models import JsonValue, RunStatus
 
 
 BEARER_PATTERN: Final = re.compile(r"(?i)(Bearer\s+)\S+")
-JSON_VALUE_PATTERN: Final = re.compile(r'(?i)("(?P<key>[A-Za-z0-9_-]+)"\s*:\s*)"(?:\\.|[^"\\])*"')
-ENV_VALUE_PATTERN: Final = re.compile(
-    r"(?i)\b(?P<key>[A-Za-z_][A-Za-z0-9_-]*)(?P<separator>\s*(?:=|:)\s*)(?P<value>\"(?:\\.|[^\"\\])*\"|'[^']*'|[^\s,;]+)"
+JSON_FRAGMENT_PATTERN: Final = re.compile(
+    r'(?i)(?P<prefix>"(?P<key>[A-Za-z0-9_-]+)"\s*:\s*)(?P<value>"(?:\\.|[^"\\])*"|\[[^\]\r\n]*\]|\{[^}\r\n]*\}|true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)'
 )
-SECRET_COMPONENTS: Final = frozenset(("secret", "token", "key", "password"))
+ENV_VALUE_PATTERN: Final = re.compile(
+    r"(?i)\b(?P<key>[A-Za-z_][A-Za-z0-9_-]*)(?P<separator>\s*(?:=|:)\s*)(?P<value>\"(?:\\.|[^\"\\])*\"|'[^']*'|\[[^\]\r\n]*\]|\{[^}\r\n]*\}|[^\s,;]+)"
+)
+SECRET_NAMES: Final = frozenset((
+    "authorization", "token", "accesstoken", "refreshtoken", "idtoken", "authtoken", "bearertoken", "jwttoken",
+    "apikey", "accesskey", "privatekey", "signingkey", "secret", "jwtsecret", "clientsecret", "apisecret",
+    "signingsecret", "webhooksecret", "secretaccesskey", "awssecretaccesskey", "password", "dbpassword", "databasepassword",
+))
 
 
 def _is_secret_name(name: str) -> bool:
-    normalized = name.casefold()
-    return normalized == "authorization" or not SECRET_COMPONENTS.isdisjoint(re.split(r"[_-]", normalized))
+    return re.sub(r"[_-]", "", name).casefold() in SECRET_NAMES
 
 
-def _redact_json(match: re.Match[str]) -> str:
-    return f'{match.group(1)}"[REDACTED]"' if _is_secret_name(match.group("key")) else match.group(0)
+def _redact_json(value: JsonValue) -> JsonValue:
+    if isinstance(value, dict):
+        return {key: "[REDACTED]" if _is_secret_name(key) else _redact_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_json(item) for item in value]
+    if isinstance(value, str):
+        return BEARER_PATTERN.sub(r"\1[REDACTED]", value)
+    return value
 
 
 def _redact_env(match: re.Match[str]) -> str:
     return f'{match.group("key")}{match.group("separator")}[REDACTED]' if _is_secret_name(match.group("key")) else match.group(0)
 
 
+def _redact_json_fragment(match: re.Match[str]) -> str:
+    return f'{match.group("prefix")}"[REDACTED]"' if _is_secret_name(match.group("key")) else match.group(0)
+
+
 def sanitize_line(line: str) -> str:
-    without_bearer = BEARER_PATTERN.sub(r"\1[REDACTED]", line.rstrip("\r\n"))
-    without_json = JSON_VALUE_PATTERN.sub(_redact_json, without_bearer)
-    return ENV_VALUE_PATTERN.sub(_redact_env, without_json)
+    stripped = line.rstrip("\r\n")
+    try:
+        document: JsonValue = json.loads(stripped)
+    except json.JSONDecodeError:
+        without_bearer = BEARER_PATTERN.sub(r"\1[REDACTED]", stripped)
+        without_fragments = JSON_FRAGMENT_PATTERN.sub(_redact_json_fragment, without_bearer)
+        return ENV_VALUE_PATTERN.sub(_redact_env, without_fragments)
+    return json.dumps(_redact_json(document), ensure_ascii=False, separators=(",", ":"))
 
 
 @dataclass(frozen=True, slots=True)

@@ -18,18 +18,15 @@ def _metric(metrics: dict[str, JsonValue], metric_name: str, value_name: str) ->
     return _number(values.get(value_name))
 
 
-def _thresholds_passed(document: dict[str, JsonValue]) -> bool | None:
-    root_group = _mapping(document.get("root_group"))
-    raw_checks = root_group.get("checks")
-    if not isinstance(raw_checks, list) or not raw_checks:
-        return None
-    failures: list[int] = []
-    for raw in raw_checks:
-        check = _mapping(raw)
-        value = check.get("fails")
-        if isinstance(value, int) and not isinstance(value, bool):
-            failures.append(value)
-    return all(value == 0 for value in failures) if failures else None
+def _thresholds_passed(metrics: dict[str, JsonValue]) -> bool | None:
+    results: list[bool] = []
+    for raw_metric in metrics.values():
+        thresholds = _mapping(_mapping(raw_metric).get("thresholds"))
+        for raw_threshold in thresholds.values():
+            ok = _mapping(raw_threshold).get("ok")
+            if isinstance(ok, bool):
+                results.append(ok)
+    return all(results) if results else None
 
 
 def read_summary(path: Path) -> SummaryMetrics | None:
@@ -45,5 +42,5 @@ def read_summary(path: Path) -> SummaryMetrics | None:
         p99=_metric(metrics, "http_req_duration", "p(99)"),
         failure_rate=_metric(metrics, "http_req_failed", "rate"),
         dropped_iterations=_metric(metrics, "dropped_iterations", "count"),
-        thresholds_passed=_thresholds_passed(data),
+        thresholds_passed=_thresholds_passed(metrics),
     )

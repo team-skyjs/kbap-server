@@ -25,7 +25,7 @@ def artifacts():
     target_dir = root / campaign_id / target
     target_dir.mkdir(parents=True, exist_ok=True)
     (target_dir / "report.html").write_text("<h1>safe</h1>", encoding="utf-8")
-    data = {"metrics": {"http_req_duration": {"values": {"p(95)": 12.5, "p(99)": 17.5}}, "http_req_failed": {"values": {"rate": 0.25}}, "dropped_iterations": {"values": {"count": 3}}}, "root_group": {"checks": [{"passes": 1, "fails": 0}]}}
+    data = {"metrics": {"http_req_duration": {"values": {"p(95)": 12.5, "p(99)": 17.5}, "thresholds": {"p(95)<300": {"ok": True}, "p(99)<750": {"ok": True}}}, "http_req_failed": {"values": {"rate": 0.25}, "thresholds": {"rate<0.30": {"ok": True}}}, "dropped_iterations": {"values": {"count": 3}, "thresholds": {"count<4": {"ok": True}}}}, "root_group": {"checks": {"status is expected": {"passes": 1, "fails": 0}}}}
     (target_dir / "summary.json").write_text(json.dumps({"metadata": {"target": target}, "data": data}), encoding="utf-8")
     (target_dir / "manifest.json").write_text(json.dumps({"campaignId": campaign_id, "target": target, "taskIds": ["one", "two"]}), encoding="utf-8")
     (target_dir / "task-one.jfr").write_bytes(b"jfr-one")
@@ -44,6 +44,8 @@ def interrupt(signum, frame):
 
 def terminate(signum, frame):
     record_signal(signum)
+    if os.environ.get("FAKE_IGNORE_TERM") == "1":
+        return
     artifacts()
     Path(os.environ["FAKE_TRAP_EXITED"]).write_text(str(signum), encoding="utf-8")
     raise SystemExit(130)

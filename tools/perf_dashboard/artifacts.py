@@ -1,12 +1,14 @@
+import errno
 import json
 import os
 import re
 import shutil
 import stat
 import zipfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import BinaryIO, Final, Iterator
 
 from .models import Artifact, ArtifactId, JsonValue
 
@@ -24,6 +26,26 @@ class ArtifactNotFoundError(Exception):
 
     def __str__(self) -> str:
         return f"artifact-not-found:{self.artifact_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactStorageError(Exception):
+    artifact_id: str
+
+    def __str__(self) -> str:
+        return f"artifact-storage-error:{self.artifact_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class OpenedBundle:
+    source: BinaryIO
+    size: int
+
+
+def artifact_os_error(error: OSError, artifact_id: str) -> ArtifactNotFoundError | ArtifactStorageError:
+    if error.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+        return ArtifactNotFoundError(artifact_id)
+    return ArtifactStorageError(artifact_id)
 
 
 def is_allowed_artifact(name: str) -> bool:
@@ -107,7 +129,7 @@ def _read_campaign(campaign_fd: int) -> tuple[bytes, JsonValue]:
     try:
         file_descriptor = os.open("campaign.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=campaign_fd)
     except OSError as error:
-        raise ArtifactNotFoundError("campaign.json") from error
+        raise artifact_os_error(error, "campaign.json") from error
     with os.fdopen(file_descriptor, "rb") as source:
         data = source.read()
     try:
@@ -122,12 +144,12 @@ def _copy_artifact(archive: zipfile.ZipFile, campaign_fd: int, artifact_id: str,
     try:
         target_fd = os.open(target_name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=campaign_fd)
     except OSError as error:
-        raise ArtifactNotFoundError(artifact_id) from error
+        raise artifact_os_error(error, artifact_id) from error
     try:
         try:
             file_descriptor = os.open(file_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=target_fd)
         except OSError as error:
-            raise ArtifactNotFoundError(artifact_id) from error
+            raise artifact_os_error(error, artifact_id) from error
         try:
             if not stat.S_ISREG(os.fstat(file_descriptor).st_mode):
                 raise ArtifactNotFoundError(artifact_id)
@@ -144,28 +166,50 @@ def _unlink_temporary(campaign_fd: int) -> None:
         os.unlink(".bundle.tmp", dir_fd=campaign_fd)
     except FileNotFoundError:
         return
+    except OSError as error:
+        raise ArtifactStorageError("bundle.zip") from error
 
 
-def build_bundle(campaign_dir: Path) -> Path:
+@contextmanager
+def open_bundle(campaign_dir: Path) -> Iterator[OpenedBundle]:
     try:
         campaign_fd = os.open(campaign_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as error:
-        raise ArtifactNotFoundError("campaign.json") from error
+        raise artifact_os_error(error, "bundle.zip") from error
     try:
         campaign_data, document = _read_campaign(campaign_fd)
         registrations = _registered_paths(document)
         _unlink_temporary(campaign_fd)
         flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
-        temporary_fd = os.open(".bundle.tmp", flags, 0o600, dir_fd=campaign_fd)
         try:
-            with os.fdopen(temporary_fd, "w+b", closefd=False) as output, zipfile.ZipFile(output, "w") as archive:
-                archive.writestr(_zip_info("campaign.json"), campaign_data)
-                for artifact_id, path in registrations:
-                    _copy_artifact(archive, campaign_fd, artifact_id, path)
-            os.replace(".bundle.tmp", "bundle.zip", src_dir_fd=campaign_fd, dst_dir_fd=campaign_fd)
+            temporary_fd = os.open(".bundle.tmp", flags, 0o600, dir_fd=campaign_fd)
+        except OSError as error:
+            raise artifact_os_error(error, "bundle.zip") from error
+        renamed = False
+        try:
+            try:
+                with os.fdopen(temporary_fd, "w+b", closefd=False) as output, zipfile.ZipFile(output, "w") as archive:
+                    archive.writestr(_zip_info("campaign.json"), campaign_data)
+                    for artifact_id, path in registrations:
+                        _copy_artifact(archive, campaign_fd, artifact_id, path)
+                os.replace(".bundle.tmp", "bundle.zip", src_dir_fd=campaign_fd, dst_dir_fd=campaign_fd)
+                renamed = True
+                os.lseek(temporary_fd, 0, os.SEEK_SET)
+                file_stat = os.fstat(temporary_fd)
+                if not stat.S_ISREG(file_stat.st_mode):
+                    raise ArtifactStorageError("bundle.zip")
+                with os.fdopen(temporary_fd, "rb", closefd=False) as source:
+                    yield OpenedBundle(source, file_stat.st_size)
+            except OSError as error:
+                raise artifact_os_error(error, "bundle.zip") from error
         finally:
             os.close(temporary_fd)
-            _unlink_temporary(campaign_fd)
+            if not renamed:
+                _unlink_temporary(campaign_fd)
     finally:
         os.close(campaign_fd)
-    return campaign_dir / "bundle.zip"
+
+
+def build_bundle(campaign_dir: Path) -> Path:
+    with open_bundle(campaign_dir):
+        return campaign_dir / "bundle.zip"

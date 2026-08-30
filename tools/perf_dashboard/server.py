@@ -8,7 +8,7 @@ from .controller import CampaignController
 from .http_handler import DashboardHandler
 from .models import Target
 from .root_lock import ArtifactRootLock, DashboardAlreadyRunningError
-from .store import CampaignStoreError
+from .store import CampaignNotFoundError, CampaignStoreError
 from .validation import TargetManifestError, load_targets
 
 
@@ -45,12 +45,14 @@ class DashboardServer(ThreadingHTTPServer):
     def server_close(self) -> None:
         if self._closed:
             return
-        self.controller.shutdown_active()
         try:
-            super().server_close()
+            self.controller.shutdown_active()
         finally:
-            self.root_lock.release()
-            self._closed = True
+            try:
+                super().server_close()
+            finally:
+                self.root_lock.release()
+                self._closed = True
 
 
 def create_server(
@@ -68,18 +70,27 @@ def create_server(
     root_lock = ArtifactRootLock.acquire(selected_artifacts)
     try:
         server = DashboardServer(port, targets, Path(__file__).parent / "static", root_lock)
-    except OSError:
-        root_lock.release()
+    except OSError as error:
+        try:
+            root_lock.release()
+        except OSError as cleanup_error:
+            error.add_note(f"root lock cleanup failed with errno {cleanup_error.errno}")
         raise
     try:
         server.bind_socket()
-    except OSError:
-        server.abort_startup()
+    except OSError as error:
+        try:
+            server.abort_startup()
+        except OSError as cleanup_error:
+            error.add_note(f"server cleanup failed with errno {cleanup_error.errno}")
         raise
     try:
         controller = CampaignController(root_lock.artifact_root, selected_runner, cancel_grace_seconds)
-    except (CampaignStoreError, OSError):
-        server.abort_startup()
+    except (CampaignNotFoundError, CampaignStoreError, OSError) as error:
+        try:
+            server.abort_startup()
+        except OSError as cleanup_error:
+            error.add_note(f"server cleanup failed with errno {cleanup_error.errno}")
         raise
     server.attach_controller(controller)
     configure_controller(controller)

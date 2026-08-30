@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from .artifacts import ArtifactNotFoundError, CHUNK_SIZE
+from .artifacts import ArtifactNotFoundError, ArtifactStorageError, CHUNK_SIZE
 from .controller import ActiveCampaignError
 from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import JsonValue, RunStatus, campaign_document, target_api_document
@@ -70,7 +70,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._sse(self._campaign_id(raw_segments[2]))
                 return
             if len(segments) == 4 and segments[:2] == ("api", "runs") and segments[3] == "bundle":
-                self._stream_file(self.server.controller.bundle(self._campaign_id(raw_segments[2])), "application/zip", "attachment")
+                self._bundle(self._campaign_id(raw_segments[2]))
                 return
             if len(segments) == 5 and segments[:2] == ("api", "runs") and segments[3] == "artifacts":
                 self._artifact(self._campaign_id(raw_segments[2]), segments[4])
@@ -80,6 +80,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         except ArtifactNotFoundError:
             self._json(HTTPStatus.NOT_FOUND, {"error": "artifact-not-found"})
+            return
+        except ArtifactStorageError:
+            self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "artifact-unavailable"})
             return
         except InvalidCampaignIdError:
             self._json(HTTPStatus.NOT_FOUND, {"error": "campaign-not-found"})
@@ -215,6 +218,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._stream_source(artifact.source, artifact.size, artifact.media_type, "inline", REPORT_CSP)
                 return
             self._stream_source(artifact.source, artifact.size, artifact.media_type, f'attachment; filename="{artifact.name}"')
+
+    def _bundle(self, campaign_id: str) -> None:
+        with self.server.controller.open_bundle(campaign_id) as bundle:
+            self._stream_source(bundle.source, bundle.size, "application/zip", 'attachment; filename="bundle.zip"')
 
     def _stream_source(self, source: BinaryIO, size: int, media_type: str, disposition: str, csp: str | None = None) -> None:
         self._headers(HTTPStatus.OK, media_type, size, csp, disposition)

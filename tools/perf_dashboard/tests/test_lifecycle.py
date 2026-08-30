@@ -41,7 +41,7 @@ class DashboardProcessLifecycleTest(unittest.TestCase):
                     os.killpg(record["pgid"], signal.SIGKILL)
         self.temp_dir.cleanup()
 
-    def _environment(self, artifact_root: Path, hold: bool = False) -> Mapping[str, str]:
+    def _environment(self, artifact_root: Path, hold: bool = False, ignore_term: bool = False) -> Mapping[str, str]:
         environment = os.environ.copy()
         environment.update({
             "ACCESS_TOKEN": "process-test-secret",
@@ -51,14 +51,15 @@ class DashboardProcessLifecycleTest(unittest.TestCase):
             "FAKE_TRAP_ENTERED": str(self.trap_entered),
             "FAKE_TRAP_EXITED": str(self.trap_exited),
             "FAKE_HOLD": "1" if hold else "0",
+            "FAKE_IGNORE_TERM": "1" if ignore_term else "0",
         })
         return environment
 
-    def _launch(self, artifact_root: Path, port: int = 0, hold: bool = False) -> subprocess.Popen[str]:
+    def _launch(self, artifact_root: Path, port: int = 0, hold: bool = False, ignore_term: bool = False) -> subprocess.Popen[str]:
         process = subprocess.Popen(
             [sys.executable, "-m", "tools.perf_dashboard.tests.server_process", str(artifact_root), str(self.targets_path), str(self.runner), str(port)],
             cwd=self.repo_root,
-            env=self._environment(artifact_root, hold),
+            env=self._environment(artifact_root, hold, ignore_term),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -194,6 +195,24 @@ class DashboardProcessLifecycleTest(unittest.TestCase):
 
         self.assertEqual((202, 202), (first_status, second_status))
         self.assertEqual(["2", "15"], self.signal_record.read_text(encoding="utf-8").splitlines())
+
+    def test_shutdown_sigkill_fallback_releases_process_group_and_root_lock(self) -> None:
+        artifact_root = self.root / "sigkill"
+        server = self._launch(artifact_root, hold=True, ignore_term=True)
+        port = self._ready_port(server)
+        self.assertIsNotNone(port)
+        campaign_id = self._start_held_campaign(port)
+        runner_record = json.loads(self.record.read_text(encoding="utf-8").splitlines()[0])
+
+        server.send_signal(signal.SIGINT)
+        server.wait(timeout=5)
+        persisted = json.loads((artifact_root / campaign_id / "campaign.json").read_text(encoding="utf-8"))
+        replacement = self._launch(artifact_root)
+        replacement_port = self._ready_port(replacement)
+
+        self.assertFalse(self._pid_exists(runner_record["pid"]))
+        self.assertEqual(-signal.SIGKILL, persisted["targets"][0]["exitCode"])
+        self.assertIsNotNone(replacement_port)
 
     def _pid_exists(self, pid: int) -> bool:
         try:

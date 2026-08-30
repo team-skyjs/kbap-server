@@ -6,11 +6,11 @@ import uuid
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from contextlib import AbstractContextManager
-from typing import Final
+from contextlib import AbstractContextManager, contextmanager
+from typing import Final, Iterator
 
 from .artifact_io import OpenedArtifact, open_artifact
-from .artifacts import build_bundle, discover_artifacts
+from .artifacts import OpenedBundle, build_bundle, discover_artifacts, open_bundle
 from .events import CampaignEvent, EventBuffer, sanitize_line
 from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import Campaign, CampaignId, CampaignTarget, RunRequest, RunStatus
@@ -168,6 +168,7 @@ class CampaignController:
             raise CampaignShutdownTimeoutError(active_ids)
 
     def resolve_artifact(self, campaign_id: str, artifact_id: str) -> Path:
+        """Compatibility path resolver; HTTP serving must use open_artifact()."""
         campaign_id = self._known_campaign_id(campaign_id)
         return self.store.resolve_artifact(campaign_id, artifact_id)
 
@@ -176,10 +177,21 @@ class CampaignController:
         return open_artifact(self.store.root, campaign_id, artifact_id)
 
     def bundle(self, campaign_id: str) -> Path:
+        """Compatibility path helper; HTTP serving must use open_bundle()."""
         campaign_id = self._known_campaign_id(campaign_id)
         self.get(campaign_id)
         with self._bundle_lock:
             return build_bundle(self.store.root / campaign_id)
+
+    def open_bundle(self, campaign_id: str) -> AbstractContextManager[OpenedBundle]:
+        campaign_id = self._known_campaign_id(campaign_id)
+        self.get(campaign_id)
+        return self._open_bundle_locked(campaign_id)
+
+    @contextmanager
+    def _open_bundle_locked(self, campaign_id: str) -> Iterator[OpenedBundle]:
+        with self._bundle_lock, open_bundle(self.store.root / campaign_id) as opened:
+            yield opened
 
     def _known_campaign_id(self, campaign_id: str) -> str:
         try:
