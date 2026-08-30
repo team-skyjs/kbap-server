@@ -28,6 +28,7 @@ module "ecs_environment" {
   cdn_base_url            = var.cdn_base_url
   image_public_base_url   = var.image_public_base_url
   food_content_queue_name = var.food_content_queue_name
+  vector_enabled          = var.vector_enabled
 
   log_retention_days            = var.log_retention_days
   canary_percentage             = var.canary_percentage

@@ -159,3 +159,9 @@ variable "blocked_path_patterns" {
   type        = list(string)
   default     = ["*actuator*"]
 }
+
+variable "vector_enabled" {
+  description = "DocumentDB 벡터 검색·적재 활성 — 켜기 전 SSM /kbap/<env>/VECTOR_DB_URI 등록 필수"
+  type        = bool
+  default     = false
+}

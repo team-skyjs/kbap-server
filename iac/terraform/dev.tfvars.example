@@ -24,3 +24,7 @@ home_prometheus_remote_write_url = "https://prom-write.handev.site/api/v1/write"
 
 # 공개 진입점 차단(KB-390): /actuator 류만. dev 는 Swagger 를 공개한다.
 blocked_path_patterns = ["*actuator*"]
+
+# DocumentDB 벡터 검색(api)·적재(batch foodVectorSyncJob). 켜기 전 SSM /kbap/dev/VECTOR_DB_URI (SecureString) 등록 필수 —
+# 값은 tls=true&retryWrites=false 를 포함한 연결 문자열. 적용은 README "벡터 검색·적재 켜기" 절.
+vector_enabled = true

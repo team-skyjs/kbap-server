@@ -88,6 +88,15 @@ terraform plan -var-file=dev.tfvars
 
 1 과 2 사이에 actuator 없는 구 이미지로 CI 를 돌리면 헬스체크 실패로 롤백되므로 창을 짧게 가져간다.
 
+## 벡터 검색·적재 켜기 (DocumentDB, KB-319/KB-328)
+
+기본은 꺼져 있다 — 배치 로그에 `스케줄 대상 잡이 이 환경에 구성되지 않아 건너뜁니다 job=foodVectorSyncJob` 이 매시 찍히면 이 상태다. `vector_enabled = true` 하나로 api(유사 음식 검색 폴백)·batch(`foodVectorSyncJob`) 양쪽에 `VECTOR_ENABLED`·`EMBEDDING_ENABLED=true` 와 시크릿 `VECTOR_DB_URI` 가 붙는다.
+
+1. 시크릿 등록(없으면 태스크 기동 실패): `aws ssm put-parameter --profile kbap-infra --name /kbap/<env>/VECTOR_DB_URI --type SecureString --overwrite --value 'mongodb://<user>:<pw>@<cluster-endpoint>:27017/?tls=true&retryWrites=false'` — `tlsCAFile` 은 넣지 않는다(Java 드라이버 미지원, CA 는 이미지 truststore 에 있음). `retryWrites=false` 는 필수.
+2. `<env>.tfvars` 에 `vector_enabled = true` → 태스크 정의는 `ignore_changes = [container_definitions]` 라 리비전을 직접 갈아 끼운다: `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch`(api 도 켜려면 `-replace=…aws_ecs_task_definition.api` 추가). 서비스는 그대로라 실행 중 태스크 무영향.
+3. 재배포 — CI 가 최신 리비전을 복제해 env 를 승계한다: `deploy-batch-dev.yml` 을 `workflow_dispatch` 로 실행(image_tag 에 현재 태그를 넣으면 빌드 없이 롤링). api 는 `deploy-dev.yml` 동일.
+4. 확인: 배치 로그에서 위 건너뜀 메시지 소멸 + 30분 정각 `스케줄 트리거 job=foodVectorSyncJob` → `attempted≥1, failed=0`(`attempted=0` 은 빈 성공, `PKIX` 가 보이면 TLS 신뢰 문제). 기존 음식 적재는 `/admin/foods` 의 "미적재 음식 벡터 적재" 버튼으로 아웃박스를 채운 뒤 잡이 소화한다.
+
 ## 배치 잡 원격 실행 (ECS Exec)
 
 배치 잡 트리거(`POST /internal/batch/jobs`)는 클러스터 내부에서만 열려 있고 인증이 없다. 클러스터 밖(홈서버 젠킨스·운영자 PC)에서는 **ECS Exec** 로 배치 컨테이너 안에서 `curl localhost:8080` 을 실행한다 — 컨테이너가 SSM 채널을 아웃바운드로 열어 두므로 **인바운드 포트 개방 0, 추가 비용 0**, 접근 통제는 IAM 이 담당한다.

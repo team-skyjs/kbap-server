@@ -14,7 +14,7 @@ locals {
     CDN_BASE_URL           = var.cdn_base_url
     IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
     JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
-  }, var.api_extra_env)
+  }, local.vector_env, var.api_extra_env)
 }
 
 resource "aws_ecs_task_definition" "api" {
@@ -38,7 +38,7 @@ resource "aws_ecs_task_definition" "api" {
 
       environment = [for k, v in local.api_env : { name = k, value = v }]
 
-      secrets = [for name in var.api_secret_names : {
+      secrets = [for name in concat(var.api_secret_names, local.vector_secret_names) : {
         name      = name
         valueFrom = local.secret_arns[name]
       }]
