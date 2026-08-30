@@ -12,7 +12,7 @@ locals {
     AWS_REGION               = var.region
     FOOD_CONTENT_QUEUE_URL   = data.aws_sqs_queue.food_content.url
     JAVA_TOOL_OPTIONS        = "-XX:MaxRAMPercentage=70"
-  }, var.batch_extra_env)
+  }, local.vector_env, var.batch_extra_env)
 }
 
 resource "aws_ecs_task_definition" "batch" {

@@ -103,6 +103,11 @@ data "aws_iam_policy_document" "api_task" {
       "arn:aws:s3:::${var.storage_bucket}/images/*",
     ]
   }
+  # 유사 음식 벡터 검색(KB-319) — 읽기 전용
+  statement {
+    actions   = ["s3vectors:QueryVectors", "s3vectors:GetVectors"]
+    resources = [aws_s3vectors_index.foods.index_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "api_task" {
@@ -126,6 +131,11 @@ data "aws_iam_policy_document" "batch_task" {
   statement {
     actions   = ["s3:GetObject", "s3:PutObject"]
     resources = ["arn:aws:s3:::${var.storage_bucket}/images/*"]
+  }
+  # 음식 벡터 적재(KB-328 foodVectorSyncJob) — hash 조회·upsert·삭제
+  statement {
+    actions   = ["s3vectors:GetVectors", "s3vectors:PutVectors", "s3vectors:DeleteVectors"]
+    resources = [aws_s3vectors_index.foods.index_arn]
   }
   # ECS Exec — 컨테이너에 주입되는 SSM 에이전트가 제어/데이터 채널을 아웃바운드로 연다(리소스 한정 불가 액션)
   statement {

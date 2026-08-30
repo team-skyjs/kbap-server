@@ -14,7 +14,7 @@ locals {
     CDN_BASE_URL           = var.cdn_base_url
     IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
     JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
-  }, var.api_extra_env)
+  }, local.vector_env, var.api_extra_env)
 }
 
 resource "aws_ecs_task_definition" "api" {

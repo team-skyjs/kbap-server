@@ -12,7 +12,6 @@ object FoodVectorDocuments {
     const val EMBEDDING_MODEL = "embeddingModel"
     const val EMBEDDING_DIMENSION = "embeddingDimension"
     const val INDEXED_AT = "indexedAt"
-    const val SCORE = "score"
 
     fun embeddingText(name: String, longDescription: String): String = "$name\n$longDescription"
 

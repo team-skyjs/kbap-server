@@ -233,3 +233,9 @@ variable "blocked_path_patterns" {
   type        = list(string)
   default     = ["*actuator*"]
 }
+
+variable "vector_enabled" {
+  description = "S3 Vectors 벡터 검색(api, KB-319)·적재(batch foodVectorSyncJob, KB-328) 앱 스위치. 버킷·인덱스·IAM 은 항상 만들어지고(서버리스, 상시 비용 0), 켜면 VECTOR_ENABLED·EMBEDDING_ENABLED=true 와 VECTOR_BUCKET·VECTOR_INDEX 를 api·batch env 에 주입한다. 시크릿 없음 — 태스크 롤로 인증."
+  type        = bool
+  default     = false
+}

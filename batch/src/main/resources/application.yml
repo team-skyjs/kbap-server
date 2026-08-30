@@ -71,14 +71,13 @@ kbap:
       api-key: ${OPENAI_API_KEY:}
       model: text-embedding-3-small
       dimension: 256
-  # 음식 벡터 저장소(KB-318 DocumentDB) — 기본 off(로컬 등 클러스터 없는 환경 부팅 안전).
-  # 문서·검색 계약: specs/kb-328-food-vector-outbox/contracts/vector-food-document-v2.md
+  # 음식 벡터 저장소 — S3 Vectors(2026-08-31 DocumentDB 에서 전환). 기본 off(로컬 등 버킷 없는 환경 부팅 안전).
+  # 인증은 태스크 롤(시크릿 없음). 문서·검색 계약: specs/kb-328-food-vector-outbox/contracts/vector-food-document-v2.md
   vector:
     enabled: ${VECTOR_ENABLED:false}
-    # TLS·CA 번들 포함 연결 문자열 — 시크릿이므로 환경 변수로만 주입한다.
-    uri: ${VECTOR_DB_URI:}
-    database: ${VECTOR_DB_DATABASE:kbap}
-    collection: ${VECTOR_DB_COLLECTION:foods}
+    bucket: ${VECTOR_BUCKET:}
+    index: ${VECTOR_INDEX:foods}
+    region: ${AWS_REGION:ap-northeast-2}
 # datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
 # 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
 # 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

@@ -109,14 +109,13 @@ kbap:
       api-key: ${OPENAI_API_KEY:}
       model: text-embedding-3-small
       dimension: 256
-  # 스캔 v2 유사 음식 벡터 검색(KB-319) — DocumentDB(MongoDB 호환). 기본 off(로컬 등 클러스터 없는 환경 부팅 안전).
-  # 문서·검색 계약: specs/kb-319-scan-ocr-vector-fallback/contracts/vector-food-document.md
+  # 유사 음식 벡터 검색(KB-319) — S3 Vectors(2026-08-31 DocumentDB 에서 전환). 기본 off(로컬 등 버킷 없는 환경 부팅 안전).
+  # 인증은 태스크 롤(시크릿 없음). 문서·검색 계약: specs/kb-328-food-vector-outbox/contracts/vector-food-document-v2.md
   vector:
     enabled: ${VECTOR_ENABLED:false}
-    # TLS·CA 번들 포함 연결 문자열 — 시크릿이므로 환경 변수로만 주입한다.
-    uri: ${VECTOR_DB_URI:}
-    database: ${VECTOR_DB_DATABASE:kbap}
-    collection: ${VECTOR_DB_COLLECTION:foods}
+    bucket: ${VECTOR_BUCKET:}
+    index: ${VECTOR_INDEX:foods}
+    region: ${AWS_REGION:ap-northeast-2}
   # 이미지 배치 운영 파라미터(KB-226). 배치당 100건 — 한 번에 제작해 한 번에 회수(운영 결정).
   # 배치 단위 실패/만료의 손실을 줄이기 위해 회수는 failed/expired 배치의 부분 완료분도 거둬들인다.
   # 프롬프트는 설정이 아니라 코드 상수(FoodImageProperties.PROMPT_TEMPLATE) — 변경 시 PROMPT_VERSION 도 함께 올린다.

@@ -159,3 +159,9 @@ variable "blocked_path_patterns" {
   type        = list(string)
   default     = ["*actuator*"]
 }
+
+variable "vector_enabled" {
+  description = "S3 Vectors 벡터 검색·적재 앱 스위치 — 버킷·인덱스는 항상 만들어지고 env 주입만 토글한다"
+  type        = bool
+  default     = false
+}

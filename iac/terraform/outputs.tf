@@ -18,6 +18,10 @@ output "batch_service_name" {
   value = module.ecs_environment.batch_service_name
 }
 
+output "vector_bucket_name" {
+  value = module.ecs_environment.vector_bucket_name
+}
+
 output "batch_operator_user_name" {
   value = module.ecs_environment.batch_operator_user_name
 }
