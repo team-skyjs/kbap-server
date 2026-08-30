@@ -73,10 +73,7 @@ class AdminFoodService(
 
     @Transactional
     fun updateFood(id: Long, command: UpdateFoodCommand, expectedVersion: Long? = null): AdminFoodUpdateResult {
-        val food = when (expectedVersion) {
-            null -> foodRepository.findById(id).orElse(null)
-            else -> foodRepository.findByIdForUpdate(id)
-        } ?: return AdminFoodUpdateResult.NOT_FOUND
+        val food = foodRepository.findByIdForUpdate(id) ?: return AdminFoodUpdateResult.NOT_FOUND
         if (expectedVersion != null && expectedVersion != food.version) {
             throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
         }

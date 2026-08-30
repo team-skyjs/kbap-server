@@ -8,6 +8,8 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.util.ImageUrls
 import jakarta.validation.constraints.AssertTrue
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
@@ -27,7 +29,7 @@ data class AdminFoodDetailResponse(
     val imageUrl: String?,
     val nameTranslations: Map<String, String>,
     val descriptionTranslations: Map<String, String>,
-    val ingredients: List<FoodIngredient>,
+    val ingredients: List<FoodIngredient>?,
     val version: Long,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
@@ -48,7 +50,7 @@ data class AdminFoodDetailResponse(
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 nameTranslations = food.nameTranslations,
                 descriptionTranslations = food.descriptionTranslations,
-                ingredients = food.ingredients.orEmpty(),
+                ingredients = food.ingredients,
                 version = food.version,
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,
@@ -64,6 +66,8 @@ data class AdminFoodUpdateRequest(
     @field:Size(max = 255, message = "description 은 255자 이하여야 합니다")
     val description: String? = null,
     @field:NotNull
+    @field:Min(-1, message = "spiciness 는 -1(미조사) 이상이어야 합니다")
+    @field:Max(10, message = "spiciness 는 10 이하여야 합니다")
     val spiciness: Int? = null,
     @field:NotNull
     val contentStatus: FoodContentStatus? = null,

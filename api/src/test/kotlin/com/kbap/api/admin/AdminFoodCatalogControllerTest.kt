@@ -301,6 +301,18 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("성분 미조사(null) 음식을 조회하면") {
+                then("ingredients 를 null 로 내려 빈 배열(조사 완료)과 구분한다") {
+                    val food = foodJpaRepository.save(
+                        Food(koreanName = "미조사찌개", description = "설명", ingredients = null),
+                    )
+
+                    val body = getDetail(food.id).andExpect { status { isOk() } }
+                        .andReturn().response.contentAsString
+                    mapper.readTree(body).path("payload").path("ingredients").isNull shouldBe true
+                }
+            }
+
             `when`("없는 id 를 조회하면") {
                 then("400(FOOD-001) 로 거절한다") {
                     getDetail(999999).andExpect {
@@ -449,6 +461,46 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
 
                     outcomes.count { it == AdminFoodUpdateResult.UPDATED } shouldBe 1
                     outcomes.count { it == ErrorCode.FOOD_VERSION_CONFLICT } shouldBe 1
+                }
+            }
+
+            `when`("성분을 생략하고 수정하면") {
+                then("미조사(null)로 저장되고 응답도 null 이다") {
+                    val food = saveFood("생략찌개")
+
+                    val body = putUpdate(food.id, updateBody(koreanName = "생략찌개"))
+                        .andExpect { status { isOk() } }
+                        .andReturn().response.contentAsString
+
+                    mapper.readTree(body).path("payload").path("ingredients").isNull shouldBe true
+                    foodJpaRepository.findById(food.id).orElseThrow().ingredients shouldBe null
+                }
+            }
+
+            `when`("성분을 빈 배열로 보내 수정하면") {
+                then("조사 완료·해당 없음(빈 배열)으로 저장된다") {
+                    val food = saveFood("빈성분찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "빈성분찌개") + mapOf("ingredients" to emptyList<Any>()),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.ingredients.length()") { value(0) }
+                    }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().ingredients shouldBe emptyList()
+                }
+            }
+
+            `when`("spiciness 가 스키마 범위(-1..10)를 벗어나면") {
+                then("400(COMMON-002) 검증 실패로 응답한다") {
+                    val food = saveFood("과맵찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "과맵찌개") + mapOf("spiciness" to 11)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
                 }
             }
 
