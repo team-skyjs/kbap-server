@@ -198,6 +198,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     scanDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
                     scanDesc.contains("SCAN-002").shouldBeTrue()
                     scanDesc.contains("SCAN-006").shouldBeTrue()
+                    scanDesc.contains("SCAN-008").shouldBeTrue()
                 }
             }
         }

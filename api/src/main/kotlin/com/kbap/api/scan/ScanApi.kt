@@ -55,12 +55,13 @@ interface ScanApi {
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
-            ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
+            ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)·벤더 요청 한도 초과(SCAN-008 — 잠시 후 재시도, payload.retryAfterSeconds 가 있으면 그 시간 뒤)"),
         ],
     )
     @ApiErrors(
         ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
         ErrorCode.SCAN_VISION_UNAVAILABLE,
+        ErrorCode.SCAN_RATE_LIMITED,
     )
     fun scan(
         memberId: Long,

@@ -63,7 +63,7 @@ interface ScanV2Api {
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
             ApiResponse(responseCode = "409", description = "같은 티켓의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
-            ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)"),
+            ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)·벤더 요청 한도 초과(SCAN-008 — 잠시 후 재시도, payload.retryAfterSeconds 가 있으면 그 시간 뒤; 티켓 재발급 후 재시도)"),
         ],
     )
     @ApiErrors(
@@ -74,6 +74,7 @@ interface ScanV2Api {
         ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
         ErrorCode.MENU_BOARD_NOT_DETECTED,
         ErrorCode.SCAN_VISION_UNAVAILABLE,
+        ErrorCode.SCAN_RATE_LIMITED,
     )
     fun scan(
         memberId: Long,

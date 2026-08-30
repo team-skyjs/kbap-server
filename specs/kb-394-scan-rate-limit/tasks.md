@@ -87,12 +87,12 @@
 
 ### Tests for User Story 4 (Test-First) ⚠️
 
-- [ ] T016 [US4] `ScanControllerTest.kt` v2 섹션에 then("Retry-After 가 있으면 payload.retryAfterSeconds 로 내려주고 없으면 payload 가 null 이다") — `vision.rateLimitedOn(path, retryAfterSeconds = 20)` → `jsonPath("$.payload.retryAfterSeconds") { value(20) }`; `rateLimitedOn(path2)` → `jsonPath("$.payload") { value(null) }`. T009 구현으로 이미 그린이면 Red 없이 회귀 고정으로 둔다(사유를 커밋 메시지에).
+- [x] T016 [US4] `ScanControllerTest.kt` v2 섹션에 then("Retry-After 가 있으면 payload.retryAfterSeconds 로 내려주고 없으면 payload 가 null 이다") — `vision.rateLimitedOn(path, retryAfterSeconds = 20)` → `jsonPath("$.payload.retryAfterSeconds") { value(20) }`; `rateLimitedOn(path2)` → `jsonPath("$.payload") { value(null) }`. T009 구현으로 이미 그린이면 Red 없이 회귀 고정으로 둔다(사유를 커밋 메시지에).
 
 ### Implementation for User Story 4
 
-- [ ] T017 [US4] `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt`·`ScanV2Api.kt` — 503 `ApiResponse` description 에 `벤더 요청 한도 초과(SCAN-008 — 잠시 후 재시도, payload.retryAfterSeconds)` 추가, `errorCodes` 배열에 `ErrorCode.SCAN_RATE_LIMITED`. `api/src/test/kotlin/com/kbap/api/openapi/OpenApiSnapshotTest.kt` 스캔 설명 단언에 `scanDesc.contains("SCAN-008").shouldBeTrue()` 추가.
-- [ ] T018 [US4] `./gradlew :api:test` 그린. 커밋 `docs(scan): API 문서에 SCAN-008 추가·Retry-After payload 계약 테스트`.
+- [x] T017 [US4] `api/src/main/kotlin/com/kbap/api/scan/ScanApi.kt`·`ScanV2Api.kt` — 503 `ApiResponse` description 에 `벤더 요청 한도 초과(SCAN-008 — 잠시 후 재시도, payload.retryAfterSeconds)` 추가, `errorCodes` 배열에 `ErrorCode.SCAN_RATE_LIMITED`. `api/src/test/kotlin/com/kbap/api/openapi/OpenApiSnapshotTest.kt` 스캔 설명 단언에 `scanDesc.contains("SCAN-008").shouldBeTrue()` 추가.
+- [x] T018 [US4] `./gradlew :api:test` 그린. 커밋 `docs(scan): API 문서에 SCAN-008 추가·Retry-After payload 계약 테스트`.
 
 ---
 

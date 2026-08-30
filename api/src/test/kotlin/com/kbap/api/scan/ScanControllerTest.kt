@@ -1008,6 +1008,28 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 2
                 }
             }
+            `when`("벤더가 Retry-After 를 함께 준 429 로 스캔이 실패하면") {
+                then("payload.retryAfterSeconds 로 재시도 권고 초를 내려주고, 없으면 payload 가 null 이다") {
+                    val memberId = 655L
+                    val withHint = "scan/655/menu.jpg"
+                    val withoutHint = "scan/655/menu2.jpg"
+                    seedVerifiedImage(memberId, withHint)
+                    seedVerifiedImage(memberId, withoutHint)
+                    vision.rateLimitedOn(withHint, retryAfterSeconds = 20)
+                    vision.rateLimitedOn(withoutHint)
+
+                    v2Scan(memberId, withHint).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                        jsonPath("$.payload.retryAfterSeconds") { value(20) }
+                    }
+                    v2Scan(memberId, withoutHint).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                        jsonPath("$.payload") { value(null) }
+                    }
+                }
+            }
             `when`("이미 처리 중인 티켓으로 스캔이 중복 전달되면") {
                 then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
                     val memberId = 645L
