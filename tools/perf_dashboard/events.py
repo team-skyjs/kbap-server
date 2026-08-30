@@ -16,6 +16,11 @@ ENV_VALUE_PATTERN: Final = re.compile(
     r"(?i)\b(?P<key>[A-Za-z_][A-Za-z0-9_-]*)(?P<separator>\s*(?:=|:)\s*)(?P<value>\"(?:\\.|[^\"\\])*\"|'[^']*'|\[[^\]\r\n]*\]|\{[^}\r\n]*\}|[^\s,;]+)"
 )
 SECRET_COMPONENTS: Final = frozenset(("token", "secret", "password", "key", "auth", "authorization", "authentication", "credential", "credentials"))
+COMPACT_SECRET_NAMES: Final = frozenset((
+    "accesstoken", "refreshtoken", "idtoken", "authtoken", "bearertoken", "jwttoken", "apikey", "accesskey",
+    "privatekey", "signingkey", "jwtsecret", "clientsecret", "apisecret", "signingsecret", "webhooksecret",
+    "secretaccesskey", "awssecretaccesskey", "dbpassword", "databasepassword",
+))
 ACRONYM_BOUNDARY: Final = re.compile(r"([A-Z]+)([A-Z][a-z])")
 CAMEL_BOUNDARY: Final = re.compile(r"([a-z0-9])([A-Z])")
 NAME_COMPONENT: Final = re.compile(r"[A-Za-z0-9]+")
@@ -25,7 +30,8 @@ def _is_secret_name(name: str) -> bool:
     separated = ACRONYM_BOUNDARY.sub(r"\1 \2", name)
     separated = CAMEL_BOUNDARY.sub(r"\1 \2", separated)
     components = frozenset(match.group(0).casefold() for match in NAME_COMPONENT.finditer(separated))
-    return not SECRET_COMPONENTS.isdisjoint(components)
+    compact = "".join(match.group(0).casefold() for match in NAME_COMPONENT.finditer(name))
+    return compact in COMPACT_SECRET_NAMES or not SECRET_COMPONENTS.isdisjoint(components)
 
 
 def _redact_json(value: JsonValue) -> JsonValue:

@@ -67,6 +67,36 @@ class SanitizerReviewTest(unittest.TestCase):
         self.assertIn("monkey=banana", sanitized)
         self.assertIn("turnkey=ready", sanitized)
 
+    def test_compact_secret_names_redact_arbitrary_json_values_without_false_positives(self) -> None:
+        line = json.dumps({
+            "apikey": ["alpha", "beta"],
+            "accesskey": {"inner": True},
+            "accesstoken": 9191,
+            "clientsecret": False,
+            "dbpassword": None,
+            "awssecretaccesskey": "quoted value",
+            "jwtsecret": {"nested": [1, 2]},
+            "keyboard": "keep",
+            "monkey": "banana",
+            "turnkey": "ready",
+        })
+
+        sanitized = json.loads(sanitize_line(line))
+
+        for key in ("apikey", "accesskey", "accesstoken", "clientsecret", "dbpassword", "awssecretaccesskey", "jwtsecret"):
+            self.assertEqual("[REDACTED]", sanitized[key])
+        self.assertEqual({"keyboard": "keep", "monkey": "banana", "turnkey": "ready"}, {key: sanitized[key] for key in ("keyboard", "monkey", "turnkey")})
+
+    def test_compact_secret_assignments_redact_full_values_without_false_positives(self) -> None:
+        line = "apikey=[alpha,beta] accesskey={inner:true} accesstoken=9191 clientsecret=false dbpassword=null awssecretaccesskey='quoted value' jwtsecret=raw-value keyboard=keep monkey=banana turnkey=ready"
+
+        sanitized = sanitize_line(line)
+
+        for value in ("alpha", "beta", "inner", "9191", "false", "null", "quoted value", "raw-value"):
+            self.assertNotIn(value, sanitized)
+        for assignment in ("keyboard=keep", "monkey=banana", "turnkey=ready"):
+            self.assertIn(assignment, sanitized)
+
 
 if __name__ == "__main__":
     unittest.main()
