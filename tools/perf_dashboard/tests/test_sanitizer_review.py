@@ -97,6 +97,52 @@ class SanitizerReviewTest(unittest.TestCase):
         for assignment in ("keyboard=keep", "monkey=banana", "turnkey=ready"):
             self.assertIn(assignment, sanitized)
 
+    def test_uppercase_compact_secret_names_redact_arbitrary_json_values(self) -> None:
+        line = json.dumps({
+            "APIKEY": ["upper-alpha", "upper-beta"],
+            "ACCESSKEY": {"upper-inner": True},
+            "ACCESSTOKEN": 8181,
+            "CLIENTSECRET": False,
+            "DBPASSWORD": None,
+            "AWSSECRETACCESSKEY": "upper quoted value",
+            "keyboard": "keep",
+            "monkey": "banana",
+            "turnkey": "ready",
+        })
+
+        sanitized = json.loads(sanitize_line(line))
+
+        secret_keys = (
+            "APIKEY", "ACCESSKEY", "ACCESSTOKEN",
+            "CLIENTSECRET", "DBPASSWORD", "AWSSECRETACCESSKEY",
+        )
+        for key in secret_keys:
+            self.assertEqual("[REDACTED]", sanitized[key])
+        expected_benign = {
+            "keyboard": "keep", "monkey": "banana", "turnkey": "ready",
+        }
+        actual_benign = {key: sanitized[key] for key in expected_benign}
+        self.assertEqual(expected_benign, actual_benign)
+
+    def test_uppercase_compact_secret_assignments_redact_full_values(self) -> None:
+        line = (
+            "APIKEY=[upper-alpha,upper-beta] ACCESSKEY={upper-inner:true} "
+            "ACCESSTOKEN=8181 CLIENTSECRET=false DBPASSWORD=null "
+            "AWSSECRETACCESSKEY='upper quoted value' "
+            "keyboard=keep monkey=banana turnkey=ready"
+        )
+
+        sanitized = sanitize_line(line)
+
+        secret_values = (
+            "upper-alpha", "upper-beta", "upper-inner", "8181",
+            "false", "null", "upper quoted value",
+        )
+        for value in secret_values:
+            self.assertNotIn(value, sanitized)
+        for assignment in ("keyboard=keep", "monkey=banana", "turnkey=ready"):
+            self.assertIn(assignment, sanitized)
+
 
 if __name__ == "__main__":
     unittest.main()
