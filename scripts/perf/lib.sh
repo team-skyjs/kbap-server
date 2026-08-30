@@ -31,6 +31,33 @@ require_two_tasks() {
   fi
 }
 
+resolve_task_ids() {
+  local task_output task_id
+  local task_ids=()
+
+  if [[ $# -eq 0 ]]; then
+    task_output=$(running_task_ids) || return $?
+    while IFS= read -r task_id; do
+      [[ -n "$task_id" ]] && task_ids+=("$task_id")
+    done <<<"$task_output"
+  else
+    task_ids=("$@")
+  fi
+
+  require_two_tasks "${task_ids[@]}" || return $?
+  if [[ "${task_ids[0]}" == "${task_ids[1]}" ]]; then
+    echo "error: ECS task IDs must be distinct" >&2
+    return 2
+  fi
+  for task_id in "${task_ids[@]}"; do
+    if [[ ! "$task_id" =~ ^[a-fA-F0-9]{32}$ ]]; then
+      echo "error: invalid ECS task ID: $task_id" >&2
+      return 2
+    fi
+    printf '%s\n' "$task_id"
+  done
+}
+
 execute_in_task() {
   local task_id=$1
   local command=$2

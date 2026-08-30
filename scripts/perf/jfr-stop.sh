@@ -4,25 +4,25 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/lib.sh"
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 RUN_ID REPORT_DIR" >&2
+if [[ $# -ne 2 && $# -ne 4 ]]; then
+  echo "usage: $0 RUN_ID REPORT_DIR [TASK_ID TASK_ID]" >&2
   exit 2
 fi
 
 RUN_ID=$1
 REPORT_DIR=$2
+shift 2
 if [[ ! "$RUN_ID" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   echo "error: RUN_ID must match ^[a-zA-Z0-9._-]+$" >&2
   exit 2
 fi
 
 mkdir -p "$REPORT_DIR"
-TASK_OUTPUT=$(running_task_ids)
+TASK_OUTPUT=$(resolve_task_ids "$@")
 TASK_IDS=()
 while IFS= read -r task_id; do
   [[ -n "$task_id" ]] && TASK_IDS+=("$task_id")
 done <<<"$TASK_OUTPUT"
-require_two_tasks "${TASK_IDS[@]}"
 
 for task_id in "${TASK_IDS[@]}"; do
   execute_in_task "$task_id" "jcmd 1 JFR.stop name=$RUN_ID"

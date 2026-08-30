@@ -136,6 +136,13 @@ assert_count 1 "$TASK_ONE"
 assert_count 1 "$TASK_TWO"
 
 : >"$CALLS"
+run_with_fakes env FAKE_TASK_COUNT=3 "$START" "$RUN_ID" "$TASK_ONE" "$TASK_TWO"
+assert_count 0 'ecs[[:space:]]+list-tasks'
+assert_count 2 'JFR.start'
+assert_count 1 "$TASK_ONE"
+assert_count 1 "$TASK_TWO"
+
+: >"$CALLS"
 assert_nonzero env FAKE_FAIL_START_TASK="$TASK_TWO" "$START" "$RUN_ID"
 assert_count 2 'JFR.start'
 assert_count 1 "JFR.stop name=$RUN_ID"
@@ -150,6 +157,25 @@ assert_count 2 "s3\\ cp /tmp/$RUN_ID.jfr s3://$BUCKET/$RUN_ID/task-"
 assert_count 2 '--sse[[:space:]]+AES256'
 test -s "$REPORT_DIR/task-$TASK_ONE.jfr"
 test -s "$REPORT_DIR/task-$TASK_TWO.jfr"
+
+EXPLICIT_REPORT_DIR="$TEST_DIR/explicit-report"
+mkdir -p "$EXPLICIT_REPORT_DIR"
+: >"$CALLS"
+run_with_fakes env FAKE_TASK_COUNT=3 "$STOP" "$RUN_ID" "$EXPLICIT_REPORT_DIR" "$TASK_ONE" "$TASK_TWO"
+assert_count 0 'ecs[[:space:]]+list-tasks'
+assert_count 2 "JFR.stop name=$RUN_ID"
+assert_count 5 "$TASK_ONE"
+assert_count 5 "$TASK_TWO"
+test -s "$EXPLICIT_REPORT_DIR/task-$TASK_ONE.jfr"
+test -s "$EXPLICIT_REPORT_DIR/task-$TASK_TWO.jfr"
+
+: >"$CALLS"
+assert_exit 2 "$START" "$RUN_ID" 'invalid/task' "$TASK_TWO"
+test ! -s "$CALLS"
+
+: >"$CALLS"
+assert_exit 2 "$START" "$RUN_ID" "$TASK_ONE" "$TASK_ONE"
+test ! -s "$CALLS"
 
 EMPTY_REPORT_DIR="$TEST_DIR/empty-report"
 mkdir -p "$EMPTY_REPORT_DIR"

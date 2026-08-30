@@ -18,6 +18,7 @@ campaign_id="${CAMPAIGN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 jfr_enabled="${JFR_ENABLED:-true}"
 base_url="${BASE_URL:-https://dev.kbap.site}"
 fixture_path="${FIXTURE_PATH:-$repo_dir/k6/fixtures/dev.json}"
+target_catalog="$repo_dir/k6/endpoints/targets.json"
 artifact_root="${PERFORMANCE_ARTIFACT_ROOT:-$repo_dir/artifacts/performance}"
 jfr_start_script="${JFR_START_SCRIPT:-$script_dir/jfr-start.sh}"
 jfr_stop_script="${JFR_STOP_SCRIPT:-$script_dir/jfr-stop.sh}"
@@ -54,6 +55,28 @@ if [[ ! -x "$jfr_start_script" || ! -x "$jfr_stop_script" ]]; then
   exit 2
 fi
 
+if ! target_suite=$(jq -er --arg target "$target" '.targets[] | select(.key == $target) | .suite' "$target_catalog"); then
+  echo "error: unknown TARGET: $target" >&2
+  exit 2
+fi
+if [[ "$target_suite" == "external" ]]; then
+  if [[ "$profile" != "external" && "$profile" != "smoke" ]]; then
+    echo "error: external targets require external or smoke profile" >&2
+    exit 2
+  fi
+  if [[ "$profile" == "external" ]]; then
+    if [[ ! "$load" =~ ^[1-9][0-9]*$ || ! "$extent" =~ ^[1-9][0-9]*$ ]]; then
+      echo "error: external VUS and ITERATIONS must be positive integers" >&2
+      exit 2
+    fi
+    projected_external_iterations=$((2 + load * extent))
+    if ((projected_external_iterations > 200)); then
+      echo "error: external logical run must not exceed 200 projected iterations" >&2
+      exit 2
+    fi
+  fi
+fi
+
 run_id="$campaign_id-$target"
 report_dir="$artifact_root/$campaign_id/$target"
 console_log="$report_dir/console.log"
@@ -82,7 +105,7 @@ task_ids=()
 while IFS= read -r task_id; do
   [[ -n "$task_id" ]] && task_ids+=("$task_id")
 done <<<"$task_output"
-require_two_tasks "${task_ids[@]}"
+resolve_task_ids "${task_ids[@]}" >/dev/null
 
 image=$(aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
   ecs describe-task-definition \
@@ -143,7 +166,7 @@ cleanup_run() {
   trap - EXIT
   set +e
   if [[ "$jfr_started" == "true" ]]; then
-    "$jfr_stop_script" "$run_id" "$report_dir" >>"$console_log" 2>&1
+    "$jfr_stop_script" "$run_id" "$report_dir" "${task_ids[@]}" >>"$console_log" 2>&1
     cleanup_status=$?
   fi
   finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -162,12 +185,12 @@ trap cleanup_run EXIT
 run_k6() {
   local phase=$1
   local selected_profile=$2
-  local selected_extent=$3
+  local selected_load=$3
+  local selected_extent=$4
   local args=(
     run --quiet
     -e "TARGET=$target"
     -e "BASE_URL=$base_url"
-    -e "ACCESS_TOKEN=$ACCESS_TOKEN"
     -e "RUN_ID=$run_id"
     -e "REPORT_DIR=$report_dir"
     -e "FIXTURE_PATH=$fixture_path"
@@ -177,10 +200,10 @@ run_k6() {
 
   case "$selected_profile" in
     read | write)
-      args+=(-e "RATE=$load" -e "DURATION=$selected_extent")
+      args+=(-e "RATE=$selected_load" -e "DURATION=$selected_extent")
       ;;
     external)
-      args+=(-e "VUS=$load" -e "ITERATIONS=$selected_extent")
+      args+=(-e "VUS=$selected_load" -e "ITERATIONS=$selected_extent")
       if [[ "$phase" == "warmup" ]]; then
         args+=(-e MAX_DURATION=2m)
       fi
@@ -189,25 +212,33 @@ run_k6() {
   k6 "${args[@]}" "$repo_dir/k6/endpoint.js" >>"$console_log" 2>&1
 }
 
-run_k6 smoke smoke 1
+run_k6 smoke smoke 1 1
 warmup_extent=$extent
+warmup_load=$load
 if [[ "$profile" == "read" || "$profile" == "write" ]]; then
   warmup_extent=2m
+elif [[ "$target_suite" == "external" && "$profile" == "external" ]]; then
+  warmup_load=1
+  warmup_extent=1
 fi
-run_k6 warmup "$profile" "$warmup_extent"
+run_k6 warmup "$profile" "$warmup_load" "$warmup_extent"
 
 if [[ "$jfr_enabled" == "true" ]]; then
-  "$jfr_start_script" "$run_id" >>"$console_log" 2>&1
+  "$jfr_start_script" "$run_id" "${task_ids[@]}" >>"$console_log" 2>&1
   jfr_started=true
   sleep 10
 fi
 
 set +e
-run_k6 measurement "$profile" "$extent"
+run_k6 measurement "$profile" "$load" "$extent"
 main_status=$?
-set -e
 
+post_delay_status=0
 if [[ "$jfr_started" == "true" ]]; then
   sleep 10
+  post_delay_status=$?
 fi
-exit "$main_status"
+if [[ "$main_status" -ne 0 ]]; then
+  exit "$main_status"
+fi
+exit "$post_delay_status"
