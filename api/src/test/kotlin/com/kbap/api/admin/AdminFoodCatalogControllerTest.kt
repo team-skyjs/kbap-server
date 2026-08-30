@@ -1,19 +1,26 @@
 package com.kbap.api.admin
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.options
+import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -54,6 +61,33 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 header("Access-Control-Request-Method", "GET")
                 header("Access-Control-Request-Headers", "authorization,x-api-version")
             }
+
+        val mapper = jacksonObjectMapper()
+        val adminAuth: (org.springframework.test.web.servlet.MockHttpServletRequestDsl) -> Unit =
+            { it.header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
+
+        fun getDetail(id: Long): ResultActionsDsl = mockMvc.get("$path/$id") { adminAuth(this) }
+
+        fun putUpdate(id: Long, body: Map<String, Any?>): ResultActionsDsl =
+            mockMvc.put("$path/$id") {
+                adminAuth(this)
+                contentType = MediaType.APPLICATION_JSON
+                content = mapper.writeValueAsString(body)
+            }
+
+        fun updateBody(koreanName: String): Map<String, Any?> = mapOf(
+            "koreanName" to koreanName,
+            "description" to "설명",
+            "spiciness" to 1,
+            "contentStatus" to "READY",
+        )
+
+        fun recollectOne(id: Long): ResultActionsDsl = mockMvc.post("$path/$id/recollect") { adminAuth(this) }
+
+        fun recollectBulk(query: String = ""): ResultActionsDsl =
+            mockMvc.post("$path/recollect$query") { adminAuth(this) }
+
+        fun deleteFood(id: Long): ResultActionsDsl = mockMvc.delete("$path/$id") { adminAuth(this) }
 
         beforeContainer { clearFoods() }
         afterSpec { clearFoods() }
@@ -211,6 +245,211 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                     preflight("/api/orders", "https://anywhere.example.com").andExpect {
                         status { isOk() }
                         header { string("Access-Control-Allow-Origin", "https://anywhere.example.com") }
+                    }
+                }
+            }
+        }
+
+        given("어드민 음식 상세 조회 API") {
+            `when`("번역·성분이 채워진 음식을 조회하면") {
+                then("원본 필드·번역 맵·성분·이미지·검수 이력을 내려준다") {
+                    val food = foodJpaRepository.save(
+                        Food(
+                            koreanName = "된장찌개",
+                            imageRef = "images/food/doenjang.webp",
+                            description = "구수한 된장찌개",
+                            spiciness = 3,
+                            nameTranslations = mapOf("en" to "Soybean paste stew"),
+                            descriptionTranslations = mapOf("en" to "savory stew"),
+                            ingredients = listOf(FoodIngredient("SOYBEAN", 100)),
+                            contentStatus = FoodContentStatus.READY,
+                            contentReviewAttempts = 2,
+                        ),
+                    )
+
+                    getDetail(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.id") { value(food.id) }
+                        jsonPath("$.payload.koreanName") { value("된장찌개") }
+                        jsonPath("$.payload.description") { value("구수한 된장찌개") }
+                        jsonPath("$.payload.spiciness") { value(3) }
+                        jsonPath("$.payload.contentStatus") { value("READY") }
+                        jsonPath("$.payload.nameTranslations.en") { value("Soybean paste stew") }
+                        jsonPath("$.payload.descriptionTranslations.en") { value("savory stew") }
+                        jsonPath("$.payload.ingredients[0].code") { value("SOYBEAN") }
+                        jsonPath("$.payload.ingredients[0].inclusion_percent") { value(100) }
+                        jsonPath("$.payload.imageRef") { value("images/food/doenjang.webp") }
+                        jsonPath("$.payload.imageUrl") { exists() }
+                        jsonPath("$.payload.contentReviewAttempts") { value(2) }
+                        jsonPath("$.payload.version") { exists() }
+                        jsonPath("$.payload.createdAt") { exists() }
+                        jsonPath("$.payload.updatedAt") { exists() }
+                    }
+                }
+            }
+
+            `when`("없는 id 를 조회하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    getDetail(999999).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+
+            `when`("소프트삭제된 음식을 조회하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    val food = saveFood("삭제된찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    getDetail(food.id).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+        }
+
+        given("어드민 음식 수정 API") {
+            `when`("전체 필드를 보내 수정하면") {
+                then("반영된 상세를 내려주고 DB 에도 저장된다") {
+                    val food = saveFood("수정전찌개")
+
+                    putUpdate(
+                        food.id,
+                        mapOf(
+                            "koreanName" to "수정후찌개",
+                            "description" to "더 구수한 찌개",
+                            "spiciness" to 4,
+                            "contentStatus" to "PENDING_REVIEW",
+                            "imageRef" to "images/food/updated.webp",
+                            "nameTranslations" to mapOf("en" to "Updated stew"),
+                            "descriptionTranslations" to mapOf("en" to "richer stew"),
+                            "ingredients" to listOf(mapOf("code" to "SOYBEAN", "inclusion_percent" to 80)),
+                        ),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.koreanName") { value("수정후찌개") }
+                        jsonPath("$.payload.description") { value("더 구수한 찌개") }
+                        jsonPath("$.payload.spiciness") { value(4) }
+                        jsonPath("$.payload.contentStatus") { value("PENDING_REVIEW") }
+                        jsonPath("$.payload.nameTranslations.en") { value("Updated stew") }
+                        jsonPath("$.payload.ingredients[0].inclusion_percent") { value(80) }
+                    }
+
+                    val reloaded = foodJpaRepository.findById(food.id).orElseThrow()
+                    reloaded.displayName shouldBe "수정후찌개"
+                    reloaded.spiciness shouldBe 4
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                }
+            }
+
+            `when`("다른 음식과 같은 이름으로 수정하면") {
+                then("409(FOOD-005) 로 거절한다") {
+                    saveFood("김치찌개")
+                    val food = saveFood("된장찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "김치찌개")).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-005") }
+                    }
+                }
+            }
+
+            `when`("이름을 비워 보내면") {
+                then("400(COMMON-002) 검증 실패로 응답한다") {
+                    val food = saveFood("된장찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = " ")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("없는 id 를 수정하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    putUpdate(999999, updateBody(koreanName = "유령찌개")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+        }
+
+        given("어드민 음식 재수집 API") {
+            `when`("단건 재수집을 요청하면") {
+                then("콘텐츠 수집 대기가 생성된다") {
+                    val food = saveFood("재수집찌개")
+
+                    recollectOne(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.requested") { value(1) }
+                        jsonPath("$.payload.created") { value(1) }
+                        jsonPath("$.payload.skipped") { value(0) }
+                    }
+                }
+            }
+
+            `when`("이미 수집 대기 중인 음식에 단건 재수집을 요청하면") {
+                then("생성 없이 건너뛴다") {
+                    val food = saveFood("대기중찌개")
+                    recollectOne(food.id).andExpect { status { isOk() } }
+
+                    recollectOne(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.created") { value(0) }
+                        jsonPath("$.payload.skipped") { value(1) }
+                    }
+                }
+            }
+
+            `when`("없는 id 에 단건 재수집을 요청하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    recollectOne(999999).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+
+            `when`("검색어 필터로 일괄 재수집을 요청하면") {
+                then("일치 건만 대기를 만들고 카운트를 내려준다") {
+                    saveFood("김치찌개")
+                    saveFood("김치볶음밥")
+                    saveFood("된장찌개")
+
+                    recollectBulk("?q=김치").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.requested") { value(2) }
+                        jsonPath("$.payload.created") { value(2) }
+                        jsonPath("$.payload.skipped") { value(0) }
+                        jsonPath("$.payload.exceeded") { value(false) }
+                    }
+                }
+            }
+        }
+
+        given("어드민 음식 소프트삭제 API") {
+            `when`("음식을 삭제하면") {
+                then("목록·상세에서 사라진다") {
+                    val food = saveFood("삭제할찌개")
+
+                    deleteFood(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+
+                    getList().andExpect { jsonPath("$.payload.totalCount") { value(0) } }
+                }
+            }
+
+            `when`("없는 id 를 삭제하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    deleteFood(999999).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
                     }
                 }
             }

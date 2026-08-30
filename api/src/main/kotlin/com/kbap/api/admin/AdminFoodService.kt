@@ -3,6 +3,8 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -56,6 +58,12 @@ class AdminFoodService(
             status = status,
         )
     }
+
+    @Transactional(readOnly = true)
+    fun getFoodDetail(id: Long): AdminFoodDetailResponse =
+        foodRepository.findById(id).orElse(null)
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {
@@ -143,6 +151,18 @@ class AdminFoodService(
             skipped = requested - created.size,
             max = max,
         )
+    }
+
+    @Transactional
+    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
+        val food = foodRepository.findById(id).orElse(null)
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val alreadyPending = outboxRepository
+            .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
+            .isNotEmpty()
+        if (alreadyPending) return AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
+        outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+        return AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
     }
 
     private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
