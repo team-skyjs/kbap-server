@@ -23,7 +23,7 @@ dev API 서버의 모든 사용자용 엔드포인트를 하나의 로컬 HTML �
 
 ### 포함
 
-- prod 동작을 바꾸지 않는 `load` Spring profile
+- 기존 `dev` Spring profile을 그대로 사용하는 profiling task definition 환경변수 overlay
 - HTTP 히스토그램, Tomcat, JVM, HikariCP 지표 노출
 - dev 전용 ECS Exec과 비공개 JFR 보관소
 - 동일 애플리케이션 JAR을 JDK 21 런타임으로 실행하는 profiling 이미지 target
@@ -80,39 +80,29 @@ campaign-id/
 ## prod 영향 격리
 
 - Docker 기본 최종 stage는 계속 JRE runtime이다.
-- `load` profile은 `SPRING_PROFILES_ACTIVE=dev,load`일 때만 적용한다.
+- profiling task definition도 `SPRING_PROFILES_ACTIVE=dev`를 그대로 사용한다.
+- 관측·로그 override는 현재 dev task definition을 복제한 profiling revision에만 환경변수로 넣는다.
 - ECS Exec과 JFR artifact bucket은 dev에서만 활성화한다.
 - profiling 이미지는 별도 태그로 빌드하며 prod 배포 workflow가 참조하지 않는다.
 - 성능 캠페인이 끝나면 일반 dev 이미지로 되돌리고 ECS 서비스 steady state를 확인한다.
 
 ## 관측 설정
 
-`application-load.yml`은 다음 값을 고정한다.
+새 Spring profile이나 설정 파일을 만들지 않는다. 현재 dev task definition을 복제해 profiling image를 지정할 때 다음 환경변수만 덮어쓴다.
 
-```yaml
-spring:
-  jpa:
-    show-sql: false
-
-management:
-  metrics:
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-
-server:
-  tomcat:
-    mbeanregistry:
-      enabled: true
-
-logging:
-  level:
-    root: WARN
+```text
+SPRING_PROFILES_ACTIVE=dev
+SPRING_JPA_SHOW_SQL=false
+LOGGING_LEVEL_ROOT=WARN
+MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS=true
+SERVER_TOMCAT_MBEANREGISTRY_ENABLED=true
 ```
+
+Spring Boot relaxed binding으로 위 값은 각각 기존 `spring.jpa.show-sql`, `logging.level.root`, HTTP histogram, Tomcat MBean registry 설정을 override한다. dev의 DB·Redis·S3·secret·health check·CloudWatch 설정은 현재 task definition에서 그대로 복제한다.
 
 HTTP 히스토그램은 Prometheus에서 `histogram_quantile`로 p95·p99를 계산하기 위한 전제다. Tomcat MBean registry는 busy/current/max thread를 직접 확인하기 위한 전제다. HikariCP와 JVM 메트릭은 기존 actuator 자동 구성을 유지한다.
 
-주 캠페인은 `show-sql=false`, root `WARN`으로 실행해 SQL 출력과 요청당 INFO 두 건을 제거한다. 에러와 경고는 유지한다. 로깅 자체의 비용은 상위 엔드포인트 하나를 골라 `LOGGING_LEVEL_COM_KBAP_API_CORE_LOGGING_REQUESTLOGGINGFILTER=INFO`를 적용한 별도 A/B 회차에서만 측정한다. 일반 dev 또는 prod profile의 로깅 수준은 바꾸지 않는다.
+주 캠페인은 `show-sql=false`, root `WARN`으로 실행해 SQL 출력과 요청당 INFO 두 건을 제거한다. 에러와 경고는 유지한다. 로깅 자체의 비용은 상위 엔드포인트 하나를 골라 profiling revision에 `LOGGING_LEVEL_COM_KBAP_API_CORE_LOGGING_REQUESTLOGGINGFILTER=INFO`를 추가한 별도 A/B 회차에서만 측정한다. 저장소의 `application-dev.yml`, 일반 dev task definition, prod 설정은 바꾸지 않는다.
 
 ## JFR 설정과 보안
 

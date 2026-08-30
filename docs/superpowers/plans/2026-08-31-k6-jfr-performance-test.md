@@ -4,7 +4,7 @@
 
 **목표:** dev API의 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 k6 HTML·JSON과 두 API 태스크의 JFR을 수집·다운로드해 병목을 재현 가능하게 판정하는 체계를 만든다.
 
-**아키텍처:** `dev,load` Spring profile이 SQL·요청 INFO 로그를 끄고 HTTP/Tomcat 관측을 제공한다. 기존 bootJar를 Temurin 21 JDK로 실행하는 profiling Docker target과 dev 전용 ECS Exec·비공개 S3를 사용해 두 태스크의 JFR을 동적으로 제어한다. localhost Python 제어 서버가 단일 k6 엔트리포인트와 campaign runner를 안전하게 호출하고, 정적 HTML/CSS/JavaScript 대시보드가 endpoint 선택, 진행 조회, 결과 비교, JFR 다운로드를 제공한다.
+**아키텍처:** 기존 `dev` Spring profile은 그대로 두고, 현재 dev task definition을 복제한 profiling revision에 관측·최소 logging 환경변수와 JDK profiling image만 덮어쓴다. dev 전용 ECS Exec·비공개 S3를 사용해 두 태스크의 JFR을 동적으로 제어한다. localhost Python 제어 서버가 단일 k6 엔트리포인트와 campaign runner를 안전하게 호출하고, 정적 HTML/CSS/JavaScript 대시보드가 endpoint 선택, 진행 조회, 결과 비교, JFR 다운로드를 제공한다.
 
 **기술 스택:** Kotlin 2.3.21, Java 21, Spring Boot 4.1.0, Micrometer Prometheus, Terraform 1.7+, AWS ECS EC2·S3·SSM, AWS CLI 2.36.31, k6 2.2.0, Bash, Python 3 표준 라이브러리, 의존성 없는 HTML·CSS·JavaScript
 
@@ -16,7 +16,8 @@
 - 인증 요청은 `memberId=35`와 기존 `k6/mint-token.py`로 생성한 access token을 사용한다.
 - access token, JWT secret, Firebase credential, 외부 API key, presigned URL을 파일·로그·manifest·Git에 기록하지 않는다.
 - 운영 기본 Docker target은 Temurin 21 JRE를 유지하고 profiling target만 Temurin 21 JDK를 사용한다.
-- `load` profile은 `SPRING_PROFILES_ACTIVE=dev,load`에서만 활성화한다.
+- Spring profile은 기존 `dev` 하나만 사용하고 새 profile 파일을 만들지 않는다.
+- 최소 logging과 관측 override는 profiling task definition revision에만 환경변수로 넣는다.
 - 본 측정은 `spring.jpa.show-sql=false`, root logger `WARN`으로 실행한다.
 - 본 측정은 API 태스크 두 개 모두 JFR 시작에 성공한 뒤에만 실행한다.
 - JFR artifact bucket은 public access를 전부 차단하고 SSE-S3와 7일 lifecycle을 적용한다.
@@ -32,92 +33,87 @@
 
 ---
 
-### 작업 1: 최소 logging과 load 관측 profile
+### 작업 1: 기존 dev task definition의 profiling overlay
 
 **파일:**
 
-- 생성: `api/src/main/resources/application-load.yml`
-- 생성: `api/src/test/kotlin/com/kbap/api/core/config/LoadProfileConfigurationTest.kt`
+- 생성: `scripts/perf/render-profile-taskdef.sh`
+- 생성: `scripts/perf/test/fixtures/api-taskdef.json`
+- 생성: `scripts/perf/test/profile-taskdef-overlay-test.sh`
 
 **인터페이스:**
 
-- Consumes: Spring profile `dev,load`
-- Produces: `spring.jpa.show-sql=false`, root logger `WARN`, HTTP histogram 활성화, Tomcat MBean registry 활성화
+```bash
+scripts/perf/render-profile-taskdef.sh CURRENT_TASKDEF_JSON PROFILE_IMAGE OUTPUT_JSON
+```
 
-- [ ] **1.1 실패하는 profile 설정 테스트 작성**
+- Consumes: `aws ecs describe-task-definition --query taskDefinition` 결과와 profiling image URI
+- Produces: 기존 dev profile·secret·health check·log 설정을 보존하고 image·관측 환경변수만 바꾼 등록 가능한 task definition JSON
 
-`LoadProfileConfigurationTest.kt`를 다음 구조로 작성한다.
+- [ ] **1.1 실패하는 task definition overlay 계약 작성**
 
-```kotlin
-package com.kbap.api.core.config
+fixture에는 container `api`, 현재 image, `SPRING_PROFILES_ACTIVE=dev`, DB·Redis 환경변수, secret, health check, awslogs 설정과 ECS read-only field를 넣는다. `profile-taskdef-overlay-test.sh`는 renderer를 실행한 뒤 `jq -e`로 다음을 검사한다.
 
-import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.matchers.shouldBe
-import org.springframework.boot.env.YamlPropertySourceLoader
-import org.springframework.core.io.ClassPathResource
-
-class LoadProfileConfigurationTest : BehaviorSpec({
-    given("부하 테스트 전용 설정") {
-        val source = YamlPropertySourceLoader()
-            .load("load", ClassPathResource("application-load.yml"))
-            .single()
-
-        then("SQL·요청 INFO 출력과 HTTP·Tomcat 관측 값이 고정된다") {
-            source.getProperty("spring.jpa.show-sql") shouldBe false
-            source.getProperty("logging.level.root") shouldBe "WARN"
-            source.getProperty("management.metrics.distribution.percentiles-histogram.http.server.requests") shouldBe true
-            source.getProperty("server.tomcat.mbeanregistry.enabled") shouldBe true
-        }
-    }
-})
+```text
+api image = 입력한 profiling image
+SPRING_PROFILES_ACTIVE = dev
+SPRING_JPA_SHOW_SQL = false
+LOGGING_LEVEL_ROOT = WARN
+MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS = true
+SERVER_TOMCAT_MBEANREGISTRY_ENABLED = true
+기존 DB·Redis 환경변수, secrets, healthCheck, logConfiguration 불변
+taskDefinitionArn·revision·status·registeredAt·registeredBy 제거
+JAVA_TOOL_OPTIONS에 StartFlightRecording 없음
 ```
 
 - [ ] **1.2 Red 확인**
 
 ```bash
-./gradlew :api:test --tests '*LoadProfileConfigurationTest'
+chmod +x scripts/perf/test/profile-taskdef-overlay-test.sh
+scripts/perf/test/profile-taskdef-overlay-test.sh
 ```
 
-예상: `application-load.yml`이 없어 `FileNotFoundException`으로 실패.
+예상: `render-profile-taskdef.sh`가 없어 실패.
 
-- [ ] **1.3 최소 load profile 구현**
+- [ ] **1.3 최소 renderer 구현**
 
-`application-load.yml`을 다음 내용으로 작성한다.
+script는 인자 3개와 `jq` 존재를 검사하고 다음 filter를 적용한다. AWS 호출이나 배포는 하지 않는다.
 
-```yaml
-spring:
-  jpa:
-    show-sql: false
+```jq
+def setenv($name; $value):
+  .environment = ((.environment // [])
+    | map(select(.name != $name))
+    + [{name: $name, value: $value}]);
 
-management:
-  metrics:
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-
-server:
-  tomcat:
-    mbeanregistry:
-      enabled: true
-
-logging:
-  level:
-    root: WARN
+.containerDefinitions |= map(
+  if .name == "api" then
+    .image = $image
+    | setenv("SPRING_PROFILES_ACTIVE"; "dev")
+    | setenv("SPRING_JPA_SHOW_SQL"; "false")
+    | setenv("LOGGING_LEVEL_ROOT"; "WARN")
+    | setenv("MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS"; "true")
+    | setenv("SERVER_TOMCAT_MBEANREGISTRY_ENABLED"; "true")
+  else . end
+)
+| del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+      .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
 ```
 
-이 설정은 `RequestLoggingFilter`의 요청당 INFO 두 건을 포함해 본 측정의 INFO 로그를 제거한다. 로그 비용 비교 회차에서만 `LOGGING_LEVEL_COM_KBAP_API_CORE_LOGGING_REQUESTLOGGINGFILTER=INFO`를 주입한다.
+renderer는 `SPRING_PROFILES_ACTIVE`를 `dev` 이외로 받는 옵션을 제공하지 않는다. JFR 시작 옵션도 추가하지 않는다. JFR은 작업 4가 측정 구간에만 `jcmd`로 제어한다.
 
 - [ ] **1.4 Green 확인**
 
 ```bash
-./gradlew :api:test --tests '*LoadProfileConfigurationTest'
+bash -n scripts/perf/render-profile-taskdef.sh scripts/perf/test/profile-taskdef-overlay-test.sh
+scripts/perf/test/profile-taskdef-overlay-test.sh
+git diff --check
 ```
 
 - [ ] **1.5 커밋**
 
 ```bash
-git add api/src/main/resources/application-load.yml api/src/test/kotlin/com/kbap/api/core/config/LoadProfileConfigurationTest.kt
-git commit -m "chore(api): 부하 테스트 관측 프로필 추가"
+git add scripts/perf/render-profile-taskdef.sh scripts/perf/test/fixtures/api-taskdef.json scripts/perf/test/profile-taskdef-overlay-test.sh
+git commit -m "test(load): dev profiling task 정의 overlay 추가"
 ```
 
 ### 작업 2: 동적 JFR profiling Docker target
@@ -1191,6 +1187,7 @@ git commit -m "feat(load): k6 JFR HTML 대시보드 추가"
 ./gradlew :api:test
 docker build --target profile-runtime -t kbap-api-profile:local .
 PROFILE_IMAGE=kbap-api-profile:local scripts/perf/profile-image-smoke.sh
+scripts/perf/test/profile-taskdef-overlay-test.sh
 scripts/perf/test/terraform-profile-contract.sh
 scripts/perf/test/jfr-scripts-test.sh
 scripts/perf/test/run-endpoint-test.sh
@@ -1214,7 +1211,28 @@ terraform -chdir=iac/terraform show -no-color performance.tfplan
 
 - [ ] **11.3 profiling 이미지 배포와 steady state 확인**
 
-profiling target을 ECR에 현재 40자 git SHA 기반 tag로 push하고 dev task definition의 image와 `SPRING_PROFILES_ACTIVE=dev,load`만 교체한다. `application-load.yml`에서 `show-sql=false`, root logger `WARN`이 적용됐는지 actuator environment의 값 노출 없이 startup log level과 대표 요청 INFO 부재로 확인한다. CodeDeploy 배포가 완료될 때까지 기다린다.
+profiling target을 ECR에 현재 40자 git SHA 기반 tag로 push한다. 최신 dev task definition을 가져와 작업 1 renderer로 profiling revision을 만든다. Spring profile은 `dev` 그대로이며 image와 관측 환경변수 4개만 바뀌어야 한다.
+
+```bash
+PERF_TASKDEF_DIR="$(mktemp -d)"
+trap 'rm -rf "$PERF_TASKDEF_DIR"' EXIT
+
+aws ecs describe-task-definition \
+  --task-definition kbap-dev-ecs-api \
+  --query taskDefinition > "$PERF_TASKDEF_DIR/current.json"
+
+scripts/perf/render-profile-taskdef.sh \
+  "$PERF_TASKDEF_DIR/current.json" \
+  "$PROFILE_IMAGE" \
+  "$PERF_TASKDEF_DIR/profile.json"
+
+PROFILE_TASKDEF_ARN="$(aws ecs register-task-definition \
+  --cli-input-json "file://$PERF_TASKDEF_DIR/profile.json" \
+  --query taskDefinition.taskDefinitionArn \
+  --output text)"
+```
+
+등록 전 `jq` diff로 image, `SPRING_JPA_SHOW_SQL=false`, `LOGGING_LEVEL_ROOT=WARN`, HTTP histogram, Tomcat MBean registry 이외에 container definition 차이가 없음을 확인한다. 이 ARN을 기존 CodeDeploy canary 절차로 배포하고 완료될 때까지 기다린다. 대표 요청 후 SQL·요청 INFO가 없고 WARN·ERROR가 유지되는지 CloudWatch에서 확인한다.
 
 ```bash
 aws ecs describe-services \
@@ -1281,7 +1299,7 @@ git commit -m "docs(load): dev 성능 기준선 기록"
 
 | 설계 요구사항 | 구현 작업 | 완료 증거 |
 |---|---|---|
-| 최소 logging과 HTTP·Tomcat 관측 | 작업 1 | profile 설정 테스트, 요청 INFO 부재, Prometheus bucket·Tomcat metric |
+| 기존 dev profile 유지와 최소 logging·관측 overlay | 작업 1 | task definition fixture 계약, 등록 전 JSON diff |
 | 운영 기본 이미지 불변과 동적 JFR | 작업 2 | JRE/JDK target smoke, 실제 JFR 파일 |
 | dev 전용 Exec·비공개 7일 보관 | 작업 3 | Terraform contract·validate·dev plan |
 | API 태스크 두 개 모두 JFR 수집 | 작업 4 | fake AWS test, task별 JFR 두 파일 |
@@ -1300,6 +1318,7 @@ git commit -m "docs(load): dev 성능 기준선 기록"
 ```bash
 ./gradlew clean build
 PROFILE_IMAGE=kbap-api-profile:local scripts/perf/profile-image-smoke.sh
+scripts/perf/test/profile-taskdef-overlay-test.sh
 scripts/perf/test/terraform-profile-contract.sh
 scripts/perf/test/jfr-scripts-test.sh
 scripts/perf/test/run-endpoint-test.sh
