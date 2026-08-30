@@ -13,6 +13,7 @@ import com.openai.errors.OpenAIIoException
 import com.openai.errors.RateLimitException
 import com.openai.models.ErrorObject
 import java.time.Duration
+import java.time.Instant
 import java.util.Optional
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -347,7 +348,13 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             }
         }
 
-        fun extractorWithBudget(chatModel: ChatModel, sleeps: MutableList<Duration>): OpenAiMenuBoardVisionExtractor =
+        class FakeTime {
+            var now: Instant = Instant.EPOCH
+            val sleeps = mutableListOf<Duration>()
+            fun advance(by: Duration) { now = now.plus(by) }
+        }
+
+        fun extractorWithBudget(chatModel: ChatModel, time: FakeTime): OpenAiMenuBoardVisionExtractor =
             OpenAiMenuBoardVisionExtractor(
                 chatModel = chatModel,
                 parser = MenuBoardResultParser(),
@@ -355,30 +362,31 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 pricing = pricing,
                 configuredModelName = "gpt-4o-mini",
                 retryBudget = Duration.ofSeconds(3),
-                sleep = { sleeps += it },
+                sleep = { time.sleeps += it; time.advance(it) },
+                now = { time.now },
             )
 
         `when`("첫 시도가 Retry-After 1초짜리 429 이고 두 번째가 성공하면") {
             then("1초 대기 후 재시도해 결과를 돌려준다") {
-                val sleeps = mutableListOf<Duration>()
+                val time = FakeTime()
                 val extractor = extractorWithBudget(
                     chatModelSequence({ throw rateLimit(headersOf("retry-after" to "1")) }, { success }),
-                    sleeps,
+                    time,
                 )
 
                 val result = extractor.extract("scan/1/menu.jpg", ocrItems)
 
                 result shouldHaveSize 1
-                sleeps shouldBe listOf(Duration.ofSeconds(1))
+                time.sleeps shouldBe listOf(Duration.ofSeconds(1))
             }
         }
 
         `when`("Retry-After 2초짜리 429 가 계속되면") {
             then("대기 합이 예산을 넘기 전에 멈추고 재시도 소진 rate-limit 예외를 던진다") {
-                val sleeps = mutableListOf<Duration>()
+                val time = FakeTime()
                 val extractor = extractorWithBudget(
                     chatModelSequence({ throw rateLimit(headersOf("retry-after" to "2", "x-ratelimit-remaining-requests" to "0")) }),
-                    sleeps,
+                    time,
                 )
 
                 val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
@@ -386,52 +394,83 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 thrown.exhausted shouldBe true
                 thrown.retryAfterSeconds shouldBe 2L
                 thrown.message shouldContain "remaining-requests=0"
-                sleeps shouldBe listOf(Duration.ofSeconds(2))
+                time.sleeps shouldBe listOf(Duration.ofSeconds(2))
             }
         }
 
         `when`("Retry-After 없는 429 가 계속되면") {
             then("0.5초부터 두 배씩 지터를 섞어 기다리고 대기 합은 예산 이하다") {
-                val sleeps = mutableListOf<Duration>()
-                val extractor = extractorWithBudget(chatModelSequence({ throw rateLimit() }), sleeps)
+                val time = FakeTime()
+                val extractor = extractorWithBudget(chatModelSequence({ throw rateLimit() }), time)
 
                 shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
                     .exhausted shouldBe true
 
-                sleeps.size shouldBeGreaterThanOrEqual 2
-                sleeps[0].toMillis() shouldBeInRange 375L..625L
-                sleeps[1].toMillis() shouldBeInRange 750L..1250L
-                sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
+                time.sleeps.size shouldBeGreaterThanOrEqual 2
+                time.sleeps[0].toMillis() shouldBeInRange 375L..625L
+                time.sleeps[1].toMillis() shouldBeInRange 750L..1250L
+                time.sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
             }
         }
 
         `when`("5xx 뒤에 성공하면") {
             then("재시도해 결과를 돌려준다") {
-                val sleeps = mutableListOf<Duration>()
-                val extractor = extractorWithBudget(chatModelSequence({ throw serverError() }, { success }), sleeps)
+                val time = FakeTime()
+                val extractor = extractorWithBudget(chatModelSequence({ throw serverError() }, { success }), time)
 
                 extractor.extract("scan/1/menu.jpg", ocrItems) shouldHaveSize 1
-                sleeps shouldHaveSize 1
+                time.sleeps shouldHaveSize 1
             }
         }
 
         `when`("네트워크 오류가 계속되면") {
             then("예산 소진 후 서버 장애 예외를 던진다") {
-                val sleeps = mutableListOf<Duration>()
-                val extractor = extractorWithBudget(chatModelSequence({ throw OpenAIIoException("timeout") }), sleeps)
+                val time = FakeTime()
+                val extractor = extractorWithBudget(chatModelSequence({ throw OpenAIIoException("timeout") }), time)
 
                 shouldThrow<MenuBoardVisionUnavailableException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
-                sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
+                time.sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
             }
         }
 
         `when`("400 을 받으면") {
             then("재시도 없이 원 예외를 그대로 던진다") {
-                val sleeps = mutableListOf<Duration>()
-                val extractor = extractorWithBudget(chatModelSequence({ throw badRequest() }), sleeps)
+                val time = FakeTime()
+                val extractor = extractorWithBudget(chatModelSequence({ throw badRequest() }), time)
 
                 shouldThrow<BadRequestException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
-                sleeps.shouldBeEmpty()
+                time.sleeps.shouldBeEmpty()
+            }
+        }
+
+        `when`("Retry-After 가 0 인 429 가 계속되면") {
+            then("0 을 대기 시간으로 쓰지 않고 백오프로 기다리며 예산 안에서 멈춘다") {
+                val time = FakeTime()
+                val extractor = extractorWithBudget(chatModelSequence({ throw rateLimit(headersOf("retry-after" to "0")) }), time)
+
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                    .exhausted shouldBe true
+
+                time.sleeps[0].toMillis() shouldBeInRange 375L..625L
+                time.sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
+            }
+        }
+
+        `when`("실패한 호출 자체가 오래 걸려 예산을 넘기면") {
+            then("대기 없이 즉시 재시도 소진으로 끝난다") {
+                val time = FakeTime()
+                val slowFailure = object : ChatModel {
+                    override fun call(prompt: Prompt): ChatResponse {
+                        time.advance(Duration.ofSeconds(4))
+                        throw rateLimit(headersOf("retry-after" to "1"))
+                    }
+                }
+                val extractor = extractorWithBudget(slowFailure, time)
+
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                    .exhausted shouldBe true
+
+                time.sleeps.shouldBeEmpty()
             }
         }
     }
