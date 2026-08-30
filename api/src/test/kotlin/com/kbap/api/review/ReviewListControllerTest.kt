@@ -1,9 +1,9 @@
 package com.kbap.api.review
 
+import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -13,9 +13,6 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
@@ -24,9 +21,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class ReviewListControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -53,7 +48,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                     INSERT INTO member (id, provider, provider_uid, nickname, country_code, member_status,
                                         onboarding_completed, status, created_at, updated_at)
                     VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))
-                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code)
+                    ON DUPLICATE KEY UPDATE country_code = VALUES(country_code), nickname = VALUES(nickname)
                     """,
                 ).use { ps ->
                     ps.setLong(1, memberId)

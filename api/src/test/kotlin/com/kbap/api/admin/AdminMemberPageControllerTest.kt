@@ -1,6 +1,6 @@
 package com.kbap.api.admin
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.SpicinessPreference
@@ -14,17 +14,12 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import jakarta.servlet.http.Cookie
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.get
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class AdminMemberPageControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

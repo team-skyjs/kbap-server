@@ -1,18 +1,13 @@
 package com.kbap.api.core.config
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import org.springframework.context.annotation.Import
 
+import com.kbap.api.IntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.options
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class CorsConfigTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

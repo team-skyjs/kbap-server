@@ -1,9 +1,10 @@
 package com.kbap.api.food
 
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -23,11 +24,9 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldStartWith
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class FoodImageBatchCollectServiceTest : BehaviorSpec() {
     companion object {
         val FOOD_IMAGE_KEY_PATTERN = Regex("""^images/webp/food/[0-9a-f]{12}_[0-9a-f]{16}\.webp$""")
@@ -56,14 +55,15 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
     @Autowired
     private lateinit var costListener: RecordingLlmCostListener
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
         val targets = LanguageCode.entries.filter { it != LanguageCode.KO }
             .associate { it.code to "t-${it.code}" }
 
         fun clearAll() {
-            itemRepository.deleteAll()
-            batchRepository.deleteAll()
-            foodRepository.deleteAll()
+            TestTables.clearAll(dataSource)
             fakeClient.reset()
             fakeStorage.heads.clear()
             costListener.events.clear()

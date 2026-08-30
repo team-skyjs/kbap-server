@@ -98,9 +98,12 @@ object FoodTestSeed {
     }
 
     private fun clearStatements() = listOf(
+        "DELETE FROM review_like",
         "DELETE FROM member_ranking_event",
         "DELETE FROM food_review",
+        "DELETE FROM bookmark",
         "DELETE FROM scan_history",
+        "DELETE FROM image_batch_item",
         "DELETE FROM ingredients",
         "DELETE FROM food_content_outbox",
         "DELETE FROM food_vector_outbox",

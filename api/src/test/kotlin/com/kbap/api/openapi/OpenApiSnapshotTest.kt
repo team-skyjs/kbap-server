@@ -1,8 +1,8 @@
 package com.kbap.api.openapi
 
+import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -13,16 +13,11 @@ import io.kotest.matchers.string.shouldStartWith
 import org.springdoc.core.models.GroupedOpenApi
 import java.io.File
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class OpenApiSnapshotTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

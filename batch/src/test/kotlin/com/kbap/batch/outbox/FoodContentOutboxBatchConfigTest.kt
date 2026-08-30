@@ -1,17 +1,14 @@
 package com.kbap.batch.outbox
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.batch.BatchIntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.batch.core.job.Job
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@BatchIntegrationTest
 class FoodContentOutboxBatchConfigTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

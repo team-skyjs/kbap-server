@@ -1,23 +1,20 @@
 package com.kbap.api.metering
 
+import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.metering.LlmCallCostIncurred
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.context.annotation.Import
 import java.math.BigDecimal
 import java.util.UUID
 import javax.sql.DataSource
 import kotlin.time.Duration.Companion.seconds
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class LlmCallCostEventListenerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

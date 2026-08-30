@@ -1,7 +1,7 @@
 package com.kbap.api.admin
 
+import com.kbap.api.IntegrationTest
 import com.kbap.api.food.FakeFoodImageBatchClient
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -12,9 +12,6 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import jakarta.servlet.http.Cookie
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -23,9 +20,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class AdminFoodPageControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

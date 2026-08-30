@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
-@SpringBootTest(classes = [AdminTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class AdminAccountJpaRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

@@ -7,6 +7,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate.generate_statistics: true
   ai:
     model:
       chat: none

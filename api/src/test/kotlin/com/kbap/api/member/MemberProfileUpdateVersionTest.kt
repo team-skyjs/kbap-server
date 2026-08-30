@@ -1,17 +1,14 @@
 package com.kbap.api.member
 
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.api.auth.FakeSocialTokenVerifierConfig
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.core.testsupport.RedisContainerConfig
+import com.kbap.api.auth.FakeSocialTokenVerifier
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -19,9 +16,7 @@ import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, RedisContainerConfig::class, FakeSocialTokenVerifierConfig::class)
+@IntegrationTest
 class MemberProfileUpdateVersionTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -34,22 +29,12 @@ class MemberProfileUpdateVersionTest : BehaviorSpec() {
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun clearMembers() {
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM member_block")
-                    it.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
-                    it.execute("DELETE FROM community_comment")
-                    it.execute("DELETE FROM community_post")
-                    it.execute("DELETE FROM member")
-                }
-            }
-        }
+        fun clearMembers() = TestTables.clearAll(dataSource)
 
         fun loginAccessToken(): String {
             val response = mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(mapOf("idToken" to "valid-token"))
+                content = objectMapper.writeValueAsString(mapOf("idToken" to FakeSocialTokenVerifier.DEFAULT_SUB))
             }.andReturn().response
             return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
         }

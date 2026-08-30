@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -17,11 +18,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -40,14 +39,15 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
     @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
 
+    @Autowired
+    private lateinit var dataSource: DataSource
+
     init {
         fun pendingImage(koreanName: String): Food =
             Food.failed(koreanName).apply { contentStatus = FoodContentStatus.PENDING_IMAGE }
 
         fun clearAll() {
-            itemRepository.deleteAll()
-            batchRepository.deleteAll()
-            foodRepository.deleteAll()
+            TestTables.clearAll(dataSource)
             fakeClient.reset()
         }
 

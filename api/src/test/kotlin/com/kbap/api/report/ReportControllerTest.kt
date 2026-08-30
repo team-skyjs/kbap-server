@@ -1,10 +1,10 @@
 package com.kbap.api.report
 
+import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
@@ -14,9 +14,6 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
@@ -25,9 +22,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class ReportControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

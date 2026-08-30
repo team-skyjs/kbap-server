@@ -1,13 +1,9 @@
 package com.kbap.api
-import com.kbap.common.core.testsupport.MySqlContainerConfig
-import org.springframework.context.annotation.Import
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
-import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class KbapApiApplicationTests : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

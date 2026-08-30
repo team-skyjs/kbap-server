@@ -2,45 +2,60 @@ package com.kbap.api.core.logging
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.spi.LoggingEvent
-import ch.qos.logback.core.ConsoleAppender
-import ch.qos.logback.core.encoder.Encoder
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
-import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import org.slf4j.LoggerFactory
-import org.slf4j.MDC
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean
+import org.springframework.boot.logging.logback.StructuredLogEncoder
+import org.springframework.core.env.Environment
+import org.springframework.core.env.StandardEnvironment
+import org.springframework.core.io.ClassPathResource
 
-@SpringBootTest(properties = ["logging.structured.format.console=ecs"])
-@Import(MySqlContainerConfig::class)
-class StructuredConsoleLoggingTest : BehaviorSpec() {
-    override fun extensions() = listOf(SpringExtension)
-
-    init {
-        given("staging·prod 의 JSON 구조화 로그 설정") {
-            `when`("콘솔 어펜더의 인코더를 확인하면") {
-                then("상관 키·회원 식별자가 JSON 필드로 나간다") {
-                    val root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-                    val console = root.getAppender("CONSOLE") as ConsoleAppender<*>
-
-                    @Suppress("UNCHECKED_CAST")
-                    val encoder = console.encoder as Encoder<Any>
-
-                    MDC.put(RequestLoggingFilter.REQUEST_ID_KEY, "test-request-id")
-                    MDC.put(RequestLoggingFilter.MEMBER_ID_KEY, "42")
-                    val event = LoggingEvent(Logger::class.java.name, root, Level.INFO, "hello", null, null)
-                    val json = String(encoder.encode(event), Charsets.UTF_8)
-                    MDC.clear()
-
-                    json shouldContain "\"requestId\":\"test-request-id\""
-                    json shouldContain "\"memberId\":\"42\""
-                    json.startsWith("{") shouldBe true
+class StructuredConsoleLoggingTest : BehaviorSpec({
+    given("staging·prod 의 JSON 구조화 로그 설정") {
+        `when`("운영 프로필 설정을 읽으면") {
+            then("콘솔 로그 형식이 ecs 다") {
+                listOf("staging", "prod").forEach { profile ->
+                    val properties = YamlPropertiesFactoryBean()
+                        .apply { setResources(ClassPathResource("application-$profile.yml")) }
+                        .`object`!!
+                    properties.getProperty("logging.structured.format.console") shouldBe "ecs"
                 }
             }
         }
+
+        `when`("ecs 인코더로 이벤트를 찍으면") {
+            then("상관 키·회원 식별자가 JSON 필드로 나간다") {
+                val loggerContext = LoggerContext().apply {
+                    putObject(Environment::class.java.name, StandardEnvironment())
+                }
+                val encoder = StructuredLogEncoder().apply {
+                    context = loggerContext
+                    setFormat("ecs")
+                    start()
+                }
+                val event = LoggingEvent(
+                    Logger::class.java.name,
+                    loggerContext.getLogger(Logger.ROOT_LOGGER_NAME),
+                    Level.INFO,
+                    "hello",
+                    null,
+                    null,
+                ).apply {
+                    mdcPropertyMap = mapOf(
+                        RequestLoggingFilter.REQUEST_ID_KEY to "test-request-id",
+                        RequestLoggingFilter.MEMBER_ID_KEY to "42",
+                    )
+                }
+
+                val json = String(encoder.encode(event), Charsets.UTF_8)
+
+                json shouldContain "\"requestId\":\"test-request-id\""
+                json shouldContain "\"memberId\":\"42\""
+                json.startsWith("{") shouldBe true
+            }
+        }
     }
-}
+})

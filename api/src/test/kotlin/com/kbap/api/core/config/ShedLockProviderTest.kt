@@ -1,7 +1,7 @@
 package com.kbap.api.core.config
 
+import com.kbap.api.IntegrationTest
 import com.kbap.api.food.FoodImageBatchCollectService
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -9,8 +9,6 @@ import net.javacrumbs.shedlock.core.DefaultLockingTaskExecutor
 import net.javacrumbs.shedlock.core.LockConfiguration
 import net.javacrumbs.shedlock.core.LockProvider
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import java.time.Duration
 import java.time.Instant
@@ -18,8 +16,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class ShedLockProviderTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 

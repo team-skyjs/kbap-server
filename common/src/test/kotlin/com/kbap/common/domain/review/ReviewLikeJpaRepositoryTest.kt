@@ -14,7 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.transaction.support.TransactionTemplate
 
-@SpringBootTest(classes = [ReviewTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

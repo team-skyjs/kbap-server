@@ -1,9 +1,10 @@
 package com.kbap.api.bookmark
 
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.core.testsupport.MySqlContainerConfig
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -12,12 +13,9 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class BookmarkServiceTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -31,17 +29,9 @@ class BookmarkServiceTest : BehaviorSpec() {
         val memberId = 100L
 
         fun resetTables(seedMember: Boolean = true) {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM community_comment WHERE parent_id IS NOT NULL")
-                    statement.execute("DELETE FROM community_comment")
-                    listOf("bookmark", "scan_history", "uploaded_image", "image_batch_item", "community_post")
-                        .forEach { statement.execute("DELETE FROM $it") }
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food")
-                    statement.execute("DELETE FROM member_block")
-                    statement.execute("DELETE FROM member")
                     if (seedMember) {
                         statement.execute(
                             "INSERT INTO member (id, provider, provider_uid, member_status, " +

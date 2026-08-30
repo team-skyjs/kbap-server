@@ -16,7 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 
-@SpringBootTest(classes = [FoodTestApp::class])
+@SpringBootTest
 @Import(MySqlContainerConfig::class)
 class FoodJpaRepositoryTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)

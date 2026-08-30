@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -9,18 +10,13 @@ import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.options
 import javax.sql.DataSource
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class AdminFoodCatalogControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
@@ -40,17 +36,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
         val path = "/api/admin/foods"
         val spaOrigin = "https://kbap-admin.pages.dev"
 
-        fun clearFoods() {
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM image_batch_item")
-                    it.execute("DELETE FROM image_batch")
-                    it.execute("DELETE FROM food_content_outbox")
-                    it.execute("DELETE FROM food_vector_outbox")
-                    it.execute("DELETE FROM food")
-                }
-            }
-        }
+        fun clearFoods() = TestTables.clearAll(dataSource)
 
         fun saveFood(koreanName: String, contentStatus: FoodContentStatus = FoodContentStatus.READY): Food =
             foodJpaRepository.save(

@@ -1,17 +1,14 @@
 package com.kbap.api.food
 
-import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.api.IntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 import javax.sql.DataSource
 
-@SpringBootTest
-@Import(MySqlContainerConfig::class)
+@IntegrationTest
 class FoodStatusMigrationMappingTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
