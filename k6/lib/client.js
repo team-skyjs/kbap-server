@@ -35,8 +35,10 @@ export function authenticatedParams(context, version, tags = {}) {
   };
 }
 
-export function executeEndpoint(endpoint, context) {
-  const request = endpoint.request(context);
+export function executeRequest(endpoint, context, request) {
+  if (request === null) {
+    return null;
+  }
   const params = {
     ...request.params,
     tags: requestTags(context, endpoint, request.params.tags || {}),
@@ -58,4 +60,8 @@ export function executeEndpoint(endpoint, context) {
   }
 
   return response;
+}
+
+export function executeEndpoint(endpoint, context) {
+  return executeRequest(endpoint, context, endpoint.request(context));
 }

@@ -19,6 +19,8 @@ export function requireConfig(env) {
     accessToken: env.ACCESS_TOKEN || '',
     runId: env.RUN_ID,
     reportDir: env.REPORT_DIR,
+    contended: env.CONTENDED === 'true',
+    scanTimeout: env.SCAN_TIMEOUT || '120s',
     startedAt: new Date().toISOString(),
   };
 }

@@ -41,6 +41,9 @@ export function buildOptions(kind, env) {
   if (!profile) {
     throw new Error(`unknown PROFILE: ${profileName}`);
   }
+  if (profileName === 'external' && profile.vus * profile.iterations > 200) {
+    throw new Error('external total iterations must not exceed 200');
+  }
 
   return {
     ...commonOptions,

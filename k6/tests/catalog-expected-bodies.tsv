@@ -1,0 +1,14 @@
+PATCH	/api/members/me/profile	{"avoidanceSubstanceCodes":[],"countryCode":"KR","currency":"KRW","dietCategories":[],"nickname":"load35","profileImageUrl":"images/default/profile/profile-default-512.png","spicinessPreference":"SKIP"}
+PATCH	/api/members/me/profile	{"avoidanceSubstanceCodes":[],"currency":"KRW","dietCategories":[],"nickname":"load35","profileImageUrl":"images/default/profile/profile-default-512.png","spicinessPreference":"SKIP"}
+POST	/api/members/me/blocks	{"memberId":37}
+POST	/api/bookmarks	{"foodId":1}
+POST	/api/reviews	{"content":"[load:catalog-contract] review create","foodId":1,"imagePaths":[],"rating":4,"servingSpeed":4,"staffKindness":4}
+PATCH	/api/reviews/1	{"content":"[load:catalog-contract] review update","imagePaths":[],"rating":4,"servingSpeed":4,"staffKindness":4}
+POST	/api/reports	{"detail":"[load:catalog-contract] report create","reason":"OTHER","targetId":2,"targetType":"REVIEW"}
+POST	/api/images/upload-url	{"contentLength":1234,"contentType":"image/jpeg","purpose":"MENU_SCAN"}
+POST	/api/images/complete	{"contentType":"image/jpeg","path":"images/menu-scan/catalog-1.jpg","size":1234}
+POST	/api/orders	{"imagePath":"images/menu-scan/order-1.jpg","items":[{"foodId":1,"menuName":"[load:catalog-contract] 김치찌개","price":9000,"quantity":1}]}
+POST	/api/orders	{"imagePath":"images/menu-scan/order-1.jpg","items":[{"foodId":1,"menuName":"[load:catalog-contract] 김치찌개","price":9000,"quantity":1}],"latitude":37.4979502,"longitude":127.0276368}
+POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg","items":[{"idx":0,"rawMenuName":"김치찌개"}]}
+POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg"}
+POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg"}

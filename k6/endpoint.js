@@ -1,4 +1,6 @@
-import { authenticatedParams, executeEndpoint } from './lib/client.js';
+import { authenticatedParams, executeEndpoint, executeRequest } from './lib/client.js';
+import execution from 'k6/execution';
+import { Counter } from 'k6/metrics';
 import { requireConfig } from './lib/config.js';
 import { buildOptions } from './lib/options.js';
 import { renderHtmlSummary, renderJsonSummary, summaryMetadata } from './lib/summary.js';
@@ -37,17 +39,27 @@ function loadFixtures(keys) {
 }
 
 const fixtures = loadFixtures(endpoint.fixtureKeys);
+const fixtureExhausted = new Counter('fixture_exhausted');
+const scanFailed = new Counter('scan_failed');
 
 const context = {
   ...config,
   fixtures,
   phase: __ENV.PHASE || 'measurement',
   authenticatedParams: (version, tags) => authenticatedParams(config, version, tags),
+  executeRequest,
+  iterationInTest: () => execution.scenario.iterationInTest,
+  recordFixtureExhausted: (fixture) => fixtureExhausted.add(1, { fixture }),
+  recordScanFailed: (step) => scanFailed.add(1, { step }),
 };
 
 export const options = buildOptions(endpoint.kind, __ENV);
 
 export default function () {
+  if (endpoint.execute) {
+    endpoint.execute(context);
+    return;
+  }
   executeEndpoint(endpoint, context);
 }
 

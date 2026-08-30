@@ -4,6 +4,10 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 manifest="$repo_dir/k6/endpoints/targets.json"
 fixture_example="$repo_dir/k6/fixtures/dev.example.json"
+expected_keys="$repo_dir/k6/tests/catalog-expected-keys.txt"
+expected_requests="$repo_dir/k6/tests/catalog-expected-requests.tsv"
+expected_bodies="$repo_dir/k6/tests/catalog-expected-bodies.tsv"
+catalog_fixtures="$repo_dir/k6/tests/catalog-fixtures.json"
 temp_dir="$(mktemp -d)"
 mock_pid=""
 
@@ -16,45 +20,25 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cat >"$temp_dir/expected-keys" <<'EOF'
-app-version
-home-auth
-home-guest
-ingredients-ko
-ingredients-en
-ingredient-diets-ko
-ingredient-diets-en
-member-profile
-member-ranking
-member-blocks
-foods-auth
-foods-guest
-foods-next
-foods-search-all-ko-hit
-foods-search-all-ko-miss
-foods-search-all-en-hit
-foods-search-scanned
-foods-search-next
-foods-scanned
-foods-scanned-next
-food-detail-auth
-food-detail-guest
-bookmarks
-bookmarks-next
-reviews-guest-latest
-reviews-auth-latest
-reviews-rating-high
-reviews-rating-low
-reviews-food-count
-reviews-helpful
-reviews-next
-reviews-me
-reviews-me-next
-orders-10
-orders-30
-orders-next
-order-detail
-EOF
+start_mock() {
+  local ticket_failure="${1:-false}"
+  : >"$temp_dir/mock-server.log"
+  MOCK_TICKET_FAILURE="$ticket_failure" python3 "$repo_dir/k6/tests/mock-server.py" >"$temp_dir/mock-server.log" 2>&1 &
+  mock_pid=$!
+  for _ in {1..50}; do
+    curl --silent --fail http://127.0.0.1:18081/health >/dev/null && return
+    kill -0 "$mock_pid" 2>/dev/null || exit 1
+    sleep 0.1
+  done
+  printf '%s\n' 'mock server did not become ready' >&2
+  exit 1
+}
+
+stop_mock() {
+  kill "$mock_pid"
+  wait "$mock_pid" 2>/dev/null || true
+  mock_pid=""
+}
 
 jq -e '
   type == "object" and
@@ -64,21 +48,44 @@ jq -e '
     (["key", "label", "method", "route", "suite", "risk", "defaultProfile", "defaultEnabled"] - keys | length == 0) and
     (.key | type == "string" and length > 0) and
     (.label | type == "string" and length > 0) and
-    (.method == "GET") and
+    (.method | IN("GET", "POST", "PATCH", "DELETE")) and
     (.route | type == "string" and startswith("/api/")) and
     (.suite | IN("read", "reversible-write", "fixture-write", "external")) and
     (.risk | IN("safe", "fixture", "cost")) and
-    (.defaultProfile == "read") and
+    (.defaultProfile | IN("read", "write", "external")) and
     (.defaultEnabled | type == "boolean")
   )
 ' "$manifest" >/dev/null
 
 jq -e '([.targets[].key] | length) == ([.targets[].key] | unique | length)' "$manifest" >/dev/null
 jq -e 'all(.targets[]; .risk == "safe" or (.defaultEnabled | not))' "$manifest" >/dev/null
+jq -e 'all(.targets[];
+  if .suite == "read" then .risk == "safe" and .defaultProfile == "read" and .defaultEnabled
+  elif .suite == "reversible-write" then .risk == "safe" and .defaultProfile == "write" and .defaultEnabled
+  elif .suite == "fixture-write" then .risk == "fixture" and .defaultProfile == "write" and (.defaultEnabled | not)
+  else .suite == "external" and .risk == "cost" and .defaultProfile == "external" and (.defaultEnabled | not)
+  end
+)' "$manifest" >/dev/null
+jq -e '
+  [.targets[] | select(.suite == "reversible-write") | .key] ==
+    ["member-profile-v1","member-profile-v11","member-block","member-unblock","bookmark-add","bookmark-remove","review-like","review-unlike"] and
+  [.targets[] | select(.suite == "fixture-write") | .key] ==
+    ["review-create","review-update","review-delete","report-create","image-upload-url","image-complete","order-create-no-location","order-create-location"] and
+  [.targets[] | select(.suite == "external") | .key] ==
+    ["place-nearby","place-search","scan-ticket","scan-v1","scan-v2-krw","scan-v2-usd"]
+' "$manifest" >/dev/null
 jq -e '(.scanCursor | type == "number") and (.scanCursor >= 0) and (.scanCursor | floor == .)' "$fixture_example" >/dev/null
+jq -e '
+  (.profileV1 | type == "object") and (.profileV11 | type == "object") and
+  all(.blockedMemberIds, .bookmarkFoodIds, .scanHistoryFoodIds, .reviewIds, .reportReviewIds;
+    type == "array" and length > 0) and
+  (.imageCompleteFixtures | type == "array" and length > 0 and all(.[]; has("path", "contentType", "size"))) and
+  (.orderFixtures | type == "array" and length > 0 and all(.[]; has("imagePath", "foodId", "menuName", "price"))) and
+  (.scanImagePath | type == "string" and length > 0)
+' "$fixture_example" >/dev/null
 
 jq -r '.targets[].key' "$manifest" >"$temp_dir/actual-keys"
-diff -u "$temp_dir/expected-keys" "$temp_dir/actual-keys"
+diff -u "$expected_keys" "$temp_dir/actual-keys"
 
 jq -r '.targets[] | [.key, .method, .route, .defaultProfile] | @tsv' "$manifest" \
   | sort >"$temp_dir/manifest-contracts"
@@ -97,30 +104,12 @@ if [[ "$(wc -l <"$temp_dir/registry-keys" | tr -d ' ')" != "$(sort -u "$temp_dir
   printf '%s\n' 'duplicate endpoint key in runtime registry catalog' >&2
   exit 1
 fi
-sort "$temp_dir/registry-contracts" >"$temp_dir/registry-contracts.sorted"
-diff -u "$temp_dir/manifest-contracts" "$temp_dir/registry-contracts.sorted"
-
 if rg -n '/api/community(?:/|$)' \
   "$repo_dir/k6/endpoints" \
-  "$repo_dir/k6/fixtures"; then
+  --glob '*.json' "$repo_dir/k6/fixtures"; then
   printf '%s\n' 'community endpoint is excluded from the performance catalog' >&2
   exit 1
 fi
-
-cat >"$temp_dir/fixtures.json" <<'EOF'
-{
-  "memberId": 35,
-  "foodId": 1,
-  "foodKeyword": "김치",
-  "blockedMemberId": 36,
-  "reviewId": 1,
-  "orderId": 1,
-  "foodCursor": 100,
-  "bookmarkCursor": 100,
-  "scanCursor": 100,
-  "reviewCursor": 100
-}
-EOF
 
 while IFS= read -r target; do
   k6 inspect \
@@ -129,62 +118,22 @@ while IFS= read -r target; do
     -e ACCESS_TOKEN=test-token \
     -e RUN_ID=catalog-contract \
     -e REPORT_DIR="$temp_dir/reports/$target" \
-    -e FIXTURE_PATH="$temp_dir/fixtures.json" \
+    -e FIXTURE_PATH="$catalog_fixtures" \
     "$repo_dir/k6/endpoint.js" >/dev/null
 done <"$temp_dir/actual-keys"
 
-cat >"$temp_dir/expected-requests" <<'EOF'
-GET	/api/app-version	1.0	false
-GET	/api/home?lang=ko	1.0	true
-GET	/api/home?lang=ko	1.0	false
-GET	/api/ingredients?lang=ko	1.0	false
-GET	/api/ingredients?lang=en	1.0	false
-GET	/api/ingredients/diets?lang=ko	1.0	false
-GET	/api/ingredients/diets?lang=en	1.0	false
-GET	/api/members/me/profile	1.0	true
-GET	/api/members/me/ranking	1.0	true
-GET	/api/members/me/blocks	1.0	true
-GET	/api/foods?lang=ko	1.0	true
-GET	/api/foods?lang=ko	1.0	false
-GET	/api/foods?cursor=100&lang=ko	1.0	true
-GET	/api/foods/search?keyword=%EA%B9%80%EC%B9%98&lang=ko&scope=all	1.0	true
-GET	/api/foods/search?keyword=__kbap_load_test_missing__&lang=ko&scope=all	1.0	true
-GET	/api/foods/search?keyword=%EA%B9%80%EC%B9%98&lang=en&scope=all	1.0	true
-GET	/api/foods/search?keyword=%EA%B9%80%EC%B9%98&lang=ko&scope=scanned	1.0	true
-GET	/api/foods/search?cursor=100&keyword=%EA%B9%80%EC%B9%98&lang=ko&scope=all	1.0	true
-GET	/api/foods/scanned?lang=ko	1.0	true
-GET	/api/foods/scanned?cursor=100&lang=ko	1.0	true
-GET	/api/foods/1?lang=ko	1.0	true
-GET	/api/foods/1?lang=ko	1.0	false
-GET	/api/bookmarks?lang=ko	1.0	true
-GET	/api/bookmarks?cursor=100&lang=ko	1.0	true
-GET	/api/reviews?foodId=1&lang=ko&sort=latest	1.0	false
-GET	/api/reviews?foodId=1&lang=ko&sort=latest	1.0	true
-GET	/api/reviews?foodId=1&lang=ko&sort=rating_high	1.0	true
-GET	/api/reviews?foodId=1&lang=ko&sort=rating_low	1.0	true
-GET	/api/reviews?foodId=1&lang=ko&sort=food_review_count	1.0	true
-GET	/api/reviews?foodId=1&lang=ko&sort=helpful	1.0	true
-GET	/api/reviews?cursor=100&foodId=1&lang=ko&sort=latest	1.0	true
-GET	/api/reviews/me?lang=ko	1.0	true
-GET	/api/reviews/me?cursor=100&lang=ko	1.0	true
-GET	/api/orders?size=10	1.0	true
-GET	/api/orders?size=30	1.0	true
-GET	/api/orders?cursor=1&size=10	1.0	true
-GET	/api/orders/1	1.0	true
-EOF
+sort "$temp_dir/registry-contracts" >"$temp_dir/registry-contracts.sorted"
+diff -u "$temp_dir/manifest-contracts" "$temp_dir/registry-contracts.sorted"
 
-python3 "$repo_dir/k6/tests/mock-server.py" >"$temp_dir/mock-server.log" 2>&1 &
-mock_pid=$!
-for _ in {1..50}; do
-  if curl --silent --fail http://127.0.0.1:18081/health >/dev/null; then
-    break
-  fi
-  if ! kill -0 "$mock_pid" 2>/dev/null; then
-    exit 1
-  fi
-  sleep 0.1
-done
-curl --silent --fail http://127.0.0.1:18081/health >/dev/null
+if k6 inspect -e TARGET=scan-ticket -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=cap -e REPORT_DIR="$temp_dir/cap" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e VUS=201 -e ITERATIONS=1 "$repo_dir/k6/endpoint.js" >"$temp_dir/cap.out" 2>&1; then
+  printf '%s\n' 'external total iteration cap was not enforced' >&2
+  exit 1
+fi
+rg -q 'external total iterations must not exceed 200' "$temp_dir/cap.out"
+
+start_mock
 
 while IFS= read -r target; do
   report_dir="$temp_dir/reports/$target"
@@ -195,18 +144,58 @@ while IFS= read -r target; do
     -e ACCESS_TOKEN=test-token \
     -e RUN_ID=catalog-contract \
     -e REPORT_DIR="$report_dir" \
-    -e FIXTURE_PATH="$temp_dir/fixtures.json" \
+    -e FIXTURE_PATH="$catalog_fixtures" \
     -e PROFILE=smoke \
     "$repo_dir/k6/endpoint.js" >/dev/null
 done <"$temp_dir/actual-keys"
 
-kill "$mock_pid"
-wait "$mock_pid" 2>/dev/null || true
-mock_pid=""
+stop_mock
 
 rg '^REQUEST\t' "$temp_dir/mock-server.log" | cut -f2- >"$temp_dir/actual-requests"
-sort "$temp_dir/expected-requests" >"$temp_dir/expected-requests.sorted"
+sort "$expected_requests" >"$temp_dir/expected-requests.sorted"
 sort "$temp_dir/actual-requests" >"$temp_dir/actual-requests.sorted"
 diff -u "$temp_dir/expected-requests.sorted" "$temp_dir/actual-requests.sorted"
+rg '^BODY\t' "$temp_dir/mock-server.log" | cut -f2- | sort >"$temp_dir/actual-bodies.sorted"
+sort "$expected_bodies" >"$temp_dir/expected-bodies.sorted"
+diff -u "$temp_dir/expected-bodies.sorted" "$temp_dir/actual-bodies.sorted"
+
+start_mock
+report_dir="$temp_dir/contended"
+mkdir -p "$report_dir"
+k6 run --quiet -e TARGET=member-block -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=contended -e REPORT_DIR="$report_dir" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e PROFILE=smoke -e CONTENDED=true "$repo_dir/k6/endpoint.js" >/dev/null
+stop_mock
+grep -Fq $'BODY\tPOST\t/api/members/me/blocks\t{"memberId":36}' "$temp_dir/mock-server.log"
+
+for target in image-complete order-create-no-location order-create-location; do
+  start_mock
+  report_dir="$temp_dir/exhaustion/$target"
+  mkdir -p "$report_dir"
+  k6 run --quiet -e TARGET="$target" -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+    -e RUN_ID=fixture-exhaustion -e REPORT_DIR="$report_dir" -e FIXTURE_PATH="$catalog_fixtures" \
+    -e PROFILE=external -e VUS=1 -e ITERATIONS=3 "$repo_dir/k6/endpoint.js" >/dev/null
+  stop_mock
+  test "$(rg -c $'^REQUEST\t' "$temp_dir/mock-server.log")" = 2
+  test "$(rg $'^BODY\t' "$temp_dir/mock-server.log" | sort -u | wc -l | tr -d ' ')" = 2
+  jq -e '.data.metrics.fixture_exhausted.values.count == 1' "$report_dir/summary.json" >/dev/null
+done
+
+start_mock true
+report_dir="$temp_dir/ticket-failure"
+mkdir -p "$report_dir"
+if k6 run --quiet -e TARGET=scan-v2-krw -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=ticket-failure -e REPORT_DIR="$report_dir" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e PROFILE=smoke "$repo_dir/k6/endpoint.js" >/dev/null 2>&1; then
+  printf '%s\n' 'ticket failure scenario unexpectedly passed thresholds' >&2
+  exit 1
+fi
+stop_mock
+jq -e '.data.metrics.scan_failed.values.count == 1' "$report_dir/summary.json" >/dev/null
+test "$(rg -c $'^REQUEST\t' "$temp_dir/mock-server.log")" = 1
+if grep -Fq $'REQUEST\tPOST\t/api/scans?' "$temp_dir/mock-server.log"; then
+  printf '%s\n' 'scan request must not run after ticket failure' >&2
+  exit 1
+fi
 
 printf 'k6 catalog contract: PASS (%s targets)\n' "$(wc -l <"$temp_dir/actual-keys" | tr -d ' ')"

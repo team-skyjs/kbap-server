@@ -3,6 +3,8 @@ import { foodEndpoints } from './food.js';
 import { memberEndpoints } from './member.js';
 import { orderEndpoints } from './order.js';
 import { reviewEndpoints } from './review.js';
+import { writeEndpoints } from './write.js';
+import { externalEndpoints } from './external.js';
 
 export const endpointCatalog = [
   ...appEndpoints,
@@ -10,6 +12,8 @@ export const endpointCatalog = [
   ...foodEndpoints,
   ...reviewEndpoints,
   ...orderEndpoints,
+  ...writeEndpoints,
+  ...externalEndpoints,
 ];
 
 export const endpoints = endpointCatalog.reduce((registry, endpoint) => {
