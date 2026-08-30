@@ -42,11 +42,20 @@ class ScanService(
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
         } catch (e: MenuBoardVisionRateLimitedException) {
+            log.warn(
+                "메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}",
+                if (e.exhausted) "EXHAUSTED" else "IMMEDIATE",
+                e.retryAfterSeconds,
+                e.message,
+                imagePath,
+                e,
+            )
             throw BusinessException(
                 ErrorCode.SCAN_RATE_LIMITED,
                 payload = e.retryAfterSeconds?.let { mapOf("retryAfterSeconds" to it) },
             )
         } catch (e: MenuBoardVisionQuotaExhaustedException) {
+            log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)
             throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)
         } catch (e: MenuBoardVisionUnavailableException) {
             log.warn("메뉴판 비전 서버 장애 — imagePath={}", imagePath, e)

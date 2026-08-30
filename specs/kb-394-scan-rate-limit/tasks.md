@@ -59,8 +59,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt` — T009 의 두 catch 에 로그 추가: `log.warn("메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}", if (e.exhausted) "EXHAUSTED" else "IMMEDIATE", e.retryAfterSeconds, e.message, imagePath, e)` / `log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)`.
-- [ ] T012 [US2] `./gradlew :api:test -i` 실행 후 로그에서 두 마커를 grep 으로 확인(스크래치패드에 로그 저장 → `grep -c "비전 rate-limit"`, `grep -c "quota 소진"`), SCAN-008 케이스 요청에 "비전 인식 실패" 부재 확인. 커밋 `feat(scan): rate-limit·quota 로그 마커`.
+- [x] T011 [US2] `api/src/main/kotlin/com/kbap/api/scan/ScanService.kt` — T009 의 두 catch 에 로그 추가: `log.warn("메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}", if (e.exhausted) "EXHAUSTED" else "IMMEDIATE", e.retryAfterSeconds, e.message, imagePath, e)` / `log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)`.
+- [x] T012 [US2] `./gradlew :api:test -i` 실행 후 로그에서 두 마커를 grep 으로 확인(스크래치패드에 로그 저장 → `grep -c "비전 rate-limit"`, `grep -c "quota 소진"`), SCAN-008 케이스 요청에 "비전 인식 실패" 부재 확인. 커밋 `feat(scan): rate-limit·quota 로그 마커`.
 
 ---
 
