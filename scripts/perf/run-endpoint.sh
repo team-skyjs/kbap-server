@@ -65,12 +65,12 @@ if [[ "$target_suite" == "external" ]]; then
     exit 2
   fi
   if [[ "$profile" == "external" ]]; then
-    if [[ ! "$load" =~ ^[1-9][0-9]*$ || ! "$extent" =~ ^[1-9][0-9]*$ ]]; then
-      echo "error: external VUS and ITERATIONS must be positive integers" >&2
+    if [[ ! "$load" =~ ^[1-9][0-9]{0,2}$ || ! "$extent" =~ ^[1-9][0-9]{0,2}$ ]] || \
+      ((load > 198 || extent > 198)); then
+      echo "error: external VUS and ITERATIONS must be integers from 1 to 198" >&2
       exit 2
     fi
-    projected_external_iterations=$((2 + load * extent))
-    if ((projected_external_iterations > 200)); then
+    if ((load > 198 / extent)); then
       echo "error: external logical run must not exceed 200 projected iterations" >&2
       exit 2
     fi

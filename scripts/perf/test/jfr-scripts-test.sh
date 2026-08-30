@@ -52,12 +52,30 @@ if [[ " $* " == *" ecs execute-command "* ]]; then
     fi
     echo 'Started recording 1.'
   fi
+  if [[ "$command" == *"JFR.stop"* && -n "${FAKE_FAIL_STOP_TASK:-}" && "$*" == *"${FAKE_FAIL_STOP_TASK}"* ]]; then
+    echo 'stop failed' >&2
+    exit 41
+  fi
+  if [[ "$command" == *"jfr summary"* && -n "${FAKE_FAIL_SUMMARY_TASK:-}" && "$*" == *"${FAKE_FAIL_SUMMARY_TASK}"* ]]; then
+    echo 'summary failed' >&2
+    exit 42
+  fi
+  if [[ "$command" == *"aws s3 cp"* && -n "${FAKE_FAIL_UPLOAD_TASK:-}" && "$*" == *"${FAKE_FAIL_UPLOAD_TASK}"* ]]; then
+    echo 'upload failed' >&2
+    exit 43
+  fi
   exit 0
 fi
 
 if [[ " $* " == *" s3 cp "* ]]; then
   target="${@: -1}"
-  if [[ "${FAKE_S3_EMPTY:-0}" == "1" ]]; then
+  if [[ -n "${FAKE_FAIL_DOWNLOAD_TASK:-}" && "$*" == *"${FAKE_FAIL_DOWNLOAD_TASK}"* ]] || \
+    [[ -n "${FAKE_FAIL_UPLOAD_TASK:-}" && "$*" == *"${FAKE_FAIL_UPLOAD_TASK}"* ]]; then
+    echo 'download failed' >&2
+    exit 44
+  fi
+  if [[ "${FAKE_S3_EMPTY:-0}" == "1" ]] || \
+    [[ -n "${FAKE_S3_EMPTY_TASK:-}" && "$*" == *"${FAKE_S3_EMPTY_TASK}"* ]]; then
     : >"$target"
   else
     printf 'fake jfr data\n' >"$target"
@@ -75,6 +93,9 @@ cat >"$FAKE_BIN/docker" <<'DOCKER'
 set -euo pipefail
 printf '%s\t' "$@" >>"$FAKE_DOCKER_CALLS"
 printf '\n' >>"$FAKE_DOCKER_CALLS"
+if [[ -n "${FAKE_FAIL_VALIDATE_TASK:-}" && "$*" == *"${FAKE_FAIL_VALIDATE_TASK}"* ]]; then
+  exit 45
+fi
 DOCKER
 chmod +x "$FAKE_BIN/docker"
 
@@ -120,6 +141,30 @@ assert_count() {
     cat "$CALLS" >&2
     exit 1
   fi
+}
+
+assert_task_one_cleanup_failure() {
+  local expected=$1
+  local failure_env=$2
+  local label=$3
+  local failure_report="$TEST_DIR/$label-report"
+  local actual
+  mkdir -p "$failure_report"
+  : >"$CALLS"
+  set +e
+  run_with_fakes env "$failure_env=$TASK_ONE" "$STOP" "$RUN_ID" "$failure_report" "$TASK_ONE" "$TASK_TWO" \
+    >"$TEST_DIR/$label.stdout" 2>"$TEST_DIR/$label.stderr"
+  actual=$?
+  set -e
+  if [[ "$actual" -ne "$expected" ]]; then
+    echo "expected cleanup exit $expected, got $actual: $label" >&2
+    cat "$TEST_DIR/$label.stderr" >&2
+    exit 1
+  fi
+  assert_count 2 "JFR.stop name=$RUN_ID"
+  assert_count 2 "jfr\\ summary /tmp/$RUN_ID.jfr"
+  assert_count 2 "s3\\ cp /tmp/$RUN_ID.jfr s3://$BUCKET/$RUN_ID/task-"
+  test -s "$failure_report/task-$TASK_TWO.jfr"
 }
 
 assert_exit 2 "$START" 'invalid/run id'
@@ -168,6 +213,23 @@ assert_count 5 "$TASK_ONE"
 assert_count 5 "$TASK_TWO"
 test -s "$EXPLICIT_REPORT_DIR/task-$TASK_ONE.jfr"
 test -s "$EXPLICIT_REPORT_DIR/task-$TASK_TWO.jfr"
+
+STOP_FAILURE_REPORT_DIR="$TEST_DIR/stop-failure-report"
+mkdir -p "$STOP_FAILURE_REPORT_DIR"
+: >"$CALLS"
+assert_exit 41 env FAKE_FAIL_STOP_TASK="$TASK_ONE" "$STOP" "$RUN_ID" "$STOP_FAILURE_REPORT_DIR" "$TASK_ONE" "$TASK_TWO"
+assert_count 2 "JFR.stop name=$RUN_ID"
+assert_count 2 "jfr\\ summary /tmp/$RUN_ID.jfr"
+test -s "$STOP_FAILURE_REPORT_DIR/task-$TASK_ONE.jfr"
+test -s "$STOP_FAILURE_REPORT_DIR/task-$TASK_TWO.jfr"
+
+assert_task_one_cleanup_failure 42 FAKE_FAIL_SUMMARY_TASK summary-failure
+assert_task_one_cleanup_failure 43 FAKE_FAIL_UPLOAD_TASK upload-failure
+assert_count 1 "rm -f /tmp/$RUN_ID.jfr"
+assert_task_one_cleanup_failure 44 FAKE_FAIL_DOWNLOAD_TASK download-failure
+assert_task_one_cleanup_failure 1 FAKE_S3_EMPTY_TASK empty-failure
+test ! -e "$TEST_DIR/empty-failure-report/task-$TASK_ONE.jfr"
+assert_task_one_cleanup_failure 45 FAKE_FAIL_VALIDATE_TASK validation-failure
 
 : >"$CALLS"
 assert_exit 2 "$START" "$RUN_ID" 'invalid/task' "$TASK_TWO"

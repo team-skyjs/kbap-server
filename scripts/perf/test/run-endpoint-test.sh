@@ -140,9 +140,19 @@ if [[ "${FAKE_REQUIRE_TASK_IDS:-0}" == "1" && $# -ne 4 ]]; then
 fi
 printf 'jfr-stop %s task_one=%s task_two=%s\n' "$1" "${3:-rediscovered}" "${4:-rediscovered}" >>"$FAKE_EVENT_LOG"
 mkdir -p "$2"
-printf 'fake jfr\n' >"$2/task-11111111111111111111111111111111.jfr"
-printf 'fake jfr\n' >"$2/task-22222222222222222222222222222222.jfr"
-exit "${FAKE_JFR_STOP_EXIT:-0}"
+task_one=${3:-11111111111111111111111111111111}
+task_two=${4:-22222222222222222222222222222222}
+rm -f "$2/task-$task_one.jfr" "$2/task-$task_two.jfr"
+status=${FAKE_JFR_STOP_EXIT:-0}
+for task_id in "$task_one" "$task_two"; do
+  printf 'jfr-stop-task %s\n' "$task_id" >>"$FAKE_EVENT_LOG"
+  if [[ -n "${FAKE_JFR_STOP_FAIL_TASK:-}" && "$task_id" == "$FAKE_JFR_STOP_FAIL_TASK" ]]; then
+    [[ "$status" -eq 0 ]] && status=31
+    continue
+  fi
+  printf 'fake jfr\n' >"$2/task-$task_id.jfr"
+done
+exit "$status"
 JFR_STOP
 
 cat >"$fake_bin/sleep" <<'SLEEP'
@@ -179,6 +189,23 @@ assert_nonzero() {
   fi
 }
 
+assert_external_input_rejected() {
+  local input_load=$1
+  local input_extent=$2
+  local label=$3
+  : >"$event_log"
+  set +e
+  run_runner env CAMPAIGN_ID="$campaign_id" "$runner" scan-v2-krw external "$input_load" "$input_extent" \
+    >"$temp_dir/$label.stdout" 2>"$temp_dir/$label.stderr"
+  local status=$?
+  set -e
+  if [[ "$status" -eq 0 ]] || grep -q '^k6 ' "$event_log"; then
+    printf 'unsafe external input reached k6: label=%s exit=%s calls=%s\n' \
+      "$label" "$status" "$(grep -c '^k6 ' "$event_log" || true)" >&2
+    exit 1
+  fi
+}
+
 : >"$event_log"
 run_runner env CAMPAIGN_ID="$campaign_id" "$runner" app-version read 5 1m
 report_dir="$artifact_root/$campaign_id/app-version"
@@ -187,7 +214,7 @@ test -s "$report_dir/summary.json"
 test -s "$report_dir/task-$task_one.jfr"
 test -s "$report_dir/task-$task_two.jfr"
 
-event_types="$(sed -n -e '/^k6 /p' -e '/^jfr-/p' -e '/^sleep /p' "$event_log" | sed -E 's/ .*//')"
+event_types="$(sed -n -e '/^k6 /p' -e '/^jfr-start /p' -e '/^jfr-stop /p' -e '/^sleep /p' "$event_log" | sed -E 's/ .*//')"
 test "$event_types" = $'k6\nk6\njfr-start\nsleep\nk6\nsleep\njfr-stop'
 grep -q '^k6 phase=smoke profile=smoke ' "$event_log"
 grep -q '^k6 phase=warmup profile=read .* duration=2m vus=' "$event_log"
@@ -253,19 +280,24 @@ fi
 
 : >"$event_log"
 set +e
-FAKE_K6_MAIN_EXIT=23 FAKE_JFR_STOP_EXIT=31 run_runner env CAMPAIGN_ID="$campaign_id" "$runner" app-version read 5 1m
+FAKE_K6_MAIN_EXIT=23 FAKE_JFR_STOP_FAIL_TASK="$task_one" run_runner env CAMPAIGN_ID="$campaign_id" "$runner" app-version read 5 1m
 main_status=$?
 set -e
 test "$main_status" -eq 23
 grep -q '^k6 phase=measurement ' "$event_log"
 grep -q '^jfr-stop ' "$event_log"
+grep -q "^jfr-stop-task $task_one$" "$event_log"
+grep -q "^jfr-stop-task $task_two$" "$event_log"
+test ! -e "$artifact_root/$campaign_id/app-version/task-$task_one.jfr"
+test -s "$artifact_root/$campaign_id/app-version/task-$task_two.jfr"
 
 : >"$event_log"
 set +e
-FAKE_JFR_STOP_EXIT=31 run_runner env CAMPAIGN_ID="$campaign_id" "$runner" app-version read 5 1m
+FAKE_JFR_STOP_FAIL_TASK="$task_one" run_runner env CAMPAIGN_ID="$campaign_id" "$runner" app-version read 5 1m
 stop_status=$?
 set -e
 test "$stop_status" -eq 31
+grep -q "^jfr-stop-task $task_two$" "$event_log"
 
 : >"$event_log"
 set +e
@@ -400,6 +432,12 @@ if [[ "$external_cap_status" -eq 0 ]] || grep -q '^k6 ' "$event_log"; then
   exit 1
 fi
 grep -q 'external logical run must not exceed 200 projected iterations' "$temp_dir/external-cap.stderr"
+
+assert_external_input_rejected 18446744073709551616 1 external-overflow
+assert_external_input_rejected 0 1 external-zero
+assert_external_input_rejected 01 1 external-leading-zero
+assert_external_input_rejected 1x 1 external-nondigit
+assert_external_input_rejected 1 0 external-zero-iterations
 
 : >"$event_log"
 assert_nonzero env CAMPAIGN_ID="$campaign_id" "$runner" scan-v2-krw read 5 1m
