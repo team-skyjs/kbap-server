@@ -3,6 +3,8 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -411,6 +413,56 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         }
 
                     foodJpaRepository.findById(food.id).orElseThrow().displayName shouldBe "먼저수정"
+                }
+            }
+
+            `when`("같은 version 두 요청이 동시에 제출되면") {
+                then("한쪽만 반영되고 다른 쪽은 FOOD-006 으로 거절된다") {
+                    val food = saveFood("동시수정찌개")
+                    val executor = Executors.newFixedThreadPool(2)
+                    val startGate = CountDownLatch(1)
+
+                    fun command(name: String) = UpdateFoodCommand(
+                        koreanName = name,
+                        description = "설명",
+                        spiciness = 1,
+                        contentStatus = FoodContentStatus.READY,
+                        imageRef = "",
+                        nameTranslationsJson = "",
+                        descriptionTranslationsJson = "",
+                        ingredientsJson = "",
+                    )
+
+                    val results = listOf("승자찌개", "패자찌개").map { name ->
+                        executor.submit<Any> {
+                            startGate.await()
+                            try {
+                                adminFoodService.updateFood(food.id, command(name), expectedVersion = food.version)
+                            } catch (e: BusinessException) {
+                                e.errorCode
+                            }
+                        }
+                    }
+                    startGate.countDown()
+                    val outcomes = results.map { it.get() }
+                    executor.shutdown()
+
+                    outcomes.count { it == AdminFoodUpdateResult.UPDATED } shouldBe 1
+                    outcomes.count { it == ErrorCode.FOOD_VERSION_CONFLICT } shouldBe 1
+                }
+            }
+
+            `when`("description 이 DB 컬럼 한도(255자)를 넘으면") {
+                then("400(COMMON-002) 검증 실패로 응답한다") {
+                    val food = saveFood("긴설명찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "긴설명찌개") + mapOf("description" to "가".repeat(256)),
+                    ).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
                 }
             }
 

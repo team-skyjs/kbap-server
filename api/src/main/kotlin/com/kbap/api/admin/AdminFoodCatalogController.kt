@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.model.FoodContentStatus
 import jakarta.validation.Valid
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -58,7 +59,12 @@ class AdminFoodCatalogController(
             descriptionTranslationsJson = request.descriptionTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             ingredientsJson = request.ingredients?.let(objectMapper::writeValueAsString).orEmpty(),
         )
-        when (adminFoodService.updateFood(id, command, expectedVersion = request.version)) {
+        val result = try {
+            adminFoodService.updateFood(id, command, expectedVersion = request.version)
+        } catch (e: OptimisticLockingFailureException) {
+            throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
+        }
+        when (result) {
             AdminFoodUpdateResult.UPDATED -> Unit
             AdminFoodUpdateResult.NOT_FOUND -> throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
             AdminFoodUpdateResult.INVALID_NAME,

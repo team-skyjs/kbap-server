@@ -10,6 +10,7 @@ import com.kbap.common.util.ImageUrls
 import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
 import java.time.LocalDateTime
 
 data class AdminFoodDetailResponse(
@@ -57,13 +58,16 @@ data class AdminFoodDetailResponse(
 
 data class AdminFoodUpdateRequest(
     @field:NotBlank
+    @field:Size(max = 255, message = "koreanName 은 255자 이하여야 합니다")
     val koreanName: String? = null,
     @field:NotNull
+    @field:Size(max = 255, message = "description 은 255자 이하여야 합니다")
     val description: String? = null,
     @field:NotNull
     val spiciness: Int? = null,
     @field:NotNull
     val contentStatus: FoodContentStatus? = null,
+    @field:Size(max = 500, message = "imageRef 는 500자 이하여야 합니다")
     val imageRef: String? = null,
     val nameTranslations: Map<String, String>? = null,
     val descriptionTranslations: Map<String, String>? = null,
