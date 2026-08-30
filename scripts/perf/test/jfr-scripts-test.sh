@@ -123,6 +123,7 @@ assert_count() {
 }
 
 assert_exit 2 "$START" 'invalid/run id'
+test ! -s "$CALLS"
 
 : >"$CALLS"
 assert_exit 3 env FAKE_TASK_COUNT=1 "$START" "$RUN_ID"
@@ -146,6 +147,7 @@ run_with_fakes "$STOP" "$RUN_ID" "$REPORT_DIR"
 assert_count 2 "JFR.stop name=$RUN_ID"
 assert_count 2 "jfr\\ summary /tmp/$RUN_ID.jfr"
 assert_count 2 "s3\\ cp /tmp/$RUN_ID.jfr s3://$BUCKET/$RUN_ID/task-"
+assert_count 2 '--sse[[:space:]]+AES256'
 test -s "$REPORT_DIR/task-$TASK_ONE.jfr"
 test -s "$REPORT_DIR/task-$TASK_TWO.jfr"
 
