@@ -20,6 +20,8 @@
 - **Rationale**: SDK 재시도는 총 시간을 제한할 방법이 없다(`Retry-After` 를 그대로 자고 횟수만 센다). 스펙 FR-005/SC-003 은 총 대기 상한(10s)을 요구한다. 자체 루프는 ~20줄이고 `sleep` 을 생성자 주입(`(Duration) -> Unit`, 기본 `Thread.sleep`)하면 Spring 없이 테스트된다. 5xx/IO 도 같은 루프에 태워 SDK 재시도를 끈 대가(일시 장애 복원력)를 잃지 않는다.
 - **Alternatives**: SDK `maxRetries` 만 낮춤(1) → `Retry-After` 30s 하나로도 상한 초과 → 기각. `maxRetries=0` + 무재시도(사용자에게 바로 SCAN-008) → 가장 단순하지만 수 초면 풀리는 RPM 버스트도 전부 실패로 보임 → 스펙 US3 미충족. SDK 재시도 유지 + 자체 루프 병행 → 이중 재시도 → 기각.
 - **구현 시 확인**: `Headers.values()` 가 대소문자 무관인지(SDK 는 소문자 정규화 — 테스트로 고정), `InternalServerException.builder()` 존재(RateLimitException 과 동일 패턴).
+- **Codex 리뷰 반영(2026-08-31)**: 처음 구현은 예산을 sleep 합으로만 셌는데, `Retry-After: 0` 이면 누적이 0 이라 무한 루프였고 느린 실패 호출(타임아웃 60s)이 겹치면 벽시계 상한이 걸리지 않았다. 예산은 **시작 시각 + budget 의 deadline** 으로 두고 "다음 대기가 끝나는 시각 > deadline" 이면 중단(호출 시간 포함 — 스펙 SC-003 "예산 + 호출 1회" 그대로). `Retry-After ≤ 0` 은 헤더 없음으로 보고 백오프. 어댑터는 `now: () -> Instant` 를 주입받아 테스트가 가짜 시계로 sleep·호출 시간을 함께 진행시킨다.
+- **`@Retryable`(Spring Framework 7 `org.springframework.resilience`) 검토·기각**: `includes/predicate/maxRetries/timeout/delay/multiplier/jitter` 로 횟수·총시간·지수+지터는 표현되지만 백오프가 고정 `BackOff` 라 **`Retry-After` 를 반영할 수 없고**(OpenAI 공식 처방 1번), AOP 프록시(`@EnableResilientMethods`, Boot 자동구성 없음)가 필요해 Spring 없는 어댑터 테스트가 깨진다. `Retry-After` 를 포기하는 결정이 나면 어댑터 한 파일로 전환 가능.
 
 ## R-4. 에러코드·응답
 
