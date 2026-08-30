@@ -53,6 +53,9 @@ k6 run \
 test -s "$report_dir/report.html"
 test -s "$report_dir/summary.json"
 grep -q 'app-version' "$report_dir/report.html"
+grep -q '<th>Checks passed</th><td>2</td>' "$report_dir/report.html"
+grep -q '<th>Request count</th><td>1</td>' "$report_dir/report.html"
+rg -q '<th>http_req_duration</th><td>[0-9]' "$report_dir/report.html"
 if grep -q 'test-token' "$report_dir/report.html" "$report_dir/summary.json"; then
   exit 1
 fi

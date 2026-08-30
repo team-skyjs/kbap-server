@@ -10,7 +10,7 @@ function escapeHtml(value) {
 }
 
 function metric(data, name) {
-  return data.metrics[name] || {};
+  return data.metrics[name] ? data.metrics[name].values : {};
 }
 
 function display(value) {
@@ -23,9 +23,9 @@ function row(label, value) {
 
 function trendRows(data) {
   return Object.entries(data.metrics)
-    .filter(([, values]) => trendKeys.some((key) => values[key] !== undefined))
-    .map(([name, values]) => `<tr><th>${escapeHtml(name)}</th>${trendKeys
-      .map((key) => `<td>${escapeHtml(display(values[key]))}</td>`)
+    .filter(([, metricData]) => trendKeys.some((key) => metricData.values[key] !== undefined))
+    .map(([name, metricData]) => `<tr><th>${escapeHtml(name)}</th>${trendKeys
+      .map((key) => `<td>${escapeHtml(display(metricData.values[key]))}</td>`)
       .join('')}</tr>`)
     .join('');
 }

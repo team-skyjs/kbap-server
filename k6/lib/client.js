@@ -6,12 +6,12 @@ const endpointFailures = new Counter('endpoint_failures');
 
 function requestTags(context, endpoint, tags) {
   return {
+    ...tags,
     run_id: context.runId,
     target: endpoint.key,
     route: endpoint.route,
     method: endpoint.method,
     phase: context.phase,
-    ...tags,
   };
 }
 
