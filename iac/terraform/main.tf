@@ -30,10 +30,12 @@ module "ecs_environment" {
   food_content_queue_name = var.food_content_queue_name
   vector_enabled          = var.vector_enabled
 
-  log_retention_days            = var.log_retention_days
-  canary_percentage             = var.canary_percentage
-  canary_interval_minutes       = var.canary_interval_minutes
-  blue_termination_wait_minutes = var.blue_termination_wait_minutes
+  log_retention_days                  = var.log_retention_days
+  api_execute_command_enabled         = var.api_execute_command_enabled
+  performance_artifact_retention_days = var.performance_artifact_retention_days
+  canary_percentage                   = var.canary_percentage
+  canary_interval_minutes             = var.canary_interval_minutes
+  blue_termination_wait_minutes       = var.blue_termination_wait_minutes
 
   admin_cidr            = var.admin_cidr
   bastion_instance_type = var.bastion_instance_type

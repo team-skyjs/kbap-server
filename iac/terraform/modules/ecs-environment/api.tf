@@ -71,11 +71,12 @@ resource "aws_ecs_task_definition" "api" {
 }
 
 resource "aws_ecs_service" "api" {
-  name            = local.api_service_name
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = var.api_desired_count
-  launch_type     = "EC2"
+  name                   = local.api_service_name
+  cluster                = aws_ecs_cluster.this.id
+  task_definition        = aws_ecs_task_definition.api.arn
+  desired_count          = var.api_desired_count
+  launch_type            = "EC2"
+  enable_execute_command = var.api_execute_command_enabled
 
   deployment_controller {
     type = "CODE_DEPLOY"

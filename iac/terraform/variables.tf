@@ -116,6 +116,16 @@ variable "log_retention_days" {
   default = 7
 }
 
+variable "api_execute_command_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "performance_artifact_retention_days" {
+  type    = number
+  default = 7
+}
+
 variable "canary_percentage" {
   type    = number
   default = 20

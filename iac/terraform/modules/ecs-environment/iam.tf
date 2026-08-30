@@ -108,6 +108,27 @@ data "aws_iam_policy_document" "api_task" {
     actions   = ["s3vectors:QueryVectors", "s3vectors:GetVectors"]
     resources = [aws_s3vectors_index.foods.index_arn]
   }
+  dynamic "statement" {
+    for_each = var.api_execute_command_enabled ? [1] : []
+    content {
+      sid = "EcsExecChannel"
+      actions = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      resources = ["*"]
+    }
+  }
+  dynamic "statement" {
+    for_each = var.api_execute_command_enabled ? [1] : []
+    content {
+      sid       = "PutPerformanceArtifact"
+      actions   = ["s3:PutObject"]
+      resources = ["${aws_s3_bucket.performance_artifacts[0].arn}/*"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "api_task" {

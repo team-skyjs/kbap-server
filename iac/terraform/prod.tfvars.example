@@ -18,6 +18,9 @@ redis_host              = "kbap-prod-redis-0001-001.kbap-prod-redis.fu1mox.apn2.
 rds_security_group_id   = "sg-0ae5dcd7bd3580cb3"
 redis_security_group_id = "sg-0fd902271294eb663"
 
+api_execute_command_enabled          = false
+performance_artifact_retention_days = 7
+
 admin_cidr       = "<your-public-ip>/32"
 bastion_key_name = "kbap-prod"
 

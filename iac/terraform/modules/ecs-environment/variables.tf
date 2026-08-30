@@ -171,6 +171,16 @@ variable "log_retention_days" {
   default = 7
 }
 
+variable "api_execute_command_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "performance_artifact_retention_days" {
+  type    = number
+  default = 7
+}
+
 variable "canary_percentage" {
   description = "카나리 단계에서 신버전으로 보낼 트래픽 비율(%)"
   type        = number

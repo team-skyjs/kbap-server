@@ -14,6 +14,10 @@ output "api_service_name" {
   value = module.ecs_environment.api_service_name
 }
 
+output "performance_artifact_bucket_name" {
+  value = module.ecs_environment.performance_artifact_bucket_name
+}
+
 output "batch_service_name" {
   value = module.ecs_environment.batch_service_name
 }

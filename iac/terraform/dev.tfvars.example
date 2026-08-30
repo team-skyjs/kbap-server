@@ -15,6 +15,9 @@ redis_security_group_id = "sg-0de1e4bfcad5ec753"
 
 # 기본값: t3.medium × (api 2 + batch 1), api 태스크 2, 로그 7일, 카나리 20% · 15분, 구버전 유지 15분
 
+api_execute_command_enabled          = true
+performance_artifact_retention_days = 7
+
 admin_cidr       = "<your-public-ip>/32"
 bastion_key_name = "kbpa-devstg"
 
