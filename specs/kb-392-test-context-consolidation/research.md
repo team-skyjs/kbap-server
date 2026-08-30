@@ -17,6 +17,7 @@
 
 - **Decision**: `FoodServiceTest` 의 `spring.jpa.properties.hibernate.generate_statistics=true` 를 `api/src/test/resources/application.yml` 전역으로 옮기고 헤더를 `@IntegrationTest` 로. `StructuredConsoleLoggingTest`(`logging.structured.format.console=ecs`) 는 콘솔 인코더 전체를 바꾸므로 그대로 두어 api 의 두 번째 컨텍스트로 남긴다.
 - **Rationale**: Hibernate 통계는 수집만 켜는 설정이라 전역이어도 다른 테스트에 영향이 없다. ecs 는 전 테스트 로그 형식을 바꾸는 부작용이 있어 격리가 정당하다.
+- **후속(2026-08-30)**: ecs 컨텍스트도 없앴다 — `StructuredConsoleLoggingTest` 를 Spring 없이 `StructuredLogEncoder` 직접 구성 + staging/prod yml 단언으로 재작성해 api 컨텍스트 1. 최소 `SpringApplication` 프로브는 `LogbackLoggingSystem` 의 JVM 1회 초기화 때문에 프로퍼티가 반영되지 않아 기각.
 
 ## R-4. common 부트 클래스 단일화
 
