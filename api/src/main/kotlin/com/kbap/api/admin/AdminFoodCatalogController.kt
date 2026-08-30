@@ -58,7 +58,7 @@ class AdminFoodCatalogController(
             descriptionTranslationsJson = request.descriptionTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             ingredientsJson = request.ingredients?.let(objectMapper::writeValueAsString).orEmpty(),
         )
-        when (adminFoodService.updateFood(id, command)) {
+        when (adminFoodService.updateFood(id, command, expectedVersion = request.version)) {
             AdminFoodUpdateResult.UPDATED -> Unit
             AdminFoodUpdateResult.NOT_FOUND -> throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
             AdminFoodUpdateResult.INVALID_NAME,

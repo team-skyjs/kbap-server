@@ -72,8 +72,11 @@ class AdminFoodService(
     }
 
     @Transactional
-    fun updateFood(id: Long, command: UpdateFoodCommand): AdminFoodUpdateResult {
+    fun updateFood(id: Long, command: UpdateFoodCommand, expectedVersion: Long? = null): AdminFoodUpdateResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodUpdateResult.NOT_FOUND
+        if (expectedVersion != null && expectedVersion != food.version) {
+            throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
+        }
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
 
         val nameTranslations: Map<String, String>
@@ -155,7 +158,7 @@ class AdminFoodService(
 
     @Transactional
     fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
-        val food = foodRepository.findById(id).orElse(null)
+        val food = foodRepository.findByIdForUpdate(id)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         val alreadyPending = outboxRepository
             .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)

@@ -5,7 +5,9 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.util.ImageUrls
+import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.time.LocalDateTime
@@ -66,7 +68,15 @@ data class AdminFoodUpdateRequest(
     val nameTranslations: Map<String, String>? = null,
     val descriptionTranslations: Map<String, String>? = null,
     val ingredients: List<FoodIngredient>? = null,
-)
+    val version: Long? = null,
+) {
+    @AssertTrue(message = "ingredients 의 code 는 성분 카탈로그 코드여야 합니다")
+    fun isIngredientCodesKnown(): Boolean = ingredients.orEmpty().all { it.code in KNOWN_INGREDIENT_CODES }
+
+    companion object {
+        private val KNOWN_INGREDIENT_CODES: Set<String> = IngredientCode.entries.map { it.name }.toSet()
+    }
+}
 
 data class AdminFoodRecollectResponse(
     val requested: Long,

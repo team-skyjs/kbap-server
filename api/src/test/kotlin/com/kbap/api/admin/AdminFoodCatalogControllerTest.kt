@@ -3,8 +3,10 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.member.model.MemberRole
@@ -21,6 +23,8 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.options
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -38,6 +42,12 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var dataSource: DataSource
+
+    @Autowired
+    private lateinit var adminFoodService: AdminFoodService
+
+    @Autowired
+    private lateinit var foodContentOutboxJpaRepository: FoodContentOutboxJpaRepository
 
     init {
         val path = "/api/admin/foods"
@@ -326,7 +336,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                             "imageRef" to "images/food/updated.webp",
                             "nameTranslations" to mapOf("en" to "Updated stew"),
                             "descriptionTranslations" to mapOf("en" to "richer stew"),
-                            "ingredients" to listOf(mapOf("code" to "SOYBEAN", "inclusion_percent" to 80)),
+                            "ingredients" to listOf(mapOf("code" to "SOY", "inclusion_percent" to 80)),
                         ),
                     ).andExpect {
                         status { isOk() }
@@ -376,6 +386,50 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                     }
                 }
             }
+
+            `when`("현재와 같은 version 을 실어 수정하면") {
+                then("정상 반영되고 version 이 올라간다") {
+                    val food = saveFood("버전찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "버전찌개") + mapOf("version" to food.version))
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.version") { value(food.version + 1) }
+                        }
+                }
+            }
+
+            `when`("다른 관리자가 먼저 수정해 version 이 달라졌으면") {
+                then("409(FOOD-006) 로 거절하고 아무것도 저장하지 않는다") {
+                    val food = saveFood("경합찌개")
+                    putUpdate(food.id, updateBody(koreanName = "먼저수정")).andExpect { status { isOk() } }
+
+                    putUpdate(food.id, updateBody(koreanName = "나중수정") + mapOf("version" to food.version))
+                        .andExpect {
+                            status { isConflict() }
+                            jsonPath("$.code") { value("FOOD-006") }
+                        }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().displayName shouldBe "먼저수정"
+                }
+            }
+
+            `when`("성분 카탈로그에 없는 코드로 수정하면") {
+                then("400(COMMON-002) 로 거절하고 아무것도 저장하지 않는다") {
+                    val food = saveFood("된장찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "된장찌개") +
+                            mapOf("ingredients" to listOf(mapOf("code" to "UNKNOWN_CODE", "inclusion_percent" to 50))),
+                    ).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().ingredients.orEmpty() shouldBe emptyList()
+                }
+            }
         }
 
         given("어드민 음식 재수집 API") {
@@ -402,6 +456,30 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.created") { value(0) }
                         jsonPath("$.payload.skipped") { value(1) }
                     }
+                }
+            }
+
+            `when`("같은 음식에 단건 재수집이 동시에 들어오면") {
+                then("수집 대기는 정확히 한 건만 생성된다") {
+                    val food = saveFood("동시성찌개")
+                    val executor = Executors.newFixedThreadPool(2)
+                    val startGate = CountDownLatch(1)
+
+                    val results = (1..2).map {
+                        executor.submit<AdminFoodRecollectResult> {
+                            startGate.await()
+                            adminFoodService.requestRecollectForFood(food.id)
+                        }
+                    }
+                    startGate.countDown()
+                    val outcomes = results.map { it.get() }
+                    executor.shutdown()
+
+                    outcomes.sumOf { it.created } shouldBe 1
+                    outcomes.sumOf { it.skipped } shouldBe 1
+                    foodContentOutboxJpaRepository
+                        .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
+                        .size shouldBe 1
                 }
             }
 

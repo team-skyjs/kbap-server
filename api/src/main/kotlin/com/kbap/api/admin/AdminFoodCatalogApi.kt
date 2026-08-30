@@ -77,6 +77,9 @@ interface AdminFoodCatalogApi {
 
             - `koreanName` 은 서버가 스캔 입구와 동일하게 정규화해 중복을 검사한다 — 다른 음식과 겹치면 409(FOOD-005).
             - 번역·성분 필드를 생략(null)하면 빈 값으로 교체된다 — 부분 수정이 아니라 전체 교체 계약이다.
+            - `ingredients` 의 `code` 는 성분 카탈로그 코드만 허용한다 — 미지 코드는 400(COMMON-002).
+            - `version`(선택)을 실으면 낙관 잠금으로 동작한다 — 상세 조회의 `version` 을 그대로 보내고,
+              그 사이 다른 관리자가 수정했으면 409(FOOD-006) 로 거절된다. 생략하면 무조건 덮어쓴다.
             - READY 전이·이탈 시 벡터 동기화 아웃박스 enqueue 는 서버가 수행한다.
         """,
     )
@@ -85,12 +88,15 @@ interface AdminFoodCatalogApi {
             ApiResponse(responseCode = "200", description = "수정 성공 — 반영된 상세 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "검증 실패(COMMON-002 — 필수 필드 누락·빈 이름) 또는 음식 없음(FOOD-001)",
+                description = "검증 실패(COMMON-002 — 필수 필드 누락·빈 이름·미지 성분 코드) 또는 음식 없음(FOOD-001)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
-            ApiResponse(responseCode = "409", description = "다른 음식과 이름 중복(FOOD-005)"),
+            ApiResponse(
+                responseCode = "409",
+                description = "다른 음식과 이름 중복(FOOD-005) 또는 version 불일치 — 동시 수정 감지(FOOD-006)",
+            ),
         ],
     )
     fun updateFood(
@@ -113,7 +119,8 @@ interface AdminFoodCatalogApi {
                                   "imageRef": "images/food/doenjang.webp",
                                   "nameTranslations": {"en": "Soybean paste stew"},
                                   "descriptionTranslations": {"en": "savory stew"},
-                                  "ingredients": [{"code": "SOYBEAN", "inclusion_percent": 100}]
+                                  "ingredients": [{"code": "SOY", "inclusion_percent": 100}],
+                                  "version": 3
                                 }
                             """,
                         ),

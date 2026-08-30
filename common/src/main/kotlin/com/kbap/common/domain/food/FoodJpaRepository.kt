@@ -4,9 +4,11 @@ import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -14,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select f from Food f where f.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): Food?
+
     @Query(
         """
         select new com.kbap.common.domain.food.dto.FoodStatusCount(f.contentStatus, count(f))
