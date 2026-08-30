@@ -26,6 +26,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URI
 import java.time.Duration
+import kotlin.random.Random
 
 class OpenAiMenuBoardVisionExtractor(
     private val chatModel: ChatModel,
@@ -54,23 +55,41 @@ class OpenAiMenuBoardVisionExtractor(
     }
 
     private fun callWithRetryBudget(prompt: Prompt): ChatResponse {
-        try {
-            return chatModel.call(prompt)
-        } catch (e: RateLimitException) {
-            val code = e.code().orElse("")
-            if (code in QUOTA_CODES) throw MenuBoardVisionQuotaExhaustedException(code, e)
-            val retryAfter = retryAfterOf(e.headers())
-            val limits = limitsOf(e.headers())
-            if (e.headers().values("x-should-retry").firstOrNull() == "false") {
-                throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = false, limits, e)
+        var waited = Duration.ZERO
+        var attempt = 0
+        while (true) {
+            try {
+                return chatModel.call(prompt)
+            } catch (e: RateLimitException) {
+                val code = e.code().orElse("")
+                if (code in QUOTA_CODES) throw MenuBoardVisionQuotaExhaustedException(code, e)
+                val retryAfter = retryAfterOf(e.headers())
+                val limits = limitsOf(e.headers())
+                if (e.headers().values("x-should-retry").firstOrNull() == "false") {
+                    throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = false, limits, e)
+                }
+                waited = waitWithinBudget(waited, retryAfter, attempt++)
+                    ?: throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = true, limits, e)
+            } catch (e: InternalServerException) {
+                waited = waitWithinBudget(waited, retryAfterOf(e.headers()), attempt++)
+                    ?: throw MenuBoardVisionUnavailableException(e)
+            } catch (e: OpenAIIoException) {
+                waited = waitWithinBudget(waited, null, attempt++)
+                    ?: throw MenuBoardVisionUnavailableException(e)
             }
-            throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = true, limits, e)
-        } catch (e: InternalServerException) {
-            throw MenuBoardVisionUnavailableException(e)
-        } catch (e: OpenAIIoException) {
-            throw MenuBoardVisionUnavailableException(e)
         }
     }
+
+    private fun waitWithinBudget(waited: Duration, retryAfter: Duration?, attempt: Int): Duration? {
+        val wait = retryAfter ?: backoffWithJitter(attempt)
+        val total = waited.plus(wait)
+        if (total > retryBudget) return null
+        sleep(wait)
+        return total
+    }
+
+    private fun backoffWithJitter(attempt: Int): Duration =
+        Duration.ofMillis(((500L shl attempt) * Random.nextDouble(0.75, 1.25)).toLong())
 
     private fun retryAfterOf(headers: Headers): Duration? =
         headers.values("retry-after-ms").firstOrNull()?.toLongOrNull()?.let(Duration::ofMillis)

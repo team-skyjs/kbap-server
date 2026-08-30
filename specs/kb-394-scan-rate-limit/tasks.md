@@ -72,12 +72,12 @@
 
 ### Tests for User Story 3 (Test-First) ⚠️
 
-- [ ] T013 [US3] `OpenAiMenuBoardVisionExtractorTest.kt` 에 given("일시적 벤더 오류 재시도") 추가 — `sleeps = mutableListOf<Duration>()` 를 기록하는 `sleep` 을 주입하고 `retryBudget = Duration.ofSeconds(3)`: (a) 첫 호출 429(`Retry-After: 1`) 후 성공 → 결과 반환·`sleeps shouldBe listOf(1s)`; (b) 항상 429(`Retry-After: 2`) → `MenuBoardVisionRateLimitedException` `exhausted shouldBe true`·`retryAfterSeconds shouldBe 2`·`sleeps.sumOf { it.seconds } <= 3`; (c) 항상 429 헤더 없음 → 예외 전 sleep 들이 0.375s~0.625s, 0.75s~1.25s 범위(지수+지터); (d) `InternalServerException.builder()…` 후 성공 → 성공; (e) 항상 `OpenAIIoException("timeout")` → `MenuBoardVisionUnavailableException`; (f) `BadRequestException` → 그대로 전파(`shouldThrow<BadRequestException>`). ChatModel 페이크는 호출 횟수별 결과 큐(`ArrayDeque<() -> ChatResponse>`)로. 실행 → (a)(b)(c)(d)(e) 실패 확인(현재 Unavailable 즉시).
+- [x] T013 [US3] `OpenAiMenuBoardVisionExtractorTest.kt` 에 given("일시적 벤더 오류 재시도") 추가 — `sleeps = mutableListOf<Duration>()` 를 기록하는 `sleep` 을 주입하고 `retryBudget = Duration.ofSeconds(3)`: (a) 첫 호출 429(`Retry-After: 1`) 후 성공 → 결과 반환·`sleeps shouldBe listOf(1s)`; (b) 항상 429(`Retry-After: 2`) → `MenuBoardVisionRateLimitedException` `exhausted shouldBe true`·`retryAfterSeconds shouldBe 2`·`sleeps.sumOf { it.seconds } <= 3`; (c) 항상 429 헤더 없음 → 예외 전 sleep 들이 0.375s~0.625s, 0.75s~1.25s 범위(지수+지터); (d) `InternalServerException.builder()…` 후 성공 → 성공; (e) 항상 `OpenAIIoException("timeout")` → `MenuBoardVisionUnavailableException`; (f) `BadRequestException` → 그대로 전파(`shouldThrow<BadRequestException>`). ChatModel 페이크는 호출 횟수별 결과 큐(`ArrayDeque<() -> ChatResponse>`)로. 실행 → (a)(b)(c)(d)(e) 실패 확인(현재 Unavailable 즉시).
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] `OpenAiMenuBoardVisionExtractor.kt` `callWithRetryBudget` 를 plan.md 설계로 완성 — `deadline = Instant.now() + retryBudget`, `var attempt = 0`, `waitWithinBudget(retryAfter, attempt++, deadline)`(다음 시도 예상 시각이 deadline 초과면 false), `backoffWithJitter(attempt) = 500ms shl attempt × Random(0.75..1.25)`; 429 소진 → `RateLimited(exhausted = true)`, 5xx/IO 소진 → `Unavailable`. `sleep` 이 `Duration.ZERO` 면 호출하지 않는다.
-- [ ] T015 [US3] `./gradlew :common:test` 그린. 커밋 `feat(common): 비전 호출 재시도를 예산 기반으로 — Retry-After 존중·지수 백오프·10초 상한`.
+- [x] T014 [US3] `OpenAiMenuBoardVisionExtractor.kt` `callWithRetryBudget` 를 plan.md 설계로 완성 — `deadline = Instant.now() + retryBudget`, `var attempt = 0`, `waitWithinBudget(retryAfter, attempt++, deadline)`(다음 시도 예상 시각이 deadline 초과면 false), `backoffWithJitter(attempt) = 500ms shl attempt × Random(0.75..1.25)`; 429 소진 → `RateLimited(exhausted = true)`, 5xx/IO 소진 → `Unavailable`. `sleep` 이 `Duration.ZERO` 면 호출하지 않는다.
+- [x] T015 [US3] `./gradlew :common:test` 그린. 커밋 `feat(common): 비전 호출 재시도를 예산 기반으로 — Retry-After 존중·지수 백오프·10초 상한`.
 
 ---
 
