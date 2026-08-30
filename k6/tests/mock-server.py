@@ -3,10 +3,21 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 
 RESPONSE_BODY = json.dumps(
-    {"success": True, "payload": {"version": "1.0.0"}, "message": None, "code": None},
+    {
+        "success": True,
+        "payload": {
+            "version": "1.0.0",
+            "items": [],
+            "hasNext": True,
+            "nextCursor": "100",
+        },
+        "message": None,
+        "code": None,
+    },
 ).encode()
 
 
@@ -27,6 +38,16 @@ class MockHandler(BaseHTTPRequestHandler):
         self.respond()
 
     def respond(self) -> None:
+        api_version = self.headers.get("X-API-Version")
+        if api_version:
+            parsed = urlsplit(self.path)
+            query = urlencode(sorted(parse_qsl(parsed.query, keep_blank_values=True)))
+            request_path = parsed.path + (f"?{query}" if query else "")
+            authenticated = str(bool(self.headers.get("Authorization"))).lower()
+            print(
+                f"REQUEST\t{self.command}\t{request_path}\t{api_version}\t{authenticated}",
+                flush=True,
+            )
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(RESPONSE_BODY)))
