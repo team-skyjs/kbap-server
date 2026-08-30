@@ -297,7 +297,7 @@ access token, JWT secret, Firebase credential, 외부 API key, presigned URL은 
 
 ### fixture 생성 쓰기 API
 
-리뷰, 신고, 커뮤니티 생성, 이미지 완료, 주문 생성은 `run_id`가 포함된 fixture를 사용한다. soft delete만으로 행이 물리 삭제되지 않는 API는 캠페인 종료 후 명시적 정리 SQL을 실행한다. 정리 대상은 `run_id`로 식별 가능한 행으로 제한한다.
+리뷰, 신고, 이미지 완료, 주문 생성은 `run_id`가 포함된 fixture를 사용한다. soft delete만으로 행이 물리 삭제되지 않는 API는 캠페인 종료 후 명시적 정리 SQL을 실행한다. 정리 대상은 `run_id`로 식별 가능한 행으로 제한한다.
 
 ### 외부 비용 API
 
