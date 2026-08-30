@@ -34,7 +34,7 @@
 
 ---
 
-### 작업 1: 기존 dev task definition의 profiling overlay
+### Task 1: 기존 dev task definition의 profiling overlay
 
 **파일:**
 
@@ -117,7 +117,7 @@ git add scripts/perf/render-profile-taskdef.sh scripts/perf/test/fixtures/api-ta
 git commit -m "test(load): dev profiling task 정의 overlay 추가"
 ```
 
-### 작업 2: 동적 JFR profiling Docker target
+### Task 2: 동적 JFR profiling Docker target
 
 **파일:**
 
@@ -232,7 +232,7 @@ git add Dockerfile ops/jfr/kbap-profile.jfc scripts/perf/profile-image-smoke.sh
 git commit -m "build: JFR 프로파일링 이미지 타깃 추가"
 ```
 
-### 작업 3: dev ECS Exec과 비공개 JFR artifact bucket
+### Task 3: dev ECS Exec과 비공개 JFR artifact bucket
 
 **파일:**
 
@@ -377,7 +377,7 @@ git add iac/terraform scripts/perf/test/terraform-profile-contract.sh
 git commit -m "feat(infra): dev API JFR 수집 경로 추가"
 ```
 
-### 작업 4: 두 ECS 태스크 JFR 제어·수집 스크립트
+### Task 4: 두 ECS 태스크 JFR 제어·수집 스크립트
 
 **파일:**
 
@@ -478,7 +478,7 @@ git add scripts/perf/lib.sh scripts/perf/jfr-start.sh scripts/perf/jfr-stop.sh s
 git commit -m "test(load): ECS JFR 수집 스크립트 추가"
 ```
 
-### 작업 5: k6 공통 실행·HTML summary 하네스
+### Task 5: k6 공통 실행·HTML summary 하네스
 
 **파일:**
 
@@ -677,7 +677,7 @@ git add .gitignore k6/endpoint.js k6/lib k6/endpoints/index.js k6/endpoints/smok
 git commit -m "test(load): k6 공통 실행 하네스 추가"
 ```
 
-### 작업 6: 읽기 엔드포인트와 쿼리 변형 카탈로그
+### Task 6: 읽기 엔드포인트와 쿼리 변형 카탈로그
 
 **파일:**
 
@@ -789,7 +789,7 @@ git add k6/endpoints k6/tests/catalog-contract.sh k6/tests/mock-server.py
 git commit -m "test(load): 읽기 엔드포인트 부하 시나리오 추가"
 ```
 
-### 작업 7: 쓰기·외부 API target과 fixture 정리
+### Task 7: 쓰기·외부 API target과 fixture 정리
 
 **파일:**
 
@@ -884,7 +884,7 @@ git add k6/endpoints k6/fixtures/README.md k6/scripts k6/tests
 git commit -m "test(load): 쓰기·외부 API 부하 시나리오 추가"
 ```
 
-### 작업 8: JFR과 k6를 묶는 endpoint runner
+### Task 8: JFR과 k6를 묶는 endpoint runner
 
 **파일:**
 
@@ -962,7 +962,7 @@ git add scripts/perf/run-endpoint.sh scripts/perf/test/run-endpoint-test.sh k6/s
 git commit -m "test(load): endpoint JFR 실행기 추가"
 ```
 
-### 작업 9: localhost campaign 제어 API
+### Task 9: localhost campaign 제어 API
 
 **파일:**
 
@@ -1072,7 +1072,7 @@ git add tools/perf_dashboard scripts/perf/dashboard.sh
 git commit -m "feat(load): 성능 캠페인 제어 API 추가"
 ```
 
-### 작업 10: 모든 endpoint 실행·결과·JFR을 제공하는 HTML 대시보드
+### Task 10: 모든 endpoint 실행·결과·JFR을 제공하는 HTML 대시보드
 
 **파일:**
 
@@ -1161,7 +1161,7 @@ git add tools/perf_dashboard docs/performance scripts/perf/dashboard.sh
 git commit -m "feat(load): k6 JFR HTML 대시보드 추가"
 ```
 
-### 작업 11: dev 배포·대시보드 실사용 검증과 기준 결과
+### Task 11: dev 배포·대시보드 실사용 검증과 기준 결과
 
 **파일:**
 
