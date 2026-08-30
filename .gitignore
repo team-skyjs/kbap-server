@@ -254,3 +254,6 @@ firebase-service-account*.json
 
 # Eclipse/VS Code Java 확장이 만드는 컴파일 산출물 — Gradle 은 build/ 를 쓴다
 bin/
+
+# k6 load-test image fixture (binary, prepared locally)
+k6/menu-board.jpg
