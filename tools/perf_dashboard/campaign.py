@@ -1,3 +1,5 @@
+"""Campaign compatibility API; Path artifact resolution is not safe for HTTP serving."""
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +37,7 @@ def cancel_campaign(campaign_id: str) -> bool:
 
 
 def resolve_artifact(campaign_id: str, artifact_id: str) -> Path:
+    """Return a compatibility Path; security-sensitive serving must use descriptor APIs."""
     return _configured_controller().resolve_artifact(campaign_id, artifact_id)
 
 

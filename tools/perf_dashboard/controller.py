@@ -190,7 +190,7 @@ class CampaignController:
 
     @contextmanager
     def _open_bundle_locked(self, campaign_id: str) -> Iterator[OpenedBundle]:
-        with self._bundle_lock, open_bundle(self.store.root / campaign_id) as opened:
+        with self._bundle_lock, open_bundle(self.store.root / campaign_id, campaign_id) as opened:
             yield opened
 
     def _known_campaign_id(self, campaign_id: str) -> str:

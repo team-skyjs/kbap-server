@@ -43,6 +43,13 @@ class BundleServingSecurityTest(unittest.TestCase):
         self.assertTrue(body.startswith(b"PK"))
         self.assertNotIn(b"bundle-secret", body)
 
+    def test_downstream_broken_pipe_is_not_reclassified_as_bundle_storage_error(self) -> None:
+        campaign_id, _ = self._completed_campaign()
+
+        with self.assertRaises(BrokenPipeError):
+            with self.case.server.controller.open_bundle(campaign_id):
+                raise BrokenPipeError("client disconnected after headers")
+
     def test_http_bundle_does_not_use_path_compatibility_helper(self) -> None:
         campaign_id, _ = self._completed_campaign()
 
@@ -80,6 +87,21 @@ class BundleServingSecurityTest(unittest.TestCase):
 
         self.assertEqual(404, status)
         self._assert_security_headers(headers)
+
+    def test_bundle_rejects_campaign_state_for_a_different_campaign(self) -> None:
+        campaign_id, _ = self._completed_campaign()
+        campaign_dir = self.case.artifact_root / campaign_id
+        secret = campaign_dir / "read-a" / "report.html"
+        secret.write_bytes(b"replacement-secret")
+        artifact = {"id": "read-a:report.html", "name": "report.html", "path": "read-a/report.html", "mediaType": "text/html"}
+        mismatched = {"campaignId": "different-run", "status": "PASSED", "targets": [{"key": "read-a", "status": "PASSED", "artifacts": [artifact]}]}
+        (campaign_dir / "campaign.json").write_text(json.dumps(mismatched), encoding="utf-8")
+
+        status, headers, body = self.case.request(f"/api/runs/{campaign_id}/bundle")
+
+        self.assertEqual(404, status)
+        self._assert_security_headers(headers)
+        self.assertNotIn(b"replacement-secret", body)
 
 
 if __name__ == "__main__":

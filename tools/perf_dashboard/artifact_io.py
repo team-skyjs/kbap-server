@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Iterator
 
-from .artifacts import ArtifactNotFoundError, artifact_media_type, artifact_os_error, is_allowed_artifact, is_safe_target_name
+from .artifacts import ArtifactNotFoundError, artifact_media_type, artifact_os_error, is_allowed_artifact, is_safe_target_name, read_regular_bytes
 from .identifiers import parse_campaign_id
 from .models import Artifact, JsonValue
 from .store import campaign_from_document
@@ -21,15 +21,11 @@ class OpenedArtifact:
 
 
 def _read_campaign(campaign_fd: int, campaign_id: str) -> tuple[Artifact, ...]:
+    data = read_regular_bytes(campaign_fd, "campaign.json", "campaign.json")
     try:
-        state_fd = os.open("campaign.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=campaign_fd)
-    except OSError as error:
-        raise artifact_os_error(error, "campaign.json") from error
-    with os.fdopen(state_fd, "rb") as source:
-        try:
-            document: JsonValue = json.load(source)
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise ArtifactNotFoundError("campaign.json") from error
+        document: JsonValue = json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ArtifactNotFoundError("campaign.json") from error
     campaign = campaign_from_document(document)
     if str(campaign.campaign_id) != campaign_id:
         raise ArtifactNotFoundError("campaign.json")

@@ -225,8 +225,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _stream_source(self, source: BinaryIO, size: int, media_type: str, disposition: str, csp: str | None = None) -> None:
         self._headers(HTTPStatus.OK, media_type, size, csp, disposition)
-        while chunk := source.read(CHUNK_SIZE):
-            self.wfile.write(chunk)
+        try:
+            while chunk := source.read(CHUNK_SIZE):
+                self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _stream_file(self, path: Path, media_type: str, disposition: str, csp: str | None = None) -> None:
         self._headers(HTTPStatus.OK, media_type, path.stat().st_size, csp, disposition)
