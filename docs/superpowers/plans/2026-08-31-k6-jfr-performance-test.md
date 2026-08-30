@@ -2,7 +2,7 @@
 
 > **에이전트 작업자 필수 스킬:** superpowers:subagent-driven-development 또는 superpowers:executing-plans로 항목별 실행한다. 각 단계는 체크박스로 추적한다.
 
-**목표:** dev API의 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 k6 HTML·JSON과 두 API 태스크의 JFR을 수집·다운로드해 병목을 재현 가능하게 판정하는 체계를 만든다.
+**목표:** dev API에서 현재 사용하는 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 k6 HTML·JSON과 두 API 태스크의 JFR을 수집·다운로드해 병목을 재현 가능하게 판정하는 체계를 만든다.
 
 **아키텍처:** 기존 `dev` Spring profile은 그대로 두고, 현재 dev task definition을 복제한 profiling revision에 관측·최소 logging 환경변수와 JDK profiling image만 덮어쓴다. dev 전용 ECS Exec·비공개 S3를 사용해 두 태스크의 JFR을 동적으로 제어한다. localhost Python 제어 서버가 단일 k6 엔트리포인트와 campaign runner를 안전하게 호출하고, 정적 HTML/CSS/JavaScript 대시보드가 endpoint 선택, 진행 조회, 결과 비교, JFR 다운로드를 제공한다.
 
@@ -24,6 +24,7 @@
 - 모든 k6 target은 HTTP 상태와 `BaseResponse.success`를 함께 검사한다.
 - 외부 비용 target은 `per-vu-iterations`로 총 요청 수를 고정한다.
 - destructive endpoint는 35번 회원에 반복 실행하지 않는다.
+- 현재 사용하지 않는 `/api/community/**`는 catalog와 fixture에서 제외한다.
 - 생성 fixture는 `run_id`로 식별 가능해야 하며 캠페인 종료 시 정리한다.
 - HTML 제어 서버는 `127.0.0.1`에만 bind하고 한 번에 campaign 하나만 직렬 실행한다.
 - 브라우저에는 access token, AWS credential, secret 환경변수, S3 URL을 전달하지 않는다.
@@ -648,8 +649,6 @@ export function handleSummary(data) {
   "foodKeyword": "김치",
   "blockedMemberId": 36,
   "reviewId": 1,
-  "postId": 1,
-  "commentId": 1,
   "orderId": 1,
   "scanImagePath": "test/images/scan/hansik-madang.jpg"
 }
@@ -686,7 +685,6 @@ git commit -m "test(load): k6 공통 실행 하네스 추가"
 - 생성: `k6/endpoints/member.js`
 - 생성: `k6/endpoints/food.js`
 - 생성: `k6/endpoints/review.js`
-- 생성: `k6/endpoints/community.js`
 - 생성: `k6/endpoints/order.js`
 - 생성: `k6/endpoints/targets.json`
 - 생성: `k6/tests/catalog-contract.sh`
@@ -731,7 +729,6 @@ git commit -m "test(load): k6 공통 실행 하네스 추가"
   "foods-scanned", "foods-scanned-next", "food-detail-auth", "food-detail-guest",
   "bookmarks", "bookmarks-next",
   "reviews-guest-latest", "reviews-auth-latest", "reviews-rating-high", "reviews-rating-low", "reviews-food-count", "reviews-helpful", "reviews-next", "reviews-me", "reviews-me-next",
-  "community-posts-guest", "community-posts-auth", "community-posts-next", "community-post-detail", "community-comments", "community-comments-next",
   "orders-10", "orders-30", "orders-next", "order-detail"
 ]
 ```
@@ -772,9 +769,9 @@ sort=helpful
 
 인증·비인증 latest를 분리하고 cursor target은 `reviewCursor`를 사용한다. `lang=ko`를 기본으로 하고 fixture `foodId`가 있는 target은 `foodId`를 포함한다.
 
-- [ ] **6.5 community·order 읽기 target 구현**
+- [ ] **6.5 order 읽기 target 구현**
 
-게스트 community는 첫 페이지만 호출한다. 다음 cursor는 인증 요청만 사용한다. 주문은 size 10과 최대값 30을 분리하고 list/detail을 별도 target으로 둔다.
+주문은 size 10과 최대값 30을 분리하고 list/detail을 별도 target으로 둔다.
 
 - [ ] **6.6 mock payload 확장과 Green 확인**
 
@@ -828,12 +825,6 @@ review-delete
 review-like
 review-unlike
 report-create
-community-post-create
-community-post-update
-community-post-delete
-community-comment-create
-community-comment-update
-community-comment-delete
 image-upload-url
 image-complete
 order-create-no-location
@@ -868,7 +859,7 @@ Places와 scan은 `kind=external`로 지정한다. scan v2는 매 iteration 새 
 
 - [ ] **7.6 fixture seed·cleanup SQL 구현**
 
-seed SQL은 35번 회원의 존재·ACTIVE·scan_unlocked를 검증하고 target 회원·food·review·post·comment ID를 조회하는 SELECT만 제공한다. 테스트 데이터 생성은 API setup target이 수행한다.
+seed SQL은 35번 회원의 존재·ACTIVE·scan_unlocked를 검증하고 target 회원·food·review ID를 조회하는 SELECT만 제공한다. 테스트 데이터 생성은 API setup target이 수행한다.
 
 cleanup SQL은 실행자가 다음처럼 run ID를 명시해야 실행된다.
 
@@ -876,7 +867,7 @@ cleanup SQL은 실행자가 다음처럼 run ID를 명시해야 실행된다.
 SET @run_id = '20260831T120000Z';
 ```
 
-그 뒤 `content LIKE CONCAT('%[load:', @run_id, ']%')`인 community·review fixture와 그 하위 행만 삭제 또는 상태 정리한다. `@run_id IS NULL OR @run_id = ''`이면 `SIGNAL SQLSTATE '45000'`으로 중단한다. member 35, food master, 기존 review·post·comment는 삭제하지 않는다.
+그 뒤 `content LIKE CONCAT('%[load:', @run_id, ']%')`인 review fixture와 그 하위 행만 삭제 또는 상태 정리한다. `@run_id IS NULL OR @run_id = ''`이면 `SIGNAL SQLSTATE '45000'`으로 중단한다. member 35, food master, 기존 review는 삭제하지 않는다.
 
 - [ ] **7.7 mock 서버와 전체 catalog Green 확인**
 
@@ -1304,7 +1295,7 @@ git commit -m "docs(load): dev 성능 기준선 기록"
 | dev 전용 Exec·비공개 7일 보관 | 작업 3 | Terraform contract·validate·dev plan |
 | API 태스크 두 개 모두 JFR 수집 | 작업 4 | fake AWS test, task별 JFR 두 파일 |
 | 의존성 없는 endpoint별 HTML·JSON | 작업 5 | mock server harness smoke |
-| 모든 읽기 경로와 쿼리 변형 | 작업 6 | targets manifest 전체 inspect |
+| 포함된 읽기 경로와 쿼리 변형 | 작업 6 | targets manifest 전체 inspect |
 | 가역 쓰기·fixture 쓰기·외부 비용 상한 | 작업 7 | catalog test, seed·cleanup 계약 |
 | warm-up 뒤 JFR·k6 결합과 실패 시 정리 | 작업 8 | fake runner 순서·trap test |
 | localhost 직렬 campaign·SSE·안전한 artifact 제공 | 작업 9 | 실제 HTTP API·취소·redaction·path traversal test |

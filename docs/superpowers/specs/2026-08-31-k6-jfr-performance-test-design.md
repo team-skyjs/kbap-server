@@ -6,7 +6,7 @@
 
 ## 목표
 
-dev API 서버의 모든 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 HTML·JSON 결과와 두 API 태스크의 JFR을 같은 실행 식별자로 묶는다. 실제 부하 생성은 k6가 담당하고 대시보드는 실행 제어, 진행 조회, 결과 비교, artifact 다운로드만 담당한다. 결과는 애플리케이션 CPU·할당·잠금·GC, Tomcat 스레드, HikariCP, RDS SQL, 외부 HTTP 대기를 교차해 병목과 코드 설계 문제를 재현 가능하게 판정할 수 있어야 한다.
+dev API 서버에서 현재 사용하는 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 HTML·JSON 결과와 두 API 태스크의 JFR을 같은 실행 식별자로 묶는다. 실제 부하 생성은 k6가 담당하고 대시보드는 실행 제어, 진행 조회, 결과 비교, artifact 다운로드만 담당한다. 결과는 애플리케이션 CPU·할당·잠금·GC, Tomcat 스레드, HikariCP, RDS SQL, 외부 HTTP 대기를 교차해 병목과 코드 설계 문제를 재현 가능하게 판정할 수 있어야 한다.
 
 ## 현재 기준선
 
@@ -41,6 +41,7 @@ dev API 서버의 모든 사용자용 엔드포인트를 하나의 로컬 HTML �
 - 이 작업에서 실제 운영 코드를 최적화하거나 DB 인덱스를 추가하는 일
 - prod 환경 부하 테스트
 - Firebase 로그인 처리량 측정
+- 현재 사용하지 않는 `/api/community/**`
 - 35번 회원의 탈퇴·온보딩 반복 실행
 - 관리자 음식 시드·삭제·재수집·이미지 배치 제출 부하
 - batch 내부 잡 트리거 API 부하
@@ -325,9 +326,6 @@ Places, 역지오코딩, 스캔은 `per-vu-iterations`로 총량을 고정한다
 - `GET /api/bookmarks`: 첫 cursor, 다음 cursor
 - `GET /api/reviews`: 인증·비인증, latest·rating_high·rating_low·food_review_count·helpful, 첫 cursor·다음 cursor
 - `GET /api/reviews/me`: 첫 cursor, 다음 cursor
-- `GET /api/community/posts`: 인증·비인증 첫 페이지, 인증 다음 페이지
-- `GET /api/community/posts/{postId}`
-- `GET /api/community/posts/{postId}/comments`: 첫 cursor, 다음 cursor
 - `GET /api/orders`: size 10·30, 첫 cursor·다음 cursor
 - `GET /api/orders/{orderId}`
 
@@ -341,18 +339,12 @@ Places, 역지오코딩, 스캔은 `per-vu-iterations`로 총량을 고정한다
 - `PATCH /api/reviews/{reviewId}`
 - `POST /api/reviews/{reviewId}/like?liked=true`
 - `POST /api/reviews/{reviewId}/like?liked=false`
-- `PUT /api/community/posts/{postId}`
-- `PUT /api/community/comments/{commentId}`
 
 ### fixture 생성·소비
 
 - `POST /api/reviews`
 - `DELETE /api/reviews/{reviewId}`
 - `POST /api/reports`
-- `POST /api/community/posts`
-- `DELETE /api/community/posts/{postId}`
-- `POST /api/community/posts/{postId}/comments`
-- `DELETE /api/community/comments/{commentId}`
 - `POST /api/images/upload-url`
 - `POST /api/images/complete`
 - `POST /api/orders`: 좌표 없음, 좌표 있음
@@ -373,11 +365,12 @@ Places, 역지오코딩, 스캔은 `per-vu-iterations`로 총량을 고정한다
 - `POST /api/auth/logout`
 - `POST /api/members/me/onboarding`: API 1.0, 1.1
 - `PATCH /api/auth/withdraw`
+- `/api/community/**`: 현재 사용하지 않으므로 성능 측정 대상에서 제외
 - `/api/admin/**`
 - `/admin/**`
 - `/internal/batch/**`
 
-인증·인가 준비는 35번 access token 직접 생성으로 끝낸다. 로그인·refresh·logout 자체의 처리량은 이 성능 캠페인의 목적이 아니며, 온보딩·탈퇴·관리자·batch 상태 전이는 공유 dev 데이터 보호를 위해 k6 target으로 만들지 않는다.
+인증·인가 준비는 35번 access token 직접 생성으로 끝낸다. 로그인·refresh·logout 자체의 처리량은 이 성능 캠페인의 목적이 아니다. 현재 사용하지 않는 community API도 k6 target으로 만들지 않는다. 온보딩·탈퇴·관리자·batch 상태 전이는 공유 dev 데이터 보호를 위해 제외한다.
 
 ## 최우선 병목 가설
 
