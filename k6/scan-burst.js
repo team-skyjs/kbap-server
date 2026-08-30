@@ -6,6 +6,9 @@ const BASE = __ENV.BASE_URL || 'https://dev.kbap.site';
 const VUS = Number(__ENV.VUS || 50);
 const IMAGE_PATH = __ENV.SCAN_IMAGE_PATH;
 const SCAN_TIMEOUT = __ENV.SCAN_TIMEOUT || '120s';
+const RUN_ID = __ENV.RUN_ID;
+const PHASE = __ENV.PHASE || 'measurement';
+if (!RUN_ID) throw new Error('RUN_ID required');
 if (!IMAGE_PATH) throw new Error('SCAN_IMAGE_PATH required — run seed-image.js first');
 
 const scanDuration = new Trend('scan_duration', true);
@@ -21,6 +24,7 @@ const jsonHeaders = {
 
 export const options = {
   discardResponseBodies: false,
+  tags: { run_id: RUN_ID, target: 'scan-v2-krw', route: '/api/scans', phase: PHASE },
   scenarios: {
     scan_burst: { executor: 'per-vu-iterations', vus: VUS, iterations: 1, maxDuration: '5m' },
   },
