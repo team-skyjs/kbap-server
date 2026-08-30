@@ -3,9 +3,15 @@ package com.kbap.common.infra.llm.menu
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
+import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.infra.llm.model.LlmPricing
+import com.openai.core.http.Headers
+import com.openai.errors.InternalServerException
+import com.openai.errors.OpenAIIoException
+import com.openai.errors.RateLimitException
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
@@ -13,9 +19,7 @@ import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.ai.content.Media
-import org.springframework.ai.retry.TransientAiException
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.web.client.ResourceAccessException
 import org.springframework.util.MimeType
 import org.springframework.util.MimeTypeUtils
 import java.math.BigDecimal
@@ -41,19 +45,41 @@ class OpenAiMenuBoardVisionExtractor(
         val userMessage = UserMessage.builder().text(userPromptWith(ocrItems)).media(media).build()
 
         val systemPrompt = if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT
-        val response = try {
-            chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
-        } catch (e: TransientAiException) {
-            throw MenuBoardVisionUnavailableException(e)
-        } catch (e: ResourceAccessException) {
-            throw MenuBoardVisionUnavailableException(e)
-        }
+        val response = callWithRetryBudget(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
         val cost = costIncurredFrom(response)
         publishCost(cost)
         logTokenUsage(cost, response.metadata.usage.totalTokens)
         val raw = response.results.firstOrNull()?.output?.text.orEmpty()
         return parser.parse(raw)
     }
+
+    private fun callWithRetryBudget(prompt: Prompt): ChatResponse {
+        try {
+            return chatModel.call(prompt)
+        } catch (e: RateLimitException) {
+            val code = e.code().orElse("")
+            if (code in QUOTA_CODES) throw MenuBoardVisionQuotaExhaustedException(code, e)
+            val retryAfter = retryAfterOf(e.headers())
+            val limits = limitsOf(e.headers())
+            if (e.headers().values("x-should-retry").firstOrNull() == "false") {
+                throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = false, limits, e)
+            }
+            throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = true, limits, e)
+        } catch (e: InternalServerException) {
+            throw MenuBoardVisionUnavailableException(e)
+        } catch (e: OpenAIIoException) {
+            throw MenuBoardVisionUnavailableException(e)
+        }
+    }
+
+    private fun retryAfterOf(headers: Headers): Duration? =
+        headers.values("retry-after-ms").firstOrNull()?.toLongOrNull()?.let(Duration::ofMillis)
+            ?: headers.values("retry-after").firstOrNull()?.toLongOrNull()?.let(Duration::ofSeconds)
+
+    private fun limitsOf(headers: Headers): String =
+        LIMIT_HEADER_KEYS
+            .mapNotNull { key -> headers.values("x-ratelimit-$key").firstOrNull()?.let { "$key=$it" } }
+            .joinToString(" ")
 
     private fun costIncurredFrom(response: ChatResponse): LlmCallCostIncurred {
         val usage = response.metadata.usage
@@ -114,6 +140,25 @@ class OpenAiMenuBoardVisionExtractor(
         }
 
     companion object {
+        private val QUOTA_CODES = setOf(
+            "insufficient_quota",
+            "credit_balance_exhausted",
+            "organization_spend_limit_exceeded",
+            "project_spend_limit_exceeded",
+            "organization_usage_limit_exceeded",
+        )
+
+        private val LIMIT_HEADER_KEYS = listOf(
+            "limit-requests",
+            "limit-tokens",
+            "remaining-requests",
+            "remaining-tokens",
+            "reset-requests",
+            "reset-tokens",
+            "remaining-project-tokens",
+            "reset-project-tokens",
+        )
+
         private val SYSTEM_PROMPT = """
             너는 한국 식당 메뉴판 사진에서 메뉴와 가격을 추출하고, 클라이언트 OCR 항목에 매칭하는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
             형식: {"results":[{"name":"...","koreanName":"...","price":16000,"matchedIdx":0}]}

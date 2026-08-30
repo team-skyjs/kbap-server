@@ -670,6 +670,25 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("벤더 요청 한도 초과로 스캔이 실패하면") {
+                then("503 SCAN-008 로 응답한다") {
+                    val memberId = 507L
+                    val path = "scan/507/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.rateLimitedOn(path)
+
+                    mockMvc.post("/api/scans") {
+                        param("lang", "ko")
+                        header("Authorization", "Bearer ${accessToken(memberId)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, 0 to "김치찌개")
+                    }.andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                    }
+                }
+            }
+
             `when`("경로 대신 전체 URL 을 넘기면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/scans") {
@@ -951,6 +970,36 @@ class ScanControllerTest : BehaviorSpec() {
                     setScanCount(memberId, 2)
                     seedVerifiedImage(memberId, path)
                     vision.unavailableOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-006") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("벤더 요청 한도 초과(429)로 스캔이 실패하면") {
+                then("503 SCAN-008 로 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 653L
+                    val path = "scan/653/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.rateLimitedOn(path)
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isServiceUnavailable() }
+                        jsonPath("$.code") { value("SCAN-008") }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                }
+            }
+            `when`("벤더 잔액·한도 소진(insufficient_quota)으로 스캔이 실패하면") {
+                then("503 SCAN-006 으로 응답하고 횟수가 소모되지 않는다") {
+                    val memberId = 654L
+                    val path = "scan/654/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.quotaExhaustedOn(path)
 
                     v2Scan(memberId, path).andExpect {
                         status { isServiceUnavailable() }
