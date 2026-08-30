@@ -27,7 +27,7 @@ function writeEndpoint(definition) {
     key: definition.key,
     method: definition.method,
     route: definition.route,
-    kind: 'write',
+    kind: definition.kind || 'write',
     requiresAuth: true,
     fixtureKeys: definition.fixtureKeys || [],
     request(context) {
@@ -117,7 +117,10 @@ export const writeEndpoints = [
   }),
   writeEndpoint({
     key: 'review-delete', method: 'DELETE', route: '/api/reviews/{reviewId}', fixtureKeys: ['reviewIds'],
-    request: (context) => request(context, `/api/reviews/${encode(selectFixture(context, 'reviewIds'))}`, null),
+    request: (context) => {
+      const reviewId = uniqueFixture(context, 'reviewIds');
+      return reviewId === null ? null : request(context, `/api/reviews/${encode(reviewId)}`, null);
+    },
   }),
   writeEndpoint({
     key: 'review-like', method: 'POST', route: '/api/reviews/{reviewId}/like', fixtureKeys: ['reviewIds'],
@@ -129,12 +132,15 @@ export const writeEndpoints = [
   }),
   writeEndpoint({
     key: 'report-create', method: 'POST', route: '/api/reports', fixtureKeys: ['reportReviewIds'],
-    request: (context) => request(context, '/api/reports', {
-      targetType: 'REVIEW',
-      targetId: selectFixture(context, 'reportReviewIds'),
-      reason: 'OTHER',
-      detail: `[load:${context.runId}] report create`,
-    }),
+    request: (context) => {
+      const reviewId = uniqueFixture(context, 'reportReviewIds');
+      return reviewId === null ? null : request(context, '/api/reports', {
+        targetType: 'REVIEW',
+        targetId: reviewId,
+        reason: 'OTHER',
+        detail: `[load:${context.runId}] report create`,
+      });
+    },
   }),
   writeEndpoint({
     key: 'image-upload-url', method: 'POST', route: '/api/images/upload-url',
@@ -154,7 +160,7 @@ export const writeEndpoints = [
     fixtureKeys: ['orderFixtures'], request: (context) => orderRequest(context, false),
   }),
   writeEndpoint({
-    key: 'order-create-location', method: 'POST', route: '/api/orders',
+    key: 'order-create-location', method: 'POST', route: '/api/orders', kind: 'external',
     fixtureKeys: ['orderFixtures', 'placeLatitude', 'placeLongitude'], request: (context) => orderRequest(context, true),
   }),
 ];

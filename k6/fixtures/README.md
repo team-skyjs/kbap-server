@@ -9,17 +9,17 @@
 - `profileV1` and `profileV11` must exactly match member 35's current valid profile values. Profile targets PATCH these same values so they do not drift state.
 - `scanHistoryFoodIds` must contain READY foods already present in member 35's scan history.
 - `reviewIds` must contain only reviews created for the current load campaign by member 35. `reportReviewIds` must contain active reviews owned by another member.
-- `blockedMemberIds`, `bookmarkFoodIds`, and `reviewIds` are distributed by `__VU % length`. Set `CONTENDED=true` only when intentionally measuring one-row contention; it pins the first value.
+- `blockedMemberIds`, `bookmarkFoodIds`, and the update/like uses of `reviewIds` are distributed by `__VU % length`. Set `CONTENDED=true` only when intentionally measuring one-row contention; it pins the first value.
 
 ## Unique fixtures
 
-`imageCompleteFixtures` and `orderFixtures` are consumed by global scenario iteration. Each object path must be unique and usable exactly once. When the array is exhausted, k6 sends no request and increments `fixture_exhausted`.
+`review-delete`, `report-create`, `imageCompleteFixtures`, and `orderFixtures` are consumed by global scenario iteration. Each review ID or object path must be unique and usable exactly once. When its array is exhausted, k6 sends no request and increments `fixture_exhausted`.
 
 - Every `imageCompleteFixtures` path must have a matching presign record and uploaded object with the same content type and byte size.
 - Every `orderFixtures.imagePath` must identify a distinct scan. Its food must be a valid scanned food.
 - The scan targets reuse `scanImagePath`; scan v2 obtains a fresh ticket for every iteration.
 
-The `external` profile rejects more than 200 total iterations (`VUS * ITERATIONS`). `SCAN_TIMEOUT` defaults to `120s`. Places, scan, location order, upload, and all other provider-facing targets must be exercised against the local mock during automated verification; running them against dev requires the campaign approval gate.
+External-kind targets reject profile overrides other than `external` or one-iteration `smoke`, and reject more than 200 total iterations (`VUS * ITERATIONS`). `order-create-location` is external-kind because it calls the reverse geocoder. `SCAN_TIMEOUT` defaults to `120s`. Places, scan, location order, upload, and all other provider-facing targets must be exercised against the local mock during automated verification; running them against dev requires the campaign approval gate.
 
 `/api/community/**` is intentionally absent from this catalog.
 

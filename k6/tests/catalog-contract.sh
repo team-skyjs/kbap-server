@@ -40,6 +40,8 @@ stop_mock() {
   mock_pid=""
 }
 
+"$repo_dir/k6/tests/fixture-sql-contract.sh"
+
 jq -e '
   type == "object" and
   (.targets | type == "array" and length > 0) and
@@ -68,11 +70,11 @@ jq -e 'all(.targets[];
 )' "$manifest" >/dev/null
 jq -e '
   [.targets[] | select(.suite == "reversible-write") | .key] ==
-    ["member-profile-v1","member-profile-v11","member-block","member-unblock","bookmark-add","bookmark-remove","review-like","review-unlike"] and
+    ["member-profile-v1","member-profile-v11","member-block","member-unblock","bookmark-add","bookmark-remove","review-update","review-like","review-unlike"] and
   [.targets[] | select(.suite == "fixture-write") | .key] ==
-    ["review-create","review-update","review-delete","report-create","image-upload-url","image-complete","order-create-no-location","order-create-location"] and
+    ["review-create","review-delete","report-create","image-upload-url","image-complete","order-create-no-location"] and
   [.targets[] | select(.suite == "external") | .key] ==
-    ["place-nearby","place-search","scan-ticket","scan-v1","scan-v2-krw","scan-v2-usd"]
+    ["order-create-location","place-nearby","place-search","scan-ticket","scan-v1","scan-v2-krw","scan-v2-usd"]
 ' "$manifest" >/dev/null
 jq -e '(.scanCursor | type == "number") and (.scanCursor >= 0) and (.scanCursor | floor == .)' "$fixture_example" >/dev/null
 jq -e '
@@ -104,9 +106,7 @@ if [[ "$(wc -l <"$temp_dir/registry-keys" | tr -d ' ')" != "$(sort -u "$temp_dir
   printf '%s\n' 'duplicate endpoint key in runtime registry catalog' >&2
   exit 1
 fi
-if rg -n '/api/community(?:/|$)' \
-  "$repo_dir/k6/endpoints" \
-  --glob '*.json' "$repo_dir/k6/fixtures"; then
+if rg -n '/api/community(?:/|$)' "$repo_dir/k6" --glob '*.js' --glob '*.json'; then
   printf '%s\n' 'community endpoint is excluded from the performance catalog' >&2
   exit 1
 fi
@@ -132,6 +132,20 @@ if k6 inspect -e TARGET=scan-ticket -e BASE_URL=http://127.0.0.1:18081 -e ACCESS
   exit 1
 fi
 rg -q 'external total iterations must not exceed 200' "$temp_dir/cap.out"
+if k6 inspect -e TARGET=scan-ticket -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=bypass -e REPORT_DIR="$temp_dir/bypass" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e PROFILE=write "$repo_dir/k6/endpoint.js" >"$temp_dir/bypass.out" 2>&1; then
+  printf '%s\n' 'external target accepted an unbounded profile override' >&2
+  exit 1
+fi
+rg -q 'external targets require external or smoke profile' "$temp_dir/bypass.out"
+if k6 inspect -e TARGET=order-create-location -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=order-cap -e REPORT_DIR="$temp_dir/order-cap" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e VUS=201 -e ITERATIONS=1 "$repo_dir/k6/endpoint.js" >"$temp_dir/order-cap.out" 2>&1; then
+  printf '%s\n' 'location order did not enforce the external total iteration cap' >&2
+  exit 1
+fi
+rg -q 'external total iterations must not exceed 200' "$temp_dir/order-cap.out"
 
 start_mock
 
@@ -168,6 +182,18 @@ k6 run --quiet -e TARGET=member-block -e BASE_URL=http://127.0.0.1:18081 -e ACCE
 stop_mock
 grep -Fq $'BODY\tPOST\t/api/members/me/blocks\t{"memberId":36}' "$temp_dir/mock-server.log"
 
+for target in review-delete report-create; do
+  start_mock
+  report_dir="$temp_dir/one-use/$target"
+  mkdir -p "$report_dir"
+  k6 run --quiet -e TARGET="$target" -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+    -e RUN_ID=one-use -e REPORT_DIR="$report_dir" -e FIXTURE_PATH="$catalog_fixtures" \
+    -e PROFILE=external -e VUS=2 -e ITERATIONS=2 "$repo_dir/k6/endpoint.js" >/dev/null
+  stop_mock
+  test "$(rg -c $'^REQUEST\t' "$temp_dir/mock-server.log")" = 1
+  jq -e '.data.metrics.fixture_exhausted.values.count == 3' "$report_dir/summary.json" >/dev/null
+done
+
 for target in image-complete order-create-no-location order-create-location; do
   start_mock
   report_dir="$temp_dir/exhaustion/$target"
@@ -180,6 +206,16 @@ for target in image-complete order-create-no-location order-create-location; do
   test "$(rg $'^BODY\t' "$temp_dir/mock-server.log" | sort -u | wc -l | tr -d ' ')" = 2
   jq -e '.data.metrics.fixture_exhausted.values.count == 1' "$report_dir/summary.json" >/dev/null
 done
+
+start_mock
+report_dir="$temp_dir/scan-v2-two-iterations"
+mkdir -p "$report_dir"
+k6 run --quiet -e TARGET=scan-v2-krw -e BASE_URL=http://127.0.0.1:18081 -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=scan-two -e REPORT_DIR="$report_dir" -e FIXTURE_PATH="$catalog_fixtures" \
+  -e PROFILE=external -e VUS=1 -e ITERATIONS=2 "$repo_dir/k6/endpoint.js" >/dev/null
+stop_mock
+test "$(grep -Fc $'REQUEST\tPOST\t/api/scans/tickets\t' "$temp_dir/mock-server.log")" = 2
+test "$(grep -Fc $'REQUEST\tPOST\t/api/scans?currency=KRW&lang=ko\t' "$temp_dir/mock-server.log")" = 2
 
 start_mock true
 report_dir="$temp_dir/ticket-failure"
