@@ -24,6 +24,13 @@ require_regex() {
   rg -Uq "$pattern" "$file" || fail "$message"
 }
 
+require_statement() {
+  local sql="$1"
+  local statement="$2"
+  local message="$3"
+  grep -Fq "$statement" <<<"$sql" || fail "$message"
+}
+
 validate_seed() {
   awk '
     BEGIN { RS = ";"; valid = 1; count = 0 }
@@ -38,6 +45,8 @@ validate_seed() {
 }
 
 validate_cleanup() {
+  local normalized_cleanup
+  normalized_cleanup="$(tr '\n\t' '  ' <"$cleanup_sql" | tr -s ' ')"
   require_fixed "$cleanup_sql" "IF @run_id IS NULL OR @run_id = '' THEN" 'null/blank run-id guard is required'
   require_fixed "$cleanup_sql" "IF @run_id NOT REGEXP '^[0-9A-Za-z:-]+$' THEN" 'wildcard-safe run-id guard is required'
   test "$(rg -c "SIGNAL SQLSTATE '45000'" "$cleanup_sql")" -ge 2 || fail 'both run-id guards must SIGNAL SQLSTATE 45000'
@@ -48,6 +57,10 @@ validate_cleanup() {
   require_fixed "$cleanup_sql" 'COMMIT;' 'cleanup must commit explicitly'
   require_regex "$cleanup_sql" "FROM food_review\\n[[:space:]]+WHERE member_id = 35\\n[[:space:]]+AND content LIKE CONCAT\\('%\\[load:', @run_id, '\\]%'\\);" 'review fixture selection must use member 35 and the exact run tag'
   require_regex "$cleanup_sql" "DELETE FROM report\\n[[:space:]]+WHERE reporter_member_id = 35\\n[[:space:]]+AND detail LIKE CONCAT\\('%\\[load:', @run_id, '\\]%'\\);" 'report cleanup must use member 35 and the exact run tag'
+  require_statement "$normalized_cleanup" "DELETE r FROM report r JOIN load_review_ids fixture ON fixture.review_id = r.target_id WHERE r.target_type = 'REVIEW';" 'report delete must join fixture.review_id to report.target_id'
+  require_statement "$normalized_cleanup" 'DELETE child FROM review_like child JOIN load_review_ids fixture ON fixture.review_id = child.review_id;' 'review_like delete must join fixture.review_id to review_like.review_id'
+  require_statement "$normalized_cleanup" 'DELETE child FROM member_ranking_event child JOIN load_review_ids fixture ON fixture.review_id = child.review_id;' 'ranking event delete must join fixture.review_id to ranking_event.review_id'
+  require_statement "$normalized_cleanup" 'DELETE review FROM food_review review JOIN load_review_ids fixture ON fixture.review_id = review.id;' 'review delete must join fixture.review_id to food_review.id'
   test "$(rg -c 'JOIN load_review_ids fixture' "$cleanup_sql")" = 4 || fail 'child/review deletes must join the tagged fixture set'
   test "$(rg -c '^[[:space:]]+DELETE' "$cleanup_sql")" = 5 || fail 'cleanup delete surface changed'
   test "$(rg -c '^[[:space:]]+UPDATE' "$cleanup_sql")" = 1 || fail 'cleanup update surface changed'
@@ -88,6 +101,11 @@ if [[ $# -eq 0 ]]; then
   sed "s/0-9A-Za-z:-/0-9A-Za-z_:%-/" "$cleanup_sql" >"$temp_dir/wildcard-cleanup.sql"
   if "$0" "$seed_sql" "$temp_dir/wildcard-cleanup.sql" >/dev/null 2>&1; then
     fail 'LIKE wildcard run-id escaped the cleanup contract'
+  fi
+
+  sed 's/ON fixture.review_id = r.target_id/ON 1=1/' "$cleanup_sql" >"$temp_dir/cartesian-cleanup.sql"
+  if "$0" "$seed_sql" "$temp_dir/cartesian-cleanup.sql" >/dev/null 2>&1; then
+    fail 'cartesian child join escaped the cleanup contract'
   fi
 
   cp "$cleanup_sql" "$temp_dir/master-cleanup.sql"

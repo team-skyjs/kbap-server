@@ -20,10 +20,10 @@ BEGIN
     START TRANSACTION;
 
     CREATE TEMPORARY TABLE load_review_ids (
-        id BIGINT PRIMARY KEY
+        review_id BIGINT PRIMARY KEY
     );
 
-    INSERT INTO load_review_ids (id)
+    INSERT INTO load_review_ids (review_id)
     SELECT id
     FROM food_review
     WHERE member_id = 35
@@ -35,20 +35,20 @@ BEGIN
 
     DELETE r
     FROM report r
-    JOIN load_review_ids fixture ON fixture.id = r.target_id
+    JOIN load_review_ids fixture ON fixture.review_id = r.target_id
     WHERE r.target_type = 'REVIEW';
 
     DELETE child
     FROM review_like child
-    JOIN load_review_ids fixture ON fixture.id = child.review_id;
+    JOIN load_review_ids fixture ON fixture.review_id = child.review_id;
 
     DELETE child
     FROM member_ranking_event child
-    JOIN load_review_ids fixture ON fixture.id = child.review_id;
+    JOIN load_review_ids fixture ON fixture.review_id = child.review_id;
 
     DELETE review
     FROM food_review review
-    JOIN load_review_ids fixture ON fixture.id = review.id;
+    JOIN load_review_ids fixture ON fixture.review_id = review.id;
 
     UPDATE member
     SET review_count = (
