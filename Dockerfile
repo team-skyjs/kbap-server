@@ -10,6 +10,17 @@ RUN chmod +x gradlew \
  && ./gradlew :api:bootJar -x test --no-daemon \
  && find api/build/libs -name '*.jar' ! -name '*-plain.jar' -exec cp {} /workspace/app.jar \;
 
+FROM public.ecr.aws/aws-cli/aws-cli:2.36.31 AS awscli
+
+FROM eclipse-temurin:21-jdk AS profile-runtime
+WORKDIR /app
+COPY --from=build /workspace/app.jar app.jar
+COPY --from=awscli /usr/local/aws-cli/ /usr/local/aws-cli/
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+COPY ops/jfr/kbap-profile.jfc /app/kbap-profile.jfc
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
 FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 COPY --from=build /workspace/app.jar app.jar
