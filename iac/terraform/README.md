@@ -97,6 +97,8 @@ terraform plan -var-file=dev.tfvars
 3. 확인: 배치 로그에서 위 건너뜀 메시지 소멸 + 30분 정각 `스케줄 트리거 job=foodVectorSyncJob` → `attempted≥1, failed=0`(`attempted=0` 은 빈 성공, `AccessDenied` 면 태스크 롤 권한). 기존 음식 적재는 `/admin/foods` 의 "미적재 음식 벡터 적재" 버튼으로 아웃박스를 채운 뒤 잡이 소화한다. 데이터 확인: `aws s3vectors get-vectors --vector-bucket-name kbap-<env>-ecs-vectors --index-name foods --keys <foodId> --return-metadata`.
 4. 인덱스는 `prevent_destroy` — 차원·거리·non-filterable 키를 바꾸려면 재생성이 필요하므로 lifecycle 을 풀고 전량 재적재(관리자 "미적재 음식 벡터 적재")를 계획한다.
 
+**부팅 시 잡 자동 실행은 항상 off** — 배치는 상시 기동이고 잡은 스케줄러·`POST /internal/batch/jobs` 트리거로만 돈다(`application.yml` 이 `spring.batch.job.enabled=false` 고정). 태스크 env 에 `SPRING_BATCH_JOB_ENABLED=true` 를 넣으면 잡이 2개 이상인 순간 `Job name must be specified in case of multiple jobs` 로 부팅이 실패한다(2026-08-31 dev 벡터 잡 활성화 때 실제로 밟음 — 서킷브레이커가 롤백).
+
 ## 배치 잡 원격 실행 (ECS Exec)
 
 배치 잡 트리거(`POST /internal/batch/jobs`)는 클러스터 내부에서만 열려 있고 인증이 없다. 클러스터 밖(홈서버 젠킨스·운영자 PC)에서는 **ECS Exec** 로 배치 컨테이너 안에서 `curl localhost:8080` 을 실행한다 — 컨테이너가 SSM 채널을 아웃바운드로 열어 두므로 **인바운드 포트 개방 0, 추가 비용 0**, 접근 통제는 IAM 이 담당한다.

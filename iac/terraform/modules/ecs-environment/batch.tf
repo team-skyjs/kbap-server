@@ -3,15 +3,14 @@ locals {
   batch_service_name   = "${local.name_prefix}-batch"
 
   batch_env = merge({
-    SPRING_PROFILES_ACTIVE   = var.spring_profile
-    SPRING_BATCH_JOB_ENABLED = "true"
-    DB_URL                   = var.db_url
-    DB_USERNAME              = var.db_username
-    REDIS_HOST               = var.redis_host
-    REDIS_PORT               = var.redis_port
-    AWS_REGION               = var.region
-    FOOD_CONTENT_QUEUE_URL   = data.aws_sqs_queue.food_content.url
-    JAVA_TOOL_OPTIONS        = "-XX:MaxRAMPercentage=70"
+    SPRING_PROFILES_ACTIVE = var.spring_profile
+    DB_URL                 = var.db_url
+    DB_USERNAME            = var.db_username
+    REDIS_HOST             = var.redis_host
+    REDIS_PORT             = var.redis_port
+    AWS_REGION             = var.region
+    FOOD_CONTENT_QUEUE_URL = data.aws_sqs_queue.food_content.url
+    JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
   }, local.vector_env, var.batch_extra_env)
 }
 
