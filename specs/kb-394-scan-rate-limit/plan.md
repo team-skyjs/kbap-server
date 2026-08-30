@@ -26,7 +26,7 @@
 
 **Constraints**: `common.port.llm` 은 SDK 타입을 몰라야 함(ArchUnit — 포트 순수). Kotlin 주석 금지. 다른 실패 경로 응답 불변(FR-008).
 
-**Scale/Scope**: 프로덕션 5파일(ErrorCode·포트 예외·어댑터·ScanService·LlmModelProperties/LlmConfiguration) + API 문서 2파일, 테스트 3파일(어댑터·컨트롤러·OpenAPI 스냅샷) + 페이크 1
+**Scale/Scope**: 재시도 규칙 = OpenAI 공식 처방(Retry-After 우선·지수+지터·횟수와 총시간 제한·quota/billing 은 재시도 금지). 프로덕션 5파일(ErrorCode·포트 예외·어댑터·ScanService·LlmModelProperties/LlmConfiguration) + API 문서 2파일, 테스트 3파일(어댑터·컨트롤러·OpenAPI 스냅샷) + 페이크 1
 
 ## Constitution Check
 
@@ -82,8 +82,11 @@ api/src/test/kotlin/com/kbap/api/
 class MenuBoardVisionRateLimitedException(
     val retryAfterSeconds: Long?,
     val exhausted: Boolean,
+    limits: String,
     cause: Throwable,
-) : RuntimeException(cause)
+) : RuntimeException(limits, cause)
+
+class MenuBoardVisionQuotaExhaustedException(val code: String, cause: Throwable) : RuntimeException(code, cause)
 ```
 
 ### 어댑터 (`OpenAiMenuBoardVisionExtractor`)
@@ -97,26 +100,42 @@ class OpenAiMenuBoardVisionExtractor(
 
 private fun callWithRetryBudget(prompt: Prompt): ChatResponse {
     val deadline = Instant.now().plus(retryBudget)
+    var attempt = 0
     while (true) {
         try {
             return chatModel.call(prompt)
         } catch (e: RateLimitException) {
+            val code = e.code().orElse("")
+            if (code in QUOTA_CODES) throw MenuBoardVisionQuotaExhaustedException(code, e)
             val retryAfter = retryAfterOf(e.headers())
-            if (e.headers().values("x-should-retry").firstOrNull() == "false") throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = false, e)
-            if (!waitWithinBudget(retryAfter, deadline)) throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = true, e)
+            val limits = limitsOf(e.headers())
+            if (e.headers().values("x-should-retry").firstOrNull() == "false") throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = false, limits, e)
+            if (!waitWithinBudget(retryAfter, attempt++, deadline)) throw MenuBoardVisionRateLimitedException(retryAfter?.seconds, exhausted = true, limits, e)
         } catch (e: InternalServerException) {
-            if (!waitWithinBudget(retryAfterOf(e.headers()), deadline)) throw MenuBoardVisionUnavailableException(e)
+            if (!waitWithinBudget(retryAfterOf(e.headers()), attempt++, deadline)) throw MenuBoardVisionUnavailableException(e)
         } catch (e: OpenAIIoException) {
-            if (!waitWithinBudget(null, deadline)) throw MenuBoardVisionUnavailableException(e)
+            if (!waitWithinBudget(null, attempt++, deadline)) throw MenuBoardVisionUnavailableException(e)
         }
     }
 }
 
-private fun waitWithinBudget(retryAfter: Duration?, deadline: Instant): Boolean {
-    val wait = retryAfter ?: DEFAULT_RETRY_DELAY
+private fun waitWithinBudget(retryAfter: Duration?, attempt: Int, deadline: Instant): Boolean {
+    val wait = retryAfter ?: backoffWithJitter(attempt)
     if (Instant.now().plus(wait).isAfter(deadline)) return false
     sleep(wait)
     return true
+}
+
+private fun backoffWithJitter(attempt: Int): Duration =
+    Duration.ofMillis(((500L shl attempt) * Random.nextDouble(0.75, 1.25)).toLong())
+
+private fun limitsOf(headers: Headers): String =
+    listOf("limit-requests", "limit-tokens", "remaining-requests", "remaining-tokens", "reset-requests", "reset-tokens", "remaining-project-tokens", "reset-project-tokens")
+        .mapNotNull { key -> headers.values("x-ratelimit-$key").firstOrNull()?.let { "$key=$it" } }
+        .joinToString(" ")
+
+companion object {
+    private val QUOTA_CODES = setOf("insufficient_quota", "credit_balance_exhausted", "organization_spend_limit_exceeded", "project_spend_limit_exceeded", "organization_usage_limit_exceeded")
 }
 
 private fun retryAfterOf(headers: Headers): Duration? =
@@ -135,8 +154,11 @@ private fun retryAfterOf(headers: Headers): Duration? =
 
 ```kotlin
 } catch (e: MenuBoardVisionRateLimitedException) {
-    log.warn("메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} imagePath={}", if (e.exhausted) "EXHAUSTED" else "IMMEDIATE", e.retryAfterSeconds, imagePath, e)
+    log.warn("메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}", if (e.exhausted) "EXHAUSTED" else "IMMEDIATE", e.retryAfterSeconds, e.message, imagePath, e)
     throw BusinessException(ErrorCode.SCAN_RATE_LIMITED, payload = e.retryAfterSeconds?.let { mapOf("retryAfterSeconds" to it) })
+} catch (e: MenuBoardVisionQuotaExhaustedException) {
+    log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)
+    throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)
 } catch (e: MenuBoardVisionUnavailableException) { … 기존 … }
 ```
 
