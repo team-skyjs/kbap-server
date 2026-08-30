@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 @ConfigurationProperties("kbap.vector")
 data class FoodVectorProperties(
     val enabled: Boolean = false,
-    val uri: String = "",
-    val database: String = "kbap",
-    val collection: String = "foods",
+    val bucket: String = "",
+    val index: String = "foods",
+    val region: String = "ap-northeast-2",
 )

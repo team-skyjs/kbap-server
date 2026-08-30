@@ -26,6 +26,10 @@ output "api_task_family" {
   value = aws_ecs_task_definition.api.family
 }
 
+output "vector_bucket_name" {
+  value = aws_s3vectors_vector_bucket.foods.vector_bucket_name
+}
+
 output "batch_task_family" {
   value = aws_ecs_task_definition.batch.family
 }

@@ -37,7 +37,7 @@ resource "aws_ecs_task_definition" "batch" {
 
       environment = [for k, v in local.batch_env : { name = k, value = v }]
 
-      secrets = [for name in concat(var.batch_secret_names, local.vector_secret_names) : {
+      secrets = [for name in var.batch_secret_names : {
         name      = name
         valueFrom = local.secret_arns[name]
       }]

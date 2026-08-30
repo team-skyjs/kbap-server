@@ -88,14 +88,14 @@ terraform plan -var-file=dev.tfvars
 
 1 과 2 사이에 actuator 없는 구 이미지로 CI 를 돌리면 헬스체크 실패로 롤백되므로 창을 짧게 가져간다.
 
-## 벡터 검색·적재 켜기 (DocumentDB, KB-319/KB-328)
+## 벡터 검색·적재 켜기 (S3 Vectors, KB-319/KB-328)
 
-기본은 꺼져 있다 — 배치 로그에 `스케줄 대상 잡이 이 환경에 구성되지 않아 건너뜁니다 job=foodVectorSyncJob` 이 매시 찍히면 이 상태다. `vector_enabled = true` 하나로 api(유사 음식 검색 폴백)·batch(`foodVectorSyncJob`) 양쪽에 `VECTOR_ENABLED`·`EMBEDDING_ENABLED=true` 와 시크릿 `VECTOR_DB_URI` 가 붙는다.
+벡터 버킷 `kbap-<env>-ecs-vectors` + 인덱스 `foods`(cosine·256·`longDescription` non-filterable)와 태스크 롤 권한은 `vectors.tf` 가 **항상** 만든다(서버리스 — 상시 비용 0, 시크릿 없음). 앱은 기본 꺼져 있다 — 배치 로그에 `스케줄 대상 잡이 이 환경에 구성되지 않아 건너뜁니다 job=foodVectorSyncJob` 이 매시 찍히면 이 상태다. `vector_enabled = true` 하나로 api(유사 음식 검색)·batch(`foodVectorSyncJob`) 양쪽에 `VECTOR_ENABLED`·`EMBEDDING_ENABLED=true`·`VECTOR_BUCKET`·`VECTOR_INDEX` 가 붙는다.
 
-1. 시크릿 등록(없으면 태스크 기동 실패): `aws ssm put-parameter --profile kbap-infra --name /kbap/<env>/VECTOR_DB_URI --type SecureString --overwrite --value 'mongodb://<user>:<pw>@<cluster-endpoint>:27017/?tls=true&retryWrites=false'` — `tlsCAFile` 은 넣지 않는다(Java 드라이버 미지원, CA 는 이미지 truststore 에 있음). `retryWrites=false` 는 필수.
-2. `<env>.tfvars` 에 `vector_enabled = true` → 태스크 정의는 `ignore_changes = [container_definitions]` 라 리비전을 직접 갈아 끼운다: `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch`(api 도 켜려면 `-replace=…aws_ecs_task_definition.api` 추가). 서비스는 그대로라 실행 중 태스크 무영향.
-3. 재배포 — CI 가 최신 리비전을 복제해 env 를 승계한다: `deploy-batch-dev.yml` 을 `workflow_dispatch` 로 실행(image_tag 에 현재 태그를 넣으면 빌드 없이 롤링). api 는 `deploy-dev.yml` 동일.
-4. 확인: 배치 로그에서 위 건너뜀 메시지 소멸 + 30분 정각 `스케줄 트리거 job=foodVectorSyncJob` → `attempted≥1, failed=0`(`attempted=0` 은 빈 성공, `PKIX` 가 보이면 TLS 신뢰 문제). 기존 음식 적재는 `/admin/foods` 의 "미적재 음식 벡터 적재" 버튼으로 아웃박스를 채운 뒤 잡이 소화한다.
+1. `<env>.tfvars` 에 `vector_enabled = true` → 태스크 정의는 `ignore_changes = [container_definitions]` 라 리비전을 직접 갈아 끼운다: `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch`(api 도 켜려면 `-replace=…aws_ecs_task_definition.api` 추가). 서비스는 그대로라 실행 중 태스크 무영향. 버킷·인덱스·IAM 은 이 apply 에서 함께 생긴다.
+2. 재배포 — CI 가 최신 리비전을 복제해 env 를 승계한다: `deploy-batch-dev.yml` 을 `workflow_dispatch` 로 실행(image_tag 에 현재 태그를 넣으면 빌드 없이 롤링). api 는 `deploy-dev.yml` 동일.
+3. 확인: 배치 로그에서 위 건너뜀 메시지 소멸 + 30분 정각 `스케줄 트리거 job=foodVectorSyncJob` → `attempted≥1, failed=0`(`attempted=0` 은 빈 성공, `AccessDenied` 면 태스크 롤 권한). 기존 음식 적재는 `/admin/foods` 의 "미적재 음식 벡터 적재" 버튼으로 아웃박스를 채운 뒤 잡이 소화한다. 데이터 확인: `aws s3vectors get-vectors --vector-bucket-name kbap-<env>-ecs-vectors --index-name foods --keys <foodId> --return-metadata`.
+4. 인덱스는 `prevent_destroy` — 차원·거리·non-filterable 키를 바꾸려면 재생성이 필요하므로 lifecycle 을 풀고 전량 재적재(관리자 "미적재 음식 벡터 적재")를 계획한다.
 
 ## 배치 잡 원격 실행 (ECS Exec)
 

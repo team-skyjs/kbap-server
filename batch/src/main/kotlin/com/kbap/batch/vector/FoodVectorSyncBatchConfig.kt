@@ -3,12 +3,10 @@ package com.kbap.batch.vector
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodVectorOutbox
-import com.kbap.common.domain.food.vector.DocumentDbFoodVectorStore
 import com.kbap.common.domain.food.vector.FoodVectorProperties
 import com.kbap.common.domain.food.vector.FoodVectorStore
+import com.kbap.common.domain.food.vector.S3VectorsFoodVectorStore
 import com.kbap.common.port.llm.TextEmbeddingClient
-import com.mongodb.client.MongoClient
-import com.mongodb.client.MongoClients
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.ExitStatus
 import org.springframework.batch.core.job.Job
@@ -26,6 +24,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.retry.RetryPolicy
 import org.springframework.transaction.PlatformTransactionManager
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3vectors.S3VectorsClient
 import java.time.Duration
 
 @Configuration
@@ -33,11 +33,12 @@ import java.time.Duration
 @ConditionalOnExpression("\${kbap.vector.enabled:false} and \${kbap.llm.embedding.enabled:false}")
 class FoodVectorSyncBatchConfig {
     @Bean(destroyMethod = "close")
-    fun foodVectorMongoClient(properties: FoodVectorProperties): MongoClient = MongoClients.create(properties.uri)
+    fun foodVectorsClient(properties: FoodVectorProperties): S3VectorsClient =
+        S3VectorsClient.builder().region(Region.of(properties.region)).build()
 
     @Bean
-    fun foodVectorStore(client: MongoClient, properties: FoodVectorProperties): FoodVectorStore =
-        DocumentDbFoodVectorStore(client.getDatabase(properties.database).getCollection(properties.collection))
+    fun foodVectorStore(client: S3VectorsClient, properties: FoodVectorProperties): FoodVectorStore =
+        S3VectorsFoodVectorStore(client, properties.bucket, properties.index)
 
     @Bean
     fun foodVectorOutboxItemReader(

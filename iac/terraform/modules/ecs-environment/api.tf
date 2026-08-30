@@ -38,7 +38,7 @@ resource "aws_ecs_task_definition" "api" {
 
       environment = [for k, v in local.api_env : { name = k, value = v }]
 
-      secrets = [for name in concat(var.api_secret_names, local.vector_secret_names) : {
+      secrets = [for name in var.api_secret_names : {
         name      = name
         valueFrom = local.secret_arns[name]
       }]

@@ -1,6 +1,8 @@
 # Contract: 음식 벡터 문서 v2 (kbap.foods)
 
-KB-319 의 `vector-food-document.md` 계약을 대체(상위호환 확장)한다. 소비자: 쓰기 = `:batch` `foodVectorSyncJob`, 읽기 = `:api` `DocumentDbSimilarFoodSearcher`(kbap-langchain 초기 적재분과 공존).
+KB-319 의 `vector-food-document.md` 계약을 대체(상위호환 확장)한다. 소비자: 쓰기 = `:batch` `foodVectorSyncJob`, 읽기 = `:api` `FoodVectorSearcher`.
+
+> **저장소 전환 (2026-08-31)**: DocumentDB → **S3 Vectors**(버킷 `kbap-<env>-ecs-vectors`, 인덱스 `foods`, cosine·float32·256). 필드 계약은 그대로다 — `foodId` 는 vector **key**(문자열)이자 메타데이터, `embedding` 은 `data.float32`, 나머지는 메타데이터. 매핑 규칙 두 가지: (1) `longDescription` 은 한글 최대 3KB 라 filterable 상한(2KB)을 넘을 수 있어 **non-filterable** 로 선언, (2) S3 Vectors 는 null 값을 거부하므로 `imageRef` 가 없으면 **키를 생략**한다. 검색은 cosine *distance* 를 돌려주므로 `score = 1 - distance` 로 유사도에 맞춘다. 임시 버킷 라운드트립으로 실검증(put·재put·get·query·delete 멱등) 완료.
 
 ## 문서
 

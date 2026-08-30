@@ -161,7 +161,7 @@ variable "blocked_path_patterns" {
 }
 
 variable "vector_enabled" {
-  description = "DocumentDB 벡터 검색·적재 활성 — 켜기 전 SSM /kbap/<env>/VECTOR_DB_URI 등록 필수"
+  description = "S3 Vectors 벡터 검색·적재 앱 스위치 — 버킷·인덱스는 항상 만들어지고 env 주입만 토글한다"
   type        = bool
   default     = false
 }

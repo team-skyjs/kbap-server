@@ -235,7 +235,7 @@ variable "blocked_path_patterns" {
 }
 
 variable "vector_enabled" {
-  description = "DocumentDB 벡터 검색(api, KB-319)·적재(batch foodVectorSyncJob, KB-328) 활성. 켜면 VECTOR_ENABLED·EMBEDDING_ENABLED=true 와 시크릿 VECTOR_DB_URI(SSM /kbap/<env>/VECTOR_DB_URI — tls=true&retryWrites=false 포함 연결 문자열)를 api·batch 에 주입한다. 시크릿이 없으면 태스크가 기동하지 못하니 먼저 등록한다."
+  description = "S3 Vectors 벡터 검색(api, KB-319)·적재(batch foodVectorSyncJob, KB-328) 앱 스위치. 버킷·인덱스·IAM 은 항상 만들어지고(서버리스, 상시 비용 0), 켜면 VECTOR_ENABLED·EMBEDDING_ENABLED=true 와 VECTOR_BUCKET·VECTOR_INDEX 를 api·batch env 에 주입한다. 시크릿 없음 — 태스크 롤로 인증."
   type        = bool
   default     = false
 }
