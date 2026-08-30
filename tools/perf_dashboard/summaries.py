@@ -38,11 +38,12 @@ def read_summary(path: Path) -> SummaryMetrics | None:
     except (OSError, json.JSONDecodeError):
         return None
     document = _mapping(raw)
-    metrics = _mapping(document.get("metrics"))
+    data = _mapping(document.get("data"))
+    metrics = _mapping(data.get("metrics"))
     return SummaryMetrics(
         p95=_metric(metrics, "http_req_duration", "p(95)"),
         p99=_metric(metrics, "http_req_duration", "p(99)"),
         failure_rate=_metric(metrics, "http_req_failed", "rate"),
         dropped_iterations=_metric(metrics, "dropped_iterations", "count"),
-        thresholds_passed=_thresholds_passed(document),
+        thresholds_passed=_thresholds_passed(data),
     )

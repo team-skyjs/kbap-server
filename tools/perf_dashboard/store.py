@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .artifacts import ArtifactNotFoundError
+from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import Artifact, ArtifactId, Campaign, CampaignId, CampaignTarget, JsonValue, Profile, RunStatus, SummaryMetrics, campaign_document
 
 
@@ -128,11 +129,22 @@ def campaign_from_document(raw: JsonValue) -> Campaign:
 
 class CampaignStore:
     def __init__(self, root: Path) -> None:
-        self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
+        root.mkdir(parents=True, exist_ok=True)
+        self.root = root.resolve()
+
+    def _campaign_dir(self, campaign_id: str) -> Path:
+        try:
+            parsed = parse_campaign_id(campaign_id)
+        except InvalidCampaignIdError as error:
+            raise CampaignNotFoundError(campaign_id) from error
+        candidate = self.root / str(parsed)
+        resolved = candidate.resolve()
+        if resolved.parent != self.root or candidate.is_symlink():
+            raise CampaignNotFoundError(campaign_id)
+        return candidate
 
     def save(self, campaign: Campaign) -> None:
-        campaign_dir = self.root / str(campaign.campaign_id)
+        campaign_dir = self._campaign_dir(str(campaign.campaign_id))
         campaign_dir.mkdir(parents=True, exist_ok=True)
         destination = campaign_dir / "campaign.json"
         temporary = campaign_dir / ".campaign.json.tmp"
@@ -146,7 +158,7 @@ class CampaignStore:
             temporary.unlink(missing_ok=True)
 
     def load(self, campaign_id: str) -> Campaign:
-        path = self.root / campaign_id / "campaign.json"
+        path = self._campaign_dir(campaign_id) / "campaign.json"
         try:
             raw: JsonValue = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
@@ -161,6 +173,10 @@ class CampaignStore:
     def list(self) -> tuple[Campaign, ...]:
         campaigns: list[Campaign] = []
         for path in sorted(self.root.glob("*/campaign.json"), reverse=True):
+            try:
+                parse_campaign_id(path.parent.name)
+            except InvalidCampaignIdError:
+                continue
             campaigns.append(self.load(path.parent.name))
         return tuple(campaigns)
 
@@ -199,7 +215,7 @@ class CampaignStore:
         )
         if len(matching) != 1:
             raise ArtifactNotFoundError(artifact_id)
-        campaign_dir = (self.root / campaign_id).resolve()
+        campaign_dir = self._campaign_dir(campaign_id).resolve()
         resolved = (campaign_dir / matching[0].path).resolve()
         if not resolved.is_relative_to(campaign_dir) or not resolved.is_file():
             raise ArtifactNotFoundError(artifact_id)

@@ -39,6 +39,19 @@ PROFILE_LIMITS: Final[Mapping[Profile, ProfileLimit]] = {
 KEY_PATTERN: Final = re.compile(r"^[A-Za-z0-9._-]+$")
 DURATION_PATTERN: Final = re.compile(r"^([1-9][0-9]*)([sm])$")
 ITERATION_PATTERN: Final = re.compile(r"^[1-9][0-9]*$")
+MAX_NUMERIC_DIGITS: Final = 6
+
+
+def _suite_profile(suite: Suite) -> Profile:
+    match suite:
+        case Suite.READ:
+            return Profile.READ
+        case Suite.REVERSIBLE_WRITE | Suite.FIXTURE_WRITE:
+            return Profile.WRITE
+        case Suite.EXTERNAL:
+            return Profile.EXTERNAL
+        case unreachable:
+            assert_never(unreachable)
 
 
 def _string(entry: Mapping[str, JsonValue], name: str, path: Path) -> str:
@@ -61,6 +74,8 @@ def _parse_target(raw: JsonValue, path: Path) -> Target:
         profile = Profile(_string(raw, "defaultProfile", path))
     except ValueError as error:
         raise TargetManifestError(path) from error
+    if profile is not _suite_profile(suite):
+        raise TargetManifestError(path)
     return Target(
         key=key,
         label=_string(raw, "label", path),
@@ -155,13 +170,16 @@ def _duration(raw: JsonValue, profile: Profile, limit: ProfileLimit) -> str:
         raise RequestValidationError("invalid-duration-or-iterations")
     match profile:
         case Profile.SMOKE | Profile.EXTERNAL:
-            if not ITERATION_PATTERN.fullmatch(raw) or int(raw) > limit.max_seconds_or_iterations:
+            if len(raw) > MAX_NUMERIC_DIGITS or not ITERATION_PATTERN.fullmatch(raw) or int(raw) > limit.max_seconds_or_iterations:
                 raise RequestValidationError("invalid-duration-or-iterations")
         case Profile.READ | Profile.WRITE:
             matched = DURATION_PATTERN.fullmatch(raw)
             if matched is None:
                 raise RequestValidationError("invalid-duration-or-iterations")
-            seconds = int(matched.group(1)) * (60 if matched.group(2) == "m" else 1)
+            amount = matched.group(1)
+            if len(amount) > MAX_NUMERIC_DIGITS:
+                raise RequestValidationError("invalid-duration-or-iterations")
+            seconds = int(amount) * (60 if matched.group(2) == "m" else 1)
             if seconds > limit.max_seconds_or_iterations:
                 raise RequestValidationError("invalid-duration-or-iterations")
         case unreachable:
@@ -174,7 +192,11 @@ def validate_run_request(payload: Mapping[str, JsonValue], targets: tuple[Target
     if not selected:
         raise RequestValidationError("empty-target-selection")
     profile = _profile(payload)
-    if any(target.suite is Suite.EXTERNAL for target in selected) and profile not in (Profile.SMOKE, Profile.EXTERNAL):
+    compatible = profile is Profile.SMOKE or all(
+        target.default_profile is profile and _suite_profile(target.suite) is profile
+        for target in selected
+    )
+    if not compatible:
         raise RequestValidationError("profile-target-mismatch")
     allow_risk = payload.get("allowRisk", False)
     if not isinstance(allow_risk, bool):

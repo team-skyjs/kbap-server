@@ -1,24 +1,26 @@
 import os
 import re
-import signal
 import subprocess
 import threading
-import time
 import uuid
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from contextlib import AbstractContextManager
 from typing import Final
 
+from .artifact_io import OpenedArtifact, open_artifact
 from .artifacts import build_bundle, discover_artifacts
 from .events import CampaignEvent, EventBuffer, sanitize_line
+from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import Campaign, CampaignId, CampaignTarget, RunRequest, RunStatus
+from .processes import ProcessRegistry
 from .store import CampaignNotFoundError, CampaignStore
 from .summaries import read_summary
+from .waits import CampaignWaitTimeoutError, CampaignWaits, TERMINAL_STATUSES
 
 
 ACTIVE_STATUSES: Final = (RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.CANCELLING)
-TERMINAL_STATUSES: Final = (RunStatus.PASSED, RunStatus.FAILED, RunStatus.CANCELLED)
 PHASE_PATTERN: Final = re.compile(r"\bphase=([a-z-]+)\b")
 
 
@@ -31,20 +33,19 @@ class ActiveCampaignError(Exception):
 
 
 @dataclass(frozen=True, slots=True)
-class CampaignWaitTimeoutError(Exception):
-    campaign_id: str
-    expected_status: str
-
-    def __str__(self) -> str:
-        return f"campaign-wait-timeout:{self.campaign_id}:{self.expected_status}"
-
-
-@dataclass(frozen=True, slots=True)
 class ProcessStreamError(Exception):
     campaign_id: str
 
     def __str__(self) -> str:
         return f"process-stream-unavailable:{self.campaign_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class CampaignShutdownTimeoutError(Exception):
+    campaign_ids: tuple[str, ...]
+
+    def __str__(self) -> str:
+        return f"campaign-shutdown-timeout:{','.join(self.campaign_ids)}"
 
 
 def _now() -> str:
@@ -57,17 +58,16 @@ def _new_campaign_id() -> CampaignId:
 
 
 class CampaignController:
-    def __init__(self, artifact_root: Path, endpoint_runner: Path, cancel_grace_seconds: float = 10.0) -> None:
+    def __init__(self, artifact_root: Path, endpoint_runner: Path, cancel_grace_seconds: float = 10.0, terminate_grace_seconds: float = 2.0) -> None:
         self.store = CampaignStore(artifact_root)
         self.endpoint_runner = endpoint_runner
-        self.cancel_grace_seconds = cancel_grace_seconds
         self._condition = threading.Condition(threading.RLock())
         self._campaigns: dict[str, Campaign] = {}
         self._events: dict[str, EventBuffer] = {}
         self._cancel_requested: set[str] = set()
-        self._processes: dict[str, subprocess.Popen[str]] = {}
-        self._process_done: dict[str, threading.Event] = {}
+        self._processes = ProcessRegistry(cancel_grace_seconds, terminate_grace_seconds)
         self._bundle_lock = threading.Lock()
+        self._waits = CampaignWaits(self._condition, self._campaigns, self._events, self._known_campaign_id)
         self.store.recover_interrupted()
         for campaign in self.store.list():
             campaign_id = str(campaign.campaign_id)
@@ -98,6 +98,7 @@ class CampaignController:
         return campaign
 
     def get(self, campaign_id: str) -> Campaign:
+        campaign_id = self._known_campaign_id(campaign_id)
         with self._condition:
             campaign = self._campaigns.get(campaign_id)
             if campaign is None:
@@ -109,6 +110,7 @@ class CampaignController:
             return tuple(sorted(self._campaigns.values(), key=lambda item: item.created_at, reverse=True))
 
     def events(self, campaign_id: str) -> EventBuffer:
+        campaign_id = self._known_campaign_id(campaign_id)
         with self._condition:
             events = self._events.get(campaign_id)
             if events is None:
@@ -116,76 +118,80 @@ class CampaignController:
             return events
 
     def wait_for_status(self, campaign_id: str, status: RunStatus, timeout: float) -> Campaign:
-        with self._condition:
-            reached = self._condition.wait_for(
-                lambda: campaign_id in self._campaigns and self._campaigns[campaign_id].status is status,
-                timeout=timeout,
-            )
-            if not reached:
-                raise CampaignWaitTimeoutError(campaign_id, status.value)
-            return self._campaigns[campaign_id]
+        return self._waits.for_status(campaign_id, status, timeout)
 
     def wait_for_terminal(self, campaign_id: str, timeout: float) -> Campaign:
-        with self._condition:
-            reached = self._condition.wait_for(
-                lambda: campaign_id in self._campaigns and self._campaigns[campaign_id].status in TERMINAL_STATUSES,
-                timeout=timeout,
-            )
-            if not reached:
-                raise CampaignWaitTimeoutError(campaign_id, "terminal")
-            return self._campaigns[campaign_id]
+        return self._waits.for_terminal(campaign_id, timeout)
 
     def wait_for_event(self, campaign_id: str, line_fragment: str, timeout: float) -> CampaignEvent:
-        events = self.events(campaign_id)
-        sequence = 0
-        deadline = time.monotonic() + timeout
-        while deadline > time.monotonic():
-            available = events.wait_after(sequence, deadline - time.monotonic())
-            for event in available:
-                if line_fragment in event.line:
-                    return event
-                sequence = event.sequence
-        raise CampaignWaitTimeoutError(campaign_id, f"event:{line_fragment}")
+        return self._waits.for_event(campaign_id, line_fragment, timeout)
 
     def cancel(self, campaign_id: str) -> bool:
+        campaign_id = self._known_campaign_id(campaign_id)
         with self._condition:
             campaign = self._campaigns.get(campaign_id)
-            if campaign is None or campaign.status not in ACTIVE_STATUSES:
+            if campaign is None:
+                raise CampaignNotFoundError(campaign_id)
+            if campaign.status not in ACTIVE_STATUSES:
                 return False
+            if campaign.status is RunStatus.CANCELLING:
+                return True
             self._cancel_requested.add(campaign_id)
             cancelling = replace(campaign, status=RunStatus.CANCELLING)
             self._save_locked(cancelling)
             self._events[campaign_id].publish("", "cancel", RunStatus.CANCELLING, "cancellation-requested")
-            process = self._processes.get(campaign_id)
-            done = self._process_done.get(campaign_id)
-        if process is not None and done is not None:
-            self._signal_process(process, signal.SIGINT)
-            threading.Thread(target=self._escalate, args=(process, done), daemon=True).start()
+        self._processes.cancel(campaign_id)
         return True
 
+    def shutdown_active(self) -> None:
+        with self._condition:
+            active_ids = tuple(key for key, campaign in self._campaigns.items() if campaign.status in ACTIVE_STATUSES)
+        for campaign_id in active_ids:
+            self.cancel(campaign_id)
+        if not active_ids:
+            return
+        with self._condition:
+            finished = self._condition.wait_for(
+                lambda: all(self._campaigns[campaign_id].status in TERMINAL_STATUSES for campaign_id in active_ids),
+                timeout=self._processes.shutdown_budget,
+            )
+        if finished:
+            return
+        for campaign_id in active_ids:
+            self._processes.kill(campaign_id)
+        with self._condition:
+            killed = self._condition.wait_for(
+                lambda: all(self._campaigns[campaign_id].status in TERMINAL_STATUSES for campaign_id in active_ids),
+                timeout=2.0,
+            )
+        if not killed:
+            raise CampaignShutdownTimeoutError(active_ids)
+
     def resolve_artifact(self, campaign_id: str, artifact_id: str) -> Path:
+        campaign_id = self._known_campaign_id(campaign_id)
         return self.store.resolve_artifact(campaign_id, artifact_id)
 
+    def open_artifact(self, campaign_id: str, artifact_id: str) -> AbstractContextManager[OpenedArtifact]:
+        campaign_id = self._known_campaign_id(campaign_id)
+        return open_artifact(self.store.root, campaign_id, artifact_id)
+
     def bundle(self, campaign_id: str) -> Path:
+        campaign_id = self._known_campaign_id(campaign_id)
         self.get(campaign_id)
         with self._bundle_lock:
             return build_bundle(self.store.root / campaign_id)
+
+    def _known_campaign_id(self, campaign_id: str) -> str:
+        try:
+            return str(parse_campaign_id(campaign_id))
+        except InvalidCampaignIdError as error:
+            raise CampaignNotFoundError(campaign_id) from error
 
     def _save_locked(self, campaign: Campaign) -> None:
         key = str(campaign.campaign_id)
         self.store.save(campaign)
         self._campaigns[key] = campaign
         self._condition.notify_all()
-
-    def _signal_process(self, process: subprocess.Popen[str], selected_signal: signal.Signals) -> None:
-        try:
-            os.killpg(process.pid, selected_signal)
-        except ProcessLookupError:
-            return
-
-    def _escalate(self, process: subprocess.Popen[str], done: threading.Event) -> None:
-        if not done.wait(self.cancel_grace_seconds):
-            self._signal_process(process, signal.SIGTERM)
 
     def _run(self, request: RunRequest, campaign_id: str) -> None:
         for index, target in enumerate(request.targets):
@@ -215,8 +221,7 @@ class CampaignController:
                     self._finish_cancelled_locked(campaign_id, index)
                     return False
                 process = subprocess.Popen(argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, start_new_session=True, shell=False)
-                self._processes[campaign_id] = process
-                self._process_done[campaign_id] = done
+                self._processes.register(campaign_id, process, done)
                 campaign = self._campaigns[campaign_id]
                 targets = list(campaign.targets)
                 targets[index] = replace(targets[index], status=RunStatus.RUNNING, started_at=_now())
@@ -240,9 +245,7 @@ class CampaignController:
         finally:
             done.set()
             if process is not None:
-                with self._condition:
-                    self._processes.pop(campaign_id, None)
-                    self._process_done.pop(campaign_id, None)
+                self._processes.complete(campaign_id)
         with self._condition:
             campaign = self._campaigns[campaign_id]
             targets = list(campaign.targets)

@@ -7,7 +7,7 @@ from pathlib import Path
 from tools.perf_dashboard.artifacts import ArtifactNotFoundError, build_bundle, discover_artifacts
 from tools.perf_dashboard.events import EventBuffer, sanitize_line
 from tools.perf_dashboard.models import RunStatus
-from tools.perf_dashboard.store import CampaignStore
+from tools.perf_dashboard.store import CampaignNotFoundError, CampaignStore
 from tools.perf_dashboard.validation import RequestValidationError, load_targets, validate_run_request
 
 
@@ -16,6 +16,7 @@ TARGETS = {
         {"key": "read-a", "label": "Read A", "method": "GET", "route": "/a", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
         {"key": "fixture-a", "label": "Fixture A", "method": "POST", "route": "/b", "suite": "fixture-write", "risk": "fixture", "defaultProfile": "write", "defaultEnabled": False},
         {"key": "read-b", "label": "Read B", "method": "GET", "route": "/c", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
+        {"key": "write-a", "label": "Write A", "method": "POST", "route": "/write", "suite": "reversible-write", "risk": "safe", "defaultProfile": "write", "defaultEnabled": True},
         {"key": "cost-a", "label": "Cost A", "method": "POST", "route": "/d", "suite": "external", "risk": "cost", "defaultProfile": "external", "defaultEnabled": False},
     ]
 }
@@ -34,12 +35,44 @@ class CampaignValidationTest(unittest.TestCase):
 
     def test_safe_all_preserves_manifest_order_when_defaults_are_safe(self) -> None:
         request = validate_run_request(
-            {"mode": "safe-all", "profile": "read", "rateOrVus": 10, "durationOrIterations": "30s"},
+            {"mode": "safe-all", "profile": "smoke", "rateOrVus": 1, "durationOrIterations": "1"},
             self.targets,
         )
 
-        self.assertEqual(["read-a", "read-b"], [target.key for target in request.targets])
+        self.assertEqual(["read-a", "read-b", "write-a"], [target.key for target in request.targets])
         self.assertTrue(request.jfr_enabled)
+
+    def test_safe_all_mixed_default_profiles_rejects_non_smoke_profile(self) -> None:
+        with self.assertRaises(RequestValidationError) as captured:
+            validate_run_request(
+                {"mode": "safe-all", "profile": "read", "rateOrVus": 40, "durationOrIterations": "300s"},
+                self.targets,
+            )
+
+        self.assertEqual("profile-target-mismatch", captured.exception.code)
+
+    def test_safe_all_homogeneous_targets_accept_their_default_profile(self) -> None:
+        read_targets = tuple(target for target in self.targets if target.default_profile.value == "read")
+
+        request = validate_run_request(
+            {"mode": "safe-all", "profile": "read", "rateOrVus": 40, "durationOrIterations": "300s"},
+            read_targets,
+        )
+
+        self.assertEqual(["read-a", "read-b"], [target.key for target in request.targets])
+
+    def test_target_profile_mismatch_is_rejected_before_profile_numeric_limits(self) -> None:
+        invalid_payloads = (
+            {"mode": "single", "targetKey": "write-a", "profile": "read", "rateOrVus": 40, "durationOrIterations": "300s"},
+            {"mode": "single", "targetKey": "read-a", "profile": "write", "rateOrVus": 10, "durationOrIterations": "120s"},
+            {"mode": "single", "targetKey": "read-a", "profile": "external", "rateOrVus": 10, "durationOrIterations": "10"},
+        )
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                with self.assertRaises(RequestValidationError) as captured:
+                    validate_run_request(payload, self.targets)
+                self.assertEqual("profile-target-mismatch", captured.exception.code)
 
     def test_risky_target_is_rejected_when_allow_risk_is_not_true(self) -> None:
         with self.assertRaises(RequestValidationError):
@@ -81,6 +114,12 @@ class CampaignValidationTest(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(RequestValidationError):
                 validate_run_request(payload, self.targets)
 
+    def test_duration_digit_count_is_bounded_before_integer_conversion(self) -> None:
+        payload = {"mode": "single", "targetKey": "read-a", "profile": "read", "rateOrVus": 1, "durationOrIterations": f"{'9' * 5000}s"}
+
+        with self.assertRaises(RequestValidationError):
+            validate_run_request(payload, self.targets)
+
 
 class StoreAndArtifactTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -111,8 +150,11 @@ class StoreAndArtifactTest(unittest.TestCase):
         campaign_dir = self.root / "run-2"
         target_dir = campaign_dir / "read-a"
         target_dir.mkdir(parents=True)
-        (campaign_dir / "campaign.json").write_text('{"campaignId":"run-2"}', encoding="utf-8")
-        for name in ("report.html", "summary.json", "manifest.json", "task-a.jfr", "task-b.jfr"):
+        names = ("report.html", "summary.json", "manifest.json", "task-a.jfr", "task-b.jfr")
+        artifact_records = [{"id": f"read-a:{name}", "name": name, "path": f"read-a/{name}", "mediaType": "application/octet-stream"} for name in names]
+        campaign_state = {"campaignId": "run-2", "status": "PASSED", "targets": [{"key": "read-a", "status": "PASSED", "artifacts": artifact_records}]}
+        (campaign_dir / "campaign.json").write_text(json.dumps(campaign_state), encoding="utf-8")
+        for name in names:
             (target_dir / name).write_text(name, encoding="utf-8")
         (target_dir / "console.log").write_text("Bearer secret", encoding="utf-8")
 
@@ -126,6 +168,46 @@ class StoreAndArtifactTest(unittest.TestCase):
                 ["campaign.json", "read-a/manifest.json", "read-a/report.html", "read-a/summary.json", "read-a/task-a.jfr", "read-a/task-b.jfr"],
                 archive.namelist(),
             )
+
+    def test_bundle_ignores_stray_nested_allowlist_names_when_campaign_has_no_artifacts(self) -> None:
+        campaign_dir = self.root / "run-empty"
+        nested = campaign_dir / "stray" / "nested"
+        nested.mkdir(parents=True)
+        (campaign_dir / "campaign.json").write_text(json.dumps({"campaignId": "run-empty", "status": "PASSED", "targets": []}), encoding="utf-8")
+        (nested / "report.html").write_text("stray", encoding="utf-8")
+
+        bundle = build_bundle(campaign_dir)
+
+        with zipfile.ZipFile(bundle) as archive:
+            self.assertEqual(["campaign.json"], archive.namelist())
+
+    def test_bundle_rejects_registered_nested_artifact(self) -> None:
+        campaign_dir = self.root / "run-invalid-bundle"
+        target_dir = campaign_dir / "read-a"
+        target_dir.mkdir(parents=True)
+        secret = campaign_dir / "secret.txt"
+        secret.write_text("secret", encoding="utf-8")
+        (target_dir / "report.html").symlink_to(secret)
+        artifacts = [{"id": "read-a:report.html", "name": "report.html", "path": "read-a/nested/report.html", "mediaType": "text/html"}]
+        state = {"campaignId": "run-invalid-bundle", "status": "PASSED", "targets": [{"key": "read-a", "status": "PASSED", "artifacts": artifacts}]}
+        (campaign_dir / "campaign.json").write_text(json.dumps(state), encoding="utf-8")
+
+        with self.assertRaises(ArtifactNotFoundError):
+            build_bundle(campaign_dir)
+
+    def test_bundle_rejects_registered_symlink_even_when_target_stays_inside_campaign(self) -> None:
+        campaign_dir = self.root / "run-symlink-bundle"
+        target_dir = campaign_dir / "read-a"
+        target_dir.mkdir(parents=True)
+        secret = campaign_dir / "secret.txt"
+        secret.write_text("secret", encoding="utf-8")
+        (target_dir / "report.html").symlink_to(secret)
+        artifacts = [{"id": "read-a:report.html", "name": "report.html", "path": "read-a/report.html", "mediaType": "text/html"}]
+        state = {"campaignId": "run-symlink-bundle", "status": "PASSED", "targets": [{"key": "read-a", "status": "PASSED", "artifacts": artifacts}]}
+        (campaign_dir / "campaign.json").write_text(json.dumps(state), encoding="utf-8")
+
+        with self.assertRaises(ArtifactNotFoundError):
+            build_bundle(campaign_dir)
 
     def test_artifact_discovery_uses_one_canonical_root_for_containment_and_relative_path(self) -> None:
         campaign_dir = self.root / "run-canonical"
@@ -149,6 +231,17 @@ class StoreAndArtifactTest(unittest.TestCase):
         with self.assertRaises(ArtifactNotFoundError):
             store.resolve_artifact("run-3", "escape")
 
+    def test_campaign_id_cannot_traverse_to_parent_campaign(self) -> None:
+        store_root = self.root / "store"
+        parent_campaign = self.root / "crafted"
+        parent_campaign.mkdir()
+        state = {"campaignId": "../crafted", "status": "PASSED", "targets": []}
+        (parent_campaign / "campaign.json").write_text(json.dumps(state), encoding="utf-8")
+        store = CampaignStore(store_root)
+
+        with self.assertRaises(CampaignNotFoundError):
+            store.load("../crafted")
+
 
 class EventBufferTest(unittest.TestCase):
     def test_sanitizer_redacts_bearer_and_named_secrets(self) -> None:
@@ -160,6 +253,22 @@ class EventBufferTest(unittest.TestCase):
         self.assertNotIn("topsecret", sanitized)
         self.assertNotIn("hunter2", sanitized)
         self.assertIn("ok=true", sanitized)
+
+    def test_sanitizer_redacts_json_and_delimited_secret_keys(self) -> None:
+        line = 'Bearer bearer-value "access-token": "json-value" AWS_SECRET_ACCESS_KEY=env-value api_key: shell-value'
+
+        sanitized = sanitize_line(line)
+
+        for secret in ("bearer-value", "json-value", "env-value", "shell-value"):
+            self.assertNotIn(secret, sanitized)
+        self.assertEqual(4, sanitized.count("[REDACTED]"))
+
+    def test_sanitizer_preserves_benign_key_substrings(self) -> None:
+        line = "keyboard=mechanical monkey: banana turnkey solution"
+
+        sanitized = sanitize_line(line)
+
+        self.assertEqual(line, sanitized)
 
     def test_buffer_keeps_only_latest_thousand_sequenced_events(self) -> None:
         events = EventBuffer(limit=1000)

@@ -8,14 +8,30 @@ from .models import JsonValue, RunStatus
 
 
 BEARER_PATTERN: Final = re.compile(r"(?i)(Bearer\s+)\S+")
-NAMED_SECRET_PATTERN: Final = re.compile(
-    r"(?i)\b([A-Z0-9_]*(?:secret|token|key|password)[A-Z0-9_]*)(\s*(?:=|:)\s*|\s+)\S+"
+JSON_VALUE_PATTERN: Final = re.compile(r'(?i)("(?P<key>[A-Za-z0-9_-]+)"\s*:\s*)"(?:\\.|[^"\\])*"')
+ENV_VALUE_PATTERN: Final = re.compile(
+    r"(?i)\b(?P<key>[A-Za-z_][A-Za-z0-9_-]*)(?P<separator>\s*(?:=|:)\s*)(?P<value>\"(?:\\.|[^\"\\])*\"|'[^']*'|[^\s,;]+)"
 )
+SECRET_COMPONENTS: Final = frozenset(("secret", "token", "key", "password"))
+
+
+def _is_secret_name(name: str) -> bool:
+    normalized = name.casefold()
+    return normalized == "authorization" or not SECRET_COMPONENTS.isdisjoint(re.split(r"[_-]", normalized))
+
+
+def _redact_json(match: re.Match[str]) -> str:
+    return f'{match.group(1)}"[REDACTED]"' if _is_secret_name(match.group("key")) else match.group(0)
+
+
+def _redact_env(match: re.Match[str]) -> str:
+    return f'{match.group("key")}{match.group("separator")}[REDACTED]' if _is_secret_name(match.group("key")) else match.group(0)
 
 
 def sanitize_line(line: str) -> str:
     without_bearer = BEARER_PATTERN.sub(r"\1[REDACTED]", line.rstrip("\r\n"))
-    return NAMED_SECRET_PATTERN.sub(r"\1\2[REDACTED]", without_bearer)
+    without_json = JSON_VALUE_PATTERN.sub(_redact_json, without_bearer)
+    return ENV_VALUE_PATTERN.sub(_redact_env, without_json)
 
 
 @dataclass(frozen=True, slots=True)

@@ -10,58 +10,7 @@ from pathlib import Path
 
 from tools.perf_dashboard.models import JsonValue, RunStatus
 from tools.perf_dashboard.server import create_server
-
-
-TARGETS = {
-    "targets": [
-        {"key": "read-a", "label": "Read A", "method": "GET", "route": "/a", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
-        {"key": "read-b", "label": "Read B", "method": "GET", "route": "/b", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
-        {"key": "cost-a", "label": "Cost A", "method": "POST", "route": "/c", "suite": "external", "risk": "cost", "defaultProfile": "external", "defaultEnabled": False},
-    ]
-}
-
-FAKE_RUNNER = r'''#!/usr/bin/env python3
-import json
-import os
-import signal
-import sys
-from pathlib import Path
-
-target, profile, load, extent = sys.argv[1:]
-root = Path(os.environ["PERFORMANCE_ARTIFACT_ROOT"])
-campaign_id = os.environ["CAMPAIGN_ID"]
-record = Path(os.environ["FAKE_RECORD"])
-with record.open("a", encoding="utf-8") as output:
-    output.write(json.dumps({"argv": [target, profile, load, extent], "envNames": sorted(os.environ)}) + "\n")
-
-def artifacts():
-    target_dir = root / campaign_id / target
-    target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / "report.html").write_text("<h1>safe</h1>", encoding="utf-8")
-    (target_dir / "summary.json").write_text(json.dumps({"metrics": {"http_req_duration": {"values": {"p(95)": 12.5, "p(99)": 17.5}}, "http_req_failed": {"values": {"rate": 0}}, "dropped_iterations": {"values": {"count": 0}}}, "root_group": {"checks": [{"passes": 1, "fails": 0}]}}), encoding="utf-8")
-    (target_dir / "manifest.json").write_text(json.dumps({"campaignId": campaign_id, "target": target, "taskIds": ["one", "two"]}), encoding="utf-8")
-    (target_dir / "task-one.jfr").write_bytes(b"jfr-one")
-    (target_dir / "task-two.jfr").write_bytes(b"jfr-two")
-
-def interrupt(signum, frame):
-    print("phase=cleanup ACCESS_TOKEN=runner-secret", flush=True)
-    Path(os.environ["FAKE_TRAP_ENTERED"]).write_text(str(signum), encoding="utf-8")
-
-def terminate(signum, frame):
-    artifacts()
-    Path(os.environ["FAKE_TRAP_EXITED"]).write_text(str(signum), encoding="utf-8")
-    raise SystemExit(130)
-
-signal.signal(signal.SIGINT, interrupt)
-signal.signal(signal.SIGTERM, terminate)
-print("phase=measurement Authorization: Bearer runner-secret", flush=True)
-if os.environ.get("FAKE_HOLD") == "1":
-    while True:
-        signal.pause()
-else:
-    artifacts()
-    raise SystemExit(int(os.environ.get("FAKE_EXIT_CODE", "0")))
-'''
+from tools.perf_dashboard.tests.fixtures import FAKE_RUNNER, TARGETS
 
 
 class DashboardServerTest(unittest.TestCase):
@@ -77,6 +26,7 @@ class DashboardServerTest(unittest.TestCase):
         self.record = self.root / "record.jsonl"
         self.trap_entered = self.root / "trap-entered"
         self.trap_exited = self.root / "trap-exited"
+        self.signal_record = self.root / "signals"
         self.old_env = os.environ.copy()
         os.environ.update({
             "ACCESS_TOKEN": "api-super-secret",
@@ -84,6 +34,7 @@ class DashboardServerTest(unittest.TestCase):
             "FAKE_RECORD": str(self.record),
             "FAKE_TRAP_ENTERED": str(self.trap_entered),
             "FAKE_TRAP_EXITED": str(self.trap_exited),
+            "FAKE_SIGNAL_RECORD": str(self.signal_record),
         })
         self.server = create_server(
             port=0,
@@ -148,6 +99,9 @@ class DashboardServerTest(unittest.TestCase):
         self.assertTrue(campaign["jfrEnabled"])
         self.assertEqual(12.5, terminal.targets[0].summary.p95)
         self.assertEqual(17.5, terminal.targets[0].summary.p99)
+        self.assertEqual(0.25, terminal.targets[0].summary.failure_rate)
+        self.assertEqual(3.0, terminal.targets[0].summary.dropped_iterations)
+        self.assertTrue(terminal.targets[0].summary.thresholds_passed)
         self.assertEqual(5, len(terminal.targets[0].artifacts))
 
     def test_nonzero_runner_exit_persists_failed_target_and_campaign(self) -> None:

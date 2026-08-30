@@ -1,4 +1,5 @@
 import json
+from typing import BinaryIO
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -7,6 +8,7 @@ from urllib.parse import unquote, urlsplit
 
 from .artifacts import ArtifactNotFoundError, CHUNK_SIZE
 from .controller import ActiveCampaignError
+from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import JsonValue, RunStatus, campaign_document, target_api_document
 from .store import CampaignNotFoundError
 from .validation import RequestValidationError, validate_run_request
@@ -19,6 +21,8 @@ SECURITY_HEADERS = (
 )
 DOCUMENT_CSP = "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'self'"
 REPORT_CSP = "sandbox; default-src 'none'; style-src 'unsafe-inline'"
+MAX_JSON_INTEGER_DIGITS = 10
+MAX_CONTENT_LENGTH_DIGITS = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +31,18 @@ class InvalidPayloadError(Exception):
 
     def __str__(self) -> str:
         return self.code
+
+
+@dataclass(frozen=True, slots=True)
+class NumericTokenTooLongError(Exception):
+    def __str__(self) -> str:
+        return "numeric-token-too-long"
+
+
+def _parse_json_integer(raw: str) -> int:
+    if len(raw.lstrip("-")) > MAX_JSON_INTEGER_DIGITS:
+        raise NumericTokenTooLongError
+    return int(raw)
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -43,25 +59,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/runs":
             self._json(HTTPStatus.OK, {"runs": [campaign_document(item) for item in self.server.controller.list()]})
             return
-        segments = tuple(unquote(segment) for segment in path.strip("/").split("/"))
+        raw_segments = tuple(path.strip("/").split("/"))
+        segments = tuple(unquote(segment) for segment in raw_segments)
         try:
             if len(segments) == 3 and segments[:2] == ("api", "runs"):
-                self._json(HTTPStatus.OK, campaign_document(self.server.controller.get(segments[2])))
+                campaign_id = self._campaign_id(raw_segments[2])
+                self._json(HTTPStatus.OK, campaign_document(self.server.controller.get(campaign_id)))
                 return
             if len(segments) == 4 and segments[:2] == ("api", "runs") and segments[3] == "events":
-                self._sse(segments[2])
+                self._sse(self._campaign_id(raw_segments[2]))
                 return
             if len(segments) == 4 and segments[:2] == ("api", "runs") and segments[3] == "bundle":
-                self._stream_file(self.server.controller.bundle(segments[2]), "application/zip", "attachment")
+                self._stream_file(self.server.controller.bundle(self._campaign_id(raw_segments[2])), "application/zip", "attachment")
                 return
             if len(segments) == 5 and segments[:2] == ("api", "runs") and segments[3] == "artifacts":
-                self._artifact(segments[2], segments[4])
+                self._artifact(self._campaign_id(raw_segments[2]), segments[4])
                 return
         except CampaignNotFoundError:
             self._json(HTTPStatus.NOT_FOUND, {"error": "campaign-not-found"})
             return
         except ArtifactNotFoundError:
             self._json(HTTPStatus.NOT_FOUND, {"error": "artifact-not-found"})
+            return
+        except InvalidCampaignIdError:
+            self._json(HTTPStatus.NOT_FOUND, {"error": "campaign-not-found"})
             return
         if self._static(path):
             return
@@ -79,9 +100,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 campaign = self.server.controller.start(request)
                 self._json(HTTPStatus.ACCEPTED, campaign_document(campaign))
                 return
-            segments = tuple(unquote(segment) for segment in path.strip("/").split("/"))
+            raw_segments = tuple(path.strip("/").split("/"))
+            segments = tuple(unquote(segment) for segment in raw_segments)
             if len(segments) == 4 and segments[:2] == ("api", "runs") and segments[3] == "cancel":
-                if self.server.controller.cancel(segments[2]):
+                campaign_id = self._campaign_id(raw_segments[2])
+                if self.server.controller.cancel(campaign_id):
                     self._json(HTTPStatus.ACCEPTED, {"status": RunStatus.CANCELLING.value})
                 else:
                     self._json(HTTPStatus.CONFLICT, {"error": "campaign-not-active"})
@@ -94,6 +117,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         except ActiveCampaignError:
             self._json(HTTPStatus.CONFLICT, {"error": "active-campaign-exists"})
+            return
+        except CampaignNotFoundError:
+            self._json(HTTPStatus.NOT_FOUND, {"error": "campaign-not-found"})
+            return
+        except InvalidCampaignIdError:
+            self._json(HTTPStatus.NOT_FOUND, {"error": "campaign-not-found"})
             return
         self._json(HTTPStatus.NOT_FOUND, {"error": "not-found"})
 
@@ -125,30 +154,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
         raw_length = self.headers.get("Content-Length")
         if raw_length is None:
             raise InvalidPayloadError("missing-content-length")
-        try:
-            length = int(raw_length)
-        except ValueError as error:
-            raise InvalidPayloadError("invalid-content-length") from error
+        if len(raw_length) > MAX_CONTENT_LENGTH_DIGITS or not raw_length.isascii() or not raw_length.isdecimal():
+            raise InvalidPayloadError("invalid-content-length")
+        length = int(raw_length)
         if length < 1 or length > 65_536:
             raise InvalidPayloadError("invalid-content-length")
         try:
-            document: JsonValue = json.loads(self.rfile.read(length))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            document: JsonValue = json.loads(self.rfile.read(length), parse_int=_parse_json_integer)
+        except (UnicodeDecodeError, json.JSONDecodeError, NumericTokenTooLongError) as error:
             raise InvalidPayloadError("invalid-json") from error
         if not isinstance(document, dict):
             raise InvalidPayloadError("invalid-json")
         return document
 
     def _loopback_host(self) -> bool:
-        host = self.headers.get("Host", "")
-        hostname = host.rsplit(":", 1)[0] if ":" in host else host
-        return hostname in ("127.0.0.1", "localhost")
+        hosts = self.headers.get_all("Host", [])
+        if len(hosts) != 1:
+            return False
+        host = hosts[0]
+        if host in ("127.0.0.1", "localhost"):
+            return True
+        actual_port = str(self.server.server_port)
+        return host in (f"127.0.0.1:{actual_port}", f"localhost:{actual_port}")
+
+    def _campaign_id(self, raw_segment: str) -> str:
+        if "%" in raw_segment:
+            raise InvalidCampaignIdError(raw_segment)
+        return str(parse_campaign_id(raw_segment))
 
     def _headers(self, status: int, content_type: str, length: int | None = None, csp: str | None = None, disposition: str | None = None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
-        for name, value in SECURITY_HEADERS:
-            self.send_header(name, value)
         if length is not None:
             self.send_header("Content-Length", str(length))
         if csp is not None:
@@ -157,18 +193,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Disposition", disposition)
         self.end_headers()
 
+    def end_headers(self) -> None:
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
+        super().end_headers()
+
+    def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
+        if hasattr(self, "headers") and not self._loopback_host():
+            self._json(HTTPStatus.FORBIDDEN, {"error": "loopback-host-required"})
+            return
+        super().send_error(code, message, explain)
+
     def _json(self, status: int, document: JsonValue) -> None:
         body = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode()
         self._headers(status, "application/json; charset=utf-8", len(body))
         self.wfile.write(body)
 
     def _artifact(self, campaign_id: str, artifact_id: str) -> None:
-        path = self.server.controller.resolve_artifact(campaign_id, artifact_id)
-        if path.name == "report.html":
-            self._stream_file(path, "text/html; charset=utf-8", "inline", REPORT_CSP)
-            return
-        media_type = "application/json" if path.suffix == ".json" else "application/octet-stream"
-        self._stream_file(path, media_type, f'attachment; filename="{path.name}"')
+        with self.server.controller.open_artifact(campaign_id, artifact_id) as artifact:
+            if artifact.name == "report.html":
+                self._stream_source(artifact.source, artifact.size, artifact.media_type, "inline", REPORT_CSP)
+                return
+            self._stream_source(artifact.source, artifact.size, artifact.media_type, f'attachment; filename="{artifact.name}"')
+
+    def _stream_source(self, source: BinaryIO, size: int, media_type: str, disposition: str, csp: str | None = None) -> None:
+        self._headers(HTTPStatus.OK, media_type, size, csp, disposition)
+        while chunk := source.read(CHUNK_SIZE):
+            self.wfile.write(chunk)
 
     def _stream_file(self, path: Path, media_type: str, disposition: str, csp: str | None = None) -> None:
         self._headers(HTTPStatus.OK, media_type, path.stat().st_size, csp, disposition)
@@ -180,7 +231,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         campaign = self.server.controller.get(campaign_id)
         events = self.server.controller.events(campaign_id)
         raw_sequence = self.headers.get("Last-Event-ID", "0")
-        sequence = int(raw_sequence) if raw_sequence.isdecimal() else 0
+        sequence = int(raw_sequence) if len(raw_sequence) <= 20 and raw_sequence.isascii() and raw_sequence.isdecimal() else 0
         self._headers(HTTPStatus.OK, "text/event-stream")
         try:
             while True:
