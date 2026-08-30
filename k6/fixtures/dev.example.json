@@ -7,7 +7,7 @@
   "orderId": 1,
   "foodCursor": 100,
   "bookmarkCursor": 100,
-  "scanCursor": "opaque-scan-cursor",
+  "scanCursor": 100,
   "reviewCursor": 100,
   "scanImagePath": "test/images/scan/hansik-madang.jpg"
 }

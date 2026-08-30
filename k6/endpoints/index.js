@@ -4,7 +4,7 @@ import { memberEndpoints } from './member.js';
 import { orderEndpoints } from './order.js';
 import { reviewEndpoints } from './review.js';
 
-const catalog = [
+export const endpointCatalog = [
   ...appEndpoints,
   ...memberEndpoints,
   ...foodEndpoints,
@@ -12,7 +12,7 @@ const catalog = [
   ...orderEndpoints,
 ];
 
-export const endpoints = catalog.reduce((registry, endpoint) => {
+export const endpoints = endpointCatalog.reduce((registry, endpoint) => {
   registry[endpoint.key] = endpoint;
   return registry;
 }, {});

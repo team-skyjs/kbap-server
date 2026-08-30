@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 manifest="$repo_dir/k6/endpoints/targets.json"
+fixture_example="$repo_dir/k6/fixtures/dev.example.json"
 temp_dir="$(mktemp -d)"
 mock_pid=""
 
@@ -63,20 +64,41 @@ jq -e '
     (["key", "label", "method", "route", "suite", "risk", "defaultProfile", "defaultEnabled"] - keys | length == 0) and
     (.key | type == "string" and length > 0) and
     (.label | type == "string" and length > 0) and
-    (.method | type == "string" and length > 0) and
+    (.method == "GET") and
     (.route | type == "string" and startswith("/api/")) and
     (.suite | IN("read", "reversible-write", "fixture-write", "external")) and
     (.risk | IN("safe", "fixture", "cost")) and
-    (.defaultProfile | type == "string" and length > 0) and
+    (.defaultProfile == "read") and
     (.defaultEnabled | type == "boolean")
   )
 ' "$manifest" >/dev/null
 
 jq -e '([.targets[].key] | length) == ([.targets[].key] | unique | length)' "$manifest" >/dev/null
 jq -e 'all(.targets[]; .risk == "safe" or (.defaultEnabled | not))' "$manifest" >/dev/null
+jq -e '(.scanCursor | type == "number") and (.scanCursor >= 0) and (.scanCursor | floor == .)' "$fixture_example" >/dev/null
 
 jq -r '.targets[].key' "$manifest" >"$temp_dir/actual-keys"
 diff -u "$temp_dir/expected-keys" "$temp_dir/actual-keys"
+
+jq -r '.targets[] | [.key, .method, .route, .defaultProfile] | @tsv' "$manifest" \
+  | sort >"$temp_dir/manifest-contracts"
+(
+  cd "$repo_dir"
+  node --input-type=module -e '
+    import { endpointCatalog } from "./k6/endpoints/index.js";
+    for (const endpoint of endpointCatalog) {
+      console.log([endpoint.key, endpoint.method, endpoint.route, endpoint.kind].join("\t"));
+    }
+  '
+) >"$temp_dir/registry-contracts"
+
+cut -f1 "$temp_dir/registry-contracts" >"$temp_dir/registry-keys"
+if [[ "$(wc -l <"$temp_dir/registry-keys" | tr -d ' ')" != "$(sort -u "$temp_dir/registry-keys" | wc -l | tr -d ' ')" ]]; then
+  printf '%s\n' 'duplicate endpoint key in runtime registry catalog' >&2
+  exit 1
+fi
+sort "$temp_dir/registry-contracts" >"$temp_dir/registry-contracts.sorted"
+diff -u "$temp_dir/manifest-contracts" "$temp_dir/registry-contracts.sorted"
 
 if rg -n '/api/community(?:/|$)' \
   "$repo_dir/k6/endpoints" \
