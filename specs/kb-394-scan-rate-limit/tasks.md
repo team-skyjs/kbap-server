@@ -101,7 +101,7 @@
 - [x] T019 [P] `../kbap-agenthub/wiki/scan-credit-limit-design.md` 의 SCAN-006 설명("어댑터가 Spring AI TransientAiException…")을 SDK 예외 기준으로 정정하고 SCAN-008·429 세 갈래·재시도 예산(`retry-budget` 10s, `max-retries` 0)·헤더 로그를 추가. `INDEX.md` 해당 줄 갱신. 허브 커밋 `docs(wiki): 스캔 rate-limit 분리(KB-394)`.
 - [x] T020 [P] `k6/scan-burst.js` 의 rate-limit 주석("앱은 OpenAI rate-limit 을 503 SCAN-002/SCAN_VISION_UNAVAILABLE 로 응답")을 SCAN-008 기준으로 갱신하고 `scanRateLimited` 카운터가 `code === "SCAN-008"` 을 세도록 분기 추가(응답 본문 파싱이 이미 있으면 그 자리).
 - [x] T021 `./gradlew build` 그린(ArchUnit 포함 — 포트가 SDK 를 참조하지 않는지), Kotlin 주석 0건(`git diff develop -- '*.kt' | grep '^+.*//'`). `ponytail-review` 로 어댑터 루프 과설계 점검.
-- [ ] T022 `open-draft-pr-to-develop` — draft PR(base develop, `Refs KB-394`, 기능 흐름 섹션에 spec 의 시퀀스 다이어그램 요약 mermaid). 본문에 "Jira 전제 교정(SDK 경로·죽은 catch)" 명시.
+- [x] T022 `open-draft-pr-to-develop` — draft PR(base develop, `Refs KB-394`, 기능 흐름 섹션에 spec 의 시퀀스 다이어그램 요약 mermaid). 본문에 "Jira 전제 교정(SDK 경로·죽은 catch)" 명시.
 
 ---
 
