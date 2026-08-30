@@ -2,11 +2,11 @@
 
 **작성일:** 2026-08-31
 
-**상태:** 설계 승인 완료
+**상태:** 설계 승인 완료, 로컬 HTML 대시보드 요구사항 반영
 
 ## 목표
 
-dev API 서버의 모든 사용자용 엔드포인트를 독립적인 k6 부하 시나리오로 실행하고, 실행마다 HTML·JSON 결과와 두 API 태스크의 JFR을 같은 실행 식별자로 묶는다. 결과는 애플리케이션 CPU·할당·잠금·GC, Tomcat 스레드, HikariCP, RDS SQL, 외부 HTTP 대기를 교차해 병목과 코드 설계 문제를 재현 가능하게 판정할 수 있어야 한다.
+dev API 서버의 모든 사용자용 엔드포인트를 하나의 로컬 HTML 대시보드에서 선택·실행하고, 실행마다 HTML·JSON 결과와 두 API 태스크의 JFR을 같은 실행 식별자로 묶는다. 실제 부하 생성은 k6가 담당하고 대시보드는 실행 제어, 진행 조회, 결과 비교, artifact 다운로드만 담당한다. 결과는 애플리케이션 CPU·할당·잠금·GC, Tomcat 스레드, HikariCP, RDS SQL, 외부 HTTP 대기를 교차해 병목과 코드 설계 문제를 재현 가능하게 판정할 수 있어야 한다.
 
 ## 현재 기준선
 
@@ -30,6 +30,8 @@ dev API 서버의 모든 사용자용 엔드포인트를 독립적인 k6 부하 
 - 두 API 태스크의 JFR 시작·중지·수집 자동화
 - 엔드포인트 레지스트리 기반 k6 하네스
 - 엔드포인트별 HTML·JSON·실행 manifest 산출
+- 전체 엔드포인트 목록, 선택 실행, 안전한 전체 실행, 진행 상태, 과거 결과를 제공하는 localhost 전용 HTML 대시보드
+- 대시보드에서 task별 JFR과 실행 artifact 묶음 다운로드
 - 읽기, 가역 쓰기, fixture 쓰기, 외부 비용형 시나리오
 - 스캔 부하 중 일반 API 영향 측정
 - Prometheus, RDS SQL 통계, JFR을 함께 사용하는 병목 판정 런북
@@ -48,19 +50,23 @@ dev API 서버의 모든 사용자용 엔드포인트를 독립적인 k6 부하 
 ## 채택 아키텍처
 
 ```text
-k6 runner
-  └─ dev ALB
-      ├─ API task A ─ JFR A
-      └─ API task B ─ JFR B
-           ├─ RDS / Redis
-           └─ S3 / Google / OpenAI
+local HTML dashboard (127.0.0.1 only)
+  └─ local control server
+      └─ k6 campaign runner
+          └─ dev ALB
+              ├─ API task A ─ JFR A
+              └─ API task B ─ JFR B
+                   ├─ RDS / Redis
+                   └─ S3 / Google / OpenAI
 
-run-id/
-  ├─ report.html
-  ├─ summary.json
-  ├─ manifest.json
-  ├─ task-a.jfr
-  └─ task-b.jfr
+campaign-id/
+  ├─ campaign.json
+  └─ target/
+      ├─ report.html
+      ├─ summary.json
+      ├─ manifest.json
+      ├─ task-a.jfr
+      └─ task-b.jfr
 ```
 
 프로파일링 이미지는 기존 bootJar를 그대로 복사하되 runtime만 Temurin 21 JDK로 바꾼다. 운영 기본 Docker target은 계속 JRE로 남긴다. JDK target에는 동적 JFR용 `jcmd`, 분석용 `jfr`, 태스크 역할로 비공개 S3에 결과를 올릴 AWS CLI를 넣는다.
@@ -68,6 +74,8 @@ run-id/
 대안은 현재 JRE에 `-XX:StartFlightRecording`을 넣는 방식이다. 코드 변경은 적지만 시작·중지 시간을 엔드포인트별로 통제하려면 매번 태스크 정의를 바꾸거나 긴 녹화에서 시간 범위를 수동 분할해야 한다. 전체 엔드포인트 캠페인에서는 동적 `jcmd` 방식이 더 재현 가능하다.
 
 로컬 Docker만 대상으로 하는 방식은 빠르지만 ALB, RDS, Redis TLS, 실제 외부 API 네트워크를 제거하므로 최종 판정 환경으로 사용하지 않는다.
+
+정적 HTML 파일만으로는 로컬 k6와 AWS CLI 프로세스를 안전하게 시작하거나 중지할 수 없다. 따라서 대시보드는 Python 표준 라이브러리 기반의 작은 localhost 제어 서버가 정적 UI와 JSON/SSE API를 함께 제공하는 구조로 고정한다. 이 서버는 dev에 배포하지 않고 분석자의 로컬 머신에서만 `127.0.0.1`에 bind한다.
 
 ## prod 영향 격리
 
@@ -96,11 +104,15 @@ server:
   tomcat:
     mbeanregistry:
       enabled: true
+
+logging:
+  level:
+    root: WARN
 ```
 
 HTTP 히스토그램은 Prometheus에서 `histogram_quantile`로 p95·p99를 계산하기 위한 전제다. Tomcat MBean registry는 busy/current/max thread를 직접 확인하기 위한 전제다. HikariCP와 JVM 메트릭은 기존 actuator 자동 구성을 유지한다.
 
-주 캠페인은 `show-sql=false`로 실행한다. 요청 로깅은 prod 동작에 포함되므로 유지한다. 로깅 자체의 비용은 상위 엔드포인트 하나를 골라 INFO와 WARN을 비교하는 별도 A/B 회차로 측정한다.
+주 캠페인은 `show-sql=false`, root `WARN`으로 실행해 SQL 출력과 요청당 INFO 두 건을 제거한다. 에러와 경고는 유지한다. 로깅 자체의 비용은 상위 엔드포인트 하나를 골라 `LOGGING_LEVEL_COM_KBAP_API_CORE_LOGGING_REQUESTLOGGINGFILTER=INFO`를 적용한 별도 A/B 회차에서만 측정한다. 일반 dev 또는 prod profile의 로깅 수준은 바꾸지 않는다.
 
 ## JFR 설정과 보안
 
@@ -169,24 +181,94 @@ export const endpoint = {
 
 성공 검사는 HTTP 200만 확인하지 않고 JSON `success=true`까지 확인한다. 오류 응답은 상태와 business code를 별도 Counter로 집계한다. 앞 단계 실패로 뒤 단계 요청을 생략하더라도 생략된 단계의 실패 Counter를 반드시 증가시켜 기존 스캔 테스트에서 발견된 checks 착시를 반복하지 않는다.
 
+## 로컬 HTML 실행·결과 대시보드
+
+대시보드는 k6를 대체하지 않는다. 브라우저 요청을 받은 localhost 제어 서버가 검증된 인자 배열로 campaign runner를 실행하고, runner가 endpoint별 k6와 두 태스크 JFR 수집을 순서대로 수행한다. 브라우저에는 JWT, AWS credential, secret 환경변수, S3 URL을 전달하지 않는다.
+
+### 실행 단위와 안전 경계
+
+- `단일 실행`: endpoint target 하나를 선택한다.
+- `선택 실행`: 체크한 target을 등록 순서대로 실행한다.
+- `suite 실행`: read, reversible-write, fixture-write, external 중 하나를 실행한다.
+- `안전한 전체 실행`: `risk=safe`인 읽기와 가역 쓰기 target만 직렬 실행한다.
+- fixture 생성·정리 target과 외부 비용 target은 기본 선택에서 제외하고 명시적 opt-in, 총 요청 수, 비용 상한을 화면에 함께 표시한다.
+- 한 번에 campaign 하나만 실행한다. endpoint를 병렬 실행하면 JFR 시간 구간의 원인 귀속이 불가능해지므로 전체·선택 실행도 직렬 처리한다.
+- `QUEUED`, `RUNNING`, `CANCELLING`, `PASSED`, `FAILED`, `CANCELLED` 상태를 사용한다. 새 campaign 요청은 활성 campaign이 있으면 HTTP 409로 거절한다.
+- 취소는 현재 k6 프로세스 그룹에 SIGINT를 보내 정상 summary 생성을 먼저 시도하고, 10초 안에 종료하지 않으면 SIGTERM을 보낸다. 어떤 종료 경로에서도 JFR stop·수집 trap을 실행한다.
+
+`k6/endpoints/targets.json`은 k6 catalog와 대시보드가 함께 읽는 단일 출처다.
+
+```json
+{
+  "targets": [
+    {
+      "key": "app-version",
+      "label": "앱 버전",
+      "method": "GET",
+      "route": "/api/app-version",
+      "suite": "read",
+      "risk": "safe",
+      "defaultProfile": "read",
+      "defaultEnabled": true
+    }
+  ]
+}
+```
+
+제어 서버는 target key, profile, rate/VU, duration/iteration을 manifest allowlist와 상한으로 검증한다. subprocess는 `shell=False`와 argv 배열만 사용한다. path와 command 문자열을 브라우저 입력에서 직접 조합하지 않는다.
+
+### localhost API
+
+| Method | Path | 역할 |
+|---|---|---|
+| GET | `/api/targets` | endpoint·suite·risk·기본 profile 목록 |
+| GET | `/api/runs` | `artifacts/performance`에서 읽은 최근 campaign 목록 |
+| POST | `/api/runs` | 단일·선택·suite·안전한 전체 campaign 생성 |
+| GET | `/api/runs/{campaignId}` | target별 상태, k6 핵심 지표, artifact 목록 |
+| GET | `/api/runs/{campaignId}/events` | 진행 로그와 상태 변경을 보내는 SSE |
+| POST | `/api/runs/{campaignId}/cancel` | 활성 campaign 취소 |
+| GET | `/api/runs/{campaignId}/artifacts/{artifactId}` | manifest에 등록된 로컬 artifact 다운로드 |
+| GET | `/api/runs/{campaignId}/bundle` | manifest, HTML, JSON, task별 JFR을 ZIP으로 스트리밍 |
+
+artifact route는 run manifest에서 artifact ID를 역조회하고, `Path.resolve()` 결과가 해당 run directory 내부인지 확인한다. 임의 경로나 `..`를 받지 않는다. `report.html`은 새 localhost 탭에서 볼 수 있도록 `Content-Disposition: inline`과 sandbox CSP로 제공한다. JFR은 `application/octet-stream`, ZIP은 `application/zip`, JSON·manifest는 실제 media type과 `Content-Disposition: attachment`로 스트리밍하며 전체 파일을 메모리에 올리지 않는다.
+
+SSE는 target 시작·종료, 단계, sanitized console line, 최종 상태만 보낸다. `Authorization`, `Bearer`, token·secret 이름을 포함한 환경변수 값은 저장하거나 전송하지 않는다. 새로고침 후에는 `GET /api/runs/{campaignId}`로 현재 상태를 복구하고 SSE를 다시 연결한다.
+
+### 화면 구조와 사용성
+
+이 화면은 마케팅 페이지가 아니라 로컬 운영 command surface다. 구현 전에 `tools/perf_dashboard/DESIGN.md`에 색·타입·간격·상태·접근성 token, scroll ownership, 반응형 규칙을 고정한다.
+
+- 고정 header: 대상 환경 `dev`, 연결 상태, 활성 campaign 상태
+- endpoint catalog: 검색, suite·risk filter, 전체/개별 선택, method·route·비용 경고
+- 실행 설정: profile, rate/VU, duration/iterations, JFR on/off, 실행·취소
+- 실행 진행: target별 단계, 경과 시간, sanitized live log
+- 결과: p95, p99, 실패율, dropped iteration, threshold 판정, 이전 실행 비교
+- artifact: endpoint HTML report 보기, summary·manifest·task별 JFR·전체 bundle 다운로드
+
+desktop은 고정 header와 catalog/main list-detail shell을 사용하고 main panel만 세로 scroll한다. 375px에서는 한 열로 reflow하며 가로 scroll을 만들지 않는다. 모든 작업은 키보드로 가능해야 하고 focus ring, 명시적 label, 상태 텍스트를 제공한다. 색만으로 성공·실패를 표현하지 않는다. loading, empty, error, cancel, 긴 endpoint·run ID, 끊긴 SSE 상태를 실제 브라우저에서 검증한다. 자동 motion은 사용하지 않고 상태 변경 feedback만 제공하며 `prefers-reduced-motion`을 존중한다.
+
 ## 결과 산출물
 
 k6 core의 JSON summary와 저장소 내부 HTML renderer를 사용한다. 테스트 중 원격 JavaScript를 내려받지 않는다.
 
 ```text
-artifacts/performance/<run-id>/<target>/
-├── report.html
-├── summary.json
-├── manifest.json
-├── console.log
-├── task-<short-id-a>.jfr
-└── task-<short-id-b>.jfr
+artifacts/performance/<campaign-id>/
+├── campaign.json
+├── campaign.log
+└── <target>/
+    ├── report.html
+    ├── summary.json
+    ├── manifest.json
+    ├── console.log
+    ├── task-<short-id-a>.jfr
+    └── task-<short-id-b>.jfr
 ```
 
 `manifest.json`은 다음 정보를 기록한다.
 
 ```json
 {
+  "campaignId": "20260831T120000Z",
   "runId": "20260831T120000Z-foods-search-ko-hit",
   "target": "foods-search-ko-hit",
   "baseUrl": "https://dev.kbap.site",
@@ -351,7 +433,7 @@ JFR은 SQL 실행 계획을 대신하지 않는다. 각 DB 병목 후보는 RDS 
 
 1. 관측·profiling 인프라 적용
 2. 대표 GET API로 JFR off/on 오버헤드 확인
-3. 읽기 카탈로그 전체 측정
+3. 로컬 HTML 대시보드에서 안전한 전체 실행으로 읽기 카탈로그 측정
 4. 검색·리뷰 정렬·상세·홈 집중 측정
 5. 가역 쓰기와 동일 키 경합 측정
 6. fixture 생성 쓰기 측정과 정리
@@ -363,6 +445,9 @@ JFR은 SQL 실행 계획을 대신하지 않는다. 각 DB 병목 후보는 RDS 
 
 - 모든 포함 endpoint target이 smoke를 통과한다.
 - 읽기·쓰기·외부 target마다 실행 모델과 상한이 명시돼 있다.
+- localhost HTML 대시보드에서 단일·선택·suite·안전한 전체 실행과 취소가 가능하다.
+- 새로고침 후 실행 상태와 과거 결과를 다시 조회하고 endpoint HTML·JSON·manifest·task별 JFR·ZIP bundle을 다운로드할 수 있다.
+- 브라우저 응답, SSE, log, manifest에 token·secret·AWS credential·S3 URL이 없다.
 - 각 본 측정에 HTML, JSON, manifest, 두 태스크 JFR이 존재한다.
 - Prometheus에서 endpoint p95/p99와 Tomcat busy thread를 조회할 수 있다.
 - JFR 파일에 초기 환경변수·시스템 속성 이벤트가 없다.
