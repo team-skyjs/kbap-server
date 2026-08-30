@@ -44,6 +44,7 @@ class LlmConfiguration {
             pricing = pricing,
             configuredModelName = props.model.orEmpty(),
             eventPublisher = eventPublisher,
+            retryBudget = props.retryBudget,
         )
     }
 
@@ -72,7 +73,7 @@ class LlmConfiguration {
             builder.apiKey(apiKey)
             builder.baseUrl(baseUrl)
             builder.timeout(callTimeout)
-            props.maxRetries?.let { builder.maxRetries(it) }
+            builder.maxRetries(props.maxRetries)
             props.model?.let { builder.model(it) }
             props.temperature?.let { builder.temperature(it) }
             return builder.build()

@@ -7,6 +7,15 @@ interface MenuBoardVisionExtractor {
 
 class MenuBoardVisionUnavailableException(cause: Throwable) : RuntimeException(cause)
 
+class MenuBoardVisionRateLimitedException(
+    val retryAfterSeconds: Long?,
+    val exhausted: Boolean,
+    limits: String,
+    cause: Throwable,
+) : RuntimeException(limits, cause)
+
+class MenuBoardVisionQuotaExhaustedException(val code: String, cause: Throwable) : RuntimeException(code, cause)
+
 // 클라이언트 자체 OCR 결과 1건 — idx 는 클라이언트 UI 박스와 결과를 잇는 키다.
 data class OcrItem(
     val idx: Int,

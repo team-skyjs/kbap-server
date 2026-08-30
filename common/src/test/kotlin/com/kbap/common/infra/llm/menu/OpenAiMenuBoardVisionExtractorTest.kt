@@ -1,8 +1,14 @@
 package com.kbap.common.infra.llm.menu
 
 import com.kbap.common.domain.metering.LlmCallCostIncurred
+import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
+import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.infra.llm.model.LlmPricing
+import com.openai.core.http.Headers
+import com.openai.errors.RateLimitException
+import com.openai.models.ErrorObject
+import java.util.Optional
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -259,6 +265,56 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 recorded shouldHaveSize 1
                 recorded.first().costUsd shouldBe BigDecimal("1.400000")
                 recorded.first().costKrw shouldBe BigDecimal("2100.00")
+            }
+        }
+    }
+
+    given("벤더 429 응답") {
+        fun headersOf(vararg pairs: Pair<String, String>): Headers =
+            Headers.builder().apply { pairs.forEach { (name, value) -> put(name, value) } }.build()
+
+        fun errorOf(code: String): ErrorObject =
+            ErrorObject.builder().code(code).message("rate limited").param(Optional.empty()).type("requests").build()
+
+        fun rateLimit(headers: Headers = headersOf(), code: String = "rate_limit_exceeded"): RateLimitException =
+            RateLimitException.builder().headers(headers).error(errorOf(code)).build()
+
+        fun chatModelFailingWith(e: Throwable): ChatModel =
+            object : ChatModel {
+                override fun call(prompt: Prompt): ChatResponse = throw e
+            }
+
+        `when`("x-should-retry 가 false 인 429(요청이 TPM 을 넘음)를 받으면") {
+            then("재시도 없이 즉시 rate-limit 예외로 바꾸고 한도 헤더를 메시지에 남긴다") {
+                val e = rateLimit(headersOf("x-should-retry" to "false", "x-ratelimit-remaining-requests" to "0", "x-ratelimit-remaining-tokens" to "1200"))
+                val (extractor, recorded) = extractorRecording(chatModelFailingWith(e))
+
+                val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+
+                thrown.exhausted shouldBe false
+                thrown.retryAfterSeconds shouldBe null
+                thrown.message shouldContain "remaining-requests=0"
+                thrown.message shouldContain "remaining-tokens=1200"
+                recorded.shouldBeEmpty()
+            }
+        }
+
+        `when`("Retry-After 가 실린 즉시 거절 429 를 받으면") {
+            then("재시도 권고 초를 예외에 담는다") {
+                val e = rateLimit(headersOf("x-should-retry" to "false", "retry-after" to "20"))
+                val (extractor, _) = extractorRecording(chatModelFailingWith(e))
+
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                    .retryAfterSeconds shouldBe 20L
+            }
+        }
+
+        `when`("잔액·한도 계열 429(insufficient_quota)를 받으면") {
+            then("재시도 없이 quota 소진 예외로 바꾼다") {
+                val (extractor, _) = extractorRecording(chatModelFailingWith(rateLimit(code = "insufficient_quota")))
+
+                shouldThrow<MenuBoardVisionQuotaExhaustedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                    .code shouldBe "insufficient_quota"
             }
         }
     }

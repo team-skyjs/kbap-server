@@ -21,6 +21,7 @@ import org.springframework.util.MimeTypeUtils
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.URI
+import java.time.Duration
 
 class OpenAiMenuBoardVisionExtractor(
     private val chatModel: ChatModel,
@@ -29,6 +30,8 @@ class OpenAiMenuBoardVisionExtractor(
     private val pricing: LlmPricing = LlmPricing.UNPRICED,
     private val configuredModelName: String = "",
     private val eventPublisher: ApplicationEventPublisher = ApplicationEventPublisher { },
+    private val retryBudget: Duration = Duration.ofSeconds(10),
+    private val sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
 ) : MenuBoardVisionExtractor {
     private val log = LoggerFactory.getLogger(javaClass)
 

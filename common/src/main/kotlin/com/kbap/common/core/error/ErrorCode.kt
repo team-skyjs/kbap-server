@@ -48,6 +48,7 @@ enum class ErrorCode(
     DUPLICATE_SCAN_REQUEST("SCAN-005", 409, "이미 처리 중인 스캔 요청입니다"),
     SCAN_VISION_UNAVAILABLE("SCAN-006", 503, "스캔을 완료하지 못했어요. 횟수 차감 없이 다시 시도할 수 있어요."),
     INVALID_SCAN_TICKET("SCAN-007", 400, "유효하지 않은 스캔 티켓이에요. 처음부터 다시 시도해 주세요"),
+    SCAN_RATE_LIMITED("SCAN-008", 503, "일시적으로 요청이 많습니다. 잠시 후 다시 시도해 주세요"),
 
     REVIEW_NOT_FOUND("REVIEW-001", 400, "해당 리뷰를 찾을 수 없습니다"),
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
