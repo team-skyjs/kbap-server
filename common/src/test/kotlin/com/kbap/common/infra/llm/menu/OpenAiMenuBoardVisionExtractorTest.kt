@@ -55,6 +55,15 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             override fun call(prompt: Prompt): ChatResponse = response
         }
 
+    fun headersOf(vararg pairs: Pair<String, String>): Headers =
+        Headers.builder().apply { pairs.forEach { (name, value) -> put(name, value) } }.build()
+
+    fun errorOf(code: String): ErrorObject =
+        ErrorObject.builder().code(code).message("error").param(Optional.empty()).type("server").build()
+
+    fun rateLimit(headers: Headers = headersOf(), code: String = "rate_limit_exceeded"): RateLimitException =
+        RateLimitException.builder().headers(headers).error(errorOf(code)).build()
+
     fun chatModelThrowing(): ChatModel =
         object : ChatModel {
             override fun call(prompt: Prompt): ChatResponse = throw RuntimeException("vision 호출 실패")
@@ -278,15 +287,6 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
     }
 
     given("벤더 429 응답") {
-        fun headersOf(vararg pairs: Pair<String, String>): Headers =
-            Headers.builder().apply { pairs.forEach { (name, value) -> put(name, value) } }.build()
-
-        fun errorOf(code: String): ErrorObject =
-            ErrorObject.builder().code(code).message("rate limited").param(Optional.empty()).type("requests").build()
-
-        fun rateLimit(headers: Headers = headersOf(), code: String = "rate_limit_exceeded"): RateLimitException =
-            RateLimitException.builder().headers(headers).error(errorOf(code)).build()
-
         fun chatModelFailingWith(e: Throwable): ChatModel =
             object : ChatModel {
                 override fun call(prompt: Prompt): ChatResponse = throw e
@@ -334,15 +334,6 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             usage = DefaultUsage(100, 50, 150),
         )
 
-        fun headersOf(vararg pairs: Pair<String, String>): Headers =
-            Headers.builder().apply { pairs.forEach { (name, value) -> put(name, value) } }.build()
-
-        fun errorOf(code: String): ErrorObject =
-            ErrorObject.builder().code(code).message("error").param(Optional.empty()).type("server").build()
-
-        fun rateLimit(vararg headers: Pair<String, String>): RateLimitException =
-            RateLimitException.builder().headers(headersOf(*headers)).error(errorOf("rate_limit_exceeded")).build()
-
         fun serverError(): InternalServerException =
             InternalServerException.builder().statusCode(500).headers(headersOf()).error(errorOf("server_error")).build()
 
@@ -371,7 +362,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("1초 대기 후 재시도해 결과를 돌려준다") {
                 val sleeps = mutableListOf<Duration>()
                 val extractor = extractorWithBudget(
-                    chatModelSequence({ throw rateLimit("retry-after" to "1") }, { success }),
+                    chatModelSequence({ throw rateLimit(headersOf("retry-after" to "1")) }, { success }),
                     sleeps,
                 )
 
@@ -386,7 +377,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("대기 합이 예산을 넘기 전에 멈추고 재시도 소진 rate-limit 예외를 던진다") {
                 val sleeps = mutableListOf<Duration>()
                 val extractor = extractorWithBudget(
-                    chatModelSequence({ throw rateLimit("retry-after" to "2", "x-ratelimit-remaining-requests" to "0") }),
+                    chatModelSequence({ throw rateLimit(headersOf("retry-after" to "2", "x-ratelimit-remaining-requests" to "0")) }),
                     sleeps,
                 )
 
