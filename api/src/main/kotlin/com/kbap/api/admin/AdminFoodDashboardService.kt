@@ -6,7 +6,6 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
-import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -62,14 +61,15 @@ class AdminFoodDashboardService(
             keyword == null && status == null -> vectorOutboxRepository.findAll(pageable)
             keyword == null -> vectorOutboxRepository.findByOutboxStatus(status!!, pageable)
             else -> {
-                val foodIds = buildSet {
-                    addAll(foodRepository.findByDisplayNameContainingOrderByIdAsc(keyword).map { it.id })
-                    keyword.toLongOrNull()?.let { add(it) }
-                }
-                when {
-                    foodIds.isEmpty() -> Page.empty(pageable)
-                    status == null -> vectorOutboxRepository.findByFoodIdIn(foodIds, pageable)
-                    else -> vectorOutboxRepository.findByFoodIdInAndOutboxStatus(foodIds, status, pageable)
+                val foodId = keyword.toLongOrNull() ?: NO_FOOD_ID
+                when (status) {
+                    null -> vectorOutboxRepository.findByFoodDisplayNameContainingOrFoodId(keyword, foodId, pageable)
+                    else -> vectorOutboxRepository.findByFoodDisplayNameContainingOrFoodIdAndOutboxStatus(
+                        keyword,
+                        foodId,
+                        status,
+                        pageable,
+                    )
                 }
             }
         }
@@ -110,6 +110,8 @@ class AdminFoodDashboardService(
         const val ENQUEUE_MAX = 500
 
         const val VECTOR_OUTBOX_PAGE_SIZE = 50
+
+        private const val NO_FOOD_ID = -1L
     }
 }
 

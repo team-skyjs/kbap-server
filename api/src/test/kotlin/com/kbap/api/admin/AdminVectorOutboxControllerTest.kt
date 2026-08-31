@@ -162,6 +162,28 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검색 결과가 페이지 크기를 넘으면") {
+                then("검색에도 페이지 제한이 먼저 적용된다") {
+                    repeat(60) { i ->
+                        saveOutbox(saveFood("김치찌개$i").id)
+                    }
+
+                    getPage("?q=김치").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(50) }
+                        jsonPath("$.payload.totalCount") { value(60) }
+                        jsonPath("$.payload.totalPages") { value(2) }
+                        jsonPath("$.payload.hasNext") { value(true) }
+                    }
+
+                    getPage("?q=김치&page=2").andExpect {
+                        jsonPath("$.payload.items.length()") { value(10) }
+                        jsonPath("$.payload.hasPrev") { value(true) }
+                        jsonPath("$.payload.hasNext") { value(false) }
+                    }
+                }
+            }
+
             `when`("q 가 아무것도 매칭하지 않으면") {
                 then("빈 목록과 totalCount=0 을 내려준다") {
                     saveOutbox(saveFood("김치찌개").id)
