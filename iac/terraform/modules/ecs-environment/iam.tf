@@ -109,7 +109,7 @@ data "aws_iam_policy_document" "api_task" {
     resources = [aws_s3vectors_index.foods.index_arn]
   }
   dynamic "statement" {
-    for_each = var.api_execute_command_enabled ? [1] : []
+    for_each = local.performance_profiling_enabled ? [1] : []
     content {
       sid = "EcsExecChannel"
       actions = [
@@ -122,7 +122,7 @@ data "aws_iam_policy_document" "api_task" {
     }
   }
   dynamic "statement" {
-    for_each = var.api_execute_command_enabled ? [1] : []
+    for_each = local.performance_profiling_enabled ? [1] : []
     content {
       sid       = "PutPerformanceArtifact"
       actions   = ["s3:PutObject"]
