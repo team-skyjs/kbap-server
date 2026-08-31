@@ -65,7 +65,7 @@ interface AdminFoodContentReviewApi {
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
-    @ApiErrors(ErrorCode.FOOD_NOT_FOUND)
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_NOT_REVIEWABLE)
     fun applyContentReviewResult(
         @Parameter(description = "승인 결과를 반영할 음식 id", example = "1")
         foodId: Long,
