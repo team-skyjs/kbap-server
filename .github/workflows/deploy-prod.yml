@@ -89,6 +89,22 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
+      # 이전 카나리(bake 15분 포함 ~35분)가 끝나기 전에 새 배포를 만들면 DeploymentLimitExceeded 로
+      # 실패한다 — 진행 중 배포가 있으면 종료까지 대기(최대 40분)한 뒤 생성한다. 머지 타이밍 제약 제거.
+      - name: Wait for in-flight CodeDeploy deployment
+        run: |
+          for i in $(seq 1 80); do
+            ACTIVE=$(aws deploy list-deployments --application-name "$ECS_NAME-api" \
+              --deployment-group-name "$ECS_NAME-api" \
+              --include-only-statuses Created Queued InProgress Baking Ready \
+              --query 'deployments[0]' --output text)
+            [ "$ACTIVE" = "None" ] && exit 0
+            echo "in-flight deployment $ACTIVE — 30s 대기 ($i/80)"
+            sleep 30
+          done
+          echo "::error::이전 배포가 40분 내에 끝나지 않았습니다"
+          exit 1
+
       # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
       # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지(KB-242 판정 기준
       # 유지) — 이후 성패는 CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백).
@@ -120,18 +136,29 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # 릴리즈 노트·슬랙 알림(KB-266) — "배포 생성" 시점 기준 발행, 실패해도 배포 판정에 영향 없음
+  # GitHub Release — 본문은 --generate-notes 자동 생성(PR 목록). 재배포(build=false)는 발행하지 않고,
+  # 릴리즈 실패는 배포 성공/실패 판정에 영향 없다(별도 잡). 태그: prod-YYYYMMDD-<short-sha> (KST)
   release:
     needs: deploy
-    if: always()
+    if: needs.deploy.result == 'success' && needs.deploy.outputs.build == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    uses: ./.github/workflows/release-notes.yml
-    with:
-      environment: prod
-      prerelease: false
-      sha: ${{ github.sha }}
-      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
-      deploy_result: ${{ needs.deploy.result }}
-    secrets:
-      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create GitHub release with auto notes
+        run: |
+          TAG="prod-$(TZ=Asia/Seoul date +%Y%m%d)-${GITHUB_SHA::7}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG 이미 존재 — 재실행 멱등 skip" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+            --jq 'map(.tagName | select(startswith("prod-")))[0] // empty')
+          NOTES_START=()
+          [ -n "$PREV_TAG" ] && NOTES_START=(--notes-start-tag "$PREV_TAG")
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "PROD · $(TZ=Asia/Seoul date +%Y-%m-%d) · ${GITHUB_SHA::7}" \
+            --generate-notes "${NOTES_START[@]}"
+          echo "release: $TAG" >> "$GITHUB_STEP_SUMMARY"

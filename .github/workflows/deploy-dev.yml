@@ -91,7 +91,23 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
+      # bake 는 워크플로 종료 뒤에도 이어져 머지 큐·concurrency 로는 겹침을 막을 수 없다(둘 다 런 단위).
+      # 진행 중 배포가 있으면 종료까지 대기(최대 15분 — 카나리 3분+구버전 3분+기동 여유)한 뒤 생성한다.
+      - name: Wait for in-flight CodeDeploy deployment
+        run: |
+          for i in $(seq 1 30); do
+            ACTIVE=$(aws deploy list-deployments --application-name "$ECS_NAME-api" \
+              --deployment-group-name "$ECS_NAME-api" \
+              --include-only-statuses Created Queued InProgress Baking Ready \
+              --query 'deployments[0]' --output text)
+            [ "$ACTIVE" = "None" ] && exit 0
+            echo "in-flight deployment $ACTIVE — 30s 대기 ($i/30)"
+            sleep 30
+          done
+          echo "::error::이전 배포가 15분 내에 끝나지 않았습니다"
+          exit 1
+
+      # 카나리(20% 3분 → 100%, 구버전 3분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
       # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지 — 이후 성패는
       # CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백, 결과는 콘솔·알람으로 확인).
       - name: Create CodeDeploy canary deployment
@@ -122,18 +138,29 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # 릴리즈 노트·슬랙 알림(KB-266) — 실패해도 배포 성공/실패 판정에 영향 없음
+  # GitHub Release — 본문은 --generate-notes 자동 생성(PR 목록). 재배포(build=false)는 발행하지 않고,
+  # 릴리즈 실패는 배포 성공/실패 판정에 영향 없다(별도 잡). 태그: dev-YYYYMMDD-<short-sha> (KST)
   release:
     needs: deploy
-    if: always()
+    if: needs.deploy.result == 'success' && needs.deploy.outputs.build == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    uses: ./.github/workflows/release-notes.yml
-    with:
-      environment: dev
-      prerelease: true
-      sha: ${{ github.sha }}
-      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
-      deploy_result: ${{ needs.deploy.result }}
-    secrets:
-      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create GitHub release with auto notes
+        run: |
+          TAG="dev-$(TZ=Asia/Seoul date +%Y%m%d)-${GITHUB_SHA::7}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG 이미 존재 — 재실행 멱등 skip" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+            --jq 'map(.tagName | select(startswith("dev-")))[0] // empty')
+          NOTES_START=()
+          [ -n "$PREV_TAG" ] && NOTES_START=(--notes-start-tag "$PREV_TAG")
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "DEV · $(TZ=Asia/Seoul date +%Y-%m-%d) · ${GITHUB_SHA::7}" \
+            --generate-notes "${NOTES_START[@]}" --prerelease --latest=false
+          echo "release: $TAG" >> "$GITHUB_STEP_SUMMARY"
