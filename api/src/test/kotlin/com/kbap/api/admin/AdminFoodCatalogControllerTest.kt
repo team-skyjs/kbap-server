@@ -8,6 +8,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.Food
@@ -115,12 +116,15 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
 
         fun postRestore(id: Long): ResultActionsDsl = mockMvc.post("$path/$id/restore") { adminAuth(this) }
 
-        fun hasPendingUpsertOutbox(foodId: Long): Boolean =
+        fun hasPendingOutbox(foodId: Long, operation: FoodVectorOutboxOperation): Boolean =
             foodVectorOutboxJpaRepository.existsByFoodIdAndOperationAndOutboxStatus(
                 foodId,
-                FoodVectorOutboxOperation.UPSERT,
+                operation,
                 FoodVectorOutboxStatus.PENDING,
             )
+
+        fun hasPendingUpsertOutbox(foodId: Long): Boolean =
+            hasPendingOutbox(foodId, FoodVectorOutboxOperation.UPSERT)
 
         beforeContainer { clearFoods() }
         afterSpec { clearFoods() }
@@ -737,6 +741,19 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("대기 중인 벡터 삭제 큐가 남은 채로 READY 음식을 복원하면") {
+                then("삭제 큐는 취소되고 UPSERT 만 남는다 — 어떤 처리 순서에도 벡터가 살아남는다") {
+                    val food = saveFood("경합복원찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe true
+
+                    postRestore(food.id).andExpect { status { isOk() } }
+
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe false
+                    hasPendingUpsertOutbox(food.id) shouldBe true
+                }
+            }
+
             `when`("삭제된 비 READY 음식을 복원하면") {
                 then("복원은 되지만 벡터 동기화는 큐잉하지 않는다") {
                     val food = saveFood("실패찌개", FoodContentStatus.FAILED)
@@ -774,6 +791,18 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
         }
 
         given("어드민 음식 소프트삭제 API") {
+            `when`("대기 중인 벡터 UPSERT 큐가 남은 채로 삭제하면") {
+                then("UPSERT 는 취소되고 DELETE 만 남는다 — 삭제된 음식의 벡터가 되살아나지 않는다") {
+                    val food = saveFood("경합삭제찌개")
+                    foodVectorOutboxJpaRepository.save(FoodVectorOutbox.upsert(food.id))
+
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    hasPendingUpsertOutbox(food.id) shouldBe false
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe true
+                }
+            }
+
             `when`("음식을 삭제하면") {
                 then("목록·상세에서 사라진다") {
                     val food = saveFood("삭제할찌개")

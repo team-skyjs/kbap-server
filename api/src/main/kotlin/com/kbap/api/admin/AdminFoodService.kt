@@ -12,6 +12,7 @@ import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
@@ -88,6 +89,7 @@ class AdminFoodService(
         }
         food.active()
         if (food.isReady()) {
+            cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
             vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
         }
         return AdminFoodRestoreResponse(restored = true, contentStatus = food.contentStatus)
@@ -157,8 +159,15 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
+    }
+
+    private fun cancelPendingVectorOutboxes(foodId: Long, operation: FoodVectorOutboxOperation) {
+        vectorOutboxRepository
+            .findByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
+            .forEach { it.delete() }
     }
 
     @Transactional
