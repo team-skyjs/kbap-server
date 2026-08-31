@@ -87,11 +87,12 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 content = mapper.writeValueAsString(body)
             }
 
-        fun updateBody(koreanName: String): Map<String, Any?> = mapOf(
+        fun updateBody(koreanName: String, version: Long = 0): Map<String, Any?> = mapOf(
             "koreanName" to koreanName,
             "description" to "설명",
             "spiciness" to 1,
             "contentStatus" to "READY",
+            "version" to version,
         )
 
         fun recollectOne(id: Long): ResultActionsDsl = mockMvc.post("$path/$id/recollect") { adminAuth(this) }
@@ -351,6 +352,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                             "nameTranslations" to mapOf("en" to "Updated stew"),
                             "descriptionTranslations" to mapOf("en" to "richer stew"),
                             "ingredients" to listOf(mapOf("code" to "SOY", "inclusion_percent" to 80)),
+                            "version" to food.version,
                         ),
                     ).andExpect {
                         status { isOk() }
@@ -397,6 +399,17 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                     putUpdate(999999, updateBody(koreanName = "유령찌개")).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+
+            `when`("version 을 누락하고 수정하면") {
+                then("400(COMMON-002) 검증 실패로 응답한다") {
+                    val food = saveFood("무버전찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "무버전찌개") - "version").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
                     }
                 }
             }

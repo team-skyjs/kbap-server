@@ -76,6 +76,7 @@ data class AdminFoodUpdateRequest(
     val nameTranslations: Map<String, String>? = null,
     val descriptionTranslations: Map<String, String>? = null,
     val ingredients: List<FoodIngredient>? = null,
+    @field:NotNull
     val version: Long? = null,
 ) {
     @AssertTrue(message = "ingredients 의 code 는 성분 카탈로그 코드여야 합니다")
