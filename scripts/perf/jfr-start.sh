@@ -51,16 +51,26 @@ trap rollback_on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# ECS exec 세션은 스트림 뒷부분을 곧잘 자른다(2026-08-31 실측: 첫 stdout 줄만 안정 전달).
+# 판정을 스트림 전문 검사 대신 컨테이너 안 파일 grep + 단일 마커(JFR_START_OK) 첫 줄로 옮기고,
+# 마커 유실 대비 재시도한다(재시작 전 같은 이름 녹화를 정지해 중복 이름 오류 방지).
 for task_id in "${TASK_IDS[@]}"; do
   STARTED_TASK_IDS+=("$task_id")
-  if ! output=$(execute_in_task "$task_id" "jcmd 1 JFR.start name=$RUN_ID settings=/app/kbap-profile.jfc filename=/tmp/$RUN_ID.jfr maxsize=256m"); then
-    exit 1
-  fi
-  if [[ "$output" != *"Started recording"* ]]; then
+  started=false
+  for attempt in 1 2 3; do
+    start_command="sh -c 'jcmd 1 JFR.stop name=$RUN_ID >/dev/null 2>&1; jcmd 1 JFR.start name=$RUN_ID settings=/app/kbap-profile.jfc filename=/tmp/$RUN_ID.jfr maxsize=256m >/tmp/$RUN_ID.start.log 2>&1; if grep -q \"Started recording\" /tmp/$RUN_ID.start.log; then echo JFR_START_OK; else cat /tmp/$RUN_ID.start.log >&2; fi; rm -f /tmp/$RUN_ID.start.log"
+    start_command+="'"
+    if output=$(execute_in_task "$task_id" "$start_command") && [[ "$output" == *"JFR_START_OK"* ]]; then
+      started=true
+      printf 'task %s: JFR recording started (attempt %s/3)\n' "$task_id" "$attempt"
+      break
+    fi
+    echo "warning: JFR start attempt $attempt/3 unconfirmed on task $task_id" >&2
+  done
+  if [[ "$started" != "true" ]]; then
     echo "error: JFR did not start on task $task_id" >&2
     exit 1
   fi
-  printf '%s\n' "$output"
 done
 start_complete=true
 trap - EXIT INT TERM
