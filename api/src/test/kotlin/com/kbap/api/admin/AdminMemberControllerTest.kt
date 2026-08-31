@@ -133,6 +133,26 @@ class AdminMemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("탈퇴한 멤버가 있으면") {
+                then("목록·검색에 WITHDRAWN 상태로 나온다") {
+                    saveMember("stay-uid", nickname = "잔류회원")
+                    val withdrawn = saveMember("gone-uid", nickname = "탈퇴회원")
+                    memberJpaRepository.save(withdrawn.apply { withdraw() })
+
+                    getJson(path).andExpect {
+                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.items[0].id") { value(withdrawn.id) }
+                        jsonPath("$.payload.items[0].memberStatus") { value("WITHDRAWN") }
+                        jsonPath("$.payload.items[1].memberStatus") { value("ACTIVE") }
+                    }
+
+                    getJson("$path?q=탈퇴").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].memberStatus") { value("WITHDRAWN") }
+                    }
+                }
+            }
+
             `when`("USER 역할 토큰으로 호출하면") {
                 then("403(AUTH-008) 으로 거절한다") {
                     getJson(path, token = tokenOf(MemberRole.USER)).andExpect {
@@ -164,6 +184,20 @@ class AdminMemberControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.sanctions.length()") { value(0) }
                         jsonPath("$.payload.createdAt") { exists() }
                     }
+                }
+            }
+
+            `when`("탈퇴한 멤버를 조회하면") {
+                then("WITHDRAWN 상태로 상세와 활동을 그대로 볼 수 있다") {
+                    val member = saveMember("withdrawn-uid", nickname = "탈퇴자")
+                    memberJpaRepository.save(member.apply { withdraw() })
+
+                    getJson("$path/${member.id}").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.memberStatus") { value("WITHDRAWN") }
+                    }
+
+                    getJson("$path/${member.id}/reviews").andExpect { status { isOk() } }
                 }
             }
 

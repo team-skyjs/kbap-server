@@ -14,18 +14,36 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
 
     @Query(
-        """
-        select m from Member m
-        where m.id = :memberId
-           or m.nickname like concat('%', :keyword, '%')
-           or m.email like concat('%', :keyword, '%')
-        """,
+        value = "SELECT * FROM member ORDER BY id DESC",
+        countQuery = "SELECT count(*) FROM member",
+        nativeQuery = true,
     )
-    fun searchByKeyword(
+    fun findPageAnyStatus(pageable: Pageable): Page<Member>
+
+    @Query(
+        value = """
+            SELECT * FROM member
+            WHERE id = :memberId
+               OR nickname LIKE CONCAT('%', :keyword, '%')
+               OR email LIKE CONCAT('%', :keyword, '%')
+            ORDER BY id DESC
+        """,
+        countQuery = """
+            SELECT count(*) FROM member
+            WHERE id = :memberId
+               OR nickname LIKE CONCAT('%', :keyword, '%')
+               OR email LIKE CONCAT('%', :keyword, '%')
+        """,
+        nativeQuery = true,
+    )
+    fun searchPageAnyStatusByKeyword(
         @Param("keyword") keyword: String,
         @Param("memberId") memberId: Long,
         pageable: Pageable,
     ): Page<Member>
+
+    @Query(value = "SELECT * FROM member WHERE id = :id", nativeQuery = true)
+    fun findAnyById(@Param("id") id: Long): Member?
 
     fun countByMemberStatus(memberStatus: MemberStatus): Long
 

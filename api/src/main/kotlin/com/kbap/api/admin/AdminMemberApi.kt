@@ -15,7 +15,8 @@ interface AdminMemberApi {
     @Operation(
         summary = "멤버 목록/검색 조회",
         description = """
-            전체 멤버를 id 내림차순으로 페이지 조회한다(탈퇴 포함 — `memberStatus` 로 구분).
+            전체 멤버를 id 내림차순으로 페이지 조회한다 — 탈퇴 멤버 포함.
+            `memberStatus` 는 ACTIVE·SUSPENDED·WITHDRAWN(탈퇴) 중 하나다.
 
             - `q` 를 주면 닉네임·이메일 부분 일치로 검색하고, 숫자면 멤버 id 일치도 함께 매칭한다.
             - 페이지 크기는 서버 고정(20)이며, 응답에 전체 건수(`totalCount`)를 포함한다.

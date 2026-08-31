@@ -30,10 +30,14 @@ class AdminMemberQueryService(
     @Transactional(readOnly = true)
     fun searchMemberPage(page: Int, query: String? = null): AdminMemberListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
-        val pageable = PageRequest.of(page - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
+        val pageable = PageRequest.of(page - 1, PAGE_SIZE)
         val result = when (keyword) {
-            null -> memberRepository.findAll(pageable)
-            else -> memberRepository.searchByKeyword(keyword, keyword.toLongOrNull() ?: NO_MEMBER_ID, pageable)
+            null -> memberRepository.findPageAnyStatus(pageable)
+            else -> memberRepository.searchPageAnyStatusByKeyword(
+                keyword,
+                keyword.toLongOrNull() ?: NO_MEMBER_ID,
+                pageable,
+            )
         }
         return AdminMemberListResponse(
             items = result.content.map { AdminMemberListItemResponse.from(it) },
@@ -47,7 +51,7 @@ class AdminMemberQueryService(
 
     @Transactional(readOnly = true)
     fun getMemberDetail(id: Long): AdminMemberDetailResponse {
-        val member = memberRepository.findById(id).orElse(null)
+        val member = memberRepository.findAnyById(id)
             ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), imagePublicBaseUrl)
     }
@@ -97,7 +101,7 @@ class AdminMemberQueryService(
     }
 
     private fun requireMemberExists(memberId: Long) {
-        if (!memberRepository.existsById(memberId)) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        memberRepository.findAnyById(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
     }
 
     private fun activityPageable(page: Int) =

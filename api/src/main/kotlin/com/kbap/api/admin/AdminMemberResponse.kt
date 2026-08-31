@@ -1,7 +1,6 @@
 package com.kbap.api.admin
 
 import com.kbap.common.domain.member.model.Member
-import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.review.model.Review
@@ -24,7 +23,7 @@ data class AdminMemberListItemResponse(
     val nickname: String?,
     val email: String?,
     val provider: SocialProvider,
-    val memberStatus: MemberStatus,
+    val memberStatus: String,
     val onboardingCompleted: Boolean,
     val createdAt: LocalDateTime,
 ) {
@@ -35,7 +34,7 @@ data class AdminMemberListItemResponse(
                 nickname = member.nickname,
                 email = member.email,
                 provider = member.provider,
-                memberStatus = member.memberStatus,
+                memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
                 createdAt = member.createdAt,
             )
@@ -47,7 +46,7 @@ data class AdminMemberDetailResponse(
     val nickname: String?,
     val email: String?,
     val provider: SocialProvider,
-    val memberStatus: MemberStatus,
+    val memberStatus: String,
     val onboardingCompleted: Boolean,
     val profileImageUrl: String?,
     val avoidanceSubstanceCodes: List<String>,
@@ -68,7 +67,7 @@ data class AdminMemberDetailResponse(
                 nickname = member.nickname,
                 email = member.email,
                 provider = member.provider,
-                memberStatus = member.memberStatus,
+                memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
                 profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, profile.profileImageUrl),
                 avoidanceSubstanceCodes = profile.avoidanceSubstanceCodes.map { it.value },
@@ -187,3 +186,8 @@ data class AdminDailyCountResponse(
     val date: LocalDate,
     val count: Long,
 )
+
+private const val WITHDRAWN_MEMBER_STATUS = "WITHDRAWN"
+
+private fun adminMemberStatusOf(member: Member): String =
+    if (member.isDeleted()) WITHDRAWN_MEMBER_STATUS else member.memberStatus.name
