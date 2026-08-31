@@ -107,7 +107,7 @@ jobs:
           echo "::error::이전 배포가 40분 내에 끝나지 않았습니다"
           exit 1
 
-      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
+      # 카나리(20% 3분 → 100%, 구버전 3분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
       # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지 — 이후 성패는
       # CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백, 결과는 콘솔·알람으로 확인).
       - name: Create CodeDeploy canary deployment
