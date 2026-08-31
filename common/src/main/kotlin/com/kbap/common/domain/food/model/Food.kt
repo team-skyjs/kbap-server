@@ -1,5 +1,7 @@
 package com.kbap.common.domain.food.model
 
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
@@ -78,16 +80,16 @@ class Food(
 
     fun approve(): Boolean {
         if (contentStatus == FoodContentStatus.READY) return false
-        require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
+        if (contentStatus != FoodContentStatus.PENDING_REVIEW) {
+            throw BusinessException(ErrorCode.FOOD_NOT_REVIEWABLE)
         }
         contentStatus = FoodContentStatus.READY
         return true
     }
 
     fun reject(reason: String?) {
-        require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
+        if (contentStatus != FoodContentStatus.PENDING_REVIEW) {
+            throw BusinessException(ErrorCode.FOOD_NOT_REVIEWABLE)
         }
         contentStatus = FoodContentStatus.FAILED
         contentReviewAttempts++
