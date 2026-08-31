@@ -1,7 +1,12 @@
+import base64
+import hashlib
+import hmac
+import json
 import os
 import re
 import subprocess
 import threading
+import time
 import uuid
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -22,6 +27,25 @@ from .waits import CampaignWaitTimeoutError, CampaignWaits, TERMINAL_STATUSES
 
 ACTIVE_STATUSES: Final = (RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.CANCELLING)
 PHASE_PATTERN: Final = re.compile(r"\bphase=([a-z-]+)\b")
+FIXED_MEMBER_ID: Final = "35"
+MINTED_TOKEN_TTL_SECONDS: Final = 2 * 60 * 60
+
+
+def mint_member_access_token(secret: str, member_id: str = FIXED_MEMBER_ID, ttl_seconds: int = MINTED_TOKEN_TTL_SECONDS) -> str:
+    def encode(data: bytes) -> str:
+        return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+    now = int(time.time())
+    header = encode(json.dumps({"alg": "HS256"}).encode())
+    payload = encode(json.dumps({
+        "sub": member_id,
+        "token_type": "ACCESS",
+        "role": "USER",
+        "iat": now,
+        "exp": now + ttl_seconds,
+    }).encode())
+    signature = encode(hmac.new(secret.encode(), f"{header}.{payload}".encode(), hashlib.sha256).digest())
+    return f"{header}.{payload}.{signature}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +249,9 @@ class CampaignController:
         env = os.environ.copy()
         env["CAMPAIGN_ID"] = campaign_id
         env["JFR_ENABLED"] = "true" if request.jfr_enabled else "false"
+        if request.jwt_secret:
+            env["JWT_SECRET"] = request.jwt_secret
+            env["ACCESS_TOKEN"] = mint_member_access_token(request.jwt_secret)
         done = threading.Event()
         process: subprocess.Popen[str] | None = None
         try:

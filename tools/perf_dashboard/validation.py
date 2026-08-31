@@ -216,6 +216,9 @@ def validate_run_request(payload: Mapping[str, JsonValue], targets: tuple[Target
         raise RequestValidationError("invalid-jfr-enabled")
     if not raw_jfr and (profile is not Profile.SMOKE or len(selected) != 1):
         raise RequestValidationError("jfr-off-requires-single-smoke")
+    raw_jwt_secret = payload.get("jwtSecret")
+    if raw_jwt_secret is not None and (not isinstance(raw_jwt_secret, str) or not raw_jwt_secret.strip()):
+        raise RequestValidationError("invalid-jwt-secret")
     limit = PROFILE_LIMITS[profile]
     return RunRequest(
         targets=selected,
@@ -223,4 +226,5 @@ def validate_run_request(payload: Mapping[str, JsonValue], targets: tuple[Target
         rate_or_vus=_positive_rate(payload.get("rateOrVus"), limit),
         duration_or_iterations=_duration(payload.get("durationOrIterations"), profile, limit),
         jfr_enabled=raw_jfr,
+        jwt_secret=raw_jwt_secret.strip() if isinstance(raw_jwt_secret, str) else None,
     )

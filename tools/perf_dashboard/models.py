@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import NewType, TypeAlias, TypedDict
 
@@ -65,6 +65,7 @@ class RunRequest:
     rate_or_vus: int
     duration_or_iterations: str
     jfr_enabled: bool
+    jwt_secret: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)

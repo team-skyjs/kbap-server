@@ -12,8 +12,33 @@ export JWT_SECRET='<dev JWT secret>'
 export ACCESS_TOKEN="$(python3 k6/mint-token.py 35 2)"
 ```
 
-Start the dashboard with `scripts/perf/dashboard.sh`, or invoke
-`scripts/perf/run-endpoint.sh TARGET PROFILE LOAD EXTENT`. The accepted profile
+# Quick start
+
+Easiest: start the dashboard with python3 only and paste the dev JWT secret
+into the page's "JWT Secret (dev)" field — a member 35 access token (2h) is
+minted locally per run, nothing is persisted:
+
+```bash
+./scripts/perf/dashboard-lite.sh   # opens http://127.0.0.1:8765/
+```
+
+AWS/k6/docker are still required when a campaign actually runs
+(`run-endpoint.sh` enforces them); the lite launcher only warns.
+
+For the fully validated launch, run:
+
+```bash
+./scripts/perf/quickstart.sh
+```
+
+`quickstart.sh` auto-creates `k6/fixtures/dev.json` from `dev.example.json`
+if missing, asks for `JWT_SECRET` when needed, creates a 2-hour member 35 token,
+and launches the dashboard.
+
+You can still launch directly with:
+
+`scripts/perf/run-endpoint.sh TARGET PROFILE LOAD EXTENT`.
+The accepted profile
 caps are smoke `1/1`, read `40/300s`, write `10/120s`, and external `10/10`.
 The runner performs one smoke iteration and an explicit two-minute warm-up before
 the requested measurement. Fixture offsets reserve those scheduled iterations.

@@ -69,7 +69,7 @@ const state = {
 
 const dom = Object.fromEntries([
   "header-status", "app-error", "selection-count", "safe-select-button", "clear-selection-button", "target-search", "suite-filter", "risk-filter", "target-list",
-  "profile", "profile-help", "load-label", "load-value", "load-help", "extent-label", "extent-value", "extent-help", "jfr-enabled",
+  "profile", "profile-help", "load-label", "load-value", "load-help", "extent-label", "extent-value", "extent-help", "jfr-enabled", "jwt-secret",
   "risk-approval-row", "risk-approval", "risk-warning", "configuration-error", "safe-all-button", "selected-run-button", "cancel-button",
   "live-title", "live-status", "elapsed-time", "active-summary", "active-targets", "console-output", "history-select", "results-body",
   "artifact-state", "bundle-download", "artifact-list",
@@ -625,8 +625,10 @@ async function startCampaign(mode) {
   setAppError("");
   const selected = selectedTargets();
   const signature = currentRiskSignature(selected);
-  const payload = buildRunPayload(mode === "safe-all" ? { mode } : {
+  const jwtSecret = dom["jwt-secret"].value;
+  const payload = buildRunPayload(mode === "safe-all" ? { mode, jwtSecret } : {
     mode,
+    jwtSecret,
     selectedKeys: selected.map((target) => target.key),
     profile: dom.profile.value,
     load: Number(dom["load-value"].value),

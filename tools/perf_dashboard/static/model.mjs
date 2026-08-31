@@ -213,8 +213,10 @@ export function canCancel({ campaign, cancelSent }) {
 }
 
 export function buildRunPayload(configuration) {
+  const jwtSecret = typeof configuration.jwtSecret === "string" ? configuration.jwtSecret.trim() : "";
+  const secretField = jwtSecret ? { jwtSecret } : {};
   if (configuration.mode === "safe-all") {
-    return { mode: "safe-all", profile: "smoke", rateOrVus: 1, durationOrIterations: "1", jfrEnabled: true };
+    return { mode: "safe-all", profile: "smoke", rateOrVus: 1, durationOrIterations: "1", jfrEnabled: true, ...secretField };
   }
   return {
     mode: "selected",
@@ -224,6 +226,7 @@ export function buildRunPayload(configuration) {
     durationOrIterations: configuration.extent,
     allowRisk: configuration.riskApproved,
     jfrEnabled: configuration.jfrEnabled,
+    ...secretField,
   };
 }
 

@@ -152,6 +152,10 @@ class StaticUiContractTest(unittest.TestCase):
         forbidden_input_fragments = ("token", "secret", "password", "credential", "authorization")
         for tag, attrs in self.document.elements:
             if tag == "input":
+                if attrs.get("id") == "jwt-secret":
+                    self.assertEqual("password", attrs.get("type"))
+                    self.assertEqual("off", attrs.get("autocomplete"))
+                    continue
                 searchable = " ".join((attrs.get("id", ""), attrs.get("name", ""), attrs.get("type", ""))).casefold()
                 self.assertTrue(all(fragment not in searchable for fragment in forbidden_input_fragments))
         self.assertNotIn("localStorage", self.app_source)

@@ -103,6 +103,14 @@
                 </div>
               </div>
 
+              <div class="configuration-grid">
+                <div class="field">
+                  <label for="jwt-secret">JWT Secret (dev)</label>
+                  <input id="jwt-secret" type="password" autocomplete="off" aria-describedby="jwt-secret-help" placeholder="dev JWT 시크릿 붙여넣기">
+                  <p id="jwt-secret-help" class="help">입력하면 실행마다 회원 35 토큰(2시간)을 로컬에서 만들어 사용합니다. 비우면 서버 환경변수 ACCESS_TOKEN 을 씁니다. 저장되지 않습니다.</p>
+                </div>
+              </div>
+
               <div class="configuration-options">
                 <label class="check-row"><input id="jfr-enabled" type="checkbox" aria-describedby="configuration-error" aria-invalid="false" checked disabled> <span>task별 JFR 수집</span></label>
                 <label id="risk-approval-row" class="check-row" hidden><input id="risk-approval" type="checkbox" aria-describedby="risk-warning configuration-error" aria-invalid="false"> <span>fixture 변경 또는 외부 비용 위험을 확인했습니다.</span></label>
