@@ -67,8 +67,10 @@ jobs:
 
       - name: Build and push image
         if: steps.image.outputs.build == 'true'
+        # dev 는 profile-runtime 스테이지(JDK jcmd·jfr + aws CLI + kbap-profile.jfc)로 배포해
+        # k6+JFR 성능 캠페인(#206)을 언제든 붙일 수 있게 한다. prod(deploy-prod.yml)는 슬림 runtime(JRE) 유지.
         run: |
-          docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
+          docker build --platform linux/amd64 --target profile-runtime -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
       # 태스크정의 원본(env·secrets·헬스체크·로그 구성)은 Terraform 소유(iac/terraform) —
