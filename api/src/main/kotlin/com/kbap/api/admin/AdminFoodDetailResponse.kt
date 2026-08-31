@@ -87,6 +87,11 @@ data class AdminFoodUpdateRequest(
     }
 }
 
+data class AdminFoodRestoreResponse(
+    val restored: Boolean,
+    val contentStatus: FoodContentStatus,
+)
+
 data class AdminFoodRecollectResponse(
     val requested: Long,
     val created: Long,

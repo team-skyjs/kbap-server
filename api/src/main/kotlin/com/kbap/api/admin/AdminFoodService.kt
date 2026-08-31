@@ -60,6 +60,40 @@ class AdminFoodService(
     }
 
     @Transactional(readOnly = true)
+    fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
+        val result = foodRepository.findDeletedPage(PageRequest.of(page - 1, LIST_PAGE_SIZE))
+        return AdminFoodListResponse(
+            items = result.content.map {
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+            },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
+        foodRepository.findDeletedById(id)
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    @Transactional
+    fun restoreFood(id: Long): AdminFoodRestoreResponse {
+        val food = foodRepository.findAnyById(id) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        if (!food.isDeleted()) {
+            return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
+        }
+        food.active()
+        if (food.isReady()) {
+            vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+        }
+        return AdminFoodRestoreResponse(restored = true, contentStatus = food.contentStatus)
+    }
+
+    @Transactional(readOnly = true)
     fun getFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findById(id).orElse(null)
             ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
@@ -255,6 +289,7 @@ data class AdminFoodListPageView(
 data class AdminFoodSummaryView(
     val id: Long,
     val koreanName: String,
+    val englishName: String?,
     val contentStatus: FoodContentStatus,
     val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
@@ -266,6 +301,7 @@ data class AdminFoodSummaryView(
             AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
+                englishName = food.nameTranslations[LanguageCode.EN.code],
                 contentStatus = food.contentStatus,
                 contentFailureKind = food.contentFailureKind,
                 spiciness = food.spiciness,
