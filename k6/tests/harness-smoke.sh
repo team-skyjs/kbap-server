@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+temp_dir="$(mktemp -d)"
+report_dir="$temp_dir/reports"
+mock_pid=""
+base_url=""
+
+cleanup() {
+  if [[ -n "$mock_pid" ]]; then
+    kill "$mock_pid" 2>/dev/null || true
+    wait "$mock_pid" 2>/dev/null || true
+  fi
+  rm -rf "$temp_dir"
+}
+trap cleanup EXIT
+
+MOCK_PORT=0 python3 "$repo_dir/k6/tests/mock-server.py" >"$temp_dir/mock-server.log" 2>&1 &
+mock_pid=$!
+mkdir -p "$report_dir"
+
+for _ in {1..50}; do
+  mock_port="$(awk -F '\t' '$1 == "READY" { print $2 }' "$temp_dir/mock-server.log")"
+  if [[ -n "$mock_port" ]]; then
+    base_url="http://127.0.0.1:$mock_port"
+    if curl --silent --fail "$base_url/api/app-version" >/dev/null; then
+      break
+    fi
+  fi
+  if ! kill -0 "$mock_pid" 2>/dev/null; then
+    exit 1
+  fi
+  sleep 0.1
+done
+
+if ! curl --silent --fail "$base_url/api/app-version" >/dev/null; then
+  exit 1
+fi
+
+k6 inspect \
+  -e TARGET=app-version \
+  -e BASE_URL="$base_url" \
+  -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=harness-smoke \
+  -e REPORT_DIR="$report_dir" \
+  "$repo_dir/k6/endpoint.js"
+
+k6 run \
+  -e TARGET=app-version \
+  -e BASE_URL="$base_url" \
+  -e ACCESS_TOKEN=test-token \
+  -e RUN_ID=harness-smoke \
+  -e REPORT_DIR="$report_dir" \
+  -e PROFILE=smoke \
+  "$repo_dir/k6/endpoint.js"
+
+test -s "$report_dir/report.html"
+test -s "$report_dir/summary.json"
+grep -q 'app-version' "$report_dir/report.html"
+grep -q '<th>Checks passed</th><td>2</td>' "$report_dir/report.html"
+grep -q '<th>Request count</th><td>1</td>' "$report_dir/report.html"
+rg -q '<th>http_req_duration</th><td>[0-9]' "$report_dir/report.html"
+if grep -q 'test-token' "$report_dir/report.html" "$report_dir/summary.json"; then
+  exit 1
+fi
+if rg -q '<script|https?://' "$report_dir/report.html"; then
+  exit 1
+fi
+
+printf '%s\n' 'k6 harness smoke: PASS'

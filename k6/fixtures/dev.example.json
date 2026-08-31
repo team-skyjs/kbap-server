@@ -1,0 +1,46 @@
+{
+  "memberId": 35,
+  "foodId": 1,
+  "foodKeyword": "김치",
+  "blockedMemberId": 36,
+  "reviewId": 1,
+  "profileV1": {
+    "nickname": "load35",
+    "avoidanceSubstanceCodes": [],
+    "dietCategories": [],
+    "countryCode": "KR",
+    "profileImageUrl": "images/default/profile/profile-default-512.png",
+    "spicinessPreference": "SKIP",
+    "currency": "KRW"
+  },
+  "profileV11": {
+    "nickname": "load35",
+    "avoidanceSubstanceCodes": [],
+    "dietCategories": [],
+    "profileImageUrl": "images/default/profile/profile-default-512.png",
+    "spicinessPreference": "SKIP",
+    "currency": "KRW"
+  },
+  "blockedMemberIds": [36],
+  "bookmarkFoodIds": [1],
+  "scanHistoryFoodIds": [1],
+  "reviewIds": [1],
+  "reportReviewIds": [2],
+  "imageCompleteFixtures": [
+    { "path": "images/menu-scan/[load:20260831T120000Z-image-complete]/load-complete-1.jpg", "contentType": "image/jpeg", "size": 1234 },
+    { "path": "images/menu-scan/[load:20260831T120000Z-image-complete]/load-complete-2.jpg", "contentType": "image/jpeg", "size": 1234 }
+  ],
+  "orderFixtures": [
+    { "imagePath": "images/menu-scan/load-order-1.jpg", "foodId": 1, "menuName": "김치찌개", "price": 9000 },
+    { "imagePath": "images/menu-scan/load-order-2.jpg", "foodId": 1, "menuName": "김치찌개", "price": 9000 }
+  ],
+  "placeLatitude": "37.4979502",
+  "placeLongitude": "127.0276368",
+  "placeQuery": "김치",
+  "orderId": 1,
+  "foodCursor": 100,
+  "bookmarkCursor": 100,
+  "scanCursor": 100,
+  "reviewCursor": 100,
+  "scanImagePath": "images/menu-scan/seed.jpg"
+}

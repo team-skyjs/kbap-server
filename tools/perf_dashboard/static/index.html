@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="localhost에서 k6와 JFR 성능 캠페인을 안전하게 실행하고 결과를 확인합니다.">
+  <title>KBAP 성능 캠페인</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body class="app-body">
+  <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="app-kicker">LOCAL PERFORMANCE CONTROL</p>
+        <h1>KBAP 성능 캠페인</h1>
+      </div>
+      <div class="header-state">
+        <span id="header-status" class="status">초기화 중</span>
+        <a id="header-showcase" class="header-link" href="/showcase.html">UI 상태 전시</a>
+      </div>
+    </header>
+
+    <main id="main-content" class="workspace" tabindex="-1">
+      <div class="workspace-frame">
+        <div id="app-error" class="app-error" role="alert" hidden></div>
+
+        <div class="list-detail">
+          <aside class="catalog-pane" aria-labelledby="catalog-title">
+            <div class="section-heading">
+              <div>
+                <h2 id="catalog-title">Endpoint catalog</h2>
+                <p id="selection-count" class="section-note">대상을 불러오는 중입니다.</p>
+              </div>
+              <div class="catalog-actions">
+                <button id="safe-select-button" type="button" disabled>안전 대상 선택</button>
+                <button id="clear-selection-button" type="button" disabled>선택 해제</button>
+              </div>
+            </div>
+
+            <div class="catalog-filters">
+              <div class="field">
+                <label for="target-search">Endpoint 검색</label>
+                <input id="target-search" type="search" autocomplete="off" placeholder="이름, key, route 검색" disabled>
+              </div>
+              <div class="field">
+                <label for="suite-filter">suite 필터</label>
+                <select id="suite-filter" disabled>
+                  <option value="all">전체 suite</option>
+                  <option value="read">read</option>
+                  <option value="reversible-write">reversible-write</option>
+                  <option value="fixture-write">fixture-write</option>
+                  <option value="external">external</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="risk-filter">risk 필터</label>
+                <select id="risk-filter" disabled>
+                  <option value="all">전체 risk</option>
+                  <option value="safe">safe</option>
+                  <option value="fixture">fixture</option>
+                  <option value="cost">cost</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="target-list" class="target-list" role="region" aria-label="Endpoint 목록 스크롤" aria-busy="true" tabindex="0">
+              <p class="loading-placeholder loading-line">Endpoint 목록을 불러오는 중</p>
+            </div>
+          </aside>
+
+          <div id="detail-scroll" class="detail-scroll">
+            <div class="detail-pane">
+            <section class="work-section" aria-labelledby="configuration-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="configuration-title">실행 설정</h2>
+                  <p class="section-note">프로파일 의미와 서버 상한을 확인한 뒤 실행합니다.</p>
+                </div>
+              </div>
+
+              <div class="configuration-grid">
+                <div class="field">
+                  <label for="profile">프로파일</label>
+                  <select id="profile" aria-describedby="profile-help configuration-error" aria-invalid="false" disabled>
+                    <option value="smoke">smoke 검증</option>
+                    <option value="read">read 요청률</option>
+                    <option value="write">write 요청률</option>
+                    <option value="external">external 반복</option>
+                  </select>
+                  <p id="profile-help" class="help">smoke는 대상마다 한 번 실행해 연결과 계약을 검증합니다.</p>
+                </div>
+                <div class="field">
+                  <label id="load-label" for="load-value">동시 부하</label>
+                  <input id="load-value" type="number" min="1" max="1" value="1" inputmode="numeric" aria-describedby="load-help configuration-error" aria-invalid="false" disabled>
+                  <p id="load-help" class="help">smoke 부하는 1로 고정됩니다.</p>
+                </div>
+                <div class="field">
+                  <label id="extent-label" for="extent-value">반복 횟수</label>
+                  <input id="extent-value" type="text" value="1" inputmode="numeric" aria-describedby="extent-help configuration-error" aria-invalid="false" disabled>
+                  <p id="extent-help" class="help">smoke 반복 횟수는 1입니다.</p>
+                </div>
+              </div>
+
+              <div class="configuration-grid">
+                <div class="field">
+                  <label for="jwt-secret">JWT Secret (dev)</label>
+                  <input id="jwt-secret" type="password" autocomplete="off" aria-describedby="jwt-secret-help" placeholder="dev JWT 시크릿 붙여넣기">
+                  <p id="jwt-secret-help" class="help">입력하면 실행마다 회원 35 토큰(2시간)을 로컬에서 만들어 사용합니다. 비우면 서버 환경변수 ACCESS_TOKEN 을 씁니다. 저장되지 않습니다.</p>
+                </div>
+              </div>
+
+              <div class="configuration-options">
+                <label class="check-row"><input id="jfr-enabled" type="checkbox" aria-describedby="configuration-error" aria-invalid="false" checked disabled> <span>task별 JFR 수집</span></label>
+                <label id="risk-approval-row" class="check-row" hidden><input id="risk-approval" type="checkbox" aria-describedby="risk-warning configuration-error" aria-invalid="false"> <span>fixture 변경 또는 외부 비용 위험을 확인했습니다.</span></label>
+              </div>
+
+              <div id="risk-warning" class="callout callout-warning" hidden></div>
+              <p id="configuration-error" class="error-text" aria-live="polite"></p>
+
+              <div class="run-actions">
+                <button id="safe-all-button" class="button-primary" type="button" disabled>안전 대상 전체 실행</button>
+                <button id="selected-run-button" class="button-accent" type="button" disabled>선택 실행</button>
+                <button id="cancel-button" class="button-danger" type="button" disabled>캠페인 취소</button>
+              </div>
+            </section>
+
+            <section id="live-campaign" class="work-section" aria-labelledby="live-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="live-title" tabindex="-1">Live campaign</h2>
+                  <p id="live-status" class="section-note" aria-live="polite">활성 캠페인이 없습니다.</p>
+                </div>
+                <span id="elapsed-time" class="metric-value">00:00</span>
+              </div>
+              <div id="active-summary" class="campaign-strip empty-surface">실행하면 campaign ID, phase, target 상태가 여기에 표시됩니다.</div>
+              <ol id="active-targets" class="active-targets"></ol>
+              <div class="console-region">
+                <h3>Sanitized console</h3>
+                <p class="help">서버가 민감한 이름과 Bearer 값을 마스킹한 최근 로그만 표시합니다.</p>
+                <pre id="console-output" class="console-output" tabindex="0">console 대기 중</pre>
+              </div>
+            </section>
+
+            <section class="work-section" aria-labelledby="history-title">
+              <div class="section-heading">
+                <div>
+                  <h2 id="history-title">최근 결과와 비교</h2>
+                  <p class="section-note">같은 target의 직전 campaign과 절대값 및 증감률을 비교합니다.</p>
+                </div>
+                <div class="field history-picker">
+                  <label for="history-select">Campaign 선택</label>
+                  <select id="history-select" disabled><option value="">기록 없음</option></select>
+                </div>
+              </div>
+
+              <div class="results-wrap">
+                <table id="results-table">
+                  <caption>선택한 campaign의 target별 성능 지표와 직전 결과 비교</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Target</th>
+                      <th scope="col">p95</th>
+                      <th scope="col">p99</th>
+                      <th scope="col">실패율</th>
+                      <th scope="col">Dropped</th>
+                      <th scope="col">Threshold</th>
+                    </tr>
+                  </thead>
+                  <tbody id="results-body"><tr><td colspan="6">결과 기록을 불러오는 중입니다.</td></tr></tbody>
+                </table>
+              </div>
+
+              <div id="artifact-downloads" class="artifact-region" role="region" aria-labelledby="artifact-title">
+                <div class="section-heading artifact-heading">
+                  <div>
+                    <h3 id="artifact-title">Artifact 다운로드</h3>
+                    <p id="artifact-state" class="help">campaign을 선택하면 로컬 artifact 링크가 표시됩니다.</p>
+                  </div>
+                  <span id="bundle-download"></span>
+                </div>
+                <div id="artifact-list" class="artifact-list"></div>
+              </div>
+            </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

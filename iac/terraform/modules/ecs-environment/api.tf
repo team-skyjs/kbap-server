@@ -71,11 +71,12 @@ resource "aws_ecs_task_definition" "api" {
 }
 
 resource "aws_ecs_service" "api" {
-  name            = local.api_service_name
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = var.api_desired_count
-  launch_type     = "EC2"
+  name                   = local.api_service_name
+  cluster                = aws_ecs_cluster.this.id
+  task_definition        = aws_ecs_task_definition.api.arn
+  desired_count          = var.api_desired_count
+  launch_type            = "EC2"
+  enable_execute_command = local.performance_profiling_enabled
 
   deployment_controller {
     type = "CODE_DEPLOY"
@@ -104,6 +105,11 @@ resource "aws_ecs_service" "api" {
   # CodeDeploy 가 태스크 정의·타깃그룹을 바꾸므로 Terraform 은 초기 상태만 소유한다
   lifecycle {
     ignore_changes = [task_definition, load_balancer, desired_count]
+
+    precondition {
+      condition     = !var.api_execute_command_enabled || var.env == "dev"
+      error_message = "performance profiling can only be enabled when env is dev"
+    }
   }
 
   depends_on = [aws_lb_listener.https, aws_autoscaling_group.pool]

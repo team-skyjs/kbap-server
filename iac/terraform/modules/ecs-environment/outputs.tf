@@ -14,6 +14,10 @@ output "api_service_name" {
   value = aws_ecs_service.api.name
 }
 
+output "performance_artifact_bucket_name" {
+  value = local.performance_profiling_enabled ? aws_s3_bucket.performance_artifacts[0].bucket : null
+}
+
 output "batch_service_name" {
   value = aws_ecs_service.batch.name
 }

@@ -42,9 +42,10 @@ data "aws_kms_alias" "ssm" {
 }
 
 locals {
-  name_prefix = "kbap-${var.env}-ecs"
-  fqdn        = "${var.subdomain}.${var.hosted_zone_name}"
-  ssm_prefix  = "/kbap/${var.env}"
+  name_prefix                   = "kbap-${var.env}-ecs"
+  fqdn                          = "${var.subdomain}.${var.hosted_zone_name}"
+  ssm_prefix                    = "/kbap/${var.env}"
+  performance_profiling_enabled = var.env == "dev" && var.api_execute_command_enabled
 
   common_tags = {
     Environment = var.env
