@@ -3,6 +3,8 @@ package com.kbap.common.domain.food
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -28,6 +30,8 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
     ): Boolean
 
     fun countByOutboxStatus(outboxStatus: FoodVectorOutboxStatus): Long
+
+    fun findByOutboxStatus(outboxStatus: FoodVectorOutboxStatus, pageable: Pageable): Page<FoodVectorOutbox>
 
     fun findTop20ByOutboxStatusOrderByIdDesc(outboxStatus: FoodVectorOutboxStatus): List<FoodVectorOutbox>
 

@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -48,23 +49,58 @@ class AdminFoodDashboardService(
         )
     }
 
-    @Transactional
-    fun enqueueReadyFoodsForVectorSync() {
-        val targetIds = foodRepository.findReadyIdsWithoutVectorUpsertOutbox(PageRequest.of(0, ENQUEUE_MAX))
-        vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
+    @Transactional(readOnly = true)
+    fun getVectorOutboxPage(page: Int, status: FoodVectorOutboxStatus?): AdminVectorOutboxPageResponse {
+        val pageable = PageRequest.of(page - 1, VECTOR_OUTBOX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
+        val result = when (status) {
+            null -> vectorOutboxRepository.findAll(pageable)
+            else -> vectorOutboxRepository.findByOutboxStatus(status, pageable)
+        }
+        val displayNames = foodRepository.findAllById(result.content.map { it.foodId }.distinct())
+            .associate { it.id to it.displayName }
+        return AdminVectorOutboxPageResponse(
+            items = result.content.map { AdminVectorOutboxItemResponse.from(it, displayNames[it.foodId]) },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
     }
 
     @Transactional
-    fun retryVectorOutbox(outboxId: Long) {
-        val outbox = vectorOutboxRepository.findById(outboxId).orElse(null) ?: return
-        if (outbox.outboxStatus == FoodVectorOutboxStatus.FAILED) {
-            outbox.retry()
+    fun enqueueReadyFoodsForVectorSync(): Int {
+        val targetIds = foodRepository.findReadyIdsWithoutVectorUpsertOutbox(PageRequest.of(0, ENQUEUE_MAX))
+        vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
+        return targetIds.size
+    }
+
+    @Transactional
+    fun retryVectorOutbox(outboxId: Long): AdminVectorOutboxRetryResult {
+        val outbox = vectorOutboxRepository.findById(outboxId).orElse(null)
+            ?: return AdminVectorOutboxRetryResult.NOT_FOUND
+        return when (outbox.outboxStatus) {
+            FoodVectorOutboxStatus.FAILED -> {
+                outbox.retry()
+                AdminVectorOutboxRetryResult.RETRIED
+            }
+            FoodVectorOutboxStatus.PENDING -> AdminVectorOutboxRetryResult.ALREADY_PENDING
+            FoodVectorOutboxStatus.COMPLETE -> AdminVectorOutboxRetryResult.ALREADY_COMPLETE
         }
     }
 
     companion object {
         const val ENQUEUE_MAX = 500
+
+        const val VECTOR_OUTBOX_PAGE_SIZE = 50
     }
+}
+
+enum class AdminVectorOutboxRetryResult {
+    RETRIED,
+    ALREADY_PENDING,
+    ALREADY_COMPLETE,
+    NOT_FOUND,
 }
 
 data class AdminVectorOutboxDashboardView(
