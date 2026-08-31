@@ -55,6 +55,7 @@ class Target:
     risk: Risk
     default_profile: Profile
     default_enabled: bool
+    requests_per_iteration: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +119,7 @@ class TargetApiDocument(TypedDict):
     risk: str
     defaultProfile: str
     defaultEnabled: bool
+    requestsPerIteration: int
 
 
 def target_api_document(target: Target) -> TargetApiDocument:
@@ -130,6 +132,7 @@ def target_api_document(target: Target) -> TargetApiDocument:
         "risk": target.risk.value,
         "defaultProfile": target.default_profile.value,
         "defaultEnabled": target.default_enabled,
+        "requestsPerIteration": target.requests_per_iteration,
     }
 
 

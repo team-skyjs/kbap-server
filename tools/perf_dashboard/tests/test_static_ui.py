@@ -1,9 +1,33 @@
+import re
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
 
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+
+
+def css_declarations(source: str, selector: str) -> dict[str, str]:
+    match = re.search(rf"{re.escape(selector)}\s*\{{([^}}]*)\}}", source)
+    if match is None:
+        return {}
+    return {
+        name.strip(): value.strip()
+        for declaration in match.group(1).split(";")
+        if ":" in declaration
+        for name, value in [declaration.split(":", 1)]
+    }
+
+
+def relative_luminance(color: str) -> float:
+    channels = [int(color[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+    linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4 for channel in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast_ratio(first: str, second: str) -> float:
+    lighter, darker = sorted((relative_luminance(first), relative_luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 class SemanticDocument(HTMLParser):
@@ -55,6 +79,7 @@ class StaticUiContractTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.index_source = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
         cls.app_source = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
+        cls.styles_source = (STATIC_ROOT / "styles.css").read_text(encoding="utf-8")
         cls.document = SemanticDocument()
         cls.document.feed(cls.index_source)
 
@@ -73,7 +98,7 @@ class StaticUiContractTest(unittest.TestCase):
                 self.assertTrue(self.document.matching("label", **{"for": control_id}))
 
     def test_run_and_cancel_controls_are_native_buttons(self) -> None:
-        for button_id in ("safe-all-button", "selected-run-button", "cancel-button"):
+        for button_id in ("clear-selection-button", "safe-all-button", "selected-run-button", "cancel-button"):
             with self.subTest(button_id=button_id):
                 element = self.document.by_id(button_id)
                 self.assertIsNotNone(element)
@@ -130,6 +155,19 @@ class StaticUiContractTest(unittest.TestCase):
         self.assertNotIn("localStorage", self.app_source)
         self.assertNotIn("sessionStorage", self.app_source)
         self.assertNotIn("innerHTML", self.app_source)
+
+    def test_korean_section_notes_keep_words_together(self) -> None:
+        declarations = css_declarations(self.styles_source, ".section-note")
+        self.assertEqual("keep-all", declarations.get("word-break"))
+
+    def test_selected_safe_risk_label_meets_small_text_contrast(self) -> None:
+        root = css_declarations(self.styles_source, ":root")
+        selected = css_declarations(self.styles_source, ".endpoint-row.is-selected")
+        risk = css_declarations(self.styles_source, ".risk-safe")
+        background_token = selected["background"].removeprefix("var(").removesuffix(")")
+        foreground_token = risk["color"].removeprefix("var(").removesuffix(")")
+
+        self.assertGreaterEqual(contrast_ratio(root[foreground_token], root[background_token]), 4.5)
 
 
 if __name__ == "__main__":

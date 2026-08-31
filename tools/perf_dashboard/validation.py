@@ -66,7 +66,14 @@ def _parse_target(raw: JsonValue, path: Path) -> Target:
         raise TargetManifestError(path)
     key = _string(raw, "key", path)
     default_enabled = raw.get("defaultEnabled")
-    if not KEY_PATTERN.fullmatch(key) or not isinstance(default_enabled, bool):
+    requests_per_iteration = raw.get("requestsPerIteration")
+    if (
+        not KEY_PATTERN.fullmatch(key)
+        or not isinstance(default_enabled, bool)
+        or isinstance(requests_per_iteration, bool)
+        or not isinstance(requests_per_iteration, int)
+        or requests_per_iteration < 1
+    ):
         raise TargetManifestError(path)
     try:
         suite = Suite(_string(raw, "suite", path))
@@ -85,6 +92,7 @@ def _parse_target(raw: JsonValue, path: Path) -> Target:
         risk=risk,
         default_profile=profile,
         default_enabled=default_enabled,
+        requests_per_iteration=requests_per_iteration,
     )
 
 

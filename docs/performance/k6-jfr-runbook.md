@@ -19,10 +19,10 @@ scripts/perf/dashboard.sh
 ## 2. 권장 실행 순서
 
 1. `app-version` 같은 읽기 target 하나만 남기고 `smoke 검증`, 부하 1, 반복 1로 실행한다.
-2. 상태가 `PASSED`이고 `report.html`, `summary.json`, `manifest.json`, task JFR 두 개가 모두 준비됐는지 확인한다.
+2. 상태가 `PASSED`이고 `report.html`, `summary.json`, `manifest.json`, task JFR 두 개가 모두 준비됐는지 확인한다. 단일 smoke에서 JFR을 명시적으로 끈 경우에는 `JFR 수집 안 함`과 세 비-JFR artifact 준비 상태를 확인한다.
 3. `안전 대상 전체 실행`으로 default-enabled safe target을 smoke profile에서 직렬 실행한다.
-4. read 또는 write 부하가 필요하면 같은 profile의 target만 선택한다. read는 요청률과 지속 시간, write는 VU와 지속 시간을 사용한다.
-5. fixture 또는 cost target은 검색과 risk 필터로 좁힌 뒤 경고의 target 수와 예상 최대 호출 수를 확인한다. 위험 확인 checkbox를 직접 선택한 뒤 실행한다.
+4. read 또는 write 부하가 필요하면 같은 profile의 target만 선택한다. 둘 다 초당 요청률과 지속 시간을 사용하는 constant-arrival-rate profile이다.
+5. fixture 또는 cost target만 실행하려면 `선택 해제`로 filter 밖의 기본 선택까지 비운 뒤 검색과 risk 필터로 좁힌다. 경고의 target iteration, 최대 HTTP request, 외부 provider billable request를 각각 확인한다. 위험 확인 checkbox는 정확한 위험 target 선택, profile, 부하, 범위에만 유효하므로 값을 바꾸면 다시 확인한다.
 6. 외부 비용 target은 가장 작은 반복 수로 시작한다. 외부 provider의 실제 청구와 rate limit은 대시보드 상한보다 우선한다.
 7. 취소가 필요하면 `캠페인 취소`를 한 번만 누른다. 상태가 `CANCELLING`인 동안 runner가 cleanup과 JFR stop/download를 마칠 때까지 기다린다.
 8. 종료 후 `전체 artifact ZIP`을 받고, target별 HTML, JSON, manifest, 두 JFR 링크가 모두 있는지 확인한다. `부분 수집`은 성공으로 간주하지 않는다.
@@ -34,11 +34,19 @@ scripts/perf/dashboard.sh
 | Profile | 첫 번째 값 | 두 번째 값 | 서버 상한 | 용도 |
 |---|---|---|---|---|
 | `smoke` | 1 | 반복 1 | 1 / 1 | 계약과 연결 검증 |
-| `read` | 초당 요청 수 | `30s`, `1m` 같은 지속 시간 | 40 / 300초 | 읽기 처리량 |
-| `write` | VU | `30s`, `1m` 같은 지속 시간 | 10 / 120초 | 제한된 쓰기 부하 |
+| `read` | 초당 요청률 | `30s`, `1m` 같은 지속 시간 | 40 / 300초 | 읽기 처리량 |
+| `write` | 초당 요청률 | `30s`, `1m` 같은 지속 시간 | 10 / 120초 | 제한된 쓰기 부하 |
 | `external` | VU | 반복 횟수 | 10 / 10회 | 외부 비용 endpoint |
 
 `smoke` 외 profile은 target의 `defaultProfile`과 일치해야 한다. fixture와 cost는 `allowRisk=true` 승인이 필요하다. JFR 해제는 단일 target smoke에만 허용된다.
+
+대시보드 상한은 `run-endpoint.sh`의 세 단계를 그대로 센다.
+
+- smoke: target마다 `smoke 1 + warmup 1 + measurement 1 = 3` target iteration.
+- read/write: target마다 `smoke 1 + 요청률 × 120초 warmup + 요청률 × 요청한 지속 시간` target iteration.
+- external: target마다 `smoke 1 + warmup 1 + VU × 반복 횟수` target iteration. 대시보드의 10 × 10 상한은 Task 8 runner 총 iteration cap 안에 있다.
+
+Target iteration은 HTTP request와 같은 뜻이 아니다. 보통 한 iteration은 HTTP request 1회지만 `scan-v2-krw`, `scan-v2-usd`는 ticket과 scan 두 요청을 보내므로 최대 2회다. 경고의 최대 HTTP request는 이 multiplier를 반영하고, billable request는 cost target만 합산한다. Fixture write는 고유 fixture가 먼저 소진되면 실제 쓰기 요청 수가 표시된 상한보다 적을 수 있다.
 
 ## 4. CLI fallback
 
@@ -98,7 +106,7 @@ Hikari pending connection:
 max(hikaricp_connections_pending) by (instance, pool)
 ```
 
-p95/p99 증가와 함께 Tomcat busy 비율이 접근하면 요청 처리 포화 가능성을 확인한다. Hikari pending이 0보다 오래 유지되면 DB pool 대기와 쿼리 지연을 JFR thread 및 socket/SQL stack과 함께 본다.
+p95/p99 증가와 함께 Tomcat busy 비율이 기준값 `1`에 접근하면 요청 처리 포화 가능성을 확인한다. Hikari pending이 0보다 오래 유지되면 DB pool 대기와 쿼리 지연을 JFR thread 및 socket/SQL stack과 함께 본다.
 
 ## 6. JFR 분석과 전달
 

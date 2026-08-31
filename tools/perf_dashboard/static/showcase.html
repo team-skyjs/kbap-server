@@ -33,8 +33,8 @@
         <div class="state-sample"><p class="state-name">checkbox disabled</p><label class="check-row"><input type="checkbox" checked disabled> <span>실행 중 잠김</span></label></div>
         <div class="state-sample field"><p class="state-name">select normal</p><label for="show-profile">프로파일</label><select id="show-profile"><option>읽기 부하</option></select><p class="help">요청률과 지속 시간을 사용합니다.</p></div>
         <div class="state-sample field"><p class="state-name">select focus</p><label for="show-suite">suite 필터</label><select id="show-suite" class="demo-focus"><option>전체 suite</option></select></div>
-        <div class="state-sample field"><p class="state-name">input normal</p><label for="show-rate">초당 요청 수</label><input id="show-rate" type="number" value="20"><p class="help">read 최대값은 40입니다.</p></div>
-        <div class="state-sample field"><p class="state-name">input error</p><label for="show-iterations">반복 횟수</label><input id="show-iterations" class="field-error" type="text" value="0" aria-invalid="true" aria-describedby="show-iterations-error"><p id="show-iterations-error" class="error-text">1 이상의 반복 횟수를 입력하세요.</p></div>
+        <div class="state-sample field"><p class="state-name">input normal</p><label for="show-rate">초당 요청률</label><input id="show-rate" type="number" inputmode="numeric" value="20"><p class="help">read 최대값은 초당 40회입니다.</p></div>
+        <div class="state-sample field"><p class="state-name">input error</p><label for="show-iterations">반복 횟수</label><input id="show-iterations" class="field-error" type="number" inputmode="numeric" value="0" aria-invalid="true" aria-describedby="show-iterations-error"><p id="show-iterations-error" class="error-text">1 이상의 반복 횟수를 입력하세요.</p></div>
       </div>
     </section>
 
@@ -42,7 +42,7 @@
       <h2 id="indicators-title">메서드, 위험, 상태</h2>
       <div class="state-grid">
         <div class="state-sample"><p class="state-name">method badge</p><div><span class="method-badge">GET</span> <span class="method-badge">POST</span> <span class="method-badge">PATCH</span></div></div>
-        <div class="state-sample"><p class="state-name">risk warning</p><div class="callout callout-warning"><strong>비용 대상 2개 선택</strong><br>예상 최대 호출 수 20회. 명시적 승인이 필요합니다.</div></div>
+        <div class="state-sample"><p class="state-name">risk warning</p><div class="callout callout-warning"><strong>비용 대상 2개 선택</strong><br>target iteration 204회, 최대 HTTP request 306회, billable request 최대 306회. 명시적 승인이 필요합니다.</div></div>
         <div class="state-sample"><p class="state-name">status normal</p><div><span class="status">QUEUED 대기</span> <span class="status status-running">RUNNING 실행 중</span></div></div>
         <div class="state-sample"><p class="state-name">status loading</p><span class="status status-running loading-line">RECONNECTING 다시 연결 중</span></div>
         <div class="state-sample"><p class="state-name">status success</p><span class="status status-passed">PASSED 통과</span></div>
@@ -57,7 +57,7 @@
         <div class="state-sample metric"><span class="metric-label">실패율</span><strong class="metric-value">2.30%</strong><span class="status status-failed">임계값 실패</span></div>
       </div>
       <div class="result-row" role="row">
-        <div class="result-cell" role="cell"><strong>음식 상세 (회원)</strong><br><code>/api/foods/{foodId}/detail-with-an-unbroken-long-segment</code></div>
+        <div class="result-cell" role="rowheader"><strong>음식 상세 (회원)</strong><br><code>/api/foods/{foodId}/detail-with-an-unbroken-long-segment</code></div>
         <div class="result-cell" role="cell"><span class="metric-label">p95</span><br><span class="result-value">128.4 ms</span></div>
         <div class="result-cell" role="cell"><span class="metric-label">p99</span><br><span class="result-value">190.2 ms</span></div>
         <div class="result-cell" role="cell"><span class="metric-label">변화</span><br><span class="result-value">+12.4 ms (+10.7%)</span></div>
@@ -73,6 +73,7 @@
         <div class="state-sample"><p class="state-name">focus</p><a class="download-link demo-focus" href="#downloads-title">task-one.jfr 다운로드</a></div>
         <div class="state-sample"><p class="state-name">disabled</p><span class="download-unavailable" aria-disabled="true">task-two.jfr 수집 중</span></div>
         <div class="state-sample"><p class="state-name">loading</p><span class="download-unavailable loading-line">전체 artifact ZIP 준비 중</span></div>
+        <div class="state-sample"><p class="state-name">intentional JFR off</p><span class="download-unavailable jfr-disabled">JFR 수집 안 함. report, summary, manifest 준비됨</span></div>
         <div class="state-sample"><p class="state-name">error</p><div class="callout callout-error" role="alert">일부 artifact만 수집되었습니다. manifest와 두 JFR을 함께 확인하세요.</div></div>
       </div>
     </section>

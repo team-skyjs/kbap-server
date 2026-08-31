@@ -259,7 +259,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
     def _static(self, path: str) -> bool:
-        names = {"/": "index.html", "/index.html": "index.html", "/showcase.html": "showcase.html", "/styles.css": "styles.css", "/app.js": "app.js"}
+        names = {
+            "/": "index.html",
+            "/index.html": "index.html",
+            "/showcase.html": "showcase.html",
+            "/styles.css": "styles.css",
+            "/app.js": "app.js",
+            "/model.mjs": "model.mjs",
+        }
         name = names.get(path)
         if name is None:
             return False

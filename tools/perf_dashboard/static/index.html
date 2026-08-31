@@ -6,7 +6,7 @@
   <meta name="description" content="localhost에서 k6와 JFR 성능 캠페인을 안전하게 실행하고 결과를 확인합니다.">
   <title>KBAP 성능 캠페인</title>
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+  <script type="module" src="/app.js"></script>
 </head>
 <body class="app-body">
   <a class="skip-link" href="#main-content">본문으로 건너뛰기</a>
@@ -23,7 +23,7 @@
     </header>
 
     <main id="main-content" class="workspace" tabindex="-1">
-      <div id="workspace-scroll" class="workspace-scroll">
+      <div class="workspace-frame">
         <div id="app-error" class="app-error" role="alert" hidden></div>
 
         <div class="list-detail">
@@ -33,7 +33,10 @@
                 <h2 id="catalog-title">Endpoint catalog</h2>
                 <p id="selection-count" class="section-note">대상을 불러오는 중입니다.</p>
               </div>
-              <button id="safe-select-button" type="button" disabled>안전 대상 선택</button>
+              <div class="catalog-actions">
+                <button id="safe-select-button" type="button" disabled>안전 대상 선택</button>
+                <button id="clear-selection-button" type="button" disabled>선택 해제</button>
+              </div>
             </div>
 
             <div class="catalog-filters">
@@ -62,12 +65,13 @@
               </div>
             </div>
 
-            <div id="target-list" class="target-list" aria-busy="true">
+            <div id="target-list" class="target-list" role="region" aria-label="Endpoint 목록 스크롤" aria-busy="true" tabindex="0">
               <p class="loading-placeholder loading-line">Endpoint 목록을 불러오는 중</p>
             </div>
           </aside>
 
-          <div class="detail-pane">
+          <div id="detail-scroll" class="detail-scroll">
+            <div class="detail-pane">
             <section class="work-section" aria-labelledby="configuration-title">
               <div class="section-heading">
                 <div>
@@ -79,29 +83,29 @@
               <div class="configuration-grid">
                 <div class="field">
                   <label for="profile">프로파일</label>
-                  <select id="profile" aria-describedby="profile-help configuration-error" disabled>
+                  <select id="profile" aria-describedby="profile-help configuration-error" aria-invalid="false" disabled>
                     <option value="smoke">smoke 검증</option>
                     <option value="read">read 요청률</option>
-                    <option value="write">write VU</option>
+                    <option value="write">write 요청률</option>
                     <option value="external">external 반복</option>
                   </select>
                   <p id="profile-help" class="help">smoke는 대상마다 한 번 실행해 연결과 계약을 검증합니다.</p>
                 </div>
                 <div class="field">
                   <label id="load-label" for="load-value">동시 부하</label>
-                  <input id="load-value" type="number" min="1" max="1" value="1" inputmode="numeric" aria-describedby="load-help configuration-error" disabled>
+                  <input id="load-value" type="number" min="1" max="1" value="1" inputmode="numeric" aria-describedby="load-help configuration-error" aria-invalid="false" disabled>
                   <p id="load-help" class="help">smoke 부하는 1로 고정됩니다.</p>
                 </div>
                 <div class="field">
                   <label id="extent-label" for="extent-value">반복 횟수</label>
-                  <input id="extent-value" type="text" value="1" inputmode="numeric" aria-describedby="extent-help configuration-error" disabled>
+                  <input id="extent-value" type="text" value="1" inputmode="numeric" aria-describedby="extent-help configuration-error" aria-invalid="false" disabled>
                   <p id="extent-help" class="help">smoke 반복 횟수는 1입니다.</p>
                 </div>
               </div>
 
               <div class="configuration-options">
-                <label class="check-row"><input id="jfr-enabled" type="checkbox" checked disabled> <span>task별 JFR 수집</span></label>
-                <label id="risk-approval-row" class="check-row" hidden><input id="risk-approval" type="checkbox"> <span>fixture 변경 또는 외부 비용 위험을 확인했습니다.</span></label>
+                <label class="check-row"><input id="jfr-enabled" type="checkbox" aria-describedby="configuration-error" aria-invalid="false" checked disabled> <span>task별 JFR 수집</span></label>
+                <label id="risk-approval-row" class="check-row" hidden><input id="risk-approval" type="checkbox" aria-describedby="risk-warning configuration-error" aria-invalid="false"> <span>fixture 변경 또는 외부 비용 위험을 확인했습니다.</span></label>
               </div>
 
               <div id="risk-warning" class="callout callout-warning" hidden></div>
@@ -171,6 +175,7 @@
                 <div id="artifact-list" class="artifact-list"></div>
               </div>
             </section>
+            </div>
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ artifacts/performance/<CAMPAIGN_ID>/
 
 ## 필수 결과 묶음
 
-리뷰 가능한 target 결과는 HTML report, `summary.json`, `manifest.json`, 원본 task JFR 두 개가 모두 있어야 한다. Dashboard의 `부분 수집` 표시는 누락을 숨기지 않기 위한 실패 가시성이다. ZIP에도 durable `campaign.json`과 등록된 allowlist artifact만 포함된다.
+JFR-enabled target 결과는 HTML report, `summary.json`, `manifest.json`, 원본 task JFR 두 개가 모두 있어야 한다. 단일 smoke에서 `jfrEnabled=false`를 선택한 결과는 HTML report, summary, manifest 세 파일과 `JFR 수집 안 함` 표시가 있으면 완전하다. Dashboard의 `부분 수집` 표시는 각 campaign에 필요한 파일의 누락을 숨기지 않기 위한 실패 가시성이다. ZIP에도 durable `campaign.json`과 등록된 allowlist artifact만 포함된다.
 
 JMC 또는 Claude 분석에는 반드시 두 task 원본 JFR과 같은 target의 manifest를 함께 전달한다. 한 task만으로 전체 service를 대표하지 않는다. `summary.json`과 HTML report를 추가하면 부하 결과와 JVM event를 연결하기 쉽다.
 

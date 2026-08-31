@@ -79,10 +79,22 @@ class DashboardServerTest(unittest.TestCase):
         document = json.loads(body)
         self.assertEqual(200, status)
         self.assertEqual("Read A", document["targets"][0]["label"])
+        self.assertEqual(1, document["targets"][0]["requestsPerIteration"])
         self.assertNotIn("api-super-secret", body.decode())
         self.assertEqual("no-store", headers["Cache-Control"])
         self.assertEqual("nosniff", headers["X-Content-Type-Options"])
         self.assertEqual("no-referrer", headers["Referrer-Policy"])
+
+    def test_model_module_is_explicitly_allowlisted_as_javascript(self) -> None:
+        status, headers, body = self.request("/model.mjs")
+        unknown_status, _, unknown_body = self.request("/unmapped.mjs")
+
+        self.assertEqual(200, status)
+        self.assertEqual("text/javascript; charset=utf-8", headers["Content-Type"])
+        self.assertEqual("inline", headers["Content-Disposition"])
+        self.assertIn(b"export", body)
+        self.assertEqual(404, unknown_status)
+        self.assertEqual("not-found", json.loads(unknown_body)["error"])
 
     def test_valid_run_returns_queued_and_executes_fake_runner(self) -> None:
         status, _, body = self.request("/api/runs", self.valid_payload())
@@ -103,6 +115,16 @@ class DashboardServerTest(unittest.TestCase):
         self.assertEqual(3.0, terminal.targets[0].summary.dropped_iterations)
         self.assertTrue(terminal.targets[0].summary.thresholds_passed)
         self.assertEqual(5, len(terminal.targets[0].artifacts))
+
+    def test_jfr_disabled_smoke_collects_only_non_jfr_artifacts(self) -> None:
+        payload = {"mode": "single", "targetKey": "read-a", "profile": "smoke", "rateOrVus": 1, "durationOrIterations": "1", "jfrEnabled": False}
+
+        _, _, body = self.request("/api/runs", payload)
+        campaign_id = json.loads(body)["campaignId"]
+        terminal = self.server.controller.wait_for_terminal(campaign_id, timeout=3)
+
+        self.assertFalse(terminal.jfr_enabled)
+        self.assertEqual(["manifest.json", "report.html", "summary.json"], sorted(artifact.name for artifact in terminal.targets[0].artifacts))
 
     def test_nonzero_runner_exit_persists_failed_target_and_campaign(self) -> None:
         os.environ["FAKE_EXIT_CODE"] = "23"

@@ -16,13 +16,13 @@
 
 The dashboard is a localhost-only command surface for selecting endpoint targets, configuring a k6 profile, following a single active campaign, comparing recent results, and downloading allowlisted artifacts. It is not a general analytics dashboard. Every region supports one operating decision: what will run, how risky it is, what is running now, whether it passed, and what evidence is ready.
 
-The desktop shell is bounded to `100dvb`: a fixed header sits above a `list-detail` body. The catalog is the stable selection rail and `#workspace-scroll` is the one named vertical scroll owner for configuration, live state, history, and artifacts. Grid and flex descendants use `min-block-size: 0` and `min-inline-size: 0`; identifiers and routes use `overflow-wrap: anywhere`.
+The desktop shell is bounded to `100dvb`: a fixed header sits above a `list-detail` body. The catalog is the stable command rail while `#detail-scroll` is the named main vertical scroll owner for configuration, live state, history, and artifacts. Because the endpoint catalog can contain dozens of rows, `#target-list` is the explicitly named nested scroll region whose only job is scrolling endpoint choices beneath the fixed catalog heading and filters. Grid and flex descendants use `min-block-size: 0` and `min-inline-size: 0`; identifiers and routes use `overflow-wrap: anywhere`.
 
 Below `768px` the shell becomes a normal single-column document: catalog, configuration, live campaign, and results appear in operating order and the page owns vertical scrolling. At `375px`, primary content never requires horizontal scrolling. Result tables recompose into labelled rows rather than creating a two-dimensional primary scroll region.
 
 ## 2. Principles
 
-1. **Prevent expensive mistakes.** Safe targets are selected by default. Fixture and cost targets require an adjacent warning, explicit approval, and visible maximum-call estimate before execution.
+1. **Prevent expensive mistakes.** Safe targets are selected by default. Fixture and cost targets require an adjacent warning, approval scoped to the exact risky selection and load configuration, and separate target-iteration, maximum HTTP request, and downstream billable-call estimates before execution.
 2. **State is text first.** Color supports, never replaces, `QUEUED`, `RUNNING`, `PASSED`, `FAILED`, `CANCELLED`, threshold labels, reconnect messages, and partial-collection explanations.
 3. **Dense, not cramped.** Repeated rows use dividers and alignment rather than card containers. Spacing separates tasks, not every datum.
 4. **One source of truth.** The browser consumes only the actual same-origin Task 9 JSON, SSE, bundle, and artifact routes. It never invents storage, token, or remote artifact APIs.
@@ -57,7 +57,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 | Navy pressed | `--navy-pressed` | `#020617` | `#F8FAFC` | Primary action hover/press |
 | Accent | `--accent` | `#047857` | `#6EE7B7` | Only interactive accent |
 | Accent surface | `--accent-surface` | `#D1FAE5` | `#064E3B` | Selected and focus-adjacent fill |
-| Success | `--success` | `#15803D` | `#86EFAC` | Passed text |
+| Success | `--success` | `#166534` | `#86EFAC` | Passed and safe text |
 | Success surface | `--success-surface` | `#DCFCE7` | `#14532D` | Passed background |
 | Warning | `--warning` | `#92400E` | `#FDE68A` | Risk and partial text |
 | Warning surface | `--warning-surface` | `#FEF3C7` | `#451A03` | Risk and partial background |
@@ -85,7 +85,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 
 - Header row: content height, fixed inside the desktop `100dvb` shell.
 - Body: `minmax(0, 1fr)`; list-detail columns `minmax(17rem, 22rem) minmax(0, 1fr)`.
-- Catalog does not own a nested scrollbar. The desktop body scroll owner is `#workspace-scroll`, containing both catalog and detail in a single aligned flow.
+- Catalog command controls stay fixed in the desktop rail. `#target-list` owns the bounded endpoint-list scrollbar; `#detail-scroll` independently owns the main results scrollbar. These are the only two desktop vertical scroll regions and each has one explicit job.
 - Content maximum: `100rem`; gutters scale from `--space-3` at narrow widths to `--space-6` at desktop.
 - At `<768px`, grid columns become one, the height bound is removed, and source order is preserved.
 
@@ -112,7 +112,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 ### Status and risk callout
 
 - Status variants: queued, running, cancelling, passed, failed, cancelled, reconnecting, partial.
-- Risk callout sits immediately before execution controls and includes selected risky targets, approval state, and maximum calls.
+- Risk callout sits immediately before execution controls and includes selected risky targets, scoped approval state, total target iterations, maximum HTTP requests, maximum downstream billable calls, and the fixture-exhaustion caveat.
 - Status text uses `aria-live=polite`; blocking/API validation errors use `role=alert`.
 
 ### Metric and result row
@@ -137,13 +137,15 @@ Fetch `/api/targets` and `/api/runs` in parallel. While loading, keep labelled s
 
 ### Selection and execution
 
-Search, suite, and risk filters only affect visibility, never silently alter selection. `안전 대상 전체 선택` selects visible safe targets. `선택 실행` posts `mode=selected`, target keys, profile, load, extent, risk approval, and JFR state to `/api/runs`. A single-target smoke may disable JFR; every other mode keeps JFR enabled per server validation.
+Search, suite, and risk filters only affect visibility, never silently alter selection. `안전 대상 선택` restores the safe defaults compatible with the current profile, while `선택 해제` explicitly clears every selected target including targets hidden by filters. `선택 실행` posts `mode=selected`, target keys, profile, load, extent, risk approval, and JFR state to `/api/runs`. A single-target smoke may disable JFR; every other mode keeps JFR enabled per server validation.
 
-Fixture or cost selection exposes explicit approval. Maximum calls are estimated as target count times iterations for smoke/external or target count times load times duration seconds for rate profiles; it is an upper-bound warning, not a promise.
+Fixture or cost selection exposes explicit approval. Approval binds the sorted risky target keys plus profile, load, and extent; changing any of those inputs or reaching terminal state clears it. A new risky target can never reuse an earlier acknowledgement.
+
+The estimator mirrors `run-endpoint.sh` phases. Smoke performs `3` target iterations per target: smoke, warmup, measurement. Read and write perform `1 + rate × 120 warmup seconds + rate × requested measurement seconds`. External performs `1 smoke + 1 warmup + VU × iterations`. Target iterations are shown separately from maximum HTTP requests. Each target carries reviewed `requestsPerIteration` manifest metadata; current ordinary targets use `1`, while each scan-v2 iteration uses `2` for ticket plus scan. Maximum downstream billable calls count cost targets only. Fixture exhaustion can reduce actual write requests below the upper bound.
 
 ### Active campaign and SSE
 
-On `202`, render the returned campaign immediately, move focus to the active heading, and connect `/api/runs/{id}/events`. Track increasing SSE `lastEventId`, phase, status, target, and sanitized line. On error, close the source, announce reconnect, fetch `/api/runs/{id}`, and retry with exponential delay `1s, 2s, 4s, 8s, 10s` maximum. Terminal snapshots stop reconnect.
+On `202`, render the returned campaign immediately, move focus to the active heading without scrolling the shell, and connect `/api/runs/{id}/events`. Track increasing SSE `lastEventId`, phase, status, target, and sanitized line. Snapshot requests use increasing client generations plus abort signals; only the latest matching generation may apply, and a terminal current campaign always dominates a late active snapshot. On error, close the source, announce reconnect, fetch `/api/runs/{id}`, and retry with exponential delay `1s, 2s, 4s, 8s, 10s` maximum. Terminal snapshots stop reconnect and clear the live panel while remaining selectable in Results.
 
 Cancel posts once to `/api/runs/{id}/cancel`; the button disables immediately and stays disabled through `CANCELLING` and terminal state. `409`, `400`, network, failed, cancelled, reconnect, and partial states use contextual Korean explanations.
 
@@ -153,12 +155,12 @@ Recent campaigns are selectable by real campaign ID. For each target with a summ
 
 ### Artifact collection
 
-Match artifact names from the campaign response, not guessed IDs. Expect `report.html`, `summary.json`, `manifest.json`, and two `.jfr` entries per completed target. Until present, show `수집 중` or `부분 수집` and never create a dead anchor. ZIP is offered for a terminal campaign and points to the same-origin bundle route.
+Match artifact names from the campaign response, not guessed IDs. JFR-enabled campaigns expect `report.html`, `summary.json`, `manifest.json`, and two `.jfr` entries per completed target. A supported single-target smoke with `jfrEnabled=false` expects only the three non-JFR files and says `JFR 수집 안 함`; missing JFR files are not partial failure in that intentional state. Until required files are present, show `수집 중` or `부분 수집` and never create a dead anchor. ZIP is offered for a terminal campaign and points to the same-origin bundle route.
 
 ## 7. Content
 
 - Voice: direct Korean operating language. Use verbs: `선택`, `실행`, `취소`, `다시 연결`, `다운로드`.
-- Profiles always explain meaning: smoke is one iteration and validation, read is request-rate load, write is controlled VU write load, external is bounded iteration-based paid/external load.
+- Profiles always explain meaning: smoke is three runner phases at one iteration each, read and write are constant-arrival-rate request load, and external is bounded VU × iteration paid/external load.
 - Never display access tokens, authorization fields, fixture secrets, S3 URLs, or raw environment data. The console says it is server-sanitized but does not imply absolute secrecy.
 - Dates use local readable time plus the original campaign ID. Percentages and milliseconds declare units.
 - Avoid promotional language, cute metaphors, decorative punctuation, emoji, em dash, and en dash.

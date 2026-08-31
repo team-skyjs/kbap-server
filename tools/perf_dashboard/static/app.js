@@ -1,17 +1,28 @@
 "use strict";
 
-const ACTIVE_STATUSES = new Set(["QUEUED", "RUNNING", "CANCELLING"]);
-const TERMINAL_STATUSES = new Set(["PASSED", "FAILED", "CANCELLED"]);
-const PROFILE_RULES = {
-  smoke: { loadLabel: "동시 부하", loadHelp: "smoke 부하는 1로 고정됩니다.", maxLoad: 1, extentLabel: "반복 횟수", extentHelp: "smoke 반복 횟수는 1입니다.", extent: "1" },
-  read: { loadLabel: "초당 요청 수", loadHelp: "read 요청률 상한은 초당 40회입니다.", maxLoad: 40, extentLabel: "지속 시간", extentHelp: "1s부터 300s 또는 5m까지 입력합니다.", extent: "30s" },
-  write: { loadLabel: "가상 사용자 수", loadHelp: "write VU 상한은 10입니다.", maxLoad: 10, extentLabel: "지속 시간", extentHelp: "1s부터 120s 또는 2m까지 입력합니다.", extent: "30s" },
-  external: { loadLabel: "가상 사용자 수", loadHelp: "external VU 상한은 10입니다.", maxLoad: 10, extentLabel: "반복 횟수", extentHelp: "비용 보호를 위해 1회부터 10회까지만 허용됩니다.", extent: "1" },
-};
+import {
+  ACTIVE_STATUSES,
+  TERMINAL_STATUSES,
+  approvalSignature,
+  artifactExpectation,
+  buildRunPayload,
+  canCancel,
+  createSnapshotCoordinator,
+  estimateRiskWarningBudget,
+  metricComparison,
+  profileRule,
+  reconnectDecision,
+  selectionForAction,
+  selectActiveCampaign,
+  sseSequenceDecision,
+  transitionApproval,
+  validateConfiguration,
+} from "/model.mjs";
+
 const PROFILE_COPY = {
-  smoke: "smoke는 각 target을 한 번 실행해 연결, fixture, JFR 계약을 검증합니다.",
-  read: "read는 요청률과 지속 시간으로 읽기 endpoint 처리량을 측정합니다.",
-  write: "write는 제한된 VU와 지속 시간으로 쓰기 endpoint를 측정합니다.",
+  smoke: "smoke, warmup, measurement에서 target을 한 번씩 실행해 연결, fixture, JFR 계약을 검증합니다.",
+  read: "read는 초당 요청률과 지속 시간으로 읽기 endpoint 처리량을 측정합니다.",
+  write: "write는 초당 요청률과 지속 시간으로 쓰기 endpoint를 측정합니다.",
   external: "external은 제한된 VU와 반복 횟수로 비용 발생 endpoint를 측정합니다.",
 };
 const ERROR_COPY = {
@@ -49,16 +60,23 @@ const state = {
   reconnectTimer: null,
   eventSource: null,
   cancelSent: false,
+  approvedRiskSignature: "",
+  reconnectPending: false,
   loading: true,
 };
 
 const dom = Object.fromEntries([
-  "header-status", "app-error", "selection-count", "safe-select-button", "target-search", "suite-filter", "risk-filter", "target-list",
+  "header-status", "app-error", "selection-count", "safe-select-button", "clear-selection-button", "target-search", "suite-filter", "risk-filter", "target-list",
   "profile", "profile-help", "load-label", "load-value", "load-help", "extent-label", "extent-value", "extent-help", "jfr-enabled",
   "risk-approval-row", "risk-approval", "risk-warning", "configuration-error", "safe-all-button", "selected-run-button", "cancel-button",
   "live-title", "live-status", "elapsed-time", "active-summary", "active-targets", "console-output", "history-select", "results-body",
   "artifact-state", "bundle-download", "artifact-list",
 ].map((id) => [id, document.getElementById(id)]));
+
+const snapshots = createSnapshotCoordinator({
+  load: (campaignId, signal) => fetchJson(`/api/runs/${encodeURIComponent(campaignId)}`, { signal }),
+  current: (campaignId) => state.runs.find((campaign) => campaign.campaignId === campaignId) || state.liveCampaign,
+});
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -146,6 +164,7 @@ function renderCatalog() {
     input.disabled = locked;
     input.dataset.targetKey = target.key;
     input.addEventListener("change", () => {
+      clearApproval("selection");
       if (input.checked) state.selectedKeys.add(target.key);
       else state.selectedKeys.delete(target.key);
       renderCatalog();
@@ -167,48 +186,36 @@ function renderCatalog() {
   dom["selection-count"].textContent = `${state.selectedKeys.size}개 선택, ${targets.length}개 표시`;
 }
 
-function compatibleWithProfile(targets, profile) {
-  return profile === "smoke" || targets.every((target) => target.defaultProfile === profile);
+function currentRiskSignature(targets = selectedTargets()) {
+  return approvalSignature({
+    targets,
+    profile: dom.profile.value,
+    load: Number(dom["load-value"].value),
+    extent: dom["extent-value"].value.trim(),
+  });
 }
 
-function parseDurationSeconds(raw) {
-  const match = /^([1-9][0-9]*)([sm])$/.exec(raw);
-  if (!match) return null;
-  return Number(match[1]) * (match[2] === "m" ? 60 : 1);
+function clearApproval(action) {
+  state.approvedRiskSignature = transitionApproval({
+    approvedSignature: state.approvedRiskSignature,
+    action,
+    currentSignature: currentRiskSignature(),
+    checked: dom["risk-approval"].checked,
+  });
+  dom["risk-approval"].checked = false;
 }
 
-function configurationIssue() {
-  const targets = selectedTargets();
-  const profile = dom.profile.value;
-  const rule = PROFILE_RULES[profile];
-  const load = Number(dom["load-value"].value);
-  const extent = dom["extent-value"].value.trim();
-  if (!targets.length) return "실행할 target을 하나 이상 선택하세요.";
-  if (!compatibleWithProfile(targets, profile)) return ERROR_COPY["profile-target-mismatch"];
-  if (!Number.isInteger(load) || load < 1 || load > rule.maxLoad) return `부하 값은 1부터 ${rule.maxLoad}까지 입력하세요.`;
-  if (profile === "smoke" && extent !== "1") return "smoke 반복 횟수는 1이어야 합니다.";
-  if (profile === "external" && (!/^[1-9][0-9]*$/.test(extent) || Number(extent) > 10)) return "external 반복 횟수는 1부터 10까지 입력하세요.";
-  if ((profile === "read" || profile === "write") && parseDurationSeconds(extent) === null) return "지속 시간은 1s 또는 1m 형식으로 입력하세요.";
-  if (profile === "read" && parseDurationSeconds(extent) > 300) return "read 지속 시간은 최대 300초입니다.";
-  if (profile === "write" && parseDurationSeconds(extent) > 120) return "write 지속 시간은 최대 120초입니다.";
-  const risky = targets.some((target) => target.risk !== "safe");
-  if (risky && !dom["risk-approval"].checked) return ERROR_COPY["risk-approval-required"];
-  if (!dom["jfr-enabled"].checked && (profile !== "smoke" || targets.length !== 1)) return ERROR_COPY["jfr-off-requires-single-smoke"];
-  return "";
-}
-
-function maxCalls(targets) {
-  const profile = dom.profile.value;
-  const load = Number(dom["load-value"].value) || 0;
-  const extent = dom["extent-value"].value.trim();
-  const extentValue = profile === "read" || profile === "write" ? (parseDurationSeconds(extent) || 0) : (Number(extent) || 0);
-  return targets.length * load * extentValue;
+function configurationMessage(validation, rule) {
+  if (validation.valid) return "";
+  if (validation.issueCode === "invalid-rate-or-vus") return `부하 값은 1부터 ${rule.maxLoad}까지 입력하세요.`;
+  if (validation.issueCode === "invalid-duration-or-iterations") return rule.extentHelp;
+  return ERROR_COPY[validation.issueCode] || "실행 설정을 확인하세요.";
 }
 
 function renderConfiguration() {
   const locked = isActive(state.liveCampaign);
   const profile = dom.profile.value;
-  const rule = PROFILE_RULES[profile];
+  const rule = profileRule(profile);
   const targets = selectedTargets();
   const risky = targets.filter((target) => target.risk !== "safe");
   dom["load-label"].textContent = rule.loadLabel;
@@ -217,20 +224,47 @@ function renderConfiguration() {
   dom["extent-help"].textContent = rule.extentHelp;
   dom["profile-help"].textContent = PROFILE_COPY[profile];
   dom["load-value"].max = String(rule.maxLoad);
+  dom["extent-value"].inputMode = rule.extentInputMode;
   dom["risk-approval-row"].hidden = risky.length === 0;
   dom["risk-warning"].hidden = risky.length === 0;
   if (risky.length) {
-    const fixtureCount = risky.filter((target) => target.risk === "fixture").length;
-    const costCount = risky.filter((target) => target.risk === "cost").length;
-    dom["risk-warning"].textContent = `위험 선택: fixture ${fixtureCount}개, cost ${costCount}개. 예상 최대 호출 수 ${maxCalls(targets)}회. 실제 호출 수는 runner 단계와 취소 시점에 따라 더 적을 수 있습니다.`;
+    const budget = estimateRiskWarningBudget({
+      targets,
+      profile,
+      load: Number(dom["load-value"].value),
+      extent: dom["extent-value"].value.trim(),
+    });
+    const { fixtureCount, costCount } = budget;
+    const fixtureNote = fixtureCount ? " 고유 fixture가 소진되면 실제 쓰기 요청은 이 상한보다 적습니다." : "";
+    dom["risk-warning"].textContent = budget.valid
+      ? `위험 선택: fixture ${fixtureCount}개, cost ${costCount}개. Runner 전체 단계의 target iteration ${budget.targetIterations}회, 최대 HTTP request ${budget.maximumHttpRequests}회, 외부 provider billable request 최대 ${budget.maximumBillableRequests}회.${fixtureNote}`
+      : `위험 선택: fixture ${fixtureCount}개, cost ${costCount}개. 유효한 부하와 범위를 입력하면 전체 runner 단계의 request 상한을 계산합니다.${fixtureNote}`;
   }
   const jfrCanChange = !locked && profile === "smoke" && targets.length === 1;
   dom["jfr-enabled"].disabled = !jfrCanChange;
   if (!jfrCanChange) dom["jfr-enabled"].checked = true;
-  const issue = locked ? "실행 중에는 target과 설정을 변경할 수 없습니다." : configurationIssue();
+  const signature = currentRiskSignature(targets);
+  const riskApproved = Boolean(signature && dom["risk-approval"].checked && state.approvedRiskSignature === signature);
+  if (!risky.length || (dom["risk-approval"].checked && !riskApproved)) {
+    state.approvedRiskSignature = "";
+    dom["risk-approval"].checked = false;
+  }
+  const validation = validateConfiguration({
+    targets,
+    profile,
+    load: Number(dom["load-value"].value),
+    extent: dom["extent-value"].value.trim(),
+    riskApproved,
+    jfrEnabled: dom["jfr-enabled"].checked,
+  });
+  for (const id of ["profile", "load-value", "extent-value", "risk-approval", "jfr-enabled"]) {
+    dom[id].setAttribute("aria-invalid", locked ? "false" : String(validation.invalidFields.includes(id)));
+  }
+  const issue = locked ? "실행 중에는 target과 설정을 변경할 수 없습니다." : configurationMessage(validation, rule);
   dom["configuration-error"].textContent = issue;
   dom["selected-run-button"].disabled = locked || Boolean(issue);
   dom["safe-all-button"].disabled = locked || state.loading || !state.targets.some((target) => target.defaultEnabled && target.risk === "safe");
+  dom["clear-selection-button"].disabled = locked || state.loading || state.selectedKeys.size === 0;
   dom["cancel-button"].disabled = !locked || state.cancelSent || state.liveCampaign?.status === "CANCELLING";
   for (const id of ["profile", "load-value", "extent-value", "risk-approval"]) dom[id].disabled = locked;
   for (const id of ["target-search", "suite-filter", "risk-filter", "safe-select-button"]) dom[id].disabled = locked || state.loading;
@@ -296,11 +330,12 @@ function renderHistoryPicker() {
 }
 
 function metricDelta(current, previous, unit, scale = 1) {
-  if (current === null || current === undefined) return "데이터 없음";
-  const formatted = `${(current * scale).toFixed(scale === 100 ? 2 : 1)}${unit}`;
-  if (previous === null || previous === undefined || previous === 0) return `${formatted} | 비교 기준 없음`;
-  const absolute = (current - previous) * scale;
-  const percent = ((current - previous) / previous) * 100;
+  const comparison = metricComparison(current, previous);
+  if (comparison.state === "missing") return "데이터 없음";
+  const formatted = `${(comparison.current * scale).toFixed(scale === 100 ? 2 : 1)}${unit}`;
+  if (comparison.state === "no-baseline") return `${formatted} | 비교 기준 없음`;
+  const absolute = comparison.absolute * scale;
+  const percent = comparison.percent;
   const sign = absolute > 0 ? "+" : "";
   const percentSign = percent > 0 ? "+" : "";
   return `${formatted} | ${sign}${absolute.toFixed(scale === 100 ? 2 : 1)}${unit} (${percentSign}${percent.toFixed(1)}%)`;
@@ -316,8 +351,8 @@ function previousTarget(campaign, key) {
   return null;
 }
 
-function tableCell(label, text, className = "") {
-  const cell = element("td", className);
+function tableCell(label, text, className = "", tag = "td") {
+  const cell = element(tag, className);
   cell.dataset.label = label;
   cell.textContent = text;
   return cell;
@@ -339,7 +374,8 @@ function renderResults() {
     const targetMeta = state.targets.find((candidate) => candidate.key === target.key);
     const previous = previousTarget(campaign, target.key);
     const summary = target.summary;
-    const name = tableCell("Target", targetMeta?.label || target.key, "target-cell");
+    const name = tableCell("Target", targetMeta?.label || target.key, "target-cell", "th");
+    name.scope = "row";
     name.append(element("code", "", target.key), element("span", statusClass(target.status), target.status));
     row.append(
       name,
@@ -404,14 +440,25 @@ function renderArtifacts(campaign) {
       links.append(artifact ? artifactLink(campaign, artifact, label) : element("span", "download-unavailable", `${label} ${terminal ? "없음" : "수집 중"}`));
     }
     const jfrs = artifacts.filter((artifact) => artifact.name.endsWith(".jfr"));
-    for (const artifact of jfrs) links.append(artifactLink(campaign, artifact, artifact.name));
-    for (let index = jfrs.length; index < 2; index += 1) links.append(element("span", "download-unavailable", `task JFR ${index + 1} ${terminal ? "없음" : "수집 중"}`));
-    const complete = expected.every(([name]) => byName.has(name)) && jfrs.length >= 2;
-    if (terminal && !complete) partialCount += 1;
-    group.append(title, element("p", complete ? "help" : "error-text", complete ? "필수 artifact 5개 준비됨" : terminal ? "부분 수집 상태" : "수집 중"), links);
+    if (campaign.jfrEnabled) {
+      for (const artifact of jfrs) links.append(artifactLink(campaign, artifact, artifact.name));
+      for (let index = jfrs.length; index < 2; index += 1) links.append(element("span", "download-unavailable", `task JFR ${index + 1} ${terminal ? "없음" : "수집 중"}`));
+    } else {
+      links.append(element("span", "download-unavailable jfr-disabled", "JFR 수집 안 함"));
+    }
+    const expectation = artifactExpectation({ jfrEnabled: campaign.jfrEnabled, terminal, artifacts });
+    if (terminal && !expectation.complete) partialCount += 1;
+    const collectionText = expectation.complete
+      ? `필수 artifact ${expectation.requiredCount}개 준비됨${campaign.jfrEnabled ? "" : ". JFR 수집 안 함"}`
+      : terminal ? "부분 수집 상태" : "수집 중";
+    group.append(title, element("p", expectation.complete ? "help" : "error-text", collectionText), links);
     return group;
   });
-  dom["artifact-state"].textContent = partialCount ? `${partialCount}개 target이 부분 수집 상태입니다. manifest와 두 task JFR을 함께 확인하세요.` : terminal ? "수집된 artifact는 localhost allowlist route로만 제공됩니다." : "실행 중이며 artifact 수집 상태를 갱신합니다.";
+  dom["artifact-state"].textContent = partialCount
+    ? `${partialCount}개 target이 부분 수집 상태입니다. JFR 수집 캠페인은 manifest와 두 task JFR을 함께 확인하세요.`
+    : terminal && !campaign.jfrEnabled ? "JFR 수집 안 함 캠페인입니다. report, summary, manifest만 필수입니다."
+      : terminal ? "수집된 artifact는 localhost allowlist route로만 제공됩니다."
+        : "실행 중이며 artifact 수집 상태를 갱신합니다.";
   replaceChildren(dom["artifact-list"], groups);
 }
 
@@ -423,19 +470,19 @@ function renderAll() {
   renderResults();
 }
 
-function updateRun(campaign) {
+function upsertRun(campaign) {
   const index = state.runs.findIndex((run) => run.campaignId === campaign.campaignId);
   if (index >= 0) state.runs[index] = campaign;
   else state.runs.unshift(campaign);
   state.runs.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-  state.liveCampaign = campaign;
   state.selectedRunId = campaign.campaignId;
 }
 
 function applyEvent(event) {
   const sequence = Number(event.lastEventId || 0);
-  if (sequence && sequence <= state.lastSequence) return;
-  if (sequence) state.lastSequence = sequence;
+  const sequenceDecision = sseSequenceDecision(state.lastSequence, sequence);
+  if (!sequenceDecision.accept) return;
+  state.lastSequence = sequenceDecision.sequence;
   let payload;
   try {
     payload = JSON.parse(event.data);
@@ -449,14 +496,29 @@ function applyEvent(event) {
     state.consoleLines = state.consoleLines.slice(-MAX_CONSOLE_LINES);
   }
   if (state.liveCampaign) {
+    let targets = state.liveCampaign.targets;
     if (payload.target) {
-      state.liveCampaign.targets = state.liveCampaign.targets.map((target) => target.key === payload.target ? { ...target, status: payload.status } : target);
+      targets = targets.map((target) => target.key === payload.target ? { ...target, status: payload.status } : target);
     }
-    if (!payload.target || payload.phase === "campaign" || payload.phase === "cancel" || payload.status === "RUNNING" || payload.status === "CANCELLING") state.liveCampaign.status = payload.status;
+    const updatesCampaign = !payload.target || payload.phase === "campaign" || payload.phase === "cancel" || payload.status === "RUNNING" || payload.status === "CANCELLING";
+    const updated = { ...state.liveCampaign, targets, status: updatesCampaign ? payload.status : state.liveCampaign.status };
+    upsertRun(updated);
+    if (TERMINAL_STATUSES.has(updated.status)) {
+      clearApproval("terminal");
+      state.liveCampaign = null;
+      state.cancelSent = false;
+      closeEvents();
+      renderAll();
+    } else {
+      state.liveCampaign = updated;
+      renderLive();
+      renderConfiguration();
+    }
   }
-  renderLive();
-  renderConfiguration();
-  if (payload.phase === "finish" || payload.phase === "campaign") void refreshSnapshot(state.liveCampaign?.campaignId);
+  if (payload.phase === "finish" || payload.phase === "campaign") {
+    const campaignId = state.liveCampaign?.campaignId || state.selectedRunId;
+    void refreshSnapshot(campaignId);
+  }
 }
 
 function closeEvents() {
@@ -468,34 +530,52 @@ function closeEvents() {
 
 async function refreshSnapshot(campaignId) {
   if (!campaignId) return null;
-  try {
-    const campaign = await fetchJson(`/api/runs/${encodeURIComponent(campaignId)}`);
-    updateRun(campaign);
-    renderAll();
-    if (TERMINAL_STATUSES.has(campaign.status)) {
-      closeEvents();
-      state.cancelSent = false;
-    }
-    return campaign;
-  } catch (error) {
-    setAppError(requestMessage(error, "Campaign snapshot을 갱신하지 못했습니다."));
+  const result = await snapshots.refresh(campaignId);
+  if (result.kind === "stale") return null;
+  if (result.kind === "error") {
+    setAppError(requestMessage(result.error, "Campaign snapshot을 갱신하지 못했습니다."));
     return null;
   }
+  const campaign = result.campaign;
+  upsertRun(campaign);
+  if (isActive(campaign)) {
+    state.liveCampaign = campaign;
+  } else {
+    clearApproval("terminal");
+    if (state.liveCampaign?.campaignId === campaign.campaignId) state.liveCampaign = null;
+    state.cancelSent = false;
+    closeEvents();
+  }
+  renderAll();
+  return campaign;
 }
 
 async function scheduleReconnect(campaignId) {
-  if (!campaignId || state.reconnectTimer || !isActive(state.liveCampaign)) return;
+  if (!campaignId || !state.liveCampaign) return;
+  const initialDecision = reconnectDecision({
+    status: state.liveCampaign.status,
+    timerPending: Boolean(state.reconnectTimer) || state.reconnectPending,
+    delay: state.reconnectDelay,
+  });
+  if (!initialDecision.schedule) return;
+  state.reconnectPending = true;
   if (state.eventSource) state.eventSource.close();
   state.eventSource = null;
-  dom["live-status"].textContent = `SSE 연결이 끊겼습니다. ${state.reconnectDelay / 1000}초 뒤 snapshot을 확인하고 다시 연결합니다.`;
+  dom["live-status"].textContent = `SSE 연결이 끊겼습니다. ${initialDecision.delay / 1000}초 뒤 snapshot을 확인하고 다시 연결합니다.`;
   const snapshot = await refreshSnapshot(campaignId);
+  state.reconnectPending = false;
   if (snapshot && TERMINAL_STATUSES.has(snapshot.status)) return;
-  const delay = state.reconnectDelay;
-  state.reconnectDelay = Math.min(state.reconnectDelay * 2, 10000);
+  const decision = reconnectDecision({
+    status: state.liveCampaign?.status,
+    timerPending: Boolean(state.reconnectTimer),
+    delay: state.reconnectDelay,
+  });
+  if (!decision.schedule) return;
+  state.reconnectDelay = decision.nextDelay;
   state.reconnectTimer = window.setTimeout(() => {
     state.reconnectTimer = null;
     connectEvents(campaignId);
-  }, delay);
+  }, decision.delay);
 }
 
 function connectEvents(campaignId) {
@@ -505,6 +585,7 @@ function connectEvents(campaignId) {
   state.eventSource = source;
   source.addEventListener("open", () => {
     state.reconnectDelay = 1000;
+    state.reconnectPending = false;
     setAppError("");
     if (state.liveCampaign) dom["live-status"].textContent = `${state.liveCampaign.status} SSE 연결됨. campaign ${campaignId}`;
   });
@@ -515,22 +596,16 @@ function connectEvents(campaignId) {
 async function startCampaign(mode) {
   setAppError("");
   const selected = selectedTargets();
-  const safeAll = mode === "safe-all";
-  const payload = safeAll ? {
-    mode: "safe-all",
-    profile: "smoke",
-    rateOrVus: 1,
-    durationOrIterations: "1",
-    jfrEnabled: true,
-  } : {
-    mode: "selected",
-    targetKeys: selected.map((target) => target.key),
+  const signature = currentRiskSignature(selected);
+  const payload = buildRunPayload(mode === "safe-all" ? { mode } : {
+    mode,
+    selectedKeys: selected.map((target) => target.key),
     profile: dom.profile.value,
-    rateOrVus: Number(dom["load-value"].value),
-    durationOrIterations: dom["extent-value"].value.trim(),
-    allowRisk: dom["risk-approval"].checked,
+    load: Number(dom["load-value"].value),
+    extent: dom["extent-value"].value.trim(),
+    riskApproved: Boolean(signature && dom["risk-approval"].checked && state.approvedRiskSignature === signature),
     jfrEnabled: dom["jfr-enabled"].checked,
-  };
+  });
   dom["safe-all-button"].disabled = true;
   dom["selected-run-button"].disabled = true;
   dom["live-status"].textContent = "실행 요청을 보내는 중입니다.";
@@ -544,7 +619,8 @@ async function startCampaign(mode) {
     state.consoleLines = [];
     state.phaseByTarget.clear();
     state.lastSequence = 0;
-    updateRun(campaign);
+    upsertRun(campaign);
+    state.liveCampaign = campaign;
     renderAll();
     dom["live-title"].focus({ preventScroll: true });
     connectEvents(campaign.campaignId);
@@ -557,7 +633,7 @@ async function startCampaign(mode) {
 
 async function cancelCampaign() {
   const campaign = state.liveCampaign;
-  if (!campaign || state.cancelSent || !isActive(campaign)) return;
+  if (!canCancel({ campaign, cancelSent: state.cancelSent })) return;
   state.cancelSent = true;
   renderConfiguration();
   dom["live-status"].textContent = "취소 요청을 보내는 중입니다. cleanup 완료까지 기다립니다.";
@@ -567,7 +643,9 @@ async function cancelCampaign() {
       headers: { "Content-Type": "application/json" },
       body: "{}",
     });
-    campaign.status = "CANCELLING";
+    const cancelling = { ...campaign, status: "CANCELLING" };
+    state.liveCampaign = cancelling;
+    upsertRun(cancelling);
     renderAll();
   } catch (error) {
     setAppError(requestMessage(error, "취소 요청에 실패했습니다."));
@@ -580,11 +658,14 @@ async function reloadRuns() {
   try {
     const documentBody = await fetchJson("/api/runs");
     state.runs = documentBody.runs || [];
-    const active = state.runs.find(isActive);
+    const active = selectActiveCampaign(state.runs);
+    state.liveCampaign = active;
     if (active) {
-      state.liveCampaign = active;
       state.selectedRunId = active.campaignId;
       connectEvents(active.campaignId);
+    } else {
+      clearApproval("terminal");
+      closeEvents();
     }
     renderAll();
   } catch (error) {
@@ -595,19 +676,42 @@ async function reloadRuns() {
 function bindControls() {
   for (const id of ["target-search", "suite-filter", "risk-filter"]) dom[id].addEventListener(id === "target-search" ? "input" : "change", renderCatalog);
   dom["safe-select-button"].addEventListener("click", () => {
-    const profile = dom.profile.value;
-    state.selectedKeys = new Set(state.targets.filter((target) => target.defaultEnabled && target.risk === "safe" && (profile === "smoke" || target.defaultProfile === profile)).map((target) => target.key));
+    clearApproval("selection");
+    state.selectedKeys = new Set(selectionForAction({ targets: state.targets, profile: dom.profile.value, action: "safe-defaults" }));
+    renderCatalog();
+    renderConfiguration();
+  });
+  dom["clear-selection-button"].addEventListener("click", () => {
+    clearApproval("selection");
+    state.selectedKeys = new Set(selectionForAction({ targets: state.targets, profile: dom.profile.value, action: "clear" }));
     renderCatalog();
     renderConfiguration();
   });
   dom.profile.addEventListener("change", () => {
-    const rule = PROFILE_RULES[dom.profile.value];
+    clearApproval("profile");
+    const rule = profileRule(dom.profile.value);
     dom["load-value"].value = "1";
     dom["extent-value"].value = rule.extent;
     renderConfiguration();
   });
-  for (const id of ["load-value", "extent-value"]) dom[id].addEventListener("input", renderConfiguration);
-  for (const id of ["risk-approval", "jfr-enabled"]) dom[id].addEventListener("change", renderConfiguration);
+  dom["load-value"].addEventListener("input", () => {
+    clearApproval("load");
+    renderConfiguration();
+  });
+  dom["extent-value"].addEventListener("input", () => {
+    clearApproval("extent");
+    renderConfiguration();
+  });
+  dom["risk-approval"].addEventListener("change", () => {
+    state.approvedRiskSignature = transitionApproval({
+      approvedSignature: state.approvedRiskSignature,
+      action: "acknowledge",
+      currentSignature: currentRiskSignature(),
+      checked: dom["risk-approval"].checked,
+    });
+    renderConfiguration();
+  });
+  dom["jfr-enabled"].addEventListener("change", renderConfiguration);
   dom["safe-all-button"].addEventListener("click", () => { void startCampaign("safe-all"); });
   dom["selected-run-button"].addEventListener("click", () => { void startCampaign("selected"); });
   dom["cancel-button"].addEventListener("click", () => { void cancelCampaign(); });
@@ -623,9 +727,9 @@ async function initialize() {
     const [targetsDocument, runsDocument] = await Promise.all([fetchJson("/api/targets"), fetchJson("/api/runs")]);
     state.targets = targetsDocument.targets || [];
     state.runs = runsDocument.runs || [];
-    state.selectedKeys = new Set(state.targets.filter((target) => target.defaultEnabled && target.risk === "safe").map((target) => target.key));
-    const active = state.runs.find(isActive);
-    state.liveCampaign = active || state.runs[0] || null;
+    state.selectedKeys = new Set(selectionForAction({ targets: state.targets, profile: "smoke", action: "safe-defaults" }));
+    const active = selectActiveCampaign(state.runs);
+    state.liveCampaign = active;
     state.selectedRunId = state.runs[0]?.campaignId || "";
     state.loading = false;
     renderAll();

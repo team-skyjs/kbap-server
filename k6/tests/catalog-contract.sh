@@ -47,7 +47,7 @@ jq -e '
   (.targets | type == "array" and length > 0) and
   all(.targets[];
     type == "object" and
-    (["key", "label", "method", "route", "suite", "risk", "defaultProfile", "defaultEnabled"] - keys | length == 0) and
+    (["key", "label", "method", "route", "suite", "risk", "defaultProfile", "defaultEnabled", "requestsPerIteration"] - keys | length == 0) and
     (.key | type == "string" and length > 0) and
     (.label | type == "string" and length > 0) and
     (.method | IN("GET", "POST", "PATCH", "DELETE")) and
@@ -55,11 +55,13 @@ jq -e '
     (.suite | IN("read", "reversible-write", "fixture-write", "external")) and
     (.risk | IN("safe", "fixture", "cost")) and
     (.defaultProfile | IN("read", "write", "external")) and
-    (.defaultEnabled | type == "boolean")
+    (.defaultEnabled | type == "boolean") and
+    (.requestsPerIteration | type == "number" and . >= 1 and floor == .)
   )
 ' "$manifest" >/dev/null
 
 jq -e '([.targets[].key] | length) == ([.targets[].key] | unique | length)' "$manifest" >/dev/null
+jq -e 'all(.targets[]; .requestsPerIteration == (if (.key == "scan-v2-krw" or .key == "scan-v2-usd") then 2 else 1 end))' "$manifest" >/dev/null
 jq -e 'all(.targets[]; .risk == "safe" or (.defaultEnabled | not))' "$manifest" >/dev/null
 jq -e 'all(.targets[];
   if .suite == "read" then .risk == "safe" and .defaultProfile == "read" and .defaultEnabled

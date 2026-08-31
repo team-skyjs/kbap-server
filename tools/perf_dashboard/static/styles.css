@@ -12,7 +12,7 @@
   --navy-pressed: #020617;
   --accent: #047857;
   --accent-surface: #D1FAE5;
-  --success: #15803D;
+  --success: #166534;
   --success-surface: #DCFCE7;
   --warning: #92400E;
   --warning-surface: #FEF3C7;
@@ -265,6 +265,11 @@ select:disabled,
 
 .method-badge {
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.status,
+.risk-label {
   white-space: nowrap;
 }
 
@@ -523,9 +528,11 @@ select:disabled,
 }
 
 .workspace,
-.workspace-scroll,
+.workspace-frame,
 .list-detail,
 .catalog-pane,
+.target-list,
+.detail-scroll,
 .detail-pane {
   min-block-size: 0;
   min-inline-size: 0;
@@ -535,13 +542,13 @@ select:disabled,
   overflow: hidden;
 }
 
-.workspace-scroll {
+.workspace-frame {
   block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: var(--space-4) var(--space-6) var(--space-8);
-  scroll-padding-block-start: var(--space-4);
 }
 
 .app-error {
@@ -551,12 +558,13 @@ select:disabled,
   color: var(--error);
   font-size: 0.875rem;
   font-weight: 650;
-  margin-block-end: var(--space-4);
+  margin: 0;
   padding: var(--space-3) var(--space-4);
 }
 
 .list-detail {
   display: grid;
+  flex: 1 1 auto;
   gap: var(--space-4);
   grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
   margin-inline: auto;
@@ -571,7 +579,10 @@ select:disabled,
 }
 
 .catalog-pane {
-  align-self: start;
+  block-size: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .section-heading {
@@ -604,6 +615,14 @@ select:disabled,
   color: var(--ink-muted);
   font-size: 0.8125rem;
   margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.catalog-actions {
+  display: grid;
+  flex: 0 0 auto;
+  gap: var(--space-1);
 }
 
 .catalog-filters {
@@ -619,6 +638,10 @@ select:disabled,
 
 .target-list {
   min-inline-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: var(--space-2);
 }
 
 .endpoint-row {
@@ -703,6 +726,13 @@ select:disabled,
   align-content: start;
   display: grid;
   gap: var(--space-4);
+}
+
+.detail-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block-start: var(--space-4);
 }
 
 .work-section {
@@ -815,6 +845,7 @@ select:disabled,
 table {
   border-collapse: collapse;
   inline-size: 100%;
+  min-inline-size: 42rem;
   table-layout: fixed;
 }
 
@@ -891,7 +922,7 @@ th {
 }
 
 @media (max-width: 63.999rem) {
-  .workspace-scroll {
+  .workspace-frame {
     padding-inline: var(--space-4);
   }
 
@@ -925,13 +956,25 @@ th {
     overflow: visible;
   }
 
-  .workspace-scroll {
+  .workspace-frame {
     block-size: auto;
     overflow: visible;
     padding: var(--space-3);
   }
 
+  .catalog-pane {
+    block-size: auto;
+    overflow: visible;
+  }
+
+  .target-list,
+  .detail-scroll {
+    overflow: visible;
+  }
+
   .list-detail {
+    block-size: auto;
+    flex: none;
     grid-template-columns: 1fr;
   }
 
@@ -942,6 +985,10 @@ th {
   .section-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .catalog-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-picker {
@@ -978,6 +1025,10 @@ th {
     inline-size: 100%;
   }
 
+  table {
+    min-inline-size: 0;
+  }
+
   thead {
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
@@ -988,12 +1039,19 @@ th {
     inline-size: 1px;
   }
 
+  caption {
+    display: block;
+    inline-size: 100%;
+  }
+
   tbody tr {
     border-block-start: 1px solid var(--border);
     padding-block: var(--space-2);
   }
 
-  td {
+  td,
+  tbody th {
+    background: transparent;
     border-block-end: 0;
     display: grid;
     gap: var(--space-2);
@@ -1001,7 +1059,8 @@ th {
     padding-block: var(--space-2);
   }
 
-  td::before {
+  td::before,
+  tbody th::before {
     color: var(--ink-muted);
     content: attr(data-label);
     font-family: var(--font-ui);

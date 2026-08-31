@@ -8,16 +8,16 @@ from tools.perf_dashboard.artifacts import ArtifactNotFoundError, build_bundle, 
 from tools.perf_dashboard.events import EventBuffer, sanitize_line
 from tools.perf_dashboard.models import RunStatus
 from tools.perf_dashboard.store import CampaignNotFoundError, CampaignStore
-from tools.perf_dashboard.validation import RequestValidationError, load_targets, validate_run_request
+from tools.perf_dashboard.validation import RequestValidationError, TargetManifestError, load_targets, validate_run_request
 
 
 TARGETS = {
     "targets": [
-        {"key": "read-a", "label": "Read A", "method": "GET", "route": "/a", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
-        {"key": "fixture-a", "label": "Fixture A", "method": "POST", "route": "/b", "suite": "fixture-write", "risk": "fixture", "defaultProfile": "write", "defaultEnabled": False},
-        {"key": "read-b", "label": "Read B", "method": "GET", "route": "/c", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True},
-        {"key": "write-a", "label": "Write A", "method": "POST", "route": "/write", "suite": "reversible-write", "risk": "safe", "defaultProfile": "write", "defaultEnabled": True},
-        {"key": "cost-a", "label": "Cost A", "method": "POST", "route": "/d", "suite": "external", "risk": "cost", "defaultProfile": "external", "defaultEnabled": False},
+        {"key": "read-a", "label": "Read A", "method": "GET", "route": "/a", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True, "requestsPerIteration": 1},
+        {"key": "fixture-a", "label": "Fixture A", "method": "POST", "route": "/b", "suite": "fixture-write", "risk": "fixture", "defaultProfile": "write", "defaultEnabled": False, "requestsPerIteration": 1},
+        {"key": "read-b", "label": "Read B", "method": "GET", "route": "/c", "suite": "read", "risk": "safe", "defaultProfile": "read", "defaultEnabled": True, "requestsPerIteration": 1},
+        {"key": "write-a", "label": "Write A", "method": "POST", "route": "/write", "suite": "reversible-write", "risk": "safe", "defaultProfile": "write", "defaultEnabled": True, "requestsPerIteration": 1},
+        {"key": "cost-a", "label": "Cost A", "method": "POST", "route": "/d", "suite": "external", "risk": "cost", "defaultProfile": "external", "defaultEnabled": False, "requestsPerIteration": 1},
     ]
 }
 
@@ -32,6 +32,19 @@ class CampaignValidationTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_manifest_requires_a_positive_request_multiplier(self) -> None:
+        for invalid in (None, 0, -1, 1.5, True):
+            with self.subTest(invalid=invalid):
+                document = json.loads(json.dumps(TARGETS))
+                if invalid is None:
+                    document["targets"][0].pop("requestsPerIteration")
+                else:
+                    document["targets"][0]["requestsPerIteration"] = invalid
+                self.target_path.write_text(json.dumps(document), encoding="utf-8")
+
+                with self.assertRaises(TargetManifestError):
+                    load_targets(self.target_path)
 
     def test_safe_all_preserves_manifest_order_when_defaults_are_safe(self) -> None:
         request = validate_run_request(
