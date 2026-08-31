@@ -89,6 +89,22 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
+      # 이전 카나리(bake 15분 포함 ~35분)가 끝나기 전에 새 배포를 만들면 DeploymentLimitExceeded 로
+      # 실패한다 — 진행 중 배포가 있으면 종료까지 대기(최대 40분)한 뒤 생성한다. 머지 타이밍 제약 제거.
+      - name: Wait for in-flight CodeDeploy deployment
+        run: |
+          for i in $(seq 1 80); do
+            ACTIVE=$(aws deploy list-deployments --application-name "$ECS_NAME-api" \
+              --deployment-group-name "$ECS_NAME-api" \
+              --include-only-statuses Created Queued InProgress Ready \
+              --query 'deployments[0]' --output text)
+            [ "$ACTIVE" = "None" ] && exit 0
+            echo "in-flight deployment $ACTIVE — 30s 대기 ($i/80)"
+            sleep 30
+          done
+          echo "::error::이전 배포가 40분 내에 끝나지 않았습니다"
+          exit 1
+
       # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
       # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지(KB-242 판정 기준
       # 유지) — 이후 성패는 CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백).
