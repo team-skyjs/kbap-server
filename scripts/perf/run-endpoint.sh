@@ -203,18 +203,19 @@ announce_phase() {
   printf 'phase=%s run_id=%s target=%s\n' "$1" "$run_id" "$target" | tee -a "$console_log"
 }
 
-aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
-  ecs wait services-stable \
-  --cluster "$PERF_ECS_CLUSTER" \
-  --services "$PERF_ECS_SERVICE"
-
-service_state=$(aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
-  ecs describe-services \
-  --cluster "$PERF_ECS_CLUSTER" \
-  --services "$PERF_ECS_SERVICE" \
-  --query 'services[0].[desiredCount,runningCount,pendingCount,taskDefinition]' \
-  --output text)
-read -r desired_count running_count pending_count task_definition_arn <<<"$service_state"
+# CODE_DEPLOY 컨트롤러 서비스는 deployments 가 null 이라 `aws ecs wait services-stable` 웨이터가
+# length(deployments) JMESPath 에서 실패한다 — describe-services 폴링으로 대체한다.
+for stable_attempt in $(seq 1 30); do
+  service_state=$(aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
+    ecs describe-services \
+    --cluster "$PERF_ECS_CLUSTER" \
+    --services "$PERF_ECS_SERVICE" \
+    --query 'services[0].[desiredCount,runningCount,pendingCount,taskDefinition]' \
+    --output text)
+  read -r desired_count running_count pending_count task_definition_arn <<<"$service_state"
+  [[ "$desired_count" == "2" && "$running_count" == "2" && "$pending_count" == "0" ]] && break
+  sleep 10
+done
 if [[ "$desired_count" != "2" || "$running_count" != "2" || "$pending_count" != "0" ]]; then
   echo "error: ECS service must be steady with desired=2, running=2, pending=0" >&2
   exit 3
