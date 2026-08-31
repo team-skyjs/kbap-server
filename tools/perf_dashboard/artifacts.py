@@ -14,6 +14,7 @@ from .models import Artifact, ArtifactId, JsonValue
 
 
 ALLOWED_NAMES: Final = frozenset(("report.html", "summary.json", "manifest.json"))
+REQUIRED_JFR_COUNT: Final = 2
 ZIP_TIMESTAMP: Final = (1980, 1, 1, 0, 0, 0)
 CHUNK_SIZE: Final = 64 * 1024
 JFR_NAME_PATTERN: Final = re.compile(r"^task-[A-Za-z0-9][A-Za-z0-9._-]*\.jfr$")
@@ -95,6 +96,16 @@ def discover_artifacts(campaign_dir: Path, target_key: str) -> tuple[Artifact, .
             artifact_id = ArtifactId(f"{target_key}:{path.name}")
             artifacts.append(Artifact(artifact_id, path.name, str(resolved.relative_to(root)), artifact_media_type(path.name)))
     return tuple(artifacts)
+
+
+def has_required_artifacts(artifacts: tuple[Artifact, ...], jfr_enabled: bool) -> bool:
+    names = frozenset(artifact.name for artifact in artifacts)
+    if not ALLOWED_NAMES.issubset(names):
+        return False
+    if not jfr_enabled:
+        return True
+    jfr_count = sum(JFR_NAME_PATTERN.fullmatch(name) is not None for name in names)
+    return jfr_count == REQUIRED_JFR_COUNT
 
 
 def _mapping(value: JsonValue) -> dict[str, JsonValue]:

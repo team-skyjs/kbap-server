@@ -5,6 +5,7 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 temp_dir="$(mktemp -d)"
 report_dir="$temp_dir/reports"
 mock_pid=""
+base_url=""
 
 cleanup() {
   if [[ -n "$mock_pid" ]]; then
@@ -15,13 +16,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 "$repo_dir/k6/tests/mock-server.py" >"$temp_dir/mock-server.log" 2>&1 &
+MOCK_PORT=0 python3 "$repo_dir/k6/tests/mock-server.py" >"$temp_dir/mock-server.log" 2>&1 &
 mock_pid=$!
 mkdir -p "$report_dir"
 
 for _ in {1..50}; do
-  if curl --silent --fail http://127.0.0.1:18081/api/app-version >/dev/null; then
-    break
+  mock_port="$(awk -F '\t' '$1 == "READY" { print $2 }' "$temp_dir/mock-server.log")"
+  if [[ -n "$mock_port" ]]; then
+    base_url="http://127.0.0.1:$mock_port"
+    if curl --silent --fail "$base_url/api/app-version" >/dev/null; then
+      break
+    fi
   fi
   if ! kill -0 "$mock_pid" 2>/dev/null; then
     exit 1
@@ -29,13 +34,13 @@ for _ in {1..50}; do
   sleep 0.1
 done
 
-if ! curl --silent --fail http://127.0.0.1:18081/api/app-version >/dev/null; then
+if ! curl --silent --fail "$base_url/api/app-version" >/dev/null; then
   exit 1
 fi
 
 k6 inspect \
   -e TARGET=app-version \
-  -e BASE_URL=http://127.0.0.1:18081 \
+  -e BASE_URL="$base_url" \
   -e ACCESS_TOKEN=test-token \
   -e RUN_ID=harness-smoke \
   -e REPORT_DIR="$report_dir" \
@@ -43,7 +48,7 @@ k6 inspect \
 
 k6 run \
   -e TARGET=app-version \
-  -e BASE_URL=http://127.0.0.1:18081 \
+  -e BASE_URL="$base_url" \
   -e ACCESS_TOKEN=test-token \
   -e RUN_ID=harness-smoke \
   -e REPORT_DIR="$report_dir" \

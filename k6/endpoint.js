@@ -38,7 +38,20 @@ function loadFixtures(keys) {
   return fixtures;
 }
 
+function fixtureOffset(env) {
+  const raw = env.FIXTURE_OFFSET || '0';
+  if (!/^\d+$/.test(raw)) {
+    throw new Error('FIXTURE_OFFSET must be a non-negative integer');
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value)) {
+    throw new Error('FIXTURE_OFFSET must be a non-negative integer');
+  }
+  return value;
+}
+
 const fixtures = loadFixtures(endpoint.fixtureKeys);
+const offset = fixtureOffset(__ENV);
 const fixtureExhausted = new Counter('fixture_exhausted');
 const scanFailed = new Counter('scan_failed');
 
@@ -48,7 +61,7 @@ const context = {
   phase: __ENV.PHASE || 'measurement',
   authenticatedParams: (version, tags) => authenticatedParams(config, version, tags),
   executeRequest,
-  iterationInTest: () => execution.scenario.iterationInTest,
+  iterationInTest: () => offset + execution.scenario.iterationInTest,
   recordFixtureExhausted: (fixture) => fixtureExhausted.add(1, { fixture }),
   recordScanFailed: (step) => scanFailed.add(1, { step }),
 };

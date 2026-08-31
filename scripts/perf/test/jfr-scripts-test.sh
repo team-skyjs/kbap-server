@@ -27,6 +27,11 @@ set -euo pipefail
 printf '%s\t' "$@" >>"$FAKE_AWS_CALLS"
 printf '\n' >>"$FAKE_AWS_CALLS"
 
+if [[ " $* " == *" sts get-caller-identity "* ]]; then
+  printf '%s\n' "${FAKE_AWS_ACCOUNT_ID:-118178010621}"
+  exit 0
+fi
+
 if [[ " $* " == *" ecs list-tasks "* ]]; then
   case "${FAKE_TASK_COUNT:-2}" in
     1) printf 'arn:aws:ecs:ap-northeast-2:123456789012:task/kbap-dev-ecs-cluster/11111111111111111111111111111111\n' ;;
@@ -46,9 +51,17 @@ if [[ " $* " == *" ecs execute-command "* ]]; then
     fi
   done
   if [[ "$command" == *"JFR.start"* ]]; then
+    if [[ "${FAKE_CANCEL_START_TASK:-}" != "" && "$*" == *"${FAKE_CANCEL_START_TASK}"* ]]; then
+      kill -TERM "$PPID"
+      exit 143
+    fi
     if [[ "${FAKE_FAIL_START_TASK:-}" != "" && "$*" == *"${FAKE_FAIL_START_TASK}"* ]]; then
       echo 'start failed' >&2
       exit 1
+    fi
+    if [[ "${FAKE_MISSING_START_MARKER_TASK:-}" != "" && "$*" == *"${FAKE_MISSING_START_MARKER_TASK}"* ]]; then
+      echo 'recording response unavailable'
+      exit 0
     fi
     echo 'Started recording 1.'
   fi
@@ -68,7 +81,7 @@ if [[ " $* " == *" ecs execute-command "* ]]; then
 fi
 
 if [[ " $* " == *" s3 cp "* ]]; then
-  target="${@: -1}"
+  target="${@: -2:1}"
   if [[ -n "${FAKE_FAIL_DOWNLOAD_TASK:-}" && "$*" == *"${FAKE_FAIL_DOWNLOAD_TASK}"* ]] || \
     [[ -n "${FAKE_FAIL_UPLOAD_TASK:-}" && "$*" == *"${FAKE_FAIL_UPLOAD_TASK}"* ]]; then
     echo 'download failed' >&2
@@ -98,6 +111,12 @@ if [[ -n "${FAKE_FAIL_VALIDATE_TASK:-}" && "$*" == *"${FAKE_FAIL_VALIDATE_TASK}"
 fi
 DOCKER
 chmod +x "$FAKE_BIN/docker"
+
+cat >"$FAKE_BIN/session-manager-plugin" <<'PLUGIN'
+#!/usr/bin/env bash
+exit 0
+PLUGIN
+chmod +x "$FAKE_BIN/session-manager-plugin"
 
 run_with_fakes() {
   PATH="$FAKE_BIN:$PATH" \
@@ -171,6 +190,14 @@ assert_exit 2 "$START" 'invalid/run id'
 test ! -s "$CALLS"
 
 : >"$CALLS"
+assert_exit 2 env AWS_PROFILE=prod "$START" "$RUN_ID"
+test ! -s "$CALLS"
+
+: >"$CALLS"
+assert_exit 2 env PERFORMANCE_ARTIFACT_BUCKET=prod-bucket "$STOP" "$RUN_ID" "$TEST_DIR/prod-report"
+test ! -s "$CALLS"
+
+: >"$CALLS"
 assert_exit 3 env FAKE_TASK_COUNT=1 "$START" "$RUN_ID"
 assert_exit 3 env FAKE_TASK_COUNT=3 "$START" "$RUN_ID"
 
@@ -190,7 +217,22 @@ assert_count 1 "$TASK_TWO"
 : >"$CALLS"
 assert_nonzero env FAKE_FAIL_START_TASK="$TASK_TWO" "$START" "$RUN_ID"
 assert_count 2 'JFR.start'
+assert_count 2 "JFR.stop name=$RUN_ID"
+
+: >"$CALLS"
+assert_nonzero env FAKE_MISSING_START_MARKER_TASK="$TASK_ONE" "$START" "$RUN_ID" "$TASK_ONE" "$TASK_TWO"
+assert_count 1 'JFR.start'
 assert_count 1 "JFR.stop name=$RUN_ID"
+
+: >"$CALLS"
+assert_nonzero env FAKE_MISSING_START_MARKER_TASK="$TASK_TWO" "$START" "$RUN_ID" "$TASK_ONE" "$TASK_TWO"
+assert_count 2 'JFR.start'
+assert_count 2 "JFR.stop name=$RUN_ID"
+
+: >"$CALLS"
+assert_nonzero env FAKE_CANCEL_START_TASK="$TASK_TWO" "$START" "$RUN_ID" "$TASK_ONE" "$TASK_TWO"
+assert_count 2 'JFR.start'
+assert_count 2 "JFR.stop name=$RUN_ID"
 
 REPORT_DIR="$TEST_DIR/report"
 mkdir -p "$REPORT_DIR"
@@ -200,6 +242,7 @@ assert_count 2 "JFR.stop name=$RUN_ID"
 assert_count 2 "jfr\\ summary /tmp/$RUN_ID.jfr"
 assert_count 2 "s3\\ cp /tmp/$RUN_ID.jfr s3://$BUCKET/$RUN_ID/task-"
 assert_count 2 '--sse[[:space:]]+AES256'
+assert_count 4 '--only-show-errors'
 test -s "$REPORT_DIR/task-$TASK_ONE.jfr"
 test -s "$REPORT_DIR/task-$TASK_TWO.jfr"
 

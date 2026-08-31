@@ -13,9 +13,18 @@
 
 ## Unique fixtures
 
-`review-delete`, `report-create`, `imageCompleteFixtures`, and `orderFixtures` are consumed by global scenario iteration. Each review ID or object path must be unique and usable exactly once. When its array is exhausted, k6 sends no request and increments `fixture_exhausted`.
+`review-delete`, `report-create`, `imageCompleteFixtures`, and `orderFixtures` are consumed by `FIXTURE_OFFSET + execution.scenario.iterationInTest`. Each review ID or object path must be unique and usable exactly once. `FIXTURE_OFFSET` must be a non-negative integer and must reserve every iteration scheduled by earlier k6 processes, including dropped iterations.
 
-- Every `imageCompleteFixtures` path must have a matching presign record and uploaded object with the same content type and byte size.
+For the three-process runner contract, use these offsets:
+
+- initial smoke: `0`
+- warmup: `1`
+- measurement read/write: `1 + RATE * 120` for the fixed two-minute warmup
+- measurement external or smoke: `2` because smoke and warmup each reserve one iteration
+
+When a unique array is exhausted, or an `imageCompleteFixtures` path lacks the exact current run tag, k6 sends no request and increments `fixture_exhausted`. The `fixture_exhausted` and `scan_failed` thresholds are both `count==0`, so skipped destructive work and incomplete two-step scans fail the run instead of exiting successfully.
+
+- Every `imageCompleteFixtures` path must contain `[load:<campaign>-image-complete]`, where `<campaign>-image-complete` is the exact `RUN_ID`. It must have a matching presign record and uploaded object with the same content type and byte size.
 - Every `orderFixtures.imagePath` must identify a distinct scan. Its food must be a valid scanned food.
 - The scan targets reuse `scanImagePath`; scan v2 obtains a fresh ticket for every iteration.
 
@@ -25,11 +34,41 @@ External-kind targets reject profile overrides other than `external` or one-iter
 
 ## Cleanup
 
-Creation text is tagged with `[load:$RUN_ID]`. Prefer the API teardown targets so ranking changes follow domain logic. For stranded review/report fixtures, set the exact run ID in the same MySQL session and source the guarded cleanup script:
+The target manifest exposes the runner-facing lifecycle contract:
+
+- `stateCapability=none`: no database capture or cleanup.
+- `stateCapability=snapshot-restore`: restore the explicitly captured member 35 profile, block, bookmark, review-like, or review fixture state.
+- `stateCapability=tagged-cleanup`: delete exact case-sensitive `[load:$RUN_ID]` review/report/order/image rows and restore captured member counters where applicable.
+- `stateCapability=scan-cleanup`: restore member 35's scan count and remove only its scan histories above the captured high-watermark.
+- `objectCleanup=imageCompleteFixtures`: delete only `imageCompleteFixtures[].path` objects after database cleanup.
+- `objectCleanup=scanGeneratedFoodImageRefs`: consume the `object_cleanup_path` result rows emitted by cleanup. Never delete the pre-existing `scanImagePath` or `orderFixtures[].imagePath` objects.
+
+Before every target whose `stateCapability` is not `none`, Task 8 must run `capture-fixtures.sql` in one MySQL session and store its single `snapshot_base64` value in a mode-0600 temporary file. The required session variables are:
 
 ```sql
-SET @run_id = '20260831T120000Z';
+SET @run_id = '20260831T120000Z-review-create';
+SET @target = 'review-create';
+SET @blocked_member_ids_json = '[36]';
+SET @bookmark_food_ids_json = '[1]';
+SET @review_ids_json = '[1]';
+SOURCE k6/scripts/capture-fixtures.sql;
+```
+
+After all phases, Task 8 must invoke cleanup in a new MySQL session with the exact captured value:
+
+```sql
+SET @run_id = '20260831T120000Z-review-create';
+SET @target = 'review-create';
+SET @snapshot_base64 = '<exact capture output>';
 SOURCE k6/scripts/cleanup-fixtures.sql;
 ```
 
-The script rejects missing, blank, or unsafe run IDs. It deletes only member 35's tagged reviews, their report/like/ranking children, and member 35's tagged reports, then recalculates member 35's review counters. It never deletes member 35, food master rows, or untagged reviews.
+The cleanup rejects a case-mismatched snapshot run ID or target, missing/blank/percent-bearing run IDs, and malformed snapshots. Allowed underscores are escaped before `LIKE`; tag columns are compared with `BINARY`, so `[LOAD:...]` and case-only run-ID distractors are never selected. In one guarded transaction it operates only on explicitly captured fixture rows or:
+
+- member 35's tagged reports and tagged reviews, plus those reviews' report/like/ranking children
+- member 35's orders selected through an exactly tagged `order_item.menu_name`, deleting their items first
+- member 35's exactly tagged `uploaded_image` rows
+
+Review update/delete restoration includes every mutable review field, status, version, post-snapshot ranking events, and the original member counters. Profile, block, bookmark, and review-like restoration covers only member 35 and the fixture IDs captured before the run; it never blanket-deletes pre-existing rows.
+
+The current schema maps legacy `INCOMPLETE` food to `FAILED`, and `createIncomplete()` now persists `FAILED`. Scan cleanup therefore considers only `FAILED` foods above the captured food high-watermark that were referenced by post-snapshot member 35 scans. It deletes a candidate only when no scan/bookmark/review/order/ingredient/outbox/image-batch/community reference remains; unresolved candidates remain untouched and cleanup signals a non-zero residual after committing the bounded scan-history/counter restore. Presign calls create no database row, and SQL cannot delete S3 objects, so Task 8 must process the manifest-directed object cleanup separately.

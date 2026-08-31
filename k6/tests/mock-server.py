@@ -31,7 +31,12 @@ TICKET_RESPONSE_BODY = json.dumps(
 TICKET_FAILURE_BODY = json.dumps(
     {"success": False, "payload": None, "message": "mock ticket failure", "code": "SCAN-006"},
 ).encode()
+TICKET_MISSING_BODY = json.dumps(
+    {"success": True, "payload": {"expiresInSeconds": 300}, "message": None, "code": None},
+).encode()
 MOCK_TICKET_FAILURE = os.environ.get("MOCK_TICKET_FAILURE") == "true"
+MOCK_TICKET_MISSING = os.environ.get("MOCK_TICKET_MISSING") == "true"
+MOCK_PORT = int(os.environ.get("MOCK_PORT", "18081"))
 
 
 class MockHandler(BaseHTTPRequestHandler):
@@ -75,6 +80,8 @@ class MockHandler(BaseHTTPRequestHandler):
         status = 503 if ticket_request and MOCK_TICKET_FAILURE else 200
         if ticket_request and MOCK_TICKET_FAILURE:
             response_body = TICKET_FAILURE_BODY
+        elif ticket_request and MOCK_TICKET_MISSING:
+            response_body = TICKET_MISSING_BODY
         elif ticket_request:
             response_body = TICKET_RESPONSE_BODY
         else:
@@ -95,7 +102,8 @@ class MockHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    with ThreadingHTTPServer(("127.0.0.1", 18081), MockHandler) as server:
+    with ThreadingHTTPServer(("127.0.0.1", MOCK_PORT), MockHandler) as server:
+        print(f"READY\t{server.server_port}", flush=True)
         server.serve_forever()
 
 

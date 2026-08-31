@@ -10,7 +10,7 @@ from contextlib import AbstractContextManager, contextmanager
 from typing import Final, Iterator
 
 from .artifact_io import OpenedArtifact, open_artifact
-from .artifacts import OpenedBundle, build_bundle, discover_artifacts, open_bundle
+from .artifacts import OpenedBundle, build_bundle, discover_artifacts, has_required_artifacts, open_bundle
 from .events import CampaignEvent, EventBuffer, sanitize_line
 from .identifiers import InvalidCampaignIdError, parse_campaign_id
 from .models import Campaign, CampaignId, CampaignTarget, RunRequest, RunStatus
@@ -262,9 +262,10 @@ class CampaignController:
             campaign = self._campaigns[campaign_id]
             targets = list(campaign.targets)
             cancelled = campaign_id in self._cancel_requested
-            status = RunStatus.CANCELLED if cancelled else (RunStatus.PASSED if exit_code == 0 else RunStatus.FAILED)
             campaign_dir = self.store.root / campaign_id
             artifacts = discover_artifacts(campaign_dir, target_key)
+            succeeded = exit_code == 0 and has_required_artifacts(artifacts, request.jfr_enabled)
+            status = RunStatus.CANCELLED if cancelled else (RunStatus.PASSED if succeeded else RunStatus.FAILED)
             summary = read_summary(campaign_dir / target_key / "summary.json")
             targets[index] = replace(targets[index], status=status, finished_at=_now(), exit_code=exit_code, summary=summary, artifacts=artifacts)
             updated = replace(campaign, targets=tuple(targets))

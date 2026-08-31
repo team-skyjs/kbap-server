@@ -27,8 +27,8 @@
   "reviewIds": [1],
   "reportReviewIds": [2],
   "imageCompleteFixtures": [
-    { "path": "images/menu-scan/load-complete-1.jpg", "contentType": "image/jpeg", "size": 1234 },
-    { "path": "images/menu-scan/load-complete-2.jpg", "contentType": "image/jpeg", "size": 1234 }
+    { "path": "images/menu-scan/[load:20260831T120000Z-image-complete]/load-complete-1.jpg", "contentType": "image/jpeg", "size": 1234 },
+    { "path": "images/menu-scan/[load:20260831T120000Z-image-complete]/load-complete-2.jpg", "contentType": "image/jpeg", "size": 1234 }
   ],
   "orderFixtures": [
     { "imagePath": "images/menu-scan/load-order-1.jpg", "foodId": 1, "menuName": "김치찌개", "price": 9000 },

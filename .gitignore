@@ -264,3 +264,5 @@ bin/
 
 # k6 load-test image fixture (binary, prepared locally)
 k6/menu-board.jpg
+__pycache__/
+*.py[cod]

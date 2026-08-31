@@ -152,7 +152,14 @@ export const writeEndpoints = [
     key: 'image-complete', method: 'POST', route: '/api/images/complete', fixtureKeys: ['imageCompleteFixtures'],
     request: (context) => {
       const fixture = uniqueFixture(context, 'imageCompleteFixtures');
-      return fixture === null ? null : request(context, '/api/images/complete', fixture);
+      if (fixture === null) {
+        return null;
+      }
+      if (!fixture.path.includes(`[load:${context.runId}]`)) {
+        context.recordFixtureExhausted('imageCompleteFixtures');
+        return null;
+      }
+      return request(context, '/api/images/complete', fixture);
     },
   }),
   writeEndpoint({

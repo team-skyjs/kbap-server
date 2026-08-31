@@ -124,6 +124,8 @@ class DashboardServerTest(unittest.TestCase):
         terminal = self.server.controller.wait_for_terminal(campaign_id, timeout=3)
 
         self.assertFalse(terminal.jfr_enabled)
+        self.assertEqual(RunStatus.PASSED, terminal.status)
+        self.assertEqual(RunStatus.PASSED, terminal.targets[0].status)
         self.assertEqual(["manifest.json", "report.html", "summary.json"], sorted(artifact.name for artifact in terminal.targets[0].artifacts))
 
     def test_nonzero_runner_exit_persists_failed_target_and_campaign(self) -> None:

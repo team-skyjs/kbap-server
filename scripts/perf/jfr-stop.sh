@@ -17,8 +17,13 @@ if [[ ! "$RUN_ID" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   exit 2
 fi
 
+validate_dev_aws_environment
+require_commands aws session-manager-plugin docker
+[[ $# -eq 0 ]] && validate_dev_aws_account
+
 mkdir -p "$REPORT_DIR"
 TASK_OUTPUT=$(resolve_task_ids "$@")
+[[ $# -ne 0 ]] && validate_dev_aws_account
 TASK_IDS=()
 while IFS= read -r task_id; do
   [[ -n "$task_id" ]] && TASK_IDS+=("$task_id")
@@ -42,7 +47,7 @@ for task_id in "${TASK_IDS[@]}"; do
   attempt execute_in_task "$task_id" "jcmd 1 JFR.stop name=$RUN_ID"
   attempt execute_in_task "$task_id" "jfr summary /tmp/$RUN_ID.jfr"
   upload_status=0
-  execute_in_task "$task_id" "aws s3 cp /tmp/$RUN_ID.jfr s3://$PERF_ARTIFACT_BUCKET/$RUN_ID/task-$task_id.jfr --sse AES256" || upload_status=$?
+  execute_in_task "$task_id" "aws s3 cp /tmp/$RUN_ID.jfr s3://$PERF_ARTIFACT_BUCKET/$RUN_ID/task-$task_id.jfr --sse AES256 --only-show-errors" || upload_status=$?
   record_failure "$upload_status"
   if [[ "$upload_status" -eq 0 ]]; then
     attempt execute_in_task "$task_id" "rm -f /tmp/$RUN_ID.jfr"
@@ -56,7 +61,7 @@ for task_id in "${TASK_IDS[@]}"; do
   record_failure "$rm_status"
   download_status=0
   aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
-    s3 cp "s3://$PERF_ARTIFACT_BUCKET/$RUN_ID/task-$task_id.jfr" "$local_file" || download_status=$?
+    s3 cp "s3://$PERF_ARTIFACT_BUCKET/$RUN_ID/task-$task_id.jfr" "$local_file" --only-show-errors || download_status=$?
   record_failure "$download_status"
   if [[ "$download_status" -eq 0 ]]; then
     if [[ -s "$local_file" ]]; then

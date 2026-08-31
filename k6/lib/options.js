@@ -57,6 +57,8 @@ export function buildOptions(kind, env) {
       checks: ['rate>0.99'],
       http_req_failed: ['rate<0.01'],
       dropped_iterations: ['count==0'],
+      fixture_exhausted: ['count==0'],
+      scan_failed: ['count==0'],
       ...(kind === 'read'
         ? { http_req_duration: ['p(95)<300', 'p(99)<750'] }
         : kind === 'write'
