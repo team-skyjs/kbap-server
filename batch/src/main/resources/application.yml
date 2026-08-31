@@ -1,0 +1,83 @@
+spring:
+  # 루트의 .env 를 properties 형식으로 읽어 ${...} 플레이스홀더에 사용한다(없으면 조용히 건너뜀).
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: kbap-batch
+  # Spring Batch — 배치 앱은 상시 기동이고 잡은 POST /internal/batch/jobs?jobName= 트리거로만 실행한다.
+  # 트리거는 202 로 즉시 반환하고 호출자가 GET /internal/batch/executions/{id} 로 상태를 폴링한다
+  # (공식 문서 권고 — 잡 실행 시간만큼 HTTP 요청을 붙잡지 않는다).
+  # 따라서 부팅 시 자동 실행은 항상 off 로 고정한다(켜면 컨테이너가 뜰 때마다 전 잡이 돈다).
+  # RunIdIncrementer 로 트리거마다 새 인스턴스가 되어 반복 실행이 가능하다.
+  # 메타데이터 테이블(BATCH_*)은 스키마 owner=api 의 Flyway 가 생성하므로 배치는 스키마 초기화를 하지 않는다.
+  # JobRepository 는 BatchJdbcJobRepositoryConfig 가 JDBC 로 명시 조립한다 — Boot 4.1 자동구성
+  # 기본값은 인메모리(ResourcelessJobRepository)라 실행 이력이 남지 않는다.
+  batch:
+    job:
+      enabled: false
+  # :infra:llm 이 Spring AI 스타터(openai·google-genai)를 배치 런타임 클래스패스로 전이시킨다.
+  # 키 없이 부팅해도 벤더 자동구성이 뜨지 않도록 모든 모델 자동구성을 명시 비활성한다
+  # (LLM 빈은 :infra:llm 의 kbap.llm.* + @ConditionalOnProperty 로만 구성).
+  ai:
+    model:
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        transcription: none
+        speech: none
+# LLM 원문 응답(JSON 본문)을 로그로 보려면 DEBUG. 본문이 청크당 수만 자라 기본은 INFO(토큰/비용만).
+# 실행 인자로도 토글 가능: --logging.level.com.kbap.infra.llm.provider=DEBUG
+logging:
+  level:
+    com.kbap.infra.llm.provider: DEBUG
+# 관측(KB-380): /actuator/prometheus 로 JVM·Spring Batch 잡 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공하고,
+# ECS 컨테이너 헬스체크가 /actuator/health/readiness 를 본다(iac/terraform … batch.tf).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+# 트리거 엔드포인트는 도커 네트워크 안에서만 접근한다 — 컨테이너 포트를 호스트로 publish 하지 않는다.
+server:
+  port: 8080
+# 아래 값은 "기본값"이다 — 실행 시점 인자로 덮어쓸 수 있어 재배포 없이 조정한다
+# (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
+#   ./gradlew :batch:bootRun --args='--kbap.batch.food-content-outbox.page-size=200'
+kbap:
+  batch:
+    # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
+    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다. 기본 on 이며 끄는 용도로만 이 값을 쓴다
+    # (테스트는 src/test/resources 에서 off — 켜 두면 정각을 넘길 때 잡이 실제로 발사된다).
+    # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
+    scheduler:
+      enabled: ${BATCH_SCHEDULER_ENABLED:true}
+    food-content-outbox:
+      queue-url: ${FOOD_CONTENT_QUEUE_URL:}
+      region: ${AWS_REGION:ap-northeast-2}
+      page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+  # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
+  llm:
+    # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.
+    usd-to-krw: 1500
+    # 벡터 동기화 배치(KB-328)의 적재 임베딩 — OpenAI text-embedding-3-small, 검색측(KB-319)과 256차원 고정.
+    # 기본 off — 미활성이면 벡터 동기화만 조용히 생략되고 나머지 배치는 정상 동작한다.
+    embedding:
+      enabled: ${EMBEDDING_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      model: text-embedding-3-small
+      dimension: 256
+  # 음식 벡터 저장소 — S3 Vectors(2026-08-31 DocumentDB 에서 전환). 기본 off(로컬 등 버킷 없는 환경 부팅 안전).
+  # 인증은 태스크 롤(시크릿 없음). 문서·검색 계약: specs/kb-328-food-vector-outbox/contracts/vector-food-document-v2.md
+  vector:
+    enabled: ${VECTOR_ENABLED:false}
+    bucket: ${VECTOR_BUCKET:}
+    index: ${VECTOR_INDEX:foods}
+    region: ${AWS_REGION:ap-northeast-2}
+# datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
+# 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
+# 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

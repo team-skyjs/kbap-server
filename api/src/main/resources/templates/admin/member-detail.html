@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/layout :: shell('회원 상세', 'members', ~{:: .member-detail-main})}">
+<body>
+<section class="member-detail-main">
+    <h1 class="page-title">회원 상세</h1>
+    <p class="page-desc"><a class="row-link" th:href="@{/admin/members}">← 회원 목록으로</a></p>
+
+    <div class="card empty-state" th:if="${member == null}">
+        존재하지 않거나 탈퇴한 회원입니다.
+    </div>
+
+    <div th:if="${member != null}">
+        <div class="detail-grid">
+            <div class="card">
+                <h2 class="section-title">계정</h2>
+                <dl class="detail-list">
+                    <dt>ID</dt>
+                    <dd th:text="${member.id}">1</dd>
+                    <dt>닉네임</dt>
+                    <dd th:text="${member.nickname ?: '(미설정)'}">닉네임</dd>
+                    <dt>이메일</dt>
+                    <dd th:text="${member.email ?: '-'}">email</dd>
+                    <dt>가입 경로</dt>
+                    <dd th:text="|${member.provider} (${member.providerUid})|">GOOGLE</dd>
+                    <dt>상태</dt>
+                    <dd>
+                        <span class="badge"
+                              th:classappend="${member.memberStatus.name() == 'ACTIVE'} ? 'badge-ok' : 'badge-warn'"
+                              th:text="${member.memberStatus}">ACTIVE</span>
+                    </dd>
+                    <dt>가입일</dt>
+                    <dd th:text="${#temporals.format(member.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+                </dl>
+            </div>
+            <div class="card">
+                <h2 class="section-title">프로필</h2>
+                <img class="profile-image" th:if="${member.profileImageUrl != null}"
+                     th:src="${member.profileImageUrl}" alt="프로필 이미지">
+                <dl class="detail-list">
+                    <dt>온보딩</dt>
+                    <dd th:text="${member.onboardingCompleted} ? '완료' : '미완료'">완료</dd>
+                    <dt>기피 성분</dt>
+                    <dd th:text="${member.avoidanceSubstanceCodes.isEmpty()} ? '없음' : ${#strings.listJoin(member.avoidanceSubstanceCodes, ', ')}">없음</dd>
+                    <dt>맵기 선호</dt>
+                    <dd th:text="${member.spicinessPreference}">0</dd>
+                    <dt>국가</dt>
+                    <dd th:text="${member.countryCode ?: '-'}">-</dd>
+                    <dt>스캔 / 리뷰</dt>
+                    <dd th:text="|${member.scanCount} / ${member.reviewCount}|">0 / 0</dd>
+                    <dt>랭킹 티어</dt>
+                    <dd th:text="${member.rankingTier}">-</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</section>
+</body>
+</html>

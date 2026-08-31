@@ -1,0 +1,184 @@
+# kbap ECS 환경 (Terraform)
+
+dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** 로 세운다. 기존 VPC·RDS·Redis·S3·SQS 는 재사용하고, 그 위에 ECS 클러스터·ALB·CodeDeploy 카나리·CloudWatch 를 새로 만든다. **현재 운영 중인 `kbap-prod-cluster`(ECS)·`kbap-devstg-alb` 는 건드리지 않는다** — 이 구성은 `dev-ecs.kbap.site` / `prod-ecs.kbap.site` 로 별도 ALB 를 받는다.
+
+## 구성 요약
+
+| 항목 | 값 |
+|---|---|
+| 컨테이너 인스턴스 | t3.medium × 3 — api 2대(AZ 분산) + batch 1대. ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
+| api 태스크 | bridge 모드·동적 호스트 포트, 512 cpu / 1536 MiB, desired 2, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=70` |
+| batch 태스크 | 단일 태스크, 잡 트리거 HTTP 는 배치 인스턴스 8080 고정(클러스터 내부만) |
+| 배포 | **CodeDeploy 블루/그린 카나리** — 20% 트래픽 15분 → 100% → 구버전 15분 유지 후 종료. 5xx 알람 시 자동 롤백 |
+| 진입 | ALB(80→443 리다이렉트, `*.kbap.site` ACM) + Route53 alias `<subdomain>.kbap.site` |
+| 로그 | CloudWatch `/kbap/<env>/api`·`/kbap/<env>/batch`, **보관 7일**, Container Insights, 대시보드 `kbap-<env>-ecs` |
+| 시크릿 | SSM SecureString `/kbap/<env>/<NAME>` → 태스크 정의 `secrets` 로 주입 (값은 Terraform 밖) |
+| AWS 권한 | 태스크 롤(api: S3 접두사 한정, batch: SQS+S3+ECS Exec 채널) — 액세스 키를 env 에 넣지 않는다. 배치 원격 실행은 환경별 운영 사용자 `kbap-<env>-ecs-batch-operator`(아래 절) |
+
+## 소유권 경계
+
+| 대상 | 소유자 |
+|---|---|
+| 클러스터·ASG·ALB·타깃그룹·CodeDeploy·IAM·로그그룹·대시보드 | Terraform |
+| 배치 운영 IAM 사용자·정책(`kbap-<env>-ecs-batch-operator`) | Terraform |
+| 운영 사용자 **액세스 키** | 사람(콘솔 발급) → 젠킨스 크리덴셜 — Terraform·레포에 두지 않는다 |
+| 태스크 정의 **리비전**(이미지 태그)·리스너의 blue/green 포워딩·서비스 desired | 배포 스크립트 / CodeDeploy (`lifecycle.ignore_changes`) |
+| SSM 파라미터(이름·값 모두) | 사람/CI (`aws ssm put-parameter`) — Terraform 은 ARN 문자열만 참조 |
+| RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가) |
+
+## 처음 세우기 (dev)
+
+```bash
+cd iac/terraform
+cp dev.tfvars.example dev.tfvars      # api_image / batch_image 태그를 ECR 실태그로
+terraform init
+terraform plan  -var-file=dev.tfvars
+terraform apply -var-file=dev.tfvars
+```
+
+**apply 전에** 시크릿을 SSM 에 등록해 둔다(없으면 태스크가 기동 못 함). 이미 등록돼 있으면 건너뛴다:
+
+```bash
+for k in DB_PASSWORD JWT_SECRET OPENAI_API_KEY GOOGLE_PLACES_API_KEY; do
+  aws ssm put-parameter --profile kbap-infra --name /kbap/dev/$k --type SecureString --overwrite --value '...'
+done
+aws ssm put-parameter --profile kbap-infra --name /kbap/dev/FIREBASE_CREDENTIALS_JSON \
+  --type SecureString --overwrite --value "$(cat firebase-service-account.json)"
+
+```
+
+확인: `https://dev.kbap.site/api/app-version` 200 → CloudWatch 대시보드 `kbap-dev-ecs`. (`/actuator/**`·`/swagger-ui/**`·`/v3/api-docs` 는 ALB 규칙이 404 로 막는다 — 아래 "관리 경로 차단".)
+
+prod 는 `prod.tfvars.example` 로 동일하게.
+
+## state — S3 백엔드 + workspace (KB-390)
+
+state 는 **S3 `kbap-terraform-state`**(키 `ecs/terraform.tfstate`, 프로필 `kbap-infra`, `use_lockfile` 잠금)에 있고 환경은 **workspace `dev` / `prod`** 로 나뉜다(S3 키 `env:/<ws>/ecs/terraform.tfstate`). 로컬 `terraform.tfstate*`·`terraform.tfstate.d/` 는 쓰지 않는다 — 있으면 `_local-state-archive/`(gitignore) 로 치운다.
+
+```bash
+terraform init                     # 백엔드는 versions.tf 에 고정 — 옵션 없음
+terraform workspace select dev     # 또는 prod. apply 전 반드시 `terraform workspace show`
+terraform plan -var-file=dev.tfvars
+```
+
+- 처음 세우는 머신: `aws configure --profile kbap-infra`(관리자 키) → `terraform init` → `workspace select` → `<env>.tfvars` 복원 → `plan` 이 **No changes** 여야 시작 가능. tfvars 는 git 에 없다 — `iac/scripts/gen-import-blocks.sh <env>` 가 AWS 실물에서 `<env>.tfvars.generated` 를 뽑아 주니 예시 파일과 대조해 `<env>.tfvars` 로 복사한다(집 IP 등 실값은 지식 위키).
+- **state 를 잃었을 때(import 복구)**: `gen-import-blocks.sh <env>` → `import.<env>.tf` 생성(리소스별 `import {}` 블록) → `plan -out` 으로 게이트 — **`N to import` + 의도한 `to add` + `0 to destroy`, replacement 0** 이어야 apply. apply 후 `import.<env>.tf` 삭제 → 재plan No changes. 2026-08-28 복구 기록: dev 55 import, prod 50 import(+ KB-374 배치 운영자 IAM 2 add).
+- 동시 apply 는 S3 lockfile 이 막는다. 다른 사람이 plan 중이면 lock 오류가 나니 기다린다.
+
+## 관리 경로 차단 (KB-390)
+
+`blocked_path_patterns`(dev `["*actuator*"]`, prod `["*actuator*","*swagger*","*api-docs*"]`)이 HTTPS 리스너 priority 10 **fixed-response 404** 규칙이 된다. default action(forward)만 CodeDeploy 가 만지므로 카나리와 충돌하지 않는다. ALB 는 매칭 전에 퍼센트 디코딩을 하므로 `/%61ctuator` 우회도 404 — WAF 불필요. Alloy 는 호스트 네트워크에서 컨테이너 포트로 직접 긁어 영향 없다.
+
+## 배포
+
+**api — 카나리 (`iac/scripts/deploy-api.sh <env> <tag>`)**
+
+1. 현재 태스크 정의에서 이미지만 바꿔 새 리비전 등록
+2. CodeDeploy 배포 생성 → green 타깃그룹에 신버전 태스크 기동(인스턴스당 blue 1 + green 1)
+3. **20% 트래픽을 green 으로 15분** — 대시보드 "정상 타깃 수 blue/green"·5xx 로 관찰. 5xx 알람 발화 시 자동 롤백
+4. 100% 전환. 이후 **15분간 blue 태스크 유지** — 이 창에서 `aws deploy stop-deployment --auto-rollback-enabled` 하면 트래픽만 되돌아가 즉시 복구
+5. 15분 뒤 blue 종료 → 완료
+
+**batch — 롤링 (`iac/scripts/deploy-batch.sh <env> <tag>`)**: 단일 인스턴스·고정 포트라 구 태스크를 먼저 내리고 신 태스크를 올린다(잠깐 다운). 서킷브레이커로 기동 실패 시 자동 롤백.
+
+**batch 컨테이너 헬스체크(KB-380) 처음 적용 순서** — 태스크 정의는 `ignore_changes = [container_definitions]` 라 일반 apply 로는 리비전이 안 생긴다. CI 는 최신 리비전을 복제해 이미지만 바꾸므로 **terraform 으로 리비전을 먼저 등록한 뒤 CI 를 태운다**:
+
+1. **머지 전** `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch` — 헬스체크가 담긴 새 리비전 등록. 서비스는 `ignore_changes = [task_definition]` 이라 그대로(실행 중 태스크 무영향)
+2. PR 머지 → CI(`deploy-batch.sh`)가 그 리비전을 복제해 actuator 포함 이미지로 배포 → 헬스체크 승계. `aws ecs describe-tasks … --query 'tasks[].containers[].healthStatus'` 가 `HEALTHY` 면 끝
+
+1 과 2 사이에 actuator 없는 구 이미지로 CI 를 돌리면 헬스체크 실패로 롤백되므로 창을 짧게 가져간다.
+
+## 벡터 검색·적재 켜기 (S3 Vectors, KB-319/KB-328)
+
+벡터 버킷 `kbap-<env>-ecs-vectors` + 인덱스 `foods`(cosine·256·`longDescription` non-filterable)와 태스크 롤 권한은 `vectors.tf` 가 **항상** 만든다(서버리스 — 상시 비용 0, 시크릿 없음). 앱은 기본 꺼져 있다 — 배치 로그에 `스케줄 대상 잡이 이 환경에 구성되지 않아 건너뜁니다 job=foodVectorSyncJob` 이 매시 찍히면 이 상태다. `vector_enabled = true` 하나로 api(유사 음식 검색)·batch(`foodVectorSyncJob`) 양쪽에 `VECTOR_ENABLED`·`EMBEDDING_ENABLED=true`·`VECTOR_BUCKET`·`VECTOR_INDEX` 가 붙는다.
+
+1. `<env>.tfvars` 에 `vector_enabled = true` → 태스크 정의는 `ignore_changes = [container_definitions]` 라 리비전을 직접 갈아 끼운다: `terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_task_definition.batch`(api 도 켜려면 `-replace=…aws_ecs_task_definition.api` 추가). 서비스는 그대로라 실행 중 태스크 무영향. 버킷·인덱스·IAM 은 이 apply 에서 함께 생긴다.
+2. 재배포 — CI 가 최신 리비전을 복제해 env 를 승계한다: `deploy-batch-dev.yml` 을 `workflow_dispatch` 로 실행(image_tag 에 현재 태그를 넣으면 빌드 없이 롤링). api 는 `deploy-dev.yml` 동일.
+3. 확인: 배치 로그에서 위 건너뜀 메시지 소멸 + 30분 정각 `스케줄 트리거 job=foodVectorSyncJob` → `attempted≥1, failed=0`(`attempted=0` 은 빈 성공, `AccessDenied` 면 태스크 롤 권한). 기존 음식 적재는 `/admin/foods` 의 "미적재 음식 벡터 적재" 버튼으로 아웃박스를 채운 뒤 잡이 소화한다. 데이터 확인: `aws s3vectors get-vectors --vector-bucket-name kbap-<env>-ecs-vectors --index-name foods --keys <foodId> --return-metadata`.
+4. 인덱스는 `prevent_destroy` — 차원·거리·non-filterable 키를 바꾸려면 재생성이 필요하므로 lifecycle 을 풀고 전량 재적재(관리자 "미적재 음식 벡터 적재")를 계획한다.
+
+**부팅 시 잡 자동 실행은 항상 off** — 배치는 상시 기동이고 잡은 스케줄러·`POST /internal/batch/jobs` 트리거로만 돈다(`application.yml` 이 `spring.batch.job.enabled=false` 고정). 태스크 env 에 `SPRING_BATCH_JOB_ENABLED=true` 를 넣으면 잡이 2개 이상인 순간 `Job name must be specified in case of multiple jobs` 로 부팅이 실패한다(2026-08-31 dev 벡터 잡 활성화 때 실제로 밟음 — 서킷브레이커가 롤백).
+
+## 배치 잡 원격 실행 (ECS Exec)
+
+배치 잡 트리거(`POST /internal/batch/jobs`)는 클러스터 내부에서만 열려 있고 인증이 없다. 클러스터 밖(홈서버 젠킨스·운영자 PC)에서는 **ECS Exec** 로 배치 컨테이너 안에서 `curl localhost:8080` 을 실행한다 — 컨테이너가 SSM 채널을 아웃바운드로 열어 두므로 **인바운드 포트 개방 0, 추가 비용 0**, 접근 통제는 IAM 이 담당한다.
+
+**전제 (호출 호스트)**
+
+- AWS CLI v2 + Session Manager plugin: `brew install --cask session-manager-plugin`
+- 환경별 운영 자격증명 프로필 `kbap-<env>-batch-operator` — IAM 사용자는 Terraform 이 만들고(`terraform output batch_operator_user_name`), **액세스 키는 콘솔에서 발급**해 `aws configure --profile kbap-dev-batch-operator` 로 등록한다. dev 키로는 prod 클러스터·api 컨테이너에 접근할 수 없다(정책이 클러스터·`batch` 컨테이너로 한정).
+- 배치 서비스에 Exec 가 적용된 태스크가 떠 있어야 한다 — **Terraform apply 후 배치를 한 번 재배포**해야 새 태스크에 에이전트가 주입된다:
+  ```bash
+  aws ecs update-service --cluster kbap-dev-ecs-cluster --service kbap-dev-ecs-batch --force-new-deployment --profile kbap-infra
+  aws ecs describe-tasks --cluster kbap-dev-ecs-cluster --tasks <task-arn> --profile kbap-dev-batch-operator \
+    --query 'tasks[0].containers[0].managedAgents[?name==`ExecuteCommandAgent`].lastStatus'   # RUNNING
+  ```
+
+**실행·조회** — 실행 중 배치 태스크를 찾아 컨테이너 안에서 트리거 HTTP 를 호출한다(래퍼 스크립트는 레포에 두지 않는다 — 호출 호스트의 젠킨스/셸에서 아래를 그대로 쓴다):
+
+```bash
+export AWS_PROFILE=kbap-dev-batch-operator AWS_REGION=ap-northeast-2
+TASK=$(aws ecs list-tasks --cluster kbap-dev-ecs-cluster --service-name kbap-dev-ecs-batch \
+  --desired-status RUNNING --query 'taskArns[0]' --output text)
+
+# 실행 — 202 → {"jobName","executionId","status":"STARTED",...} / 404 잡 없음 / 409 이미 실행 중
+aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --container batch --interactive \
+  --command "curl -s -w '\n%{http_code}' -X POST 'http://localhost:8080/internal/batch/jobs?jobName=<jobName>'"
+
+# 조회 — 200 → status COMPLETED / FAILED / STARTED
+aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --container batch --interactive \
+  --command "curl -s -w '\n%{http_code}' 'http://localhost:8080/internal/batch/executions/<executionId>'"
+```
+
+`execute-command` 출력은 세션 시작/종료 안내가 앞뒤로 붙는다 — 마지막 3자리 숫자 줄이 HTTP 코드, 그 앞의 `{` 로 시작하는 줄이 본문이다. 교차 환경 클러스터·`api` 컨테이너를 지정하면 `AccessDeniedException`, 태스크가 없으면(미기동·Exec 미적용) `list-tasks` 가 `None` 을 돌려준다.
+
+실행 호출은 잡 완료를 기다리지 않는다(잡 실행 시간만큼 세션을 붙잡지 않기 위해). 젠킨스는 실행 응답의 `executionId` 를 파싱해 조회를 30초 간격으로 폴링하고, `FAILED` 면 빌드를 실패시킨다.
+
+정기 실행은 배치 앱의 인앱 스케줄러가 하며, 이 경로는 수동·임시 실행용이다. 배치 트리거 포트 SG 규칙은 그대로다 — 인스턴스 IP:8080 은 인터넷에서 계속 닿지 않는다.
+
+적용 상태: dev 부터 적용·검증(절차 `specs/kb-374-batch-ecs-exec/quickstart.md`) 후 prod 는 잡 미실행 시간대에 같은 절차로 — 배치 재배포가 잠깐 다운을 동반한다.
+
+## 관측 — Alloy DAEMON (KB-381)
+
+각 EC2 에 Grafana Alloy 를 **ECS DAEMON 서비스(host 네트워크)** 로 1개씩 띄운다. Alloy 는 docker.sock 으로 같은 호스트의 api·batch 컨테이너를 찾아 `/actuator/prometheus`(8080, KB-380)를 15초마다 읽고, `prometheus.exporter.unix` 로 호스트 CPU·메모리·디스크까지 함께 **홈서버 Prometheus 로 remote_write** 한다. 앱·ALB·SG·api/batch 태스크 정의는 건드리지 않는다. 파일: `modules/ecs-environment/alloy.tf` + `alloy.config.alloy.tftpl`.
+
+**필요 입력**
+
+| 어디 | 무엇 |
+|---|---|
+| tfvars | `home_prometheus_remote_write_url` (Cloudflare Tunnel 공개 호스트, `/api/v1/write` 까지) · `alloy_image`(기본 태그 고정) |
+| SSM SecureString | `/kbap/<env>/CF_ACCESS_CLIENT_ID` · `/kbap/<env>/CF_ACCESS_CLIENT_SECRET` — Cloudflare Access 서비스 토큰(env 마다 1쌍). 실행 롤 정책이 `/kbap/<env>/*` 라 IAM 변경 없음 |
+| 홈서버 | Prometheus `--web.enable-remote-write-receiver`, Tunnel 공개 호스트 → `prometheus:9090`, Access 앱(Service Auth 정책) |
+
+**라벨 규약** (Alloy relabel — 앱 변경 0)
+
+| 라벨 | 값 | 출처 |
+|---|---|---|
+| `env` | `dev` \| `prod` | external_labels |
+| `host` | EC2 호스트명 | host 네트워크의 컨테이너 hostname |
+| `application` | `kbap-api` \| `kbap-batch` | 앱(Micrometer 태그) |
+| `instance` | `<env>-<container>-<task id 6자>` | ECS 도커 라벨 task-arn — **태스크 단위**(카나리 중 한 호스트에 2개 공존) |
+| `version` | 태스크 정의 리비전 | ECS 도커 라벨 task-definition-version — 배포마다 증가 → blue/green 비교 |
+
+**설정 변경**: `alloy.config.alloy.tftpl` 수정 → `terraform apply` → 새 태스크 정의 리비전으로 DAEMON 이 인스턴스마다 롤링(min healthy 0 — 수십 초 수집 공백, 앱 무영향). 저장소 이전·복사본 fan-out 도 템플릿의 `remote_write` 만 바꾼다. 문법 점검: 템플릿을 치환해 `docker run --rm -v $PWD/c.alloy:/c.alloy grafana/alloy:<tag> fmt /c.alloy`.
+
+**알아둘 것**
+- **403 은 유실이다** — Cloudflare Access 가 토큰을 거부하면 remote_write 는 4xx 를 재시도하지 않고 버린다(WAL 재전송은 연결 실패·5xx 만). 토큰 오설정은 `aws logs tail /kbap/<env>/alloy` 의 `non-recoverable error … 403` 으로 즉시 드러난다. 홈서버 다운은 WAL(약 2시간)로 복구 시 백필.
+- 카나리 중 `up{instance=~"<env>-api-.*"}` 타깃이 2배(구+신)로 보이고 전환 후 구 타깃은 5분 뒤 stale — 정상. `application` 은 앱이 메트릭 안에 붙이는 라벨이라 `up` 에는 없다(타깃 조회는 `job`·`instance`).
+- 인스턴스 교체(instance refresh) 후 새 호스트의 Alloy 는 자동 배치, 5분 안에 새 `host` 라벨이 나타난다. 사람 개입 없음.
+- 메모리: Alloy 예약 128 MiB 가 카나리 여유(3.6 GiB − 1536×2)에서 빠진다. api 태스크 메모리를 올릴 때 이 몫도 계산에 넣을 것.
+- 되돌리기: `terraform destroy -target=module.ecs_environment.aws_ecs_service.alloy` (앱 무영향). 홈서버 쪽은 Access 토큰 폐기만으로 즉시 차단.
+
+## 카나리 파라미터 바꾸기
+
+`canary_percentage`·`canary_interval_minutes`·`blue_termination_wait_minutes` (tfvars). 바꾸면 배포 구성(`aws_codedeploy_deployment_config`)이 새로 만들어진다.
+
+## 알아둘 것
+
+- **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
+- 인스턴스 사이징: 평상시 **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread). 카나리 진행 중(최대 30분)에만 구버전 1 + 신버전 1 로 **인스턴스당 2개**가 잠깐 공존한다. t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB 라 1536 × 2 = 3072 MiB 까지는 들어가지만, **태스크 메모리를 더 올리면 카나리 중 신버전이 배치되지 못해 배포가 멈춘다**.
+- 시크릿 4 KB 초과(Firebase JSON 이 큰 경우)는 SSM Advanced tier 로 파라미터를 바꾼다.
+- **batch 헬스체크 이후 구 이미지(actuator 없음) 재배포는 실패한다** — 새 리비전이 `/actuator/health/readiness` 를 치므로 서킷브레이커가 롤백한다. 되돌려야 하면 `batch.tf` 의 `healthCheck` 를 지우고 `-replace` 로 리비전을 먼저 갱신한다.
+- **`/actuator/**`(prometheus·health)는 api 서비스 포트(8080)에 그대로 열려 있고 앱은 접근 제어를 하지 않는다.** 공개 차단은 ALB 리스너 규칙으로 후속 처리한다 — `/actuator/*` 차단 목록은 `//actuator/…`·`/%61ctuator/…` 처럼 ALB(raw 경로 매칭)와 Tomcat(정규화·디코딩 후 라우팅)이 다르게 보는 경로를 놓치므로 **`/api/*` 만 forward 하는 허용 목록**으로 만든다. ALB 헬스체크는 리스너 규칙을 거치지 않아 `/actuator/health/readiness` 는 계속 통과한다(specs/kb-380 research R-3).
+- prod 는 새 스키마 `kbap-prod` 를 쓴다(운영 `/kbap` 무접촉). apply 전에 `CREATE DATABASE `kbap-prod`` 를 해 두면 Flyway 가 첫 기동 때 스키마를 채운다 — 즉 **prod-ecs 는 빈 데이터로 시작**하며, 운영 데이터 이전은 별도 작업이다.
+- 기존 prod ECS 를 지우기 전까지 `kbap-prod-api` 태스크 정의 패밀리와 이름이 겹치지 않는다(새 이름은 `kbap-prod-ecs-*`).

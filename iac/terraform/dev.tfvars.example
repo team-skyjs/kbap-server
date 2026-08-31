@@ -1,0 +1,33 @@
+env       = "dev"
+vpc_name  = "kbap-devstg-vpc"
+subdomain = "dev-ecs"
+
+spring_profile     = "dev"
+storage_key_prefix = "dev"
+
+api_image   = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/api:<git-sha>"
+batch_image = "118178010621.dkr.ecr.ap-northeast-2.amazonaws.com/kbap/batch:<git-sha>"
+
+db_url                  = "jdbc:mysql://kbap-db-devstg.cfy0goiqwlg7.ap-northeast-2.rds.amazonaws.com:3306/kbap-dev"
+redis_host              = "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.apn2.cache.amazonaws.com"
+rds_security_group_id   = "sg-00be0b3653aa0b87f"
+redis_security_group_id = "sg-0de1e4bfcad5ec753"
+
+# 기본값: t3.medium × (api 2 + batch 1), api 태스크 2, 로그 7일, 카나리 20% · 15분, 구버전 유지 15분
+
+api_execute_command_enabled          = true
+performance_artifact_retention_days = 7
+
+admin_cidr       = "<your-public-ip>/32"
+bastion_key_name = "kbpa-devstg"
+
+# 관측(KB-381): 각 EC2 의 Alloy DAEMON 이 앱·호스트 메트릭을 홈서버 Prometheus 로 push 한다.
+# 토큰은 SSM /kbap/<env>/CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (SecureString) 에 미리 등록.
+home_prometheus_remote_write_url = "https://prom-write.handev.site/api/v1/write"
+
+# 공개 진입점 차단(KB-390): /actuator 류만. dev 는 Swagger 를 공개한다.
+blocked_path_patterns = ["*actuator*"]
+
+# S3 Vectors 벡터 검색(api)·적재(batch foodVectorSyncJob) 앱 스위치 — 버킷·인덱스·IAM 은 항상 생성, env 주입만 토글.
+# 적용은 README "벡터 검색·적재 켜기" 절.
+vector_enabled = true

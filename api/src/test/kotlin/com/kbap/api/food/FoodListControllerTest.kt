@@ -1,0 +1,362 @@
+package com.kbap.api.food
+
+import com.kbap.api.IntegrationTest
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.port.auth.TokenIssuer
+import com.kbap.common.domain.member.model.MemberRole
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldBeIn
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeInRange
+import io.kotest.matchers.shouldBe
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import javax.sql.DataSource
+
+@IntegrationTest
+class FoodListControllerTest : BehaviorSpec() {
+    override fun extensions() = listOf(SpringExtension)
+
+    @Autowired
+    private lateinit var mockMvc: MockMvc
+
+    @Autowired
+    private lateinit var dataSource: DataSource
+
+    @Autowired
+    private lateinit var tokenIssuer: TokenIssuer
+
+    private val mapper: ObjectMapper = jacksonObjectMapper()
+
+    init {
+        fun seedBookmarkRow(memberId: Long, foodId: Long) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT INTO member (id, provider, provider_uid, member_status, " +
+                            "onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES ($memberId, 'GOOGLE', 'food-bm-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                            "ON DUPLICATE KEY UPDATE id = id",
+                    )
+                    statement.execute(
+                        "INSERT INTO bookmark (member_id, food_id, status, created_at, updated_at) " +
+                            "VALUES ($memberId, $foodId, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                }
+            }
+        }
+
+        beforeTest {
+            dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM bookmark") } }
+        }
+
+        fun seedFoods(count: Int) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM member_ranking_event")
+                    statement.execute("DELETE FROM food_review")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
+                statement.execute("DELETE FROM food")
+                    (1..count).forEach { id ->
+                        statement.execute(
+                            "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                                "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                                "VALUES ($id, '목록메뉴$id', 'menu-$id.png', '목록메뉴$id 설명', 0, '{}', '{}', '[]', " +
+                                "'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        )
+                    }
+                }
+            }
+        }
+
+        fun seedLocalizedFood() {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("DELETE FROM member_ranking_event")
+                    statement.execute("DELETE FROM food_review")
+                    statement.execute("DELETE FROM food_content_outbox")
+                statement.execute("DELETE FROM food_vector_outbox")
+                statement.execute("DELETE FROM food")
+                    statement.execute(
+                        "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES (500, '김치찌개', 'kimchi.png', '김치찌개 설명', 4, " +
+                            "'{\"en\":\"Kimchi Stew\"}', '{}', '[]', 'READY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    )
+                }
+            }
+        }
+
+        fun foodIdsOf(json: String): List<Long> =
+            mapper.readTree(json).path("payload").path("items").map { it.path("foodId").asLong() }
+
+        given("메뉴 목록 조회 API — 북마크 여부(bookmarked)") {
+            `when`("회원이 페이지 내 일부 음식만 북마크한 상태로 조회하면") {
+                then("북마크한 항목만 bookmarked=true, 나머지는 false 다") {
+                    seedFoods(3)
+                    seedBookmarkRow(300L, 2L)
+                    val token = tokenIssuer.issueAccessToken(300L, MemberRole.USER)
+
+                    val json = mockMvc.get("/api/foods?lang=ko") {
+                        header("Authorization", "Bearer $token")
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val byId = mapper.readTree(json).path("payload").path("items").toList()
+                        .associate { it.path("foodId").asLong() to it.path("bookmarked").asBoolean() }
+
+                    byId[2L] shouldBe true
+                    byId[1L] shouldBe false
+                    byId[3L] shouldBe false
+                }
+            }
+
+            `when`("비회원이 조회하면") {
+                then("어떤 음식이 북마크돼 있어도 전 항목 bookmarked=false 이고 필드는 항상 존재한다") {
+                    seedFoods(3)
+                    seedBookmarkRow(301L, 2L)
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val items = mapper.readTree(json).path("payload").path("items").toList()
+
+                    items.forEach { item ->
+                        item.has("bookmarked") shouldBe true
+                        item.path("bookmarked").asBoolean() shouldBe false
+                    }
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 무한 스크롤 keyset 페이지네이션") {
+            `when`("커서 없이 첫 페이지를 조회하면") {
+                then("200 과 함께 최신순 20개·hasNext·nextCursor 를 BaseResponse 봉투로 반환한다") {
+                    seedFoods(25)
+
+                    mockMvc.get("/api/foods?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.items.length()") { value(20) }
+                        jsonPath("$.payload.hasNext") { value(true) }
+                        jsonPath("$.payload.nextCursor") { isNumber() }
+                    }
+                }
+            }
+
+            `when`("첫 페이지 nextCursor 로 다음 페이지를 이어 조회하면") {
+                then("두 페이지 사이 foodId 가 겹치지 않는다") {
+                    seedFoods(25)
+
+                    val firstJson = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val firstIds = foodIdsOf(firstJson)
+                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
+
+                    val secondJson = mockMvc.get("/api/foods?lang=ko") {
+                        param("cursor", nextCursor.toString())
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val secondIds = foodIdsOf(secondJson)
+
+                    firstIds shouldHaveSize 20
+                    secondIds.size shouldBeGreaterThan 0
+                    (firstIds intersect secondIds.toSet()) shouldBe emptySet()
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 리치 카드(표시명 지역화·항목 필드 계약)") {
+            `when`("lang=en 으로 조회하면 (en 번역 보유 food)") {
+                then("항목 표시명이 영어로 지역화된다") {
+                    seedLocalizedFood()
+
+                    mockMvc.get("/api/foods") {
+                        param("lang", "en")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].name") { value("Kimchi Stew") }
+                    }
+                }
+            }
+
+            `when`("lang 미지정으로 조회하면") {
+                then("항목 표시명이 한국어로 폴백된다") {
+                    seedLocalizedFood()
+
+                    mockMvc.get("/api/foods?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].name") { value("김치찌개") }
+                    }
+                }
+            }
+
+            `when`("항목을 조회하면") {
+                then("foodId·imageRef·spiciness·overallRiskStatus 필드 계약을 만족한다") {
+                    seedLocalizedFood()
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("foodId").isNumber shouldBe true
+                    item.path("foodId").asLong() shouldBe 500L
+                    item.path("imageRef").asText() shouldBe "https://cdn.test/kimchi.png"
+                    item.path("spiciness").isInt shouldBe true
+                    item.path("spiciness").asInt() shouldBe 4
+                    item.path("spiciness").asInt() shouldBeInRange 0..10
+                    item.path("overallRiskStatus").asText() shouldBeIn
+                        listOf("SAFE", "CAUTION", "DANGER", "UNKNOWN")
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 언어 무관 한국어 메뉴명(koreanName)") {
+            `when`("lang=en 으로 조회하면(지역화명이 한국어와 다름)") {
+                then("항목 koreanName 에 한국어 원문을 담는다") {
+                    seedLocalizedFood()
+
+                    mockMvc.get("/api/foods") {
+                        param("lang", "en")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].name") { value("Kimchi Stew") }
+                        jsonPath("$.payload.items[0].koreanName") { value("김치찌개") }
+                    }
+                }
+            }
+
+            `when`("lang 미지정으로 조회하면(지역화명이 곧 한국어)") {
+                then("항목 koreanName 은 응답에 명시적 null 로 존재한다") {
+                    seedLocalizedFood()
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("name").asText() shouldBe "김치찌개"
+                    item.has("koreanName") shouldBe true
+                    item.get("koreanName").isNull shouldBe true
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 리뷰 평점·리뷰 수") {
+            fun seedReview(memberId: Long, foodId: Long, rating: Int, status: String = "ACTIVE") {
+                dataSource.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.execute(
+                            "INSERT INTO member (id, provider, provider_uid, member_status, " +
+                                "onboarding_completed, status, created_at, updated_at) " +
+                                "VALUES ($memberId, 'GOOGLE', 'food-rating-$memberId', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                                "ON DUPLICATE KEY UPDATE id = id",
+                        )
+                        statement.execute(
+                            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                                "VALUES ($memberId, $foodId, $rating, '$status', NOW(6), NOW(6))",
+                        )
+                    }
+                }
+            }
+
+            `when`("리뷰가 있는 음식과 없는 음식을 함께 조회하면") {
+                then("리뷰 있는 음식은 소수 1자리 평점·건수, 없는 음식은 0.0·0 이다") {
+                    seedFoods(2)
+                    seedReview(310L, 1L, 4)
+                    seedReview(311L, 1L, 5)
+                    seedReview(312L, 1L, 4)
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val byId = mapper.readTree(json).path("payload").path("items").toList()
+                        .associateBy { it.path("foodId").asLong() }
+
+                    byId.getValue(1L).path("review").path("averageRating").asDouble() shouldBe (4.3 plusOrMinus 0.0001)
+                    byId.getValue(1L).path("review").path("count").asLong() shouldBe 3L
+                    byId.getValue(2L).has("review") shouldBe true
+                    byId.getValue(2L).path("review").path("averageRating").asDouble() shouldBe (0.0 plusOrMinus 0.0001)
+                    byId.getValue(2L).path("review").path("count").asLong() shouldBe 0L
+                }
+            }
+
+            `when`("소프트 삭제된 리뷰가 있으면") {
+                then("집계에서 빠진 값이 내려간다") {
+                    seedFoods(1)
+                    seedReview(313L, 1L, 5)
+                    seedReview(314L, 1L, 1, status = "DELETED")
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val item = mapper.readTree(json).path("payload").path("items").path(0)
+
+                    item.path("review").path("averageRating").asDouble() shouldBe (5.0 plusOrMinus 0.0001)
+                    item.path("review").path("count").asLong() shouldBe 1L
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 경계·오류 (US3)") {
+            `when`("결과가 0건인 커서(최소 id 이하)로 조회하면") {
+                then("200 과 함께 빈 배열·hasNext=false·nextCursor=null 을 BaseResponse 봉투로 반환한다") {
+                    seedFoods(3)
+
+                    val json = mockMvc.get("/api/foods?lang=ko") {
+                        param("cursor", "1")
+                    }.andExpect {
+                        status { isOk() }
+                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val root = mapper.readTree(json)
+
+                    root.path("success").asBoolean() shouldBe true
+                    root.path("payload").path("items").size() shouldBe 0
+                    root.path("payload").path("hasNext").asBoolean() shouldBe false
+                    root.path("payload").path("nextCursor").isNull shouldBe true
+                }
+            }
+
+            `when`("비숫자 커서(cursor=abc)로 조회하면") {
+                then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
+                    seedFoods(3)
+
+                    mockMvc.get("/api/foods?lang=ko") {
+                        param("cursor", "abc")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.message") { exists() }
+                    }
+                }
+            }
+
+            `when`("음수 커서(cursor=-1)로 조회하면") {
+                then("400 과 함께 success=false·message 를 BaseResponse 봉투로 반환한다") {
+                    seedFoods(3)
+
+                    mockMvc.get("/api/foods?lang=ko") {
+                        param("cursor", "-1")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.success") { value(false) }
+                        jsonPath("$.message") { exists() }
+                    }
+                }
+            }
+
+            `when`("지원 목록에 없는 언어 코드(lang=xx)로 조회하면") {
+                then("400 이 아니라 200 과 success=true 로 응답한다") {
+                    seedFoods(3)
+
+                    mockMvc.get("/api/foods") {
+                        param("lang", "xx")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                        jsonPath("$.payload.items.length()") { value(3) }
+                    }
+                }
+            }
+        }
+    }
+}

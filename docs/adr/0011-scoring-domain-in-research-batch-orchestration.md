@@ -1,4 +1,4 @@
-# ADR-0011: 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:app:batch`
+# ADR-0011: 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:batch`
 
 - **상태**: Accepted (2026-07-06)
 - **관련**: [specs/kb-53-llm-avoidance-scoring](../../specs/kb-53-llm-avoidance-scoring/plan.md) · Jira KB-53 · [ADR-0004](./0004-research-bounded-context.md)(바운디드 컨텍스트·research 파이프라인) · [ADR-0010](./0010-llm-adapter-module-named-infra-llm.md)(`:infra:llm`·배치 직접 의존) · [ADR-0008](./0008-modular-monolith-shared-domain.md)(모듈러 모놀리스·배치 직접 의존)
@@ -22,11 +22,11 @@
 
 ## Decision
 
-**스코어링 도메인 로직(프롬프트 구성·응답 파싱·앙상블 종합·텍스트 선정)을 `:core:research` 순수 서비스에 응집하고, 조율은 `:app:batch` 잡이 얇게 수행한다.**
+**스코어링 도메인 로직(프롬프트 구성·응답 파싱·앙상블 종합·텍스트 선정)을 `:core:research` 순수 서비스에 응집하고, 조율은 `:batch` 잡이 얇게 수행한다.**
 
 - `:core:research` 는 완전 Spring/ORM-free 로 프롬프트 팩토리(`ScoringPromptFactory`)·파서(`ScoringResponseParser`)·앙상블(`ConsensusEnsembleAggregator`)·텍스트 선정(`FoodContentSelector`)과 자체 값타입(`ScoringFood`·`CandidateSubstance`·`SubstanceJudgement`·`ModelScoring`·`FoodInclusionScore`·`FoodScoringResult`)을 갖는다. **research 는 food/avoidance/`:infra:llm` 타입을 import 하지 않고 primitive 값(음식명·성분코드/라벨 문자열, foodId Long)으로만 동작**한다(원칙 II 격리). kernel `LanguageCode`·`LocalizedText` 만 공유 vocabulary 로 사용한다. JSON 파싱을 위해 `jackson-module-kotlin`(Spring BOM 관리 버전과 동일하게 핀)을 순수 라이브러리로 추가하되 모듈은 Spring-free 로 유지한다.
-- **조율은 `:app:batch` 잡(`AvoidanceScoringJob`)** 이 수행한다 — food·avoidance port 로 입력을 모아 research 에 primitive 로 넘기고, `LlmFanoutClient.generate` 를 호출하며, **`successes.size == 3 && failures 없음 && 3개 모두 파싱 성공**일 때만 확정(우선순위 OPENAI→UPSTAGE→GEMINI 정렬 후 종합), 아니면 청크 미확정(음식 전부 FAILED, 실패 모델별 로깅). 잡엔 **새 도메인 규칙을 두지 않고** 얇은 조율만 둔다. 음식 공급은 `:core:food` `FoodScoringSource` port(초기 구현=active food 읽기) seam 으로, 전용 대기열 테이블은 후속으로 연기한다.
-- 결과적으로 **원칙 II "조합은 `:application:*` 에서만" 의 예외**가 하나 생긴다 — 조합을 `:app:batch` 잡에서 한다. ADR-0010/KB-49 가 이미 배치→`:infra:llm` 직접 호출을 채택한 선례를 따른다.
+- **조율은 `:batch` 잡(`AvoidanceScoringJob`)** 이 수행한다 — food·avoidance port 로 입력을 모아 research 에 primitive 로 넘기고, `LlmFanoutClient.generate` 를 호출하며, **`successes.size == 3 && failures 없음 && 3개 모두 파싱 성공**일 때만 확정(우선순위 OPENAI→UPSTAGE→GEMINI 정렬 후 종합), 아니면 청크 미확정(음식 전부 FAILED, 실패 모델별 로깅). 잡엔 **새 도메인 규칙을 두지 않고** 얇은 조율만 둔다. 음식 공급은 `:core:food` `FoodScoringSource` port(초기 구현=active food 읽기) seam 으로, 전용 대기열 테이블은 후속으로 연기한다.
+- 결과적으로 **원칙 II "조합은 `:application:*` 에서만" 의 예외**가 하나 생긴다 — 조합을 `:batch` 잡에서 한다. ADR-0010/KB-49 가 이미 배치→`:infra:llm` 직접 호출을 채택한 선례를 따른다.
 
 ## Alternatives Considered
 

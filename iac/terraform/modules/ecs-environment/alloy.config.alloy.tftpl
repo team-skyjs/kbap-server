@@ -1,0 +1,86 @@
+// Grafana Alloy — 호스트당 1개(ECS DAEMON, host 네트워크). KB-381.
+// terraform templatefile 로 렌더돼 컨테이너 env ALLOY_CONFIG 로 들어간다. 치환: ${env}, ${remote_write_url}
+// 비밀(Cloudflare Access 서비스 토큰)은 파일에 없고 sys.env 로 읽는다 — SSM SecureString → ECS secrets.
+
+// 같은 호스트의 컨테이너를 docker.sock 으로 찾는다. ECS 에이전트가 모든 컨테이너에 com.amazonaws.ecs.* 라벨을 붙인다.
+discovery.docker "ecs" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+discovery.relabel "apps" {
+  targets = discovery.docker.ecs.targets
+
+  // api·batch 컨테이너의 8080(actuator 가 서비스 포트를 공유 — KB-380)만 남긴다
+  rule {
+    source_labels = ["__meta_docker_container_label_com_amazonaws_ecs_container_name"]
+    regex         = "api|batch"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_port_private"]
+    regex         = "8080"
+    action        = "keep"
+  }
+  rule {
+    target_label = "__metrics_path__"
+    replacement  = "/actuator/prometheus"
+  }
+
+  // instance = <env>-<container>-<task id 앞 6자>: 태스크 단위. 카나리 중 한 호스트에 구·신 태스크가 공존하므로 호스트 단위면 시계열이 섞인다.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_amazonaws_ecs_container_name", "__meta_docker_container_label_com_amazonaws_ecs_task_arn"]
+    separator     = ";"
+    regex         = "(.+);.*/([0-9a-f]{6})[0-9a-f]*$"
+    target_label  = "instance"
+    replacement   = "${env}-$${1}-$${2}"
+  }
+
+  // version = 태스크 정의 리비전. CI 가 배포마다 리비전을 만드므로 리비전 = 배포 버전 (앱 변경 0). blue/green 비교용.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_amazonaws_ecs_task_definition_version"]
+    target_label  = "version"
+  }
+}
+
+prometheus.scrape "ecs_apps" {
+  targets         = discovery.relabel.apps.output
+  forward_to      = [prometheus.remote_write.home.receiver]
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+}
+
+// 호스트 자원(CPU·메모리·디스크·load) — CloudWatch Agent 대신 (KB-383 이관). /proc·/sys·/ 는 읽기전용 바인드.
+prometheus.exporter.unix "host" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+
+  filesystem {
+    mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker/.+)($|/)"
+  }
+}
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  forward_to      = [prometheus.remote_write.home.receiver]
+  scrape_interval = "15s"
+}
+
+// 홈서버로 push. Cloudflare Access 가 엣지에서 토큰을 검사 — 없으면 403 이고 403 은 재시도 없이 유실된다(WAL 은 연결 실패·5xx 만).
+prometheus.remote_write "home" {
+  endpoint {
+    url = "${remote_write_url}"
+
+    headers = {
+      "CF-Access-Client-Id"     = sys.env("CF_ACCESS_CLIENT_ID"),
+      "CF-Access-Client-Secret" = sys.env("CF_ACCESS_CLIENT_SECRET"),
+    }
+  }
+
+  // host 네트워크라 컨테이너 hostname = EC2 호스트명
+  external_labels = {
+    env  = "${env}",
+    host = constants.hostname,
+  }
+}

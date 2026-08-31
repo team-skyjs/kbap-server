@@ -20,9 +20,13 @@ permissions:
 
 jobs:
   deploy:
-    name: build and deploy to kbap-api-dev
+    name: build and canary deploy to dev ECS
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      ECS_NAME: kbap-dev-ecs
+    outputs:
+      build: ${{ steps.image.outputs.build }}
 
     steps:
       - name: Checkout
@@ -67,61 +71,67 @@ jobs:
           docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
-      - name: Deploy to EC2 via SSM Run Command
+      # 태스크정의 원본(env·secrets·헬스체크·로그 구성)은 Terraform 소유(iac/terraform) —
+      # 파이프라인은 최신 리비전을 복제해 이미지만 교체한다.
+      - name: Register new task definition revision
+        id: taskdef
         env:
           IMAGE: ${{ steps.image.outputs.uri }}
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          CONTAINER: ${{ vars.CONTAINER_NAME }}
-          HOST_PORT: ${{ vars.HOST_PORT }}
-          REGION: ${{ vars.AWS_REGION }}
-          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
-          read -r -d '' REMOTE <<EOF || true
-          set -e
-          # SSM Run Command 는 최소 PATH 로 실행돼 /usr/local/bin 이 빠질 수 있다.
-          # AWS CLI v2 는 /usr/local/bin/aws 라 보정하지 않으면 'aws: command not found' 로 죽는다.
-          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:\$PATH
-          aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REGISTRY
-          docker pull $IMAGE
-          docker stop $CONTAINER 2>/dev/null || true
-          docker rm $CONTAINER 2>/dev/null || true
-          docker run -d --name $CONTAINER --restart unless-stopped --env-file /opt/kbap/$CONTAINER.env -p $HOST_PORT:8080 $IMAGE
-          for i in \$(seq 1 30); do
-            if curl -sf http://localhost:$HOST_PORT/actuator/health >/dev/null; then echo healthy; exit 0; fi
-            sleep 5
-          done
-          echo "health check failed"; exit 1
-          EOF
+          aws ecs describe-task-definition --task-definition "$ECS_NAME-api" \
+            --query taskDefinition > taskdef.json
+          jq --arg IMAGE "$IMAGE" '
+            .containerDefinitions |= map(if .name == "api" then .image = $IMAGE else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+          ' taskdef.json > new-taskdef.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-          # AWS CLI --parameters shorthand(commands=)는 멀티라인·쉼표·따옴표가 든 스크립트를
-          # 파싱하지 못한다(ParamValidation). jq 로 JSON 인코딩해 넘긴다(개행·특수문자 이스케이프).
-          PARAMS=$(printf '%s' "$REMOTE" | jq -Rs '{commands: [.]}')
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name AWS-RunShellScript \
-            --comment "deploy $CONTAINER" \
-            --parameters "$PARAMS" \
-            --query Command.CommandId --output text)
-          echo "SSM command: $CMD_ID"
+      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
+      # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지 — 이후 성패는
+      # CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백, 결과는 콘솔·알람으로 확인).
+      - name: Create CodeDeploy canary deployment
+        env:
+          NEW_ARN: ${{ steps.taskdef.outputs.arn }}
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          APPSPEC=$(jq -n --arg arn "$NEW_ARN" '{
+            version: 0.0,
+            Resources: [{ TargetService: { Type: "AWS::ECS::Service",
+              Properties: { TaskDefinition: $arn,
+                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 } } } }]
+          }')
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name "$ECS_NAME-api" \
+            --deployment-group-name "$ECS_NAME-api" \
+            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":$(jq -Rs . <<<"$APPSPEC")}}" \
+            --description "deploy $IMAGE" \
+            --query deploymentId --output text)
+          echo "deployment: $DEPLOYMENT_ID"
+          STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+            --query deploymentInfo.status --output text)
+          {
+            echo "CodeDeploy 카나리 배포 생성: \`$DEPLOYMENT_ID\` (status: $STATUS)"
+            echo '```'
+            echo "watch:    aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query 'deploymentInfo.[status,deploymentOverview]'"
+            echo "rollback: aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          # 종료 상태까지 폴링(최대 300초) — 원격 헬스창(≈150초)보다 길게 잡아
-          # aws ssm wait(기본 100초)가 느린 기동을 오탐하는 것을 막는다.
-          STATUS=Pending
-          for _ in $(seq 1 60); do
-            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-              --query Status --output text 2>/dev/null || echo Pending)
-            case "$STATUS" in
-              Success) break ;;
-              Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;;
-            esac
-            sleep 5
-          done
-          echo "--- remote stdout ---"
-          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query StandardOutputContent --output text
-          # 스크립트가 초반에 죽으면 stdout 이 비어 원인을 알 수 없다 — stderr 도 반드시 출력한다.
-          echo "--- remote stderr ---"
-          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query StandardErrorContent --output text
-          echo "SSM status: $STATUS"
-          [ "$STATUS" = "Success" ]
+  # 릴리즈 노트·슬랙 알림(KB-266) — 실패해도 배포 성공/실패 판정에 영향 없음
+  release:
+    needs: deploy
+    if: always()
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-notes.yml
+    with:
+      environment: dev
+      prerelease: true
+      sha: ${{ github.sha }}
+      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
+      deploy_result: ${{ needs.deploy.result }}
+    secrets:
+      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}

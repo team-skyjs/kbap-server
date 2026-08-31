@@ -1,6 +1,6 @@
 # ADR-0010: LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존
 
-- **상태**: Accepted (2026-07-06)
+- **상태**: Superseded by ADR-0018
 - **관련**: [specs/kb-49-llm-client-foundation](../../specs/kb-49-llm-client-foundation/plan.md) · Jira KB-49 · [ADR-0008](./0008-modular-monolith-shared-domain.md)(모듈러 모놀리스·batch 직접 의존). ADR-0008 의 "(external/ LLM 등 외부 — 추후 LLM 착수 시 추가)" 예고를 구체화한다.
 
 ## Context
@@ -12,14 +12,14 @@
 - **모듈 위치·이름.** ADR-0008 은 외부 어댑터 자리로 `:infra:external`(범용 외부 연동 catch-all — LLM·email·MQ 등)을 예고만 해 두었다. LLM 착수 시점에 이 범용 모듈을 실제로 만들지, 아니면 LLM 전용 모듈을 둘지 정해야 한다.
 - **소비 경로.** 클린아키텍처 원칙(ADR-0008 원칙 III)상 `:application:*` 유스케이스는 인프라 구현체에 직접 의존하지 않고 `:core:kernel` 의 port 인터페이스로만 외부를 사용하며, 부트앱이 구현체를 `runtimeOnly` 로 조립한다. 그러나 이번 LLM 의 **소비자는 배치 잡 하나뿐**이고, 배치는 부트앱(top layer)이라 인프라 어댑터를 직접 조립·호출하는 것이 허용된다.
 
-제약: 키가 없어도 `:app:batch`·`:app:api` 부팅이 회귀 없이 떠야 한다(Spring AI 스타터 자동구성이 키 없이 떠서 부팅을 깨면 안 됨). 공개 API 는 벤더 중립이어야 한다(Spring AI 타입을 어댑터 밖으로 노출하지 않음). fan-out 부분 실패는 실 네트워크 없이 단위 검증 가능해야 한다(헌법 I).
+제약: 키가 없어도 `:batch`·`:api` 부팅이 회귀 없이 떠야 한다(Spring AI 스타터 자동구성이 키 없이 떠서 부팅을 깨면 안 됨). 공개 API 는 벤더 중립이어야 한다(Spring AI 타입을 어댑터 밖으로 노출하지 않음). fan-out 부분 실패는 실 네트워크 없이 단위 검증 가능해야 한다(헌법 I).
 
 ## Decision
 
 **LLM 호출 어댑터를 전용 모듈 `:infra:llm` 하나로 신설한다.** 예고했던 범용 `:infra:external` 은 만들지 않는다(초안 명칭 `:infra:client` 도 폐기).
 
 - 공개 API `LlmFanoutClient`(`generate(LlmChatRequest) → LlmFanoutResult`)·값타입(`LlmChatRequest`·`LlmChatResult`·`LlmModelFailure`·`LlmFanoutResult`·`LlmModelId`)·단일모델 seam(`LlmModelCaller`)·Spring AI 구성(`LlmConfiguration`·`LlmModelProperties`·`SpringAiModelCaller`)을 **모두 이 모듈에 응집**한다. Spring AI `ChatModel` 의존은 `:infra:llm` 내부에만 갇힌다.
-- **`:app:batch` 가 `:infra:llm` 를 `implementation` 으로 직접 의존**해 잡에서 `LlmFanoutClient` 를 주입받아 호출한다. **`:core:kernel` port·`runtimeOnly` 조립은 생략**한다 — 단일 소비자(배치)라 간접층의 비용만 크고 이득이 없다(속도 우선).
+- **`:batch` 가 `:infra:llm` 를 `implementation` 으로 직접 의존**해 잡에서 `LlmFanoutClient` 를 주입받아 호출한다. **`:core:kernel` port·`runtimeOnly` 조립은 생략**한다 — 단일 소비자(배치)라 간접층의 비용만 크고 이득이 없다(속도 우선).
 - OpenAI·Upstage·Gemini 3개 `ChatModel` 을 `meogo.llm.*` 프로퍼티 + `@ConditionalOnProperty(prefix = "meogo.llm.<model>", name = ["enabled"], havingValue = "true")` 로 **명시 구성**한다. Upstage 는 OpenAI 호환이라 openai 스타터를 base-url 만 교체해 재사용하고, Gemini 는 google-genai 스타터(API 키 방식)를 쓴다. **키/활성 플래그가 없으면 caller 빈이 아예 생성되지 않아** 부팅이 안전하며, Spring AI 자동구성 유입은 `spring.ai.model.*=none` 으로 차단한다.
 - fan-out 은 **JDK 21 가상 스레드**(`Executors.newVirtualThreadPerTaskExecutor()`) + `CompletableFuture` 로 구현한다(신규 의존 없음). 단일모델 호출을 `LlmModelCaller` seam 뒤에 두어 페이크로 부분 실패·전멸·병렬성을 단위 검증한다(헌법 I). 실키 3모델 스모크는 평소 비활성(`-Dllm.smoke.enabled=true` 게이트)로 두고 수동 실행한다.
 
@@ -38,7 +38,7 @@
 - 배치가 간접층 없이 바로 호출 — 배선이 단순하고 빠르다.
 
 **−**
-- `:app:batch` 가 인프라 구현 모듈(`:infra:llm`)을 컴파일 의존한다(port 뒤에 숨지 않음). 부트앱→인프라 직접 의존이라 원칙 III 위반은 아니지만, **web/application 재사용 시 `:core:kernel` port 승격 + `runtimeOnly` 조립으로 리팩터**해야 한다(트리거: `:application:*` 유스케이스가 LLM 을 조율하게 될 때).
+- `:batch` 가 인프라 구현 모듈(`:infra:llm`)을 컴파일 의존한다(port 뒤에 숨지 않음). 부트앱→인프라 직접 의존이라 원칙 III 위반은 아니지만, **web/application 재사용 시 `:core:kernel` port 승격 + `runtimeOnly` 조립으로 리팩터**해야 한다(트리거: `:application:*` 유스케이스가 LLM 을 조율하게 될 때).
 - 실키 3모델 스모크는 CI 에서 자동 검증되지 않는다(비용·키 문제) — 게이트된 수동 절차(quickstart §3)로 남는다.
 
 ## 후속

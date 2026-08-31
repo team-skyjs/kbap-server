@@ -1,0 +1,177 @@
+package com.kbap.api.food
+
+import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.domain.metering.LlmCallCostIncurred
+import com.kbap.common.port.storage.StorageObjectStore
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.ImageBatchItemStatus
+import com.kbap.common.domain.food.model.ImageBatchStatus
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
+import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.security.MessageDigest
+import java.time.LocalDateTime
+import java.util.HexFormat
+import java.util.UUID
+
+@Service
+class FoodImageBatchCollectService(
+    private val batchRepository: ImageBatchJpaRepository,
+    private val itemRepository: ImageBatchItemJpaRepository,
+    private val foodRepository: FoodJpaRepository,
+    private val client: FoodImageBatchClient,
+    private val storageObjectStore: StorageObjectStore,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val properties: FoodImageProperties,
+    transactionManager: PlatformTransactionManager,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+    private val itemTransaction = TransactionTemplate(transactionManager)
+
+    @Scheduled(cron = "\${kbap.food-image.collect-cron:0 0 */3 * * *}")
+    @SchedulerLock(name = "food-image-collect", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
+    fun collectOnSchedule() = collectSubmitted()
+
+    fun collectSubmitted() {
+        recoverStaleSubmitting()
+        batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTED).forEach { batch ->
+            runCatching { collect(batch) }
+                .onFailure { log.error("이미지 배치 회수 실패 — 다음 틱에 재시도 batchId={}", batch.id, it) }
+        }
+    }
+
+    private fun recoverStaleSubmitting() {
+        val lease = LocalDateTime.now().minusHours(STALE_SUBMITTING_HOURS)
+        batchRepository.findByBatchStatus(ImageBatchStatus.SUBMITTING)
+            .filter { it.submittedAt.isBefore(lease) }
+            .forEach { batch ->
+                log.warn("SUBMITTING 잔류 배치 복구 — FAILED 마감 batchId={}", batch.id)
+                closeFailed(batch, FoodImageBatchClient.State.FAILED)
+            }
+    }
+
+    private fun collect(batch: ImageBatch) {
+        val openaiBatchId = batch.openaiBatchId ?: return
+        val poll = client.status(openaiBatchId)
+        when (poll.state) {
+            FoodImageBatchClient.State.IN_PROGRESS -> Unit
+            FoodImageBatchClient.State.COMPLETED -> collectResults(batch, poll, ImageBatchStatus.COLLECTED)
+            FoodImageBatchClient.State.FAILED,
+            FoodImageBatchClient.State.EXPIRED,
+            -> collectResults(batch, poll, ImageBatchStatus.FAILED)
+        }
+    }
+
+    private fun collectResults(batch: ImageBatch, poll: FoodImageBatchClient.BatchPoll, closeAs: ImageBatchStatus) {
+        val pendingByFoodId = itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
+            .associateBy { it.foodId }
+            .toMutableMap()
+        poll.outputFileId?.let { fileId ->
+            client.streamResults(fileId) { result ->
+                val foodId = result.customId.toLongOrNull() ?: return@streamResults
+                val item = pendingByFoodId.remove(foodId) ?: return@streamResults
+                handleResult(item, result)
+            }
+        }
+        pendingByFoodId.values.forEach { item ->
+            saveItem(item) { it.fail("배치 ${poll.state} — 결과 없음(errorFileId=${poll.errorFileId})") }
+        }
+        itemTransaction.executeWithoutResult {
+            batchRepository.save(batch.apply { close(closeAs) })
+        }
+    }
+
+    private fun handleResult(item: ImageBatchItem, result: FoodImageBatchClient.Result) {
+        val bytes = result.bytes
+        if (result.errorMessage != null || bytes == null) {
+            saveItem(item) { it.fail(result.errorMessage ?: "이미지 데이터 없음") }
+            return
+        }
+        val foodName = foodRepository.findById(item.foodId).orElse(null)?.koreanName
+        if (foodName == null) {
+            saveItem(item) { it.fail("음식이 삭제되어 건너뜀") }
+            return
+        }
+        val key = item.fileName ?: storageKeyOf(foodName).let { candidate ->
+            if (itemRepository.reserveFileName(item.id, candidate) > 0) candidate
+            else itemRepository.findById(item.id).get().fileName!!
+        }
+        storageObjectStore.put(key, bytes, "image/webp")
+        var attached = false
+        itemTransaction.executeWithoutResult {
+            val food = foodRepository.findById(item.foodId).orElse(null)
+            when {
+                food == null -> item.fail("음식이 삭제되어 건너뜀")
+                // 제출 이후 관리자·파이프라인이 상태를 옮겼을 수 있다 — 전이 예외로 배치 전체가 멈추지 않게 아이템만 마감한다
+                food.contentStatus != FoodContentStatus.PENDING_IMAGE ->
+                    item.fail("이미지 대기 상태가 아니어서 건너뜀(${food.contentStatus})")
+                else -> {
+                    food.attachImage(key)
+                    foodRepository.save(food)
+                    item.done(key)
+                    attached = true
+                }
+            }
+            itemRepository.save(item)
+        }
+        if (attached) result.usage?.let { publishCost(it) }
+    }
+
+    private fun closeFailed(batch: ImageBatch, state: FoodImageBatchClient.State) {
+        itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING).forEach { item ->
+            saveItem(item) { it.fail("배치 $state") }
+        }
+        itemTransaction.executeWithoutResult {
+            batchRepository.save(batch.apply { close(ImageBatchStatus.FAILED) })
+        }
+    }
+
+    private fun saveItem(item: ImageBatchItem, mutate: (ImageBatchItem) -> Unit) {
+        itemTransaction.executeWithoutResult {
+            mutate(item)
+            itemRepository.save(item)
+        }
+    }
+
+    private fun publishCost(usage: FoodImageBatchClient.Usage) {
+        val costUsd = BigDecimal.valueOf(usage.inputTokens)
+            .multiply(BigDecimal.valueOf(properties.inputUsdPerMillionTokens))
+            .add(
+                BigDecimal.valueOf(usage.outputTokens)
+                    .multiply(BigDecimal.valueOf(properties.outputUsdPerMillionTokens)),
+            )
+            .divide(BigDecimal.valueOf(1_000_000), 6, RoundingMode.HALF_UP)
+        eventPublisher.publishEvent(
+            LlmCallCostIncurred(
+                modelName = properties.model,
+                inputTokens = usage.inputTokens,
+                outputTokens = usage.outputTokens,
+                costUsd = costUsd,
+                costKrw = costUsd.multiply(BigDecimal.valueOf(properties.usdToKrw)).setScale(2, RoundingMode.HALF_UP),
+            ),
+        )
+    }
+
+    companion object {
+        fun storageKeyOf(foodName: String): String {
+            val hash = HexFormat.of()
+                .formatHex(MessageDigest.getInstance("SHA-256").digest(foodName.toByteArray()))
+                .take(12)
+            val uuid = UUID.randomUUID().toString().replace("-", "").take(16)
+            return "images/webp/food/${hash}_$uuid.webp"
+        }
+
+        const val STALE_SUBMITTING_HOURS: Long = 1
+    }
+}

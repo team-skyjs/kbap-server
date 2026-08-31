@@ -31,12 +31,16 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 [libraries]
 # --- Kotlin / Jackson ---
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+# 벡터 저장소(KB-319 검색·KB-328 적재): S3 Vectors — 버전은 aws-bom 이 관리.
+aws-s3vectors = { module = "software.amazon.awssdk:s3vectors" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
 
 # --- Spring framework (versions managed by the Spring Boot BOM) ---
 # application 모듈은 web/jpa 스타터 없이 @Service/@Transactional 만 필요 → 최소 의존만 얹는다.
 spring-context = { module = "org.springframework:spring-context" }
 spring-tx = { module = "org.springframework:spring-tx" }
+# 외부 REST 호출 어댑터(:infra:place)가 RestClient 만 쓴다 — 서버 스타터(tomcat) 없이 spring-web 만.
+spring-web = { module = "org.springframework:spring-web" }
 slf4j-api = { module = "org.slf4j:slf4j-api" }
 
 # --- Spring Boot starters (versions managed by the Spring Boot BOM) ---
@@ -44,8 +48,12 @@ spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" 
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+# 관측(KB-380): actuator /actuator/prometheus 노출용 레지스트리 — 버전은 Spring Boot BOM 관리.
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot-starter-thymeleaf" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
 
 # --- Databases ---
 mysql-connector = { module = "com.mysql:mysql-connector-j" }
@@ -66,19 +74,19 @@ flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 # BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3" }
+aws-sqs = { module = "software.amazon.awssdk:sqs" }
 
 # --- API docs (Swagger UI) ---
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 # --- Scheduler lock (KB-226): 이미지 회수 @Scheduled 를 api 2대 중 1대만 실행 ---
-# 어노테이션 AOP(shedlock-spring) 없이 core 의 DefaultLockingTaskExecutor 를 프로그래매틱으로 쓴다.
-shedlock-core = { module = "net.javacrumbs.shedlock:shedlock-core", version.ref = "shedlock" }
+# @SchedulerLock 어노테이션 AOP(shedlock-spring)로 잡는다 — 잡 메서드에 @Scheduled 와 나란히 선언.
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
 shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
-# Upstage 는 OpenAI 호환 API 라 openai 스타터를 base-url 만 바꿔 재사용한다.
+# 채팅·비전·임베딩 전부 OpenAI 단일 벤더(KB-320, 임베딩은 KB-328 에서 Bedrock Titan → OpenAI 전환).
 spring-ai-starter-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
-spring-ai-starter-google-genai = { module = "org.springframework.ai:spring-ai-starter-model-google-genai" }
 
 # --- Auth (KB-118): 자체 JWT 발급/파싱 + Firebase ID 토큰 검증 ---
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }

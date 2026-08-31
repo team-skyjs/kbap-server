@@ -22,9 +22,12 @@
 | [0007](./0007-git-branch-strategy.md) | Git 브랜치 전략 — develop+main 채택, github-flow→git-flow 점진 확장 | Accepted | 2026-06-28 | specs/001 · ADR-0001 · git-branch-strategy |
 | [0008](./0008-modular-monolith-shared-domain.md) | 모듈러 모놀리스 — 공유 도메인/영속, batch 직접 의존 | Accepted | 2026-06-29 | specs/004-avoidance-catalog · ADR-0001(supersede 일부) · ADR-0006 |
 | [0009](./0009-food-avoidance-direct-mapping.md) | 음식↔기피성분 직접 매핑 — 레시피/재료 모델 제거 | Accepted | 2026-07-04 | specs/kb-40 · Jira KB-40 · ADR-0008 |
-| [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Accepted | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |
-| [0011](./0011-scoring-domain-in-research-batch-orchestration.md) | 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:app:batch` | Accepted | 2026-07-06 | specs/kb-53 · Jira KB-53 · ADR-0004 · ADR-0010 |
+| [0010](./0010-llm-adapter-module-named-infra-llm.md) | LLM 호출 어댑터 전용 모듈 `:infra:llm` 신설 — 배치가 직접 의존 | Superseded by 0018 | 2026-07-06 | specs/kb-49 · Jira KB-49 · ADR-0008 |
+| [0011](./0011-scoring-domain-in-research-batch-orchestration.md) | 기피성분 스코어링 도메인 로직은 `:core:research`, 조율은 `:batch` | Accepted | 2026-07-06 | specs/kb-53 · Jira KB-53 · ADR-0004 · ADR-0010 |
 | [0012](./0012-dissolve-persistence-module-and-ports.md) | persistence 모듈 해체·리포지토리 port 폐기 — 영속은 도메인 모듈 안에 internal | Superseded in part by 0014 | 2026-07-13 | specs/kb-134 · Jira KB-134 · ADR-0006·0008(supersede) · 헌법 v3.0.0 |
 | [0013](./0013-lang-english-fallback.md) | 표시 언어(lang) — 필수화 + 미지원 코드 영어 폴백 | Accepted | 2026-07-20 | specs/kb-201 · Jira KB-201 · specs/008(supersede) · 헌법 v4.0.0 |
 | [0014](./0014-relax-persistence-encapsulation.md) | 영속 캡슐화 완화 — 엔티티·리포지토리 public, 소비 계층 직접 참조 | Accepted | 2026-07-22 | specs/kb-220 · Jira KB-220 · ADR-0012(supersede 일부) · 헌법 v5.0.0 |
 | [0015](./0015-scan-lang-unification-and-profile-language-removal.md) | 스캔 표시 언어를 `lang` 파라미터로 통일 + 회원 프로필 언어 설정 제거 | Accepted | 2026-07-23 | specs/kb-229 · Jira KB-229 · ADR-0013(후속 해소) |
+| [0016](./0016-module-diet-three-app-modules.md) | 모듈 다이어트 — 앱 모듈 api·batch·common 3개 통합, 경계 강제 ArchUnit 이관 | Superseded in part by 0017·0018 | 2026-07-28 | specs/kb-244 · Jira KB-244 · ADR-0012(모듈 구성 supersede) · 헌법 v6.0.0 |
+| [0017](./0017-api-feature-package-flattening.md) | API 모듈 기능 패키지 평탄화 | Accepted | 2026-07-28 | ADR-0016(패키지 결정 supersede) · 헌법 v7.0.0 |
+| [0018](./0018-dissolve-infra-modules-into-consumers.md) | infra 모듈 해체 — 어댑터 구현을 소비 모듈(common·api) 안으로 흡수 | Accepted | 2026-08-14 | ADR-0010·0016(supersede) · PR #166 |

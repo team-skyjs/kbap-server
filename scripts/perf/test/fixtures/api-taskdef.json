@@ -1,0 +1,50 @@
+{
+  "family": "kbap-dev-ecs-api",
+  "taskDefinitionArn": "arn:aws:ecs:ap-northeast-2:123456789012:task-definition/kbap-dev-ecs-api:15",
+  "revision": 15,
+  "status": "ACTIVE",
+  "requiresAttributes": [
+    { "name": "com.amazonaws.ecs.capability.logging-driver.awslogs" }
+  ],
+  "compatibilities": ["EC2"],
+  "registeredAt": "2026-08-30T12:00:00Z",
+  "registeredBy": "arn:aws:iam::123456789012:user/deployer",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/kbap-api:dev-current",
+      "essential": true,
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "dev" },
+        { "name": "SPRING_JPA_SHOW_SQL", "value": "true" },
+        { "name": "LOGGING_LEVEL_ROOT", "value": "INFO" },
+        { "name": "SPRING_DATASOURCE_URL", "value": "jdbc:postgresql://db.example.internal:5432/kbap" },
+        { "name": "SPRING_DATA_REDIS_HOST", "value": "redis.example.internal" },
+        { "name": "SPRING_DATA_REDIS_PORT", "value": "6379" },
+        { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=75" }
+      ],
+      "secrets": [
+        { "name": "SPRING_DATASOURCE_USERNAME", "valueFrom": "arn:aws:ssm:ap-northeast-2:123456789012:parameter/kbap/dev/db-username" },
+        { "name": "SPRING_DATASOURCE_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:123456789012:parameter/kbap/dev/db-password" },
+        { "name": "SPRING_DATA_REDIS_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:kbap/dev/redis-password" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/kbap-dev-api",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "api",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "deregisteredAt": null
+}

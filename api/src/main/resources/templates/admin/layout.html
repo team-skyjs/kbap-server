@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko" th:fragment="shell(title, active, content)" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="|${title} · K-Bap Admin|">K-Bap Admin</title>
+    <link rel="stylesheet" th:href="@{/assets/admin.css}">
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <path d="M5 17V11"/><path d="M10 17V7"/><path d="M15 17v-6"/><path d="M20 17V9"/>
+                </svg>
+            </span>
+            <span class="brand-text">
+                <span class="brand-name">K-Bap</span>
+                <span class="brand-sub">Admin Console</span>
+            </span>
+        </div>
+        <nav class="nav">
+            <a class="nav-link" th:href="@{/admin/foods}"
+               th:classappend="${active == 'foods'} ? 'is-active'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/>
+                    <rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>
+                </svg>적재 현황</a>
+            <a class="nav-link" th:href="@{/admin/foods/list}"
+               th:classappend="${active == 'food-list'} ? 'is-active'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/>
+                    <circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>
+                </svg>음식 목록</a>
+            <a class="nav-link" th:href="@{/admin/foods/seed}"
+               th:classappend="${active == 'seed'} ? 'is-active'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="8.5"/><path d="M12 8.5v7"/><path d="M8.5 12h7"/>
+                </svg>음식 등록</a>
+            <a class="nav-link" th:href="@{/admin/foods/images}"
+               th:classappend="${active == 'images'} ? 'is-active'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.6"/>
+                    <path d="M3.5 17l5-4.5 4 3.5 4-3 4 3.5"/>
+                </svg>이미지 배치</a>
+            <a class="nav-link" th:href="@{/admin/members}"
+               th:classappend="${active == 'members'} ? 'is-active'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <circle cx="9.5" cy="8.5" r="3.5"/><path d="M3.5 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/>
+                    <circle cx="16.8" cy="9.5" r="2.6"/><path d="M16 14.2c2.7.2 4.5 2.1 4.5 4.8"/>
+                </svg>회원 관리</a>
+        </nav>
+        <div class="sidebar-foot">
+            <form class="logout" th:action="@{/admin/logout}" method="post">
+                <button type="submit">로그아웃</button>
+            </form>
+        </div>
+    </aside>
+    <main class="content" th:insert="${content}"></main>
+</div>
+</body>
+</html>
