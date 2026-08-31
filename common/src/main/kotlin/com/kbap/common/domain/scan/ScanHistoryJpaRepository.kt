@@ -2,6 +2,8 @@ package com.kbap.common.domain.scan
 
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.scan.model.ScanHistory
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -9,6 +11,8 @@ import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
+
+    fun findByMemberId(memberId: Long, pageable: Pageable): Page<ScanHistory>
 
     @Query(
         """

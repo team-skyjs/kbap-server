@@ -3,6 +3,8 @@ package com.kbap.common.domain.member
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -10,6 +12,20 @@ import org.springframework.data.repository.query.Param
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
+
+    @Query(
+        """
+        select m from Member m
+        where m.id = :memberId
+           or m.nickname like concat('%', :keyword, '%')
+           or m.email like concat('%', :keyword, '%')
+        """,
+    )
+    fun searchByKeyword(
+        @Param("keyword") keyword: String,
+        @Param("memberId") memberId: Long,
+        pageable: Pageable,
+    ): Page<Member>
 
     fun countByMemberStatus(memberStatus: MemberStatus): Long
 
