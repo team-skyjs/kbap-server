@@ -33,6 +33,14 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
 
     fun findByOutboxStatus(outboxStatus: FoodVectorOutboxStatus, pageable: Pageable): Page<FoodVectorOutbox>
 
+    fun findByFoodIdIn(foodIds: Collection<Long>, pageable: Pageable): Page<FoodVectorOutbox>
+
+    fun findByFoodIdInAndOutboxStatus(
+        foodIds: Collection<Long>,
+        outboxStatus: FoodVectorOutboxStatus,
+        pageable: Pageable,
+    ): Page<FoodVectorOutbox>
+
     fun findTop20ByOutboxStatusOrderByIdDesc(outboxStatus: FoodVectorOutboxStatus): List<FoodVectorOutbox>
 
     @Query(

@@ -116,6 +116,65 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검색어 q 를 주면") {
+                then("음식 표시 이름 부분 일치 건만 내려준다") {
+                    val kimchi = saveFood("김치찌개")
+                    val doenjang = saveFood("된장찌개")
+                    val matched = saveOutbox(kimchi.id)
+                    saveOutbox(doenjang.id)
+
+                    getPage("?q=김치").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(matched.id) }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                    }
+                }
+            }
+
+            `when`("숫자 q 를 주면") {
+                then("foodId 일치 건도 매칭한다") {
+                    val food = saveFood("된장찌개")
+                    saveOutbox(saveFood("김치찌개").id)
+                    val matched = saveOutbox(food.id)
+
+                    getPage("?q=${food.id}").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(matched.id) }
+                        jsonPath("$.payload.items[0].foodId") { value(food.id) }
+                    }
+                }
+            }
+
+            `when`("q 와 status 를 함께 주면") {
+                then("두 조건을 모두 만족하는 건만 내려준다") {
+                    val kimchi = saveFood("김치찌개")
+                    saveOutbox(kimchi.id)
+                    val matched = saveOutbox(kimchi.id, FoodVectorOutboxStatus.FAILED)
+                    saveOutbox(saveFood("된장찌개").id, FoodVectorOutboxStatus.FAILED)
+
+                    getPage("?q=김치&status=FAILED").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(matched.id) }
+                    }
+                }
+            }
+
+            `when`("q 가 아무것도 매칭하지 않으면") {
+                then("빈 목록과 totalCount=0 을 내려준다") {
+                    saveOutbox(saveFood("김치찌개").id)
+
+                    getPage("?q=존재하지않는음식").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(0) }
+                        jsonPath("$.payload.totalCount") { value(0) }
+                        jsonPath("$.payload.totalPages") { value(0) }
+                    }
+                }
+            }
+
             `when`("액세스 토큰 없이 호출하면") {
                 then("401 로 거절한다") {
                     getPage(token = null).andExpect { status { isUnauthorized() } }

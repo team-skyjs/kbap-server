@@ -19,6 +19,8 @@ interface AdminVectorOutboxApi {
             벡터 동기화 아웃박스를 id 내림차순으로 페이지 조회한다. 어드민 SPA 벡터 동기화 화면 전용이다.
 
             - `status` 를 주면 해당 상태(PENDING·COMPLETE·FAILED)만 필터링한다.
+            - `q` 를 주면 음식 표시 이름 부분 일치로 검색하고, 숫자면 foodId 일치도 함께 매칭한다.
+              소프트삭제된 음식의 아웃박스는 이름으로는 찾을 수 없고 숫자(foodId)로만 찾힌다.
             - 페이지 크기는 서버 고정(50)이며, 응답에 전체 건수(`totalCount`)와 전체 페이지 수를 포함한다.
             - `displayName` 은 대상 음식이 소프트삭제됐으면 null 이다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
@@ -37,6 +39,8 @@ interface AdminVectorOutboxApi {
         page: Int,
         @Parameter(description = "아웃박스 상태 필터", example = "FAILED")
         status: FoodVectorOutboxStatus?,
+        @Parameter(description = "음식 표시 이름 부분 일치 검색어(숫자면 foodId 일치도 매칭)", example = "김치")
+        q: String?,
     ): ResponseEntity<BaseResponse<AdminVectorOutboxPageResponse>>
 
     @Operation(

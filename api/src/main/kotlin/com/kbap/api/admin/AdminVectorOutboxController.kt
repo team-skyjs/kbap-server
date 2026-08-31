@@ -22,9 +22,10 @@ class AdminVectorOutboxController(
     override fun getVectorOutboxPage(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) status: FoodVectorOutboxStatus?,
+        @RequestParam(required = false) q: String?,
     ): ResponseEntity<BaseResponse<AdminVectorOutboxPageResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(adminFoodDashboardService.getVectorOutboxPage(page.coerceAtLeast(1), status)),
+            BaseResponse.ok(adminFoodDashboardService.getVectorOutboxPage(page.coerceAtLeast(1), status, q)),
         )
 
     @PostMapping("/enqueue")

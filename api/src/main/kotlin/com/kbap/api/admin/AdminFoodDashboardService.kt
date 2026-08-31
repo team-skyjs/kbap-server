@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -50,11 +51,27 @@ class AdminFoodDashboardService(
     }
 
     @Transactional(readOnly = true)
-    fun getVectorOutboxPage(page: Int, status: FoodVectorOutboxStatus?): AdminVectorOutboxPageResponse {
+    fun getVectorOutboxPage(
+        page: Int,
+        status: FoodVectorOutboxStatus?,
+        query: String? = null,
+    ): AdminVectorOutboxPageResponse {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, VECTOR_OUTBOX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result = when (status) {
-            null -> vectorOutboxRepository.findAll(pageable)
-            else -> vectorOutboxRepository.findByOutboxStatus(status, pageable)
+        val result = when {
+            keyword == null && status == null -> vectorOutboxRepository.findAll(pageable)
+            keyword == null -> vectorOutboxRepository.findByOutboxStatus(status!!, pageable)
+            else -> {
+                val foodIds = buildSet {
+                    addAll(foodRepository.findByDisplayNameContainingOrderByIdAsc(keyword).map { it.id })
+                    keyword.toLongOrNull()?.let { add(it) }
+                }
+                when {
+                    foodIds.isEmpty() -> Page.empty(pageable)
+                    status == null -> vectorOutboxRepository.findByFoodIdIn(foodIds, pageable)
+                    else -> vectorOutboxRepository.findByFoodIdInAndOutboxStatus(foodIds, status, pageable)
+                }
+            }
         }
         val displayNames = foodRepository.findAllById(result.content.map { it.foodId }.distinct())
             .associate { it.id to it.displayName }
