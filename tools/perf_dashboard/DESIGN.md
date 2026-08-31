@@ -18,7 +18,7 @@ The dashboard is a localhost-only command surface for selecting endpoint targets
 
 The desktop shell is bounded to `100dvb`: a fixed header sits above a `list-detail` body. The catalog is the stable command rail while `#detail-scroll` is the named main vertical scroll owner for configuration, live state, history, and artifacts. Because the endpoint catalog can contain dozens of rows, `#target-list` is the explicitly named nested scroll region whose only job is scrolling endpoint choices beneath the fixed catalog heading and filters. Grid and flex descendants use `min-block-size: 0` and `min-inline-size: 0`; identifiers and routes use `overflow-wrap: anywhere`.
 
-Below `768px` the shell becomes a normal single-column document: catalog, configuration, live campaign, and results appear in operating order and the page owns vertical scrolling. At `375px`, primary content never requires horizontal scrolling. Result tables recompose into labelled rows rather than creating a two-dimensional primary scroll region.
+At `768px` and below the shell becomes a normal single-column document: catalog, configuration, live campaign, and results appear in operating order and the page owns vertical scrolling. At `375px`, primary content never requires horizontal scrolling. Result tables recompose into labelled rows rather than creating a two-dimensional primary scroll region.
 
 ## 2. Principles
 
@@ -53,9 +53,11 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 | Ink muted | `--ink-muted` | `#475569` | `#CBD5E1` | Secondary copy |
 | Ink faint | `--ink-faint` | `#64748B` | `#94A3B8` | Metadata and disabled copy |
 | Border | `--border` | `#CBD5E1` | `#334155` | All containment and dividers |
+| Control border | `--control-border` | `#64748B` | `#94A3B8` | Input and select component boundary |
 | Navy | `--navy` | `#0F172A` | `#E2E8F0` | Strong neutral action and headings |
 | Navy pressed | `--navy-pressed` | `#020617` | `#F8FAFC` | Primary action hover/press |
 | Accent | `--accent` | `#047857` | `#6EE7B7` | Only interactive accent |
+| Accent hover | `--accent-hover` | `#065F46` | `#A7F3D0` | Accent action hover state |
 | Accent surface | `--accent-surface` | `#D1FAE5` | `#064E3B` | Selected and focus-adjacent fill |
 | Success | `--success` | `#166534` | `#86EFAC` | Passed and safe text |
 | Success surface | `--success-surface` | `#DCFCE7` | `#14532D` | Passed background |
@@ -87,7 +89,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 - Body: `minmax(0, 1fr)`; list-detail columns `minmax(17rem, 22rem) minmax(0, 1fr)`.
 - Catalog command controls stay fixed in the desktop rail. `#target-list` owns the bounded endpoint-list scrollbar; `#detail-scroll` independently owns the main results scrollbar. These are the only two desktop vertical scroll regions and each has one explicit job.
 - Content maximum: `100rem`; gutters scale from `--space-3` at narrow widths to `--space-6` at desktop.
-- At `<768px`, grid columns become one, the height bound is removed, and source order is preserved.
+- At `≤768px`, grid columns become one, the height bound is removed, and source order is preserved.
 
 ## 5. Components
 
@@ -96,7 +98,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 - Variants: primary navy, secondary surface, accent safe-run, destructive cancel, link-style download.
 - States: default, hover, focus-visible, active, disabled, loading, error-adjacent.
 - Labels never wrap at desktop. Loading keeps the label and adds text such as `실행 요청 중` without an icon dependency.
-- Disabled controls preserve readable text and use `aria-disabled` only for links that cannot use the native `disabled` attribute.
+- Disabled controls preserve readable text and their 3:1 component boundary without whole-control opacity; use `aria-disabled` only for links that cannot use the native `disabled` attribute.
 
 ### Form control
 
@@ -108,6 +110,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 - Structure: checkbox label, method badge, endpoint label, route, suite, and risk text in one divider-separated row.
 - States: selected, hover, focus-within, disabled while active, fixture warning, cost warning, empty filter result.
 - Method badges are neutral, monospaced text. Risk never relies on a dot or color alone.
+- Disabled rows carry `aria-disabled=true`, a not-allowed cursor, and no hover/active fill; selected rows retain the checkbox plus an accent inline marker without layout shift.
 
 ### Status and risk callout
 
@@ -118,7 +121,7 @@ Only the values in this table may appear as raw colors in product CSS. Light is 
 ### Metric and result row
 
 - Metrics align p95, p99, failure rate, dropped iterations, threshold, absolute delta, and percent delta on tabular numerals.
-- Result rows are dividers in a semantic table on wide screens and labelled stacked cells below 768px. Missing comparison reads `비교 기준 없음`.
+- Result rows are dividers in a semantic table on wide screens and labelled stacked cells at 768px and below. Missing comparison reads `비교 기준 없음`.
 
 ### Artifact link
 
@@ -145,7 +148,7 @@ The estimator mirrors `run-endpoint.sh` phases. Smoke performs `3` target iterat
 
 ### Active campaign and SSE
 
-On `202`, render the returned campaign immediately, move focus to the active heading without scrolling the shell, and connect `/api/runs/{id}/events`. Track increasing SSE `lastEventId`, phase, status, target, and sanitized line. Snapshot requests use increasing client generations plus abort signals; only the latest matching generation may apply, and a terminal current campaign always dominates a late active snapshot. On error, close the source, announce reconnect, fetch `/api/runs/{id}`, and retry with exponential delay `1s, 2s, 4s, 8s, 10s` maximum. Terminal snapshots stop reconnect and clear the live panel while remaining selectable in Results.
+On `202`, render the returned campaign immediately, move focus to the active heading without scrolling the shell, and connect `/api/runs/{id}/events`. Track increasing SSE `lastEventId`, phase, status, target, and sanitized line per campaign ID. Exact event schema is `target`, `phase`, `status`, `line`; extra fields and wrong types trigger snapshot recovery without consuming sequence. Same-campaign reconnect preserves stream state and reuses an in-flight recovery, while campaign switches reset sequence, phases, console, and stale snapshots. Snapshot requests use increasing client generations plus abort signals; only the latest matching generation may apply, and a terminal current campaign always dominates a late active snapshot. On error, close the source, announce reconnect, fetch `/api/runs/{id}`, and retry with exponential delay `1s, 2s, 4s, 8s, 10s` maximum. Terminal snapshots stop reconnect and clear the live panel while remaining selectable in Results.
 
 Cancel posts once to `/api/runs/{id}/cancel`; the button disables immediately and stays disabled through `CANCELLING` and terminal state. `409`, `400`, network, failed, cancelled, reconnect, and partial states use contextual Korean explanations.
 
@@ -176,7 +179,7 @@ Primary persona: a single Korean-speaking backend developer switching between te
 - Every input has an explicit `label`; table has `caption`, row and column headers; live status uses `aria-live=polite`; API/validation failure uses `role=alert`.
 - Keyboard order follows visual/source order. All actions work with keyboard, focus is never hidden by a fixed region, and `:focus-visible` is unmistakable in light and dark themes.
 - Touch targets are 44px where practical. Checkbox rows make the entire label selectable. Destructive cancel is separated from execution controls and requires no precision icon target.
-- At 200% zoom, content reflows without loss. CJK wraps naturally; technical strings use `overflow-wrap:anywhere`; primary content does not scroll horizontally at 375px.
+- At 200% zoom, content reflows without loss. CJK prose uses `word-break:keep-all` with normal wrapping; dedicated technical elements use `overflow-wrap:anywhere`. Primary content does not scroll horizontally at 375px.
 - `prefers-reduced-motion: reduce` sets transition duration to zero and removes loading animation. `prefers-color-scheme` applies once at the root without section-level flips.
 - Accepted debt: automated browser checks cannot prove screen-reader announcement quality; the runbook retains a manual VoiceOver/NVDA check as an exit criterion. Owner: dashboard maintainer, exit: first shared use beyond the author.
 - Accepted debt: native `EventSource` retry timing is not controllable, so the client closes it and schedules a new source explicitly. Owner: dashboard maintainer, exit: none while using native SSE.

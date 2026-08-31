@@ -16,8 +16,9 @@
       <h2 id="buttons-title">버튼</h2>
       <div class="state-grid">
         <div class="state-sample"><p class="state-name">normal</p><button class="button-accent" type="button">선택 실행</button></div>
-        <div class="state-sample"><p class="state-name">hover</p><button class="button-accent demo-hover" type="button">안전 대상 전체 실행</button></div>
+        <div class="state-sample"><p class="state-name">hover</p><button class="button-accent demo-hover" data-demo-hover="button" type="button">안전 대상 전체 실행</button></div>
         <div class="state-sample"><p class="state-name">focus</p><button class="button-primary demo-focus" type="button">선택 실행</button></div>
+        <div class="state-sample"><p class="state-name">active</p><button class="button-primary demo-active" data-button-state="active" type="button">선택 실행</button></div>
         <div class="state-sample"><p class="state-name">disabled</p><button type="button" disabled>실행 중 선택 잠금</button></div>
         <div class="state-sample"><p class="state-name">loading</p><button class="button-loading" type="button">실행 요청 중</button></div>
         <div class="state-sample"><p class="state-name">error</p><button class="button-danger" type="button">캠페인 취소</button><p class="error-text">취소 요청을 보낼 수 없습니다.</p></div>
@@ -28,13 +29,28 @@
       <h2 id="fields-title">체크박스, 선택, 입력</h2>
       <div class="state-grid">
         <div class="state-sample"><p class="state-name">checkbox normal</p><label class="check-row"><input type="checkbox" checked> <span>안전한 읽기 대상</span></label></div>
-        <div class="state-sample"><p class="state-name">checkbox hover</p><label class="check-row demo-hover"><input type="checkbox"> <span>fixture 데이터 변경 대상</span></label></div>
+        <div class="state-sample"><p class="state-name">checkbox hover</p><label class="check-row demo-hover" data-demo-hover="checkbox"><input type="checkbox"> <span>fixture 데이터 변경 대상</span></label></div>
         <div class="state-sample"><p class="state-name">checkbox focus</p><label class="check-row"><input class="demo-focus" type="checkbox"> <span>외부 비용 발생 대상</span></label></div>
         <div class="state-sample"><p class="state-name">checkbox disabled</p><label class="check-row"><input type="checkbox" checked disabled> <span>실행 중 잠김</span></label></div>
         <div class="state-sample field"><p class="state-name">select normal</p><label for="show-profile">프로파일</label><select id="show-profile"><option>읽기 부하</option></select><p class="help">요청률과 지속 시간을 사용합니다.</p></div>
         <div class="state-sample field"><p class="state-name">select focus</p><label for="show-suite">suite 필터</label><select id="show-suite" class="demo-focus"><option>전체 suite</option></select></div>
+        <div class="state-sample field"><p class="state-name">select disabled</p><label for="show-profile-disabled">프로파일</label><select id="show-profile-disabled" disabled><option>실행 중 잠김</option></select></div>
         <div class="state-sample field"><p class="state-name">input normal</p><label for="show-rate">초당 요청률</label><input id="show-rate" type="number" inputmode="numeric" value="20"><p class="help">read 최대값은 초당 40회입니다.</p></div>
         <div class="state-sample field"><p class="state-name">input error</p><label for="show-iterations">반복 횟수</label><input id="show-iterations" class="field-error" type="number" inputmode="numeric" value="0" aria-invalid="true" aria-describedby="show-iterations-error"><p id="show-iterations-error" class="error-text">1 이상의 반복 횟수를 입력하세요.</p></div>
+        <div class="state-sample field"><p class="state-name">input disabled</p><label for="show-rate-disabled">초당 요청률</label><input id="show-rate-disabled" type="number" inputmode="numeric" value="10" disabled></div>
+      </div>
+    </section>
+
+    <section class="showcase-section" aria-labelledby="endpoints-title">
+      <h2 id="endpoints-title">대상 행</h2>
+      <div class="target-list">
+        <label class="endpoint-row is-selected" data-endpoint-state="selected"><input type="checkbox" checked><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">GET</span><strong>음식 상세</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/foods/{foodId}</code></span></span><span class="risk-safe">safe</span></label>
+        <label class="endpoint-row demo-hover" data-endpoint-state="hover" data-demo-hover="endpoint"><input type="checkbox"><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">GET</span><strong>마우스를 올린 대상</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/home</code></span></span><span class="risk-safe">safe</span></label>
+        <label class="endpoint-row demo-focus-within" data-endpoint-state="focus"><input id="show-endpoint-focus" class="demo-focus" type="checkbox"><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">GET</span><strong>홈 조회</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/home</code></span></span><span class="risk-safe">safe</span></label>
+        <label class="endpoint-row is-disabled" data-endpoint-state="disabled" aria-disabled="true"><input type="checkbox" disabled><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">GET</span><strong>실행 중 잠긴 대상</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/ingredients</code></span></span><span class="risk-safe">safe</span></label>
+        <label class="endpoint-row" data-endpoint-state="fixture"><input type="checkbox"><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">POST</span><strong>쓰기 fixture</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/menus</code></span></span><span class="risk-label">fixture</span></label>
+        <label class="endpoint-row" data-endpoint-state="cost"><input type="checkbox"><span class="endpoint-main"><span class="endpoint-title"><span class="method-badge">POST</span><strong>외부 비용 대상</strong></span><span class="endpoint-meta"><code class="endpoint-route">/api/scans</code></span></span><span class="risk-label">cost</span></label>
+        <p class="empty-surface" data-endpoint-state="empty">현재 필터에 맞는 대상이 없습니다.</p>
       </div>
     </section>
 
@@ -42,11 +58,14 @@
       <h2 id="indicators-title">메서드, 위험, 상태</h2>
       <div class="state-grid">
         <div class="state-sample"><p class="state-name">method badge</p><div><span class="method-badge">GET</span> <span class="method-badge">POST</span> <span class="method-badge">PATCH</span></div></div>
-        <div class="state-sample"><p class="state-name">risk warning</p><div class="callout callout-warning"><strong>비용 대상 2개 선택</strong><br>target iteration 204회, 최대 HTTP request 306회, billable request 최대 306회. 명시적 승인이 필요합니다.</div></div>
-        <div class="state-sample"><p class="state-name">status normal</p><div><span class="status">QUEUED 대기</span> <span class="status status-running">RUNNING 실행 중</span></div></div>
-        <div class="state-sample"><p class="state-name">status loading</p><span class="status status-running loading-line">RECONNECTING 다시 연결 중</span></div>
-        <div class="state-sample"><p class="state-name">status success</p><span class="status status-passed">PASSED 통과</span></div>
-        <div class="state-sample"><p class="state-name">status error</p><span class="status status-failed">FAILED 실패</span></div>
+        <div class="state-sample"><p class="state-name">risk warning</p><div class="callout callout-warning"><strong><span class="risk-target-identity">식당 키워드 검색 [<code class="risk-target-key">place-search</code>]</span>, <span class="risk-target-identity">메뉴 스캔 [<code class="risk-target-key">scan-v2-krw</code>]</span></strong><br>target iteration 204회, 최대 HTTP request 306회, billable request 최대 306회. 명시적 승인이 필요합니다.</div></div>
+        <div class="state-sample"><p class="state-name">status normal</p><div><span class="status" data-status="QUEUED">QUEUED 대기</span> <span class="status status-running" data-status="RUNNING">RUNNING 실행 중</span></div></div>
+        <div class="state-sample"><p class="state-name">status cancelling</p><span class="status status-running" data-status="CANCELLING">CANCELLING 정리 중</span></div>
+        <div class="state-sample"><p class="state-name">status loading</p><span class="status status-running loading-line" data-status="RECONNECTING">RECONNECTING 다시 연결 중</span></div>
+        <div class="state-sample"><p class="state-name">status success</p><span class="status status-passed" data-status="PASSED">PASSED 통과</span></div>
+        <div class="state-sample"><p class="state-name">status cancelled</p><span class="status status-warning" data-status="CANCELLED">CANCELLED 취소됨</span></div>
+        <div class="state-sample"><p class="state-name">status partial</p><span class="status status-warning" data-status="PARTIAL">PARTIAL 부분 수집</span></div>
+        <div class="state-sample"><p class="state-name">status error</p><span class="status status-failed" data-status="FAILED">FAILED 실패</span></div>
       </div>
     </section>
 
@@ -56,12 +75,21 @@
         <div class="state-sample metric"><span class="metric-label">p95 응답 시간</span><strong class="metric-value">128.4 ms</strong><span class="status status-passed">임계값 통과</span></div>
         <div class="state-sample metric"><span class="metric-label">실패율</span><strong class="metric-value">2.30%</strong><span class="status status-failed">임계값 실패</span></div>
       </div>
-      <div class="result-row" role="row">
+      <div role="table" aria-label="결과 행 예시">
+      <div class="result-row" role="row" data-result-state="PASSED">
         <div class="result-cell" role="rowheader"><strong>음식 상세 (회원)</strong><br><code>/api/foods/{foodId}/detail-with-an-unbroken-long-segment</code></div>
         <div class="result-cell" role="cell"><span class="metric-label">p95</span><br><span class="result-value">128.4 ms</span></div>
         <div class="result-cell" role="cell"><span class="metric-label">p99</span><br><span class="result-value">190.2 ms</span></div>
         <div class="result-cell" role="cell"><span class="metric-label">변화</span><br><span class="result-value">+12.4 ms (+10.7%)</span></div>
         <div class="result-cell" role="cell"><span class="status status-passed">통과</span></div>
+      </div>
+      <div class="result-row" role="row" data-result-state="PARTIAL">
+        <div class="result-cell" role="rowheader"><strong>메뉴 스캔 (v2.0)</strong><br><code>/api/scans</code></div>
+        <div class="result-cell" role="cell"><span class="metric-label">p95</span><br><span class="result-value">데이터 없음</span></div>
+        <div class="result-cell" role="cell"><span class="metric-label">p99</span><br><span class="result-value">데이터 없음</span></div>
+        <div class="result-cell" role="cell"><span class="metric-label">변화</span><br><span class="result-value">비교 기준 없음</span></div>
+        <div class="result-cell" role="cell"><span class="status status-warning">부분 수집</span></div>
+      </div>
       </div>
     </section>
 
@@ -69,7 +97,7 @@
       <h2 id="downloads-title">다운로드 링크</h2>
       <div class="state-grid">
         <div class="state-sample"><p class="state-name">normal</p><a class="download-link" href="#downloads-title">summary.json 다운로드</a></div>
-        <div class="state-sample"><p class="state-name">hover</p><a class="download-link demo-hover" href="#downloads-title">manifest.json 다운로드</a></div>
+        <div class="state-sample"><p class="state-name">hover</p><a class="download-link demo-hover" data-demo-hover="download" href="#downloads-title">manifest.json 다운로드</a></div>
         <div class="state-sample"><p class="state-name">focus</p><a class="download-link demo-focus" href="#downloads-title">task-one.jfr 다운로드</a></div>
         <div class="state-sample"><p class="state-name">disabled</p><span class="download-unavailable" aria-disabled="true">task-two.jfr 수집 중</span></div>
         <div class="state-sample"><p class="state-name">loading</p><span class="download-unavailable loading-line">전체 artifact ZIP 준비 중</span></div>

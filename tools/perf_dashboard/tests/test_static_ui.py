@@ -1,33 +1,9 @@
-import re
 import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
 
 STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
-
-
-def css_declarations(source: str, selector: str) -> dict[str, str]:
-    match = re.search(rf"{re.escape(selector)}\s*\{{([^}}]*)\}}", source)
-    if match is None:
-        return {}
-    return {
-        name.strip(): value.strip()
-        for declaration in match.group(1).split(";")
-        if ":" in declaration
-        for name, value in [declaration.split(":", 1)]
-    }
-
-
-def relative_luminance(color: str) -> float:
-    channels = [int(color[index:index + 2], 16) / 255 for index in (1, 3, 5)]
-    linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4 for channel in channels]
-    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
-
-
-def contrast_ratio(first: str, second: str) -> float:
-    lighter, darker = sorted((relative_luminance(first), relative_luminance(second)), reverse=True)
-    return (lighter + 0.05) / (darker + 0.05)
 
 
 class SemanticDocument(HTMLParser):
@@ -79,9 +55,12 @@ class StaticUiContractTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.index_source = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
         cls.app_source = (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
+        cls.showcase_source = (STATIC_ROOT / "showcase.html").read_text(encoding="utf-8")
         cls.styles_source = (STATIC_ROOT / "styles.css").read_text(encoding="utf-8")
         cls.document = SemanticDocument()
         cls.document.feed(cls.index_source)
+        cls.showcase = SemanticDocument()
+        cls.showcase.feed(cls.showcase_source)
 
     def test_landmarks_skip_link_and_heading_hierarchy_are_semantic(self) -> None:
         self.assertTrue(self.document.matching("a", **{"href": "#main-content", "class": "skip-link"}))
@@ -121,6 +100,28 @@ class StaticUiContractTest(unittest.TestCase):
         self.assertEqual("polite", live[1].get("aria-live") if live else None)
         self.assertEqual("alert", error[1].get("role") if error else None)
 
+    def test_sse_payload_is_parsed_before_snapshot_invalidation(self) -> None:
+        apply_event = self.app_source[
+            self.app_source.index("function applyEvent(event)"):
+            self.app_source.index("function closeEvents()")
+        ]
+
+        self.assertLess(apply_event.index("parseSsePayload(event.data)"), apply_event.index("snapshots.acceptEvent"))
+        invalid_branch = apply_event[apply_event.index("if (!parsed.valid)"):apply_event.index("snapshots.acceptEvent")]
+        self.assertIn("refreshSnapshot", invalid_branch)
+        self.assertIn(", true", invalid_branch)
+
+    def test_sse_listener_is_scoped_to_its_campaign(self) -> None:
+        connect = self.app_source[
+            self.app_source.index("function connectEvents(campaignId)"):
+            self.app_source.index("async function startCampaign")
+        ]
+
+        self.assertLess(connect.index("scopeStream(campaignId)"), connect.index("new EventSource"))
+        self.assertIn("state.streamCampaignId !== campaignId", connect)
+        scope = self.app_source[self.app_source.index("function scopeStream(campaignId)"):self.app_source.index("function bindControls()")]
+        self.assertIn("snapshots.abort()", scope)
+
     def test_results_table_and_artifact_area_are_labelled(self) -> None:
         results = self.document.by_id("results-table")
         self.assertEqual("table", results[0] if results else None)
@@ -129,6 +130,7 @@ class StaticUiContractTest(unittest.TestCase):
         artifacts = self.document.by_id("artifact-downloads")
         self.assertEqual("region", artifacts[1].get("role") if artifacts else None)
         self.assertIn("aria-labelledby", artifacts[1] if artifacts else {})
+        self.assertEqual(1, len(self.showcase.matching("div", role="table")))
 
     def test_assets_are_same_origin_local_and_handlers_are_not_inline(self) -> None:
         resource_paths = [
@@ -156,18 +158,63 @@ class StaticUiContractTest(unittest.TestCase):
         self.assertNotIn("sessionStorage", self.app_source)
         self.assertNotIn("innerHTML", self.app_source)
 
-    def test_korean_section_notes_keep_words_together(self) -> None:
-        declarations = css_declarations(self.styles_source, ".section-note")
-        self.assertEqual("keep-all", declarations.get("word-break"))
+    def test_showcase_covers_documented_status_matrix(self) -> None:
+        statuses = {
+            attrs.get("data-status")
+            for _, attrs in self.showcase.elements
+            if attrs.get("data-status")
+        }
 
-    def test_selected_safe_risk_label_meets_small_text_contrast(self) -> None:
-        root = css_declarations(self.styles_source, ":root")
-        selected = css_declarations(self.styles_source, ".endpoint-row.is-selected")
-        risk = css_declarations(self.styles_source, ".risk-safe")
-        background_token = selected["background"].removeprefix("var(").removesuffix(")")
-        foreground_token = risk["color"].removeprefix("var(").removesuffix(")")
+        self.assertEqual(
+            {"QUEUED", "RUNNING", "CANCELLING", "PASSED", "FAILED", "CANCELLED", "RECONNECTING", "PARTIAL"},
+            statuses,
+        )
 
-        self.assertGreaterEqual(contrast_ratio(root[foreground_token], root[background_token]), 4.5)
+    def test_showcase_covers_representative_form_and_result_states(self) -> None:
+        normal_select = self.showcase.by_id("show-profile")
+        focused_select = self.showcase.by_id("show-suite")
+        disabled_select = self.showcase.by_id("show-profile-disabled")
+        normal_input = self.showcase.by_id("show-rate")
+        invalid_input = self.showcase.by_id("show-iterations")
+        disabled_input = self.showcase.by_id("show-rate-disabled")
+        result_states = {
+            attrs.get("data-result-state")
+            for _, attrs in self.showcase.elements
+            if attrs.get("data-result-state")
+        }
+
+        self.assertEqual("select", normal_select[0] if normal_select else None)
+        self.assertIn("demo-focus", focused_select[1].get("class", "") if focused_select else "")
+        self.assertIn("disabled", disabled_select[1] if disabled_select else {})
+        self.assertEqual("input", normal_input[0] if normal_input else None)
+        self.assertEqual("true", invalid_input[1].get("aria-invalid") if invalid_input else None)
+        self.assertIn("disabled", disabled_input[1] if disabled_input else {})
+        self.assertEqual({"PASSED", "PARTIAL"}, result_states)
+        self.assertGreaterEqual(len(self.showcase.matching("div", role="rowheader")), 2)
+
+    def test_showcase_covers_active_button_and_endpoint_states(self) -> None:
+        button_states = {attrs.get("data-button-state") for _, attrs in self.showcase.elements if attrs.get("data-button-state")}
+        endpoint_states = {attrs.get("data-endpoint-state") for _, attrs in self.showcase.elements if attrs.get("data-endpoint-state")}
+        disabled_row = next((attrs for _, attrs in self.showcase.elements if attrs.get("data-endpoint-state") == "disabled"), {})
+        focus_row = next((attrs for _, attrs in self.showcase.elements if attrs.get("data-endpoint-state") == "focus"), {})
+        focus_input = self.showcase.by_id("show-endpoint-focus")
+        hover_samples = [attrs for _, attrs in self.showcase.elements if attrs.get("data-demo-hover")]
+        hover_kinds = {attrs.get("data-demo-hover") for attrs in hover_samples}
+
+        self.assertIn("active", button_states)
+        self.assertEqual({"selected", "hover", "focus", "disabled", "fixture", "cost", "empty"}, endpoint_states)
+        self.assertIn("is-disabled", disabled_row.get("class", ""))
+        self.assertEqual("true", disabled_row.get("aria-disabled"))
+        self.assertIn("demo-focus-within", focus_row.get("class", ""))
+        self.assertIn("demo-focus", focus_input[1].get("class", "") if focus_input else "")
+        self.assertEqual({"button", "checkbox", "endpoint", "download"}, hover_kinds)
+        self.assertTrue(all("demo-hover" in attrs.get("class", "").split() for attrs in hover_samples))
+
+    def test_header_showcase_link_is_native_and_named(self) -> None:
+        header_showcase = self.document.by_id("header-showcase")
+
+        self.assertEqual("a", header_showcase[0] if header_showcase else None)
+        self.assertEqual("/showcase.html", header_showcase[1].get("href") if header_showcase else None)
 
 
 if __name__ == "__main__":

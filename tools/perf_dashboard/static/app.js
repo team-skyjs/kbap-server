@@ -10,11 +10,12 @@ import {
   createSnapshotCoordinator,
   estimateRiskWarningBudget,
   metricComparison,
+  parseSsePayload,
   profileRule,
   reconnectDecision,
   selectionForAction,
   selectActiveCampaign,
-  sseSequenceDecision,
+  streamScopeDecision,
   transitionApproval,
   validateConfiguration,
 } from "/model.mjs";
@@ -62,6 +63,7 @@ const state = {
   cancelSent: false,
   approvedRiskSignature: "",
   reconnectPending: false,
+  streamCampaignId: "",
   loading: true,
 };
 
@@ -158,6 +160,10 @@ function renderCatalog() {
   const rows = targets.map((target) => {
     const label = element("label", "endpoint-row");
     if (state.selectedKeys.has(target.key)) label.classList.add("is-selected");
+    if (locked) {
+      label.classList.add("is-disabled");
+      label.setAttribute("aria-disabled", "true");
+    }
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = state.selectedKeys.has(target.key);
@@ -236,9 +242,23 @@ function renderConfiguration() {
     });
     const { fixtureCount, costCount } = budget;
     const fixtureNote = fixtureCount ? " 고유 fixture가 소진되면 실제 쓰기 요청은 이 상한보다 적습니다." : "";
-    dom["risk-warning"].textContent = budget.valid
-      ? `위험 선택: fixture ${fixtureCount}개, cost ${costCount}개. Runner 전체 단계의 target iteration ${budget.targetIterations}회, 최대 HTTP request ${budget.maximumHttpRequests}회, 외부 provider billable request 최대 ${budget.maximumBillableRequests}회.${fixtureNote}`
-      : `위험 선택: fixture ${fixtureCount}개, cost ${costCount}개. 유효한 부하와 범위를 입력하면 전체 runner 단계의 request 상한을 계산합니다.${fixtureNote}`;
+    const riskTargetNodes = [];
+    budget.riskyTargets.forEach((target, index) => {
+      if (index) riskTargetNodes.push(element("span", "risk-target-separator", ", "));
+      const identity = element("span", "risk-target-identity");
+      replaceChildren(identity, [
+        element("span", "", `${target.label} [`),
+        element("code", "risk-target-key", target.key),
+        element("span", "", "]"),
+      ]);
+      riskTargetNodes.push(identity);
+    });
+    const riskTargetList = element("span", "risk-target-list");
+    replaceChildren(riskTargetList, riskTargetNodes);
+    const summary = budget.valid
+      ? `. fixture ${fixtureCount}개, cost ${costCount}개. Runner 전체 단계의 target iteration ${budget.targetIterations}회, 최대 HTTP request ${budget.maximumHttpRequests}회, 외부 provider billable request 최대 ${budget.maximumBillableRequests}회.${fixtureNote}`
+      : `. fixture ${fixtureCount}개, cost ${costCount}개. 유효한 부하와 범위를 입력하면 전체 runner 단계의 request 상한을 계산합니다.${fixtureNote}`;
+    replaceChildren(dom["risk-warning"], [element("span", "", "위험 대상: "), riskTargetList, element("span", "", summary)]);
   }
   const jfrCanChange = !locked && profile === "smoke" && targets.length === 1;
   dom["jfr-enabled"].disabled = !jfrCanChange;
@@ -426,7 +446,7 @@ function renderArtifacts(campaign) {
   let partialCount = 0;
   const groups = campaign.targets.map((target) => {
     const group = element("section", "artifact-target");
-    const title = element("h4", "", target.key);
+    const title = element("h4", "artifact-target-key", target.key);
     const artifacts = target.artifacts || [];
     const byName = new Map(artifacts.map((artifact) => [artifact.name, artifact]));
     const links = element("div", "artifact-links");
@@ -480,16 +500,16 @@ function upsertRun(campaign) {
 
 function applyEvent(event) {
   const sequence = Number(event.lastEventId || 0);
-  const sequenceDecision = sseSequenceDecision(state.lastSequence, sequence);
-  if (!sequenceDecision.accept) return;
-  state.lastSequence = sequenceDecision.sequence;
-  let payload;
-  try {
-    payload = JSON.parse(event.data);
-  } catch (error) {
-    if (error instanceof SyntaxError) setAppError("SSE event 형식을 읽을 수 없습니다. snapshot으로 복구합니다.");
+  const parsed = parseSsePayload(event.data);
+  if (!parsed.valid) {
+    setAppError("SSE event 형식을 읽을 수 없습니다. snapshot으로 복구합니다.");
+    void refreshSnapshot(state.liveCampaign?.campaignId || state.selectedRunId, true);
     return;
   }
+  const sequenceDecision = snapshots.acceptEvent(state.lastSequence, sequence);
+  if (!sequenceDecision.accept) return;
+  state.lastSequence = sequenceDecision.sequence;
+  const payload = parsed.payload;
   if (payload.target) state.phaseByTarget.set(payload.target, payload.phase || "console");
   if (payload.line) {
     state.consoleLines.push(`[${payload.target || "campaign"}] phase=${payload.phase} ${payload.line}`);
@@ -528,9 +548,9 @@ function closeEvents() {
   state.reconnectTimer = null;
 }
 
-async function refreshSnapshot(campaignId) {
+async function refreshSnapshot(campaignId, retainPending = false) {
   if (!campaignId) return null;
-  const result = await snapshots.refresh(campaignId);
+  const result = await (retainPending ? snapshots.recover(campaignId) : snapshots.refresh(campaignId));
   if (result.kind === "stale") return null;
   if (result.kind === "error") {
     setAppError(requestMessage(result.error, "Campaign snapshot을 갱신하지 못했습니다."));
@@ -581,16 +601,24 @@ async function scheduleReconnect(campaignId) {
 function connectEvents(campaignId) {
   closeEvents();
   if (!campaignId || !isActive(state.liveCampaign)) return;
+  scopeStream(campaignId);
   const source = new EventSource(`/api/runs/${encodeURIComponent(campaignId)}/events`);
   state.eventSource = source;
   source.addEventListener("open", () => {
+    if (state.streamCampaignId !== campaignId) return;
     state.reconnectDelay = 1000;
     state.reconnectPending = false;
     setAppError("");
     if (state.liveCampaign) dom["live-status"].textContent = `${state.liveCampaign.status} SSE 연결됨. campaign ${campaignId}`;
   });
-  source.addEventListener("campaign", applyEvent);
-  source.addEventListener("error", () => { void scheduleReconnect(campaignId); });
+  source.addEventListener("campaign", (event) => {
+    if (state.streamCampaignId !== campaignId) return;
+    applyEvent(event);
+  });
+  source.addEventListener("error", () => {
+    if (state.streamCampaignId !== campaignId) return;
+    void scheduleReconnect(campaignId);
+  });
 }
 
 async function startCampaign(mode) {
@@ -616,9 +644,7 @@ async function startCampaign(mode) {
       body: JSON.stringify(payload),
     });
     state.cancelSent = false;
-    state.consoleLines = [];
-    state.phaseByTarget.clear();
-    state.lastSequence = 0;
+    scopeStream(campaign.campaignId);
     upsertRun(campaign);
     state.liveCampaign = campaign;
     renderAll();
@@ -665,12 +691,24 @@ async function reloadRuns() {
       connectEvents(active.campaignId);
     } else {
       clearApproval("terminal");
+      scopeStream("");
       closeEvents();
     }
     renderAll();
   } catch (error) {
     setAppError(requestMessage(error, "실행 기록을 다시 불러오지 못했습니다."));
   }
+}
+
+function scopeStream(campaignId) {
+  const decision = streamScopeDecision(state.streamCampaignId, campaignId);
+  if (decision.reset) {
+    snapshots.abort();
+    state.consoleLines = [];
+    state.phaseByTarget.clear();
+    state.lastSequence = 0;
+  }
+  state.streamCampaignId = decision.campaignId;
 }
 
 function bindControls() {

@@ -12,6 +12,8 @@ const PROFILE_RULES = Object.freeze({
 
 const APPROVAL_MUTATIONS = new Set(["selection", "profile", "load", "extent", "terminal"]);
 const CORE_ARTIFACTS = Object.freeze(["report.html", "summary.json", "manifest.json"]);
+const RUN_STATUSES = new Set(["QUEUED", "RUNNING", "CANCELLING", "PASSED", "FAILED", "CANCELLED"]);
+const SSE_FIELDS = Object.freeze(["line", "phase", "status", "target"]);
 
 export function profileRule(profile) {
   return PROFILE_RULES[profile] || null;
@@ -54,10 +56,15 @@ export function estimateRunBudget({ targets, profile, load, extent }) {
 
 export function estimateRiskWarningBudget(configuration) {
   const budget = estimateRunBudget(configuration);
+  const riskyTargets = configuration.targets
+    .filter((target) => target.risk !== "safe")
+    .map((target) => ({ key: target.key, label: target.label, risk: target.risk }))
+    .sort((left, right) => left.key.localeCompare(right.key));
   return {
     ...budget,
-    fixtureCount: configuration.targets.filter((target) => target.risk === "fixture").length,
-    costCount: configuration.targets.filter((target) => target.risk === "cost").length,
+    fixtureCount: riskyTargets.filter((target) => target.risk === "fixture").length,
+    costCount: riskyTargets.filter((target) => target.risk === "cost").length,
+    riskyTargets,
   };
 }
 
@@ -120,32 +127,80 @@ function snapshotIsCurrent(current, candidate, generation, latestGeneration) {
 export function createSnapshotCoordinator({ load, current }) {
   let generation = 0;
   let controller = null;
-  return {
-    async refresh(campaignId) {
-      generation += 1;
-      const requestGeneration = generation;
-      controller?.abort();
-      controller = new AbortController();
+  let pendingCampaignId = "";
+  let pendingPromise = null;
+  function invalidate() {
+    generation += 1;
+    controller?.abort();
+    controller = null;
+    pendingCampaignId = "";
+    pendingPromise = null;
+  }
+  function acceptEvent(lastSequence, incomingSequence) {
+    const decision = sseSequenceDecision(lastSequence, incomingSequence);
+    if (decision.accept) invalidate();
+    return decision;
+  }
+  function refresh(campaignId) {
+    generation += 1;
+    const requestGeneration = generation;
+    controller?.abort();
+    const requestController = new AbortController();
+    controller = requestController;
+    pendingCampaignId = campaignId;
+    const request = (async () => {
       try {
-        const campaign = await load(campaignId, controller.signal);
+        const campaign = await Promise.resolve().then(() => load(campaignId, requestController.signal));
         if (!snapshotIsCurrent(current(campaignId), campaign, requestGeneration, generation)) return { kind: "stale" };
         return { kind: "accepted", campaign };
       } catch (error) {
         if (error?.name === "AbortError") return { kind: "stale" };
         return { kind: "error", error };
+      } finally {
+        if (requestGeneration === generation) {
+          controller = null;
+          pendingCampaignId = "";
+          pendingPromise = null;
+        }
       }
-    },
-    abort() {
-      generation += 1;
-      controller?.abort();
-      controller = null;
-    },
+    })();
+    pendingPromise = request;
+    return request;
+  }
+  function recover(campaignId) {
+    return pendingPromise && pendingCampaignId === campaignId ? pendingPromise : refresh(campaignId);
+  }
+  return {
+    refresh,
+    recover,
+    acceptEvent,
+    invalidate,
+    abort: invalidate,
   };
 }
 
 export function sseSequenceDecision(lastSequence, incomingSequence) {
   if (!incomingSequence || incomingSequence <= lastSequence) return { accept: false, sequence: lastSequence };
   return { accept: true, sequence: incomingSequence };
+}
+
+export function parseSsePayload(serializedPayload) {
+  try {
+    const payload = JSON.parse(serializedPayload);
+    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) return { valid: false, payload: null };
+    const fields = Object.keys(payload).sort();
+    if (fields.length !== SSE_FIELDS.length || fields.some((field, index) => field !== SSE_FIELDS[index])) return { valid: false, payload: null };
+    if (typeof payload.target !== "string" || typeof payload.phase !== "string" || typeof payload.line !== "string" || !RUN_STATUSES.has(payload.status)) {
+      return { valid: false, payload: null };
+    }
+    return { valid: true, payload };
+  } catch {
+    return { valid: false, payload: null };
+  }
+}
+
+export function streamScopeDecision(currentCampaignId, nextCampaignId) {
+  return { campaignId: nextCampaignId, reset: currentCampaignId !== nextCampaignId };
 }
 
 export function reconnectDecision({ status, timerPending, delay }) {
