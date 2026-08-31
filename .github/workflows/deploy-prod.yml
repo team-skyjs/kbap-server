@@ -96,7 +96,7 @@ jobs:
           for i in $(seq 1 80); do
             ACTIVE=$(aws deploy list-deployments --application-name "$ECS_NAME-api" \
               --deployment-group-name "$ECS_NAME-api" \
-              --include-only-statuses Created Queued InProgress Ready \
+              --include-only-statuses Created Queued InProgress Baking Ready \
               --query 'deployments[0]' --output text)
             [ "$ACTIVE" = "None" ] && exit 0
             echo "in-flight deployment $ACTIVE — 30s 대기 ($i/80)"
@@ -154,7 +154,11 @@ jobs:
             echo "release $TAG 이미 존재 — 재실행 멱등 skip" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+            --jq 'map(.tagName | select(startswith("prod-")))[0] // empty')
+          NOTES_START=()
+          [ -n "$PREV_TAG" ] && NOTES_START=(--notes-start-tag "$PREV_TAG")
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "PROD · $(TZ=Asia/Seoul date +%Y-%m-%d) · ${GITHUB_SHA::7}" \
-            --generate-notes
+            --generate-notes "${NOTES_START[@]}"
           echo "release: $TAG" >> "$GITHUB_STEP_SUMMARY"
