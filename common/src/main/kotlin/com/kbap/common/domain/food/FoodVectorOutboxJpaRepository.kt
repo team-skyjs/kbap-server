@@ -33,6 +33,42 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
 
     fun findByOutboxStatus(outboxStatus: FoodVectorOutboxStatus, pageable: Pageable): Page<FoodVectorOutbox>
 
+    @Query(
+        """
+        select o from FoodVectorOutbox o
+        where (:foodId is not null and o.foodId = :foodId)
+           or exists (
+               select 1 from Food f
+               where f.id = o.foodId and f.displayName like concat('%', :keyword, '%')
+           )
+        """,
+    )
+    fun searchByFoodKeyword(
+        @Param("keyword") keyword: String,
+        @Param("foodId") foodId: Long?,
+        pageable: Pageable,
+    ): Page<FoodVectorOutbox>
+
+    @Query(
+        """
+        select o from FoodVectorOutbox o
+        where o.outboxStatus = :outboxStatus
+          and (
+              (:foodId is not null and o.foodId = :foodId)
+              or exists (
+                  select 1 from Food f
+                  where f.id = o.foodId and f.displayName like concat('%', :keyword, '%')
+              )
+          )
+        """,
+    )
+    fun searchByFoodKeywordAndStatus(
+        @Param("keyword") keyword: String,
+        @Param("foodId") foodId: Long?,
+        @Param("outboxStatus") outboxStatus: FoodVectorOutboxStatus,
+        pageable: Pageable,
+    ): Page<FoodVectorOutbox>
+
     fun findTop20ByOutboxStatusOrderByIdDesc(outboxStatus: FoodVectorOutboxStatus): List<FoodVectorOutbox>
 
     @Query(

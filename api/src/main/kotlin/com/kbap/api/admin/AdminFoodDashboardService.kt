@@ -50,11 +50,23 @@ class AdminFoodDashboardService(
     }
 
     @Transactional(readOnly = true)
-    fun getVectorOutboxPage(page: Int, status: FoodVectorOutboxStatus?): AdminVectorOutboxPageResponse {
+    fun getVectorOutboxPage(
+        page: Int,
+        status: FoodVectorOutboxStatus?,
+        query: String? = null,
+    ): AdminVectorOutboxPageResponse {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, VECTOR_OUTBOX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
-        val result = when (status) {
-            null -> vectorOutboxRepository.findAll(pageable)
-            else -> vectorOutboxRepository.findByOutboxStatus(status, pageable)
+        val result = when {
+            keyword == null && status == null -> vectorOutboxRepository.findAll(pageable)
+            keyword == null -> vectorOutboxRepository.findByOutboxStatus(status!!, pageable)
+            else -> {
+                val foodId = keyword.toLongOrNull()
+                when (status) {
+                    null -> vectorOutboxRepository.searchByFoodKeyword(keyword, foodId, pageable)
+                    else -> vectorOutboxRepository.searchByFoodKeywordAndStatus(keyword, foodId, status, pageable)
+                }
+            }
         }
         val displayNames = foodRepository.findAllById(result.content.map { it.foodId }.distinct())
             .associate { it.id to it.displayName }
