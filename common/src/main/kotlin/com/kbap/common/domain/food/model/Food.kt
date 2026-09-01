@@ -1,5 +1,7 @@
 package com.kbap.common.domain.food.model
 
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
@@ -12,6 +14,7 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import org.slf4j.LoggerFactory
 
 @Entity
 @Table(
@@ -77,21 +80,25 @@ class Food(
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
     fun approve(): Boolean {
+        // 재승인(READY)은 이미 원하는 결과라 멱등 성공, 그 외 비대상은 운영자 실수 신호라 예외 — 의도된 비대칭.
         if (contentStatus == FoodContentStatus.READY) return false
-        require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
-        }
+        requireReviewable()
         contentStatus = FoodContentStatus.READY
         return true
     }
 
     fun reject(reason: String?) {
-        require(contentStatus == FoodContentStatus.PENDING_REVIEW) {
-            "승인 대상(PENDING_REVIEW)이 아닙니다: $contentStatus"
-        }
+        requireReviewable()
         contentStatus = FoodContentStatus.FAILED
         contentReviewAttempts++
         contentReviewRejectionReason = truncateReason(reason)
+    }
+
+    private fun requireReviewable() {
+        if (contentStatus != FoodContentStatus.PENDING_REVIEW) {
+            log.warn("검수 대상 아님: foodId={}, contentStatus={}", id, contentStatus)
+            throw BusinessException(ErrorCode.FOOD_NOT_REVIEWABLE)
+        }
     }
 
     private fun truncateReason(reason: String?): String? =
@@ -162,6 +169,8 @@ class Food(
         LocalizedText(korean = description, translations = resolveLangs(descriptionTranslations))
 
     companion object {
+        private val log = LoggerFactory.getLogger(Food::class.java)
+
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
 
         const val MAX_LONG_DESCRIPTION_LENGTH = 1000

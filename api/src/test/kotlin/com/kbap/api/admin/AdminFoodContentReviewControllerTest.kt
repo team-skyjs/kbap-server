@@ -239,14 +239,27 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("승인 대기가 아닌 음식에 결과가 도착하면") {
-                then("400 으로 거절한다") {
+            `when`("승인 대기가 아닌 음식에 반려가 도착하면") {
+                then("400(FOOD-008) 전용 코드로 거절한다") {
                     clearFoods()
                     val food = saveFood("된장찌개", FoodContentStatus.FAILED)
 
                     postResult(food.id, mapOf("passed" to false, "reason" to "이미 반려됨")).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                        jsonPath("$.code") { value("FOOD-008") }
+                        jsonPath("$.message") { value(ErrorCode.FOOD_NOT_REVIEWABLE.message) }
+                    }
+                }
+            }
+
+            `when`("승인 대기가 아닌 음식에 승인이 도착하면") {
+                then("400(FOOD-008) 전용 코드로 거절한다") {
+                    clearFoods()
+                    val food = saveFood("된장찌개", FoodContentStatus.PENDING_IMAGE)
+
+                    postResult(food.id, mapOf("passed" to true)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-008") }
                     }
                 }
             }
