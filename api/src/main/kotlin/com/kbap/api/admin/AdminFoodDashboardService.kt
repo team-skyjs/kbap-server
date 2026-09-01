@@ -61,15 +61,10 @@ class AdminFoodDashboardService(
             keyword == null && status == null -> vectorOutboxRepository.findAll(pageable)
             keyword == null -> vectorOutboxRepository.findByOutboxStatus(status!!, pageable)
             else -> {
-                val foodId = keyword.toLongOrNull() ?: NO_FOOD_ID
+                val foodId = keyword.toLongOrNull()
                 when (status) {
-                    null -> vectorOutboxRepository.findByFoodDisplayNameContainingOrFoodId(keyword, foodId, pageable)
-                    else -> vectorOutboxRepository.findByFoodDisplayNameContainingOrFoodIdAndOutboxStatus(
-                        keyword,
-                        foodId,
-                        status,
-                        pageable,
-                    )
+                    null -> vectorOutboxRepository.searchByFoodKeyword(keyword, foodId, pageable)
+                    else -> vectorOutboxRepository.searchByFoodKeywordAndStatus(keyword, foodId, status, pageable)
                 }
             }
         }
@@ -110,8 +105,6 @@ class AdminFoodDashboardService(
         const val ENQUEUE_MAX = 500
 
         const val VECTOR_OUTBOX_PAGE_SIZE = 50
-
-        private const val NO_FOOD_ID = -1L
     }
 }
 
