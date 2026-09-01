@@ -101,6 +101,7 @@ class AdminMemberQueryService(
     }
 
     private fun requireMemberExists(memberId: Long) {
+        // existsById 는 @SQLRestriction(ACTIVE) 탓에 탈퇴 회원을 '없음'으로 오판한다 — 전 상태 조회가 맞다.
         memberRepository.findAnyById(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
     }
 
