@@ -160,8 +160,15 @@ class AdminFoodService(
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
         cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
+        cancelPendingContentOutboxes(food.id)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
+    }
+
+    private fun cancelPendingContentOutboxes(foodId: Long) {
+        outboxRepository
+            .findByFoodIdInAndOutboxStatus(listOf(foodId), FoodContentOutboxStatus.PENDING)
+            .forEach { it.delete() }
     }
 
     private fun cancelPendingVectorOutboxes(foodId: Long, operation: FoodVectorOutboxOperation) {

@@ -803,6 +803,19 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("대기 중인 콘텐츠 수집 큐가 남은 채로 삭제하면") {
+                then("수집 대기도 취소된다 — 삭제 음식이 랭체인 파이프라인에 발행되지 않는다") {
+                    val food = saveFood("수집대기삭제찌개")
+                    recollectOne(food.id).andExpect { status { isOk() } }
+
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    foodContentOutboxJpaRepository
+                        .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
+                        .size shouldBe 0
+                }
+            }
+
             `when`("음식을 삭제하면") {
                 then("목록·상세에서 사라진다") {
                     val food = saveFood("삭제할찌개")
