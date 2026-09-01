@@ -38,6 +38,24 @@ class AdminFoodCatalogController(
             ),
         )
 
+    @GetMapping("/deleted")
+    override fun getDeletedFoodPage(
+        @RequestParam(defaultValue = "1") page: Int,
+    ): ResponseEntity<BaseResponse<AdminFoodListResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(adminFoodService.getDeletedFoodPage(page.coerceAtLeast(1))))
+
+    @GetMapping("/deleted/{id}")
+    override fun getDeletedFoodDetail(
+        @PathVariable id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodDetailResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(adminFoodService.getDeletedFoodDetail(id)))
+
+    @PostMapping("/{id}/restore")
+    override fun restoreFood(
+        @PathVariable id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodRestoreResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(adminFoodService.restoreFood(id)))
+
     @GetMapping("/{id}")
     override fun getFoodDetail(
         @PathVariable id: Long,

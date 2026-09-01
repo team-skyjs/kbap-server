@@ -7,6 +7,10 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -50,6 +54,9 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var foodContentOutboxJpaRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
+    private lateinit var foodVectorOutboxJpaRepository: FoodVectorOutboxJpaRepository
 
     init {
         val path = "/api/admin/foods"
@@ -101,6 +108,23 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
             mockMvc.post("$path/recollect$query") { adminAuth(this) }
 
         fun deleteFood(id: Long): ResultActionsDsl = mockMvc.delete("$path/$id") { adminAuth(this) }
+
+        fun getDeletedList(query: String = ""): ResultActionsDsl =
+            mockMvc.get("$path/deleted$query") { adminAuth(this) }
+
+        fun getDeletedDetail(id: Long): ResultActionsDsl = mockMvc.get("$path/deleted/$id") { adminAuth(this) }
+
+        fun postRestore(id: Long): ResultActionsDsl = mockMvc.post("$path/$id/restore") { adminAuth(this) }
+
+        fun hasPendingOutbox(foodId: Long, operation: FoodVectorOutboxOperation): Boolean =
+            foodVectorOutboxJpaRepository.existsByFoodIdAndOperationAndOutboxStatus(
+                foodId,
+                operation,
+                FoodVectorOutboxStatus.PENDING,
+            )
+
+        fun hasPendingUpsertOutbox(foodId: Long): Boolean =
+            hasPendingOutbox(foodId, FoodVectorOutboxOperation.UPSERT)
 
         beforeContainer { clearFoods() }
         afterSpec { clearFoods() }
@@ -166,6 +190,25 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.items.length()") { value(1) }
                         jsonPath("$.payload.items[0].koreanName") { value("김치볶음밥") }
+                    }
+                }
+            }
+
+            `when`("영어 이름 번역이 있으면") {
+                then("items 의 englishName 에 en 값이, 없으면 null 이 실린다") {
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "된장찌개",
+                            description = "설명",
+                            nameTranslations = mapOf("en" to "Soybean paste stew"),
+                        ),
+                    )
+                    saveFood("김치찌개")
+
+                    getList().andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].englishName") { value(null) }
+                        jsonPath("$.payload.items[1].englishName") { value("Soybean paste stew") }
                     }
                 }
             }
@@ -626,7 +669,153 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
             }
         }
 
+        given("어드민 삭제 음식 목록 조회 API") {
+            `when`("삭제된 음식과 활성 음식이 섞여 있으면") {
+                then("삭제된 음식만 삭제 시각과 함께 내려준다") {
+                    saveFood("활성찌개")
+                    val first = saveFood("삭제찌개1")
+                    val second = saveFood("삭제찌개2")
+                    deleteFood(first.id).andExpect { status { isOk() } }
+                    deleteFood(second.id).andExpect { status { isOk() } }
+
+                    getDeletedList().andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.totalCount") { value(2) }
+                        jsonPath("$.payload.items[0].updatedAt") { exists() }
+                    }
+                }
+            }
+        }
+
+        given("어드민 삭제 음식 상세 조회 API") {
+            `when`("삭제된 음식을 조회하면") {
+                then("기존 상세와 같은 형태로 내려준다") {
+                    val food = saveFood("복원후보찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    getDeletedDetail(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.id") { value(food.id) }
+                        jsonPath("$.payload.koreanName") { value("복원후보찌개") }
+                        jsonPath("$.payload.contentStatus") { value("READY") }
+                    }
+                }
+            }
+
+            `when`("활성 음식 id 로 조회하면") {
+                then("400(FOOD-001) 로 거절한다 — 삭제 전용 뷰") {
+                    val food = saveFood("활성찌개")
+
+                    getDeletedDetail(food.id).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+
+            `when`("없는 id 로 조회하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    getDeletedDetail(999999).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+        }
+
+        given("어드민 음식 복원 API") {
+            `when`("삭제된 READY 음식을 복원하면") {
+                then("다시 조회되고 벡터 UPSERT 동기화가 큐잉된다") {
+                    val food = saveFood("복원찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    postRestore(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.restored") { value(true) }
+                        jsonPath("$.payload.contentStatus") { value("READY") }
+                    }
+
+                    getDetail(food.id).andExpect { status { isOk() } }
+                    hasPendingUpsertOutbox(food.id) shouldBe true
+                }
+            }
+
+            `when`("대기 중인 벡터 삭제 큐가 남은 채로 READY 음식을 복원하면") {
+                then("삭제 큐는 취소되고 UPSERT 만 남는다 — 어떤 처리 순서에도 벡터가 살아남는다") {
+                    val food = saveFood("경합복원찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe true
+
+                    postRestore(food.id).andExpect { status { isOk() } }
+
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe false
+                    hasPendingUpsertOutbox(food.id) shouldBe true
+                }
+            }
+
+            `when`("삭제된 비 READY 음식을 복원하면") {
+                then("복원은 되지만 벡터 동기화는 큐잉하지 않는다") {
+                    val food = saveFood("실패찌개", FoodContentStatus.FAILED)
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    postRestore(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.restored") { value(true) }
+                        jsonPath("$.payload.contentStatus") { value("FAILED") }
+                    }
+
+                    hasPendingUpsertOutbox(food.id) shouldBe false
+                }
+            }
+
+            `when`("이미 활성인 음식을 복원하면") {
+                then("변경 없이 restored=false 로 멱등하다") {
+                    val food = saveFood("활성찌개")
+
+                    postRestore(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.restored") { value(false) }
+                    }
+                }
+            }
+
+            `when`("없는 id 를 복원하면") {
+                then("400(FOOD-001) 로 거절한다") {
+                    postRestore(999999).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+        }
+
         given("어드민 음식 소프트삭제 API") {
+            `when`("대기 중인 벡터 UPSERT 큐가 남은 채로 삭제하면") {
+                then("UPSERT 는 취소되고 DELETE 만 남는다 — 삭제된 음식의 벡터가 되살아나지 않는다") {
+                    val food = saveFood("경합삭제찌개")
+                    foodVectorOutboxJpaRepository.save(FoodVectorOutbox.upsert(food.id))
+
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    hasPendingUpsertOutbox(food.id) shouldBe false
+                    hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe true
+                }
+            }
+
+            `when`("대기 중인 콘텐츠 수집 큐가 남은 채로 삭제하면") {
+                then("수집 대기도 취소된다 — 삭제 음식이 랭체인 파이프라인에 발행되지 않는다") {
+                    val food = saveFood("수집대기삭제찌개")
+                    recollectOne(food.id).andExpect { status { isOk() } }
+
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    foodContentOutboxJpaRepository
+                        .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
+                        .size shouldBe 0
+                }
+            }
+
             `when`("음식을 삭제하면") {
                 then("목록·상세에서 사라진다") {
                     val food = saveFood("삭제할찌개")

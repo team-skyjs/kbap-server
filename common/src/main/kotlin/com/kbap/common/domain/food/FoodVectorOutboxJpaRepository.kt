@@ -29,6 +29,12 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
         outboxStatus: FoodVectorOutboxStatus,
     ): Boolean
 
+    fun findByFoodIdAndOperationAndOutboxStatus(
+        foodId: Long,
+        operation: FoodVectorOutboxOperation,
+        outboxStatus: FoodVectorOutboxStatus,
+    ): List<FoodVectorOutbox>
+
     fun countByOutboxStatus(outboxStatus: FoodVectorOutboxStatus): Long
 
     fun findByOutboxStatus(outboxStatus: FoodVectorOutboxStatus, pageable: Pageable): Page<FoodVectorOutbox>

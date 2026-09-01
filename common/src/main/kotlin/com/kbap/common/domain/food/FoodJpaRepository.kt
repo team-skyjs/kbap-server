@@ -21,6 +21,19 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findByIdForUpdate(@Param("id") id: Long): Food?
 
     @Query(
+        value = "SELECT * FROM food WHERE status = 'DELETED' ORDER BY updated_at DESC, id DESC",
+        countQuery = "SELECT count(*) FROM food WHERE status = 'DELETED'",
+        nativeQuery = true,
+    )
+    fun findDeletedPage(pageable: Pageable): Page<Food>
+
+    @Query(value = "SELECT * FROM food WHERE id = :id AND status = 'DELETED'", nativeQuery = true)
+    fun findDeletedById(@Param("id") id: Long): Food?
+
+    @Query(value = "SELECT * FROM food WHERE id = :id", nativeQuery = true)
+    fun findAnyById(@Param("id") id: Long): Food?
+
+    @Query(
         """
         select new com.kbap.common.domain.food.dto.FoodStatusCount(f.contentStatus, count(f))
         from Food f

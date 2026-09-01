@@ -12,6 +12,7 @@ import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
@@ -57,6 +58,41 @@ class AdminFoodService(
             query = keyword,
             status = status,
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
+        val result = foodRepository.findDeletedPage(PageRequest.of(page - 1, LIST_PAGE_SIZE))
+        return AdminFoodListResponse(
+            items = result.content.map {
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+            },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
+        foodRepository.findDeletedById(id)
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    @Transactional
+    fun restoreFood(id: Long): AdminFoodRestoreResponse {
+        val food = foodRepository.findAnyById(id) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        if (!food.isDeleted()) {
+            return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
+        }
+        food.active()
+        if (food.isReady()) {
+            cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
+            vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+        }
+        return AdminFoodRestoreResponse(restored = true, contentStatus = food.contentStatus)
     }
 
     @Transactional(readOnly = true)
@@ -123,8 +159,22 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
+        cancelPendingContentOutboxes(food.id)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
+    }
+
+    private fun cancelPendingContentOutboxes(foodId: Long) {
+        outboxRepository
+            .findByFoodIdInAndOutboxStatus(listOf(foodId), FoodContentOutboxStatus.PENDING)
+            .forEach { it.delete() }
+    }
+
+    private fun cancelPendingVectorOutboxes(foodId: Long, operation: FoodVectorOutboxOperation) {
+        vectorOutboxRepository
+            .findByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
+            .forEach { it.delete() }
     }
 
     @Transactional
@@ -255,6 +305,7 @@ data class AdminFoodListPageView(
 data class AdminFoodSummaryView(
     val id: Long,
     val koreanName: String,
+    val englishName: String?,
     val contentStatus: FoodContentStatus,
     val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
@@ -266,6 +317,7 @@ data class AdminFoodSummaryView(
             AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
+                englishName = food.nameTranslations[LanguageCode.EN.code],
                 contentStatus = food.contentStatus,
                 contentFailureKind = food.contentFailureKind,
                 spiciness = food.spiciness,

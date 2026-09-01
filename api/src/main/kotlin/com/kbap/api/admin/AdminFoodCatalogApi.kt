@@ -46,6 +46,70 @@ interface AdminFoodCatalogApi {
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>>
 
     @Operation(
+        summary = "삭제 음식 목록 조회",
+        description = """
+            소프트삭제된 음식만 삭제 시각 내림차순으로 페이지 조회한다(복원 대상 탐색용).
+
+            - 응답 형태는 일반 목록과 동일하며, 이 뷰에서 `updatedAt` 은 삭제 시각이다.
+            - 페이지 크기는 서버 고정(200).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 대상이 없으면 빈 items 와 totalCount=0"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getDeletedFoodPage(
+        @Parameter(description = "1부터 시작하는 페이지 번호(1 미만이면 1로 보정)", example = "1")
+        page: Int,
+    ): ResponseEntity<BaseResponse<AdminFoodListResponse>>
+
+    @Operation(
+        summary = "삭제 음식 상세 조회",
+        description = """
+            소프트삭제된 음식 1건을 일반 상세와 같은 형태로 조회한다(복원 판단용).
+
+            - 활성 음식이나 없는 id 는 400(FOOD-001) — 삭제 전용 뷰다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "삭제된 음식이 아니거나 없음(FOOD-001)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getDeletedFoodDetail(
+        @Parameter(description = "조회할 삭제 음식 id", example = "1")
+        id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodDetailResponse>>
+
+    @Operation(
+        summary = "음식 복원",
+        description = """
+            소프트삭제된 음식을 다시 활성으로 되돌린다. READY 음식이면 벡터 UPSERT 동기화를 함께 큐잉한다
+            (삭제 시의 DELETE 큐잉과 대칭).
+
+            - 멱등: 이미 활성이면 변경 없이 `restored=false` 와 현재 상태를 반환한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "요청 성공 — restored 와 현재 콘텐츠 상태 반환"),
+            ApiResponse(responseCode = "400", description = "음식 없음(FOOD-001)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun restoreFood(
+        @Parameter(description = "복원할 음식 id", example = "1")
+        id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodRestoreResponse>>
+
+    @Operation(
         summary = "음식 상세 조회",
         description = """
             음식 1건의 원본 필드·언어별 번역 맵·성분 매핑·이미지·검수 이력(반려 횟수·반려 사유·실패 종류)을 반환한다.
