@@ -166,16 +166,17 @@ class AdminFoodService(
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
         food.deletedOriginalKoreanName = food.koreanName
-        food.koreanName = deletedKoreanNameOf(food.koreanName)
+        food.koreanName = deletedKoreanNameOf(food.koreanName, food.id)
         cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
         cancelPendingContentOutboxes(food.id)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
     }
 
-    // 접미 충돌 불가: 매치키는 유니크라 같은 이름의 이중 삭제가 없고, 정규화(순수 한글)로 원명에 구분자가 못 들어간다.
-    private fun deletedKoreanNameOf(name: String): String {
-        val suffix = "$DELETED_NAME_SEPARATOR${System.currentTimeMillis()}"
+    // 접미 충돌 불가: 음식 id 는 유니크·불변이라 tombstone 키가 겹칠 수 없고(255자 절단 무관),
+    // 정규화(순수 한글)로 원명에 구분자가 못 들어간다. 원명은 별도 컬럼이 보존한다.
+    private fun deletedKoreanNameOf(name: String, foodId: Long): String {
+        val suffix = "$DELETED_NAME_SEPARATOR$foodId"
         return name.take(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH - suffix.length) + suffix
     }
 

@@ -457,6 +457,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.displayName") { value("김치찌개 (2인분)") }
                         jsonPath("$.payload.koreanName") { value("김치찌개 (2인분)") }
+                        jsonPath("$.payload.matchKey") { value("김치찌개") }
                     }
 
                     foodJpaRepository.findById(food.id).orElseThrow().displayName shouldBe "김치찌개 (2인분)"
@@ -792,6 +793,18 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                     postRestore(food.id).andExpect { status { isOk() } }
 
                     foodJpaRepository.findById(food.id).orElseThrow().koreanName shouldBe "원명찌개"
+                }
+            }
+
+            `when`("접두 233자가 같은 두 한도 이름을 연달아 삭제하면") {
+                then("개명 키가 충돌하지 않고 둘 다 삭제된다") {
+                    val first = foodJpaRepository.save(Food(koreanName = "가".repeat(254) + "나", description = "설명"))
+                    val second = foodJpaRepository.save(Food(koreanName = "가".repeat(254) + "다", description = "설명"))
+
+                    deleteFood(first.id).andExpect { status { isOk() } }
+                    deleteFood(second.id).andExpect { status { isOk() } }
+
+                    getDeletedList().andExpect { jsonPath("$.payload.totalCount") { value(2) } }
                 }
             }
 

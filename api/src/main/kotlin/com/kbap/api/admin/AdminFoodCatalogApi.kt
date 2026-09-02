@@ -118,6 +118,8 @@ interface AdminFoodCatalogApi {
             음식 1건의 원본 필드·언어별 번역 맵·성분 매핑·이미지·검수 이력(반려 횟수·반려 사유·실패 종류)을 반환한다.
             어드민 SPA 상세 화면 전용이다.
 
+            - `matchKey` 는 실제 매치키(정규화 korean_name 원본)다 — 수정 폼은 표시 이름만 바꿀 때
+              `koreanName` 입력에 이 값을 그대로 실어 매치키를 보존한다(표시명 계열인 `koreanName`·`displayName` 과 구분).
             - `ingredients` 는 미조사(null)와 조사 완료·해당 없음(빈 배열)을 구분해 내려간다 — 위험도 계산이 갈리는 도메인 구분이다.
             - `imageUrl` 은 공개 이미지 URL 이며, 이미지가 없으면 null 이다.
             - 소프트삭제된 음식은 404 가 아니라 400(FOOD-001) 이다 — 조회는 ACTIVE 만 본다.
