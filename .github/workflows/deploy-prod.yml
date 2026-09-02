@@ -22,6 +22,7 @@ jobs:
   deploy:
     name: build and canary deploy to prod ECS
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     environment: prod
     env:
       ECS_NAME: kbap-prod-ecs
@@ -89,10 +90,12 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
-      # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지(KB-242 판정 기준
-      # 유지) — 이후 성패는 CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백).
+      # 카나리·5xx 자동 롤백 구성은 CodeDeploy 배포 그룹 소유(인프라). 성공 기준은 "카나리 완주"
+      # (Succeeded) 까지다 — 생성 후 아래 대기 스텝이 10초 간격으로 종료를 폴링하고 결과를 슬랙으로
+      # 통지한다(종전 KB-242 "배포 생성까지" 판정 개정). 잡이 완주까지 살아 있으므로 concurrency
+      # 그룹이 배포를 자연 직렬화한다(카나리 중 머지는 큐 대기).
       - name: Create CodeDeploy canary deployment
+        id: canary
         env:
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
           IMAGE: ${{ steps.image.outputs.uri }}
@@ -110,6 +113,7 @@ jobs:
             --description "deploy $IMAGE" \
             --query deploymentId --output text)
           echo "deployment: $DEPLOYMENT_ID"
+          echo "id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
           STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
             --query deploymentInfo.status --output text)
           {
@@ -119,6 +123,65 @@ jobs:
             echo "rollback: aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait for canary completion
+        id: canary_wait
+        env:
+          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
+        run: |
+          STATUS=InProgress
+          for i in $(seq 1 360); do
+            STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+              --query deploymentInfo.status --output text)
+            case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
+            sleep 10
+          done
+          ELAPSED=$((i * 10))
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "elapsed=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> "$GITHUB_OUTPUT"
+          echo "카나리 종료: $STATUS (약 ${ELAPSED}s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" != "Succeeded" ]; then
+            echo "::error::카나리가 성공으로 끝나지 않았습니다: $STATUS"
+            exit 1
+          fi
+
+      # 성공/실패 모두 통지 — PR 작성자 닉네임 포함(merge 커밋의 연관 PR, 없으면 실행자). 통지 실패는 배포 판정 무영향.
+      - name: Notify Slack
+        if: always() && steps.canary.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
+          STATUS: ${{ steps.canary_wait.outputs.status || 'UNKNOWN' }}
+          ELAPSED: ${{ steps.canary_wait.outputs.elapsed || '-' }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "SLACK_RELEASE_WEBHOOK_URL 미설정 — 통지 생략"; exit 0; fi
+          AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '.[0].user.login // empty' 2>/dev/null || true)
+          AUTHOR=${AUTHOR:-$GITHUB_ACTOR}
+          SHORT=${GITHUB_SHA::7}
+          if [ "$STATUS" = "Succeeded" ]; then ICON="✅"; TITLE="PROD 배포 완료"
+          else ICON="🚨"; TITLE="PROD 배포 실패 — $STATUS"; fi
+          CONSOLE="https://ap-northeast-2.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID?region=ap-northeast-2"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          jq -n --arg icon "$ICON" --arg title "$TITLE" --arg sha "$SHORT" \
+            --arg sha_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
+            --arg author "$AUTHOR" --arg elapsed "$ELAPSED" --arg status "$STATUS" \
+            --arg dep "$DEPLOYMENT_ID" --arg console "$CONSOLE" --arg run "$RUN_URL" '
+            { blocks: [
+              { type: "header", text: { type: "plain_text", text: ($icon + " " + $title), emoji: true } },
+              { type: "section", fields: [
+                { type: "mrkdwn", text: ("*커밋*\n<" + $sha_url + "|`" + $sha + "`>") },
+                { type: "mrkdwn", text: ("*작성자*\n" + $author) },
+                { type: "mrkdwn", text: ("*소요*\n" + $elapsed) },
+                { type: "mrkdwn", text: ("*상태*\n" + $status) }
+              ] },
+              { type: "context", elements: [
+                { type: "mrkdwn", text: ("<" + $console + "|CodeDeploy 콘솔> · <" + $run + "|Actions 실행> · `" + $dep + "`") }
+              ] }
+            ] }' \
+          | curl -sf -X POST -H 'Content-Type: application/json' -d @- "$WEBHOOK" >/dev/null \
+          || echo "::warning::슬랙 통지 실패(배포 판정 무영향)"
 
   # GitHub Release — 본문은 --generate-notes 자동 생성(PR 목록). 재배포(build=false)는 발행하지 않고,
   # 릴리즈 실패는 배포 성공/실패 판정에 영향 없다(별도 잡). 태그: prod-YYYYMMDD-<short-sha> (KST)
