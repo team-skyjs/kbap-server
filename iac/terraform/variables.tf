@@ -175,3 +175,9 @@ variable "vector_enabled" {
   type        = bool
   default     = false
 }
+
+variable "api_extra_env" {
+  description = "api 컨테이너에 추가로 넣을 평문 환경변수 (예: LANGFUSE_HOST) — <env>.tfvars 에서 지정"
+  type        = map(string)
+  default     = {}
+}
