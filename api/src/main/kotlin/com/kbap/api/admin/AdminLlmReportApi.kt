@@ -2,6 +2,8 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
 import io.swagger.v3.oas.annotations.Operation
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -32,6 +34,8 @@ interface AdminLlmReportApi {
     )
     fun getLlmCostReport(
         @Parameter(description = "조회 일수(1..30, 기본 7)", example = "7")
+        @Min(1, message = "days 는 1 이상이어야 합니다")
+        @Max(30, message = "days 는 30 이하여야 합니다")
         days: Int,
     ): ResponseEntity<BaseResponse<AdminLlmCostReportResponse>>
 }

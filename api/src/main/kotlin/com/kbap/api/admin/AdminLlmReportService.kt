@@ -13,7 +13,6 @@ class AdminLlmReportService(
 ) {
     @Transactional(readOnly = true)
     fun getLlmCostReport(days: Int): AdminLlmCostReportResponse {
-        require(days in 1..MAX_REPORT_DAYS) { "days 는 1..$MAX_REPORT_DAYS 여야 합니다: $days" }
         val today = LocalDate.now()
         val sumsByDate = llmCallCostRepository
             .sumDailyByModelSince(today.minusDays(days - 1L).atStartOfDay())
@@ -30,10 +29,6 @@ class AdminLlmReportService(
             )
         }
         return AdminLlmCostReportResponse(days = dailyCosts)
-    }
-
-    companion object {
-        const val MAX_REPORT_DAYS = 30
     }
 }
 

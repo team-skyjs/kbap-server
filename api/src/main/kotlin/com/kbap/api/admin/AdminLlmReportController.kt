@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+// TODO: #217 머지 후 AdminDashboardController(/api/admin/dashboard)로 합류 — 충돌 회피용 임시 분리, 후속 이슈로 추적.
 @RestController
 @RequestMapping(ApiPaths.ADMIN + "/dashboard/llm-costs", version = "1.0+")
 class AdminLlmReportController(
