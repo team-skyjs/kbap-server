@@ -90,10 +90,6 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      # 카나리·5xx 자동 롤백 구성은 CodeDeploy 배포 그룹 소유(인프라). 성공 기준은 "카나리 완주"
-      # (Succeeded) 까지다 — 생성 후 아래 대기 스텝이 10초 간격으로 종료를 폴링하고 결과를 슬랙으로
-      # 통지한다(종전 KB-242 "배포 생성까지" 판정 개정). 잡이 완주까지 살아 있으므로 concurrency
-      # 그룹이 배포를 자연 직렬화한다(카나리 중 머지는 큐 대기).
       - name: Create CodeDeploy canary deployment
         id: canary
         env:
@@ -145,7 +141,6 @@ jobs:
             exit 1
           fi
 
-      # 성공/실패 모두 통지 — PR 작성자 닉네임 포함(merge 커밋의 연관 PR, 없으면 실행자). 통지 실패는 배포 판정 무영향.
       - name: Notify Slack
         if: always() && steps.canary.outputs.id != ''
         env:
