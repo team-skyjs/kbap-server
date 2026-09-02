@@ -25,6 +25,9 @@ class Food(
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",
 
+    @Column(name = "deleted_original_korean_name", length = 255)
+    var deletedOriginalKoreanName: String? = null,
+
     @Column(name = "display_name", nullable = false, length = 255)
     var displayName: String = koreanName,
 

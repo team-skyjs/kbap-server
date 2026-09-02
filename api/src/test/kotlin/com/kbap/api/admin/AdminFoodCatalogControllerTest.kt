@@ -795,6 +795,36 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("한도(255자) 이름의 음식을 삭제 후 복원하면") {
+                then("원명이 잘리지 않고 정확히 복구된다") {
+                    val longName = "가".repeat(255)
+                    val food = foodJpaRepository.save(Food(koreanName = longName, description = "설명"))
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    postRestore(food.id).andExpect { status { isOk() } }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().koreanName shouldBe longName
+                }
+            }
+
+            `when`("복원 커밋 직전 유니크 충돌이 나면") {
+                then("500 이 아니라 409(FOOD-009) 로 응답한다") {
+                    val food = saveFood("커밋레이스찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+                    val occupant = saveFood("커밋레이스찌개")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("UPDATE food SET status = 'DELETED' WHERE id = ${occupant.id}")
+                        }
+                    }
+
+                    postRestore(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-009") }
+                    }
+                }
+            }
+
             `when`("삭제 사이 같은 이름의 음식이 새로 생겼으면") {
                 then("409(FOOD-009) 이름 충돌로 복원을 거절한다") {
                     val food = saveFood("동명찌개")

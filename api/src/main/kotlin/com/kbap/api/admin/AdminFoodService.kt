@@ -87,11 +87,12 @@ class AdminFoodService(
         if (!food.isDeleted()) {
             return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
         }
-        val originalName = originalKoreanNameOf(food.koreanName)
+        val originalName = food.deletedOriginalKoreanName ?: originalKoreanNameOf(food.koreanName)
         if (foodRepository.findByKoreanNameIn(setOf(originalName)).any { it.id != food.id }) {
             throw BusinessException(ErrorCode.FOOD_RESTORE_NAME_CONFLICT)
         }
         food.koreanName = originalName
+        food.deletedOriginalKoreanName = null
         food.active()
         if (food.isReady()) {
             cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
@@ -164,6 +165,7 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        food.deletedOriginalKoreanName = food.koreanName
         food.koreanName = deletedKoreanNameOf(food.koreanName)
         cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
         cancelPendingContentOutboxes(food.id)
