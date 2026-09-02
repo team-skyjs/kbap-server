@@ -120,6 +120,7 @@ interface AdminFoodCatalogApi {
 
             - `matchKey` 는 실제 매치키(정규화 korean_name 원본)다 — 수정 폼은 표시 이름만 바꿀 때
               `koreanName` 입력에 이 값을 그대로 실어 매치키를 보존한다(표시명 계열인 `koreanName`·`displayName` 과 구분).
+              삭제 상세에서도 tombstone 개명값이 아니라 복원 시 되찾을 원명이다.
             - `ingredients` 는 미조사(null)와 조사 완료·해당 없음(빈 배열)을 구분해 내려간다 — 위험도 계산이 갈리는 도메인 구분이다.
             - `imageUrl` 은 공개 이미지 URL 이며, 이미지가 없으면 null 이다.
             - 소프트삭제된 음식은 404 가 아니라 400(FOOD-001) 이다 — 조회는 ACTIVE 만 본다.

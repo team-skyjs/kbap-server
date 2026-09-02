@@ -42,7 +42,7 @@ data class AdminFoodDetailResponse(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
                 displayName = food.displayName,
-                matchKey = food.koreanName,
+                matchKey = food.deletedOriginalKoreanName ?: food.koreanName,
                 description = food.description,
                 longDescription = food.longDescription,
                 spiciness = food.spiciness,

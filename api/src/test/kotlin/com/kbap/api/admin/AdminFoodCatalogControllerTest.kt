@@ -729,6 +729,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.id") { value(food.id) }
                         jsonPath("$.payload.koreanName") { value("복원후보찌개") }
+                        jsonPath("$.payload.matchKey") { value("복원후보찌개") }
                         jsonPath("$.payload.contentStatus") { value("READY") }
                     }
                 }
