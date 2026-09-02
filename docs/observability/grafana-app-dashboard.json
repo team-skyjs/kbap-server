@@ -31,7 +31,7 @@
   ],
   "title": "kbap api",
   "uid": "kbap-api-app",
-  "description": "KB-411 — api 앱 내부 지표: 처리량·지연 백분위·Tomcat 스레드풀·HikariCP·GC. env 변수로 dev/prod 필터.",
+  "description": "KB-411 — api 앱 내부 지표: 처리량·평균 응답시간·지연 백분위·Tomcat 스레드풀·HikariCP·GC. env 변수로 dev/prod 필터.",
   "tags": [
     "kbap",
     "api",
@@ -78,14 +78,63 @@
   },
   "panels": [
     {
+      "id": 7,
+      "type": "timeseries",
+      "title": "HTTP 평균 응답시간",
+      "description": "누적 처리 시간(_sum)의 1분 증가량을 누적 요청 수(_count)의 1분 증가량으로 나눈 값 = 그 창의 평균 지연. 평균이라 꼬리는 안 보이니 p95/p99 와 같이 본다.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (env, instance) (rate(http_server_requests_seconds_sum{env=~\"$env\"}[1m])) / sum by (env, instance) (rate(http_server_requests_seconds_count{env=~\"$env\"}[1m]))",
+          "legendFormat": "{{env}}-{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "id": 1,
       "type": "timeseries",
       "title": "HTTP 처리량 (req/sec)",
       "description": "http_server_requests_seconds_count 는 누적 카운터. rate() 가 1분 창의 증가량을 창 길이로 나눠 초당 평균 요청 수를 낸다(수집 15초 → 창은 수집 간격의 2배 이상).",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 0,
+        "w": 8,
+        "x": 8,
         "y": 0
       },
       "datasource": {
@@ -133,8 +182,8 @@
       "description": "히스토그램 버킷을 sum by (le) 로 인스턴스 합산한 뒤 histogram_quantile 로 백분위를 계산한다. 앱 내 백분위(quantile=)는 인스턴스 간 합산이 안 돼 쓰지 않는다. 트래픽이 없는 구간은 값 없음(0 이 아님).",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 0
       },
       "datasource": {

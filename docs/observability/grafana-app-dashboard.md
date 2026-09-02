@@ -1,6 +1,6 @@
 # kbap api Grafana 대시보드 (KB-411)
 
-홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태(처리량·지연 백분위·Tomcat 스레드풀·HikariCP·GC)를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다.
+홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태(처리량·평균 응답시간·지연 백분위·Tomcat 스레드풀·HikariCP·GC)를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다.
 
 ## Import
 
@@ -26,6 +26,7 @@
 | 패널 | 질의 | 무엇을 어떻게 계산하나 |
 |------|------|------------------------|
 | HTTP 처리량 | `sum by (env, instance) (rate(http_server_requests_seconds_count{env=~"$env"}[1m]))` | 누적 요청 카운터의 1분 창 증가량을 창 길이로 나눈 초당 평균 요청 수. 창은 수집 간격(15초)의 2배 이상이어야 표본이 2개 이상 들어와 rate 가 성립한다. |
+| HTTP 평균 응답시간 | `sum by (env, instance) (rate(http_server_requests_seconds_sum{env=~"$env"}[1m])) / sum by (env, instance) (rate(http_server_requests_seconds_count{env=~"$env"}[1m]))` | 누적 처리 시간의 1분 증가량을 누적 요청 수의 1분 증가량으로 나눈 값 = 그 창의 평균 지연. 히스토그램 없이 기본 노출만으로 된다. 평균이라 꼬리가 안 보이니 p95/p99 와 같이 본다. |
 | HTTP 지연 p95/p99 | `histogram_quantile(0.95, sum by (env, le) (rate(http_server_requests_seconds_bucket{env=~"$env"}[5m])))` (0.99 동일) | 버킷별 증가율을 `le` 만 남기고 합산(= 인스턴스 2대 합산)한 뒤 백분위를 보간. 앱이 계산한 `quantile=` 값은 인스턴스 간 합산이 불가해 쓰지 않는다. 요청이 없는 구간은 값 없음이지 0 이 아니다. |
 | Tomcat 스레드풀 | `tomcat_threads_busy_threads` · `_current_threads` · `_config_max_threads` `{env=~"$env"}` | 게이지 그대로. busy 가 max(점선)에 붙으면 앱 포화, 그 전이면 병목은 DB·외부 호출 쪽. |
 | HikariCP 커넥션 풀 | `hikaricp_connections_active` · `_idle` · `_pending` · `_max` `{env=~"$env"}` | 게이지 그대로. pending 이 지속되면 풀 고갈. 풀은 첫 DB 접근 때 생성되므로 기동 직후엔 시계열이 없다. |
