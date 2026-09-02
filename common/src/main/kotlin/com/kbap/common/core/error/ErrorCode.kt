@@ -40,6 +40,7 @@ enum class ErrorCode(
     FOOD_VERSION_CONFLICT("FOOD-006", 409, "다른 관리자가 먼저 수정했습니다. 최신 내용을 다시 불러와 수정해 주세요"),
     VECTOR_OUTBOX_NOT_FOUND("FOOD-007", 400, "해당 벡터 동기화 작업을 찾을 수 없습니다"),
     FOOD_NOT_REVIEWABLE("FOOD-008", 400, "검수 대상(PENDING_REVIEW)이 아닙니다"),
+    FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),

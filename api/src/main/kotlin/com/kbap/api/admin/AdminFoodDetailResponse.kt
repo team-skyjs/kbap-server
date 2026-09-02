@@ -18,6 +18,7 @@ import java.time.LocalDateTime
 data class AdminFoodDetailResponse(
     val id: Long,
     val koreanName: String,
+    val displayName: String,
     val description: String,
     val longDescription: String?,
     val spiciness: Int,
@@ -39,6 +40,7 @@ data class AdminFoodDetailResponse(
             AdminFoodDetailResponse(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
+                displayName = food.displayName,
                 description = food.description,
                 longDescription = food.longDescription,
                 spiciness = food.spiciness,
@@ -62,6 +64,8 @@ data class AdminFoodUpdateRequest(
     @field:NotBlank
     @field:Size(max = 255, message = "koreanName 은 255자 이하여야 합니다")
     val koreanName: String? = null,
+    @field:Size(max = 255, message = "displayName 은 255자 이하여야 합니다")
+    val displayName: String? = null,
     @field:NotNull
     @field:Size(max = 255, message = "description 은 255자 이하여야 합니다")
     val description: String? = null,
@@ -81,6 +85,9 @@ data class AdminFoodUpdateRequest(
 ) {
     @AssertTrue(message = "ingredients 의 code 는 성분 카탈로그 코드여야 합니다")
     fun isIngredientCodesKnown(): Boolean = ingredients.orEmpty().all { it.code in KNOWN_INGREDIENT_CODES }
+
+    @AssertTrue(message = "displayName 은 공백일 수 없습니다")
+    fun isDisplayNamePresentable(): Boolean = displayName == null || displayName.isNotBlank()
 
     companion object {
         private val KNOWN_INGREDIENT_CODES: Set<String> = IngredientCode.entries.map { it.name }.toSet()

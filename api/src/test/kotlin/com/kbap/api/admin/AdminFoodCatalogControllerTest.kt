@@ -446,6 +446,36 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("표시 이름을 따로 주고 수정하면") {
+                then("매치키(koreanName)와 분리된 표시 이름이 저장되고 검색에도 걸린다") {
+                    val food = saveFood("김치찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "김치찌개") + mapOf("displayName" to "김치찌개 (2인분)"),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.displayName") { value("김치찌개 (2인분)") }
+                        jsonPath("$.payload.koreanName") { value("김치찌개 (2인분)") }
+                    }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().displayName shouldBe "김치찌개 (2인분)"
+                    getList("?q=2인분").andExpect { jsonPath("$.payload.totalCount") { value(1) } }
+                }
+            }
+
+            `when`("표시 이름을 공백으로 주면") {
+                then("400(COMMON-002) 검증 실패로 응답한다") {
+                    val food = saveFood("김치찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "김치찌개") + mapOf("displayName" to "  "))
+                        .andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
+                }
+            }
+
             `when`("version 을 누락하고 수정하면") {
                 then("400(COMMON-002) 검증 실패로 응답한다") {
                     val food = saveFood("무버전찌개")
@@ -754,6 +784,30 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("복원하면 이름도 원명으로 돌아온다") {
+                then("매치키(koreanName)가 삭제 전 값으로 복구된다") {
+                    val food = saveFood("원명찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+
+                    postRestore(food.id).andExpect { status { isOk() } }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().koreanName shouldBe "원명찌개"
+                }
+            }
+
+            `when`("삭제 사이 같은 이름의 음식이 새로 생겼으면") {
+                then("409(FOOD-009) 이름 충돌로 복원을 거절한다") {
+                    val food = saveFood("동명찌개")
+                    deleteFood(food.id).andExpect { status { isOk() } }
+                    saveFood("동명찌개")
+
+                    postRestore(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-009") }
+                    }
+                }
+            }
+
             `when`("삭제된 비 READY 음식을 복원하면") {
                 then("복원은 되지만 벡터 동기화는 큐잉하지 않는다") {
                     val food = saveFood("실패찌개", FoodContentStatus.FAILED)
@@ -800,6 +854,18 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
 
                     hasPendingUpsertOutbox(food.id) shouldBe false
                     hasPendingOutbox(food.id, FoodVectorOutboxOperation.DELETE) shouldBe true
+                }
+            }
+
+            `when`("삭제된 음식과 같은 이름으로 다른 음식을 수정하면") {
+                then("유니크 충돌 없이 성공한다 — 삭제가 이름을 반납한다") {
+                    val deleted = saveFood("김치찌개")
+                    deleteFood(deleted.id).andExpect { status { isOk() } }
+                    val other = saveFood("된장찌개")
+
+                    putUpdate(other.id, updateBody(koreanName = "김치찌개")).andExpect {
+                        status { isOk() }
+                    }
                 }
             }
 

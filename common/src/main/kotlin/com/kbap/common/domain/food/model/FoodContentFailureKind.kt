@@ -4,4 +4,5 @@ enum class FoodContentFailureKind {
     NOT_FOOD,
     JUDGE_REJECTED,
     INGREDIENT_GUARD,
+    ADMIN_REJECTED,
 }

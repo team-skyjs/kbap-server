@@ -93,6 +93,8 @@ interface AdminFoodCatalogApi {
             소프트삭제된 음식을 다시 활성으로 되돌린다. READY 음식이면 벡터 UPSERT 동기화를 함께 큐잉한다
             (삭제 시의 DELETE 큐잉과 대칭).
 
+            - 삭제가 반납했던 이름(매치키)을 원명으로 복구한다 — 그 사이 같은 이름의 음식이 새로 생겼으면
+              409(FOOD-009) 로 거절된다(복원 실패가 아니라 이름 충돌 — 새 음식의 이름을 정리한 뒤 재시도).
             - 멱등: 이미 활성이면 변경 없이 `restored=false` 와 현재 상태를 반환한다.
         """,
     )
@@ -102,6 +104,7 @@ interface AdminFoodCatalogApi {
             ApiResponse(responseCode = "400", description = "음식 없음(FOOD-001)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+            ApiResponse(responseCode = "409", description = "같은 이름의 음식이 새로 등록됨(FOOD-009)"),
         ],
     )
     fun restoreFood(
@@ -140,6 +143,8 @@ interface AdminFoodCatalogApi {
             반영된 상세를 그대로 반환한다(SPA 낙관 업데이트 확정용).
 
             - `koreanName` 은 서버가 스캔 입구와 동일하게 정규화해 중복을 검사한다 — 다른 음식과 겹치면 409(FOOD-005).
+            - `displayName`(선택)을 주면 매치키와 분리된 표시 이름으로 저장한다(공백 불가·255자, 유니크 아님 — 목록 검색 기준).
+              생략하면 `koreanName` 입력값이 표시 이름이 된다(종전 동작).
             - 부분 수정이 아니라 전체 교체 계약이다. 번역 필드를 생략(null)하면 빈 맵으로 교체된다.
             - `ingredients` 는 상세 응답과 같은 구분을 따른다 — 생략(null)=미조사, 빈 배열=조사 완료·해당 없음.
             - `ingredients` 의 `code` 는 성분 카탈로그 코드만 허용한다 — 미지 코드는 400(COMMON-002). `spiciness` 는 -1(미조사)..10.
@@ -243,6 +248,9 @@ interface AdminFoodCatalogApi {
         summary = "음식 소프트삭제",
         description = """
             음식 1건을 소프트삭제한다(row 제거 아님 — 이후 모든 조회에서 제외). 벡터 삭제 동기화 enqueue 는 서버가 수행한다.
+
+            - 유니크 키인 이름(매치키)을 내부적으로 개명해 반납한다 — 같은 이름의 음식을 바로 재등록할 수 있다.
+              표시 이름(displayName)은 그대로라 삭제 목록/상세에는 원명이 보인다.
         """,
     )
     @ApiResponses(

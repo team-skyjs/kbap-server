@@ -87,6 +87,11 @@ class AdminFoodService(
         if (!food.isDeleted()) {
             return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
         }
+        val originalName = originalKoreanNameOf(food.koreanName)
+        if (foodRepository.findByKoreanNameIn(setOf(originalName)).any { it.id != food.id }) {
+            throw BusinessException(ErrorCode.FOOD_RESTORE_NAME_CONFLICT)
+        }
+        food.koreanName = originalName
         food.active()
         if (food.isReady()) {
             cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
@@ -137,7 +142,7 @@ class AdminFoodService(
 
         val wasReady = food.isReady()
         food.koreanName = matchKey
-        food.displayName = command.koreanName
+        food.displayName = command.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
@@ -159,11 +164,19 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        food.koreanName = deletedKoreanNameOf(food.koreanName)
         cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
         cancelPendingContentOutboxes(food.id)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
     }
+
+    private fun deletedKoreanNameOf(name: String): String {
+        val suffix = "$DELETED_NAME_SEPARATOR${System.currentTimeMillis()}"
+        return name.take(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH - suffix.length) + suffix
+    }
+
+    private fun originalKoreanNameOf(name: String): String = name.substringBefore(DELETED_NAME_SEPARATOR)
 
     private fun cancelPendingContentOutboxes(foodId: Long) {
         outboxRepository
@@ -255,6 +268,8 @@ class AdminFoodService(
     companion object {
         const val LIST_PAGE_SIZE = 200
 
+        private const val DELETED_NAME_SEPARATOR = "_deleted_"
+
         const val RECOLLECT_MAX = 500
     }
 }
@@ -282,6 +297,7 @@ enum class AdminFoodUpdateResult {
 
 data class UpdateFoodCommand(
     val koreanName: String,
+    val displayName: String? = null,
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,

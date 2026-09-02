@@ -69,6 +69,7 @@ class AdminFoodCatalogController(
     ): ResponseEntity<BaseResponse<AdminFoodDetailResponse>> {
         val command = UpdateFoodCommand(
             koreanName = request.koreanName!!.trim(),
+            displayName = request.displayName,
             description = request.description!!,
             spiciness = request.spiciness!!,
             contentStatus = request.contentStatus!!,

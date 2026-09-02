@@ -8,6 +8,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -223,6 +224,7 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                     saved.description shouldBe "구수한 된장찌개"
                     saved.nameTranslations.keys.sorted() shouldContainExactly targetLangs.sorted()
                     saved.imageRef shouldBe "images/food/된장찌개.webp"
+                    saved.contentFailureKind shouldBe FoodContentFailureKind.ADMIN_REJECTED
                 }
             }
 
