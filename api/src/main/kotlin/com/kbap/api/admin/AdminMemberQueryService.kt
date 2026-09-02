@@ -7,6 +7,7 @@ import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
@@ -24,6 +25,7 @@ class AdminMemberQueryService(
     private val reviewRepository: ReviewJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val orderRepository: OrderJpaRepository,
+    private val orderItemRepository: OrderItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -90,8 +92,13 @@ class AdminMemberQueryService(
     fun getMemberOrderPage(memberId: Long, page: Int): AdminMemberOrderPageResponse {
         requireMemberExists(memberId)
         val result = orderRepository.findByMemberId(memberId, activityPageable(page))
+        val itemsByOrder = orderItemRepository
+            .findByOrderIdInOrderByIdAsc(result.content.map { it.id })
+            .groupBy { it.orderId }
         return AdminMemberOrderPageResponse(
-            items = result.content.map { AdminMemberOrderItemResponse.from(it, imagePublicBaseUrl) },
+            items = result.content.map {
+                AdminMemberOrderItemResponse.from(it, itemsByOrder[it.id].orEmpty(), imagePublicBaseUrl)
+            },
             page = page,
             totalPages = result.totalPages,
             totalCount = result.totalElements,

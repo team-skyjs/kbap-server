@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.order.model.Order
+import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.common.util.ImageUrls
@@ -161,15 +162,38 @@ data class AdminMemberOrderItemResponse(
     val id: Long,
     val imageUrl: String?,
     val roadAddress: String?,
+    val items: List<AdminMemberOrderFoodResponse>,
+    val totalQuantity: Int,
+    val totalPrice: Int,
     val createdAt: LocalDateTime,
 ) {
     companion object {
-        fun from(order: Order, imagePublicBaseUrl: String): AdminMemberOrderItemResponse =
+        fun from(order: Order, orderItems: List<OrderItem>, imagePublicBaseUrl: String): AdminMemberOrderItemResponse =
             AdminMemberOrderItemResponse(
                 id = order.id,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, order.imagePath),
                 roadAddress = order.roadAddress,
+                items = orderItems.map(AdminMemberOrderFoodResponse::from),
+                totalQuantity = OrderItem.totalQuantityOf(orderItems),
+                totalPrice = OrderItem.totalPriceOf(orderItems),
                 createdAt = order.createdAt,
+            )
+    }
+}
+
+data class AdminMemberOrderFoodResponse(
+    val foodId: Long,
+    val menuName: String,
+    val quantity: Int,
+    val price: Int?,
+) {
+    companion object {
+        fun from(item: OrderItem): AdminMemberOrderFoodResponse =
+            AdminMemberOrderFoodResponse(
+                foodId = item.foodId,
+                menuName = item.menuName,
+                quantity = item.quantity,
+                price = item.price,
             )
     }
 }
