@@ -171,6 +171,7 @@ class AdminFoodService(
         return AdminFoodDeleteResult.DELETED
     }
 
+    // 접미 충돌 불가: 매치키는 유니크라 같은 이름의 이중 삭제가 없고, 정규화(순수 한글)로 원명에 구분자가 못 들어간다.
     private fun deletedKoreanNameOf(name: String): String {
         val suffix = "$DELETED_NAME_SEPARATOR${System.currentTimeMillis()}"
         return name.take(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH - suffix.length) + suffix
