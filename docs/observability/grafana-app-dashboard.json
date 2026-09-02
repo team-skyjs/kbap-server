@@ -10,28 +10,53 @@
     }
   ],
   "__requires": [
-    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
-    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
-    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" }
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
   ],
   "title": "kbap api",
   "uid": "kbap-api-app",
-  "description": "KB-411 — api 앱 내부 지표: 처리량·지연 백분위·Tomcat 스레드풀·HikariCP·GC·힙. env 변수로 dev/prod 필터.",
-  "tags": ["kbap", "api", "spring"],
+  "description": "KB-411 — api 앱 내부 지표: 처리량·지연 백분위·Tomcat 스레드풀·HikariCP·GC. env 변수로 dev/prod 필터.",
+  "tags": [
+    "kbap",
+    "api",
+    "spring"
+  ],
   "timezone": "browser",
   "editable": true,
   "graphTooltip": 1,
   "refresh": "30s",
   "schemaVersion": 39,
   "version": 1,
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "env",
         "label": "env",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
         "definition": "label_values(http_server_requests_seconds_count, env)",
         "query": {
           "qryType": 1,
@@ -42,7 +67,11 @@
         "multi": false,
         "refresh": 1,
         "sort": 1,
-        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
         "options": []
       }
     ]
@@ -53,23 +82,48 @@
       "type": "timeseries",
       "title": "HTTP 처리량 (req/sec)",
       "description": "http_server_requests_seconds_count 는 누적 카운터. rate() 가 1분 창의 증가량을 창 길이로 나눠 초당 평균 요청 수를 낸다(수집 15초 → 창은 수집 간격의 2배 이상).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "sum by (env, instance) (rate(http_server_requests_seconds_count{env=~\"$env\"}[1m]))",
           "legendFormat": "{{env}}-{{instance}}"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "reqps", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 } },
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
@@ -77,29 +131,58 @@
       "type": "timeseries",
       "title": "HTTP 지연 p95 / p99",
       "description": "히스토그램 버킷을 sum by (le) 로 인스턴스 합산한 뒤 histogram_quantile 로 백분위를 계산한다. 앱 내 백분위(quantile=)는 인스턴스 간 합산이 안 돼 쓰지 않는다. 트래픽이 없는 구간은 값 없음(0 이 아님).",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "histogram_quantile(0.95, sum by (env, le) (rate(http_server_requests_seconds_bucket{env=~\"$env\"}[5m])))",
           "legendFormat": "{{env}} p95"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "histogram_quantile(0.99, sum by (env, le) (rate(http_server_requests_seconds_bucket{env=~\"$env\"}[5m])))",
           "legendFormat": "{{env}} p99"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "s", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 0, "spanNulls": false } },
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "spanNulls": false
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
@@ -107,40 +190,85 @@
       "type": "timeseries",
       "title": "Tomcat 스레드풀",
       "description": "busy 가 max 에 붙으면 앱 포화. 그 전이면 병목은 DB·외부 호출 쪽. server.tomcat.mbeanregistry.enabled=true 여야 나온다(KB-411).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "tomcat_threads_busy_threads{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} busy"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "tomcat_threads_current_threads{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} current"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "tomcat_threads_config_max_threads{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} max"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byFrameRefID", "options": "C" },
-            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }]
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
@@ -148,46 +276,94 @@
       "type": "timeseries",
       "title": "HikariCP 커넥션 풀",
       "description": "pending 이 지속되면 풀 고갈. 풀은 첫 DB 접근 때 만들어지므로 기동 직후엔 시계열이 없다.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "hikaricp_connections_active{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} active"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "hikaricp_connections_idle{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} idle"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "hikaricp_connections_pending{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} pending"
         },
         {
           "refId": "D",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "hikaricp_connections_max{env=~\"$env\"}",
           "legendFormat": "{{env}}-{{instance}} max"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byFrameRefID", "options": "D" },
-            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }]
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "D"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
@@ -195,76 +371,84 @@
       "type": "timeseries",
       "title": "GC pause (횟수/s · 소요 s/s)",
       "description": "왼쪽 축: 초당 GC pause 횟수(rate of _count). 오른쪽 축: 초당 pause 에 쓴 시간(rate of _sum) — 1 에 가까우면 GC 가 CPU 를 다 먹는 상태.",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "sum by (env, instance, action) (rate(jvm_gc_pause_seconds_count{env=~\"$env\"}[5m]))",
           "legendFormat": "{{env}}-{{instance}} {{action}} count/s"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "expr": "sum by (env, instance, action) (rate(jvm_gc_pause_seconds_sum{env=~\"$env\"}[5m]))",
           "legendFormat": "{{env}}-{{instance}} {{action}} time s/s"
         }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "ops", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 0 } },
-        "overrides": [
-          {
-            "matcher": { "id": "byFrameRefID", "options": "B" },
-            "properties": [
-              { "id": "unit", "value": "s" },
-              { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [0, 6] } }
-            ]
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
           }
-        ]
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "JVM 힙 사용량",
-      "description": "heap 영역 합계 used vs max. used 가 max 근처에서 톱니 없이 평평하면 메모리 압박.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (env, instance) (jvm_memory_used_bytes{env=~\"$env\", area=\"heap\"})",
-          "legendFormat": "{{env}}-{{instance}} used"
         },
-        {
-          "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (env, instance) (jvm_memory_max_bytes{env=~\"$env\", area=\"heap\"})",
-          "legendFormat": "{{env}}-{{instance}} max"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 } },
         "overrides": [
           {
-            "matcher": { "id": "byFrameRefID", "options": "B" },
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
             "properties": [
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
-              { "id": "custom.fillOpacity", "value": 0 }
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dot",
+                  "dash": [
+                    0,
+                    6
+                  ]
+                }
+              }
             ]
           }
         ]
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     }
   ]

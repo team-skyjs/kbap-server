@@ -1,6 +1,6 @@
 # kbap api Grafana 대시보드 (KB-411)
 
-홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다.
+홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태(처리량·지연 백분위·Tomcat 스레드풀·HikariCP·GC)를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다.
 
 ## Import
 
@@ -30,7 +30,8 @@
 | Tomcat 스레드풀 | `tomcat_threads_busy_threads` · `_current_threads` · `_config_max_threads` `{env=~"$env"}` | 게이지 그대로. busy 가 max(점선)에 붙으면 앱 포화, 그 전이면 병목은 DB·외부 호출 쪽. |
 | HikariCP 커넥션 풀 | `hikaricp_connections_active` · `_idle` · `_pending` · `_max` `{env=~"$env"}` | 게이지 그대로. pending 이 지속되면 풀 고갈. 풀은 첫 DB 접근 때 생성되므로 기동 직후엔 시계열이 없다. |
 | GC pause | 왼쪽 축 `sum by (env, instance, action) (rate(jvm_gc_pause_seconds_count{env=~"$env"}[5m]))`, 오른쪽 축 `rate(..._sum[5m])` | 초당 pause 횟수와 초당 pause 에 쓴 시간. 시간 축이 1 에 가까우면 GC 가 CPU 를 다 먹는 상태. `action` 은 minor/major 구분. |
-| JVM 힙 | `sum by (env, instance) (jvm_memory_used_bytes{env=~"$env", area="heap"})` vs `jvm_memory_max_bytes` | 힙 영역(eden·survivor·old) 합계. used 가 max(점선) 근처에서 톱니 없이 평평하면 메모리 압박. |
+
+JVM 힙은 기존 JVM 대시보드에서 이미 보고 있어 이 대시보드에는 두지 않는다(2026-09-02 결정).
 
 ## 카디널리티 확인 (prod 반영 전)
 
