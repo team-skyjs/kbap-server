@@ -86,16 +86,15 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
                 }
             }
 
-            `when`("조회 불가이던 음식이 조회 가능으로 승격되면") {
-                then("벡터 적재 대기 건을 쌓는다") {
+            `when`("수정으로 조회 가능 승격을 시도하면") {
+                then("거절되고 벡터 적재 대기를 쌓지 않는다 — 승격은 검수 승인 몫") {
                     clear()
                     val food = saveFood("갈비탕", FoodContentStatus.PENDING_REVIEW)
 
-                    service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY))
+                    val result = service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY))
 
-                    val outboxes = outboxesOf(food)
-                    outboxes.size shouldBe 1
-                    outboxes.first().operation shouldBe FoodVectorOutboxOperation.UPSERT
+                    result shouldBe AdminFoodUpdateResult.READY_NOT_ALLOWED
+                    outboxesOf(food).size shouldBe 0
                 }
             }
 

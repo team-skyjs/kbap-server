@@ -13,6 +13,7 @@ import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.member.model.MemberRole
@@ -194,6 +195,62 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("failureKind 필터를 주면") {
+                then("해당 실패 유형 건만 내려준다") {
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "반려찌개",
+                            description = "설명",
+                            contentStatus = FoodContentStatus.FAILED,
+                            contentFailureKind = FoodContentFailureKind.ADMIN_REJECTED,
+                        ),
+                    )
+                    foodJpaRepository.save(
+                        Food(
+                            koreanName = "비음식찌개",
+                            description = "설명",
+                            contentStatus = FoodContentStatus.FAILED,
+                            contentFailureKind = FoodContentFailureKind.NOT_FOOD,
+                        ),
+                    )
+
+                    getList("?failureKind=ADMIN_REJECTED").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].koreanName") { value("반려찌개") }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                    }
+
+                    getList("?status=FAILED&failureKind=NOT_FOOD").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].koreanName") { value("비음식찌개") }
+                    }
+                }
+            }
+
+            `when`("deleted=true 를 주면") {
+                then("삭제된 음식만 필터 조합과 함께 내려준다") {
+                    saveFood("활성찌개")
+                    val kimchi = saveFood("김치찌개")
+                    val doenjang = saveFood("된장찌개")
+                    deleteFood(kimchi.id).andExpect { status { isOk() } }
+                    deleteFood(doenjang.id).andExpect { status { isOk() } }
+
+                    getList("?deleted=true").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.totalCount") { value(2) }
+                    }
+
+                    getList("?deleted=true&q=김치").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(kimchi.id) }
+                    }
+
+                    getList().andExpect { jsonPath("$.payload.totalCount") { value(1) } }
+                }
+            }
+
             `when`("영어 이름 번역이 있으면") {
                 then("items 의 englishName 에 en 값이, 없으면 null 이 실린다") {
                     foodJpaRepository.save(
@@ -338,6 +395,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.imageRef") { value("images/food/doenjang.webp") }
                         jsonPath("$.payload.imageUrl") { exists() }
                         jsonPath("$.payload.contentReviewAttempts") { value(2) }
+                        jsonPath("$.payload.deleted") { value(false) }
                         jsonPath("$.payload.version") { exists() }
                         jsonPath("$.payload.createdAt") { exists() }
                         jsonPath("$.payload.updatedAt") { exists() }
@@ -442,6 +500,44 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                     putUpdate(999999, updateBody(koreanName = "유령찌개")).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-001") }
+                    }
+                }
+            }
+
+            `when`("검수를 거치지 않은 음식을 READY 로 직접 전이하려 하면") {
+                then("400(FOOD-010) 로 거절한다 — READY 전이는 검수 승인 API 몫") {
+                    val food = saveFood("직행찌개", FoodContentStatus.FAILED)
+
+                    putUpdate(food.id, updateBody(koreanName = "직행찌개")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-010") }
+                    }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.FAILED
+                }
+            }
+
+            `when`("이미 READY 인 음식을 READY 그대로 수정하면") {
+                then("멱등하게 성공한다") {
+                    val food = saveFood("유지찌개")
+
+                    putUpdate(food.id, updateBody(koreanName = "유지찌개")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.contentStatus") { value("READY") }
+                    }
+                }
+            }
+
+            `when`("READY 음식을 FAILED 로 내리면") {
+                then("허용된다 — 잘못된 콘텐츠 강제 회수 경로") {
+                    val food = saveFood("회수찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "회수찌개") + mapOf("contentStatus" to "FAILED"),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.contentStatus") { value("FAILED") }
                     }
                 }
             }
@@ -730,6 +826,7 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.id") { value(food.id) }
                         jsonPath("$.payload.koreanName") { value("복원후보찌개") }
                         jsonPath("$.payload.matchKey") { value("복원후보찌개") }
+                        jsonPath("$.payload.deleted") { value(true) }
                         jsonPath("$.payload.contentStatus") { value("READY") }
                     }
                 }
