@@ -25,6 +25,9 @@ class Food(
     @Column(name = "korean_name", nullable = false, length = 255)
     var koreanName: String = "",
 
+    @Column(name = "deleted_original_korean_name", length = 255)
+    var deletedOriginalKoreanName: String? = null,
+
     @Column(name = "display_name", nullable = false, length = 255)
     var displayName: String = koreanName,
 
@@ -69,7 +72,7 @@ class Food(
     @Enumerated(EnumType.STRING)
     @Column(
         name = "content_failure_kind",
-        columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD')",
+        columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD','ADMIN_REJECTED')",
     )
     var contentFailureKind: FoodContentFailureKind? = null,
 ) : BaseEntity() {
@@ -90,6 +93,7 @@ class Food(
     fun reject(reason: String?) {
         requireReviewable()
         contentStatus = FoodContentStatus.FAILED
+        contentFailureKind = FoodContentFailureKind.ADMIN_REJECTED
         contentReviewAttempts++
         contentReviewRejectionReason = truncateReason(reason)
     }

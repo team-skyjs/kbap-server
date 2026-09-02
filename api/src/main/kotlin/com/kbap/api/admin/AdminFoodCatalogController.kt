@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.model.FoodContentStatus
 import jakarta.validation.Valid
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -54,7 +55,11 @@ class AdminFoodCatalogController(
     override fun restoreFood(
         @PathVariable id: Long,
     ): ResponseEntity<BaseResponse<AdminFoodRestoreResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(adminFoodService.restoreFood(id)))
+        try {
+            ResponseEntity.ok(BaseResponse.ok(adminFoodService.restoreFood(id)))
+        } catch (e: DataIntegrityViolationException) {
+            throw BusinessException(ErrorCode.FOOD_RESTORE_NAME_CONFLICT)
+        }
 
     @GetMapping("/{id}")
     override fun getFoodDetail(
@@ -69,6 +74,7 @@ class AdminFoodCatalogController(
     ): ResponseEntity<BaseResponse<AdminFoodDetailResponse>> {
         val command = UpdateFoodCommand(
             koreanName = request.koreanName!!.trim(),
+            displayName = request.displayName,
             description = request.description!!,
             spiciness = request.spiciness!!,
             contentStatus = request.contentStatus!!,
