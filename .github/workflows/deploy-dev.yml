@@ -149,6 +149,24 @@ jobs:
               done
               ;;
           esac
+          if [ "$STATUS" != "Succeeded" ]; then
+            ROLLBACK_ID=""
+            for j in $(seq 1 12); do
+              ROLLBACK_ID=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+                --query deploymentInfo.rollbackInfo.rollbackDeploymentId --output text)
+              [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ] && break
+              sleep 5
+            done
+            if [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ]; then
+              echo "롤백 배포 종료 대기: $ROLLBACK_ID" >> "$GITHUB_STEP_SUMMARY"
+              for j in $(seq 1 60); do
+                RB_STATUS=$(aws deploy get-deployment --deployment-id "$ROLLBACK_ID" \
+                  --query deploymentInfo.status --output text)
+                case "$RB_STATUS" in Succeeded|Failed|Stopped) break ;; esac
+                sleep 10
+              done
+            fi
+          fi
           ELAPSED=$((i * 10))
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "elapsed=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> "$GITHUB_OUTPUT"
