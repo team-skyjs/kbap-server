@@ -77,14 +77,16 @@
 
 ### Implementation for User Story 3 (홈서버 Grafana — 저장소 밖)
 
+> 2026-09-02: T012~T018 은 Grafana UI 클릭 대신 **import 가능한 JSON 을 직접 작성**(`docs/observability/grafana-app-dashboard.json`)하는 것으로 수행했다. 홈 Grafana 에 import 한 뒤 T019 로 검증한다. T020 은 export 가 아니라 이 JSON 자체다. T011·T019·T023 은 dev 배포·홈 Grafana 접근이 필요해 사용자 수행.
+
 - [ ] T011 [US3] dev 배포 후 카디널리티 확인(quickstart §3): Grafana Explore 에서 `count({__name__="http_server_requests_seconds_bucket", env="dev"})` 와 `count by (uri) (...)`. 시계열 수와 uri 에 실제 id 값 미포함을 확인하고 수치를 research.md §3 에 기록. 범위 밖이면 prod 릴리스 보류 후 `slo` 전환 검토.
-- [ ] T012 [US3] 새 대시보드 "kbap api" 생성, 변수 `env`(Query · Label values · label `env` · metric `http_server_requests_seconds_count` · Include All · Sort asc) 추가.
-- [ ] T013 [P] [US3] 처리량 패널(Time series): `sum by (env, instance) (rate(http_server_requests_seconds_count{env=~"$env"}[1m]))`, 단위 req/s, 범례 `{{env}}-{{instance}}`.
-- [ ] T014 [P] [US3] p95/p99 패널(Time series): `histogram_quantile(0.95, sum by (env, le) (rate(http_server_requests_seconds_bucket{env=~"$env"}[5m])))` 와 0.99 두 쿼리, 단위 s, 범례 `{{env}} p95` / `{{env}} p99`. 데이터 없음은 null 로(0 으로 채우지 않음 — 스펙 Edge Case).
-- [ ] T015 [P] [US3] HikariCP 패널(Time series): `hikaricp_connections_active|idle|pending|max{env=~"$env"}` 4 쿼리 by instance.
-- [ ] T016 [P] [US3] GC 패널(Time series 2개 또는 1개 2축): `sum by (env, instance, action) (rate(jvm_gc_pause_seconds_count{env=~"$env"}[5m]))`(횟수/s) 와 `..._sum`(초/s).
-- [ ] T017 [P] [US3] Heap 패널(Time series): `sum by (env, instance) (jvm_memory_used_bytes{env=~"$env", area="heap"})` 와 `jvm_memory_max_bytes` 동일 집계, 단위 bytes.
-- [ ] T018 [P] [US3] Tomcat 스레드풀 패널(Time series): `tomcat_threads_busy_threads`·`tomcat_threads_current_threads`·`tomcat_threads_config_max_threads{env=~"$env"}` by instance, 범례 `{{env}}-{{instance}} busy|current|max`.
+- [x] T012 [US3] 새 대시보드 "kbap api" 생성, 변수 `env`(Query · Label values · label `env` · metric `http_server_requests_seconds_count` · Include All · Sort asc) 추가.
+- [x] T013 [P] [US3] 처리량 패널(Time series): `sum by (env, instance) (rate(http_server_requests_seconds_count{env=~"$env"}[1m]))`, 단위 req/s, 범례 `{{env}}-{{instance}}`.
+- [x] T014 [P] [US3] p95/p99 패널(Time series): `histogram_quantile(0.95, sum by (env, le) (rate(http_server_requests_seconds_bucket{env=~"$env"}[5m])))` 와 0.99 두 쿼리, 단위 s, 범례 `{{env}} p95` / `{{env}} p99`. 데이터 없음은 null 로(0 으로 채우지 않음 — 스펙 Edge Case).
+- [x] T015 [P] [US3] HikariCP 패널(Time series): `hikaricp_connections_active|idle|pending|max{env=~"$env"}` 4 쿼리 by instance.
+- [x] T016 [P] [US3] GC 패널(Time series 2개 또는 1개 2축): `sum by (env, instance, action) (rate(jvm_gc_pause_seconds_count{env=~"$env"}[5m]))`(횟수/s) 와 `..._sum`(초/s).
+- [x] T017 [P] [US3] Heap 패널(Time series): `sum by (env, instance) (jvm_memory_used_bytes{env=~"$env", area="heap"})` 와 `jvm_memory_max_bytes` 동일 집계, 단위 bytes.
+- [x] T018 [P] [US3] Tomcat 스레드풀 패널(Time series): `tomcat_threads_busy_threads`·`tomcat_threads_current_threads`·`tomcat_threads_config_max_threads{env=~"$env"}` by instance, 범례 `{{env}}-{{instance}} busy|current|max`.
 - [ ] T019 [US3] `env` 를 prod → dev → All 로 전환하며 6 패널 전부가 따라오는지, All 에서 처리량 패널에 dev·prod 선이 구분되는지 확인(스펙 US3 AC 1·2). 저장.
 
 **Checkpoint**: 대시보드 동작. US4 로 기록.
@@ -99,9 +101,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T020 [US4] Grafana Export → "Export for sharing externally"(datasource 입력 변수화) → `docs/observability/grafana-app-dashboard.json` 저장. 홈 Prometheus datasource uid 가 하드코딩되지 않았는지 확인.
-- [ ] T021 [P] [US4] `docs/observability/grafana-app-dashboard.md` 작성: 목적 1문단, import 절차, 변수 `env` 설명, 패널 6종 각각 "PromQL — 무엇을 어떻게 계산하는지" 한 줄(rate 의 창 1m 근거·`sum by (le)` 로 2대 합산 근거·HikariCP 지연 등록 주의 포함), 되돌리기(quickstart §5).
-- [ ] T022 [P] [US4] `../kbap-agenthub/wiki/observability-app-metrics-and-ecs-healthcheck.md` 의 "실제로 없는 메트릭" 절에 "KB-411(2026-09-xx) 로 해소 — 설정 위치·범위 5ms~10s·측정된 시계열 수" 를 덧붙이고 `INDEX.md` 한 줄 갱신, 허브에서 커밋.
+- [x] T020 [US4] Grafana Export → "Export for sharing externally"(datasource 입력 변수화) → `docs/observability/grafana-app-dashboard.json` 저장. 홈 Prometheus datasource uid 가 하드코딩되지 않았는지 확인.
+- [x] T021 [P] [US4] `docs/observability/grafana-app-dashboard.md` 작성: 목적 1문단, import 절차, 변수 `env` 설명, 패널 6종 각각 "PromQL — 무엇을 어떻게 계산하는지" 한 줄(rate 의 창 1m 근거·`sum by (le)` 로 2대 합산 근거·HikariCP 지연 등록 주의 포함), 되돌리기(quickstart §5).
+- [x] T022 [P] [US4] `../kbap-agenthub/wiki/observability-app-metrics-and-ecs-healthcheck.md` 의 "실제로 없는 메트릭" 절에 "KB-411(2026-09-xx) 로 해소 — 설정 위치·범위 5ms~10s·측정된 시계열 수" 를 덧붙이고 `INDEX.md` 한 줄 갱신, 허브에서 커밋.
 - [ ] T023 [US4] 다른 Grafana(또는 같은 서버의 새 폴더)에 JSON 을 import 해 변수·6 패널 재현 확인(스펙 SC-005). 확인 후 임시 대시보드 삭제.
 
 **Checkpoint**: 커밋 `docs(observability): kbap api Grafana 대시보드 정의·PromQL 설명 (KB-411)`.
@@ -110,7 +112,7 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T024 `git diff develop --stat` 로 변경 파일이 yml 1·docs 2·specs 뿐인지 확인.
+- [x] T024 `git diff develop --stat` 로 변경 파일이 yml 1·docs 2·specs 뿐인지 확인.
 - [ ] T025 draft PR(`open-draft-pr-to-develop`) 본문에 Jira KB-411·dev 카디널리티 측정치·prod 릴리스 전 확인 사항(T011) 기재.
 - [ ] T026 Jira KB-411 DoD 체크: US1~US4 완료 항목 체크, "actuator 히스토그램 설정 추가" 문구가 실제와 맞게 유지되는지 확인.
 
