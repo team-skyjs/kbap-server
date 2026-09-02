@@ -17,6 +17,7 @@ concurrency:
 permissions:
   id-token: write
   contents: read
+  pull-requests: read
 
 jobs:
   deploy:
@@ -64,6 +65,7 @@ jobs:
             TAG="$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
@@ -148,21 +150,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+          DEPLOY_SHA: ${{ steps.image.outputs.tag }}
           DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
           STATUS: ${{ steps.canary_wait.outputs.status || 'UNKNOWN' }}
           ELAPSED: ${{ steps.canary_wait.outputs.elapsed || '-' }}
         run: |
           if [ -z "$WEBHOOK" ]; then echo "SLACK_RELEASE_WEBHOOK_URL 미설정 — 통지 생략"; exit 0; fi
-          AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+          AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$DEPLOY_SHA/pulls" \
             --jq '.[0].user.login // empty' 2>/dev/null || true)
           AUTHOR=${AUTHOR:-$GITHUB_ACTOR}
-          SHORT=${GITHUB_SHA::7}
+          SHORT=${DEPLOY_SHA::7}
           if [ "$STATUS" = "Succeeded" ]; then ICON="✅"; TITLE="DEV 배포 완료"
           else ICON="🚨"; TITLE="DEV 배포 실패 — $STATUS"; fi
           CONSOLE="https://ap-northeast-2.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID?region=ap-northeast-2"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           jq -n --arg icon "$ICON" --arg title "$TITLE" --arg sha "$SHORT" \
-            --arg sha_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA" \
+            --arg sha_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$DEPLOY_SHA" \
             --arg author "$AUTHOR" --arg elapsed "$ELAPSED" --arg status "$STATUS" \
             --arg dep "$DEPLOYMENT_ID" --arg console "$CONSOLE" --arg run "$RUN_URL" '
             { blocks: [
