@@ -16,6 +16,7 @@
 
 - **Decision**: 범위 5ms~10s 고정. dev 배포 후 `count({__name__="http_server_requests_seconds_bucket"})` 로 시계열 수 확인 → prod 릴리스.
 - **Rationale**: Micrometer 기본 버킷은 범위 제한 없이 약 60~70개/조합. 5ms~10s 로 제한하면 약 40개 내외(정확 수치는 dev 에서 측정). 조합 수 = `uri × method × status × outcome × exception × instance`. 현재 api 엔드포인트 약 40개, 상태 3~4종, 인스턴스 2 → 대략 300 조합 × 40 버킷 ≈ 12k 시계열/env. 홈 Prometheus 단일 노드 기준 무리 없는 규모이나 measured 값으로 확정.
+- **측정(2026-09-02 로컬 bootRun)**: 조합당 버킷 **51개**(`le=0.005` … `le=10.0` + `+Inf`). 요청 2건(`/api/app-version` 200, `/api/foods` 400)으로 버킷 행 102개. 클라이언트 백분위(`quantile=`) 행 0개 확인. 위 추정(40개)보다 약간 많으므로 시계열 추정은 조합 수 × 51 로 갱신.
 - **Alternatives considered**: `management.metrics.web.server.max-uri-tags` 는 Boot 4 에 존재하지 않음(Boot 3 에서 제거). uri 폭증 방어는 프레임워크의 경로 템플릿 집계(`/api/foods/{id}`)와 404 의 `UNKNOWN`/`root` 집계에 의존.
 
 ## 4. MockMvc 통합 테스트로 무엇을 검증할 수 있는가

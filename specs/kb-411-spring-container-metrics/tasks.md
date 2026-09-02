@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/prometheus-exposition.md, quickstart.md
 
-**Tests**: Test-First is **NON-NEGOTIABLE** (Constitution Principle I). US1·US2 는 기존 `@IntegrationTest` 컨텍스트 안의 테스트 하나(`ActuatorMetricsExposureTest`)로 Red → Green 을 밟는다. US3·US4 는 저장소 밖(Grafana)·문서 작업이라 자동 테스트 대상이 아니며 quickstart 의 수동 검증 절차가 완료 기준이다.
+**Tests**: **자동 테스트 없음 — 사용자 결정(2026-09-02, "테스트 코드까지는 짤 필요 없어")**. 프레임워크 기본 기능의 설정 노출뿐이라 KB-380 의 "설정 노출은 자동화 테스트 없음" 결정과 같은 선상이다. 검증은 로컬 bootRun 실노출 확인(quickstart §2)과 dev 배포 후 카디널리티 확인(§3)으로 한다. 헌법 원칙 I 예외는 이 사유로 plan.md Complexity Tracking 에 기록.
 
 **Organization**: 유저 스토리별 Phase. US1·US2 는 같은 두 파일(yml·테스트 클래스)을 건드리므로 순차 실행한다.
 
@@ -37,20 +37,16 @@
 
 **Goal**: `/actuator/prometheus` 가 `http_server_requests_seconds_bucket` 을 노출해 홈서버가 인스턴스 2대를 합산한 p95·p99 를 계산할 수 있다.
 
-**Independent Test**: MockMvc 로 요청 1건 후 `/actuator/prometheus` 본문에 `http_server_requests_seconds_bucket{` 가 있다.
-
-### Tests for User Story 1 (Test-First — 먼저 쓰고 반드시 FAIL 확인) ⚠️
-
-- [ ] T001 [US1] `api/src/test/kotlin/com/kbap/api/core/metrics/ActuatorMetricsExposureTest.kt` 생성 — `@IntegrationTest` + `BehaviorSpec` + `SpringExtension`, `@Autowired MockMvc`. `given("HTTP 지연 히스토그램 노출") > when("요청을 한 번 처리한 뒤 /actuator/prometheus 를 읽으면") > then("http_server_requests_seconds_bucket 행이 있다")`: `mockMvc.get("/api/app-version")`(X-API-Version 불필요 경로) 호출 후 `mockMvc.get("/actuator/prometheus")` 본문 `shouldContain "http_server_requests_seconds_bucket{"`. 추가 then: 본문에 `le="+Inf"` 포함.
-- [ ] T002 [US1] `./gradlew :api:test` 실행해 T001 이 **실패**함을 확인(`_bucket` 부재). Kotest 는 `--tests` 필터를 무시하므로 api 전체가 돈다 — 리포트(`api/build/reports/tests/test/index.html`)에서 해당 클래스 결과만 확인.
+**Independent Test**: 로컬 bootRun 후 요청 1건 → `/actuator/prometheus` 본문에 `http_server_requests_seconds_bucket{` 가 있고 `quantile=` 행은 없다.
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] `api/src/main/resources/application.yml` 의 `management.metrics` 아래에 `distribution.percentiles-histogram.http.server.requests: true`·`distribution.minimum-expected-value.http.server.requests: 5ms`·`distribution.maximum-expected-value.http.server.requests: 10s` 추가(yml 주석으로 "앱 내 백분위 금지 — 인스턴스 2대 합산" 근거 한 줄, KB-411).
-- [ ] T004 [US1] `./gradlew :api:test` 재실행 → T001 Green 확인. 다른 스펙 회귀 없음 확인.
-- [ ] T005 [US1] 로컬 실노출 확인(quickstart §2): `bootRun` 후 `curl /api/app-version` → `curl /actuator/prometheus | grep -c "^http_server_requests_seconds_bucket"` 로 조합당 버킷 수 기록(research §3 추정치 대비). 결과 수치를 research.md §3 에 한 줄 추가.
+- [x] T003 [US1] `api/src/main/resources/application.yml` 의 `management.metrics` 아래에 `distribution.percentiles-histogram.http.server.requests: true`·`distribution.minimum-expected-value.http.server.requests: 5ms`·`distribution.maximum-expected-value.http.server.requests: 10s` 추가(yml 주석으로 "앱 내 백분위 금지 — 인스턴스 2대 합산" 근거, KB-411).
+- [x] T005 [US1] 로컬 실노출 확인(quickstart §2): `bootRun` 후 `curl /api/app-version` → `curl /actuator/prometheus | grep -c "^http_server_requests_seconds_bucket"` 로 조합당 버킷 수 기록 → **51개/조합**, `quantile=` 행 0. research.md §3 에 기록.
 
-**Checkpoint**: 버킷이 노출되고 테스트가 Green. 커밋 `feat(api): HTTP 요청 지연 히스토그램 버킷 노출 (KB-411)`.
+(T001·T002·T004 테스트 태스크는 사용자 결정으로 삭제.)
+
+**Checkpoint**: 버킷 노출 확인. US2 와 함께 한 커밋.
 
 ---
 
@@ -58,20 +54,16 @@
 
 **Goal**: 실제 Tomcat 으로 기동한 api 가 `tomcat_threads_busy_threads`·`tomcat_threads_current_threads`·`tomcat_threads_config_max_threads` 를 노출한다.
 
-**Independent Test**: 설정 바인딩 테스트가 Green 이고, 로컬 `bootRun` 의 `/actuator/prometheus` 에 `tomcat_threads_*` 3종이 있다.
-
-### Tests for User Story 2 (Test-First — 먼저 쓰고 반드시 FAIL 확인) ⚠️
-
-- [ ] T006 [US2] `ActuatorMetricsExposureTest.kt` 에 `given("Tomcat MBean 레지스트리 설정") > when("설정을 바인딩하면") > then("mbeanregistry 가 켜져 있다")` 추가 — `@Autowired TomcatServerProperties`(`org.springframework.boot.tomcat.autoconfigure`) 의 `mbeanregistry.enabled shouldBe true`. 빈이 MOCK 컨텍스트에 없어 주입 실패하면(research §4 위험) `@Autowired Environment` 로 `getProperty("server.tomcat.mbeanregistry.enabled", Boolean::class.java) shouldBe true` 로 대체하고 그 사실을 tasks.md 이 항목에 기록.
-- [ ] T007 [US2] `./gradlew :api:test` 실행해 T006 이 **실패**함을 확인(기본값 false 또는 null).
+**Independent Test**: 로컬 `bootRun` 의 `/actuator/prometheus` 에 `tomcat_threads_*` 3종이 있다.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] `api/src/main/resources/application.yml` 의 `server` 아래에 `tomcat.mbeanregistry.enabled: true` 추가(yml 주석 "Tomcat 스레드풀 메트릭은 MBean 레지스트리가 켜져야 등록된다 — KB-411").
-- [ ] T009 [US2] `./gradlew :api:test` 재실행 → T006 Green 확인.
-- [ ] T010 [US2] 로컬 실노출 확인(quickstart §2): `bootRun` 후 `curl /actuator/prometheus | grep -E "^tomcat_threads_(busy|current|config_max)_threads"` 3행 확인. `batch/src/main/resources/application.yml` 은 건드리지 않았음을 `git diff --stat` 로 확인.
+- [x] T008 [US2] `api/src/main/resources/application.yml` 의 `server` 아래에 `tomcat.mbeanregistry.enabled: true` 추가(yml 주석 "Tomcat 스레드풀 메트릭은 MBean 레지스트리가 켜져야 등록된다 — KB-411").
+- [x] T010 [US2] 로컬 실노출 확인(quickstart §2): `bootRun` 후 `curl /actuator/prometheus | grep -E "^tomcat_threads_(busy|current|config_max)_threads"` → busy 1·current 10·max 200 확인. `batch/src/main/resources/application.yml` 미변경.
 
-**Checkpoint**: 앱 측 변경 완료. 커밋 `feat(api): Tomcat 스레드풀 메트릭 노출 (KB-411)`. 이 시점에 draft PR → develop 머지 → dev 배포로 US3 의 실데이터가 생긴다.
+(T006·T007·T009 테스트 태스크는 사용자 결정으로 삭제.)
+
+**Checkpoint**: 앱 측 변경 완료. 커밋 `feat(api): Tomcat 스레드풀·HTTP 지연 히스토그램 메트릭 노출`. draft PR #222 → develop 머지 → dev 배포로 US3 의 실데이터가 생긴다.
 
 ---
 
@@ -118,7 +110,7 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T024 `git diff develop --stat` 로 변경 파일이 yml 1·테스트 1·docs 2 뿐인지 확인. Kotlin 소스 주석 0 확인(테스트 파일).
+- [ ] T024 `git diff develop --stat` 로 변경 파일이 yml 1·docs 2·specs 뿐인지 확인.
 - [ ] T025 draft PR(`open-draft-pr-to-develop`) 본문에 Jira KB-411·dev 카디널리티 측정치·prod 릴리스 전 확인 사항(T011) 기재.
 - [ ] T026 Jira KB-411 DoD 체크: US1~US4 완료 항목 체크, "actuator 히스토그램 설정 추가" 문구가 실제와 맞게 유지되는지 확인.
 

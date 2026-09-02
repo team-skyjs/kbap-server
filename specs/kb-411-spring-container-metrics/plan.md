@@ -34,7 +34,7 @@ api 앱의 관측 노출에서 비어 있는 두 지표군 — Tomcat 스레드�
 
 | 원칙 | 판정 | 근거 |
 |------|------|------|
-| I. Test-First | PASS | 히스토그램: 테스트를 먼저 써서 `_bucket` 부재로 Red 확인 → yml 추가로 Green. Tomcat: `TomcatServerProperties.mbeanregistry.enabled` 가 false 인 Red → true 로 Green. 둘 다 기존 `@IntegrationTest` 컨텍스트에서 실행. Tomcat 메트릭 실노출은 MOCK 에서 불가하므로 dev 배포 후 `/actuator/prometheus` 육안 확인으로 보완(KB-380 결정과 일관). |
+| I. Test-First | 예외(정당화) | 자동 테스트 없음 — 사용자 결정(2026-09-02). Complexity Tracking 참조. 검증은 로컬 bootRun 실노출(버킷 51/조합·Tomcat 3종 확인 완료)과 dev 카디널리티 확인. |
 | II. Bounded Contexts | N/A | 도메인 코드 변경 없음. |
 | III. Layered Dependency | N/A | 모듈·패키지 의존 변경 없음. 테스트는 `com.kbap.api.core.metrics` 에 둔다(api 전용 공통재 위치). |
 | IV. Persistence Ownership | N/A | 영속 변경 없음. |
@@ -61,9 +61,7 @@ specs/kb-411-spring-container-metrics/
 ### Source Code (repository root)
 
 ```text
-api/src/main/resources/application.yml                    # server.tomcat.mbeanregistry + management.metrics.distribution 추가
-api/src/test/kotlin/com/kbap/api/core/metrics/
-└── ActuatorMetricsExposureTest.kt                          # @IntegrationTest — 버킷 노출 + Tomcat 설정 바인딩
+api/src/main/resources/application.yml                    # server.tomcat.mbeanregistry + management.metrics.distribution 추가 (테스트 없음 — 사용자 결정)
 
 docs/observability/
 ├── grafana-app-dashboard.json                              # Grafana export (US4)
@@ -74,4 +72,6 @@ docs/observability/
 
 ## Complexity Tracking
 
-위반 없음.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| 원칙 I Test-First 미적용(자동 테스트 없음) | 사용자 결정(2026-09-02). 변경이 프레임워크 기본 기능의 설정 노출 2블록뿐이라 KB-380 의 "설정 노출은 자동화 테스트 없음" 결정과 같은 선상. Tomcat 지표는 MOCK 컨텍스트에서 검증 불가해 테스트 가치가 반쪽. | 테스트를 두려면 `RANDOM_PORT` 새 컨텍스트가 필요(KB-392 위반) 또는 설정 바인딩만 검사하는 저가치 테스트. 대신 로컬 bootRun 실노출 확인(51 버킷/조합·Tomcat 3종)과 dev 카디널리티 확인으로 대체. |

@@ -8,6 +8,16 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    # HTTP 지연 백분위(p95/p99)용 히스토그램 버킷(KB-411). 앱 내 계산 백분위(percentiles)는 쓰지 않는다 —
+    # api 는 env 당 2대라 인스턴스별 근사값을 합산할 수 없고, 버킷은 Prometheus 가 sum by (le) 로 합산한다.
+    # 5ms~10s 범위 지정은 카디널리티 방어(uri × method × status × 인스턴스 조합마다 버킷이 곱해진다).
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 10s
 
 logging:
   # Boot 기본 콘솔 패턴의 correlation 자리에 삽입된다 — logback-spring.xml 수정 없이
@@ -20,6 +30,11 @@ server:
   # 프록시가 TLS 를 종료(https)하고 평문 http 로 넘겨도 앱이 원래 스킴/호스트를 인식해
   # Swagger UI 등 자기 참조 URL 을 https 로 생성한다(mixed content 방지).
   forward-headers-strategy: framework
+  # Tomcat 스레드풀 메트릭(tomcat_threads_*)은 MBean 레지스트리가 켜져야 등록된다(KB-411). 기본값 false 라
+  # 켜기 전엔 busy/current/max 스레드 지표가 하나도 없어 웹 서버 포화를 볼 수 없었다.
+  tomcat:
+    mbeanregistry:
+      enabled: true
 
 spring:
   # 루트의 .env 를 properties 형식으로 읽어 ${...} 플레이스홀더에 사용한다.
