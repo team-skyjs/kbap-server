@@ -23,7 +23,7 @@ jobs:
   deploy:
     name: build and canary deploy to dev ECS
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     environment: dev
     env:
       ECS_NAME: kbap-dev-ecs
@@ -136,6 +136,19 @@ jobs:
             case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
             sleep 10
           done
+          case "$STATUS" in
+            Succeeded|Failed|Stopped) ;;
+            *)
+              echo "::warning::폴링 상한 초과 — 배포를 중단(자동 롤백)하고 종료를 기다립니다: $DEPLOYMENT_ID"
+              aws deploy stop-deployment --deployment-id "$DEPLOYMENT_ID" --auto-rollback-enabled || true
+              for j in $(seq 1 60); do
+                STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+                  --query deploymentInfo.status --output text)
+                case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
+                sleep 10
+              done
+              ;;
+          esac
           ELAPSED=$((i * 10))
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "elapsed=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> "$GITHUB_OUTPUT"
