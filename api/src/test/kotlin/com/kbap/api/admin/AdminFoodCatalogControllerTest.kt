@@ -167,6 +167,32 @@ class AdminFoodCatalogControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검색어에 LIKE 와일드카드가 있으면") {
+                then("문자 그대로 일치하는 건만 내려준다") {
+                    saveFood("김치찌개")
+                    saveFood("100%생과일주스")
+                    saveFood("소금_설탕구이")
+
+                    mockMvc.get(path) {
+                        header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                        param("q", "%")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].koreanName") { value("100%생과일주스") }
+                    }
+
+                    mockMvc.get(path) {
+                        header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                        param("q", "_")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].koreanName") { value("소금_설탕구이") }
+                    }
+                }
+            }
+
             `when`("status 필터를 주면") {
                 then("해당 콘텐츠 상태 건만 내려준다") {
                     saveFood("김치찌개")

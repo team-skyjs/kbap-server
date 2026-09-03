@@ -39,7 +39,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
             WHERE status = :entityStatus
               AND (:contentStatus IS NULL OR content_status = :contentStatus)
               AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
-              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%'))
+              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
             ORDER BY id DESC
         """,
         countQuery = """
@@ -47,7 +47,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
             WHERE status = :entityStatus
               AND (:contentStatus IS NULL OR content_status = :contentStatus)
               AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
-              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%'))
+              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
         """,
         nativeQuery = true,
     )

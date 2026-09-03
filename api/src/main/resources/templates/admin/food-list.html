@@ -95,7 +95,9 @@
                      th:with="code=${param.error[0]}"
                      th:text="${code == 'invalid-json'} ? '번역/성분 JSON 형식이 잘못됐습니다'
                             : (${code == 'duplicate-name'} ? '이미 같은 이름의 음식이 있습니다'
-                            : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다' : '처리 중 오류가 발생했습니다'))"></div>
+                            : (${code == 'invalid-name'} ? '이름은 비울 수 없습니다'
+                            : (${code == 'ready-not-allowed'} ? 'READY 전이는 검수 승인으로만 가능합니다 — 검수 화면에서 승인해 주세요'
+                            : '처리 중 오류가 발생했습니다')))"></div>
 
                 <div class="banner banner-warn" th:if="${foodDetail.contentFailureKind != null}">
                     <strong th:text="|수집 실패 · ${foodDetail.contentFailureKind}|">수집 실패</strong>

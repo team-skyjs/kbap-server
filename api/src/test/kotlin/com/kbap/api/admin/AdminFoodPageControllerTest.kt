@@ -455,5 +455,21 @@ class AdminFoodPageControllerTest : BehaviorSpec() {
                 }
             }
         }
+        given("READY 직행 거절 사유 안내") {
+            `when`("error=ready-not-allowed 로 목록 화면에 돌아오면") {
+                then("수정 모달 배너에 READY 전이 사유를 보여준다") {
+                    val food = saveFood("레디사유마라탕", FoodContentStatus.PENDING_REVIEW)
+
+                    val html = mockMvc.get("/admin/foods/list") {
+                        cookie(adminCookie())
+                        param("detail", food.id.toString())
+                        param("edit", "true")
+                        param("error", "ready-not-allowed")
+                    }.andReturn().response.contentAsString
+
+                    html shouldContain "READY 전이는 검수 승인으로만 가능합니다"
+                }
+            }
+        }
     }
 }

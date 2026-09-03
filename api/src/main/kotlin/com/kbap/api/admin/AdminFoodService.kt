@@ -68,7 +68,7 @@ class AdminFoodService(
         failureKind: FoodContentFailureKind? = null,
         deleted: Boolean = false,
     ): AdminFoodListResponse {
-        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(::escapeLikeWildcards)
         val result = foodRepository.searchAdminFoodPage(
             if (deleted) "DELETED" else "ACTIVE",
             status?.name,
@@ -87,6 +87,12 @@ class AdminFoodService(
             hasNext = page < result.totalPages,
         )
     }
+
+    private fun escapeLikeWildcards(keyword: String): String =
+        keyword
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
 
     @Transactional(readOnly = true)
     fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
