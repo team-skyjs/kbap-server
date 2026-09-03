@@ -34,6 +34,32 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findAnyById(@Param("id") id: Long): Food?
 
     @Query(
+        value = """
+            SELECT * FROM food
+            WHERE status = :entityStatus
+              AND (:contentStatus IS NULL OR content_status = :contentStatus)
+              AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
+              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+            ORDER BY id DESC
+        """,
+        countQuery = """
+            SELECT count(*) FROM food
+            WHERE status = :entityStatus
+              AND (:contentStatus IS NULL OR content_status = :contentStatus)
+              AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
+              AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+        """,
+        nativeQuery = true,
+    )
+    fun searchAdminFoodPage(
+        @Param("entityStatus") entityStatus: String,
+        @Param("contentStatus") contentStatus: String?,
+        @Param("failureKind") failureKind: String?,
+        @Param("keyword") keyword: String?,
+        pageable: Pageable,
+    ): Page<Food>
+
+    @Query(
         """
         select new com.kbap.common.domain.food.dto.FoodStatusCount(f.contentStatus, count(f))
         from Food f

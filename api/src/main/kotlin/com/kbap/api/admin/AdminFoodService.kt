@@ -61,6 +61,40 @@ class AdminFoodService(
     }
 
     @Transactional(readOnly = true)
+    fun searchAdminFoodPage(
+        page: Int,
+        query: String? = null,
+        status: FoodContentStatus? = null,
+        failureKind: FoodContentFailureKind? = null,
+        deleted: Boolean = false,
+    ): AdminFoodListResponse {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(::escapeLikeWildcards)
+        val result = foodRepository.searchAdminFoodPage(
+            if (deleted) "DELETED" else "ACTIVE",
+            status?.name,
+            failureKind?.name,
+            keyword,
+            PageRequest.of(page - 1, LIST_PAGE_SIZE),
+        )
+        return AdminFoodListResponse(
+            items = result.content.map {
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+            },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    private fun escapeLikeWildcards(keyword: String): String =
+        keyword
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+
+    @Transactional(readOnly = true)
     fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
         val result = foodRepository.findDeletedPage(PageRequest.of(page - 1, LIST_PAGE_SIZE))
         return AdminFoodListResponse(
@@ -140,6 +174,10 @@ class AdminFoodService(
         val duplicated = foodRepository.findByKoreanNameIn(setOf(matchKey))
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
+
+        if (command.contentStatus == FoodContentStatus.READY && !food.isReady()) {
+            return AdminFoodUpdateResult.READY_NOT_ALLOWED
+        }
 
         val wasReady = food.isReady()
         food.koreanName = matchKey
@@ -297,6 +335,7 @@ enum class AdminFoodUpdateResult {
     INVALID_NAME,
     INVALID_JSON,
     DUPLICATE_NAME,
+    READY_NOT_ALLOWED,
 }
 
 data class UpdateFoodCommand(

@@ -94,6 +94,8 @@ class AdminFoodPageController(
                 listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-json")
             AdminFoodUpdateResult.DUPLICATE_NAME ->
                 listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "duplicate-name")
+            AdminFoodUpdateResult.READY_NOT_ALLOWED ->
+                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "ready-not-allowed")
         }
     }
 

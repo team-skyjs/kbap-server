@@ -5,6 +5,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import jakarta.validation.Valid
 import org.springframework.dao.DataIntegrityViolationException
@@ -32,10 +33,12 @@ class AdminFoodCatalogController(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) q: String?,
         @RequestParam(required = false) status: FoodContentStatus?,
+        @RequestParam(required = false) failureKind: FoodContentFailureKind?,
+        @RequestParam(defaultValue = "false") deleted: Boolean,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                AdminFoodListResponse.from(adminFoodService.getFoodPage(page.coerceAtLeast(1), q, status)),
+                adminFoodService.searchAdminFoodPage(page.coerceAtLeast(1), q, status, failureKind, deleted),
             ),
         )
 
@@ -95,6 +98,8 @@ class AdminFoodCatalogController(
             AdminFoodUpdateResult.INVALID_JSON,
             -> throw BusinessException(ErrorCode.INVALID_REQUEST)
             AdminFoodUpdateResult.DUPLICATE_NAME -> throw BusinessException(ErrorCode.DUPLICATE_FOOD_NAME)
+            AdminFoodUpdateResult.READY_NOT_ALLOWED ->
+                throw BusinessException(ErrorCode.FOOD_READY_TRANSITION_FORBIDDEN)
         }
         return ResponseEntity.ok(BaseResponse.ok(adminFoodService.getFoodDetail(id)))
     }

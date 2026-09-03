@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -23,7 +24,8 @@ interface AdminFoodCatalogApi {
             전체 음식을 id 내림차순으로 페이지 조회한다. 어드민 SPA 의 음식 카탈로그 목록 화면 전용이다.
 
             - `q` 를 주면 표시 이름(displayName) 부분 일치로 검색한다.
-            - `status` 를 주면 해당 콘텐츠 상태만 필터링한다.
+            - `status`(콘텐츠 상태)·`failureKind`(실패 유형)·`deleted`(삭제 여부, 기본 false=활성만) 는
+              각각 독립 필터이며 AND 로 조합된다. `deleted=true` 는 삭제 전용 목록(`/deleted`)과 같은 대상을 본다.
             - 페이지 크기는 서버 고정(200)이며, 응답에 전체 건수(`totalCount`)와 전체 페이지 수를 포함한다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
@@ -43,6 +45,10 @@ interface AdminFoodCatalogApi {
         q: String?,
         @Parameter(description = "콘텐츠 상태 필터", example = "READY")
         status: FoodContentStatus?,
+        @Parameter(description = "실패 유형 필터", example = "ADMIN_REJECTED")
+        failureKind: FoodContentFailureKind?,
+        @Parameter(description = "삭제 여부(true=삭제된 음식만, 기본 false)", example = "false")
+        deleted: Boolean,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>>
 
     @Operation(
@@ -151,6 +157,9 @@ interface AdminFoodCatalogApi {
             - 부분 수정이 아니라 전체 교체 계약이다. 번역 필드를 생략(null)하면 빈 맵으로 교체된다.
             - `ingredients` 는 상세 응답과 같은 구분을 따른다 — 생략(null)=미조사, 빈 배열=조사 완료·해당 없음.
             - `ingredients` 의 `code` 는 성분 카탈로그 코드만 허용한다 — 미지 코드는 400(COMMON-002). `spiciness` 는 -1(미조사)..10.
+            - `contentStatus` 로 **READY 직행은 불가**하다(400 FOOD-010) — READY 전이는 검수 승인 API 몫이며,
+              이미 READY 인 음식의 READY 유지·READY 에서 내리는 전이(FAILED 등)는 허용된다.
+              `contentFailureKind` 는 수정으로 편집할 수 없다(검수 반려·파이프라인 전용).
             - `version` 은 필수다 — 상세 조회의 `version` 을 그대로 보내고, 그 사이 다른 관리자가 수정했으면
               409(FOOD-006) 로 거절된다(낙관 잠금 — 조용한 덮어쓰기를 구조적으로 차단). 누락은 400(COMMON-002).
             - READY 전이·이탈 시 벡터 동기화 아웃박스 enqueue 는 서버가 수행한다.
@@ -161,7 +170,7 @@ interface AdminFoodCatalogApi {
             ApiResponse(responseCode = "200", description = "수정 성공 — 반영된 상세 반환"),
             ApiResponse(
                 responseCode = "400",
-                description = "검증 실패(COMMON-002 — 필수 필드 누락·빈 이름·미지 성분 코드) 또는 음식 없음(FOOD-001)",
+                description = "검증 실패(COMMON-002 — 필수 필드 누락·빈 이름·미지 성분 코드), 음식 없음(FOOD-001), READY 직행(FOOD-010)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
