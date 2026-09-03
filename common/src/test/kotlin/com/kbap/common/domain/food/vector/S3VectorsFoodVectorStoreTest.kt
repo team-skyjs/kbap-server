@@ -11,11 +11,10 @@ import software.amazon.awssdk.services.s3vectors.model.GetOutputVector
 import java.time.Instant
 
 class S3VectorsFoodVectorStoreTest : BehaviorSpec({
-    fun document(imageRef: String? = "foods/7.png") = FoodVectorDocument(
+    fun document() = FoodVectorDocument(
         foodId = 7L,
         name = "김치찌개",
         longDescription = "잘 익은 김치를 돼지고기와 끓인 찌개",
-        imageRef = imageRef,
         embedding = FloatArray(256) { it * 0.001f },
         embeddingHash = "sha256:ab",
         embeddingModel = "text-embedding-3-small",
@@ -44,7 +43,6 @@ class S3VectorsFoodVectorStoreTest : BehaviorSpec({
                 metadata.getValue(FoodVectorDocuments.FOOD_ID).asNumber().toLong() shouldBe 7L
                 metadata.getValue(FoodVectorDocuments.NAME).asString() shouldBe "김치찌개"
                 metadata.getValue(FoodVectorDocuments.LONG_DESCRIPTION).asString() shouldBe "잘 익은 김치를 돼지고기와 끓인 찌개"
-                metadata.getValue(FoodVectorDocuments.IMAGE_REF).asString() shouldBe "foods/7.png"
                 metadata.getValue(FoodVectorDocuments.EMBEDDING_HASH).asString() shouldBe "sha256:ab"
                 metadata.getValue(FoodVectorDocuments.EMBEDDING_MODEL).asString() shouldBe "text-embedding-3-small"
                 metadata.getValue(FoodVectorDocuments.EMBEDDING_DIMENSION).asNumber().toInt() shouldBe 256
@@ -52,13 +50,13 @@ class S3VectorsFoodVectorStoreTest : BehaviorSpec({
             }
         }
 
-        `when`("imageRef 가 null 이면") {
+        `when`("업서트된 메타데이터를 보면") {
             val client = RecordingS3VectorsClient()
-            S3VectorsFoodVectorStore(client, "b", "i").upsert(document(imageRef = null))
+            S3VectorsFoodVectorStore(client, "b", "i").upsert(document())
             val metadata = client.puts.single().vectors().single().metadata().asMap()
 
-            then("S3 Vectors 가 null 값을 거부하므로 키 자체를 생략한다") {
-                metadata shouldNotContainKey FoodVectorDocuments.IMAGE_REF
+            then("표시용 imageRef 는 실리지 않는다 — 벡터는 id 만, 표시 내용은 MySQL 재조회") {
+                metadata shouldNotContainKey "imageRef"
                 metadata shouldContainKey FoodVectorDocuments.NAME
             }
         }
