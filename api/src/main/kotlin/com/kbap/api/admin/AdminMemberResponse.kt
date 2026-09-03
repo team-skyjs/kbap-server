@@ -164,7 +164,7 @@ data class AdminMemberOrderItemResponse(
     val roadAddress: String?,
     val items: List<AdminMemberOrderFoodResponse>,
     val totalQuantity: Int,
-    val totalPrice: Int,
+    val totalPrice: Long,
     val createdAt: LocalDateTime,
 ) {
     companion object {
@@ -175,7 +175,7 @@ data class AdminMemberOrderItemResponse(
                 roadAddress = order.roadAddress,
                 items = orderItems.map(AdminMemberOrderFoodResponse::from),
                 totalQuantity = OrderItem.totalQuantityOf(orderItems),
-                totalPrice = OrderItem.totalPriceOf(orderItems),
+                totalPrice = orderItems.sumOf { (it.price ?: 0).toLong() * it.quantity },
                 createdAt = order.createdAt,
             )
     }

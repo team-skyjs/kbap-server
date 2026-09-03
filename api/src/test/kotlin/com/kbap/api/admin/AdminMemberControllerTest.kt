@@ -288,6 +288,22 @@ class AdminMemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("고가 항목 합계가 Int 범위를 넘으면") {
+                then("Long 으로 정확히 집계한다") {
+                    val member = saveMember("bigorder-uid")
+                    val food = saveFood("금박한우")
+                    val order = orderJpaRepository.save(Order(memberId = member.id, imagePath = "orders/big.webp"))
+                    orderItemJpaRepository.save(
+                        OrderItem.place(order.id, food.id, "금박한우", quantity = 2_000, price = 2_000_000),
+                    )
+
+                    getJson("$path/${member.id}/orders").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].totalPrice") { value(4_000_000_000L) }
+                    }
+                }
+            }
+
             `when`("주문에 음식 항목이 있으면") {
                 then("항목(주문 시점 이름·수량·가격)과 합계를 함께 내려준다") {
                     val member = saveMember("order-items-uid")
