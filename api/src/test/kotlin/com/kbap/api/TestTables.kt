@@ -13,6 +13,7 @@ object TestTables {
         "image_batch",
         "food_content_outbox",
         "food_vector_outbox",
+        "food_image",
         "food",
         "community_comment",
         "community_post",
