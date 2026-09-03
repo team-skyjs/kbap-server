@@ -8,6 +8,7 @@ import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
+import com.kbap.common.util.LikeWildcards
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
@@ -50,11 +51,11 @@ class FoodService(
     @Transactional(readOnly = true)
     internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
         loadDescending(
-            foodRepository.searchFoodPageIds(escapeLikeWildcards(keyword), translationJsonPath(lang), cursor, size),
+            foodRepository.searchFoodPageIds(LikeWildcards.escape(keyword), translationJsonPath(lang), cursor, size),
         )
 
     private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
-        val ids = scanHistoryRepository.findScannedFoodIds(memberId, escapeLikeWildcards(keyword), translationJsonPath(lang))
+        val ids = scanHistoryRepository.findScannedFoodIds(memberId, LikeWildcards.escape(keyword), translationJsonPath(lang))
         return loadInGivenOrder(ids)
     }
 
@@ -197,12 +198,6 @@ class FoodService(
     fun resolveImageUrlOrDefault(food: Food?): String =
         food?.let { resolveImageUrl(it) }
             ?: requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, DEFAULT_FOOD_IMAGE_PATH))
-
-    private fun escapeLikeWildcards(keyword: String): String =
-        keyword
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
 
     private fun loadDescending(ids: List<Long>): List<Food> {
         if (ids.isEmpty()) return emptyList()

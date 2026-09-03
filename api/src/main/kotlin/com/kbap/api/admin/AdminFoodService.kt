@@ -20,6 +20,7 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
+import com.kbap.common.util.LikeWildcards
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -68,7 +69,7 @@ class AdminFoodService(
         failureKind: FoodContentFailureKind? = null,
         deleted: Boolean = false,
     ): AdminFoodListResponse {
-        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(::escapeLikeWildcards)
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(LikeWildcards::escape)
         val result = foodRepository.searchAdminFoodPage(
             if (deleted) "DELETED" else "ACTIVE",
             status?.name,
@@ -87,12 +88,6 @@ class AdminFoodService(
             hasNext = page < result.totalPages,
         )
     }
-
-    private fun escapeLikeWildcards(keyword: String): String =
-        keyword
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
 
     @Transactional(readOnly = true)
     fun getDeletedFoodPage(page: Int): AdminFoodListResponse {

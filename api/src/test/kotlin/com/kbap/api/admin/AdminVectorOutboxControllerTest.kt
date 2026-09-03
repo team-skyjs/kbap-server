@@ -147,6 +147,35 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검색어 q 에 LIKE 와일드카드가 있으면") {
+                then("리터럴로만 매칭한다") {
+                    saveOutbox(saveFood("김치찌개").id)
+                    val percent = saveOutbox(saveFood("100%생과일").id)
+                    val underscore = saveOutbox(saveFood("소금_설탕").id)
+                    val backslash = saveOutbox(saveFood("백슬래시\\소스").id)
+
+                    fun search(q: String): ResultActionsDsl =
+                        mockMvc.get(path) {
+                            header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                            param("q", q)
+                        }
+
+                    search("%").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(percent.id) }
+                    }
+                    search("_").andExpect {
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(underscore.id) }
+                    }
+                    search("\\").andExpect {
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(backslash.id) }
+                    }
+                }
+            }
+
             `when`("q 와 status 를 함께 주면") {
                 then("두 조건을 모두 만족하는 건만 내려준다") {
                     val kimchi = saveFood("김치찌개")

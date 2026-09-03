@@ -12,6 +12,7 @@ import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.util.ImageUrls
+import com.kbap.common.util.LikeWildcards
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -36,7 +37,7 @@ class AdminMemberQueryService(
         val result = when (keyword) {
             null -> memberRepository.findPageAnyStatus(pageable)
             else -> memberRepository.searchPageAnyStatusByKeyword(
-                keyword,
+                LikeWildcards.escape(keyword),
                 keyword.toLongOrNull() ?: NO_MEMBER_ID,
                 pageable,
             )
