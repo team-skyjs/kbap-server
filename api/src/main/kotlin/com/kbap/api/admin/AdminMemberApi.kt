@@ -102,7 +102,14 @@ interface AdminMemberApi {
 
     @Operation(
         summary = "멤버 주문 목록 조회",
-        description = "해당 멤버의 주문을 id 내림차순으로 페이지 조회한다(메뉴판 이미지 URL·주소 포함, 페이지 크기 20). 없는 멤버는 400(MEMBER-003).",
+        description = """
+            해당 멤버의 주문을 id 내림차순으로 페이지 조회한다(메뉴판 이미지 URL·주소 포함, 페이지 크기 20).
+
+            - `items` 는 주문 음식 항목이다 — `menuName` 은 주문 시점 이름 스냅샷(음식 개명·삭제와 무관),
+              `foodId` 는 음식 상세 링크용, `price` 는 미인식 시 null.
+            - `totalPrice` 는 price null 항목을 0 으로 집계한다(도메인 합계 규칙).
+            - 없는 멤버는 400(MEMBER-003).
+        """,
     )
     @ApiResponses(
         value = [

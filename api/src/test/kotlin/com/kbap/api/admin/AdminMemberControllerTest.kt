@@ -8,8 +8,10 @@ import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
+import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
@@ -44,6 +46,9 @@ class AdminMemberControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var orderJpaRepository: OrderJpaRepository
+
+    @Autowired
+    private lateinit var orderItemJpaRepository: OrderItemJpaRepository
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
@@ -277,7 +282,52 @@ class AdminMemberControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].imageUrl") { exists() }
                         jsonPath("$.payload.items[0].roadAddress") { value("서울 마포구") }
                         jsonPath("$.payload.items[0].createdAt") { exists() }
+                        jsonPath("$.payload.items[0].items.length()") { value(0) }
                         jsonPath("$.payload.totalCount") { value(1) }
+                    }
+                }
+            }
+
+            `when`("고가 항목 합계가 Int 범위를 넘으면") {
+                then("Long 으로 정확히 집계한다") {
+                    val member = saveMember("bigorder-uid")
+                    val food = saveFood("금박한우")
+                    val order = orderJpaRepository.save(Order(memberId = member.id, imagePath = "orders/big.webp"))
+                    orderItemJpaRepository.save(
+                        OrderItem.place(order.id, food.id, "금박한우", quantity = 2_000, price = 2_000_000),
+                    )
+
+                    getJson("$path/${member.id}/orders").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].totalPrice") { value(4_000_000_000L) }
+                    }
+                }
+            }
+
+            `when`("주문에 음식 항목이 있으면") {
+                then("항목(주문 시점 이름·수량·가격)과 합계를 함께 내려준다") {
+                    val member = saveMember("order-items-uid")
+                    val food = saveFood("김치찌개")
+                    val order = orderJpaRepository.save(
+                        Order(memberId = member.id, imagePath = "orders/2.webp"),
+                    )
+                    orderItemJpaRepository.save(
+                        OrderItem.place(order.id, food.id, "김치찌개 (2인분)", quantity = 2, price = 9000),
+                    )
+                    orderItemJpaRepository.save(
+                        OrderItem.place(order.id, food.id, "공기밥", quantity = 1, price = null),
+                    )
+
+                    getJson("$path/${member.id}/orders").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].items.length()") { value(2) }
+                        jsonPath("$.payload.items[0].items[0].foodId") { value(food.id) }
+                        jsonPath("$.payload.items[0].items[0].menuName") { value("김치찌개 (2인분)") }
+                        jsonPath("$.payload.items[0].items[0].quantity") { value(2) }
+                        jsonPath("$.payload.items[0].items[0].price") { value(9000) }
+                        jsonPath("$.payload.items[0].items[1].price") { value(null) }
+                        jsonPath("$.payload.items[0].totalQuantity") { value(3) }
+                        jsonPath("$.payload.items[0].totalPrice") { value(18000) }
                     }
                 }
             }
