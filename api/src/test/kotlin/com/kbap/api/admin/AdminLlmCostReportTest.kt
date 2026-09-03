@@ -16,7 +16,7 @@ import org.springframework.test.web.servlet.get
 import javax.sql.DataSource
 
 @IntegrationTest
-class AdminLlmReportControllerTest : BehaviorSpec() {
+class AdminLlmCostReportTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
