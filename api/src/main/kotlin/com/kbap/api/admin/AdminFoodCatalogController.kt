@@ -42,6 +42,7 @@ class AdminFoodCatalogController(
             ),
         )
 
+    // 임시 경로 — 어드민 화면이 목록 ?deleted=true 필터로 완전 이전한 뒤 /deleted 두 엔드포인트를 제거한다
     @GetMapping("/deleted")
     override fun getDeletedFoodPage(
         @RequestParam(defaultValue = "1") page: Int,

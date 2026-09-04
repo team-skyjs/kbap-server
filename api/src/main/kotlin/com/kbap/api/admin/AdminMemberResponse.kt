@@ -175,7 +175,7 @@ data class AdminMemberOrderItemResponse(
                 roadAddress = order.roadAddress,
                 items = orderItems.map(AdminMemberOrderFoodResponse::from),
                 totalQuantity = OrderItem.totalQuantityOf(orderItems),
-                totalPrice = orderItems.sumOf { (it.price ?: 0).toLong() * it.quantity },
+                totalPrice = OrderItem.totalPriceLongOf(orderItems),
                 createdAt = order.createdAt,
             )
     }
