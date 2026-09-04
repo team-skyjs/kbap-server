@@ -28,6 +28,7 @@ data class AdminFoodListResponse(
 data class AdminFoodListItemResponse(
     val id: Long,
     val koreanName: String,
+    val englishName: String?,
     val contentStatus: FoodContentStatus,
     val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
@@ -39,6 +40,7 @@ data class AdminFoodListItemResponse(
             AdminFoodListItemResponse(
                 id = view.id,
                 koreanName = view.koreanName,
+                englishName = view.englishName,
                 contentStatus = view.contentStatus,
                 contentFailureKind = view.contentFailureKind,
                 spiciness = view.spiciness,

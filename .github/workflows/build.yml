@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: [ "main", "develop", "release/**" ]
     types: [ opened, reopened, synchronize ]
+  # develop merge queue(ruleset) — 큐가 만든 머지 그룹에서도 빌드가 돌아야 큐 검증이 동작한다
+  merge_group:
   workflow_dispatch:
 
 jobs:

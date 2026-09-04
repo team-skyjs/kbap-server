@@ -1,6 +1,7 @@
 package com.kbap.common.domain.review
 
 import com.kbap.common.domain.review.model.Review
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -56,4 +57,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
+
+    fun findByMemberId(memberId: Long, pageable: Pageable): Page<Review>
 }
