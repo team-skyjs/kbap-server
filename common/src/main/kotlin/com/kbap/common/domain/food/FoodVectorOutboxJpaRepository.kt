@@ -45,7 +45,7 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
         where (:foodId is not null and o.foodId = :foodId)
            or exists (
                select 1 from Food f
-               where f.id = o.foodId and f.displayName like concat('%', :keyword, '%')
+               where f.id = o.foodId and f.displayName like concat('%', :keyword, '%') escape '\'
            )
         """,
     )
@@ -63,7 +63,7 @@ interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> 
               (:foodId is not null and o.foodId = :foodId)
               or exists (
                   select 1 from Food f
-                  where f.id = o.foodId and f.displayName like concat('%', :keyword, '%')
+                  where f.id = o.foodId and f.displayName like concat('%', :keyword, '%') escape '\'
               )
           )
         """,

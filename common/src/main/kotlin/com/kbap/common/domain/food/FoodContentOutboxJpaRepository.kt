@@ -26,7 +26,7 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         """
         select o from FoodContentOutbox o
         where (:foodId is not null and o.foodId = :foodId)
-           or o.displayName like concat('%', :keyword, '%')
+           or o.displayName like concat('%', :keyword, '%') escape '\'
         """,
     )
     fun searchByKeyword(
@@ -41,7 +41,7 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         where o.outboxStatus = :outboxStatus
           and (
               (:foodId is not null and o.foodId = :foodId)
-              or o.displayName like concat('%', :keyword, '%')
+              or o.displayName like concat('%', :keyword, '%') escape '\'
           )
         """,
     )

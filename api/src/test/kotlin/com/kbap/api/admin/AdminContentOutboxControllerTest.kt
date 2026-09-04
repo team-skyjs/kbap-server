@@ -121,6 +121,35 @@ class AdminContentOutboxControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검색어 q 에 LIKE 와일드카드가 있으면") {
+                then("리터럴로만 매칭한다") {
+                    saveOutbox("김치찌개")
+                    saveOutbox("100%생과일")
+                    saveOutbox("소금_설탕")
+                    saveOutbox("백슬래시\\소스")
+
+                    fun search(q: String): ResultActionsDsl =
+                        mockMvc.get(path) {
+                            header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                            param("q", q)
+                        }
+
+                    search("%").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].displayName") { value("100%생과일") }
+                    }
+                    search("_").andExpect {
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].displayName") { value("소금_설탕") }
+                    }
+                    search("\\").andExpect {
+                        jsonPath("$.payload.totalCount") { value(1) }
+                        jsonPath("$.payload.items[0].displayName") { value("백슬래시\\소스") }
+                    }
+                }
+            }
+
             `when`("USER 역할 토큰으로 호출하면") {
                 then("403(AUTH-008) 으로 거절한다") {
                     getPage(token = tokenOf(MemberRole.USER)).andExpect {

@@ -24,15 +24,15 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         value = """
             SELECT * FROM member
             WHERE id = :memberId
-               OR nickname LIKE CONCAT('%', :keyword, '%')
-               OR email LIKE CONCAT('%', :keyword, '%')
+               OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
+               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
             ORDER BY id DESC
         """,
         countQuery = """
             SELECT count(*) FROM member
             WHERE id = :memberId
-               OR nickname LIKE CONCAT('%', :keyword, '%')
-               OR email LIKE CONCAT('%', :keyword, '%')
+               OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
+               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
         """,
         nativeQuery = true,
     )

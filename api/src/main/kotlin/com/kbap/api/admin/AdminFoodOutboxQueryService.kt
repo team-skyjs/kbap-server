@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import com.kbap.common.util.LikeWildcards
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -24,8 +25,8 @@ class AdminFoodOutboxQueryService(
         val result = when {
             keyword == null && status == null -> outboxRepository.findAll(pageable)
             keyword == null -> outboxRepository.findByOutboxStatus(status!!, pageable)
-            status == null -> outboxRepository.searchByKeyword(keyword, keyword.toLongOrNull(), pageable)
-            else -> outboxRepository.searchByKeywordAndStatus(keyword, keyword.toLongOrNull(), status, pageable)
+            status == null -> outboxRepository.searchByKeyword(LikeWildcards.escape(keyword), keyword.toLongOrNull(), pageable)
+            else -> outboxRepository.searchByKeywordAndStatus(LikeWildcards.escape(keyword), keyword.toLongOrNull(), status, pageable)
         }
         return AdminContentOutboxPageResponse(
             items = result.content.map(AdminContentOutboxItemResponse::from),

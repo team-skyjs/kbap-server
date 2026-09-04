@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import com.kbap.common.util.LikeWildcards
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -63,8 +64,8 @@ class AdminFoodDashboardService(
             else -> {
                 val foodId = keyword.toLongOrNull()
                 when (status) {
-                    null -> vectorOutboxRepository.searchByFoodKeyword(keyword, foodId, pageable)
-                    else -> vectorOutboxRepository.searchByFoodKeywordAndStatus(keyword, foodId, status, pageable)
+                    null -> vectorOutboxRepository.searchByFoodKeyword(LikeWildcards.escape(keyword), foodId, pageable)
+                    else -> vectorOutboxRepository.searchByFoodKeywordAndStatus(LikeWildcards.escape(keyword), foodId, status, pageable)
                 }
             }
         }
