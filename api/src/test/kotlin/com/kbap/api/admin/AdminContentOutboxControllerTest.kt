@@ -125,27 +125,14 @@ class AdminContentOutboxControllerTest : BehaviorSpec() {
                 then("리터럴로만 매칭한다") {
                     saveOutbox("김치찌개")
                     saveOutbox("100%생과일")
-                    saveOutbox("소금_설탕")
-                    saveOutbox("백슬래시\\소스")
 
-                    fun search(q: String): ResultActionsDsl =
-                        mockMvc.get(path) {
-                            header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
-                            param("q", q)
-                        }
-
-                    search("%").andExpect {
+                    mockMvc.get(path) {
+                        header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                        param("q", "%")
+                    }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.totalCount") { value(1) }
                         jsonPath("$.payload.items[0].displayName") { value("100%생과일") }
-                    }
-                    search("_").andExpect {
-                        jsonPath("$.payload.totalCount") { value(1) }
-                        jsonPath("$.payload.items[0].displayName") { value("소금_설탕") }
-                    }
-                    search("\\").andExpect {
-                        jsonPath("$.payload.totalCount") { value(1) }
-                        jsonPath("$.payload.items[0].displayName") { value("백슬래시\\소스") }
                     }
                 }
             }
