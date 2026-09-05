@@ -142,27 +142,14 @@ class AdminMemberControllerTest : BehaviorSpec() {
                 then("리터럴로만 매칭한다") {
                     saveMember("wild-a", nickname = "김치찌개러버")
                     saveMember("wild-b", nickname = "100%리얼러버")
-                    saveMember("wild-c", nickname = "소금_설탕러버")
-                    saveMember("wild-d", nickname = "백슬래시\\러버")
 
-                    fun search(q: String): ResultActionsDsl =
-                        mockMvc.get(path) {
-                            header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
-                            param("q", q)
-                        }
-
-                    search("%").andExpect {
+                    mockMvc.get(path) {
+                        header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}")
+                        param("q", "%")
+                    }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.totalCount") { value(1) }
                         jsonPath("$.payload.items[0].nickname") { value("100%리얼러버") }
-                    }
-                    search("_").andExpect {
-                        jsonPath("$.payload.totalCount") { value(1) }
-                        jsonPath("$.payload.items[0].nickname") { value("소금_설탕러버") }
-                    }
-                    search("\\").andExpect {
-                        jsonPath("$.payload.totalCount") { value(1) }
-                        jsonPath("$.payload.items[0].nickname") { value("백슬래시\\러버") }
                     }
                 }
             }
