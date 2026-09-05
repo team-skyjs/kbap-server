@@ -249,3 +249,15 @@ variable "vector_enabled" {
   type        = bool
   default     = false
 }
+
+variable "api_max_count" {
+  description = "api 서비스 오토스케일링 최대 태스크 수 (EC2 2대 × 인스턴스당 2)"
+  type        = number
+  default     = 4
+}
+
+variable "api_cpu_target_percent" {
+  description = "api 서비스 오토스케일링 목표 CPU (%). 태스크 예약 CPU 대비"
+  type        = number
+  default     = 40
+}
