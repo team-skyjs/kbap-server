@@ -12,6 +12,10 @@ data class MyProfileResponse(
     val spicinessPreference: String,
     val currency: String?,
     val onboardingCompleted: Boolean,
+    val scanCount: Int,
+    val freeScanLimit: Int,
+    val scanUnlocked: Boolean,
+    val scanRemaining: Int?,
     val ranking: RankingSummary,
 ) {
     data class RankingSummary(
@@ -46,6 +50,10 @@ data class MyProfileResponse(
                 spicinessPreference = result.spicinessPreference,
                 currency = result.currency,
                 onboardingCompleted = result.onboardingCompleted,
+                scanCount = result.scanCount,
+                freeScanLimit = result.freeScanLimit,
+                scanUnlocked = result.scanUnlocked,
+                scanRemaining = result.scanRemaining,
                 ranking = RankingSummary.from(result.ranking),
             )
     }

@@ -154,7 +154,9 @@ class Member(
         delete()
     }
 
-    fun isScanAllowed(): Boolean = scanUnlocked || scanCount < FREE_SCAN_LIMIT
+    fun isScanAllowed(): Boolean = scanRemaining()?.let { it > 0 } ?: true
+
+    fun scanRemaining(): Int? = if (scanUnlocked) null else (FREE_SCAN_LIMIT - scanCount).coerceAtLeast(0)
 
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3
