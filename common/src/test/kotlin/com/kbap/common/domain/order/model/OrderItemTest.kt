@@ -3,6 +3,7 @@ package com.kbap.common.domain.order.model
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import kotlin.random.Random
 
 class OrderItemTest : BehaviorSpec({
 
@@ -40,6 +41,29 @@ class OrderItemTest : BehaviorSpec({
         `when`("가격이 음수면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> { OrderItem.place(10L, 7L, "순두부찌개", 1, -1) }
+            }
+        }
+    }
+
+    given("주문 합계 계산") {
+        `when`("Int 합이 오버플로하는 구간을 포함한 임의 조합을 계산하면") {
+            then("totalPriceOf 는 Int 단계별 계산과, totalPriceLongOf 는 정확한 Long 합과 일치한다") {
+                val random = Random(20260905)
+                repeat(500) {
+                    val items = List(random.nextInt(1, 6)) {
+                        OrderItem.place(
+                            orderId = 1L,
+                            foodId = 1L,
+                            menuName = "메뉴",
+                            quantity = random.nextInt(1, 3_000),
+                            price = if (random.nextInt(5) == 0) null else random.nextInt(0, 2_000_000),
+                        )
+                    }
+                    val intPathTotal = items.sumOf { (it.price ?: 0) * it.quantity }
+                    val exactLongTotal = items.sumOf { (it.price ?: 0).toLong() * it.quantity }
+                    OrderItem.totalPriceOf(items) shouldBe intPathTotal
+                    OrderItem.totalPriceLongOf(items) shouldBe exactLongTotal
+                }
             }
         }
     }
