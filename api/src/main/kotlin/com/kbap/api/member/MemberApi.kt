@@ -163,6 +163,9 @@ interface MemberApi {
             점수 내역(breakdown)은 담지 않는다 — 내역이 필요하면 랭킹 상세 조회를 쓴다.
             등급명 번역은 클라이언트가 하며 서버는 안정 키(newcomer·taster·explorer …)만 내려준다.
             통화 `currency` 는 온보딩에서 국가 기준으로 자동 지정되며, 온보딩 전 회원은 `null` 이다.
+            스캔 쿼터 상태 4필드를 함께 내려준다 — `scanCount`(사용 횟수)·`freeScanLimit`(무료 한도, 현재 3)·
+            `scanUnlocked`(리뷰 작성으로 해금 여부)·`scanRemaining`(잔여 무료 횟수, 해금 회원은 `null`).
+            리뷰 탭 넛지 카드 표시 조건과 프로필 잔여 횟수 표기가 이 필드를 쓴다.
             `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
