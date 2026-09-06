@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 class FoodTest : BehaviorSpec({
     fun item(code: String, percent: Int) =
@@ -26,6 +27,30 @@ class FoodTest : BehaviorSpec({
         descriptionTranslations = descriptionTranslations,
         ingredients = ingredients,
     )
+
+    given("Food — 공개 시각(publishedAt)") {
+        `when`("검수 승인으로 READY 로 전이하면") {
+            then("publishedAt 이 기록된다") {
+                val food = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+
+                food.approve() shouldBe true
+
+                food.publishedAt shouldNotBe null
+            }
+        }
+
+        `when`("이미 READY 인 음식을 재승인하면") {
+            then("publishedAt 이 바뀌지 않는다") {
+                val food = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+                food.approve()
+                val first = food.publishedAt
+
+                food.approve() shouldBe false
+
+                food.publishedAt shouldBe first
+            }
+        }
+    }
 
     given("Food — 구성·맵기 보존") {
         `when`("정상 값으로 생성하면") {

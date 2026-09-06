@@ -15,6 +15,7 @@ import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import org.slf4j.LoggerFactory
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -75,6 +76,9 @@ class Food(
         columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD','ADMIN_REJECTED')",
     )
     var contentFailureKind: FoodContentFailureKind? = null,
+
+    @Column(name = "published_at")
+    var publishedAt: LocalDateTime? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
@@ -87,6 +91,7 @@ class Food(
         if (contentStatus == FoodContentStatus.READY) return false
         requireReviewable()
         contentStatus = FoodContentStatus.READY
+        publishedAt = LocalDateTime.now()
         return true
     }
 
