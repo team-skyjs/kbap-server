@@ -120,6 +120,7 @@ class AdminFoodService(
         if (foodRepository.findByKoreanNameIn(setOf(originalName)).any { it.id != food.id }) {
             throw BusinessException(ErrorCode.FOOD_RESTORE_NAME_CONFLICT)
         }
+        food.freezeLegacyPublishedAt()
         food.koreanName = originalName
         food.deletedOriginalKoreanName = null
         food.active()
@@ -175,6 +176,7 @@ class AdminFoodService(
         }
 
         val wasReady = food.isReady()
+        food.freezeLegacyPublishedAt()
         food.koreanName = matchKey
         food.displayName = command.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: command.koreanName
         food.description = command.description
@@ -197,6 +199,7 @@ class AdminFoodService(
     @Transactional
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
+        food.freezeLegacyPublishedAt()
         food.delete()
         food.deletedOriginalKoreanName = food.koreanName
         food.koreanName = deletedKoreanNameOf(food.koreanName, food.id)
