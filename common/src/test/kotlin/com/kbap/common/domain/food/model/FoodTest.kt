@@ -50,6 +50,20 @@ class FoodTest : BehaviorSpec({
                 food.publishedAt shouldBe first
             }
         }
+
+        `when`("표시 시각을 물으면") {
+            then("기록이 있으면 그 값, 없으면 READY 에 한해 updatedAt 근사치, 비READY 는 null 이다") {
+                val approved = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+                approved.approve()
+                approved.effectivePublishedAt() shouldBe approved.publishedAt
+
+                val legacyReady = create()
+                legacyReady.effectivePublishedAt() shouldBe legacyReady.updatedAt
+
+                val notReady = Food.failed("우주라면")
+                notReady.effectivePublishedAt() shouldBe null
+            }
+        }
     }
 
     given("Food — 구성·맵기 보존") {

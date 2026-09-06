@@ -25,7 +25,7 @@ data class FoodSummaryView(
                 imageRef = imageUrl,
                 spiciness = food.spiciness,
                 overallRiskStatus = food.overallRisk(userAvoidedCodes),
-                publishedAt = food.publishedAt?.atZone(ZoneId.systemDefault())?.toInstant(),
+                publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             )
         }
     }
