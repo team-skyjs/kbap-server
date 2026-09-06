@@ -88,6 +88,10 @@ class Food(
 
     fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: updatedAt.takeIf { isReady() }
 
+    fun freezeLegacyPublishedAt() {
+        if (isReady() && publishedAt == null) publishedAt = updatedAt
+    }
+
     fun approve(): Boolean {
         // 재승인(READY)은 이미 원하는 결과라 멱등 성공, 그 외 비대상은 운영자 실수 신호라 예외 — 의도된 비대칭.
         if (contentStatus == FoodContentStatus.READY) return false
@@ -127,6 +131,7 @@ class Food(
         descriptionTranslations: Map<String, String>,
         ingredients: List<FoodIngredient>,
     ) {
+        freezeLegacyPublishedAt()
         this.description = description
         this.longDescription = longDescription
         this.spiciness = spiciness
@@ -140,6 +145,7 @@ class Food(
     }
 
     fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
+        freezeLegacyPublishedAt()
         contentFailureKind = kind
         contentReviewAttempts++
         contentReviewRejectionReason = truncateReason(reason)
