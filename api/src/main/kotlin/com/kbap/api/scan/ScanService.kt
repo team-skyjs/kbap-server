@@ -17,6 +17,7 @@ import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.Member
+import com.kbap.common.domain.scan.RecentReadyScan
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import org.slf4j.LoggerFactory
@@ -98,8 +99,8 @@ class ScanService(
     }
 
     @Transactional(readOnly = true)
-    fun getRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
-        scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
+    fun getRecentReadyScans(memberId: Long, limit: Int): List<RecentReadyScan> =
+        scanHistoryRepository.findRecentReadyScans(memberId, limit)
 
     private fun loadAvoidanceCatalog(avoidedCodes: List<IngredientCode>): Map<IngredientCode, Ingredient> {
         if (avoidedCodes.isEmpty()) return emptyMap()

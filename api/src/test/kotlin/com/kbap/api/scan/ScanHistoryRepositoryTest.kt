@@ -103,7 +103,10 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-02 10:00:00")
                     seedHistory(11L, 1L, "2026-07-03 10:00:00")
 
-                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L, 2L)
+                    val result = repository.findRecentReadyScans(memberId = 11L, limit = 10)
+
+                    result.map { it.foodId } shouldContainExactly listOf(1L, 2L)
+                    result.first().lastScannedAt shouldBe java.time.LocalDateTime.of(2026, 7, 3, 10, 0)
                 }
             }
 
@@ -114,7 +117,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 
-                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
+                    repository.findRecentReadyScans(memberId = 11L, limit = 10).map { it.foodId } shouldContainExactly listOf(1L)
                 }
             }
 
@@ -125,9 +128,9 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                         seedHistory(11L, id, "2026-07-01 10:00:${"%02d".format(id)}")
                     }
 
-                    val result = repository.findRecentReadyFoodIds(memberId = 11L, limit = 10)
+                    val result = repository.findRecentReadyScans(memberId = 11L, limit = 10)
 
-                    result shouldContainExactly (12L downTo 3L).toList()
+                    result.map { it.foodId } shouldContainExactly (12L downTo 3L).toList()
                 }
             }
 
@@ -138,13 +141,13 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
                     seedHistory(99L, 2L, "2026-07-02 10:00:00")
 
-                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldContainExactly listOf(1L)
+                    repository.findRecentReadyScans(memberId = 11L, limit = 10).map { it.foodId } shouldContainExactly listOf(1L)
                 }
             }
 
             `when`("이력이 없으면") {
                 then("빈 목록을 반환한다") {
-                    repository.findRecentReadyFoodIds(memberId = 11L, limit = 10) shouldBe emptyList<Long>()
+                    repository.findRecentReadyScans(memberId = 11L, limit = 10) shouldBe emptyList<Long>()
                 }
             }
         }

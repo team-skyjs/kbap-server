@@ -17,8 +17,39 @@ data class HomeResponse(
     @field:Schema(description = "인기 음식 추천 (최대 5개). 비회원에게도 내려간다")
     val popularFoods: List<FoodSummaryResponse>,
     @field:Schema(description = "최근 스캔한 메뉴 (최대 10개, 최신순·중복 제거). 비회원이거나 이력이 없으면 빈 배열")
-    val recentScans: List<FoodSummaryResponse>,
+    val recentScans: List<HomeRecentScanResponse>,
 ) {
+    @Schema(description = "최근 스캔 카드 — 음식 요약 + 마지막 스캔 시각")
+    data class HomeRecentScanResponse(
+        val foodId: Long,
+        val name: String,
+        val koreanName: String?,
+        val imageRef: String?,
+        val spiciness: Int,
+        val overallRiskStatus: String,
+        @field:Schema(description = "이 음식을 마지막으로 스캔한 시각, ISO-8601 UTC", example = "2026-08-21T03:00:00Z")
+        val scannedAt: java.time.Instant,
+        val bookmarked: Boolean,
+        val review: FoodSummaryResponse.ReviewInfoResponse,
+    ) {
+        companion object {
+            fun from(view: HomeResult.RecentScanView, bookmarked: Boolean, rating: FoodRating?): HomeRecentScanResponse {
+                val summary = FoodSummaryResponse.from(view.food, bookmarked, rating)
+                return HomeRecentScanResponse(
+                    foodId = summary.foodId,
+                    name = summary.name,
+                    koreanName = summary.koreanName,
+                    imageRef = summary.imageRef,
+                    spiciness = summary.spiciness,
+                    overallRiskStatus = summary.overallRiskStatus,
+                    scannedAt = view.scannedAt,
+                    bookmarked = summary.bookmarked,
+                    review = summary.review,
+                )
+            }
+        }
+    }
+
     companion object {
         fun from(
             result: HomeResult,
@@ -32,7 +63,7 @@ data class HomeResponse(
                 FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
             },
             recentScans = result.recentScans.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                HomeRecentScanResponse.from(it, it.food.foodId in bookmarkedFoodIds, ratings[it.food.foodId])
             },
         )
     }

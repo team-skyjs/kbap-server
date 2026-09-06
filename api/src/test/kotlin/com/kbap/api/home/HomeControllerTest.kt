@@ -45,6 +45,24 @@ class HomeControllerTest : BehaviorSpec() {
             HomeTestSeed.reset(dataSource)
         }
 
+        given("최근 스캔 카드 — 스캔 시각(scannedAt)") {
+            `when`("같은 음식을 두 번 스캔했으면") {
+                then("최신 스캔 시각을 ISO-8601 UTC 로 내려준다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 2)
+                    HomeTestSeed.seedMember(dataSource, memberId = 21L, codes = listOf("EGG"))
+                    HomeTestSeed.seedScan(dataSource, memberId = 21L, foodId = 1L, scannedAt = "2026-08-20 09:00:00")
+                    HomeTestSeed.seedScan(dataSource, memberId = 21L, foodId = 1L, scannedAt = "2026-08-21 12:00:00")
+
+                    val expected = java.time.LocalDateTime.of(2026, 8, 21, 12, 0)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
+                    val recent = payload(21L).path("recentScans").single()
+                    recent.path("foodId").asLong() shouldBe 1L
+                    recent.path("scannedAt").asText() shouldBe expected
+                }
+            }
+        }
+
         given("홈 응답의 음식 카드 — 리뷰 평점·리뷰 수") {
             `when`("리뷰 있는 음식이 인기 음식·최근 스캔에 포함되면") {
                 then("두 섹션 카드 모두에 review 객체가 담기고 리뷰 없는 음식은 0.0·0 이다") {

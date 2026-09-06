@@ -16,6 +16,7 @@ interface HomeApi {
         summary = "홈 화면 조회",
         description = """
             홈 진입 시 필요한 세 섹션을 한 번에 내려준다 — 회원이 설정한 기피 성분, 인기 음식 5개, 최근 스캔한 메뉴 10개.
+            최근 스캔 카드는 음식 요약에 더해 `scannedAt`(그 음식을 마지막으로 스캔한 시각, ISO-8601 UTC)을 담는다 — 날짜 표기는 클라이언트가 한다.
 
             ## 인증 (선택)
             `Authorization: Bearer {accessToken}` 는 **선택**이다.

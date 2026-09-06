@@ -8,6 +8,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.api.scan.ScanService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZoneId
 
 @Service
 class HomeService(
@@ -28,10 +29,16 @@ class HomeService(
             popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },
             recentScans = member?.id?.let { id ->
-                val recentIds = scanService.getRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
-                val foodsById = foodService.getReadyFoodsByIds(recentIds).associateBy { it.id }
-                recentIds.mapNotNull { foodsById[it] }
-                    .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) }
+                val recentScans = scanService.getRecentReadyScans(id, RECENT_SCAN_SIZE)
+                val foodsById = foodService.getReadyFoodsByIds(recentScans.map { it.foodId }).associateBy { it.id }
+                recentScans.mapNotNull { scan ->
+                    foodsById[scan.foodId]?.let { food ->
+                        HomeResult.RecentScanView(
+                            food = FoodSummaryView.from(food, lang, avoidedRefs, foodService.resolveImageUrl(food)),
+                            scannedAt = scan.lastScannedAt.atZone(ZoneId.systemDefault()).toInstant(),
+                        )
+                    }
+                }
             }.orEmpty(),
         )
     }

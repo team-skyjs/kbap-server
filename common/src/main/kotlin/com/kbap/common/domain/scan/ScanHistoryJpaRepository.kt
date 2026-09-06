@@ -26,7 +26,7 @@ interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
     @Query(
         nativeQuery = true,
         value = """
-        select sh.food_id from scan_history sh
+        select sh.food_id as foodId, max(sh.created_at) as lastScannedAt from scan_history sh
         join food f on f.id = sh.food_id
         where sh.member_id = :memberId
           and sh.status = 'ACTIVE'
@@ -37,7 +37,7 @@ interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
         limit :limit
         """,
     )
-    fun findRecentReadyFoodIds(@Param("memberId") memberId: Long, @Param("limit") limit: Int): List<Long>
+    fun findRecentReadyScans(@Param("memberId") memberId: Long, @Param("limit") limit: Int): List<RecentReadyScan>
 
     @Query(
         nativeQuery = true,
