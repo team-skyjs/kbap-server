@@ -99,7 +99,7 @@ class FoodService(
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
             reviewEligible = input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) } ?: false,
-            publishedAt = food.publishedAt?.atZone(ZoneId.systemDefault())?.toInstant(),
+            publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
                     code = ingredient.code,

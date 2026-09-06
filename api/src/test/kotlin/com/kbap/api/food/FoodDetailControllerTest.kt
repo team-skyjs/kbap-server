@@ -74,11 +74,17 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("기록이 없는 음식을 조회하면") {
-                then("publishedAt 은 null 이다") {
+            `when`("기록이 없는 READY 음식을 조회하면") {
+                then("updatedAt 근사치를 publishedAt 으로 내려준다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET updated_at = '2026-08-15 09:30:00' WHERE id = 1") }
+                    }
+                    val expected = java.time.LocalDateTime.of(2026, 8, 15, 9, 30)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
                     mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.publishedAt") { value(nullValue()) }
+                        jsonPath("$.payload.publishedAt") { value(expected) }
                     }
                 }
             }
