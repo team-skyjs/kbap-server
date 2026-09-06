@@ -27,6 +27,7 @@ data class HomeResponse(
         val imageRef: String?,
         val spiciness: Int,
         val overallRiskStatus: String,
+        val publishedAt: java.time.Instant?,
         @field:Schema(description = "이 음식을 마지막으로 스캔한 시각, ISO-8601 UTC", example = "2026-08-21T03:00:00Z")
         val scannedAt: java.time.Instant,
         val bookmarked: Boolean,
@@ -42,6 +43,7 @@ data class HomeResponse(
                     imageRef = summary.imageRef,
                     spiciness = summary.spiciness,
                     overallRiskStatus = summary.overallRiskStatus,
+                    publishedAt = summary.publishedAt,
                     scannedAt = view.scannedAt,
                     bookmarked = summary.bookmarked,
                     review = summary.review,

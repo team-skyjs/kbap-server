@@ -52,13 +52,17 @@ class HomeControllerTest : BehaviorSpec() {
                     HomeTestSeed.seedMember(dataSource, memberId = 21L, codes = listOf("EGG"))
                     HomeTestSeed.seedScan(dataSource, memberId = 21L, foodId = 1L, scannedAt = "2026-08-20 09:00:00")
                     HomeTestSeed.seedScan(dataSource, memberId = 21L, foodId = 1L, scannedAt = "2026-08-21 12:00:00")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET published_at = '2026-08-19 08:00:00' WHERE id = 1") }
+                    }
 
-                    val expected = java.time.LocalDateTime.of(2026, 8, 21, 12, 0)
+                    fun isoOf(y: Int, m: Int, d: Int, h: Int, min: Int) = java.time.LocalDateTime.of(y, m, d, h, min)
                         .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
 
                     val recent = payload(21L).path("recentScans").single()
                     recent.path("foodId").asLong() shouldBe 1L
-                    recent.path("scannedAt").asText() shouldBe expected
+                    recent.path("scannedAt").asText() shouldBe isoOf(2026, 8, 21, 12, 0)
+                    recent.path("publishedAt").asText() shouldBe isoOf(2026, 8, 19, 8, 0)
                 }
             }
         }
