@@ -261,3 +261,9 @@ variable "api_cpu_target_percent" {
   type        = number
   default     = 40
 }
+
+variable "api_slow_start_seconds" {
+  description = "api 대상 그룹 slow start(초). 새 타깃의 트래픽 비중을 이 시간 동안 선형 상승. 0 이면 끔"
+  type        = number
+  default     = 60
+}
