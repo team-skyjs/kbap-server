@@ -5,4 +5,5 @@ ALTER TABLE `food`
 
 UPDATE `food`
 SET `published_at` = `updated_at`
-WHERE `content_status` = 'READY';
+WHERE `content_status` = 'READY'
+  AND `published_at` IS NULL;
