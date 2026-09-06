@@ -3,6 +3,8 @@ package com.kbap.api.food
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.RiskLevel
+import java.time.Instant
+import java.time.ZoneId
 
 data class FoodSummaryView(
     val foodId: Long,
@@ -11,6 +13,7 @@ data class FoodSummaryView(
     val imageRef: String?,
     val spiciness: Int,
     val overallRiskStatus: RiskLevel,
+    val publishedAt: Instant?,
 ) {
     companion object {
         fun from(food: Food, lang: LanguageCode, userAvoidedCodes: Set<String>, imageUrl: String?): FoodSummaryView {
@@ -22,6 +25,7 @@ data class FoodSummaryView(
                 imageRef = imageUrl,
                 spiciness = food.spiciness,
                 overallRiskStatus = food.overallRisk(userAvoidedCodes),
+                publishedAt = food.publishedAt?.atZone(ZoneId.systemDefault())?.toInstant(),
             )
         }
     }

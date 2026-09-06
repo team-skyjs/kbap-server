@@ -58,6 +58,32 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 content = """{"foodId":$foodId}"""
             }.andExpect { status { isOk() } }
 
+        given("음식 상세 조회 API — 공개 시각(publishedAt)") {
+            `when`("READY 전이 시각이 기록된 음식을 조회하면") {
+                then("publishedAt 을 ISO-8601 UTC 로 내려준다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET published_at = '2026-08-21 12:00:00' WHERE id = 1") }
+                    }
+                    val expected = java.time.LocalDateTime.of(2026, 8, 21, 12, 0)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.publishedAt") { value(expected) }
+                    }
+                }
+            }
+
+            `when`("기록이 없는 음식을 조회하면") {
+                then("publishedAt 은 null 이다") {
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.publishedAt") { value(nullValue()) }
+                    }
+                }
+            }
+        }
+
         given("음식 상세 조회 API — 북마크 여부(bookmarked)") {
             `when`("회원이 북마크한 음식의 상세를 조회하면") {
                 then("bookmarked=true 를 반환한다") {
