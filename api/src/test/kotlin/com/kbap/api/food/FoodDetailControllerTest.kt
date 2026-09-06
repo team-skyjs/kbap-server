@@ -12,7 +12,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
-import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -75,31 +74,10 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("기록이 없는 READY 음식을 편집하면") {
-                then("publishedAt 이 편집 전 updatedAt 으로 동결돼 편집 후에도 불변이다") {
-                    dataSource.connection.use { c ->
-                        c.createStatement().use { it.execute("UPDATE food SET updated_at = '2026-08-15 09:30:00' WHERE id = 1") }
-                    }
-                    val expected = java.time.LocalDateTime.of(2026, 8, 15, 9, 30)
-                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
-
-                    mockMvc.put("/api/admin/foods/1") {
-                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"koreanName":"된장찌개","description":"수정 설명","spiciness":1,"contentStatus":"READY","version":0}"""
-                    }.andExpect { status { isOk() } }
-
-                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.publishedAt") { value(expected) }
-                    }
-                }
-            }
-
             `when`("기록이 없는 READY 음식을 조회하면") {
-                then("updatedAt 근사치를 publishedAt 으로 내려준다") {
+                then("createdAt(등록 시각) 근사치를 publishedAt 으로 내려준다") {
                     dataSource.connection.use { c ->
-                        c.createStatement().use { it.execute("UPDATE food SET updated_at = '2026-08-15 09:30:00' WHERE id = 1") }
+                        c.createStatement().use { it.execute("UPDATE food SET created_at = '2026-08-15 09:30:00' WHERE id = 1") }
                     }
                     val expected = java.time.LocalDateTime.of(2026, 8, 15, 9, 30)
                         .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()

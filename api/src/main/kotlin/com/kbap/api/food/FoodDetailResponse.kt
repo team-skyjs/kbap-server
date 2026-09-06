@@ -26,7 +26,7 @@ data class FoodDetailResponse(
     val spiciness: Int,
 
     @field:Schema(
-        description = "콘텐츠 공개(READY 전이) 시각, ISO-8601 UTC. 전이 기록이 없는 기존 READY 음식은 updatedAt 근사치 — 신규 여부(isNew) 판정은 클라이언트가 한다.",
+        description = "콘텐츠 공개(READY 전이) 시각, ISO-8601 UTC. 전이 기록이 없는 기존 READY 음식은 createdAt(등록 시각) 근사치 — 신규 여부(isNew) 판정은 클라이언트가 한다.",
         example = "2026-08-21T03:00:00Z",
         nullable = true,
     )

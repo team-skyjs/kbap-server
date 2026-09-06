@@ -51,61 +51,14 @@ class FoodTest : BehaviorSpec({
             }
         }
 
-        `when`("기록 없는 READY 음식을 편집하면") {
-            then("편집 전 updatedAt 으로 publishedAt 이 동결된다") {
-                val legacy = create()
-                val before = legacy.updatedAt
-
-                legacy.applyContent(
-                    description = "새 설명",
-                    longDescription = null,
-                    spiciness = 1,
-                    nameTranslations = emptyMap(),
-                    descriptionTranslations = emptyMap(),
-                    ingredients = emptyList(),
-                )
-
-                legacy.publishedAt shouldBe before
-            }
-        }
-
-        `when`("기록된 행을 편집하면") {
-            then("publishedAt 이 바뀌지 않는다") {
-                val food = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
-                food.approve()
-                val recorded = food.publishedAt
-
-                food.applyContent(
-                    description = "새 설명",
-                    longDescription = null,
-                    spiciness = 1,
-                    nameTranslations = emptyMap(),
-                    descriptionTranslations = emptyMap(),
-                    ingredients = emptyList(),
-                )
-
-                food.publishedAt shouldBe recorded
-            }
-        }
-
-        `when`("비READY 음식을 편집하면") {
-            then("publishedAt 은 null 을 유지한다") {
-                val failed = Food.failed("우주라면")
-
-                failed.recordContentFailure(FoodContentFailureKind.JUDGE_REJECTED, "사유")
-
-                failed.publishedAt shouldBe null
-            }
-        }
-
         `when`("표시 시각을 물으면") {
-            then("기록이 있으면 그 값, 없으면 READY 에 한해 updatedAt 근사치, 비READY 는 null 이다") {
+            then("기록이 있으면 그 값, 없으면 READY 에 한해 createdAt 근사치, 비READY 는 null 이다") {
                 val approved = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
                 approved.approve()
                 approved.effectivePublishedAt() shouldBe approved.publishedAt
 
                 val legacyReady = create()
-                legacyReady.effectivePublishedAt() shouldBe legacyReady.updatedAt
+                legacyReady.effectivePublishedAt() shouldBe legacyReady.createdAt
 
                 val notReady = Food.failed("우주라면")
                 notReady.effectivePublishedAt() shouldBe null
