@@ -38,48 +38,59 @@ class NotificationSettingService(
     fun updateSettings(memberId: Long, installationId: String?, request: NotificationSettingsUpdateRequest): NotificationSettingsResult {
         memberService.getMember(memberId)
         val now = LocalDateTime.now()
-        var setting = settingRepository.findByMemberId(memberId)
-        fun settingOrCreate(): NotificationSetting =
-            setting ?: settingRepository.save(NotificationSetting.defaultFor(memberId)).also { setting = it }
 
-        request.activity?.let { settingOrCreate().updateActivity(it) }
-        request.kbapNews?.let { news ->
-            when (news.enabled) {
-                true -> consentService.grantForMember(
-                    memberId,
-                    installationId,
-                    mapOf(
-                        NotificationConsentType.MARKETING_PRIVACY to news.privacyConsentVersion!!,
-                        NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
-                    ),
-                    now,
+        if (request.activity != null) {
+            settingOf(memberId).updateActivity(request.activity)
+        }
+
+        val news = request.kbapNews
+        if (news != null) {
+            if (news.enabled == true) {
+                val versions = mapOf(
+                    NotificationConsentType.MARKETING_PRIVACY to news.privacyConsentVersion!!,
+                    NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
                 )
-                false -> consentService.revokeForMember(memberId, now)
-                null -> Unit
+                consentService.grantForMember(memberId, installationId, versions, now)
             }
-            news.mealTime?.let { enabled ->
-                if (enabled && !consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))) {
+            if (news.enabled == false) {
+                consentService.revokeForMember(memberId, now)
+            }
+            if (news.mealTime != null) {
+                if (news.mealTime && !isKbapNewsEnabled(memberId)) {
                     throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
                 }
-                settingOrCreate().updateMealTime(enabled)
+                settingOf(memberId).updateMealTime(news.mealTime)
             }
         }
+
         return assemble(memberId)
     }
 
+    private fun settingOf(memberId: Long): NotificationSetting =
+        settingRepository.findByMemberId(memberId)
+            ?: settingRepository.save(NotificationSetting.defaultFor(memberId))
+
+    private fun isKbapNewsEnabled(memberId: Long): Boolean =
+        consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
+
     private fun assemble(memberId: Long): NotificationSettingsResult {
         val preferences = settingRepository.findByMemberId(memberId)?.preferences() ?: NotificationPreferences.DEFAULT
-        val open = consentRepository.findOpenByMemberId(memberId)
-        val enabled = consentService.isMarketingEnabled(open)
+        val openConsents = consentRepository.findOpenByMemberId(memberId)
+        val enabled = consentService.isMarketingEnabled(openConsents)
+
+        val privacyConsent = openConsents
+            .filter { it.consentType == NotificationConsentType.MARKETING_PRIVACY }
+            .maxByOrNull { it.grantedAt }
+        val receiveConsent = openConsents
+            .filter { it.consentType == NotificationConsentType.MARKETING_RECEIVE }
+            .maxByOrNull { it.grantedAt }
+
         return NotificationSettingsResult(
             activity = preferences.activity,
             kbapNewsEnabled = enabled,
             mealTime = preferences.mealTime && enabled,
-            privacyConsent = open.latestOf(NotificationConsentType.MARKETING_PRIVACY),
-            receiveConsent = open.latestOf(NotificationConsentType.MARKETING_RECEIVE),
+            privacyConsent = privacyConsent,
+            receiveConsent = receiveConsent,
         )
     }
-
-    private fun List<NotificationConsent>.latestOf(type: NotificationConsentType): NotificationConsent? =
-        filter { it.consentType == type }.maxByOrNull { it.grantedAt }
 }
