@@ -30,4 +30,16 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
         @Param("reporterMemberId") reporterMemberId: Long,
         @Param("targetType") targetType: ReportTargetType,
     ): List<Long>
+
+    @Query(
+        """
+        select r.targetId from Report r
+        where r.reporterInstallationId = :reporterInstallationId
+          and r.targetType = :targetType
+        """,
+    )
+    fun findTargetIdsByReporterInstallationIdAndTargetType(
+        @Param("reporterInstallationId") reporterInstallationId: String,
+        @Param("targetType") targetType: ReportTargetType,
+    ): List<Long>
 }
