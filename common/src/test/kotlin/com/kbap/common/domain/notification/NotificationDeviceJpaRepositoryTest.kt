@@ -26,6 +26,7 @@ class NotificationDeviceJpaRepositoryTest : BehaviorSpec() {
 
     init {
         fun clear() = repository.deleteAll()
+        val now = LocalDateTime.of(2026, 9, 7, 12, 0)
 
         fun device(installationId: String = "inst-1", memberId: Long? = null) = NotificationDevice.register(
             installationId = installationId,
@@ -47,7 +48,8 @@ class NotificationDeviceJpaRepositoryTest : BehaviorSpec() {
                     found.expoToken shouldBe "ExponentPushToken[inst-1]"
                     found.platform shouldBe DevicePlatform.IOS
                     found.lang shouldBe "ko"
-                    found.marketing shouldBe false
+                    found.tokenInvalidAt.shouldBeNull()
+                    found.isTokenValid() shouldBe true
                 }
             }
 
@@ -108,56 +110,40 @@ class NotificationDeviceJpaRepositoryTest : BehaviorSpec() {
                     found.expoToken shouldBe "ExponentPushToken[new]"
                     found.platform shouldBe DevicePlatform.ANDROID
                     found.lang shouldBe "en"
-                    repository.findByExpoToken("ExponentPushToken[new]") shouldHaveSize 1
                 }
             }
         }
 
-        given("게스트 광고성 수신 동의") {
-            val now = LocalDateTime.of(2026, 9, 7, 12, 0)
-
-            `when`("문구 버전 v2 로 켜면") {
+        given("무효 토큰") {
+            `when`("Expo 가 기기 미등록을 알려 토큰을 무효 처리하면") {
                 clear()
                 val saved = repository.save(device())
-                saved.updateMarketing(enabled = true, consentVersion = "v2", now = now)
+                saved.markTokenInvalid(now)
                 repository.saveAndFlush(saved)
 
-                then("동의 on·버전·서버 시각이 기록되고 발송 가능 판정이 참이다") {
-                    val found = repository.findByInstallationId("inst-1")!!
-                    found.marketing shouldBe true
-                    found.marketingConsentVersion shouldBe "v2"
-                    found.marketingOptInAt shouldBe now
-                    found.isMarketingAllowed("v2") shouldBe true
-                    found.isMarketingAllowed("v3") shouldBe false
+                then("기기 행은 남고 무효 시각만 찍혀 설치 식별자 조회가 계속 된다") {
+                    val found = repository.findByInstallationId("inst-1")
+                    found.shouldNotBeNull()
+                    found.tokenInvalidAt shouldBe now
+                    found.isTokenValid() shouldBe false
                 }
             }
 
-            `when`("켜진 동의를 끄면") {
+            `when`("무효 처리된 기기가 다시 등록하면") {
                 clear()
                 val saved = repository.save(device())
-                saved.updateMarketing(enabled = true, consentVersion = "v2", now = now)
-                saved.updateMarketing(enabled = false, consentVersion = null, now = now.plusDays(1))
+                saved.markTokenInvalid(now)
                 repository.saveAndFlush(saved)
+                val found = repository.findByInstallationId("inst-1")!!
+                found.renew(expoToken = "ExponentPushToken[again]", platform = DevicePlatform.IOS, lang = "ko")
+                repository.saveAndFlush(found)
 
-                then("동의·버전·시각이 모두 비워진다") {
-                    val found = repository.findByInstallationId("inst-1")!!
-                    found.marketing shouldBe false
-                    found.marketingConsentVersion.shouldBeNull()
-                    found.marketingOptInAt.shouldBeNull()
-                    found.isMarketingAllowed("v2") shouldBe false
-                }
-            }
-        }
-
-        given("소프트 삭제") {
-            `when`("기기를 삭제하면") {
-                clear()
-                val saved = repository.save(device())
-                saved.delete()
-                repository.saveAndFlush(saved)
-
-                then("설치 식별자 조회에서 사라진다") {
-                    repository.findByInstallationId("inst-1").shouldBeNull()
+                then("같은 행이 유효 토큰으로 되살아난다") {
+                    val revived = repository.findByInstallationId("inst-1")!!
+                    revived.id shouldBe saved.id
+                    revived.tokenInvalidAt.shouldBeNull()
+                    revived.isTokenValid() shouldBe true
+                    revived.expoToken shouldBe "ExponentPushToken[again]"
                 }
             }
         }
