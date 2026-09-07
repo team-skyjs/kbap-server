@@ -121,14 +121,27 @@ class ReportControllerTest : BehaviorSpec() {
             targetId: Long? = null,
             reason: String? = "SPAM",
             detail: String? = null,
+            installationId: String? = null,
         ): String = mapper.writeValueAsString(
             buildMap {
                 targetType?.let { put("targetType", it) }
                 targetId?.let { put("targetId", it) }
                 reason?.let { put("reason", it) }
                 detail?.let { put("detail", it) }
+                installationId?.let { put("installationId", it) }
             },
         )
+
+        fun guestReportCountOf(installationId: String, targetId: Long): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT COUNT(*) FROM report WHERE reporter_installation_id = ? AND target_type = 'REVIEW' AND target_id = ?",
+                ).use { ps ->
+                    ps.setString(1, installationId)
+                    ps.setLong(2, targetId)
+                    ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); rs.getInt(1) }
+                }
+            }
 
         fun report(token: String?, body: String): ResultActionsDsl =
             mockMvc.post(path) {
@@ -291,11 +304,52 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("토큰 없이 신고하면") {
-                then("401 로 거절한다 — 인증 필터에 /reports 가 등록돼 있어야 한다") {
-                    report(null, body(targetId = 8101L)).andExpect {
-                        status { isUnauthorized() }
+            `when`("게스트가 installationId 와 함께 신고하면") {
+                then("201(200) 로 접수되고 게스트 신고가 저장된다") {
+                    seedReview(reviewId = 8120L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(null, body(targetId = 8120L, installationId = "guest-aaaaaaaa-1111")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
                     }
+                    guestReportCountOf("guest-aaaaaaaa-1111", 8120L) shouldBe 1
+                }
+            }
+
+            `when`("같은 게스트가 같은 대상을 다시 신고하면") {
+                then("409 REPORT-002 로 거절하고 1건을 유지한다") {
+                    seedReview(reviewId = 8121L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(null, body(targetId = 8121L, installationId = "guest-dup-2222")).andExpect { status { isOk() } }
+                    report(null, body(targetId = 8121L, reason = "ABUSE", installationId = "guest-dup-2222")).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("REPORT-002") }
+                    }
+                    guestReportCountOf("guest-dup-2222", 8121L) shouldBe 1
+                }
+            }
+
+            `when`("게스트가 installationId 없이 신고하면") {
+                then("400 REPORT-004 로 거절한다") {
+                    seedReview(reviewId = 8122L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(null, body(targetId = 8122L)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("REPORT-004") }
+                    }
+                }
+            }
+
+            `when`("회원과 게스트가 같은 대상을 각각 신고하면") {
+                then("서로 다른 신고자라 둘 다 접수된다(회원 유니크·게스트 유니크 분리)") {
+                    seedReview(reviewId = 8123L, authorMemberId = 8151L, foodId = 8181L)
+                    val token = accessToken(8124L)
+
+                    report(token, body(targetId = 8123L)).andExpect { status { isOk() } }
+                    report(null, body(targetId = 8123L, installationId = "guest-split-3333")).andExpect { status { isOk() } }
+
+                    reportCountOf(8124L, 8123L) shouldBe 1
+                    guestReportCountOf("guest-split-3333", 8123L) shouldBe 1
                 }
             }
         }
@@ -312,7 +366,14 @@ class ReportControllerTest : BehaviorSpec() {
                         executor.submit<Result<Unit>> {
                             start.await()
                             runCatching {
-                                reportService.createReport(8118L, ReportTargetType.REVIEW, 8117L, ReportReason.SPAM, null)
+                                reportService.createReport(
+                                    reporterMemberId = 8118L,
+                                    installationId = null,
+                                    targetType = ReportTargetType.REVIEW,
+                                    targetId = 8117L,
+                                    reason = ReportReason.SPAM,
+                                    detail = null,
+                                )
                             }
                         }
                     }

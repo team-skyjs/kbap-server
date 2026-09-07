@@ -13,6 +13,12 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
         targetId: Long,
     ): Boolean
 
+    fun existsByReporterInstallationIdAndTargetTypeAndTargetId(
+        reporterInstallationId: String,
+        targetType: ReportTargetType,
+        targetId: Long,
+    ): Boolean
+
     @Query(
         """
         select r.targetId from Report r
