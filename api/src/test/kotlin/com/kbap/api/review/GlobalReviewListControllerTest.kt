@@ -118,9 +118,11 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
             cursor: String? = null,
             sort: String? = null,
             countryCode: String? = null,
+            installationId: String? = null,
         ): ResultActionsDsl =
             mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
+                installationId?.let { header("X-Installation-Id", it) }
                 lang?.let { param("lang", it) }
                 cursor?.let { param("cursor", it) }
                 sort?.let { param("sort", it) }
@@ -170,6 +172,34 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
 
                     val authorIds = payloadOf(feed(author)).path("items").map { it.path("reviewId").asLong() }
                     authorIds.contains(reported) shouldBe true
+                }
+            }
+            `when`("게스트가 X-Installation-Id 로 신고한 리뷰가 있으면") {
+                then("같은 설치 ID 헤더로 조회할 때만 그 리뷰가 빠진다") {
+                    seedFood(908L, "게스트신고음식")
+                    val author = accessToken(9008L)
+                    val installationId = "guest-feed-11112222"
+                    val reported = createReview(author, 908L)
+                    val kept = createReview(author, 908L)
+                    mockMvc.post("/api/reports") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(
+                            mapOf(
+                                "targetType" to "REVIEW",
+                                "targetId" to reported,
+                                "reason" to "SPAM",
+                                "installationId" to installationId,
+                            ),
+                        )
+                    }.andExpect { status { isOk() } }
+
+                    val guestIds = payloadOf(feed(token = null, installationId = installationId))
+                        .path("items").map { it.path("reviewId").asLong() }
+                    guestIds.contains(kept) shouldBe true
+                    guestIds.contains(reported) shouldBe false
+
+                    val anonIds = payloadOf(feed(token = null)).path("items").map { it.path("reviewId").asLong() }
+                    anonIds.contains(reported) shouldBe true
                 }
             }
             `when`("작성자가 탈퇴하면") {
