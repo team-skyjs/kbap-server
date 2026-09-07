@@ -250,18 +250,6 @@ variable "vector_enabled" {
   default     = false
 }
 
-variable "api_max_count" {
-  description = "api 서비스 오토스케일링 최대 태스크 수 (EC2 2대 × 인스턴스당 2)"
-  type        = number
-  default     = 4
-}
-
-variable "api_cpu_target_percent" {
-  description = "api 서비스 오토스케일링 목표 CPU (%). 태스크 예약 CPU 대비"
-  type        = number
-  default     = 40
-}
-
 variable "api_slow_start_seconds" {
   description = "api 대상 그룹 slow start(초). 새 타깃의 트래픽 비중을 이 시간 동안 선형 상승. 0 이면 끔"
   type        = number
