@@ -128,11 +128,11 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] `./gradlew build` — 전 모듈 컴파일·ArchUnit(`ModuleBoundaryTest`)·전체 회귀. `ReviewListControllerTest` 등 `helpful` 문자열이 리뷰 도메인 것인지 확인(알림과 무관하면 무변경).
-- [ ] T032 [P] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenApi.kt`·`NotificationSettingApi.kt` swagger 문구 최종 점검 — 두 동의 명칭(마케팅 목적 개인정보 수집·이용 / 광고성 정보 수신), 그룹 명칭(활동 푸시·K-Bap에서 보내는 소식), 1.0 요청 404 안내.
-- [ ] T033 [P] Jira KB-466 본문을 확정 계약으로 갱신(경로 `/api/notifications/settings`, 중첩 응답, 두 동의) 및 KB-465 본문의 `settings` 필드 변경 반영 — `mcp__atlassian__editJiraIssue`. 앱 팀 공유 메모 한 줄(계약 변경·호환 없음).
-- [ ] T034 [P] 지식 위키 `../kbap-agenthub/wiki/push-notification-consent-model.md`(없으면 신규, 있으면 갱신) — 두 그룹 재편 결정(활동/소식 단일 토글, K-Bap 소식 = 두 동의, 식사 시간 알림 단일 토글, `meal_time` 기본 TRUE 로 tri-state 회피, 판정 = 두 종류 열린 동의) 기록 + `INDEX.md` 한 줄, 허브에서 커밋.
-- [ ] T035 `commit-after-task` 스킬로 커밋(Phase 별 커밋이 이미 있으면 최종 정리 커밋만) 후 `open-draft-pr-to-develop` 으로 develop 대상 draft PR.
+- [x] T031 [P] `./gradlew build` — 전 모듈 컴파일·ArchUnit(`ModuleBoundaryTest`)·전체 회귀. `ReviewListControllerTest` 등 `helpful` 문자열이 리뷰 도메인 것인지 확인(알림과 무관하면 무변경).
+- [x] T032 [P] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenApi.kt`·`NotificationSettingApi.kt` swagger 문구 최종 점검 — 두 동의 명칭(마케팅 목적 개인정보 수집·이용 / 광고성 정보 수신), 그룹 명칭(활동 푸시·K-Bap에서 보내는 소식), 1.0 요청 404 안내.
+- [x] T033 [P] Jira KB-466 본문을 확정 계약으로 갱신(경로 `/api/notifications/settings`, 중첩 응답, 두 동의) 및 KB-465 본문의 `settings` 필드 변경 반영 — `mcp__atlassian__editJiraIssue`. 앱 팀 공유 메모 한 줄(계약 변경·호환 없음).
+- [x] T034 [P] 지식 위키 `../kbap-agenthub/wiki/push-notification-consent-model.md`(없으면 신규, 있으면 갱신) — 두 그룹 재편 결정(활동/소식 단일 토글, K-Bap 소식 = 두 동의, 식사 시간 알림 단일 토글, `meal_time` 기본 TRUE 로 tri-state 회피, 판정 = 두 종류 열린 동의) 기록 + `INDEX.md` 한 줄, 허브에서 커밋.
+- [x] T035 `commit-after-task` 스킬로 커밋(Phase 별 커밋이 이미 있으면 최종 정리 커밋만) 후 `open-draft-pr-to-develop` 으로 develop 대상 draft PR.
 
 ---
 
