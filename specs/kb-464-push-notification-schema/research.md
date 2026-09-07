@@ -20,11 +20,12 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 갈림길
 - **Rationale**: 헌법 V — lang 은 기기에서 흘러드는 값이라 저장 시 거절하지 않는다. 미지원 코드의 `en` 폴백은 발송 렌더 단계(KB-468) 책임. 지원 코드 최장 길이는 `zh-Hans`(7).
 - **Alternatives considered**: enum 컬럼 — 미지원 코드 저장 불가로 토큰 등록 자체가 실패한다.
 
-## R4. 게스트 설정과 회원 설정의 표현
+## R4. 게스트 설정의 표현
 
-- **Decision**: 값 객체 `NotificationPreferences(helpful, reviewReminder, marketing, marketingConsentVersion)` 하나를 둔다. 회원 설정 테이블은 이를 **컬럼 4개 + marketing_opt_in_at** 으로 펼치고, 게스트 설정은 토큰 행의 `guest_settings JSON` 에 같은 값 객체를 직렬화한다.
-- **Rationale**: 발송 대상 필터가 회원·게스트를 같은 타입으로 다룰 수 있다. 회원 설정은 쿼리 필터 대상이라 컬럼으로, 게스트 설정은 필터 빈도가 낮고 스키마 변경 없이 확장돼야 하므로 JSON 으로.
-- **Alternatives considered**: 게스트 설정도 별도 테이블 — 게스트 식별자가 토큰 행뿐이라 조인만 늘어난다.
+- **Decision**: 게스트가 가질 수 있는 설정은 광고성 수신 동의 하나(HELPFUL·REVIEW_REMINDER 는 회원 전용 행위, NOTICE 는 동의 불필요)이므로 `notification_device` 에 **타입 컬럼 3개**(`marketing`·`marketing_consent_version`·`marketing_opt_in_at`)를 둔다. `notification_setting` 의 같은 이름 컬럼 3개와 전이 규칙(`updateMarketing`)을 공유한다. JSON 컬럼은 두지 않는다.
+- **Rationale**: 값이 3개로 고정이라 JSON 은 이점이 없고, 게스트 넛지 대상 조회(`member_id IS NULL AND marketing = 1`)가 인덱스를 탈 수 있어야 한다. 동의 시각은 DATETIME 컬럼이어야 증빙이 된다.
+- **승계 규칙(KB-465 에서 구현)**: 기기를 회원에 연결할 때 회원 `notification_setting` 이 없으면 기기의 세 값을 복사해 생성(`inheritFrom`), 있으면 회원 설정이 이긴다. 연결 뒤 `member_id != null` 인 기기의 동의 컬럼은 읽지 않는다 — 정본은 회원 설정 하나. 게스트 넛지 실제 발송은 KB-471 의 대상 조회 조건 한 줄이라 미뤄도 스키마 변경이 없다.
+- **Alternatives considered**: `guest_settings JSON`(초안) — 3개 고정값에 JSON 은 조회·증빙 모두 불리. 게스트 설정 미저장 — 기존 게스트 기기의 동의 증빙이 비어 승계 불가. 별도 테이블 — 게스트 식별자가 기기 행뿐이라 조인만 늘어난다.
 
 ## R5. 광고성 수신 동의의 표현 (2026-09-07 FE 협의 결정)
 

@@ -12,15 +12,19 @@
 | expo_token | VARCHAR(255) | NOT NULL | `ExponentPushToken[...]` |
 | platform | ENUM('IOS','ANDROID') | NOT NULL | |
 | lang | VARCHAR(10) | NOT NULL | 기기 언어 코드, 검증 없이 보관 |
-| guest_settings | JSON | NULL | `NotificationPreferences` 직렬화 (게스트 전용) |
+| marketing | BOOLEAN | NOT NULL DEFAULT FALSE | 게스트 광고성 수신 동의 (회원 연결 후엔 무시, 정본은 notification_setting) |
+| marketing_consent_version | VARCHAR(20) | NULL | 동의 문구 버전 |
+| marketing_opt_in_at | DATETIME(6) | NULL | 동의 시각 (서버 스탬프) |
 | status / created_at / updated_at | | BaseEntity | |
 
-**엔티티 `NotificationDevice`** — 필드: `installationId`, `memberId: Long?`, `expoToken`, `platform: DevicePlatform`, `lang`, `guestSettings: NotificationPreferences?`.
+**엔티티 `NotificationDevice`** — 필드: `installationId`, `memberId: Long?`, `expoToken`, `platform: DevicePlatform`, `lang`, `marketing`, `marketingConsentVersion: String?`, `marketingOptInAt: LocalDateTime?`.
 도메인 메서드:
 - `linkMember(memberId)` — 회원 연결.
 - `unlinkMember()` — `memberId = null`, 나머지 유지.
-- `renew(expoToken, platform, lang, guestSettings)` — 같은 기기의 재등록 갱신.
-- companion `register(installationId, expoToken, platform, lang, memberId?, guestSettings?)`.
+- `renew(expoToken, platform, lang)` — 같은 기기의 재등록 갱신.
+- `updateMarketing(enabled, consentVersion, now)` — `NotificationSetting` 과 같은 전이 규칙(게스트 동의).
+- `isMarketingAllowed(requiredVersion)`.
+- companion `register(installationId, expoToken, platform, lang, memberId?)`.
 
 **리포지토리 `NotificationDeviceJpaRepository`** — `findByInstallationId(installationId): NotificationDevice?`, `findByMemberId(memberId): List<NotificationDevice>`, `findByExpoToken(expoToken): List<NotificationDevice>`(영수증 정리용).
 
@@ -37,15 +41,15 @@
 | marketing_consent_version | VARCHAR(20) | NULL | 동의한 문구 버전(FE 상수, 예: v2). 구 문구로 켠 사용자는 v1 로 간주 |
 | status / created_at / updated_at | | BaseEntity | |
 
-**값 객체 `NotificationPreferences(helpful: Boolean = true, reviewReminder: Boolean = true, marketing: Boolean = false, marketingConsentVersion: String? = null)`** — `DEFAULT` 상수 제공. 게스트 설정(`guest_settings` JSON)도 같은 필드.
+**값 객체 `NotificationPreferences(helpful: Boolean = true, reviewReminder: Boolean = true, marketing: Boolean = false, marketingConsentVersion: String? = null, marketingOptInAt: LocalDateTime? = null)`** — `DEFAULT` 상수 제공. 설정 응답·승계(게스트 기기 → 회원 설정 최초 생성) 조립용.
 
-**엔티티 `NotificationSetting`** — 필드: `memberId`, `helpful`, `reviewReminder`, `marketing`, `marketingOptInAt: LocalDateTime?`, `marketingConsentVersion: String?`.
+**엔티티 `NotificationSetting`** — 필드: `memberId`, `helpful`, `reviewReminder`, `marketing`, `marketingConsentVersion: String?`, `marketingOptInAt: LocalDateTime?`.
 도메인 메서드:
 - `preferences(): NotificationPreferences`.
 - `updateHelpful(enabled)`, `updateReviewReminder(enabled)`.
 - `updateMarketing(enabled, consentVersion, now)` — off→on 이면 `marketingOptInAt = now`·`marketingConsentVersion = consentVersion`, on→off 면 둘 다 `null`, 같은 값이면 무변화. 클라이언트 시각은 받지 않는다.
 - `isMarketingAllowed(requiredVersion)` — `marketing && marketingOptInAt != null && consentVersion >= requiredVersion`(버전 비교는 발송 측이 정한 순서).
-- companion `defaultFor(memberId)`.
+- companion `defaultFor(memberId)`, `inheritFrom(memberId, device: NotificationDevice)` — 게스트 기기 동의 승계(회원 설정이 없을 때만 사용).
 
 **리포지토리** — `findByMemberId(memberId): NotificationSetting?`.
 
@@ -89,7 +93,7 @@
 | error | VARCHAR(255) | NULL | `DeviceNotRegistered` 등 |
 | status / created_at / updated_at | | BaseEntity | |
 
-인덱스: `idx_notification_dispatch_status_created (dispatch_status, created_at)` — 영수증 조회 대상 스캔용.
+인덱스: `idx_notification_dispatch_notification (notification_id)`, `idx_notification_dispatch_status_created (dispatch_status, created_at)` — 영수증 조회 대상 스캔용.
 
 **엔티티 `NotificationDispatch`** — 필드: `notificationId`, `notificationDeviceId: Long?`, `expoToken`, `ticketId: String?`, `dispatchStatus`, `error: String?`.
 도메인 메서드(상태 전이): `markSent(ticketId)` PENDING→SENT, `markDelivered()` SENT→DELIVERED, `markFailed(error)` PENDING|SENT→FAILED.
