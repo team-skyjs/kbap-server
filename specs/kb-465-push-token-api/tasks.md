@@ -108,9 +108,9 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T015 전체 빌드 `./gradlew build` — `ModuleBoundaryTest`(arch)가 `api.notification` 의존 방향·구 패키지 금지를 통과하는지, `ErrorCodeStatusTest` 등 무관 테스트 무회귀 확인
-- [ ] T016 [P] quickstart.md 3절 실기동 — `SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun` 후 curl 2건(게스트 등록+동의, 헤더 누락 400)과 Swagger UI 그룹 `X-API-Version 1.1` 의 "푸시" 태그에 `PUT /api/notifications/tokens` 가 헤더·본문 스키마·`X-Installation-Id` 와 함께 노출되는지, 인증 태그의 login·logout 에 헤더가 보이는지 확인(SC-001). 그룹 `1.0` 에는 토큰 API 가 없고 인증 문서가 종전과 같은지 확인. curl 로 1.0 토큰 요청 404 확인
-- [ ] T017 [P] 지식 위키 기록 — `../kbap-agenthub/wiki/notification-token-registration.md` 신설(또는 KB-464 가 만든 광고성 동의 페이지가 있으면 그 페이지에 절 추가): PUT 멱등 계약, 1.1 버전 게이트(1.0 인증 API 무영향·토큰 API 1.1 전용), 게스트/회원 조합별 동작, 로그인 인수/철회 분기, 탈퇴 순서(기기 정리 → 회원 마킹) 근거, JWT 필터 미등록 이유. `INDEX.md` 한 줄 추가 후 허브에서 커밋
+- [x] T015 전체 빌드 `./gradlew build` — `ModuleBoundaryTest`(arch)가 `api.notification` 의존 방향·구 패키지 금지를 통과하는지, `ErrorCodeStatusTest` 등 무관 테스트 무회귀 확인
+- [x] T016 [P] quickstart.md 3절 실기동 — `SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun` 후 curl 2건(게스트 등록+동의, 헤더 누락 400)과 Swagger UI 그룹 `X-API-Version 1.1` 의 "푸시" 태그에 `PUT /api/notifications/tokens` 가 헤더·본문 스키마·`X-Installation-Id` 와 함께 노출되는지, 인증 태그의 login·logout 에 헤더가 보이는지 확인(SC-001). 그룹 `1.0` 에는 토큰 API 가 없고 인증 문서가 종전과 같은지 확인. curl 로 1.0 토큰 요청 404 확인
+- [x] T017 [P] 지식 위키 기록 — `../kbap-agenthub/wiki/notification-token-registration.md` 신설(또는 KB-464 가 만든 광고성 동의 페이지가 있으면 그 페이지에 절 추가): PUT 멱등 계약, 1.1 버전 게이트(1.0 인증 API 무영향·토큰 API 1.1 전용), 게스트/회원 조합별 동작, 로그인 인수/철회 분기, 탈퇴 순서(기기 정리 → 회원 마킹) 근거, JWT 필터 미등록 이유. `INDEX.md` 한 줄 추가 후 허브에서 커밋
 - [ ] T018 커밋(작업 단위별 — 최소 US1/US2/US3/polish 4개) 후 `open-draft-pr-to-develop` 스킬로 draft PR, Jira KB-465 본문의 경로를 `/api/notifications/tokens` 로 정정하고 DoD 체크(PUT upsert·게스트 settings·로그인/로그아웃/탈퇴·헤더 누락 400 / dev 배포·FE 공유는 머지 후 — FE 에 경로 변경 통보 포함)
 
 ---
