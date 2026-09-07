@@ -113,9 +113,9 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 quickstart.md 3절대로 로컬 `SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun` 부팅 → Flyway 적용 로그 확인 + `SHOW CREATE TABLE` 4개로 유니크·FK·인덱스 이름이 data-model.md 와 일치하는지 대조
-- [ ] T026 `./gradlew build` 전체 통과(ArchUnit `arch` 태그 포함). Kotlin 소스에 주석이 없는지, `@Column(length)`·`columnDefinition` 이 DDL 과 1:1 인지 최종 대조
-- [ ] T027 Jira KB-464 DoD 체크 + 지식 위키 `../kbap-agenthub/wiki/` 에 광고성 수신 동의 모델(marketing 카테고리·문구 버전·야간 보류) 기록, `INDEX.md` 한 줄 추가
+- [x] T025 quickstart.md 3절대로 로컬 `SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun` 부팅 → Flyway 적용 로그 확인 + `SHOW CREATE TABLE` 4개로 유니크·FK·인덱스 이름이 data-model.md 와 일치하는지 대조
+- [x] T026 `./gradlew build` 전체 통과(ArchUnit `arch` 태그 포함). Kotlin 소스에 주석이 없는지, `@Column(length)`·`columnDefinition` 이 DDL 과 1:1 인지 최종 대조
+- [x] T027 Jira KB-464 DoD 체크 + 지식 위키 `../kbap-agenthub/wiki/` 에 광고성 수신 동의 모델(marketing 카테고리·문구 버전·야간 보류) 기록, `INDEX.md` 한 줄 추가
 
 ---
 
