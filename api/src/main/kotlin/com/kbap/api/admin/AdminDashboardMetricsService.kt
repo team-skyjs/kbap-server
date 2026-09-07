@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.metering.LlmCallCostJpaRepository
@@ -20,6 +21,22 @@ class AdminDashboardMetricsService(
     private val foodRepository: FoodJpaRepository,
     private val llmCallCostRepository: LlmCallCostJpaRepository,
 ) {
+    @Transactional(readOnly = true)
+    fun getMetricsSummary(): AdminDashboardMetricsResponse {
+        val today = LocalDate.now()
+        val dailyScans = scanHistoryRepository.countDailySince(today.minusDays(13).atStartOfDay())
+            .associate { it.date to it.count }
+        val thisWeek = (6L downTo 0L).map(today::minusDays)
+        val prevWeek = (13L downTo 7L).map(today::minusDays)
+        return AdminDashboardMetricsResponse(
+            totalActiveMembers = memberRepository.countByMemberStatus(MemberStatus.ACTIVE),
+            pendingReviewCount = foodRepository.countByContentStatus(FoodContentStatus.PENDING_REVIEW),
+            weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
+            prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
+            weeklyScans = thisWeek.map { AdminDailyCountResponse(it, dailyScans[it] ?: 0L) },
+        )
+    }
+
     @Transactional(readOnly = true)
     fun getMetrics(): AdminDashboardMetricsView {
         val today = LocalDate.now()

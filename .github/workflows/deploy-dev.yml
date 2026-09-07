@@ -17,11 +17,13 @@ concurrency:
 permissions:
   id-token: write
   contents: read
+  pull-requests: read
 
 jobs:
   deploy:
     name: build and canary deploy to dev ECS
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     environment: dev
     env:
       ECS_NAME: kbap-dev-ecs
@@ -63,12 +65,15 @@ jobs:
             TAG="$COMMIT_SHA"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build and push image
         if: steps.image.outputs.build == 'true'
+        # dev 는 profile-runtime 스테이지(JDK jcmd·jfr + aws CLI + kbap-profile.jfc)로 배포해
+        # k6+JFR 성능 캠페인(#206)을 언제든 붙일 수 있게 한다. prod(deploy-prod.yml)는 슬림 runtime(JRE) 유지.
         run: |
-          docker build --platform linux/amd64 -t "${{ steps.image.outputs.uri }}" .
+          docker build --platform linux/amd64 --target profile-runtime -t "${{ steps.image.outputs.uri }}" .
           docker push "${{ steps.image.outputs.uri }}"
 
       # 태스크정의 원본(env·secrets·헬스체크·로그 구성)은 Terraform 소유(iac/terraform) —
@@ -89,10 +94,8 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      # 카나리(20% 15분 → 100%, 구버전 15분 유지)·5xx 자동 롤백은 CodeDeploy 배포 그룹에
-      # 미리 구성돼 있다(인프라 소유). 워크플로우 성공 기준은 "배포 생성"까지 — 이후 성패는
-      # CodeDeploy 소관(헬스체크 탈락·알람 발화 시 자동 롤백, 결과는 콘솔·알람으로 확인).
       - name: Create CodeDeploy canary deployment
+        id: canary
         env:
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
           IMAGE: ${{ steps.image.outputs.uri }}
@@ -110,6 +113,7 @@ jobs:
             --description "deploy $IMAGE" \
             --query deploymentId --output text)
           echo "deployment: $DEPLOYMENT_ID"
+          echo "id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
           STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
             --query deploymentInfo.status --output text)
           {
@@ -120,18 +124,119 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # 릴리즈 노트·슬랙 알림(KB-266) — 실패해도 배포 성공/실패 판정에 영향 없음
+      - name: Wait for canary completion
+        id: canary_wait
+        env:
+          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
+        run: |
+          STATUS=InProgress
+          for i in $(seq 1 120); do
+            STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+              --query deploymentInfo.status --output text)
+            case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
+            sleep 10
+          done
+          case "$STATUS" in
+            Succeeded|Failed|Stopped) ;;
+            *)
+              echo "::warning::폴링 상한 초과 — 배포를 중단(자동 롤백)하고 종료를 기다립니다: $DEPLOYMENT_ID"
+              aws deploy stop-deployment --deployment-id "$DEPLOYMENT_ID" --auto-rollback-enabled || true
+              for j in $(seq 1 60); do
+                STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+                  --query deploymentInfo.status --output text)
+                case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
+                sleep 10
+              done
+              ;;
+          esac
+          if [ "$STATUS" != "Succeeded" ]; then
+            ROLLBACK_ID=""
+            for j in $(seq 1 12); do
+              ROLLBACK_ID=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
+                --query deploymentInfo.rollbackInfo.rollbackDeploymentId --output text)
+              [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ] && break
+              sleep 5
+            done
+            if [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ]; then
+              echo "롤백 배포 종료 대기: $ROLLBACK_ID" >> "$GITHUB_STEP_SUMMARY"
+              for j in $(seq 1 60); do
+                RB_STATUS=$(aws deploy get-deployment --deployment-id "$ROLLBACK_ID" \
+                  --query deploymentInfo.status --output text)
+                case "$RB_STATUS" in Succeeded|Failed|Stopped) break ;; esac
+                sleep 10
+              done
+            fi
+          fi
+          ELAPSED=$((i * 10))
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "elapsed=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> "$GITHUB_OUTPUT"
+          echo "카나리 종료: $STATUS (약 ${ELAPSED}s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATUS" != "Succeeded" ]; then
+            echo "::error::카나리가 성공으로 끝나지 않았습니다: $STATUS"
+            exit 1
+          fi
+
+      - name: Notify Slack
+        if: always() && steps.canary.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+          DEPLOY_SHA: ${{ steps.image.outputs.tag }}
+          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
+          STATUS: ${{ steps.canary_wait.outputs.status || 'UNKNOWN' }}
+          ELAPSED: ${{ steps.canary_wait.outputs.elapsed || '-' }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "SLACK_RELEASE_WEBHOOK_URL 미설정 — 통지 생략"; exit 0; fi
+          AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$DEPLOY_SHA/pulls" \
+            --jq '.[0].user.login // empty' 2>/dev/null || true)
+          AUTHOR=${AUTHOR:-$GITHUB_ACTOR}
+          SHORT=${DEPLOY_SHA::7}
+          if [ "$STATUS" = "Succeeded" ]; then ICON="✅"; TITLE="DEV 배포 완료"
+          else ICON="🚨"; TITLE="DEV 배포 실패 — $STATUS"; fi
+          CONSOLE="https://ap-northeast-2.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID?region=ap-northeast-2"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          jq -n --arg icon "$ICON" --arg title "$TITLE" --arg sha "$SHORT" \
+            --arg sha_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$DEPLOY_SHA" \
+            --arg author "$AUTHOR" --arg elapsed "$ELAPSED" --arg status "$STATUS" \
+            --arg dep "$DEPLOYMENT_ID" --arg console "$CONSOLE" --arg run "$RUN_URL" '
+            { blocks: [
+              { type: "header", text: { type: "plain_text", text: ($icon + " " + $title), emoji: true } },
+              { type: "section", fields: [
+                { type: "mrkdwn", text: ("*커밋*\n<" + $sha_url + "|`" + $sha + "`>") },
+                { type: "mrkdwn", text: ("*작성자*\n" + $author) },
+                { type: "mrkdwn", text: ("*소요*\n" + $elapsed) },
+                { type: "mrkdwn", text: ("*상태*\n" + $status) }
+              ] },
+              { type: "context", elements: [
+                { type: "mrkdwn", text: ("<" + $console + "|CodeDeploy 콘솔> · <" + $run + "|Actions 실행> · `" + $dep + "`") }
+              ] }
+            ] }' \
+          | curl -sf -X POST -H 'Content-Type: application/json' -d @- "$WEBHOOK" >/dev/null \
+          || echo "::warning::슬랙 통지 실패(배포 판정 무영향)"
+
+  # GitHub Release — 본문은 --generate-notes 자동 생성(PR 목록). 재배포(build=false)는 발행하지 않고,
+  # 릴리즈 실패는 배포 성공/실패 판정에 영향 없다(별도 잡). 태그: dev-YYYYMMDD-<short-sha> (KST)
   release:
     needs: deploy
-    if: always()
+    if: needs.deploy.result == 'success' && needs.deploy.outputs.build == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    uses: ./.github/workflows/release-notes.yml
-    with:
-      environment: dev
-      prerelease: true
-      sha: ${{ github.sha }}
-      redeploy: ${{ needs.deploy.outputs.build != 'true' }}
-      deploy_result: ${{ needs.deploy.result }}
-    secrets:
-      SLACK_RELEASE_WEBHOOK_URL: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Create GitHub release with auto notes
+        run: |
+          TAG="dev-$(TZ=Asia/Seoul date +%Y%m%d)-${GITHUB_SHA::7}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG 이미 존재 — 재실행 멱등 skip" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+            --jq 'map(.tagName | select(startswith("dev-")))[0] // empty')
+          NOTES_START=()
+          [ -n "$PREV_TAG" ] && NOTES_START=(--notes-start-tag "$PREV_TAG")
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "DEV · $(TZ=Asia/Seoul date +%Y-%m-%d) · ${GITHUB_SHA::7}" \
+            --generate-notes "${NOTES_START[@]}" --prerelease --latest=false
+          echo "release: $TAG" >> "$GITHUB_STEP_SUMMARY"

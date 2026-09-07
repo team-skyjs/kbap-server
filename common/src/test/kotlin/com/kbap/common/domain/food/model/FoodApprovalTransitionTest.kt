@@ -1,5 +1,7 @@
 package com.kbap.common.domain.food.model
 
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -61,8 +63,9 @@ class FoodApprovalTransitionTest : BehaviorSpec({
 
         listOf(FoodContentStatus.FAILED, FoodContentStatus.PENDING_IMAGE).forEach { status ->
             `when`("$status 음식을 승인하려 하면") {
-                then("예외를 던진다") {
-                    shouldThrow<IllegalArgumentException> { food(status).approve() }
+                then("검수 대상 아님(FOOD-008) 예외를 던진다") {
+                    shouldThrow<BusinessException> { food(status).approve() }
+                        .errorCode shouldBe ErrorCode.FOOD_NOT_REVIEWABLE
                 }
             }
         }
@@ -128,8 +131,9 @@ class FoodApprovalTransitionTest : BehaviorSpec({
         }
 
         `when`("승인 대기가 아닌 음식을 반려하려 하면") {
-            then("예외를 던진다") {
-                shouldThrow<IllegalArgumentException> { food(FoodContentStatus.PENDING_IMAGE).reject(null) }
+            then("검수 대상 아님(FOOD-008) 예외를 던진다") {
+                shouldThrow<BusinessException> { food(FoodContentStatus.PENDING_IMAGE).reject(null) }
+                    .errorCode shouldBe ErrorCode.FOOD_NOT_REVIEWABLE
             }
         }
     }

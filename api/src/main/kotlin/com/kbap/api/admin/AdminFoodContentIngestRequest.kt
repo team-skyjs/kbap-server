@@ -65,6 +65,9 @@ data class AdminFoodContentIngestRequest(
     @AssertTrue(message = "failureKind 는 필수입니다")
     fun isFailureKindPresent(): Boolean = isPassed() || failureKind != null
 
+    @AssertTrue(message = "failureKind 는 파이프라인 실패 유형이어야 합니다")
+    fun isFailureKindFromPipeline(): Boolean = failureKind != FoodContentFailureKind.ADMIN_REJECTED
+
     @AssertTrue(message = "reason 은 필수입니다")
     fun isReasonPresent(): Boolean = isPassed() || reason?.isNotBlank() == true
 

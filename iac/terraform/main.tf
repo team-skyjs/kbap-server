@@ -45,4 +45,6 @@ module "ecs_environment" {
   alloy_image                      = var.alloy_image
 
   blocked_path_patterns = var.blocked_path_patterns
+
+  api_extra_env = var.api_extra_env
 }

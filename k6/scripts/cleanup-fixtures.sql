@@ -270,7 +270,6 @@ BEGIN
             AND NOT (ref.member_id = 35 AND ref.id > scan_history_high_watermark))
           AND NOT EXISTS (SELECT 1 FROM bookmark ref WHERE ref.food_id = candidate.food_id)
           AND NOT EXISTS (SELECT 1 FROM food_review ref WHERE ref.food_id = candidate.food_id)
-          AND NOT EXISTS (SELECT 1 FROM food_avoidance_substance ref WHERE ref.food_id = candidate.food_id)
           AND NOT EXISTS (SELECT 1 FROM order_item ref WHERE ref.food_id = candidate.food_id)
           AND NOT EXISTS (SELECT 1 FROM food_vector_outbox ref WHERE ref.food_id = candidate.food_id)
           AND NOT EXISTS (SELECT 1 FROM image_batch_item ref WHERE ref.food_id = candidate.food_id)

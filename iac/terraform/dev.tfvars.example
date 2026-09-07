@@ -31,3 +31,6 @@ blocked_path_patterns = ["*actuator*"]
 # S3 Vectors 벡터 검색(api)·적재(batch foodVectorSyncJob) 앱 스위치 — 버킷·인덱스·IAM 은 항상 생성, env 주입만 토글.
 # 적용은 README "벡터 검색·적재 켜기" 절.
 vector_enabled = true
+
+# Langfuse(관리자 페이지 LLM 지표 프록시용). 키는 SSM /kbap/<env>/LANGFUSE_PUBLIC_KEY · LANGFUSE_SECRET_KEY (SecureString), host 만 평문.
+api_extra_env = { LANGFUSE_HOST = "https://cloud.langfuse.com" }

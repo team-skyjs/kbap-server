@@ -2,6 +2,8 @@ package com.kbap.common.domain.food
 
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -17,6 +19,38 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun countByOutboxStatus(outboxStatus: FoodContentOutboxStatus): Long
 
     fun findTop20ByOrderByIdDesc(): List<FoodContentOutbox>
+
+    fun findByOutboxStatus(outboxStatus: FoodContentOutboxStatus, pageable: Pageable): Page<FoodContentOutbox>
+
+    @Query(
+        """
+        select o from FoodContentOutbox o
+        where (:foodId is not null and o.foodId = :foodId)
+           or o.displayName like concat('%', :keyword, '%') escape '\'
+        """,
+    )
+    fun searchByKeyword(
+        @Param("keyword") keyword: String,
+        @Param("foodId") foodId: Long?,
+        pageable: Pageable,
+    ): Page<FoodContentOutbox>
+
+    @Query(
+        """
+        select o from FoodContentOutbox o
+        where o.outboxStatus = :outboxStatus
+          and (
+              (:foodId is not null and o.foodId = :foodId)
+              or o.displayName like concat('%', :keyword, '%') escape '\'
+          )
+        """,
+    )
+    fun searchByKeywordAndStatus(
+        @Param("keyword") keyword: String,
+        @Param("foodId") foodId: Long?,
+        @Param("outboxStatus") outboxStatus: FoodContentOutboxStatus,
+        pageable: Pageable,
+    ): Page<FoodContentOutbox>
 
     @Query(
         value = """

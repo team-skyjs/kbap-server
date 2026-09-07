@@ -34,6 +34,8 @@ class OrderItem(
 
         fun totalPriceOf(items: List<OrderItem>): Int = items.sumOf { (it.price ?: 0) * it.quantity }
 
+        fun totalPriceLongOf(items: List<OrderItem>): Long = items.sumOf { (it.price ?: 0).toLong() * it.quantity }
+
         fun place(orderId: Long, foodId: Long, menuName: String, quantity: Int, price: Int?): OrderItem {
             require(menuName.isNotBlank()) { "menuName 은 blank 일 수 없습니다" }
             require(menuName.length <= MAX_MENU_NAME_LENGTH) { "menuName 은 최대 ${MAX_MENU_NAME_LENGTH}자입니다" }

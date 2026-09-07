@@ -57,6 +57,22 @@ interface AdminApi {
     ): ResponseEntity<BaseResponse<AdminFoodSeedResponse>>
 
     @Operation(
+        summary = "음식 이미지 배치 목록 조회",
+        description = """
+            최근 이미지 생성 배치 20건을 항목 카운트(pending·done·failed)와 함께 id 내림차순으로 반환한다.
+            어드민 SPA 이미지 배치 화면 전용이다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 배치가 없으면 빈 batches"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getImageBatches(): ResponseEntity<BaseResponse<AdminImageBatchListResponse>>
+
+    @Operation(
         summary = "음식 이미지 일괄 제출",
         description = """
             이미지가 필요한 음식(imageRef 부재 + 진행 중 배치 미포함)을 OpenAI Batch API 에 일괄 제출한다.

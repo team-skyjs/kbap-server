@@ -271,16 +271,17 @@ class AdminFoodServiceTest : BehaviorSpec() {
             }
 
             `when`("READY 를 직접 지정해 저장하면") {
-                then("READY 가 유지된다") {
+                then("READY_NOT_ALLOWED 로 거절한다 — READY 전이는 검수 승인 API 몫") {
                     val id = saveIncompleteFood("수동레디음식")
+                    val before = savedStatus(id)
 
                     val result = service.updateFood(
                         id,
                         completeCommand("수동레디음식", FoodContentStatus.READY, nameTranslationsJson = "{}"),
                     )
 
-                    result shouldBe AdminFoodUpdateResult.UPDATED
-                    savedStatus(id) shouldBe FoodContentStatus.READY
+                    result shouldBe AdminFoodUpdateResult.READY_NOT_ALLOWED
+                    savedStatus(id) shouldBe before
                 }
             }
 

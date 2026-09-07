@@ -3,6 +3,8 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -10,6 +12,7 @@ import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
@@ -17,6 +20,7 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.KoreanMenuNameNormalizer
+import com.kbap.common.util.LikeWildcards
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -58,14 +62,92 @@ class AdminFoodService(
     }
 
     @Transactional(readOnly = true)
+    fun searchAdminFoodPage(
+        page: Int,
+        query: String? = null,
+        status: FoodContentStatus? = null,
+        failureKind: FoodContentFailureKind? = null,
+        deleted: Boolean = false,
+    ): AdminFoodListResponse {
+        val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(LikeWildcards::escape)
+        val result = foodRepository.searchAdminFoodPage(
+            if (deleted) "DELETED" else "ACTIVE",
+            status?.name,
+            failureKind?.name,
+            keyword,
+            PageRequest.of(page - 1, LIST_PAGE_SIZE),
+        )
+        return AdminFoodListResponse(
+            items = result.content.map {
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+            },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
+        val result = foodRepository.findDeletedPage(PageRequest.of(page - 1, LIST_PAGE_SIZE))
+        return AdminFoodListResponse(
+            items = result.content.map {
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+            },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
+        foodRepository.findDeletedById(id)
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    @Transactional
+    fun restoreFood(id: Long): AdminFoodRestoreResponse {
+        val food = foodRepository.findAnyById(id) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        if (!food.isDeleted()) {
+            return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
+        }
+        val originalName = food.deletedOriginalKoreanName ?: originalKoreanNameOf(food.koreanName)
+        if (foodRepository.findByKoreanNameIn(setOf(originalName)).any { it.id != food.id }) {
+            throw BusinessException(ErrorCode.FOOD_RESTORE_NAME_CONFLICT)
+        }
+        food.koreanName = originalName
+        food.deletedOriginalKoreanName = null
+        food.active()
+        if (food.isReady()) {
+            cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
+            vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+        }
+        return AdminFoodRestoreResponse(restored = true, contentStatus = food.contentStatus)
+    }
+
+    @Transactional(readOnly = true)
+    fun getFoodDetail(id: Long): AdminFoodDetailResponse =
+        foodRepository.findById(id).orElse(null)
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {
         val food = foodRepository.findById(id).orElse(null) ?: return null
         return AdminFoodDetailView.from(food, imagePublicBaseUrl, objectMapper.writerWithDefaultPrettyPrinter()::writeValueAsString)
     }
 
     @Transactional
-    fun updateFood(id: Long, command: UpdateFoodCommand): AdminFoodUpdateResult {
-        val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodUpdateResult.NOT_FOUND
+    fun updateFood(id: Long, command: UpdateFoodCommand, expectedVersion: Long? = null): AdminFoodUpdateResult {
+        val food = foodRepository.findByIdForUpdate(id) ?: return AdminFoodUpdateResult.NOT_FOUND
+        if (expectedVersion != null && expectedVersion != food.version) {
+            throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
+        }
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
 
         val nameTranslations: Map<String, String>
@@ -88,9 +170,13 @@ class AdminFoodService(
             .any { it.id != food.id }
         if (duplicated) return AdminFoodUpdateResult.DUPLICATE_NAME
 
+        if (command.contentStatus == FoodContentStatus.READY && !food.isReady()) {
+            return AdminFoodUpdateResult.READY_NOT_ALLOWED
+        }
+
         val wasReady = food.isReady()
         food.koreanName = matchKey
-        food.displayName = command.koreanName
+        food.displayName = command.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
@@ -112,8 +198,33 @@ class AdminFoodService(
     fun deleteFood(id: Long): AdminFoodDeleteResult {
         val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
+        food.deletedOriginalKoreanName = food.koreanName
+        food.koreanName = deletedKoreanNameOf(food.koreanName, food.id)
+        cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
+        cancelPendingContentOutboxes(food.id)
         vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
+    }
+
+    // 접미 충돌 불가: 음식 id 는 유니크·불변이라 tombstone 키가 겹칠 수 없고(255자 절단 무관),
+    // 정규화(순수 한글)로 원명에 구분자가 못 들어간다. 원명은 별도 컬럼이 보존한다.
+    private fun deletedKoreanNameOf(name: String, foodId: Long): String {
+        val suffix = "$DELETED_NAME_SEPARATOR$foodId"
+        return name.take(KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH - suffix.length) + suffix
+    }
+
+    private fun originalKoreanNameOf(name: String): String = name.substringBefore(DELETED_NAME_SEPARATOR)
+
+    private fun cancelPendingContentOutboxes(foodId: Long) {
+        outboxRepository
+            .findByFoodIdInAndOutboxStatus(listOf(foodId), FoodContentOutboxStatus.PENDING)
+            .forEach { it.delete() }
+    }
+
+    private fun cancelPendingVectorOutboxes(foodId: Long, operation: FoodVectorOutboxOperation) {
+        vectorOutboxRepository
+            .findByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
+            .forEach { it.delete() }
     }
 
     @Transactional
@@ -143,6 +254,18 @@ class AdminFoodService(
             skipped = requested - created.size,
             max = max,
         )
+    }
+
+    @Transactional
+    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
+        val food = foodRepository.findByIdForUpdate(id)
+            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val alreadyPending = outboxRepository
+            .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
+            .isNotEmpty()
+        if (alreadyPending) return AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
+        outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+        return AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
     }
 
     private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
@@ -182,6 +305,8 @@ class AdminFoodService(
     companion object {
         const val LIST_PAGE_SIZE = 200
 
+        private const val DELETED_NAME_SEPARATOR = "_deleted_"
+
         const val RECOLLECT_MAX = 500
     }
 }
@@ -205,10 +330,12 @@ enum class AdminFoodUpdateResult {
     INVALID_NAME,
     INVALID_JSON,
     DUPLICATE_NAME,
+    READY_NOT_ALLOWED,
 }
 
 data class UpdateFoodCommand(
     val koreanName: String,
+    val displayName: String? = null,
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
@@ -232,6 +359,7 @@ data class AdminFoodListPageView(
 data class AdminFoodSummaryView(
     val id: Long,
     val koreanName: String,
+    val englishName: String?,
     val contentStatus: FoodContentStatus,
     val contentFailureKind: FoodContentFailureKind?,
     val spiciness: Int,
@@ -243,6 +371,7 @@ data class AdminFoodSummaryView(
             AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
+                englishName = food.nameTranslations[LanguageCode.EN.code],
                 contentStatus = food.contentStatus,
                 contentFailureKind = food.contentFailureKind,
                 spiciness = food.spiciness,

@@ -1,8 +1,10 @@
 package com.kbap.api.architecture
 
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.tngtech.archunit.core.domain.JavaCall
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.domain.properties.HasName
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.ArchCondition
@@ -161,6 +163,20 @@ class ModuleBoundaryTest : BehaviorSpec({
                     .orShould().beAnnotatedWith("jakarta.persistence.OneToOne")
                     .orShould().beAnnotatedWith("jakarta.persistence.ManyToMany")
                     .allowEmptyShould(true)
+                    .check(imported)
+            }
+        }
+    }
+
+    given("상태 무시 조회 경계") {
+        `when`("소프트삭제 우회 조회(findAnyById·findDeleted 계열)의 호출 위치를 검사하면") {
+            then("어드민 기능 패키지 밖에서는 호출하지 않는다 — 삭제 데이터 노출 통로") {
+                noClasses().that().resideOutsideOfPackage("com.kbap.api.admin..")
+                    .should().callMethodWhere(
+                        JavaCall.Predicates.target(
+                            HasName.Predicates.nameMatching("findAnyById|findDeletedById|findDeletedPage"),
+                        ),
+                    )
                     .check(imported)
             }
         }

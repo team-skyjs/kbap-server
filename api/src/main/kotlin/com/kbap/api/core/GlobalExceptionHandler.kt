@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
@@ -29,6 +30,23 @@ class GlobalExceptionHandler {
                 val field = (error as? org.springframework.validation.FieldError)?.field ?: error.objectName
                 "$field: ${error.defaultMessage}"
             }
+            .ifBlank { "잘못된 요청입니다" }
+        logFailure(e, ErrorCode.INVALID_REQUEST.code, HttpStatus.BAD_REQUEST, request)
+        return ResponseEntity.badRequest().body(BaseResponse.fail(ErrorCode.INVALID_REQUEST.code, message))
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException::class)
+    fun handleHandlerMethodValidation(
+        e: HandlerMethodValidationException,
+        request: HttpServletRequest,
+    ): ResponseEntity<BaseResponse<Any>> {
+        val message = e.parameterValidationResults
+            .flatMap { result ->
+                result.resolvableErrors.map { error ->
+                    "${result.methodParameter.parameterName}: ${error.defaultMessage}"
+                }
+            }
+            .joinToString("; ")
             .ifBlank { "잘못된 요청입니다" }
         logFailure(e, ErrorCode.INVALID_REQUEST.code, HttpStatus.BAD_REQUEST, request)
         return ResponseEntity.badRequest().body(BaseResponse.fail(ErrorCode.INVALID_REQUEST.code, message))

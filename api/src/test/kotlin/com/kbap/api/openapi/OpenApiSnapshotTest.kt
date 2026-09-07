@@ -201,6 +201,17 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     scanDesc.contains("SCAN-008").shouldBeTrue()
                 }
             }
+
+            `when`("검수 결과 적용 오퍼레이션을 보면") {
+                then("에러 코드 표에 검수 대상 아님(FOOD-008)이 실린다") {
+                    val reviewDesc = docOf("/v3/api-docs/1.0")
+                        .path("paths").path("/api/admin/foods/content-reviews/{foodId}").path("post")
+                        .path("description").asText()
+                    reviewDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
+                    reviewDesc.contains("FOOD-001").shouldBeTrue()
+                    reviewDesc.contains("FOOD-008").shouldBeTrue()
+                }
+            }
         }
     }
 }

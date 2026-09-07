@@ -237,6 +237,18 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("실패 유형으로 관리자 반려 전용 값을 보내면") {
+                then("거절한다 — 파이프라인 콜백은 어드민 반려를 대신 기록할 수 없다") {
+                    clearFoods()
+                    val food = saveFood("잔치국수")
+
+                    ingest(failedBody(food.id, failureKind = "ADMIN_REJECTED")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+                }
+            }
+
             `when`("실패인데 사유가 없으면") {
                 then("거절한다") {
                     clearFoods()

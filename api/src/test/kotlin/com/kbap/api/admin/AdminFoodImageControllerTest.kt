@@ -9,6 +9,9 @@ import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.ImageBatchStatus
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -16,6 +19,7 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 
 @IntegrationTest
@@ -57,6 +61,40 @@ class AdminFoodImageControllerTest : BehaviorSpec() {
 
         beforeContainer { clearAll() }
         afterSpec { clearAll() }
+
+        given("관리자 이미지 배치 목록 API") {
+            `when`("배치 이력이 있으면") {
+                then("최근 배치를 항목 카운트와 함께 id 내림차순으로 내려준다") {
+                    val batch = batchRepository.save(
+                        ImageBatch(batchStatus = ImageBatchStatus.SUBMITTED, promptVersion = "v1", model = "gpt-image-2"),
+                    )
+                    val food = foodRepository.save(Food.failed("배치목록찌개"))
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id))
+
+                    mockMvc.get(path) { header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}") }
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.batches.length()") { value(1) }
+                            jsonPath("$.payload.batches[0].id") { value(batch.id) }
+                            jsonPath("$.payload.batches[0].batchStatus") { value("SUBMITTED") }
+                            jsonPath("$.payload.batches[0].model") { value("gpt-image-2") }
+                            jsonPath("$.payload.batches[0].pendingCount") { value(1) }
+                            jsonPath("$.payload.batches[0].totalCount") { value(1) }
+                            jsonPath("$.payload.batches[0].submittedAt") { exists() }
+                        }
+                }
+            }
+
+            `when`("배치가 없으면") {
+                then("빈 목록으로 성공한다") {
+                    mockMvc.get(path) { header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}") }
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.payload.batches.length()") { value(0) }
+                        }
+                }
+            }
+        }
 
         given("관리자 이미지 일괄 제출 API") {
             `when`("이미지 없는 음식 2건이 있는 상태에서 제출하면") {

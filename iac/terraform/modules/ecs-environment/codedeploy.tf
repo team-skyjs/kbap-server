@@ -17,6 +17,11 @@ resource "aws_codedeploy_deployment_config" "canary" {
       interval   = var.canary_interval_minutes
     }
   }
+
+  # 이름에 값이 박혀 있어 카나리 값 변경 = replace 다. 먼저 지우면 deployment group 이 참조 중이라 실패한다.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_codedeploy_deployment_group" "api" {

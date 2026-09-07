@@ -10,7 +10,8 @@ import java.net.URLDecoder
 import java.util.UUID
 
 // 로그에 남길 때 값을 가릴 쿼리 파라미터명. 민감 파라미터가 생기면 여기에 등록한다.
-internal val MASKED_QUERY_PARAMS: Set<String> = setOf("latitude", "longitude")
+// q: 어드민 멤버 검색이 이메일을 받을 수 있다 — 검색어는 사용자 입력이라 일괄 가린다.
+internal val MASKED_QUERY_PARAMS: Set<String> = setOf("latitude", "longitude", "q")
 
 internal fun maskQuery(query: String?, maskedParams: Set<String>): String? {
     if (query.isNullOrBlank()) return null

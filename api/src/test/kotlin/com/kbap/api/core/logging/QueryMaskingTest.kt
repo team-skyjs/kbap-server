@@ -38,6 +38,12 @@ class QueryMaskingTest : BehaviorSpec({
             }
         }
 
+        `when`("운영 마스킹 목록으로 검색어 파라미터가 들어오면") {
+            then("이메일 등 개인정보가 실릴 수 있는 q 값을 가린다") {
+                maskQuery("q=someone@gmail.com&page=1", MASKED_QUERY_PARAMS) shouldBe "q=***&page=1"
+            }
+        }
+
         `when`("쿼리가 없으면") {
             then("null 을 돌려준다") {
                 maskQuery(null, setOf("token")) shouldBe null

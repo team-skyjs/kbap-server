@@ -53,7 +53,7 @@ resolve_dev_storage_bucket() {
   storage_bucket=$(aws --profile "$PERF_AWS_PROFILE" --region "$PERF_AWS_REGION" \
     ecs describe-task-definition \
     --task-definition "$task_definition_arn" \
-    --query "taskDefinition.containerDefinitions[?name=='$PERF_ECS_CONTAINER'].environment[?name=='STORAGE_BUCKET'] | [0][0].value" \
+    --query "taskDefinition.containerDefinitions[?name=='$PERF_ECS_CONTAINER'] | [0].environment[?name=='STORAGE_BUCKET'] | [0].value" \
     --output text) || return $?
   if [[ -z "$storage_bucket" || "$storage_bucket" == "None" ]]; then
     echo "error: approved dev task definition has no STORAGE_BUCKET" >&2
