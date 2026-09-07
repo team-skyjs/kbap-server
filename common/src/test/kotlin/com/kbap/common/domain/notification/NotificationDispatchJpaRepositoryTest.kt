@@ -36,7 +36,7 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
         }
 
         fun notification() = notificationRepository.save(
-            Notification.forMember(1L, NotificationType.NUDGE, "t", "b", mapOf("type" to "NUDGE")),
+            Notification.forMember(1L, NotificationType.SCAN_SUGGESTION, "t", "b", mapOf("type" to "SCAN_SUGGESTION")),
         )
 
         fun dispatch(notificationId: Long, token: String, deviceId: Long? = null) =

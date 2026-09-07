@@ -28,7 +28,7 @@
 **Purpose**: 세 스토리가 공유하는 enum·값 객체. 파일이 전부 다르므로 병렬.
 
 - [x] T001 [P] `DevicePlatform` enum(IOS, ANDROID) 작성 — `common/src/main/kotlin/com/kbap/common/domain/notification/model/DevicePlatform.kt`
-- [x] T002 [P] `NotificationType` enum(HELPFUL, NUDGE, REVIEW_REMINDER, NOTICE) 작성 — `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationType.kt`
+- [x] T002 [P] `NotificationType` enum(HELPFUL, SCAN_SUGGESTION, REVIEW_REMINDER, NOTICE) 작성 — `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationType.kt`
 - [x] T003 [P] `NotificationPreferences(helpful = true, reviewReminder = true, marketing = false, marketingConsentVersion: String? = null, marketingOptInAt: LocalDateTime? = null)` data class + `DEFAULT` 작성(설정 응답·승계 조립용, JSON 매핑 없음) — `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationPreferences.kt`
 
 ---

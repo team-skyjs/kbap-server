@@ -93,7 +93,7 @@ WHERE c.revoked_at IS NULL AND c.member_id IS NULL AND d.member_id IS NULL
 | id | BIGINT | PK | BaseEntity, 알림함 keyset 커서 |
 | member_id | BIGINT | NULL, FK `fk_notification_member` → member(id) | 수신 회원 |
 | installation_id | VARCHAR(36) | NULL | 수신 기기 (게스트 대상 시), FK 없음 |
-| type | VARCHAR(30) | NOT NULL | `NotificationType` — HELPFUL·NUDGE·REVIEW_REMINDER·NOTICE |
+| type | VARCHAR(30) | NOT NULL | `NotificationType` — HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NOTICE |
 | title | VARCHAR(200) | NOT NULL | 발송 시점 렌더 문자열 |
 | body | VARCHAR(1000) | NOT NULL | |
 | data | JSON | NULL | FE 계약 `{ type, foodId?, notificationId? }` |

@@ -2,7 +2,7 @@ package com.kbap.common.domain.notification.model
 
 enum class NotificationType {
     HELPFUL,
-    NUDGE,
+    SCAN_SUGGESTION,
     REVIEW_REMINDER,
     NOTICE,
 }
