@@ -48,7 +48,7 @@ class IngredientControllerTest : BehaviorSpec() {
                     val first = ingredients.first()
                     first.path("code").asText() shouldBe "EGG"
                     first.path("name").asText() shouldBe "계란"
-                    first.path("imageUrl").asText() shouldBe "https://cdn.test/images/webp/egg.webp"
+                    first.path("imageUrl").asText() shouldBe "https://cdn.test/images/webp/ingredients/egg.webp"
                 }
             }
         }
