@@ -158,6 +158,8 @@ class Member(
 
     fun scanRemaining(): Int? = if (scanUnlocked) null else (FREE_SCAN_LIMIT - scanCount).coerceAtLeast(0)
 
+    fun scanLimit(): Int = if (scanUnlocked) Int.MAX_VALUE else FREE_SCAN_LIMIT
+
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3
         const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"
