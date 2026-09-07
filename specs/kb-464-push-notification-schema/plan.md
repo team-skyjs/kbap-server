@@ -34,7 +34,7 @@
 
 | 원칙 | 게이트 | 판정 |
 |---|---|---|
-| I. Test-First | 리포지토리 테스트(BehaviorSpec)를 먼저 작성해 Red 확인 후 엔티티·마이그레이션 구현. 마이그레이션 없이 테스트 컨텍스트가 `validate` 로 실패하는 것이 Red | PASS — tasks 에서 테스트 태스크가 구현 태스크에 선행 |
+| I. Test-First | 리포지토리 테스트(BehaviorSpec)를 먼저 작성해 Red(컴파일 실패) 확인 후 엔티티·리포지토리로 Green. `:common` 테스트는 Hibernate `schema-generation=create` 라 마이그레이션의 Red/Green 은 `:api` 통합 컨텍스트(Flyway on + `ddl-auto=validate`)가 담당 | PASS — tasks 에서 테스트 태스크가 구현 태스크에 선행 |
 | II. Bounded Contexts | 새 컨텍스트 `common.domain.notification` 신설. 다른 컨텍스트(member·food·order·review)는 **Long id 값**으로만 참조, 엔티티 타입 import 없음. `ModuleBoundaryTest` 허용 맵에 `"notification" to emptySet()` 추가. 공유 vocabulary 는 `LanguageCode` 만 쓰지 않고 lang 을 문자열로 저장(§research R3) | PASS |
 | III. Dependency Direction | 변경 범위가 `:common`(엔티티·리포지토리)과 `:api` 리소스(Flyway SQL)·테스트뿐. `:common` 이 다른 모듈을 의존하지 않음. Spring-free 커널(`common.core`) 무변경 | PASS |
 | IV. Persistence Ownership | 엔티티·리포지토리는 `common.domain.notification`(model/) 에 public. JPA 연관관계 없음. FK·유니크는 마이그레이션이 강제. 도메인 메서드(읽음 처리·회원 연결/해제·광고성 수신 동의 스탬프·문구 버전)는 엔티티에 둠. 트랜잭션 경계는 이 기능에서 소비자가 없어 해당 없음(후속 API·배치가 선언) | PASS |

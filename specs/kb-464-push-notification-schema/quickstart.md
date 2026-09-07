@@ -2,7 +2,7 @@
 
 ## 1. Red 확인 (테스트 먼저)
 
-리포지토리 테스트 4개를 `common/src/test/kotlin/com/kbap/common/domain/notification/` 에 작성한 뒤 실행한다. 엔티티·마이그레이션이 없으면 컴파일 실패 또는 컨텍스트 기동 실패가 Red 다.
+리포지토리 테스트 4개를 `common/src/test/kotlin/com/kbap/common/domain/notification/` 에 작성한 뒤 실행한다. 엔티티가 없으면 컴파일 실패가 Red 다. `:common` 테스트 컨텍스트는 Flyway 가 아니라 Hibernate 가 엔티티에서 스키마를 만들므로(`schema-generation=create`), 마이그레이션 SQL 의 정합은 2단계의 `:api` 테스트가 검증한다.
 
 ```bash
 ./gradlew :common:test
