@@ -1,5 +1,6 @@
 package com.kbap.api.auth
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
@@ -41,6 +42,32 @@ class AuthController(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<Unit>> {
         authService.withdraw(memberId)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @PostMapping("/login", version = "1.1+")
+    override fun loginWithDevice(
+        @Valid @RequestBody request: LoginRequest,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
+    ): ResponseEntity<BaseResponse<LoginResponse>> {
+        val result = authService.login(request.idToken, installationId)
+        return ResponseEntity.ok(BaseResponse.ok(LoginResponse.from(result)))
+    }
+
+    @PostMapping("/logout", version = "1.1+")
+    override fun logoutWithDevice(
+        @RequestBody(required = false) request: LogoutRequest?,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        authService.logout(request?.refreshToken, installationId)
+        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    }
+
+    @PatchMapping("/withdraw", version = "1.1+")
+    override fun withdrawWithDevices(
+        @AuthMemberId memberId: Long,
+    ): ResponseEntity<BaseResponse<Unit>> {
+        authService.withdraw(memberId, releaseDevices = true)
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 }

@@ -1,9 +1,12 @@
 package com.kbap.api.auth
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.config.ApiErrors
 import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -105,6 +108,83 @@ interface AuthApi {
         ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED,
     )
     fun withdraw(
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "소셜 로그인 — X-API-Version 1.1 이상(기기 연결)",
+        description = """
+            1.0 로그인과 같은 계약에 **기기-회원 연결**이 더해진다. `X-Installation-Id`(앱 설치 UUID) 헤더가 있고 그 기기가
+            `PUT /api/notifications/tokens` 로 등록돼 있으면 기기를 로그인 회원에 연결한다(이전에 다른 회원이 연결돼 있었어도 덮어쓴다).
+            기기에 남아 있던 게스트 광고성 동의는 회원에게 유효한 동의가 없으면 회원 동의로 이어받고(원래 동의 시각 보존),
+            이미 있으면 철회한다(정본은 하나).
+
+            헤더가 없거나 등록되지 않은 기기면 기기·동의 처리만 생략하고 로그인은 동일하게 성공한다. 기기·동의 기록을 새로 만들지는 않는다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "로그인·가입 성공 — 응답 본문에 access·refresh 토큰"),
+            ApiResponse(responseCode = "400", description = "idToken 누락"),
+            ApiResponse(responseCode = "401", description = "토큰 검증 실패(서명 불일치·만료·수신자 불일치) 또는 미지원 provider"),
+        ],
+    )
+    @ApiErrors(
+        ErrorCode.DUPLICATE_SOCIAL_IDENTITY,
+    )
+    fun loginWithDevice(
+        request: LoginRequest,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID. 있으면 이 기기를 로그인 회원에 연결하고 게스트 동의를 이어받는다. 없어도 로그인은 동일",
+            required = false,
+        )
+        installationId: String?,
+    ): ResponseEntity<BaseResponse<LoginResponse>>
+
+    @Operation(
+        summary = "로그아웃 — X-API-Version 1.1 이상(기기 연결 해제)",
+        description = """
+            1.0 로그아웃과 같은 계약에 **기기 연결 해제**가 더해진다. `X-Installation-Id` 헤더가 있고 그 기기가 등록돼 있으면
+            기기의 회원 연결만 비운다 — 광고성 동의 원장은 건드리지 않는다. 헤더가 없거나 미등록 기기면 해제만 생략한다.
+            refresh 토큰이 없거나 이미 폐기된 경우에도 성공으로 응답한다(멱등).
+        """,
+    )
+    @ApiResponses(value = [ApiResponse(responseCode = "200", description = "로그아웃 완료")])
+    fun logoutWithDevice(
+        request: LogoutRequest?,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID. 있으면 이 기기의 회원 연결을 해제한다. 없어도 로그아웃은 동일",
+            required = false,
+        )
+        installationId: String?,
+    ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "회원 탈퇴 — X-API-Version 1.1 이상(기기·동의 정리)",
+        description = """
+            1.0 탈퇴와 같은 계약에 **푸시 정리**가 더해진다. 소셜 계정 삭제 뒤 이 회원에 연결된 모든 기기의 회원 연결을 비우고,
+            회원의 열린 광고성 동의를 전부 철회한 다음(기록은 보존) 회원 행을 소프트 삭제한다. 기기 기록은 삭제하지 않는다.
+            `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+        security = [SecurityRequirement(name = "bearerAuth")],
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "탈퇴 완료 — 소셜 계정·회원 기록 삭제, 기기 연결 해제, 동의 철회"),
+            ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음(이미 탈퇴 포함)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원·기기·동의 데이터는 변경되지 않음"),
+        ],
+    )
+    @ApiErrors(
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED,
+    )
+    fun withdrawWithDevices(
         memberId: Long,
     ): ResponseEntity<BaseResponse<Unit>>
 }

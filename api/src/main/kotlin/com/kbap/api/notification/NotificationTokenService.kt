@@ -29,6 +29,33 @@ class NotificationTokenService(
         }
     }
 
+    @Transactional
+    fun linkOnLogin(installationId: String, memberId: Long) {
+        deviceRepository.findByInstallationId(installationId)?.linkMember(memberId)
+
+        val guestConsents = consentRepository.findOpenGuestByInstallationId(installationId)
+        if (guestConsents.isEmpty()) {
+            return
+        }
+        if (consentRepository.findOpenByMemberId(memberId).isEmpty()) {
+            guestConsents.forEach { it.claim(memberId) }
+        } else {
+            val now = LocalDateTime.now()
+            guestConsents.forEach { it.revoke(now) }
+        }
+    }
+
+    @Transactional
+    fun unlinkOnLogout(installationId: String) {
+        deviceRepository.findByInstallationId(installationId)?.unlinkMember()
+    }
+
+    @Transactional
+    fun closeOnWithdraw(memberId: Long) {
+        deviceRepository.findByMemberId(memberId).forEach { it.unlinkMember() }
+        consentRepository.closeOpenByMemberId(memberId, LocalDateTime.now())
+    }
+
     private fun upsertDevice(installationId: String, memberId: Long?, token: String, platform: DevicePlatform, lang: String) {
         val device = deviceRepository.findByInstallationId(installationId)
         if (device == null) {

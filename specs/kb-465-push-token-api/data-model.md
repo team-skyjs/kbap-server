@@ -65,7 +65,7 @@
 
 | 요청 필드 | 검증(요청 경계) | 서비스가 받는 타입 |
 |---|---|---|
-| 헤더 `X-API-Version` | 토큰 등록: `1.1` 이상만 매핑(1.0 → 400). 인증: 1.0 은 종전 핸들러, 1.1+ 는 기기 연동 핸들러 | (라우팅) |
+| 헤더 `X-API-Version` | 토큰 등록: `1.1` 이상만 매핑(1.0 → 404). 인증: 1.0 은 종전 핸들러, 1.1+ 는 기기 연동 핸들러 | (라우팅) |
 | 헤더 `X-Installation-Id` | 등록: 필수·`@NotBlank`·`@Size(max=36)`. 로그인·로그아웃(1.1+): 선택. 1.0 핸들러는 읽지 않음 | `String` / `String?` |
 | `token` | `@NotBlank`·`@Size(max=255)` | `String` |
 | `platform` | `@NotBlank`·`@Pattern("(?i)ios\|android")` → 컨트롤러가 `DevicePlatform.valueOf(uppercase)` | `DevicePlatform` |

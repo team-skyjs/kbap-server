@@ -30,7 +30,7 @@ curl -X PUT localhost:8080/api/notifications/tokens \
 # 헤더 누락 → 400 COMMON-002
 curl -X PUT localhost:8080/api/notifications/tokens -H 'X-API-Version: 1.1' -H 'Content-Type: application/json' -d '{"token":"t","platform":"ios","lang":"en"}'
 
-# 1.0 버전 → 400 (토큰 API 는 1.1 이상 전용)
+# 1.0 버전 → 404 (토큰 API 는 1.1 이상 전용 — 이 버전에 존재하지 않는 API)
 curl -X PUT localhost:8080/api/notifications/tokens -H 'X-API-Version: 1.0' -H 'X-Installation-Id: 11111111-1111-1111-1111-111111111111' -H 'Content-Type: application/json' -d '{"token":"t","platform":"ios","lang":"en"}'
 ```
 
@@ -54,7 +54,7 @@ Swagger UI(`/swagger-ui.html`)에서 그룹 `X-API-Version 1.1` 을 고르면 "�
 | Edge — 게스트 동의 2건 열림 상태에서 로그인 | `AuthNotificationLinkTest` — "게스트 기기에서 로그인" 에 시나리오 추가 |
 | Edge — 회원 A 기기에서 B 로그인 | `AuthNotificationLinkTest` — "다른 회원이 연결된 기기에서 로그인" |
 | SC-002 (설치→등록→로그인→로그아웃→재로그인 기록 1건) | `AuthNotificationLinkTest` — 위 given 들의 연속 시나리오로 카운트 단정 |
-| FR-016 — 토큰 API 1.0 요청 400 | `NotificationTokenControllerTest` — "잘못된 등록 요청" |
+| FR-016 — 토큰 API 1.0 요청 404 | `NotificationTokenControllerTest` — "잘못된 등록 요청" |
 | FR-016 — 1.0 로그인·로그아웃·탈퇴는 기기·동의 무처리 | `AuthNotificationLinkTest` — "1.0 인증 API 무영향" + 기존 `AuthControllerTest` 무수정 Green |
 
 무효 스탬프(US1-AS3)는 API 로 만들 수 없으므로 테스트가 `UPDATE notification_device SET token_invalid_at = NOW(6)` 로 심는다.

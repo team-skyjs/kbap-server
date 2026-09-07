@@ -1,6 +1,6 @@
 # Contract: PUT /api/notifications/tokens + 인증 API 헤더 확장
 
-모든 응답은 `BaseResponse<T>` 봉투(`success`·`payload`·`message`·`code`). **이 기능의 계약은 전부 `X-API-Version: 1.1` 이상에서만 제공된다** — 토큰 API 는 1.0 에 존재하지 않고(400), 인증 API 의 1.0 계약은 종전 그대로다(research R11). 이 기능은 새 ErrorCode 를 만들지 않는다. 구현 클래스는 `api.notification` 의 `NotificationToken*`, URL 은 `/api/notifications/tokens`(Jira 초안 `/api/push/tokens` 대체).
+모든 응답은 `BaseResponse<T>` 봉투(`success`·`payload`·`message`·`code`). **이 기능의 계약은 전부 `X-API-Version: 1.1` 이상에서만 제공된다** — 토큰 API 는 1.0 에 존재하지 않고(404), 인증 API 의 1.0 계약은 종전 그대로다(research R11). 이 기능은 새 ErrorCode 를 만들지 않는다. 구현 클래스는 `api.notification` 의 `NotificationToken*`, URL 은 `/api/notifications/tokens`(Jira 초안 `/api/push/tokens` 대체).
 
 ## PUT /api/notifications/tokens — 기기 토큰 등록·갱신
 
@@ -11,7 +11,7 @@
 | 위치 | 이름 | 필수 | 제약 | 설명 |
 |---|---|---|---|---|
 | Header | `X-Installation-Id` | **필수** | 공백 불가, 36자 이하 | 앱 설치 UUID. 기기 기록의 유일 키 |
-| Header | `X-API-Version` | 필수 | **`1.1` 이상** | `1.0`·누락·미지원 → 400 COMMON-002 |
+| Header | `X-API-Version` | 필수 | **`1.1` 이상** | `1.0` → 404(이 버전에 없는 API), 누락·미지원 → 400. 둘 다 COMMON-002 |
 | Header | `Authorization` | 선택 | `Bearer {accessToken}` | 있으면 회원 요청 — 기기를 그 회원에 연결. 위조·만료면 401 |
 | Body | `token` | 필수 | 공백 불가, 255자 이하 | Expo push token |
 | Body | `platform` | 필수 | `ios` \| `android` (대소문자 무관) | |
@@ -34,7 +34,8 @@
 | 상태 | 봉투 | 조건 |
 |---|---|---|
 | 200 | `{ "success": true, "payload": null }` | 생성·갱신 모두. 페이로드 없음(`Unit`) |
-| 400 | `code: COMMON-002` | `X-API-Version` 이 `1.0`·누락·미지원, `X-Installation-Id` 누락·공백·36자 초과, `token`/`platform`/`lang` 검증 실패, `marketing=true` 인데 버전 없음, 버전이 양의 정수 아님, 본문 해석 불가 |
+| 404 | `code: COMMON-002` | `X-API-Version: 1.0` — 이 버전에 존재하지 않는 API |
+| 400 | `code: COMMON-002` | `X-API-Version` 누락·미지원, `X-Installation-Id` 누락·공백·36자 초과, `token`/`platform`/`lang` 검증 실패, `marketing=true` 인데 버전 없음, 버전이 양의 정수 아님, 본문 해석 불가 |
 | 401 | `code: AUTH-*` (기존) | `Authorization` 이 있으나 위조·만료 |
 
 ### 서버 동작 (요청 조합별)
