@@ -37,7 +37,7 @@ class NotificationTokenControllerTest : BehaviorSpec() {
 
         data class Device(val memberId: Long?, val token: String, val platform: String, val lang: String, val invalidAt: String?)
 
-        data class Consent(val memberId: Long?, val version: Int, val grantedAt: String, val revokedAt: String?)
+        data class Consent(val memberId: Long?, val type: String, val version: Int, val grantedAt: String, val revokedAt: String?)
 
         fun body(
             token: String = "ExponentPushToken[abc]",
@@ -111,7 +111,7 @@ class NotificationTokenControllerTest : BehaviorSpec() {
         fun consents(installationId: String): List<Consent> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "SELECT member_id, consent_version, granted_at, revoked_at FROM notification_consent WHERE installation_id = ? ORDER BY id",
+                    "SELECT member_id, consent_type, consent_version, granted_at, revoked_at FROM notification_consent WHERE installation_id = ? ORDER BY id",
                 ).use { ps ->
                     ps.setString(1, installationId)
                     ps.executeQuery().use { rs ->
@@ -119,6 +119,7 @@ class NotificationTokenControllerTest : BehaviorSpec() {
                             .map {
                                 Consent(
                                     it.getObject("member_id")?.let { id -> (id as Number).toLong() },
+                                    it.getString("consent_type"),
                                     it.getInt("consent_version"),
                                     it.getString("granted_at"),
                                     it.getString("revoked_at"),
@@ -224,62 +225,67 @@ class NotificationTokenControllerTest : BehaviorSpec() {
             }
         }
 
-        given("게스트 광고성 동의") {
-            fun on(version: Int? = 1): Map<String, Any?> = buildMap {
+        given("게스트 K-Bap 소식 동의") {
+            fun on(privacy: Int? = 1, receive: Int? = 1): Map<String, Any?> = buildMap {
                 put("marketing", true)
-                if (version != null) put("marketingConsentVersion", version)
+                if (privacy != null) put("privacyConsentVersion", privacy)
+                if (receive != null) put("receiveConsentVersion", receive)
             }
 
             val off: Map<String, Any?> = mapOf("marketing" to false)
 
-            `when`("동의 기록이 없는 기기가 동의 on 과 문구 버전을 실어 등록하면") {
-                then("열린 동의 기록이 하나 생기고 버전·동의 시각이 남는다") {
-                    register("dev-1", body = body(settings = on(1))).status shouldBe 200
+            fun byType(installationId: String) = consents(installationId).groupBy { it.type }
+
+            `when`("동의 기록이 없는 기기가 동의 on 과 두 문구 버전을 실어 등록하면") {
+                then("종류별 열린 동의 기록이 하나씩 생기고 버전·동의 시각이 남는다") {
+                    register("dev-1", body = body(settings = on(1, 1))).status shouldBe 200
 
                     val rows = consents("dev-1")
-                    rows.size shouldBe 1
-                    rows.single().memberId.shouldBeNull()
-                    rows.single().version shouldBe 1
-                    rows.single().grantedAt.shouldNotBeNull()
-                    rows.single().revokedAt.shouldBeNull()
+                    rows.size shouldBe 2
+                    rows.map { it.type }.toSet() shouldBe setOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
+                    rows.all { it.memberId == null && it.version == 1 && it.revokedAt == null } shouldBe true
+                    rows.all { it.grantedAt != null } shouldBe true
                 }
             }
 
-            `when`("같은 버전으로 다시 on 을 보내면") {
+            `when`("같은 버전들로 다시 on 을 보내면") {
                 then("기록 수와 시각이 바뀌지 않는다") {
-                    register("dev-1", body = body(settings = on(1)))
+                    register("dev-1", body = body(settings = on(1, 1)))
                     val first = consents("dev-1")
 
-                    register("dev-1", body = body(settings = on(1))).status shouldBe 200
+                    register("dev-1", body = body(settings = on(1, 1))).status shouldBe 200
 
                     consents("dev-1") shouldBe first
                 }
             }
 
-            `when`("버전 1 의 열린 동의가 있는 기기가 버전 2 로 on 을 보내면") {
-                then("버전 1 은 철회 시각이 찍혀 닫히고 버전 2 의 열린 기록이 새로 생긴다") {
-                    register("dev-1", body = body(settings = on(1)))
+            `when`("광고성 수신 동의 버전만 2 로 올려 on 을 보내면") {
+                then("수신 동의는 버전 1 이 닫히고 버전 2 가 새로 생기며 개인정보 동의는 그대로다") {
+                    register("dev-1", body = body(settings = on(1, 1)))
 
-                    register("dev-1", body = body(settings = on(2))).status shouldBe 200
+                    register("dev-1", body = body(settings = on(1, 2))).status shouldBe 200
 
-                    val rows = consents("dev-1")
-                    rows.size shouldBe 2
-                    rows[0].version shouldBe 1
-                    rows[0].revokedAt.shouldNotBeNull()
-                    rows[1].version shouldBe 2
-                    rows[1].revokedAt.shouldBeNull()
+                    val byType = byType("dev-1")
+                    byType.getValue("MARKETING_PRIVACY").size shouldBe 1
+                    byType.getValue("MARKETING_PRIVACY").single().revokedAt.shouldBeNull()
+                    val receive = byType.getValue("MARKETING_RECEIVE")
+                    receive.size shouldBe 2
+                    receive[0].version shouldBe 1
+                    receive[0].revokedAt.shouldNotBeNull()
+                    receive[1].version shouldBe 2
+                    receive[1].revokedAt.shouldBeNull()
                 }
             }
 
             `when`("열린 동의가 있는 기기가 off 를 보내면") {
-                then("열린 기록은 철회 시각이 찍혀 닫히고 기록 자체는 남는다") {
-                    register("dev-1", body = body(settings = on(1)))
-                    register("dev-1", body = body(settings = on(2)))
+                then("두 종류의 열린 기록이 철회 시각이 찍혀 닫히고 기록 자체는 남는다") {
+                    register("dev-1", body = body(settings = on(1, 1)))
+                    register("dev-1", body = body(settings = on(1, 2)))
 
                     register("dev-1", body = body(settings = off)).status shouldBe 200
 
                     val rows = consents("dev-1")
-                    rows.size shouldBe 2
+                    rows.size shouldBe 3
                     rows.all { it.revokedAt != null } shouldBe true
                 }
             }
@@ -298,48 +304,50 @@ class NotificationTokenControllerTest : BehaviorSpec() {
                 then("원장은 바뀌지 않고 토큰 등록만 처리된다") {
                     val (memberId, accessToken) = login("member-a")
 
-                    register("dev-1", accessToken = accessToken, body = body(settings = on(1))).status shouldBe 200
+                    register("dev-1", accessToken = accessToken, body = body(settings = on(1, 1))).status shouldBe 200
 
                     consents("dev-1").size shouldBe 0
                     device("dev-1").shouldNotBeNull().memberId shouldBe memberId
                 }
             }
 
-            `when`("동의 on 인데 문구 버전이 없으면") {
+            `when`("동의 on 인데 두 문구 버전 중 하나라도 없으면") {
                 then("400 으로 거절된다") {
-                    register("dev-1", body = body(settings = on(version = null))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(privacy = null, receive = 1))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(privacy = 1, receive = null))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(privacy = null, receive = null))).status shouldBe 400
                     countDevices() shouldBe 0
                 }
             }
 
             `when`("문구 버전이 1~65535 범위의 정수가 아니면") {
                 then("400 으로 거절되고 65535 는 통과한다") {
-                    register("dev-1", body = body(settings = on(0))).status shouldBe 400
-                    register("dev-1", body = body(settings = on(-1))).status shouldBe 400
-                    register("dev-1", body = body(settings = on(65536))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(0, 1))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(1, -1))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(65536, 1))).status shouldBe 400
                     countDevices() shouldBe 0
-                    register("dev-1", body = body(settings = on(65535))).status shouldBe 200
-                    consents("dev-1").single().version shouldBe 65535
+                    register("dev-1", body = body(settings = on(65535, 65535))).status shouldBe 200
+                    consents("dev-1").all { it.version == 65535 } shouldBe true
                     TestTables.clearAll(dataSource)
-                    register("dev-1", body = body(settings = mapOf("marketing" to true, "marketingConsentVersion" to "v1"))).status shouldBe 400
+                    register("dev-1", body = body(settings = mapOf("marketing" to true, "privacyConsentVersion" to "v1", "receiveConsentVersion" to 1))).status shouldBe 400
                     countDevices() shouldBe 0
                 }
             }
 
             `when`("settings 는 있는데 marketing 값이 없으면") {
                 then("400 으로 거절된다") {
-                    register("dev-1", body = body(settings = mapOf("marketingConsentVersion" to 1))).status shouldBe 400
+                    register("dev-1", body = body(settings = mapOf("privacyConsentVersion" to 1, "receiveConsentVersion" to 1))).status shouldBe 400
                     countDevices() shouldBe 0
                 }
             }
 
             `when`("settings 없이 등록하면") {
                 then("원장은 건드리지 않는다") {
-                    register("dev-1", body = body(settings = on(1)))
+                    register("dev-1", body = body(settings = on(1, 1)))
 
                     register("dev-1").status shouldBe 200
 
-                    consents("dev-1").single().revokedAt.shouldBeNull()
+                    consents("dev-1").all { it.revokedAt == null } shouldBe true
                 }
             }
         }

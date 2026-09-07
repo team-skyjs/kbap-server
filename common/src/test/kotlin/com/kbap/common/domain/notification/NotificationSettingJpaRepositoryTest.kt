@@ -29,10 +29,10 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             `when`("회원 기준으로 조회하면") {
                 clear()
 
-                then("null 이고 기본 설정은 도움됨 on·리마인더 on 이다") {
+                then("null 이고 기본 설정은 활동/소식 on·식사 시간 알림 on 이다") {
                     repository.findByMemberId(1L).shouldBeNull()
                     NotificationSetting.defaultFor(1L).preferences() shouldBe NotificationPreferences.DEFAULT
-                    NotificationPreferences.DEFAULT shouldBe NotificationPreferences(helpful = true, reviewReminder = true)
+                    NotificationPreferences.DEFAULT shouldBe NotificationPreferences(activity = true, mealTime = true)
                 }
             }
 
@@ -49,17 +49,17 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("선호 설정 변경") {
-            `when`("도움됨과 리마인더를 끄면") {
+            `when`("활동/소식과 식사 시간 알림을 끄면") {
                 clear()
                 val setting = repository.save(NotificationSetting.defaultFor(5L))
-                setting.updateHelpful(false)
-                setting.updateReviewReminder(false)
+                setting.updateActivity(false)
+                setting.updateMealTime(false)
                 repository.saveAndFlush(setting)
 
                 then("두 선호가 off 로 저장된다") {
                     val found = repository.findByMemberId(5L)
                     found.shouldNotBeNull()
-                    found.preferences() shouldBe NotificationPreferences(helpful = false, reviewReminder = false)
+                    found.preferences() shouldBe NotificationPreferences(activity = false, mealTime = false)
                 }
             }
         }
