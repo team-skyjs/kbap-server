@@ -51,6 +51,20 @@ class FoodTest : BehaviorSpec({
             }
         }
 
+        `when`("이미 최초 공개 시각이 있는 음식이 다시 승인 전이되면") {
+            then("publishedAt 은 최초 공개 시각으로 유지된다(최초 공개 정본)") {
+                val firstPublished = java.time.LocalDateTime.of(2026, 8, 1, 9, 0)
+                val food = create().apply {
+                    contentStatus = FoodContentStatus.PENDING_REVIEW
+                    publishedAt = firstPublished
+                }
+
+                food.approve() shouldBe true
+
+                food.publishedAt shouldBe firstPublished
+            }
+        }
+
         `when`("표시 시각을 물으면") {
             then("기록이 있으면 그 값, 없으면 READY 에 한해 createdAt 근사치, 비READY 는 null 이다") {
                 val approved = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
