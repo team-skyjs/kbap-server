@@ -151,3 +151,17 @@ T018 NotificationDispatchStatus | T019 Notification   →  T020 NotificationDisp
 - **MVP = Phase 1 + 2 + US1**: `notification_device` 하나만 있어도 토큰 API(KB-465)가 시작될 수 있고 FE 병렬 작업의 기준점이 된다.
 - US2·US3 는 각각 독립 증분. 한 PR 에 셋을 다 담되 커밋은 스토리 단위로 나눈다(`feat(notification): …`).
 - 각 스토리에서 테스트 태스크(T006·T011·T016·T017)는 반드시 구현보다 먼저 커밋한다 — Red 커밋이 헌법 원칙 I 의 증거다.
+
+---
+
+## Phase 7: 재설계 — 광고성 동의 원장 (2026-09-07 DBA·CTO 교차 검토 반영, research R4·R5·R7)
+
+**Goal**: 두 테이블에 중복됐던 marketing 컬럼 3개를 제거하고 `notification_consent` 원장을 유일한 정본으로. 기기 행은 삭제하지 않고 `token_invalid_at` 로 무효화.
+
+- [x] T028 [P] `NotificationConsentJpaRepositoryTest` 작성(grant/revoke 보존/전부 닫기/allows 정수 버전/게스트 동의·claim 인수/재철회·재인수 예외) + `NotificationDeviceJpaRepositoryTest`(marketing 시나리오 제거, markTokenInvalid·renew 복구 추가) + `NotificationSettingJpaRepositoryTest`(선호만) 갱신 — Red 확인
+- [x] T029 `NotificationConsent` 엔티티(`isOpen`·`allows(Int)`·`revoke`·`claim`, companion `grantForMember`/`grantForInstallation`) + `NotificationConsentJpaRepository`(`findOpenByMemberId`·`findOpenGuestByInstallationId`·`closeOpenByMemberId`) — `common/src/main/kotlin/com/kbap/common/domain/notification/`
+- [x] T030 `NotificationDevice` 에서 marketing 필드·메서드 제거, `tokenInvalidAt`·`isTokenValid`·`markTokenInvalid` 추가, `renew` 가 스탬프 해제. `NotificationDeviceJpaRepository.findByExpoToken` 제거. `NotificationSetting`·`NotificationPreferences` 를 선호 2개로 축소, `MarketingConsent` 값 객체 삭제
+- [x] T031 마이그레이션 수정(공유 DB 미적용): 두 테이블 marketing 컬럼 제거, `notification_device.token_invalid_at`, `notification_consent` 테이블(CHECK·인덱스 3개·FK). `TestTables` 에 `notification_consent` 추가
+- [x] T032 `:common:test`·`:api:test` Green, 로컬 부팅으로 `notification_consent` 제약 확인
+- [x] T033 문서(spec·plan·research·data-model·quickstart) 정정, PR #246 본문·Jira KB-464/465/466/471/473 갱신, FE 세션에 `marketingConsentVersion` 정수화 통보, 위키 갱신
+

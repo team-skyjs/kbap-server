@@ -6,7 +6,7 @@
 
 ## Summary
 
-푸시 알림 전체(에픽 KB-463)의 저장 기반을 만든다. `com.kbap.common.domain.notification` 컨텍스트를 신설해 엔티티 4개(`NotificationDevice`·`NotificationSetting`·`Notification`·`NotificationDispatch`)와 리포지토리 4개를 두고, Flyway 마이그레이션 1개로 테이블 4개를 만든다. API·배치·발송 로직은 후속 태스크(KB-465~474)가 이 위에 쌓는다. 이 기능은 **영속 계층만** 제공하며 HTTP 계약·외부 seam 은 없다.
+푸시 알림 전체(에픽 KB-463)의 저장 기반을 만든다. `com.kbap.common.domain.notification` 컨텍스트를 신설해 엔티티 5개(`NotificationDevice`·`NotificationSetting`·`NotificationConsent`·`Notification`·`NotificationDispatch`)와 리포지토리 5개를 두고, Flyway 마이그레이션 1개로 테이블 5개를 만든다. 광고성 동의는 원장(`notification_consent`) 한 테이블이 유일한 정본이다(R4). API·배치·발송 로직은 후속 태스크(KB-465~474)가 이 위에 쌓는다. 이 기능은 **영속 계층만** 제공하며 HTTP 계약·외부 seam 은 없다.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@
 
 **Constraints**: 엔티티 간 JPA 연관관계 금지(id 값 참조), FK 는 Flyway 가 강제, 모든 엔티티 `BaseEntity` 상속(id IDENTITY·status 소프트삭제·시각), 컬럼 길이 MySQL 기준 명시, 마이그레이션은 timestamp 버전·순서 비의존, Kotlin 주석 금지
 
-**Scale/Scope**: 테이블 4개·엔티티 4개·enum 3개·값 객체 1개·리포지토리 4개·마이그레이션 1개·리포지토리 테스트 4개·ArchUnit 맵 1줄·TestTables 4줄
+**Scale/Scope**: 테이블 5개·엔티티 5개·enum 3개·값 객체 1개·리포지토리 5개·마이그레이션 1개·리포지토리 테스트 5개·ArchUnit 맵 1줄·TestTables 5줄
 
 ## Constitution Check
 
@@ -37,7 +37,7 @@
 | I. Test-First | 리포지토리 테스트(BehaviorSpec)를 먼저 작성해 Red(컴파일 실패) 확인 후 엔티티·리포지토리로 Green. `:common` 테스트는 Hibernate `schema-generation=create` 라 마이그레이션의 Red/Green 은 `:api` 통합 컨텍스트(Flyway on + `ddl-auto=validate`)가 담당 | PASS — tasks 에서 테스트 태스크가 구현 태스크에 선행 |
 | II. Bounded Contexts | 새 컨텍스트 `common.domain.notification` 신설. 다른 컨텍스트(member·food·order·review)는 **Long id 값**으로만 참조, 엔티티 타입 import 없음. `ModuleBoundaryTest` 허용 맵에 `"notification" to emptySet()` 추가. 공유 vocabulary 는 `LanguageCode` 만 쓰지 않고 lang 을 문자열로 저장(§research R3) | PASS |
 | III. Dependency Direction | 변경 범위가 `:common`(엔티티·리포지토리)과 `:api` 리소스(Flyway SQL)·테스트뿐. `:common` 이 다른 모듈을 의존하지 않음. Spring-free 커널(`common.core`) 무변경 | PASS |
-| IV. Persistence Ownership | 엔티티·리포지토리는 `common.domain.notification`(model/) 에 public. JPA 연관관계 없음. FK·유니크는 마이그레이션이 강제. 도메인 메서드(읽음 처리·회원 연결/해제·광고성 수신 동의 스탬프·문구 버전)는 엔티티에 둠. 트랜잭션 경계는 이 기능에서 소비자가 없어 해당 없음(후속 API·배치가 선언) | PASS |
+| IV. Persistence Ownership | 엔티티·리포지토리는 `common.domain.notification`(model/) 에 public. JPA 연관관계 없음. FK·유니크는 마이그레이션이 강제. 도메인 메서드(읽음 처리·회원 연결/해제·토큰 무효화·동의 grant/revoke/claim)는 엔티티에 둠. 트랜잭션 경계는 이 기능에서 소비자가 없어 해당 없음(후속 API·배치가 선언) | PASS |
 | V. Language Policy | 알림 제목·본문은 발송 시점 렌더 문자열을 저장. `lang` 은 기기에서 흘러든 값이라 저장 시 검증·정규화하지 않고 그대로 보관, 미지원 코드 폴백(en)은 발송 단계(KB-468) 책임 | PASS |
 
 위반 없음 → Complexity Tracking 비움.
@@ -64,13 +64,15 @@ specs/kb-464-push-notification-schema/
 common/src/main/kotlin/com/kbap/common/domain/notification/
 ├── NotificationDeviceJpaRepository.kt
 ├── NotificationSettingJpaRepository.kt
+├── NotificationConsentJpaRepository.kt
 ├── NotificationJpaRepository.kt
 ├── NotificationDispatchJpaRepository.kt
 └── model/
     ├── NotificationDevice.kt
     ├── DevicePlatform.kt
-    ├── NotificationPreferences.kt        # 값 객체 — 회원 설정·게스트 설정 공용
+    ├── NotificationPreferences.kt        # 값 객체 — 회원 선호 응답 조립용
     ├── NotificationSetting.kt
+    ├── NotificationConsent.kt            # 광고성 동의 원장(append-only)
     ├── Notification.kt
     ├── NotificationType.kt
     ├── NotificationDispatch.kt
@@ -79,13 +81,14 @@ common/src/main/kotlin/com/kbap/common/domain/notification/
 common/src/test/kotlin/com/kbap/common/domain/notification/
 ├── NotificationDeviceJpaRepositoryTest.kt
 ├── NotificationSettingJpaRepositoryTest.kt
+├── NotificationConsentJpaRepositoryTest.kt
 ├── NotificationJpaRepositoryTest.kt
 └── NotificationDispatchJpaRepositoryTest.kt
 
 api/src/main/resources/db/migration/
 └── V2026.09.07.HH.mm.ss__push_notification_tables.sql   # 생성 시각으로 명명
 
-api/src/test/kotlin/com/kbap/api/TestTables.kt                 # clearAll 목록에 4개 추가 (FK 순서: notification_dispatch → notification → notification_device → notification_setting)
+api/src/test/kotlin/com/kbap/api/TestTables.kt                 # clearAll 목록에 4개 추가 (FK 순서: notification_dispatch → notification → notification_device → notification_setting → notification_consent)
 api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt   # allowedDomainDeps 에 "notification" to emptySet()
 ```
 
@@ -97,7 +100,7 @@ api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt   # allowedD
 
 ## Post-Design Constitution Re-check
 
-data-model 확정 후 재검토: 엔티티 4개 모두 `BaseEntity` 상속, 연관관계 없음(참조 컬럼 `member_id`·`notification_id` 는 `Long`), FK 3개·유니크 2개는 마이그레이션에만 존재, 새 컨텍스트는 다른 도메인 타입을 import 하지 않음. 원칙 I~V 모두 PASS 유지.
+data-model 확정 후 재검토(2026-09-07 DBA·CTO 교차 검토 반영): 엔티티 5개 모두 `BaseEntity` 상속, 연관관계 없음(참조 컬럼 `member_id`·`notification_id` 는 `Long`), FK 4개·유니크 2개·CHECK 1개는 마이그레이션에만 존재, 새 컨텍스트는 다른 도메인 타입을 import 하지 않음. 원칙 I~V 모두 PASS 유지.
 
 ## Complexity Tracking
 
