@@ -1,7 +1,6 @@
 package com.kbap.common.domain.notification
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.domain.notification.model.NotificationPreferences
 import com.kbap.common.domain.notification.model.NotificationSetting
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -31,8 +30,9 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
 
                 then("null 이고 기본 설정은 활동/소식 on·식사 시간 알림 on 이다") {
                     repository.findByMemberId(1L).shouldBeNull()
-                    NotificationSetting.defaultFor(1L).preferences() shouldBe NotificationPreferences.DEFAULT
-                    NotificationPreferences.DEFAULT shouldBe NotificationPreferences(activity = true, mealTime = true)
+                    val default = NotificationSetting.defaultFor(1L)
+                    default.activity shouldBe true
+                    default.mealTime shouldBe true
                 }
             }
 
@@ -59,7 +59,8 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
                 then("두 선호가 off 로 저장된다") {
                     val found = repository.findByMemberId(5L)
                     found.shouldNotBeNull()
-                    found.preferences() shouldBe NotificationPreferences(activity = false, mealTime = false)
+                    found.activity shouldBe false
+                    found.mealTime shouldBe false
                 }
             }
         }

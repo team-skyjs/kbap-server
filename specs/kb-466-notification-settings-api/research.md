@@ -16,7 +16,7 @@
 
 ## R3. 선호 저장 구조 — `helpful`·`review_reminder` → `activity`·`meal_time`
 
-- **Decision**: `notification_setting` 컬럼을 `activity BOOLEAN NOT NULL DEFAULT TRUE`, `meal_time BOOLEAN NOT NULL DEFAULT TRUE` 로 교체한다(구 컬럼 DROP). 엔티티 `NotificationSetting(memberId, activity = true, mealTime = true)`, 메서드 `updateActivity`·`updateMealTime`, `defaultFor(memberId)`. `NotificationPreferences` 값 객체는 `(activity, mealTime)` 로 축소.
+- **Decision**: `notification_setting` 컬럼을 `activity BOOLEAN NOT NULL DEFAULT TRUE`, `meal_time BOOLEAN NOT NULL DEFAULT TRUE` 로 교체한다(구 컬럼 DROP). 엔티티 `NotificationSetting(memberId, activity = true, mealTime = true)`, 메서드 `updateActivity`·`updateMealTime`, `defaultFor(memberId)`. `NotificationPreferences` 값 객체는 소비자가 이 응답 조립 한 곳뿐이라 삭제하고 엔티티 필드를 직접 읽는다.
 - **Rationale**: 활동/소식 토글 하나가 도움됨·리마인더를 함께 제어(FR-004), 식사 시간 알림 토글 하나가 점심·저녁을 함께 제어(FR-005). `meal_time` 기본 TRUE 로 두면 "K-Bap 소식을 처음 켤 때 식사 시간 알림이 켜진다"(FR-008)와 "껐다 켜면 이전 값 복원"(US3-8)이 tri-state 없이 성립한다 — 응답의 `mealTime` 은 `저장값 AND 소식 켜짐` 으로 계산하므로 소식이 꺼진 회원에겐 항상 false 로 보인다(FR-002).
 - **Alternatives**: `meal_time NULL = 미설정` tri-state — 분기만 늘고 이득 없음. 기존 두 컬럼 유지 + 앱에서 묶기 — 정본이 앱 화면과 달라져 배치 필터가 두 컬럼을 AND 로 봐야 하는 암묵 규칙이 생긴다.
 

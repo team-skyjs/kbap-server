@@ -13,9 +13,7 @@
 | ~~helpful~~ · ~~review_reminder~~ | | DROP | KB-464 컬럼. 활동/소식 하나로 통합 |
 | status / created_at / updated_at | | BaseEntity | |
 
-**엔티티 `NotificationSetting`** — 필드 `memberId`, `activity = true`, `mealTime = true`. 메서드 `updateActivity(enabled)`, `updateMealTime(enabled)`, `preferences(): NotificationPreferences`, companion `defaultFor(memberId)`.
-
-**값 객체 `NotificationPreferences(activity = true, mealTime = true)`** — `DEFAULT`. 설정 기록이 없는 회원의 응답 조립용.
+**엔티티 `NotificationSetting`** — 필드 `memberId`, `activity = true`, `mealTime = true`. 메서드 `updateActivity(enabled)`, `updateMealTime(enabled)`, companion `defaultFor(memberId)`. 설정 기록이 없는 회원은 저장하지 않은 `defaultFor` 인스턴스로 기본값을 읽는다(별도 값 객체 없음 — KB-464 의 `NotificationPreferences` 는 소비자가 없어 삭제).
 
 **리포지토리** — `findByMemberId(memberId): NotificationSetting?` (변경 없음).
 
@@ -46,7 +44,7 @@
 |---|---|
 | K-Bap 소식 켜짐 (`news.enabled`) | 회원의 열린 동의에 `MARKETING_PRIVACY` 와 `MARKETING_RECEIVE` 가 **둘 다** 있음 |
 | 식사 시간 알림 응답값 (`news.mealTime`) | `setting.mealTime AND news.enabled` |
-| 활동/소식 응답값 (`activity`) | `setting.activity` (설정 없으면 true) |
+| 활동/소식 응답값 (`activity`) | `setting.activity` (설정 없으면 `defaultFor` 기본값 true) |
 | 동의 표시 (`privacyConsent`·`receiveConsent`) | 종류별 열린 행 중 `grantedAt` 최신 1건의 `{version, grantedAt}`, 없으면 null |
 
 ## 4. 동의 원장 사건 표 (KB-464 표의 종류 축 반영)

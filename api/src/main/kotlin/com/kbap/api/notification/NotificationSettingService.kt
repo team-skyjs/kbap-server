@@ -7,7 +7,6 @@ import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.NotificationConsent
 import com.kbap.common.domain.notification.model.NotificationConsentType
-import com.kbap.common.domain.notification.model.NotificationPreferences
 import com.kbap.common.domain.notification.model.NotificationSetting
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -74,7 +73,7 @@ class NotificationSettingService(
         consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
 
     private fun assemble(memberId: Long): NotificationSettingsResult {
-        val preferences = settingRepository.findByMemberId(memberId)?.preferences() ?: NotificationPreferences.DEFAULT
+        val setting = settingRepository.findByMemberId(memberId) ?: NotificationSetting.defaultFor(memberId)
         val openConsents = consentRepository.findOpenByMemberId(memberId)
         val enabled = consentService.isMarketingEnabled(openConsents)
 
@@ -86,9 +85,9 @@ class NotificationSettingService(
             .maxByOrNull { it.grantedAt }
 
         return NotificationSettingsResult(
-            activity = preferences.activity,
+            activity = setting.activity,
             newsEnabled = enabled,
-            mealTime = preferences.mealTime && enabled,
+            mealTime = setting.mealTime && enabled,
             privacyConsent = privacyConsent,
             receiveConsent = receiveConsent,
         )

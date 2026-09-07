@@ -21,8 +21,6 @@ class NotificationSetting(
     @Column(name = "meal_time", nullable = false)
     var mealTime: Boolean = true,
 ) : BaseEntity() {
-    fun preferences() = NotificationPreferences(activity = activity, mealTime = mealTime)
-
     fun updateActivity(enabled: Boolean) {
         activity = enabled
     }

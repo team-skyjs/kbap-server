@@ -64,7 +64,7 @@ specs/kb-466-notification-settings-api/
 ```text
 common/src/main/kotlin/com/kbap/common/domain/notification/
 ├── model/NotificationSetting.kt            # 변경: helpful·reviewReminder → activity·mealTime
-├── model/NotificationPreferences.kt        # 변경: (activity, mealTime)
+├── model/NotificationPreferences.kt        # 삭제 (소비자 없음)
 ├── model/NotificationConsent.kt            # 변경: consentType 필드 + companion 시그니처
 ├── model/NotificationConsentType.kt        # 신규: MARKETING_PRIVACY·MARKETING_RECEIVE
 ├── NotificationSettingJpaRepository.kt     # 무변경
