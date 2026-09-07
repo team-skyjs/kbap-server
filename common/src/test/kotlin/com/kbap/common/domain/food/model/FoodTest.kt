@@ -51,6 +51,20 @@ class FoodTest : BehaviorSpec({
             }
         }
 
+        `when`("마이그레이션 이전 레거시 READY(publishedAt 미기록)가 READY 를 벗어난 뒤 재승인되면") {
+            then("freeze 한 createdAt 을 유지해 NEW 로 재점등하지 않는다") {
+                val legacy = create()
+                legacy.freezePublishedAtIfLegacy()
+                val frozen = legacy.publishedAt
+                frozen shouldBe legacy.createdAt
+
+                legacy.contentStatus = FoodContentStatus.PENDING_REVIEW
+                legacy.approve() shouldBe true
+
+                legacy.publishedAt shouldBe frozen
+            }
+        }
+
         `when`("이미 최초 공개 시각이 있는 음식이 다시 승인 전이되면") {
             then("publishedAt 은 최초 공개 시각으로 유지된다(최초 공개 정본)") {
                 val firstPublished = java.time.LocalDateTime.of(2026, 8, 1, 9, 0)
