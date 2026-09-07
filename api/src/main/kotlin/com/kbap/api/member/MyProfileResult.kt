@@ -17,10 +17,16 @@ data class MyProfileResult(
     val freeScanLimit: Int,
     val scanUnlocked: Boolean,
     val scanRemaining: Int?,
+    val orderCount: Int,
     val ranking: MemberRankingResult,
 ) {
     companion object {
-        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
+        fun of(
+            member: Member,
+            ranking: MemberRankingResult,
+            profileImageUrl: String?,
+            orderCount: Int,
+        ): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
                 provider = member.provider.name,
@@ -36,6 +42,7 @@ data class MyProfileResult(
                 freeScanLimit = Member.FREE_SCAN_LIMIT,
                 scanUnlocked = member.scanUnlocked,
                 scanRemaining = member.scanRemaining(),
+                orderCount = orderCount,
                 ranking = ranking,
             )
     }

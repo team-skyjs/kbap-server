@@ -21,6 +21,8 @@ data class MyProfileResponse(
     val scanUnlocked: Boolean,
     @field:Schema(description = "잔여 무료 스캔 횟수. scanUnlocked=true(무제한)면 null", example = "2", nullable = true)
     val scanRemaining: Int?,
+    @field:Schema(description = "회원의 누적 주문 수(소프트삭제 제외). 주문 없으면 0", example = "3")
+    val orderCount: Int,
     val ranking: RankingSummary,
 ) {
     data class RankingSummary(
@@ -59,6 +61,7 @@ data class MyProfileResponse(
                 freeScanLimit = result.freeScanLimit,
                 scanUnlocked = result.scanUnlocked,
                 scanRemaining = result.scanRemaining,
+                orderCount = result.orderCount,
                 ranking = RankingSummary.from(result.ranking),
             )
     }
