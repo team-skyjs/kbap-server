@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
@@ -311,10 +312,15 @@ class NotificationTokenControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("문구 버전이 양의 정수가 아니면") {
-                then("400 으로 거절된다") {
+            `when`("문구 버전이 1~65535 범위의 정수가 아니면") {
+                then("400 으로 거절되고 65535 는 통과한다") {
                     register("dev-1", body = body(settings = on(0))).status shouldBe 400
                     register("dev-1", body = body(settings = on(-1))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(65536))).status shouldBe 400
+                    countDevices() shouldBe 0
+                    register("dev-1", body = body(settings = on(65535))).status shouldBe 200
+                    consents("dev-1").single().version shouldBe 65535
+                    TestTables.clearAll(dataSource)
                     register("dev-1", body = body(settings = mapOf("marketing" to true, "marketingConsentVersion" to "v1"))).status shouldBe 400
                     countDevices() shouldBe 0
                 }
@@ -388,6 +394,20 @@ class NotificationTokenControllerTest : BehaviorSpec() {
                 then("정상 등록된다") {
                     register("dev-1", body = body(platform = "IOS")).status shouldBe 200
                     device("dev-1").shouldNotBeNull().platform shouldBe "IOS"
+                }
+            }
+
+            `when`("탈퇴한 회원의 아직 만료되지 않은 인증 토큰이 붙어 있으면") {
+                then("400 MEMBER-003 으로 거절되고 기기는 연결되지 않는다") {
+                    val (_, accessToken) = login("member-a")
+                    mockMvc.patch("/api/auth/withdraw") { header("Authorization", "Bearer $accessToken") }
+                        .andReturn().response.status shouldBe 200
+
+                    val response = register("dev-1", accessToken = accessToken)
+
+                    response.status shouldBe 400
+                    response.contentAsString shouldContain "MEMBER-003"
+                    countDevices() shouldBe 0
                 }
             }
 

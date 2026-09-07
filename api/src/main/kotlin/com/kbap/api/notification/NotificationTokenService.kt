@@ -1,5 +1,6 @@
 package com.kbap.api.notification
 
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
@@ -13,6 +14,7 @@ import java.time.LocalDateTime
 class NotificationTokenService(
     private val deviceRepository: NotificationDeviceJpaRepository,
     private val consentRepository: NotificationConsentJpaRepository,
+    private val memberService: MemberService,
 ) {
     @Transactional
     fun registerToken(
@@ -23,6 +25,7 @@ class NotificationTokenService(
         lang: String,
         settings: MarketingSettingsRequest? = null,
     ) {
+        memberId?.let { memberService.getMember(it) }
         upsertDevice(installationId, memberId, token, platform, lang)
         if (memberId == null && settings != null) {
             applyGuestMarketingConsent(installationId, settings)

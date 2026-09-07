@@ -3,6 +3,7 @@ package com.kbap.api.notification
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.AssertTrue
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
@@ -38,11 +39,16 @@ data class MarketingSettingsRequest(
     val marketing: Boolean?,
 
     @field:Positive(message = "marketingConsentVersion 은 양의 정수여야 합니다")
-    @field:Schema(description = "동의한 문구 버전(양의 정수). marketing 이 true 면 필수", example = "1")
+    @field:Max(value = MAX_CONSENT_VERSION, message = "marketingConsentVersion 은 $MAX_CONSENT_VERSION 이하여야 합니다")
+    @field:Schema(description = "동의한 문구 버전(1~65535). marketing 이 true 면 필수", example = "1")
     val marketingConsentVersion: Int? = null,
 ) {
     @get:AssertTrue(message = "marketing 이 true 면 marketingConsentVersion 이 필요합니다")
     @get:Schema(hidden = true)
     val versionPresentWhenOptedIn: Boolean
         get() = marketing != true || marketingConsentVersion != null
+
+    companion object {
+        const val MAX_CONSENT_VERSION = 65535L
+    }
 }
