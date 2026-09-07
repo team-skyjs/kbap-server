@@ -139,7 +139,7 @@ class AdminMemberControllerTest : BehaviorSpec() {
             }
 
             `when`("검색어 q 에 LIKE 와일드카드가 있으면") {
-                then("리터럴로만 매칭한다") {
+                then("리터럴로만 매칭한다 — q=% 는 이스케이프 안 하면 전체 행 매칭이라 가장 위험한 경로") {
                     saveMember("wild-a", nickname = "김치찌개러버")
                     saveMember("wild-b", nickname = "100%리얼러버")
 

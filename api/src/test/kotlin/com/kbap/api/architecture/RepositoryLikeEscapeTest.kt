@@ -11,9 +11,9 @@ import org.springframework.data.repository.Repository
 @Tags("arch")
 class RepositoryLikeEscapeTest : BehaviorSpec({
 
-    given("리포지토리 @Query 의 LIKE 사용") {
+    given("리포지토리 @Query 의 LIKE 사용 (개수 비교 휴리스틱 — like 토큰 수 ≤ escape 토큰 수)") {
         `when`("like 절을 쓰는 쿼리를 전수 검사하면") {
-            then("모든 like 절이 escape 절을 동반한다") {
+            then("모든 like 절이 escape 절을 동반한다 — 토큰 개수만 비교하므로 한 쿼리에 like·escape 가 섞여도 개수로 잡는다(정교한 절 매칭은 아님)") {
                 val imported = ClassFileImporter()
                     .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                     .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TEST_FIXTURES)
