@@ -50,6 +50,7 @@ class NotificationSettingService(
                     NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
                 )
                 consentService.grantForMember(memberId, installationId, versions, now)
+                settingOf(memberId).updateMealTime(true)
             }
             if (news.enabled == false) {
                 consentService.revokeForMember(memberId, now)

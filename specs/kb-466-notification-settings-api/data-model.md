@@ -51,7 +51,7 @@
 
 | 사건 | 원장 조작 (종류별) |
 |---|---|
-| 회원 K-Bap 소식 켜기 `{privacy: vP, receive: vR}` | 종류마다: 열린 행 중 `version != v` 는 `revoke(now)`, `== v` 가 하나라도 있으면 무변화, 없으면 `grantForMember(memberId, installationId?, type, v, now)` INSERT |
+| 회원 K-Bap 소식 켜기 `{privacy: vP, receive: vR}` | 종류마다: 열린 행 중 `version != v` 는 `revoke(now)`, `== v` 가 하나라도 있으면 무변화, 없으면 `grantForMember(memberId, installationId?, type, v, now)` INSERT. 이어서 `setting.meal_time = true` |
 | 회원 K-Bap 소식 끄기 | `closeOpenByMemberId(memberId, now)` — 두 종류 열린 행 전부 닫음. 행 보존 |
 | 게스트 토큰 등록 `marketing=true` + 두 버전 | 위 켜기와 동일하되 `grantForInstallation` |
 | 게스트 토큰 등록 `marketing=false` | 기기의 열린 게스트 행 전부 `revoke(now)` |

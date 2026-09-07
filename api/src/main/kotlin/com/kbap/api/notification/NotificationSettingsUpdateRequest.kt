@@ -18,7 +18,7 @@ data class NotificationSettingsUpdateRequest(
 
 @Schema(description = "K-Bap에서 보내는 소식 그룹 부분 수정. 처리 순서: enabled → mealTime")
 data class NewsUpdateRequest(
-    @field:Schema(description = "true = 두 동의 기록(켜기, 두 버전 필수), false = 두 동의 철회(끄기). 없으면 동의 상태 유지", example = "true")
+    @field:Schema(description = "true = 두 동의 기록(켜기, 두 버전 필수) + 하위 토글 전부 켜짐, false = 두 동의 철회(끄기). 없으면 동의 상태 유지", example = "true")
     val enabled: Boolean? = null,
 
     @field:Schema(description = "식사 시간 알림 on/off. true 는 (이 요청의 enabled 반영 후) 소식이 켜져 있어야 한다 — 아니면 NOTIFICATION-001", example = "true")

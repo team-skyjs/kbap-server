@@ -17,12 +17,12 @@ curl -s $H $BASE                      # activity=false, news.enabled=false, cons
 
 # K-Bap 소식 켜기 (두 동의)
 curl -s -X PATCH $H $BASE -d '{"news":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
-# → enabled=true, mealTime=false(기본 꺼짐), 두 consent 에 version·grantedAt
+# → enabled=true, mealTime=true(하위 토글 전부 켜짐), 두 consent 에 version·grantedAt
 
-# 식사 시간 알림 켜기
-curl -s -X PATCH $H $BASE -d '{"news":{"mealTime":true}}'
+# 식사 시간 알림만 끄기
+curl -s -X PATCH $H $BASE -d '{"news":{"mealTime":false}}'
 
-# 끄기 → 다시 켜기: mealTime=true 가 복원되는지
+# 끄기 → 다시 켜기: mealTime 이 다시 켜지는지
 curl -s -X PATCH $H $BASE -d '{"news":{"enabled":false}}'
 curl -s -X PATCH $H $BASE -d '{"news":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
 

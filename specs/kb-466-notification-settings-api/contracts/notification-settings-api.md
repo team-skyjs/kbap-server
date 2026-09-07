@@ -55,7 +55,7 @@
 |---|---|---|
 | `activity` | boolean? | 없으면 유지 |
 | `news` | object? | 없으면 그룹 전체 유지 |
-| `news.enabled` | boolean? | `true` = 두 동의 기록(켜기), `false` = 두 동의 철회(끄기). 없으면 동의 상태 유지 |
+| `news.enabled` | boolean? | `true` = 두 동의 기록(켜기) + 하위 토글(`mealTime`) 전부 켜짐, `false` = 두 동의 철회(끄기). 없으면 동의 상태 유지 |
 | `news.privacyConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
 | `news.receiveConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
 | `news.mealTime` | boolean? | 없으면 유지. `true` 는 (이 요청의 `enabled` 반영 후) 소식이 켜져 있어야 함 |
@@ -63,7 +63,7 @@
 
 처리 순서: `activity` → `news.enabled`(동의 grant/revoke) → `news.mealTime`. 빈 본문 `{}` 은 무변화 200.
 
-동의 grant 규칙(종류별): 열린 행 중 버전이 다른 것은 철회 시각 스탬프, 같은 버전이 있으면 무변화, 없으면 새 행. 끄기는 두 종류의 열린 행 전부 철회(행 보존). `mealTime` 값은 끄기 때도 보존된다.
+동의 grant 규칙(종류별): 열린 행 중 버전이 다른 것은 철회 시각 스탬프, 같은 버전이 있으면 무변화, 없으면 새 행. 켜기는 `mealTime` 을 함께 켠다. 끄기는 두 종류의 열린 행 전부 철회(행 보존).
 
 ### 오류
 
@@ -76,13 +76,13 @@
 
 ### 예시
 
-켜기(첫 동의): `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=false`(기본 꺼짐, 사용자가 켠다), 두 consent 채워짐.
+켜기(첫 동의): `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=true`(하위 토글 전부 켜짐), 두 consent 채워짐.
 
-식사 시간 알림 켜기: `{ "news": { "mealTime": true } }` → `mealTime=true`, 동의 그대로.
+식사 시간 알림만 끄기: `{ "news": { "mealTime": false } }` → `mealTime=false`, 동의 그대로.
 
-끄기: `{ "news": { "enabled": false } }` → `enabled=false, mealTime=false`, 두 consent `null`. 저장된 mealTime 은 보존.
+끄기: `{ "news": { "enabled": false } }` → `enabled=false, mealTime=false`, 두 consent `null`.
 
-다시 켜기(같은 버전): 위 켜기 본문 → 원장 무변화(새 행 없음), `mealTime` 은 보존값(true) 복원.
+다시 켜기(같은 버전): 위 켜기 본문 → 원장 무변화(새 행 없음), `mealTime=true` 로 켜짐.
 
 수신 동의 문구 개정 후 재동의: `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 2 } }` → receive 이전 행 철회 + v2 새 행, privacy 무변화.
 

@@ -313,13 +313,13 @@ class NotificationSettingControllerTest : BehaviorSpec() {
 
         given("K-Bap 소식 동의") {
             `when`("동의 기록이 없는 회원이 두 문구 버전과 함께 켜기를 보내면") {
-                then("종류별 열린 동의가 하나씩 생기고 식사 시간 알림은 꺼진 채 시작한다") {
+                then("종류별 열린 동의가 하나씩 생기고 하위 토글인 식사 시간 알림도 켜진다") {
                     val (memberId, access) = login("member-a")
 
                     val news = payload(patch(access, enable(1, 1))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
-                    news.path("mealTime").asBoolean() shouldBe false
+                    news.path("mealTime").asBoolean() shouldBe true
                     news.path("privacyConsent").path("version").asInt() shouldBe 1
                     news.path("receiveConsent").path("version").asInt() shouldBe 1
                     news.path("privacyConsent").path("grantedAt").asText().isNotBlank() shouldBe true
@@ -376,11 +376,10 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("식사 시간 알림을 켠 회원이 K-Bap 소식 끄기를 보내면") {
+            `when`("K-Bap 소식이 켜진 회원이 끄기를 보내면") {
                 then("두 종류의 열린 기록이 모두 닫히고 행은 남으며 식사 시간 알림은 응답에서 꺼짐으로 보인다") {
                     val (memberId, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("news" to mapOf("mealTime" to true)))
                     val total = consents(memberId).size
 
                     val news = payload(patch(access, disable)).path("news")
@@ -415,11 +414,11 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("K-Bap 소식을 껐다가 다시 켜면") {
-                then("끄기 전에 켜 둔 식사 시간 알림이 그대로 복원된다") {
+            `when`("식사 시간 알림을 꺼 둔 채 K-Bap 소식을 껐다가 다시 켜면") {
+                then("켜기가 하위 토글을 전부 켜므로 식사 시간 알림도 켜진다") {
                     val (_, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("news" to mapOf("mealTime" to true)))
+                    patch(access, mapOf("news" to mapOf("mealTime" to false)))
                     patch(access, disable)
 
                     val news = payload(patch(access, enable(1, 1))).path("news")
@@ -429,15 +428,15 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("켜기와 식사 시간 알림 켜기를 한 요청에 보내면") {
-                then("동의가 먼저 반영돼 식사 시간 알림도 켜진다") {
+            `when`("켜기와 식사 시간 알림 끄기를 한 요청에 보내면") {
+                then("켜기가 먼저 반영된 뒤 mealTime 값이 덮어써 꺼진다") {
                     val (_, access) = login("member-a")
 
-                    val news = payload(patch(access, enable(1, 1, mealTime = true))).path("news")
+                    val news = payload(patch(access, enable(1, 1, mealTime = false))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
-                    news.path("mealTime").asBoolean() shouldBe true
-                    payload(patch(access, mapOf("news" to mapOf("mealTime" to false)))).path("news").path("mealTime").asBoolean() shouldBe false
+                    news.path("mealTime").asBoolean() shouldBe false
+                    payload(patch(access, mapOf("news" to mapOf("mealTime" to true)))).path("news").path("mealTime").asBoolean() shouldBe true
                 }
             }
 

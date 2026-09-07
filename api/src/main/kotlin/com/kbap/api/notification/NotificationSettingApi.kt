@@ -46,9 +46,9 @@ interface NotificationSettingApi {
 
             **`news.enabled: true`(켜기)** — `privacyConsentVersion`·`receiveConsentVersion` 이 **모두 필수**(400 COMMON-002).
             종류별로 같은 버전의 열린 동의가 있으면 무변화, 다른 버전이면 그 동의를 철회한 뒤 새 동의를 남긴다(재동의·문구 개정).
-            동의 시각은 서버가 찍고 클라이언트 값은 무시한다. 식사 시간 알림은 저장값(처음이면 꺼짐)이 그대로 복원된다 — 켜기는 사용자가 직접 한다.
+            동의 시각은 서버가 찍고 클라이언트 값은 무시한다. 켜기는 하위 토글(`mealTime`)도 전부 켠다 — 같은 요청에 `mealTime: false` 를 실으면 그 값이 뒤에 반영된다.
 
-            **`news.enabled: false`(끄기)** — 두 종류의 열린 동의를 전부 철회한다(행 보존). 식사 시간 알림 저장값은 남는다.
+            **`news.enabled: false`(끄기)** — 두 종류의 열린 동의를 전부 철회한다(행 보존). 식사 시간 알림은 응답에서 꺼짐으로 보인다.
 
             **`news.mealTime: true`** — 소식이 꺼져 있으면(동의 미완) 400 `NOTIFICATION-001`. `false` 는 항상 허용.
 
