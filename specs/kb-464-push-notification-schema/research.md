@@ -28,7 +28,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 갈림길
 
 ## R5. 넛지 동의 시각의 소유
 
-- **Decision**: `MemberNotificationSetting.updateNudge(enabled, now)` 도메인 메서드가 off→on 전환 시 `nudgeOptInAt = now`, on→off 시 `null` 을 설정한다. 클라이언트 값은 받지 않는다.
+- **Decision**: `NotificationSetting.updateNudge(enabled, now)` 도메인 메서드가 off→on 전환 시 `nudgeOptInAt = now`, on→off 시 `null` 을 설정한다. 클라이언트 값은 받지 않는다.
 - **Rationale**: 정보통신망법 동의 기록은 서버 시각이어야 한다. 엔티티가 곧 도메인 모델이므로 상태 전이를 엔티티가 소유한다.
 
 ## R6. 알림 수신자 식별과 FK
@@ -39,12 +39,12 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 갈림길
 
 ## R7. 발송 추적의 토큰 참조
 
-- **Decision**: `push_dispatch.expo_token VARCHAR(255)` 스냅샷 + `push_token_id BIGINT NULL`(FK 없음). `notification_id` 만 FK.
+- **Decision**: `notification_dispatch.expo_token VARCHAR(255)` 스냅샷 + `notification_device_id BIGINT NULL`(FK 없음). `notification_id` 만 FK.
 - **Rationale**: 영수증 정리(KB-473)가 `DeviceNotRegistered` 를 받으면 토큰을 소프트삭제하는데, 추적 기록은 "어느 토큰으로 나갔나" 를 계속 보여줘야 한다. 토큰 문자열이 곧 Expo 의 식별자라 스냅샷이 정확하다.
 
 ## R8. 알림 유형과 발송 상태의 컬럼 타입
 
-- **Decision**: `notification.type` 은 **VARCHAR(30)**(Kotlin enum `NotificationType`, `@Enumerated(STRING)`), `push_dispatch.status` 는 **ENUM('PENDING','SENT','DELIVERED','FAILED')**, `push_token.platform` 은 **ENUM('IOS','ANDROID')**.
+- **Decision**: `notification.type` 은 **VARCHAR(30)**(Kotlin enum `NotificationType`, `@Enumerated(STRING)`), `notification_dispatch.dispatch_status` 는 **ENUM('PENDING','SENT','DELIVERED','FAILED')**, `notification_device.platform` 은 **ENUM('IOS','ANDROID')**.
 - **Rationale**: 알림 유형은 spec 가정대로 마이그레이션 없이 추가돼야 하므로 문자열. 발송 상태·플랫폼은 닫힌 집합이라 기존 컬럼 규약(ENUM columnDefinition)을 따른다.
 
 ## R9. 알림 `data` 페이로드 타입

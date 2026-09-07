@@ -6,7 +6,7 @@
 
 ## Summary
 
-푸시 알림 전체(에픽 KB-463)의 저장 기반을 만든다. `com.kbap.common.domain.notification` 컨텍스트를 신설해 엔티티 4개(`PushToken`·`MemberNotificationSetting`·`Notification`·`PushDispatch`)와 리포지토리 4개를 두고, Flyway 마이그레이션 1개로 테이블 4개를 만든다. API·배치·발송 로직은 후속 태스크(KB-465~474)가 이 위에 쌓는다. 이 기능은 **영속 계층만** 제공하며 HTTP 계약·외부 seam 은 없다.
+푸시 알림 전체(에픽 KB-463)의 저장 기반을 만든다. `com.kbap.common.domain.notification` 컨텍스트를 신설해 엔티티 4개(`NotificationDevice`·`NotificationSetting`·`Notification`·`NotificationDispatch`)와 리포지토리 4개를 두고, Flyway 마이그레이션 1개로 테이블 4개를 만든다. API·배치·발송 로직은 후속 태스크(KB-465~474)가 이 위에 쌓는다. 이 기능은 **영속 계층만** 제공하며 HTTP 계약·외부 seam 은 없다.
 
 ## Technical Context
 
@@ -62,30 +62,30 @@ specs/kb-464-push-notification-schema/
 
 ```text
 common/src/main/kotlin/com/kbap/common/domain/notification/
-├── PushTokenJpaRepository.kt
-├── MemberNotificationSettingJpaRepository.kt
+├── NotificationDeviceJpaRepository.kt
+├── NotificationSettingJpaRepository.kt
 ├── NotificationJpaRepository.kt
-├── PushDispatchJpaRepository.kt
+├── NotificationDispatchJpaRepository.kt
 └── model/
-    ├── PushToken.kt
-    ├── PushPlatform.kt
+    ├── NotificationDevice.kt
+    ├── DevicePlatform.kt
     ├── NotificationPreferences.kt        # 값 객체 — 회원 설정·게스트 설정 공용
-    ├── MemberNotificationSetting.kt
+    ├── NotificationSetting.kt
     ├── Notification.kt
     ├── NotificationType.kt
-    ├── PushDispatch.kt
-    └── PushDispatchStatus.kt
+    ├── NotificationDispatch.kt
+    └── NotificationDispatchStatus.kt
 
 common/src/test/kotlin/com/kbap/common/domain/notification/
-├── PushTokenJpaRepositoryTest.kt
-├── MemberNotificationSettingJpaRepositoryTest.kt
+├── NotificationDeviceJpaRepositoryTest.kt
+├── NotificationSettingJpaRepositoryTest.kt
 ├── NotificationJpaRepositoryTest.kt
-└── PushDispatchJpaRepositoryTest.kt
+└── NotificationDispatchJpaRepositoryTest.kt
 
 api/src/main/resources/db/migration/
 └── V2026.09.07.HH.mm.ss__push_notification_tables.sql   # 생성 시각으로 명명
 
-api/src/test/kotlin/com/kbap/api/TestTables.kt                 # clearAll 목록에 4개 추가 (FK 순서: push_dispatch → notification → push_token → member_notification_setting)
+api/src/test/kotlin/com/kbap/api/TestTables.kt                 # clearAll 목록에 4개 추가 (FK 순서: notification_dispatch → notification → notification_device → notification_setting)
 api/src/test/kotlin/com/kbap/api/architecture/ModuleBoundaryTest.kt   # allowedDomainDeps 에 "notification" to emptySet()
 ```
 

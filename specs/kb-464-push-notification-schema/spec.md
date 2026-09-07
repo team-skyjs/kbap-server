@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "464 워크트리" — Jira KB-464 「[BE] 푸시 알림 데이터 모델·Flyway 마이그레이션 (push_token·member_notification_setting·notification·push_dispatch)」. 에픽 KB-463 푸시 알림의 첫 태스크.
+**Input**: User description: "464 워크트리" — Jira KB-464 「[BE] 푸시 알림 데이터 모델·Flyway 마이그레이션 (notification_device·notification_setting·notification·notification_dispatch)」. 에픽 KB-463 푸시 알림의 첫 태스크.
 
 ## 배경
 
@@ -99,10 +99,10 @@
 
 ### Key Entities
 
-- **푸시 토큰(PushToken)**: 앱이 설치된 기기 하나를 나타낸다. 기기 설치 식별자(유일), 푸시 토큰 문자열, 플랫폼, 기기 언어, 선택적 회원 연결, 선택적 게스트 설정. 회원 1 : 토큰 N.
-- **회원 알림 설정(MemberNotificationSetting)**: 회원 한 명의 알림 유형별 수신 여부. 도움됨·리뷰 리마인더·넛지 on/off 와 넛지 동의 시각. 회원 1 : 설정 1.
+- **알림 기기(NotificationDevice)**: 앱이 설치된 기기 하나를 나타낸다. 기기 설치 식별자(유일), 푸시 토큰 문자열, 플랫폼, 기기 언어, 선택적 회원 연결, 선택적 게스트 설정. 회원 1 : 토큰 N.
+- **회원 알림 설정(NotificationSetting)**: 회원 한 명의 알림 유형별 수신 여부. 도움됨·리뷰 리마인더·넛지 on/off 와 넛지 동의 시각. 회원 1 : 설정 1.
 - **알림(Notification)**: 서버가 만든 알림 한 건. 유형(도움됨·넛지·리뷰 리마인더·공지), 제목, 본문, 이동 정보(음식 id·알림 id 등), 읽음 시각, 수신자(회원 또는 기기 식별자). 알림함의 단위.
-- **발송 추적(PushDispatch)**: 알림 한 건이 기기 토큰 하나로 나간 기록. 접수 번호, 상태(대기·발송·배달·실패), 오류 사유. 알림 1 : 발송 추적 N. 영수증 정리의 단위.
+- **발송 추적(NotificationDispatch)**: 알림 한 건이 기기 토큰 하나로 나간 기록. 접수 번호, 상태(대기·발송·배달·실패), 오류 사유. 알림 1 : 발송 추적 N. 영수증 정리의 단위.
 
 ## Success Criteria *(mandatory)*
 

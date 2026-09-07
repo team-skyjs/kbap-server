@@ -29,20 +29,20 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun
 부팅 로그에 `Migrating schema ... to version 2026.09.07...` 가 찍히고, 로컬 MySQL 에서 다음이 성립하면 끝.
 
 ```sql
-SHOW CREATE TABLE push_token\G          -- uk_push_token_installation, fk_push_token_member
-SHOW CREATE TABLE member_notification_setting\G
+SHOW CREATE TABLE notification_device\G          -- uk_notification_device_installation, fk_notification_device_member
+SHOW CREATE TABLE notification_setting\G
 SHOW CREATE TABLE notification\G        -- idx_notification_member_id (member_id, id)
-SHOW CREATE TABLE push_dispatch\G       -- fk_push_dispatch_notification
+SHOW CREATE TABLE notification_dispatch\G       -- fk_notification_dispatch_notification
 ```
 
 ## 4. 수용 시나리오 ↔ 테스트 매핑
 
 | spec 시나리오 | 테스트 |
 |---|---|
-| US1 #1·#2·#3·#6 기기당 1건·회원 연결/해제·재등록 | `PushTokenJpaRepositoryTest` — findByInstallationId, linkMember/unlinkMember, renew, 유니크 위반 |
-| US1 #5 회원 기준 다기기 조회 | `PushTokenJpaRepositoryTest` — findByMemberId 2건 |
-| US2 #1~#4 기본값·넛지 스탬프·회원당 1건 | `MemberNotificationSettingJpaRepositoryTest` — defaultFor, updateNudge 전환, 유니크 위반 |
-| US2 #5 게스트 설정 JSON 왕복 | `PushTokenJpaRepositoryTest` — guestSettings 저장 후 재조회 동등 |
+| US1 #1·#2·#3·#6 기기당 1건·회원 연결/해제·재등록 | `NotificationDeviceJpaRepositoryTest` — findByInstallationId, linkMember/unlinkMember, renew, 유니크 위반 |
+| US1 #5 회원 기준 다기기 조회 | `NotificationDeviceJpaRepositoryTest` — findByMemberId 2건 |
+| US2 #1~#4 기본값·넛지 스탬프·회원당 1건 | `NotificationSettingJpaRepositoryTest` — defaultFor, updateNudge 전환, 유니크 위반 |
+| US2 #5 게스트 설정 JSON 왕복 | `NotificationDeviceJpaRepositoryTest` — guestSettings 저장 후 재조회 동등 |
 | US3 #1·#2 최신순 페이지·미읽음 수 | `NotificationJpaRepositoryTest` — findPageByMemberId 커서, countByMemberIdAndReadAtIsNull, markAllRead |
-| US3 #3·#4 발송 추적 N건·실패 사유 | `PushDispatchJpaRepositoryTest` — findByNotificationId, 상태 전이, findByDispatchStatusAndCreatedAtBefore |
+| US3 #3·#4 발송 추적 N건·실패 사유 | `NotificationDispatchJpaRepositoryTest` — findByNotificationId, 상태 전이, findByDispatchStatusAndCreatedAtBefore |
 | US3 #5 게스트 대상 알림 저장 | `NotificationJpaRepositoryTest` — forInstallation 저장 |
