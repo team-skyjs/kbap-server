@@ -1,7 +1,6 @@
 package com.kbap.common.domain.notification
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
-import com.kbap.common.domain.notification.model.NotificationPreferences
 import com.kbap.common.domain.notification.model.NotificationSetting
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -29,10 +28,11 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             `when`("회원 기준으로 조회하면") {
                 clear()
 
-                then("null 이고 기본 설정은 도움됨 on·리마인더 on 이다") {
+                then("null 이고 기본 설정은 OS 정책대로 활동/소식 off·식사 시간 알림 off 다") {
                     repository.findByMemberId(1L).shouldBeNull()
-                    NotificationSetting.defaultFor(1L).preferences() shouldBe NotificationPreferences.DEFAULT
-                    NotificationPreferences.DEFAULT shouldBe NotificationPreferences(helpful = true, reviewReminder = true)
+                    val default = NotificationSetting.defaultFor(1L)
+                    default.activity shouldBe false
+                    default.mealTime shouldBe false
                 }
             }
 
@@ -49,17 +49,18 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("선호 설정 변경") {
-            `when`("도움됨과 리마인더를 끄면") {
+            `when`("활동/소식과 식사 시간 알림을 켜면") {
                 clear()
                 val setting = repository.save(NotificationSetting.defaultFor(5L))
-                setting.updateHelpful(false)
-                setting.updateReviewReminder(false)
+                setting.updateActivity(true)
+                setting.updateMealTime(true)
                 repository.saveAndFlush(setting)
 
-                then("두 선호가 off 로 저장된다") {
+                then("두 토글이 on 으로 저장된다") {
                     val found = repository.findByMemberId(5L)
                     found.shouldNotBeNull()
-                    found.preferences() shouldBe NotificationPreferences(helpful = false, reviewReminder = false)
+                    found.activity shouldBe true
+                    found.mealTime shouldBe true
                 }
             }
         }

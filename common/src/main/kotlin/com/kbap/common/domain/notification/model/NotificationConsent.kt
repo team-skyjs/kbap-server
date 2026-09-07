@@ -3,6 +3,8 @@ package com.kbap.common.domain.notification.model
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
@@ -14,6 +16,10 @@ class NotificationConsent(
 
     @Column(name = "installation_id", length = 36)
     var installationId: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consent_type", nullable = false, length = 30)
+    var consentType: NotificationConsentType = NotificationConsentType.MARKETING_RECEIVE,
 
     @Column(name = "consent_version", nullable = false, columnDefinition = "SMALLINT UNSIGNED")
     var consentVersion: Int = 0,
@@ -40,10 +46,16 @@ class NotificationConsent(
     }
 
     companion object {
-        fun grantForMember(memberId: Long, installationId: String?, consentVersion: Int, now: LocalDateTime) =
-            NotificationConsent(memberId = memberId, installationId = installationId, consentVersion = consentVersion, grantedAt = now)
+        fun grantForMember(memberId: Long, installationId: String?, type: NotificationConsentType, consentVersion: Int, now: LocalDateTime) =
+            NotificationConsent(
+                memberId = memberId,
+                installationId = installationId,
+                consentType = type,
+                consentVersion = consentVersion,
+                grantedAt = now,
+            )
 
-        fun grantForInstallation(installationId: String, consentVersion: Int, now: LocalDateTime) =
-            NotificationConsent(installationId = installationId, consentVersion = consentVersion, grantedAt = now)
+        fun grantForInstallation(installationId: String, type: NotificationConsentType, consentVersion: Int, now: LocalDateTime) =
+            NotificationConsent(installationId = installationId, consentType = type, consentVersion = consentVersion, grantedAt = now)
     }
 }

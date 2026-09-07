@@ -4,8 +4,6 @@ import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberIdOrNull
-import com.kbap.common.core.error.BusinessException
-import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.notification.model.DevicePlatform
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -27,7 +25,7 @@ class NotificationTokenController(
         @Valid @RequestBody request: NotificationTokenRegisterRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         notificationTokenService.registerToken(
-            installationId = validInstallationId(installationId),
+            installationId = ApiHeaders.validInstallationId(installationId),
             memberId = memberId,
             token = request.token!!,
             platform = DevicePlatform.valueOf(request.platform!!.uppercase()),
@@ -35,16 +33,5 @@ class NotificationTokenController(
             settings = request.settings,
         )
         return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
-    private fun validInstallationId(raw: String): String {
-        if (raw.isBlank() || raw.length > INSTALLATION_ID_MAX_LENGTH) {
-            throw BusinessException(ErrorCode.INVALID_REQUEST)
-        }
-        return raw
-    }
-
-    companion object {
-        private const val INSTALLATION_ID_MAX_LENGTH = 36
     }
 }

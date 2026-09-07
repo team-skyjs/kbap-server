@@ -4,7 +4,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
-import com.kbap.common.domain.notification.model.NotificationConsent
+import com.kbap.common.domain.notification.model.NotificationConsentType
 import com.kbap.common.domain.notification.model.NotificationDevice
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,6 +14,7 @@ import java.time.LocalDateTime
 class NotificationTokenService(
     private val deviceRepository: NotificationDeviceJpaRepository,
     private val consentRepository: NotificationConsentJpaRepository,
+    private val consentService: NotificationConsentService,
     private val memberService: MemberService,
 ) {
     @Transactional
@@ -40,12 +41,9 @@ class NotificationTokenService(
         if (guestConsents.isEmpty()) {
             return
         }
-        if (consentRepository.findOpenByMemberId(memberId).isEmpty()) {
-            guestConsents.forEach { it.claim(memberId) }
-        } else {
-            val now = LocalDateTime.now()
-            guestConsents.forEach { it.revoke(now) }
-        }
+        val memberOpenTypes = consentRepository.findOpenByMemberId(memberId).map { it.consentType }.toSet()
+        val now = LocalDateTime.now()
+        guestConsents.forEach { if (it.consentType in memberOpenTypes) it.revoke(now) else it.claim(memberId) }
     }
 
     @Transactional
@@ -73,15 +71,17 @@ class NotificationTokenService(
 
     private fun applyGuestMarketingConsent(installationId: String, settings: MarketingSettingsRequest) {
         val now = LocalDateTime.now()
-        val open = consentRepository.findOpenGuestByInstallationId(installationId)
         if (settings.marketing != true) {
-            open.forEach { it.revoke(now) }
+            consentService.revokeForInstallation(installationId, now)
             return
         }
-        val version = settings.marketingConsentVersion!!
-        open.filter { it.consentVersion != version }.forEach { it.revoke(now) }
-        if (open.none { it.consentVersion == version }) {
-            consentRepository.save(NotificationConsent.grantForInstallation(installationId, version, now))
-        }
+        consentService.grantForInstallation(
+            installationId,
+            mapOf(
+                NotificationConsentType.MARKETING_PRIVACY to settings.privacyConsentVersion!!,
+                NotificationConsentType.MARKETING_RECEIVE to settings.receiveConsentVersion!!,
+            ),
+            now,
+        )
     }
 }

@@ -15,20 +15,18 @@ class NotificationSetting(
     @Column(name = "member_id", nullable = false)
     var memberId: Long = 0,
 
-    @Column(name = "helpful", nullable = false)
-    var helpful: Boolean = true,
+    @Column(name = "activity", nullable = false)
+    var activity: Boolean = false,
 
-    @Column(name = "review_reminder", nullable = false)
-    var reviewReminder: Boolean = true,
+    @Column(name = "meal_time", nullable = false)
+    var mealTime: Boolean = false,
 ) : BaseEntity() {
-    fun preferences() = NotificationPreferences(helpful = helpful, reviewReminder = reviewReminder)
-
-    fun updateHelpful(enabled: Boolean) {
-        helpful = enabled
+    fun updateActivity(enabled: Boolean) {
+        activity = enabled
     }
 
-    fun updateReviewReminder(enabled: Boolean) {
-        reviewReminder = enabled
+    fun updateMealTime(enabled: Boolean) {
+        mealTime = enabled
     }
 
     companion object {

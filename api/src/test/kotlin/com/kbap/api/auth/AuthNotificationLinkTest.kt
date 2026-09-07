@@ -38,7 +38,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
         data class Session(val memberId: Long, val accessToken: String, val refreshToken: String)
 
-        data class Consent(val memberId: Long?, val version: Int, val grantedAt: String, val revokedAt: String?)
+        data class Consent(val memberId: Long?, val type: String, val version: Int, val grantedAt: String, val revokedAt: String?)
 
         fun memberIdOf(providerUid: String): Long =
             dataSource.connection.use { c ->
@@ -82,7 +82,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                 put("token", "ExponentPushToken[$installationId]")
                 put("platform", "ios")
                 put("lang", "en")
-                if (marketingVersion != null) put("settings", mapOf("marketing" to true, "marketingConsentVersion" to marketingVersion))
+                if (marketingVersion != null) put("settings", mapOf("marketing" to true, "privacyConsentVersion" to marketingVersion, "receiveConsentVersion" to marketingVersion))
             }
             mockMvc.put("/api/notifications/tokens") {
                 header("X-API-Version", "1.1")
@@ -114,7 +114,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
         fun consentsOf(whereClause: String, bind: (java.sql.PreparedStatement) -> Unit): List<Consent> =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "SELECT member_id, consent_version, granted_at, revoked_at FROM notification_consent WHERE $whereClause ORDER BY id",
+                    "SELECT member_id, consent_type, consent_version, granted_at, revoked_at FROM notification_consent WHERE $whereClause ORDER BY id",
                 ).use { ps ->
                     bind(ps)
                     ps.executeQuery().use { rs ->
@@ -122,6 +122,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                             .map {
                                 Consent(
                                     it.getObject("member_id")?.let { id -> (id as Number).toLong() },
+                                    it.getString("consent_type"),
                                     it.getInt("consent_version"),
                                     it.getString("granted_at"),
                                     it.getString("revoked_at"),
@@ -145,27 +146,29 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                 }
             }
 
-        fun insertOpenGuestConsent(installationId: String, version: Int) {
+        fun insertOpenGuestConsent(installationId: String, version: Int, type: String = "MARKETING_RECEIVE") {
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "INSERT INTO notification_consent (installation_id, consent_version, granted_at, status, created_at, updated_at) " +
-                        "VALUES (?, ?, NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+                    "INSERT INTO notification_consent (installation_id, consent_type, consent_version, granted_at, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, NOW(6), 'ACTIVE', NOW(6), NOW(6))",
                 ).use { ps ->
                     ps.setString(1, installationId)
-                    ps.setInt(2, version)
+                    ps.setString(2, type)
+                    ps.setInt(3, version)
                     ps.executeUpdate()
                 }
             }
         }
 
-        fun insertOpenMemberConsent(memberId: Long, version: Int) {
+        fun insertOpenMemberConsent(memberId: Long, version: Int, type: String = "MARKETING_RECEIVE") {
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "INSERT INTO notification_consent (member_id, consent_version, granted_at, status, created_at, updated_at) " +
-                        "VALUES (?, ?, NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+                    "INSERT INTO notification_consent (member_id, consent_type, consent_version, granted_at, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, NOW(6), 'ACTIVE', NOW(6), NOW(6))",
                 ).use { ps ->
                     ps.setLong(1, memberId)
-                    ps.setInt(2, version)
+                    ps.setString(2, type)
+                    ps.setInt(3, version)
                     ps.executeUpdate()
                 }
             }
@@ -187,17 +190,19 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
         given("게스트 기기에서 로그인") {
             `when`("게스트 동의가 있고 회원에게 유효한 동의가 없으면") {
-                then("기기는 회원에 연결되고 게스트 동의는 회원 동의로 바뀌며 동의 시각은 유지된다") {
+                then("기기는 회원에 연결되고 두 종류의 게스트 동의가 회원 동의로 바뀌며 동의 시각은 유지된다") {
                     registerToken("dev-1", marketingVersion = 1)
-                    val before = consents("dev-1").single()
+                    val before = consents("dev-1")
+                    before.size shouldBe 2
 
                     val session = login("member-a", "dev-1")
 
                     deviceMemberId("dev-1") shouldBe session.memberId
-                    val after = consents("dev-1").single()
-                    after.memberId shouldBe session.memberId
-                    after.grantedAt shouldBe before.grantedAt
-                    after.revokedAt.shouldBeNull()
+                    val after = consents("dev-1")
+                    after.size shouldBe 2
+                    after.map { it.type }.toSet() shouldBe setOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
+                    after.all { it.memberId == session.memberId && it.revokedAt == null } shouldBe true
+                    after.map { it.grantedAt } shouldBe before.map { it.grantedAt }
                 }
             }
 
@@ -216,18 +221,24 @@ class AuthNotificationLinkTest : BehaviorSpec() {
             }
 
             `when`("회원에게 이미 유효한 동의가 있으면") {
-                then("게스트 동의는 철회 시각이 찍혀 닫히고 회원의 기존 동의는 그대로다") {
+                then("같은 종류의 게스트 동의만 철회되고 회원에게 없는 종류는 인수되며 회원의 기존 동의는 그대로다") {
                     val first = login("member-a", null)
-                    insertOpenMemberConsent(first.memberId, 1)
+                    insertOpenMemberConsent(first.memberId, 1, "MARKETING_RECEIVE")
                     registerToken("dev-1", marketingVersion = 1)
 
                     val session = login("member-a", "dev-1")
 
                     deviceMemberId("dev-1") shouldBe session.memberId
-                    val guest = consents("dev-1").single()
-                    guest.memberId.shouldBeNull()
-                    guest.revokedAt.shouldNotBeNull()
-                    openConsentsOfMember(session.memberId).size shouldBe 1
+                    val byType = consents("dev-1").groupBy { it.type }
+                    val guestReceive = byType.getValue("MARKETING_RECEIVE").single()
+                    guestReceive.memberId.shouldBeNull()
+                    guestReceive.revokedAt.shouldNotBeNull()
+                    val claimedPrivacy = byType.getValue("MARKETING_PRIVACY").single()
+                    claimedPrivacy.memberId shouldBe session.memberId
+                    claimedPrivacy.revokedAt.shouldBeNull()
+                    val memberOpen = openConsentsOfMember(session.memberId)
+                    memberOpen.size shouldBe 2
+                    memberOpen.map { it.type }.toSet() shouldBe setOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
                 }
             }
 
@@ -367,7 +378,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                     login("member-a", "dev-1", apiVersion = "1.0")
 
                     deviceMemberId("dev-1").shouldBeNull()
-                    consents("dev-1").single().memberId.shouldBeNull()
+                    consents("dev-1").all { it.memberId == null } shouldBe true
                 }
             }
 
