@@ -16,8 +16,8 @@
 
 ## R3. 선호 저장 구조 — `helpful`·`review_reminder` → `activity`·`meal_time`
 
-- **Decision**: `notification_setting` 컬럼을 `activity BOOLEAN NOT NULL DEFAULT TRUE`, `meal_time BOOLEAN NOT NULL DEFAULT TRUE` 로 교체한다(구 컬럼 DROP). 엔티티 `NotificationSetting(memberId, activity = true, mealTime = true)`, 메서드 `updateActivity`·`updateMealTime`, `defaultFor(memberId)`. `NotificationPreferences` 값 객체는 소비자가 이 응답 조립 한 곳뿐이라 삭제하고 엔티티 필드를 직접 읽는다.
-- **Rationale**: 활동/소식 토글 하나가 도움됨·리마인더를 함께 제어(FR-004), 식사 시간 알림 토글 하나가 점심·저녁을 함께 제어(FR-005). `meal_time` 기본 TRUE 로 두면 "K-Bap 소식을 처음 켤 때 식사 시간 알림이 켜진다"(FR-008)와 "껐다 켜면 이전 값 복원"(US3-8)이 tri-state 없이 성립한다 — 응답의 `mealTime` 은 `저장값 AND 소식 켜짐` 으로 계산하므로 소식이 꺼진 회원에겐 항상 false 로 보인다(FR-002).
+- **Decision**: `notification_setting` 컬럼을 `activity BOOLEAN NOT NULL DEFAULT FALSE`, `meal_time BOOLEAN NOT NULL DEFAULT FALSE` 로 교체한다(구 컬럼 DROP). iOS/Android 알림 정책상 모든 알림 허용은 꺼짐으로 시작한다(2026-09-07 사용자 결정 — 초안의 DEFAULT TRUE 폐기). 엔티티 `NotificationSetting(memberId, activity = false, mealTime = false)`, 메서드 `updateActivity`·`updateMealTime`, `defaultFor(memberId)`. `NotificationPreferences` 값 객체는 소비자가 이 응답 조립 한 곳뿐이라 삭제하고 엔티티 필드를 직접 읽는다.
+- **Rationale**: 활동/소식 토글 하나가 도움됨·리마인더를 함께 제어(FR-004), 식사 시간 알림 토글 하나가 점심·저녁을 함께 제어(FR-005). "껐다 켜면 이전 값 복원"(US3-8)은 저장값을 건드리지 않고 응답의 `mealTime` 을 `저장값 AND 소식 켜짐` 으로 계산해 성립한다 — 소식이 꺼진 회원에겐 항상 false 로 보이고, 켜면 사용자가 켜 둔 값이 그대로 살아난다(FR-002·FR-008). 소식 켜기가 식사 시간 알림을 자동으로 켜지 않는다.
 - **Alternatives**: `meal_time NULL = 미설정` tri-state — 분기만 늘고 이득 없음. 기존 두 컬럼 유지 + 앱에서 묶기 — 정본이 앱 화면과 달라져 배치 필터가 두 컬럼을 AND 로 봐야 하는 암묵 규칙이 생긴다.
 
 ## R4. 동의 원장에 종류 축 — `consent_type` 컬럼 + enum `NotificationConsentType`

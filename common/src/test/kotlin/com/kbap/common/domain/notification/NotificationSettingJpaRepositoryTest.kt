@@ -28,11 +28,11 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             `when`("회원 기준으로 조회하면") {
                 clear()
 
-                then("null 이고 기본 설정은 활동/소식 on·식사 시간 알림 on 이다") {
+                then("null 이고 기본 설정은 OS 정책대로 활동/소식 off·식사 시간 알림 off 다") {
                     repository.findByMemberId(1L).shouldBeNull()
                     val default = NotificationSetting.defaultFor(1L)
-                    default.activity shouldBe true
-                    default.mealTime shouldBe true
+                    default.activity shouldBe false
+                    default.mealTime shouldBe false
                 }
             }
 
@@ -49,18 +49,18 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("선호 설정 변경") {
-            `when`("활동/소식과 식사 시간 알림을 끄면") {
+            `when`("활동/소식과 식사 시간 알림을 켜면") {
                 clear()
                 val setting = repository.save(NotificationSetting.defaultFor(5L))
-                setting.updateActivity(false)
-                setting.updateMealTime(false)
+                setting.updateActivity(true)
+                setting.updateMealTime(true)
                 repository.saveAndFlush(setting)
 
-                then("두 선호가 off 로 저장된다") {
+                then("두 토글이 on 으로 저장된다") {
                     val found = repository.findByMemberId(5L)
                     found.shouldNotBeNull()
-                    found.activity shouldBe false
-                    found.mealTime shouldBe false
+                    found.activity shouldBe true
+                    found.mealTime shouldBe true
                 }
             }
         }

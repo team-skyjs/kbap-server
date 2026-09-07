@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Positive
 
 @Schema(description = "회원 알림 설정 부분 수정 — 보낸 항목만 반영되고 나머지는 유지된다")
 data class NotificationSettingsUpdateRequest(
-    @field:Schema(description = "활동/소식(리뷰 도움됨·리뷰 작성 리마인더) 수신 on/off", example = "true")
+    @field:Schema(description = "활동/소식(리뷰 도움됨·리뷰 작성 리마인더) 수신 on/off", example = "false")
     val activity: Boolean? = null,
 
     @field:Valid

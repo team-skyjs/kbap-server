@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 
 @Schema(description = "회원 알림 설정 — 활동 푸시·K-Bap에서 보내는 소식 두 그룹")
 data class NotificationSettingsResponse(
-    @field:Schema(description = "활동/소식(리뷰 도움됨·리뷰 작성 리마인더) 수신. 설정 기록이 없으면 true", example = "true")
+    @field:Schema(description = "활동/소식(리뷰 도움됨·리뷰 작성 리마인더) 수신. OS 알림 정책대로 기본 false", example = "false")
     val activity: Boolean,
 
     @field:Schema(description = "K-Bap에서 보내는 소식(광고성 푸시) 그룹")

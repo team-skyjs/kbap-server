@@ -149,7 +149,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
         val disable = mapOf("news" to mapOf("enabled" to false))
 
         fun assertDefault(node: JsonNode) {
-            node.path("activity").asBoolean() shouldBe true
+            node.path("activity").asBoolean() shouldBe false
             node.path("news").path("enabled").asBoolean() shouldBe false
             node.path("news").path("mealTime").asBoolean() shouldBe false
             node.path("news").path("privacyConsent").isNull shouldBe true
@@ -171,14 +171,14 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("활동/소식을 끈 회원이 조회하면") {
-                then("활동/소식 꺼짐이 보이고 나머지는 저장된 값대로다") {
+            `when`("활동/소식을 켠 회원이 조회하면") {
+                then("활동/소식 켜짐이 보이고 나머지는 저장된 값대로다") {
                     val (memberId, access) = login("member-a")
-                    seedSetting(memberId, activity = false, mealTime = true)
+                    seedSetting(memberId, activity = true, mealTime = true)
 
                     val node = payload(get(access))
 
-                    node.path("activity").asBoolean() shouldBe false
+                    node.path("activity").asBoolean() shouldBe true
                     node.path("news").path("enabled").asBoolean() shouldBe false
                     node.path("news").path("mealTime").asBoolean() shouldBe false
                 }
@@ -234,32 +234,33 @@ class NotificationSettingControllerTest : BehaviorSpec() {
         }
 
         given("토글 수정") {
-            `when`("설정 기록이 없는 회원이 활동/소식 끄기를 보내면") {
-                then("설정 기록이 생기고 활동/소식 꺼짐, 나머지는 기본값이다") {
+            `when`("설정 기록이 없는 회원이 활동/소식 켜기를 보내면") {
+                then("설정 기록이 생기고 활동/소식 켜짐, 나머지는 기본값이다") {
                     val (_, access) = login("member-a")
 
-                    val node = payload(patch(access, mapOf("activity" to false)))
+                    val node = payload(patch(access, mapOf("activity" to true)))
 
-                    node.path("activity").asBoolean() shouldBe false
+                    node.path("activity").asBoolean() shouldBe true
                     node.path("news").path("enabled").asBoolean() shouldBe false
                     node.path("news").path("mealTime").asBoolean() shouldBe false
                     countSettings() shouldBe 1
                 }
             }
 
-            `when`("활동/소식이 꺼진 회원이 켜기를 보내면") {
-                then("켜짐으로 바뀐다") {
+            `when`("활동/소식이 켜진 회원이 끄기를 보내면") {
+                then("꺼짐으로 바뀐다") {
                     val (memberId, access) = login("member-a")
-                    seedSetting(memberId, activity = false, mealTime = true)
+                    seedSetting(memberId, activity = true, mealTime = true)
 
-                    payload(patch(access, mapOf("activity" to true))).path("activity").asBoolean() shouldBe true
-                    payload(get(access)).path("activity").asBoolean() shouldBe true
+                    payload(patch(access, mapOf("activity" to false))).path("activity").asBoolean() shouldBe false
+                    payload(get(access)).path("activity").asBoolean() shouldBe false
                 }
             }
 
             `when`("K-Bap 소식이 켜진 회원이 식사 시간 알림 끄기만 보내면") {
                 then("식사 시간 알림만 꺼지고 활동/소식·동의는 그대로다") {
                     val (memberId, access) = login("member-a")
+                    seedSetting(memberId, activity = true, mealTime = true)
                     seedConsent(memberId, "MARKETING_PRIVACY", 1)
                     seedConsent(memberId, "MARKETING_RECEIVE", 1)
                     val before = consents(memberId)
@@ -312,13 +313,13 @@ class NotificationSettingControllerTest : BehaviorSpec() {
 
         given("K-Bap 소식 동의") {
             `when`("동의 기록이 없는 회원이 두 문구 버전과 함께 켜기를 보내면") {
-                then("종류별 열린 동의가 하나씩 생기고 식사 시간 알림이 켜진다") {
+                then("종류별 열린 동의가 하나씩 생기고 식사 시간 알림은 꺼진 채 시작한다") {
                     val (memberId, access) = login("member-a")
 
                     val news = payload(patch(access, enable(1, 1))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
-                    news.path("mealTime").asBoolean() shouldBe true
+                    news.path("mealTime").asBoolean() shouldBe false
                     news.path("privacyConsent").path("version").asInt() shouldBe 1
                     news.path("receiveConsent").path("version").asInt() shouldBe 1
                     news.path("privacyConsent").path("grantedAt").asText().isNotBlank() shouldBe true
@@ -375,11 +376,11 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("식사 시간 알림을 끈 회원이 K-Bap 소식 끄기를 보내면") {
-                then("두 종류의 열린 기록이 모두 닫히고 행은 남으며 식사 시간 알림 값은 보존된다") {
+            `when`("식사 시간 알림을 켠 회원이 K-Bap 소식 끄기를 보내면") {
+                then("두 종류의 열린 기록이 모두 닫히고 행은 남으며 식사 시간 알림은 응답에서 꺼짐으로 보인다") {
                     val (memberId, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("news" to mapOf("mealTime" to false)))
+                    patch(access, mapOf("news" to mapOf("mealTime" to true)))
                     val total = consents(memberId).size
 
                     val news = payload(patch(access, disable)).path("news")
@@ -415,28 +416,28 @@ class NotificationSettingControllerTest : BehaviorSpec() {
             }
 
             `when`("K-Bap 소식을 껐다가 다시 켜면") {
-                then("식사 시간 알림 꺼짐이 그대로 복원된다") {
+                then("끄기 전에 켜 둔 식사 시간 알림이 그대로 복원된다") {
                     val (_, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("news" to mapOf("mealTime" to false)))
+                    patch(access, mapOf("news" to mapOf("mealTime" to true)))
                     patch(access, disable)
 
                     val news = payload(patch(access, enable(1, 1))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
-                    news.path("mealTime").asBoolean() shouldBe false
+                    news.path("mealTime").asBoolean() shouldBe true
                 }
             }
 
-            `when`("켜기와 식사 시간 알림 값을 한 요청에 보내면") {
-                then("켜기가 먼저 반영돼 식사 시간 알림 값도 저장된다") {
+            `when`("켜기와 식사 시간 알림 켜기를 한 요청에 보내면") {
+                then("동의가 먼저 반영돼 식사 시간 알림도 켜진다") {
                     val (_, access) = login("member-a")
 
-                    val news = payload(patch(access, enable(1, 1, mealTime = false))).path("news")
+                    val news = payload(patch(access, enable(1, 1, mealTime = true))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
-                    news.path("mealTime").asBoolean() shouldBe false
-                    payload(patch(access, mapOf("news" to mapOf("mealTime" to true)))).path("news").path("mealTime").asBoolean() shouldBe true
+                    news.path("mealTime").asBoolean() shouldBe true
+                    payload(patch(access, mapOf("news" to mapOf("mealTime" to false)))).path("news").path("mealTime").asBoolean() shouldBe false
                 }
             }
 

@@ -8,12 +8,12 @@
 |---|---|---|---|
 | id | BIGINT | PK | BaseEntity |
 | member_id | BIGINT | NOT NULL, UNIQUE `uk_notification_setting_member`, FK → member | 회원 1 : 설정 1 |
-| **activity** | BOOLEAN | NOT NULL DEFAULT TRUE | 활동/소식 — 리뷰 도움됨·리뷰 작성 리마인더 수신 |
-| **meal_time** | BOOLEAN | NOT NULL DEFAULT TRUE | 식사 시간 알림 — 점심·저녁 넛지 수신. K-Bap 소식이 꺼져 있으면 저장값과 무관하게 발송·표시 모두 꺼짐 |
+| **activity** | BOOLEAN | NOT NULL DEFAULT FALSE | 활동/소식 — 리뷰 도움됨·리뷰 작성 리마인더 수신. OS 알림 정책상 꺼짐으로 시작 |
+| **meal_time** | BOOLEAN | NOT NULL DEFAULT FALSE | 식사 시간 알림 — 점심·저녁 넛지 수신. K-Bap 소식이 꺼져 있으면 저장값과 무관하게 발송·표시 모두 꺼짐 |
 | ~~helpful~~ · ~~review_reminder~~ | | DROP | KB-464 컬럼. 활동/소식 하나로 통합 |
 | status / created_at / updated_at | | BaseEntity | |
 
-**엔티티 `NotificationSetting`** — 필드 `memberId`, `activity = true`, `mealTime = true`. 메서드 `updateActivity(enabled)`, `updateMealTime(enabled)`, companion `defaultFor(memberId)`. 설정 기록이 없는 회원은 저장하지 않은 `defaultFor` 인스턴스로 기본값을 읽는다(별도 값 객체 없음 — KB-464 의 `NotificationPreferences` 는 소비자가 없어 삭제).
+**엔티티 `NotificationSetting`** — 필드 `memberId`, `activity = false`, `mealTime = false`. 메서드 `updateActivity(enabled)`, `updateMealTime(enabled)`, companion `defaultFor(memberId)`. 설정 기록이 없는 회원은 저장하지 않은 `defaultFor` 인스턴스로 기본값을 읽는다(별도 값 객체 없음 — KB-464 의 `NotificationPreferences` 는 소비자가 없어 삭제).
 
 **리포지토리** — `findByMemberId(memberId): NotificationSetting?` (변경 없음).
 
@@ -44,7 +44,7 @@
 |---|---|
 | K-Bap 소식 켜짐 (`news.enabled`) | 회원의 열린 동의에 `MARKETING_PRIVACY` 와 `MARKETING_RECEIVE` 가 **둘 다** 있음 |
 | 식사 시간 알림 응답값 (`news.mealTime`) | `setting.mealTime AND news.enabled` |
-| 활동/소식 응답값 (`activity`) | `setting.activity` (설정 없으면 `defaultFor` 기본값 true) |
+| 활동/소식 응답값 (`activity`) | `setting.activity` (설정 없으면 `defaultFor` 기본값 false) |
 | 동의 표시 (`privacyConsent`·`receiveConsent`) | 종류별 열린 행 중 `grantedAt` 최신 1건의 `{version, grantedAt}`, 없으면 null |
 
 ## 4. 동의 원장 사건 표 (KB-464 표의 종류 축 반영)
@@ -78,8 +78,8 @@
 ALTER TABLE notification_setting
     DROP COLUMN helpful,
     DROP COLUMN review_reminder,
-    ADD COLUMN activity  BOOLEAN NOT NULL DEFAULT TRUE AFTER member_id,
-    ADD COLUMN meal_time BOOLEAN NOT NULL DEFAULT TRUE AFTER activity;
+    ADD COLUMN activity  BOOLEAN NOT NULL DEFAULT FALSE AFTER member_id,
+    ADD COLUMN meal_time BOOLEAN NOT NULL DEFAULT FALSE AFTER activity;
 
 ALTER TABLE notification_consent
     ADD COLUMN consent_type VARCHAR(30) NOT NULL DEFAULT 'MARKETING_RECEIVE' AFTER installation_id;

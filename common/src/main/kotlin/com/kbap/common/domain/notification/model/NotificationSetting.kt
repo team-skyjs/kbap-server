@@ -16,10 +16,10 @@ class NotificationSetting(
     var memberId: Long = 0,
 
     @Column(name = "activity", nullable = false)
-    var activity: Boolean = true,
+    var activity: Boolean = false,
 
     @Column(name = "meal_time", nullable = false)
-    var mealTime: Boolean = true,
+    var mealTime: Boolean = false,
 ) : BaseEntity() {
     fun updateActivity(enabled: Boolean) {
         activity = enabled

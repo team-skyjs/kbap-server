@@ -25,13 +25,13 @@
 
 | 필드 | 타입 | 의미 |
 |---|---|---|
-| `activity` | boolean | 활동/소식(리뷰 도움됨·리뷰 작성 리마인더). 설정 없으면 `true` |
+| `activity` | boolean | 활동/소식(리뷰 도움됨·리뷰 작성 리마인더). OS 알림 정책상 설정 없으면 `false` |
 | `news.enabled` | boolean | 두 동의(개인정보 수집·이용 + 광고성 수신) 모두 유효 |
 | `news.mealTime` | boolean | 식사 시간 알림. `enabled=false` 면 저장값과 무관하게 `false` |
 | `news.privacyConsent` | object \| null | 마케팅 목적 개인정보 수집·이용 동의 — 열린 최신 1건 `{version, grantedAt}`. 없으면 `null` |
 | `news.receiveConsent` | object \| null | 광고성 정보 수신 동의 — 위와 같음 |
 
-설정 기록이 없는 회원: `{ "activity": true, "news": { "enabled": false, "mealTime": false, "privacyConsent": null, "receiveConsent": null } }`. 조회는 기록을 만들지 않는다.
+설정 기록이 없는 회원: `{ "activity": false, "news": { "enabled": false, "mealTime": false, "privacyConsent": null, "receiveConsent": null } }`. 조회는 기록을 만들지 않는다.
 
 ## PATCH /api/notifications/settings
 
@@ -76,13 +76,13 @@
 
 ### 예시
 
-켜기(첫 동의): `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=true`(기본), 두 consent 채워짐.
+켜기(첫 동의): `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=false`(기본 꺼짐, 사용자가 켠다), 두 consent 채워짐.
 
-식사 시간 알림만 끄기: `{ "news": { "mealTime": false } }` → `mealTime=false`, 동의 그대로.
+식사 시간 알림 켜기: `{ "news": { "mealTime": true } }` → `mealTime=true`, 동의 그대로.
 
 끄기: `{ "news": { "enabled": false } }` → `enabled=false, mealTime=false`, 두 consent `null`. 저장된 mealTime 은 보존.
 
-다시 켜기(같은 버전): 위 켜기 본문 → 원장 무변화(새 행 없음), `mealTime` 은 보존값(false) 복원.
+다시 켜기(같은 버전): 위 켜기 본문 → 원장 무변화(새 행 없음), `mealTime` 은 보존값(true) 복원.
 
 수신 동의 문구 개정 후 재동의: `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 2 } }` → receive 이전 행 철회 + v2 새 행, privacy 무변화.
 

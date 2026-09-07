@@ -96,7 +96,7 @@ api/src/test/kotlin/com/kbap/api/notification/
 
 ## Phase 0 — Research (완료)
 
-research.md 의 R1~R13. 핵심: URL·버전(R1), JWT 정확 경로(R2), 선호 컬럼 교체 + `meal_time` 기본 TRUE 로 tri-state 회피(R3), `consent_type` 추가(R4), 켜짐 판정 = 두 종류 열린 동의(R5), 공유 동의 서비스(R6), 중첩 부분 수정 계약(R7), 게스트 계약 조정·종류별 인수(R8), `NOTIFICATION-001`(R9), 새 마이그레이션(R11), `NotificationType` 유지(R12).
+research.md 의 R1~R13. 핵심: URL·버전(R1), JWT 정확 경로(R2), 선호 컬럼 교체 + 기본 FALSE(OS 정책) + `AND 켜짐` 계산으로 복원(R3), `consent_type` 추가(R4), 켜짐 판정 = 두 종류 열린 동의(R5), 공유 동의 서비스(R6), 중첩 부분 수정 계약(R7), 게스트 계약 조정·종류별 인수(R8), `NOTIFICATION-001`(R9), 새 마이그레이션(R11), `NotificationType` 유지(R12).
 
 ## Phase 1 — Design (완료)
 
