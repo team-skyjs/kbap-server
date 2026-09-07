@@ -93,7 +93,7 @@ class Food(
         if (contentStatus == FoodContentStatus.READY) return false
         requireReviewable()
         contentStatus = FoodContentStatus.READY
-        publishedAt = LocalDateTime.now()
+        publishedAt = publishedAt ?: LocalDateTime.now()
         return true
     }
 
