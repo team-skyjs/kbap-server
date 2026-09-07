@@ -17,7 +17,7 @@ interface NotificationConsentJpaRepository : JpaRepository<NotificationConsent, 
         where c.installationId = :installationId and c.memberId is null and c.revokedAt is null
         """,
     )
-    fun findOpenGuestByInstallationId(@Param("installationId") installationId: String): NotificationConsent?
+    fun findOpenGuestByInstallationId(@Param("installationId") installationId: String): List<NotificationConsent>
 
     @Modifying
     @Query("update NotificationConsent c set c.revokedAt = :now where c.memberId = :memberId and c.revokedAt is null")

@@ -64,14 +64,14 @@
 | 회원이 설정에서 on | `grantForMember(memberId, 요청 기기, version, now)` INSERT |
 | off (철회) | `closeOpenByMemberId(memberId, now)` — 열린 행 전부 `revoked_at` 스탬프. 행 보존 |
 | 재동의·문구 버전 변경·2년 재확인 | 열린 행 닫고 새 행 INSERT → 최초 동의 시각 보존 |
-| 게스트 기기에서 로그인 (KB-465) | 회원에게 열린 행 없음 → `findOpenGuestByInstallationId` 행에 `claim(memberId)` (인수, 시각 보존). 있음 → 게스트 행 `revoke` |
+| 게스트 기기에서 로그인 (KB-465) | 회원에게 열린 행 없음 → `findOpenGuestByInstallationId` 행 전부에 `claim(memberId)` (인수, 시각 보존). 있음 → 게스트 행 `revoke` |
 | 로그아웃 | 아무것도 안 함. 기기에 열린 게스트 행이 없으니 옛 동의가 되살아날 수 없다 |
 | 탈퇴 (KB-465) | `closeOpenByMemberId` — 보존하되 대상에서 제외 |
 
 **엔티티 `NotificationConsent`** — 필드: `memberId: Long?`, `installationId: String?`, `consentVersion: Int`, `grantedAt`, `revokedAt: LocalDateTime?`.
 도메인 메서드: `isOpen()`, `allows(requiredVersion: Int)` = 열림 AND 버전 ≥ 요구, `revoke(now)`(이미 철회면 `IllegalStateException`), `claim(memberId)`(회원 행이거나 철회됐으면 `IllegalStateException`), companion `grantForMember`, `grantForInstallation`.
 
-**리포지토리 `NotificationConsentJpaRepository`** — `findOpenByMemberId(memberId): List<NotificationConsent>`(설정 API 는 `firstOrNull`), `findOpenGuestByInstallationId(installationId): NotificationConsent?`(`member_id IS NULL` 조건 포함 — 로그아웃 부활 차단), `closeOpenByMemberId(memberId, now): Int`(`@Modifying`).
+**리포지토리 `NotificationConsentJpaRepository`** — `findOpenByMemberId(memberId): List<NotificationConsent>`(설정 API 는 `firstOrNull`), `findOpenGuestByInstallationId(installationId): List<NotificationConsent>`(`member_id IS NULL` 조건 포함 — 로그아웃 부활 차단. 재시도로 열린 게스트 행이 둘 이상 생겨도 단건 조회 예외 없이 전부 인수), `closeOpenByMemberId(memberId, now): Int`(`@Modifying`).
 
 발송 대상 조회(KB-471 에서 작성):
 ```sql

@@ -8,7 +8,6 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -107,8 +106,8 @@ class NotificationConsentJpaRepositoryTest : BehaviorSpec() {
 
                 then("기기 식별자로 열린 게스트 동의가 조회되고 회원 기준으로는 아무것도 없다") {
                     val guest = repository.findOpenGuestByInstallationId("inst-g")
-                    guest.shouldNotBeNull()
-                    guest.memberId.shouldBeNull()
+                    guest shouldHaveSize 1
+                    guest.first().memberId.shouldBeNull()
                     repository.findOpenByMemberId(7L).shouldBeEmpty()
                 }
             }
@@ -125,7 +124,7 @@ class NotificationConsentJpaRepositoryTest : BehaviorSpec() {
                     open.first().id shouldBe guest.id
                     open.first().grantedAt shouldBe now
                     open.first().installationId shouldBe "inst-g"
-                    repository.findOpenGuestByInstallationId("inst-g").shouldBeNull()
+                    repository.findOpenGuestByInstallationId("inst-g").shouldBeEmpty()
                 }
             }
 
