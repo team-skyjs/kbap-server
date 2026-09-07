@@ -28,7 +28,7 @@
 
 ## R5. "K-Bap 소식 켜짐" 판정 — 저장값이 아니라 두 종류의 열린 동의 존재
 
-- **Decision**: `kbapNews.enabled = openConsents.any{PRIVACY} && openConsents.any{RECEIVE}`. 별도 boolean 컬럼을 두지 않는다. 리포지토리 `findOpenByMemberId` 결과를 종류별로 나눠 판정한다.
+- **Decision**: `news.enabled = openConsents.any{PRIVACY} && openConsents.any{RECEIVE}`. 별도 boolean 컬럼을 두지 않는다. 리포지토리 `findOpenByMemberId` 결과를 종류별로 나눠 판정한다.
 - **Rationale**: 정본이 하나(원장)여야 "한쪽만 철회된 과거 데이터" 같은 엣지가 자동으로 꺼짐 처리된다(FR-011). 발송 배치도 같은 질의로 판정한다.
 - **Alternatives**: 설정 테이블에 `marketing` 컬럼 캐시 — 원장과 어긋날 수 있다.
 
@@ -40,7 +40,7 @@
 
 ## R7. 부분 수정 계약 — 중첩 객체, 켜기 요청에 두 버전 필수
 
-- **Decision**: PATCH 본문 `{ activity?: bool, kbapNews?: { enabled?: bool, mealTime?: bool, privacyConsentVersion?: int, receiveConsentVersion?: int } }`. `kbapNews.enabled == true` 면 두 버전 모두 필수(DTO `@get:AssertTrue`, 400 COMMON-002). `enabled == false` 면 버전 무시. `mealTime == true` 인데 (이 요청 반영 후) 소식이 꺼져 있으면 400 `NOTIFICATION-001 MARKETING_CONSENT_REQUIRED`. `mealTime == false` 는 소식 상태와 무관하게 저장(값 보존 규칙). 응답은 항상 GET 과 같은 전체 설정.
+- **Decision**: PATCH 본문 `{ activity?: bool, news?: { enabled?: bool, mealTime?: bool, privacyConsentVersion?: int, receiveConsentVersion?: int } }`. `news.enabled == true` 면 두 버전 모두 필수(DTO `@get:AssertTrue`, 400 COMMON-002). `enabled == false` 면 버전 무시. `mealTime == true` 인데 (이 요청 반영 후) 소식이 꺼져 있으면 400 `NOTIFICATION-001 MARKETING_CONSENT_REQUIRED`. `mealTime == false` 는 소식 상태와 무관하게 저장(값 보존 규칙). 응답은 항상 GET 과 같은 전체 설정.
 - **Rationale**: 화면 구조(그룹 → 하위)를 그대로 옮기면 필드 이름이 자명하다. 켜기·하위 토글을 한 요청에 보내는 경우(`enabled=true, mealTime=false`)도 순서 규칙("enabled 먼저 반영")으로 결정적이다.
 - **Alternatives**: 평탄한 필드(`marketing`, `mealTime`, …) — Jira 초안. 그룹 소속이 이름에 안 드러나 K-Bap 소식 재편 의도가 사라진다.
 

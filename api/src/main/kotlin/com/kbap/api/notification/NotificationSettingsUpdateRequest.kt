@@ -13,11 +13,11 @@ data class NotificationSettingsUpdateRequest(
 
     @field:Valid
     @field:Schema(description = "K-Bap에서 보내는 소식 그룹 수정")
-    val kbapNews: KbapNewsUpdateRequest? = null,
+    val news: NewsUpdateRequest? = null,
 )
 
 @Schema(description = "K-Bap에서 보내는 소식 그룹 부분 수정. 처리 순서: enabled → mealTime")
-data class KbapNewsUpdateRequest(
+data class NewsUpdateRequest(
     @field:Schema(description = "true = 두 동의 기록(켜기, 두 버전 필수), false = 두 동의 철회(끄기). 없으면 동의 상태 유지", example = "true")
     val enabled: Boolean? = null,
 

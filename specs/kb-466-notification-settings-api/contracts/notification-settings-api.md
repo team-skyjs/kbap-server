@@ -13,7 +13,7 @@
   "success": true,
   "payload": {
     "activity": true,
-    "kbapNews": {
+    "news": {
       "enabled": true,
       "mealTime": false,
       "privacyConsent": { "version": 1, "grantedAt": "2026-09-07T12:00:00" },
@@ -26,12 +26,12 @@
 | 필드 | 타입 | 의미 |
 |---|---|---|
 | `activity` | boolean | 활동/소식(리뷰 도움됨·리뷰 작성 리마인더). 설정 없으면 `true` |
-| `kbapNews.enabled` | boolean | 두 동의(개인정보 수집·이용 + 광고성 수신) 모두 유효 |
-| `kbapNews.mealTime` | boolean | 식사 시간 알림. `enabled=false` 면 저장값과 무관하게 `false` |
-| `kbapNews.privacyConsent` | object \| null | 마케팅 목적 개인정보 수집·이용 동의 — 열린 최신 1건 `{version, grantedAt}`. 없으면 `null` |
-| `kbapNews.receiveConsent` | object \| null | 광고성 정보 수신 동의 — 위와 같음 |
+| `news.enabled` | boolean | 두 동의(개인정보 수집·이용 + 광고성 수신) 모두 유효 |
+| `news.mealTime` | boolean | 식사 시간 알림. `enabled=false` 면 저장값과 무관하게 `false` |
+| `news.privacyConsent` | object \| null | 마케팅 목적 개인정보 수집·이용 동의 — 열린 최신 1건 `{version, grantedAt}`. 없으면 `null` |
+| `news.receiveConsent` | object \| null | 광고성 정보 수신 동의 — 위와 같음 |
 
-설정 기록이 없는 회원: `{ "activity": true, "kbapNews": { "enabled": false, "mealTime": false, "privacyConsent": null, "receiveConsent": null } }`. 조회는 기록을 만들지 않는다.
+설정 기록이 없는 회원: `{ "activity": true, "news": { "enabled": false, "mealTime": false, "privacyConsent": null, "receiveConsent": null } }`. 조회는 기록을 만들지 않는다.
 
 ## PATCH /api/notifications/settings
 
@@ -42,7 +42,7 @@
 ```json
 {
   "activity": false,
-  "kbapNews": {
+  "news": {
     "enabled": true,
     "mealTime": true,
     "privacyConsentVersion": 1,
@@ -54,14 +54,14 @@
 | 필드 | 타입 | 규칙 |
 |---|---|---|
 | `activity` | boolean? | 없으면 유지 |
-| `kbapNews` | object? | 없으면 그룹 전체 유지 |
-| `kbapNews.enabled` | boolean? | `true` = 두 동의 기록(켜기), `false` = 두 동의 철회(끄기). 없으면 동의 상태 유지 |
-| `kbapNews.privacyConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
-| `kbapNews.receiveConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
-| `kbapNews.mealTime` | boolean? | 없으면 유지. `true` 는 (이 요청의 `enabled` 반영 후) 소식이 켜져 있어야 함 |
+| `news` | object? | 없으면 그룹 전체 유지 |
+| `news.enabled` | boolean? | `true` = 두 동의 기록(켜기), `false` = 두 동의 철회(끄기). 없으면 동의 상태 유지 |
+| `news.privacyConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
+| `news.receiveConsentVersion` | int? (1~65535) | `enabled=true` 면 **필수**. 그 외 무시 |
+| `news.mealTime` | boolean? | 없으면 유지. `true` 는 (이 요청의 `enabled` 반영 후) 소식이 켜져 있어야 함 |
 | `grantedAt` 류 클라이언트 시각 | 받지 않음 | 서버 시각으로 기록 |
 
-처리 순서: `activity` → `kbapNews.enabled`(동의 grant/revoke) → `kbapNews.mealTime`. 빈 본문 `{}` 은 무변화 200.
+처리 순서: `activity` → `news.enabled`(동의 grant/revoke) → `news.mealTime`. 빈 본문 `{}` 은 무변화 200.
 
 동의 grant 규칙(종류별): 열린 행 중 버전이 다른 것은 철회 시각 스탬프, 같은 버전이 있으면 무변화, 없으면 새 행. 끄기는 두 종류의 열린 행 전부 철회(행 보존). `mealTime` 값은 끄기 때도 보존된다.
 
@@ -76,15 +76,15 @@
 
 ### 예시
 
-켜기(첫 동의): `{ "kbapNews": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=true`(기본), 두 consent 채워짐.
+켜기(첫 동의): `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 1 } }` → `enabled=true, mealTime=true`(기본), 두 consent 채워짐.
 
-식사 시간 알림만 끄기: `{ "kbapNews": { "mealTime": false } }` → `mealTime=false`, 동의 그대로.
+식사 시간 알림만 끄기: `{ "news": { "mealTime": false } }` → `mealTime=false`, 동의 그대로.
 
-끄기: `{ "kbapNews": { "enabled": false } }` → `enabled=false, mealTime=false`, 두 consent `null`. 저장된 mealTime 은 보존.
+끄기: `{ "news": { "enabled": false } }` → `enabled=false, mealTime=false`, 두 consent `null`. 저장된 mealTime 은 보존.
 
 다시 켜기(같은 버전): 위 켜기 본문 → 원장 무변화(새 행 없음), `mealTime` 은 보존값(false) 복원.
 
-수신 동의 문구 개정 후 재동의: `{ "kbapNews": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 2 } }` → receive 이전 행 철회 + v2 새 행, privacy 무변화.
+수신 동의 문구 개정 후 재동의: `{ "news": { "enabled": true, "privacyConsentVersion": 1, "receiveConsentVersion": 2 } }` → receive 이전 행 철회 + v2 새 행, privacy 무변화.
 
 ## 부수 계약 변경 — PUT /api/notifications/tokens (KB-465)
 

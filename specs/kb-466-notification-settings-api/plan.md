@@ -77,7 +77,7 @@ common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt   # NOTIFICATION-
 api/src/main/kotlin/com/kbap/api/notification/
 ├── NotificationSettingController.kt        # 신규: GET/PATCH /settings (무버전)
 ├── NotificationSettingApi.kt               # 신규: swagger 인터페이스
-├── NotificationSettingsResponse.kt         # 신규: activity·kbapNews{enabled,mealTime,privacyConsent,receiveConsent}
+├── NotificationSettingsResponse.kt         # 신규: activity·news{enabled,mealTime,privacyConsent,receiveConsent}
 ├── NotificationSettingsUpdateRequest.kt    # 신규: 부분 수정 DTO + AssertTrue(켜기 시 두 버전)
 ├── NotificationSettingService.kt           # 신규: getSettings·updateSettings
 ├── NotificationConsentService.kt           # 신규: 종류·버전 규칙 grant/revoke (회원·게스트 공유)
@@ -111,7 +111,7 @@ research.md 의 R1~R13. 핵심: URL·버전(R1), JWT 정확 경로(R2), 선호 �
 2. `NotificationConsentService` 신설 + KB-465 토큰 서비스·DTO·테스트를 두 종류 계약으로 이전 (Foundational — 설정 API 가 이 서비스를 쓴다).
 3. US1 조회: 응답 DTO·서비스 `getSettings`·컨트롤러 GET·WebConfig·통합 테스트.
 4. US2 토글 수정: 요청 DTO·`updateSettings`(activity·mealTime)·PATCH·`NOTIFICATION-001`·테스트.
-5. US3 동의 켜기/끄기: `updateSettings` 의 `kbapNews.enabled` 경로·재동의·보존·테스트.
+5. US3 동의 켜기/끄기: `updateSettings` 의 `news.enabled` 경로·재동의·보존·테스트.
 6. Polish: swagger 문구, Jira KB-465/466 본문·FE 공유, 지식 위키(두 그룹 재편 결정) 기록.
 
 ## Complexity Tracking

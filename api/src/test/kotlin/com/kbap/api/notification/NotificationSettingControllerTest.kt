@@ -138,7 +138,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
 
         fun enable(privacy: Int? = 1, receive: Int? = 1, mealTime: Boolean? = null): Map<String, Any?> =
             mapOf(
-                "kbapNews" to buildMap {
+                "news" to buildMap {
                     put("enabled", true)
                     if (privacy != null) put("privacyConsentVersion", privacy)
                     if (receive != null) put("receiveConsentVersion", receive)
@@ -146,14 +146,14 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 },
             )
 
-        val disable = mapOf("kbapNews" to mapOf("enabled" to false))
+        val disable = mapOf("news" to mapOf("enabled" to false))
 
         fun assertDefault(node: JsonNode) {
             node.path("activity").asBoolean() shouldBe true
-            node.path("kbapNews").path("enabled").asBoolean() shouldBe false
-            node.path("kbapNews").path("mealTime").asBoolean() shouldBe false
-            node.path("kbapNews").path("privacyConsent").isNull shouldBe true
-            node.path("kbapNews").path("receiveConsent").isNull shouldBe true
+            node.path("news").path("enabled").asBoolean() shouldBe false
+            node.path("news").path("mealTime").asBoolean() shouldBe false
+            node.path("news").path("privacyConsent").isNull shouldBe true
+            node.path("news").path("receiveConsent").isNull shouldBe true
         }
 
         beforeContainer {
@@ -179,8 +179,8 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     val node = payload(get(access))
 
                     node.path("activity").asBoolean() shouldBe false
-                    node.path("kbapNews").path("enabled").asBoolean() shouldBe false
-                    node.path("kbapNews").path("mealTime").asBoolean() shouldBe false
+                    node.path("news").path("enabled").asBoolean() shouldBe false
+                    node.path("news").path("mealTime").asBoolean() shouldBe false
                 }
             }
 
@@ -191,7 +191,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     seedConsent(memberId, "MARKETING_PRIVACY", 1)
                     seedConsent(memberId, "MARKETING_RECEIVE", 2)
 
-                    val news = payload(get(access)).path("kbapNews")
+                    val news = payload(get(access)).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
                     news.path("mealTime").asBoolean() shouldBe false
@@ -209,7 +209,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     seedConsent(memberId, "MARKETING_PRIVACY", 1, revoked = true)
                     seedConsent(memberId, "MARKETING_RECEIVE", 1)
 
-                    val news = payload(get(access)).path("kbapNews")
+                    val news = payload(get(access)).path("news")
 
                     news.path("enabled").asBoolean() shouldBe false
                     news.path("mealTime").asBoolean() shouldBe false
@@ -241,8 +241,8 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     val node = payload(patch(access, mapOf("activity" to false)))
 
                     node.path("activity").asBoolean() shouldBe false
-                    node.path("kbapNews").path("enabled").asBoolean() shouldBe false
-                    node.path("kbapNews").path("mealTime").asBoolean() shouldBe false
+                    node.path("news").path("enabled").asBoolean() shouldBe false
+                    node.path("news").path("mealTime").asBoolean() shouldBe false
                     countSettings() shouldBe 1
                 }
             }
@@ -264,11 +264,11 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     seedConsent(memberId, "MARKETING_RECEIVE", 1)
                     val before = consents(memberId)
 
-                    val node = payload(patch(access, mapOf("kbapNews" to mapOf("mealTime" to false))))
+                    val node = payload(patch(access, mapOf("news" to mapOf("mealTime" to false))))
 
                     node.path("activity").asBoolean() shouldBe true
-                    node.path("kbapNews").path("enabled").asBoolean() shouldBe true
-                    node.path("kbapNews").path("mealTime").asBoolean() shouldBe false
+                    node.path("news").path("enabled").asBoolean() shouldBe true
+                    node.path("news").path("mealTime").asBoolean() shouldBe false
                     consents(memberId) shouldBe before
                 }
             }
@@ -277,7 +277,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("NOTIFICATION-001 로 거절되고 설정은 바뀌지 않는다") {
                     val (_, access) = login("member-a")
 
-                    val response = patch(access, mapOf("kbapNews" to mapOf("mealTime" to true)))
+                    val response = patch(access, mapOf("news" to mapOf("mealTime" to true)))
 
                     response.status shouldBe 400
                     response.contentAsString shouldContain "NOTIFICATION-001"
@@ -289,7 +289,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("끄기는 허용되고 값이 보존된다") {
                     val (_, access) = login("member-a")
 
-                    payload(patch(access, mapOf("kbapNews" to mapOf("mealTime" to false)))).path("kbapNews").path("mealTime").asBoolean() shouldBe false
+                    payload(patch(access, mapOf("news" to mapOf("mealTime" to false)))).path("news").path("mealTime").asBoolean() shouldBe false
                     countSettings() shouldBe 1
                 }
             }
@@ -315,7 +315,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("종류별 열린 동의가 하나씩 생기고 식사 시간 알림이 켜진다") {
                     val (memberId, access) = login("member-a")
 
-                    val news = payload(patch(access, enable(1, 1))).path("kbapNews")
+                    val news = payload(patch(access, enable(1, 1))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
                     news.path("mealTime").asBoolean() shouldBe true
@@ -361,7 +361,7 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     patch(access, enable(1, 1))
                     val privacyBefore = consents(memberId).single { it.type == "MARKETING_PRIVACY" }
 
-                    val news = payload(patch(access, enable(1, 2))).path("kbapNews")
+                    val news = payload(patch(access, enable(1, 2))).path("news")
 
                     news.path("receiveConsent").path("version").asInt() shouldBe 2
                     val byType = consents(memberId).groupBy { it.type }
@@ -379,10 +379,10 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("두 종류의 열린 기록이 모두 닫히고 행은 남으며 식사 시간 알림 값은 보존된다") {
                     val (memberId, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("kbapNews" to mapOf("mealTime" to false)))
+                    patch(access, mapOf("news" to mapOf("mealTime" to false)))
                     val total = consents(memberId).size
 
-                    val news = payload(patch(access, disable)).path("kbapNews")
+                    val news = payload(patch(access, disable)).path("news")
 
                     news.path("enabled").asBoolean() shouldBe false
                     news.path("mealTime").asBoolean() shouldBe false
@@ -406,9 +406,9 @@ class NotificationSettingControllerTest : BehaviorSpec() {
             `when`("켜기 요청에 클라이언트 동의 시각을 실어 보내면") {
                 then("그 값은 무시되고 서버 시각이 기록된다") {
                     val (_, access) = login("member-a")
-                    val body = """{"kbapNews":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1,"grantedAt":"2000-01-01T00:00:00"}}"""
+                    val body = """{"news":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1,"grantedAt":"2000-01-01T00:00:00"}}"""
 
-                    val news = payload(patch(access, body)).path("kbapNews")
+                    val news = payload(patch(access, body)).path("news")
 
                     news.path("privacyConsent").path("grantedAt").asText() shouldNotBe "2000-01-01T00:00:00"
                 }
@@ -418,10 +418,10 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("식사 시간 알림 꺼짐이 그대로 복원된다") {
                     val (_, access) = login("member-a")
                     patch(access, enable(1, 1))
-                    patch(access, mapOf("kbapNews" to mapOf("mealTime" to false)))
+                    patch(access, mapOf("news" to mapOf("mealTime" to false)))
                     patch(access, disable)
 
-                    val news = payload(patch(access, enable(1, 1))).path("kbapNews")
+                    val news = payload(patch(access, enable(1, 1))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
                     news.path("mealTime").asBoolean() shouldBe false
@@ -432,11 +432,11 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 then("켜기가 먼저 반영돼 식사 시간 알림 값도 저장된다") {
                     val (_, access) = login("member-a")
 
-                    val news = payload(patch(access, enable(1, 1, mealTime = false))).path("kbapNews")
+                    val news = payload(patch(access, enable(1, 1, mealTime = false))).path("news")
 
                     news.path("enabled").asBoolean() shouldBe true
                     news.path("mealTime").asBoolean() shouldBe false
-                    payload(patch(access, mapOf("kbapNews" to mapOf("mealTime" to true)))).path("kbapNews").path("mealTime").asBoolean() shouldBe true
+                    payload(patch(access, mapOf("news" to mapOf("mealTime" to true)))).path("news").path("mealTime").asBoolean() shouldBe true
                 }
             }
 

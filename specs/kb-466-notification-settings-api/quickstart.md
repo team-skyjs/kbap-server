@@ -13,22 +13,22 @@ H='-H "Authorization: Bearer $ACCESS" -H "X-API-Version: 1.0" -H "Content-Type: 
 BASE=https://dev.kbap.site/api/notifications/settings
 
 # 기본값
-curl -s $H $BASE                      # activity=true, kbapNews.enabled=false, consents null
+curl -s $H $BASE                      # activity=true, news.enabled=false, consents null
 
 # K-Bap 소식 켜기 (두 동의)
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
 # → enabled=true, mealTime=true, 두 consent 에 version·grantedAt
 
 # 식사 시간 알림만 끄기
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"mealTime":false}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"mealTime":false}}'
 
 # 끄기 → 다시 켜기: mealTime=false 가 복원되는지
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"enabled":false}}'
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"enabled":false}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"enabled":true,"privacyConsentVersion":1,"receiveConsentVersion":1}}'
 
 # 동의 없이 식사 시간 알림 켜기 → 400 NOTIFICATION-001
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"enabled":false}}'
-curl -s -X PATCH $H $BASE -d '{"kbapNews":{"mealTime":true}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"enabled":false}}'
+curl -s -X PATCH $H $BASE -d '{"news":{"mealTime":true}}'
 ```
 
 원장 확인(dev DB):

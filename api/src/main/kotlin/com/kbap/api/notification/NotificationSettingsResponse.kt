@@ -10,14 +10,14 @@ data class NotificationSettingsResponse(
     val activity: Boolean,
 
     @field:Schema(description = "K-Bap에서 보내는 소식(광고성 푸시) 그룹")
-    val kbapNews: KbapNewsResponse,
+    val news: NewsResponse,
 ) {
     companion object {
         fun from(result: NotificationSettingsResult) =
             NotificationSettingsResponse(
                 activity = result.activity,
-                kbapNews = KbapNewsResponse(
-                    enabled = result.kbapNewsEnabled,
+                news = NewsResponse(
+                    enabled = result.newsEnabled,
                     mealTime = result.mealTime,
                     privacyConsent = result.privacyConsent?.let(ConsentResponse::from),
                     receiveConsent = result.receiveConsent?.let(ConsentResponse::from),
@@ -27,7 +27,7 @@ data class NotificationSettingsResponse(
 }
 
 @Schema(description = "K-Bap에서 보내는 소식 그룹 상태")
-data class KbapNewsResponse(
+data class NewsResponse(
     @field:Schema(description = "마케팅 목적 개인정보 수집·이용 동의와 광고성 정보 수신 동의가 모두 유효한지", example = "true")
     val enabled: Boolean,
 

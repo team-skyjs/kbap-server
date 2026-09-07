@@ -44,8 +44,8 @@
 
 | 개념 | 계산 |
 |---|---|
-| K-Bap 소식 켜짐 (`kbapNews.enabled`) | 회원의 열린 동의에 `MARKETING_PRIVACY` 와 `MARKETING_RECEIVE` 가 **둘 다** 있음 |
-| 식사 시간 알림 응답값 (`kbapNews.mealTime`) | `setting.mealTime AND kbapNews.enabled` |
+| K-Bap 소식 켜짐 (`news.enabled`) | 회원의 열린 동의에 `MARKETING_PRIVACY` 와 `MARKETING_RECEIVE` 가 **둘 다** 있음 |
+| 식사 시간 알림 응답값 (`news.mealTime`) | `setting.mealTime AND news.enabled` |
 | 활동/소식 응답값 (`activity`) | `setting.activity` (설정 없으면 true) |
 | 동의 표시 (`privacyConsent`·`receiveConsent`) | 종류별 열린 행 중 `grantedAt` 최신 1건의 `{version, grantedAt}`, 없으면 null |
 

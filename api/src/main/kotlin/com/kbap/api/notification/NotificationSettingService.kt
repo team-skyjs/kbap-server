@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 
 data class NotificationSettingsResult(
     val activity: Boolean,
-    val kbapNewsEnabled: Boolean,
+    val newsEnabled: Boolean,
     val mealTime: Boolean,
     val privacyConsent: NotificationConsent?,
     val receiveConsent: NotificationConsent?,
@@ -43,7 +43,7 @@ class NotificationSettingService(
             settingOf(memberId).updateActivity(request.activity)
         }
 
-        val news = request.kbapNews
+        val news = request.news
         if (news != null) {
             if (news.enabled == true) {
                 val versions = mapOf(
@@ -56,7 +56,7 @@ class NotificationSettingService(
                 consentService.revokeForMember(memberId, now)
             }
             if (news.mealTime != null) {
-                if (news.mealTime && !isKbapNewsEnabled(memberId)) {
+                if (news.mealTime && !isNewsEnabled(memberId)) {
                     throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
                 }
                 settingOf(memberId).updateMealTime(news.mealTime)
@@ -70,7 +70,7 @@ class NotificationSettingService(
         settingRepository.findByMemberId(memberId)
             ?: settingRepository.save(NotificationSetting.defaultFor(memberId))
 
-    private fun isKbapNewsEnabled(memberId: Long): Boolean =
+    private fun isNewsEnabled(memberId: Long): Boolean =
         consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
 
     private fun assemble(memberId: Long): NotificationSettingsResult {
@@ -87,7 +87,7 @@ class NotificationSettingService(
 
         return NotificationSettingsResult(
             activity = preferences.activity,
-            kbapNewsEnabled = enabled,
+            newsEnabled = enabled,
             mealTime = preferences.mealTime && enabled,
             privacyConsent = privacyConsent,
             receiveConsent = receiveConsent,
