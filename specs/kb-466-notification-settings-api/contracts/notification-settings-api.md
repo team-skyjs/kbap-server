@@ -1,10 +1,10 @@
 # Contract: 회원 알림 설정 API
 
-베이스 `/api/notifications/settings`. 두 오퍼레이션 모두 `X-API-Version: 1.1` 이상 필수(무버전 매핑 없음 → 1.0 은 404), JWT 필수(게스트 401 `AUTH-002`), 응답은 `BaseResponse<NotificationSettingsResponse>`.
+베이스 `/api/notifications/settings`. 두 오퍼레이션 모두 무버전 매핑이라 `X-API-Version: 1.0` 부터 동작(헤더 자체는 필수), JWT 필수(게스트 401 `AUTH-002`), 응답은 `BaseResponse<NotificationSettingsResponse>`.
 
 ## GET /api/notifications/settings
 
-요청 본문 없음. 헤더 `Authorization: Bearer <access>`, `X-API-Version: 1.1`, `X-Installation-Id`(선택, 이 오퍼레이션에서는 미사용).
+요청 본문 없음. 헤더 `Authorization: Bearer <access>`, `X-API-Version`(1.0 이상), `X-Installation-Id`(선택, 이 오퍼레이션에서는 미사용).
 
 응답 200:
 
@@ -73,7 +73,6 @@
 | `mealTime=true` 인데 소식이 꺼짐(동의 미완) | 400 | `NOTIFICATION-001` (`MARKETING_CONSENT_REQUIRED`) |
 | 인증 없음 | 401 | `AUTH-002` |
 | `X-API-Version` 누락·미지원 | 400 | `COMMON-002` |
-| `X-API-Version: 1.0` | 404 | (매핑 없음) |
 
 ### 예시
 

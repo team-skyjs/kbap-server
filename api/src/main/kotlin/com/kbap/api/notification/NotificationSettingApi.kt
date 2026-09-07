@@ -15,7 +15,7 @@ import org.springframework.http.ResponseEntity
 @SecurityRequirement(name = "bearerAuth")
 interface NotificationSettingApi {
     @Operation(
-        summary = "알림 설정 조회 — X-API-Version 1.1 이상",
+        summary = "알림 설정 조회",
         description = """
             회원의 알림 설정을 서버 정본으로 돌려준다. 두 그룹이다.
 
@@ -26,20 +26,19 @@ interface NotificationSettingApi {
             `enabled` 가 false 면 저장값과 무관하게 false 다. `privacyConsent`·`receiveConsent` 는 종류별 열린 최신 동의의
             `{version, grantedAt}` 이고 없으면 null.
 
-            조회는 설정 기록을 만들지 않는다. 게스트는 401. `X-API-Version: 1.0` 으로는 존재하지 않는 API 다(404).
+            조회는 설정 기록을 만들지 않는다. 게스트는 401. 신규 API 라 `X-API-Version: 1.0` 부터 동작한다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "현재 설정"),
             ApiResponse(responseCode = "401", description = "인증 없음·위조·만료"),
-            ApiResponse(responseCode = "404", description = "X-API-Version 1.0 — 이 버전에는 존재하지 않는 API"),
         ],
     )
     fun getSettings(memberId: Long): ResponseEntity<BaseResponse<NotificationSettingsResponse>>
 
     @Operation(
-        summary = "알림 설정 부분 수정 — X-API-Version 1.1 이상",
+        summary = "알림 설정 부분 수정",
         description = """
             보낸 필드만 반영하고 나머지는 유지한다. 응답은 조회와 같은 전체 설정이며 빈 본문은 무변화 200 이다.
 
@@ -61,7 +60,6 @@ interface NotificationSettingApi {
             ApiResponse(responseCode = "200", description = "수정 후 전체 설정"),
             ApiResponse(responseCode = "400", description = "COMMON-002: 켜기인데 두 버전 중 누락·양의 정수 아님 / NOTIFICATION-001: 동의 없이 식사 시간 알림 켜기"),
             ApiResponse(responseCode = "401", description = "인증 없음·위조·만료"),
-            ApiResponse(responseCode = "404", description = "X-API-Version 1.0 — 이 버전에는 존재하지 않는 API"),
         ],
     )
     fun updateSettings(

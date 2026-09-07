@@ -6,7 +6,7 @@
 
 ## Summary
 
-회원 알림 설정을 서버 정본으로 읽고 쓰는 `GET/PATCH /api/notifications/settings`(1.1+) 를 만들고, 설정 구조를 **활동 푸시(활동/소식 토글 1)** 와 **K-Bap에서 보내는 소식(두 동의로 켜짐 + 식사 시간 알림 토글 1)** 두 그룹으로 재편한다. 저장 구조는 `notification_setting` 컬럼 교체(`helpful`·`review_reminder` → `activity`·`meal_time`)와 `notification_consent` 에 종류 축(`consent_type`) 추가로 맞추고, 동의 grant/revoke 규칙을 `NotificationConsentService` 하나로 모아 회원(설정 API)·게스트(KB-465 토큰 API)가 공유한다. "K-Bap 소식 켜짐" 은 저장 컬럼이 아니라 두 종류의 열린 동의 존재로 판정한다.
+회원 알림 설정을 서버 정본으로 읽고 쓰는 `GET/PATCH /api/notifications/settings`(무버전 매핑, 1.0 부터) 를 만들고, 설정 구조를 **활동 푸시(활동/소식 토글 1)** 와 **K-Bap에서 보내는 소식(두 동의로 켜짐 + 식사 시간 알림 토글 1)** 두 그룹으로 재편한다. 저장 구조는 `notification_setting` 컬럼 교체(`helpful`·`review_reminder` → `activity`·`meal_time`)와 `notification_consent` 에 종류 축(`consent_type`) 추가로 맞추고, 동의 grant/revoke 규칙을 `NotificationConsentService` 하나로 모아 회원(설정 API)·게스트(KB-465 토큰 API)가 공유한다. "K-Bap 소식 켜짐" 은 저장 컬럼이 아니라 두 종류의 열린 동의 존재로 판정한다.
 
 ## Technical Context
 
@@ -39,7 +39,7 @@
 | III. Layered Dependency Direction | PASS | `api.notification.*` → `common.domain.notification`. 어댑터·포트 없음. 컨트롤러는 Spring 애너테이션, `*Api` 인터페이스는 swagger 만 |
 | IV. Persistence Ownership | PASS | 엔티티=도메인 모델(`updateActivity`·`updateMealTime`·`grantForMember(type…)`), 리포지토리 public, 서비스 public 메서드 전부 명시 `@Transactional`, 새 Flyway 파일이 스키마 owner. `NotificationConsent`·`NotificationDevice` 에 `delete()` 호출 없음 |
 | V. Language Policy | N/A | 언어 파라미터 없음. 요청 검증은 DTO(요청 경계)가 소유 |
-| 응답·경로 규약 | PASS | `ResponseEntity<BaseResponse<T>>`, `ApiPaths.API + "/notifications/settings"`, `X-API-Version 1.1+`, `WebConfig` 보호 경로 등록, 에러 코드 `NOTIFICATION-001` 채번 |
+| 응답·경로 규약 | PASS | `ResponseEntity<BaseResponse<T>>`, `ApiPaths.API + "/notifications/settings"`, 무버전 매핑(신규 API), `WebConfig` 보호 경로 등록, 에러 코드 `NOTIFICATION-001` 채번 |
 | Kotlin 주석 금지 | PASS | 신규 코드 무주석. 근거는 research.md·커밋 메시지 |
 
 Post-design 재검토(Phase 1 후): 위반 없음. Complexity Tracking 해당 없음.
@@ -75,7 +75,7 @@ common/src/test/kotlin/com/kbap/common/domain/notification/
 common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt   # NOTIFICATION-001 추가
 
 api/src/main/kotlin/com/kbap/api/notification/
-├── NotificationSettingController.kt        # 신규: GET/PATCH /settings (1.1+)
+├── NotificationSettingController.kt        # 신규: GET/PATCH /settings (무버전)
 ├── NotificationSettingApi.kt               # 신규: swagger 인터페이스
 ├── NotificationSettingsResponse.kt         # 신규: activity·kbapNews{enabled,mealTime,privacyConsent,receiveConsent}
 ├── NotificationSettingsUpdateRequest.kt    # 신규: 부분 수정 DTO + AssertTrue(켜기 시 두 버전)

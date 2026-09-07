@@ -4,12 +4,12 @@
 
 1. `./gradlew :common:test :api:test --tests "com.kbap.api.notification.*"` — 통합 테스트(Testcontainers MySQL, Flyway on). 새 마이그레이션이 `ddl-auto=validate` 를 통과해야 컨텍스트가 뜬다.
 2. `./gradlew build` — ArchUnit·전체 회귀.
-3. dev 배포 후 Swagger(`/v3/api-docs/1.1`)에서 `GET/PATCH /api/notifications/settings` 와 갱신된 `PUT /api/notifications/tokens` 계약 확인 → FE 세션에 공유, Jira KB-465·KB-466 본문 갱신.
+3. dev 배포 후 Swagger 에서 `GET/PATCH /api/notifications/settings`(`/v3/api-docs/1.0` 그룹부터)와 갱신된 `PUT /api/notifications/tokens`(`1.1` 그룹) 계약 확인 → FE 세션에 공유, Jira KB-465·KB-466 본문 갱신.
 
 ## 수동 시나리오 (dev, 회원 access 토큰 필요)
 
 ```bash
-H='-H "Authorization: Bearer $ACCESS" -H "X-API-Version: 1.1" -H "Content-Type: application/json"'
+H='-H "Authorization: Bearer $ACCESS" -H "X-API-Version: 1.0" -H "Content-Type: application/json"'
 BASE=https://dev.kbap.site/api/notifications/settings
 
 # 기본값

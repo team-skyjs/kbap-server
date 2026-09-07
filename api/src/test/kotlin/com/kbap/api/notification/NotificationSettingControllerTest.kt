@@ -225,10 +225,10 @@ class NotificationSettingControllerTest : BehaviorSpec() {
             }
 
             `when`("X-API-Version 1.0 으로 조회하면") {
-                then("존재하지 않는 API 라 404 다") {
+                then("신규 API 라 1.0 부터 동작한다") {
                     val (_, access) = login("member-a")
 
-                    get(access, apiVersion = "1.0").status shouldBe 404
+                    assertDefault(payload(get(access, apiVersion = "1.0")))
                 }
             }
         }

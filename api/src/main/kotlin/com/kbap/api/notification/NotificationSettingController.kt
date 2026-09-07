@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 class NotificationSettingController(
     private val notificationSettingService: NotificationSettingService,
 ) : NotificationSettingApi {
-    @GetMapping("/settings", version = "1.1+")
+    @GetMapping("/settings")
     override fun getSettings(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
@@ -26,7 +26,7 @@ class NotificationSettingController(
         return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
     }
 
-    @PatchMapping("/settings", version = "1.1+")
+    @PatchMapping("/settings")
     override fun updateSettings(
         @AuthMemberId memberId: Long,
         @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,

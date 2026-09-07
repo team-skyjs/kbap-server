@@ -2,11 +2,11 @@
 
 선행: KB-464(저장 기반, #246)·KB-465(토큰 등록·인증 연동, #247) 머지 상태(develop ec832d0c). 이 기능은 그 위에 회원 설정 API 를 얹으면서 저장 구조를 두 그룹 모델에 맞게 바꾼다.
 
-## R1. URL·버전 — `/api/notifications/settings` GET/PATCH, `X-API-Version 1.1+`
+## R1. URL·버전 — `/api/notifications/settings` GET/PATCH, 무버전 매핑(1.0 부터)
 
-- **Decision**: `GET`·`PATCH ${ApiPaths.API}/notifications/settings`, 둘 다 `version = "1.1+"` 매핑만 둔다(무버전 매핑 없음 → 1.0 요청 404). 컨트롤러는 `api.notification.NotificationSettingController`(+`NotificationSettingApi` swagger 인터페이스).
-- **Rationale**: KB-465 R1 이 `/api/notifications/*` 베이스와 `settings` 경로를 이미 예약했고, 알림 기능이 한 패키지·한 베이스에 응집된다. Jira 초안 `/api/members/me/notification-settings` 는 회원 리소스 아래 알림 하위를 두는 구조라 KB-465 결정과 어긋난다. 1.1 게이트는 토큰 API 와 같은 앱 릴리스 마커.
-- **Alternatives**: Jira 초안 경로 — KB-465 결정 우선. 무버전 매핑 병행 — 1.0 앱에는 설정 화면 연동이 없으므로 불필요.
+- **Decision**: `GET`·`PATCH ${ApiPaths.API}/notifications/settings`, **무버전 매핑**(`version` 속성 없음 → `X-API-Version 1.0` 부터 동작). 처음 만들어지는 API 라 구 계약이 없고 버전 게이트를 둘 이유가 없다(2026-09-07 사용자 결정 — KB-465 토큰 API 의 1.1+ 게이트는 기존 인증 API 와 묶여 있어서였고 여기엔 해당 없음). 컨트롤러는 `api.notification.NotificationSettingController`(+`NotificationSettingApi` swagger 인터페이스).
+- **Rationale**: KB-465 R1 이 `/api/notifications/*` 베이스와 `settings` 경로를 이미 예약했고, 알림 기능이 한 패키지·한 베이스에 응집된다. Jira 초안 `/api/members/me/notification-settings` 는 회원 리소스 아래 알림 하위를 두는 구조라 KB-465 결정과 어긋난다.
+- **Alternatives**: Jira 초안 경로 — KB-465 결정 우선. `1.1+` 게이트 — 신규 API 에는 감출 구 계약이 없어 불필요.
 
 ## R2. 인증 — JWT 필터 등록 + `@AuthMemberId`
 
