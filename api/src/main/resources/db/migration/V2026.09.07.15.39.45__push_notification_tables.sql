@@ -1,0 +1,2 @@
+-- 푸시 알림 저장 기반(KB-464): notification_device(기기 토큰·게스트 광고성 동의), notification_setting(회원 알림 설정),
+-- notification(알림 이력), notification_dispatch(Expo 발송 추적). 참조하는 member 는 init 스키마에 존재한다.

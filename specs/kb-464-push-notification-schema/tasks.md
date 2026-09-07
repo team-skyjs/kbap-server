@@ -52,7 +52,7 @@
 
 ### Tests for User Story 1 (Test-First — 먼저 작성, 실패 확인) ⚠️
 
-- [ ] T006 [US1] `NotificationDeviceJpaRepositoryTest`(BehaviorSpec, `@SpringBootTest` + `@Import(MySqlContainerConfig::class)`) 작성 — `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationDeviceJpaRepositoryTest.kt`. given/when/then(한국어): ① `register` 저장 후 `findByInstallationId` 로 1건, memberId null ② 같은 installationId 로 두 번째 `save` 시 `DataIntegrityViolationException`(유니크) ③ `linkMember` → `unlinkMember` 후 토큰·lang·guestSettings 유지 ④ `renew` 로 expoToken 교체 시 id 불변 ⑤ 회원 하나에 기기 2건 → `findByMemberId` 2건 ⑥ `updateMarketing(true, "v2", now)` 후 재조회 시 marketing true·버전 v2·optInAt == now, `updateMarketing(false, null, later)` 후 둘 다 null ⑦ `delete()` 후 `findByInstallationId` null(소프트삭제 필터). 실행: `./gradlew :common:test` → 컴파일 실패(Red) 확인
+- [ ] T006 [US1] `NotificationDeviceJpaRepositoryTest`(BehaviorSpec, `@SpringBootTest` + `@Import(MySqlContainerConfig::class)`) 작성 — `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationDeviceJpaRepositoryTest.kt`. given/when/then(한국어): ① `register` 저장 후 `findByInstallationId` 로 1건, memberId null ② 같은 installationId 로 두 번째 `save` 시 `DataIntegrityViolationException`(유니크) ③ `linkMember` → `unlinkMember` 후 토큰·lang·marketing 컬럼 유지 ④ `renew` 로 expoToken 교체 시 id 불변 ⑤ 회원 하나에 기기 2건 → `findByMemberId` 2건 ⑥ `updateMarketing(true, "v2", now)` 후 재조회 시 marketing true·버전 v2·optInAt == now, `updateMarketing(false, null, later)` 후 둘 다 null ⑦ `delete()` 후 `findByInstallationId` null(소프트삭제 필터). 실행: `./gradlew :common:test` → 컴파일 실패(Red) 확인
 
 ### Implementation for User Story 1
 
