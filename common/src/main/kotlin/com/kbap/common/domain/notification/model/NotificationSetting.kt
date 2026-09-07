@@ -5,7 +5,6 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -21,23 +20,8 @@ class NotificationSetting(
 
     @Column(name = "review_reminder", nullable = false)
     var reviewReminder: Boolean = true,
-
-    @Column(name = "marketing", nullable = false)
-    var marketing: Boolean = false,
-
-    @Column(name = "marketing_consent_version", length = 20)
-    var marketingConsentVersion: String? = null,
-
-    @Column(name = "marketing_opt_in_at")
-    var marketingOptInAt: LocalDateTime? = null,
 ) : BaseEntity() {
-    fun preferences() = NotificationPreferences(
-        helpful = helpful,
-        reviewReminder = reviewReminder,
-        marketing = marketing,
-        marketingConsentVersion = marketingConsentVersion,
-        marketingOptInAt = marketingOptInAt,
-    )
+    fun preferences() = NotificationPreferences(helpful = helpful, reviewReminder = reviewReminder)
 
     fun updateHelpful(enabled: Boolean) {
         helpful = enabled
@@ -47,29 +31,7 @@ class NotificationSetting(
         reviewReminder = enabled
     }
 
-    fun updateMarketing(enabled: Boolean, consentVersion: String?, now: LocalDateTime) {
-        val transition = MarketingConsent.transition(
-            current = MarketingConsent(marketing, marketingConsentVersion, marketingOptInAt),
-            enabled = enabled,
-            consentVersion = consentVersion,
-            now = now,
-        )
-        marketing = transition.enabled
-        marketingConsentVersion = transition.consentVersion
-        marketingOptInAt = transition.optInAt
-    }
-
-    fun isMarketingAllowed(requiredVersion: String): Boolean =
-        MarketingConsent(marketing, marketingConsentVersion, marketingOptInAt).allows(requiredVersion)
-
     companion object {
         fun defaultFor(memberId: Long) = NotificationSetting(memberId = memberId)
-
-        fun inheritFrom(memberId: Long, device: NotificationDevice) = NotificationSetting(
-            memberId = memberId,
-            marketing = device.marketing,
-            marketingConsentVersion = device.marketingConsentVersion,
-            marketingOptInAt = device.marketingOptInAt,
-        )
     }
 }

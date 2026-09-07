@@ -8,6 +8,7 @@ object TestTables {
         "notification",
         "notification_device",
         "notification_setting",
+        "notification_consent",
         "review_like",
         "member_ranking_event",
         "food_review",

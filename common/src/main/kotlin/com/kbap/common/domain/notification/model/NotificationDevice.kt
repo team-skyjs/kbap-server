@@ -31,15 +31,11 @@ class NotificationDevice(
     @Column(name = "lang", nullable = false, length = 10)
     var lang: String = "",
 
-    @Column(name = "marketing", nullable = false)
-    var marketing: Boolean = false,
-
-    @Column(name = "marketing_consent_version", length = 20)
-    var marketingConsentVersion: String? = null,
-
-    @Column(name = "marketing_opt_in_at")
-    var marketingOptInAt: LocalDateTime? = null,
+    @Column(name = "token_invalid_at")
+    var tokenInvalidAt: LocalDateTime? = null,
 ) : BaseEntity() {
+    fun isTokenValid(): Boolean = tokenInvalidAt == null
+
     fun linkMember(memberId: Long) {
         this.memberId = memberId
     }
@@ -52,22 +48,12 @@ class NotificationDevice(
         this.expoToken = expoToken
         this.platform = platform
         this.lang = lang
+        tokenInvalidAt = null
     }
 
-    fun updateMarketing(enabled: Boolean, consentVersion: String?, now: LocalDateTime) {
-        val transition = MarketingConsent.transition(
-            current = MarketingConsent(marketing, marketingConsentVersion, marketingOptInAt),
-            enabled = enabled,
-            consentVersion = consentVersion,
-            now = now,
-        )
-        marketing = transition.enabled
-        marketingConsentVersion = transition.consentVersion
-        marketingOptInAt = transition.optInAt
+    fun markTokenInvalid(now: LocalDateTime) {
+        tokenInvalidAt = now
     }
-
-    fun isMarketingAllowed(requiredVersion: String): Boolean =
-        MarketingConsent(marketing, marketingConsentVersion, marketingOptInAt).allows(requiredVersion)
 
     companion object {
         fun register(

@@ -7,6 +7,4 @@ interface NotificationDeviceJpaRepository : JpaRepository<NotificationDevice, Lo
     fun findByInstallationId(installationId: String): NotificationDevice?
 
     fun findByMemberId(memberId: Long): List<NotificationDevice>
-
-    fun findByExpoToken(expoToken: String): List<NotificationDevice>
 }
