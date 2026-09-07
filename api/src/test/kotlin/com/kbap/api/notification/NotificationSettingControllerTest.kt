@@ -440,6 +440,18 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("기기 식별자 헤더가 공백이거나 36자를 넘으면") {
+                then("400 COMMON-002 로 거절되고 원장은 바뀌지 않는다") {
+                    val (memberId, access) = login("member-a")
+
+                    val tooLong = patch(access, enable(1, 1), installationId = "x".repeat(37))
+                    tooLong.status shouldBe 400
+                    tooLong.contentAsString shouldContain "COMMON-002"
+                    patch(access, enable(1, 1), installationId = " ").status shouldBe 400
+                    consents(memberId).size shouldBe 0
+                }
+            }
+
             `when`("기기 식별자 헤더와 함께 켜면") {
                 then("동의 기록에 동의 받은 기기가 남는다") {
                     val (memberId, access) = login("member-a")

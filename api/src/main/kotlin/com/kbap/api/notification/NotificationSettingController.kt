@@ -32,7 +32,7 @@ class NotificationSettingController(
         @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
         @Valid @RequestBody request: NotificationSettingsUpdateRequest,
     ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
-        val result = notificationSettingService.updateSettings(memberId, installationId, request)
+        val result = notificationSettingService.updateSettings(memberId, installationId?.let(ApiHeaders::validInstallationId), request)
         return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
     }
 }
