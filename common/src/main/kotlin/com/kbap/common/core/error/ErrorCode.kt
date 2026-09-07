@@ -79,6 +79,7 @@ enum class ErrorCode(
     REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
     REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+    REPORT_INSTALLATION_ID_REQUIRED("REPORT-004", 400, "게스트 신고에는 설치 ID 가 필요합니다"),
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),
