@@ -22,14 +22,17 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 갈림길
 
 ## R4. 게스트 설정과 회원 설정의 표현
 
-- **Decision**: 값 객체 `NotificationPreferences(helpful, reviewReminder, nudge)` 하나를 둔다. 회원 설정 테이블은 이를 **컬럼 3개 + nudge_opt_in_at** 으로 펼치고, 게스트 설정은 토큰 행의 `guest_settings JSON` 에 같은 값 객체를 직렬화한다.
+- **Decision**: 값 객체 `NotificationPreferences(helpful, reviewReminder, marketing, marketingConsentVersion)` 하나를 둔다. 회원 설정 테이블은 이를 **컬럼 4개 + marketing_opt_in_at** 으로 펼치고, 게스트 설정은 토큰 행의 `guest_settings JSON` 에 같은 값 객체를 직렬화한다.
 - **Rationale**: 발송 대상 필터가 회원·게스트를 같은 타입으로 다룰 수 있다. 회원 설정은 쿼리 필터 대상이라 컬럼으로, 게스트 설정은 필터 빈도가 낮고 스키마 변경 없이 확장돼야 하므로 JSON 으로.
 - **Alternatives considered**: 게스트 설정도 별도 테이블 — 게스트 식별자가 토큰 행뿐이라 조인만 늘어난다.
 
-## R5. 넛지 동의 시각의 소유
+## R5. 광고성 수신 동의의 표현 (2026-09-07 FE 협의 결정)
 
-- **Decision**: `NotificationSetting.updateNudge(enabled, now)` 도메인 메서드가 off→on 전환 시 `nudgeOptInAt = now`, on→off 시 `null` 을 설정한다. 클라이언트 값은 받지 않는다.
-- **Rationale**: 정보통신망법 동의 기록은 서버 시각이어야 한다. 엔티티가 곧 도메인 모델이므로 상태 전이를 엔티티가 소유한다.
+- **Decision**: 동의 스위치 이름은 알림 유형(NUDGE)이 아니라 법적 카테고리 **`marketing`** 으로 둔다. 컬럼 `marketing`·`marketing_opt_in_at`·`marketing_consent_version`, API 계약 필드 `marketing`·`marketingOptInAt`·`marketingConsentVersion`. FE 내부 토글명 nudge 는 어댑터에서 매핑(FE 변경 없음). 알림 유형 `NUDGE` 는 그대로.
+- **Decision**: `NotificationSetting.updateMarketing(enabled, consentVersion, now)` 가 off→on 전환 시 동의 시각(서버)과 **동의 문구 버전**(FE 가 보내는 코드 상수, 예: "v2")을 함께 기록한다. 발송 조건 = marketing on AND opt_in_at not null AND consent_version 이 발송에 필요한 버전 이상. 구 문구("점심 스캔 알림" 한정)로 켠 사용자는 v1 로 간주해 프로모션 대상에서 제외한다.
+- **Decision**: 야간(21~08시) 전송 별도 동의는 **보류** — 1차는 점심 넛지만이라 컬럼·토글을 두지 않는다. 대신 발송 배치(KB-471)가 08~21 KST 밖에서는 보내지 않는 하드 가드를 둔다. 저녁 넛지가 기획되면 `marketing_night_opt_in_at` + FE 토글을 같이 추가.
+- **Rationale**: 정보통신망법 50조 — 광고성 정보는 사전 동의·동의 증빙·야간 별도 동의가 필요하다. 현재 FE 문구는 카테고리 동의가 아니라 점심 스캔 알림 한정 동의라, 문구를 카테고리 동의로 바꾸는 FE 작업과 버전 컬럼이 같이 가야 구 동의자를 구분할 수 있다. 동의 시각은 서버 시각이어야 하며 엔티티가 상태 전이를 소유한다.
+- **Alternatives considered**: 유형별 동의 컬럼(nudge·promo…) — 광고성 유형이 늘 때마다 동의를 다시 받아야 해 기각. 동의 문구 원문 저장 — 버전 코드로 충분.
 
 ## R6. 알림 수신자 식별과 FK
 

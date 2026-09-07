@@ -32,18 +32,19 @@
 | member_id | BIGINT | NOT NULL, **UNIQUE `uk_notification_setting_member`**, FK → member(id) | 회원 1 : 설정 1 |
 | helpful | BOOLEAN | NOT NULL DEFAULT TRUE | 리뷰 도움됨 수신 |
 | review_reminder | BOOLEAN | NOT NULL DEFAULT TRUE | 리뷰 리마인더 수신 |
-| nudge | BOOLEAN | NOT NULL DEFAULT FALSE | 넛지(광고성) 수신 |
-| nudge_opt_in_at | DATETIME(6) | NULL | 넛지 동의 시각 (서버 스탬프) |
+| marketing | BOOLEAN | NOT NULL DEFAULT FALSE | 광고성 정보 수신 동의 (NUDGE·광고성 공지) |
+| marketing_opt_in_at | DATETIME(6) | NULL | 광고성 수신 동의 시각 (서버 스탬프) |
+| marketing_consent_version | VARCHAR(20) | NULL | 동의한 문구 버전(FE 상수, 예: v2). 구 문구로 켠 사용자는 v1 로 간주 |
 | status / created_at / updated_at | | BaseEntity | |
 
-**값 객체 `NotificationPreferences(helpful: Boolean = true, reviewReminder: Boolean = true, nudge: Boolean = false)`** — `DEFAULT` 상수 제공.
+**값 객체 `NotificationPreferences(helpful: Boolean = true, reviewReminder: Boolean = true, marketing: Boolean = false, marketingConsentVersion: String? = null)`** — `DEFAULT` 상수 제공. 게스트 설정(`guest_settings` JSON)도 같은 필드.
 
-**엔티티 `NotificationSetting`** — 필드: `memberId`, `helpful`, `reviewReminder`, `nudge`, `nudgeOptInAt: LocalDateTime?`.
+**엔티티 `NotificationSetting`** — 필드: `memberId`, `helpful`, `reviewReminder`, `marketing`, `marketingOptInAt: LocalDateTime?`, `marketingConsentVersion: String?`.
 도메인 메서드:
 - `preferences(): NotificationPreferences`.
 - `updateHelpful(enabled)`, `updateReviewReminder(enabled)`.
-- `updateNudge(enabled, now)` — off→on 이면 `nudgeOptInAt = now`, on→off 면 `null`, 같은 값이면 무변화.
-- `isNudgeAllowed()` — `nudge && nudgeOptInAt != null`.
+- `updateMarketing(enabled, consentVersion, now)` — off→on 이면 `marketingOptInAt = now`·`marketingConsentVersion = consentVersion`, on→off 면 둘 다 `null`, 같은 값이면 무변화. 클라이언트 시각은 받지 않는다.
+- `isMarketingAllowed(requiredVersion)` — `marketing && marketingOptInAt != null && consentVersion >= requiredVersion`(버전 비교는 발송 측이 정한 순서).
 - companion `defaultFor(memberId)`.
 
 **리포지토리** — `findByMemberId(memberId): NotificationSetting?`.
@@ -100,8 +101,8 @@
 ```
 NotificationDispatch: PENDING --markSent--> SENT --markDelivered--> DELIVERED
               PENDING|SENT --markFailed--> FAILED
-NotificationSetting.nudge: off --updateNudge(true,now)--> on (optInAt=now)
-                                 on  --updateNudge(false)--> off (optInAt=null)
+NotificationSetting.marketing: off --updateMarketing(true,ver,now)--> on (optInAt=now, consentVersion=ver)
+                               on  --updateMarketing(false)--> off (optInAt=null, consentVersion=null)
 Notification.readAt: null --markRead(now)--> now (재호출 무변화)
 ```
 
