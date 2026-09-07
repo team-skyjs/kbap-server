@@ -2,6 +2,7 @@ package com.kbap.api.auth
 
 import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import jakarta.validation.Valid
@@ -16,8 +17,10 @@ class AuthController(
     @PostMapping("/login")
     override fun login(
         @Valid @RequestBody request: LoginRequest,
+        @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
     ): ResponseEntity<BaseResponse<LoginResponse>> {
-        val result = authService.login(request.idToken)
+        val result = authService.login(request.idToken, installationId.takeIf { linksDevice(apiVersion) })
         return ResponseEntity.ok(BaseResponse.ok(LoginResponse.from(result)))
     }
 
@@ -32,42 +35,25 @@ class AuthController(
     @PostMapping("/logout")
     override fun logout(
         @RequestBody(required = false) request: LogoutRequest?,
+        @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
     ): ResponseEntity<BaseResponse<Unit>> {
-        authService.logout(request?.refreshToken)
+        authService.logout(request?.refreshToken, installationId.takeIf { linksDevice(apiVersion) })
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
     @PatchMapping("/withdraw")
     override fun withdraw(
         @AuthMemberId memberId: Long,
+        @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
     ): ResponseEntity<BaseResponse<Unit>> {
-        authService.withdraw(memberId)
+        authService.withdraw(memberId, releaseDevices = linksDevice(apiVersion))
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
 
-    @PostMapping("/login", version = "1.1+")
-    override fun loginWithDevice(
-        @Valid @RequestBody request: LoginRequest,
-        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
-    ): ResponseEntity<BaseResponse<LoginResponse>> {
-        val result = authService.login(request.idToken, installationId)
-        return ResponseEntity.ok(BaseResponse.ok(LoginResponse.from(result)))
-    }
+    private fun linksDevice(apiVersion: String): Boolean = ApiVersions.isAtLeast(apiVersion, DEVICE_LINK_VERSION)
 
-    @PostMapping("/logout", version = "1.1+")
-    override fun logoutWithDevice(
-        @RequestBody(required = false) request: LogoutRequest?,
-        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        authService.logout(request?.refreshToken, installationId)
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
-    }
-
-    @PatchMapping("/withdraw", version = "1.1+")
-    override fun withdrawWithDevices(
-        @AuthMemberId memberId: Long,
-    ): ResponseEntity<BaseResponse<Unit>> {
-        authService.withdraw(memberId, releaseDevices = true)
-        return ResponseEntity.ok(BaseResponse.ok(Unit))
+    companion object {
+        const val DEVICE_LINK_VERSION = "1.1"
     }
 }

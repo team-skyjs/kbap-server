@@ -53,17 +53,17 @@
 
 `@Tag(name = "푸시")`, `@Operation(summary = "푸시 토큰 등록·갱신 — X-API-Version 1.1 이상")`, 매핑은 `@PutMapping("/tokens", version = "1.1+")` 라 springdoc `X-API-Version 1.1` 그룹 문서에만 실린다. 헤더는 `@Parameter(name = "X-Installation-Id", in = ParameterIn.HEADER, required = true)`. `@SecurityRequirement(bearerAuth)` 는 선택 인증이므로 description 에 "게스트는 헤더 없이, 회원은 Bearer 로" 를 적고 애너테이션은 달지 않는다(달면 문서상 필수로 보인다). `@AuthMemberIdOrNull` 은 `OpenApiConfig` 가 숨긴다.
 
-## 인증 API — `1.1+` 매핑 추가 (경로·본문·응답 불변, 1.0 계약 불변)
+## 인증 API — 같은 메서드가 `X-API-Version` 으로 분기 (경로·본문·응답 불변, 1.0 계약 불변)
 
-같은 경로에 `version = "1.1+"` 매핑을 나란히 두고, 1.1+ 핸들러만 기기 처리를 한다. 1.0 요청(무버전 매핑)은 종전 핸들러가 받아 기기·동의를 전혀 건드리지 않는다.
+핸들러 하나가 `X-API-Version` 헤더를 읽어 `1.1` 이상이면 기기 처리를 더하고, `1.0` 이면 종전 동작 그대로다.
 
 | 엔드포인트 | 1.0 (기존, 불변) | 1.1+ (추가) |
 |---|---|---|
-| `POST /api/auth/login` | 종전 로그인만 | `X-Installation-Id`(선택) 가 있고 기기가 등록돼 있으면 회원 연결 + 게스트 동의 인수/철회. 없거나 미등록이면 로그인만 |
+| `POST /api/auth/login` | 종전 로그인만 (`X-Installation-Id` 무시) | `X-Installation-Id`(선택) 가 있고 기기가 등록돼 있으면 회원 연결 + 게스트 동의 인수/철회. 없거나 미등록이면 로그인만 |
 | `POST /api/auth/logout` | 종전 refresh 폐기만 | `X-Installation-Id`(선택) 가 있고 기기가 등록돼 있으면 회원 연결 해제. 동의 원장 불변 |
 | `PATCH /api/auth/withdraw` | 종전 탈퇴만(기기·동의 무처리) | access 토큰의 회원 기준으로 모든 기기 연결 해제 + 열린 동의 전부 철회 |
 
-기기 처리는 인증 결과에 영향을 주지 않는다 — 헤더가 없어도 기존 응답·상태 코드 그대로다. `AuthApi` 에 1.1+ 메서드 3개(`loginWithDevice`·`logoutWithDevice`·`withdrawWithDevices`)의 문서를 추가하고, login·logout 에는 `@Parameter(name = "X-Installation-Id", in = HEADER, required = false, description = ...)` 를 단다. 기존 1.0 메서드 문서는 손대지 않는다.
+기기 처리는 인증 결과에 영향을 주지 않는다 — 헤더가 없어도 기존 응답·상태 코드 그대로다. `AuthApi` 의 기존 login·logout·withdraw 문서에 1.0/1.1 차이를 서술하고, `X-API-Version`·`X-Installation-Id` 헤더에 `@Parameter` 를 단다.
 
 ## 보호 경로 등록
 

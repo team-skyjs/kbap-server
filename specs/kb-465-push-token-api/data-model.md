@@ -55,17 +55,17 @@
 | 메서드 (`NotificationTokenService`) | 경계 | 호출자 |
 |---|---|---|
 | `registerToken(installationId, memberId?, token, platform, lang, marketing?)` | `@Transactional` — 기기 upsert + 게스트 동의 반영이 한 단위 | `NotificationTokenController.register` |
-| `linkOnLogin(installationId, memberId)` | `@Transactional` — 기기 연결 + 동의 인수/철회가 한 단위 | `AuthService.login(idToken, installationId)` — 1.1+ 핸들러가 헤더를 넘겼을 때만, `findOrSignUp`·토큰 발급 뒤 |
-| `unlinkOnLogout(installationId)` | `@Transactional` | `AuthService.logout(refreshToken, installationId)` — 1.1+ 핸들러가 헤더를 넘겼을 때만, refresh 폐기와 무관하게 실행 |
-| `closeOnWithdraw(memberId)` | `@Transactional` — 기기 전부 unlink + `closeOpenByMemberId` 가 한 단위 | `AuthService.withdraw(memberId, releaseDevices = true)` — 1.1+ 핸들러만. 소셜 삭제 뒤, `memberService.withdraw` 앞(research R5) |
+| `linkOnLogin(installationId, memberId)` | `@Transactional` — 기기 연결 + 동의 인수/철회가 한 단위 | `AuthService.login(idToken, installationId)` — 컨트롤러가 `X-API-Version ≥ 1.1` 일 때만 헤더를 넘김, `findOrSignUp`·토큰 발급 뒤 |
+| `unlinkOnLogout(installationId)` | `@Transactional` | `AuthService.logout(refreshToken, installationId)` — 컨트롤러가 `X-API-Version ≥ 1.1` 일 때만 헤더를 넘김, refresh 폐기와 무관하게 실행 |
+| `closeOnWithdraw(memberId)` | `@Transactional` — 기기 전부 unlink + `closeOpenByMemberId` 가 한 단위 | `AuthService.withdraw(memberId, releaseDevices = true)` — 컨트롤러가 `X-API-Version ≥ 1.1` 일 때만 true. 소셜 삭제 뒤, `memberService.withdraw` 앞(research R5) |
 
-`AuthService` 는 종전대로 트랜잭션이 없다. 기기 처리 메서드는 각자 트랜잭션을 열며, 인증 처리(토큰 발급·refresh 폐기·회원 마킹)와는 분리된 단위다. **1.0 핸들러(무버전 매핑)는 기본 인자(`installationId = null`·`releaseDevices = false`)로 호출하므로 이 표의 어떤 메서드도 실행되지 않는다**(research R11).
+`AuthService` 는 종전대로 트랜잭션이 없다. 기기 처리 메서드는 각자 트랜잭션을 열며, 인증 처리(토큰 발급·refresh 폐기·회원 마킹)와는 분리된 단위다. **`X-API-Version 1.0` 요청은 컨트롤러가 기본 인자(`installationId = null`·`releaseDevices = false`)로 호출하므로 이 표의 어떤 메서드도 실행되지 않는다**(research R11).
 
 ## 요청 값 → 확정값
 
 | 요청 필드 | 검증(요청 경계) | 서비스가 받는 타입 |
 |---|---|---|
-| 헤더 `X-API-Version` | 토큰 등록: `1.1` 이상만 매핑(1.0 → 404). 인증: 1.0 은 종전 핸들러, 1.1+ 는 기기 연동 핸들러 | (라우팅) |
+| 헤더 `X-API-Version` | 토큰 등록: `1.1` 이상만 매핑(1.0 → 404). 인증: 같은 핸들러가 헤더로 분기 — 1.0 종전 동작, 1.1 이상 기기 연동 | `String` (`@RequestHeader`) |
 | 헤더 `X-Installation-Id` | 등록: 필수·`@NotBlank`·`@Size(max=36)`. 로그인·로그아웃(1.1+): 선택. 1.0 핸들러는 읽지 않음 | `String` / `String?` |
 | `token` | `@NotBlank`·`@Size(max=255)` | `String` |
 | `platform` | `@NotBlank`·`@Pattern("(?i)ios\|android")` → 컨트롤러가 `DevicePlatform.valueOf(uppercase)` | `DevicePlatform` |
