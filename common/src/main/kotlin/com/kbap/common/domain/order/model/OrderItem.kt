@@ -32,7 +32,7 @@ class OrderItem(
 
         fun totalQuantityOf(items: List<OrderItem>): Int = items.sumOf { it.quantity }
 
-        fun totalPriceOf(items: List<OrderItem>): Int = items.sumOf { (it.price ?: 0) * it.quantity }
+        fun totalPriceOf(items: List<OrderItem>): Int = totalPriceLongOf(items).toInt()
 
         fun totalPriceLongOf(items: List<OrderItem>): Long = items.sumOf { (it.price ?: 0).toLong() * it.quantity }
 
