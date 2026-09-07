@@ -13,10 +13,16 @@ data class MyProfileResult(
     val spicinessPreference: String,
     val currency: String?,
     val onboardingCompleted: Boolean,
+    val orderCount: Long,
     val ranking: MemberRankingResult,
 ) {
     companion object {
-        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
+        fun of(
+            member: Member,
+            ranking: MemberRankingResult,
+            profileImageUrl: String?,
+            orderCount: Long,
+        ): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
                 provider = member.provider.name,
@@ -28,6 +34,7 @@ data class MyProfileResult(
                 spicinessPreference = member.profile.spicinessPreference.name,
                 currency = member.profile.currency?.name,
                 onboardingCompleted = member.onboardingCompleted,
+                orderCount = orderCount,
                 ranking = ranking,
             )
     }
