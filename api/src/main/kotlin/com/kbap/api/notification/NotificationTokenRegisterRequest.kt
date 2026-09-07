@@ -1,8 +1,12 @@
 package com.kbap.api.notification
 
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.Valid
+import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.Size
 
 @Schema(description = "푸시 토큰 등록·갱신 요청")
@@ -21,4 +25,24 @@ data class NotificationTokenRegisterRequest(
     @field:Size(max = 10, message = "lang 은 10자 이하여야 합니다")
     @field:Schema(description = "기기 언어 코드 — 검증·정규화 없이 저장", example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
     val lang: String?,
+
+    @field:Valid
+    @field:Schema(description = "게스트 광고성 수신 동의. 회원 요청에서는 무시된다(회원 동의는 설정 API)")
+    val settings: MarketingSettingsRequest? = null,
 )
+
+@Schema(description = "광고성 수신 동의 설정")
+data class MarketingSettingsRequest(
+    @field:NotNull(message = "marketing 은 필수입니다")
+    @field:Schema(description = "광고성 알림 수신 동의 on/off", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
+    val marketing: Boolean?,
+
+    @field:Positive(message = "marketingConsentVersion 은 양의 정수여야 합니다")
+    @field:Schema(description = "동의한 문구 버전(양의 정수). marketing 이 true 면 필수", example = "1")
+    val marketingConsentVersion: Int? = null,
+) {
+    @get:AssertTrue(message = "marketing 이 true 면 marketingConsentVersion 이 필요합니다")
+    @get:Schema(hidden = true)
+    val versionPresentWhenOptedIn: Boolean
+        get() = marketing != true || marketingConsentVersion != null
+}

@@ -22,13 +22,19 @@ interface NotificationTokenApi {
             **게스트는 `Authorization` 없이, 회원은 `Bearer {accessToken}` 으로** 같은 요청을 보낸다. 회원 요청이면 그 기기가
             요청 회원에 연결되고, 게스트 요청은 기존 회원 연결을 건드리지 않는다. 위조·만료 토큰은 401.
 
-            `X-API-Version: 1.0` 으로는 존재하지 않는 API 다(400).
+            **게스트 광고성 수신 동의(`settings`, 선택)** — 게스트는 설정 화면이 없어 여기에 실어 보낸다. `marketing: true` 면
+            `marketingConsentVersion`(동의한 문구 버전, 양의 정수) 이 필수이며, 같은 버전의 열린 동의가 있으면 변화 없고 다른
+            버전의 열린 동의는 철회한 뒤 새 동의를 남긴다. `marketing: false` 면 그 기기의 열린 게스트 동의를 전부 철회한다(기록 보존).
+            `settings` 를 생략하면 동의 원장을 건드리지 않는다. **회원 요청의 `settings` 는 무시한다**(회원 동의는 설정 API 가 정본).
+
+            `X-API-Version: 1.0` 으로는 존재하지 않는 API 다(404).
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "등록 또는 갱신 완료(페이로드 없음)"),
-            ApiResponse(responseCode = "400", description = "X-Installation-Id 누락·공백·36자 초과, 본문 검증 실패, X-API-Version 1.0"),
+            ApiResponse(responseCode = "400", description = "X-Installation-Id 누락·공백·36자 초과, 본문 검증 실패(marketing=true 인데 버전 없음·양의 정수 아님 포함)"),
+            ApiResponse(responseCode = "404", description = "X-API-Version 1.0 — 이 버전에는 존재하지 않는 API"),
             ApiResponse(responseCode = "401", description = "Authorization 이 있으나 위조·만료"),
         ],
     )

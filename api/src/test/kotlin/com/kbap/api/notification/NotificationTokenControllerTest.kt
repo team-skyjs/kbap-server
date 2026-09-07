@@ -223,6 +223,121 @@ class NotificationTokenControllerTest : BehaviorSpec() {
             }
         }
 
+        given("게스트 광고성 동의") {
+            fun on(version: Int? = 1): Map<String, Any?> = buildMap {
+                put("marketing", true)
+                if (version != null) put("marketingConsentVersion", version)
+            }
+
+            val off: Map<String, Any?> = mapOf("marketing" to false)
+
+            `when`("동의 기록이 없는 기기가 동의 on 과 문구 버전을 실어 등록하면") {
+                then("열린 동의 기록이 하나 생기고 버전·동의 시각이 남는다") {
+                    register("dev-1", body = body(settings = on(1))).status shouldBe 200
+
+                    val rows = consents("dev-1")
+                    rows.size shouldBe 1
+                    rows.single().memberId.shouldBeNull()
+                    rows.single().version shouldBe 1
+                    rows.single().grantedAt.shouldNotBeNull()
+                    rows.single().revokedAt.shouldBeNull()
+                }
+            }
+
+            `when`("같은 버전으로 다시 on 을 보내면") {
+                then("기록 수와 시각이 바뀌지 않는다") {
+                    register("dev-1", body = body(settings = on(1)))
+                    val first = consents("dev-1")
+
+                    register("dev-1", body = body(settings = on(1))).status shouldBe 200
+
+                    consents("dev-1") shouldBe first
+                }
+            }
+
+            `when`("버전 1 의 열린 동의가 있는 기기가 버전 2 로 on 을 보내면") {
+                then("버전 1 은 철회 시각이 찍혀 닫히고 버전 2 의 열린 기록이 새로 생긴다") {
+                    register("dev-1", body = body(settings = on(1)))
+
+                    register("dev-1", body = body(settings = on(2))).status shouldBe 200
+
+                    val rows = consents("dev-1")
+                    rows.size shouldBe 2
+                    rows[0].version shouldBe 1
+                    rows[0].revokedAt.shouldNotBeNull()
+                    rows[1].version shouldBe 2
+                    rows[1].revokedAt.shouldBeNull()
+                }
+            }
+
+            `when`("열린 동의가 있는 기기가 off 를 보내면") {
+                then("열린 기록은 철회 시각이 찍혀 닫히고 기록 자체는 남는다") {
+                    register("dev-1", body = body(settings = on(1)))
+                    register("dev-1", body = body(settings = on(2)))
+
+                    register("dev-1", body = body(settings = off)).status shouldBe 200
+
+                    val rows = consents("dev-1")
+                    rows.size shouldBe 2
+                    rows.all { it.revokedAt != null } shouldBe true
+                }
+            }
+
+            `when`("열린 동의가 없는 기기가 off 를 보내면") {
+                then("아무 변화 없이 성공하고 두 번 보내도 같다") {
+                    register("dev-1", body = body(settings = off)).status shouldBe 200
+                    consents("dev-1").size shouldBe 0
+
+                    register("dev-1", body = body(settings = off)).status shouldBe 200
+                    consents("dev-1").size shouldBe 0
+                }
+            }
+
+            `when`("회원 인증이 붙은 요청에 동의 값을 실어 보내면") {
+                then("원장은 바뀌지 않고 토큰 등록만 처리된다") {
+                    val (memberId, accessToken) = login("member-a")
+
+                    register("dev-1", accessToken = accessToken, body = body(settings = on(1))).status shouldBe 200
+
+                    consents("dev-1").size shouldBe 0
+                    device("dev-1").shouldNotBeNull().memberId shouldBe memberId
+                }
+            }
+
+            `when`("동의 on 인데 문구 버전이 없으면") {
+                then("400 으로 거절된다") {
+                    register("dev-1", body = body(settings = on(version = null))).status shouldBe 400
+                    countDevices() shouldBe 0
+                }
+            }
+
+            `when`("문구 버전이 양의 정수가 아니면") {
+                then("400 으로 거절된다") {
+                    register("dev-1", body = body(settings = on(0))).status shouldBe 400
+                    register("dev-1", body = body(settings = on(-1))).status shouldBe 400
+                    register("dev-1", body = body(settings = mapOf("marketing" to true, "marketingConsentVersion" to "v1"))).status shouldBe 400
+                    countDevices() shouldBe 0
+                }
+            }
+
+            `when`("settings 는 있는데 marketing 값이 없으면") {
+                then("400 으로 거절된다") {
+                    register("dev-1", body = body(settings = mapOf("marketingConsentVersion" to 1))).status shouldBe 400
+                    countDevices() shouldBe 0
+                }
+            }
+
+            `when`("settings 없이 등록하면") {
+                then("원장은 건드리지 않는다") {
+                    register("dev-1", body = body(settings = on(1)))
+
+                    register("dev-1").status shouldBe 200
+
+                    consents("dev-1").single().revokedAt.shouldBeNull()
+                }
+            }
+        }
+
         given("잘못된 등록 요청") {
             `when`("기기 식별자 헤더가 없으면") {
                 then("400 COMMON-002 로 거절되고 기록이 생기지 않는다") {

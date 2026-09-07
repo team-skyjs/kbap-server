@@ -32,6 +32,7 @@ class NotificationTokenController(
             token = request.token!!,
             platform = DevicePlatform.valueOf(request.platform!!.uppercase()),
             lang = request.lang!!,
+            settings = request.settings,
         )
         return ResponseEntity.ok(BaseResponse.ok(Unit))
     }
