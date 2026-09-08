@@ -9,7 +9,7 @@ data class BookmarkListRequest(
     val cursor: String? = null,
     @field:Schema(
         description = "위험도 필터(CSV, 옵션). 값: SAFE·CAUTION·DANGER·UNKNOWN. 여러 값은 OR. " +
-            "조회 회원의 회피성분으로 판정한 위험도가 이 집합에 드는 북마크만 내려주며 커서도 필터 집합 기준(빈/얇은 페이지 없음). 미지정 시 전체. 미정의 값은 400.",
+            "조회 회원의 회피성분으로 판정한 위험도가 이 집합에 드는 북마크만 내려준다. 요청당 스캔 상한이 있어 items 는 PAGE_SIZE 미만(0 포함)일 수 있고, 종료 판정은 hasNext/nextCursor 로만 한다. 미지정 시 전체. 미정의 값은 400.",
         example = "DANGER,CAUTION",
     )
     val risk: String? = null,
