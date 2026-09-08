@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.stereotype.Component
 import org.springframework.web.ErrorResponse
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @Component
 class SentryRequestContextProcessor : EventProcessor {
@@ -32,7 +33,8 @@ class SentryRequestContextProcessor : EventProcessor {
                 event.fingerprints = listOf("business", throwable.errorCode.code)
             }
             is ErrorResponse -> event.setTag(HTTP_STATUS_TAG, throwable.statusCode.value().toString())
-            is IllegalArgumentException, is HttpMessageNotReadableException -> event.setTag(HTTP_STATUS_TAG, "400")
+            is IllegalArgumentException, is HttpMessageNotReadableException, is MethodArgumentTypeMismatchException ->
+                event.setTag(HTTP_STATUS_TAG, "400")
             else -> event.setTag(HTTP_STATUS_TAG, if (hasOptimisticConflictCause(throwable)) "409" else "500")
         }
         return event

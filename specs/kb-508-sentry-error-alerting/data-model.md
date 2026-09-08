@@ -19,7 +19,7 @@
 |---|---|---|---|
 | `requestId` | MDC `requestId` | UUID | CloudWatch 로그와 대조 |
 | `memberId` | MDC `memberId` | `42` | 게스트면 미설정 |
-| `http.status` | `BusinessException.errorCode.status` / `ErrorResponse.statusCode` / `IllegalArgumentException`·`HttpMessageNotReadableException` 400 / 낙관락(cause 포함) 409 / 그 외 500 — `GlobalExceptionHandler` 매핑과 동일 | `400`·`503`·`500` | 4xx/5xx 필터·알림 조건 |
+| `http.status` | `BusinessException.errorCode.status` / `ErrorResponse.statusCode` / `IllegalArgumentException`·`HttpMessageNotReadableException`·`MethodArgumentTypeMismatchException` 400 / 낙관락(cause 포함) 409 / 그 외 500 — `GlobalExceptionHandler` 매핑과 동일 | `400`·`503`·`500` | 4xx/5xx 필터·알림 조건 |
 | `error.code` | `BusinessException.errorCode.code` | `COMMON-002` | 앱 에러 코드별 집계 |
 | request(URL·method·headers·경로 템플릿) | SDK 요청 필터 자동. 쿼리스트링은 `maskQuery`(`q`·`latitude`·`longitude` → `***`), `Authorization` 헤더 제거 | `GET /api/foods/{foodId}` | 트랜잭션 이름 = 경로 템플릿 |
 

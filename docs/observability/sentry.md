@@ -22,7 +22,7 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 | `service` | `api` | `batch` | yml `sentry.tags.service` |
 | `environment` / `release` / `server_name` | ● | ● | yml / `SENTRY_RELEASE` / SDK 기본(호스트명 = ECS 컨테이너 id → 인스턴스 구분) |
 | `requestId`, `memberId` | ● | | MDC ← `RequestLoggingFilter` (`SentryRequestContextProcessor`). 게스트면 `memberId` 없음 |
-| `http.status` | ● | | `GlobalExceptionHandler` 와 같은 매핑: `BusinessException` 코드 상태 / Spring `ErrorResponse` 상태 / `IllegalArgumentException`·본문 파싱 실패 400 / 낙관락(cause 포함) 409 / 그 외 500 |
+| `http.status` | ● | | `GlobalExceptionHandler` 와 같은 매핑: `BusinessException` 코드 상태 / Spring `ErrorResponse` 상태 / `IllegalArgumentException`·본문 파싱 실패·파라미터 타입 불일치 400 / 낙관락(cause 포함) 409 / 그 외 500 |
 | `error.code` | ● | | `BusinessException.errorCode.code` (예: `COMMON-002`) |
 | `job` | | ● | MDC ← `JobNameMdcListener` (잡 빌더 `.listener`), `sentry.context-tags: job` 으로 태그 승격 |
 
