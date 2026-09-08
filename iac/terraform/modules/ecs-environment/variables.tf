@@ -152,7 +152,7 @@ variable "api_secret_names" {
 
 variable "batch_secret_names" {
   type    = list(string)
-  default = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN"]
+  default = ["DB_PASSWORD", "OPENAI_API_KEY"]
 }
 
 variable "api_extra_env" {

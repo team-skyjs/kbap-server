@@ -7,8 +7,8 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 | 항목 | 값 |
 |---|---|
 | SDK | `io.sentry:sentry-spring-boot-4-starter` + `io.sentry:sentry-logback` (버전 카탈로그 `sentry`) |
-| Sentry 프로젝트 | `kbap-api`, `kbap-batch` (DSN 2개) |
-| DSN 주입 | SSM SecureString `/kbap/<env>/API_SENTRY_DSN`, `/kbap/<env>/BATCH_SENTRY_DSN` → terraform `api_secret_names`/`batch_secret_names` |
+| Sentry 프로젝트 | org `skyjs`, **환경별** `kbap-server-dev`(api, 2026-09-09 생성) · prod·batch 는 필요 시 같은 규칙으로 추가(`kbap-server-prod`, `kbap-batch-*`) |
+| DSN 주입 | SSM SecureString `/kbap/<env>/API_SENTRY_DSN` → terraform `api_secret_names`. batch 는 yml 이 `${BATCH_SENTRY_DSN:}` 을 읽지만 프로젝트가 없어 `batch_secret_names` 에 아직 넣지 않았다(넣으면 파라미터 없는 env 의 batch 태스크가 기동 불가) |
 | release | 배포 워크플로 jq 가 이미지 태그(`api-<sha>`/`batch-<sha>`)를 컨테이너 env `SENTRY_RELEASE` 로 넣는다 |
 | environment | `${SPRING_PROFILES_ACTIVE}` (dev/prod) |
 | 로컬·테스트 | DSN 없음 = 자동구성 통째로 skip. 별도 `sentry.enabled` 스위치 없음 |
@@ -34,10 +34,11 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 
 ECS 는 `secrets` 의 SSM 파라미터가 없으면 태스크를 기동하지 않는다.
 
-1. Sentry 콘솔에서 프로젝트 2개 생성, DSN 복사
-2. `aws ssm put-parameter --name /kbap/<env>/API_SENTRY_DSN --type SecureString --value '<dsn>'` (BATCH 도 동일)
-3. `terraform apply` (해당 env)
-4. api·batch 배포 워크플로 실행
+1. Sentry 콘솔에서 해당 env 프로젝트 생성(Settings → Client Keys 의 DSN 복사. 위자드의 Gradle 플러그인·auth token·OTel 에이전트·트레이싱/프로파일링 설정은 쓰지 않는다)
+2. `aws ssm put-parameter --profile kbap-infra --name /kbap/<env>/API_SENTRY_DSN --type SecureString --value '<dsn>'`
+3. `terraform apply` (해당 env) — **`api_secret_names` 는 전 env 공통 기본값**이라 prod 를 apply 하기 전에 `/kbap/prod/API_SENTRY_DSN` 도 있어야 한다
+4. api 배포 워크플로 실행
+5. batch 는 프로젝트·`/kbap/<env>/BATCH_SENTRY_DSN` 을 만든 뒤 `batch_secret_names` 에 `BATCH_SENTRY_DSN` 을 추가해 같은 순서
 
 검증 시나리오는 `specs/kb-508-sentry-error-alerting/quickstart.md`.
 
