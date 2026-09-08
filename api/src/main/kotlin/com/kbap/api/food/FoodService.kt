@@ -54,27 +54,44 @@ class FoodService(
         risks: Set<RiskLevel>,
         fetchBatch: (cursor: Long?, size: Int) -> List<RiskCandidate>,
     ): RiskFilteredPage {
+        if (avoidedCodes.isEmpty() && risks.none { it == RiskLevel.SAFE || it == RiskLevel.UNKNOWN }) {
+            return RiskFilteredPage(emptyList(), hasNext = false, nextCursor = null)
+        }
         val kept = ArrayList<Food>(PAGE_SIZE + 1)
         var lastKeptCursor: Long? = null
-        var cursor = startCursor
-        var hasNext = false
-        while (kept.size <= PAGE_SIZE) {
-            val batch = fetchBatch(cursor, RISK_FILTER_BATCH_SIZE)
-            if (batch.isEmpty()) break
+        var scanCursor = startCursor
+        var batches = 0
+        var overflow = false
+        var exhausted = false
+        while (kept.size <= PAGE_SIZE && batches < RISK_FILTER_MAX_BATCHES) {
+            val batch = fetchBatch(scanCursor, RISK_FILTER_BATCH_SIZE)
+            batches++
+            if (batch.isEmpty()) {
+                exhausted = true
+                break
+            }
             for (candidate in batch) {
                 val food = candidate.food ?: continue
                 if (food.overallRisk(avoidedCodes) !in risks) continue
                 if (kept.size == PAGE_SIZE) {
-                    hasNext = true
+                    overflow = true
                     break
                 }
                 kept.add(food)
                 lastKeptCursor = candidate.cursorKey
             }
-            cursor = batch.last().cursorKey
-            if (hasNext || batch.size < RISK_FILTER_BATCH_SIZE) break
+            scanCursor = batch.last().cursorKey
+            if (overflow) break
+            if (batch.size < RISK_FILTER_BATCH_SIZE) {
+                exhausted = true
+                break
+            }
         }
-        return RiskFilteredPage(kept, hasNext, if (hasNext) lastKeptCursor else null)
+        return when {
+            overflow -> RiskFilteredPage(kept, hasNext = true, nextCursor = lastKeptCursor)
+            exhausted -> RiskFilteredPage(kept, hasNext = false, nextCursor = null)
+            else -> RiskFilteredPage(kept, hasNext = true, nextCursor = scanCursor)
+        }
     }
 
     @Transactional(readOnly = true)
@@ -249,6 +266,7 @@ class FoodService(
     companion object {
         const val PAGE_SIZE = 20
         const val RISK_FILTER_BATCH_SIZE = 100
+        const val RISK_FILTER_MAX_BATCHES = 5
         const val DEFAULT_FOOD_IMAGE_PATH = "images/webp/default_miss_food/food_not_found.png"
     }
 }

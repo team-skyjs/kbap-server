@@ -79,7 +79,8 @@ interface BookmarkApi {
 
             지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. lang 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
 
-            risk(CSV, 옵션)로 위험도 필터를 건다 — 조회 회원 기준 overallRiskStatus 가 지정 집합(SAFE·CAUTION·DANGER·UNKNOWN, OR)에 드는 북마크만 서버가 걸러 내려주고 커서·hasNext 도 필터 집합 기준이다(빈/얇은 페이지 없음). 미정의 값은 400(COMMON-002).
+            risk(CSV, 옵션)로 위험도 필터를 건다 — 조회 회원 기준 overallRiskStatus 가 지정 집합(SAFE·CAUTION·DANGER·UNKNOWN, OR)에 드는 북마크만 서버가 걸러 내려준다. 미정의 값은 400(COMMON-002).
+            **risk 필터 시 items 가 PAGE_SIZE 미만이어도 hasNext=true 일 수 있다(요청당 스캔 상한). 종료는 items 개수가 아니라 hasNext/nextCursor 로만 판단한다** — hasNext=true 면 nextCursor 로 계속 당긴다.
         """,
     )
     @ApiResponses(
