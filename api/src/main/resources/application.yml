@@ -19,12 +19,6 @@ management:
       maximum-expected-value:
         http.server.requests: 10s
 
-# 에러 수집(KB-508): Sentry — 핸들러 예외(4xx·5xx 전부)와 ERROR 로그를 이벤트로 보낸다.
-# DSN 은 SSM(/kbap/<env>/API_SENTRY_DSN) 이 주입하고 없으면(로컬·테스트) 자동구성이 통째로 빠져 비활성이다.
-# exception-resolver-order 최우선: GlobalExceptionHandler 가 예외를 전부 삼키므로 그 앞에서 캡처해야 이벤트가 생긴다.
-# 5xx 는 리졸버·ERROR 로그 두 경로로 잡히지만 SDK 의 중복 감지(같은 throwable)가 한 번만 보낸다.
-# send-default-pii true: 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). Authorization 헤더만 SentryRequestContextProcessor 가 제거한다.
-# release 는 배포 워크플로가 이미지 태그(api-<sha>)를 SENTRY_RELEASE 로 넣는다. 설계: specs/kb-508-sentry-error-alerting.
 sentry:
   dsn: ${API_SENTRY_DSN:}
   environment: ${SPRING_PROFILES_ACTIVE:local}

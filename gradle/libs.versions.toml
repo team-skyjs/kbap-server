@@ -19,7 +19,6 @@ firebase-admin = "9.4.3"
 aws-sdk = "2.48.0"
 # 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
 shedlock = "6.9.2"
-# 에러 수집(KB-508): Sentry Java SDK — Spring Boot 4 전용 스타터(sentry-spring-boot-4-starter) + logback 어펜더. Boot BOM 미관리.
 sentry = "8.55.0"
 
 [plugins]

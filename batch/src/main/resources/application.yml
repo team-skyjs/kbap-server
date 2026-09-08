@@ -32,8 +32,6 @@ spring:
 logging:
   level:
     com.kbap.infra.llm.provider: DEBUG
-# 에러 수집(KB-508): Sentry — ERROR 로그(Spring Batch 스텝 실패 포함)를 이벤트로 보낸다. 웹 리졸버는 없다.
-# DSN 은 SSM(/kbap/<env>/BATCH_SENTRY_DSN) 이 주입하고 없으면 비활성. 잡 이름은 JobNameMdcListener 가 MDC(job) 로 붙인다.
 sentry:
   dsn: ${BATCH_SENTRY_DSN:}
   environment: ${SPRING_PROFILES_ACTIVE:local}
