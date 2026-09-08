@@ -13,7 +13,7 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 | environment | `${SPRING_PROFILES_ACTIVE}` (dev/prod) |
 | 로컬·테스트 | DSN 없음 = 자동구성 통째로 skip. 별도 `sentry.enabled` 스위치 없음 |
 
-`sentry.*` 설정은 각 앱 `application.yml` 에 있다. 핵심 한 줄은 api 의 `exception-resolver-order: -2147483648` — `GlobalExceptionHandler` 가 모든 예외를 삼키므로 Sentry 리졸버가 그 앞에서 캡처해야 이벤트가 생긴다(어드바이스 응답은 그대로). `SentryConfigTest` 가 이 값을 고정한다. 5xx 는 리졸버·ERROR 로그 두 경로로 잡히지만 SDK 중복 감지(같은 throwable)가 한 번만 보낸다. 로그 수위는 ERROR = 이벤트, INFO 이상 = breadcrumb.
+`sentry.*` 설정은 각 앱 `application.yml` 에 있다. 핵심 한 줄은 api 의 `exception-resolver-order: -2147483648` — `GlobalExceptionHandler` 가 모든 예외를 삼키므로 Sentry 리졸버가 그 앞에서 캡처해야 이벤트가 생긴다(어드바이스 응답은 그대로). 5xx 는 리졸버·ERROR 로그 두 경로로 잡히지만 SDK 중복 감지(같은 throwable)가 한 번만 보낸다. 로그 수위는 ERROR = 이벤트, INFO 이상 = breadcrumb.
 
 ## 태그 규약
 
