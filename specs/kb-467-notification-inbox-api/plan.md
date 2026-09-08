@@ -6,7 +6,7 @@
 
 ## Summary
 
-KB-464 의 `notification` 테이블 위에 **회원 전용** 엔드포인트 2개: `GET /api/notifications`(조회 시각 기준 168시간 이내, id 역순, 전부), `PATCH /api/notifications/{id}/read`(멱등, 타인·부재는 404 `NOTIFICATION-002`). 페이징·모두 읽기·읽음 취소·미읽음 수 없음(2026-09-07 결정). 새 파일은 `com.kbap.api.notification` 에 Api·컨트롤러·서비스·응답 DTO 4개 + 통합 테스트 1개, 변경은 ErrorCode 1줄·리포지토리 파생 쿼리 2개·WebConfig 보호 경로. 스키마 변경 없음.
+KB-464 의 `notification` 테이블 위에 **회원 전용** 엔드포인트 2개: `GET /api/notifications`(조회 시각 기준 168시간 이내, id 역순, 전부), `PATCH /api/notifications/{id}/read`(멱등, 타인·부재는 404 `NOTIFICATION-002`). 페이징·모두 읽기·읽음 취소·미읽음 수 없음(2026-09-07 결정). 기존 설정 컨트롤러·서비스(`NotificationSetting*` → `Notification*` 로 rename)에 알림함 메서드를 합치고, 새 파일은 응답 DTO 1개 + 통합 테스트 1개, 변경은 ErrorCode 1줄·리포지토리 파생 쿼리 2개·WebConfig 보호 경로. 스키마 변경 없음.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ KB-464 의 `notification` 테이블 위에 **회원 전용** 엔드포인트 2�
 
 **Constraints**: 비회원 알림은 기획상 제거 예정(2026-09-07) — 회원 알림에만 집중한다. 기존 게스트 토큰 등록 테스트가 깨지지 않게 필터 게스트 예외 한 줄만 두고, 게스트 제거 후속에서 함께 삭제(연구 §2). 모두 읽기·미읽음 수 엔드포인트 금지. Kotlin 주석 금지.
 
-**Scale/Scope**: 새 파일 5 + 변경 3. 엔드포인트 2.
+**Scale/Scope**: 신규 2(DTO·테스트) + rename 3 + 변경 3. 엔드포인트 2.
 
 ## Constitution Check
 
@@ -59,10 +59,10 @@ specs/kb-467-notification-inbox-api/
 
 ```text
 api/src/main/kotlin/com/kbap/api/notification/
-├── NotificationInboxApi.kt              # swagger 인터페이스 (신규)
-├── NotificationInboxController.kt       # GET /notifications, PATCH /{id}/read (신규)
-├── NotificationInboxService.kt          # getRecentNotifications·markRead (신규)
-└── NotificationResponse.kt              # id·title·body·createdAt·read (신규)
+├── NotificationApi.kt                   # 구 NotificationSettingApi — 알림함 2개 오퍼레이션 합류 (rename)
+├── NotificationController.kt            # 구 NotificationSettingController — GET /notifications, PATCH /{id}/read 추가 (rename)
+├── NotificationService.kt               # 구 NotificationSettingService — getRecentNotifications·markRead 추가 (rename)
+└── NotificationResponse.kt              # id·title·body·receivedAt·read (신규)
 
 api/src/main/kotlin/com/kbap/api/core/config/WebConfig.kt      # /api/notifications, /api/notifications/* 보호 + 토큰 등록 게스트 예외
 common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt  # NOTIFICATION_NOT_FOUND("NOTIFICATION-002", 404)
@@ -70,10 +70,10 @@ common/src/main/kotlin/com/kbap/common/domain/notification/NotificationJpaReposi
     # findByMemberIdAndCreatedAtAfterOrderByIdDesc, findByIdAndMemberId
 
 api/src/test/kotlin/com/kbap/api/notification/
-└── NotificationInboxControllerTest.kt   # (신규)
+└── NotificationInboxTest.kt             # (신규)
 ```
 
-**Structure Decision**: 기존 `api.notification` 기능 패키지에 합류(설정·토큰 컨트롤러와 같은 베이스 경로). "Inbox" 는 Setting·Token 과 구분하는 기능명.
+**Structure Decision**: 알림함 엔드포인트를 **기존 설정 컨트롤러·서비스에 통합**한다(사용자 지시 2026-09-08). 설정만 담던 `NotificationSetting{Controller,Api,Service}` 는 알림함까지 품게 되므로 `Notification{Controller,Api,Service}` 로 이름을 바꾼다. 토큰 컨트롤러는 비회원 제거 예정이라 별도 유지.
 
 ## Complexity Tracking
 

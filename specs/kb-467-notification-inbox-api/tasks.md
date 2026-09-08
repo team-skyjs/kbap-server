@@ -108,6 +108,8 @@ T001 ErrorCode · T002 NotificationResponse · T003 WebConfig — 동시 편집 
 
 ## Notes
 
+- **2026-09-08 통합**: 구현 후 사용자 지시로 `NotificationInbox{Controller,Api,Service}` 를 기존 설정 컨트롤러·서비스에 합쳤다 — `NotificationSetting{Controller,Api,Service}` → `Notification{Controller,Api,Service}` rename, 테스트는 `NotificationInboxTest`. 아래 T008~T010·T015~T017 의 파일명은 통합 전 기준.
+
 - Kotlin 소스 주석 금지. 근거는 커밋 메시지·research.md.
 - `@IntegrationTest` 외 조합 금지, `RANDOM_PORT` 금지(KB-392).
 - 기존 `findPageByMemberId`·`markAllReadByMemberId`·`countByMemberIdAndReadAtIsNull` 은 건드리지 않는다.

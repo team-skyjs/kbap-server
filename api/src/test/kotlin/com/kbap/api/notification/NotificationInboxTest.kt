@@ -24,7 +24,7 @@ import java.time.ZoneId
 import javax.sql.DataSource
 
 @IntegrationTest
-class NotificationInboxControllerTest : BehaviorSpec() {
+class NotificationInboxTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
