@@ -14,6 +14,7 @@
 
 - **Decision**: 버전 카탈로그에 `sentry = "8.x"`(구현 시 최신 8.x 확정)와 `sentry-spring-boot-4-jakarta`·`sentry-logback` 두 좌표를 두고, `:api` 는 둘 다, `:batch` 는 `sentry-spring-boot-4-jakarta`(웹 없이도 `Sentry.init`·스코프·EventProcessor 빈 등록 담당) + `sentry-logback` 을 쓴다. Sentry Java 8.2x 부터 Spring Boot 4 / Spring Framework 7 전용 모듈이 있다.
 - **Rationale**: 스타터가 `sentry.*` 프로퍼티 바인딩, 요청 필터(URL·메서드·헤더·경로 템플릿), 예외 리졸버, `EventProcessor` 빈 자동 등록, DSN 부재 시 비활성까지 전부 해 준다. logback 모듈은 ERROR 로그 → 이벤트, INFO 이상 → breadcrumb.
+- **확정(2026-09-09, T004)**: Maven Central `io.sentry:sentry-spring-boot-4-starter:8.55.0`(+ `sentry-logback:8.55.0`) — Boot 4 전용 모듈명은 `-4-starter` 다(`-4-jakarta` 아님). 두 모듈 컴파일 통과, 폴백 불필요.
 - **검증 항목(구현 T001)**: Maven Central 에 Boot 4 모듈이 없으면 `sentry-spring-boot-starter-jakarta`(Boot 3 라인)로 시도하고, 그것도 Boot 4.1 과 안 맞으면 수동 `Sentry.init` + `SentryAppender` 로 폴백한다(리졸버 순서는 `HandlerExceptionResolver` 빈을 직접 등록).
 
 ## R3. 태그·핑거프린트 — `EventProcessor` 빈 하나(api), yml 고정 태그

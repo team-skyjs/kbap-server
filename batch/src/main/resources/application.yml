@@ -32,6 +32,18 @@ spring:
 logging:
   level:
     com.kbap.infra.llm.provider: DEBUG
+# 에러 수집(KB-508): Sentry — ERROR 로그(Spring Batch 스텝 실패 포함)를 이벤트로 보낸다. 웹 리졸버는 없다.
+# DSN 은 SSM(/kbap/<env>/BATCH_SENTRY_DSN) 이 주입하고 없으면 비활성. 잡 이름은 JobNameMdcListener 가 MDC(job) 로 붙인다.
+sentry:
+  dsn: ${BATCH_SENTRY_DSN:}
+  environment: ${SPRING_PROFILES_ACTIVE:local}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: false
+  tags:
+    service: batch
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
 # 관측(KB-380): /actuator/prometheus 로 JVM·Spring Batch 잡 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공하고,
 # ECS 컨테이너 헬스체크가 /actuator/health/readiness 를 본다(iac/terraform … batch.tf).
 management:

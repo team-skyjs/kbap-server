@@ -19,6 +19,8 @@ firebase-admin = "9.4.3"
 aws-sdk = "2.48.0"
 # 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
 shedlock = "6.9.2"
+# 에러 수집(KB-508): Sentry Java SDK — Spring Boot 4 전용 스타터(sentry-spring-boot-4-starter) + logback 어펜더. Boot BOM 미관리.
+sentry = "8.55.0"
 
 [plugins]
 # 루트 build.gradle.kts 에서 apply false 로 선언 → 각 모듈/subprojects 에서 적용.
@@ -83,6 +85,8 @@ springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openap
 # @SchedulerLock 어노테이션 AOP(shedlock-spring)로 잡는다 — 잡 메서드에 @Scheduled 와 나란히 선언.
 shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
 shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
+sentry-spring-boot4-starter = { module = "io.sentry:sentry-spring-boot-4-starter", version.ref = "sentry" }
+sentry-logback = { module = "io.sentry:sentry-logback", version.ref = "sentry" }
 
 # --- LLM (Spring AI 2.x, versions managed by the Spring AI BOM) ---
 # 채팅·비전·임베딩 전부 OpenAI 단일 벤더(KB-320, 임베딩은 KB-328 에서 Bedrock Titan → OpenAI 전환).

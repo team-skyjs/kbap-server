@@ -25,6 +25,8 @@ dependencies {
     "implementation"(libs.spring.boot.starter.validation)
     "implementation"(libs.spring.boot.starter.actuator)
     "runtimeOnly"(libs.micrometer.registry.prometheus)
+    "implementation"(libs.sentry.spring.boot4.starter)
+    "implementation"(libs.sentry.logback)
     "implementation"(libs.spring.boot.starter.thymeleaf)
     "implementation"(libs.spring.security.crypto)
     "implementation"(libs.springdoc.openapi.starter.webmvc.ui)
