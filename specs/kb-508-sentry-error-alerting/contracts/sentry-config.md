@@ -39,13 +39,13 @@ batch 는 `dsn: ${BATCH_SENTRY_DSN:}`, `tags.service: batch`, `exception-resolve
 ```
 변경:
 ```
-.containerDefinitions |= map(
-  if .name == "api" then
+.containerDefinitions |= map(if .name == "api" then
     .image = $IMAGE
-    | .environment = ((.environment // []) | map(select(.name != "SENTRY_RELEASE")) + [{name: "SENTRY_RELEASE", value: $TAG}])
+    | .environment = ((.environment // []) | map(select(.name != "SENTRY_RELEASE"))
+        + [{name: "SENTRY_RELEASE", value: ($IMAGE | split(":") | last)}])
   else . end)
 ```
-`$TAG` = 이미지 태그(`api-<sha>` / `batch-<sha>`, 또는 수동 입력 `image_tag`). batch 워크플로는 `.name == "batch"`.
+release 값은 `$IMAGE` URI 의 태그 부분(`api-<sha>` / `batch-<sha>`, 또는 수동 입력 `image_tag`)이다 — batch 워크플로엔 `tag` 출력이 없어 `--arg TAG` 대신 URI 에서 잘라 네 파일이 같은 식을 쓴다. batch 워크플로는 `.name == "batch"`.
 
 ## 4. Terraform
 
