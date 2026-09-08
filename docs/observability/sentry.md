@@ -22,11 +22,11 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 | `service` | `api` | `batch` | yml `sentry.tags.service` |
 | `environment` / `release` / `server_name` | ● | ● | yml / `SENTRY_RELEASE` / SDK 기본(호스트명 = ECS 컨테이너 id → 인스턴스 구분) |
 | `requestId`, `memberId` | ● | | MDC ← `RequestLoggingFilter` (`SentryRequestContextProcessor`). 게스트면 `memberId` 없음 |
-| `http.status` | ● | | `BusinessException.errorCode.status` / Spring `ErrorResponse` 상태 / 그 외 500 |
+| `http.status` | ● | | `GlobalExceptionHandler` 와 같은 매핑: `BusinessException` 코드 상태 / Spring `ErrorResponse` 상태 / `IllegalArgumentException`·본문 파싱 실패 400 / 낙관락(cause 포함) 409 / 그 외 500 |
 | `error.code` | ● | | `BusinessException.errorCode.code` (예: `COMMON-002`) |
-| `job` | | ● | MDC ← `JobNameMdcListener` (잡 빌더 `.listener`) |
+| `job` | | ● | MDC ← `JobNameMdcListener` (잡 빌더 `.listener`), `sentry.context-tags: job` 으로 태그 승격 |
 
-핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). `send-default-pii: true` 로 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). 단 `Authorization` 헤더는 살아 있는 access 토큰이라 프로세서가 제거하고, 요청 본문은 첨부하지 않는다(`max-request-body-size` 기본 none).
+핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). `send-default-pii: true` 로 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). 단 `Authorization` 헤더는 살아 있는 access 토큰이라 프로세서가 제거하고, 쿼리스트링의 `q`·`latitude`·`longitude` 는 로그와 같은 `maskQuery` 로 `***` 처리하며, 요청 본문은 첨부하지 않는다(`max-request-body-size` 기본 none).
 
 **수집되지 않는 것**: 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외.
 

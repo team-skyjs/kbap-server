@@ -41,6 +41,7 @@ sentry:
   send-default-pii: true
   tags:
     service: batch
+  context-tags: job
   logging:
     minimum-event-level: error
     minimum-breadcrumb-level: info

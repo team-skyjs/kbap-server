@@ -19,9 +19,9 @@
 |---|---|---|---|
 | `requestId` | MDC `requestId` | UUID | CloudWatch 로그와 대조 |
 | `memberId` | MDC `memberId` | `42` | 게스트면 미설정 |
-| `http.status` | `BusinessException.errorCode.status` / `ErrorResponse.statusCode` / 그 외 500 | `400`·`503`·`500` | 4xx/5xx 필터·알림 조건 |
+| `http.status` | `BusinessException.errorCode.status` / `ErrorResponse.statusCode` / `IllegalArgumentException`·`HttpMessageNotReadableException` 400 / 낙관락(cause 포함) 409 / 그 외 500 — `GlobalExceptionHandler` 매핑과 동일 | `400`·`503`·`500` | 4xx/5xx 필터·알림 조건 |
 | `error.code` | `BusinessException.errorCode.code` | `COMMON-002` | 앱 에러 코드별 집계 |
-| request(URL·method·headers·경로 템플릿) | SDK 요청 필터 자동 | `GET /api/foods/{foodId}` | 트랜잭션 이름 = 경로 템플릿 |
+| request(URL·method·headers·경로 템플릿) | SDK 요청 필터 자동. 쿼리스트링은 `maskQuery`(`q`·`latitude`·`longitude` → `***`), `Authorization` 헤더 제거 | `GET /api/foods/{foodId}` | 트랜잭션 이름 = 경로 템플릿 |
 
 핑거프린트: `BusinessException` 은 `["business", <error.code>]` 로 고정 → 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외 예외는 SDK 기본(스택 기반).
 
@@ -29,7 +29,7 @@
 
 | 키 | 출처 | 값 예 |
 |---|---|---|
-| `job` | MDC `job` ← `JobNameMdcListener` | `foodVectorSyncJob` |
+| `job` | MDC `job` ← `JobNameMdcListener`, yml `sentry.context-tags: job` 이 태그로 승격(없으면 contexts.MDC 부가 데이터라 필터 불가) | `foodVectorSyncJob` |
 
 ## 넣지 않는 것
 
