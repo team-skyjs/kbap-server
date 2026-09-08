@@ -3,6 +3,7 @@ package com.kbap.api.food
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.core.error.ErrorCode
@@ -32,8 +33,49 @@ class FoodService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun getFoodPage(input: BrowseFoodsInput): FoodPage =
-        foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+    fun getFoodPage(input: BrowseFoodsInput): FoodPage {
+        val risks = input.risks
+        if (risks == null) {
+            return foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        }
+        val filtered = collectRiskFiltered(input.cursor, avoidedCodeNames(input.memberId), risks) { cursor, size ->
+            getFoods(cursor, size).map { RiskCandidate(it.id, it) }
+        }
+        return FoodPage(
+            items = summaryViews(filtered.foods, input.lang, input.memberId),
+            nextCursor = filtered.nextCursor,
+            hasNext = filtered.hasNext,
+        )
+    }
+
+    internal fun collectRiskFiltered(
+        startCursor: Long?,
+        avoidedCodes: Set<String>,
+        risks: Set<RiskLevel>,
+        fetchBatch: (cursor: Long?, size: Int) -> List<RiskCandidate>,
+    ): RiskFilteredPage {
+        val kept = ArrayList<Food>(PAGE_SIZE + 1)
+        var lastKeptCursor: Long? = null
+        var cursor = startCursor
+        var hasNext = false
+        while (kept.size <= PAGE_SIZE) {
+            val batch = fetchBatch(cursor, RISK_FILTER_BATCH_SIZE)
+            if (batch.isEmpty()) break
+            for (candidate in batch) {
+                val food = candidate.food ?: continue
+                if (food.overallRisk(avoidedCodes) !in risks) continue
+                if (kept.size == PAGE_SIZE) {
+                    hasNext = true
+                    break
+                }
+                kept.add(food)
+                lastKeptCursor = candidate.cursorKey
+            }
+            cursor = batch.last().cursorKey
+            if (hasNext || batch.size < RISK_FILTER_BATCH_SIZE) break
+        }
+        return RiskFilteredPage(kept, hasNext, if (hasNext) lastKeptCursor else null)
+    }
 
     @Transactional(readOnly = true)
     fun searchFoodPage(input: SearchFoodsInput): FoodPage =
@@ -206,6 +248,11 @@ class FoodService(
 
     companion object {
         const val PAGE_SIZE = 20
+        const val RISK_FILTER_BATCH_SIZE = 100
         const val DEFAULT_FOOD_IMAGE_PATH = "images/webp/default_miss_food/food_not_found.png"
     }
 }
+
+data class RiskCandidate(val cursorKey: Long, val food: Food?)
+
+data class RiskFilteredPage(val foods: List<Food>, val hasNext: Boolean, val nextCursor: Long?)

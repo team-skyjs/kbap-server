@@ -317,5 +317,67 @@ class BookmarkControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("음식 북마크 목록 — 위험도(risk) 서버 필터") {
+            fun eggMemberToken(memberId: Long): String {
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        "UPDATE member SET avoidance_substance_codes = '[\"EGG\"]' WHERE id = ?",
+                    ).use { ps -> ps.setLong(1, memberId); ps.executeUpdate() }
+                }
+                return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+            }
+
+            fun seedRiskFood(id: Long, eggPercent: Int?) {
+                val ingredients = eggPercent?.let { """[{"code":"EGG","inclusion_percent":$it}]""" } ?: "[]"
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        """
+                        INSERT INTO food (id, korean_name, description, spiciness, name_translations,
+                                          description_translations, ingredients, content_status, status, created_at, updated_at)
+                        VALUES (?, ?, '설명', 0, '{}', '{}', CAST(? AS JSON), 'READY', 'ACTIVE', NOW(6), NOW(6))
+                        ON DUPLICATE KEY UPDATE ingredients = VALUES(ingredients)
+                        """,
+                    ).use { ps -> ps.setLong(1, id); ps.setString(2, "북마크위험도$id"); ps.setString(3, ingredients); ps.executeUpdate() }
+                }
+            }
+
+            fun listWithRisk(token: String, risk: String) =
+                mockMvc.get(path) {
+                    header("Authorization", "Bearer $token")
+                    param("lang", "ko")
+                    param("risk", risk)
+                }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+            `when`("risk=DANGER 로 북마크 목록을 조회하면") {
+                then("조회 회원 기준 DANGER 인 북마크만 내려온다") {
+                    val token = accessToken(240L)
+                    seedRiskFood(7001L, 80)   // DANGER
+                    seedRiskFood(7002L, 30)   // CAUTION
+                    seedRiskFood(7003L, null) // SAFE
+                    register(token, 7001L).andExpect { status { isOk() } }
+                    register(token, 7002L).andExpect { status { isOk() } }
+                    register(token, 7003L).andExpect { status { isOk() } }
+                    val riskToken = eggMemberToken(240L)
+
+                    foodIdsOf(listWithRisk(riskToken, "DANGER")) shouldContainExactlyInAnyOrder listOf(7001L)
+                    foodIdsOf(listWithRisk(riskToken, "DANGER,CAUTION")) shouldContainExactlyInAnyOrder listOf(7001L, 7002L)
+                }
+            }
+
+            `when`("미정의 risk 값이면") {
+                then("400 COMMON-002 로 거절한다") {
+                    val token = accessToken(241L)
+                    mockMvc.get(path) {
+                        header("Authorization", "Bearer $token")
+                        param("lang", "ko")
+                        param("risk", "NOPE")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+        }
     }
 }

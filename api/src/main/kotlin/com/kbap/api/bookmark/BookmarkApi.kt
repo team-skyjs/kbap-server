@@ -78,12 +78,14 @@ interface BookmarkApi {
             응답 항목은 음식 요약(음식 목록 API 와 동일 형태)이며 요청 언어(lang)로 표시명을 지역화한다. 항목은 정의상 전부 북마크한 음식이므로 bookmarked 는 항상 true 다.
 
             지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. lang 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
+
+            risk(CSV, 옵션)로 위험도 필터를 건다 — 조회 회원 기준 overallRiskStatus 가 지정 집합(SAFE·CAUTION·DANGER·UNKNOWN, OR)에 드는 북마크만 서버가 걸러 내려주고 커서·hasNext 도 필터 집합 기준이다(빈/얇은 페이지 없음). 미정의 값은 400(COMMON-002).
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 최신순 북마크 음식 요약(≤20)·nextCursor·hasNext 반환"),
-            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 lang 누락·빈/공백"),
+            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, lang 누락·빈/공백, 미정의 risk 값(COMMON-002)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
