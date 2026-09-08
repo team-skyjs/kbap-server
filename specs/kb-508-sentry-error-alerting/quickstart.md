@@ -2,7 +2,7 @@
 
 ## 순서 (반드시 이 순서)
 
-1. **Sentry 콘솔**: 프로젝트 생성 → DSN 복사. (2026-09-09 실제: org `skyjs`, 프로젝트는 환경별 `kbap-server-dev` = dev api. batch·prod 는 후속.)
+1. **Sentry 콘솔**: 프로젝트 생성 → DSN 복사. (2026-09-09 실제: org `skyjs`, dev 프로젝트는 `kbap-server-dev`(api)·`kbap-batch-dev`(batch). prod 는 후속.)
 2. **SSM 파라미터**(dev 먼저, prod 는 dev 검증 후):
    ```bash
    aws ssm put-parameter --name /kbap/dev/API_SENTRY_DSN   --type SecureString --value '<api dsn>'
