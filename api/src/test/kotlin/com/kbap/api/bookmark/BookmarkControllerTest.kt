@@ -8,6 +8,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
@@ -291,6 +292,60 @@ class BookmarkControllerTest : BehaviorSpec() {
                     secondRoot.path("payload").path("hasNext").asBoolean() shouldBe false
 
                     (foodIdsOf(firstJson) + foodIdsOf(secondJson)) shouldContainExactlyInAnyOrder foodIds
+                }
+            }
+
+            `when`("정확히 PAGE_SIZE(20)개만 등록하면 (경계)") {
+                then("첫 페이지에서 hasNext=false·nextCursor=null 로 끝난다 — 재페치 없음") {
+                    val token = accessToken(2201L)
+                    (1L..20L).forEach { id -> seedFood(id, "경계메뉴$id"); register(token, id).andExpect { status { isOk() } } }
+
+                    val root = mapper.readTree(listJson(token))
+                    root.path("payload").path("items").size() shouldBe 20
+                    root.path("payload").path("hasNext").asBoolean() shouldBe false
+                    root.path("payload").path("nextCursor").isNull shouldBe true
+                }
+            }
+
+            `when`("정확히 PAGE_SIZE 배수(40)개를 등록하면 (경계)") {
+                then("둘째 페이지가 정확히 20개면서 hasNext=false 로 끝난다 — 셋째 페치 없음") {
+                    val token = accessToken(2202L)
+                    (1L..40L).forEach { id -> seedFood(id, "배수메뉴$id"); register(token, id).andExpect { status { isOk() } } }
+
+                    val first = mapper.readTree(listJson(token))
+                    first.path("payload").path("hasNext").asBoolean() shouldBe true
+                    val second = mapper.readTree(listJson(token, cursor = first.path("payload").path("nextCursor").asLong()))
+                    second.path("payload").path("items").size() shouldBe 20
+                    second.path("payload").path("hasNext").asBoolean() shouldBe false
+                    second.path("payload").path("nextCursor").isNull shouldBe true
+                }
+            }
+
+            `when`("FE 처럼 hasNext 를 따라 nextCursor 로 끝까지 드레인하면 (무한 페치 재현)") {
+                then("커서가 매 페이지 strictly 감소하며 유한 횟수에 종료되고 전 항목이 중복 없이 수집된다") {
+                    val token = accessToken(2203L)
+                    val foodIds = (1L..41L).toList()
+                    foodIds.forEach { id -> seedFood(id, "드레인메뉴$id"); register(token, id).andExpect { status { isOk() } } }
+
+                    val collected = mutableListOf<Long>()
+                    val seenCursors = mutableListOf<Long>()
+                    var cursor: Long? = null
+                    var guard = 0
+                    while (true) {
+                        guard++ shouldBeLessThan 10
+                        val payload = mapper.readTree(listJson(token, cursor = cursor)).path("payload")
+                        collected += payload.path("items").map { it.path("foodId").asLong() }
+                        if (!payload.path("hasNext").asBoolean()) {
+                            payload.path("nextCursor").isNull shouldBe true
+                            break
+                        }
+                        val next = payload.path("nextCursor").asLong()
+                        cursor?.let { next shouldBeLessThan it }
+                        seenCursors.contains(next) shouldBe false
+                        seenCursors += next
+                        cursor = next
+                    }
+                    collected shouldContainExactlyInAnyOrder foodIds
                 }
             }
 
