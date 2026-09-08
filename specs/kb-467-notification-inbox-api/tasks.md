@@ -84,8 +84,8 @@
 
 - [x] T019 `./gradlew build` 전체 Green(arch 태그 포함 — `ErrorCodeStatusTest`·`ModuleBoundaryTest`).
 - [x] T020 [P] `git diff develop --stat` 로 변경 파일이 plan.md 의 목록(신규 5·변경 3 + specs)뿐인지 확인. Kotlin 소스 주석 0.
-- [ ] T021 [P] Jira KB-467 코멘트(ADF, `addCommentToJiraIssue`): "회원 전용(비회원 알림은 기획상 제거 예정) · 최근 7일만·페이징 없음 · 모두 읽기·읽음 취소·미읽음 수 없음 · 응답 id·제목·본문·수신 시각·읽음 여부 · 제목/본문 저장값 그대로". DoD 의 "게스트 결정 기록" 항목.
-- [ ] T022 draft PR → develop(`open-draft-pr-to-develop`): Jira 링크, 계약 요약, 게스트 예외 한 줄이 임시임을 명시.
+- [x] T021 [P] Jira KB-467 코멘트(ADF, `addCommentToJiraIssue`): "회원 전용(비회원 알림은 기획상 제거 예정) · 최근 7일만·페이징 없음 · 모두 읽기·읽음 취소·미읽음 수 없음 · 응답 id·제목·본문·수신 시각·읽음 여부 · 제목/본문 저장값 그대로". DoD 의 "게스트 결정 기록" 항목.
+- [x] T022 draft PR → develop(`open-draft-pr-to-develop`): Jira 링크, 계약 요약, 게스트 예외 한 줄이 임시임을 명시.
 
 ---
 
