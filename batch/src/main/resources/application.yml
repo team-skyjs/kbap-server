@@ -38,7 +38,7 @@ sentry:
   dsn: ${BATCH_SENTRY_DSN:}
   environment: ${SPRING_PROFILES_ACTIVE:local}
   release: ${SENTRY_RELEASE:}
-  send-default-pii: false
+  send-default-pii: true
   tags:
     service: batch
   logging:

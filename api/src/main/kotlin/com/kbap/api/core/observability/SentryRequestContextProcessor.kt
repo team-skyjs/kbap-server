@@ -6,6 +6,7 @@ import io.sentry.EventProcessor
 import io.sentry.Hint
 import io.sentry.SentryEvent
 import org.slf4j.MDC
+import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.ErrorResponse
 
@@ -15,6 +16,9 @@ class SentryRequestContextProcessor : EventProcessor {
     override fun process(event: SentryEvent, hint: Hint): SentryEvent {
         listOf(RequestLoggingFilter.REQUEST_ID_KEY, RequestLoggingFilter.MEMBER_ID_KEY)
             .forEach { key -> MDC.get(key)?.let { event.setTag(key, it) } }
+        event.request?.headers?.let { headers ->
+            event.request?.headers = headers.filterKeys { !it.equals(HttpHeaders.AUTHORIZATION, ignoreCase = true) }
+        }
         when (val throwable = event.throwable) {
             null -> Unit
             is BusinessException -> {

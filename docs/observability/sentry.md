@@ -26,7 +26,7 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 | `error.code` | ● | | `BusinessException.errorCode.code` (예: `COMMON-002`) |
 | `job` | | ● | MDC ← `JobNameMdcListener` (잡 빌더 `.listener`) |
 
-핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). PII 는 보내지 않는다(`send-default-pii: false`, 요청 본문 미첨부, `Authorization`·`Cookie` 제외).
+핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). `send-default-pii: true` 로 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). 단 `Authorization` 헤더는 살아 있는 access 토큰이라 프로세서가 제거하고, 요청 본문은 첨부하지 않는다(`max-request-body-size` 기본 none).
 
 **수집되지 않는 것**: 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외.
 

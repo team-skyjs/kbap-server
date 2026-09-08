@@ -33,7 +33,7 @@
 
 ## 넣지 않는 것
 
-요청 본문, `Authorization`·`Cookie` 헤더, 이메일·닉네임, 토큰. `send-default-pii=false`·`max-request-body-size=none`.
+요청 본문(`max-request-body-size=none`), `Authorization` 헤더(프로세서 제거). `send-default-pii=true`(2026-09-09 변경) 로 IP·그 외 헤더·쿠키는 싣는다.
 
 ## 상태 전이
 

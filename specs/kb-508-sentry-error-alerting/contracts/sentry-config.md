@@ -18,7 +18,7 @@ sentry:
   dsn: ${API_SENTRY_DSN:}
   environment: ${SPRING_PROFILES_ACTIVE:local}
   release: ${SENTRY_RELEASE:}
-  send-default-pii: false
+  send-default-pii: true
   exception-resolver-order: -2147483648
   tags:
     service: api
