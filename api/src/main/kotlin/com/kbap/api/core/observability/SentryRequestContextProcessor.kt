@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import io.sentry.EventProcessor
 import io.sentry.Hint
 import io.sentry.SentryEvent
+import jakarta.persistence.OptimisticLockException
 import org.slf4j.MDC
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpHeaders
@@ -41,7 +42,8 @@ class SentryRequestContextProcessor : EventProcessor {
     }
 
     private fun hasOptimisticConflictCause(throwable: Throwable): Boolean =
-        generateSequence(throwable) { it.cause }.any { it is OptimisticLockingFailureException }
+        generateSequence(throwable) { it.cause }
+            .any { it is OptimisticLockingFailureException || it is OptimisticLockException }
 
     private companion object {
         const val HTTP_STATUS_TAG = "http.status"
