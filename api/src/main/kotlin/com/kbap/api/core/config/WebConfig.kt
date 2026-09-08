@@ -100,12 +100,14 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption("PUT", Regex("^${ApiPaths.API}/notifications/tokens$")),
                 ),
             ),
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.API}/members/*",
-                "${ApiPaths.API}/notifications/settings",
+                "${ApiPaths.API}/notifications",
+                "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
