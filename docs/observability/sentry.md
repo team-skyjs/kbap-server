@@ -1,6 +1,6 @@
 # Sentry 에러 수집 (KB-508)
 
-api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로그·배치 잡 실패**를 Sentry 이벤트로 모은다. Grafana 는 "얼마나"(처리량·지연·자원), Sentry 는 "무엇이 어디서"(예외·스택·요청 맥락)를 맡는다. 알림 규칙은 이 기능 범위 밖이며 Sentry 콘솔에서 설정한다.
+api·batch 두 컨테이너의 **핸들러 예외(5xx·낙관적 락 409·미분류 예외 — 4xx 는 미전송, KB-510)와 ERROR 로그·배치 잡 실패**를 Sentry 이벤트로 모은다. Grafana 는 "얼마나"(처리량·지연·자원), Sentry 는 "무엇이 어디서"(예외·스택·요청 맥락)를 맡는다. 알림 규칙은 이 기능 범위 밖이며 Sentry 콘솔에서 설정한다.
 
 ## 구성
 
@@ -28,7 +28,10 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 
 핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). `send-default-pii: true` 로 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). 단 `Authorization` 헤더는 살아 있는 access 토큰이라 프로세서가 제거하고, 쿼리스트링의 `q`·`latitude`·`longitude` 는 로그와 같은 `maskQuery` 로 `***` 처리하며, 요청 본문은 첨부하지 않는다(`max-request-body-size` 기본 none).
 
-**수집되지 않는 것**: 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외.
+**수집되지 않는 것** (KB-510, 2026-09-09 — dev 첫 10시간 이슈 4건이 전부 봇 404 스캔·정상 토큰 갱신 401·앱 크래시 Broken pipe 였다):
+- **4xx 전부** — `BusinessException`(status<500, 409 `COMMON-004` 류 포함)·Spring `ErrorResponse` 4xx(정적 리소스 404 `NoResourceFoundException` 포함)·400 계열(`IllegalArgumentException`·본문 파싱 실패·파라미터 타입 불일치). `SentryRequestContextProcessor` 가 위 `http.status` 판정으로 이벤트를 드롭한다. **보고되는 것은 5xx·낙관적 락 409(cause 포함)·미분류 예외뿐**이다. `exception-resolver-order` 는 그대로(5xx 캡처 경로 보존).
+- **인바운드 클라이언트 끊김** — cause 체인에 `org.apache.catalina.connector.ClientAbortException` 또는 `AsyncRequestNotUsableException` 이 있으면 드롭. 둘 다 서블릿 응답 스트림에서만 나오므로 앱이 끊은 소켓만 걸러진다 — DB·S3·LLM 등 **아웃바운드 IOException("Connection reset"·"Broken pipe" 메시지)은 진짜 장애라 그대로 500 으로 보고**한다(메시지 문자열 매칭 금지).
+- 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외.
 
 ## 배포 순서 (반드시)
 
@@ -43,6 +46,6 @@ ECS 는 `secrets` 의 SSM 파라미터가 없으면 태스크를 기동하지 �
 
 ## 후속·조정
 
-- **알림**: 프로젝트별 규칙 "새 이슈 → Slack", 4xx 를 빼려면 조건 `http.status` starts with `5`.
-- **노이즈**: 특정 에러 코드를 빼려면 `SentryRequestContextProcessor` 에서 해당 코드에 `null` 반환(이벤트 드롭), 양이 많으면 `sentry.sample-rate`.
+- **알림**: 프로젝트별 규칙 "새 이슈 → Slack". 4xx 는 SDK 단계에서 이미 드롭되므로 콘솔 조건이 따로 필요 없다.
+- **노이즈**: 특정 5xx 에러 코드를 더 빼려면 `SentryRequestContextProcessor` 에서 해당 코드에 `null` 반환(이벤트 드롭), 양이 많으면 `sentry.sample-rate`. 봇 스캔은 nginx default server 에서 Host 가 `dev/prod.kbap.site` 가 아니면 444 로 끊는 편이 근본 대책(인프라 메모).
 - **되돌리기**: 코드 revert 로 SDK 가 빠진다. SSM 파라미터는 지우지 말 것(지우면 다음 배포부터 기동 실패) — 끄려면 `*_secret_names` 에서 빼고 apply 후 배포.

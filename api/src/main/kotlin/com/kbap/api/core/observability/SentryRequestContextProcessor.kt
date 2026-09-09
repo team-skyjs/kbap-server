@@ -8,7 +8,6 @@ import io.sentry.EventProcessor
 import io.sentry.Hint
 import io.sentry.SentryEvent
 import jakarta.persistence.OptimisticLockException
-import java.io.IOException
 import org.apache.catalina.connector.ClientAbortException
 import org.slf4j.MDC
 import org.springframework.dao.OptimisticLockingFailureException
@@ -50,11 +49,7 @@ class SentryRequestContextProcessor : EventProcessor {
         }
 
     private fun isClientAbort(throwable: Throwable): Boolean =
-        causeChain(throwable).any {
-            it is ClientAbortException ||
-                it is AsyncRequestNotUsableException ||
-                (it is IOException && CLIENT_ABORT_MESSAGES.any { marker -> it.message?.contains(marker) == true })
-        }
+        causeChain(throwable).any { it is ClientAbortException || it is AsyncRequestNotUsableException }
 
     private fun hasOptimisticConflictCause(throwable: Throwable): Boolean =
         causeChain(throwable).any { it is OptimisticLockingFailureException || it is OptimisticLockException }
@@ -63,6 +58,5 @@ class SentryRequestContextProcessor : EventProcessor {
 
     private companion object {
         const val HTTP_STATUS_TAG = "http.status"
-        val CLIENT_ABORT_MESSAGES = listOf("Broken pipe", "Connection reset")
     }
 }

@@ -77,16 +77,10 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
             }
         }
 
-        `when`("cause 체인에 Broken pipe / Connection reset IOException 이 있으면") {
-            then("이벤트를 버린다") {
-                process(RuntimeException("wrap", IOException("Broken pipe"))).shouldBeNull()
-                process(RuntimeException("wrap", IOException("Connection reset by peer"))).shouldBeNull()
-            }
-        }
-
-        `when`("그 밖의 IOException 이면") {
-            then("500 으로 보낸다") {
-                process(RuntimeException("wrap", IOException("disk full"))).shouldNotBeNull().getTag("http.status") shouldBe "500"
+        `when`("아웃바운드 호출의 IOException(Connection reset·Broken pipe 메시지) 이면") {
+            then("클라이언트 끊김으로 보지 않고 500 으로 보낸다") {
+                process(RuntimeException("wrap", IOException("Connection reset by peer"))).shouldNotBeNull().getTag("http.status") shouldBe "500"
+                process(RuntimeException("wrap", IOException("Broken pipe"))).shouldNotBeNull().getTag("http.status") shouldBe "500"
             }
         }
 
