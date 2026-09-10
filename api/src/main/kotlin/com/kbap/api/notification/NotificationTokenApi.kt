@@ -47,7 +47,7 @@ interface NotificationTokenApi {
             required = true,
         )
         installationId: String,
-        memberId: Long?,
+        memberId: Long,
         request: NotificationTokenRegisterRequest,
     ): ResponseEntity<BaseResponse<Unit>>
 }
