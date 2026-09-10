@@ -46,9 +46,6 @@ class Notification(
         fun forMember(memberId: Long, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
             Notification(memberId = memberId, type = type, title = title, body = body, data = data)
 
-        fun forInstallation(installationId: String, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
-            Notification(installationId = installationId, type = type, title = title, body = body, data = data)
-
         fun forMemberDevice(
             memberId: Long,
             installationId: String,

@@ -99,28 +99,6 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("게스트 기기 대상 알림") {
-            `when`("회원 없이 설치 식별자만으로 공지를 저장하면") {
-                clear()
-                val saved = repository.save(
-                    Notification.forInstallation(
-                        installationId = "inst-guest",
-                        type = NotificationType.NEWS,
-                        title = "notice",
-                        body = "body",
-                        data = null,
-                    ),
-                )
-
-                then("저장이 거부되지 않고 수신 기기가 남는다") {
-                    val found = repository.findById(saved.id).get()
-                    found.memberId.shouldBeNull()
-                    found.installationId shouldBe "inst-guest"
-                    found.data.shouldBeNull()
-                }
-            }
-        }
-
         given("이동 정보 페이로드") {
             `when`("문자열과 숫자가 섞인 data 를 저장하면") {
                 clear()
