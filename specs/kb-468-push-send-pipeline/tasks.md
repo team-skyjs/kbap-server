@@ -127,16 +127,16 @@
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T026 [P] [US5] `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt` 생성 — `class FakePushSender : PushSender { val sent = mutableListOf<PushMessage>(); var errorFor: (PushMessage) -> String? = { null }; override fun send(messages) { sent += messages; return messages.map { m -> errorFor(m)?.let { PushTicket.error(it) } ?: PushTicket.ok("ticket-${sent.size}") } }; fun reset() }` + `@Configuration class FakePushSenderConfig { @Bean @Primary fun fakePushSender() = FakePushSender() }`(`FakePlaceSearchClient` 선례). `api/src/test/kotlin/com/kbap/api/IntegrationTest.kt` `@Import` 에 `FakePushSenderConfig::class` 추가.
-- [ ] T027 [P] [US5] `batch/src/test/kotlin/com/kbap/batch/KbapBatchApplicationTests.kt` 에 `then("푸시 파이프라인 빈이 조립된다")` 추가 — `@Autowired ApplicationContext` 로 `getBean(PushSender::class.java)`·`getBean(PushDispatchService::class.java)` non-null. `api/src/test/kotlin/com/kbap/api/KbapApiApplicationTests.kt` 에도 동일(`PushSender` 는 `FakePushSender` 인스턴스여야 함).
-- [ ] T028 [US5] `./gradlew :api:test :batch:test` → 두 assertion Red(빈 없음).
+- [x] T026 [P] [US5] `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt` 생성 — `class FakePushSender : PushSender { val sent = mutableListOf<PushMessage>(); var errorFor: (PushMessage) -> String? = { null }; override fun send(messages) { sent += messages; return messages.map { m -> errorFor(m)?.let { PushTicket.error(it) } ?: PushTicket.ok("ticket-${sent.size}") } }; fun reset() }` + `@Configuration class FakePushSenderConfig { @Bean @Primary fun fakePushSender() = FakePushSender() }`(`FakePlaceSearchClient` 선례). `api/src/test/kotlin/com/kbap/api/IntegrationTest.kt` `@Import` 에 `FakePushSenderConfig::class` 추가.
+- [x] T027 [P] [US5] `batch/src/test/kotlin/com/kbap/batch/KbapBatchApplicationTests.kt` 에 `then("푸시 파이프라인 빈이 조립된다")` 추가 — `@Autowired ApplicationContext` 로 `getBean(PushSender::class.java)`·`getBean(PushDispatchService::class.java)` non-null. `api/src/test/kotlin/com/kbap/api/KbapApiApplicationTests.kt` 에도 동일(`PushSender` 는 `FakePushSender` 인스턴스여야 함).
+- [x] T028 [US5] `./gradlew :api:test :batch:test` → 두 assertion Red(빈 없음).
 
 ### Implementation for User Story 5
 
-- [ ] T029 [P] [US5] `api/src/main/kotlin/com/kbap/api/core/config/PushConfig.kt` 생성 — `@Configuration class PushConfig { @Bean @ConditionalOnMissingBean(PushSender::class) fun pushSender(@Value("\${kbap.push.expo.base-url}") baseUrl: String, @Value("\${kbap.push.expo.access-token:}") accessToken: String): PushSender = ExpoPushSender.create(baseUrl, accessToken) }`(`ExchangeConfig` 선례).
-- [ ] T030 [P] [US5] `batch/src/main/kotlin/com/kbap/batch/config/PushConfig.kt` 생성 — 위와 같은 `@Bean` + `@Import(PushDispatchService::class, PushTargetResolver::class, PushMessageRenderer::class)`. `scanBasePackages` 는 손대지 않는다.
-- [ ] T031 [P] [US5] `api/src/main/resources/application.yml` `kbap:` 아래 `exchange:` 다음에 `push:\n    expo:\n      base-url: https://exp.host\n      access-token: ${EXPO_ACCESS_TOKEN:}` 추가. `batch/src/main/resources/application.yml` `kbap:` 아래 `vector:` 다음에 동일 블록. (프로필별 yml 변경 없음.)
-- [ ] T032 [US5] `./gradlew :api:test :batch:test` → T027 Green, `ModuleBoundaryTest` Green(어댑터 참조는 `api.core.config`·`batch.config` 만), 기존 스펙 회귀 없음. 컨텍스트 수 api 1·batch 1 유지(`-i` 로그의 Testcontainers 기동 횟수).
+- [x] T029 [P] [US5] `api/src/main/kotlin/com/kbap/api/core/config/PushConfig.kt` 생성 — `@Configuration class PushConfig { @Bean @ConditionalOnMissingBean(PushSender::class) fun pushSender(@Value("\${kbap.push.expo.base-url}") baseUrl: String, @Value("\${kbap.push.expo.access-token:}") accessToken: String): PushSender = ExpoPushSender.create(baseUrl, accessToken) }`(`ExchangeConfig` 선례).
+- [x] T030 [P] [US5] `batch/src/main/kotlin/com/kbap/batch/config/PushConfig.kt` 생성 — 위와 같은 `@Bean` + `@Import(PushDispatchService::class, PushTargetResolver::class, PushMessageRenderer::class)`. `scanBasePackages` 는 손대지 않는다.
+- [x] T031 [P] [US5] `api/src/main/resources/application.yml` `kbap:` 아래 `exchange:` 다음에 `push:\n    expo:\n      base-url: https://exp.host\n      access-token: ${EXPO_ACCESS_TOKEN:}` 추가. `batch/src/main/resources/application.yml` `kbap:` 아래 `vector:` 다음에 동일 블록. (프로필별 yml 변경 없음.)
+- [x] T032 [US5] `./gradlew :api:test :batch:test` → T027 Green, `ModuleBoundaryTest` Green(어댑터 참조는 `api.core.config`·`batch.config` 만), 기존 스펙 회귀 없음. 컨텍스트 수 api 1·batch 1 유지(`-i` 로그의 Testcontainers 기동 횟수).
 
 **Checkpoint**: 커밋 `feat(push): api·batch PushConfig 조립 + 통합 테스트 페이크 PushSender`.
 
