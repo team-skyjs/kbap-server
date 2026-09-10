@@ -1,4 +1,4 @@
-# Tasks: Expo Push 발송 공용 파이프라인 — 100건 배치 전송·티켓 저장·언어별 렌더
+# Tasks: Expo Push 발송 공용 파이프라인 — Expo API 100건 청크 전송·티켓 저장·언어별 렌더
 
 **Input**: Design documents from `specs/kb-468-push-send-pipeline/`
 

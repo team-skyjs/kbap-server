@@ -1,4 +1,4 @@
-# Implementation Plan: Expo Push 발송 공용 파이프라인 — 100건 배치 전송·티켓 저장·언어별 렌더
+# Implementation Plan: Expo Push 발송 공용 파이프라인 — Expo API 100건 청크 전송·티켓 저장·언어별 렌더
 
 **Branch**: `kb-468-push-send-pipeline` | **Date**: 2026-09-11 | **Spec**: [Jira KB-468](https://simhani1.atlassian.net/browse/KB-468) (spec.md 없음 — `/speckit-specify` 미실행, Jira 본문을 명세로 사용)
 
