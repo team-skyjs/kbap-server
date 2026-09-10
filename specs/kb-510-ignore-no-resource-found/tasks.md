@@ -58,8 +58,8 @@
 **Purpose**: 커밋·PR·티켓·dev 검증
 
 - [X] T005 커밋 1개 — `fix(observability): 매핑 없는 경로 404(NoResourceFoundException) Sentry 미전송 (KB-510)` 형식, 본문에 R1~R4 요지(SDK 가 프로세서 이전에 정확한 클래스 일치로 drop, 4xx 정책 유지, 프로세서 무수정)와 로컬 검증 로그. 파일: `api/src/main/resources/application.yml`, `docs/observability/sentry.md`, `specs/kb-510-ignore-no-resource-found/*` (T001~T004 의존)
-- [ ] T006 `open-draft-pr-to-develop` 스킬로 base=develop draft PR — 제목은 커밋과 동일, 본문에 Jira KB-510 링크·무엇을/왜(봇 스캔 404 노이즈, PR #257 의 4xx 전체 drop 은 폐기)·변경 사항 2줄·검증(T003 로그, T004 결과)·`Refs KB-510` (T005 의존)
-- [ ] T007 [P] Jira KB-510 코멘트(`mcp__atlassian__addCommentToJiraIssue`) — 범위 축소 기록: "4xx 전체 drop(PR #257) 폐기 → `NoResourceFoundException` 한 종류만 `sentry.ignored-exceptions-for-type` 으로 제외. 4xx 수집 정책(KB-508) 유지. PR 링크" (T006 의존)
+- [X] T006 `open-draft-pr-to-develop` 스킬로 base=develop draft PR — 제목은 커밋과 동일, 본문에 Jira KB-510 링크·무엇을/왜(봇 스캔 404 노이즈, PR #257 의 4xx 전체 drop 은 폐기)·변경 사항 2줄·검증(T003 로그, T004 결과)·`Refs KB-510` (T005 의존)
+- [X] T007 [P] Jira KB-510 코멘트(`mcp__atlassian__addCommentToJiraIssue`) — 범위 축소 기록: "4xx 전체 drop(PR #257) 폐기 → `NoResourceFoundException` 한 종류만 `sentry.ignored-exceptions-for-type` 으로 제외. 4xx 수집 정책(KB-508) 유지. PR 링크" (T006 의존)
 - [ ] T008 dev 검증(quickstart §2) — 머지·`deploy-dev` 배포 후 `GET https://dev.kbap.site/api/no-such-path` ×10 과 `GET https://dev.kbap.site/` ×10 에 Sentry `kbap-server-dev` 새 이벤트 0건(SC-001), 앱 에러 코드 4xx 1건이 1분 안에 `http.status`·`error.code` 태그로 보임(SC-002). 결과를 PR 본문 "검증" 에 추기 (T006 의존, 머지 후)
 
 ---
