@@ -6,7 +6,7 @@
 
 ## Summary
 
-"정해진 대상에게 종류·언어에 맞게 보내는 방법" 을 api·batch 가 공유하는 부품으로 만든다. **도메인은 port 를 모른다(ArchUnit)** 는 규칙을 지키기 위해 파이프라인을 **prepare(도메인, 트랜잭션) → send(port, 트랜잭션 밖) → record(도메인, 트랜잭션)** 3단으로 나눈다 — 헌법이 지시하는 "pending 저장 → 외부 호출 → 결과 저장" 패턴이다. `common.port.push.PushSender` + `common.infra.push.ExpoPushSender`(RestClient, 100건 청크, 순서 동일 티켓, 예외 대신 error 티켓), `common.domain.notification` 에 첫 공유 도메인 서비스 3개(`PushTargetResolver`·`PushMessageRenderer`·`PushDispatchService`), 조립은 api·batch 각자 `PushConfig`. 실기기 DoD 를 위해 관리자 테스트 발송 엔드포인트 1개. 스키마 변경 없음(`NotificationType.MEAL_TIME` 만 추가).
+"정해진 대상에게 종류·언어에 맞게 보내는 방법" 을 api·batch 가 공유하는 부품으로 만든다. **도메인은 port 를 모른다(ArchUnit)** 는 규칙을 지키기 위해 파이프라인을 **prepare(도메인, 트랜잭션) → send(port, 트랜잭션 밖) → record(도메인, 트랜잭션)** 3단으로 나눈다 — 헌법이 지시하는 "pending 저장 → 외부 호출 → 결과 저장" 패턴이다. `common.port.push.PushSender` + `common.infra.push.ExpoPushSender`(RestClient, 100건 청크, 순서 동일 티켓, 예외 대신 error 티켓), `common.domain.notification` 에 첫 공유 도메인 서비스 3개(`PushTargetResolver`·`PushMessageRenderer`·`PushDispatchService`), 조립은 api·batch 각자 `PushConfig`. 알림함 행은 **기기(installation) 단위**로 저장하고 KB-467 알림함 API 는 `X-Installation-Id` 필수로 개정한다(2026-09-11, Codex 리뷰 계기). 실기기 DoD 를 위해 관리자 테스트 발송 엔드포인트 1개. 스키마 변경 없음(`NotificationType.MEAL_TIME` 만 추가).
 
 ## Technical Context
 

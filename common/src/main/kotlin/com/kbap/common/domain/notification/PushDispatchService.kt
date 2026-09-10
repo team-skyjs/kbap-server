@@ -2,7 +2,6 @@ package com.kbap.common.domain.notification
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.notification.model.Notification
-import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,17 +19,16 @@ class PushDispatchService(
         val messages = mutableListOf<PushEnvelope>()
         val dispatchIds = mutableListOf<Long>()
 
-        devices.groupBy { it.memberId!! }.forEach { (memberId, memberDevices) ->
-            val notification = saveInboxNotification(memberId, memberDevices, request)
+        devices.forEach { device ->
+            val content = renderer.render(request.type, LanguageCode.from(device.lang), request.args, request.marketing)
+            val notification = notificationRepository.save(
+                Notification.forMemberDevice(device.memberId!!, device.installationId, request.type, content.title, content.body, null),
+            )
             val data = request.data + mapOf(DATA_TYPE to request.type.name, DATA_NOTIFICATION_ID to notification.id)
             notification.data = data
-
-            memberDevices.forEach { device ->
-                val content = render(request, device.lang)
-                val dispatch = dispatchRepository.save(NotificationDispatch.pending(notification.id, device.id, device.expoToken))
-                messages += PushEnvelope(device.expoToken, content.title, content.body, data)
-                dispatchIds += dispatch.id
-            }
+            val dispatch = dispatchRepository.save(NotificationDispatch.pending(notification.id, device.id, device.expoToken))
+            messages += PushEnvelope(device.expoToken, content.title, content.body, data)
+            dispatchIds += dispatch.id
         }
         return PreparedPush(messages, dispatchIds)
     }
@@ -56,15 +54,6 @@ class PushDispatchService(
         }
         return PushDispatchResult(sent, failed)
     }
-
-    private fun saveInboxNotification(memberId: Long, devices: List<NotificationDevice>, request: PushRequest): Notification {
-        val inboxLang = devices.maxBy { it.updatedAt }.lang
-        val content = render(request, inboxLang)
-        return notificationRepository.save(Notification.forMember(memberId, request.type, content.title, content.body, null))
-    }
-
-    private fun render(request: PushRequest, lang: String): PushContent =
-        renderer.render(request.type, LanguageCode.from(lang), request.args, request.marketing)
 
     companion object {
         private const val DATA_TYPE = "type"

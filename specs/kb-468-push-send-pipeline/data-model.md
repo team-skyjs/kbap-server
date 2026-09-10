@@ -36,7 +36,7 @@
 ### `PushMessageRenderer.render(type, lang: LanguageCode, args, marketing): PushContent`
 
 - `PushContent(title: String, body: String)`.
-- `PushTemplates[type][lang]` 조회 → `{key}` 치환(미제공 키는 빈 문자열) → `marketing` 이면 `title = "(광고) " + title`, `body = body + "\n" + optOutNotice[lang]`.
+- `PushTemplates[type][lang]` 조회 → `{key}` 치환(미제공 키는 빈 문자열) → `marketing` 이면 `title = "(광고) " + title`, `body = body.take(1000 - 안내 길이) + "\n" + optOutNotice[lang]`(안내는 절대 잘리지 않는다).
 - 불변식(테스트): 전 `NotificationType` × 전 `LanguageCode` 항목 존재·비어 있지 않음; `optOutNotice` 전 로케일 존재. 결과 title ≤ 200, body ≤ 1000(엔티티 컬럼 길이) — 템플릿 길이로 보장, NOTICE 는 `take(n)` 절단.
 
 ### `PushDispatchService`
@@ -49,7 +49,7 @@
 - 도메인은 port 타입(`PushMessage`·`PushTicket`)을 참조할 수 없으므로(ArchUnit) 자체 값 타입을 쓴다: `PushEnvelope(to, title, body, data)`, `PushOutcome(ok, ticketId, error)`. 글루(api `PushNotificationService`·batch 잡)가 `PushEnvelope → PushMessage`, `PushTicket → PushOutcome` 를 한 줄씩 매핑한다.
 - `PreparedPush(messages: List<PushEnvelope>, dispatchIds: List<Long>)` — 같은 인덱스가 같은 기기. `isEmpty()` 면 호출자는 `send` 를 건너뛴다.
 - `PushDispatchResult(sent: Int, failed: Int)`.
-- `prepare` 절차: `resolver.resolve` → 기기를 회원별로 묶음 → 회원마다 (a) 알림함 언어 = `updatedAt` 최신 기기의 `lang` 으로 렌더한 `Notification.forMember(...)` 저장, `data += notificationId` (b) 기기마다 기기 `lang` 으로 렌더한 `PushEnvelope` + `NotificationDispatch.pending(notificationId, device.id, device.expoToken)` 저장. 기기 0대 회원은 아무것도 저장하지 않는다.
+- `prepare` 절차: `resolver.resolve` → 기기마다 (a) 기기 `lang` 으로 렌더 (b) `Notification.forMemberDevice(memberId, installationId, ...)` 저장, `data += type·notificationId` (c) `NotificationDispatch.pending(notificationId, device.id, device.expoToken)` 저장 + 봉투. 알림함 행은 **기기 단위**(회원당 n행). 기기 0대 회원은 아무것도 저장하지 않는다.
 - `record` 절차: `require(results.size == dispatchIds.size)`; `dispatchRepository.findAllById(dispatchIds)` 를 순서대로 결과와 짝지어 `ok → markSent(id)` / `!ok → markFailed(error)`. 기기 토큰은 건드리지 않는다(무효화·재전송 없음 — 실패 사유만 기록). dirty checking(`save` 호출 없음).
 
 ## 4. 엔티티 상태 전이(기존, 사용만)
@@ -67,6 +67,7 @@ NotificationDevice:   (이 파이프라인은 건드리지 않음 — 토큰 무
 | `NotificationDeviceJpaRepository` | `findByMemberIdInAndTokenInvalidAtIsNull(memberIds: Collection<Long>)` | 파생 |
 | `NotificationSettingJpaRepository` | `findByMemberIdIn(memberIds: Collection<Long>)` | 파생 |
 | `NotificationConsentJpaRepository` | `findOpenByMemberIdIn(memberIds: Collection<Long>)` | JPQL (`revokedAt is null`) |
+| `NotificationJpaRepository` | `findByMemberIdAndInstallationIdAndCreatedAtAfterOrderByIdDesc`, `findByIdAndMemberIdAndInstallationId` (KB-467 알림함을 기기 단위로 — 구 `findByMemberIdAndCreatedAtAfterOrderByIdDesc`·`findByIdAndMemberId` 대체) | 파생 |
 
 ## 6. 설정 프로퍼티
 

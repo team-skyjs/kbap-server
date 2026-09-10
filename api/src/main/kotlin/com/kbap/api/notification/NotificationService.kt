@@ -97,17 +97,17 @@ class NotificationService(
     }
 
     @Transactional(readOnly = true)
-    fun getRecentNotifications(memberId: Long): List<NotificationResponse> {
+    fun getRecentNotifications(memberId: Long, installationId: String): List<NotificationResponse> {
         memberService.getMember(memberId)
         val since = LocalDateTime.now().minusDays(RECENT_DAYS)
-        return notificationRepository.findByMemberIdAndCreatedAtAfterOrderByIdDesc(memberId, since)
+        return notificationRepository.findByMemberIdAndInstallationIdAndCreatedAtAfterOrderByIdDesc(memberId, installationId, since)
             .map(NotificationResponse::from)
     }
 
     @Transactional
-    fun markRead(memberId: Long, notificationId: Long): NotificationResponse {
+    fun markRead(memberId: Long, installationId: String, notificationId: Long): NotificationResponse {
         memberService.getMember(memberId)
-        val notification = notificationRepository.findByIdAndMemberId(notificationId, memberId)
+        val notification = notificationRepository.findByIdAndMemberIdAndInstallationId(notificationId, memberId, installationId)
             ?: throw BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND)
         notification.markRead(LocalDateTime.now())
         return NotificationResponse.from(notification)

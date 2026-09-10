@@ -41,6 +41,7 @@ class NotificationInboxTest : BehaviorSpec() {
 
     init {
         val objectMapper = jacksonObjectMapper()
+        val INSTALLATION = "00000000-0000-0000-0000-0000000inbox"
 
         fun memberIdOf(providerUid: String): Long =
             dataSource.connection.use { c ->
@@ -61,8 +62,13 @@ class NotificationInboxTest : BehaviorSpec() {
             return memberIdOf(sub) to accessToken
         }
 
-        fun seed(memberId: Long, title: String, type: NotificationType = NotificationType.NOTICE): Notification =
-            notificationRepository.save(Notification.forMember(memberId, type, title, "본문 $title", null))
+        fun seed(
+            memberId: Long,
+            title: String,
+            type: NotificationType = NotificationType.NOTICE,
+            installationId: String = INSTALLATION,
+        ): Notification =
+            notificationRepository.save(Notification.forMemberDevice(memberId, installationId, type, title, "본문 $title", null))
 
         fun setCreatedAt(id: Long, createdAt: LocalDateTime) {
             dataSource.connection.use { c ->
@@ -90,16 +96,18 @@ class NotificationInboxTest : BehaviorSpec() {
                 }
             }
 
-        fun list(accessToken: String?): MockHttpServletResponse =
+        fun list(accessToken: String?, installationId: String? = INSTALLATION): MockHttpServletResponse =
             mockMvc.get("/api/notifications") {
                 header("X-API-Version", "1.0")
                 if (accessToken != null) header("Authorization", "Bearer $accessToken")
+                if (installationId != null) header("X-Installation-Id", installationId)
             }.andReturn().response
 
-        fun read(accessToken: String?, notificationId: Long): MockHttpServletResponse =
+        fun read(accessToken: String?, notificationId: Long, installationId: String? = INSTALLATION): MockHttpServletResponse =
             mockMvc.patch("/api/notifications/$notificationId/read") {
                 header("X-API-Version", "1.0")
                 if (accessToken != null) header("Authorization", "Bearer $accessToken")
+                if (installationId != null) header("X-Installation-Id", installationId)
             }.andReturn().response
 
         fun payload(response: MockHttpServletResponse): JsonNode {
@@ -190,6 +198,25 @@ class NotificationInboxTest : BehaviorSpec() {
                 }
             }
 
+            `when`("같은 회원의 다른 기기 알림이 함께 있으면") {
+                then("요청 기기(X-Installation-Id)의 알림만 온다") {
+                    val (memberId, token) = login("inbox-other-device")
+                    seed(memberId, "이 기기")
+                    seed(memberId, "다른 기기", installationId = "other-installation")
+
+                    val items = payload(list(token))
+                    items.size() shouldBe 1
+                    items[0].path("title").asText() shouldBe "이 기기"
+                }
+            }
+
+            `when`("X-Installation-Id 없이 조회하면") {
+                then("400 으로 거절된다") {
+                    val (_, token) = login("inbox-no-installation")
+                    list(token, installationId = null).status shouldBe 400
+                }
+            }
+
             `when`("인증 없이 조회하면") {
                 then("401 로 거절된다") {
                     list(null).status shouldBe 401
@@ -236,6 +263,18 @@ class NotificationInboxTest : BehaviorSpec() {
                     response.status shouldBe 404
                     codeOf(response) shouldBe "NOTIFICATION-002"
                     readAtOf(theirs.id) shouldBe null
+                }
+            }
+
+            `when`("같은 회원의 다른 기기 알림을 읽음 처리하면") {
+                then("404 NOTIFICATION-002 이고 그 알림은 그대로다") {
+                    val (memberId, token) = login("read-other-device")
+                    val other = seed(memberId, "다른 기기", installationId = "other-installation")
+
+                    val response = read(token, other.id)
+                    response.status shouldBe 404
+                    codeOf(response) shouldBe "NOTIFICATION-002"
+                    readAtOf(other.id) shouldBe null
                 }
             }
 

@@ -74,7 +74,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
         val helpfulArgs = mapOf("food" to "김치찌개")
 
         given("prepare") {
-            `when`("회원 한 명이 ko(과거)·ja(최신) 기기 두 대를 쓰면") {
+            `when`("회원 한 명이 ko·ja 기기 두 대를 쓰면") {
                 clear()
                 val ko = device(1L, "ko", older)
                 val ja = device(1L, "ja", newer)
@@ -84,19 +84,22 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     PushRequest(NotificationType.HELPFUL, listOf(1L), args = helpfulArgs, data = mapOf("foodId" to "7")),
                 )
 
-                then("알림함 행 1개가 최신 기기 언어(ja)로 저장되고 data 에 type·foodId·notificationId 가 들어간다") {
-                    val notifications = notificationRepository.findAll()
-                    notifications shouldHaveSize 1
-                    val n = notifications.single()
-                    n.memberId shouldBe 1L
-                    n.type shouldBe NotificationType.HELPFUL
-                    n.title shouldBe renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs, false).title
-                    n.data!!["type"] shouldBe "HELPFUL"
-                    n.data!!["foodId"] shouldBe "7"
-                    (n.data!!["notificationId"] as Number).toLong() shouldBe n.id
+                then("기기마다 자기 언어로 렌더한 알림함 행이 하나씩 생기고 data 에 type·foodId·notificationId 가 들어간다") {
+                    val notifications = notificationRepository.findAll().associateBy { it.installationId }
+                    notifications.keys shouldBe setOf(ko.installationId, ja.installationId)
+                    notifications.values.all { it.memberId == 1L && it.type == NotificationType.HELPFUL } shouldBe true
+                    notifications.getValue(ko.installationId).title shouldBe
+                        renderer.render(NotificationType.HELPFUL, LanguageCode.KO, helpfulArgs, false).title
+                    notifications.getValue(ja.installationId).title shouldBe
+                        renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs, false).title
+                    notifications.values.forEach { n ->
+                        n.data!!["type"] shouldBe "HELPFUL"
+                        n.data!!["foodId"] shouldBe "7"
+                        (n.data!!["notificationId"] as Number).toLong() shouldBe n.id
+                    }
                 }
 
-                then("기기마다 PENDING dispatch 와 기기 언어 봉투가 같은 순서로 만들어진다") {
+                then("기기마다 PENDING dispatch 와 봉투가 같은 순서로 만들어지고 봉투 data 는 그 기기의 알림함 행을 가리킨다") {
                     val dispatches = dispatchRepository.findAll().sortedBy { it.id }
                     dispatches shouldHaveSize 2
                     dispatches.all { it.dispatchStatus == NotificationDispatchStatus.PENDING } shouldBe true
@@ -104,15 +107,14 @@ class PushDispatchServiceTest : BehaviorSpec() {
 
                     prepared.messages shouldHaveSize 2
                     prepared.dispatchIds shouldBe dispatches.map { it.id }
-                    val byToken = prepared.messages.associateBy { it.to }
-                    byToken.getValue(ko.expoToken).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.KO, helpfulArgs, false).title
-                    byToken.getValue(ja.expoToken).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs, false).title
-                    prepared.messages.all { (it.data["notificationId"] as Number).toLong() == notificationRepository.findAll().single().id } shouldBe true
-                    prepared.messages.zip(prepared.dispatchIds).all { (m, id) ->
-                        dispatches.first { it.id == id }.expoToken == m.to
-                    } shouldBe true
+                    val notifications = notificationRepository.findAll().associateBy { it.id }
+                    prepared.messages.zip(prepared.dispatchIds).forEach { (m, id) ->
+                        val dispatch = dispatches.first { it.id == id }
+                        dispatch.expoToken shouldBe m.to
+                        val notification = notifications.getValue(dispatch.notificationId)
+                        (m.data["notificationId"] as Number).toLong() shouldBe notification.id
+                        m.title shouldBe notification.title
+                    }
                 }
             }
 
@@ -138,7 +140,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     PushRequest(NotificationType.NOTICE, listOf(3L, 4L), args = mapOf("title" to "K-Bap", "body" to "b")),
                 )
 
-                then("알림함 행이 회원마다 하나씩 생긴다") {
+                then("알림함 행이 기기마다 하나씩 생긴다") {
                     notificationRepository.findAll().map { it.memberId }.toSet() shouldBe setOf(3L, 4L)
                     prepared.messages shouldHaveSize 2
                 }

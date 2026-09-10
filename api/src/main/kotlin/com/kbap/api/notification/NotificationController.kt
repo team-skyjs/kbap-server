@@ -40,13 +40,19 @@ class NotificationController(
     @GetMapping
     override fun getRecentNotifications(
         @AuthMemberId memberId: Long,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
     ): ResponseEntity<BaseResponse<List<NotificationResponse>>> =
-        ResponseEntity.ok(BaseResponse.ok(notificationService.getRecentNotifications(memberId)))
+        ResponseEntity.ok(
+            BaseResponse.ok(notificationService.getRecentNotifications(memberId, ApiHeaders.validInstallationId(installationId))),
+        )
 
     @PatchMapping("/{notificationId}/read")
     override fun markRead(
         @AuthMemberId memberId: Long,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
         @PathVariable notificationId: Long,
     ): ResponseEntity<BaseResponse<NotificationResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(notificationService.markRead(memberId, notificationId)))
+        ResponseEntity.ok(
+            BaseResponse.ok(notificationService.markRead(memberId, ApiHeaders.validInstallationId(installationId), notificationId)),
+        )
 }

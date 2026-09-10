@@ -85,6 +85,17 @@ class PushMessageRendererTest : BehaviorSpec({
                 )
                 content.body.length shouldBe 1000
             }
+
+            then("광고성 긴 본문은 수신거부 안내를 남기고 본문만 절단된다") {
+                val content = renderer.render(
+                    NotificationType.NOTICE,
+                    LanguageCode.KO,
+                    mapOf("title" to "t", "body" to "x".repeat(1200)),
+                    marketing = true,
+                )
+                content.body.length shouldBe 1000
+                content.body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.KO)
+            }
         }
 
         `when`("기본 광고성 여부를 보면") {

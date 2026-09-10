@@ -46,21 +46,21 @@
 - **Rationale**: Jira 기본안. 동의 판정 로직을 common 으로 올려야 batch·resolver 가 같은 규칙을 쓴다(중복 정의 금지).
 - **Alternatives considered**: MEAL_TIME 을 정보성으로(동의 불필요) — KB-466 UI 가 소식 동의 아래에 두므로 기각.
 
-## 5. 언어 — 기기 lang 으로 렌더, 알림함 행은 "가장 최근 갱신 기기" 언어(Jira "착수 전 확정" ②)
+## 5. 언어 — 기기 lang 으로 렌더, 알림함은 **기기(installation) 단위**(Jira "착수 전 확정" ② — 2026-09-11 개정)
 
-- **Decision**: 푸시 본문은 **기기별** `NotificationDevice.lang` → `LanguageCode.from`(미지원 → en). `notification` 행(알림함)은 회원당 1건이며 언어는 **그 회원의 유효 기기 중 `updatedAt` 이 가장 최근인 기기의 lang** 으로 렌더한다. 대상 기기가 0대인 회원은 `notification` 행도 만들지 않는다(발송 안 한 알림을 알림함에 남기지 않는다).
-- **Rationale**: 회원 프로필에 언어가 없다(`country_code` 뿐). 기기 1대 사용자(대다수)에게 푸시와 알림함이 항상 일치하고, 다기기 사용자는 마지막에 쓴 기기 언어가 가장 그럴듯하다.
-- **Alternatives considered**: `country_code` → 언어 매핑 — 국가≠언어(미국 거주 베트남인)라 기각. 알림함 행을 기기별로 저장 — 알림함에 같은 알림이 n번 보이므로 기각.
+- **Decision**: 푸시 본문은 **기기별** `NotificationDevice.lang` → `LanguageCode.from`(미지원 → en). `notification` 행(알림함)도 **기기마다 1건**(`member_id` + `installation_id` 둘 다 채움)을 그 기기 언어로 저장한다. 알림함 API(KB-467)는 `X-Installation-Id` 헤더(필수)로 **그 기기의 행만** 조회·읽음 처리한다(회원 소유 검증 `member_id = 인증 회원` 유지). 대상 기기가 0대인 회원은 행도 만들지 않는다.
+- **Rationale**: 회원 프로필에 언어가 없다(`country_code` 뿐). 최초안은 회원당 1행 + "최근 갱신 기기 언어" 였으나 Codex 리뷰(#259)가 `updatedAt` 이 값 변경 시에만 갱신돼 기준이 어긋남을 지적했고, 근본 원인은 "회원 단위 저장 vs 기기 단위 열람" 불일치였다. 기기 단위로 저장하면 어느 기기에서 열어도 자기 언어로 보이고 언어 선택 로직 자체가 없어진다. 대가: 읽음 상태가 기기별로 갈린다(iPhone 에서 읽어도 iPad 는 안 읽음) — 감수한다.
+- **Alternatives considered**: `country_code` → 언어 매핑 — 국가≠언어라 기각. 회원당 1행 + `last_seen_at` 컬럼 — 마이그레이션·KB-465 수정에 비해 얻는 게 적어 기각. 저장 시 `type+args` 만 두고 조회 시 렌더 — KB-467 응답 조립이 렌더러를 타게 되고 저장 문자열 계약이 깨져 기각.
 
 ## 6. 렌더러 — 코드 내 템플릿 표, `{key}` 치환, 광고성 자동 부착
 
-- **Decision**: `PushMessageRenderer.render(type, lang, args: Map<String,String>, marketing: Boolean): PushContent(title, body)`. 템플릿은 `PushTemplates` Kotlin `object` 의 `Map<NotificationType, Map<LanguageCode, PushContent>>`(5종 × 10로케일 = 50항목). 치환은 `{food}` 같은 `{key}` 를 `args` 로 단순 치환. **NOTICE 템플릿은 `{title}`/`{body}` 그대로**(운영자 문구 통과) — 파리티 테스트가 전 타입 × 전 로케일에 빈 값이 없음을 강제한다. `marketing = true` 면 제목 앞 `(광고) ` 고정 접두 + 본문 끝 로케일별 수신거부 안내 문장 부착(광고성 문구도 10로케일 표). `marketing` 기본값은 `type == SCAN_SUGGESTION`; NOTICE 광고성 공지는 호출자가 `marketing = true` 로 넘긴다.
+- **Decision**: `PushMessageRenderer.render(type, lang, args: Map<String,String>, marketing: Boolean): PushContent(title, body)`. 광고성 본문은 수신거부 안내 길이를 먼저 예약하고 본문만 절단한다(안내가 잘리면 법정 표기 누락 — Codex 리뷰 #259 반영). 템플릿은 `PushTemplates` Kotlin `object` 의 `Map<NotificationType, Map<LanguageCode, PushContent>>`(5종 × 10로케일 = 50항목). 치환은 `{food}` 같은 `{key}` 를 `args` 로 단순 치환. **NOTICE 템플릿은 `{title}`/`{body}` 그대로**(운영자 문구 통과) — 파리티 테스트가 전 타입 × 전 로케일에 빈 값이 없음을 강제한다. `marketing = true` 면 제목 앞 `(광고) ` 고정 접두 + 본문 끝 로케일별 수신거부 안내 문장 부착(광고성 문구도 10로케일 표). `marketing` 기본값은 `type == SCAN_SUGGESTION`; NOTICE 광고성 공지는 호출자가 `marketing = true` 로 넘긴다.
 - **Rationale**: 리소스 번들·i18n 프레임워크는 50개 문자열에 과하다. Kotlin 표는 타입으로 키가 잠기고 파리티 테스트가 한 줄이다. `(광고)` 는 국내 법정 표기라 언어와 무관하게 고정.
 - **Alternatives considered**: `MessageSource`/properties — 키 오타가 런타임에 드러나 기각. DB 템플릿 — 운영 편집 요구 없음(YAGNI).
 
 ## 7. 저장 형태 — notification 1행 + dispatch n행, data 스키마
 
-- **Decision**: `prepare` 는 회원별 `Notification.forMember(memberId, type, title, body, data)` 1행 저장 후 `data` 에 `notificationId`(number) 를 넣어 갱신하고, 유효 기기마다 `NotificationDispatch.pending(notificationId, deviceId, expoToken)` 를 저장한다. 푸시 `data` = `{type: <enum name>, foodId?: string, notificationId: number}`(FE 고정 계약, 4KB 한참 아래). 렌더 args 와 data 는 입력 `PushRequest(type, memberIds, args, data, marketing)` 로 받는다.
+- **Decision**: `prepare` 는 유효 기기마다 `Notification.forMemberDevice(memberId, installationId, type, title, body, data)` 1행을 그 기기 언어로 저장한 뒤 `data` 에 `notificationId`(number) 를 넣어 갱신하고, `NotificationDispatch.pending(notificationId, deviceId, expoToken)` 를 저장한다(dispatch:notification = 1:1). 푸시 `data` = `{type: <enum name>, foodId?: string, notificationId: number}`(FE 고정 계약, 4KB 한참 아래). 렌더 args 와 data 는 입력 `PushRequest(type, memberIds, args, data, marketing)` 로 받는다.
 - **record**: 결과 `ok` → `markSent(id)`; 아니면 `markFailed(error)` — 실패 사유(`DeviceNotRegistered`·네트워크 오류 등)를 `error` 컬럼에 남기는 것까지만 한다. **기기 토큰은 무효화하지 않고 재전송도 하지 않는다**(2026-09-11 결정, Codex 리뷰 #259 반영): 실패 원인이 토큰인지 네트워크인지 티켓만으로 확정할 수 없고, prepare~record 사이에 앱이 토큰을 재등록했을 수 있으며(그 갱신은 DB 에 반영된다고 낙관), 우리 손을 벗어난 사유의 실패는 감수한다. 토큰 무효화는 KB-473 영수증 정리가 맡는다. 발송 결과 반환 `PushDispatchResult(sent, failed)` 로 로그·잡 요약에 쓴다.
 - **Rationale**: KB-464 스키마 결정(dispatch 는 토큰 스냅샷 + device id 참조). 상태 전이는 엔티티가 보장.
 

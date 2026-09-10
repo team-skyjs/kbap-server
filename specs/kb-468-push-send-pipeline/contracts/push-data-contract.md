@@ -18,6 +18,17 @@ Expo 메시지 `data` 필드. FE 는 `type` 으로 딥링크를 분기한다. �
 - 크기 한도 4KB(Expo) — 현재 필드로는 100B 미만.
 - **언어 갱신 책임(FE)**: 푸시·알림함 언어는 `notification_device.lang`(토큰 등록 시 보고값)만 본다. 앱 실행(포그라운드 진입)마다, 그리고 기기 언어 변경을 감지하면 `PUT /api/notifications/tokens` 를 현재 `lang` 으로 재호출한다. 재호출 전 발송분은 이전 언어, 이미 저장된 알림함 행은 소급되지 않는다.
 
+# Contract: 알림함 API — 기기 단위로 변경 (KB-467 계약 개정)
+
+`GET /api/notifications` · `PATCH /api/notifications/{id}/read` 는 **`X-Installation-Id` 헤더가 필수**가 된다(토큰 등록 API 와 같은 값). 알림 행은 발송 시점에 기기마다 그 기기 언어로 하나씩 저장되며, 알림함은 요청 기기의 행만 보여준다.
+
+| 변경 | Before | After |
+|------|--------|-------|
+| 조회 범위 | 회원의 전체 알림 | 회원 + 요청 기기의 알림 |
+| 헤더 누락 | 무관 | 400 |
+| 다른 기기 알림 읽음 | 200 | 404 `NOTIFICATION-002` |
+| 읽음 상태 | 회원 공통 | 기기별(다른 기기에는 반영 안 됨) |
+
 # Contract: Expo Push API 호출 (어댑터 ↔ Expo)
 
 - `POST {kbap.push.expo.base-url}/--/api/v2/push/send`, `Content-Type: application/json`, `Accept: application/json`, `Authorization: Bearer <token>`(토큰 설정 시만).
