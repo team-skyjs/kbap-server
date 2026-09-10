@@ -15,7 +15,7 @@ class AdminNotificationTestService(
     fun sendTestPush(memberId: Long): PushDispatchResult {
         memberService.getMember(memberId)
         return pushNotificationService.send(
-            PushRequest(NotificationType.NOTICE, listOf(memberId), args = mapOf("title" to TEST_TITLE, "body" to TEST_BODY)),
+            PushRequest(NotificationType.NEWS, listOf(memberId), args = mapOf("title" to TEST_TITLE, "body" to TEST_BODY)),
         )
     }
 

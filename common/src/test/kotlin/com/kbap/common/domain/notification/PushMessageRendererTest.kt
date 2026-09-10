@@ -20,7 +20,7 @@ class PushMessageRendererTest : BehaviorSpec({
             then("제목·본문이 비어 있지 않고 길이 상한 안에 있다") {
                 NotificationType.entries.forEach { type ->
                     LanguageCode.entries.forEach { lang ->
-                        val content = renderer.render(type, lang, args, marketing = false)
+                        val content = renderer.render(type, lang, args)
                         content.title.shouldNotBeBlank()
                         content.body.shouldNotBeBlank()
                         content.title.length shouldBeLessThanOrEqual 200
@@ -36,71 +36,60 @@ class PushMessageRendererTest : BehaviorSpec({
 
         `when`("치환 키를 넘기면") {
             then("{food} 가 값으로 바뀐다") {
-                val content = renderer.render(NotificationType.HELPFUL, LanguageCode.KO, args, marketing = false)
+                val content = renderer.render(NotificationType.HELPFUL, LanguageCode.KO, args)
                 content.body shouldContain "김치찌개"
                 content.body shouldNotContain "{food}"
             }
 
             then("주지 않은 키는 빈 문자열로 치환된다") {
-                val content = renderer.render(NotificationType.REVIEW_REMINDER, LanguageCode.KO, emptyMap(), marketing = false)
+                val content = renderer.render(NotificationType.REVIEW_REMINDER, LanguageCode.KO, emptyMap())
                 content.title shouldNotContain "{"
                 content.body shouldNotContain "{"
             }
         }
 
-        `when`("광고성으로 렌더하면") {
+        `when`("광고성 유형을 렌더하면") {
             then("제목 앞 (광고) 와 본문 끝 수신거부 안내가 붙는다") {
-                val content = renderer.render(NotificationType.SCAN_SUGGESTION, LanguageCode.EN, args, marketing = true)
+                val content = renderer.render(NotificationType.SCAN_SUGGESTION, LanguageCode.EN, args)
                 content.title shouldStartWith "(광고) "
                 content.body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.EN)
             }
         }
 
-        `when`("정보성으로 렌더하면") {
+        `when`("정보성 유형을 렌더하면") {
             then("광고 표기와 안내가 없다") {
-                val content = renderer.render(NotificationType.HELPFUL, LanguageCode.KO, args, marketing = false)
+                val content = renderer.render(NotificationType.HELPFUL, LanguageCode.KO, args)
                 content.title shouldNotContain "(광고)"
                 content.body shouldNotContain PushTemplates.optOutNotice.getValue(LanguageCode.KO)
             }
         }
 
-        `when`("NOTICE 를 렌더하면") {
-            then("title·body 인자가 그대로 나온다") {
+        `when`("NEWS 를 렌더하면") {
+            then("title·body 인자가 통과하고 광고 표기·수신거부 안내가 붙는다") {
                 val content = renderer.render(
-                    NotificationType.NOTICE,
+                    NotificationType.NEWS,
                     LanguageCode.JA,
                     mapOf("title" to "K-Bap", "body" to "테스트 알림입니다."),
-                    marketing = false,
                 )
-                content.title shouldBe "K-Bap"
-                content.body shouldBe "테스트 알림입니다."
+                content.title shouldBe "(광고) K-Bap"
+                content.body shouldBe "테스트 알림입니다.\n" + PushTemplates.optOutNotice.getValue(LanguageCode.JA)
             }
 
-            then("긴 본문은 1000자로 절단된다") {
+            then("긴 본문은 수신거부 안내를 남기고 본문만 절단돼 1000자에 맞춘다") {
                 val content = renderer.render(
-                    NotificationType.NOTICE,
+                    NotificationType.NEWS,
                     LanguageCode.KO,
                     mapOf("title" to "t", "body" to "x".repeat(1200)),
-                    marketing = false,
-                )
-                content.body.length shouldBe 1000
-            }
-
-            then("광고성 긴 본문은 수신거부 안내를 남기고 본문만 절단된다") {
-                val content = renderer.render(
-                    NotificationType.NOTICE,
-                    LanguageCode.KO,
-                    mapOf("title" to "t", "body" to "x".repeat(1200)),
-                    marketing = true,
                 )
                 content.body.length shouldBe 1000
                 content.body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.KO)
             }
         }
 
-        `when`("기본 광고성 여부를 보면") {
-            then("SCAN_SUGGESTION 만 true 다") {
-                NotificationType.entries.filter { it.marketingByDefault } shouldBe listOf(NotificationType.SCAN_SUGGESTION)
+        `when`("유형별 광고성 여부를 보면") {
+            then("SCAN_SUGGESTION·NEWS·MEAL_TIME 이 광고성이다") {
+                NotificationType.entries.filter { it.marketing } shouldBe
+                    listOf(NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME)
             }
         }
     }

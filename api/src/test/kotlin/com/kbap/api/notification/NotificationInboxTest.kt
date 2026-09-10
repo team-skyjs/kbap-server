@@ -65,7 +65,7 @@ class NotificationInboxTest : BehaviorSpec() {
         fun seed(
             memberId: Long,
             title: String,
-            type: NotificationType = NotificationType.NOTICE,
+            type: NotificationType = NotificationType.NEWS,
             installationId: String = INSTALLATION,
         ): Notification =
             notificationRepository.save(Notification.forMemberDevice(memberId, installationId, type, title, "본문 $title", null))
@@ -155,7 +155,7 @@ class NotificationInboxTest : BehaviorSpec() {
                 then("종류 구분 없이 시간 역순으로 오고 수신 시각은 epoch 밀리초다") {
                     val (memberId, token) = login("inbox-mixed")
                     val helpful = seed(memberId, "helpful", NotificationType.HELPFUL)
-                    val notice = seed(memberId, "notice", NotificationType.NOTICE)
+                    val notice = seed(memberId, "notice", NotificationType.NEWS)
                     val suggestion = seed(memberId, "suggestion", NotificationType.SCAN_SUGGESTION)
 
                     val body = payload(list(token))

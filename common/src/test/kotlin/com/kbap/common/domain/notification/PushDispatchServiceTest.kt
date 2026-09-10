@@ -4,6 +4,8 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationDevice
+import com.kbap.common.domain.notification.model.NotificationConsent
+import com.kbap.common.domain.notification.model.NotificationConsentType
 import com.kbap.common.domain.notification.model.NotificationDispatchStatus
 import com.kbap.common.domain.notification.model.NotificationSetting
 import com.kbap.common.domain.notification.model.NotificationType
@@ -38,6 +40,9 @@ class PushDispatchServiceTest : BehaviorSpec() {
     private lateinit var settingRepository: NotificationSettingJpaRepository
 
     @Autowired
+    private lateinit var consentRepository: NotificationConsentJpaRepository
+
+    @Autowired
     private lateinit var notificationRepository: NotificationJpaRepository
 
     @Autowired
@@ -54,6 +59,13 @@ class PushDispatchServiceTest : BehaviorSpec() {
             notificationRepository.deleteAll()
             deviceRepository.deleteAll()
             settingRepository.deleteAll()
+            consentRepository.deleteAll()
+        }
+
+        fun newsConsent(memberId: Long) {
+            NotificationConsentType.entries.forEach {
+                consentRepository.save(NotificationConsent.grantForMember(memberId, null, it, 2, LocalDateTime.now()))
+            }
         }
 
         fun device(memberId: Long, lang: String, updatedAt: LocalDateTime): NotificationDevice {
@@ -89,9 +101,9 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     notifications.keys shouldBe setOf(ko.installationId, ja.installationId)
                     notifications.values.all { it.memberId == 1L && it.type == NotificationType.HELPFUL } shouldBe true
                     notifications.getValue(ko.installationId).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.KO, helpfulArgs, false).title
+                        renderer.render(NotificationType.HELPFUL, LanguageCode.KO, helpfulArgs).title
                     notifications.getValue(ja.installationId).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs, false).title
+                        renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs).title
                     notifications.values.forEach { n ->
                         n.data!!["type"] shouldBe "HELPFUL"
                         n.data!!["foodId"] shouldBe "7"
@@ -135,9 +147,11 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 clear()
                 device(3L, "ko", newer)
                 device(4L, "en", newer)
+                newsConsent(3L)
+                newsConsent(4L)
 
                 val prepared = service.prepare(
-                    PushRequest(NotificationType.NOTICE, listOf(3L, 4L), args = mapOf("title" to "K-Bap", "body" to "b")),
+                    PushRequest(NotificationType.NEWS, listOf(3L, 4L), args = mapOf("title" to "K-Bap", "body" to "b")),
                 )
 
                 then("알림함 행이 기기마다 하나씩 생긴다") {
@@ -152,7 +166,8 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 clear()
                 device(5L, "ko", newer)
                 device(5L, "ko", older)
-                val prepared = service.prepare(PushRequest(NotificationType.NOTICE, listOf(5L), args = mapOf("title" to "t", "body" to "b")))
+                newsConsent(5L)
+                val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(5L), args = mapOf("title" to "t", "body" to "b")))
 
                 val result = service.record(
                     prepared,
@@ -173,7 +188,8 @@ class PushDispatchServiceTest : BehaviorSpec() {
             `when`("DeviceNotRegistered 오류를 반영하면") {
                 clear()
                 val device = device(6L, "ko", newer)
-                val prepared = service.prepare(PushRequest(NotificationType.NOTICE, listOf(6L), args = mapOf("title" to "t", "body" to "b")))
+                newsConsent(6L)
+                val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(6L), args = mapOf("title" to "t", "body" to "b")))
 
                 service.record(prepared, listOf(PushOutcome(false, null, "DeviceNotRegistered")))
 
@@ -188,7 +204,8 @@ class PushDispatchServiceTest : BehaviorSpec() {
             `when`("결과 개수가 dispatch 개수와 다르면") {
                 clear()
                 device(7L, "ko", newer)
-                val prepared = service.prepare(PushRequest(NotificationType.NOTICE, listOf(7L), args = mapOf("title" to "t", "body" to "b")))
+                newsConsent(7L)
+                val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(7L), args = mapOf("title" to "t", "body" to "b")))
 
                 then("IllegalArgumentException 을 던진다") {
                     shouldThrow<IllegalArgumentException> { service.record(prepared, emptyList()) }

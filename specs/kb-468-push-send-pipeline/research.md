@@ -40,7 +40,9 @@
   | REVIEW_REMINDER | `setting.activity` | 불필요 | 정보성 |
   | MEAL_TIME | `setting.mealTime` | **필요** | KB-466 에서 mealTime 은 소식 동의 하위 토글 |
   | SCAN_SUGGESTION | 없음 | **필요** | 광고성 |
-  | NOTICE | 없음 | 불필요 | 운영 공지(광고성 공지는 §6) |
+  | NEWS | 없음 | **필요** | 소식(광고성) — 운영 공지(NOTICE) 유형은 2026-09-11 폐기 |
+
+  광고성 여부는 **유형이 확정**한다(`NotificationType.marketing` — SCAN_SUGGESTION·NEWS·MEAL_TIME). 렌더러(광고 표기)와 대상 필터(동의 필수)가 같은 값을 보므로 "표기는 붙었는데 동의는 안 거른" 발송이 구조적으로 불가능하다(Codex 리뷰 #259 3차 반영 — 초안의 `PushRequest.marketing` 플래그는 필터에 전달되지 않는 구멍이 있어 삭제).
 
   광고성 동의 = `MARKETING_PRIVACY`·`MARKETING_RECEIVE` **둘 다** 열린 행이 있고, 각 행의 `consent_version >= 2`(구 문구 1 제외). 판정 함수 `NotificationConsents.isMarketingEnabled(open, requiredVersion)` 를 `common.domain.notification.model` 에 두고 api `NotificationConsentService.isMarketingEnabled` 는 이를 위임하도록 바꾼다(요구 버전은 설정 화면에선 0 — 기존 동작 유지). 기기는 `member_id in (...) and token_invalid_at is null` 만. 설정 행이 없는 회원은 토글 기본값 false 라 제외.
 - **Rationale**: Jira 기본안. 동의 판정 로직을 common 으로 올려야 batch·resolver 가 같은 규칙을 쓴다(중복 정의 금지).
@@ -54,7 +56,7 @@
 
 ## 6. 렌더러 — 코드 내 템플릿 표, `{key}` 치환, 광고성 자동 부착
 
-- **Decision**: `PushMessageRenderer.render(type, lang, args: Map<String,String>, marketing: Boolean): PushContent(title, body)`. 광고성 본문은 수신거부 안내 길이를 먼저 예약하고 본문만 절단한다(안내가 잘리면 법정 표기 누락 — Codex 리뷰 #259 반영). 템플릿은 `PushTemplates` Kotlin `object` 의 `Map<NotificationType, Map<LanguageCode, PushContent>>`(5종 × 10로케일 = 50항목). 치환은 `{food}` 같은 `{key}` 를 `args` 로 단순 치환. **NOTICE 템플릿은 `{title}`/`{body}` 그대로**(운영자 문구 통과) — 파리티 테스트가 전 타입 × 전 로케일에 빈 값이 없음을 강제한다. `marketing = true` 면 제목 앞 `(광고) ` 고정 접두 + 본문 끝 로케일별 수신거부 안내 문장 부착(광고성 문구도 10로케일 표). `marketing` 기본값은 `type == SCAN_SUGGESTION`; NOTICE 광고성 공지는 호출자가 `marketing = true` 로 넘긴다.
+- **Decision**: `PushMessageRenderer.render(type, lang, args: Map<String,String>): PushContent(title, body)`. 광고성 본문은 수신거부 안내 길이를 먼저 예약하고 본문만 절단한다(안내가 잘리면 법정 표기 누락 — Codex 리뷰 #259 반영). 템플릿은 `PushTemplates` Kotlin `object` 의 `Map<NotificationType, Map<LanguageCode, PushContent>>`(5종 × 10로케일 = 50항목). 치환은 `{food}` 같은 `{key}` 를 `args` 로 단순 치환. **NEWS 템플릿은 `{title}`/`{body}` 그대로**(운영자 문구 통과) — 파리티 테스트가 전 타입 × 전 로케일에 빈 값이 없음을 강제한다. `type.marketing` 이면 제목 앞 `(광고) ` 고정 접두 + 본문 끝 로케일별 수신거부 안내 문장 부착(광고성 문구도 10로케일 표).
 - **Rationale**: 리소스 번들·i18n 프레임워크는 50개 문자열에 과하다. Kotlin 표는 타입으로 키가 잠기고 파리티 테스트가 한 줄이다. `(광고)` 는 국내 법정 표기라 언어와 무관하게 고정.
 - **Alternatives considered**: `MessageSource`/properties — 키 오타가 런타임에 드러나 기각. DB 템플릿 — 운영 편집 요구 없음(YAGNI).
 
@@ -66,8 +68,8 @@
 
 ## 8. dev 실기기 검증 경로 — 관리자 테스트 발송 엔드포인트
 
-- **Decision**: `POST /api/admin/notifications/test-push` `{ memberId }` → NOTICE 로 `PushNotificationService.send(PushRequest(NOTICE, [memberId], args={title,body 고정 테스트 문구}))` 호출, 응답 `{ sent, failed }`. `api.admin.AdminNotificationTestController` + `AdminNotificationTestService`(관리자 서비스 분리 원칙). 관리자 인터셉터가 `ApiPaths.ADMIN/**` 를 이미 보호한다.
-- **Rationale**: DoD "dev 실기기 1대 NOTICE 발송 성공" 에 트리거 태스크(좋아요·식사·리뷰요청) 없이 쓸 수 있는 진입점이 필요하다. 향후 운영 공지 발송의 씨앗이기도 하다. NOTICE 는 필터가 없어 토글·동의 없이도 발송된다.
+- **Decision**: `POST /api/admin/notifications/test-push` `{ memberId }` → NEWS 로 `PushNotificationService.send(PushRequest(NEWS, [memberId], args={title,body 고정 테스트 문구}))` 호출, 응답 `{ sent, failed }`. NEWS 는 광고성이라 검증 회원이 앱에서 소식 동의를 켜 둬야 한다. `api.admin.AdminNotificationTestController` + `AdminNotificationTestService`(관리자 서비스 분리 원칙). 관리자 인터셉터가 `ApiPaths.ADMIN/**` 를 이미 보호한다.
+- **Rationale**: DoD "dev 실기기 1대 발송 성공"(원문 NOTICE — 현재 NEWS) 에 트리거 태스크(좋아요·식사·리뷰요청) 없이 쓸 수 있는 진입점이 필요하다. 향후 소식 발송의 씨앗이기도 하다. 운영 공지 유형이 없으므로(2026-09-11 결정) 실제 유형으로 검증한다 — 소식 동의를 켜는 것까지가 실기기 검증 절차다.
 - **Alternatives considered**: 배치 `/internal/batch/jobs` 트리거 — 테스트 발송은 Spring Batch 잡이 아니라 기각. 통합 테스트만으로 대체 — 실기기 DoD 를 못 채운다.
 
 ## 9. MEAL_TIME enum 추가 + FE 계약

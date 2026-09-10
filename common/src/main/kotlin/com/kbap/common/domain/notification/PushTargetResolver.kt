@@ -24,12 +24,13 @@ class PushTargetResolver(
         fun marketingEnabled(memberId: Long) =
             NotificationConsents.isMarketingEnabled(consents[memberId].orEmpty(), MARKETING_CONSENT_REQUIRED_VERSION)
 
-        fun allowed(memberId: Long): Boolean = when (type) {
+        fun toggledOn(memberId: Long): Boolean = when (type) {
             NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER -> settings[memberId]?.activity == true
-            NotificationType.MEAL_TIME -> settings[memberId]?.mealTime == true && marketingEnabled(memberId)
-            NotificationType.SCAN_SUGGESTION -> marketingEnabled(memberId)
-            NotificationType.NOTICE -> true
+            NotificationType.MEAL_TIME -> settings[memberId]?.mealTime == true
+            NotificationType.SCAN_SUGGESTION, NotificationType.NEWS -> true
         }
+
+        fun allowed(memberId: Long): Boolean = toggledOn(memberId) && (!type.marketing || marketingEnabled(memberId))
 
         return devices.filter { allowed(it.memberId!!) }
     }

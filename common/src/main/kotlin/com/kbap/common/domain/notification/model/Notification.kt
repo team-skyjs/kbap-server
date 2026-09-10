@@ -21,7 +21,7 @@ class Notification(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 30)
-    var type: NotificationType = NotificationType.NOTICE,
+    var type: NotificationType = NotificationType.NEWS,
 
     @Column(name = "title", nullable = false, length = 200)
     var title: String = "",

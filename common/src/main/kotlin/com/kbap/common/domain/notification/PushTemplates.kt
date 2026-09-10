@@ -51,7 +51,7 @@ object PushTemplates {
             RU to PushContent("Как вам {food}?", "Поделитесь парой слов о блюде {food}, которое попробовали."),
             ES to PushContent("¿Qué tal {food}?", "¿Qué te pareció {food}? Cuéntanos en una reseña breve."),
         ),
-        NotificationType.NOTICE to LanguageCode.entries.associateWith { PushContent("{title}", "{body}") },
+        NotificationType.NEWS to LanguageCode.entries.associateWith { PushContent("{title}", "{body}") },
         NotificationType.MEAL_TIME to mapOf(
             KO to PushContent("식사 시간이에요", "뭘 먹을지 고민되면 근처 메뉴판을 스캔해 보세요."),
             EN to PushContent("Time to eat?", "Not sure what to order? Try scanning a menu nearby."),

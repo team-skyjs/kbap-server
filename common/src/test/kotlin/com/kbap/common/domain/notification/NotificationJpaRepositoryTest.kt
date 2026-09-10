@@ -105,7 +105,7 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
                 val saved = repository.save(
                     Notification.forInstallation(
                         installationId = "inst-guest",
-                        type = NotificationType.NOTICE,
+                        type = NotificationType.NEWS,
                         title = "notice",
                         body = "body",
                         data = null,

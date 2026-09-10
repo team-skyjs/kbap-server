@@ -7,7 +7,6 @@ data class PushRequest(
     val memberIds: Collection<Long>,
     val args: Map<String, String> = emptyMap(),
     val data: Map<String, Any> = emptyMap(),
-    val marketing: Boolean = type.marketingByDefault,
 )
 
 data class PushContent(

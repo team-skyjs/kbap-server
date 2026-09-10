@@ -128,13 +128,16 @@ class PushTargetResolverTest : BehaviorSpec() {
             }
         }
 
-        given("공지(NOTICE) 대상 필터") {
-            `when`("토글·동의가 전혀 없으면") {
+        given("소식(NEWS) 대상 필터") {
+            `when`("동의한 회원과 동의 없는 회원이 섞여 있으면") {
                 clear()
                 val ok = device(30L).expoToken
+                bothConsents(30L, 2)
+                device(31L)
+                setting(31L, activity = true, mealTime = true)
 
-                then("유효 기기면 포함한다") {
-                    tokensOf(listOf(30L), NotificationType.NOTICE) shouldBe listOf(ok)
+                then("토글과 무관하게 소식 동의(v2 이상)한 회원만 포함한다") {
+                    tokensOf(listOf(30L, 31L), NotificationType.NEWS) shouldBe listOf(ok)
                 }
             }
         }
@@ -144,9 +147,10 @@ class PushTargetResolverTest : BehaviorSpec() {
                 clear()
                 val ok = device(40L).expoToken
                 device(40L, invalid = true)
+                setting(40L, activity = true, mealTime = false)
 
                 then("제외한다") {
-                    tokensOf(listOf(40L), NotificationType.NOTICE) shouldBe listOf(ok)
+                    tokensOf(listOf(40L), NotificationType.HELPFUL) shouldBe listOf(ok)
                 }
             }
         }
@@ -154,7 +158,7 @@ class PushTargetResolverTest : BehaviorSpec() {
         given("빈 회원 목록") {
             `when`("resolve 하면") {
                 then("빈 목록이다") {
-                    resolver.resolve(emptyList(), NotificationType.NOTICE).shouldBeEmpty()
+                    resolver.resolve(emptyList(), NotificationType.HELPFUL).shouldBeEmpty()
                 }
             }
         }

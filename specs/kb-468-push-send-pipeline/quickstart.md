@@ -13,7 +13,7 @@
 ## 2. dev 실기기 검증 (DoD)
 
 ```bash
-# 1) 앱에서 로그인 + 토큰 등록(KB-465) 완료된 회원 id 확인
+# 1) 앱에서 로그인 + 토큰 등록(KB-465) + 알림 설정에서 소식 동의 켜기(NEWS 는 광고성) 완료된 회원 id 확인
 mysql -h<dev> kbap -e "SELECT id, member_id, lang, token_invalid_at FROM notification_device ORDER BY updated_at DESC LIMIT 3"
 
 # 2) 관리자 토큰으로 테스트 발송
@@ -28,4 +28,4 @@ mysql -h<dev> kbap -e "SELECT id, dispatch_status, ticket_id, error FROM notific
 
 ## 3. Jira 코멘트 (DoD "결정 기록")
 
-구현 후 KB-468 에: "선호 토글 — HELPFUL·REVIEW_REMINDER=activity, MEAL_TIME=meal_time+광고성 동의(v≥2), SCAN_SUGGESTION=광고성 동의만, NOTICE=필터 없음 · 알림함 행 언어 = 회원의 유효 기기 중 마지막 갱신 기기 lang · 파이프라인은 prepare/send/record 3단(도메인→port 금지 규칙 유지) · FE data 계약 5종(MEAL_TIME 추가)".
+구현 후 KB-468 에: "선호 토글 — HELPFUL·REVIEW_REMINDER=activity, MEAL_TIME=meal_time+광고성 동의(v≥2), SCAN_SUGGESTION·NEWS=광고성 동의만(NOTICE 폐기) · 알림함은 기기 단위(X-Installation-Id 필수) · 파이프라인은 prepare/send/record 3단(도메인→port 금지 규칙 유지) · FE data 계약 5종(MEAL_TIME 추가)".

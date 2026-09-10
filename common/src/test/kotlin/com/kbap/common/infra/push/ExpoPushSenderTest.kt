@@ -30,7 +30,7 @@ class ExpoPushSenderTest : BehaviorSpec({
     }
 
     fun messages(count: Int, offset: Int = 0): List<PushMessage> =
-        List(count) { i -> PushMessage("ExponentPushToken[${offset + i}]", "t${offset + i}", "b", mapOf("type" to "NOTICE")) }
+        List(count) { i -> PushMessage("ExponentPushToken[${offset + i}]", "t${offset + i}", "b", mapOf("type" to "NEWS")) }
 
     fun okBody(from: Int, count: Int): String =
         (from until from + count).joinToString(",", prefix = """{"data":[""", postfix = "]}") { """{"status":"ok","id":"t$it"}""" }
@@ -106,7 +106,7 @@ class ExpoPushSenderTest : BehaviorSpec({
                     .andExpect(jsonPath("$[0].sound").value("default"))
                     .andExpect(jsonPath("$[0].priority").value("high"))
                     .andExpect(jsonPath("$[0].channelId").value("default"))
-                    .andExpect(jsonPath("$[0].data.type").value("NOTICE"))
+                    .andExpect(jsonPath("$[0].data.type").value("NEWS"))
                     .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
 
                 sender.send(messages(1))

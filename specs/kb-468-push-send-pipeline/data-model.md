@@ -4,8 +4,8 @@
 
 ## 1. 열거형 변경
 
-- `NotificationType` += `MEAL_TIME` (컬럼 `notification.type VARCHAR(30)` — 마이그레이션 불필요).
-- `NotificationType.marketingByDefault: Boolean` — `SCAN_SUGGESTION` 만 true. 렌더 시 `marketing` 인자의 기본값.
+- `NotificationType` += `MEAL_TIME`, `NOTICE` → `NEWS`(소식) 로 교체(2026-09-11 — 운영 공지 유형 폐기). 컬럼 `notification.type VARCHAR(30)` 라 스키마 변경 없음, 기존 행 값만 `V2026.09.11.03.59.53__notification_type_notice_to_news.sql` 로 `NEWS` 로 옮긴다.
+- `NotificationType.marketing: Boolean` — SCAN_SUGGESTION·NEWS·MEAL_TIME 이 true. 렌더러(광고 표기)와 대상 필터(동의 필수)가 이 값을 함께 본다.
 
 ## 2. Port 값 타입 — `common.port.push`
 
@@ -23,9 +23,8 @@
 |------|------|------|
 | `type` | `NotificationType` | 알림 유형(필터·템플릿 키) |
 | `memberIds` | `Collection<Long>` | 후보 회원(트리거가 "누구에게" 를 정해 넘긴다) |
-| `args` | `Map<String, String>` | 템플릿 치환값(`{food}` 등; NOTICE 는 `title`·`body`) |
+| `args` | `Map<String, String>` | 템플릿 치환값(`{food}` 등; NEWS 는 `title`·`body`) |
 | `data` | `Map<String, Any>` | 푸시 `data` 추가 필드(`foodId` 등). `type`·`notificationId` 는 파이프라인이 채운다. |
-| `marketing` | `Boolean = type.marketingByDefault` | 광고성 표기·수신거부 안내 부착 여부 |
 
 ### `PushTargetResolver.resolve(memberIds, type): List<NotificationDevice>`
 
@@ -33,11 +32,11 @@
 - 쿼리 3개(모두 `in` 일괄): `NotificationDeviceJpaRepository.findByMemberIdInAndTokenInvalidAtIsNull`, `NotificationSettingJpaRepository.findByMemberIdIn`, `NotificationConsentJpaRepository.findOpenByMemberIdIn`(신규 파생/JPQL).
 - 광고성 동의 판정: `NotificationConsents.isMarketingEnabled(open, requiredVersion = 2)` — 두 `consentType` 모두 열린 행 존재 AND 그 행들의 `consentVersion >= requiredVersion`. (기존 api `NotificationConsentService.isMarketingEnabled` 는 `requiredVersion = 0` 으로 이 함수에 위임 — 설정 화면 동작 불변.)
 
-### `PushMessageRenderer.render(type, lang: LanguageCode, args, marketing): PushContent`
+### `PushMessageRenderer.render(type, lang: LanguageCode, args): PushContent`
 
 - `PushContent(title: String, body: String)`.
-- `PushTemplates[type][lang]` 조회 → `{key}` 치환(미제공 키는 빈 문자열) → `marketing` 이면 `title = "(광고) " + title`, `body = body.take(1000 - 안내 길이) + "\n" + optOutNotice[lang]`(안내는 절대 잘리지 않는다).
-- 불변식(테스트): 전 `NotificationType` × 전 `LanguageCode` 항목 존재·비어 있지 않음; `optOutNotice` 전 로케일 존재. 결과 title ≤ 200, body ≤ 1000(엔티티 컬럼 길이) — 템플릿 길이로 보장, NOTICE 는 `take(n)` 절단.
+- `PushTemplates[type][lang]` 조회 → `{key}` 치환(미제공 키는 빈 문자열) → `type.marketing` 이면 `title = "(광고) " + title`, `body = body.take(1000 - 안내 길이) + "\n" + optOutNotice[lang]`(안내는 절대 잘리지 않는다).
+- 불변식(테스트): 전 `NotificationType` × 전 `LanguageCode` 항목 존재·비어 있지 않음; `optOutNotice` 전 로케일 존재. 결과 title ≤ 200, body ≤ 1000(엔티티 컬럼 길이) — 템플릿 길이로 보장, NEWS 는 `take(n)` 절단.
 
 ### `PushDispatchService`
 

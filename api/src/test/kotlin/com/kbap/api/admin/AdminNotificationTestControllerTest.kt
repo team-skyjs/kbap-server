@@ -6,9 +6,12 @@ import com.kbap.api.TestTables
 import com.kbap.api.auth.FakeSocialTokenVerifier
 import com.kbap.api.notification.FakePushSender
 import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
+import com.kbap.common.domain.notification.model.NotificationConsent
+import com.kbap.common.domain.notification.model.NotificationConsentType
 import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationDispatchStatus
 import com.kbap.common.port.auth.TokenIssuer
@@ -22,6 +25,7 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import java.time.LocalDateTime
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -49,6 +53,9 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dispatchRepository: NotificationDispatchJpaRepository
 
+    @Autowired
+    private lateinit var consentRepository: NotificationConsentJpaRepository
+
     init {
         val objectMapper = jacksonObjectMapper()
         val path = "/api/admin/notifications/test-push"
@@ -70,6 +77,12 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 content = objectMapper.writeValueAsString(mapOf("idToken" to sub))
             }.andReturn().response.status shouldBe 200
             return memberIdOf(sub)
+        }
+
+        fun newsConsent(memberId: Long) {
+            NotificationConsentType.entries.forEach {
+                consentRepository.save(NotificationConsent.grantForMember(memberId, null, it, 2, LocalDateTime.now()))
+            }
         }
 
         fun device(memberId: Long, lang: String = "ja"): NotificationDevice =
@@ -94,12 +107,13 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
         }
 
         given("관리자 테스트 푸시 발송 API") {
-            `when`("기기가 등록된 회원에게 보내면") {
+            `when`("소식 동의를 켠 회원의 등록 기기에 보내면") {
                 val memberId = signUp("kb468-admin-push-1")
                 val device = device(memberId)
+                newsConsent(memberId)
                 val response = send(memberId)
 
-                then("NOTICE 를 기기 언어로 1건 발송하고 dispatch 가 SENT 로 남는다") {
+                then("NEWS 를 기기 언어로 1건 발송하고 dispatch 가 SENT 로 남는다") {
                     response.status shouldBe 200
                     payload(response).path("sent").asInt() shouldBe 1
                     payload(response).path("failed").asInt() shouldBe 0
@@ -107,8 +121,8 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                     fakePushSender.sent shouldHaveSize 1
                     val message = fakePushSender.sent.single()
                     message.to shouldBe device.expoToken
-                    message.title shouldBe "K-Bap"
-                    message.data["type"] shouldBe "NOTICE"
+                    message.title shouldBe "(광고) K-Bap"
+                    message.data["type"] shouldBe "NEWS"
                     message.data["notificationId"].shouldNotBeNull()
 
                     val dispatch = dispatchRepository.findAll().single()
@@ -119,6 +133,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
 
             `when`("기기가 없는 회원에게 보내면") {
                 val memberId = signUp("kb468-admin-push-2")
+                newsConsent(memberId)
                 val response = send(memberId)
 
                 then("발송 없이 0/0 을 돌려준다") {
@@ -129,9 +144,22 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("소식 동의가 없는 회원에게 보내면") {
+                val memberId = signUp("kb468-admin-push-4")
+                device(memberId)
+                val response = send(memberId)
+
+                then("광고성이라 발송하지 않고 0/0 을 돌려준다") {
+                    response.status shouldBe 200
+                    payload(response).path("sent").asInt() shouldBe 0
+                    fakePushSender.sent shouldHaveSize 0
+                }
+            }
+
             `when`("Expo 가 DeviceNotRegistered 를 돌려주면") {
                 val memberId = signUp("kb468-admin-push-3")
                 val device = device(memberId)
+                newsConsent(memberId)
                 fakePushSender.errorFor = { "DeviceNotRegistered" }
                 val response = send(memberId)
 

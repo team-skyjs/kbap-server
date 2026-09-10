@@ -20,7 +20,7 @@ class PushDispatchService(
         val dispatchIds = mutableListOf<Long>()
 
         devices.forEach { device ->
-            val content = renderer.render(request.type, LanguageCode.from(device.lang), request.args, request.marketing)
+            val content = renderer.render(request.type, LanguageCode.from(device.lang), request.args)
             val notification = notificationRepository.save(
                 Notification.forMemberDevice(device.memberId!!, device.installationId, request.type, content.title, content.body, null),
             )

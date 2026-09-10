@@ -6,11 +6,11 @@ import org.springframework.stereotype.Service
 
 @Service
 class PushMessageRenderer {
-    fun render(type: NotificationType, lang: LanguageCode, args: Map<String, String>, marketing: Boolean): PushContent {
+    fun render(type: NotificationType, lang: LanguageCode, args: Map<String, String>): PushContent {
         val template = PushTemplates.byType.getValue(type).getValue(lang)
         val title = fill(template.title, args)
         val body = fill(template.body, args)
-        if (!marketing) return PushContent(title.take(TITLE_MAX_LENGTH), body.take(BODY_MAX_LENGTH))
+        if (!type.marketing) return PushContent(title.take(TITLE_MAX_LENGTH), body.take(BODY_MAX_LENGTH))
 
         val optOut = "\n" + PushTemplates.optOutNotice.getValue(lang)
         return PushContent(
