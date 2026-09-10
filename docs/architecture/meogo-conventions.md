@@ -76,6 +76,7 @@ API 전용 스캔 유스케이스와 결과 타입은 영속 소유 패키지를
 6. **외부 호출과 트랜잭션** — LLM 등 외부 API 호출을 DB 트랜잭션 안에서 길게 잡지 않는다. **스캔 응답 경로(`kbap-api`)는 LLM을 호출하지 않는다** — 캐시 히트 메뉴만 판정하고, 캐시 미스는 결과 없음으로 응답하며 미스 메뉴명을 `research`에 적재한다. LLM 병렬 호출·종합·9개국어 번역은 `research`(배치)가 하루 1회 수행한다([ADR-0003](../adr/0003-pretranslated-batch-menu-pipeline.md)).
 7. **API 노출** — 도메인/영속 모델을 API 응답으로 그대로 노출하지 않는다. 음식 원본 정보와 사용자별 위험도 판정 결과는 내부적으로 분리해 다룬다.
 8. **배치 전용 조합 로직** ⭐ — `research` 처리처럼 사용자 API가 호출하지 않는 조합 유스케이스는 `com.kbap.batch.<feature>`가 소유한다. web과 batch는 서로 의존하지 않으며, 공통 도메인·영속과 외부 seam만 `:common`에서 공유한다.
+9. **공유 도메인 서비스와 seam — prepare / send / record 3단** ⭐ — `common.domain.<ctx>` 는 `common.port..` 를 참조할 수 없다(ArchUnit "도메인은 계약과 그 구현을 알지 못한다"). 그래서 api·batch 가 함께 쓰는 유스케이스가 외부 시스템을 호출해야 하면 **도메인 서비스는 두 트랜잭션 메서드(`prepare` = 대상·렌더·pending 저장, `record` = 결과 반영)만 제공하고, seam 호출은 소비자(api 기능 서비스·batch 잡)가 그 사이에서 수행**한다. 도메인이 주고받는 봉투·결과는 port 타입이 아니라 도메인 자체 값 타입이며 소비자가 한 줄씩 매핑한다. 규칙 6(외부 호출은 트랜잭션 밖)과 헌법의 "pending 저장 → 외부 호출 → 결과 저장" 패턴이 그대로 구조가 된다. 첫 사례: 푸시 발송 파이프라인(KB-468 — `PushDispatchService.prepare/record` + `PushSender`, `specs/kb-468-push-send-pipeline/research.md` §1).
 
 ## 언어 / 데이터 정책
 
