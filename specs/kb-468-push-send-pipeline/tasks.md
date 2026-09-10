@@ -168,9 +168,9 @@
 
 ## Phase 9: Polish & Cross-Cutting
 
-- [ ] T041 `./gradlew build` 전체 Green(arch 포함). 컨텍스트 수 api 1·common 1·batch 1.
-- [ ] T042 [P] `docs/architecture/meogo-conventions.md` 에 "공유 도메인 서비스와 port — prepare/send/record 3단" 항목 추가(도메인이 port 를 못 보므로 외부 호출은 글루가 수행, 헌법 "pending 저장 → 외부 호출 → 결과 저장" 과 동일). 간단히 5줄.
-- [ ] T043 [P] `../kbap-agenthub/wiki/push-send-pipeline.md` 생성 + `INDEX.md` 한 줄 — 3단 구조·토글 매핑 표·알림함 언어 기준·FE data 계약·`EXPO_ACCESS_TOKEN` 공급 방식. 허브에서 커밋.
+- [x] T041 `./gradlew build` 전체 Green(arch 포함). 컨텍스트 수 api 1·common 1·batch 1.
+- [x] T042 [P] `docs/architecture/meogo-conventions.md` 에 "공유 도메인 서비스와 port — prepare/send/record 3단" 항목 추가(도메인이 port 를 못 보므로 외부 호출은 글루가 수행, 헌법 "pending 저장 → 외부 호출 → 결과 저장" 과 동일). 간단히 5줄.
+- [x] T043 [P] `../kbap-agenthub/wiki/push-send-pipeline.md` 생성 + `INDEX.md` 한 줄 — 3단 구조·토글 매핑 표·알림함 언어 기준·FE data 계약·`EXPO_ACCESS_TOKEN` 공급 방식. 허브에서 커밋.
 - [ ] T044 KB-468 Jira 코멘트(quickstart §3 문구) + FE 에 `contracts/push-data-contract.md` 의 data 계약(MEAL_TIME 추가) 공유. **FE 요구사항 함께 전달**: 푸시 언어는 `notification_device.lang` 에만 의존하므로 앱 실행(포그라운드 진입)마다 + 기기 언어 변경 감지 시 `PUT /api/notifications/tokens` 를 현재 `lang` 으로 재호출해야 한다(재호출 전까지 이전 언어로 발송, 과거 알림함 행은 소급 안 됨). DoD 체크박스 갱신.
 - [ ] T045 `open-draft-pr-to-develop` 로 draft PR.
 
