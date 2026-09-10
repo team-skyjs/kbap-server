@@ -1,8 +1,9 @@
 package com.kbap.common.domain.notification.model
 
-enum class NotificationType {
-    HELPFUL,
-    SCAN_SUGGESTION,
-    REVIEW_REMINDER,
-    NOTICE,
+enum class NotificationType(val marketingByDefault: Boolean) {
+    HELPFUL(false),
+    SCAN_SUGGESTION(true),
+    REVIEW_REMINDER(false),
+    NOTICE(false),
+    MEAL_TIME(false),
 }
