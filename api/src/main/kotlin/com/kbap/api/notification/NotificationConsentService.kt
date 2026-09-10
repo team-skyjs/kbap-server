@@ -23,18 +23,6 @@ class NotificationConsentService(
         consentRepository.closeOpenByMemberId(memberId, now)
     }
 
-    @Transactional
-    fun grantForInstallation(installationId: String, versions: Map<NotificationConsentType, Int>, now: LocalDateTime) {
-        grant(consentRepository.findOpenGuestByInstallationId(installationId), versions, now) { type, version ->
-            NotificationConsent.grantForInstallation(installationId, type, version, now)
-        }
-    }
-
-    @Transactional
-    fun revokeForInstallation(installationId: String, now: LocalDateTime) {
-        consentRepository.findOpenGuestByInstallationId(installationId).forEach { it.revoke(now) }
-    }
-
     fun isMarketingEnabled(open: List<NotificationConsent>): Boolean {
         val openTypes = open.map { it.consentType }.toSet()
         return NotificationConsentType.entries.all { it in openTypes }

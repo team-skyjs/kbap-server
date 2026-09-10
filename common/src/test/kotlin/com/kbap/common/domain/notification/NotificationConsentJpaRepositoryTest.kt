@@ -115,42 +115,5 @@ class NotificationConsentJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("게스트 동의와 로그인 인수") {
-            `when`("게스트 기기가 동의하면") {
-                clear()
-                repository.save(NotificationConsent.grantForInstallation("inst-g", MARKETING_RECEIVE, 2, now))
-
-                then("기기 식별자로 열린 게스트 동의가 조회되고 회원 기준으로는 아무것도 없다") {
-                    val guest = repository.findOpenGuestByInstallationId("inst-g")
-                    guest shouldHaveSize 1
-                    guest.first().memberId.shouldBeNull()
-                    repository.findOpenByMemberId(7L).shouldBeEmpty()
-                }
-            }
-
-            `when`("그 기기에서 회원이 로그인해 동의를 인수하면") {
-                clear()
-                val guest = repository.save(NotificationConsent.grantForInstallation("inst-g", MARKETING_RECEIVE, 2, now))
-                guest.claim(7L)
-                repository.saveAndFlush(guest)
-
-                then("같은 행이 회원 동의가 되고 최초 동의 시각이 보존되며 게스트 조회에서는 사라진다") {
-                    val open = repository.findOpenByMemberId(7L)
-                    open shouldHaveSize 1
-                    open.first().id shouldBe guest.id
-                    open.first().grantedAt shouldBe now
-                    open.first().installationId shouldBe "inst-g"
-                    repository.findOpenGuestByInstallationId("inst-g").shouldBeEmpty()
-                }
-            }
-
-            `when`("이미 회원 동의인 행을 다시 인수하려 하면") {
-                val consent = NotificationConsent.grantForMember(7L, "inst-g", MARKETING_RECEIVE, 2, now)
-
-                then("허용되지 않는 전이라 예외를 던진다") {
-                    shouldThrow<IllegalStateException> { consent.claim(8L) }
-                }
-            }
-        }
     }
 }

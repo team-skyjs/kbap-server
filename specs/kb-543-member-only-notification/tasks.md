@@ -89,16 +89,16 @@ description: "KB-543 비회원 광고 알림 동의 제거 — 태스크 목록"
 
 > 이 스토리의 Red 는 **컴파일 실패**다 — 삭제 대상 메서드를 참조하는 common 테스트 블록을 먼저 지우고, 이어서 메서드를 지우면 남은 호출자가 컴파일 오류로 드러난다. 최종 검증은 quickstart 의 grep·build 다.
 
-- [ ] T010 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationConsentJpaRepositoryTest.kt` 에서 given "게스트 동의와 로그인 인수" 블록(세 `when`) 삭제, 불필요 import(`shouldBeEmpty`·`shouldBeNull` 등 다른 곳에서 안 쓰면) 정리.
-- [ ] T011 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationJpaRepositoryTest.kt` 에서 given "게스트 기기 대상 알림" 블록 삭제, 불필요 import 정리.
+- [X] T010 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationConsentJpaRepositoryTest.kt` 에서 given "게스트 동의와 로그인 인수" 블록(세 `when`) 삭제, 불필요 import(`shouldBeEmpty`·`shouldBeNull` 등 다른 곳에서 안 쓰면) 정리.
+- [X] T011 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationJpaRepositoryTest.kt` 에서 given "게스트 기기 대상 알림" 블록 삭제, 불필요 import 정리.
 
 ### Implementation for User Story 3
 
-- [ ] T012 [P] [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationConsent.kt` — `claim(memberId)` 와 companion `grantForInstallation(...)` 삭제. `installationId` 필드·`grantForMember(memberId, installationId?, …)` 는 유지(동의 받은 기기 출처, research R4). `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationConsentJpaRepository.kt` — `findOpenGuestByInstallationId` 삭제.
-- [ ] T013 [P] [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/model/Notification.kt` — companion `forInstallation(...)` 과 `installationId` 필드 삭제(DB 컬럼은 유지 — 마이그레이션 없음, `ddl-auto=validate` 통과).
-- [ ] T014 [US3] `api/src/main/kotlin/com/kbap/api/notification/NotificationConsentService.kt` — `grantForInstallation`·`revokeForInstallation` 삭제(`grantForMember`·`revokeForMember`·`isMarketingEnabled`·private `grant` 유지).
-- [ ] T015 [US3] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenApi.kt` — `@Operation.description` 에서 "게스트는 Authorization 없이…" 문단과 "게스트 K-Bap 소식 동의(settings…)" 문단 삭제, "**회원 전용** — 로그인 후 호출한다. 기기는 요청 회원에 연결된다" 로 교체. `@ApiResponse` 400 설명에서 `marketing=true 인데 버전 없음` 삭제, 401 설명을 "Authorization 없음·위조·만료" 로(contracts/notification-token.md 기준, FR-007).
-- [ ] T016 [US3] `./gradlew build` 실행(common·api·batch 컴파일 + 전 테스트 + ArchUnit) 통과 확인. quickstart §2 grep(`grantForInstallation|revokeForInstallation|findOpenGuestByInstallationId|forInstallation\(|fun claim\(|MarketingSettingsRequest` → main 소스 0건, `WebConfig` 에 `notifications/tokens` 없음)과 §3(`git diff --stat develop -- api/src/main/resources/db/migration` 비어 있음) 확인.
+- [X] T012 [P] [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationConsent.kt` — `claim(memberId)` 와 companion `grantForInstallation(...)` 삭제. `installationId` 필드·`grantForMember(memberId, installationId?, …)` 는 유지(동의 받은 기기 출처, research R4). `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationConsentJpaRepository.kt` — `findOpenGuestByInstallationId` 삭제.
+- [X] T013 [P] [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/model/Notification.kt` — companion `forInstallation(...)` 과 `installationId` 필드 삭제(DB 컬럼은 유지 — 마이그레이션 없음, `ddl-auto=validate` 통과).
+- [X] T014 [US3] `api/src/main/kotlin/com/kbap/api/notification/NotificationConsentService.kt` — `grantForInstallation`·`revokeForInstallation` 삭제(`grantForMember`·`revokeForMember`·`isMarketingEnabled`·private `grant` 유지).
+- [X] T015 [US3] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenApi.kt` — `@Operation.description` 에서 "게스트는 Authorization 없이…" 문단과 "게스트 K-Bap 소식 동의(settings…)" 문단 삭제, "**회원 전용** — 로그인 후 호출한다. 기기는 요청 회원에 연결된다" 로 교체. `@ApiResponse` 400 설명에서 `marketing=true 인데 버전 없음` 삭제, 401 설명을 "Authorization 없음·위조·만료" 로(contracts/notification-token.md 기준, FR-007).
+- [X] T016 [US3] `./gradlew build` 실행(common·api·batch 컴파일 + 전 테스트 + ArchUnit) 통과 확인. quickstart §2 grep(`grantForInstallation|revokeForInstallation|findOpenGuestByInstallationId|forInstallation\(|fun claim\(|MarketingSettingsRequest` → main 소스 0건, `WebConfig` 에 `notifications/tokens` 없음)과 §3(`git diff --stat develop -- api/src/main/resources/db/migration` 비어 있음) 확인.
 
 **Checkpoint**: SC-001~SC-004 충족. 커밋.
 
