@@ -12,7 +12,6 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
@@ -171,18 +170,16 @@ class PushDispatchServiceTest : BehaviorSpec() {
 
             `when`("DeviceNotRegistered 오류를 반영하면") {
                 clear()
-                val dead = device(6L, "ko", newer)
-                val alive = device(6L, "ko", older)
+                val device = device(6L, "ko", newer)
                 val prepared = service.prepare(PushRequest(NotificationType.NOTICE, listOf(6L), args = mapOf("title" to "t", "body" to "b")))
-                val outcomes = prepared.messages.map { m ->
-                    if (m.to == dead.expoToken) PushOutcome(false, null, "DeviceNotRegistered") else PushOutcome(true, "ok", null)
-                }
 
-                service.record(prepared, outcomes)
+                service.record(prepared, listOf(PushOutcome(false, null, "DeviceNotRegistered")))
 
-                then("그 기기만 토큰 무효 스탬프가 찍힌다") {
-                    deviceRepository.findById(dead.id).get().tokenInvalidAt.shouldNotBeNull()
-                    deviceRepository.findById(alive.id).get().tokenInvalidAt.shouldBeNull()
+                then("발송 이력에 사유만 남기고 기기 토큰은 건드리지 않는다") {
+                    val dispatch = dispatchRepository.findById(prepared.dispatchIds.single()).get()
+                    dispatch.dispatchStatus shouldBe NotificationDispatchStatus.FAILED
+                    dispatch.error shouldBe "DeviceNotRegistered"
+                    deviceRepository.findById(device.id).get().tokenInvalidAt.shouldBeNull()
                 }
             }
 

@@ -100,7 +100,7 @@
 
 ## Phase 6: User Story 4 - dispatch 서비스: prepare(저장·렌더) / record(티켓 반영) (Priority: P1)
 
-**Goal**: `prepare` 가 회원당 `notification` 1행(최신 기기 언어) + 기기당 `notification_dispatch` PENDING 을 만들고 봉투 목록을 돌려준다. `record` 가 티켓을 SENT/FAILED 로 반영하고 `DeviceNotRegistered` 기기를 무효화한다.
+**Goal**: `prepare` 가 회원당 `notification` 1행(최신 기기 언어) + 기기당 `notification_dispatch` PENDING 을 만들고 봉투 목록을 돌려준다. `record` 가 결과를 SENT/FAILED + 사유로 반영한다(기기 토큰 무효화·재전송 없음 — 2026-09-11 결정, Codex 리뷰 반영으로 T023 의 무효화 분기는 제거됨).
 
 **Independent Test**: 같은 `CommonTestApp` 컨텍스트. `PushSender` 는 관여하지 않는다(티켓을 테스트가 직접 만든다).
 

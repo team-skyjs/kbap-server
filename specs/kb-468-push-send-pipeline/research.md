@@ -5,7 +5,7 @@
 ## 1. 파이프라인 위치 — 도메인은 port 를 모른다(ArchUnit) → prepare / send / record 3단 분리
 
 - **Decision**: 파이프라인을 **세 조각**으로 나눈다.
-  1. `common.domain.notification.PushDispatchService`(공유 도메인 서비스, `@Service`·`@Transactional`) — `prepare(...)`: 대상 필터 → 언어별 렌더 → `notification`·`notification_dispatch(PENDING)` 저장 → 발송할 `PushMessage` 목록(dispatch id 매핑 포함)을 반환. `record(prepared, tickets)`: 티켓을 dispatch 에 반영(SENT/FAILED, `DeviceNotRegistered` 면 기기 `markTokenInvalid`).
+  1. `common.domain.notification.PushDispatchService`(공유 도메인 서비스, `@Service`·`@Transactional`) — `prepare(...)`: 대상 필터 → 언어별 렌더 → `notification`·`notification_dispatch(PENDING)` 저장 → 발송할 `PushMessage` 목록(dispatch id 매핑 포함)을 반환. `record(prepared, results)`: 결과를 dispatch 에 반영(SENT/FAILED + 실패 사유). 기기 토큰은 건드리지 않는다.
   2. `common.port.push.PushSender`(seam) + `common.infra.push.ExpoPushSender`(어댑터) — 순수 HTTP: 100건 청크로 Expo 호출, 입력 순서와 같은 `PushTicket` 목록 반환. DB 를 모른다.
   3. 소비자 글루 3줄 — `prepared = dispatch.prepare(...)` → `tickets = sender.send(prepared.messages.map { PushMessage(...) })` → `dispatch.record(prepared, tickets.map { PushOutcome(...) })`. 도메인은 port 타입도 참조할 수 없으므로 봉투(`PushEnvelope`)·결과(`PushOutcome`)는 도메인 자체 값 타입이고 글루가 한 줄씩 매핑한다. api 는 `api.notification.PushNotificationService` 한 곳에 두고(트리거들이 공유), batch 는 잡 tasklet 안에서 같은 3줄을 쓴다(트리거 태스크 범위).
 - **Rationale**: `ModuleBoundaryTest` 가 **`common.domain..` → `common.port..` 의존을 금지**한다("포트가 도메인 타입을 반환하는 방향만 허용", KB-244 이후 일관). Jira 가 말한 "렌더러·대상 필터 = 공유 도메인 서비스" 는 `common.domain.notification` 에 그대로 두되, port 를 호출하는 오케스트레이션은 도메인 밖에 있어야 한다. 3단 분리는 헌법 Additional Constraints 가 지시하는 **"pending 저장 → 외부 호출 → 결과 저장" 패턴 그 자체**이고, 외부 호출을 트랜잭션 밖에 두는 규약(2026-07-14)도 자연히 충족한다. 글루는 3줄이라 중복 비용이 규칙 완화 비용보다 작다.
@@ -61,7 +61,7 @@
 ## 7. 저장 형태 — notification 1행 + dispatch n행, data 스키마
 
 - **Decision**: `prepare` 는 회원별 `Notification.forMember(memberId, type, title, body, data)` 1행 저장 후 `data` 에 `notificationId`(number) 를 넣어 갱신하고, 유효 기기마다 `NotificationDispatch.pending(notificationId, deviceId, expoToken)` 를 저장한다. 푸시 `data` = `{type: <enum name>, foodId?: string, notificationId: number}`(FE 고정 계약, 4KB 한참 아래). 렌더 args 와 data 는 입력 `PushRequest(type, memberIds, args, data, marketing)` 로 받는다.
-- **record**: 티켓 `ok` → `markSent(id)`; 아니면 `markFailed(error)`. `error == "DeviceNotRegistered"` 면 해당 기기 `markTokenInvalid(now)` 도 함께(KB-473 영수증 정리가 같은 규칙을 receipts 단계에 적용 — 티켓 단계에서 미리 잡아도 무해). 발송 결과 반환 `PushDispatchResult(sent, failed)` 로 로그·잡 요약에 쓴다.
+- **record**: 결과 `ok` → `markSent(id)`; 아니면 `markFailed(error)` — 실패 사유(`DeviceNotRegistered`·네트워크 오류 등)를 `error` 컬럼에 남기는 것까지만 한다. **기기 토큰은 무효화하지 않고 재전송도 하지 않는다**(2026-09-11 결정, Codex 리뷰 #259 반영): 실패 원인이 토큰인지 네트워크인지 티켓만으로 확정할 수 없고, prepare~record 사이에 앱이 토큰을 재등록했을 수 있으며(그 갱신은 DB 에 반영된다고 낙관), 우리 손을 벗어난 사유의 실패는 감수한다. 토큰 무효화는 KB-473 영수증 정리가 맡는다. 발송 결과 반환 `PushDispatchResult(sent, failed)` 로 로그·잡 요약에 쓴다.
 - **Rationale**: KB-464 스키마 결정(dispatch 는 토큰 스냅샷 + device id 참조). 상태 전이는 엔티티가 보장.
 
 ## 8. dev 실기기 검증 경로 — 관리자 테스트 발송 엔드포인트
@@ -81,7 +81,7 @@
 | `ExpoPushSender` | common 단위 테스트, `MockRestServiceServer` — 250건 → 3청크 요청 수·순서·ok/error 매핑·청크 HTTP 500 → 그 청크 전부 실패·Bearer 유무 |
 | `PushMessageRenderer` | common 순수 단위 — 파리티(5×10 비어있지 않음), `{key}` 치환, 광고성 접두/안내 부착·정보성 미부착 |
 | `PushTargetResolver` | common `@SpringBootTest`(`CommonTestApp` 이 `common.domain` 을 스캔하므로 `@Service` 가 올라온다) — 토글·동의 버전·무효 토큰 시나리오 |
-| `PushDispatchService` | common `@SpringBootTest` — prepare 가 notification 1행·dispatch n행 PENDING·언어 선택, record 가 SENT/FAILED·DeviceNotRegistered 무효화 |
+| `PushDispatchService` | common `@SpringBootTest` — prepare 가 notification 1행·dispatch n행 PENDING·언어 선택, record 가 SENT/FAILED + 사유 기록(기기 토큰 불변) |
 | 조립 | `ModuleBoundaryTest`(arch) 통과 + api·batch 컨텍스트 기동(`@IntegrationTest`·`@BatchIntegrationTest` 기존 컨텍스트에 `PushSender` 빈 존재 확인) |
 | 관리자 테스트 발송 | api `@IntegrationTest` — `PushSender` 를 페이크로 바꿔(`@ConditionalOnMissingBean` 이 페이크를 우선) 요청→dispatch SENT 확인 |
 

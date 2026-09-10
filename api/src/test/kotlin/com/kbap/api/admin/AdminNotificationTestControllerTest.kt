@@ -135,11 +135,13 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 fakePushSender.errorFor = { "DeviceNotRegistered" }
                 val response = send(memberId)
 
-                then("dispatch 는 FAILED, 기기는 토큰 무효 처리된다") {
+                then("dispatch 는 FAILED 로 사유가 남고 기기 토큰은 그대로다") {
                     response.status shouldBe 200
                     payload(response).path("failed").asInt() shouldBe 1
-                    dispatchRepository.findAll().single().dispatchStatus shouldBe NotificationDispatchStatus.FAILED
-                    deviceRepository.findById(device.id).get().tokenInvalidAt.shouldNotBeNull()
+                    val dispatch = dispatchRepository.findAll().single()
+                    dispatch.dispatchStatus shouldBe NotificationDispatchStatus.FAILED
+                    dispatch.error shouldBe "DeviceNotRegistered"
+                    deviceRepository.findById(device.id).get().tokenInvalidAt shouldBe null
                 }
             }
 

@@ -6,7 +6,6 @@ import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 
 @Service
 class PushDispatchService(
@@ -14,7 +13,6 @@ class PushDispatchService(
     private val renderer: PushMessageRenderer,
     private val notificationRepository: NotificationJpaRepository,
     private val dispatchRepository: NotificationDispatchJpaRepository,
-    private val deviceRepository: NotificationDeviceJpaRepository,
 ) {
     @Transactional
     fun prepare(request: PushRequest): PreparedPush {
@@ -43,7 +41,6 @@ class PushDispatchService(
             "발송 결과 수가 dispatch 수와 다릅니다: results=${results.size} dispatches=${prepared.dispatchIds.size}"
         }
         val dispatches = dispatchRepository.findAllById(prepared.dispatchIds).associateBy { it.id }
-        val now = LocalDateTime.now()
         var sent = 0
         var failed = 0
 
@@ -53,14 +50,8 @@ class PushDispatchService(
                 dispatch.markSent(outcome.ticketId ?: "")
                 sent++
             } else {
-                val error = outcome.error ?: UNKNOWN_ERROR
-                dispatch.markFailed(error)
+                dispatch.markFailed(outcome.error ?: UNKNOWN_ERROR)
                 failed++
-                if (error == DEVICE_NOT_REGISTERED) {
-                    dispatch.notificationDeviceId?.let { deviceId ->
-                        deviceRepository.findById(deviceId).ifPresent { it.markTokenInvalid(now) }
-                    }
-                }
             }
         }
         return PushDispatchResult(sent, failed)
@@ -76,7 +67,6 @@ class PushDispatchService(
         renderer.render(request.type, LanguageCode.from(lang), request.args, request.marketing)
 
     companion object {
-        const val DEVICE_NOT_REGISTERED = "DeviceNotRegistered"
         private const val DATA_TYPE = "type"
         private const val DATA_NOTIFICATION_ID = "notificationId"
         private const val UNKNOWN_ERROR = "unknown"

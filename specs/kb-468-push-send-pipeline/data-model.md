@@ -50,14 +50,14 @@
 - `PreparedPush(messages: List<PushEnvelope>, dispatchIds: List<Long>)` — 같은 인덱스가 같은 기기. `isEmpty()` 면 호출자는 `send` 를 건너뛴다.
 - `PushDispatchResult(sent: Int, failed: Int)`.
 - `prepare` 절차: `resolver.resolve` → 기기를 회원별로 묶음 → 회원마다 (a) 알림함 언어 = `updatedAt` 최신 기기의 `lang` 으로 렌더한 `Notification.forMember(...)` 저장, `data += notificationId` (b) 기기마다 기기 `lang` 으로 렌더한 `PushEnvelope` + `NotificationDispatch.pending(notificationId, device.id, device.expoToken)` 저장. 기기 0대 회원은 아무것도 저장하지 않는다.
-- `record` 절차: `require(results.size == dispatchIds.size)`; `dispatchRepository.findAllById(dispatchIds)` 를 순서대로 결과와 짝지어 `ok → markSent(id)` / `!ok → markFailed(error)`; `error == "DeviceNotRegistered"` 면 `notificationDeviceId` 의 기기 `markTokenInvalid(now)`. dirty checking(`save` 호출 없음).
+- `record` 절차: `require(results.size == dispatchIds.size)`; `dispatchRepository.findAllById(dispatchIds)` 를 순서대로 결과와 짝지어 `ok → markSent(id)` / `!ok → markFailed(error)`. 기기 토큰은 건드리지 않는다(무효화·재전송 없음 — 실패 사유만 기록). dirty checking(`save` 호출 없음).
 
 ## 4. 엔티티 상태 전이(기존, 사용만)
 
 ```
 NotificationDispatch: PENDING ─record(ok)─▶ SENT     (KB-473 이 DELIVERED 로)
                       PENDING ─record(err)─▶ FAILED
-NotificationDevice:   tokenInvalidAt = null ─DeviceNotRegistered─▶ 스탬프 (renew 가 되돌림)
+NotificationDevice:   (이 파이프라인은 건드리지 않음 — 토큰 무효화는 KB-473 영수증 정리)
 ```
 
 ## 5. 리포지토리 추가 메서드
