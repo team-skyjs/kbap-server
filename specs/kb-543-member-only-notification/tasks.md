@@ -106,8 +106,8 @@ description: "KB-543 비회원 광고 알림 동의 제거 — 태스크 목록"
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T017 [P] 지식 위키 `../kbap-agenthub/wiki/notification-member-only.md` 작성 — "알림·동의·토큰 등록은 회원 전용(2026-09-07 기획 확정)", 게스트→회원 동의 병합 규칙 폐기 경위(KB-464 → KB-543), `installation_id` 컬럼 잔존·후속 제거 태스크, `NotificationConsent.installationId` 는 출처 기록으로만 사용. `../kbap-agenthub/INDEX.md` 에 한 줄 추가 후 허브에서 커밋.
-- [ ] T018 [P] Swagger 실확인 — `./gradlew :api:bootRun` 후 `/swagger-ui/index.html` 그룹 1.1 의 `PUT /api/notifications/tokens` 에 `settings`·`MarketingSettingsRequest`·"게스트" 문구가 없고 "회원 전용" 이 보이는지 확인(quickstart §4, 워크트리 실행 시 `worktree-bootrun-env` 레시피).
+- [X] T017 [P] 지식 위키 `../kbap-agenthub/wiki/notification-member-only.md` 작성 — "알림·동의·토큰 등록은 회원 전용(2026-09-07 기획 확정)", 게스트→회원 동의 병합 규칙 폐기 경위(KB-464 → KB-543), `installation_id` 컬럼 잔존·후속 제거 태스크, `NotificationConsent.installationId` 는 출처 기록으로만 사용. `../kbap-agenthub/INDEX.md` 에 한 줄 추가 후 허브에서 커밋.
+- [X] T018 [P] Swagger 실확인 — `./gradlew :api:bootRun` 후 `/swagger-ui/index.html` 그룹 1.1 의 `PUT /api/notifications/tokens` 에 `settings`·`MarketingSettingsRequest`·"게스트" 문구가 없고 "회원 전용" 이 보이는지 확인(quickstart §4, 워크트리 실행 시 `worktree-bootrun-env` 레시피).
 - [ ] T019 후속 연결(코드 밖, 사용자 확인 후) — `installation_id` 컬럼 제거 Jira 태스크 등록 후 KB-543 에 코멘트로 링크(`create-jira-task` 스킬), FE 에 contracts/notification-token.md "FE 전달 사항"(로그인 후 등록·`settings` 제거) 공유(SC-005).
 
 ---
