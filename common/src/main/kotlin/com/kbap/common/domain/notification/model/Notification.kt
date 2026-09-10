@@ -16,9 +16,6 @@ class Notification(
     @Column(name = "member_id")
     var memberId: Long? = null,
 
-    @Column(name = "installation_id", length = 36)
-    var installationId: String? = null,
-
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 30)
     var type: NotificationType = NotificationType.NOTICE,
@@ -45,8 +42,5 @@ class Notification(
     companion object {
         fun forMember(memberId: Long, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
             Notification(memberId = memberId, type = type, title = title, body = body, data = data)
-
-        fun forInstallation(installationId: String, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
-            Notification(installationId = installationId, type = type, title = title, body = body, data = data)
     }
 }

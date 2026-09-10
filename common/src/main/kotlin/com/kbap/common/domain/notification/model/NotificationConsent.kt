@@ -39,12 +39,6 @@ class NotificationConsent(
         revokedAt = now
     }
 
-    fun claim(memberId: Long) {
-        check(this.memberId == null) { "이미 회원 동의: id=$id memberId=${this.memberId}" }
-        check(isOpen()) { "철회된 동의는 인수할 수 없음: id=$id" }
-        this.memberId = memberId
-    }
-
     companion object {
         fun grantForMember(memberId: Long, installationId: String?, type: NotificationConsentType, consentVersion: Int, now: LocalDateTime) =
             NotificationConsent(
@@ -54,8 +48,5 @@ class NotificationConsent(
                 consentVersion = consentVersion,
                 grantedAt = now,
             )
-
-        fun grantForInstallation(installationId: String, type: NotificationConsentType, consentVersion: Int, now: LocalDateTime) =
-            NotificationConsent(installationId = installationId, consentType = type, consentVersion = consentVersion, grantedAt = now)
     }
 }
