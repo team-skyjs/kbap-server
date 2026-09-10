@@ -28,7 +28,7 @@ api·batch 두 컨테이너의 **핸들러 예외(4xx·5xx 전부)와 ERROR 로�
 
 핑거프린트: `BusinessException` 은 `["business", <error.code>]` — 같은 코드는 던진 위치와 무관하게 이슈 1개. 그 외는 SDK 기본(스택). `send-default-pii: true` 로 요청자 IP·헤더·쿠키를 싣는다(2026-09-09 결정). 단 `Authorization` 헤더는 살아 있는 access 토큰이라 프로세서가 제거하고, 쿼리스트링의 `q`·`latitude`·`longitude` 는 로그와 같은 `maskQuery` 로 `***` 처리하며, 요청 본문은 첨부하지 않는다(`max-request-body-size` 기본 none).
 
-**수집되지 않는 것**: 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외.
+**수집되지 않는 것**: 필터 단계에서 예외 없이 응답을 쓰는 401(JWT)·400(`X-API-Version`) — 사용자 입력 노이즈라 의도된 제외. 매핑되지 않은 경로의 404(`NoResourceFoundException` — 봇 스캔·오타 URL)는 `sentry.ignored-exceptions-for-type` 으로 SDK 가 이벤트 프로세서 이전에 버린다(정확한 클래스 일치, KB-510). 405·415·앱 에러 코드가 붙은 4xx 는 계속 수집한다.
 
 ## 배포 순서 (반드시)
 
@@ -44,5 +44,5 @@ ECS 는 `secrets` 의 SSM 파라미터가 없으면 태스크를 기동하지 �
 ## 후속·조정
 
 - **알림**: 프로젝트별 규칙 "새 이슈 → Slack", 4xx 를 빼려면 조건 `http.status` starts with `5`.
-- **노이즈**: 특정 에러 코드를 빼려면 `SentryRequestContextProcessor` 에서 해당 코드에 `null` 반환(이벤트 드롭), 양이 많으면 `sentry.sample-rate`.
+- **노이즈**: 예외 종류 단위 제외는 `sentry.ignored-exceptions-for-type`(정확한 클래스 일치), 특정 에러 코드 단위 제외는 `SentryRequestContextProcessor` 에서 해당 코드에 `null` 반환(이벤트 드롭), 양이 많으면 `sentry.sample-rate`.
 - **되돌리기**: 코드 revert 로 SDK 가 빠진다. SSM 파라미터는 지우지 말 것(지우면 다음 배포부터 기동 실패) — 끄려면 `*_secret_names` 에서 빼고 apply 후 배포.
