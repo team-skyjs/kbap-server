@@ -13,12 +13,6 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
         targetId: Long,
     ): Boolean
 
-    fun existsByReporterInstallationIdAndTargetTypeAndTargetId(
-        reporterInstallationId: String,
-        targetType: ReportTargetType,
-        targetId: Long,
-    ): Boolean
-
     @Query(
         """
         select r.targetId from Report r
@@ -28,18 +22,6 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
     )
     fun findTargetIdsByReporterMemberIdAndTargetType(
         @Param("reporterMemberId") reporterMemberId: Long,
-        @Param("targetType") targetType: ReportTargetType,
-    ): List<Long>
-
-    @Query(
-        """
-        select r.targetId from Report r
-        where r.reporterInstallationId = :reporterInstallationId
-          and r.targetType = :targetType
-        """,
-    )
-    fun findTargetIdsByReporterInstallationIdAndTargetType(
-        @Param("reporterInstallationId") reporterInstallationId: String,
         @Param("targetType") targetType: ReportTargetType,
     ): List<Long>
 }
