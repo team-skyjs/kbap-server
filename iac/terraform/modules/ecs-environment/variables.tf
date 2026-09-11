@@ -147,12 +147,12 @@ variable "food_content_queue_name" {
 variable "api_secret_names" {
   description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
   type        = list(string)
-  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]
+  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN"]
 }
 
 variable "batch_secret_names" {
   type    = list(string)
-  default = ["DB_PASSWORD", "OPENAI_API_KEY"]
+  default = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN"]
 }
 
 variable "api_extra_env" {
@@ -248,4 +248,22 @@ variable "vector_enabled" {
   description = "S3 Vectors 벡터 검색(api, KB-319)·적재(batch foodVectorSyncJob, KB-328) 앱 스위치. 버킷·인덱스·IAM 은 항상 만들어지고(서버리스, 상시 비용 0), 켜면 VECTOR_ENABLED·EMBEDDING_ENABLED=true 와 VECTOR_BUCKET·VECTOR_INDEX 를 api·batch env 에 주입한다. 시크릿 없음 — 태스크 롤로 인증."
   type        = bool
   default     = false
+}
+
+variable "api_max_count" {
+  description = "api 서비스 오토스케일링 최대 태스크 수 (EC2 2대 × 인스턴스당 2)"
+  type        = number
+  default     = 4
+}
+
+variable "api_cpu_target_percent" {
+  description = "api 서비스 오토스케일링 목표 CPU (%). 태스크 예약 CPU 대비"
+  type        = number
+  default     = 40
+}
+
+variable "api_slow_start_seconds" {
+  description = "api 대상 그룹 slow start(초). 새 타깃의 트래픽 비중을 이 시간 동안 선형 상승. 0 이면 끔"
+  type        = number
+  default     = 60
 }
