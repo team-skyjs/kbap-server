@@ -69,14 +69,14 @@ class NotificationService(
     }
 
     private fun settingOf(memberId: Long): NotificationSetting =
-        settingRepository.findByMemberId(memberId)
+        settingRepository.findByMemberIdAndInstallationIdIsNull(memberId)
             ?: settingRepository.save(NotificationSetting.defaultFor(memberId))
 
     private fun isNewsEnabled(memberId: Long): Boolean =
         consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
 
     private fun assemble(memberId: Long): NotificationSettingsResult {
-        val setting = settingRepository.findByMemberId(memberId) ?: NotificationSetting.defaultFor(memberId)
+        val setting = settingRepository.findByMemberIdAndInstallationIdIsNull(memberId) ?: NotificationSetting.defaultFor(memberId)
         val openConsents = consentRepository.findOpenByMemberId(memberId)
         val enabled = consentService.isMarketingEnabled(openConsents)
 
