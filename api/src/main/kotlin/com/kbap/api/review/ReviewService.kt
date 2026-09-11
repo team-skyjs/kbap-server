@@ -140,6 +140,7 @@ class ReviewService(
     @Transactional(readOnly = true)
     fun getReviewPage(
         viewerMemberId: Long?,
+        viewerInstallationId: String?,
         foodId: Long?,
         countryCode: String?,
         lang: LanguageCode,
@@ -160,7 +161,7 @@ class ReviewService(
             metricCursor = cursor?.metric,
             idCursor = cursor?.id,
             excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-            excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+            excludedReviewIds = excludedReviewIds(viewerMemberId, viewerInstallationId),
             limit = PAGE_SIZE + 1,
         )
         val hasNext = rows.size > PAGE_SIZE
@@ -177,10 +178,16 @@ class ReviewService(
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
 
-    private fun excludedReviewIds(viewerMemberId: Long): List<Long> =
-        reportRepository
-            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-            .ifEmpty { listOf(-1L) }
+    private fun excludedReviewIds(viewerMemberId: Long?, viewerInstallationId: String?): List<Long> {
+        val reported = when {
+            viewerMemberId != null ->
+                reportRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
+            !viewerInstallationId.isNullOrBlank() ->
+                reportRepository.findTargetIdsByReporterInstallationIdAndTargetType(viewerInstallationId, ReportTargetType.REVIEW)
+            else -> emptyList()
+        }
+        return reported.ifEmpty { listOf(-1L) }
+    }
 
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
@@ -213,7 +220,12 @@ class ReviewService(
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
     @Transactional(readOnly = true)
-    fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
+    fun getRecentFoodReviews(
+        foodId: Long,
+        viewerMemberId: Long?,
+        viewerInstallationId: String?,
+        lang: LanguageCode,
+    ): List<ReviewResponse> =
         toResponses(
             reviewRepository.findReviewPage(
                 foodId = foodId,
@@ -225,7 +237,7 @@ class ReviewService(
                 metricCursor = null,
                 idCursor = null,
                 excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-                excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+                excludedReviewIds = excludedReviewIds(viewerMemberId, viewerInstallationId),
                 limit = RECENT_REVIEWS_SIZE,
             ).map { it.review },
             viewerMemberId,
