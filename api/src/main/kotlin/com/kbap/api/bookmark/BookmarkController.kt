@@ -48,7 +48,12 @@ class BookmarkController(
         @AuthMemberId memberId: Long,
         @Valid @ModelAttribute request: BookmarkListRequest,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
-        val result = bookmarkService.getBookmarkPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor))
+        val result = bookmarkService.getBookmarkPage(
+            memberId,
+            LanguageCode.from(request.lang),
+            CursorParser.parse(request.cursor),
+            com.kbap.api.food.RiskFilterParser.parse(request.risk),
+        )
         val ratings = reviewService.getFoodRatings(result.items.map { it.foodId })
         return ResponseEntity.ok(
             BaseResponse.ok(

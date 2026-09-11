@@ -1,9 +1,12 @@
 package com.kbap.api.auth
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.config.ApiErrors
 import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -24,6 +27,12 @@ interface AuthApi {
 
             자체 토큰의 사용자 클레임은 회원 식별자 하나뿐이며 이메일 등 개인정보를 담지 않는다.
             응답의 `newMember` 가 true 면 온보딩 화면으로 분기한다.
+
+            **`X-API-Version` 1.1 이상이면 기기-회원 연결이 더해진다.** `X-Installation-Id`(앱 설치 UUID) 헤더가 있고 그 기기가
+            `PUT /api/notifications/tokens` 로 등록돼 있으면 기기를 로그인 회원에 연결한다(이전에 다른 회원이 연결돼 있었어도 덮어쓴다).
+            기기에 남아 있던 게스트 광고성 동의는 회원에게 유효한 동의가 없으면 회원 동의로 이어받고(원래 동의 시각 보존),
+            이미 있으면 철회한다(정본은 하나). 헤더가 없거나 등록되지 않은 기기면 기기·동의 처리만 생략하고 로그인은 동일하게 성공한다.
+            1.0 은 기기·동의를 전혀 건드리지 않는다(종전 동작).
         """,
     )
     @ApiResponses(
@@ -38,6 +47,20 @@ interface AuthApi {
     )
     fun login(
         request: LoginRequest,
+        @Parameter(
+            name = ApiHeaders.API_VERSION,
+            `in` = ParameterIn.HEADER,
+            description = "1.0: 종전 로그인. 1.1 이상: X-Installation-Id 기기를 회원에 연결하고 게스트 동의를 이어받는다",
+            required = true,
+        )
+        apiVersion: String,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID. X-API-Version 1.1 이상에서만 읽으며, 있으면 이 기기를 로그인 회원에 연결한다. 없어도 로그인은 동일",
+            required = false,
+        )
+        installationId: String?,
     ): ResponseEntity<BaseResponse<LoginResponse>>
 
     @Operation(
@@ -71,11 +94,29 @@ interface AuthApi {
             서버에 저장된 refresh 세션을 폐기한다. 클라이언트는 저장한 토큰 두 개를 함께 삭제한다.
             이미 발급된 access 토큰은 짧은 수명이 다하면 자연 만료된다.
             refresh 토큰이 없거나 이미 폐기된 경우에도 성공으로 응답한다(멱등).
+
+            **`X-API-Version` 1.1 이상이면 기기 연결 해제가 더해진다.** `X-Installation-Id` 헤더가 있고 그 기기가 등록돼 있으면
+            기기의 회원 연결만 비운다 — 광고성 동의 원장은 건드리지 않는다. 헤더가 없거나 미등록 기기면 해제만 생략한다.
+            1.0 은 기기를 건드리지 않는다(종전 동작).
         """,
     )
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "로그아웃 완료")])
     fun logout(
         request: LogoutRequest?,
+        @Parameter(
+            name = ApiHeaders.API_VERSION,
+            `in` = ParameterIn.HEADER,
+            description = "1.0: 종전 로그아웃. 1.1 이상: X-Installation-Id 기기의 회원 연결을 해제한다",
+            required = true,
+        )
+        apiVersion: String,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID. X-API-Version 1.1 이상에서만 읽으며, 있으면 이 기기의 회원 연결을 해제한다. 없어도 로그아웃은 동일",
+            required = false,
+        )
+        installationId: String?,
     ): ResponseEntity<BaseResponse<Unit>>
 
     @Operation(
@@ -89,6 +130,10 @@ interface AuthApi {
             탈퇴 후에는 기존 access·refresh 토큰을 쓸 수 없다. 클라이언트는 저장한 토큰 두 개를 함께
             삭제한다. 같은 소셜 계정으로 다시 로그인하면 신규 회원으로 가입된다(이전 프로필 미승계).
             `Authorization: Bearer {accessToken}` 로 인증한다.
+
+            **`X-API-Version` 1.1 이상이면 푸시 정리가 더해진다.** 소셜 계정 삭제 뒤 이 회원에 연결된 모든 기기의 회원 연결을 비우고,
+            회원의 열린 광고성 동의를 전부 철회한 다음(기록은 보존) 회원 행을 소프트 삭제한다. 기기 기록은 삭제하지 않는다.
+            1.0 은 기기·동의를 건드리지 않는다(종전 동작).
         """,
         security = [SecurityRequirement(name = "bearerAuth")],
     )
@@ -97,7 +142,7 @@ interface AuthApi {
             ApiResponse(responseCode = "200", description = "탈퇴 완료 — 소셜 계정·회원 기록 삭제"),
             ApiResponse(responseCode = "400", description = "회원을 찾을 수 없음(이미 탈퇴 포함)"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
-            ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원 데이터는 변경되지 않음"),
+            ApiResponse(responseCode = "500", description = "소셜 계정 삭제 실패 — 회원·기기·동의 데이터는 변경되지 않음"),
         ],
     )
     @ApiErrors(
@@ -106,5 +151,12 @@ interface AuthApi {
     )
     fun withdraw(
         memberId: Long,
+        @Parameter(
+            name = ApiHeaders.API_VERSION,
+            `in` = ParameterIn.HEADER,
+            description = "1.0: 종전 탈퇴. 1.1 이상: 모든 기기 연결 해제 + 열린 광고성 동의 전부 철회(기록 보존)",
+            required = true,
+        )
+        apiVersion: String,
     ): ResponseEntity<BaseResponse<Unit>>
 }

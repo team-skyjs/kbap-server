@@ -1,6 +1,6 @@
 # kbap api Grafana 대시보드 (KB-411)
 
-홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태(처리량·평균 응답시간·지연 백분위·Tomcat 스레드풀·HikariCP·GC)를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다.
+홈서버 Grafana 에서 api 앱의 **컨테이너 안** 상태(처리량·평균 응답시간·지연 백분위·Tomcat 스레드풀·HikariCP·GC)를 한 장으로 보는 대시보드다. 정의는 [`grafana-app-dashboard.json`](grafana-app-dashboard.json) 에 있고, 홈 Grafana 가 사라져도 이 파일을 import 하면 그대로 복원된다. 컨테이너 밖(ALB·RDS·EC2)은 CloudWatch 데이터소스 쪽이고 이 문서의 범위가 아니다. 예외·스택·요청 맥락("무엇이 어디서")은 [Sentry](sentry.md)(KB-508) 가 맡고, 이 대시보드는 "얼마나" 만 본다.
 
 ## Import
 
