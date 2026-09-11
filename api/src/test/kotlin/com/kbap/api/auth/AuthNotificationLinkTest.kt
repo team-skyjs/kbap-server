@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
@@ -305,6 +306,73 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                     openConsentsOfMember(session.memberId).size shouldBe 0
                     countConsents() shouldBe total
                     countDevices() shouldBe 2
+                }
+            }
+        }
+
+        fun patchDeviceSettings(accessToken: String, installationId: String, body: Map<String, Any?>): MockHttpServletResponse =
+            mockMvc.patch("/api/notifications/settings") {
+                header("X-API-Version", "1.1")
+                header("X-Installation-Id", installationId)
+                header("Authorization", "Bearer $accessToken")
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(body)
+            }.andReturn().response
+
+        fun deviceActivity(accessToken: String, installationId: String): Boolean {
+            val response = mockMvc.get("/api/notifications/settings") {
+                header("X-API-Version", "1.1")
+                header("X-Installation-Id", installationId)
+                header("Authorization", "Bearer $accessToken")
+            }.andReturn().response
+            response.status shouldBe 200
+            return objectMapper.readTree(response.contentAsString).path("payload").path("activity").asBoolean()
+        }
+
+        fun settingStatuses(memberId: Long): Map<String, String> =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT installation_id, status FROM notification_setting WHERE member_id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs ->
+                        generateSequence { if (rs.next()) rs else null }
+                            .associate { it.getString("installation_id") to it.getString("status") }
+                    }
+                }
+            }
+
+        given("기기별 설정과 로그아웃") {
+            `when`("기기 A 설정을 바꾼 회원이 로그아웃 후 같은 기기로 재로그인하면") {
+                then("설정이 그대로다") {
+                    val first = login("member-a", "dev-1")
+                    registerToken("dev-1", first.accessToken)
+                    patchDeviceSettings(first.accessToken, "dev-1", mapOf("activity" to true)).status shouldBe 200
+
+                    logout(first.refreshToken, "dev-1").status shouldBe 200
+                    deviceMemberId("dev-1").shouldBeNull()
+                    settingStatuses(first.memberId) shouldBe mapOf("dev-1" to "ACTIVE")
+
+                    val second = login("member-a", "dev-1")
+                    deviceActivity(second.accessToken, "dev-1") shouldBe true
+                }
+            }
+        }
+
+        given("기기별 설정과 탈퇴") {
+            `when`("기기 두 대의 설정과 열린 동의를 가진 회원이 탈퇴하면") {
+                then("기기 설정 행은 소프트 삭제되고 기기 연결·동의는 닫힌다") {
+                    val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
+                    registerToken("dev-2", session.accessToken)
+                    patchDeviceSettings(session.accessToken, "dev-1", mapOf("activity" to true)).status shouldBe 200
+                    patchDeviceSettings(session.accessToken, "dev-2", mapOf("activity" to true)).status shouldBe 200
+                    insertOpenMemberConsent(session.memberId, 2)
+
+                    withdraw(session.accessToken).status shouldBe 200
+
+                    settingStatuses(session.memberId) shouldBe mapOf("dev-1" to "DELETED", "dev-2" to "DELETED")
+                    deviceMemberId("dev-1").shouldBeNull()
+                    deviceMemberId("dev-2").shouldBeNull()
+                    openConsentsOfMember(session.memberId).size shouldBe 0
                 }
             }
         }

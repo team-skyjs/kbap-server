@@ -9,11 +9,13 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
+import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationConsent
 import com.kbap.common.domain.notification.model.NotificationConsentType
 import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationDispatchStatus
+import com.kbap.common.domain.notification.model.NotificationSetting
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -56,6 +58,9 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var consentRepository: NotificationConsentJpaRepository
 
+    @Autowired
+    private lateinit var settingRepository: NotificationSettingJpaRepository
+
     init {
         val objectMapper = jacksonObjectMapper()
         val path = "/api/admin/notifications/test-push"
@@ -90,6 +95,10 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 NotificationDevice.register("inst-$memberId-$lang", "ExponentPushToken[$memberId-$lang]", DevicePlatform.IOS, lang, memberId),
             )
 
+        fun newsOn(device: NotificationDevice) {
+            settingRepository.save(NotificationSetting(memberId = device.memberId!!, installationId = device.installationId, news = true))
+        }
+
         fun send(memberId: Long, token: String? = tokenOf(MemberRole.ADMIN)): MockHttpServletResponse =
             mockMvc.post(path) {
                 header("X-API-Version", "1.0")
@@ -110,6 +119,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
             `when`("소식 동의를 켠 회원의 등록 기기에 보내면") {
                 val memberId = signUp("kb468-admin-push-1")
                 val device = device(memberId)
+                newsOn(device)
                 newsConsent(memberId)
                 val response = send(memberId)
 
@@ -146,7 +156,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
 
             `when`("소식 동의가 없는 회원에게 보내면") {
                 val memberId = signUp("kb468-admin-push-4")
-                device(memberId)
+                newsOn(device(memberId))
                 val response = send(memberId)
 
                 then("광고성이라 발송하지 않고 0/0 을 돌려준다") {
@@ -159,6 +169,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
             `when`("Expo 가 DeviceNotRegistered 를 돌려주면") {
                 val memberId = signUp("kb468-admin-push-3")
                 val device = device(memberId)
+                newsOn(device)
                 newsConsent(memberId)
                 fakePushSender.errorFor = { "DeviceNotRegistered" }
                 val response = send(memberId)

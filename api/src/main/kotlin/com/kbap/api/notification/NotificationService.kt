@@ -30,71 +30,67 @@ class NotificationService(
     private val memberService: MemberService,
 ) {
     @Transactional(readOnly = true)
-    fun getSettings(memberId: Long): NotificationSettingsResult {
+    fun getSettings(memberId: Long, installationId: String): NotificationSettingsResult {
         memberService.getMember(memberId)
-        return assemble(memberId)
+        return assemble(memberId, installationId)
     }
 
     @Transactional
-    fun updateSettings(memberId: Long, installationId: String?, request: NotificationSettingsUpdateRequest): NotificationSettingsResult {
+    fun updateSettings(memberId: Long, installationId: String, request: NotificationSettingsUpdateRequest): NotificationSettingsResult {
         memberService.getMember(memberId)
         val now = LocalDateTime.now()
 
         if (request.activity != null) {
-            settingOf(memberId).updateActivity(request.activity)
+            settingOf(memberId, installationId).updateActivity(request.activity)
         }
 
         val news = request.news
         if (news != null) {
-            if (news.enabled == true) {
+            if (news.consent == true) {
                 val versions = mapOf(
                     NotificationConsentType.MARKETING_PRIVACY to news.privacyConsentVersion!!,
                     NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
                 )
                 consentService.grantForMember(memberId, installationId, versions, now)
-                settingOf(memberId).updateMealTime(true)
             }
-            if (news.enabled == false) {
+            if (news.consent == false) {
                 consentService.revokeForMember(memberId, now)
             }
+            if (news.enabled != null) {
+                settingOf(memberId, installationId).updateNews(news.enabled)
+            }
             if (news.mealTime != null) {
-                if (news.mealTime && !isNewsEnabled(memberId)) {
+                val setting = settingOf(memberId, installationId)
+                if (news.mealTime && !setting.news) {
                     throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
                 }
-                settingOf(memberId).updateMealTime(news.mealTime)
+                setting.updateMealTime(news.mealTime)
             }
         }
 
-        return assemble(memberId)
+        return assemble(memberId, installationId)
     }
 
-    private fun settingOf(memberId: Long): NotificationSetting =
-        settingRepository.findByMemberId(memberId)
-            ?: settingRepository.save(NotificationSetting.defaultFor(memberId))
+    private fun settingOf(memberId: Long, installationId: String): NotificationSetting =
+        settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
+            ?: settingRepository.save(NotificationSetting.defaultFor(memberId, installationId))
 
-    private fun isNewsEnabled(memberId: Long): Boolean =
-        consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
-
-    private fun assemble(memberId: Long): NotificationSettingsResult {
-        val setting = settingRepository.findByMemberId(memberId) ?: NotificationSetting.defaultFor(memberId)
+    private fun assemble(memberId: Long, installationId: String): NotificationSettingsResult {
+        val setting = settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
+            ?: NotificationSetting.defaultFor(memberId, installationId)
         val openConsents = consentRepository.findOpenByMemberId(memberId)
-        val enabled = consentService.isMarketingEnabled(openConsents)
-
-        val privacyConsent = openConsents
-            .filter { it.consentType == NotificationConsentType.MARKETING_PRIVACY }
-            .maxByOrNull { it.grantedAt }
-        val receiveConsent = openConsents
-            .filter { it.consentType == NotificationConsentType.MARKETING_RECEIVE }
-            .maxByOrNull { it.grantedAt }
 
         return NotificationSettingsResult(
             activity = setting.activity,
-            newsEnabled = enabled,
-            mealTime = setting.mealTime && enabled,
-            privacyConsent = privacyConsent,
-            receiveConsent = receiveConsent,
+            newsEnabled = setting.news,
+            mealTime = setting.mealTime && setting.news,
+            privacyConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_PRIVACY),
+            receiveConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_RECEIVE),
         )
     }
+
+    private fun latestOpen(open: List<NotificationConsent>, type: NotificationConsentType): NotificationConsent? =
+        open.filter { it.consentType == type }.maxByOrNull { it.grantedAt }
 
     @Transactional(readOnly = true)
     fun getRecentNotifications(memberId: Long, installationId: String): List<NotificationResponse> {
