@@ -6,7 +6,6 @@ import com.kbap.api.TestTables
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -77,20 +76,20 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                 header("Authorization", "Bearer $accessToken")
             }.andReturn().response
 
-        fun registerToken(installationId: String, accessToken: String? = null, marketingVersion: Int? = null) {
-            val body = buildMap<String, Any?> {
-                put("token", "ExponentPushToken[$installationId]")
-                put("platform", "ios")
-                put("lang", "en")
-                if (marketingVersion != null) put("settings", mapOf("marketing" to true, "privacyConsentVersion" to marketingVersion, "receiveConsentVersion" to marketingVersion))
-            }
+        fun registerToken(installationId: String, accessToken: String) {
             mockMvc.put("/api/notifications/tokens") {
                 header("X-API-Version", "1.1")
                 header("X-Installation-Id", installationId)
-                if (accessToken != null) header("Authorization", "Bearer $accessToken")
+                header("Authorization", "Bearer $accessToken")
                 contentType = MediaType.APPLICATION_JSON
-                content = objectMapper.writeValueAsString(body)
+                content = objectMapper.writeValueAsString(mapOf("token" to "ExponentPushToken[$installationId]", "platform" to "ios", "lang" to "en"))
             }.andReturn().response.status shouldBe 200
+        }
+
+        fun registerUnlinkedDevice(installationId: String) {
+            val seed = login("member-seed", null)
+            registerToken(installationId, seed.accessToken)
+            logout(seed.refreshToken, installationId).status shouldBe 200
         }
 
         fun deviceMemberId(installationId: String): Long? =
@@ -132,9 +131,6 @@ class AuthNotificationLinkTest : BehaviorSpec() {
                     }
                 }
             }
-
-        fun consents(installationId: String): List<Consent> =
-            consentsOf("installation_id = ?") { it.setString(1, installationId) }
 
         fun openConsentsOfMember(memberId: Long): List<Consent> =
             consentsOf("member_id = ? AND revoked_at IS NULL") { it.setLong(1, memberId) }
@@ -188,57 +184,19 @@ class AuthNotificationLinkTest : BehaviorSpec() {
             accountDeleter.reset()
         }
 
-        given("게스트 기기에서 로그인") {
-            `when`("게스트 동의가 있고 회원에게 유효한 동의가 없으면") {
-                then("기기는 회원에 연결되고 두 종류의 게스트 동의가 회원 동의로 바뀌며 동의 시각은 유지된다") {
-                    registerToken("dev-1", marketingVersion = 1)
-                    val before = consents("dev-1")
-                    before.size shouldBe 2
+        given("등록된 기기에서 로그인") {
+            `when`("설치 식별자로 남은 게스트 동의 행이 있는 기기에서 로그인하면") {
+                then("기기만 회원에 연결되고 동의 원장은 한 행도 바뀌지 않는다") {
+                    registerUnlinkedDevice("dev-1")
+                    insertOpenGuestConsent("dev-1", 1, "MARKETING_PRIVACY")
+                    insertOpenGuestConsent("dev-1", 1, "MARKETING_RECEIVE")
+                    val before = consentsOf("1 = 1") { }
 
                     val session = login("member-a", "dev-1")
 
                     deviceMemberId("dev-1") shouldBe session.memberId
-                    val after = consents("dev-1")
-                    after.size shouldBe 2
-                    after.map { it.type }.toSet() shouldBe setOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
-                    after.all { it.memberId == session.memberId && it.revokedAt == null } shouldBe true
-                    after.map { it.grantedAt } shouldBe before.map { it.grantedAt }
-                }
-            }
-
-            `when`("게스트 동의가 두 건 열려 있으면") {
-                then("전부 회원에게 이어진다") {
-                    registerToken("dev-1")
-                    insertOpenGuestConsent("dev-1", 1)
-                    insertOpenGuestConsent("dev-1", 1)
-
-                    val session = login("member-a", "dev-1")
-
-                    val rows = consents("dev-1")
-                    rows.size shouldBe 2
-                    rows.all { it.memberId == session.memberId && it.revokedAt == null } shouldBe true
-                }
-            }
-
-            `when`("회원에게 이미 유효한 동의가 있으면") {
-                then("같은 종류의 게스트 동의만 철회되고 회원에게 없는 종류는 인수되며 회원의 기존 동의는 그대로다") {
-                    val first = login("member-a", null)
-                    insertOpenMemberConsent(first.memberId, 1, "MARKETING_RECEIVE")
-                    registerToken("dev-1", marketingVersion = 1)
-
-                    val session = login("member-a", "dev-1")
-
-                    deviceMemberId("dev-1") shouldBe session.memberId
-                    val byType = consents("dev-1").groupBy { it.type }
-                    val guestReceive = byType.getValue("MARKETING_RECEIVE").single()
-                    guestReceive.memberId.shouldBeNull()
-                    guestReceive.revokedAt.shouldNotBeNull()
-                    val claimedPrivacy = byType.getValue("MARKETING_PRIVACY").single()
-                    claimedPrivacy.memberId shouldBe session.memberId
-                    claimedPrivacy.revokedAt.shouldBeNull()
-                    val memberOpen = openConsentsOfMember(session.memberId)
-                    memberOpen.size shouldBe 2
-                    memberOpen.map { it.type }.toSet() shouldBe setOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
+                    consentsOf("1 = 1") { } shouldBe before
+                    openConsentsOfMember(session.memberId).size shouldBe 0
                 }
             }
 
@@ -253,7 +211,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
             `when`("기기 식별자 헤더 없이 로그인하면") {
                 then("로그인은 성공하고 등록된 기기의 연결은 바뀌지 않는다") {
-                    registerToken("dev-1")
+                    registerUnlinkedDevice("dev-1")
 
                     login("member-a", null)
 
@@ -263,14 +221,15 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
             `when`("같은 기기로 두 번 로그인하면") {
                 then("상태가 첫 번째와 같다") {
-                    registerToken("dev-1", marketingVersion = 1)
+                    registerUnlinkedDevice("dev-1")
+                    insertOpenGuestConsent("dev-1", 1)
                     val session = login("member-a", "dev-1")
-                    val afterFirst = consents("dev-1")
+                    val afterFirst = consentsOf("1 = 1") { }
 
                     login("member-a", "dev-1")
 
                     deviceMemberId("dev-1") shouldBe session.memberId
-                    consents("dev-1") shouldBe afterFirst
+                    consentsOf("1 = 1") { } shouldBe afterFirst
                 }
             }
         }
@@ -278,8 +237,8 @@ class AuthNotificationLinkTest : BehaviorSpec() {
         given("다른 회원이 연결된 기기에서 로그인") {
             `when`("회원 A 가 연결된 기기에서 회원 B 가 로그인하면") {
                 then("기기 연결은 B 로 바뀐다") {
-                    registerToken("dev-1")
                     val a = login("member-a", "dev-1")
+                    registerToken("dev-1", a.accessToken)
                     deviceMemberId("dev-1") shouldBe a.memberId
 
                     val b = login("member-b", "dev-1")
@@ -292,8 +251,8 @@ class AuthNotificationLinkTest : BehaviorSpec() {
         given("회원 기기에서 로그아웃") {
             `when`("기기 식별자 헤더와 함께 로그아웃하면") {
                 then("기기의 회원 연결만 비워지고 동의 원장은 한 행도 바뀌지 않는다") {
-                    registerToken("dev-1", marketingVersion = 1)
                     val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
                     insertOpenMemberConsent(session.memberId, 2)
                     val before = consentsOf("1 = 1") { }
 
@@ -306,8 +265,8 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
             `when`("기기 식별자 헤더 없이 로그아웃하면") {
                 then("로그아웃은 성공하고 연결은 유지된다") {
-                    registerToken("dev-1")
                     val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
 
                     logout(session.refreshToken, null).status shouldBe 200
 
@@ -317,8 +276,8 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
             `when`("두 번 로그아웃하면") {
                 then("두 번째도 성공하고 상태는 같다") {
-                    registerToken("dev-1")
                     val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
 
                     logout(session.refreshToken, "dev-1").status shouldBe 200
                     logout(session.refreshToken, "dev-1").status shouldBe 200
@@ -350,13 +309,11 @@ class AuthNotificationLinkTest : BehaviorSpec() {
             }
         }
 
-        given("설치 → 등록 → 로그인 → 로그아웃 → 재로그인") {
+        given("로그인 → 등록 → 로그아웃 → 재로그인") {
             `when`("실기기 한 대로 연속 수행하면") {
                 then("기기 기록은 시종 1건이고 연결 회원이 단계에 맞게 바뀐다") {
-                    registerToken("dev-1")
-                    deviceMemberId("dev-1").shouldBeNull()
-
                     val first = login("member-a", "dev-1")
+                    registerToken("dev-1", first.accessToken)
                     deviceMemberId("dev-1") shouldBe first.memberId
 
                     logout(first.refreshToken, "dev-1")
@@ -372,20 +329,22 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
         given("1.0 인증 API 무영향") {
             `when`("1.0 헤더와 기기 식별자로 로그인하면") {
-                then("로그인은 성공하지만 기기·동의는 연결되지 않는다") {
-                    registerToken("dev-1", marketingVersion = 1)
+                then("로그인은 성공하지만 기기는 연결되지 않고 동의 원장도 그대로다") {
+                    registerUnlinkedDevice("dev-1")
+                    insertOpenGuestConsent("dev-1", 1)
+                    val before = consentsOf("1 = 1") { }
 
                     login("member-a", "dev-1", apiVersion = "1.0")
 
                     deviceMemberId("dev-1").shouldBeNull()
-                    consents("dev-1").all { it.memberId == null } shouldBe true
+                    consentsOf("1 = 1") { } shouldBe before
                 }
             }
 
             `when`("1.1 로그인으로 연결된 기기에서 1.0 으로 로그아웃하면") {
                 then("로그아웃은 성공하지만 연결은 유지된다") {
-                    registerToken("dev-1")
                     val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
 
                     logout(session.refreshToken, "dev-1", apiVersion = "1.0").status shouldBe 200
 
@@ -395,8 +354,8 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
             `when`("1.1 로그인으로 연결된 회원이 1.0 으로 탈퇴하면") {
                 then("탈퇴는 성공하지만 기기 연결과 열린 동의는 그대로다") {
-                    registerToken("dev-1")
                     val session = login("member-a", "dev-1")
+                    registerToken("dev-1", session.accessToken)
                     insertOpenMemberConsent(session.memberId, 1)
 
                     withdraw(session.accessToken, apiVersion = "1.0").status shouldBe 200

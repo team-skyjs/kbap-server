@@ -1,6 +1,7 @@
 package com.kbap.api
 
 import com.kbap.api.auth.FakeSocialTokenVerifierConfig
+import com.kbap.api.notification.FakePushSenderConfig
 import com.kbap.api.place.FakePlaceSearchConfig
 import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.core.testsupport.RedisContainerConfig
@@ -17,5 +18,6 @@ import org.springframework.context.annotation.Import
     RedisContainerConfig::class,
     FakeSocialTokenVerifierConfig::class,
     FakePlaceSearchConfig::class,
+    FakePushSenderConfig::class,
 )
 annotation class IntegrationTest

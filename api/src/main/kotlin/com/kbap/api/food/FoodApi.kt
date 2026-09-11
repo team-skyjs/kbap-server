@@ -24,12 +24,15 @@ interface FoodApi {
             cursor 미지정 시 첫 페이지(최신 20개)로 해석한다. 응답은 다음 커서(nextCursor)와 다음 페이지 존재 여부(hasNext)를 포함한다.
 
             지원 언어: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. lang 은 **필수**이며 누락·빈/공백은 400(COMMON-002), 지원 목록에 없는 코드는 en 으로 응답한다.
+
+            risk(CSV, 옵션)로 위험도 필터를 건다 — 조회자 기준 overallRiskStatus 가 지정 집합(SAFE·CAUTION·DANGER·UNKNOWN, OR)에 드는 음식만 서버가 걸러 내려준다. 미정의 값은 400(COMMON-002). 비회원도 사용 가능(회피성분이 없으면 도달 불가한 DANGER·CAUTION 만 요청 시 즉시 빈 페이지).
+            **risk 필터 시 items 가 PAGE_SIZE 미만이어도 hasNext=true 일 수 있다(요청당 스캔 상한 — 얇은 페이지 허용). 종료 판단은 items 개수가 아니라 hasNext/nextCursor 로만 한다** — hasNext=true 면 nextCursor 로 계속 당긴다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 최신순 음식 요약(≤20)·nextCursor·hasNext 반환. 각 항목 bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
-            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, 또는 lang 누락·빈/공백"),
+            ApiResponse(responseCode = "400", description = "잘못된 커서 형식/음수, lang 누락·빈/공백, 미정의 risk 값(COMMON-002)"),
         ],
     )
     @ApiErrors(ErrorCode.INVALID_CURSOR)

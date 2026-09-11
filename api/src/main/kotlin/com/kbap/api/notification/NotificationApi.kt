@@ -11,9 +11,9 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 
-@Tag(name = "알림", description = "회원 알림 설정 API")
+@Tag(name = "알림", description = "회원 알림 설정·알림함 API")
 @SecurityRequirement(name = "bearerAuth")
-interface NotificationSettingApi {
+interface NotificationApi {
     @Operation(
         summary = "알림 설정 조회",
         description = """
@@ -73,4 +73,64 @@ interface NotificationSettingApi {
         installationId: String?,
         request: NotificationSettingsUpdateRequest,
     ): ResponseEntity<BaseResponse<NotificationSettingsResponse>>
+
+    @Operation(
+        summary = "최근 7일 알림 목록",
+        description = """
+            회원 본인의 **요청 기기(`X-Installation-Id`, 필수)** 에 온 알림 중 조회 시각 기준 최근 7일(168시간) 이내 것을
+            **전부**, 최신순으로 돌려준다. 페이징·종류 필터가 없다. 7일이 지난 알림은 목록에서 사라진다.
+
+            알림함은 기기 단위다 — 알림 행은 발송 시점에 기기마다 그 기기 언어로 하나씩 저장되므로, 같은 회원이라도
+            다른 기기의 알림·읽음 상태는 보이지 않는다. 헤더가 없으면 400.
+
+            항목은 `id`·`title`·`body`·`receivedAt`(수신 시각, epoch 밀리초)·`read`(false = 새 알림)다.
+            제목·본문은 발송 시점에 저장된 문자열 그대로다. 게스트는 401.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "최근 7일 알림 목록(없으면 빈 배열)"),
+            ApiResponse(responseCode = "400", description = "X-Installation-Id 누락·형식 오류"),
+            ApiResponse(responseCode = "401", description = "인증 없음·위조·만료"),
+        ],
+    )
+    fun getRecentNotifications(
+        memberId: Long,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID(필수) — 이 기기의 알림함을 조회한다",
+            required = true,
+        )
+        installationId: String,
+    ): ResponseEntity<BaseResponse<List<NotificationResponse>>>
+
+    @Operation(
+        summary = "알림 읽음 처리",
+        description = """
+            요청 기기(`X-Installation-Id`, 필수)의 본인 알림 1건을 읽음으로 바꾼다. 멱등이다 — 이미 읽은 알림은
+            최초 읽은 시각을 유지한 채 200 이다. 읽음 취소는 없고, 7일이 지난 알림도 처리된다(목록에 안 보일 뿐).
+
+            다른 회원의 알림·같은 회원의 다른 기기 알림·존재하지 않는 알림·삭제된 알림은 구분 없이 404 `NOTIFICATION-002` 다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "갱신된 알림(read = true)"),
+            ApiResponse(responseCode = "400", description = "X-Installation-Id 누락·형식 오류"),
+            ApiResponse(responseCode = "401", description = "인증 없음·위조·만료"),
+            ApiResponse(responseCode = "404", description = "NOTIFICATION-002: 이 기기의 본인 알림이 아니거나 없음"),
+        ],
+    )
+    fun markRead(
+        memberId: Long,
+        @Parameter(
+            name = ApiHeaders.INSTALLATION_ID,
+            `in` = ParameterIn.HEADER,
+            description = "앱 설치 UUID(필수) — 이 기기의 알림만 읽음 처리한다",
+            required = true,
+        )
+        installationId: String,
+        notificationId: Long,
+    ): ResponseEntity<BaseResponse<NotificationResponse>>
 }

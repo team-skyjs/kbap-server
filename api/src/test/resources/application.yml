@@ -36,3 +36,7 @@ kbap:
     allowed-content-types: image/jpeg,image/png
     max-bytes: 1048576
     upload-ttl: PT5M
+  # Expo push(KB-468). 통합 컨텍스트는 FakePushSender 가 우선하지만 조립 config 의 플레이스홀더는 채워 둔다.
+  push:
+    expo:
+      base-url: https://expo.test

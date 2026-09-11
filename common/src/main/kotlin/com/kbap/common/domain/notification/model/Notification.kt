@@ -21,7 +21,7 @@ class Notification(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 30)
-    var type: NotificationType = NotificationType.NOTICE,
+    var type: NotificationType = NotificationType.NEWS,
 
     @Column(name = "title", nullable = false, length = 200)
     var title: String = "",
@@ -46,7 +46,13 @@ class Notification(
         fun forMember(memberId: Long, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
             Notification(memberId = memberId, type = type, title = title, body = body, data = data)
 
-        fun forInstallation(installationId: String, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
-            Notification(installationId = installationId, type = type, title = title, body = body, data = data)
+        fun forMemberDevice(
+            memberId: Long,
+            installationId: String,
+            type: NotificationType,
+            title: String,
+            body: String,
+            data: Map<String, Any>?,
+        ) = Notification(memberId = memberId, installationId = installationId, type = type, title = title, body = body, data = data)
     }
 }

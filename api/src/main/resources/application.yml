@@ -19,6 +19,20 @@ management:
       maximum-expected-value:
         http.server.requests: 10s
 
+sentry:
+  dsn: ${API_SENTRY_DSN:}
+  environment: ${SPRING_PROFILES_ACTIVE:local}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: true
+  exception-resolver-order: -2147483648
+  ignored-exceptions-for-type:
+    - org.springframework.web.servlet.resource.NoResourceFoundException
+  tags:
+    service: api
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
+
 logging:
   # Boot 기본 콘솔 패턴의 correlation 자리에 삽입된다 — logback-spring.xml 수정 없이
   # 전 로그 라인에 요청 상관 키·회원 식별자가 붙는다(값이 없으면 빈 칸). (KB-130)
@@ -141,6 +155,11 @@ kbap:
   # 스캔 2.0 환율(KB-349). frankfurter(ECB) 를 스캔 요청마다 호출한다 — 키 불필요, 실패 시 응답 currency 만 null(스캔은 정상).
   exchange:
     base-url: https://api.frankfurter.dev
+  # Expo push 발송(KB-468). access-token 은 Enhanced push security 를 켤 때만 필요 — 비어 있으면 Authorization 헤더를 생략한다.
+  push:
+    expo:
+      base-url: https://exp.host
+      access-token: ${EXPO_ACCESS_TOKEN:}
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
