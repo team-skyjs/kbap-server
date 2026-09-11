@@ -80,21 +80,81 @@ class NotificationService(
         val openConsents = consentRepository.findOpenByMemberId(memberId)
         val enabled = consentService.isMarketingEnabled(openConsents)
 
-        val privacyConsent = openConsents
-            .filter { it.consentType == NotificationConsentType.MARKETING_PRIVACY }
-            .maxByOrNull { it.grantedAt }
-        val receiveConsent = openConsents
-            .filter { it.consentType == NotificationConsentType.MARKETING_RECEIVE }
-            .maxByOrNull { it.grantedAt }
-
         return NotificationSettingsResult(
             activity = setting.activity,
             newsEnabled = enabled,
             mealTime = setting.mealTime && enabled,
-            privacyConsent = privacyConsent,
-            receiveConsent = receiveConsent,
+            privacyConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_PRIVACY),
+            receiveConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_RECEIVE),
         )
     }
+
+    @Transactional(readOnly = true)
+    fun getDeviceSettings(memberId: Long, installationId: String): NotificationSettingsResult {
+        memberService.getMember(memberId)
+        return assembleDevice(memberId, installationId)
+    }
+
+    @Transactional
+    fun updateDeviceSettings(
+        memberId: Long,
+        installationId: String,
+        request: DeviceNotificationSettingsUpdateRequest,
+    ): NotificationSettingsResult {
+        memberService.getMember(memberId)
+        val now = LocalDateTime.now()
+
+        if (request.activity != null) {
+            deviceSettingOf(memberId, installationId).updateActivity(request.activity)
+        }
+
+        val news = request.news
+        if (news != null) {
+            if (news.consent == true) {
+                val versions = mapOf(
+                    NotificationConsentType.MARKETING_PRIVACY to news.privacyConsentVersion!!,
+                    NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
+                )
+                consentService.grantForMember(memberId, installationId, versions, now)
+            }
+            if (news.consent == false) {
+                consentService.revokeForMember(memberId, now)
+            }
+            if (news.enabled != null) {
+                deviceSettingOf(memberId, installationId).updateNews(news.enabled)
+            }
+            if (news.mealTime != null) {
+                val setting = deviceSettingOf(memberId, installationId)
+                if (news.mealTime && !setting.news) {
+                    throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
+                }
+                setting.updateMealTime(news.mealTime)
+            }
+        }
+
+        return assembleDevice(memberId, installationId)
+    }
+
+    private fun deviceSettingOf(memberId: Long, installationId: String): NotificationSetting =
+        settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
+            ?: settingRepository.save(NotificationSetting.defaultFor(memberId, installationId))
+
+    private fun assembleDevice(memberId: Long, installationId: String): NotificationSettingsResult {
+        val setting = settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
+            ?: NotificationSetting.defaultFor(memberId, installationId)
+        val openConsents = consentRepository.findOpenByMemberId(memberId)
+
+        return NotificationSettingsResult(
+            activity = setting.activity,
+            newsEnabled = setting.news,
+            mealTime = setting.mealTime && setting.news,
+            privacyConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_PRIVACY),
+            receiveConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_RECEIVE),
+        )
+    }
+
+    private fun latestOpen(open: List<NotificationConsent>, type: NotificationConsentType): NotificationConsent? =
+        open.filter { it.consentType == type }.maxByOrNull { it.grantedAt }
 
     @Transactional(readOnly = true)
     fun getRecentNotifications(memberId: Long, installationId: String): List<NotificationResponse> {

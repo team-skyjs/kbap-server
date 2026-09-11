@@ -148,6 +148,56 @@ class NotificationSettingControllerTest : BehaviorSpec() {
 
         val disable = mapOf("news" to mapOf("enabled" to false))
 
+        data class SettingRow(val installationId: String?, val activity: Boolean, val mealTime: Boolean, val news: Boolean)
+
+        fun getDevice(accessToken: String?, installationId: String?, apiVersion: String = "2.1"): MockHttpServletResponse =
+            mockMvc.get("/api/notifications/settings") {
+                header("X-API-Version", apiVersion)
+                if (accessToken != null) header("Authorization", "Bearer $accessToken")
+                if (installationId != null) header("X-Installation-Id", installationId)
+            }.andReturn().response
+
+        fun patchDevice(accessToken: String?, installationId: String?, body: Any, apiVersion: String = "2.1"): MockHttpServletResponse =
+            mockMvc.patch("/api/notifications/settings") {
+                header("X-API-Version", apiVersion)
+                if (accessToken != null) header("Authorization", "Bearer $accessToken")
+                if (installationId != null) header("X-Installation-Id", installationId)
+                contentType = MediaType.APPLICATION_JSON
+                content = if (body is String) body else objectMapper.writeValueAsString(body)
+            }.andReturn().response
+
+        fun seedDeviceSetting(memberId: Long, installationId: String, activity: Boolean = false, mealTime: Boolean = false, news: Boolean = false) {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO notification_setting (member_id, installation_id, activity, meal_time, news, status, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, ?, 'ACTIVE', NOW(6), NOW(6))",
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.setString(2, installationId)
+                    ps.setBoolean(3, activity)
+                    ps.setBoolean(4, mealTime)
+                    ps.setBoolean(5, news)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun settingRows(memberId: Long): List<SettingRow> =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT installation_id, activity, meal_time, news FROM notification_setting WHERE member_id = ? ORDER BY installation_id",
+                ).use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeQuery().use { rs ->
+                        generateSequence { if (rs.next()) rs else null }
+                            .map { SettingRow(it.getString("installation_id"), it.getBoolean("activity"), it.getBoolean("meal_time"), it.getBoolean("news")) }
+                            .toList()
+                    }
+                }
+            }
+
+        fun deviceRow(memberId: Long, installationId: String): SettingRow? = settingRows(memberId).singleOrNull { it.installationId == installationId }
+
         fun assertDefault(node: JsonNode) {
             node.path("activity").asBoolean() shouldBe false
             node.path("news").path("enabled").asBoolean() shouldBe false
@@ -459,6 +509,268 @@ class NotificationSettingControllerTest : BehaviorSpec() {
                     payload(patch(access, enable(1, 1), installationId = "dev-1"))
 
                     consents(memberId).all { it.installationId == "dev-1" } shouldBe true
+                }
+            }
+        }
+
+        given("기기별 설정 조회 — 2.1") {
+            `when`("설정을 만진 적 없는 기기가 조회하면") {
+                then("전부 꺼짐이고 기기 행은 생기지 않는다") {
+                    val (memberId, access) = login("member-a")
+
+                    assertDefault(payload(getDevice(access, "dev-a")))
+                    settingRows(memberId).size shouldBe 0
+                }
+            }
+
+            `when`("기기 A·B 가 서로 다른 값을 가진 회원이 각 기기로 조회하면") {
+                then("각자 자기 기기 값을 돌려준다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", activity = true)
+                    seedDeviceSetting(memberId, "dev-b", activity = false)
+
+                    payload(getDevice(access, "dev-a")).path("activity").asBoolean() shouldBe true
+                    payload(getDevice(access, "dev-b")).path("activity").asBoolean() shouldBe false
+                }
+            }
+
+            `when`("기기 식별자 헤더가 없거나 공백이거나 36자를 넘으면") {
+                then("400 COMMON-002 로 거절되고 행은 생기지 않는다") {
+                    val (memberId, access) = login("member-a")
+
+                    val missing = getDevice(access, null)
+                    missing.status shouldBe 400
+                    missing.contentAsString shouldContain "COMMON-002"
+                    getDevice(access, " ").status shouldBe 400
+                    getDevice(access, "x".repeat(37)).status shouldBe 400
+                    patchDevice(access, null, mapOf("activity" to true)).status shouldBe 400
+                    patchDevice(access, " ", mapOf("activity" to true)).status shouldBe 400
+                    patchDevice(access, "x".repeat(37), mapOf("activity" to true)).status shouldBe 400
+                    settingRows(memberId).size shouldBe 0
+                }
+            }
+
+            `when`("구 계약 행과 기기 행을 모두 가진 회원이 구 버전 헤더로 조회하면") {
+                then("구 버전은 회원 단위 행을, 2.1 은 기기 행을 돌려준다") {
+                    val (memberId, access) = login("member-a")
+                    seedSetting(memberId, activity = true, mealTime = false)
+                    seedDeviceSetting(memberId, "dev-a", activity = false)
+
+                    payload(get(access, apiVersion = "1.1")).path("activity").asBoolean() shouldBe true
+                    payload(get(access, apiVersion = "2.0")).path("activity").asBoolean() shouldBe true
+                    payload(getDevice(access, "dev-a")).path("activity").asBoolean() shouldBe false
+                }
+            }
+
+            `when`("인증 없이 조회하면") {
+                then("401 로 거절된다") {
+                    getDevice(null, "dev-a").status shouldBe 401
+                }
+            }
+        }
+
+        given("기기별 토글 수정 — 2.1") {
+            `when`("기기 A·B 가 활동 켜짐인 회원이 기기 A 만 끄면") {
+                then("A 는 꺼지고 B 는 그대로다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", activity = true)
+                    seedDeviceSetting(memberId, "dev-b", activity = true)
+
+                    payload(patchDevice(access, "dev-a", mapOf("activity" to false))).path("activity").asBoolean() shouldBe false
+
+                    payload(getDevice(access, "dev-a")).path("activity").asBoolean() shouldBe false
+                    payload(getDevice(access, "dev-b")).path("activity").asBoolean() shouldBe true
+                }
+            }
+
+            `when`("설정 행이 없는 기기가 활동 켜기를 보내면") {
+                then("그 기기 행만 생기고 구 계약 조회는 기본값 그대로다") {
+                    val (memberId, access) = login("member-a")
+
+                    payload(patchDevice(access, "dev-a", mapOf("activity" to true))).path("activity").asBoolean() shouldBe true
+
+                    settingRows(memberId).map { it.installationId } shouldBe listOf("dev-a")
+                    assertDefault(payload(get(access, apiVersion = "1.1")))
+                }
+            }
+
+            `when`("빈 본문을 보내면") {
+                then("아무것도 바뀌지 않고 현재 설정을 응답한다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", activity = true)
+
+                    payload(patchDevice(access, "dev-a", emptyMap<String, Any>())).path("activity").asBoolean() shouldBe true
+                    deviceRow(memberId, "dev-a")?.activity shouldBe true
+                }
+            }
+        }
+
+        given("기기별 소식 토글과 회원 동의 — 2.1") {
+            fun consentOn(privacy: Int? = 2, receive: Int? = 2, extra: Map<String, Any?> = emptyMap()): Map<String, Any?> =
+                mapOf(
+                    "news" to buildMap {
+                        put("consent", true)
+                        if (privacy != null) put("privacyConsentVersion", privacy)
+                        if (receive != null) put("receiveConsentVersion", receive)
+                        putAll(extra)
+                    },
+                )
+            val consentOff = mapOf("news" to mapOf("consent" to false))
+            fun newsOn(on: Boolean) = mapOf("news" to mapOf("enabled" to on))
+            fun mealTime(on: Boolean) = mapOf("news" to mapOf("mealTime" to on))
+
+            `when`("동의 기록이 없는 회원이 기기 A 에서 두 문구 버전과 함께 동의를 켜면") {
+                then("종류별 열린 동의가 생기고 동의 받은 기기가 남으며 기기 토글값은 바뀌지 않는다") {
+                    val (memberId, access) = login("member-a")
+
+                    val news = payload(patchDevice(access, "dev-a", consentOn())).path("news")
+
+                    news.path("enabled").asBoolean() shouldBe false
+                    news.path("privacyConsent").path("version").asInt() shouldBe 2
+                    news.path("receiveConsent").path("version").asInt() shouldBe 2
+                    val rows = consents(memberId)
+                    rows.map { it.type }.sorted() shouldBe listOf("MARKETING_PRIVACY", "MARKETING_RECEIVE")
+                    rows.all { it.revokedAt == null && it.installationId == "dev-a" } shouldBe true
+                    settingRows(memberId).size shouldBe 0
+                }
+            }
+
+            `when`("동의가 열린 회원이 기기 A 에서 소식을 켜면") {
+                then("기기 A 만 켜지고 원장은 그대로이며 기기 B 는 꺼짐이다") {
+                    val (memberId, access) = login("member-a")
+                    seedConsent(memberId, "MARKETING_PRIVACY", 2)
+                    seedConsent(memberId, "MARKETING_RECEIVE", 2)
+                    val before = consents(memberId)
+
+                    payload(patchDevice(access, "dev-a", newsOn(true))).path("news").path("enabled").asBoolean() shouldBe true
+
+                    deviceRow(memberId, "dev-a")?.news shouldBe true
+                    consents(memberId) shouldBe before
+                    payload(getDevice(access, "dev-b")).path("news").path("enabled").asBoolean() shouldBe false
+                }
+            }
+
+            `when`("기기 한 대만 소식이 켜진 회원이 그 기기의 소식을 끄면") {
+                then("그 기기만 꺼지고 동의는 열린 채 남는다") {
+                    val (memberId, access) = login("member-a")
+                    seedConsent(memberId, "MARKETING_PRIVACY", 2)
+                    seedConsent(memberId, "MARKETING_RECEIVE", 2)
+                    seedDeviceSetting(memberId, "dev-a", news = true)
+
+                    payload(patchDevice(access, "dev-a", newsOn(false))).path("news").path("enabled").asBoolean() shouldBe false
+
+                    deviceRow(memberId, "dev-a")?.news shouldBe false
+                    consents(memberId).all { it.revokedAt == null } shouldBe true
+                }
+            }
+
+            `when`("동의가 열리고 기기 A·B 소식이 켜진 회원이 동의를 철회하면") {
+                then("열린 동의가 전부 닫히고 두 기기의 소식 토글값은 그대로다") {
+                    val (memberId, access) = login("member-a")
+                    seedConsent(memberId, "MARKETING_PRIVACY", 2)
+                    seedConsent(memberId, "MARKETING_RECEIVE", 2)
+                    seedDeviceSetting(memberId, "dev-a", news = true)
+                    seedDeviceSetting(memberId, "dev-b", news = true)
+
+                    val news = payload(patchDevice(access, "dev-a", consentOff)).path("news")
+
+                    news.path("enabled").asBoolean() shouldBe true
+                    news.path("privacyConsent").isNull shouldBe true
+                    news.path("receiveConsent").isNull shouldBe true
+                    consents(memberId).all { it.revokedAt != null } shouldBe true
+                    deviceRow(memberId, "dev-a")?.news shouldBe true
+                    deviceRow(memberId, "dev-b")?.news shouldBe true
+                    payload(getDevice(access, "dev-b")).path("news").path("enabled").asBoolean() shouldBe true
+                }
+            }
+
+            `when`("소식이 꺼진 기기에서 식사 시간 알림을 켜면") {
+                then("NOTIFICATION-001 로 거절되고 행은 바뀌지 않는다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", news = false)
+
+                    val response = patchDevice(access, "dev-a", mealTime(true))
+
+                    response.status shouldBe 400
+                    response.contentAsString shouldContain "NOTIFICATION-001"
+                    deviceRow(memberId, "dev-a")?.mealTime shouldBe false
+                }
+            }
+
+            `when`("소식이 켜진 기기에서 동의 없이 식사 시간 알림을 켜면") {
+                then("허용된다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", news = true)
+
+                    payload(patchDevice(access, "dev-a", mealTime(true))).path("news").path("mealTime").asBoolean() shouldBe true
+                    deviceRow(memberId, "dev-a")?.mealTime shouldBe true
+                }
+            }
+
+            `when`("구 버전 동의가 열린 회원이 새 버전으로 동의를 켜면") {
+                then("구 버전은 닫히고 새 버전이 열리며 같은 버전 재요청은 원장을 바꾸지 않는다") {
+                    val (memberId, access) = login("member-a")
+                    seedConsent(memberId, "MARKETING_PRIVACY", 1)
+                    seedConsent(memberId, "MARKETING_RECEIVE", 1)
+
+                    payload(patchDevice(access, "dev-a", consentOn(2, 2)))
+                    val after = consents(memberId)
+                    after.size shouldBe 4
+                    after.filter { it.version == 1 }.all { it.revokedAt != null } shouldBe true
+                    after.filter { it.version == 2 }.all { it.revokedAt == null } shouldBe true
+
+                    payload(patchDevice(access, "dev-a", consentOn(2, 2)))
+                    consents(memberId) shouldBe after
+                }
+            }
+
+            `when`("동의 켜기에 두 버전 중 하나가 빠지면") {
+                then("400 COMMON-002 로 거절되고 원장·기기값은 바뀌지 않는다") {
+                    val (memberId, access) = login("member-a")
+
+                    val response = patchDevice(access, "dev-a", consentOn(privacy = 2, receive = null))
+
+                    response.status shouldBe 400
+                    response.contentAsString shouldContain "COMMON-002"
+                    consents(memberId).size shouldBe 0
+                    settingRows(memberId).size shouldBe 0
+                }
+            }
+
+            `when`("동의 기록이 없는 회원이 동의 철회를 보내면") {
+                then("아무 변화 없이 성공한다") {
+                    val (memberId, access) = login("member-a")
+
+                    payload(patchDevice(access, "dev-a", consentOff))
+
+                    consents(memberId).size shouldBe 0
+                }
+            }
+
+            `when`("동의 켜기·소식 켜기·식사 시간 켜기를 한 요청에 보내면") {
+                then("동의 → 소식 → 식사 시간 순으로 반영돼 셋 다 켜진다") {
+                    val (memberId, access) = login("member-a")
+
+                    val news = payload(patchDevice(access, "dev-a", consentOn(extra = mapOf("enabled" to true, "mealTime" to true)))).path("news")
+
+                    news.path("enabled").asBoolean() shouldBe true
+                    news.path("mealTime").asBoolean() shouldBe true
+                    news.path("privacyConsent").isNull shouldBe false
+                    consents(memberId).size shouldBe 2
+                    deviceRow(memberId, "dev-a") shouldBe SettingRow("dev-a", activity = false, mealTime = true, news = true)
+                }
+            }
+
+            `when`("식사 시간 알림이 켜진 기기의 소식을 끄면") {
+                then("표시값은 꺼짐이지만 식사 시간 저장값은 남는다") {
+                    val (memberId, access) = login("member-a")
+                    seedDeviceSetting(memberId, "dev-a", news = true, mealTime = true)
+
+                    val news = payload(patchDevice(access, "dev-a", newsOn(false))).path("news")
+
+                    news.path("enabled").asBoolean() shouldBe false
+                    news.path("mealTime").asBoolean() shouldBe false
+                    deviceRow(memberId, "dev-a")?.mealTime shouldBe true
                 }
             }
         }
