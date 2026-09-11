@@ -32,6 +32,17 @@ spring:
 logging:
   level:
     com.kbap.infra.llm.provider: DEBUG
+sentry:
+  dsn: ${BATCH_SENTRY_DSN:}
+  environment: ${SPRING_PROFILES_ACTIVE:local}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: true
+  tags:
+    service: batch
+  context-tags: job
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
 # 관측(KB-380): /actuator/prometheus 로 JVM·Spring Batch 잡 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공하고,
 # ECS 컨테이너 헬스체크가 /actuator/health/readiness 를 본다(iac/terraform … batch.tf).
 management:
@@ -78,6 +89,11 @@ kbap:
     bucket: ${VECTOR_BUCKET:}
     index: ${VECTOR_INDEX:foods}
     region: ${AWS_REGION:ap-northeast-2}
+  # Expo push 발송(KB-468). access-token 은 Enhanced push security 를 켤 때만 필요 — 비어 있으면 Authorization 헤더를 생략한다.
+  push:
+    expo:
+      base-url: https://exp.host
+      access-token: ${EXPO_ACCESS_TOKEN:}
 # datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
 # 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
 # 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

@@ -105,7 +105,8 @@ class WebConfig(
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.API}/members/*",
-                "${ApiPaths.API}/notifications/settings",
+                "${ApiPaths.API}/notifications",
+                "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",

@@ -25,12 +25,12 @@ data class NewsUpdateRequest(
     val mealTime: Boolean? = null,
 
     @field:Positive(message = "privacyConsentVersion 은 양의 정수여야 합니다")
-    @field:Max(value = MarketingSettingsRequest.MAX_CONSENT_VERSION, message = "privacyConsentVersion 은 ${MarketingSettingsRequest.MAX_CONSENT_VERSION} 이하여야 합니다")
+    @field:Max(value = MAX_CONSENT_VERSION, message = "privacyConsentVersion 은 ${MAX_CONSENT_VERSION} 이하여야 합니다")
     @field:Schema(description = "마케팅 목적 개인정보 수집·이용 동의 문구 버전(1~65535). enabled 가 true 면 필수", example = "1")
     val privacyConsentVersion: Int? = null,
 
     @field:Positive(message = "receiveConsentVersion 은 양의 정수여야 합니다")
-    @field:Max(value = MarketingSettingsRequest.MAX_CONSENT_VERSION, message = "receiveConsentVersion 은 ${MarketingSettingsRequest.MAX_CONSENT_VERSION} 이하여야 합니다")
+    @field:Max(value = MAX_CONSENT_VERSION, message = "receiveConsentVersion 은 ${MAX_CONSENT_VERSION} 이하여야 합니다")
     @field:Schema(description = "광고성 정보 수신 동의 문구 버전(1~65535). enabled 가 true 면 필수", example = "1")
     val receiveConsentVersion: Int? = null,
 ) {
@@ -38,4 +38,8 @@ data class NewsUpdateRequest(
     @get:Schema(hidden = true)
     val versionsPresentWhenEnabled: Boolean
         get() = enabled != true || (privacyConsentVersion != null && receiveConsentVersion != null)
+
+    companion object {
+        const val MAX_CONSENT_VERSION = 65535L
+    }
 }

@@ -2,6 +2,7 @@ package com.kbap.batch.outbox
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.batch.observability.JobNameMdcListener
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.port.mq.FoodContentEventPublisher
 import com.kbap.common.infra.mq.SqsFoodContentEventPublisher
@@ -76,9 +77,11 @@ class FoodContentOutboxBatchConfig {
     fun foodContentOutboxPublishJob(
         jobRepository: JobRepository,
         foodContentOutboxPublishStep: Step,
+        jobNameMdcListener: JobNameMdcListener,
     ): Job =
         JobBuilder("foodContentOutboxPublishJob", jobRepository)
             .incrementer(RunIdIncrementer())
+            .listener(jobNameMdcListener)
             .start(foodContentOutboxPublishStep)
             .build()
 

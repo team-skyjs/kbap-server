@@ -23,6 +23,14 @@ interface NotificationJpaRepository : JpaRepository<Notification, Long> {
         pageable: Pageable,
     ): List<Notification>
 
+    fun findByMemberIdAndInstallationIdAndCreatedAtAfterOrderByIdDesc(
+        memberId: Long,
+        installationId: String,
+        since: LocalDateTime,
+    ): List<Notification>
+
+    fun findByIdAndMemberIdAndInstallationId(id: Long, memberId: Long, installationId: String): Notification?
+
     fun countByMemberIdAndReadAtIsNull(memberId: Long): Long
 
     @Modifying

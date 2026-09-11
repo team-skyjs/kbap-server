@@ -86,7 +86,11 @@ jobs:
           aws ecs describe-task-definition --task-definition "$ECS_NAME-api" \
             --query taskDefinition > taskdef.json
           jq --arg IMAGE "$IMAGE" '
-            .containerDefinitions |= map(if .name == "api" then .image = $IMAGE else . end)
+            .containerDefinitions |= map(if .name == "api" then
+                .image = $IMAGE
+                | .environment = ((.environment // []) | map(select(.name != "SENTRY_RELEASE"))
+                    + [{name: "SENTRY_RELEASE", value: ($IMAGE | split(":") | last)}])
+              else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                   .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
           ' taskdef.json > new-taskdef.json
