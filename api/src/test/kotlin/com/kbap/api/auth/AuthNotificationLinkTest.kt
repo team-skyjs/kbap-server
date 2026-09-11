@@ -312,7 +312,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
         fun patchDeviceSettings(accessToken: String, installationId: String, body: Map<String, Any?>): MockHttpServletResponse =
             mockMvc.patch("/api/notifications/settings") {
-                header("X-API-Version", "2.1")
+                header("X-API-Version", "1.1")
                 header("X-Installation-Id", installationId)
                 header("Authorization", "Bearer $accessToken")
                 contentType = MediaType.APPLICATION_JSON
@@ -321,7 +321,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
 
         fun deviceActivity(accessToken: String, installationId: String): Boolean {
             val response = mockMvc.get("/api/notifications/settings") {
-                header("X-API-Version", "2.1")
+                header("X-API-Version", "1.1")
                 header("X-Installation-Id", installationId)
                 header("Authorization", "Bearer $accessToken")
             }.andReturn().response
@@ -329,19 +329,7 @@ class AuthNotificationLinkTest : BehaviorSpec() {
             return objectMapper.readTree(response.contentAsString).path("payload").path("activity").asBoolean()
         }
 
-        fun insertLegacySetting(memberId: Long) {
-            dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "INSERT INTO notification_setting (member_id, activity, meal_time, news, status, created_at, updated_at) " +
-                        "VALUES (?, TRUE, FALSE, FALSE, 'ACTIVE', NOW(6), NOW(6))",
-                ).use { ps ->
-                    ps.setLong(1, memberId)
-                    ps.executeUpdate()
-                }
-            }
-        }
-
-        fun settingStatuses(memberId: Long): Map<String?, String> =
+        fun settingStatuses(memberId: Long): Map<String, String> =
             dataSource.connection.use { c ->
                 c.prepareStatement("SELECT installation_id, status FROM notification_setting WHERE member_id = ?").use { ps ->
                     ps.setLong(1, memberId)
@@ -370,19 +358,18 @@ class AuthNotificationLinkTest : BehaviorSpec() {
         }
 
         given("기기별 설정과 탈퇴") {
-            `when`("기기 두 대의 설정과 구 계약 행, 열린 동의를 가진 회원이 탈퇴하면") {
-                then("기기 행은 소프트 삭제되고 구 계약 행은 그대로이며 기기 연결·동의는 닫힌다") {
+            `when`("기기 두 대의 설정과 열린 동의를 가진 회원이 탈퇴하면") {
+                then("기기 설정 행은 소프트 삭제되고 기기 연결·동의는 닫힌다") {
                     val session = login("member-a", "dev-1")
                     registerToken("dev-1", session.accessToken)
                     registerToken("dev-2", session.accessToken)
                     patchDeviceSettings(session.accessToken, "dev-1", mapOf("activity" to true)).status shouldBe 200
                     patchDeviceSettings(session.accessToken, "dev-2", mapOf("activity" to true)).status shouldBe 200
-                    insertLegacySetting(session.memberId)
                     insertOpenMemberConsent(session.memberId, 2)
 
                     withdraw(session.accessToken).status shouldBe 200
 
-                    settingStatuses(session.memberId) shouldBe mapOf(null to "ACTIVE", "dev-1" to "DELETED", "dev-2" to "DELETED")
+                    settingStatuses(session.memberId) shouldBe mapOf("dev-1" to "DELETED", "dev-2" to "DELETED")
                     deviceMemberId("dev-1").shouldBeNull()
                     deviceMemberId("dev-2").shouldBeNull()
                     openConsentsOfMember(session.memberId).size shouldBe 0

@@ -6,9 +6,9 @@
 
 ## Summary
 
-`notification_setting` 을 (회원, 기기) 단위로 재정의한다 — `installation_id`(NULL 허용)·`news` 컬럼을 더하고 고유키를 `(member_id)` 에서 `(member_id, installation_id)` 로 교체하는 마이그레이션 1건. 같은 경로 `GET/PATCH /api/notifications/settings` 에 `X-API-Version: 2.1+` 매핑을 추가해 `X-Installation-Id` 를 필수로 받고 이 기기의 행을 읽고 쓴다. 구 무버전 매핑은 `installation_id IS NULL` 행으로 종전 동작을 유지한다. 광고성 동의 원장(`notification_consent`)은 회원 단위 그대로이며, **새 계약의 소식 그룹은 기기 수신(`enabled`)과 회원 동의(`consent`)를 별개 항목으로 받는다**(2026-09-11 FE 검토 반영 — 당근식 두 토글). `consent: true/false` 만 원장을 열고 닫고, `enabled` 는 이 기기 `news` 만 바꾼다. 응답 `news.enabled` 는 기기 저장값, 동의 상태는 두 동의 항목의 유무다. `PushTargetResolver` 는 (회원, 기기) 키로 토글을 판정하고(행 없음 = 제외), `SCAN_SUGGESTION`·`NEWS` 는 새 `news` 토글 AND 회원 동의 유효를 본다. 탈퇴는 기기 행을 소프트 삭제하고 로그아웃·토큰 등록은 설정 행을 건드리지 않는다.
+`notification_setting` 을 (회원, 기기) 단위로 재정의한다 — `installation_id`(NOT NULL)·`news` 컬럼을 더하고 고유키를 `(member_id)` 에서 `(member_id, installation_id)` 로 교체하며 기존 회원 단위 행을 지우는 마이그레이션 1건. `GET/PATCH /api/notifications/settings` 는 **기존 무버전 매핑(1.0 부터) 그대로** `X-Installation-Id` 를 필수로 받고 이 기기의 행을 읽고 쓴다(2026-09-11 2차 개정 — 새 버전 매핑 없이 계약 교체, dev 전용 서비스라 사용자가 허용). 광고성 동의 원장(`notification_consent`)은 회원 단위 그대로이며, **새 계약의 소식 그룹은 기기 수신(`enabled`)과 회원 동의(`consent`)를 별개 항목으로 받는다**(2026-09-11 FE 검토 반영 — 당근식 두 토글). `consent: true/false` 만 원장을 열고 닫고, `enabled` 는 이 기기 `news` 만 바꾼다. 응답 `news.enabled` 는 기기 저장값, 동의 상태는 두 동의 항목의 유무다. `PushTargetResolver` 는 (회원, 기기) 키로 토글을 판정하고(행 없음 = 제외), `SCAN_SUGGESTION`·`NEWS` 는 새 `news` 토글 AND 회원 동의 유효를 본다. 탈퇴는 기기 행을 소프트 삭제하고 로그아웃·토큰 등록은 설정 행을 건드리지 않는다.
 
-새 클래스는 요청 DTO 한 벌(`DeviceNotificationSettingsUpdateRequest`·`DeviceNewsUpdateRequest`, 파일 1)뿐이다. 변경은 엔티티 1·리포지토리 1·마이그레이션 1·서비스 3(`NotificationService`·`NotificationTokenService`·`PushTargetResolver`)·컨트롤러/문서 2·테스트 4 이다. 설계 결정은 [research.md](research.md)(결정 3·5·8 은 개정판), 스키마·쿼리는 [data-model.md](data-model.md), HTTP 계약은 [contracts/notification-settings.md](contracts/notification-settings.md).
+새 클래스는 없다(요청 DTO 는 기존 `NotificationSettingsUpdateRequest`·`NewsUpdateRequest` 를 새 계약으로 교체). 변경은 엔티티 1·리포지토리 1·마이그레이션 1·서비스 3(`NotificationService`·`NotificationTokenService`·`PushTargetResolver`)·컨트롤러/문서 2·테스트 4 이다. 설계 결정은 [research.md](research.md)(결정 3·5·8 은 개정판), 스키마·쿼리는 [data-model.md](data-model.md), HTTP 계약은 [contracts/notification-settings.md](contracts/notification-settings.md).
 
 ## Technical Context
 
@@ -26,7 +26,7 @@
 
 **Performance Goals**: N/A — 설정 API 쿼리 수는 구 계약과 같다(설정 1·동의 1). 발송 대상 조회는 종전과 같은 3 쿼리(기기·설정·동의), 키만 바뀜
 
-**Constraints**: 블루/그린 배포 중 구 코드가 신 스키마 위에서 돈다(SC-005) — 새 컬럼 NULL/DEFAULT·구 행 무변경. 구 계약 테스트 무변경 통과(SC-004). 격리수준·락 추가 금지(비치명 경합 감수). 부가 방어 기능 추가 금지. Kotlin 소스 주석 금지. 새 계약 버전 마커 `2.1` 은 FE(KB-497) 확인 항목(spec Assumptions)
+**Constraints**: 블루/그린 구간에 구 코드가 기기 식별자 없이 저장하면 NOT NULL 위반 — dev 전용 기능이라 감수(2차 개정). 설정 테스트는 기기 단위로 재작성(SC-004 개정). 격리수준·락 추가 금지(비치명 경합 감수). 부가 방어 기능 추가 금지. Kotlin 소스 주석 금지. 새 계약 버전 마커 `2.1` 은 FE(KB-497) 확인 항목(spec Assumptions)
 
 **Scale/Scope**: 변경 파일 약 15개(main 10·test 4·마이그레이션 1), 신규 파일 2(마이그레이션·새 계약 요청 DTO), 신규 클래스 2(요청 DTO 한 벌)
 
@@ -57,7 +57,7 @@ specs/kb-544-device-notification-settings/
 ├── data-model.md        # Phase 1 — NotificationSetting 변경·마이그레이션 SQL·리포지토리 메서드·계산 규칙
 ├── quickstart.md        # Phase 1 — 검증 절차·curl·완료 체크
 ├── contracts/
-│   └── notification-settings.md   # GET/PATCH /api/notifications/settings 2.1+ 계약(구 계약 대비표·시나리오 매핑)
+│   └── notification-settings.md   # GET/PATCH /api/notifications/settings 기기 단위 계약(변경 전후 대비표·시나리오 매핑)
 └── tasks.md             # Phase 2 — /speckit-tasks 가 생성
 ```
 
@@ -72,17 +72,17 @@ common/src/main/kotlin/com/kbap/common/domain/notification/
 ├── NotificationSettingJpaRepository.kt           # findByMemberIdAndInstallationIdIsNull / ...AndInstallationId / ...IsNotNull
 └── PushTargetResolver.kt                         # (memberId, installationId) 키잉, SCAN_SUGGESTION·NEWS → news
 common/src/test/kotlin/com/kbap/common/domain/notification/
-├── NotificationSettingJpaRepositoryTest.kt       # 기기별 두 행·같은 쌍 중복·NULL 행 조회
+├── NotificationSettingJpaRepositoryTest.kt       # 기기별 두 행·같은 쌍 중복·회원 기준 조회
 └── PushTargetResolverTest.kt                     # setting() 헬퍼에 installationId, 기기별 시나리오
 
 api/src/main/kotlin/com/kbap/api/notification/
-├── DeviceNotificationSettingsUpdateRequest.kt    # 신규 — 새 계약 요청 DTO(activity?, news{enabled?, consent?, mealTime?, 두 버전}) + @AssertTrue(consent→버전)
-├── NotificationService.kt                        # getDeviceSettings·updateDeviceSettings(consent→enabled→mealTime), 구 메서드는 IsNull 조회로
+├── NotificationSettingsUpdateRequest.kt          # 요청 DTO 교체 — news{enabled?, consent?, mealTime?, 두 버전} + @AssertTrue(consent→버전)
+├── NotificationService.kt                        # getSettings·updateSettings(memberId, installationId) — consent→enabled→mealTime
 ├── NotificationTokenService.kt                   # closeOnWithdraw 에 기기 설정 행 소프트 삭제(settingRepository 주입)
-├── NotificationController.kt                     # GET/PATCH "/settings" version = "2.1+" + X-Installation-Id 필수
-└── NotificationApi.kt                            # getDeviceSettings·updateDeviceSettings Swagger 서술, 구 메서드에 대체 안내
+├── NotificationController.kt                     # GET/PATCH "/settings" 무버전 매핑 유지 + X-Installation-Id 필수
+└── NotificationApi.kt                            # getSettings·updateSettings Swagger 서술을 기기 단위로 교체
 api/src/test/kotlin/com/kbap/api/
-├── notification/NotificationSettingControllerTest.kt   # given("기기별 설정 조회")·("기기별 소식 동의") 등 2.1 블록 추가, 기존 블록 무변경
+├── notification/NotificationSettingControllerTest.kt   # 기기 단위 계약으로 전면 재작성
 └── auth/AuthNotificationLinkTest.kt              # 로그아웃 후 설정 보존, 탈퇴 시 기기 행 DELETED
 
 ../kbap-agenthub/wiki/push-notification-marketing-consent.md   # "KB-544 예고" → 확정 절(구현 마무리 시 update-agenthub)
@@ -99,7 +99,8 @@ api/src/test/kotlin/com/kbap/api/
 | 항목 | spec | plan | 이유 |
 |------|------|------|------|
 | 구 고유키 `uk_notification_setting_member(member_id)` | 이번에 제거하지 않음 | **제거하고 `(member_id, installation_id)` 로 교체** | 남기면 회원당 기기별 여러 행이 불가능(FR-001 과 양립 불가). 블루/그린 위험은 research 결정 1 에서 한정·감수 |
-| 새 버전 마커 | plan 에서 FE 와 확정 | `2.1+` 로 가정 | 최고 마커 2.0 의 다음. FE 확인 후 상수 두 곳만 조정 |
+| 새 버전 마커 | plan 에서 FE 와 확정 | **없음** — 무버전 매핑에서 계약 교체 | 2차 개정(사용자 결정, dev 환경). 처음엔 2.1+ 로 구현했다가 제거 |
+| 기존 회원 단위 행 | 삭제·이관하지 않음 | 마이그레이션에서 삭제, `installation_id NOT NULL` | 읽는 코드가 사라져 남길 이유 없음(2차 개정) |
 | 광고성 유형 | "정보성 NOTICE" 언급 | 코드 사실 `NEWS(marketing=true)` | KB-468 이 NOTICE→NEWS 로 바꿈 |
 
 ## Post-Design Constitution Check
@@ -108,6 +109,5 @@ Phase 1 산출물(data-model·contracts) 기준 재검토(2026-09-11 개정 반�
 
 ## 산출물 밖 후속 (플랜 범위 밖, 기록용)
 
-- 구 계약(무버전 매핑) 폐기 시: `installation_id IS NULL` 행 삭제 + `installation_id NOT NULL` 승격 + 구 서비스 메서드 삭제. 별도 Jira 태스크로 등록해 KB-544 코멘트에 연결.
-- 스케줄 발송(광고성·활동)을 켜기 전에 FE 2.1 릴리스가 먼저 나가야 한다 — 기기 행이 없는 회원은 전 유형 발송 대상에서 빠진다(research 결정 6).
-- FE(KB-497)에 "2.1 + `X-Installation-Id` 필수 + 값은 기기별" 공유.
+- 스케줄 발송(광고성·활동)을 켜기 전에 FE 기기 단위 설정 릴리스가 먼저 나가야 한다 — 기기 행이 없는 회원은 전 유형 발송 대상에서 빠진다(research 결정 6).
+- FE(KB-497)에 "`X-Installation-Id` 필수(버전 마커 없음) + 값은 기기별 + `consent`/`enabled` 분리" 공유.

@@ -126,12 +126,6 @@ class OpenApiConfig {
         operationCustomizers: List<OperationCustomizer>,
     ): GroupedOpenApi = versionDoc("2.0", handlerMappings, operationCustomizers)
 
-    @Bean
-    fun apiVersion21Doc(
-        handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
-        operationCustomizers: List<OperationCustomizer>,
-    ): GroupedOpenApi = versionDoc("2.1", handlerMappings, operationCustomizers)
-
     private fun versionDoc(
         version: String,
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
@@ -201,7 +195,7 @@ class OpenApiConfig {
 
             응답의 `X-Request-Id` 헤더는 서버가 부여하는 요청 상관 키입니다 — 문의 시 함께 전달하면 로그 추적이 빠릅니다.
 
-            버전별 계약 차이는 우측 상단 그룹 선택(`X-API-Version 1.0/1.1/2.0/2.1`)으로 확인하세요.
+            버전별 계약 차이는 우측 상단 그룹 선택(`X-API-Version 1.0/1.1/2.0`)으로 확인하세요.
             """.trimIndent()
         private val CLIENT_VERSION_HEADERS: Map<String, String> = mapOf(
             RequestLoggingFilter.OS_VERSION_HEADER to

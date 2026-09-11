@@ -64,10 +64,6 @@ class PushTargetResolverTest : BehaviorSpec() {
             )
         }
 
-        fun legacySetting(memberId: Long, activity: Boolean, mealTime: Boolean) {
-            settingRepository.save(NotificationSetting(memberId = memberId, activity = activity, mealTime = mealTime, news = true))
-        }
-
         fun consent(memberId: Long, type: NotificationConsentType, version: Int) {
             consentRepository.save(NotificationConsent.grantForMember(memberId, null, type, version, now))
         }
@@ -93,16 +89,6 @@ class PushTargetResolverTest : BehaviorSpec() {
                 then("켜진 기기 A 만 돌려준다") {
                     tokensOf(listOf(1L, 2L), NotificationType.HELPFUL) shouldBe listOf(a.expoToken)
                     tokensOf(listOf(1L, 2L), NotificationType.REVIEW_REMINDER) shouldBe listOf(a.expoToken)
-                }
-            }
-
-            `when`("회원 단위 구 계약 행(기기 식별자 없음)만 켜져 있으면") {
-                clear()
-                device(3L)
-                legacySetting(3L, activity = true, mealTime = true)
-
-                then("기기 행이 아니므로 대상이 아니다") {
-                    tokensOf(listOf(3L), NotificationType.HELPFUL).shouldBeEmpty()
                 }
             }
         }

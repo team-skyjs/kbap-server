@@ -17,8 +17,8 @@ class NotificationSetting(
     @Column(name = "member_id", nullable = false)
     var memberId: Long = 0,
 
-    @Column(name = "installation_id", length = 36)
-    var installationId: String? = null,
+    @Column(name = "installation_id", nullable = false, length = 36)
+    var installationId: String = "",
 
     @Column(name = "activity", nullable = false)
     var activity: Boolean = false,
@@ -42,8 +42,6 @@ class NotificationSetting(
     }
 
     companion object {
-        fun defaultFor(memberId: Long) = NotificationSetting(memberId = memberId)
-
         fun defaultFor(memberId: Long, installationId: String) = NotificationSetting(memberId = memberId, installationId = installationId)
     }
 }

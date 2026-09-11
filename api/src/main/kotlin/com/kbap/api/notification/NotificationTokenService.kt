@@ -42,7 +42,7 @@ class NotificationTokenService(
     @Transactional
     fun closeOnWithdraw(memberId: Long) {
         deviceRepository.findByMemberId(memberId).forEach { it.unlinkMember() }
-        settingRepository.findByMemberIdAndInstallationIdIsNotNull(memberId).forEach { it.delete() }
+        settingRepository.findByMemberId(memberId).forEach { it.delete() }
         consentRepository.closeOpenByMemberId(memberId, LocalDateTime.now())
     }
 }

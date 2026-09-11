@@ -213,14 +213,14 @@ class NotificationTokenControllerTest : BehaviorSpec() {
             }
 
             `when`("새 기기가 토큰만 등록하면") {
-                then("설정 행이 생기지 않고 기기 단위 조회는 전부 꺼짐이다") {
+                then("설정 행이 생기지 않고 그 기기의 설정 조회는 전부 꺼짐이다") {
                     val (_, accessToken) = login("member-a")
 
                     register("dev-1", accessToken).status shouldBe 200
 
                     count("notification_setting") shouldBe 0
                     val response = mockMvc.get("/api/notifications/settings") {
-                        header("X-API-Version", "2.1")
+                        header("X-API-Version", "1.1")
                         header("X-Installation-Id", "dev-1")
                         header("Authorization", "Bearer $accessToken")
                     }.andReturn().response

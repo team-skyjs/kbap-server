@@ -30,82 +30,18 @@ class NotificationService(
     private val memberService: MemberService,
 ) {
     @Transactional(readOnly = true)
-    fun getSettings(memberId: Long): NotificationSettingsResult {
+    fun getSettings(memberId: Long, installationId: String): NotificationSettingsResult {
         memberService.getMember(memberId)
-        return assemble(memberId)
+        return assemble(memberId, installationId)
     }
 
     @Transactional
-    fun updateSettings(memberId: Long, installationId: String?, request: NotificationSettingsUpdateRequest): NotificationSettingsResult {
+    fun updateSettings(memberId: Long, installationId: String, request: NotificationSettingsUpdateRequest): NotificationSettingsResult {
         memberService.getMember(memberId)
         val now = LocalDateTime.now()
 
         if (request.activity != null) {
-            settingOf(memberId).updateActivity(request.activity)
-        }
-
-        val news = request.news
-        if (news != null) {
-            if (news.enabled == true) {
-                val versions = mapOf(
-                    NotificationConsentType.MARKETING_PRIVACY to news.privacyConsentVersion!!,
-                    NotificationConsentType.MARKETING_RECEIVE to news.receiveConsentVersion!!,
-                )
-                consentService.grantForMember(memberId, installationId, versions, now)
-                settingOf(memberId).updateMealTime(true)
-            }
-            if (news.enabled == false) {
-                consentService.revokeForMember(memberId, now)
-            }
-            if (news.mealTime != null) {
-                if (news.mealTime && !isNewsEnabled(memberId)) {
-                    throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
-                }
-                settingOf(memberId).updateMealTime(news.mealTime)
-            }
-        }
-
-        return assemble(memberId)
-    }
-
-    private fun settingOf(memberId: Long): NotificationSetting =
-        settingRepository.findByMemberIdAndInstallationIdIsNull(memberId)
-            ?: settingRepository.save(NotificationSetting.defaultFor(memberId))
-
-    private fun isNewsEnabled(memberId: Long): Boolean =
-        consentService.isMarketingEnabled(consentRepository.findOpenByMemberId(memberId))
-
-    private fun assemble(memberId: Long): NotificationSettingsResult {
-        val setting = settingRepository.findByMemberIdAndInstallationIdIsNull(memberId) ?: NotificationSetting.defaultFor(memberId)
-        val openConsents = consentRepository.findOpenByMemberId(memberId)
-        val enabled = consentService.isMarketingEnabled(openConsents)
-
-        return NotificationSettingsResult(
-            activity = setting.activity,
-            newsEnabled = enabled,
-            mealTime = setting.mealTime && enabled,
-            privacyConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_PRIVACY),
-            receiveConsent = latestOpen(openConsents, NotificationConsentType.MARKETING_RECEIVE),
-        )
-    }
-
-    @Transactional(readOnly = true)
-    fun getDeviceSettings(memberId: Long, installationId: String): NotificationSettingsResult {
-        memberService.getMember(memberId)
-        return assembleDevice(memberId, installationId)
-    }
-
-    @Transactional
-    fun updateDeviceSettings(
-        memberId: Long,
-        installationId: String,
-        request: DeviceNotificationSettingsUpdateRequest,
-    ): NotificationSettingsResult {
-        memberService.getMember(memberId)
-        val now = LocalDateTime.now()
-
-        if (request.activity != null) {
-            deviceSettingOf(memberId, installationId).updateActivity(request.activity)
+            settingOf(memberId, installationId).updateActivity(request.activity)
         }
 
         val news = request.news
@@ -121,10 +57,10 @@ class NotificationService(
                 consentService.revokeForMember(memberId, now)
             }
             if (news.enabled != null) {
-                deviceSettingOf(memberId, installationId).updateNews(news.enabled)
+                settingOf(memberId, installationId).updateNews(news.enabled)
             }
             if (news.mealTime != null) {
-                val setting = deviceSettingOf(memberId, installationId)
+                val setting = settingOf(memberId, installationId)
                 if (news.mealTime && !setting.news) {
                     throw BusinessException(ErrorCode.MARKETING_CONSENT_REQUIRED)
                 }
@@ -132,14 +68,14 @@ class NotificationService(
             }
         }
 
-        return assembleDevice(memberId, installationId)
+        return assemble(memberId, installationId)
     }
 
-    private fun deviceSettingOf(memberId: Long, installationId: String): NotificationSetting =
+    private fun settingOf(memberId: Long, installationId: String): NotificationSetting =
         settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
             ?: settingRepository.save(NotificationSetting.defaultFor(memberId, installationId))
 
-    private fun assembleDevice(memberId: Long, installationId: String): NotificationSettingsResult {
+    private fun assemble(memberId: Long, installationId: String): NotificationSettingsResult {
         val setting = settingRepository.findByMemberIdAndInstallationId(memberId, installationId)
             ?: NotificationSetting.defaultFor(memberId, installationId)
         val openConsents = consentRepository.findOpenByMemberId(memberId)

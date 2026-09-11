@@ -50,16 +50,6 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
                 }
             }
 
-            `when`("기기 식별자 없는 구 계약 행만 있으면") {
-                clear()
-                repository.save(NotificationSetting.defaultFor(1L))
-
-                then("구 계약 조회로만 보이고 기기 조회에는 잡히지 않는다") {
-                    repository.findByMemberIdAndInstallationIdIsNull(1L).shouldNotBeNull()
-                    repository.findByMemberIdAndInstallationId(1L, "dev-a").shouldBeNull()
-                }
-            }
-
             `when`("설정 기록이 없는 기기를 조회하면") {
                 clear()
 
@@ -73,15 +63,15 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("탈퇴 정리 조회") {
-            `when`("구 계약 행과 기기 행이 섞여 있으면") {
+        given("회원 기준 조회") {
+            `when`("회원의 기기 행이 여럿이면") {
                 clear()
-                repository.save(NotificationSetting.defaultFor(7L))
                 repository.save(NotificationSetting.defaultFor(7L, "dev-a"))
                 repository.save(NotificationSetting.defaultFor(7L, "dev-b"))
+                repository.save(NotificationSetting.defaultFor(8L, "dev-c"))
 
-                then("기기 행만 돌려준다") {
-                    repository.findByMemberIdAndInstallationIdIsNotNull(7L)
+                then("그 회원의 기기 행만 돌려준다") {
+                    repository.findByMemberId(7L)
                         .map { it.installationId }
                         .sortedBy { it } shouldContainExactly listOf("dev-a", "dev-b")
                 }

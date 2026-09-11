@@ -19,9 +19,7 @@ class PushTargetResolver(
         val devices = deviceRepository.findByMemberIdInAndTokenInvalidAtIsNull(memberIds)
         if (devices.isEmpty()) return emptyList()
 
-        val settings = settingRepository.findByMemberIdIn(memberIds)
-            .filter { it.installationId != null }
-            .associateBy { it.memberId to it.installationId }
+        val settings = settingRepository.findByMemberIdIn(memberIds).associateBy { it.memberId to it.installationId }
         val consents = consentRepository.findOpenByMemberIdIn(memberIds).groupBy { it.memberId!! }
 
         fun marketingEnabled(memberId: Long) =

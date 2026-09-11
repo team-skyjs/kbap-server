@@ -22,37 +22,19 @@ class NotificationController(
     @GetMapping("/settings")
     override fun getSettings(
         @AuthMemberId memberId: Long,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
     ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
-        val result = notificationService.getSettings(memberId)
+        val result = notificationService.getSettings(memberId, ApiHeaders.validInstallationId(installationId))
         return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
     }
 
     @PatchMapping("/settings")
     override fun updateSettings(
         @AuthMemberId memberId: Long,
-        @RequestHeader(ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
+        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
         @Valid @RequestBody request: NotificationSettingsUpdateRequest,
     ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
-        val result = notificationService.updateSettings(memberId, installationId?.let(ApiHeaders::validInstallationId), request)
-        return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
-    }
-
-    @GetMapping("/settings", version = "2.1+")
-    override fun getDeviceSettings(
-        @AuthMemberId memberId: Long,
-        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
-    ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
-        val result = notificationService.getDeviceSettings(memberId, ApiHeaders.validInstallationId(installationId))
-        return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
-    }
-
-    @PatchMapping("/settings", version = "2.1+")
-    override fun updateDeviceSettings(
-        @AuthMemberId memberId: Long,
-        @RequestHeader(ApiHeaders.INSTALLATION_ID) installationId: String,
-        @Valid @RequestBody request: DeviceNotificationSettingsUpdateRequest,
-    ): ResponseEntity<BaseResponse<NotificationSettingsResponse>> {
-        val result = notificationService.updateDeviceSettings(memberId, ApiHeaders.validInstallationId(installationId), request)
+        val result = notificationService.updateSettings(memberId, ApiHeaders.validInstallationId(installationId), request)
         return ResponseEntity.ok(BaseResponse.ok(NotificationSettingsResponse.from(result)))
     }
 

@@ -12,7 +12,7 @@
    ```bash
    ./gradlew :common:test
    ```
-   대상: `NotificationSettingJpaRepositoryTest`(고유키 `(member_id, installation_id)`, NULL 행 조회), `PushTargetResolverTest`(기기별 토글·설정 없는 기기 제외·news 토글).
+   대상: `NotificationSettingJpaRepositoryTest`(고유키 `(member_id, installation_id)`, 회원 기준 조회), `PushTargetResolverTest`(기기별 토글·설정 없는 기기 제외·news 토글).
 
 3. **생명주기** — `AuthNotificationLinkTest` 에 로그아웃 보존·탈퇴 소프트 삭제 시나리오.
 
@@ -28,26 +28,24 @@
 ```bash
 TOKEN=<accessToken>
 # 새 기기 조회 — 전부 false
-curl -s localhost:8081/api/notifications/settings -H "X-API-Version: 2.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8081/api/notifications/settings -H "X-API-Version: 1.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN"
 # 마케팅 동의 켜기(회원) + 기기 A 소식 켜기
-curl -s -X PATCH localhost:8081/api/notifications/settings -H "X-API-Version: 2.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN" \
+curl -s -X PATCH localhost:8081/api/notifications/settings -H "X-API-Version: 1.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"news":{"consent":true,"privacyConsentVersion":2,"receiveConsentVersion":2,"enabled":true}}'
 # 기기 A 소식만 끄기 — 동의는 그대로(privacyConsent/receiveConsent 유지)
-curl -s -X PATCH localhost:8081/api/notifications/settings -H "X-API-Version: 2.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN" \
+curl -s -X PATCH localhost:8081/api/notifications/settings -H "X-API-Version: 1.1" -H "X-Installation-Id: dev-A" -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -d '{"news":{"enabled":false}}'
 # 기기 B 는 여전히 false
-curl -s localhost:8081/api/notifications/settings -H "X-API-Version: 2.1" -H "X-Installation-Id: dev-B" -H "Authorization: Bearer $TOKEN"
-# 구 계약은 그대로
-curl -s localhost:8081/api/notifications/settings -H "X-API-Version: 1.1" -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8081/api/notifications/settings -H "X-API-Version: 1.1" -H "X-Installation-Id: dev-B" -H "Authorization: Bearer $TOKEN"
 ```
 
-Swagger: `/swagger-ui/index.html` 에서 그룹 문서 `/v3/api-docs/2.1` 로 새 계약을 본다(전체 문서는 path+method 충돌 시 한 오퍼레이션만 싣는다).
+Swagger: `/swagger-ui/index.html` 의 알림 태그에서 기기 단위 서술을 확인한다.
 
 ## 완료 조건 체크
 
 - [ ] 마이그레이션 1건, 기존 행 무변경
-- [ ] 2.1 헤더 GET/PATCH 가 기기별 값을 돌려주고 1.1 헤더 기존 테스트가 무변경 통과
+- [ ] GET/PATCH 가 기기별 값을 돌려주고 1.0 헤더에서도 같은 동작
 - [ ] 소식 토글 껐다 켜도 동의 원장 불변, `consent:false` 만 `revoked_at` 기록(기기값 불변)
 - [ ] `PushTargetResolver` 가 기기 행 기준으로 대상 선정(행 없음 = 제외)
 - [ ] 탈퇴 → 기기 행 DELETED, 로그아웃 → 보존
-- [ ] Swagger 서술·위키 절 갱신, FE 에 2.1 공유
+- [ ] Swagger 서술·위키 절 갱신, FE 에 헤더 필수·consent/enabled 분리 공유

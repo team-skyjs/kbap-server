@@ -8,7 +8,7 @@
 
 **Organization**: 스토리별 구분. Foundational(엔티티·리포지토리·마이그레이션)이 끝나면 US1→US2→US3→US4 순서가 자연스럽지만, US3(발송)·US4(생명주기)는 US1·US2 와 파일이 겹치지 않아 병행 가능하다.
 
-**규율**: Kotlin 소스 주석 금지(SQL 주석은 허용). 새 클래스는 새 계약 요청 DTO 한 벌(T009)뿐, 새 패키지 없음. 격리수준·락·재시도 등 부가 방어 추가 금지. 서비스 메서드는 명시적 `@Transactional`. 태스크(또는 논리 단위)마다 커밋.
+**규율**: Kotlin 소스 주석 금지(SQL 주석은 허용). 새 클래스·새 패키지 없음. 격리수준·락·재시도 등 부가 방어 추가 금지. 서비스 메서드는 명시적 `@Transactional`. 태스크(또는 논리 단위)마다 커밋.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -137,8 +137,8 @@
 
 - [x] T025 전체 빌드 `./gradlew build`(ArchUnit 포함) 통과 확인. quickstart.md 의 "완료 조건 체크" 를 훑어 빠진 항목이 없는지 본다. 필요 시 로컬 bootRun 으로 Swagger 그룹 문서 `/v3/api-docs/2.1` 에 새 오퍼레이션 두 개가 실리는지 확인.
 - [x] T026 [P] 지식 위키 갱신(`update-agenthub` 스킬): `../kbap-agenthub/wiki/push-notification-marketing-consent.md` 의 "KB-544 예고" 절을 확정 절로 바꾼다 — 스키마(같은 테이블 확장·고유키 교체·NULL 행은 구 계약)·버전 2.1·`news.enabled` 계산(기기 토글 AND 동의 두 종류 버전 ≥ 2)·마지막 연결 기기 규칙·발송 키잉·배포 직후 기기 행 부재로 발송 대상 0건인 과도기·후속(구 계약 폐기 시 NULL 행 삭제·NOT NULL 승격). `INDEX.md` 의 해당 줄 갱신 후 허브에서 커밋.
-- [ ] T027 [P] FE 공유·후속 등록(사용자 수행 — 코드 없음): KB-497 에 "2.1 + `X-Installation-Id` 필수 + 값은 기기별 + `enabled` 계산 규칙" 코멘트, 구 계약 폐기 후속(NULL 행 삭제·`installation_id NOT NULL`·구 메서드 삭제) Jira 태스크 생성 후 KB-544 코멘트에 링크(`create-jira-task` 스킬).
-- [ ] T028 `open-draft-pr-to-develop` 스킬로 develop 대상 draft PR 생성. PR 본문에 plan.md 의 "Spec 과 다른 점" 표(구 고유키 제거·2.1 가정)와 과도기 발송 영향을 명시한다.
+- [ ] T027 [P] FE 공유(사용자 수행 — 코드 없음): KB-497 에 "설정 API 는 기존 버전 그대로 `X-Installation-Id` 필수 + 값은 기기별 + `consent`/`enabled` 분리 + 구 회원 단위 값은 삭제됨" 코멘트.
+- [x] T028 `open-draft-pr-to-develop` 스킬로 develop 대상 draft PR 생성. PR 본문에 plan.md 의 "Spec 과 다른 점" 표(구 고유키 제거·2.1 가정)와 과도기 발송 영향을 명시한다.
 
 ---
 
@@ -206,3 +206,7 @@ Task: "T019 PushTargetResolver (memberId, installationId) 키잉"
 - `@SQLRestriction("status = 'ACTIVE'")` 때문에 소프트 삭제 검증은 JDBC SELECT 로 한다.
 - 컨트롤러에서 리포지토리를 부르지 않는다. 서비스는 기능 단위 하나(`NotificationService`) — 버전별·Query/Command 분리 클래스 금지.
 - 헤더 값 검증은 기존 `ApiHeaders.validInstallationId` 하나만 쓴다(중복 검증 로직 금지).
+
+## 2차 개정 메모 (2026-09-11)
+
+- 사용자 결정으로 2.1 매핑을 제거하고 기존 무버전 매핑에서 기기 단위 계약으로 교체했다. 구 계약 서비스·DTO·NULL 행 경로 삭제, 마이그레이션은 회원 단위 행 삭제 + `installation_id NOT NULL`. 위 태스크 서술의 "2.1" 은 1차 구현 기록이며 최종 코드는 contracts/notification-settings.md 를 따른다.

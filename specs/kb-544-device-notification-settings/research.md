@@ -98,3 +98,11 @@ Phase 0 산출물. spec 의 미확정 항목과 설계 갈림길을 코드 기�
 ## 결정 10 — 문서: Swagger 서술 + 위키 절 + FE 공유
 
 **Decision**: `NotificationApi` 새 메서드 서술에 헤더 필수·`enabled`(기기 저장값)·`consent` 켜기/끄기·mealTime 선행 조건·구 버전 동작을 적는다. 구현 마무리에 `../kbap-agenthub/wiki/push-notification-marketing-consent.md` 의 "KB-544 예고" 절을 "확정" 절로 갱신하고 INDEX 한 줄을 고친다(`update-agenthub`). FE 에는 버전 번호(2.1)와 헤더 필수를 KB-497 코멘트로 공유한다 — 사람이 하는 일이라 tasks 에 체크 항목으로만 둔다.
+
+## 결정 11 — 새 버전 매핑 없이 기존 매핑에서 계약 교체 (2026-09-11 2차 개정, 사용자 결정)
+
+**Decision**: 결정 2(`2.1+` 매핑)·결정 4(NULL 행 = 구 계약)·결정 5-1(요청 DTO 분리)·결정 1 의 "NULL 행 잔존" 을 **폐기**한다. `GET/PATCH /api/notifications/settings` 는 무버전 매핑(1.0 부터) 그대로 기기 단위 계약으로 바뀐다. 구 회원 단위 서비스 경로·DTO·리포지토리 메서드(`findByMemberIdAndInstallationIdIsNull`·`defaultFor(memberId)`)는 삭제. 마이그레이션은 기존 회원 단위 행을 `DELETE` 한 뒤 `installation_id` 를 `NOT NULL` 로 올린다. springdoc `2.1` 그룹도 제거.
+
+**Rationale**: 사용자 지시 — "dev 환경이라 문제 없음, 1.0 유지하면서 수정". 이 기능은 아직 dev 에서만 쓰여 구버전 앱 호환·블루/그린 공존을 지킬 이유가 없고, 두 계약을 병존시키는 코드(서비스 메서드 2벌·DTO 2벌·NULL 행 분기)가 전부 사라져 더 단순하다.
+
+**감수하는 것**: 헤더 없이 부르던 앱은 400. 블루/그린 구간에 구 코드가 설정을 저장하면 NOT NULL 위반(500) — dev 전용. 기존 회원 단위 설정값은 사라지고 앱이 기기별로 다시 저장한다.
