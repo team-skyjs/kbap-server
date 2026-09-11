@@ -2,6 +2,7 @@ package com.kbap.api.core.config
 
 import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.admin.AdminPageAuthInterceptor
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
@@ -27,7 +28,7 @@ class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
-        configurer.useRequestHeader("X-API-Version")
+        configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
             .setVersionRequired(true)
     }
@@ -104,6 +105,8 @@ class WebConfig(
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.API}/members/*",
+                "${ApiPaths.API}/notifications",
+                "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",

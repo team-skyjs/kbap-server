@@ -28,7 +28,10 @@ resource "aws_lb_target_group" "api" {
   }
 
   deregistration_delay = 30
-  tags                 = merge(local.common_tags, { Color = each.key })
+  # 새 타깃(스케일아웃·그린 배포)은 JIT 워밍업 전이라 요청당 6~20초가 걸린다 — 등록 직후 라운드로빈 몫을 다 주면
+  # 그 요청들이 클라이언트 타임아웃으로 끊긴다(2026-09-06 dev 램프 실측). 60초 동안 비중을 0→1 로 선형 상승.
+  slow_start = var.api_slow_start_seconds
+  tags       = merge(local.common_tags, { Color = each.key })
 }
 
 resource "aws_lb_listener" "http" {

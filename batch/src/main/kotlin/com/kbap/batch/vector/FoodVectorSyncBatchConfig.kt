@@ -1,5 +1,6 @@
 package com.kbap.batch.vector
 
+import com.kbap.batch.observability.JobNameMdcListener
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodVectorOutbox
@@ -130,9 +131,11 @@ class FoodVectorSyncBatchConfig {
     fun foodVectorSyncJob(
         jobRepository: JobRepository,
         foodVectorSyncStep: Step,
+        jobNameMdcListener: JobNameMdcListener,
     ): Job =
         JobBuilder("foodVectorSyncJob", jobRepository)
             .incrementer(RunIdIncrementer())
+            .listener(jobNameMdcListener)
             .start(foodVectorSyncStep)
             .build()
 

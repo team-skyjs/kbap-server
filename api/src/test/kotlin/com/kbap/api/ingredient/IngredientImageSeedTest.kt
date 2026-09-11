@@ -32,7 +32,7 @@ class IngredientImageSeedTest : BehaviorSpec() {
 
                 then("모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있다") {
                     ingredientRepository.findAll().forEach { ingredient ->
-                        ingredient.imagePath shouldBe "images/webp/${ingredient.code.name.lowercase()}.webp"
+                        ingredient.imagePath shouldBe "images/webp/ingredients/${ingredient.code.name.lowercase()}.webp"
                     }
                 }
             }

@@ -5,6 +5,8 @@ import com.kbap.common.domain.bookmark.BookmarkJpaRepository
 import com.kbap.common.domain.bookmark.model.Bookmark
 import com.kbap.api.food.FoodService
 import com.kbap.api.food.FoodSummaryView
+import com.kbap.api.food.RiskCandidate
+import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.api.member.MemberService
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -37,21 +39,37 @@ class BookmarkService(
     }
 
     @Transactional(readOnly = true)
-    fun getBookmarkPage(memberId: Long, lang: LanguageCode, cursor: Long?): BookmarkPage {
-        val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
-
-        val hasNext = rows.size > PAGE_SIZE
-        val page = rows.take(PAGE_SIZE)
-        val nextCursor = if (hasNext) page.last().id else null
-
-        val orderedFoodIds = page.map { it.foodId }
-        val foodsById = foodService.getReadyFoodsByIds(orderedFoodIds).associateBy { it.id }
+    fun getBookmarkPage(memberId: Long, lang: LanguageCode, cursor: Long?, risks: Set<RiskLevel>? = null): BookmarkPage {
         val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
 
+        if (risks == null) {
+            val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))
+            val hasNext = rows.size > PAGE_SIZE
+            val page = rows.take(PAGE_SIZE)
+            return bookmarkPage(page, if (hasNext) page.last().id else null, hasNext, lang, avoidedCodes)
+        }
+
+        val filtered = foodService.collectRiskFiltered(cursor, avoidedCodes, risks) { c, size ->
+            val bookmarks = bookmarkRepository.findPage(memberId, c, PageRequest.of(0, size))
+            val foodsById = foodService.getReadyFoodsByIds(bookmarks.map { it.foodId }).associateBy { it.id }
+            bookmarks.map { RiskCandidate(it.id, foodsById[it.foodId]) }
+        }
+        val items = filtered.foods.map { FoodSummaryView.from(it, lang, avoidedCodes, foodService.resolveImageUrl(it)) }
+        return BookmarkPage(items = items, nextCursor = filtered.nextCursor, hasNext = filtered.hasNext)
+    }
+
+    private fun bookmarkPage(
+        page: List<Bookmark>,
+        nextCursor: Long?,
+        hasNext: Boolean,
+        lang: LanguageCode,
+        avoidedCodes: Set<String>,
+    ): BookmarkPage {
+        val orderedFoodIds = page.map { it.foodId }
+        val foodsById = foodService.getReadyFoodsByIds(orderedFoodIds).associateBy { it.id }
         val items = orderedFoodIds.mapNotNull { foodId ->
             foodsById[foodId]?.let { FoodSummaryView.from(it, lang, avoidedCodes, foodService.resolveImageUrl(it)) }
         }
-
         return BookmarkPage(items = items, nextCursor = nextCursor, hasNext = hasNext)
     }
 
