@@ -1,5 +1,6 @@
 package com.kbap.api.food
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -84,12 +86,13 @@ class FoodController(
         @PathVariable foodId: Long,
         @Valid @ModelAttribute request: FoodDetailRequest,
         @AuthMemberIdOrNull memberId: Long?,
+        @RequestHeader(name = ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
         val result = foodService.getDetail(
             GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, LanguageCode.from(request.lang))
+        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, installationId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(
             BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews)),
         )
