@@ -102,12 +102,12 @@
 
 ### Tests for User Story 3 (Red 먼저) ⚠️
 
-- [ ] T018 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/PushTargetResolverTest.kt` — `setting(memberId, activity, mealTime)` 헬퍼를 `setting(installationId: String, memberId, activity = false, mealTime = false, news = false)` 로 바꾸고(`NotificationSetting(memberId, installationId, activity, mealTime, news)` 저장), `device()` 가 만든 `installationId` 를 돌려받아 쓰도록 기존 시나리오를 기기 단위로 옮긴다. 추가 시나리오: (1) 같은 회원의 기기 A(activity=true)·B(activity=false) 에 `HELPFUL` → A 만(US3-1), (2) 기기 A news=true + 동의 v1 두 건 → `NEWS`·`SCAN_SUGGESTION` 제외, v2 면 포함(US3-2·결정 3), (3) 행 없는 기기(토큰만 등록) → 모든 유형 제외(US3-3), (4) 회원 NULL 행(`NotificationSetting.defaultFor(memberId).apply { updateActivity(true) }`)만 있고 기기 행 없음 → 제외(새 계약은 NULL 행을 읽지 않음), (5) `MEAL_TIME` 은 기기 mealTime=true + 동의 v2 필요(기존 시나리오 유지), (6) news 토글 꺼진 기기는 동의가 있어도 `NEWS` 제외. **Red 확인**: `./gradlew :common:test`.
+- [x] T018 [P] [US3] `common/src/test/kotlin/com/kbap/common/domain/notification/PushTargetResolverTest.kt` — `setting(memberId, activity, mealTime)` 헬퍼를 `setting(installationId: String, memberId, activity = false, mealTime = false, news = false)` 로 바꾸고(`NotificationSetting(memberId, installationId, activity, mealTime, news)` 저장), `device()` 가 만든 `installationId` 를 돌려받아 쓰도록 기존 시나리오를 기기 단위로 옮긴다. 추가 시나리오: (1) 같은 회원의 기기 A(activity=true)·B(activity=false) 에 `HELPFUL` → A 만(US3-1), (2) 기기 A news=true + 동의 v1 두 건 → `NEWS`·`SCAN_SUGGESTION` 제외, v2 면 포함(US3-2·결정 3), (3) 행 없는 기기(토큰만 등록) → 모든 유형 제외(US3-3), (4) 회원 NULL 행(`NotificationSetting.defaultFor(memberId).apply { updateActivity(true) }`)만 있고 기기 행 없음 → 제외(새 계약은 NULL 행을 읽지 않음), (5) `MEAL_TIME` 은 기기 mealTime=true + 동의 v2 필요(기존 시나리오 유지), (6) news 토글 꺼진 기기는 동의가 있어도 `NEWS` 제외. **Red 확인**: `./gradlew :common:test`.
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/PushTargetResolver.kt` — `settings` 를 `settingRepository.findByMemberIdIn(memberIds).filter { it.installationId != null }.associateBy { it.memberId to it.installationId!! }` 로 키잉하고, `toggledOn(device: NotificationDevice)` 가 `settings[device.memberId!! to device.installationId]` 를 본다: `HELPFUL`·`REVIEW_REMINDER` → `activity`, `MEAL_TIME` → `mealTime`, `SCAN_SUGGESTION`·`NEWS` → `news`(`== true`). `allowed(device)` = `toggledOn(device) && (!type.marketing || marketingEnabled(device.memberId!!))`. 동의 조회·요구 버전 상수는 그대로.
-- [ ] T020 [US3] Green 확인: `./gradlew :common:test` 통과, 이어 `./gradlew :api:test` 로 관리자 테스트 발송(`AdminNotificationTestService`) 관련 테스트가 있으면 회귀 없음을 확인(기기 행이 없는 시드는 대상 0건이 되므로 해당 테스트가 회원 단위 시드에 기대고 있으면 기기 행 시드로 고친다 — 프로덕션 코드가 아니라 테스트 시드만). 커밋.
+- [x] T019 [US3] `common/src/main/kotlin/com/kbap/common/domain/notification/PushTargetResolver.kt` — `settings` 를 `settingRepository.findByMemberIdIn(memberIds).filter { it.installationId != null }.associateBy { it.memberId to it.installationId!! }` 로 키잉하고, `toggledOn(device: NotificationDevice)` 가 `settings[device.memberId!! to device.installationId]` 를 본다: `HELPFUL`·`REVIEW_REMINDER` → `activity`, `MEAL_TIME` → `mealTime`, `SCAN_SUGGESTION`·`NEWS` → `news`(`== true`). `allowed(device)` = `toggledOn(device) && (!type.marketing || marketingEnabled(device.memberId!!))`. 동의 조회·요구 버전 상수는 그대로.
+- [x] T020 [US3] Green 확인: `./gradlew :common:test` 통과, 이어 `./gradlew :api:test` 로 관리자 테스트 발송(`AdminNotificationTestService`) 관련 테스트가 있으면 회귀 없음을 확인(기기 행이 없는 시드는 대상 0건이 되므로 해당 테스트가 회원 단위 시드에 기대고 있으면 기기 행 시드로 고친다 — 프로덕션 코드가 아니라 테스트 시드만). 커밋.
 
 **Checkpoint**: 발송이 기기별 토글을 따른다.
 
@@ -121,13 +121,13 @@
 
 ### Tests for User Story 4 (Red 먼저) ⚠️
 
-- [ ] T021 [P] [US4] `api/src/test/kotlin/com/kbap/api/auth/AuthNotificationLinkTest.kt` 에 시나리오 추가(기존 헬퍼 `login`·`logout`·`withdraw` 재사용, 2.1 설정 PATCH/GET 헬퍼 추가): `given("기기별 설정과 로그아웃")` — 기기 A 로 `{activity:true}` PATCH(2.1) → 로그아웃(헤더 A) → 같은 기기로 재로그인 → 2.1 GET activity=true, 행 status ACTIVE(US4-1). `given("회원 탈퇴")` 의 기존 `when` 에 기기 설정 행 시드(A·B)를 더해 탈퇴 후 두 행 `status='DELETED'`(SELECT 로 확인 — `@SQLRestriction` 때문에 리포지토리로는 안 보인다), 기기 `member_id` null, 동의 `revoked_at` 기록을 함께 검증(US4-2). 회원의 NULL 행(구 계약)은 탈퇴 후에도 ACTIVE 그대로임을 같은 시나리오에서 확인(범위 밖 무변경).
-- [ ] T022 [P] [US4] `api/src/test/kotlin/com/kbap/api/notification/NotificationTokenControllerTest.kt` 에 `when("새 기기가 토큰만 등록하면") then("설정 행이 생기지 않고 2.1 조회는 전부 꺼짐이다")` 추가 — `PUT /api/notifications/tokens`(1.1) 후 `notification_setting` 에 그 (회원, 기기) 행 없음 + 2.1 GET 전부 false(US4-3·FR-011). **Red 확인**: `./gradlew :api:test` — 탈퇴 시나리오만 실패해야 한다(로그아웃·토큰 시나리오는 현행 코드로도 통과할 수 있다 — 그 경우 회귀 고정 테스트로 유지하고 Red 는 탈퇴 케이스로 확인한다).
+- [x] T021 [P] [US4] `api/src/test/kotlin/com/kbap/api/auth/AuthNotificationLinkTest.kt` 에 시나리오 추가(기존 헬퍼 `login`·`logout`·`withdraw` 재사용, 2.1 설정 PATCH/GET 헬퍼 추가): `given("기기별 설정과 로그아웃")` — 기기 A 로 `{activity:true}` PATCH(2.1) → 로그아웃(헤더 A) → 같은 기기로 재로그인 → 2.1 GET activity=true, 행 status ACTIVE(US4-1). `given("회원 탈퇴")` 의 기존 `when` 에 기기 설정 행 시드(A·B)를 더해 탈퇴 후 두 행 `status='DELETED'`(SELECT 로 확인 — `@SQLRestriction` 때문에 리포지토리로는 안 보인다), 기기 `member_id` null, 동의 `revoked_at` 기록을 함께 검증(US4-2). 회원의 NULL 행(구 계약)은 탈퇴 후에도 ACTIVE 그대로임을 같은 시나리오에서 확인(범위 밖 무변경).
+- [x] T022 [P] [US4] `api/src/test/kotlin/com/kbap/api/notification/NotificationTokenControllerTest.kt` 에 `when("새 기기가 토큰만 등록하면") then("설정 행이 생기지 않고 2.1 조회는 전부 꺼짐이다")` 추가 — `PUT /api/notifications/tokens`(1.1) 후 `notification_setting` 에 그 (회원, 기기) 행 없음 + 2.1 GET 전부 false(US4-3·FR-011). **Red 확인**: `./gradlew :api:test` — 탈퇴 시나리오만 실패해야 한다(로그아웃·토큰 시나리오는 현행 코드로도 통과할 수 있다 — 그 경우 회귀 고정 테스트로 유지하고 Red 는 탈퇴 케이스로 확인한다).
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenService.kt` — 생성자에 `NotificationSettingJpaRepository` 주입, `closeOnWithdraw(memberId)` 에 `settingRepository.findByMemberIdAndInstallationIdIsNotNull(memberId).forEach { it.delete() }` 추가(dirty checking, `save()` 호출 없음). `unlinkOnLogout`·`registerToken`·`linkOnLogin` 은 손대지 않는다.
-- [ ] T024 [US4] Green 확인: `./gradlew :api:test` 전부 통과. 커밋.
+- [x] T023 [US4] `api/src/main/kotlin/com/kbap/api/notification/NotificationTokenService.kt` — 생성자에 `NotificationSettingJpaRepository` 주입, `closeOnWithdraw(memberId)` 에 `settingRepository.findByMemberIdAndInstallationIdIsNotNull(memberId).forEach { it.delete() }` 추가(dirty checking, `save()` 호출 없음). `unlinkOnLogout`·`registerToken`·`linkOnLogin` 은 손대지 않는다.
+- [x] T024 [US4] Green 확인: `./gradlew :api:test` 전부 통과. 커밋.
 
 **Checkpoint**: 모든 스토리가 독립적으로 동작한다.
 

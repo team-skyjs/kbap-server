@@ -3,6 +3,7 @@ package com.kbap.api.notification
 import com.kbap.api.member.MemberService
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
+import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationDevice
 import org.springframework.stereotype.Service
@@ -13,6 +14,7 @@ import java.time.LocalDateTime
 class NotificationTokenService(
     private val deviceRepository: NotificationDeviceJpaRepository,
     private val consentRepository: NotificationConsentJpaRepository,
+    private val settingRepository: NotificationSettingJpaRepository,
     private val memberService: MemberService,
 ) {
     @Transactional
@@ -40,6 +42,7 @@ class NotificationTokenService(
     @Transactional
     fun closeOnWithdraw(memberId: Long) {
         deviceRepository.findByMemberId(memberId).forEach { it.unlinkMember() }
+        settingRepository.findByMemberIdAndInstallationIdIsNotNull(memberId).forEach { it.delete() }
         consentRepository.closeOpenByMemberId(memberId, LocalDateTime.now())
     }
 }
