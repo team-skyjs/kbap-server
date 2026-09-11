@@ -40,6 +40,12 @@ data class OrderSummaryResponse(
         example = "https://cdn.example.com/scan/42/menu.jpg",
     )
     val scanImageUrl: String,
+
+    @field:Schema(
+        description = "주문 좌표에서 자동 추정한 식당(공급자 거리순 첫 결과·사용자 확인값 아님). 좌표 없음·추정 실패면 null → 클라는 roadAddress 로 폴백",
+        nullable = true,
+    )
+    val place: OrderPlaceResponse?,
 )
 
 @Schema(description = "주문 상세 — 카드 정보 + 메뉴별 내역")
@@ -67,7 +73,40 @@ data class OrderDetailResponse(
 
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
+
+    @field:Schema(
+        description = "주문 좌표에서 자동 추정한 식당(공급자 거리순 첫 결과·사용자 확인값 아님). 좌표 없음·추정 실패면 null → 클라는 roadAddress 로 폴백",
+        nullable = true,
+    )
+    val place: OrderPlaceResponse?,
 )
+
+@Schema(description = "주문 좌표에서 자동 추정한 식당 스냅샷")
+data class OrderPlaceResponse(
+    @field:Schema(description = "공급자 외부 식별자(Google place id)", example = "ChIJN1t_tDeuEmsRUsoyG83frY4")
+    val placeId: String,
+
+    @field:Schema(description = "추정 식당명", example = "백년옥")
+    val name: String,
+
+    @field:Schema(description = "추정 식당 주소(공급자 포맷). 없을 수 있음", example = "서울 중구 소공로 51", nullable = true)
+    val address: String?,
+
+    @field:Schema(description = "해석 요청 언어(LanguageCode.code)", example = "en")
+    val language: String,
+) {
+    companion object {
+        fun from(snapshot: com.kbap.common.domain.order.model.OrderPlaceSnapshot?): OrderPlaceResponse? =
+            snapshot?.let {
+                OrderPlaceResponse(
+                    placeId = it.externalId,
+                    name = it.name,
+                    address = it.address,
+                    language = it.language,
+                )
+            }
+    }
+}
 
 @Schema(description = "주문 항목 — 저장 시점 스냅샷")
 data class OrderItemResponse(

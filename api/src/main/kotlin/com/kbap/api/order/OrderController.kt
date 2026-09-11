@@ -3,6 +3,7 @@ package com.kbap.api.order
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.place.ReverseGeocoder
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -19,14 +20,17 @@ import org.springframework.web.bind.annotation.RestController
 class OrderController(
     private val orderService: OrderService,
     private val reverseGeocoder: ReverseGeocoder,
+    private val orderPlaceResolver: OrderPlaceResolver,
 ) : OrderApi {
     @PostMapping
     override fun placeOrder(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: OrderCreateRequest,
     ): ResponseEntity<BaseResponse<OrderCreateResponse>> {
+        val lang = request.lang?.let { LanguageCode.from(it) } ?: LanguageCode.KO
         val roadAddress = request.latitude?.let { reverseGeocoder.getRoadAddressOrNull(it, request.longitude!!) }
-        val orderId = orderService.createOrder(memberId, request, roadAddress)
+        val resolvedPlace = request.latitude?.let { orderPlaceResolver.resolve(it, request.longitude!!, lang) }
+        val orderId = orderService.createOrder(memberId, request, roadAddress, resolvedPlace)
         return ResponseEntity.ok(BaseResponse.ok(OrderCreateResponse(orderId)))
     }
 
