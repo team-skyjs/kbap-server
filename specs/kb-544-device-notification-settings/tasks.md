@@ -135,8 +135,8 @@
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T025 전체 빌드 `./gradlew build`(ArchUnit 포함) 통과 확인. quickstart.md 의 "완료 조건 체크" 를 훑어 빠진 항목이 없는지 본다. 필요 시 로컬 bootRun 으로 Swagger 그룹 문서 `/v3/api-docs/2.1` 에 새 오퍼레이션 두 개가 실리는지 확인.
-- [ ] T026 [P] 지식 위키 갱신(`update-agenthub` 스킬): `../kbap-agenthub/wiki/push-notification-marketing-consent.md` 의 "KB-544 예고" 절을 확정 절로 바꾼다 — 스키마(같은 테이블 확장·고유키 교체·NULL 행은 구 계약)·버전 2.1·`news.enabled` 계산(기기 토글 AND 동의 두 종류 버전 ≥ 2)·마지막 연결 기기 규칙·발송 키잉·배포 직후 기기 행 부재로 발송 대상 0건인 과도기·후속(구 계약 폐기 시 NULL 행 삭제·NOT NULL 승격). `INDEX.md` 의 해당 줄 갱신 후 허브에서 커밋.
+- [x] T025 전체 빌드 `./gradlew build`(ArchUnit 포함) 통과 확인. quickstart.md 의 "완료 조건 체크" 를 훑어 빠진 항목이 없는지 본다. 필요 시 로컬 bootRun 으로 Swagger 그룹 문서 `/v3/api-docs/2.1` 에 새 오퍼레이션 두 개가 실리는지 확인.
+- [x] T026 [P] 지식 위키 갱신(`update-agenthub` 스킬): `../kbap-agenthub/wiki/push-notification-marketing-consent.md` 의 "KB-544 예고" 절을 확정 절로 바꾼다 — 스키마(같은 테이블 확장·고유키 교체·NULL 행은 구 계약)·버전 2.1·`news.enabled` 계산(기기 토글 AND 동의 두 종류 버전 ≥ 2)·마지막 연결 기기 규칙·발송 키잉·배포 직후 기기 행 부재로 발송 대상 0건인 과도기·후속(구 계약 폐기 시 NULL 행 삭제·NOT NULL 승격). `INDEX.md` 의 해당 줄 갱신 후 허브에서 커밋.
 - [ ] T027 [P] FE 공유·후속 등록(사용자 수행 — 코드 없음): KB-497 에 "2.1 + `X-Installation-Id` 필수 + 값은 기기별 + `enabled` 계산 규칙" 코멘트, 구 계약 폐기 후속(NULL 행 삭제·`installation_id NOT NULL`·구 메서드 삭제) Jira 태스크 생성 후 KB-544 코멘트에 링크(`create-jira-task` 스킬).
 - [ ] T028 `open-draft-pr-to-develop` 스킬로 develop 대상 draft PR 생성. PR 본문에 plan.md 의 "Spec 과 다른 점" 표(구 고유키 제거·2.1 가정)와 과도기 발송 영향을 명시한다.
 
