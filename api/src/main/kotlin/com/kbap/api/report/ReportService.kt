@@ -20,38 +20,42 @@ class ReportService(
 ) {
     @Transactional
     fun createReport(
-        reporterMemberId: Long,
+        reporterMemberId: Long?,
+        installationId: String?,
         targetType: ReportTargetType,
         targetId: Long,
         reason: ReportReason,
         detail: String?,
     ) {
-        memberService.getMember(reporterMemberId)
-        verifyReportable(reporterMemberId, targetType, targetId)
-        if (reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)) {
-            throw BusinessException(ErrorCode.REPORT_DUPLICATED)
+        val report = if (reporterMemberId != null) {
+            memberService.getMember(reporterMemberId)
+            verifyTargetExists(targetType, targetId, reporterMemberId)
+            if (reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)) {
+                throw BusinessException(ErrorCode.REPORT_DUPLICATED)
+            }
+            Report.byMember(reporterMemberId, targetType, targetId, reason, detail)
+        } else {
+            val guestId = installationId?.trim()?.takeIf { it.isNotEmpty() }
+                ?: throw BusinessException(ErrorCode.REPORT_INSTALLATION_ID_REQUIRED)
+            verifyTargetExists(targetType, targetId, reporterMemberId = null)
+            if (reportRepository.existsByReporterInstallationIdAndTargetTypeAndTargetId(guestId, targetType, targetId)) {
+                throw BusinessException(ErrorCode.REPORT_DUPLICATED)
+            }
+            Report.byGuest(guestId, targetType, targetId, reason, detail)
         }
         try {
-            reportRepository.save(
-                Report(
-                    reporterMemberId = reporterMemberId,
-                    targetType = targetType,
-                    targetId = targetId,
-                    reason = reason,
-                    detail = detail,
-                ),
-            )
+            reportRepository.save(report)
         } catch (_: DataIntegrityViolationException) {
             throw BusinessException(ErrorCode.REPORT_DUPLICATED)
         }
     }
 
-    private fun verifyReportable(reporterMemberId: Long, targetType: ReportTargetType, targetId: Long) {
+    private fun verifyTargetExists(targetType: ReportTargetType, targetId: Long, reporterMemberId: Long?) {
         when (targetType) {
             ReportTargetType.REVIEW -> {
                 val review = reviewRepository.findById(targetId)
                     .orElseThrow { BusinessException(ErrorCode.REPORT_TARGET_NOT_FOUND) }
-                if (review.isOwnedBy(reporterMemberId)) {
+                if (reporterMemberId != null && review.isOwnedBy(reporterMemberId)) {
                     throw BusinessException(ErrorCode.REPORT_SELF_TARGET)
                 }
             }

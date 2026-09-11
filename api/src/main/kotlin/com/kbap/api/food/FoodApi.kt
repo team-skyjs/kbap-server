@@ -6,6 +6,7 @@ import com.kbap.api.core.config.ApiErrors
 import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -128,7 +129,7 @@ interface FoodApi {
             (이 음식에 대한 리뷰이므로 항목의 food 필드는 생략, createdAt 은 epoch millis, author 에 profileImageUrl 포함).
             overall 은 회원·비회원 모두 실제 집계값이며 수치는 null 없이 항상 숫자다(해당 값이 없으면 0.0·0).
             sameCountry 는 비회원(또는 탈퇴 회원 토큰) 조회면 null, 회원 조회면 항상 객체다(국적 미보유·해당 국적 리뷰 없음이면 0.0·0).
-            recentReviews 의 likedByMe 는 비회원 조회면 항상 false 이고, 차단·신고 리뷰 제외는 회원 조회에만 적용된다.
+            recentReviews 의 likedByMe 는 비회원 조회면 항상 false 다. 차단 회원의 리뷰 제외는 회원 조회에만 적용되고, 신고 리뷰 제외는 리뷰 목록 API 와 동일하게 회원(토큰) 또는 게스트(`X-Installation-Id` 헤더) 기준으로 적용된다.
 
             응답 최상위 overallRiskStatus 는 사용자 회피 목록 ∩ 음식 성분의 성분별 위험도 최악값이며, 비회원 조회는 판별하지 않고 null 이다.
             클라이언트 판별 규칙: overallRiskStatus == null → 비회원 조회 응답(로그인 유도 등 비회원 UI 분기 기준).
@@ -151,5 +152,11 @@ interface FoodApi {
         foodId: Long,
         @ParameterObject request: FoodDetailRequest,
         memberId: Long?,
+        @Parameter(
+            `in` = ParameterIn.HEADER,
+            name = "X-Installation-Id",
+            description = "게스트 설치 UUID(옵션). 있으면 이 설치가 신고한 리뷰를 recentReviews 에서 제외한다(회원 토큰 우선)",
+        )
+        installationId: String?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>>
 }

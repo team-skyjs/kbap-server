@@ -1,5 +1,6 @@
 package com.kbap.api.review
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -95,6 +97,7 @@ class ReviewController(
     @GetMapping("/reviews")
     override fun listReviews(
         @AuthMemberIdOrNull memberId: Long?,
+        @RequestHeader(name = ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
         @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
     ): ResponseEntity<BaseResponse<ReviewListPage>> {
@@ -104,6 +107,7 @@ class ReviewController(
             BaseResponse.ok(
                 reviewService.getReviewPage(
                     memberId,
+                    installationId,
                     foodId,
                     request.countryCode,
                     LanguageCode.from(request.lang),

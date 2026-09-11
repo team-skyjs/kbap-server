@@ -2,7 +2,7 @@ package com.kbap.api.report
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
-import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.auth.AuthMemberIdOrNull
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
@@ -17,11 +17,12 @@ class ReportController(
 ) : ReportApi {
     @PostMapping("/reports")
     override fun create(
-        @AuthMemberId memberId: Long,
+        @AuthMemberIdOrNull memberId: Long?,
         @Valid @RequestBody request: ReportCreateRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         reportService.createReport(
             reporterMemberId = memberId,
+            installationId = request.installationId,
             targetType = request.targetType!!,
             targetId = request.targetId!!,
             reason = request.reason!!,
