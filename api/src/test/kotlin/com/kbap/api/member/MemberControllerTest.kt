@@ -224,6 +224,57 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            fun setScanState(scanCount: Int, scanUnlocked: Boolean) {
+                dataSource.connection.use { c ->
+                    c.prepareStatement("UPDATE member SET scan_count = ?, scan_unlocked = ? WHERE provider_uid = ?").use { ps ->
+                        ps.setInt(1, scanCount)
+                        ps.setBoolean(2, scanUnlocked)
+                        ps.setString(3, FakeSocialTokenVerifier.DEFAULT_SUB)
+                        ps.executeUpdate()
+                    }
+                }
+            }
+
+            fun scanQuotaPayload(token: String) =
+                objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+
+            `when`("무료 스캔을 일부 사용한 회원이 조회하면") {
+                then("스캔 횟수·한도·잔여가 응답에 담긴다") {
+                    val token = loginAccessToken()
+                    setScanState(scanCount = 1, scanUnlocked = false)
+
+                    val payload = scanQuotaPayload(token)
+                    payload.path("scanCount").asInt() shouldBe 1
+                    payload.path("freeScanLimit").asInt() shouldBe 3
+                    payload.path("scanUnlocked").asBoolean() shouldBe false
+                    payload.path("scanRemaining").asInt() shouldBe 2
+                }
+            }
+
+            `when`("무료 스캔을 소진한 회원이 조회하면") {
+                then("잔여 0 으로 응답한다") {
+                    val token = loginAccessToken()
+                    setScanState(scanCount = 3, scanUnlocked = false)
+
+                    val payload = scanQuotaPayload(token)
+                    payload.path("scanCount").asInt() shouldBe 3
+                    payload.path("scanUnlocked").asBoolean() shouldBe false
+                    payload.path("scanRemaining").asInt() shouldBe 0
+                }
+            }
+
+            `when`("스캔이 해금된 회원이 조회하면") {
+                then("잔여는 null 로 응답한다") {
+                    val token = loginAccessToken()
+                    setScanState(scanCount = 5, scanUnlocked = true)
+
+                    val payload = scanQuotaPayload(token)
+                    payload.path("scanCount").asInt() shouldBe 5
+                    payload.path("scanUnlocked").asBoolean() shouldBe true
+                    payload.path("scanRemaining").isNull shouldBe true
+                }
+            }
+
             `when`("인증 없이 조회하면") {
                 then("401 로 거절된다") {
                     getMyProfile(null).andReturn().response.status shouldBe 401
