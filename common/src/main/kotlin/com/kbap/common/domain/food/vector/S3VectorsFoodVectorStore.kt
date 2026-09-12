@@ -29,7 +29,6 @@ class S3VectorsFoodVectorStore(
             put(FoodVectorDocuments.FOOD_ID, Document.fromNumber(document.foodId))
             put(FoodVectorDocuments.NAME, Document.fromString(document.name))
             put(FoodVectorDocuments.LONG_DESCRIPTION, Document.fromString(document.longDescription))
-            document.imageRef?.let { put(FoodVectorDocuments.IMAGE_REF, Document.fromString(it)) }
             put(FoodVectorDocuments.EMBEDDING_HASH, Document.fromString(document.embeddingHash))
             put(FoodVectorDocuments.EMBEDDING_MODEL, Document.fromString(document.embeddingModel))
             put(FoodVectorDocuments.EMBEDDING_DIMENSION, Document.fromNumber(document.embeddingDimension))

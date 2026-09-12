@@ -52,6 +52,7 @@ class AdminFoodRecollectPageTest : BehaviorSpec() {
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
                     it.execute("DELETE FROM food_vector_outbox")
+                    it.execute("DELETE FROM food_image")
                     it.execute("DELETE FROM food")
                 }
             }

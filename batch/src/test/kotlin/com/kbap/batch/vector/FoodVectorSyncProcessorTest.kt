@@ -120,7 +120,6 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                     val document = vectorStore.documents.getValue(food.id)
                     document.name shouldBe "김치찌개"
                     document.longDescription shouldBe "잘 익은 김치와 돼지고기를 넣고 끓인 한국의 대표적인 찌개"
-                    document.imageRef shouldBe "images/food/김치찌개.webp"
                     document.embedding.size shouldBe embeddingDimension
                     document.embeddingModel shouldBe embeddingModel
                     document.embeddingDimension shouldBe embeddingDimension
@@ -376,7 +375,6 @@ private fun document(
     foodId = foodId,
     name = name,
     longDescription = longDescription,
-    imageRef = null,
     embedding = FloatArray(embeddingDimension) { 0.5f },
     embeddingHash = embeddingHash,
     embeddingModel = embeddingModel,

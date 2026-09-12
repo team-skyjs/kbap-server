@@ -5,6 +5,7 @@ import com.kbap.api.TestTables
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -45,6 +46,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var itemRepository: ImageBatchItemJpaRepository
+
+    @Autowired
+    private lateinit var foodImageRepository: FoodImageJpaRepository
 
     @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
@@ -127,6 +131,8 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     val item = itemRepository.findAll().single()
                     item.itemStatus shouldBe ImageBatchItemStatus.DONE
                     item.fileName shouldBe key
+                    val galleryPrimary = foodImageRepository.findByFoodIdAndIsPrimaryTrue(food.id)!!
+                    galleryPrimary.imageKey shouldBe reloaded.imageRef
                     batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.COLLECTED
                     batchRepository.findById(batch.id).get().collectedAt.shouldNotBeNull()
                 }
@@ -345,6 +351,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                     secondRef shouldNotBe firstRef
                     fakeStorage.heads.containsKey(firstRef) shouldBe true
                     fakeStorage.heads.containsKey(secondRef) shouldBe true
+                    val gallery = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                    gallery.map { it.imageKey } shouldBe listOf(firstRef, secondRef)
+                    gallery.single { it.isPrimary }.imageKey shouldBe secondRef
                 }
             }
         }
