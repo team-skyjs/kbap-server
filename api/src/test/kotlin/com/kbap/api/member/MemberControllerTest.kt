@@ -224,6 +224,34 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("주문이 있는 회원이 조회하면") {
+                then("orderCount 가 누적 주문 수와 같다(주문 없으면 0, 주문 생성 후 +1)") {
+                    val token = loginAccessToken()
+
+                    objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload").path("orderCount").asInt() shouldBe 0
+
+                    val memberId = dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT id FROM member WHERE provider_uid = 'google-sub-fixed'").use { ps ->
+                            ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+                        }
+                    }
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO orders (member_id, image_path, status, created_at, updated_at) " +
+                                "VALUES (?, ?, 'ACTIVE', NOW(6), NOW(6))",
+                        ).use { ps ->
+                            listOf("mypage/o1.webp", "mypage/o2.webp").forEach { path ->
+                                ps.setLong(1, memberId); ps.setString(2, path); ps.executeUpdate()
+                            }
+                        }
+                    }
+
+                    objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString)
+                        .path("payload").path("orderCount").asInt() shouldBe 2
+                }
+            }
+
             `when`("인증 없이 조회하면") {
                 then("401 로 거절된다") {
                     getMyProfile(null).andReturn().response.status shouldBe 401

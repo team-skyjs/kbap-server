@@ -1,5 +1,6 @@
 package com.kbap.api.member
 
+import io.swagger.v3.oas.annotations.media.Schema
 
 data class MyProfileResponse(
     val memberId: Long,
@@ -12,6 +13,8 @@ data class MyProfileResponse(
     val spicinessPreference: String,
     val currency: String?,
     val onboardingCompleted: Boolean,
+    @field:Schema(description = "회원의 누적 주문 수(소프트삭제 제외). 주문 없으면 0", example = "3")
+    val orderCount: Long,
     val ranking: RankingSummary,
 ) {
     data class RankingSummary(
@@ -46,6 +49,7 @@ data class MyProfileResponse(
                 spicinessPreference = result.spicinessPreference,
                 currency = result.currency,
                 onboardingCompleted = result.onboardingCompleted,
+                orderCount = result.orderCount,
                 ranking = RankingSummary.from(result.ranking),
             )
     }

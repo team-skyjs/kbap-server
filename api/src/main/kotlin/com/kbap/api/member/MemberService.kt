@@ -1,6 +1,7 @@
 package com.kbap.api.member
 
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class MemberService(
     private val memberRepository: MemberJpaRepository,
+    private val orderRepository: OrderJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -51,6 +53,7 @@ class MemberService(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
+            orderCount = orderRepository.countByMemberId(memberId),
         )
     }
 
