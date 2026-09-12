@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.api.review.FoodRating
+import java.time.Instant
 
 data class FoodSummaryResponse(
     val foodId: Long,
@@ -9,6 +10,7 @@ data class FoodSummaryResponse(
     val imageRef: String?,
     val spiciness: Int,
     val overallRiskStatus: String,
+    val publishedAt: Instant?,
     val bookmarked: Boolean,
     val review: ReviewInfoResponse,
 ) {
@@ -25,6 +27,7 @@ data class FoodSummaryResponse(
             imageRef = view.imageRef,
             spiciness = view.spiciness,
             overallRiskStatus = view.overallRiskStatus.name,
+            publishedAt = view.publishedAt,
             bookmarked = bookmarked,
             review = ReviewInfoResponse(
                 averageRating = rating?.averageRating ?: 0.0,

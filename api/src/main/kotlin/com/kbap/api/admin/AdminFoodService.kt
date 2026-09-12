@@ -175,6 +175,9 @@ class AdminFoodService(
         }
 
         val wasReady = food.isReady()
+        if (wasReady && command.contentStatus != FoodContentStatus.READY) {
+            food.freezePublishedAtIfLegacy()
+        }
         food.koreanName = matchKey
         food.displayName = command.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: command.koreanName
         food.description = command.description

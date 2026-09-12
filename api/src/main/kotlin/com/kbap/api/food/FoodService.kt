@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZoneId
 
 @Service
 class FoodService(
@@ -157,6 +158,7 @@ class FoodService(
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
             reviewEligible = input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) } ?: false,
+            publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
                     code = ingredient.code,

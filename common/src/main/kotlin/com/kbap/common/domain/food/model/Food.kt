@@ -15,6 +15,7 @@ import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import org.slf4j.LoggerFactory
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -75,6 +76,9 @@ class Food(
         columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD','ADMIN_REJECTED')",
     )
     var contentFailureKind: FoodContentFailureKind? = null,
+
+    @Column(name = "published_at")
+    var publishedAt: LocalDateTime? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
@@ -82,11 +86,20 @@ class Food(
 
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
+    fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
+
+    fun freezePublishedAtIfLegacy() {
+        if (publishedAt == null && isReady()) {
+            publishedAt = createdAt
+        }
+    }
+
     fun approve(): Boolean {
         // 재승인(READY)은 이미 원하는 결과라 멱등 성공, 그 외 비대상은 운영자 실수 신호라 예외 — 의도된 비대칭.
         if (contentStatus == FoodContentStatus.READY) return false
         requireReviewable()
         contentStatus = FoodContentStatus.READY
+        publishedAt = publishedAt ?: LocalDateTime.now()
         return true
     }
 
