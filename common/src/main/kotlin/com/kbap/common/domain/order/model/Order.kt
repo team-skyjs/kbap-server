@@ -2,6 +2,7 @@ package com.kbap.common.domain.order.model
 
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
+import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.Index
 import jakarta.persistence.Table
@@ -28,6 +29,9 @@ class Order(
 
     @Column(name = "road_address", length = MAX_ADDRESS_LENGTH)
     var roadAddress: String? = null,
+
+    @Embedded
+    var resolvedPlace: OrderPlaceSnapshot? = null,
 ) : BaseEntity() {
     fun orderedAt(): Long = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
@@ -36,12 +40,13 @@ class Order(
         val LATITUDE_RANGE = BigDecimal("-90")..BigDecimal("90")
         val LONGITUDE_RANGE = BigDecimal("-180")..BigDecimal("180")
 
-        fun place(
+        fun create(
             memberId: Long,
             imagePath: String,
             latitude: BigDecimal?,
             longitude: BigDecimal?,
             roadAddress: String?,
+            resolvedPlace: OrderPlaceSnapshot? = null,
         ): Order {
             require(imagePath.isNotBlank()) { "imagePath 는 blank 일 수 없습니다" }
             require((latitude == null) == (longitude == null)) { "위도·경도는 함께 있거나 함께 없어야 합니다" }
@@ -54,6 +59,7 @@ class Order(
                 latitude = latitude,
                 longitude = longitude,
                 roadAddress = roadAddress,
+                resolvedPlace = resolvedPlace,
             )
         }
     }
