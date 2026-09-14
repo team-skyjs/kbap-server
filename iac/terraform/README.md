@@ -24,7 +24,7 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 | 운영 사용자 **액세스 키** | 사람(콘솔 발급) → 젠킨스 크리덴셜 — Terraform·레포에 두지 않는다 |
 | 태스크 정의 **리비전**(이미지 태그)·리스너의 blue/green 포워딩·서비스 desired | 배포 스크립트 / CodeDeploy (`lifecycle.ignore_changes`) |
 | SSM 파라미터(이름·값 모두) | 사람/CI (`aws ssm put-parameter`) — Terraform 은 ARN 문자열만 참조 |
-| RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가) |
+| RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가). SQS 콘텐츠 요청 큐는 환경별 — dev `kbap-generate-content-queue`, prod `kbap-prod-generate-content-queue`(콘솔 생성, `food_content_queue_name`, KB-547). 이름을 바꾸면 배치 태스크 정의 `-replace` apply + 배치 CI 재배포까지 해야 env 가 바뀐다 |
 
 ## 처음 세우기 (dev)
 
