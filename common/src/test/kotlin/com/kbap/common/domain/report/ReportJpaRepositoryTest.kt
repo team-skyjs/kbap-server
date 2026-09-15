@@ -4,11 +4,13 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.report.model.Report
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
@@ -56,6 +58,24 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
                     reportJpaRepository.findAll().count { it.reporterMemberId == 2L && it.targetId == 20L } shouldBe 2
                     reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(2L, ReportTargetType.REVIEW)
                         .count { it == 20L } shouldBe 1
+                }
+            }
+        }
+
+        given("신고자 식별자 불변식") {
+            `when`("회원 ID 와 설치 ID 가 모두 없는 신고를 저장하면") {
+                then("CHECK 제약이 거절한다 — 엔티티 메타데이터에도 같은 제약이 선언돼 있다") {
+                    shouldThrow<DataIntegrityViolationException> {
+                        reportJpaRepository.saveAndFlush(
+                            Report(
+                                reporterMemberId = null,
+                                reporterInstallationId = null,
+                                targetType = ReportTargetType.REVIEW,
+                                targetId = 90L,
+                                reason = ReportReason.SPAM,
+                            ),
+                        )
+                    }
                 }
             }
         }

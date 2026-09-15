@@ -6,9 +6,14 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import org.hibernate.annotations.Check
 
 @Entity
 @Table(name = "report")
+@Check(
+    name = "ck_report_reporter_at_least_one",
+    constraints = "reporter_member_id is not null or reporter_installation_id is not null",
+)
 class Report(
     @Column(name = "reporter_member_id")
     val reporterMemberId: Long? = null,
