@@ -200,7 +200,7 @@
 
 - [x] T047 Run `./gradlew build` (arch 포함) and fix any `ModuleBoundaryTest`·`RepositoryLikeEscapeTest` regressions; confirm api·batch·common test context counts unchanged (1·1·1) via `-i` 로그
 - [x] T048 [P] Update `specs/kb-471-scan-suggestion-batch/contracts/scan-suggestion-job.md` if any name (job/step/log/metric/property) drifted during implementation
-- [ ] T049 [P] (보류 — 로컬 MySQL/Redis 미기동, api 마이그레이션 선행 필요) Local run per `specs/kb-471-scan-suggestion-batch/quickstart.md` §2: `:batch:bootRun` on 8081 with main `.env`, trigger `scanSuggestionPushJob`, confirm exitCode (NOOP outside window / COMPLETED inside) and `notification_dispatch` rows; (스케줄 발화는 12:00/18:00 상수라 로컬에서 기다리지 않는다 — 수동 트리거로 대체); note results in the PR body
+- [ ] T049 [P] (보류 — 로컬 MySQL/Redis 미기동, api 마이그레이션 선행 필요) Local run per `specs/kb-471-scan-suggestion-batch/quickstart.md` §2: `:batch:bootRun` on 8081 with main `.env`, trigger `scanSuggestionPushJob`, confirm exitCode COMPLETED and `notification_dispatch` rows; (스케줄 발화는 12:00/18:00 상수라 로컬에서 기다리지 않는다 — 수동 트리거로 대체); note results in the PR body
 - [x] T050 [P] Record decisions in `../kbap-agenthub/wiki/push-send-pipeline.md`(공용 `PushNotifier`·동시성 6·페이서 170ms·재시도 정책·채널 매핑·ttl) and add a line to `../kbap-agenthub/INDEX.md`; commit in the hub
 - [x] T051 [P] Comment on Jira KB-471: ShedLock 제외(배치 1대), 대상 조건은 #260·#261 기준(게스트 쿼리 폐기·기기 `news` 토글), 기본 12:00 KST, 하루 1회 상한은 회원 단위 판정, 재시도·동시성 수치
 
