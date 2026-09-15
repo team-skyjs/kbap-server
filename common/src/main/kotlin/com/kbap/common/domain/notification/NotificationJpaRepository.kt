@@ -34,8 +34,6 @@ interface NotificationJpaRepository : JpaRepository<Notification, Long> {
 
     fun countByMemberIdAndReadAtIsNull(memberId: Long): Long
 
-    fun findByMemberIdAndTypeAndCreatedAtAfter(memberId: Long, type: NotificationType, since: LocalDateTime): List<Notification>
-
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.memberId = :memberId and n.readAt is null")
     fun markAllReadByMemberId(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Int

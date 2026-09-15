@@ -65,31 +65,6 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("회원·유형·시각 이후 알림 조회") {
-            `when`("회원·유형·생성 시각·삭제 여부가 섞인 알림을 두면") {
-                clear()
-                val since = LocalDateTime.of(2026, 9, 16, 10, 0)
-                fun saveAt(memberId: Long, type: NotificationType, createdAt: LocalDateTime, deleted: Boolean = false): Long {
-                    val saved = repository.save(Notification.forMember(memberId, type, "t", "b", mapOf("reviewId" to 1)))
-                    jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?", createdAt, saved.id)
-                    if (deleted) {
-                        saved.delete()
-                        repository.save(saved)
-                    }
-                    return saved.id
-                }
-                val included = saveAt(1L, NotificationType.HELPFUL, since.plusSeconds(1))
-                saveAt(1L, NotificationType.HELPFUL, since.minusSeconds(1))
-                saveAt(1L, NotificationType.SCAN_SUGGESTION, since.plusHours(1))
-                saveAt(2L, NotificationType.HELPFUL, since.plusHours(1))
-                saveAt(1L, NotificationType.HELPFUL, since.plusHours(2), deleted = true)
-
-                then("그 회원의 같은 유형이면서 기준 시각 이후이고 삭제되지 않은 행만 돌려준다") {
-                    repository.findByMemberIdAndTypeAndCreatedAtAfter(1L, NotificationType.HELPFUL, since).map { it.id } shouldContainExactly listOf(included)
-                }
-            }
-        }
-
         given("회원 알림 목록") {
             `when`("알림 3건을 저장하고 회원 기준으로 조회하면") {
                 clear()

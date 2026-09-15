@@ -6,7 +6,7 @@
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (Constitution Principle I). 모든 스토리는 실패하는 테스트를 먼저 쓰고(Red 확인) 구현한다. 테스트 스타일은 Kotest `BehaviorSpec`(given/when/then 한국어), 통합 헤더는 api `@IntegrationTest`·common `@SpringBootTest + @Import(MySqlContainerConfig::class)`(`CommonTestApp`) 고정 — 새 컨텍스트를 만들지 않는다. 비동기 검증은 Kotest `eventually(5.seconds)`(긍정)·`continually(1.seconds)`(부정). Kotlin 소스 주석 금지.
 
-**Organization**: 스토리별 phase. 공용 파이프라인 변경(채널 매핑·언어별 인자)은 모든 스토리가 쓰므로 Foundational. 이벤트·리스너는 US1 에서 만들고 US2·US3 는 조건을 더한다.
+**Organization**: 스토리별 phase. 공용 파이프라인 변경(채널 매핑·언어별 인자)은 모든 스토리가 쓰므로 Foundational. 이벤트·리스너는 US1 에서 만들고 US2 는 조건을 더한다. US3(묶음)는 2026-09-16 결정으로 제외.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -81,31 +81,17 @@
 
 ---
 
-## Phase 5: User Story 3 — 같은 리뷰에 반응이 몰려도 알림은 한 번만 (Priority: P2)
+## Phase 5: (삭제) 같은 리뷰 반복 반응 묶음
 
-**Goal**: 같은 리뷰의 직전 HELPFUL 알림함 행(활성)이 1시간 이내면 새 반응에 알림을 만들지 않는다. 리뷰 단위, 반응자·취소 후 재등록 불문, 실패로 삭제된 행은 제외. (FR-005)
-
-**Independent Test**: B 좋아요 → 1건, C 좋아요 → 여전히 1건, B 취소·재등록 → 1건, A 의 다른 리뷰 → 2건, 기존 행 `created_at` 을 2시간 전으로 옮긴 뒤 C 재등록 → 3건.
-
-### Tests for User Story 3 (Test-First) ⚠️
-
-- [x] T014 [P] [US3] Add given("회원·유형·시각 이후 알림 조회") to `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationJpaRepositoryTest.kt`: `findByMemberIdAndTypeAndCreatedAtAfter(memberId, HELPFUL, since)` — since 이후 행 포함·이전 행 제외(`created_at` 은 저장 후 native UPDATE 로 조정)·다른 type 제외·다른 회원 제외·소프트 삭제(`delete()` 후 save) 행 제외. Red 확인(컴파일 실패)
-- [x] T015 [P] [US3] Add scenarios to given("좋아요 알림") in `api/src/test/kotlin/com/kbap/api/review/ReviewLikeControllerTest.kt`: (i) A(8221) 리뷰 R1, B 좋아요 → `eventually` 1건 → C(8223) 좋아요 → `continually` 1건 → B `unlike`·`like` → `continually` 1건 → A 의 리뷰 R2 에 C 좋아요 → `eventually` 2건 / (j) R1 의 HELPFUL 알림 `created_at` 을 SQL 로 2시간 전으로 UPDATE → D(8224) 좋아요 → `eventually` 3건 / (k) `fakePushSender.errorFor = { "DeviceNotRegistered" }` 상태에서 B 좋아요 → `eventually` dispatch FAILED 1·알림함 활성 행 0 → `errorFor` 해제 후 C 좋아요 → `eventually` 알림함 활성 행 1(실패 행이 창을 점유하지 않음). Red 확인((i) 두 번째 단계에서 2건이 되어 실패)
-
-### Implementation for User Story 3
-
-- [x] T016 [US3] Add derived query `fun findByMemberIdAndTypeAndCreatedAtAfter(memberId: Long, type: NotificationType, since: LocalDateTime): List<Notification>` to `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationJpaRepository.kt`. T014 Green
-- [x] T017 [US3] Add bundle gate to `handle` in `api/src/main/kotlin/com/kbap/api/notification/HelpfulPushListener.kt` (send 전에): `val since = LocalDateTime.now().minus(BUNDLE_WINDOW)`; `notificationRepository.findByMemberIdAndTypeAndCreatedAtAfter(event.authorMemberId, NotificationType.HELPFUL, since).any { it.data?.get("reviewId")?.toString() == event.reviewId.toString() }` 면 `log.info` 후 return; `companion object { private val BUNDLE_WINDOW: Duration = Duration.ofHours(1) }`. T015 Green
-
-**Checkpoint**: 묶음 정책이 동작한다. 세 스토리 완료.
+2026-09-16 사용자 결정으로 범위에서 제외 — 실시간 단순 발송을 먼저 끝내고 고도화는 별도 이슈. 1차 구현(T014~T017: 파생 쿼리 + 1시간 창 게이트)은 구현·머지 전에 되돌렸다(research §4). 아래 Polish 의 회귀에 이 제거가 포함된다.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting
 
 - [x] T018 Run `./gradlew build` (arch 포함) — `ModuleBoundaryTest`·`AdminNotificationTestControllerTest`(NEWS → news 채널)·`ScanSuggestionPushJobTest` 회귀 Green, 컴파일 경고 없음
-- [ ] T019 [P] Run quickstart.md §2 로컬 검증 — 메인 `.env` 로 `:api:bootRun`(8081), 실제 좋아요 후 `notification`·`notification_dispatch` 행과 1시간 안 재반응 시 행 증가 없음 확인
-- [x] T020 [P] Record in `../kbap-agenthub/wiki/` (기존 푸시 문서에 절 추가 또는 `helpful-push-after-commit-event.md`) + `INDEX.md` 한 줄: "활동 알림은 api 가 `@Async + @TransactionalEventListener(AFTER_COMMIT)` 로 즉시 발송(Jira 아웃박스+batch 폴링 대체), 묶음 창 1시간 상수, 활동 채널 `activity`" — 허브에서 커밋
+- [ ] T019 [P] Run quickstart.md §2 로컬 검증 — 메인 `.env` 로 `:api:bootRun`(8081), 실제 좋아요 후 `notification`·`notification_dispatch` 행 확인
+- [x] T020 [P] Record in `../kbap-agenthub/wiki/` (기존 푸시 문서에 절 추가 또는 `helpful-push-after-commit-event.md`) + `INDEX.md` 한 줄: "활동 알림은 api 가 `@Async + @TransactionalEventListener(AFTER_COMMIT)` 로 즉시 발송(Jira 아웃박스+batch 폴링 대체), 묶음 없음(후속), 활동 채널 `activity`" — 허브에서 커밋
 
 ---
 
@@ -116,13 +102,13 @@
 - **Phase 2 (Foundational)** → 모든 스토리의 전제(채널·언어별 인자). T001·T002 병렬(같은 파일이지만 다른 given — 순차 편집 권장), T003·T004 는 각 Red 뒤.
 - **Phase 3 (US1)** → Phase 2 완료 후. T007 은 T006 과 병렬 가능, T008 → T009 순서.
 - **Phase 4 (US2)** → US1 의 `ReviewService` 발행 코드 위에 조건을 얹으므로 US1 뒤.
-- **Phase 5 (US3)** → US1 의 리스너에 게이트를 얹으므로 US1 뒤. US2 와는 독립(둘 다 US1 뒤라면 어느 순서든 가능). T014 는 common, T015 는 api — 병렬.
+- **Phase 5** → 제외.
 - **Phase 6** → 전부 완료 후.
 
 ### Parallel Opportunities
 
-- T001 ∥ T002(같은 테스트 파일이라 실제로는 한 번에 편집), T007 ∥ T006, T014 ∥ T015, T019 ∥ T020.
-- 한 명이 구현하므로 실질 순서: T001→T003, T002→T004, T005, T006→T007→T008→T009→T010, T011→T012→T013, T014→T016, T015→T017, T018→T019·T020.
+- T001 ∥ T002(같은 테스트 파일이라 실제로는 한 번에 편집), T007 ∥ T006, T019 ∥ T020.
+- 한 명이 구현하므로 실질 순서: T001→T003, T002→T004, T005, T006→T007→T008→T009→T010, T011→T012→T013, T018→T019·T020.
 
 ---
 
@@ -137,7 +123,7 @@
 ### Incremental Delivery
 
 - US2 를 붙이면 본인·취소·재호출이 걸러진다 — 이 상태가 최소 릴리스 가능 지점(잘못 보내는 알림 없음).
-- US3 는 도배 방어 — Jira DoD 의 마지막 항목.
+- 묶음(Jira DoD 마지막 항목)은 후속 고도화.
 
 ---
 

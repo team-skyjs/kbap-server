@@ -17,14 +17,14 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 결정과
 ## 3. 트리거 판정 위치 — 발행 시점에 걸러서 이벤트 자체를 안 낸다
 
 - **Decision**: `likeReview` 가 (a) 리뷰를 `findById` 로 읽어 작성자·음식 id 를 얻고, (b) `findByReviewIdAndMemberId` 가 null 일 때만 "새 좋아요" 로 보며, (c) 작성자 ≠ 좋아요 회원일 때만 `ReviewLiked(reviewId, authorMemberId, foodId)` 를 발행한다. 취소(`unlikeReview`)는 발행하지 않는다.
-- **Rationale**: 셋 다 요청 트랜잭션 안에서 이미 아는 값이라 리스너에서 다시 조회할 이유가 없다. `@SQLRestriction` 이 삭제 행을 숨기므로 취소 후 재등록은 "새 좋아요" 로 보인다 — 도배 방어는 §4 묶음 창이 맡는다. `existsById` → `findById` 로 바뀌지만 쿼리 수는 같다.
+- **Rationale**: 셋 다 요청 트랜잭션 안에서 이미 아는 값이라 리스너에서 다시 조회할 이유가 없다. `@SQLRestriction` 이 삭제 행을 숨기므로 취소 후 재등록은 "새 좋아요" 로 보여 다시 알림이 간다(§4 — 묶음은 범위 밖). `existsById` → `findById` 로 바뀌지만 쿼리 수는 같다.
 - **Alternatives**: `upsertActive` 의 affected rows 로 신규/부활/중복을 구분 — MySQL `ON DUPLICATE KEY UPDATE` 는 변경 없으면 0·갱신이면 2·삽입이면 1 을 주지만 `updated_at = NOW(6)` 때문에 항상 갱신되어 중복 재호출도 2 → 구분 불가, 기각.
 
-## 4. 묶음 정책 — 리뷰당 1시간 창, 알림함 행 기준
+## 4. 묶음 정책 — 이번 범위 밖 (2026-09-16 사용자 결정)
 
-- **Decision**: 리스너가 `NotificationJpaRepository.findByMemberIdAndTypeAndCreatedAtAfter(authorId, HELPFUL, now - 1h)` 로 작성자의 최근 HELPFUL 행을 읽고 `data["reviewId"]` 가 같은 행이 하나라도 있으면 건너뛴다. 창 길이는 리스너의 상수(`Duration.ofHours(1)`).
-- **Rationale**: 작성자의 최근 1시간 HELPFUL 행은 손에 꼽는 수라 메모리 필터로 충분하고, JSON 컬럼 네이티브 쿼리(`JSON_EXTRACT`)나 새 컬럼이 필요 없다. 전송 실패 행은 `record` 가 소프트 삭제하므로 자동 제외(spec FR-005). 값은 환경별로 바뀌지 않으므로 프로퍼티로 빼지 않는다(ponytail — 바뀌면 상수 한 줄).
-- **Alternatives**: (a) `review_like.updated_at` 기반 판정 — 취소·재등록도 갱신되어 부적합. (b) 읽지 않은 HELPFUL 행이 있으면 억제 — 기기 두 대의 읽음 상태가 갈리고 알림함을 안 여는 작성자는 영영 안 받음, 기각. (c) `notification` 에 `review_id` 컬럼 추가 — 마이그레이션·리비전 공존 비용 대비 이득 없음, 기각.
+- **Decision**: 같은 리뷰 반복 반응을 묶지 않는다. 새 좋아요마다 알림 1건. Jira DoD 의 "묶음 정책" 항목은 보류하고 후속 고도화로 넘긴다.
+- **Rationale**: 첫 구현은 실시간 단순 발송으로 끝낸다. 1차안(작성자의 최근 1시간 HELPFUL 알림함 행을 읽어 `data.reviewId` 로 메모리 매칭)은 Codex 리뷰(#268)가 지적한 대로 확인과 생성이 한 트랜잭션이 아니라 동시 반응에 2건이 갈 수 있었고, 그걸 원자화하려면 이 PR 이 피한 아웃박스 수준의 테이블·제약이 돌아온다. 요구 없이 방어를 쌓지 않는다.
+- **Alternatives**: (a) 1시간 창 메모리 매칭(1차안) — 경합 허용 전제, 사용자 결정으로 제거. (b) (작성자, 리뷰, 창) unique 테이블로 원자 점유 — 고도화 시 후보. (c) 읽지 않은 HELPFUL 행이 있으면 억제 — 기기 두 대 읽음 상태 불일치, 기각.
 
 ## 5. 음식 이름 — 기기 언어별 인자 `argsByLang`
 

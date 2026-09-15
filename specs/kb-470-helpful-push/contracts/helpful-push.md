@@ -6,13 +6,13 @@ HTTP 계약 변경 없음. `POST /api/reviews/{reviewId}/like?liked=true|false` 
 
 | 상황 | HELPFUL 알림 |
 |------|-------------|
-| 다른 회원이 새로 좋아요(liked=true, 직전 활성 좋아요 없음) | 생성(아래 수신 조건·묶음 창 통과 시) |
+| 다른 회원이 새로 좋아요(liked=true, 직전 활성 좋아요 없음) | 생성(아래 수신 조건 통과 시) |
 | 작성자 본인 좋아요 | 없음 |
 | liked=false(취소) | 없음 |
 | 이미 좋아요 상태에서 liked=true 재호출 | 없음 |
 | 요청 실패(REVIEW-001 등, 롤백) | 없음 |
-| 취소 후 재등록 | 새 좋아요로 취급 — 묶음 창 안이면 없음, 밖이면 생성 |
-| 같은 리뷰에 최근 1시간 안에 HELPFUL 알림함 행(활성)이 있음 | 없음 |
+| 취소 후 재등록 | 새 좋아요로 취급 — 생성 |
+| 같은 리뷰에 다른 회원이 잇달아 좋아요 | 각각 생성(묶음 없음 — 후속 고도화) |
 
 수신 조건(파이프라인 기존 규칙): 작성자에 연결된 유효 토큰 기기 중 `(회원, 기기)` 설정의 `activity = true` 인 기기. 기기마다 알림함 행 1·발송 이력 1·Expo 메시지 1.
 
@@ -50,5 +50,4 @@ HELPFUL 행의 `data` 에 `reviewId` 가 추가된다. FE 는 `type=HELPFUL` 이
 |------|------|
 | `PushRequest`(common.domain.notification) | `+ argsByLang` — 언어별 인자, 없으면 `args` |
 | `NotificationType.channelId` | `"default"` 폐지 → 활동 유형 `"activity"` |
-| `NotificationJpaRepository` | `+ findByMemberIdAndTypeAndCreatedAtAfter` |
 | `ReviewService.likeReview` | 새 좋아요·비작성자면 `ReviewLiked` 발행(HTTP 결과 불변) |

@@ -20,7 +20,6 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
@@ -251,18 +250,6 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun ageHelpfulRows(authorId: Long, hours: Int) {
-            dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "UPDATE notification SET created_at = DATE_SUB(created_at, INTERVAL ? HOUR) WHERE member_id = ? AND type = 'HELPFUL'",
-                ).use { ps ->
-                    ps.setInt(1, hours)
-                    ps.setLong(2, authorId)
-                    ps.executeUpdate()
-                }
-            }
-        }
-
         suspend fun sentEventually(count: Int) = eventually(5.seconds) { fakePushSender.sent shouldHaveSize count }
         suspend fun sentStays(count: Int) = continually(1.seconds) { fakePushSender.sent shouldHaveSize count }
 
@@ -340,6 +327,19 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                     sentStays(1)
                 }
             }
+            `when`("같은 리뷰에 다른 회원이 잇달아 좋아요를 등록하면") {
+                val author = 8221L
+                val reviewId = seedReview(authorMemberId = author)
+                activity(device(author))
+                fakePushSender.reset()
+                then("묶지 않고 각각 알림이 간다") {
+                    like(reviewId, accessToken(8222L)).andExpect { status { isOk() } }
+                    sentEventually(1)
+                    like(reviewId, accessToken(8223L)).andExpect { status { isOk() } }
+                    sentEventually(2)
+                    helpfulRows(author) shouldBe 2
+                }
+            }
             `when`("작성자 기기의 활동 알림이 꺼져 있으면") {
                 val author = 8216L
                 val reviewId = seedReview(authorMemberId = author)
@@ -369,59 +369,6 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 then("예외가 전파되지 않고 발송도 없다") {
                     shouldNotThrowAny { helpfulPushListener.handle(ReviewLiked(reviewId = 1L, authorMemberId = 8299L, foodId = 999999L)) }
                     fakePushSender.sent shouldHaveSize 0
-                }
-            }
-        }
-
-        given("좋아요 알림 묶음") {
-            `when`("같은 리뷰에 반응이 몰리면") {
-                val author = 8221L
-                val r1 = seedReview(authorMemberId = author)
-                val r2 = seedReview(authorMemberId = author)
-                activity(device(author))
-                fakePushSender.reset()
-                then("리뷰당 한 건만 가고 다른 리뷰는 따로 간다") {
-                    val b = accessToken(8222L)
-                    val c = accessToken(8223L)
-                    like(r1, b).andExpect { status { isOk() } }
-                    sentEventually(1)
-                    like(r1, c).andExpect { status { isOk() } }
-                    sentStays(1)
-                    unlike(r1, b).andExpect { status { isOk() } }
-                    like(r1, b).andExpect { status { isOk() } }
-                    sentStays(1)
-                    like(r2, c).andExpect { status { isOk() } }
-                    sentEventually(2)
-                    fakePushSender.sent.map { it.data["reviewId"] } shouldBe listOf(r1, r2)
-                }
-            }
-            `when`("직전 알림이 묶음 창보다 오래됐으면") {
-                val author = 8224L
-                val reviewId = seedReview(authorMemberId = author)
-                activity(device(author))
-                fakePushSender.reset()
-                then("새 반응에 다시 알림이 간다") {
-                    like(reviewId, accessToken(8225L)).andExpect { status { isOk() } }
-                    sentEventually(1)
-                    ageHelpfulRows(author, hours = 2)
-                    like(reviewId, accessToken(8226L)).andExpect { status { isOk() } }
-                    sentEventually(2)
-                }
-            }
-            `when`("직전 발송이 실패해 알림함 행이 지워졌으면") {
-                val author = 8227L
-                val reviewId = seedReview(authorMemberId = author)
-                activity(device(author))
-                fakePushSender.reset()
-                then("실패 행은 창을 점유하지 않아 다음 반응에 알림이 간다") {
-                    fakePushSender.errorFor = { "DeviceNotRegistered" }
-                    like(reviewId, accessToken(8228L)).andExpect { status { isOk() } }
-                    eventually(5.seconds) { dispatchStatuses(author) shouldBe listOf("FAILED") }
-                    helpfulRows(author) shouldBe 0
-                    fakePushSender.errorFor = { null }
-                    like(reviewId, accessToken(8229L)).andExpect { status { isOk() } }
-                    eventually(5.seconds) { helpfulRows(author) shouldBe 1 }
-                    dispatchStatuses(author) shouldNotBe listOf("FAILED")
                 }
             }
         }
