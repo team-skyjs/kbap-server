@@ -1,5 +1,6 @@
 package com.kbap.api.review
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
@@ -183,7 +184,7 @@ class ReviewService(
             ?.let { reportRepository.findTargetIdsByReporterMemberIdAndTargetType(it, ReportTargetType.REVIEW) }
             .orEmpty()
         val byInstallation = viewerInstallationId
-            ?.takeIf { it.isNotBlank() }
+            ?.let(ApiHeaders::validInstallationId)
             ?.let { reportRepository.findTargetIdsByReporterInstallationIdAndTargetType(it, ReportTargetType.REVIEW) }
             .orEmpty()
         return (byMember + byInstallation).distinct().ifEmpty { listOf(-1L) }

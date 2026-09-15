@@ -150,6 +150,28 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 param("lang", "en")
             }
 
+        given("설치 ID 헤더 형식 검증 — 조회 경로") {
+            `when`("36자를 넘는 X-Installation-Id 로 리뷰 목록을 조회하면") {
+                then("조용히 무시하지 않고 400 COMMON-002 로 거절한다") {
+                    feed(token = null, installationId = "x".repeat(37)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("36자를 넘는 X-Installation-Id 로 음식 상세를 조회하면") {
+                then("같은 기준으로 400 COMMON-002 로 거절한다") {
+                    seedFood(931L, "헤더검증음식")
+
+                    foodDetail(931L, installationId = "y".repeat(37)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+        }
+
         given("신고 숨김의 회원·설치 합집합") {
             `when`("게스트로 신고한 뒤 같은 설치에서 로그인해 조회하면") {
                 then("회원 조회에서도 그 리뷰가 계속 숨겨진다") {
