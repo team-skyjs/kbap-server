@@ -146,11 +146,11 @@
 ### Tests for User Story 5 (Test-First) ⚠️
 
 - [x] T036 [P] [US5] Write `ScanSuggestionPushBatchConfigTest`(`@BatchIntegrationTest`) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushBatchConfigTest.kt`: `@Qualifier("scanSuggestionPushJob") job.name == "scanSuggestionPushJob"`. Red 확인(US1 이후면 즉시 Green — 그 경우 T037 과 함께 검증)
-- [x] T037 [US5] Add scenario (e) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: MockMvc `POST /internal/batch/jobs?jobName=scanSuggestionPushJob` → 202, `GET /internal/batch/executions/{id}` → `status COMPLETED`; `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent}` 가 발송 수만큼 증가. Red 확인(카운터)
+- [x] T037 [US5] Add scenario (e) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: MockMvc `POST /internal/batch/jobs?jobName=scanSuggestionLunchPushJob` → 202, `GET /internal/batch/executions/{id}` → `status COMPLETED`; `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent}` 가 발송 수만큼 증가. Red 확인(카운터)
 
 ### Implementation for User Story 5
 
-- [x] T038 [US5] (2026-09-15 개정: cron 외부화 대신 12:00·18:00 KST 하드코딩 — `ScanSuggestionSendWindow.LUNCH_CRON/DINNER_CRON`, 상한은 슬롯당 1회로 `startOfCurrentSlot`) Add `@Scheduled(cron = LUNCH_CRON) @Scheduled(cron = DINNER_CRON) fun pushScanSuggestions() = launch("scanSuggestionPushJob")` to `batch/src/main/kotlin/com/kbap/batch/schedule/BatchJobScheduler.kt` (ShedLock 없음 — 배치 1대, research §7). yml 주석에 "스케줄 시각은 SCAN_SUGGESTION_CRON 으로 외부화" 갱신 in `batch/src/main/resources/application.yml`
+- [x] T038 [US5] (2026-09-16 재개정: 점심/저녁 잡 2개 + 스케줄 메서드 2개, 문구는 `PushTemplates.bySlot`) (2026-09-15 개정: cron 외부화 대신 12:00·18:00 KST 하드코딩 — `ScanSuggestionSendWindow.LUNCH_CRON/DINNER_CRON`, 상한은 슬롯당 1회로 `startOfCurrentSlot`) Add `@Scheduled(cron = LUNCH_CRON) @Scheduled(cron = DINNER_CRON) fun pushScanSuggestions() = launch("scanSuggestionPushJob")` to `batch/src/main/kotlin/com/kbap/batch/schedule/BatchJobScheduler.kt` (ShedLock 없음 — 배치 1대, research §7). yml 주석에 "스케줄 시각은 SCAN_SUGGESTION_CRON 으로 외부화" 갱신 in `batch/src/main/resources/application.yml`
 - [x] T039 [US5] Verify writer counters and tasklet/writer log lines match `contracts/scan-suggestion-job.md` §5 in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushWriter.kt`·`ScanSuggestionTargetTasklet.kt` (T037 Green)
 
 **Checkpoint**: 스케줄·수동 트리거·관측 완료.

@@ -30,6 +30,10 @@ fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, 
 | 타입 | 변경 | 채우는 곳 |
 |------|------|-----------|
 | `NotificationType` | `val channelId: String get() = if (marketing) "news" else "default"` | enum |
+| `MealSlot`(신규) | `LUNCH(12:00)`·`DINNER(18:00)` — 문구 슬롯 + 슬롯 상한 축 | enum |
+| `PushRequest` | `+ mealSlot: MealSlot? = null` | 트리거(배치 잡별 고정) |
+| `PushTemplates` | `+ bySlot[SCAN_SUGGESTION][LUNCH/DINNER][lang]`, `optOutNotice` "프로필 > 알림 설정" | 템플릿 |
+| `PushMessageRenderer` | `render(type, lang, args, slot = null)` — 슬롯 템플릿 → 기본 | 도메인 서비스 |
 | `PushRequest` | `+ ttlSeconds: Int? = null` | 트리거(배치 3h, api 는 미지정) |
 | `PushEnvelope` | `+ channelId: String`, `+ ttlSeconds: Int?` | `PushDispatchService.prepare` (`type.channelId`, `request.ttlSeconds`) |
 | `PushMessage`(port) | `+ channelId: String`, `+ ttlSeconds: Int? = null` | 소비자 매핑(api `PushNotificationService`, batch writer) |

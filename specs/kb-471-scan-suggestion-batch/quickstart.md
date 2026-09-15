@@ -24,7 +24,7 @@ SPRING_PROFILES_ACTIVE=local ./gradlew :batch:bootRun --no-daemon \
 
 # 대상 준비: 앱(dev 빌드)에서 로그인·토큰 등록·소식 토글 on·마케팅 동의 on 한 회원이 있어야 한다
 # (또는 notification_device / notification_setting(news=1) / notification_consent(2종, v2) 를 직접 INSERT)
-curl -s -X POST 'http://localhost:8081/internal/batch/jobs?jobName=scanSuggestionPushJob' | jq .
+curl -s -X POST 'http://localhost:8081/internal/batch/jobs?jobName=scanSuggestionLunchPushJob' | jq .
 curl -s 'http://localhost:8081/internal/batch/executions/<id>' | jq '{status, exitCode}'
 mysql -e "SELECT id, dispatch_status, ticket_id, error FROM notification_dispatch ORDER BY id DESC LIMIT 5" kbap
 

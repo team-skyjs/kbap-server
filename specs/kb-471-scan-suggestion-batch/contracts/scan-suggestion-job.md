@@ -1,10 +1,10 @@
-# Contract: `scanSuggestionPushJob`
+# Contract: `scanSuggestionLunchPushJob` · `scanSuggestionDinnerPushJob`
 
 ## 1. 잡 이름·트리거
 
-- 잡 이름 `scanSuggestionPushJob`, 스텝 `scanSuggestionTargetStep` → `scanSuggestionSendStep`.
-- 스케줄: `BatchJobScheduler.pushScanSuggestions()` — 매일 **12:00·18:00 KST** 코드 상수(`ScanSuggestionSendWindow.LUNCH_CRON/DINNER_CRON`). 환경변수 없음. 분산 락 없음(배치 1대). 같은 인스턴스 내 중복은 launcher 의 AlreadyRunning 가드.
-- 수동: `POST /internal/batch/jobs?jobName=scanSuggestionPushJob` → 202 `{executionId}`; `GET /internal/batch/executions/{id}` 로 상태(기존 계약 그대로).
+- 잡 이름 `scanSuggestionLunchPushJob`(문구 슬롯 LUNCH)·`scanSuggestionDinnerPushJob`(DINNER). 스텝 `scanSuggestionTargetStep`(공유) → `scanSuggestionLunchSendStep` / `scanSuggestionDinnerSendStep`.
+- 스케줄: `BatchJobScheduler.pushLunchScanSuggestions()` 12:00 KST → 점심 잡, `pushDinnerScanSuggestions()` 18:00 KST → 저녁 잡(코드 상수). 환경변수 없음. 분산 락 없음(배치 1대). 같은 인스턴스 내 중복은 launcher 의 AlreadyRunning 가드.
+- 수동: `POST /internal/batch/jobs?jobName=scanSuggestionLunchPushJob`(또는 `...DinnerPushJob`) → 202 `{executionId}`; `GET /internal/batch/executions/{id}` 로 상태(기존 계약 그대로). 문구는 잡 이름이, 슬롯 상한은 현재 시각이 정한다.
 - 부팅 자동 실행 없음(`spring.batch.job.enabled=false`).
 
 ## 2. 종료 코드
@@ -35,7 +35,8 @@ interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
 |------|-----|
 | `channelId` | 광고성 유형(SCAN_SUGGESTION·NEWS·MEAL_TIME) `"news"`, 그 외 `"default"` — `NotificationType.channelId` |
 | `ttl` | 초 단위 정수, 트리거가 지정한 경우에만 직렬화(스캔 제안 배치 10800). 미지정 시 필드 생략(Expo 기본 4주) |
-| `data` | `{ type: "SCAN_SUGGESTION", notificationId: <number> }` (KB-468 FE 계약 그대로) |
+| `data` | `{ type: "SCAN_SUGGESTION", notificationId: <number> }` (KB-468 FE 계약 그대로 — 점심/저녁은 문구만 다르고 type 은 하나) |
+| `title`/`body` | 슬롯별 템플릿(`PushTemplates.bySlot`) + `(광고) ` 접두 + 수신거부 안내 "프로필 > 알림 설정" |
 
 요청당 ≤100 항목(기존). 청크 요청은 동시 최대 `concurrency`(기본 6)개, 요청 **시작** 간격 ≥ `min-request-interval`(기본 170ms → ≈590건/s). 응답 티켓은 입력 순서대로 합쳐 돌려준다.
 
@@ -55,7 +56,7 @@ interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
 ## 5. 로그·메트릭
 
 - `스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}` (tasklet — 전부 회원 수)
-- `스캔 제안 발송 members={} sent={} failed={}` (writer, 회원 묶음마다)
+- `스캔 제안 발송 slot={} members={} sent={} failed={}` (writer, 회원 묶음마다)
 - Micrometer 카운터 `kbap.push.dispatch{type="SCAN_SUGGESTION", result="sent"|"failed"}` + 기존 `spring.batch.job`·`spring.batch.step`(status·duration·write count).
 
 ## 6. 설정 (환경별 조정 지점)
