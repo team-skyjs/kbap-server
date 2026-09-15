@@ -265,13 +265,10 @@ class FoodService(
         return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
 
-    private fun galleryImages(foodId: Long): List<GetFoodDetailResult.ImageView> =
+    private fun galleryImages(foodId: Long): List<String> =
         foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
             .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
-            .mapNotNull { image ->
-                ImageUrls.resolve(imagePublicBaseUrl, image.imageKey)
-                    ?.let { GetFoodDetailResult.ImageView(url = it, isPrimary = image.isPrimary) }
-            }
+            .mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it.imageKey) }
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 

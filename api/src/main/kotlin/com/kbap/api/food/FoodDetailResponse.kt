@@ -20,7 +20,7 @@ data class FoodDetailResponse(
     val imageRef: String?,
 
     @field:Schema(
-        description = "이미지 갤러리. 대표(isPrimary=true)가 항상 먼저 오고 나머지는 정렬 순서다. " +
+        description = "이미지 갤러리. 대표(imageRef 와 같은 URL)가 항상 첫 번째이고 이후는 정렬 순서다. " +
             "갤러리 행이 아직 없는 음식은 빈 배열이며, 대표 이미지 정본은 여전히 imageRef 다.",
     )
     val images: List<FoodImageResponse>,
@@ -155,7 +155,7 @@ data class FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
                 imageRef = result.imageRef,
-                images = result.images.map { FoodImageResponse(url = it.url, isPrimary = it.isPrimary) },
+                images = result.images.map { FoodImageResponse(url = it) },
                 description = result.description,
                 spiciness = result.spiciness,
                 publishedAt = result.publishedAt,

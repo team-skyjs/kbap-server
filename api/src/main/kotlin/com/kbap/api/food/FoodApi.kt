@@ -124,7 +124,7 @@ interface FoodApi {
 
             리뷰는 두 필드로 내려간다 — reviewSummary.overall(전체 사용자)·reviewSummary.sameCountry(같은 국적, 작성 시점 스냅샷 기준)가
             같은 형태(averageRating: 평균 별점 소수 첫째 자리 반올림 · reviewCount: 리뷰 수)로 제공되고,
-            images 는 이미지 갤러리다 — 대표(isPrimary=true)가 항상 먼저 오고 나머지는 정렬 순서다. 갤러리 행이 아직 없는 음식은 빈 배열이며, 대표 이미지 정본은 여전히 imageRef 다.
+            images 는 이미지 갤러리다 — 대표(imageRef 와 같은 URL)가 항상 첫 번째이고 이후는 정렬 순서다. 갤러리 행이 아직 없는 음식은 빈 배열이며, 대표 이미지 정본은 여전히 imageRef 다.
             recentReviews 는 최신순 최대 5개 리뷰를 리뷰 목록 API(GET /api/reviews)와 동일한 항목 형태로 동봉한다
             (이 음식에 대한 리뷰이므로 항목의 food 필드는 생략, createdAt 은 epoch millis, author 에 profileImageUrl 포함).
             overall 은 회원·비회원 모두 실제 집계값이며 수치는 null 없이 항상 숫자다(해당 값이 없으면 0.0·0).
