@@ -1,5 +1,6 @@
 package com.kbap.api.report
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.report.ReportJpaRepository
@@ -27,28 +28,46 @@ class ReportService(
         reason: ReportReason,
         detail: String?,
     ) {
+        val installation = requireInstallationId(installationId)
+        reporterMemberId?.let { memberService.getMember(it) }
+        verifyTargetExists(targetType, targetId, reporterMemberId)
+        verifyNotDuplicated(reporterMemberId, installation, targetType, targetId)
+
         val report = if (reporterMemberId != null) {
-            memberService.getMember(reporterMemberId)
-            verifyTargetExists(targetType, targetId, reporterMemberId)
-            if (reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)) {
-                throw BusinessException(ErrorCode.REPORT_DUPLICATED)
-            }
-            Report.byMember(reporterMemberId, targetType, targetId, reason, detail)
+            Report.byMember(reporterMemberId, installation, targetType, targetId, reason, detail)
         } else {
-            val guestId = installationId?.trim()?.takeIf { it.isNotEmpty() }
-                ?: throw BusinessException(ErrorCode.REPORT_INSTALLATION_ID_REQUIRED)
-            verifyTargetExists(targetType, targetId, reporterMemberId = null)
-            if (reportRepository.existsByReporterInstallationIdAndTargetTypeAndTargetId(guestId, targetType, targetId)) {
-                throw BusinessException(ErrorCode.REPORT_DUPLICATED)
-            }
-            Report.byGuest(guestId, targetType, targetId, reason, detail)
+            Report.byGuest(installation, targetType, targetId, reason, detail)
         }
         try {
-            reportRepository.save(report)
-        } catch (_: DataIntegrityViolationException) {
+            reportRepository.saveAndFlush(report)
+        } catch (e: DataIntegrityViolationException) {
+            if (isReporterUniqueViolation(e)) throw BusinessException(ErrorCode.REPORT_DUPLICATED)
+            throw e
+        }
+    }
+
+    private fun requireInstallationId(raw: String?): String =
+        raw?.takeIf { it.isNotBlank() }?.let(ApiHeaders::validInstallationId)
+            ?: throw BusinessException(ErrorCode.REPORT_INSTALLATION_ID_REQUIRED)
+
+    private fun verifyNotDuplicated(
+        reporterMemberId: Long?,
+        installationId: String,
+        targetType: ReportTargetType,
+        targetId: Long,
+    ) {
+        val duplicated = reporterMemberId?.let {
+            reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(it, targetType, targetId)
+        } ?: false
+        if (duplicated || reportRepository.existsByReporterInstallationIdAndTargetTypeAndTargetId(installationId, targetType, targetId)) {
             throw BusinessException(ErrorCode.REPORT_DUPLICATED)
         }
     }
+
+    private fun isReporterUniqueViolation(e: DataIntegrityViolationException): Boolean =
+        generateSequence(e as Throwable) { it.cause }
+            .mapNotNull { it.message }
+            .any { message -> REPORTER_UNIQUE_KEYS.any { message.contains(it) } }
 
     private fun verifyTargetExists(targetType: ReportTargetType, targetId: Long, reporterMemberId: Long?) {
         when (targetType) {
@@ -60,5 +79,9 @@ class ReportService(
                 }
             }
         }
+    }
+
+    private companion object {
+        val REPORTER_UNIQUE_KEYS = listOf("uk_report_reporter_target", "uk_report_reporter_installation_target")
     }
 }

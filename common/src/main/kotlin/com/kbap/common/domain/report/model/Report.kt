@@ -50,15 +50,24 @@ class Report(
         const val MAX_INSTALLATION_ID_LENGTH = 64
         const val GUEST_LABEL_PREFIX = 8
 
+        private fun requireInstallationId(value: String): String {
+            require(value.isNotBlank()) { "reporterInstallationId 는 blank 일 수 없습니다" }
+            require(value.length <= MAX_INSTALLATION_ID_LENGTH) {
+                "reporterInstallationId 는 최대 ${MAX_INSTALLATION_ID_LENGTH}자입니다"
+            }
+            return value
+        }
+
         fun byMember(
             reporterMemberId: Long,
+            reporterInstallationId: String,
             targetType: ReportTargetType,
             targetId: Long,
             reason: ReportReason,
             detail: String? = null,
         ): Report = Report(
             reporterMemberId = reporterMemberId,
-            reporterInstallationId = null,
+            reporterInstallationId = requireInstallationId(reporterInstallationId),
             targetType = targetType,
             targetId = targetId,
             reason = reason,
@@ -72,10 +81,7 @@ class Report(
             reason: ReportReason,
             detail: String? = null,
         ): Report {
-            require(reporterInstallationId.isNotBlank()) { "reporterInstallationId 는 blank 일 수 없습니다" }
-            require(reporterInstallationId.length <= MAX_INSTALLATION_ID_LENGTH) {
-                "reporterInstallationId 는 최대 ${MAX_INSTALLATION_ID_LENGTH}자입니다"
-            }
+            requireInstallationId(reporterInstallationId)
             return Report(
                 reporterMemberId = null,
                 reporterInstallationId = reporterInstallationId,

@@ -9,6 +9,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeTrue
@@ -102,6 +103,8 @@ class ReportControllerTest : BehaviorSpec() {
             }
         }
 
+        val DEFAULT_INSTALLATION = "report-test-install-0000"
+
         fun reportCountOf(reporterMemberId: Long, targetId: Long): Int =
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -121,14 +124,12 @@ class ReportControllerTest : BehaviorSpec() {
             targetId: Long? = null,
             reason: String? = "SPAM",
             detail: String? = null,
-            installationId: String? = null,
         ): String = mapper.writeValueAsString(
             buildMap {
                 targetType?.let { put("targetType", it) }
                 targetId?.let { put("targetId", it) }
                 reason?.let { put("reason", it) }
                 detail?.let { put("detail", it) }
-                installationId?.let { put("installationId", it) }
             },
         )
 
@@ -143,9 +144,10 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun report(token: String?, body: String): ResultActionsDsl =
+        fun report(token: String?, body: String, installationId: String? = DEFAULT_INSTALLATION): ResultActionsDsl =
             mockMvc.post(path) {
                 token?.let { header("Authorization", "Bearer $it") }
+                installationId?.let { header("X-Installation-Id", it) }
                 contentType = MediaType.APPLICATION_JSON
                 content = body
             }
@@ -308,7 +310,7 @@ class ReportControllerTest : BehaviorSpec() {
                 then("201(200) 로 접수되고 게스트 신고가 저장된다") {
                     seedReview(reviewId = 8120L, authorMemberId = 8151L, foodId = 8181L)
 
-                    report(null, body(targetId = 8120L, installationId = "guest-aaaaaaaa-1111")).andExpect {
+                    report(null, body(targetId = 8120L), installationId = "guest-aaaaaaaa-1111").andExpect {
                         status { isOk() }
                         jsonPath("$.success") { value(true) }
                     }
@@ -320,8 +322,8 @@ class ReportControllerTest : BehaviorSpec() {
                 then("409 REPORT-002 로 거절하고 1건을 유지한다") {
                     seedReview(reviewId = 8121L, authorMemberId = 8151L, foodId = 8181L)
 
-                    report(null, body(targetId = 8121L, installationId = "guest-dup-2222")).andExpect { status { isOk() } }
-                    report(null, body(targetId = 8121L, reason = "ABUSE", installationId = "guest-dup-2222")).andExpect {
+                    report(null, body(targetId = 8121L), installationId = "guest-dup-2222").andExpect { status { isOk() } }
+                    report(null, body(targetId = 8121L, reason = "ABUSE"), installationId = "guest-dup-2222").andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("REPORT-002") }
                     }
@@ -329,27 +331,106 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("게스트가 installationId 없이 신고하면") {
-                then("400 REPORT-004 로 거절한다") {
+            `when`("설치 ID 헤더 없이 신고하면") {
+                then("회원·게스트 모두 400 REPORT-004 로 거절한다") {
                     seedReview(reviewId = 8122L, authorMemberId = 8151L, foodId = 8181L)
+                    report(accessToken(8125L), body(targetId = 8122L), installationId = null).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("REPORT-004") }
+                    }
 
-                    report(null, body(targetId = 8122L)).andExpect {
+                    report(null, body(targetId = 8122L), installationId = null).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("REPORT-004") }
                     }
                 }
             }
 
-            `when`("회원과 게스트가 같은 대상을 각각 신고하면") {
-                then("서로 다른 신고자라 둘 다 접수된다(회원 유니크·게스트 유니크 분리)") {
+            `when`("회원이 신고한 뒤 같은 설치에서 게스트로 같은 대상을 신고하면") {
+                then("설치 키가 걸려 409 REPORT-002 로 거절한다(기기 단위 1건)") {
                     seedReview(reviewId = 8123L, authorMemberId = 8151L, foodId = 8181L)
                     val token = accessToken(8124L)
 
-                    report(token, body(targetId = 8123L)).andExpect { status { isOk() } }
-                    report(null, body(targetId = 8123L, installationId = "guest-split-3333")).andExpect { status { isOk() } }
+                    report(token, body(targetId = 8123L), installationId = "shared-device-3333").andExpect { status { isOk() } }
+                    report(null, body(targetId = 8123L), installationId = "shared-device-3333").andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("REPORT-002") }
+                    }
 
                     reportCountOf(8124L, 8123L) shouldBe 1
-                    guestReportCountOf("guest-split-3333", 8123L) shouldBe 1
+                    guestReportCountOf("shared-device-3333", 8123L) shouldBe 1
+                }
+            }
+
+            `when`("회원이 신고한 뒤 다른 설치에서 게스트가 같은 대상을 신고하면") {
+                then("서로 다른 기기라 둘 다 접수된다") {
+                    seedReview(reviewId = 8126L, authorMemberId = 8151L, foodId = 8181L)
+                    val token = accessToken(8127L)
+
+                    report(token, body(targetId = 8126L), installationId = "member-device-4444").andExpect { status { isOk() } }
+                    report(null, body(targetId = 8126L), installationId = "guest-device-5555").andExpect { status { isOk() } }
+
+                    reportCountOf(8127L, 8126L) shouldBe 1
+                    guestReportCountOf("guest-device-5555", 8126L) shouldBe 1
+                }
+            }
+
+            `when`("같은 회원이 다른 설치에서 같은 대상을 다시 신고하면") {
+                then("회원 키가 걸려 409 REPORT-002 로 거절한다") {
+                    seedReview(reviewId = 8128L, authorMemberId = 8151L, foodId = 8181L)
+                    val token = accessToken(8129L)
+
+                    report(token, body(targetId = 8128L), installationId = "same-member-d1").andExpect { status { isOk() } }
+                    report(token, body(targetId = 8128L), installationId = "same-member-d2").andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("REPORT-002") }
+                    }
+
+                    reportCountOf(8129L, 8128L) shouldBe 1
+                }
+            }
+
+            `when`("다른 회원이 같은 설치에서 같은 대상을 신고하면") {
+                then("설치 키가 걸려 409 REPORT-002 로 거절한다(공용 폰 1건)") {
+                    seedReview(reviewId = 8130L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(accessToken(8131L), body(targetId = 8130L), installationId = "family-phone-6666").andExpect { status { isOk() } }
+                    report(accessToken(8132L), body(targetId = 8130L), installationId = "family-phone-6666").andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("REPORT-002") }
+                    }
+
+                    reportCountOf(8131L, 8130L) shouldBe 1
+                    reportCountOf(8132L, 8130L) shouldBe 0
+                }
+            }
+
+            `when`("다른 회원이 다른 설치에서 같은 대상을 신고하면") {
+                then("둘 다 접수된다") {
+                    seedReview(reviewId = 8133L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(accessToken(8134L), body(targetId = 8133L), installationId = "solo-phone-a").andExpect { status { isOk() } }
+                    report(accessToken(8135L), body(targetId = 8133L), installationId = "solo-phone-b").andExpect { status { isOk() } }
+
+                    reportCountOf(8134L, 8133L) shouldBe 1
+                    reportCountOf(8135L, 8133L) shouldBe 1
+                }
+            }
+
+            `when`("신고자 식별자가 둘 다 없는 행을 직접 넣으면") {
+                then("CHECK 제약이 거절한다") {
+                    val failure = shouldThrow<Exception> {
+                        dataSource.connection.use { c ->
+                            c.createStatement().use {
+                                it.executeUpdate(
+                                    "INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, " +
+                                        "reason, status, created_at, updated_at) " +
+                                        "VALUES (NULL, NULL, 'REVIEW', 8140, 'SPAM', 'ACTIVE', NOW(6), NOW(6))",
+                                )
+                            }
+                        }
+                    }
+                    failure.message?.contains("ck_report_reporter_at_least_one") shouldBe true
                 }
             }
         }
@@ -368,7 +449,7 @@ class ReportControllerTest : BehaviorSpec() {
                             runCatching {
                                 reportService.createReport(
                                     reporterMemberId = 8118L,
-                                    installationId = null,
+                                    installationId = "concurrent-device-7777",
                                     targetType = ReportTargetType.REVIEW,
                                     targetId = 8117L,
                                     reason = ReportReason.SPAM,

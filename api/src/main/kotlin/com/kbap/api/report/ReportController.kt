@@ -1,5 +1,6 @@
 package com.kbap.api.report
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberIdOrNull
@@ -7,6 +8,7 @@ import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -18,11 +20,12 @@ class ReportController(
     @PostMapping("/reports")
     override fun create(
         @AuthMemberIdOrNull memberId: Long?,
+        @RequestHeader(name = ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
         @Valid @RequestBody request: ReportCreateRequest,
     ): ResponseEntity<BaseResponse<Unit>> {
         reportService.createReport(
             reporterMemberId = memberId,
-            installationId = request.installationId,
+            installationId = installationId,
             targetType = request.targetType!!,
             targetId = request.targetId!!,
             reason = request.reason!!,

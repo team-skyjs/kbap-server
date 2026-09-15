@@ -119,7 +119,7 @@ interface ReviewApi {
             nextCursor 는 불투명 토큰이다(해석·조립 금지, 그대로 echo).
             foodId 를 주면 그 음식의 리뷰만, 생략하면 서비스 전체 리뷰를 내려준다(리뷰 피드 화면).
             countryCode 를 주면 작성 시점 국적 스냅샷이 정확히 일치하는 리뷰만 내려간다(리뷰가 없는 코드는 빈 목록).
-            회원 조회는 본인이 신고한 리뷰·차단한 회원의 리뷰(다른 회원에게는 그대로 노출)가 제외된다. 비회원 조회도 `X-Installation-Id`(옵션) 헤더가 있으면 그 설치가 신고한 리뷰가 제외된다(회원 토큰이 함께 있으면 회원 기준이 우선). 헤더도 토큰도 없으면 조회자별 제외는 적용되지 않는다.
+            회원 조회는 차단한 회원의 리뷰가 제외된다(다른 회원에게는 그대로 노출). 신고 리뷰 제외는 **회원 신고분과 `X-Installation-Id` 설치 신고분의 합집합**이라, 같은 설치에서 로그인·로그아웃해도 숨김이 이어진다. 비회원 조회는 그 설치가 신고한 리뷰가 제외된다. 헤더도 토큰도 없으면 조회자별 제외는 적용되지 않는다.
             삭제된 음식의 리뷰는 전원 제외, 탈퇴한 회원의 리뷰는 author=null·authorWithdrawn=true 로 노출된다.
             비회원 조회의 likedByMe 는 항상 false 다. lang 은 비회원도 필수(누락 400)다.
             각 리뷰에는 음식 요약(food — lang 으로 해석한 이름·대표 이미지)이 포함된다.
@@ -140,7 +140,7 @@ interface ReviewApi {
         @Parameter(
             `in` = ParameterIn.HEADER,
             name = "X-Installation-Id",
-            description = "게스트 설치 UUID(옵션). 있으면 이 설치가 신고한 리뷰를 목록에서 제외한다(회원 토큰 우선)",
+            description = "앱 설치 UUID(옵션). 있으면 이 설치가 신고한 리뷰도 목록에서 제외한다(회원 토큰이 있으면 회원 신고분과 합집합)",
         )
         installationId: String?,
         @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,

@@ -132,12 +132,84 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
+        fun reportReview(reviewId: Long, installationId: String, token: String? = null): Unit {
+            mockMvc.post("/api/reports") {
+                token?.let { header("Authorization", "Bearer $it") }
+                header("X-Installation-Id", installationId)
+                contentType = MediaType.APPLICATION_JSON
+                content = mapper.writeValueAsString(
+                    mapOf("targetType" to "REVIEW", "targetId" to reviewId, "reason" to "SPAM"),
+                )
+            }.andExpect { status { isOk() } }
+        }
+
         fun foodDetail(foodId: Long, installationId: String? = null, token: String? = null): ResultActionsDsl =
             mockMvc.get("/api/foods/$foodId") {
                 token?.let { header("Authorization", "Bearer $it") }
                 installationId?.let { header("X-Installation-Id", it) }
                 param("lang", "en")
             }
+
+        given("신고 숨김의 회원·설치 합집합") {
+            `when`("게스트로 신고한 뒤 같은 설치에서 로그인해 조회하면") {
+                then("회원 조회에서도 그 리뷰가 계속 숨겨진다") {
+                    seedFood(928L, "합집합게스트음식")
+                    val author = accessToken(9028L)
+                    val installationId = "union-guest-login-01"
+                    val reported = createReview(author, 928L)
+                    val kept = createReview(author, 928L)
+                    reportReview(reported, installationId)
+
+                    val viewer = accessToken(9029L)
+                    val ids = payloadOf(feed(token = viewer, installationId = installationId))
+                        .path("items").map { it.path("reviewId").asLong() }
+                    ids.contains(kept) shouldBe true
+                    ids.contains(reported) shouldBe false
+                }
+            }
+
+            `when`("회원으로 신고한 뒤 같은 설치에서 로그아웃해 조회하면") {
+                then("게스트 조회에서도 그 리뷰가 계속 숨겨진다") {
+                    seedFood(929L, "합집합회원음식")
+                    val author = accessToken(9030L)
+                    val installationId = "union-member-logout-02"
+                    val reported = createReview(author, 929L)
+                    val kept = createReview(author, 929L)
+                    val reporter = accessToken(9031L)
+                    reportReview(reported, installationId, token = reporter)
+
+                    val ids = payloadOf(feed(token = null, installationId = installationId))
+                        .path("items").map { it.path("reviewId").asLong() }
+                    ids.contains(kept) shouldBe true
+                    ids.contains(reported) shouldBe false
+                }
+            }
+
+            `when`("설치 ID 없이 기록된 기존 회원 신고가 있으면") {
+                then("그 회원 조회에서는 설치 헤더가 없어도 숨김이 유지된다") {
+                    seedFood(930L, "레거시회원신고음식")
+                    val author = accessToken(9032L)
+                    val reported = createReview(author, 930L)
+                    val kept = createReview(author, 930L)
+                    val legacyReporter = 9033L
+                    seedMember(legacyReporter)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, " +
+                                "reason, status, created_at, updated_at) " +
+                                "VALUES (?, NULL, 'REVIEW', ?, 'SPAM', 'ACTIVE', NOW(6), NOW(6))",
+                        ).use { ps ->
+                            ps.setLong(1, legacyReporter); ps.setLong(2, reported); ps.executeUpdate()
+                        }
+                    }
+
+                    val token = accessToken(legacyReporter)
+                    val ids = payloadOf(feed(token = token)).path("items").map { it.path("reviewId").asLong() }
+                    ids.contains(kept) shouldBe true
+                    ids.contains(reported) shouldBe false
+                }
+            }
+        }
 
         given("음식 상세 최근 리뷰 — GET /api/foods/{foodId}") {
             `when`("게스트가 신고한 리뷰를 같은 설치 ID 헤더로 상세 조회하면") {
@@ -147,17 +219,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val installationId = "guest-detail-33334444"
                     val reported = createReview(author, 918L)
                     val kept = createReview(author, 918L)
-                    mockMvc.post("/api/reports") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = mapper.writeValueAsString(
-                            mapOf(
-                                "targetType" to "REVIEW",
-                                "targetId" to reported,
-                                "reason" to "SPAM",
-                                "installationId" to installationId,
-                            ),
-                        )
-                    }.andExpect { status { isOk() } }
+                    reportReview(reported, installationId)
 
                     val guestIds = payloadOf(foodDetail(918L, installationId = installationId))
                         .path("recentReviews").map { it.path("reviewId").asLong() }
@@ -197,13 +259,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val viewer = accessToken(9003L)
                     val reported = createReview(author, 902L)
                     val kept = createReview(author, 902L)
-                    mockMvc.post("/api/reports") {
-                        header("Authorization", "Bearer $viewer")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = mapper.writeValueAsString(
-                            mapOf("targetType" to "REVIEW", "targetId" to reported, "reason" to "SPAM"),
-                        )
-                    }.andExpect { status { isOk() } }
+                    reportReview(reported, "member-feed-report-01", token = viewer)
 
                     val viewerIds = payloadOf(feed(viewer)).path("items").map { it.path("reviewId").asLong() }
                     viewerIds.contains(kept) shouldBe true
@@ -220,17 +276,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val installationId = "guest-feed-11112222"
                     val reported = createReview(author, 908L)
                     val kept = createReview(author, 908L)
-                    mockMvc.post("/api/reports") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = mapper.writeValueAsString(
-                            mapOf(
-                                "targetType" to "REVIEW",
-                                "targetId" to reported,
-                                "reason" to "SPAM",
-                                "installationId" to installationId,
-                            ),
-                        )
-                    }.andExpect { status { isOk() } }
+                    reportReview(reported, installationId)
 
                     val guestIds = payloadOf(feed(token = null, installationId = installationId))
                         .path("items").map { it.path("reviewId").asLong() }

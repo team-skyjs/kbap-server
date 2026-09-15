@@ -179,14 +179,14 @@ class ReviewService(
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
 
     private fun excludedReviewIds(viewerMemberId: Long?, viewerInstallationId: String?): List<Long> {
-        val reported = when {
-            viewerMemberId != null ->
-                reportRepository.findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-            !viewerInstallationId.isNullOrBlank() ->
-                reportRepository.findTargetIdsByReporterInstallationIdAndTargetType(viewerInstallationId, ReportTargetType.REVIEW)
-            else -> emptyList()
-        }
-        return reported.ifEmpty { listOf(-1L) }
+        val byMember = viewerMemberId
+            ?.let { reportRepository.findTargetIdsByReporterMemberIdAndTargetType(it, ReportTargetType.REVIEW) }
+            .orEmpty()
+        val byInstallation = viewerInstallationId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { reportRepository.findTargetIdsByReporterInstallationIdAndTargetType(it, ReportTargetType.REVIEW) }
+            .orEmpty()
+        return (byMember + byInstallation).distinct().ifEmpty { listOf(-1L) }
     }
 
     @Transactional(readOnly = true)

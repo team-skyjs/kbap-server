@@ -422,9 +422,10 @@ class ReviewListControllerTest : BehaviorSpec() {
         }
 
         given("음식별 리뷰 목록 — 신고한 리뷰 숨김") {
-            fun reportReview(token: String, reviewId: Long) {
+            fun reportReview(token: String, reviewId: Long, installationId: String = "review-list-install-$reviewId") {
                 mockMvc.post("/api/reports") {
                     header("Authorization", "Bearer $token")
+                    header("X-Installation-Id", installationId)
                     contentType = MediaType.APPLICATION_JSON
                     content = mapper.writeValueAsString(
                         mapOf("targetType" to "REVIEW", "targetId" to reviewId, "reason" to "SPAM"),
