@@ -36,4 +36,4 @@ mysql -e "SELECT id, dispatch_status, ticket_id, error FROM notification_dispatc
 ## 3. 배포 순서 주의
 
 - 배포 직후 기기 설정 행이 없으면 후보 0 → COMPLETED 0건(정상). **FE 기기 단위 설정 릴리스(KB-497)가 나간 뒤** 스케줄이 실제 대상을 갖는다.
-- prod 배치 태스크 정의에 `SCAN_SUGGESTION_CRON` 을 넣지 않으면 기본 12:00 KST. 끄려면 `kbap.batch.scheduler.enabled=false`(전체 스케줄 off — 개별 off 스위치는 두지 않았다).
+- 스케줄은 12:00·18:00 KST 코드 상수(환경변수 없음). 끄려면 `kbap.batch.scheduler.enabled=false`(전체 스케줄 off — 개별 off 스위치는 두지 않았다).

@@ -3,7 +3,7 @@
 ## 1. 잡 이름·트리거
 
 - 잡 이름 `scanSuggestionPushJob`, 스텝 `scanSuggestionTargetStep` → `scanSuggestionSendStep`.
-- 스케줄: `BatchJobScheduler.pushScanSuggestions()` — cron `kbap.batch.scan-suggestion.cron`(기본 `0 0 12 * * *`, zone `Asia/Seoul`). 분산 락 없음(배치 1대). 같은 인스턴스 내 중복은 launcher 의 AlreadyRunning 가드.
+- 스케줄: `BatchJobScheduler.pushScanSuggestions()` — 매일 **12:00·18:00 KST** 코드 상수(`ScanSuggestionSendWindow.LUNCH_CRON/DINNER_CRON`). 환경변수 없음. 분산 락 없음(배치 1대). 같은 인스턴스 내 중복은 launcher 의 AlreadyRunning 가드.
 - 수동: `POST /internal/batch/jobs?jobName=scanSuggestionPushJob` → 202 `{executionId}`; `GET /internal/batch/executions/{id}` 로 상태(기존 계약 그대로).
 - 부팅 자동 실행 없음(`spring.batch.job.enabled=false`).
 
@@ -55,7 +55,7 @@ interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
 
 ## 5. 로그·메트릭
 
-- `스캔 제안 대상 확정 candidates={} excludedToday={} targets={}` (tasklet — 전부 회원 수)
+- `스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}` (tasklet — 전부 회원 수)
 - `스캔 제안 발송 시간대 밖이라 건너뜁니다 now={}` (tasklet, NOOP)
 - `스캔 제안 발송 members={} sent={} failed={}` (writer, 회원 묶음마다)
 - Micrometer 카운터 `kbap.push.dispatch{type="SCAN_SUGGESTION", result="sent"|"failed"}` + 기존 `spring.batch.job`·`spring.batch.step`(status·duration·write count).
@@ -64,7 +64,6 @@ interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
 
 | 키 | 환경변수 | 기본 |
 |----|----------|------|
-| `kbap.batch.scan-suggestion.cron` | `SCAN_SUGGESTION_CRON` | `0 0 12 * * *` |
 | `kbap.batch.scan-suggestion.member-chunk-size` | — | `500` |
 | `kbap.batch.scan-suggestion.ttl` | — | `3h` |
 | `kbap.push.expo.concurrency` (api·batch) | — | `6` |

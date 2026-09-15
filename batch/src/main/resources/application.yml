@@ -62,7 +62,7 @@ server:
 kbap:
   batch:
     # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
-    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안만 SCAN_SUGGESTION_CRON 으로 외부화). 기본 on 이며 끄는 용도로만 이 값을 쓴다
+    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안은 12:00·18:00 KST). 기본 on 이며 끄는 용도로만 이 값을 쓴다
     # (테스트는 src/test/resources 에서 off — 켜 두면 정각을 넘길 때 잡이 실제로 발사된다).
     # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
     scheduler:
@@ -71,10 +71,9 @@ kbap:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
-    # 스캔 제안 푸시(KB-471) — 매일 점심 광고성 동의자에게 SCAN_SUGGESTION 을 보낸다. 배치 1대 전제라 분산 락 없음.
-    # 08~21 KST 밖에서는 cron 을 어떻게 잡아도 코드 가드가 발송을 막는다(야간 광고 동의 미수집).
+    # 스캔 제안 푸시(KB-471) — 매일 12:00·18:00 KST(BatchJobScheduler 상수) 광고성 동의자에게 SCAN_SUGGESTION 을 보낸다.
+    # 배치 1대 전제라 분산 락 없음. 08~21 KST 밖 실행은 코드 가드가 발송을 막는다(야간 광고 동의 미수집). 상한은 슬롯당 1회.
     scan-suggestion:
-      cron: ${SCAN_SUGGESTION_CRON:0 0 12 * * *}
       # 발송 step 의 회원 묶음 크기 — prepare/record 트랜잭션·메모리 단위. Expo 청크(100)·동시성·페이싱은 어댑터 안.
       member-chunk-size: 500
       # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).

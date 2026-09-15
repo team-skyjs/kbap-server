@@ -6,7 +6,7 @@
 
 | 단계 | 읽기 | 쓰기 |
 |------|------|------|
-| 대상 확정 tasklet | `notification_setting`(news=true 회원 id, distinct) · `notification`(오늘 KST 이후 SCAN_SUGGESTION 회원 id, distinct) | — (버퍼에 회원 id 만) |
+| 대상 확정 tasklet | `notification_setting`(news=true 회원 id, distinct) · `notification`(이번 슬롯 시작 이후 SCAN_SUGGESTION 회원 id, distinct) | — (버퍼에 회원 id 만) |
 | 청크 발송 step(회원 묶음마다 `PushNotifier.send`) | 잡 범위 버퍼(회원 id) · 부품 안에서 `PushTargetResolver` 가 `notification_device`·`notification_setting`·`notification_consent` | 부품 안에서 `notification`(기기당 1행)·`notification_dispatch`(PENDING → SENT/FAILED) |
 
 ## 2. 리포지토리 추가 (common.domain.notification)
@@ -22,7 +22,7 @@ fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, 
 ```
 
 - 둘 다 `@SQLRestriction(status='ACTIVE')` 가 자동 적용된다(소프트 삭제 설정 행·알림 행 제외).
-- `since` 는 **JVM 시간대의 LocalDateTime** — `ScanSuggestionSendWindow.startOfToday(clock)` 이 KST 자정을 JVM 존으로 변환해 넘긴다(`createdAt` 이 `@CreationTimestamp` JVM 로컬 시각이므로).
+- `since` 는 **JVM 시간대의 LocalDateTime** — `ScanSuggestionSendWindow.startOfCurrentSlot(clock)` 이 KST 슬롯 시작(12:00 또는 18:00)을 JVM 존으로 변환해 넘긴다(`createdAt` 이 `@CreationTimestamp` JVM 로컬 시각이므로).
 - 인덱스: `notification` 은 `idx_notification_member_id(member_id, id)` 뿐이라 `type + created_at` 범위 스캔은 풀스캔에 가깝다. 알림 행이 하루 수백~수천이고 잡이 하루 1회라 감수. 월 단위로 커지면 `(type, created_at)` 인덱스를 그때 추가.
 
 ## 3. 도메인 값 타입 변경 (common.domain.notification / common.port.push)
@@ -55,7 +55,8 @@ class ScanSuggestionPushWriter(             // ItemWriter<Long>
 
 object ScanSuggestionSendWindow {           // KST 고정
     fun isOpen(clock: Clock): Boolean       // 08:00 <= LocalTime < 21:00
-    fun startOfToday(clock: Clock): LocalDateTime   // KST 자정 → JVM 존 LocalDateTime
+    fun startOfCurrentSlot(clock: Clock): LocalDateTime   // 12:00/18:00 슬롯 시작(없으면 전날 18:00) → JVM 존
+    // LUNCH_CRON = "0 0 12 * * *", DINNER_CRON = "0 0 18 * * *" (코드 상수)
 }
 ```
 
@@ -67,7 +68,6 @@ object ScanSuggestionSendWindow {           // KST 고정
 
 | 키 | 기본 | 의미 |
 |----|------|------|
-| `kbap.batch.scan-suggestion.cron` | `${SCAN_SUGGESTION_CRON:0 0 12 * * *}` | 스케줄(Asia/Seoul) |
 | `kbap.batch.scan-suggestion.member-chunk-size` | `500` | 발송 step 의 회원 묶음 크기(prepare/record 트랜잭션·메모리 단위) |
 | `kbap.batch.scan-suggestion.ttl` | `3h` | Expo ttl |
 | `kbap.batch.scheduler.enabled` | 기존 | 테스트 off |

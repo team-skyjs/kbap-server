@@ -25,13 +25,13 @@ class ScanSuggestionTargetTasklet(
             return RepeatStatus.FINISHED
         }
         val candidates = settingRepository.findMemberIdsByNewsTrue()
-        val receivedToday = notificationRepository
-            .findMemberIdsByTypeAndCreatedAtAfter(NotificationType.SCAN_SUGGESTION, ScanSuggestionSendWindow.startOfToday(clock))
+        val receivedThisSlot = notificationRepository
+            .findMemberIdsByTypeAndCreatedAtAfter(NotificationType.SCAN_SUGGESTION, ScanSuggestionSendWindow.startOfCurrentSlot(clock))
             .toSet()
-        val targets = candidates.filterNot { it in receivedToday }
+        val targets = candidates.filterNot { it in receivedThisSlot }
         buffer.load(targets)
         logger.info(
-            "스캔 제안 대상 확정 candidates={} excludedToday={} targets={}",
+            "스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}",
             candidates.size,
             candidates.size - targets.size,
             targets.size,

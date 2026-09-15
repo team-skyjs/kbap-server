@@ -1,5 +1,6 @@
 package com.kbap.batch.schedule
 
+import com.kbap.batch.notification.ScanSuggestionSendWindow
 import com.kbap.batch.trigger.BatchJobLaunchResult
 import com.kbap.batch.trigger.BatchJobLauncher
 import org.slf4j.LoggerFactory
@@ -20,7 +21,8 @@ class BatchJobScheduler(
     @Scheduled(cron = "0 30 * * * *", zone = TIME_ZONE)
     fun syncFoodVectors() = launch("foodVectorSyncJob")
 
-    @Scheduled(cron = "\${kbap.batch.scan-suggestion.cron}", zone = TIME_ZONE)
+    @Scheduled(cron = ScanSuggestionSendWindow.LUNCH_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = ScanSuggestionSendWindow.DINNER_CRON, zone = TIME_ZONE)
     fun pushScanSuggestions() = launch("scanSuggestionPushJob")
 
     private fun launch(jobName: String) {

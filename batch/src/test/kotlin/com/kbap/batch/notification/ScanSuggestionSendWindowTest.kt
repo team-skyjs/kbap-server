@@ -28,17 +28,25 @@ class ScanSuggestionSendWindowTest : BehaviorSpec({
         }
     }
 
-    given("오늘(KST) 시작 시각") {
-        val expected = LocalDateTime.of(2026, 9, 15, 0, 0).atZone(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+    given("현재 발송 슬롯 시작 시각 (12:00·18:00 KST)") {
+        fun jvm(day: Int, hour: Int): LocalDateTime =
+            LocalDateTime.of(2026, 9, day, hour, 0).atZone(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
 
-        `when`("정오 KST 시계로 계산하면") {
-            then("KST 자정을 JVM 시간대의 LocalDateTime 으로 돌려준다") {
-                ScanSuggestionSendWindow.startOfToday(seoul(12, 0, 0)) shouldBe expected
-            }
+        `when`("11:59 KST 이면") {
+            then("전날 18:00 이다") { ScanSuggestionSendWindow.startOfCurrentSlot(seoul(11, 59, 0)) shouldBe jvm(14, 18) }
         }
-        `when`("00:30 KST 시계로 계산하면") {
-            then("같은 날 자정이다") {
-                ScanSuggestionSendWindow.startOfToday(seoul(0, 30, 0)) shouldBe expected
+        `when`("12:00 KST 이면") {
+            then("오늘 12:00 이다") { ScanSuggestionSendWindow.startOfCurrentSlot(seoul(12, 0, 0)) shouldBe jvm(15, 12) }
+        }
+        `when`("17:59 KST 이면") {
+            then("오늘 12:00 이다") { ScanSuggestionSendWindow.startOfCurrentSlot(seoul(17, 59, 0)) shouldBe jvm(15, 12) }
+        }
+        `when`("18:00 KST 이면") {
+            then("오늘 18:00 이다") { ScanSuggestionSendWindow.startOfCurrentSlot(seoul(18, 0, 0)) shouldBe jvm(15, 18) }
+        }
+        `when`("23:00 KST 이면") {
+            then("오늘 18:00 이고 JVM 시간대로 변환된 LocalDateTime 이다") {
+                ScanSuggestionSendWindow.startOfCurrentSlot(seoul(23, 0, 0)) shouldBe jvm(15, 18)
             }
         }
     }

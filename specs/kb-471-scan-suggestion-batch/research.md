@@ -6,11 +6,11 @@
 - **Rationale**: 사용자 지시(스텝 조합·tasklet 일괄 조회·청크 제약·공용 발송 모듈). 회원 묶음 chunk 는 (1) `prepare`/`record` 트랜잭션과 메모리를 묶음 크기로 묶고, (2) `writeCount`(발송 요청한 회원 수) 가 `BATCH_STEP_EXECUTION`·`spring.batch.step` 메트릭에 남으며, (3) 발송 방식은 호출자가 모른다(FR-018). 두 step 모두 Resourceless 라 Expo 호출이 DB 트랜잭션 밖이고, `prepare`/`record` 는 자기 `@Transactional` 로 짧게 커밋한다 — 기존 outbox tasklet 과 같은 패턴.
 - **Alternatives considered**: (a) tasklet 하나에서 전부 — "스텝 조합" 지시에 어긋나고 묶음 카운트가 메트릭에 안 남는다. (b) 배치 청크 = Expo 청크 100(초안) — 발송 방식이 호출자(배치)에 새어 나와 공용 부품 결정과 충돌. 기각. (c) reader 가 DB 의 PENDING dispatch 를 페이징 — 재시작 가능성은 좋지만 notification·dispatch 조인 로더가 추가로 필요. 잡이 수 초~수 분이라 재시작 요구가 없어 기각.
 
-## 2. 후보 회원 수집과 하루 1회 상한 — 리포지토리 쿼리 2개, 회원 단위 차집합
+## 2. 후보 회원 수집과 슬롯당 1회 상한 — 리포지토리 쿼리 2개, 회원 단위 차집합
 
-- **Decision**: `NotificationSettingJpaRepository.findMemberIdsByNewsTrue(): List<Long>`(JPQL `select distinct s.memberId from NotificationSetting s where s.news = true`) − `NotificationJpaRepository.findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, startOfTodayKst): List<Long>`(JPQL distinct) = `memberIds` → `PushDispatchService.prepare(PushRequest(SCAN_SUGGESTION, memberIds, ttlSeconds))`. 기기 토글·동의 v≥2·유효 토큰·회원 연결 판정은 `PushTargetResolver` 그대로.
+- **Decision**: `NotificationSettingJpaRepository.findMemberIdsByNewsTrue(): List<Long>`(JPQL `select distinct s.memberId from NotificationSetting s where s.news = true`) − `NotificationJpaRepository.findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, startOfCurrentSlot): List<Long>`(JPQL distinct) = `memberIds` → `PushDispatchService.prepare(PushRequest(SCAN_SUGGESTION, memberIds, ttlSeconds))`. 기기 토글·동의 v≥2·유효 토큰·회원 연결 판정은 `PushTargetResolver` 그대로.
 - **Rationale**: 전 회원 순회 없이 "소식 켜진 설정 행" 에서 출발한다(FR-003). 상한은 **회원 단위**로 뺀다 — 알림함 행이 기기 단위라 spec 은 기기 단위를 말하지만, 같은 실행에서 한 회원의 기기들은 함께 만들어지므로 회원 단위 제외는 기기 단위의 상위 집합이고("어느 기기도 하루 2번 받지 않는다" 만족) 쿼리 하나로 끝난다. 유일한 차이는 "오늘 이미 받은 회원이 오늘 새 기기를 켠 경우 그 기기는 내일부터" — 감수. 회원 ACTIVE 조인은 두지 않는다: 탈퇴는 기기 연결 해제·설정 소프트 삭제·동의 닫기(#260·#261)로 이미 대상에서 빠지고, `SUSPENDED` 는 기기·설정이 남아 대상이 될 수 있으나 정지 회원에게 광고 1건이 가는 것은 비치명(필요해지면 `memberRepository` 로 한 줄 필터).
-- **"오늘 KST" 계산**: `createdAt` 은 `@CreationTimestamp`(Hibernate, JVM 기본 시간대의 `LocalDateTime`). 컨테이너 JVM 이 UTC 일 수 있으므로 `LocalDate.now(clock KST).atStartOfDay(KST).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()` 로 JVM 시간대의 LocalDateTime 으로 바꿔 비교한다. `ScanSuggestionSendWindow.startOfToday(clock)` 에 둔다.
+- **슬롯 시작 계산 (2026-09-15 개정 — 12:00·18:00 두 번 발송)**: 상한을 "오늘" 이 아니라 **현재 슬롯**(12:00~18:00, 18:00~다음 날 12:00 KST) 기준으로 잰다 — 하루 1회로 두면 18:00 발송이 12:00 수신자를 전부 제외한다. `ScanSuggestionSendWindow.startOfCurrentSlot(clock)`: 현재 KST 시각 이하의 마지막 슬롯 시작(없으면 전날 18:00). `createdAt` 은 `@CreationTimestamp`(JVM 기본 시간대) 라 KST 슬롯 시작을 `withZoneSameInstant(ZoneId.systemDefault())` 로 바꿔 비교한다. 테스트에서는 실제 시각으로 찍히는 `created_at` 을 가짜 시계로 덮어 슬롯 경계를 검증한다.
 - **Alternatives considered**: `PushRequest` 에 제외 기기 목록/술어를 추가해 파이프라인이 기기 단위로 거르기 — 공용 서비스 시그니처 확장. 지금은 회원 단위 차집합이 더 짧다.
 
 ## 3. 스텝 간 데이터 전달 — `@JobScope` 버퍼
@@ -44,7 +44,7 @@
 
 ## 7. 스케줄 — ShedLock 없음
 
-- **Decision**: `BatchJobScheduler` 에 `@Scheduled(cron = "\${kbap.batch.scan-suggestion.cron}", zone = "Asia/Seoul") fun pushScanSuggestions() = launch("scanSuggestionPushJob")` 메서드 하나. yml `kbap.batch.scan-suggestion.cron: ${SCAN_SUGGESTION_CRON:0 0 12 * * *}`. 분산 락(ShedLock) 은 넣지 않는다.
+- **Decision (2026-09-15 개정)**: `BatchJobScheduler` 에 `@Scheduled(cron = LUNCH_CRON)` `@Scheduled(cron = DINNER_CRON)`(반복 애너테이션, zone Asia/Seoul) 을 단 `pushScanSuggestions()` 메서드 하나 — `ScanSuggestionSendWindow.LUNCH_CRON = "0 0 12 * * *"`, `DINNER_CRON = "0 0 18 * * *"` 코드 상수. 환경변수·yml 키 없음(사용자 지시). 분산 락(ShedLock) 은 넣지 않는다.
 - **Rationale**: 사용자 결정(2026-09-15): 배치 앱은 1대만 돌아 스케줄러 동시성 문제가 없다. 같은 인스턴스 안의 중복은 `BatchJobLauncher` 의 AlreadyRunning 가드가 막는다. Jira DoD 의 "ShedLock 스케줄" 문구는 이 결정으로 대체된다(Jira 코멘트로 남긴다). 다중 인스턴스로 늘리는 날 기존 outbox·vector 스케줄과 함께 한 번에 도입한다.
 - **Alternatives considered**: ShedLock 도입(api 선례·락 테이블 존재) — 의존 2개·config 추가·락 파라미터 튜닝이 1대 환경에서 얻는 게 없다. 기각.
 
@@ -57,7 +57,7 @@
 
 ## 9. 로그·메트릭
 
-- **Decision**: tasklet 로그 `스캔 제안 대상 확정 candidates={} excludedToday={} targets={}`, writer 는 회원 묶음마다 `스캔 제안 발송 members={} sent={} failed={}` 와 `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent|failed}`. 잡/스텝 상태·소요·write 수(회원)는 기존 `spring.batch.*` 메트릭(actuator prometheus, KB-380). Expo 요청 수·재시도는 어댑터 로그(`Expo push 청크 발송 실패 …` 기존 + 재시도 warn).
+- **Decision**: tasklet 로그 `스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}`, writer 는 회원 묶음마다 `스캔 제안 발송 members={} sent={} failed={}` 와 `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent|failed}`. 잡/스텝 상태·소요·write 수(회원)는 기존 `spring.batch.*` 메트릭(actuator prometheus, KB-380). Expo 요청 수·재시도는 어댑터 로그(`Expo push 청크 발송 실패 …` 기존 + 재시도 warn).
 - **Rationale**: FR-011. 카운터 2줄이면 Grafana 에서 일별 발송·실패를 볼 수 있고, 시간대 밖은 exit code NOOP 로 구분된다.
 
 ## 10. 테스트 픽스처 — 배치 컨텍스트 1개 유지

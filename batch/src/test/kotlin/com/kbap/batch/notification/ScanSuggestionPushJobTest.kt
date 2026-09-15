@@ -29,6 +29,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import org.springframework.batch.core.job.JobExecution
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.jdbc.core.JdbcTemplate
+import java.time.ZoneId
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -69,6 +71,17 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var meterRegistry: MeterRegistry
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
+    private fun stampCreatedAtToClock() {
+        jdbcTemplate.update(
+            "UPDATE notification SET created_at = ? WHERE created_at > ?",
+            LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault()),
+            LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault()),
+        )
+    }
 
     private fun sentCounter(): Double =
         meterRegistry.counter(ScanSuggestionPushWriter.METRIC, "type", "SCAN_SUGGESTION", "result", "sent").count()
@@ -196,7 +209,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 }
             }
 
-            `when`("같은 날 다시 실행하면") {
+            `when`("같은 슬롯에서 다시 실행하면") {
                 clear()
                 clock.setSeoul(2026, 9, 15, 12, 0)
                 val failing = device(8L, "ko")
@@ -205,6 +218,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 setting(8L, news = true)
                 fakePushSender.errorFor = { if (it.to == failing.expoToken) "DeviceNotRegistered" else null }
                 run()
+                stampCreatedAtToClock()
                 val afterFirst = fakePushSender.sent.size
                 fakePushSender.errorFor = { null }
 
@@ -218,11 +232,18 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 1
                 }
 
-                then("다음 날 정오에는 다시 보낸다") {
-                    clock.setSeoul(2026, 9, 16, 12, 0)
+                then("같은 날 18:00 슬롯에는 다시 보내고, 다음 날 12:00 에도 다시 보낸다") {
+                    clock.setSeoul(2026, 9, 15, 18, 0)
+                    run()
+                    stampCreatedAtToClock()
+                    fakePushSender.sent shouldHaveSize 4
+                    clock.setSeoul(2026, 9, 15, 20, 0)
                     run()
                     fakePushSender.sent shouldHaveSize 4
-                    notificationRepository.findAll() shouldHaveSize 4
+                    clock.setSeoul(2026, 9, 16, 12, 0)
+                    run()
+                    fakePushSender.sent shouldHaveSize 6
+                    notificationRepository.findAll() shouldHaveSize 6
                 }
             }
 
