@@ -53,7 +53,7 @@ class MemberService(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
-            orderCount = orderRepository.countByMemberId(memberId).toInt(),
+            orderCount = orderRepository.countByMemberId(memberId).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
         )
     }
 
