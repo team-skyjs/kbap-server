@@ -12,7 +12,7 @@
 | 상황 | status | exitCode |
 |------|--------|----------|
 | 발송 수행(0건 포함) | COMPLETED | COMPLETED |
-| Expo 청크 실패 포함 | COMPLETED | COMPLETED (dispatch 에 FAILED) |
+| Expo 청크 실패 포함 | COMPLETED | COMPLETED (dispatch 에 FAILED, 해당 notification 은 소프트 삭제) |
 | DB 오류 등 예외 | FAILED | FAILED |
 
 ## 3. 공용 발송 부품 (port `PushNotifier`) — 호출자 계약

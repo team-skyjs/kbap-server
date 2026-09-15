@@ -65,7 +65,7 @@ object ScanSuggestionSendWindow {           // KST 고정
 
 ## 5. 상태 전이
 
-`notification_dispatch`: PENDING → SENT(ok 티켓) | FAILED(error 티켓·청크 최종 실패 — 재시도 소진 시 마지막 오류, 영구 실패 시 그 오류). 기존 `markSent/markFailed` 그대로. 잡: `COMPLETED`(발송 수행, 0건 포함) / `FAILED`(예상 밖 예외 — DB 불가 등; Expo 실패는 FAILED 로 가지 않는다).
+`notification_dispatch`: PENDING → SENT(ok 티켓) | FAILED(error 티켓·청크 최종 실패 — 재시도 소진 시 마지막 오류, 영구 실패 시 그 오류). 기존 `markSent/markFailed` 그대로. FAILED 판정 시 대응 `notification` 은 `status=DELETED`(소프트 삭제) — 알림함·슬롯 상한 쿼리에서 자동 제외. 잡: `COMPLETED`(발송 수행, 0건 포함) / `FAILED`(예상 밖 예외 — DB 불가 등; Expo 실패는 FAILED 로 가지 않는다).
 
 ## 6. 설정 키
 

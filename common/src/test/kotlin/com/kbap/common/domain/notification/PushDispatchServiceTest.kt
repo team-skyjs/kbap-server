@@ -242,6 +242,18 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     second.dispatchStatus shouldBe NotificationDispatchStatus.FAILED
                     second.error!! shouldContain "Boom"
                 }
+
+                then("실패한 건의 알림함 행은 소프트 삭제되고 성공한 건만 남는다") {
+                    val sentDispatch = dispatchRepository.findById(prepared.dispatchIds[0]).get()
+                    val failedDispatch = dispatchRepository.findById(prepared.dispatchIds[1]).get()
+                    notificationRepository.findById(sentDispatch.notificationId).isPresent shouldBe true
+                    notificationRepository.findById(failedDispatch.notificationId).isPresent shouldBe false
+                    jdbcTemplate.queryForObject(
+                        "SELECT status FROM notification WHERE id = ?",
+                        String::class.java,
+                        failedDispatch.notificationId,
+                    ) shouldBe "DELETED"
+                }
             }
 
             `when`("DeviceNotRegistered 오류를 반영하면") {

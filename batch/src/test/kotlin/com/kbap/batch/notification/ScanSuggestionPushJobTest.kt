@@ -196,11 +196,11 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
                 val second = run()
 
-                then("첫 실행에서 실패한 기기를 포함해 아무에게도 다시 보내지 않는다") {
+                then("성공한 기기가 있는 회원은 다시 받지 않고, 실패한 건의 알림함 행은 사라진다") {
                     afterFirst shouldBe 2
                     second.exitStatus.exitCode shouldBe "COMPLETED"
                     fakePushSender.sent shouldHaveSize 2
-                    notificationRepository.findAll() shouldHaveSize 2
+                    notificationRepository.findAll() shouldHaveSize 1
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 1
                 }
 
@@ -215,7 +215,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     clock.setSeoul(2026, 9, 16, 12, 0)
                     run()
                     fakePushSender.sent shouldHaveSize 6
-                    notificationRepository.findAll() shouldHaveSize 6
+                    notificationRepository.findAll() shouldHaveSize 5
                 }
             }
 

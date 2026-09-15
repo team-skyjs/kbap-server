@@ -40,7 +40,7 @@ class PushDispatchService(
         }
         val dispatches = dispatchRepository.findAllById(prepared.dispatchIds).associateBy { it.id }
         var sent = 0
-        var failed = 0
+        val failedNotificationIds = mutableListOf<Long>()
 
         prepared.dispatchIds.zip(results).forEach { (dispatchId, outcome) ->
             val dispatch = dispatches.getValue(dispatchId)
@@ -49,10 +49,11 @@ class PushDispatchService(
                 sent++
             } else {
                 dispatch.markFailed(outcome.error ?: UNKNOWN_ERROR)
-                failed++
+                failedNotificationIds += dispatch.notificationId
             }
         }
-        return PushDispatchResult(sent, failed)
+        notificationRepository.findAllById(failedNotificationIds).forEach { it.delete() }
+        return PushDispatchResult(sent, failedNotificationIds.size)
     }
 
     companion object {
