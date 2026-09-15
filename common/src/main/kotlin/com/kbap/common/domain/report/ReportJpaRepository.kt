@@ -7,27 +7,6 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface ReportJpaRepository : JpaRepository<Report, Long> {
-    fun existsByReporterMemberIdAndTargetTypeAndTargetId(
-        reporterMemberId: Long,
-        targetType: ReportTargetType,
-        targetId: Long,
-    ): Boolean
-
-    @Query(
-        """
-        select count(r) > 0 from Report r
-        where r.reporterMemberId is null
-          and r.reporterInstallationId = :reporterInstallationId
-          and r.targetType = :targetType
-          and r.targetId = :targetId
-        """,
-    )
-    fun existsByGuestInstallation(
-        @Param("reporterInstallationId") reporterInstallationId: String,
-        @Param("targetType") targetType: ReportTargetType,
-        @Param("targetId") targetId: Long,
-    ): Boolean
-
     @Query(
         """
         select r.targetId from Report r

@@ -19,14 +19,13 @@ interface ReportApi {
             대상 콘텐츠(targetType + targetId)를 사유와 함께 신고한다.
             인증은 선택이다 — 액세스 토큰이 있으면 회원 신고, 없으면 게스트 신고다. 토큰이 있으나 위조·만료면 401 이며 게스트로 전환되지 않는다.
             `X-Installation-Id` 헤더는 **회원·게스트 모두 필수**다(누락 시 REPORT-004). 회원 신고는 memberId 와 설치 ID 를 함께 저장한다.
-            **중복 판정은 계정 단위**다. 회원 신고는 회원 기준으로 막고(같은 회원이 다른 기기에서 다시 신고해도 409 REPORT-002),
-            게스트 신고는 같은 설치에서 같은 대상을 다시 신고할 때 막는다. 같은 기기를 쓰는 다른 계정, 그리고 게스트로 신고한 뒤
-            로그인해서 다시 신고하는 경우는 **각각 접수**된다(같은 기기라는 사실은 어드민 목록의 설치 ID 접두로 식별한다).
-            설치 ID 는 같은 값이 유지되는 동안 중복 판정과 숨김에 쓰이며, iOS 는 재설치 후에도 같은 값이 유지될 수 있다.
+            **재신고를 허용한다** — 같은 사람이 같은 대상을 여러 번 신고해도 모두 접수되고 중복 오류를 주지 않는다
+            (YouTube·Instagram·TikTok 과 같은 플랫폼 관례). 접수 즉시 그 콘텐츠는 **신고자에게만** 숨겨지므로 보통은 다시 신고할 일이 없다.
+            게스트 신고는 계정에 귀속되지 않는다 — 나중에 로그인해도 과거 게스트 신고가 회원 신고로 바뀌지 않는다.
             자기 콘텐츠 신고 차단(REPORT-001)은 회원만 적용된다(게스트는 소유 리뷰가 없음).
             접수 후 신고자 본인의 리뷰 목록에서 해당 리뷰가 제외된다(다른 사용자에게는 그대로 노출). 제외는 회원 신고분과 현재 설치 신고분의 합집합이라,
             같은 설치에서 로그인·로그아웃해도 숨김이 이어진다.
-            같은 대상은 신고자당 한 번만 신고할 수 있고 취소 기능은 없다.
+            취소 기능은 없다.
         """,
     )
     @ApiResponses(
@@ -38,13 +37,11 @@ interface ReportApi {
             ),
             ApiResponse(responseCode = "401", description = "Authorization 헤더가 있으나 형식 오류·위조·만료(게스트는 헤더 자체가 없어야 한다)"),
             ApiResponse(responseCode = "404", description = "존재하지 않거나 삭제된 대상(REPORT-003)"),
-            ApiResponse(responseCode = "409", description = "이미 신고한 대상(REPORT-002)"),
         ],
     )
     @ApiErrors(
         ErrorCode.REPORT_SELF_TARGET,
         ErrorCode.REPORT_TARGET_NOT_FOUND,
-        ErrorCode.REPORT_DUPLICATED,
         ErrorCode.REPORT_INSTALLATION_ID_REQUIRED,
     )
     fun create(

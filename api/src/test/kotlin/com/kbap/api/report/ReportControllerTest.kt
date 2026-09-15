@@ -3,11 +3,7 @@ package com.kbap.api.report
 import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.core.error.BusinessException
-import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.MemberRole
-import com.kbap.common.domain.report.model.ReportReason
-import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -19,8 +15,6 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -36,8 +30,6 @@ class ReportControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
-    @Autowired
-    private lateinit var reportService: ReportService
 
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
@@ -203,17 +195,15 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("이미 신고한 리뷰를 다시 신고하면") {
-                then("409 REPORT-002 로 거절하고 신고는 1건을 유지한다") {
+            `when`("이미 신고한 리뷰를 같은 회원이 다시 신고하면") {
+                then("재신고가 허용돼 2건이 쌓인다") {
                     seedReview(reviewId = 8109L, authorMemberId = 8151L, foodId = 8181L)
                     val token = accessToken(8110L)
 
                     report(token, body(targetId = 8109L)).andExpect { status { isOk() } }
-                    report(token, body(targetId = 8109L, reason = "ABUSE")).andExpect {
-                        status { isConflict() }
-                        jsonPath("$.code") { value("REPORT-002") }
-                    }
-                    reportCountOf(8110L, 8109L) shouldBe 1
+                    report(token, body(targetId = 8109L, reason = "ABUSE")).andExpect { status { isOk() } }
+
+                    reportCountOf(8110L, 8109L) shouldBe 2
                 }
             }
 
@@ -319,15 +309,14 @@ class ReportControllerTest : BehaviorSpec() {
             }
 
             `when`("같은 게스트가 같은 대상을 다시 신고하면") {
-                then("409 REPORT-002 로 거절하고 1건을 유지한다") {
+                then("재신고가 허용돼 2건이 쌓인다") {
                     seedReview(reviewId = 8121L, authorMemberId = 8151L, foodId = 8181L)
 
                     report(null, body(targetId = 8121L), installationId = "guest-dup-2222").andExpect { status { isOk() } }
                     report(null, body(targetId = 8121L, reason = "ABUSE"), installationId = "guest-dup-2222").andExpect {
-                        status { isConflict() }
-                        jsonPath("$.code") { value("REPORT-002") }
+                        status { isOk() }
                     }
-                    installationReportCountOf("guest-dup-2222", 8121L) shouldBe 1
+                    installationReportCountOf("guest-dup-2222", 8121L) shouldBe 2
                 }
             }
 
@@ -409,7 +398,7 @@ class ReportControllerTest : BehaviorSpec() {
             }
 
             `when`("회원이 신고한 뒤 같은 설치에서 게스트로 같은 대상을 신고하면") {
-                then("신고는 계정 단위라 둘 다 접수된다") {
+                then("둘 다 접수된다") {
                     seedReview(reviewId = 8123L, authorMemberId = 8151L, foodId = 8181L)
                     val token = accessToken(8124L)
 
@@ -434,23 +423,8 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("같은 회원이 다른 설치에서 같은 대상을 다시 신고하면") {
-                then("회원 키가 걸려 409 REPORT-002 로 거절한다") {
-                    seedReview(reviewId = 8128L, authorMemberId = 8151L, foodId = 8181L)
-                    val token = accessToken(8129L)
-
-                    report(token, body(targetId = 8128L), installationId = "same-member-d1").andExpect { status { isOk() } }
-                    report(token, body(targetId = 8128L), installationId = "same-member-d2").andExpect {
-                        status { isConflict() }
-                        jsonPath("$.code") { value("REPORT-002") }
-                    }
-
-                    reportCountOf(8129L, 8128L) shouldBe 1
-                }
-            }
-
             `when`("공용 폰의 두 계정이 같은 대상을 각각 신고하면") {
-                then("둘 다 접수된다(설치 유니크는 게스트 행에만 적용)") {
+                then("둘 다 접수된다") {
                     seedReview(reviewId = 8130L, authorMemberId = 8151L, foodId = 8181L)
 
                     report(accessToken(8131L), body(targetId = 8130L), installationId = "family-phone-6666").andExpect { status { isOk() } }
@@ -462,7 +436,7 @@ class ReportControllerTest : BehaviorSpec() {
             }
 
             `when`("게스트로 신고한 뒤 같은 설치에서 로그인해 같은 대상을 신고하면") {
-                then("계정 단위라 2건이 접수된다(이관은 KB-459 ② 로 보류)") {
+                then("2건이 접수된다(게스트 신고는 계정에 귀속되지 않는다)") {
                     seedReview(reviewId = 8136L, authorMemberId = 8151L, foodId = 8181L)
 
                     report(null, body(targetId = 8136L), installationId = "guest-then-login-77").andExpect { status { isOk() } }
@@ -503,49 +477,5 @@ class ReportControllerTest : BehaviorSpec() {
             }
         }
 
-        given("동시 중복 신고 경합") {
-            `when`("같은 설치의 게스트 신고가 사전 검사를 통과한 뒤 삽입 시점에 겹치면") {
-                then("DB 유니크가 두 번째를 막고 REPORT-002 로 변환된다") {
-                    seedReview(reviewId = 8117L, authorMemberId = 8151L, foodId = 8181L)
-                    val installationId = "guest-race-8888"
-
-                    // 사전 exists 검사가 못 보게 미커밋 트랜잭션으로 선행 행을 잡아 둔다 —
-                    // 그래야 REPORT-002 가 사전 검사가 아니라 DB 제약 위반 변환 경로에서 나온다.
-                    val blocker = dataSource.connection
-                    blocker.autoCommit = false
-                    blocker.prepareStatement(
-                        "INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, " +
-                            "reason, status, created_at, updated_at) " +
-                            "VALUES (NULL, ?, 'REVIEW', ?, 'SPAM', 'ACTIVE', NOW(6), NOW(6))",
-                    ).use { ps ->
-                        ps.setString(1, installationId)
-                        ps.setLong(2, 8117L)
-                        ps.executeUpdate()
-                    }
-
-                    val executor = Executors.newSingleThreadExecutor()
-                    val attempt = executor.submit<Result<Unit>> {
-                        runCatching {
-                            reportService.createReport(
-                                reporterMemberId = null,
-                                installationId = installationId,
-                                targetType = ReportTargetType.REVIEW,
-                                targetId = 8117L,
-                                reason = ReportReason.SPAM,
-                                detail = null,
-                            )
-                        }
-                    }
-                    Thread.sleep(500)
-                    blocker.commit()
-                    blocker.close()
-
-                    val rejected = attempt.get().exceptionOrNull()
-                    executor.shutdown()
-                    (rejected as BusinessException).errorCode shouldBe ErrorCode.REPORT_DUPLICATED
-                    installationReportCountOf(installationId, 8117L) shouldBe 1
-                }
-            }
-        }
     }
 }

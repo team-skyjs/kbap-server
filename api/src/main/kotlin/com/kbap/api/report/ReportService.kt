@@ -9,7 +9,6 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -31,43 +30,18 @@ class ReportService(
         val installation = requireInstallationId(installationId)
         reporterMemberId?.let { memberService.getMember(it) }
         verifyTargetExists(targetType, targetId, reporterMemberId)
-        verifyNotDuplicated(reporterMemberId, installation, targetType, targetId)
 
         val report = if (reporterMemberId != null) {
             Report.byMember(reporterMemberId, installation, targetType, targetId, reason, detail)
         } else {
             Report.byGuest(installation, targetType, targetId, reason, detail)
         }
-        try {
-            reportRepository.saveAndFlush(report)
-        } catch (e: DataIntegrityViolationException) {
-            if (isReporterUniqueViolation(e)) throw BusinessException(ErrorCode.REPORT_DUPLICATED)
-            throw e
-        }
+        reportRepository.save(report)
     }
 
     private fun requireInstallationId(raw: String?): String =
         raw?.let(ApiHeaders::validInstallationId)
             ?: throw BusinessException(ErrorCode.REPORT_INSTALLATION_ID_REQUIRED)
-
-    private fun verifyNotDuplicated(
-        reporterMemberId: Long?,
-        installationId: String,
-        targetType: ReportTargetType,
-        targetId: Long,
-    ) {
-        val duplicated = if (reporterMemberId != null) {
-            reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)
-        } else {
-            reportRepository.existsByGuestInstallation(installationId, targetType, targetId)
-        }
-        if (duplicated) throw BusinessException(ErrorCode.REPORT_DUPLICATED)
-    }
-
-    private fun isReporterUniqueViolation(e: DataIntegrityViolationException): Boolean =
-        generateSequence(e as Throwable) { it.cause }
-            .mapNotNull { it.message }
-            .any { message -> REPORTER_UNIQUE_KEYS.any { message.contains(it) } }
 
     private fun verifyTargetExists(targetType: ReportTargetType, targetId: Long, reporterMemberId: Long?) {
         when (targetType) {
@@ -79,9 +53,5 @@ class ReportService(
                 }
             }
         }
-    }
-
-    private companion object {
-        val REPORTER_UNIQUE_KEYS = listOf("uk_report_reporter_target", "uk_report_guest_installation_target")
     }
 }

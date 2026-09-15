@@ -6,19 +6,9 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(
-    name = "report",
-    uniqueConstraints = [
-        UniqueConstraint(name = "uk_report_reporter_target", columnNames = ["reporter_member_id", "target_type", "target_id"]),
-        UniqueConstraint(
-            name = "uk_report_reporter_installation_target",
-            columnNames = ["reporter_installation_id", "target_type", "target_id"],
-        ),
-    ],
-)
+@Table(name = "report")
 class Report(
     @Column(name = "reporter_member_id")
     val reporterMemberId: Long? = null,

@@ -4,7 +4,6 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.report.model.Report
 import com.kbap.common.domain.report.model.ReportReason
 import com.kbap.common.domain.report.model.ReportTargetType
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -12,7 +11,6 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.dao.DataIntegrityViolationException
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -51,28 +49,12 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
             }
 
             `when`("같은 (신고자, 대상 타입, 대상)으로 다시 저장하면") {
-                then("유니크 제약 위반 예외를 던진다") {
+                then("재신고가 허용돼 행이 하나 더 쌓인다") {
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L))
+                    reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
 
-                    shouldThrow<DataIntegrityViolationException> {
-                        reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
-                    }
-                }
-            }
-        }
-
-        given("중복 신고 여부 조회") {
-            `when`("이미 신고한 대상이면") {
-                then("true 를 반환한다") {
-                    reportJpaRepository.save(report(reporterMemberId = 3L, targetId = 30L))
-
-                    reportJpaRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(3L, ReportTargetType.REVIEW, 30L) shouldBe true
-                }
-            }
-
-            `when`("신고한 적 없는 대상이면") {
-                then("false 를 반환한다") {
-                    reportJpaRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(3L, ReportTargetType.REVIEW, 31L) shouldBe false
+                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(2L, ReportTargetType.REVIEW)
+                        .count { it == 20L } shouldBe 2
                 }
             }
         }

@@ -27,22 +27,22 @@ class ReportGuestColumnsMigrationTest : BehaviorSpec() {
                 }
             }
 
-        fun generationExpressionOf(name: String): String? =
-            dataSource.connection.use { c ->
-                c.prepareStatement(
-                    "SELECT generation_expression FROM information_schema.columns " +
-                        "WHERE table_schema = DATABASE() AND table_name = 'report' AND column_name = ?",
-                ).use { ps ->
-                    ps.setString(1, name)
-                    ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
-                }
-            }
-
-        fun uniqueExists(name: String): Boolean =
+        fun indexExists(name: String): Boolean =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     "SELECT COUNT(*) FROM information_schema.statistics " +
                         "WHERE table_schema = DATABASE() AND table_name = 'report' AND index_name = ?",
+                ).use { ps ->
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) > 0 }
+                }
+            }
+
+        fun uniqueIndexExists(name: String): Boolean =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT COUNT(*) FROM information_schema.statistics " +
+                        "WHERE table_schema = DATABASE() AND table_name = 'report' AND index_name = ? AND non_unique = 0",
                 ).use { ps ->
                     ps.setString(1, name)
                     ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) > 0 }
@@ -61,18 +61,13 @@ class ReportGuestColumnsMigrationTest : BehaviorSpec() {
                 }
             }
 
-            `when`("유니크 인덱스를 조회하면") {
-                then("회원 유니크와 게스트 전용 생성 컬럼 유니크가 존재한다") {
-                    uniqueExists("uk_report_reporter_target") shouldBe true
-                    uniqueExists("uk_report_guest_installation_target") shouldBe true
-                }
-            }
-
-            `when`("게스트 판별 생성 컬럼을 조회하면") {
-                then("회원 행에서는 NULL, 게스트 행에서는 설치 ID 가 된다") {
-                    column("guest_installation_id")?.second shouldBe "varchar"
-                    generationExpressionOf("guest_installation_id")
-                        ?.contains("reporter_member_id") shouldBe true
+            `when`("신고자 인덱스를 조회하면") {
+                then("재신고 허용으로 회원 유니크는 사라지고 같은 컬럼 순서의 일반 인덱스만 남는다") {
+                    indexExists("uk_report_reporter_target") shouldBe false
+                    indexExists("idx_report_reporter_member") shouldBe true
+                    indexExists("idx_report_reporter_installation") shouldBe true
+                    uniqueIndexExists("idx_report_reporter_member") shouldBe false
+                    uniqueIndexExists("idx_report_reporter_installation") shouldBe false
                 }
             }
         }
