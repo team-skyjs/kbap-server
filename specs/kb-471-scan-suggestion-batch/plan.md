@@ -26,7 +26,7 @@
 
 **Constraints**: Expo 요청당 ≤100·초당 ≤600·페이로드 ≤4096B / 외부 호출은 트랜잭션 밖(청크 step 은 `ResourcelessTransactionManager`, `record` 는 자체 `@Transactional`) / 부팅 자동 실행 금지(`spring.batch.job.enabled=false` 유지) / 청크·동시성·페이싱·재시도는 어댑터 안에서만, 발송 절차(prepare→send→record)는 공용 handler 안에서만 — 호출자는 `PushRequest` 한 줄 / 배치 스캔 범위 확장 금지 / Kotlin 주석 금지 / 테스트 컨텍스트 1개.
 
-**Scale/Scope**: 신규 common 2(`port.push.PushHandler`·`infra.push.ExpoPushHandler`) + common 변경 7(`NotificationType`·`PushRequest`(봉투)·`PushDispatchService`·`PushMessage`·`ExpoPushSender`(channelId/ttl·스레드 풀·페이서·재시도)·리포지토리 2) + 신규 batch 5(config·window·tasklet·buffer·writer) + 테스트 픽스처 2 + api 변경 3(`PushConfig` 조립·관리자 발송 서비스가 `PushHandler` 주입·`PushNotificationService` 삭제) + batch `PushConfig` + yml 2(api·batch 의 `kbap.push.expo.{concurrency,min-request-interval,retry.*}`). 테스트 신규 4·수정 5.
+**Scale/Scope**: 신규 common 2(`port.push.PushHandler`·`infra.push.ExpoPushHandler`) + common 변경 7(`NotificationType`·`PushRequest`(봉투)·`PushDispatchService`·`PushMessage`·`ExpoPushSender`(channelId/ttl·스레드 풀·페이서·재시도)·리포지토리 2) + 신규 batch 5(config·window·tasklet·candidates·writer) + 테스트 픽스처 2 + api 변경 3(`PushConfig` 조립·관리자 발송 서비스가 `PushHandler` 주입·`PushNotificationService` 삭제) + batch `PushConfig` + yml 2(api·batch 의 `kbap.push.expo.{concurrency,min-request-interval,retry.*}`). 테스트 신규 4·수정 5.
 
 ## Constitution Check
 
@@ -83,7 +83,7 @@ batch/
 │   │   ├── ScanSuggestionPushBatchConfig.kt           # Clock 빈·tasklet step(공유)·슬롯별 send step + job 2개(Lunch/Dinner)
 │   │   ├── ScanSuggestionSendWindow.kt                # 슬롯(12:00·18:00) 시작 계산 + cron 상수
 │   │   ├── ScanSuggestionTargetTasklet.kt             # 후보 조회 → 이번 슬롯 받은 회원 제외 → 버퍼 적재
-│   │   ├── ScanSuggestionCandidateBuffer.kt           # @JobScope 잡 범위 회원 id 큐 + reader
+│   │   ├── ScanSuggestionCandidateDto.kt           # @JobScope 잡 범위 회원 id 큐 + reader
 │   │   └── ScanSuggestionPushWriter.kt                # ItemWriter<Long>: handler.send(PushRequest(SCAN_SUGGESTION, ids, ttl, slot)) → 로그·카운터
 │   ├── config/PushConfig.kt                           # + ExpoPushSender.create(..., concurrency, interval, retryPolicy) · ExpoPushHandler 빈
 │   └── schedule/BatchJobScheduler.kt                  # + @Scheduled 점심(12:00)·저녁(18:00) KST 메서드 2개

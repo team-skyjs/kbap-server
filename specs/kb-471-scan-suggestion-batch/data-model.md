@@ -48,7 +48,7 @@ fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, 
 
 ```kotlin
 @Component @JobScope
-class ScanSuggestionCandidateBuffer {       // ArrayDeque<Long>
+class ScanSuggestionCandidateDto {       // ArrayDeque<Long>
     fun load(memberIds: Collection<Long>)
     fun poll(): Long?
 }

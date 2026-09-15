@@ -33,9 +33,9 @@ class ScanSuggestionPushBatchConfig(
     fun scanSuggestionTargetTasklet(
         settingRepository: NotificationSettingJpaRepository,
         notificationRepository: NotificationJpaRepository,
-        buffer: ScanSuggestionCandidateBuffer,
+        candidateDto: ScanSuggestionCandidateDto,
         clock: Clock,
-    ): ScanSuggestionTargetTasklet = ScanSuggestionTargetTasklet(settingRepository, notificationRepository, buffer, clock)
+    ): ScanSuggestionTargetTasklet = ScanSuggestionTargetTasklet(settingRepository, notificationRepository, candidateDto, clock)
 
     @Bean
     fun scanSuggestionTargetStep(jobRepository: JobRepository, tasklet: ScanSuggestionTargetTasklet): Step =
@@ -44,7 +44,7 @@ class ScanSuggestionPushBatchConfig(
             .build()
 
     @Bean
-    fun scanSuggestionCandidateReader(buffer: ScanSuggestionCandidateBuffer): ItemReader<Long> = ItemReader { buffer.poll() }
+    fun scanSuggestionCandidateReader(candidateDto: ScanSuggestionCandidateDto): ItemReader<Long> = ItemReader { candidateDto.poll() }
 
     @Bean
     fun scanSuggestionLunchPushJob(

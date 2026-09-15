@@ -13,7 +13,7 @@ import java.time.Clock
 class ScanSuggestionTargetTasklet(
     private val settingRepository: NotificationSettingJpaRepository,
     private val notificationRepository: NotificationJpaRepository,
-    private val buffer: ScanSuggestionCandidateBuffer,
+    private val candidateDto: ScanSuggestionCandidateDto,
     private val clock: Clock,
 ) : Tasklet {
     override fun execute(contribution: StepContribution, chunkContext: ChunkContext): RepeatStatus {
@@ -22,7 +22,7 @@ class ScanSuggestionTargetTasklet(
             .findMemberIdsByTypeAndCreatedAtAfter(NotificationType.SCAN_SUGGESTION, ScanSuggestionSendWindow.startOfCurrentSlot(clock))
             .toSet()
         val targets = candidates.filterNot { it in receivedThisSlot }
-        buffer.load(targets)
+        candidateDto.load(targets)
         logger.info(
             "스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}",
             candidates.size,

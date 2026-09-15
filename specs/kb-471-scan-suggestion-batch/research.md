@@ -16,7 +16,7 @@
 
 ## 3. 스텝 간 데이터 전달 — `@JobScope` 버퍼
 
-- **Decision**: `@Component @JobScope class ScanSuggestionCandidateBuffer`(`ArrayDeque<Long>`; `load(memberIds)`·`poll()`). tasklet 이 채우고, reader 빈은 `ItemReader { buffer.poll() }` 한 줄.
+- **Decision**: `@Component @JobScope class ScanSuggestionCandidateDto`(`ArrayDeque<Long>`; `load(memberIds)`·`poll()`). tasklet 이 채우고, reader 빈은 `ItemReader { candidates.poll() }` 한 줄.
 - **Rationale**: Job `ExecutionContext` 는 JobRepository(JDBC) 에 직렬화돼 저장된다 — 회원 id 수천 개를 `BATCH_JOB_EXECUTION_CONTEXT` 에 남길 이유가 없고 직렬화 포맷(Batch 6 기본 직렬화기) 의존이 생긴다. `DefaultBatchConfiguration`(`BatchJdbcJobRepositoryConfig` 가 상속)이 `jobScope`/`stepScope` 를 등록하므로 추가 설정 없이 `@JobScope` 를 쓸 수 있다. 한 잡 실행 = 한 버퍼라 동시 실행 이슈 없음(launcher 가 AlreadyRunning 으로 막고, 배치는 1대다). kotlin-spring 플러그인이 `@Component` 클래스를 open 으로 만들어 CGLIB 스코프 프록시가 된다.
 - **Alternatives considered**: 싱글턴 홀더 — 전역 가변 상태. `@StepScope` `ListItemReader` — 프록시 하나 더. 둘 다 기각.
 

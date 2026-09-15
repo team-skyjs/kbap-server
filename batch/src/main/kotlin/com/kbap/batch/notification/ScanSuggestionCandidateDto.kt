@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @JobScope
-class ScanSuggestionCandidateBuffer {
+class ScanSuggestionCandidateDto {
     private val memberIds = ArrayDeque<Long>()
 
     fun load(candidates: Collection<Long>) {
