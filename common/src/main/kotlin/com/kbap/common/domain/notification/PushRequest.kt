@@ -1,5 +1,6 @@
 package com.kbap.common.domain.notification
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.domain.notification.model.NotificationType
 
@@ -7,6 +8,7 @@ data class PushRequest(
     val type: NotificationType,
     val memberIds: Collection<Long>,
     val args: Map<String, String> = emptyMap(),
+    val argsByLang: Map<LanguageCode, Map<String, String>> = emptyMap(),
     val data: Map<String, Any> = emptyMap(),
     val ttlSeconds: Int? = null,
     val mealSlot: MealSlot? = null,
