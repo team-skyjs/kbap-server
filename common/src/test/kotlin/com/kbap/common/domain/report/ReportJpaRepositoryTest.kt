@@ -49,12 +49,13 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
             }
 
             `when`("같은 (신고자, 대상 타입, 대상)으로 다시 저장하면") {
-                then("재신고가 허용돼 행이 하나 더 쌓인다") {
+                then("재신고가 허용돼 행이 하나 더 쌓이고, 제외 대상 조회는 id 를 한 번만 준다") {
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L))
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
 
+                    reportJpaRepository.findAll().count { it.reporterMemberId == 2L && it.targetId == 20L } shouldBe 2
                     reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(2L, ReportTargetType.REVIEW)
-                        .count { it == 20L } shouldBe 2
+                        .count { it == 20L } shouldBe 1
                 }
             }
         }

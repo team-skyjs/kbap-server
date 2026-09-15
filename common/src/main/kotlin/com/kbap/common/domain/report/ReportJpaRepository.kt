@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param
 interface ReportJpaRepository : JpaRepository<Report, Long> {
     @Query(
         """
-        select r.targetId from Report r
+        select distinct r.targetId from Report r
         where r.reporterMemberId = :reporterMemberId
           and r.targetType = :targetType
         """,
@@ -21,7 +21,7 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
 
     @Query(
         """
-        select r.targetId from Report r
+        select distinct r.targetId from Report r
         where r.reporterInstallationId = :reporterInstallationId
           and r.targetType = :targetType
         """,
