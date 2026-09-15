@@ -20,6 +20,9 @@ class BatchJobScheduler(
     @Scheduled(cron = "0 30 * * * *", zone = TIME_ZONE)
     fun syncFoodVectors() = launch("foodVectorSyncJob")
 
+    @Scheduled(cron = "\${kbap.batch.scan-suggestion.cron}", zone = TIME_ZONE)
+    fun pushScanSuggestions() = launch("scanSuggestionPushJob")
+
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {
             is BatchJobLaunchResult.UnknownJob ->

@@ -27,7 +27,11 @@ import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.springframework.batch.core.job.JobExecution
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 
 private const val JOB_NAME = "scanSuggestionPushJob"
@@ -59,6 +63,15 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var clock: MutableClock
+
+    @Autowired
+    private lateinit var mockMvc: MockMvc
+
+    @Autowired
+    private lateinit var meterRegistry: MeterRegistry
+
+    private fun sentCounter(): Double =
+        meterRegistry.counter(ScanSuggestionPushWriter.METRIC, "type", "SCAN_SUGGESTION", "result", "sent").count()
 
     private var seq = 0
 
@@ -210,6 +223,34 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     run()
                     fakePushSender.sent shouldHaveSize 4
                     notificationRepository.findAll() shouldHaveSize 4
+                }
+            }
+
+            `when`("HTTP 트리거로 실행하면") {
+                clear()
+                clock.setSeoul(2026, 9, 15, 12, 0)
+                device(9L)
+                consent(9L)
+                setting(9L, news = true)
+                val before = sentCounter()
+
+                val body = mockMvc.post("/internal/batch/jobs?jobName=$JOB_NAME")
+                    .andExpect { status { isAccepted() } }
+                    .andReturn().response.contentAsString
+                val executionId = com.jayway.jsonpath.JsonPath.read<Int>(body, "$.executionId").toLong()
+                repeat(200) {
+                    if (launcher.getExecution(executionId)?.isRunning == false) return@repeat
+                    Thread.sleep(100)
+                }
+
+                then("202 로 받은 실행이 COMPLETED 로 조회되고 발송 카운터가 오른다") {
+                    mockMvc.get("/internal/batch/executions/$executionId")
+                        .andExpect {
+                            status { isOk() }
+                            jsonPath("$.jobName") { value(JOB_NAME) }
+                            jsonPath("$.status") { value("COMPLETED") }
+                        }
+                    sentCounter() - before shouldBe 1.0
                 }
             }
         }

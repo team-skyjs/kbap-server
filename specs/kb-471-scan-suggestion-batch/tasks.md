@@ -145,13 +145,13 @@
 
 ### Tests for User Story 5 (Test-First) ⚠️
 
-- [ ] T036 [P] [US5] Write `ScanSuggestionPushBatchConfigTest`(`@BatchIntegrationTest`) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushBatchConfigTest.kt`: `@Qualifier("scanSuggestionPushJob") job.name == "scanSuggestionPushJob"`. Red 확인(US1 이후면 즉시 Green — 그 경우 T037 과 함께 검증)
-- [ ] T037 [US5] Add scenario (e) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: MockMvc `POST /internal/batch/jobs?jobName=scanSuggestionPushJob` → 202, `GET /internal/batch/executions/{id}` → `status COMPLETED`; `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent}` 가 발송 수만큼 증가. Red 확인(카운터)
+- [x] T036 [P] [US5] Write `ScanSuggestionPushBatchConfigTest`(`@BatchIntegrationTest`) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushBatchConfigTest.kt`: `@Qualifier("scanSuggestionPushJob") job.name == "scanSuggestionPushJob"`. Red 확인(US1 이후면 즉시 Green — 그 경우 T037 과 함께 검증)
+- [x] T037 [US5] Add scenario (e) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: MockMvc `POST /internal/batch/jobs?jobName=scanSuggestionPushJob` → 202, `GET /internal/batch/executions/{id}` → `status COMPLETED`; `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent}` 가 발송 수만큼 증가. Red 확인(카운터)
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Add `@Scheduled(cron = "\${kbap.batch.scan-suggestion.cron}", zone = TIME_ZONE) fun pushScanSuggestions() = launch("scanSuggestionPushJob")` to `batch/src/main/kotlin/com/kbap/batch/schedule/BatchJobScheduler.kt` (ShedLock 없음 — 배치 1대, research §7). yml 주석에 "스케줄 시각은 SCAN_SUGGESTION_CRON 으로 외부화" 갱신 in `batch/src/main/resources/application.yml`
-- [ ] T039 [US5] Verify writer counters and tasklet/writer log lines match `contracts/scan-suggestion-job.md` §5 in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushWriter.kt`·`ScanSuggestionTargetTasklet.kt` (T037 Green)
+- [x] T038 [US5] Add `@Scheduled(cron = "\${kbap.batch.scan-suggestion.cron}", zone = TIME_ZONE) fun pushScanSuggestions() = launch("scanSuggestionPushJob")` to `batch/src/main/kotlin/com/kbap/batch/schedule/BatchJobScheduler.kt` (ShedLock 없음 — 배치 1대, research §7). yml 주석에 "스케줄 시각은 SCAN_SUGGESTION_CRON 으로 외부화" 갱신 in `batch/src/main/resources/application.yml`
+- [x] T039 [US5] Verify writer counters and tasklet/writer log lines match `contracts/scan-suggestion-job.md` §5 in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushWriter.kt`·`ScanSuggestionTargetTasklet.kt` (T037 Green)
 
 **Checkpoint**: 스케줄·수동 트리거·관측 완료.
 
