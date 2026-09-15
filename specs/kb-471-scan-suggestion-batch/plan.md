@@ -91,7 +91,7 @@ batch/
     │   ├── FakePushSenderConfig.kt                    # @Primary PushSender — 요청 기록·n번째 요청 실패 주입
     │   ├── MutableClockConfig.kt                      # @Primary Clock — 테스트가 시각을 바꾼다
     │   ├── ScanSuggestionSendWindowTest.kt            # 순수 경계값
-    │   └── ScanSuggestionPushJobTest.kt               # @BatchIntegrationTest — 대상/제외/하루1회/NOOP/250건/부분 실패/회원 묶음
+    │   └── ScanSuggestionPushJobTest.kt               # @BatchIntegrationTest — 대상/제외/슬롯당 1회/1,200명 묶음/부분 실패/HTTP 트리거
     └── resources/application.yml                      # (변경 없음 — 스케줄러 off, 기본 프로퍼티 사용)
 
 api/

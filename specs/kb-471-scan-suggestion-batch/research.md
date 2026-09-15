@@ -58,9 +58,9 @@
 ## 9. 로그·메트릭
 
 - **Decision**: tasklet 로그 `스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}`, writer 는 회원 묶음마다 `스캔 제안 발송 members={} sent={} failed={}` 와 `MeterRegistry` 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent|failed}`. 잡/스텝 상태·소요·write 수(회원)는 기존 `spring.batch.*` 메트릭(actuator prometheus, KB-380). Expo 요청 수·재시도는 어댑터 로그(`Expo push 청크 발송 실패 …` 기존 + 재시도 warn).
-- **Rationale**: FR-011. 카운터 2줄이면 Grafana 에서 일별 발송·실패를 볼 수 있고, 시간대 밖은 exit code NOOP 로 구분된다.
+- **Rationale**: FR-011. 카운터 2줄이면 Grafana 에서 일별 발송·실패를 볼 수 있다.
 
 ## 10. 테스트 픽스처 — 배치 컨텍스트 1개 유지
 
 - **Decision**: `@BatchIntegrationTest` 의 `@Import` 에 `FakePushSenderConfig`(`@Primary PushSender` — 받은 메시지를 기록, `errorFor` 로 건별 error 티켓 주입; api `FakePushSender` 와 같은 모양) 와 `MutableClockConfig`(`@Primary Clock`) 를 추가. 페이크는 port `PushSender` 수준이므로 공용 `ExpoPushNotifier` 는 실체가 돈다 — 청크 100 분할·동시성·페이싱은 어댑터 단위 테스트(`ExpoPushSenderTest`)가 맡고, 잡 통합 테스트는 "누가 대상인가·몇 건 SENT/FAILED 인가" 만 본다. `PushConfig` 의 `@ConditionalOnMissingBean` 은 사용자 config 간 순서가 보장되지 않아 의지하지 않고(api 선례 `FakePushSender` 도 `@Primary`) 두 빈이 공존하되 primary 가 주입된다. 잡 통합 테스트는 `BatchJobLauncher.launch` + 기존 `awaitStatus` 폴링 선례로 실행하고 리포지토리로 결과를 검증한다. 배치 테스트 스키마는 Hibernate `create` 라 `member` FK 가 없어 임의 memberId 로 시드한다(`PushDispatchServiceTest` 선례).
-- **Rationale**: CLAUDE.md 테스트 헤더 고정 규칙(KB-392). 시각 의존 시나리오(NOOP·하루 1회)를 컨텍스트 재생성 없이 검증.
+- **Rationale**: CLAUDE.md 테스트 헤더 고정 규칙(KB-392). 시각 의존 시나리오(슬롯당 1회)를 컨텍스트 재생성 없이 검증.
