@@ -2,9 +2,9 @@
 -- 가리키는 reporter_installation_id 를 추가한다(ADD/MODIFY only — 기존 코드가 무시할 수 있는 가산 변경).
 --
 -- 컬럼 의미: reporter_member_id = 신고 당시 인증된 회원, reporter_installation_id = 신고가 발생한 앱 설치.
--- 회원 신고는 (M, D), 게스트 신고는 (NULL, D) 로 둘 다 저장한다. 회원 행의 설치 ID 는 감사와
--- "회원이 신고한 뒤 로그아웃해도 같은 기기에서 숨김 유지"에 쓴다. 기존 회원 행은 설치 정보를 복원할 수
--- 없어 (M, NULL) 로 보존하므로 컬럼을 NOT NULL 로 승격하지 않는다.
+-- 회원 신고는 (M, D), 게스트 신고는 (NULL, D) 로 둘 다 저장한다. 회원 행의 설치 ID 는 어드민이 같은
+-- 기기에서 올라온 신고를 식별하는 감사용이다. 기존 회원 행은 설치 정보를 복원할 수 없어 (M, NULL) 로
+-- 보존하므로 컬럼을 NOT NULL 로 승격하지 않는다.
 --
 -- 설치 기준 제외 필터가 (reporter_installation_id, target_type) 프리픽스로 조회하므로 같은 모양의
 -- 인덱스를 함께 둔다. 기존 uk_report_reporter_target 유니크는 여기서 건드리지 않는다 — 이 마이그레이션이
