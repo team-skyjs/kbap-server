@@ -54,7 +54,6 @@ class ScanSuggestionPushWriter(             // ItemWriter<Long>
 )   // write(chunk) = notifier.send(PushRequest(SCAN_SUGGESTION, chunk.items, ttlSeconds = ttlSeconds)) → 로그·카운터
 
 object ScanSuggestionSendWindow {           // KST 고정
-    fun isOpen(clock: Clock): Boolean       // 08:00 <= LocalTime < 21:00
     fun startOfCurrentSlot(clock: Clock): LocalDateTime   // 12:00/18:00 슬롯 시작(없으면 전날 18:00) → JVM 존
     // LUNCH_CRON = "0 0 12 * * *", DINNER_CRON = "0 0 18 * * *" (코드 상수)
 }
@@ -62,7 +61,7 @@ object ScanSuggestionSendWindow {           // KST 고정
 
 ## 5. 상태 전이
 
-`notification_dispatch`: PENDING → SENT(ok 티켓) | FAILED(error 티켓·청크 최종 실패 — 재시도 소진 시 마지막 오류, 영구 실패 시 그 오류). 기존 `markSent/markFailed` 그대로. 잡: `COMPLETED`(발송 수행, 0건 포함) / exit code `NOOP`(시간대 밖) / `FAILED`(예상 밖 예외 — DB 불가 등; Expo 실패는 FAILED 로 가지 않는다).
+`notification_dispatch`: PENDING → SENT(ok 티켓) | FAILED(error 티켓·청크 최종 실패 — 재시도 소진 시 마지막 오류, 영구 실패 시 그 오류). 기존 `markSent/markFailed` 그대로. 잡: `COMPLETED`(발송 수행, 0건 포함) / `FAILED`(예상 밖 예외 — DB 불가 등; Expo 실패는 FAILED 로 가지 않는다).
 
 ## 6. 설정 키
 

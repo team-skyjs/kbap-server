@@ -11,14 +11,7 @@ object ScanSuggestionSendWindow {
     const val DINNER_CRON = "0 0 18 * * *"
 
     private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
-    private val OPEN: LocalTime = LocalTime.of(8, 0)
-    private val CLOSE: LocalTime = LocalTime.of(21, 0)
     private val SLOT_STARTS: List<LocalTime> = listOf(LocalTime.of(12, 0), LocalTime.of(18, 0))
-
-    fun isOpen(clock: Clock): Boolean {
-        val now = LocalTime.now(clock.withZone(SEOUL))
-        return !now.isBefore(OPEN) && now.isBefore(CLOSE)
-    }
 
     fun startOfCurrentSlot(clock: Clock): LocalDateTime {
         val now = ZonedDateTime.now(clock.withZone(SEOUL))

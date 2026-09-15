@@ -72,7 +72,7 @@ kbap:
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
     # 스캔 제안 푸시(KB-471) — 매일 12:00·18:00 KST(BatchJobScheduler 상수) 광고성 동의자에게 SCAN_SUGGESTION 을 보낸다.
-    # 배치 1대 전제라 분산 락 없음. 08~21 KST 밖 실행은 코드 가드가 발송을 막는다(야간 광고 동의 미수집). 상한은 슬롯당 1회.
+    # 배치 1대 전제라 분산 락 없음. 발송 시간대는 cron 이 정한다(별도 시간대 가드 없음 — 수동 트리거는 언제든 보낸다). 상한은 슬롯당 1회.
     scan-suggestion:
       # 발송 step 의 회원 묶음 크기 — prepare/record 트랜잭션·메모리 단위. Expo 청크(100)·동시성·페이싱은 어댑터 안.
       member-chunk-size: 500

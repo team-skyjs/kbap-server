@@ -19,11 +19,11 @@
 - **Rationale**: Job `ExecutionContext` 는 JobRepository(JDBC) 에 직렬화돼 저장된다 — 회원 id 수천 개를 `BATCH_JOB_EXECUTION_CONTEXT` 에 남길 이유가 없고 직렬화 포맷(Batch 6 기본 직렬화기) 의존이 생긴다. `DefaultBatchConfiguration`(`BatchJdbcJobRepositoryConfig` 가 상속)이 `jobScope`/`stepScope` 를 등록하므로 추가 설정 없이 `@JobScope` 를 쓸 수 있다. 한 잡 실행 = 한 버퍼라 동시 실행 이슈 없음(launcher 가 AlreadyRunning 으로 막고, 배치는 1대다). kotlin-spring 플러그인이 `@Component` 클래스를 open 으로 만들어 CGLIB 스코프 프록시가 된다.
 - **Alternatives considered**: 싱글턴 홀더 — 전역 가변 상태. `@StepScope` `ListItemReader` — 프록시 하나 더. 둘 다 기각.
 
-## 4. 발송 허용 시간대 하드 가드·NOOP 종료
+## 4. 발송 시간대 가드 — 없음 (2026-09-15 결정)
 
-- **Decision**: `ScanSuggestionSendWindow.isOpen(clock)` = `08:00 ≤ LocalTime(KST) < 21:00`. tasklet 이 닫힘이면 `contribution.exitStatus = ExitStatus.NOOP`, 로그 `스캔 제안 발송 시간대 밖이라 건너뜁니다 now=…`, 버퍼 비움 → 발송 step 은 read 0 으로 즉시 끝나고 잡 exit code 는 `NOOP`(트리거 API `GET /internal/batch/executions/{id}` 의 `exitCode` 로 관측 가능 — `ExitStatus.and` 서열에서 NOOP > COMPLETED).
-- **Rationale**: 야간 동의 미수집(위키 결정) — 스케줄 설정과 독립된 코드 상수. 실행 시작 시각 1회 판정(spec Edge Case). 흐름 분기(`.on("NOOP").end()`) 를 두지 않아도 발송 step 이 0건으로 끝나 구조가 단순하다.
-- **Clock**: `ScanSuggestionPushBatchConfig` 가 `Clock.system(Asia/Seoul)` 빈을 등록하고 테스트는 `@Primary` `MutableClock`(`Clock` 서브클래스, `set(Instant)`) 로 덮는다 — `@BatchIntegrationTest` `@Import` 에 추가해 컨텍스트 1개 유지.
+- **Decision**: 08~21 KST 가드와 NOOP flow 전이를 제거했다. 발송 시각은 `ScanSuggestionSendWindow.LUNCH_CRON/DINNER_CRON`(12:00·18:00 KST) 이 정하고, 수동 HTTP 트리거는 시각과 무관하게 보낸다. 잡은 `start(target).next(send)` 단순 SimpleJob.
+- **Rationale**: 사용자 결정 — cron 이 주간 두 시각으로 고정돼 조건절이 중복이다. 야간 광고 동의 문제는 cron 을 야간으로 옮기지 않는 것으로 지킨다.
+- **Clock**: `startOfCurrentSlot` 이 여전히 `Clock` 을 쓴다. 테스트는 `@Primary MutableClock`.
 
 ## 5. Expo 제약 — 청크 100·초당 600·일시 실패 재시도(어댑터)
 

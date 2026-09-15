@@ -20,7 +20,6 @@ import com.kbap.common.domain.notification.model.NotificationType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldEndWith
@@ -174,38 +173,6 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     byLang.getValue("ko").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.KO)
                     byLang.getValue("en").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.EN)
                     byLang.getValue("ko").body shouldNotBe byLang.getValue("en").body
-                }
-            }
-
-            `when`("허용 시간대 밖(21:30 KST)에 실행하면") {
-                clear()
-                clock.setSeoul(2026, 9, 15, 21, 30)
-                device(6L)
-                consent(6L)
-                setting(6L, news = true)
-
-                val execution = run()
-
-                then("후보가 있어도 저장·발송이 0건이고 exit code 는 NOOP 이다") {
-                    execution.exitStatus.exitCode shouldBe "NOOP"
-                    notificationRepository.findAll().shouldBeEmpty()
-                    dispatchRepository.findAll().shouldBeEmpty()
-                    fakePushSender.sent.shouldBeEmpty()
-                }
-            }
-
-            `when`("허용 시간대 경계(08:00:00 KST)에 실행하면") {
-                clear()
-                clock.setSeoul(2026, 9, 15, 8, 0, 0)
-                device(7L)
-                consent(7L)
-                setting(7L, news = true)
-
-                val execution = run()
-
-                then("정상 발송한다") {
-                    execution.exitStatus.exitCode shouldBe "COMPLETED"
-                    fakePushSender.sent shouldHaveSize 1
                 }
             }
 

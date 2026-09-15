@@ -12,7 +12,6 @@
 | 상황 | status | exitCode |
 |------|--------|----------|
 | 발송 수행(0건 포함) | COMPLETED | COMPLETED |
-| 08:00~21:00 KST 밖 실행 | COMPLETED | NOOP |
 | Expo 청크 실패 포함 | COMPLETED | COMPLETED (dispatch 에 FAILED) |
 | DB 오류 등 예외 | FAILED | FAILED |
 
@@ -56,7 +55,6 @@ interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
 ## 5. 로그·메트릭
 
 - `스캔 제안 대상 확정 candidates={} excludedThisSlot={} targets={}` (tasklet — 전부 회원 수)
-- `스캔 제안 발송 시간대 밖이라 건너뜁니다 now={}` (tasklet, NOOP)
 - `스캔 제안 발송 members={} sent={} failed={}` (writer, 회원 묶음마다)
 - Micrometer 카운터 `kbap.push.dispatch{type="SCAN_SUGGESTION", result="sent"|"failed"}` + 기존 `spring.batch.job`·`spring.batch.step`(status·duration·write count).
 

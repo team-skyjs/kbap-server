@@ -6,7 +6,7 @@
 
 ## Summary
 
-배치 앱에 **첫 스케줄 발송 잡** `scanSuggestionPushJob` 을 추가한다. 매일 12:00·18:00 KST(코드 상수, 배치 1대 전제 — ShedLock 없음) 에 두 스텝으로 돈다 — **① 대상 확정 tasklet**(08~21 KST 하드 가드 → 소식 토글 켜진 회원 한 번 조회 → 이번 슬롯에 이미 받은 회원 제외 → 기존 `PushDispatchService.prepare` 로 기기별 알림함·dispatch(PENDING) 저장 → 발송 대기 목록을 잡 범위 버퍼에 적재) → **② 청크 발송 step**(후보 회원 id 를 500명 묶음으로 읽어 **공용 발송 부품** `PushNotifier.send(PushRequest(SCAN_SUGGESTION, memberIds, ttl))` 한 줄 호출). 공용 발송 부품은 이번에 신설한다 — **port `common.port.push.PushNotifier`(알림 유형·대상 회원을 받는 계약) + 구현 `common.infra.push.ExpoPushNotifier`(prepare → Expo 발송 → record) + 조립은 api·batch `PushConfig`**. Expo 어댑터 `ExpoPushSender` 는 청크 100 분할·**동시 발송(고정 스레드 풀, 기본 6)**·**초당 600 페이싱**·**일시 실패 지수 백오프 재시도**를 소유한다. 봉투에 `channelId`(광고성=`news`)·`ttl` 을 실어 어댑터가 그대로 보낸다. api 의 3줄 글루 `PushNotificationService` 는 port 로 대체돼 삭제된다. 스키마 변경 없음. 리포지토리 쿼리 2개 추가. 제네릭은 쓰지 않는다(research §8).
+배치 앱에 **첫 스케줄 발송 잡** `scanSuggestionPushJob` 을 추가한다. 매일 12:00·18:00 KST(코드 상수, 배치 1대 전제 — ShedLock 없음) 에 두 스텝으로 돈다 — **① 대상 확정 tasklet**(소식 토글 켜진 회원 한 번 조회 → 이번 슬롯에 이미 받은 회원 제외 → 기존 `PushDispatchService.prepare` 로 기기별 알림함·dispatch(PENDING) 저장 → 발송 대기 목록을 잡 범위 버퍼에 적재) → **② 청크 발송 step**(후보 회원 id 를 500명 묶음으로 읽어 **공용 발송 부품** `PushNotifier.send(PushRequest(SCAN_SUGGESTION, memberIds, ttl))` 한 줄 호출). 공용 발송 부품은 이번에 신설한다 — **port `common.port.push.PushNotifier`(알림 유형·대상 회원을 받는 계약) + 구현 `common.infra.push.ExpoPushNotifier`(prepare → Expo 발송 → record) + 조립은 api·batch `PushConfig`**. Expo 어댑터 `ExpoPushSender` 는 청크 100 분할·**동시 발송(고정 스레드 풀, 기본 6)**·**초당 600 페이싱**·**일시 실패 지수 백오프 재시도**를 소유한다. 봉투에 `channelId`(광고성=`news`)·`ttl` 을 실어 어댑터가 그대로 보낸다. api 의 3줄 글루 `PushNotificationService` 는 port 로 대체돼 삭제된다. 스키마 변경 없음. 리포지토리 쿼리 2개 추가. 제네릭은 쓰지 않는다(research §8).
 
 ## Technical Context
 
@@ -78,8 +78,8 @@ batch/
 ├── src/main/kotlin/com/kbap/batch/
 │   ├── notification/                                  # 신규 기능 패키지 (outbox·vector 와 나란히)
 │   │   ├── ScanSuggestionPushBatchConfig.kt           # Clock 빈·tasklet step·chunk step(member-chunk-size)·job
-│   │   ├── ScanSuggestionSendWindow.kt                # 08:00 ≤ t < 21:00 KST 판정 + 슬롯(12:00·18:00) 시작 계산 + cron 상수
-│   │   ├── ScanSuggestionTargetTasklet.kt             # 가드 → 후보 조회 → 이번 슬롯 받은 회원 제외 → 버퍼 적재, NOOP 종료
+│   │   ├── ScanSuggestionSendWindow.kt                # 슬롯(12:00·18:00) 시작 계산 + cron 상수
+│   │   ├── ScanSuggestionTargetTasklet.kt             # 후보 조회 → 이번 슬롯 받은 회원 제외 → 버퍼 적재
 │   │   ├── ScanSuggestionCandidateBuffer.kt           # @JobScope 잡 범위 회원 id 큐 + reader
 │   │   └── ScanSuggestionPushWriter.kt                # ItemWriter<Long>: notifier.send(PushRequest(SCAN_SUGGESTION, ids, ttl)) → 로그·카운터
 │   ├── config/PushConfig.kt                           # + ExpoPushSender.create(..., concurrency, interval, retryPolicy) · ExpoPushNotifier 빈
