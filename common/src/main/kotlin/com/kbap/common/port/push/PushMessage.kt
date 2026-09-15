@@ -5,5 +5,6 @@ data class PushMessage(
     val title: String,
     val body: String,
     val data: Map<String, Any>,
+    val channelId: String = "default",
     val ttlSeconds: Int? = null,
 )

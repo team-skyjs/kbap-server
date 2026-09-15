@@ -20,6 +20,7 @@ data class PushEnvelope(
     val title: String,
     val body: String,
     val data: Map<String, Any>,
+    val channelId: String,
     val ttlSeconds: Int? = null,
 )
 

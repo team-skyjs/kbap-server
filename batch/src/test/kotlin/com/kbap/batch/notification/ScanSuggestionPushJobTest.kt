@@ -143,6 +143,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     sent shouldHaveSize 2
                     sent.forEach { it.title shouldStartWith "(광고) " }
                     sent.forEach { it.ttlSeconds shouldBe 10800 }
+                    sent.forEach { it.channelId shouldBe "news" }
                     val byLang = sent.associateBy { m -> deviceRepository.findAll().first { it.expoToken == m.to }.lang }
                     byLang.getValue("ko").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.KO)
                     byLang.getValue("en").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.EN)

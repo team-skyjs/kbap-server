@@ -23,7 +23,7 @@ internal data class ExpoMessage(
     val data: Map<String, Any>,
     val sound: String = "default",
     val priority: String = "high",
-    val channelId: String = "default",
+    val channelId: String,
     @field:JsonInclude(JsonInclude.Include.NON_NULL)
     val ttl: Int? = null,
 )
@@ -60,7 +60,7 @@ class ExpoPushSender internal constructor(
                 .uri(SEND_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
-                .body(chunk.map { ExpoMessage(it.to, it.title, it.body, it.data, ttl = it.ttlSeconds) })
+                .body(chunk.map { ExpoMessage(it.to, it.title, it.body, it.data, channelId = it.channelId, ttl = it.ttlSeconds) })
                 .retrieve()
                 .body(ExpoSendResponse::class.java)
                 ?.data

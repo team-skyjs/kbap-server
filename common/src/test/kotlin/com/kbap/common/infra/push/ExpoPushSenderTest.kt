@@ -97,7 +97,7 @@ class ExpoPushSenderTest : BehaviorSpec({
         }
 
         `when`("메시지 본문을 만들면") {
-            then("sound·priority·channelId 기본값과 data 를 함께 보낸다") {
+            then("sound·priority 기본값과 메시지의 channelId·data 를 함께 보낸다") {
                 val (sender, server) = fixture()
                 server.expect(requestTo(SEND_URL))
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -105,11 +105,11 @@ class ExpoPushSenderTest : BehaviorSpec({
                     .andExpect(jsonPath("$[0].title").value("t0"))
                     .andExpect(jsonPath("$[0].sound").value("default"))
                     .andExpect(jsonPath("$[0].priority").value("high"))
-                    .andExpect(jsonPath("$[0].channelId").value("default"))
+                    .andExpect(jsonPath("$[0].channelId").value("news"))
                     .andExpect(jsonPath("$[0].data.type").value("NEWS"))
                     .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
 
-                sender.send(messages(1))
+                sender.send(listOf(PushMessage("ExponentPushToken[0]", "t0", "b", mapOf("type" to "NEWS"), channelId = "news")))
                 server.verify()
             }
         }

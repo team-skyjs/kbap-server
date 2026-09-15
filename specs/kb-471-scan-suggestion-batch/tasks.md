@@ -124,14 +124,14 @@
 
 ### Tests for User Story 4 (Test-First) ⚠️
 
-- [ ] T031 [P] [US4] Add scenario to `common/src/test/kotlin/com/kbap/common/domain/notification/PushDispatchServiceTest.kt`: SCAN_SUGGESTION·NEWS·MEAL_TIME 봉투 `channelId == "news"`, HELPFUL·REVIEW_REMINDER `"default"`. Red 확인
-- [ ] T032 [P] [US4] Replace the "sound·priority·channelId 기본값" scenario in `common/src/test/kotlin/com/kbap/common/infra/push/ExpoPushSenderTest.kt` with "메시지의 channelId 를 그대로 직렬화"(`PushMessage(channelId = "news")` → `$[0].channelId == "news"`, sound·priority 는 그대로). Red 확인
-- [ ] T033 [US4] Add assertion to scenario (a) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 페이크 메시지 `channelId == "news"`. Red 확인
+- [x] T031 [P] [US4] Add scenario to `common/src/test/kotlin/com/kbap/common/domain/notification/PushDispatchServiceTest.kt`: SCAN_SUGGESTION·NEWS·MEAL_TIME 봉투 `channelId == "news"`, HELPFUL·REVIEW_REMINDER `"default"`. Red 확인
+- [x] T032 [P] [US4] Replace the "sound·priority·channelId 기본값" scenario in `common/src/test/kotlin/com/kbap/common/infra/push/ExpoPushSenderTest.kt` with "메시지의 channelId 를 그대로 직렬화"(`PushMessage(channelId = "news")` → `$[0].channelId == "news"`, sound·priority 는 그대로). Red 확인
+- [x] T033 [US4] Add assertion to scenario (a) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 페이크 메시지 `channelId == "news"`. Red 확인
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Add `val channelId: String get() = if (marketing) "news" else "default"` to `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationType.kt`; add `channelId: String` to `PushEnvelope` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushRequest.kt` and fill `request.type.channelId` in `prepare` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushDispatchService.kt` (T031 Green)
-- [ ] T035 [US4] Add `channelId: String` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; remove the `"default"` default from `ExpoMessage.channelId` and map from the message in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `envelope.channelId` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushNotifier.kt`; fix compile in `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt`·`batch/src/test/kotlin/com/kbap/batch/notification/FakePushSenderConfig.kt` if they construct `PushMessage` (T032, T033 Green)
+- [x] T034 [US4] Add `val channelId: String get() = if (marketing) "news" else "default"` to `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationType.kt`; add `channelId: String` to `PushEnvelope` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushRequest.kt` and fill `request.type.channelId` in `prepare` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushDispatchService.kt` (T031 Green)
+- [x] T035 [US4] Add `channelId: String` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; remove the `"default"` default from `ExpoMessage.channelId` and map from the message in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `envelope.channelId` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushNotifier.kt`; fix compile in `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt`·`batch/src/test/kotlin/com/kbap/batch/notification/FakePushSenderConfig.kt` if they construct `PushMessage` (T032, T033 Green)
 
 **Checkpoint**: 유형→채널 매핑 단일 출처. 비광고성은 `default` 유지(FE 채널명 미확정).
 
