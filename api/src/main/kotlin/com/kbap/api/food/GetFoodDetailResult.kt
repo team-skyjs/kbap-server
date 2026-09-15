@@ -14,7 +14,13 @@ data class GetFoodDetailResult(
     val avoidedIngredients: List<AvoidedIngredientView>?,
     val reviewEligible: Boolean,
     val publishedAt: Instant?,
+    val images: List<ImageView>,
 ) {
+    data class ImageView(
+        val url: String,
+        val isPrimary: Boolean,
+    )
+
     data class IngredientView(
         val code: String,
         val name: String,
