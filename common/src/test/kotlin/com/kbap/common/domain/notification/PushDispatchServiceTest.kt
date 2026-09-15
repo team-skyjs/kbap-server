@@ -92,6 +92,11 @@ class PushDispatchServiceTest : BehaviorSpec() {
         val older = LocalDateTime.of(2026, 9, 1, 12, 0)
         val newer = LocalDateTime.of(2026, 9, 10, 12, 0)
         val helpfulArgs = mapOf("food" to "김치찌개")
+        fun newsArgsFor(type: NotificationType) = when (type) {
+            NotificationType.NEWS -> mapOf("title" to "t", "body" to "b")
+            NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER -> helpfulArgs
+            else -> emptyMap()
+        }
 
         given("prepare") {
             `when`("회원 한 명이 ko·ja 기기 두 대를 쓰면") {
@@ -171,6 +176,49 @@ class PushDispatchServiceTest : BehaviorSpec() {
             }
         }
 
+        given("prepare 봉투") {
+            `when`("ttlSeconds 를 실어 보내면") {
+                clear()
+                device(8L, "ko", newer)
+                newsConsent(8L)
+                newsOn(8L)
+
+                val withTtl = service.prepare(PushRequest(NotificationType.SCAN_SUGGESTION, listOf(8L), ttlSeconds = 10800))
+                val withoutTtl = service.prepare(PushRequest(NotificationType.SCAN_SUGGESTION, listOf(8L)))
+
+                then("봉투의 ttlSeconds 는 요청값 그대로이고 미지정이면 null 이다") {
+                    withTtl.messages.single().ttlSeconds shouldBe 10800
+                    withoutTtl.messages.single().ttlSeconds.shouldBeNull()
+                }
+            }
+        }
+
+        given("유형별 채널") {
+            `when`("광고성 유형과 비광고성 유형을 준비하면") {
+                clear()
+                val all = device(9L, "ko", newer)
+                newsConsent(9L)
+                settingRepository.save(
+                    NotificationSetting(memberId = 9L, installationId = all.installationId, activity = true, mealTime = true, news = true),
+                )
+
+                val channels = listOf(
+                    NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME,
+                    NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER,
+                ).associateWith { type ->
+                    service.prepare(PushRequest(type, listOf(9L), args = newsArgsFor(type))).messages.single().channelId
+                }
+
+                then("광고성은 news, 비광고성은 default 채널이다") {
+                    channels.getValue(NotificationType.SCAN_SUGGESTION) shouldBe "news"
+                    channels.getValue(NotificationType.NEWS) shouldBe "news"
+                    channels.getValue(NotificationType.MEAL_TIME) shouldBe "news"
+                    channels.getValue(NotificationType.HELPFUL) shouldBe "default"
+                    channels.getValue(NotificationType.REVIEW_REMINDER) shouldBe "default"
+                }
+            }
+        }
+
         given("record") {
             `when`("ok 와 error 결과를 반영하면") {
                 clear()
@@ -193,6 +241,18 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     val second = dispatchRepository.findById(prepared.dispatchIds[1]).get()
                     second.dispatchStatus shouldBe NotificationDispatchStatus.FAILED
                     second.error!! shouldContain "Boom"
+                }
+
+                then("실패한 건의 알림함 행은 소프트 삭제되고 성공한 건만 남는다") {
+                    val sentDispatch = dispatchRepository.findById(prepared.dispatchIds[0]).get()
+                    val failedDispatch = dispatchRepository.findById(prepared.dispatchIds[1]).get()
+                    notificationRepository.findById(sentDispatch.notificationId).isPresent shouldBe true
+                    notificationRepository.findById(failedDispatch.notificationId).isPresent shouldBe false
+                    jdbcTemplate.queryForObject(
+                        "SELECT status FROM notification WHERE id = ?",
+                        String::class.java,
+                        failedDispatch.notificationId,
+                    ) shouldBe "DELETED"
                 }
             }
 

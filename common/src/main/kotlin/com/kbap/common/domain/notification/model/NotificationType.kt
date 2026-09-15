@@ -6,4 +6,8 @@ enum class NotificationType(val marketing: Boolean) {
     REVIEW_REMINDER(false),
     NEWS(true),
     MEAL_TIME(true),
+    ;
+
+    val channelId: String
+        get() = if (marketing) "news" else "default"
 }

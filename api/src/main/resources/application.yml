@@ -160,6 +160,15 @@ kbap:
     expo:
       base-url: https://exp.host
       access-token: ${EXPO_ACCESS_TOKEN:}
+      # 청크(100건) 요청을 동시에 보내는 스레드 수 — Expo 공식 SDK 의 최대 연결 수와 같다(KB-471).
+      concurrency: 6
+      # 청크 요청 시작 간격 — 프로젝트당 초당 600건 상한(100건 × 초당 5.9회). 인스턴스 단위로 지킨다.
+      min-request-interval: 170ms
+      # 일시 실패(네트워크·429·5xx)만 지수 백오프 재시도. 400 등 영구 실패는 즉시 실패.
+      retry:
+        max-retries: 3
+        initial-delay: 1s
+        multiplier: 2.0
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).

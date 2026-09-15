@@ -1,5 +1,6 @@
 package com.kbap.common.domain.notification
 
+import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.domain.notification.model.NotificationType
 
 data class PushRequest(
@@ -7,6 +8,8 @@ data class PushRequest(
     val memberIds: Collection<Long>,
     val args: Map<String, String> = emptyMap(),
     val data: Map<String, Any> = emptyMap(),
+    val ttlSeconds: Int? = null,
+    val mealSlot: MealSlot? = null,
 )
 
 data class PushContent(
@@ -19,6 +22,8 @@ data class PushEnvelope(
     val title: String,
     val body: String,
     val data: Map<String, Any>,
+    val channelId: String,
+    val ttlSeconds: Int? = null,
 )
 
 data class PreparedPush(

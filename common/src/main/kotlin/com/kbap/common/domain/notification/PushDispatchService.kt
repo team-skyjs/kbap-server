@@ -20,14 +20,14 @@ class PushDispatchService(
         val dispatchIds = mutableListOf<Long>()
 
         devices.forEach { device ->
-            val content = renderer.render(request.type, LanguageCode.from(device.lang), request.args)
+            val content = renderer.render(request.type, LanguageCode.from(device.lang), request.args, request.mealSlot)
             val notification = notificationRepository.save(
                 Notification.forMemberDevice(device.memberId!!, device.installationId, request.type, content.title, content.body, null),
             )
             val data = request.data + mapOf(DATA_TYPE to request.type.name, DATA_NOTIFICATION_ID to notification.id)
             notification.data = data
             val dispatch = dispatchRepository.save(NotificationDispatch.pending(notification.id, device.id, device.expoToken))
-            messages += PushEnvelope(device.expoToken, content.title, content.body, data)
+            messages += PushEnvelope(device.expoToken, content.title, content.body, data, request.type.channelId, request.ttlSeconds)
             dispatchIds += dispatch.id
         }
         return PreparedPush(messages, dispatchIds)
@@ -40,7 +40,7 @@ class PushDispatchService(
         }
         val dispatches = dispatchRepository.findAllById(prepared.dispatchIds).associateBy { it.id }
         var sent = 0
-        var failed = 0
+        val failedNotificationIds = mutableListOf<Long>()
 
         prepared.dispatchIds.zip(results).forEach { (dispatchId, outcome) ->
             val dispatch = dispatches.getValue(dispatchId)
@@ -49,10 +49,11 @@ class PushDispatchService(
                 sent++
             } else {
                 dispatch.markFailed(outcome.error ?: UNKNOWN_ERROR)
-                failed++
+                failedNotificationIds += dispatch.notificationId
             }
         }
-        return PushDispatchResult(sent, failed)
+        notificationRepository.findAllById(failedNotificationIds).forEach { it.delete() }
+        return PushDispatchResult(sent, failedNotificationIds.size)
     }
 
     companion object {

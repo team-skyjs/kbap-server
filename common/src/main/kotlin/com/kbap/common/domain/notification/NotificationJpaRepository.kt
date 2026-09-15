@@ -1,6 +1,7 @@
 package com.kbap.common.domain.notification
 
 import com.kbap.common.domain.notification.model.Notification
+import com.kbap.common.domain.notification.model.NotificationType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
@@ -36,4 +37,17 @@ interface NotificationJpaRepository : JpaRepository<Notification, Long> {
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.memberId = :memberId and n.readAt is null")
     fun markAllReadByMemberId(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Int
+
+    @Query(
+        """
+        select distinct n.memberId from Notification n
+        where n.type = :type
+          and n.createdAt >= :since
+          and n.memberId is not null
+        """,
+    )
+    fun findMemberIdsByTypeAndCreatedAtAfter(
+        @Param("type") type: NotificationType,
+        @Param("since") since: LocalDateTime,
+    ): List<Long>
 }

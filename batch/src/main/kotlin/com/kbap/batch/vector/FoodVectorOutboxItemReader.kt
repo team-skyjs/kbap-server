@@ -10,7 +10,7 @@ class FoodVectorOutboxItemReader(
     private val pageSize: Int,
 ) : ItemStreamReader<FoodVectorOutbox> {
     private var cursor = 0L
-    private val buffer = ArrayDeque<FoodVectorOutbox>()
+    private val candidates = ArrayDeque<FoodVectorOutbox>()
     private var exhausted = false
 
     init {
@@ -19,20 +19,20 @@ class FoodVectorOutboxItemReader(
 
     override fun open(executionContext: ExecutionContext) {
         cursor = 0L
-        buffer.clear()
+        candidates.clear()
         exhausted = false
     }
 
     override fun read(): FoodVectorOutbox? {
-        if (buffer.isEmpty() && !exhausted) {
+        if (candidates.isEmpty() && !exhausted) {
             val page = outboxRepository.findPendingAfterId(cursor, pageSize)
             if (page.isEmpty()) {
                 exhausted = true
             } else {
                 cursor = page.last().id
-                buffer.addAll(page)
+                candidates.addAll(page)
             }
         }
-        return buffer.removeFirstOrNull()
+        return candidates.removeFirstOrNull()
     }
 }

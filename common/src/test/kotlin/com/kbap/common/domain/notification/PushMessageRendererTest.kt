@@ -1,6 +1,7 @@
 package com.kbap.common.domain.notification
 
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.domain.notification.model.NotificationType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
@@ -31,6 +32,27 @@ class PushMessageRendererTest : BehaviorSpec({
 
             then("수신거부 안내 문구도 전 로케일에 있다") {
                 LanguageCode.entries.forEach { lang -> PushTemplates.optOutNotice.getValue(lang).shouldNotBeBlank() }
+            }
+        }
+
+        `when`("스캔 제안을 점심·저녁 슬롯으로 렌더하면") {
+            then("슬롯별 문구가 전 로케일에 있고 점심·저녁이 서로 다르며 광고 표기가 붙는다") {
+                MealSlot.entries.forEach { slot ->
+                    LanguageCode.entries.forEach { lang ->
+                        val content = renderer.render(NotificationType.SCAN_SUGGESTION, lang, emptyMap(), slot)
+                        content.title.startsWith("(광고) ") shouldBe true
+                        content.body.endsWith(PushTemplates.optOutNotice.getValue(lang)) shouldBe true
+                    }
+                }
+                val lunch = renderer.render(NotificationType.SCAN_SUGGESTION, LanguageCode.KO, emptyMap(), MealSlot.LUNCH)
+                val dinner = renderer.render(NotificationType.SCAN_SUGGESTION, LanguageCode.KO, emptyMap(), MealSlot.DINNER)
+                lunch.title shouldBe "(광고) 점심 먹을 때 스캔해보세요"
+                dinner.title shouldBe "(광고) 저녁 메뉴, 스캔해보세요"
+            }
+
+            then("슬롯 문구가 없는 유형은 기본 템플릿으로 떨어진다") {
+                renderer.render(NotificationType.HELPFUL, LanguageCode.KO, mapOf("food" to "김치찌개"), MealSlot.LUNCH) shouldBe
+                    renderer.render(NotificationType.HELPFUL, LanguageCode.KO, mapOf("food" to "김치찌개"))
             }
         }
 
