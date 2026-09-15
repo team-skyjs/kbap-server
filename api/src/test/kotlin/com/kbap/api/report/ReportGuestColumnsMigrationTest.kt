@@ -27,6 +27,17 @@ class ReportGuestColumnsMigrationTest : BehaviorSpec() {
                 }
             }
 
+        fun generationExpressionOf(name: String): String? =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT generation_expression FROM information_schema.columns " +
+                        "WHERE table_schema = DATABASE() AND table_name = 'report' AND column_name = ?",
+                ).use { ps ->
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+                }
+            }
+
         fun uniqueExists(name: String): Boolean =
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -51,9 +62,17 @@ class ReportGuestColumnsMigrationTest : BehaviorSpec() {
             }
 
             `when`("유니크 인덱스를 조회하면") {
-                then("회원·게스트 유니크가 모두 존재한다") {
+                then("회원 유니크와 게스트 전용 생성 컬럼 유니크가 존재한다") {
                     uniqueExists("uk_report_reporter_target") shouldBe true
-                    uniqueExists("uk_report_reporter_installation_target") shouldBe true
+                    uniqueExists("uk_report_guest_installation_target") shouldBe true
+                }
+            }
+
+            `when`("게스트 판별 생성 컬럼을 조회하면") {
+                then("회원 행에서는 NULL, 게스트 행에서는 설치 ID 가 된다") {
+                    column("guest_installation_id")?.second shouldBe "varchar"
+                    generationExpressionOf("guest_installation_id")
+                        ?.contains("reporter_member_id") shouldBe true
                 }
             }
         }
