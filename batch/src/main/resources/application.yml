@@ -71,6 +71,14 @@ kbap:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+    # 스캔 제안 푸시(KB-471) — 매일 점심 광고성 동의자에게 SCAN_SUGGESTION 을 보낸다. 배치 1대 전제라 분산 락 없음.
+    # 08~21 KST 밖에서는 cron 을 어떻게 잡아도 코드 가드가 발송을 막는다(야간 광고 동의 미수집).
+    scan-suggestion:
+      cron: ${SCAN_SUGGESTION_CRON:0 0 12 * * *}
+      # 발송 step 의 회원 묶음 크기 — prepare/record 트랜잭션·메모리 단위. Expo 청크(100)·동시성·페이싱은 어댑터 안.
+      member-chunk-size: 500
+      # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).
+      ttl: 3h
   # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.

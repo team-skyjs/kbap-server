@@ -171,6 +171,23 @@ class PushDispatchServiceTest : BehaviorSpec() {
             }
         }
 
+        given("prepare 봉투") {
+            `when`("ttlSeconds 를 실어 보내면") {
+                clear()
+                device(8L, "ko", newer)
+                newsConsent(8L)
+                newsOn(8L)
+
+                val withTtl = service.prepare(PushRequest(NotificationType.SCAN_SUGGESTION, listOf(8L), ttlSeconds = 10800))
+                val withoutTtl = service.prepare(PushRequest(NotificationType.SCAN_SUGGESTION, listOf(8L)))
+
+                then("봉투의 ttlSeconds 는 요청값 그대로이고 미지정이면 null 이다") {
+                    withTtl.messages.single().ttlSeconds shouldBe 10800
+                    withoutTtl.messages.single().ttlSeconds.shouldBeNull()
+                }
+            }
+        }
+
         given("record") {
             `when`("ok 와 error 결과를 반영하면") {
                 clear()

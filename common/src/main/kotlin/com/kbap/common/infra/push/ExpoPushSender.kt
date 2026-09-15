@@ -1,5 +1,6 @@
 package com.kbap.common.infra.push
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.kbap.common.port.push.PushMessage
 import com.kbap.common.port.push.PushSender
 import com.kbap.common.port.push.PushTicket
@@ -23,6 +24,8 @@ internal data class ExpoMessage(
     val sound: String = "default",
     val priority: String = "high",
     val channelId: String = "default",
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val ttl: Int? = null,
 )
 
 internal data class ExpoTicket(
@@ -57,7 +60,7 @@ class ExpoPushSender internal constructor(
                 .uri(SEND_PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
-                .body(chunk.map { ExpoMessage(it.to, it.title, it.body, it.data) })
+                .body(chunk.map { ExpoMessage(it.to, it.title, it.body, it.data, ttl = it.ttlSeconds) })
                 .retrieve()
                 .body(ExpoSendResponse::class.java)
                 ?.data

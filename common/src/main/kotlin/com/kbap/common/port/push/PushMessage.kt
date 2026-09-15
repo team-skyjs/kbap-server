@@ -5,4 +5,5 @@ data class PushMessage(
     val title: String,
     val body: String,
     val data: Map<String, Any>,
+    val ttlSeconds: Int? = null,
 )

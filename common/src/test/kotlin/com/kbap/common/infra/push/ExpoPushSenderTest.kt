@@ -114,6 +114,30 @@ class ExpoPushSenderTest : BehaviorSpec({
             }
         }
 
+        `when`("ttlSeconds 가 지정된 메시지를 보내면") {
+            then("ttl 을 초 단위 정수로 직렬화한다") {
+                val (sender, server) = fixture()
+                server.expect(requestTo(SEND_URL))
+                    .andExpect(jsonPath("$[0].ttl").value(10800))
+                    .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
+
+                sender.send(listOf(PushMessage("ExponentPushToken[0]", "t", "b", mapOf("type" to "SCAN_SUGGESTION"), ttlSeconds = 10800)))
+                server.verify()
+            }
+        }
+
+        `when`("ttlSeconds 가 없는 메시지를 보내면") {
+            then("ttl 필드를 생략한다") {
+                val (sender, server) = fixture()
+                server.expect(requestTo(SEND_URL))
+                    .andExpect(jsonPath("$[0].ttl").doesNotExist())
+                    .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
+
+                sender.send(messages(1))
+                server.verify()
+            }
+        }
+
         `when`("access token 이 설정돼 있으면") {
             then("Authorization Bearer 헤더를 붙인다") {
                 val (sender, server) = fixture(accessToken = "tok")

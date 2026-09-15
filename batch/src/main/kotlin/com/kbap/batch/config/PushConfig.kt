@@ -3,7 +3,6 @@ package com.kbap.batch.config
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushMessageRenderer
 import com.kbap.common.domain.notification.PushTargetResolver
-import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.infra.push.ExpoPushNotifier
 import com.kbap.common.infra.push.ExpoPushSender
 import com.kbap.common.port.push.PushNotifier

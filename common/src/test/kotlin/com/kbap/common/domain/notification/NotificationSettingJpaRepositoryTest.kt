@@ -6,6 +6,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -59,6 +60,21 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
                     default.activity shouldBe false
                     default.mealTime shouldBe false
                     default.news shouldBe false
+                }
+            }
+        }
+
+        given("소식 켜진 회원 조회") {
+            `when`("회원별로 소식 토글이 섞여 있으면") {
+                clear()
+                repository.save(NotificationSetting.defaultFor(21L, "dev-a").apply { updateNews(true) })
+                repository.save(NotificationSetting.defaultFor(21L, "dev-b").apply { updateNews(true) })
+                repository.save(NotificationSetting.defaultFor(22L, "dev-a"))
+                repository.save(NotificationSetting.defaultFor(23L, "dev-a").apply { updateNews(true) })
+                repository.save(NotificationSetting.defaultFor(24L, "dev-a").apply { updateNews(true); delete() })
+
+                then("켜진 행이 하나라도 있는 회원 id 만 중복 없이 돌려주고 소프트 삭제 행은 제외한다") {
+                    repository.findMemberIdsByNewsTrue() shouldContainExactlyInAnyOrder listOf(21L, 23L)
                 }
             }
         }

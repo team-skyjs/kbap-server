@@ -7,6 +7,7 @@ data class PushRequest(
     val memberIds: Collection<Long>,
     val args: Map<String, String> = emptyMap(),
     val data: Map<String, Any> = emptyMap(),
+    val ttlSeconds: Int? = null,
 )
 
 data class PushContent(
@@ -19,6 +20,7 @@ data class PushEnvelope(
     val title: String,
     val body: String,
     val data: Map<String, Any>,
+    val ttlSeconds: Int? = null,
 )
 
 data class PreparedPush(
