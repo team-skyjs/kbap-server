@@ -19,6 +19,12 @@ data class FoodDetailResponse(
     @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
     val imageRef: String?,
 
+    @field:Schema(
+        description = "이미지 갤러리. 대표(isPrimary=true)가 항상 먼저 오고 나머지는 정렬 순서다. " +
+            "갤러리 행이 아직 없는 음식은 빈 배열이며, 대표 이미지 정본은 여전히 imageRef 다.",
+    )
+    val images: List<FoodImageResponse>,
+
     @field:Schema(description = "요청 언어 설명(미지원/미지정/번역 부재 시 한국어)", example = "A hearty Korean soybean paste stew.")
     val description: String,
 
@@ -149,6 +155,7 @@ data class FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
                 imageRef = result.imageRef,
+                images = result.images.map { FoodImageResponse(url = it.url, isPrimary = it.isPrimary) },
                 description = result.description,
                 spiciness = result.spiciness,
                 publishedAt = result.publishedAt,

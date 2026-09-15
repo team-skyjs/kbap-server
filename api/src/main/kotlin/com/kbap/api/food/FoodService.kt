@@ -1,8 +1,10 @@
 package com.kbap.api.food
 
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
@@ -25,6 +27,7 @@ import java.time.ZoneId
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val foodImageRepository: FoodImageJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
@@ -159,6 +162,7 @@ class FoodService(
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
             reviewEligible = true,
+            images = galleryImages(food.id),
             publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
@@ -260,6 +264,14 @@ class FoodService(
         val userAvoidedCodes = avoidedCodeNames(memberId)
         return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
+
+    private fun galleryImages(foodId: Long): List<GetFoodDetailResult.ImageView> =
+        foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
+            .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
+            .mapNotNull { image ->
+                ImageUrls.resolve(imagePublicBaseUrl, image.imageKey)
+                    ?.let { GetFoodDetailResult.ImageView(url = it, isPrimary = image.isPrimary) }
+            }
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
