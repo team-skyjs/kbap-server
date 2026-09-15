@@ -13,10 +13,19 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
         targetId: Long,
     ): Boolean
 
-    fun existsByReporterInstallationIdAndTargetTypeAndTargetId(
-        reporterInstallationId: String,
-        targetType: ReportTargetType,
-        targetId: Long,
+    @Query(
+        """
+        select count(r) > 0 from Report r
+        where r.reporterMemberId is null
+          and r.reporterInstallationId = :reporterInstallationId
+          and r.targetType = :targetType
+          and r.targetId = :targetId
+        """,
+    )
+    fun existsByGuestInstallation(
+        @Param("reporterInstallationId") reporterInstallationId: String,
+        @Param("targetType") targetType: ReportTargetType,
+        @Param("targetId") targetId: Long,
     ): Boolean
 
     @Query(

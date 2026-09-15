@@ -56,12 +56,12 @@ class ReportService(
         targetType: ReportTargetType,
         targetId: Long,
     ) {
-        val duplicated = reporterMemberId?.let {
-            reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(it, targetType, targetId)
-        } ?: false
-        if (duplicated || reportRepository.existsByReporterInstallationIdAndTargetTypeAndTargetId(installationId, targetType, targetId)) {
-            throw BusinessException(ErrorCode.REPORT_DUPLICATED)
+        val duplicated = if (reporterMemberId != null) {
+            reportRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(reporterMemberId, targetType, targetId)
+        } else {
+            reportRepository.existsByGuestInstallation(installationId, targetType, targetId)
         }
+        if (duplicated) throw BusinessException(ErrorCode.REPORT_DUPLICATED)
     }
 
     private fun isReporterUniqueViolation(e: DataIntegrityViolationException): Boolean =
@@ -82,6 +82,6 @@ class ReportService(
     }
 
     private companion object {
-        val REPORTER_UNIQUE_KEYS = listOf("uk_report_reporter_target", "uk_report_reporter_installation_target")
+        val REPORTER_UNIQUE_KEYS = listOf("uk_report_reporter_target", "uk_report_guest_installation_target")
     }
 }
