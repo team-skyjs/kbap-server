@@ -47,7 +47,7 @@ class ReportService(
     }
 
     private fun requireInstallationId(raw: String?): String =
-        raw?.takeIf { it.isNotBlank() }?.let(ApiHeaders::validInstallationId)
+        raw?.let(ApiHeaders::validInstallationId)
             ?: throw BusinessException(ErrorCode.REPORT_INSTALLATION_ID_REQUIRED)
 
     private fun verifyNotDuplicated(

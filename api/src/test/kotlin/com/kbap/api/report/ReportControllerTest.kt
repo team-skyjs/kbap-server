@@ -346,6 +346,17 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("설치 ID 헤더가 비어 있으면") {
+                then("누락(REPORT-004)이 아니라 형식 위반(COMMON-002)으로 거절한다") {
+                    seedReview(reviewId = 8124L, authorMemberId = 8151L, foodId = 8181L)
+
+                    report(null, body(targetId = 8124L), installationId = "   ").andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
             `when`("회원이 신고한 뒤 같은 설치에서 게스트로 같은 대상을 신고하면") {
                 then("설치 키가 걸려 409 REPORT-002 로 거절한다(기기 단위 1건)") {
                     seedReview(reviewId = 8123L, authorMemberId = 8151L, foodId = 8181L)
