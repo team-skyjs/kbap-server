@@ -6,7 +6,6 @@ object FoodVectorDocuments {
     const val FOOD_ID = "foodId"
     const val NAME = "name"
     const val LONG_DESCRIPTION = "longDescription"
-    const val IMAGE_REF = "imageRef"
     const val EMBEDDING = "embedding"
     const val EMBEDDING_HASH = "embeddingHash"
     const val EMBEDDING_MODEL = "embeddingModel"

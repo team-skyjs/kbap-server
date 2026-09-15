@@ -78,7 +78,15 @@ class PushDispatchServiceTest : BehaviorSpec() {
         }
 
         fun activityOn(memberId: Long) {
-            settingRepository.save(NotificationSetting(memberId = memberId, activity = true, mealTime = false))
+            deviceRepository.findByMemberId(memberId).forEach {
+                settingRepository.save(NotificationSetting(memberId = memberId, installationId = it.installationId, activity = true))
+            }
+        }
+
+        fun newsOn(memberId: Long) {
+            deviceRepository.findByMemberId(memberId).forEach {
+                settingRepository.save(NotificationSetting(memberId = memberId, installationId = it.installationId, news = true))
+            }
         }
 
         val older = LocalDateTime.of(2026, 9, 1, 12, 0)
@@ -148,7 +156,9 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 device(3L, "ko", newer)
                 device(4L, "en", newer)
                 newsConsent(3L)
+                newsOn(3L)
                 newsConsent(4L)
+                newsOn(4L)
 
                 val prepared = service.prepare(
                     PushRequest(NotificationType.NEWS, listOf(3L, 4L), args = mapOf("title" to "K-Bap", "body" to "b")),
@@ -167,6 +177,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 device(5L, "ko", newer)
                 device(5L, "ko", older)
                 newsConsent(5L)
+                newsOn(5L)
                 val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(5L), args = mapOf("title" to "t", "body" to "b")))
 
                 val result = service.record(
@@ -189,6 +200,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 clear()
                 val device = device(6L, "ko", newer)
                 newsConsent(6L)
+                newsOn(6L)
                 val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(6L), args = mapOf("title" to "t", "body" to "b")))
 
                 service.record(prepared, listOf(PushOutcome(false, null, "DeviceNotRegistered")))
@@ -205,6 +217,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 clear()
                 device(7L, "ko", newer)
                 newsConsent(7L)
+                newsOn(7L)
                 val prepared = service.prepare(PushRequest(NotificationType.NEWS, listOf(7L), args = mapOf("title" to "t", "body" to "b")))
 
                 then("IllegalArgumentException 을 던진다") {

@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.model.RiskLevel
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 class FoodTest : BehaviorSpec({
     fun item(code: String, percent: Int) =
@@ -26,6 +27,72 @@ class FoodTest : BehaviorSpec({
         descriptionTranslations = descriptionTranslations,
         ingredients = ingredients,
     )
+
+    given("Food — 공개 시각(publishedAt)") {
+        `when`("검수 승인으로 READY 로 전이하면") {
+            then("publishedAt 이 기록된다") {
+                val food = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+
+                food.approve() shouldBe true
+
+                food.publishedAt shouldNotBe null
+            }
+        }
+
+        `when`("이미 READY 인 음식을 재승인하면") {
+            then("publishedAt 이 바뀌지 않는다") {
+                val food = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+                food.approve()
+                val first = food.publishedAt
+
+                food.approve() shouldBe false
+
+                food.publishedAt shouldBe first
+            }
+        }
+
+        `when`("마이그레이션 이전 레거시 READY(publishedAt 미기록)가 READY 를 벗어난 뒤 재승인되면") {
+            then("freeze 한 createdAt 을 유지해 NEW 로 재점등하지 않는다") {
+                val legacy = create()
+                legacy.freezePublishedAtIfLegacy()
+                val frozen = legacy.publishedAt
+                frozen shouldBe legacy.createdAt
+
+                legacy.contentStatus = FoodContentStatus.PENDING_REVIEW
+                legacy.approve() shouldBe true
+
+                legacy.publishedAt shouldBe frozen
+            }
+        }
+
+        `when`("이미 최초 공개 시각이 있는 음식이 다시 승인 전이되면") {
+            then("publishedAt 은 최초 공개 시각으로 유지된다(최초 공개 정본)") {
+                val firstPublished = java.time.LocalDateTime.of(2026, 8, 1, 9, 0)
+                val food = create().apply {
+                    contentStatus = FoodContentStatus.PENDING_REVIEW
+                    publishedAt = firstPublished
+                }
+
+                food.approve() shouldBe true
+
+                food.publishedAt shouldBe firstPublished
+            }
+        }
+
+        `when`("표시 시각을 물으면") {
+            then("기록이 있으면 그 값, 없으면 READY 에 한해 createdAt 근사치, 비READY 는 null 이다") {
+                val approved = create().apply { contentStatus = FoodContentStatus.PENDING_REVIEW }
+                approved.approve()
+                approved.effectivePublishedAt() shouldBe approved.publishedAt
+
+                val legacyReady = create()
+                legacyReady.effectivePublishedAt() shouldBe legacyReady.createdAt
+
+                val notReady = Food.failed("우주라면")
+                notReady.effectivePublishedAt() shouldBe null
+            }
+        }
+    }
 
     given("Food — 구성·맵기 보존") {
         `when`("정상 값으로 생성하면") {

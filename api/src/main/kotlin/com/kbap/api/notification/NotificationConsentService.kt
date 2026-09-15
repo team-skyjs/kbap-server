@@ -3,7 +3,6 @@ package com.kbap.api.notification
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.model.NotificationConsent
 import com.kbap.common.domain.notification.model.NotificationConsentType
-import com.kbap.common.domain.notification.model.NotificationConsents
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -24,9 +23,6 @@ class NotificationConsentService(
         consentRepository.closeOpenByMemberId(memberId, now)
     }
 
-    fun isMarketingEnabled(open: List<NotificationConsent>): Boolean =
-        NotificationConsents.isMarketingEnabled(open, ANY_CONSENT_VERSION)
-
     private fun grant(
         open: List<NotificationConsent>,
         versions: Map<NotificationConsentType, Int>,
@@ -41,9 +37,5 @@ class NotificationConsentService(
                 consentRepository.save(newConsent(type, version))
             }
         }
-    }
-
-    companion object {
-        private const val ANY_CONSENT_VERSION = 0
     }
 }

@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.common.domain.food.model.RiskLevel
+import java.time.Instant
 
 data class GetFoodDetailResult(
     val name: String,
@@ -12,6 +13,7 @@ data class GetFoodDetailResult(
     val ingredients: List<IngredientView>,
     val avoidedIngredients: List<AvoidedIngredientView>?,
     val reviewEligible: Boolean,
+    val publishedAt: Instant?,
 ) {
     data class IngredientView(
         val code: String,

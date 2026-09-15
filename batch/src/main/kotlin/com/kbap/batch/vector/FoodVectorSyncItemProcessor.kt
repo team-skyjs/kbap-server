@@ -52,7 +52,6 @@ class FoodVectorSyncItemProcessor(
                 foodId = foodId,
                 name = food.koreanName,
                 longDescription = longDescription,
-                imageRef = food.imageRef,
                 embedding = embeddingClient.embed(listOf(embeddingText)).first(),
                 embeddingHash = embeddingHash,
                 embeddingModel = embeddingModel,

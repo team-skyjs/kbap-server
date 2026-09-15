@@ -3,6 +3,7 @@ package com.kbap.api.food
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.storage.StorageObjectStore
+import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -30,6 +31,7 @@ class FoodImageBatchCollectService(
     private val batchRepository: ImageBatchJpaRepository,
     private val itemRepository: ImageBatchItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
+    private val foodImageRepository: FoodImageJpaRepository,
     private val client: FoodImageBatchClient,
     private val storageObjectStore: StorageObjectStore,
     private val eventPublisher: ApplicationEventPublisher,
@@ -119,6 +121,7 @@ class FoodImageBatchCollectService(
                 else -> {
                     food.attachImage(key)
                     foodRepository.save(food)
+                    foodImageRepository.promoteAsPrimary(food.id, key)
                     item.done(key)
                     attached = true
                 }

@@ -62,6 +62,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food_content_outbox")
                 statement.execute("DELETE FROM food_vector_outbox")
+                statement.execute("DELETE FROM food_image")
                 statement.execute("DELETE FROM food")
                     (1..count).forEach { id ->
                         statement.execute(
@@ -82,6 +83,7 @@ class FoodListControllerTest : BehaviorSpec() {
                     statement.execute("DELETE FROM food_review")
                     statement.execute("DELETE FROM food_content_outbox")
                 statement.execute("DELETE FROM food_vector_outbox")
+                statement.execute("DELETE FROM food_image")
                 statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, image_ref, description, spiciness, " +
@@ -164,6 +166,31 @@ class FoodListControllerTest : BehaviorSpec() {
                     firstIds shouldHaveSize 20
                     secondIds.size shouldBeGreaterThan 0
                     (firstIds intersect secondIds.toSet()) shouldBe emptySet()
+                }
+            }
+        }
+
+        given("메뉴 목록 조회 API — 공개 시각(publishedAt)") {
+            `when`("공개 시각이 기록된 음식과 미기록 음식이 목록에 나오면") {
+                then("기록 음식은 그 값을, 미기록 READY 음식은 createdAt 근사치를 내려준다") {
+                    seedFoods(2)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("UPDATE food SET published_at = '2026-08-21 12:00:00' WHERE id = 2")
+                            it.execute("UPDATE food SET created_at = '2026-08-15 09:30:00' WHERE id = 1")
+                        }
+                    }
+
+                    fun isoOf(y: Int, m: Int, d: Int, h: Int, min: Int) = java.time.LocalDateTime.of(y, m, d, h, min)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
+                    val json = mockMvc.get("/api/foods?lang=ko")
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val items = mapper.readTree(json).path("payload").path("items")
+                    val byId = (0 until items.size()).map { items.path(it) }.associateBy { it.path("foodId").asLong() }
+
+                    byId.getValue(2L).path("publishedAt").asText() shouldBe isoOf(2026, 8, 21, 12, 0)
+                    byId.getValue(1L).path("publishedAt").asText() shouldBe isoOf(2026, 8, 15, 9, 30)
                 }
             }
         }

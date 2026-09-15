@@ -52,8 +52,16 @@ class PushTargetResolverTest : BehaviorSpec() {
             return deviceRepository.save(device)
         }
 
-        fun setting(memberId: Long, activity: Boolean, mealTime: Boolean) {
-            settingRepository.save(NotificationSetting(memberId = memberId, activity = activity, mealTime = mealTime))
+        fun setting(device: NotificationDevice, activity: Boolean = false, mealTime: Boolean = false, news: Boolean = false) {
+            settingRepository.save(
+                NotificationSetting(
+                    memberId = device.memberId!!,
+                    installationId = device.installationId,
+                    activity = activity,
+                    mealTime = mealTime,
+                    news = news,
+                ),
+            )
         }
 
         fun consent(memberId: Long, type: NotificationConsentType, version: Int) {
@@ -69,75 +77,81 @@ class PushTargetResolverTest : BehaviorSpec() {
             resolver.resolve(memberIds, type).map { it.expoToken }
 
         given("활동 알림(HELPFUL·REVIEW_REMINDER) 대상 필터") {
-            `when`("activity 토글이 켜진 회원·꺼진 회원·설정 없는 회원이 섞여 있으면") {
+            `when`("같은 회원의 기기 A 는 켜짐·기기 B 는 꺼짐이고 설정 없는 기기가 섞여 있으면") {
                 clear()
-                val a = device(1L).expoToken
-                val a2 = device(1L, lang = "ja").expoToken
+                val a = device(1L)
+                val b = device(1L, lang = "ja")
+                device(1L, lang = "en")
                 device(2L)
-                device(3L)
-                setting(1L, activity = true, mealTime = false)
-                setting(2L, activity = false, mealTime = true)
+                setting(a, activity = true)
+                setting(b, activity = false)
 
-                then("켜진 회원의 기기 전부만 돌려준다") {
-                    tokensOf(listOf(1L, 2L, 3L), NotificationType.HELPFUL) shouldContainExactlyInAnyOrder listOf(a, a2)
-                    tokensOf(listOf(1L, 2L, 3L), NotificationType.REVIEW_REMINDER) shouldContainExactlyInAnyOrder listOf(a, a2)
+                then("켜진 기기 A 만 돌려준다") {
+                    tokensOf(listOf(1L, 2L), NotificationType.HELPFUL) shouldBe listOf(a.expoToken)
+                    tokensOf(listOf(1L, 2L), NotificationType.REVIEW_REMINDER) shouldBe listOf(a.expoToken)
                 }
             }
         }
 
         given("식사시간(MEAL_TIME) 대상 필터") {
-            `when`("meal_time 토글과 광고성 동의 조합이 다양하면") {
+            `when`("기기 meal_time 토글과 회원 광고성 동의 조합이 다양하면") {
                 clear()
-                val ok = device(10L).expoToken
-                setting(10L, activity = false, mealTime = true)
+                val ok = device(10L)
+                setting(ok, mealTime = true)
                 bothConsents(10L, 2)
 
-                device(11L)
-                setting(11L, activity = true, mealTime = true)
+                setting(device(11L), activity = true, mealTime = true)
 
-                device(12L)
-                setting(12L, activity = true, mealTime = true)
+                setting(device(12L), mealTime = true)
                 consent(12L, NotificationConsentType.MARKETING_RECEIVE, 2)
 
-                device(13L)
-                setting(13L, activity = true, mealTime = true)
+                setting(device(13L), mealTime = true)
                 bothConsents(13L, 1)
 
-                device(14L)
-                setting(14L, activity = true, mealTime = false)
+                setting(device(14L), mealTime = false, news = true)
                 bothConsents(14L, 2)
 
-                then("토글 on + 두 동의 모두 v2 이상인 회원만 포함한다") {
-                    tokensOf(listOf(10L, 11L, 12L, 13L, 14L), NotificationType.MEAL_TIME) shouldBe listOf(ok)
+                then("기기 토글 on + 회원 두 동의 모두 v2 이상인 기기만 포함한다") {
+                    tokensOf(listOf(10L, 11L, 12L, 13L, 14L), NotificationType.MEAL_TIME) shouldBe listOf(ok.expoToken)
                 }
             }
         }
 
-        given("스캔 제안(SCAN_SUGGESTION) 대상 필터") {
-            `when`("토글은 꺼져 있고 동의만 있으면") {
+        given("스캔 제안(SCAN_SUGGESTION)·소식(NEWS) 대상 필터") {
+            `when`("기기 news 토글과 회원 동의 조합이 다양하면") {
                 clear()
-                val ok = device(20L).expoToken
-                setting(20L, activity = false, mealTime = false)
+                val ok = device(20L)
+                setting(ok, news = true)
                 bothConsents(20L, 2)
-                device(21L)
-                setting(21L, activity = true, mealTime = true)
 
-                then("동의 기준만으로 포함한다") {
-                    tokensOf(listOf(20L, 21L), NotificationType.SCAN_SUGGESTION) shouldBe listOf(ok)
+                val toggledOff = device(20L, lang = "ja")
+                setting(toggledOff, news = false)
+
+                setting(device(21L), news = true)
+
+                setting(device(22L), news = true)
+                bothConsents(22L, 1)
+
+                device(23L)
+                bothConsents(23L, 2)
+
+                then("기기 news on + 회원 두 동의 v2 이상인 기기만 포함한다") {
+                    tokensOf(listOf(20L, 21L, 22L, 23L), NotificationType.SCAN_SUGGESTION) shouldBe listOf(ok.expoToken)
+                    tokensOf(listOf(20L, 21L, 22L, 23L), NotificationType.NEWS) shouldBe listOf(ok.expoToken)
                 }
             }
         }
 
-        given("소식(NEWS) 대상 필터") {
-            `when`("동의한 회원과 동의 없는 회원이 섞여 있으면") {
+        given("설정 행이 없는 기기") {
+            `when`("토큰만 등록된 기기에 모든 유형을 발송하면") {
                 clear()
-                val ok = device(30L).expoToken
+                device(30L)
                 bothConsents(30L, 2)
-                device(31L)
-                setting(31L, activity = true, mealTime = true)
 
-                then("토글과 무관하게 소식 동의(v2 이상)한 회원만 포함한다") {
-                    tokensOf(listOf(30L, 31L), NotificationType.NEWS) shouldBe listOf(ok)
+                then("어떤 유형도 대상이 아니다") {
+                    NotificationType.entries.forEach { type ->
+                        tokensOf(listOf(30L), type).shouldBeEmpty()
+                    }
                 }
             }
         }
@@ -145,12 +159,28 @@ class PushTargetResolverTest : BehaviorSpec() {
         given("무효 토큰") {
             `when`("token_invalid_at 이 찍힌 기기가 있으면") {
                 clear()
-                val ok = device(40L).expoToken
-                device(40L, invalid = true)
-                setting(40L, activity = true, mealTime = false)
+                val ok = device(40L)
+                val invalid = device(40L, invalid = true)
+                setting(ok, activity = true)
+                setting(invalid, activity = true)
 
                 then("제외한다") {
-                    tokensOf(listOf(40L), NotificationType.HELPFUL) shouldBe listOf(ok)
+                    tokensOf(listOf(40L), NotificationType.HELPFUL) shouldBe listOf(ok.expoToken)
+                }
+            }
+        }
+
+        given("여러 회원 동시 조회") {
+            `when`("회원마다 켜진 기기가 하나씩 있으면") {
+                clear()
+                val a = device(50L)
+                val b = device(51L)
+                setting(a, activity = true)
+                setting(b, activity = true)
+                setting(device(51L, lang = "ja"), activity = false)
+
+                then("회원별 켜진 기기를 모두 돌려준다") {
+                    tokensOf(listOf(50L, 51L), NotificationType.HELPFUL) shouldContainExactlyInAnyOrder listOf(a.expoToken, b.expoToken)
                 }
             }
         }

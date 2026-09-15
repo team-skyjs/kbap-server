@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
@@ -208,6 +209,27 @@ class NotificationTokenControllerTest : BehaviorSpec() {
 
                     countConsents() shouldBe 0
                     device("dev-1").shouldNotBeNull().memberId shouldBe memberId
+                }
+            }
+
+            `when`("새 기기가 토큰만 등록하면") {
+                then("설정 행이 생기지 않고 그 기기의 설정 조회는 전부 꺼짐이다") {
+                    val (_, accessToken) = login("member-a")
+
+                    register("dev-1", accessToken).status shouldBe 200
+
+                    count("notification_setting") shouldBe 0
+                    val response = mockMvc.get("/api/notifications/settings") {
+                        header("X-API-Version", "1.1")
+                        header("X-Installation-Id", "dev-1")
+                        header("Authorization", "Bearer $accessToken")
+                    }.andReturn().response
+                    response.status shouldBe 200
+                    val news = objectMapper.readTree(response.contentAsString).path("payload").path("news")
+                    objectMapper.readTree(response.contentAsString).path("payload").path("activity").asBoolean() shouldBe false
+                    news.path("enabled").asBoolean() shouldBe false
+                    news.path("mealTime").asBoolean() shouldBe false
+                    count("notification_setting") shouldBe 0
                 }
             }
         }

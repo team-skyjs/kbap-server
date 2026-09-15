@@ -25,6 +25,13 @@ data class FoodDetailResponse(
     @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
     val spiciness: Int,
 
+    @field:Schema(
+        description = "콘텐츠 공개(READY 전이) 시각, ISO-8601 UTC. 전이 기록이 없는 기존 READY 음식은 createdAt(등록 시각) 근사치 — 신규 여부(isNew) 판정은 클라이언트가 한다.",
+        example = "2026-08-21T03:00:00Z",
+        nullable = true,
+    )
+    val publishedAt: java.time.Instant?,
+
     @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
     val ingredients: List<IngredientResponse>,
 
@@ -135,6 +142,7 @@ data class FoodDetailResponse(
                 imageRef = result.imageRef,
                 description = result.description,
                 spiciness = result.spiciness,
+                publishedAt = result.publishedAt,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
                         code = it.code,
