@@ -38,13 +38,14 @@
 
 ## 6. 공용 파이프라인 확장 — 봉투에 channelId·ttl
 
+- **Decision (문구 슬롯, 2026-09-16)**: `common.domain.notification.model.MealSlot { LUNCH(12:00), DINNER(18:00) }` 를 두고 `PushRequest.mealSlot: MealSlot? = null` → `PushMessageRenderer.render(type, lang, args, slot)` 가 `PushTemplates.bySlot[type][slot][lang]` 을 먼저 찾고 없으면 `byType` 으로 떨어진다. 스캔 제안 점심·저녁 문구 10 로케일 × 2 는 `PushTemplates.bySlot` 한 곳 — 교체는 그 맵의 문자열 수정으로 끝난다. FE `data.type` 은 `SCAN_SUGGESTION` 그대로(유형을 쪼개면 FE 알림함 KEYS 맵에 없어 기록이 드롭된다). `MealSlot` 은 배치의 슬롯 상한(`startOfCurrentSlot`) 축이기도 하고 앞으로 MEAL_TIME 점심/저녁에도 그대로 쓴다. 수신거부 안내는 실제 앱 경로 "프로필 > 알림 설정" 으로 10 로케일 교체.
 - **Decision**: `NotificationType.channelId` = `if (marketing) "news" else "default"`. `PushEnvelope(to,title,body,data, channelId, ttlSeconds: Int?)`, `PushRequest.ttlSeconds: Int? = null`, `PushMessage(to,title,body,data, channelId, ttlSeconds)`, `ExpoMessage.channelId` 는 메시지 값·`ttl: Int?` 은 `@JsonInclude(NON_NULL)`. api `PushNotificationService`·batch writer 의 `PushEnvelope → PushMessage` 매핑 한 줄에 두 필드 추가. 배치는 `PushRequest(..., ttlSeconds = kbap.batch.scan-suggestion.ttl(기본 3h).seconds)`.
 - **Rationale**: Jira 권고(유형→채널 매핑은 파이프라인 한 곳, 트리거는 type 만). 도메인은 port 를 모르므로 값은 봉투에 싣고 소비자가 매핑(KB-468 §1 구조 유지). 비광고성은 `default` 유지(FE 채널명 미확정, spec Assumptions). ttl 은 스캔 제안이 점심 맥락이라 3h — 다른 유형은 null(Expo 기본 4주).
 - **Alternatives considered**: 어댑터가 `data.type` 을 읽어 채널 결정 — 어댑터가 도메인 enum 을 알게 되고 매핑이 두 곳(도메인 marketing + 어댑터 문자열)으로 갈라진다. 기각.
 
 ## 7. 스케줄 — ShedLock 없음
 
-- **Decision (2026-09-15 개정)**: `BatchJobScheduler` 에 `@Scheduled(cron = LUNCH_CRON)` `@Scheduled(cron = DINNER_CRON)`(반복 애너테이션, zone Asia/Seoul) 을 단 `pushScanSuggestions()` 메서드 하나 — `ScanSuggestionSendWindow.LUNCH_CRON = "0 0 12 * * *"`, `DINNER_CRON = "0 0 18 * * *"` 코드 상수. 환경변수·yml 키 없음(사용자 지시). 분산 락(ShedLock) 은 넣지 않는다.
+- **Decision (2026-09-16 재개정 — 잡 2개)**: `BatchJobScheduler` 에 `pushLunchScanSuggestions()`(`LUNCH_CRON = "0 0 12 * * *"`) 와 `pushDinnerScanSuggestions()`(`DINNER_CRON = "0 0 18 * * *"`) 두 메서드가 각각 `scanSuggestionLunchPushJob`·`scanSuggestionDinnerPushJob` 을 띄운다. 두 잡은 `scanSuggestionTargetStep`·reader 빈을 공유하고 send step 만 `MealSlot` 을 박은 writer 로 다르다(`ScanSuggestionPushBatchConfig.job(slot)` 팩토리, 잡 이름은 `jobNameOf(slot)`). 잡을 둘로 나눈 이유: 점심·저녁 문구가 다르고, 잡 파라미터로 슬롯을 넘기려면 launcher·트리거 API 를 바꿔야 하는데 잡 이름으로 구분하면 기존 HTTP 트리거(`?jobName=`) 가 그대로 쓰인다. 환경변수·yml 키 없음. 분산 락(ShedLock) 은 넣지 않는다.
 - **Rationale**: 사용자 결정(2026-09-15): 배치 앱은 1대만 돌아 스케줄러 동시성 문제가 없다. 같은 인스턴스 안의 중복은 `BatchJobLauncher` 의 AlreadyRunning 가드가 막는다. Jira DoD 의 "ShedLock 스케줄" 문구는 이 결정으로 대체된다(Jira 코멘트로 남긴다). 다중 인스턴스로 늘리는 날 기존 outbox·vector 스케줄과 함께 한 번에 도입한다.
 - **Alternatives considered**: ShedLock 도입(api 선례·락 테이블 존재) — 의존 2개·config 추가·락 파라미터 튜닝이 1대 환경에서 얻는 게 없다. 기각.
 

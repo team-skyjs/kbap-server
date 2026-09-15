@@ -11,6 +11,7 @@ import com.kbap.common.domain.LanguageCode.TH
 import com.kbap.common.domain.LanguageCode.VI
 import com.kbap.common.domain.LanguageCode.ZH_HANS
 import com.kbap.common.domain.LanguageCode.ZH_HANT
+import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.domain.notification.model.NotificationType
 
 object PushTemplates {
@@ -66,16 +67,45 @@ object PushTemplates {
         ),
     )
 
+    val bySlot: Map<NotificationType, Map<MealSlot, Map<LanguageCode, PushContent>>> = mapOf(
+        NotificationType.SCAN_SUGGESTION to mapOf(
+            MealSlot.LUNCH to mapOf(
+                KO to PushContent("점심 먹을 때 스캔해보세요", "메뉴판을 스캔하면 어떤 음식인지 바로 알 수 있어요."),
+                EN to PushContent("Scanning the lunch menu?", "Scan the menu board to see what each dish is."),
+                JA to PushContent("ランチのメニューをスキャン", "メニューをスキャンすると、どんな料理かすぐ分かります。"),
+                ZH_HANS to PushContent("午餐时扫一扫菜单", "扫描菜单，马上知道每道菜是什么。"),
+                ZH_HANT to PushContent("午餐時掃描菜單", "掃描菜單，馬上知道每道菜是什麼。"),
+                VI to PushContent("Quét thực đơn bữa trưa nhé", "Quét bảng thực đơn để biết ngay từng món là gì."),
+                ID to PushContent("Pindai menu makan siangmu", "Pindai papan menu untuk langsung tahu tiap hidangan."),
+                TH to PushContent("มื้อกลางวันลองสแกนเมนูดูสิ", "สแกนป้ายเมนูเพื่อรู้ทันทีว่าแต่ละจานคืออะไร"),
+                RU to PushContent("Сканируйте меню за обедом", "Отсканируйте меню и сразу узнайте, что это за блюда."),
+                ES to PushContent("¿Almuerzo? Escanea el menú", "Escanea la carta y sabrás al instante qué es cada plato."),
+            ),
+            MealSlot.DINNER to mapOf(
+                KO to PushContent("저녁 메뉴, 스캔해보세요", "저녁 메뉴판을 스캔하면 어떤 음식인지 바로 알 수 있어요."),
+                EN to PushContent("Dinner time: scan the menu", "Scan the menu board to see what each dish is."),
+                JA to PushContent("ディナーのメニューをスキャン", "メニューをスキャンすると、どんな料理かすぐ分かります。"),
+                ZH_HANS to PushContent("晚餐时扫一扫菜单", "扫描菜单，马上知道每道菜是什么。"),
+                ZH_HANT to PushContent("晚餐時掃描菜單", "掃描菜單，馬上知道每道菜是什麼。"),
+                VI to PushContent("Quét thực đơn bữa tối nhé", "Quét bảng thực đơn để biết ngay từng món là gì."),
+                ID to PushContent("Pindai menu makan malammu", "Pindai papan menu untuk langsung tahu tiap hidangan."),
+                TH to PushContent("มื้อเย็นลองสแกนเมนูดูสิ", "สแกนป้ายเมนูเพื่อรู้ทันทีว่าแต่ละจานคืออะไร"),
+                RU to PushContent("Сканируйте меню за ужином", "Отсканируйте меню и сразу узнайте, что это за блюда."),
+                ES to PushContent("¿Cena? Escanea el menú", "Escanea la carta y sabrás al instante qué es cada plato."),
+            ),
+        ),
+    )
+
     val optOutNotice: Map<LanguageCode, String> = mapOf(
-        KO to "수신거부: 설정 > 알림",
-        EN to "Turn off: Settings > Notifications",
-        JA to "通知をオフ: 設定 > 通知",
-        ZH_HANS to "关闭通知：设置 > 通知",
-        ZH_HANT to "關閉通知：設定 > 通知",
-        VI to "Tắt thông báo: Cài đặt > Thông báo",
-        ID to "Matikan: Pengaturan > Notifikasi",
-        TH to "ปิดรับ: การตั้งค่า > การแจ้งเตือน",
-        RU to "Отключить: Настройки > Уведомления",
-        ES to "Desactivar: Ajustes > Notificaciones",
+        KO to "수신거부: 프로필 > 알림 설정",
+        EN to "Turn off: Profile > Notification settings",
+        JA to "通知をオフ: プロフィール > 通知設定",
+        ZH_HANS to "关闭通知：个人资料 > 通知设置",
+        ZH_HANT to "關閉通知：個人資料 > 通知設定",
+        VI to "Tắt thông báo: Hồ sơ > Cài đặt thông báo",
+        ID to "Matikan: Profil > Pengaturan notifikasi",
+        TH to "ปิดรับ: โปรไฟล์ > การตั้งค่าการแจ้งเตือน",
+        RU to "Отключить: Профиль > Настройки уведомлений",
+        ES to "Desactivar: Perfil > Ajustes de notificaciones",
     )
 }

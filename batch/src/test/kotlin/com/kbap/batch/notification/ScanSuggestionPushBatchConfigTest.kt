@@ -13,14 +13,19 @@ class ScanSuggestionPushBatchConfigTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
-    @Qualifier("scanSuggestionPushJob")
-    private lateinit var job: Job
+    @Qualifier("scanSuggestionLunchPushJob")
+    private lateinit var lunchJob: Job
+
+    @Autowired
+    @Qualifier("scanSuggestionDinnerPushJob")
+    private lateinit var dinnerJob: Job
 
     init {
         given("상시 기동된 배치 애플리케이션") {
             `when`("부팅 자동 실행이 꺼진 채로 기동하면") {
-                then("스캔 제안 발송 잡이 구성된다") {
-                    job.name shouldBe "scanSuggestionPushJob"
+                then("점심·저녁 스캔 제안 발송 잡이 각각 구성된다") {
+                    lunchJob.name shouldBe "scanSuggestionLunchPushJob"
+                    dinnerJob.name shouldBe "scanSuggestionDinnerPushJob"
                 }
             }
         }

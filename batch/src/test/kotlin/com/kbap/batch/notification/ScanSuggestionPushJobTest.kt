@@ -35,7 +35,8 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 
-private const val JOB_NAME = "scanSuggestionPushJob"
+private const val JOB_NAME = "scanSuggestionLunchPushJob"
+private const val DINNER_JOB_NAME = "scanSuggestionDinnerPushJob"
 
 @BatchIntegrationTest
 class ScanSuggestionPushJobTest : BehaviorSpec() {
@@ -73,6 +74,9 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    private fun byLangTitle(sent: List<com.kbap.common.port.push.PushMessage>, lang: String): String =
+        sent.first { m -> deviceRepository.findAll().first { it.expoToken == m.to }.lang == lang }.title
 
     private fun stampCreatedAtToClock() {
         jdbcTemplate.update(
@@ -115,8 +119,8 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
         }
     }
 
-    private fun run(): JobExecution {
-        val started = launcher.launch(JOB_NAME).shouldBeInstanceOf<BatchJobLaunchResult.Started>()
+    private fun run(jobName: String = JOB_NAME): JobExecution {
+        val started = launcher.launch(jobName).shouldBeInstanceOf<BatchJobLaunchResult.Started>()
         repeat(200) {
             val execution = launcher.getExecution(started.execution.id)!!
             if (!execution.isRunning) return execution
@@ -167,6 +171,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     val sent = fakePushSender.sent
                     sent shouldHaveSize 2
                     sent.forEach { it.title shouldStartWith "(광고) " }
+                    byLangTitle(sent, "ko") shouldBe "(광고) 점심 먹을 때 스캔해보세요"
                     sent.forEach { it.ttlSeconds shouldBe 10800 }
                     sent.forEach { it.channelId shouldBe "news" }
                     val byLang = sent.associateBy { m -> deviceRepository.findAll().first { it.expoToken == m.to }.lang }
@@ -262,10 +267,26 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
                 then("회원 묶음 단위로 전부 발송하고 실패한 건만 FAILED 로 남는다") {
                     execution.exitStatus.exitCode shouldBe "COMPLETED"
-                    execution.stepExecutions.first { it.stepName == "scanSuggestionSendStep" }.writeCount shouldBe 1200L
+                    execution.stepExecutions.first { it.stepName == "scanSuggestionLunchSendStep" }.writeCount shouldBe 1200L
                     fakePushSender.sent shouldHaveSize 1200
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 3
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 1197
+                }
+            }
+
+            `when`("저녁 잡을 실행하면") {
+                clear()
+                clock.setSeoul(2026, 9, 15, 18, 0)
+                device(10L, "ko")
+                consent(10L)
+                setting(10L, news = true)
+
+                val execution = run(DINNER_JOB_NAME)
+
+                then("저녁 문구로 발송한다") {
+                    execution.exitStatus.exitCode shouldBe "COMPLETED"
+                    execution.jobInstance.jobName shouldBe DINNER_JOB_NAME
+                    byLangTitle(fakePushSender.sent, "ko") shouldBe "(광고) 저녁 메뉴, 스캔해보세요"
                 }
             }
         }

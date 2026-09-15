@@ -1,6 +1,8 @@
 package com.kbap.batch.schedule
 
+import com.kbap.batch.notification.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.ScanSuggestionSendWindow
+import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.batch.trigger.BatchJobLaunchResult
 import com.kbap.batch.trigger.BatchJobLauncher
 import org.slf4j.LoggerFactory
@@ -22,8 +24,10 @@ class BatchJobScheduler(
     fun syncFoodVectors() = launch("foodVectorSyncJob")
 
     @Scheduled(cron = ScanSuggestionSendWindow.LUNCH_CRON, zone = TIME_ZONE)
+    fun pushLunchScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.LUNCH))
+
     @Scheduled(cron = ScanSuggestionSendWindow.DINNER_CRON, zone = TIME_ZONE)
-    fun pushScanSuggestions() = launch("scanSuggestionPushJob")
+    fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
 
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {

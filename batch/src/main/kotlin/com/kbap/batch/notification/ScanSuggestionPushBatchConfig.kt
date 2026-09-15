@@ -3,6 +3,7 @@ package com.kbap.batch.notification
 import com.kbap.batch.observability.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
+import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.port.push.PushNotifier
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.batch.core.job.Job
@@ -21,7 +22,10 @@ import java.time.Duration
 import java.time.ZoneId
 
 @Configuration
-class ScanSuggestionPushBatchConfig {
+class ScanSuggestionPushBatchConfig(
+    @Value("\${kbap.batch.scan-suggestion.member-chunk-size:500}") private val memberChunkSize: Int,
+    @Value("\${kbap.batch.scan-suggestion.ttl:3h}") private val ttl: Duration,
+) {
     @Bean
     fun clock(): Clock = Clock.system(ZoneId.of("Asia/Seoul"))
 
@@ -43,37 +47,51 @@ class ScanSuggestionPushBatchConfig {
     fun scanSuggestionCandidateReader(buffer: ScanSuggestionCandidateBuffer): ItemReader<Long> = ItemReader { buffer.poll() }
 
     @Bean
-    fun scanSuggestionPushWriter(
-        notifier: PushNotifier,
-        meterRegistry: MeterRegistry,
-        @Value("\${kbap.batch.scan-suggestion.ttl:3h}") ttl: Duration,
-    ): ScanSuggestionPushWriter = ScanSuggestionPushWriter(notifier, ttl.seconds.toInt(), meterRegistry)
-
-    @Bean
-    fun scanSuggestionSendStep(
-        jobRepository: JobRepository,
-        scanSuggestionCandidateReader: ItemReader<Long>,
-        scanSuggestionPushWriter: ScanSuggestionPushWriter,
-        @Value("\${kbap.batch.scan-suggestion.member-chunk-size:500}") memberChunkSize: Int,
-    ): Step =
-        StepBuilder("scanSuggestionSendStep", jobRepository)
-            .chunk<Long, Long>(memberChunkSize)
-            .transactionManager(ResourcelessTransactionManager())
-            .reader(scanSuggestionCandidateReader)
-            .writer(scanSuggestionPushWriter)
-            .build()
-
-    @Bean
-    fun scanSuggestionPushJob(
+    fun scanSuggestionLunchPushJob(
         jobRepository: JobRepository,
         scanSuggestionTargetStep: Step,
-        scanSuggestionSendStep: Step,
+        scanSuggestionCandidateReader: ItemReader<Long>,
+        notifier: PushNotifier,
+        meterRegistry: MeterRegistry,
         jobNameMdcListener: JobNameMdcListener,
-    ): Job =
-        JobBuilder("scanSuggestionPushJob", jobRepository)
+    ): Job = job(MealSlot.LUNCH, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, notifier, meterRegistry, jobNameMdcListener)
+
+    @Bean
+    fun scanSuggestionDinnerPushJob(
+        jobRepository: JobRepository,
+        scanSuggestionTargetStep: Step,
+        scanSuggestionCandidateReader: ItemReader<Long>,
+        notifier: PushNotifier,
+        meterRegistry: MeterRegistry,
+        jobNameMdcListener: JobNameMdcListener,
+    ): Job = job(MealSlot.DINNER, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, notifier, meterRegistry, jobNameMdcListener)
+
+    private fun job(
+        slot: MealSlot,
+        jobRepository: JobRepository,
+        targetStep: Step,
+        reader: ItemReader<Long>,
+        notifier: PushNotifier,
+        meterRegistry: MeterRegistry,
+        jobNameMdcListener: JobNameMdcListener,
+    ): Job {
+        val sendStep = StepBuilder("scanSuggestion${slot.jobInfix()}SendStep", jobRepository)
+            .chunk<Long, Long>(memberChunkSize)
+            .transactionManager(ResourcelessTransactionManager())
+            .reader(reader)
+            .writer(ScanSuggestionPushWriter(notifier, slot, ttl.seconds.toInt(), meterRegistry))
+            .build()
+        return JobBuilder(jobNameOf(slot), jobRepository)
             .incrementer(RunIdIncrementer())
             .listener(jobNameMdcListener)
-            .start(scanSuggestionTargetStep)
-            .next(scanSuggestionSendStep)
+            .start(targetStep)
+            .next(sendStep)
             .build()
+    }
+
+    companion object {
+        fun jobNameOf(slot: MealSlot): String = "scanSuggestion${slot.jobInfix()}PushJob"
+
+        private fun MealSlot.jobInfix(): String = name.lowercase().replaceFirstChar { it.uppercase() }
+    }
 }
