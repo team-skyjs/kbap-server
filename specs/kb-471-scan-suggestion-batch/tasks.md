@@ -6,7 +6,7 @@
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (Constitution Principle I). 모든 스토리는 실패하는 테스트를 먼저 쓰고(Red 확인) 구현한다. 테스트 스타일은 Kotest `BehaviorSpec`(given/when/then 한국어), 통합 헤더는 `@BatchIntegrationTest`(batch)·`@SpringBootTest + @Import(MySqlContainerConfig::class)`(common) 고정. Kotlin 소스 주석 금지.
 
-**Organization**: 스토리별 phase. 공용 발송 부품(port `PushNotifier` + infra `ExpoPushNotifier`)은 모든 스토리가 쓰므로 Foundational.
+**Organization**: 스토리별 phase. 공용 발송 부품(port `PushHandler` + infra `ExpoPushHandler`)은 모든 스토리가 쓰므로 Foundational.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -32,15 +32,15 @@
 
 ---
 
-## Phase 2: Foundational — 공용 발송 부품 `PushNotifier` (FR-018, SC-010)
+## Phase 2: Foundational — 공용 발송 부품 `PushHandler` (FR-018, SC-010)
 
 **Purpose**: 관리자 발송·스캔 제안 배치·향후 식사시간/리뷰/활동 알림이 공유하는 발송 진입점. 호출자는 `PushRequest(type, memberIds, args, data, ttlSeconds)` 한 줄만 만든다. **이 phase 가 끝나야 배치 writer 를 쓸 수 있다.**
 
-- [x] T004 Write failing test `ExpoPushNotifierTest`(`@SpringBootTest + @Import(MySqlContainerConfig::class)`, `CommonTestApp` 컨텍스트; `PushSender` 는 테스트 안 페이크 — 받은 메시지 기록·`errorFor`) in `common/src/test/kotlin/com/kbap/common/infra/push/ExpoPushNotifierTest.kt`: (a) 회원 1·기기 2(news on·동의 v2) → `send(PushRequest(NEWS, [m]))` = `PushDispatchResult(2,0)`·dispatch SENT 2·페이크 메시지 2 / (b) 페이크가 두 번째 메시지에 error → `(1,1)`·FAILED 1 / (c) 대상 0 → `(0,0)`·sender 미호출. 시드 헬퍼는 `PushDispatchServiceTest` 의 `device/newsOn/newsConsent` 를 그대로 옮긴다. Red 확인
-- [x] T005 Create port `PushNotifier { fun send(request: PushRequest): PushDispatchResult }` in `common/src/main/kotlin/com/kbap/common/port/push/PushNotifier.kt` (domain 값 타입 참조 허용 — ArchUnit port 규칙은 spring/jpa/infra/api/batch 만 금지)
-- [x] T006 Create `ExpoPushNotifier(dispatchService: PushDispatchService, sender: PushSender) : PushNotifier` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushNotifier.kt` — 몸체는 `api/src/main/kotlin/com/kbap/api/notification/PushNotificationService.kt` 의 3줄(prepare → `PushEnvelope→PushMessage` 매핑 → `sender.send` → `record`), `prepared.isEmpty()` 면 `(0,0)`. T004 Green
-- [x] T007 Register `@Bean fun pushNotifier(dispatchService, pushSender): PushNotifier = ExpoPushNotifier(...)` in `api/src/main/kotlin/com/kbap/api/core/config/PushConfig.kt` and in `batch/src/main/kotlin/com/kbap/batch/config/PushConfig.kt`
-- [x] T008 Replace `PushNotificationService` injection with `PushNotifier` in `api/src/main/kotlin/com/kbap/api/admin/AdminNotificationTestService.kt`, then delete `api/src/main/kotlin/com/kbap/api/notification/PushNotificationService.kt`; run `./gradlew :api:test` — `AdminNotificationTestControllerTest`·`ModuleBoundaryTest` Green (api `FakePushSender` 는 `PushSender` 수준이라 notifier 실체가 돈다)
+- [x] T004 Write failing test `ExpoPushHandlerTest`(`@SpringBootTest + @Import(MySqlContainerConfig::class)`, `CommonTestApp` 컨텍스트; `PushSender` 는 테스트 안 페이크 — 받은 메시지 기록·`errorFor`) in `common/src/test/kotlin/com/kbap/common/infra/push/ExpoPushHandlerTest.kt`: (a) 회원 1·기기 2(news on·동의 v2) → `send(PushRequest(NEWS, [m]))` = `PushDispatchResult(2,0)`·dispatch SENT 2·페이크 메시지 2 / (b) 페이크가 두 번째 메시지에 error → `(1,1)`·FAILED 1 / (c) 대상 0 → `(0,0)`·sender 미호출. 시드 헬퍼는 `PushDispatchServiceTest` 의 `device/newsOn/newsConsent` 를 그대로 옮긴다. Red 확인
+- [x] T005 Create port `PushHandler { fun send(request: PushRequest): PushDispatchResult }` in `common/src/main/kotlin/com/kbap/common/port/push/PushHandler.kt` (domain 값 타입 참조 허용 — ArchUnit port 규칙은 spring/jpa/infra/api/batch 만 금지)
+- [x] T006 Create `ExpoPushHandler(dispatchService: PushDispatchService, sender: PushSender) : PushHandler` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushHandler.kt` — 몸체는 `api/src/main/kotlin/com/kbap/api/notification/PushNotificationService.kt` 의 3줄(prepare → `PushEnvelope→PushMessage` 매핑 → `sender.send` → `record`), `prepared.isEmpty()` 면 `(0,0)`. T004 Green
+- [x] T007 Register `@Bean fun pushHandler(dispatchService, pushSender): PushHandler = ExpoPushHandler(...)` in `api/src/main/kotlin/com/kbap/api/core/config/PushConfig.kt` and in `batch/src/main/kotlin/com/kbap/batch/config/PushConfig.kt`
+- [x] T008 Replace `PushNotificationService` injection with `PushHandler` in `api/src/main/kotlin/com/kbap/api/admin/AdminNotificationTestService.kt`, then delete `api/src/main/kotlin/com/kbap/api/notification/PushNotificationService.kt`; run `./gradlew :api:test` — `AdminNotificationTestControllerTest`·`ModuleBoundaryTest` Green (api `FakePushSender` 는 `PushSender` 수준이라 handler 실체가 돈다)
 
 **Checkpoint**: 호출자가 port 만 보고 발송한다. 어댑터 직접 참조는 두 `PushConfig` 뿐.
 
@@ -63,9 +63,9 @@
 
 - [x] T013 [P] [US1] Add `@Query("select distinct s.memberId from NotificationSetting s where s.news = true") fun findMemberIdsByNewsTrue(): List<Long>` to `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationSettingJpaRepository.kt` (T009 Green)
 - [x] T014 [P] [US1] Add `ttlSeconds: Int? = null` to `PushRequest` and `ttlSeconds: Int?` to `PushEnvelope` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushRequest.kt`; fill it in `prepare` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushDispatchService.kt` (T010 Green)
-- [x] T015 [US1] Add `ttlSeconds: Int? = null` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; add `@JsonInclude(NON_NULL) val ttl: Int?` to `ExpoMessage` and map it in `sendChunk` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `ttlSeconds` in the envelope→message mapping in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushNotifier.kt` (T011 Green; depends on T014)
+- [x] T015 [US1] Add `ttlSeconds: Int? = null` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; add `@JsonInclude(NON_NULL) val ttl: Int?` to `ExpoMessage` and map it in `sendChunk` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `ttlSeconds` in the envelope→message mapping in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushHandler.kt` (T011 Green; depends on T014)
 - [x] T016 [P] [US1] Create `@Component @JobScope class ScanSuggestionCandidateBuffer`(`ArrayDeque<Long>`, `load(Collection<Long>)`, `poll(): Long?`) in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionCandidateBuffer.kt`
-- [x] T017 [P] [US1] Create `ScanSuggestionPushWriter(notifier: PushNotifier, ttlSeconds: Int, meterRegistry: MeterRegistry) : ItemWriter<Long>` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushWriter.kt` — `write(chunk)` = `notifier.send(PushRequest(NotificationType.SCAN_SUGGESTION, chunk.items, ttlSeconds = ttlSeconds))` → 로그 `스캔 제안 발송 members={} sent={} failed={}` + 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent|failed}`
+- [x] T017 [P] [US1] Create `ScanSuggestionPushWriter(handler: PushHandler, ttlSeconds: Int, meterRegistry: MeterRegistry) : ItemWriter<Long>` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushWriter.kt` — `write(chunk)` = `handler.send(PushRequest(NotificationType.SCAN_SUGGESTION, chunk.items, ttlSeconds = ttlSeconds))` → 로그 `스캔 제안 발송 members={} sent={} failed={}` + 카운터 `kbap.push.dispatch{type=SCAN_SUGGESTION,result=sent|failed}`
 - [x] T018 [US1] Create `ScanSuggestionTargetTasklet(settingRepository, buffer) : Tasklet` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionTargetTasklet.kt` — `findMemberIdsByNewsTrue()` → `buffer.load`, 로그 `스캔 제안 대상 확정 candidates={} excludedToday={} targets={}`(excludedToday 는 US3 전까지 0), `RepeatStatus.FINISHED` (depends on T013, T016)
 - [x] T019 [US1] Create `ScanSuggestionPushBatchConfig` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionPushBatchConfig.kt`: `@Bean fun clock(): Clock = Clock.system(ZoneId.of("Asia/Seoul"))`, `scanSuggestionTargetStep`(tasklet, `ResourcelessTransactionManager()`), `scanSuggestionCandidateReader: ItemReader<Long> = ItemReader { buffer.poll() }`, `scanSuggestionSendStep`(`chunk<Long, Long>(memberChunkSize)`, `ResourcelessTransactionManager()`, reader·writer), `scanSuggestionPushJob`(`RunIdIncrementer`, `jobNameMdcListener`, target → send). 프로퍼티 `@Value("\${kbap.batch.scan-suggestion.member-chunk-size:500}")`, `@Value("\${kbap.batch.scan-suggestion.ttl:3h}") ttl: Duration` (depends on T017, T018)
 - [x] T020 [US1] Add `kbap.batch.scan-suggestion.{cron: ${SCAN_SUGGESTION_CRON:0 0 12 * * *}, member-chunk-size: 500, ttl: 3h}` with comments to `batch/src/main/resources/application.yml` (테스트 yml 은 변경 없음 — 기본값 사용). T012 시나리오 (a) Green
@@ -131,7 +131,7 @@
 ### Implementation for User Story 4
 
 - [x] T034 [US4] Add `val channelId: String get() = if (marketing) "news" else "default"` to `common/src/main/kotlin/com/kbap/common/domain/notification/model/NotificationType.kt`; add `channelId: String` to `PushEnvelope` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushRequest.kt` and fill `request.type.channelId` in `prepare` in `common/src/main/kotlin/com/kbap/common/domain/notification/PushDispatchService.kt` (T031 Green)
-- [x] T035 [US4] Add `channelId: String` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; remove the `"default"` default from `ExpoMessage.channelId` and map from the message in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `envelope.channelId` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushNotifier.kt`; fix compile in `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt`·`batch/src/test/kotlin/com/kbap/batch/notification/FakePushSenderConfig.kt` if they construct `PushMessage` (T032, T033 Green)
+- [x] T035 [US4] Add `channelId: String` to `PushMessage` in `common/src/main/kotlin/com/kbap/common/port/push/PushMessage.kt`; remove the `"default"` default from `ExpoMessage.channelId` and map from the message in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushSender.kt`; pass `envelope.channelId` in `common/src/main/kotlin/com/kbap/common/infra/push/ExpoPushHandler.kt`; fix compile in `api/src/test/kotlin/com/kbap/api/notification/FakePushSender.kt`·`batch/src/test/kotlin/com/kbap/batch/notification/FakePushSenderConfig.kt` if they construct `PushMessage` (T032, T033 Green)
 
 **Checkpoint**: 유형→채널 매핑 단일 출처. 비광고성은 `default` 유지(FE 채널명 미확정).
 
@@ -201,7 +201,7 @@
 - [x] T047 Run `./gradlew build` (arch 포함) and fix any `ModuleBoundaryTest`·`RepositoryLikeEscapeTest` regressions; confirm api·batch·common test context counts unchanged (1·1·1) via `-i` 로그
 - [x] T048 [P] Update `specs/kb-471-scan-suggestion-batch/contracts/scan-suggestion-job.md` if any name (job/step/log/metric/property) drifted during implementation
 - [ ] T049 [P] (보류 — 로컬 MySQL/Redis 미기동, api 마이그레이션 선행 필요) Local run per `specs/kb-471-scan-suggestion-batch/quickstart.md` §2: `:batch:bootRun` on 8081 with main `.env`, trigger `scanSuggestionPushJob`, confirm exitCode COMPLETED and `notification_dispatch` rows; (스케줄 발화는 12:00/18:00 상수라 로컬에서 기다리지 않는다 — 수동 트리거로 대체); note results in the PR body
-- [x] T050 [P] Record decisions in `../kbap-agenthub/wiki/push-send-pipeline.md`(공용 `PushNotifier`·동시성 6·페이서 170ms·재시도 정책·채널 매핑·ttl) and add a line to `../kbap-agenthub/INDEX.md`; commit in the hub
+- [x] T050 [P] Record decisions in `../kbap-agenthub/wiki/push-send-pipeline.md`(공용 `PushHandler`·동시성 6·페이서 170ms·재시도 정책·채널 매핑·ttl) and add a line to `../kbap-agenthub/INDEX.md`; commit in the hub
 - [x] T051 [P] Comment on Jira KB-471: ShedLock 제외(배치 1대), 대상 조건은 #260·#261 기준(게스트 쿼리 폐기·기기 `news` 토글), 기본 12:00 KST, 하루 1회 상한은 회원 단위 판정, 재시도·동시성 수치
 
 ---
@@ -211,7 +211,7 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: 의존 없음. T001·T002 병렬 → T003
-- **Foundational (Phase 2)**: T004 → T005 → T006 → T007 → T008. **모든 스토리를 막는다** (batch writer 가 `PushNotifier` 를 쓴다)
+- **Foundational (Phase 2)**: T004 → T005 → T006 → T007 → T008. **모든 스토리를 막는다** (batch writer 가 `PushHandler` 를 쓴다)
 - **US1 (Phase 3)**: Phase 2 완료 후. 테스트 T009~T012 병렬 → 구현 T013·T014·T016·T017 병렬 → T015(T014 후) → T018(T013·T016 후) → T019(T017·T018 후) → T020
 - **US2 (Phase 4)**: US1 후(tasklet 확장). T021·T022 병렬 → T023 → T024
 - **US3 (Phase 5)**: US2 후(같은 tasklet). T025·T026·T027 병렬 → T028·T029 병렬 → T030
@@ -233,7 +233,7 @@
 - US1 테스트: T009 ‖ T010 ‖ T011 ‖ T012; 구현: T013 ‖ T014 ‖ T016 ‖ T017
 - US3: T025 ‖ T026 ‖ T027, T028 ‖ T029
 - US4: T031 ‖ T032 ‖ T033
-- 두 트랙 병행: [US1→US2→US3→US5](batch) ‖ [US4→US6→US7](common 어댑터) — 두 번째 트랙은 `PushMessage`·`ExpoPushNotifier` 를 US1 의 T015 뒤에 건드린다
+- 두 트랙 병행: [US1→US2→US3→US5](batch) ‖ [US4→US6→US7](common 어댑터) — 두 번째 트랙은 `PushMessage`·`ExpoPushHandler` 를 US1 의 T015 뒤에 건드린다
 
 ---
 

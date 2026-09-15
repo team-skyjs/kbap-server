@@ -3,9 +3,9 @@ package com.kbap.batch.config
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushMessageRenderer
 import com.kbap.common.domain.notification.PushTargetResolver
-import com.kbap.common.infra.push.ExpoPushNotifier
+import com.kbap.common.infra.push.ExpoPushHandler
 import com.kbap.common.infra.push.ExpoPushSender
-import com.kbap.common.port.push.PushNotifier
+import com.kbap.common.port.push.PushHandler
 import com.kbap.common.port.push.PushSender
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -37,6 +37,6 @@ class PushConfig {
         )
 
     @Bean
-    fun pushNotifier(dispatchService: PushDispatchService, pushSender: PushSender): PushNotifier =
-        ExpoPushNotifier(dispatchService, pushSender)
+    fun pushHandler(dispatchService: PushDispatchService, pushSender: PushSender): PushHandler =
+        ExpoPushHandler(dispatchService, pushSender)
 }

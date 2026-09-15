@@ -7,7 +7,7 @@
 | 단계 | 읽기 | 쓰기 |
 |------|------|------|
 | 대상 확정 tasklet | `notification_setting`(news=true 회원 id, distinct) · `notification`(이번 슬롯 시작 이후 SCAN_SUGGESTION 회원 id, distinct) | — (버퍼에 회원 id 만) |
-| 청크 발송 step(회원 묶음마다 `PushNotifier.send`) | 잡 범위 버퍼(회원 id) · 부품 안에서 `PushTargetResolver` 가 `notification_device`·`notification_setting`·`notification_consent` | 부품 안에서 `notification`(기기당 1행)·`notification_dispatch`(PENDING → SENT/FAILED) |
+| 청크 발송 step(회원 묶음마다 `PushHandler.send`) | 잡 범위 버퍼(회원 id) · 부품 안에서 `PushTargetResolver` 가 `notification_device`·`notification_setting`·`notification_consent` | 부품 안에서 `notification`(기기당 1행)·`notification_dispatch`(PENDING → SENT/FAILED) |
 
 ## 2. 리포지토리 추가 (common.domain.notification)
 
@@ -38,8 +38,8 @@ fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, 
 | `PushEnvelope` | `+ channelId: String`, `+ ttlSeconds: Int?` | `PushDispatchService.prepare` (`type.channelId`, `request.ttlSeconds`) |
 | `PushMessage`(port) | `+ channelId: String`, `+ ttlSeconds: Int? = null` | 소비자 매핑(api `PushNotificationService`, batch writer) |
 | `ExpoMessage`(infra, internal) | `channelId` 기본값 제거 → 메시지 값, `+ ttl: Int?`(`@JsonInclude(NON_NULL)`) | 어댑터 |
-| `PushNotifier`(port, 신규) | `fun send(request: PushRequest): PushDispatchResult` | 호출자가 보는 유일한 문 |
-| `ExpoPushNotifier`(infra, 신규) | `(dispatchService, sender)` — prepare → 봉투→`PushMessage` 매핑 → send → record | 조립 config |
+| `PushHandler`(port, 신규) | `fun send(request: PushRequest): PushDispatchResult` | 호출자가 보는 유일한 문 |
+| `ExpoPushHandler`(infra, 신규) | `(dispatchService, sender)` — prepare → 봉투→`PushMessage` 매핑 → send → record | 조립 config |
 | `ExpoPushSender`(infra) | `create(baseUrl, accessToken, concurrency: Int, minRequestInterval: Duration, retryPolicy: RetryPolicy)` — 고정 스레드 풀·요청 시작 페이서·`RetryTemplate`(일시 실패만)·`AutoCloseable` | 조립 config(api·batch `PushConfig`, `destroyMethod = "close"`) |
 
 `PreparedPush`·`PushDispatchResult`·`PushOutcome` 불변. `record(prepared, results)` 의 `results.size == dispatchIds.size` 불변식은 청크마다 `PreparedPush(chunkMessages, chunkDispatchIds)` 를 만들어 지킨다.
@@ -54,8 +54,8 @@ class ScanSuggestionCandidateBuffer {       // ArrayDeque<Long>
 }
 
 class ScanSuggestionPushWriter(             // ItemWriter<Long>
-    notifier: PushNotifier, ttlSeconds: Int, meterRegistry: MeterRegistry,
-)   // write(chunk) = notifier.send(PushRequest(SCAN_SUGGESTION, chunk.items, ttlSeconds = ttlSeconds)) → 로그·카운터
+    handler: PushHandler, ttlSeconds: Int, meterRegistry: MeterRegistry,
+)   // write(chunk) = handler.send(PushRequest(SCAN_SUGGESTION, chunk.items, ttlSeconds = ttlSeconds)) → 로그·카운터
 
 object ScanSuggestionSendWindow {           // KST 고정
     fun startOfCurrentSlot(clock: Clock): LocalDateTime   // 12:00/18:00 슬롯 시작(없으면 전날 18:00) → JVM 존

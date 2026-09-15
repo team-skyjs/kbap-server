@@ -30,7 +30,7 @@ import java.time.LocalDateTime
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
-class ExpoPushNotifierTest : BehaviorSpec() {
+class ExpoPushHandlerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
@@ -81,7 +81,7 @@ class ExpoPushNotifierTest : BehaviorSpec() {
         }
 
         fun device(memberId: Long, lang: String): NotificationDevice {
-            val id = "notifier-${++seq}"
+            val id = "handler-${++seq}"
             return deviceRepository.save(
                 NotificationDevice.register(id, "ExponentPushToken[$id]", DevicePlatform.ANDROID, lang, memberId),
             )
@@ -95,7 +95,7 @@ class ExpoPushNotifierTest : BehaviorSpec() {
 
         val newsArgs = mapOf("title" to "K-Bap", "body" to "b")
 
-        given("공용 발송 부품 ExpoPushNotifier") {
+        given("공용 발송 부품 ExpoPushHandler") {
             `when`("소식 켜진 기기 두 대를 가진 회원에게 NEWS 를 보내면") {
                 clear()
                 device(11L, "ko")
@@ -103,9 +103,9 @@ class ExpoPushNotifierTest : BehaviorSpec() {
                 newsConsent(11L)
                 newsOn(11L)
                 val sender = RecordingSender()
-                val notifier = ExpoPushNotifier(dispatchService, sender)
+                val handler = ExpoPushHandler(dispatchService, sender)
 
-                val result = notifier.send(PushRequest(NotificationType.NEWS, listOf(11L), args = newsArgs))
+                val result = handler.send(PushRequest(NotificationType.NEWS, listOf(11L), args = newsArgs))
 
                 then("기기마다 발송되고 dispatch 가 SENT 로 기록된다") {
                     result shouldBe PushDispatchResult(sent = 2, failed = 0)
@@ -123,9 +123,9 @@ class ExpoPushNotifierTest : BehaviorSpec() {
                 newsOn(12L)
                 val sender = RecordingSender()
                 sender.errorFor = { if (it.to.endsWith("-4]")) "DeviceNotRegistered" else null }
-                val notifier = ExpoPushNotifier(dispatchService, sender)
+                val handler = ExpoPushHandler(dispatchService, sender)
 
-                val result = notifier.send(PushRequest(NotificationType.NEWS, listOf(12L), args = newsArgs))
+                val result = handler.send(PushRequest(NotificationType.NEWS, listOf(12L), args = newsArgs))
 
                 then("그 건만 FAILED 로 남고 집계가 (1,1) 이다") {
                     result shouldBe PushDispatchResult(sent = 1, failed = 1)
@@ -138,9 +138,9 @@ class ExpoPushNotifierTest : BehaviorSpec() {
                 clear()
                 device(13L, "ko")
                 val sender = RecordingSender()
-                val notifier = ExpoPushNotifier(dispatchService, sender)
+                val handler = ExpoPushHandler(dispatchService, sender)
 
-                val result = notifier.send(PushRequest(NotificationType.NEWS, listOf(13L), args = newsArgs))
+                val result = handler.send(PushRequest(NotificationType.NEWS, listOf(13L), args = newsArgs))
 
                 then("sender 를 부르지 않고 (0,0) 을 돌려준다") {
                     result shouldBe PushDispatchResult(sent = 0, failed = 0)

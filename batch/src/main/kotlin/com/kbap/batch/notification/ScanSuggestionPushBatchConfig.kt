@@ -4,7 +4,7 @@ import com.kbap.batch.observability.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.MealSlot
-import com.kbap.common.port.push.PushNotifier
+import com.kbap.common.port.push.PushHandler
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder
@@ -51,27 +51,27 @@ class ScanSuggestionPushBatchConfig(
         jobRepository: JobRepository,
         scanSuggestionTargetStep: Step,
         scanSuggestionCandidateReader: ItemReader<Long>,
-        notifier: PushNotifier,
+        handler: PushHandler,
         meterRegistry: MeterRegistry,
         jobNameMdcListener: JobNameMdcListener,
-    ): Job = job(MealSlot.LUNCH, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, notifier, meterRegistry, jobNameMdcListener)
+    ): Job = job(MealSlot.LUNCH, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, handler, meterRegistry, jobNameMdcListener)
 
     @Bean
     fun scanSuggestionDinnerPushJob(
         jobRepository: JobRepository,
         scanSuggestionTargetStep: Step,
         scanSuggestionCandidateReader: ItemReader<Long>,
-        notifier: PushNotifier,
+        handler: PushHandler,
         meterRegistry: MeterRegistry,
         jobNameMdcListener: JobNameMdcListener,
-    ): Job = job(MealSlot.DINNER, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, notifier, meterRegistry, jobNameMdcListener)
+    ): Job = job(MealSlot.DINNER, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, handler, meterRegistry, jobNameMdcListener)
 
     private fun job(
         slot: MealSlot,
         jobRepository: JobRepository,
         targetStep: Step,
         reader: ItemReader<Long>,
-        notifier: PushNotifier,
+        handler: PushHandler,
         meterRegistry: MeterRegistry,
         jobNameMdcListener: JobNameMdcListener,
     ): Job {
@@ -79,7 +79,7 @@ class ScanSuggestionPushBatchConfig(
             .chunk<Long, Long>(memberChunkSize)
             .transactionManager(ResourcelessTransactionManager())
             .reader(reader)
-            .writer(ScanSuggestionPushWriter(notifier, slot, ttl.seconds.toInt(), meterRegistry))
+            .writer(ScanSuggestionPushWriter(handler, slot, ttl.seconds.toInt(), meterRegistry))
             .build()
         return JobBuilder(jobNameOf(slot), jobRepository)
             .incrementer(RunIdIncrementer())

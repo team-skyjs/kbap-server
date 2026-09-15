@@ -4,17 +4,17 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.notification.PushDispatchResult
 import com.kbap.common.domain.notification.PushRequest
 import com.kbap.common.domain.notification.model.NotificationType
-import com.kbap.common.port.push.PushNotifier
+import com.kbap.common.port.push.PushHandler
 import org.springframework.stereotype.Service
 
 @Service
 class AdminNotificationTestService(
     private val memberService: MemberService,
-    private val pushNotifier: PushNotifier,
+    private val pushHandler: PushHandler,
 ) {
     fun sendTestPush(memberId: Long): PushDispatchResult {
         memberService.getMember(memberId)
-        return pushNotifier.send(
+        return pushHandler.send(
             PushRequest(NotificationType.NEWS, listOf(memberId), args = mapOf("title" to TEST_TITLE, "body" to TEST_BODY)),
         )
     }

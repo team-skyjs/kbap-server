@@ -15,17 +15,17 @@
 | Expo 청크 실패 포함 | COMPLETED | COMPLETED (dispatch 에 FAILED, 해당 notification 은 소프트 삭제) |
 | DB 오류 등 예외 | FAILED | FAILED |
 
-## 3. 공용 발송 부품 (port `PushNotifier`) — 호출자 계약
+## 3. 공용 발송 부품 (port `PushHandler`) — 호출자 계약
 
 ```kotlin
-interface PushNotifier { fun send(request: PushRequest): PushDispatchResult }
+interface PushHandler { fun send(request: PushRequest): PushDispatchResult }
 // PushRequest(type: NotificationType, memberIds: Collection<Long>, args: Map<String,String> = {}, data: Map<String,Any> = {}, ttlSeconds: Int? = null)
 // PushDispatchResult(sent: Int, failed: Int)
 ```
 
 - 호출자(관리자 테스트 발송·스캔 제안 배치·식사시간 잡·리뷰 리마인더·도움돼요)는 **유형·대상 회원·유형별 인자**만 넘긴다. 기기 판정(토글·동의·토큰)·언어별 렌더·광고 표기·채널·알림함/발송 이력 저장·청크·동시성·페이싱·재시도·결과 기록은 부품 안이다.
 - 동기 호출이며 Expo 실패로는 예외를 던지지 않는다(`failed` 로 센다). DB 오류는 전파된다. 대상 0 이면 `(0, 0)` 이고 Expo 를 부르지 않는다.
-- 조립: api `api.core.config.PushConfig`·batch `batch.config.PushConfig` 가 `ExpoPushSender`(어댑터) + `ExpoPushNotifier`(구현) 빈을 만든다. 기능 코드는 port 만 참조(ArchUnit).
+- 조립: api `api.core.config.PushConfig`·batch `batch.config.PushConfig` 가 `ExpoPushSender`(어댑터) + `ExpoPushHandler`(구현) 빈을 만든다. 기능 코드는 port 만 참조(ArchUnit).
 
 ## 4. Expo 메시지 (어댑터 ↔ Expo) — KB-468 계약 개정
 
