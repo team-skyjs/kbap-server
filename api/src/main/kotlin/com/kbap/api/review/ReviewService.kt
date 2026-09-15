@@ -1,6 +1,5 @@
 package com.kbap.api.review
 
-import com.kbap.api.core.ApiHeaders
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
@@ -15,8 +14,6 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
-import com.kbap.common.domain.report.ReportJpaRepository
-import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
@@ -39,7 +36,6 @@ class ReviewService(
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
-    private val reportRepository: ReportJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -141,7 +137,6 @@ class ReviewService(
     @Transactional(readOnly = true)
     fun getReviewPage(
         viewerMemberId: Long?,
-        viewerInstallationId: String?,
         foodId: Long?,
         countryCode: String?,
         lang: LanguageCode,
@@ -162,7 +157,7 @@ class ReviewService(
             metricCursor = cursor?.metric,
             idCursor = cursor?.id,
             excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-            excludedReviewIds = excludedReviewIds(viewerMemberId, viewerInstallationId),
+            excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
             limit = PAGE_SIZE + 1,
         )
         val hasNext = rows.size > PAGE_SIZE
@@ -178,17 +173,6 @@ class ReviewService(
 
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
-
-    private fun excludedReviewIds(viewerMemberId: Long?, viewerInstallationId: String?): List<Long> {
-        val byMember = viewerMemberId
-            ?.let { reportRepository.findTargetIdsByReporterMemberIdAndTargetType(it, ReportTargetType.REVIEW) }
-            .orEmpty()
-        val byInstallation = viewerInstallationId
-            ?.let(ApiHeaders::validInstallationId)
-            ?.let { reportRepository.findTargetIdsByReporterInstallationIdAndTargetType(it, ReportTargetType.REVIEW) }
-            .orEmpty()
-        return (byMember + byInstallation).distinct().ifEmpty { listOf(-1L) }
-    }
 
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
@@ -221,12 +205,7 @@ class ReviewService(
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
     @Transactional(readOnly = true)
-    fun getRecentFoodReviews(
-        foodId: Long,
-        viewerMemberId: Long?,
-        viewerInstallationId: String?,
-        lang: LanguageCode,
-    ): List<ReviewResponse> =
+    fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
         toResponses(
             reviewRepository.findReviewPage(
                 foodId = foodId,
@@ -238,7 +217,7 @@ class ReviewService(
                 metricCursor = null,
                 idCursor = null,
                 excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-                excludedReviewIds = excludedReviewIds(viewerMemberId, viewerInstallationId),
+                excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
                 limit = RECENT_REVIEWS_SIZE,
             ).map { it.review },
             viewerMemberId,
@@ -311,6 +290,8 @@ class ReviewService(
     }
 
     companion object {
+        private val NO_EXCLUDED_REVIEW_IDS = listOf(-1L)
+
         const val PAGE_SIZE = 50
         const val RECENT_REVIEWS_SIZE = 5
     }

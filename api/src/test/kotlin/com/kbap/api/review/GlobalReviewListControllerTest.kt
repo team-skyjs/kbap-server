@@ -150,111 +150,6 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 param("lang", "en")
             }
 
-        given("설치 ID 헤더 형식 검증 — 조회 경로") {
-            `when`("36자를 넘는 X-Installation-Id 로 리뷰 목록을 조회하면") {
-                then("조용히 무시하지 않고 400 COMMON-002 로 거절한다") {
-                    feed(token = null, installationId = "x".repeat(37)).andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("36자를 넘는 X-Installation-Id 로 음식 상세를 조회하면") {
-                then("같은 기준으로 400 COMMON-002 로 거절한다") {
-                    seedFood(931L, "헤더검증음식")
-
-                    foodDetail(931L, installationId = "y".repeat(37)).andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-        }
-
-        given("신고 숨김의 회원·설치 합집합") {
-            `when`("게스트로 신고한 뒤 같은 설치에서 로그인해 조회하면") {
-                then("회원 조회에서도 그 리뷰가 계속 숨겨진다") {
-                    seedFood(928L, "합집합게스트음식")
-                    val author = accessToken(9028L)
-                    val installationId = "union-guest-login-01"
-                    val reported = createReview(author, 928L)
-                    val kept = createReview(author, 928L)
-                    reportReview(reported, installationId)
-
-                    val viewer = accessToken(9029L)
-                    val ids = payloadOf(feed(token = viewer, installationId = installationId))
-                        .path("items").map { it.path("reviewId").asLong() }
-                    ids.contains(kept) shouldBe true
-                    ids.contains(reported) shouldBe false
-                }
-            }
-
-            `when`("회원으로 신고한 뒤 같은 설치에서 로그아웃해 조회하면") {
-                then("게스트 조회에서도 그 리뷰가 계속 숨겨진다") {
-                    seedFood(929L, "합집합회원음식")
-                    val author = accessToken(9030L)
-                    val installationId = "union-member-logout-02"
-                    val reported = createReview(author, 929L)
-                    val kept = createReview(author, 929L)
-                    val reporter = accessToken(9031L)
-                    reportReview(reported, installationId, token = reporter)
-
-                    val ids = payloadOf(feed(token = null, installationId = installationId))
-                        .path("items").map { it.path("reviewId").asLong() }
-                    ids.contains(kept) shouldBe true
-                    ids.contains(reported) shouldBe false
-                }
-            }
-
-            `when`("설치 ID 없이 기록된 기존 회원 신고가 있으면") {
-                then("그 회원 조회에서는 설치 헤더가 없어도 숨김이 유지된다") {
-                    seedFood(930L, "레거시회원신고음식")
-                    val author = accessToken(9032L)
-                    val reported = createReview(author, 930L)
-                    val kept = createReview(author, 930L)
-                    val legacyReporter = 9033L
-                    seedMember(legacyReporter)
-                    dataSource.connection.use { c ->
-                        c.prepareStatement(
-                            "INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, " +
-                                "reason, status, created_at, updated_at) " +
-                                "VALUES (?, NULL, 'REVIEW', ?, 'SPAM', 'ACTIVE', NOW(6), NOW(6))",
-                        ).use { ps ->
-                            ps.setLong(1, legacyReporter); ps.setLong(2, reported); ps.executeUpdate()
-                        }
-                    }
-
-                    val token = accessToken(legacyReporter)
-                    val ids = payloadOf(feed(token = token)).path("items").map { it.path("reviewId").asLong() }
-                    ids.contains(kept) shouldBe true
-                    ids.contains(reported) shouldBe false
-                }
-            }
-        }
-
-        given("음식 상세 최근 리뷰 — GET /api/foods/{foodId}") {
-            `when`("게스트가 신고한 리뷰를 같은 설치 ID 헤더로 상세 조회하면") {
-                then("전체 목록과 동일하게 recentReviews 에서도 그 리뷰가 빠진다") {
-                    seedFood(918L, "상세게스트신고음식")
-                    val author = accessToken(9018L)
-                    val installationId = "guest-detail-33334444"
-                    val reported = createReview(author, 918L)
-                    val kept = createReview(author, 918L)
-                    reportReview(reported, installationId)
-
-                    val guestIds = payloadOf(foodDetail(918L, installationId = installationId))
-                        .path("recentReviews").map { it.path("reviewId").asLong() }
-                    guestIds.contains(kept) shouldBe true
-                    guestIds.contains(reported) shouldBe false
-
-                    val anonIds = payloadOf(foodDetail(918L))
-                        .path("recentReviews").map { it.path("reviewId").asLong() }
-                    anonIds.contains(reported) shouldBe true
-                }
-            }
-        }
-
         given("전체 리뷰 목록 — GET /api/reviews (foodId 없음)") {
             `when`("여러 음식의 리뷰 25건에서 첫 페이지를 조회하면") {
                 then("음식 구분 없이 최신순 20건과 다음 커서를 주고, 커서로 나머지를 잇는다") {
@@ -275,7 +170,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("내가 신고한 리뷰가 있으면") {
-                then("내 피드에서만 빠진다") {
+                then("신고는 목록을 바꾸지 않는다 — 신고자에게도 그대로 보인다") {
                     seedFood(902L, "피드신고음식")
                     val author = accessToken(9002L)
                     val viewer = accessToken(9003L)
@@ -285,14 +180,14 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
 
                     val viewerIds = payloadOf(feed(viewer)).path("items").map { it.path("reviewId").asLong() }
                     viewerIds.contains(kept) shouldBe true
-                    viewerIds.contains(reported) shouldBe false
+                    viewerIds.contains(reported) shouldBe true
 
                     val authorIds = payloadOf(feed(author)).path("items").map { it.path("reviewId").asLong() }
                     authorIds.contains(reported) shouldBe true
                 }
             }
-            `when`("게스트가 X-Installation-Id 로 신고한 리뷰가 있으면") {
-                then("같은 설치 ID 헤더로 조회할 때만 그 리뷰가 빠진다") {
+            `when`("게스트가 신고한 리뷰가 있으면") {
+                then("같은 설치로 조회해도 그 리뷰가 그대로 보인다") {
                     seedFood(908L, "게스트신고음식")
                     val author = accessToken(9008L)
                     val installationId = "guest-feed-11112222"
@@ -303,10 +198,7 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                     val guestIds = payloadOf(feed(token = null, installationId = installationId))
                         .path("items").map { it.path("reviewId").asLong() }
                     guestIds.contains(kept) shouldBe true
-                    guestIds.contains(reported) shouldBe false
-
-                    val anonIds = payloadOf(feed(token = null)).path("items").map { it.path("reviewId").asLong() }
-                    anonIds.contains(reported) shouldBe true
+                    guestIds.contains(reported) shouldBe true
                 }
             }
             `when`("작성자가 탈퇴하면") {

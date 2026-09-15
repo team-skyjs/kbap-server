@@ -51,13 +51,11 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
             }
 
             `when`("같은 (신고자, 대상 타입, 대상)으로 다시 저장하면") {
-                then("재신고가 허용돼 행이 하나 더 쌓이고, 제외 대상 조회는 id 를 한 번만 준다") {
+                then("재신고가 허용돼 행이 하나 더 쌓인다") {
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L))
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
 
                     reportJpaRepository.findAll().count { it.reporterMemberId == 2L && it.targetId == 20L } shouldBe 2
-                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(2L, ReportTargetType.REVIEW)
-                        .count { it == 20L } shouldBe 1
                 }
             }
         }
@@ -80,23 +78,5 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("신고한 대상 id 목록 조회") {
-            `when`("한 회원이 같은 타입의 대상 여럿을 신고했으면") {
-                then("그 회원이 신고한 대상 id 만 전부 반환한다") {
-                    reportJpaRepository.save(report(reporterMemberId = 4L, targetId = 40L))
-                    reportJpaRepository.save(report(reporterMemberId = 4L, targetId = 41L))
-                    reportJpaRepository.save(report(reporterMemberId = 5L, targetId = 42L))
-
-                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(4L, ReportTargetType.REVIEW)
-                        .shouldContainExactlyInAnyOrder(40L, 41L)
-                }
-            }
-
-            `when`("신고 이력이 없는 회원이면") {
-                then("빈 목록을 반환한다") {
-                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(999L, ReportTargetType.REVIEW) shouldBe emptyList()
-                }
-            }
-        }
     }
 }
