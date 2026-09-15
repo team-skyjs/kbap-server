@@ -1,9 +1,11 @@
 package com.kbap.batch.notification
 
 import com.kbap.batch.observability.JobNameMdcListener
+import com.kbap.common.domain.notification.NotificationJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.port.push.PushNotifier
 import io.micrometer.core.instrument.MeterRegistry
+import org.springframework.batch.core.ExitStatus
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.job.parameters.RunIdIncrementer
@@ -27,8 +29,10 @@ class ScanSuggestionPushBatchConfig {
     @Bean
     fun scanSuggestionTargetTasklet(
         settingRepository: NotificationSettingJpaRepository,
+        notificationRepository: NotificationJpaRepository,
         buffer: ScanSuggestionCandidateBuffer,
-    ): ScanSuggestionTargetTasklet = ScanSuggestionTargetTasklet(settingRepository, buffer)
+        clock: Clock,
+    ): ScanSuggestionTargetTasklet = ScanSuggestionTargetTasklet(settingRepository, notificationRepository, buffer, clock)
 
     @Bean
     fun scanSuggestionTargetStep(jobRepository: JobRepository, tasklet: ScanSuggestionTargetTasklet): Step =
@@ -71,6 +75,8 @@ class ScanSuggestionPushBatchConfig {
             .incrementer(RunIdIncrementer())
             .listener(jobNameMdcListener)
             .start(scanSuggestionTargetStep)
-            .next(scanSuggestionSendStep)
+            .on(ExitStatus.NOOP.exitCode).end(ExitStatus.NOOP.exitCode)
+            .from(scanSuggestionTargetStep).on("*").to(scanSuggestionSendStep)
+            .end()
             .build()
 }

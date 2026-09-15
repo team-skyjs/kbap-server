@@ -82,13 +82,13 @@
 
 ### Tests for User Story 2 (Test-First) ⚠️
 
-- [ ] T021 [P] [US2] Write failing `ScanSuggestionSendWindowTest`(순수 BehaviorSpec, `Clock.fixed`) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindowTest.kt`: `isOpen` — 07:59:59 false·08:00:00 true·20:59:59 true·21:00:00 false (KST). Red 확인
-- [ ] T022 [US2] Add scenario (c) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 시계 21:30 KST + 시나리오 (a) 시드 → `launcher.getExecution(id).exitStatus.exitCode == "NOOP"`, notification 0·dispatch 0·페이크 미호출; 시계 08:00:00 → 발송됨. Red 확인
+- [x] T021 [P] [US2] Write failing `ScanSuggestionSendWindowTest`(순수 BehaviorSpec, `Clock.fixed`) in `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindowTest.kt`: `isOpen` — 07:59:59 false·08:00:00 true·20:59:59 true·21:00:00 false (KST). Red 확인
+- [x] T022 [US2] Add scenario (c) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 시계 21:30 KST + 시나리오 (a) 시드 → `launcher.getExecution(id).exitStatus.exitCode == "NOOP"`, notification 0·dispatch 0·페이크 미호출; 시계 08:00:00 → 발송됨. Red 확인
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Create `object ScanSuggestionSendWindow { fun isOpen(clock: Clock): Boolean }`(`LocalTime.now(clock.withZone(KST))` 가 `[08:00, 21:00)`) in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindow.kt` (T021 Green)
-- [ ] T024 [US2] Inject `Clock` into `ScanSuggestionTargetTasklet` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionTargetTasklet.kt`: 닫힘이면 로그 `스캔 제안 발송 시간대 밖이라 건너뜁니다 now={}`, `contribution.exitStatus = ExitStatus.NOOP`, 버퍼 미적재 후 `FINISHED` (T022 Green — 발송 step 은 read 0 으로 종료, 잡 exitCode NOOP)
+- [x] T023 [US2] Create `object ScanSuggestionSendWindow { fun isOpen(clock: Clock): Boolean }`(`LocalTime.now(clock.withZone(KST))` 가 `[08:00, 21:00)`) in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindow.kt` (T021 Green)
+- [x] T024 [US2] Inject `Clock` into `ScanSuggestionTargetTasklet` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionTargetTasklet.kt`: 닫힘이면 로그 `스캔 제안 발송 시간대 밖이라 건너뜁니다 now={}`, `contribution.exitStatus = ExitStatus.NOOP`, 버퍼 미적재 후 `FINISHED` (T022 Green — 발송 step 은 read 0 으로 종료, 잡 exitCode NOOP)
 
 **Checkpoint**: 하드 가드는 cron 설정과 무관하게 코드에 고정.
 
@@ -102,15 +102,15 @@
 
 ### Tests for User Story 3 (Test-First) ⚠️
 
-- [ ] T025 [P] [US3] Add scenario to `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationJpaRepositoryTest.kt`: `findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, since)` — `createdAt >= since` 포함·이전 제외·다른 type 제외·distinct·`memberId null` 제외(`jdbcTemplate` 로 `created_at` 을 직접 세팅). Red 확인
-- [ ] T026 [P] [US3] Add scenario to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindowTest.kt`: `startOfToday(clock)` — 12:00 KST 시계 → KST 자정을 `ZoneId.systemDefault()` 로 옮긴 `LocalDateTime`(UTC JVM 이면 전날 15:00)과 같다; KST 00:30 시계도 같은 날 자정. Red 확인
-- [ ] T027 [US3] Add scenarios (b) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 같은 시계로 재실행 → notification·dispatch 증가 0·페이크 추가 0 / 첫 실행 기기 하나를 `errorFor` 로 FAILED 로 만든 뒤 재실행 → 그 기기도 재발송 없음 / 시계를 다음 날 12:00 으로 → 다시 발송. Red 확인
+- [x] T025 [P] [US3] Add scenario to `common/src/test/kotlin/com/kbap/common/domain/notification/NotificationJpaRepositoryTest.kt`: `findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, since)` — `createdAt >= since` 포함·이전 제외·다른 type 제외·distinct·`memberId null` 제외(`jdbcTemplate` 로 `created_at` 을 직접 세팅). Red 확인
+- [x] T026 [P] [US3] Add scenario to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindowTest.kt`: `startOfToday(clock)` — 12:00 KST 시계 → KST 자정을 `ZoneId.systemDefault()` 로 옮긴 `LocalDateTime`(UTC JVM 이면 전날 15:00)과 같다; KST 00:30 시계도 같은 날 자정. Red 확인
+- [x] T027 [US3] Add scenarios (b) to `batch/src/test/kotlin/com/kbap/batch/notification/ScanSuggestionPushJobTest.kt`: 같은 시계로 재실행 → notification·dispatch 증가 0·페이크 추가 0 / 첫 실행 기기 하나를 `errorFor` 로 FAILED 로 만든 뒤 재실행 → 그 기기도 재발송 없음 / 시계를 다음 날 12:00 으로 → 다시 발송. Red 확인
 
 ### Implementation for User Story 3
 
-- [ ] T028 [P] [US3] Add `@Query("select distinct n.memberId from Notification n where n.type = :type and n.createdAt >= :since and n.memberId is not null") fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, @Param("since") since: LocalDateTime): List<Long>` to `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationJpaRepository.kt` (T025 Green)
-- [ ] T029 [P] [US3] Add `fun startOfToday(clock: Clock): LocalDateTime`(`LocalDate.now(clock KST).atStartOfDay(KST).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()`) to `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindow.kt` (T026 Green)
-- [ ] T030 [US3] Inject `NotificationJpaRepository` into `ScanSuggestionTargetTasklet` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionTargetTasklet.kt`: `targets = candidates - findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, startOfToday(clock))`, 로그의 `excludedToday` 채움 (T027 Green; depends on T028, T029)
+- [x] T028 [P] [US3] Add `@Query("select distinct n.memberId from Notification n where n.type = :type and n.createdAt >= :since and n.memberId is not null") fun findMemberIdsByTypeAndCreatedAtAfter(@Param("type") type: NotificationType, @Param("since") since: LocalDateTime): List<Long>` to `common/src/main/kotlin/com/kbap/common/domain/notification/NotificationJpaRepository.kt` (T025 Green)
+- [x] T029 [P] [US3] Add `fun startOfToday(clock: Clock): LocalDateTime`(`LocalDate.now(clock KST).atStartOfDay(KST).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()`) to `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionSendWindow.kt` (T026 Green)
+- [x] T030 [US3] Inject `NotificationJpaRepository` into `ScanSuggestionTargetTasklet` in `batch/src/main/kotlin/com/kbap/batch/notification/ScanSuggestionTargetTasklet.kt`: `targets = candidates - findMemberIdsByTypeAndCreatedAtAfter(SCAN_SUGGESTION, startOfToday(clock))`, 로그의 `excludedToday` 채움 (T027 Green; depends on T028, T029)
 
 **Checkpoint**: 잡 재실행이 안전하다. P1 세 스토리 완료 = 운영 투입 가능한 최소 기능.
 
