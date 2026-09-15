@@ -65,10 +65,7 @@ class ExpoPushSender internal constructor(
 
     override fun send(messages: List<PushMessage>): List<PushTicket> =
         messages.chunked(CHUNK_SIZE)
-            .map { chunk ->
-                awaitSlot()
-                executor.submit<List<PushTicket>> { sendChunk(chunk) }
-            }
+            .map { chunk -> executor.submit<List<PushTicket>> { sendChunk(chunk) } }
             .flatMap { it.get() }
 
     override fun close() {
@@ -94,8 +91,9 @@ class ExpoPushSender internal constructor(
         return List(chunk.size) { i -> tickets.getOrNull(i) ?: PushTicket.error("ticket count mismatch") }
     }
 
-    private fun post(chunk: List<PushMessage>): List<PushTicket> =
-        restClient.post()
+    private fun post(chunk: List<PushMessage>): List<PushTicket> {
+        awaitSlot()
+        return restClient.post()
             .uri(SEND_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
@@ -105,6 +103,7 @@ class ExpoPushSender internal constructor(
             ?.data
             .orEmpty()
             .map { it.toTicket() }
+    }
 
     private fun failAll(chunk: List<PushMessage>, e: Throwable, retries: Int): List<PushTicket> {
         log.warn("Expo push 청크 발송 실패: size={} retries={}", chunk.size, retries, e)
