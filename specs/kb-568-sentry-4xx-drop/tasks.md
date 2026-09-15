@@ -98,8 +98,8 @@
 
 - [X] T005 `./gradlew :api:test` 전체 통과 확인(arch 태그 포함 — tomcat 클래스 참조는 `api.core` 소속이라 경계 규칙 대상 밖, PR #257 선례). 컨텍스트 수·결과 무변화(DSN 부재로 Sentry 미기동) (T003 의존)
 - [X] T006 로컬 실증(quickstart §2) — `docker compose up -d mysql redis` → 메인 `.env` source → `API_SENTRY_DSN='https://k@localhost.invalid/0' SPRING_PROFILES_ACTIVE=local ./gradlew :api:bootRun --no-daemon --args='--sentry.debug=true'` → quickstart 의 curl 6종(앱 에러 코드 4xx·버전 헤더 누락·미지원 버전·타입 불일치·405·`--max-time 0.05` 끊김) 각각에서 `Event was dropped by a processor`(404 는 `is ignored`) 로그와 종전 응답 코드 확인, `Sending the event` 없음. 5xx 경로가 있으면 `Capturing event` 후 전송 시도 확인. 확인한 로그를 `specs/kb-568-sentry-4xx-drop/research.md` 끝에 "실증(2026-09-15)" 절로 기록 (T005 의존)
-- [ ] T007 커밋 1개 — `fix(observability): Sentry 4xx·클라이언트 끊김 이벤트 미전송 (KB-568)` 형식, 본문에 R1(#257 결말·정책 전환 근거)·R5(메시지 매칭 금지)·R6(409 두 종류)·R8(무테스트 결정)·R9(batch 무변경) 요지와 로컬 실증 로그. 파일: `api/src/main/kotlin/com/kbap/api/core/observability/SentryRequestContextProcessor.kt`, `docs/observability/sentry.md`, `specs/kb-568-sentry-4xx-drop/*`. 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (T004·T006 의존)
-- [ ] T008 `open-draft-pr-to-develop` 스킬로 base=develop draft PR — 제목 = 커밋 제목, 본문 "무엇을/왜"(Jira 배경 3줄: 한도 5,000건/월·노이즈 4건·#257 정책 충돌 해소)·"변경 사항"(contracts §1 표 요약·문서·테스트 없음 사유)·"검증"(T005 수치·T006 로그·dev 검증은 quickstart §3 표를 배포 후 채움), `Refs KB-568`, 닫힌 #257 링크. dev 배포 후 quickstart §3 결과를 PR 본문에 추가 (T007 의존)
+- [X] T007 커밋 1개 — `fix(observability): Sentry 4xx·클라이언트 끊김 이벤트 미전송 (KB-568)` 형식, 본문에 R1(#257 결말·정책 전환 근거)·R5(메시지 매칭 금지)·R6(409 두 종류)·R8(무테스트 결정)·R9(batch 무변경) 요지와 로컬 실증 로그. 파일: `api/src/main/kotlin/com/kbap/api/core/observability/SentryRequestContextProcessor.kt`, `docs/observability/sentry.md`, `specs/kb-568-sentry-4xx-drop/*`. 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (T004·T006 의존)
+- [X] T008 `open-draft-pr-to-develop` 스킬로 base=develop draft PR — 제목 = 커밋 제목, 본문 "무엇을/왜"(Jira 배경 3줄: 한도 5,000건/월·노이즈 4건·#257 정책 충돌 해소)·"변경 사항"(contracts §1 표 요약·문서·테스트 없음 사유)·"검증"(T005 수치·T006 로그·dev 검증은 quickstart §3 표를 배포 후 채움), `Refs KB-568`, 닫힌 #257 링크. dev 배포 후 quickstart §3 결과를 PR 본문에 추가 (T007 의존)
 
 ---
 
