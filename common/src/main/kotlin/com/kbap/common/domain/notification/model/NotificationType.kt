@@ -9,10 +9,5 @@ enum class NotificationType(val marketing: Boolean) {
     ;
 
     val channelId: String
-        get() = if (marketing) MARKETING_CHANNEL else DEFAULT_CHANNEL
-
-    companion object {
-        const val MARKETING_CHANNEL = "news"
-        const val DEFAULT_CHANNEL = "default"
-    }
+        get() = if (marketing) "news" else "default"
 }

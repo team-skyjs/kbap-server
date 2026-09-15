@@ -9,7 +9,6 @@ class ScanSuggestionCandidateBuffer {
     private val memberIds = ArrayDeque<Long>()
 
     fun load(candidates: Collection<Long>) {
-        memberIds.clear()
         memberIds.addAll(candidates)
     }
 
