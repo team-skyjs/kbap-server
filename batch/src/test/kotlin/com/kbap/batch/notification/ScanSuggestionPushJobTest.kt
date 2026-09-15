@@ -253,6 +253,33 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     sentCounter() - before shouldBe 1.0
                 }
             }
+
+            `when`("회원 1,200명을 두고 실행하면") {
+                clear()
+                clock.setSeoul(2026, 9, 15, 12, 0)
+                val members = (1001L..2200L).toList()
+                val devices = deviceRepository.saveAll(
+                    members.map { NotificationDevice.register("bulk-$it", "ExponentPushToken[bulk-$it]", DevicePlatform.ANDROID, "ko", it) },
+                )
+                settingRepository.saveAll(devices.map { NotificationSetting(memberId = it.memberId!!, installationId = it.installationId, news = true) })
+                consentRepository.saveAll(
+                    members.flatMap { m ->
+                        NotificationConsentType.entries.map { NotificationConsent.grantForMember(m, null, it, 2, LocalDateTime.now()) }
+                    },
+                )
+                val failing = setOf("ExponentPushToken[bulk-1001]", "ExponentPushToken[bulk-1500]", "ExponentPushToken[bulk-2200]")
+                fakePushSender.errorFor = { if (it.to in failing) "DeviceNotRegistered" else null }
+
+                val execution = run()
+
+                then("회원 묶음 단위로 전부 발송하고 실패한 건만 FAILED 로 남는다") {
+                    execution.exitStatus.exitCode shouldBe "COMPLETED"
+                    execution.stepExecutions.first { it.stepName == "scanSuggestionSendStep" }.writeCount shouldBe 1200L
+                    fakePushSender.sent shouldHaveSize 1200
+                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 3
+                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 1197
+                }
+            }
         }
     }
 }

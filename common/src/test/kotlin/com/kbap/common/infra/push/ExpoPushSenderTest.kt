@@ -15,18 +15,68 @@ import org.springframework.test.web.client.match.MockRestRequestMatchers.headerD
 import org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath
 import org.springframework.test.web.client.match.MockRestRequestMatchers.method
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
+import org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest
+import org.springframework.test.web.client.response.MockRestResponseCreators.withException
 import org.springframework.test.web.client.response.MockRestResponseCreators.withServerError
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
+import org.springframework.test.web.client.response.MockRestResponseCreators.withTooManyRequests
+import org.springframework.core.retry.RetryPolicy
 import org.springframework.web.client.RestClient
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.string.shouldContain
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.kotlinModule
+import com.sun.net.httpserver.HttpServer
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val BASE_URL = "https://expo.test"
 private const val SEND_URL = "$BASE_URL/--/api/v2/push/send"
 
 class ExpoPushSenderTest : BehaviorSpec({
+    val quickRetry: RetryPolicy = ExpoPushSender.defaultRetryPolicy(maxRetries = 3, initialDelay = Duration.ofMillis(1), multiplier = 2.0)
+
     fun fixture(accessToken: String = ""): Pair<ExpoPushSender, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return ExpoPushSender.create(BASE_URL, accessToken, builder) to server
+        return ExpoPushSender.create(BASE_URL, accessToken, builder, concurrency = 1, minRequestInterval = Duration.ZERO, retryPolicy = quickRetry) to server
+    }
+
+    class LocalExpo(private val handlerDelay: Duration) : AutoCloseable {
+        private val mapper = JsonMapper.builder().addModule(kotlinModule()).build()
+        private val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        private val active = AtomicInteger()
+        val arrivals = java.util.concurrent.CopyOnWriteArrayList<Long>()
+        var maxActive = 0
+            private set
+
+        init {
+            server.createContext("/--/api/v2/push/send") { exchange ->
+                arrivals += System.nanoTime()
+                val now = active.incrementAndGet()
+                synchronized(this) { if (now > maxActive) maxActive = now }
+                val body = exchange.requestBody.readAllBytes()
+                Thread.sleep(handlerDelay.toMillis())
+                val messages: List<Map<String, Any>> = mapper.readValue(body, mapper.typeFactory.constructCollectionType(List::class.java, Map::class.java))
+                val response = messages.joinToString(",", prefix = """{"data":[""", postfix = "]}") {
+                    """{"status":"ok","id":"t${(it["to"] as String).removePrefix("ExponentPushToken[").removeSuffix("]")}"}"""
+                }.toByteArray()
+                exchange.responseHeaders.add("Content-Type", "application/json")
+                exchange.sendResponseHeaders(200, response.size.toLong())
+                exchange.responseBody.use { it.write(response) }
+                active.decrementAndGet()
+            }
+            server.executor = java.util.concurrent.Executors.newCachedThreadPool()
+            server.start()
+        }
+
+        val baseUrl: String get() = "http://127.0.0.1:${server.address.port}"
+
+        override fun close() = server.stop(0)
     }
 
     fun messages(count: Int, offset: Int = 0): List<PushMessage> =
@@ -81,11 +131,11 @@ class ExpoPushSenderTest : BehaviorSpec({
             }
         }
 
-        `when`("두 번째 청크 호출이 서버 오류이면") {
+        `when`("두 번째 청크 호출이 재시도 한도까지 서버 오류이면") {
             then("그 청크만 전부 error 티켓이 되고 예외는 전파되지 않는다") {
                 val (sender, server) = fixture()
                 server.expect(requestTo(SEND_URL)).andRespond(withSuccess(okBody(0, 100), MediaType.APPLICATION_JSON))
-                server.expect(requestTo(SEND_URL)).andRespond(withServerError())
+                server.expect(ExpectedCount.times(4), requestTo(SEND_URL)).andRespond(withServerError())
 
                 val tickets = sender.send(messages(150))
 
@@ -93,6 +143,112 @@ class ExpoPushSenderTest : BehaviorSpec({
                 tickets.take(100).all { it.ok } shouldBe true
                 tickets.drop(100).all { !it.ok } shouldBe true
                 tickets[100].error!!.shouldNotBeBlank()
+                server.verify()
+            }
+        }
+
+        `when`("5xx 두 번 뒤 정상 응답이 오면") {
+            then("지수 백오프로 재시도해 요청 3회 만에 전부 ok 티켓을 돌려준다") {
+                val (sender, server) = fixture()
+                server.expect(ExpectedCount.times(2), requestTo(SEND_URL)).andRespond(withServerError())
+                server.expect(requestTo(SEND_URL)).andRespond(withSuccess(okBody(0, 100), MediaType.APPLICATION_JSON))
+
+                val tickets = sender.send(messages(100))
+
+                tickets.all { it.ok } shouldBe true
+                server.verify()
+            }
+        }
+
+        `when`("429 두 번 뒤 정상 응답이 오면") {
+            then("재시도해 전부 ok 티켓을 돌려준다") {
+                val (sender, server) = fixture()
+                server.expect(ExpectedCount.times(2), requestTo(SEND_URL)).andRespond(withTooManyRequests())
+                server.expect(requestTo(SEND_URL)).andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
+
+                sender.send(messages(1)).single().ok shouldBe true
+                server.verify()
+            }
+        }
+
+        `when`("네트워크 오류 뒤 정상 응답이 오면") {
+            then("재시도해 ok 티켓을 돌려준다") {
+                val (sender, server) = fixture()
+                server.expect(requestTo(SEND_URL)).andRespond(withException(IOException("connection reset")))
+                server.expect(requestTo(SEND_URL)).andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
+
+                sender.send(messages(1)).single().ok shouldBe true
+                server.verify()
+            }
+        }
+
+        `when`("5xx 가 재시도 한도를 넘겨 계속되면") {
+            then("요청 4회 뒤 청크 전부 error 티켓이고 마지막 오류가 사유에 남는다") {
+                val (sender, server) = fixture()
+                server.expect(ExpectedCount.times(4), requestTo(SEND_URL)).andRespond(withServerError())
+
+                val tickets = sender.send(messages(3))
+
+                tickets.all { !it.ok } shouldBe true
+                tickets[0].error!! shouldContain "500"
+                server.verify()
+            }
+        }
+
+        `when`("400 으로 거부되면") {
+            then("재시도 없이 요청 1회로 청크 전부 error 티켓이다") {
+                val (sender, server) = fixture()
+                server.expect(ExpectedCount.once(), requestTo(SEND_URL)).andRespond(withBadRequest())
+
+                val tickets = sender.send(messages(2))
+
+                tickets.all { !it.ok } shouldBe true
+                tickets[0].error!! shouldContain "400"
+                server.verify()
+            }
+        }
+
+        `when`("응답 본문이 JSON 이 아니면") {
+            then("재시도 없이 청크 전부 error 티켓이다") {
+                val (sender, server) = fixture()
+                server.expect(ExpectedCount.once(), requestTo(SEND_URL)).andRespond(withSuccess("not-json", MediaType.APPLICATION_JSON))
+
+                sender.send(messages(2)).all { !it.ok } shouldBe true
+                server.verify()
+            }
+        }
+
+        `when`("청크 12개를 동시성 6·간격 0 으로 보내면") {
+            then("요청이 겹쳐 나가 순차 발송보다 빨리 끝나고 티켓 순서는 입력 순서와 같다") {
+                LocalExpo(Duration.ofMillis(200)).use { expo ->
+                    ExpoPushSender.create(expo.baseUrl, "", concurrency = 6, minRequestInterval = Duration.ZERO, retryPolicy = quickRetry).use { sender ->
+                        val started = System.nanoTime()
+                        val tickets = sender.send(messages(1200))
+                        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+
+                        tickets shouldHaveSize 1200
+                        tickets.forEachIndexed { i, t -> t.id shouldBe "t$i" }
+                        expo.arrivals shouldHaveSize 12
+                        expo.maxActive shouldBeGreaterThanOrEqual 2
+                        elapsedMs shouldBeLessThan 12 * 200L
+                    }
+                }
+            }
+        }
+
+        `when`("청크 12개를 간격 100ms 로 보내면") {
+            then("i번째 요청 시작이 첫 시작 + i×100ms 보다 빠르지 않다") {
+                LocalExpo(Duration.ofMillis(20)).use { expo ->
+                    ExpoPushSender.create(expo.baseUrl, "", concurrency = 6, minRequestInterval = Duration.ofMillis(100), retryPolicy = quickRetry).use { sender ->
+                        sender.send(messages(1200))
+
+                        val arrivals = expo.arrivals.sorted()
+                        arrivals shouldHaveSize 12
+                        arrivals.forEachIndexed { i, at ->
+                            Duration.ofNanos(at - arrivals[0]) shouldBeGreaterThanOrEqualTo Duration.ofMillis(i * 100L - 15)
+                        }
+                    }
+                }
             }
         }
 
