@@ -44,7 +44,7 @@ class FoodDetailImagesTest : BehaviorSpec() {
 
         given("음식 상세의 이미지 갤러리") {
             `when`("대표 1장과 추가 2장이 있는 음식을 조회하면") {
-                then("대표가 먼저 오고 나머지는 정렬 순서대로 URL 이 해석돼 내려간다") {
+                then("대표(imageRef 와 같은 URL)가 먼저 오고 나머지는 정렬 순서대로 내려간다") {
                     val foodId = seedFood("갤러리불고기", "images/webp/bulgogi.webp")
                     seedImage(foodId, "images/webp/bulgogi-2.webp", isPrimary = false, sortOrder = 1)
                     seedImage(foodId, "images/webp/bulgogi.webp", isPrimary = true, sortOrder = 0)
@@ -53,10 +53,9 @@ class FoodDetailImagesTest : BehaviorSpec() {
                     mockMvc.get("/api/foods/$foodId?lang=ko").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.images.length()") { value(3) }
+                        jsonPath("$.payload.imageRef") { value("https://cdn.test/images/webp/bulgogi.webp") }
                         jsonPath("$.payload.images[0].url") { value("https://cdn.test/images/webp/bulgogi.webp") }
-                        jsonPath("$.payload.images[0].isPrimary") { value(true) }
                         jsonPath("$.payload.images[1].url") { value("https://cdn.test/images/webp/bulgogi-2.webp") }
-                        jsonPath("$.payload.images[1].isPrimary") { value(false) }
                         jsonPath("$.payload.images[2].url") { value("https://cdn.test/images/webp/bulgogi-3.webp") }
                     }
                 }
