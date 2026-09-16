@@ -353,6 +353,19 @@ class ReportControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("유효한 회원 토큰으로 신고하면") {
+                then("게스트 면제 경로여도 인증 컨텍스트가 채워진다 — 로그·Sentry 의 memberId 귀속 유지") {
+                    seedReview(reviewId = 8146L, authorMemberId = 8151L, foodId = 8181L)
+                    val token = accessToken(8147L)
+
+                    val result = report(token, body(targetId = 8146L), installationId = "auth-ctx-05")
+                        .andExpect { status { isOk() } }
+                        .andReturn()
+
+                    result.request.getAttribute("authMemberId") shouldBe 8147L
+                }
+            }
+
             `when`("Bearer 형식이지만 위조된 토큰이면") {
                 then("401 로 거절하고 게스트로 전환하지 않는다") {
                     seedReview(reviewId = 8144L, authorMemberId = 8151L, foodId = 8181L)

@@ -8,10 +8,12 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 
 @Tag(name = "신고", description = "콘텐츠 신고 접수 API — 이번 버전의 신고 대상은 리뷰(REVIEW)뿐이다")
+@SecurityRequirement(name = "bearerAuth")
 interface ReportApi {
     @Operation(
         summary = "신고 접수(회원·게스트)",
@@ -45,11 +47,6 @@ interface ReportApi {
     )
     fun create(
         memberId: Long?,
-        @Parameter(
-            `in` = ParameterIn.HEADER,
-            name = "Authorization",
-            description = "Bearer 액세스 토큰(옵션). 헤더가 아예 없을 때만 게스트 신고로 처리하며, 형식이 잘못됐거나 만료·위조면 401 이다",
-        )
         authorization: String?,
         @Parameter(
             `in` = ParameterIn.HEADER,
