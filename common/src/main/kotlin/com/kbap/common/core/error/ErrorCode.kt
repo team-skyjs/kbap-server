@@ -42,10 +42,14 @@ enum class ErrorCode(
     FOOD_NOT_REVIEWABLE("FOOD-008", 400, "검수 대상(PENDING_REVIEW)이 아닙니다"),
     FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
     FOOD_READY_TRANSITION_FORBIDDEN("FOOD-010", 400, "READY 전이는 검수 승인 API 로만 가능합니다"),
+    FOOD_STATUS_NOT_READY("FOOD-011", 409, "공개(READY) 상태인 음식만 이미지를 재생성할 수 있습니다"),
+    FOOD_IMAGE_REF_NOT_EDITABLE("FOOD-012", 400, "대표 이미지는 대표 지정 API 로만 바꿀 수 있습니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
     UPLOADED_OBJECT_NOT_FOUND("IMAGE-003", 400, "업로드된 파일을 찾을 수 없습니다"),
+    IMAGE_BATCH_IN_PROGRESS("IMAGE-004", 409, "이미 이미지 생성이 진행 중입니다"),
+    FOOD_IMAGE_NOT_FOUND("IMAGE-005", 404, "해당 음식의 이미지를 찾을 수 없습니다"),
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),

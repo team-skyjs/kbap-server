@@ -101,6 +101,8 @@ class AdminFoodCatalogController(
             AdminFoodUpdateResult.DUPLICATE_NAME -> throw BusinessException(ErrorCode.DUPLICATE_FOOD_NAME)
             AdminFoodUpdateResult.READY_NOT_ALLOWED ->
                 throw BusinessException(ErrorCode.FOOD_READY_TRANSITION_FORBIDDEN)
+            AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE ->
+                throw BusinessException(ErrorCode.FOOD_IMAGE_REF_NOT_EDITABLE)
         }
         return ResponseEntity.ok(BaseResponse.ok(adminFoodService.getFoodDetail(id)))
     }

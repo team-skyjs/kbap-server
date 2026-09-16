@@ -262,7 +262,7 @@ class AdminFoodServiceTest : BehaviorSpec() {
 
                     val result = service.updateFood(
                         id,
-                        completeCommand("수동확인필요음식", FoodContentStatus.FAILED, imageRef = "food/img.png"),
+                        completeCommand("수동확인필요음식", FoodContentStatus.FAILED),
                     )
 
                     result shouldBe AdminFoodUpdateResult.UPDATED
