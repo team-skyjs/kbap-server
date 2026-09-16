@@ -74,6 +74,25 @@ class OrderControllerTest : BehaviorSpec() {
             }
         }
 
+        fun seedUnreadyFoodForPhoto(koreanName: String, contentStatus: String): Long {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
+                                      ingredients, content_status, status, created_at, updated_at)
+                    VALUES (?, '설명', 0, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE content_status = VALUES(content_status)
+                    """,
+                ).use { ps -> ps.setString(1, koreanName); ps.setString(2, contentStatus); ps.executeUpdate() }
+            }
+            return dataSource.connection.use { c ->
+                c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); rs.getLong(1) }
+                }
+            }
+        }
+
         fun seedReadyFood(koreanName: String): Long {
             dataSource.connection.use { c ->
                 c.prepareStatement(
@@ -779,6 +798,62 @@ class OrderControllerTest : BehaviorSpec() {
                     withNode.path("place").path("name").asText() shouldBe "백년옥"
                     val noNode = items.first { it.path("scanImageUrl").asText().endsWith("946/none.jpg") }
                     noNode.path("place").isNull shouldBe true
+                }
+            }
+        }
+
+        given("주문 상세 항목의 사진 존재 여부") {
+            `when`("실사진이 있는 READY 음식과 사진 없는 READY 음식을 함께 주문하면") {
+                then("hasPhoto 로 실사진과 기본 대체 이미지를 구분한다") {
+                    val memberId = 962L
+                    val token = accessToken(memberId)
+                    val path = "order/962/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val withPhoto = seedReadyFood("사진있는비빔밥")
+                    setFoodImage(withPhoto, "images/webp/bibimbap.webp")
+                    val withoutPhoto = seedReadyFood("사진없는비빔밥")
+
+                    val orderId = orderIdOf(
+                        placeOrder(
+                            token,
+                            orderBody(
+                                path,
+                                listOf(
+                                    itemJson("사진있는비빔밥", 1, 8000, withPhoto),
+                                    itemJson("사진없는비빔밥", 1, 7000, withoutPhoto),
+                                ),
+                            ),
+                        ).andExpect { status { isOk() } },
+                    )
+
+                    orderDetail(token, orderId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].hasPhoto") { value(true) }
+                        jsonPath("$.payload.items[0].imageRef") { value("https://cdn.test/images/webp/bibimbap.webp") }
+                        jsonPath("$.payload.items[1].ready") { value(true) }
+                        jsonPath("$.payload.items[1].hasPhoto") { value(false) }
+                    }
+                }
+            }
+
+            `when`("준비중 음식을 주문하면") {
+                then("hasPhoto 가 false 다 — 준비중은 실사진을 내려주지 않는다") {
+                    val memberId = 963L
+                    val token = accessToken(memberId)
+                    val path = "order/963/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val pending = seedUnreadyFoodForPhoto("사진준비중음식", "PENDING_IMAGE")
+
+                    val orderId = orderIdOf(
+                        placeOrder(token, orderBody(path, listOf(itemJson("사진준비중음식", 1, 5000, pending))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    orderDetail(token, orderId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].ready") { value(false) }
+                        jsonPath("$.payload.items[0].hasPhoto") { value(false) }
+                    }
                 }
             }
         }

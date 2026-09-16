@@ -102,13 +102,15 @@ class OrderService(
             place = OrderPlaceResponse.from(order.resolvedPlace),
             items = items.map {
                 val food = foodsById[it.foodId]
+                val photoUrl = food?.takeIf { f -> f.isReady() }?.let(foodService::resolveImageUrl)
                 OrderItemResponse(
                     menuName = it.menuName,
                     quantity = it.quantity,
                     price = it.price,
                     foodId = it.foodId,
-                    imageRef = publicImageUrlOf(food),
+                    imageRef = photoUrl ?: foodService.resolveImageUrlOrDefault(null),
                     ready = food?.isReady() == true,
+                    hasPhoto = photoUrl != null,
                 )
             },
         )
