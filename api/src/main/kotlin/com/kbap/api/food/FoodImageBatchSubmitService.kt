@@ -31,18 +31,19 @@ class FoodImageBatchSubmitService(
 
     fun submitMissingImages(): FoodImageSubmitResult = submit(foodRepository.findImageCandidates(), emptyList())
 
-    fun submitForFoods(foodIds: List<Long>): FoodImageSubmitResult {
-        if (foodIds.isEmpty()) return submitMissingImages()
+    fun submitForFoods(foodIds: List<Long>?): FoodImageSubmitResult {
+        if (foodIds == null) return submitMissingImages()
+        if (foodIds.isEmpty()) return FoodImageSubmitResult(0, 0, emptyList())
         val inProgress = itemRepository.findFoodIdsInProgress(foodIds).toSet()
-        val targets = foodRepository.findByIdIn(foodIds - inProgress)
+        val targets = foodRepository.findImageCandidatesByIdIn(foodIds - inProgress)
         return submit(targets, foodIds.filter { it in inProgress })
     }
 
-    fun submitOne(foodId: Long): Long {
+    fun submitOne(food: com.kbap.common.domain.food.model.Food): Long {
+        val foodId = food.id
         if (itemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
             throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
         }
-        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         submit(listOf(food), emptyList())
         return itemRepository.findFoodIdsInProgressItemId(foodId)
             ?: throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)

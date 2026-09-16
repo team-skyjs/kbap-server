@@ -47,8 +47,8 @@ class AdminFoodImageService(
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
 
-        val batchItemId = batchSubmitService.submitOne(foodId)
         food.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+        val batchItemId = batchSubmitService.submitOne(food)
         vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
         return AdminFoodImageRegenerateResult(
             foodId = foodId,
