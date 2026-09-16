@@ -24,7 +24,7 @@ class AdminFoodCatalogEditControllerTest : AdminFoodCatalogTestSupport() {
                             "description" to "더 구수한 찌개",
                             "spiciness" to 4,
                             "contentStatus" to "PENDING_REVIEW",
-                            "imageRef" to "images/food/updated.webp",
+                            "imageRef" to food.imageRef,
                             "nameTranslations" to mapOf("en" to "Updated stew"),
                             "descriptionTranslations" to mapOf("en" to "richer stew"),
                             "ingredients" to listOf(mapOf("code" to "SOY", "inclusion_percent" to 80)),

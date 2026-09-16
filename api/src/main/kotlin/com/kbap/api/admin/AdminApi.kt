@@ -91,5 +91,5 @@ interface AdminApi {
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
-    fun submitFoodImages(): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>>
+    fun submitFoodImages(request: AdminFoodImageSubmitRequest?): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>>
 }

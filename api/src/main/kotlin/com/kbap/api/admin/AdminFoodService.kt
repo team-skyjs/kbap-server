@@ -149,6 +149,7 @@ class AdminFoodService(
             throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
         }
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
+        if (command.imageRef != food.imageRef.orEmpty()) return AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE
 
         val nameTranslations: Map<String, String>
         val descriptionTranslations: Map<String, String>
@@ -334,6 +335,7 @@ enum class AdminFoodUpdateResult {
     INVALID_JSON,
     DUPLICATE_NAME,
     READY_NOT_ALLOWED,
+    IMAGE_REF_NOT_EDITABLE,
 }
 
 data class UpdateFoodCommand(

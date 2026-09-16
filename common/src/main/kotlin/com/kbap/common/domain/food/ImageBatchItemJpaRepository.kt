@@ -6,10 +6,27 @@ import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 
 interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     fun findByBatchIdAndItemStatus(batchId: Long, itemStatus: ImageBatchItemStatus): List<ImageBatchItem>
+
+    @Query(
+        """
+        select i.foodId from ImageBatchItem i
+        where i.foodId in :foodIds and i.itemStatus = 'PENDING'
+        """,
+    )
+    fun findFoodIdsInProgress(@Param("foodIds") foodIds: List<Long>): List<Long>
+
+    @Query(
+        """
+        select i.id from ImageBatchItem i
+        where i.foodId = :foodId and i.itemStatus = 'PENDING'
+        """,
+    )
+    fun findFoodIdsInProgressItemId(@Param("foodId") foodId: Long): Long?
 
     @Query(
         """

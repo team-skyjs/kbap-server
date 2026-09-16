@@ -1,0 +1,105 @@
+package com.kbap.api.admin
+
+import com.kbap.api.food.FoodImageBatchSubmitService
+import com.kbap.api.food.FoodService
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.FoodImageJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.model.FoodImage
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+@Service
+class AdminFoodImageService(
+    private val foodRepository: FoodJpaRepository,
+    private val foodImageRepository: FoodImageJpaRepository,
+    private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val foodService: FoodService,
+    private val batchSubmitService: FoodImageBatchSubmitService,
+) {
+    @Transactional(readOnly = true)
+    fun getGallery(foodId: Long): AdminFoodImageGalleryResult = galleryOf(foodId)
+
+    @Transactional
+    fun setPrimary(foodId: Long, imageId: Long, expectedVersion: Long): AdminFoodImageGalleryResult {
+        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        if (food.version != expectedVersion) throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
+
+        val target = foodImageRepository.findById(imageId)
+            .filter { it.foodId == foodId }
+            .orElseThrow { BusinessException(ErrorCode.FOOD_IMAGE_NOT_FOUND) }
+
+        if (!target.isPrimary) {
+            foodImageRepository.demotePrimaryByFoodId(foodId)
+            target.isPrimary = true
+            foodImageRepository.save(target)
+        }
+        food.imageRef = target.imageKey
+        vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        return galleryOf(foodId)
+    }
+
+    @Transactional
+    fun regenerateImage(foodId: Long): AdminFoodImageRegenerateResult {
+        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+
+        val batchItemId = batchSubmitService.submitOne(foodId)
+        food.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+        vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
+        return AdminFoodImageRegenerateResult(
+            foodId = foodId,
+            contentStatus = food.contentStatus.name,
+            batchItemId = batchItemId,
+        )
+    }
+
+    private fun galleryOf(foodId: Long): AdminFoodImageGalleryResult {
+        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        val items = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
+            .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
+            .map {
+                AdminFoodImageGalleryResult.Item(
+                    id = it.id,
+                    imageKey = it.imageKey,
+                    imageUrl = foodService.resolveImageKeyUrl(it.imageKey),
+                    isPrimary = it.isPrimary,
+                    sortOrder = it.sortOrder,
+                    source = it.source.name,
+                    createdAt = it.createdAt,
+                )
+            }
+        return AdminFoodImageGalleryResult(
+            foodId = food.id,
+            version = food.version,
+            contentStatus = food.contentStatus.name,
+            items = items,
+        )
+    }
+}
+
+data class AdminFoodImageRegenerateResult(
+    val foodId: Long,
+    val contentStatus: String,
+    val batchItemId: Long,
+)
+
+data class AdminFoodImageGalleryResult(
+    val foodId: Long,
+    val version: Long,
+    val contentStatus: String,
+    val items: List<Item>,
+) {
+    data class Item(
+        val id: Long,
+        val imageKey: String,
+        val imageUrl: String?,
+        val isPrimary: Boolean,
+        val sortOrder: Int,
+        val source: String,
+        val createdAt: java.time.LocalDateTime,
+    )
+}
