@@ -67,8 +67,9 @@ class NotificationInboxTest : BehaviorSpec() {
             title: String,
             type: NotificationType = NotificationType.NEWS,
             installationId: String = INSTALLATION,
+            data: Map<String, Any>? = null,
         ): Notification =
-            notificationRepository.save(Notification.forMemberDevice(memberId, installationId, type, title, "본문 $title", null))
+            notificationRepository.save(Notification.forMemberDevice(memberId, installationId, type, title, "본문 $title", data))
 
         fun setCreatedAt(id: Long, createdAt: LocalDateTime) {
             dataSource.connection.use { c ->
@@ -161,12 +162,52 @@ class NotificationInboxTest : BehaviorSpec() {
                     val body = payload(list(token))
 
                     body.map { it.path("id").asLong() } shouldBe listOf(suggestion.id, notice.id, helpful.id)
-                    body.forEach { it.has("type") shouldBe false }
+                    body.map { it.path("type").asText() } shouldBe listOf("SCAN_SUGGESTION", "NEWS", "HELPFUL")
+                    body.forEach { it.path("foodId").isNull shouldBe true }
                     val first = body[0]
                     first.path("title").asText() shouldBe "suggestion"
                     first.path("body").asText() shouldBe "본문 suggestion"
                     first.path("receivedAt").isNumber shouldBe true
                     first.path("receivedAt").asLong() shouldBe epochMillisOf(createdAtOf(suggestion.id))
+                }
+            }
+
+            `when`("유형 5종 알림이 있고 REVIEW_REMINDER 의 data 에 foodId 가 있으면") {
+                then("type 은 저장 유형 이름 그대로고 REVIEW_REMINDER 만 foodId 가 있다") {
+                    val (memberId, token) = login("inbox-types")
+                    val seeded = NotificationType.entries.map { type ->
+                        type to seed(memberId, type.name, type, data = mapOf("foodId" to 7))
+                    }
+
+                    val body = payload(list(token))
+
+                    val byId = body.associateBy { it.path("id").asLong() }
+                    seeded.forEach { (type, notification) ->
+                        val item = byId.getValue(notification.id)
+                        item.path("type").asText() shouldBe type.name
+                        if (type == NotificationType.REVIEW_REMINDER) item.path("foodId").asLong() shouldBe 7L
+                        else item.path("foodId").isNull shouldBe true
+                    }
+                }
+            }
+
+            `when`("REVIEW_REMINDER 의 data 에 foodId 가 없거나 정수가 아니면") {
+                then("foodId 는 null 이고 목록은 정상 응답한다") {
+                    val (memberId, token) = login("inbox-reminder-no-food")
+                    seed(memberId, "no-data", NotificationType.REVIEW_REMINDER)
+                    seed(memberId, "no-key", NotificationType.REVIEW_REMINDER, data = mapOf("type" to "REVIEW_REMINDER"))
+                    seed(memberId, "bad-value", NotificationType.REVIEW_REMINDER, data = mapOf("foodId" to "abc"))
+                    seed(memberId, "string-value", NotificationType.REVIEW_REMINDER, data = mapOf("foodId" to "7"))
+
+                    val body = payload(list(token))
+
+                    body.size() shouldBe 4
+                    body.associate { it.path("title").asText() to it.path("foodId") }.let { byTitle ->
+                        byTitle.getValue("no-data").isNull shouldBe true
+                        byTitle.getValue("no-key").isNull shouldBe true
+                        byTitle.getValue("bad-value").isNull shouldBe true
+                        byTitle.getValue("string-value").asLong() shouldBe 7L
+                    }
                 }
             }
 
@@ -235,6 +276,24 @@ class NotificationInboxTest : BehaviorSpec() {
                     body.path("id").asLong() shouldBe notification.id
                     body.path("read").asBoolean() shouldBe true
                     payload(list(token))[0].path("read").asBoolean() shouldBe true
+                }
+            }
+
+            `when`("REVIEW_REMINDER 알림을 읽음 처리하면") {
+                then("응답에 type 과 foodId 가 목록과 같은 값으로 함께 온다") {
+                    val (memberId, token) = login("read-reminder")
+                    val reminder = seed(memberId, "reminder", NotificationType.REVIEW_REMINDER, data = mapOf("foodId" to 7))
+                    val news = seed(memberId, "news", NotificationType.NEWS, data = mapOf("foodId" to 7))
+
+                    val reminderBody = payload(read(token, reminder.id))
+                    val newsBody = payload(read(token, news.id))
+
+                    reminderBody.path("read").asBoolean() shouldBe true
+                    reminderBody.path("type").asText() shouldBe "REVIEW_REMINDER"
+                    reminderBody.path("foodId").asLong() shouldBe 7L
+                    newsBody.path("type").asText() shouldBe "NEWS"
+                    newsBody.path("foodId").isNull shouldBe true
+                    payload(list(token)).first { it.path("id").asLong() == reminder.id }.path("foodId").asLong() shouldBe 7L
                 }
             }
 
