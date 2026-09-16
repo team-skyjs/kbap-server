@@ -10,9 +10,9 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.dao.DataIntegrityViolationException
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -51,49 +51,32 @@ class ReportJpaRepositoryTest : BehaviorSpec() {
             }
 
             `when`("같은 (신고자, 대상 타입, 대상)으로 다시 저장하면") {
-                then("유니크 제약 위반 예외를 던진다") {
+                then("재신고가 허용돼 행이 하나 더 쌓인다") {
                     reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L))
+                    reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
 
+                    reportJpaRepository.findAll().count { it.reporterMemberId == 2L && it.targetId == 20L } shouldBe 2
+                }
+            }
+        }
+
+        given("신고자 식별자 불변식") {
+            `when`("회원 ID 와 설치 ID 가 모두 없는 신고를 저장하면") {
+                then("CHECK 제약이 거절한다 — 엔티티 메타데이터에도 같은 제약이 선언돼 있다") {
                     shouldThrow<DataIntegrityViolationException> {
-                        reportJpaRepository.save(report(reporterMemberId = 2L, targetId = 20L, reason = ReportReason.ABUSE))
+                        reportJpaRepository.saveAndFlush(
+                            Report(
+                                reporterMemberId = null,
+                                reporterInstallationId = null,
+                                targetType = ReportTargetType.REVIEW,
+                                targetId = 90L,
+                                reason = ReportReason.SPAM,
+                            ),
+                        )
                     }
                 }
             }
         }
 
-        given("중복 신고 여부 조회") {
-            `when`("이미 신고한 대상이면") {
-                then("true 를 반환한다") {
-                    reportJpaRepository.save(report(reporterMemberId = 3L, targetId = 30L))
-
-                    reportJpaRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(3L, ReportTargetType.REVIEW, 30L) shouldBe true
-                }
-            }
-
-            `when`("신고한 적 없는 대상이면") {
-                then("false 를 반환한다") {
-                    reportJpaRepository.existsByReporterMemberIdAndTargetTypeAndTargetId(3L, ReportTargetType.REVIEW, 31L) shouldBe false
-                }
-            }
-        }
-
-        given("신고한 대상 id 목록 조회") {
-            `when`("한 회원이 같은 타입의 대상 여럿을 신고했으면") {
-                then("그 회원이 신고한 대상 id 만 전부 반환한다") {
-                    reportJpaRepository.save(report(reporterMemberId = 4L, targetId = 40L))
-                    reportJpaRepository.save(report(reporterMemberId = 4L, targetId = 41L))
-                    reportJpaRepository.save(report(reporterMemberId = 5L, targetId = 42L))
-
-                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(4L, ReportTargetType.REVIEW)
-                        .shouldContainExactlyInAnyOrder(40L, 41L)
-                }
-            }
-
-            `when`("신고 이력이 없는 회원이면") {
-                then("빈 목록을 반환한다") {
-                    reportJpaRepository.findTargetIdsByReporterMemberIdAndTargetType(999L, ReportTargetType.REVIEW) shouldBe emptyList()
-                }
-            }
-        }
     }
 }

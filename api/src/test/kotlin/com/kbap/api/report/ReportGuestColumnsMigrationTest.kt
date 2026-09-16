@@ -62,10 +62,12 @@ class ReportGuestColumnsMigrationTest : BehaviorSpec() {
             }
 
             `when`("신고자 인덱스를 조회하면") {
-                then("설치 조회용 일반 인덱스가 추가되고 기존 회원 유니크는 그대로다") {
+                then("재신고 허용으로 회원 유니크는 사라지고 같은 컬럼 순서의 일반 인덱스만 남는다") {
+                    indexExists("uk_report_reporter_target") shouldBe false
+                    indexExists("idx_report_reporter_member") shouldBe true
                     indexExists("idx_report_reporter_installation") shouldBe true
+                    uniqueIndexExists("idx_report_reporter_member") shouldBe false
                     uniqueIndexExists("idx_report_reporter_installation") shouldBe false
-                    uniqueIndexExists("uk_report_reporter_target") shouldBe true
                 }
             }
         }
