@@ -99,8 +99,12 @@ interface NotificationApi {
             알림함은 기기 단위다 — 알림 행은 발송 시점에 기기마다 그 기기 언어로 하나씩 저장되므로, 같은 회원이라도
             다른 기기의 알림·읽음 상태는 보이지 않는다. 헤더가 없으면 400.
 
-            항목은 `id`·`title`·`body`·`receivedAt`(수신 시각, epoch 밀리초)·`read`(false = 새 알림)다.
-            제목·본문은 발송 시점에 저장된 문자열 그대로다. 게스트는 401.
+            항목은 `id`·`type`·`foodId`·`title`·`body`·`receivedAt`(수신 시각, epoch 밀리초)·`read`(false = 새 알림)다.
+            `type` 은 푸시 data.type 과 같은 어휘의 알림 유형 문자열(HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NEWS·MEAL_TIME)이고,
+            `foodId` 는 REVIEW_REMINDER 일 때만 발송 data 의 foodId(64비트 정수), 그 외 유형은 null 이다 — 항목 탭 이동은 푸시 탭과
+            같은 규칙(KB-468)을 쓴다. 제목·본문은 발송 시점에 저장된 문자열 그대로다. 게스트는 401.
+            예: `[{"id": 456, "type": "REVIEW_REMINDER", "foodId": 7, "title": "식사는 어떠셨나요?", "body": "…", "receivedAt": 1789540000000, "read": false},
+            {"id": 455, "type": "NEWS", "foodId": null, "title": "(광고) K-Bap 소식", "body": "…", "receivedAt": 1789530000000, "read": true}]`
         """,
     )
     @ApiResponses(
@@ -128,11 +132,12 @@ interface NotificationApi {
             최초 읽은 시각을 유지한 채 200 이다. 읽음 취소는 없고, 7일이 지난 알림도 처리된다(목록에 안 보일 뿐).
 
             다른 회원의 알림·같은 회원의 다른 기기 알림·존재하지 않는 알림·삭제된 알림은 구분 없이 404 `NOTIFICATION-002` 다.
+            응답은 목록 항목과 같은 스키마(`type`·`foodId` 포함)다.
         """,
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "갱신된 알림(read = true)"),
+            ApiResponse(responseCode = "200", description = "갱신된 알림(read = true) — 목록 항목과 같은 스키마"),
             ApiResponse(responseCode = "400", description = "X-Installation-Id 누락·형식 오류"),
             ApiResponse(responseCode = "401", description = "인증 없음·위조·만료"),
             ApiResponse(responseCode = "404", description = "NOTIFICATION-002: 이 기기의 본인 알림이 아니거나 없음"),

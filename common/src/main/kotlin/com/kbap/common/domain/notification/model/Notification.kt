@@ -42,7 +42,19 @@ class Notification(
 
     fun isRead(): Boolean = readAt != null
 
+    fun foodIdOrNull(): Long? {
+        if (type != NotificationType.REVIEW_REMINDER) return null
+        return when (val value = data?.get(DATA_FOOD_ID)) {
+            is Int -> value.toLong()
+            is Long -> value
+            is String -> value.toLongOrNull()
+            else -> null
+        }
+    }
+
     companion object {
+        const val DATA_FOOD_ID = "foodId"
+
         fun forMember(memberId: Long, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
             Notification(memberId = memberId, type = type, title = title, body = body, data = data)
 
