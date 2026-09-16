@@ -250,6 +250,19 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun ageLikeRow(reviewId: Long, memberId: Long, minutes: Int) {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "UPDATE review_like SET updated_at = DATE_SUB(updated_at, INTERVAL ? MINUTE) WHERE review_id = ? AND member_id = ?",
+                ).use { ps ->
+                    ps.setInt(1, minutes)
+                    ps.setLong(2, reviewId)
+                    ps.setLong(3, memberId)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
         suspend fun sentEventually(count: Int) = eventually(5.seconds) { fakePushSender.sent shouldHaveSize count }
         suspend fun sentStays(count: Int) = continually(1.seconds) { fakePushSender.sent shouldHaveSize count }
 
@@ -359,6 +372,43 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                     like(reviewId, accessToken(8219L)).andExpect { status { isOk() } }
                     sentStays(0)
                     helpfulRows(author) shouldBe 0
+                }
+            }
+        }
+
+        given("같은 회원의 취소·재좋아요 반복") {
+            `when`("5분 안에 좋아요·취소·좋아요를 반복하면") {
+                val author = 8224L
+                val reviewId = seedReview(authorMemberId = author)
+                activity(device(author))
+                fakePushSender.reset()
+                then("첫 등록에만 알림이 가고 재등록엔 가지 않는다") {
+                    val token = accessToken(8225L)
+                    like(reviewId, token).andExpect { status { isOk() } }
+                    sentEventually(1)
+                    unlike(reviewId, token).andExpect { status { isOk() } }
+                    like(reviewId, token).andExpect { status { isOk() } }
+                    sentStays(1)
+                    unlike(reviewId, token).andExpect { status { isOk() } }
+                    like(reviewId, token).andExpect { status { isOk() } }
+                    sentStays(1)
+                    helpfulRows(author) shouldBe 1
+                }
+            }
+            `when`("취소한 지 5분이 지나 다시 좋아요하면") {
+                val author = 8226L
+                val reviewId = seedReview(authorMemberId = author)
+                activity(device(author))
+                fakePushSender.reset()
+                then("다시 알림이 간다") {
+                    val liker = 8227L
+                    val token = accessToken(liker)
+                    like(reviewId, token).andExpect { status { isOk() } }
+                    sentEventually(1)
+                    unlike(reviewId, token).andExpect { status { isOk() } }
+                    ageLikeRow(reviewId, liker, minutes = 6)
+                    like(reviewId, token).andExpect { status { isOk() } }
+                    sentEventually(2)
                 }
             }
         }

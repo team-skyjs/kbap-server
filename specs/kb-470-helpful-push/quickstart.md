@@ -27,6 +27,7 @@ curl -s -X POST 'http://localhost:8081/api/reviews/<reviewId>/like?liked=true' \
 mysql -e "SELECT id, type, data, created_at FROM notification WHERE type='HELPFUL' ORDER BY id DESC LIMIT 3" kbap
 mysql -e "SELECT notification_id, dispatch_status, ticket_id, error FROM notification_dispatch ORDER BY id DESC LIMIT 3" kbap
 # 다른 회원으로 다시 like → notification 행이 하나 더 생긴다(묶음 없음)
+# 같은 회원으로 unlike 후 like → 행이 늘지 않는다(5분 쿨다운). review_like.updated_at 을 6분 전으로 UPDATE 한 뒤 like → 하나 더 생긴다
 ```
 
 Expo 실발송을 보려면 `KBAP_PUSH_EXPO_ACCESS_TOKEN` 등 dev 환경 값이 .env 에 있어야 한다. 없으면 `notification_dispatch.error` 로 실패 경로만 확인된다.

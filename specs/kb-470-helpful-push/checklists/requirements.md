@@ -33,5 +33,5 @@
 
 - 입력 텍스트가 깨져 Jira KB-470 본문·기존 코드로 복원했다 — 복원 결과는 spec.md Input 에 기록.
 - "Jira 결정과의 차이" 섹션은 사용자 요청으로 넣은 것이며 발송 주체 변경(batch 주기 잡 → api 커밋 이후 백그라운드)을 명시한다. 구현 부품 이름(Expo·파이프라인)은 기존 자산 식별을 위해 배경·가정에만 등장하고 요구사항 본문은 행위로 적었다.
-- 묶음 창 1시간은 기본값 결정(Assumptions) — 사용자가 바꾸면 FR-005·SC-004·Assumptions 세 줄만 수정.
+- 같은 회원 재좋아요 5분 쿨다운은 2026-09-16 사용자 결정(3차·4차 입력, FR-005·SC-004·Assumptions). 리뷰 단위 억제·집계 묶음이 아니라 한 사람의 토글 연타 방어.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

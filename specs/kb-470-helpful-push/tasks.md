@@ -6,7 +6,7 @@
 
 **Tests**: Test-First is **NON-NEGOTIABLE** (Constitution Principle I). 모든 스토리는 실패하는 테스트를 먼저 쓰고(Red 확인) 구현한다. 테스트 스타일은 Kotest `BehaviorSpec`(given/when/then 한국어), 통합 헤더는 api `@IntegrationTest`·common `@SpringBootTest + @Import(MySqlContainerConfig::class)`(`CommonTestApp`) 고정 — 새 컨텍스트를 만들지 않는다. 비동기 검증은 Kotest `eventually(5.seconds)`(긍정)·`continually(1.seconds)`(부정). Kotlin 소스 주석 금지.
 
-**Organization**: 스토리별 phase. 공용 파이프라인 변경(채널 매핑·언어별 인자)은 모든 스토리가 쓰므로 Foundational. 이벤트·리스너는 US1 에서 만들고 US2 는 조건을 더한다. US3(묶음)는 2026-09-16 결정으로 제외.
+**Organization**: 스토리별 phase. 공용 파이프라인 변경(채널 매핑·언어별 인자)은 모든 스토리가 쓰므로 Foundational. 이벤트·리스너는 US1 에서 만들고 US2 는 조건을 더한다. US3(묶음)는 제외, 대신 같은 회원 재좋아요 5분 쿨다운(FR-005) — Phase 5.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -81,9 +81,13 @@
 
 ---
 
-## Phase 5: (삭제) 같은 리뷰 반복 반응 묶음
+## Phase 5: 같은 회원 재좋아요 5분 쿨다운 (FR-005, 2026-09-16 결정)
 
-2026-09-16 사용자 결정으로 범위에서 제외 — 실시간 단순 발송을 먼저 끝내고 고도화는 별도 이슈. 1차 구현(T014~T017: 파생 쿼리 + 1시간 창 게이트)은 구현·머지 전에 되돌렸다(research §4). 아래 Polish 의 회귀에 이 제거가 포함된다.
+묶음(리뷰 단위 1시간 창 게이트, 1차안)은 제거했고(research §4), 대신 한 회원의 취소·재좋아요 연타만 막는다.
+
+- [x] T014 `ReviewLikeJpaRepository.findByReviewIdAndMemberIdIncludingDeleted`(native, 취소 행 포함) + `ReviewLikeJpaRepositoryTest` 2 시나리오(DELETED 행 반환·없으면 null)
+- [x] T015 `ReviewLike.countsAsNewLikeAt(now)` + `RELIKE_COOLDOWN = 5분`; `ReviewService.likeReview` 가 upsert 전 조회로 발행 여부 판정
+- [x] T016 `ReviewLikeControllerTest` "같은 회원의 취소·재좋아요 반복" 2 시나리오 — 5분 안 반복은 첫 등록만·취소 5분 경과 재등록은 재발송; "다른 회원 잇단 좋아요 → 각각" 시나리오 유지
 
 ---
 
@@ -91,7 +95,7 @@
 
 - [x] T018 Run `./gradlew build` (arch 포함) — `ModuleBoundaryTest`·`AdminNotificationTestControllerTest`(NEWS → news 채널)·`ScanSuggestionPushJobTest` 회귀 Green, 컴파일 경고 없음
 - [ ] T019 [P] Run quickstart.md §2 로컬 검증 — 메인 `.env` 로 `:api:bootRun`(8081), 실제 좋아요 후 `notification`·`notification_dispatch` 행 확인
-- [x] T020 [P] Record in `../kbap-agenthub/wiki/` (기존 푸시 문서에 절 추가 또는 `helpful-push-after-commit-event.md`) + `INDEX.md` 한 줄: "활동 알림은 api 가 `@Async + @TransactionalEventListener(AFTER_COMMIT)` 로 즉시 발송(Jira 아웃박스+batch 폴링 대체), 묶음 없음(후속), 활동 채널 `activity`" — 허브에서 커밋
+- [x] T020 [P] Record in `../kbap-agenthub/wiki/` (기존 푸시 문서에 절 추가 또는 `helpful-push-after-commit-event.md`) + `INDEX.md` 한 줄: "활동 알림은 api 가 `@Async + @TransactionalEventListener(AFTER_COMMIT)` 로 즉시 발송(Jira 아웃박스+batch 폴링 대체), 묶음 없음(후속)·같은 회원 재좋아요 5분 쿨다운, 활동 채널 `activity`" — 허브에서 커밋
 
 ---
 
@@ -123,7 +127,7 @@
 ### Incremental Delivery
 
 - US2 를 붙이면 본인·취소·재호출이 걸러진다 — 이 상태가 최소 릴리스 가능 지점(잘못 보내는 알림 없음).
-- 묶음(Jira DoD 마지막 항목)은 후속 고도화.
+- 묶음(Jira DoD 마지막 항목)은 후속 고도화. 같은 회원 재좋아요 5분 쿨다운만 둔다(Phase 5).
 
 ---
 

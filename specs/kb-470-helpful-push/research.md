@@ -17,14 +17,14 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 설계 결정과
 ## 3. 트리거 판정 위치 — 발행 시점에 걸러서 이벤트 자체를 안 낸다
 
 - **Decision**: `likeReview` 가 (a) 리뷰를 `findById` 로 읽어 작성자·음식 id 를 얻고, (b) `findByReviewIdAndMemberId` 가 null 일 때만 "새 좋아요" 로 보며, (c) 작성자 ≠ 좋아요 회원일 때만 `ReviewLiked(reviewId, authorMemberId, foodId)` 를 발행한다. 취소(`unlikeReview`)는 발행하지 않는다.
-- **Rationale**: 셋 다 요청 트랜잭션 안에서 이미 아는 값이라 리스너에서 다시 조회할 이유가 없다. `@SQLRestriction` 이 삭제 행을 숨기므로 취소 후 재등록은 "새 좋아요" 로 보여 다시 알림이 간다(§4 — 묶음은 범위 밖). `existsById` → `findById` 로 바뀌지만 쿼리 수는 같다.
+- **Rationale**: 셋 다 요청 트랜잭션 안에서 이미 아는 값이라 리스너에서 다시 조회할 이유가 없다. `@SQLRestriction` 이 삭제 행을 숨기므로 취소 후 재등록은 "새 좋아요" 로 보여 다시 알림이 간다(§4 — 단 취소 5분 안의 재등록은 새 좋아요로 치지 않는다). `existsById` → `findById` 로 바뀌지만 쿼리 수는 같다.
 - **Alternatives**: `upsertActive` 의 affected rows 로 신규/부활/중복을 구분 — MySQL `ON DUPLICATE KEY UPDATE` 는 변경 없으면 0·갱신이면 2·삽입이면 1 을 주지만 `updated_at = NOW(6)` 때문에 항상 갱신되어 중복 재호출도 2 → 구분 불가, 기각.
 
-## 4. 묶음 정책 — 이번 범위 밖 (2026-09-16 사용자 결정)
+## 4. 묶음은 범위 밖, 같은 회원 재좋아요 5분 쿨다운 (2026-09-16 결정)
 
-- **Decision**: 같은 리뷰 반복 반응을 묶지 않는다. 새 좋아요마다 알림 1건. Jira DoD 의 "묶음 정책" 항목은 보류하고 후속 고도화로 넘긴다.
-- **Rationale**: 첫 구현은 실시간 단순 발송으로 끝낸다. 1차안(작성자의 최근 1시간 HELPFUL 알림함 행을 읽어 `data.reviewId` 로 메모리 매칭)은 Codex 리뷰(#268)가 지적한 대로 확인과 생성이 한 트랜잭션이 아니라 동시 반응에 2건이 갈 수 있었고, 그걸 원자화하려면 이 PR 이 피한 아웃박스 수준의 테이블·제약이 돌아온다. 요구 없이 방어를 쌓지 않는다.
-- **Alternatives**: (a) 1시간 창 메모리 매칭(1차안) — 경합 허용 전제, 사용자 결정으로 제거. (b) (작성자, 리뷰, 창) unique 테이블로 원자 점유 — 고도화 시 후보. (c) 읽지 않은 HELPFUL 행이 있으면 억제 — 기기 두 대 읽음 상태 불일치, 기각.
+- **Decision**: 같은 리뷰의 여러 회원 반응은 묶지 않는다(각각 1건, Jira DoD 묶음 항목 보류). 대신 **같은 회원이 같은 리뷰를 취소한 지 5분 안에 다시 좋아요하면 새 좋아요로 치지 않는다** — `ReviewService.likeReview` 가 upsert 전에 `findByReviewIdAndMemberIdIncludingDeleted`(native, `@SQLRestriction` 우회)로 취소된 행까지 읽고 `ReviewLike.countsAsNewLikeAt(now)`(비활성이고 `updatedAt` 이 `RELIKE_COOLDOWN` 5분보다 오래됐을 때만 true)로 발행 여부를 정한다. 판정과 저장이 같은 트랜잭션이다.
+- **Rationale**: 사용자 정정(4차 입력) — 목적은 "한 사람이 좋아요·취소를 연타할 때 푸시 폭주 방지" 이지 "리뷰당 5분간 알림 없음" 이 아니다. 1차안(작성자 알림함 최근 1시간 행을 `data.reviewId` 로 매칭)은 리뷰 단위라 다른 회원의 정당한 반응까지 막았고 Codex(#268)가 확인·생성 비원자성도 지적해 제거했다. 좋아요 행의 마지막 변경 시각(취소 시각)은 이미 있는 컬럼이라 새 테이블·알림함 조회 없이 한 번의 조회로 끝난다.
+- **Alternatives**: (a) 리뷰 단위 5분 억제(알림함 행 기준) — 다른 회원 반응까지 억제, 사용자 기각. (b) 알림함 `data` 에 좋아요 누른 회원 id 를 실어 매칭 — 푸시 payload 에 누른 사람이 노출("누군가" 익명성 훼손), 기각. (c) 쿨다운 없음(2차안) — 토글 연타로 건당 알림, 기각. (d) (작성자, 리뷰, 창) unique 테이블 — 과함, 보류.
 
 ## 5. 음식 이름 — 기기 언어별 인자 `argsByLang`
 

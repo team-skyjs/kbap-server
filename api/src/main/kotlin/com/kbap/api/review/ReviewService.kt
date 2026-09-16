@@ -27,6 +27,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 class ReviewService(
@@ -130,8 +131,9 @@ class ReviewService(
     fun likeReview(memberId: Long, reviewId: Long) {
         val review = reviewRepository.findById(reviewId)
             .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
-        val isNewLike = reviewLikeRepository.findByReviewIdAndMemberId(reviewId, memberId) == null
+        val existingLike = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
         reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
+        val isNewLike = existingLike?.countsAsNewLikeAt(LocalDateTime.now()) ?: true
         if (isNewLike && !review.isOwnedBy(memberId)) {
             eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
         }
