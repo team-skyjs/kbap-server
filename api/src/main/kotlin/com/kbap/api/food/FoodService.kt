@@ -263,6 +263,8 @@ class FoodService(
 
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
+    fun resolveImageKeyUrl(imageKey: String): String? = ImageUrls.resolve(imagePublicBaseUrl, imageKey)
+
     fun resolveImageUrlOrDefault(food: Food?): String =
         food?.let { resolveImageUrl(it) }
             ?: requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, DEFAULT_FOOD_IMAGE_PATH))

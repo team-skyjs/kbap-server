@@ -404,7 +404,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("description", "수정된 설명")
                         param("spiciness", "3")
                         param("contentStatus", "PENDING_REVIEW")
-                        param("imageRef", "food/1.png")
+                        param("imageRef", saved.imageRef.orEmpty())
                         param("nameTranslationsJson", """{"en":"Edited"}""")
                         param("descriptionTranslationsJson", """{"en":"Edited desc"}""")
                         param("ingredientsJson", """[{"code":"PORK","inclusion_percent":80}]""")
@@ -418,7 +418,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     updated.description shouldBe "수정된 설명"
                     updated.spiciness shouldBe 3
                     updated.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
-                    updated.imageRef shouldBe "food/1.png"
+                    updated.imageRef shouldBe saved.imageRef
                     updated.nameTranslations shouldBe mapOf("en" to "Edited")
                     updated.ingredients!!.single().code shouldBe "PORK"
                 }
