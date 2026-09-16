@@ -209,12 +209,42 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     service.prepare(PushRequest(type, listOf(9L), args = newsArgsFor(type))).messages.single().channelId
                 }
 
-                then("광고성은 news, 비광고성은 default 채널이다") {
+                then("광고성은 news, 활동은 activity 채널이다") {
                     channels.getValue(NotificationType.SCAN_SUGGESTION) shouldBe "news"
                     channels.getValue(NotificationType.NEWS) shouldBe "news"
                     channels.getValue(NotificationType.MEAL_TIME) shouldBe "news"
-                    channels.getValue(NotificationType.HELPFUL) shouldBe "default"
-                    channels.getValue(NotificationType.REVIEW_REMINDER) shouldBe "default"
+                    channels.getValue(NotificationType.HELPFUL) shouldBe "activity"
+                    channels.getValue(NotificationType.REVIEW_REMINDER) shouldBe "activity"
+                }
+            }
+        }
+
+        given("언어별 인자") {
+            `when`("ko·en 기기에 argsByLang 을 실어 보내면") {
+                clear()
+                val ko = device(10L, "ko", newer)
+                val en = device(10L, "en", newer)
+                activityOn(10L)
+
+                val byLang = service.prepare(
+                    PushRequest(
+                        NotificationType.HELPFUL,
+                        listOf(10L),
+                        argsByLang = mapOf(
+                            LanguageCode.KO to mapOf("food" to "김치찌개"),
+                            LanguageCode.EN to mapOf("food" to "Kimchi stew"),
+                        ),
+                    ),
+                ).messages.associateBy { it.to }
+                val shared = service.prepare(
+                    PushRequest(NotificationType.HELPFUL, listOf(10L), args = mapOf("food" to "X")),
+                ).messages.associateBy { it.to }
+
+                then("기기 언어의 인자로 렌더하고, argsByLang 이 비면 args 를 쓴다") {
+                    byLang.getValue(ko.expoToken).body shouldContain "김치찌개"
+                    byLang.getValue(en.expoToken).body shouldContain "Kimchi stew"
+                    shared.getValue(ko.expoToken).body shouldContain "X"
+                    shared.getValue(en.expoToken).body shouldContain "X"
                 }
             }
         }

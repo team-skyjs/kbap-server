@@ -21,9 +21,11 @@ import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 class ReviewService(
@@ -37,6 +39,7 @@ class ReviewService(
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val eventPublisher: ApplicationEventPublisher,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -123,10 +126,14 @@ class ReviewService(
 
     @Transactional
     fun likeReview(memberId: Long, reviewId: Long) {
-        if (!reviewRepository.existsById(reviewId)) {
-            throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
-        }
+        val review = reviewRepository.findById(reviewId)
+            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        val existingLike = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
         reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
+        val isNewLike = existingLike?.countsAsNewLikeAt(LocalDateTime.now()) ?: true
+        if (isNewLike && !review.isOwnedBy(memberId)) {
+            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
+        }
     }
 
     @Transactional

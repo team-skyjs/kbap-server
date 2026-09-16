@@ -65,6 +65,19 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
                     reviewLikeRepository.findByReviewIdAndMemberId(reviewId, memberId).shouldBeNull()
                 }
             }
+            `when`("취소된 행을 삭제 포함 조회로 찾으면") {
+                then("DELETED 행을 돌려준다") {
+                    val found = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
+                    found.shouldNotBeNull()
+                    found.isDeleted().shouldBeTrue()
+                    found.id shouldBe originalId
+                }
+            }
+            `when`("좋아요한 적 없는 쌍을 삭제 포함 조회로 찾으면") {
+                then("null 을 돌려준다") {
+                    reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, 999L).shouldBeNull()
+                }
+            }
             `when`("취소 후 다시 등록하면") {
                 upsertActive(reviewId, memberId)
                 then("같은 행이 ACTIVE 로 부활한다") {
