@@ -2,7 +2,10 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import jakarta.validation.Valid
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -28,14 +31,14 @@ class AdminFoodImageController(
         @PathVariable foodId: Long,
         @PathVariable imageId: Long,
         @Valid @RequestBody request: AdminFoodImagePrimaryRequest,
-    ): ResponseEntity<BaseResponse<AdminFoodImageGalleryResponse>> =
-        ResponseEntity.ok(
-            BaseResponse.ok(
-                AdminFoodImageGalleryResponse.from(
-                    adminFoodImageService.setPrimary(foodId, imageId, request.version!!),
-                ),
-            ),
-        )
+    ): ResponseEntity<BaseResponse<AdminFoodImageGalleryResponse>> {
+        val result = try {
+            adminFoodImageService.setPrimary(foodId, imageId, request.version!!)
+        } catch (e: OptimisticLockingFailureException) {
+            throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
+        }
+        return ResponseEntity.ok(BaseResponse.ok(AdminFoodImageGalleryResponse.from(result)))
+    }
 
     @PostMapping("/{foodId}/regenerate-image")
     override fun regenerateImage(

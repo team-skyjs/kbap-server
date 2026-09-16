@@ -36,7 +36,7 @@ class AdminController(
     override fun submitFoodImages(
         @RequestBody(required = false) request: AdminFoodImageSubmitRequest?,
     ): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>> {
-        val result = foodImageBatchSubmitService.submitForFoods(request?.foodIds.orEmpty())
+        val result = foodImageBatchSubmitService.submitForFoods(request?.foodIds)
         return ResponseEntity.ok(BaseResponse.ok(AdminFoodImageSubmitResponse.from(result)))
     }
 }

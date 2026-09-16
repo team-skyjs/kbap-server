@@ -135,8 +135,8 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
         given("이미지 배치 제출") {
             `when`("foodIds 를 지정해 제출하면") {
                 then("지정한 음식만 제출되고 기존 필드도 함께 내려간다") {
-                    val target = saveFood("지정제출음식")
-                    saveFood("미지정음식")
+                    val target = saveFood("지정제출음식", FoodContentStatus.PENDING_IMAGE)
+                    saveFood("미지정음식", FoodContentStatus.PENDING_IMAGE)
                     foodRepository.save(foodRepository.findById(target.id).orElseThrow().apply { imageRef = null })
 
                     val payload = payloadOf(submit(mapOf("foodIds" to listOf(target.id))))
@@ -144,6 +144,38 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                     payload.path("submittedCount").asInt() shouldBe 1
                     payload.path("submittedBatchCount").asInt() shouldBe 1
                     payload.path("skippedInProgress").size() shouldBe 0
+                }
+            }
+
+            `when`("이미지가 이미 있는 READY 음식을 foodIds 로 지정하면") {
+                then("후보가 아니라 제출하지 않는다 — 유료 생성 API 를 헛돌리지 않는다") {
+                    val ready = saveFood("이미지있는READY음식")
+
+                    val payload = payloadOf(submit(mapOf("foodIds" to listOf(ready.id))))
+                    payload.path("submittedFoodCount").asInt() shouldBe 0
+                    payload.path("submittedBatchCount").asInt() shouldBe 0
+                    payload.path("skippedInProgress").size() shouldBe 0
+                }
+            }
+
+            `when`("foodIds 를 빈 배열로 보내면") {
+                then("전체 일괄로 번지지 않고 아무것도 제출하지 않는다") {
+                    val candidate = saveFood("후보음식", FoodContentStatus.PENDING_IMAGE)
+                    foodRepository.save(foodRepository.findById(candidate.id).orElseThrow().apply { imageRef = null })
+
+                    val payload = payloadOf(submit(mapOf("foodIds" to emptyList<Long>())))
+                    payload.path("submittedFoodCount").asInt() shouldBe 0
+                    payload.path("submittedBatchCount").asInt() shouldBe 0
+                }
+            }
+
+            `when`("바디 없이 제출하면") {
+                then("기존처럼 이미지 없는 후보 전체를 일괄 제출한다") {
+                    val candidate = saveFood("일괄후보음식", FoodContentStatus.PENDING_IMAGE)
+                    foodRepository.save(foodRepository.findById(candidate.id).orElseThrow().apply { imageRef = null })
+
+                    val payload = payloadOf(submit())
+                    (payload.path("submittedFoodCount").asInt() >= 1) shouldBe true
                 }
             }
 
