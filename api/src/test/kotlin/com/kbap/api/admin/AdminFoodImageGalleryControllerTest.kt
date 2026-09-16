@@ -35,6 +35,9 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
     private lateinit var foodImageRepository: FoodImageJpaRepository
 
     @Autowired
+    private lateinit var vectorOutboxRepository: com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
@@ -183,6 +186,17 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                     val primary = saveImage(food.id, "images/webp/p.webp", isPrimary = true, sortOrder = 0)
 
                     setPrimary(food.id, primary.id, food.version).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("이미 대표인 이미지를 다시 지정해도") {
+                then("벡터 아웃박스가 쌓이지 않는다 — 바뀐 게 없으면 재색인도 없다") {
+                    val food = saveFood("멱등아웃박스음식", "images/webp/idem.webp")
+                    val primary = saveImage(food.id, "images/webp/idem.webp", isPrimary = true, sortOrder = 0)
+
+                    setPrimary(food.id, primary.id, food.version).andExpect { status { isOk() } }
+
+                    vectorOutboxRepository.findAll().count { it.foodId == food.id } shouldBe 0
                 }
             }
 
