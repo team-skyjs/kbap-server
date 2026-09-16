@@ -6,6 +6,12 @@ import jakarta.validation.constraints.NotBlank
 private const val LANG_DESCRIPTION =
     "표시명 언어 코드. 지원: ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 지원 목록에 없는 값은 en 으로 응답한다."
 
+private const val RISK_DESCRIPTION =
+    "위험도 필터(CSV, 옵션). 값: SAFE·CAUTION·DANGER·UNKNOWN(overallRiskStatus 열거). 여러 값은 OR. " +
+        "조회자(회원 회피성분·비회원 기준)로 판정한 위험도가 이 집합에 드는 음식만 내려준다. " +
+        "요청당 스캔 상한이 있어 items 는 PAGE_SIZE 미만(0 포함)일 수 있고, 종료 판정은 items 개수가 아니라 hasNext/nextCursor 로만 한다(hasNext=true 면 nextCursor 로 계속 당긴다). " +
+        "미지정 시 전체. 미정의 값은 400(COMMON-002). 비회원도 사용 가능."
+
 @Schema(description = "음식 목록 조회 요청")
 data class FoodBrowseRequest(
     @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지", example = "42")
@@ -13,6 +19,8 @@ data class FoodBrowseRequest(
     @field:NotBlank(message = "lang 은 필수입니다")
     @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
     val lang: String,
+    @field:Schema(description = RISK_DESCRIPTION, example = "DANGER,CAUTION")
+    val risk: String? = null,
 )
 
 @Schema(description = "음식 검색 요청")

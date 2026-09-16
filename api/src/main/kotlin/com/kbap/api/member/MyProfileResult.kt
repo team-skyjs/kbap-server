@@ -13,6 +13,10 @@ data class MyProfileResult(
     val spicinessPreference: String,
     val currency: String?,
     val onboardingCompleted: Boolean,
+    val scanCount: Int,
+    val freeScanLimit: Int,
+    val scanUnlocked: Boolean,
+    val scanRemaining: Int?,
     val ranking: MemberRankingResult,
 ) {
     companion object {
@@ -28,6 +32,10 @@ data class MyProfileResult(
                 spicinessPreference = member.profile.spicinessPreference.name,
                 currency = member.profile.currency?.name,
                 onboardingCompleted = member.onboardingCompleted,
+                scanCount = member.scanCount,
+                freeScanLimit = Member.FREE_SCAN_LIMIT,
+                scanUnlocked = member.scanUnlocked,
+                scanRemaining = member.scanRemaining(),
                 ranking = ranking,
             )
     }

@@ -12,6 +12,8 @@ dependencies {
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.actuator)
     "runtimeOnly"(libs.micrometer.registry.prometheus)
+    "implementation"(libs.sentry.spring.boot4.starter)
+    "implementation"(libs.sentry.logback)
 
     "testImplementation"(testFixtures(project(":common")))
     "testImplementation"(libs.spring.boot.webmvc.test)

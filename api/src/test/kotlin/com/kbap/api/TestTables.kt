@@ -4,6 +4,11 @@ import javax.sql.DataSource
 
 object TestTables {
     private val tables = listOf(
+        "notification_dispatch",
+        "notification",
+        "notification_device",
+        "notification_setting",
+        "notification_consent",
         "review_like",
         "member_ranking_event",
         "food_review",
@@ -13,6 +18,7 @@ object TestTables {
         "image_batch",
         "food_content_outbox",
         "food_vector_outbox",
+        "food_image",
         "food",
         "community_comment",
         "community_post",
