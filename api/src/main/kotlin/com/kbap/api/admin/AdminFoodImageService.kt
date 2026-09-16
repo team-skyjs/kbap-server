@@ -7,10 +7,13 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Service
 class AdminFoodImageService(
@@ -19,7 +22,11 @@ class AdminFoodImageService(
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
     private val foodService: FoodService,
     private val batchSubmitService: FoodImageBatchSubmitService,
+    private val imageBatchItemRepository: ImageBatchItemJpaRepository,
+    transactionManager: PlatformTransactionManager,
 ) {
+    private val transaction = TransactionTemplate(transactionManager)
+
     @Transactional(readOnly = true)
     fun getGallery(foodId: Long): AdminFoodImageGalleryResult = galleryOf(foodId)
 
@@ -32,24 +39,31 @@ class AdminFoodImageService(
             .filter { it.foodId == foodId }
             .orElseThrow { BusinessException(ErrorCode.FOOD_IMAGE_NOT_FOUND) }
 
+        val changed = !target.isPrimary || food.imageRef != target.imageKey
         if (!target.isPrimary) {
             foodImageRepository.demotePrimaryByFoodId(foodId)
             target.isPrimary = true
             foodImageRepository.save(target)
         }
         food.imageRef = target.imageKey
-        vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        if (changed) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
         return galleryOf(foodId)
     }
 
-    @Transactional
     fun regenerateImage(foodId: Long): AdminFoodImageRegenerateResult {
-        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
-        if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
-
-        food.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+        // 배치 선점·외부 제출은 자체 트랜잭션으로 커밋돼야 한다 — 바깥 트랜잭션에 묶으면
+        // 유료 API 호출 전에 선점이 durable 하지 않다. 그래서 상태 전이만 먼저 커밋한다.
+        val food = transaction.execute {
+            val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+            if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+            if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
+                throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
+            }
+            target.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+            vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
+            target
+        }!!
         val batchItemId = batchSubmitService.submitOne(food)
-        vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
         return AdminFoodImageRegenerateResult(
             foodId = foodId,
             contentStatus = food.contentStatus.name,
