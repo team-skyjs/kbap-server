@@ -83,7 +83,7 @@ class AdminFeedbackService(
 
     @Transactional
     fun reply(id: Long, adminAccountId: Long, content: String?): AdminFeedbackReplyResult {
-        val feedback = feedbackRepository.findById(id).orElseThrow { BusinessException(ErrorCode.FEEDBACK_NOT_FOUND) }
+        val feedback = feedbackRepository.findByIdForUpdate(id) ?: throw BusinessException(ErrorCode.FEEDBACK_NOT_FOUND)
         if (feedback.isClosed()) throw BusinessException(ErrorCode.FEEDBACK_CLOSED)
         val body = content?.trim().orEmpty()
         if (body.isEmpty() || body.length > Feedback.MAX_CONTENT_LENGTH) {
@@ -105,7 +105,7 @@ class AdminFeedbackService(
 
     @Transactional
     fun changeStatus(id: Long, status: String?): AdminFeedbackStatusResult {
-        val feedback = feedbackRepository.findById(id).orElseThrow { BusinessException(ErrorCode.FEEDBACK_NOT_FOUND) }
+        val feedback = feedbackRepository.findByIdForUpdate(id) ?: throw BusinessException(ErrorCode.FEEDBACK_NOT_FOUND)
         val next = status?.let { raw -> FeedbackStatus.entries.firstOrNull { it.name == raw } }
             ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         feedback.changeStatus(next)

@@ -118,6 +118,24 @@ class FeedbackControllerTest : BehaviorSpec() {
                 installationId?.let { header("X-Installation-Id", it) }
             }
 
+        fun detail(
+            id: Long,
+            token: String? = null,
+            installationId: String? = "feedback-install-0001",
+        ): ResultActionsDsl =
+            mockMvc.get("/api/feedbacks/$id") {
+                token?.let { header("Authorization", "Bearer $it") }
+                installationId?.let { header("X-Installation-Id", it) }
+            }
+
+        fun deviceInfoOf(id: Long): String? =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT device_info FROM feedback WHERE id = ?").use { ps ->
+                    ps.setLong(1, id)
+                    ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+                }
+            }
+
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
@@ -207,6 +225,75 @@ class FeedbackControllerTest : BehaviorSpec() {
                         status { isTooManyRequests() }
                         jsonPath("$.code") { value("FEEDBACK-003") }
                     }
+                }
+            }
+        }
+
+        given("기기 정보 저장") {
+            `when`("계약에 없는 키와 아주 긴 값을 함께 보내면") {
+                then("계약 9키만 남기고 값은 길이를 잘라 저장한다") {
+                    val id = payloadOf(
+                        submit(
+                            installationId = "device-install-0001",
+                            body = mapOf(
+                                "content" to "기기 정보 확인",
+                                "deviceInfo" to mapOf(
+                                    "os" to "ios",
+                                    "appVersion" to "가".repeat(5000),
+                                    "secretDump" to "x".repeat(5000),
+                                ),
+                            ),
+                        ).andExpect { status { isCreated() } },
+                    ).path("id").asLong()
+
+                    val stored = mapper.readTree(deviceInfoOf(id))
+                    stored.has("secretDump") shouldBe false
+                    stored.path("os").asText() shouldBe "ios"
+                    stored.path("appVersion").asText().length shouldBe FeedbackService.MAX_DEVICE_VALUE_LENGTH
+                }
+            }
+        }
+
+        given("문의 상세 조회") {
+            `when`("같은 기기에서 자기 문의를 조회하면") {
+                then("목록 아이템과 같은 모양으로 한 건을 내려준다") {
+                    val id = payloadOf(
+                        submit(installationId = "detail-install-0001", body = mapOf("content" to "상세로 볼 문의")),
+                    ).path("id").asLong()
+
+                    val payload = payloadOf(
+                        detail(id, installationId = "detail-install-0001").andExpect { status { isOk() } },
+                    )
+                    payload.path("id").asLong() shouldBe id
+                    payload.path("content").asText() shouldBe "상세로 볼 문의"
+                    payload.path("status").asText() shouldBe "OPEN"
+                    payload.path("replies").isArray shouldBe true
+                }
+            }
+
+            `when`("남의 문의 id 를 조회하면") {
+                then("404 FEEDBACK-004 로 존재 여부를 숨긴다") {
+                    val id = payloadOf(
+                        submit(installationId = "owner-install-0001", body = mapOf("content" to "남의 문의")),
+                    ).path("id").asLong()
+
+                    detail(id, installationId = "stranger-install-0001").andExpect {
+                        status { isNotFound() }
+                        jsonPath("$.code") { value("FEEDBACK-004") }
+                    }
+                }
+            }
+
+            `when`("게스트로 낸 문의를 같은 기기에서 로그인해 조회하면") {
+                then("회원 토큰으로도 그대로 보인다") {
+                    val id = payloadOf(
+                        submit(installationId = "detail-keep-0001", body = mapOf("content" to "가입 전 문의")),
+                    ).path("id").asLong()
+
+                    payloadOf(
+                        detail(id, token = token(9130L), installationId = "detail-keep-0001")
+                            .andExpect { status { isOk() } },
+                    ).path("content").asText() shouldBe "가입 전 문의"
                 }
             }
         }

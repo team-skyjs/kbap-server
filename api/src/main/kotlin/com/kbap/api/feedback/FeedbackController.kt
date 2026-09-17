@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -37,6 +38,16 @@ class FeedbackController(
             userAgent = userAgent,
         )
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.ok(FeedbackCreateResponse.from(result)))
+    }
+
+    @GetMapping("/{id}")
+    override fun getOne(
+        @AuthMemberIdOrNull memberId: Long?,
+        @RequestHeader(name = ApiHeaders.INSTALLATION_ID, required = false) installationId: String?,
+        @PathVariable id: Long,
+    ): ResponseEntity<BaseResponse<MyFeedbackItemResponse>> {
+        val item = feedbackService.getMyFeedback(memberId = memberId, installationId = installationId, id = id)
+        return ResponseEntity.ok(BaseResponse.ok(MyFeedbackItemResponse.from(item)))
     }
 
     @GetMapping("/me")

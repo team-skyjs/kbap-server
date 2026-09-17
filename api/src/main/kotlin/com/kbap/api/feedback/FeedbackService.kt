@@ -8,6 +8,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.feedback.FeedbackJpaRepository
 import com.kbap.common.domain.feedback.FeedbackReplyJpaRepository
 import com.kbap.common.domain.feedback.model.Feedback
+import com.kbap.common.domain.feedback.model.FeedbackReply
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
@@ -41,7 +42,7 @@ class FeedbackService(
         verifyDailyQuota(installation)
 
         val saved = feedbackRepository.save(
-            Feedback.of(memberId, installation, body, imagePaths, deviceInfo, userAgent),
+            Feedback.of(memberId, installation, body, imagePaths, sanitizeDeviceInfo(deviceInfo), userAgent),
         )
         return CreateFeedbackResult(saved.id, saved.feedbackStatus.name, saved.createdAt)
     }
@@ -55,21 +56,33 @@ class FeedbackService(
         val repliesByFeedback = replyRepository.findByFeedbackIdInOrderByIdAsc(items.map { it.id })
             .groupBy { it.feedbackId }
         return MyFeedbackPage(
-            items = items.map { feedback ->
-                MyFeedbackPage.Item(
-                    id = feedback.id,
-                    content = feedback.content,
-                    imageUrls = feedback.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
-                    status = feedback.feedbackStatus.name,
-                    createdAt = feedback.createdAt,
-                    replies = repliesByFeedback[feedback.id].orEmpty().map {
-                        MyFeedbackPage.Reply(id = it.id, content = it.content, createdAt = it.createdAt)
-                    },
-                )
-            },
+            items = items.map { toItem(it, repliesByFeedback[it.id].orEmpty()) },
             nextCursor = items.lastOrNull()?.id?.takeIf { hasNext },
         )
     }
+
+    @Transactional(readOnly = true)
+    fun getMyFeedback(memberId: Long?, installationId: String?, id: Long): MyFeedbackPage.Item {
+        val installation = requireInstallationId(installationId)
+        val feedback = feedbackRepository.findMineById(id, installation, memberId)
+            ?: throw BusinessException(ErrorCode.FEEDBACK_NOT_FOUND)
+        return toItem(feedback, replyRepository.findByFeedbackIdInOrderByIdAsc(listOf(feedback.id)))
+    }
+
+    private fun toItem(feedback: Feedback, replies: List<FeedbackReply>) = MyFeedbackPage.Item(
+        id = feedback.id,
+        content = feedback.content,
+        imageUrls = feedback.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
+        status = feedback.feedbackStatus.name,
+        createdAt = feedback.createdAt,
+        replies = replies.map { MyFeedbackPage.Reply(id = it.id, content = it.content, createdAt = it.createdAt) },
+    )
+
+    private fun sanitizeDeviceInfo(deviceInfo: Map<String, String>?): Map<String, String>? =
+        deviceInfo
+            ?.filterKeys { it in DEVICE_INFO_KEYS }
+            ?.mapValues { (_, value) -> value.take(MAX_DEVICE_VALUE_LENGTH) }
+            ?.takeIf { it.isNotEmpty() }
 
     private fun requireInstallationId(raw: String?): String =
         raw?.let(ApiHeaders::validInstallationId)
@@ -78,7 +91,6 @@ class FeedbackService(
     private fun verifyImages(memberId: Long?, installationId: String, imagePaths: List<String>?) {
         if (imagePaths.isNullOrEmpty()) return
         if (imagePaths.size > Feedback.MAX_IMAGE_COUNT) throw BusinessException(ErrorCode.FEEDBACK_IMAGE_NOT_VERIFIED)
-        // 회원이면 본인 업로드, 게스트면 같은 기기 업로드까지 인정한다 — 게스트로 올린 사진이 가입 후에도 통과한다.
         val owned = uploadedImageService.ownsAllImages(
             memberId = memberId,
             paths = imagePaths,
@@ -100,6 +112,18 @@ class FeedbackService(
     companion object {
         const val DAILY_LIMIT = 20
         const val PAGE_SIZE = 20
+        const val MAX_DEVICE_VALUE_LENGTH = 100
+        val DEVICE_INFO_KEYS = setOf(
+            "os",
+            "osVersion",
+            "appVersion",
+            "buildNumber",
+            "runtimeVersion",
+            "deviceModel",
+            "locale",
+            "lang",
+            "timezone",
+        )
     }
 }
 

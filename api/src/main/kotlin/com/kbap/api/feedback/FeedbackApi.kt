@@ -20,8 +20,9 @@ interface FeedbackApi {
         description = """
             제목 없이 본문만 보낸다. 인증은 선택이고 `X-Installation-Id` 헤더는 **회원·게스트 모두 필수**다(누락·형식 위반 400 COMMON-002).
             서버가 memberId·installationId·userAgent·접수 시각을 함께 저장한다.
-            사진은 최대 3장이며 `/api/images` 로 purpose=FEEDBACK 업로드한 **본인 사진만** 첨부할 수 있다 —
-            게스트는 업로드 경로가 회원 전용이라 사진을 보내면 400(FEEDBACK-002)이다.
+            사진은 최대 3장이며 `/api/images/upload-url`·`/api/images/complete` 로 purpose=FEEDBACK 업로드한 사진만 첨부할 수 있다.
+            **게스트도 사진을 붙일 수 있다** — 두 업로드 엔드포인트는 purpose=FEEDBACK + `X-Installation-Id` 이면 토큰 없이 받는다(기기당 하루 10건).
+            소유 검증은 회원이면 member id, 게스트면 같은 설치 ID 업로드까지 인정하며 어긋나면 400(FEEDBACK-002)이다.
             같은 기기에서 하루 20건을 넘기면 429(FEEDBACK-003)다.
         """,
     )
@@ -71,4 +72,30 @@ interface FeedbackApi {
         @Parameter(description = "이전 응답의 nextCursor", example = "42") cursor: Long?,
         @Parameter(description = "페이지 크기(기본 20)", example = "20") size: Int?,
     ): ResponseEntity<BaseResponse<MyFeedbackPageResponse>>
+
+    @Operation(
+        summary = "내 문의 상세(회원·게스트)",
+        description = """
+            문의 한 건을 목록 아이템과 같은 모양으로 내려준다 — 알림 딥링크·상세 화면용이다.
+            소유 조건은 목록과 같은 **설치 ID 또는 회원 id 매칭**이며, 남의 문의는 존재 여부를 숨기고 404(FEEDBACK-004)로 답한다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "404", description = "없거나 내 문의가 아님(FEEDBACK-004)"),
+        ],
+    )
+    @ApiErrors(ErrorCode.FEEDBACK_NOT_FOUND)
+    fun getOne(
+        memberId: Long?,
+        @Parameter(
+            `in` = ParameterIn.HEADER,
+            name = "X-Installation-Id",
+            description = "앱 설치 UUID. 필수",
+            required = true,
+        )
+        installationId: String?,
+        @Parameter(description = "문의 id", example = "12") id: Long,
+    ): ResponseEntity<BaseResponse<MyFeedbackItemResponse>>
 }

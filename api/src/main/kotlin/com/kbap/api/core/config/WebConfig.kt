@@ -116,6 +116,11 @@ class WebConfig(
                         parseTokenIfPresent = true,
                     ),
                     JwtAuthenticationFilter.GuestExemption(
+                        "GET",
+                        Regex("^${ApiPaths.API}/feedbacks/\\d+$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
                         "POST",
                         Regex("^${ApiPaths.API}/images/upload-url$"),
                         parseTokenIfPresent = true,

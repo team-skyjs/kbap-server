@@ -9,9 +9,9 @@ import jakarta.validation.constraints.Positive
 data class UploadUrlRequest(
     @field:NotBlank(message = "purpose 는 필수입니다")
     @field:Schema(
-        description = "업로드 용도",
+        description = "업로드 용도. FEEDBACK 만 토큰 없이(X-Installation-Id 필수) 발급받을 수 있다",
         example = "MENU_SCAN",
-        allowableValues = ["MENU_SCAN", "REVIEW", "PROFILE_IMAGE", "COMMUNITY"],
+        allowableValues = ["MENU_SCAN", "REVIEW", "PROFILE_IMAGE", "COMMUNITY", "FEEDBACK"],
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
     val purpose: String?,
