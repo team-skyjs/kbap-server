@@ -45,7 +45,21 @@ class AdminFeedbackControllerTest : BehaviorSpec() {
         beforeContainer { clear() }
         afterSpec { clear() }
 
-        fun adminToken(): String = tokenIssuer.issueAccessToken(7L, MemberRole.ADMIN)
+        fun seedAdminAccount(id: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO admin_account (id, admin_id, admin_pwd, status, created_at, updated_at)
+                    VALUES (?, ?, 'x', 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE status = 'ACTIVE'
+                    """,
+                ).use { ps -> ps.setLong(1, id); ps.setString(2, "feedback-admin-$id"); ps.executeUpdate() }
+            }
+
+        fun adminToken(): String {
+            seedAdminAccount(7L)
+            return tokenIssuer.issueAccessToken(7L, MemberRole.ADMIN)
+        }
 
         fun submit(installationId: String, text: String, deviceInfo: Map<String, String>? = null): Long {
             val body = buildMap<String, Any?> {

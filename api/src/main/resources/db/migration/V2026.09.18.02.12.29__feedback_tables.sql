@@ -27,12 +27,16 @@ CREATE TABLE `feedback`
     PRIMARY KEY (`id`),
     KEY `idx_feedback_installation` (`installation_id`),
     KEY `idx_feedback_member` (`member_id`),
-    KEY `idx_feedback_status_created` (`feedback_status`, `created_at`)
+    KEY `idx_feedback_status_created` (`feedback_status`, `created_at`),
+    CONSTRAINT `fk_feedback_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;
 
 -- 답변은 어드민만 단다. admin_account_id 는 답변자 추적용이며 앱 응답에는 내보내지 않는다.
+-- 두 행위자 컬럼에 외래키를 건다 — 레포 규약대로 참조 무결성은 코드가 아니라 스키마가 강제하고,
+-- 없는 어드민 id 로 답변이 들어가면 누가 답했는지 영구히 잃는다. 소프트 삭제 구조라 ON DELETE 는 두지 않는다.
+-- member_id 는 NULL 허용이며 MySQL 외래키는 NULL 을 검사하지 않아 게스트 행과 공존한다.
 CREATE TABLE `feedback_reply`
 (
     `id`               bigint      NOT NULL AUTO_INCREMENT,
@@ -44,7 +48,8 @@ CREATE TABLE `feedback_reply`
     `updated_at`       datetime(6) NOT NULL,
     PRIMARY KEY (`id`),
     KEY `idx_feedback_reply_feedback` (`feedback_id`),
-    CONSTRAINT `fk_feedback_reply_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedback` (`id`)
+    CONSTRAINT `fk_feedback_reply_feedback` FOREIGN KEY (`feedback_id`) REFERENCES `feedback` (`id`),
+    CONSTRAINT `fk_feedback_reply_admin` FOREIGN KEY (`admin_account_id`) REFERENCES `admin_account` (`id`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;

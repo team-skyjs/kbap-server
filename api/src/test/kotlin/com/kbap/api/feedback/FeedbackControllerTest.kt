@@ -67,7 +67,21 @@ class FeedbackControllerTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
-        fun adminToken(): String = tokenIssuer.issueAccessToken(1L, MemberRole.ADMIN)
+        fun seedAdminAccount(id: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO admin_account (id, admin_id, admin_pwd, status, created_at, updated_at)
+                    VALUES (?, ?, 'x', 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE status = 'ACTIVE'
+                    """,
+                ).use { ps -> ps.setLong(1, id); ps.setString(2, "feedback-admin-$id"); ps.executeUpdate() }
+            }
+
+        fun adminToken(): String {
+            seedAdminAccount(1L)
+            return tokenIssuer.issueAccessToken(1L, MemberRole.ADMIN)
+        }
 
         fun seedUpload(path: String, memberId: Long? = null, installationId: String? = null): Unit =
             dataSource.connection.use { c ->
