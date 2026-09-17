@@ -53,8 +53,8 @@ data class FoodDetailResponse(
     val bookmarked: Boolean,
 
     @field:Schema(
-        description = "조회 회원의 리뷰 작성 자격 — 본인 스캔 이력에 이 음식이 있으면 true. 비회원 조회는 항상 false. " +
-            "false 면 리뷰 작성이 403 REVIEW-004 로 거절되므로 Write a review 버튼 게이트로 사용한다.",
+        description = "리뷰 작성 자격 — **항상 true** 다. 스캔 이력이 있는 음식에만 리뷰를 쓸 수 있던 정책이 폐지돼(2026-09-18) " +
+            "READY 음식이면 회원 누구나 쓸 수 있다. 구 앱 호환으로 필드만 남겨 둔 값이니 새 화면은 이 값으로 게이트하지 말 것.",
         example = "true",
     )
     val reviewEligible: Boolean,

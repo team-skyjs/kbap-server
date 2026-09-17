@@ -975,13 +975,10 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
 
             `when`("스캔 이력이 없는 음식에 리뷰를 작성하면") {
-                then("403 REVIEW-004 로 거절되고 리뷰는 저장되지 않는다") {
+                then("스캔 자격 검사가 없어져 그대로 저장된다") {
                     val token = accessToken(870L, scannedAllFoods = false)
-                    create(token, createBody(foodId = 870L, rating = 4)).andExpect {
-                        status { isForbidden() }
-                        jsonPath("$.code") { value("REVIEW-004") }
-                    }
-                    countReviews(870L, 870L) shouldBe 0L
+                    create(token, createBody(foodId = 870L, rating = 4)).andExpect { status { isOk() } }
+                    countReviews(870L, 870L) shouldBe 1L
                 }
             }
 
@@ -993,14 +990,11 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("다른 회원만 그 음식을 스캔했으면") {
-                then("거절된다 — 자격은 본인 이력 기준이다") {
+            `when`("다른 회원만 그 음식을 스캔했어도") {
+                then("회원이면 누구나 작성할 수 있다") {
                     accessToken(872L)
                     val token = accessToken(873L, scannedAllFoods = false)
-                    create(token, createBody(foodId = 870L, rating = 4)).andExpect {
-                        status { isForbidden() }
-                        jsonPath("$.code") { value("REVIEW-004") }
-                    }
+                    create(token, createBody(foodId = 870L, rating = 4)).andExpect { status { isOk() } }
                 }
             }
 

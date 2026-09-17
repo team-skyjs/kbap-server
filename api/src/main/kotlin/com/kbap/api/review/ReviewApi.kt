@@ -38,7 +38,6 @@ interface ReviewApi {
     )
     @ApiErrors(
         ErrorCode.FOOD_NOT_FOUND,
-        ErrorCode.REVIEW_NOT_ELIGIBLE,
         ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
     )
     fun create(memberId: Long, request: ReviewCreateRequest): ResponseEntity<BaseResponse<ReviewResponse>>
