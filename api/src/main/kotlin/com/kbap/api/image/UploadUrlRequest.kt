@@ -25,9 +25,10 @@ data class UploadUrlRequest(
     @field:Schema(description = "업로드 이미지 바이트 수(정확값)", example = "384512", requiredMode = Schema.RequiredMode.REQUIRED)
     val contentLength: Long?,
 ) {
-    fun toInput(memberId: Long): ImageUploadInput =
+    fun toInput(memberId: Long?, installationId: String?): ImageUploadInput =
         ImageUploadInput(
             memberId = memberId,
+            installationId = installationId,
             purpose = purpose!!,
             contentType = contentType!!,
             contentLength = contentLength!!,

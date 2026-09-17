@@ -47,7 +47,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         purpose: String = "MENU_SCAN",
         contentType: String = "image/jpeg",
         contentLength: Long = 500L,
-    ) = ImageUploadInput(memberId, purpose, contentType, contentLength)
+    ) = ImageUploadInput(memberId, installationId = null, purpose = purpose, contentType = contentType, contentLength = contentLength)
 
     given("이미지 업로드 URL 발급") {
         `when`("지원하지 않는 용도로 요청하면") {

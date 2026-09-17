@@ -105,6 +105,26 @@ class WebConfig(
                         Regex("^${ApiPaths.API}/reports$"),
                         parseTokenIfPresent = true,
                     ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/feedbacks$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "GET",
+                        Regex("^${ApiPaths.API}/feedbacks/me$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/images/upload-url$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/images/complete$"),
+                        parseTokenIfPresent = true,
+                    ),
                 ),
             ),
         ).apply {
@@ -126,6 +146,8 @@ class WebConfig(
                 "${ApiPaths.API}/community/posts/*",
                 "${ApiPaths.API}/community/comments/*",
                 "${ApiPaths.API}/reports",
+                "${ApiPaths.API}/feedbacks",
+                "${ApiPaths.API}/feedbacks/*",
                 "${ApiPaths.API}/images",
                 "${ApiPaths.API}/images/*",
                 "${ApiPaths.API}/auth/withdraw",

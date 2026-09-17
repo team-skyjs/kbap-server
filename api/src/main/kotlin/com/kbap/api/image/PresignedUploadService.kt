@@ -18,13 +18,17 @@ class PresignedUploadService(
     fun issueUploadUrl(input: ImageUploadInput): PresignedUpload {
         val purpose = UploadPurpose.from(input.purpose)
             ?: throw BusinessException(ErrorCode.UNSUPPORTED_UPLOAD_PURPOSE)
+        // 익명 업로드는 문의 사진에만 연다 — 다른 purpose 는 저장소 스팸 표면이 되므로 토큰이 필요하다.
+        if (input.memberId == null && purpose != UploadPurpose.FEEDBACK) {
+            throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
+        }
         if (input.contentType !in properties.allowedContentTypes) {
             throw BusinessException(ErrorCode.UNSUPPORTED_IMAGE_CONTENT_TYPE)
         }
         if (input.contentLength > properties.maxBytes) {
             throw BusinessException(ErrorCode.IMAGE_TOO_LARGE)
         }
-        val key = objectKey(purpose, input.memberId, input.contentType)
+        val key = objectKey(purpose, input.memberId ?: GUEST_OWNER_KEY, input.contentType)
         return port.issue(key, input.contentType, input.contentLength, properties.uploadTtl)
     }
 
@@ -40,6 +44,10 @@ class PresignedUploadService(
             extensionOf(contentType),
         )
         return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
+    }
+
+    private companion object {
+        const val GUEST_OWNER_KEY = 0L
     }
 
     private fun extensionOf(contentType: String): String {
