@@ -186,6 +186,10 @@ class ReviewService(
         toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId, lang)
 
     @Transactional(readOnly = true)
+    fun getMostReviewedFoodIds(size: Int): List<Long> =
+        reviewRepository.findMostReviewedFoodIds(PageRequest.of(0, size))
+
+    @Transactional(readOnly = true)
     fun getFoodRatings(foodIds: List<Long>): Map<Long, FoodRating> {
         val distinctIds = foodIds.distinct()
         if (distinctIds.isEmpty()) return emptyMap()

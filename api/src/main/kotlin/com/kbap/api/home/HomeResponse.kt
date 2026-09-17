@@ -4,7 +4,7 @@ import com.kbap.api.food.FoodSummaryResponse
 import com.kbap.api.review.FoodRating
 import io.swagger.v3.oas.annotations.media.Schema
 
-@Schema(description = "홈 화면 응답 — 기피 성분·인기 음식·최근 스캔 세 섹션")
+@Schema(description = "홈 화면 응답 — 기피 성분·인기 음식·리뷰 많은 음식·최근 스캔 네 섹션")
 data class HomeResponse(
     @field:Schema(
         description = "요청자가 로그인한 회원인지 여부. false 면 개인화 섹션이 null 이므로, " +
@@ -16,6 +16,11 @@ data class HomeResponse(
     val avoidedSubstances: List<AvoidedSubstanceResponse>,
     @field:Schema(description = "인기 음식 추천 (최대 5개). 비회원에게도 내려간다")
     val popularFoods: List<FoodSummaryResponse>,
+    @field:Schema(
+        description = "리뷰 많은 음식 (최대 10개). 활성 리뷰 수 내림차순이고 동률이면 최근 리뷰가 앞선다. " +
+            "리뷰가 한 건도 없는 음식은 빠지며 결과가 없으면 빈 배열. 비회원에게도 내려간다",
+    )
+    val mostReviewedFoods: List<FoodSummaryResponse>,
     @field:Schema(description = "최근 스캔한 메뉴 (최대 10개, 최신순·중복 제거). 비회원이거나 이력이 없으면 빈 배열")
     val recentScans: List<FoodSummaryResponse>,
 ) {
@@ -29,6 +34,9 @@ data class HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
             popularFoods = result.popularFoods.map {
+                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+            },
+            mostReviewedFoods = result.mostReviewedFoods.map {
                 FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
             },
             recentScans = result.recentScans.map {
