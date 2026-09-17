@@ -21,7 +21,9 @@ data class AdminFeedbackPageResponse(
         val hasImages: Boolean,
         @field:Schema(description = "신고 계약과 같은 규칙의 작성자 키 — 설치 ID 가 있으면 inst:{id}", example = "inst:6d3f")
         val reporterKey: String,
-        @field:Schema(description = "회원 문의면 닉네임, 게스트면 null", nullable = true)
+        @field:Schema(description = "회원 문의면 회원 id, 게스트면 null — 닉네임이 비어 있어도 회원 여부를 이 값으로 가른다", example = "18", nullable = true)
+        val memberId: Long?,
+        @field:Schema(description = "회원 문의면 닉네임, 게스트거나 닉네임 미설정이면 null", nullable = true)
         val memberNickname: String?,
         val status: String,
         val replyCount: Int,
@@ -44,6 +46,7 @@ data class AdminFeedbackPageResponse(
                     contentPreview = it.contentPreview,
                     hasImages = it.hasImages,
                     reporterKey = it.reporterKey,
+                    memberId = it.memberId,
                     memberNickname = it.memberNickname,
                     status = it.status,
                     replyCount = it.replyCount,

@@ -115,6 +115,7 @@ class AdminFeedbackControllerTest : BehaviorSpec() {
 
                     val item = payloadOf(list()).path("items")[0]
                     item.path("reporterKey").asText() shouldBe "inst:admin-key-001"
+                    item.path("memberId").isNull shouldBe true
                     item.path("memberNickname").isNull shouldBe true
                     item.path("app").path("os").asText() shouldBe "ios"
                     item.path("app").path("appVersion").asText() shouldBe "1.0.3"
