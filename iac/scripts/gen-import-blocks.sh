@@ -211,7 +211,7 @@ blue_termination_wait_minutes = ${BLUE_WAIT:-15}
 admin_cidr       = "$ADMIN_CIDR"
 bastion_key_name = "$BASTION_KEY"
 
-home_prometheus_remote_write_url = "https://prom-write.handev.site/api/v1/write"
+home_prometheus_remote_write_url = "https://prom-write.handev.cloud/api/v1/write"
 blocked_path_patterns = $([ "$ENV" = prod ] && echo '["*actuator*", "*swagger*", "*api-docs*"]' || echo '["*actuator*"]')
 TFV
 echo "wrote $GEN — 예시 파일(dev/prod.tfvars.example)과 대조 후 $ENV.tfvars 로" >&2
