@@ -1,6 +1,6 @@
 // Grafana Alloy — 호스트당 1개(ECS DAEMON, host 네트워크). KB-381.
-// terraform templatefile 로 렌더돼 컨테이너 env ALLOY_CONFIG 로 들어간다. 치환: ${env}, ${remote_write_url}
-// 비밀(Cloudflare Access 서비스 토큰)은 파일에 없고 sys.env 로 읽는다 — SSM SecureString → ECS secrets.
+// terraform templatefile 로 렌더돼 컨테이너 env ALLOY_CONFIG 로 들어간다. 치환: ${env}
+// remote_write 주소와 Cloudflare Access 서비스 토큰은 파일에 없고 sys.env 로 읽는다 — SSM → ECS secrets.
 
 // 같은 호스트의 컨테이너를 docker.sock 으로 찾는다. ECS 에이전트가 모든 컨테이너에 com.amazonaws.ecs.* 라벨을 붙인다.
 discovery.docker "ecs" {
@@ -70,7 +70,7 @@ prometheus.scrape "host" {
 // 홈서버로 push. Cloudflare Access 가 엣지에서 토큰을 검사 — 없으면 403 이고 403 은 재시도 없이 유실된다(WAL 은 연결 실패·5xx 만).
 prometheus.remote_write "home" {
   endpoint {
-    url = "${remote_write_url}"
+    url = sys.env("REMOTE_WRITE_URL")
 
     headers = {
       "CF-Access-Client-Id"     = sys.env("CF_ACCESS_CLIENT_ID"),
