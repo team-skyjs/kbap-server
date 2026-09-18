@@ -221,11 +221,6 @@ variable "bastion_key_name" {
 }
 
 # --- 관측: Grafana Alloy DAEMON (KB-381) ---
-variable "home_prometheus_remote_write_url" {
-  description = "홈서버 Prometheus remote_write 수신 URL — Cloudflare Tunnel 공개 호스트 (예: https://prom-write.example.com/api/v1/write)"
-  type        = string
-}
-
 variable "alloy_image" {
   description = "Grafana Alloy 이미지 (태그 고정 — latest 금지)"
   type        = string
@@ -233,9 +228,9 @@ variable "alloy_image" {
 }
 
 variable "alloy_secret_names" {
-  description = "Alloy 태스크에 SSM SecureString 으로 주입할 환경변수 이름 — Cloudflare Access 서비스 토큰. 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type SecureString"
+  description = "Alloy 태스크에 SSM 에서 주입할 환경변수 이름 — remote_write 수신 URL(REMOTE_WRITE_URL, String)과 Cloudflare Access 서비스 토큰(SecureString). 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type String|SecureString. 값이 없으면 태스크가 기동 전에 실패한다"
   type        = list(string)
-  default     = ["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+  default     = ["REMOTE_WRITE_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
 }
 
 variable "blocked_path_patterns" {

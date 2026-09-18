@@ -6,8 +6,7 @@ locals {
   alloy_service_name   = "${local.name_prefix}-alloy"
 
   alloy_config = templatefile("${path.module}/alloy.config.alloy.tftpl", {
-    env              = var.env
-    remote_write_url = var.home_prometheus_remote_write_url
+    env = var.env
   })
 }
 
