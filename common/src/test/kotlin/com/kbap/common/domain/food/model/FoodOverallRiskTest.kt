@@ -1,6 +1,9 @@
 package com.kbap.common.domain.food.model
 
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.model.RiskLevel
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -73,6 +76,59 @@ class FoodOverallRiskTest : BehaviorSpec({
                 )
 
                 plainRice.overallRisk(setOf("SOY", "WHEAT", "CLAM")) shouldBe RiskLevel.SAFE
+            }
+        }
+    }
+
+    given("관계 이행 판정 등가 — 경계 확률") {
+        fun soup(percent: Int, status: FoodContentStatus = FoodContentStatus.READY) = Food(
+            koreanName = "경계국",
+            description = "경계국",
+            contentStatus = status,
+            ingredients = listOf(FoodIngredient(code = "SOY", inclusionPercent = percent)),
+        )
+
+        `when`("회피 재료의 확률이 1·9·10·59·60·100 이면") {
+            then("10 미만 SAFE, 10~59 CAUTION, 60 이상 DANGER 다") {
+                listOf(1, 9, 10, 59, 60, 100).map { soup(it).overallRisk(setOf("SOY")) } shouldBe listOf(
+                    RiskLevel.SAFE,
+                    RiskLevel.SAFE,
+                    RiskLevel.CAUTION,
+                    RiskLevel.CAUTION,
+                    RiskLevel.DANGER,
+                    RiskLevel.DANGER,
+                )
+            }
+        }
+
+        `when`("서비스 중이 아니면") {
+            then("재료와 무관하게 UNKNOWN 이다") {
+                soup(100, FoodContentStatus.PENDING_REVIEW).overallRisk(setOf("SOY")) shouldBe RiskLevel.UNKNOWN
+            }
+        }
+    }
+
+    given("재료 교체") {
+        fun food() = Food(koreanName = "교체국", description = "교체국", ingredients = null)
+
+        `when`("null 로 교체하면") {
+            then("미조사로 표시된다") {
+                food().apply { replaceIngredients(null) }.ingredientsAssessed shouldBe false
+            }
+        }
+
+        `when`("빈 배열로 교체하면") {
+            then("조사 완료로 표시된다") {
+                food().apply { replaceIngredients(emptyList()) }.ingredientsAssessed shouldBe true
+            }
+        }
+
+        `when`("상한을 넘기면") {
+            then("FOOD-011 로 거절한다") {
+                val tooMany = (0..Food.MAX_INGREDIENTS).map { FoodIngredient(code = "C$it", inclusionPercent = 50) }
+                shouldThrow<BusinessException> {
+                    food().replaceIngredients(tooMany)
+                }.errorCode shouldBe ErrorCode.FOOD_TOO_MANY_INGREDIENTS
             }
         }
     }

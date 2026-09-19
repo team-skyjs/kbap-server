@@ -84,6 +84,9 @@ class Food(
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
+    @Column(name = "ingredients_assessed", nullable = false, columnDefinition = "tinyint(1) not null default 0")
+    var ingredientsAssessed: Boolean = ingredients != null
+
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
     fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
@@ -138,11 +141,19 @@ class Food(
         this.spiciness = spiciness
         this.nameTranslations = nameTranslations
         this.descriptionTranslations = descriptionTranslations
-        this.ingredients = ingredients
+        replaceIngredients(ingredients)
         contentFailureKind = null
         contentReviewRejectionReason = null
         if (contentStatus == FoodContentStatus.READY) return
         contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
+    }
+
+    fun replaceIngredients(ingredients: List<FoodIngredient>?) {
+        if (ingredients != null && ingredients.size > MAX_INGREDIENTS) {
+            throw BusinessException(ErrorCode.FOOD_TOO_MANY_INGREDIENTS)
+        }
+        this.ingredients = ingredients
+        ingredientsAssessed = ingredients != null
     }
 
     fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
@@ -197,6 +208,8 @@ class Food(
         const val MAX_REJECTION_REASON_LINES = 10
 
         const val MAX_REJECTION_REASON_LENGTH = 1000
+
+        const val MAX_INGREDIENTS = 21
 
         fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
