@@ -8,6 +8,7 @@ import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
+import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
@@ -122,10 +123,13 @@ class MemberService(
     }
 
     @Transactional(readOnly = true)
-    fun getAvoidedCodes(memberId: Long?): Set<IngredientCode> {
-        if (memberId == null) return emptySet()
-        return getMemberOrNull(memberId)?.profile?.avoidedCodes() ?: emptySet()
+    fun getAvoidance(memberId: Long?): Avoidance {
+        if (memberId == null) return Avoidance.NONE
+        return getMemberOrNull(memberId)?.profile?.avoidance() ?: Avoidance.NONE
     }
+
+    @Transactional(readOnly = true)
+    fun getAvoidedCodes(memberId: Long?): Set<IngredientCode> = getAvoidance(memberId).codes
 
     @Transactional(readOnly = true)
     fun getMember(memberId: Long): Member =

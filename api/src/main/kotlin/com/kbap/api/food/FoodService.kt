@@ -147,7 +147,8 @@ class FoodService(
         val codes = allIngredients.map { IngredientCode.valueOf(it.code) }.toSet()
         val catalog = (if (codes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(codes)).associateBy { it.code }
 
-        val userAvoidedCodes = avoidedCodeNames(input.memberId)
+        val avoidance = memberService.getAvoidance(input.memberId)
+        val userAvoidedCodes = avoidance.codeNames
         val foodName = food.displayName(lang)
 
         return GetFoodDetailResult(
@@ -171,7 +172,13 @@ class FoodService(
             } else {
                 allIngredients
                     .filter { it.code in userAvoidedCodes }
-                    .map { GetFoodDetailResult.AvoidedIngredientView(code = it.code, riskStatus = it.riskLevel()) }
+                    .map {
+                        GetFoodDetailResult.AvoidedIngredientView(
+                            code = it.code,
+                            riskStatus = it.riskLevel(),
+                            matchedBy = avoidance.matchedBy(it.code),
+                        )
+                    }
             },
         )
     }

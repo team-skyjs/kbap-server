@@ -24,5 +24,6 @@ data class GetFoodDetailResult(
     data class AvoidedIngredientView(
         val code: String,
         val riskStatus: RiskLevel,
+        val matchedBy: String?,
     )
 }

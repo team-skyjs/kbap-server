@@ -93,12 +93,13 @@ data class ScanV2Response(
         @field:Schema(description = "성분 표시명 — 요청 lang 번역, 번역 부재 시 한국어 원문", example = "Shrimp")
         val name: String,
 
-        @field:Schema(description = "이 메뉴의 성분 데이터에 해당 성분이 존재하는지(포함 확률 임계값 없음)", example = "true")
+        @field:Schema(description = "이 메뉴의 성분 데이터에 해당 성분 또는 그 성분이 함의하는 파생 성분이 존재하는지(포함 확률 임계값 없음). " +
+                "함의는 일반→구체·원재료→파생품 단방향이다(예: SHRIMP 회피면 새우젓 SALTED_SHRIMP 도 겹침)", example = "true")
         val overlapped: Boolean,
 
         @field:Schema(
             description = "겹친 성분의 경고 수준 — 포함 확률 기반(10 미만 SAFE / 10~59 CAUTION / 60 이상 DANGER). " +
-                "overlapped=false 면 null.",
+                "함의로 여러 성분이 겹치면 가장 높은 수준. overlapped=false 면 null.",
             example = "DANGER",
             allowableValues = ["SAFE", "CAUTION", "DANGER"],
             nullable = true,

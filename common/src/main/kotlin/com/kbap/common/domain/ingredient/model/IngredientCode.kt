@@ -82,4 +82,24 @@ enum class IngredientCode(val label: String) {
     MIRIN("미림"),
     COOKING_WINE("맛술"),
     SULFITES("아황산류"),
+    ;
+
+    val impliedCodes: Set<IngredientCode>
+        get() = IMPLICATIONS[this].orEmpty()
+
+    private companion object {
+        val IMPLICATIONS: Map<IngredientCode, Set<IngredientCode>> =
+            mapOf(
+                MILK to setOf(GOAT_MILK, BUTTER, CHEESE, GHEE),
+                DAIRY to setOf(MILK, GOAT_MILK, BUTTER, CHEESE, GHEE),
+                FISH to setOf(MACKEREL, SALMON, TUNA, COD, ANCHOVY, FISH_SAUCE, DASHI),
+                ANCHOVY to setOf(FISH_SAUCE, DASHI),
+                SHRIMP to setOf(SALTED_SHRIMP),
+                OYSTER to setOf(OYSTER_SAUCE),
+                POULTRY to setOf(CHICKEN),
+                PORK to setOf(LARD),
+                BEEF to setOf(TALLOW),
+                ALCOHOL to setOf(MIRIN, COOKING_WINE),
+            )
+    }
 }

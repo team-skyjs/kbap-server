@@ -127,6 +127,15 @@ data class FoodDetailResponse(
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
         val riskStatus: String,
+
+        @field:Schema(
+            description = "판정 근거 — 회원이 직접 고른 회피 code. 직접 매치면 code 와 같고, " +
+                "함의로 걸렸으면 그 재료를 함의한 회원 code 다(예: 새우젓 SALTED_SHRIMP 가 회원이 고른 SHRIMP 로 걸리면 SHRIMP). " +
+                "함의는 일반→구체·원재료→파생품 단방향이다.",
+            example = "SHRIMP",
+            nullable = true,
+        )
+        val matchedBy: String?,
     )
 
     companion object {
@@ -155,6 +164,7 @@ data class FoodDetailResponse(
                     AvoidedIngredientResponse(
                         code = it.code,
                         riskStatus = it.riskStatus.name,
+                        matchedBy = it.matchedBy,
                     )
                 },
                 bookmarked = bookmarked,
