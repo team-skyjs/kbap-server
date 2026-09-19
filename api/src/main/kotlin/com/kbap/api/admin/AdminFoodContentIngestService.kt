@@ -30,7 +30,8 @@ class AdminFoodContentIngestService(
         ingredients: List<FoodIngredient>,
     ) {
         completeOutbox(outboxId, foodId)
-        getFood(foodId).applyContent(
+        val food = getFood(foodId)
+        food.applyContent(
             description = description,
             longDescription = longDescription,
             spiciness = spiciness,
@@ -38,7 +39,7 @@ class AdminFoodContentIngestService(
             descriptionTranslations = descriptionTranslations,
             ingredients = ingredients,
         )
-        foodIngredientRepository.replace(foodId, ingredients)
+        foodIngredientRepository.replace(foodId, food.ingredients)
     }
 
     @Transactional

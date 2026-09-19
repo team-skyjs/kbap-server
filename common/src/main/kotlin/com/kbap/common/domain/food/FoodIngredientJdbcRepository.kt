@@ -11,20 +11,20 @@ class FoodIngredientJdbcRepository(
     fun replace(foodId: Long, ingredients: List<FoodIngredient>?) {
         jdbcTemplate.update("DELETE FROM food_ingredient WHERE food_id = ?", foodId)
         val rows = ingredients.orEmpty()
-            .mapIndexed { index, ingredient -> ingredient to (index + 1) * SORT_ORDER_STEP }
-            .filter { (ingredient, _) -> ingredient.inclusionPercent in STORABLE_PERCENT }
         if (rows.isEmpty()) return
-        jdbcTemplate.batchUpdate(
+        val inserted = jdbcTemplate.batchUpdate(
             """
             INSERT INTO food_ingredient (food_id, ingredient_id, inclusion_percent, sort_order)
             SELECT ?, id, ?, ? FROM ingredients WHERE code = ?
             """.trimIndent(),
-            rows.map { (ingredient, sortOrder) -> arrayOf<Any>(foodId, ingredient.inclusionPercent, sortOrder, ingredient.code) },
-        )
+            rows.mapIndexed { index, it ->
+                arrayOf<Any>(foodId, it.inclusionPercent, (index + 1) * SORT_ORDER_STEP, it.code)
+            },
+        ).sum()
+        check(inserted == rows.size) { "food_ingredient 행 수 불일치: foodId=$foodId, 요청=${rows.size}, 저장=$inserted" }
     }
 
     private companion object {
         const val SORT_ORDER_STEP = 10
-        val STORABLE_PERCENT = 1..100
     }
 }

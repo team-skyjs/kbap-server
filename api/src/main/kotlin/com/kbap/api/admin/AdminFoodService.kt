@@ -189,7 +189,7 @@ class AdminFoodService(
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.replaceIngredients(ingredients)
-        foodIngredientRepository.replace(food.id, ingredients)
+        foodIngredientRepository.replace(food.id, food.ingredients)
         when {
             food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
             wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)

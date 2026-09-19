@@ -5,6 +5,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -149,14 +150,21 @@ class Food(
     }
 
     fun replaceIngredients(ingredients: List<FoodIngredient>?) {
-        if (ingredients != null && ingredients.size > MAX_INGREDIENTS) {
-            throw BusinessException(ErrorCode.FOOD_TOO_MANY_INGREDIENTS)
+        val kept = ingredients?.filter { it.inclusionPercent != 0 }
+        kept?.let(::requireStorable)
+        this.ingredients = kept
+        ingredientsAssessed = kept != null
+    }
+
+    private fun requireStorable(ingredients: List<FoodIngredient>) {
+        val error = when {
+            ingredients.size > MAX_INGREDIENTS -> ErrorCode.FOOD_TOO_MANY_INGREDIENTS
+            ingredients.any { it.inclusionPercent !in STORABLE_PERCENT } -> ErrorCode.FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE
+            ingredients.any { it.code !in KNOWN_INGREDIENT_CODES } -> ErrorCode.FOOD_UNKNOWN_INGREDIENT
+            ingredients.distinctBy { it.code }.size != ingredients.size -> ErrorCode.FOOD_DUPLICATE_INGREDIENT
+            else -> return
         }
-        if (ingredients != null && ingredients.distinctBy { it.code }.size != ingredients.size) {
-            throw BusinessException(ErrorCode.FOOD_DUPLICATE_INGREDIENT)
-        }
-        this.ingredients = ingredients
-        ingredientsAssessed = ingredients != null
+        throw BusinessException(error)
     }
 
     fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
@@ -213,6 +221,10 @@ class Food(
         const val MAX_REJECTION_REASON_LENGTH = 1000
 
         const val MAX_INGREDIENTS = 21
+
+        private val STORABLE_PERCENT = 1..100
+
+        private val KNOWN_INGREDIENT_CODES = IngredientCode.entries.map { it.name }.toSet()
 
         fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }
