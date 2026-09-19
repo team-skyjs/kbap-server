@@ -7,16 +7,19 @@ object IngredientTestSeed {
     private const val IMAGE_PATH_RESOURCE = "db/migration/V2026.08.11.15.35.50__ingredient_image_path.sql"
     private const val IMAGE_PATH_FIX_RESOURCE = "db/migration/V2026.09.07.13.40.52__fix_ingredient_image_path.sql"
     private const val IMAGE_PATH_CUTOUT_RESOURCE = "db/migration/V2026.09.15.17.57.38__ingredient_cutout_image_path.sql"
+    private const val CATEGORY_RESOURCE = "db/migration/V2026.09.20.06.16.07__ingredient_category_and_food_ingredient.sql"
 
     fun restoreCatalog(dataSource: DataSource) {
         val statements = statementsOf(CATALOG_SEED_RESOURCE)
             .map { it.replace("INSERT INTO avoidance_substance ", "INSERT INTO ingredients ") } +
             statementsOf(IMAGE_PATH_RESOURCE).filterNot { it.startsWith("ALTER ", ignoreCase = true) } +
             statementsOf(IMAGE_PATH_FIX_RESOURCE) +
-            statementsOf(IMAGE_PATH_CUTOUT_RESOURCE)
+            statementsOf(IMAGE_PATH_CUTOUT_RESOURCE) +
+            statementsOf(CATEGORY_RESOURCE).filter { it.startsWith("UPDATE `ingredients`") }
 
         dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
+                statement.execute("DELETE FROM food_ingredient")
                 statement.execute("DELETE FROM ingredients")
                 statements.forEach { statement.execute(it) }
             }
