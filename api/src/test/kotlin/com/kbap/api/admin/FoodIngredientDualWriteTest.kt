@@ -82,12 +82,12 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("같은 code 가 두 번 오면") {
-                then("400 FOOD-012 로 거절한다 — 관계 PK 가 code 당 한 행이라 JSON 판정과 어긋날 수 있다") {
+                then("400 FOOD-014 로 거절한다 — 관계 PK 가 code 당 한 행이라 JSON 판정과 어긋날 수 있다") {
                     val food = saveFood("중복재료적재", FoodContentStatus.FAILED)
 
                     ingest(food, listOf(ingredient("SOY", 10), ingredient("CLAM", 30), ingredient("SOY", 100))).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value("FOOD-012") }
+                        jsonPath("$.code") { value("FOOD-014") }
                     }
 
                     relationOf(food.id) shouldBe emptyList()
@@ -106,12 +106,12 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("재료가 상한을 넘으면") {
-                then("400 FOOD-011 로 거절하고 아무것도 바꾸지 않는다") {
+                then("400 FOOD-013 로 거절하고 아무것도 바꾸지 않는다") {
                     val food = saveFood("초과재료적재", FoodContentStatus.FAILED)
 
                     ingest(food, tooMany).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value("FOOD-011") }
+                        jsonPath("$.code") { value("FOOD-013") }
                     }
 
                     relationOf(food.id) shouldBe emptyList()
@@ -163,7 +163,7 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("같은 code 가 두 번 오면") {
-                then("400 FOOD-012 로 거절한다") {
+                then("400 FOOD-014 로 거절한다") {
                     val food = saveFood("중복찌개")
 
                     putUpdate(
@@ -171,19 +171,19 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
                         updateBody("중복찌개", 0) + mapOf("ingredients" to listOf(ingredient("SOY", 10), ingredient("SOY", 90))),
                     ).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value("FOOD-012") }
+                        jsonPath("$.code") { value("FOOD-014") }
                     }
                 }
             }
 
             `when`("확률이 0..100 밖이면") {
-                then("400 FOOD-013 으로 거절한다 — JSON 에만 남고 관계에서 빠지는 일이 없다") {
+                then("400 FOOD-015 으로 거절한다 — JSON 에만 남고 관계에서 빠지는 일이 없다") {
                     val food = saveFood("범위밖찌개")
 
                     putUpdate(food.id, updateBody("범위밖찌개", 0) + mapOf("ingredients" to listOf(ingredient("SOY", 150))))
                         .andExpect {
                             status { isBadRequest() }
-                            jsonPath("$.code") { value("FOOD-013") }
+                            jsonPath("$.code") { value("FOOD-015") }
                         }
 
                     relationOf(food.id) shouldBe emptyList()
@@ -192,7 +192,7 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("서버 렌더 편집기가 카탈로그 밖 code 를 보내면") {
-                then("도메인 경계가 400 FOOD-014 로 막아 JSON 에도 남지 않는다") {
+                then("도메인 경계가 400 FOOD-016 로 막아 JSON 에도 남지 않는다") {
                     val food = saveFood("미등록찌개")
 
                     mockMvc.post("/admin/foods/${food.id}") {
@@ -210,12 +210,12 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("재료가 상한을 넘으면") {
-                then("400 FOOD-011 로 거절한다") {
+                then("400 FOOD-013 로 거절한다") {
                     val food = saveFood("초과찌개")
 
                     putUpdate(food.id, updateBody("초과찌개", 0) + mapOf("ingredients" to tooMany)).andExpect {
                         status { isBadRequest() }
-                        jsonPath("$.code") { value("FOOD-011") }
+                        jsonPath("$.code") { value("FOOD-013") }
                     }
 
                     relationOf(food.id) shouldBe emptyList()

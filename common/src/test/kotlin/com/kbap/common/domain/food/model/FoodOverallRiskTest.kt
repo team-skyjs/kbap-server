@@ -124,7 +124,7 @@ class FoodOverallRiskTest : BehaviorSpec({
         }
 
         `when`("같은 code 가 두 번 있으면") {
-            then("FOOD-012 로 거절한다") {
+            then("FOOD-014 로 거절한다") {
                 val duplicated = listOf(FoodIngredient("SOY", 10), FoodIngredient("SOY", 100))
                 shouldThrow<BusinessException> { food().replaceIngredients(duplicated) }.errorCode shouldBe
                     ErrorCode.FOOD_DUPLICATE_INGREDIENT
@@ -132,7 +132,7 @@ class FoodOverallRiskTest : BehaviorSpec({
         }
 
         `when`("상한을 넘기면") {
-            then("FOOD-011 로 거절한다") {
+            then("FOOD-013 로 거절한다") {
                 val tooMany = (0..Food.MAX_INGREDIENTS).map { FoodIngredient(code = "C$it", inclusionPercent = 50) }
                 shouldThrow<BusinessException> {
                     food().replaceIngredients(tooMany)
