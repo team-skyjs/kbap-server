@@ -33,6 +33,8 @@ ALTER TABLE `ingredients`
 -- inclusion_percent 는 포함 확률 1..100 — 0 은 저장 경계에서 생략한다(판정 함수가 0 을 받지 않는다).
 -- 역방향 인덱스 (ingredient_id, food_id) 는 "이 재료가 든 음식" 역조회용이다.
 -- 재료 쪽은 CASCADE 금지 — 재료 행이 지워져 관계가 조용히 사라지면 회피 판정이 SAFE 로 새어 나간다.
+-- 음식 쪽은 CASCADE 다. 관계 행은 음식이 통째로 소유하고, 운영은 소프트 삭제라 음식 행이 실제로 지워지는 건
+-- 테스트 정리와 k6 시험 음식 정리뿐이다 — 그 정리 SQL 이 관계 행을 몰라도 막히지 않게 한다.
 CREATE TABLE `food_ingredient`
 (
     `food_id`           bigint NOT NULL,
@@ -41,7 +43,7 @@ CREATE TABLE `food_ingredient`
     `sort_order`        int    NOT NULL,
     PRIMARY KEY (`food_id`, `ingredient_id`),
     KEY `idx_food_ingredient_ingredient_food` (`ingredient_id`, `food_id`),
-    CONSTRAINT `fk_food_ingredient_food` FOREIGN KEY (`food_id`) REFERENCES `food` (`id`),
+    CONSTRAINT `fk_food_ingredient_food` FOREIGN KEY (`food_id`) REFERENCES `food` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_food_ingredient_ingredient` FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients` (`id`) ON DELETE RESTRICT,
     CONSTRAINT `ck_food_ingredient_inclusion_percent` CHECK (`inclusion_percent` BETWEEN 1 AND 100)
 ) ENGINE = InnoDB
