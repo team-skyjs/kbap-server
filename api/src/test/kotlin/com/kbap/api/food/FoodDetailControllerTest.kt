@@ -178,23 +178,23 @@ class FoodDetailControllerTest : BehaviorSpec() {
             }
 
             `when`("스캔 이력이 없는 회원이 조회하면") {
-                then("reviewEligible=false 다") {
+                then("reviewEligible=true 다 — 스캔 자격 검사가 폐지됐다") {
                     val token = accessToken(37L)
 
                     mockMvc.get("/api/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.reviewEligible") { value(false) }
+                        jsonPath("$.payload.reviewEligible") { value(true) }
                     }
                 }
             }
 
             `when`("비회원이 조회하면") {
-                then("reviewEligible=false 다 — bookmarked 와 같은 축") {
+                then("reviewEligible=true 다 — 구 앱 호환으로 항상 true") {
                     mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.reviewEligible") { value(false) }
+                        jsonPath("$.payload.reviewEligible") { value(true) }
                     }
                 }
             }
