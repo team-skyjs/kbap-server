@@ -112,6 +112,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "appversion" to emptySet(),
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
+            "feedback" to emptySet(),
             "food" to emptySet(),
             "bookmark" to setOf("food", "member", "ingredient"),
             "member" to setOf("ingredient"),

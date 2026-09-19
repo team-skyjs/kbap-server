@@ -9,8 +9,11 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "uploaded_image")
 class UploadedImage(
-    @Column(name = "member_id", nullable = false)
-    var memberId: Long = 0,
+    @Column(name = "member_id")
+    var memberId: Long? = null,
+
+    @Column(name = "installation_id", length = MAX_INSTALLATION_ID_LENGTH)
+    var installationId: String? = null,
 
     @Column(name = "object_path", nullable = false, length = 512)
     var path: String = "",
@@ -22,4 +25,11 @@ class UploadedImage(
     var sizeBytes: Long = 0,
 ) : BaseEntity() {
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId
+
+    fun isOwnedByInstallation(installationId: String): Boolean =
+        this.installationId != null && this.installationId == installationId
+
+    companion object {
+        const val MAX_INSTALLATION_ID_LENGTH = 36
+    }
 }

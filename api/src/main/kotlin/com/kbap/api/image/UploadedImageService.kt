@@ -10,11 +10,21 @@ class UploadedImageService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
 ) {
     @Transactional(readOnly = true)
-    fun ownsAllImages(memberId: Long, paths: List<String>?, purpose: UploadPurpose): Boolean {
+    fun ownsAllImages(
+        memberId: Long?,
+        paths: List<String>?,
+        purpose: UploadPurpose,
+        installationId: String? = null,
+    ): Boolean {
         if (paths.isNullOrEmpty()) return true
+        if (memberId == null && installationId == null) return false
         val segment = "images/${purpose.prefix}/"
         val ownedPaths = uploadedImageRepository.findByPathIn(paths)
-            .filter { it.isOwnedBy(memberId) && it.path.contains(segment) }
+            .filter { image ->
+                image.path.contains(segment) &&
+                    ((memberId != null && image.isOwnedBy(memberId)) ||
+                        (installationId != null && image.isOwnedByInstallation(installationId)))
+            }
             .map { it.path }
             .toSet()
         return ownedPaths.containsAll(paths)
