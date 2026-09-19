@@ -50,6 +50,7 @@ class AdminFoodIngredientAuditService(
                 code.asText() !in KNOWN_CODES -> found += IngredientIssue.UNKNOWN_CODE
             }
             when {
+                !percent.canConvertToInt() -> found += IngredientIssue.OUT_OF_RANGE
                 percent.asInt() == 0 -> found += IngredientIssue.ZERO_PERCENT
                 percent.asInt() !in 1..100 -> found += IngredientIssue.OUT_OF_RANGE
             }

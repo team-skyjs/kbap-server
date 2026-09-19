@@ -32,6 +32,7 @@ class AdminFoodIngredientAuditTest : AdminFoodCatalogTestSupport() {
                     val badFormat = seed("형식오류", "[${item("soy sauce", 80)}]")
                     val zero = seed("영퍼센트", "[${item("SOY", 0)}]")
                     val outOfRange = seed("범위밖", "[${item("SOY", 101)}]")
+                    val overflow = seed("정수넘침", """[{"code": "SOY", "inclusion_percent": 4294967297}]""")
                     val unknown = seed("미등록", "[${item("KIMCHI_PASTE", 50)}]")
                     val duplicate = seed("중복", "[${item("SOY", 80)}, ${item("SOY", 20)}]")
                     val tooMany = seed("초과", (1..22).joinToString(",", "[", "]") { item("SOY", it) })
@@ -46,7 +47,7 @@ class AdminFoodIngredientAuditTest : AdminFoodCatalogTestSupport() {
                     val payload = mapper.readTree(json).path("payload")
                     fun ids(issue: String) = payload.path("issues").path(issue).map { it.asLong() }
 
-                    payload.path("scanned").asInt() shouldBe 12
+                    payload.path("scanned").asInt() shouldBe 13
                     payload.path("nullCount").asInt() shouldBe 1
                     payload.path("emptyCount").asInt() shouldBe 1
                     payload.path("maxIngredientCount").asInt() shouldBe 22
@@ -54,7 +55,7 @@ class AdminFoodIngredientAuditTest : AdminFoodCatalogTestSupport() {
                     ids("MALFORMED_ITEM") shouldBe listOf(malformed)
                     ids("INVALID_CODE_FORMAT") shouldBe listOf(badFormat)
                     ids("ZERO_PERCENT") shouldBe listOf(zero, deleted)
-                    ids("OUT_OF_RANGE") shouldBe listOf(outOfRange)
+                    ids("OUT_OF_RANGE") shouldBe listOf(outOfRange, overflow)
                     ids("UNKNOWN_CODE") shouldBe listOf(unknown)
                     ids("DUPLICATE_CODE") shouldBe listOf(duplicate, tooMany)
                     ids("TOO_MANY") shouldBe listOf(tooMany)
