@@ -43,6 +43,7 @@ enum class ErrorCode(
     FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
     FOOD_READY_TRANSITION_FORBIDDEN("FOOD-010", 400, "READY 전이는 검수 승인 API 로만 가능합니다"),
     FOOD_TOO_MANY_INGREDIENTS("FOOD-011", 400, "음식 한 건의 재료는 21개까지 저장할 수 있습니다"),
+    FOOD_DUPLICATE_INGREDIENT("FOOD-012", 400, "같은 재료를 한 음식에 두 번 넣을 수 없습니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),

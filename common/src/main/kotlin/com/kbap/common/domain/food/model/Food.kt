@@ -152,6 +152,9 @@ class Food(
         if (ingredients != null && ingredients.size > MAX_INGREDIENTS) {
             throw BusinessException(ErrorCode.FOOD_TOO_MANY_INGREDIENTS)
         }
+        if (ingredients != null && ingredients.distinctBy { it.code }.size != ingredients.size) {
+            throw BusinessException(ErrorCode.FOOD_DUPLICATE_INGREDIENT)
+        }
         this.ingredients = ingredients
         ingredientsAssessed = ingredients != null
     }

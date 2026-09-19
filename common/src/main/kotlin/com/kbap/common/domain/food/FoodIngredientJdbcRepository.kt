@@ -13,7 +13,6 @@ class FoodIngredientJdbcRepository(
         val rows = ingredients.orEmpty()
             .mapIndexed { index, ingredient -> ingredient to (index + 1) * SORT_ORDER_STEP }
             .filter { (ingredient, _) -> ingredient.inclusionPercent in STORABLE_PERCENT }
-            .distinctBy { (ingredient, _) -> ingredient.code }
         if (rows.isEmpty()) return
         jdbcTemplate.batchUpdate(
             """

@@ -71,6 +71,19 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
                 }
             }
 
+            `when`("같은 code 가 두 번 오면") {
+                then("400 FOOD-012 로 거절한다 — 관계 PK 가 code 당 한 행이라 JSON 판정과 어긋날 수 있다") {
+                    val food = saveFood("중복재료적재", FoodContentStatus.FAILED)
+
+                    ingest(food, listOf(ingredient("SOY", 10), ingredient("CLAM", 30), ingredient("SOY", 100))).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-012") }
+                    }
+
+                    relationOf(food.id) shouldBe emptyList()
+                }
+            }
+
             `when`("재료가 빈 배열이면") {
                 then("관계는 0행이고 조사 완료로 표시된다") {
                     val food = saveFood("빈재료적재", FoodContentStatus.FAILED)
@@ -124,6 +137,20 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
 
                     relationOf(food.id) shouldBe emptyList()
                     assessedOf(food.id) shouldBe false
+                }
+            }
+
+            `when`("같은 code 가 두 번 오면") {
+                then("400 FOOD-012 로 거절한다") {
+                    val food = saveFood("중복찌개")
+
+                    putUpdate(
+                        food.id,
+                        updateBody("중복찌개", 0) + mapOf("ingredients" to listOf(ingredient("SOY", 10), ingredient("SOY", 90))),
+                    ).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-012") }
+                    }
                 }
             }
 
