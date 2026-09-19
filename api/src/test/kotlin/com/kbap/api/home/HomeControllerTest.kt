@@ -45,6 +45,42 @@ class HomeControllerTest : BehaviorSpec() {
             HomeTestSeed.reset(dataSource)
         }
 
+        given("홈 — 리뷰 많은 음식") {
+            `when`("리뷰 수가 다른 음식들이 있으면") {
+                then("리뷰 수 내림차순으로 내려가고 리뷰 0건 음식은 빠진다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    listOf(201L, 202L, 203L).forEach { HomeTestSeed.seedPlainMember(dataSource, it) }
+                    HomeTestSeed.seedReviews(dataSource, 1L, listOf(201L))
+                    HomeTestSeed.seedReviews(dataSource, 2L, listOf(201L, 202L, 203L))
+
+                    val ids = payload(null).path("mostReviewedFoods").map { it.path("foodId").asLong() }
+                    ids shouldContainExactly listOf(2L, 1L)
+                }
+            }
+
+            `when`("리뷰가 하나도 없으면") {
+                then("빈 배열을 내려준다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 2)
+
+                    payload(null).path("mostReviewedFoods").size() shouldBe 0
+                }
+            }
+
+            `when`("회원이 조회하면") {
+                then("비회원과 같은 순서로 내려간다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 2)
+                    listOf(211L, 212L).forEach { HomeTestSeed.seedPlainMember(dataSource, it) }
+                    HomeTestSeed.seedReviews(dataSource, 2L, listOf(211L, 212L))
+                    HomeTestSeed.seedReviews(dataSource, 1L, listOf(211L))
+
+                    val 회원 = payload(211L).path("mostReviewedFoods").map { it.path("foodId").asLong() }
+                    val 비회원 = payload(null).path("mostReviewedFoods").map { it.path("foodId").asLong() }
+                    회원 shouldContainExactly listOf(2L, 1L)
+                    비회원 shouldContainExactly 회원
+                }
+            }
+        }
+
         given("홈 응답의 음식 카드 — 리뷰 평점·리뷰 수") {
             `when`("리뷰 있는 음식이 인기 음식·최근 스캔에 포함되면") {
                 then("두 섹션 카드 모두에 review 객체가 담기고 리뷰 없는 음식은 0.0·0 이다") {

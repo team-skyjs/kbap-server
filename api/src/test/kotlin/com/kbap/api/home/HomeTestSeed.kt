@@ -34,6 +34,24 @@ object HomeTestSeed {
         },
     )
 
+    fun seedReviews(dataSource: DataSource, foodId: Long, memberIds: List<Long>) = execute(
+        dataSource,
+        memberIds.map { memberId ->
+            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                "VALUES ($memberId, $foodId, 5, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
+        },
+    )
+
+    fun seedPlainMember(dataSource: DataSource, memberId: Long) = execute(
+        dataSource,
+        listOf(
+            "INSERT IGNORE INTO member (id, provider, provider_uid, nickname, member_status, onboarding_completed, " +
+                "status, created_at, updated_at) " +
+                "VALUES ($memberId, 'GOOGLE', 'home-review-$memberId', '홈리뷰$memberId', 'ACTIVE', 1, 'ACTIVE', " +
+                "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+        ),
+    )
+
     fun seedSubstanceCatalog(dataSource: DataSource, vararg codes: String) = execute(
         dataSource,
         codes.mapIndexed { index, code ->

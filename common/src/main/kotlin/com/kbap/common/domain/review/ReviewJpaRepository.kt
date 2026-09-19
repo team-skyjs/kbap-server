@@ -56,6 +56,17 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     )
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
+    @Query(
+        """
+        select r.foodId from Review r, Food f
+        where f.id = r.foodId
+          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+        group by r.foodId
+        order by count(r) desc, max(r.id) desc
+        """,
+    )
+    fun findMostReviewedFoodIds(pageable: Pageable): List<Long>
+
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<Review>

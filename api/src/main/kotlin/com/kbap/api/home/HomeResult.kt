@@ -5,5 +5,6 @@ import com.kbap.api.food.FoodSummaryView
 data class HomeResult(
     val avoidedSubstances: List<AvoidedSubstanceView>,
     val popularFoods: List<FoodSummaryView>,
+    val mostReviewedFoods: List<FoodSummaryView>,
     val recentScans: List<FoodSummaryView>,
 )

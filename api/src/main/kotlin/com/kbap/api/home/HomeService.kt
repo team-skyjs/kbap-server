@@ -5,6 +5,7 @@ import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.LanguageCode
 import com.kbap.api.member.MemberService
+import com.kbap.api.review.ReviewService
 import com.kbap.api.scan.ScanService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,6 +15,7 @@ class HomeService(
     private val memberService: MemberService,
     private val foodService: FoodService,
     private val scanService: ScanService,
+    private val reviewService: ReviewService,
     private val ingredientRepository: IngredientJpaRepository,
 ) {
     @Transactional(readOnly = true)
@@ -27,6 +29,11 @@ class HomeService(
                 .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
             popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },
+            mostReviewedFoods = reviewService.getMostReviewedFoodIds(MOST_REVIEWED_SIZE).let { ids ->
+                val foodsById = foodService.getReadyFoodsByIds(ids).associateBy { it.id }
+                ids.mapNotNull { foodsById[it] }
+                    .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) }
+            },
             recentScans = member?.id?.let { id ->
                 val recentIds = scanService.getRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
                 val foodsById = foodService.getReadyFoodsByIds(recentIds).associateBy { it.id }
@@ -39,5 +46,6 @@ class HomeService(
     companion object {
         const val POPULAR_SIZE = 5
         const val RECENT_SCAN_SIZE = 10
+        const val MOST_REVIEWED_SIZE = 10
     }
 }
