@@ -21,11 +21,12 @@ class HomeService(
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
         val member = memberId?.let { memberService.getMemberOrNull(it) }
-        val avoidedCodes = memberService.getAvoidedCodes(member?.id)
-        val avoidedRefs = avoidedCodes.map { it.name }.toSet()
+        val avoidance = memberService.getAvoidance(member?.id)
+        val chosenCodes = avoidance.chosen
+        val avoidedRefs = avoidance.codeNames
 
         return HomeResult(
-            avoidedSubstances = (if (avoidedCodes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(avoidedCodes))
+            avoidedSubstances = (if (chosenCodes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(chosenCodes))
                 .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
             popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
                 .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },

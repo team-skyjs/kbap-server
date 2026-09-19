@@ -128,8 +128,6 @@ class MemberService(
         return getMemberOrNull(memberId)?.profile?.avoidance() ?: Avoidance.NONE
     }
 
-    @Transactional(readOnly = true)
-    fun getAvoidedCodes(memberId: Long?): Set<IngredientCode> = getAvoidance(memberId).codes
 
     @Transactional(readOnly = true)
     fun getMember(memberId: Long): Member =
