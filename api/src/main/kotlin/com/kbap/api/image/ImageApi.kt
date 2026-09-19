@@ -46,7 +46,8 @@ interface ImageApi {
         ErrorCode.UPLOADED_OBJECT_NOT_FOUND,
     )
     fun complete(
-        memberId: Long,
+        memberId: Long?,
+        installationId: String?,
         @SwaggerRequestBody(required = true)
         request: ImageCompleteRequest,
     ): ResponseEntity<BaseResponse<ImageCompleteResponse>>

@@ -41,3 +41,7 @@ kbap:
       enabled: false
     food-content-outbox:
       queue-url: https://sqs.ap-northeast-2.amazonaws.com/123456789012/test-food-content
+  # Expo push 어댑터 조립용(KB-468). 통합 테스트는 실제로 호출하지 않는다 — 연결되지 않는 주소.
+  push:
+    expo:
+      base-url: https://expo.test

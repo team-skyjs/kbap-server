@@ -2,6 +2,7 @@ package com.kbap.api.core.config
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.api.core.logging.RequestLoggingFilter
 import com.kbap.common.core.error.ErrorCode
@@ -181,7 +182,7 @@ class OpenApiConfig {
 
     companion object {
         const val BEARER_AUTH: String = "bearerAuth"
-        const val API_VERSION_HEADER: String = "X-API-Version"
+        const val API_VERSION_HEADER: String = ApiHeaders.API_VERSION
         private const val ADMIN_PACKAGE: String = "com.kbap.api.admin"
         private val NOTICE: String = """
             ## 공지

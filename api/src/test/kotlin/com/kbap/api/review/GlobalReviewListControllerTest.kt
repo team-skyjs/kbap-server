@@ -118,9 +118,11 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
             cursor: String? = null,
             sort: String? = null,
             countryCode: String? = null,
+            installationId: String? = null,
         ): ResultActionsDsl =
             mockMvc.get("/api/reviews") {
                 token?.let { header("Authorization", "Bearer $it") }
+                installationId?.let { header("X-Installation-Id", it) }
                 lang?.let { param("lang", it) }
                 cursor?.let { param("cursor", it) }
                 sort?.let { param("sort", it) }
@@ -129,6 +131,24 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
 
         fun payloadOf(result: ResultActionsDsl): JsonNode =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+        fun reportReview(reviewId: Long, installationId: String, token: String? = null): Unit {
+            mockMvc.post("/api/reports") {
+                token?.let { header("Authorization", "Bearer $it") }
+                header("X-Installation-Id", installationId)
+                contentType = MediaType.APPLICATION_JSON
+                content = mapper.writeValueAsString(
+                    mapOf("targetType" to "REVIEW", "targetId" to reviewId, "reason" to "SPAM"),
+                )
+            }.andExpect { status { isOk() } }
+        }
+
+        fun foodDetail(foodId: Long, installationId: String? = null, token: String? = null): ResultActionsDsl =
+            mockMvc.get("/api/foods/$foodId") {
+                token?.let { header("Authorization", "Bearer $it") }
+                installationId?.let { header("X-Installation-Id", it) }
+                param("lang", "en")
+            }
 
         given("전체 리뷰 목록 — GET /api/reviews (foodId 없음)") {
             `when`("여러 음식의 리뷰 25건에서 첫 페이지를 조회하면") {
@@ -150,26 +170,35 @@ class GlobalReviewListControllerTest : BehaviorSpec() {
                 }
             }
             `when`("내가 신고한 리뷰가 있으면") {
-                then("내 피드에서만 빠진다") {
+                then("신고는 목록을 바꾸지 않는다 — 신고자에게도 그대로 보인다") {
                     seedFood(902L, "피드신고음식")
                     val author = accessToken(9002L)
                     val viewer = accessToken(9003L)
                     val reported = createReview(author, 902L)
                     val kept = createReview(author, 902L)
-                    mockMvc.post("/api/reports") {
-                        header("Authorization", "Bearer $viewer")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = mapper.writeValueAsString(
-                            mapOf("targetType" to "REVIEW", "targetId" to reported, "reason" to "SPAM"),
-                        )
-                    }.andExpect { status { isOk() } }
+                    reportReview(reported, "member-feed-report-01", token = viewer)
 
                     val viewerIds = payloadOf(feed(viewer)).path("items").map { it.path("reviewId").asLong() }
                     viewerIds.contains(kept) shouldBe true
-                    viewerIds.contains(reported) shouldBe false
+                    viewerIds.contains(reported) shouldBe true
 
                     val authorIds = payloadOf(feed(author)).path("items").map { it.path("reviewId").asLong() }
                     authorIds.contains(reported) shouldBe true
+                }
+            }
+            `when`("게스트가 신고한 리뷰가 있으면") {
+                then("같은 설치로 조회해도 그 리뷰가 그대로 보인다") {
+                    seedFood(908L, "게스트신고음식")
+                    val author = accessToken(9008L)
+                    val installationId = "guest-feed-11112222"
+                    val reported = createReview(author, 908L)
+                    val kept = createReview(author, 908L)
+                    reportReview(reported, installationId)
+
+                    val guestIds = payloadOf(feed(token = null, installationId = installationId))
+                        .path("items").map { it.path("reviewId").asLong() }
+                    guestIds.contains(kept) shouldBe true
+                    guestIds.contains(reported) shouldBe true
                 }
             }
             `when`("작성자가 탈퇴하면") {

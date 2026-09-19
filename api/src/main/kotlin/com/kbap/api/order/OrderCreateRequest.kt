@@ -2,6 +2,7 @@ package com.kbap.api.order
 
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
+import com.kbap.common.domain.order.model.OrderPlaceSnapshot
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.DecimalMax
@@ -37,19 +38,27 @@ data class OrderCreateRequest(
     @field:DecimalMax(value = "180", message = "경도는 180 이하여야 합니다")
     @field:Schema(description = "주문 순간 경도", example = "126.9834000", nullable = true)
     val longitude: BigDecimal? = null,
+
+    @field:Schema(
+        description = "식당 자동 추정에 쓸 표시 언어(LanguageCode.code). 선택 — 없으면 ko(현지 간판명). 지원 밖이면 en",
+        example = "en",
+        nullable = true,
+    )
+    val lang: String? = null,
 ) {
     @get:jakarta.validation.constraints.AssertTrue(message = "latitude·longitude 는 함께 보내거나 함께 생략해야 합니다")
     @get:Schema(hidden = true)
     val coordinatesComplete: Boolean
         get() = (latitude == null) == (longitude == null)
 
-    fun toOrder(memberId: Long, roadAddress: String?): Order =
-        Order.place(
+    fun toOrder(memberId: Long, roadAddress: String?, resolvedPlace: OrderPlaceSnapshot?): Order =
+        Order.create(
             memberId = memberId,
             imagePath = imagePath!!,
             latitude = latitude,
             longitude = longitude,
             roadAddress = roadAddress,
+            resolvedPlace = resolvedPlace,
         )
 }
 

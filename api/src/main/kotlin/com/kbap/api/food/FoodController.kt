@@ -35,7 +35,12 @@ class FoodController(
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
         val result = foodService.getFoodPage(
-            BrowseFoodsInput(cursor = CursorParser.parse(request.cursor), lang = LanguageCode.from(request.lang), memberId = memberId),
+            BrowseFoodsInput(
+                cursor = CursorParser.parse(request.cursor),
+                lang = LanguageCode.from(request.lang),
+                memberId = memberId,
+                risks = RiskFilterParser.parse(request.risk),
+            ),
         )
         return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
     }

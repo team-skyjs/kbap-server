@@ -112,6 +112,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "appversion" to emptySet(),
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
+            "feedback" to emptySet(),
             "food" to emptySet(),
             "bookmark" to setOf("food", "member", "ingredient"),
             "member" to setOf("ingredient"),
@@ -122,6 +123,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "review" to emptySet(),
             "report" to emptySet(),
             "community" to emptySet(),
+            "notification" to emptySet(),
         )
 
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {

@@ -16,4 +16,6 @@ dependencies {
     "api"(platform(libs.aws.bom))
     "api"(libs.aws.s3vectors)
     "implementation"(libs.aws.sqs)
+    "implementation"(libs.spring.web)
+    "implementation"("tools.jackson.module:jackson-module-kotlin")
 }

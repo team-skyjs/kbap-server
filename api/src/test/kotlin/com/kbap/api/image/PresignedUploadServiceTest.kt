@@ -34,6 +34,8 @@ class PresignedUploadServiceTest : BehaviorSpec({
         }
     }
 
+    val passingQuota = GuestUploadQuota { it.orEmpty() }
+
     fun properties(keyPrefix: String = "") = ImageUploadProperties(
         allowedContentTypes = setOf("image/jpeg", "image/png"),
         maxBytes = 1_000L,
@@ -47,12 +49,12 @@ class PresignedUploadServiceTest : BehaviorSpec({
         purpose: String = "MENU_SCAN",
         contentType: String = "image/jpeg",
         contentLength: Long = 500L,
-    ) = ImageUploadInput(memberId, purpose, contentType, contentLength)
+    ) = ImageUploadInput(memberId, installationId = null, purpose = purpose, contentType = contentType, contentLength = contentLength)
 
     given("이미지 업로드 URL 발급") {
         `when`("지원하지 않는 용도로 요청하면") {
             then("UPLOAD-002 로 거절한다") {
-                val service = PresignedUploadService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort(), passingQuota)
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(purpose = "UNKNOWN"))
                 }
@@ -62,7 +64,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
         `when`("허용되지 않은 Content-Type 으로 요청하면") {
             then("UPLOAD-001 로 거절한다") {
-                val service = PresignedUploadService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort(), passingQuota)
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(contentType = "image/gif"))
                 }
@@ -72,7 +74,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
 
         `when`("허용 크기를 초과하면") {
             then("UPLOAD-003 로 거절한다") {
-                val service = PresignedUploadService(properties(), RecordingPort())
+                val service = PresignedUploadService(properties(), RecordingPort(), passingQuota)
                 val ex = shouldThrow<BusinessException> {
                     service.issueUploadUrl(input(contentLength = 1_001L))
                 }
@@ -83,7 +85,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("유효한 요청이면") {
             then("규격에 맞는 객체 키로 port 에 위임하고 결과를 반환한다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(), port)
+                val service = PresignedUploadService(properties(), port, passingQuota)
 
                 val result = service.issueUploadUrl(input(memberId = 1024L, contentType = "image/jpeg"))
 
@@ -99,7 +101,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("PROFILE_IMAGE 용도로 요청하면") {
             then("객체 키가 profile 폴더 아래로 생성된다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(), port)
+                val service = PresignedUploadService(properties(), port, passingQuota)
 
                 service.issueUploadUrl(input(memberId = 7L, purpose = "PROFILE_IMAGE"))
 
@@ -110,7 +112,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("REVIEW 용도로 요청하면") {
             then("객체 키가 review 폴더 아래 {회원ID}_{uuid} 파일명으로 생성된다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(), port)
+                val service = PresignedUploadService(properties(), port, passingQuota)
 
                 service.issueUploadUrl(input(memberId = 42L, purpose = "REVIEW"))
 
@@ -121,7 +123,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("image/png 을 올리면") {
             then("객체 키 확장자가 png 다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(), port)
+                val service = PresignedUploadService(properties(), port, passingQuota)
                 service.issueUploadUrl(input(contentType = "image/png"))
                 port.keys.single() shouldMatch Regex(""".*\.png$""")
             }
@@ -130,7 +132,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("환경 접두가 dev 로 설정되면") {
             then("객체 키와 공개 URL 이 dev/ 접두로 시작한다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(keyPrefix = "dev"), port)
+                val service = PresignedUploadService(properties(keyPrefix = "dev"), port, passingQuota)
 
                 val result = service.issueUploadUrl(input(memberId = 1024L))
 
@@ -143,7 +145,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
             then("동일하게 정규화되어 중복 슬래시 없이 dev/ 로 시작한다") {
                 listOf("dev/", "/dev").forEach { prefix ->
                     val port = RecordingPort()
-                    val service = PresignedUploadService(properties(keyPrefix = prefix), port)
+                    val service = PresignedUploadService(properties(keyPrefix = prefix), port, passingQuota)
 
                     service.issueUploadUrl(input())
 
@@ -156,7 +158,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         `when`("같은 회원이 연속 두 번 발급하면") {
             then("객체 키가 서로 다르다") {
                 val port = RecordingPort()
-                val service = PresignedUploadService(properties(), port)
+                val service = PresignedUploadService(properties(), port, passingQuota)
                 service.issueUploadUrl(input())
                 service.issueUploadUrl(input())
                 (port.keys[0] == port.keys[1]) shouldBe false

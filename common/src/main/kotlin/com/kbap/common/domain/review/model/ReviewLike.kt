@@ -5,6 +5,8 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import java.time.Duration
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -19,4 +21,11 @@ class ReviewLike(
 
     @Column(nullable = false)
     val memberId: Long = 0,
-) : BaseEntity()
+) : BaseEntity() {
+    fun countsAsNewLikeAt(now: LocalDateTime): Boolean =
+        !isActive() && updatedAt.isBefore(now.minus(RELIKE_COOLDOWN))
+
+    companion object {
+        val RELIKE_COOLDOWN: Duration = Duration.ofMinutes(5)
+    }
+}

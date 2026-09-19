@@ -55,8 +55,7 @@ class ScanFacade(
         }
     }
 
-    private fun limitFor(member: Member): Int =
-        if (member.scanUnlocked) Int.MAX_VALUE else Member.FREE_SCAN_LIMIT
+    private fun limitFor(member: Member): Int = member.scanLimit()
 
     private fun releaseReservationQuietly(memberId: Long, reservationId: String) {
         runCatching { reservationStore.release(memberId, reservationId) }
