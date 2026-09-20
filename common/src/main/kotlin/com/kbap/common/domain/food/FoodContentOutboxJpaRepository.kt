@@ -96,10 +96,46 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun countStaleSent(@Param("before") before: LocalDateTime): Long
 
     @Query(
-        value = "SELECT COUNT(*) FROM food_content_outbox WHERE dead_at IS NOT NULL AND status = 'ACTIVE'",
+        value = """
+            SELECT COUNT(*) FROM food_content_outbox dead
+            WHERE dead.dead_at IS NOT NULL
+              AND dead.outbox_status <> 'COMPLETE'
+              AND dead.status = 'ACTIVE'
+              AND NOT EXISTS (
+                SELECT 1 FROM food_content_outbox newer
+                WHERE newer.food_id = dead.food_id AND newer.id > dead.id AND newer.status = 'ACTIVE'
+              )
+        """,
         nativeQuery = true,
     )
     fun countDead(): Long
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        value = """
+            UPDATE food_content_outbox
+            SET outbox_status = 'PENDING',
+                sent_at = NULL,
+                last_error = :reason,
+                updated_at = CURRENT_TIMESTAMP(6)
+            WHERE id = :id AND outbox_status = 'SENT' AND dead_at IS NULL AND status = 'ACTIVE'
+        """,
+        nativeQuery = true,
+    )
+    fun requeueIfStillSent(@Param("id") id: Long, @Param("reason") reason: String): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        value = """
+            UPDATE food_content_outbox
+            SET dead_at = CURRENT_TIMESTAMP(6),
+                last_error = :reason,
+                updated_at = CURRENT_TIMESTAMP(6)
+            WHERE id = :id AND outbox_status = 'SENT' AND dead_at IS NULL AND status = 'ACTIVE'
+        """,
+        nativeQuery = true,
+    )
+    fun markDeadIfStillSent(@Param("id") id: Long, @Param("reason") reason: String): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

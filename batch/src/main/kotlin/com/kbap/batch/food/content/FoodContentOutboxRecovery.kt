@@ -32,13 +32,16 @@ class FoodContentOutboxRecovery(
             transactionTemplate.executeWithoutResult {
                 stale.forEach { outbox ->
                     if (outbox.attempts >= maxAttempts) {
-                        outbox.markDead("응답 없이 ${staleAfter.toHours()}시간 초과 — 재시도 ${outbox.attempts}회로 상한 도달")
-                        dead++
+                        dead += outboxRepository.markDeadIfStillSent(
+                            outbox.id,
+                            "응답 없이 ${staleAfter.toHours()}시간 초과 — 재시도 ${outbox.attempts}회로 상한 도달",
+                        )
                     } else {
-                        outbox.requeue("응답 없이 ${staleAfter.toHours()}시간 초과 — 재전송")
-                        requeued++
+                        requeued += outboxRepository.requeueIfStillSent(
+                            outbox.id,
+                            "응답 없이 ${staleAfter.toHours()}시간 초과 — 재전송",
+                        )
                     }
-                    outboxRepository.save(outbox)
                 }
             }
         }

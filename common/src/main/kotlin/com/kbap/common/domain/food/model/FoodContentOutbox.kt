@@ -33,12 +33,6 @@ class FoodContentOutbox(
     @Column(name = "last_error", length = 500)
     var lastError: String? = null,
 ) : BaseEntity() {
-    fun requeue(reason: String) {
-        outboxStatus = FoodContentOutboxStatus.PENDING
-        sentAt = null
-        lastError = reason.take(MAX_ERROR_LENGTH)
-    }
-
     fun markDead(reason: String) {
         deadAt = LocalDateTime.now()
         lastError = reason.take(MAX_ERROR_LENGTH)
