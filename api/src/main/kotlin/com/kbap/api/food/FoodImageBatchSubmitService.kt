@@ -53,6 +53,36 @@ class FoodImageBatchSubmitService(
         submitToClient(claim.batch, claim.foods)
     }
 
+    private fun claimAvailable(
+        chunk: List<com.kbap.common.domain.food.model.Food>,
+        skippedIds: MutableList<Long>,
+    ): FoodImageBatchClaimedChunk? {
+        val targets = available(chunk, skippedIds)
+        if (targets.isEmpty()) return null
+        return try {
+            FoodImageBatchClaimedChunk(claim(targets), targets)
+        } catch (e: DataIntegrityViolationException) {
+            val retryTargets = available(targets, skippedIds)
+            if (retryTargets.isEmpty()) return null
+            try {
+                FoodImageBatchClaimedChunk(claim(retryTargets), retryTargets)
+            } catch (retryFailure: DataIntegrityViolationException) {
+                log.warn("이미지 제출 선점 경합 — 청크 스킵 foodIds={}", retryTargets.map { it.id }, retryFailure)
+                skippedIds += retryTargets.map { it.id }
+                null
+            }
+        }
+    }
+
+    private fun available(
+        foods: List<com.kbap.common.domain.food.model.Food>,
+        skippedIds: MutableList<Long>,
+    ): List<com.kbap.common.domain.food.model.Food> {
+        val inProgress = itemRepository.findFoodIdsInProgress(foods.map { it.id }).toSet()
+        skippedIds += foods.map { it.id }.filter { it in inProgress }
+        return foods.filterNot { it.id in inProgress }
+    }
+
     private fun claim(foods: List<com.kbap.common.domain.food.model.Food>): ImageBatch =
         metaTransaction.execute {
             val claimed = batchRepository.save(
@@ -84,20 +114,21 @@ class FoodImageBatchSubmitService(
     private fun submit(candidates: List<com.kbap.common.domain.food.model.Food>, skipped: List<Long>): FoodImageSubmitResult {
         var submittedBatchCount = 0
         var submittedFoodCount = 0
+        val skippedIds = skipped.toMutableList()
         candidates.chunked(properties.batchSize).forEach { chunk ->
-            val batch = try {
-                claim(chunk)
-            } catch (e: DataIntegrityViolationException) {
-                log.warn("이미지 제출 선점 경합 — 청크 스킵 foodIds={}", chunk.map { it.id }, e)
-                return@forEach
-            }
-            submitToClient(batch, chunk)
+            val claimed = claimAvailable(chunk, skippedIds) ?: return@forEach
+            submitToClient(claimed.batch, claimed.foods)
             submittedBatchCount++
-            submittedFoodCount += chunk.size
+            submittedFoodCount += claimed.foods.size
         }
-        return FoodImageSubmitResult(submittedBatchCount, submittedFoodCount, skipped)
+        return FoodImageSubmitResult(submittedBatchCount, submittedFoodCount, skippedIds)
     }
 }
+
+private data class FoodImageBatchClaimedChunk(
+    val batch: ImageBatch,
+    val foods: List<com.kbap.common.domain.food.model.Food>,
+)
 
 data class FoodImageBatchClaim(
     val batch: ImageBatch,

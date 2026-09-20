@@ -242,6 +242,19 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("한 건이 이미 선점된 채로 여러 음식을 제출하면") {
+                then("선점된 것만 건너뛰고 나머지는 제출된다 — 한 건의 경합이 전체를 막지 않는다") {
+                    val busy = saveFood("경합중음식")
+                    val free = saveFood("같이제출음식", FoodContentStatus.PENDING_IMAGE)
+                    regenerate(busy.id).andExpect { status { isOk() } }
+
+                    val payload = payloadOf(submit(mapOf("foodIds" to listOf(busy.id, free.id))))
+
+                    payload.path("submittedFoodCount").asInt() shouldBe 1
+                    payload.path("skippedInProgress").map { it.asLong() } shouldBe listOf(busy.id)
+                }
+            }
+
             `when`("진행 중인 음식을 foodIds 로 지정하면") {
                 then("건너뛰고 skippedInProgress 에 담는다") {
                     val food = saveFood("이미진행음식")
