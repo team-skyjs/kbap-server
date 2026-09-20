@@ -40,13 +40,12 @@ class AdminFoodImageService(
     @Transactional
     fun setPrimary(foodId: Long, imageId: Long, expectedVersion: Long): AdminFoodImageGalleryResult {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
-        if (food.version != expectedVersion) throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
-
         val target = foodImageRepository.findById(imageId)
             .filter { it.foodId == foodId }
             .orElseThrow { BusinessException(ErrorCode.FOOD_IMAGE_NOT_FOUND) }
 
         val changed = !target.isPrimary || food.imageRef != target.imageKey
+        if (changed && food.version != expectedVersion) throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
         if (!target.isPrimary) {
             foodImageRepository.demotePrimaryByFoodId(foodId)
             target.isPrimary = true

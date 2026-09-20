@@ -214,6 +214,18 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("응답을 못 받은 클라이언트가 같은 대표 지정을 그대로 재시도하면") {
+                then("버전이 낡았어도 200 이다 — 이미 그 이미지가 대표이므로 바꿀 게 없다") {
+                    val food = saveFood("재시도멱등음식", "images/webp/a.webp")
+                    saveImage(food.id, "images/webp/a.webp", isPrimary = true, sortOrder = 0)
+                    val next = saveImage(food.id, "images/webp/b.webp", isPrimary = false, sortOrder = 1)
+
+                    setPrimary(food.id, next.id, food.version).andExpect { status { isOk() } }
+
+                    setPrimary(food.id, next.id, food.version).andExpect { status { isOk() } }
+                }
+            }
+
             `when`("version 이 최신이 아니면") {
                 then("409 FOOD-006 으로 거절한다") {
                     val food = saveFood("버전충돌음식", "images/webp/v.webp")
