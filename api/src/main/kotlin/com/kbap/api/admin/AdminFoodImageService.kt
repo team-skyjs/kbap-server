@@ -8,6 +8,7 @@ import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import org.springframework.stereotype.Service
@@ -59,8 +60,10 @@ class AdminFoodImageService(
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
             }
-            if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
-            target.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+            if (!target.isReady() && target.contentStatus != FoodContentStatus.PENDING_IMAGE) {
+                throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+            }
+            target.contentStatus = FoodContentStatus.PENDING_IMAGE
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
             target
         }!!

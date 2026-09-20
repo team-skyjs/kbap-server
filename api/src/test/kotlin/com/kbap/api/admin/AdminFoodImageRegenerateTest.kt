@@ -119,6 +119,18 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("배치가 실패로 끝나 이미지 대기로 남은 음식을 재생성하면") {
+                then("진행 중 항목이 없으므로 다시 제출된다 — 운영자가 복구할 수 있어야 한다") {
+                    val food = saveFood("실패잔류음식")
+                    regenerate(food.id).andExpect { status { isOk() } }
+                    itemRepository.saveAll(
+                        itemRepository.findAll().filter { it.foodId == food.id }.onEach { it.fail("배치 실패") },
+                    )
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
             `when`("READY 가 아닌 음식을 재생성하면") {
                 then("409 FOOD-011 로 거절한다") {
                     val food = saveFood("검수중음식", FoodContentStatus.PENDING_REVIEW)
