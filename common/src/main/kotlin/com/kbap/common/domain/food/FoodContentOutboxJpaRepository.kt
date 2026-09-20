@@ -92,29 +92,37 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value = """
-            UPDATE food_content_outbox
-            SET outbox_status = 'PENDING',
-                sent_at = NULL,
-                last_error = :reason,
-                updated_at = CURRENT_TIMESTAMP(6)
-            WHERE id = :id AND outbox_status = 'SENT' AND dead_at IS NULL AND status = 'ACTIVE'
+            UPDATE food_content_outbox outbox
+            SET outbox.outbox_status = 'PENDING',
+                outbox.sent_at = NULL,
+                outbox.last_error = :reason,
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :id AND $STALE_SENT
         """,
         nativeQuery = true,
     )
-    fun requeueIfStillSent(@Param("id") id: Long, @Param("reason") reason: String): Int
+    fun requeueIfStillStale(
+        @Param("id") id: Long,
+        @Param("before") before: LocalDateTime,
+        @Param("reason") reason: String,
+    ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value = """
-            UPDATE food_content_outbox
-            SET dead_at = CURRENT_TIMESTAMP(6),
-                last_error = :reason,
-                updated_at = CURRENT_TIMESTAMP(6)
-            WHERE id = :id AND outbox_status = 'SENT' AND dead_at IS NULL AND status = 'ACTIVE'
+            UPDATE food_content_outbox outbox
+            SET outbox.dead_at = CURRENT_TIMESTAMP(6),
+                outbox.last_error = :reason,
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :id AND $STALE_SENT
         """,
         nativeQuery = true,
     )
-    fun markDeadIfStillSent(@Param("id") id: Long, @Param("reason") reason: String): Int
+    fun markDeadIfStillStale(
+        @Param("id") id: Long,
+        @Param("before") before: LocalDateTime,
+        @Param("reason") reason: String,
+    ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
@@ -174,17 +182,17 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
 
     companion object {
-        private const val FOOD_ALIVE =
-            "EXISTS (SELECT 1 FROM food f WHERE f.id = outbox.food_id AND f.status = 'ACTIVE')"
+        private const val LIVE_REQUEST =
+            "outbox.status = 'ACTIVE' " +
+                "AND EXISTS (SELECT 1 FROM food f WHERE f.id = outbox.food_id AND f.status = 'ACTIVE') " +
+                "AND NOT EXISTS (SELECT 1 FROM (SELECT id, food_id, status FROM food_content_outbox) newer " +
+                "WHERE newer.food_id = outbox.food_id AND newer.id > outbox.id AND newer.status = 'ACTIVE')"
 
         const val STALE_SENT =
             "outbox.outbox_status = 'SENT' AND outbox.dead_at IS NULL AND outbox.sent_at IS NOT NULL " +
-                "AND outbox.sent_at < :before AND outbox.status = 'ACTIVE' AND $FOOD_ALIVE"
+                "AND outbox.sent_at < :before AND $LIVE_REQUEST"
 
         const val DEAD_UNRESOLVED =
-            "outbox.dead_at IS NOT NULL AND outbox.outbox_status <> 'COMPLETE' AND outbox.status = 'ACTIVE' " +
-                "AND $FOOD_ALIVE " +
-                "AND NOT EXISTS (SELECT 1 FROM food_content_outbox newer " +
-                "WHERE newer.food_id = outbox.food_id AND newer.id > outbox.id AND newer.status = 'ACTIVE')"
+            "outbox.dead_at IS NOT NULL AND outbox.outbox_status <> 'COMPLETE' AND $LIVE_REQUEST"
     }
 }

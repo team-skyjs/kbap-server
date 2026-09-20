@@ -93,7 +93,7 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                     )
 
                     TransactionTemplate(transactionManager).execute {
-                        outboxRepository.requeueIfStillSent(completed.id, "테스트")
+                        outboxRepository.requeueIfStillStale(completed.id, LocalDateTime.now(), "테스트")
                     } shouldBe 0
 
                     outboxRepository.findById(completed.id).orElseThrow().outboxStatus shouldBe
@@ -118,6 +118,42 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
 
                     summary.requeued shouldBe 0
                     summary.dead shouldBe 0
+                }
+            }
+
+            `when`("회수 읽기 뒤에 음식이 삭제됐으면") {
+                then("재큐 UPDATE 도 막는다 — 읽기와 쓰기가 같은 조건을 본다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("읽고삭제국수"))
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    outboxRepository.save(
+                        outbox.apply {
+                            outboxStatus = FoodContentOutboxStatus.SENT
+                            sentAt = LocalDateTime.now().minusHours(30)
+                        },
+                    )
+                    foodRepository.save(food.apply { delete() })
+
+                    TransactionTemplate(transactionManager).execute {
+                        outboxRepository.requeueIfStillStale(outbox.id, LocalDateTime.now().minusHours(24), "테스트")
+                    } shouldBe 0
+                }
+            }
+
+            `when`("같은 음식에 더 새 요청이 생겼으면") {
+                then("옛 굳은 행은 회수하지 않는다 — 재수집이 이미 새 행을 만들었다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("재수집국수"))
+                    val old = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    outboxRepository.save(
+                        old.apply {
+                            outboxStatus = FoodContentOutboxStatus.SENT
+                            sentAt = LocalDateTime.now().minusHours(30)
+                        },
+                    )
+                    outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    recovery().recoverStale().requeued shouldBe 0
                 }
             }
 
