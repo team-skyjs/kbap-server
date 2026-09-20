@@ -8,6 +8,7 @@ import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
@@ -60,7 +61,7 @@ class AdminFoodImageService(
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
             }
-            if (!target.isReady() && target.contentStatus != FoodContentStatus.PENDING_IMAGE) {
+            if (!target.isReady() && !target.isFailedRegeneration()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
             target.freezePublishedAtIfLegacy()
@@ -75,6 +76,9 @@ class AdminFoodImageService(
             batchItemId = batchItemId,
         )
     }
+
+    private fun Food.isFailedRegeneration(): Boolean =
+        contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
 
     private fun galleryOf(foodId: Long): AdminFoodImageGalleryResult {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }

@@ -144,6 +144,23 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("첫 이미지를 기다리는 신규 음식을 재생성하면") {
+                then("409 FOOD-011 로 거절한다 — 일괄 제출이 맡을 몫이라 유료 호출을 열지 않는다") {
+                    val food = foodRepository.save(
+                        Food(
+                            koreanName = "첫이미지대기음식",
+                            description = "설명",
+                            contentStatus = FoodContentStatus.PENDING_IMAGE,
+                        ),
+                    )
+
+                    regenerate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-011") }
+                    }
+                }
+            }
+
             `when`("READY 가 아닌 음식을 재생성하면") {
                 then("409 FOOD-011 로 거절한다") {
                     val food = saveFood("검수중음식", FoodContentStatus.PENDING_REVIEW)
