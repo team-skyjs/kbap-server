@@ -151,7 +151,9 @@ class AdminFoodService(
             throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
         }
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
-        if (command.imageRef != food.imageRef.orEmpty()) return AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE
+        if (command.imageRef != null && command.imageRef != food.imageRef.orEmpty()) {
+            return AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE
+        }
 
         val nameTranslations: Map<String, String>
         val descriptionTranslations: Map<String, String>
@@ -186,7 +188,6 @@ class AdminFoodService(
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
-        food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
         food.replaceIngredients(ingredients)
@@ -347,7 +348,7 @@ data class UpdateFoodCommand(
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
-    val imageRef: String,
+    val imageRef: String? = null,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
     val ingredientsJson: String,

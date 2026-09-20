@@ -82,7 +82,7 @@ class AdminFoodCatalogController(
             description = request.description!!,
             spiciness = request.spiciness!!,
             contentStatus = request.contentStatus!!,
-            imageRef = request.imageRef.orEmpty().trim(),
+            imageRef = request.imageRef?.trim(),
             nameTranslationsJson = request.nameTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             descriptionTranslationsJson = request.descriptionTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             ingredientsJson = request.ingredients?.let(objectMapper::writeValueAsString).orEmpty(),
