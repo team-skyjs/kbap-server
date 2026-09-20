@@ -90,6 +90,10 @@ interface AdminApi {
             ApiResponse(responseCode = "200", description = "제출 성공 — 배치/음식 카운트 반환(후보 0건이면 0/0)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+            ApiResponse(
+                responseCode = "500",
+                description = "이미지 생성 API 제출 실패 — 전용 에러 코드가 없다. 선점했던 배치는 실패로 닫히고 다음 호출에 다시 포함된다",
+            ),
         ],
     )
     fun submitFoodImages(request: AdminFoodImageSubmitRequest?): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>>
