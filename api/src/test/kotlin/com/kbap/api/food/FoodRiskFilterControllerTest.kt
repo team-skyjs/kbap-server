@@ -99,6 +99,31 @@ class FoodRiskFilterControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("새우를 회피하는 회원이 risk=CAUTION 으로 조회하면") {
+                then("새우젓 음식이 함의로 CAUTION 에 걸려 내려온다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO member (id, provider, provider_uid, avoidance_substance_codes, member_status, " +
+                                    "onboarding_completed, status, created_at, updated_at) " +
+                                    "VALUES (6010, 'GOOGLE', 'risk-6010', '[\"SHRIMP\"]', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                            it.execute(
+                                "INSERT INTO food (id, korean_name, description, spiciness, name_translations, " +
+                                    "description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                                    "VALUES (41, '위험도음식41', '설명', 0, '{}', '{}', " +
+                                    "'[{\"code\":\"SALTED_SHRIMP\",\"inclusion_percent\":50}]', 'READY', 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                        }
+                    }
+                    seedFood(42L, null)
+
+                    val token = tokenIssuer.issueAccessToken(6010L, MemberRole.USER)
+                    val ids = idsOf(browse(token, risk = "CAUTION").andReturn().response.getContentAsString(Charsets.UTF_8))
+                    ids shouldContainExactlyInAnyOrder listOf(41L)
+                }
+            }
+
             `when`("risk 미지정이면") {
                 then("현행대로 전체가 내려온다") {
                     val token = eggMember(6003L)

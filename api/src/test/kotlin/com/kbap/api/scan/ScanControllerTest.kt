@@ -1418,6 +1418,27 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("새우만 회피하는 회원이 새우젓 음식을 스캔하면") {
+                then("함의로 새우 항목이 겹침·CAUTION 이 되고 음식도 CAUTION 이다") {
+                    val memberId = 690L
+                    val path = "scan/690/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SHRIMP")
+                    seedReadyFood("함의김치찌개")
+                    setFoodIngredients("함의김치찌개", """[{"code":"SALTED_SHRIMP","inclusion_percent":50}]""")
+                    vision.program(path, listOf(ExtractedMenu("김치찌개", "함의김치찌개", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].riskLevel") { value("CAUTION") }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(1) }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("SHRIMP") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                        jsonPath("$.payload.results[0].avoidances[0].riskLevel") { value("CAUTION") }
+                    }
+                }
+            }
+
             `when`("기피성분 등록 회원의 스캔 결과에 미매칭 메뉴가 있으면") {
                 then("해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
                     val memberId = 633L

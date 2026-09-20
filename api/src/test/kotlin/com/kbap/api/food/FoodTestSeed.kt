@@ -61,6 +61,18 @@ object FoodTestSeed {
 
     const val DELETED_FOOD_ID = 4L
 
+    const val KIMCHI_STEW_ID = 5L
+
+    fun seedKimchiStew(dataSource: DataSource) {
+        execute(
+            dataSource,
+            listOf(
+                food(KIMCHI_STEW_ID, "김치찌개", null, "새우젓이 들어간 김치찌개", 2, ingredients = listOf("SALTED_SHRIMP" to 50)),
+                avoidanceSubstance(104, "SALTED_SHRIMP", "새우젓", """{"en":"Salted shrimp"}"""),
+            ),
+        )
+    }
+
     fun seedDeletedFood(dataSource: DataSource) {
         execute(
             dataSource,

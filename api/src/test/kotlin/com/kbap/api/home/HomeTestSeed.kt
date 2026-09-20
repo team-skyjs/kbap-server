@@ -54,9 +54,9 @@ object HomeTestSeed {
 
     fun seedSubstanceCatalog(dataSource: DataSource, vararg codes: String) = execute(
         dataSource,
-        codes.mapIndexed { index, code ->
-            "INSERT IGNORE INTO ingredients (id, code, korean_name, translations, status, created_at, updated_at) " +
-                "VALUES (${900 + index}, '$code', '${koreanNameOf(code)}', '${translationsOf(code)}', " +
+        codes.map { code ->
+            "INSERT IGNORE INTO ingredients (code, korean_name, translations, status, created_at, updated_at) " +
+                "VALUES ('$code', '${koreanNameOf(code)}', '${translationsOf(code)}', " +
                 "'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         },
     )

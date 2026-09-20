@@ -40,7 +40,7 @@ class BookmarkService(
 
     @Transactional(readOnly = true)
     fun getBookmarkPage(memberId: Long, lang: LanguageCode, cursor: Long?, risks: Set<RiskLevel>? = null): BookmarkPage {
-        val avoidedCodes = memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
+        val avoidedCodes = memberService.getAvoidance(memberId).codeNames
 
         if (risks == null) {
             val rows = bookmarkRepository.findPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1))

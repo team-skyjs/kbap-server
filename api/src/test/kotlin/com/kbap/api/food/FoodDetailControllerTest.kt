@@ -233,6 +233,26 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("새우를 회피하는 회원이 새우젓이 든 음식을 조회하면") {
+                then("함의로 새우젓이 CAUTION 이 되고 근거 matchedBy 는 회원이 고른 SHRIMP 다") {
+                    FoodTestSeed.seedKimchiStew(dataSource)
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 13L, "SHRIMP")
+                    val token = tokenIssuer.issueAccessToken(13L, MemberRole.USER)
+
+                    mockMvc.get("/api/foods/${FoodTestSeed.KIMCHI_STEW_ID}") {
+                        param("lang", "en")
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.overallRiskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.avoidedIngredients.length()") { value(1) }
+                        jsonPath("$.payload.avoidedIngredients[0].code") { value("SALTED_SHRIMP") }
+                        jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.avoidedIngredients[0].matchedBy") { value("SHRIMP") }
+                    }
+                }
+            }
+
             `when`("SOY 와 CLAM 을 회피하는 회원이 조회하면") {
                 then("avoidedIngredients 에 겹치는 두 성분만 확률 내림차순으로 내려가고 WHEAT 는 제외한다") {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 12L, "SOY", "CLAM")

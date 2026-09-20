@@ -15,6 +15,7 @@ import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.ingredient.model.Ingredient
+import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
@@ -69,8 +70,9 @@ class ScanService(
         }
 
         val foodsByMatchKey = resolveFoods(extracted)
-        val orderedAvoidedCodes = member.profile.avoidedCodes().sortedBy { it.ordinal }
-        val avoidedCodes = orderedAvoidedCodes.map { it.name }.toSet()
+        val avoidance = member.profile.avoidance()
+        val orderedAvoidedCodes = avoidance.chosen.sortedBy { it.ordinal }
+        val avoidedCodes = avoidance.codeNames
         val avoidanceCatalog = loadAvoidanceCatalog(orderedAvoidedCodes)
         val validIdxes = ocrItems.map { it.idx }.toSet()
         val usedIdxes = mutableSetOf<Int>()
@@ -88,7 +90,7 @@ class ScanService(
                 koreanName = koreanName,
                 price = menu.priceKrw,
                 imageRef = foodService.resolveImageUrlOrDefault(food.takeIf { matched }),
-                avoidances = toAvoidances(member, matched, food, orderedAvoidedCodes, avoidanceCatalog, lang),
+                avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
             )
         }
 
@@ -110,21 +112,19 @@ class ScanService(
         member: Member,
         matched: Boolean,
         food: Food?,
-        orderedAvoidedCodes: List<IngredientCode>,
+        avoidance: Avoidance,
         catalog: Map<IngredientCode, Ingredient>,
         lang: LanguageCode,
     ): List<ScanResult.AvoidanceOverlap>? {
         if (!member.onboardingCompleted) return null
         if (!matched || food == null) return emptyList()
-        val overlappedByCode = food.overlappedIngredients(orderedAvoidedCodes.map { it.name }.toSet())
-            .associateBy { it.code }
-        return orderedAvoidedCodes.map { code ->
-            val overlapped = overlappedByCode[code.name]
+        return avoidance.chosen.sortedBy { it.ordinal }.map { code ->
+            val overlapped = food.overlappedIngredients(avoidance.codeNamesCoveredBy(code))
             ScanResult.AvoidanceOverlap(
                 code = code.name,
                 name = catalog[code]?.displayName(lang) ?: code.label,
-                overlapped = overlapped != null,
-                riskLevel = overlapped?.riskLevel()?.name,
+                overlapped = overlapped.isNotEmpty(),
+                riskLevel = overlapped.takeIf { it.isNotEmpty() }?.let { RiskLevel.aggregate(it.map { i -> i.riskLevel() }) }?.name,
             )
         }
     }

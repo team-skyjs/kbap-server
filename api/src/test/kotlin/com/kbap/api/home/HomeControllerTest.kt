@@ -234,6 +234,18 @@ class HomeControllerTest : BehaviorSpec() {
                     payload(11L).path("popularFoods").single().path("overallRiskStatus").asText() shouldBe "DANGER"
                 }
             }
+
+            `when`("새우를 회피하는 회원에게 새우젓 음식 카드가 보이면") {
+                then("함의로 CAUTION 판정이 내려오고, 표시용 회피 목록에는 고른 재료만 남는다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 1)
+                    HomeTestSeed.seedFoodSubstance(dataSource, foodId = 1L, code = "SALTED_SHRIMP", percent = 50)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("SHRIMP"))
+
+                    val home = payload(11L)
+                    home.path("popularFoods").single().path("overallRiskStatus").asText() shouldBe "CAUTION"
+                    home.path("avoidedSubstances").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                }
+            }
         }
     }
 }
