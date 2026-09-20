@@ -180,6 +180,20 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("응답의 version 으로 곧바로 다시 대표를 바꾸면") {
+                then("충돌 없이 반영된다 — 커밋된 version 을 돌려준다") {
+                    val food = saveFood("연속교체음식", "images/webp/a.webp")
+                    saveImage(food.id, "images/webp/a.webp", isPrimary = true, sortOrder = 0)
+                    val second = saveImage(food.id, "images/webp/b.webp", isPrimary = false, sortOrder = 1)
+                    val third = saveImage(food.id, "images/webp/c.webp", isPrimary = false, sortOrder = 2)
+
+                    val version = payloadOf(setPrimary(food.id, second.id, food.version)).path("version").asLong()
+
+                    version shouldBe foodRepository.findById(food.id).orElseThrow().version
+                    setPrimary(food.id, third.id, version).andExpect { status { isOk() } }
+                }
+            }
+
             `when`("이미 대표인 이미지를 다시 지정하면") {
                 then("멱등하게 200 이다") {
                     val food = saveFood("멱등음식", "images/webp/p.webp")

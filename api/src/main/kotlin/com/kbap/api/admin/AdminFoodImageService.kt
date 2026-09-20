@@ -47,6 +47,7 @@ class AdminFoodImageService(
         }
         food.imageRef = target.imageKey
         if (changed) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        foodRepository.flush()
         return galleryOf(foodId)
     }
 
@@ -55,10 +56,10 @@ class AdminFoodImageService(
         // 유료 API 호출 전에 선점이 durable 하지 않다. 그래서 상태 전이만 먼저 커밋한다.
         val food = transaction.execute {
             val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
-            if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
             }
+            if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             target.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
             target

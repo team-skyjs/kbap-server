@@ -111,7 +111,6 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 then("409 IMAGE-004 로 거절한다") {
                     val food = saveFood("진행중음식")
                     regenerate(food.id).andExpect { status { isOk() } }
-                    foodRepository.save(foodRepository.findById(food.id).orElseThrow().apply { contentStatus = FoodContentStatus.READY })
 
                     regenerate(food.id).andExpect {
                         status { isConflict() }
