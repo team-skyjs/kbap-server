@@ -24,7 +24,7 @@ class AdminFoodOutboxQueryService(
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, CONTENT_OUTBOX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"))
         val result = when {
-            dead -> outboxRepository.findByDeadAtIsNotNullOrderByIdDesc(pageable)
+            dead -> outboxRepository.findDeadPage(pageable)
             keyword == null && status == null -> outboxRepository.findAll(pageable)
             keyword == null -> outboxRepository.findByOutboxStatus(status!!, pageable)
             status == null -> outboxRepository.searchByKeyword(LikeWildcards.escape(keyword), keyword.toLongOrNull(), pageable)
