@@ -63,6 +63,7 @@ class AdminFoodImageService(
             if (!target.isReady() && target.contentStatus != FoodContentStatus.PENDING_IMAGE) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
+            target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
             target

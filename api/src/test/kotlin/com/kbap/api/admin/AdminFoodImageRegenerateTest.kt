@@ -119,6 +119,19 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("발행 시각이 비어 있는 레거시 음식을 재생성하면") {
+                then("생성 시각으로 동결된다 — 다시 승인될 때 신규로 뜨지 않게") {
+                    val food = saveFood("레거시발행음식")
+                    food.publishedAt = null
+                    foodRepository.save(food)
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+
+                    val reloaded = foodRepository.findById(food.id).orElseThrow()
+                    reloaded.publishedAt shouldBe reloaded.createdAt
+                }
+            }
+
             `when`("배치가 실패로 끝나 이미지 대기로 남은 음식을 재생성하면") {
                 then("진행 중 항목이 없으므로 다시 제출된다 — 운영자가 복구할 수 있어야 한다") {
                     val food = saveFood("실패잔류음식")
