@@ -23,7 +23,12 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     fun findByOutboxStatus(outboxStatus: FoodContentOutboxStatus, pageable: Pageable): Page<FoodContentOutbox>
 
-    fun findByDeadAtIsNotNullOrderByIdDesc(pageable: Pageable): Page<FoodContentOutbox>
+    @Query(
+        value = "SELECT * FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED ORDER BY dead.id DESC",
+        countQuery = "SELECT COUNT(*) FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED",
+        nativeQuery = true,
+    )
+    fun findDeadPage(pageable: Pageable): Page<FoodContentOutbox>
 
     @Query(
         """
@@ -78,19 +83,7 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     @Query(value = "SELECT COUNT(*) FROM food_content_outbox WHERE $STALE_SENT", nativeQuery = true)
     fun countStaleSent(@Param("before") before: LocalDateTime): Long
 
-    @Query(
-        value = """
-            SELECT COUNT(*) FROM food_content_outbox dead
-            WHERE dead.dead_at IS NOT NULL
-              AND dead.outbox_status <> 'COMPLETE'
-              AND dead.status = 'ACTIVE'
-              AND NOT EXISTS (
-                SELECT 1 FROM food_content_outbox newer
-                WHERE newer.food_id = dead.food_id AND newer.id > dead.id AND newer.status = 'ACTIVE'
-              )
-        """,
-        nativeQuery = true,
-    )
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED", nativeQuery = true)
     fun countDead(): Long
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -178,6 +171,11 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
 
     companion object {
+        const val DEAD_UNRESOLVED =
+            "dead.dead_at IS NOT NULL AND dead.outbox_status <> 'COMPLETE' AND dead.status = 'ACTIVE' " +
+                "AND NOT EXISTS (SELECT 1 FROM food_content_outbox newer " +
+                "WHERE newer.food_id = dead.food_id AND newer.id > dead.id AND newer.status = 'ACTIVE')"
+
         const val STALE_SENT =
             "outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL AND sent_at < :before " +
                 "AND status = 'ACTIVE' " +

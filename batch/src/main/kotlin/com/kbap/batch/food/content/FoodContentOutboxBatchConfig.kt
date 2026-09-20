@@ -33,7 +33,7 @@ class FoodContentOutboxBatchConfig {
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean
     fun foodContentSqsClient(
-        @Value("\${kbap.batch.food-content-outbox.region:ap-northeast-2}") region: String,
+        @Value("\${kbap.food-content-outbox.region:ap-northeast-2}") region: String,
     ): SqsClient = SqsClient.builder().region(Region.of(region)).build()
 
     @Bean
@@ -41,7 +41,7 @@ class FoodContentOutboxBatchConfig {
     fun foodContentEventPublisher(
         sqsClient: SqsClient,
         objectMapper: ObjectMapper,
-        @Value("\${kbap.batch.food-content-outbox.queue-url}") queueUrl: String,
+        @Value("\${kbap.food-content-outbox.queue-url}") queueUrl: String,
     ): FoodContentEventPublisher = SqsFoodContentEventPublisher(sqsClient, objectMapper, queueUrl)
 
     @Bean
@@ -49,7 +49,7 @@ class FoodContentOutboxBatchConfig {
         outboxRepository: FoodContentOutboxJpaRepository,
         eventPublisher: FoodContentEventPublisher,
         transactionManager: PlatformTransactionManager,
-        @Value("\${kbap.batch.food-content-outbox.page-size:100}") pageSize: Int,
+        @Value("\${kbap.food-content-outbox.page-size:100}") pageSize: Int,
     ): FoodContentOutboxPublisher =
         FoodContentOutboxPublisher(outboxRepository, eventPublisher, transactionManager, pageSize)
 
