@@ -165,7 +165,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """
         select count(f) from Food f
         where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
-          and f.imageRef is not null and f.imageRef <> ''
+          and f.publishedAt is not null
           and not exists (
             select 1 from ImageBatchItem i
             where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING

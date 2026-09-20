@@ -179,28 +179,34 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
         }
 
         given("대시보드 지표 - 이미지 대기 방치") {
-            fun savePendingImage(koreanName: String, imageRef: String?) =
+            fun savePendingImage(koreanName: String, imageRef: String?, publishedAt: LocalDateTime? = null) =
                 foodJpaRepository.save(
                     Food(
                         koreanName = koreanName,
                         description = "설명 $koreanName",
                         imageRef = imageRef,
                         contentStatus = FoodContentStatus.PENDING_IMAGE,
+                        publishedAt = publishedAt,
                     ),
                 )
 
             `when`("이미지 대기 음식이 섞여 있으면") {
                 then("진행 중 배치가 없는 수와 그중 이미 이미지가 있는 수를 따로 센다") {
                     clearAll()
-                    val stranded = savePendingImage("재생성방치음식", "images/webp/food/old.webp")
+                    val stranded = savePendingImage(
+                        "재생성방치음식",
+                        "images/webp/food/old.webp",
+                        publishedAt = LocalDateTime.now().minusDays(5),
+                    )
                     savePendingImage("첫이미지대기음식", null)
+                    savePendingImage("미검수이미지음식", "images/webp/food/never.webp")
                     val submitted = savePendingImage("제출중음식", null)
                     val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
                     imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = submitted.id))
 
                     val metrics = service.getMetricsSummary()
 
-                    metrics.pendingImageWithoutBatchCount shouldBe 2
+                    metrics.pendingImageWithoutBatchCount shouldBe 3
                     metrics.strandedImageRegenerationCount shouldBe 1
                     foodJpaRepository.findById(stranded.id).get().imageRef.shouldNotBeNull()
                 }
