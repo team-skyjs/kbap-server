@@ -8,6 +8,8 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -96,6 +98,26 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                     payload.path("batchItemId").asLong() shouldBe itemRepository.findAll().single().id
 
                     foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("벡터 재색인이 예약된 READY 음식을 재생성하면") {
+                then("그 예약을 취소하고 삭제를 예약한다 — 순서가 뒤집혀 색인에서 영영 빠지지 않게") {
+                    val food = saveFood("재색인대기음식")
+                    vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
+                        food.id,
+                        FoodVectorOutboxOperation.UPSERT,
+                        FoodVectorOutboxStatus.PENDING,
+                    ) shouldBe false
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
+                        food.id,
+                        FoodVectorOutboxOperation.DELETE,
+                        FoodVectorOutboxStatus.PENDING,
+                    ) shouldBe true
                 }
             }
 

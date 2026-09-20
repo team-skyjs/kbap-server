@@ -13,6 +13,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
@@ -78,6 +79,7 @@ class AdminFoodImageService(
             }
             target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
+            cancelPendingVectorOutboxes(foodId, FoodVectorOutboxOperation.UPSERT)
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
             batchSubmitService.claimOne(target)
         }!!
@@ -94,6 +96,12 @@ class AdminFoodImageService(
         } else {
             cause
         }
+
+    private fun cancelPendingVectorOutboxes(foodId: Long, operation: FoodVectorOutboxOperation) {
+        vectorOutboxRepository
+            .findByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
+            .forEach { it.delete() }
+    }
 
     private fun Food.isFailedRegeneration(): Boolean =
         contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
