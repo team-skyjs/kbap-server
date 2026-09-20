@@ -29,32 +29,33 @@ class AdminFoodIngredientBackfillService(
     fun backfill(dryRun: Boolean): AdminFoodIngredientBackfillResponse {
         if (!running.compareAndSet(false, true)) throw BusinessException(ErrorCode.INGREDIENT_BACKFILL_IN_PROGRESS)
         try {
-            val sources = backfillRepository.findAllSources()
+            val foodIds = backfillRepository.findAllSources().map { it.foodId }
             val failures = mutableListOf<AdminFoodIngredientBackfillResponse.Failure>()
             var written = 0
-            sources.forEach { source ->
-                val items = runCatching { storableOf(source) }.getOrElse { error ->
-                    failures += AdminFoodIngredientBackfillResponse.Failure(source.foodId, error.message.orEmpty())
-                    return@forEach
-                }
+            foodIds.forEach { foodId ->
                 if (dryRun) {
-                    written++
+                    val source = backfillRepository.findSource(foodId) ?: return@forEach
+                    runCatching { storableOf(source) }
+                        .onSuccess { written++ }
+                        .onFailure { failures += AdminFoodIngredientBackfillResponse.Failure(foodId, it.message.orEmpty()) }
                     return@forEach
                 }
                 runCatching {
                     transactionTemplate.executeWithoutResult {
-                        foodIngredientRepository.replace(source.foodId, items)
-                        backfillRepository.markAssessed(source.foodId, source.rawIngredients != null)
+                        val source = backfillRepository.findSource(foodId) ?: return@executeWithoutResult
+                        val items = storableOf(source)
+                        foodIngredientRepository.replace(foodId, items)
+                        backfillRepository.markAssessed(foodId, source.rawIngredients != null)
                     }
                 }.onSuccess { written++ }
                     .onFailure { error ->
-                        log.warn("재료 관계 백필 실패 — foodId={}", source.foodId, error)
-                        failures += AdminFoodIngredientBackfillResponse.Failure(source.foodId, error.message.orEmpty())
+                        log.warn("재료 관계 백필 실패 — foodId={}", foodId, error)
+                        failures += AdminFoodIngredientBackfillResponse.Failure(foodId, error.message.orEmpty())
                     }
             }
             return AdminFoodIngredientBackfillResponse(
                 dryRun = dryRun,
-                scanned = sources.size,
+                scanned = foodIds.size,
                 wouldWrite = written,
                 failed = failures,
             )

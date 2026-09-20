@@ -12,6 +12,13 @@ class FoodIngredientBackfillJdbcRepository(
             "SELECT id, ingredients, ingredients_assessed FROM food ORDER BY id",
         ) { rs, _ -> FoodIngredientSource(rs.getLong(1), rs.getString(2), rs.getBoolean(3)) }
 
+    fun findSource(foodId: Long): FoodIngredientSource? =
+        jdbcTemplate.query(
+            "SELECT id, ingredients, ingredients_assessed FROM food WHERE id = ?",
+            { rs, _ -> FoodIngredientSource(rs.getLong(1), rs.getString(2), rs.getBoolean(3)) },
+            foodId,
+        ).firstOrNull()
+
     fun findAllRelations(): Map<Long, List<FoodIngredientRelation>> =
         jdbcTemplate.query(
             """
