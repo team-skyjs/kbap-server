@@ -65,9 +65,8 @@ class FoodImageBatchSubmitService(
             } catch (e: DataIntegrityViolationException) {
                 val survivors = available(targets, skippedIds)
                 if (survivors.size == targets.size) {
-                    log.warn("이미지 제출 선점 실패 — 청크 스킵 foodIds={}", targets.map { it.id }, e)
-                    skippedIds += targets.map { it.id }
-                    return null
+                    log.error("이미지 제출 선점 실패 — 경합이 아닌 무결성 오류 foodIds={}", targets.map { it.id }, e)
+                    throw e
                 }
                 targets = survivors
             }
