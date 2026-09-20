@@ -18,6 +18,8 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -141,6 +143,26 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                     )
 
                     regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("같은 음식을 두 관리자가 동시에 재생성하면") {
+                then("한쪽만 제출되고 다른 쪽은 계약대로 409 IMAGE-004 다") {
+                    val food = saveFood("동시재생성음식")
+                    val executor = Executors.newFixedThreadPool(2)
+                    val startGate = CountDownLatch(1)
+
+                    val outcomes = (1..2).map {
+                        executor.submit<Int> {
+                            startGate.await()
+                            regenerate(food.id).andReturn().response.status
+                        }
+                    }
+                    startGate.countDown()
+                    val statuses = outcomes.map { it.get() }
+                    executor.shutdown()
+
+                    statuses.sorted() shouldBe listOf(200, 409)
                 }
             }
 

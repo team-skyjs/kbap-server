@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.food.FoodImageBatchClaim
 import com.kbap.api.food.FoodImageBatchSubmitService
 import com.kbap.api.food.FoodService
 import com.kbap.common.core.error.BusinessException
@@ -12,6 +13,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
@@ -28,6 +30,8 @@ class AdminFoodImageService(
     transactionManager: PlatformTransactionManager,
 ) {
     private val transaction = TransactionTemplate(transactionManager)
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
     fun getGallery(foodId: Long): AdminFoodImageGalleryResult = galleryOf(foodId)
@@ -54,7 +58,17 @@ class AdminFoodImageService(
     }
 
     fun regenerateImage(foodId: Long): AdminFoodImageRegenerateResult {
-        val claim = transaction.execute {
+        val claim = claimForRegeneration(foodId)
+        batchSubmitService.submitClaimed(claim)
+        return AdminFoodImageRegenerateResult(
+            foodId = foodId,
+            contentStatus = claim.foods.single().contentStatus.name,
+            batchItemId = claim.itemId,
+        )
+    }
+
+    private fun claimForRegeneration(foodId: Long): FoodImageBatchClaim = try {
+        transaction.execute {
             val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
@@ -67,13 +81,19 @@ class AdminFoodImageService(
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
             batchSubmitService.claimOne(target)
         }!!
-        batchSubmitService.submitClaimed(claim)
-        return AdminFoodImageRegenerateResult(
-            foodId = foodId,
-            contentStatus = claim.foods.single().contentStatus.name,
-            batchItemId = claim.itemId,
-        )
+    } catch (e: BusinessException) {
+        throw e
+    } catch (e: RuntimeException) {
+        throw contentionOr(e, foodId)
     }
+
+    private fun contentionOr(cause: RuntimeException, foodId: Long): RuntimeException =
+        if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
+            log.warn("재생성 선점 경합 — 다른 요청이 먼저 선점했다 foodId={}", foodId, cause)
+            BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
+        } else {
+            cause
+        }
 
     private fun Food.isFailedRegeneration(): Boolean =
         contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
