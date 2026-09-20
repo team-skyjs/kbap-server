@@ -70,29 +70,10 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         @Param("limit") limit: Int,
     ): List<FoodContentOutbox>
 
-    @Query(
-        value = """
-            SELECT * FROM food_content_outbox
-            WHERE outbox_status = 'SENT'
-              AND dead_at IS NULL
-              AND sent_at IS NOT NULL
-              AND sent_at < :before
-              AND status = 'ACTIVE'
-            ORDER BY id ASC
-            LIMIT :limit
-        """,
-        nativeQuery = true,
-    )
+    @Query(value = "SELECT * FROM food_content_outbox WHERE $STALE_SENT ORDER BY id ASC LIMIT :limit", nativeQuery = true)
     fun findStaleSent(@Param("before") before: LocalDateTime, @Param("limit") limit: Int): List<FoodContentOutbox>
 
-    @Query(
-        value = """
-            SELECT COUNT(*) FROM food_content_outbox
-            WHERE outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL
-              AND sent_at < :before AND status = 'ACTIVE'
-        """,
-        nativeQuery = true,
-    )
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox WHERE $STALE_SENT", nativeQuery = true)
     fun countStaleSent(@Param("before") before: LocalDateTime): Long
 
     @Query(
@@ -193,4 +174,9 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         nativeQuery = true,
     )
     fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
+
+    companion object {
+        const val STALE_SENT =
+            "outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL AND sent_at < :before AND status = 'ACTIVE'"
+    }
 }
