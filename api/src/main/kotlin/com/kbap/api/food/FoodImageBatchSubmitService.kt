@@ -57,21 +57,22 @@ class FoodImageBatchSubmitService(
         chunk: List<com.kbap.common.domain.food.model.Food>,
         skippedIds: MutableList<Long>,
     ): FoodImageBatchClaimedChunk? {
-        val targets = available(chunk, skippedIds)
-        if (targets.isEmpty()) return null
-        return try {
-            FoodImageBatchClaimedChunk(claim(targets), targets)
-        } catch (e: DataIntegrityViolationException) {
-            val retryTargets = available(targets, skippedIds)
-            if (retryTargets.isEmpty()) return null
+        var targets = available(chunk, skippedIds)
+        repeat(chunk.size) {
+            if (targets.isEmpty()) return null
             try {
-                FoodImageBatchClaimedChunk(claim(retryTargets), retryTargets)
-            } catch (retryFailure: DataIntegrityViolationException) {
-                log.warn("이미지 제출 선점 경합 — 청크 스킵 foodIds={}", retryTargets.map { it.id }, retryFailure)
-                skippedIds += retryTargets.map { it.id }
-                null
+                return FoodImageBatchClaimedChunk(claim(targets), targets)
+            } catch (e: DataIntegrityViolationException) {
+                val survivors = available(targets, skippedIds)
+                if (survivors.size == targets.size) {
+                    log.warn("이미지 제출 선점 실패 — 청크 스킵 foodIds={}", targets.map { it.id }, e)
+                    skippedIds += targets.map { it.id }
+                    return null
+                }
+                targets = survivors
             }
         }
+        return null
     }
 
     private fun available(
