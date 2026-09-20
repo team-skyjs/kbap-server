@@ -26,7 +26,24 @@ class FoodContentOutbox(
 
     @Column(name = "sent_at")
     var sentAt: LocalDateTime? = null,
+
+    @Column(name = "dead_at")
+    var deadAt: LocalDateTime? = null,
+
+    @Column(name = "last_error", length = 500)
+    var lastError: String? = null,
 ) : BaseEntity() {
+    fun requeue(reason: String) {
+        outboxStatus = FoodContentOutboxStatus.PENDING
+        sentAt = null
+        lastError = reason.take(MAX_ERROR_LENGTH)
+    }
+
+    fun markDead(reason: String) {
+        deadAt = LocalDateTime.now()
+        lastError = reason.take(MAX_ERROR_LENGTH)
+    }
+
     fun markSent() {
         attempts++
         if (outboxStatus == FoodContentOutboxStatus.PENDING) {
@@ -42,6 +59,8 @@ class FoodContentOutbox(
     }
 
     companion object {
+        const val MAX_ERROR_LENGTH = 500
+
         fun pending(foodId: Long, displayName: String): FoodContentOutbox {
             require(displayName.isNotBlank()) { "foodContentOutbox.displayName 은 blank 일 수 없습니다" }
             return FoodContentOutbox(foodId = foodId, displayName = displayName)

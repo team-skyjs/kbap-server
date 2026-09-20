@@ -1,10 +1,13 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
@@ -19,12 +22,12 @@ import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
 import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.sql.DataSource
+import org.springframework.beans.factory.annotation.Autowired
 
 @IntegrationTest
 class AdminDashboardMetricsServiceTest : BehaviorSpec() {
@@ -52,6 +55,9 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
     private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
+    private lateinit var contentOutboxJpaRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
     private lateinit var dataSource: DataSource
 
     init {
@@ -61,7 +67,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     listOf(
                         "food_review", "member_ranking_event", "bookmark", "uploaded_image",
                         "scan_history", "image_batch_item", "image_batch",
-                        "food", "member_block", "member", "llm_call_cost",
+                        "food_content_outbox", "food", "member_block", "member", "llm_call_cost",
                     ).forEach { st.execute("DELETE FROM $it") }
                 }
             }
@@ -210,6 +216,34 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     service.getMetricsSummary().strandedImageRegenerationCount shouldBe
                         foods.count { it.isFailedRegeneration() }.toLong()
+                }
+            }
+        }
+
+        given("대시보드 지표 - 콘텐츠 아웃박스 방치") {
+            fun saveOutbox(name: String, sentHoursAgo: Long?, dead: Boolean) {
+                val food = foodJpaRepository.save(Food(koreanName = name, description = "설명 $name"))
+                val outbox = contentOutboxJpaRepository.save(FoodContentOutbox.pending(food.id, food.koreanName))
+                sentHoursAgo?.let {
+                    outbox.outboxStatus = FoodContentOutboxStatus.SENT
+                    outbox.sentAt = LocalDateTime.now().minusHours(it)
+                }
+                if (dead) outbox.markDead("테스트 포기")
+                contentOutboxJpaRepository.save(outbox)
+            }
+
+            `when`("보낸 뒤 오래 굳은 행과 포기한 행이 섞여 있으면") {
+                then("굳은 수와 포기 수를 따로 센다 — 조치가 다르다") {
+                    clearAll()
+                    saveOutbox("굳은음식", sentHoursAgo = 30, dead = false)
+                    saveOutbox("방금보낸음식", sentHoursAgo = 1, dead = false)
+                    saveOutbox("포기음식", sentHoursAgo = 30, dead = true)
+                    saveOutbox("대기음식", sentHoursAgo = null, dead = false)
+
+                    val metrics = service.getMetricsSummary()
+
+                    metrics.contentOutboxStuckCount shouldBe 1
+                    metrics.contentOutboxDeadCount shouldBe 1
                 }
             }
         }

@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
+import java.time.Duration
 
 @Configuration
 class FoodContentOutboxBatchConfig {
@@ -53,13 +54,31 @@ class FoodContentOutboxBatchConfig {
         FoodContentOutboxPublisher(outboxRepository, eventPublisher, transactionManager, pageSize)
 
     @Bean
+    fun foodContentOutboxRecovery(
+        outboxRepository: FoodContentOutboxJpaRepository,
+        transactionManager: PlatformTransactionManager,
+        @Value("\${kbap.batch.food-content-outbox.stale-after-hours:24}") staleAfterHours: Long,
+        @Value("\${kbap.batch.food-content-outbox.max-attempts:5}") maxAttempts: Int,
+    ): FoodContentOutboxRecovery =
+        FoodContentOutboxRecovery(outboxRepository, transactionManager, Duration.ofHours(staleAfterHours), maxAttempts)
+
+    @Bean
     fun foodContentOutboxPublishStep(
         jobRepository: JobRepository,
         publisher: FoodContentOutboxPublisher,
+        recovery: FoodContentOutboxRecovery,
     ): Step =
         StepBuilder("foodContentOutboxPublishStep", jobRepository)
             .tasklet(
                 { _, _ ->
+                    val recovered = recovery.recoverStale()
+                    if (recovered.requeued > 0 || recovered.dead > 0) {
+                        logger.warn(
+                            "응답 없이 굳은 아웃박스 회수 requeued={} dead={}",
+                            recovered.requeued,
+                            recovered.dead,
+                        )
+                    }
                     val summary = publisher.publishAll()
                     logger.info(
                         "음식 콘텐츠 아웃박스 발행 완료 attempted={} succeeded={} failed={}",
