@@ -346,7 +346,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 Regex("""<(?:input|select|textarea)[^>]*id="$id"[^>]*>""").find(html)!!.value
 
             val detailFieldIds = listOf(
-                "koreanName", "contentStatus", "spiciness", "imageRef", "description",
+                "koreanName", "contentStatus", "spiciness", "description",
                 "nameTranslationsJson", "descriptionTranslationsJson", "ingredientsJson",
             )
 
@@ -360,6 +360,16 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     html shouldNotContain ">저장</button>"
                     html shouldContain ">편집</a>"
                     html shouldContain "edit=true"
+                }
+            }
+
+            `when`("편집 모드에서 이미지 키 칸을 보면") {
+                then("항상 읽기 전용이다 — 대표 이미지는 갤러리 API 로만 바꾼다") {
+                    val saved = saveFood("이미지키읽기전용음식")
+
+                    val html = getList("?page=1&detail=${saved.id}&edit=true").response.contentAsString
+
+                    detailFieldTag(html, "imageRef") shouldContain "readonly"
                 }
             }
 
