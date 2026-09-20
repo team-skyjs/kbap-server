@@ -26,6 +26,15 @@ object IngredientTestSeed {
         }
     }
 
+    fun allCodes(dataSource: DataSource): List<Long> =
+        dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT id FROM ingredients ORDER BY id").use { rs ->
+                    generateSequence { if (rs.next()) rs.getLong(1) else null }.toList()
+                }
+            }
+        }
+
     private fun statementsOf(resourcePath: String): List<String> =
         Thread.currentThread().contextClassLoader.getResource(resourcePath)!!.readText()
             .lineSequence()

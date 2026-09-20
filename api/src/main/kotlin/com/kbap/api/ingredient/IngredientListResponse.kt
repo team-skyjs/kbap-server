@@ -16,4 +16,11 @@ data class IngredientItemResponse(
     val name: String,
     @field:Schema(description = "이미지 공개 URL(미매칭 재료는 null)", example = "https://cdn.example.com/images/webp/egg.webp")
     val imageUrl: String?,
+    @field:Schema(
+        description = "재료가 속한 탐색 분류 코드. 한 재료는 분류 하나에 속하며, 포괄 재료(SEAFOOD·BROTH)는 null 이다. " +
+            "분류는 탐색·표시 축이라 위험 판정과 무관하다.",
+        example = "CRUSTACEAN",
+        nullable = true,
+    )
+    val categoryCode: String?,
 )

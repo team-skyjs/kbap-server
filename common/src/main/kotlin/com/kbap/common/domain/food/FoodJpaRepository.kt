@@ -40,6 +40,15 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
               AND (:contentStatus IS NULL OR content_status = :contentStatus)
               AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
               AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+              AND (:ingredientCode IS NULL OR id IN (
+                    SELECT fi.food_id FROM food_ingredient fi
+                    JOIN ingredients i ON i.id = fi.ingredient_id
+                    WHERE i.code = :ingredientCode))
+              AND (:categoryCode IS NULL OR id IN (
+                    SELECT fi.food_id FROM food_ingredient fi
+                    JOIN ingredients i ON i.id = fi.ingredient_id
+                    JOIN ingredient_category c ON c.id = i.category_id
+                    WHERE c.code = :categoryCode))
             ORDER BY id DESC
         """,
         countQuery = """
@@ -48,6 +57,15 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
               AND (:contentStatus IS NULL OR content_status = :contentStatus)
               AND (:failureKind IS NULL OR content_failure_kind = :failureKind)
               AND (:keyword IS NULL OR display_name LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+              AND (:ingredientCode IS NULL OR id IN (
+                    SELECT fi.food_id FROM food_ingredient fi
+                    JOIN ingredients i ON i.id = fi.ingredient_id
+                    WHERE i.code = :ingredientCode))
+              AND (:categoryCode IS NULL OR id IN (
+                    SELECT fi.food_id FROM food_ingredient fi
+                    JOIN ingredients i ON i.id = fi.ingredient_id
+                    JOIN ingredient_category c ON c.id = i.category_id
+                    WHERE c.code = :categoryCode))
         """,
         nativeQuery = true,
     )
@@ -56,6 +74,8 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         @Param("contentStatus") contentStatus: String?,
         @Param("failureKind") failureKind: String?,
         @Param("keyword") keyword: String?,
+        @Param("ingredientCode") ingredientCode: String?,
+        @Param("categoryCode") categoryCode: String?,
         pageable: Pageable,
     ): Page<Food>
 

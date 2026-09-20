@@ -49,6 +49,16 @@ interface AdminFoodCatalogApi {
         failureKind: FoodContentFailureKind?,
         @Parameter(description = "삭제 여부(true=삭제된 음식만, 기본 false)", example = "false")
         deleted: Boolean,
+        @Parameter(
+            description = "재료 역조회 — 이 재료가 든 음식만. 재료 카탈로그 코드를 그대로 쓴다",
+            example = "SALTED_SHRIMP",
+        )
+        ingredientCode: String?,
+        @Parameter(
+            description = "분류 역조회 — 이 분류에 속한 재료가 하나라도 든 음식만. 분류 코드는 재료 카탈로그 응답의 categoryCode 다",
+            example = "CRUSTACEAN",
+        )
+        categoryCode: String?,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>>
 
     @Operation(

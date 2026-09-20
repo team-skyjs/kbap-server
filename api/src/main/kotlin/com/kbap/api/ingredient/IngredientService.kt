@@ -2,6 +2,7 @@ package com.kbap.api.ingredient
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.DietCategory
+import com.kbap.common.domain.ingredient.IngredientCategoryJpaRepository
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
@@ -12,19 +13,23 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class IngredientService(
     private val ingredientRepository: IngredientJpaRepository,
+    private val ingredientCategoryRepository: IngredientCategoryJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun getIngredients(lang: LanguageCode): IngredientListResponse =
-        IngredientListResponse(
+    fun getIngredients(lang: LanguageCode): IngredientListResponse {
+        val categoryCodes = ingredientCategoryRepository.findAll().associate { it.id to it.code }
+        return IngredientListResponse(
             ingredients = ingredientRepository.findAll(Sort.by("id")).map { ingredient ->
                 IngredientItemResponse(
                     code = ingredient.code.name,
                     name = ingredient.displayName(lang),
                     imageUrl = ImageUrls.resolve(imagePublicBaseUrl, ingredient.imagePath),
+                    categoryCode = ingredient.categoryId?.let(categoryCodes::get),
                 )
             },
         )
+    }
 
     @Transactional(readOnly = true)
     fun getDietIngredientMappings(lang: LanguageCode): DietListResponse {
