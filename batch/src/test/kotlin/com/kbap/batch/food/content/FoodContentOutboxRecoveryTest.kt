@@ -101,6 +101,26 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                 }
             }
 
+            `when`("음식이 삭제된 뒤 굳은 행이면") {
+                then("회수하지 않는다 — 다시 보내도 콜백이 음식을 못 찾고, 포기로 떨어져도 재수집할 대상이 없다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("삭제국수"))
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    outboxRepository.save(
+                        outbox.apply {
+                            outboxStatus = FoodContentOutboxStatus.SENT
+                            sentAt = LocalDateTime.now().minusHours(30)
+                        },
+                    )
+                    foodRepository.save(food.apply { delete() })
+
+                    val summary = recovery().recoverStale()
+
+                    summary.requeued shouldBe 0
+                    summary.dead shouldBe 0
+                }
+            }
+
             `when`("재시도 상한에 닿았으면") {
                 then("포기 시각과 사유를 남기고 더 보내지 않는다 — 숫자만 남기지 않는다") {
                     clear()
