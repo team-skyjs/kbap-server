@@ -25,20 +25,21 @@ class FoodContentOutboxRecovery(
         var requeued = 0
         var dead = 0
         while (true) {
-            val stale = transactionTemplate.execute {
-                outboxRepository.findStaleSent(LocalDateTime.now().minus(staleAfter), PAGE_SIZE)
-            }.orEmpty()
+            val before = LocalDateTime.now().minus(staleAfter)
+            val stale = transactionTemplate.execute { outboxRepository.findStaleSent(before, PAGE_SIZE) }.orEmpty()
             if (stale.isEmpty()) break
             transactionTemplate.executeWithoutResult {
                 stale.forEach { outbox ->
                     if (outbox.attempts >= maxAttempts) {
-                        dead += outboxRepository.markDeadIfStillSent(
+                        dead += outboxRepository.markDeadIfStillStale(
                             outbox.id,
+                            before,
                             "응답 없이 ${staleAfter.toHours()}시간 초과 — 재시도 ${outbox.attempts}회로 상한 도달",
                         )
                     } else {
-                        requeued += outboxRepository.requeueIfStillSent(
+                        requeued += outboxRepository.requeueIfStillStale(
                             outbox.id,
+                            before,
                             "응답 없이 ${staleAfter.toHours()}시간 초과 — 재전송",
                         )
                     }
