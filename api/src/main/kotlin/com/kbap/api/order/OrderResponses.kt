@@ -133,4 +133,12 @@ data class OrderItemResponse(
         example = "true",
     )
     val ready: Boolean,
+
+    @field:Schema(
+        description = "imageRef 가 그 음식의 실사진인지. false 면 서버가 채운 기본 대체 이미지다 — " +
+            "ready=true 라도 사진이 아직 없으면 false 이므로, 공유 카드처럼 실사진만 써야 하는 화면은 이 값으로 판단한다. " +
+            "URL 문자열로 판별하지 말 것.",
+        example = "true",
+    )
+    val hasPhoto: Boolean,
 )
