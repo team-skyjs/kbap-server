@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long> {
     fun existsByFoodIdAndOutboxStatus(foodId: Long, outboxStatus: FoodContentOutboxStatus): Boolean
@@ -68,6 +69,37 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         @Param("afterId") afterId: Long,
         @Param("limit") limit: Int,
     ): List<FoodContentOutbox>
+
+    @Query(
+        value = """
+            SELECT * FROM food_content_outbox
+            WHERE outbox_status = 'SENT'
+              AND dead_at IS NULL
+              AND sent_at IS NOT NULL
+              AND sent_at < :before
+              AND status = 'ACTIVE'
+            ORDER BY id ASC
+            LIMIT :limit
+        """,
+        nativeQuery = true,
+    )
+    fun findStaleSent(@Param("before") before: LocalDateTime, @Param("limit") limit: Int): List<FoodContentOutbox>
+
+    @Query(
+        value = """
+            SELECT COUNT(*) FROM food_content_outbox
+            WHERE outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL
+              AND sent_at < :before AND status = 'ACTIVE'
+        """,
+        nativeQuery = true,
+    )
+    fun countStaleSent(@Param("before") before: LocalDateTime): Long
+
+    @Query(
+        value = "SELECT COUNT(*) FROM food_content_outbox WHERE dead_at IS NOT NULL AND status = 'ACTIVE'",
+        nativeQuery = true,
+    )
+    fun countDead(): Long
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
