@@ -151,6 +151,31 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     @Query(
         """
+        select count(f) from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+          and not exists (
+            select 1 from ImageBatchItem i
+            where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
+          )
+        """,
+    )
+    fun countImageCandidates(): Long
+
+    @Query(
+        """
+        select count(f) from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+          and f.imageRef is not null and f.imageRef <> ''
+          and not exists (
+            select 1 from ImageBatchItem i
+            where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
+          )
+        """,
+    )
+    fun countStrandedImageRegenerations(): Long
+
+    @Query(
+        """
         select f.id from Food f
         where (:cursor is null or f.id < :cursor)
           and f.contentStatus = 'READY'

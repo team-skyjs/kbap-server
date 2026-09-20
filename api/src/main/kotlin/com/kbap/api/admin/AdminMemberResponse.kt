@@ -7,6 +7,7 @@ import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.common.util.ImageUrls
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -204,6 +205,17 @@ data class AdminDashboardMetricsResponse(
     val weeklyScanCount: Long,
     val prevWeekScanCount: Long,
     val weeklyScans: List<AdminDailyCountResponse>,
+    @field:Schema(
+        description = "이미지 대기인데 진행 중 배치가 없는 음식 수. 다음 일괄 제출이 집어 갈 후보 수와 같다",
+        example = "140",
+    )
+    val pendingImageWithoutBatchCount: Long,
+    @field:Schema(
+        description = "그중 이미 대표 이미지가 있는 음식 수 — 재생성하다 실패해 공개가 내려간 채 방치된 건이다. " +
+            "0 이 정상이며, 0 이 아니면 재생성으로 복구한다",
+        example = "0",
+    )
+    val strandedImageRegenerationCount: Long,
 )
 
 data class AdminDailyCountResponse(

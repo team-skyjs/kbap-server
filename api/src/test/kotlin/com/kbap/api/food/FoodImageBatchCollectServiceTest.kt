@@ -7,6 +7,7 @@ import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -15,6 +16,8 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.ImageBatchStatus
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -49,6 +52,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var foodImageRepository: FoodImageJpaRepository
+
+    @Autowired
+    private lateinit var vectorOutboxRepository: FoodVectorOutboxJpaRepository
 
     @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
@@ -419,6 +425,41 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
                     batchRepository.findById(batch.id).get().batchStatus shouldBe ImageBatchStatus.FAILED
+                }
+            }
+
+            `when`("재생성하던 음식(이미지 보유)의 배치가 실패로 끝나면") {
+                then("공개 상태로 되돌리고 벡터 재색인을 예약한다 — 숨은 채 방치되지 않게") {
+                    val food = foodRepository.save(
+                        savePendingImage("재생성실패음식").apply { imageRef = "images/webp/food/old.webp" },
+                    )
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] =
+                        FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+
+                    collectService.collectSubmitted()
+
+                    val restored = foodRepository.findById(food.id).get()
+                    restored.contentStatus shouldBe FoodContentStatus.READY
+                    restored.imageRef shouldBe "images/webp/food/old.webp"
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
+                        food.id,
+                        FoodVectorOutboxOperation.UPSERT,
+                        FoodVectorOutboxStatus.PENDING,
+                    ) shouldBe true
+                }
+            }
+
+            `when`("첫 이미지를 기다리던 음식(이미지 없음)의 배치가 실패로 끝나면") {
+                then("이미지 대기로 남는다 — 되돌릴 공개 상태가 없다") {
+                    val food = savePendingImage("첫이미지실패음식")
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] =
+                        FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
 

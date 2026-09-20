@@ -2,7 +2,12 @@ package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -13,13 +18,14 @@ import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
 import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.sql.DataSource
+import org.springframework.beans.factory.annotation.Autowired
 
 @IntegrationTest
 class AdminDashboardMetricsServiceTest : BehaviorSpec() {
@@ -39,6 +45,12 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var llmCallCostJpaRepository: LlmCallCostJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchJpaRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -162,6 +174,35 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     foods.last().count shouldBe 2
                     foods[3].count shouldBe 1
                     foods.sumOf { it.count } shouldBe 3
+                }
+            }
+        }
+
+        given("대시보드 지표 - 이미지 대기 방치") {
+            fun savePendingImage(koreanName: String, imageRef: String?) =
+                foodJpaRepository.save(
+                    Food(
+                        koreanName = koreanName,
+                        description = "설명 $koreanName",
+                        imageRef = imageRef,
+                        contentStatus = FoodContentStatus.PENDING_IMAGE,
+                    ),
+                )
+
+            `when`("이미지 대기 음식이 섞여 있으면") {
+                then("진행 중 배치가 없는 수와 그중 이미 이미지가 있는 수를 따로 센다") {
+                    clearAll()
+                    val stranded = savePendingImage("재생성방치음식", "images/webp/food/old.webp")
+                    savePendingImage("첫이미지대기음식", null)
+                    val submitted = savePendingImage("제출중음식", null)
+                    val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = submitted.id))
+
+                    val metrics = service.getMetricsSummary()
+
+                    metrics.pendingImageWithoutBatchCount shouldBe 2
+                    metrics.strandedImageRegenerationCount shouldBe 1
+                    foodJpaRepository.findById(stranded.id).get().imageRef.shouldNotBeNull()
                 }
             }
         }
