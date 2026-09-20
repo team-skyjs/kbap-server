@@ -14,6 +14,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.time.LocalDateTime
 
@@ -80,6 +81,23 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                     recovery().recoverStale().requeued shouldBe 0
 
                     outboxRepository.findById(fresh.id).orElseThrow().outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                }
+            }
+
+            `when`("회수 직전에 지연된 응답이 도착해 완료로 바뀌었으면") {
+                then("되살리지 않는다 — 낡은 스냅샷이 완료를 덮지 않게") {
+                    clear()
+                    val completed = saveSent("늦은응답국수", LocalDateTime.now().minusHours(30), attempts = 1)
+                    outboxRepository.save(
+                        completed.apply { outboxStatus = FoodContentOutboxStatus.COMPLETE },
+                    )
+
+                    TransactionTemplate(transactionManager).execute {
+                        outboxRepository.requeueIfStillSent(completed.id, "테스트")
+                    } shouldBe 0
+
+                    outboxRepository.findById(completed.id).orElseThrow().outboxStatus shouldBe
+                        FoodContentOutboxStatus.COMPLETE
                 }
             }
 
