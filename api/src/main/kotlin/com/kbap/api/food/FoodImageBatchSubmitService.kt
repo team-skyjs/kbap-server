@@ -39,14 +39,46 @@ class FoodImageBatchSubmitService(
         return submit(targets, foodIds.filter { it in inProgress })
     }
 
-    fun submitOne(food: com.kbap.common.domain.food.model.Food): Long {
-        val foodId = food.id
-        if (itemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
+    fun claimOne(food: com.kbap.common.domain.food.model.Food): FoodImageBatchClaim {
+        if (itemRepository.findFoodIdsInProgress(listOf(food.id)).isNotEmpty()) {
             throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
         }
-        submit(listOf(food), emptyList())
-        return itemRepository.findFoodIdsInProgressItemId(foodId)
+        val batch = claim(listOf(food))
+        val itemId = itemRepository.findFoodIdsInProgressItemId(food.id)
             ?: throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
+        return FoodImageBatchClaim(batch = batch, foods = listOf(food), itemId = itemId)
+    }
+
+    fun submitClaimed(claim: FoodImageBatchClaim) {
+        submitToClient(claim.batch, claim.foods)
+    }
+
+    private fun claim(foods: List<com.kbap.common.domain.food.model.Food>): ImageBatch =
+        metaTransaction.execute {
+            val claimed = batchRepository.save(
+                ImageBatch(promptVersion = FoodImageProperties.PROMPT_VERSION, model = properties.model),
+            )
+            itemRepository.saveAll(foods.map { ImageBatchItem(batchId = claimed.id, foodId = it.id) })
+            claimed
+        }!!
+
+    private fun submitToClient(batch: ImageBatch, foods: List<com.kbap.common.domain.food.model.Food>) {
+        try {
+            val entries = foods.map {
+                FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.displayName(LanguageCode.KO)))
+            }
+            val openaiBatchId = client.submit(entries)
+            metaTransaction.executeWithoutResult {
+                batchRepository.save(batch.apply { markSubmitted(openaiBatchId) })
+            }
+        } catch (e: Exception) {
+            metaTransaction.executeWithoutResult {
+                itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
+                    .forEach { item -> itemRepository.save(item.apply { fail("제출 실패: ${e.message}") }) }
+                batchRepository.save(batch.apply { close(ImageBatchStatus.FAILED) })
+            }
+            throw e
+        }
     }
 
     private fun submit(candidates: List<com.kbap.common.domain.food.model.Food>, skipped: List<Long>): FoodImageSubmitResult {
@@ -54,39 +86,24 @@ class FoodImageBatchSubmitService(
         var submittedFoodCount = 0
         candidates.chunked(properties.batchSize).forEach { chunk ->
             val batch = try {
-                metaTransaction.execute {
-                    val claimed = batchRepository.save(
-                        ImageBatch(promptVersion = FoodImageProperties.PROMPT_VERSION, model = properties.model),
-                    )
-                    itemRepository.saveAll(chunk.map { ImageBatchItem(batchId = claimed.id, foodId = it.id) })
-                    claimed
-                }!!
+                claim(chunk)
             } catch (e: DataIntegrityViolationException) {
                 log.warn("이미지 제출 선점 경합 — 청크 스킵 foodIds={}", chunk.map { it.id }, e)
                 return@forEach
             }
-            try {
-                val entries = chunk.map {
-                    FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.displayName(LanguageCode.KO)))
-                }
-                val openaiBatchId = client.submit(entries)
-                metaTransaction.executeWithoutResult {
-                    batchRepository.save(batch.apply { markSubmitted(openaiBatchId) })
-                }
-            } catch (e: Exception) {
-                metaTransaction.executeWithoutResult {
-                    itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
-                        .forEach { item -> itemRepository.save(item.apply { fail("제출 실패: ${e.message}") }) }
-                    batchRepository.save(batch.apply { close(ImageBatchStatus.FAILED) })
-                }
-                throw e
-            }
+            submitToClient(batch, chunk)
             submittedBatchCount++
             submittedFoodCount += chunk.size
         }
         return FoodImageSubmitResult(submittedBatchCount, submittedFoodCount, skipped)
     }
 }
+
+data class FoodImageBatchClaim(
+    val batch: ImageBatch,
+    val foods: List<com.kbap.common.domain.food.model.Food>,
+    val itemId: Long,
+)
 
 data class FoodImageSubmitResult(
     val submittedBatchCount: Int,

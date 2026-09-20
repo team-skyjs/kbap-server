@@ -54,9 +54,7 @@ class AdminFoodImageService(
     }
 
     fun regenerateImage(foodId: Long): AdminFoodImageRegenerateResult {
-        // 배치 선점·외부 제출은 자체 트랜잭션으로 커밋돼야 한다 — 바깥 트랜잭션에 묶으면
-        // 유료 API 호출 전에 선점이 durable 하지 않다. 그래서 상태 전이만 먼저 커밋한다.
-        val food = transaction.execute {
+        val claim = transaction.execute {
             val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
@@ -67,13 +65,13 @@ class AdminFoodImageService(
             target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
-            target
+            batchSubmitService.claimOne(target)
         }!!
-        val batchItemId = batchSubmitService.submitOne(food)
+        batchSubmitService.submitClaimed(claim)
         return AdminFoodImageRegenerateResult(
             foodId = foodId,
-            contentStatus = food.contentStatus.name,
-            batchItemId = batchItemId,
+            contentStatus = claim.foods.single().contentStatus.name,
+            batchItemId = claim.itemId,
         )
     }
 
