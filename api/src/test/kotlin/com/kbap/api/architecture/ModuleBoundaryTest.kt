@@ -113,7 +113,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
             "feedback" to emptySet(),
-            "food" to emptySet(),
+            "food" to setOf("ingredient"),
             "bookmark" to setOf("food", "member", "ingredient"),
             "member" to setOf("ingredient"),
             "image" to emptySet(),

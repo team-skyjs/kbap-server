@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
@@ -34,6 +35,7 @@ class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val foodIngredientRepository: FoodIngredientJdbcRepository,
     private val foodService: FoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -186,7 +188,8 @@ class AdminFoodService(
         food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
-        food.ingredients = ingredients
+        food.replaceIngredients(ingredients)
+        foodIngredientRepository.replace(food.id, food.ingredients)
         when {
             food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
             wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
