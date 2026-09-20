@@ -19,8 +19,9 @@ class AdminContentOutboxController(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) status: FoodContentOutboxStatus?,
         @RequestParam(required = false) q: String?,
+        @RequestParam(defaultValue = "false") dead: Boolean,
     ): ResponseEntity<BaseResponse<AdminContentOutboxPageResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(adminFoodOutboxQueryService.getContentOutboxPage(page.coerceAtLeast(1), status, q)),
+            BaseResponse.ok(adminFoodOutboxQueryService.getContentOutboxPage(page.coerceAtLeast(1), status, q, dead)),
         )
 }

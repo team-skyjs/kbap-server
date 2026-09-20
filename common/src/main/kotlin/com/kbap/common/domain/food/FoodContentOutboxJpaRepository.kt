@@ -23,6 +23,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     fun findByOutboxStatus(outboxStatus: FoodContentOutboxStatus, pageable: Pageable): Page<FoodContentOutbox>
 
+    fun findByDeadAtIsNotNullOrderByIdDesc(pageable: Pageable): Page<FoodContentOutbox>
+
     @Query(
         """
         select o from FoodContentOutbox o
@@ -177,6 +179,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     companion object {
         const val STALE_SENT =
-            "outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL AND sent_at < :before AND status = 'ACTIVE'"
+            "outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL AND sent_at < :before " +
+                "AND status = 'ACTIVE' " +
+                "AND EXISTS (SELECT 1 FROM food f WHERE f.id = food_content_outbox.food_id AND f.status = 'ACTIVE')"
     }
 }
