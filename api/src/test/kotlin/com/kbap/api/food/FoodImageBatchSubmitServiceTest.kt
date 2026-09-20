@@ -18,6 +18,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
+import java.time.LocalDateTime
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -113,6 +114,23 @@ class FoodImageBatchSubmitServiceTest : BehaviorSpec() {
                     itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
                     fakeClient.submitFailure = null
                     foodRepository.findImageCandidates().map { it.id } shouldBe listOf(food.id)
+                }
+            }
+
+            `when`("공개됐던 음식의 제출이 실패하면") {
+                then("공개 상태로 되돌린다 — 회수 경로뿐 아니라 제출 경로도 같은 자리를 지난다") {
+                    val food = foodRepository.save(
+                        pendingImage("제출실패공개음식").apply {
+                            imageRef = "images/webp/food/published.webp"
+                            publishedAt = LocalDateTime.now().minusDays(2)
+                        },
+                    )
+                    fakeClient.submitFailure = RuntimeException("openai down")
+
+                    runCatching { submitService.submitMissingImages() }.isFailure shouldBe true
+                    fakeClient.submitFailure = null
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.READY
                 }
             }
 

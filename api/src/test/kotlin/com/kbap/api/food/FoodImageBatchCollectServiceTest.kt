@@ -28,6 +28,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldStartWith
 import org.springframework.beans.factory.annotation.Autowired
+import java.time.LocalDateTime
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -431,7 +432,10 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             `when`("재생성하던 음식(이미지 보유)의 배치가 실패로 끝나면") {
                 then("공개 상태로 되돌리고 벡터 재색인을 예약한다 — 숨은 채 방치되지 않게") {
                     val food = foodRepository.save(
-                        savePendingImage("재생성실패음식").apply { imageRef = "images/webp/food/old.webp" },
+                        savePendingImage("재생성실패음식").apply {
+                            imageRef = "images/webp/food/old.webp"
+                            publishedAt = LocalDateTime.now().minusDays(3)
+                        },
                     )
                     val batch = saveSubmittedBatch(food.id)
                     fakeClient.polls[batch.openaiBatchId!!] =
@@ -447,6 +451,21 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                         FoodVectorOutboxOperation.UPSERT,
                         FoodVectorOutboxStatus.PENDING,
                     ) shouldBe true
+                }
+            }
+
+            `when`("검수를 통과한 적 없는 음식(이미지만 있음)의 배치가 실패로 끝나면") {
+                then("이미지 대기로 남는다 — 없던 승인을 만들지 않는다") {
+                    val food = foodRepository.save(
+                        savePendingImage("미검수실패음식").apply { imageRef = "images/webp/food/never-published.webp" },
+                    )
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] =
+                        FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
 

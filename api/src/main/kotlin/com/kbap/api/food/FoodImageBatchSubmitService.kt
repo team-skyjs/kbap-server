@@ -22,6 +22,7 @@ class FoodImageBatchSubmitService(
     private val itemRepository: ImageBatchItemJpaRepository,
     private val client: FoodImageBatchClient,
     private val properties: FoodImageProperties,
+    private val publishedFoodRestorer: PublishedFoodRestorer,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -57,6 +58,7 @@ class FoodImageBatchSubmitService(
                     itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
                         .forEach { item -> itemRepository.save(item.apply { fail("제출 실패: ${e.message}") }) }
                     batchRepository.save(batch.apply { close(ImageBatchStatus.FAILED) })
+                    publishedFoodRestorer.restore(chunk.map { it.id })
                 }
                 throw e
             }
