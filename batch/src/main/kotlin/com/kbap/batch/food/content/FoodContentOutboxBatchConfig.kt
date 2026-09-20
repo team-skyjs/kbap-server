@@ -57,8 +57,8 @@ class FoodContentOutboxBatchConfig {
     fun foodContentOutboxRecovery(
         outboxRepository: FoodContentOutboxJpaRepository,
         transactionManager: PlatformTransactionManager,
-        @Value("\${kbap.batch.food-content-outbox.stale-after-hours:24}") staleAfterHours: Long,
-        @Value("\${kbap.batch.food-content-outbox.max-attempts:5}") maxAttempts: Int,
+        @Value("\${kbap.food-content-outbox.stale-after-hours:24}") staleAfterHours: Long,
+        @Value("\${kbap.food-content-outbox.max-attempts:5}") maxAttempts: Int,
     ): FoodContentOutboxRecovery =
         FoodContentOutboxRecovery(outboxRepository, transactionManager, Duration.ofHours(staleAfterHours), maxAttempts)
 
