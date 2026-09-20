@@ -63,6 +63,9 @@ kbap:
   # 콘텐츠 아웃박스 설정은 kbap.batch 가 아니라 여기에 둔다 — 배치(회수·발행)와 api(어드민 방치 카운트)가
   # 같은 기준으로 움직여야 하기 때문이다. 배치 네임스페이스에 두면 어드민이 배치 설정을 읽거나 키가 두 벌이 되고,
   # 그러면 운영자가 한쪽만 바꿨을 때 잡과 대시보드가 다른 기준으로 돌면서 양쪽 다 "정상"으로 보인다.
+  #
+  # stale-after-hours 는 api 도 읽는다(어드민 방치 카운트). 프로세스가 둘이라 yml 도 둘이므로
+  # api/src/main/resources/application.yml 에 같은 환경변수를 매핑해 뒀다 — 한쪽만 고치면 기준이 갈린다.
   food-content-outbox:
     queue-url: ${FOOD_CONTENT_QUEUE_URL:}
     region: ${AWS_REGION:ap-northeast-2}

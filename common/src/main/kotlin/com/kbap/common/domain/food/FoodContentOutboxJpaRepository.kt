@@ -24,8 +24,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun findByOutboxStatus(outboxStatus: FoodContentOutboxStatus, pageable: Pageable): Page<FoodContentOutbox>
 
     @Query(
-        value = "SELECT * FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED ORDER BY dead.id DESC",
-        countQuery = "SELECT COUNT(*) FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED",
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED ORDER BY outbox.id DESC",
+        countQuery = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED",
         nativeQuery = true,
     )
     fun findDeadPage(pageable: Pageable): Page<FoodContentOutbox>
@@ -77,13 +77,16 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         @Param("limit") limit: Int,
     ): List<FoodContentOutbox>
 
-    @Query(value = "SELECT * FROM food_content_outbox WHERE $STALE_SENT ORDER BY id ASC LIMIT :limit", nativeQuery = true)
+    @Query(
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE $STALE_SENT ORDER BY outbox.id ASC LIMIT :limit",
+        nativeQuery = true,
+    )
     fun findStaleSent(@Param("before") before: LocalDateTime, @Param("limit") limit: Int): List<FoodContentOutbox>
 
-    @Query(value = "SELECT COUNT(*) FROM food_content_outbox WHERE $STALE_SENT", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $STALE_SENT", nativeQuery = true)
     fun countStaleSent(@Param("before") before: LocalDateTime): Long
 
-    @Query(value = "SELECT COUNT(*) FROM food_content_outbox dead WHERE $DEAD_UNRESOLVED", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED", nativeQuery = true)
     fun countDead(): Long
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -171,14 +174,17 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
 
     companion object {
-        const val DEAD_UNRESOLVED =
-            "dead.dead_at IS NOT NULL AND dead.outbox_status <> 'COMPLETE' AND dead.status = 'ACTIVE' " +
-                "AND NOT EXISTS (SELECT 1 FROM food_content_outbox newer " +
-                "WHERE newer.food_id = dead.food_id AND newer.id > dead.id AND newer.status = 'ACTIVE')"
+        private const val FOOD_ALIVE =
+            "EXISTS (SELECT 1 FROM food f WHERE f.id = outbox.food_id AND f.status = 'ACTIVE')"
 
         const val STALE_SENT =
-            "outbox_status = 'SENT' AND dead_at IS NULL AND sent_at IS NOT NULL AND sent_at < :before " +
-                "AND status = 'ACTIVE' " +
-                "AND EXISTS (SELECT 1 FROM food f WHERE f.id = food_content_outbox.food_id AND f.status = 'ACTIVE')"
+            "outbox.outbox_status = 'SENT' AND outbox.dead_at IS NULL AND outbox.sent_at IS NOT NULL " +
+                "AND outbox.sent_at < :before AND outbox.status = 'ACTIVE' AND $FOOD_ALIVE"
+
+        const val DEAD_UNRESOLVED =
+            "outbox.dead_at IS NOT NULL AND outbox.outbox_status <> 'COMPLETE' AND outbox.status = 'ACTIVE' " +
+                "AND $FOOD_ALIVE " +
+                "AND NOT EXISTS (SELECT 1 FROM food_content_outbox newer " +
+                "WHERE newer.food_id = outbox.food_id AND newer.id > outbox.id AND newer.status = 'ACTIVE')"
     }
 }
