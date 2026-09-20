@@ -13,6 +13,7 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -64,6 +65,7 @@ class AdminFoodIngredientBackfillService(
         }
     }
 
+    @Transactional(readOnly = true)
     fun getBackfillReport(): AdminFoodIngredientBackfillReportResponse {
         val sources = backfillRepository.findAllSources()
         val relations = backfillRepository.findAllRelations()
