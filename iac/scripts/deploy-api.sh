@@ -32,10 +32,11 @@ new_arn=$(aws ecs register-task-definition --cli-input-json "$new_def" \
   --query 'taskDefinition.taskDefinitionArn' --output text)
 echo "registered: $new_arn"
 
-appspec=$(jq -n --arg arn "$new_arn" --arg name "$CONTAINER" '{
+appspec=$(jq -n --arg arn "$new_arn" --arg name "$CONTAINER" --arg cp "${NAME}-api" '{
   version: 0.0,
   Resources: [{ TargetService: { Type: "AWS::ECS::Service",
-    Properties: { TaskDefinition: $arn, LoadBalancerInfo: { ContainerName: $name, ContainerPort: 8080 } } } }]
+    Properties: { TaskDefinition: $arn, LoadBalancerInfo: { ContainerName: $name, ContainerPort: 8080 },
+      CapacityProviderStrategy: [{ CapacityProvider: $cp, Base: 0, Weight: 1 }] } } }]
 }')
 
 deployment_id=$(aws deploy create-deployment \

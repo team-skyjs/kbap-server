@@ -1,5 +1,6 @@
-# api 서비스 오토스케일링 — 태스크 수만 2~4 로 조정한다(EC2 ASG 는 고정 2대, 인스턴스당 2 태스크는 메모리 예약 1536MiB 가 자연 상한).
+# api 서비스 오토스케일링 — 태스크 수를 조정하고, 자리가 모자라면 capacity provider(cluster.tf)가 인스턴스를 늘린다.
 # 지표는 서비스 평균 CPU(태스크 예약 512 유닛 대비 %). 태스크 4개 평시 DB 커넥션 = 4×10 + batch 10 = 50.
+# scale-out cooldown 은 카나리 그린 JVM 부팅 버스트(2026-09-07 prod 롤백 원인)가 연쇄 증설로 번지지 않게 길게 둔다.
 resource "aws_appautoscaling_target" "api" {
   service_namespace  = "ecs"
   resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.api.name}"
@@ -20,7 +21,7 @@ resource "aws_appautoscaling_policy" "api_cpu" {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
     target_value       = var.api_cpu_target_percent
-    scale_out_cooldown = 60
+    scale_out_cooldown = 300
     scale_in_cooldown  = 300
   }
 }

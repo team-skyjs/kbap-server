@@ -102,11 +102,13 @@ jobs:
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
           IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          APPSPEC=$(jq -n --arg arn "$NEW_ARN" '{
+          # CapacityProviderStrategy — 그린 태스크셋을 api capacity provider 로 띄워야 자리 부족 시 인스턴스가 늘어난다
+          APPSPEC=$(jq -n --arg arn "$NEW_ARN" --arg cp "$ECS_NAME-api" '{
             version: 0.0,
             Resources: [{ TargetService: { Type: "AWS::ECS::Service",
               Properties: { TaskDefinition: $arn,
-                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 } } } }]
+                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 },
+                CapacityProviderStrategy: [{ CapacityProvider: $cp, Base: 0, Weight: 1 }] } } }]
           }')
           DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name "$ECS_NAME-api" \

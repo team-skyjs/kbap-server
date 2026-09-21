@@ -46,6 +46,12 @@ variable "api_instance_count" {
   default     = 2
 }
 
+variable "api_instance_max_count" {
+  description = "api 인스턴스 풀 상한 — capacity provider 가 api_instance_count ~ 이 값 사이에서 조정"
+  type        = number
+  default     = 4
+}
+
 variable "batch_instance_count" {
   type    = number
   default = 1
@@ -246,7 +252,7 @@ variable "vector_enabled" {
 }
 
 variable "api_max_count" {
-  description = "api 서비스 오토스케일링 최대 태스크 수 (EC2 2대 × 인스턴스당 2)"
+  description = "api 서비스 오토스케일링 최대 태스크 수"
   type        = number
   default     = 4
 }
@@ -254,7 +260,7 @@ variable "api_max_count" {
 variable "api_cpu_target_percent" {
   description = "api 서비스 오토스케일링 목표 CPU (%). 태스크 예약 CPU 대비"
   type        = number
-  default     = 40
+  default     = 80
 }
 
 variable "api_slow_start_seconds" {
