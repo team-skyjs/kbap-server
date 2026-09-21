@@ -9,6 +9,8 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -29,7 +31,7 @@ class AdminFoodContentIngestService(
         descriptionTranslations: Map<String, String>,
         ingredients: List<FoodIngredient>,
     ) {
-        completeOutbox(outboxId, foodId)
+        if (!completeOutbox(outboxId, foodId)) return
         val food = getFood(foodId)
         food.applyContent(
             description = description,
@@ -44,13 +46,17 @@ class AdminFoodContentIngestService(
 
     @Transactional
     fun ingestFailure(outboxId: Long, foodId: Long, failureKind: FoodContentFailureKind, reason: String) {
-        completeOutbox(outboxId, foodId)
+        if (!completeOutbox(outboxId, foodId)) return
         getFood(foodId).recordContentFailure(failureKind, reason)
     }
 
-    private fun completeOutbox(outboxId: Long, foodId: Long) {
+    private fun completeOutbox(outboxId: Long, foodId: Long): Boolean {
         if (outboxRepository.completeIfProcessable(outboxId, foodId) == 1) {
-            return
+            return true
+        }
+        if (outboxRepository.existsByIdAndFoodIdAndDeadAtIsNotNull(outboxId, foodId)) {
+            log.warn("포기한 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
+            return false
         }
         if (
             outboxRepository.existsByIdAndFoodIdAndOutboxStatus(
@@ -62,6 +68,10 @@ class AdminFoodContentIngestService(
             throw BusinessException(ErrorCode.FOOD_CONTENT_REQUEST_ALREADY_COMPLETED)
         }
         throw BusinessException(ErrorCode.INVALID_REQUEST)
+    }
+
+    private companion object {
+        val log: Logger = LoggerFactory.getLogger(AdminFoodContentIngestService::class.java)
     }
 
     private fun getFood(foodId: Long): Food =

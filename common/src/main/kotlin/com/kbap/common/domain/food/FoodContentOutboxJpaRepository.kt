@@ -143,6 +143,8 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         @Param("foodId") foodId: Long,
     ): Int
 
+    fun existsByIdAndFoodIdAndDeadAtIsNotNull(id: Long, foodId: Long): Boolean
+
     fun existsByIdAndFoodIdAndOutboxStatus(
         id: Long,
         foodId: Long,
