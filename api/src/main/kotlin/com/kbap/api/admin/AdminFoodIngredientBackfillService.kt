@@ -43,7 +43,7 @@ class AdminFoodIngredientBackfillService(
                 }
                 runCatching {
                     transactionTemplate.executeWithoutResult {
-                        val source = backfillRepository.findSource(foodId) ?: return@executeWithoutResult
+                        val source = backfillRepository.findSourceForUpdate(foodId) ?: return@executeWithoutResult
                         val items = storableOf(source)
                         foodIngredientRepository.replace(foodId, items)
                         backfillRepository.markAssessed(foodId, source.rawIngredients != null)
