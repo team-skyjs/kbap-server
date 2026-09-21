@@ -127,13 +127,14 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value = """
-            UPDATE food_content_outbox
-            SET outbox_status = 'COMPLETE',
-                updated_at = CURRENT_TIMESTAMP(6)
-            WHERE id = :outboxId
-              AND food_id = :foodId
-              AND outbox_status IN ('PENDING', 'SENT')
-              AND status = 'ACTIVE'
+            UPDATE food_content_outbox outbox
+            SET outbox.outbox_status = 'COMPLETE',
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :outboxId
+              AND outbox.food_id = :foodId
+              AND outbox.outbox_status IN ('PENDING', 'SENT')
+              AND outbox.status = 'ACTIVE'
+              AND $NOT_DEAD
         """,
         nativeQuery = true,
     )
@@ -188,8 +189,10 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
                 "AND NOT EXISTS (SELECT 1 FROM (SELECT id, food_id, status FROM food_content_outbox) newer " +
                 "WHERE newer.food_id = outbox.food_id AND newer.id > outbox.id AND newer.status = 'ACTIVE')"
 
+        const val NOT_DEAD = "outbox.dead_at IS NULL"
+
         const val STALE_SENT =
-            "outbox.outbox_status = 'SENT' AND outbox.dead_at IS NULL AND outbox.sent_at IS NOT NULL " +
+            "outbox.outbox_status = 'SENT' AND $NOT_DEAD AND outbox.sent_at IS NOT NULL " +
                 "AND outbox.sent_at < :before AND $LIVE_REQUEST"
 
         const val DEAD_UNRESOLVED =

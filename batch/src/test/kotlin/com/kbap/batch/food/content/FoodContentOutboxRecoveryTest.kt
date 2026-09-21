@@ -157,6 +157,28 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                 }
             }
 
+            `when`("포기 처리된 행에 늦은 콜백이 도착하면") {
+                then("완료로 살아나지 않는다 — 재수집이 만든 새 행만 유효하다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("늦은콜백국수"))
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    outboxRepository.save(
+                        outbox.apply {
+                            outboxStatus = FoodContentOutboxStatus.SENT
+                            sentAt = LocalDateTime.now().minusHours(30)
+                            markDead("테스트 포기")
+                        },
+                    )
+
+                    TransactionTemplate(transactionManager).execute {
+                        outboxRepository.completeIfProcessable(outbox.id, food.id)
+                    } shouldBe 0
+
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
+                        FoodContentOutboxStatus.SENT
+                }
+            }
+
             `when`("재시도 상한에 닿았으면") {
                 then("포기 시각과 사유를 남기고 더 보내지 않는다 — 숫자만 남기지 않는다") {
                     clear()
