@@ -27,7 +27,7 @@ Authorization: Bearer <access-token>      # 토큰이 설정된 경우에만
 - `status: ok` 는 FCM·APNs 가 받았다는 뜻이며 기기 수신을 보장하지 않는다.
 - 발송 15분 뒤 조회를 권고한다. 영수증은 24시간 뒤 삭제된다.
 
-## 포트 매핑 (`PushReceiptFetcher.fetch`)
+## 포트 매핑 (`PushReceiptClient.fetch`)
 
 | Expo | `PushReceipt` |
 |------|---------------|

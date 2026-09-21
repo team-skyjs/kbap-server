@@ -1,12 +1,12 @@
 package com.kbap.batch.notification
 
 import com.kbap.common.port.push.PushReceipt
-import com.kbap.common.port.push.PushReceiptFetcher
+import com.kbap.common.port.push.PushReceiptClient
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 
-class FakePushReceiptFetcher : PushReceiptFetcher {
+class FakePushReceiptClient : PushReceiptClient {
     val requested: MutableList<String> = mutableListOf()
     var receiptFor: (String) -> PushReceipt? = { null }
     var failWith: RuntimeException? = null
@@ -25,8 +25,8 @@ class FakePushReceiptFetcher : PushReceiptFetcher {
 }
 
 @TestConfiguration
-class FakePushReceiptFetcherConfig {
+class FakePushReceiptClientConfig {
     @Bean
     @Primary
-    fun fakePushReceiptFetcher(): FakePushReceiptFetcher = FakePushReceiptFetcher()
+    fun fakePushReceiptClient(): FakePushReceiptClient = FakePushReceiptClient()
 }

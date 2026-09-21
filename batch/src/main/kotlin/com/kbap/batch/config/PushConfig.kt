@@ -5,10 +5,10 @@ import com.kbap.common.domain.notification.PushMessageRenderer
 import com.kbap.common.domain.notification.PushReceiptService
 import com.kbap.common.domain.notification.PushTargetResolver
 import com.kbap.common.infra.push.ExpoPushHandler
-import com.kbap.common.infra.push.ExpoPushReceiptFetcher
+import com.kbap.common.infra.push.ExpoPushReceiptClient
 import com.kbap.common.infra.push.ExpoPushSender
 import com.kbap.common.port.push.PushHandler
-import com.kbap.common.port.push.PushReceiptFetcher
+import com.kbap.common.port.push.PushReceiptClient
 import com.kbap.common.port.push.PushSender
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -36,11 +36,11 @@ class PushConfig {
         )
 
     @Bean
-    @ConditionalOnMissingBean(PushReceiptFetcher::class)
-    fun pushReceiptFetcher(
+    @ConditionalOnMissingBean(PushReceiptClient::class)
+    fun pushReceiptClient(
         @Value("\${kbap.push.expo.base-url}") baseUrl: String,
         @Value("\${kbap.push.expo.access-token:}") accessToken: String,
-    ): PushReceiptFetcher = ExpoPushReceiptFetcher.create(baseUrl, accessToken)
+    ): PushReceiptClient = ExpoPushReceiptClient.create(baseUrl, accessToken)
 
     @Bean
     fun pushHandler(dispatchService: PushDispatchService, pushSender: PushSender): PushHandler =

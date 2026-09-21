@@ -1,7 +1,7 @@
 package com.kbap.common.infra.push
 
 import com.kbap.common.port.push.PushReceipt
-import com.kbap.common.port.push.PushReceiptFetcher
+import com.kbap.common.port.push.PushReceiptClient
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
 
@@ -18,9 +18,9 @@ internal data class ExpoReceiptsResponse(
     val data: Map<String, ExpoReceipt> = emptyMap(),
 )
 
-class ExpoPushReceiptFetcher internal constructor(
+class ExpoPushReceiptClient internal constructor(
     private val restClient: RestClient,
-) : PushReceiptFetcher {
+) : PushReceiptClient {
     override fun fetch(ticketIds: List<String>): Map<String, PushReceipt> =
         ticketIds.chunked(MAX_IDS_PER_REQUEST).flatMap { ids -> post(ids).entries }.associate { it.key to it.value.toReceipt() }
 
@@ -39,9 +39,9 @@ class ExpoPushReceiptFetcher internal constructor(
         private const val MAX_IDS_PER_REQUEST = 1000
         private const val RECEIPTS_PATH = "/--/api/v2/push/getReceipts"
 
-        fun create(baseUrl: String, accessToken: String): ExpoPushReceiptFetcher = create(baseUrl, accessToken, expoRestClientBuilder())
+        fun create(baseUrl: String, accessToken: String): ExpoPushReceiptClient = create(baseUrl, accessToken, expoRestClientBuilder())
 
-        internal fun create(baseUrl: String, accessToken: String, builder: RestClient.Builder): ExpoPushReceiptFetcher =
-            ExpoPushReceiptFetcher(expoRestClient(baseUrl, accessToken, builder))
+        internal fun create(baseUrl: String, accessToken: String, builder: RestClient.Builder): ExpoPushReceiptClient =
+            ExpoPushReceiptClient(expoRestClient(baseUrl, accessToken, builder))
     }
 }

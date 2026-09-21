@@ -25,7 +25,7 @@
 
 **Storage**: MySQL. 스키마 변경 1건 — `notification_dispatch.notification_type VARCHAR(30) NULL` 추가 + 기존 행 채우기(Flyway, owner=api). 새 인덱스 없음.
 
-**Testing**: Kotest `BehaviorSpec`. 배치 통합 `@BatchIntegrationTest`(Testcontainers MySQL·`FakePushSender`·`MutableClock` + 신규 `FakePushReceiptFetcher`), common 은 `@SpringBootTest` + `MySqlContainerConfig`, 어댑터는 로컬 HTTP 서버(`ExpoPushSenderTest` 방식), api 는 `@IntegrationTest`.
+**Testing**: Kotest `BehaviorSpec`. 배치 통합 `@BatchIntegrationTest`(Testcontainers MySQL·`FakePushSender`·`MutableClock` + 신규 `FakePushReceiptClient`), common 은 `@SpringBootTest` + `MySqlContainerConfig`, 어댑터는 로컬 HTTP 서버(`ExpoPushSenderTest` 방식), api 는 `@IntegrationTest`.
 
 **Target Platform**: `:batch`(잡·스케줄), `:common`(포트·어댑터·도메인 서비스·엔티티·리포지토리), `:api`(마이그레이션, 발송기 조립 설정 정리)
 
@@ -45,7 +45,7 @@
 |------|------|------|
 | I. Test-First | PASS | 덩어리마다 실패 테스트 선행. 기존 잡·발송기·api 시나리오가 회귀 그물 |
 | II. Bounded Contexts | PASS | 새 도메인 코드는 전부 `common.domain.notification` 안. 컨텍스트 간 새 의존 없음 |
-| III. Layered Dependency | PASS | 새 seam `PushReceiptFetcher` 는 `common.port.push`, 구현은 `common.infra.push`(batch 소비), 조립은 batch `PushConfig`. 도메인 서비스는 포트를 모른다 — 영수증은 도메인 타입 `ReceiptOutcome` 으로 받는다(기존 `PushOutcome` 과 같은 방식) |
+| III. Layered Dependency | PASS | 새 seam `PushReceiptClient` 는 `common.port.push`, 구현은 `common.infra.push`(batch 소비), 조립은 batch `PushConfig`. 도메인 서비스는 포트를 모른다 — 영수증은 도메인 타입 `ReceiptOutcome` 으로 받는다(기존 `PushOutcome` 과 같은 방식) |
 | IV. Persistence Ownership | PASS | 엔티티=도메인 모델(상태 전이는 `NotificationDispatch` 메서드), 정책은 도메인 서비스, 배치는 리포지토리 직접 사용. `PushReceiptService` 는 `PushDispatchService` 와 같은 자리(`:common`) — 소비자가 batch 다 |
 | V. Language Policy | N/A | 재전송은 저장된 제목·본문을 그대로 쓴다. 재렌더 없음 |
 | 추가 제약 "외부 호출을 DB 트랜잭션 안에서 길게 잡지 않는다" | **위반(정당화)** | 발송 잡·영수증 잡 모두 실제 트랜잭션 매니저 — 사용자 결정 |
@@ -102,12 +102,12 @@ scanSuggestion{Lunch|Dinner}PushJob
 ```kotlin
 // common.port.push
 data class PushReceipt(val ok: Boolean, val errorCode: String? = null, val message: String? = null)
-fun interface PushReceiptFetcher { fun fetch(ticketIds: List<String>): Map<String, PushReceipt> }
+fun interface PushReceiptClient { fun fetch(ticketIds: List<String>): Map<String, PushReceipt> }
 ```
 
-`ExpoPushReceiptFetcher`(`common.infra.push`): `POST /--/api/v2/push/getReceipts {ids}` → `data` 맵. 1000건씩 `chunked`. 재시도 없음 — HTTP 실패는 예외로 올리고, 다음 회차가 곧 재시도다. 응답에 없는 id 는 맵에서 빠진다(= 아직 없음). 계약: [contracts/expo-push-receipts.md](contracts/expo-push-receipts.md).
+`ExpoPushReceiptClient`(`common.infra.push`): `POST /--/api/v2/push/getReceipts {ids}` → `data` 맵. 1000건씩 `chunked`. 재시도 없음 — HTTP 실패는 예외로 올리고, 다음 회차가 곧 재시도다. 응답에 없는 id 는 맵에서 빠진다(= 아직 없음). 계약: [contracts/expo-push-receipts.md](contracts/expo-push-receipts.md).
 
-`PushSender` 가 `fun interface` 라 메서드를 더할 수 없어 포트를 분리했다. batch `PushConfig` 에 `@ConditionalOnMissingBean(PushReceiptFetcher::class)` 빈 하나 추가. api 는 영수증을 조회하지 않으므로 조립하지 않는다.
+`PushSender` 가 `fun interface` 라 메서드를 더할 수 없어 포트를 분리했다. batch `PushConfig` 에 `@ConditionalOnMissingBean(PushReceiptClient::class)` 빈 하나 추가. api 는 영수증을 조회하지 않으므로 조립하지 않는다.
 
 **D3. 도메인 서비스 — `PushReceiptService`(`common.domain.notification`)**
 
@@ -152,7 +152,7 @@ fun apply(outcomes: Map<Long, ReceiptOutcome>, policy: ResendPolicy, now: LocalD
 
   id 커서라 라이터가 상태를 바꿔도 페이지가 밀리지 않고, 재전송으로 생긴 새 이력은 `createdAt` 이 창 밖(15분 미만)이라 같은 회차에 다시 잡히지 않는다. 기존 인덱스 `(dispatch_status, created_at)` 이 받친다. 기존 `findByDispatchStatusAndCreatedAtBefore`(미사용)는 삭제한다.
 - **라이터** — 한 청크에 대해:
-  1. `fetcher.fetch(ticketIds)` — 예외면 경고 로그 후 그 청크를 건너뛴다(FR-018, 잡은 계속).
+  1. `receiptClient.fetch(ticketIds)` — 예외면 경고 로그 후 그 청크를 건너뛴다(FR-018, 잡은 계속).
   2. 티켓 id → 이력 id 로 바꿔 `receiptService.apply(…)`.
   3. `resend` 가 있으면 `sender.send(…)` → `dispatchService.record(…)`.
   4. 메트릭 `kbap.push.receipt{type, result=delivered|failed|resent|pending}` 와 로그.
@@ -174,7 +174,7 @@ fun apply(outcomes: Map<Long, ReceiptOutcome>, policy: ResendPolicy, now: LocalD
 | C | `ScanSuggestionSendWindowTest`(수정) | 10:59→전날 17:00, 11:00, 16:59, 17:00 |
 | D1 | `PushDispatchServiceTest`(수정) | 준비된 이력에 유형 기록 |
 | D1 | api 컨텍스트 기동(기존 테스트) | 마이그레이션 + `ddl-auto=validate` 정합 |
-| D2 | `ExpoPushReceiptFetcherTest`(신규) | ok·오류(details.error)·코드 없는 오류·응답에 없는 id·1000건 분할·HTTP 오류는 예외 |
+| D2 | `ExpoPushReceiptClientTest`(신규) | ok·오류(details.error)·코드 없는 오류·응답에 없는 id·1000건 분할·HTTP 오류는 예외 |
 | D3 | `PushReceiptServiceTest`(신규) | spec US3·US4 수용 시나리오 전부 — 결과별 상태, 토큰 무효화, 재전송 조건 3종(횟수·시간·대상 자격), 기기 단위 재전송, 광고성 ttl·활동 null, 영수증 없는 이력 불변 |
 | D4 | `NotificationDispatchJpaRepositoryTest`(수정) | 대상 조회 — 상태·유형·15분·24시간 경계·id 커서·유형 NULL 제외 |
 | D4 | `PushReceiptSyncJobTest`(신규, 배치 통합) | 광고성 잡은 광고성만·활동 잡은 활동만, 재전송 3회째 최종 실패(이력 3건·알림함 삭제), 두 번째 ok 면 알림함 유지, 조회 예외 청크는 SENT 유지·잡 COMPLETED, 메트릭 |
@@ -204,10 +204,10 @@ specs/kb-614-scan-suggestion-chunk-step/
 
 ```text
 common/src/main/kotlin/com/kbap/common/
-├── port/push/PushReceiptFetcher.kt                      # 신규 (+ PushReceipt)
+├── port/push/PushReceiptClient.kt                      # 신규 (+ PushReceipt)
 ├── infra/push/
 │   ├── ExpoPushSender.kt                                # 수정 — 순차, RestClient 조립 분리
-│   └── ExpoPushReceiptFetcher.kt                        # 신규
+│   └── ExpoPushReceiptClient.kt                        # 신규
 └── domain/notification/
     ├── PushReceiptService.kt                            # 신규 (+ ReceiptOutcome·ResendPolicy·ReceiptApplyResult)
     ├── PushDispatchService.kt                           # 수정 — 이력에 유형 기록
@@ -228,7 +228,7 @@ batch/src/main/kotlin/com/kbap/batch/
 │   ├── PushReceiptSyncWriter.kt                         # 신규
 │   ├── ScanSuggestionCandidateDto.kt                    # 삭제
 │   └── ScanSuggestionTargetTasklet.kt                   # 삭제
-├── config/PushConfig.kt                                 # 수정 — 인자 정리, PushReceiptFetcher·PushReceiptService 조립
+├── config/PushConfig.kt                                 # 수정 — 인자 정리, PushReceiptClient·PushReceiptService 조립
 └── schedule/BatchJobScheduler.kt                        # 수정 — 영수증 잡 스케줄
 batch/src/main/resources/application.yml                 # 수정
 

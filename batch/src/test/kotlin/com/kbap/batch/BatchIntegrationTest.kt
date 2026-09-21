@@ -1,6 +1,6 @@
 package com.kbap.batch
 
-import com.kbap.batch.notification.FakePushReceiptFetcherConfig
+import com.kbap.batch.notification.FakePushReceiptClientConfig
 import com.kbap.batch.notification.FakePushSenderConfig
 import com.kbap.batch.notification.MutableClockConfig
 import com.kbap.batch.trigger.SlowJobTestConfig
@@ -13,5 +13,5 @@ import org.springframework.context.annotation.Import
 @Retention(AnnotationRetention.RUNTIME)
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(MySqlContainerConfig::class, SlowJobTestConfig::class, FakePushSenderConfig::class, FakePushReceiptFetcherConfig::class, MutableClockConfig::class)
+@Import(MySqlContainerConfig::class, SlowJobTestConfig::class, FakePushSenderConfig::class, FakePushReceiptClientConfig::class, MutableClockConfig::class)
 annotation class BatchIntegrationTest

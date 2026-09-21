@@ -68,7 +68,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
     private lateinit var fakePushSender: FakePushSender
 
     @Autowired
-    private lateinit var fakeReceipts: FakePushReceiptFetcher
+    private lateinit var fakeReceipts: FakePushReceiptClient
 
     @Autowired
     private lateinit var clock: MutableClock

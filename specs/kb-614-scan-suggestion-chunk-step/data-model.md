@@ -72,7 +72,7 @@ PENDING ──markSent──▶ SENT ──markDelivered──▶ DELIVERED
 
 ## 포트 타입 (신규, `common.port.push`)
 
-`PushReceipt(ok, errorCode?, message?)`, `fun interface PushReceiptFetcher { fun fetch(ticketIds): Map<String, PushReceipt> }`
+`PushReceipt(ok, errorCode?, message?)`, `fun interface PushReceiptClient { fun fetch(ticketIds): Map<String, PushReceipt> }`
 
 ## 메모리 상 상태
 

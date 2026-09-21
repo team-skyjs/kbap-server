@@ -8,7 +8,7 @@ import com.kbap.common.domain.notification.ReceiptOutcome
 import com.kbap.common.domain.notification.ResendPolicy
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import com.kbap.common.port.push.PushMessage
-import com.kbap.common.port.push.PushReceiptFetcher
+import com.kbap.common.port.push.PushReceiptClient
 import com.kbap.common.port.push.PushSender
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -17,7 +17,7 @@ import org.springframework.batch.infrastructure.item.ItemWriter
 import java.time.Clock
 
 class PushReceiptSyncWriter(
-    private val fetcher: PushReceiptFetcher,
+    private val receiptClient: PushReceiptClient,
     private val receiptService: PushReceiptService,
     private val dispatchService: PushDispatchService,
     private val sender: PushSender,
@@ -28,7 +28,7 @@ class PushReceiptSyncWriter(
     override fun write(chunk: Chunk<out NotificationDispatch>) {
         val dispatches = chunk.items
         val receipts = try {
-            fetcher.fetch(dispatches.mapNotNull { it.ticketId })
+            receiptClient.fetch(dispatches.mapNotNull { it.ticketId })
         } catch (e: RuntimeException) {
             logger.warn("Expo 영수증 조회 실패 — 다음 회차에 다시 시도합니다 dispatches={}", dispatches.size, e)
             return

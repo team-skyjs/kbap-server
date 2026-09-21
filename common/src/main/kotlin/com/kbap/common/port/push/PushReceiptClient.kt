@@ -6,6 +6,6 @@ data class PushReceipt(
     val message: String? = null,
 )
 
-fun interface PushReceiptFetcher {
+fun interface PushReceiptClient {
     fun fetch(ticketIds: List<String>): Map<String, PushReceipt>
 }
