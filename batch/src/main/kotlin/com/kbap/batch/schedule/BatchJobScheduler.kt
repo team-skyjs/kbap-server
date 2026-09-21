@@ -1,5 +1,6 @@
 package com.kbap.batch.schedule
 
+import com.kbap.batch.notification.PushReceiptSyncBatchConfig
 import com.kbap.batch.notification.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.ScanSuggestionSendWindow
 import com.kbap.common.domain.notification.model.MealSlot
@@ -28,6 +29,13 @@ class BatchJobScheduler(
 
     @Scheduled(cron = ScanSuggestionSendWindow.DINNER_CRON, zone = TIME_ZONE)
     fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
+
+    @Scheduled(cron = PushReceiptSyncBatchConfig.MARKETING_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = PushReceiptSyncBatchConfig.MARKETING_CLOSING_CRON, zone = TIME_ZONE)
+    fun syncMarketingPushReceipts() = launch(PushReceiptSyncBatchConfig.MARKETING_JOB)
+
+    @Scheduled(cron = PushReceiptSyncBatchConfig.ACTIVITY_CRON, zone = TIME_ZONE)
+    fun syncActivityPushReceipts() = launch(PushReceiptSyncBatchConfig.ACTIVITY_JOB)
 
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {

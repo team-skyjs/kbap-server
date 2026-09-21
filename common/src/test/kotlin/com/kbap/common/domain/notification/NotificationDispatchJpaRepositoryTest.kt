@@ -8,6 +8,7 @@ import com.kbap.common.domain.notification.model.NotificationType
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
@@ -15,7 +16,8 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Limit
+import org.springframework.jdbc.core.JdbcTemplate
 import java.time.LocalDateTime
 
 @SpringBootTest
@@ -29,6 +31,9 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
     @Autowired
     private lateinit var notificationRepository: NotificationJpaRepository
 
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
     init {
         fun clear() {
             dispatchRepository.deleteAll()
@@ -39,8 +44,8 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
             Notification.forMember(1L, NotificationType.SCAN_SUGGESTION, "t", "b", mapOf("type" to "SCAN_SUGGESTION")),
         )
 
-        fun dispatch(notificationId: Long, token: String, deviceId: Long? = null) =
-            NotificationDispatch.pending(notificationId = notificationId, notificationDeviceId = deviceId, expoToken = token)
+        fun dispatch(notificationId: Long, token: String, deviceId: Long? = null, type: NotificationType? = NotificationType.SCAN_SUGGESTION) =
+            NotificationDispatch.pending(notificationId, deviceId, token, type)
 
         given("알림 1건의 기기별 발송 추적") {
             `when`("기기 두 대로 발송 기록을 남기면") {
@@ -95,27 +100,48 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("영수증 조회 대상") {
-            `when`("접수 뒤 15분이 지난 발송과 방금 접수된 발송이 섞여 있으면") {
+            `when`("상태·유형·접수 시각이 섞인 발송이 있으면") {
                 clear()
                 val saved = notification()
-                val old = dispatchRepository.save(dispatch(saved.id, "ExponentPushToken[old]").apply { markSent("t-old") })
-                dispatchRepository.save(dispatch(saved.id, "ExponentPushToken[new]").apply { markSent("t-new") })
-                dispatchRepository.save(dispatch(saved.id, "ExponentPushToken[pending]"))
-                val cutoff = LocalDateTime.now().plusSeconds(1)
+                val now = LocalDateTime.of(2026, 9, 15, 12, 0)
+                fun sentAt(createdAt: LocalDateTime, type: NotificationType? = NotificationType.SCAN_SUGGESTION, sent: Boolean = true): Long {
+                    val d = dispatchRepository.save(dispatch(saved.id, "ExponentPushToken[x]", type = type).apply { if (sent) markSent("t") })
+                    jdbcTemplate.update("UPDATE notification_dispatch SET created_at = ? WHERE id = ?", createdAt, d.id)
+                    return d.id
+                }
+                val atLowerBound = sentAt(now.minusHours(24))
+                val due = sentAt(now.minusMinutes(20))
+                val atUpperBound = sentAt(now.minusMinutes(15))
+                sentAt(now.minusHours(25))
+                sentAt(now.minusMinutes(14))
+                sentAt(now.minusMinutes(20), type = NotificationType.HELPFUL)
+                sentAt(now.minusMinutes(20), type = null)
+                sentAt(now.minusMinutes(20), sent = false)
+                val types = listOf(NotificationType.SCAN_SUGGESTION, NotificationType.NEWS)
+                fun find(afterId: Long, limit: Int) =
+                    dispatchRepository.findSentForReceiptCheck(types, now.minusHours(24), now.minusMinutes(15), afterId, Limit.of(limit)).map { it.id }
 
-                then("기준 시각 이전에 접수된 SENT 만 반환된다") {
-                    val due = dispatchRepository.findByDispatchStatusAndCreatedAtBefore(
-                        NotificationDispatchStatus.SENT,
-                        cutoff,
-                        PageRequest.of(0, 100),
-                    )
-                    due.map { it.id }.toSet() shouldBe setOf(old.id, due.first { it.expoToken == "ExponentPushToken[new]" }.id)
-                    due.none { it.dispatchStatus == NotificationDispatchStatus.PENDING } shouldBe true
-                    dispatchRepository.findByDispatchStatusAndCreatedAtBefore(
-                        NotificationDispatchStatus.SENT,
-                        cutoff.minusYears(1),
-                        PageRequest.of(0, 100),
-                    ) shouldHaveSize 0
+                then("대상 유형의 SENT 중 시간 창(경계 포함) 안의 발송만 id 오름차순으로 돌려준다") {
+                    find(0L, 10) shouldContainExactly listOf(atLowerBound, due, atUpperBound)
+                }
+                then("커서보다 큰 id 만 limit 건까지 돌려준다") {
+                    find(atLowerBound, 1) shouldContainExactly listOf(due)
+                    find(atUpperBound, 10) shouldHaveSize 0
+                }
+            }
+        }
+
+        given("알림별 발송 시도 조회") {
+            `when`("한 알림에 발송 기록이 둘, 다른 알림에 하나 있으면") {
+                clear()
+                val first = notification()
+                val second = notification()
+                dispatchRepository.save(dispatch(first.id, "ExponentPushToken[a]"))
+                dispatchRepository.save(dispatch(first.id, "ExponentPushToken[a]"))
+                dispatchRepository.save(dispatch(second.id, "ExponentPushToken[b]"))
+
+                then("요청한 알림의 기록만 전부 돌려준다") {
+                    dispatchRepository.findByNotificationIdIn(listOf(first.id)) shouldHaveSize 2
                 }
             }
         }

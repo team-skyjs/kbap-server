@@ -2,10 +2,13 @@ package com.kbap.batch.config
 
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushMessageRenderer
+import com.kbap.common.domain.notification.PushReceiptService
 import com.kbap.common.domain.notification.PushTargetResolver
 import com.kbap.common.infra.push.ExpoPushHandler
+import com.kbap.common.infra.push.ExpoPushReceiptFetcher
 import com.kbap.common.infra.push.ExpoPushSender
 import com.kbap.common.port.push.PushHandler
+import com.kbap.common.port.push.PushReceiptFetcher
 import com.kbap.common.port.push.PushSender
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -15,7 +18,7 @@ import java.time.Duration
 import org.springframework.context.annotation.Import
 
 @Configuration
-@Import(PushDispatchService::class, PushTargetResolver::class, PushMessageRenderer::class)
+@Import(PushDispatchService::class, PushReceiptService::class, PushTargetResolver::class, PushMessageRenderer::class)
 class PushConfig {
     @Bean
     @ConditionalOnMissingBean(PushSender::class)
@@ -31,6 +34,13 @@ class PushConfig {
             accessToken,
             ExpoPushSender.defaultRetryPolicy(maxRetries, initialDelay, multiplier),
         )
+
+    @Bean
+    @ConditionalOnMissingBean(PushReceiptFetcher::class)
+    fun pushReceiptFetcher(
+        @Value("\${kbap.push.expo.base-url}") baseUrl: String,
+        @Value("\${kbap.push.expo.access-token:}") accessToken: String,
+    ): PushReceiptFetcher = ExpoPushReceiptFetcher.create(baseUrl, accessToken)
 
     @Bean
     fun pushHandler(dispatchService: PushDispatchService, pushSender: PushSender): PushHandler =

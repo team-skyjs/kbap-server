@@ -78,6 +78,15 @@ kbap:
       chunk-size: 100
       # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).
       ttl: 3h
+    # Expo 영수증 확인·재전송(KB-614) — 광고성 잡은 발송 후 2시간 창(11~13시·17~19시)에 10분 주기, 활동 알림 잡은 15분 주기 상시.
+    # 접수(SENT) 후 min-age 가 지나고 max-age(Expo 영수증 보관 기간) 안인 발송만 확인한다. max-age 를 넘긴 SENT 는 미확인으로 종결된다.
+    push-receipt:
+      chunk-size: 100
+      min-age: 15m
+      max-age: 24h
+      # 재전송은 알림당 max-resends 회, 최초 발송 후 resend-window 안에서만.
+      resend-window: 2h
+      max-resends: 2
   # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.

@@ -109,6 +109,10 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     PushRequest(NotificationType.HELPFUL, listOf(1L), args = helpfulArgs, data = mapOf("foodId" to "7")),
                 )
 
+                then("발송 이력에 알림 유형이 기록된다") {
+                    dispatchRepository.findAllById(prepared.dispatchIds).map { it.notificationType }.toSet() shouldBe setOf(NotificationType.HELPFUL)
+                }
+
                 then("기기마다 자기 언어로 렌더한 알림함 행이 하나씩 생기고 data 에 type·foodId·notificationId 가 들어간다") {
                     val notifications = notificationRepository.findAll().associateBy { it.installationId }
                     notifications.keys shouldBe setOf(ko.installationId, ja.installationId)
