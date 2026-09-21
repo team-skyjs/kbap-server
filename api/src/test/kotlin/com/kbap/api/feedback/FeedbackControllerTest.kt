@@ -254,6 +254,60 @@ class FeedbackControllerTest : BehaviorSpec() {
             }
         }
 
+        given("내 문의 범위") {
+            `when`("회원이 보낸 문의를 같은 기기의 비로그인 사용자가 조회하면") {
+                then("보이지 않는다 — 기기를 공유해도 회원 문의는 회원 것이다") {
+                    val device = "scope-install-0001"
+                    submit(token = token(9201L), installationId = device, body = mapOf("content" to "회원 문의"))
+                        .andExpect { status { isCreated() } }
+
+                    payloadOf(mine(installationId = device)).path("items").size() shouldBe 0
+                }
+            }
+
+            `when`("회원이 다른 기기에서 로그인해 조회하면") {
+                then("자기 문의가 보인다 — 기기와 무관하다") {
+                    submit(token = token(9202L), installationId = "scope-install-0002", body = mapOf("content" to "다른 기기 문의"))
+                        .andExpect { status { isCreated() } }
+
+                    payloadOf(mine(token = token(9202L), installationId = "scope-other-device"))
+                        .path("items").size() shouldBe 1
+                }
+            }
+
+            `when`("게스트가 보낸 문의를 같은 기기의 게스트가 조회하면") {
+                then("보인다 — 기기가 유일한 신원이다") {
+                    val device = "scope-install-0003"
+                    submit(installationId = device, body = mapOf("content" to "게스트 문의")).andExpect { status { isCreated() } }
+
+                    payloadOf(mine(installationId = device)).path("items").size() shouldBe 1
+                }
+            }
+
+            `when`("회원이 같은 기기의 게스트 문의를 조회하면") {
+                then("보이지 않는다 — 반대 방향으로도 새지 않는다") {
+                    val device = "scope-install-0004"
+                    submit(installationId = device, body = mapOf("content" to "기기 게스트 문의")).andExpect { status { isCreated() } }
+
+                    payloadOf(mine(token = token(9204L), installationId = device)).path("items").size() shouldBe 0
+                }
+            }
+
+            `when`("상세를 회원 문의 id 로 직접 열면") {
+                then("같은 기기의 비로그인 사용자에게 404 다 — 목록보다 넓으면 URL 로 남의 문의를 연다") {
+                    val device = "scope-install-0005"
+                    val id = payloadOf(
+                        submit(token = token(9205L), installationId = device, body = mapOf("content" to "상세 회원 문의")),
+                    ).path("id").asLong()
+
+                    detail(id, installationId = device).andExpect {
+                        status { isNotFound() }
+                        jsonPath("$.code") { value("FEEDBACK-004") }
+                    }
+                }
+            }
+        }
+
         given("문의 상세 조회") {
             `when`("같은 기기에서 자기 문의를 조회하면") {
                 then("목록 아이템과 같은 모양으로 한 건을 내려준다") {
@@ -285,28 +339,27 @@ class FeedbackControllerTest : BehaviorSpec() {
             }
 
             `when`("게스트로 낸 문의를 같은 기기에서 로그인해 조회하면") {
-                then("회원 토큰으로도 그대로 보인다") {
+                then("404 다 — 목록과 같은 범위를 본다") {
                     val id = payloadOf(
                         submit(installationId = "detail-keep-0001", body = mapOf("content" to "가입 전 문의")),
                     ).path("id").asLong()
 
-                    payloadOf(
-                        detail(id, token = token(9130L), installationId = "detail-keep-0001")
-                            .andExpect { status { isOk() } },
-                    ).path("content").asText() shouldBe "가입 전 문의"
+                    detail(id, token = token(9130L), installationId = "detail-keep-0001").andExpect {
+                        status { isNotFound() }
+                        jsonPath("$.code") { value("FEEDBACK-004") }
+                    }
                 }
             }
         }
 
         given("내 문의 조회") {
             `when`("게스트로 보낸 뒤 같은 기기에서 로그인해 조회하면") {
-                then("그 문의가 그대로 보인다 — 설치 ID 매칭") {
+                then("보이지 않는다 — 로그인하면 회원 문의만 본다(게스트 문의 이전은 별건)") {
                     submit(installationId = "keep-install-0001", body = mapOf("content" to "게스트 문의"))
                         .andExpect { status { isCreated() } }
 
-                    val items = payloadOf(mine(token = token(9120L), installationId = "keep-install-0001")).path("items")
-                    items.size() shouldBe 1
-                    items[0].path("content").asText() shouldBe "게스트 문의"
+                    payloadOf(mine(token = token(9120L), installationId = "keep-install-0001"))
+                        .path("items").size() shouldBe 0
                 }
             }
 
