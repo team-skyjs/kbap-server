@@ -9,10 +9,12 @@ import org.springframework.context.annotation.Primary
 
 class FakePushSender : PushSender {
     val sent: MutableList<PushMessage> = mutableListOf()
+    val batches: MutableList<Int> = mutableListOf()
     var errorFor: (PushMessage) -> String? = { null }
 
     override fun send(messages: List<PushMessage>): List<PushTicket> {
         sent += messages
+        batches += messages.size
         return messages.mapIndexed { i, message ->
             errorFor(message)?.let { PushTicket.error(it) } ?: PushTicket.ok("ticket-${sent.size - messages.size + i}")
         }
@@ -20,6 +22,7 @@ class FakePushSender : PushSender {
 
     fun reset() {
         sent.clear()
+        batches.clear()
         errorFor = { null }
     }
 }

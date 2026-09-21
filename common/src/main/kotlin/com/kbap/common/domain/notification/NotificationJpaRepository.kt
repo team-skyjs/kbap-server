@@ -38,16 +38,5 @@ interface NotificationJpaRepository : JpaRepository<Notification, Long> {
     @Query("update Notification n set n.readAt = :now where n.memberId = :memberId and n.readAt is null")
     fun markAllReadByMemberId(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Int
 
-    @Query(
-        """
-        select distinct n.memberId from Notification n
-        where n.type = :type
-          and n.createdAt >= :since
-          and n.memberId is not null
-        """,
-    )
-    fun findMemberIdsByTypeAndCreatedAtAfter(
-        @Param("type") type: NotificationType,
-        @Param("since") since: LocalDateTime,
-    ): List<Long>
+    fun existsByMemberIdAndTypeAndCreatedAtGreaterThanEqual(memberId: Long, type: NotificationType, since: LocalDateTime): Boolean
 }

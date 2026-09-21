@@ -17,13 +17,11 @@ import org.springframework.context.annotation.Import
 @Configuration
 @Import(PushDispatchService::class, PushTargetResolver::class, PushMessageRenderer::class)
 class PushConfig {
-    @Bean(destroyMethod = "close")
+    @Bean
     @ConditionalOnMissingBean(PushSender::class)
     fun pushSender(
         @Value("\${kbap.push.expo.base-url}") baseUrl: String,
         @Value("\${kbap.push.expo.access-token:}") accessToken: String,
-        @Value("\${kbap.push.expo.concurrency:6}") concurrency: Int,
-        @Value("\${kbap.push.expo.min-request-interval:170ms}") minRequestInterval: Duration,
         @Value("\${kbap.push.expo.retry.max-retries:3}") maxRetries: Long,
         @Value("\${kbap.push.expo.retry.initial-delay:1s}") initialDelay: Duration,
         @Value("\${kbap.push.expo.retry.multiplier:2.0}") multiplier: Double,
@@ -31,8 +29,6 @@ class PushConfig {
         ExpoPushSender.create(
             baseUrl,
             accessToken,
-            concurrency,
-            minRequestInterval,
             ExpoPushSender.defaultRetryPolicy(maxRetries, initialDelay, multiplier),
         )
 

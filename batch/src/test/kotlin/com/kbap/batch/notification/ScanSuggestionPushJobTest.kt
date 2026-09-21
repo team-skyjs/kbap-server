@@ -12,6 +12,7 @@ import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.PushTemplates
 import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationConsent
+import com.kbap.common.domain.notification.model.Notification
 import com.kbap.common.domain.notification.model.NotificationConsentType
 import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationDispatchStatus
@@ -133,7 +134,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
         given("스캔 제안 발송 잡") {
             `when`("점심 시각에 조건이 섞인 기기들을 두고 실행하면") {
                 clear()
-                clock.setSeoul(2026, 9, 15, 12, 0)
+                clock.setSeoul(2026, 9, 15, 11, 0)
                 device(1L, "ko")
                 device(1L, "en")
                 consent(1L)
@@ -183,7 +184,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
             `when`("같은 슬롯에서 다시 실행하면") {
                 clear()
-                clock.setSeoul(2026, 9, 15, 12, 0)
+                clock.setSeoul(2026, 9, 15, 11, 0)
                 val failing = device(8L, "ko")
                 device(8L, "en")
                 consent(8L)
@@ -204,15 +205,15 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 1
                 }
 
-                then("같은 날 18:00 슬롯에는 다시 보내고, 다음 날 12:00 에도 다시 보낸다") {
-                    clock.setSeoul(2026, 9, 15, 18, 0)
+                then("같은 날 저녁 슬롯에는 다시 보내고, 다음 날 점심 슬롯에도 다시 보낸다") {
+                    clock.setSeoul(2026, 9, 15, 17, 0)
                     run()
                     stampCreatedAtToClock()
                     fakePushSender.sent shouldHaveSize 4
                     clock.setSeoul(2026, 9, 15, 20, 0)
                     run()
                     fakePushSender.sent shouldHaveSize 4
-                    clock.setSeoul(2026, 9, 16, 12, 0)
+                    clock.setSeoul(2026, 9, 16, 11, 0)
                     run()
                     fakePushSender.sent shouldHaveSize 6
                     notificationRepository.findAll() shouldHaveSize 5
@@ -221,7 +222,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
             `when`("HTTP 트리거로 실행하면") {
                 clear()
-                clock.setSeoul(2026, 9, 15, 12, 0)
+                clock.setSeoul(2026, 9, 15, 11, 0)
                 device(9L)
                 consent(9L)
                 setting(9L, news = true)
@@ -247,10 +248,10 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 }
             }
 
-            `when`("회원 1,200명을 두고 실행하면") {
+            `when`("회원 250명 중 40명이 이번 슬롯에 이미 받은 채로 실행하면") {
                 clear()
-                clock.setSeoul(2026, 9, 15, 12, 0)
-                val members = (1001L..2200L).toList()
+                clock.setSeoul(2026, 9, 15, 11, 0)
+                val members = (1001L..1250L).toList()
                 val devices = deviceRepository.saveAll(
                     members.map { NotificationDevice.register("bulk-$it", "ExponentPushToken[bulk-$it]", DevicePlatform.ANDROID, "ko", it) },
                 )
@@ -260,23 +261,30 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                         NotificationConsentType.entries.map { NotificationConsent.grantForMember(m, null, it, 2, LocalDateTime.now()) }
                     },
                 )
-                val failing = setOf("ExponentPushToken[bulk-1001]", "ExponentPushToken[bulk-1500]", "ExponentPushToken[bulk-2200]")
+                notificationRepository.saveAll(
+                    members.take(40).map { Notification(memberId = it, type = NotificationType.SCAN_SUGGESTION, title = "t", body = "b") },
+                )
+                val failing = setOf("ExponentPushToken[bulk-1100]", "ExponentPushToken[bulk-1250]")
                 fakePushSender.errorFor = { if (it.to in failing) "DeviceNotRegistered" else null }
 
                 val execution = run()
 
-                then("회원 묶음 단위로 전부 발송하고 실패한 건만 FAILED 로 남는다") {
+                then("스텝 하나가 100명씩 읽어 이미 받은 회원을 거르고 묶음 단위로 발송한다") {
                     execution.exitStatus.exitCode shouldBe "COMPLETED"
-                    execution.stepExecutions.first { it.stepName == "scanSuggestionLunchSendStep" }.writeCount shouldBe 1200L
-                    fakePushSender.sent shouldHaveSize 1200
-                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 3
-                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 1197
+                    val step = execution.stepExecutions.single()
+                    step.stepName shouldBe "scanSuggestionLunchSendStep"
+                    step.readCount shouldBe 250L
+                    step.filterCount shouldBe 40L
+                    step.writeCount shouldBe 210L
+                    fakePushSender.batches shouldBe listOf(60, 100, 50)
+                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 2
+                    dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 208
                 }
             }
 
             `when`("저녁 잡을 실행하면") {
                 clear()
-                clock.setSeoul(2026, 9, 15, 18, 0)
+                clock.setSeoul(2026, 9, 15, 17, 0)
                 device(10L, "ko")
                 consent(10L)
                 setting(10L, news = true)

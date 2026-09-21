@@ -160,10 +160,6 @@ kbap:
     expo:
       base-url: https://exp.host
       access-token: ${EXPO_ACCESS_TOKEN:}
-      # 청크(100건) 요청을 동시에 보내는 스레드 수 — Expo 공식 SDK 의 최대 연결 수와 같다(KB-471).
-      concurrency: 6
-      # 청크 요청 시작 간격 — 프로젝트당 초당 600건 상한(100건 × 초당 5.9회). 인스턴스 단위로 지킨다.
-      min-request-interval: 170ms
       # 일시 실패(네트워크·429·5xx)만 지수 백오프 재시도. 400 등 영구 실패는 즉시 실패.
       retry:
         max-retries: 3

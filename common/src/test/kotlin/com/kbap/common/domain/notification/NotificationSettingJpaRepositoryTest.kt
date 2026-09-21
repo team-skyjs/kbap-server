@@ -6,7 +6,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -14,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.domain.Limit
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -64,7 +64,7 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("소식 켜진 회원 조회") {
+        given("소식 켜진 회원 커서 조회") {
             `when`("회원별로 소식 토글이 섞여 있으면") {
                 clear()
                 repository.save(NotificationSetting.defaultFor(21L, "dev-a").apply { updateNews(true) })
@@ -72,9 +72,14 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
                 repository.save(NotificationSetting.defaultFor(22L, "dev-a"))
                 repository.save(NotificationSetting.defaultFor(23L, "dev-a").apply { updateNews(true) })
                 repository.save(NotificationSetting.defaultFor(24L, "dev-a").apply { updateNews(true); delete() })
+                repository.save(NotificationSetting.defaultFor(25L, "dev-a").apply { updateNews(true) })
 
-                then("켜진 행이 하나라도 있는 회원 id 만 중복 없이 돌려주고 소프트 삭제 행은 제외한다") {
-                    repository.findMemberIdsByNewsTrue() shouldContainExactlyInAnyOrder listOf(21L, 23L)
+                then("켜진 행이 있는 회원 id 를 중복 없이 오름차순으로 돌려주고 소프트 삭제 행은 제외한다") {
+                    repository.findMemberIdsByNewsTrueAfter(0L, Limit.of(10)) shouldContainExactly listOf(21L, 23L, 25L)
+                }
+                then("커서보다 큰 회원만 limit 건까지 돌려준다") {
+                    repository.findMemberIdsByNewsTrueAfter(21L, Limit.of(1)) shouldContainExactly listOf(23L)
+                    repository.findMemberIdsByNewsTrueAfter(25L, Limit.of(10)) shouldContainExactly emptyList()
                 }
             }
         }

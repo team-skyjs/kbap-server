@@ -7,8 +7,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 object ScanSuggestionSendWindow {
-    const val LUNCH_CRON = "0 0 12 * * *"
-    const val DINNER_CRON = "0 0 18 * * *"
+    const val LUNCH_CRON = "0 0 11 * * *"
+    const val DINNER_CRON = "0 0 17 * * *"
 
     private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
 

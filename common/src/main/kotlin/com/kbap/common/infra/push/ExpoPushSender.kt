@@ -9,19 +9,11 @@ import org.springframework.core.retry.RetryException
 import org.springframework.core.retry.RetryPolicy
 import org.springframework.core.retry.RetryTemplate
 import org.springframework.http.MediaType
-import org.springframework.http.client.JdkClientHttpRequestFactory
-import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
-import tools.jackson.databind.json.JsonMapper
-import tools.jackson.module.kotlin.kotlinModule
-import java.net.http.HttpClient
 import java.time.Duration
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 
 internal data class ExpoMessage(
     val to: String,
@@ -55,32 +47,13 @@ internal data class ExpoSendResponse(
 
 class ExpoPushSender internal constructor(
     private val restClient: RestClient,
-    private val executor: ExecutorService,
-    private val minRequestInterval: Duration,
     retryPolicy: RetryPolicy,
-) : PushSender, AutoCloseable {
+) : PushSender {
     private val log = LoggerFactory.getLogger(javaClass)
     private val retryTemplate = RetryTemplate(retryPolicy)
-    private var nextSlotAtNanos = 0L
 
     override fun send(messages: List<PushMessage>): List<PushTicket> =
-        messages.chunked(CHUNK_SIZE)
-            .map { chunk -> executor.submit<List<PushTicket>> { sendChunk(chunk) } }
-            .flatMap { it.get() }
-
-    override fun close() {
-        executor.shutdown()
-    }
-
-    private fun awaitSlot() {
-        val waitNanos = synchronized(this) {
-            val now = System.nanoTime()
-            val slot = maxOf(now, nextSlotAtNanos)
-            nextSlotAtNanos = slot + minRequestInterval.toNanos()
-            slot - now
-        }
-        if (waitNanos > 0) Thread.sleep(Duration.ofNanos(waitNanos))
-    }
+        messages.chunked(CHUNK_SIZE).flatMap(::sendChunk)
 
     private fun sendChunk(chunk: List<PushMessage>): List<PushTicket> {
         val tickets = try {
@@ -91,9 +64,8 @@ class ExpoPushSender internal constructor(
         return List(chunk.size) { i -> tickets.getOrNull(i) ?: PushTicket.error("ticket count mismatch") }
     }
 
-    private fun post(chunk: List<PushMessage>): List<PushTicket> {
-        awaitSlot()
-        return restClient.post()
+    private fun post(chunk: List<PushMessage>): List<PushTicket> =
+        restClient.post()
             .uri(SEND_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
@@ -103,7 +75,6 @@ class ExpoPushSender internal constructor(
             ?.data
             .orEmpty()
             .map { it.toTicket() }
-    }
 
     private fun failAll(chunk: List<PushMessage>, e: Throwable, retries: Int): List<PushTicket> {
         log.warn("Expo push 청크 발송 실패: size={} retries={}", chunk.size, retries, e)
@@ -114,7 +85,6 @@ class ExpoPushSender internal constructor(
     companion object {
         private const val CHUNK_SIZE = 100
         private const val SEND_PATH = "/--/api/v2/push/send"
-        private val threadSeq = AtomicInteger()
 
         fun defaultRetryPolicy(maxRetries: Long, initialDelay: Duration, multiplier: Double): RetryPolicy =
             RetryPolicy.builder()
@@ -127,37 +97,10 @@ class ExpoPushSender internal constructor(
         private fun isTransient(e: Throwable): Boolean =
             e is ResourceAccessException || e is HttpServerErrorException || e is HttpClientErrorException.TooManyRequests
 
-        fun create(
-            baseUrl: String,
-            accessToken: String,
-            concurrency: Int,
-            minRequestInterval: Duration,
-            retryPolicy: RetryPolicy,
-        ): ExpoPushSender {
-            val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
-            val requestFactory = JdkClientHttpRequestFactory(httpClient).apply { setReadTimeout(Duration.ofSeconds(10)) }
-            return create(baseUrl, accessToken, RestClient.builder().requestFactory(requestFactory), concurrency, minRequestInterval, retryPolicy)
-        }
+        fun create(baseUrl: String, accessToken: String, retryPolicy: RetryPolicy): ExpoPushSender =
+            create(baseUrl, accessToken, expoRestClientBuilder(), retryPolicy)
 
-        internal fun create(
-            baseUrl: String,
-            accessToken: String,
-            restClientBuilder: RestClient.Builder,
-            concurrency: Int,
-            minRequestInterval: Duration,
-            retryPolicy: RetryPolicy,
-        ): ExpoPushSender {
-            val mapper = JsonMapper.builder().addModule(kotlinModule()).build()
-            val builder = restClientBuilder
-                .baseUrl(baseUrl)
-                .configureMessageConverters { converters ->
-                    converters.disableDefaults().withJsonConverter(JacksonJsonHttpMessageConverter(mapper))
-                }
-            if (accessToken.isNotBlank()) {
-                builder.defaultHeaders { it.setBearerAuth(accessToken) }
-            }
-            val executor = Executors.newFixedThreadPool(concurrency) { Thread(it, "expo-push-${threadSeq.incrementAndGet()}") }
-            return ExpoPushSender(builder.build(), executor, minRequestInterval, retryPolicy)
-        }
+        internal fun create(baseUrl: String, accessToken: String, builder: RestClient.Builder, retryPolicy: RetryPolicy): ExpoPushSender =
+            ExpoPushSender(expoRestClient(baseUrl, accessToken, builder), retryPolicy)
     }
 }

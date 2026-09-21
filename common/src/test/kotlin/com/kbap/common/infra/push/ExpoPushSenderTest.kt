@@ -22,9 +22,6 @@ import org.springframework.test.web.client.response.MockRestResponseCreators.wit
 import org.springframework.test.web.client.response.MockRestResponseCreators.withTooManyRequests
 import org.springframework.core.retry.RetryPolicy
 import org.springframework.web.client.RestClient
-import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
-import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
-import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.string.shouldContain
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.kotlinModule
@@ -43,7 +40,7 @@ class ExpoPushSenderTest : BehaviorSpec({
     fun fixture(accessToken: String = ""): Pair<ExpoPushSender, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return ExpoPushSender.create(BASE_URL, accessToken, builder, concurrency = 1, minRequestInterval = Duration.ZERO, retryPolicy = quickRetry) to server
+        return ExpoPushSender.create(BASE_URL, accessToken, builder, quickRetry) to server
     }
 
     class LocalExpo(private val handlerDelay: Duration) : AutoCloseable {
@@ -218,36 +215,15 @@ class ExpoPushSenderTest : BehaviorSpec({
             }
         }
 
-        `when`("청크 12개를 동시성 6·간격 0 으로 보내면") {
-            then("요청이 겹쳐 나가 순차 발송보다 빨리 끝나고 티켓 순서는 입력 순서와 같다") {
-                LocalExpo(Duration.ofMillis(200)).use { expo ->
-                    ExpoPushSender.create(expo.baseUrl, "", concurrency = 6, minRequestInterval = Duration.ZERO, retryPolicy = quickRetry).use { sender ->
-                        val started = System.nanoTime()
-                        val tickets = sender.send(messages(1200))
-                        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        `when`("실제 HTTP 로 250건을 보내면") {
+            then("요청 3개가 겹치지 않고 하나씩 나가고 티켓 순서는 입력 순서와 같다") {
+                LocalExpo(Duration.ofMillis(50)).use { expo ->
+                    val tickets = ExpoPushSender.create(expo.baseUrl, "", quickRetry).send(messages(250))
 
-                        tickets shouldHaveSize 1200
-                        tickets.forEachIndexed { i, t -> t.id shouldBe "t$i" }
-                        expo.arrivals shouldHaveSize 12
-                        expo.maxActive shouldBeGreaterThanOrEqual 2
-                        elapsedMs shouldBeLessThan 12 * 200L
-                    }
-                }
-            }
-        }
-
-        `when`("청크 12개를 간격 100ms 로 보내면") {
-            then("i번째 요청 시작이 첫 시작 + i×100ms 보다 빠르지 않다") {
-                LocalExpo(Duration.ofMillis(20)).use { expo ->
-                    ExpoPushSender.create(expo.baseUrl, "", concurrency = 6, minRequestInterval = Duration.ofMillis(100), retryPolicy = quickRetry).use { sender ->
-                        sender.send(messages(1200))
-
-                        val arrivals = expo.arrivals.sorted()
-                        arrivals shouldHaveSize 12
-                        arrivals.forEachIndexed { i, at ->
-                            Duration.ofNanos(at - arrivals[0]) shouldBeGreaterThanOrEqualTo Duration.ofMillis(i * 100L - 15)
-                        }
-                    }
+                    tickets shouldHaveSize 250
+                    tickets.forEachIndexed { i, t -> t.id shouldBe "t$i" }
+                    expo.arrivals shouldHaveSize 3
+                    expo.maxActive shouldBe 1
                 }
             }
         }

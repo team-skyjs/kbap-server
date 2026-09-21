@@ -10,82 +10,48 @@ import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.job.parameters.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
-import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.batch.infrastructure.item.ItemReader
-import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Clock
 import java.time.Duration
 import java.time.ZoneId
 
 @Configuration
 class ScanSuggestionPushBatchConfig(
-    @Value("\${kbap.batch.scan-suggestion.member-chunk-size:500}") private val memberChunkSize: Int,
+    @Value("\${kbap.batch.scan-suggestion.chunk-size:100}") private val chunkSize: Int,
     @Value("\${kbap.batch.scan-suggestion.ttl:3h}") private val ttl: Duration,
+    private val jobRepository: JobRepository,
+    private val transactionManager: PlatformTransactionManager,
+    private val settingRepository: NotificationSettingJpaRepository,
+    private val notificationRepository: NotificationJpaRepository,
+    private val handler: PushHandler,
+    private val meterRegistry: MeterRegistry,
+    private val jobNameMdcListener: JobNameMdcListener,
 ) {
     @Bean
     fun clock(): Clock = Clock.system(ZoneId.of("Asia/Seoul"))
 
     @Bean
-    fun scanSuggestionTargetTasklet(
-        settingRepository: NotificationSettingJpaRepository,
-        notificationRepository: NotificationJpaRepository,
-        candidateDto: ScanSuggestionCandidateDto,
-        clock: Clock,
-    ): ScanSuggestionTargetTasklet = ScanSuggestionTargetTasklet(settingRepository, notificationRepository, candidateDto, clock)
+    fun scanSuggestionLunchPushJob(clock: Clock): Job = job(MealSlot.LUNCH, clock)
 
     @Bean
-    fun scanSuggestionTargetStep(jobRepository: JobRepository, tasklet: ScanSuggestionTargetTasklet): Step =
-        StepBuilder("scanSuggestionTargetStep", jobRepository)
-            .tasklet(tasklet, ResourcelessTransactionManager())
-            .build()
+    fun scanSuggestionDinnerPushJob(clock: Clock): Job = job(MealSlot.DINNER, clock)
 
-    @Bean
-    fun scanSuggestionCandidateReader(candidateDto: ScanSuggestionCandidateDto): ItemReader<Long> = ItemReader { candidateDto.poll() }
-
-    @Bean
-    fun scanSuggestionLunchPushJob(
-        jobRepository: JobRepository,
-        scanSuggestionTargetStep: Step,
-        scanSuggestionCandidateReader: ItemReader<Long>,
-        handler: PushHandler,
-        meterRegistry: MeterRegistry,
-        jobNameMdcListener: JobNameMdcListener,
-    ): Job = job(MealSlot.LUNCH, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, handler, meterRegistry, jobNameMdcListener)
-
-    @Bean
-    fun scanSuggestionDinnerPushJob(
-        jobRepository: JobRepository,
-        scanSuggestionTargetStep: Step,
-        scanSuggestionCandidateReader: ItemReader<Long>,
-        handler: PushHandler,
-        meterRegistry: MeterRegistry,
-        jobNameMdcListener: JobNameMdcListener,
-    ): Job = job(MealSlot.DINNER, jobRepository, scanSuggestionTargetStep, scanSuggestionCandidateReader, handler, meterRegistry, jobNameMdcListener)
-
-    private fun job(
-        slot: MealSlot,
-        jobRepository: JobRepository,
-        targetStep: Step,
-        reader: ItemReader<Long>,
-        handler: PushHandler,
-        meterRegistry: MeterRegistry,
-        jobNameMdcListener: JobNameMdcListener,
-    ): Job {
+    private fun job(slot: MealSlot, clock: Clock): Job {
         val sendStep = StepBuilder("scanSuggestion${slot.jobInfix()}SendStep", jobRepository)
-            .chunk<Long, Long>(memberChunkSize)
-            .transactionManager(ResourcelessTransactionManager())
-            .reader(reader)
+            .chunk<Long, Long>(chunkSize)
+            .transactionManager(transactionManager)
+            .reader(ScanSuggestionMemberIdReader(settingRepository, chunkSize))
+            .processor(ScanSuggestionSlotFilter(notificationRepository, clock))
             .writer(ScanSuggestionPushWriter(handler, slot, ttl.seconds.toInt(), meterRegistry))
             .build()
         return JobBuilder(jobNameOf(slot), jobRepository)
             .incrementer(RunIdIncrementer())
             .listener(jobNameMdcListener)
-            .start(targetStep)
-            .next(sendStep)
+            .start(sendStep)
             .build()
     }
 

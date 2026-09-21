@@ -71,11 +71,11 @@ kbap:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
-    # 스캔 제안 푸시(KB-471) — 점심 잡 12:00·저녁 잡 18:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.
+    # 스캔 제안 푸시(KB-471) — 점심 잡 11:00·저녁 잡 17:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.
     # 배치 1대 전제라 분산 락 없음. 발송 시간대는 cron 이 정한다(별도 시간대 가드 없음 — 수동 트리거는 언제든 보낸다). 상한은 슬롯당 1회.
     scan-suggestion:
-      # 발송 step 의 회원 묶음 크기 — prepare/record 트랜잭션·메모리 단위. Expo 청크(100)·동시성·페이싱은 어댑터 안.
-      member-chunk-size: 500
+      # 읽기·발송 공통 묶음 크기 — Expo 요청당 100건과 맞춘다. 한 묶음이 한 트랜잭션이다.
+      chunk-size: 100
       # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).
       ttl: 3h
   # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
@@ -101,10 +101,6 @@ kbap:
     expo:
       base-url: https://exp.host
       access-token: ${EXPO_ACCESS_TOKEN:}
-      # 청크(100건) 요청을 동시에 보내는 스레드 수 — Expo 공식 SDK 의 최대 연결 수와 같다(KB-471).
-      concurrency: 6
-      # 청크 요청 시작 간격 — 프로젝트당 초당 600건 상한(100건 × 초당 5.9회). 인스턴스 단위로 지킨다.
-      min-request-interval: 170ms
       # 일시 실패(네트워크·429·5xx)만 지수 백오프 재시도. 400 등 영구 실패는 즉시 실패.
       retry:
         max-retries: 3
