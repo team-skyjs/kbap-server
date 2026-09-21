@@ -9,7 +9,6 @@ import org.springframework.data.domain.Limit
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
-import java.time.ZoneId
 
 class PushReceiptTargetReader(
     private val dispatchRepository: NotificationDispatchJpaRepository,
@@ -25,7 +24,7 @@ class PushReceiptTargetReader(
 
     override fun open(executionContext: ExecutionContext) {
         cursor = 0L
-        now = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault())
+        now = clock.nowInJvmZone()
         page.clear()
     }
 

@@ -15,8 +15,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.batch.infrastructure.item.Chunk
 import org.springframework.batch.infrastructure.item.ItemWriter
 import java.time.Clock
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 class PushReceiptSyncWriter(
     private val fetcher: PushReceiptFetcher,
@@ -38,7 +36,7 @@ class PushReceiptSyncWriter(
         val outcomes = dispatches
             .mapNotNull { dispatch -> receipts[dispatch.ticketId]?.let { dispatch.id to ReceiptOutcome(it.ok, it.errorCode, it.message) } }
             .toMap()
-        val applied = receiptService.apply(outcomes, policy, LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault()))
+        val applied = receiptService.apply(outcomes, policy, clock.nowInJvmZone())
         resend(applied.resend)
 
         applied.results.groupingBy { it }.eachCount().forEach { (key, count) ->
