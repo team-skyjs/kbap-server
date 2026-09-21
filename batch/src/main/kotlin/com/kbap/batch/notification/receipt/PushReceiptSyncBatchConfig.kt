@@ -1,4 +1,4 @@
-package com.kbap.batch.notification
+package com.kbap.batch.notification.receipt
 
 import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository

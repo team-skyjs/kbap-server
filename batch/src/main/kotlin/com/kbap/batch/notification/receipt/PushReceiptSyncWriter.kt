@@ -1,5 +1,6 @@
-package com.kbap.batch.notification
+package com.kbap.batch.notification.receipt
 
+import com.kbap.batch.notification.nowInJvmZone
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushOutcome
 import com.kbap.common.domain.notification.PushReceiptService

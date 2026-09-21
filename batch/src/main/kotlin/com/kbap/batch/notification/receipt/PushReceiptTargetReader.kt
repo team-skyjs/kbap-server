@@ -1,5 +1,6 @@
-package com.kbap.batch.notification
+package com.kbap.batch.notification.receipt
 
+import com.kbap.batch.notification.nowInJvmZone
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import com.kbap.common.domain.notification.model.NotificationType

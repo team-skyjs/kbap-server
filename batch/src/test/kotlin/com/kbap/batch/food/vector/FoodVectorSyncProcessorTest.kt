@@ -1,4 +1,4 @@
-package com.kbap.batch.vector
+package com.kbap.batch.food.vector
 
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.common.domain.food.FoodJpaRepository

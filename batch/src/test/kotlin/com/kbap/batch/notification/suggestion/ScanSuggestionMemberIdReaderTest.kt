@@ -1,5 +1,6 @@
-package com.kbap.batch.notification
+package com.kbap.batch.notification.suggestion
 
+import com.kbap.batch.notification.MutableClock
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.NotificationJpaRepository

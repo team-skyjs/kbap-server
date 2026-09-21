@@ -1,4 +1,4 @@
-package com.kbap.batch.notification
+package com.kbap.batch.notification.suggestion
 
 import com.kbap.batch.BatchIntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec

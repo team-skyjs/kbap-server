@@ -1,8 +1,8 @@
 package com.kbap.batch.trigger.scheduler
 
-import com.kbap.batch.notification.PushReceiptSyncBatchConfig
-import com.kbap.batch.notification.ScanSuggestionPushBatchConfig
-import com.kbap.batch.notification.ScanSuggestionSendWindow
+import com.kbap.batch.notification.receipt.PushReceiptSyncBatchConfig
+import com.kbap.batch.notification.suggestion.ScanSuggestionPushBatchConfig
+import com.kbap.batch.notification.suggestion.ScanSuggestionSendWindow
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
 import com.kbap.batch.trigger.rest.BatchJobLauncher
 import com.kbap.common.domain.notification.model.MealSlot
