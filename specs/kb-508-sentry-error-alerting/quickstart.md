@@ -15,7 +15,7 @@
 ## 로컬 검증
 
 ```bash
-./gradlew :api:test --tests "com.kbap.api.core.observability.*" :batch:test --tests "com.kbap.batch.observability.*"
+./gradlew :api:test --tests "com.kbap.api.core.observability.*" :batch:test --tests "com.kbap.batch.util.*"
 ./gradlew build
 ```
 로컬 부팅(`SPRING_PROFILES_ACTIVE=local`)에서 예외를 내도 Sentry 이벤트가 없어야 한다(DSN 부재).

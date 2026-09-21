@@ -1,4 +1,4 @@
-package com.kbap.batch.trigger
+package com.kbap.batch.trigger.rest
 
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.job.Job

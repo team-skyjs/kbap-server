@@ -1,4 +1,4 @@
-package com.kbap.batch.observability
+package com.kbap.batch.util
 
 import org.slf4j.MDC
 import org.springframework.batch.core.job.JobExecution

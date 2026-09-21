@@ -1,11 +1,11 @@
-package com.kbap.batch.schedule
+package com.kbap.batch.trigger.scheduler
 
 import com.kbap.batch.notification.PushReceiptSyncBatchConfig
 import com.kbap.batch.notification.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.ScanSuggestionSendWindow
+import com.kbap.batch.trigger.rest.BatchJobLaunchResult
+import com.kbap.batch.trigger.rest.BatchJobLauncher
 import com.kbap.common.domain.notification.model.MealSlot
-import com.kbap.batch.trigger.BatchJobLaunchResult
-import com.kbap.batch.trigger.BatchJobLauncher
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Configuration

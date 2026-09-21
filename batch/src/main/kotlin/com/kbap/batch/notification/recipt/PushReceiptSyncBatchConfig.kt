@@ -1,6 +1,6 @@
 package com.kbap.batch.notification
 
-import com.kbap.batch.observability.JobNameMdcListener
+import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushReceiptService

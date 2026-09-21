@@ -2,7 +2,7 @@ package com.kbap.batch.config
 
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration
 import org.springframework.batch.core.repository.JobRepository
-import org.springframework.batch.core.repository.support.JobRepositoryFactoryBean
+import org.springframework.batch.core.repository.support.JdbcJobRepositoryFactoryBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.SimpleAsyncTaskExecutor
@@ -17,7 +17,7 @@ class BatchJdbcJobRepositoryConfig(
 ) : DefaultBatchConfiguration() {
     @Bean
     override fun jobRepository(): JobRepository {
-        val factory = JobRepositoryFactoryBean()
+        val factory = JdbcJobRepositoryFactoryBean()
         factory.setDataSource(batchDataSource)
         factory.setTransactionManager(batchTransactionManager)
         factory.afterPropertiesSet()

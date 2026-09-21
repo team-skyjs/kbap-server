@@ -1,7 +1,9 @@
 package com.kbap.common.domain.notification
 
 import com.kbap.common.core.testsupport.MySqlContainerConfig
+import com.kbap.common.domain.notification.model.Notification
 import com.kbap.common.domain.notification.model.NotificationSetting
+import com.kbap.common.domain.notification.model.NotificationType
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -14,6 +16,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Limit
+import org.springframework.jdbc.core.JdbcTemplate
+import java.time.LocalDateTime
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -23,8 +27,17 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
     @Autowired
     private lateinit var repository: NotificationSettingJpaRepository
 
+    @Autowired
+    private lateinit var notificationRepository: NotificationJpaRepository
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
     init {
-        fun clear() = repository.deleteAll()
+        fun clear() {
+            notificationRepository.deleteAll()
+            repository.deleteAll()
+        }
 
         given("기기별 설정 저장") {
             `when`("같은 회원의 기기 두 대를 저장하면") {
@@ -64,7 +77,16 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
-        given("소식 켜진 회원 커서 조회") {
+        given("알림 발송 대상 회원 커서 조회") {
+            val since = LocalDateTime.of(2026, 9, 15, 11, 0)
+            val type = NotificationType.SCAN_SUGGESTION
+            fun notified(memberId: Long, notificationType: NotificationType, createdAt: LocalDateTime, deleted: Boolean = false) {
+                val saved = notificationRepository.save(
+                    Notification(memberId = memberId, type = notificationType, title = "t", body = "b").apply { if (deleted) delete() },
+                )
+                jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?", createdAt, saved.id)
+            }
+
             `when`("회원별로 소식 토글이 섞여 있으면") {
                 clear()
                 repository.save(NotificationSetting.defaultFor(21L, "dev-a").apply { updateNews(true) })
@@ -75,11 +97,24 @@ class NotificationSettingJpaRepositoryTest : BehaviorSpec() {
                 repository.save(NotificationSetting.defaultFor(25L, "dev-a").apply { updateNews(true) })
 
                 then("켜진 행이 있는 회원 id 를 중복 없이 오름차순으로 돌려주고 소프트 삭제 행은 제외한다") {
-                    repository.findMemberIdsByNewsTrueAfter(0L, Limit.of(10)) shouldContainExactly listOf(21L, 23L, 25L)
+                    repository.findNewsMemberIdsNotNotifiedSince(type, since, 0L, Limit.of(10)) shouldContainExactly listOf(21L, 23L, 25L)
                 }
                 then("커서보다 큰 회원만 limit 건까지 돌려준다") {
-                    repository.findMemberIdsByNewsTrueAfter(21L, Limit.of(1)) shouldContainExactly listOf(23L)
-                    repository.findMemberIdsByNewsTrueAfter(25L, Limit.of(10)) shouldContainExactly emptyList()
+                    repository.findNewsMemberIdsNotNotifiedSince(type, since, 21L, Limit.of(1)) shouldContainExactly listOf(23L)
+                    repository.findNewsMemberIdsNotNotifiedSince(type, since, 25L, Limit.of(10)) shouldContainExactly emptyList()
+                }
+            }
+
+            `when`("기준 시각 이후 같은 유형 알림을 이미 받은 회원이 섞여 있으면") {
+                clear()
+                (31L..35L).forEach { repository.save(NotificationSetting.defaultFor(it, "dev-a").apply { updateNews(true) }) }
+                notified(31L, type, since)
+                notified(32L, type, since.minusSeconds(1))
+                notified(33L, NotificationType.HELPFUL, since.plusHours(1))
+                notified(34L, type, since.plusHours(1), deleted = true)
+
+                then("기준 시각 이후의 활성 같은 유형 알림이 있는 회원만 빠진다") {
+                    repository.findNewsMemberIdsNotNotifiedSince(type, since, 0L, Limit.of(10)) shouldContainExactly listOf(32L, 33L, 34L, 35L)
                 }
             }
         }

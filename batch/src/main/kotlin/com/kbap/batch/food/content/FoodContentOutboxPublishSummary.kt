@@ -1,4 +1,4 @@
-package com.kbap.batch.outbox
+package com.kbap.batch.food.content
 
 data class FoodContentOutboxPublishSummary(
     val attempted: Int,

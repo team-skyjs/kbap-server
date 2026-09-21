@@ -1,4 +1,4 @@
-package com.kbap.batch.outbox
+package com.kbap.batch.food.content
 
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository

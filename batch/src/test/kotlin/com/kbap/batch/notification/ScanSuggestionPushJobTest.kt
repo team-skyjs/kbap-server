@@ -1,8 +1,8 @@
 package com.kbap.batch.notification
 
 import com.kbap.batch.BatchIntegrationTest
-import com.kbap.batch.trigger.BatchJobLaunchResult
-import com.kbap.batch.trigger.BatchJobLauncher
+import com.kbap.batch.trigger.rest.BatchJobLaunchResult
+import com.kbap.batch.trigger.rest.BatchJobLauncher
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
@@ -269,14 +269,13 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
 
                 val execution = run()
 
-                then("스텝 하나가 100명씩 읽어 이미 받은 회원을 거르고 묶음 단위로 발송한다") {
+                then("스텝 하나가 이미 받은 회원을 뺀 대상을 100명씩 읽어 묶음 단위로 발송한다") {
                     execution.exitStatus.exitCode shouldBe "COMPLETED"
                     val step = execution.stepExecutions.single()
                     step.stepName shouldBe "scanSuggestionLunchSendStep"
-                    step.readCount shouldBe 250L
-                    step.filterCount shouldBe 40L
+                    step.readCount shouldBe 210L
                     step.writeCount shouldBe 210L
-                    fakePushSender.batches shouldBe listOf(60, 100, 50)
+                    fakePushSender.batches shouldBe listOf(100, 100, 10)
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 2
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 208
                 }

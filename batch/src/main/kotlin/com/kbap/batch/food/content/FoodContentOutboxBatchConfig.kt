@@ -1,8 +1,8 @@
-package com.kbap.batch.outbox
+package com.kbap.batch.food.content
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.batch.observability.JobNameMdcListener
+import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.port.mq.FoodContentEventPublisher
 import com.kbap.common.infra.mq.SqsFoodContentEventPublisher

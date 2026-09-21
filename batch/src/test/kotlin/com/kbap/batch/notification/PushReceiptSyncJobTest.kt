@@ -1,8 +1,8 @@
 package com.kbap.batch.notification
 
 import com.kbap.batch.BatchIntegrationTest
-import com.kbap.batch.trigger.BatchJobLaunchResult
-import com.kbap.batch.trigger.BatchJobLauncher
+import com.kbap.batch.trigger.rest.BatchJobLaunchResult
+import com.kbap.batch.trigger.rest.BatchJobLauncher
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository

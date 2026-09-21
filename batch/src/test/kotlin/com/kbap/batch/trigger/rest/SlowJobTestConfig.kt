@@ -1,4 +1,4 @@
-package com.kbap.batch.trigger
+package com.kbap.batch.trigger.rest
 
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder

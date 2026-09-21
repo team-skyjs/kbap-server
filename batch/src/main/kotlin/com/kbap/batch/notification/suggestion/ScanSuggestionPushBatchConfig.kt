@@ -1,7 +1,6 @@
 package com.kbap.batch.notification
 
-import com.kbap.batch.observability.JobNameMdcListener
-import com.kbap.common.domain.notification.NotificationJpaRepository
+import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.port.push.PushHandler
@@ -26,7 +25,6 @@ class ScanSuggestionPushBatchConfig(
     private val jobRepository: JobRepository,
     private val transactionManager: PlatformTransactionManager,
     private val settingRepository: NotificationSettingJpaRepository,
-    private val notificationRepository: NotificationJpaRepository,
     private val handler: PushHandler,
     private val meterRegistry: MeterRegistry,
     private val jobNameMdcListener: JobNameMdcListener,
@@ -44,8 +42,7 @@ class ScanSuggestionPushBatchConfig(
         val sendStep = StepBuilder("scanSuggestion${slot.jobInfix()}SendStep", jobRepository)
             .chunk<Long, Long>(chunkSize)
             .transactionManager(transactionManager)
-            .reader(ScanSuggestionMemberIdReader(settingRepository, chunkSize))
-            .processor(ScanSuggestionSlotFilter(notificationRepository, clock))
+            .reader(ScanSuggestionMemberIdReader(settingRepository, clock, chunkSize))
             .writer(ScanSuggestionPushWriter(handler, slot, ttl.seconds.toInt(), meterRegistry))
             .build()
         return JobBuilder(jobNameOf(slot), jobRepository)

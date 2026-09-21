@@ -1,4 +1,4 @@
-package com.kbap.batch.outbox
+package com.kbap.batch.food.content
 
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.port.mq.FoodContentEvent

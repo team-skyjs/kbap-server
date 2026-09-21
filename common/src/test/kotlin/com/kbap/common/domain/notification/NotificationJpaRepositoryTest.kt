@@ -43,32 +43,6 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
             data = mapOf("type" to "HELPFUL", "reviewId" to index),
         )
 
-        given("기준 시각 이후 같은 유형 알림 존재 여부") {
-            `when`("생성 시각·유형·회원·삭제 여부가 섞인 알림을 두면") {
-                clear()
-                val since = LocalDateTime.of(2026, 9, 15, 0, 0)
-                fun saveAt(memberId: Long, type: NotificationType, createdAt: LocalDateTime, deleted: Boolean = false) {
-                    val saved = repository.save(Notification(memberId = memberId, type = type, title = "t", body = "b").apply { if (deleted) delete() })
-                    jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?", createdAt, saved.id)
-                }
-                saveAt(1L, NotificationType.SCAN_SUGGESTION, since)
-                saveAt(2L, NotificationType.SCAN_SUGGESTION, since.minusSeconds(1))
-                saveAt(3L, NotificationType.HELPFUL, since.plusHours(1))
-                saveAt(4L, NotificationType.SCAN_SUGGESTION, since.plusHours(1), deleted = true)
-
-                fun exists(memberId: Long) =
-                    repository.existsByMemberIdAndTypeAndCreatedAtGreaterThanEqual(memberId, NotificationType.SCAN_SUGGESTION, since)
-
-                then("기준 시각 이후의 활성 같은 유형 알림이 있는 회원만 true 다") {
-                    exists(1L) shouldBe true
-                    exists(2L) shouldBe false
-                    exists(3L) shouldBe false
-                    exists(4L) shouldBe false
-                    exists(5L) shouldBe false
-                }
-            }
-        }
-
         given("회원 알림 목록") {
             `when`("알림 3건을 저장하고 회원 기준으로 조회하면") {
                 clear()

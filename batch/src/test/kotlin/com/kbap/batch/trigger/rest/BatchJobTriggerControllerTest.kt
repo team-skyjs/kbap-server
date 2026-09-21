@@ -1,5 +1,6 @@
-package com.kbap.batch.trigger
+package com.kbap.batch.trigger.rest
 
+import com.jayway.jsonpath.JsonPath
 import com.kbap.batch.BatchIntegrationTest
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -86,14 +87,14 @@ class BatchJobTriggerControllerTest : BehaviorSpec() {
         val body = mockMvc.post("/internal/batch/jobs?jobName=$jobName")
             .andExpect { status { isAccepted() } }
             .andReturn().response.contentAsString
-        return com.jayway.jsonpath.JsonPath.read<Int>(body, "$.executionId").toLong()
+        return JsonPath.read<Int>(body, "$.executionId").toLong()
     }
 
     private fun awaitStatus(executionId: Long): String {
         repeat(100) {
             val body = mockMvc.get("/internal/batch/executions/$executionId")
                 .andReturn().response.contentAsString
-            val status = com.jayway.jsonpath.JsonPath.read<String>(body, "$.status")
+            val status = JsonPath.read<String>(body, "$.status")
             if (status != "STARTING" && status != "STARTED") return status
             Thread.sleep(100)
         }
