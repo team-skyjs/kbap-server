@@ -96,6 +96,36 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 
+        given("포기한 요청의 결과 적재") {
+            `when`("dead_at 이 찍힌 요청의 콜백이 뒤늦게 도착하면") {
+                then("200 으로 받되 내용은 반영하지 않는다 — 막기만 하면 컨슈머가 영원히 재시도한다") {
+                    clearFoods()
+                    val food = saveFood("포기요청음식", FoodContentStatus.FAILED, null)
+                    val outbox = outboxRepository.findByFoodIdInAndOutboxStatus(
+                        setOf(food.id),
+                        FoodContentOutboxStatus.PENDING,
+                    ).single()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE food_content_outbox SET outbox_status = 'SENT', sent_at = NOW(6), " +
+                                    "dead_at = NOW(6), last_error = '테스트 포기' WHERE id = ${outbox.id}",
+                            )
+                        }
+                    }
+
+                    ingest(passedBody(food.id, outbox.id)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+
+                    val reloaded = reloaded(food.id)
+                    reloaded.description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                    reloaded.contentStatus shouldBe FoodContentStatus.FAILED
+                }
+            }
+        }
+
         given("성공 결과 적재") {
             `when`("이미 서비스 중이고 사진이 있는 음식이면") {
                 then("텍스트만 갱신되고 상태·사진은 그대로다") {

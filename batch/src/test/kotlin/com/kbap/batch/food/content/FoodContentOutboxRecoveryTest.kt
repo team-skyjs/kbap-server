@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import com.kbap.common.port.mq.FoodContentPublishResult
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldBeNull
@@ -70,6 +71,26 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                     reloaded.lastError.shouldNotBeNull()
 
                     recovery().recoverStale().requeued shouldBe 0
+                }
+            }
+
+            `when`("회수된 행이 다시 발행되면") {
+                then("시도 횟수가 올라간다 — 상한이 실제로 닿는다") {
+                    clear()
+                    val stuck = saveSent("횟수국수", LocalDateTime.now().minusHours(30), attempts = 1)
+
+                    recovery().recoverStale().requeued shouldBe 1
+                    FoodContentOutboxPublisher(
+                        outboxRepository,
+                        { events -> FoodContentPublishResult(succeededOutboxIds = events.map { it.outboxId }.toSet(), failedOutboxIds = emptySet()) },
+                        transactionManager,
+                        10,
+                    ).publishAll()
+
+                    val reloaded = outboxRepository.findById(stuck.id).orElseThrow()
+                    reloaded.attempts shouldBe 2
+                    reloaded.outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                    reloaded.sentAt.shouldNotBeNull()
                 }
             }
 
