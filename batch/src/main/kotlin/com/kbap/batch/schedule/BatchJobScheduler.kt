@@ -24,10 +24,10 @@ class BatchJobScheduler(
     @Scheduled(cron = "0 30 * * * *", zone = TIME_ZONE)
     fun syncFoodVectors() = launch("foodVectorSyncJob")
 
-    @Scheduled(cron = ScanSuggestionSendWindow.LUNCH_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = ScanSuggestionSendWindow.DAILY_AT_11_00, zone = TIME_ZONE)
     fun pushLunchScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.LUNCH))
 
-    @Scheduled(cron = ScanSuggestionSendWindow.DINNER_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = ScanSuggestionSendWindow.DAILY_AT_17_00, zone = TIME_ZONE)
     fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
 
     @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19, zone = TIME_ZONE)
