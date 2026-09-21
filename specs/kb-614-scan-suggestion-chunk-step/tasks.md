@@ -170,7 +170,7 @@
 
 - [x] T047 Run quickstart.md 의 삭제 확인 grep(결과 없음) + `./gradlew build`
 - [ ] T048 [P] Review — `kbap-code-review` 스킬(전체 diff)과 `kbap-db-review` 스킬(마이그레이션·새 쿼리 3개·인덱스 사용) 호출, 지적 반영
-- [ ] T049 [P] Update 지식 위키 `../kbap-agenthub/wiki/push-send-pipeline.md`(+ `INDEX.md` 한 줄 요약): 발송 이력 상태 정의(24시간 경과 `SENT` = 미확인 종결), 영수증 잡 2개와 시간표, 재전송 규칙(알림당 2회·2시간·기기 단위·자격 재확인), 발송 시각 11:00·17:00, 병렬 발송·페이싱 폐기, 발송 잡의 트랜잭션 안 Expo 호출 예외와 감수 위험, Jira 전제 불일치(시간대 가드·ShedLock 없음), 후속(`notification_type` NOT NULL). 허브에서 커밋
+- [x] T049 [P] Update 지식 위키 `../kbap-agenthub/wiki/push-send-pipeline.md`(+ `INDEX.md` 한 줄 요약): 발송 이력 상태 정의(24시간 경과 `SENT` = 미확인 종결), 영수증 잡 2개와 시간표, 재전송 규칙(알림당 2회·2시간·기기 단위·자격 재확인), 발송 시각 11:00·17:00, 병렬 발송·페이싱 폐기, 발송 잡의 트랜잭션 안 Expo 호출 예외와 감수 위험, Jira 전제 불일치(시간대 가드·ShedLock 없음), 후속(`notification_type` NOT NULL). 허브에서 커밋
 - [ ] T050 PR 본문에 배포 주의 기재(quickstart.md "배포 시 주의" — api 먼저·발송 시각 밖 배포·NULL 유형 행) 후, 사용자 확인을 받아 Jira KB-473 에 "KB-614 로 흡수" 코멘트와 종료 처리
 
 ---
