@@ -30,11 +30,11 @@ class BatchJobScheduler(
     @Scheduled(cron = ScanSuggestionSendWindow.DINNER_CRON, zone = TIME_ZONE)
     fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
 
-    @Scheduled(cron = PushReceiptSyncBatchConfig.MARKETING_CRON, zone = TIME_ZONE)
-    @Scheduled(cron = PushReceiptSyncBatchConfig.MARKETING_CLOSING_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19, zone = TIME_ZONE)
+    @Scheduled(cron = PushReceiptSyncBatchConfig.AT_13_00_AND_19_00, zone = TIME_ZONE)
     fun syncMarketingPushReceipts() = launch(PushReceiptSyncBatchConfig.MARKETING_JOB)
 
-    @Scheduled(cron = PushReceiptSyncBatchConfig.ACTIVITY_CRON, zone = TIME_ZONE)
+    @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_15_MINUTES, zone = TIME_ZONE)
     fun syncActivityPushReceipts() = launch(PushReceiptSyncBatchConfig.ACTIVITY_JOB)
 
     private fun launch(jobName: String) {
