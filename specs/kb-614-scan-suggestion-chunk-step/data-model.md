@@ -15,7 +15,16 @@ WHERE d.notification_type IS NULL;
 
 - 값은 `NotificationType` 이름(`notification.type` 과 같은 형식).
 - NULL 허용 — 블루/그린 중 구 코드의 INSERT 를 받기 위함. `NOT NULL` 전환은 다음 릴리스.
-- 새 인덱스 없음. 다른 마이그레이션에 순서 의존 없음(out-of-order 안전).
+- 다른 마이그레이션에 순서 의존 없음(out-of-order 안전).
+
+### 인덱스 추가 (2026-09-22)
+
+```sql
+ALTER TABLE notification_setting
+    ADD INDEX idx_notification_setting_news_member (news, status, member_id);
+```
+
+발송 잡 리더의 쿼리(`news = 1 AND status = 'ACTIVE' AND member_id > ? ORDER BY member_id LIMIT ?`)를 받치는 커버링 인덱스. 동등 조건 두 개를 앞에, 범위·정렬 컬럼을 뒤에 뒀다. 회원 5만 건 실측 — 소식 켠 비율 10%: 기존 고유 키 1.7ms(약 1,000행 조회 후 필터) → 0.4ms(커버링), 비율 0.1%: 9.6ms → 0.02ms. 기존 키는 `news`·`status` 를 보려고 행을 하나씩 읽어야 해서 켠 회원이 드물수록 스캔이 길어진다. 엔티티 `@Table(indexes = …)` 에도 선언했다.
 - 버전은 파일 생성 시각의 점 구분 timestamp.
 
 ## 엔티티

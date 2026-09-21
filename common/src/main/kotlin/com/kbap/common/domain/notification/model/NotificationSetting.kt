@@ -3,6 +3,7 @@ package com.kbap.common.domain.notification.model
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 
@@ -12,6 +13,7 @@ import jakarta.persistence.UniqueConstraint
     uniqueConstraints = [
         UniqueConstraint(name = "uk_notification_setting_member_installation", columnNames = ["member_id", "installation_id"]),
     ],
+    indexes = [Index(name = "idx_notification_setting_news_member", columnList = "news, status, member_id")],
 )
 class NotificationSetting(
     @Column(name = "member_id", nullable = false)
