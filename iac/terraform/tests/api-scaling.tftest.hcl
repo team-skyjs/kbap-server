@@ -73,7 +73,7 @@ run "api_scales_tasks_at_80_percent_and_instances_via_capacity_provider" {
   }
 
   assert {
-    condition     = one(one(aws_ecs_capacity_provider.api.auto_scaling_group_provider).managed_scaling).target_capacity == 50
-    error_message = "capacity provider must keep half of each instance free for the canary green task"
+    condition     = one(one(aws_ecs_capacity_provider.api.auto_scaling_group_provider).managed_scaling).target_capacity == 100
+    error_message = "capacity provider must not keep empty instances (50 doubles the pool instead of half-filling each instance)"
   }
 }

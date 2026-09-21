@@ -116,7 +116,9 @@ resource "aws_autoscaling_group" "pool" {
 }
 
 # api 풀 capacity provider — 태스크를 놓을 자리가 없으면 인스턴스를 늘린다.
-# target_capacity 50 = 인스턴스 절반만 채움 → 평시 인스턴스당 태스크 1개, 나머지 절반은 카나리 그린 자리.
+# target_capacity 100 = 빈 인스턴스를 두지 않는다. ECS 는 태스크가 하나라도 있는 인스턴스를 "사용 중"으로 세므로
+# 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"다(dev 에서 2 → 4대로 확인).
+# 평시 그린 자리는 spread(instanceId) + 인스턴스당 2자리가 만들고, 스케일 아웃 상태의 배포처럼 자리가 모자랄 때만 인스턴스가 는다.
 # batch·alloy 는 launch type EC2 그대로(기본 전략 없음).
 resource "aws_ecs_capacity_provider" "api" {
   name = "${local.name_prefix}-api"
@@ -127,7 +129,7 @@ resource "aws_ecs_capacity_provider" "api" {
 
     managed_scaling {
       status          = "ENABLED"
-      target_capacity = 50
+      target_capacity = 100
     }
   }
 

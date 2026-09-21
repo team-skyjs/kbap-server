@@ -176,7 +176,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 **목표**: 컨테이너가 자기 몫 CPU 의 80% 를 쓰면 "인스턴스 1대 + 컨테이너 1개"를 한 단위로 늘린다. 평시 인스턴스당 api 태스크 1개, 나머지 절반은 카나리 그린 자리.
 
 - **태스크**: `api-autoscaling.tf` — `ECSServiceAverageCPUUtilization` 80% 타깃 트래킹(`api_desired_count`~`api_max_count`). 분모는 태스크 예약 CPU 512 유닛(= 0.5 vCPU, EC2 에서 hard limit) — 인스턴스 CPU 가 아니다. t3.medium(2048 유닛)에 태스크 2×512 + Alloy 128 이 들어가므로 1024 로는 못 올린다.
-- **인스턴스**: `cluster.tf` — api ASG(`api_instance_count`~`api_instance_max_count`) 를 capacity provider `kbap-<env>-ecs-api` 가 조정한다. `target_capacity = 50` 이라 인스턴스를 절반만 채워 그린 자리를 상시 보장한다. batch 풀은 고정.
+- **인스턴스**: `cluster.tf` — api ASG(`api_instance_count`~`api_instance_max_count`) 를 capacity provider `kbap-<env>-ecs-api` 가 조정한다. `target_capacity = 100` — 빈 인스턴스를 두지 않고, 태스크를 놓을 자리가 없을 때(스케일 아웃 상태의 카나리 배포 등)만 인스턴스를 늘린다. 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"라서 쓰지 않는다(dev 에서 2 → 4대 확인). 평시 그린 자리는 `spread(instanceId)` + 인스턴스당 2자리가 만든다. batch 풀은 고정.
 - **배포와의 결합**: CODE_DEPLOY 서비스는 capacity provider 전략을 UpdateService·Terraform 으로 못 바꾼다(서비스 재생성). 배포 appspec 의 `CapacityProviderStrategy`(`deploy-*.yml`·`deploy-api.sh`)가 그린 태스크셋에 건다 — **apply 후 api 를 한 번 배포해야 전략이 실제로 붙는다.** 그 전까지는 launch type EC2 그대로라 자리가 모자라도 인스턴스가 늘지 않는다.
 - **이력**: #240(40%, 인스턴스 고정) → 2026-09-07 prod 카나리 롤백(그린 JVM 부팅 버스트가 40% 알람 → desired 3 → 자리 부족) → 인프라에서만 제거(#244, 미병합 종료) → 80% + capacity provider + scale-out cooldown 300s 로 재도입.
 
