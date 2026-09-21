@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.Limit
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 
 @SpringBootTest
@@ -33,6 +34,9 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
 
     init {
         fun clear() {
@@ -127,6 +131,35 @@ class NotificationDispatchJpaRepositoryTest : BehaviorSpec() {
                 then("커서보다 큰 id 만 limit 건까지 돌려준다") {
                     find(atLowerBound, 1) shouldContainExactly listOf(due)
                     find(atUpperBound, 10) shouldHaveSize 0
+                }
+            }
+        }
+
+        given("영수증을 끝내 확인하지 못한 발송 종결") {
+            `when`("접수 시각과 상태가 섞인 발송을 기준 시각으로 종결하면") {
+                clear()
+                val saved = notification()
+                val cutoff = LocalDateTime.of(2026, 9, 20, 0, 0)
+                fun at(createdAt: LocalDateTime, prepare: NotificationDispatch.() -> Unit): Long {
+                    val d = dispatchRepository.save(dispatch(saved.id, "ExponentPushToken[x]").apply(prepare))
+                    jdbcTemplate.update("UPDATE notification_dispatch SET created_at = ? WHERE id = ?", createdAt, d.id)
+                    return d.id
+                }
+                val staleSent = at(cutoff.minusSeconds(1)) { markSent("t") }
+                val freshSent = at(cutoff) { markSent("t") }
+                val stalePending = at(cutoff.minusDays(1)) { }
+                val staleDelivered = at(cutoff.minusDays(1)) { markSent("t"); markDelivered() }
+
+                val closed = transactionTemplate.execute { dispatchRepository.failSentBefore(cutoff, "ReceiptUnconfirmed") }
+
+                then("기준 시각보다 먼저 접수된 SENT 만 사유와 함께 FAILED 가 된다") {
+                    closed shouldBe 1
+                    fun status(id: Long) = dispatchRepository.findById(id).get().dispatchStatus
+                    status(staleSent) shouldBe NotificationDispatchStatus.FAILED
+                    dispatchRepository.findById(staleSent).get().error shouldBe "ReceiptUnconfirmed"
+                    status(freshSent) shouldBe NotificationDispatchStatus.SENT
+                    status(stalePending) shouldBe NotificationDispatchStatus.PENDING
+                    status(staleDelivered) shouldBe NotificationDispatchStatus.DELIVERED
                 }
             }
         }

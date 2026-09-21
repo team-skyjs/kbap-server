@@ -1,5 +1,6 @@
 package com.kbap.batch.notification.receipt
 
+import com.kbap.batch.notification.nowInJvmZone
 import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.PushDispatchService
@@ -10,11 +11,13 @@ import com.kbap.common.domain.notification.model.NotificationType
 import com.kbap.common.port.push.PushReceiptClient
 import com.kbap.common.port.push.PushClient
 import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.job.parameters.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
+import org.springframework.batch.infrastructure.repeat.RepeatStatus
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -45,6 +48,23 @@ class PushReceiptSyncBatchConfig(
     @Bean
     fun activityPushReceiptSyncJob(clock: Clock): Job = job(ACTIVITY_JOB, NotificationType.entries.filterNot { it.marketing }, clock)
 
+    @Bean
+    fun unconfirmedPushDispatchCloseJob(clock: Clock): Job {
+        val step = StepBuilder("${UNCONFIRMED_CLOSE_JOB}Step", jobRepository)
+            .tasklet({ contribution, _ ->
+                val closed = dispatchRepository.failSentBefore(clock.nowInJvmZone() - UNCONFIRMED_AFTER, UNCONFIRMED_ERROR)
+                contribution.incrementWriteCount(closed.toLong())
+                logger.info("영수증 미확인 발송 종결 closed={}", closed)
+                RepeatStatus.FINISHED
+            }, transactionManager)
+            .build()
+        return JobBuilder(UNCONFIRMED_CLOSE_JOB, jobRepository)
+            .incrementer(RunIdIncrementer())
+            .listener(jobNameMdcListener)
+            .start(step)
+            .build()
+    }
+
     private fun job(name: String, types: List<NotificationType>, clock: Clock): Job {
         val step = StepBuilder("${name}Step", jobRepository)
             .chunk<NotificationDispatch, NotificationDispatch>(chunkSize)
@@ -62,8 +82,14 @@ class PushReceiptSyncBatchConfig(
     companion object {
         const val MARKETING_JOB = "marketingPushReceiptSyncJob"
         const val ACTIVITY_JOB = "activityPushReceiptSyncJob"
+        const val UNCONFIRMED_CLOSE_JOB = "unconfirmedPushDispatchCloseJob"
         const val EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19 = "0 0/10 11-12,17-18 * * *"
         const val AT_13_00_AND_19_00 = "0 0 13,19 * * *"
         const val EVERY_15_MINUTES = "0 0/15 * * * *"
+        const val DAILY_AT_00_00 = "0 0 0 * * *"
+
+        private const val UNCONFIRMED_ERROR = "ReceiptUnconfirmed"
+        private val UNCONFIRMED_AFTER: Duration = Duration.ofDays(2)
+        private val logger = LoggerFactory.getLogger(PushReceiptSyncBatchConfig::class.java)
     }
 }

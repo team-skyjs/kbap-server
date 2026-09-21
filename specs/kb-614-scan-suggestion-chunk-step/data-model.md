@@ -67,6 +67,7 @@ PENDING ──markSent──▶ SENT ──markDelivered──▶ DELIVERED
 | `NotificationDispatchJpaRepository` | 추가 | `findReceiptTargets(status, types, from, to, afterId, limit): List<NotificationDispatch>` |
 | | 추가 | `findByNotificationIdIn(notificationIds): List<NotificationDispatch>` — 알림별 시도 횟수 |
 | | 삭제 | `findByDispatchStatusAndCreatedAtBefore(…)` — 미사용, 새 쿼리가 대체 |
+| | 추가 | `failSentBefore(before, error): Int` — 벌크 UPDATE, 미확인 종결 잡 전용 |
 
 받치는 인덱스(기존): `uk_notification_setting_member_installation (member_id, installation_id)`, `idx_notification_member_id (member_id, id)`, `idx_notification_dispatch_status_created (dispatch_status, created_at)`, `idx_notification_dispatch_notification (notification_id)`.
 

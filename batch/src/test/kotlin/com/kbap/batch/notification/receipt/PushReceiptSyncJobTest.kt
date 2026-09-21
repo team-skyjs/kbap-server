@@ -318,6 +318,29 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
             }
         }
 
+        given("영수증 미확인 발송 종결 잡") {
+            `when`("이틀 넘게 SENT 로 남은 발송과 하루 된 발송이 있으면") {
+                clear()
+                member(30L)
+                member(31L)
+                sendScanSuggestion(30L)
+                ageSentDispatches(49 * 60)
+                sendHelpful(31L)
+                ageSentDispatches(24 * 60)
+
+                val execution = run(PushReceiptSyncBatchConfig.UNCONFIRMED_CLOSE_JOB)
+
+                then("이틀 넘은 발송만 유형과 무관하게 FAILED 로 닫고 알림함 행은 남긴다") {
+                    execution.exitStatus.exitCode shouldBe "COMPLETED"
+                    execution.stepExecutions.single().writeCount shouldBe 1L
+                    statuses() shouldContainExactly listOf(FAILED, SENT)
+                    dispatchRepository.findAll().minBy { it.id }.error shouldBe "ReceiptUnconfirmed"
+                    notificationRepository.findAll() shouldHaveSize 2
+                    fakeReceipts.requested.shouldBeEmpty()
+                }
+            }
+        }
+
         given("광고성·활동 알림 잡 분리") {
             `when`("두 유형과 유형 없는 발송이 섞여 있으면") {
                 clear()

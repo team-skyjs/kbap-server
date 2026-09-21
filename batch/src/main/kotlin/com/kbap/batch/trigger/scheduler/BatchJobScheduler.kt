@@ -37,6 +37,9 @@ class BatchJobScheduler(
     @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_15_MINUTES, zone = TIME_ZONE)
     fun syncActivityPushReceipts() = launch(PushReceiptSyncBatchConfig.ACTIVITY_JOB)
 
+    @Scheduled(cron = PushReceiptSyncBatchConfig.DAILY_AT_00_00, zone = TIME_ZONE)
+    fun closeUnconfirmedPushDispatches() = launch(PushReceiptSyncBatchConfig.UNCONFIRMED_CLOSE_JOB)
+
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {
             is BatchJobLaunchResult.UnknownJob ->

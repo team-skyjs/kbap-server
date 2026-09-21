@@ -4,6 +4,7 @@ import com.kbap.common.domain.notification.model.NotificationDispatch
 import com.kbap.common.domain.notification.model.NotificationType
 import org.springframework.data.domain.Limit
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -30,4 +31,15 @@ interface NotificationDispatchJpaRepository : JpaRepository<NotificationDispatch
         @Param("afterId") afterId: Long,
         limit: Limit,
     ): List<NotificationDispatch>
+
+    @Modifying(clearAutomatically = true)
+    @Query(
+        """
+        update NotificationDispatch d
+        set d.dispatchStatus = com.kbap.common.domain.notification.model.NotificationDispatchStatus.FAILED, d.error = :error
+        where d.dispatchStatus = com.kbap.common.domain.notification.model.NotificationDispatchStatus.SENT
+          and d.createdAt < :before
+        """,
+    )
+    fun failSentBefore(@Param("before") before: LocalDateTime, @Param("error") error: String): Int
 }
