@@ -10,7 +10,7 @@ import com.kbap.common.domain.notification.ResendPolicy
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import com.kbap.common.port.push.PushMessage
 import com.kbap.common.port.push.PushReceiptClient
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.batch.infrastructure.item.Chunk
@@ -21,7 +21,7 @@ class PushReceiptSyncWriter(
     private val receiptClient: PushReceiptClient,
     private val receiptService: PushReceiptService,
     private val dispatchService: PushDispatchService,
-    private val sender: PushSender,
+    private val pushClient: PushClient,
     private val policy: ResendPolicy,
     private val clock: Clock,
     private val meterRegistry: MeterRegistry,
@@ -51,7 +51,7 @@ class PushReceiptSyncWriter(
 
     private fun resend(prepared: PreparedPush) {
         if (prepared.isEmpty()) return
-        val tickets = sender.send(prepared.messages.map { PushMessage(it.to, it.title, it.body, it.data, channelId = it.channelId, ttlSeconds = it.ttlSeconds) })
+        val tickets = pushClient.send(prepared.messages.map { PushMessage(it.to, it.title, it.body, it.data, channelId = it.channelId, ttlSeconds = it.ttlSeconds) })
         dispatchService.record(prepared, tickets.map { PushOutcome(it.ok, it.id, it.error) })
     }
 

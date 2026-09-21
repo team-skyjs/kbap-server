@@ -1,7 +1,7 @@
 package com.kbap.batch
 
 import com.kbap.common.domain.notification.PushDispatchService
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -21,8 +21,8 @@ class KbapBatchApplicationTests : BehaviorSpec() {
                 then("정상적으로 기동된다") {
                 }
 
-                then("푸시 파이프라인(PushSender·PushDispatchService)이 조립된다") {
-                    context.getBean(PushSender::class.java).shouldNotBeNull()
+                then("푸시 파이프라인(PushClient·PushDispatchService)이 조립된다") {
+                    context.getBean(PushClient::class.java).shouldNotBeNull()
                     context.getBean(PushDispatchService::class.java).shouldNotBeNull()
                 }
             }

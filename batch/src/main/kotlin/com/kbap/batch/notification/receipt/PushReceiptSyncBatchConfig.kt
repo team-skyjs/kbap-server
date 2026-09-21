@@ -8,7 +8,7 @@ import com.kbap.common.domain.notification.ResendPolicy
 import com.kbap.common.domain.notification.model.NotificationDispatch
 import com.kbap.common.domain.notification.model.NotificationType
 import com.kbap.common.port.push.PushReceiptClient
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.batch.core.job.Job
 import org.springframework.batch.core.job.builder.JobBuilder
@@ -35,7 +35,7 @@ class PushReceiptSyncBatchConfig(
     private val receiptClient: PushReceiptClient,
     private val receiptService: PushReceiptService,
     private val dispatchService: PushDispatchService,
-    private val sender: PushSender,
+    private val pushClient: PushClient,
     private val meterRegistry: MeterRegistry,
     private val jobNameMdcListener: JobNameMdcListener,
 ) {
@@ -50,7 +50,7 @@ class PushReceiptSyncBatchConfig(
             .chunk<NotificationDispatch, NotificationDispatch>(chunkSize)
             .transactionManager(transactionManager)
             .reader(PushReceiptTargetReader(dispatchRepository, types, clock, minAge, maxAge, chunkSize))
-            .writer(PushReceiptSyncWriter(receiptClient, receiptService, dispatchService, sender, ResendPolicy(maxResends, resendWindow), clock, meterRegistry))
+            .writer(PushReceiptSyncWriter(receiptClient, receiptService, dispatchService, pushClient, ResendPolicy(maxResends, resendWindow), clock, meterRegistry))
             .build()
         return JobBuilder(name, jobRepository)
             .incrementer(RunIdIncrementer())

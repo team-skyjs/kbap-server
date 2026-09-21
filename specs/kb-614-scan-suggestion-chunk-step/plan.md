@@ -10,7 +10,7 @@
 
 | # | 덩어리 | 핵심 | 스토리 |
 |---|--------|------|--------|
-| A | 발송기 단순화 | `ExpoPushSender` 에서 스레드 풀·요청 간격 슬롯·`close()` 제거, 100건 순차 | US8 |
+| A | 발송기 단순화 | `ExpoPushClient` 에서 스레드 풀·요청 간격 슬롯·`close()` 제거, 100건 순차 | US8 |
 | B | 발송 잡 재구성 | 태스크릿+버퍼 삭제, 리더(`member_id` 커서)·프로세서(슬롯 필터)·기존 라이터의 청크 스텝 하나, 청크 100, 실 트랜잭션 매니저 | US1·2·7 |
 | C | 발송 시각 | `MealSlot` 11:00·17:00, 스케줄 상수 | US6 |
 | D | 영수증 확인·재전송 | 발송 이력 유형 컬럼, 영수증 조회 포트·Expo 어댑터, 도메인 서비스 `PushReceiptService`, 영수증 잡 2개 | US3·4·5·7 |
@@ -25,7 +25,7 @@
 
 **Storage**: MySQL. 스키마 변경 1건 — `notification_dispatch.notification_type VARCHAR(30) NULL` 추가 + 기존 행 채우기(Flyway, owner=api). 새 인덱스 없음.
 
-**Testing**: Kotest `BehaviorSpec`. 배치 통합 `@BatchIntegrationTest`(Testcontainers MySQL·`FakePushSender`·`MutableClock` + 신규 `FakePushReceiptClient`), common 은 `@SpringBootTest` + `MySqlContainerConfig`, 어댑터는 로컬 HTTP 서버(`ExpoPushSenderTest` 방식), api 는 `@IntegrationTest`.
+**Testing**: Kotest `BehaviorSpec`. 배치 통합 `@BatchIntegrationTest`(Testcontainers MySQL·`FakePushClient`·`MutableClock` + 신규 `FakePushReceiptClient`), common 은 `@SpringBootTest` + `MySqlContainerConfig`, 어댑터는 로컬 HTTP 서버(`ExpoPushClientTest` 방식), api 는 `@IntegrationTest`.
 
 **Target Platform**: `:batch`(잡·스케줄), `:common`(포트·어댑터·도메인 서비스·엔티티·리포지토리), `:api`(마이그레이션, 발송기 조립 설정 정리)
 
@@ -54,7 +54,7 @@ Phase 1 설계 후 재평가: 변동 없음.
 
 ## 설계
 
-### A. 발송기 단순화 — `ExpoPushSender`
+### A. 발송기 단순화 — `ExpoPushClient`
 
 - 제거: `executor`·`minRequestInterval` 인자, `nextSlotAtNanos`, `awaitSlot()`, `threadSeq`, `AutoCloseable`/`close()`, `create(…)` 의 `concurrency`·`minRequestInterval`.
 - `send` = `messages.chunked(CHUNK_SIZE).flatMap(::sendChunk)`.
@@ -107,7 +107,7 @@ fun interface PushReceiptClient { fun fetch(ticketIds: List<String>): Map<String
 
 `ExpoPushReceiptClient`(`common.infra.push`): `POST /--/api/v2/push/getReceipts {ids}` → `data` 맵. 1000건씩 `chunked`. 재시도 없음 — HTTP 실패는 예외로 올리고, 다음 회차가 곧 재시도다. 응답에 없는 id 는 맵에서 빠진다(= 아직 없음). 계약: [contracts/expo-push-receipts.md](contracts/expo-push-receipts.md).
 
-`PushSender` 가 `fun interface` 라 메서드를 더할 수 없어 포트를 분리했다. batch `PushConfig` 에 `@ConditionalOnMissingBean(PushReceiptClient::class)` 빈 하나 추가. api 는 영수증을 조회하지 않으므로 조립하지 않는다.
+`PushClient` 가 `fun interface` 라 메서드를 더할 수 없어 포트를 분리했다. batch `PushConfig` 에 `@ConditionalOnMissingBean(PushReceiptClient::class)` 빈 하나 추가. api 는 영수증을 조회하지 않으므로 조립하지 않는다.
 
 **D3. 도메인 서비스 — `PushReceiptService`(`common.domain.notification`)**
 
@@ -166,7 +166,7 @@ fun apply(outcomes: Map<Long, ReceiptOutcome>, policy: ResendPolicy, now: LocalD
 
 | 덩어리 | 파일 | 시나리오 |
 |--------|------|----------|
-| A | `ExpoPushSenderTest`(수정) | 동시성·간격 케이스 2개 삭제, "250건이면 요청이 겹치지 않고 하나씩"(동시 진행 최대 1) 추가, `create` 호출부 정리 |
+| A | `ExpoPushClientTest`(수정) | 동시성·간격 케이스 2개 삭제, "250건이면 요청이 겹치지 않고 하나씩"(동시 진행 최대 1) 추가, `create` 호출부 정리 |
 | B | `NotificationSettingJpaRepositoryTest`(수정) | 커서 이후만·오름차순·limit·다기기 distinct·news=false 제외 |
 | B | `NotificationJpaRepositoryTest`(수정) | exists — 슬롯 이후 활성 true / 이전·다른 유형·소프트 삭제 false |
 | B | `ScanSuggestionMemberIdReaderTest`(신규) | 250명 오름차순 후 null, 0명, `open()` 재호출 |
@@ -206,7 +206,7 @@ specs/kb-614-scan-suggestion-chunk-step/
 common/src/main/kotlin/com/kbap/common/
 ├── port/push/PushReceiptClient.kt                      # 신규 (+ PushReceipt)
 ├── infra/push/
-│   ├── ExpoPushSender.kt                                # 수정 — 순차, RestClient 조립 분리
+│   ├── ExpoPushClient.kt                                # 수정 — 순차, RestClient 조립 분리
 │   └── ExpoPushReceiptClient.kt                        # 신규
 └── domain/notification/
     ├── PushReceiptService.kt                            # 신규 (+ ReceiptOutcome·ResendPolicy·ReceiptApplyResult)

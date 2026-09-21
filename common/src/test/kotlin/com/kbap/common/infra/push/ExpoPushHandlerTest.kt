@@ -17,7 +17,7 @@ import com.kbap.common.domain.notification.model.NotificationDispatchStatus
 import com.kbap.common.domain.notification.model.NotificationSetting
 import com.kbap.common.domain.notification.model.NotificationType
 import com.kbap.common.port.push.PushMessage
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import com.kbap.common.port.push.PushTicket
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -51,7 +51,7 @@ class ExpoPushHandlerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dispatchRepository: NotificationDispatchJpaRepository
 
-    private class RecordingSender : PushSender {
+    private class RecordingClient : PushClient {
         val sent = mutableListOf<PushMessage>()
         var calls = 0
         var errorFor: (PushMessage) -> String? = { null }
@@ -102,28 +102,28 @@ class ExpoPushHandlerTest : BehaviorSpec() {
                 device(11L, "en")
                 newsConsent(11L)
                 newsOn(11L)
-                val sender = RecordingSender()
-                val handler = ExpoPushHandler(dispatchService, sender)
+                val pushClient = RecordingClient()
+                val handler = ExpoPushHandler(dispatchService, pushClient)
 
                 val result = handler.send(PushRequest(NotificationType.NEWS, listOf(11L), args = newsArgs))
 
                 then("기기마다 발송되고 dispatch 가 SENT 로 기록된다") {
                     result shouldBe PushDispatchResult(sent = 2, failed = 0)
-                    sender.sent shouldHaveSize 2
-                    sender.sent.map { it.to }.toSet() shouldBe deviceRepository.findByMemberId(11L).map { it.expoToken }.toSet()
+                    pushClient.sent shouldHaveSize 2
+                    pushClient.sent.map { it.to }.toSet() shouldBe deviceRepository.findByMemberId(11L).map { it.expoToken }.toSet()
                     dispatchRepository.findAll().all { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe true
                 }
             }
 
-            `when`("sender 가 한 건을 error 티켓으로 돌려주면") {
+            `when`("발송 클라이언트가 한 건을 error 티켓으로 돌려주면") {
                 clear()
                 device(12L, "ko")
                 device(12L, "ja")
                 newsConsent(12L)
                 newsOn(12L)
-                val sender = RecordingSender()
-                sender.errorFor = { if (it.to.endsWith("-4]")) "DeviceNotRegistered" else null }
-                val handler = ExpoPushHandler(dispatchService, sender)
+                val pushClient = RecordingClient()
+                pushClient.errorFor = { if (it.to.endsWith("-4]")) "DeviceNotRegistered" else null }
+                val handler = ExpoPushHandler(dispatchService, pushClient)
 
                 val result = handler.send(PushRequest(NotificationType.NEWS, listOf(12L), args = newsArgs))
 
@@ -137,14 +137,14 @@ class ExpoPushHandlerTest : BehaviorSpec() {
             `when`("대상 기기가 없으면") {
                 clear()
                 device(13L, "ko")
-                val sender = RecordingSender()
-                val handler = ExpoPushHandler(dispatchService, sender)
+                val pushClient = RecordingClient()
+                val handler = ExpoPushHandler(dispatchService, pushClient)
 
                 val result = handler.send(PushRequest(NotificationType.NEWS, listOf(13L), args = newsArgs))
 
-                then("sender 를 부르지 않고 (0,0) 을 돌려준다") {
+                then("발송 클라이언트를 부르지 않고 (0,0) 을 돌려준다") {
                     result shouldBe PushDispatchResult(sent = 0, failed = 0)
-                    sender.calls shouldBe 0
+                    pushClient.calls shouldBe 0
                     notificationRepository.findAll() shouldHaveSize 0
                 }
             }

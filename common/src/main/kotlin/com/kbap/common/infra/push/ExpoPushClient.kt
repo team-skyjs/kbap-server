@@ -2,7 +2,7 @@ package com.kbap.common.infra.push
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.kbap.common.port.push.PushMessage
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import com.kbap.common.port.push.PushTicket
 import org.slf4j.LoggerFactory
 import org.springframework.core.retry.RetryException
@@ -45,10 +45,10 @@ internal data class ExpoSendResponse(
     val data: List<ExpoTicket> = emptyList(),
 )
 
-class ExpoPushSender internal constructor(
+class ExpoPushClient internal constructor(
     private val restClient: RestClient,
     retryPolicy: RetryPolicy,
-) : PushSender {
+) : PushClient {
     private val log = LoggerFactory.getLogger(javaClass)
     private val retryTemplate = RetryTemplate(retryPolicy)
 
@@ -97,10 +97,10 @@ class ExpoPushSender internal constructor(
         private fun isTransient(e: Throwable): Boolean =
             e is ResourceAccessException || e is HttpServerErrorException || e is HttpClientErrorException.TooManyRequests
 
-        fun create(baseUrl: String, accessToken: String, retryPolicy: RetryPolicy): ExpoPushSender =
+        fun create(baseUrl: String, accessToken: String, retryPolicy: RetryPolicy): ExpoPushClient =
             create(baseUrl, accessToken, expoRestClientBuilder(), retryPolicy)
 
-        internal fun create(baseUrl: String, accessToken: String, builder: RestClient.Builder, retryPolicy: RetryPolicy): ExpoPushSender =
-            ExpoPushSender(expoRestClient(baseUrl, accessToken, builder), retryPolicy)
+        internal fun create(baseUrl: String, accessToken: String, builder: RestClient.Builder, retryPolicy: RetryPolicy): ExpoPushClient =
+            ExpoPushClient(expoRestClient(baseUrl, accessToken, builder), retryPolicy)
     }
 }

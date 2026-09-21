@@ -73,7 +73,7 @@ Expo 문서(2026-09-21 확인): 영수증은 발송 15분 뒤 조회 권고, 24�
 
 ## R10. 영수증 포트를 따로 둔 이유
 
-`PushSender` 가 `fun interface` 라(테스트·`ExpoPushHandlerTest` 가 람다로 구현) 메서드를 더하면 깨진다. api 는 영수증을 조회하지 않으므로 포트를 나누면 api 의 페이크·조립을 건드리지 않아도 된다.
+`PushClient` 가 `fun interface` 라(테스트·`ExpoPushHandlerTest` 가 람다로 구현) 메서드를 더하면 깨진다. api 는 영수증을 조회하지 않으므로 포트를 나누면 api 의 페이크·조립을 건드리지 않아도 된다.
 
 ## R11. 영수증 조회 실패 처리
 

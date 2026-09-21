@@ -4,7 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.auth.FakeSocialTokenVerifier
-import com.kbap.api.notification.FakePushSender
+import com.kbap.api.notification.FakePushClient
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
@@ -44,7 +44,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     @Autowired
-    private lateinit var fakePushSender: FakePushSender
+    private lateinit var fakePushClient: FakePushClient
 
     @Autowired
     private lateinit var verifier: FakeSocialTokenVerifier
@@ -111,7 +111,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
 
         beforeContainer {
             TestTables.clearAll(dataSource)
-            fakePushSender.reset()
+            fakePushClient.reset()
             verifier.reset()
         }
 
@@ -128,8 +128,8 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                     payload(response).path("sent").asInt() shouldBe 1
                     payload(response).path("failed").asInt() shouldBe 0
 
-                    fakePushSender.sent shouldHaveSize 1
-                    val message = fakePushSender.sent.single()
+                    fakePushClient.sent shouldHaveSize 1
+                    val message = fakePushClient.sent.single()
                     message.to shouldBe device.expoToken
                     message.title shouldBe "(광고) K-Bap"
                     message.data["type"] shouldBe "NEWS"
@@ -150,7 +150,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                     response.status shouldBe 200
                     payload(response).path("sent").asInt() shouldBe 0
                     payload(response).path("failed").asInt() shouldBe 0
-                    fakePushSender.sent shouldHaveSize 0
+                    fakePushClient.sent shouldHaveSize 0
                 }
             }
 
@@ -162,7 +162,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 then("광고성이라 발송하지 않고 0/0 을 돌려준다") {
                     response.status shouldBe 200
                     payload(response).path("sent").asInt() shouldBe 0
-                    fakePushSender.sent shouldHaveSize 0
+                    fakePushClient.sent shouldHaveSize 0
                 }
             }
 
@@ -171,7 +171,7 @@ class AdminNotificationTestControllerTest : BehaviorSpec() {
                 val device = device(memberId)
                 newsOn(device)
                 newsConsent(memberId)
-                fakePushSender.errorFor = { "DeviceNotRegistered" }
+                fakePushClient.errorFor = { "DeviceNotRegistered" }
                 val response = send(memberId)
 
                 then("dispatch 는 FAILED 로 사유가 남고 기기 토큰은 그대로다") {

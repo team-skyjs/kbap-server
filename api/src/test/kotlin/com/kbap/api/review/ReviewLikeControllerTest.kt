@@ -1,7 +1,7 @@
 package com.kbap.api.review
 
 import com.kbap.api.IntegrationTest
-import com.kbap.api.notification.FakePushSender
+import com.kbap.api.notification.FakePushClient
 import com.kbap.api.notification.HelpfulPushListener
 import com.kbap.api.review.ReviewLiked
 import com.kbap.common.domain.member.model.MemberRole
@@ -43,7 +43,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
-    private lateinit var fakePushSender: FakePushSender
+    private lateinit var fakePushClient: FakePushClient
 
     @Autowired
     private lateinit var deviceRepository: NotificationDeviceJpaRepository
@@ -58,7 +58,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
         val reviewIdSeq = AtomicLong(9000L)
 
         beforeSpec {
-            fakePushSender.reset()
+            fakePushClient.reset()
             dataSource.connection.use { c ->
                 c.createStatement().use { st ->
                     st.execute("DELETE FROM notification_dispatch")
@@ -263,19 +263,19 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             }
         }
 
-        suspend fun sentEventually(count: Int) = eventually(5.seconds) { fakePushSender.sent shouldHaveSize count }
-        suspend fun sentStays(count: Int) = continually(1.seconds) { fakePushSender.sent shouldHaveSize count }
+        suspend fun sentEventually(count: Int) = eventually(5.seconds) { fakePushClient.sent shouldHaveSize count }
+        suspend fun sentStays(count: Int) = continually(1.seconds) { fakePushClient.sent shouldHaveSize count }
 
         given("좋아요 알림") {
             `when`("활동 알림을 켠 작성자의 리뷰에 다른 회원이 좋아요를 등록하면") {
                 val author = 8201L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author, "en"))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("작성자 기기로 activity 채널 HELPFUL 푸시가 가고 알림함·발송 이력이 남는다") {
                     like(reviewId, accessToken(8202L)).andExpect { status { isOk() } }
                     sentEventually(1)
-                    val message = fakePushSender.sent.single()
+                    val message = fakePushClient.sent.single()
                     message.to shouldBe "ExponentPushToken[$author-en]"
                     message.channelId shouldBe "activity"
                     message.data["type"] shouldBe "HELPFUL"
@@ -291,16 +291,16 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author, "ko"))
                 activity(device(author, "en"))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("기기마다 한 건씩 간다") {
                     like(reviewId, accessToken(8204L)).andExpect { status { isOk() } }
                     sentEventually(2)
-                    fakePushSender.sent.map { it.to }.toSet() shouldHaveSize 2
+                    fakePushClient.sent.map { it.to }.toSet() shouldHaveSize 2
                     helpfulRows(author) shouldBe 2
                 }
             }
             `when`("존재하지 않는 리뷰에 등록해 요청이 실패하면") {
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(999998L, accessToken(8205L)).andExpect { status { isBadRequest() } }
                     sentStays(0)
@@ -310,7 +310,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8211L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(reviewId, accessToken(author)).andExpect { status { isOk() } }
                     sentStays(0)
@@ -321,7 +321,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8212L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     unlike(reviewId, accessToken(8213L)).andExpect { status { isOk() } }
                     sentStays(0)
@@ -331,7 +331,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8214L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("첫 등록에만 알림이 가고 재호출엔 가지 않는다") {
                     val token = accessToken(8215L)
                     like(reviewId, token).andExpect { status { isOk() } }
@@ -344,7 +344,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8221L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("묶지 않고 각각 알림이 간다") {
                     like(reviewId, accessToken(8222L)).andExpect { status { isOk() } }
                     sentEventually(1)
@@ -357,7 +357,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8216L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author), enabled = false)
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(reviewId, accessToken(8217L)).andExpect { status { isOk() } }
                     sentStays(0)
@@ -367,7 +367,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             `when`("작성자에게 기기가 없으면") {
                 val author = 8218L
                 val reviewId = seedReview(authorMemberId = author)
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("알림함 행도 만들어지지 않는다") {
                     like(reviewId, accessToken(8219L)).andExpect { status { isOk() } }
                     sentStays(0)
@@ -381,7 +381,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8224L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("첫 등록에만 알림이 가고 재등록엔 가지 않는다") {
                     val token = accessToken(8225L)
                     like(reviewId, token).andExpect { status { isOk() } }
@@ -399,7 +399,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 val author = 8226L
                 val reviewId = seedReview(authorMemberId = author)
                 activity(device(author))
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("다시 알림이 간다") {
                     val liker = 8227L
                     val token = accessToken(liker)
@@ -415,10 +415,10 @@ class ReviewLikeControllerTest : BehaviorSpec() {
 
         given("좋아요 알림 리스너 실패 격리") {
             `when`("존재하지 않는 음식의 이벤트를 직접 처리하면") {
-                fakePushSender.reset()
+                fakePushClient.reset()
                 then("예외가 전파되지 않고 발송도 없다") {
                     shouldNotThrowAny { helpfulPushListener.handle(ReviewLiked(reviewId = 1L, authorMemberId = 8299L, foodId = 999999L)) }
-                    fakePushSender.sent shouldHaveSize 0
+                    fakePushClient.sent shouldHaveSize 0
                 }
             }
         }

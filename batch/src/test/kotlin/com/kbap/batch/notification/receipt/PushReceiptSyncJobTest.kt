@@ -1,7 +1,7 @@
 package com.kbap.batch.notification.receipt
 
 import com.kbap.batch.notification.FakePushReceiptClient
-import com.kbap.batch.notification.FakePushSender
+import com.kbap.batch.notification.FakePushClient
 import com.kbap.batch.notification.MutableClock
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
@@ -68,7 +68,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
     private lateinit var dispatchRepository: NotificationDispatchJpaRepository
 
     @Autowired
-    private lateinit var fakePushSender: FakePushSender
+    private lateinit var fakePushClient: FakePushClient
 
     @Autowired
     private lateinit var fakeReceipts: FakePushReceiptClient
@@ -92,7 +92,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
         deviceRepository.deleteAll()
         settingRepository.deleteAll()
         consentRepository.deleteAll()
-        fakePushSender.reset()
+        fakePushClient.reset()
         fakeReceipts.reset()
         clock.set(Instant.now())
     }
@@ -171,7 +171,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
                     statuses() shouldContainExactly listOf(FAILED)
                     deviceRepository.findById(device.id).get().tokenInvalidAt.shouldNotBeNull()
                     notificationRepository.findAll().shouldBeEmpty()
-                    fakePushSender.sent shouldHaveSize 1
+                    fakePushClient.sent shouldHaveSize 1
                 }
             }
 
@@ -249,7 +249,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
                 run(MARKETING_JOB)
 
                 then("그 기기에만 두 번 재전송하고 세 번째 실패에서 알림함 행을 지운다") {
-                    val resent = fakePushSender.sent.drop(2)
+                    val resent = fakePushClient.sent.drop(2)
                     resent shouldHaveSize 2
                     resent.all { it.to == failing.expoToken && it.channelId == "news" && it.ttlSeconds != null } shouldBe true
                     val attempts = dispatchRepository.findAll().filter { it.notificationDeviceId == failing.id }
@@ -289,14 +289,14 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
                 ageSentDispatches(20)
                 fakeReceipts.receiptFor = { rateExceeded }
                 run(MARKETING_JOB)
-                val sentBeforeRerun = fakePushSender.sent.size
+                val sentBeforeRerun = fakePushClient.sent.size
                 clock.set(Instant.now())
 
                 run("scanSuggestionLunchPushJob")
 
                 then("그 회원은 걸러져 새로 발송되지 않는다") {
                     sentBeforeRerun shouldBe 2
-                    fakePushSender.sent shouldHaveSize 2
+                    fakePushClient.sent shouldHaveSize 2
                     notificationRepository.findAll() shouldHaveSize 1
                 }
             }
@@ -307,7 +307,7 @@ class PushReceiptSyncJobTest : BehaviorSpec() {
                 sendScanSuggestion(13L)
                 ageSentDispatches(20)
                 fakeReceipts.receiptFor = { rateExceeded }
-                fakePushSender.errorFor = { "InvalidCredentials" }
+                fakePushClient.errorFor = { "InvalidCredentials" }
 
                 run(MARKETING_JOB)
 

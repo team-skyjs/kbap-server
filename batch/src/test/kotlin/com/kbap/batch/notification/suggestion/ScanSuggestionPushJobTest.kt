@@ -1,6 +1,6 @@
 package com.kbap.batch.notification.suggestion
 
-import com.kbap.batch.notification.FakePushSender
+import com.kbap.batch.notification.FakePushClient
 import com.kbap.batch.notification.MutableClock
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
@@ -64,7 +64,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
     private lateinit var dispatchRepository: NotificationDispatchJpaRepository
 
     @Autowired
-    private lateinit var fakePushSender: FakePushSender
+    private lateinit var fakePushClient: FakePushClient
 
     @Autowired
     private lateinit var clock: MutableClock
@@ -100,7 +100,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
         deviceRepository.deleteAll()
         settingRepository.deleteAll()
         consentRepository.deleteAll()
-        fakePushSender.reset()
+        fakePushClient.reset()
     }
 
     private fun device(memberId: Long?, lang: String = "ko", tokenValid: Boolean = true): NotificationDevice {
@@ -171,7 +171,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 }
 
                 then("기기 언어로 렌더된 광고 표기 문구를 ttl 3시간으로 보낸다") {
-                    val sent = fakePushSender.sent
+                    val sent = fakePushClient.sent
                     sent shouldHaveSize 2
                     sent.forEach { it.title shouldStartWith "(광고) " }
                     byLangTitle(sent, "ko") shouldBe "(광고) 점심 먹을 때 스캔해보세요"
@@ -191,18 +191,18 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 device(8L, "en")
                 consent(8L)
                 setting(8L, news = true)
-                fakePushSender.errorFor = { if (it.to == failing.expoToken) "DeviceNotRegistered" else null }
+                fakePushClient.errorFor = { if (it.to == failing.expoToken) "DeviceNotRegistered" else null }
                 run()
                 stampCreatedAtToClock()
-                val afterFirst = fakePushSender.sent.size
-                fakePushSender.errorFor = { null }
+                val afterFirst = fakePushClient.sent.size
+                fakePushClient.errorFor = { null }
 
                 val second = run()
 
                 then("성공한 기기가 있는 회원은 다시 받지 않고, 실패한 건의 알림함 행은 사라진다") {
                     afterFirst shouldBe 2
                     second.exitStatus.exitCode shouldBe "COMPLETED"
-                    fakePushSender.sent shouldHaveSize 2
+                    fakePushClient.sent shouldHaveSize 2
                     notificationRepository.findAll() shouldHaveSize 1
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 1
                 }
@@ -211,13 +211,13 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     clock.setSeoul(2026, 9, 15, 17, 0)
                     run()
                     stampCreatedAtToClock()
-                    fakePushSender.sent shouldHaveSize 4
+                    fakePushClient.sent shouldHaveSize 4
                     clock.setSeoul(2026, 9, 15, 20, 0)
                     run()
-                    fakePushSender.sent shouldHaveSize 4
+                    fakePushClient.sent shouldHaveSize 4
                     clock.setSeoul(2026, 9, 16, 11, 0)
                     run()
-                    fakePushSender.sent shouldHaveSize 6
+                    fakePushClient.sent shouldHaveSize 6
                     notificationRepository.findAll() shouldHaveSize 5
                 }
             }
@@ -267,7 +267,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     members.take(40).map { Notification(memberId = it, type = NotificationType.SCAN_SUGGESTION, title = "t", body = "b") },
                 )
                 val failing = setOf("ExponentPushToken[bulk-1100]", "ExponentPushToken[bulk-1250]")
-                fakePushSender.errorFor = { if (it.to in failing) "DeviceNotRegistered" else null }
+                fakePushClient.errorFor = { if (it.to in failing) "DeviceNotRegistered" else null }
 
                 val execution = run()
 
@@ -277,7 +277,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     step.stepName shouldBe "scanSuggestionLunchSendStep"
                     step.readCount shouldBe 210L
                     step.writeCount shouldBe 210L
-                    fakePushSender.batches shouldBe listOf(100, 100, 10)
+                    fakePushClient.batches shouldBe listOf(100, 100, 10)
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.FAILED } shouldBe 2
                     dispatchRepository.findAll().count { it.dispatchStatus == NotificationDispatchStatus.SENT } shouldBe 208
                 }
@@ -295,7 +295,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 then("저녁 문구로 발송한다") {
                     execution.exitStatus.exitCode shouldBe "COMPLETED"
                     execution.jobInstance.jobName shouldBe DINNER_JOB_NAME
-                    byLangTitle(fakePushSender.sent, "ko") shouldBe "(광고) 저녁 메뉴, 스캔해보세요"
+                    byLangTitle(fakePushClient.sent, "ko") shouldBe "(광고) 저녁 메뉴, 스캔해보세요"
                 }
             }
         }

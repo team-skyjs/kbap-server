@@ -1,13 +1,13 @@
 package com.kbap.api.notification
 
 import com.kbap.common.port.push.PushMessage
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import com.kbap.common.port.push.PushTicket
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 
-class FakePushSender : PushSender {
+class FakePushClient : PushClient {
     val sent: MutableList<PushMessage> = mutableListOf()
     var errorFor: (PushMessage) -> String? = { null }
 
@@ -25,8 +25,8 @@ class FakePushSender : PushSender {
 }
 
 @Configuration
-class FakePushSenderConfig {
+class FakePushClientConfig {
     @Bean
     @Primary
-    fun fakePushSender(): FakePushSender = FakePushSender()
+    fun fakePushClient(): FakePushClient = FakePushClient()
 }

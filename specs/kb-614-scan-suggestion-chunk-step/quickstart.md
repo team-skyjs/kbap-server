@@ -16,7 +16,7 @@ Kotest 는 Gradle `--tests` 필터를 무시하므로 모듈 단위로 돌린다
 **발송 잡**
 
 1. 실행 기록에 스텝이 `scanSuggestion{Lunch|Dinner}SendStep` 하나뿐이다.
-2. 대상 250명 → `FakePushSender` 호출이 100·100·50.
+2. 대상 250명 → `FakePushClient` 호출이 100·100·50.
 3. 같은 슬롯 재실행 → 발송 0건, `filterCount` = 대상 수.
 4. 점심·저녁 잡의 슬롯 문구.
 5. `kbap.push.dispatch` 이름·태그 불변.

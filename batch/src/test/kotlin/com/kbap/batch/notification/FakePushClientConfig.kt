@@ -1,13 +1,13 @@
 package com.kbap.batch.notification
 
 import com.kbap.common.port.push.PushMessage
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import com.kbap.common.port.push.PushTicket
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 
-class FakePushSender : PushSender {
+class FakePushClient : PushClient {
     val sent: MutableList<PushMessage> = mutableListOf()
     val batches: MutableList<Int> = mutableListOf()
     var errorFor: (PushMessage) -> String? = { null }
@@ -28,8 +28,8 @@ class FakePushSender : PushSender {
 }
 
 @TestConfiguration
-class FakePushSenderConfig {
+class FakePushClientConfig {
     @Bean
     @Primary
-    fun fakePushSender(): FakePushSender = FakePushSender()
+    fun fakePushClient(): FakePushClient = FakePushClient()
 }
