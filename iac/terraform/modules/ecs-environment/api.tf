@@ -102,9 +102,11 @@ resource "aws_ecs_service" "api" {
 
   tags = local.common_tags
 
-  # CodeDeploy 가 태스크 정의·타깃그룹을 바꾸므로 Terraform 은 초기 상태만 소유한다
+  # CodeDeploy 가 태스크 정의·타깃그룹을 바꾸므로 Terraform 은 초기 상태만 소유한다.
+  # capacity provider 전략도 배포 appspec(CapacityProviderStrategy)이 태스크셋에 건다 —
+  # CODE_DEPLOY 서비스는 UpdateService 로 못 바꾸고, Terraform 으로 바꾸면 서비스가 재생성된다.
   lifecycle {
-    ignore_changes = [task_definition, load_balancer, desired_count]
+    ignore_changes = [task_definition, load_balancer, desired_count, launch_type, capacity_provider_strategy]
 
     precondition {
       condition     = !var.api_execute_command_enabled || var.env == "dev"
