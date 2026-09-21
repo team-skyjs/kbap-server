@@ -128,6 +128,21 @@ class PushReceiptServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("DeviceNotRegistered 영수증이 오기 전에 기기가 토큰을 재등록했으면") {
+                clear()
+                val device = device(5L)
+                consent(5L)
+                val dispatch = send(NotificationType.NEWS, 5L).single()
+                deviceRepository.save(device.apply { expoToken = "ExponentPushToken[renewed]" })
+
+                apply(dispatch, ReceiptOutcome(ok = false, errorCode = "DeviceNotRegistered", message = "gone"))
+
+                then("옛 토큰의 오류로 새 토큰을 무효 처리하지 않는다") {
+                    reload(dispatch).dispatchStatus shouldBe NotificationDispatchStatus.FAILED
+                    deviceRepository.findById(device.id).get().tokenInvalidAt.shouldBeNull()
+                }
+            }
+
             `when`("다시 보내도 같은 결과인 오류이거나 모르는 오류 코드이면") {
                 clear()
                 device(3L)

@@ -71,7 +71,11 @@ class PushReceiptService(
         dispatch.markFailed(outcome.errorCode ?: outcome.message ?: UNKNOWN_ERROR)
         when {
             outcome.errorCode == DEVICE_NOT_REGISTERED ->
-                dispatch.notificationDeviceId?.let { deviceRepository.findById(it).ifPresent { device -> device.markTokenInvalid(now) } }
+                dispatch.notificationDeviceId?.let { deviceId ->
+                    deviceRepository.findById(deviceId)
+                        .filter { it.expoToken == dispatch.expoToken }
+                        .ifPresent { it.markTokenInvalid(now) }
+                }
 
             !outcome.isRetryable() ->
                 logger.warn("재전송해도 해결되지 않는 푸시 실패 dispatchId={} error={}", dispatch.id, dispatch.error)
