@@ -64,5 +64,5 @@ release 값은 `$IMAGE` URI 의 태그 부분(`api-<sha>` / `batch-<sha>`, 또�
 ## 6. 코드 계약
 
 - `com.kbap.api.core.observability.SentryRequestContextProcessor : io.sentry.EventProcessor` — `@Component`. 태그 규약은 data-model.md.
-- `com.kbap.batch.observability.JobNameMdcListener : JobExecutionListener` — 두 잡 빌더에 `.listener(...)`.
+- `com.kbap.batch.util.JobNameMdcListener : JobExecutionListener` — 두 잡 빌더에 `.listener(...)`.
 - `GlobalExceptionHandler`·`RequestLoggingFilter` 무수정.

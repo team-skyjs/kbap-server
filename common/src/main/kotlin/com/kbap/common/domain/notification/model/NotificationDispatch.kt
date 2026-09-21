@@ -16,6 +16,10 @@ class NotificationDispatch(
     @Column(name = "notification_device_id")
     var notificationDeviceId: Long? = null,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_type", length = 30)
+    var notificationType: NotificationType? = null,
+
     @Column(name = "expo_token", nullable = false, length = 255)
     var expoToken: String = "",
 
@@ -56,10 +60,12 @@ class NotificationDispatch(
     }
 
     companion object {
-        fun pending(notificationId: Long, notificationDeviceId: Long?, expoToken: String) = NotificationDispatch(
-            notificationId = notificationId,
-            notificationDeviceId = notificationDeviceId,
-            expoToken = expoToken,
-        )
+        fun pending(notificationId: Long, notificationDeviceId: Long?, expoToken: String, notificationType: NotificationType?) =
+            NotificationDispatch(
+                notificationId = notificationId,
+                notificationDeviceId = notificationDeviceId,
+                notificationType = notificationType,
+                expoToken = expoToken,
+            )
     }
 }

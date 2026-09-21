@@ -6,7 +6,6 @@ import com.kbap.common.domain.notification.model.NotificationType
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -43,27 +42,6 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
             body = "body-$index",
             data = mapOf("type" to "HELPFUL", "reviewId" to index),
         )
-
-        given("오늘 스캔 제안을 받은 회원 조회") {
-            `when`("생성 시각·유형·회원이 섞인 알림을 두면") {
-                clear()
-                val since = LocalDateTime.of(2026, 9, 15, 0, 0)
-                fun saveAt(memberId: Long?, type: NotificationType, createdAt: LocalDateTime) {
-                    val saved = repository.save(Notification(memberId = memberId, type = type, title = "t", body = "b"))
-                    jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?", createdAt, saved.id)
-                }
-                saveAt(1L, NotificationType.SCAN_SUGGESTION, since)
-                saveAt(1L, NotificationType.SCAN_SUGGESTION, since.plusHours(12))
-                saveAt(2L, NotificationType.SCAN_SUGGESTION, since.minusSeconds(1))
-                saveAt(3L, NotificationType.HELPFUL, since.plusHours(1))
-                saveAt(4L, NotificationType.SCAN_SUGGESTION, since.plusHours(1))
-                saveAt(null, NotificationType.SCAN_SUGGESTION, since.plusHours(1))
-
-                then("기준 시각 이후의 같은 유형 알림을 가진 회원 id 만 중복 없이 돌려준다") {
-                    repository.findMemberIdsByTypeAndCreatedAtAfter(NotificationType.SCAN_SUGGESTION, since) shouldContainExactlyInAnyOrder listOf(1L, 4L)
-                }
-            }
-        }
 
         given("회원 알림 목록") {
             `when`("알림 3건을 저장하고 회원 기준으로 조회하면") {

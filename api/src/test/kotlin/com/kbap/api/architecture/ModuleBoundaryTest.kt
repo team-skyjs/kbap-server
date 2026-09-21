@@ -230,7 +230,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                         "com.kbap.api.core.config..",
                         "com.kbap.api.infra..",
                         "com.kbap.batch.config..",
-                        "com.kbap.batch.outbox..",
+                        "com.kbap.batch.food.content..",
                     )
                     .should().dependOnClassesThat().resideInAnyPackage(
                         "com.kbap.common.infra..",

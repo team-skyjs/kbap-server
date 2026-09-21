@@ -1,0 +1,35 @@
+package com.kbap.batch.notification
+
+import com.kbap.common.port.push.PushMessage
+import com.kbap.common.port.push.PushClient
+import com.kbap.common.port.push.PushTicket
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Primary
+
+class FakePushClient : PushClient {
+    val sent: MutableList<PushMessage> = mutableListOf()
+    val batches: MutableList<Int> = mutableListOf()
+    var errorFor: (PushMessage) -> String? = { null }
+
+    override fun send(messages: List<PushMessage>): List<PushTicket> {
+        sent += messages
+        batches += messages.size
+        return messages.mapIndexed { i, message ->
+            errorFor(message)?.let { PushTicket.error(it) } ?: PushTicket.ok("ticket-${sent.size - messages.size + i}")
+        }
+    }
+
+    fun reset() {
+        sent.clear()
+        batches.clear()
+        errorFor = { null }
+    }
+}
+
+@TestConfiguration
+class FakePushClientConfig {
+    @Bean
+    @Primary
+    fun fakePushClient(): FakePushClient = FakePushClient()
+}

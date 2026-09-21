@@ -1,8 +1,8 @@
 package com.kbap.api
 
-import com.kbap.api.notification.FakePushSender
+import com.kbap.api.notification.FakePushClient
 import com.kbap.common.domain.notification.PushDispatchService
-import com.kbap.common.port.push.PushSender
+import com.kbap.common.port.push.PushClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -23,8 +23,8 @@ class KbapApiApplicationTests : BehaviorSpec() {
                 then("정상적으로 기동된다") {
                 }
 
-                then("푸시 파이프라인이 조립된다 — 통합 테스트 컨텍스트에서는 페이크 PushSender 가 우선한다") {
-                    context.getBean(PushSender::class.java).shouldBeInstanceOf<FakePushSender>()
+                then("푸시 파이프라인이 조립된다 — 통합 테스트 컨텍스트에서는 페이크 PushClient 가 우선한다") {
+                    context.getBean(PushClient::class.java).shouldBeInstanceOf<FakePushClient>()
                     context.getBean(PushDispatchService::class.java).shouldNotBeNull()
                 }
             }
