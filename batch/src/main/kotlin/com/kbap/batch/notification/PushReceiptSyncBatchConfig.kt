@@ -15,10 +15,10 @@ import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.job.parameters.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Clock
 import java.time.Duration
 
@@ -30,6 +30,7 @@ class PushReceiptSyncBatchConfig(
     @Value("\${kbap.batch.push-receipt.resend-window:2h}") private val resendWindow: Duration,
     @Value("\${kbap.batch.push-receipt.max-resends:2}") private val maxResends: Int,
     private val jobRepository: JobRepository,
+    private val transactionManager: PlatformTransactionManager,
     private val dispatchRepository: NotificationDispatchJpaRepository,
     private val fetcher: PushReceiptFetcher,
     private val receiptService: PushReceiptService,
@@ -47,7 +48,7 @@ class PushReceiptSyncBatchConfig(
     private fun job(name: String, types: List<NotificationType>, clock: Clock): Job {
         val step = StepBuilder("${name}Step", jobRepository)
             .chunk<NotificationDispatch, NotificationDispatch>(chunkSize)
-            .transactionManager(ResourcelessTransactionManager())
+            .transactionManager(transactionManager)
             .reader(PushReceiptTargetReader(dispatchRepository, types, clock, minAge, maxAge, chunkSize))
             .writer(PushReceiptSyncWriter(fetcher, receiptService, dispatchService, sender, ResendPolicy(maxResends, resendWindow), clock, meterRegistry))
             .build()

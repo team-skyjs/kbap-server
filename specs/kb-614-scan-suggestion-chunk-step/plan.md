@@ -48,7 +48,7 @@
 | III. Layered Dependency | PASS | 새 seam `PushReceiptFetcher` 는 `common.port.push`, 구현은 `common.infra.push`(batch 소비), 조립은 batch `PushConfig`. 도메인 서비스는 포트를 모른다 — 영수증은 도메인 타입 `ReceiptOutcome` 으로 받는다(기존 `PushOutcome` 과 같은 방식) |
 | IV. Persistence Ownership | PASS | 엔티티=도메인 모델(상태 전이는 `NotificationDispatch` 메서드), 정책은 도메인 서비스, 배치는 리포지토리 직접 사용. `PushReceiptService` 는 `PushDispatchService` 와 같은 자리(`:common`) — 소비자가 batch 다 |
 | V. Language Policy | N/A | 재전송은 저장된 제목·본문을 그대로 쓴다. 재렌더 없음 |
-| 추가 제약 "외부 호출을 DB 트랜잭션 안에서 길게 잡지 않는다" | **위반 1건(정당화)** | 발송 잡만. 영수증 잡은 준수(Resourceless + 서비스 메서드 트랜잭션, 호출은 그 사이) |
+| 추가 제약 "외부 호출을 DB 트랜잭션 안에서 길게 잡지 않는다" | **위반(정당화)** | 발송 잡·영수증 잡 모두 실제 트랜잭션 매니저 — 사용자 결정 |
 
 Phase 1 설계 후 재평가: 변동 없음.
 
@@ -137,7 +137,7 @@ fun apply(outcomes: Map<Long, ReceiptOutcome>, policy: ResendPolicy, now: LocalD
 
 ```text
 {marketing|activity}PushReceiptSyncJob
-└─ {marketing|activity}PushReceiptSyncStep   chunk(100), ResourcelessTransactionManager
+└─ {marketing|activity}PushReceiptSyncStep   chunk(100), PlatformTransactionManager
      reader  PushReceiptTargetReader   (신규) 발송 이력 id 커서
      writer  PushReceiptSyncWriter     (신규)
 ```
@@ -243,4 +243,4 @@ api/src/main/resources/db/migration/V<ts>__notification_dispatch_type.sql   # �
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| 헌법 추가 제약 "외부 호출을 DB 트랜잭션 안에서 길게 잡지 않는다" — **발송 잡**의 청크 트랜잭션 안 Expo 호출 | 조회·거르기·발송을 한 청크 스텝으로 묶는 것이 목표이고 사용자가 비용(발송 지연 = DB 연결 점유, 재시도 대기 최대 약 7초)을 알고 수용 | `ResourcelessTransactionManager` 유지는 사용자 결정과 다르다. research R3 에 차이와 감수하는 위험을 기록. 영수증 잡은 이 예외를 쓰지 않는다 |
+| 헌법 추가 제약 "외부 호출을 DB 트랜잭션 안에서 길게 잡지 않는다" — **발송 잡·영수증 잡**의 청크 트랜잭션 안 Expo 호출 | 조회·거르기·발송을 한 청크 스텝으로 묶는 것이 목표이고 사용자가 비용(발송 지연 = DB 연결 점유, 재시도 대기 최대 약 7초)을 알고 수용 | `ResourcelessTransactionManager` 유지는 사용자 결정과 다르다. research R3 에 차이와 감수하는 위험을 기록. 영수증 잡도 같은 결정을 따른다(업무 데이터와 배치 메타 기록의 원자적 커밋) |
