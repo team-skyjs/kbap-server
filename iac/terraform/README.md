@@ -146,7 +146,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 
 | 어디 | 무엇 |
 |---|---|
-| tfvars | `home_prometheus_remote_write_url` (Cloudflare Tunnel 공개 호스트, `/api/v1/write` 까지) · `alloy_image`(기본 태그 고정) |
+| tfvars | `alloy_image`(기본 태그 고정) — remote_write 주소는 tfvars 가 아니라 SSM `/kbap/<env>/REMOTE_WRITE_URL` 이다 |
 | SSM SecureString | `/kbap/<env>/CF_ACCESS_CLIENT_ID` · `/kbap/<env>/CF_ACCESS_CLIENT_SECRET` — Cloudflare Access 서비스 토큰(env 마다 1쌍). 실행 롤 정책이 `/kbap/<env>/*` 라 IAM 변경 없음 |
 | 홈서버 | Prometheus `--web.enable-remote-write-receiver`, Tunnel 공개 호스트 → `prometheus:9090`, Access 앱(Service Auth 정책) |
 
@@ -159,6 +159,8 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 | `application` | `kbap-api` \| `kbap-batch` | 앱(Micrometer 태그) |
 | `instance` | `<env>-<container>-<task id 6자>` | ECS 도커 라벨 task-arn — **태스크 단위**(카나리 중 한 호스트에 2개 공존) |
 | `version` | 태스크 정의 리비전 | ECS 도커 라벨 task-definition-version — 배포마다 증가 → blue/green 비교 |
+
+**수신 주소 변경**: `aws ssm put-parameter --name /kbap/<env>/REMOTE_WRITE_URL --type String --value 'https://<host>/api/v1/write' --overwrite` → `aws ecs update-service --cluster <cluster> --service <env>-alloy --force-new-deployment`(terraform apply 불필요, 값은 태스크 기동 시 읽는다).
 
 **설정 변경**: `alloy.config.alloy.tftpl` 수정 → `terraform apply` → 새 태스크 정의 리비전으로 DAEMON 이 인스턴스마다 롤링(min healthy 0 — 수십 초 수집 공백, 앱 무영향). 저장소 이전·복사본 fan-out 도 템플릿의 `remote_write` 만 바꾼다. 문법 점검: 템플릿을 치환해 `docker run --rm -v $PWD/c.alloy:/c.alloy grafana/alloy:<tag> fmt /c.alloy`.
 

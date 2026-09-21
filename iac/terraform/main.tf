@@ -41,8 +41,7 @@ module "ecs_environment" {
   bastion_instance_type = var.bastion_instance_type
   bastion_key_name      = var.bastion_key_name
 
-  home_prometheus_remote_write_url = var.home_prometheus_remote_write_url
-  alloy_image                      = var.alloy_image
+  alloy_image = var.alloy_image
 
   blocked_path_patterns = var.blocked_path_patterns
 
