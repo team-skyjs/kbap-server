@@ -2,6 +2,7 @@ package com.kbap.api.food
 
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
@@ -19,7 +20,7 @@ class PublishedFoodRestorer(
 
     private fun restoreOne(foodId: Long) {
         val food = foodRepository.findById(foodId).orElse(null) ?: return
-        if (food.contentStatus != FoodContentStatus.PENDING_IMAGE || food.publishedAt == null) return
+        if (!food.isRestorablePublication()) return
         food.contentStatus = FoodContentStatus.READY
         foodRepository.save(food)
         vectorOutboxRepository
@@ -28,4 +29,10 @@ class PublishedFoodRestorer(
         vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
         log.warn("이미지 생성 실패로 공개 상태를 되돌렸다 — foodId={}", foodId)
     }
+
+    private fun Food.isRestorablePublication(): Boolean =
+        contentStatus == FoodContentStatus.PENDING_IMAGE &&
+            publishedAt != null &&
+            contentFailureKind == null &&
+            contentReviewRejectionReason == null
 }

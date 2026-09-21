@@ -5,6 +5,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
@@ -200,13 +201,20 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     )
                     savePendingImage("첫이미지대기음식", null)
                     savePendingImage("미검수이미지음식", "images/webp/food/never.webp")
+                    foodJpaRepository.save(
+                        savePendingImage(
+                            "반려이력음식",
+                            "images/webp/food/rejected.webp",
+                            publishedAt = LocalDateTime.now().minusDays(9),
+                        ).apply { contentFailureKind = FoodContentFailureKind.ADMIN_REJECTED },
+                    )
                     val submitted = savePendingImage("제출중음식", null)
                     val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
                     imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = submitted.id))
 
                     val metrics = service.getMetricsSummary()
 
-                    metrics.pendingImageWithoutBatchCount shouldBe 3
+                    metrics.pendingImageWithoutBatchCount shouldBe 4
                     metrics.strandedImageRegenerationCount shouldBe 1
                     foodJpaRepository.findById(stranded.id).get().imageRef.shouldNotBeNull()
                 }

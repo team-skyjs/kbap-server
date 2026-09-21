@@ -12,6 +12,7 @@ import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
+import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
@@ -458,6 +459,26 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
                 then("이미지 대기로 남는다 — 없던 승인을 만들지 않는다") {
                     val food = foodRepository.save(
                         savePendingImage("미검수실패음식").apply { imageRef = "images/webp/food/never-published.webp" },
+                    )
+                    val batch = saveSubmittedBatch(food.id)
+                    fakeClient.polls[batch.openaiBatchId!!] =
+                        FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("공개됐다 반려된 음식의 배치가 실패로 끝나면") {
+                then("이미지 대기로 남는다 — 옛 공개 이력으로 검수를 건너뛰지 않는다") {
+                    val food = foodRepository.save(
+                        savePendingImage("반려이력음식").apply {
+                            imageRef = "images/webp/food/rejected.webp"
+                            publishedAt = LocalDateTime.now().minusDays(10)
+                            contentFailureKind = FoodContentFailureKind.ADMIN_REJECTED
+                            contentReviewRejectionReason = "사진이 음식과 다름"
+                        },
                     )
                     val batch = saveSubmittedBatch(food.id)
                     fakeClient.polls[batch.openaiBatchId!!] =

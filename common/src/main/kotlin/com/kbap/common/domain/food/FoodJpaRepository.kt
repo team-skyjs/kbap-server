@@ -142,7 +142,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query("select count(f) from Food f where $IMAGE_CANDIDATE")
     fun countImageCandidates(): Long
 
-    @Query("select count(f) from Food f where $IMAGE_CANDIDATE and f.publishedAt is not null")
+    @Query("select count(f) from Food f where $IMAGE_CANDIDATE and $RESTORABLE_PUBLICATION")
     fun countStrandedImageRegenerations(): Long
 
     @Query(
@@ -196,6 +196,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findRandomReadyIds(@Param("size") size: Int): List<Long>
 
     companion object {
+        const val RESTORABLE_PUBLICATION =
+            "f.publishedAt is not null and f.contentFailureKind is null and f.contentReviewRejectionReason is null"
+
         const val IMAGE_CANDIDATE =
             "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
                 "and not exists (select 1 from ImageBatchItem i where i.foodId = f.id " +
