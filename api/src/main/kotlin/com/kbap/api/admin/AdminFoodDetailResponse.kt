@@ -37,9 +37,11 @@ data class AdminFoodDetailResponse(
     val version: Long,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
+    @field:Schema(description = "사람 검수 기록. 검수 전·해제 후는 null", nullable = true)
+    val humanReview: HumanReviewResponse?,
 ) {
     companion object {
-        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodDetailResponse =
+        fun from(food: Food, imagePublicBaseUrl: String, humanReview: HumanReviewResponse?): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
@@ -61,6 +63,7 @@ data class AdminFoodDetailResponse(
                 version = food.version,
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,
+                humanReview = humanReview,
             )
     }
 }

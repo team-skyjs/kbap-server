@@ -80,7 +80,23 @@ class Food(
 
     @Column(name = "published_at")
     var publishedAt: LocalDateTime? = null,
+
+    @Column(name = "human_reviewed_by")
+    var humanReviewedBy: Long? = null,
+
+    @Column(name = "human_reviewed_at")
+    var humanReviewedAt: LocalDateTime? = null,
 ) : BaseEntity() {
+    fun markHumanReviewed(adminId: Long, at: LocalDateTime) {
+        humanReviewedBy = adminId
+        humanReviewedAt = at
+    }
+
+    fun clearHumanReview() {
+        humanReviewedBy = null
+        humanReviewedAt = null
+    }
+
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0

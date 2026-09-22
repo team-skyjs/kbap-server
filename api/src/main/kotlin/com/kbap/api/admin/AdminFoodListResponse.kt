@@ -34,6 +34,7 @@ data class AdminFoodListItemResponse(
     val spiciness: Int,
     val imageUrl: String?,
     val updatedAt: LocalDateTime,
+    val humanReview: HumanReviewResponse?,
 ) {
     companion object {
         fun from(view: AdminFoodSummaryView): AdminFoodListItemResponse =
@@ -46,6 +47,7 @@ data class AdminFoodListItemResponse(
                 spiciness = view.spiciness,
                 imageUrl = view.imageUrl,
                 updatedAt = view.updatedAt,
+                humanReview = view.humanReview,
             )
     }
 }
