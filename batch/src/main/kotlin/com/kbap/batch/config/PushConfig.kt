@@ -2,6 +2,7 @@ package com.kbap.batch.config
 
 import com.kbap.common.domain.notification.PushDispatchService
 import com.kbap.common.domain.notification.PushMessageRenderer
+import com.kbap.common.domain.notification.PushMessageSourceConfig
 import com.kbap.common.domain.notification.PushReceiptService
 import com.kbap.common.domain.notification.PushTargetResolver
 import com.kbap.common.infra.push.ExpoPushHandler
@@ -18,7 +19,7 @@ import java.time.Duration
 import org.springframework.context.annotation.Import
 
 @Configuration
-@Import(PushDispatchService::class, PushReceiptService::class, PushTargetResolver::class, PushMessageRenderer::class)
+@Import(PushDispatchService::class, PushReceiptService::class, PushTargetResolver::class, PushMessageRenderer::class, PushMessageSourceConfig::class)
 class PushConfig {
     @Bean
     @ConditionalOnMissingBean(PushClient::class)
