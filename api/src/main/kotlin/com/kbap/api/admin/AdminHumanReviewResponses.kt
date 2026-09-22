@@ -50,8 +50,12 @@ data class AdminHumanReviewSummaryResponse(
 data class AdminHumanReviewListResponse(
     val items: List<AdminHumanReviewItemResponse>,
     val hasNext: Boolean,
-    @field:Schema(description = "다음 페이지 커서(마지막 항목의 foodId). 마지막 페이지면 null", nullable = true)
-    val nextCursor: Long?,
+    @field:Schema(
+        description = "다음 페이지 커서 — 불투명 문자열(마지막 항목의 검수 시각·foodId 를 담는다). 그대로 되돌려준다. 마지막 페이지면 null",
+        example = "MjAyNi0wOS0yMlQyMjo1MDowMC4xMjM0NTZ8NDI",
+        nullable = true,
+    )
+    val nextCursor: String?,
     @field:Schema(description = "관리자별 검수 건수 — adminId 필터와 무관하게 전체 기준, 건수 내림차순")
     val summary: List<AdminHumanReviewSummaryResponse>,
 )

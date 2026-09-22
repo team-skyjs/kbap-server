@@ -10,6 +10,7 @@ import com.kbap.common.domain.food.model.Food
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
+import java.util.Base64
 
 @Service
 class AdminHumanReviewService(
@@ -20,24 +21,22 @@ class AdminHumanReviewService(
     fun markReviewed(foodId: Long, adminId: Long): AdminFoodHumanReviewResponse {
         val reviewer = adminAccountRepository.findById(adminId).orElse(null)
             ?: throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
-        val food = getFood(foodId)
+        val food = getFoodForUpdate(foodId)
         food.markHumanReviewed(reviewer.id, LocalDateTime.now())
         return AdminFoodHumanReviewResponse(foodId = food.id, humanReview = humanReviewOf(food, mapOf(reviewer.id to reviewer)))
     }
 
     @Transactional
     fun clearReview(foodId: Long): AdminFoodHumanReviewResponse {
-        val food = getFood(foodId)
+        val food = getFoodForUpdate(foodId)
         food.clearHumanReview()
         return AdminFoodHumanReviewResponse(foodId = food.id, humanReview = null)
     }
 
     @Transactional(readOnly = true)
-    fun getHumanReviewPage(adminId: Long?, cursor: Long?): AdminHumanReviewListResponse {
-        val cursorAt = cursor?.let {
-            foodRepository.findAnyById(it)?.humanReviewedAt ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
-        }
-        val rows = foodRepository.findHumanReviewedPage(adminId, cursorAt, cursor, PAGE_SIZE + 1)
+    fun getHumanReviewPage(adminId: Long?, cursor: String?): AdminHumanReviewListResponse {
+        val position = cursor?.let { HumanReviewCursor.decode(it) ?: throw BusinessException(ErrorCode.INVALID_CURSOR) }
+        val rows = foodRepository.findHumanReviewedPage(adminId, position?.reviewedAt, position?.foodId, PAGE_SIZE + 1)
         val hasNext = rows.size > PAGE_SIZE
         val pageFoods = rows.take(PAGE_SIZE)
         val counts = foodRepository.countHumanReviewsByAdmin()
@@ -53,7 +52,7 @@ class AdminHumanReviewService(
                 )
             },
             hasNext = hasNext,
-            nextCursor = pageFoods.lastOrNull()?.id?.takeIf { hasNext },
+            nextCursor = pageFoods.lastOrNull()?.takeIf { hasNext }?.let { HumanReviewCursor.encode(it.humanReviewedAt!!, it.id) },
             summary = counts
                 .sortedByDescending { it.count }
                 .map { AdminHumanReviewSummaryResponse(adminId = it.adminId, displayName = reviewerResponseOf(reviewers, it.adminId).displayName, count = it.count) },
@@ -81,11 +80,23 @@ class AdminHumanReviewService(
     private fun reviewerResponseOf(reviewers: Map<Long, AdminAccount>, adminId: Long): AdminReviewerResponse =
         AdminReviewerResponse(id = adminId, displayName = reviewers[adminId]?.displayNameOrLoginId() ?: UNKNOWN_REVIEWER)
 
-    private fun getFood(foodId: Long): Food =
-        foodRepository.findById(foodId).orElse(null) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+    private fun getFoodForUpdate(foodId: Long): Food =
+        foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     companion object {
         const val PAGE_SIZE = 20
         const val UNKNOWN_REVIEWER = "(삭제된 관리자)"
     }
+}
+
+data class HumanReviewCursorPosition(val reviewedAt: LocalDateTime, val foodId: Long)
+
+object HumanReviewCursor {
+    fun encode(reviewedAt: LocalDateTime, foodId: Long): String =
+        Base64.getUrlEncoder().withoutPadding().encodeToString("$reviewedAt|$foodId".toByteArray())
+
+    fun decode(raw: String): HumanReviewCursorPosition? = runCatching {
+        val (at, id) = String(Base64.getUrlDecoder().decode(raw)).split('|', limit = 2)
+        HumanReviewCursorPosition(LocalDateTime.parse(at), id.toLong())
+    }.getOrNull()
 }

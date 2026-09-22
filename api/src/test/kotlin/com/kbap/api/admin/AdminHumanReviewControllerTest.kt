@@ -10,6 +10,9 @@ import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.put
+import java.time.LocalDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 
 @IntegrationTest
 class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
@@ -53,8 +56,13 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
         fun setReviewed(foodId: Long, adminId: Long, secondsAgo: Int): Unit =
             dataSource.connection.use { c ->
                 c.prepareStatement(
-                    "UPDATE food SET human_reviewed_by = ?, human_reviewed_at = NOW(6) - INTERVAL ? SECOND WHERE id = ?",
-                ).use { ps -> ps.setLong(1, adminId); ps.setInt(2, secondsAgo); ps.setLong(3, foodId); ps.executeUpdate() }
+                    "UPDATE food SET human_reviewed_by = ?, human_reviewed_at = ? WHERE id = ?",
+                ).use { ps ->
+                    ps.setLong(1, adminId)
+                    ps.setObject(2, LocalDateTime.now().minusSeconds(secondsAgo.toLong()))
+                    ps.setLong(3, foodId)
+                    ps.executeUpdate()
+                }
             }
 
         given("사람 검수 완료 기록 — PUT /api/admin/foods/{id}/human-review") {
@@ -200,8 +208,8 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
                     first.path("items").size() shouldBe 20
                     first.path("items")[0].path("foodId").asLong() shouldBe ids.last()
                     first.path("hasNext").asBoolean().shouldBeTrue()
-                    val cursor = first.path("nextCursor").asLong()
-                    cursor shouldBe ids[1]
+                    val cursor = first.path("nextCursor").asText()
+                    cursor.isNotBlank().shouldBeTrue()
 
                     val second = payloadOf(reviews("?cursor=$cursor"))
                     second.path("items").map { it.path("foodId").asLong() } shouldBe listOf(ids.first())
@@ -210,11 +218,27 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
                 }
             }
 
-            `when`("검수 기록이 없는 음식 id 를 커서로 주면") {
+            `when`("커서를 발급받은 뒤 그 음식이 재검수·해제되면") {
+                then("다음 페이지가 중복·누락·오류 없이 이어진다 — 커서가 행을 다시 읽지 않는다") {
+                    seedAdmins()
+                    val ids = (1..21).map { i -> saveFood("커서안정$i").id.also { setReviewed(it, yejin, 100 - i) } }
+                    val first = payloadOf(reviews())
+                    val cursor = first.path("nextCursor").asText()
+                    first.path("items").last().path("foodId").asLong() shouldBe ids[1]
+
+                    mark(ids[1]).andExpect { status { isOk() } }
+                    clear(ids[2]).andExpect { status { isOk() } }
+
+                    val second = payloadOf(reviews("?cursor=$cursor").andExpect { status { isOk() } })
+                    second.path("items").map { it.path("foodId").asLong() } shouldBe listOf(ids[0])
+                    second.path("hasNext").asBoolean().shouldBeFalse()
+                }
+            }
+
+            `when`("형식이 깨진 커서를 주면") {
                 then("400 FOOD-002 다") {
                     seedAdmins()
-                    val food = saveFood("커서불량음식")
-                    reviews("?cursor=${food.id}").andExpect {
+                    reviews("?cursor=not-a-cursor").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("FOOD-002") }
                     }
@@ -226,7 +250,7 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
                     seedAdmins()
                     val kept = saveFood("살아있는검수음식")
                     val food = saveFood("삭제검수음식")
-                    setReviewed(kept.id, yejin, 20)
+                    mark(kept.id).andExpect { status { isOk() } }
                     mark(food.id).andExpect { status { isOk() } }
                     deleteFood(food.id).andExpect { status { isOk() } }
 
@@ -236,6 +260,44 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
                     payload.path("items")[1].path("deleted").asBoolean().shouldBeFalse()
                     payload.path("summary")[0].path("count").asLong() shouldBe 2
                     getDeletedDetail(food.id).andExpect { jsonPath("$.payload.humanReview.reviewedBy.id") { value(yejin) } }
+                }
+            }
+        }
+
+        given("동시 검수 — 같은 음식에 두 요청이 겹치면") {
+            fun race(first: () -> Int, second: () -> Int): List<Int> {
+                val executor = Executors.newFixedThreadPool(2)
+                val gate = CountDownLatch(1)
+                val results = listOf(first, second).map { call -> executor.submit<Int> { gate.await(); call() } }
+                gate.countDown()
+                return results.map { it.get() }.also { executor.shutdown() }
+            }
+
+            `when`("두 관리자가 동시에 기록하면") {
+                then("둘 다 200 이고 최종값은 둘 중 하나다 — 잠금으로 직렬화돼 낙관 충돌이 나지 않는다") {
+                    seedAdmins()
+                    val food = saveFood("동시검수음식")
+
+                    race(
+                        { mark(food.id, yejin).andReturn().response.status },
+                        { mark(food.id, jonghan).andReturn().response.status },
+                    ) shouldBe listOf(200, 200)
+
+                    val reviewer = payloadOf(getDetail(food.id)).path("humanReview").path("reviewedBy").path("id").asLong()
+                    (reviewer == yejin || reviewer == jonghan).shouldBeTrue()
+                }
+            }
+
+            `when`("기록과 해제가 동시에 오면") {
+                then("둘 다 200 이다") {
+                    seedAdmins()
+                    val food = saveFood("동시해제음식")
+                    mark(food.id).andExpect { status { isOk() } }
+
+                    race(
+                        { mark(food.id, jonghan).andReturn().response.status },
+                        { clear(food.id).andReturn().response.status },
+                    ) shouldBe listOf(200, 200)
                 }
             }
         }

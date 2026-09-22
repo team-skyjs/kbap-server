@@ -16,7 +16,7 @@ class AdminHumanReviewController(
     @GetMapping
     override fun getHumanReviews(
         @RequestParam(required = false) adminId: Long?,
-        @RequestParam(required = false) cursor: Long?,
+        @RequestParam(required = false) cursor: String?,
     ): ResponseEntity<BaseResponse<AdminHumanReviewListResponse>> =
         ResponseEntity.ok(BaseResponse.ok(humanReviewService.getHumanReviewPage(adminId, cursor)))
 }
