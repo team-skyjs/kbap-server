@@ -32,6 +32,7 @@ class FoodImageBatchCollectService(
     private val itemRepository: ImageBatchItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
+    private val publishedFoodRestorer: PublishedFoodRestorer,
     private val client: FoodImageBatchClient,
     private val storageObjectStore: StorageObjectStore,
     private val eventPublisher: ApplicationEventPublisher,
@@ -143,6 +144,7 @@ class FoodImageBatchCollectService(
     private fun saveItem(item: ImageBatchItem, mutate: (ImageBatchItem) -> Unit) {
         itemTransaction.executeWithoutResult {
             mutate(item)
+            if (item.itemStatus == ImageBatchItemStatus.FAILED) publishedFoodRestorer.restoreFailed(listOf(item))
             itemRepository.save(item)
         }
     }

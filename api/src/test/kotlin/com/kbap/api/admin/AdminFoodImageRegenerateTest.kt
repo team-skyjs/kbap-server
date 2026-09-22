@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.food.FakeFoodImageBatchClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -10,6 +11,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import com.kbap.common.domain.food.model.RegenerationIntent
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -44,6 +46,9 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
+    private lateinit var fakeClient: FakeFoodImageBatchClient
+
+    @Autowired
     private lateinit var dataSource: DataSource
 
     private val mapper: ObjectMapper = jacksonObjectMapper()
@@ -70,9 +75,13 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 Food(koreanName = name, description = "설명", imageRef = "images/webp/$name.webp", contentStatus = status),
             )
 
-        fun regenerate(foodId: Long, token: String? = adminToken()): ResultActionsDsl =
+        fun regenerate(foodId: Long, token: String? = adminToken(), body: Map<String, Any?>? = null): ResultActionsDsl =
             mockMvc.post("/api/admin/foods/$foodId/regenerate-image") {
                 token?.let { header("Authorization", "Bearer $it") }
+                if (body != null) {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(body)
+                }
             }
 
         fun submit(body: Map<String, Any?>? = null, token: String? = adminToken()): ResultActionsDsl =
@@ -213,6 +222,74 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-011") }
                     }
+                }
+            }
+        }
+
+        given("이미지 재생성 — 의도") {
+            `when`("의도와 사유를 담아 재생성하면") {
+                then("배치 항목에 그대로 기록된다") {
+                    val food = saveFood("의도기록음식")
+
+                    regenerate(food.id, body = mapOf("intent" to "REPLACE_BETTER", "reason" to "배경이 어두움"))
+                        .andExpect { status { isOk() } }
+
+                    val item = itemRepository.findAll().single { it.foodId == food.id }
+                    item.regenerationIntent shouldBe RegenerationIntent.REPLACE_BETTER
+                    item.regenerationReason shouldBe "배경이 어두움"
+                }
+            }
+
+            `when`("본문 없이 재생성하면(기존 어드민)") {
+                then("접수되고 의도는 비어 있다 — 실패 시 숨김 유지로 해석된다") {
+                    val food = saveFood("의도누락음식")
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+
+                    itemRepository.findAll().single { it.foodId == food.id }.regenerationIntent shouldBe null
+                }
+            }
+
+            `when`("실패로 숨겨진 음식을 REPLACE_BETTER 로 재생성하면") {
+                then("409 FOOD-011 로 거절한다 — 공개된 적 없는 상태를 실패 복원으로 공개하지 않게") {
+                    val food = saveFood("숨김교체음식", FoodContentStatus.PENDING_IMAGE)
+
+                    regenerate(food.id, body = mapOf("intent" to "REPLACE_BETTER")).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-011") }
+                    }
+                    regenerate(food.id, body = mapOf("intent" to "WRONG_IMAGE")).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("사유가 500자를 넘으면") {
+                then("400 으로 거절한다") {
+                    val food = saveFood("긴사유음식")
+
+                    regenerate(food.id, body = mapOf("intent" to "WRONG_IMAGE", "reason" to "가".repeat(501)))
+                        .andExpect { status { isBadRequest() } }
+                }
+            }
+
+            `when`("REPLACE_BETTER 재생성의 제출이 실패하면") {
+                then("옛 이미지로 READY 복원된다 — 회수 경로뿐 아니라 제출 경로도 같은 복원을 지난다") {
+                    val food = saveFood("교체제출실패음식")
+                    fakeClient.submitFailure = RuntimeException("openai down")
+                    runCatching { regenerate(food.id, body = mapOf("intent" to "REPLACE_BETTER")) }
+                    fakeClient.submitFailure = null
+
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                }
+            }
+
+            `when`("WRONG_IMAGE 재생성의 제출이 실패하면") {
+                then("숨긴 채 남는다") {
+                    val food = saveFood("오류제출실패음식")
+                    fakeClient.submitFailure = RuntimeException("openai down")
+                    runCatching { regenerate(food.id, body = mapOf("intent" to "WRONG_IMAGE")) }
+                    fakeClient.submitFailure = null
+
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
         }

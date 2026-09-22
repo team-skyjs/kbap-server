@@ -90,6 +90,8 @@ class Food(
 
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
 
+    fun isFailedRegeneration(): Boolean = contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
+
     fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
 
     fun freezePublishedAtIfLegacy() {

@@ -2,7 +2,12 @@ package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -39,6 +44,12 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var llmCallCostJpaRepository: LlmCallCostJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchJpaRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -162,6 +173,43 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     foods.last().count shouldBe 2
                     foods[3].count shouldBe 1
                     foods.sumOf { it.count } shouldBe 3
+                }
+            }
+        }
+
+        given("대시보드 지표 - 이미지 대기 방치") {
+            fun saveFood(koreanName: String, status: FoodContentStatus, imageRef: String?): Food =
+                foodJpaRepository.save(
+                    Food(koreanName = koreanName, description = "설명", imageRef = imageRef, contentStatus = status),
+                )
+
+            `when`("이미지 대기 음식이 섞여 있으면") {
+                then("진행 중 배치가 없는 수와 그중 재생성 실패로 숨긴 채 남은 수를 따로 센다") {
+                    clearAll()
+                    saveFood("재생성실패음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/old.webp")
+                    saveFood("첫이미지대기음식", FoodContentStatus.PENDING_IMAGE, null)
+                    val submitted = saveFood("재생성진행중음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/wip.webp")
+                    val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = submitted.id))
+                    saveFood("공개음식", FoodContentStatus.READY, "images/webp/food/ready.webp")
+
+                    val metrics = service.getMetricsSummary()
+
+                    metrics.pendingImageWithoutBatchCount shouldBe 2
+                    metrics.strandedImageRegenerationCount shouldBe 1
+                }
+            }
+
+            `when`("상태·이미지 값의 모든 조합에서 세면") {
+                then("쿼리 술어가 엔티티의 isFailedRegeneration 과 같은 음식을 고른다") {
+                    clearAll()
+                    val imageRefs = listOf(null, "", "   ", "images/webp/food/x.webp")
+                    val foods = FoodContentStatus.entries.flatMap { status ->
+                        imageRefs.mapIndexed { i, ref -> saveFood("동치${status.name}$i", status, ref) }
+                    }
+
+                    service.getMetricsSummary().strandedImageRegenerationCount shouldBe
+                        foods.count { it.isFailedRegeneration() }.toLong()
                 }
             }
         }

@@ -43,8 +43,9 @@ class AdminFoodImageController(
     @PostMapping("/{foodId}/regenerate-image")
     override fun regenerateImage(
         @PathVariable foodId: Long,
-    ): ResponseEntity<BaseResponse<AdminFoodImageRegenerateResponse>> =
-        ResponseEntity.ok(
-            BaseResponse.ok(AdminFoodImageRegenerateResponse.from(adminFoodImageService.regenerateImage(foodId))),
-        )
+        @Valid @RequestBody(required = false) request: AdminFoodImageRegenerateRequest?,
+    ): ResponseEntity<BaseResponse<AdminFoodImageRegenerateResponse>> {
+        val result = adminFoodImageService.regenerateImage(foodId, request?.intent, request?.reason)
+        return ResponseEntity.ok(BaseResponse.ok(AdminFoodImageRegenerateResponse.from(result)))
+    }
 }

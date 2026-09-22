@@ -11,6 +11,7 @@ import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import com.kbap.common.domain.food.model.ImageBatchStatus
+import com.kbap.common.domain.food.model.RegenerationIntent
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
@@ -24,6 +25,7 @@ class FoodImageBatchSubmitService(
     private val itemRepository: ImageBatchItemJpaRepository,
     private val client: FoodImageBatchClient,
     private val properties: FoodImageProperties,
+    private val publishedFoodRestorer: PublishedFoodRestorer,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -39,11 +41,15 @@ class FoodImageBatchSubmitService(
         return submit(targets, foodIds.filter { it in inProgress })
     }
 
-    fun claimOne(food: com.kbap.common.domain.food.model.Food): FoodImageBatchClaim {
+    fun claimOne(
+        food: com.kbap.common.domain.food.model.Food,
+        intent: RegenerationIntent?,
+        reason: String?,
+    ): FoodImageBatchClaim {
         if (itemRepository.findFoodIdsInProgress(listOf(food.id)).isNotEmpty()) {
             throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
         }
-        val batch = claim(listOf(food))
+        val batch = claim(listOf(food)) { it.regenerationIntent = intent; it.regenerationReason = reason }
         val itemId = itemRepository.findFoodIdsInProgressItemId(food.id)
             ?: throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
         return FoodImageBatchClaim(batch = batch, foods = listOf(food), itemId = itemId)
@@ -83,12 +89,15 @@ class FoodImageBatchSubmitService(
         return foods.filterNot { it.id in inProgress }
     }
 
-    private fun claim(foods: List<com.kbap.common.domain.food.model.Food>): ImageBatch =
+    private fun claim(
+        foods: List<com.kbap.common.domain.food.model.Food>,
+        describe: (ImageBatchItem) -> Unit = {},
+    ): ImageBatch =
         metaTransaction.execute {
             val claimed = batchRepository.save(
                 ImageBatch(promptVersion = FoodImageProperties.PROMPT_VERSION, model = properties.model),
             )
-            itemRepository.saveAll(foods.map { ImageBatchItem(batchId = claimed.id, foodId = it.id) })
+            itemRepository.saveAll(foods.map { ImageBatchItem(batchId = claimed.id, foodId = it.id).apply(describe) })
             claimed
         }!!
 
@@ -103,9 +112,10 @@ class FoodImageBatchSubmitService(
             }
         } catch (e: Exception) {
             metaTransaction.executeWithoutResult {
-                itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
-                    .forEach { item -> itemRepository.save(item.apply { fail("제출 실패: ${e.message}") }) }
+                val failed = itemRepository.findByBatchIdAndItemStatus(batch.id, ImageBatchItemStatus.PENDING)
+                    .map { item -> itemRepository.save(item.apply { fail("제출 실패: ${e.message}") }) }
                 batchRepository.save(batch.apply { close(ImageBatchStatus.FAILED) })
+                publishedFoodRestorer.restoreFailed(failed)
             }
             throw e
         }
