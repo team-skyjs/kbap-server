@@ -49,7 +49,7 @@ data class MyFeedbackItemResponse(
     }
 }
 
-@Schema(description = "내 문의 목록 — 이 기기(설치 ID) 또는 로그인한 회원의 문의")
+@Schema(description = "내 문의 목록 — 로그인 상태면 그 회원의 문의, 비로그인이면 이 기기의 게스트 문의")
 data class MyFeedbackPageResponse(
     @field:Schema(description = "문의 목록. 최신순")
     val items: List<MyFeedbackItemResponse>,

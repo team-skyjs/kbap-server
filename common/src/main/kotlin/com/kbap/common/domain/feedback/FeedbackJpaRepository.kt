@@ -19,8 +19,7 @@ interface FeedbackJpaRepository : JpaRepository<Feedback, Long> {
     @Query(
         """
         select f from Feedback f
-        where f.id = :id
-          and (f.installationId = :installationId or (:memberId is not null and f.memberId = :memberId))
+        where f.id = :id and $MINE
         """,
     )
     fun findMineById(
@@ -32,7 +31,7 @@ interface FeedbackJpaRepository : JpaRepository<Feedback, Long> {
     @Query(
         """
         select f from Feedback f
-        where (f.installationId = :installationId or (:memberId is not null and f.memberId = :memberId))
+        where $MINE
           and (:cursor is null or f.id < :cursor)
         order by f.id desc
         """,
@@ -49,4 +48,11 @@ interface FeedbackJpaRepository : JpaRepository<Feedback, Long> {
     fun findAllByOrderByIdDesc(pageable: Pageable): Page<Feedback>
 
     fun countByInstallationIdAndCreatedAtAfter(installationId: String, createdAt: LocalDateTime): Long
+
+    companion object {
+        const val MINE =
+            "(case when :memberId is null " +
+                "then f.installationId = :installationId and f.memberId is null " +
+                "else f.memberId = :memberId end) = true"
+    }
 }
