@@ -2,7 +2,9 @@ package com.kbap.api.bookmark
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
+import com.kbap.api.core.config.ApiErrors
 import com.kbap.api.food.FoodSummaryResponse
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -29,10 +31,11 @@ interface BookmarkApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "등록 성공(멱등 — 이미 등록된 음식도 성공)"),
-            ApiResponse(responseCode = "400", description = "미존재 또는 미완성 음식"),
+            ApiResponse(responseCode = "400", description = "미존재 음식(FOOD-001) 또는 공개 전·숨겨진 음식(FOOD-018)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_NOT_PUBLIC)
     fun register(
         memberId: Long,
         @SwaggerRequestBody(

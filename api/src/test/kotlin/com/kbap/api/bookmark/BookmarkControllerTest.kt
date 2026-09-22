@@ -140,6 +140,21 @@ class BookmarkControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미지 재생성으로 숨겨진 음식을 등록하면") {
+                then("400 FOOD-018 로 없는 음식(FOOD-001)과 구분된다") {
+                    val token = accessToken(203L)
+                    seedFood(7L, "숨김된장찌개")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.executeUpdate("UPDATE food SET content_status = 'PENDING_IMAGE' WHERE id = 7") }
+                    }
+
+                    register(token, 7L).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-018") }
+                    }
+                }
+            }
+
             `when`("액세스 토큰 없이 등록하면") {
                 then("401 을 반환한다") {
                     seedFood(1L, "김치찌개")
