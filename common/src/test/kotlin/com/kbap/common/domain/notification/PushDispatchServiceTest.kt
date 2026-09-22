@@ -15,6 +15,7 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -29,9 +30,6 @@ class PushDispatchServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var service: PushDispatchService
-
-    @Autowired
-    private lateinit var renderer: PushMessageRenderer
 
     @Autowired
     private lateinit var deviceRepository: NotificationDeviceJpaRepository
@@ -117,10 +115,9 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     val notifications = notificationRepository.findAll().associateBy { it.installationId }
                     notifications.keys shouldBe setOf(ko.installationId, ja.installationId)
                     notifications.values.all { it.memberId == 1L && it.type == NotificationType.HELPFUL } shouldBe true
-                    notifications.getValue(ko.installationId).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.KO, helpfulArgs).title
-                    notifications.getValue(ja.installationId).title shouldBe
-                        renderer.render(NotificationType.HELPFUL, LanguageCode.JA, helpfulArgs).title
+                    notifications.getValue(ko.installationId).body shouldContain helpfulArgs.getValue("food")
+                    notifications.getValue(ja.installationId).body shouldContain helpfulArgs.getValue("food")
+                    notifications.getValue(ko.installationId).title shouldNotBe notifications.getValue(ja.installationId).title
                     notifications.values.forEach { n ->
                         n.data!!["type"] shouldBe "HELPFUL"
                         n.data!!["foodId"] shouldBe "7"

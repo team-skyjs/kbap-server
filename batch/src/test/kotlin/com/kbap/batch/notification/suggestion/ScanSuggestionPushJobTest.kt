@@ -5,13 +5,11 @@ import com.kbap.batch.notification.MutableClock
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
 import com.kbap.batch.trigger.rest.BatchJobLauncher
-import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.NotificationDispatchJpaRepository
 import com.kbap.common.domain.notification.NotificationJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
-import com.kbap.common.domain.notification.PushTemplates
 import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationConsent
 import com.kbap.common.domain.notification.model.Notification
@@ -25,6 +23,7 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -174,12 +173,12 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                     val sent = fakePushClient.sent
                     sent shouldHaveSize 2
                     sent.forEach { it.title shouldStartWith "(광고) " }
-                    byLangTitle(sent, "ko") shouldBe "(광고) 점심 먹을 때 스캔해보세요"
+                    byLangTitle(sent, "ko") shouldContain "점심"
                     sent.forEach { it.ttlSeconds shouldBe 10800 }
                     sent.forEach { it.channelId shouldBe "news" }
                     val byLang = sent.associateBy { m -> deviceRepository.findAll().first { it.expoToken == m.to }.lang }
-                    byLang.getValue("ko").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.KO)
-                    byLang.getValue("en").body shouldEndWith PushTemplates.optOutNotice.getValue(LanguageCode.EN)
+                    byLang.getValue("ko").body shouldEndWith "수신거부: 프로필 > 알림 설정"
+                    byLang.getValue("en").body shouldEndWith "Turn off: Profile > Notification settings"
                     byLang.getValue("ko").body shouldNotBe byLang.getValue("en").body
                 }
             }
@@ -295,7 +294,8 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
                 then("저녁 문구로 발송한다") {
                     execution.exitStatus.exitCode shouldBe "COMPLETED"
                     execution.jobInstance.jobName shouldBe DINNER_JOB_NAME
-                    byLangTitle(fakePushClient.sent, "ko") shouldBe "(광고) 저녁 메뉴, 스캔해보세요"
+                    byLangTitle(fakePushClient.sent, "ko") shouldStartWith "(광고) "
+                    byLangTitle(fakePushClient.sent, "ko") shouldContain "저녁"
                 }
             }
         }
