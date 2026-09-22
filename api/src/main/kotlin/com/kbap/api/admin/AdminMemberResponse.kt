@@ -208,11 +208,14 @@ data class AdminDashboardMetricsResponse(
     @field:Schema(
         description = "미참조 업로드 정리 대상 수(용도별 — review·community·feedback). 보존 기간이 지났고 리뷰·게시글·문의·" +
             "프로필·주문 어디에도 참조되지 않은 업로드다. 실삭제가 꺼진(dry-run) 동안은 쌓이기만 한다. " +
-            "업로드가 있는 용도가 0 이면 참조 판정 쿼리를 의심한다. null 은 0 과 다르다 — 건수 조회가 실패해 세지 못했다는 뜻이며, " +
-            "이때도 나머지 지표는 정상으로 내려간다",
+            "업로드가 있는 용도가 0 이면 참조 판정 쿼리를 의심한다. 요청마다 세지 않는다 — 인스턴스가 기동 직후와 매일 " +
+            "04:40 KST 에 센 최근값이다(시각은 orphanUploadedImageCountedAt). null 은 0 과 다르다 — 아직 세지 않았거나 " +
+            "마지막 계산이 실패해 못 셌다는 뜻이다",
         example = "{\"review\": 12, \"community\": 3, \"feedback\": 0}",
     )
     val orphanUploadedImageCounts: Map<String, Long>?,
+    @field:Schema(description = "orphanUploadedImageCounts 를 센 시각. 그 값이 null 이면 이것도 null", example = "2026-09-22T04:40:00")
+    val orphanUploadedImageCountedAt: LocalDateTime?,
 )
 
 data class AdminDailyCountResponse(

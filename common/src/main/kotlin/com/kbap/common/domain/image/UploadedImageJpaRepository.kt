@@ -1,7 +1,9 @@
 package com.kbap.common.domain.image
 
 import com.kbap.common.domain.image.model.UploadedImage
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -12,7 +14,9 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
 
     fun findByPath(path: String): UploadedImage?
 
-    fun findByPathIn(paths: Collection<String>): List<UploadedImage>
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UploadedImage u where u.path in :paths")
+    fun findByPathInForUpdate(@Param("paths") paths: Collection<String>): List<UploadedImage>
 
     @Query(
         nativeQuery = true,

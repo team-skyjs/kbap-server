@@ -3,14 +3,19 @@ package com.kbap.api.image
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.model.UploadPurpose
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -22,6 +27,12 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var uploadedImageService: UploadedImageService
+
+    @Autowired
+    private lateinit var entityManager: EntityManager
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -172,11 +183,12 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     upload("dev/images/review/r2.webp")
                     upload("dev/images/feedback/f1.webp")
 
-                    val result = cleanupService(dryRun = true).cleanup()
+                    val service = cleanupService(dryRun = true)
+                    val result = service.cleanup()
 
                     result.dryRun shouldBe true
                     result.deletedCount shouldBe 0
-                    result.orphanCounts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L)
+                    service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L)
                     activePaths().size shouldBe 3
                     storage.deleted.shouldBeEmpty()
                 }
@@ -190,6 +202,53 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     cleanupService(pageSize = 2).cleanup().deletedCount shouldBe 5
 
                     activePaths().shouldBeEmpty()
+                }
+            }
+        }
+
+        given("첨부와 정리의 경합") {
+            `when`("첨부 트랜잭션이 업로드 행을 먼저 확인(잠금)한 뒤 정리가 돌면") {
+                then("정리는 첨부 커밋을 기다렸다가 참조를 보고 지우지 않는다 — 첨부된 사진이 사라지지 않는다") {
+                    reset()
+                    val path = "dev/images/review/racing.webp"
+                    upload(path)
+                    val locked = CountDownLatch(1)
+                    val executor = Executors.newFixedThreadPool(2)
+
+                    val attach = executor.submit<Boolean> {
+                        TransactionTemplate(transactionManager).execute {
+                            val owned = uploadedImageService.ownsAllImages(memberId, listOf(path), UploadPurpose.REVIEW)
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                            entityManager.createNativeQuery(
+                                "INSERT INTO food_review (member_id, food_id, rating, image_refs, status) " +
+                                    "VALUES ($memberId, $foodId, 5, JSON_ARRAY('$path'), 'ACTIVE')",
+                            ).executeUpdate()
+                            owned
+                        }!!
+                    }
+                    locked.await()
+                    val cleanup = executor.submit<UploadedImageCleanupResult> { cleanupService().cleanup() }
+
+                    attach.get() shouldBe true
+                    cleanup.get().deletedCount shouldBe 0
+                    executor.shutdown()
+                    activePaths() shouldBe setOf(path)
+                    storage.deleted.shouldBeEmpty()
+                }
+            }
+
+            `when`("정리가 먼저 커밋된 뒤 같은 사진을 첨부하면") {
+                then("첨부 검증이 거절한다 — 지워진 사진을 가리키는 글이 생기지 않는다") {
+                    reset()
+                    val path = "dev/images/review/cleaned-first.webp"
+                    upload(path)
+
+                    cleanupService().cleanup().deletedCount shouldBe 1
+
+                    TransactionTemplate(transactionManager).execute {
+                        uploadedImageService.ownsAllImages(memberId, listOf(path), UploadPurpose.REVIEW)
+                    } shouldBe false
                 }
             }
         }

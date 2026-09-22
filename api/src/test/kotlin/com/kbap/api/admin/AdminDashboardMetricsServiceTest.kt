@@ -16,11 +16,11 @@ import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -181,47 +181,82 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
             }
         }
 
-        given("대시보드 지표 - 미참조 업로드 건수 격리") {
-            `when`("건수 쿼리가 DB 오류로 실패하면") {
-                then("요약은 정상으로 내고 그 필드만 null 이다 — 0 은 고아 없음, null 은 못 셌음") {
-                    clearAll()
-                    saveMember("isolation-member")
-                    val failingCleanup = object : UploadedImageCleanupService(
-                        uploadedImageJpaRepository,
-                        FakeStorageObjectStore(),
-                        7,
-                        true,
-                        100,
-                        transactionManager,
-                    ) {
-                        override fun countOrphansIn(before: LocalDateTime): Map<String, Long> {
-                            entityManager.createNativeQuery("SELECT COUNT(*) FROM no_such_table").singleResult
-                            return emptyMap()
-                        }
-                    }
-                    val isolated = AdminDashboardMetricsService(
-                        memberJpaRepository,
-                        scanHistoryJpaRepository,
-                        foodJpaRepository,
-                        llmCallCostJpaRepository,
-                        failingCleanup,
-                    )
+        given("대시보드 지표 - 미참조 업로드 건수") {
+            class RecordingCleanup(private val fail: () -> Boolean) : UploadedImageCleanupService(
+                uploadedImageJpaRepository,
+                FakeStorageObjectStore(),
+                7,
+                true,
+                100,
+                transactionManager,
+            ) {
+                var countQueries = 0
 
-                    val summary = TransactionTemplate(transactionManager)
-                        .apply { isReadOnly = true }
-                        .execute { isolated.getMetricsSummary() }!!
-
-                    summary.orphanUploadedImageCounts shouldBe null
-                    summary.totalActiveMembers shouldBe 1
+                override fun countOrphansIn(before: LocalDateTime): Map<String, Long> {
+                    countQueries++
+                    if (fail()) entityManager.createNativeQuery("SELECT COUNT(*) FROM no_such_table").singleResult
+                    return super.countOrphansIn(before)
                 }
             }
 
-            `when`("건수 쿼리가 성공하고 고아가 없으면") {
-                then("null 이 아니라 용도별 0 이다") {
+            fun summaryWith(cleanup: UploadedImageCleanupService) = AdminDashboardMetricsService(
+                memberJpaRepository,
+                scanHistoryJpaRepository,
+                foodJpaRepository,
+                llmCallCostJpaRepository,
+                cleanup,
+            ).getMetricsSummary()
+
+            `when`("요약을 여러 번 조회하면") {
+                then("건수 쿼리를 한 번도 돌리지 않는다 — 요청 경로엔 전체 스캔이 없다") {
+                    clearAll()
+                    val cleanup = RecordingCleanup { false }
+
+                    repeat(3) { summaryWith(cleanup) }
+
+                    cleanup.countQueries shouldBe 0
+                }
+            }
+
+            `when`("아직 한 번도 세지 않았으면") {
+                then("건수와 계산 시각이 null 이다 — 0(고아 없음)과 구분된다") {
                     clearAll()
 
-                    service.getMetricsSummary().orphanUploadedImageCounts shouldBe
-                        mapOf("review" to 0L, "community" to 0L, "feedback" to 0L)
+                    val summary = summaryWith(RecordingCleanup { false })
+
+                    summary.orphanUploadedImageCounts shouldBe null
+                    summary.orphanUploadedImageCountedAt shouldBe null
+                }
+            }
+
+            `when`("센 결과 고아가 없으면") {
+                then("null 이 아니라 용도별 0 과 계산 시각이 나간다") {
+                    clearAll()
+                    val cleanup = RecordingCleanup { false }
+                    cleanup.refreshOrphanCounts()
+
+                    val summary = summaryWith(cleanup)
+
+                    summary.orphanUploadedImageCounts shouldBe mapOf("review" to 0L, "community" to 0L, "feedback" to 0L)
+                    summary.orphanUploadedImageCountedAt.shouldNotBeNull()
+                }
+            }
+
+            `when`("건수 계산이 DB 오류로 실패하면") {
+                then("예외 없이 최근값을 비우고 요약의 나머지 지표는 정상이다 — 옛 값을 최신처럼 남기지 않는다") {
+                    clearAll()
+                    saveMember("count-failure-member")
+                    var failing = false
+                    val cleanup = RecordingCleanup { failing }
+                    cleanup.refreshOrphanCounts().shouldNotBeNull()
+
+                    failing = true
+                    cleanup.refreshOrphanCounts() shouldBe null
+                    val summary = summaryWith(cleanup)
+
+                    summary.orphanUploadedImageCounts shouldBe null
+                    summary.orphanUploadedImageCountedAt shouldBe null
+                    summary.totalActiveMembers shouldBe 1
                 }
             }
         }

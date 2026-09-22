@@ -5,10 +5,12 @@ import com.kbap.common.port.storage.StorageObjectStore
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 
@@ -23,19 +25,19 @@ class UploadedImageCleanupService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
-    private val countTransaction = TransactionTemplate(transactionManager).apply {
-        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
-        isReadOnly = true
-    }
+    private val countTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
+
+    @Volatile
+    private var latestOrphanCounts: OrphanUploadCounts? = null
 
     @Scheduled(cron = "\${kbap.uploaded-image-cleanup.cron:0 30 4 * * *}", zone = "Asia/Seoul")
     @SchedulerLock(name = "uploaded-image-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun cleanup(): UploadedImageCleanupResult {
         val before = orphanCutoff()
         if (dryRun) {
-            val counts = countOrphans(before)
-            log.info("미참조 업로드 정리 dry-run — 삭제 대상 {}", counts)
-            return UploadedImageCleanupResult(dryRun = true, deletedCount = 0, orphanCounts = counts)
+            val counts = refreshOrphanCounts()
+            log.info("미참조 업로드 정리 dry-run — 삭제 대상 {}", counts?.counts)
+            return UploadedImageCleanupResult(dryRun = true, deletedCount = 0)
         }
         var deleted = 0
         var afterId = 0L
@@ -46,11 +48,26 @@ class UploadedImageCleanupService(
             afterId = ids.last()
         }
         log.info("미참조 업로드 정리 — {}건 삭제", deleted)
-        return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted, orphanCounts = countOrphans(before))
+        refreshOrphanCounts()
+        return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted)
     }
 
-    fun countOrphans(before: LocalDateTime = orphanCutoff()): Map<String, Long> =
-        countTransaction.execute { countOrphansIn(before) }!!
+    @Async
+    @EventListener(ApplicationReadyEvent::class)
+    fun refreshOrphanCountsOnStartup() {
+        refreshOrphanCounts()
+    }
+
+    @Scheduled(cron = "\${kbap.uploaded-image-cleanup.count-cron:0 40 4 * * *}", zone = "Asia/Seoul")
+    fun refreshOrphanCounts(): OrphanUploadCounts? {
+        val before = orphanCutoff()
+        latestOrphanCounts = runCatching { OrphanUploadCounts(countTransaction.execute { countOrphansIn(before) }!!, LocalDateTime.now()) }
+            .onFailure { log.warn("미참조 업로드 건수를 세지 못했다 — 최근값을 비운다", it) }
+            .getOrNull()
+        return latestOrphanCounts
+    }
+
+    fun getLatestOrphanCounts(): OrphanUploadCounts? = latestOrphanCounts
 
     protected fun countOrphansIn(before: LocalDateTime): Map<String, Long> =
         UploadedImageJpaRepository.CLEANUP_SEGMENTS.associate { segment ->
@@ -73,5 +90,9 @@ class UploadedImageCleanupService(
 data class UploadedImageCleanupResult(
     val dryRun: Boolean,
     val deletedCount: Int,
-    val orphanCounts: Map<String, Long>,
+)
+
+data class OrphanUploadCounts(
+    val counts: Map<String, Long>,
+    val computedAt: LocalDateTime,
 )
