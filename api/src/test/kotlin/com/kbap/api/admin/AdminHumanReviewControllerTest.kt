@@ -177,6 +177,7 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
                     val all = payloadOf(reviews().andExpect { status { isOk() } })
                     all.path("items").map { it.path("foodId").asLong() } shouldBe listOf(c.id, b.id, a.id)
                     all.path("items")[0].path("name").asText() shouldBe "목록C"
+                    all.path("items")[0].path("deleted").asBoolean().shouldBeFalse()
                     all.path("items")[0].path("reviewer").path("displayName").asText() shouldBe "김예진"
                     all.path("items")[1].path("reviewer").path("displayName").asText() shouldBe "jonghan"
                     all.path("hasNext").asBoolean().shouldBeFalse()
@@ -221,16 +222,20 @@ class AdminHumanReviewControllerTest : AdminFoodCatalogTestSupport() {
             }
 
             `when`("검수된 음식이 소프트삭제되면") {
-                then("목록·건수에서 빠진다") {
+                then("기록은 목록(deleted=true)·건수에 그대로 남는다 — 관리자가 한 일은 음식이 지워져도 사라지지 않는다") {
                     seedAdmins()
+                    val kept = saveFood("살아있는검수음식")
                     val food = saveFood("삭제검수음식")
+                    setReviewed(kept.id, yejin, 20)
                     mark(food.id).andExpect { status { isOk() } }
                     deleteFood(food.id).andExpect { status { isOk() } }
 
-                    payloadOf(reviews()).let {
-                        it.path("items").size() shouldBe 0
-                        it.path("summary").size() shouldBe 0
-                    }
+                    val payload = payloadOf(reviews())
+                    payload.path("items").map { it.path("foodId").asLong() } shouldBe listOf(food.id, kept.id)
+                    payload.path("items")[0].path("deleted").asBoolean().shouldBeTrue()
+                    payload.path("items")[1].path("deleted").asBoolean().shouldBeFalse()
+                    payload.path("summary")[0].path("count").asLong() shouldBe 2
+                    getDeletedDetail(food.id).andExpect { jsonPath("$.payload.humanReview.reviewedBy.id") { value(yejin) } }
                 }
             }
         }

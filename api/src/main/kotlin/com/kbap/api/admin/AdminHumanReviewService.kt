@@ -7,7 +7,6 @@ import com.kbap.common.domain.admin.AdminAccountJpaRepository
 import com.kbap.common.domain.admin.model.AdminAccount
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
-import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -35,9 +34,10 @@ class AdminHumanReviewService(
 
     @Transactional(readOnly = true)
     fun getHumanReviewPage(adminId: Long?, cursor: Long?): AdminHumanReviewListResponse {
-        val cursorFood = cursor?.let { foodRepository.findById(it).orElse(null) }
-        val cursorAt = cursor?.let { cursorFood?.humanReviewedAt ?: throw BusinessException(ErrorCode.INVALID_CURSOR) }
-        val rows = foodRepository.findHumanReviewedPage(adminId, cursorAt, cursor, PageRequest.of(0, PAGE_SIZE + 1))
+        val cursorAt = cursor?.let {
+            foodRepository.findAnyById(it)?.humanReviewedAt ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
+        }
+        val rows = foodRepository.findHumanReviewedPage(adminId, cursorAt, cursor, PAGE_SIZE + 1)
         val hasNext = rows.size > PAGE_SIZE
         val pageFoods = rows.take(PAGE_SIZE)
         val counts = foodRepository.countHumanReviewsByAdmin()
@@ -47,6 +47,7 @@ class AdminHumanReviewService(
                 AdminHumanReviewItemResponse(
                     foodId = food.id,
                     name = food.displayName(LanguageCode.KO),
+                    deleted = food.isDeleted(),
                     reviewer = reviewerResponseOf(reviewers, food.humanReviewedBy!!),
                     reviewedAt = food.humanReviewedAt!!,
                 )

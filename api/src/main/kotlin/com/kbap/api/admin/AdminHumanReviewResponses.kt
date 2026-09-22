@@ -32,6 +32,8 @@ data class AdminHumanReviewItemResponse(
     val foodId: Long,
     @field:Schema(description = "음식 한국어 이름", example = "순두부찌개")
     val name: String,
+    @field:Schema(description = "음식이 소프트삭제됐는지. true 면 행 탭 시 삭제 음식 상세로", example = "false")
+    val deleted: Boolean,
     val reviewer: AdminReviewerResponse,
     val reviewedAt: LocalDateTime,
 )

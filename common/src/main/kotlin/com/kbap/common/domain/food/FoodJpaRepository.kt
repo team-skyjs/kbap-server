@@ -197,28 +197,30 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findByIdIn(ids: List<Long>): List<Food>
 
     @Query(
-        """
-        select f from Food f
-        where f.humanReviewedAt is not null
-          and (:adminId is null or f.humanReviewedBy = :adminId)
-          and (:cursorAt is null or f.humanReviewedAt < :cursorAt
-               or (f.humanReviewedAt = :cursorAt and f.id < :cursorId))
-        order by f.humanReviewedAt desc, f.id desc
+        nativeQuery = true,
+        value = """
+        SELECT * FROM food
+        WHERE human_reviewed_at IS NOT NULL
+          AND (:adminId IS NULL OR human_reviewed_by = :adminId)
+          AND (:cursorAt IS NULL OR human_reviewed_at < :cursorAt
+               OR (human_reviewed_at = :cursorAt AND id < :cursorId))
+        ORDER BY human_reviewed_at DESC, id DESC
+        LIMIT :size
         """,
     )
     fun findHumanReviewedPage(
         @Param("adminId") adminId: Long?,
         @Param("cursorAt") cursorAt: LocalDateTime?,
         @Param("cursorId") cursorId: Long?,
-        pageable: Pageable,
+        @Param("size") size: Int,
     ): List<Food>
 
     @Query(
-        """
-        select new com.kbap.common.domain.food.dto.HumanReviewCount(f.humanReviewedBy, count(f))
-        from Food f
-        where f.humanReviewedBy is not null
-        group by f.humanReviewedBy
+        nativeQuery = true,
+        value = """
+        SELECT human_reviewed_by AS adminId, COUNT(*) AS count FROM food
+        WHERE human_reviewed_by IS NOT NULL
+        GROUP BY human_reviewed_by
         """,
     )
     fun countHumanReviewsByAdmin(): List<HumanReviewCount>

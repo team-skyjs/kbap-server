@@ -21,7 +21,7 @@ interface AdminHumanReviewApi {
 
             - `adminId` 를 주면 그 관리자가 검수한 음식만.
             - `cursor` 는 직전 응답의 `nextCursor`(마지막 항목의 foodId)를 그대로 되돌려준다. 검수 기록이 없는 foodId 를 커서로 주면 400(FOOD-002).
-            - 소프트삭제된 음식의 기록은 목록·건수에서 빠진다.
+            - **소프트삭제된 음식의 기록도 유지된다** — 목록(`deleted: true`)과 건수에 그대로 남는다. 관리자가 한 일은 음식이 나중에 지워져도 사라지지 않는다.
         """,
     )
     @ApiResponses(
