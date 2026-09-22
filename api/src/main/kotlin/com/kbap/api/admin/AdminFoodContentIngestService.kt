@@ -71,7 +71,8 @@ class AdminFoodContentIngestService(
         ) {
             throw BusinessException(ErrorCode.FOOD_CONTENT_REQUEST_ALREADY_COMPLETED)
         }
-        if (outboxRepository.existsById(outboxId) && !foodRepository.existsById(foodId)) {
+        val ownsOutbox = outboxRepository.findById(outboxId).map { it.foodId == foodId }.orElse(false)
+        if (ownsOutbox && !foodRepository.existsById(foodId)) {
             throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         }
         throw BusinessException(ErrorCode.INVALID_REQUEST)
