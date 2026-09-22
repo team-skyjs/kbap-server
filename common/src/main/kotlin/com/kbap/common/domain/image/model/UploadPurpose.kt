@@ -6,6 +6,7 @@ enum class UploadPurpose(val prefix: String) {
     PROFILE_IMAGE("profile"),
     COMMUNITY("community"),
     FEEDBACK("feedback"),
+    ORDER_ITEM("orders"),
     ;
 
     companion object {

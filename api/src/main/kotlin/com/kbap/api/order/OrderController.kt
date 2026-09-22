@@ -7,9 +7,12 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.place.ReverseGeocoder
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -48,4 +51,29 @@ class OrderController(
         @PathVariable orderId: Long,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
         ResponseEntity.ok(BaseResponse.ok(orderService.getOrderDetail(memberId, orderId)))
+
+    @PatchMapping("/{orderId}/place")
+    override fun updatePlace(
+        @AuthMemberId memberId: Long,
+        @PathVariable orderId: Long,
+        @Valid @RequestBody request: OrderPlaceUpdateRequest,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(orderService.updatePlace(memberId, orderId, request)))
+
+    @PutMapping("/{orderId}/items/{itemId}/image")
+    override fun replaceItemImage(
+        @AuthMemberId memberId: Long,
+        @PathVariable orderId: Long,
+        @PathVariable itemId: Long,
+        @Valid @RequestBody request: OrderItemImageUpdateRequest,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(orderService.replaceItemImage(memberId, orderId, itemId, request.imagePath!!)))
+
+    @DeleteMapping("/{orderId}/items/{itemId}/image")
+    override fun restoreItemImage(
+        @AuthMemberId memberId: Long,
+        @PathVariable orderId: Long,
+        @PathVariable itemId: Long,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(orderService.restoreItemImage(memberId, orderId, itemId)))
 }

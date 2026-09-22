@@ -35,6 +35,10 @@ class Order(
 ) : BaseEntity() {
     fun orderedAt(): Long = createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+    fun replacePlace(place: OrderPlaceSnapshot) {
+        resolvedPlace = place
+    }
+
     companion object {
         const val MAX_ADDRESS_LENGTH = 200
         val LATITUDE_RANGE = BigDecimal("-90")..BigDecimal("90")
