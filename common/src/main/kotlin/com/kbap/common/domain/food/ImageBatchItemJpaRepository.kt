@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional
 interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     fun findByBatchIdAndItemStatus(batchId: Long, itemStatus: ImageBatchItemStatus): List<ImageBatchItem>
 
+    fun findTopByFoodIdOrderByIdDesc(foodId: Long): ImageBatchItem?
+
     @Query(
         """
         select i.foodId from ImageBatchItem i

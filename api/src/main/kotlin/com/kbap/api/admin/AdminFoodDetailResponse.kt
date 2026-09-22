@@ -39,9 +39,16 @@ data class AdminFoodDetailResponse(
     val updatedAt: LocalDateTime,
     @field:Schema(description = "사람 검수 기록. 검수 전·해제 후는 null", nullable = true)
     val humanReview: HumanReviewResponse?,
+    @field:Schema(description = "마지막 이미지 재생성 상태(갤러리 응답과 같은 값). 이력 없음·마지막 성공이면 null", nullable = true)
+    val regeneration: AdminRegenerationStateResponse?,
 ) {
     companion object {
-        fun from(food: Food, imagePublicBaseUrl: String, humanReview: HumanReviewResponse?): AdminFoodDetailResponse =
+        fun from(
+            food: Food,
+            imagePublicBaseUrl: String,
+            humanReview: HumanReviewResponse?,
+            regeneration: AdminRegenerationStateResponse?,
+        ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
@@ -64,6 +71,7 @@ data class AdminFoodDetailResponse(
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,
                 humanReview = humanReview,
+                regeneration = regeneration,
             )
     }
 }
