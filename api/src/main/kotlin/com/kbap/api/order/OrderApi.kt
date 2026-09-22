@@ -92,7 +92,9 @@ interface OrderApi {
     @Operation(
         summary = "주문 항목 사진을 내 사진으로 교체",
         description = """
-            항목 썸네일을 회원이 직접 올린 사진으로 바꾼다. 사진은 먼저 `POST /api/images` 에 purpose=`ORDER_ITEM` 으로 올려 완료해야 한다.
+            항목 썸네일을 회원이 직접 올린 사진으로 바꾼다. 사진은 기존 업로드 흐름으로 먼저 올린다 —
+            ① `POST /api/images/upload-url` (purpose=`ORDER_ITEM`) 로 presigned URL 발급 → ② 그 URL 에 파일 PUT →
+            ③ `POST /api/images/complete` 로 완료. ③ 을 건너뛰면 `uploaded_image` 행이 없어 이 API 가 400(IMAGE-007)이다.
             응답은 갱신된 주문 상세이며 `items[].userImageUrl` 에 반영된다. `imageRef`·`hasPhoto` 는 카탈로그 기준 그대로다.
 
             - 본인이 ORDER_ITEM 용도로 올린 사진이 아니면 400(IMAGE-007) — 타인 사진·다른 용도(리뷰 등)로 올린 사진 모두.
