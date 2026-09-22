@@ -5,6 +5,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.util.KoreanMenuNameNormalizer
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -15,6 +16,7 @@ import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import org.slf4j.LoggerFactory
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -75,18 +77,33 @@ class Food(
         columnDefinition = "ENUM('NOT_FOOD','JUDGE_REJECTED','INGREDIENT_GUARD','ADMIN_REJECTED')",
     )
     var contentFailureKind: FoodContentFailureKind? = null,
+
+    @Column(name = "published_at")
+    var publishedAt: LocalDateTime? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
+    @Column(name = "ingredients_assessed", nullable = false, columnDefinition = "tinyint(1) not null default 0")
+    var ingredientsAssessed: Boolean = ingredients != null
+
     fun isReady(): Boolean = contentStatus == FoodContentStatus.READY
+
+    fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
+
+    fun freezePublishedAtIfLegacy() {
+        if (publishedAt == null && isReady()) {
+            publishedAt = createdAt
+        }
+    }
 
     fun approve(): Boolean {
         // 재승인(READY)은 이미 원하는 결과라 멱등 성공, 그 외 비대상은 운영자 실수 신호라 예외 — 의도된 비대칭.
         if (contentStatus == FoodContentStatus.READY) return false
         requireReviewable()
         contentStatus = FoodContentStatus.READY
+        publishedAt = publishedAt ?: LocalDateTime.now()
         return true
     }
 
@@ -125,11 +142,29 @@ class Food(
         this.spiciness = spiciness
         this.nameTranslations = nameTranslations
         this.descriptionTranslations = descriptionTranslations
-        this.ingredients = ingredients
+        replaceIngredients(ingredients)
         contentFailureKind = null
         contentReviewRejectionReason = null
         if (contentStatus == FoodContentStatus.READY) return
         contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
+    }
+
+    fun replaceIngredients(ingredients: List<FoodIngredient>?) {
+        val kept = ingredients?.filter { it.inclusionPercent != 0 }
+        kept?.let(::requireStorable)
+        this.ingredients = kept
+        ingredientsAssessed = kept != null
+    }
+
+    private fun requireStorable(ingredients: List<FoodIngredient>) {
+        val error = when {
+            ingredients.size > MAX_INGREDIENTS -> ErrorCode.FOOD_TOO_MANY_INGREDIENTS
+            ingredients.any { it.inclusionPercent !in STORABLE_PERCENT } -> ErrorCode.FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE
+            ingredients.any { it.code !in KNOWN_INGREDIENT_CODES } -> ErrorCode.FOOD_UNKNOWN_INGREDIENT
+            ingredients.distinctBy { it.code }.size != ingredients.size -> ErrorCode.FOOD_DUPLICATE_INGREDIENT
+            else -> return
+        }
+        throw BusinessException(error)
     }
 
     fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
@@ -184,6 +219,12 @@ class Food(
         const val MAX_REJECTION_REASON_LINES = 10
 
         const val MAX_REJECTION_REASON_LENGTH = 1000
+
+        const val MAX_INGREDIENTS = 21
+
+        private val STORABLE_PERCENT = 1..100
+
+        private val KNOWN_INGREDIENT_CODES = IngredientCode.entries.map { it.name }.toSet()
 
         fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }

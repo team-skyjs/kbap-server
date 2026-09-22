@@ -49,6 +49,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     it.execute("DELETE FROM image_batch")
                     it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM food_vector_outbox")
+                    it.execute("DELETE FROM food_image")
                     it.execute("DELETE FROM food")
                 }
             }
@@ -345,7 +346,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                 Regex("""<(?:input|select|textarea)[^>]*id="$id"[^>]*>""").find(html)!!.value
 
             val detailFieldIds = listOf(
-                "koreanName", "contentStatus", "spiciness", "imageRef", "description",
+                "koreanName", "contentStatus", "spiciness", "description",
                 "nameTranslationsJson", "descriptionTranslationsJson", "ingredientsJson",
             )
 
@@ -359,6 +360,16 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     html shouldNotContain ">저장</button>"
                     html shouldContain ">편집</a>"
                     html shouldContain "edit=true"
+                }
+            }
+
+            `when`("편집 모드에서 이미지 키 칸을 보면") {
+                then("항상 읽기 전용이다 — 대표 이미지는 갤러리 API 로만 바꾼다") {
+                    val saved = saveFood("이미지키읽기전용음식")
+
+                    val html = getList("?page=1&detail=${saved.id}&edit=true").response.contentAsString
+
+                    detailFieldTag(html, "imageRef") shouldContain "readonly"
                 }
             }
 
@@ -403,7 +414,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                         param("description", "수정된 설명")
                         param("spiciness", "3")
                         param("contentStatus", "PENDING_REVIEW")
-                        param("imageRef", "food/1.png")
+                        param("imageRef", saved.imageRef.orEmpty())
                         param("nameTranslationsJson", """{"en":"Edited"}""")
                         param("descriptionTranslationsJson", """{"en":"Edited desc"}""")
                         param("ingredientsJson", """[{"code":"PORK","inclusion_percent":80}]""")
@@ -417,7 +428,7 @@ class AdminFoodListControllerTest : BehaviorSpec() {
                     updated.description shouldBe "수정된 설명"
                     updated.spiciness shouldBe 3
                     updated.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
-                    updated.imageRef shouldBe "food/1.png"
+                    updated.imageRef shouldBe saved.imageRef
                     updated.nameTranslations shouldBe mapOf("en" to "Edited")
                     updated.ingredients!!.single().code shouldBe "PORK"
                 }

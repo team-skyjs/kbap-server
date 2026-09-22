@@ -19,11 +19,24 @@ data class FoodDetailResponse(
     @field:Schema(description = "대표 이미지 참조(없을 수 있음)", example = "doenjang.png", nullable = true)
     val imageRef: String?,
 
+    @field:Schema(
+        description = "이미지 갤러리. 대표(imageRef 와 같은 URL)가 항상 첫 번째이고 이후는 정렬 순서다. " +
+            "갤러리 행이 아직 없는 음식은 빈 배열이며, 대표 이미지 정본은 여전히 imageRef 다.",
+    )
+    val images: List<FoodImageResponse>,
+
     @field:Schema(description = "요청 언어 설명(미지원/미지정/번역 부재 시 한국어)", example = "A hearty Korean soybean paste stew.")
     val description: String,
 
     @field:Schema(description = "맵기 정도(0~10, 0=맵지 않음 · 10=매우 매움)", example = "3")
     val spiciness: Int,
+
+    @field:Schema(
+        description = "콘텐츠 공개(READY 전이) 시각, ISO-8601 UTC. 전이 기록이 없는 기존 READY 음식은 createdAt(등록 시각) 근사치 — 신규 여부(isNew) 판정은 클라이언트가 한다.",
+        example = "2026-08-21T03:00:00Z",
+        nullable = true,
+    )
+    val publishedAt: java.time.Instant?,
 
     @field:Schema(description = "음식 재료 전체 목록(포함 확률 내림차순) — 회원·비회원 공통")
     val ingredients: List<IngredientResponse>,
@@ -46,8 +59,8 @@ data class FoodDetailResponse(
     val bookmarked: Boolean,
 
     @field:Schema(
-        description = "조회 회원의 리뷰 작성 자격 — 본인 스캔 이력에 이 음식이 있으면 true. 비회원 조회는 항상 false. " +
-            "false 면 리뷰 작성이 403 REVIEW-004 로 거절되므로 Write a review 버튼 게이트로 사용한다.",
+        description = "리뷰 작성 자격 — **항상 true** 다. 스캔 이력이 있는 음식에만 리뷰를 쓸 수 있던 정책이 폐지돼(2026-09-18) " +
+            "READY 음식이면 회원 누구나 쓸 수 있다. 구 앱 호환으로 필드만 남겨 둔 값이니 새 화면은 이 값으로 게이트하지 말 것.",
         example = "true",
     )
     val reviewEligible: Boolean,
@@ -120,6 +133,15 @@ data class FoodDetailResponse(
             allowableValues = ["SAFE", "CAUTION", "DANGER", "UNKNOWN"],
         )
         val riskStatus: String,
+
+        @field:Schema(
+            description = "판정 근거 — 회원이 직접 고른 회피 code. 직접 매치면 code 와 같고, " +
+                "함의로 걸렸으면 그 재료를 함의한 회원 code 다(예: 새우젓 SALTED_SHRIMP 가 회원이 고른 SHRIMP 로 걸리면 SHRIMP). " +
+                "함의는 일반→구체·원재료→파생품 단방향이다.",
+            example = "SHRIMP",
+            nullable = true,
+        )
+        val matchedBy: String?,
     )
 
     companion object {
@@ -133,8 +155,10 @@ data class FoodDetailResponse(
                 name = result.name,
                 koreanName = result.koreanName,
                 imageRef = result.imageRef,
+                images = result.images.map { FoodImageResponse(url = it) },
                 description = result.description,
                 spiciness = result.spiciness,
+                publishedAt = result.publishedAt,
                 ingredients = result.ingredients.map {
                     IngredientResponse(
                         code = it.code,
@@ -147,6 +171,7 @@ data class FoodDetailResponse(
                     AvoidedIngredientResponse(
                         code = it.code,
                         riskStatus = it.riskStatus.name,
+                        matchedBy = it.matchedBy,
                     )
                 },
                 bookmarked = bookmarked,

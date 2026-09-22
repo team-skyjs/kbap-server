@@ -46,6 +46,12 @@ variable "api_instance_count" {
   default     = 2
 }
 
+variable "api_instance_max_count" {
+  description = "api 인스턴스 풀 상한 — capacity provider 가 api_instance_count ~ 이 값 사이에서 조정"
+  type        = number
+  default     = 4
+}
+
 variable "batch_instance_count" {
   type    = number
   default = 1
@@ -147,12 +153,12 @@ variable "food_content_queue_name" {
 variable "api_secret_names" {
   description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
   type        = list(string)
-  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]
+  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN"]
 }
 
 variable "batch_secret_names" {
   type    = list(string)
-  default = ["DB_PASSWORD", "OPENAI_API_KEY"]
+  default = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN"]
 }
 
 variable "api_extra_env" {
@@ -221,11 +227,6 @@ variable "bastion_key_name" {
 }
 
 # --- 관측: Grafana Alloy DAEMON (KB-381) ---
-variable "home_prometheus_remote_write_url" {
-  description = "홈서버 Prometheus remote_write 수신 URL — Cloudflare Tunnel 공개 호스트 (예: https://prom-write.example.com/api/v1/write)"
-  type        = string
-}
-
 variable "alloy_image" {
   description = "Grafana Alloy 이미지 (태그 고정 — latest 금지)"
   type        = string
@@ -233,9 +234,9 @@ variable "alloy_image" {
 }
 
 variable "alloy_secret_names" {
-  description = "Alloy 태스크에 SSM SecureString 으로 주입할 환경변수 이름 — Cloudflare Access 서비스 토큰. 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type SecureString"
+  description = "Alloy 태스크에 SSM 에서 주입할 환경변수 이름 — remote_write 수신 URL(REMOTE_WRITE_URL, String)과 Cloudflare Access 서비스 토큰(SecureString). 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type String|SecureString. 값이 없으면 태스크가 기동 전에 실패한다"
   type        = list(string)
-  default     = ["CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+  default     = ["REMOTE_WRITE_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
 }
 
 variable "blocked_path_patterns" {
@@ -248,4 +249,22 @@ variable "vector_enabled" {
   description = "S3 Vectors 벡터 검색(api, KB-319)·적재(batch foodVectorSyncJob, KB-328) 앱 스위치. 버킷·인덱스·IAM 은 항상 만들어지고(서버리스, 상시 비용 0), 켜면 VECTOR_ENABLED·EMBEDDING_ENABLED=true 와 VECTOR_BUCKET·VECTOR_INDEX 를 api·batch env 에 주입한다. 시크릿 없음 — 태스크 롤로 인증."
   type        = bool
   default     = false
+}
+
+variable "api_max_count" {
+  description = "api 서비스 오토스케일링 최대 태스크 수"
+  type        = number
+  default     = 4
+}
+
+variable "api_cpu_target_percent" {
+  description = "api 서비스 오토스케일링 목표 CPU (%). 태스크 예약 CPU 대비"
+  type        = number
+  default     = 80
+}
+
+variable "api_slow_start_seconds" {
+  description = "api 대상 그룹 slow start(초). 새 타깃의 트래픽 비중을 이 시간 동안 선형 상승. 0 이면 끔"
+  type        = number
+  default     = 60
 }

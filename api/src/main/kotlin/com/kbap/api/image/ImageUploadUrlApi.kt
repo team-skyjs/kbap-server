@@ -39,9 +39,11 @@ interface ImageUploadUrlApi {
         ErrorCode.UNSUPPORTED_UPLOAD_PURPOSE,
         ErrorCode.UNSUPPORTED_IMAGE_CONTENT_TYPE,
         ErrorCode.IMAGE_TOO_LARGE,
+        ErrorCode.IMAGE_UPLOAD_RATE_LIMITED,
     )
     fun issueUploadUrl(
-        memberId: Long,
+        memberId: Long?,
+        installationId: String?,
         request: UploadUrlRequest,
     ): ResponseEntity<BaseResponse<UploadUrlResponse>>
 }

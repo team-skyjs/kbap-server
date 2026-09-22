@@ -14,17 +14,22 @@ import java.util.UUID
 class PresignedUploadService(
     private val properties: ImageUploadProperties,
     private val port: PresignedUploadPort,
+    private val guestUploadQuota: GuestUploadQuota,
 ) {
     fun issueUploadUrl(input: ImageUploadInput): PresignedUpload {
         val purpose = UploadPurpose.from(input.purpose)
             ?: throw BusinessException(ErrorCode.UNSUPPORTED_UPLOAD_PURPOSE)
+        if (input.memberId == null) {
+            if (purpose != UploadPurpose.FEEDBACK) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
+            guestUploadQuota.verify(input.installationId)
+        }
         if (input.contentType !in properties.allowedContentTypes) {
             throw BusinessException(ErrorCode.UNSUPPORTED_IMAGE_CONTENT_TYPE)
         }
         if (input.contentLength > properties.maxBytes) {
             throw BusinessException(ErrorCode.IMAGE_TOO_LARGE)
         }
-        val key = objectKey(purpose, input.memberId, input.contentType)
+        val key = objectKey(purpose, input.memberId ?: GUEST_OWNER_KEY, input.contentType)
         return port.issue(key, input.contentType, input.contentLength, properties.uploadTtl)
     }
 
@@ -40,6 +45,10 @@ class PresignedUploadService(
             extensionOf(contentType),
         )
         return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
+    }
+
+    private companion object {
+        const val GUEST_OWNER_KEY = 0L
     }
 
     private fun extensionOf(contentType: String): String {

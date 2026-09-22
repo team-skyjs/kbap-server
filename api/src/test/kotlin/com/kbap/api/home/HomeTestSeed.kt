@@ -17,6 +17,7 @@ object HomeTestSeed {
             "DELETE FROM ingredients",
             "DELETE FROM food_content_outbox",
         "DELETE FROM food_vector_outbox",
+        "DELETE FROM food_image",
         "DELETE FROM food",
             "DELETE FROM member",
         ),
@@ -33,11 +34,29 @@ object HomeTestSeed {
         },
     )
 
+    fun seedReviews(dataSource: DataSource, foodId: Long, memberIds: List<Long>) = execute(
+        dataSource,
+        memberIds.map { memberId ->
+            "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
+                "VALUES ($memberId, $foodId, 5, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
+        },
+    )
+
+    fun seedPlainMember(dataSource: DataSource, memberId: Long) = execute(
+        dataSource,
+        listOf(
+            "INSERT IGNORE INTO member (id, provider, provider_uid, nickname, member_status, onboarding_completed, " +
+                "status, created_at, updated_at) " +
+                "VALUES ($memberId, 'GOOGLE', 'home-review-$memberId', '홈리뷰$memberId', 'ACTIVE', 1, 'ACTIVE', " +
+                "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+        ),
+    )
+
     fun seedSubstanceCatalog(dataSource: DataSource, vararg codes: String) = execute(
         dataSource,
-        codes.mapIndexed { index, code ->
-            "INSERT IGNORE INTO ingredients (id, code, korean_name, translations, status, created_at, updated_at) " +
-                "VALUES (${900 + index}, '$code', '${koreanNameOf(code)}', '${translationsOf(code)}', " +
+        codes.map { code ->
+            "INSERT IGNORE INTO ingredients (code, korean_name, translations, status, created_at, updated_at) " +
+                "VALUES ('$code', '${koreanNameOf(code)}', '${translationsOf(code)}', " +
                 "'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         },
     )

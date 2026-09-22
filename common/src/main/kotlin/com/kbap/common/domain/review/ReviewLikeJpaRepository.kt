@@ -30,6 +30,12 @@ interface ReviewLikeJpaRepository : JpaRepository<ReviewLike, Long> {
 
     fun findByReviewIdAndMemberId(reviewId: Long, memberId: Long): ReviewLike?
 
+    @Query(value = "SELECT * FROM review_like WHERE review_id = :reviewId AND member_id = :memberId", nativeQuery = true)
+    fun findByReviewIdAndMemberIdIncludingDeleted(
+        @Param("reviewId") reviewId: Long,
+        @Param("memberId") memberId: Long,
+    ): ReviewLike?
+
     @Query(
         """
         select rl.reviewId as reviewId, count(rl) as likeCount

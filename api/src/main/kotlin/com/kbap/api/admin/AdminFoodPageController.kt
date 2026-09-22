@@ -69,7 +69,7 @@ class AdminFoodPageController(
         @RequestParam description: String,
         @RequestParam spiciness: Int,
         @RequestParam contentStatus: FoodContentStatus,
-        @RequestParam(defaultValue = "") imageRef: String,
+        @RequestParam(required = false) imageRef: String?,
         @RequestParam(defaultValue = "") nameTranslationsJson: String,
         @RequestParam(defaultValue = "") descriptionTranslationsJson: String,
         @RequestParam(defaultValue = "") ingredientsJson: String,
@@ -80,7 +80,7 @@ class AdminFoodPageController(
             description = description,
             spiciness = spiciness,
             contentStatus = contentStatus,
-            imageRef = imageRef.trim(),
+            imageRef = imageRef?.trim(),
             nameTranslationsJson = nameTranslationsJson,
             descriptionTranslationsJson = descriptionTranslationsJson,
             ingredientsJson = ingredientsJson,
@@ -94,6 +94,8 @@ class AdminFoodPageController(
                 listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "invalid-json")
             AdminFoodUpdateResult.DUPLICATE_NAME ->
                 listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "duplicate-name")
+            AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE ->
+                listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "image-ref-not-editable")
             AdminFoodUpdateResult.READY_NOT_ALLOWED ->
                 listRedirect(safePage, q, status, "detail" to id, "edit" to true, "error" to "ready-not-allowed")
         }

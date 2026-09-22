@@ -11,7 +11,7 @@ class OrderTest : BehaviorSpec({
     given("주문 생성") {
         `when`("좌표와 주소를 함께 주면") {
             then("전부 보존된다") {
-                val order = Order.place(
+                val order = Order.create(
                     memberId = 1L,
                     imagePath = "scan/1/menu.jpg",
                     latitude = BigDecimal("37.5636000"),
@@ -26,7 +26,7 @@ class OrderTest : BehaviorSpec({
 
         `when`("좌표 없이 주면") {
             then("위치 정보가 전부 비어 있다") {
-                val order = Order.place(1L, "scan/1/menu.jpg", null, null, null)
+                val order = Order.create(1L, "scan/1/menu.jpg", null, null, null)
                 order.latitude.shouldBeNull()
                 order.longitude.shouldBeNull()
                 order.roadAddress.shouldBeNull()
@@ -36,10 +36,10 @@ class OrderTest : BehaviorSpec({
         `when`("좌표를 한쪽만 주면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    Order.place(1L, "scan/1/menu.jpg", BigDecimal("37.5"), null, null)
+                    Order.create(1L, "scan/1/menu.jpg", BigDecimal("37.5"), null, null)
                 }
                 shouldThrow<IllegalArgumentException> {
-                    Order.place(1L, "scan/1/menu.jpg", null, BigDecimal("127.0"), null)
+                    Order.create(1L, "scan/1/menu.jpg", null, BigDecimal("127.0"), null)
                 }
             }
         }
@@ -47,10 +47,10 @@ class OrderTest : BehaviorSpec({
         `when`("좌표가 범위를 벗어나면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    Order.place(1L, "scan/1/menu.jpg", BigDecimal("90.0000001"), BigDecimal("127.0"), null)
+                    Order.create(1L, "scan/1/menu.jpg", BigDecimal("90.0000001"), BigDecimal("127.0"), null)
                 }
                 shouldThrow<IllegalArgumentException> {
-                    Order.place(1L, "scan/1/menu.jpg", BigDecimal("37.5"), BigDecimal("-180.0000001"), null)
+                    Order.create(1L, "scan/1/menu.jpg", BigDecimal("37.5"), BigDecimal("-180.0000001"), null)
                 }
             }
         }
@@ -58,7 +58,7 @@ class OrderTest : BehaviorSpec({
         `when`("imagePath 가 비어 있으면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {
-                    Order.place(1L, " ", null, null, null)
+                    Order.create(1L, " ", null, null, null)
                 }
             }
         }

@@ -18,13 +18,20 @@ class JwtAuthenticationFilter(
     private val tokenParser: TokenParser,
     private val guestExemptions: List<GuestExemption> = emptyList(),
 ) : OncePerRequestFilter() {
-    data class GuestExemption(val method: String, val path: Regex)
+    data class GuestExemption(
+        val method: String,
+        val path: Regex,
+        val parseTokenIfPresent: Boolean = false,
+    )
 
     private val objectMapper = jacksonObjectMapper()
 
-    override fun shouldNotFilter(request: HttpServletRequest): Boolean =
-        CorsUtils.isPreFlightRequest(request) ||
-            guestExemptions.any { request.method == it.method && it.path.matches(request.requestURI) }
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        if (CorsUtils.isPreFlightRequest(request)) return true
+        val exemption = guestExemptions.firstOrNull { request.method == it.method && it.path.matches(request.requestURI) }
+            ?: return false
+        return !exemption.parseTokenIfPresent || request.getHeader(AUTHORIZATION_HEADER) == null
+    }
 
     override fun doFilterInternal(
         request: HttpServletRequest,

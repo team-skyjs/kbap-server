@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodIngredient
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 class AdminFoodContentIngestService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
+    private val foodIngredientRepository: FoodIngredientJdbcRepository,
 ) {
     @Transactional
     fun ingestContent(
@@ -28,7 +30,8 @@ class AdminFoodContentIngestService(
         ingredients: List<FoodIngredient>,
     ) {
         completeOutbox(outboxId, foodId)
-        getFood(foodId).applyContent(
+        val food = getFood(foodId)
+        food.applyContent(
             description = description,
             longDescription = longDescription,
             spiciness = spiciness,
@@ -36,6 +39,7 @@ class AdminFoodContentIngestService(
             descriptionTranslations = descriptionTranslations,
             ingredients = ingredients,
         )
+        foodIngredientRepository.replace(foodId, food.ingredients)
     }
 
     @Transactional
@@ -61,5 +65,5 @@ class AdminFoodContentIngestService(
     }
 
     private fun getFood(foodId: Long): Food =
-        foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 }

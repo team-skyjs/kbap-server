@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
@@ -34,6 +35,7 @@ class AdminFoodService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val foodIngredientRepository: FoodIngredientJdbcRepository,
     private val foodService: FoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -68,6 +70,8 @@ class AdminFoodService(
         status: FoodContentStatus? = null,
         failureKind: FoodContentFailureKind? = null,
         deleted: Boolean = false,
+        ingredientCode: String? = null,
+        categoryCode: String? = null,
     ): AdminFoodListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(LikeWildcards::escape)
         val result = foodRepository.searchAdminFoodPage(
@@ -75,6 +79,8 @@ class AdminFoodService(
             status?.name,
             failureKind?.name,
             keyword,
+            ingredientCode?.trim()?.takeIf { it.isNotEmpty() },
+            categoryCode?.trim()?.takeIf { it.isNotEmpty() },
             PageRequest.of(page - 1, LIST_PAGE_SIZE),
         )
         return AdminFoodListResponse(
@@ -149,6 +155,9 @@ class AdminFoodService(
             throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
         }
         if (command.koreanName.isBlank()) return AdminFoodUpdateResult.INVALID_NAME
+        if (command.imageRef != null && command.imageRef != food.imageRef.orEmpty()) {
+            return AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE
+        }
 
         val nameTranslations: Map<String, String>
         val descriptionTranslations: Map<String, String>
@@ -175,15 +184,18 @@ class AdminFoodService(
         }
 
         val wasReady = food.isReady()
+        if (wasReady && command.contentStatus != FoodContentStatus.READY) {
+            food.freezePublishedAtIfLegacy()
+        }
         food.koreanName = matchKey
         food.displayName = command.displayName?.trim()?.takeIf { it.isNotEmpty() } ?: command.koreanName
         food.description = command.description
         food.spiciness = command.spiciness
         food.contentStatus = command.contentStatus
-        food.imageRef = command.imageRef.takeIf { it.isNotBlank() }
         food.nameTranslations = nameTranslations
         food.descriptionTranslations = descriptionTranslations
-        food.ingredients = ingredients
+        food.replaceIngredients(ingredients)
+        foodIngredientRepository.replace(food.id, food.ingredients)
         when {
             food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
             wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
@@ -331,6 +343,7 @@ enum class AdminFoodUpdateResult {
     INVALID_JSON,
     DUPLICATE_NAME,
     READY_NOT_ALLOWED,
+    IMAGE_REF_NOT_EDITABLE,
 }
 
 data class UpdateFoodCommand(
@@ -339,7 +352,7 @@ data class UpdateFoodCommand(
     val description: String,
     val spiciness: Int,
     val contentStatus: FoodContentStatus,
-    val imageRef: String,
+    val imageRef: String? = null,
     val nameTranslationsJson: String,
     val descriptionTranslationsJson: String,
     val ingredientsJson: String,

@@ -84,7 +84,11 @@ jobs:
           aws ecs describe-task-definition --task-definition "$ECS_NAME-api" \
             --query taskDefinition > taskdef.json
           jq --arg IMAGE "$IMAGE" '
-            .containerDefinitions |= map(if .name == "api" then .image = $IMAGE else . end)
+            .containerDefinitions |= map(if .name == "api" then
+                .image = $IMAGE
+                | .environment = ((.environment // []) | map(select(.name != "SENTRY_RELEASE"))
+                    + [{name: "SENTRY_RELEASE", value: ($IMAGE | split(":") | last)}])
+              else . end)
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                   .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
           ' taskdef.json > new-taskdef.json
@@ -98,11 +102,13 @@ jobs:
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
           IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          APPSPEC=$(jq -n --arg arn "$NEW_ARN" '{
+          # CapacityProviderStrategy — 그린 태스크셋을 api capacity provider 로 띄워야 자리 부족 시 인스턴스가 늘어난다
+          APPSPEC=$(jq -n --arg arn "$NEW_ARN" --arg cp "$ECS_NAME-api" '{
             version: 0.0,
             Resources: [{ TargetService: { Type: "AWS::ECS::Service",
               Properties: { TaskDefinition: $arn,
-                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 } } } }]
+                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 },
+                CapacityProviderStrategy: [{ CapacityProvider: $cp, Base: 0, Weight: 1 }] } } }]
           }')
           DEPLOYMENT_ID=$(aws deploy create-deployment \
             --application-name "$ECS_NAME-api" \

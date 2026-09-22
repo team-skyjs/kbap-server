@@ -10,6 +10,7 @@ import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
+import com.kbap.common.domain.order.model.OrderPlaceSnapshot
 import com.kbap.common.util.CursorParser
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
@@ -28,9 +29,14 @@ class OrderService(
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
-    fun createOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
+    fun createOrder(
+        memberId: Long,
+        request: OrderCreateRequest,
+        roadAddress: String?,
+        resolvedPlace: OrderPlaceSnapshot?,
+    ): Long {
         verifyOrderable(memberId, request)
-        return saveOrder(memberId, request, roadAddress)
+        return saveOrder(memberId, request, roadAddress, resolvedPlace)
     }
 
     private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
@@ -45,9 +51,14 @@ class OrderService(
         }
     }
 
-    private fun saveOrder(memberId: Long, request: OrderCreateRequest, roadAddress: String?): Long {
+    private fun saveOrder(
+        memberId: Long,
+        request: OrderCreateRequest,
+        roadAddress: String?,
+        resolvedPlace: OrderPlaceSnapshot?,
+    ): Long {
         val order = try {
-            orderRepository.saveAndFlush(request.toOrder(memberId, roadAddress))
+            orderRepository.saveAndFlush(request.toOrder(memberId, roadAddress, resolvedPlace))
         } catch (e: DataIntegrityViolationException) {
             if (isImagePathConflict(e)) throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
             throw e
@@ -88,15 +99,18 @@ class OrderService(
             totalQuantity = OrderItem.totalQuantityOf(items),
             totalPrice = OrderItem.totalPriceOf(items),
             scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+            place = OrderPlaceResponse.from(order.resolvedPlace),
             items = items.map {
                 val food = foodsById[it.foodId]
+                val photoUrl = food?.takeIf { f -> f.isReady() }?.let(foodService::resolveImageUrl)
                 OrderItemResponse(
                     menuName = it.menuName,
                     quantity = it.quantity,
                     price = it.price,
                     foodId = it.foodId,
-                    imageRef = publicImageUrlOf(food),
+                    imageRef = photoUrl ?: foodService.resolveImageUrlOrDefault(null),
                     ready = food?.isReady() == true,
+                    hasPhoto = photoUrl != null,
                 )
             },
         )
@@ -117,6 +131,7 @@ class OrderService(
                 totalQuantity = OrderItem.totalQuantityOf(items),
                 thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { thumbnailsByFoodId[it.foodId] },
                 scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+                place = OrderPlaceResponse.from(order.resolvedPlace),
             )
         }
     }

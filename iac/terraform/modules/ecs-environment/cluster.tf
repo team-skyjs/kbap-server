@@ -14,9 +14,11 @@ locals {
   instance_pools = {
     api = {
       count = var.api_instance_count
+      max   = var.api_instance_max_count
     }
     batch = {
       count = var.batch_instance_count
+      max   = var.batch_instance_count
     }
   }
 }
@@ -75,9 +77,12 @@ resource "aws_autoscaling_group" "pool" {
 
   name                = "${local.name_prefix}-${each.key}-asg"
   min_size            = each.value.count
-  max_size            = each.value.count
+  max_size            = each.value.max
   desired_capacity    = each.value.count
   vpc_zone_identifier = data.aws_subnets.public.ids
+
+  # api 풀은 capacity provider 가 대수를 조정한다 — 태스크가 도는 인스턴스는 scale-in 에서 보호
+  protect_from_scale_in = each.key == "api"
 
   launch_template {
     id      = aws_launch_template.pool[each.key].id
@@ -88,7 +93,8 @@ resource "aws_autoscaling_group" "pool" {
   instance_refresh {
     strategy = "Rolling"
     preferences {
-      min_healthy_percentage = each.key == "api" ? 50 : 0
+      min_healthy_percentage       = each.key == "api" ? 50 : 0
+      scale_in_protected_instances = "Refresh"
     }
   }
 
@@ -103,4 +109,34 @@ resource "aws_autoscaling_group" "pool" {
     value               = "true"
     propagate_at_launch = true
   }
+
+  lifecycle {
+    ignore_changes = [desired_capacity]
+  }
+}
+
+# api 풀 capacity provider — 태스크를 놓을 자리가 없으면 인스턴스를 늘린다.
+# target_capacity 100 = 빈 인스턴스를 두지 않는다. ECS 는 태스크가 하나라도 있는 인스턴스를 "사용 중"으로 세므로
+# 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"다(dev 에서 2 → 4대로 확인).
+# 평시 그린 자리는 spread(instanceId) + 인스턴스당 2자리가 만들고, 스케일 아웃 상태의 배포처럼 자리가 모자랄 때만 인스턴스가 는다.
+# batch·alloy 는 launch type EC2 그대로(기본 전략 없음).
+resource "aws_ecs_capacity_provider" "api" {
+  name = "${local.name_prefix}-api"
+
+  auto_scaling_group_provider {
+    auto_scaling_group_arn         = aws_autoscaling_group.pool["api"].arn
+    managed_termination_protection = "ENABLED"
+
+    managed_scaling {
+      status          = "ENABLED"
+      target_capacity = 100
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = [aws_ecs_capacity_provider.api.name]
 }

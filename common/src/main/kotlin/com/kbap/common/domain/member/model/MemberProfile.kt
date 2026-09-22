@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.CurrencyCode
+import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.CountryCode
@@ -22,6 +23,8 @@ data class MemberProfile private constructor(
         avoidanceSubstanceCodes
             .mapNotNull { ref -> IngredientCode.entries.firstOrNull { it.name == ref.value } }
             .toSet()
+
+    fun avoidance(): Avoidance = Avoidance(avoidedCodes())
 
     fun updatedWith(
         nickname: String? = null,

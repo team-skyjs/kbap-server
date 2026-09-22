@@ -33,8 +33,10 @@ class AdminController(
         )
 
     @PostMapping("/images")
-    override fun submitFoodImages(): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>> {
-        val result = foodImageBatchSubmitService.submitMissingImages()
+    override fun submitFoodImages(
+        @RequestBody(required = false) request: AdminFoodImageSubmitRequest?,
+    ): ResponseEntity<BaseResponse<AdminFoodImageSubmitResponse>> {
+        val result = foodImageBatchSubmitService.submitForFoods(request?.foodIds)
         return ResponseEntity.ok(BaseResponse.ok(AdminFoodImageSubmitResponse.from(result)))
     }
 }

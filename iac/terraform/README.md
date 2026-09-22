@@ -24,7 +24,7 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 | 운영 사용자 **액세스 키** | 사람(콘솔 발급) → 젠킨스 크리덴셜 — Terraform·레포에 두지 않는다 |
 | 태스크 정의 **리비전**(이미지 태그)·리스너의 blue/green 포워딩·서비스 desired | 배포 스크립트 / CodeDeploy (`lifecycle.ignore_changes`) |
 | SSM 파라미터(이름·값 모두) | 사람/CI (`aws ssm put-parameter`) — Terraform 은 ARN 문자열만 참조 |
-| RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가) |
+| RDS·Redis·VPC·S3·SQS·Route53 존·ACM | 기존 인프라 (data 로 조회, SG 인바운드 규칙만 추가). SQS 콘텐츠 요청 큐는 환경별 — dev `kbap-generate-content-queue`, prod `kbap-prod-generate-content-queue`(콘솔 생성, `food_content_queue_name`, KB-547). 이름을 바꾸면 배치 태스크 정의 `-replace` apply + 배치 CI 재배포까지 해야 env 가 바뀐다 |
 
 ## 처음 세우기 (dev)
 
@@ -146,7 +146,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 
 | 어디 | 무엇 |
 |---|---|
-| tfvars | `home_prometheus_remote_write_url` (Cloudflare Tunnel 공개 호스트, `/api/v1/write` 까지) · `alloy_image`(기본 태그 고정) |
+| tfvars | `alloy_image`(기본 태그 고정) — remote_write 주소는 tfvars 가 아니라 SSM `/kbap/<env>/REMOTE_WRITE_URL` 이다 |
 | SSM SecureString | `/kbap/<env>/CF_ACCESS_CLIENT_ID` · `/kbap/<env>/CF_ACCESS_CLIENT_SECRET` — Cloudflare Access 서비스 토큰(env 마다 1쌍). 실행 롤 정책이 `/kbap/<env>/*` 라 IAM 변경 없음 |
 | 홈서버 | Prometheus `--web.enable-remote-write-receiver`, Tunnel 공개 호스트 → `prometheus:9090`, Access 앱(Service Auth 정책) |
 
@@ -160,6 +160,8 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 | `instance` | `<env>-<container>-<task id 6자>` | ECS 도커 라벨 task-arn — **태스크 단위**(카나리 중 한 호스트에 2개 공존) |
 | `version` | 태스크 정의 리비전 | ECS 도커 라벨 task-definition-version — 배포마다 증가 → blue/green 비교 |
 
+**수신 주소 변경**: `aws ssm put-parameter --name /kbap/<env>/REMOTE_WRITE_URL --type String --value 'https://<host>/api/v1/write' --overwrite` → `aws ecs update-service --cluster <cluster> --service <env>-alloy --force-new-deployment`(terraform apply 불필요, 값은 태스크 기동 시 읽는다).
+
 **설정 변경**: `alloy.config.alloy.tftpl` 수정 → `terraform apply` → 새 태스크 정의 리비전으로 DAEMON 이 인스턴스마다 롤링(min healthy 0 — 수십 초 수집 공백, 앱 무영향). 저장소 이전·복사본 fan-out 도 템플릿의 `remote_write` 만 바꾼다. 문법 점검: 템플릿을 치환해 `docker run --rm -v $PWD/c.alloy:/c.alloy grafana/alloy:<tag> fmt /c.alloy`.
 
 **알아둘 것**
@@ -168,6 +170,17 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 - 인스턴스 교체(instance refresh) 후 새 호스트의 Alloy 는 자동 배치, 5분 안에 새 `host` 라벨이 나타난다. 사람 개입 없음.
 - 메모리: Alloy 예약 128 MiB 가 카나리 여유(3.6 GiB − 1536×2)에서 빠진다. api 태스크 메모리를 올릴 때 이 몫도 계산에 넣을 것.
 - 되돌리기: `terraform destroy -target=module.ecs_environment.aws_ecs_service.alloy` (앱 무영향). 홈서버 쪽은 Access 토큰 폐기만으로 즉시 차단.
+
+## api 스케일 아웃 — 서비스 CPU 80% + capacity provider
+
+**목표**: 컨테이너가 자기 몫 CPU 의 80% 를 쓰면 "인스턴스 1대 + 컨테이너 1개"를 한 단위로 늘린다. 평시 인스턴스당 api 태스크 1개, 나머지 절반은 카나리 그린 자리.
+
+- **태스크**: `api-autoscaling.tf` — `ECSServiceAverageCPUUtilization` 80% 타깃 트래킹(`api_desired_count`~`api_max_count`). 분모는 태스크 예약 CPU 512 유닛(= 0.5 vCPU, EC2 에서 hard limit) — 인스턴스 CPU 가 아니다. t3.medium(2048 유닛)에 태스크 2×512 + Alloy 128 이 들어가므로 1024 로는 못 올린다.
+- **인스턴스**: `cluster.tf` — api ASG(`api_instance_count`~`api_instance_max_count`) 를 capacity provider `kbap-<env>-ecs-api` 가 조정한다. `target_capacity = 100` — 빈 인스턴스를 두지 않고, 태스크를 놓을 자리가 없을 때(스케일 아웃 상태의 카나리 배포 등)만 인스턴스를 늘린다. 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"라서 쓰지 않는다(dev 에서 2 → 4대 확인). 평시 그린 자리는 `spread(instanceId)` + 인스턴스당 2자리가 만든다. batch 풀은 고정.
+- **배포와의 결합**: CODE_DEPLOY 서비스는 capacity provider 전략을 UpdateService·Terraform 으로 못 바꾼다(서비스 재생성). 배포 appspec 의 `CapacityProviderStrategy`(`deploy-*.yml`·`deploy-api.sh`)가 그린 태스크셋에 건다 — **apply 후 api 를 한 번 배포해야 전략이 실제로 붙는다.** 그 전까지는 launch type EC2 그대로라 자리가 모자라도 인스턴스가 늘지 않는다.
+- **이력**: #240(40%, 인스턴스 고정) → 2026-09-07 prod 카나리 롤백(그린 JVM 부팅 버스트가 40% 알람 → desired 3 → 자리 부족) → 인프라에서만 제거(#244, 미병합 종료) → 80% + capacity provider + scale-out cooldown 300s 로 재도입.
+
+**처음 적용 순서**: ① `terraform apply` ② 기존 api 인스턴스에 scale-in 보호를 건다(ASG 플래그는 신규 인스턴스에만 적용) — `aws autoscaling set-instance-protection --auto-scaling-group-name kbap-<env>-ecs-api-asg --instance-ids <ids> --protected-from-scale-in` ③ api 재배포(`deploy-<env>.yml` workflow_dispatch) ④ `aws ecs describe-services … --query 'services[].taskSets[].capacityProviderStrategy'` 로 확인.
 
 ## 카나리 파라미터 바꾸기
 

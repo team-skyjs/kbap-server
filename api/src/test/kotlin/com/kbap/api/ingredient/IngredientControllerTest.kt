@@ -48,7 +48,21 @@ class IngredientControllerTest : BehaviorSpec() {
                     val first = ingredients.first()
                     first.path("code").asText() shouldBe "EGG"
                     first.path("name").asText() shouldBe "계란"
-                    first.path("imageUrl").asText() shouldBe "https://cdn.test/images/webp/egg.webp"
+                    first.path("imageUrl").asText() shouldBe "https://cdn.test/images/webp/ingredients-cut/egg.webp"
+                }
+            }
+        }
+
+        given("재료 분류") {
+            `when`("재료 목록을 조회하면") {
+                then("분류가 있는 재료는 categoryCode 를, 포괄 재료는 null 을 준다") {
+                    val json = getIngredients("?lang=ko")
+                    val byCode = mapper.readTree(json).path("payload").path("ingredients")
+                        .associate { it.path("code").asText() to it.path("categoryCode") }
+
+                    byCode.getValue("SALTED_SHRIMP").asText() shouldBe "CRUSTACEAN"
+                    byCode.getValue("EGG").asText() shouldBe "EGG"
+                    byCode.getValue("SEAFOOD").isNull shouldBe true
                 }
             }
         }

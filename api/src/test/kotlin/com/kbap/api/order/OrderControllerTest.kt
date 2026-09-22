@@ -32,8 +32,13 @@ class OrderControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var reverseGeocoder: FakeReverseGeocoder
 
+    @Autowired
+    private lateinit var fakePlaceSearchClient: com.kbap.api.place.FakePlaceSearchClient
+
     init {
         val mapper = jacksonObjectMapper()
+
+        beforeTest { fakePlaceSearchClient.reset() }
 
         fun seedMember(memberId: Long): Unit =
             dataSource.connection.use { c ->
@@ -66,6 +71,25 @@ class OrderControllerTest : BehaviorSpec() {
                     VALUES (?, ?, 'image/jpeg', 1024, 'ACTIVE', NOW(6), NOW(6))
                     """,
                 ).use { ps -> ps.setLong(1, memberId); ps.setString(2, path); ps.executeUpdate() }
+            }
+        }
+
+        fun seedUnreadyFoodForPhoto(koreanName: String, contentStatus: String): Long {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    """
+                    INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations,
+                                      ingredients, content_status, status, created_at, updated_at)
+                    VALUES (?, '설명', 0, '{}', '{}', '[]', ?, 'ACTIVE', NOW(6), NOW(6))
+                    ON DUPLICATE KEY UPDATE content_status = VALUES(content_status)
+                    """,
+                ).use { ps -> ps.setString(1, koreanName); ps.setString(2, contentStatus); ps.executeUpdate() }
+            }
+            return dataSource.connection.use { c ->
+                c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
+                    ps.setString(1, koreanName)
+                    ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); rs.getLong(1) }
+                }
             }
         }
 
@@ -103,13 +127,26 @@ class OrderControllerTest : BehaviorSpec() {
             items: List<String>,
             latitude: String? = null,
             longitude: String? = null,
+            lang: String? = null,
         ): String {
-            val location = buildString {
+            val extra = buildString {
                 if (latitude != null) append(""","latitude":$latitude""")
                 if (longitude != null) append(""","longitude":$longitude""")
+                if (lang != null) append(""","lang":"$lang"""")
             }
-            return """{"imagePath":"$imagePath","items":[${items.joinToString(",")}]$location}"""
+            return """{"imagePath":"$imagePath","items":[${items.joinToString(",")}]$extra}"""
         }
+
+        fun placeColumnsOf(imagePath: String): List<String?> =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "SELECT place_source, place_external_id, place_name, place_address, place_language " +
+                        "FROM orders WHERE image_path = ?",
+                ).use { ps ->
+                    ps.setString(1, imagePath)
+                    ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); (1..5).map { rs.getString(it) } }
+                }
+            }
 
         fun placeOrder(token: String?, body: String): ResultActionsDsl =
             mockMvc.post("/api/orders") {
@@ -352,6 +389,89 @@ class OrderControllerTest : BehaviorSpec() {
 
                     placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("초과수량찌개", 1000, 1000, food))))
                         .andExpect { status { isBadRequest() } }
+                }
+            }
+
+            `when`("좌표와 lang 을 함께 보내면") {
+                then("자동 추정 식당 스냅샷이 요청 언어로 저장되고 응답 place 에 담긴다") {
+                    val memberId = 925L
+                    val path = "order/925/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("스냅샷찌개")
+                    reverseGeocoder.program("37.5636000", "126.9834000", "서울 중구 소공로 51")
+                    fakePlaceSearchClient.returns(
+                        com.kbap.common.port.place.FoundPlace("place-925", "백년옥", "서울 중구", null, null),
+                    )
+
+                    placeOrder(
+                        accessToken(memberId),
+                        orderBody(
+                            path, listOf(itemJson("스냅샷찌개", 1, 8000, food)),
+                            latitude = "37.5636000", longitude = "126.9834000", lang = "en",
+                        ),
+                    ).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.orderId") { exists() }
+                    }
+
+                    placeColumnsOf(path) shouldBe listOf("GOOGLE_PLACE", "place-925", "백년옥", "서울 중구", "en")
+                }
+            }
+
+            `when`("좌표는 있는데 lang 이 없으면(구버전 앱)") {
+                then("ko 로 해석해 저장하고 200 으로 응답한다") {
+                    val memberId = 926L
+                    val path = "order/926/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("구버전찌개")
+                    reverseGeocoder.program("37.5000000", "127.0000000", "경기 성남")
+                    fakePlaceSearchClient.returns(
+                        com.kbap.common.port.place.FoundPlace("place-926", "현지간판", null, null, null),
+                    )
+
+                    placeOrder(
+                        accessToken(memberId),
+                        orderBody(path, listOf(itemJson("구버전찌개", 1, 7000, food)), latitude = "37.5000000", longitude = "127.0000000"),
+                    ).andExpect { status { isOk() } }
+
+                    placeColumnsOf(path) shouldBe listOf("GOOGLE_PLACE", "place-926", "현지간판", null, "ko")
+                }
+            }
+
+            `when`("좌표 없이 주문하면") {
+                then("식당 추정을 시도하지 않고 place 는 null·200 이다") {
+                    val memberId = 927L
+                    val path = "order/927/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("무좌표스냅샷찌개")
+                    fakePlaceSearchClient.returns(
+                        com.kbap.common.port.place.FoundPlace("place-927", "안불림", null, null, null),
+                    )
+
+                    placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("무좌표스냅샷찌개", 1, 6000, food))))
+                        .andExpect { status { isOk() } }
+
+                    placeColumnsOf(path) shouldBe listOf(null, null, null, null, null)
+                    fakePlaceSearchClient.requests.isEmpty() shouldBe true
+                }
+            }
+
+            `when`("식당 추정이 PLACE_SEARCH_FAILED 로 실패하면") {
+                then("주문은 200 으로 저장되고 place 만 null 이다(fail-open)") {
+                    val memberId = 928L
+                    val path = "order/928/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val food = seedReadyFood("실패스냅샷찌개")
+                    reverseGeocoder.program("37.5636000", "126.9834000", "서울 중구")
+                    fakePlaceSearchClient.failure =
+                        com.kbap.common.core.error.BusinessException(com.kbap.common.core.error.ErrorCode.PLACE_SEARCH_FAILED)
+
+                    placeOrder(
+                        accessToken(memberId),
+                        orderBody(path, listOf(itemJson("실패스냅샷찌개", 1, 5000, food)), latitude = "37.5636000", longitude = "126.9834000", lang = "en"),
+                    ).andExpect { status { isOk() } }
+
+                    placeColumnsOf(path) shouldBe listOf(null, null, null, null, null)
                 }
             }
         }
@@ -640,6 +760,99 @@ class OrderControllerTest : BehaviorSpec() {
                     orderDetail(accessToken(945L), 999999L).andExpect {
                         status { isNotFound() }
                         jsonPath("$.code") { value("ORDER-002") }
+                    }
+                }
+            }
+
+            `when`("식당이 추정된 주문을 목록·상세로 조회하면") {
+                then("두 응답 모두 place 를 담고, 추정 안 된 주문은 place 가 null 이다") {
+                    val memberId = 946L
+                    val token = accessToken(memberId)
+                    val withPlace = "order/946/with.jpg"
+                    val noPlace = "order/946/none.jpg"
+                    seedVerifiedImage(memberId, withPlace)
+                    seedVerifiedImage(memberId, noPlace)
+                    val food = seedReadyFood("place조회찌개")
+                    reverseGeocoder.program("37.5636000", "126.9834000", "서울 중구")
+                    fakePlaceSearchClient.returns(
+                        com.kbap.common.port.place.FoundPlace("place-946", "백년옥", "서울 중구", null, null),
+                    )
+                    val withPlaceId = orderIdOf(
+                        placeOrder(
+                            token,
+                            orderBody(imagePath = withPlace, items = listOf(itemJson("place조회찌개", 1, 5000, food)), latitude = "37.5636000", longitude = "126.9834000", lang = "en"),
+                        ).andExpect { status { isOk() } },
+                    )
+                    placeOrder(token, orderBody(noPlace, listOf(itemJson("place조회찌개", 1, 5000, food))))
+                        .andExpect { status { isOk() } }
+
+                    orderDetail(token, withPlaceId).andExpect {
+                        jsonPath("$.payload.place.placeId") { value("place-946") }
+                        jsonPath("$.payload.place.name") { value("백년옥") }
+                        jsonPath("$.payload.place.language") { value("en") }
+                    }
+
+                    val listJson = listOrders(token).andReturn().response.contentAsString
+                    val items = mapper.readTree(listJson).path("payload").path("items")
+                    val withNode = items.first { it.path("orderId").asLong() == withPlaceId }
+                    withNode.path("place").path("name").asText() shouldBe "백년옥"
+                    val noNode = items.first { it.path("scanImageUrl").asText().endsWith("946/none.jpg") }
+                    noNode.path("place").isNull shouldBe true
+                }
+            }
+        }
+
+        given("주문 상세 항목의 사진 존재 여부") {
+            `when`("실사진이 있는 READY 음식과 사진 없는 READY 음식을 함께 주문하면") {
+                then("hasPhoto 로 실사진과 기본 대체 이미지를 구분한다") {
+                    val memberId = 962L
+                    val token = accessToken(memberId)
+                    val path = "order/962/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val withPhoto = seedReadyFood("사진있는비빔밥")
+                    setFoodImage(withPhoto, "images/webp/bibimbap.webp")
+                    val withoutPhoto = seedReadyFood("사진없는비빔밥")
+
+                    val orderId = orderIdOf(
+                        placeOrder(
+                            token,
+                            orderBody(
+                                path,
+                                listOf(
+                                    itemJson("사진있는비빔밥", 1, 8000, withPhoto),
+                                    itemJson("사진없는비빔밥", 1, 7000, withoutPhoto),
+                                ),
+                            ),
+                        ).andExpect { status { isOk() } },
+                    )
+
+                    orderDetail(token, orderId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].hasPhoto") { value(true) }
+                        jsonPath("$.payload.items[0].imageRef") { value("https://cdn.test/images/webp/bibimbap.webp") }
+                        jsonPath("$.payload.items[1].ready") { value(true) }
+                        jsonPath("$.payload.items[1].hasPhoto") { value(false) }
+                    }
+                }
+            }
+
+            `when`("준비중 음식을 주문하면") {
+                then("hasPhoto 가 false 다 — 준비중은 실사진을 내려주지 않는다") {
+                    val memberId = 963L
+                    val token = accessToken(memberId)
+                    val path = "order/963/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    val pending = seedUnreadyFoodForPhoto("사진준비중음식", "PENDING_IMAGE")
+
+                    val orderId = orderIdOf(
+                        placeOrder(token, orderBody(path, listOf(itemJson("사진준비중음식", 1, 5000, pending))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    orderDetail(token, orderId).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].ready") { value(false) }
+                        jsonPath("$.payload.items[0].hasPhoto") { value(false) }
                     }
                 }
             }

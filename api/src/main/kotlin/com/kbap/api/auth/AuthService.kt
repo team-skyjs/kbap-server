@@ -7,6 +7,7 @@ import com.kbap.common.port.auth.TokenParser
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.api.member.MemberService
+import com.kbap.api.notification.NotificationTokenService
 import com.kbap.common.port.auth.SocialAccountDeleter
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.member.model.SocialIdentity
@@ -23,17 +24,20 @@ class AuthService(
     private val tokenParser: TokenParser,
     private val refreshTokenStore: RefreshTokenStore,
     private val socialAccountDeleter: SocialAccountDeleter,
+    private val notificationTokenService: NotificationTokenService,
     @Value("\${kbap.auth.jwt.refresh-ttl}") private val refreshTtl: Duration,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun login(idToken: String): LoginResult {
+    fun login(idToken: String, installationId: String? = null): LoginResult {
         val identity = socialTokenVerifier.verify(idToken)
         val (member, isNewMember) = memberService.findOrSignUp(identity)
         val memberId = member.id
 
         val refreshToken = tokenIssuer.issueRefreshToken(memberId)
         refreshTokenStore.save(refreshToken.jti, memberId, refreshTtl)
+
+        installationId?.let { notificationTokenService.linkOnLogin(it, memberId) }
 
         return LoginResult(
             memberId = memberId,
@@ -69,7 +73,8 @@ class AuthService(
         )
     }
 
-    fun logout(refreshToken: String?) {
+    fun logout(refreshToken: String?, installationId: String? = null) {
+        installationId?.let { notificationTokenService.unlinkOnLogout(it) }
         if (refreshToken.isNullOrBlank()) {
             return
         }
@@ -77,12 +82,14 @@ class AuthService(
         refreshTokenStore.delete(jti)
     }
 
-    // 소셜 계정 삭제(외부 호출)를 트랜잭션 밖에서 먼저 수행하고, DB 탈퇴 마킹은 MemberService 트랜잭션에 맡긴다.
-    fun withdraw(memberId: Long) {
+    fun withdraw(memberId: Long, releaseDevices: Boolean = false) {
         val member = memberService.getMember(memberId)
 
         deleteSocialAccount(memberId, member.identity)
 
+        if (releaseDevices) {
+            notificationTokenService.closeOnWithdraw(memberId)
+        }
         memberService.withdraw(memberId)
     }
 

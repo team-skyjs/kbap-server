@@ -14,18 +14,17 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
-import com.kbap.common.domain.report.ReportJpaRepository
-import com.kbap.common.domain.report.model.ReportTargetType
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
-import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 class ReviewService(
@@ -38,8 +37,7 @@ class ReviewService(
     private val rankingEventRepository: MemberRankingEventJpaRepository,
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
-    private val reportRepository: ReportJpaRepository,
-    private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val eventPublisher: ApplicationEventPublisher,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -54,9 +52,6 @@ class ReviewService(
         place: ReviewPlace?,
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
-        if (!scanHistoryRepository.existsByMemberIdAndFoodId(memberId, foodId)) {
-            throw BusinessException(ErrorCode.REVIEW_NOT_ELIGIBLE)
-        }
         verifyImageOwnership(memberId, imagePaths)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         memberService.increaseReviewCount(memberId)
@@ -126,10 +121,14 @@ class ReviewService(
 
     @Transactional
     fun likeReview(memberId: Long, reviewId: Long) {
-        if (!reviewRepository.existsById(reviewId)) {
-            throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
-        }
+        val review = reviewRepository.findById(reviewId)
+            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        val existingLike = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
         reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
+        val isNewLike = existingLike?.countsAsNewLikeAt(LocalDateTime.now()) ?: true
+        if (isNewLike && !review.isOwnedBy(memberId)) {
+            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
+        }
     }
 
     @Transactional
@@ -160,7 +159,7 @@ class ReviewService(
             metricCursor = cursor?.metric,
             idCursor = cursor?.id,
             excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-            excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+            excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
             limit = PAGE_SIZE + 1,
         )
         val hasNext = rows.size > PAGE_SIZE
@@ -177,14 +176,13 @@ class ReviewService(
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
 
-    private fun excludedReviewIds(viewerMemberId: Long): List<Long> =
-        reportRepository
-            .findTargetIdsByReporterMemberIdAndTargetType(viewerMemberId, ReportTargetType.REVIEW)
-            .ifEmpty { listOf(-1L) }
-
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
         toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId, lang)
+
+    @Transactional(readOnly = true)
+    fun getMostReviewedFoodIds(size: Int): List<Long> =
+        reviewRepository.findMostReviewedFoodIds(PageRequest.of(0, size))
 
     @Transactional(readOnly = true)
     fun getFoodRatings(foodIds: List<Long>): Map<Long, FoodRating> {
@@ -225,7 +223,7 @@ class ReviewService(
                 metricCursor = null,
                 idCursor = null,
                 excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
-                excludedReviewIds = viewerMemberId?.let(::excludedReviewIds) ?: listOf(-1L),
+                excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
                 limit = RECENT_REVIEWS_SIZE,
             ).map { it.review },
             viewerMemberId,
@@ -298,6 +296,8 @@ class ReviewService(
     }
 
     companion object {
+        private val NO_EXCLUDED_REVIEW_IDS = listOf(-1L)
+
         const val PAGE_SIZE = 50
         const val RECENT_REVIEWS_SIZE = 5
     }

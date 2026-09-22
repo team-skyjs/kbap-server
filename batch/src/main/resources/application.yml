@@ -32,6 +32,17 @@ spring:
 logging:
   level:
     com.kbap.infra.llm.provider: DEBUG
+sentry:
+  dsn: ${BATCH_SENTRY_DSN:}
+  environment: ${SPRING_PROFILES_ACTIVE:local}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: true
+  tags:
+    service: batch
+  context-tags: job
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
 # 관측(KB-380): /actuator/prometheus 로 JVM·Spring Batch 잡 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공하고,
 # ECS 컨테이너 헬스체크가 /actuator/health/readiness 를 본다(iac/terraform … batch.tf).
 management:
@@ -51,7 +62,7 @@ server:
 kbap:
   batch:
     # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
-    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다. 기본 on 이며 끄는 용도로만 이 값을 쓴다
+    # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안은 12:00·18:00 KST). 기본 on 이며 끄는 용도로만 이 값을 쓴다
     # (테스트는 src/test/resources 에서 off — 켜 두면 정각을 넘길 때 잡이 실제로 발사된다).
     # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
     scheduler:
@@ -60,6 +71,22 @@ kbap:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
       page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+    # 스캔 제안 푸시(KB-471) — 점심 잡 11:00·저녁 잡 17:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.
+    # 배치 1대 전제라 분산 락 없음. 발송 시간대는 cron 이 정한다(별도 시간대 가드 없음 — 수동 트리거는 언제든 보낸다). 상한은 슬롯당 1회.
+    scan-suggestion:
+      # 읽기·발송 공통 묶음 크기 — Expo 요청당 100건과 맞춘다. 한 묶음이 한 트랜잭션이다.
+      chunk-size: 100
+      # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).
+      ttl: 3h
+    # Expo 영수증 확인·재전송(KB-614) — 광고성 잡은 발송 후 2시간 창(11~13시·17~19시)에 10분 주기, 활동 알림 잡은 15분 주기 상시.
+    # 접수(SENT) 후 min-age 가 지나고 max-age(Expo 영수증 보관 기간) 안인 발송만 확인한다. max-age 를 넘긴 SENT 는 미확인으로 종결된다.
+    push-receipt:
+      chunk-size: 100
+      min-age: 15m
+      max-age: 24h
+      # 재전송은 알림당 max-resends 회, 최초 발송 후 resend-window 안에서만.
+      resend-window: 2h
+      max-resends: 2
   # 음식 콘텐츠 채움이 kbap-langchain 으로 이관돼(KB-301) 배치는 더 이상 채팅 LLM 을 호출하지 않는다.
   llm:
     # LLM 비용 로깅의 환율 — 1 USD = 1,500 KRW 고정 추정.
@@ -78,6 +105,16 @@ kbap:
     bucket: ${VECTOR_BUCKET:}
     index: ${VECTOR_INDEX:foods}
     region: ${AWS_REGION:ap-northeast-2}
+  # Expo push 발송(KB-468). access-token 은 Enhanced push security 를 켤 때만 필요 — 비어 있으면 Authorization 헤더를 생략한다.
+  push:
+    expo:
+      base-url: https://exp.host
+      access-token: ${EXPO_ACCESS_TOKEN:}
+      # 일시 실패(네트워크·429·5xx)만 지수 백오프 재시도. 400 등 영구 실패는 즉시 실패.
+      retry:
+        max-retries: 3
+        initial-delay: 1s
+        multiplier: 2.0
 # datasource 연결은 활성 프로필(application-{local,dev,staging,prod}.yml)에서 공급한다 — api 모듈과 동일 구성.
 # 배치는 도메인 모듈(영속 포함)을 직접 의존해 부팅 시 JPA/데이터소스가 필요하므로 런타임에 프로필을 지정한다(예: SPRING_PROFILES_ACTIVE=local).
 # 프로필 없이 로딩하는 테스트(@SpringBootTest)는 MySqlContainerConfig(Testcontainers)로 datasource 를 받는다.

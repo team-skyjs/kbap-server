@@ -27,6 +27,9 @@ class Ingredient(
 
     @Column(name = "image_path", length = 255)
     var imagePath: String? = null,
+
+    @Column(name = "category_id")
+    var categoryId: Long? = null,
 ) : BaseEntity() {
     fun displayName(lang: LanguageCode): String =
         LocalizedText(korean = koreanName, translations = resolveTranslations()).resolve(lang)

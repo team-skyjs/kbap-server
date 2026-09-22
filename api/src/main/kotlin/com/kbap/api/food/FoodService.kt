@@ -1,8 +1,11 @@
 package com.kbap.api.food
 
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodImage
+import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.core.error.ErrorCode
@@ -19,10 +22,12 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZoneId
 
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val foodImageRepository: FoodImageJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
@@ -32,8 +37,66 @@ class FoodService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun getFoodPage(input: BrowseFoodsInput): FoodPage =
-        foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+    fun getFoodPage(input: BrowseFoodsInput): FoodPage {
+        val risks = input.risks
+        if (risks == null) {
+            return foodPage(getFoods(input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+        }
+        val filtered = collectRiskFiltered(input.cursor, avoidedCodeNames(input.memberId), risks) { cursor, size ->
+            getFoods(cursor, size).map { RiskCandidate(it.id, it) }
+        }
+        return FoodPage(
+            items = summaryViews(filtered.foods, input.lang, input.memberId),
+            nextCursor = filtered.nextCursor,
+            hasNext = filtered.hasNext,
+        )
+    }
+
+    internal fun collectRiskFiltered(
+        startCursor: Long?,
+        avoidedCodes: Set<String>,
+        risks: Set<RiskLevel>,
+        fetchBatch: (cursor: Long?, size: Int) -> List<RiskCandidate>,
+    ): RiskFilteredPage {
+        if (avoidedCodes.isEmpty() && risks.none { it == RiskLevel.SAFE || it == RiskLevel.UNKNOWN }) {
+            return RiskFilteredPage(emptyList(), hasNext = false, nextCursor = null)
+        }
+        val kept = ArrayList<Food>(PAGE_SIZE + 1)
+        var lastKeptCursor: Long? = null
+        var scanCursor = startCursor
+        var batches = 0
+        var overflow = false
+        var exhausted = false
+        while (kept.size <= PAGE_SIZE && batches < RISK_FILTER_MAX_BATCHES) {
+            val batch = fetchBatch(scanCursor, RISK_FILTER_BATCH_SIZE)
+            batches++
+            if (batch.isEmpty()) {
+                exhausted = true
+                break
+            }
+            for (candidate in batch) {
+                val food = candidate.food ?: continue
+                if (food.overallRisk(avoidedCodes) !in risks) continue
+                if (kept.size == PAGE_SIZE) {
+                    overflow = true
+                    break
+                }
+                kept.add(food)
+                lastKeptCursor = candidate.cursorKey
+            }
+            scanCursor = batch.last().cursorKey
+            if (overflow) break
+            if (batch.size < RISK_FILTER_BATCH_SIZE) {
+                exhausted = true
+                break
+            }
+        }
+        return when {
+            overflow -> RiskFilteredPage(kept, hasNext = true, nextCursor = lastKeptCursor)
+            exhausted -> RiskFilteredPage(kept, hasNext = false, nextCursor = null)
+            else -> RiskFilteredPage(kept, hasNext = true, nextCursor = scanCursor)
+        }
+    }
 
     @Transactional(readOnly = true)
     fun searchFoodPage(input: SearchFoodsInput): FoodPage =
@@ -87,7 +150,8 @@ class FoodService(
         val codes = allIngredients.map { IngredientCode.valueOf(it.code) }.toSet()
         val catalog = (if (codes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(codes)).associateBy { it.code }
 
-        val userAvoidedCodes = avoidedCodeNames(input.memberId)
+        val avoidance = memberService.getAvoidance(input.memberId)
+        val userAvoidedCodes = avoidance.codeNames
         val foodName = food.displayName(lang)
 
         return GetFoodDetailResult(
@@ -97,7 +161,9 @@ class FoodService(
             description = food.description(lang),
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
-            reviewEligible = input.memberId?.let { scanHistoryRepository.existsByMemberIdAndFoodId(it, food.id) } ?: false,
+            reviewEligible = true,
+            images = galleryImages(food.id),
+            publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
                     code = ingredient.code,
@@ -110,7 +176,13 @@ class FoodService(
             } else {
                 allIngredients
                     .filter { it.code in userAvoidedCodes }
-                    .map { GetFoodDetailResult.AvoidedIngredientView(code = it.code, riskStatus = it.riskLevel()) }
+                    .map {
+                        GetFoodDetailResult.AvoidedIngredientView(
+                            code = it.code,
+                            riskStatus = it.riskLevel(),
+                            matchedBy = avoidance.matchedBy(it.code),
+                        )
+                    }
             },
         )
     }
@@ -174,7 +246,7 @@ class FoodService(
     }
 
     private fun avoidedCodeNames(memberId: Long?): Set<String> =
-        memberService.getAvoidedCodes(memberId).map { it.name }.toSet()
+        memberService.getAvoidance(memberId).codeNames
 
     private fun foodPage(rows: List<Food>, lang: LanguageCode, memberId: Long?): FoodPage {
         val hasNext = rows.size > PAGE_SIZE
@@ -193,7 +265,14 @@ class FoodService(
         return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
 
+    private fun galleryImages(foodId: Long): List<String> =
+        foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
+            .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
+            .mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it.imageKey) }
+
     fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
+
+    fun resolveImageKeyUrl(imageKey: String): String? = ImageUrls.resolve(imagePublicBaseUrl, imageKey)
 
     fun resolveImageUrlOrDefault(food: Food?): String =
         food?.let { resolveImageUrl(it) }
@@ -206,6 +285,12 @@ class FoodService(
 
     companion object {
         const val PAGE_SIZE = 20
+        const val RISK_FILTER_BATCH_SIZE = 100
+        const val RISK_FILTER_MAX_BATCHES = 5
         const val DEFAULT_FOOD_IMAGE_PATH = "images/webp/default_miss_food/food_not_found.png"
     }
 }
+
+data class RiskCandidate(val cursorKey: Long, val food: Food?)
+
+data class RiskFilteredPage(val foods: List<Food>, val hasNext: Boolean, val nextCursor: Long?)

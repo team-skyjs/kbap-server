@@ -2,6 +2,7 @@ package com.kbap.api.core.config
 
 import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.admin.AdminPageAuthInterceptor
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
@@ -27,7 +28,7 @@ class WebConfig(
     private val tokenParser: TokenParser,
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
-        configurer.useRequestHeader("X-API-Version")
+        configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
             .setVersionRequired(true)
     }
@@ -99,11 +100,43 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/reports$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/feedbacks$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "GET",
+                        Regex("^${ApiPaths.API}/feedbacks/me$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "GET",
+                        Regex("^${ApiPaths.API}/feedbacks/\\d+$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/images/upload-url$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/images/complete$"),
+                        parseTokenIfPresent = true,
+                    ),
                 ),
             ),
         ).apply {
             addUrlPatterns(
                 "${ApiPaths.API}/members/*",
+                "${ApiPaths.API}/notifications",
+                "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
@@ -118,6 +151,8 @@ class WebConfig(
                 "${ApiPaths.API}/community/posts/*",
                 "${ApiPaths.API}/community/comments/*",
                 "${ApiPaths.API}/reports",
+                "${ApiPaths.API}/feedbacks",
+                "${ApiPaths.API}/feedbacks/*",
                 "${ApiPaths.API}/images",
                 "${ApiPaths.API}/images/*",
                 "${ApiPaths.API}/auth/withdraw",

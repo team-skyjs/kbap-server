@@ -42,10 +42,26 @@ enum class ErrorCode(
     FOOD_NOT_REVIEWABLE("FOOD-008", 400, "검수 대상(PENDING_REVIEW)이 아닙니다"),
     FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
     FOOD_READY_TRANSITION_FORBIDDEN("FOOD-010", 400, "READY 전이는 검수 승인 API 로만 가능합니다"),
+    FOOD_STATUS_NOT_READY("FOOD-011", 409, "공개(READY) 상태인 음식만 이미지를 재생성할 수 있습니다"),
+    FOOD_IMAGE_REF_NOT_EDITABLE("FOOD-012", 400, "대표 이미지는 대표 지정 API 로만 바꿀 수 있습니다"),
+    FOOD_TOO_MANY_INGREDIENTS("FOOD-013", 400, "음식 한 건의 재료는 21개까지 저장할 수 있습니다"),
+    FOOD_DUPLICATE_INGREDIENT("FOOD-014", 400, "같은 재료를 한 음식에 두 번 넣을 수 없습니다"),
+    FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE("FOOD-015", 400, "재료 포함 확률은 0~100 사이여야 합니다"),
+    FOOD_UNKNOWN_INGREDIENT("FOOD-016", 400, "재료 카탈로그에 없는 재료 코드입니다"),
+    INGREDIENT_BACKFILL_IN_PROGRESS("FOOD-017", 409, "재료 관계 백필이 이미 실행 중입니다"),
+
+    FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
+    FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
+    FEEDBACK_RATE_LIMITED("FEEDBACK-003", 429, "하루에 보낼 수 있는 문의 수를 넘었습니다. 내일 다시 시도해 주세요"),
+    FEEDBACK_NOT_FOUND("FEEDBACK-004", 404, "해당 문의를 찾을 수 없습니다"),
+    FEEDBACK_CLOSED("FEEDBACK-005", 409, "종료된 문의에는 답변할 수 없습니다"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
     UPLOADED_OBJECT_NOT_FOUND("IMAGE-003", 400, "업로드된 파일을 찾을 수 없습니다"),
+    IMAGE_BATCH_IN_PROGRESS("IMAGE-004", 409, "이미 이미지 생성이 진행 중입니다"),
+    FOOD_IMAGE_NOT_FOUND("IMAGE-005", 404, "해당 음식의 이미지를 찾을 수 없습니다"),
+    IMAGE_UPLOAD_RATE_LIMITED("IMAGE-006", 429, "하루에 올릴 수 있는 사진 수를 넘었습니다. 내일 다시 시도해 주세요"),
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
@@ -55,6 +71,9 @@ enum class ErrorCode(
     SCAN_VISION_UNAVAILABLE("SCAN-006", 503, "스캔을 완료하지 못했어요. 횟수 차감 없이 다시 시도할 수 있어요."),
     INVALID_SCAN_TICKET("SCAN-007", 400, "유효하지 않은 스캔 티켓이에요. 처음부터 다시 시도해 주세요"),
     SCAN_RATE_LIMITED("SCAN-008", 503, "일시적으로 요청이 많습니다. 잠시 후 다시 시도해 주세요"),
+
+    MARKETING_CONSENT_REQUIRED("NOTIFICATION-001", 400, "K-Bap 소식 수신 동의 후 설정할 수 있습니다"),
+    NOTIFICATION_NOT_FOUND("NOTIFICATION-002", 404, "해당 알림을 찾을 수 없습니다"),
 
     REVIEW_NOT_FOUND("REVIEW-001", 400, "해당 리뷰를 찾을 수 없습니다"),
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
@@ -75,8 +94,8 @@ enum class ErrorCode(
     BLOCK_TARGET_NOT_FOUND("BLOCK-002", 404, "차단할 회원을 찾을 수 없습니다"),
 
     REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
-    REPORT_DUPLICATED("REPORT-002", 409, "이미 신고한 콘텐츠입니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
+    REPORT_INSTALLATION_ID_REQUIRED("REPORT-004", 400, "신고에는 설치 ID(X-Installation-Id) 가 필요합니다"),
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),

@@ -58,6 +58,38 @@ class FoodDetailControllerTest : BehaviorSpec() {
                 content = """{"foodId":$foodId}"""
             }.andExpect { status { isOk() } }
 
+        given("음식 상세 조회 API — 공개 시각(publishedAt)") {
+            `when`("READY 전이 시각이 기록된 음식을 조회하면") {
+                then("publishedAt 을 ISO-8601 UTC 로 내려준다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET published_at = '2026-08-21 12:00:00' WHERE id = 1") }
+                    }
+                    val expected = java.time.LocalDateTime.of(2026, 8, 21, 12, 0)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.publishedAt") { value(expected) }
+                    }
+                }
+            }
+
+            `when`("기록이 없는 READY 음식을 조회하면") {
+                then("createdAt(등록 시각) 근사치를 publishedAt 으로 내려준다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET created_at = '2026-08-15 09:30:00' WHERE id = 1") }
+                    }
+                    val expected = java.time.LocalDateTime.of(2026, 8, 15, 9, 30)
+                        .atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+
+                    mockMvc.get("/api/foods/1?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.publishedAt") { value(expected) }
+                    }
+                }
+            }
+        }
+
         given("음식 상세 조회 API — 북마크 여부(bookmarked)") {
             `when`("회원이 북마크한 음식의 상세를 조회하면") {
                 then("bookmarked=true 를 반환한다") {
@@ -146,23 +178,23 @@ class FoodDetailControllerTest : BehaviorSpec() {
             }
 
             `when`("스캔 이력이 없는 회원이 조회하면") {
-                then("reviewEligible=false 다") {
+                then("reviewEligible=true 다 — 스캔 자격 검사가 폐지됐다") {
                     val token = accessToken(37L)
 
                     mockMvc.get("/api/foods/1?lang=ko") {
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.reviewEligible") { value(false) }
+                        jsonPath("$.payload.reviewEligible") { value(true) }
                     }
                 }
             }
 
             `when`("비회원이 조회하면") {
-                then("reviewEligible=false 다 — bookmarked 와 같은 축") {
+                then("reviewEligible=true 다 — 구 앱 호환으로 항상 true") {
                     mockMvc.get("/api/foods/1?lang=ko").andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.reviewEligible") { value(false) }
+                        jsonPath("$.payload.reviewEligible") { value(true) }
                     }
                 }
             }
@@ -197,6 +229,26 @@ class FoodDetailControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.avoidedIngredients.length()") { value(1) }
                         jsonPath("$.payload.avoidedIngredients[0].code") { value("SOY") }
                         jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("DANGER") }
+                    }
+                }
+            }
+
+            `when`("새우를 회피하는 회원이 새우젓이 든 음식을 조회하면") {
+                then("함의로 새우젓이 CAUTION 이 되고 근거 matchedBy 는 회원이 고른 SHRIMP 다") {
+                    FoodTestSeed.seedKimchiStew(dataSource)
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 13L, "SHRIMP")
+                    val token = tokenIssuer.issueAccessToken(13L, MemberRole.USER)
+
+                    mockMvc.get("/api/foods/${FoodTestSeed.KIMCHI_STEW_ID}") {
+                        param("lang", "en")
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.overallRiskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.avoidedIngredients.length()") { value(1) }
+                        jsonPath("$.payload.avoidedIngredients[0].code") { value("SALTED_SHRIMP") }
+                        jsonPath("$.payload.avoidedIngredients[0].riskStatus") { value("CAUTION") }
+                        jsonPath("$.payload.avoidedIngredients[0].matchedBy") { value("SHRIMP") }
                     }
                 }
             }

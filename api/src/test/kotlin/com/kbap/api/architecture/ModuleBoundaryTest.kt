@@ -112,7 +112,8 @@ class ModuleBoundaryTest : BehaviorSpec({
             "appversion" to emptySet(),
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
-            "food" to emptySet(),
+            "feedback" to emptySet(),
+            "food" to setOf("ingredient"),
             "bookmark" to setOf("food", "member", "ingredient"),
             "member" to setOf("ingredient"),
             "image" to emptySet(),
@@ -122,6 +123,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "review" to emptySet(),
             "report" to emptySet(),
             "community" to emptySet(),
+            "notification" to emptySet(),
         )
 
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {
@@ -228,7 +230,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                         "com.kbap.api.core.config..",
                         "com.kbap.api.infra..",
                         "com.kbap.batch.config..",
-                        "com.kbap.batch.outbox..",
+                        "com.kbap.batch.food.content..",
                     )
                     .should().dependOnClassesThat().resideInAnyPackage(
                         "com.kbap.common.infra..",

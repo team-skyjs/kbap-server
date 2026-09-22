@@ -277,6 +277,46 @@ class AuthControllerTest : BehaviorSpec() {
             }
         }
 
+        fun deleteAllMembers() {
+            dataSource.connection.use { c ->
+                c.createStatement().use { it.execute("DELETE FROM member") }
+            }
+        }
+
+        given("refresh 회전 시 회원 상태 검증") {
+            `when`("ACTIVE 회원이 재발급하면") {
+                then("200 으로 회전된다") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+
+                    refresh(oldRefresh).andReturn().response.status shouldBe 200
+                }
+            }
+
+            `when`("세션의 회원이 DB 에서 사라진 뒤 재발급하면") {
+                then("401(AUTH-005) 로 거절되고 세션이 회전되지 않는다") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    deleteAllMembers()
+
+                    val response = refresh(oldRefresh).andReturn().response
+
+                    response.status shouldBe 401
+                    objectMapper.readTree(response.contentAsString).path("code").asText() shouldBe "AUTH-005"
+                }
+            }
+
+            `when`("세션의 회원이 정지(SUSPENDED)된 뒤 재발급하면") {
+                then("401(AUTH-005) 로 거절된다") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    suspendAll()
+
+                    val response = refresh(oldRefresh).andReturn().response
+
+                    response.status shouldBe 401
+                    objectMapper.readTree(response.contentAsString).path("code").asText() shouldBe "AUTH-005"
+                }
+            }
+        }
+
         given("로그인된 회원") {
             `when`("로그아웃하면") {
                 then("세션이 폐기되어 그 refresh 로는 재발급할 수 없다") {

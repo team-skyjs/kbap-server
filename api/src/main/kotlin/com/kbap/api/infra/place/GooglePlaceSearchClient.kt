@@ -85,6 +85,7 @@ class GooglePlaceSearchClient internal constructor(
 
     companion object {
         const val BASE_URL = "https://places.googleapis.com"
+        const val READ_TIMEOUT_SECONDS = 2L
         const val FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location"
         const val RESTAURANT_TYPE = "restaurant"
         const val RESULT_LIMIT = 20
@@ -100,7 +101,7 @@ class GooglePlaceSearchClient internal constructor(
 
         fun create(apiKey: String): GooglePlaceSearchClient {
             val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
-            val requestFactory = JdkClientHttpRequestFactory(httpClient).apply { setReadTimeout(Duration.ofSeconds(5)) }
+            val requestFactory = JdkClientHttpRequestFactory(httpClient).apply { setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS)) }
             return create(apiKey, RestClient.builder().requestFactory(requestFactory))
         }
 

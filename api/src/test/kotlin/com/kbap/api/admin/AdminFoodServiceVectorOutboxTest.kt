@@ -37,6 +37,7 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
                 connection.createStatement().use {
                     it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM food_vector_outbox")
+                    it.execute("DELETE FROM food_image")
                     it.execute("DELETE FROM food")
                 }
             }
