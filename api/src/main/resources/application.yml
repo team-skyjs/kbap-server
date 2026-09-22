@@ -80,6 +80,12 @@ spring:
         speech: none
 
 kbap:
+  # 콘텐츠 아웃박스 — 회수 잡은 batch 프로세스가 돌리고 방치 카운트는 여기(api) 가 센다.
+  # 두 프로세스가 yml 을 따로 읽으므로 같은 환경변수를 양쪽에 매핑해 둔다. 한쪽만 고치면
+  # 잡은 새 기준으로 돌고 대시보드는 옛 기준으로 세면서 양쪽 다 "정상" 으로 보인다.
+  # batch/src/main/resources/application.yml 의 같은 블록과 함께 움직인다.
+  food-content-outbox:
+    stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
   scan:
     # 스캔 예약(무료 슬롯 선점)의 TTL — LLM 최대 타임아웃보다 충분히 길게. 프로세스가 죽어 해제를 못 해도 만료로 슬롯이 복구된다.
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}

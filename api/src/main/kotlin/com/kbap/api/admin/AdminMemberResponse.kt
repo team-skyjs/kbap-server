@@ -7,6 +7,7 @@ import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.scan.model.ScanHistory
 import com.kbap.common.util.ImageUrls
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -204,6 +205,17 @@ data class AdminDashboardMetricsResponse(
     val weeklyScanCount: Long,
     val prevWeekScanCount: Long,
     val weeklyScans: List<AdminDailyCountResponse>,
+    @field:Schema(
+        description = "콘텐츠 수집 요청을 보낸 뒤 기준 시간(기본 24시간) 안에 응답이 오지 않은 건수. " +
+            "다음 배치가 재전송한다. 계속 늘면 수집 파이프라인 쪽을 본다",
+        example = "0",
+    )
+    val contentOutboxStuckCount: Long,
+    @field:Schema(
+        description = "재전송 상한에 닿아 포기한 건수. **0 이 정상**이며, 0 이 아니면 last_error 로 원인을 확인하고 고친 뒤 재수집한다",
+        example = "0",
+    )
+    val contentOutboxDeadCount: Long,
 )
 
 data class AdminDailyCountResponse(

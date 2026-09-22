@@ -41,5 +41,11 @@ interface AdminContentOutboxApi {
         status: FoodContentOutboxStatus?,
         @Parameter(description = "표시 이름 부분 일치 검색어(숫자면 foodId 일치도 매칭)", example = "김치")
         q: String?,
+        @Parameter(
+            description = "재전송 상한에 닿아 포기한 행만 본다(대시보드의 contentOutboxDeadCount 에 해당). " +
+                "true 면 다른 필터를 무시하고 포기 행을 최신순으로 준다 — lastError 로 원인을 보고 재수집한다",
+            example = "false",
+        )
+        dead: Boolean,
     ): ResponseEntity<BaseResponse<AdminContentOutboxPageResponse>>
 }

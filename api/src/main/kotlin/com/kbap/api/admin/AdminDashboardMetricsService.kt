@@ -1,6 +1,9 @@
 package com.kbap.api.admin
 
 import com.kbap.common.domain.food.FoodJpaRepository
+import java.time.LocalDateTime
+import org.springframework.beans.factory.annotation.Value
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.MemberStatus
@@ -20,6 +23,8 @@ class AdminDashboardMetricsService(
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val foodRepository: FoodJpaRepository,
     private val llmCallCostRepository: LlmCallCostJpaRepository,
+    private val contentOutboxRepository: FoodContentOutboxJpaRepository,
+    @Value("\${kbap.food-content-outbox.stale-after-hours:24}") private val staleAfterHours: Long,
 ) {
     @Transactional(readOnly = true)
     fun getMetricsSummary(): AdminDashboardMetricsResponse {
@@ -34,6 +39,8 @@ class AdminDashboardMetricsService(
             weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
             prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
             weeklyScans = thisWeek.map { AdminDailyCountResponse(it, dailyScans[it] ?: 0L) },
+            contentOutboxStuckCount = contentOutboxRepository.countStaleSent(LocalDateTime.now().minusHours(staleAfterHours)),
+            contentOutboxDeadCount = contentOutboxRepository.countDead(),
         )
     }
 

@@ -96,6 +96,88 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 
+        given("포기한 요청의 결과 적재") {
+            `when`("dead_at 이 찍힌 요청의 콜백이 뒤늦게 도착하면") {
+                then("200 으로 받되 내용은 반영하지 않는다 — 막기만 하면 컨슈머가 영원히 재시도한다") {
+                    clearFoods()
+                    val food = saveFood("포기요청음식", FoodContentStatus.FAILED, null)
+                    val outbox = outboxRepository.findByFoodIdInAndOutboxStatus(
+                        setOf(food.id),
+                        FoodContentOutboxStatus.PENDING,
+                    ).single()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE food_content_outbox SET outbox_status = 'SENT', sent_at = NOW(6), " +
+                                    "dead_at = NOW(6), last_error = '테스트 포기' WHERE id = ${outbox.id}",
+                            )
+                        }
+                    }
+
+                    ingest(passedBody(food.id, outbox.id)).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+
+                    val reloaded = reloaded(food.id)
+                    reloaded.description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                    reloaded.contentStatus shouldBe FoodContentStatus.FAILED
+                }
+            }
+        }
+
+        given("재수집으로 대체된 옛 요청의 결과 적재") {
+            `when`("새 요청의 결과가 반영된 뒤 옛 요청의 결과가 늦게 도착하면") {
+                then("200 으로 받되 옛 내용으로 덮어쓰지 않고, 옛 요청 행도 그대로 둔다") {
+                    clearFoods()
+                    val food = saveFood("재수집경합음식", FoodContentStatus.FAILED, "images/webp/food/race.webp")
+                    val old = outboxRepository.findByFoodIdInAndOutboxStatus(
+                        setOf(food.id),
+                        FoodContentOutboxStatus.PENDING,
+                    ).single()
+                    val newer = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "UPDATE food_content_outbox SET outbox_status = 'SENT', sent_at = NOW(6) " +
+                                    "WHERE id IN (${old.id}, ${newer.id})",
+                            )
+                        }
+                    }
+
+                    ingest(passedBody(food.id, newer.id, description = "새 요청이 만든 설명")).andExpect { status { isOk() } }
+                    ingest(passedBody(food.id, old.id, description = "옛 요청이 만든 설명")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.success") { value(true) }
+                    }
+
+                    reloaded(food.id).description shouldBe "새 요청이 만든 설명"
+                    outboxRepository.findById(old.id).orElseThrow().outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                }
+            }
+
+            `when`("새 요청이 아직 응답 전인데 옛 요청의 결과가 먼저 도착하면") {
+                then("옛 결과는 반영하지 않는다 — 음식에 적용될 결과는 최신 요청의 것뿐이다") {
+                    clearFoods()
+                    val food = saveFood("재수집선착음식", FoodContentStatus.FAILED, null)
+                    val old = outboxRepository.findByFoodIdInAndOutboxStatus(
+                        setOf(food.id),
+                        FoodContentOutboxStatus.PENDING,
+                    ).single()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("UPDATE food_content_outbox SET outbox_status = 'SENT', sent_at = NOW(6) WHERE id = ${old.id}")
+                        }
+                    }
+                    outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    ingest(passedBody(food.id, old.id, description = "옛 요청이 만든 설명")).andExpect { status { isOk() } }
+
+                    reloaded(food.id).description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                }
+            }
+        }
+
         given("성공 결과 적재") {
             `when`("이미 서비스 중이고 사진이 있는 음식이면") {
                 then("텍스트만 갱신되고 상태·사진은 그대로다") {

@@ -58,8 +58,21 @@ server:
   port: 8080
 # 아래 값은 "기본값"이다 — 실행 시점 인자로 덮어쓸 수 있어 재배포 없이 조정한다
 # (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
-#   ./gradlew :batch:bootRun --args='--kbap.batch.food-content-outbox.page-size=200'
+#   ./gradlew :batch:bootRun --args='--kbap.food-content-outbox.page-size=200'
 kbap:
+  # 콘텐츠 아웃박스 설정은 kbap.batch 가 아니라 여기에 둔다 — 배치(회수·발행)와 api(어드민 방치 카운트)가
+  # 같은 기준으로 움직여야 하기 때문이다. 배치 네임스페이스에 두면 어드민이 배치 설정을 읽거나 키가 두 벌이 되고,
+  # 그러면 운영자가 한쪽만 바꿨을 때 잡과 대시보드가 다른 기준으로 돌면서 양쪽 다 "정상"으로 보인다.
+  #
+  # stale-after-hours 는 api 도 읽는다(어드민 방치 카운트). 프로세스가 둘이라 yml 도 둘이므로
+  # api/src/main/resources/application.yml 에 같은 환경변수를 매핑해 뒀다 — 한쪽만 고치면 기준이 갈린다.
+  food-content-outbox:
+    queue-url: ${FOOD_CONTENT_QUEUE_URL:}
+    region: ${AWS_REGION:ap-northeast-2}
+    page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+    # 보낸 뒤 이 시간을 넘겨 응답이 없으면 회수 대상. 상한에 닿으면 dead_at 을 찍고 사람이 본다.
+    stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
+    max-attempts: ${FOOD_CONTENT_OUTBOX_MAX_ATTEMPTS:5}
   batch:
     # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
     # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안은 12:00·18:00 KST). 기본 on 이며 끄는 용도로만 이 값을 쓴다
@@ -67,10 +80,6 @@ kbap:
     # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
     scheduler:
       enabled: ${BATCH_SCHEDULER_ENABLED:true}
-    food-content-outbox:
-      queue-url: ${FOOD_CONTENT_QUEUE_URL:}
-      region: ${AWS_REGION:ap-northeast-2}
-      page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
     # 스캔 제안 푸시(KB-471) — 점심 잡 11:00·저녁 잡 17:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.
     # 배치 1대 전제라 분산 락 없음. 발송 시간대는 cron 이 정한다(별도 시간대 가드 없음 — 수동 트리거는 언제든 보낸다). 상한은 슬롯당 1회.
     scan-suggestion:
