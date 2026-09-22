@@ -70,4 +70,61 @@ interface OrderApi {
     @SecurityRequirement(name = "bearerAuth")
     @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
     fun getOrderDetail(memberId: Long, orderId: Long): ResponseEntity<BaseResponse<OrderDetailResponse>>
+
+    @Operation(
+        summary = "주문 장소 교체",
+        description = """
+            본인 주문의 식당을 식당 검색 결과 하나로 바꾼다(자동 추정값을 사용자 확인값으로 덮어쓴다). 응답은 갱신된 주문 상세다.
+
+            - 페이로드는 리뷰 장소 태그와 같은 모양(placeId·name·address·language)이며 검색 결과만 받는다 — 직접 입력·장소 지우기는 없다.
+            - 타인의 주문이거나 존재하지 않으면 404(ORDER-002).
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "교체 성공 — 갱신된 주문 상세"),
+        ApiResponse(responseCode = "400", description = "placeId·name·language 누락, 길이 초과(COMMON-002)"),
+        ApiResponse(responseCode = "404", description = "주문 없음 또는 타인의 주문(ORDER-002)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
+    fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): ResponseEntity<BaseResponse<OrderDetailResponse>>
+
+    @Operation(
+        summary = "주문 항목 사진을 내 사진으로 교체",
+        description = """
+            항목 썸네일을 회원이 직접 올린 사진으로 바꾼다. 사진은 먼저 `POST /api/images` 에 purpose=`ORDER_ITEM` 으로 올려 완료해야 한다.
+            응답은 갱신된 주문 상세이며 `items[].userImageUrl` 에 반영된다. `imageRef`·`hasPhoto` 는 카탈로그 기준 그대로다.
+
+            - 본인이 ORDER_ITEM 용도로 올린 사진이 아니면 400(IMAGE-007) — 타인 사진·다른 용도(리뷰 등)로 올린 사진 모두.
+            - 타인의 주문이거나 없으면 404(ORDER-002), 그 주문에 없는 항목이면 404(ORDER-004).
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "교체 성공 — 갱신된 주문 상세"),
+        ApiResponse(responseCode = "400", description = "imagePath 누락(COMMON-002), 본인 ORDER_ITEM 업로드가 아님(IMAGE-007)"),
+        ApiResponse(responseCode = "404", description = "주문 없음·타인 주문(ORDER-002), 항목이 그 주문에 없음(ORDER-004)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.ORDER_ITEM_NOT_FOUND, ErrorCode.ORDER_ITEM_IMAGE_NOT_VERIFIED)
+    fun replaceItemImage(
+        memberId: Long,
+        orderId: Long,
+        itemId: Long,
+        request: OrderItemImageUpdateRequest,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>>
+
+    @Operation(
+        summary = "주문 항목 사진을 기본 사진으로 되돌리기",
+        description = """
+            회원 사진을 지우고 카탈로그 사진으로 되돌린다. 응답은 갱신된 주문 상세이며 `items[].userImageUrl` 이 null 이 된다.
+            회원 사진이 없던 항목에 호출해도 200(멱등). 올렸던 사진 파일 자체는 지우지 않는다.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "원복 성공 — 갱신된 주문 상세"),
+        ApiResponse(responseCode = "404", description = "주문 없음·타인 주문(ORDER-002), 항목이 그 주문에 없음(ORDER-004)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.ORDER_ITEM_NOT_FOUND)
+    fun restoreItemImage(memberId: Long, orderId: Long, itemId: Long): ResponseEntity<BaseResponse<OrderDetailResponse>>
 }
