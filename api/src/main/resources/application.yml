@@ -168,6 +168,15 @@ kbap:
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
+  # 미참조 업로드 정리(KB-624) — 리뷰·커뮤니티·문의 용도 중 retention-days 가 지났고 어디에도 참조되지 않은 업로드를 지운다.
+  # 스캔·프로필·목록에 없는 용도는 대상이 아니다(UploadedImageJpaRepository.ORPHAN 허용 목록).
+  # dry-run 기본 true — 배포만으로는 아무것도 지우지 않고 건수만 센다(대시보드 orphanUploadedImageCounts).
+  # 실삭제는 UPLOADED_IMAGE_CLEANUP_DRY_RUN=false 로만 켠다. 켜는 시점은 예진 결정 — 어느 환경에도 기본으로 켜지 않는다.
+  uploaded-image-cleanup:
+    retention-days: ${UPLOADED_IMAGE_CLEANUP_RETENTION_DAYS:7}
+    dry-run: ${UPLOADED_IMAGE_CLEANUP_DRY_RUN:true}
+    page-size: 100
+    cron: "0 30 4 * * *"
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).

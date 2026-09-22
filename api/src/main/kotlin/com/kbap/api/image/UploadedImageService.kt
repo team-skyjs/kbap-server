@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 class UploadedImageService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     fun ownsAllImages(
         memberId: Long?,
         paths: List<String>?,
@@ -19,7 +19,7 @@ class UploadedImageService(
         if (paths.isNullOrEmpty()) return true
         if (memberId == null && installationId == null) return false
         val segment = "images/${purpose.prefix}/"
-        val ownedPaths = uploadedImageRepository.findByPathIn(paths)
+        val ownedPaths = uploadedImageRepository.findByPathInForUpdate(paths)
             .filter { image ->
                 image.path.contains(segment) &&
                     ((memberId != null && image.isOwnedBy(memberId)) ||
