@@ -3,19 +3,23 @@ package com.kbap.api.food
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.image.FakeStorageObjectStore
-import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
 import com.kbap.common.domain.food.model.ImageBatchStatus
+import com.kbap.common.domain.food.model.RegenerationIntent
+import com.kbap.common.port.llm.FoodImageBatchClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -49,6 +53,9 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var foodImageRepository: FoodImageJpaRepository
+
+    @Autowired
+    private lateinit var vectorOutboxRepository: FoodVectorOutboxJpaRepository
 
     @Autowired
     private lateinit var fakeClient: FakeFoodImageBatchClient
@@ -403,6 +410,71 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     val item = itemRepository.findAll().single()
                     item.fileName shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
+        given("회수 — 재생성 의도별 실패 처리") {
+            fun regenerating(name: String, intent: RegenerationIntent?): Food {
+                val food = foodRepository.save(savePendingImage(name).apply { imageRef = "images/webp/food/old-$name.webp" })
+                val batch = saveSubmittedBatch()
+                itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = intent))
+                fakeClient.polls[batch.openaiBatchId!!] = FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+                return food
+            }
+
+            `when`("더 나은 이미지로 교체(REPLACE_BETTER)하던 배치가 실패하면") {
+                then("옛 이미지 그대로 READY 로 되돌리고 벡터 재색인을 예약한다") {
+                    val food = regenerating("교체실패음식", RegenerationIntent.REPLACE_BETTER)
+
+                    collectService.collectSubmitted()
+
+                    val restored = foodRepository.findById(food.id).get()
+                    restored.contentStatus shouldBe FoodContentStatus.READY
+                    restored.imageRef shouldBe "images/webp/food/old-교체실패음식.webp"
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
+                        food.id,
+                        FoodVectorOutboxOperation.UPSERT,
+                        FoodVectorOutboxStatus.PENDING,
+                    ) shouldBe true
+                }
+            }
+
+            `when`("잘못된 이미지(WRONG_IMAGE)를 바꾸던 배치가 실패하면") {
+                then("숨긴 채 이미지 대기로 남는다 — 잘못된 이미지를 다시 공개하지 않는다") {
+                    val food = regenerating("오류실패음식", RegenerationIntent.WRONG_IMAGE)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("의도가 기록되지 않은(NULL) 배치가 실패하면") {
+                then("WRONG_IMAGE 와 같이 숨긴 채 남는다 — 기존 행·의도 누락은 보수적으로 다룬다") {
+                    val food = regenerating("의도없음실패음식", null)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("REPLACE_BETTER 재생성이 성공하면") {
+                then("의도와 무관하게 PENDING_REVIEW 로 간다 — 새 이미지는 검수를 거친다") {
+                    val food = foodRepository.save(
+                        savePendingImage("교체성공음식").apply { imageRef = "images/webp/food/old-success.webp" },
+                    )
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(
+                        ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.REPLACE_BETTER),
+                    )
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_replace_ok")
+                    fakeClient.results["file_replace_ok"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
                 }
             }
         }

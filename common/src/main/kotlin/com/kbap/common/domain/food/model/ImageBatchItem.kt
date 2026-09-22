@@ -32,7 +32,16 @@ class ImageBatchItem(
 
     @Column(name = "error_msg", length = 1000)
     var errorMsg: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "regeneration_intent", length = 20)
+    var regenerationIntent: RegenerationIntent? = null,
+
+    @Column(name = "regeneration_reason", length = 500)
+    var regenerationReason: String? = null,
 ) : BaseEntity() {
+    fun restoresPublicationOnFailure(): Boolean = regenerationIntent == RegenerationIntent.REPLACE_BETTER
+
     fun done(fileName: String) {
         this.itemStatus = ImageBatchItemStatus.DONE
         this.fileName = fileName

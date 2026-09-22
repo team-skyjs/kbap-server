@@ -157,18 +157,14 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun countByDisplayNameContainingAndContentStatus(displayName: String, contentStatus: FoodContentStatus): Long
 
-    @Query(
-        """
-        select f from Food f
-        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
-          and not exists (
-            select 1 from ImageBatchItem i
-            where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
-          )
-        order by f.id asc
-        """,
-    )
+    @Query("select f from Food f where $IMAGE_CANDIDATE order by f.id asc")
     fun findImageCandidates(): List<Food>
+
+    @Query("select count(f) from Food f where $IMAGE_CANDIDATE")
+    fun countImageCandidates(): Long
+
+    @Query("select count(f) from Food f where $IMAGE_CANDIDATE and $FAILED_REGENERATION")
+    fun countStrandedImageRegenerations(): Long
 
     @Query(
         """
@@ -262,4 +258,15 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun findRandomReadyIds(@Param("size") size: Int): List<Long>
+
+    companion object {
+        const val IMAGE_CANDIDATE =
+            "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
+                "and not exists (select 1 from ImageBatchItem i where i.foodId = f.id " +
+                "and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING)"
+
+        const val FAILED_REGENERATION =
+            "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
+                "and f.imageRef is not null and trim(f.imageRef) <> ''"
+    }
 }

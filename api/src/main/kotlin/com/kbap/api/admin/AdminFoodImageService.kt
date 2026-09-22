@@ -9,11 +9,11 @@ import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
-import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import com.kbap.common.domain.food.model.RegenerationIntent
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
@@ -57,8 +57,8 @@ class AdminFoodImageService(
         return galleryOf(foodId)
     }
 
-    fun regenerateImage(foodId: Long): AdminFoodImageRegenerateResult {
-        val claim = claimForRegeneration(foodId)
+    fun regenerateImage(foodId: Long, intent: RegenerationIntent?, reason: String?): AdminFoodImageRegenerateResult {
+        val claim = claimForRegeneration(foodId, intent, reason)
         batchSubmitService.submitClaimed(claim)
         return AdminFoodImageRegenerateResult(
             foodId = foodId,
@@ -67,7 +67,7 @@ class AdminFoodImageService(
         )
     }
 
-    private fun claimForRegeneration(foodId: Long): FoodImageBatchClaim = try {
+    private fun claimForRegeneration(foodId: Long, intent: RegenerationIntent?, reason: String?): FoodImageBatchClaim = try {
         transaction.execute {
             val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
@@ -76,11 +76,14 @@ class AdminFoodImageService(
             if (!target.isReady() && !target.isFailedRegeneration()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
+            if (intent == RegenerationIntent.REPLACE_BETTER && !target.isReady()) {
+                throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+            }
             target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             cancelPendingVectorOutboxes(foodId, FoodVectorOutboxOperation.UPSERT)
             vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
-            batchSubmitService.claimOne(target)
+            batchSubmitService.claimOne(target, intent, reason)
         }!!
     } catch (e: BusinessException) {
         throw e
@@ -101,9 +104,6 @@ class AdminFoodImageService(
             .findByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
             .forEach { it.delete() }
     }
-
-    private fun Food.isFailedRegeneration(): Boolean =
-        contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
 
     private fun galleryOf(foodId: Long): AdminFoodImageGalleryResult {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
