@@ -8,6 +8,7 @@ import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.metering.LlmCallCostJpaRepository
 import com.kbap.common.domain.metering.dto.DailyModelCostSum
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -23,6 +24,8 @@ class AdminDashboardMetricsService(
     private val llmCallCostRepository: LlmCallCostJpaRepository,
     private val uploadedImageCleanupService: UploadedImageCleanupService,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional(readOnly = true)
     fun getMetricsSummary(): AdminDashboardMetricsResponse {
         val today = LocalDate.now()
@@ -36,7 +39,9 @@ class AdminDashboardMetricsService(
             weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
             prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
             weeklyScans = thisWeek.map { AdminDailyCountResponse(it, dailyScans[it] ?: 0L) },
-            orphanUploadedImageCounts = uploadedImageCleanupService.countOrphans(),
+            orphanUploadedImageCounts = runCatching { uploadedImageCleanupService.countOrphans() }
+                .onFailure { log.warn("미참조 업로드 건수를 세지 못했다 — 나머지 지표는 그대로 낸다", it) }
+                .getOrNull(),
         )
     }
 

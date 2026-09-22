@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 
@@ -22,6 +23,10 @@ class UploadedImageCleanupService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
+    private val countTransaction = TransactionTemplate(transactionManager).apply {
+        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+        isReadOnly = true
+    }
 
     @Scheduled(cron = "\${kbap.uploaded-image-cleanup.cron:0 30 4 * * *}", zone = "Asia/Seoul")
     @SchedulerLock(name = "uploaded-image-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
@@ -45,6 +50,9 @@ class UploadedImageCleanupService(
     }
 
     fun countOrphans(before: LocalDateTime = orphanCutoff()): Map<String, Long> =
+        countTransaction.execute { countOrphansIn(before) }!!
+
+    protected fun countOrphansIn(before: LocalDateTime): Map<String, Long> =
         UploadedImageJpaRepository.CLEANUP_SEGMENTS.associate { segment ->
             segment.removePrefix("images/").trimEnd('/') to uploadedImageRepository.countOrphansIn(before, segment)
         }
