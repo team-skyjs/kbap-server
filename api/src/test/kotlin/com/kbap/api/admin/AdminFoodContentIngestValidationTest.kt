@@ -275,6 +275,39 @@ class AdminFoodContentIngestValidationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("다른 음식의 아웃박스 id 에 없는 foodId 를 붙여 보내면") {
+                then("식별자 불일치 계약대로 COMMON-002 로 거절한다 — 음식 없음(FOOD-001)이 아니다") {
+                    clearFoods()
+                    val owner = saveFood("아웃박스주인")
+                    val outbox = outboxRepository
+                        .findByFoodIdInAndOutboxStatus(setOf(owner.id), FoodContentOutboxStatus.PENDING)
+                        .single()
+
+                    ingest(passedBody(999_998, outbox.id)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+                }
+            }
+
+            `when`("다른 음식의 아웃박스 id 에 삭제된 음식의 foodId 를 붙여 보내면") {
+                then("COMMON-002 로 거절한다 — 삭제 여부보다 식별자 불일치가 먼저다") {
+                    clearFoods()
+                    val owner = saveFood("아웃박스주인2")
+                    val deleted = saveFood("삭제된남의음식")
+                    deleted.delete()
+                    foodJpaRepository.save(deleted)
+                    val outbox = outboxRepository
+                        .findByFoodIdInAndOutboxStatus(setOf(owner.id), FoodContentOutboxStatus.PENDING)
+                        .single()
+
+                    ingest(passedBody(deleted.id, outbox.id)).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_REQUEST.code) }
+                    }
+                }
+            }
+
             `when`("삭제된 음식이면") {
                 then("되살리지 않고 거절한다 — 관리자의 삭제 의도를 자동 호출이 뒤집지 않는다") {
                     clearFoods()
