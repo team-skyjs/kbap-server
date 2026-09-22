@@ -58,6 +58,10 @@ class AdminFoodContentIngestService(
             log.warn("포기한 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
             return false
         }
+        if (outboxRepository.countSuperseded(outboxId, foodId) > 0) {
+            log.warn("더 새 요청이 있는 옛 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
+            return false
+        }
         if (
             outboxRepository.existsByIdAndFoodIdAndOutboxStatus(
                 outboxId,
@@ -66,6 +70,9 @@ class AdminFoodContentIngestService(
             )
         ) {
             throw BusinessException(ErrorCode.FOOD_CONTENT_REQUEST_ALREADY_COMPLETED)
+        }
+        if (outboxRepository.existsById(outboxId) && !foodRepository.existsById(foodId)) {
+            throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         }
         throw BusinessException(ErrorCode.INVALID_REQUEST)
     }
