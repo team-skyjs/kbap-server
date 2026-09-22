@@ -1,6 +1,8 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentStatus
 import io.swagger.v3.oas.annotations.Operation
@@ -287,4 +289,44 @@ interface AdminFoodCatalogApi {
         @Parameter(description = "삭제할 음식 id", example = "1")
         id: Long,
     ): ResponseEntity<BaseResponse<Unit>>
+
+    @Operation(
+        summary = "사람 검수 완료 기록",
+        description = """
+            음식에 "사람이 검수했음"을 호출한 관리자·지금 시각으로 기록한다. 검수 큐 승인(PENDING_REVIEW→READY)과는 별개의 수동 행위이며
+            콘텐츠 상태를 바꾸지 않는다.
+
+            - 이미 기록된 음식에 다시 호출하면 최신 관리자·시각으로 **덮어쓴다**(이력 없음).
+            - 응답의 `humanReview` 가 음식 목록·상세의 같은 필드에 그대로 반영된다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "기록 성공"),
+            ApiResponse(responseCode = "400", description = "음식 없음(FOOD-001)"),
+            ApiResponse(responseCode = "401", description = "토큰의 관리자 계정이 없음(AUTH-003)"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.INVALID_ACCESS_TOKEN)
+    fun markHumanReviewed(
+        @Parameter(description = "음식 id", example = "1") id: Long,
+        adminAccountId: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodHumanReviewResponse>>
+
+    @Operation(
+        summary = "사람 검수 기록 해제",
+        description = "검수자·시각을 지운다. 기록이 없던 음식에 호출해도 200(멱등). 응답의 `humanReview` 는 null 이다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "해제 성공"),
+            ApiResponse(responseCode = "400", description = "음식 없음(FOOD-001)"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND)
+    fun clearHumanReview(
+        @Parameter(description = "음식 id", example = "1") id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodHumanReviewResponse>>
 }

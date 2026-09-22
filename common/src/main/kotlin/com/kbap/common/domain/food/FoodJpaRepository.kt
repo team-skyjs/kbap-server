@@ -2,6 +2,7 @@ package com.kbap.common.domain.food
 
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
+import com.kbap.common.domain.food.dto.HumanReviewCount
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import jakarta.persistence.LockModeType
@@ -194,6 +195,33 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
     fun findByIdIn(ids: List<Long>): List<Food>
+
+    @Query(
+        """
+        select f from Food f
+        where f.humanReviewedAt is not null
+          and (:adminId is null or f.humanReviewedBy = :adminId)
+          and (:cursorAt is null or f.humanReviewedAt < :cursorAt
+               or (f.humanReviewedAt = :cursorAt and f.id < :cursorId))
+        order by f.humanReviewedAt desc, f.id desc
+        """,
+    )
+    fun findHumanReviewedPage(
+        @Param("adminId") adminId: Long?,
+        @Param("cursorAt") cursorAt: LocalDateTime?,
+        @Param("cursorId") cursorId: Long?,
+        pageable: Pageable,
+    ): List<Food>
+
+    @Query(
+        """
+        select new com.kbap.common.domain.food.dto.HumanReviewCount(f.humanReviewedBy, count(f))
+        from Food f
+        where f.humanReviewedBy is not null
+        group by f.humanReviewedBy
+        """,
+    )
+    fun countHumanReviewsByAdmin(): List<HumanReviewCount>
 
     @Query(
         nativeQuery = true,

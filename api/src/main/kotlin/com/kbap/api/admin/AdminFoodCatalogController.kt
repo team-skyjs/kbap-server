@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.model.FoodContentFailureKind
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.ADMIN + "/foods", version = "1.0+")
 class AdminFoodCatalogController(
     private val adminFoodService: AdminFoodService,
+    private val humanReviewService: AdminHumanReviewService,
 ) : AdminFoodCatalogApi {
     private val objectMapper = jacksonObjectMapper()
 
@@ -133,6 +136,19 @@ class AdminFoodCatalogController(
         ResponseEntity.ok(
             BaseResponse.ok(AdminFoodRecollectResponse.from(adminFoodService.requestRecollect(q, status))),
         )
+
+    @PutMapping("/{id}/human-review")
+    override fun markHumanReviewed(
+        @PathVariable id: Long,
+        @RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminAccountId: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodHumanReviewResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(humanReviewService.markReviewed(id, adminAccountId)))
+
+    @DeleteMapping("/{id}/human-review")
+    override fun clearHumanReview(
+        @PathVariable id: Long,
+    ): ResponseEntity<BaseResponse<AdminFoodHumanReviewResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(humanReviewService.clearReview(id)))
 
     @DeleteMapping("/{id}")
     override fun deleteFood(
