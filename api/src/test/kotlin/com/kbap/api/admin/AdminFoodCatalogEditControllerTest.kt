@@ -24,7 +24,7 @@ class AdminFoodCatalogEditControllerTest : AdminFoodCatalogTestSupport() {
                             "description" to "더 구수한 찌개",
                             "spiciness" to 4,
                             "contentStatus" to "PENDING_REVIEW",
-                            "imageRef" to "images/food/updated.webp",
+                            "imageRef" to food.imageRef,
                             "nameTranslations" to mapOf("en" to "Updated stew"),
                             "descriptionTranslations" to mapOf("en" to "richer stew"),
                             "ingredients" to listOf(mapOf("code" to "SOY", "inclusion_percent" to 80)),
@@ -272,6 +272,44 @@ class AdminFoodCatalogEditControllerTest : AdminFoodCatalogTestSupport() {
                     ).andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
+            `when`("이미지가 있는 음식을 imageRef 없이 수정하면") {
+                then("생략은 무변경이라 통과하고 이미지도 그대로다") {
+                    val food = foodJpaRepository.save(saveFood("이미지생략음식").apply { imageRef = "images/webp/keep.webp" })
+
+                    putUpdate(food.id, updateBody(koreanName = "이미지생략음식", version = food.version))
+                        .andExpect { status { isOk() } }
+
+                    foodJpaRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/keep.webp"
+                }
+            }
+
+            `when`("현재와 같은 imageRef 를 실어 수정하면") {
+                then("통과한다") {
+                    val food = foodJpaRepository.save(saveFood("이미지동일음식").apply { imageRef = "images/webp/same.webp" })
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "이미지동일음식", version = food.version) +
+                            mapOf("imageRef" to "images/webp/same.webp"),
+                    ).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("다른 imageRef 를 실어 수정하면") {
+                then("400 FOOD-012 로 거절한다 — 대표 이미지는 갤러리 API 로만 바꾼다") {
+                    val food = foodJpaRepository.save(saveFood("이미지변경음식").apply { imageRef = "images/webp/old.webp" })
+
+                    putUpdate(
+                        food.id,
+                        updateBody(koreanName = "이미지변경음식", version = food.version) +
+                            mapOf("imageRef" to "images/webp/new.webp"),
+                    ).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("FOOD-012") }
                     }
                 }
             }

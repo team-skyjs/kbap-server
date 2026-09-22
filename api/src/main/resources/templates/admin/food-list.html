@@ -139,8 +139,8 @@
                                    th:disabled="${!editMode}" required>
                         </div>
                         <div class="field">
-                            <label for="imageRef">이미지 키 (비우면 없음)</label>
-                            <input id="imageRef" name="imageRef" type="text" th:value="${foodDetail.imageRef}" th:disabled="${!editMode}">
+                            <label for="imageRef">이미지 키 (읽기 전용 — 갤러리에서 대표 지정)</label>
+                            <input id="imageRef" name="imageRef" type="text" th:value="${foodDetail.imageRef}" readonly>
                         </div>
                     </div>
                     <div class="field">

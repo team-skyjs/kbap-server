@@ -42,6 +42,8 @@ enum class ErrorCode(
     FOOD_NOT_REVIEWABLE("FOOD-008", 400, "검수 대상(PENDING_REVIEW)이 아닙니다"),
     FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
     FOOD_READY_TRANSITION_FORBIDDEN("FOOD-010", 400, "READY 전이는 검수 승인 API 로만 가능합니다"),
+    FOOD_STATUS_NOT_READY("FOOD-011", 409, "공개(READY) 상태인 음식만 이미지를 재생성할 수 있습니다"),
+    FOOD_IMAGE_REF_NOT_EDITABLE("FOOD-012", 400, "대표 이미지는 대표 지정 API 로만 바꿀 수 있습니다"),
     FOOD_TOO_MANY_INGREDIENTS("FOOD-013", 400, "음식 한 건의 재료는 21개까지 저장할 수 있습니다"),
     FOOD_DUPLICATE_INGREDIENT("FOOD-014", 400, "같은 재료를 한 음식에 두 번 넣을 수 없습니다"),
     FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE("FOOD-015", 400, "재료 포함 확률은 0~100 사이여야 합니다"),
@@ -56,6 +58,8 @@ enum class ErrorCode(
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
     UPLOADED_OBJECT_NOT_FOUND("IMAGE-003", 400, "업로드된 파일을 찾을 수 없습니다"),
+    IMAGE_BATCH_IN_PROGRESS("IMAGE-004", 409, "이미 이미지 생성이 진행 중입니다"),
+    FOOD_IMAGE_NOT_FOUND("IMAGE-005", 404, "해당 음식의 이미지를 찾을 수 없습니다"),
     IMAGE_UPLOAD_RATE_LIMITED("IMAGE-006", 429, "하루에 올릴 수 있는 사진 수를 넘었습니다. 내일 다시 시도해 주세요"),
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),

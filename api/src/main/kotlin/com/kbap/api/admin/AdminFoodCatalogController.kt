@@ -82,7 +82,7 @@ class AdminFoodCatalogController(
             description = request.description!!,
             spiciness = request.spiciness!!,
             contentStatus = request.contentStatus!!,
-            imageRef = request.imageRef.orEmpty().trim(),
+            imageRef = request.imageRef?.trim(),
             nameTranslationsJson = request.nameTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             descriptionTranslationsJson = request.descriptionTranslations?.let(objectMapper::writeValueAsString).orEmpty(),
             ingredientsJson = request.ingredients?.let(objectMapper::writeValueAsString).orEmpty(),
@@ -101,6 +101,8 @@ class AdminFoodCatalogController(
             AdminFoodUpdateResult.DUPLICATE_NAME -> throw BusinessException(ErrorCode.DUPLICATE_FOOD_NAME)
             AdminFoodUpdateResult.READY_NOT_ALLOWED ->
                 throw BusinessException(ErrorCode.FOOD_READY_TRANSITION_FORBIDDEN)
+            AdminFoodUpdateResult.IMAGE_REF_NOT_EDITABLE ->
+                throw BusinessException(ErrorCode.FOOD_IMAGE_REF_NOT_EDITABLE)
         }
         return ResponseEntity.ok(BaseResponse.ok(adminFoodService.getFoodDetail(id)))
     }

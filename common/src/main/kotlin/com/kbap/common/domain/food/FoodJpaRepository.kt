@@ -151,6 +151,20 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     @Query(
         """
+        select f from Food f
+        where f.id in :ids
+          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
+          and not exists (
+            select 1 from ImageBatchItem i
+            where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
+          )
+        order by f.id asc
+        """,
+    )
+    fun findImageCandidatesByIdIn(@Param("ids") ids: List<Long>): List<Food>
+
+    @Query(
+        """
         select f.id from Food f
         where (:cursor is null or f.id < :cursor)
           and f.contentStatus = 'READY'

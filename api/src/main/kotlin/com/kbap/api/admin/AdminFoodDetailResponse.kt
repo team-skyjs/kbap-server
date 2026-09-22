@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.util.ImageUrls
+import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -80,6 +81,11 @@ data class AdminFoodUpdateRequest(
     @field:NotNull
     val contentStatus: FoodContentStatus? = null,
     @field:Size(max = 500, message = "imageRef 는 500자 이하여야 합니다")
+    @field:Schema(
+        description = "대표 이미지 키. **생략하면 변경 없음**이다. 값을 주려면 현재 키와 같아야 하며, " +
+            "다른 키를 주면 400(FOOD-012)이다 — 대표 이미지는 갤러리 대표 지정 API 로만 바꾼다.",
+        nullable = true,
+    )
     val imageRef: String? = null,
     val nameTranslations: Map<String, String>? = null,
     val descriptionTranslations: Map<String, String>? = null,
