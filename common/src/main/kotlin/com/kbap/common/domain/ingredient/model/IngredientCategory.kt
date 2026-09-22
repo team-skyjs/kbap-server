@@ -1,22 +1,19 @@
 package com.kbap.common.domain.ingredient.model
 
+import com.kbap.common.domain.BaseEntity
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.LocalizedText
-import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "ingredients")
-class Ingredient(
-    @Enumerated(EnumType.STRING)
+@Table(name = "ingredient_category")
+class IngredientCategory(
     @Column(name = "code", nullable = false, length = 40)
-    var code: IngredientCode = IngredientCode.EGG,
+    var code: String = "",
 
     @Column(name = "korean_name", nullable = false, length = 100)
     var koreanName: String = "",
@@ -25,11 +22,8 @@ class Ingredient(
     @Column(name = "translations", nullable = false)
     var translations: Map<String, String> = emptyMap(),
 
-    @Column(name = "image_path", length = 255)
-    var imagePath: String? = null,
-
-    @Column(name = "category_id")
-    var categoryId: Long? = null,
+    @Column(name = "sort_order", nullable = false)
+    var sortOrder: Int = 0,
 ) : BaseEntity() {
     fun displayName(lang: LanguageCode): String =
         LocalizedText(korean = koreanName, translations = resolveTranslations()).resolve(lang)

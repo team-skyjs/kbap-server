@@ -65,5 +65,5 @@ class AdminFoodContentIngestService(
     }
 
     private fun getFood(foodId: Long): Food =
-        foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 }

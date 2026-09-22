@@ -70,6 +70,8 @@ class AdminFoodService(
         status: FoodContentStatus? = null,
         failureKind: FoodContentFailureKind? = null,
         deleted: Boolean = false,
+        ingredientCode: String? = null,
+        categoryCode: String? = null,
     ): AdminFoodListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }?.let(LikeWildcards::escape)
         val result = foodRepository.searchAdminFoodPage(
@@ -77,6 +79,8 @@ class AdminFoodService(
             status?.name,
             failureKind?.name,
             keyword,
+            ingredientCode?.trim()?.takeIf { it.isNotEmpty() },
+            categoryCode?.trim()?.takeIf { it.isNotEmpty() },
             PageRequest.of(page - 1, LIST_PAGE_SIZE),
         )
         return AdminFoodListResponse(

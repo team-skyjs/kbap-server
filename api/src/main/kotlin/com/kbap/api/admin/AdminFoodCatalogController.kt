@@ -35,10 +35,20 @@ class AdminFoodCatalogController(
         @RequestParam(required = false) status: FoodContentStatus?,
         @RequestParam(required = false) failureKind: FoodContentFailureKind?,
         @RequestParam(defaultValue = "false") deleted: Boolean,
+        @RequestParam(required = false) ingredientCode: String?,
+        @RequestParam(required = false) categoryCode: String?,
     ): ResponseEntity<BaseResponse<AdminFoodListResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                adminFoodService.searchAdminFoodPage(page.coerceAtLeast(1), q, status, failureKind, deleted),
+                adminFoodService.searchAdminFoodPage(
+                    page.coerceAtLeast(1),
+                    q,
+                    status,
+                    failureKind,
+                    deleted,
+                    ingredientCode,
+                    categoryCode,
+                ),
             ),
         )
 
