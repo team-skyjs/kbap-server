@@ -2,6 +2,8 @@ package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.api.image.FakeStorageObjectStore
+import com.kbap.api.image.UploadedImageCleanupService
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
@@ -11,6 +13,7 @@ import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -22,12 +25,15 @@ import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import jakarta.persistence.EntityManager
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.sql.DataSource
-import org.springframework.beans.factory.annotation.Autowired
 
 @IntegrationTest
 class AdminDashboardMetricsServiceTest : BehaviorSpec() {
@@ -56,6 +62,13 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var contentOutboxJpaRepository: FoodContentOutboxJpaRepository
+    private lateinit var uploadedImageJpaRepository: UploadedImageJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var entityManager: EntityManager
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -260,6 +273,49 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     metrics.contentOutboxStuckCount shouldBe 1
                     metrics.contentOutboxDeadCount shouldBe 1
+        given("대시보드 지표 - 미참조 업로드 건수 격리") {
+            `when`("건수 쿼리가 DB 오류로 실패하면") {
+                then("요약은 정상으로 내고 그 필드만 null 이다 — 0 은 고아 없음, null 은 못 셌음") {
+                    clearAll()
+                    saveMember("isolation-member")
+                    val failingCleanup = object : UploadedImageCleanupService(
+                        uploadedImageJpaRepository,
+                        FakeStorageObjectStore(),
+                        7,
+                        true,
+                        100,
+                        transactionManager,
+                    ) {
+                        override fun countOrphansIn(before: LocalDateTime): Map<String, Long> {
+                            entityManager.createNativeQuery("SELECT COUNT(*) FROM no_such_table").singleResult
+                            return emptyMap()
+                        }
+                    }
+                    val isolated = AdminDashboardMetricsService(
+                        memberJpaRepository,
+                        scanHistoryJpaRepository,
+                        foodJpaRepository,
+                        llmCallCostJpaRepository,
+                        contentOutboxJpaRepository,
+                        24,
+                        failingCleanup,
+                    )
+
+                    val summary = TransactionTemplate(transactionManager)
+                        .apply { isReadOnly = true }
+                        .execute { isolated.getMetricsSummary() }!!
+
+                    summary.orphanUploadedImageCounts shouldBe null
+                    summary.totalActiveMembers shouldBe 1
+                }
+            }
+
+            `when`("건수 쿼리가 성공하고 고아가 없으면") {
+                then("null 이 아니라 용도별 0 이다") {
+                    clearAll()
+
+                    service.getMetricsSummary().orphanUploadedImageCounts shouldBe
+                        mapOf("review" to 0L, "community" to 0L, "feedback" to 0L)
                 }
             }
         }
