@@ -37,6 +37,7 @@ interface ReviewApi {
     )
     @ApiErrors(
         ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.FOOD_NOT_PUBLIC,
         ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
     )
     fun create(memberId: Long, request: ReviewCreateRequest): ResponseEntity<BaseResponse<ReviewResponse>>
@@ -130,6 +131,7 @@ interface ReviewApi {
     )
     @ApiErrors(
         ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.FOOD_NOT_PUBLIC,
         ErrorCode.INVALID_CURSOR,
     )
     fun listReviews(
