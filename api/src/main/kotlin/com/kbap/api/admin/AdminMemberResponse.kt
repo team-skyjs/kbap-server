@@ -228,6 +228,12 @@ data class AdminDashboardMetricsResponse(
         example = "0",
     )
     val contentOutboxDeadCount: Long,
+        description = "미참조 업로드 정리 대상 수(용도별 — review·community·feedback). 보존 기간이 지났고 리뷰·게시글·문의·" +
+            "프로필·주문 어디에도 참조되지 않은 업로드다. 실삭제가 꺼진(dry-run) 동안은 쌓이기만 한다. " +
+            "업로드가 있는 용도가 0 이면 참조 판정 쿼리를 의심한다",
+        example = "{\"review\": 12, \"community\": 3, \"feedback\": 0}",
+    )
+    val orphanUploadedImageCounts: Map<String, Long>,
 )
 
 data class AdminDailyCountResponse(
