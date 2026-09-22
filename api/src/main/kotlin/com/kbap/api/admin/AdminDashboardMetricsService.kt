@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.image.UploadedImageCleanupService
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.member.MemberJpaRepository
@@ -20,6 +21,7 @@ class AdminDashboardMetricsService(
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val foodRepository: FoodJpaRepository,
     private val llmCallCostRepository: LlmCallCostJpaRepository,
+    private val uploadedImageCleanupService: UploadedImageCleanupService,
 ) {
     @Transactional(readOnly = true)
     fun getMetricsSummary(): AdminDashboardMetricsResponse {
@@ -34,6 +36,7 @@ class AdminDashboardMetricsService(
             weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
             prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
             weeklyScans = thisWeek.map { AdminDailyCountResponse(it, dailyScans[it] ?: 0L) },
+            orphanUploadedImageCounts = uploadedImageCleanupService.countOrphans(),
         )
     }
 
