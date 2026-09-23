@@ -142,11 +142,11 @@ interface FoodApi {
             ApiResponse(responseCode = "200", description = "조회 성공 — 요청 언어 음식명·설명·맵기·포함 기피성분 목록 반환. bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
             ApiResponse(
                 responseCode = "400",
-                description = "미존재/소프트삭제 음식('해당 음식 정보를 찾을 수 없습니다'), 숫자가 아닌 foodId 또는 lang 누락·빈/공백('잘못된 요청입니다')",
+                description = "미존재/소프트삭제 음식(FOOD-001), 존재하지만 공개(READY) 전이거나 이미지 재생성으로 숨겨진 음식(FOOD-018 — 다시 공개될 수 있다), 숫자가 아닌 foodId 또는 lang 누락·빈/공백('잘못된 요청입니다')",
             ),
         ],
     )
-    @ApiErrors(ErrorCode.FOOD_NOT_FOUND)
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_NOT_PUBLIC)
     fun detail(
         @Parameter(description = "조회할 음식의 안정적 식별자(음식 목록/검색이 내려준 숫자 id)", required = true, example = "1")
         foodId: Long,

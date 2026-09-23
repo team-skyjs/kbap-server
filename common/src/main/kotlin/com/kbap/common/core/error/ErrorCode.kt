@@ -49,6 +49,7 @@ enum class ErrorCode(
     FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE("FOOD-015", 400, "재료 포함 확률은 0~100 사이여야 합니다"),
     FOOD_UNKNOWN_INGREDIENT("FOOD-016", 400, "재료 카탈로그에 없는 재료 코드입니다"),
     INGREDIENT_BACKFILL_IN_PROGRESS("FOOD-017", 409, "재료 관계 백필이 이미 실행 중입니다"),
+    FOOD_NOT_PUBLIC("FOOD-018", 400, "지금은 볼 수 없는 음식입니다. 잠시 후 다시 확인해 주세요"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),

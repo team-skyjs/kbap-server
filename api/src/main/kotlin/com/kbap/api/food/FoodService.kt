@@ -191,11 +191,12 @@ class FoodService(
     }
 
     @Transactional(readOnly = true)
-    fun getReadyFood(id: Long): Food =
-        foodRepository.findByIdIn(listOf(id))
-            .firstOrNull()
-            ?.takeIf { it.isReady() }
+    fun getReadyFood(id: Long): Food {
+        val food = foodRepository.findByIdIn(listOf(id)).firstOrNull()
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_NOT_PUBLIC)
+        return food
+    }
 
     @Transactional(readOnly = true)
     fun getRandomReadyFoods(size: Int): List<Food> {
