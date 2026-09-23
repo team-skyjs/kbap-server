@@ -59,6 +59,10 @@ spring:
   application:
     name: kbap-api
   flyway:
+    # 자동 적용 스위치 — 배포 환경은 off 가 기본이다. 스키마 변경은 배포 전에 사람이 적용한다(KB-446):
+    # api 가 부팅하며 마이그레이션을 적용하면 같은 푸시로 함께 뜨는 batch(ddl-auto=validate)가
+    # 아직 없는 컬럼을 찾다가 기동에 실패한다. 켜야 하는 환경은 FLYWAY_ENABLED=true 로 주입한다.
+    enabled: ${FLYWAY_ENABLED:false}
     # 신규 마이그레이션 버전은 생성 시각 기반 점 구분 timestamp(Vyyyy.MM.dd.HH.mm.ss)라,
     # 먼저 만들고 늦게 머지된 마이그레이션이 이미 적용된 최신보다 과거 버전이 될 수 있다.
     # 이를 validate 실패(부팅 거부)가 아니라 정상 적용(out-of-order)으로 허용한다.
