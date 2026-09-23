@@ -19,6 +19,7 @@ import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.api.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,6 +33,7 @@ class FoodService(
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
+    private val eventPublisher: ApplicationEventPublisher,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -153,6 +155,7 @@ class FoodService(
         val avoidance = memberService.getAvoidance(input.memberId)
         val userAvoidedCodes = avoidance.codeNames
         val foodName = food.displayName(lang)
+        eventPublisher.publishEvent(FoodViewed(food.id, input.memberId))
 
         return GetFoodDetailResult(
             name = foodName,
