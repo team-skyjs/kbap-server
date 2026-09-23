@@ -37,6 +37,7 @@ class AdminFoodService(
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
     private val foodIngredientRepository: FoodIngredientJdbcRepository,
     private val foodService: FoodService,
+    private val humanReviewService: AdminHumanReviewService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val objectMapper = jacksonObjectMapper()
@@ -83,9 +84,14 @@ class AdminFoodService(
             categoryCode?.trim()?.takeIf { it.isNotEmpty() },
             PageRequest.of(page - 1, LIST_PAGE_SIZE),
         )
+        return listResponseOf(result, page)
+    }
+
+    private fun listResponseOf(result: org.springframework.data.domain.Page<Food>, page: Int): AdminFoodListResponse {
+        val humanReviews = humanReviewService.humanReviewsOf(result.content)
         return AdminFoodListResponse(
             items = result.content.map {
-                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
+                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl, humanReviews[it.id]))
             },
             page = page,
             totalPages = result.totalPages,
@@ -98,22 +104,13 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getDeletedFoodPage(page: Int): AdminFoodListResponse {
         val result = foodRepository.findDeletedPage(PageRequest.of(page - 1, LIST_PAGE_SIZE))
-        return AdminFoodListResponse(
-            items = result.content.map {
-                AdminFoodListItemResponse.from(AdminFoodSummaryView.from(it, imagePublicBaseUrl))
-            },
-            page = page,
-            totalPages = result.totalPages,
-            totalCount = result.totalElements,
-            hasPrev = page > 1,
-            hasNext = page < result.totalPages,
-        )
+        return listResponseOf(result, page)
     }
 
     @Transactional(readOnly = true)
     fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findDeletedById(id)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it)) }
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional
@@ -139,7 +136,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findById(id).orElse(null)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl) }
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it)) }
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
@@ -378,9 +375,10 @@ data class AdminFoodSummaryView(
     val spiciness: Int,
     val imageUrl: String?,
     val updatedAt: LocalDateTime,
+    val humanReview: HumanReviewResponse? = null,
 ) {
     companion object {
-        fun from(food: Food, imagePublicBaseUrl: String): AdminFoodSummaryView =
+        fun from(food: Food, imagePublicBaseUrl: String, humanReview: HumanReviewResponse? = null): AdminFoodSummaryView =
             AdminFoodSummaryView(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
@@ -390,6 +388,7 @@ data class AdminFoodSummaryView(
                 spiciness = food.spiciness,
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
                 updatedAt = food.updatedAt,
+                humanReview = humanReview,
             )
     }
 }

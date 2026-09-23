@@ -56,6 +56,8 @@ interface AdminFoodImageApi {
             대표 이미지를 새로 생성하도록 배치에 제출한다. 음식은 PENDING_IMAGE 로 내려가 **이미지가 붙을 때까지 앱에서 사라진다**(의도).
             같은 트랜잭션에서 벡터 삭제를 예약하고, 생성이 끝나면 기존 파이프라인이 다시 색인한다.
             이미 생성이 진행 중이면 409(IMAGE-004), READY 가 아닌 음식이면 409(FOOD-011)다.
+            요청 본문의 intent 는 **생성 실패 시 처리만** 가른다 — REPLACE_BETTER 는 옛 이미지로 READY 복원, WRONG_IMAGE 는 숨김 유지.
+            본문·intent 누락은 WRONG_IMAGE 와 같다(어드민 KB-621 배포 후 필수 전환 예정). REPLACE_BETTER 는 READY 음식에만 쓸 수 있다(FOOD-011).
         """,
     )
     @ApiResponses(
@@ -67,5 +69,6 @@ interface AdminFoodImageApi {
     @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.IMAGE_BATCH_IN_PROGRESS, ErrorCode.FOOD_STATUS_NOT_READY)
     fun regenerateImage(
         @Parameter(description = "음식 id", required = true, example = "42") foodId: Long,
+        request: AdminFoodImageRegenerateRequest?,
     ): ResponseEntity<BaseResponse<AdminFoodImageRegenerateResponse>>
 }

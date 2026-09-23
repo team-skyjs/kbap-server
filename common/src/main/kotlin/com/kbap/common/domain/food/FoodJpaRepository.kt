@@ -2,6 +2,7 @@ package com.kbap.common.domain.food
 
 import com.kbap.common.domain.DailyCount
 import com.kbap.common.domain.food.dto.FoodStatusCount
+import com.kbap.common.domain.food.dto.HumanReviewCount
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import jakarta.persistence.LockModeType
@@ -156,18 +157,14 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun countByDisplayNameContainingAndContentStatus(displayName: String, contentStatus: FoodContentStatus): Long
 
-    @Query(
-        """
-        select f from Food f
-        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE
-          and not exists (
-            select 1 from ImageBatchItem i
-            where i.foodId = f.id and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING
-          )
-        order by f.id asc
-        """,
-    )
+    @Query("select f from Food f where $IMAGE_CANDIDATE order by f.id asc")
     fun findImageCandidates(): List<Food>
+
+    @Query("select count(f) from Food f where $IMAGE_CANDIDATE")
+    fun countImageCandidates(): Long
+
+    @Query("select count(f) from Food f where $IMAGE_CANDIDATE and $FAILED_REGENERATION")
+    fun countStrandedImageRegenerations(): Long
 
     @Query(
         """
@@ -194,6 +191,35 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findFoodPageIds(@Param("cursor") cursor: Long?, pageable: Pageable): List<Long>
 
     fun findByIdIn(ids: List<Long>): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        SELECT * FROM food
+        WHERE human_reviewed_at IS NOT NULL
+          AND (:adminId IS NULL OR human_reviewed_by = :adminId)
+          AND (:cursorAt IS NULL OR human_reviewed_at < :cursorAt
+               OR (human_reviewed_at = :cursorAt AND id < :cursorId))
+        ORDER BY human_reviewed_at DESC, id DESC
+        LIMIT :size
+        """,
+    )
+    fun findHumanReviewedPage(
+        @Param("adminId") adminId: Long?,
+        @Param("cursorAt") cursorAt: LocalDateTime?,
+        @Param("cursorId") cursorId: Long?,
+        @Param("size") size: Int,
+    ): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        SELECT human_reviewed_by AS adminId, COUNT(*) AS count FROM food
+        WHERE human_reviewed_by IS NOT NULL
+        GROUP BY human_reviewed_by
+        """,
+    )
+    fun countHumanReviewsByAdmin(): List<HumanReviewCount>
 
     @Query(
         nativeQuery = true,
@@ -232,4 +258,15 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun findRandomReadyIds(@Param("size") size: Int): List<Long>
+
+    companion object {
+        const val IMAGE_CANDIDATE =
+            "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
+                "and not exists (select 1 from ImageBatchItem i where i.foodId = f.id " +
+                "and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING)"
+
+        const val FAILED_REGENERATION =
+            "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
+                "and f.imageRef is not null and trim(f.imageRef) <> ''"
+    }
 }

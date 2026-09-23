@@ -32,7 +32,7 @@ data class OrderSummaryResponse(
     @field:Schema(description = "주문한 음식 총 수량", example = "6")
     val totalQuantity: Int,
 
-    @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개. READY 음식만 실사진, 준비중이거나 사진이 없으면 기본 대체 이미지")
+    @field:Schema(description = "주문한 음식 썸네일 URL — 최대 4개. 회원이 항목에 올린 사진이 있으면 그것, 없으면 READY 음식의 실사진, 준비중이거나 사진이 없으면 기본 대체 이미지")
     val thumbnails: List<String>,
 
     @field:Schema(
@@ -110,6 +110,9 @@ data class OrderPlaceResponse(
 
 @Schema(description = "주문 항목 — 저장 시점 스냅샷")
 data class OrderItemResponse(
+    @field:Schema(description = "항목 식별자 — 사진 교체·원복 API 의 itemId", example = "501")
+    val id: Long,
+
     @field:Schema(description = "메뉴명", example = "순두부찌개")
     val menuName: String,
 
@@ -141,4 +144,12 @@ data class OrderItemResponse(
         example = "true",
     )
     val hasPhoto: Boolean,
+
+    @field:Schema(
+        description = "회원이 이 항목에 직접 올린 사진 URL. 있으면 클라가 imageRef 보다 우선 표시한다. " +
+            "없으면(기본 사진) null — imageRef·hasPhoto 는 회원 사진과 무관하게 카탈로그 기준 그대로다.",
+        example = "https://cdn.example.com/images/orders/2026/09/42_5f1c.jpg",
+        nullable = true,
+    )
+    val userImageUrl: String?,
 )

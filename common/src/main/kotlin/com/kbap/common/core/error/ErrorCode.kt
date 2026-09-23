@@ -62,6 +62,7 @@ enum class ErrorCode(
     IMAGE_BATCH_IN_PROGRESS("IMAGE-004", 409, "이미 이미지 생성이 진행 중입니다"),
     FOOD_IMAGE_NOT_FOUND("IMAGE-005", 404, "해당 음식의 이미지를 찾을 수 없습니다"),
     IMAGE_UPLOAD_RATE_LIMITED("IMAGE-006", 429, "하루에 올릴 수 있는 사진 수를 넘었습니다. 내일 다시 시도해 주세요"),
+    ORDER_ITEM_IMAGE_NOT_VERIFIED("IMAGE-007", 400, "본인이 주문 항목 용도(ORDER_ITEM)로 올린 사진만 쓸 수 있습니다"),
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
@@ -99,6 +100,7 @@ enum class ErrorCode(
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),
+    ORDER_ITEM_NOT_FOUND("ORDER-004", 404, "해당 주문에 그 항목이 없습니다"),
 
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),

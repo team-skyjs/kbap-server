@@ -17,4 +17,13 @@ class AdminAccount(
 
     @Column(name = "admin_pwd", nullable = false, length = 60)
     var password: String = "",
-) : BaseEntity()
+
+    @Column(name = "display_name", length = MAX_DISPLAY_NAME_LENGTH)
+    var displayName: String? = null,
+) : BaseEntity() {
+    fun displayNameOrLoginId(): String = displayName?.takeIf { it.isNotBlank() } ?: loginId
+
+    companion object {
+        const val MAX_DISPLAY_NAME_LENGTH = 50
+    }
+}

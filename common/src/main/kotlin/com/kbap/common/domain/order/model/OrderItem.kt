@@ -26,9 +26,23 @@ class OrderItem(
 
     @Column
     var price: Int? = null,
+
+    @Column(name = "image_path", length = MAX_IMAGE_PATH_LENGTH)
+    var imagePath: String? = null,
 ) : BaseEntity() {
+    fun replaceImage(imagePath: String) {
+        require(imagePath.isNotBlank()) { "imagePath 는 blank 일 수 없습니다" }
+        require(imagePath.length <= MAX_IMAGE_PATH_LENGTH) { "imagePath 는 최대 ${MAX_IMAGE_PATH_LENGTH}자입니다" }
+        this.imagePath = imagePath
+    }
+
+    fun restoreCatalogImage() {
+        imagePath = null
+    }
+
     companion object {
         const val MAX_MENU_NAME_LENGTH = 100
+        const val MAX_IMAGE_PATH_LENGTH = 512
 
         fun totalQuantityOf(items: List<OrderItem>): Int = items.sumOf { it.quantity }
 

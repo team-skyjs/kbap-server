@@ -34,6 +34,8 @@ class AdminDashboardMetricsService(
             weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
             prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
             weeklyScans = thisWeek.map { AdminDailyCountResponse(it, dailyScans[it] ?: 0L) },
+            pendingImageWithoutBatchCount = foodRepository.countImageCandidates(),
+            strandedImageRegenerationCount = foodRepository.countStrandedImageRegenerations(),
         )
     }
 

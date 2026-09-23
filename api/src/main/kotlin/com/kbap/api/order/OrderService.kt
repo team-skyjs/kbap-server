@@ -2,10 +2,12 @@ package com.kbap.api.order
 
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.ImageUploadService
+import com.kbap.api.image.UploadedImageService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
@@ -26,6 +28,7 @@ class OrderService(
     private val imageUploadService: ImageUploadService,
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
+    private val uploadedImageService: UploadedImageService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -85,11 +88,43 @@ class OrderService(
         )
     }
 
-    @Transactional(readOnly = true)
-    fun getOrderDetail(memberId: Long, orderId: Long): OrderDetailResponse {
-        val order = orderRepository.findById(orderId)
+    @Transactional
+    fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): OrderDetailResponse {
+        getOwnOrder(memberId, orderId).replacePlace(request.toSnapshot())
+        return getOrderDetail(memberId, orderId)
+    }
+
+    @Transactional
+    fun replaceItemImage(memberId: Long, orderId: Long, itemId: Long, imagePath: String): OrderDetailResponse {
+        val item = getOwnItem(memberId, orderId, itemId)
+        if (!uploadedImageService.ownsAllImages(memberId, listOf(imagePath), UploadPurpose.ORDER_ITEM)) {
+            throw BusinessException(ErrorCode.ORDER_ITEM_IMAGE_NOT_VERIFIED)
+        }
+        item.replaceImage(imagePath)
+        return getOrderDetail(memberId, orderId)
+    }
+
+    @Transactional
+    fun restoreItemImage(memberId: Long, orderId: Long, itemId: Long): OrderDetailResponse {
+        getOwnItem(memberId, orderId, itemId).restoreCatalogImage()
+        return getOrderDetail(memberId, orderId)
+    }
+
+    private fun getOwnOrder(memberId: Long, orderId: Long): Order =
+        orderRepository.findById(orderId)
             .filter { it.memberId == memberId }
             .orElseThrow { BusinessException(ErrorCode.ORDER_NOT_FOUND) }
+
+    private fun getOwnItem(memberId: Long, orderId: Long, itemId: Long): OrderItem {
+        val order = getOwnOrder(memberId, orderId)
+        return orderItemRepository.findById(itemId)
+            .filter { it.orderId == order.id }
+            .orElseThrow { BusinessException(ErrorCode.ORDER_ITEM_NOT_FOUND) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getOrderDetail(memberId: Long, orderId: Long): OrderDetailResponse {
+        val order = getOwnOrder(memberId, orderId)
         val items = orderItemRepository.findByOrderIdOrderByIdAsc(order.id)
         val foodsById = loadFoodsById(items)
         return OrderDetailResponse(
@@ -104,6 +139,7 @@ class OrderService(
                 val food = foodsById[it.foodId]
                 val photoUrl = food?.takeIf { f -> f.isReady() }?.let(foodService::resolveImageUrl)
                 OrderItemResponse(
+                    id = it.id,
                     menuName = it.menuName,
                     quantity = it.quantity,
                     price = it.price,
@@ -111,6 +147,7 @@ class OrderService(
                     imageRef = photoUrl ?: foodService.resolveImageUrlOrDefault(null),
                     ready = food?.isReady() == true,
                     hasPhoto = photoUrl != null,
+                    userImageUrl = userImageUrlOf(it),
                 )
             },
         )
@@ -129,7 +166,7 @@ class OrderService(
                 orderedAt = order.orderedAt(),
                 roadAddress = order.roadAddress,
                 totalQuantity = OrderItem.totalQuantityOf(items),
-                thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { thumbnailsByFoodId[it.foodId] },
+                thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { userImageUrlOf(it) ?: thumbnailsByFoodId[it.foodId] },
                 scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
                 place = OrderPlaceResponse.from(order.resolvedPlace),
             )
@@ -140,6 +177,8 @@ class OrderService(
         val foodsById = loadFoodsById(items)
         return items.map { it.foodId }.distinct().associateWith { publicImageUrlOf(foodsById[it]) }
     }
+
+    private fun userImageUrlOf(item: OrderItem): String? = ImageUrls.resolve(imagePublicBaseUrl, item.imagePath)
 
     private fun publicImageUrlOf(food: Food?): String =
         foodService.resolveImageUrlOrDefault(food?.takeIf { it.isReady() })

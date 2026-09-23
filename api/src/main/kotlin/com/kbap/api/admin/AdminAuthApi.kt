@@ -1,12 +1,15 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody
@@ -46,4 +49,19 @@ interface AdminAuthApi {
         )
         request: AdminLoginRequest,
     ): ResponseEntity<BaseResponse<AdminLoginResponse>>
+
+    @Operation(
+        summary = "현재 관리자 조회",
+        description = "토큰의 관리자 계정을 돌려준다. `displayName` 은 계정에 표시 이름이 없으면 로그인 아이디다 — 어드민 상단의 이름 표시용.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "401", description = "토큰 부재·만료 또는 토큰의 관리자 계정이 없음(AUTH-003)"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.INVALID_ACCESS_TOKEN)
+    fun me(adminAccountId: Long): ResponseEntity<BaseResponse<AdminMeResponse>>
 }
