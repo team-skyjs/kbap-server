@@ -50,3 +50,9 @@
 - **Rationale**: 프로젝트는 플랫폼 스레드(`spring.threads.virtual` 미설정)라 Boot 4.1 의 `TaskExecutionAutoConfiguration` 이 `ThreadPoolTaskExecutorBuilder` 로 `applicationTaskExecutor` 를 만들고, 빌더 자동구성은 유일한 `TaskDecorator` 빈을 자동 적용한다. `@EnableAsync` 는 이 executor 를 기본으로 잡으므로 `@Async` 리스너 3종(`FoodViewLogListener`·`HelpfulPushListener`·`LlmCallCostEventListener`)이 코드 변경 없이 전파를 받는다. 복원(`finally`)을 넣는 이유는 풀 스레드 재사용 — 없으면 다음 작업 로그에 이전 요청의 requestId 가 남는다. `null` 캡처(요청 밖 발행 — 스케줄러·배치성 호출)는 `clear()` 로 처리해 오염을 막는다.
 - **Alternatives considered**: (1) 커스텀 `ThreadPoolTaskExecutor` 빈 + `setTaskDecorator` — Boot 자동구성을 밀어내 풀 크기 등 기본값을 다시 적어야 하고 이득 없음. (2) 이벤트에 requestId 를 실어 리스너가 `MDC.put` — 리스너·이벤트마다 반복, 기존 2종도 수정 필요. (3) Micrometer Context Propagation(`ContextSnapshot`) — 의존성 추가·MDC 외 컨텍스트가 없어 과함.
 - **검증**: 테스트 코드 없음(사용자 결정 2026-09-23 — 설정 등록만인 변경엔 테스트를 두지 않는다). 로컬 bootRun 에서 상세 조회 → 이력 저장 실패를 유도해 error 로그에 requestId·memberId 가 붙는지, 이어지는 다른 비동기 로그에 앞 요청 id 가 남지 않는지 눈으로 확인한다.
+
+## R9. Codex 리뷰(PR #301) 처리 — 2026-09-23
+
+- **반영**: 집계 인덱스 선두 컬럼을 `created_at` 으로 교체(`(created_at, food_id)`). 집계 쿼리가 시간 창으로 먼저 자르므로 `(food_id, created_at)` 은 선두 조건이 없어 전체 인덱스 스캔이 된다.
+- **기각 — 발행 시점**: 결과 조립·컨트롤러의 북마크/리뷰 조회 실패 시 이력이 남을 수 있다는 지적. 발행은 `getReadyFood` 검증 뒤라 "음식 없음/비노출" 실패는 걸러지고, 그 이후 실패는 500 급 서버 오류다. 그 경우 이력 1행이 남는 것은 통계상 무시 가능한 잔여 위험으로 수용. 요청 완료 훅은 과설계.
+- **기각 — 조회 시각 별도 캡처**: 큐 적체 시 `created_at` 이 저장 시점으로 밀릴 수 있다는 지적. R2 결정 유지 — 정상 부하에선 ms 단위, 적체 시에도 창 경계의 소수 행이 옆 창으로 옮겨가는 수준이며 스펙은 종료 시 유실까지 감수한다. 정밀도가 필요해지면 `viewed_at` 추가.

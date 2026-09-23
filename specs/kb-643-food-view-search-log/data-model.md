@@ -20,7 +20,7 @@
 
 인덱스:
 
-- `idx_food_view_log_food_created (food_id, created_at)` — "기간 내 음식별 조회 수" 집계(FR-008). `WHERE created_at BETWEEN ? AND ? GROUP BY food_id` 는 이 인덱스로 food_id 별 range 스캔.
+- `idx_food_view_log_created_food (created_at, food_id)` — "기간 내 음식별 조회 수" 집계(FR-008). `WHERE created_at >= ? GROUP BY food_id` 가 created_at 범위로 창 안의 행만 커버링 스캔한다. (Codex 리뷰 반영 2026-09-23 — 처음의 `(food_id, created_at)` 은 선두 컬럼에 조건이 없어 전체 인덱스 스캔이 됐다.)
 
 ## 이벤트
 
@@ -63,7 +63,7 @@ CREATE TABLE food_view_log
     reserved_1 VARCHAR(255)              NULL,
     reserved_2 VARCHAR(255)              NULL,
     reserved_3 VARCHAR(255)              NULL,
-    INDEX idx_food_view_log_food_created (food_id, created_at)
+    INDEX idx_food_view_log_created_food (created_at, food_id)
 );
 ```
 

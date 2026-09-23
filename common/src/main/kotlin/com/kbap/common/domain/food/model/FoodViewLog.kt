@@ -9,7 +9,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(
     name = "food_view_log",
-    indexes = [Index(name = "idx_food_view_log_food_created", columnList = "food_id, created_at")],
+    indexes = [Index(name = "idx_food_view_log_created_food", columnList = "created_at, food_id")],
 )
 class FoodViewLog(
     @Column(name = "food_id", nullable = false)
