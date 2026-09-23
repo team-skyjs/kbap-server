@@ -164,6 +164,41 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                     second.path("nextCursor").isNull.shouldBeTrue()
                 }
             }
+            `when`("숨겨진 음식이 페이지 사이에 섞여 있으면") {
+                then("숨겨진 음식만 빠지고 페이지는 READY 로 채워지며, 커서 음식이 숨겨져도 다음 페이지가 이어진다") {
+                    val token = accessToken(5615L)
+                    fun setContentStatus(foodId: Long, contentStatus: String): Unit =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("UPDATE food SET content_status = ? WHERE id = ?").use { ps ->
+                                ps.setString(1, contentStatus)
+                                ps.setLong(2, foodId)
+                                ps.executeUpdate()
+                            }
+                        }
+                    (1..21).forEach { i ->
+                        seedFood(5820L + i, "숨김페이징$i")
+                        seedScan(5615L, 5820L + i, i)
+                    }
+                    seedFood(5850L, "숨김재생성중")
+                    seedScan(5615L, 5850L, 10)
+                    setContentStatus(5850L, "PENDING_IMAGE")
+
+                    val first = payloadOf(scannedList(token))
+                    val firstIds = first.path("items").map { it.path("foodId").asLong() }
+                    firstIds shouldBe (21 downTo 2).map { 5820L + it }
+                    first.path("hasNext").asBoolean().shouldBeTrue()
+                    val nextCursor = first.path("nextCursor").asLong()
+                    nextCursor shouldBe 5822L
+
+                    setContentStatus(nextCursor, "PENDING_IMAGE")
+                    val second = payloadOf(scannedList(token, cursor = nextCursor.toString()))
+                    second.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5821L)
+
+                    setContentStatus(5850L, "READY")
+                    val afterApproval = payloadOf(scannedList(token)).path("items").map { it.path("foodId").asLong() }
+                    (5850L in afterApproval).shouldBeTrue()
+                }
+            }
             `when`("스캔 이력이 없는 회원이 목록을 조회하면") {
                 then("빈 목록이 내려간다") {
                     payloadOf(scannedList(accessToken(5613L))).path("items").size() shouldBe 0
