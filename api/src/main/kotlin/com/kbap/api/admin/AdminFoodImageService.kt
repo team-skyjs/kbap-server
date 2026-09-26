@@ -28,6 +28,7 @@ class AdminFoodImageService(
     private val foodService: FoodService,
     private val batchSubmitService: FoodImageBatchSubmitService,
     private val imageBatchItemRepository: ImageBatchItemJpaRepository,
+    private val regenerationStateResolver: RegenerationStateResolver,
     transactionManager: PlatformTransactionManager,
 ) {
     private val transaction = TransactionTemplate(transactionManager)
@@ -124,6 +125,7 @@ class AdminFoodImageService(
             foodId = food.id,
             version = food.version,
             contentStatus = food.contentStatus.name,
+            regeneration = regenerationStateResolver.of(food.id),
             items = items,
         )
     }
@@ -139,6 +141,7 @@ data class AdminFoodImageGalleryResult(
     val foodId: Long,
     val version: Long,
     val contentStatus: String,
+    val regeneration: AdminRegenerationStateResponse?,
     val items: List<Item>,
 ) {
     data class Item(
