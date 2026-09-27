@@ -41,10 +41,13 @@
 
 ## 4. 문구 (`push_*.properties`, 10개 언어)
 
-`push.review_reminder.{1,2,3}.body` 교체 — `{food}` 제거, 주문 맥락, 시간 부사 없음. 제목 유지. 한국어:
+`push.review_reminder.{1,2,3}` 제목·본문 교체 — `{food}` 제거, 음식명 없이 일반 표현. 한국어(2026-09-28 사용자 확정, 시간 부사 "방금/오늘" 은 의도적 선택):
 
 ```
-push.review_reminder.1.body=주문하신 식사, 맛있게 드셨나요? 리뷰로 알려 주세요.
-push.review_reminder.2.body=주문하신 메뉴가 어땠는지 한 문장만 남겨 주세요.
-push.review_reminder.3.body=주문하신 음식 경험을 리뷰로 나눠 주세요. 다음 사람에게 도움이 돼요.
+push.review_reminder.1.title=잘 먹었다면, 10초만! ⚡
+push.review_reminder.1.body=방금 먹은 메뉴가 어땠는지 짧게 알려 주세요.
+push.review_reminder.2.title=방금 그 메뉴, 어땠어요? 👀
+push.review_reminder.2.body=맛있었나요, 아쉬웠나요? 한 줄로 남겨 주세요.
+push.review_reminder.3.title=오늘 메뉴, 별 몇 개? ⭐
+push.review_reminder.3.body=방금 먹은 메뉴의 만족도를 알려 주세요.
 ```

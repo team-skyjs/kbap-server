@@ -101,7 +101,6 @@ class PushMessageRendererTest : BehaviorSpec({
                 }
                 (1..variantCount("push.review_reminder", LanguageCode.KO)).forEach { n ->
                     message("push.review_reminder.$n.body", LanguageCode.KO)!! shouldNotContain "스캔"
-                    message("push.review_reminder.$n.body", LanguageCode.KO)!! shouldContain "주문"
                 }
             }
         }
