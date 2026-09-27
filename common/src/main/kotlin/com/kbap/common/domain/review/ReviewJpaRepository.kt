@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface RatingAggregate {
     val average: Double?
@@ -59,4 +60,34 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<Review>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT f.id FROM food f
+            WHERE f.status = 'ACTIVE' AND f.content_status = 'READY'
+              AND NOT EXISTS (
+                SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
+                WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
+              )
+            ORDER BY (SELECT COUNT(*) FROM food_review c WHERE c.food_id = f.id AND c.status = 'ACTIVE'), RAND()
+            LIMIT :limit
+        """,
+    )
+    fun findReviewBotTargetFoodIds(@Param("since") since: LocalDateTime, @Param("limit") limit: Int): List<Long>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE m.is_bot = 1 AND r.created_at >= :since
+        """,
+    )
+    fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long
+
+    @Query(
+        nativeQuery = true,
+        value = "SELECT DISTINCT r.member_id FROM food_review r WHERE r.food_id = :foodId AND r.member_id IN (:memberIds)",
+    )
+    fun findReviewerIdsOfFood(@Param("foodId") foodId: Long, @Param("memberIds") memberIds: Collection<Long>): List<Long>
 }

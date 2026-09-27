@@ -124,6 +124,16 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 0.2
         output-usd-per-million-tokens: 1.2
+    # 리뷰 봇 본문 생성(KB-646) — 비전과 같은 모델·키로 텍스트만 만든다. 봇 작성기(kbap.review-bot)가 켜져 있을 때만 쓰인다.
+    review:
+      enabled: ${REVIEW_BOT_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      model: gpt-5.6-luna
+      temperature: 1.0
+      max-retries: 0
+      pricing:
+        input-usd-per-million-tokens: 0.2
+        output-usd-per-million-tokens: 1.2
     # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 3시간 주기(하루 8회) 폴링 회수. 빈 조립은 무조건이고
     # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
     # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.
@@ -171,6 +181,13 @@ kbap:
         max-retries: 3
         initial-delay: 1s
         multiplier: 2.0
+  # 리뷰 봇(KB-646) — 리뷰가 적은 READY 음식에 봇 계정이 매일 min~max 개를 09~22시 KST 정각 틱에 나눠 쓴다.
+  # 하루 목표·시각 배정은 날짜 시드로 정해져 인스턴스(2~4대)가 같은 계획을 본다. 각 틱은 "그 시각까지 누적 목표 − 오늘 쓴 수"만 쓴다(ShedLock).
+  # 기본 꺼짐 — REVIEW_BOT_ENABLED=true 로 스케줄러와 텍스트 생성기가 함께 켜진다. 봇 계정은 POST /api/admin/review-bots.
+  review-bot:
+    enabled: ${REVIEW_BOT_ENABLED:false}
+    min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
+    max-per-day: ${REVIEW_BOT_MAX_PER_DAY:12}
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).

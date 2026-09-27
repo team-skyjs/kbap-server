@@ -13,6 +13,8 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
+    fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
+
     @Query(
         value = "SELECT * FROM member ORDER BY id DESC",
         countQuery = "SELECT count(*) FROM member",
@@ -45,7 +47,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     @Query(value = "SELECT * FROM member WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Member?
 
-    fun countByMemberStatus(memberStatus: MemberStatus): Long
+    fun countByMemberStatusAndIsBotFalse(memberStatus: MemberStatus): Long
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,

@@ -72,6 +72,9 @@ class Member(
 
     @Column(name = "unique_reviewed_food_count", nullable = false)
     var uniqueReviewedFoodCount: Int = 0,
+
+    @Column(name = "is_bot", nullable = false, columnDefinition = "tinyint(1) not null default 0")
+    var isBot: Boolean = false,
 ) : BaseEntity() {
     val identity: SocialIdentity
         get() = SocialIdentity(provider = provider, providerUserId = providerUid, email = email)
@@ -171,6 +174,20 @@ class Member(
                 provider = identity.provider,
                 providerUid = identity.providerUserId,
                 email = identity.email,
+            )
+
+        const val REVIEW_BOT_PROVIDER_UID_PREFIX: String = "review-bot:"
+
+        fun reviewBot(countryCode: CountryCode, nickname: String, profileImagePath: String): Member =
+            Member(
+                provider = SocialProvider.GOOGLE,
+                providerUid = REVIEW_BOT_PROVIDER_UID_PREFIX + java.util.UUID.randomUUID(),
+                nickname = nickname,
+                countryCode = countryCode.name,
+                currency = countryCode.currency.name,
+                profileImageUrl = profileImagePath,
+                onboardingCompleted = true,
+                isBot = true,
             )
     }
 }
