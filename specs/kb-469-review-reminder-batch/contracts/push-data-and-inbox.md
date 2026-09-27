@@ -41,13 +41,13 @@
 
 ## 4. 문구 (`push_*.properties`, 10개 언어)
 
-`push.review_reminder.{1,2,3}` 제목·본문 교체 — `{food}` 제거, 음식명 없이 일반 표현. 한국어(2026-09-28 사용자 확정, 시간 부사 "방금/오늘" 은 의도적 선택):
+`push.review_reminder.{1,2,3}` 제목·본문 교체 — `{food}` 제거, 음식명·시간 부사 없이 일반 표현. 한국어(2026-09-28 사용자 확정):
 
 ```
 push.review_reminder.1.title=잘 먹었다면, 10초만! ⚡
-push.review_reminder.1.body=방금 먹은 메뉴가 어땠는지 짧게 알려 주세요.
-push.review_reminder.2.title=방금 그 메뉴, 어땠어요? 👀
+push.review_reminder.1.body=주문한 음식이 어땠는지 짧게 알려 주세요.
+push.review_reminder.2.title=그때 그 메뉴, 어땠어요? 👀
 push.review_reminder.2.body=맛있었나요, 아쉬웠나요? 한 줄로 남겨 주세요.
-push.review_reminder.3.title=오늘 메뉴, 별 몇 개? ⭐
-push.review_reminder.3.body=방금 먹은 메뉴의 만족도를 알려 주세요.
+push.review_reminder.3.title=주문한 메뉴, 별 몇 개? ⭐
+push.review_reminder.3.body=먹어본 메뉴의 만족도를 알려 주세요.
 ```
