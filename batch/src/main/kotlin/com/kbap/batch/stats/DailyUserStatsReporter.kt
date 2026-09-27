@@ -9,6 +9,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.atomic.AtomicBoolean
 
 class DailyUserStatsReporter(
     private val memberRepository: MemberJpaRepository,
@@ -18,7 +19,11 @@ class DailyUserStatsReporter(
 ) {
     fun report(): Outcome {
         if (sender == null) {
-            logger.warn("일일 유저 통계 — Slack 웹훅 URL 이 없어 발송을 건너뜁니다(SLACK_STATS_WEBHOOK_URL 미설정)")
+            if (skipReported.compareAndSet(false, true)) {
+                logger.error("일일 유저 통계 — Slack 웹훅 URL 이 없어 발송하지 않습니다(SLACK_STATS_WEBHOOK_URL 미주입). 태스크 정의에 시크릿이 들어갔는지 확인하세요")
+            } else {
+                logger.warn("일일 유저 통계 — Slack 웹훅 URL 이 없어 발송을 건너뜁니다(SLACK_STATS_WEBHOOK_URL 미설정)")
+            }
             return Outcome.SKIPPED
         }
         val text = render(collect())
@@ -65,6 +70,7 @@ class DailyUserStatsReporter(
         const val UNSET_COUNTRY = "미설정"
         const val UNKNOWN_PLATFORM = "미상"
         private val logger = LoggerFactory.getLogger(DailyUserStatsReporter::class.java)
+        private val skipReported = AtomicBoolean(false)
 
         fun render(stats: DailyUserStats): String {
             val delta = stats.newMembers - stats.previousDayNewMembers
