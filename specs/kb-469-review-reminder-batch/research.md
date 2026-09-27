@@ -71,6 +71,6 @@ order by o.id
 
 ## 8. 인덱스
 
-**Decision**: 마이그레이션 없음. `orders` 는 `created_at` 인덱스가 없어 5분마다 PK 순 스캔 + `created_at` 필터가 된다.
+**Decision**: `orders(created_at)` 단일 컬럼 인덱스를 Flyway 로 추가한다(`idx_orders_created_at`). 엔티티 `@Table(indexes)` 도 동기화.
 
-**Rationale**: 주문 물량(일 수백 건)에서 무시할 수준. 주문이 수십만 건을 넘으면 `idx_orders_created_at` 추가를 검토한다 — 데이터 리뷰 스킬 판단은 그때.
+**Rationale**: 5분마다 `created_at between` 창을 훑는데 기존 인덱스는 `(member_id, id)` 뿐이라 주문 누적에 비례해 PK 순 스캔 비용이 커진다(Codex 리뷰 P2 수용, 2026-09-28). 처음엔 물량이 작아 보류했지만 마이그레이션 한 파일이라 지금 넣는 편이 싸다.
