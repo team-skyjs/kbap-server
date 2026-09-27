@@ -8,3 +8,8 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+kbap:
+  batch:
+    user-stats:
+      # prod 시드 계정(9/24 실측) — 통계에서 제외한다. 환경변수 USER_STATS_EXCLUDED_MEMBER_IDS 로 덮어쓸 수 있다.
+      excluded-member-ids: ${USER_STATS_EXCLUDED_MEMBER_IDS:7,12,18,19,20,21}

@@ -3,6 +3,7 @@ package com.kbap.batch.trigger.scheduler
 import com.kbap.batch.notification.receipt.PushReceiptSyncBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionSendWindow
+import com.kbap.batch.stats.DailyUserStatsBatchConfig
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
 import com.kbap.batch.trigger.rest.BatchJobLauncher
 import com.kbap.common.domain.notification.model.MealSlot
@@ -39,6 +40,9 @@ class BatchJobScheduler(
 
     @Scheduled(cron = PushReceiptSyncBatchConfig.DAILY_AT_00_00, zone = TIME_ZONE)
     fun closeUnconfirmedPushDispatches() = launch(PushReceiptSyncBatchConfig.UNCONFIRMED_CLOSE_JOB)
+
+    @Scheduled(cron = DailyUserStatsBatchConfig.DAILY_AT_09_00, zone = TIME_ZONE)
+    fun reportDailyUserStats() = launch(DailyUserStatsBatchConfig.JOB)
 
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {

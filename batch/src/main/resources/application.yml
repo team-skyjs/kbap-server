@@ -67,6 +67,12 @@ kbap:
     # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
     scheduler:
       enabled: ${BATCH_SCHEDULER_ENABLED:true}
+    # 일일 유저 통계 Slack 발송(KB-645) — 매일 09:00 KST 에 전일(KST 0~24시) 지표를 팀 채널로 보낸다.
+    # 웹훅 URL 은 SSM /kbap/<env>/SLACK_STATS_WEBHOOK_URL 로 주입한다. 비어 있으면 잡은 warn 1줄 후 SKIPPED 로 끝난다.
+    # 제외 회원 id 는 환경마다 다르므로(prod 시드 계정) 프로필 yml 에 둔다. 로봇 이메일 패턴 제외는 쿼리(MemberJpaRepository.REAL_MEMBER).
+    user-stats:
+      slack-webhook-url: ${SLACK_STATS_WEBHOOK_URL:}
+      excluded-member-ids: ${USER_STATS_EXCLUDED_MEMBER_IDS:}
     food-content-outbox:
       queue-url: ${FOOD_CONTENT_QUEUE_URL:}
       region: ${AWS_REGION:ap-northeast-2}
