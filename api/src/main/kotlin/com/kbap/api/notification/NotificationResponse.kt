@@ -16,8 +16,15 @@ data class NotificationResponse(
     val type: String,
 
     @field:Schema(
-        description = "대상 음식 id — REVIEW_REMINDER 이면 발송 data.foodId, 그 외 유형은 항상 null. REVIEW_REMINDER 라도 값이 없거나 정수가 아니면 null",
-        example = "7",
+        description = "대상 주문 id — REVIEW_REMINDER 이면 발송 data.orderId, 그 외 유형은 항상 null. REVIEW_REMINDER 라도 값이 없거나 정수가 아니면 null. 앱은 주문 상세로 이동한다",
+        example = "12",
+        nullable = true,
+    )
+    val orderId: Long?,
+
+    @field:Schema(
+        description = "미사용 — 현재 어떤 발송처도 data.foodId 를 채우지 않아 항상 null 이다(호환 유지). REVIEW_REMINDER 이동은 orderId 를 쓴다",
+        example = "null",
         nullable = true,
     )
     val foodId: Long?,
@@ -38,6 +45,7 @@ data class NotificationResponse(
         fun from(notification: Notification) = NotificationResponse(
             id = notification.id,
             type = notification.type.name,
+            orderId = notification.orderIdOrNull(),
             foodId = notification.foodIdOrNull(),
             title = notification.title,
             body = notification.body,

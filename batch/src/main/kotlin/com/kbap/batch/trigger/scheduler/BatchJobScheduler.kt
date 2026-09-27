@@ -1,6 +1,7 @@
 package com.kbap.batch.trigger.scheduler
 
 import com.kbap.batch.notification.receipt.PushReceiptSyncBatchConfig
+import com.kbap.batch.notification.reminder.ReviewReminderPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionSendWindow
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
@@ -29,6 +30,9 @@ class BatchJobScheduler(
 
     @Scheduled(cron = ScanSuggestionSendWindow.DAILY_AT_17_00, zone = TIME_ZONE)
     fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
+
+    @Scheduled(cron = ReviewReminderPushBatchConfig.EVERY_5_MINUTES, zone = TIME_ZONE)
+    fun pushReviewReminders() = launch(ReviewReminderPushBatchConfig.JOB_NAME)
 
     @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19, zone = TIME_ZONE)
     @Scheduled(cron = PushReceiptSyncBatchConfig.AT_13_00_AND_19_00, zone = TIME_ZONE)

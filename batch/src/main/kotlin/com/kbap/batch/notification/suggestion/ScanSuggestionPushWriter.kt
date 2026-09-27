@@ -1,5 +1,6 @@
 package com.kbap.batch.notification.suggestion
 
+import com.kbap.batch.notification.PushDispatchMetric
 import com.kbap.common.domain.notification.PushRequest
 import com.kbap.common.domain.notification.model.MealSlot
 import com.kbap.common.domain.notification.model.NotificationType
@@ -18,14 +19,12 @@ class ScanSuggestionPushWriter(
     override fun write(chunk: Chunk<out Long>) {
         val memberIds = chunk.items.toList()
         val result = handler.send(PushRequest(NotificationType.SCAN_SUGGESTION, memberIds, ttlSeconds = ttlSeconds, mealSlot = slot))
-        meterRegistry.counter(METRIC, "type", NotificationType.SCAN_SUGGESTION.name, "result", "sent").increment(result.sent.toDouble())
-        meterRegistry.counter(METRIC, "type", NotificationType.SCAN_SUGGESTION.name, "result", "failed").increment(result.failed.toDouble())
+        meterRegistry.counter(PushDispatchMetric.NAME, "type", NotificationType.SCAN_SUGGESTION.name, "result", "sent").increment(result.sent.toDouble())
+        meterRegistry.counter(PushDispatchMetric.NAME, "type", NotificationType.SCAN_SUGGESTION.name, "result", "failed").increment(result.failed.toDouble())
         logger.info("스캔 제안 발송 slot={} members={} sent={} failed={}", slot, memberIds.size, result.sent, result.failed)
     }
 
     companion object {
-        const val METRIC = "kbap.push.dispatch"
-
         private val logger = LoggerFactory.getLogger(ScanSuggestionPushWriter::class.java)
     }
 }
