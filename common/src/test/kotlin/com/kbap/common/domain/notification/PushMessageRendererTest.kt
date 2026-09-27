@@ -84,6 +84,28 @@ class PushMessageRendererTest : BehaviorSpec({
         }
     }
 
+    given("리뷰 리마인더 문구") {
+        `when`("전 언어 × 전 변형을 인자 없이 렌더하면") {
+            then("음식명 자리표시자 없이 주문 맥락 본문이 완성된다") {
+                LanguageCode.entries.forEach { lang ->
+                    val count = variantCount("push.review_reminder", lang)
+                    (0 until count).forEach { index ->
+                        val content = PushMessageRenderer(messageSource) { index }.render(NotificationType.REVIEW_REMINDER, lang, emptyMap())
+                        withClue("review_reminder.${index + 1} @${lang.code}") {
+                            message("push.review_reminder.${index + 1}.body", lang)!! shouldNotContain "{food}"
+                            content.title shouldNotContain "{"
+                            content.body shouldNotContain "{"
+                            content.body.shouldNotBeBlank()
+                        }
+                    }
+                }
+                (1..variantCount("push.review_reminder", LanguageCode.KO)).forEach { n ->
+                    message("push.review_reminder.$n.body", LanguageCode.KO)!! shouldNotContain "스캔"
+                }
+            }
+        }
+    }
+
     given("LanguageCode → Locale 매핑") {
         `when`("간체·번체 중국어를 렌더하면") {
             then("각각 자기 파일의 문구가 나오고 서로 다르다") {

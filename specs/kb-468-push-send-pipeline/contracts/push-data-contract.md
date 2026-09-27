@@ -4,15 +4,20 @@ Expo 메시지 `data` 필드. FE 는 `type` 으로 딥링크를 분기한다. �
 
 ```json
 { "type": "HELPFUL | SCAN_SUGGESTION | REVIEW_REMINDER | NEWS | MEAL_TIME",
-  "foodId": "123",
+  "orderId": 12,
+  "reviewId": 34,
   "notificationId": 456 }
 ```
 
 | 필드 | 타입 | 필수 | 채우는 곳 |
 |------|------|------|-----------|
 | `type` | string(enum name) | ✅ | 파이프라인(`PushRequest.type`) |
-| `foodId` | string | 선택 | 트리거(`PushRequest.data`) — HELPFUL·REVIEW_REMINDER |
+| `orderId` | number(64비트 정수) | REVIEW_REMINDER 필수 | 리뷰 리마인더 배치 라이터(`PushRequest.data`, KB-469 2026-09-28) — 앱은 주문 상세 `/profile/order/{orderId}` 로 이동 |
+| `reviewId` | number | HELPFUL 필수 | 도움돼요 리스너(`PushRequest.data`) |
 | `notificationId` | number | ✅ | 파이프라인(알림함 행 id — 앱이 읽음 처리 `PATCH /api/notifications/{id}/read` 에 쓴다) |
+| `foodId` | — | **미사용** | 어떤 발송처도 채우지 않는다(2026-09-28 정정 — 종전 "HELPFUL·REVIEW_REMINDER" 표기는 오기). 알림함 응답의 `foodId` 는 호환용으로 남아 항상 null |
+
+- `REVIEW_REMINDER` 는 2026-09-28(KB-469) 부터 서버 배치가 보낸다 — 주문 생성 1~25시간 뒤, 리마인더 미수신·리뷰 미완 주문에 1건. 문구에 음식명 없음(주문 맥락).
 
 - `MEAL_TIME` 은 2026-09-11 신규(식사시간 트리거). `NUDGE` → `SCAN_SUGGESTION` 는 2026-09-07 개명. **`NOTICE` → `NEWS`(소식, 광고성 — 소식 동의자에게만) 2026-09-11 교체** — FE 동작은 NOTICE 와 같이 알림함 전용(딥링크 없음).
 - 광고성 유형(SCAN_SUGGESTION·NEWS·MEAL_TIME)은 제목 앞 `(광고) ` 와 본문 끝 수신거부 안내가 붙어서 온다.
