@@ -57,16 +57,7 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        fun clear(): Unit =
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM food_vector_outbox")
-                    it.execute("DELETE FROM image_batch_item")
-                    it.execute("DELETE FROM image_batch")
-                    it.execute("DELETE FROM food_image")
-                    it.execute("DELETE FROM food")
-                }
-            }
+        fun clear(): Unit = com.kbap.api.TestTables.clearAll(dataSource)
 
         beforeContainer { clear() }
         afterSpec { clear() }
