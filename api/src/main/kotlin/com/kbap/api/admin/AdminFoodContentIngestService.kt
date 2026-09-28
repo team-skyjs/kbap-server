@@ -6,7 +6,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
-import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
@@ -49,13 +49,14 @@ class AdminFoodContentIngestService(
             keepStatus = regenerating,
         )
         foodIngredientRepository.replace(foodId, food.ingredients)
-        if (food.isReady()) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        if (food.isReady()) vectorOutboxRepository.save(FoodVectorOutbox.upsert(foodId))
     }
 
     @Transactional
     fun ingestFailure(outboxId: Long, foodId: Long, failureKind: FoodContentFailureKind, reason: String) {
         if (!completeOutbox(outboxId, foodId)) return
-        getFood(foodId).recordContentFailure(failureKind, reason)
+        val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(listOf(foodId)).isNotEmpty()
+        getFood(foodId).recordContentFailure(failureKind, reason, keepStatus = regenerating)
     }
 
     private fun completeOutbox(outboxId: Long, foodId: Long): Boolean {

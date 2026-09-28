@@ -446,6 +446,27 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
             }
         }
 
+        given("회수 — 재생성 중 실패 콜백이 먼저 온 음식") {
+            `when`("재생성 진행 중에 재수집 실패 콜백이 온 뒤 이미지가 도착하면") {
+                then("상태가 PENDING_IMAGE 로 남아 있어 이미지가 정상 첨부된다") {
+                    val food = foodRepository.save(savePendingImage("실패콜백후회수음식").apply { imageRef = "images/webp/food/old.webp" })
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+                    val outbox = contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    ingestService.ingestFailure(outbox.id, food.id, com.kbap.common.domain.food.model.FoodContentFailureKind.JUDGE_REJECTED, "실패")
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_after_failure")
+                    fakeClient.results["file_after_failure"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val reloaded = foodRepository.findById(food.id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    reloaded.imageRef shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
         given("회수 — 후보 이미지 추가 생성(ADDITIONAL)") {
             fun readyWithPrimary(name: String): Food {
                 val food = foodRepository.save(

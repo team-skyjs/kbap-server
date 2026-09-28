@@ -73,17 +73,17 @@ class AdminFoodImageService(
     fun generateAdditionalImage(foodId: Long): AdminFoodImageRegenerateResult {
         val claim = try {
             transaction.execute {
-                val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+                val target = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
                 if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
-                if (regenerationStateResolver.isAdditionalInProgress(foodId)) {
-                    throw BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS)
+                if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
+                    throw BusinessException(additionalConflictCode(foodId))
                 }
                 batchSubmitService.claimOne(target, RegenerationIntent.ADDITIONAL, null)
             }!!
         } catch (e: BusinessException) {
-            throw if (e.errorCode == ErrorCode.IMAGE_BATCH_IN_PROGRESS) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+            throw if (e.errorCode == ErrorCode.IMAGE_BATCH_IN_PROGRESS) BusinessException(additionalConflictCode(foodId)) else e
         } catch (e: RuntimeException) {
-            throw if (regenerationStateResolver.isAdditionalInProgress(foodId)) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+            throw if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) BusinessException(additionalConflictCode(foodId)) else e
         }
         batchSubmitService.submitClaimed(claim)
         return AdminFoodImageRegenerateResult(
@@ -92,6 +92,9 @@ class AdminFoodImageService(
             batchItemId = claim.itemId,
         )
     }
+
+    private fun additionalConflictCode(foodId: Long): ErrorCode =
+        if (regenerationStateResolver.isAdditionalInProgress(foodId)) ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS else ErrorCode.FOOD_STATUS_NOT_READY
 
     private fun claimForRegeneration(foodId: Long, intent: RegenerationIntent?, reason: String?): FoodImageBatchClaim = try {
         transaction.execute {

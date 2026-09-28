@@ -186,11 +186,11 @@ class Food(
         throw BusinessException(error)
     }
 
-    fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
+    fun recordContentFailure(kind: FoodContentFailureKind, reason: String?, keepStatus: Boolean = false) {
         contentFailureKind = kind
         contentReviewAttempts++
         contentReviewRejectionReason = truncateReason(reason)
-        if (contentStatus == FoodContentStatus.READY) return
+        if (keepStatus || contentStatus == FoodContentStatus.READY) return
         contentStatus = FoodContentStatus.FAILED
     }
 

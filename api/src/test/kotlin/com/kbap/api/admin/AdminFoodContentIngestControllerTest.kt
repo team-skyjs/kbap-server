@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.PATH
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.allTargets
+import com.kbap.api.admin.AdminFoodContentIngestTestSupport.failedBody
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.passedBody
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -15,6 +16,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.ImageBatch
@@ -208,6 +210,18 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미 PENDING UPSERT 가 있는 READY 음식에 재수집 결과가 반영되면") {
+                then("억제하지 않고 UPSERT 행을 하나 더 만든다 — 기존 행을 배치가 이미 읽어 옛 내용으로 임베딩 중일 수 있다") {
+                    clearFoods()
+                    val food = saveFood("벡터중복큐음식", FoodContentStatus.READY, "images/webp/food/dup.webp")
+                    vectorOutboxRepository.save(FoodVectorOutbox.upsert(food.id))
+
+                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
+
+                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 2
+                }
+            }
+
             `when`("READY 가 아닌 음식에 재수집 결과가 반영되면") {
                 then("벡터 UPSERT 를 예약하지 않는다 — 승인 때 예약된다") {
                     clearFoods()
@@ -234,6 +248,23 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                     val reloaded = reloaded(food.id)
                     reloaded.description shouldBe "재생성 중에 온 설명"
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+        }
+
+        given("이미지 재생성 중 도착한 실패 콜백") {
+            `when`("재생성 진행 중에 실패 결과가 도착하면") {
+                then("실패 사유는 남기되 content_status 는 그대로다 — FAILED 로 바꾸면 뒤에 오는 이미지가 거절된다") {
+                    clearFoods()
+                    val food = saveFood("재생성중실패음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/old.webp")
+                    val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.REPLACE_BETTER))
+
+                    ingest(failedBody(food.id, reason = "재생성 중 실패")).andExpect { status { isOk() } }
+
+                    val reloaded = reloaded(food.id)
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    reloaded.contentReviewRejectionReason shouldBe "재생성 중 실패"
                 }
             }
         }
