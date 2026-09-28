@@ -70,6 +70,11 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
                 SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
                 WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
               )
+              AND EXISTS (
+                SELECT 1 FROM member b
+                WHERE b.is_bot = 1 AND b.member_status = 'ACTIVE' AND b.status = 'ACTIVE'
+                  AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id)
+              )
             ORDER BY (SELECT COUNT(*) FROM food_review c WHERE c.food_id = f.id AND c.status = 'ACTIVE'), RAND()
             LIMIT :limit
         """,

@@ -221,6 +221,49 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("활성 봇 전부가 이미 리뷰한 저리뷰 음식이 후보를 채우면") {
+                then("그 음식은 후보에서 빠지고, 봇이 아직 안 쓴 음식이 리뷰 수가 더 많아도 선택된다 — 기아 없음") {
+                    val bot = accountService.ensureBots(1).bots.single()
+                    val human = accountService.ensureBots(2).bots.last()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET is_bot = 0 WHERE id = ${human.id}") } }
+                    val exhausted = seedFoods(3)
+                    val untouched = foodRepository.save(Food(koreanName = "미소진음식", description = "설명", contentStatus = FoodContentStatus.READY))
+                    val yesterday = java.time.LocalDateTime.now().minusDays(1)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'old review text here', 'ACTIVE', ?, ?)",
+                        ).use { ps ->
+                            exhausted.forEach { f -> ps.setLong(1, bot.id); ps.setLong(2, f.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.addBatch() }
+                            repeat(2) { ps.setLong(1, human.id); ps.setLong(2, untouched.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.addBatch() }
+                            ps.executeBatch()
+                        }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.created_at >= CURDATE()")
+                        .map { (it.single() as Number).toLong() } shouldBe listOf(untouched.id)
+                }
+            }
+
+            `when`("봇 2명 중 1명만 어떤 음식을 소진했으면") {
+                then("그 음식은 여전히 후보이고 나머지 봇이 쓴다") {
+                    val bots = accountService.ensureBots(2).bots
+                    val food = seedFoods(1).single()
+                    val yesterday = java.time.LocalDateTime.now().minusDays(1)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'old review text here', 'ACTIVE', ?, ?)",
+                        ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    query("SELECT r.member_id FROM food_review r WHERE r.food_id = ${food.id} AND r.created_at >= CURDATE()")
+                        .map { (it.single() as Number).toLong() } shouldBe listOf(bots[1].id)
+                }
+            }
+
             `when`("생성물이 금지어(가게·사진·알레르기 등)에 걸리면") {
                 then("재생성까지 걸리면 저장하지 않는다") {
                     accountService.ensureBots(5)
