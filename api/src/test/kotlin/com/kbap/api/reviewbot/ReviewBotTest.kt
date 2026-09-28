@@ -9,6 +9,8 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.domain.review.model.ReviewBotForbiddenCategory
+import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -291,9 +293,9 @@ class ReviewBotTest : BehaviorSpec() {
                         "vi" to listOf("An toàn cho người bị dị ứng hải sản, nước dùng rất đậm đà.", "Quán gần ga làm món này rất ngon và nóng.", "Tôi chụp ảnh trước khi ăn, trông rất hấp dẫn."),
                     )
                     sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
-                    sentences.forEach { (lang, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                    sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
                     ReviewBotContentGuard.LANGUAGES.forEach { lang ->
-                        ReviewBotContentGuard.coverage(lang).values.forEach { it.isNotEmpty().shouldBeTrue() }
+                        ReviewBotContentGuard.coverage(lang).forEach { (category, terms) -> (terms.isNotEmpty()).shouldBeTrue() }
                     }
                 }
             }
@@ -313,6 +315,35 @@ class ReviewBotTest : BehaviorSpec() {
             `when`("안전이 맛과 무관한 뜻으로 쓰인 문장을 검사하면") {
                 then("오탐이지만 거절한다 — 리뷰가 안전을 언급하는 것 자체를 막는 결정이다") {
                     ReviewBotContentGuard.isAcceptable("The atmosphere felt safe and cozy while the stew kept bubbling away.") shouldBe false
+                }
+            }
+
+            `when`("가드의 금지 범주와 프롬프트의 금지 문장을 대조하면") {
+                then("가드 범주 = 프롬프트 금지 범주 5종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
+                    ReviewBotContentGuard.CATEGORIES shouldBe ReviewBotForbiddenCategory.entries.toSet()
+                    ReviewBotContentGuard.CATEGORIES.size shouldBe 5
+                    ReviewBotForbiddenCategory.entries.forEach { category ->
+                        OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(category.promptRule).shouldBeTrue()
+                    }
+                }
+            }
+
+            `when`("식이 적합성·건강 효능 문장을 언어별로 검사하면") {
+                then("6개 언어 3문장씩 전부 거절한다") {
+                    mapOf(
+                        "en" to listOf("A vegan-friendly bowl that still tastes deeply savory.", "This is halal and gluten-free, and the broth is wonderful.", "It felt really good for your digestion and heart, and so tasty."),
+                        "ko" to listOf("비건도 먹을 수 있는 메뉴인데 국물이 진해요.", "할랄 인증이라 안심이고 맛도 좋아요.", "몸에 좋은 재료라 건강해지는 느낌, 맛도 훌륭해요."),
+                        "ja" to listOf("ビーガンでも食べられる、スープが濃厚です。", "ハラル対応でグルテンも入っていない、美味しい。", "体にいい食材で健康的、味も最高です。"),
+                        "zh" to listOf("纯素也能吃，汤底很浓郁。", "清真认证，无麸质，味道很好。", "很养生也很健康，味道也很棒。"),
+                        "th" to listOf("วีแกนก็กินได้ น้ำซุปเข้มข้นมาก", "ฮาลาลและปราศจากกลูเตน อร่อยมาก", "ดีต่อสุขภาพและช่วยลดน้ำหนัก อร่อยด้วย"),
+                        "vi" to listOf("Món thuần chay mà vẫn rất đậm đà.", "Halal và không gluten, nước dùng tuyệt vời.", "Rất tốt cho sức khỏe và giúp giảm cân, lại ngon."),
+                    ).forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                }
+            }
+
+            `when`("건강이 맛 표현으로 쓰인 문장을 검사하면") {
+                then("오탐이지만 거절한다 — 리뷰가 건강·식이를 언급하는 것 자체를 막는 결정이다") {
+                    ReviewBotContentGuard.isAcceptable("A healthy portion of noodles with a bright, tangy broth.") shouldBe false
                 }
             }
 

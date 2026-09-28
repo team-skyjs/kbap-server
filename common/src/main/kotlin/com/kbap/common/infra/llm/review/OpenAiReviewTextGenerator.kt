@@ -1,6 +1,7 @@
 package com.kbap.common.infra.llm.review
 
 import com.kbap.common.domain.metering.LlmCallCostIncurred
+import com.kbap.common.domain.review.model.ReviewBotForbiddenCategory
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.common.port.llm.ReviewTextGenerator
@@ -48,19 +49,16 @@ class OpenAiReviewTextGenerator(
         Language: write the whole review in ${request.language} only.
         """.trimIndent()
 
-    private companion object {
+    companion object {
         val log = LoggerFactory.getLogger(OpenAiReviewTextGenerator::class.java)
 
-        val SYSTEM_PROMPT =
-            """
-            You write casual, natural food reviews as a traveler who just ate the dish in Korea.
-            Rules:
-            - 2 to 4 sentences, plain text only, no title, no quotes, no emoji, no hashtags, no lists.
-            - Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.
-            - Never mention any restaurant, shop, store, branch, place name, address, or location.
-            - Never mention photos or pictures.
-            - Never mention allergies, allergens, dietary safety, or whether it is safe to eat for anyone.
-            - Never give health or medical claims. Do not invent prices.
-            """.trimIndent()
+        val SYSTEM_PROMPT: String =
+            listOf(
+                "You write casual, natural food reviews as a traveler who just ate the dish in Korea.",
+                "Rules:",
+                "- 2 to 4 sentences, plain text only, no title, no quotes, no emoji, no hashtags, no lists.",
+                "- Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
+                "- Do not invent prices.",
+            ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")
     }
 }
