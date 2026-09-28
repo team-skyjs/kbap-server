@@ -28,6 +28,8 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
+import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.PlatformTransactionManager
 
 @IntegrationTest
 class AdminFoodImageRegenerateTest : BehaviorSpec() {
@@ -47,6 +49,9 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var contentOutboxRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
@@ -290,6 +295,32 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                     val items = itemRepository.findAll().count { it.foodId == food.id }
                     val outboxes = contentOutboxRepository.findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING).size
                     items + outboxes shouldBe 1
+                }
+            }
+
+            `when`("다른 트랜잭션이 음식 행을 잠근 채 재수집 아웃박스를 넣고 있으면") {
+                then("재생성은 그 커밋을 기다렸다가 아웃박스를 보고 409 FOOD-020 — 잠금 없이 읽으면 둘 다 통과한다") {
+                    val food = saveFood("행잠금교차음식")
+                    val locked = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor()
+                    val recollect = executor.submit {
+                        TransactionTemplate(transactionManager).execute {
+                            foodRepository.findByIdForUpdate(food.id)
+                            contentOutboxRepository.saveAndFlush(FoodContentOutbox.pending(food.id, food.displayName))
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    locked.await()
+
+                    regenerate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+                    recollect.get()
+                    executor.shutdown()
+                    itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
                 }
             }
 
