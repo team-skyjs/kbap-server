@@ -55,8 +55,9 @@ class AdminFoodContentIngestService(
     @Transactional
     fun ingestFailure(outboxId: Long, foodId: Long, failureKind: FoodContentFailureKind, reason: String) {
         if (!completeOutbox(outboxId, foodId)) return
+        val food = getFood(foodId)
         val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(listOf(foodId)).isNotEmpty()
-        getFood(foodId).recordContentFailure(failureKind, reason, keepStatus = regenerating)
+        food.recordContentFailure(failureKind, reason, keepStatus = regenerating)
     }
 
     private fun completeOutbox(outboxId: Long, foodId: Long): Boolean {

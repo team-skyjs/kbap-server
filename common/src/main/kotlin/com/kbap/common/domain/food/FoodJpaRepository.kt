@@ -117,11 +117,11 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun findReadyIdsWithoutVectorUpsertOutbox(pageable: Pageable): List<Long>
 
-    @Query("select f.id from Food f where $READY_WITHOUT_PENDING_UPSERT order by f.id asc")
-    fun findReadyIdsWithoutPendingVectorUpsert(pageable: Pageable): List<Long>
+    @Query("select f.id from Food f where f.id > :afterFoodId and $READY_WITHOUT_PENDING_UPSERT order by f.id asc")
+    fun findReadyIdsWithoutPendingVectorUpsertAfter(@Param("afterFoodId") afterFoodId: Long, pageable: Pageable): List<Long>
 
-    @Query("select count(f) from Food f where $READY_WITHOUT_PENDING_UPSERT")
-    fun countReadyWithoutPendingVectorUpsert(): Long
+    @Query("select count(f) from Food f where f.id > :afterFoodId and $READY_WITHOUT_PENDING_UPSERT")
+    fun countReadyWithoutPendingVectorUpsertAfter(@Param("afterFoodId") afterFoodId: Long): Long
 
     @Query(
         """

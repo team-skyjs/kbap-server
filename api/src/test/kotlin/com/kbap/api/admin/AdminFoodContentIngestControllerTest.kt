@@ -61,6 +61,9 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
     private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
+    @Autowired
     private lateinit var dataSource: DataSource
 
     private val mapper: ObjectMapper = jacksonObjectMapper()
@@ -265,6 +268,33 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                     val reloaded = reloaded(food.id)
                     reloaded.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                     reloaded.contentReviewRejectionReason shouldBe "재생성 중 실패"
+                }
+            }
+        }
+
+        given("잠금 대기 중 시작된 재생성과 실패 콜백") {
+            `when`("다른 트랜잭션이 음식 행을 잠근 채 재생성 항목을 넣는 동안 실패 콜백이 오면") {
+                then("콜백은 잠금을 쥔 뒤에 재생성을 확인해 content_status 를 유지한다 — 잠금 전에 검사하면 FAILED 가 된다") {
+                    clearFoods()
+                    val food = saveFood("잠금경합실패음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/old.webp")
+                    val locked = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val regen = executor.submit {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            foodJpaRepository.findByIdForUpdate(food.id)
+                            val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                            imageBatchItemJpaRepository.saveAndFlush(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    locked.await()
+
+                    ingest(failedBody(food.id, reason = "잠금 경합 실패")).andExpect { status { isOk() } }
+                    regen.get()
+                    executor.shutdown()
+
+                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
         }

@@ -45,10 +45,12 @@ data class AdminVectorOutboxEnqueueResponse(
     val enqueued: Int,
     @field:io.swagger.v3.oas.annotations.media.Schema(description = "조건에 맞지만 이번 호출(최대 500)에 담기지 않은 수. 0 이 될 때까지 반복 호출한다", example = "0")
     val remaining: Long,
+    @field:io.swagger.v3.oas.annotations.media.Schema(description = "force 모드의 다음 커서 — 이번 페이지 마지막 foodId. 더 없으면 null. 다음 호출에 afterFoodId 로 넘긴다", example = "500", nullable = true)
+    val nextAfterFoodId: Long?,
 ) {
     companion object {
         fun from(result: AdminVectorOutboxEnqueueResult): AdminVectorOutboxEnqueueResponse =
-            AdminVectorOutboxEnqueueResponse(enqueued = result.enqueued, remaining = result.remaining)
+            AdminVectorOutboxEnqueueResponse(enqueued = result.enqueued, remaining = result.remaining, nextAfterFoodId = result.nextAfterFoodId)
     }
 }
 

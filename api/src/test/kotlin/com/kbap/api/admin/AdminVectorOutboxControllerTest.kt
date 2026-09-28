@@ -13,6 +13,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
@@ -40,6 +41,8 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    private val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+
     init {
         val path = "/api/admin/foods/vector-outboxes"
 
@@ -51,8 +54,8 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
         fun postEnqueue(): ResultActionsDsl =
             mockMvc.post("$path/enqueue") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
 
-        fun postEnqueueForce(): ResultActionsDsl =
-            mockMvc.post("$path/enqueue?force=true") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
+        fun postEnqueueForce(afterFoodId: Long? = null): ResultActionsDsl =
+            mockMvc.post("$path/enqueue?force=true${afterFoodId?.let { "&afterFoodId=$it" } ?: ""}") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
 
         fun postRetry(id: Long): ResultActionsDsl =
             mockMvc.post("$path/$id/retry") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
@@ -264,17 +267,22 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
             }
 
             `when`("READY 600개면") {
-                then("500개를 담고 remaining 100 이며, 다시 호출하면 100개·remaining 0 이다") {
-                    foodJpaRepository.saveAll((1..600).map { Food(koreanName = "육백음식$it", description = "설명", contentStatus = FoodContentStatus.READY) })
+                then("1차 500·nextAfterFoodId=500번째 id·remaining 100, 앞 500이 COMPLETE 된 뒤 커서로 2차 → 뒤 100만·next null — 앞 500을 다시 담지 않는다") {
+                    val foods = foodJpaRepository.saveAll((1..600).map { Food(koreanName = "육백음식$it", description = "설명", contentStatus = FoodContentStatus.READY) })
+                    val ids = foods.map { it.id }.sorted()
 
-                    postEnqueueForce().andExpect {
-                        jsonPath("$.payload.enqueued") { value(500) }
-                        jsonPath("$.payload.remaining") { value(100) }
-                    }
-                    postEnqueueForce().andExpect {
-                        jsonPath("$.payload.enqueued") { value(100) }
-                        jsonPath("$.payload.remaining") { value(0) }
-                    }
+                    val first = mapper.readTree(postEnqueueForce().andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+                    first.path("enqueued").asInt() shouldBe 500
+                    first.path("remaining").asLong() shouldBe 100
+                    first.path("nextAfterFoodId").asLong() shouldBe ids[499]
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_vector_outbox SET outbox_status = 'COMPLETE' WHERE outbox_status = 'PENDING'") } }
+
+                    val second = mapper.readTree(postEnqueueForce(afterFoodId = first.path("nextAfterFoodId").asLong()).andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+                    second.path("enqueued").asInt() shouldBe 100
+                    second.path("remaining").asLong() shouldBe 0
+                    second.path("nextAfterFoodId").isNull.shouldBeTrue()
+                    vectorOutboxRepository.findByOutboxStatus(FoodVectorOutboxStatus.PENDING, org.springframework.data.domain.Pageable.unpaged()).content
+                        .map { it.foodId }.sorted() shouldBe ids.drop(500)
                 }
             }
         }
