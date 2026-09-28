@@ -53,7 +53,7 @@ class AdminFoodImageController(
         @PathVariable foodId: Long,
         @Valid @RequestBody(required = false) request: AdminFoodImageRegenerateRequest?,
     ): ResponseEntity<BaseResponse<AdminFoodImageRegenerateResponse>> {
-        val result = adminFoodImageService.regenerateImage(foodId, request?.intent, request?.reason)
+        val result = adminFoodImageService.regenerateImage(foodId, request?.intent?.domain, request?.reason)
         return ResponseEntity.ok(BaseResponse.ok(AdminFoodImageRegenerateResponse.from(result)))
     }
 }
