@@ -27,6 +27,7 @@ import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
@@ -274,7 +275,7 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
         given("잠금 대기 중 시작된 재생성과 실패 콜백") {
             `when`("다른 트랜잭션이 음식 행을 잠근 채 재생성 항목을 넣는 동안 실패 콜백이 오면") {
-                then("콜백은 잠금을 쥔 뒤에 재생성을 확인해 content_status 를 유지한다 — 잠금 전에 검사하면 FAILED 가 된다") {
+                then("콜백은 그 트랜잭션 뒤로 직렬화돼(대기) 커밋된 재생성을 보고 content_status 를 유지한다") {
                     clearFoods()
                     val food = saveFood("잠금경합실패음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/old.webp")
                     val locked = java.util.concurrent.CountDownLatch(1)
@@ -285,12 +286,14 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                             val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
                             imageBatchItemJpaRepository.saveAndFlush(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
                             locked.countDown()
-                            Thread.sleep(1_500)
+                            Thread.sleep(2_000)
                         }
                     }
                     locked.await()
 
+                    val started = System.nanoTime()
                     ingest(failedBody(food.id, reason = "잠금 경합 실패")).andExpect { status { isOk() } }
+                    java.time.Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
                     regen.get()
                     executor.shutdown()
 
