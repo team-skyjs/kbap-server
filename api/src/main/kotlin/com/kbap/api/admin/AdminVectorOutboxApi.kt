@@ -49,8 +49,9 @@ interface AdminVectorOutboxApi {
             READY 인데 UPSERT 아웃박스가 없는 음식을 최대 500건 enqueue 하고 생성 건수를 반환한다.
 
             - 멱등: 이미 아웃박스가 있는 음식은 대상에서 빠지므로 재호출 시 `enqueued=0` 으로 성공한다.
-            - `force=true`: UPSERT 이력과 무관하게 **READY 전체**(최대 500)를 다시 enqueue 한다 — 재수집으로 내용이 바뀌었는데
-              벡터가 낡은 음식을 한 번에 되살릴 때(KB-649). PENDING 이 이미 있는 음식만 건너뛴다.
+            - `force=true`: UPSERT 이력과 무관하게 **READY 전체**를 다시 enqueue 한다 — 재수집으로 내용이 바뀌었는데
+              벡터가 낡은 음식을 한 번에 되살릴 때(KB-649). PENDING 이 이미 있는 음식은 조건에서 빠지고, 그 뒤 최대 500건을 담는다.
+            - `remaining` 은 조건에 맞지만 이번에 담기지 않은 수 — 0 이 될 때까지 반복 호출하면 소진된다(기본·force 공통).
         """,
     )
     @ApiResponses(

@@ -252,7 +252,8 @@ class AdminFoodService(
             return AdminFoodRecollectResult(requested = requested, created = 0, skipped = 0, exceeded = true, max = max)
         }
 
-        val targets = getRecollectTargets(keyword, status)
+        val targets = getRecollectTargets(keyword, status).sortedBy { it.id }
+        targets.forEach { foodRepository.findByIdForUpdate(it.id) }
         val alreadyPending = outboxRepository
             .findByFoodIdInAndOutboxStatus(targets.map { it.id }, FoodContentOutboxStatus.PENDING)
             .map { it.foodId }

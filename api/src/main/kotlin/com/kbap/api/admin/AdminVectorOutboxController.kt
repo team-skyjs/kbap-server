@@ -34,7 +34,7 @@ class AdminVectorOutboxController(
     ): ResponseEntity<BaseResponse<AdminVectorOutboxEnqueueResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                AdminVectorOutboxEnqueueResponse(adminFoodDashboardService.enqueueReadyFoodsForVectorSync(force)),
+                AdminVectorOutboxEnqueueResponse.from(adminFoodDashboardService.enqueueReadyFoodsForVectorSync(force)),
             ),
         )
 

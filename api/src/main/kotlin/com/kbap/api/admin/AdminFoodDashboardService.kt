@@ -82,19 +82,12 @@ class AdminFoodDashboardService(
     }
 
     @Transactional
-    fun enqueueReadyFoodsForVectorSync(force: Boolean = false): Int {
-        if (force) {
-            return foodRepository.findReadyIds(PageRequest.of(0, ENQUEUE_MAX)).count { foodId ->
-                val alreadyPending = vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(
-                    foodId, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING,
-                )
-                if (!alreadyPending) vectorOutboxRepository.save(FoodVectorOutbox.upsert(foodId))
-                !alreadyPending
-            }
-        }
-        val targetIds = foodRepository.findReadyIdsWithoutVectorUpsertOutbox(PageRequest.of(0, ENQUEUE_MAX))
+    fun enqueueReadyFoodsForVectorSync(force: Boolean = false): AdminVectorOutboxEnqueueResult {
+        val total = if (force) foodRepository.countReadyWithoutPendingVectorUpsert() else foodRepository.countReadyWithoutVectorUpsertOutbox()
+        val page = PageRequest.of(0, ENQUEUE_MAX)
+        val targetIds = if (force) foodRepository.findReadyIdsWithoutPendingVectorUpsert(page) else foodRepository.findReadyIdsWithoutVectorUpsertOutbox(page)
         vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
-        return targetIds.size
+        return AdminVectorOutboxEnqueueResult(enqueued = targetIds.size, remaining = (total - targetIds.size).coerceAtLeast(0))
     }
 
     @Transactional
@@ -163,4 +156,9 @@ data class AdminFoodDashboardView(
     val pendingReview: Long,
     val ready: Long,
     val readyRatio: Double,
+)
+
+data class AdminVectorOutboxEnqueueResult(
+    val enqueued: Int,
+    val remaining: Long,
 )

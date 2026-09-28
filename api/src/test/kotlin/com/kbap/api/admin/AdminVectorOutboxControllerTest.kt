@@ -250,6 +250,35 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
             }
         }
 
+        given("벡터 동기화 강제 재동기화 — 500 초과") {
+            `when`("READY 501개 중 앞 1개가 이미 PENDING 이면") {
+                then("PENDING 을 조건에서 뺀 뒤 500개를 담아 remaining 0 이다 — LIMIT 뒤에 스킵하지 않는다") {
+                    val foods = foodJpaRepository.saveAll((1..501).map { Food(koreanName = "초과음식$it", description = "설명", contentStatus = FoodContentStatus.READY) })
+                    saveOutbox(foods.first().id)
+
+                    postEnqueueForce().andExpect {
+                        jsonPath("$.payload.enqueued") { value(500) }
+                        jsonPath("$.payload.remaining") { value(0) }
+                    }
+                }
+            }
+
+            `when`("READY 600개면") {
+                then("500개를 담고 remaining 100 이며, 다시 호출하면 100개·remaining 0 이다") {
+                    foodJpaRepository.saveAll((1..600).map { Food(koreanName = "육백음식$it", description = "설명", contentStatus = FoodContentStatus.READY) })
+
+                    postEnqueueForce().andExpect {
+                        jsonPath("$.payload.enqueued") { value(500) }
+                        jsonPath("$.payload.remaining") { value(100) }
+                    }
+                    postEnqueueForce().andExpect {
+                        jsonPath("$.payload.enqueued") { value(100) }
+                        jsonPath("$.payload.remaining") { value(0) }
+                    }
+                }
+            }
+        }
+
         given("벡터 동기화 일괄 enqueue API") {
             `when`("UPSERT 아웃박스가 없는 READY 음식이 있으면") {
                 then("그 수만큼 enqueue 하고 건수를 내려준다") {

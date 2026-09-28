@@ -19,6 +19,7 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         """
         select distinct o.foodId from FoodContentOutbox o
         where o.foodId in :foodIds
+          and o.deadAt is null
           and o.outboxStatus in (com.kbap.common.domain.food.model.FoodContentOutboxStatus.PENDING, com.kbap.common.domain.food.model.FoodContentOutboxStatus.SENT)
         """,
     )

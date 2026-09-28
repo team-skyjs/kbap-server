@@ -43,7 +43,14 @@ data class AdminVectorOutboxItemResponse(
 
 data class AdminVectorOutboxEnqueueResponse(
     val enqueued: Int,
-)
+    @field:io.swagger.v3.oas.annotations.media.Schema(description = "조건에 맞지만 이번 호출(최대 500)에 담기지 않은 수. 0 이 될 때까지 반복 호출한다", example = "0")
+    val remaining: Long,
+) {
+    companion object {
+        fun from(result: AdminVectorOutboxEnqueueResult): AdminVectorOutboxEnqueueResponse =
+            AdminVectorOutboxEnqueueResponse(enqueued = result.enqueued, remaining = result.remaining)
+    }
+}
 
 data class AdminVectorOutboxRetryResponse(
     val retried: Boolean,

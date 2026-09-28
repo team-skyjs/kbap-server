@@ -260,6 +260,39 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("보냈다가 포기(dead)한 요청만 있는 음식을 재생성하면") {
+                then("막지 않는다 — 포기한 요청은 진행 중이 아니다") {
+                    val food = saveFood("재수집포기음식")
+                    contentOutboxRepository.save(
+                        FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.SENT; markDead("테스트 포기") },
+                    )
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("같은 음식에 재생성과 재수집이 동시에 들어오면") {
+                then("음식 행 잠금으로 직렬화돼 하나만 200, 다른 하나는 409 FOOD-020 이고 아웃박스+배치 항목 합계가 1이다") {
+                    val food = saveFood("교차경합음식")
+                    val executor = Executors.newFixedThreadPool(2)
+                    val gate = CountDownLatch(1)
+                    val recollect = executor.submit<Int> {
+                        gate.await()
+                        mockMvc.post("/api/admin/foods/${food.id}/recollect") { header("Authorization", "Bearer ${adminToken()}") }
+                            .andReturn().response.status
+                    }
+                    val regen = executor.submit<Int> { gate.await(); regenerate(food.id).andReturn().response.status }
+                    gate.countDown()
+                    val statuses = listOf(recollect.get(), regen.get()).sorted()
+                    executor.shutdown()
+
+                    statuses shouldBe listOf(200, 409)
+                    val items = itemRepository.findAll().count { it.foodId == food.id }
+                    val outboxes = contentOutboxRepository.findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING).size
+                    items + outboxes shouldBe 1
+                }
+            }
+
             `when`("콘텐츠 수집이 끝난(COMPLETE) 음식을 재생성하면") {
                 then("막지 않는다") {
                     val food = saveFood("재수집완료음식")
