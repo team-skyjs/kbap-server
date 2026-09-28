@@ -73,7 +73,7 @@ enum class ReviewBotForbiddenCategory(
     ;
 
     fun patterns(): List<Regex> =
-        stems.values.flatten().map { Regex(it, RegexOption.IGNORE_CASE) } +
+        stems.values.flatten().map { Regex("(?U)$it", RegexOption.IGNORE_CASE) } +
             substrings.values.flatten().map { Regex(Regex.escape(it), RegexOption.IGNORE_CASE) }
 
     fun terms(language: String): List<String> = stems[language] ?: substrings[language] ?: emptyList()
