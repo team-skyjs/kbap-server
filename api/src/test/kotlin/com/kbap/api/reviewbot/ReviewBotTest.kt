@@ -450,6 +450,14 @@ class ReviewBotTest : BehaviorSpec() {
                     sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
                     listOf("\$12 for this bowl, and the kimchi was crisp.", "Paid ₩9,000 and the portion was generous.", "I paid for a second bowl because the broth was that good.")
                         .forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                    listOf(
+                        "Only 12€ and the broth was rich and spicy.",
+                        "12000₩ for a bowl this big, the noodles were chewy.",
+                        "\$12 well spent, the kimchi was crisp and tangy.",
+                        "฿120 and the portion was generous, sauce was lovely.",
+                        "12,000₫ for the soup, and it was deeply savory.",
+                        "8000円で、スープが濃厚でした。",
+                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
                 }
             }
 

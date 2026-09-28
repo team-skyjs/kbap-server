@@ -70,8 +70,10 @@ enum class ReviewBotForbiddenCategory(
         promptNouns = listOf("prices", "costs", "paid", "cheap", "expensive"),
         stems = mapOf(
             "en" to listOf(
-                "\\d[\\d,.]*\\s?(won|₩|krw|\\$|usd|€|¥|円|元|฿|đ|vnd|baht|yen|yuan|dollars?|bucks|원)\\b",
-                "(₩|\\$|€|¥|฿)\\s?\\d", "\\bpric\\w*", "\\bcost\\w*", "\\bpaid\\b", "\\bcheap\\w*", "\\bexpensive\\b", "\\bpricey\\b", "\\bbargain\\w*", "\\bovercharg\\w*",
+                "\\d[\\d,.]*\\s?(won|krw|usd|vnd|baht|yen|yuan|dollars?|bucks)\\b",
+                "\\d[\\d,.]*\\s?(円|元|원|đ)",
+                "\\d[\\d,.]*\\s?[₩$€¥฿₫](?!\\w)",
+                "[₩$€¥฿₫]\\s?\\d", "\\bpric\\w*", "\\bcost\\w*", "\\bpaid\\b", "\\bcheap\\w*", "\\bexpensive\\b", "\\bpricey\\b", "\\bbargain\\w*", "\\bovercharg\\w*",
             ),
             "vi" to listOf("\\bgiá\\b(?! đỗ)", "\\bđắt\\b", "\\brẻ\\b", "\\btiền\\b"),
         ),
