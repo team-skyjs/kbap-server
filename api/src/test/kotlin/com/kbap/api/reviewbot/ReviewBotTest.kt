@@ -380,17 +380,25 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("가드의 금지 범주와 프롬프트의 금지 문장을 대조하면") {
-                then("가드 범주 = 프롬프트 금지 범주 5종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
+                then("가드 범주 = 프롬프트 금지 범주 6종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
                     ReviewBotContentGuard.CATEGORIES shouldBe ReviewBotForbiddenCategory.entries.toSet()
-                    ReviewBotContentGuard.CATEGORIES.size shouldBe 5
+                    ReviewBotContentGuard.CATEGORIES.size shouldBe 6
                     ReviewBotForbiddenCategory.entries.forEach { category ->
                         OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(category.promptRule).shouldBeTrue()
                     }
                 }
             }
 
+            `when`("시스템 프롬프트의 금지 문장(never·do not·don't·must not)을 줄 단위로 훑으면") {
+                then("전부 enum 의 promptRule 에서 나온 줄이다 — 프롬프트엔 있는데 가드에 없는 범주는 구조적으로 불가능하다") {
+                    val prohibition = Regex("(?i)\\b(never|do not|don't|must not)\\b")
+                    val prohibitionLines = OpenAiReviewTextGenerator.SYSTEM_PROMPT.lines().filter { prohibition.containsMatchIn(it) }.toSet()
+                    prohibitionLines shouldBe ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }.toSet()
+                }
+            }
+
             `when`("각 범주의 promptRule 에 쓰인 명사를 그 범주 패턴에 대조하면") {
-                then("프롬프트가 금지한다고 말한 단어는 가드도 전부 안다 — 5범주 모두") {
+                then("프롬프트가 금지한다고 말한 단어는 가드도 전부 안다 — 6범주 모두") {
                     ReviewBotForbiddenCategory.entries.forEach { category ->
                         category.promptNouns.isNotEmpty().shouldBeTrue()
                         category.promptNouns.forEach { noun ->
@@ -425,6 +433,31 @@ class ReviewBotTest : BehaviorSpec() {
                         "th" to listOf("วีแกนก็กินได้ น้ำซุปเข้มข้นมาก", "ฮาลาลและปราศจากกลูเตน อร่อยมาก", "ดีต่อสุขภาพและช่วยลดน้ำหนัก อร่อยด้วย"),
                         "vi" to listOf("Món thuần chay mà vẫn rất đậm đà.", "Halal và không gluten, nước dùng tuyệt vời.", "Rất tốt cho sức khỏe và giúp giảm cân, lại ngon."),
                     ).forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                }
+            }
+
+            `when`("가격·비용·싸다·비싸다 문장을 언어별로 검사하면") {
+                then("6개 언어 3문장씩 전부 거절한다 — 통화 기호·단위 + 숫자, 어간, 언어별 대응어") {
+                    val sentences = mapOf(
+                        "en" to listOf("It was only 8,000 won and the broth was rich.", "Cheap but tasty, the noodles had a great chew.", "A bit expensive for what you get, though the sauce was lovely."),
+                        "ko" to listOf("8000원인데 국물이 진해요.", "가격 대비 양이 많고 맛도 좋아요.", "조금 비싸지만 소스가 훌륭해요."),
+                        "ja" to listOf("値段のわりにスープが濃厚でした。", "安いのに美味しい、麺のコシが最高。", "少し高いけどソースが絶品。"),
+                        "zh" to listOf("价格不贵，汤底很浓郁。", "很便宜又好吃，面条很有嚼劲。", "有点贵，但酱汁很棒。"),
+                        "th" to listOf("ราคาไม่แพง น้ำซุปเข้มข้นมาก", "ถูกและอร่อย เส้นเหนียวนุ่ม", "แพงไปหน่อย แต่ซอสอร่อยมาก"),
+                        "vi" to listOf("Giá chỉ 50.000 đ mà nước dùng rất đậm đà.", "Rẻ mà ngon, sợi mì dai vừa phải.", "Hơi đắt nhưng nước sốt rất tuyệt."),
+                    )
+                    sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
+                    sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                    listOf("\$12 for this bowl, and the kimchi was crisp.", "Paid ₩9,000 and the portion was generous.", "I paid for a second bowl because the broth was that good.")
+                        .forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                }
+            }
+
+            `when`("가치 표현이 값과 무관하게 쓰인 문장을 검사하면") {
+                then("\"worth every bite\" 는 통과하고, 값싼 뜻이 아닌 \"cheap\" 은 오탐이지만 거절한다") {
+                    ReviewBotContentGuard.isAcceptable("Worth every bite, the broth was rich and the rice cakes chewy.") shouldBe true
+                    ReviewBotContentGuard.isAcceptable("Giá đỗ was crunchy and the broth deeply savory, a lovely bowl.") shouldBe true
+                    ReviewBotContentGuard.isAcceptable("The sauce tasted a little cheap, but the noodles were chewy.") shouldBe false
                 }
             }
 

@@ -65,6 +65,23 @@ enum class ReviewBotForbiddenCategory(
             "th" to listOf("ร้าน", "ภัตตาคาร", "สาขา", "ที่อยู่", "ใกล้", "สถานี"),
         ),
     ),
+    PRICE(
+        promptRule = "Never mention prices, costs, what you paid, or call it cheap or expensive.",
+        promptNouns = listOf("prices", "costs", "paid", "cheap", "expensive"),
+        stems = mapOf(
+            "en" to listOf(
+                "\\d[\\d,.]*\\s?(won|₩|krw|\\$|usd|€|¥|円|元|฿|đ|vnd|baht|yen|yuan|dollars?|bucks|원)\\b",
+                "(₩|\\$|€|¥|฿)\\s?\\d", "\\bpric\\w*", "\\bcost\\w*", "\\bpaid\\b", "\\bcheap\\w*", "\\bexpensive\\b", "\\bpricey\\b", "\\bbargain\\w*", "\\bovercharg\\w*",
+            ),
+            "vi" to listOf("\\bgiá\\b(?! đỗ)", "\\bđắt\\b", "\\brẻ\\b", "\\btiền\\b"),
+        ),
+        substrings = mapOf(
+            "ko" to listOf("가격", "비싸", "싸다", "싸요", "저렴", "값이", "가성비"),
+            "ja" to listOf("値段", "価格", "高い", "安い", "高かった", "安かった", "コスパ"),
+            "zh" to listOf("价格", "價格", "贵", "貴", "便宜", "性价比", "性價比"),
+            "th" to listOf("ราคา", "แพง", "ถูก", "บาท", "คุ้ม"),
+        ),
+    ),
     PHOTO(
         promptRule = "Never mention photos or pictures.",
         promptNouns = listOf("photos", "pictures"),

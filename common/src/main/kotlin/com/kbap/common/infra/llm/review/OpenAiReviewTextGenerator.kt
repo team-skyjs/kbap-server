@@ -58,7 +58,6 @@ class OpenAiReviewTextGenerator(
                 "Rules:",
                 "- 2 to 4 sentences, plain text only, no title, no quotes, no emoji, no hashtags, no lists.",
                 "- Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
-                "- Do not invent prices.",
             ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")
     }
 }
