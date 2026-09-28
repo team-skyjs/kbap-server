@@ -239,9 +239,11 @@ class ReviewBotTest : BehaviorSpec() {
                         }
                     }
 
+                    val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
+
                     writer(min = 1, max = 1).writeDue(todayAt(22))
 
-                    query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.created_at >= CURDATE()")
+                    query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(untouched.id)
                 }
             }
@@ -257,9 +259,11 @@ class ReviewBotTest : BehaviorSpec() {
                         ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
                     }
 
+                    val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
+
                     writer(min = 1, max = 1).writeDue(todayAt(22))
 
-                    query("SELECT r.member_id FROM food_review r WHERE r.food_id = ${food.id} AND r.created_at >= CURDATE()")
+                    query("SELECT r.member_id FROM food_review r WHERE r.food_id = ${food.id} AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(bots[1].id)
                 }
             }
