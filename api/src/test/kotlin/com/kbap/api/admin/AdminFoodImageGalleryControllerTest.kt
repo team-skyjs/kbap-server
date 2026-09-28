@@ -12,12 +12,14 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import javax.sql.DataSource
 
@@ -86,6 +88,127 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
 
         fun payloadOf(result: ResultActionsDsl) =
             mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+        fun regenerate(foodId: Long, intent: String?, reason: String? = null): ResultActionsDsl =
+            mockMvc.post("/api/admin/foods/$foodId/regenerate-image") {
+                header("Authorization", "Bearer ${adminToken()}")
+                if (intent != null) {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = mapper.writeValueAsString(mapOf("intent" to intent, "reason" to reason))
+                }
+            }
+
+        fun failLastItem(foodId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "UPDATE image_batch_item SET item_status = 'FAILED', error_msg = '테스트 실패' WHERE food_id = ? " +
+                        "ORDER BY id DESC LIMIT 1",
+                ).use { ps -> ps.setLong(1, foodId); ps.executeUpdate() }
+            }
+
+        fun finishLastItem(foodId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "UPDATE image_batch_item SET item_status = 'DONE', file_name = 'images/webp/food/new.webp' WHERE food_id = ? " +
+                        "ORDER BY id DESC LIMIT 1",
+                ).use { ps -> ps.setLong(1, foodId); ps.executeUpdate() }
+            }
+
+        fun detail(foodId: Long): ResultActionsDsl =
+            mockMvc.get("/api/admin/foods/$foodId") { header("Authorization", "Bearer ${adminToken()}") }
+
+        given("갤러리의 마지막 재생성 상태") {
+            `when`("재생성 이력이 없으면") {
+                then("regeneration 이 null 이다") {
+                    val food = saveFood("이력없음음식", "images/webp/none.webp")
+
+                    payloadOf(gallery(food.id)).path("regeneration").isNull.shouldBeTrue()
+                    payloadOf(detail(food.id)).path("regeneration").isNull.shouldBeTrue()
+                }
+            }
+
+            `when`("의도·사유를 담아 재생성을 제출하면") {
+                then("IN_PROGRESS 와 제출한 의도·사유가 갤러리·상세에 보인다") {
+                    val food = saveFood("진행중음식", "images/webp/wip.webp")
+                    regenerate(food.id, "WRONG_IMAGE", "음식이 아님").andExpect { status { isOk() } }
+
+                    val regeneration = payloadOf(gallery(food.id)).path("regeneration")
+                    regeneration.path("state").asText() shouldBe "IN_PROGRESS"
+                    regeneration.path("intent").asText() shouldBe "WRONG_IMAGE"
+                    regeneration.path("reason").asText() shouldBe "음식이 아님"
+                    regeneration.path("at").isTextual.shouldBeTrue()
+                    payloadOf(detail(food.id)).path("regeneration").path("state").asText() shouldBe "IN_PROGRESS"
+                }
+            }
+
+            `when`("WRONG_IMAGE 재생성이 실패하면") {
+                then("FAILED 와 의도가 보이고 음식은 숨김(PENDING_IMAGE) 그대로다") {
+                    val food = saveFood("오류실패음식", "images/webp/wrong.webp")
+                    regenerate(food.id, "WRONG_IMAGE").andExpect { status { isOk() } }
+                    failLastItem(food.id)
+
+                    val payload = payloadOf(gallery(food.id))
+                    payload.path("contentStatus").asText() shouldBe "PENDING_IMAGE"
+                    payload.path("regeneration").path("state").asText() shouldBe "FAILED"
+                    payload.path("regeneration").path("intent").asText() shouldBe "WRONG_IMAGE"
+                }
+            }
+
+            `when`("REPLACE_BETTER 재생성이 실패해 READY 로 복원된 뒤 조회하면") {
+                then("음식은 READY 인데도 FAILED 와 REPLACE_BETTER 가 남는다 — 새로고침해도 흔적이 지워지지 않는다") {
+                    val food = saveFood("교체실패음식", "images/webp/better.webp")
+                    regenerate(food.id, "REPLACE_BETTER", "더 선명하게").andExpect { status { isOk() } }
+                    failLastItem(food.id)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE food SET content_status = 'READY' WHERE id = ?").use { ps ->
+                            ps.setLong(1, food.id); ps.executeUpdate()
+                        }
+                    }
+
+                    val payload = payloadOf(gallery(food.id))
+                    payload.path("contentStatus").asText() shouldBe "READY"
+                    payload.path("regeneration").path("state").asText() shouldBe "FAILED"
+                    payload.path("regeneration").path("intent").asText() shouldBe "REPLACE_BETTER"
+                    payload.path("regeneration").path("reason").asText() shouldBe "더 선명하게"
+                }
+            }
+
+            `when`("의도 없이(구 어드민) 제출한 재생성이 실패하면") {
+                then("FAILED 이고 intent·reason 은 null 이다") {
+                    val food = saveFood("의도없음실패음식", "images/webp/legacy.webp")
+                    regenerate(food.id, null).andExpect { status { isOk() } }
+                    failLastItem(food.id)
+
+                    val regeneration = payloadOf(gallery(food.id)).path("regeneration")
+                    regeneration.path("state").asText() shouldBe "FAILED"
+                    regeneration.path("intent").isNull.shouldBeTrue()
+                    regeneration.path("reason").isNull.shouldBeTrue()
+                }
+            }
+
+            `when`("마지막 재생성이 성공(DONE)했으면") {
+                then("regeneration 이 null 이다 — 보여 줄 진행·실패가 없다") {
+                    val food = saveFood("성공음식", "images/webp/done.webp")
+                    regenerate(food.id, "REPLACE_BETTER").andExpect { status { isOk() } }
+                    finishLastItem(food.id)
+
+                    payloadOf(gallery(food.id)).path("regeneration").isNull.shouldBeTrue()
+                }
+            }
+
+            `when`("실패한 뒤 다시 제출하면") {
+                then("마지막 항목 기준이라 IN_PROGRESS 로 바뀐다") {
+                    val food = saveFood("재제출음식", "images/webp/again.webp")
+                    regenerate(food.id, "WRONG_IMAGE").andExpect { status { isOk() } }
+                    failLastItem(food.id)
+                    regenerate(food.id, "WRONG_IMAGE", "두 번째").andExpect { status { isOk() } }
+
+                    val regeneration = payloadOf(gallery(food.id)).path("regeneration")
+                    regeneration.path("state").asText() shouldBe "IN_PROGRESS"
+                    regeneration.path("reason").asText() shouldBe "두 번째"
+                }
+            }
+        }
 
         given("어드민 이미지 갤러리 조회") {
             `when`("대표 1장과 추가 2장이 있는 음식을 조회하면") {
