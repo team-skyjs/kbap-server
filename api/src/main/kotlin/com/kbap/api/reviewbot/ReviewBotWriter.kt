@@ -13,6 +13,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -28,9 +29,11 @@ class ReviewBotWriter(
     private val generator: ReviewTextGenerator?,
     @Value("\${kbap.review-bot.min-per-day:8}") private val minPerDay: Int,
     @Value("\${kbap.review-bot.max-per-day:12}") private val maxPerDay: Int,
+    @Value("\${kbap.review-bot.time-budget:15m}") private val timeBudget: Duration,
 ) {
-    @SchedulerLock(name = LOCK_NAME, lockAtMostFor = "PT30M")
+    @SchedulerLock(name = LOCK_NAME, lockAtMostFor = LOCK_AT_MOST_FOR)
     fun writeDue(now: ZonedDateTime, random: Random = Random.Default) {
+        val deadline = System.nanoTime() + timeBudget.toNanos()
         val generator = generator
             ?: return log.warn("리뷰 봇 — 텍스트 생성기가 없어 건너뜁니다(kbap.llm.review.enabled=false)")
         val bots = accountService.getBots().ifEmpty {
@@ -43,6 +46,7 @@ class ReviewBotWriter(
         if (due <= 0) return
         val written = reviewRepository.findReviewBotTargetFoodIds(dayStart, due * CANDIDATE_FACTOR)
             .asSequence()
+            .takeWhile { System.nanoTime() < deadline || log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget).let { false } }
             .mapNotNull { foodId -> writeOne(foodId, bots, generator, random) }
             .take(due)
             .count()
@@ -87,6 +91,7 @@ class ReviewBotWriter(
 
     companion object {
         const val LOCK_NAME = "review-bot-writer"
+        const val LOCK_AT_MOST_FOR = "PT20M"
         const val FIRST_HOUR = 9
         const val LAST_HOUR = 22
         private const val MAX_ATTEMPTS = 2

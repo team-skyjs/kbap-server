@@ -15,6 +15,12 @@ import java.time.LocalDateTime
 interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
 
+    @Query(nativeQuery = true, value = "SELECT GET_LOCK(:name, :timeoutSeconds)")
+    fun acquireNamedLock(@Param("name") name: String, @Param("timeoutSeconds") timeoutSeconds: Int): Int
+
+    @Query(nativeQuery = true, value = "SELECT RELEASE_LOCK(:name)")
+    fun releaseNamedLock(@Param("name") name: String): Int?
+
     @Query(
         value = "SELECT * FROM member ORDER BY id DESC",
         countQuery = "SELECT count(*) FROM member",

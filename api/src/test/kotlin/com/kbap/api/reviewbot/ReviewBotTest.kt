@@ -26,6 +26,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 import kotlin.random.Random
 
@@ -69,8 +71,8 @@ class ReviewBotTest : BehaviorSpec() {
             foodRepository.save(Food(koreanName = "봇대상음식$it", description = "설명 $it", contentStatus = FoodContentStatus.READY))
         }
 
-        fun writer(min: Int = 8, max: Int = 12) = ReviewBotWriter(
-            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, min, max,
+        fun writer(min: Int = 8, max: Int = 12, budget: Duration = Duration.ofMinutes(15)) = ReviewBotWriter(
+            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, min, max, budget,
         )
 
         fun todayAt(hour: Int): ZonedDateTime = ZonedDateTime.now(seoul).withHour(hour).withMinute(0).withSecond(0).withNano(0)
@@ -97,6 +99,19 @@ class ReviewBotTest : BehaviorSpec() {
                     count("SELECT COUNT(*) FROM member WHERE is_bot = 1 AND provider_uid NOT LIKE 'review-bot:%' ESCAPE '\\\\'") shouldBe 0
                     count("SELECT COUNT(*) FROM member WHERE is_bot = 1 AND onboarding_completed = 0") shouldBe 0
                     count("SELECT COUNT(*) FROM notification_device d JOIN member m ON m.id = d.member_id WHERE m.is_bot = 1") shouldBe 0
+                }
+            }
+
+            `when`("두 요청이 동시에 오면") {
+                then("이름 잠금으로 직렬화돼 최종 개수가 count 와 같다(2배가 되지 않는다)") {
+                    val executor = Executors.newFixedThreadPool(2)
+                    val gate = CountDownLatch(1)
+                    val results = (1..2).map { executor.submit<Int> { gate.await(); ensure(10).andReturn().response.status } }
+                    gate.countDown()
+                    results.map { it.get() } shouldBe listOf(200, 200)
+                    executor.shutdown()
+
+                    count("SELECT COUNT(*) FROM member WHERE is_bot = 1") shouldBe 10
                 }
             }
 
@@ -217,6 +232,17 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("시간 예산이 다 됐으면") {
+                then("남은 후보를 버리고 멈춘다 — 락이 풀린 뒤 실행이 이어지지 않게") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+
+                    writer(budget = Duration.ZERO).writeDue(todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                }
+            }
+
             `when`("다른 인스턴스가 잠금을 쥐고 있으면") {
                 then("조용히 넘어가 아무것도 쓰지 않는다 — 풀리면 쓴다") {
                     accountService.ensureBots(5)
@@ -251,6 +277,24 @@ class ReviewBotTest : BehaviorSpec() {
                     val ratings = List(10_000) { ReviewBotCountries.rating(random) }
                     ratings.toSet().forEach { it shouldBeIn listOf(3, 4, 5) }
                     ratings.groupingBy { it }.eachCount().maxBy { it.value }.key shouldBe 4
+                }
+            }
+
+            `when`("지원 언어 6개마다 알레르기/안전·가게·사진 금지 문장을 검사하면") {
+                then("언어별로 세 종류 모두 거절하고, 각 언어에 세 종류 키워드가 다 있다") {
+                    val sentences = mapOf(
+                        "en" to listOf("Safe to eat even with a nut allergy, the broth was rich.", "The restaurant near the station served it hot.", "I took a photo before eating, it looked amazing."),
+                        "ko" to listOf("알레르기 걱정 없이 먹었어요 국물이 진해요.", "역 근처 식당에서 먹었는데 따뜻했어요.", "먹기 전에 사진부터 찍었어요 정말 예뻐요."),
+                        "ja" to listOf("アレルギーがあっても食べても安全でした、スープが濃厚。", "駅前のお店で食べました、とても温かかった。", "食べる前に写真を撮りました、とても綺麗。"),
+                        "zh" to listOf("对海鲜过敏的人也可以安全食用，汤很浓郁。", "车站旁边的餐厅做得很地道，热乎乎的。", "吃之前先拍了照片，看起来很诱人。"),
+                        "th" to listOf("คนแพ้ถั่วก็กินได้ปลอดภัย น้ำซุปเข้มข้นมาก", "ร้านใกล้สถานีทำได้อร่อยมาก ร้อนกำลังดี", "ถ่ายรูปก่อนกิน สวยมากเลย"),
+                        "vi" to listOf("An toàn cho người bị dị ứng hải sản, nước dùng rất đậm đà.", "Quán gần ga làm món này rất ngon và nóng.", "Tôi chụp ảnh trước khi ăn, trông rất hấp dẫn."),
+                    )
+                    sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
+                    sentences.forEach { (lang, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                    ReviewBotContentGuard.LANGUAGES.forEach { lang ->
+                        ReviewBotContentGuard.coverage(lang).values.forEach { it.isNotEmpty().shouldBeTrue() }
+                    }
                 }
             }
 

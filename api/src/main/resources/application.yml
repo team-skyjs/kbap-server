@@ -188,6 +188,9 @@ kbap:
     enabled: ${REVIEW_BOT_ENABLED:false}
     min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
     max-per-day: ${REVIEW_BOT_MAX_PER_DAY:12}
+    # 틱 하나의 시간 예산. 넘기면 남은 후보를 버리고 멈춘다(다음 틱이 누적 목표로 메운다). ShedLock lockAtMostFor(20분)보다 짧아야
+    # 락이 풀린 뒤에도 실행이 이어지는 겹침이 없다 — 예산 + LLM 호출 1회(60초 타임아웃 × 2회 시도)가 20분 안이어야 한다.
+    time-budget: ${REVIEW_BOT_TIME_BUDGET:15m}
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
