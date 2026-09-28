@@ -8,8 +8,8 @@ enum class ReviewBotForbiddenCategory(
     ALLERGY_SAFETY(
         promptRule = "Never mention allergies, allergens, dietary safety, or whether it is safe to eat for anyone.",
         stems = mapOf(
-            "en" to listOf("\\bsafe\\w*", "\\ballerg\\w*", "\\bhypoallergenic\\b", "\\bnut[- ]?free\\b", "\\bno (allergens?|allergy)\\b", "\\bceliac\\b", "\\banaphyla\\w*", "\\bintoleran\\w*"),
-            "vi" to listOf("\\bdị ứng\\b", "\\ban toàn\\w*", "\\bkhông gây dị ứng\\b"),
+            "en" to listOf("\\bsafe\\w*", "\\ballerg\\w*", "\\bhypoallergenic\\b", "\\b\\w+[- ]?free\\b", "\\bno (allergens?|allergy)\\b", "\\bceliac\\b", "\\banaphyla\\w*", "\\bintoleran\\w*"),
+            "vi" to listOf("\\bdị ứng\\b", "\\ban toàn\\w*", "\\bkhông (có|chứa|gây) \\w+"),
         ),
         substrings = mapOf(
             "ko" to listOf("알레르기", "알러지", "먹어도 안전", "안전하게 먹", "안전해요", "안전한"),
@@ -21,8 +21,8 @@ enum class ReviewBotForbiddenCategory(
     DIET_SUITABILITY(
         promptRule = "Never say the dish is vegan, vegetarian, halal, kosher, gluten-free, dairy-free, low-carb, keto, or suitable for any diet or condition.",
         stems = mapOf(
-            "en" to listOf("\\bvegan\\b", "\\bvegetarian\\b", "\\bhalal\\b", "\\bkosher\\b", "\\b(dairy|gluten|lactose|sugar|nut)[- ]?free\\b", "\\bketo\\b", "\\blow[- ]?(carb|sodium|fat)\\b", "\\bdiabet\\w*", "\\bgluten\\b"),
-            "vi" to listOf("\\bthuần chay\\b", "\\băn chay\\b", "\\bhalal\\b", "\\bkhông gluten\\b", "\\bkhông đường\\b", "\\btiểu đường\\b"),
+            "en" to listOf("\\bvegan\\b", "\\bvegetarian\\b", "\\bhalal\\b", "\\bkosher\\b", "\\bketo\\b", "\\blow[- ]?(carb|sodium|fat)\\b", "\\bdiabet\\w*", "\\bgluten\\b"),
+            "vi" to listOf("\\bthuần chay\\b", "\\băn chay\\b", "\\bhalal\\b", "\\bgluten\\b", "\\btiểu đường\\b"),
         ),
         substrings = mapOf(
             "ko" to listOf("비건", "채식", "할랄", "코셔", "글루텐", "무설탕", "저탄고지", "당뇨"),

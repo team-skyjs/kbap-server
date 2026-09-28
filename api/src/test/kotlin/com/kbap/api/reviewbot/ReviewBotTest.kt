@@ -355,6 +355,24 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("어떤 알레르겐이든 X-free 로 쓴 문장을 검사하면") {
+                then("알레르겐을 열거하지 않고 \"\\w+[- ]?free\" 하나로 전부 거절한다") {
+                    listOf(
+                        "Peanut-free and still packed with nutty flavor, the sauce was lovely.",
+                        "Egg free noodles that had a wonderful chew and a spicy kick.",
+                        "A shellfish-free broth that still tasted deeply of the sea.",
+                        "Soy-free version was just as savory, with a great smoky finish.",
+                        "Không chứa đậu phộng mà vẫn đậm đà, nước sốt rất ngon.",
+                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                }
+            }
+
+            `when`("X-free 가 알레르겐과 무관하게 쓰인 문장을 검사하면") {
+                then("오탐이지만 거절한다 — 리뷰 텍스트에 그 표현 자체가 필요 없다는 결정이다") {
+                    ReviewBotContentGuard.isAcceptable("A hassle-free lunch, the bibimbap came out hot and well mixed.") shouldBe false
+                }
+            }
+
             `when`("안전이 맛과 무관한 뜻으로 쓰인 문장을 검사하면") {
                 then("오탐이지만 거절한다 — 리뷰가 안전을 언급하는 것 자체를 막는 결정이다") {
                     ReviewBotContentGuard.isAcceptable("The atmosphere felt safe and cozy while the stew kept bubbling away.") shouldBe false
