@@ -139,6 +139,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         const val REAL_MEMBER =
             "(m.email IS NULL OR (m.email NOT REGEXP '^[a-z]+\\\\.[0-9]{5}@gmail\\\\.com$' " +
                 "AND m.email NOT REGEXP '@cloudtestlabaccounts\\\\.com$')) " +
-                "AND m.id NOT IN (:excludedIds)"
+                "AND m.is_bot = 0 AND m.id NOT IN (:excludedIds)"
     }
 }

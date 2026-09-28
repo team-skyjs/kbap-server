@@ -50,15 +50,15 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
         fun jvmTimeOf(kst: LocalDateTime): LocalDateTime =
             kst.atZone(seoul).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
 
-        fun seedMember(id: Long, kstCreatedAt: LocalDateTime, email: String? = "real$id@example.com", country: String? = "KR") =
+        fun seedMember(id: Long, kstCreatedAt: LocalDateTime, email: String? = "real$id@example.com", country: String? = "KR", bot: Boolean = false) =
             dataSource.connection.use { c ->
                 c.prepareStatement(
                     """
                     INSERT INTO member (id, provider, provider_uid, email, country_code, member_status,
                                         onboarding_completed, scan_count, scan_unlocked, review_count,
                                         unique_reviewed_food_count, avoidance_substance_codes, diet_categories,
-                                        status, created_at, updated_at)
-                    VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 0, 0, 0, 0, JSON_ARRAY(), JSON_ARRAY(), 'ACTIVE', ?, ?)
+                                        is_bot, status, created_at, updated_at)
+                    VALUES (?, 'GOOGLE', ?, ?, ?, 'ACTIVE', 1, 0, 0, 0, 0, JSON_ARRAY(), JSON_ARRAY(), ?, 'ACTIVE', ?, ?)
                     """,
                 ).use { ps ->
                     val at = jvmTimeOf(kstCreatedAt)
@@ -66,8 +66,9 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
                     ps.setString(2, "stats-$id")
                     ps.setString(3, email)
                     ps.setString(4, country)
-                    ps.setObject(5, at)
+                    ps.setBoolean(5, bot)
                     ps.setObject(6, at)
+                    ps.setObject(7, at)
                     ps.executeUpdate()
                 }
             }
@@ -86,7 +87,7 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
         afterSpec { clear() }
 
         given("일일 유저 통계 집계") {
-            `when`("로봇 2명·시드 1명·실유저 2명이 전일 가입했으면") {
+            `when`("로봇 2명·시드 1명·리뷰 봇 1명·실유저 2명이 전일 가입했으면") {
                 then("신규는 실유저 2명만 센다 — 활성 유저도 같은 필터로 센다") {
                     val activeBefore = memberRepository.countActiveRealMembers(setOf(8803L))
                     seedMember(8801, yesterday.atTime(10, 0), email = "robot.12345@gmail.com")
@@ -94,6 +95,7 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
                     seedMember(8803, yesterday.atTime(12, 0), email = "seed@example.com")
                     seedMember(8804, yesterday.atTime(13, 0))
                     seedMember(8805, yesterday.atTime(14, 0), email = null)
+                    seedMember(8806, yesterday.atTime(15, 0), bot = true)
 
                     val stats = reporter(null, excluded = setOf(8803L)).collect()
 
