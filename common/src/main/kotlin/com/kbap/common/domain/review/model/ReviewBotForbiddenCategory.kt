@@ -2,11 +2,13 @@ package com.kbap.common.domain.review.model
 
 enum class ReviewBotForbiddenCategory(
     val promptRule: String,
+    val promptNouns: List<String>,
     private val stems: Map<String, List<String>>,
     private val substrings: Map<String, List<String>>,
 ) {
     ALLERGY_SAFETY(
         promptRule = "Never mention allergies, allergens, dietary safety, or whether it is safe to eat for anyone.",
+        promptNouns = listOf("allergies", "allergens", "safety", "safe"),
         stems = mapOf(
             "en" to listOf("\\bsafe\\w*", "\\ballerg\\w*", "\\bhypoallergenic\\b", "\\b\\w+[- ]?free\\b", "\\bno (allergens?|allergy)\\b", "\\bceliac\\b", "\\banaphyla\\w*", "\\bintoleran\\w*"),
             "vi" to listOf("\\bdị ứng\\b", "\\ban toàn\\w*", "\\bkhông (có|chứa|gây) \\w+"),
@@ -20,8 +22,9 @@ enum class ReviewBotForbiddenCategory(
     ),
     DIET_SUITABILITY(
         promptRule = "Never say the dish is vegan, vegetarian, halal, kosher, gluten-free, dairy-free, low-carb, keto, or suitable for any diet or condition.",
+        promptNouns = listOf("vegan", "vegetarian", "halal", "kosher", "gluten-free", "dairy-free", "low-carb", "keto", "diet"),
         stems = mapOf(
-            "en" to listOf("\\bvegan\\b", "\\bvegetarian\\b", "\\bhalal\\b", "\\bkosher\\b", "\\bketo\\b", "\\blow[- ]?(carb|sodium|fat)\\b", "\\bdiabet\\w*", "\\bgluten\\b"),
+            "en" to listOf("\\bvegan\\b", "\\bvegetarian\\b", "\\bhalal\\b", "\\bkosher\\b", "\\bketo\\b", "\\blow[- ]?(carb|sodium|fat)\\b", "\\bdiabet\\w*", "\\bgluten\\b", "\\b\\w+[- ]?free\\b", "\\bdiet\\w*"),
             "vi" to listOf("\\bthuần chay\\b", "\\băn chay\\b", "\\bhalal\\b", "\\bgluten\\b", "\\btiểu đường\\b"),
         ),
         substrings = mapOf(
@@ -33,8 +36,9 @@ enum class ReviewBotForbiddenCategory(
     ),
     HEALTH_CLAIM(
         promptRule = "Never make health, medical, healing, detox, weight-loss, or nutrition claims.",
+        promptNouns = listOf("health", "medical", "healing", "detox", "weight-loss", "nutrition"),
         stems = mapOf(
-            "en" to listOf("\\bgood for (your )?(heart|digestion|skin|health|immune\\w*|body)\\b", "\\bhealthy\\b", "\\bheal\\w*", "\\bcure\\w*", "\\bdetox\\w*", "\\bdiet\\b", "\\bweight[- ]loss\\b", "\\bnutrit\\w*", "\\bmedicin\\w*"),
+            "en" to listOf("\\bgood for (your )?(heart|digestion|skin|health|immune\\w*|body)\\b", "\\bhealth\\w*", "\\bheal\\w*", "\\bcure\\w*", "\\bdetox\\w*", "\\bdiet\\b", "\\bweight[- ]loss\\b", "\\bnutrit\\w*", "\\bmedic\\w*"),
             "vi" to listOf("\\btốt cho sức khỏe\\b", "\\bsức khỏe\\b", "\\bgiảm cân\\b", "\\bchữa\\b", "\\bthải độc\\b", "\\bdinh dưỡng\\b"),
         ),
         substrings = mapOf(
@@ -46,19 +50,24 @@ enum class ReviewBotForbiddenCategory(
     ),
     PLACE(
         promptRule = "Never mention any restaurant, shop, store, branch, place name, address, or location.",
+        promptNouns = listOf("restaurant", "shop", "store", "branch", "place", "address", "location"),
         stems = mapOf(
-            "en" to listOf("\\brestaurants?\\b", "\\bshops?\\b", "\\bstores?\\b", "\\bbranch(es)?\\b", "\\bcaf[eé]s?\\b", "\\bdiners?\\b", "\\bstalls?\\b", "\\beater(y|ies)\\b"),
-            "vi" to listOf("\\bquán\\b", "\\bnhà hàng\\b", "\\bcửa hàng\\b", "\\bchi nhánh\\b"),
+            "en" to listOf(
+                "\\brestaurants?\\b", "\\bshops?\\b", "\\bstores?\\b", "\\bbranch(es)?\\b", "\\bcaf[eé]s?\\b", "\\bdiners?\\b", "\\bstalls?\\b", "\\beater(y|ies)\\b",
+                "\\bplace\\w*", "\\baddress\\w*", "\\blocat\\w*", "\\bnear (the )?\\w+ station\\b", "\\bstreet\\b", "\\bneighbo(u)?rhood\\b", "\\bdistrict\\b",
+            ),
+            "vi" to listOf("\\bquán\\b", "\\bnhà hàng\\b", "\\bcửa hàng\\b", "\\bchi nhánh\\b", "\\bđịa chỉ\\b", "\\bgần\\b", "\\bga\\b"),
         ),
         substrings = mapOf(
-            "ko" to listOf("식당", "가게", "매장", "지점", "음식점", "본점"),
-            "ja" to listOf("店", "レストラン", "食堂", "支店"),
-            "zh" to listOf("餐厅", "餐廳", "店", "分店", "小吃摊"),
-            "th" to listOf("ร้าน", "ภัตตาคาร", "สาขา"),
+            "ko" to listOf("식당", "가게", "매장", "지점", "음식점", "본점", "위치", "주소", "근처", "역 근처", "역에서", "역 앞", "거리"),
+            "ja" to listOf("店", "レストラン", "食堂", "支店", "場所", "住所", "近く", "駅"),
+            "zh" to listOf("餐厅", "餐廳", "店", "分店", "小吃摊", "地址", "位置", "附近", "车站", "車站"),
+            "th" to listOf("ร้าน", "ภัตตาคาร", "สาขา", "ที่อยู่", "ใกล้", "สถานี"),
         ),
     ),
     PHOTO(
         promptRule = "Never mention photos or pictures.",
+        promptNouns = listOf("photos", "pictures"),
         stems = mapOf(
             "en" to listOf("\\bphotos?\\b", "\\bpictures?\\b", "\\bpics?\\b", "\\bselfies?\\b"),
             "vi" to listOf("\\bảnh\\b", "\\bhình\\b", "\\bchụp\\b"),

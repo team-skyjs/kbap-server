@@ -389,6 +389,32 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("각 범주의 promptRule 에 쓰인 명사를 그 범주 패턴에 대조하면") {
+                then("프롬프트가 금지한다고 말한 단어는 가드도 전부 안다 — 5범주 모두") {
+                    ReviewBotForbiddenCategory.entries.forEach { category ->
+                        category.promptNouns.isNotEmpty().shouldBeTrue()
+                        category.promptNouns.forEach { noun ->
+                            category.promptRule.lowercase().contains(noun.lowercase()).shouldBeTrue()
+                            category.patterns().any { it.containsMatchIn(noun) }.shouldBeTrue()
+                        }
+                    }
+                }
+            }
+
+            `when`("장소·주소·위치 표현이 든 문장을 언어별로 검사하면") {
+                then("전부 거절한다") {
+                    listOf(
+                        "The location near the station made it easy to find, and the soup was hot.",
+                        "Ask for the address if you want it, but the noodles were the real deal.",
+                        "역 근처 위치라 찾기 쉬웠고 국물이 진했어요.",
+                        "駅の近くの場所で、スープが濃厚でした。",
+                        "车站附近的位置，汤很浓郁。",
+                        "ที่อยู่ใกล้สถานี น้ำซุปเข้มข้นมาก",
+                        "Địa chỉ gần ga, nước dùng rất đậm đà.",
+                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                }
+            }
+
             `when`("식이 적합성·건강 효능 문장을 언어별로 검사하면") {
                 then("6개 언어 3문장씩 전부 거절한다") {
                     mapOf(
