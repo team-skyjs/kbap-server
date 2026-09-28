@@ -116,7 +116,11 @@ class FoodImageBatchCollectService(
             val food = foodRepository.findById(item.foodId).orElse(null)
             when {
                 food == null -> item.fail("음식이 삭제되어 건너뜀")
-                // 제출 이후 관리자·파이프라인이 상태를 옮겼을 수 있다 — 전이 예외로 배치 전체가 멈추지 않게 아이템만 마감한다
+                item.isAdditional() -> {
+                    foodImageRepository.appendCandidate(food.id, key)
+                    item.done(key)
+                    attached = true
+                }
                 food.contentStatus != FoodContentStatus.PENDING_IMAGE ->
                     item.fail("이미지 대기 상태가 아니어서 건너뜀(${food.contentStatus})")
                 else -> {
