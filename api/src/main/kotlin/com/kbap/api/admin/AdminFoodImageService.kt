@@ -5,6 +5,7 @@ import com.kbap.api.food.FoodImageBatchSubmitService
 import com.kbap.api.food.FoodService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
@@ -25,6 +26,7 @@ class AdminFoodImageService(
     private val foodRepository: FoodJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val contentOutboxRepository: FoodContentOutboxJpaRepository,
     private val foodService: FoodService,
     private val batchSubmitService: FoodImageBatchSubmitService,
     private val imageBatchItemRepository: ImageBatchItemJpaRepository,
@@ -99,6 +101,9 @@ class AdminFoodImageService(
             }
             if (!target.isReady() && !target.isFailedRegeneration()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+            }
+            if (contentOutboxRepository.findFoodIdsInFlight(listOf(foodId)).isNotEmpty()) {
+                throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             }
             if (intent == RegenerationIntent.REPLACE_BETTER && !target.isReady()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)

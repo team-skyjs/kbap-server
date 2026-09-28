@@ -15,6 +15,15 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     fun findByFoodIdInAndOutboxStatus(foodIds: Collection<Long>, outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
+    @Query(
+        """
+        select distinct o.foodId from FoodContentOutbox o
+        where o.foodId in :foodIds
+          and o.outboxStatus in (com.kbap.common.domain.food.model.FoodContentOutboxStatus.PENDING, com.kbap.common.domain.food.model.FoodContentOutboxStatus.SENT)
+        """,
+    )
+    fun findFoodIdsInFlight(@Param("foodIds") foodIds: Collection<Long>): List<Long>
+
     fun findByOutboxStatusOrderByIdAsc(outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
     fun countByOutboxStatus(outboxStatus: FoodContentOutboxStatus): Long

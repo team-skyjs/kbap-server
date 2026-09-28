@@ -230,16 +230,21 @@ interface AdminFoodCatalogApi {
         description = """
             음식 1건의 콘텐츠 재수집 요청(아웃박스 PENDING)을 만든다. 이미 수집 대기 중이면 생성 없이 건너뛴다
             (`created=0`, `skipped=1` — 멱등).
+
+            - 이미지 재생성이 진행 중인 음식은 409(FOOD-020) — 재수집 결과가 재생성 상태를 흔들지 않게 상호 배제한다. 재생성이 끝난 뒤 다시 요청한다.
+            - READY 음식의 재수집 결과가 반영되면 벡터 UPSERT 가 함께 예약된다(검수 없는 덮어쓰기는 현행 유지).
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "요청 성공 — requested/created/skipped 카운트 반환"),
             ApiResponse(responseCode = "400", description = "음식 없음(FOOD-001)"),
+            ApiResponse(responseCode = "409", description = "이미지 재생성 진행 중(FOOD-020)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
+    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
     fun recollectFood(
         @Parameter(description = "재수집할 음식 id", example = "1")
         id: Long,
@@ -251,6 +256,7 @@ interface AdminFoodCatalogApi {
             목록 화면의 현재 필터(`q`·`status`) 기준으로 일치하는 전 음식의 콘텐츠 재수집 요청을 일괄 생성한다.
 
             - 이미 수집 대기 중인 음식은 건너뛴다(`skipped` 에 집계 — 멱등).
+            - 이미지 재생성이 진행 중인 음식도 건너뛰고 `skippedRegenerating` 에 따로 센다(단건은 409 FOOD-020).
             - 대상이 최대치(500)를 넘으면 아무것도 만들지 않고 `exceeded=true` 로 응답한다 — 필터를 좁혀 재요청한다.
         """,
     )

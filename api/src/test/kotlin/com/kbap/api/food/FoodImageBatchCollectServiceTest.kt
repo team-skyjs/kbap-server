@@ -10,6 +10,7 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
@@ -65,6 +66,12 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var costListener: RecordingLlmCostListener
+
+    @Autowired
+    private lateinit var ingestService: com.kbap.api.admin.AdminFoodContentIngestService
+
+    @Autowired
+    private lateinit var contentOutboxRepository: com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -410,6 +417,31 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     val item = itemRepository.findAll().single()
                     item.fileName shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
+        given("회수 — 재생성 중 재수집 결과가 먼저 반영된 음식") {
+            `when`("재생성 진행 중에 재수집 결과가 반영된 뒤 이미지가 도착하면") {
+                then("상태가 PENDING_IMAGE 로 남아 있어 이미지가 정상 첨부되고 PENDING_REVIEW 로 간다") {
+                    val food = foodRepository.save(savePendingImage("재수집후회수음식").apply { imageRef = "images/webp/food/old.webp" })
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+                    val outbox = contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    ingestService.ingestContent(
+                        outboxId = outbox.id, foodId = food.id, description = "재수집 설명", longDescription = null, spiciness = 1,
+                        nameTranslations = targets, descriptionTranslations = targets, ingredients = listOf(FoodIngredient("SOY", 100)),
+                    )
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_after_ingest")
+                    fakeClient.results["file_after_ingest"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val reloaded = foodRepository.findById(food.id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    reloaded.imageRef shouldBe fakeStorage.heads.keys.single()
+                    reloaded.description shouldBe "재수집 설명"
                 }
             }
         }

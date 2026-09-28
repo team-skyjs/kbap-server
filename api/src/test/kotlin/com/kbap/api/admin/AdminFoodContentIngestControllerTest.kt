@@ -1,29 +1,37 @@
 package com.kbap.api.admin
 
-import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.api.IntegrationTest
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.PATH
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.allTargets
 import com.kbap.api.admin.AdminFoodContentIngestTestSupport.passedBody
-import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.RegenerationIntent
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
-import javax.sql.DataSource
 
 @IntegrationTest
 class AdminFoodContentIngestControllerTest : BehaviorSpec() {
@@ -40,6 +48,15 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
+
+    @Autowired
+    private lateinit var vectorOutboxRepository: FoodVectorOutboxJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchJpaRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -174,6 +191,49 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                     ingest(passedBody(food.id, old.id, description = "옛 요청이 만든 설명")).andExpect { status { isOk() } }
 
                     reloaded(food.id).description shouldBe Food.PLACEHOLDER_DESCRIPTION
+                }
+            }
+        }
+
+        given("READY 음식 재수집 결과의 벡터 재동기화") {
+            `when`("READY 음식에 재수집 결과가 반영되면") {
+                then("READY 그대로이고 벡터 UPSERT 가 예약된다 — 내용이 바뀌었는데 벡터가 낡지 않게") {
+                    clearFoods()
+                    val food = saveFood("벡터재동기음식", FoodContentStatus.READY, "images/webp/food/v.webp")
+
+                    ingest(passedBody(food.id, longDescription = "재수집으로 바뀐 긴 설명")).andExpect { status { isOk() } }
+
+                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.READY
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING) shouldBe true
+                }
+            }
+
+            `when`("READY 가 아닌 음식에 재수집 결과가 반영되면") {
+                then("벡터 UPSERT 를 예약하지 않는다 — 승인 때 예약된다") {
+                    clearFoods()
+                    val food = saveFood("비공개재수집음식", FoodContentStatus.FAILED, null)
+
+                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
+
+                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING) shouldBe false
+                }
+            }
+        }
+
+        given("이미지 재생성 중 도착한 재수집 결과") {
+            `when`("가드 이전에 만들어진 요청의 결과가 재생성 진행 중에 도착하면") {
+                then("내용은 반영하되 content_status 는 그대로다 — 상태는 재생성 경로가 소유한다") {
+                    clearFoods()
+                    val food = saveFood("재생성중적재음식", FoodContentStatus.PENDING_IMAGE, "images/webp/food/old.webp")
+                    val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+
+                    ingest(passedBody(food.id, description = "재생성 중에 온 설명")).andExpect { status { isOk() } }
+
+                    val reloaded = reloaded(food.id)
+                    reloaded.description shouldBe "재생성 중에 온 설명"
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }
             }
         }

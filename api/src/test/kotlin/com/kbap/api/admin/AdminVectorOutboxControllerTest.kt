@@ -51,6 +51,9 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
         fun postEnqueue(): ResultActionsDsl =
             mockMvc.post("$path/enqueue") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
 
+        fun postEnqueueForce(): ResultActionsDsl =
+            mockMvc.post("$path/enqueue?force=true") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
+
         fun postRetry(id: Long): ResultActionsDsl =
             mockMvc.post("$path/$id/retry") { header("Authorization", "Bearer ${tokenOf(MemberRole.ADMIN)}") }
 
@@ -225,6 +228,24 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
                         status { isForbidden() }
                         jsonPath("$.code") { value("AUTH-008") }
                     }
+                }
+            }
+        }
+
+        given("벡터 동기화 강제 재동기화 — enqueue?force=true") {
+            `when`("이력이 COMPLETE 인 READY 음식과 이력 없는 READY 음식이 있으면") {
+                then("기본 enqueue 는 이력 없는 것만, force 는 PENDING 이 없는 READY 전체를 다시 enqueue 한다") {
+                    val synced = saveFood("이미동기화음식")
+                    saveOutbox(synced.id, FoodVectorOutboxStatus.COMPLETE)
+                    val fresh = saveFood("미동기화음식")
+                    saveFood("비공개음식", FoodContentStatus.FAILED)
+
+                    postEnqueue().andExpect { jsonPath("$.payload.enqueued") { value(1) } }
+                    postEnqueueForce().andExpect { jsonPath("$.payload.enqueued") { value(1) } }
+                    postEnqueueForce().andExpect { jsonPath("$.payload.enqueued") { value(0) } }
+
+                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(synced.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 1
+                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(fresh.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 1
                 }
             }
         }

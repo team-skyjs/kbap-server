@@ -50,6 +50,7 @@ enum class ErrorCode(
     FOOD_UNKNOWN_INGREDIENT("FOOD-016", 400, "재료 카탈로그에 없는 재료 코드입니다"),
     INGREDIENT_BACKFILL_IN_PROGRESS("FOOD-017", 409, "재료 관계 백필이 이미 실행 중입니다"),
     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS("FOOD-019", 409, "이 음식의 추가 이미지 생성이 이미 진행 중입니다"),
+    FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),

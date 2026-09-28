@@ -4,6 +4,9 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
@@ -19,6 +22,8 @@ class AdminFoodContentIngestService(
     private val foodRepository: FoodJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val foodIngredientRepository: FoodIngredientJdbcRepository,
+    private val imageBatchItemRepository: ImageBatchItemJpaRepository,
+    private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
 ) {
     @Transactional
     fun ingestContent(
@@ -33,6 +38,7 @@ class AdminFoodContentIngestService(
     ) {
         if (!completeOutbox(outboxId, foodId)) return
         val food = getFood(foodId)
+        val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(listOf(foodId)).isNotEmpty()
         food.applyContent(
             description = description,
             longDescription = longDescription,
@@ -40,8 +46,10 @@ class AdminFoodContentIngestService(
             nameTranslations = nameTranslations,
             descriptionTranslations = descriptionTranslations,
             ingredients = ingredients,
+            keepStatus = regenerating,
         )
         foodIngredientRepository.replace(foodId, food.ingredients)
+        if (food.isReady()) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
     }
 
     @Transactional

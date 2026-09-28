@@ -9,6 +9,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -36,6 +37,7 @@ class AdminFoodService(
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
     private val foodIngredientRepository: FoodIngredientJdbcRepository,
+    private val imageBatchItemRepository: ImageBatchItemJpaRepository,
     private val foodService: FoodService,
     private val humanReviewService: AdminHumanReviewService,
     private val regenerationStateResolver: RegenerationStateResolver,
@@ -255,13 +257,15 @@ class AdminFoodService(
             .findByFoodIdInAndOutboxStatus(targets.map { it.id }, FoodContentOutboxStatus.PENDING)
             .map { it.foodId }
             .toSet()
-        val created = targets.filterNot { it.id in alreadyPending }
+        val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(targets.map { it.id }).toSet()
+        val created = targets.filterNot { it.id in alreadyPending || it.id in regenerating }
         outboxRepository.saveAll(created.map { FoodContentOutbox.pending(it.id, it.displayName) })
 
         return AdminFoodRecollectResult(
             requested = requested,
             created = created.size.toLong(),
             skipped = requested - created.size,
+            skippedRegenerating = targets.count { it.id in regenerating && it.id !in alreadyPending }.toLong(),
             max = max,
         )
     }
@@ -274,6 +278,9 @@ class AdminFoodService(
             .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
             .isNotEmpty()
         if (alreadyPending) return AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
+        if (imageBatchItemRepository.findFoodIdsInRegeneration(listOf(food.id)).isNotEmpty()) {
+            throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
+        }
         outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
         return AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
     }
@@ -325,6 +332,7 @@ data class AdminFoodRecollectResult(
     val requested: Long,
     val created: Long,
     val skipped: Long,
+    val skippedRegenerating: Long = 0,
     val exceeded: Boolean = false,
     val max: Int = AdminFoodService.RECOLLECT_MAX,
 )

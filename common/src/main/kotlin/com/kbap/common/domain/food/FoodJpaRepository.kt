@@ -117,6 +117,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun findReadyIdsWithoutVectorUpsertOutbox(pageable: Pageable): List<Long>
 
+    @Query("select f.id from Food f where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY order by f.id asc")
+    fun findReadyIds(pageable: Pageable): List<Long>
+
     @Query(
         """
         select count(f)
