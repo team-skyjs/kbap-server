@@ -278,13 +278,55 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("시간 예산이 다 됐으면") {
-                then("남은 후보를 버리고 멈춘다 — 락이 풀린 뒤 실행이 이어지지 않게") {
+                then("남은 후보를 버리고 멈춘다 — 다음 페이지도 열지 않는다(락이 풀린 뒤 실행이 이어지지 않게)") {
                     accountService.ensureBots(5)
                     seedFoods(5)
 
                     writer(budget = Duration.ZERO).writeDue(todayAt(22))
 
                     botReviewCount() shouldBe 0
+                    fakeGenerator.requests.size shouldBe 0
+                }
+            }
+
+            `when`("첫 페이지(due×3)의 음식이 전부 가드에 걸리면") {
+                then("다음 키셋 페이지(리뷰 수·id 커서)로 넘어가 뒤쪽 음식으로 due 를 채운다 — 같은 틱에서 같은 음식은 다시 시도하지 않는다") {
+                    accountService.ensureBots(3)
+                    val human = accountService.ensureBots(4).bots.last()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET is_bot = 0 WHERE id = ${human.id}") } }
+                    val blocked = (1..3).map { foodRepository.save(Food(koreanName = "가드실패음식$it", description = "설명", contentStatus = FoodContentStatus.READY)) }
+                    val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
+                    reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
+                    fakeGenerator.reply = {
+                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
+                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1")
+                        .map { (it.single() as Number).toLong() } shouldBe listOf(behind.id)
+                    fakeGenerator.requests.count { it.foodName.contains("가드실패") } shouldBe blocked.size * 2
+                }
+            }
+
+            `when`("가드에 걸리는 음식이 페이지 상한(5페이지)을 넘게 있으면") {
+                then("상한에서 멈춘다 — 그 뒤 음식은 이번 틱에 닿지 않고 LLM 호출도 상한만큼만") {
+                    accountService.ensureBots(3)
+                    val human = accountService.ensureBots(4).bots.last()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET is_bot = 0 WHERE id = ${human.id}") } }
+                    val blocked = (1..15).map { foodRepository.save(Food(koreanName = "가드실패음식$it", description = "설명", contentStatus = FoodContentStatus.READY)) }
+                    val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
+                    reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
+                    fakeGenerator.reply = {
+                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
+                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    fakeGenerator.requests.size shouldBe blocked.size * 2
                 }
             }
 

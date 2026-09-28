@@ -44,13 +44,26 @@ class ReviewBotWriter(
         val plan = ReviewBotDailyPlan.of(kst.toLocalDate(), minPerDay, maxPerDay, FIRST_HOUR, LAST_HOUR)
         val due = plan.dueUntil(kst.hour) - reviewRepository.countReviewBotReviewsSince(dayStart).toInt()
         if (due <= 0) return
-        val written = reviewRepository.findReviewBotTargetFoodIds(dayStart, due * CANDIDATE_FACTOR)
-            .asSequence()
-            .takeWhile { System.nanoTime() < deadline || log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget).let { false } }
-            .mapNotNull { foodId -> writeOne(foodId, bots, generator, random) }
-            .take(due)
-            .count()
-        log.info("리뷰 봇 작성 day={} hour={} target={} due={} written={}", kst.toLocalDate(), kst.hour, plan.target, due, written)
+        var written = 0
+        var afterReviewCount = 0L
+        var afterFoodId = 0L
+        var pages = 0
+        val tried = mutableSetOf<Long>()
+        candidates@ while (written < due && pages++ < MAX_PAGES) {
+            val page = reviewRepository.findReviewBotCandidatePage(dayStart, afterReviewCount, afterFoodId, due * CANDIDATE_FACTOR)
+            if (page.isEmpty()) break
+            for (candidate in page) {
+                if (written >= due) break@candidates
+                if (System.nanoTime() >= deadline) {
+                    log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget)
+                    break@candidates
+                }
+                if (tried.add(candidate.foodId) && writeOne(candidate.foodId, bots, generator, random) != null) written++
+            }
+            afterReviewCount = page.last().reviewCount
+            afterFoodId = page.last().foodId
+        }
+        log.info("리뷰 봇 작성 day={} hour={} target={} due={} written={} pages={}", kst.toLocalDate(), kst.hour, plan.target, due, written, pages)
     }
 
     private fun writeOne(foodId: Long, bots: List<Member>, generator: ReviewTextGenerator, random: Random): Long? {
@@ -65,20 +78,21 @@ class ReviewBotWriter(
             language = ReviewBotCountries.languageFor(bot.countryCode, random),
             rating = rating,
         )
-        val content = generateAcceptable(generator, request) ?: return null
+        val content = generateAcceptable(foodId, generator, request) ?: return null
         return runCatching {
             reviewService.createReview(bot.id, foodId, rating, null, null, content, null, null).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 
-    private fun generateAcceptable(generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
+    private fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
         repeat(MAX_ATTEMPTS) { attempt ->
             val text = runCatching { generator.generate(request) }
-                .onFailure { log.warn("리뷰 봇 생성 실패 food={} attempt={}", request.foodName, attempt + 1, it) }
+                .onFailure { log.warn("리뷰 봇 생성 실패 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1, it) }
                 .getOrNull()
             if (text != null && ReviewBotContentGuard.isAcceptable(text)) return text
-            if (text != null) log.info("리뷰 봇 생성물이 금지어 필터에 걸려 버린다 food={} attempt={}", request.foodName, attempt + 1)
+            if (text != null) log.warn("리뷰 봇 생성물이 금지어 필터에 걸려 버린다 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1)
         }
+        log.warn("리뷰 봇 — 이 음식은 이번 틱에서 건너뜁니다(초안 {}회 모두 생성 실패 또는 금지어) foodId={} food={}", MAX_ATTEMPTS, foodId, request.foodName)
         return null
     }
 
@@ -96,6 +110,7 @@ class ReviewBotWriter(
         const val LAST_HOUR = 22
         private const val MAX_ATTEMPTS = 2
         private const val CANDIDATE_FACTOR = 3
+        private const val MAX_PAGES = 5
         private const val MAX_INGREDIENTS = 6
         private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
         private val log = LoggerFactory.getLogger(ReviewBotWriter::class.java)

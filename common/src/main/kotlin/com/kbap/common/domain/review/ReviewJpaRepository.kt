@@ -64,22 +64,31 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     @Query(
         nativeQuery = true,
         value = """
-            SELECT f.id FROM food f
-            WHERE f.status = 'ACTIVE' AND f.content_status = 'READY'
-              AND NOT EXISTS (
-                SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
-                WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
-              )
-              AND EXISTS (
-                SELECT 1 FROM member b
-                WHERE b.is_bot = 1 AND b.member_status = 'ACTIVE' AND b.status = 'ACTIVE'
-                  AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id)
-              )
-            ORDER BY (SELECT COUNT(*) FROM food_review c WHERE c.food_id = f.id AND c.status = 'ACTIVE'), RAND()
+            SELECT t.id AS foodId, t.cnt AS reviewCount FROM (
+              SELECT f.id, (SELECT COUNT(*) FROM food_review c WHERE c.food_id = f.id AND c.status = 'ACTIVE') AS cnt
+              FROM food f
+              WHERE f.status = 'ACTIVE' AND f.content_status = 'READY'
+                AND NOT EXISTS (
+                  SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
+                  WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
+                )
+                AND EXISTS (
+                  SELECT 1 FROM member b
+                  WHERE b.is_bot = 1 AND b.member_status = 'ACTIVE' AND b.status = 'ACTIVE'
+                    AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id)
+                )
+            ) t
+            WHERE t.cnt > :afterReviewCount OR (t.cnt = :afterReviewCount AND t.id > :afterFoodId)
+            ORDER BY t.cnt, t.id
             LIMIT :limit
         """,
     )
-    fun findReviewBotTargetFoodIds(@Param("since") since: LocalDateTime, @Param("limit") limit: Int): List<Long>
+    fun findReviewBotCandidatePage(
+        @Param("since") since: LocalDateTime,
+        @Param("afterReviewCount") afterReviewCount: Long,
+        @Param("afterFoodId") afterFoodId: Long,
+        @Param("limit") limit: Int,
+    ): List<ReviewBotCandidate>
 
     @Query(
         nativeQuery = true,
