@@ -298,6 +298,24 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("영어 안전·알레르기 활용형이 들어간 문장을 검사하면") {
+                then("구절이 아니라 어간으로 잡아 전부 거절한다") {
+                    listOf(
+                        "Children can safely eat this dish, the broth is mild and comforting.",
+                        "This is the safest choice on the table for picky eaters, very tasty.",
+                        "An allergy-friendly bowl of noodles that still tastes rich and warm.",
+                        "Allergen free and delicious, the rice cakes were perfectly chewy.",
+                        "Hypoallergenic ingredients only, and the flavor was still deep and savory.",
+                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                }
+            }
+
+            `when`("안전이 맛과 무관한 뜻으로 쓰인 문장을 검사하면") {
+                then("오탐이지만 거절한다 — 리뷰가 안전을 언급하는 것 자체를 막는 결정이다") {
+                    ReviewBotContentGuard.isAcceptable("The atmosphere felt safe and cozy while the stew kept bubbling away.") shouldBe false
+                }
+            }
+
             `when`("금지어가 들어간 문장을 검사하면") {
                 then("가게·사진·알레르기·안전 판단·URL 은 거절하고 맛 이야기는 통과한다") {
                     listOf(
