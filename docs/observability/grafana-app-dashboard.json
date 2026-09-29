@@ -237,8 +237,8 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Tomcat 스레드풀",
-      "description": "busy 가 max 에 붙으면 앱 포화. 그 전이면 병목은 DB·외부 호출 쪽. server.tomcat.mbeanregistry.enabled=true 여야 나온다(KB-411).",
+      "title": "Tomcat 스레드풀 (플랫폼 스레드 모드)",
+      "description": "버추얼 스레드 모드(dev, KB-653)에서는 요청마다 스레드를 새로 만들어 풀이 없으므로 이 패널이 무의미하다(세 게이지 모두 -1 로 나온다). 포화는 \"처리 중 HTTP 요청 수\" 패널과 HikariCP pending 으로 본다. prod 는 플랫폼 스레드 모드라 여전히 유효하다.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -416,6 +416,55 @@
       }
     },
     {
+      "id": 8,
+      "type": "timeseries",
+      "title": "처리 중 HTTP 요청 수",
+      "description": "지금 응답을 만들고 있는 HTTP 요청 수(Micrometer LongTaskTimer). 버추얼 스레드 모드의 포화 지표 — 활성 요청 스레드 수와 같다. Tomcat max 같은 상한선이 없으므로 HikariCP pending 과 함께 본다 (KB-653).",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (env, instance) (http_server_requests_active_seconds_gcount{env=~\"$env\"})",
+          "legendFormat": "{{env}}-{{instance}} active"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
       "id": 5,
       "type": "timeseries",
       "title": "GC pause (횟수/s · 소요 s/s)",
@@ -424,7 +473,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "datasource": {
         "type": "prometheus",

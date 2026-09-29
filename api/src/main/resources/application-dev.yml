@@ -6,6 +6,11 @@ logging:
       console: ecs
 
 spring:
+  # Tomcat 요청 처리를 버추얼 스레드로 — 스레드 풀 상한(200)이 동시 처리를 막지 않는다 (KB-653, dev 만 먼저).
+  # RDS max_connections 가 60 이라 Hikari 풀(10)은 그대로 둔다 — 병목이 DB 로 옮겨가는지 재측정이 목적.
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
