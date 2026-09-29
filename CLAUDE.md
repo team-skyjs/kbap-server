@@ -4,7 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구현 방식
 
-구현(`/speckit-implement`·tasks.md 진행·단발 수정)은 **메인 세션이 직접 수행**한다 — 멀티에이전트 TDD 하네스(tdd-harness-orchestrator·test-writer·implementer)는 2026-08-14 제거했다(구현 단계가 느려지고 과한 코드가 나오는 문제). 헌법 원칙 I(Test-First: Red→Green→Refactor)은 그대로 유효하며 직접 구현에서 지킨다. 리뷰는 필요할 때만 `kbap-code-review`·`kbap-db-review` 스킬(에이전트: code-reviewer·database-expert)을 명시 호출한다.
+구현(`/speckit-implement`·tasks.md 진행·단발 수정)은 **기본적으로 메인 세션이 직접 수행**한다 — 역할 분할형 TDD 하네스(test-writer→implementer 왕복)는 2026-08-14 제거했다(구현 단계가 느려지고 과한 코드가 나오는 문제). 헌법 원칙 I(Test-First: Red→Green→Refactor)은 그대로 유효하며 직접 구현에서 지킨다. 리뷰는 필요할 때만 `kbap-code-review`·`kbap-db-review` 스킬(에이전트: code-reviewer·database-expert)을 명시 호출한다.
+
+## 하네스: 팀 구현 (opt-in)
+
+**목표:** tasks.md 를 파일이 겹치지 않는 묶음으로 나눠 구현자 에이전트가 워크트리별로 병렬 구현하고, 메인 세션이 머지·최종 테스트한다. 역할이 아니라 작업을 쪼갠다.
+
+**트리거:** 사용자가 **"팀으로 구현"·"병렬로 구현"·"에이전트 팀으로"·"워크트리로 나눠서"** 처럼 팀을 명시했을 때만 `speckit-team-implement` 스킬을 사용한다. 명시가 없으면 위 기본(직접 구현)이다. 리뷰는 하네스 밖이다.
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-09-30 | 초기 구성 — implementer 에이전트, kbap-tdd-implementation·speckit-team-implement 스킬 | 전체 | 팀 에이전트 구현 요청. 기본은 직접 구현 유지, 워크트리 격리, 리뷰 제외 |
 
 ## 개요
 
