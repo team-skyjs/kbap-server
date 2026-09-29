@@ -16,13 +16,18 @@ class HomeService(
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
         val activeMemberId = memberId?.let { memberService.getMemberOrNull(it)?.id }
+        val avoidedSubstances = ingredientService.getAvoidedIngredients(activeMemberId, lang)
+        val popularFoods = foodService.getPopularFoods(activeMemberId, lang, POPULAR_SIZE)
+        val mostReviewedFoods = foodService.getMostReviewedFoods(activeMemberId, lang, MOST_REVIEWED_SIZE)
+        val recentScans = activeMemberId
+            ?.let { foodService.getRecentScannedFoods(it, lang, RECENT_SCAN_SIZE) }
+            .orEmpty()
+
         return HomeResult(
-            avoidedSubstances = ingredientService.getAvoidedIngredients(activeMemberId, lang),
-            popularFoods = foodService.getPopularFoods(activeMemberId, lang, POPULAR_SIZE),
-            mostReviewedFoods = foodService.getMostReviewedFoods(activeMemberId, lang, MOST_REVIEWED_SIZE),
-            recentScans = activeMemberId
-                ?.let { foodService.getRecentScannedFoods(it, lang, RECENT_SCAN_SIZE) }
-                .orEmpty(),
+            avoidedSubstances = avoidedSubstances,
+            popularFoods = popularFoods,
+            mostReviewedFoods = mostReviewedFoods,
+            recentScans = recentScans,
         )
     }
 
