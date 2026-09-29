@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
+import com.kbap.api.ingredient.AvoidedIngredientView
 import com.kbap.api.review.FoodRating
 import io.swagger.v3.oas.annotations.media.Schema
 
@@ -54,6 +55,6 @@ data class AvoidedSubstanceResponse(
     val name: String,
 ) {
     companion object {
-        fun from(view: AvoidedSubstanceView) = AvoidedSubstanceResponse(code = view.code, name = view.name)
+        fun from(view: AvoidedIngredientView) = AvoidedSubstanceResponse(code = view.code, name = view.name)
     }
 }
