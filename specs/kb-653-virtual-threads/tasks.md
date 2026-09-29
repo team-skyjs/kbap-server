@@ -34,8 +34,8 @@
 
 **Independent Test**: JSON 에 id 8 패널이 있고 GC 가 y=24, Tomcat 패널 description 에 버추얼 스레드 안내. 문서 표에 행 추가.
 
-- [X] T005 [P] [US3] `docs/observability/grafana-app-dashboard.json` — Tomcat 패널(id 3) 제목을 "Tomcat 스레드풀 (플랫폼 스레드 모드)" 로, `description` 에 "버추얼 스레드 모드(dev, KB-653)에서는 풀이 없어 이 패널이 무의미하다. 포화는 '처리 중 HTTP 요청 수' 패널로 본다" 를 넣는다. GC 패널(id 5) `gridPos.y` 를 24 로. 패널 id 8 을 추가한다: type timeseries, title "처리 중 HTTP 요청 수", gridPos `{h:8,w:24,x:0,y:16}`, datasource `${DS_PROMETHEUS}`, target expr `<T001 에서 확정한 지표 이름>{env=~"$env"}`, legendFormat `{{env}}-{{instance}}`, fieldConfig/options 는 Tomcat 패널을 복제
-- [X] T006 [P] [US3] `docs/observability/grafana-app-dashboard.md` — 패널 표에 "처리 중 HTTP 요청 수" 행(질의·해석: "지금 응답을 만들고 있는 요청 수. 버추얼 스레드 모드의 포화 지표. Tomcat max 같은 상한선이 없으므로 Hikari pending 과 함께 본다")을 추가하고, Tomcat 행 해석에 "dev 는 버추얼 스레드 모드라 무의미(KB-653)" 를 덧붙인다. 개요 단락에 버추얼 스레드 모드 안내 한 문장
+- [ ] T005 [P] [US3] (사용자가 그라파나에서 직접 추가 — 저장소 JSON 은 이번 PR 에서 제외) `docs/observability/grafana-app-dashboard.json` — Tomcat 패널(id 3) 제목을 "Tomcat 스레드풀 (플랫폼 스레드 모드)" 로, `description` 에 "버추얼 스레드 모드(dev, KB-653)에서는 풀이 없어 이 패널이 무의미하다. 포화는 '처리 중 HTTP 요청 수' 패널로 본다" 를 넣는다. GC 패널(id 5) `gridPos.y` 를 24 로. 패널 id 8 을 추가한다: type timeseries, title "처리 중 HTTP 요청 수", gridPos `{h:8,w:24,x:0,y:16}`, datasource `${DS_PROMETHEUS}`, target expr `<T001 에서 확정한 지표 이름>{env=~"$env"}`, legendFormat `{{env}}-{{instance}}`, fieldConfig/options 는 Tomcat 패널을 복제
+- [ ] T006 [P] [US3] (사용자 수행 — 저장소 문서는 이번 PR 에서 제외) `docs/observability/grafana-app-dashboard.md` — 패널 표에 "처리 중 HTTP 요청 수" 행(질의·해석: "지금 응답을 만들고 있는 요청 수. 버추얼 스레드 모드의 포화 지표. Tomcat max 같은 상한선이 없으므로 Hikari pending 과 함께 본다")을 추가하고, Tomcat 행 해석에 "dev 는 버추얼 스레드 모드라 무의미(KB-653)" 를 덧붙인다. 개요 단락에 버추얼 스레드 모드 안내 한 문장
 - [X] T007 [US3] quickstart §1 정적 검사(패널 목록·gridPos·diff 없음) 실행
 
 ---

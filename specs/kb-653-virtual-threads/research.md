@@ -41,3 +41,11 @@
 
 - Hikari 풀 확대·RDS 증설(`db.t4g.small` → max_connections ~170)·prod 적용. 이번 측정 결과가 근거가 된다.
 - Tomcat `max-connections`(8,192)·ALB 제한. 1만 동접 목표에는 결국 이쪽도 봐야 한다.
+
+## D3 개정 (2026-09-30, 사용자 결정)
+
+그라파나 패널은 사용자가 그라파나에서 직접 추가한다. 저장소의 대시보드 JSON·문서는 이번 PR 에서 제외한다. 추가할 패널 사양은 다음과 같다(로컬 실측으로 확정한 이름).
+
+- 제목: 처리 중 HTTP 요청 수
+- 질의: `sum by (env, instance) (http_server_requests_active_seconds_gcount{env=~"$env"})`, legend `{{env}}-{{instance}} active`
+- Tomcat 스레드풀 패널: dev(버추얼 스레드 모드)에서는 세 게이지가 -1 로 무의미 — 설명에 표시 권장
