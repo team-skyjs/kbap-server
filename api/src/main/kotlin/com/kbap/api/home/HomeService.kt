@@ -1,40 +1,28 @@
 package com.kbap.api.home
 
-import com.kbap.api.food.FoodSummaryView
-import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.api.food.FoodService
-import com.kbap.common.domain.LanguageCode
+import com.kbap.api.ingredient.IngredientService
 import com.kbap.api.member.MemberService
-import com.kbap.api.scan.ScanService
+import com.kbap.common.domain.LanguageCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class HomeService(
     private val memberService: MemberService,
+    private val ingredientService: IngredientService,
     private val foodService: FoodService,
-    private val scanService: ScanService,
-    private val ingredientRepository: IngredientJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
-        val member = memberId?.let { memberService.getMemberOrNull(it) }
-        val avoidance = memberService.getAvoidance(member?.id)
-        val chosenCodes = avoidance.chosen
-        val avoidedRefs = avoidance.codeNames
-
+        val activeMemberId = memberId?.let { memberService.getMemberOrNull(it)?.id }
         return HomeResult(
-            avoidedSubstances = (if (chosenCodes.isEmpty()) emptyList() else ingredientRepository.findByCodeIn(chosenCodes))
-                .map { AvoidedSubstanceView(code = it.code.name, name = it.displayName(lang)) },
-            popularFoods = foodService.getRandomReadyFoods(POPULAR_SIZE)
-                .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) },
-            mostReviewedFoods = foodService.getMostReviewedFoods(member?.id, lang, MOST_REVIEWED_SIZE),
-            recentScans = member?.id?.let { id ->
-                val recentIds = scanService.getRecentReadyFoodIds(id, RECENT_SCAN_SIZE)
-                val foodsById = foodService.getReadyFoodsByIds(recentIds).associateBy { it.id }
-                recentIds.mapNotNull { foodsById[it] }
-                    .map { FoodSummaryView.from(it, lang, avoidedRefs, foodService.resolveImageUrl(it)) }
-            }.orEmpty(),
+            avoidedSubstances = ingredientService.getAvoidedIngredients(activeMemberId, lang),
+            popularFoods = foodService.getPopularFoods(activeMemberId, lang, POPULAR_SIZE),
+            mostReviewedFoods = foodService.getMostReviewedFoods(activeMemberId, lang, MOST_REVIEWED_SIZE),
+            recentScans = activeMemberId
+                ?.let { foodService.getRecentScannedFoods(it, lang, RECENT_SCAN_SIZE) }
+                .orEmpty(),
         )
     }
 

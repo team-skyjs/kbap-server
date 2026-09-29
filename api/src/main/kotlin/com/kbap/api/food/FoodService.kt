@@ -200,7 +200,14 @@ class FoodService(
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
-    fun getRandomReadyFoods(size: Int): List<Food> {
+    fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(getRandomReadyFoods(size), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(scanHistoryRepository.findRecentReadyFoodIds(memberId, size)), lang, memberId)
+
+    private fun getRandomReadyFoods(size: Int): List<Food> {
         val ids = foodRepository.findRandomReadyIds(size)
         if (ids.isEmpty()) return emptyList()
         return foodRepository.findByIdIn(ids)
