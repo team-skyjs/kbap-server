@@ -11,6 +11,12 @@ spring:
   threads:
     virtual:
       enabled: true
+  # 버추얼 스레드를 켜면 @Async 실행기도 무제한 SimpleAsyncTaskExecutor 로 바뀐다 — 이전 8 스레드 풀과 같은
+  # 동시 실행 상한을 유지해 비동기 리스너의 DB 작업이 HTTP 요청과 Hikari 커넥션을 경쟁하지 않게 한다 (Codex 리뷰).
+  task:
+    execution:
+      simple:
+        concurrency-limit: 8
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
