@@ -14,10 +14,10 @@ import org.springframework.core.env.StandardEnvironment
 import org.springframework.core.io.ClassPathResource
 
 class StructuredConsoleLoggingTest : BehaviorSpec({
-    given("staging·prod 의 JSON 구조화 로그 설정") {
+    given("dev·staging·prod 의 JSON 구조화 로그 설정") {
         `when`("운영 프로필 설정을 읽으면") {
             then("콘솔 로그 형식이 ecs 다") {
-                listOf("staging", "prod").forEach { profile ->
+                listOf("dev", "staging", "prod").forEach { profile ->
                     val properties = YamlPropertiesFactoryBean()
                         .apply { setResources(ClassPathResource("application-$profile.yml")) }
                         .`object`!!
