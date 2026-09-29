@@ -43,6 +43,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 사용자 요청("새로 �
   ```
 
 - **Rationale**: 스펙 FR-002·FR-003·SC-002·SC-003 을 그대로 코드로 옮긴 형태다. 비회원 분기(`?.let … .orEmpty()`)는 호출부가 소유한다 — `FoodService` 의 기존 스캔 메서드(`getScannedFoodPage(memberId: Long, …)`)가 non-null 회원 id 를 받는 계약과 맞춘다. `ScanService`·`ReviewService`·`IngredientJpaRepository` 의존이 사라진다.
+- **구현 중 개정(2026-09-30)**: 사용자 결정으로 활성 회원 id 대신 **회원 엔티티**를 `memberService.getMember(it)`(없으면 `MEMBER_NOT_FOUND`)로 받아 `member?.id` 를 넘긴다. 탈퇴 회원 토큰은 비회원 강등이 아니라 오류로 거절한다(spec Edge Case 갱신). `!!` 대신 `getMember` 를 쓴 이유는 서비스 네이밍 규약(단건 `get~` = 없으면 `BusinessException`)과 NPE 500 회피.
 - **Alternatives considered**: (a) 회원 해석까지 각 섹션 서비스에 내리기 — 탈퇴 회원의 최근 스캔이 노출되는 동작 변경. 기각. (b) 기피 성분을 홈에서 한 번 조회해 각 섹션에 `Set<String>` 으로 넘기기 — 회원 조회 횟수는 줄지만 `FoodService` 의 기존 `(memberId, lang)` 계약과 어긋나고 홈이 다시 조립 세부를 갖는다. 기각(비용은 스펙 Assumptions 에서 감수).
 
 ## D2. 새 서비스 클래스는 만들지 않는다 — `IngredientService` 에 메서드 추가
