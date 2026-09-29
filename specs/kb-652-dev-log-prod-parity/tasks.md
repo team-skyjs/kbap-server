@@ -81,7 +81,7 @@ api 설정 `api/src/main/resources/`, batch 설정 `batch/src/main/resources/`, 
 
 ## Phase 6: Polish
 
-- [ ] T013 research D5 의 범위 밖 발견(배치 베이스 yml 의 죽은 `logging.level.com.kbap.infra.llm.provider`)을 별도 Jira 태스크 후보로 사용자에게 보고한다. 이 브랜치에서 고치지 않는다
+- [X] T013 research D5 의 범위 밖 발견(배치 베이스 yml 의 죽은 `logging.level.com.kbap.infra.llm.provider`)을 별도 Jira 태스크 후보로 사용자에게 보고한다. 이 브랜치에서 고치지 않는다
 
 ---
 
