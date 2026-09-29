@@ -1,6 +1,6 @@
 # Tasks: 홈 화면 조합 서비스 퍼사드화
 
-**Input**: Design documents from `/specs/010-home-service-facade/`
+**Input**: Design documents from `/specs/kb-651-home-service-facade/`
 
 **Prerequisites**: plan.md, spec.md, research.md(D1~D7), data-model.md, quickstart.md
 
@@ -77,7 +77,7 @@ api 모듈 단일: 소스 `api/src/main/kotlin/com/kbap/api/`, 테스트 `api/sr
 
 **Purpose**: 스펙 SC-001~005 를 quickstart 명령으로 전부 확인한다.
 
-- [X] T014 [US1] `specs/010-home-service-facade/quickstart.md` 의 명령을 위에서 아래로 전부 실행한다 — 홈 테스트 3파일 diff 없음(SC-001), `HomeService.kt` 에 `Repository|ReviewService|ScanService` 0건(SC-002), `associateBy|mapNotNull|FoodSummaryView.from|AvoidedIngredientView(` 0건(SC-003), `getMostReviewedFoodIds|getRecentReadyFoodIds|AvoidedSubstanceView` 가 `api/src/main` 에 0건, `HomeController.kt` diff 없음·`HomeResponse.kt` diff 는 import·파라미터 타입뿐(SC-005), `./gradlew :api:test` 그린(SC-004)
+- [X] T014 [US1] `specs/kb-651-home-service-facade/quickstart.md` 의 명령을 위에서 아래로 전부 실행한다 — 홈 테스트 3파일 diff 없음(SC-001), `HomeService.kt` 에 `Repository|ReviewService|ScanService` 0건(SC-002), `associateBy|mapNotNull|FoodSummaryView.from|AvoidedIngredientView(` 0건(SC-003), `getMostReviewedFoodIds|getRecentReadyFoodIds|AvoidedSubstanceView` 가 `api/src/main` 에 0건, `HomeController.kt` diff 없음·`HomeResponse.kt` diff 는 import·파라미터 타입뿐(SC-005), `./gradlew :api:test` 그린(SC-004)
 - [X] T015 [P] 변경 파일 전체에서 Kotlin 주석(`//`·`/* */`·KDoc)이 새로 추가되지 않았는지 `git diff develop -- api/src/main | grep '^+.*\(//\|/\*\)'` 로 확인한다(CLAUDE.md 주석 금지)
 - [X] T016 `open-draft-pr-to-develop` 스킬로 base=develop draft PR 을 연다 — 본문에 spec/plan 경로와 "동작 변경 없음 · 홈 테스트 무수정 통과" 를 적는다
 

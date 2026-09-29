@@ -171,7 +171,7 @@ tasks.md ─▶ [리더] 묶음 분할 + 계약 추출 ─▶ 00_partition.md
 
 ### 정상 흐름 (묶음 2개)
 1. 사용자: "010 tasks.md 를 팀으로 구현해줘".
-2. Phase 0: `_workspace/team-implement/010-home-service-facade/` 없음 → 초기 실행. `git status` 깨끗.
+2. Phase 0: `_workspace/team-implement/kb-651-home-service-facade/` 없음 → 초기 실행. `git status` 깨끗.
 3. Phase 1: task→파일 표에서 `FoodService.kt`·`HomeService.kt` 를 T003/T004 와 T008/T011 이 공유 → US3+US2 를 한 묶음(A)으로 합침. T014~T016 은 리더 보류. 묶음 1개 → "직접 구현이 더 빠르다" 안내 후 사용자가 팀 유지를 택하면 impl-a 1명으로 진행.
 4. Phase 2: `Agent(name: "impl-a", subagent_type: "implementer", isolation: "worktree", model: "opus")`.
 5. Phase 3: impl-a 가 워크트리에서 T003~T013 처리, 커밋, 구현 보고 반환 → `01_impl-a_report.md`.

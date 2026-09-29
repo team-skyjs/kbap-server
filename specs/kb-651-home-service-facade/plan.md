@@ -1,8 +1,8 @@
 # Implementation Plan: 홈 화면 조합 서비스 퍼사드화
 
-**Branch**: `010-home-service-facade` | **Date**: 2026-09-30 | **Spec**: [spec.md](spec.md)
+**Branch**: `kb-651-home-service-facade` | **Date**: 2026-09-30 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/010-home-service-facade/spec.md`
+**Input**: Feature specification from `/specs/kb-651-home-service-facade/spec.md`
 
 ## Summary
 
@@ -63,7 +63,7 @@
 ### Documentation (this feature)
 
 ```text
-specs/010-home-service-facade/
+specs/kb-651-home-service-facade/
 ├── spec.md              # /speckit-specify 출력
 ├── plan.md              # 이 파일
 ├── research.md          # Phase 0 — 조사 결과 + 설계 결정 D1~D7

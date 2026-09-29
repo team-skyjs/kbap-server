@@ -1,6 +1,6 @@
 # Feature Specification: 홈 화면 조합 서비스 퍼사드화
 
-**Feature Branch**: `010-home-service-facade`
+**Feature Branch**: `kb-651-home-service-facade`
 
 **Created**: 2026-09-30
 
