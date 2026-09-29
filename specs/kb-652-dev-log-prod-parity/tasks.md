@@ -73,7 +73,7 @@ api 설정 `api/src/main/resources/`, batch 설정 `batch/src/main/resources/`, 
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] `open-draft-pr-to-develop` 스킬로 base=develop draft PR 을 연다 — 본문에 `> **Jira:** [KB-652](https://simhani1.atlassian.net/browse/KB-652)`·`Refs KB-652`, spec/plan 경로, "설정 변경만, 새 테스트 없음, 로컬 dev 프로필 실노출 확인" 을 적는다. 이후 사용자 확인으로 ready 전환·머지
+- [X] T010 [US2] `open-draft-pr-to-develop` 스킬로 base=develop draft PR 을 연다 — 본문에 `> **Jira:** [KB-652](https://simhani1.atlassian.net/browse/KB-652)`·`Refs KB-652`, spec/plan 경로, "설정 변경만, 새 테스트 없음, 로컬 dev 프로필 실노출 확인" 을 적는다. 이후 사용자 확인으로 ready 전환·머지
 - [ ] T011 [US2] 머지 후 `deploy-dev.yml`·`deploy-batch-dev.yml` 완료를 확인하고, quickstart §4 의 Logs Insights 쿼리를 dev api 로그 그룹에서 실행해 `requestId` 필드가 있고 특정 값으로 필터하면 그 요청의 줄만 나오는지 확인한다. batch 로그 그룹에서는 `select` 문이 없는지 확인한다
 - [ ] T012 [US2] 확인 결과(요청 id 예시·쿼리·결과 줄 수)를 Jira KB-652 의 DoD 4번째 항목 체크와 함께 코멘트 없이 항목 상태만 갱신한다(create-jira-task 규약 — DoD 코멘트 금지)
 
