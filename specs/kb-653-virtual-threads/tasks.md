@@ -42,8 +42,8 @@
 
 ## Phase 4: 커밋·PR
 
-- [ ] T008 커밋 — `perf(api): dev 프로필 Tomcat 요청 처리를 버추얼 스레드로 전환 + 처리 중 요청 수 패널` 본문에 RDS 60 제약·풀 미변경 결정·로컬 확인 결과, `Refs KB-653`
-- [ ] T009 `open-draft-pr-to-develop` 스킬로 draft PR — 본문에 Jira 링크, "dev 만, DB 풀 그대로, 예상 관측: Hikari 대기 초과 500 증가 가능" 을 명시
+- [X] T008 커밋 — `perf(api): dev 프로필 Tomcat 요청 처리를 버추얼 스레드로 전환 + 처리 중 요청 수 패널` 본문에 RDS 60 제약·풀 미변경 결정·로컬 확인 결과, `Refs KB-653`
+- [X] T009 `open-draft-pr-to-develop` 스킬로 draft PR — 본문에 Jira 링크, "dev 만, DB 풀 그대로, 예상 관측: Hikari 대기 초과 500 증가 가능" 을 명시
 
 ---
 
