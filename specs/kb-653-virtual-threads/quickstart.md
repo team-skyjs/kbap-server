@@ -5,7 +5,7 @@
 ```bash
 grep -n "virtual" api/src/main/resources/application-dev.yml          # spring.threads.virtual.enabled: true
 git diff --stat develop -- api/src/main/resources/application-local.yml api/src/main/resources/application-staging.yml api/src/main/resources/application-prod.yml api/src/main/resources/application.yml batch/                                # 비어야 함
-python3 -c "import json;d=json.load(open('docs/observability/grafana-app-dashboard.json'));print([ (p['id'],p['title'],p['gridPos']) for p in d['panels']])"   # id 8 패널 존재, GC y=24
+git diff --stat develop -- docs/observability/                                    # 비어야 함 — 대시보드 패널은 그라파나에서 직접 추가(research D3 개정)
 ```
 
 ## 2. 자동 테스트
@@ -56,5 +56,5 @@ docker rm -f kbap-vt-mysql kbap-vt-redis
 | 다른 프로필·batch diff | 없음 |
 | 로컬 요청 스레드 이름 | `tomcat-handler-*` |
 | `/actuator/prometheus` | `http_server_requests_active_seconds_gcount` 존재 |
-| 대시보드 | 패널 8 추가, Tomcat 패널 설명 갱신, GC y=24 |
+| 대시보드 | 저장소 변경 없음 — "처리 중 HTTP 요청 수" 패널은 그라파나에서 직접 추가(`~/Desktop/처리중-HTTP-요청수-panel.json`) |
 | `:api:test` | BUILD SUCCESSFUL |

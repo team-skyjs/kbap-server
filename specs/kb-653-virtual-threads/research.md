@@ -49,3 +49,9 @@
 - 제목: 처리 중 HTTP 요청 수
 - 질의: `sum by (env, instance) (http_server_requests_active_seconds_gcount{env=~"$env"})`, legend `{{env}}-{{instance}} active`
 - Tomcat 스레드풀 패널: dev(버추얼 스레드 모드)에서는 세 게이지가 -1 로 무의미 — 설명에 표시 권장
+
+## D6. @Async 실행기는 큐가 있는 ThreadPoolTaskExecutor 빈으로 고정 (Codex 리뷰 2라운드)
+
+- **Decision**: `BackgroundConfig` 에 `applicationTaskExecutor`·`taskExecutor` 이름의 `ThreadPoolTaskExecutor` 빈을 Boot 의 `ThreadPoolTaskExecutorBuilder` 로 명시 정의한다(전 프로필). dev yml 의 `spring.task.execution.simple.concurrency-limit` 은 제거한다.
+- **Rationale**: `spring.threads.virtual.enabled` 는 Tomcat 뿐 아니라 Boot 자동 구성 `applicationTaskExecutor` 도 무제한 `SimpleAsyncTaskExecutor` 로 바꾼다(1라운드 지적). 1라운드 반영인 `concurrency-limit` 은 초과분을 큐에 넣지 않고 **제출 스레드를 블로킹**한다 — `FoodService.getDetail` 이 읽기 트랜잭션 안에서 `FoodViewed` 를 발행하므로 9번째 요청부터 Hikari 커넥션을 쥔 채 리스너 완료를 기다려 정체가 난다(2라운드 지적, 타당). 빌더로 만든 빈은 Boot 가 비버추얼 모드에서 자동 구성하던 것과 동일(스레드 8·무제한 큐·`MdcTaskDecorator` 적용)이라 prod 동작은 그대로이고 dev 만 전환 전과 같아진다.
+- **Alternatives considered**: `reject-tasks-when-limit-reached: true` — 9번째 발행이 예외로 터져 상세 조회가 실패. 기각. 무제한 방치 — 1라운드 문제 재발. 기각.

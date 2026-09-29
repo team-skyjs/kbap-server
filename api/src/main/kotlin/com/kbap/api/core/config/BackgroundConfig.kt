@@ -2,12 +2,14 @@ package com.kbap.api.core.config
 
 import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider
 import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock
+import org.springframework.boot.task.ThreadPoolTaskExecutorBuilder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.TaskDecorator
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import javax.sql.DataSource
 
 @Configuration
@@ -17,6 +19,9 @@ import javax.sql.DataSource
 class BackgroundConfig {
     @Bean
     fun mdcTaskDecorator(): TaskDecorator = MdcTaskDecorator()
+
+    @Bean(name = ["applicationTaskExecutor", "taskExecutor"])
+    fun applicationTaskExecutor(builder: ThreadPoolTaskExecutorBuilder): ThreadPoolTaskExecutor = builder.build()
 
     @Bean
     fun lockProvider(dataSource: DataSource): JdbcTemplateLockProvider =
