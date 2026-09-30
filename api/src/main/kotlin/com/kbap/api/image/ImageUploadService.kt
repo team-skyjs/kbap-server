@@ -29,8 +29,19 @@ class ImageUploadService(
             if (owned) return existing
             throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
         }
-        if (guestInstallation != null) guestUploadQuota.verify(guestInstallation)
+        if (guestInstallation == null) return register(memberId, null, path, declaredContentType, declaredSize)
+        return guestUploadQuota.consume(guestInstallation) {
+            register(null, guestInstallation, path, declaredContentType, declaredSize)
+        }
+    }
 
+    private fun register(
+        memberId: Long?,
+        guestInstallation: String?,
+        path: String,
+        declaredContentType: String,
+        declaredSize: Long,
+    ): UploadedImage {
         val actual = storageObjectStore.head(path)
             ?: throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
 

@@ -30,6 +30,12 @@ class ImageControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var storage: FakeStorageObjectStore
 
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
+    @Autowired
+    private lateinit var uploadedImageRepository: com.kbap.common.domain.image.UploadedImageJpaRepository
+
     init {
         val mapper = jacksonObjectMapper()
 
@@ -60,6 +66,118 @@ class ImageControllerTest : BehaviorSpec() {
 
         fun body(path: String, contentType: String, size: Long) =
             mapper.writeValueAsString(mapOf("path" to path, "contentType" to contentType, "size" to size))
+
+        fun resetGuestQuota() {
+            dataSource.connection.use { c ->
+                c.createStatement().use { it.execute("DELETE FROM uploaded_image WHERE installation_id LIKE 'upload-quota-%'") }
+            }
+            redisTemplate.keys("upload:quota:*").takeIf { it.isNotEmpty() }?.let { redisTemplate.delete(it) }
+        }
+
+        fun guestPath(name: String) = "dev/images/feedback/2026/10/$name.webp"
+
+        fun guestComplete(installation: String, path: String, declaredSize: Long = 1024): Pair<Int, String> {
+            val response = mockMvc.post("/api/images/complete") {
+                header("X-Installation-Id", installation)
+                contentType = MediaType.APPLICATION_JSON
+                content = body(path, "image/webp", declaredSize)
+            }.andReturn().response
+            return response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
+        }
+
+        fun guestRows(installation: String): Int =
+            dataSource.connection.use { c ->
+                c.prepareStatement("SELECT COUNT(*) FROM uploaded_image WHERE installation_id = ?").use { ps ->
+                    ps.setString(1, installation)
+                    ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                }
+            }
+
+        given("게스트 업로드 한도 — 기기당 직전 24시간 10건, 완료 시점에 센다") {
+            `when`("같은 기기에서 서로 다른 업로드 50건의 완료 신고가 한꺼번에 오면") {
+                then("정확히 10건만 기록되고 나머지는 429 IMAGE-006 이다 — 세고 나서 넣는 사이로 한도를 넘지 않는다") {
+                    resetGuestQuota()
+                    storage.headDelayMillis = 30
+                    try {
+                    repeat(3) { round ->
+                        val installation = "upload-quota-burst-$round"
+                        val paths = (1..50).map { guestPath("burst-$round-$it") }
+                        paths.forEach { storage.stub(it, "image/webp", 1024) }
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(50)
+                        val responses = paths.map { path -> executor.submit<Pair<Int, String>> { gate.await(); guestComplete(installation, path) } }
+                        executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                        outcomes.count { it.first == 200 } shouldBe GuestUploadQuota.DAILY_LIMIT
+                        outcomes.filter { it.first != 200 }.toSet() shouldBe setOf(429 to "IMAGE-006")
+                        guestRows(installation) shouldBe GuestUploadQuota.DAILY_LIMIT
+                    }
+                    } finally {
+                        storage.headDelayMillis = 0
+                    }
+                }
+            }
+
+            `when`("같은 업로드의 완료 신고를 여러 번 보내면") {
+                then("한도를 한 번만 쓴다 — 재시도 3번 뒤에도 다른 업로드 9건이 모두 기록되고 11번째만 429 다") {
+                    resetGuestQuota()
+                    val installation = "upload-quota-idempotent"
+                    val first = guestPath("idem-0").also { storage.stub(it, "image/webp", 1024) }
+
+                    repeat(3) { guestComplete(installation, first).first shouldBe 200 }
+                    (1..9).forEach { i ->
+                        val path = guestPath("idem-$i").also { storage.stub(it, "image/webp", 1024) }
+                        guestComplete(installation, path).first shouldBe 200
+                    }
+
+                    val eleventh = guestPath("idem-10").also { storage.stub(it, "image/webp", 1024) }
+                    guestComplete(installation, eleventh) shouldBe (429 to "IMAGE-006")
+                    guestRows(installation) shouldBe GuestUploadQuota.DAILY_LIMIT
+                }
+            }
+
+            `when`("검증에 실패한 완료 신고가 한도만큼 있었으면") {
+                then("한도를 쓰지 않는다 — 실패한 신고는 자리를 되돌려, 뒤의 정상 업로드 10건이 모두 기록된다") {
+                    resetGuestQuota()
+                    val installation = "upload-quota-release"
+                    repeat(GuestUploadQuota.DAILY_LIMIT) { i ->
+                        val path = guestPath("mismatch-$i").also { storage.stub(it, "image/webp", 1024) }
+                        guestComplete(installation, path, declaredSize = 999).first shouldBe 400
+                    }
+
+                    repeat(GuestUploadQuota.DAILY_LIMIT) { i ->
+                        val path = guestPath("valid-$i").also { storage.stub(it, "image/webp", 1024) }
+                        guestComplete(installation, path).first shouldBe 200
+                    }
+                }
+            }
+
+            `when`("한도 카운터(Redis)를 쓸 수 없으면") {
+                then("업로드를 막지 않고 DB 건수로 판정한다 — 10건까지 통과, 11번째는 IMAGE-006") {
+                    resetGuestQuota()
+                    val installation = "upload-quota-fallback"
+                    val unavailable = object : com.kbap.common.port.quota.InstallationQuotaStore {
+                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration): Boolean =
+                            throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
+
+                        override fun release(scope: String, installationId: String, requestId: String) =
+                            throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
+                    }
+                    val service = ImageUploadService(storage, uploadedImageRepository, DailyGuestUploadQuota(uploadedImageRepository, unavailable))
+                    fun complete(i: Int) {
+                        val path = guestPath("fallback-$i").also { storage.stub(it, "image/webp", 1024) }
+                        service.completeUpload(null, installation, path, "image/webp", 1024)
+                    }
+
+                    repeat(GuestUploadQuota.DAILY_LIMIT) { complete(it) }
+
+                    io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> { complete(99) }
+                        .errorCode shouldBe com.kbap.common.core.error.ErrorCode.IMAGE_UPLOAD_RATE_LIMITED
+                }
+            }
+        }
 
         given("업로드 완료 신고 — POST /api/images/complete") {
             `when`("실제 오브젝트가 사진이고 신고값과 일치하면") {

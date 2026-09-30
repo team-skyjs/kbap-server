@@ -10,7 +10,7 @@ import com.kbap.common.domain.feedback.FeedbackReplyJpaRepository
 import com.kbap.common.domain.feedback.model.Feedback
 import com.kbap.common.domain.feedback.model.FeedbackReply
 import com.kbap.common.domain.image.model.UploadPurpose
-import com.kbap.common.port.feedback.FeedbackQuotaStore
+import com.kbap.common.port.quota.InstallationQuotaStore
 import com.kbap.common.util.ImageUrls
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -28,7 +28,7 @@ class FeedbackService(
     private val feedbackRepository: FeedbackJpaRepository,
     private val replyRepository: FeedbackReplyJpaRepository,
     private val uploadedImageService: UploadedImageService,
-    private val quotaStore: FeedbackQuotaStore,
+    private val quotaStore: InstallationQuotaStore,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -67,7 +67,7 @@ class FeedbackService(
 
     private fun acquireQuota(installationId: String, requestId: String): Boolean {
         val acquired = try {
-            quotaStore.tryAcquire(installationId, requestId, DAILY_LIMIT, QUOTA_WINDOW)
+            quotaStore.tryAcquire(QUOTA_SCOPE, installationId, requestId, DAILY_LIMIT, QUOTA_WINDOW)
         } catch (e: RuntimeException) {
             log.warn("문의 한도 카운터(Redis)를 쓸 수 없어 DB 건수로만 판정한다 installationId={}", installationId, e)
             return false
@@ -77,7 +77,7 @@ class FeedbackService(
     }
 
     private fun releaseQuota(installationId: String, requestId: String) {
-        runCatching { quotaStore.release(installationId, requestId) }
+        runCatching { quotaStore.release(QUOTA_SCOPE, installationId, requestId) }
             .onFailure { log.warn("문의 한도 카운터 반납 실패 — 24시간 뒤 만료된다 installationId={}", installationId, it) }
     }
 
@@ -145,6 +145,7 @@ class FeedbackService(
 
     companion object {
         const val DAILY_LIMIT = 20
+        const val QUOTA_SCOPE = "feedback"
         val QUOTA_WINDOW: Duration = Duration.ofDays(1)
         const val PAGE_SIZE = 20
         const val MAX_DEVICE_VALUE_LENGTH = 100

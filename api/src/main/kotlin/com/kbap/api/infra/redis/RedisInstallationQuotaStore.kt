@@ -1,20 +1,20 @@
 package com.kbap.api.infra.redis
 
-import com.kbap.common.port.feedback.FeedbackQuotaStore
+import com.kbap.common.port.quota.InstallationQuotaStore
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Component
 import java.time.Duration
 
 @Component
-class RedisFeedbackQuotaStore(
+class RedisInstallationQuotaStore(
     private val redisTemplate: StringRedisTemplate,
-) : FeedbackQuotaStore {
-    override fun tryAcquire(installationId: String, requestId: String, limit: Int, window: Duration): Boolean {
+) : InstallationQuotaStore {
+    override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: Duration): Boolean {
         val now = System.currentTimeMillis()
         val result = redisTemplate.execute(
             ACQUIRE_SCRIPT,
-            listOf(key(installationId)),
+            listOf(key(scope, installationId)),
             (now - window.toMillis()).toString(),
             now.toString(),
             limit.toString(),
@@ -24,14 +24,13 @@ class RedisFeedbackQuotaStore(
         return result == ACQUIRED
     }
 
-    override fun release(installationId: String, requestId: String) {
-        redisTemplate.opsForZSet().remove(key(installationId), requestId)
+    override fun release(scope: String, installationId: String, requestId: String) {
+        redisTemplate.opsForZSet().remove(key(scope, installationId), requestId)
     }
 
-    private fun key(installationId: String): String = "$KEY_PREFIX$installationId"
+    private fun key(scope: String, installationId: String): String = "$scope:quota:$installationId"
 
     companion object {
-        private const val KEY_PREFIX = "feedback:quota:"
         private const val ACQUIRED = 1L
 
         private val ACQUIRE_SCRIPT = DefaultRedisScript(
