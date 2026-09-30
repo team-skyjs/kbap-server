@@ -41,25 +41,28 @@ class UnrecordedUploadCleanupService(
     @SchedulerLock(name = "unrecorded-upload-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun cleanup(): UnrecordedUploadCleanupResult {
         val cutoff = Instant.now().minus(retention)
-        var cursor = loadCursor()
+        val start = loadCursor()
+        var stuck = start.stuck
         var listed = 0
         var processed = 0
         var deleted = 0
         var failed = 0
         var skipped = 0
+        var skippedStuck = 0
         val counts = linkedMapOf<String, UnrecordedUploadCount>()
-        var purposeIndex = purposes.indexOf(cursor.purpose).coerceAtLeast(0)
-        var afterPath = cursor.afterPath
+        var purposeIndex = purposes.indexOf(start.purpose).coerceAtLeast(0)
+        var settledKey: String? = start.afterPath
+        var cursor = Cursor(purposes.getOrNull(purposeIndex), settledKey, stuck)
+        var stopReason: String? = null
         var completedRound = false
-        var budgetExhausted = false
-        while (purposeIndex < purposes.size && !budgetExhausted) {
+        while (purposeIndex < purposes.size) {
             val purpose = purposes[purposeIndex]
             var purposeListed = 0
             var unrecorded = 0
             var stale = 0
             var exhausted = false
             while (listed < maxListedPerRun) {
-                val page = storageObjectStore.list(prefixes.getValue(purpose), afterPath, minOf(LIST_PAGE_SIZE, maxListedPerRun - listed))
+                val page = storageObjectStore.list(prefixes.getValue(purpose), settledKey, minOf(LIST_PAGE_SIZE, maxListedPerRun - listed))
                 if (page.isEmpty()) {
                     exhausted = true
                     break
@@ -67,37 +70,53 @@ class UnrecordedUploadCleanupService(
                 listed += page.size
                 purposeListed += page.size
                 val recorded = uploadedImageRepository.findRecordedPathsAnyStatus(page.map { it.path }).toSet()
-                val unrecordedObjects = page.filter { it.path !in recorded }
-                unrecorded += unrecordedObjects.size
-                var lastProcessed: String? = null
-                for (candidate in unrecordedObjects.filter { it.lastModified.isBefore(cutoff) }) {
-                    if (processed >= maxDeletesPerRun) {
-                        budgetExhausted = true
-                        break
-                    }
-                    processed++
-                    stale++
-                    lastProcessed = candidate.path
-                    if (!dryRun) {
-                        when (deleteIfStillUnrecorded(candidate)) {
-                            Outcome.DELETED -> deleted++
-                            Outcome.FAILED -> failed++
-                            Outcome.SKIPPED -> skipped++
+                for (obj in page) {
+                    val isUnrecorded = obj.path !in recorded
+                    if (isUnrecorded) unrecorded++
+                    if (isUnrecorded && obj.lastModified.isBefore(cutoff)) {
+                        if (processed >= maxDeletesPerRun) {
+                            stopReason = "삭제 상한 $maxDeletesPerRun"
+                            break
+                        }
+                        processed++
+                        stale++
+                        if (!dryRun) {
+                            val current = stuck
+                            if (current != null && current.key == obj.path && current.failures >= MAX_CONSECUTIVE_FAILURES) {
+                                log.error("행 없는 업로드 오브젝트 삭제가 {}번 연속 실패해 건너뛴다 — 수동 확인 필요 path={}", current.failures, obj.path)
+                                skippedStuck++
+                                stuck = null
+                            } else {
+                                val outcome = deleteIfStillUnrecorded(obj)
+                                if (outcome == Outcome.FAILED) {
+                                    failed++
+                                    stuck = Stuck(obj.path, if (current?.key == obj.path) current.failures + 1 else 1)
+                                    stopReason = "삭제 실패 ${obj.path}"
+                                    break
+                                }
+                                if (outcome == Outcome.DELETED) deleted++ else skipped++
+                                if (current?.key == obj.path) stuck = null
+                            }
                         }
                     }
+                    settledKey = obj.path
                 }
-                afterPath = if (budgetExhausted) lastProcessed ?: afterPath else page.last().path
-                cursor = Cursor(purpose, afterPath)
-                if (budgetExhausted) break
+                cursor = Cursor(purpose, settledKey, stuck)
+                if (stopReason != null) break
             }
             counts[purpose.prefix] = UnrecordedUploadCount(listed = purposeListed, unrecorded = unrecorded, stale = stale)
-            if (!exhausted) break
+            if (stopReason != null) break
+            if (!exhausted) {
+                stopReason = "목록 상한 $maxListedPerRun"
+                cursor = Cursor(purpose, settledKey, stuck)
+                break
+            }
             purposeIndex++
-            afterPath = null
-            cursor = if (purposeIndex < purposes.size) Cursor(purposes[purposeIndex], null) else Cursor(null, null).also { completedRound = true }
+            settledKey = null
+            cursor = if (purposeIndex < purposes.size) Cursor(purposes[purposeIndex], null, stuck) else Cursor(null, null, null).also { completedRound = true }
         }
         saveCursor(cursor)
-        val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped)
+        val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped, skippedStuck)
         if (dryRun) {
             log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위)} {}", counts)
         } else if (failed > 0) {
@@ -108,21 +127,17 @@ class UnrecordedUploadCleanupService(
         if (completedRound) {
             log.info("행 없는 업로드 오브젝트 정리 — 전 용도를 한 바퀴 돌았다. 다음 실행은 처음부터 본다")
         } else {
-            log.info(
-                "행 없는 업로드 오브젝트 정리 — 실행당 상한({})에 닿았다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다",
-                if (budgetExhausted) "삭제 $maxDeletesPerRun" else "목록 $maxListedPerRun",
-                cursor,
-            )
+            log.info("행 없는 업로드 오브젝트 정리 — {} 에서 멈췄다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다", stopReason, cursor)
         }
         return result
     }
 
     private fun loadCursor(): Cursor =
         try {
-            redisTemplate.opsForValue().get(CURSOR_KEY)?.let { Cursor.parse(it) } ?: Cursor(null, null)
+            redisTemplate.opsForValue().get(CURSOR_KEY)?.let { Cursor.parse(it) } ?: Cursor(null, null, null)
         } catch (e: RuntimeException) {
             log.warn("정리 커서(Redis)를 읽지 못해 처음부터 본다", e)
-            Cursor(null, null)
+            Cursor(null, null, null)
         }
 
     private fun saveCursor(cursor: Cursor) {
@@ -133,16 +148,22 @@ class UnrecordedUploadCleanupService(
         }
     }
 
-    private data class Cursor(val purpose: UploadPurpose?, val afterPath: String?) {
-        fun serialize(): String = "${purpose?.prefix}|${afterPath.orEmpty()}"
+    private data class Stuck(val key: String, val failures: Int)
+
+    private data class Cursor(val purpose: UploadPurpose?, val afterPath: String?, val stuck: Stuck?) {
+        fun serialize(): String =
+            listOf(purpose?.prefix.orEmpty(), afterPath.orEmpty(), stuck?.key.orEmpty(), stuck?.failures?.toString().orEmpty())
+                .joinToString("|").trimEnd('|')
 
         override fun toString(): String = serialize()
 
         companion object {
             fun parse(raw: String): Cursor {
-                val purpose = UploadPurpose.entries.firstOrNull { it.prefix == raw.substringBefore('|') }
-                val afterPath = raw.substringAfter('|', "").takeIf { it.isNotEmpty() }
-                return Cursor(purpose, if (purpose == null) null else afterPath)
+                val parts = raw.split('|')
+                val purpose = UploadPurpose.entries.firstOrNull { it.prefix == parts[0] } ?: return Cursor(null, null, null)
+                val afterPath = parts.getOrNull(1)?.takeIf { it.isNotEmpty() }
+                val stuck = parts.getOrNull(2)?.takeIf { it.isNotEmpty() }?.let { Stuck(it, parts.getOrNull(3)?.toIntOrNull() ?: 1) }
+                return Cursor(purpose, afterPath, stuck)
             }
         }
     }
@@ -162,6 +183,7 @@ class UnrecordedUploadCleanupService(
 
     companion object {
         const val CURSOR_KEY = "upload-cleanup:cursor"
+        const val MAX_CONSECUTIVE_FAILURES = 3
         private const val LIST_PAGE_SIZE = 1000
 
         fun uploadPrefixes(keyPrefix: String): Map<UploadPurpose, String> {
@@ -185,4 +207,5 @@ data class UnrecordedUploadCleanupResult(
     val deletedCount: Int,
     val failedCount: Int,
     val skippedCount: Int,
+    val skippedStuckCount: Int,
 )

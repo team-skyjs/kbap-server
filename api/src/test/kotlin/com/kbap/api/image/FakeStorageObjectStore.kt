@@ -12,6 +12,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     val headCalls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
     @Volatile var headDelayMillis: Long = 0
     @Volatile var failDeletes: Boolean = false
+    val failDeletePaths: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     val lastModified: MutableMap<String, java.time.Instant> = java.util.concurrent.ConcurrentHashMap()
 
     fun stub(path: String, contentType: String, sizeBytes: Long, modifiedAt: java.time.Instant = java.time.Instant.now()) {
@@ -37,7 +38,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     }
 
     override fun delete(path: String) {
-        if (failDeletes) throw IllegalStateException("테스트 — 스토리지 삭제 실패")
+        if (failDeletes || path in failDeletePaths) throw IllegalStateException("테스트 — 스토리지 삭제 실패")
         deleted.add(path)
         heads.remove(path)
         lastModified.remove(path)

@@ -78,6 +78,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             storage.lastModified.clear()
             storage.deleted.clear()
             storage.failDeletes = false
+            storage.failDeletePaths.clear()
             redisTemplate.delete(UnrecordedUploadCleanupService.CURSOR_KEY)
             exec(
                 "INSERT INTO member (id, provider, provider_uid, country_code, member_status, onboarding_completed, " +
@@ -199,18 +200,19 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             }
 
             `when`("한 용도의 키가 실행당 목록 상한보다 많으면") {
-                then("다음 실행이 지난 실행이 멈춘 키 뒤부터 이어 보고, 그 용도를 다 보면 다음 용도로 넘어가며, 한 바퀴를 돌면 커서를 지운다") {
+                then("다음 실행이 지난 실행이 확정 처리한 마지막 키 뒤부터 이어 보고(행 있는 키도 확정), 그 용도를 다 보면 다음 용도로 넘어가며, 한 바퀴를 돌면 커서를 지운다") {
                     reset()
                     val scans = (1..3).map { "local/images/scans/2026/09/1_s$it.webp" }
                     val review = "local/images/review/2026/09/1_r1.webp"
                     (scans + review).forEach { stored(it) }
+                    recorded(scans[1])
 
-                    service(maxListed = 2).cleanup().deletedCount shouldBe 2
-                    storage.deleted shouldContainExactlyInAnyOrder scans.take(2)
+                    service(maxListed = 2).cleanup().deletedCount shouldBe 1
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(scans[0])
                     redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "scans|${scans[1]}"
 
                     service(maxListed = 2).cleanup().deletedCount shouldBe 2
-                    storage.deleted shouldContainExactlyInAnyOrder scans + review
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(scans[0], scans[2], review)
                     redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "review|$review"
 
                     service(maxListed = 2).cleanup().deletedCount shouldBe 0
@@ -241,16 +243,50 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             }
 
             `when`("스토리지 삭제가 실패하면") {
-                then("실패로 세고 다음 실행이 다시 시도한다") {
+                then("그 키 직전을 커서로 저장하고 이번 실행을 끝낸다 — 뒤의 키는 손대지 않고, 다음 실행이 실패한 키부터 다시 시도한다") {
                     reset()
-                    stored("local/images/review/2026/09/1_fail.webp")
-                    storage.failDeletes = true
+                    val ok = "local/images/review/2026/09/1_a-ok.webp"
+                    val failing = "local/images/review/2026/09/1_b-fail.webp"
+                    val after = "local/images/review/2026/09/1_c-after.webp"
+                    listOf(ok, failing, after).forEach { stored(it) }
+                    storage.failDeletePaths += failing
+
+                    val first = service().cleanup()
+
+                    first.deletedCount shouldBe 1
+                    first.failedCount shouldBe 1
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(ok)
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "review|$ok|$failing|1"
+
+                    storage.failDeletePaths.clear()
+                    val second = service().cleanup()
+
+                    second.deletedCount shouldBe 2
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(ok, failing, after)
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe null
+                }
+            }
+
+            `when`("같은 키가 연속 3번 실행에서 삭제에 실패하면") {
+                then("네 번째 실행이 그 키를 건너뛰고 뒤를 계속 처리한다 — 영구 실패 키가 앞을 막아 굶기지 않는다") {
+                    reset()
+                    val stuck = "local/images/review/2026/09/1_a-stuck.webp"
+                    val after = "local/images/review/2026/09/1_b-after.webp"
+                    listOf(stuck, after).forEach { stored(it) }
+                    storage.failDeletePaths += stuck
+
+                    repeat(UnrecordedUploadCleanupService.MAX_CONSECUTIVE_FAILURES) { service().cleanup().failedCount shouldBe 1 }
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe
+                        "review||$stuck|${UnrecordedUploadCleanupService.MAX_CONSECUTIVE_FAILURES}"
+                    storage.deleted.shouldBeEmpty()
 
                     val result = service().cleanup()
 
-                    result.failedCount shouldBe 1
-                    result.deletedCount shouldBe 0
-                    storage.heads.size shouldBe 1
+                    result.deletedCount shouldBe 1
+                    result.failedCount shouldBe 0
+                    result.skippedStuckCount shouldBe 1
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(after)
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe null
                 }
             }
         }
