@@ -86,6 +86,20 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("업로드 흐름 설명") {
+            `when`("업로드 URL 발급과 프로필 사진 지정의 설명을 보면") {
+                then("둘 다 업로드 완료 신고(POST /api/images/complete)를 거치라고 안내한다 — 문서대로 하면 거절되는 흐름을 내지 않는다") {
+                    val document = docOf("/v3/api-docs")
+                    val uploadUrl = document.path("paths").path("/api/images/upload-url").path("post").path("description").asText()
+                    val profileUpdate = document.path("paths").path("/api/members/me/profile").path("patch").path("description").asText()
+                    val onboarding = docOf("/v3/api-docs/1.0").path("paths").path("/api/members/me/onboarding").path("post")
+                        .path("description").asText()
+
+                    listOf(uploadUrl, profileUpdate, onboarding).forEach { it.contains("/api/images/complete") shouldBe true }
+                }
+            }
+        }
+
         given("X-API-Version 헤더 파라미터") {
             `when`("문서의 각 오퍼레이션을 보면") {
                 then("모든 오퍼레이션이 헤더를 받고, 버전을 선언한 매핑은 그 값이 기본값으로 채워진다") {
