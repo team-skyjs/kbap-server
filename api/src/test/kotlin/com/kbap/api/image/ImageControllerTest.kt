@@ -7,6 +7,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -171,6 +172,24 @@ class ImageControllerTest : BehaviorSpec() {
 
                     val eleventh = guestPath("idem-10").also { storage.stub(it, "image/webp", 1024) }
                     guestComplete(installation, eleventh) shouldBe (429 to "IMAGE-006")
+                    guestRows(installation) shouldBe GuestUploadQuota.DAILY_LIMIT
+                }
+            }
+
+            `when`("한도를 넘긴 완료 신고가 거절되면") {
+                then("그 오브젝트를 스토리지에서 바로 지운다 — 행 없는 오브젝트로 남기지 않는다. 이미 기록된 업로드는 건드리지 않는다") {
+                    resetGuestQuota()
+                    val installation = "upload-quota-reject-delete"
+                    val recorded = (0 until GuestUploadQuota.DAILY_LIMIT).map { i ->
+                        guestPath("reject-$i").also { storage.stub(it, "image/webp", 1024); guestComplete(installation, it).first shouldBe 200 }
+                    }
+                    val rejected = guestPath("reject-over").also { storage.stub(it, "image/webp", 1024) }
+
+                    guestComplete(installation, rejected) shouldBe (429 to "IMAGE-006")
+
+                    storage.deleted shouldContain rejected
+                    storage.heads.containsKey(rejected) shouldBe false
+                    recorded.forEach { storage.deleted shouldNotContain it }
                     guestRows(installation) shouldBe GuestUploadQuota.DAILY_LIMIT
                 }
             }
