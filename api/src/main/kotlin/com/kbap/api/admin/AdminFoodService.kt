@@ -29,6 +29,8 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDateTime
 
 @Service
@@ -41,9 +43,12 @@ class AdminFoodService(
     private val foodService: FoodService,
     private val humanReviewService: AdminHumanReviewService,
     private val regenerationStateResolver: RegenerationStateResolver,
+    transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val objectMapper = jacksonObjectMapper()
+    private val transaction = TransactionTemplate(transactionManager)
+    private val readOnlyTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
 
     @Transactional(readOnly = true)
     fun getFoodPage(page: Int, query: String? = null, status: FoodContentStatus? = null): AdminFoodListPageView {
@@ -239,52 +244,54 @@ class AdminFoodService(
             .forEach { it.delete() }
     }
 
-    @Transactional
     fun requestRecollect(
         query: String?,
         status: FoodContentStatus?,
         max: Int = RECOLLECT_MAX,
     ): AdminFoodRecollectResult {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
-        val requested = countRecollectTargets(keyword, status)
+        val (requested, targetIds) = readOnlyTransaction.execute {
+            val requested = countRecollectTargets(keyword, status)
+            requested to if (requested in 1..max) getRecollectTargets(keyword, status).map { it.id } else emptyList()
+        }!!
         if (requested == 0L) return AdminFoodRecollectResult(requested = 0, created = 0, skipped = 0, max = max)
         if (requested > max) {
             return AdminFoodRecollectResult(requested = requested, created = 0, skipped = 0, exceeded = true, max = max)
         }
 
-        val targets = getRecollectTargets(keyword, status).sortedBy { it.id }
-        targets.forEach { foodRepository.findByIdForUpdate(it.id) }
-        val alreadyPending = outboxRepository
-            .findByFoodIdInAndOutboxStatus(targets.map { it.id }, FoodContentOutboxStatus.PENDING)
-            .map { it.foodId }
-            .toSet()
-        val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(targets.map { it.id }).toSet()
-        val created = targets.filterNot { it.id in alreadyPending || it.id in regenerating }
-        outboxRepository.saveAll(created.map { FoodContentOutbox.pending(it.id, it.displayName) })
-
+        val outcomes = targetIds.map { id -> transaction.execute { recollectUnderFoodLock(id) }!! }
+        val created = outcomes.count { it == RecollectOutcome.CREATED }.toLong()
         return AdminFoodRecollectResult(
             requested = requested,
-            created = created.size.toLong(),
-            skipped = requested - created.size,
-            skippedRegenerating = targets.count { it.id in regenerating && it.id !in alreadyPending }.toLong(),
+            created = created,
+            skipped = requested - created,
+            skippedRegenerating = outcomes.count { it == RecollectOutcome.REGENERATING }.toLong(),
             max = max,
         )
     }
 
     @Transactional
-    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
-        val food = foodRepository.findByIdForUpdate(id)
-            ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
-        val alreadyPending = outboxRepository
-            .findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING)
-            .isNotEmpty()
-        if (alreadyPending) return AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
+    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult =
+        when (recollectUnderFoodLock(id)) {
+            RecollectOutcome.NOT_FOUND -> throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+            RecollectOutcome.ALREADY_PENDING -> AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
+            RecollectOutcome.REGENERATING -> throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
+            RecollectOutcome.CREATED -> AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
+        }
+
+    private fun recollectUnderFoodLock(id: Long): RecollectOutcome {
+        val food = foodRepository.findByIdForUpdate(id) ?: return RecollectOutcome.NOT_FOUND
+        if (outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING)) {
+            return RecollectOutcome.ALREADY_PENDING
+        }
         if (imageBatchItemRepository.findFoodIdsInRegeneration(listOf(food.id)).isNotEmpty()) {
-            throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
+            return RecollectOutcome.REGENERATING
         }
         outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
-        return AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
+        return RecollectOutcome.CREATED
     }
+
+    private enum class RecollectOutcome { NOT_FOUND, ALREADY_PENDING, REGENERATING, CREATED }
 
     private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
         keyword == null && status == null -> foodRepository.count()
