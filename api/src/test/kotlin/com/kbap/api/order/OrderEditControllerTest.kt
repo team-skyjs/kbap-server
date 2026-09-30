@@ -140,6 +140,73 @@ class OrderEditControllerTest : BehaviorSpec() {
 
         val placeBody = """{"placeId":"ChIJedit","name":"백년옥","address":"서울 중구 소공로 51","language":"en"}"""
 
+        given("탈퇴한 회원의 아직 유효한 액세스 토큰") {
+            fun withdrawBySql(memberId: Long) = dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET status = 'DELETED', provider_uid = CONCAT('DELETED:', id) WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+
+            fun placeColumnsOf(orderId: Long): List<String?> = dataSource.connection.use { c ->
+                c.prepareStatement("SELECT place_external_id, place_name, latitude, road_address FROM orders WHERE id = ?").use { ps ->
+                    ps.setLong(1, orderId)
+                    ps.executeQuery().use { rs -> rs.next(); (1..4).map { rs.getString(it) } }
+                }
+            }
+
+            `when`("탈퇴 뒤 그 토큰으로 주문을 저장하면") {
+                then("400 MEMBER-003 으로 거절되고 주문(위치 포함)이 기록되지 않는다 — 파기한 위치 정보를 다시 쓸 수 없다") {
+                    val memberId = 9801L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴주문음식")
+                    seedUpload(memberId, "order-edit/9801/menu.jpg")
+                    withdrawBySql(memberId)
+
+                    mockMvc.post("/api/orders") {
+                        header("X-API-Version", "1.0")
+                        header("Authorization", "Bearer $token")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"imagePath":"order-edit/9801/menu.jpg","items":[{"menuName":"메뉴","quantity":1,"price":1000,"foodId":$food}],"latitude":37.5636,"longitude":126.9834}"""
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
+                    }
+
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT COUNT(*) FROM orders WHERE member_id = ?").use { ps ->
+                            ps.setLong(1, memberId)
+                            ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                        }
+                    } shouldBe 0
+                }
+            }
+
+            `when`("탈퇴 뒤 그 토큰으로 기존 주문의 장소를 바꾸면") {
+                then("400 MEMBER-003 으로 거절되고 장소가 기록되지 않는다") {
+                    val memberId = 9802L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴장소음식")
+                    val orderId = placeOrder(memberId, token, "order-edit/9802/menu.jpg", food).path("orderId").asLong()
+                    withdrawBySql(memberId)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE orders SET latitude = NULL, longitude = NULL, road_address = NULL, place_source = NULL, " +
+                            "place_external_id = NULL, place_name = NULL, place_address = NULL, place_language = NULL WHERE member_id = ?").use { ps ->
+                            ps.setLong(1, memberId)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    patchPlace(token, orderId, placeBody).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
+                    }
+
+                    placeColumnsOf(orderId) shouldBe listOf(null, null, null, null)
+                }
+            }
+        }
+
         given("주문 장소 교체 — PATCH /api/orders/{orderId}/place") {
             `when`("본인 주문에 검색 결과 하나를 보내면") {
                 then("스냅샷이 교체되고 갱신된 상세가 내려간다") {
