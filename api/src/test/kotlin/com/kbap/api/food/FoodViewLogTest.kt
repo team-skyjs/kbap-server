@@ -7,18 +7,18 @@ import com.kbap.common.domain.food.FoodViewLogJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
-import io.kotest.assertions.nondeterministic.continually
-import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import com.kbap.api.BackgroundTasks
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import java.lang.reflect.Proxy
 import javax.sql.DataSource
-import kotlin.time.Duration.Companion.seconds
 
 @IntegrationTest
 class FoodViewLogTest : BehaviorSpec() {
@@ -29,6 +29,10 @@ class FoodViewLogTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var dataSource: DataSource
+
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private lateinit var taskExecutor: ThreadPoolTaskExecutor
 
     @Autowired
     private lateinit var foodRepository: FoodJpaRepository
@@ -81,7 +85,8 @@ class FoodViewLogTest : BehaviorSpec() {
 
                     view(foodId, token).andExpect { status { isOk() } }
 
-                    eventually(5.seconds) { countByFood(foodId, 7101L) shouldBe 1 }
+                    BackgroundTasks.drain(taskExecutor)
+                    countByFood(foodId, 7101L) shouldBe 1
                 }
             }
 
@@ -91,7 +96,8 @@ class FoodViewLogTest : BehaviorSpec() {
 
                     view(foodId).andExpect { status { isOk() } }
 
-                    eventually(5.seconds) { countByFood(foodId, null) shouldBe 1 }
+                    BackgroundTasks.drain(taskExecutor)
+                    countByFood(foodId, null) shouldBe 1
                 }
             }
 
@@ -102,7 +108,8 @@ class FoodViewLogTest : BehaviorSpec() {
 
                     repeat(3) { view(foodId, token).andExpect { status { isOk() } } }
 
-                    eventually(5.seconds) { countByFood(foodId, 7102L) shouldBe 3 }
+                    BackgroundTasks.drain(taskExecutor)
+                    countByFood(foodId, 7102L) shouldBe 3
                 }
             }
 
@@ -112,7 +119,8 @@ class FoodViewLogTest : BehaviorSpec() {
 
                     view(missingFoodId).andExpect { status { isBadRequest() } }
 
-                    continually(1.seconds) { countByFood(missingFoodId, null) shouldBe 0 }
+                    BackgroundTasks.drain(taskExecutor)
+                    countByFood(missingFoodId, null) shouldBe 0
                 }
             }
         }
