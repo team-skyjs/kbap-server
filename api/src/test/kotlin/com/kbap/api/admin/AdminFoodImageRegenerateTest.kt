@@ -262,6 +262,21 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("교체 엔드포인트에 ADDITIONAL 의도를 보내면") {
+                then("400 으로 거절하고 음식 상태·배치 항목·벡터 아웃박스가 그대로다 — 후보 추가는 images/generate 로만") {
+                    val food = saveFood("추가의도거절음식")
+
+                    regenerate(food.id, body = mapOf("intent" to "ADDITIONAL")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                    itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                    vectorOutboxRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                }
+            }
+
             `when`("사유가 500자를 넘으면") {
                 then("400 으로 거절한다") {
                     val food = saveFood("긴사유음식")

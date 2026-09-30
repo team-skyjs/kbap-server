@@ -111,7 +111,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findDeletedById(id)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id)) }
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional
@@ -137,7 +137,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findById(id).orElse(null)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id)) }
+            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)

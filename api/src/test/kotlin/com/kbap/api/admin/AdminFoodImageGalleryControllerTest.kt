@@ -117,6 +117,91 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
         fun detail(foodId: Long): ResultActionsDsl =
             mockMvc.get("/api/admin/foods/$foodId") { header("Authorization", "Bearer ${adminToken()}") }
 
+        fun generate(foodId: Long): ResultActionsDsl =
+            mockMvc.post("/api/admin/foods/$foodId/images/generate") { header("Authorization", "Bearer ${adminToken()}") }
+
+        fun lastItemIntent(foodId: Long): String? = dataSource.connection.use { c ->
+            c.prepareStatement("SELECT regeneration_intent FROM image_batch_item WHERE food_id = ? ORDER BY id DESC LIMIT 1").use { ps ->
+                ps.setLong(1, foodId)
+                ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+            }
+        }
+
+        given("후보 이미지 추가 생성 — POST /api/admin/foods/{id}/images/generate") {
+            `when`("READY 음식에 요청하면") {
+                then("상태·대표는 그대로, ADDITIONAL 항목이 생기고 갤러리·상세에 additionalInProgress=true, regeneration 은 null") {
+                    val food = saveFood("추가생성음식", "images/webp/primary.webp")
+                    saveImage(food.id, "images/webp/primary.webp", isPrimary = true, sortOrder = 0)
+
+                    val payload = payloadOf(generate(food.id).andExpect { status { isOk() } })
+
+                    payload.path("contentStatus").asText() shouldBe "READY"
+                    lastItemIntent(food.id) shouldBe "ADDITIONAL"
+                    val gallery = payloadOf(gallery(food.id))
+                    gallery.path("contentStatus").asText() shouldBe "READY"
+                    gallery.path("additionalInProgress").asBoolean() shouldBe true
+                    gallery.path("regeneration").isNull.shouldBeTrue()
+                    gallery.path("items")[0].path("isPrimary").asBoolean() shouldBe true
+                    gallery.path("items")[0].path("imageKey").asText() shouldBe "images/webp/primary.webp"
+                    payloadOf(detail(food.id)).path("additionalInProgress").asBoolean() shouldBe true
+                    foodRepository.findById(food.id).get().imageRef shouldBe "images/webp/primary.webp"
+                }
+            }
+
+            `when`("READY 가 아닌 음식에 요청하면") {
+                then("409 FOOD-011 이다") {
+                    val food = saveFood("비공개추가음식", "images/webp/x.webp", FoodContentStatus.PENDING_REVIEW)
+                    generate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-011") }
+                    }
+                }
+            }
+
+            `when`("추가 생성이 진행 중인 음식에 다시 요청하면") {
+                then("409 FOOD-019 이고 항목은 하나뿐이다") {
+                    val food = saveFood("중복추가음식", "images/webp/y.webp")
+                    generate(food.id).andExpect { status { isOk() } }
+
+                    generate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-019") }
+                    }
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT COUNT(*) FROM image_batch_item WHERE food_id = ?").use { ps ->
+                            ps.setLong(1, food.id); ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+                        }
+                    } shouldBe 1L
+                }
+            }
+
+            `when`("추가 생성이 실패하면") {
+                then("음식은 READY·대표 그대로, additionalInProgress=false, regeneration 은 여전히 null 이다 — 재생성 상태에 섞이지 않는다") {
+                    val food = saveFood("추가실패음식", "images/webp/z.webp")
+                    generate(food.id).andExpect { status { isOk() } }
+                    failLastItem(food.id)
+
+                    val gallery = payloadOf(gallery(food.id))
+                    gallery.path("contentStatus").asText() shouldBe "READY"
+                    gallery.path("additionalInProgress").asBoolean() shouldBe false
+                    gallery.path("regeneration").isNull.shouldBeTrue()
+                    foodRepository.findById(food.id).get().imageRef shouldBe "images/webp/z.webp"
+                }
+            }
+
+            `when`("추가 생성이 진행 중인 음식을 재생성하려 하면") {
+                then("409 IMAGE-004 — 음식당 진행 중 배치 항목은 하나뿐이다") {
+                    val food = saveFood("추가중재생성음식", "images/webp/w.webp")
+                    generate(food.id).andExpect { status { isOk() } }
+
+                    regenerate(food.id, "WRONG_IMAGE").andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("IMAGE-004") }
+                    }
+                }
+            }
+        }
+
         given("갤러리의 마지막 재생성 상태") {
             `when`("재생성 이력이 없으면") {
                 then("regeneration 이 null 이다") {

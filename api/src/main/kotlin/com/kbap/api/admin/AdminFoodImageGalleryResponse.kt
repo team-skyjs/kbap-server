@@ -20,6 +20,9 @@ data class AdminFoodImageGalleryResponse(
     )
     val regeneration: AdminRegenerationStateResponse?,
 
+    @field:Schema(description = "추가 이미지 생성(ADDITIONAL)이 진행 중인지. true 면 이 음식에 다시 요청하면 409(FOOD-019). 공개 상태·대표는 그대로다", example = "false")
+    val additionalInProgress: Boolean,
+
     @field:Schema(description = "이미지 목록. 소프트 삭제된 이미지는 제외되며 없으면 빈 배열")
     val items: List<Item>,
 ) {
@@ -48,6 +51,7 @@ data class AdminFoodImageGalleryResponse(
                 version = result.version,
                 contentStatus = result.contentStatus,
                 regeneration = result.regeneration,
+                additionalInProgress = result.additionalInProgress,
                 items = result.items.map {
                     Item(
                         id = it.id,

@@ -27,4 +27,10 @@ interface FoodImageJpaRepository : JpaRepository<FoodImage, Long> {
     fun findByFoodIdAndIsPrimaryTrue(foodId: Long): FoodImage?
 
     fun findByFoodIdOrderBySortOrderAscIdAsc(foodId: Long): List<FoodImage>
+
+    fun appendCandidate(foodId: Long, imageKey: String): FoodImage {
+        findByFoodIdAndImageKey(foodId, imageKey)?.let { return it }
+        val last = findByFoodIdOrderBySortOrderAscIdAsc(foodId).maxOfOrNull { it.sortOrder } ?: -1
+        return save(FoodImage(foodId = foodId, imageKey = imageKey, isPrimary = false, sortOrder = last + 1))
+    }
 }

@@ -41,6 +41,8 @@ data class AdminFoodDetailResponse(
     val humanReview: HumanReviewResponse?,
     @field:Schema(description = "마지막 이미지 재생성 상태(갤러리 응답과 같은 값). 이력 없음·마지막 성공이면 null", nullable = true)
     val regeneration: AdminRegenerationStateResponse?,
+    @field:Schema(description = "추가 이미지 생성이 진행 중인지(갤러리 응답과 같은 값)", example = "false")
+    val additionalInProgress: Boolean,
 ) {
     companion object {
         fun from(
@@ -48,6 +50,7 @@ data class AdminFoodDetailResponse(
             imagePublicBaseUrl: String,
             humanReview: HumanReviewResponse?,
             regeneration: AdminRegenerationStateResponse?,
+            additionalInProgress: Boolean,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -72,6 +75,7 @@ data class AdminFoodDetailResponse(
                 updatedAt = food.updatedAt,
                 humanReview = humanReview,
                 regeneration = regeneration,
+                additionalInProgress = additionalInProgress,
             )
     }
 }

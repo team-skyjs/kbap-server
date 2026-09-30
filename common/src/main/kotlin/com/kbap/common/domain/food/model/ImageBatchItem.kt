@@ -42,6 +42,8 @@ class ImageBatchItem(
 ) : BaseEntity() {
     fun restoresPublicationOnFailure(): Boolean = regenerationIntent == RegenerationIntent.REPLACE_BETTER
 
+    fun isAdditional(): Boolean = regenerationIntent == RegenerationIntent.ADDITIONAL
+
     fun done(fileName: String) {
         this.itemStatus = ImageBatchItemStatus.DONE
         this.fileName = fileName

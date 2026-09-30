@@ -13,9 +13,15 @@ WRONG_IMAGE: 지금 이미지가 잘못됨. 실패해도 숨긴 채 유지.
 **누락 시 WRONG_IMAGE 와 동일하게 동작한다.** 기존 어드민이 이 값 없이 호출하므로 지금은 선택이며, 어드민 KB-621 배포 후 필수로 전환한다 — 그 전에 필수로 올리면 기존 어드민이 400 으로 깨진다.""",
         example = "REPLACE_BETTER",
     )
-    val intent: RegenerationIntent? = null,
+    val intent: Intent? = null,
 
     @field:Size(max = 500, message = "reason 은 500자 이하여야 합니다")
     @field:Schema(description = "재생성 사유(선택, 500자 이하)", example = "배경이 어두워 음식이 잘 안 보임")
     val reason: String? = null,
-)
+) {
+    @Schema(description = "교체 엔드포인트가 받는 의도. ADDITIONAL(후보 추가)은 별도 엔드포인트 POST …/images/generate 로만 만든다", enumAsRef = true)
+    enum class Intent(val domain: RegenerationIntent) {
+        REPLACE_BETTER(RegenerationIntent.REPLACE_BETTER),
+        WRONG_IMAGE(RegenerationIntent.WRONG_IMAGE),
+    }
+}

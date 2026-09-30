@@ -3,7 +3,9 @@ package com.kbap.api.admin
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.ImageBatchItem
 import com.kbap.common.domain.food.model.ImageBatchItemStatus
+import com.kbap.common.domain.food.model.RegenerationIntent
 import io.swagger.v3.oas.annotations.media.Schema
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,7 +16,11 @@ class RegenerationStateResolver(
 ) {
     @Transactional(readOnly = true)
     fun of(foodId: Long): AdminRegenerationStateResponse? =
-        itemRepository.findTopByFoodIdOrderByIdDesc(foodId)?.let(::stateOf)
+        itemRepository.findRegenerationHistory(foodId, PageRequest.of(0, 1)).firstOrNull()?.let(::stateOf)
+
+    @Transactional(readOnly = true)
+    fun isAdditionalInProgress(foodId: Long): Boolean =
+        itemRepository.existsByFoodIdAndRegenerationIntentAndItemStatus(foodId, RegenerationIntent.ADDITIONAL, ImageBatchItemStatus.PENDING)
 
     private fun stateOf(item: ImageBatchItem): AdminRegenerationStateResponse? {
         val state = when (item.itemStatus) {
@@ -31,7 +37,7 @@ class RegenerationStateResolver(
     }
 }
 
-@Schema(description = "마지막 이미지 생성 배치 항목 기준의 재생성 상태. 이력이 없거나 마지막이 성공(DONE)이면 null")
+@Schema(description = "마지막 이미지 재생성 배치 항목 기준의 상태(추가 생성 ADDITIONAL 은 제외 — additionalInProgress 로 본다). 이력이 없거나 마지막이 성공(DONE)이면 null")
 data class AdminRegenerationStateResponse(
     @field:Schema(description = "IN_PROGRESS = 배치 진행 중(음식은 PENDING_IMAGE 로 숨김) · FAILED = 마지막 생성 실패", example = "FAILED")
     val state: State,

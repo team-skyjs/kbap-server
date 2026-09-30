@@ -68,6 +68,29 @@ class AdminFoodImageService(
         )
     }
 
+    fun generateAdditionalImage(foodId: Long): AdminFoodImageRegenerateResult {
+        val claim = try {
+            transaction.execute {
+                val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+                if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+                if (regenerationStateResolver.isAdditionalInProgress(foodId)) {
+                    throw BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS)
+                }
+                batchSubmitService.claimOne(target, RegenerationIntent.ADDITIONAL, null)
+            }!!
+        } catch (e: BusinessException) {
+            throw if (e.errorCode == ErrorCode.IMAGE_BATCH_IN_PROGRESS) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+        } catch (e: RuntimeException) {
+            throw if (regenerationStateResolver.isAdditionalInProgress(foodId)) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+        }
+        batchSubmitService.submitClaimed(claim)
+        return AdminFoodImageRegenerateResult(
+            foodId = foodId,
+            contentStatus = claim.foods.single().contentStatus.name,
+            batchItemId = claim.itemId,
+        )
+    }
+
     private fun claimForRegeneration(foodId: Long, intent: RegenerationIntent?, reason: String?): FoodImageBatchClaim = try {
         transaction.execute {
             val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
@@ -126,6 +149,7 @@ class AdminFoodImageService(
             version = food.version,
             contentStatus = food.contentStatus.name,
             regeneration = regenerationStateResolver.of(food.id),
+            additionalInProgress = regenerationStateResolver.isAdditionalInProgress(food.id),
             items = items,
         )
     }
@@ -142,6 +166,7 @@ data class AdminFoodImageGalleryResult(
     val version: Long,
     val contentStatus: String,
     val regeneration: AdminRegenerationStateResponse?,
+    val additionalInProgress: Boolean,
     val items: List<Item>,
 ) {
     data class Item(
