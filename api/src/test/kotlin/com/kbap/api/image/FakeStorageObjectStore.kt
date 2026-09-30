@@ -7,9 +7,10 @@ import org.springframework.context.annotation.Configuration
 
 // 테스트용 페이크 스토리지 — 실 S3 없이 head 응답을 주입하고 delete 호출을 기록한다.
 class FakeStorageObjectStore : StorageObjectStore {
-    val heads: MutableMap<String, StorageObjectMetadata> = mutableMapOf()
-    val deleted: MutableList<String> = mutableListOf()
-    val headCalls: MutableList<String> = mutableListOf()
+    val heads: MutableMap<String, StorageObjectMetadata> = java.util.concurrent.ConcurrentHashMap()
+    val deleted: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+    val headCalls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+    @Volatile var headDelayMillis: Long = 0
 
     fun stub(path: String, contentType: String, sizeBytes: Long) {
         heads[path] = StorageObjectMetadata(contentType, sizeBytes)
@@ -20,6 +21,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     }
 
     override fun head(path: String): StorageObjectMetadata? {
+        if (headDelayMillis > 0) Thread.sleep(headDelayMillis)
         headCalls.add(path)
         return heads[path]
     }

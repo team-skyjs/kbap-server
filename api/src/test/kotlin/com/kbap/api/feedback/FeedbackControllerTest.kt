@@ -272,6 +272,29 @@ class FeedbackControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("카운터(Redis)가 비어 있는데 DB 엔 직전 24시간 문의가 17건 있는 기기에서 10건이 한꺼번에 오면") {
+                then("남은 3건만 저장된다 — 빈 카운터가 한도 전체를 새로 내주지 않는다") {
+                    val installation = "quota-seeded-0001"
+                    repeat(17) {
+                        feedbackRepository.save(com.kbap.common.domain.feedback.model.Feedback.of(null, installation, "이전 문의 $it", null, null, null))
+                    }
+                    redisTemplate.keys("feedback:quota:*").takeIf { it.isNotEmpty() }?.let { redisTemplate.delete(it) }
+                    val gate = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newFixedThreadPool(10)
+                    val responses = (1..10).map { i ->
+                        executor.submit<Int> { gate.await(); submit(installationId = installation, body = mapOf("content" to "동시 문의 $i")).andReturn().response.status }
+                    }
+                    executor.shutdown()
+                    gate.countDown()
+                    val statuses = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                    statuses.count { it == 201 } shouldBe 3
+                    statuses.count { it == 429 } shouldBe 7
+                    feedbackRepository.countByInstallationIdAndCreatedAtAfter(installation, java.time.LocalDateTime.now().minusDays(1)) shouldBe
+                        FeedbackService.DAILY_LIMIT.toLong()
+                }
+            }
+
             `when`("저장에 실패한 요청이 한도만큼 있었으면") {
                 then("한도를 쓰지 않는다 — 실패한 요청은 카운터를 되돌려, 뒤의 정상 문의 20건이 모두 저장된다") {
                     val installation = "quota-release-0001"
@@ -291,11 +314,11 @@ class FeedbackControllerTest : BehaviorSpec() {
             `when`("한도 카운터(Redis)를 쓸 수 없으면") {
                 then("문의 창구를 닫지 않고 DB 건수로 판정한다 — 19건이면 통과, 20건이면 429") {
                     val installation = "quota-fallback-0001"
-                    val unavailable = object : com.kbap.common.port.feedback.FeedbackQuotaStore {
-                        override fun tryAcquire(installationId: String, requestId: String, limit: Int, window: java.time.Duration): Boolean =
+                    val unavailable = object : com.kbap.common.port.quota.InstallationQuotaStore {
+                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration, recordedAtMillis: List<Long>): Boolean =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
 
-                        override fun release(installationId: String, requestId: String) =
+                        override fun release(scope: String, installationId: String, requestId: String) =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
                     }
                     val service = FeedbackService(feedbackRepository, replyRepository, uploadedImageService, unavailable, transactionManager, "")
