@@ -273,6 +273,10 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     metrics.contentOutboxStuckCount shouldBe 1
                     metrics.contentOutboxDeadCount shouldBe 1
+                }
+            }
+        }
+
         given("대시보드 지표 - 미참조 업로드 건수") {
             class RecordingCleanup(private val fail: () -> Boolean) : UploadedImageCleanupService(
                 uploadedImageJpaRepository,
