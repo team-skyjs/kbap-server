@@ -11,8 +11,6 @@ import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.notification.model.NotificationDevice
 import com.kbap.common.domain.notification.model.NotificationSetting
 import com.kbap.common.port.auth.TokenIssuer
-import io.kotest.assertions.nondeterministic.continually
-import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -22,12 +20,14 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import com.kbap.api.BackgroundTasks
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
 import java.util.concurrent.atomic.AtomicLong
 import javax.sql.DataSource
-import kotlin.time.Duration.Companion.seconds
 
 @IntegrationTest
 class ReviewLikeControllerTest : BehaviorSpec() {
@@ -35,6 +35,10 @@ class ReviewLikeControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
+
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private lateinit var taskExecutor: ThreadPoolTaskExecutor
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -263,8 +267,10 @@ class ReviewLikeControllerTest : BehaviorSpec() {
             }
         }
 
-        suspend fun sentEventually(count: Int) = eventually(5.seconds) { fakePushClient.sent shouldHaveSize count }
-        suspend fun sentStays(count: Int) = continually(1.seconds) { fakePushClient.sent shouldHaveSize count }
+        fun sentAfterBackground(count: Int) {
+            BackgroundTasks.drain(taskExecutor)
+            fakePushClient.sent shouldHaveSize count
+        }
 
         given("좋아요 알림") {
             `when`("활동 알림을 켠 작성자의 리뷰에 다른 회원이 좋아요를 등록하면") {
@@ -274,7 +280,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("작성자 기기로 activity 채널 HELPFUL 푸시가 가고 알림함·발송 이력이 남는다") {
                     like(reviewId, accessToken(8202L)).andExpect { status { isOk() } }
-                    sentEventually(1)
+                    sentAfterBackground(1)
                     val message = fakePushClient.sent.single()
                     message.to shouldBe "ExponentPushToken[$author-en]"
                     message.channelId shouldBe "activity"
@@ -294,7 +300,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("기기마다 한 건씩 간다") {
                     like(reviewId, accessToken(8204L)).andExpect { status { isOk() } }
-                    sentEventually(2)
+                    sentAfterBackground(2)
                     fakePushClient.sent.map { it.to }.toSet() shouldHaveSize 2
                     helpfulRows(author) shouldBe 2
                 }
@@ -303,7 +309,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(999998L, accessToken(8205L)).andExpect { status { isBadRequest() } }
-                    sentStays(0)
+                    sentAfterBackground(0)
                 }
             }
             `when`("작성자 본인이 자기 리뷰에 좋아요를 등록하면") {
@@ -313,7 +319,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(reviewId, accessToken(author)).andExpect { status { isOk() } }
-                    sentStays(0)
+                    sentAfterBackground(0)
                     helpfulRows(author) shouldBe 0
                 }
             }
@@ -324,7 +330,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     unlike(reviewId, accessToken(8213L)).andExpect { status { isOk() } }
-                    sentStays(0)
+                    sentAfterBackground(0)
                 }
             }
             `when`("이미 좋아요한 리뷰에 다시 등록하면") {
@@ -335,9 +341,9 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 then("첫 등록에만 알림이 가고 재호출엔 가지 않는다") {
                     val token = accessToken(8215L)
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentEventually(1)
+                    sentAfterBackground(1)
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentStays(1)
+                    sentAfterBackground(1)
                 }
             }
             `when`("같은 리뷰에 다른 회원이 잇달아 좋아요를 등록하면") {
@@ -347,9 +353,9 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("묶지 않고 각각 알림이 간다") {
                     like(reviewId, accessToken(8222L)).andExpect { status { isOk() } }
-                    sentEventually(1)
+                    sentAfterBackground(1)
                     like(reviewId, accessToken(8223L)).andExpect { status { isOk() } }
-                    sentEventually(2)
+                    sentAfterBackground(2)
                     helpfulRows(author) shouldBe 2
                 }
             }
@@ -360,7 +366,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("알림은 만들어지지 않는다") {
                     like(reviewId, accessToken(8217L)).andExpect { status { isOk() } }
-                    sentStays(0)
+                    sentAfterBackground(0)
                     helpfulRows(author) shouldBe 0
                 }
             }
@@ -370,7 +376,7 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 fakePushClient.reset()
                 then("알림함 행도 만들어지지 않는다") {
                     like(reviewId, accessToken(8219L)).andExpect { status { isOk() } }
-                    sentStays(0)
+                    sentAfterBackground(0)
                     helpfulRows(author) shouldBe 0
                 }
             }
@@ -385,13 +391,13 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                 then("첫 등록에만 알림이 가고 재등록엔 가지 않는다") {
                     val token = accessToken(8225L)
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentEventually(1)
+                    sentAfterBackground(1)
                     unlike(reviewId, token).andExpect { status { isOk() } }
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentStays(1)
+                    sentAfterBackground(1)
                     unlike(reviewId, token).andExpect { status { isOk() } }
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentStays(1)
+                    sentAfterBackground(1)
                     helpfulRows(author) shouldBe 1
                 }
             }
@@ -404,11 +410,11 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                     val liker = 8227L
                     val token = accessToken(liker)
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentEventually(1)
+                    sentAfterBackground(1)
                     unlike(reviewId, token).andExpect { status { isOk() } }
                     ageLikeRow(reviewId, liker, minutes = 6)
                     like(reviewId, token).andExpect { status { isOk() } }
-                    sentEventually(2)
+                    sentAfterBackground(2)
                 }
             }
         }
