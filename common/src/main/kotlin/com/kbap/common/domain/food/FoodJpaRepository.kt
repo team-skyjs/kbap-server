@@ -34,6 +34,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(value = "SELECT * FROM food WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Food?
 
+    @Query(value = "SELECT * FROM food WHERE id = :id FOR UPDATE", nativeQuery = true)
+    fun findAnyByIdForUpdate(@Param("id") id: Long): Food?
+
     @Query(
         value = """
             SELECT * FROM food

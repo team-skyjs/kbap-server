@@ -176,7 +176,7 @@ class ModuleBoundaryTest : BehaviorSpec({
                 noClasses().that().resideOutsideOfPackage("com.kbap.api.admin..")
                     .should().callMethodWhere(
                         JavaCall.Predicates.target(
-                            HasName.Predicates.nameMatching("findAnyById|findDeletedById|findDeletedPage"),
+                            HasName.Predicates.nameMatching("findAnyById|findAnyByIdForUpdate|findDeletedById|findDeletedPage"),
                         ),
                     )
                     .check(imported)

@@ -33,7 +33,7 @@ class AdminFoodContentReviewService(
         passed: Boolean,
         reason: String?,
     ): AdminFoodContentReviewResultResponse {
-        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        val food = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         if (passed) {
             if (food.approve()) {
                 vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
