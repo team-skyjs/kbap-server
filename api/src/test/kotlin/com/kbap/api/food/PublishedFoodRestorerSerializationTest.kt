@@ -43,27 +43,34 @@ class PublishedFoodRestorerSerializationTest : BehaviorSpec() {
         )
 
         given("교체 재생성 실패로 같은 음식의 공개를 되돌리는 두 트랜잭션") {
-            `when`("둘 다 음식을 읽은 뒤에 함께 커밋하면") {
-                then("교착 없이 둘 다 끝나고 음식은 READY, UPSERT 아웃박스는 대기 1건이다 — 음식 행을 먼저 잠가 직렬화한다") {
+            `when`("앞 트랜잭션이 음식을 읽고 아웃박스를 넣은 채 커밋을 미루는 동안 뒤 트랜잭션이 같은 음식을 되돌리면") {
+                then("교착 없이 앞 뒤로 직렬화돼 둘 다 끝나고 음식은 READY, UPSERT 아웃박스는 대기 1건이다 — 음식 행을 먼저 잠근다") {
                     val food = foodRepository.save(
                         Food(koreanName = "복원직렬화음식", description = "설명", imageRef = "images/webp/restore.webp", contentStatus = FoodContentStatus.PENDING_IMAGE),
                     )
-                    val bothRead = CountDownLatch(2)
-                    val executor = Executors.newFixedThreadPool(2)
-                    val runs = (1..2).map {
-                        executor.submit {
-                            TransactionTemplate(transactionManager).executeWithoutResult {
-                                restorer.restoreFailed(listOf(failedReplacement(food.id)))
-                                bothRead.countDown()
-                                bothRead.await(10, TimeUnit.SECONDS)
-                            }
+                    val firstHolds = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor()
+                    val first = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            restorer.restoreFailed(listOf(failedReplacement(food.id)))
+                            firstHolds.countDown()
+                            Thread.sleep(1_500)
                         }
                     }
                     executor.shutdown()
+                    firstHolds.await(30, TimeUnit.SECONDS) shouldBe true
 
-                    val failures = runs.mapNotNull { runCatching { it.get(60, TimeUnit.SECONDS) }.exceptionOrNull() }
+                    val startedAt = System.nanoTime()
+                    val secondFailure = runCatching {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            restorer.restoreFailed(listOf(failedReplacement(food.id)))
+                        }
+                    }.exceptionOrNull()
+                    val secondMillis = (System.nanoTime() - startedAt) / 1_000_000
+                    val firstFailure = runCatching { first.get(30, TimeUnit.SECONDS) }.exceptionOrNull()
 
-                    failures.map { it.cause?.javaClass?.simpleName ?: it.javaClass.simpleName } shouldBe emptyList()
+                    listOfNotNull(firstFailure?.cause ?: firstFailure, secondFailure).map { it.javaClass.simpleName } shouldBe emptyList()
+                    (secondMillis in 500..10_000) shouldBe true
                     foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.READY
                     vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 1
                 }
