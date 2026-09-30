@@ -286,6 +286,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                 7,
                 true,
                 100,
+                100,
                 transactionManager,
             ) {
                 var countQueries = 0

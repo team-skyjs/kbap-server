@@ -21,6 +21,7 @@ class UploadedImageCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.retention-days:7}") private val retentionDays: Long,
     @Value("\${kbap.uploaded-image-cleanup.dry-run:true}") private val dryRun: Boolean,
     @Value("\${kbap.uploaded-image-cleanup.page-size:100}") private val pageSize: Int,
+    @Value("\${kbap.uploaded-image-cleanup.max-per-run:100}") private val maxPerRun: Int,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -42,9 +43,11 @@ class UploadedImageCleanupService(
         var deleted = 0
         var failed = 0
         var afterId = 0L
-        while (true) {
-            val ids = uploadedImageRepository.findOrphanIds(before, afterId, pageSize)
+        var attempted = 0
+        while (attempted < maxPerRun) {
+            val ids = uploadedImageRepository.findOrphanIds(before, afterId, minOf(pageSize, maxPerRun - attempted))
             if (ids.isEmpty()) break
+            attempted += ids.size
             ids.forEach { id ->
                 when (deleteOne(id, before)) {
                     DeleteOutcome.DELETED -> deleted++
@@ -58,6 +61,9 @@ class UploadedImageCleanupService(
             log.warn("미참조 업로드 정리 — {}건 삭제, {}건 실패(행은 ACTIVE 로 남아 다음 실행에서 다시 시도한다)", deleted, failed)
         } else {
             log.info("미참조 업로드 정리 — {}건 삭제", deleted)
+        }
+        if (attempted >= maxPerRun) {
+            log.info("미참조 업로드 정리 — 실행당 상한 {}건에 닿았다. 남은 대상은 다음 실행에서 이어 간다", maxPerRun)
         }
         refreshOrphanCounts()
         return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted, failedCount = failed)

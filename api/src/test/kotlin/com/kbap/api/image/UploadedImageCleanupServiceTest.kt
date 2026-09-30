@@ -42,8 +42,8 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         val foodId = 7101L
         val storage = FakeStorageObjectStore()
 
-        fun cleanupService(dryRun: Boolean = false, pageSize: Int = 100) =
-            UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, transactionManager)
+        fun cleanupService(dryRun: Boolean = false, pageSize: Int = 100, maxPerRun: Int = 100) =
+            UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager)
 
         fun exec(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
@@ -272,6 +272,34 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     cleanupService(pageSize = 2).cleanup().deletedCount shouldBe 5
 
                     activePaths().shouldBeEmpty()
+                }
+            }
+        }
+
+        given("실행당 상한") {
+            `when`("대상이 실행당 상한보다 많으면") {
+                then("상한까지만 지우고 멈춘다 — 남은 대상은 다음 실행이 이어서 지운다") {
+                    reset()
+                    (1..5).forEach { upload("dev/images/community/cap$it.webp") }
+
+                    cleanupService(pageSize = 2, maxPerRun = 3).cleanup().deletedCount shouldBe 3
+                    activePaths().size shouldBe 2
+
+                    cleanupService(pageSize = 2, maxPerRun = 3).cleanup().deletedCount shouldBe 2
+                    activePaths().shouldBeEmpty()
+                }
+            }
+
+            `when`("삭제가 전부 실패해도") {
+                then("상한만큼만 시도한다 — 실패한 항목이 상한을 비켜 가지 않는다") {
+                    reset()
+                    (1..5).forEach { upload("dev/images/community/capfail$it.webp") }
+                    storage.failDeletes = true
+
+                    val result = cleanupService(pageSize = 2, maxPerRun = 3).cleanup()
+
+                    result.deletedCount shouldBe 0
+                    result.failedCount shouldBe 3
                 }
             }
         }

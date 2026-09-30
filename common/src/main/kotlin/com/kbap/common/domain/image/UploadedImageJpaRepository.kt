@@ -66,7 +66,9 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
                 "and not exists (select 1 from member m " +
                 "where right(m.profile_image_url, char_length(u.object_path)) collate utf8mb4_0900_ai_ci = u.object_path) " +
                 "and not exists (select 1 from orders o " +
-                "where right(o.image_path, char_length(u.object_path)) = u.object_path)"
+                "where right(o.image_path, char_length(u.object_path)) = u.object_path) " +
+                "and not exists (select 1 from order_item oi " +
+                "where right(oi.image_path, char_length(u.object_path)) = u.object_path)"
 
         const val ORPHAN =
             "u.status = 'ACTIVE' and u.created_at < :before and $CLEANUP_PURPOSE and $UNREFERENCED"
