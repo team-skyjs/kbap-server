@@ -116,6 +116,7 @@ class Member(
         profileImageUrl: String? = null,
         currency: String? = null,
     ) {
+        requireAssignableProfileImage(profileImageUrl)
         updateProfile(
             profile.updatedWith(
                 nickname = nickname,
@@ -127,6 +128,14 @@ class Member(
                 currency = currency,
             ),
         )
+    }
+
+    private fun requireAssignableProfileImage(requested: String?) {
+        val path = requested?.trim()?.trimStart('/') ?: return
+        if (path == profileImageUrl) return
+        if (!ProfileImagePaths.isAssignableTo(id, path)) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
     }
 
     fun completeOnboarding(
