@@ -12,7 +12,44 @@ import org.springframework.web.bind.annotation.RestController
 // 테스트 전용 컨트롤러 — 테스트 소스셋에만 존재하며 루트 컴포넌트 스캔(com.kbap)이 테스트 컨텍스트에서만 등록한다.
 @RestController
 @RequestMapping(ApiPaths.API + "/test-logging")
-class LoggingTestController {
+class LoggingTestController(
+    private val foodRepository: com.kbap.common.domain.food.FoodJpaRepository,
+    transactionManager: org.springframework.transaction.PlatformTransactionManager,
+    private val jdbcTemplate: org.springframework.jdbc.core.JdbcTemplate,
+) {
+    private val transaction = org.springframework.transaction.support.TransactionTemplate(transactionManager)
+    private val bothHoldFirstLock = java.util.concurrent.CyclicBarrier(2)
+
+    @GetMapping("/lock-conflict-wrapped")
+    fun lockConflictWrapped(): ResponseEntity<BaseResponse<String>> =
+        throw IllegalStateException("감싼 예외", org.springframework.dao.CannotAcquireLockException("잠금 대기 초과"))
+
+    @GetMapping("/lock-wait")
+    fun lockWait(@org.springframework.web.bind.annotation.RequestParam id: Long): ResponseEntity<BaseResponse<String>> {
+        transaction.executeWithoutResult {
+            jdbcTemplate.execute("SET SESSION innodb_lock_wait_timeout = 1")
+            try {
+                foodRepository.findByIdForUpdate(id)
+            } finally {
+                jdbcTemplate.execute("SET SESSION innodb_lock_wait_timeout = DEFAULT")
+            }
+        }
+        return ResponseEntity.ok(BaseResponse.ok("ok"))
+    }
+
+    @GetMapping("/lock-both")
+    fun lockBoth(
+        @org.springframework.web.bind.annotation.RequestParam first: Long,
+        @org.springframework.web.bind.annotation.RequestParam second: Long,
+    ): ResponseEntity<BaseResponse<String>> {
+        transaction.executeWithoutResult {
+            foodRepository.findByIdForUpdate(first)
+            bothHoldFirstLock.await(20, java.util.concurrent.TimeUnit.SECONDS)
+            foodRepository.findByIdForUpdate(second)
+        }
+        return ResponseEntity.ok(BaseResponse.ok("ok"))
+    }
+
     @GetMapping("/ok")
     fun ok(): ResponseEntity<BaseResponse<String>> = ResponseEntity.ok(BaseResponse.ok("ok"))
 

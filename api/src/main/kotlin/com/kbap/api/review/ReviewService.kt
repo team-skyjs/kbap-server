@@ -124,8 +124,9 @@ class ReviewService(
         val review = reviewRepository.findById(reviewId)
             .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         val existingLike = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
-        reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
-        val isNewLike = existingLike?.countsAsNewLikeAt(LocalDateTime.now()) ?: true
+        val now = LocalDateTime.now()
+        reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId, now = now)
+        val isNewLike = existingLike?.countsAsNewLikeAt(now) ?: true
         if (isNewLike && !review.isOwnedBy(memberId)) {
             eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
         }

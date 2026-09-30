@@ -18,14 +18,15 @@ interface ReviewLikeJpaRepository : JpaRepository<ReviewLike, Long> {
     @Query(
         value = """
             INSERT INTO review_like (review_id, member_id, status, created_at, updated_at)
-            VALUES (:reviewId, :memberId, 'ACTIVE', NOW(6), NOW(6))
-            ON DUPLICATE KEY UPDATE status = 'ACTIVE', updated_at = NOW(6)
+            VALUES (:reviewId, :memberId, 'ACTIVE', :now, :now)
+            ON DUPLICATE KEY UPDATE status = 'ACTIVE', updated_at = :now
         """,
         nativeQuery = true,
     )
     fun upsertActive(
         @Param("reviewId") reviewId: Long,
         @Param("memberId") memberId: Long,
+        @Param("now") now: java.time.LocalDateTime,
     )
 
     fun findByReviewIdAndMemberId(reviewId: Long, memberId: Long): ReviewLike?

@@ -27,7 +27,7 @@ class ReviewLikeJpaRepositoryTest : BehaviorSpec() {
 
     init {
         fun upsertActive(reviewId: Long, memberId: Long): Unit =
-            transactionTemplate.executeWithoutResult { reviewLikeRepository.upsertActive(reviewId, memberId) }
+            transactionTemplate.executeWithoutResult { reviewLikeRepository.upsertActive(reviewId, memberId, java.time.LocalDateTime.now()) }
 
         given("upsertActive — 좋아요 등록") {
             `when`("처음 등록하면") {
