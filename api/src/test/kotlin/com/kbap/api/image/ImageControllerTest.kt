@@ -120,6 +120,43 @@ class ImageControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("카운터(Redis)가 비어 있는데 DB 엔 직전 24시간 업로드가 7건 있는 기기에서 10건이 한꺼번에 완료 신고하면") {
+                then("남은 3건만 기록된다 — 빈 카운터가 한도 전체를 새로 내주지 않고 이미 기록된 건수에서 시작한다") {
+                    resetGuestQuota()
+                    val installation = "upload-quota-seeded"
+                    val recordedAt = java.time.LocalDateTime.now().minusHours(1)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO uploaded_image (installation_id, object_path, content_type, size_bytes, status, created_at, updated_at) " +
+                                "VALUES (?, ?, 'image/webp', 1024, 'ACTIVE', ?, ?)",
+                        ).use { ps ->
+                            repeat(7) { i ->
+                                ps.setString(1, installation); ps.setString(2, guestPath("seeded-old-$i"))
+                                ps.setObject(3, recordedAt); ps.setObject(4, recordedAt); ps.addBatch()
+                            }
+                            ps.executeBatch()
+                        }
+                    }
+                    val paths = (1..10).map { guestPath("seeded-new-$it") }
+                    paths.forEach { storage.stub(it, "image/webp", 1024) }
+                    storage.headDelayMillis = 30
+                    try {
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(10)
+                        val responses = paths.map { path -> executor.submit<Pair<Int, String>> { gate.await(); guestComplete(installation, path) } }
+                        executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                        outcomes.count { it.first == 200 } shouldBe 3
+                        outcomes.filter { it.first != 200 }.toSet() shouldBe setOf(429 to "IMAGE-006")
+                        guestRows(installation) shouldBe GuestUploadQuota.DAILY_LIMIT
+                    } finally {
+                        storage.headDelayMillis = 0
+                    }
+                }
+            }
+
             `when`("같은 업로드의 완료 신고를 여러 번 보내면") {
                 then("한도를 한 번만 쓴다 — 재시도 3번 뒤에도 다른 업로드 9건이 모두 기록되고 11번째만 429 다") {
                     resetGuestQuota()
