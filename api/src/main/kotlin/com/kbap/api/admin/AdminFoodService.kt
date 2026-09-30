@@ -123,7 +123,7 @@ class AdminFoodService(
 
     @Transactional
     fun restoreFood(id: Long): AdminFoodRestoreResponse {
-        val food = foodRepository.findAnyById(id) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val food = foodRepository.findAnyByIdForUpdate(id) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         if (!food.isDeleted()) {
             return AdminFoodRestoreResponse(restored = false, contentStatus = food.contentStatus)
         }
@@ -213,7 +213,7 @@ class AdminFoodService(
 
     @Transactional
     fun deleteFood(id: Long): AdminFoodDeleteResult {
-        val food = foodRepository.findById(id).orElse(null) ?: return AdminFoodDeleteResult.NOT_FOUND
+        val food = foodRepository.findByIdForUpdate(id) ?: return AdminFoodDeleteResult.NOT_FOUND
         food.delete()
         food.deletedOriginalKoreanName = food.koreanName
         food.koreanName = deletedKoreanNameOf(food.koreanName, food.id)
