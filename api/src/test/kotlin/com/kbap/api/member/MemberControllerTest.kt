@@ -650,6 +650,56 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("발급 API 가 PROFILE_IMAGE 용도로 실제로 내준 objectKey 를 그대로 지정하면") {
+                then("통과한다 — 발급 형식과 검증 형식이 어긋나면 이 테스트가 깨진다(jpg·png 모두)") {
+                    val token = onboardedWithImageToken()
+
+                    listOf("image/jpeg", "image/png").forEach { contentType ->
+                        val issued = mockMvc.post("/api/images/upload-url") {
+                            header("Authorization", "Bearer $token")
+                            this.contentType = MediaType.APPLICATION_JSON
+                            content = objectMapper.writeValueAsString(
+                                mapOf("purpose" to "PROFILE_IMAGE", "contentType" to contentType, "contentLength" to 1024),
+                            )
+                        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+                        val objectKey = objectMapper.readTree(issued).path("payload").path("objectKey").asText()
+
+                        updateProfile(token, mapOf("profileImageUrl" to objectKey)).andExpect { status { isOk() } }
+                        memberColumn("google-sub-fixed", "profile_image_url") shouldBe objectKey
+                    }
+                }
+            }
+
+            `when`("현재 값에 앞뒤 공백·선행 슬래시만 붙여 되돌려 보내면") {
+                then("같은 값으로 본다 — 비교는 저장 때와 같은 정규화(trim·선행 / 제거) 뒤에 한다") {
+                    val token = onboardedWithImageToken()
+                    val legacy = "profile-image/2026/07/18/1/legacy.jpg"
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET profile_image_url = ? WHERE provider_uid = 'google-sub-fixed'").use { ps ->
+                            ps.setString(1, legacy)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    updateProfile(token, mapOf("profileImageUrl" to "  /$legacy ")).andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe legacy
+                }
+            }
+
+            `when`("현재 키를 CDN 도메인이 붙은 전체 URL 로 되돌려 보내면") {
+                then("같은 값으로 보지 않고 400 MEMBER-008 로 거절한다 — 조회 응답의 URL 을 그대로 되보내는 것은 계약 밖이다") {
+                    val token = onboardedWithImageToken()
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "https://cdn.test/" + ownProfileKey("origin")))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe ownProfileKey("origin")
+                }
+            }
+
             `when`("본인 id 가 박혀 있어도 이 환경이 발급한 키 형태가 아닌 경로를 지정하면") {
                 then("400 MEMBER-008 로 거절된다 — 공유 버킷의 다른 환경 접두에는 같은 id 의 다른 사람 사진이 있다") {
                     val token = onboardedWithImageToken()
