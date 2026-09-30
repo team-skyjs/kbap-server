@@ -181,6 +181,24 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("주문 항목 사진(order_item.image_path)이 참조하고 있으면") {
+                then("지우지 않는다 — 여섯 번째 참조 자리도 참조 검사에 들어 있다") {
+                    reset()
+                    val path = "dev/images/review/as-order-item.webp"
+                    upload(path)
+                    exec("INSERT INTO orders (id, member_id, image_path) VALUES (7101, $memberId, 'dev/images/scans/order-7101.webp')")
+                    exec(
+                        "INSERT INTO order_item (order_id, food_id, menu_name, quantity, image_path) " +
+                            "VALUES (7101, $foodId, '정리음식', 1, '$path')",
+                    )
+
+                    cleanupService().cleanup().deletedCount shouldBe 0
+
+                    activePaths() shouldBe setOf(path)
+                    storage.deleted.shouldBeEmpty()
+                }
+            }
+
             `when`("프로필·스캔·목록에 없는 용도의 업로드는 참조가 없어도") {
                 then("허용 목록 밖이라 지우지 않는다 — 모르는 용도의 기본값은 남긴다") {
                     reset()
@@ -301,6 +319,24 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     TransactionTemplate(transactionManager).execute {
                         uploadedImageService.ownsAllImages(memberId, listOf(path), UploadPurpose.REVIEW)
                     } shouldBe false
+                }
+            }
+        }
+
+        given("업로드 용도와 참조 검사") {
+            `when`("업로드 용도마다 그 사진을 참조하는 표를 판정 쿼리와 대조하면") {
+                then("모든 용도의 참조 표가 참조 검사에 있다 — 어떤 용도를 정리 대상에 넣는 날 참조 검사 없이 지워지지 않는다") {
+                    com.kbap.common.domain.image.model.UploadPurpose.entries.forEach { purpose ->
+                        val referencingTable = when (purpose) {
+                            com.kbap.common.domain.image.model.UploadPurpose.MENU_SCAN -> "orders"
+                            com.kbap.common.domain.image.model.UploadPurpose.REVIEW -> "food_review"
+                            com.kbap.common.domain.image.model.UploadPurpose.PROFILE_IMAGE -> "member"
+                            com.kbap.common.domain.image.model.UploadPurpose.COMMUNITY -> "community_post"
+                            com.kbap.common.domain.image.model.UploadPurpose.FEEDBACK -> "feedback"
+                            com.kbap.common.domain.image.model.UploadPurpose.ORDER_ITEM -> "order_item"
+                        }
+                        UploadedImageJpaRepository.ORPHAN shouldContain "not exists (select 1 from $referencingTable "
+                    }
                 }
             }
         }
