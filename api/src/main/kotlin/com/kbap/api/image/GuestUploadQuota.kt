@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.UUID
 
 fun interface GuestUploadQuota {
@@ -41,9 +42,8 @@ class DailyGuestUploadQuota(
 
     override fun <T> consume(installationId: String, register: () -> T): T {
         val requestId = UUID.randomUUID().toString()
-        val holdsQuota = acquire(installationId, requestId)
+        val holdsQuota = acquire(installationId, requestId, recordedAtMillis(installationId))
         return try {
-            verifyRecorded(installationId)
             register()
         } catch (e: Throwable) {
             if (holdsQuota) release(installationId, requestId)
@@ -60,7 +60,14 @@ class DailyGuestUploadQuota(
         }
     }
 
-    private fun acquire(installationId: String, requestId: String): Boolean {
+    private fun recordedAtMillis(installationId: String): List<Long> {
+        val since = LocalDateTime.now().minus(GuestUploadQuota.QUOTA_WINDOW)
+        val recorded = uploadedImageRepository.findCreatedAtsByInstallationIdSince(installationId, since)
+        if (recorded.size >= GuestUploadQuota.DAILY_LIMIT) throw BusinessException(ErrorCode.IMAGE_UPLOAD_RATE_LIMITED)
+        return recorded.map { it.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+    }
+
+    private fun acquire(installationId: String, requestId: String, recordedAtMillis: List<Long>): Boolean {
         val acquired = try {
             quotaStore.tryAcquire(
                 GuestUploadQuota.QUOTA_SCOPE,
@@ -68,6 +75,7 @@ class DailyGuestUploadQuota(
                 requestId,
                 GuestUploadQuota.DAILY_LIMIT,
                 GuestUploadQuota.QUOTA_WINDOW,
+                recordedAtMillis,
             )
         } catch (e: RuntimeException) {
             log.warn("업로드 한도 카운터(Redis)를 쓸 수 없어 DB 건수로만 판정한다 installationId={}", installationId, e)

@@ -196,7 +196,7 @@ class ImageControllerTest : BehaviorSpec() {
                     resetGuestQuota()
                     val installation = "upload-quota-fallback"
                     val unavailable = object : com.kbap.common.port.quota.InstallationQuotaStore {
-                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration): Boolean =
+                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration, recordedAtMillis: List<Long>): Boolean =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
 
                         override fun release(scope: String, installationId: String, requestId: String) =

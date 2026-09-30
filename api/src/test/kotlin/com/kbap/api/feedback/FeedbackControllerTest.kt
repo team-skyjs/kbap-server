@@ -315,7 +315,7 @@ class FeedbackControllerTest : BehaviorSpec() {
                 then("문의 창구를 닫지 않고 DB 건수로 판정한다 — 19건이면 통과, 20건이면 429") {
                     val installation = "quota-fallback-0001"
                     val unavailable = object : com.kbap.common.port.quota.InstallationQuotaStore {
-                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration): Boolean =
+                        override fun tryAcquire(scope: String, installationId: String, requestId: String, limit: Int, window: java.time.Duration, recordedAtMillis: List<Long>): Boolean =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
 
                         override fun release(scope: String, installationId: String, requestId: String) =
