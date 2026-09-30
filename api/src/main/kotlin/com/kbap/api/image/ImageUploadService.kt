@@ -15,6 +15,8 @@ class ImageUploadService(
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val guestUploadQuota: GuestUploadQuota,
 ) {
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
+
     fun completeUpload(
         memberId: Long?,
         installationId: String?,
@@ -30,9 +32,19 @@ class ImageUploadService(
             throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
         }
         if (guestInstallation == null) return register(memberId, null, path, declaredContentType, declaredSize)
-        return guestUploadQuota.consume(guestInstallation) {
-            register(null, guestInstallation, path, declaredContentType, declaredSize)
+        return try {
+            guestUploadQuota.consume(guestInstallation) {
+                register(null, guestInstallation, path, declaredContentType, declaredSize)
+            }
+        } catch (e: BusinessException) {
+            if (e.errorCode == ErrorCode.IMAGE_UPLOAD_RATE_LIMITED) discardUnrecorded(path)
+            throw e
         }
+    }
+
+    private fun discardUnrecorded(path: String) {
+        runCatching { storageObjectStore.delete(path) }
+            .onFailure { log.warn("한도 초과로 거절된 업로드 오브젝트를 지우지 못했다 — 정리 잡이 뒤에 처리한다 path={}", path, it) }
     }
 
     private fun register(
