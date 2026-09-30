@@ -115,7 +115,9 @@ class Member(
         countryCode: String? = null,
         profileImageUrl: String? = null,
         currency: String? = null,
+        profileImageKeyPrefix: String = "",
     ) {
+        val newProfileImage = assignableProfileImageOrNull(profileImageUrl, profileImageKeyPrefix)
         updateProfile(
             profile.updatedWith(
                 nickname = nickname,
@@ -123,10 +125,21 @@ class Member(
                 dietCategories = dietCategories,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
-                profileImageUrl = profileImageUrl,
+                profileImageUrl = newProfileImage,
                 currency = currency,
             ),
         )
+    }
+
+    fun changedProfileImageOrNull(requested: String?): String? =
+        requested?.trim()?.trimStart('/')?.takeUnless { it == profileImageUrl }
+
+    private fun assignableProfileImageOrNull(requested: String?, keyPrefix: String): String? {
+        val path = changedProfileImageOrNull(requested) ?: return null
+        if (!ProfileImagePaths.isAssignableTo(id, path, keyPrefix)) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
+        return path
     }
 
     fun completeOnboarding(
@@ -136,6 +149,7 @@ class Member(
         spicinessPreference: String,
         countryCode: String,
         profileImageUrl: String,
+        profileImageKeyPrefix: String = "",
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
@@ -148,6 +162,7 @@ class Member(
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
             currency = CountryCode.from(countryCode)?.currency?.name,
+            profileImageKeyPrefix = profileImageKeyPrefix,
         )
         onboardingCompleted = true
     }
