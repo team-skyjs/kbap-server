@@ -265,6 +265,16 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("옛 요청이 SENT 로 남은 채 더 새 재수집이 생겨 완료된 음식을 재생성하면") {
+                then("막지 않는다 — 대체된 옛 SENT 는 진행 중 요청이 아니다(회수도 콜백도 다시 건드리지 않는다)") {
+                    val food = saveFood("대체된전송음식")
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.SENT })
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.COMPLETE })
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
             `when`("보냈다가 포기(dead)한 요청만 있는 음식을 재생성하면") {
                 then("막지 않는다 — 포기한 요청은 진행 중이 아니다") {
                     val food = saveFood("재수집포기음식")
