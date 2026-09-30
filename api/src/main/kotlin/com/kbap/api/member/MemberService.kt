@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional
 class MemberService(
     private val memberRepository: MemberJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
+    @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
@@ -30,6 +31,7 @@ class MemberService(
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
             profileImageUrl = input.profileImageUrl ?: OnboardingProfileDefaults.randomProfileImagePath(),
+            profileImageKeyPrefix = storageKeyPrefix,
         )
     }
 
@@ -43,6 +45,7 @@ class MemberService(
             countryCode = input.countryCode,
             profileImageUrl = input.profileImageUrl,
             currency = input.currency,
+            profileImageKeyPrefix = storageKeyPrefix,
         )
     }
 

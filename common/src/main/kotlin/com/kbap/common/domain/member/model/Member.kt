@@ -115,8 +115,9 @@ class Member(
         countryCode: String? = null,
         profileImageUrl: String? = null,
         currency: String? = null,
+        profileImageKeyPrefix: String = "",
     ) {
-        requireAssignableProfileImage(profileImageUrl)
+        val newProfileImage = assignableProfileImageOrNull(profileImageUrl, profileImageKeyPrefix)
         updateProfile(
             profile.updatedWith(
                 nickname = nickname,
@@ -124,18 +125,19 @@ class Member(
                 dietCategories = dietCategories,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
-                profileImageUrl = profileImageUrl,
+                profileImageUrl = newProfileImage,
                 currency = currency,
             ),
         )
     }
 
-    private fun requireAssignableProfileImage(requested: String?) {
-        val path = requested?.trim()?.trimStart('/') ?: return
-        if (path == profileImageUrl) return
-        if (!ProfileImagePaths.isAssignableTo(id, path)) {
+    private fun assignableProfileImageOrNull(requested: String?, keyPrefix: String): String? {
+        val path = requested?.trim()?.trimStart('/') ?: return null
+        if (path == profileImageUrl) return null
+        if (!ProfileImagePaths.isAssignableTo(id, path, keyPrefix)) {
             throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
         }
+        return path
     }
 
     fun completeOnboarding(
@@ -145,6 +147,7 @@ class Member(
         spicinessPreference: String,
         countryCode: String,
         profileImageUrl: String,
+        profileImageKeyPrefix: String = "",
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
@@ -157,6 +160,7 @@ class Member(
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
             currency = CountryCode.from(countryCode)?.currency?.name,
+            profileImageKeyPrefix = profileImageKeyPrefix,
         )
         onboardingCompleted = true
     }
