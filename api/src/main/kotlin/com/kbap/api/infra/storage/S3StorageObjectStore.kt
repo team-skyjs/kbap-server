@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import java.time.Duration
 
 class S3StorageObjectStore(
     private val s3Client: S3Client,
@@ -18,6 +19,8 @@ class S3StorageObjectStore(
         // 부트앱 config 가 AWS 타입을 직접 알지 않도록 S3Client 조립을 어댑터 안에 가둔다(:infra:auth Firebase 팩토리 패턴).
         fun create(region: String, bucket: String): StorageObjectStore =
             S3StorageObjectStore(S3Client.builder().region(Region.of(region)).build(), bucket)
+
+        private val DELETE_TIMEOUT: Duration = Duration.ofSeconds(10)
     }
 
     override fun head(path: String): StorageObjectMetadata? =
@@ -31,7 +34,13 @@ class S3StorageObjectStore(
         }
 
     override fun delete(path: String) {
-        s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(path).build())
+        s3Client.deleteObject(
+            DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(path)
+                .overrideConfiguration { it.apiCallTimeout(DELETE_TIMEOUT) }
+                .build(),
+        )
     }
 
     override fun put(path: String, bytes: ByteArray, contentType: String) {

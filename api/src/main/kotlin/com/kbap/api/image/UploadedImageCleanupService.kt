@@ -37,19 +37,30 @@ class UploadedImageCleanupService(
         if (dryRun) {
             val counts = refreshOrphanCounts()
             log.info("미참조 업로드 정리 dry-run — 삭제 대상 {}", counts?.counts)
-            return UploadedImageCleanupResult(dryRun = true, deletedCount = 0)
+            return UploadedImageCleanupResult(dryRun = true, deletedCount = 0, failedCount = 0)
         }
         var deleted = 0
+        var failed = 0
         var afterId = 0L
         while (true) {
             val ids = uploadedImageRepository.findOrphanIds(before, afterId, pageSize)
             if (ids.isEmpty()) break
-            ids.forEach { id -> if (deleteOne(id, before)) deleted++ }
+            ids.forEach { id ->
+                when (deleteOne(id, before)) {
+                    DeleteOutcome.DELETED -> deleted++
+                    DeleteOutcome.FAILED -> failed++
+                    DeleteOutcome.SKIPPED -> Unit
+                }
+            }
             afterId = ids.last()
         }
-        log.info("미참조 업로드 정리 — {}건 삭제", deleted)
+        if (failed > 0) {
+            log.warn("미참조 업로드 정리 — {}건 삭제, {}건 실패(행은 ACTIVE 로 남아 다음 실행에서 다시 시도한다)", deleted, failed)
+        } else {
+            log.info("미참조 업로드 정리 — {}건 삭제", deleted)
+        }
         refreshOrphanCounts()
-        return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted)
+        return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted, failedCount = failed)
     }
 
     @Async
@@ -76,22 +87,27 @@ class UploadedImageCleanupService(
 
     private fun orphanCutoff(): LocalDateTime = LocalDateTime.now().minusDays(retentionDays)
 
-    private fun deleteOne(id: Long, before: LocalDateTime): Boolean {
-        val path = transaction.execute {
-            val upload = uploadedImageRepository.findByIdForUpdate(id) ?: return@execute null
-            if (uploadedImageRepository.countOrphan(id, before) == 0L) return@execute null
-            upload.delete()
-            upload.path
-        } ?: return false
-        runCatching { storageObjectStore.delete(path) }
-            .onFailure { log.warn("미참조 업로드 S3 삭제 실패 — 행은 DELETED, 오브젝트는 남는다 id={} path={}", id, path, it) }
-        return true
-    }
+    private fun deleteOne(id: Long, before: LocalDateTime): DeleteOutcome =
+        try {
+            transaction.execute {
+                val upload = uploadedImageRepository.findByIdForUpdate(id) ?: return@execute DeleteOutcome.SKIPPED
+                if (uploadedImageRepository.countOrphan(id, before) == 0L) return@execute DeleteOutcome.SKIPPED
+                storageObjectStore.delete(upload.path)
+                upload.delete()
+                DeleteOutcome.DELETED
+            }!!
+        } catch (e: RuntimeException) {
+            log.warn("미참조 업로드 삭제 실패 — 행은 ACTIVE 로 남는다 id={}", id, e)
+            DeleteOutcome.FAILED
+        }
+
+    private enum class DeleteOutcome { DELETED, SKIPPED, FAILED }
 }
 
 data class UploadedImageCleanupResult(
     val dryRun: Boolean,
     val deletedCount: Int,
+    val failedCount: Int,
 )
 
 data class OrphanUploadCounts(
