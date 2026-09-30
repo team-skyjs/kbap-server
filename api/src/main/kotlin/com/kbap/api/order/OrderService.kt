@@ -41,7 +41,7 @@ class OrderService(
         roadAddress: String?,
         resolvedPlace: OrderPlaceSnapshot?,
     ): Long {
-        memberService.getMember(memberId)
+        memberService.getMemberForShare(memberId)
         verifyOrderable(memberId, request)
         return saveOrder(memberId, request, roadAddress, resolvedPlace)
     }
@@ -101,7 +101,7 @@ class OrderService(
 
     @Transactional
     fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): OrderDetailResponse {
-        memberService.getMember(memberId)
+        memberService.getMemberForShare(memberId)
         getOwnOrder(memberId, orderId).replacePlace(request.toSnapshot())
         return getOrderDetail(memberId, orderId)
     }

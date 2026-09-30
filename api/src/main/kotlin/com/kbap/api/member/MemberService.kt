@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -83,9 +84,16 @@ class MemberService(
 
     @Transactional
     fun withdraw(memberId: Long) {
-        getMember(memberId).withdraw()
+        val member = memberRepository.findByIdForUpdate(memberId)?.takeIf { it.memberStatus == MemberStatus.ACTIVE }
+            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        member.withdraw()
         orderRepository.eraseLocationByMemberId(memberId)
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun getMemberForShare(memberId: Long): Member =
+        memberRepository.findByIdForShare(memberId)?.takeIf { it.memberStatus == MemberStatus.ACTIVE }
+            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
     @Transactional(readOnly = true)
     fun getMemberOrNull(memberId: Long): Member? =
