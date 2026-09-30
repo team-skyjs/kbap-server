@@ -116,7 +116,7 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
 
         given("배치가 음식을 읽어 임베딩하는 사이(읽은 뒤·완료 전)에 끼어든 변경") {
             `when`("그 사이 내용이 바뀌고 force 재동기화가 돌면") {
-                then("이미 읽힌 PENDING 이 있어도 후속 행이 쌓여 최종 벡터가 최신 내용 기준이 된다") {
+                then("첫 실행은 옛 내용으로 완료되지만 후속 행이 남아 다음 실행에서 최신 내용 벡터가 된다") {
                     clear()
                     val food = saveReadyFood("순두부찌개", "옛 설명으로 쓴 순두부찌개")
                     outboxRepository.save(FoodVectorOutbox.upsert(food.id))
@@ -128,6 +128,9 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                         )
                     }
 
+                    processor(embeddingClient, vectorStore).syncAll()
+                    vectorStore.documents.getValue(food.id).embeddingHash shouldBe
+                        expectedHash("순두부찌개", "옛 설명으로 쓴 순두부찌개")
                     processor(embeddingClient, vectorStore).syncAll()
 
                     vectorStore.documents.getValue(food.id).embeddingHash shouldBe
@@ -147,6 +150,9 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
                         outboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
                     }
 
+                    processor(embeddingClient, vectorStore).syncAll()
+                    vectorStore.documents.getValue(food.id).embeddingHash shouldBe
+                        expectedHash("청국장찌개", "옛 설명으로 쓴 청국장찌개")
                     processor(embeddingClient, vectorStore).syncAll()
 
                     vectorStore.documents.getValue(food.id).embeddingHash shouldBe
