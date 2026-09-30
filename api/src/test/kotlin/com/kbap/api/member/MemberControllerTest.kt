@@ -867,6 +867,21 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("리뷰·커뮤니티·문의 용도로 올린 사진 경로를 프로필 사진으로 지정하면") {
+                then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다 — 정리 대상 용도의 업로드는 프로필이 참조할 수 없다") {
+                    val token = onboardedWithImageToken()
+
+                    listOf("dev/images/review/1/a.webp", "dev/images/community/1/b.webp", "dev/images/feedback/1/c.webp").forEach { path ->
+                        val result = updateProfile(token, mapOf("profileImageUrl" to path)).andReturn().response
+
+                        result.status shouldBe 400
+                        result.contentAsString shouldContain "MEMBER-008"
+                    }
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/profiles/origin.jpg"
+                }
+            }
+
             `when`("사진에 빈 문자열을 담아 수정하면") {
                 then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다") {
                     val token = onboardedWithImageToken()
