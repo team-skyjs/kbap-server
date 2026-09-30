@@ -40,7 +40,13 @@ class FoodContentInFlightRequestMatrixTest : BehaviorSpec() {
 
     private enum class Callback { COMPLETES, DROPPED, REJECTED }
 
-    private data class Expectation(val recovered: Boolean, val conflicts: Boolean, val callback: Callback, val recollectSkipped: Boolean)
+    private data class Expectation(
+        val published: Boolean,
+        val recovered: Boolean,
+        val conflicts: Boolean,
+        val callback: Callback,
+        val recollectSkipped: Boolean,
+    )
 
     init {
         fun token(): String = tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)
@@ -69,6 +75,9 @@ class FoodContentInFlightRequestMatrixTest : BehaviorSpec() {
             if (superseded) row(food, RowState.COMPLETE)
             return food to target
         }
+
+        fun isPublished(outbox: FoodContentOutbox): Boolean =
+            outboxRepository.findPendingAfterId(0, 100).any { it.id == outbox.id }
 
         fun isRecovered(outbox: FoodContentOutbox): Boolean =
             outboxRepository.countStillStale(outbox.id, LocalDateTime.now().minusHours(24)) == 1L
@@ -99,10 +108,10 @@ class FoodContentInFlightRequestMatrixTest : BehaviorSpec() {
 
         fun recollectSkipped(food: Food): Boolean = adminFoodService.requestRecollectForFood(food.id).created == 0L
 
-        val notInFlight = Expectation(recovered = false, conflicts = false, callback = Callback.DROPPED, recollectSkipped = false)
+        val notInFlight = Expectation(published = false, recovered = false, conflicts = false, callback = Callback.DROPPED, recollectSkipped = false)
         val expectations = mapOf(
-            (RowState.PENDING to false) to Expectation(recovered = false, conflicts = true, callback = Callback.COMPLETES, recollectSkipped = true),
-            (RowState.SENT to false) to Expectation(recovered = true, conflicts = true, callback = Callback.COMPLETES, recollectSkipped = false),
+            (RowState.PENDING to false) to Expectation(published = true, recovered = false, conflicts = true, callback = Callback.COMPLETES, recollectSkipped = true),
+            (RowState.SENT to false) to Expectation(published = false, recovered = true, conflicts = true, callback = Callback.COMPLETES, recollectSkipped = false),
             (RowState.SENT_DEAD to false) to notInFlight,
             (RowState.COMPLETE to false) to notInFlight.copy(callback = Callback.REJECTED),
             (RowState.PENDING to true) to notInFlight,
@@ -119,6 +128,10 @@ class FoodContentInFlightRequestMatrixTest : BehaviorSpec() {
                 val (state, superseded) = cell
                 val label = "$state·${if (superseded) "대체됨" else "최신"}"
                 `when`("아웃박스 행이 $label 이면") {
+                    then("$label — 발행 대상 ${expected.published}") {
+                        val (_, outbox) = fixture(state, superseded)
+                        isPublished(outbox) shouldBe expected.published
+                    }
                     then("$label — 회수 대상 ${expected.recovered}") {
                         val (_, outbox) = fixture(state, superseded)
                         isRecovered(outbox) shouldBe expected.recovered

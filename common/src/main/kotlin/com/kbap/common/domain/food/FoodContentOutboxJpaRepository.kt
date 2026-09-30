@@ -68,12 +68,12 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     @Query(
         value = """
-            SELECT *
-            FROM food_content_outbox
-            WHERE id > :afterId
-              AND outbox_status = 'PENDING'
-              AND status = 'ACTIVE'
-            ORDER BY id ASC
+            SELECT outbox.*
+            FROM food_content_outbox outbox
+            WHERE outbox.id > :afterId
+              AND outbox.outbox_status = 'PENDING'
+              AND $IN_FLIGHT_REQUEST
+            ORDER BY outbox.id ASC
             LIMIT :limit
         """,
         nativeQuery = true,
