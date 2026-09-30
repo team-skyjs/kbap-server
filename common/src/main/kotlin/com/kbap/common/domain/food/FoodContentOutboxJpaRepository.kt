@@ -102,7 +102,11 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE outbox.id = :id AND $STALE_SENT", nativeQuery = true)
     fun countStillStale(@Param("id") id: Long, @Param("before") before: LocalDateTime): Long
 
-    fun existsByFoodIdAndIdGreaterThan(foodId: Long, id: Long): Boolean
+    @Query(
+        value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE outbox.id = :id AND NOT ($NOT_SUPERSEDED)",
+        nativeQuery = true,
+    )
+    fun countSuperseded(@Param("id") id: Long): Long
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

@@ -66,7 +66,7 @@ class AdminFoodContentIngestService(
             log.warn("포기한 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
             return null
         }
-        if (outboxRepository.existsByFoodIdAndIdGreaterThan(foodId, outboxId)) {
+        if (outboxRepository.countSuperseded(outboxId) > 0) {
             log.warn("더 새 요청이 있는 옛 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
             return null
         }
