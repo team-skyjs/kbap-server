@@ -104,12 +104,12 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                     val food = saveFood("잠금대기칼국수")
                     val locked = CountDownLatch(1)
                     val regeneration = holdFoodLockWhileStartingRegeneration(food.id, locked)
-                    locked.await()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) regeneration.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     val started = System.nanoTime()
                     val result = adminFoodService.requestRecollect(query = "잠금대기칼국수", status = null)
                     Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
-                    regeneration.get()
+                    regeneration.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     result.requested shouldBe 1
                     result.created shouldBe 0
@@ -124,11 +124,11 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                     val food = saveFood("잠금대기콩국수")
                     val locked = CountDownLatch(1)
                     val regeneration = holdFoodLockWhileStartingRegeneration(food.id, locked)
-                    locked.await()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) regeneration.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     shouldThrow<BusinessException> { adminFoodService.requestRecollectForFood(food.id) }
                         .errorCode shouldBe ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT
-                    regeneration.get()
+                    regeneration.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     pendingFoodIds() shouldBe emptyList()
                 }

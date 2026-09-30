@@ -46,6 +46,9 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     @Autowired
+    private lateinit var adminFoodImageService: AdminFoodImageService
+
+    @Autowired
     private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     @Autowired
@@ -191,14 +194,14 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) regen.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     generate(food.id).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-011") }
                     }
-                    regen.get()
-                    executor.shutdown()
+                    regen.get(30, java.util.concurrent.TimeUnit.SECONDS)
                 }
             }
 
@@ -458,6 +461,96 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                     setPrimary(food.id, next.id, food.version).andExpect { status { isOk() } }
 
                     setPrimary(food.id, next.id, food.version).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("두 관리자가 같은 version 으로 서로 다른 이미지를 동시에 대표로 지정하면") {
+                then("하나는 200, 하나는 409 FOOD-006 이고 대표는 정확히 한 장이다 — 유니크 충돌(COMMON-004·500)이 새지 않는다") {
+                    repeat(15) { round ->
+                        val food = saveFood("동시대표음식$round", "images/webp/race-old-$round.webp")
+                        saveImage(food.id, "images/webp/race-old-$round.webp", isPrimary = true, sortOrder = 0)
+                        val candidates = listOf(
+                            saveImage(food.id, "images/webp/race-a-$round.webp", isPrimary = false, sortOrder = 1),
+                            saveImage(food.id, "images/webp/race-b-$round.webp", isPrimary = false, sortOrder = 2),
+                        )
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val responses = candidates.map { image ->
+                            executor.submit<Pair<Int, String>> {
+                                gate.await()
+                                val response = setPrimary(food.id, image.id, food.version).andReturn().response
+                                response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
+                            }
+                        }
+                        executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                        outcomes.map { it.first }.sorted() shouldBe listOf(200, 409)
+                        outcomes.single { it.first == 409 }.second shouldBe "FOOD-006"
+                        val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                        images.count { it.isPrimary } shouldBe 1
+                        foodRepository.findById(food.id).orElseThrow().imageRef shouldBe images.single { it.isPrimary }.imageKey
+                    }
+                }
+            }
+
+            `when`("다른 관리자의 대표 지정이 커밋되기 전에 같은 version 으로 다른 이미지를 지정하면") {
+                then("앞 요청 뒤로 직렬화돼 409 FOOD-006 이고, 대표 이미지와 food.image_ref 가 어긋나지 않는다") {
+                    val food = saveFood("직렬화대표음식", "images/webp/serial-a.webp")
+                    val first = saveImage(food.id, "images/webp/serial-a.webp", isPrimary = false, sortOrder = 0)
+                    val second = saveImage(food.id, "images/webp/serial-b.webp", isPrimary = false, sortOrder = 1)
+                    val promoted = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val other = executor.submit {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            adminFoodImageService.setPrimary(food.id, second.id, food.version)
+                            promoted.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    executor.shutdown()
+                    if (!promoted.await(30, java.util.concurrent.TimeUnit.SECONDS)) other.get(1, java.util.concurrent.TimeUnit.SECONDS)
+
+                    setPrimary(food.id, first.id, food.version).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-006") }
+                    }
+                    other.get(30, java.util.concurrent.TimeUnit.SECONDS)
+
+                    val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                    images.single { it.isPrimary }.id shouldBe second.id
+                    foodRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/serial-b.webp"
+                }
+            }
+
+            `when`("대표 행이 아직 없는 음식에 두 관리자가 동시에 서로 다른 이미지를 대표로 지정하면") {
+                then("유니크 충돌 없이 끝나고 대표는 정확히 한 장, food.image_ref 와 일치한다") {
+                    repeat(15) { round ->
+                        val food = saveFood("대표없는동시음식$round", "images/webp/none-a-$round.webp")
+                        val candidates = listOf(
+                            saveImage(food.id, "images/webp/none-a-$round.webp", isPrimary = false, sortOrder = 0),
+                            saveImage(food.id, "images/webp/none-b-$round.webp", isPrimary = false, sortOrder = 1),
+                        )
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val responses = candidates.map { image ->
+                            executor.submit<Pair<Int, String>> {
+                                gate.await()
+                                val response = setPrimary(food.id, image.id, food.version).andReturn().response
+                                response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
+                            }
+                        }
+                        executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                        outcomes.filter { it.first != 200 }.forEach { it shouldBe (409 to "FOOD-006") }
+                        (outcomes.count { it.first == 200 } >= 1) shouldBe true
+                        val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                        images.count { it.isPrimary } shouldBe 1
+                        foodRepository.findById(food.id).orElseThrow().imageRef shouldBe images.single { it.isPrimary }.imageKey
+                    }
                 }
             }
 

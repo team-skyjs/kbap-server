@@ -289,13 +289,13 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                             Thread.sleep(2_000)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) regen.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     val started = System.nanoTime()
                     ingest(failedBody(food.id, reason = "잠금 경합 실패")).andExpect { status { isOk() } }
                     java.time.Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
-                    regen.get()
-                    executor.shutdown()
+                    regen.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                 }

@@ -1,3 +1,4 @@
+import java.time.Duration
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
@@ -54,4 +55,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("kotest.framework.classpath.scanning.autoscan.disable", "true")
     systemProperty("kotest.framework.discovery.jar.scan.disable", "true")
     maxHeapSize = "1g"
+    // 테스트가 끝나지 않는 대기(교착·반환하지 않는 워커)에 걸려도 빌드가 CI 외부 타임아웃까지 멈추지 않게 하는 안전망.
+    // Kotest 의 kotest.framework.timeout 은 코루틴 취소라 Future.get()·latch.await() 로 블록된 스레드를 끊지 못한다(실측).
+    // 가장 느린 모듈(api)이 CI 에서 5~6분이라 3배 이상 여유를 둔다.
+    timeout.set(Duration.ofMinutes(20))
 }
