@@ -81,7 +81,7 @@ class MemberControllerTest : BehaviorSpec() {
             }
 
         fun ownProfileKey(name: String): String =
-            "dev/images/profile/2026/10/${memberColumn("google-sub-fixed", "id")}_$name.jpg"
+            "local/images/profile/2026/10/${memberColumn("google-sub-fixed", "id")}_${java.util.UUID.nameUUIDFromBytes(name.toByteArray())}.jpg"
 
         fun getMyRanking(token: String?) =
             mockMvc.get("/api/members/me/ranking") {
@@ -641,12 +641,51 @@ class MemberControllerTest : BehaviorSpec() {
                     val token = onboardedWithImageToken()
                     val othersId = memberColumn("google-sub-fixed", "id")!!.toLong() + 1
 
-                    val result = updateProfile(token, mapOf("profileImageUrl" to "dev/images/profile/2026/10/${othersId}_stolen.jpg"))
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "local/images/profile/2026/10/${othersId}_${java.util.UUID.randomUUID()}.jpg"))
                         .andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     profilePayload(token).path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("origin")
+                }
+            }
+
+            `when`("본인 id 가 박혀 있어도 이 환경이 발급한 키 형태가 아닌 경로를 지정하면") {
+                then("400 MEMBER-008 로 거절된다 — 공유 버킷의 다른 환경 접두에는 같은 id 의 다른 사람 사진이 있다") {
+                    val token = onboardedWithImageToken()
+                    val ownId = memberColumn("google-sub-fixed", "id")
+                    val uuid = java.util.UUID.randomUUID()
+
+                    listOf(
+                        "prod/images/profile/2026/10/${ownId}_$uuid.jpg",
+                        "images/profile/2026/10/${ownId}_$uuid.jpg",
+                        "x/local/images/profile/2026/10/${ownId}_$uuid.jpg",
+                        "local/images/profile/2026/10/${ownId}_not-a-generated-name.jpg",
+                    ).forEach { path ->
+                        val result = updateProfile(token, mapOf("profileImageUrl" to path)).andReturn().response
+
+                        result.status shouldBe 400
+                        result.contentAsString shouldContain "MEMBER-008"
+                    }
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("origin")
+                }
+            }
+
+            `when`("전체 URL 이 이미 저장된 회원이 그 값을 그대로 되돌려 보내면") {
+                then("사진은 변경 없음으로 다뤄 통과하고 저장값이 그대로다 — 현재 값은 형식 검증도 다시 받지 않는다") {
+                    val token = onboardedWithImageToken()
+                    val legacy = "https://legacy.example.com/p/1.jpg"
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET profile_image_url = ? WHERE provider_uid = 'google-sub-fixed'").use { ps ->
+                            ps.setString(1, legacy)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    updateProfile(token, mapOf("profileImageUrl" to legacy, "spicinessPreference" to "HOT")).andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe legacy
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "HOT"
                 }
             }
 
@@ -933,7 +972,7 @@ class MemberControllerTest : BehaviorSpec() {
                 "http 전체 URL" to "http://cdn.example.com/p.jpg",
                 "대문자 스킴 전체 URL" to "HTTPS://cdn.example.com/p.jpg",
                 "512자를 넘는 경로" to "a".repeat(513),
-                "다른 회원 id 가 박힌 프로필 업로드 경로" to "dev/images/profile/2026/10/999999999_x.jpg",
+                "다른 회원 id 가 박힌 프로필 업로드 경로" to "local/images/profile/2026/10/999999999_${java.util.UUID.randomUUID()}.jpg",
                 "허용 목록에 없는 경로" to "profiles/abc.jpg",
             ).forEach { (label, path) ->
                 `when`(label + "을 제출하면") {

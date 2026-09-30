@@ -64,6 +64,27 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("회원 프로필 사진 요청 예시") {
+            `when`("문서의 온보딩·프로필 수정 요청 예시를 보면") {
+                then("모든 profileImageUrl 예시가 서버가 실제로 받는 경로다 — 예시를 그대로 보내면 거절되는 문서를 내지 않는다") {
+                    val document = docOf("/v3/api-docs")
+                    val examples = listOf("/api/members/me/onboarding" to "post", "/api/members/me/profile" to "patch")
+                        .flatMap { (path, method) ->
+                            document.path("paths").path(path).path(method).path("requestBody").path("content")
+                                .path("application/json").path("examples").properties().map { it.value.path("value") }
+                        }
+                        .map { if (it.isTextual) objectMapper.readTree(it.asText()) else it }
+                        .mapNotNull { it.path("profileImageUrl").takeIf { node -> node.isTextual }?.asText() }
+
+                    val accepted = Regex(
+                        "^(images/default/profile/[A-Za-z0-9._-]+|[a-z]+/images/profile/\\d{4}/\\d{2}/\\d+_[0-9a-f-]{36}\\.[a-z]+)$",
+                    )
+                    examples.isNotEmpty().shouldBeTrue()
+                    examples.filterNot { accepted.matches(it) } shouldBe emptyList()
+                }
+            }
+        }
+
         given("X-API-Version 헤더 파라미터") {
             `when`("문서의 각 오퍼레이션을 보면") {
                 then("모든 오퍼레이션이 헤더를 받고, 버전을 선언한 매핑은 그 값이 기본값으로 채워진다") {
