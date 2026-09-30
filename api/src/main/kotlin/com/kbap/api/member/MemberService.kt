@@ -1,6 +1,9 @@
 package com.kbap.api.member
 
+import com.kbap.api.image.UploadedImageService
+import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.model.ProfileImagePaths
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
@@ -19,12 +22,15 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class MemberService(
     private val memberRepository: MemberJpaRepository,
+    private val uploadedImageService: UploadedImageService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
-        getMember(input.memberId).completeOnboarding(
+        val member = getMember(input.memberId)
+        verifyProfileUploadCompleted(member, input.profileImageUrl)
+        member.completeOnboarding(
             nickname = input.nickname ?: OnboardingProfileDefaults.randomNickname(),
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             dietCategories = input.dietCategories,
@@ -37,7 +43,9 @@ class MemberService(
 
     @Transactional
     fun updateProfile(input: ProfileUpdateInput) {
-        getMember(input.memberId).updateProfile(
+        val member = getMember(input.memberId)
+        verifyProfileUploadCompleted(member, input.profileImageUrl)
+        member.updateProfile(
             nickname = input.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             dietCategories = input.dietCategories,
@@ -47,6 +55,14 @@ class MemberService(
             currency = input.currency,
             profileImageKeyPrefix = storageKeyPrefix,
         )
+    }
+
+    private fun verifyProfileUploadCompleted(member: Member, requested: String?) {
+        val path = member.changedProfileImageOrNull(requested) ?: return
+        if (ProfileImagePaths.isDefault(path)) return
+        if (!uploadedImageService.ownsAllImages(member.id, listOf(path), UploadPurpose.PROFILE_IMAGE)) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
     }
 
     @Transactional(readOnly = true)

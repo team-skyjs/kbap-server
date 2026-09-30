@@ -131,9 +131,11 @@ class Member(
         )
     }
 
+    fun changedProfileImageOrNull(requested: String?): String? =
+        requested?.trim()?.trimStart('/')?.takeUnless { it == profileImageUrl }
+
     private fun assignableProfileImageOrNull(requested: String?, keyPrefix: String): String? {
-        val path = requested?.trim()?.trimStart('/') ?: return null
-        if (path == profileImageUrl) return null
+        val path = changedProfileImageOrNull(requested) ?: return null
         if (!ProfileImagePaths.isAssignableTo(id, path, keyPrefix)) {
             throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
         }

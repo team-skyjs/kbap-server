@@ -713,7 +713,16 @@ class MemberControllerTest : BehaviorSpec() {
                 then("400 MEMBER-008 로 거절된다") {
                     val token = onboardedWithImageToken()
                     val path = unrecordedOwnProfileKey("recorded-by-other")
-                    seedCompletedUpload(memberColumn("google-sub-fixed", "id")!!.toLong() + 1, path)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate(
+                                "INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                                    "VALUES ('GOOGLE', 'profile-upload-other-owner', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) " +
+                                    "ON DUPLICATE KEY UPDATE id = id",
+                            )
+                        }
+                    }
+                    seedCompletedUpload(memberColumn("profile-upload-other-owner", "id")!!.toLong(), path)
 
                     val result = updateProfile(token, mapOf("profileImageUrl" to path)).andReturn().response
 
