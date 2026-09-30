@@ -202,8 +202,12 @@ class FoodService(
         summaryViews(foodRepository.findRandom(size), lang, memberId)
 
     @Transactional(readOnly = true)
-    fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(foodRepository.findRecentScanned(memberId, size), lang, memberId)
+    fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {
+        val scans = scanHistoryRepository.findRecentScannedFoods(memberId, PageRequest.of(0, size))
+        return summaryViews(scans.map { it.food }, lang, memberId).zip(scans) { summary, scan ->
+            RecentScannedFoodView(summary, scan.scannedAt.atZone(ZoneId.systemDefault()).toInstant())
+        }
+    }
 
     @Transactional(readOnly = true)
     fun getMostReviewedFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
