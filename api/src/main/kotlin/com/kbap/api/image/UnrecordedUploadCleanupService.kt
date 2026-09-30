@@ -43,6 +43,7 @@ class UnrecordedUploadCleanupService(
         val cutoff = Instant.now().minus(retention)
         var cursor = loadCursor()
         var listed = 0
+        var processed = 0
         var deleted = 0
         var failed = 0
         var skipped = 0
@@ -50,7 +51,8 @@ class UnrecordedUploadCleanupService(
         var purposeIndex = purposes.indexOf(cursor.purpose).coerceAtLeast(0)
         var afterPath = cursor.afterPath
         var completedRound = false
-        while (purposeIndex < purposes.size) {
+        var budgetExhausted = false
+        while (purposeIndex < purposes.size && !budgetExhausted) {
             val purpose = purposes[purposeIndex]
             var purposeListed = 0
             var unrecorded = 0
@@ -67,11 +69,16 @@ class UnrecordedUploadCleanupService(
                 val recorded = uploadedImageRepository.findRecordedPathsAnyStatus(page.map { it.path }).toSet()
                 val unrecordedObjects = page.filter { it.path !in recorded }
                 unrecorded += unrecordedObjects.size
-                val staleObjects = unrecordedObjects.filter { it.lastModified.isBefore(cutoff) }
-                stale += staleObjects.size
-                if (!dryRun) {
-                    for (candidate in staleObjects) {
-                        if (deleted + failed >= maxDeletesPerRun) break
+                var lastProcessed: String? = null
+                for (candidate in unrecordedObjects.filter { it.lastModified.isBefore(cutoff) }) {
+                    if (processed >= maxDeletesPerRun) {
+                        budgetExhausted = true
+                        break
+                    }
+                    processed++
+                    stale++
+                    lastProcessed = candidate.path
+                    if (!dryRun) {
                         when (deleteIfStillUnrecorded(candidate)) {
                             Outcome.DELETED -> deleted++
                             Outcome.FAILED -> failed++
@@ -79,8 +86,9 @@ class UnrecordedUploadCleanupService(
                         }
                     }
                 }
-                afterPath = page.last().path
+                afterPath = if (budgetExhausted) lastProcessed ?: afterPath else page.last().path
                 cursor = Cursor(purpose, afterPath)
+                if (budgetExhausted) break
             }
             counts[purpose.prefix] = UnrecordedUploadCount(listed = purposeListed, unrecorded = unrecorded, stale = stale)
             if (!exhausted) break
@@ -91,7 +99,7 @@ class UnrecordedUploadCleanupService(
         saveCursor(cursor)
         val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped)
         if (dryRun) {
-            log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과} {}", counts)
+            log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위)} {}", counts)
         } else if (failed > 0) {
             log.warn("행 없는 업로드 오브젝트 정리 — {}건 삭제, {}건 실패, {}건 건너뜀(그 사이 기록됨) {}", deleted, failed, skipped, counts)
         } else {
@@ -100,7 +108,11 @@ class UnrecordedUploadCleanupService(
         if (completedRound) {
             log.info("행 없는 업로드 오브젝트 정리 — 전 용도를 한 바퀴 돌았다. 다음 실행은 처음부터 본다")
         } else {
-            log.info("행 없는 업로드 오브젝트 정리 — 실행당 상한(목록 {})에 닿았다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다", maxListedPerRun, cursor)
+            log.info(
+                "행 없는 업로드 오브젝트 정리 — 실행당 상한({})에 닿았다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다",
+                if (budgetExhausted) "삭제 $maxDeletesPerRun" else "목록 $maxListedPerRun",
+                cursor,
+            )
         }
         return result
     }
