@@ -67,9 +67,11 @@ class OpenApiSnapshotTest : BehaviorSpec() {
         given("회원 프로필 사진 요청 예시") {
             `when`("문서의 온보딩·프로필 수정 요청 예시를 보면") {
                 then("모든 profileImageUrl 예시가 서버가 실제로 받는 경로다 — 예시를 그대로 보내면 거절되는 문서를 내지 않는다") {
-                    val document = docOf("/v3/api-docs")
+                    val documents = (listOf("/v3/api-docs") + groupedOpenApis.map { "/v3/api-docs/${it.group}" }).map(::docOf)
                     val examples = listOf("/api/members/me/onboarding" to "post", "/api/members/me/profile" to "patch")
-                        .flatMap { (path, method) ->
+                        .flatMap { operation -> documents.map { it to operation } }
+                        .flatMap { (document, operation) ->
+                            val (path, method) = operation
                             document.path("paths").path(path).path(method).path("requestBody").path("content")
                                 .path("application/json").path("examples").properties().map { it.value.path("value") }
                         }
@@ -79,7 +81,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     val accepted = Regex(
                         "^(images/default/profile/[A-Za-z0-9._-]+|[a-z]+/images/profile/\\d{4}/\\d{2}/\\d+_[0-9a-f-]{36}\\.[a-z]+)$",
                     )
-                    examples.isNotEmpty().shouldBeTrue()
+                    examples.toSet().size shouldBe 3
                     examples.filterNot { accepted.matches(it) } shouldBe emptyList()
                 }
             }
