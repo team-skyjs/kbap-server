@@ -49,6 +49,8 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/")
 
+        fun isCleanupTarget(path: String): Boolean = CLEANUP_SEGMENTS.any { path.contains(it) }
+
         private const val CLEANUP_PURPOSE =
             "(locate('images/review/', u.object_path) > 0 " +
                 "or locate('images/community/', u.object_path) > 0 " +
