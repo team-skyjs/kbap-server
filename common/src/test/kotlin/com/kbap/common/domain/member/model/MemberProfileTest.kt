@@ -207,7 +207,7 @@ class MemberProfileTest : BehaviorSpec({
                 avoidanceSubstanceCodes = emptyList(),
                 spicinessPreference = "MEDIUM",
                 countryCode = countryCode,
-                profileImageUrl = "profile/default.webp",
+                profileImageUrl = "images/default/profile/profile-default-512.png",
             )
             return member
         }
