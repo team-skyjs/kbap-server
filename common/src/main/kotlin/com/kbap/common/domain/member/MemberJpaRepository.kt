@@ -13,8 +13,6 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
-    fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
-
     @Query(
         value = "SELECT * FROM member ORDER BY id DESC",
         countQuery = "SELECT count(*) FROM member",
