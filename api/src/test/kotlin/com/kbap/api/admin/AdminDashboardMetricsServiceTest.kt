@@ -124,6 +124,22 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     service.getMetrics().totalActiveMembers shouldBe 0
                 }
             }
+
+            `when`("리뷰 봇 계정이 섞여 있으면") {
+                then("봇은 가입자 수에서 뺀다") {
+                    saveMember("지표-사람")
+                    memberJpaRepository.save(
+                        com.kbap.common.domain.member.model.Member.reviewBot(
+                            com.kbap.common.domain.member.model.CountryCode.JP,
+                            "Bibimbap_0001",
+                            "images/webp/default_profile/avatar1.webp",
+                        ),
+                    )
+
+                    service.getMetrics().totalActiveMembers shouldBe 1
+                    service.getMetricsSummary().totalActiveMembers shouldBe 1
+                }
+            }
         }
 
         given("대시보드 지표 - 최근 7일 스캔 횟수") {

@@ -34,7 +34,7 @@ class AdminDashboardMetricsService(
         val thisWeek = (6L downTo 0L).map(today::minusDays)
         val prevWeek = (13L downTo 7L).map(today::minusDays)
         return AdminDashboardMetricsResponse(
-            totalActiveMembers = memberRepository.countByMemberStatus(MemberStatus.ACTIVE),
+            totalActiveMembers = memberRepository.countByMemberStatusAndIsBotFalse(MemberStatus.ACTIVE),
             pendingReviewCount = foodRepository.countByContentStatus(FoodContentStatus.PENDING_REVIEW),
             weeklyScanCount = thisWeek.sumOf { dailyScans[it] ?: 0L },
             prevWeekScanCount = prevWeek.sumOf { dailyScans[it] ?: 0L },
@@ -51,7 +51,7 @@ class AdminDashboardMetricsService(
         val today = LocalDate.now()
         val from = today.minusDays(6).atStartOfDay()
         return AdminDashboardMetricsView(
-            totalActiveMembers = memberRepository.countByMemberStatus(MemberStatus.ACTIVE),
+            totalActiveMembers = memberRepository.countByMemberStatusAndIsBotFalse(MemberStatus.ACTIVE),
             weeklyScans = weeklyMetrics(today, scanHistoryRepository.countDailySince(from).associate { it.date to it.count }),
             weeklyNewFoods = weeklyMetrics(today, foodRepository.countDailyCreatedSince(from).associate { it.date to it.count }),
             llmCostDaily = llmCostDaily(today, llmCallCostRepository.sumDailyByModelSince(from)),

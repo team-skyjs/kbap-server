@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface RatingAggregate {
     val average: Double?
@@ -59,4 +60,48 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<Review>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT t.id AS foodId, t.cnt AS reviewCount FROM (
+              SELECT f.id, (SELECT COUNT(*) FROM food_review c WHERE c.food_id = f.id AND c.status = 'ACTIVE') AS cnt
+              FROM food f
+              WHERE f.status = 'ACTIVE' AND f.content_status = 'READY'
+                AND NOT EXISTS (
+                  SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
+                  WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
+                )
+                AND EXISTS (
+                  SELECT 1 FROM member b
+                  WHERE b.is_bot = 1 AND b.member_status = 'ACTIVE' AND b.status = 'ACTIVE'
+                    AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id)
+                )
+            ) t
+            WHERE t.cnt > :afterReviewCount OR (t.cnt = :afterReviewCount AND t.id > :afterFoodId)
+            ORDER BY t.cnt, t.id
+            LIMIT :limit
+        """,
+    )
+    fun findReviewBotCandidatePage(
+        @Param("since") since: LocalDateTime,
+        @Param("afterReviewCount") afterReviewCount: Long,
+        @Param("afterFoodId") afterFoodId: Long,
+        @Param("limit") limit: Int,
+    ): List<ReviewBotCandidate>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE m.is_bot = 1 AND r.created_at >= :since
+        """,
+    )
+    fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long
+
+    @Query(
+        nativeQuery = true,
+        value = "SELECT DISTINCT r.member_id FROM food_review r WHERE r.food_id = :foodId AND r.member_id IN (:memberIds)",
+    )
+    fun findReviewerIdsOfFood(@Param("foodId") foodId: Long, @Param("memberIds") memberIds: Collection<Long>): List<Long>
 }

@@ -81,7 +81,7 @@ class DailyUserStatsReporter(
                 "• 활성 유저(현재): ${stats.activeMembers}명",
                 "• 신규 국가별: ${breakdown(stats.byCountry)}",
                 "• 신규 플랫폼별: ${breakdown(stats.byPlatform)}",
-                "_로봇(Play 사전출시)·시드 계정 제외_",
+                "_로봇(Play 사전출시)·시드·리뷰 봇 계정 제외_",
             ).joinToString("\n")
         }
 

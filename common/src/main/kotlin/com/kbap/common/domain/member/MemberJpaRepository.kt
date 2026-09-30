@@ -13,6 +13,14 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
+    fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
+
+    @Query(nativeQuery = true, value = "SELECT GET_LOCK(:name, :timeoutSeconds)")
+    fun acquireNamedLock(@Param("name") name: String, @Param("timeoutSeconds") timeoutSeconds: Int): Int
+
+    @Query(nativeQuery = true, value = "SELECT RELEASE_LOCK(:name)")
+    fun releaseNamedLock(@Param("name") name: String): Int?
+
     @Query(
         value = "SELECT * FROM member ORDER BY id DESC",
         countQuery = "SELECT count(*) FROM member",
@@ -45,7 +53,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     @Query(value = "SELECT * FROM member WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Member?
 
-    fun countByMemberStatus(memberStatus: MemberStatus): Long
+    fun countByMemberStatusAndIsBotFalse(memberStatus: MemberStatus): Long
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
@@ -137,6 +145,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         const val REAL_MEMBER =
             "(m.email IS NULL OR (m.email NOT REGEXP '^[a-z]+\\\\.[0-9]{5}@gmail\\\\.com$' " +
                 "AND m.email NOT REGEXP '@cloudtestlabaccounts\\\\.com$')) " +
-                "AND m.id NOT IN (:excludedIds)"
+                "AND m.is_bot = 0 AND m.id NOT IN (:excludedIds)"
     }
 }
