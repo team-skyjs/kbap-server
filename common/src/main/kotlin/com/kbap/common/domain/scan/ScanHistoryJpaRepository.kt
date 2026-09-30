@@ -10,6 +10,18 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+    @Query(
+        """
+        select f as food, max(sh.createdAt) as scannedAt
+        from ScanHistory sh join Food f on f.id = sh.foodId
+        where sh.memberId = :memberId
+          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+        group by f.id
+        order by max(sh.createdAt) desc
+        """,
+    )
+    fun findRecentScannedFoods(@Param("memberId") memberId: Long, pageable: Pageable): List<RecentScannedFood>
+
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<ScanHistory>

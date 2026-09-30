@@ -289,25 +289,6 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun findMostReviewed(@Param("size") size: Int): List<Food>
 
-    @Query(
-        nativeQuery = true,
-        value = """
-        select f.* from food f
-        join (
-            select sh.food_id, max(sh.created_at) as last_scanned_at
-            from scan_history sh
-            where sh.member_id = :memberId
-              and sh.status = 'ACTIVE'
-            group by sh.food_id
-        ) x on x.food_id = f.id
-        where f.status = 'ACTIVE'
-          and f.content_status = 'READY'
-        order by x.last_scanned_at desc
-        limit :size
-        """,
-    )
-    fun findRecentScanned(@Param("memberId") memberId: Long, @Param("size") size: Int): List<Food>
-
     companion object {
         const val IMAGE_CANDIDATE =
             "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +

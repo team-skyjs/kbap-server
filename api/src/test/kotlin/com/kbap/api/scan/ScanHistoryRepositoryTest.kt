@@ -11,6 +11,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.PageRequest
 
 @IntegrationTest
 class ScanHistoryRepositoryTest : BehaviorSpec() {
@@ -107,7 +108,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-02 10:00:00")
                     seedHistory(11L, 1L, "2026-07-03 10:00:00")
 
-                    foodRepository.findRecentScanned(memberId = 11L, size = 10).map { it.id } shouldContainExactly listOf(1L, 2L)
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(1L, 2L)
                 }
             }
 
@@ -118,7 +119,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-03 10:00:00")
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
 
-                    foodRepository.findRecentScanned(memberId = 11L, size = 10).map { it.id } shouldContainExactly listOf(1L)
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(1L)
                 }
             }
 
@@ -129,7 +130,7 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                         seedHistory(11L, id, "2026-07-01 10:00:${"%02d".format(id)}")
                     }
 
-                    val result = foodRepository.findRecentScanned(memberId = 11L, size = 10).map { it.id }
+                    val result = repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id }
 
                     result shouldContainExactly (12L downTo 3L).toList()
                 }
@@ -142,13 +143,13 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 1L, "2026-07-01 10:00:00")
                     seedHistory(99L, 2L, "2026-07-02 10:00:00")
 
-                    foodRepository.findRecentScanned(memberId = 11L, size = 10).map { it.id } shouldContainExactly listOf(1L)
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(1L)
                 }
             }
 
             `when`("이력이 없으면") {
                 then("빈 목록을 반환한다") {
-                    foodRepository.findRecentScanned(memberId = 11L, size = 10).map { it.id } shouldBe emptyList<Long>()
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldBe emptyList<Long>()
                 }
             }
         }
