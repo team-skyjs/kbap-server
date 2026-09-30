@@ -33,7 +33,7 @@ interface MemberApi {
             종전 계약에서 `nickname`·`profileImageUrl` 은 **필수**이며
             미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로이며
             **`PROFILE_IMAGE` 용도로 본인이 발급받은 presigned `objectKey`**
-            (`{env}/images/profile/YYYY/MM/{memberId}_{uuid}.{ext}`) **또는 기본 이미지 경로만** 받는다. 사진 미설정 회원은 기본 이미지 경로
+            (`{env}/images/profile/YYYY/MM/{본인 memberId}_{uuid}.{ext}` — 환경·호출자마다 달라 예시에는 기본 이미지 경로를 싣는다) **또는 기본 이미지 경로만** 받는다. 사진 미설정 회원은 기본 이미지 경로
             `images/default/profile/profile-default-512.png` 를 명시 전송한다. 다른 회원·다른 용도·다른 환경의 키,
             빈 문자열·전체 URL(`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
             조회 응답에서는 설정된 CDN 도메인이 조합된 완전한 URL 로 내려간다.
@@ -71,7 +71,7 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["EGG", "MILK", "PEANUT"],
                                   "countryCode": "KR",
-                                  "profileImageUrl": "prod/images/profile/2026/07/1_3f2b8c1e-9d4a-4e6f-8a7b-5c0d1e2f3a4b.jpg",
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": "HOT"
                                 }
                             """,
@@ -221,7 +221,7 @@ interface MemberApi {
 
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**.
             받는 값은 `PROFILE_IMAGE` 용도로 본인이 발급받은 presigned `objectKey`
-            (`{env}/images/profile/YYYY/MM/{memberId}_{uuid}.{ext}`)와 기본 이미지 경로뿐이다 — 다른 회원·다른 용도·다른 환경의 키,
+            (`{env}/images/profile/YYYY/MM/{본인 memberId}_{uuid}.{ext}` — 환경·호출자마다 달라 예시에는 기본 이미지 경로를 싣는다)와 기본 이미지 경로뿐이다 — 다른 회원·다른 용도·다른 환경의 키,
             빈 문자열·전체 URL·512자 초과는 MEMBER-008 거절. 현재 저장된 값을 그대로 되돌려 보내는 것은 변경 없음으로 다룬다. 사진을 없애는 개념은 없다 — 기본 이미지로
             되돌리려면 기본 이미지 경로 `images/default/profile/profile-default-512.png` 를 명시 전송한다.
             조회 응답에서는 CDN 도메인이 조합된 완전한 URL 로 내려간다. 맵기 `spicinessPreference` 는 `SKIP`·`NONE`·`MILD`·`MEDIUM`·`HOT`·`EXTREME` 6단계 문자열로 교체하며, `SKIP` 을 명시 전송하면 미설정으로 복귀한다.
@@ -287,15 +287,7 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "사진 교체 — 나머지는 유지된다",
-                            value = """
-                                {
-                                  "profileImageUrl": "prod/images/profile/2026/07/1_7a1c5e9b-2d3f-4b6a-9c8e-0f1a2b3c4d5e.jpg"
-                                }
-                            """,
-                        ),
-                        ExampleObject(
-                            name = "기본 이미지로 복귀 — 빈 문자열은 400, 기본 경로를 명시 전송한다",
+                            name = "사진 교체·기본 이미지로 복귀 — 나머지는 유지된다. 새 사진은 발급받은 objectKey 를, 복귀는 이 기본 경로를 보낸다(빈 문자열은 400)",
                             value = """
                                 {
                                   "profileImageUrl": "images/default/profile/profile-default-512.png"
@@ -325,7 +317,7 @@ interface MemberApi {
                                   "nickname": "길동이",
                                   "avoidanceSubstanceCodes": ["PEANUT"],
                                   "countryCode": "JP",
-                                  "profileImageUrl": "prod/images/profile/2026/07/1_7a1c5e9b-2d3f-4b6a-9c8e-0f1a2b3c4d5e.jpg",
+                                  "profileImageUrl": "images/default/profile/profile-default-512.png",
                                   "spicinessPreference": "MILD"
                                 }
                             """,
