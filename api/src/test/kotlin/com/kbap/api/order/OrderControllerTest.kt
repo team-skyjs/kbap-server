@@ -321,6 +321,22 @@ class OrderControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("본인이 리뷰·커뮤니티·문의 용도로 올린 사진으로 주문하면") {
+                then("400 SCAN-001 로 거절되고 주문이 저장되지 않는다 — 정리 대상 용도의 업로드는 주문이 참조할 수 없다") {
+                    val memberId = 921L
+                    val food = seedReadyFood("주문용도교차찌개")
+                    listOf("dev/images/review/921/a.webp", "dev/images/community/921/b.webp", "dev/images/feedback/921/c.webp").forEach { path ->
+                        seedVerifiedImage(memberId, path)
+
+                        placeOrder(accessToken(memberId), orderBody(path, listOf(itemJson("용도교차찌개", 1, 5000, food)))).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("SCAN-001") }
+                        }
+                        storedItemCountOf(path) shouldBe 0L
+                    }
+                }
+            }
+
             `when`("타인이 업로드한 이미지로 주문하면") {
                 then("400 SCAN-001 로 거절된다") {
                     val ownerId = 918L

@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.image.UploadedImageCleanupService
 import com.kbap.common.domain.food.FoodJpaRepository
 import java.time.LocalDateTime
 import org.springframework.beans.factory.annotation.Value
@@ -25,9 +26,11 @@ class AdminDashboardMetricsService(
     private val llmCallCostRepository: LlmCallCostJpaRepository,
     private val contentOutboxRepository: FoodContentOutboxJpaRepository,
     @Value("\${kbap.food-content-outbox.stale-after-hours:24}") private val staleAfterHours: Long,
+    private val uploadedImageCleanupService: UploadedImageCleanupService,
 ) {
     @Transactional(readOnly = true)
     fun getMetricsSummary(): AdminDashboardMetricsResponse {
+        val orphanCounts = uploadedImageCleanupService.getLatestOrphanCounts()
         val today = LocalDate.now()
         val dailyScans = scanHistoryRepository.countDailySince(today.minusDays(13).atStartOfDay())
             .associate { it.date to it.count }
@@ -43,6 +46,8 @@ class AdminDashboardMetricsService(
             strandedImageRegenerationCount = foodRepository.countStrandedImageRegenerations(),
             contentOutboxStuckCount = contentOutboxRepository.countStaleSent(LocalDateTime.now().minusHours(staleAfterHours)),
             contentOutboxDeadCount = contentOutboxRepository.countDead(),
+            orphanUploadedImageCounts = orphanCounts?.counts,
+            orphanUploadedImageCountedAt = orphanCounts?.computedAt,
         )
     }
 
