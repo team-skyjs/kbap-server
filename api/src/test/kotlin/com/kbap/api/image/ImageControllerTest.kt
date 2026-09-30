@@ -7,6 +7,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -217,6 +218,40 @@ class ImageControllerTest : BehaviorSpec() {
         }
 
         given("업로드 완료 신고 — POST /api/images/complete") {
+            `when`("오브젝트가 완료 신고 허용 창(1일)보다 오래됐으면") {
+                then("400 IMAGE-003 으로 거절하고 행을 만들지 않는다 — 정리 잡이 지울 수 있는 오브젝트는 완료 신고로 되살릴 수 없다") {
+                    val path = "scan/1/too-old.jpg"
+                    storage.stub(path, "image/jpeg", 1048576, modifiedAt = java.time.Instant.now().minus(java.time.Duration.ofDays(2)))
+
+                    mockMvc.post("/api/images/complete") {
+                        header("Authorization", "Bearer ${accessToken(1L)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, "image/jpeg", 1048576)
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("IMAGE-003") }
+                    }
+
+                    countImage(path) shouldBe 0
+                    storage.deleted shouldNotContain path
+                }
+            }
+
+            `when`("오브젝트가 허용 창 안(23시간 전)에 올라갔으면") {
+                then("200 으로 기록한다") {
+                    val path = "scan/1/within-window.jpg"
+                    storage.stub(path, "image/jpeg", 1048576, modifiedAt = java.time.Instant.now().minus(java.time.Duration.ofHours(23)))
+
+                    mockMvc.post("/api/images/complete") {
+                        header("Authorization", "Bearer ${accessToken(1L)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(path, "image/jpeg", 1048576)
+                    }.andExpect { status { isOk() } }
+
+                    countImage(path) shouldBe 1
+                }
+            }
+
             `when`("실제 오브젝트가 사진이고 신고값과 일치하면") {
                 then("200 과 경로를 반환하고 이미지를 기록한다") {
                     val path = "scan/1/success.jpg"

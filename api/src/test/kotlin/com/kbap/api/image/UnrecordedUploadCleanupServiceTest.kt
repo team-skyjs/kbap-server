@@ -27,6 +27,9 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
     init {
         val memberId = 7201L
         val storage = FakeStorageObjectStore()
@@ -45,7 +48,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             maxDeletes: Int = 100,
             maxListed: Int = 20_000,
             repository: UploadedImageJpaRepository = uploadedImageRepository,
-        ) = UnrecordedUploadCleanupService(repository, storage, properties(), dryRun, retentionDays, maxDeletes, maxListed)
+        ) = UnrecordedUploadCleanupService(repository, storage, redisTemplate, properties(), dryRun, retentionDays, maxDeletes, maxListed)
 
         fun repositoryThatRecordsAfterPageCheck(path: String): UploadedImageJpaRepository =
             java.lang.reflect.Proxy.newProxyInstance(
@@ -74,6 +77,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             storage.lastModified.clear()
             storage.deleted.clear()
             storage.failDeletes = false
+            redisTemplate.delete(UnrecordedUploadCleanupService.CURSOR_KEY)
             exec(
                 "INSERT INTO member (id, provider, provider_uid, country_code, member_status, onboarding_completed, " +
                     "status, created_at, updated_at) VALUES ($memberId, 'GOOGLE', 'unrecorded-test', 'KR', 'ACTIVE', 1, " +
@@ -175,6 +179,48 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("한 용도의 키가 실행당 목록 상한보다 많으면") {
+                then("다음 실행이 지난 실행이 멈춘 키 뒤부터 이어 보고, 그 용도를 다 보면 다음 용도로 넘어가며, 한 바퀴를 돌면 커서를 지운다") {
+                    reset()
+                    val scans = (1..3).map { "local/images/scans/2026/09/1_s$it.webp" }
+                    val review = "local/images/review/2026/09/1_r1.webp"
+                    (scans + review).forEach { stored(it) }
+
+                    service(maxListed = 2).cleanup().deletedCount shouldBe 2
+                    storage.deleted shouldContainExactlyInAnyOrder scans.take(2)
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "scans|${scans[1]}"
+
+                    service(maxListed = 2).cleanup().deletedCount shouldBe 2
+                    storage.deleted shouldContainExactlyInAnyOrder scans + review
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "review|$review"
+
+                    service(maxListed = 2).cleanup().deletedCount shouldBe 0
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe null
+                }
+            }
+
+            `when`("커서 저장소(Redis)가 없으면") {
+                then("처음부터 훑는다 — 느려질 뿐 오판은 없다") {
+                    reset()
+                    val path = "local/images/review/2026/09/1_no-redis.webp"
+                    stored(path)
+                    val unreachable = org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory(
+                        org.springframework.data.redis.connection.RedisStandaloneConfiguration("localhost", 1),
+                        org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration.builder()
+                            .commandTimeout(Duration.ofMillis(300)).build(),
+                    ).apply { afterPropertiesSet() }
+                    try {
+                        val broken = org.springframework.data.redis.core.StringRedisTemplate(unreachable)
+
+                        val result = UnrecordedUploadCleanupService(uploadedImageRepository, storage, broken, properties(), false, 7, 100, 20_000).cleanup()
+
+                        result.deletedCount shouldBe 1
+                    } finally {
+                        unreachable.destroy()
+                    }
+                }
+            }
+
             `when`("스토리지 삭제가 실패하면") {
                 then("실패로 세고 다음 실행이 다시 시도한다") {
                     reset()
@@ -194,9 +240,9 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             `when`("보존 기간이 presigned 유효기간 + 완료 신고 여유보다 길지 않으면") {
                 then("기동하지 않는다 — 그 안에는 새 PUT·완료 신고가 올 수 있어 행 없음이 '버려짐'을 뜻하지 않는다") {
                     shouldThrow<IllegalStateException> {
-                        UnrecordedUploadCleanupService(uploadedImageRepository, storage, properties(uploadTtl = Duration.ofMinutes(5)), true, 1, 100, 100)
+                        UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 1, 100, 100)
                     }
-                    UnrecordedUploadCleanupService(uploadedImageRepository, storage, properties(uploadTtl = Duration.ofMinutes(5)), true, 2, 100, 100)
+                    UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 2, 100, 100)
                 }
             }
         }
