@@ -119,6 +119,29 @@ class AdminFoodContentIngestLockingTest : BehaviorSpec() {
             }
         }
 
+        given("콜백의 대체 판정 = 회수의 NOT_SUPERSEDED") {
+            `when`("더 새 요청이 삭제(비ACTIVE)된 음식과 더 새 요청이 살아 있는 음식에 옛 요청의 콜백이 오면") {
+                then("두 경로가 같은 답을 낸다 — 삭제된 새 요청은 대체가 아니라 옛 결과를 반영하고(회수 대상이기도 하다), 살아 있는 새 요청은 대체라 버린다(회수 대상도 아니다)") {
+                    val before = LocalDateTime.now().minusHours(24)
+                    val (cancelledFood, cancelledOld) = saveSent("취소된재수집음식")
+                    outboxRepository.save(FoodContentOutbox.pending(cancelledFood.id, cancelledFood.displayName).apply { delete() })
+                    val (liveFood, liveOld) = saveSent("살아있는재수집음식")
+                    outboxRepository.save(FoodContentOutbox.pending(liveFood.id, liveFood.displayName))
+                    val attemptsBefore = foodJpaRepository.findById(cancelledFood.id).orElseThrow().contentReviewAttempts
+
+                    outboxRepository.countStillStale(cancelledOld.id, before) shouldBe 1
+                    outboxRepository.countStillStale(liveOld.id, before) shouldBe 0
+
+                    callback(cancelledFood.id, cancelledOld.id) shouldBe 200
+                    callback(liveFood.id, liveOld.id) shouldBe 200
+
+                    statusOf(cancelledOld.id) shouldBe FoodContentOutboxStatus.COMPLETE
+                    foodJpaRepository.findById(cancelledFood.id).orElseThrow().contentReviewAttempts shouldBe attemptsBefore + 1
+                    statusOf(liveOld.id) shouldBe FoodContentOutboxStatus.SENT
+                }
+            }
+        }
+
         given("콜백과 다른 경로의 교차 — 잠금 순서는 어디서나 food 행 → 아웃박스 행") {
             `when`("재수집 요청이 음식 행을 잠그고 새 요청을 넣는 동안 옛 요청의 콜백이 오면") {
                 then("콜백은 그 뒤로 직렬화돼 새 요청을 보고 옛 결과를 버린다 — 교착 없음, 옛 행은 완료되지 않는다") {
