@@ -50,6 +50,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         fun reset() {
             TestTables.clearAll(dataSource)
             storage.deleted.clear()
+            storage.failDeletes = false
             exec(
                 "INSERT INTO member (id, provider, provider_uid, country_code, member_status, onboarding_completed, " +
                     "status, created_at, updated_at) VALUES ($memberId, 'GOOGLE', 'cleanup-test', 'KR', 'ACTIVE', 1, " +
@@ -110,6 +111,31 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                         writer.rollback()
                     }
                     activePaths().shouldBeEmpty()
+                }
+            }
+        }
+
+        given("스토리지 삭제 실패") {
+            `when`("오브젝트 삭제가 실패하면") {
+                then("행을 DELETED 로 바꾸지 않고 실패로 센다 — 다음 실행이 다시 집어 지우고 그때 DELETED 가 된다") {
+                    reset()
+                    val path = "dev/images/review/s3-fail.webp"
+                    upload(path)
+                    storage.failDeletes = true
+
+                    val failed = cleanupService().cleanup()
+
+                    failed.deletedCount shouldBe 0
+                    failed.failedCount shouldBe 1
+                    activePaths() shouldBe setOf(path)
+
+                    storage.failDeletes = false
+                    val retried = cleanupService().cleanup()
+
+                    retried.deletedCount shouldBe 1
+                    retried.failedCount shouldBe 0
+                    activePaths().shouldBeEmpty()
+                    storage.deleted shouldBe listOf(path)
                 }
             }
         }

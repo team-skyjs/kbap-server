@@ -11,6 +11,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     val deleted: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
     val headCalls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
     @Volatile var headDelayMillis: Long = 0
+    @Volatile var failDeletes: Boolean = false
 
     fun stub(path: String, contentType: String, sizeBytes: Long) {
         heads[path] = StorageObjectMetadata(contentType, sizeBytes)
@@ -27,6 +28,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     }
 
     override fun delete(path: String) {
+        if (failDeletes) throw IllegalStateException("테스트 — 스토리지 삭제 실패")
         deleted.add(path)
         heads.remove(path)
     }
