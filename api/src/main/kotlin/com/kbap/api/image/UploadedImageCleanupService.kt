@@ -78,8 +78,10 @@ class UploadedImageCleanupService(
 
     private fun deleteOne(id: Long, before: LocalDateTime): Boolean {
         val path = transaction.execute {
-            val path = uploadedImageRepository.findById(id).orElse(null)?.path
-            if (path != null && uploadedImageRepository.deleteIfOrphan(id, before) == 1) path else null
+            val upload = uploadedImageRepository.findByIdForUpdate(id) ?: return@execute null
+            if (uploadedImageRepository.countOrphan(id, before) == 0L) return@execute null
+            upload.delete()
+            upload.path
         } ?: return false
         runCatching { storageObjectStore.delete(path) }
             .onFailure { log.warn("미참조 업로드 S3 삭제 실패 — 행은 DELETED, 오브젝트는 남는다 id={} path={}", id, path, it) }

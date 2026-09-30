@@ -4,7 +4,6 @@ import com.kbap.common.domain.image.model.UploadedImage
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
-import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -40,12 +39,12 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     )
     fun countOrphansIn(@Param("before") before: LocalDateTime, @Param("segment") segment: String): Long
 
-    @Modifying
-    @Query(
-        nativeQuery = true,
-        value = "update uploaded_image u set u.status = 'DELETED', u.updated_at = now(6) where u.id = :id and $ORPHAN",
-    )
-    fun deleteIfOrphan(@Param("id") id: Long, @Param("before") before: LocalDateTime): Int
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UploadedImage u where u.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): UploadedImage?
+
+    @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.id = :id and $ORPHAN")
+    fun countOrphan(@Param("id") id: Long, @Param("before") before: LocalDateTime): Long
 
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/")
