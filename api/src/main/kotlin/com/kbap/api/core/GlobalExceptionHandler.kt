@@ -2,10 +2,13 @@ package com.kbap.api.core
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import jakarta.persistence.LockTimeoutException
 import jakarta.persistence.OptimisticLockException
+import jakarta.persistence.PessimisticLockException
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.dao.PessimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -93,9 +96,15 @@ class GlobalExceptionHandler {
         request: HttpServletRequest,
     ): ResponseEntity<BaseResponse<Any>> = conflictResponse(e, request)
 
+    @ExceptionHandler(PessimisticLockingFailureException::class)
+    fun handleLockConflict(
+        e: PessimisticLockingFailureException,
+        request: HttpServletRequest,
+    ): ResponseEntity<BaseResponse<Any>> = conflictResponse(e, request)
+
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        if (hasOptimisticConflictCause(e)) {
+        if (hasLockConflictCause(e)) {
             return conflictResponse(e, request)
         }
         // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
@@ -117,9 +126,11 @@ class GlobalExceptionHandler {
             .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
     }
 
-    private fun hasOptimisticConflictCause(e: Throwable?): Boolean =
-        generateSequence(e) { it.cause }
-            .any { it is OptimisticLockingFailureException || it is OptimisticLockException }
+    private fun hasLockConflictCause(e: Throwable?): Boolean =
+        generateSequence(e) { it.cause }.any {
+            it is OptimisticLockingFailureException || it is OptimisticLockException ||
+                it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
+        }
 
     private fun logFailure(e: Exception, errorCode: String, status: HttpStatus, request: HttpServletRequest) {
         val builder = if (status.is5xxServerError) log.atError().setCause(e) else log.atWarn()
