@@ -42,7 +42,7 @@ class AdminFoodImageService(
 
     @Transactional
     fun setPrimary(foodId: Long, imageId: Long, expectedVersion: Long): AdminFoodImageGalleryResult {
-        val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+        val food = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         val target = foodImageRepository.findById(imageId)
             .filter { it.foodId == foodId }
             .orElseThrow { BusinessException(ErrorCode.FOOD_IMAGE_NOT_FOUND) }
