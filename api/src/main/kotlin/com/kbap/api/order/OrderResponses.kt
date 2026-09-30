@@ -36,10 +36,11 @@ data class OrderSummaryResponse(
     val thumbnails: List<String>,
 
     @field:Schema(
-        description = "주문 시점에 스캔했던 메뉴판 사진 URL",
+        description = "주문 시점에 스캔했던 메뉴판 사진 URL. 스캔 사진 없이 저장한 주문이면 null",
         example = "https://cdn.example.com/scan/42/menu.jpg",
+        nullable = true,
     )
-    val scanImageUrl: String,
+    val scanImageUrl: String?,
 
     @field:Schema(
         description = "주문 좌표에서 자동 추정한 식당(공급자 거리순 첫 결과·사용자 확인값 아님). 좌표 없음·추정 실패면 null → 클라는 roadAddress 로 폴백",
@@ -66,10 +67,11 @@ data class OrderDetailResponse(
     val totalPrice: Int,
 
     @field:Schema(
-        description = "주문 시점에 스캔했던 메뉴판 사진 URL — 목록의 scanImageUrl 과 동일",
+        description = "주문 시점에 스캔했던 메뉴판 사진 URL — 목록의 scanImageUrl 과 동일. 스캔 사진 없이 저장한 주문이면 null",
         example = "https://cdn.example.com/scan/42/menu.jpg",
+        nullable = true,
     )
-    val scanImageUrl: String,
+    val scanImageUrl: String?,
 
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
