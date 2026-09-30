@@ -46,6 +46,9 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     @Autowired
+    private lateinit var adminFoodImageService: AdminFoodImageService
+
+    @Autowired
     private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     @Autowired
@@ -489,6 +492,35 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                         images.count { it.isPrimary } shouldBe 1
                         foodRepository.findById(food.id).orElseThrow().imageRef shouldBe images.single { it.isPrimary }.imageKey
                     }
+                }
+            }
+
+            `when`("다른 관리자의 대표 지정이 커밋되기 전에 같은 version 으로 다른 이미지를 지정하면") {
+                then("앞 요청 뒤로 직렬화돼 409 FOOD-006 이고, 대표 이미지와 food.image_ref 가 어긋나지 않는다") {
+                    val food = saveFood("직렬화대표음식", "images/webp/serial-a.webp")
+                    val first = saveImage(food.id, "images/webp/serial-a.webp", isPrimary = false, sortOrder = 0)
+                    val second = saveImage(food.id, "images/webp/serial-b.webp", isPrimary = false, sortOrder = 1)
+                    val promoted = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val other = executor.submit {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            adminFoodImageService.setPrimary(food.id, second.id, food.version)
+                            promoted.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    promoted.await()
+
+                    setPrimary(food.id, first.id, food.version).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-006") }
+                    }
+                    other.get()
+                    executor.shutdown()
+
+                    val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                    images.single { it.isPrimary }.id shouldBe second.id
+                    foodRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/serial-b.webp"
                 }
             }
 
