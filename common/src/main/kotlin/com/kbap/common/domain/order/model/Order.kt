@@ -21,8 +21,8 @@ class Order(
     @Column(name = "member_id", nullable = false)
     var memberId: Long = 0,
 
-    @Column(name = "image_path", nullable = false, length = 512, unique = true)
-    var imagePath: String = "",
+    @Column(name = "image_path", length = 512, unique = true)
+    var imagePath: String? = null,
 
     @Column(precision = 10, scale = 7)
     var latitude: BigDecimal? = null,
@@ -49,13 +49,13 @@ class Order(
 
         fun create(
             memberId: Long,
-            imagePath: String,
+            imagePath: String?,
             latitude: BigDecimal?,
             longitude: BigDecimal?,
             roadAddress: String?,
             resolvedPlace: OrderPlaceSnapshot? = null,
         ): Order {
-            require(imagePath.isNotBlank()) { "imagePath 는 blank 일 수 없습니다" }
+            require(imagePath == null || imagePath.isNotBlank()) { "imagePath 는 blank 일 수 없습니다" }
             require((latitude == null) == (longitude == null)) { "위도·경도는 함께 있거나 함께 없어야 합니다" }
             require(latitude == null || latitude in LATITUDE_RANGE) { "위도는 -90~90 이어야 합니다: $latitude" }
             require(longitude == null || longitude in LONGITUDE_RANGE) { "경도는 -180~180 이어야 합니다: $longitude" }

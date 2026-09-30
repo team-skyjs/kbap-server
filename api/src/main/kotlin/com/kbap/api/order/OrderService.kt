@@ -133,7 +133,7 @@ class OrderService(
             roadAddress = order.roadAddress,
             totalQuantity = OrderItem.totalQuantityOf(items),
             totalPrice = OrderItem.totalPriceOf(items),
-            scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+            scanImageUrl = ImageUrls.resolve(imagePublicBaseUrl, order.imagePath),
             place = OrderPlaceResponse.from(order.resolvedPlace),
             items = items.map {
                 val food = foodsById[it.foodId]
@@ -167,7 +167,7 @@ class OrderService(
                 roadAddress = order.roadAddress,
                 totalQuantity = OrderItem.totalQuantityOf(items),
                 thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { userImageUrlOf(it) ?: thumbnailsByFoodId[it.foodId] },
-                scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+                scanImageUrl = ImageUrls.resolve(imagePublicBaseUrl, order.imagePath),
                 place = OrderPlaceResponse.from(order.resolvedPlace),
             )
         }

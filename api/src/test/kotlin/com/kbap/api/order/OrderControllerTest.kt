@@ -13,6 +13,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
@@ -931,6 +932,89 @@ class OrderControllerTest : BehaviorSpec() {
                     val card = mapper.readTree(listOrders(token).andReturn().response.contentAsString)
                         .path("payload").path("items")[0]
                     card.path("thumbnails")[0].asText().contains("food_not_found") shouldBe true
+                }
+            }
+        }
+
+        given("스캔 사진 없는 주문(orders.image_path NULL)의 조회·수정 응답") {
+            fun seedOrderWithoutScanImage(memberId: Long, foodId: Long): Long {
+                seedMember(memberId)
+                val orderId = dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        "INSERT INTO orders (member_id, image_path) VALUES (?, NULL)",
+                        java.sql.Statement.RETURN_GENERATED_KEYS,
+                    ).use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.executeUpdate()
+                        ps.generatedKeys.use { rs -> rs.next().shouldBeTrue(); rs.getLong(1) }
+                    }
+                }
+                dataSource.connection.use { c ->
+                    c.prepareStatement(
+                        "INSERT INTO order_item (order_id, food_id, menu_name, quantity, price) VALUES (?, ?, '사진없는주문', 2, 5000)",
+                    ).use { ps -> ps.setLong(1, orderId); ps.setLong(2, foodId); ps.executeUpdate() }
+                }
+                return orderId
+            }
+
+            `when`("그 회원이 주문 목록을 조회하면") {
+                then("200 이고 그 카드의 scanImageUrl 은 null 이다 — 사진 없는 주문 하나가 목록 전체를 500 으로 만들지 않는다") {
+                    val memberId = 961L
+                    val orderId = seedOrderWithoutScanImage(memberId, seedReadyFood("사진없는주문음식"))
+
+                    val card = mapper.readTree(
+                        listOrders(accessToken(memberId)).andExpect { status { isOk() } }.andReturn().response.contentAsString,
+                    ).path("payload").path("items").single { it.path("orderId").asLong() == orderId }
+
+                    card.path("scanImageUrl").isNull shouldBe true
+                    card.path("totalQuantity").asInt() shouldBe 2
+                }
+            }
+
+            `when`("그 주문의 상세를 조회하면") {
+                then("200 이고 scanImageUrl 은 null, 항목은 그대로 내려간다") {
+                    val memberId = 962L
+                    val orderId = seedOrderWithoutScanImage(memberId, seedReadyFood("사진없는주문음식"))
+
+                    val detail = mapper.readTree(
+                        orderDetail(accessToken(memberId), orderId).andExpect { status { isOk() } }.andReturn().response.contentAsString,
+                    ).path("payload")
+
+                    detail.path("scanImageUrl").isNull shouldBe true
+                    detail.path("items").size() shouldBe 1
+                }
+            }
+
+            `when`("그 주문의 장소를 바꾸면") {
+                then("200 이고 갱신된 상세가 내려간다 — 수정 응답도 같은 상세 조립을 쓴다") {
+                    val memberId = 963L
+                    val orderId = seedOrderWithoutScanImage(memberId, seedReadyFood("사진없는주문음식"))
+
+                    val payload = mapper.readTree(
+                        mockMvc.patch("/api/orders/$orderId/place") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${accessToken(memberId)}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = """{"placeId":"ChIJnoscan","name":"백년옥","address":"서울 중구 소공로 51","language":"en"}"""
+                        }.andExpect { status { isOk() } }.andReturn().response.contentAsString,
+                    ).path("payload")
+
+                    payload.path("scanImageUrl").isNull shouldBe true
+                    payload.path("place").path("name").asText() shouldBe "백년옥"
+                }
+            }
+
+            `when`("사진 없는 주문이 같은 회원에게 두 건 있으면") {
+                then("둘 다 저장되고 목록에 나온다 — image_path 유니크는 NULL 끼리 충돌하지 않는다") {
+                    val memberId = 964L
+                    val food = seedReadyFood("사진없는주문음식")
+                    val first = seedOrderWithoutScanImage(memberId, food)
+                    val second = seedOrderWithoutScanImage(memberId, food)
+
+                    val ids = mapper.readTree(listOrders(accessToken(memberId)).andReturn().response.contentAsString)
+                        .path("payload").path("items").map { it.path("orderId").asLong() }
+
+                    ids shouldBe listOf(second, first)
                 }
             }
         }
