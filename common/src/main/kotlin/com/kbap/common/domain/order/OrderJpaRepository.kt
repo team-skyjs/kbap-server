@@ -5,12 +5,24 @@ import org.springframework.data.domain.Limit
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface OrderJpaRepository : JpaRepository<Order, Long> {
     fun existsByImagePath(imagePath: String): Boolean
+
+    @Modifying
+    @Query(
+        nativeQuery = true,
+        value = """
+            UPDATE orders SET latitude = NULL, longitude = NULL, road_address = NULL,
+                place_source = NULL, place_external_id = NULL, place_name = NULL, place_address = NULL, place_language = NULL
+            WHERE member_id = :memberId
+        """,
+    )
+    fun eraseLocationByMemberId(@Param("memberId") memberId: Long): Int
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<Order>
 

@@ -3,6 +3,7 @@ package com.kbap.api.member
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.ProfileImagePaths
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional
 class MemberService(
     private val memberRepository: MemberJpaRepository,
     private val uploadedImageService: UploadedImageService,
+    private val orderRepository: OrderJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
@@ -82,6 +84,7 @@ class MemberService(
     @Transactional
     fun withdraw(memberId: Long) {
         getMember(memberId).withdraw()
+        orderRepository.eraseLocationByMemberId(memberId)
     }
 
     @Transactional(readOnly = true)
