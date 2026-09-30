@@ -12,6 +12,7 @@ import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -66,7 +67,7 @@ class MemberService(
 
     @Transactional(readOnly = true)
     fun getMemberOrNull(memberId: Long): Member? =
-        memberRepository.findByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
+        memberRepository.findByIdOrNull(memberId)?.takeIf { it.memberStatus == MemberStatus.ACTIVE }
 
     private fun findByIdentity(identity: SocialIdentity): Member? =
         memberRepository.findByProviderAndProviderUidAndMemberStatus(

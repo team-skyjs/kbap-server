@@ -250,14 +250,51 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(
         nativeQuery = true,
         value = """
-        select f.id from food f
+        select f.* from food f
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
         order by rand()
         limit :size
         """,
     )
-    fun findRandomReadyIds(@Param("size") size: Int): List<Long>
+    fun findRandom(@Param("size") size: Int): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.* from food f
+        join (
+            select r.food_id, count(*) as review_count, max(r.id) as latest_review_id
+            from food_review r
+            where r.status = 'ACTIVE'
+            group by r.food_id
+        ) x on x.food_id = f.id
+        where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
+        order by x.review_count desc, x.latest_review_id desc
+        limit :size
+        """,
+    )
+    fun findMostReviewed(@Param("size") size: Int): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.* from food f
+        join (
+            select sh.food_id, max(sh.created_at) as last_scanned_at
+            from scan_history sh
+            where sh.member_id = :memberId
+              and sh.status = 'ACTIVE'
+            group by sh.food_id
+        ) x on x.food_id = f.id
+        where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
+        order by x.last_scanned_at desc
+        limit :size
+        """,
+    )
+    fun findRecentScanned(@Param("memberId") memberId: Long, @Param("size") size: Int): List<Food>
 
     companion object {
         const val IMAGE_CANDIDATE =

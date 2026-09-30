@@ -176,7 +176,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     clear()
                     savePendingReview("랜덤-검수대기")
 
-                    foodJpaRepository.findRandomReadyIds(size = 10).shouldBeEmpty()
+                    foodJpaRepository.findRandom(size = 10).shouldBeEmpty()
                 }
             }
         }

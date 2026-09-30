@@ -16,7 +16,6 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
-import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.api.member.MemberService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -33,7 +32,6 @@ class FoodService(
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
-    private val reviewRepository: ReviewJpaRepository,
     private val memberService: MemberService,
     private val eventPublisher: ApplicationEventPublisher,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
@@ -201,21 +199,15 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(getRandomReadyFoods(size), lang, memberId)
+        summaryViews(foodRepository.findRandom(size), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(scanHistoryRepository.findRecentReadyFoodIds(memberId, size)), lang, memberId)
-
-    private fun getRandomReadyFoods(size: Int): List<Food> {
-        val ids = foodRepository.findRandomReadyIds(size)
-        if (ids.isEmpty()) return emptyList()
-        return foodRepository.findByIdIn(ids)
-    }
+        summaryViews(foodRepository.findRecentScanned(memberId, size), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getMostReviewedFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(reviewRepository.findMostReviewedFoodIds(PageRequest.of(0, size))), lang, memberId)
+        summaryViews(foodRepository.findMostReviewed(size), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getReadyFoodsByIds(ids: List<Long>): List<Food> {
