@@ -160,6 +160,18 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
             }
         }
 
+        given("잠금 충돌이 다른 예외에 감싸여 올라온 요청") {
+            `when`("응답이 나가면") {
+                then("원인 사슬에서 잠금 충돌을 찾아 409 COMMON-004 로 응답한다") {
+                    val result = mockMvc.get("/api/test-logging/lock-conflict-wrapped").andReturn()
+
+                    result.response.status shouldBe 409
+                    result.body().path("code").asText() shouldBe "COMMON-004"
+                    appender.list.single().level shouldBe Level.WARN
+                }
+            }
+        }
+
         given("미처리 예외를 던지는 요청") {
             `when`("응답이 나가면") {
                 then("공통 응답 봉투(COMMON-003, 500)로 응답한다") {

@@ -19,6 +19,10 @@ class LoggingTestController(
     private val transaction = org.springframework.transaction.support.TransactionTemplate(transactionManager)
     private val bothHoldFirstLock = java.util.concurrent.CyclicBarrier(2)
 
+    @GetMapping("/lock-conflict-wrapped")
+    fun lockConflictWrapped(): ResponseEntity<BaseResponse<String>> =
+        throw IllegalStateException("감싼 예외", org.springframework.dao.CannotAcquireLockException("잠금 대기 초과"))
+
     @GetMapping("/lock-both")
     fun lockBoth(
         @org.springframework.web.bind.annotation.RequestParam first: Long,
