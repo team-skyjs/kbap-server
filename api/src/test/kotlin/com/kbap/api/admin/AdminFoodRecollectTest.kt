@@ -12,6 +12,21 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import javax.sql.DataSource
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.RegenerationIntent
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.longs.shouldBeGreaterThan
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import java.time.Duration
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 @IntegrationTest
 class AdminFoodRecollectTest : BehaviorSpec() {
@@ -28,6 +43,15 @@ class AdminFoodRecollectTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var dataSource: DataSource
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var imageBatchJpaRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     init {
         val namePrefix = "재수집-"
@@ -57,6 +81,59 @@ class AdminFoodRecollectTest : BehaviorSpec() {
 
         fun pendingFoodIds(): List<Long> =
             outboxRepository.findByOutboxStatusOrderByIdAsc(FoodContentOutboxStatus.PENDING).map { it.foodId }
+
+        fun holdFoodLockWhileStartingRegeneration(foodId: Long, locked: CountDownLatch): Future<*> =
+            Executors.newSingleThreadExecutor().let { executor ->
+                executor.submit {
+                    TransactionTemplate(transactionManager).execute {
+                        foodJpaRepository.findByIdForUpdate(foodId)
+                        val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                        imageBatchItemJpaRepository.saveAndFlush(
+                            ImageBatchItem(batchId = batch.id, foodId = foodId, regenerationIntent = RegenerationIntent.WRONG_IMAGE),
+                        )
+                        locked.countDown()
+                        Thread.sleep(1_500)
+                    }
+                }.also { executor.shutdown() }
+            }
+
+        given("재생성이 음식 행을 잠그고 시작되는 동안 들어온 재수집") {
+            `when`("일괄 재수집이 그 음식을 대상으로 잡고 잠금을 기다리면") {
+                then("잠금 뒤에 커밋된 재생성을 보고 건너뛴다 — 잠금이 그 음식 트랜잭션의 첫 DB 연산이라 옛 스냅샷으로 판정하지 않는다") {
+                    clearFoods()
+                    val food = saveFood("잠금대기칼국수")
+                    val locked = CountDownLatch(1)
+                    val regeneration = holdFoodLockWhileStartingRegeneration(food.id, locked)
+                    locked.await()
+
+                    val started = System.nanoTime()
+                    val result = adminFoodService.requestRecollect(query = "잠금대기칼국수", status = null)
+                    Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
+                    regeneration.get()
+
+                    result.requested shouldBe 1
+                    result.created shouldBe 0
+                    result.skippedRegenerating shouldBe 1
+                    pendingFoodIds() shouldBe emptyList()
+                }
+            }
+
+            `when`("단건 재수집이 잠금을 기다리면") {
+                then("잠금 뒤에 커밋된 재생성을 보고 409(FOOD-020) 로 거절한다") {
+                    clearFoods()
+                    val food = saveFood("잠금대기콩국수")
+                    val locked = CountDownLatch(1)
+                    val regeneration = holdFoodLockWhileStartingRegeneration(food.id, locked)
+                    locked.await()
+
+                    shouldThrow<BusinessException> { adminFoodService.requestRecollectForFood(food.id) }
+                        .errorCode shouldBe ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT
+                    regeneration.get()
+
+                    pendingFoodIds() shouldBe emptyList()
+                }
+            }
+        }
 
         given("조건 일괄 재수집") {
             `when`("검색어에 걸린 음식이 있으면") {
