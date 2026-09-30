@@ -22,6 +22,7 @@
 
 - [X] T009 [US1] 로컬 dev 프로필 + `SPRING_JPA_SHOW_SQL=true` 실측 — 비회원 2회, 회원 4회(기피 성분 없는 시드 회원, 있으면 5회). 변경 전 9·12
 - [X] T010 홈 테스트 3파일 `git diff --stat develop` 비어 있음 확인
+- [X] T011a [US2] `scan_history` 인덱스 `(member_id, created_at)` → `(member_id, food_id, created_at)` Flyway 마이그레이션 + `ScanHistory` `@Index` 동기화, api 테스트 그린, 로컬 EXPLAIN 으로 `Using temporary` 제거 확인 (plan D5)
 - [X] T011 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
 - [ ] T012 [US1] 머지 후 dev 재측정(사용자) → KB-654·KB-653 DoD 갱신
 

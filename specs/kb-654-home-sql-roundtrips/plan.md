@@ -42,3 +42,7 @@
 1. `./gradlew :common:test :api:test` 그린.
 2. 로컬 dev 프로필 + `spring.jpa.show-sql=true`(환경변수 `SPRING_JPA_SHOW_SQL=true`) 로 기동, 회원 토큰으로 홈 1회 → 로그의 `select` 문 5개, 비회원 2개.
 3. 머지 후 사용자 재측정(AWS 안).
+
+## 추가 결정 (2026-09-30, 사용자 지시)
+
+- **D5 scan_history 복합 인덱스 교체**: `idx_scan_history_recent (member_id, created_at)` → `idx_scan_history_member_food_recent (member_id, food_id, created_at)`. dev `EXPLAIN` 에서 `findRecentScanned` 의 서브쿼리가 `member_id` 로 좁힌 뒤 `food_id` GROUP BY 에 `Using temporary` 를 썼다. 새 순서면 그룹·`MAX(created_at)` 을 인덱스 순서 그대로 읽는다. 같은 형태의 `findScannedFoodIds`·`findScannedFoodPageIds`·`findLastScannedAt`·`existsByMemberIdAndFoodId` 도 이득. 옛 순서에 기대는 쿼리는 없다(관리자 스캔 페이지는 `id DESC` 정렬). Flyway `V2026.09.30.14.56.23`, 엔티티 `@Index` 동기화.
