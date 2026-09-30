@@ -44,17 +44,21 @@ class OrderService(
     }
 
     private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
-        if (UploadedImageJpaRepository.isCleanupTarget(request.imagePath!!)) {
-            throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-        }
-        imageUploadService.verifyImageAccess(memberId, request.imagePath)
-            ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-        if (orderRepository.existsByImagePath(request.imagePath)) {
-            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
-        }
+        request.imagePath?.let { verifyScanImage(memberId, it) }
         val foodIds = request.items.map { it.foodId!! }.distinct()
         if (foodRepository.findByIdIn(foodIds).size != foodIds.size) {
             throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        }
+    }
+
+    private fun verifyScanImage(memberId: Long, imagePath: String) {
+        if (UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
+            throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        }
+        imageUploadService.verifyImageAccess(memberId, imagePath)
+            ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        if (orderRepository.existsByImagePath(imagePath)) {
+            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
         }
     }
 

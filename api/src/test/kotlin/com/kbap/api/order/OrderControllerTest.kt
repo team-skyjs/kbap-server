@@ -952,6 +952,106 @@ class OrderControllerTest : BehaviorSpec() {
             }
         }
 
+        given("스캔 사진 없이 주문 저장 — imagePath 생략") {
+            fun bodyWithoutImage(items: List<String>, imagePathField: String = ""): String =
+                """{$imagePathField"items":[${items.joinToString(",")}]}"""
+
+            fun ordersOf(memberId: Long): List<String?> =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT image_path FROM orders WHERE member_id = ? ORDER BY id").use { ps ->
+                        ps.setLong(1, memberId)
+                        ps.executeQuery().use { rs -> generateSequence { if (rs.next()) listOf(rs.getString(1)) else null }.flatten().toList() }
+                    }
+                }
+
+            `when`("imagePath 필드를 아예 보내지 않으면") {
+                then("200 으로 저장되고 image_path 는 NULL, 목록·상세의 scanImageUrl 은 null 이다") {
+                    val memberId = 971L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("사진생략주문음식")
+
+                    val orderId = orderIdOf(
+                        placeOrder(token, bodyWithoutImage(listOf(itemJson("사진생략주문음식", 2, 7000, food))))
+                            .andExpect { status { isOk() } },
+                    )
+
+                    ordersOf(memberId) shouldBe listOf<String?>(null)
+                    val detail = mapper.readTree(orderDetail(token, orderId).andReturn().response.contentAsString).path("payload")
+                    detail.path("scanImageUrl").isNull shouldBe true
+                    detail.path("totalPrice").asInt() shouldBe 14000
+                    mapper.readTree(listOrders(token).andReturn().response.contentAsString)
+                        .path("payload").path("items")[0].path("scanImageUrl").isNull shouldBe true
+                }
+            }
+
+            `when`("imagePath 에 null 을 명시하면") {
+                then("생략과 같이 200 으로 저장된다") {
+                    val memberId = 972L
+                    val food = seedReadyFood("사진생략주문음식")
+
+                    placeOrder(accessToken(memberId), bodyWithoutImage(listOf(itemJson("사진생략주문음식", 1, null, food)), """"imagePath":null,"""))
+                        .andExpect { status { isOk() } }
+
+                    ordersOf(memberId) shouldBe listOf<String?>(null)
+                }
+            }
+
+            `when`("사진 없는 주문을 두 번 저장하면") {
+                then("둘 다 저장된다 — 중복 검사는 사진이 있을 때만 하고, NULL 끼리는 '이미 주문한 스캔'이 아니다") {
+                    val memberId = 973L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("사진생략주문음식")
+                    val body = bodyWithoutImage(listOf(itemJson("사진생략주문음식", 1, 3000, food)))
+
+                    placeOrder(token, body).andExpect { status { isOk() } }
+                    placeOrder(token, body).andExpect { status { isOk() } }
+
+                    ordersOf(memberId) shouldBe listOf<String?>(null, null)
+                }
+            }
+
+            `when`("다른 회원이 사진 없는 주문을 이미 저장한 뒤에 저장하면") {
+                then("200 으로 저장된다 — 남의 사진 없는 주문이 내 주문을 막지 않는다") {
+                    val food = seedReadyFood("사진생략주문음식")
+                    val body = bodyWithoutImage(listOf(itemJson("사진생략주문음식", 1, 3000, food)))
+                    placeOrder(accessToken(974L), body).andExpect { status { isOk() } }
+
+                    placeOrder(accessToken(975L), body).andExpect { status { isOk() } }
+
+                    ordersOf(975L) shouldBe listOf<String?>(null)
+                }
+            }
+
+            `when`("imagePath 를 빈 문자열·공백으로 보내면") {
+                then("400 COMMON-002 로 거절한다 — 생략·null 만 '사진 없음'이고 빈 값은 잘못된 요청이다") {
+                    val memberId = 976L
+                    val food = seedReadyFood("사진생략주문음식")
+
+                    listOf("", "   ").forEach { blank ->
+                        placeOrder(accessToken(memberId), orderBody(blank, listOf(itemJson("사진생략주문음식", 1, 3000, food))))
+                            .andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value("COMMON-002") }
+                            }
+                    }
+                    ordersOf(memberId) shouldBe emptyList()
+                }
+            }
+
+            `when`("사진 없이 존재하지 않는 음식으로 주문하면") {
+                then("400 FOOD-001 로 거절한다 — 사진 검증만 건너뛰고 음식 검증은 그대로다") {
+                    val memberId = 977L
+
+                    placeOrder(accessToken(memberId), bodyWithoutImage(listOf(itemJson("없는음식", 1, 3000, 999_999_999L))))
+                        .andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("FOOD-001") }
+                        }
+                    ordersOf(memberId) shouldBe emptyList()
+                }
+            }
+        }
+
         given("스캔 사진 없는 주문(orders.image_path NULL)의 조회·수정 응답") {
             fun seedOrderWithoutScanImage(memberId: Long, foodId: Long): Long {
                 seedMember(memberId)
