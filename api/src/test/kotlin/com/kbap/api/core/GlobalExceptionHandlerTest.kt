@@ -47,6 +47,10 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
 
         fun MvcResult.body() = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
 
+        fun vendorCodesOf(result: MvcResult): List<Int> =
+            generateSequence(result.resolvedException as Throwable?) { it.cause }
+                .filterIsInstance<java.sql.SQLException>().map { it.errorCode }.toList()
+
         given("비즈니스 예외(4xx)를 던지는 요청") {
             `when`("응답이 나가면") {
                 then("예외 타입·에러 코드·상태·요청 URI 가 담긴 WARN 로그가 남는다") {
@@ -152,6 +156,7 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
 
                     results.map { it.response.status }.sorted() shouldBe listOf(200, 409)
                     val victim = results.single { it.response.status == 409 }
+                    vendorCodesOf(victim) shouldBe listOf(1213)
                     victim.body().path("code").asText() shouldBe "COMMON-004"
                     val event = appender.list.single { it.value("status") == 409 }
                     event.level shouldBe Level.WARN
@@ -160,14 +165,55 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
             }
         }
 
+        given("잠금 대기 초과로 실패한 요청") {
+            `when`("다른 트랜잭션이 행을 쥐고 놓지 않는 동안 그 행을 잠그려 하면") {
+                then("409 COMMON-004 로 응답하되 ERROR 로 남긴다 — 누군가 행을 오래 쥐고 있다는 신호라 관측에서 사라지면 안 된다") {
+                    val foodId = dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations, " +
+                                "ingredients, content_status, status, created_at, updated_at) " +
+                                "VALUES ('잠금대기음식', '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6)) " +
+                                "ON DUPLICATE KEY UPDATE content_status = 'READY'",
+                        ).use { it.executeUpdate() }
+                        c.prepareStatement("SELECT id FROM food WHERE korean_name = '잠금대기음식'").use { ps ->
+                            ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+                        }
+                    }
+
+                    val result = dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        try {
+                            holder.prepareStatement("SELECT id FROM food WHERE id = ? FOR UPDATE").use { ps ->
+                                ps.setLong(1, foodId)
+                                ps.executeQuery().close()
+                            }
+                            mockMvc.get("/api/test-logging/lock-wait?id=$foodId").andReturn()
+                        } finally {
+                            holder.rollback()
+                            holder.autoCommit = true
+                        }
+                    }
+
+                    result.response.status shouldBe 409
+                    result.body().path("code").asText() shouldBe "COMMON-004"
+                    val event = appender.list.single()
+                    vendorCodesOf(result) shouldBe listOf(1205)
+                    event.value("exception") shouldBe "CannotAcquireLockException"
+                    event.level shouldBe Level.ERROR
+                    event.value("errorCode") shouldBe "COMMON-004"
+                    event.value("status") shouldBe 409
+                }
+            }
+        }
+
         given("잠금 충돌이 다른 예외에 감싸여 올라온 요청") {
             `when`("응답이 나가면") {
-                then("원인 사슬에서 잠금 충돌을 찾아 409 COMMON-004 로 응답한다") {
+                then("원인 사슬에서 잠금 충돌을 찾아 409 COMMON-004 로 응답하고, 교착 희생 표식이 없으므로 ERROR 로 남긴다") {
                     val result = mockMvc.get("/api/test-logging/lock-conflict-wrapped").andReturn()
 
                     result.response.status shouldBe 409
                     result.body().path("code").asText() shouldBe "COMMON-004"
-                    appender.list.single().level shouldBe Level.WARN
+                    appender.list.single().level shouldBe Level.ERROR
                 }
             }
         }

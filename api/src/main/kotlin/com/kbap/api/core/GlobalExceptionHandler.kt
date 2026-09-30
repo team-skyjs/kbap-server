@@ -6,6 +6,7 @@ import jakarta.persistence.LockTimeoutException
 import jakarta.persistence.OptimisticLockException
 import jakarta.persistence.PessimisticLockException
 import jakarta.servlet.http.HttpServletRequest
+import java.sql.SQLException
 import org.slf4j.LoggerFactory
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.dao.PessimisticLockingFailureException
@@ -22,6 +23,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private companion object {
+        const val MYSQL_DEADLOCK_VICTIM = 1213
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(
@@ -121,7 +126,7 @@ class GlobalExceptionHandler {
     }
 
     private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request)
+        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = isLockHeldTooLong(e))
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
     }
@@ -132,8 +137,22 @@ class GlobalExceptionHandler {
                 it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
         }
 
-    private fun logFailure(e: Exception, errorCode: String, status: HttpStatus, request: HttpServletRequest) {
-        val builder = if (status.is5xxServerError) log.atError().setCause(e) else log.atWarn()
+    private fun isLockHeldTooLong(e: Throwable): Boolean {
+        val chain = generateSequence(e) { it.cause }.toList()
+        val pessimistic = chain.any {
+            it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
+        }
+        return pessimistic && chain.none { it is SQLException && it.errorCode == MYSQL_DEADLOCK_VICTIM }
+    }
+
+    private fun logFailure(
+        e: Exception,
+        errorCode: String,
+        status: HttpStatus,
+        request: HttpServletRequest,
+        asError: Boolean = status.is5xxServerError,
+    ) {
+        val builder = if (asError) log.atError().setCause(e) else log.atWarn()
         builder
             .addKeyValue("exception", e.javaClass.simpleName)
             .addKeyValue("errorCode", errorCode)

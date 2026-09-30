@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 class LoggingTestController(
     private val foodRepository: com.kbap.common.domain.food.FoodJpaRepository,
     transactionManager: org.springframework.transaction.PlatformTransactionManager,
+    private val jdbcTemplate: org.springframework.jdbc.core.JdbcTemplate,
 ) {
     private val transaction = org.springframework.transaction.support.TransactionTemplate(transactionManager)
     private val bothHoldFirstLock = java.util.concurrent.CyclicBarrier(2)
@@ -22,6 +23,19 @@ class LoggingTestController(
     @GetMapping("/lock-conflict-wrapped")
     fun lockConflictWrapped(): ResponseEntity<BaseResponse<String>> =
         throw IllegalStateException("감싼 예외", org.springframework.dao.CannotAcquireLockException("잠금 대기 초과"))
+
+    @GetMapping("/lock-wait")
+    fun lockWait(@org.springframework.web.bind.annotation.RequestParam id: Long): ResponseEntity<BaseResponse<String>> {
+        transaction.executeWithoutResult {
+            jdbcTemplate.execute("SET SESSION innodb_lock_wait_timeout = 1")
+            try {
+                foodRepository.findByIdForUpdate(id)
+            } finally {
+                jdbcTemplate.execute("SET SESSION innodb_lock_wait_timeout = DEFAULT")
+            }
+        }
+        return ResponseEntity.ok(BaseResponse.ok("ok"))
+    }
 
     @GetMapping("/lock-both")
     fun lockBoth(
