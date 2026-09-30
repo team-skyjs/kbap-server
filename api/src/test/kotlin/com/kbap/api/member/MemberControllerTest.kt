@@ -80,6 +80,9 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
+        fun ownProfileKey(name: String): String =
+            "dev/images/profile/2026/10/${memberColumn("google-sub-fixed", "id")}_$name.jpg"
+
         fun getMyRanking(token: String?) =
             mockMvc.get("/api/members/me/ranking") {
                 if (token != null) header("Authorization", "Bearer $token")
@@ -550,7 +553,7 @@ class MemberControllerTest : BehaviorSpec() {
                 submitOnboarding(
                     token,
                     validBody() + mapOf(
-                        "profileImageUrl" to "profiles/origin.jpg",
+                        "profileImageUrl" to ownProfileKey("origin"),
                         "spicinessPreference" to "MEDIUM",
                     ),
                 ).andExpect { status { isOk() } }
@@ -561,11 +564,11 @@ class MemberControllerTest : BehaviorSpec() {
                 then("사진은 교체되고 나머지 프로필 값은 유지된다") {
                     val token = onboardedWithImageToken()
 
-                    updateProfile(token, mapOf("profileImageUrl" to "profiles/new.jpg"))
+                    updateProfile(token, mapOf("profileImageUrl" to ownProfileKey("new")))
                         .andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/new.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("new")
                     payload.path("nickname").asText() shouldBe "길동이"
                     payload.path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
@@ -578,7 +581,7 @@ class MemberControllerTest : BehaviorSpec() {
                     updateProfile(token, mapOf("nickname" to "새닉")).andExpect { status { isOk() } }
 
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("origin")
                     payload.path("spicinessPreference").asText() shouldBe "MEDIUM"
                 }
             }
@@ -591,7 +594,7 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val payload = profilePayload(token)
                     payload.path("spicinessPreference").asText() shouldBe "EXTREME"
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/origin.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("origin")
                     payload.path("nickname").asText() shouldBe "길동이"
                 }
             }
@@ -606,7 +609,7 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/profiles/origin.jpg"
+                        "https://cdn.test/" + ownProfileKey("origin")
                 }
             }
 
@@ -629,7 +632,68 @@ class MemberControllerTest : BehaviorSpec() {
                     updateProfile(token, mapOf("profileImageUrl" to null)).andExpect { status { isOk() } }
 
                     profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/profiles/origin.jpg"
+                        "https://cdn.test/" + ownProfileKey("origin")
+                }
+            }
+
+            `when`("다른 회원의 id 가 박힌 프로필 업로드 경로를 지정하면") {
+                then("400 MEMBER-008 로 거절되고 기존 사진이 유지된다 — 남의 프로필 사진 키를 가져다 쓸 수 없다") {
+                    val token = onboardedWithImageToken()
+                    val othersId = memberColumn("google-sub-fixed", "id")!!.toLong() + 1
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "dev/images/profile/2026/10/${othersId}_stolen.jpg"))
+                        .andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("origin")
+                }
+            }
+
+            `when`("프로필 용도가 아닌 본인 업로드 경로(리뷰·커뮤니티·문의·스캔)를 지정하면") {
+                then("본인 id 가 박혀 있어도 400 MEMBER-008 로 거절된다") {
+                    val token = onboardedWithImageToken()
+                    val ownId = memberColumn("google-sub-fixed", "id")
+
+                    listOf("review", "community", "feedback", "scans").forEach { purpose ->
+                        val result = updateProfile(token, mapOf("profileImageUrl" to "dev/images/$purpose/2026/10/${ownId}_x.jpg"))
+                            .andReturn().response
+
+                        result.status shouldBe 400
+                        result.contentAsString shouldContain "MEMBER-008"
+                    }
+                }
+            }
+
+            `when`("기본 아바타나 문서 기본 이미지를 지정하면") {
+                then("통과한다") {
+                    val token = onboardedWithImageToken()
+
+                    updateProfile(token, mapOf("profileImageUrl" to "images/webp/default_profile/avatar3.webp")).andExpect { status { isOk() } }
+                    updateProfile(token, mapOf("profileImageUrl" to "images/default/profile/profile-default-512.png")).andExpect { status { isOk() } }
+
+                    profilePayload(token).path("profileImageUrl").asText() shouldBe
+                        "https://cdn.test/images/default/profile/profile-default-512.png"
+                }
+            }
+
+            `when`("허용 형태가 아닌 값이 이미 저장된 회원이 그 값을 그대로 되돌려 보내면") {
+                then("검증하지 않고 통과한다 — 기존 회원의 프로필 저장이 막히지 않는다. 다른 미허용 값으로 바꾸는 것은 거절") {
+                    val token = onboardedWithImageToken()
+                    val legacy = "profile-image/2026/07/18/1/legacy.jpg"
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET profile_image_url = ? WHERE provider_uid = 'google-sub-fixed'").use { ps ->
+                            ps.setString(1, legacy)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    updateProfile(token, mapOf("profileImageUrl" to legacy, "spicinessPreference" to "HOT")).andExpect { status { isOk() } }
+                    profilePayload(token).path("spicinessPreference").asText() shouldBe "HOT"
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to "profile-image/2026/07/18/1/other.jpg")).andReturn().response
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
                 }
             }
 
@@ -642,7 +706,7 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/profiles/origin.jpg"
+                        "https://cdn.test/" + ownProfileKey("origin")
                 }
             }
 
@@ -655,7 +719,7 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 400
                     result.contentAsString shouldContain "MEMBER-008"
                     profilePayload(token).path("profileImageUrl").asText() shouldBe
-                        "https://cdn.test/profiles/origin.jpg"
+                        "https://cdn.test/" + ownProfileKey("origin")
                 }
             }
         }
@@ -671,15 +735,15 @@ class MemberControllerTest : BehaviorSpec() {
                     submitOnboarding(
                         token,
                         validBody() + mapOf(
-                            "profileImageUrl" to "profiles/abc.jpg",
+                            "profileImageUrl" to ownProfileKey("abc"),
                             "spicinessPreference" to "HOT",
                         ),
                     ).andExpect { status { isOk() } }
 
-                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe "profiles/abc.jpg"
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe ownProfileKey("abc")
 
                     val payload = profilePayload(token)
-                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/profiles/abc.jpg"
+                    payload.path("profileImageUrl").asText() shouldBe "https://cdn.test/" + ownProfileKey("abc")
                     payload.path("spicinessPreference").asText() shouldBe "HOT"
                 }
             }
@@ -869,6 +933,8 @@ class MemberControllerTest : BehaviorSpec() {
                 "http 전체 URL" to "http://cdn.example.com/p.jpg",
                 "대문자 스킴 전체 URL" to "HTTPS://cdn.example.com/p.jpg",
                 "512자를 넘는 경로" to "a".repeat(513),
+                "다른 회원 id 가 박힌 프로필 업로드 경로" to "dev/images/profile/2026/10/999999999_x.jpg",
+                "허용 목록에 없는 경로" to "profiles/abc.jpg",
             ).forEach { (label, path) ->
                 `when`(label + "을 제출하면") {
                     then("400 MEMBER-008 로 거절되고 아무것도 저장되지 않는다") {
