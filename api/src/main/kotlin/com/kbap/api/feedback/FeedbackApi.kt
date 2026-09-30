@@ -23,7 +23,9 @@ interface FeedbackApi {
             사진은 최대 3장이며 `/api/images/upload-url`·`/api/images/complete` 로 purpose=FEEDBACK 업로드한 사진만 첨부할 수 있다.
             **게스트도 사진을 붙일 수 있다** — 두 업로드 엔드포인트는 purpose=FEEDBACK + `X-Installation-Id` 이면 토큰 없이 받는다(기기당 하루 10건).
             소유 검증은 회원이면 member id, 게스트면 같은 설치 ID 업로드까지 인정하며 어긋나면 400(FEEDBACK-002)이다.
-            같은 기기에서 하루 20건을 넘기면 429(FEEDBACK-003)다.
+            같은 기기에서 **직전 24시간** 동안 20건을 넘기면 429(FEEDBACK-003)다 — 달력 하루가 아니라 롤링 윈도이고,
+            동시에 여러 건을 보내도 20건을 넘지 않는다. 검증에 실패해 저장되지 않은 요청은 한도를 쓰지 않는다.
+            한도 카운터(Redis)에 장애가 있으면 문의를 막지 않고 저장된 건수로만 판정한다.
         """,
     )
     @ApiResponses(
