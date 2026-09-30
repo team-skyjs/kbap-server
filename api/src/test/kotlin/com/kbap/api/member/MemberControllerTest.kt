@@ -29,6 +29,9 @@ class MemberControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var storage: com.kbap.api.image.FakeStorageObjectStore
+
     init {
         val objectMapper = jacksonObjectMapper()
 
@@ -80,8 +83,25 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun ownProfileKey(name: String): String =
+        fun seedCompletedUpload(ownerMemberId: Long, path: String) {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO uploaded_image (member_id, object_path, content_type, size_bytes, status, created_at, updated_at) " +
+                        "VALUES (?, ?, 'image/jpeg', 1024, 'ACTIVE', NOW(6), NOW(6)) " +
+                        "ON DUPLICATE KEY UPDATE member_id = VALUES(member_id), status = 'ACTIVE'",
+                ).use { ps ->
+                    ps.setLong(1, ownerMemberId)
+                    ps.setString(2, path)
+                    ps.executeUpdate()
+                }
+            }
+        }
+
+        fun unrecordedOwnProfileKey(name: String): String =
             "local/images/profile/2026/10/${memberColumn("google-sub-fixed", "id")}_${java.util.UUID.nameUUIDFromBytes(name.toByteArray())}.jpg"
+
+        fun ownProfileKey(name: String): String =
+            unrecordedOwnProfileKey(name).also { seedCompletedUpload(memberColumn("google-sub-fixed", "id")!!.toLong(), it) }
 
         fun getMyRanking(token: String?) =
             mockMvc.get("/api/members/me/ranking") {
@@ -650,8 +670,8 @@ class MemberControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("발급 API 가 PROFILE_IMAGE 용도로 실제로 내준 objectKey 를 그대로 지정하면") {
-                then("통과한다 — 발급 형식과 검증 형식이 어긋나면 이 테스트가 깨진다(jpg·png 모두)") {
+            `when`("발급 → 업로드 완료 신고 → 그 경로를 프로필에 지정하면") {
+                then("통과한다 — 앱이 실제로 밟는 순서다. 발급 형식과 검증 형식이 어긋나면 이 테스트가 깨진다(jpg·png 모두)") {
                     val token = onboardedWithImageToken()
 
                     listOf("image/jpeg", "image/png").forEach { contentType ->
@@ -663,10 +683,60 @@ class MemberControllerTest : BehaviorSpec() {
                             )
                         }.andExpect { status { isOk() } }.andReturn().response.contentAsString
                         val objectKey = objectMapper.readTree(issued).path("payload").path("objectKey").asText()
+                        storage.stub(objectKey, contentType, 1024)
+                        val completed = mockMvc.post("/api/images/complete") {
+                            header("Authorization", "Bearer $token")
+                            this.contentType = MediaType.APPLICATION_JSON
+                            content = objectMapper.writeValueAsString(mapOf("path" to objectKey, "contentType" to contentType, "size" to 1024))
+                        }.andExpect { status { isOk() } }.andReturn().response.contentAsString
+                        val completedPath = objectMapper.readTree(completed).path("payload").path("path").asText()
 
-                        updateProfile(token, mapOf("profileImageUrl" to objectKey)).andExpect { status { isOk() } }
+                        updateProfile(token, mapOf("profileImageUrl" to completedPath)).andExpect { status { isOk() } }
                         memberColumn("google-sub-fixed", "profile_image_url") shouldBe objectKey
                     }
+                }
+            }
+
+            `when`("형식은 본인 발급 키와 같지만 업로드 완료 기록이 없는 경로를 지정하면") {
+                then("400 MEMBER-008 로 거절된다 — 올린 적 없는 키가 깨진 사진 URL 로 저장되지 않는다") {
+                    val token = onboardedWithImageToken()
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to unrecordedOwnProfileKey("never-uploaded"))).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe ownProfileKey("origin")
+                }
+            }
+
+            `when`("형식은 본인 발급 키와 같지만 업로드 완료 기록의 주인이 다른 회원이면") {
+                then("400 MEMBER-008 로 거절된다") {
+                    val token = onboardedWithImageToken()
+                    val path = unrecordedOwnProfileKey("recorded-by-other")
+                    seedCompletedUpload(memberColumn("google-sub-fixed", "id")!!.toLong() + 1, path)
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to path)).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
+                }
+            }
+
+            `when`("업로드 완료 기록이 소프트 삭제된 경로를 지정하면") {
+                then("400 MEMBER-008 로 거절된다") {
+                    val token = onboardedWithImageToken()
+                    val path = ownProfileKey("deleted-upload")
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE uploaded_image SET status = 'DELETED' WHERE object_path = ?").use { ps ->
+                            ps.setString(1, path)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    val result = updateProfile(token, mapOf("profileImageUrl" to path)).andReturn().response
+
+                    result.status shouldBe 400
+                    result.contentAsString shouldContain "MEMBER-008"
                 }
             }
 
@@ -745,7 +815,9 @@ class MemberControllerTest : BehaviorSpec() {
                     val ownId = memberColumn("google-sub-fixed", "id")
 
                     listOf("review", "community", "feedback", "scans").forEach { purpose ->
-                        val result = updateProfile(token, mapOf("profileImageUrl" to "dev/images/$purpose/2026/10/${ownId}_x.jpg"))
+                        val path = "local/images/$purpose/2026/10/${ownId}_${java.util.UUID.randomUUID()}.jpg"
+                        seedCompletedUpload(ownId!!.toLong(), path)
+                        val result = updateProfile(token, mapOf("profileImageUrl" to path))
                             .andReturn().response
 
                         result.status shouldBe 400
