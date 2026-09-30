@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.batch.util.JobNameMdcListener
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.port.mq.FoodContentEventPublisher
 import com.kbap.common.infra.mq.SqsFoodContentEventPublisher
 import org.slf4j.LoggerFactory
@@ -56,11 +57,20 @@ class FoodContentOutboxBatchConfig {
     @Bean
     fun foodContentOutboxRecovery(
         outboxRepository: FoodContentOutboxJpaRepository,
+        foodRepository: FoodJpaRepository,
         transactionManager: PlatformTransactionManager,
         @Value("\${kbap.food-content-outbox.stale-after-hours:24}") staleAfterHours: Long,
         @Value("\${kbap.food-content-outbox.max-attempts:5}") maxAttempts: Int,
+        @Value("\${kbap.food-content-outbox.recovery-max-per-run:50}") recoveryMaxPerRun: Int,
     ): FoodContentOutboxRecovery =
-        FoodContentOutboxRecovery(outboxRepository, transactionManager, Duration.ofHours(staleAfterHours), maxAttempts)
+        FoodContentOutboxRecovery(
+            outboxRepository,
+            foodRepository,
+            transactionManager,
+            Duration.ofHours(staleAfterHours),
+            maxAttempts,
+            recoveryMaxPerRun,
+        )
 
     @Bean
     fun foodContentOutboxPublishStep(
