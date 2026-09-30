@@ -187,11 +187,11 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) callback.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     val summary = recovery().recoverStale()
-                    callback.get()
-                    executor.shutdown()
+                    callback.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     summary.requeued shouldBe 0
                     summary.dead shouldBe 0

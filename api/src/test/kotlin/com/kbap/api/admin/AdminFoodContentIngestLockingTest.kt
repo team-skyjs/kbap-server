@@ -156,13 +156,13 @@ class AdminFoodContentIngestLockingTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) recollect.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     val started = System.nanoTime()
                     callback(food.id, old.id) shouldBe 200
                     Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
-                    recollect.get()
-                    executor.shutdown()
+                    recollect.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     statusOf(old.id) shouldBe FoodContentOutboxStatus.SENT
                     outboxRepository.findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING).size shouldBe 1
@@ -183,13 +183,13 @@ class AdminFoodContentIngestLockingTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) recovery.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     val started = System.nanoTime()
                     callback(food.id, outbox.id) shouldBe 200
                     Duration.ofNanos(System.nanoTime() - started).toMillis() shouldBeGreaterThan 1_000L
-                    recovery.get()
-                    executor.shutdown()
+                    recovery.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     statusOf(outbox.id) shouldBe FoodContentOutboxStatus.COMPLETE
                 }

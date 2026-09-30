@@ -194,14 +194,14 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) regen.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     generate(food.id).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-011") }
                     }
-                    regen.get()
-                    executor.shutdown()
+                    regen.get(30, java.util.concurrent.TimeUnit.SECONDS)
                 }
             }
 
@@ -509,14 +509,14 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    promoted.await()
+                    executor.shutdown()
+                    if (!promoted.await(30, java.util.concurrent.TimeUnit.SECONDS)) other.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     setPrimary(food.id, first.id, food.version).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-006") }
                     }
-                    other.get()
-                    executor.shutdown()
+                    other.get(30, java.util.concurrent.TimeUnit.SECONDS)
 
                     val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
                     images.single { it.isPrimary }.id shouldBe second.id

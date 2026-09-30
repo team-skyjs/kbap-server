@@ -321,14 +321,14 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                             Thread.sleep(1_500)
                         }
                     }
-                    locked.await()
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) recollect.get(1, java.util.concurrent.TimeUnit.SECONDS)
 
                     regenerate(food.id).andExpect {
                         status { isConflict() }
                         jsonPath("$.code") { value("FOOD-020") }
                     }
-                    recollect.get()
-                    executor.shutdown()
+                    recollect.get(30, java.util.concurrent.TimeUnit.SECONDS)
                     itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
                     foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
                 }
