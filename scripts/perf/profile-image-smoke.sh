@@ -7,6 +7,7 @@ docker run --rm --entrypoint sh "$image" -c '
   command -v jcmd
   command -v jfr
   command -v aws
+  aws --version
   command -v curl
   test -f /app/kbap-profile.jfc
 '
