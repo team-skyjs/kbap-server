@@ -32,7 +32,7 @@ interface MemberApi {
 
             종전 계약에서 `nickname`·`profileImageUrl` 은 **필수**이며
             미전송·null 이면 400 COMMON-002 로 거절한다. `profileImageUrl` 은 CDN 도메인 없는 이미지 경로이며
-            **`PROFILE_IMAGE` 용도로 본인이 발급받은 presigned `objectKey`**
+            **`PROFILE_IMAGE` 용도로 본인이 올리고 `POST /api/images/complete` 로 완료 신고한 업로드의 `path`**
             (`{env}/images/profile/YYYY/MM/{본인 memberId}_{uuid}.{ext}` — 환경·호출자마다 달라 예시에는 기본 이미지 경로를 싣는다) **또는 기본 이미지 경로만** 받는다. 사진 미설정 회원은 기본 이미지 경로
             `images/default/profile/profile-default-512.png` 를 명시 전송한다. 다른 회원·다른 용도·다른 환경의 키,
             빈 문자열·전체 URL(`http(s)://` 시작)·512자 초과는 400 MEMBER-008 로 거절한다.
@@ -220,7 +220,7 @@ interface MemberApi {
             만 보내면 된다. 필드에 `null` 을 명시하는 것은 미전송과 같다(유지).
 
             프로필 사진 `profileImageUrl` 은 2분법 — **미전송이면 유지**, **CDN 도메인 없는 경로를 보내면 검증 후 교체**.
-            받는 값은 `PROFILE_IMAGE` 용도로 본인이 발급받은 presigned `objectKey`
+            받는 값은 `PROFILE_IMAGE` 용도로 본인이 올리고 `POST /api/images/complete` 로 완료 신고한 업로드의 `path`
             (`{env}/images/profile/YYYY/MM/{본인 memberId}_{uuid}.{ext}` — 환경·호출자마다 달라 예시에는 기본 이미지 경로를 싣는다)와 기본 이미지 경로뿐이다 — 다른 회원·다른 용도·다른 환경의 키,
             빈 문자열·전체 URL·512자 초과는 MEMBER-008 거절. 현재 저장된 값을 그대로 되돌려 보내는 것은 변경 없음으로 다룬다. 사진을 없애는 개념은 없다 — 기본 이미지로
             되돌리려면 기본 이미지 경로 `images/default/profile/profile-default-512.png` 를 명시 전송한다.
@@ -287,7 +287,7 @@ interface MemberApi {
                             """,
                         ),
                         ExampleObject(
-                            name = "사진 교체·기본 이미지로 복귀 — 나머지는 유지된다. 새 사진은 발급받은 objectKey 를, 복귀는 이 기본 경로를 보낸다(빈 문자열은 400)",
+                            name = "사진 교체·기본 이미지로 복귀 — 나머지는 유지된다. 새 사진은 완료 신고(/api/images/complete) 응답의 path 를, 복귀는 이 기본 경로를 보낸다(빈 문자열은 400)",
                             value = """
                                 {
                                   "profileImageUrl": "images/default/profile/profile-default-512.png"
@@ -340,6 +340,8 @@ interface MemberApi {
             기본 버전과의 유일한 차이는 **국적(countryCode)을 수정할 수 없다**는 점이다 — 국적은 최초 온보딩에서
             확정되며, 요청에 countryCode 를 포함해 보내도 알 수 없는 필드로 무시된다(오류 아님).
             통화(currency)는 국적과 무관하게 바꿀 수 있다. 나머지 필드의 의미·검증은 기본 버전과 동일하다.
+            프로필 사진 `profileImageUrl` 도 같다 — `PROFILE_IMAGE` 용도로 본인이 올리고 `POST /api/images/complete` 로
+            완료 신고한 업로드의 `path` 또는 기본 이미지 경로만 받는다(그 외 MEMBER-008).
             `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
