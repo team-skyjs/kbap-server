@@ -23,6 +23,9 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
     @Autowired
     private lateinit var mockMvc: MockMvc
 
+    @Autowired
+    private lateinit var dataSource: javax.sql.DataSource
+
     private val mapper = jacksonObjectMapper()
 
     init {
@@ -116,6 +119,43 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
                     result.response.status shouldBe 405
                     result.body().path("code").asText() shouldBe "COMMON-002"
                     appender.list.single().level shouldBe Level.WARN
+                }
+            }
+        }
+
+        given("교착으로 희생된 요청") {
+            `when`("두 요청이 같은 두 행을 반대 순서로 잠그면") {
+                then("한쪽은 200, 희생된 쪽은 409 COMMON-004 이고 WARN 으로 남는다 — 다시 보내면 풀리는 오류를 500·ERROR 로 올리지 않는다") {
+                    val foodIds = dataSource.connection.use { c ->
+                        listOf("교착음식A", "교착음식B").map { name ->
+                            c.prepareStatement(
+                                "INSERT INTO food (korean_name, description, spiciness, name_translations, description_translations, " +
+                                    "ingredients, content_status, status, created_at, updated_at) " +
+                                    "VALUES (?, '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6)) " +
+                                    "ON DUPLICATE KEY UPDATE content_status = 'READY'",
+                            ).use { ps -> ps.setString(1, name); ps.executeUpdate() }
+                            c.prepareStatement("SELECT id FROM food WHERE korean_name = ?").use { ps ->
+                                ps.setString(1, name)
+                                ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+                            }
+                        }
+                    }
+                    val (a, b) = foodIds
+                    val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                    val responses = listOf(a to b, b to a).map { (first, second) ->
+                        executor.submit<MvcResult> {
+                            mockMvc.get("/api/test-logging/lock-both?first=$first&second=$second").andReturn()
+                        }
+                    }
+                    executor.shutdown()
+                    val results = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
+
+                    results.map { it.response.status }.sorted() shouldBe listOf(200, 409)
+                    val victim = results.single { it.response.status == 409 }
+                    victim.body().path("code").asText() shouldBe "COMMON-004"
+                    val event = appender.list.single { it.value("status") == 409 }
+                    event.level shouldBe Level.WARN
+                    event.value("errorCode") shouldBe "COMMON-004"
                 }
             }
         }

@@ -17,6 +17,7 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.springframework.beans.factory.annotation.Autowired
@@ -174,6 +175,33 @@ class ReviewLikeControllerTest : BehaviorSpec() {
                     likeRows(reviewId, memberId) shouldBe (1 to 1)
                 }
             }
+            `when`("등록·재등록이 기록하는 시각을 보면") {
+                val memberId = 8003L
+                val reviewId = seedReview(authorMemberId = 8103L)
+                fun likeTimestamps(): List<java.time.LocalDateTime> =
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT created_at, updated_at FROM review_like WHERE review_id = ? AND member_id = ?").use { ps ->
+                            ps.setLong(1, reviewId)
+                            ps.setLong(2, memberId)
+                            ps.executeQuery().use { rs ->
+                                rs.next().shouldBeTrue()
+                                listOf(1, 2).map { rs.getObject(it, java.time.LocalDateTime::class.java) }
+                            }
+                        }
+                    }
+                then("JVM 시계의 시각이다 — 취소가 쓰는 시계와 같아 쿨다운 비교가 DB·JVM 시간대 차이에 기대지 않는다") {
+                    like(reviewId, accessToken(memberId)).andExpect { status { isOk() } }
+                    likeTimestamps().forEach {
+                        java.time.Duration.between(it, java.time.LocalDateTime.now()).abs() shouldBeLessThan java.time.Duration.ofMinutes(1)
+                    }
+
+                    unlike(reviewId, accessToken(memberId)).andExpect { status { isOk() } }
+                    like(reviewId, accessToken(memberId)).andExpect { status { isOk() } }
+                    java.time.Duration.between(likeTimestamps()[1], java.time.LocalDateTime.now()).abs() shouldBeLessThan
+                        java.time.Duration.ofMinutes(1)
+                }
+            }
+
             `when`("이미 좋아요한 리뷰에 다시 등록하면") {
                 val memberId = 8002L
                 val reviewId = seedReview(authorMemberId = 8102L)
