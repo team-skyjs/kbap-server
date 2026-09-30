@@ -482,9 +482,9 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                                 response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
                             }
                         }
-                        gate.countDown()
-                        val outcomes = responses.map { it.get() }
                         executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
 
                         outcomes.map { it.first }.sorted() shouldBe listOf(200, 409)
                         outcomes.single { it.first == 409 }.second shouldBe "FOOD-006"
@@ -541,9 +541,9 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                                 response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
                             }
                         }
-                        gate.countDown()
-                        val outcomes = responses.map { it.get() }
                         executor.shutdown()
+                        gate.countDown()
+                        val outcomes = responses.map { it.get(60, java.util.concurrent.TimeUnit.SECONDS) }
 
                         outcomes.filter { it.first != 200 }.forEach { it shouldBe (409 to "FOOD-006") }
                         (outcomes.count { it.first == 200 } >= 1) shouldBe true
