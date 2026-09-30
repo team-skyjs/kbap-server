@@ -88,6 +88,32 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
         fun activePaths(): Set<String> = uploadedImageRepository.findAll().map { it.path }.toSet()
 
+        given("정리가 쥐는 잠금 범위") {
+            `when`("다른 트랜잭션이 리뷰 행을 쓰는 중(미커밋)에 정리가 돌면") {
+                then("기다리지 않고 미참조 업로드를 지운다 — 삭제 문이 리뷰·글·문의·회원·주문 테이블을 잠금 읽기로 훑지 않는다") {
+                    reset()
+                    val orphan = "dev/images/review/lock-orphan.webp"
+                    upload(orphan)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    dataSource.connection.use { writer ->
+                        writer.autoCommit = false
+                        writer.createStatement().use {
+                            it.execute(
+                                "INSERT INTO food_review (member_id, food_id, rating, image_refs, status) " +
+                                    "VALUES ($memberId, $foodId, 4, JSON_ARRAY('dev/images/review/other.webp'), 'ACTIVE')",
+                            )
+                        }
+                        val cleanup = executor.submit<UploadedImageCleanupResult> { cleanupService().cleanup() }
+                        executor.shutdown()
+
+                        cleanup.get(20, java.util.concurrent.TimeUnit.SECONDS).deletedCount shouldBe 1
+                        writer.rollback()
+                    }
+                    activePaths().shouldBeEmpty()
+                }
+            }
+        }
+
         given("미참조 업로드 정리") {
             `when`("리뷰·커뮤니티·문의 용도의 업로드가 보존 기간을 넘겼고 어디에도 참조되지 않으면") {
                 then("행을 DELETED 로 바꾸고 S3 오브젝트를 지운다") {
