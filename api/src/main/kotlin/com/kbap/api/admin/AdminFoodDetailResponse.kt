@@ -128,6 +128,8 @@ data class AdminFoodRecollectResponse(
     val requested: Long,
     val created: Long,
     val skipped: Long,
+    @field:Schema(description = "skipped 중 이미지 재생성이 진행 중이라 건너뛴 수(FOOD-020 사유). 재생성이 끝난 뒤 다시 요청한다", example = "0")
+    val skippedRegenerating: Long,
     val exceeded: Boolean,
     val max: Int,
 ) {
@@ -137,6 +139,7 @@ data class AdminFoodRecollectResponse(
                 requested = result.requested,
                 created = result.created,
                 skipped = result.skipped,
+                skippedRegenerating = result.skippedRegenerating,
                 exceeded = result.exceeded,
                 max = result.max,
             )

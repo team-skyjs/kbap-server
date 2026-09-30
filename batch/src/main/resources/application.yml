@@ -73,6 +73,9 @@ kbap:
     # 보낸 뒤 이 시간을 넘겨 응답이 없으면 회수 대상. 상한에 닿으면 dead_at 을 찍고 사람이 본다.
     stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
     max-attempts: ${FOOD_CONTENT_OUTBOX_MAX_ATTEMPTS:5}
+    # 회수 잡이 한 실행에서 되살리는(또는 포기 처리하는) 최대 건수. 굳은 요청이 많이 쌓인 채 첫 실행이 돌면
+    # 전부를 한꺼번에 재발행해 콜백이 몰린다(KB-655: dev 69건+ 버스트) — 나머지는 다음 실행이 이어 받는다.
+    recovery-max-per-run: ${FOOD_CONTENT_OUTBOX_RECOVERY_MAX_PER_RUN:50}
   batch:
     # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
     # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안은 12:00·18:00 KST). 기본 on 이며 끄는 용도로만 이 값을 쓴다

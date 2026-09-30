@@ -45,19 +45,19 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
+    @Autowired
+    private lateinit var imageBatchJpaRepository: com.kbap.common.domain.food.ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: com.kbap.common.domain.food.ImageBatchItemJpaRepository
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
-        fun clear(): Unit =
-            dataSource.connection.use { c ->
-                c.createStatement().use {
-                    it.execute("DELETE FROM food_vector_outbox")
-                    it.execute("DELETE FROM image_batch_item")
-                    it.execute("DELETE FROM image_batch")
-                    it.execute("DELETE FROM food_image")
-                    it.execute("DELETE FROM food")
-                }
-            }
+        fun clear(): Unit = com.kbap.api.TestTables.clearAll(dataSource)
 
         beforeContainer { clear() }
         afterSpec { clear() }
@@ -172,6 +172,33 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                             ps.setLong(1, food.id); ps.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
                         }
                     } shouldBe 1L
+                }
+            }
+
+            `when`("다른 트랜잭션이 음식 행을 잠근 채 일반 재생성 항목을 넣고 있으면") {
+                then("추가 생성은 커밋을 기다렸다가 409(FOOD-011) — 유니크 위반 500 이 아니다") {
+                    val food = saveFood("추가생성경합음식", "images/webp/race.webp")
+                    val locked = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val regen = executor.submit {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            val locked1 = foodRepository.findByIdForUpdate(food.id)!!
+                            locked1.contentStatus = FoodContentStatus.PENDING_IMAGE
+                            foodRepository.saveAndFlush(locked1)
+                            val batch = imageBatchJpaRepository.save(com.kbap.common.domain.food.model.ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                            imageBatchItemJpaRepository.saveAndFlush(com.kbap.common.domain.food.model.ImageBatchItem(batchId = batch.id, foodId = food.id))
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    locked.await()
+
+                    generate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-011") }
+                    }
+                    regen.get()
+                    executor.shutdown()
                 }
             }
 

@@ -40,6 +40,46 @@ class FoodContentOutboxPublisherTest : BehaviorSpec() {
             return outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
         }
 
+        fun publishedIds(): List<Long> {
+            val published = mutableListOf<Long>()
+            FoodContentOutboxPublisher(
+                outboxRepository,
+                { events ->
+                    published += events.map { it.outboxId }
+                    FoodContentPublishResult(succeededOutboxIds = events.map { it.outboxId }.toSet(), failedOutboxIds = emptySet())
+                },
+                transactionManager,
+                pageSize = 100,
+            ).publishAll()
+            return published
+        }
+
+        given("진행 중 요청만 발행") {
+            `when`("같은 음식에 대기 요청이 옛 것과 새 것 둘이면") {
+                then("새 요청만 발행한다 — 대체된 옛 요청은 결과가 버려질 유료 호출이다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("두번요청국수"))
+                    val old = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    val newer = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    publishedIds() shouldBe listOf(newer.id)
+
+                    outboxRepository.findById(old.id).orElseThrow().outboxStatus shouldBe FoodContentOutboxStatus.PENDING
+                }
+            }
+
+            `when`("대기 요청의 음식이 삭제됐으면") {
+                then("발행하지 않는다 — 콜백이 음식을 못 찾는다") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("삭제된국수"))
+                    outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    foodRepository.save(food.apply { delete() })
+
+                    publishedIds() shouldBe emptyList()
+                }
+            }
+        }
+
         given("대기 아웃박스 발행") {
             `when`("페이지 일부가 실패해도 뒤 페이지가 있으면") {
                 then("같은 실행에서는 실패 행을 되돌아가지 않고 다음 페이지까지 처리한다") {

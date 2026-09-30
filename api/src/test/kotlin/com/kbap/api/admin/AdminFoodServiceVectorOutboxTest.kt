@@ -123,15 +123,15 @@ class AdminFoodServiceVectorOutboxTest : BehaviorSpec() {
                 }
             }
 
-            `when`("같은 작업의 대기 건이 이미 있으면") {
-                then("중복해서 쌓지 않는다") {
+            `when`("같은 음식의 UPSERT 대기 건이 이미 있으면") {
+                then("후속 행을 또 쌓는다 — 이미 있는 대기 건은 배치가 옛 내용으로 읽었을 수 있다") {
                     clear()
                     val food = saveFood("부대찌개", FoodContentStatus.READY)
                     vectorOutboxRepository.save(FoodVectorOutbox.upsert(food.id))
 
                     service.updateFood(food.id, updateCommand(food, FoodContentStatus.READY))
 
-                    outboxesOf(food).size shouldBe 1
+                    outboxesOf(food).size shouldBe 2
                 }
             }
         }

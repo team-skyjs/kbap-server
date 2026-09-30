@@ -154,6 +154,7 @@ class Food(
         nameTranslations: Map<String, String>,
         descriptionTranslations: Map<String, String>,
         ingredients: List<FoodIngredient>,
+        keepStatus: Boolean = false,
     ) {
         this.description = description
         this.longDescription = longDescription
@@ -163,7 +164,7 @@ class Food(
         replaceIngredients(ingredients)
         contentFailureKind = null
         contentReviewRejectionReason = null
-        if (contentStatus == FoodContentStatus.READY) return
+        if (keepStatus || contentStatus == FoodContentStatus.READY) return
         contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
     }
 
@@ -185,11 +186,11 @@ class Food(
         throw BusinessException(error)
     }
 
-    fun recordContentFailure(kind: FoodContentFailureKind, reason: String?) {
+    fun recordContentFailure(kind: FoodContentFailureKind, reason: String?, keepStatus: Boolean = false) {
         contentFailureKind = kind
         contentReviewAttempts++
         contentReviewRejectionReason = truncateReason(reason)
-        if (contentStatus == FoodContentStatus.READY) return
+        if (keepStatus || contentStatus == FoodContentStatus.READY) return
         contentStatus = FoodContentStatus.FAILED
     }
 

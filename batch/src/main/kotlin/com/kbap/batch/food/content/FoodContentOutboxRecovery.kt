@@ -1,6 +1,7 @@
 package com.kbap.batch.food.content
 
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -9,9 +10,11 @@ import java.time.LocalDateTime
 
 class FoodContentOutboxRecovery(
     private val outboxRepository: FoodContentOutboxJpaRepository,
+    private val foodRepository: FoodJpaRepository,
     transactionManager: PlatformTransactionManager,
     private val staleAfter: Duration,
     private val maxAttempts: Int,
+    private val maxPerRun: Int,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transactionTemplate = TransactionTemplate(transactionManager)
@@ -19,41 +22,40 @@ class FoodContentOutboxRecovery(
     init {
         require(!staleAfter.isNegative && !staleAfter.isZero) { "staleAfter 는 0 보다 커야 합니다" }
         require(maxAttempts > 0) { "maxAttempts 는 1 이상이어야 합니다" }
+        require(maxPerRun > 0) { "maxPerRun 은 1 이상이어야 합니다" }
     }
 
     fun recoverStale(): FoodContentOutboxRecoverySummary {
+        val before = LocalDateTime.now().minus(staleAfter)
+        val stale = transactionTemplate.execute { outboxRepository.findStaleSent(before, maxPerRun) }.orEmpty()
         var requeued = 0
         var dead = 0
-        while (true) {
-            val before = LocalDateTime.now().minus(staleAfter)
-            val stale = transactionTemplate.execute { outboxRepository.findStaleSent(before, PAGE_SIZE) }.orEmpty()
-            if (stale.isEmpty()) break
+        stale.forEach { outbox ->
             transactionTemplate.executeWithoutResult {
-                stale.forEach { outbox ->
-                    if (outbox.attempts >= maxAttempts) {
-                        dead += outboxRepository.markDeadIfStillStale(
-                            outbox.id,
-                            before,
-                            "응답 없이 ${staleAfter.toHours()}시간 초과 — 재시도 ${outbox.attempts}회로 상한 도달",
-                        )
-                    } else {
-                        requeued += outboxRepository.requeueIfStillStale(
-                            outbox.id,
-                            before,
-                            "응답 없이 ${staleAfter.toHours()}시간 초과 — 재전송",
-                        )
-                    }
+                foodRepository.findByIdForUpdate(outbox.foodId)
+                if (outboxRepository.countStillStale(outbox.id, before) == 0L) return@executeWithoutResult
+                if (outbox.attempts >= maxAttempts) {
+                    dead += outboxRepository.markDeadIfStillStale(
+                        outbox.id,
+                        before,
+                        "응답 없이 ${staleAfter.toHours()}시간 초과 — 재시도 ${outbox.attempts}회로 상한 도달",
+                    )
+                } else {
+                    requeued += outboxRepository.requeueIfStillStale(
+                        outbox.id,
+                        before,
+                        "응답 없이 ${staleAfter.toHours()}시간 초과 — 재전송",
+                    )
                 }
             }
         }
         if (requeued > 0 || dead > 0) {
             log.warn("콘텐츠 아웃박스 회수 — 재전송 {}건, 포기 {}건", requeued, dead)
         }
+        if (stale.size == maxPerRun) {
+            log.warn("콘텐츠 아웃박스 회수 — 실행당 상한({})에 닿았습니다. 남은 굳은 요청은 다음 실행에서 회수합니다", maxPerRun)
+        }
         return FoodContentOutboxRecoverySummary(requeued, dead)
-    }
-
-    private companion object {
-        const val PAGE_SIZE = 100
     }
 }
 

@@ -245,7 +245,8 @@ class FoodService(
     private fun enqueueContentRequests(foods: Collection<Food>) {
         if (foods.isEmpty()) return
         val alreadyPending = outboxRepository
-            .findByFoodIdInAndOutboxStatus(foods.map { it.id }, FoodContentOutboxStatus.PENDING)
+            .findInFlightRequests(foods.map { it.id })
+            .filter { it.outboxStatus == FoodContentOutboxStatus.PENDING }
             .map { it.foodId }
             .toSet()
         outboxRepository.saveAll(

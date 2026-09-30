@@ -35,8 +35,8 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
     init {
         val staleAfter = Duration.ofHours(24)
 
-        fun recovery(maxAttempts: Int = 5) =
-            FoodContentOutboxRecovery(outboxRepository, transactionManager, staleAfter, maxAttempts)
+        fun recovery(maxAttempts: Int = 5, maxPerRun: Int = 50) =
+            FoodContentOutboxRecovery(outboxRepository, foodRepository, transactionManager, staleAfter, maxAttempts, maxPerRun)
 
         fun clear() {
             outboxRepository.deleteAll()
@@ -143,7 +143,7 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
             }
 
             `when`("회수 읽기 뒤에 음식이 삭제됐으면") {
-                then("재큐 UPDATE 도 막는다 — 읽기와 쓰기가 같은 조건을 본다") {
+                then("음식 행 잠금 뒤의 재판정이 걸러 되살리지 않는다 — 대상 조회와 재판정이 같은 조건(STALE_SENT)을 본다") {
                     clear()
                     val food = foodRepository.save(Food.failed("읽고삭제국수"))
                     val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
@@ -155,9 +155,47 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                     )
                     foodRepository.save(food.apply { delete() })
 
-                    TransactionTemplate(transactionManager).execute {
-                        outboxRepository.requeueIfStillStale(outbox.id, LocalDateTime.now().minusHours(24), "테스트")
-                    } shouldBe 0
+                    outboxRepository.countStillStale(outbox.id, LocalDateTime.now().minusHours(24)) shouldBe 0
+                    recovery().recoverStale().requeued shouldBe 0
+                    outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                }
+            }
+
+            `when`("굳은 요청이 실행당 상한보다 많으면") {
+                then("상한만큼만 되살리고 나머지는 다음 실행이 이어 받는다 — 첫 실행이 전부를 한꺼번에 재발행하지 않는다") {
+                    clear()
+                    repeat(7) { saveSent("버스트국수$it", LocalDateTime.now().minusHours(30), attempts = 1) }
+
+                    recovery(maxPerRun = 5).recoverStale().requeued shouldBe 5
+                    outboxRepository.countByOutboxStatus(FoodContentOutboxStatus.SENT) shouldBe 2
+                    recovery(maxPerRun = 5).recoverStale().requeued shouldBe 2
+                    recovery(maxPerRun = 5).recoverStale().requeued shouldBe 0
+                }
+            }
+
+            `when`("콜백이 음식 행을 잠그고 완료 처리하는 동안 회수가 돌면") {
+                then("회수는 그 뒤로 직렬화돼 완료된 요청을 되살리지 않는다 — 교착 없음(잠금 순서 food 행 → 아웃박스 행)") {
+                    clear()
+                    val stuck = saveSent("콜백교차국수", LocalDateTime.now().minusHours(30), attempts = 1)
+                    val locked = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val callback = executor.submit {
+                        TransactionTemplate(transactionManager).execute {
+                            foodRepository.findByIdForUpdate(stuck.foodId)
+                            outboxRepository.completeIfProcessable(stuck.id, stuck.foodId)
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    locked.await()
+
+                    val summary = recovery().recoverStale()
+                    callback.get()
+                    executor.shutdown()
+
+                    summary.requeued shouldBe 0
+                    summary.dead shouldBe 0
+                    outboxRepository.findById(stuck.id).orElseThrow().outboxStatus shouldBe FoodContentOutboxStatus.COMPLETE
                 }
             }
 

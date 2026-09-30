@@ -5,6 +5,7 @@ import com.kbap.api.food.FoodImageBatchSubmitService
 import com.kbap.api.food.FoodService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
@@ -25,6 +26,7 @@ class AdminFoodImageService(
     private val foodRepository: FoodJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val contentOutboxRepository: FoodContentOutboxJpaRepository,
     private val foodService: FoodService,
     private val batchSubmitService: FoodImageBatchSubmitService,
     private val imageBatchItemRepository: ImageBatchItemJpaRepository,
@@ -53,7 +55,7 @@ class AdminFoodImageService(
             foodImageRepository.save(target)
         }
         food.imageRef = target.imageKey
-        if (changed) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        if (changed) vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
         foodRepository.flush()
         return galleryOf(foodId)
     }
@@ -71,17 +73,17 @@ class AdminFoodImageService(
     fun generateAdditionalImage(foodId: Long): AdminFoodImageRegenerateResult {
         val claim = try {
             transaction.execute {
-                val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+                val target = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
                 if (!target.isReady()) throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
-                if (regenerationStateResolver.isAdditionalInProgress(foodId)) {
-                    throw BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS)
+                if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
+                    throw BusinessException(additionalConflictCode(foodId))
                 }
                 batchSubmitService.claimOne(target, RegenerationIntent.ADDITIONAL, null)
             }!!
         } catch (e: BusinessException) {
-            throw if (e.errorCode == ErrorCode.IMAGE_BATCH_IN_PROGRESS) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+            throw if (e.errorCode == ErrorCode.IMAGE_BATCH_IN_PROGRESS) BusinessException(additionalConflictCode(foodId)) else e
         } catch (e: RuntimeException) {
-            throw if (regenerationStateResolver.isAdditionalInProgress(foodId)) BusinessException(ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS) else e
+            throw if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) BusinessException(additionalConflictCode(foodId)) else e
         }
         batchSubmitService.submitClaimed(claim)
         return AdminFoodImageRegenerateResult(
@@ -91,14 +93,20 @@ class AdminFoodImageService(
         )
     }
 
+    private fun additionalConflictCode(foodId: Long): ErrorCode =
+        if (regenerationStateResolver.isAdditionalInProgress(foodId)) ErrorCode.FOOD_ADDITIONAL_IMAGE_IN_PROGRESS else ErrorCode.FOOD_STATUS_NOT_READY
+
     private fun claimForRegeneration(foodId: Long, intent: RegenerationIntent?, reason: String?): FoodImageBatchClaim = try {
         transaction.execute {
-            val target = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
+            val target = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
             }
             if (!target.isReady() && !target.isFailedRegeneration()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
+            }
+            if (contentOutboxRepository.findInFlightRequest(foodId) != null) {
+                throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             }
             if (intent == RegenerationIntent.REPLACE_BETTER && !target.isReady()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
@@ -106,7 +114,7 @@ class AdminFoodImageService(
             target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             cancelPendingVectorOutboxes(foodId, FoodVectorOutboxOperation.UPSERT)
-            vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
+            vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.DELETE)
             batchSubmitService.claimOne(target, intent, reason)
         }!!
     } catch (e: BusinessException) {

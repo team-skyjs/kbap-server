@@ -1,18 +1,82 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.RegenerationIntent
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import org.springframework.beans.factory.annotation.Autowired
 
 @IntegrationTest
 class AdminFoodCatalogLifecycleControllerTest : AdminFoodCatalogTestSupport() {
+    @Autowired
+    private lateinit var imageBatchJpaRepository: ImageBatchJpaRepository
+
+    @Autowired
+    private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
+
     init {
+        fun regenerating(name: String, intent: RegenerationIntent = RegenerationIntent.WRONG_IMAGE): Food {
+            val food = foodJpaRepository.save(
+                Food(koreanName = name, description = "설명", imageRef = "images/webp/$name.webp", contentStatus = FoodContentStatus.PENDING_IMAGE),
+            )
+            val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+            imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = intent))
+            return food
+        }
+
+        given("재수집과 이미지 재생성의 상호 배제") {
+            `when`("이미지 재생성이 진행 중인 음식에 단건 재수집을 요청하면") {
+                then("409 FOOD-020 이고 수집 대기가 생기지 않는다") {
+                    val food = regenerating("상호배제찌개")
+
+                    recollectOne(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+                    foodContentOutboxJpaRepository.findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING).size shouldBe 0
+                }
+            }
+
+            `when`("일괄 재수집 대상에 재생성 중인 음식이 섞여 있으면") {
+                then("그 음식만 건너뛰고 skippedRegenerating 으로 센다") {
+                    regenerating("일괄배제국수")
+                    saveFood("일괄배제밥")
+
+                    recollectBulk("?q=일괄배제").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.requested") { value(2) }
+                        jsonPath("$.payload.created") { value(1) }
+                        jsonPath("$.payload.skipped") { value(1) }
+                        jsonPath("$.payload.skippedRegenerating") { value(1) }
+                    }
+                }
+            }
+
+            `when`("후보 이미지 추가 생성(ADDITIONAL)만 진행 중이면") {
+                then("재수집은 막지 않는다 — 추가 생성은 상태를 건드리지 않는다") {
+                    val food = saveFood("추가생성중찌개")
+                    val batch = imageBatchJpaRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemJpaRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.ADDITIONAL))
+
+                    recollectOne(food.id).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.created") { value(1) }
+                        jsonPath("$.payload.skippedRegenerating") { value(0) }
+                    }
+                }
+            }
+        }
+
         given("어드민 음식 재수집 API") {
             `when`("단건 재수집을 요청하면") {
                 then("콘텐츠 수집 대기가 생성된다") {

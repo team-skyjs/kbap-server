@@ -40,6 +40,15 @@ interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
 
     @Query(
         """
+        select i.foodId from ImageBatchItem i
+        where i.foodId in :foodIds and i.itemStatus = 'PENDING'
+          and (i.regenerationIntent is null or i.regenerationIntent <> com.kbap.common.domain.food.model.RegenerationIntent.ADDITIONAL)
+        """,
+    )
+    fun findFoodIdsInRegeneration(@Param("foodIds") foodIds: Collection<Long>): List<Long>
+
+    @Query(
+        """
         select i.id from ImageBatchItem i
         where i.foodId = :foodId and i.itemStatus = 'PENDING'
         """,
