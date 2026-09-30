@@ -460,7 +460,10 @@ private class InterleavingEmbeddingClient(
     override fun embed(texts: List<String>): List<FloatArray> {
         if (!interleaved) {
             interleaved = true
-            onFirstEmbed()
+            java.util.concurrent.Executors.newSingleThreadExecutor().let { other ->
+                other.submit(onFirstEmbed).get()
+                other.shutdown()
+            }
         }
         return texts.map { FloatArray(dimension) { index -> index * 0.001f } }
     }
