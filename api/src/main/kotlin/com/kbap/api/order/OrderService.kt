@@ -3,6 +3,7 @@ package com.kbap.api.order
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.ImageUploadService
 import com.kbap.api.image.UploadedImageService
+import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.UploadedImageJpaRepository
@@ -30,6 +31,7 @@ class OrderService(
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
     private val uploadedImageService: UploadedImageService,
+    private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -39,6 +41,7 @@ class OrderService(
         roadAddress: String?,
         resolvedPlace: OrderPlaceSnapshot?,
     ): Long {
+        memberService.getMember(memberId)
         verifyOrderable(memberId, request)
         return saveOrder(memberId, request, roadAddress, resolvedPlace)
     }
@@ -98,6 +101,7 @@ class OrderService(
 
     @Transactional
     fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): OrderDetailResponse {
+        memberService.getMember(memberId)
         getOwnOrder(memberId, orderId).replacePlace(request.toSnapshot())
         return getOrderDetail(memberId, orderId)
     }
