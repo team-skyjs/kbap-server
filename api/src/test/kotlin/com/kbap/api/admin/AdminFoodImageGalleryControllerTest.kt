@@ -461,6 +461,67 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("두 관리자가 같은 version 으로 서로 다른 이미지를 동시에 대표로 지정하면") {
+                then("하나는 200, 하나는 409 FOOD-006 이고 대표는 정확히 한 장이다 — 유니크 충돌(COMMON-004·500)이 새지 않는다") {
+                    repeat(15) { round ->
+                        val food = saveFood("동시대표음식$round", "images/webp/race-old-$round.webp")
+                        saveImage(food.id, "images/webp/race-old-$round.webp", isPrimary = true, sortOrder = 0)
+                        val candidates = listOf(
+                            saveImage(food.id, "images/webp/race-a-$round.webp", isPrimary = false, sortOrder = 1),
+                            saveImage(food.id, "images/webp/race-b-$round.webp", isPrimary = false, sortOrder = 2),
+                        )
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val responses = candidates.map { image ->
+                            executor.submit<Pair<Int, String>> {
+                                gate.await()
+                                val response = setPrimary(food.id, image.id, food.version).andReturn().response
+                                response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
+                            }
+                        }
+                        gate.countDown()
+                        val outcomes = responses.map { it.get() }
+                        executor.shutdown()
+
+                        outcomes.map { it.first }.sorted() shouldBe listOf(200, 409)
+                        outcomes.single { it.first == 409 }.second shouldBe "FOOD-006"
+                        val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                        images.count { it.isPrimary } shouldBe 1
+                        foodRepository.findById(food.id).orElseThrow().imageRef shouldBe images.single { it.isPrimary }.imageKey
+                    }
+                }
+            }
+
+            `when`("대표 행이 아직 없는 음식에 두 관리자가 동시에 서로 다른 이미지를 대표로 지정하면") {
+                then("유니크 충돌 없이 끝나고 대표는 정확히 한 장, food.image_ref 와 일치한다") {
+                    repeat(15) { round ->
+                        val food = saveFood("대표없는동시음식$round", "images/webp/none-a-$round.webp")
+                        val candidates = listOf(
+                            saveImage(food.id, "images/webp/none-a-$round.webp", isPrimary = false, sortOrder = 0),
+                            saveImage(food.id, "images/webp/none-b-$round.webp", isPrimary = false, sortOrder = 1),
+                        )
+                        val gate = java.util.concurrent.CountDownLatch(1)
+                        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val responses = candidates.map { image ->
+                            executor.submit<Pair<Int, String>> {
+                                gate.await()
+                                val response = setPrimary(food.id, image.id, food.version).andReturn().response
+                                response.status to mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
+                            }
+                        }
+                        gate.countDown()
+                        val outcomes = responses.map { it.get() }
+                        executor.shutdown()
+
+                        outcomes.filter { it.first != 200 }.forEach { it shouldBe (409 to "FOOD-006") }
+                        (outcomes.count { it.first == 200 } >= 1) shouldBe true
+                        val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                        images.count { it.isPrimary } shouldBe 1
+                        foodRepository.findById(food.id).orElseThrow().imageRef shouldBe images.single { it.isPrimary }.imageKey
+                    }
+                }
+            }
+
             `when`("version 이 최신이 아니면") {
                 then("409 FOOD-006 으로 거절한다") {
                     val food = saveFood("버전충돌음식", "images/webp/v.webp")
