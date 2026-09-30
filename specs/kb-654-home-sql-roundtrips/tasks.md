@@ -22,7 +22,7 @@
 
 - [X] T009 [US1] 로컬 dev 프로필 + `SPRING_JPA_SHOW_SQL=true` 실측 — 비회원 2회, 회원 4회(기피 성분 없는 시드 회원, 있으면 5회). 변경 전 9·12
 - [X] T010 홈 테스트 3파일 `git diff --stat develop` 비어 있음 확인
-- [ ] T011 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
+- [X] T011 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
 - [ ] T012 [US1] 머지 후 dev 재측정(사용자) → KB-654·KB-653 DoD 갱신
 
 ## Dependencies
