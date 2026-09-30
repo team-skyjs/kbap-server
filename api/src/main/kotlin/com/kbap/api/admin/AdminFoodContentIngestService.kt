@@ -10,6 +10,7 @@ import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
+import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import org.slf4j.Logger
@@ -62,22 +63,29 @@ class AdminFoodContentIngestService(
         val food = foodRepository.findByIdForUpdate(foodId)
         val outbox = outboxRepository.findById(outboxId).orElse(null)?.takeIf { it.foodId == foodId }
             ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (food == null || outboxRepository.findInFlightRequest(foodId)?.id != outboxId) {
+            return rejectNotInFlight(outbox, food)
+        }
+        if (outboxRepository.completeIfProcessable(outboxId, foodId) != 1) {
+            throw BusinessException(ErrorCode.INVALID_REQUEST)
+        }
+        return food
+    }
+
+    private fun rejectNotInFlight(outbox: FoodContentOutbox, food: Food?): Food? {
         if (outbox.deadAt != null) {
-            log.warn("포기한 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
+            log.warn("포기한 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outbox.id, outbox.foodId)
             return null
         }
-        if (outboxRepository.countSuperseded(outboxId) > 0) {
-            log.warn("더 새 요청이 있는 옛 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outboxId, foodId)
+        if (outboxRepository.countSuperseded(outbox.id) > 0) {
+            log.warn("더 새 요청이 있는 옛 요청의 결과가 도착해 버린다 — outboxId={}, foodId={}", outbox.id, outbox.foodId)
             return null
         }
         if (outbox.outboxStatus == FoodContentOutboxStatus.COMPLETE) {
             throw BusinessException(ErrorCode.FOOD_CONTENT_REQUEST_ALREADY_COMPLETED)
         }
         if (food == null) throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
-        if (outboxRepository.completeIfProcessable(outboxId, foodId) != 1) {
-            throw BusinessException(ErrorCode.INVALID_REQUEST)
-        }
-        return food
+        throw BusinessException(ErrorCode.INVALID_REQUEST)
     }
 
     private companion object {

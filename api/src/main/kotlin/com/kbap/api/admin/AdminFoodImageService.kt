@@ -105,7 +105,7 @@ class AdminFoodImageService(
             if (!target.isReady() && !target.isFailedRegeneration()) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
-            if (contentOutboxRepository.findFoodIdsInFlight(listOf(foodId)).isNotEmpty()) {
+            if (contentOutboxRepository.findInFlightRequest(foodId) != null) {
                 throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             }
             if (intent == RegenerationIntent.REPLACE_BETTER && !target.isReady()) {

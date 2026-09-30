@@ -281,7 +281,7 @@ class AdminFoodService(
 
     private fun recollectUnderFoodLock(id: Long): RecollectOutcome {
         val food = foodRepository.findByIdForUpdate(id) ?: return RecollectOutcome.NOT_FOUND
-        if (outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING)) {
+        if (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) {
             return RecollectOutcome.ALREADY_PENDING
         }
         if (imageBatchItemRepository.findFoodIdsInRegeneration(listOf(food.id)).isNotEmpty()) {

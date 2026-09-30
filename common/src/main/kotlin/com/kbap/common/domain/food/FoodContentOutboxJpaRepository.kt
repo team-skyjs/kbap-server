@@ -11,19 +11,15 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long> {
-    fun existsByFoodIdAndOutboxStatus(foodId: Long, outboxStatus: FoodContentOutboxStatus): Boolean
-
     fun findByFoodIdInAndOutboxStatus(foodIds: Collection<Long>, outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
     @Query(
-        """
-        select distinct o.foodId from FoodContentOutbox o
-        where o.foodId in :foodIds
-          and o.deadAt is null
-          and o.outboxStatus in (com.kbap.common.domain.food.model.FoodContentOutboxStatus.PENDING, com.kbap.common.domain.food.model.FoodContentOutboxStatus.SENT)
-        """,
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE outbox.food_id IN (:foodIds) AND $IN_FLIGHT_REQUEST",
+        nativeQuery = true,
     )
-    fun findFoodIdsInFlight(@Param("foodIds") foodIds: Collection<Long>): List<Long>
+    fun findInFlightRequests(@Param("foodIds") foodIds: Collection<Long>): List<FoodContentOutbox>
+
+    fun findInFlightRequest(foodId: Long): FoodContentOutbox? = findInFlightRequests(listOf(foodId)).singleOrNull()
 
     fun findByOutboxStatusOrderByIdAsc(outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
@@ -213,11 +209,13 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
         const val NOT_DEAD = "outbox.dead_at IS NULL"
 
+        const val IN_FLIGHT_REQUEST = "outbox.outbox_status IN ('PENDING', 'SENT') AND $NOT_DEAD AND $LIVE_REQUEST"
+
         private const val OWN_ROW_STALE =
             "outbox.outbox_status = 'SENT' AND $NOT_DEAD AND outbox.sent_at IS NOT NULL " +
                 "AND outbox.sent_at < :before AND outbox.status = 'ACTIVE'"
 
-        const val STALE_SENT = "$OWN_ROW_STALE AND $LIVE_REQUEST"
+        const val STALE_SENT = "$OWN_ROW_STALE AND $IN_FLIGHT_REQUEST"
 
         const val DEAD_UNRESOLVED =
             "outbox.dead_at IS NOT NULL AND outbox.outbox_status <> 'COMPLETE' AND $LIVE_REQUEST"

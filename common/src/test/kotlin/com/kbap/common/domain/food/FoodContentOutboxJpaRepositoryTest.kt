@@ -41,7 +41,7 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                 outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
 
                 then("존재로 판정한다") {
-                    outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING) shouldBe true
+                    (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) shouldBe true
                 }
             }
 
@@ -53,7 +53,7 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                 outboxRepository.save(outbox)
 
                 then("대기 요청은 없는 것으로 판정해 재수집을 막지 않는다") {
-                    outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING) shouldBe false
+                    (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) shouldBe false
                 }
             }
         }
