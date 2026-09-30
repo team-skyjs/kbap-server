@@ -40,6 +40,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             uploadTtl = uploadTtl,
             publicBaseUrl = "https://cdn.test",
             keyPrefix = keyPrefix,
+            completeWindow = Duration.ofDays(1),
         )
 
         fun service(

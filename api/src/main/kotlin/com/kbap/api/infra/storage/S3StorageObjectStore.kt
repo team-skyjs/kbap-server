@@ -31,7 +31,11 @@ class S3StorageObjectStore(
             val response = s3Client.headObject(
                 HeadObjectRequest.builder().bucket(bucket).key(path).build(),
             )
-            StorageObjectMetadata(contentType = response.contentType() ?: "", sizeBytes = response.contentLength())
+            StorageObjectMetadata(
+                contentType = response.contentType() ?: "",
+                sizeBytes = response.contentLength(),
+                lastModified = response.lastModified(),
+            )
         } catch (e: NoSuchKeyException) {
             null
         }

@@ -32,6 +32,9 @@ class ImageControllerTest : BehaviorSpec() {
     private lateinit var storage: FakeStorageObjectStore
 
     @Autowired
+    private lateinit var uploadProperties: ImageUploadProperties
+
+    @Autowired
     private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
 
     @Autowired
@@ -203,7 +206,7 @@ class ImageControllerTest : BehaviorSpec() {
                         override fun release(scope: String, installationId: String, requestId: String) =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
                     }
-                    val service = ImageUploadService(storage, uploadedImageRepository, DailyGuestUploadQuota(uploadedImageRepository, unavailable))
+                    val service = ImageUploadService(storage, uploadedImageRepository, DailyGuestUploadQuota(uploadedImageRepository, unavailable), uploadProperties)
                     fun complete(i: Int) {
                         val path = guestPath("fallback-$i").also { storage.stub(it, "image/webp", 1024) }
                         service.completeUpload(null, installation, path, "image/webp", 1024)

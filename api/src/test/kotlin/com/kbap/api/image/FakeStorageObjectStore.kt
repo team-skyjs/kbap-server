@@ -15,7 +15,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     val lastModified: MutableMap<String, java.time.Instant> = java.util.concurrent.ConcurrentHashMap()
 
     fun stub(path: String, contentType: String, sizeBytes: Long, modifiedAt: java.time.Instant = java.time.Instant.now()) {
-        heads[path] = StorageObjectMetadata(contentType, sizeBytes)
+        heads[path] = StorageObjectMetadata(contentType, sizeBytes, modifiedAt)
         lastModified[path] = modifiedAt
     }
 
@@ -26,7 +26,8 @@ class FakeStorageObjectStore : StorageObjectStore {
     }
 
     override fun put(path: String, bytes: ByteArray, contentType: String) {
-        heads[path] = StorageObjectMetadata(contentType, bytes.size.toLong())
+        heads[path] = StorageObjectMetadata(contentType, bytes.size.toLong(), java.time.Instant.now())
+        lastModified[path] = java.time.Instant.now()
     }
 
     override fun head(path: String): StorageObjectMetadata? {

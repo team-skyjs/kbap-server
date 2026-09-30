@@ -19,4 +19,5 @@ data class StoredObject(
 data class StorageObjectMetadata(
     val contentType: String,
     val sizeBytes: Long,
+    val lastModified: java.time.Instant,
 )

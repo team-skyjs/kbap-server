@@ -32,6 +32,7 @@ class PropertiesConfig {
         @Value("\${kbap.upload.upload-ttl}") uploadTtl: Duration,
         @Value("\${kbap.storage.public-base-url:}") publicBaseUrl: String,
         @Value("\${kbap.storage.key-prefix:}") keyPrefix: String,
+        @Value("\${kbap.upload.complete-window:1d}") completeWindow: Duration,
     ): ImageUploadProperties =
         ImageUploadProperties(
             allowedContentTypes = allowedContentTypes,
@@ -39,5 +40,6 @@ class PropertiesConfig {
             uploadTtl = uploadTtl,
             publicBaseUrl = publicBaseUrl,
             keyPrefix = keyPrefix,
+            completeWindow = completeWindow,
         )
 }

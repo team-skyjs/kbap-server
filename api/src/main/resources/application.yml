@@ -228,3 +228,7 @@ kbap:
     allowed-content-types: image/jpeg,image/png,image/webp
     max-bytes: 10485760
     upload-ttl: 5m
+    # 완료 신고 허용 창 — 업로드(오브젝트 LastModified) 뒤 이 시간이 지난 오브젝트는 완료 신고를 거절한다(IMAGE-003).
+    # 행 없는 오브젝트 정리(uploaded-image-cleanup.unrecorded-*)의 보존 기간은 upload-ttl + 이 값보다 길어야 하며,
+    # 그래서 정리 대상은 완료 신고가 절대 받지 않는 오브젝트다(경합 없음). 앱은 업로드 직후 신고한다.
+    complete-window: 1d
