@@ -62,6 +62,8 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var contentOutboxJpaRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
     private lateinit var uploadedImageJpaRepository: UploadedImageJpaRepository
 
     @Autowired
