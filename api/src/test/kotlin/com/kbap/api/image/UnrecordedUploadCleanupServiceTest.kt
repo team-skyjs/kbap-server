@@ -152,17 +152,35 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
-            `when`("대상이 실행당 삭제 상한보다 많으면") {
-                then("상한까지만 지우고 나머지는 다음 실행이 이어 간다") {
+            `when`("한 페이지 안의 대상이 실행당 삭제 상한보다 많으면") {
+                then("상한까지만 지우고 커서를 마지막으로 처리한 키에 둬, 다음 실행이 같은 페이지의 남은 대상부터 이어 간다") {
                     reset()
-                    (1..5).forEach { stored("local/images/review/2026/09/1_cap$it.webp") }
+                    val keys = (1..5).map { "local/images/review/2026/09/1_cap$it.webp" }
+                    keys.forEach { stored(it) }
 
                     service(maxDeletes = 2).cleanup().deletedCount shouldBe 2
-                    storage.heads.size shouldBe 3
+                    storage.deleted shouldContainExactlyInAnyOrder keys.take(2)
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "review|${keys[1]}"
 
                     service(maxDeletes = 2).cleanup().deletedCount shouldBe 2
+                    storage.deleted shouldContainExactlyInAnyOrder keys.take(4)
+
                     service(maxDeletes = 2).cleanup().deletedCount shouldBe 1
                     storage.heads.size shouldBe 0
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe null
+                }
+            }
+
+            `when`("dry-run 에서 한 페이지 안의 대상이 삭제 상한보다 많으면") {
+                then("같은 규칙으로 상한까지만 세고 커서를 마지막으로 센 키에 둔다 — dry-run 집계가 실삭제 실행과 같은 범위를 본다") {
+                    reset()
+                    val keys = (1..3).map { "local/images/review/2026/09/1_dry$it.webp" }
+                    keys.forEach { stored(it) }
+
+                    val result = service(dryRun = true, maxDeletes = 2).cleanup()
+
+                    result.counts.getValue("review").stale shouldBe 2
+                    redisTemplate.opsForValue().get(UnrecordedUploadCleanupService.CURSOR_KEY) shouldBe "review|${keys[1]}"
                 }
             }
 
