@@ -117,11 +117,17 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun findReadyIdsWithoutVectorUpsertOutbox(pageable: Pageable): List<Long>
 
-    @Query("select f.id from Food f where f.id > :afterFoodId and $READY_WITHOUT_PENDING_UPSERT order by f.id asc")
-    fun findReadyIdsWithoutPendingVectorUpsertAfter(@Param("afterFoodId") afterFoodId: Long, pageable: Pageable): List<Long>
+    @Query(
+        "select f.id from Food f where f.id > :afterFoodId " +
+            "and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY order by f.id asc",
+    )
+    fun findReadyIdsAfter(@Param("afterFoodId") afterFoodId: Long, pageable: Pageable): List<Long>
 
-    @Query("select count(f) from Food f where f.id > :afterFoodId and $READY_WITHOUT_PENDING_UPSERT")
-    fun countReadyWithoutPendingVectorUpsertAfter(@Param("afterFoodId") afterFoodId: Long): Long
+    @Query(
+        "select count(f) from Food f where f.id > :afterFoodId " +
+            "and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY",
+    )
+    fun countReadyAfter(@Param("afterFoodId") afterFoodId: Long): Long
 
     @Query(
         """
@@ -307,12 +313,6 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
             "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +
                 "and not exists (select 1 from ImageBatchItem i where i.foodId = f.id " +
                 "and i.itemStatus = com.kbap.common.domain.food.model.ImageBatchItemStatus.PENDING)"
-
-        const val READY_WITHOUT_PENDING_UPSERT =
-            "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY " +
-                "and not exists (select 1 from FoodVectorOutbox o where o.foodId = f.id " +
-                "and o.operation = com.kbap.common.domain.food.model.FoodVectorOutboxOperation.UPSERT " +
-                "and o.outboxStatus = com.kbap.common.domain.food.model.FoodVectorOutboxStatus.PENDING)"
 
         const val FAILED_REGENERATION =
             "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +

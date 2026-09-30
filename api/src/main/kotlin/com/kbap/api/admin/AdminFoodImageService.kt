@@ -55,7 +55,7 @@ class AdminFoodImageService(
             foodImageRepository.save(target)
         }
         food.imageRef = target.imageKey
-        if (changed) vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        if (changed) vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
         foodRepository.flush()
         return galleryOf(foodId)
     }
@@ -114,7 +114,7 @@ class AdminFoodImageService(
             target.freezePublishedAtIfLegacy()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             cancelPendingVectorOutboxes(foodId, FoodVectorOutboxOperation.UPSERT)
-            vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.DELETE)
+            vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.DELETE)
             batchSubmitService.claimOne(target, intent, reason)
         }!!
     } catch (e: BusinessException) {

@@ -125,7 +125,7 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
             `when`("벡터 재색인이 예약된 READY 음식을 재생성하면") {
                 then("그 예약을 취소하고 삭제를 예약한다 — 순서가 뒤집혀 색인에서 영영 빠지지 않게") {
                     val food = saveFood("재색인대기음식")
-                    vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+                    vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
 
                     regenerate(food.id).andExpect { status { isOk() } }
 

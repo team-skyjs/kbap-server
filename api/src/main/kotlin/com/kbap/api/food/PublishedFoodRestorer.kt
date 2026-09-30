@@ -27,7 +27,7 @@ class PublishedFoodRestorer(
         vectorOutboxRepository
             .findByFoodIdAndOperationAndOutboxStatus(foodId, FoodVectorOutboxOperation.DELETE, FoodVectorOutboxStatus.PENDING)
             .forEach { it.delete() }
-        vectorOutboxRepository.enqueueIfAbsent(foodId, FoodVectorOutboxOperation.UPSERT)
+        vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
         log.warn("교체 재생성이 실패해 옛 이미지로 공개를 되돌렸다 — foodId={}", foodId)
     }
 }

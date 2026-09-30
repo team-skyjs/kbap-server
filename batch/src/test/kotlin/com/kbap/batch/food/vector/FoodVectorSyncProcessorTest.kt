@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.vector.FoodVectorDocument
 import com.kbap.common.domain.food.vector.FoodVectorStore
@@ -18,6 +19,7 @@ import io.kotest.matchers.shouldNotBe
 import org.springframework.batch.infrastructure.item.Chunk
 import org.springframework.batch.infrastructure.item.ExecutionContext
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
@@ -101,6 +103,58 @@ class FoodVectorSyncProcessorTest : BehaviorSpec() {
             transactionTemplate = TransactionTemplate(transactionManager),
             chunkSize = 2,
         )
+
+        fun updateLongDescription(food: Food, longDescription: String) {
+            dataSource.connection.use { connection ->
+                connection.prepareStatement("UPDATE food SET long_description = ? WHERE id = ?").use {
+                    it.setString(1, longDescription)
+                    it.setLong(2, food.id)
+                    it.executeUpdate()
+                }
+            }
+        }
+
+        given("배치가 음식을 읽어 임베딩하는 사이(읽은 뒤·완료 전)에 끼어든 변경") {
+            `when`("그 사이 내용이 바뀌고 force 재동기화가 돌면") {
+                then("이미 읽힌 PENDING 이 있어도 후속 행이 쌓여 최종 벡터가 최신 내용 기준이 된다") {
+                    clear()
+                    val food = saveReadyFood("순두부찌개", "옛 설명으로 쓴 순두부찌개")
+                    outboxRepository.save(FoodVectorOutbox.upsert(food.id))
+                    val vectorStore = InMemoryFoodVectorStore()
+                    val embeddingClient = InterleavingEmbeddingClient(embeddingDimension) {
+                        updateLongDescription(food, "새 설명으로 고친 순두부찌개")
+                        outboxRepository.saveAll(
+                            foodRepository.findReadyIdsAfter(0, PageRequest.of(0, 500)).map { FoodVectorOutbox.upsert(it) },
+                        )
+                    }
+
+                    processor(embeddingClient, vectorStore).syncAll()
+
+                    vectorStore.documents.getValue(food.id).embeddingHash shouldBe
+                        expectedHash("순두부찌개", "새 설명으로 고친 순두부찌개")
+                    outboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.PENDING) shouldBe 0
+                }
+            }
+
+            `when`("그 사이 내용이 바뀌고 변경 경로가 UPSERT 를 enqueue 하면") {
+                then("PENDING 이 있다고 생략하지 않는다 — 생략하면 옛 내용 벡터가 완료로 굳는다") {
+                    clear()
+                    val food = saveReadyFood("청국장찌개", "옛 설명으로 쓴 청국장찌개")
+                    outboxRepository.save(FoodVectorOutbox.upsert(food.id))
+                    val vectorStore = InMemoryFoodVectorStore()
+                    val embeddingClient = InterleavingEmbeddingClient(embeddingDimension) {
+                        updateLongDescription(food, "새 설명으로 고친 청국장찌개")
+                        outboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
+                    }
+
+                    processor(embeddingClient, vectorStore).syncAll()
+
+                    vectorStore.documents.getValue(food.id).embeddingHash shouldBe
+                        expectedHash("청국장찌개", "새 설명으로 고친 청국장찌개")
+                    outboxRepository.countByOutboxStatus(FoodVectorOutboxStatus.PENDING) shouldBe 0
+                }
+            }
+        }
 
         given("적재 대기 건 처리") {
             `when`("벡터 문서가 아직 없으면") {
@@ -387,6 +441,21 @@ private class RecordingEmbeddingClient(private val dimension: Int) : TextEmbeddi
 
     override fun embed(texts: List<String>): List<FloatArray> {
         requests += texts
+        return texts.map { FloatArray(dimension) { index -> index * 0.001f } }
+    }
+}
+
+private class InterleavingEmbeddingClient(
+    private val dimension: Int,
+    private val onFirstEmbed: () -> Unit,
+) : TextEmbeddingClient {
+    private var interleaved = false
+
+    override fun embed(texts: List<String>): List<FloatArray> {
+        if (!interleaved) {
+            interleaved = true
+            onFirstEmbed()
+        }
         return texts.map { FloatArray(dimension) { index -> index * 0.001f } }
     }
 }

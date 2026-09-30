@@ -6,7 +6,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
-import com.kbap.common.domain.food.model.FoodVectorOutbox
+import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
@@ -48,7 +48,7 @@ class AdminFoodContentIngestService(
             keepStatus = regenerating,
         )
         foodIngredientRepository.replace(foodId, food.ingredients)
-        if (food.isReady()) vectorOutboxRepository.save(FoodVectorOutbox.upsert(foodId))
+        if (food.isReady()) vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
     }
 
     @Transactional

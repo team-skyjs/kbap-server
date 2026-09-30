@@ -36,7 +36,7 @@ class AdminFoodContentReviewService(
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
         if (passed) {
             if (food.approve()) {
-                vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+                vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
             }
         } else {
             food.reject(reason)

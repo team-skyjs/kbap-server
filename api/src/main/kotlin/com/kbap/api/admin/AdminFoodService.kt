@@ -136,7 +136,7 @@ class AdminFoodService(
         food.active()
         if (food.isReady()) {
             cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.DELETE)
-            vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+            vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
         }
         return AdminFoodRestoreResponse(restored = true, contentStatus = food.contentStatus)
     }
@@ -202,8 +202,8 @@ class AdminFoodService(
         food.replaceIngredients(ingredients)
         foodIngredientRepository.replace(food.id, food.ingredients)
         when {
-            food.isReady() -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
-            wasReady -> vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
+            food.isReady() -> vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
+            wasReady -> vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.DELETE)
         }
         return AdminFoodUpdateResult.UPDATED
     }
@@ -219,7 +219,7 @@ class AdminFoodService(
         food.koreanName = deletedKoreanNameOf(food.koreanName, food.id)
         cancelPendingVectorOutboxes(food.id, FoodVectorOutboxOperation.UPSERT)
         cancelPendingContentOutboxes(food.id)
-        vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.DELETE)
+        vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.DELETE)
         return AdminFoodDeleteResult.DELETED
     }
 

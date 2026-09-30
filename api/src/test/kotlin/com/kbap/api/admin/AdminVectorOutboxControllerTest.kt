@@ -237,32 +237,32 @@ class AdminVectorOutboxControllerTest : BehaviorSpec() {
 
         given("벡터 동기화 강제 재동기화 — enqueue?force=true") {
             `when`("이력이 COMPLETE 인 READY 음식과 이력 없는 READY 음식이 있으면") {
-                then("기본 enqueue 는 이력 없는 것만, force 는 PENDING 이 없는 READY 전체를 다시 enqueue 한다") {
+                then("기본 enqueue 는 이력 없는 것만, force 는 READY 전체를 다시 enqueue 한다 — PENDING 이 이미 있어도 후속 행을 넣는다") {
                     val synced = saveFood("이미동기화음식")
                     saveOutbox(synced.id, FoodVectorOutboxStatus.COMPLETE)
                     val fresh = saveFood("미동기화음식")
                     saveFood("비공개음식", FoodContentStatus.FAILED)
 
                     postEnqueue().andExpect { jsonPath("$.payload.enqueued") { value(1) } }
-                    postEnqueueForce().andExpect { jsonPath("$.payload.enqueued") { value(1) } }
-                    postEnqueueForce().andExpect { jsonPath("$.payload.enqueued") { value(0) } }
+                    postEnqueueForce().andExpect { jsonPath("$.payload.enqueued") { value(2) } }
 
                     vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(synced.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 1
-                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(fresh.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 1
+                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(fresh.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 2
                 }
             }
         }
 
         given("벡터 동기화 강제 재동기화 — 500 초과") {
             `when`("READY 501개 중 앞 1개가 이미 PENDING 이면") {
-                then("PENDING 을 조건에서 뺀 뒤 500개를 담아 remaining 0 이다 — LIMIT 뒤에 스킵하지 않는다") {
+                then("PENDING 여부와 무관하게 앞 500개를 담고 remaining 1 이다") {
                     val foods = foodJpaRepository.saveAll((1..501).map { Food(koreanName = "초과음식$it", description = "설명", contentStatus = FoodContentStatus.READY) })
                     saveOutbox(foods.first().id)
 
                     postEnqueueForce().andExpect {
                         jsonPath("$.payload.enqueued") { value(500) }
-                        jsonPath("$.payload.remaining") { value(0) }
+                        jsonPath("$.payload.remaining") { value(1) }
                     }
+                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(foods.first().id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 2
                 }
             }
 

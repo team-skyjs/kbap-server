@@ -90,10 +90,10 @@ class AdminFoodDashboardService(
             vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
             return AdminVectorOutboxEnqueueResult(enqueued = targetIds.size, remaining = (total - targetIds.size).coerceAtLeast(0), nextAfterFoodId = null)
         }
-        val targetIds = foodRepository.findReadyIdsWithoutPendingVectorUpsertAfter(afterFoodId, page)
+        val targetIds = foodRepository.findReadyIdsAfter(afterFoodId, page)
         vectorOutboxRepository.saveAll(targetIds.map { FoodVectorOutbox.upsert(it) })
         val lastId = targetIds.lastOrNull() ?: afterFoodId
-        val remaining = foodRepository.countReadyWithoutPendingVectorUpsertAfter(lastId)
+        val remaining = foodRepository.countReadyAfter(lastId)
         return AdminVectorOutboxEnqueueResult(enqueued = targetIds.size, remaining = remaining, nextAfterFoodId = lastId.takeIf { remaining > 0 })
     }
 
