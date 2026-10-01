@@ -323,6 +323,29 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("건수 갱신이 성공한 뒤 다음 갱신이 실패하면") {
+                then("후보 게이지를 NaN 으로 비운다 — 옛 건수를 지금 값처럼 내보내지 않는다") {
+                    reset()
+                    upload("dev/images/review/r1.webp")
+                    val meters = SimpleMeterRegistry()
+                    var fail = false
+                    val service = object : UploadedImageCleanupService(
+                        uploadedImageRepository, storage, 7, true, 100, 100, transactionManager, UploadCleanupMetrics(meters),
+                    ) {
+                        override fun countOrphansIn(before: java.time.LocalDateTime): Map<String, Long> =
+                            if (fail) throw IllegalStateException("테스트 — 건수 질의 실패") else super.countOrphansIn(before)
+                    }
+                    service.refreshOrphanCounts()
+                    gauge(meters, "review", "candidate") shouldBe 1.0
+
+                    fail = true
+                    service.refreshOrphanCounts()
+
+                    gauge(meters, "review", "candidate")!!.isNaN() shouldBe true
+                    gauge(meters, "community", "candidate")!!.isNaN() shouldBe true
+                }
+            }
+
             `when`("삭제 실행을 메트릭으로 보면") {
                 then("삭제·실패 건수와 남은 후보 0 이 남는다 — 대상 0건과 '안 돌았다'를 마지막 실행 시각으로 가른다") {
                     reset()
