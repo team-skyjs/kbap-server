@@ -120,6 +120,58 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("행 없이 보존 기간을 지났지만 회원 프로필·리뷰·게시글·문의·주문·주문 항목 중 하나가 그 키를 가리키면") {
+                then("지우지 않는다 — #293 정리와 같은 참조 판정으로 '모르면 남긴다'. dry-run 집계엔 '경과했지만 참조됨'으로 센다") {
+                    reset()
+                    exec(
+                        "INSERT INTO food (id, korean_name, description, spiciness, name_translations, description_translations, ingredients, " +
+                            "content_status, status, created_at, updated_at) VALUES (7202, '참조음식', '설명', 0, '{}', '{}', '[]', 'READY', " +
+                            "'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    val profile = "local/images/profile/2026/08/${memberId}_legacy.webp"
+                    val review = "local/images/review/2026/07/1_legacy.webp"
+                    val post = "local/images/community/2026/07/1_legacy.webp"
+                    val feedback = "local/images/feedback/2026/07/1_legacy.webp"
+                    val scan = "local/images/scans/2026/07/1_legacy.webp"
+                    val item = "local/images/orders/2026/07/1_legacy.webp"
+                    val orphan = "local/images/review/2026/07/1_orphan.webp"
+                    listOf(profile, review, post, feedback, scan, item, orphan).forEach { stored(it) }
+                    exec("UPDATE member SET profile_image_url = '$profile' WHERE id = $memberId")
+                    exec(
+                        "INSERT INTO food_review (member_id, food_id, rating, image_refs, status) " +
+                            "VALUES ($memberId, 7202, 5, JSON_ARRAY('https://cdn.test/$review'), 'ACTIVE')",
+                    )
+                    exec(
+                        "INSERT INTO community_post (member_id, content, image_refs, status, created_at, updated_at) " +
+                            "VALUES ($memberId, '글', JSON_ARRAY('$post'), 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    exec(
+                        "INSERT INTO feedback (member_id, installation_id, content, image_refs, created_at, updated_at) " +
+                            "VALUES ($memberId, 'inst-unrecorded', '문의', JSON_ARRAY('$feedback'), NOW(6), NOW(6))",
+                    )
+                    exec("INSERT INTO orders (id, member_id, image_path) VALUES (7202, $memberId, '$scan')")
+                    exec("INSERT INTO order_item (order_id, food_id, menu_name, quantity, image_path) VALUES (7202, 7202, '참조음식', 1, '$item')")
+
+                    val dry = service(dryRun = true).cleanup()
+                    dry.counts.values.sumOf { it.staleReferenced } shouldBe 6
+                    dry.counts.values.sumOf { it.stale } shouldBe 1
+
+                    val result = service().cleanup()
+
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(orphan)
+                    result.deletedCount shouldBe 1
+                }
+            }
+
+            `when`("삭제 스위치를 볼 때") {
+                then("#293 정리의 스위치와 따로다 — 이 잡만 실삭제로 켤 수 있고, 기본은 dry-run 이다") {
+                    val field = UnrecordedUploadCleanupService::class.java.declaredConstructors.single().parameters
+                        .mapNotNull { it.getAnnotation(org.springframework.beans.factory.annotation.Value::class.java)?.value }
+                        .single { it.contains("dry-run") }
+                    field shouldBe "\${kbap.uploaded-image-cleanup.unrecorded-dry-run:true}"
+                }
+            }
+
             `when`("업로드 접두 밖(카탈로그·기본 이미지·다른 환경)에 행 없는 오래된 오브젝트가 있으면") {
                 then("목록에 오르지도 않고 지워지지도 않는다") {
                     reset()
