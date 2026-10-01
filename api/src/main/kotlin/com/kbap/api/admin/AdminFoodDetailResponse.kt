@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
+import java.time.Duration
 import java.time.LocalDateTime
 
 data class AdminFoodDetailResponse(
@@ -58,6 +59,12 @@ data class AdminFoodDetailResponse(
         example = "2026-10-01T06:15:00Z",
     )
     val contentRequestSince: java.time.Instant?,
+    @field:Schema(
+        description = "contentRequestSince 부터 지난 시간을 서버가 응답 시점에 계산한 경과 초. 진행 중 요청이 없으면 null(contentRequestSince 와 함께). " +
+            "대기 상한 판정은 이 값으로 한다 — 클라이언트 시계로 since 와의 차이를 계산하면 PC 시계가 틀릴 때 어긋난다. 0 이상이다",
+        nullable = true,
+        example = "420",
+    )
     val contentRequestAgeSeconds: Long?,
 ) {
     companion object {
@@ -97,7 +104,7 @@ data class AdminFoodDetailResponse(
                 additionalInProgress = additionalInProgress,
                 contentRequestPending = contentRequestPending,
                 contentRequestSince = contentRequestSince,
-                contentRequestAgeSeconds = null,
+                contentRequestAgeSeconds = contentRequestSince?.let { Duration.between(it, now).seconds.coerceAtLeast(0) },
             )
     }
 }
