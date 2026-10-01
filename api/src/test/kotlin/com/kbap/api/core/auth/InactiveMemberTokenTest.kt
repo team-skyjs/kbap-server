@@ -186,6 +186,25 @@ class InactiveMemberTokenTest : BehaviorSpec() {
             }
         }
 
+        given("관리자 토큰을 토큰 선택 경로(업로드 URL 발급)에 보내면") {
+            `when`("회원 전용 용도(PROFILE_IMAGE)를 요청하면") {
+                then("관리자 id 를 회원 id 로 쓰지 않고 종전대로 거절한다(401 AUTH-003) — 관리자 계정 id 가 회원 키로 새지 않는다") {
+                    seed()
+
+                    val response = mockMvc.perform(
+                        MockMvcRequestBuilders.post("/api/images/upload-url")
+                            .header("X-API-Version", "1.0")
+                            .header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(actor, MemberRole.ADMIN)}")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""{"purpose":"PROFILE_IMAGE","contentType":"image/jpeg","contentLength":1024}"""),
+                    ).andReturn().response
+
+                    response.status shouldBe 401
+                    mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText() shouldBe "AUTH-003"
+                }
+            }
+        }
+
         given("탈퇴 회원의 기기에서 온 로그아웃") {
             `when`("호출하면") {
                 then("인증 필터 대상이 아니라 종전대로 200 이다 — 기기 연결 해제는 해롭지 않다") {
