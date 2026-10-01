@@ -87,10 +87,21 @@ class AuthService(
 
         deleteSocialAccount(memberId, member.identity)
 
-        if (releaseDevices) {
-            notificationTokenService.closeOnWithdraw(memberId)
+        try {
+            if (releaseDevices) {
+                notificationTokenService.closeOnWithdraw(memberId)
+            }
+            memberService.withdraw(memberId)
+        } catch (e: RuntimeException) {
+            log.error(
+                "소셜 계정은 삭제됐고 DB 탈퇴가 실패했다 — 회원은 ACTIVE 로 남아 재시도하면 끝난다(같은 소셜 계정으로 다시 로그인해도 같은 회원): " +
+                    "memberId={}, provider={}",
+                memberId,
+                member.identity.provider,
+                e,
+            )
+            throw e
         }
-        memberService.withdraw(memberId)
     }
 
     private fun deleteSocialAccount(memberId: Long, identity: SocialIdentity) {
