@@ -139,10 +139,11 @@ class UnrecordedUploadCleanupService(
 
     private fun recordRun(result: UnrecordedUploadCleanupResult) {
         val job = UploadCleanupMetrics.UNRECORDED
+        PER_RUN_KINDS.forEach { metrics.invalidate(job, it) }
         result.counts.forEach { (purpose, count) ->
             metrics.record(job, purpose, "listed", count.listed.toLong())
             metrics.record(job, purpose, "unrecorded", count.unrecorded.toLong())
-            metrics.record(job, purpose, "candidate", count.stale.toLong())
+            metrics.record(job, purpose, "candidate_in_run", count.stale.toLong())
             metrics.record(job, purpose, "kept_referenced", count.staleReferenced.toLong())
         }
         metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "deleted", result.deletedCount.toLong())
@@ -205,6 +206,7 @@ class UnrecordedUploadCleanupService(
     companion object {
         const val CURSOR_KEY = "upload-cleanup:cursor"
         const val MAX_CONSECUTIVE_FAILURES = 3
+        private val PER_RUN_KINDS = listOf("listed", "unrecorded", "candidate_in_run", "kept_referenced")
         private const val LIST_PAGE_SIZE = 1000
 
         fun uploadPrefixes(keyPrefix: String): Map<UploadPurpose, String> {
