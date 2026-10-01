@@ -52,10 +52,10 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         ) = UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager, UploadCleanupMetrics(meters))
 
         fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
-            meters.find(UploadCleanupMetrics.NAME).tags("job", "recorded", "purpose", purpose, "kind", kind).gauge()?.value()
+            meters.find(UploadCleanupMetrics.NAME).tags("cleanup", "recorded", "purpose", purpose, "kind", kind).gauge()?.value()
 
         fun lastRun(meters: SimpleMeterRegistry): Double? =
-            meters.find(UploadCleanupMetrics.LAST_RUN).tags("job", "recorded").gauge()?.value()
+            meters.find(UploadCleanupMetrics.LAST_RUN).tags("cleanup", "recorded").gauge()?.value()
 
         fun exec(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
 

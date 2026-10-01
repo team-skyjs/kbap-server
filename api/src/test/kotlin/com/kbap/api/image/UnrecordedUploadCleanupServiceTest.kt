@@ -65,7 +65,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
         )
 
         fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
-            meters.find(UploadCleanupMetrics.NAME).tags("job", "unrecorded", "purpose", purpose, "kind", kind).gauge()?.value()
+            meters.find(UploadCleanupMetrics.NAME).tags("cleanup", "unrecorded", "purpose", purpose, "kind", kind).gauge()?.value()
 
         fun repositoryThatRecordsAfterPageCheck(path: String): UploadedImageJpaRepository =
             java.lang.reflect.Proxy.newProxyInstance(
@@ -239,7 +239,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                     gauge(meters, "orders", "candidate") shouldBe 2.0
                     gauge(meters, "profile", "kept_referenced") shouldBe 1.0
                     gauge(meters, "all", "deleted") shouldBe 0.0
-                    meters.find(UploadCleanupMetrics.LAST_RUN).tags("job", "unrecorded").gauge()!!.value() shouldBeGreaterThan 0.0
+                    meters.find(UploadCleanupMetrics.LAST_RUN).tags("cleanup", "unrecorded").gauge()!!.value() shouldBeGreaterThan 0.0
                 }
             }
 
