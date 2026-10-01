@@ -8,3 +8,8 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+kbap:
+  batch:
+    user-stats:
+      # dev 는 일일 유저 통계를 보내지 않는다(예진 10/1, prod 만) — 웹훅 미주입 ERROR 가 배포마다 Sentry 를 울리지 않게.
+      enabled: false
