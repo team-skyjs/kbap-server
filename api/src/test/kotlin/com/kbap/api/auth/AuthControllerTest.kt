@@ -36,6 +36,9 @@ class AuthControllerTest : BehaviorSpec() {
     private lateinit var memberRepository: com.kbap.common.domain.member.MemberJpaRepository
 
     @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
+    @Autowired
     private lateinit var uploadedImageService: com.kbap.api.image.UploadedImageService
 
     @Autowired
@@ -545,6 +548,61 @@ class AuthControllerTest : BehaviorSpec() {
                     }
 
                     error.errorCode shouldBe ErrorCode.MEMBER_SUSPENDED_LOGIN
+                }
+            }
+
+            `when`("다른 로그인이 같은 소셜 계정 가입을 먼저 커밋해 이쪽 가입이 유니크에 걸리면") {
+                fun racingService(uid: String): com.kbap.api.member.MemberService {
+                    val racing = java.lang.reflect.Proxy.newProxyInstance(
+                        com.kbap.common.domain.member.MemberJpaRepository::class.java.classLoader,
+                        arrayOf(com.kbap.common.domain.member.MemberJpaRepository::class.java),
+                    ) { _, method, args ->
+                        val result = try {
+                            method.invoke(memberRepository, *(args ?: emptyArray()))
+                        } catch (e: java.lang.reflect.InvocationTargetException) {
+                            throw e.targetException
+                        }
+                        if (method.name == "existsByProviderAndProviderUidAndMemberStatus") {
+                            dataSource.connection.use { c ->
+                                c.prepareStatement(
+                                    "INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                                        "VALUES ('GOOGLE', ?, 'ACTIVE', 0, 'ACTIVE', NOW(6), NOW(6))",
+                                ).use { ps -> ps.setString(1, uid); ps.executeUpdate() }
+                            }
+                        }
+                        result
+                    } as com.kbap.common.domain.member.MemberJpaRepository
+                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, "", "")
+                }
+
+                then("트랜잭션 밖이면 재조회가 그 커밋을 보고 기존 회원으로 로그인시킨다") {
+                    val uid = "fresh-read-${System.nanoTime()}"
+
+                    val (member, isNew) = racingService(uid).findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, uid, null))
+
+                    isNew shouldBe false
+                    member.id shouldBe memberIdOf(uid)
+                }
+
+                then("한 트랜잭션으로 묶으면 실패한다 — 유니크 위반이 세션을 무효화해 재조회가 깨진다") {
+                    val uid = "one-tx-${System.nanoTime()}"
+
+                    val outcome = runCatching {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            racingService(uid).findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, uid, null))
+                        }
+                    }
+
+                    outcome.isFailure shouldBe true
+                }
+
+                then("그래서 로그인·가입 경로에는 바깥 @Transactional 이 없다") {
+                    val transactional = org.springframework.transaction.annotation.Transactional::class.java
+                    com.kbap.api.member.MemberService::class.java.getMethod("findOrSignUp", com.kbap.common.domain.member.model.SocialIdentity::class.java)
+                        .isAnnotationPresent(transactional) shouldBe false
+                    AuthService::class.java.methods.filter { it.name == "login" }.none { it.isAnnotationPresent(transactional) } shouldBe true
+                    com.kbap.api.member.MemberService::class.java.isAnnotationPresent(transactional) shouldBe false
+                    AuthService::class.java.isAnnotationPresent(transactional) shouldBe false
                 }
             }
 
