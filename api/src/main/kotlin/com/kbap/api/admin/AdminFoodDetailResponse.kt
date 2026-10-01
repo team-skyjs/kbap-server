@@ -45,10 +45,18 @@ data class AdminFoodDetailResponse(
     val additionalInProgress: Boolean,
     @field:Schema(
         description = "이 음식에 처리 중인 콘텐츠 수집 요청이 있는지 — 발행 대기(PENDING)이거나 보냄(SENT)·미완료·포기(dead) 아님이면 true. " +
-            "재수집 뒤 결과(반영·초안)를 기다리는 화면은 false 가 되면 대기를 끝낸다. 재수집 건너뜀·회수 잡과 같은 '진행 중 요청' 정의를 쓴다",
+            "재수집 뒤 결과(반영·초안)를 기다리는 화면은 false 가 되면 대기를 끝낸다. 재수집 건너뜀·회수 잡과 같은 '진행 중 요청' 정의를 쓴다. " +
+            "삭제된 음식은 항상 false 다 — 그 요청의 결과는 반영되지 않는다. " +
+            "굳은 SENT(24시간 회수 전)도 true 다 — 회수 잡이 다시 보내거나 포기로 넘길 때까지 진행 중으로 본다",
         example = "false",
     )
     val contentRequestPending: Boolean,
+    @field:Schema(
+        description = "contentRequestPending 과 같은 판정으로 잡힌 진행 중 요청 중 가장 최근 요청의 생성 시각(UTC 순간). 없으면 null. " +
+            "보낸 시각이 아니라 요청이 만들어진 시각이다 — 대기 화면은 이 값으로 경과 시간을 보여 주고 클라이언트가 시작 시각을 따로 들고 있지 않는다",
+        nullable = true,
+        example = "2026-10-01T06:15:00Z",
+    )
     val contentRequestSince: java.time.Instant?,
 ) {
     companion object {
