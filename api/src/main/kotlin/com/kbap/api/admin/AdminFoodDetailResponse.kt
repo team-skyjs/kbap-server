@@ -66,6 +66,15 @@ data class AdminFoodDetailResponse(
         example = "420",
     )
     val contentRequestAgeSeconds: Long?,
+    @field:Schema(
+        description = "이 음식의 검수 대기(PENDING) 초안의 id. 없으면 null — 승인·반려·대체된 초안은 가리키지 않는다. " +
+            "contentRequestPending 과 같은 조회 시점에서 읽는다 — 재수집 결과 콜백은 요청 완료와 초안 생성을 한 번에 커밋하므로, " +
+            "한 응답 안에서 '요청이 끝났다(false)'와 이 id 가 함께 보인다. 배지는 이 값으로 판단하고 초안 조회를 따로 맞춰 부르지 않는다. " +
+            "삭제된 음식은 항상 null",
+        nullable = true,
+        example = "42",
+    )
+    val pendingContentDraftId: Long?,
 ) {
     companion object {
         fun from(
@@ -77,6 +86,7 @@ data class AdminFoodDetailResponse(
             contentRequestPending: Boolean,
             contentRequestSince: java.time.Instant?,
             now: java.time.Instant,
+            pendingContentDraftId: Long?,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -105,6 +115,7 @@ data class AdminFoodDetailResponse(
                 contentRequestPending = contentRequestPending,
                 contentRequestSince = contentRequestSince,
                 contentRequestAgeSeconds = contentRequestSince?.let { Duration.between(it, now).seconds.coerceAtLeast(0) },
+                pendingContentDraftId = pendingContentDraftId,
             )
     }
 }

@@ -163,6 +163,7 @@ class AdminFoodService(
             contentRequestPending = inFlight.isNotEmpty(),
             contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
             now = Instant.now(),
+            pendingContentDraftId = if (food.isDeleted()) null else draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)?.id,
         )
     }
 

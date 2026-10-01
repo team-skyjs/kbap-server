@@ -34,6 +34,14 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import io.kotest.assertions.withClue
+import org.springframework.core.annotation.AnnotatedElementUtils
+import org.springframework.transaction.annotation.Transactional
 
 @IntegrationTest
 class AdminFoodContentDraftTest : BehaviorSpec() {
@@ -47,6 +55,8 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
     @Autowired private lateinit var draftRepository: FoodContentDraftJpaRepository
     @Autowired private lateinit var imageBatchRepository: ImageBatchJpaRepository
     @Autowired private lateinit var imageBatchItemRepository: ImageBatchItemJpaRepository
+    @Autowired private lateinit var adminFoodService: AdminFoodService
+    @Autowired private lateinit var transactionManager: PlatformTransactionManager
 
     private val mapper = jacksonObjectMapper()
 
@@ -492,7 +502,134 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
             }
         }
 
+        given("어드민 음식 상세의 pendingContentDraftId") {
+            fun detail(food: Food): JsonNode = body(
+                mockMvc.get("/api/admin/foods/${food.id}") {
+                    header("X-API-Version", "1.0")
+                    header("Authorization", "Bearer ${token()}")
+                }.andReturn().response,
+            ).path("payload")
+
+            fun pendingDraftId(food: Food): Long = draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!.id
+
+            `when`("검수 대기 초안이 없으면") {
+                then("null") {
+                    val food = publishedFood()
+
+                    detail(food).has("pendingContentDraftId") shouldBe true
+                    detail(food).path("pendingContentDraftId").isNull shouldBe true
+                }
+            }
+
+            `when`("재수집 결과 콜백이 끝난 직후 상세를 한 번 조회하면") {
+                then("요청은 끝났고(contentRequestPending=false) 초안 id 가 함께 온다 — 배지를 위해 두 응답을 시점 맞춰 조합할 필요가 없다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+
+                    val payload = detail(food)
+
+                    payload.path("contentRequestPending").asBoolean() shouldBe false
+                    payload.path("pendingContentDraftId").asLong() shouldBe pendingDraftId(food)
+                }
+            }
+
+            `when`("새 재수집 결과가 앞 초안을 대체하면") {
+                then("검수 대기인 새 초안의 id 다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    val superseded = pendingDraftId(food)
+                    recollectResult(food, description = "두 번째 결과")
+
+                    val current = detail(food).path("pendingContentDraftId").asLong()
+
+                    current shouldBe pendingDraftId(food)
+                    (current != superseded) shouldBe true
+                }
+            }
+
+            `when`("초안을 승인하거나 반려하면") {
+                then("null — 검수 대기 초안만 가리킨다") {
+                    val approved = publishedFood()
+                    recollectResult(approved)
+                    review(approved, passed = true).status shouldBe 200
+                    val rejected = publishedFood()
+                    recollectResult(rejected)
+                    review(rejected, passed = false, reason = "설명이 부정확").status shouldBe 200
+
+                    detail(approved).path("pendingContentDraftId").isNull shouldBe true
+                    detail(rejected).path("pendingContentDraftId").isNull shouldBe true
+                }
+            }
+
+            `when`("검수 대기 초안이 남은 채 음식이 삭제되면") {
+                then("삭제된 음식 상세에서는 null — 삭제된 음식의 초안은 열 수 없다(contentRequestPending 이 항상 false 인 것과 같은 규칙)") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    adminFoodService.deleteFood(food.id)
+
+                    val deleted = adminFoodService.getDeletedFoodDetail(food.id)
+
+                    deleted.contentRequestPending shouldBe false
+                    deleted.pendingContentDraftId shouldBe null
+                }
+            }
+
+            `when`("상세를 읽는 도중에 콜백이 커밋되면") {
+                then("요청 상태와 초안을 같은 시점으로 본다 — '진행 중인데 초안이 있다'·'끝났는데 초안이 없다'가 섞이지 않는다") {
+                    val food = publishedFood()
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    val callback = Callable {
+                        mockMvc.post(PATH) {
+                            header("Authorization", "Bearer ${token()}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(passedBody(food.id, outbox.id, description = "읽는 도중 도착한 결과"))
+                        }.andReturn().response.status
+                    }
+                    val executor = Executors.newSingleThreadExecutor()
+
+                    val during = TransactionTemplate(transactionManager).apply { isReadOnly = true }.execute {
+                        foodRepository.count()
+                        executor.submit(callback).get(30, TimeUnit.SECONDS) shouldBe 200
+                        adminFoodService.getFoodDetail(food.id)
+                    }!!
+                    executor.shutdown()
+                    val after = adminFoodService.getFoodDetail(food.id)
+
+                    during.contentRequestPending shouldBe true
+                    during.pendingContentDraftId shouldBe null
+                    after.contentRequestPending shouldBe false
+                    after.pendingContentDraftId shouldBe pendingDraftId(food)
+                }
+            }
+        }
+
+        given("어드민 음식 상세 조회의 트랜잭션") {
+            `when`("상세를 만드는 두 진입 메서드를 보면") {
+                then("각자 읽기 트랜잭션을 연다 — 트랜잭션이 없으면 요청 상태와 초안을 조회마다 다른 시점으로 읽어 섞인 응답이 나갈 수 있다") {
+                    listOf("getFoodDetail", "getDeletedFoodDetail").forEach { name ->
+                        val method = AdminFoodService::class.java.getMethod(name, Long::class.javaPrimitiveType)
+
+                        withClue(name) {
+                            AnnotatedElementUtils.findMergedAnnotation(method, Transactional::class.java)?.readOnly shouldBe true
+                        }
+                    }
+                }
+            }
+        }
+
         given("어드민 음식 상세 문서") {
+            `when`("pendingContentDraftId 를 보면") {
+                then("정수이고 없을 수 있으며, 요청 상태와 같은 조회 시점의 검수 대기 초안 id 라고 적혀 있다") {
+                    val draftId = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("components").path("schemas").path("AdminFoodDetailResponse").path("properties").path("pendingContentDraftId")
+
+                    draftId.path("type").asText() shouldBe "integer"
+                    draftId.path("format").asText() shouldBe "int64"
+                    draftId.path("description").asText().contains("검수 대기(PENDING) 초안의 id") shouldBe true
+                    draftId.path("description").asText().contains("같은 조회 시점") shouldBe true
+                }
+            }
+
             `when`("contentRequestPending·contentRequestSince 설명을 보면") {
                 then("삭제된 음식은 항상 false·굳은 SENT 도 true 이고, since 는 같은 판정의 가장 최근 요청 생성 시각이라고 적혀 있다") {
                     val properties = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
