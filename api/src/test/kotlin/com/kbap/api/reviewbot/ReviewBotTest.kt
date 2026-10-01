@@ -191,6 +191,40 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("오늘 쓴 봇 리뷰가 삭제(모더레이션)됐으면") {
+                then("그 음식은 다시 후보이고 오늘 쓴 수에서도 빠진다 — 지워진 리뷰가 목표를 채운 것으로 세지 않는다") {
+                    val bots = accountService.ensureBots(2).bots
+                    val food = seedFoods(1).single()
+                    val earlier = java.time.LocalDateTime.now().withHour(10)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'deleted bot review', 'DELETED', ?, ?)",
+                        ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, food.id); ps.setObject(3, earlier); ps.setObject(4, earlier); ps.executeUpdate() }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    count("SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE'") shouldBe 1
+                }
+            }
+
+            `when`("어제 그 음식에 쓴 유일한 봇의 리뷰가 삭제됐으면") {
+                then("그 봇이 그 음식을 소진한 것으로 보지 않는다 — 다시 쓸 수 있다") {
+                    val bot = accountService.ensureBots(1).bots.single()
+                    val food = seedFoods(1).single()
+                    val yesterday = java.time.LocalDateTime.now().minusDays(1)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'deleted old review', 'DELETED', ?, ?)",
+                        ).use { ps -> ps.setLong(1, bot.id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    count("SELECT COUNT(*) FROM food_review WHERE member_id = ${bot.id} AND status = 'ACTIVE'") shouldBe 1
+                }
+            }
+
             `when`("09시 틱이면") {
                 then("그 시각까지 배정된 수만 쓴다") {
                     accountService.ensureBots(12)
