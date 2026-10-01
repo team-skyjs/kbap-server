@@ -22,7 +22,7 @@ class AdminFoodContentDraftService(
 ) {
     @Transactional(readOnly = true)
     fun getDraftPage(page: Int, size: Int): AdminFoodContentDraftPage {
-        val drafts = draftRepository.findByReviewStatusOrderByIdAsc(FoodContentDraftStatus.PENDING, PageRequest.of(page, size))
+        val drafts = draftRepository.findOfActiveFoods(FoodContentDraftStatus.PENDING, PageRequest.of(page, size))
         val foods = foodRepository.findAllById(drafts.content.map { it.foodId }).associateBy { it.id }
         return AdminFoodContentDraftPage(
             items = drafts.content.mapNotNull { draft -> foods[draft.foodId]?.let { food -> food to draft } },
@@ -41,11 +41,20 @@ class AdminFoodContentDraftService(
     }
 
     @Transactional
-    fun reviewDraft(foodId: Long, passed: Boolean, reason: String?, adminAccountId: Long): FoodContentDraft {
+    fun reviewDraft(
+        foodId: Long,
+        draftId: Long,
+        foodVersion: Long,
+        passed: Boolean,
+        reason: String?,
+        adminAccountId: Long,
+    ): FoodContentDraft {
         val food = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
         val draft = draftRepository.findByFoodIdAndReviewStatus(foodId, FoodContentDraftStatus.PENDING)
+            ?.takeIf { it.id == draftId }
             ?: throw BusinessException(ErrorCode.FOOD_CONTENT_DRAFT_NOT_FOUND)
         if (passed) {
+            if (food.version != foodVersion) throw BusinessException(ErrorCode.FOOD_VERSION_CONFLICT)
             if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             verifyCatalog(draft)
             ingestService.applyDraft(food, draft)

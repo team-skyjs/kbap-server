@@ -44,6 +44,8 @@ data class AdminFoodContentDraftResponse(
     val draftId: Long,
     val outboxId: Long,
     val createdAt: LocalDateTime,
+    @field:Schema(description = "비교한 공개 값의 버전 — 승인 요청에 그대로 돌려보낸다. 그 사이 공개 내용이 바뀌었으면 승인은 409(FOOD-006)")
+    val foodVersion: Long,
     @field:Schema(description = "지금 공개 중인 값")
     val current: Content,
     @field:Schema(description = "검수 대기 중인 초안 값 — 승인하면 current 를 이 값으로 바꾼다")
@@ -69,6 +71,7 @@ data class AdminFoodContentDraftResponse(
             draftId = draft.id,
             outboxId = draft.outboxId,
             createdAt = draft.createdAt,
+            foodVersion = food.version,
             current = Content(
                 food.description,
                 food.longDescription,
@@ -91,6 +94,14 @@ data class AdminFoodContentDraftResponse(
 
 @Schema(description = "콘텐츠 초안 검수 결과 입력")
 data class AdminFoodContentDraftReviewRequest(
+    @field:NotNull(message = "draftId 는 필수입니다")
+    @field:Schema(description = "비교 화면에서 본 초안 id — 그 사이 새 결과로 대체됐으면 404(FOOD-021)", example = "12")
+    val draftId: Long?,
+
+    @field:NotNull(message = "foodVersion 은 필수입니다")
+    @field:Schema(description = "비교 화면에서 받은 foodVersion — 승인 시 공개 값이 그 사이 바뀌었으면 409(FOOD-006)", example = "3")
+    val foodVersion: Long?,
+
     @field:NotNull(message = "passed 는 필수입니다")
     @field:Schema(description = "true = 승인(공개 내용을 초안으로 교체), false = 반려(공개 내용 무변)", example = "true")
     val passed: Boolean?,

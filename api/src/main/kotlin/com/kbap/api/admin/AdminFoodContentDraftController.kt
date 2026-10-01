@@ -51,7 +51,7 @@ class AdminFoodContentDraftController(
     ): ResponseEntity<BaseResponse<AdminFoodContentDraftReviewResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                AdminFoodContentDraftReviewResponse.from(draftService.reviewDraft(foodId, request.passed!!, request.reason, adminAccountId)),
+                AdminFoodContentDraftReviewResponse.from(draftService.reviewDraft(foodId, request.draftId!!, request.foodVersion!!, request.passed!!, request.reason, adminAccountId)),
             ),
         )
 
