@@ -154,6 +154,7 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
         given("일일 유저 통계 켜기·끄기(kbap.batch.user-stats.enabled)") {
             `when`("켜져 있는데 웹훅 URL 이 없으면(prod 누락)") {
                 then("첫 회 ERROR 로 알린다 — 누락 감지는 그대로") {
+                    (DailyUserStatsReporter::class.java.getDeclaredField("skipReported").apply { isAccessible = true }.get(null) as java.util.concurrent.atomic.AtomicBoolean).set(false)
                     val logs = logsOf { reporter(null).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED }
 
                     logs.count { it.level == ch.qos.logback.classic.Level.ERROR } shouldBe 1
