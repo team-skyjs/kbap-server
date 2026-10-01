@@ -2,11 +2,13 @@ package com.kbap.api.infra.storage
 
 import com.kbap.common.port.storage.StorageObjectMetadata
 import com.kbap.common.port.storage.StorageObjectStore
+import com.kbap.common.port.storage.StoredObject
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.time.Duration
@@ -21,6 +23,7 @@ class S3StorageObjectStore(
             S3StorageObjectStore(S3Client.builder().region(Region.of(region)).build(), bucket)
 
         private val DELETE_TIMEOUT: Duration = Duration.ofSeconds(10)
+        private val LIST_TIMEOUT: Duration = Duration.ofSeconds(30)
     }
 
     override fun head(path: String): StorageObjectMetadata? =
@@ -28,7 +31,11 @@ class S3StorageObjectStore(
             val response = s3Client.headObject(
                 HeadObjectRequest.builder().bucket(bucket).key(path).build(),
             )
-            StorageObjectMetadata(contentType = response.contentType() ?: "", sizeBytes = response.contentLength())
+            StorageObjectMetadata(
+                contentType = response.contentType() ?: "",
+                sizeBytes = response.contentLength(),
+                lastModified = response.lastModified(),
+            )
         } catch (e: NoSuchKeyException) {
             null
         }
@@ -42,6 +49,17 @@ class S3StorageObjectStore(
                 .build(),
         )
     }
+
+    override fun list(prefix: String, afterPath: String?, limit: Int): List<StoredObject> =
+        s3Client.listObjectsV2(
+            ListObjectsV2Request.builder()
+                .bucket(bucket)
+                .prefix(prefix)
+                .startAfter(afterPath)
+                .maxKeys(limit)
+                .overrideConfiguration { it.apiCallTimeout(LIST_TIMEOUT) }
+                .build(),
+        ).contents().map { StoredObject(path = it.key(), lastModified = it.lastModified()) }
 
     override fun put(path: String, bytes: ByteArray, contentType: String) {
         s3Client.putObject(

@@ -206,6 +206,15 @@ kbap:
     # 최악 100 x 10초 = 약 17분으로 ShedLock lockAtMostFor(30분) 안에 끝난다. 남은 대상은 다음 실행이 이어 간다.
     max-per-run: ${UPLOADED_IMAGE_CLEANUP_MAX_PER_RUN:100}
     cron: "0 30 4 * * *"
+    # 행 없이 S3 에 남은 업로드 오브젝트 정리(KB-665) — 업로드 6용도 접두(`{key-prefix}/images/{용도}/`)만 훑어
+    # uploaded_image 에 (상태 무관) 행이 없고 LastModified 가 retention 을 지났으며 어디서도 참조되지 않는 오브젝트를 지운다.
+    # 삭제 스위치는 #293 잡(dry-run)과 따로다 — 위험이 달라 각자 켠다.
+    unrecorded-dry-run: ${UNRECORDED_UPLOAD_CLEANUP_DRY_RUN:true}
+    # retention 은 presigned 유효기간(upload-ttl) + 완료 신고 여유(1일)보다 길어야 기동한다 — 그 뒤엔 새 PUT·complete 가 없다.
+    unrecorded-retention-days: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_RETENTION_DAYS:7}
+    unrecorded-max-deletes-per-run: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_MAX_DELETES_PER_RUN:100}
+    unrecorded-max-listed-per-run: 20000
+    unrecorded-cron: "0 50 4 * * *"
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).
@@ -221,3 +230,7 @@ kbap:
     allowed-content-types: image/jpeg,image/png,image/webp
     max-bytes: 10485760
     upload-ttl: 5m
+    # 완료 신고 허용 창 — 업로드(오브젝트 LastModified) 뒤 이 시간이 지난 오브젝트는 완료 신고를 거절한다(IMAGE-003).
+    # 행 없는 오브젝트 정리(uploaded-image-cleanup.unrecorded-*)의 보존 기간은 upload-ttl + 이 값보다 길어야 하며,
+    # 그래서 정리 대상은 완료 신고가 절대 받지 않는 오브젝트다(경합 없음). 앱은 업로드 직후 신고한다.
+    complete-window: 1d
