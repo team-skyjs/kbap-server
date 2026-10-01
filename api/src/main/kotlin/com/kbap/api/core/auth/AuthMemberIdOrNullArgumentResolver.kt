@@ -26,7 +26,9 @@ class AuthMemberIdOrNullArgumentResolver(
     ): Long? {
         val request = webRequest.getNativeRequest(HttpServletRequest::class.java) ?: return null
         val checkedByFilter = request.getAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) as? Long
-        if (checkedByFilter != null) return checkedByFilter
+        if (checkedByFilter != null) {
+            return checkedByFilter.takeUnless { request.getAttribute(JwtAuthenticationFilter.ROLE_ATTRIBUTE) == MemberRole.ADMIN.name }
+        }
         val header = request.getHeader(AUTHORIZATION_HEADER) ?: return null
         if (!header.startsWith(BEARER_PREFIX)) return null
         val parsed = tokenParser.parseAccessToken(header.removePrefix(BEARER_PREFIX))

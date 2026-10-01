@@ -205,6 +205,26 @@ class InactiveMemberTokenTest : BehaviorSpec() {
             }
         }
 
+        given("관리자 토큰을 회원 전용 핸들러(@AuthMemberId)에 보내면") {
+            `when`("북마크를 추가하면") {
+                then("종전대로 401 AUTH-003 이고 아무것도 기록되지 않는다") {
+                    seed()
+
+                    val response = mockMvc.perform(
+                        MockMvcRequestBuilders.post("/api/bookmarks")
+                            .header("X-API-Version", "1.0")
+                            .header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(actor, MemberRole.ADMIN)}")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""{"foodId":$food}"""),
+                    ).andReturn().response
+
+                    response.status shouldBe 401
+                    mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText() shouldBe "AUTH-003"
+                    count("SELECT COUNT(*) FROM bookmark") shouldBe 0
+                }
+            }
+        }
+
         given("탈퇴 회원의 기기에서 온 로그아웃") {
             `when`("호출하면") {
                 then("인증 필터 대상이 아니라 종전대로 200 이다 — 기기 연결 해제는 해롭지 않다") {
