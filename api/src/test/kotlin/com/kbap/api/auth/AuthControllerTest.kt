@@ -477,6 +477,33 @@ class AuthControllerTest : BehaviorSpec() {
             }
         }
 
+        given("정지된 회원의 로그인") {
+            `when`("같은 소셜 계정으로 로그인하면") {
+                then("403 MEMBER-013 으로 거절되고 새 회원이 생기지 않는다 — 가입 중복(MEMBER-001)으로 오인되지 않는다") {
+                    loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use { ps -> ps.setLong(1, id); ps.executeUpdate() }
+                    }
+                    val before = countMembers()
+
+                    val response = login().andReturn().response
+
+                    response.status shouldBe 403
+                    response.contentAsString shouldContain "MEMBER-013"
+                    countMembers() shouldBe before
+                }
+            }
+
+            `when`("정지되지 않은 회원은") {
+                then("종전대로 로그인된다") {
+                    loginAccessToken()
+
+                    login().andReturn().response.status shouldBe 200
+                }
+            }
+        }
+
         given("탈퇴 후 같은 소셜 계정 재가입") {
             `when`("탈퇴 직후 같은 소셜 계정으로 다시 로그인하면") {
                 then("신규 회원으로 가입되고 이전 프로필을 승계하지 않으며, 새 토큰의 첫 회원 API 는 200 이다 — 탈퇴 회원 토큰이 다시 발급돼 MEMBER-003 이 반복되지 않는다") {
