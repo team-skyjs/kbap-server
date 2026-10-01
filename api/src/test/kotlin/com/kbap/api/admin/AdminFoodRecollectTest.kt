@@ -149,8 +149,9 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 then("그 요청의 생성 시각") {
                     clearFoods()
                     val food = saveFood("시작대기")
-                    outboxAt(food, at(7))
-                    sinceOf(food) shouldBe instantOf(at(7))
+                    val created = at(7)
+                    outboxAt(food, created)
+                    sinceOf(food) shouldBe instantOf(created)
                 }
             }
 
@@ -158,8 +159,9 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 then("그 요청의 생성 시각 — 보낸 시각이 아니다") {
                     clearFoods()
                     val food = saveFood("시작보냄")
-                    outboxAt(food, at(30), "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
-                    sinceOf(food) shouldBe instantOf(at(30))
+                    val created = at(30)
+                    outboxAt(food, created, "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
+                    sinceOf(food) shouldBe instantOf(created)
                 }
             }
 
@@ -167,9 +169,11 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 then("가장 최근 요청의 생성 시각") {
                     clearFoods()
                     val food = saveFood("시작여럿")
-                    outboxAt(food, at(40), "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
-                    outboxAt(food, at(5))
-                    sinceOf(food) shouldBe instantOf(at(5))
+                    val now = java.time.LocalDateTime.now().withNano(0)
+                    val newest = now.minusMinutes(5)
+                    outboxAt(food, now.minusMinutes(40), "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
+                    outboxAt(food, newest)
+                    sinceOf(food) shouldBe instantOf(newest)
                 }
             }
 
