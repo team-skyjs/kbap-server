@@ -148,13 +148,13 @@ class BookmarkServiceTest : BehaviorSpec() {
 
 
             `when`("미완성(FAILED) 음식을 북마크하면") {
-                then("FOOD_NOT_FOUND 예외를 던진다") {
+                then("FOOD_NOT_PUBLIC 예외를 던진다 — 존재하지만 공개 전인 음식은 없는 음식과 구분한다") {
                     seedFood(2L, "미완성찌개", contentStatus = "FAILED")
 
                     val exception = shouldThrow<BusinessException> {
                         service.bookmark(memberId, 2L)
                     }
-                    exception.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
+                    exception.errorCode shouldBe ErrorCode.FOOD_NOT_PUBLIC
                 }
             }
         }

@@ -50,6 +50,7 @@ enum class ErrorCode(
     FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE("FOOD-015", 400, "재료 포함 확률은 0~100 사이여야 합니다"),
     FOOD_UNKNOWN_INGREDIENT("FOOD-016", 400, "재료 카탈로그에 없는 재료 코드입니다"),
     INGREDIENT_BACKFILL_IN_PROGRESS("FOOD-017", 409, "재료 관계 백필이 이미 실행 중입니다"),
+    FOOD_NOT_PUBLIC("FOOD-018", 400, "지금은 볼 수 없는 음식입니다. 잠시 후 다시 확인해 주세요"),
     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS("FOOD-019", 409, "이 음식의 추가 이미지 생성이 이미 진행 중입니다"),
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
     FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
