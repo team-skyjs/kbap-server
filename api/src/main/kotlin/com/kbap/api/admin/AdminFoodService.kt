@@ -157,7 +157,7 @@ class AdminFoodService(
             humanReviewService.humanReviewOf(food),
             regenerationStateResolver.of(food.id),
             regenerationStateResolver.isAdditionalInProgress(food.id),
-            contentRequestPending = false,
+            contentRequestPending = outboxRepository.findInFlightRequests(listOf(food.id)).isNotEmpty(),
         )
 
     @Transactional(readOnly = true)
