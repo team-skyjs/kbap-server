@@ -39,6 +39,9 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import io.kotest.assertions.withClue
+import org.springframework.core.annotation.AnnotatedElementUtils
+import org.springframework.transaction.annotation.Transactional
 
 @IntegrationTest
 class AdminFoodContentDraftTest : BehaviorSpec() {
@@ -596,6 +599,20 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                     during.pendingContentDraftId shouldBe null
                     after.contentRequestPending shouldBe false
                     after.pendingContentDraftId shouldBe pendingDraftId(food)
+                }
+            }
+        }
+
+        given("어드민 음식 상세 조회의 트랜잭션") {
+            `when`("상세를 만드는 두 진입 메서드를 보면") {
+                then("각자 읽기 트랜잭션을 연다 — 트랜잭션이 없으면 요청 상태와 초안을 조회마다 다른 시점으로 읽어 섞인 응답이 나갈 수 있다") {
+                    listOf("getFoodDetail", "getDeletedFoodDetail").forEach { name ->
+                        val method = AdminFoodService::class.java.getMethod(name, Long::class.javaPrimitiveType)
+
+                        withClue(name) {
+                            AnnotatedElementUtils.findMergedAnnotation(method, Transactional::class.java)?.readOnly shouldBe true
+                        }
+                    }
                 }
             }
         }
