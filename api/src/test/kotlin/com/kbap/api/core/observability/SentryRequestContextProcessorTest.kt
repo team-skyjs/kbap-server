@@ -1,5 +1,9 @@
 package com.kbap.api.core.observability
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.kbap.api.core.GlobalExceptionHandler
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -12,13 +16,21 @@ import io.sentry.SentryLevel
 import jakarta.persistence.LockTimeoutException
 import jakarta.persistence.OptimisticLockException
 import jakarta.persistence.PessimisticLockException
+import org.slf4j.LoggerFactory
+import org.springframework.core.MethodParameter
 import org.springframework.dao.CannotAcquireLockException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.dao.PessimisticLockingFailureException
+import org.springframework.http.HttpStatus
+import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.server.ResponseStatusException
 import java.sql.SQLException
 
 class SentryRequestContextProcessorTest : BehaviorSpec({
@@ -31,71 +43,102 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
         fun raise(): Nothing = throw next
     }
 
+    data class Case(val name: String, val exception: Exception, val status: Int, val logLevel: Level, val sentryLevel: SentryLevel?)
+
     val thrower = Thrower()
     val mockMvc = MockMvcBuilders.standaloneSetup(thrower).setControllerAdvice(GlobalExceptionHandler()).build()
     val processor = SentryRequestContextProcessor()
+    val handlerLogger = LoggerFactory.getLogger(GlobalExceptionHandler::class.java) as Logger
 
-    fun responseStatusOf(e: Exception): Int {
-        thrower.next = e
-        return mockMvc.get("/throw").andReturn().response.status
+    fun responseOf(e: Exception): Pair<Int, Level> {
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        handlerLogger.addAppender(appender)
+        try {
+            thrower.next = e
+            val status = mockMvc.get("/throw").andReturn().response.status
+            return status to appender.list.last().level
+        } finally {
+            handlerLogger.detachAppender(appender)
+        }
     }
 
     fun eventOf(e: Exception): SentryEvent? = processor.process(SentryEvent(e).apply { level = SentryLevel.FATAL }, Hint())
 
+    fun verify(cases: List<Case>) = cases.forEach { case ->
+        withClue(case.name) {
+            val (status, logLevel) = responseOf(case.exception)
+            val event = eventOf(case.exception)
+
+            status shouldBe case.status
+            logLevel shouldBe case.logLevel
+            event?.level shouldBe case.sentryLevel
+            event?.getTag("http.status") shouldBe case.sentryLevel?.let { case.status.toString() }
+        }
+    }
+
     val deadlock = CannotAcquireLockException("deadlock", SQLException("Deadlock found when trying to get lock", "40001", 1213))
     val lockWaitTimeout = CannotAcquireLockException("timeout", SQLException("Lock wait timeout exceeded", "HY000", 1205))
-    val lockConflicts = mapOf(
-        "교착 희생자" to deadlock,
-        "잠금 대기 초과" to lockWaitTimeout,
-        "비관 잠금 실패" to PessimisticLockingFailureException("pessimistic"),
-        "감싸인 JPA 비관 잠금 예외" to IllegalStateException(PessimisticLockException()),
-        "감싸인 JPA 잠금 대기 초과" to IllegalStateException(LockTimeoutException()),
-        "낙관 충돌" to OptimisticLockingFailureException("optimistic"),
-        "감싸인 JPA 낙관 충돌" to IllegalStateException(OptimisticLockException()),
-    )
+    val raise = MethodParameter(Thrower::class.java.getMethod("raise"), -1)
 
-    given("잠금 충돌로 끝난 요청의 Sentry 이벤트") {
-        `when`("http.status 태그를 붙이면") {
-            then("실제 응답 상태(409)와 같다 — 응답과 태그가 같은 분류에서 나온다") {
-                lockConflicts.forEach { (name, exception) ->
-                    withClue(name) {
-                        responseStatusOf(exception) shouldBe 409
-                        eventOf(exception)?.getTag("http.status") shouldBe "409"
-                    }
-                }
-            }
-        }
-
-        `when`("심각도를 정하면") {
-            then("비관 잠금 실패(교착 희생자 포함)는 error 다 — 교착은 재시도로 회복되지만 구조 결함의 신호라 알림을 유지한다") {
-                eventOf(deadlock)?.level shouldBe SentryLevel.ERROR
-                eventOf(lockWaitTimeout)?.level shouldBe SentryLevel.ERROR
-                eventOf(PessimisticLockingFailureException("pessimistic"))?.level shouldBe SentryLevel.ERROR
-                eventOf(IllegalStateException(PessimisticLockException()))?.level shouldBe SentryLevel.ERROR
-                eventOf(IllegalStateException(LockTimeoutException()))?.level shouldBe SentryLevel.ERROR
+    given("잠금 충돌로 끝난 요청") {
+        `when`("종류별로 응답 상태·응답 로그 수준·Sentry 이벤트를 나란히 놓으면") {
+            then("셋 다 409 이고, 교착과 잠금 대기는 ERROR/error, 낙관 충돌은 WARN/warning 이다 — 교착은 재시도로 회복되지만 잠금 순서 결함의 신호다") {
+                verify(
+                    listOf(
+                        Case("교착 희생자", deadlock, 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("잠금 대기 초과", lockWaitTimeout, 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("비관 잠금 실패", PessimisticLockingFailureException("pessimistic"), 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("감싸인 JPA 비관 잠금 예외", IllegalStateException(PessimisticLockException()), 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("감싸인 JPA 잠금 대기 초과", IllegalStateException(LockTimeoutException()), 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("낙관 충돌", OptimisticLockingFailureException("optimistic"), 409, Level.WARN, SentryLevel.WARNING),
+                        Case("감싸인 JPA 낙관 충돌", IllegalStateException(OptimisticLockException()), 409, Level.WARN, SentryLevel.WARNING),
+                    ),
+                )
             }
 
-            then("낙관 충돌은 warning 이다 — 동시 수정의 정상적인 결말이다") {
-                eventOf(OptimisticLockingFailureException("optimistic"))?.level shouldBe SentryLevel.WARNING
-                eventOf(IllegalStateException(OptimisticLockException()))?.level shouldBe SentryLevel.WARNING
+            then("이벤트에 잠금 충돌 종류 태그가 붙는다 — 알림 규칙이 교착만 골라 잡을 수 있다") {
+                eventOf(deadlock)?.getTag("lock.conflict") shouldBe "deadlock"
+                eventOf(lockWaitTimeout)?.getTag("lock.conflict") shouldBe "lock_wait"
+                eventOf(OptimisticLockingFailureException("optimistic"))?.getTag("lock.conflict") shouldBe "optimistic"
             }
         }
     }
 
-    given("잠금 충돌이 아닌 요청의 Sentry 이벤트") {
-        `when`("처리되지 않은 서버 오류면") {
-            then("태그는 응답과 같은 500 이고 심각도는 그대로다") {
-                val exception = IllegalStateException("boom")
-
-                responseStatusOf(exception) shouldBe 500
-                eventOf(exception)?.getTag("http.status") shouldBe "500"
-                eventOf(exception)?.level shouldBe SentryLevel.FATAL
+    given("잠금 충돌이 아닌 요청") {
+        `when`("클라이언트 잘못(4xx)이면") {
+            then("응답은 4xx·WARN 이고 Sentry 이벤트를 보내지 않는다") {
+                verify(
+                    listOf(
+                        Case("비즈니스 예외 4xx", BusinessException(ErrorCode.INVALID_REQUEST), 400, Level.WARN, null),
+                        Case("스프링 MVC 예외 4xx", HttpRequestMethodNotSupportedException("PATCH"), 405, Level.WARN, null),
+                        Case("잘못된 인자", IllegalArgumentException("bad"), 400, Level.WARN, null),
+                        Case("읽을 수 없는 본문", HttpMessageNotReadableException("bad", MockHttpInputMessage(ByteArray(0))), 400, Level.WARN, null),
+                        Case("인자 형식 불일치", MethodArgumentTypeMismatchException("x", Long::class.java, "id", raise, null), 400, Level.WARN, null),
+                    ),
+                )
             }
         }
 
-        `when`("클라이언트 잘못(4xx)이면") {
-            then("이벤트를 보내지 않는다") {
-                eventOf(BusinessException(ErrorCode.INVALID_REQUEST)) shouldBe null
+        `when`("서버가 스스로 돌려준 5xx(비즈니스 예외)면") {
+            then("태그는 응답 상태와 같고 심각도는 error 다 — 서버는 계속 돌고 있으니 fatal 이 아니다") {
+                verify(listOf(Case("비즈니스 예외 5xx", BusinessException(ErrorCode.PLACE_SEARCH_FAILED), 502, Level.ERROR, SentryLevel.ERROR)))
+            }
+        }
+
+        `when`("예상된 저하(동시 상한 초과처럼 부하 때 반복되는 정상 거절)면") {
+            then("응답은 5xx 그대로지만 WARN 으로 남기고 Sentry 이벤트를 보내지 않는다 — 쌓여서 진짜 오류를 묻지 않게") {
+                verify(listOf(Case("예상된 저하", BusinessException(ErrorCode.TRANSLATION_FAILED, expected = true), 503, Level.WARN, null)))
+            }
+        }
+
+        `when`("처리되지 않은 서버 오류면") {
+            then("태그는 응답 상태와 같고 심각도는 그대로다") {
+                verify(
+                    listOf(
+                        Case("스프링 MVC 예외 5xx", ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE), 503, Level.ERROR, SentryLevel.FATAL),
+                        Case("미처리 예외", IllegalStateException("boom"), 500, Level.ERROR, SentryLevel.FATAL),
+                    ),
+                )
             }
         }
     }
