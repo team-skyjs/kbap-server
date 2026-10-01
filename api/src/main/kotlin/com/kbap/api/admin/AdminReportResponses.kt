@@ -16,7 +16,7 @@ data class AdminReportPageResponse(
     val totalCount: Long,
     val totalPages: Int,
 ) {
-    @Schema(description = "신고 대상 한 건과 그 대상에 쌓인 신고들")
+    @Schema(name = "AdminReportGroup", description = "신고 대상 한 건과 그 대상에 쌓인 신고들")
     data class Group(
         val target: Target,
         @field:Schema(description = "아직 처리 안 된 신고 수", example = "4")
@@ -36,26 +36,32 @@ data class AdminReportPageResponse(
         val items: List<Item>,
     )
 
-    @Schema(description = "신고 대상")
+    @Schema(name = "AdminReportTarget", description = "신고 대상")
     data class Target(
         @field:Schema(example = "REVIEW")
         val type: String,
         val id: Long,
         @field:Schema(description = "대상 작성자 회원 id", nullable = true)
         val authorMemberId: Long?,
+        @field:Schema(description = "대상 작성자 닉네임 — 탈퇴했거나 닉네임이 없으면 null", nullable = true)
+        val authorNickname: String?,
+        @field:Schema(description = "리뷰 대상이면 그 리뷰의 음식 id(리뷰가 삭제돼도 유지) — 음식 상세 링크용", nullable = true)
+        val foodId: Long?,
         @field:Schema(description = "본문 앞 100자", nullable = true)
         val contentPreview: String?,
         @field:Schema(description = "대상이 아직 노출 중인지 — 삭제됐으면 false")
         val exists: Boolean,
     )
 
-    @Schema(description = "신고 한 건")
+    @Schema(name = "AdminReportItem", description = "신고 한 건")
     data class Item(
         val id: Long,
         @field:Schema(description = "신고자 표시 — 회원이면 member:{id}, 게스트면 게스트(설치 id 앞 8자)", example = "게스트(6d3f2a1b)")
         val reporterLabel: String,
         @field:Schema(nullable = true)
         val reporterMemberId: Long?,
+        @field:Schema(description = "회원 신고자 닉네임 — 게스트·탈퇴·닉네임 없음이면 null", nullable = true)
+        val reporterNickname: String?,
         @field:Schema(nullable = true)
         val reporterInstallationId: String?,
         val reason: String,
@@ -74,10 +80,11 @@ data class AdminReportPageResponse(
         val createdAt: LocalDateTime,
     ) {
         companion object {
-            fun from(report: Report) = Item(
+            fun from(report: Report, nicknames: Map<Long, String>) = Item(
                 id = report.id,
                 reporterLabel = report.reporterLabel,
                 reporterMemberId = report.reporterMemberId,
+                reporterNickname = report.reporterMemberId?.let(nicknames::get),
                 reporterInstallationId = report.reporterInstallationId,
                 reason = report.reason.name,
                 detail = report.detail,
@@ -99,6 +106,8 @@ data class AdminReportPageResponse(
                         type = group.target.type.name,
                         id = group.target.id,
                         authorMemberId = group.target.authorMemberId,
+                        authorNickname = group.target.authorNickname,
+                        foodId = group.target.foodId,
                         contentPreview = group.target.contentPreview,
                         exists = group.target.exists,
                     ),
@@ -107,7 +116,7 @@ data class AdminReportPageResponse(
                     reporterCount = group.reporterCount,
                     latestReason = group.latest.reason.name,
                     latestReportedAt = group.latest.createdAt,
-                    items = group.items.map(Item::from),
+                    items = group.items.map { Item.from(it, group.reporterNicknames) },
                 )
             },
             page = result.page,
