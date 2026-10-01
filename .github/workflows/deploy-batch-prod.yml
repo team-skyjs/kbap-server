@@ -6,6 +6,8 @@ name: Deploy batch prod
 # workflow_run 은 기본 브랜치(develop)의 이 파일로 평가되고 GITHUB_SHA 가 기본 브랜치를 가리키므로
 # 빌드·태그는 반드시 트리거한 실행의 head_sha 로 한다. api 롤백(workflow_dispatch)으로 끝난 실행은 따라가지 않는다.
 # 경로 필터는 workflow_run 에 없으므로 prod 릴리스마다 batch 도 같은 커밋으로 다시 굴린다.
+# 주의: workflow_run 이라 prod 배포 절차는 main 이 아니라 develop 에 있는 이 파일이다 — 이 파일 수정 = prod 절차 수정이니 릴리스 노트에 적는다.
+# api 롤백(Deploy prod 수동 실행)에 batch 는 따라가지 않는다. 필요하면 이 워크플로를 image_tag(batch-<sha>)로 수동 실행한다.
 on:
   workflow_run:
     workflows: [ "Deploy prod" ]
@@ -38,6 +40,13 @@ jobs:
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
+      # 수동 빌드(image_tag 비움)는 고른 브랜치 끝을 prod 로 빌드하므로 main 에서만 허용한다. image_tag 재배포는 브랜치 무관.
+      - name: Require main for manual builds
+        if: github.event_name == 'workflow_dispatch' && inputs.image_tag == '' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::prod batch 빌드는 main 에서만 — 지금 ref: $GITHUB_REF. 기존 이미지를 다시 굴리려면 image_tag 를 지정한다"
+          exit 1
+
       # Deploy prod 의 결론은 뒤따르는 GitHub 릴리스 잡까지 포함하므로, 배포 잡(카나리 = Flyway 적용) 자체의 결론을 본다.
       - name: Require api deploy success
         if: github.event_name == 'workflow_run'
