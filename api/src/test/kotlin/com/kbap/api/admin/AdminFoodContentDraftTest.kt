@@ -503,6 +503,18 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                     properties.path("contentRequestSince").path("description").asText().contains("가장 최근 요청의 생성 시각") shouldBe true
                 }
             }
+
+            `when`("contentRequestAgeSeconds 를 보면") {
+                then("정수이고 없을 수 있으며, 서버가 응답 시점에 계산한 경과 초라고 적혀 있다 — 클라이언트 시계로 계산하지 말라는 안내 포함") {
+                    val age = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("components").path("schemas").path("AdminFoodDetailResponse").path("properties").path("contentRequestAgeSeconds")
+
+                    age.path("type").asText() shouldBe "integer"
+                    age.path("format").asText() shouldBe "int64"
+                    age.path("description").asText().contains("서버가 응답 시점에 계산한 경과 초") shouldBe true
+                    age.path("description").asText().contains("없으면 null") shouldBe true
+                }
+            }
         }
 
         given("초안 엔티티") {

@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDateTime
+import java.time.Instant
 import java.time.ZoneId
 
 @Service
@@ -161,6 +162,7 @@ class AdminFoodService(
             regenerationStateResolver.isAdditionalInProgress(food.id),
             contentRequestPending = inFlight.isNotEmpty(),
             contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
+            now = Instant.now(),
         )
     }
 
