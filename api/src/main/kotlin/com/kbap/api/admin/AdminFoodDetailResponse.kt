@@ -66,6 +66,7 @@ data class AdminFoodDetailResponse(
         example = "420",
     )
     val contentRequestAgeSeconds: Long?,
+    val pendingContentDraftId: Long?,
 ) {
     companion object {
         fun from(
@@ -77,6 +78,7 @@ data class AdminFoodDetailResponse(
             contentRequestPending: Boolean,
             contentRequestSince: java.time.Instant?,
             now: java.time.Instant,
+            pendingContentDraftId: Long?,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -105,6 +107,7 @@ data class AdminFoodDetailResponse(
                 contentRequestPending = contentRequestPending,
                 contentRequestSince = contentRequestSince,
                 contentRequestAgeSeconds = contentRequestSince?.let { Duration.between(it, now).seconds.coerceAtLeast(0) },
+                pendingContentDraftId = pendingContentDraftId,
             )
     }
 }

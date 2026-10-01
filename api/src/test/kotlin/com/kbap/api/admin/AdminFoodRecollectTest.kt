@@ -208,6 +208,7 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 contentRequestPending = since != null,
                 contentRequestSince = since,
                 now = now,
+                pendingContentDraftId = null,
             )
 
             `when`("처리 중인 요청이 없으면") {
