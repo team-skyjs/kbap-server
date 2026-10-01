@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.transaction.PlatformTransactionManager
@@ -311,6 +312,36 @@ class AdminReportControllerTest : BehaviorSpec() {
                     second.status shouldBe 409
                     body(second).path("code").asText() shouldBe "REPORT-006"
                     scalar("SELECT COUNT(*) FROM report WHERE handle_status = 'PENDING'") shouldBe "1"
+                }
+            }
+
+            `when`("모더레이션 삭제가 리뷰를 잠근 채 커밋을 미루는 동안 작성자가 같은 리뷰를 지우면") {
+                then("작성자 요청은 앞 커밋을 기다린 뒤 리뷰 없음 — 리뷰 수·랭킹 이벤트가 두 번 반영되지 않는다") {
+                    seed()
+                    exec("INSERT INTO food_review (member_id, food_id, rating, content, status) VALUES ($author, 85630, 5, '작성자의 다른 리뷰', 'ACTIVE')")
+                    exec("UPDATE member SET review_count = 2 WHERE id = $author")
+                    report(reporter1, "install-r1")
+                    val held = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor()
+                    val moderation = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            adminReportService.handleTarget(ReportTargetType.REVIEW, review, ReportHandleResult.CONTENT_DELETED, null, admin)
+                            held.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    executor.shutdown()
+                    held.await(30, TimeUnit.SECONDS) shouldBe true
+
+                    val byAuthor = mockMvc.delete("/api/reviews/$review") {
+                        header("X-API-Version", "1.0")
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(author, MemberRole.USER)}")
+                    }.andReturn().response
+                    moderation.get(30, TimeUnit.SECONDS)
+
+                    byAuthor.status shouldBe 404
+                    scalar("SELECT review_count FROM member WHERE id = $author") shouldBe "1"
+                    scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "1"
                 }
             }
 
