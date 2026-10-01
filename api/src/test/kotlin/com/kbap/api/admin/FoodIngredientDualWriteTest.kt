@@ -4,25 +4,30 @@ import com.kbap.api.IntegrationTest
 import com.kbap.api.ingredient.IngredientTestSeed
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.member.model.MemberRole
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import jakarta.servlet.http.Cookie
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.InvalidDataAccessApiUsageException
-import jakarta.servlet.http.Cookie
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 
 @IntegrationTest
 class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
     @Autowired
     private lateinit var foodIngredientRepository: FoodIngredientJdbcRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     private fun ingredient(code: String, percent: Int) = mapOf("code" to code, "inclusion_percent" to percent)
 
@@ -126,7 +131,9 @@ class FoodIngredientDualWriteTest : AdminFoodCatalogTestSupport() {
                     val food = saveFood("우회찌개")
 
                     shouldThrow<InvalidDataAccessApiUsageException> {
-                        foodIngredientRepository.replace(food.id, listOf(FoodIngredient("KIMCHI_PASTE", 50)))
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodIngredientRepository.replace(food.id, listOf(FoodIngredient("KIMCHI_PASTE", 50)))
+                        }
                     }
                 }
             }

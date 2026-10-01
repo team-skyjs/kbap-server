@@ -9,6 +9,7 @@ import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
+import org.springframework.transaction.IllegalTransactionStateException
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.Callable
@@ -126,6 +128,56 @@ class FoodIngredientReplaceLockingTest : BehaviorSpec() {
 
                     scalar("SELECT GROUP_CONCAT(i.code) FROM food_ingredient fi JOIN ingredients i ON i.id = fi.ingredient_id WHERE fi.food_id = 68231") shouldBe high
                     scalar("SELECT GROUP_CONCAT(i.code) FROM food_ingredient fi JOIN ingredients i ON i.id = fi.ingredient_id WHERE fi.food_id = 68232") shouldBe low
+                }
+            }
+        }
+
+        given("재수집처럼 같은 재료로 다시 교체하는 이웃한 두 음식이 겹칠 때") {
+            `when`("앞 음식이 교체한 채 열려 있는 동안 뒤 음식도 같은 재료로 교체하면") {
+                then("둘 다 성공하고 비율은 새 값이다 — 같은 기본 키를 지우고 다시 넣어도 틈을 잠그지 않는다") {
+                    food(68241)
+                    food(68242)
+                    TransactionTemplate(transactionManager).executeWithoutResult {
+                        foodIngredientRepository.replace(68241, listOf(FoodIngredient("SESAME", 60), FoodIngredient("WHEAT", 40)))
+                        foodIngredientRepository.replace(68242, listOf(FoodIngredient("SESAME", 60), FoodIngredient("WHEAT", 40)))
+                    }
+                    val firstReplaced = CountDownLatch(1)
+                    val executor = Executors.newFixedThreadPool(2)
+                    val first = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodIngredientRepository.replace(68241, listOf(FoodIngredient("SESAME", 70), FoodIngredient("WHEAT", 30)))
+                            firstReplaced.countDown()
+                            Thread.sleep(1_000)
+                        }
+                    }
+                    firstReplaced.await(30, TimeUnit.SECONDS) shouldBe true
+                    val second = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodIngredientRepository.replace(68242, listOf(FoodIngredient("SESAME", 80), FoodIngredient("WHEAT", 20)))
+                        }
+                    }
+                    executor.shutdown()
+
+                    second.get(500, TimeUnit.MILLISECONDS)
+                    first.get(30, TimeUnit.SECONDS)
+
+                    val percents = "SELECT GROUP_CONCAT(inclusion_percent ORDER BY sort_order) FROM food_ingredient WHERE food_id = "
+                    scalar(percents + 68241) shouldBe "70,30"
+                    scalar(percents + 68242) shouldBe "80,20"
+                }
+            }
+        }
+
+        given("트랜잭션 없이 재료 교체를 부르면") {
+            `when`("호출자가 트랜잭션을 열지 않았으면") {
+                then("거절한다 — 삭제와 삽입이 따로 커밋되거나 음식 행 잠금 없이 도는 오용을 막는다") {
+                    food(68251)
+
+                    shouldThrow<IllegalTransactionStateException> {
+                        foodIngredientRepository.replace(68251, listOf(FoodIngredient("SESAME", 100)))
+                    }
+
+                    rowsOf(68251) shouldBe 0L
                 }
             }
         }
