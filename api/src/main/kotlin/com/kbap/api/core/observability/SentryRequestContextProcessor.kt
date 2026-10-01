@@ -32,8 +32,9 @@ class SentryRequestContextProcessor : EventProcessor {
         val throwable = event.throwable ?: return event
         if (isClientAbort(throwable)) return null
         if (throwable is BusinessException && throwable.expected) return null
-        val lockConflict = LockConflict.of(throwable)
-        val status = if (lockConflict != null) HttpStatus.CONFLICT.value() else httpStatusOf(throwable)
+        val ownStatus = ownHandlerStatusOf(throwable)
+        val lockConflict = if (ownStatus == null) LockConflict.of(throwable) else null
+        val status = ownStatus ?: if (lockConflict != null) HttpStatus.CONFLICT.value() else fallbackStatusOf(throwable)
         if (status in 400..499 && lockConflict == null) return null
         event.setTag(HTTP_STATUS_TAG, status.toString())
         if (lockConflict != null) {
@@ -48,13 +49,15 @@ class SentryRequestContextProcessor : EventProcessor {
         return event
     }
 
-    private fun httpStatusOf(throwable: Throwable): Int =
+    private fun ownHandlerStatusOf(throwable: Throwable): Int? =
         when (throwable) {
             is BusinessException -> throwable.errorCode.status
-            is ErrorResponse -> throwable.statusCode.value()
             is IllegalArgumentException, is HttpMessageNotReadableException, is MethodArgumentTypeMismatchException -> 400
-            else -> 500
+            else -> null
         }
+
+    private fun fallbackStatusOf(throwable: Throwable): Int =
+        if (throwable is ErrorResponse) throwable.statusCode.value() else 500
 
     private fun isClientAbort(throwable: Throwable): Boolean =
         causeChain(throwable).any { it is ClientAbortException || it is AsyncRequestNotUsableException }
