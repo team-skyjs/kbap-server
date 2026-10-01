@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
@@ -110,6 +111,21 @@ class ReviewService(
         if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
             throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         }
+        softDelete(review)
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun deleteForModeration(review: Review) {
+        if (!review.isActive()) return
+        if (!memberRepository.existsById(review.memberId)) {
+            review.delete()
+            return
+        }
+        softDelete(review)
+    }
+
+    private fun softDelete(review: Review) {
+        val memberId = review.memberId
         review.delete()
         memberService.decreaseReviewCount(memberId)
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L

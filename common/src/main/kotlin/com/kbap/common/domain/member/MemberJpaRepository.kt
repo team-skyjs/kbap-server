@@ -102,7 +102,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.reviewCount = m.reviewCount - 1
         where m.id = :memberId
           and m.reviewCount > 0
-          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
         """,
     )
     fun decreaseReviewCount(@Param("memberId") memberId: Long): Int
@@ -125,7 +124,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - 1
         where m.id = :memberId
           and m.uniqueReviewedFoodCount > 0
-          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
         """,
     )
     fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int

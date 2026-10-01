@@ -9,7 +9,13 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.Check
 
 @Entity
-@Table(name = "report")
+@Table(
+    name = "report",
+    indexes = [
+        jakarta.persistence.Index(name = "idx_report_handle_status", columnList = "handle_status, id"),
+        jakarta.persistence.Index(name = "idx_report_target", columnList = "target_type, target_id"),
+    ],
+)
 @Check(
     name = "ck_report_reporter_at_least_one",
     constraints = "reporter_member_id is not null or reporter_installation_id is not null",
@@ -34,7 +40,40 @@ class Report(
 
     @Column(length = MAX_DETAIL_LENGTH)
     val detail: String? = null,
+
 ) : BaseEntity() {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "handle_status", nullable = false, length = 20)
+    var handleStatus: ReportHandleStatus = ReportHandleStatus.PENDING
+        protected set
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "handle_result", length = 20)
+    var handleResult: ReportHandleResult? = null
+        protected set
+
+    @Column(name = "handled_by")
+    var handledBy: Long? = null
+        protected set
+
+    @Column(name = "handled_at")
+    var handledAt: java.time.LocalDateTime? = null
+        protected set
+
+    @Column(name = "handle_note", length = MAX_HANDLE_NOTE_LENGTH)
+    var handleNote: String? = null
+        protected set
+
+    fun handle(result: ReportHandleResult, adminAccountId: Long, at: java.time.LocalDateTime, note: String?) {
+        check(handleStatus == ReportHandleStatus.PENDING) { "이미 처리된 신고입니다: id=$id" }
+        require(note == null || note.length <= MAX_HANDLE_NOTE_LENGTH) { "처리 메모는 최대 ${MAX_HANDLE_NOTE_LENGTH}자입니다" }
+        handleStatus = ReportHandleStatus.HANDLED
+        handleResult = result
+        handledBy = adminAccountId
+        handledAt = at
+        handleNote = note
+    }
+
     val reporterLabel: String
         get() = reporterMemberId?.let { "member:$it" }
             ?: reporterInstallationId?.let { "게스트(${it.take(GUEST_LABEL_PREFIX)})" }
@@ -42,6 +81,7 @@ class Report(
 
     companion object {
         const val MAX_DETAIL_LENGTH = 500
+        const val MAX_HANDLE_NOTE_LENGTH = 500
         const val MAX_INSTALLATION_ID_LENGTH = 64
         const val GUEST_LABEL_PREFIX = 8
 
