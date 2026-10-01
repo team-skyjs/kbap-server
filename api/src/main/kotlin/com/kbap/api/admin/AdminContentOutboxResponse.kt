@@ -21,6 +21,8 @@ data class AdminContentOutboxItemResponse(
     val attempts: Int,
     val createdAt: LocalDateTime,
     val sentAt: LocalDateTime?,
+    val deadAt: LocalDateTime?,
+    val lastError: String?,
 ) {
     companion object {
         fun from(outbox: FoodContentOutbox): AdminContentOutboxItemResponse =
@@ -32,6 +34,8 @@ data class AdminContentOutboxItemResponse(
                 attempts = outbox.attempts,
                 createdAt = outbox.createdAt,
                 sentAt = outbox.sentAt,
+                deadAt = outbox.deadAt,
+                lastError = outbox.lastError,
             )
     }
 }

@@ -1,6 +1,7 @@
 package com.kbap.batch.notification.suggestion
 
 import com.kbap.batch.notification.FakePushClient
+import com.kbap.batch.notification.PushDispatchMetric
 import com.kbap.batch.notification.MutableClock
 import com.kbap.batch.BatchIntegrationTest
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
@@ -89,7 +90,7 @@ class ScanSuggestionPushJobTest : BehaviorSpec() {
     }
 
     private fun sentCounter(): Double =
-        meterRegistry.counter(ScanSuggestionPushWriter.METRIC, "type", "SCAN_SUGGESTION", "result", "sent").count()
+        meterRegistry.counter(PushDispatchMetric.NAME, "type", "SCAN_SUGGESTION", "result", "sent").count()
 
     private var seq = 0
 

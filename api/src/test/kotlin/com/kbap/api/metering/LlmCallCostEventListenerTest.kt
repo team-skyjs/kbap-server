@@ -2,17 +2,18 @@ package com.kbap.api.metering
 
 import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.metering.LlmCallCostIncurred
-import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import com.kbap.api.BackgroundTasks
 import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 import java.util.UUID
 import javax.sql.DataSource
-import kotlin.time.Duration.Companion.seconds
 
 @IntegrationTest
 class LlmCallCostEventListenerTest : BehaviorSpec() {
@@ -26,6 +27,10 @@ class LlmCallCostEventListenerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var dataSource: DataSource
+
+    @Autowired
+    @Qualifier("applicationTaskExecutor")
+    private lateinit var taskExecutor: ThreadPoolTaskExecutor
 
     init {
         fun countByModel(modelName: String): Int =
@@ -74,9 +79,8 @@ class LlmCallCostEventListenerTest : BehaviorSpec() {
                         ),
                     )
 
-                    eventually(5.seconds) {
-                        countByModel(modelName) shouldBe 1
-                    }
+                    BackgroundTasks.drain(taskExecutor)
+                    countByModel(modelName) shouldBe 1
                 }
             }
         }

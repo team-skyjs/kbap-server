@@ -1,13 +1,19 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.api.image.FakeStorageObjectStore
+import com.kbap.api.image.UploadedImageCleanupService
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -18,8 +24,11 @@ import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.PlatformTransactionManager
 import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -52,6 +61,18 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
     private lateinit var imageBatchItemJpaRepository: ImageBatchItemJpaRepository
 
     @Autowired
+    private lateinit var contentOutboxJpaRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
+    private lateinit var uploadedImageJpaRepository: UploadedImageJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
+    private lateinit var entityManager: EntityManager
+
+    @Autowired
     private lateinit var dataSource: DataSource
 
     init {
@@ -61,7 +82,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                     listOf(
                         "food_review", "member_ranking_event", "bookmark", "uploaded_image",
                         "scan_history", "image_batch_item", "image_batch",
-                        "food", "member_block", "member", "llm_call_cost",
+                        "food_content_outbox", "food", "member_block", "member", "llm_call_cost",
                     ).forEach { st.execute("DELETE FROM $it") }
                 }
             }
@@ -116,6 +137,22 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
             `when`("회원이 한 명도 없으면") {
                 then("0 을 반환한다") {
                     service.getMetrics().totalActiveMembers shouldBe 0
+                }
+            }
+
+            `when`("리뷰 봇 계정이 섞여 있으면") {
+                then("봇은 가입자 수에서 뺀다") {
+                    saveMember("지표-사람")
+                    memberJpaRepository.save(
+                        com.kbap.common.domain.member.model.Member.reviewBot(
+                            com.kbap.common.domain.member.model.CountryCode.JP,
+                            "Bibimbap_0001",
+                            "images/webp/default_profile/avatar1.webp",
+                        ),
+                    )
+
+                    service.getMetrics().totalActiveMembers shouldBe 1
+                    service.getMetricsSummary().totalActiveMembers shouldBe 1
                 }
             }
         }
@@ -210,6 +247,117 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     service.getMetricsSummary().strandedImageRegenerationCount shouldBe
                         foods.count { it.isFailedRegeneration() }.toLong()
+                }
+            }
+        }
+
+        given("대시보드 지표 - 콘텐츠 아웃박스 방치") {
+            fun saveOutbox(name: String, sentHoursAgo: Long?, dead: Boolean) {
+                val food = foodJpaRepository.save(Food(koreanName = name, description = "설명 $name"))
+                val outbox = contentOutboxJpaRepository.save(FoodContentOutbox.pending(food.id, food.koreanName))
+                sentHoursAgo?.let {
+                    outbox.outboxStatus = FoodContentOutboxStatus.SENT
+                    outbox.sentAt = LocalDateTime.now().minusHours(it)
+                }
+                if (dead) outbox.markDead("테스트 포기")
+                contentOutboxJpaRepository.save(outbox)
+            }
+
+            `when`("보낸 뒤 오래 굳은 행과 포기한 행이 섞여 있으면") {
+                then("굳은 수와 포기 수를 따로 센다 — 조치가 다르다") {
+                    clearAll()
+                    saveOutbox("굳은음식", sentHoursAgo = 30, dead = false)
+                    saveOutbox("방금보낸음식", sentHoursAgo = 1, dead = false)
+                    saveOutbox("포기음식", sentHoursAgo = 30, dead = true)
+                    saveOutbox("대기음식", sentHoursAgo = null, dead = false)
+
+                    val metrics = service.getMetricsSummary()
+
+                    metrics.contentOutboxStuckCount shouldBe 1
+                    metrics.contentOutboxDeadCount shouldBe 1
+                }
+            }
+        }
+
+        given("대시보드 지표 - 미참조 업로드 건수") {
+            class RecordingCleanup(private val fail: () -> Boolean) : UploadedImageCleanupService(
+                uploadedImageJpaRepository,
+                FakeStorageObjectStore(),
+                7,
+                true,
+                100,
+                100,
+                transactionManager,
+            ) {
+                var countQueries = 0
+
+                override fun countOrphansIn(before: LocalDateTime): Map<String, Long> {
+                    countQueries++
+                    if (fail()) entityManager.createNativeQuery("SELECT COUNT(*) FROM no_such_table").singleResult
+                    return super.countOrphansIn(before)
+                }
+            }
+
+            fun summaryWith(cleanup: UploadedImageCleanupService) = AdminDashboardMetricsService(
+                memberJpaRepository,
+                scanHistoryJpaRepository,
+                foodJpaRepository,
+                llmCallCostJpaRepository,
+                contentOutboxJpaRepository,
+                24,
+                cleanup,
+            ).getMetricsSummary()
+
+            `when`("요약을 여러 번 조회하면") {
+                then("건수 쿼리를 한 번도 돌리지 않는다 — 요청 경로엔 전체 스캔이 없다") {
+                    clearAll()
+                    val cleanup = RecordingCleanup { false }
+
+                    repeat(3) { summaryWith(cleanup) }
+
+                    cleanup.countQueries shouldBe 0
+                }
+            }
+
+            `when`("아직 한 번도 세지 않았으면") {
+                then("건수와 계산 시각이 null 이다 — 0(고아 없음)과 구분된다") {
+                    clearAll()
+
+                    val summary = summaryWith(RecordingCleanup { false })
+
+                    summary.orphanUploadedImageCounts shouldBe null
+                    summary.orphanUploadedImageCountedAt shouldBe null
+                }
+            }
+
+            `when`("센 결과 고아가 없으면") {
+                then("null 이 아니라 용도별 0 과 계산 시각이 나간다") {
+                    clearAll()
+                    val cleanup = RecordingCleanup { false }
+                    cleanup.refreshOrphanCounts()
+
+                    val summary = summaryWith(cleanup)
+
+                    summary.orphanUploadedImageCounts shouldBe mapOf("review" to 0L, "community" to 0L, "feedback" to 0L)
+                    summary.orphanUploadedImageCountedAt.shouldNotBeNull()
+                }
+            }
+
+            `when`("건수 계산이 DB 오류로 실패하면") {
+                then("예외 없이 최근값을 비우고 요약의 나머지 지표는 정상이다 — 옛 값을 최신처럼 남기지 않는다") {
+                    clearAll()
+                    saveMember("count-failure-member")
+                    var failing = false
+                    val cleanup = RecordingCleanup { failing }
+                    cleanup.refreshOrphanCounts().shouldNotBeNull()
+
+                    failing = true
+                    cleanup.refreshOrphanCounts() shouldBe null
+                    val summary = summaryWith(cleanup)
+
+                    summary.orphanUploadedImageCounts shouldBe null
+                    summary.orphanUploadedImageCountedAt shouldBe null
+                    summary.totalActiveMembers shouldBe 1
                 }
             }
         }

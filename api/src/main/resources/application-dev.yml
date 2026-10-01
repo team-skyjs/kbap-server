@@ -1,4 +1,16 @@
+logging:
+  # 수집기가 requestId·memberId·status·elapsedMs 를 필드 단위로 검색할 수 있게 JSON 으로 출력한다.
+  # Boot 내장 structured logging — MDC 값이 최상위 필드로 자동 포함된다. (KB-130)
+  structured:
+    format:
+      console: ecs
+
 spring:
+  # Tomcat 요청 처리를 버추얼 스레드로 — 스레드 풀 상한(200)이 동시 처리를 막지 않는다 (KB-653, dev 만 먼저).
+  # RDS max_connections 가 60 이라 Hikari 풀(10)은 그대로 둔다 — 병목이 DB 로 옮겨가는지 재측정이 목적.
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -7,7 +19,7 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
   data:
     redis:
       host: ${REDIS_HOST}

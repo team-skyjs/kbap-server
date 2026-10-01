@@ -124,8 +124,9 @@ class ReviewService(
         val review = reviewRepository.findById(reviewId)
             .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         val existingLike = reviewLikeRepository.findByReviewIdAndMemberIdIncludingDeleted(reviewId, memberId)
-        reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId)
-        val isNewLike = existingLike?.countsAsNewLikeAt(LocalDateTime.now()) ?: true
+        val now = LocalDateTime.now()
+        reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId, now = now)
+        val isNewLike = existingLike?.countsAsNewLikeAt(now) ?: true
         if (isNewLike && !review.isOwnedBy(memberId)) {
             eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
         }
@@ -179,10 +180,6 @@ class ReviewService(
     @Transactional(readOnly = true)
     fun getMyReviewPage(memberId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> =
         toPage(reviewRepository.findMemberReviewPage(memberId, cursor, PageRequest.of(0, PAGE_SIZE + 1)), memberId, lang)
-
-    @Transactional(readOnly = true)
-    fun getMostReviewedFoodIds(size: Int): List<Long> =
-        reviewRepository.findMostReviewedFoodIds(PageRequest.of(0, size))
 
     @Transactional(readOnly = true)
     fun getFoodRatings(foodIds: List<Long>): Map<Long, FoodRating> {

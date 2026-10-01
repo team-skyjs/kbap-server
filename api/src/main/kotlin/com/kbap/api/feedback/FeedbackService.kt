@@ -10,21 +10,32 @@ import com.kbap.common.domain.feedback.FeedbackReplyJpaRepository
 import com.kbap.common.domain.feedback.model.Feedback
 import com.kbap.common.domain.feedback.model.FeedbackReply
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.port.quota.InstallationQuotaStore
 import com.kbap.common.util.ImageUrls
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
+import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneId
+import java.util.UUID
 
 @Service
 class FeedbackService(
     private val feedbackRepository: FeedbackJpaRepository,
     private val replyRepository: FeedbackReplyJpaRepository,
     private val uploadedImageService: UploadedImageService,
+    private val quotaStore: InstallationQuotaStore,
+    transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
-    @Transactional
+    private val log = LoggerFactory.getLogger(javaClass)
+    private val transaction = TransactionTemplate(transactionManager)
+
     fun createFeedback(
         memberId: Long?,
         installationId: String?,
@@ -38,13 +49,43 @@ class FeedbackService(
         if (body.isEmpty() || body.length > Feedback.MAX_CONTENT_LENGTH) {
             throw BusinessException(ErrorCode.FEEDBACK_CONTENT_INVALID)
         }
-        verifyImages(memberId, installation, imagePaths)
-        verifyDailyQuota(installation)
+        val requestId = UUID.randomUUID().toString()
+        val holdsQuota = acquireQuota(installation, requestId, recordedAtMillis(installation))
+        return try {
+            transaction.execute {
+                verifyImages(memberId, installation, imagePaths)
+                val saved = feedbackRepository.save(
+                    Feedback.of(memberId, installation, body, imagePaths, sanitizeDeviceInfo(deviceInfo), userAgent),
+                )
+                CreateFeedbackResult(saved.id, saved.feedbackStatus.name, saved.createdAt)
+            }!!
+        } catch (e: Throwable) {
+            if (holdsQuota) releaseQuota(installation, requestId)
+            throw e
+        }
+    }
 
-        val saved = feedbackRepository.save(
-            Feedback.of(memberId, installation, body, imagePaths, sanitizeDeviceInfo(deviceInfo), userAgent),
-        )
-        return CreateFeedbackResult(saved.id, saved.feedbackStatus.name, saved.createdAt)
+    private fun recordedAtMillis(installationId: String): List<Long> {
+        val since = LocalDateTime.now().minus(QUOTA_WINDOW)
+        val recorded = transaction.execute { feedbackRepository.findCreatedAtsByInstallationIdSince(installationId, since) }!!
+        if (recorded.size >= DAILY_LIMIT) throw BusinessException(ErrorCode.FEEDBACK_RATE_LIMITED)
+        return recorded.map { it.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+    }
+
+    private fun acquireQuota(installationId: String, requestId: String, recordedAtMillis: List<Long>): Boolean {
+        val acquired = try {
+            quotaStore.tryAcquire(QUOTA_SCOPE, installationId, requestId, DAILY_LIMIT, QUOTA_WINDOW, recordedAtMillis)
+        } catch (e: RuntimeException) {
+            log.warn("문의 한도 카운터(Redis)를 쓸 수 없어 DB 건수로만 판정한다 installationId={}", installationId, e)
+            return false
+        }
+        if (!acquired) throw BusinessException(ErrorCode.FEEDBACK_RATE_LIMITED)
+        return true
+    }
+
+    private fun releaseQuota(installationId: String, requestId: String) {
+        runCatching { quotaStore.release(QUOTA_SCOPE, installationId, requestId) }
+            .onFailure { log.warn("문의 한도 카운터 반납 실패 — 24시간 뒤 만료된다 installationId={}", installationId, it) }
     }
 
     @Transactional(readOnly = true)
@@ -102,15 +143,10 @@ class FeedbackService(
         }
     }
 
-    private fun verifyDailyQuota(installationId: String) {
-        val since = LocalDateTime.now().minusDays(1)
-        if (feedbackRepository.countByInstallationIdAndCreatedAtAfter(installationId, since) >= DAILY_LIMIT) {
-            throw BusinessException(ErrorCode.FEEDBACK_RATE_LIMITED)
-        }
-    }
-
     companion object {
         const val DAILY_LIMIT = 20
+        const val QUOTA_SCOPE = "feedback"
+        val QUOTA_WINDOW: Duration = Duration.ofDays(1)
         const val PAGE_SIZE = 20
         const val MAX_DEVICE_VALUE_LENGTH = 100
         val DEVICE_INFO_KEYS = setOf(

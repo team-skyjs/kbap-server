@@ -10,6 +10,18 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
+    @Query(
+        """
+        select f as food, max(sh.createdAt) as scannedAt
+        from ScanHistory sh join Food f on f.id = sh.foodId
+        where sh.memberId = :memberId
+          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+        group by f.id
+        order by max(sh.createdAt) desc
+        """,
+    )
+    fun findRecentScannedFoods(@Param("memberId") memberId: Long, pageable: Pageable): List<RecentScannedFood>
+
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<ScanHistory>
@@ -23,21 +35,6 @@ interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
         """,
     )
     fun countDailySince(@Param("from") from: LocalDateTime): List<DailyCount>
-    @Query(
-        nativeQuery = true,
-        value = """
-        select sh.food_id from scan_history sh
-        join food f on f.id = sh.food_id
-        where sh.member_id = :memberId
-          and sh.status = 'ACTIVE'
-          and f.status = 'ACTIVE'
-          and f.content_status = 'READY'
-        group by sh.food_id
-        order by max(sh.created_at) desc
-        limit :limit
-        """,
-    )
-    fun findRecentReadyFoodIds(@Param("memberId") memberId: Long, @Param("limit") limit: Int): List<Long>
 
     @Query(
         nativeQuery = true,

@@ -49,6 +49,12 @@ interface FeedbackJpaRepository : JpaRepository<Feedback, Long> {
 
     fun countByInstallationIdAndCreatedAtAfter(installationId: String, createdAt: LocalDateTime): Long
 
+    @Query("select e.createdAt from Feedback e where e.installationId = :installationId and e.createdAt > :since")
+    fun findCreatedAtsByInstallationIdSince(
+        @Param("installationId") installationId: String,
+        @Param("since") since: LocalDateTime,
+    ): List<LocalDateTime>
+
     companion object {
         const val MINE =
             "(case when :memberId is null " +

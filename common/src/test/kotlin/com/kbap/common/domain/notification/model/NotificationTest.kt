@@ -45,4 +45,30 @@ class NotificationTest : BehaviorSpec({
             }
         }
     }
+
+    given("알림의 orderId 추출") {
+        `when`("REVIEW_REMINDER 의 data 에 orderId 가 정수 또는 정수 문자열로 있으면") {
+            then("Long 으로 돌려준다") {
+                reminder(mapOf("orderId" to 12)).orderIdOrNull() shouldBe 12L
+                reminder(mapOf("orderId" to 12L)).orderIdOrNull() shouldBe 12L
+                reminder(mapOf("orderId" to "12")).orderIdOrNull() shouldBe 12L
+            }
+        }
+
+        `when`("REVIEW_REMINDER 인데 orderId 가 없거나 정수가 아니면") {
+            then("null 이다") {
+                reminder(null).orderIdOrNull() shouldBe null
+                reminder(mapOf("type" to "REVIEW_REMINDER")).orderIdOrNull() shouldBe null
+                reminder(mapOf("orderId" to "abc")).orderIdOrNull() shouldBe null
+            }
+        }
+
+        `when`("REVIEW_REMINDER 가 아닌 유형의 data 에 orderId 가 있으면") {
+            then("유형이 기준이라 null 이다") {
+                NotificationType.entries.filter { it != NotificationType.REVIEW_REMINDER }.forEach { type ->
+                    Notification.forMember(1L, type, "t", "b", mapOf("orderId" to 12)).orderIdOrNull() shouldBe null
+                }
+            }
+        }
+    }
 })

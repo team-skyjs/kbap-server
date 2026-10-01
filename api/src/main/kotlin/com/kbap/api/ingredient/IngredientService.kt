@@ -1,5 +1,6 @@
 package com.kbap.api.ingredient
 
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.DietCategory
 import com.kbap.common.domain.ingredient.IngredientCategoryJpaRepository
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class IngredientService(
     private val ingredientRepository: IngredientJpaRepository,
     private val ingredientCategoryRepository: IngredientCategoryJpaRepository,
+    private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
@@ -46,5 +48,12 @@ class IngredientService(
                 )
             },
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getAvoidedIngredients(memberId: Long?, lang: LanguageCode): List<AvoidedIngredientView> {
+        val chosen = memberService.getAvoidance(memberId).chosen
+        if (chosen.isEmpty()) return emptyList()
+        return ingredientRepository.findByCodeIn(chosen).map { AvoidedIngredientView(code = it.code.name, name = it.displayName(lang)) }
     }
 }

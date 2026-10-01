@@ -8,11 +8,18 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long> {
-    fun existsByFoodIdAndOutboxStatus(foodId: Long, outboxStatus: FoodContentOutboxStatus): Boolean
-
     fun findByFoodIdInAndOutboxStatus(foodIds: Collection<Long>, outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
+
+    @Query(
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE outbox.food_id IN (:foodIds) AND $IN_FLIGHT_REQUEST",
+        nativeQuery = true,
+    )
+    fun findInFlightRequests(@Param("foodIds") foodIds: Collection<Long>): List<FoodContentOutbox>
+
+    fun findInFlightRequest(foodId: Long): FoodContentOutbox? = findInFlightRequests(listOf(foodId)).singleOrNull()
 
     fun findByOutboxStatusOrderByIdAsc(outboxStatus: FoodContentOutboxStatus): List<FoodContentOutbox>
 
@@ -21,6 +28,13 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
     fun findTop20ByOrderByIdDesc(): List<FoodContentOutbox>
 
     fun findByOutboxStatus(outboxStatus: FoodContentOutboxStatus, pageable: Pageable): Page<FoodContentOutbox>
+
+    @Query(
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED ORDER BY outbox.id DESC",
+        countQuery = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED",
+        nativeQuery = true,
+    )
+    fun findDeadPage(pageable: Pageable): Page<FoodContentOutbox>
 
     @Query(
         """
@@ -54,12 +68,12 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
 
     @Query(
         value = """
-            SELECT *
-            FROM food_content_outbox
-            WHERE id > :afterId
-              AND outbox_status = 'PENDING'
-              AND status = 'ACTIVE'
-            ORDER BY id ASC
+            SELECT outbox.*
+            FROM food_content_outbox outbox
+            WHERE outbox.id > :afterId
+              AND outbox.outbox_status = 'PENDING'
+              AND $IN_FLIGHT_REQUEST
+            ORDER BY outbox.id ASC
             LIMIT :limit
         """,
         nativeQuery = true,
@@ -69,16 +83,73 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         @Param("limit") limit: Int,
     ): List<FoodContentOutbox>
 
+    @Query(
+        value = "SELECT outbox.* FROM food_content_outbox outbox WHERE $STALE_SENT ORDER BY outbox.id ASC LIMIT :limit",
+        nativeQuery = true,
+    )
+    fun findStaleSent(@Param("before") before: LocalDateTime, @Param("limit") limit: Int): List<FoodContentOutbox>
+
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $STALE_SENT", nativeQuery = true)
+    fun countStaleSent(@Param("before") before: LocalDateTime): Long
+
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE $DEAD_UNRESOLVED", nativeQuery = true)
+    fun countDead(): Long
+
+    @Query(value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE outbox.id = :id AND $STALE_SENT", nativeQuery = true)
+    fun countStillStale(@Param("id") id: Long, @Param("before") before: LocalDateTime): Long
+
+    @Query(
+        value = "SELECT COUNT(*) FROM food_content_outbox outbox WHERE outbox.id = :id AND NOT ($NOT_SUPERSEDED)",
+        nativeQuery = true,
+    )
+    fun countSuperseded(@Param("id") id: Long): Long
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value = """
-            UPDATE food_content_outbox
-            SET outbox_status = 'COMPLETE',
-                updated_at = CURRENT_TIMESTAMP(6)
-            WHERE id = :outboxId
-              AND food_id = :foodId
-              AND outbox_status IN ('PENDING', 'SENT')
-              AND status = 'ACTIVE'
+            UPDATE food_content_outbox outbox
+            SET outbox.outbox_status = 'PENDING',
+                outbox.sent_at = NULL,
+                outbox.last_error = :reason,
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :id AND $OWN_ROW_STALE
+        """,
+        nativeQuery = true,
+    )
+    fun requeueIfStillStale(
+        @Param("id") id: Long,
+        @Param("before") before: LocalDateTime,
+        @Param("reason") reason: String,
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        value = """
+            UPDATE food_content_outbox outbox
+            SET outbox.dead_at = CURRENT_TIMESTAMP(6),
+                outbox.last_error = :reason,
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :id AND $OWN_ROW_STALE
+        """,
+        nativeQuery = true,
+    )
+    fun markDeadIfStillStale(
+        @Param("id") id: Long,
+        @Param("before") before: LocalDateTime,
+        @Param("reason") reason: String,
+    ): Int
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        value = """
+            UPDATE food_content_outbox outbox
+            SET outbox.outbox_status = 'COMPLETE',
+                outbox.updated_at = CURRENT_TIMESTAMP(6)
+            WHERE outbox.id = :outboxId
+              AND outbox.food_id = :foodId
+              AND outbox.outbox_status IN ('PENDING', 'SENT')
+              AND $NOT_DEAD
+              AND outbox.status = 'ACTIVE'
         """,
         nativeQuery = true,
     )
@@ -125,4 +196,28 @@ interface FoodContentOutboxJpaRepository : JpaRepository<FoodContentOutbox, Long
         nativeQuery = true,
     )
     fun recordPublishFailed(@Param("ids") ids: Collection<Long>): Int
+
+    companion object {
+        private const val NOT_SUPERSEDED =
+            "NOT EXISTS (SELECT 1 FROM food_content_outbox newer " +
+                "WHERE newer.food_id = outbox.food_id AND newer.id > outbox.id AND newer.status = 'ACTIVE')"
+
+        private const val LIVE_REQUEST =
+            "outbox.status = 'ACTIVE' " +
+                "AND EXISTS (SELECT 1 FROM food f WHERE f.id = outbox.food_id AND f.status = 'ACTIVE') " +
+                "AND $NOT_SUPERSEDED"
+
+        const val NOT_DEAD = "outbox.dead_at IS NULL"
+
+        const val IN_FLIGHT_REQUEST = "outbox.outbox_status IN ('PENDING', 'SENT') AND $NOT_DEAD AND $LIVE_REQUEST"
+
+        private const val OWN_ROW_STALE =
+            "outbox.outbox_status = 'SENT' AND $NOT_DEAD AND outbox.sent_at IS NOT NULL " +
+                "AND outbox.sent_at < :before AND outbox.status = 'ACTIVE'"
+
+        const val STALE_SENT = "$OWN_ROW_STALE AND $IN_FLIGHT_REQUEST"
+
+        const val DEAD_UNRESOLVED =
+            "outbox.dead_at IS NOT NULL AND outbox.outbox_status <> 'COMPLETE' AND $LIVE_REQUEST"
+    }
 }

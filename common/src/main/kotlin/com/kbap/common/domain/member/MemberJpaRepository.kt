@@ -1,5 +1,6 @@
 package com.kbap.common.domain.member
 
+import com.kbap.common.domain.member.dto.NewMemberRow
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
@@ -9,9 +10,16 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
-    fun findByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Member?
+    fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
+
+    @Query(nativeQuery = true, value = "SELECT GET_LOCK(:name, :timeoutSeconds)")
+    fun acquireNamedLock(@Param("name") name: String, @Param("timeoutSeconds") timeoutSeconds: Int): Int
+
+    @Query(nativeQuery = true, value = "SELECT RELEASE_LOCK(:name)")
+    fun releaseNamedLock(@Param("name") name: String): Int?
 
     @Query(
         value = "SELECT * FROM member ORDER BY id DESC",
@@ -45,7 +53,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     @Query(value = "SELECT * FROM member WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Member?
 
-    fun countByMemberStatus(memberStatus: MemberStatus): Long
+    fun countByMemberStatusAndIsBotFalse(memberStatus: MemberStatus): Long
 
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
@@ -109,4 +117,34 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         """,
     )
     fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT m.created_at AS createdAt,
+                   m.country_code AS countryCode,
+                   (SELECT d.platform FROM notification_device d
+                    WHERE d.member_id = m.id ORDER BY d.id DESC LIMIT 1) AS platform
+            FROM member m
+            WHERE m.created_at >= :from AND m.created_at < :to AND $REAL_MEMBER
+        """,
+    )
+    fun findRealMembersCreatedBetween(
+        @Param("from") from: LocalDateTime,
+        @Param("to") to: LocalDateTime,
+        @Param("excludedIds") excludedIds: Collection<Long>,
+    ): List<NewMemberRow>
+
+    @Query(
+        nativeQuery = true,
+        value = "SELECT COUNT(*) FROM member m WHERE m.member_status = 'ACTIVE' AND m.status = 'ACTIVE' AND $REAL_MEMBER",
+    )
+    fun countActiveRealMembers(@Param("excludedIds") excludedIds: Collection<Long>): Long
+
+    companion object {
+        const val REAL_MEMBER =
+            "(m.email IS NULL OR (m.email NOT REGEXP '^[a-z]+\\\\.[0-9]{5}@gmail\\\\.com$' " +
+                "AND m.email NOT REGEXP '@cloudtestlabaccounts\\\\.com$')) " +
+                "AND m.is_bot = 0 AND m.id NOT IN (:excludedIds)"
+    }
 }

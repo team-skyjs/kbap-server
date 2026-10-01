@@ -141,8 +141,13 @@ Spring Batch 스텝은 `ResourcelessTransactionManager`를 사용한다. DB 조�
 
 ## 설정
 
-- `kbap.batch.food-content-outbox.queue-url`: 필수 음식 콘텐츠 큐 URL. 잡 활성화 시 비어 있으면 구성 단계에서 실패한다.
-- `kbap.batch.food-content-outbox.page-size`: 양수 페이지 크기, 기본값 100
+- `kbap.food-content-outbox.queue-url`: 필수 음식 콘텐츠 큐 URL. 잡 활성화 시 비어 있으면 구성 단계에서 실패한다.
+- `kbap.food-content-outbox.page-size`: 양수 페이지 크기, 기본값 100
+- `kbap.food-content-outbox.stale-after-hours`·`max-attempts`: 응답 없이 굳은 행의 회수 기준과 재시도 상한(KB-607, 기본 24·5)
+
+키가 `kbap.batch.*` 가 아닌 이유 — 회수 잡은 batch 가 돌리고 방치 카운트는 api 가 센다. 두 프로세스가
+같은 기준을 봐야 하므로 한 네임스페이스에 둔다. 배치 아래 두면 어드민이 배치 설정을 읽거나 키가 두 벌이 되고,
+그러면 한쪽만 바꿨을 때 잡과 대시보드가 다른 기준으로 돌면서 양쪽 다 정상으로 보인다.
 - AWS 자격 증명과 리전: AWS 기본 공급자 체인
 
 어댑터는 페이지 크기와 관계없이 SQS 요청당 최대 10건 제한을 지킨다. 비밀 값과 자격 증명은 저장소 파일에 추가하지 않는다.

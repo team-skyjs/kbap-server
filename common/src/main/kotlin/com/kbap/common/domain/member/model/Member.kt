@@ -72,6 +72,9 @@ class Member(
 
     @Column(name = "unique_reviewed_food_count", nullable = false)
     var uniqueReviewedFoodCount: Int = 0,
+
+    @Column(name = "is_bot", nullable = false, columnDefinition = "tinyint(1) not null default 0")
+    var isBot: Boolean = false,
 ) : BaseEntity() {
     val identity: SocialIdentity
         get() = SocialIdentity(provider = provider, providerUserId = providerUid, email = email)
@@ -112,7 +115,9 @@ class Member(
         countryCode: String? = null,
         profileImageUrl: String? = null,
         currency: String? = null,
+        profileImageKeyPrefix: String = "",
     ) {
+        val newProfileImage = assignableProfileImageOrNull(profileImageUrl, profileImageKeyPrefix)
         updateProfile(
             profile.updatedWith(
                 nickname = nickname,
@@ -120,10 +125,21 @@ class Member(
                 dietCategories = dietCategories,
                 spicinessPreference = spicinessPreference,
                 countryCode = countryCode,
-                profileImageUrl = profileImageUrl,
+                profileImageUrl = newProfileImage,
                 currency = currency,
             ),
         )
+    }
+
+    fun changedProfileImageOrNull(requested: String?): String? =
+        requested?.trim()?.trimStart('/')?.takeUnless { it == profileImageUrl }
+
+    private fun assignableProfileImageOrNull(requested: String?, keyPrefix: String): String? {
+        val path = changedProfileImageOrNull(requested) ?: return null
+        if (!ProfileImagePaths.isAssignableTo(id, path, keyPrefix)) {
+            throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
+        return path
     }
 
     fun completeOnboarding(
@@ -133,6 +149,7 @@ class Member(
         spicinessPreference: String,
         countryCode: String,
         profileImageUrl: String,
+        profileImageKeyPrefix: String = "",
     ) {
         if (onboardingCompleted) {
             throw BusinessException(ErrorCode.ONBOARDING_ALREADY_COMPLETED)
@@ -145,6 +162,7 @@ class Member(
             countryCode = countryCode,
             profileImageUrl = profileImageUrl,
             currency = CountryCode.from(countryCode)?.currency?.name,
+            profileImageKeyPrefix = profileImageKeyPrefix,
         )
         onboardingCompleted = true
     }
@@ -171,6 +189,20 @@ class Member(
                 provider = identity.provider,
                 providerUid = identity.providerUserId,
                 email = identity.email,
+            )
+
+        const val REVIEW_BOT_PROVIDER_UID_PREFIX: String = "review-bot:"
+
+        fun reviewBot(countryCode: CountryCode, nickname: String, profileImagePath: String): Member =
+            Member(
+                provider = SocialProvider.GOOGLE,
+                providerUid = REVIEW_BOT_PROVIDER_UID_PREFIX + java.util.UUID.randomUUID(),
+                nickname = nickname,
+                countryCode = countryCode.name,
+                currency = countryCode.currency.name,
+                profileImageUrl = profileImagePath,
+                onboardingCompleted = true,
+                isBot = true,
             )
     }
 }

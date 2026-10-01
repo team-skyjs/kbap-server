@@ -99,10 +99,6 @@ class ScanService(
         return ScanResult(items = items, degraded = false)
     }
 
-    @Transactional(readOnly = true)
-    fun getRecentReadyFoodIds(memberId: Long, limit: Int): List<Long> =
-        scanHistoryRepository.findRecentReadyFoodIds(memberId, limit)
-
     private fun loadAvoidanceCatalog(avoidedCodes: List<IngredientCode>): Map<IngredientCode, Ingredient> {
         if (avoidedCodes.isEmpty()) return emptyMap()
         return ingredientRepository.findByCodeIn(avoidedCodes.toSet()).associateBy { it.code }

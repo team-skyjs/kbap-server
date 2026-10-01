@@ -217,6 +217,28 @@ data class AdminDashboardMetricsResponse(
         example = "0",
     )
     val strandedImageRegenerationCount: Long,
+    @field:Schema(
+        description = "콘텐츠 수집 요청을 보낸 뒤 기준 시간(기본 24시간) 안에 응답이 오지 않은 건수. " +
+            "다음 배치가 재전송한다. 계속 늘면 수집 파이프라인 쪽을 본다",
+        example = "0",
+    )
+    val contentOutboxStuckCount: Long,
+    @field:Schema(
+        description = "재전송 상한에 닿아 포기한 건수. **0 이 정상**이며, 0 이 아니면 last_error 로 원인을 확인하고 고친 뒤 재수집한다",
+        example = "0",
+    )
+    val contentOutboxDeadCount: Long,
+    @field:Schema(
+        description = "미참조 업로드 정리 대상 수(용도별 — review·community·feedback). 보존 기간이 지났고 리뷰·게시글·문의·" +
+            "프로필·주문 어디에도 참조되지 않은 업로드다. 실삭제가 꺼진(dry-run) 동안은 쌓이기만 한다. " +
+            "업로드가 있는 용도가 0 이면 참조 판정 쿼리를 의심한다. 요청마다 세지 않는다 — 인스턴스가 기동 직후와 매일 " +
+            "04:40 KST 에 센 최근값이다(시각은 orphanUploadedImageCountedAt). null 은 0 과 다르다 — 아직 세지 않았거나 " +
+            "마지막 계산이 실패해 못 셌다는 뜻이다",
+        example = "{\"review\": 12, \"community\": 3, \"feedback\": 0}",
+    )
+    val orphanUploadedImageCounts: Map<String, Long>?,
+    @field:Schema(description = "orphanUploadedImageCounts 를 센 시각. 그 값이 null 이면 이것도 null", example = "2026-09-22T04:40:00")
+    val orphanUploadedImageCountedAt: LocalDateTime?,
 )
 
 data class AdminDailyCountResponse(

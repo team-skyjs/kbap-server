@@ -10,16 +10,13 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface FoodVectorOutboxJpaRepository : JpaRepository<FoodVectorOutbox, Long> {
-    fun enqueueIfAbsent(foodId: Long, operation: FoodVectorOutboxOperation) {
-        val alreadyPending =
-            existsByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)
-        if (!alreadyPending) {
-            save(
-                when (operation) {
-                    FoodVectorOutboxOperation.UPSERT -> FoodVectorOutbox.upsert(foodId)
-                    FoodVectorOutboxOperation.DELETE -> FoodVectorOutbox.delete(foodId)
-                },
-            )
+    fun enqueue(foodId: Long, operation: FoodVectorOutboxOperation) {
+        when (operation) {
+            FoodVectorOutboxOperation.UPSERT -> save(FoodVectorOutbox.upsert(foodId))
+            FoodVectorOutboxOperation.DELETE ->
+                if (!existsByFoodIdAndOperationAndOutboxStatus(foodId, operation, FoodVectorOutboxStatus.PENDING)) {
+                    save(FoodVectorOutbox.delete(foodId))
+                }
         }
     }
 

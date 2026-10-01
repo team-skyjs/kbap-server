@@ -58,8 +58,24 @@ server:
   port: 8080
 # 아래 값은 "기본값"이다 — 실행 시점 인자로 덮어쓸 수 있어 재배포 없이 조정한다
 # (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
-#   ./gradlew :batch:bootRun --args='--kbap.batch.food-content-outbox.page-size=200'
+#   ./gradlew :batch:bootRun --args='--kbap.food-content-outbox.page-size=200'
 kbap:
+  # 콘텐츠 아웃박스 설정은 kbap.batch 가 아니라 여기에 둔다 — 배치(회수·발행)와 api(어드민 방치 카운트)가
+  # 같은 기준으로 움직여야 하기 때문이다. 배치 네임스페이스에 두면 어드민이 배치 설정을 읽거나 키가 두 벌이 되고,
+  # 그러면 운영자가 한쪽만 바꿨을 때 잡과 대시보드가 다른 기준으로 돌면서 양쪽 다 "정상"으로 보인다.
+  #
+  # stale-after-hours 는 api 도 읽는다(어드민 방치 카운트). 프로세스가 둘이라 yml 도 둘이므로
+  # api/src/main/resources/application.yml 에 같은 환경변수를 매핑해 뒀다 — 한쪽만 고치면 기준이 갈린다.
+  food-content-outbox:
+    queue-url: ${FOOD_CONTENT_QUEUE_URL:}
+    region: ${AWS_REGION:ap-northeast-2}
+    page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+    # 보낸 뒤 이 시간을 넘겨 응답이 없으면 회수 대상. 상한에 닿으면 dead_at 을 찍고 사람이 본다.
+    stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
+    max-attempts: ${FOOD_CONTENT_OUTBOX_MAX_ATTEMPTS:5}
+    # 회수 잡이 한 실행에서 되살리는(또는 포기 처리하는) 최대 건수. 굳은 요청이 많이 쌓인 채 첫 실행이 돌면
+    # 전부를 한꺼번에 재발행해 콜백이 몰린다(KB-655: dev 69건+ 버스트) — 나머지는 다음 실행이 이어 받는다.
+    recovery-max-per-run: ${FOOD_CONTENT_OUTBOX_RECOVERY_MAX_PER_RUN:50}
   batch:
     # 인앱 스케줄러 — 외부 트리거 없이 cron 으로 잡을 기동한다(HTTP 트리거도 그대로 병행 가능).
     # 스케줄 시각은 BatchJobScheduler 에 상수로 박혀 있다(스캔 제안은 12:00·18:00 KST). 기본 on 이며 끄는 용도로만 이 값을 쓴다
@@ -67,10 +83,12 @@ kbap:
     # 다중 인스턴스로 늘리면 중복 기동 방지 수단(ShedLock 등)이 별도로 필요하다 — 현재는 1대 전제.
     scheduler:
       enabled: ${BATCH_SCHEDULER_ENABLED:true}
-    food-content-outbox:
-      queue-url: ${FOOD_CONTENT_QUEUE_URL:}
-      region: ${AWS_REGION:ap-northeast-2}
-      page-size: ${FOOD_CONTENT_OUTBOX_PAGE_SIZE:100}
+    # 일일 유저 통계 Slack 발송(KB-645) — 매일 09:00 KST 에 전일(KST 0~24시) 지표를 팀 채널로 보낸다.
+    # 웹훅 URL 은 SSM /kbap/<env>/SLACK_STATS_WEBHOOK_URL 로 주입한다. 비어 있으면 잡은 warn 1줄 후 SKIPPED 로 끝난다.
+    # 제외 회원 id 는 환경마다 다르므로(prod 시드 계정) 프로필 yml 에 둔다. 로봇 이메일 패턴 제외는 쿼리(MemberJpaRepository.REAL_MEMBER).
+    user-stats:
+      slack-webhook-url: ${SLACK_STATS_WEBHOOK_URL:}
+      excluded-member-ids: ${USER_STATS_EXCLUDED_MEMBER_IDS:}
     # 스캔 제안 푸시(KB-471) — 점심 잡 11:00·저녁 잡 17:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.
     # 배치 1대 전제라 분산 락 없음. 발송 시간대는 cron 이 정한다(별도 시간대 가드 없음 — 수동 트리거는 언제든 보낸다). 상한은 슬롯당 1회.
     scan-suggestion:
@@ -78,6 +96,13 @@ kbap:
       chunk-size: 100
       # 점심 맥락이라 늦게 켜진 기기에 저녁에 뜨지 않도록 짧게(Expo 기본 4주).
       ttl: 3h
+    # 리뷰 리마인더 푸시(KB-469) — 생성 1~25시간 경과 회원 주문 중 리마인더 미수신·리뷰 미완 주문에 5분 주기로 발송(BatchJobScheduler 상수).
+    # 주문 1건 = 발송 요청 1건(data.orderId 가 주문마다 다르다). 중복 방지는 notification 테이블 존재 여부, 배치 1대 전제라 분산 락 없음.
+    review-reminder:
+      # 리더 페이지 = 청크 크기. 같은 회원의 주문 두 건이 한 페이지에 오면 라이터가 회원 단위로 걸러 1건만 보낸다.
+      chunk-size: 100
+      # "주문하신 식사" 맥락이라 하루를 넘겨 뜨지 않도록 짧게(Expo 기본 4주).
+      ttl: 6h
     # Expo 영수증 확인·재전송(KB-614) — 광고성 잡은 발송 후 2시간 창(11~13시·17~19시)에 10분 주기, 활동 알림 잡은 15분 주기 상시.
     # 접수(SENT) 후 min-age 가 지나고 max-age(Expo 영수증 보관 기간) 안인 발송만 확인한다. max-age 를 넘긴 SENT 는 미확인으로 종결된다.
     push-receipt:

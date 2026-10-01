@@ -41,7 +41,7 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                 outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
 
                 then("존재로 판정한다") {
-                    outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING) shouldBe true
+                    (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) shouldBe true
                 }
             }
 
@@ -53,7 +53,7 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                 outboxRepository.save(outbox)
 
                 then("대기 요청은 없는 것으로 판정해 재수집을 막지 않는다") {
-                    outboxRepository.existsByFoodIdAndOutboxStatus(food.id, FoodContentOutboxStatus.PENDING) shouldBe false
+                    (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) shouldBe false
                 }
             }
         }
@@ -90,6 +90,19 @@ class FoodContentOutboxJpaRepositoryTest : BehaviorSpec() {
                     val pending = outboxRepository.findPendingAfterId(firstOutbox.id, 1)
 
                     pending.map { it.foodId } shouldBe listOf(second.id)
+                }
+            }
+        }
+
+        given("쓰기 문의 잠금 범위") {
+            `when`("아웃박스 리포지토리의 @Modifying 쿼리를 훑으면") {
+                then("서브쿼리·조인이 없다 — 잠금 문장이 읽는 행은 전부 잠기므로 쓰기는 자기 행만 건드린다") {
+                    val writes = FoodContentOutboxJpaRepository::class.java.methods
+                        .filter { it.isAnnotationPresent(org.springframework.data.jpa.repository.Modifying::class.java) }
+                        .map { it.name to it.getAnnotation(org.springframework.data.jpa.repository.Query::class.java).value }
+
+                    writes.isNotEmpty() shouldBe true
+                    writes.filter { (_, sql) -> Regex("(?i)\\b(select|join)\\b").containsMatchIn(sql) }.map { it.first } shouldBe emptyList()
                 }
             }
         }

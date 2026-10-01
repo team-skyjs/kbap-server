@@ -198,11 +198,20 @@ class FoodService(
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional(readOnly = true)
-    fun getRandomReadyFoods(size: Int): List<Food> {
-        val ids = foodRepository.findRandomReadyIds(size)
-        if (ids.isEmpty()) return emptyList()
-        return foodRepository.findByIdIn(ids)
+    fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(foodRepository.findRandom(size), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {
+        val scans = scanHistoryRepository.findRecentScannedFoods(memberId, PageRequest.of(0, size))
+        return summaryViews(scans.map { it.food }, lang, memberId).zip(scans) { summary, scan ->
+            RecentScannedFoodView(summary, scan.scannedAt.atZone(ZoneId.systemDefault()).toInstant())
+        }
     }
+
+    @Transactional(readOnly = true)
+    fun getMostReviewedFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(foodRepository.findMostReviewed(size), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getReadyFoodsByIds(ids: List<Long>): List<Food> {
@@ -240,7 +249,8 @@ class FoodService(
     private fun enqueueContentRequests(foods: Collection<Food>) {
         if (foods.isEmpty()) return
         val alreadyPending = outboxRepository
-            .findByFoodIdInAndOutboxStatus(foods.map { it.id }, FoodContentOutboxStatus.PENDING)
+            .findInFlightRequests(foods.map { it.id })
+            .filter { it.outboxStatus == FoodContentOutboxStatus.PENDING }
             .map { it.foodId }
             .toSet()
         outboxRepository.saveAll(

@@ -12,6 +12,24 @@ import org.springframework.transaction.annotation.Transactional
 interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     fun findByBatchIdAndItemStatus(batchId: Long, itemStatus: ImageBatchItemStatus): List<ImageBatchItem>
 
+    fun findTopByFoodIdOrderByIdDesc(foodId: Long): ImageBatchItem?
+
+    @Query(
+        """
+        select i from ImageBatchItem i
+        where i.foodId = :foodId
+          and (i.regenerationIntent is null or i.regenerationIntent <> com.kbap.common.domain.food.model.RegenerationIntent.ADDITIONAL)
+        order by i.id desc
+        """,
+    )
+    fun findRegenerationHistory(@Param("foodId") foodId: Long, pageable: org.springframework.data.domain.Pageable): List<ImageBatchItem>
+
+    fun existsByFoodIdAndRegenerationIntentAndItemStatus(
+        foodId: Long,
+        regenerationIntent: com.kbap.common.domain.food.model.RegenerationIntent,
+        itemStatus: ImageBatchItemStatus,
+    ): Boolean
+
     @Query(
         """
         select i.foodId from ImageBatchItem i
@@ -19,6 +37,15 @@ interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
         """,
     )
     fun findFoodIdsInProgress(@Param("foodIds") foodIds: List<Long>): List<Long>
+
+    @Query(
+        """
+        select i.foodId from ImageBatchItem i
+        where i.foodId in :foodIds and i.itemStatus = 'PENDING'
+          and (i.regenerationIntent is null or i.regenerationIntent <> com.kbap.common.domain.food.model.RegenerationIntent.ADDITIONAL)
+        """,
+    )
+    fun findFoodIdsInRegeneration(@Param("foodIds") foodIds: Collection<Long>): List<Long>
 
     @Query(
         """

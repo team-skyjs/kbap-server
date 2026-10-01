@@ -9,6 +9,7 @@ data class LlmModelProperties(
     val vision: VisionProps = VisionProps(),
     val image: ImageProps = ImageProps(),
     val embedding: EmbeddingProps = EmbeddingProps(),
+    val review: VisionProps = VisionProps(),
 ) {
     data class EmbeddingProps(
         val enabled: Boolean = false,

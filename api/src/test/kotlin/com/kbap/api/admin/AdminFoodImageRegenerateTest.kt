@@ -1,13 +1,16 @@
 package com.kbap.api.admin
 
-import com.kbap.api.IntegrationTest
-import com.kbap.api.food.FakeFoodImageBatchClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.api.IntegrationTest
+import com.kbap.api.food.FakeFoodImageBatchClient
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
@@ -17,14 +20,16 @@ import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.post
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import javax.sql.DataSource
+import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.PlatformTransactionManager
 
 @IntegrationTest
 class AdminFoodImageRegenerateTest : BehaviorSpec() {
@@ -43,6 +48,12 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
     private lateinit var vectorOutboxRepository: FoodVectorOutboxJpaRepository
 
     @Autowired
+    private lateinit var contentOutboxRepository: FoodContentOutboxJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
@@ -58,6 +69,7 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
             dataSource.connection.use { c ->
                 c.createStatement().use {
                     it.execute("DELETE FROM food_vector_outbox")
+                    it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
                     it.execute("DELETE FROM food_image")
@@ -113,7 +125,7 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
             `when`("벡터 재색인이 예약된 READY 음식을 재생성하면") {
                 then("그 예약을 취소하고 삭제를 예약한다 — 순서가 뒤집혀 색인에서 영영 빠지지 않게") {
                     val food = saveFood("재색인대기음식")
-                    vectorOutboxRepository.enqueueIfAbsent(food.id, FoodVectorOutboxOperation.UPSERT)
+                    vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
 
                     regenerate(food.id).andExpect { status { isOk() } }
 
@@ -226,6 +238,112 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
             }
         }
 
+        given("이미지 재생성 — 콘텐츠 재수집과의 상호 배제") {
+            `when`("콘텐츠 수집 요청이 대기(PENDING) 중인 음식을 재생성하면") {
+                then("409 FOOD-020 이고 음식·배치 항목이 그대로다") {
+                    val food = saveFood("재수집대기음식")
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    regenerate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                    itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                }
+            }
+
+            `when`("콘텐츠 수집 요청을 보내 응답을 기다리는(SENT) 음식을 재생성하면") {
+                then("409 FOOD-020 이다") {
+                    val food = saveFood("재수집전송음식")
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.SENT })
+
+                    regenerate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+                }
+            }
+
+            `when`("옛 요청이 SENT 로 남은 채 더 새 재수집이 생겨 완료된 음식을 재생성하면") {
+                then("막지 않는다 — 대체된 옛 SENT 는 진행 중 요청이 아니다(회수도 콜백도 다시 건드리지 않는다)") {
+                    val food = saveFood("대체된전송음식")
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.SENT })
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.COMPLETE })
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("보냈다가 포기(dead)한 요청만 있는 음식을 재생성하면") {
+                then("막지 않는다 — 포기한 요청은 진행 중이 아니다") {
+                    val food = saveFood("재수집포기음식")
+                    contentOutboxRepository.save(
+                        FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.SENT; markDead("테스트 포기") },
+                    )
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("같은 음식에 재생성과 재수집이 동시에 들어오면") {
+                then("음식 행 잠금으로 직렬화돼 하나만 200, 다른 하나는 409 FOOD-020 이고 아웃박스+배치 항목 합계가 1이다") {
+                    val food = saveFood("교차경합음식")
+                    val executor = Executors.newFixedThreadPool(2)
+                    val gate = CountDownLatch(1)
+                    val recollect = executor.submit<Int> {
+                        gate.await()
+                        mockMvc.post("/api/admin/foods/${food.id}/recollect") { header("Authorization", "Bearer ${adminToken()}") }
+                            .andReturn().response.status
+                    }
+                    val regen = executor.submit<Int> { gate.await(); regenerate(food.id).andReturn().response.status }
+                    gate.countDown()
+                    val statuses = listOf(recollect.get(), regen.get()).sorted()
+                    executor.shutdown()
+
+                    statuses shouldBe listOf(200, 409)
+                    val items = itemRepository.findAll().count { it.foodId == food.id }
+                    val outboxes = contentOutboxRepository.findByFoodIdInAndOutboxStatus(listOf(food.id), FoodContentOutboxStatus.PENDING).size
+                    items + outboxes shouldBe 1
+                }
+            }
+
+            `when`("다른 트랜잭션이 음식 행을 잠근 채 재수집 아웃박스를 넣고 있으면") {
+                then("재생성은 그 커밋을 기다렸다가 아웃박스를 보고 409 FOOD-020 — 잠금 없이 읽으면 둘 다 통과한다") {
+                    val food = saveFood("행잠금교차음식")
+                    val locked = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor()
+                    val recollect = executor.submit {
+                        TransactionTemplate(transactionManager).execute {
+                            foodRepository.findByIdForUpdate(food.id)
+                            contentOutboxRepository.saveAndFlush(FoodContentOutbox.pending(food.id, food.displayName))
+                            locked.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    executor.shutdown()
+                    if (!locked.await(30, java.util.concurrent.TimeUnit.SECONDS)) recollect.get(1, java.util.concurrent.TimeUnit.SECONDS)
+
+                    regenerate(food.id).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+                    recollect.get(30, java.util.concurrent.TimeUnit.SECONDS)
+                    itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                }
+            }
+
+            `when`("콘텐츠 수집이 끝난(COMPLETE) 음식을 재생성하면") {
+                then("막지 않는다") {
+                    val food = saveFood("재수집완료음식")
+                    contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName).apply { outboxStatus = FoodContentOutboxStatus.COMPLETE })
+
+                    regenerate(food.id).andExpect { status { isOk() } }
+                }
+            }
+        }
+
         given("이미지 재생성 — 의도") {
             `when`("의도와 사유를 담아 재생성하면") {
                 then("배치 항목에 그대로 기록된다") {
@@ -259,6 +377,21 @@ class AdminFoodImageRegenerateTest : BehaviorSpec() {
                         jsonPath("$.code") { value("FOOD-011") }
                     }
                     regenerate(food.id, body = mapOf("intent" to "WRONG_IMAGE")).andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("교체 엔드포인트에 ADDITIONAL 의도를 보내면") {
+                then("400 으로 거절하고 음식 상태·배치 항목·벡터 아웃박스가 그대로다 — 후보 추가는 images/generate 로만") {
+                    val food = saveFood("추가의도거절음식")
+
+                    regenerate(food.id, body = mapOf("intent" to "ADDITIONAL")).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                    itemRepository.findAll().count { it.foodId == food.id } shouldBe 0
+                    vectorOutboxRepository.findAll().count { it.foodId == food.id } shouldBe 0
                 }
             }
 

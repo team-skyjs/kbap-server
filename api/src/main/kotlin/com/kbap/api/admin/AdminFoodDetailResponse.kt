@@ -39,9 +39,19 @@ data class AdminFoodDetailResponse(
     val updatedAt: LocalDateTime,
     @field:Schema(description = "사람 검수 기록. 검수 전·해제 후는 null", nullable = true)
     val humanReview: HumanReviewResponse?,
+    @field:Schema(description = "마지막 이미지 재생성 상태(갤러리 응답과 같은 값). 이력 없음·마지막 성공이면 null", nullable = true)
+    val regeneration: AdminRegenerationStateResponse?,
+    @field:Schema(description = "추가 이미지 생성이 진행 중인지(갤러리 응답과 같은 값)", example = "false")
+    val additionalInProgress: Boolean,
 ) {
     companion object {
-        fun from(food: Food, imagePublicBaseUrl: String, humanReview: HumanReviewResponse?): AdminFoodDetailResponse =
+        fun from(
+            food: Food,
+            imagePublicBaseUrl: String,
+            humanReview: HumanReviewResponse?,
+            regeneration: AdminRegenerationStateResponse?,
+            additionalInProgress: Boolean,
+        ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
                 koreanName = food.displayName(LanguageCode.KO),
@@ -64,6 +74,8 @@ data class AdminFoodDetailResponse(
                 createdAt = food.createdAt,
                 updatedAt = food.updatedAt,
                 humanReview = humanReview,
+                regeneration = regeneration,
+                additionalInProgress = additionalInProgress,
             )
     }
 }
@@ -116,6 +128,8 @@ data class AdminFoodRecollectResponse(
     val requested: Long,
     val created: Long,
     val skipped: Long,
+    @field:Schema(description = "skipped 중 이미지 재생성이 진행 중이라 건너뛴 수(FOOD-020 사유). 재생성이 끝난 뒤 다시 요청한다", example = "0")
+    val skippedRegenerating: Long,
     val exceeded: Boolean,
     val max: Int,
 ) {
@@ -125,6 +139,7 @@ data class AdminFoodRecollectResponse(
                 requested = result.requested,
                 created = result.created,
                 skipped = result.skipped,
+                skippedRegenerating = result.skippedRegenerating,
                 exceeded = result.exceeded,
                 max = result.max,
             )

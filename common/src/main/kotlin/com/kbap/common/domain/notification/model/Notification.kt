@@ -42,9 +42,13 @@ class Notification(
 
     fun isRead(): Boolean = readAt != null
 
-    fun foodIdOrNull(): Long? {
+    fun foodIdOrNull(): Long? = reminderLongOrNull(DATA_FOOD_ID)
+
+    fun orderIdOrNull(): Long? = reminderLongOrNull(DATA_ORDER_ID)
+
+    private fun reminderLongOrNull(key: String): Long? {
         if (type != NotificationType.REVIEW_REMINDER) return null
-        return when (val value = data?.get(DATA_FOOD_ID)) {
+        return when (val value = data?.get(key)) {
             is Int -> value.toLong()
             is Long -> value
             is String -> value.toLongOrNull()
@@ -54,6 +58,7 @@ class Notification(
 
     companion object {
         const val DATA_FOOD_ID = "foodId"
+        const val DATA_ORDER_ID = "orderId"
 
         fun forMember(memberId: Long, type: NotificationType, title: String, body: String, data: Map<String, Any>?) =
             Notification(memberId = memberId, type = type, title = title, body = body, data = data)

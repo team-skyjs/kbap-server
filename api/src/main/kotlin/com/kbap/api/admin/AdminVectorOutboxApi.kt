@@ -49,6 +49,12 @@ interface AdminVectorOutboxApi {
             READY 인데 UPSERT 아웃박스가 없는 음식을 최대 500건 enqueue 하고 생성 건수를 반환한다.
 
             - 멱등: 이미 아웃박스가 있는 음식은 대상에서 빠지므로 재호출 시 `enqueued=0` 으로 성공한다.
+            - `force=true`: UPSERT 이력과 무관하게 **READY 전체**를 다시 enqueue 한다 — 재수집으로 내용이 바뀌었는데
+              벡터가 낡은 음식을 한 번에 되살릴 때(KB-649). **PENDING 이 이미 있어도 후속 행을 넣는다** — 배치가 이미 읽어 임베딩 중인
+              행은 옛 내용으로 완료될 수 있어서다. 겹친 행은 임베딩 해시가 같으면 임베딩 호출 없이 완료된다. 한 번에 최대 500건.
+            - force 는 **커서**로 넘긴다: 응답 `nextAfterFoodId`(이번 페이지 마지막 foodId, 더 없으면 null)를 다음 호출의 `afterFoodId` 로 넘기며
+              null 이 될 때까지 반복한다. `remaining` 은 그 커서 뒤에 남은 수.
+            - 기본 모드의 `remaining` 은 조건에 맞지만 이번에 담기지 않은 수(재호출로 소진, 커서 없음).
         """,
     )
     @ApiResponses(
@@ -58,7 +64,12 @@ interface AdminVectorOutboxApi {
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
     )
-    fun enqueueVectorOutboxes(): ResponseEntity<BaseResponse<AdminVectorOutboxEnqueueResponse>>
+    fun enqueueVectorOutboxes(
+        @Parameter(description = "true 면 READY 전체 강제 재동기화(최대 500). 기본 false", example = "false")
+        force: Boolean,
+        @Parameter(description = "force 커서 — 직전 응답의 nextAfterFoodId. 첫 호출은 생략(0)", example = "0")
+        afterFoodId: Long,
+    ): ResponseEntity<BaseResponse<AdminVectorOutboxEnqueueResponse>>
 
     @Operation(
         summary = "벡터 아웃박스 재시도",

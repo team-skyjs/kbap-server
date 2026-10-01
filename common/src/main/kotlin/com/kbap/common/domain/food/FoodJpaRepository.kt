@@ -34,6 +34,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(value = "SELECT * FROM food WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Food?
 
+    @Query(value = "SELECT * FROM food WHERE id = :id FOR UPDATE", nativeQuery = true)
+    fun findAnyByIdForUpdate(@Param("id") id: Long): Food?
+
     @Query(
         value = """
             SELECT * FROM food
@@ -116,6 +119,18 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         """,
     )
     fun findReadyIdsWithoutVectorUpsertOutbox(pageable: Pageable): List<Long>
+
+    @Query(
+        "select f.id from Food f where f.id > :afterFoodId " +
+            "and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY order by f.id asc",
+    )
+    fun findReadyIdsAfter(@Param("afterFoodId") afterFoodId: Long, pageable: Pageable): List<Long>
+
+    @Query(
+        "select count(f) from Food f where f.id > :afterFoodId " +
+            "and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY",
+    )
+    fun countReadyAfter(@Param("afterFoodId") afterFoodId: Long): Long
 
     @Query(
         """
@@ -250,14 +265,32 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(
         nativeQuery = true,
         value = """
-        select f.id from food f
+        select f.* from food f
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
         order by rand()
         limit :size
         """,
     )
-    fun findRandomReadyIds(@Param("size") size: Int): List<Long>
+    fun findRandom(@Param("size") size: Int): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.* from food f
+        join (
+            select r.food_id, count(*) as review_count, max(r.id) as latest_review_id
+            from food_review r
+            where r.status = 'ACTIVE'
+            group by r.food_id
+        ) x on x.food_id = f.id
+        where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
+        order by x.review_count desc, x.latest_review_id desc
+        limit :size
+        """,
+    )
+    fun findMostReviewed(@Param("size") size: Int): List<Food>
 
     companion object {
         const val IMAGE_CANDIDATE =

@@ -10,6 +10,7 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
@@ -65,6 +66,12 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var costListener: RecordingLlmCostListener
+
+    @Autowired
+    private lateinit var ingestService: com.kbap.api.admin.AdminFoodContentIngestService
+
+    @Autowired
+    private lateinit var contentOutboxRepository: com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 
     @Autowired
     private lateinit var dataSource: DataSource
@@ -410,6 +417,104 @@ class FoodImageBatchCollectServiceTest : BehaviorSpec() {
 
                     val item = itemRepository.findAll().single()
                     item.fileName shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
+        given("회수 — 재생성 중 재수집 결과가 먼저 반영된 음식") {
+            `when`("재생성 진행 중에 재수집 결과가 반영된 뒤 이미지가 도착하면") {
+                then("상태가 PENDING_IMAGE 로 남아 있어 이미지가 정상 첨부되고 PENDING_REVIEW 로 간다") {
+                    val food = foodRepository.save(savePendingImage("재수집후회수음식").apply { imageRef = "images/webp/food/old.webp" })
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+                    val outbox = contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    ingestService.ingestContent(
+                        outboxId = outbox.id, foodId = food.id, description = "재수집 설명", longDescription = null, spiciness = 1,
+                        nameTranslations = targets, descriptionTranslations = targets, ingredients = listOf(FoodIngredient("SOY", 100)),
+                    )
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_after_ingest")
+                    fakeClient.results["file_after_ingest"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val reloaded = foodRepository.findById(food.id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    reloaded.imageRef shouldBe fakeStorage.heads.keys.single()
+                    reloaded.description shouldBe "재수집 설명"
+                }
+            }
+        }
+
+        given("회수 — 재생성 중 실패 콜백이 먼저 온 음식") {
+            `when`("재생성 진행 중에 재수집 실패 콜백이 온 뒤 이미지가 도착하면") {
+                then("상태가 PENDING_IMAGE 로 남아 있어 이미지가 정상 첨부된다") {
+                    val food = foodRepository.save(savePendingImage("실패콜백후회수음식").apply { imageRef = "images/webp/food/old.webp" })
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+                    val outbox = contentOutboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    ingestService.ingestFailure(outbox.id, food.id, com.kbap.common.domain.food.model.FoodContentFailureKind.JUDGE_REJECTED, "실패")
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_after_failure")
+                    fakeClient.results["file_after_failure"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val reloaded = foodRepository.findById(food.id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                    reloaded.imageRef shouldBe fakeStorage.heads.keys.single()
+                }
+            }
+        }
+
+        given("회수 — 후보 이미지 추가 생성(ADDITIONAL)") {
+            fun readyWithPrimary(name: String): Food {
+                val food = foodRepository.save(
+                    savePendingImage(name).apply {
+                        imageRef = "images/webp/food/primary-$name.webp"
+                        contentStatus = FoodContentStatus.READY
+                    },
+                )
+                foodImageRepository.save(com.kbap.common.domain.food.model.FoodImage.primary(food.id, "images/webp/food/primary-$name.webp"))
+                return food
+            }
+
+            `when`("READY 음식의 추가 생성 항목이 완성돼 도착하면") {
+                then("갤러리 맨 뒤에 비대표로 붙고, 음식 상태·대표·imageRef 는 그대로다") {
+                    val food = readyWithPrimary("추가생성완료")
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.ADDITIONAL))
+                    fakeClient.polls[batch.openaiBatchId!!] = completed("file_additional")
+                    fakeClient.results["file_additional"] = listOf(okResult(food.id))
+
+                    collectService.collectSubmitted()
+
+                    val reloaded = foodRepository.findById(food.id).get()
+                    reloaded.contentStatus shouldBe FoodContentStatus.READY
+                    reloaded.imageRef shouldBe "images/webp/food/primary-추가생성완료.webp"
+                    val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
+                    images.size shouldBe 2
+                    images.first().isPrimary shouldBe true
+                    images.last().isPrimary shouldBe false
+                    images.last().sortOrder shouldBe 1
+                    images.last().imageKey shouldBe fakeStorage.heads.keys.single()
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.DONE
+                    costListener.events.size shouldBe 1
+                }
+            }
+
+            `when`("추가 생성 항목이 실패로 끝나면") {
+                then("음식은 READY·대표 그대로이고 복원 경로도 건드리지 않는다") {
+                    val food = readyWithPrimary("추가생성실패")
+                    val batch = saveSubmittedBatch()
+                    itemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.ADDITIONAL))
+                    fakeClient.polls[batch.openaiBatchId!!] = FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.FAILED, null, null)
+
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(food.id).get().contentStatus shouldBe FoodContentStatus.READY
+                    foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id).size shouldBe 1
+                    itemRepository.findAll().single().itemStatus shouldBe ImageBatchItemStatus.FAILED
                 }
             }
         }

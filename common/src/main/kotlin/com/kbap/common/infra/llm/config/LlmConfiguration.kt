@@ -2,11 +2,13 @@ package com.kbap.common.infra.llm.config
 
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.ReviewTextGenerator
 import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.common.infra.llm.embedding.OpenAiTextEmbeddingClient
 import com.kbap.common.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.common.infra.llm.menu.MenuBoardResultParser
 import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
 import com.kbap.common.infra.llm.model.LlmPricing
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
@@ -45,6 +47,29 @@ class LlmConfiguration {
             configuredModelName = props.model.orEmpty(),
             eventPublisher = eventPublisher,
             retryBudget = props.retryBudget,
+        )
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.review", name = ["enabled"], havingValue = "true")
+    fun reviewTextGenerator(
+        properties: LlmModelProperties,
+        eventPublisher: ApplicationEventPublisher,
+    ): ReviewTextGenerator {
+        val props = properties.review
+        val chatModel = OpenAiChatModel.builder()
+            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+            .build()
+        return OpenAiReviewTextGenerator(
+            chatModel = chatModel,
+            pricing = LlmPricing(
+                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+                usdToKrw = properties.usdToKrw,
+            ),
+            configuredModelName = props.model.orEmpty(),
+            eventPublisher = eventPublisher,
         )
     }
 

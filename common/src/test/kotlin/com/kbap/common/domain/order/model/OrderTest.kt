@@ -55,6 +55,12 @@ class OrderTest : BehaviorSpec({
             }
         }
 
+        `when`("imagePath 가 없으면(null)") {
+            then("사진 없는 주문으로 만들어진다") {
+                Order.create(1L, null, null, null, null).imagePath shouldBe null
+            }
+        }
+
         `when`("imagePath 가 비어 있으면") {
             then("예외를 던진다") {
                 shouldThrow<IllegalArgumentException> {

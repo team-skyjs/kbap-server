@@ -5,6 +5,7 @@ import com.kbap.api.image.ImageUploadService
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.image.model.UploadPurpose
@@ -43,7 +44,10 @@ class OrderService(
     }
 
     private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
-        imageUploadService.verifyImageAccess(memberId, request.imagePath!!)
+        if (UploadedImageJpaRepository.isCleanupTarget(request.imagePath!!)) {
+            throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        }
+        imageUploadService.verifyImageAccess(memberId, request.imagePath)
             ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         if (orderRepository.existsByImagePath(request.imagePath)) {
             throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
@@ -133,7 +137,7 @@ class OrderService(
             roadAddress = order.roadAddress,
             totalQuantity = OrderItem.totalQuantityOf(items),
             totalPrice = OrderItem.totalPriceOf(items),
-            scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+            scanImageUrl = ImageUrls.resolve(imagePublicBaseUrl, order.imagePath),
             place = OrderPlaceResponse.from(order.resolvedPlace),
             items = items.map {
                 val food = foodsById[it.foodId]
@@ -167,7 +171,7 @@ class OrderService(
                 roadAddress = order.roadAddress,
                 totalQuantity = OrderItem.totalQuantityOf(items),
                 thumbnails = items.take(MAX_THUMBNAILS).mapNotNull { userImageUrlOf(it) ?: thumbnailsByFoodId[it.foodId] },
-                scanImageUrl = requireNotNull(ImageUrls.resolve(imagePublicBaseUrl, order.imagePath)),
+                scanImageUrl = ImageUrls.resolve(imagePublicBaseUrl, order.imagePath),
                 place = OrderPlaceResponse.from(order.resolvedPlace),
             )
         }

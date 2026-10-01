@@ -80,6 +80,12 @@ spring:
         speech: none
 
 kbap:
+  # 콘텐츠 아웃박스 — 회수 잡은 batch 프로세스가 돌리고 방치 카운트는 여기(api) 가 센다.
+  # 두 프로세스가 yml 을 따로 읽으므로 같은 환경변수를 양쪽에 매핑해 둔다. 한쪽만 고치면
+  # 잡은 새 기준으로 돌고 대시보드는 옛 기준으로 세면서 양쪽 다 "정상" 으로 보인다.
+  # batch/src/main/resources/application.yml 의 같은 블록과 함께 움직인다.
+  food-content-outbox:
+    stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
   scan:
     # 스캔 예약(무료 슬롯 선점)의 TTL — LLM 최대 타임아웃보다 충분히 길게. 프로세스가 죽어 해제를 못 해도 만료로 슬롯이 복구된다.
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
@@ -113,6 +119,16 @@ kbap:
       api-key: ${OPENAI_API_KEY:}
       model: gpt-5.6-luna
       image-base-url: ${kbap.storage.public-base-url}
+      temperature: 1.0
+      max-retries: 0
+      pricing:
+        input-usd-per-million-tokens: 0.2
+        output-usd-per-million-tokens: 1.2
+    # 리뷰 봇 본문 생성(KB-646) — 비전과 같은 모델·키로 텍스트만 만든다. 봇 작성기(kbap.review-bot)가 켜져 있을 때만 쓰인다.
+    review:
+      enabled: ${REVIEW_BOT_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      model: gpt-5.6-luna
       temperature: 1.0
       max-retries: 0
       pricing:
@@ -165,9 +181,31 @@ kbap:
         max-retries: 3
         initial-delay: 1s
         multiplier: 2.0
+  # 리뷰 봇(KB-646) — 리뷰가 적은 READY 음식에 봇 계정이 매일 min~max 개를 09~22시 KST 정각 틱에 나눠 쓴다.
+  # 하루 목표·시각 배정은 날짜 시드로 정해져 인스턴스(2~4대)가 같은 계획을 본다. 각 틱은 "그 시각까지 누적 목표 − 오늘 쓴 수"만 쓴다(ShedLock).
+  # 기본 꺼짐 — REVIEW_BOT_ENABLED=true 로 스케줄러와 텍스트 생성기가 함께 켜진다. 봇 계정은 POST /api/admin/review-bots.
+  review-bot:
+    enabled: ${REVIEW_BOT_ENABLED:false}
+    min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
+    max-per-day: ${REVIEW_BOT_MAX_PER_DAY:12}
+    # 틱 하나의 시간 예산. 넘기면 남은 후보를 버리고 멈춘다(다음 틱이 누적 목표로 메운다). ShedLock lockAtMostFor(20분)보다 짧아야
+    # 락이 풀린 뒤에도 실행이 이어지는 겹침이 없다 — 예산 + LLM 호출 1회(60초 타임아웃 × 2회 시도)가 20분 안이어야 한다.
+    time-budget: ${REVIEW_BOT_TIME_BUDGET:15m}
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
+  # 미참조 업로드 정리(KB-624) — 리뷰·커뮤니티·문의 용도 중 retention-days 가 지났고 어디에도 참조되지 않은 업로드를 지운다.
+  # 스캔·프로필·목록에 없는 용도는 대상이 아니다(UploadedImageJpaRepository.ORPHAN 허용 목록).
+  # dry-run 기본 true — 배포만으로는 아무것도 지우지 않고 건수만 센다(대시보드 orphanUploadedImageCounts).
+  # 실삭제는 UPLOADED_IMAGE_CLEANUP_DRY_RUN=false 로만 켠다. 켜는 시점은 예진 결정 — 어느 환경에도 기본으로 켜지 않는다.
+  uploaded-image-cleanup:
+    retention-days: ${UPLOADED_IMAGE_CLEANUP_RETENTION_DAYS:7}
+    dry-run: ${UPLOADED_IMAGE_CLEANUP_DRY_RUN:true}
+    page-size: 100
+    # 실행당 시도 상한 — 항목마다 업로드 행 잠금을 쥔 채 S3 삭제(타임아웃 10초)를 하므로,
+    # 최악 100 x 10초 = 약 17분으로 ShedLock lockAtMostFor(30분) 안에 끝난다. 남은 대상은 다음 실행이 이어 간다.
+    max-per-run: ${UPLOADED_IMAGE_CLEANUP_MAX_PER_RUN:100}
+    cron: "0 30 4 * * *"
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).

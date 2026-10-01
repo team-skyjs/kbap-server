@@ -211,6 +211,43 @@ class NotificationInboxTest : BehaviorSpec() {
                 }
             }
 
+            `when`("유형 5종 알림의 data 에 orderId 가 있으면") {
+                then("REVIEW_REMINDER 만 orderId 가 있고 foodId 는 없다") {
+                    val (memberId, token) = login("inbox-order")
+                    val seeded = NotificationType.entries.map { type ->
+                        type to seed(memberId, type.name, type, data = mapOf("orderId" to 12))
+                    }
+
+                    val body = payload(list(token))
+
+                    val byId = body.associateBy { it.path("id").asLong() }
+                    seeded.forEach { (type, notification) ->
+                        val item = byId.getValue(notification.id)
+                        if (type == NotificationType.REVIEW_REMINDER) item.path("orderId").asLong() shouldBe 12L
+                        else item.path("orderId").isNull shouldBe true
+                        item.path("foodId").isNull shouldBe true
+                    }
+                }
+            }
+
+            `when`("REVIEW_REMINDER 의 data 에 orderId 가 없거나 정수가 아니면") {
+                then("orderId 는 null 이고 목록은 정상 응답한다") {
+                    val (memberId, token) = login("inbox-reminder-no-order")
+                    seed(memberId, "no-key", NotificationType.REVIEW_REMINDER, data = mapOf("type" to "REVIEW_REMINDER"))
+                    seed(memberId, "bad-value", NotificationType.REVIEW_REMINDER, data = mapOf("orderId" to "abc"))
+                    seed(memberId, "string-value", NotificationType.REVIEW_REMINDER, data = mapOf("orderId" to "12"))
+
+                    val body = payload(list(token))
+
+                    body.size() shouldBe 3
+                    body.associate { it.path("title").asText() to it.path("orderId") }.let { byTitle ->
+                        byTitle.getValue("no-key").isNull shouldBe true
+                        byTitle.getValue("bad-value").isNull shouldBe true
+                        byTitle.getValue("string-value").asLong() shouldBe 12L
+                    }
+                }
+            }
+
             `when`("다른 회원의 알림이 함께 있으면") {
                 then("본인 알림만 온다") {
                     val (aId, aToken) = login("inbox-a")
@@ -280,10 +317,10 @@ class NotificationInboxTest : BehaviorSpec() {
             }
 
             `when`("REVIEW_REMINDER 알림을 읽음 처리하면") {
-                then("응답에 type 과 foodId 가 목록과 같은 값으로 함께 온다") {
+                then("응답에 type·foodId·orderId 가 목록과 같은 값으로 함께 온다") {
                     val (memberId, token) = login("read-reminder")
-                    val reminder = seed(memberId, "reminder", NotificationType.REVIEW_REMINDER, data = mapOf("foodId" to 7))
-                    val news = seed(memberId, "news", NotificationType.NEWS, data = mapOf("foodId" to 7))
+                    val reminder = seed(memberId, "reminder", NotificationType.REVIEW_REMINDER, data = mapOf("foodId" to 7, "orderId" to 12))
+                    val news = seed(memberId, "news", NotificationType.NEWS, data = mapOf("foodId" to 7, "orderId" to 12))
 
                     val reminderBody = payload(read(token, reminder.id))
                     val newsBody = payload(read(token, news.id))
@@ -291,9 +328,12 @@ class NotificationInboxTest : BehaviorSpec() {
                     reminderBody.path("read").asBoolean() shouldBe true
                     reminderBody.path("type").asText() shouldBe "REVIEW_REMINDER"
                     reminderBody.path("foodId").asLong() shouldBe 7L
+                    reminderBody.path("orderId").asLong() shouldBe 12L
                     newsBody.path("type").asText() shouldBe "NEWS"
                     newsBody.path("foodId").isNull shouldBe true
+                    newsBody.path("orderId").isNull shouldBe true
                     payload(list(token)).first { it.path("id").asLong() == reminder.id }.path("foodId").asLong() shouldBe 7L
+                    payload(list(token)).first { it.path("id").asLong() == reminder.id }.path("orderId").asLong() shouldBe 12L
                 }
             }
 

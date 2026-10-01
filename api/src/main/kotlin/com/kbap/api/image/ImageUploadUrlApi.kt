@@ -22,7 +22,11 @@ interface ImageUploadUrlApi {
             ## 업로드 절차
             1. 이 API 로 `uploadUrl`·`requiredHeaders` 를 받는다.
             2. `uploadUrl` 로 이미지를 PUT 한다 — `requiredHeaders`(Content-Type·Content-Length)를 그대로 실어야 한다(불일치 시 스토리지가 거절).
-            3. 업로드 후 `publicUrl`(또는 `objectKey`)을 백엔드 소비 API 에 전달한다. `publicUrl` 은 만료 없이 표시·조회에 재사용한다.
+            3. `POST /api/images/complete` 로 업로드 완료를 신고한다(`path` = 발급받은 `objectKey`). 서버가 실제 오브젝트를 확인하고
+               업로드 기록을 남긴다.
+            4. 완료 신고 응답의 `path` 를 백엔드 소비 API(스캔·주문·리뷰·게시글·문의·주문 항목 사진·프로필 사진)에 전달한다.
+               **소비 API 는 모두 완료 신고로 생긴 본인 업로드 기록을 요구한다** — 완료 신고 없이 `objectKey` 만 넘기면 거절된다.
+               `publicUrl` 은 만료 없이 표시·조회에 재사용한다.
 
             ## 정책
             용도(purpose)·허용 Content-Type·크기 상한을 발급 단계에서 검증한다. 미지원 용도·형식·크기 초과는 발급을 거절한다.

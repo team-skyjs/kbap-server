@@ -29,10 +29,13 @@ class AdminVectorOutboxController(
         )
 
     @PostMapping("/enqueue")
-    override fun enqueueVectorOutboxes(): ResponseEntity<BaseResponse<AdminVectorOutboxEnqueueResponse>> =
+    override fun enqueueVectorOutboxes(
+        @RequestParam(defaultValue = "false") force: Boolean,
+        @RequestParam(defaultValue = "0") afterFoodId: Long,
+    ): ResponseEntity<BaseResponse<AdminVectorOutboxEnqueueResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                AdminVectorOutboxEnqueueResponse(adminFoodDashboardService.enqueueReadyFoodsForVectorSync()),
+                AdminVectorOutboxEnqueueResponse.from(adminFoodDashboardService.enqueueReadyFoodsForVectorSync(force, afterFoodId)),
             ),
         )
 

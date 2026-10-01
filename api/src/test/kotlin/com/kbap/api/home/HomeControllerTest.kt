@@ -145,6 +145,25 @@ class HomeControllerTest : BehaviorSpec() {
                     recent shouldContainExactly listOf(1L, 2L)
                 }
             }
+
+            `when`("같은 메뉴를 두 번 스캔했으면") {
+                then("최근 스캔 카드의 scannedAt 은 마지막 스캔 시각(UTC)이고, 기존 카드 필드는 그대로이며 다른 섹션 카드엔 scannedAt 이 없다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 2)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = emptyList())
+                    HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-01 10:00:00")
+                    HomeTestSeed.seedScan(dataSource, memberId = 11L, foodId = 1L, scannedAt = "2026-07-03 21:30:15")
+
+                    val payload = payload(11L)
+                    val recent = payload.path("recentScans").single()
+
+                    recent.path("scannedAt").asText() shouldBe
+                        java.time.LocalDateTime.parse("2026-07-03T21:30:15").atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
+                    recent.fieldNames().asSequence().toSet() shouldBe
+                        payload.path("popularFoods").first().fieldNames().asSequence().toSet() + "scannedAt"
+                    recent.path("foodId").asLong() shouldBe 1L
+                    payload.path("popularFoods").forEach { it.has("scannedAt") shouldBe false }
+                }
+            }
         }
 
         given("폐기된 appLanguage 키가 남아 있는 회원") {
