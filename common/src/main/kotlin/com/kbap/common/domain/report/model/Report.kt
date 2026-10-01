@@ -34,6 +34,23 @@ class Report(
 
     @Column(length = MAX_DETAIL_LENGTH)
     val detail: String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "handle_status", nullable = false, length = 20)
+    val handleStatus: ReportHandleStatus = ReportHandleStatus.PENDING,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "handle_result", length = 20)
+    val handleResult: ReportHandleResult? = null,
+
+    @Column(name = "handled_by")
+    val handledBy: Long? = null,
+
+    @Column(name = "handled_at")
+    val handledAt: java.time.LocalDateTime? = null,
+
+    @Column(name = "handle_note", length = MAX_HANDLE_NOTE_LENGTH)
+    val handleNote: String? = null,
 ) : BaseEntity() {
     val reporterLabel: String
         get() = reporterMemberId?.let { "member:$it" }
@@ -42,6 +59,7 @@ class Report(
 
     companion object {
         const val MAX_DETAIL_LENGTH = 500
+        const val MAX_HANDLE_NOTE_LENGTH = 500
         const val MAX_INSTALLATION_ID_LENGTH = 64
         const val GUEST_LABEL_PREFIX = 8
 

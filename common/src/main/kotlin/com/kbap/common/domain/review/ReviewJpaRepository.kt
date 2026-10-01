@@ -20,6 +20,12 @@ interface FoodRatingAggregate {
 }
 
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+    @Query(nativeQuery = true, value = "select * from food_review where id = :id for update")
+    fun findAnyByIdForUpdate(@Param("id") id: Long): Review?
+
+    @Query(nativeQuery = true, value = "select * from food_review where id in (:ids)")
+    fun findAllAnyStatusByIdIn(@Param("ids") ids: Collection<Long>): List<Review>
+
     @Query(
         """
         select r from Review r
