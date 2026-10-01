@@ -22,7 +22,7 @@ class AdminReportService(
     @Transactional(readOnly = true)
     fun getReportPage(handleStatus: ReportHandleStatus, targetType: ReportTargetType?, page: Int, size: Int): AdminReportPageResult {
         val pending = handleStatus == ReportHandleStatus.PENDING
-        val summaries = reportRepository.findTargetSummaries(targetType?.name, pending, size, page * size)
+        val summaries = reportRepository.findTargetSummaries(targetType?.name, pending, size, page.toLong() * size)
         val total = reportRepository.countTargetSummaries(targetType?.name, pending)
         val reportsByTarget = summaries.groupBy { ReportTargetType.valueOf(it.targetType) }
             .flatMap { (type, rows) -> reportRepository.findByTargetTypeAndTargetIdInOrderByIdDesc(type, rows.map { it.targetId }) }

@@ -36,7 +36,7 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
         @Param("targetType") targetType: String?,
         @Param("pending") pending: Boolean,
         @Param("limit") limit: Int,
-        @Param("offset") offset: Int,
+        @Param("offset") offset: Long,
     ): List<ReportTargetSummary>
 
     @Query(
