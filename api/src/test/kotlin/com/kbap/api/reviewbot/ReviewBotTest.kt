@@ -23,6 +23,7 @@ import net.javacrumbs.shedlock.core.LockProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Duration
 import java.time.Instant
@@ -101,6 +102,40 @@ class ReviewBotTest : BehaviorSpec() {
                     count("SELECT COUNT(*) FROM member WHERE is_bot = 1 AND provider_uid NOT LIKE 'review-bot:%' ESCAPE '\\\\'") shouldBe 0
                     count("SELECT COUNT(*) FROM member WHERE is_bot = 1 AND onboarding_completed = 0") shouldBe 0
                     count("SELECT COUNT(*) FROM notification_device d JOIN member m ON m.id = d.member_id WHERE m.is_bot = 1") shouldBe 0
+                }
+            }
+
+            `when`("최대 수(50)까지 만들면") {
+                then("닉네임이 전부 봇 규칙(소문자 사람 이름 + 네 번째 글자 겹침)이고 서로 겹치지 않는다") {
+                    ensure(50).andExpect { status { isOk() } }
+
+                    val nicknames = query("SELECT nickname FROM member WHERE is_bot = 1").map { it.single() as String }
+
+                    nicknames.size shouldBe 50
+                    nicknames.toSet().size shouldBe 50
+                    nicknames.filterNot { Regex("^[a-z]{5,14}$").matches(it) && it[3] == it[4] && it[2] != it[3] } shouldBe emptyList()
+                }
+            }
+
+            `when`("이미 봇이 있는 상태에서 더 만들면") {
+                then("있던 봇의 닉네임은 건너뛴다") {
+                    accountService.ensureBots(30)
+
+                    accountService.ensureBots(50)
+
+                    count("SELECT COUNT(DISTINCT nickname) FROM member WHERE is_bot = 1") shouldBe 50
+                }
+            }
+
+            `when`("api-docs 의 설명을 보면") {
+                then("닉네임을 옛 형식(음식_숫자)이라 적지 않고, 서버가 정하는 사람 이름형 소문자라고만 적는다") {
+                    val description = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                        .readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("paths").path("/api/admin/review-bots").path("post").path("description").asText()
+
+                    description.contains("음식_숫자") shouldBe false
+                    description.contains("사람 이름형 소문자") shouldBe true
+                    description.contains("겹") shouldBe false
                 }
             }
 

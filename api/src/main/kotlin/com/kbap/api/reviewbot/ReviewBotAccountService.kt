@@ -6,6 +6,7 @@ import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
@@ -18,6 +19,7 @@ class ReviewBotAccountService(
     private val memberRepository: MemberJpaRepository,
     transactionManager: PlatformTransactionManager,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     private val creation = TransactionTemplate(transactionManager).apply {
         propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
     }
@@ -36,11 +38,18 @@ class ReviewBotAccountService(
 
     private fun createMissing(count: Int, random: Random): ReviewBotAccountsResult {
         val existing = getBots()
+        val usedNicknames = existing.mapNotNull { it.nickname }.toMutableSet()
         val created = (existing.size until count).map {
+            val countryCode = ReviewBotCountries.pick(random)
+            val nickname = ReviewBotNicknames.pick(countryCode, usedNicknames, random) ?: run {
+                log.warn("리뷰 봇 닉네임 풀이 소진돼 봇을 더 만들 수 없습니다 — 이름 풀을 늘려야 합니다")
+                throw BusinessException(ErrorCode.INVALID_REQUEST)
+            }
+            usedNicknames += nickname
             memberRepository.save(
                 Member.reviewBot(
-                    countryCode = ReviewBotCountries.pick(random),
-                    nickname = OnboardingProfileDefaults.randomNickname(),
+                    countryCode = countryCode,
+                    nickname = nickname,
                     profileImagePath = OnboardingProfileDefaults.randomProfileImagePath(),
                 ),
             )
