@@ -1,5 +1,6 @@
 package com.kbap.api.core.observability
 
+import com.kbap.api.core.GlobalExceptionHandler
 import com.kbap.api.core.LockConflict
 import com.kbap.api.core.logging.MASKED_QUERY_PARAMS
 import com.kbap.api.core.logging.RequestLoggingFilter
@@ -11,16 +12,17 @@ import io.sentry.SentryEvent
 import io.sentry.SentryLevel
 import org.apache.catalina.connector.ClientAbortException
 import org.slf4j.MDC
+import org.springframework.core.annotation.AnnotatedElementUtils
 import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
-import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.stereotype.Component
-import org.springframework.web.ErrorResponse
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver
 
 @Component
 class SentryRequestContextProcessor : EventProcessor {
+
+    private val handlers = ExceptionHandlerMethodResolver(GlobalExceptionHandler::class.java)
 
     override fun process(event: SentryEvent, hint: Hint): SentryEvent? {
         listOf(RequestLoggingFilter.REQUEST_ID_KEY, RequestLoggingFilter.MEMBER_ID_KEY)
@@ -32,9 +34,11 @@ class SentryRequestContextProcessor : EventProcessor {
         val throwable = event.throwable ?: return event
         if (isClientAbort(throwable)) return null
         if (throwable is BusinessException && throwable.expected) return null
-        val ownStatus = ownHandlerStatusOf(throwable)
-        val lockConflict = if (ownStatus == null) LockConflict.of(throwable) else null
-        val status = ownStatus ?: if (lockConflict != null) HttpStatus.CONFLICT.value() else fallbackStatusOf(throwable)
+        val declaredStatus = declaredStatusOf(throwable)
+        val lockConflict = if (declaredStatus == null && throwable !is BusinessException) LockConflict.of(throwable) else null
+        val status = declaredStatus
+            ?: (throwable as? BusinessException)?.errorCode?.status
+            ?: GlobalExceptionHandler.unexpectedStatusOf(throwable).value()
         if (status in 400..499 && lockConflict == null) return null
         event.setTag(HTTP_STATUS_TAG, status.toString())
         if (lockConflict != null) {
@@ -49,15 +53,11 @@ class SentryRequestContextProcessor : EventProcessor {
         return event
     }
 
-    private fun ownHandlerStatusOf(throwable: Throwable): Int? =
-        when (throwable) {
-            is BusinessException -> throwable.errorCode.status
-            is IllegalArgumentException, is HttpMessageNotReadableException, is MethodArgumentTypeMismatchException -> 400
-            else -> null
-        }
-
-    private fun fallbackStatusOf(throwable: Throwable): Int =
-        if (throwable is ErrorResponse) throwable.statusCode.value() else 500
+    private fun declaredStatusOf(throwable: Throwable): Int? =
+        handlers.resolveMethodByThrowable(throwable)
+            ?.let { AnnotatedElementUtils.findMergedAnnotation(it, ResponseStatus::class.java) }
+            ?.code
+            ?.value()
 
     private fun isClientAbort(throwable: Throwable): Boolean =
         causeChain(throwable).any { it is ClientAbortException || it is AsyncRequestNotUsableException }

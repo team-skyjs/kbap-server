@@ -13,6 +13,7 @@ import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
@@ -21,6 +22,7 @@ class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleValidation(
         e: MethodArgumentNotValidException,
         request: HttpServletRequest,
@@ -36,6 +38,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HandlerMethodValidationException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleHandlerMethodValidation(
         e: HandlerMethodValidationException,
         request: HttpServletRequest,
@@ -53,6 +56,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleUnreadable(
         e: HttpMessageNotReadableException,
         request: HttpServletRequest,
@@ -69,6 +73,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleIllegalArgument(
         e: IllegalArgumentException,
         request: HttpServletRequest,
@@ -79,6 +84,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleTypeMismatch(
         e: MethodArgumentTypeMismatchException,
         request: HttpServletRequest,
@@ -107,7 +113,7 @@ class GlobalExceptionHandler {
         // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
         // 500 으로 뭉개면 클라이언트 잘못이 서버 장애로 둔갑하므로 원래 상태를 보존한다.
         if (e is ErrorResponse) {
-            val status = HttpStatus.resolve(e.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+            val status = unexpectedStatusOf(e)
             logFailure(e, ErrorCode.INVALID_REQUEST.code, status, request)
             return ResponseEntity.status(status)
                 .body(BaseResponse.fail(ErrorCode.INVALID_REQUEST.code, ErrorCode.INVALID_REQUEST.message))
@@ -115,6 +121,15 @@ class GlobalExceptionHandler {
         logFailure(e, ErrorCode.INTERNAL_SERVER_ERROR.code, HttpStatus.INTERNAL_SERVER_ERROR, request)
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(BaseResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.code, ErrorCode.INTERNAL_SERVER_ERROR.message))
+    }
+
+    companion object {
+        fun unexpectedStatusOf(e: Throwable): HttpStatus =
+            when {
+                LockConflict.of(e) != null -> HttpStatus.CONFLICT
+                e is ErrorResponse -> HttpStatus.resolve(e.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+                else -> HttpStatus.INTERNAL_SERVER_ERROR
+            }
     }
 
     private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {

@@ -27,7 +27,9 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.test.web.servlet.get
 import org.springframework.validation.BeanPropertyBindingResult
+import org.springframework.context.MessageSourceResolvable
 import org.springframework.validation.method.MethodValidationResult
+import org.springframework.validation.method.ParameterValidationResult
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.method.annotation.HandlerMethodValidationException
@@ -130,6 +132,13 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
         val handledTypes = GlobalExceptionHandler::class.java.declaredMethods
             .flatMap { method -> method.getAnnotation(ExceptionHandler::class.java)?.value?.map { it.java } ?: emptyList() }
             .toSet()
+        val noViolations = object : MethodValidationResult {
+            override fun getTarget(): Any = thrower
+            override fun getMethod(): java.lang.reflect.Method = raise.method!!
+            override fun isForReturnValue(): Boolean = false
+            override fun getParameterValidationResults(): List<ParameterValidationResult> = emptyList()
+            override fun getCrossParameterValidationResults(): List<MessageSourceResolvable> = emptyList()
+        }
         val samples: Map<Class<out Throwable>, (Throwable?) -> Exception> = mapOf(
             MethodArgumentNotValidException::class.java to { wrapped ->
                 object : MethodArgumentNotValidException(raise, BeanPropertyBindingResult(Any(), "target")) {
@@ -137,7 +146,7 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
                 }
             },
             HandlerMethodValidationException::class.java to { wrapped ->
-                object : HandlerMethodValidationException(MethodValidationResult.emptyResult()) {
+                object : HandlerMethodValidationException(noViolations) {
                     override val cause: Throwable? get() = wrapped
                 }
             },
