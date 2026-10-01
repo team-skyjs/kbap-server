@@ -16,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.util.concurrent.Semaphore
+import javax.sql.DataSource
 
 @Service
 class TranslationService(
@@ -23,8 +24,11 @@ class TranslationService(
     private val translationRepository: ContentTranslationJpaRepository,
     private val translatorProvider: ObjectProvider<TextTranslator>,
     transactionManager: PlatformTransactionManager,
-    @Value("\${kbap.translation.max-concurrent-engine-calls:4}") val maxConcurrentEngineCalls: Int,
+    dataSource: DataSource,
+    @Value("\${kbap.translation.max-concurrent-engine-calls:4}") configuredMaxConcurrentEngineCalls: Int,
 ) {
+    val maxConcurrentEngineCalls: Int = configuredMaxConcurrentEngineCalls
+
     private val enginePermits = Semaphore(maxConcurrentEngineCalls)
 
     private val log = LoggerFactory.getLogger(javaClass)

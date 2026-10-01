@@ -299,7 +299,7 @@ class TranslationControllerTest : BehaviorSpec() {
                         }
                     } as ContentTranslationJpaRepository
 
-                    val text = TranslationService(reviewService, failingStore, providerOf(translator), transactionManager, 4)
+                    val text = TranslationService(reviewService, failingStore, providerOf(translator), transactionManager, dataSource, 4)
                         .translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
 
                     text shouldBe "[ko] The broth was rich and so tasty"
@@ -312,7 +312,7 @@ class TranslationControllerTest : BehaviorSpec() {
             `when`("번역을 요청하면") {
                 then("503 TRANSLATION-001 — 스위치를 내려도 앱은 뜨고 번역만 안 된다") {
                     seed()
-                    val service = TranslationService(reviewService, translationRepository, providerOf(null), transactionManager, 4)
+                    val service = TranslationService(reviewService, translationRepository, providerOf(null), transactionManager, dataSource, 4)
 
                     val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
                         service.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
@@ -351,6 +351,16 @@ class TranslationControllerTest : BehaviorSpec() {
                     executor.shutdown()
 
                     translate(visible, lang = "en").status shouldBe 200
+                }
+            }
+
+            `when`("설정한 상한이 풀의 절반보다 크면(운영에서 env 로 상한만 올린 경우)") {
+                then("기동을 막지 않고 풀의 절반으로 낮춘다 — 번역이 풀을 다 쓰지 못한다") {
+                    val poolSize = dataSource.unwrap(com.zaxxer.hikari.HikariDataSource::class.java).maximumPoolSize
+
+                    val service = TranslationService(reviewService, translationRepository, providerOf(translator), transactionManager, dataSource, 100)
+
+                    service.maxConcurrentEngineCalls shouldBe poolSize / 2
                 }
             }
 
