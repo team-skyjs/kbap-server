@@ -219,12 +219,14 @@ data class AdminDashboardMetricsResponse(
     val strandedImageRegenerationCount: Long,
     @field:Schema(
         description = "콘텐츠 수집 요청을 보낸 뒤 기준 시간(기본 24시간) 안에 응답이 오지 않은 건수. " +
-            "다음 배치가 재전송한다. 계속 늘면 수집 파이프라인 쪽을 본다",
+            "다음 배치가 재전송한다(공개(READY) 음식은 재전송하지 않고 포기로 넘긴다). 계속 늘면 수집 파이프라인 쪽을 본다",
         example = "0",
     )
     val contentOutboxStuckCount: Long,
     @field:Schema(
-        description = "재전송 상한에 닿아 포기한 건수. **0 이 정상**이며, 0 이 아니면 last_error 로 원인을 확인하고 고친 뒤 재수집한다",
+        description = "응답 없는 콘텐츠 요청을 포기한 건수. 두 경우를 함께 센다 — 재전송 상한에 닿은 것, 그리고 음식이 이미 " +
+            "공개(READY)라 늦은 결과가 사람의 수정을 덮지 않게 재전송하지 않은 것. **0 이 정상**이며, 0 이 아니면 " +
+            "last_error 로 어느 쪽인지 보고, 상한 도달이면 원인을 고친 뒤, 공개 음식이면 현재 내용을 확인한 뒤 필요할 때 재수집한다",
         example = "0",
     )
     val contentOutboxDeadCount: Long,
