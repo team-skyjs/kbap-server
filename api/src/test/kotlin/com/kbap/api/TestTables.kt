@@ -17,6 +17,7 @@ object TestTables {
         "scan_history",
         "image_batch_item",
         "image_batch",
+        "food_content_draft",
         "food_content_outbox",
         "food_vector_outbox",
         "food_image",

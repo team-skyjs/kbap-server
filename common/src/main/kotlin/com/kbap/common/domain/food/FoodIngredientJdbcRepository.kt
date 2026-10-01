@@ -26,6 +26,12 @@ class FoodIngredientJdbcRepository(
         check(inserted == rows.size) { "food_ingredient 행 수 불일치: foodId=$foodId, 요청=${rows.size}, 저장=$inserted" }
     }
 
+    fun findCatalogCodes(codes: Collection<String>): Set<String> {
+        if (codes.isEmpty()) return emptySet()
+        val placeholders = codes.joinToString(",") { "?" }
+        return jdbcTemplate.queryForList("SELECT code FROM ingredients WHERE code IN ($placeholders)", String::class.java, *codes.toTypedArray()).filterNotNull().toSet()
+    }
+
     fun findByFoodIds(foodIds: Collection<Long>): Map<Long, List<FoodIngredient>> {
         if (foodIds.isEmpty()) return emptyMap()
         val placeholders = foodIds.joinToString(",") { "?" }

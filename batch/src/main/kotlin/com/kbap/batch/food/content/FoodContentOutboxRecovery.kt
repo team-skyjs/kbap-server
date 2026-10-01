@@ -39,8 +39,8 @@ class FoodContentOutboxRecovery(
                     dead += outboxRepository.markDeadIfStillStale(
                         outbox.id,
                         before,
-                        "응답 없이 ${staleAfter.toHours()}시간 초과 — 공개(READY) 음식은 늦은 결과가 그 사이 사람의 수정을 " +
-                            "덮을 수 있어 자동 재전송하지 않는다. 필요하면 어드민이 내용을 확인한 뒤 재수집",
+                        "응답 없이 ${staleAfter.toHours()}시간 초과 — 공개(READY) 음식의 묵은 요청은 자동 재전송하지 않는다" +
+                            "(결과는 검수 초안이 되지만 묵은 요청에 유료 호출을 다시 쓰지 않는다). 필요하면 어드민이 재수집",
                     )
                 } else if (outbox.attempts >= maxAttempts) {
                     dead += outboxRepository.markDeadIfStillStale(
