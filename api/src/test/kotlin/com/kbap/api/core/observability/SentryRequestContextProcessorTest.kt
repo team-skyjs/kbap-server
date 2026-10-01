@@ -96,6 +96,16 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
                 )
             }
 
+            then("다른 예외에 감싸여 있어도 응답과 같은 쪽을 따른다 — 응답이 409 면 태그도 409, 응답이 감싼 예외의 상태면 이벤트도 그쪽 규칙이다") {
+                verify(
+                    listOf(
+                        Case("잠금 실패를 감싼 스프링 MVC 예외", ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "wrapped", lockWaitTimeout), 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("교착을 감싼 스프링 MVC 예외", ResponseStatusException(HttpStatus.BAD_REQUEST, "wrapped", deadlock), 409, Level.ERROR, SentryLevel.ERROR),
+                        Case("교착을 감싼 잘못된 인자", IllegalArgumentException("wrapped", deadlock), 400, Level.WARN, null),
+                    ),
+                )
+            }
+
             then("이벤트에 잠금 충돌 종류 태그가 붙는다 — 알림 규칙이 교착만 골라 잡을 수 있다") {
                 eventOf(deadlock)?.getTag("lock.conflict") shouldBe "deadlock"
                 eventOf(lockWaitTimeout)?.getTag("lock.conflict") shouldBe "lock_wait"
