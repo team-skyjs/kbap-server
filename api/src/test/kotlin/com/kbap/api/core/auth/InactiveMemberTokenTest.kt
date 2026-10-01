@@ -126,6 +126,23 @@ class InactiveMemberTokenTest : BehaviorSpec() {
             }
         }
 
+        given("관리자 경로에 일반 회원 토큰") {
+            `when`("탈퇴한 회원의 토큰으로 관리자 API 를 부르면") {
+                then("회원 확인을 건너뛰고 종전대로 403 AUTH-008 이다 — 관리자가 아니라는 답이 더 정확하다") {
+                    seed()
+                    withdraw(actor)
+
+                    val response = mockMvc.perform(
+                        MockMvcRequestBuilders.get("/api/admin/dashboard/metrics")
+                            .header("X-API-Version", "1.0")
+                            .header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(actor, MemberRole.USER)}"),
+                    ).andReturn().response
+
+                    response.status shouldBe 403
+                }
+            }
+        }
+
         given("탈퇴 회원의 기기에서 온 로그아웃") {
             `when`("호출하면") {
                 then("인증 필터 대상이 아니라 종전대로 200 이다 — 기기 연결 해제는 해롭지 않다") {

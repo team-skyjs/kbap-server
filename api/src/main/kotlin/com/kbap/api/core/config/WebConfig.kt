@@ -135,6 +135,7 @@ class WebConfig(
                     ),
                 ),
                 isActiveMember = { memberRepository.existsByIdAndMemberStatus(it, MemberStatus.ACTIVE) },
+                activeMemberCheckExempt = Regex("^${ApiPaths.ADMIN}/.*"),
             ),
         ).apply {
             addUrlPatterns(
