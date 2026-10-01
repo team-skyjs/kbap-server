@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 @Service
 class AdminFoodService(
@@ -150,15 +151,18 @@ class AdminFoodService(
             ?.let(::detailOf)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
-    private fun detailOf(food: Food): AdminFoodDetailResponse =
-        AdminFoodDetailResponse.from(
+    private fun detailOf(food: Food): AdminFoodDetailResponse {
+        val inFlight = outboxRepository.findInFlightRequests(listOf(food.id))
+        return AdminFoodDetailResponse.from(
             food,
             imagePublicBaseUrl,
             humanReviewService.humanReviewOf(food),
             regenerationStateResolver.of(food.id),
             regenerationStateResolver.isAdditionalInProgress(food.id),
-            contentRequestPending = outboxRepository.findInFlightRequests(listOf(food.id)).isNotEmpty(),
+            contentRequestPending = inFlight.isNotEmpty(),
+            contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
         )
+    }
 
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {

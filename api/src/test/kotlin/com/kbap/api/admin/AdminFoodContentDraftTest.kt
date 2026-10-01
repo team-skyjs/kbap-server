@@ -492,6 +492,19 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
             }
         }
 
+        given("어드민 음식 상세 문서") {
+            `when`("contentRequestPending·contentRequestSince 설명을 보면") {
+                then("삭제된 음식은 항상 false·굳은 SENT 도 true 이고, since 는 같은 판정의 가장 최근 요청 생성 시각이라고 적혀 있다") {
+                    val properties = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("components").path("schemas").path("AdminFoodDetailResponse").path("properties")
+                    val pending = properties.path("contentRequestPending").path("description").asText()
+                    pending.contains("삭제된 음식은 항상 false") shouldBe true
+                    pending.contains("굳은 SENT(24시간 회수 전)도 true") shouldBe true
+                    properties.path("contentRequestSince").path("description").asText().contains("가장 최근 요청의 생성 시각") shouldBe true
+                }
+            }
+        }
+
         given("초안 엔티티") {
             `when`("맵기가 범위(-1~10) 밖이면") {
                 then("만들 때 거절한다 — food 의 CHECK 제약에서 승인 시점에 터지지 않게") {

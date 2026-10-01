@@ -121,6 +121,75 @@ class AdminFoodRecollectTest : BehaviorSpec() {
             `when`("콘텐츠 요청이 없으면") { then("false") { detailPending(null) shouldBe false } }
         }
 
+        given("어드민 음식 상세의 contentRequestSince") {
+            fun at(minutesAgo: Long) = java.time.LocalDateTime.now().minusMinutes(minutesAgo).withNano(0)
+
+            fun outboxAt(food: Food, createdAt: java.time.LocalDateTime, update: String? = null): FoodContentOutbox {
+                val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                dataSource.connection.use { c ->
+                    c.createStatement().use {
+                        it.execute("UPDATE food_content_outbox SET created_at = '$createdAt'${update?.let { u -> ", $u" } ?: ""} WHERE id = ${outbox.id}")
+                    }
+                }
+                return outbox
+            }
+
+            fun sinceOf(food: Food) = adminFoodService.getFoodDetail(food.id).contentRequestSince
+
+            fun instantOf(time: java.time.LocalDateTime) = time.atZone(java.time.ZoneId.systemDefault()).toInstant()
+
+            `when`("처리 중인 요청이 없으면") {
+                then("null") {
+                    clearFoods()
+                    sinceOf(saveFood("시작없음")) shouldBe null
+                }
+            }
+
+            `when`("발행 대기(PENDING) 요청이 있으면") {
+                then("그 요청의 생성 시각") {
+                    clearFoods()
+                    val food = saveFood("시작대기")
+                    val created = at(7)
+                    outboxAt(food, created)
+                    sinceOf(food) shouldBe instantOf(created)
+                }
+            }
+
+            `when`("보냄(SENT) 요청이 있으면") {
+                then("그 요청의 생성 시각 — 보낸 시각이 아니다") {
+                    clearFoods()
+                    val food = saveFood("시작보냄")
+                    val created = at(30)
+                    outboxAt(food, created, "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
+                    sinceOf(food) shouldBe instantOf(created)
+                }
+            }
+
+            `when`("요청이 여러 개 쌓였으면") {
+                then("가장 최근 요청의 생성 시각") {
+                    clearFoods()
+                    val food = saveFood("시작여럿")
+                    val now = java.time.LocalDateTime.now().withNano(0)
+                    val newest = now.minusMinutes(5)
+                    outboxAt(food, now.minusMinutes(40), "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1")
+                    outboxAt(food, newest)
+                    sinceOf(food) shouldBe instantOf(newest)
+                }
+            }
+
+            `when`("요청이 완료됐거나 포기(dead)됐으면") {
+                then("null — 진행 중 요청만 본다") {
+                    clearFoods()
+                    val done = saveFood("시작완료")
+                    outboxAt(done, at(10), "outbox_status = 'COMPLETE'")
+                    val dead = saveFood("시작포기")
+                    outboxAt(dead, at(10), "outbox_status = 'SENT', sent_at = NOW(6), attempts = 5, dead_at = NOW(6), last_error = '테스트 포기'")
+                    sinceOf(done) shouldBe null
+                    sinceOf(dead) shouldBe null
+                }
+            }
+        }
+
         given("재생성이 음식 행을 잠그고 시작되는 동안 들어온 재수집") {
             `when`("일괄 재수집이 그 음식을 대상으로 잡고 잠금을 기다리면") {
                 then("잠금 뒤에 커밋된 재생성을 보고 건너뛴다 — 잠금이 그 음식 트랜잭션의 첫 DB 연산이라 옛 스냅샷으로 판정하지 않는다") {
