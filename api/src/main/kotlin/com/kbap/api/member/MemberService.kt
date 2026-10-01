@@ -108,16 +108,20 @@ class MemberService(
 
     fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
         findByIdentity(identity)?.let { return it to false }
-        if (memberRepository.existsByProviderAndProviderUidAndMemberStatus(identity.provider, identity.providerUserId, MemberStatus.SUSPENDED)) {
-            throw BusinessException(ErrorCode.MEMBER_SUSPENDED_LOGIN)
-        }
+        rejectIfSuspended(identity)
 
         return try {
             memberRepository.save(Member.signUp(identity)) to true
         } catch (e: DataIntegrityViolationException) {
-            val existing = findByIdentity(identity)
-                ?: throw BusinessException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
-            existing to false
+            findByIdentity(identity)?.let { return it to false }
+            rejectIfSuspended(identity)
+            throw BusinessException(ErrorCode.DUPLICATE_SOCIAL_IDENTITY)
+        }
+    }
+
+    private fun rejectIfSuspended(identity: SocialIdentity) {
+        if (memberRepository.existsByProviderAndProviderUidAndMemberStatus(identity.provider, identity.providerUserId, MemberStatus.SUSPENDED)) {
+            throw BusinessException(ErrorCode.MEMBER_SUSPENDED_LOGIN)
         }
     }
 
