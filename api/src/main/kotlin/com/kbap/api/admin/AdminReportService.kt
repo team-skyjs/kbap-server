@@ -81,7 +81,7 @@ class AdminReportService(
         adminAccountId: Long,
     ): AdminReportHandleResult {
         val contentDeleted = result == ReportHandleResult.CONTENT_DELETED && deleteContent(targetType, targetId)
-        val pending = reportRepository.findPendingOfTargetForUpdate(targetType, targetId)
+        val pending = reportRepository.findPendingOfTargetForUpdate(targetType.name, targetId)
         if (pending.isEmpty()) throw BusinessException(ErrorCode.REPORT_ALREADY_HANDLED)
         val now = LocalDateTime.now()
         pending.forEach { it.handle(result, adminAccountId, now, note) }

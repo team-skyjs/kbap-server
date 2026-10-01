@@ -244,7 +244,6 @@ class AdminReportControllerTest : BehaviorSpec() {
 
                     val second = handleTarget("DISMISSED")
                     first.get(30, TimeUnit.SECONDS)
-
                     second.status shouldBe 409
                     body(second).path("code").asText() shouldBe "REPORT-006"
                     scalar("SELECT COUNT(*) FROM report WHERE handle_result = 'CONTENT_DELETED'") shouldBe "4"
@@ -280,13 +279,14 @@ class AdminReportControllerTest : BehaviorSpec() {
 
         given("처리 대상 잠금 질의") {
             `when`("실행 계획을 보면") {
-                then("(target_type, target_id) 인덱스로 그 대상 행만 잠근다 — 전체 스캔이 아니다") {
+                then("(target_type, target_id) 인덱스로 그 대상 행만 잠근다 — 처리가 바꾸는 handle_status 인덱스로 잠그면 동시 처리끼리 교착한다") {
                     seed()
                     seedFourReports()
                     val plan = dataSource.connection.use { c ->
                         c.createStatement().use { s ->
                             s.executeQuery(
-                                "EXPLAIN SELECT * FROM report WHERE target_type = 'REVIEW' AND target_id = $review AND handle_status = 'PENDING' AND status = 'ACTIVE' ORDER BY id FOR UPDATE",
+                                "EXPLAIN SELECT * FROM report FORCE INDEX (idx_report_target) WHERE target_type = 'REVIEW' AND target_id = $review " +
+                                    "AND handle_status = 'PENDING' AND status = 'ACTIVE' FOR UPDATE",
                             ).use { rs -> rs.next(); rs.getString("key") }
                         }
                     }

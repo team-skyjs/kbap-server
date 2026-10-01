@@ -1,10 +1,8 @@
 package com.kbap.common.domain.report
 
-import jakarta.persistence.LockModeType
 import com.kbap.common.domain.report.model.Report
 import com.kbap.common.domain.report.model.ReportTargetType
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -56,17 +54,17 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
 
     fun findByTargetTypeAndTargetIdInOrderByIdDesc(targetType: ReportTargetType, targetIds: Collection<Long>): List<Report>
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
-        """
-        select r from Report r
-        where r.targetType = :targetType and r.targetId = :targetId
-          and r.handleStatus = com.kbap.common.domain.report.model.ReportHandleStatus.PENDING
-        order by r.id
+        nativeQuery = true,
+        value = """
+            select * from report force index (idx_report_target)
+            where target_type = :targetType and target_id = :targetId
+              and handle_status = 'PENDING' and status = 'ACTIVE'
+            for update
         """,
     )
     fun findPendingOfTargetForUpdate(
-        @Param("targetType") targetType: ReportTargetType,
+        @Param("targetType") targetType: String,
         @Param("targetId") targetId: Long,
     ): List<Report>
 }

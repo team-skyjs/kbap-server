@@ -9,7 +9,13 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.Check
 
 @Entity
-@Table(name = "report")
+@Table(
+    name = "report",
+    indexes = [
+        jakarta.persistence.Index(name = "idx_report_handle_status", columnList = "handle_status, id"),
+        jakarta.persistence.Index(name = "idx_report_target", columnList = "target_type, target_id"),
+    ],
+)
 @Check(
     name = "ck_report_reporter_at_least_one",
     constraints = "reporter_member_id is not null or reporter_installation_id is not null",
