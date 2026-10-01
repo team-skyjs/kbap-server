@@ -23,6 +23,7 @@ class UploadedImageCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.page-size:100}") private val pageSize: Int,
     @Value("\${kbap.uploaded-image-cleanup.max-per-run:100}") private val maxPerRun: Int,
     transactionManager: PlatformTransactionManager,
+    private val metrics: UploadCleanupMetrics,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)

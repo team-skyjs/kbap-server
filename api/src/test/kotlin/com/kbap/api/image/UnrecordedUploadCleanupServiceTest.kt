@@ -11,7 +11,9 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.doubles.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Duration
 import java.time.Instant
@@ -49,7 +51,21 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             maxDeletes: Int = 100,
             maxListed: Int = 20_000,
             repository: UploadedImageJpaRepository = uploadedImageRepository,
-        ) = UnrecordedUploadCleanupService(repository, storage, redisTemplate, properties(), dryRun, retentionDays, maxDeletes, maxListed)
+            meters: SimpleMeterRegistry = SimpleMeterRegistry(),
+        ) = UnrecordedUploadCleanupService(
+            repository,
+            storage,
+            redisTemplate,
+            properties(),
+            dryRun,
+            retentionDays,
+            maxDeletes,
+            maxListed,
+            UploadCleanupMetrics(meters),
+        )
+
+        fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
+            meters.find(UploadCleanupMetrics.NAME).tags("job", "unrecorded", "purpose", purpose, "kind", kind).gauge()?.value()
 
         fun repositoryThatRecordsAfterPageCheck(path: String): UploadedImageJpaRepository =
             java.lang.reflect.Proxy.newProxyInstance(
@@ -205,6 +221,28 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("dry-run 실행을 메트릭으로 보면") {
+                then("용도별 목록·행 없음·후보·참조돼 남김 건수와 마지막 실행 시각이 게이지로 남는다") {
+                    reset()
+                    stored("local/images/scans/2026/09/1_a.webp")
+                    stored("local/images/orders/2026/09/1_b.webp")
+                    stored("local/images/orders/2026/09/1_c.webp")
+                    stored("local/images/profile/2026/09/${memberId}_d.webp")
+                    exec("UPDATE member SET profile_image_url = 'local/images/profile/2026/09/${memberId}_d.webp' WHERE id = $memberId")
+                    val meters = SimpleMeterRegistry()
+
+                    service(dryRun = true, meters = meters).cleanup()
+
+                    gauge(meters, "scans", "candidate") shouldBe 1.0
+                    gauge(meters, "orders", "listed") shouldBe 2.0
+                    gauge(meters, "orders", "unrecorded") shouldBe 2.0
+                    gauge(meters, "orders", "candidate") shouldBe 2.0
+                    gauge(meters, "profile", "kept_referenced") shouldBe 1.0
+                    gauge(meters, "all", "deleted") shouldBe 0.0
+                    meters.find(UploadCleanupMetrics.LAST_RUN).tags("job", "unrecorded").gauge()!!.value() shouldBeGreaterThan 0.0
+                }
+            }
+
             `when`("한 페이지 안의 대상이 실행당 삭제 상한보다 많으면") {
                 then("상한까지만 지우고 커서를 마지막으로 처리한 키에 둬, 다음 실행이 같은 페이지의 남은 대상부터 이어 간다") {
                     reset()
@@ -285,7 +323,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                     try {
                         val broken = org.springframework.data.redis.core.StringRedisTemplate(unreachable)
 
-                        val result = UnrecordedUploadCleanupService(uploadedImageRepository, storage, broken, properties(), false, 7, 100, 20_000).cleanup()
+                        val result = UnrecordedUploadCleanupService(uploadedImageRepository, storage, broken, properties(), false, 7, 100, 20_000, UploadCleanupMetrics(SimpleMeterRegistry())).cleanup()
 
                         result.deletedCount shouldBe 1
                     } finally {
@@ -347,9 +385,9 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             `when`("보존 기간이 presigned 유효기간 + 완료 신고 여유보다 길지 않으면") {
                 then("기동하지 않는다 — 그 안에는 새 PUT·완료 신고가 올 수 있어 행 없음이 '버려짐'을 뜻하지 않는다") {
                     shouldThrow<IllegalStateException> {
-                        UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 1, 100, 100)
+                        UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 1, 100, 100, UploadCleanupMetrics(SimpleMeterRegistry()))
                     }
-                    UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 2, 100, 100)
+                    UnrecordedUploadCleanupService(uploadedImageRepository, storage, redisTemplate, properties(uploadTtl = Duration.ofMinutes(5)), true, 2, 100, 100, UploadCleanupMetrics(SimpleMeterRegistry()))
                 }
             }
         }

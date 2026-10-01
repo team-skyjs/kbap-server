@@ -288,6 +288,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                 100,
                 100,
                 transactionManager,
+                com.kbap.api.image.UploadCleanupMetrics(io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
             ) {
                 var countQueries = 0
 

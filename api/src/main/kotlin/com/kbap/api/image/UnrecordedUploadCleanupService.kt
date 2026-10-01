@@ -23,6 +23,7 @@ class UnrecordedUploadCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-retention-days:7}") private val retentionDays: Long,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-deletes-per-run:100}") private val maxDeletesPerRun: Int,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-listed-per-run:20000}") private val maxListedPerRun: Int,
+    private val metrics: UploadCleanupMetrics,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val retention: Duration = Duration.ofDays(retentionDays)
