@@ -67,11 +67,17 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
         }
 
         `when`("심각도를 정하면") {
-            then("재시도로 회복되는 교착·낙관 충돌은 warning, 잠금을 오래 쥔 대기 초과는 error 다 — 프로세스가 죽은 것(fatal)이 아니다") {
-                eventOf(deadlock)?.level shouldBe SentryLevel.WARNING
-                eventOf(OptimisticLockingFailureException("optimistic"))?.level shouldBe SentryLevel.WARNING
+            then("비관 잠금 실패(교착 희생자 포함)는 error 다 — 교착은 재시도로 회복되지만 구조 결함의 신호라 알림을 유지한다") {
+                eventOf(deadlock)?.level shouldBe SentryLevel.ERROR
                 eventOf(lockWaitTimeout)?.level shouldBe SentryLevel.ERROR
                 eventOf(PessimisticLockingFailureException("pessimistic"))?.level shouldBe SentryLevel.ERROR
+                eventOf(IllegalStateException(PessimisticLockException()))?.level shouldBe SentryLevel.ERROR
+                eventOf(IllegalStateException(LockTimeoutException()))?.level shouldBe SentryLevel.ERROR
+            }
+
+            then("낙관 충돌은 warning 이다 — 동시 수정의 정상적인 결말이다") {
+                eventOf(OptimisticLockingFailureException("optimistic"))?.level shouldBe SentryLevel.WARNING
+                eventOf(IllegalStateException(OptimisticLockException()))?.level shouldBe SentryLevel.WARNING
             }
         }
     }
