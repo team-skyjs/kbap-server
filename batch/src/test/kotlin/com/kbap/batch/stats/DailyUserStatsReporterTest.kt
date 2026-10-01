@@ -181,7 +181,7 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
                 then("dev 는 끄고 prod·기본은 켠다") {
                     fun propertyOf(file: String): Any? =
                         org.springframework.beans.factory.config.YamlPropertiesFactoryBean().apply {
-                            setResources(org.springframework.core.io.ClassPathResource(file))
+                            setResources(org.springframework.core.io.FileSystemResource("src/main/resources/$file"))
                         }.getObject()!!["kbap.batch.user-stats.enabled"]
 
                     propertyOf("application-dev.yml") shouldBe false
