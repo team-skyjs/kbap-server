@@ -23,6 +23,7 @@ class UploadedImageCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.page-size:100}") private val pageSize: Int,
     @Value("\${kbap.uploaded-image-cleanup.max-per-run:100}") private val maxPerRun: Int,
     transactionManager: PlatformTransactionManager,
+    private val metrics: UploadCleanupMetrics,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
@@ -38,7 +39,7 @@ class UploadedImageCleanupService(
         if (dryRun) {
             val counts = refreshOrphanCounts()
             log.info("미참조 업로드 정리 dry-run — 삭제 대상 {}", counts?.counts)
-            return UploadedImageCleanupResult(dryRun = true, deletedCount = 0, failedCount = 0)
+            return recordRun(UploadedImageCleanupResult(dryRun = true, deletedCount = 0, failedCount = 0))
         }
         var deleted = 0
         var failed = 0
@@ -66,7 +67,14 @@ class UploadedImageCleanupService(
             log.info("미참조 업로드 정리 — 실행당 상한 {}건에 닿았다. 남은 대상은 다음 실행에서 이어 간다", maxPerRun)
         }
         refreshOrphanCounts()
-        return UploadedImageCleanupResult(dryRun = false, deletedCount = deleted, failedCount = failed)
+        return recordRun(UploadedImageCleanupResult(dryRun = false, deletedCount = deleted, failedCount = failed))
+    }
+
+    private fun recordRun(result: UploadedImageCleanupResult): UploadedImageCleanupResult {
+        metrics.record(UploadCleanupMetrics.RECORDED, UploadCleanupMetrics.ALL_PURPOSES, "deleted", result.deletedCount.toLong())
+        metrics.record(UploadCleanupMetrics.RECORDED, UploadCleanupMetrics.ALL_PURPOSES, "failed", result.failedCount.toLong())
+        metrics.markRun(UploadCleanupMetrics.RECORDED)
+        return result
     }
 
     @Async
@@ -81,6 +89,12 @@ class UploadedImageCleanupService(
         latestOrphanCounts = runCatching { OrphanUploadCounts(countTransaction.execute { countOrphansIn(before) }!!, LocalDateTime.now()) }
             .onFailure { log.warn("미참조 업로드 건수를 세지 못했다 — 최근값을 비운다", it) }
             .getOrNull()
+        val counts = latestOrphanCounts?.counts
+        if (counts == null) {
+            metrics.invalidate(UploadCleanupMetrics.RECORDED, "candidate")
+        } else {
+            counts.forEach { (purpose, count) -> metrics.record(UploadCleanupMetrics.RECORDED, purpose, "candidate", count) }
+        }
         return latestOrphanCounts
     }
 

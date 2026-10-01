@@ -23,6 +23,7 @@ class UnrecordedUploadCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-retention-days:7}") private val retentionDays: Long,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-deletes-per-run:100}") private val maxDeletesPerRun: Int,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-listed-per-run:20000}") private val maxListedPerRun: Int,
+    private val metrics: UploadCleanupMetrics,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val retention: Duration = Duration.ofDays(retentionDays)
@@ -120,6 +121,7 @@ class UnrecordedUploadCleanupService(
         }
         saveCursor(cursor)
         val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped, skippedStuck)
+        recordRun(result)
         if (dryRun) {
             log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위), 경과했지만 참조됨} {}", counts)
         } else if (failed > 0) {
@@ -133,6 +135,22 @@ class UnrecordedUploadCleanupService(
             log.info("행 없는 업로드 오브젝트 정리 — {} 에서 멈췄다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다", stopReason, cursor)
         }
         return result
+    }
+
+    private fun recordRun(result: UnrecordedUploadCleanupResult) {
+        val job = UploadCleanupMetrics.UNRECORDED
+        PER_RUN_KINDS.forEach { metrics.invalidate(job, it) }
+        result.counts.forEach { (purpose, count) ->
+            metrics.record(job, purpose, "listed", count.listed.toLong())
+            metrics.record(job, purpose, "unrecorded", count.unrecorded.toLong())
+            metrics.record(job, purpose, "candidate_in_run", count.stale.toLong())
+            metrics.record(job, purpose, "kept_referenced", count.staleReferenced.toLong())
+        }
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "deleted", result.deletedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "failed", result.failedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "skipped", result.skippedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "skipped_stuck", result.skippedStuckCount.toLong())
+        metrics.markRun(job)
     }
 
     private fun loadCursor(): Cursor =
@@ -188,6 +206,7 @@ class UnrecordedUploadCleanupService(
     companion object {
         const val CURSOR_KEY = "upload-cleanup:cursor"
         const val MAX_CONSECUTIVE_FAILURES = 3
+        private val PER_RUN_KINDS = listOf("listed", "unrecorded", "candidate_in_run", "kept_referenced")
         private const val LIST_PAGE_SIZE = 1000
 
         fun uploadPrefixes(keyPrefix: String): Map<UploadPurpose, String> {

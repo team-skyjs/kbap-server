@@ -7,6 +7,8 @@ import com.kbap.common.domain.image.model.UploadPurpose
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.doubles.shouldBeGreaterThan
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -42,8 +44,18 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         val foodId = 7101L
         val storage = FakeStorageObjectStore()
 
-        fun cleanupService(dryRun: Boolean = false, pageSize: Int = 100, maxPerRun: Int = 100) =
-            UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager)
+        fun cleanupService(
+            dryRun: Boolean = false,
+            pageSize: Int = 100,
+            maxPerRun: Int = 100,
+            meters: SimpleMeterRegistry = SimpleMeterRegistry(),
+        ) = UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager, UploadCleanupMetrics(meters))
+
+        fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
+            meters.find(UploadCleanupMetrics.NAME).tags("cleanup", "recorded", "purpose", purpose, "kind", kind).gauge()?.value()
+
+        fun lastRun(meters: SimpleMeterRegistry): Double? =
+            meters.find(UploadCleanupMetrics.LAST_RUN).tags("cleanup", "recorded").gauge()?.value()
 
         fun exec(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
@@ -291,6 +303,63 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L, "orders" to 0L)
                     activePaths().size shouldBe 3
                     storage.deleted.shouldBeEmpty()
+                }
+            }
+
+            `when`("dry-run 실행을 메트릭으로 보면") {
+                then("용도별 후보 건수와 마지막 실행 시각이 게이지로 남는다 — 로그 없이 Grafana 에서 본다") {
+                    reset()
+                    upload("dev/images/review/r1.webp")
+                    upload("dev/images/review/r2.webp")
+                    upload("dev/images/orders/o1.webp")
+                    val meters = SimpleMeterRegistry()
+
+                    cleanupService(dryRun = true, meters = meters).cleanup()
+
+                    gauge(meters, "review", "candidate") shouldBe 2.0
+                    gauge(meters, "orders", "candidate") shouldBe 1.0
+                    gauge(meters, "community", "candidate") shouldBe 0.0
+                    lastRun(meters)!! shouldBeGreaterThan 0.0
+                }
+            }
+
+            `when`("건수 갱신이 성공한 뒤 다음 갱신이 실패하면") {
+                then("후보 게이지를 NaN 으로 비운다 — 옛 건수를 지금 값처럼 내보내지 않는다") {
+                    reset()
+                    upload("dev/images/review/r1.webp")
+                    val meters = SimpleMeterRegistry()
+                    var fail = false
+                    val service = object : UploadedImageCleanupService(
+                        uploadedImageRepository, storage, 7, true, 100, 100, transactionManager, UploadCleanupMetrics(meters),
+                    ) {
+                        override fun countOrphansIn(before: java.time.LocalDateTime): Map<String, Long> =
+                            if (fail) throw IllegalStateException("테스트 — 건수 질의 실패") else super.countOrphansIn(before)
+                    }
+                    service.refreshOrphanCounts()
+                    gauge(meters, "review", "candidate") shouldBe 1.0
+
+                    fail = true
+                    service.refreshOrphanCounts()
+
+                    gauge(meters, "review", "candidate")!!.isNaN() shouldBe true
+                    gauge(meters, "community", "candidate")!!.isNaN() shouldBe true
+                }
+            }
+
+            `when`("삭제 실행을 메트릭으로 보면") {
+                then("삭제·실패 건수와 남은 후보 0 이 남는다 — 대상 0건과 '안 돌았다'를 마지막 실행 시각으로 가른다") {
+                    reset()
+                    upload("dev/images/community/c1.webp")
+                    val meters = SimpleMeterRegistry()
+                    val service = cleanupService(meters = meters)
+
+                    lastRun(meters) shouldBe null
+                    service.cleanup()
+
+                    gauge(meters, "all", "deleted") shouldBe 1.0
+                    gauge(meters, "all", "failed") shouldBe 0.0
+                    gauge(meters, "community", "candidate") shouldBe 0.0
+                    lastRun(meters)!! shouldBeGreaterThan 0.0
                 }
             }
 
