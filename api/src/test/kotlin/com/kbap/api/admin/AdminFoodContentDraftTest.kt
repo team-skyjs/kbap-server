@@ -486,6 +486,8 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                         description.contains("실패(passed=false)") shouldBe true
                     }
                     single.contains("pendingDraft") shouldBe true
+                    single.windowed("이미지 재생성 중이면 상태 유지".length).count { it == "이미지 재생성 중이면 상태 유지" } shouldBe 2
+                    bulk.contains("그 외는 FAILED(이미지 재생성 중이면 상태 유지)") shouldBe true
                 }
             }
         }
