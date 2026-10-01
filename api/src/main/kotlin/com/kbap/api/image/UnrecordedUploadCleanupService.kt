@@ -121,6 +121,7 @@ class UnrecordedUploadCleanupService(
         }
         saveCursor(cursor)
         val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped, skippedStuck)
+        recordRun(result)
         if (dryRun) {
             log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위), 경과했지만 참조됨} {}", counts)
         } else if (failed > 0) {
@@ -134,6 +135,21 @@ class UnrecordedUploadCleanupService(
             log.info("행 없는 업로드 오브젝트 정리 — {} 에서 멈췄다. 커서 {} 를 저장했고 다음 실행이 그 뒤부터 이어 본다", stopReason, cursor)
         }
         return result
+    }
+
+    private fun recordRun(result: UnrecordedUploadCleanupResult) {
+        val job = UploadCleanupMetrics.UNRECORDED
+        result.counts.forEach { (purpose, count) ->
+            metrics.record(job, purpose, "listed", count.listed.toLong())
+            metrics.record(job, purpose, "unrecorded", count.unrecorded.toLong())
+            metrics.record(job, purpose, "candidate", count.stale.toLong())
+            metrics.record(job, purpose, "kept_referenced", count.staleReferenced.toLong())
+        }
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "deleted", result.deletedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "failed", result.failedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "skipped", result.skippedCount.toLong())
+        metrics.record(job, UploadCleanupMetrics.ALL_PURPOSES, "skipped_stuck", result.skippedStuckCount.toLong())
+        metrics.markRun(job)
     }
 
     private fun loadCursor(): Cursor =

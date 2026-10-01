@@ -1,13 +1,23 @@
 package com.kbap.api.image
 
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Tags
 import org.springframework.stereotype.Component
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 @Component
 class UploadCleanupMetrics(private val registry: MeterRegistry) {
-    fun record(job: String, purpose: String, kind: String, value: Long) = Unit
+    private val values = ConcurrentHashMap<Pair<String, Tags>, AtomicLong>()
 
-    fun markRun(job: String) = Unit
+    fun record(job: String, purpose: String, kind: String, value: Long) =
+        gauge(NAME, Tags.of("job", job, "purpose", purpose, "kind", kind)).set(value)
+
+    fun markRun(job: String) = gauge(LAST_RUN, Tags.of("job", job)).set(Instant.now().epochSecond)
+
+    private fun gauge(name: String, tags: Tags): AtomicLong =
+        values.computeIfAbsent(name to tags) { registry.gauge(name, tags, AtomicLong())!! }
 
     companion object {
         const val NAME = "kbap.upload.cleanup"
