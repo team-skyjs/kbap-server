@@ -40,6 +40,10 @@ class OpenAiTextTranslator(
                 ),
             )
         }.onFailure { log.warn("번역 LLM 비용 이벤트 발행 실패", it) }
+        val finishReason = response.result?.metadata?.finishReason
+        check(finishReason == null || finishReason.equals(FINISHED, ignoreCase = true)) {
+            "번역이 끝까지 생성되지 않았다(finishReason=${finishReason?.lowercase()}) — 잘린 번역은 쓰지 않는다"
+        }
         return response.result?.output?.text?.trim().orEmpty()
     }
 
@@ -57,6 +61,8 @@ class OpenAiTextTranslator(
 
     companion object {
         private val log = LoggerFactory.getLogger(OpenAiTextTranslator::class.java)
+
+        private const val FINISHED = "stop"
 
         const val OUTPUT_TOKEN_BASE = 2048
         const val OUTPUT_TOKENS_PER_SOURCE_CHAR = 6

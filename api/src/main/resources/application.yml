@@ -106,6 +106,11 @@ kbap:
       # access 는 stateless 라 만료 전 무효화가 불가능하므로 짧게, refresh 는 Redis 폐기가 가능하므로 길게.
       access-ttl: 30m
       refresh-ttl: 14d
+  # 번역 API(KB-678) — 동시에 번역 엔진을 부르는 요청 수 상한. 넘으면 기다리지 않고 503(TRANSLATION-001).
+  # 웹 요청은 엔진 호출 동안에도 DB 커넥션 하나를 쥐고 있어(open-in-view) 번역이 풀(10)을 다 쓰지 못하게 풀의 절반 이하로 둔다.
+  # 게스트가 리뷰×언어로 엔진을 한꺼번에 태우는 속도도 함께 묶는다.
+  translation:
+    max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
   llm:
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. 스캔은 필수 기능이라 끄는 스위치를 두지 않는다 —
     # ScanService 가 이 빈에 의존하므로 OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
@@ -144,7 +149,8 @@ kbap:
       temperature: 1.0
       reasoning-effort: low
       max-retries: 0
-      timeout: ${TRANSLATION_TIMEOUT:20s}
+      # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 커넥션을 쥔다.
+      timeout: ${TRANSLATION_TIMEOUT:12s}
       pricing:
         input-usd-per-million-tokens: 0.2
         output-usd-per-million-tokens: 1.2

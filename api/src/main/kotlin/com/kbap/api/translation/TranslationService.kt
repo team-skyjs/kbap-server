@@ -15,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 import java.time.LocalDateTime
+import java.util.concurrent.Semaphore
 
 @Service
 class TranslationService(
@@ -24,7 +25,7 @@ class TranslationService(
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.translation.max-concurrent-engine-calls:4}") val maxConcurrentEngineCalls: Int,
 ) {
-    private val translator: TextTranslator get() = translatorProvider.getObject()
+    private val enginePermits = Semaphore(maxConcurrentEngineCalls)
 
     private val log = LoggerFactory.getLogger(javaClass)
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
@@ -50,11 +51,21 @@ class TranslationService(
         }
 
     private fun translateOrFail(source: String, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): String {
+        val translator = translatorProvider.getIfAvailable() ?: run {
+            log.warn("번역 엔진이 꺼져 있다(kbap.llm.translation.enabled=false) — 번역 요청을 거절한다")
+            throw BusinessException(ErrorCode.TRANSLATION_FAILED)
+        }
+        if (!enginePermits.tryAcquire()) {
+            log.warn("동시 번역 엔진 호출 상한({})에 닿아 거절한다 — targetType={}, targetId={}, language={}", maxConcurrentEngineCalls, targetType, targetId, language.code)
+            throw BusinessException(ErrorCode.TRANSLATION_FAILED)
+        }
         val translated = try {
             translator.translate(source, language)
         } catch (e: RuntimeException) {
             log.warn("번역 엔진 호출 실패 — targetType={}, targetId={}, language={}", targetType, targetId, language.code, e)
             throw BusinessException(ErrorCode.TRANSLATION_FAILED)
+        } finally {
+            enginePermits.release()
         }
         if (translated.isBlank() || translated.length > MAX_TRANSLATED_LENGTH) {
             log.warn(

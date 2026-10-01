@@ -195,7 +195,7 @@ class ReviewService(
         val review = reviewRepository.findById(reviewId).orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
         if (viewerMemberId != null && review.isOwnedBy(viewerMemberId)) return review
         val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
-        if (!reviewRepository.existsFeedVisible(reviewId, excluded)) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        if (!reviewRepository.existsFeedVisible(reviewId, excluded, NO_EXCLUDED_REVIEW_IDS)) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         return review
     }
 
