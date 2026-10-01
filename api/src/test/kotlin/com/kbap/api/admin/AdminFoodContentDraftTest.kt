@@ -158,6 +158,30 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("결과의 재료가 저장 규칙(중복 코드)을 어기면") {
+                then("초안을 만들지 않고 거절하며 요청은 완료로 닫지 않는다 — 콜백이 재시도할 수 있다") {
+                    val food = publishedFood()
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    val response = mockMvc.post(PATH) {
+                        header("Authorization", "Bearer ${token()}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(
+                            passedBody(
+                                food.id,
+                                outbox.id,
+                                ingredients = listOf(mapOf("code" to "SESAME", "inclusion_percent" to 50), mapOf("code" to "SESAME", "inclusion_percent" to 40)),
+                            ),
+                        )
+                    }.andReturn().response
+
+                    response.status shouldBe 400
+                    body(response).path("code").asText() shouldBe "FOOD-014"
+                    scalar("SELECT COUNT(*) FROM food_content_draft WHERE food_id = ${food.id}") shouldBe "0"
+                    scalar("SELECT outbox_status FROM food_content_outbox WHERE id = ${outbox.id}") shouldBe "PENDING"
+                }
+            }
+
             `when`("READY 가 아닌 음식에 결과가 오면") {
                 then("종전대로 바로 반영되고 초안은 없다") {
                     val food = publishedFood(FoodContentStatus.FAILED)
@@ -243,6 +267,22 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("초안이 쌓인 뒤 음식이 이미지 재생성에 들어가 READY 를 벗어났으면") {
+                then("승인하지 않고 409 FOOD-020 — 음식 상태·내용은 그대로, 초안은 대기로 남아 재생성 뒤 승인할 수 있다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET content_status = 'PENDING_IMAGE' WHERE id = ${food.id}") } }
+
+                    val response = review(food, passed = true)
+
+                    response.status shouldBe 409
+                    body(response).path("code").asText() shouldBe "FOOD-020"
+                    scalar("SELECT content_status FROM food WHERE id = ${food.id}") shouldBe "PENDING_IMAGE"
+                    scalar("SELECT description FROM food WHERE id = ${food.id}") shouldBe "공개 중인 설명"
+                    draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe true
+                }
+            }
+
             `when`("검수 대기 초안이 없으면") {
                 then("404 FOOD-021") {
                     val food = publishedFood()
@@ -306,6 +346,7 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                     paths.has("/api/admin/foods/content-drafts") shouldBe true
                     paths.path("/api/admin/foods/{foodId}/content-draft").has("get") shouldBe true
                     paths.path("/api/admin/foods/{foodId}/content-draft").path("patch").path("summary").asText().contains("사람 검수 전용") shouldBe true
+                    paths.path("/api/admin/foods/contents").path("post").path("description").asText().contains("검수 초안") shouldBe true
                 }
             }
         }
