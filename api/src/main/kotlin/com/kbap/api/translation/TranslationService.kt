@@ -8,6 +8,8 @@ import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.llm.TextTranslator
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -18,9 +20,12 @@ import java.time.LocalDateTime
 class TranslationService(
     private val reviewService: ReviewService,
     private val translationRepository: ContentTranslationJpaRepository,
-    private val translator: TextTranslator,
+    private val translatorProvider: ObjectProvider<TextTranslator>,
     transactionManager: PlatformTransactionManager,
+    @Value("\${kbap.translation.max-concurrent-engine-calls:4}") val maxConcurrentEngineCalls: Int,
 ) {
+    private val translator: TextTranslator get() = translatorProvider.getObject()
+
     private val log = LoggerFactory.getLogger(javaClass)
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)

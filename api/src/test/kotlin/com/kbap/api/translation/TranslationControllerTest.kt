@@ -37,6 +37,7 @@ class TranslationControllerTest : BehaviorSpec() {
     @Autowired private lateinit var translator: FakeTextTranslator
     @Autowired private lateinit var reviewService: ReviewService
     @Autowired private lateinit var translationRepository: ContentTranslationJpaRepository
+    @Autowired private lateinit var translationService: TranslationService
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
 
     private val mapper = jacksonObjectMapper()
@@ -103,6 +104,11 @@ class TranslationControllerTest : BehaviorSpec() {
         fun body(response: MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
 
         fun rows(): Long = scalar("SELECT COUNT(*) FROM content_translation")!!.toLong()
+
+        fun providerOf(translator: com.kbap.common.port.llm.TextTranslator?): org.springframework.beans.factory.ObjectProvider<com.kbap.common.port.llm.TextTranslator> =
+            org.springframework.beans.factory.support.DefaultListableBeanFactory().apply {
+                translator?.let { registerSingleton("textTranslator", it) }
+            }.getBeanProvider(com.kbap.common.port.llm.TextTranslator::class.java)
 
         fun sha256(text: String): String =
             MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
@@ -293,7 +299,7 @@ class TranslationControllerTest : BehaviorSpec() {
                         }
                     } as ContentTranslationJpaRepository
 
-                    val text = TranslationService(reviewService, failingStore, translator, transactionManager)
+                    val text = TranslationService(reviewService, failingStore, providerOf(translator), transactionManager, 4)
                         .translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
 
                     text shouldBe "[ko] The broth was rich and so tasty"
@@ -302,9 +308,64 @@ class TranslationControllerTest : BehaviorSpec() {
             }
         }
 
+        given("번역 엔진이 꺼져 있을 때(kbap.llm.translation.enabled=false — 엔진 빈 없음)") {
+            `when`("번역을 요청하면") {
+                then("503 TRANSLATION-001 — 스위치를 내려도 앱은 뜨고 번역만 안 된다") {
+                    seed()
+                    val service = TranslationService(reviewService, translationRepository, providerOf(null), transactionManager, 4)
+
+                    val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
+                        service.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
+                    }
+
+                    error.errorCode shouldBe com.kbap.common.core.error.ErrorCode.TRANSLATION_FAILED
+                    rows() shouldBe 0L
+                }
+            }
+        }
+
+        given("동시 번역 엔진 호출 상한") {
+            `when`("상한만큼 엔진 호출이 진행 중일 때 하나 더 오면") {
+                then("기다리지 않고 503 TRANSLATION-001 — 엔진을 부르지 않는다. 진행 중이던 요청은 모두 200") {
+                    seed()
+                    val limit = translationService.maxConcurrentEngineCalls
+                    val release = java.util.concurrent.CountDownLatch(1)
+                    translator.reply = { text, target ->
+                        release.await(30, TimeUnit.SECONDS)
+                        "[${target.code}] $text"
+                    }
+                    val languages = listOf("ko", "ja", "vi", "th", "es", "ru", "id").take(limit)
+                    val executor = Executors.newFixedThreadPool(limit)
+                    val inFlight = languages.map { lang -> executor.submit(Callable { translate(visible, lang = lang).status }) }
+                    val deadline = System.currentTimeMillis() + 10_000
+                    while (translator.calls.size < limit && System.currentTimeMillis() < deadline) Thread.sleep(20)
+                    translator.calls.size shouldBe limit
+
+                    val overflow = translate(visible, lang = "en")
+
+                    overflow.status shouldBe 503
+                    body(overflow).path("code").asText() shouldBe "TRANSLATION-001"
+                    translator.calls.size shouldBe limit
+                    release.countDown()
+                    inFlight.map { it.get(30, TimeUnit.SECONDS) } shouldBe List(limit) { 200 }
+                    executor.shutdown()
+
+                    translate(visible, lang = "en").status shouldBe 200
+                }
+            }
+
+            `when`("상한과 DB 커넥션 풀 크기를 비교하면") {
+                then("상한은 풀의 절반 이하다 — 웹 요청은 엔진 호출 동안에도 커넥션 하나를 쥐고 있어(open-in-view) 번역이 풀을 다 쓰면 안 된다") {
+                    val poolSize = dataSource.unwrap(com.zaxxer.hikari.HikariDataSource::class.java).maximumPoolSize
+
+                    (translationService.maxConcurrentEngineCalls * 2 <= poolSize) shouldBe true
+                }
+            }
+        }
+
         given("번역 호출과 트랜잭션·동시성") {
             `when`("번역 엔진을 부르는 동안") {
-                then("DB 트랜잭션이 열려 있지 않다 — 느린 외부 호출이 커넥션을 쥐지 않는다") {
+                then("DB 트랜잭션이 열려 있지 않다 — 느린 외부 호출이 트랜잭션·행 잠금을 쥐지 않는다") {
                     seed()
 
                     translate(visible, token = viewerToken())

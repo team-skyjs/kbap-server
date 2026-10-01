@@ -98,6 +98,43 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         }
     }
 
+    given("번역이 끝까지 생성되지 않은 응답") {
+        `when`("종료 사유가 stop 이 아니면(토큰 상한 length 등)") {
+            then("잘린 번역을 돌려주지 않고 실패한다 — 호출부가 저장하지 않는다") {
+                val bodies = mutableListOf<String>()
+                val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+                server.createContext("/") { exchange ->
+                    bodies += exchange.requestBody.readBytes().toString(Charsets.UTF_8)
+                    val reply = """{"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"gpt-test","choices":[{"index":0,"message":{"role":"assistant","content":"잘린 번"},"finish_reason":"length"}],"usage":{"prompt_tokens":11,"completion_tokens":3,"total_tokens":14}}"""
+                        .toByteArray()
+                    exchange.responseHeaders.add("Content-Type", "application/json")
+                    exchange.sendResponseHeaders(200, reply.size.toLong())
+                    exchange.responseBody.use { it.write(reply) }
+                }
+                server.start()
+                try {
+                    val props = LlmModelProperties.VisionProps(
+                        apiKey = "test-key",
+                        baseUrl = "http://127.0.0.1:${server.address.port}/v1",
+                        model = "gpt-test",
+                        timeout = Duration.ofSeconds(10),
+                    )
+                    val chatModel = OpenAiChatModel.builder()
+                        .options(LlmConfiguration.visionChatOptions(props, props.baseUrl!!, props.timeout))
+                        .build()
+
+                    val error = io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+                        OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { }).translate("hello there", LanguageCode.KO)
+                    }
+
+                    error.message!! shouldContain "length"
+                } finally {
+                    server.stop(0)
+                }
+            }
+        }
+    }
+
     given("실제 OpenAI 클라이언트로 보낸 요청") {
         `when`("호출별 출력 상한을 주면") {
             then("기본 옵션(모델)과 합쳐져 요청 본문에 model·max_completion_tokens·system/user 메시지가 함께 실린다") {
