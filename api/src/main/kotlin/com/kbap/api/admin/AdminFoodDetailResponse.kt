@@ -43,6 +43,12 @@ data class AdminFoodDetailResponse(
     val regeneration: AdminRegenerationStateResponse?,
     @field:Schema(description = "추가 이미지 생성이 진행 중인지(갤러리 응답과 같은 값)", example = "false")
     val additionalInProgress: Boolean,
+    @field:Schema(
+        description = "이 음식에 처리 중인 콘텐츠 수집 요청이 있는지 — 발행 대기(PENDING)이거나 보냄(SENT)·미완료·포기(dead) 아님이면 true. " +
+            "재수집 뒤 결과(반영·초안)를 기다리는 화면은 false 가 되면 대기를 끝낸다. 재수집 건너뜀·회수 잡과 같은 '진행 중 요청' 정의를 쓴다",
+        example = "false",
+    )
+    val contentRequestPending: Boolean,
 ) {
     companion object {
         fun from(
@@ -51,6 +57,7 @@ data class AdminFoodDetailResponse(
             humanReview: HumanReviewResponse?,
             regeneration: AdminRegenerationStateResponse?,
             additionalInProgress: Boolean,
+            contentRequestPending: Boolean,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -76,6 +83,7 @@ data class AdminFoodDetailResponse(
                 humanReview = humanReview,
                 regeneration = regeneration,
                 additionalInProgress = additionalInProgress,
+                contentRequestPending = contentRequestPending,
             )
     }
 }
