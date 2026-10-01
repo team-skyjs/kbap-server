@@ -121,7 +121,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findDeletedById(id)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
+            ?.let(::detailOf)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional
@@ -147,8 +147,18 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findById(id).orElse(null)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
+            ?.let(::detailOf)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    private fun detailOf(food: Food): AdminFoodDetailResponse =
+        AdminFoodDetailResponse.from(
+            food,
+            imagePublicBaseUrl,
+            humanReviewService.humanReviewOf(food),
+            regenerationStateResolver.of(food.id),
+            regenerationStateResolver.isAdditionalInProgress(food.id),
+            contentRequestPending = outboxRepository.findInFlightRequests(listOf(food.id)).isNotEmpty(),
+        )
 
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {

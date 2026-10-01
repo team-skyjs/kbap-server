@@ -97,6 +97,30 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 }.also { executor.shutdown() }
             }
 
+        given("어드민 음식 상세의 contentRequestPending") {
+            fun detailPending(state: String?): Boolean {
+                clearFoods()
+                val food = saveFood("상세대기${state ?: "없음"}")
+                if (state != null) {
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    val update = when (state) {
+                        "SENT" -> "outbox_status = 'SENT', sent_at = NOW(6), attempts = 1"
+                        "COMPLETE" -> "outbox_status = 'COMPLETE'"
+                        "DEAD" -> "outbox_status = 'SENT', sent_at = NOW(6), attempts = 5, dead_at = NOW(6), last_error = '테스트 포기'"
+                        else -> null
+                    }
+                    if (update != null) dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_content_outbox SET $update WHERE id = ${outbox.id}") } }
+                }
+                return adminFoodService.getFoodDetail(foodJpaRepository.findByKoreanNameIn(setOf(namePrefix + "상세대기${state ?: "없음"}")).single().id).contentRequestPending
+            }
+
+            `when`("콘텐츠 요청이 발행 대기(PENDING)면") { then("true") { detailPending("PENDING") shouldBe true } }
+            `when`("콘텐츠 요청이 보냄(SENT)·미완료·포기 아님이면") { then("true") { detailPending("SENT") shouldBe true } }
+            `when`("콘텐츠 요청이 완료(COMPLETE)됐으면") { then("false — 재수집 결과 대기를 끝내도 된다") { detailPending("COMPLETE") shouldBe false } }
+            `when`("콘텐츠 요청이 포기(dead)됐으면") { then("false — 더 기다려도 결과가 오지 않는다") { detailPending("DEAD") shouldBe false } }
+            `when`("콘텐츠 요청이 없으면") { then("false") { detailPending(null) shouldBe false } }
+        }
+
         given("재생성이 음식 행을 잠그고 시작되는 동안 들어온 재수집") {
             `when`("일괄 재수집이 그 음식을 대상으로 잡고 잠금을 기다리면") {
                 then("잠금 뒤에 커밋된 재생성을 보고 건너뛴다 — 잠금이 그 음식 트랜잭션의 첫 DB 연산이라 옛 스냅샷으로 판정하지 않는다") {
