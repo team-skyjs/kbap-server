@@ -33,6 +33,15 @@ class AuthControllerTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     @Autowired
+    private lateinit var memberRepository: com.kbap.common.domain.member.MemberJpaRepository
+
+    @Autowired
+    private lateinit var uploadedImageService: com.kbap.api.image.UploadedImageService
+
+    @Autowired
+    private lateinit var orderRepository: com.kbap.common.domain.order.OrderJpaRepository
+
+    @Autowired
     private lateinit var accountDeleter: FakeSocialAccountDeleter
 
     init {
@@ -473,6 +482,77 @@ class AuthControllerTest : BehaviorSpec() {
 
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "status") shouldBe "ACTIVE"
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "member_status") shouldBe "ACTIVE"
+                }
+            }
+        }
+
+        given("로그인 오퍼레이션 문서") {
+            `when`("api-docs 를 보면") {
+                then("403 응답과 오퍼레이션 에러 표(@ApiErrors) 양쪽에 정지 회원 거절 MEMBER-013 이 실려 있다") {
+                    val login = objectMapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.contentAsString)
+                        .path("paths").path("/api/auth/login").path("post")
+                    login.path("responses").path("403").path("description").asText().contains("MEMBER-013") shouldBe true
+                    login.path("description").asText().contains("MEMBER-013") shouldBe true
+                }
+            }
+        }
+
+        given("정지된 회원의 로그인") {
+            `when`("같은 소셜 계정으로 로그인하면") {
+                then("403 MEMBER-013 으로 거절되고 새 회원이 생기지 않는다 — 가입 중복(MEMBER-001)으로 오인되지 않는다") {
+                    loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use { ps -> ps.setLong(1, id); ps.executeUpdate() }
+                    }
+                    val before = countMembers()
+
+                    val response = login().andReturn().response
+
+                    response.status shouldBe 403
+                    response.contentAsString shouldContain "MEMBER-013"
+                    countMembers() shouldBe before
+                }
+            }
+
+            `when`("사전 확인 직후 정지돼 가입 시도가 소셜 신원 유니크에 걸리면") {
+                then("재조회에서도 정지를 가려 MEMBER-013 으로 거절한다 — 가입 중복으로 오인되지 않는다") {
+                    loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use { ps -> ps.setLong(1, id); ps.executeUpdate() }
+                    }
+                    var firstCheck = true
+                    val racing = java.lang.reflect.Proxy.newProxyInstance(
+                        com.kbap.common.domain.member.MemberJpaRepository::class.java.classLoader,
+                        arrayOf(com.kbap.common.domain.member.MemberJpaRepository::class.java),
+                    ) { _, method, args ->
+                        if (method.name == "existsByProviderAndProviderUidAndMemberStatus" && firstCheck) {
+                            firstCheck = false
+                            false
+                        } else {
+                            try {
+                                method.invoke(memberRepository, *(args ?: emptyArray()))
+                            } catch (e: java.lang.reflect.InvocationTargetException) {
+                                throw e.targetException
+                            }
+                        }
+                    } as com.kbap.common.domain.member.MemberJpaRepository
+                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, "", "")
+
+                    val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
+                        service.findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, FakeSocialTokenVerifier.DEFAULT_SUB, null))
+                    }
+
+                    error.errorCode shouldBe ErrorCode.MEMBER_SUSPENDED_LOGIN
+                }
+            }
+
+            `when`("정지되지 않은 회원은") {
+                then("종전대로 로그인된다") {
+                    loginAccessToken()
+
+                    login().andReturn().response.status shouldBe 200
                 }
             }
         }

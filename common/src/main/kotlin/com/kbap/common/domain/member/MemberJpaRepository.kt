@@ -67,6 +67,12 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
 
     fun countByMemberStatusAndIsBotFalse(memberStatus: MemberStatus): Long
 
+    fun existsByProviderAndProviderUidAndMemberStatus(
+        provider: SocialProvider,
+        providerUid: String,
+        memberStatus: MemberStatus,
+    ): Boolean
+
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
         providerUid: String,

@@ -31,6 +31,7 @@ enum class ErrorCode(
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
     INVALID_CURRENCY_CODE("MEMBER-010", 400, "지원하지 않는 통화 코드입니다"),
     INVALID_DIET_CATEGORY("MEMBER-011", 400, "지원하지 않는 diet 카테고리입니다"),
+    MEMBER_SUSPENDED_LOGIN("MEMBER-013", 403, "이용이 정지된 계정입니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),

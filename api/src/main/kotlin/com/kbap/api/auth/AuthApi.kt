@@ -40,10 +40,12 @@ interface AuthApi {
             ApiResponse(responseCode = "200", description = "로그인·가입 성공 — 응답 본문에 access·refresh 토큰"),
             ApiResponse(responseCode = "400", description = "idToken 누락"),
             ApiResponse(responseCode = "401", description = "토큰 검증 실패(서명 불일치·만료·수신자 불일치) 또는 미지원 provider"),
+            ApiResponse(responseCode = "403", description = "이용이 정지된 계정(MEMBER-013) — 토큰을 발급하지 않는다"),
         ],
     )
     @ApiErrors(
         ErrorCode.DUPLICATE_SOCIAL_IDENTITY,
+        ErrorCode.MEMBER_SUSPENDED_LOGIN,
     )
     fun login(
         request: LoginRequest,
