@@ -46,6 +46,7 @@ class AdminFoodContentDraftService(
         val draft = draftRepository.findByFoodIdAndReviewStatus(foodId, FoodContentDraftStatus.PENDING)
             ?: throw BusinessException(ErrorCode.FOOD_CONTENT_DRAFT_NOT_FOUND)
         if (passed) {
+            if (!food.isReady()) throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             verifyCatalog(draft)
             ingestService.applyDraft(food, draft)
             draft.approve(adminAccountId, LocalDateTime.now())

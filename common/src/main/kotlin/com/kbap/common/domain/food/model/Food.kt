@@ -169,21 +169,9 @@ class Food(
     }
 
     fun replaceIngredients(ingredients: List<FoodIngredient>?) {
-        val kept = ingredients?.filter { it.inclusionPercent != 0 }
-        kept?.let(::requireStorable)
+        val kept = storableIngredients(ingredients)
         this.ingredients = kept
         ingredientsAssessed = kept != null
-    }
-
-    private fun requireStorable(ingredients: List<FoodIngredient>) {
-        val error = when {
-            ingredients.size > MAX_INGREDIENTS -> ErrorCode.FOOD_TOO_MANY_INGREDIENTS
-            ingredients.any { it.inclusionPercent !in STORABLE_PERCENT } -> ErrorCode.FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE
-            ingredients.any { it.code !in KNOWN_INGREDIENT_CODES } -> ErrorCode.FOOD_UNKNOWN_INGREDIENT
-            ingredients.distinctBy { it.code }.size != ingredients.size -> ErrorCode.FOOD_DUPLICATE_INGREDIENT
-            else -> return
-        }
-        throw BusinessException(error)
     }
 
     fun recordContentFailure(kind: FoodContentFailureKind, reason: String?, keepStatus: Boolean = false) {
@@ -246,6 +234,20 @@ class Food(
         private val STORABLE_PERCENT = 1..100
 
         private val KNOWN_INGREDIENT_CODES = IngredientCode.entries.map { it.name }.toSet()
+
+        fun storableIngredients(ingredients: List<FoodIngredient>?): List<FoodIngredient>? =
+            ingredients?.filter { it.inclusionPercent != 0 }?.also(::requireStorable)
+
+        private fun requireStorable(ingredients: List<FoodIngredient>) {
+            val error = when {
+                ingredients.size > MAX_INGREDIENTS -> ErrorCode.FOOD_TOO_MANY_INGREDIENTS
+                ingredients.any { it.inclusionPercent !in STORABLE_PERCENT } -> ErrorCode.FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE
+                ingredients.any { it.code !in KNOWN_INGREDIENT_CODES } -> ErrorCode.FOOD_UNKNOWN_INGREDIENT
+                ingredients.distinctBy { it.code }.size != ingredients.size -> ErrorCode.FOOD_DUPLICATE_INGREDIENT
+                else -> return
+            }
+            throw BusinessException(error)
+        }
 
         fun failed(koreanName: String, displayName: String = koreanName): Food {
             require(koreanName.isNotBlank()) { "food.koreanName 은 blank 일 수 없습니다" }

@@ -50,6 +50,7 @@ interface AdminFoodContentDraftApi {
             `passed = true`: 공개 내용(설명·번역·맵기·재료)을 초안으로 바꾸고 재료 표·벡터를 재동기화한다. 음식은 READY 그대로.
             `passed = false`: 초안을 반려하고 공개 내용은 그대로 둔다.
             초안 재료 코드가 지금 카탈로그에 없으면 승인하지 않고 400(FOOD-016)이며 초안은 검수 대기로 남는다 — 반려로 정리한다.
+            음식이 이미지 재생성으로 READY 를 벗어나 있으면 승인하지 않고 409(FOOD-020)다 — 초안은 대기로 남으니 재생성이 끝난 뒤 승인한다. 반려는 언제든 된다.
         """,
     )
     @ApiResponses(
@@ -57,9 +58,15 @@ interface AdminFoodContentDraftApi {
             ApiResponse(responseCode = "200", description = "처리 성공"),
             ApiResponse(responseCode = "400", description = "초안 재료가 카탈로그에 없음(FOOD-016)"),
             ApiResponse(responseCode = "404", description = "검수 대기 초안 없음(FOOD-021)"),
+            ApiResponse(responseCode = "409", description = "음식이 이미지 재생성 중이라 READY 가 아님(FOOD-020)"),
         ],
     )
-    @ApiErrors(ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_CONTENT_DRAFT_NOT_FOUND, ErrorCode.FOOD_UNKNOWN_INGREDIENT)
+    @ApiErrors(
+        ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.FOOD_CONTENT_DRAFT_NOT_FOUND,
+        ErrorCode.FOOD_UNKNOWN_INGREDIENT,
+        ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT,
+    )
     fun reviewContentDraft(
         @Parameter(description = "음식 id", required = true, example = "101") foodId: Long,
         adminAccountId: Long,
