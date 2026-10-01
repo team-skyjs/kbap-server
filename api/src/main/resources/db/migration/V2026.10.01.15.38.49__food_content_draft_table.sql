@@ -6,6 +6,7 @@
 -- "음식당 PENDING 초안 ≤ 1" 은 유니크 키가 아니라 음식 행 잠금 아래 코드가 지킨다 — 대체·승인·반려 이력을 행으로 남기기 위해서다.
 -- review_status 는 도메인 상태로, BaseEntity 의 소프트삭제 status 와 컬럼을 분리한다.
 -- resolved_by 는 처리한 관리자 계정 id(report.handled_by 와 같은 방식, FK 없음).
+-- 엔진·문자셋·콜레이션은 food 원본과 같게 명시한다 — food 의 글을 복사해 담는 표라 비교·조인 규격을 맞춘다.
 CREATE TABLE food_content_draft
 (
     id                       BIGINT                    NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -28,4 +29,4 @@ CREATE TABLE food_content_draft
     CONSTRAINT fk_food_content_draft_outbox FOREIGN KEY (outbox_id) REFERENCES food_content_outbox (id),
     INDEX idx_food_content_draft_food_status (food_id, review_status),
     INDEX idx_food_content_draft_status_id (review_status, id)
-);
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
