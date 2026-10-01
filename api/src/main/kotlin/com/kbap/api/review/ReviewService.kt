@@ -117,7 +117,7 @@ class ReviewService(
     @Transactional(propagation = Propagation.MANDATORY)
     fun deleteForModeration(review: Review) {
         if (!review.isActive()) return
-        if (memberService.getMemberOrNull(review.memberId) == null) {
+        if (!memberRepository.existsById(review.memberId)) {
             review.delete()
             return
         }

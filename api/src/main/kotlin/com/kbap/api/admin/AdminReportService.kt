@@ -61,7 +61,7 @@ class AdminReportService(
     fun handleReport(reportId: Long, result: ReportHandleResult, note: String?, adminAccountId: Long): AdminReportHandleResult {
         val report = reportRepository.findById(reportId).orElseThrow { BusinessException(ErrorCode.REPORT_NOT_FOUND) }
         if (report.handleStatus == ReportHandleStatus.HANDLED) throw BusinessException(ErrorCode.REPORT_ALREADY_HANDLED)
-        return handle(report.targetType, report.targetId, result, note, adminAccountId)
+        return handle(report.targetType, report.targetId, result, note, adminAccountId, requiredReportId = reportId)
     }
 
     @Transactional
@@ -79,10 +79,13 @@ class AdminReportService(
         result: ReportHandleResult,
         note: String?,
         adminAccountId: Long,
+        requiredReportId: Long? = null,
     ): AdminReportHandleResult {
         val contentDeleted = result == ReportHandleResult.CONTENT_DELETED && deleteContent(targetType, targetId)
         val pending = reportRepository.findPendingOfTargetForUpdate(targetType.name, targetId)
-        if (pending.isEmpty()) throw BusinessException(ErrorCode.REPORT_ALREADY_HANDLED)
+        if (pending.isEmpty() || (requiredReportId != null && pending.none { it.id == requiredReportId })) {
+            throw BusinessException(ErrorCode.REPORT_ALREADY_HANDLED)
+        }
         val now = LocalDateTime.now()
         pending.forEach { it.handle(result, adminAccountId, now, note) }
         return AdminReportHandleResult(targetType, targetId, result, pending.size, contentDeleted)
