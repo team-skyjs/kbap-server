@@ -132,6 +132,12 @@ data class AdminFoodRecollectResponse(
     val skippedRegenerating: Long,
     val exceeded: Boolean,
     val max: Int,
+    @field:Schema(
+        description = "단건 재수집에서만 의미 — 이 음식에 검수 대기 콘텐츠 초안이 이미 있으면 true. " +
+            "재수집은 그대로 접수되고, 새 결과가 오면 그 초안을 대체한다(공개 음식의 결과는 검수 뒤에만 반영)",
+        example = "false",
+    )
+    val pendingDraft: Boolean,
 ) {
     companion object {
         fun from(result: AdminFoodRecollectResult): AdminFoodRecollectResponse =
@@ -142,6 +148,7 @@ data class AdminFoodRecollectResponse(
                 skippedRegenerating = result.skippedRegenerating,
                 exceeded = result.exceeded,
                 max = result.max,
+                pendingDraft = result.pendingDraft,
             )
     }
 }

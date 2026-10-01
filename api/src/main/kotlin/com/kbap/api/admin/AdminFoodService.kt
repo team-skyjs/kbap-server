@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodContentDraftJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -17,6 +18,7 @@ import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentDraftStatus
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -43,6 +45,7 @@ class AdminFoodService(
     private val foodService: FoodService,
     private val humanReviewService: AdminHumanReviewService,
     private val regenerationStateResolver: RegenerationStateResolver,
+    private val draftRepository: FoodContentDraftJpaRepository,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -271,13 +274,15 @@ class AdminFoodService(
     }
 
     @Transactional
-    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult =
-        when (recollectUnderFoodLock(id)) {
+    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
+        val result = when (recollectUnderFoodLock(id)) {
             RecollectOutcome.NOT_FOUND -> throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
             RecollectOutcome.ALREADY_PENDING -> AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
             RecollectOutcome.REGENERATING -> throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             RecollectOutcome.CREATED -> AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
         }
+        return result.copy(pendingDraft = draftRepository.existsByFoodIdAndReviewStatus(id, FoodContentDraftStatus.PENDING))
+    }
 
     private fun recollectUnderFoodLock(id: Long): RecollectOutcome {
         val food = foodRepository.findByIdForUpdate(id) ?: return RecollectOutcome.NOT_FOUND
@@ -343,6 +348,7 @@ data class AdminFoodRecollectResult(
     val skippedRegenerating: Long = 0,
     val exceeded: Boolean = false,
     val max: Int = AdminFoodService.RECOLLECT_MAX,
+    val pendingDraft: Boolean = false,
 )
 
 enum class AdminFoodDeleteResult {

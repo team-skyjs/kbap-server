@@ -235,6 +235,8 @@ class Food(
 
         const val SPICINESS_UNASSESSED = -1
 
+        const val MAX_SPICINESS = 10
+
         const val MAX_REJECTION_REASON_LINES = 10
 
         const val MAX_REJECTION_REASON_LENGTH = 1000

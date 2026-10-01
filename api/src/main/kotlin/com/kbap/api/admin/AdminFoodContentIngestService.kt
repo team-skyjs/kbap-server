@@ -3,12 +3,15 @@ package com.kbap.api.admin
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodContentDraftJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentDraft
+import com.kbap.common.domain.food.model.FoodContentDraftStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodIngredient
@@ -16,6 +19,7 @@ import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -25,6 +29,7 @@ class AdminFoodContentIngestService(
     private val foodIngredientRepository: FoodIngredientJdbcRepository,
     private val imageBatchItemRepository: ImageBatchItemJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val draftRepository: FoodContentDraftJpaRepository,
 ) {
     @Transactional
     fun ingestContent(
@@ -38,7 +43,49 @@ class AdminFoodContentIngestService(
         ingredients: List<FoodIngredient>,
     ) {
         val food = lockFoodAndCompleteOutbox(outboxId, foodId) ?: return
+        if (food.isReady()) {
+            draftRepository.findByFoodIdAndReviewStatus(foodId, FoodContentDraftStatus.PENDING)?.supersede()
+            draftRepository.save(
+                FoodContentDraft(
+                    foodId = foodId,
+                    outboxId = outboxId,
+                    description = description,
+                    longDescription = longDescription,
+                    spiciness = spiciness,
+                    nameTranslations = nameTranslations,
+                    descriptionTranslations = descriptionTranslations,
+                    ingredients = ingredients,
+                ),
+            )
+            return
+        }
         val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(listOf(foodId)).isNotEmpty()
+        applyContent(food, description, longDescription, spiciness, nameTranslations, descriptionTranslations, ingredients, regenerating)
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun applyDraft(food: Food, draft: FoodContentDraft) =
+        applyContent(
+            food,
+            draft.description,
+            draft.longDescription,
+            draft.spiciness,
+            draft.nameTranslations,
+            draft.descriptionTranslations,
+            draft.ingredients.orEmpty(),
+            keepStatus = false,
+        )
+
+    private fun applyContent(
+        food: Food,
+        description: String,
+        longDescription: String?,
+        spiciness: Int,
+        nameTranslations: Map<String, String>,
+        descriptionTranslations: Map<String, String>,
+        ingredients: List<FoodIngredient>,
+        keepStatus: Boolean,
+    ) {
         food.applyContent(
             description = description,
             longDescription = longDescription,
@@ -46,10 +93,10 @@ class AdminFoodContentIngestService(
             nameTranslations = nameTranslations,
             descriptionTranslations = descriptionTranslations,
             ingredients = ingredients,
-            keepStatus = regenerating,
+            keepStatus = keepStatus,
         )
-        foodIngredientRepository.replace(foodId, food.ingredients)
-        if (food.isReady()) vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
+        foodIngredientRepository.replace(food.id, food.ingredients)
+        if (food.isReady()) vectorOutboxRepository.enqueue(food.id, FoodVectorOutboxOperation.UPSERT)
     }
 
     @Transactional
