@@ -191,6 +191,42 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("오늘 쓴 봇 리뷰가 모더레이션으로 삭제됐으면") {
+                then("그 음식엔 다시 쓰지 않고(삭제를 봇이 되돌리지 않는다), 하루 목표는 다른 음식에 1건 대체한다") {
+                    val bots = accountService.ensureBots(2).bots
+                    val foods = seedFoods(2)
+                    val moderated = foods.minBy { it.id }
+                    val earlier = todayAt(10).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'deleted bot review', 'DELETED', ?, ?)",
+                        ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, moderated.id); ps.setObject(3, earlier); ps.setObject(4, earlier); ps.executeUpdate() }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    count("SELECT COUNT(*) FROM food_review WHERE food_id = ${moderated.id} AND status = 'ACTIVE'") shouldBe 0
+                    count("SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE'") shouldBe 1
+                }
+            }
+
+            `when`("어제 그 음식에 쓴 유일한 봇의 리뷰가 모더레이션으로 삭제됐으면") {
+                then("그 봇은 그 음식을 소진한 것으로 남는다 — 같은 봇이 같은 음식에 다시 쓰지 않는다") {
+                    val bot = accountService.ensureBots(1).bots.single()
+                    val food = seedFoods(1).single()
+                    val yesterday = java.time.LocalDateTime.now().minusDays(1)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'deleted old review', 'DELETED', ?, ?)",
+                        ).use { ps -> ps.setLong(1, bot.id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
+                    }
+
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+
+                    count("SELECT COUNT(*) FROM food_review WHERE member_id = ${bot.id} AND status = 'ACTIVE'") shouldBe 0
+                }
+            }
+
             `when`("09시 틱이면") {
                 then("그 시각까지 배정된 수만 쓴다") {
                     accountService.ensureBots(12)
