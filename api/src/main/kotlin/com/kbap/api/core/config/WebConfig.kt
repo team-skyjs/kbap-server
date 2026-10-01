@@ -8,6 +8,8 @@ import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
 import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.api.core.logging.RequestLoggingFilter
+import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.port.auth.TokenParser
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
@@ -26,6 +28,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 @Configuration
 class WebConfig(
     private val tokenParser: TokenParser,
+    private val memberRepository: MemberJpaRepository,
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader(ApiHeaders.API_VERSION)
@@ -131,6 +134,7 @@ class WebConfig(
                         parseTokenIfPresent = true,
                     ),
                 ),
+                isActiveMember = { memberRepository.existsByIdAndMemberStatus(it, MemberStatus.ACTIVE) },
             ),
         ).apply {
             addUrlPatterns(
