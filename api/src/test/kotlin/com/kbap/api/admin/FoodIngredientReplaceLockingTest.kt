@@ -86,6 +86,50 @@ class FoodIngredientReplaceLockingTest : BehaviorSpec() {
             }
         }
 
+        given("재료 관계 행이 이미 있는 이웃한 두 음식의 재료 교체가 겹칠 때") {
+            `when`("앞 음식이 옛 행을 지운 채 열려 있고, 뒤 음식이 더 작은 재료 id 로 교체한 뒤 앞 음식도 새 재료를 넣으면") {
+                then("서로 막지 않는다 — 삭제가 음식 범위가 아니라 행 하나씩(기본 키)이라 이웃 음식 앞의 틈을 잠그지 않는다") {
+                    val codes = dataSource.connection.use { c ->
+                        c.createStatement().use { st ->
+                            st.executeQuery("SELECT code FROM ingredients WHERE code IN ('SESAME', 'WHEAT', 'EGG') ORDER BY id").use { rs ->
+                                buildList { while (rs.next()) add(rs.getString(1)) }
+                            }
+                        }
+                    }
+                    val (low, mid, high) = codes
+                    food(68231)
+                    food(68232)
+                    TransactionTemplate(transactionManager).executeWithoutResult {
+                        foodIngredientRepository.replace(68231, listOf(FoodIngredient(mid, 100)))
+                        foodIngredientRepository.replace(68232, listOf(FoodIngredient(mid, 100)))
+                    }
+                    val firstCleared = CountDownLatch(1)
+                    val executor = Executors.newFixedThreadPool(2)
+                    val first = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodIngredientRepository.replace(68231, emptyList())
+                            firstCleared.countDown()
+                            Thread.sleep(1_000)
+                            foodIngredientRepository.replace(68231, listOf(FoodIngredient(high, 100)))
+                        }
+                    }
+                    firstCleared.await(30, TimeUnit.SECONDS) shouldBe true
+                    val second = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodIngredientRepository.replace(68232, listOf(FoodIngredient(low, 100)))
+                        }
+                    }
+                    executor.shutdown()
+
+                    first.get(30, TimeUnit.SECONDS)
+                    second.get(30, TimeUnit.SECONDS)
+
+                    scalar("SELECT GROUP_CONCAT(i.code) FROM food_ingredient fi JOIN ingredients i ON i.id = fi.ingredient_id WHERE fi.food_id = 68231") shouldBe high
+                    scalar("SELECT GROUP_CONCAT(i.code) FROM food_ingredient fi JOIN ingredients i ON i.id = fi.ingredient_id WHERE fi.food_id = 68232") shouldBe low
+                }
+            }
+        }
+
         given("재료 없는 새 음식 여러 개의 수집 결과 콜백이 동시에 올 때") {
             `when`("여덟 건이 한꺼번에 들어오면") {
                 then("전부 200 이고 음식마다 재료 행이 들어간다 — 교착 희생자가 없다") {
