@@ -12,6 +12,7 @@ import com.kbap.api.notification.NotificationTokenService
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.SocialProvider
+import com.kbap.common.domain.notification.model.DevicePlatform
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.port.auth.RefreshTokenStore
 import com.kbap.common.port.auth.TokenIssuer
@@ -46,6 +47,9 @@ class WithdrawRecoveryTest : BehaviorSpec() {
     @Autowired private lateinit var tokenParser: TokenParser
     @Autowired private lateinit var refreshTokenStore: RefreshTokenStore
     @Autowired private lateinit var notificationTokenService: NotificationTokenService
+    @Autowired private lateinit var deviceRepository: com.kbap.common.domain.notification.NotificationDeviceJpaRepository
+    @Autowired private lateinit var consentRepository: com.kbap.common.domain.notification.NotificationConsentJpaRepository
+    @Autowired private lateinit var settingRepository: com.kbap.common.domain.notification.NotificationSettingJpaRepository
 
     private val mapper = jacksonObjectMapper()
 
@@ -145,6 +149,59 @@ class WithdrawRecoveryTest : BehaviorSpec() {
                     val event = appender.list.single { it.level == Level.ERROR }
                     event.formattedMessage.contains("memberId=$memberId") shouldBe true
                     event.formattedMessage.contains("GOOGLE") shouldBe true
+                }
+            }
+        }
+
+        given("탈퇴 DB 단계의 실패 위치") {
+            fun errorLogOf(block: () -> Unit): String {
+                val logger = LoggerFactory.getLogger(AuthService::class.java) as ch.qos.logback.classic.Logger
+                val appender = ListAppender<ILoggingEvent>().apply { start() }
+                logger.addAppender(appender)
+                try {
+                    block()
+                } finally {
+                    logger.detachAppender(appender)
+                }
+                return appender.list.single { it.level == Level.ERROR }.formattedMessage
+            }
+
+            `when`("기기 해제 단계가 실패하면") {
+                then("오류 로그에 실패 단계 device_release 가 남는다 — 회원 탈퇴 실패로 오인하지 않는다") {
+                    val memberId = tokenParser.parseAccessToken(tokenOf(login())).memberId
+                    val brokenDevices = object : NotificationTokenService(deviceRepository, consentRepository, settingRepository, memberService) {
+                        override fun closeOnWithdraw(memberId: Long): Unit = throw CannotAcquireLockException("테스트 — 기기 해제 실패")
+                    }
+                    val auth = AuthService(verifier, memberService, tokenIssuer, tokenParser, refreshTokenStore, accountDeleter, brokenDevices, Duration.ofDays(14))
+
+                    val message = errorLogOf { shouldThrow<CannotAcquireLockException> { auth.withdraw(memberId, releaseDevices = true) } }
+
+                    message.contains("device_release") shouldBe true
+                    message.contains("memberId=$memberId") shouldBe true
+                }
+            }
+
+            `when`("기기 해제는 커밋됐고 회원 탈퇴 단계가 실패하면") {
+                then("오류 로그에 member_withdraw 가 남고, 재시도하면 기기 해제가 다시 돌아도 멱등하게 탈퇴가 끝난다") {
+                    val memberId = tokenParser.parseAccessToken(tokenOf(login())).memberId
+                    notificationTokenService.registerToken("withdraw-stage-device", memberId, "ExponentPushToken[stage]", DevicePlatform.IOS, "en")
+                    val flaky = authServiceWhoseDbStepFailsOnce()
+
+                    val message = errorLogOf { shouldThrow<CannotAcquireLockException> { flaky.withdraw(memberId, releaseDevices = true) } }
+                    message.contains("member_withdraw") shouldBe true
+                    memberStatus().first shouldBe "ACTIVE"
+
+                    flaky.withdraw(memberId, releaseDevices = true)
+
+                    memberStatus().first shouldBe "DELETED"
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { st ->
+                            st.executeQuery("SELECT member_id FROM notification_device WHERE installation_id = 'withdraw-stage-device'").use { rs ->
+                                rs.next() shouldBe true
+                                rs.getObject(1) shouldBe null
+                            }
+                        }
+                    }
                 }
             }
         }

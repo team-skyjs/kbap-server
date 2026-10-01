@@ -23,7 +23,11 @@ data class AdminReportPageResponse(
         val pendingCount: Int,
         @field:Schema(description = "그 대상의 전체 신고 수(재신고 포함)", example = "4")
         val totalCount: Int,
-        @field:Schema(description = "신고한 사람 수 — 회원은 회원 id, 게스트는 설치 id 로 중복 제거", example = "3")
+        @field:Schema(
+            description = "신고한 사람 수 — 회원 id 가 있으면 회원 단위, 없으면(게스트) 설치 id 단위로 중복 제거. " +
+                "같은 기기에서 게스트로 한 번, 로그인해 한 번 신고하면 2명으로 센다",
+            example = "3",
+        )
         val reporterCount: Int,
         @field:Schema(description = "가장 최근 신고의 사유", example = "SPAM")
         val latestReason: String,
