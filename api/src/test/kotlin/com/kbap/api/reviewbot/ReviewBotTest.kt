@@ -104,6 +104,28 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("최대 수(50)까지 만들면") {
+                then("닉네임이 전부 봇 규칙(소문자 사람 이름 + 네 번째 글자 겹침)이고 서로 겹치지 않는다") {
+                    ensure(50).andExpect { status { isOk() } }
+
+                    val nicknames = query("SELECT nickname FROM member WHERE is_bot = 1").map { it.single() as String }
+
+                    nicknames.size shouldBe 50
+                    nicknames.toSet().size shouldBe 50
+                    nicknames.filterNot { Regex("^[a-z]{5,14}$").matches(it) && it[3] == it[4] && it[2] != it[3] } shouldBe emptyList()
+                }
+            }
+
+            `when`("이미 봇이 있는 상태에서 더 만들면") {
+                then("있던 봇의 닉네임은 건너뛴다") {
+                    accountService.ensureBots(30)
+
+                    accountService.ensureBots(50)
+
+                    count("SELECT COUNT(DISTINCT nickname) FROM member WHERE is_bot = 1") shouldBe 50
+                }
+            }
+
             `when`("두 요청이 동시에 오면") {
                 then("이름 잠금으로 직렬화돼 최종 개수가 count 와 같다(2배가 되지 않는다)") {
                     val executor = Executors.newFixedThreadPool(2)
