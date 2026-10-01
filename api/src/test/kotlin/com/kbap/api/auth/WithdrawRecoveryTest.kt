@@ -180,6 +180,33 @@ class WithdrawRecoveryTest : BehaviorSpec() {
             }
         }
 
+        given("DB 단계가 실패하고 상태 확인까지 실패하는 경우(DB 장애)") {
+            `when`("탈퇴하면") {
+                then("원래 예외를 그대로 던지고 '소셜 삭제됨·회원 남음' 경보를 남긴다 — 확인 실패가 원래 실패와 경보를 가리지 않는다") {
+                    val token = tokenOf(login())
+                    val memberId = tokenParser.parseAccessToken(token).memberId
+                    val down = object : MemberService(memberRepository, uploadedImageService, orderRepository, "", "") {
+                        override fun getMember(memberId: Long): Member = memberService.getMember(memberId)
+
+                        override fun withdraw(memberId: Long): Unit = throw CannotAcquireLockException("테스트 — 탈퇴 DB 단계 실패")
+
+                        override fun getMemberOrNull(memberId: Long): Member? = throw org.springframework.dao.DataAccessResourceFailureException("테스트 — 상태 확인도 실패")
+                    }
+                    val auth = AuthService(verifier, down, tokenIssuer, tokenParser, refreshTokenStore, accountDeleter, notificationTokenService, Duration.ofDays(14))
+                    val logger = LoggerFactory.getLogger(AuthService::class.java) as ch.qos.logback.classic.Logger
+                    val appender = ListAppender<ILoggingEvent>().apply { start() }
+                    logger.addAppender(appender)
+                    try {
+                        shouldThrow<CannotAcquireLockException> { auth.withdraw(memberId) }
+                    } finally {
+                        logger.detachAppender(appender)
+                    }
+
+                    appender.list.single { it.level == Level.ERROR }.formattedMessage.contains("memberId=$memberId") shouldBe true
+                }
+            }
+        }
+
         given("소셜 계정 삭제가 실패한 회원") {
             `when`("제공자가 회복된 뒤 탈퇴를 다시 요청하면") {
                 then("첫 요청은 500 AUTH-007 에 회원 무변, 재요청은 200 으로 탈퇴가 끝난다") {
