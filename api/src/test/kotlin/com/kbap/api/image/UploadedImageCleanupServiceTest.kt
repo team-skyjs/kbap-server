@@ -288,7 +288,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
                     result.dryRun shouldBe true
                     result.deletedCount shouldBe 0
-                    service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L)
+                    service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L, "orders" to 0L)
                     activePaths().size shouldBe 3
                     storage.deleted.shouldBeEmpty()
                 }
