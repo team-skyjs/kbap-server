@@ -12,4 +12,5 @@ kbap:
   batch:
     user-stats:
       # dev 는 일일 유저 통계를 보내지 않는다(예진 10/1, prod 만) — 웹훅 미주입 ERROR 가 배포마다 Sentry 를 울리지 않게.
-      enabled: false
+      # 리터럴 false 는 기본 파일의 ${USER_STATS_ENABLED:true} 를 통째로 가려 env 로 못 켜므로 같은 env 를 기본값만 바꿔 받는다.
+      enabled: ${USER_STATS_ENABLED:false}
