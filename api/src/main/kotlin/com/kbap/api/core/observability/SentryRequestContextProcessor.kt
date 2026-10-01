@@ -1,5 +1,6 @@
 package com.kbap.api.core.observability
 
+import com.kbap.api.core.LockConflicts
 import com.kbap.api.core.logging.MASKED_QUERY_PARAMS
 import com.kbap.api.core.logging.RequestLoggingFilter
 import com.kbap.api.core.logging.maskQuery
@@ -7,10 +8,9 @@ import com.kbap.common.core.error.BusinessException
 import io.sentry.EventProcessor
 import io.sentry.Hint
 import io.sentry.SentryEvent
-import jakarta.persistence.OptimisticLockException
+import io.sentry.SentryLevel
 import org.apache.catalina.connector.ClientAbortException
 import org.slf4j.MDC
-import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.stereotype.Component
@@ -31,8 +31,10 @@ class SentryRequestContextProcessor : EventProcessor {
         val throwable = event.throwable ?: return event
         if (isClientAbort(throwable)) return null
         val status = httpStatusOf(throwable)
-        if (status in 400..499 && !hasOptimisticConflictCause(throwable)) return null
+        val lockConflict = LockConflicts.isLockConflict(throwable)
+        if (status in 400..499 && !lockConflict) return null
         event.setTag(HTTP_STATUS_TAG, status.toString())
+        if (lockConflict) event.level = if (LockConflicts.isLockHeldTooLong(throwable)) SentryLevel.ERROR else SentryLevel.WARNING
         if (throwable is BusinessException) {
             event.setTag("error.code", throwable.errorCode.code)
             event.fingerprints = listOf("business", throwable.errorCode.code)
@@ -45,14 +47,11 @@ class SentryRequestContextProcessor : EventProcessor {
             is BusinessException -> throwable.errorCode.status
             is ErrorResponse -> throwable.statusCode.value()
             is IllegalArgumentException, is HttpMessageNotReadableException, is MethodArgumentTypeMismatchException -> 400
-            else -> if (hasOptimisticConflictCause(throwable)) 409 else 500
+            else -> if (LockConflicts.isLockConflict(throwable)) 409 else 500
         }
 
     private fun isClientAbort(throwable: Throwable): Boolean =
         causeChain(throwable).any { it is ClientAbortException || it is AsyncRequestNotUsableException }
-
-    private fun hasOptimisticConflictCause(throwable: Throwable): Boolean =
-        causeChain(throwable).any { it is OptimisticLockingFailureException || it is OptimisticLockException }
 
     private fun causeChain(throwable: Throwable): Sequence<Throwable> = generateSequence(throwable) { it.cause }
 

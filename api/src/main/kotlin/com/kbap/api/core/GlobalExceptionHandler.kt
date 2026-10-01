@@ -2,11 +2,7 @@ package com.kbap.api.core
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import jakarta.persistence.LockTimeoutException
-import jakarta.persistence.OptimisticLockException
-import jakarta.persistence.PessimisticLockException
 import jakarta.servlet.http.HttpServletRequest
-import java.sql.SQLException
 import org.slf4j.LoggerFactory
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.dao.PessimisticLockingFailureException
@@ -23,10 +19,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
-
-    private companion object {
-        const val MYSQL_DEADLOCK_VICTIM = 1213
-    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(
@@ -109,7 +101,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        if (hasLockConflictCause(e)) {
+        if (LockConflicts.isLockConflict(e)) {
             return conflictResponse(e, request)
         }
         // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
@@ -126,23 +118,9 @@ class GlobalExceptionHandler {
     }
 
     private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = isLockHeldTooLong(e))
+        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = LockConflicts.isLockHeldTooLong(e))
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
-    }
-
-    private fun hasLockConflictCause(e: Throwable?): Boolean =
-        generateSequence(e) { it.cause }.any {
-            it is OptimisticLockingFailureException || it is OptimisticLockException ||
-                it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
-        }
-
-    private fun isLockHeldTooLong(e: Throwable): Boolean {
-        val chain = generateSequence(e) { it.cause }.toList()
-        val pessimistic = chain.any {
-            it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
-        }
-        return pessimistic && chain.none { it is SQLException && it.errorCode == MYSQL_DEADLOCK_VICTIM }
     }
 
     private fun logFailure(
