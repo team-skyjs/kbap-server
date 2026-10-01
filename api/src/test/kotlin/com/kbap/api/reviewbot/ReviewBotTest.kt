@@ -195,7 +195,7 @@ class ReviewBotTest : BehaviorSpec() {
                 then("그 음식은 다시 후보이고 오늘 쓴 수에서도 빠진다 — 지워진 리뷰가 목표를 채운 것으로 세지 않는다") {
                     val bots = accountService.ensureBots(2).bots
                     val food = seedFoods(1).single()
-                    val earlier = java.time.LocalDateTime.now().withHour(10)
+                    val earlier = todayAt(10).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
                     dataSource.connection.use { c ->
                         c.prepareStatement(
                             "INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'deleted bot review', 'DELETED', ?, ?)",
