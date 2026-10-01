@@ -22,6 +22,8 @@ class InactiveMemberTokenTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var handlerMappings: List<org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping>
+    @Autowired private lateinit var jwtFilterRegistration: org.springframework.boot.web.servlet.FilterRegistrationBean<JwtAuthenticationFilter>
 
     private val mapper = jacksonObjectMapper()
 
@@ -122,6 +124,47 @@ class InactiveMemberTokenTest : BehaviorSpec() {
                     call(actor, writes.first()).status shouldBe 200
                     count("SELECT COUNT(*) FROM review_like") shouldBe 1
                     call(actor, writes.first { it.label == "북마크" }).status shouldBe 200
+                }
+            }
+        }
+
+        given("인증 필터 밖 경로(@AuthMemberIdOrNull)에 탈퇴 회원 토큰") {
+            listOf(
+                "스캔 이력 검색" to "/api/foods/search?scope=scanned&keyword=%EA%B9%80%EC%B9%98&lang=en",
+                "홈" to "/api/home?lang=en",
+                "음식 목록" to "/api/foods?lang=en",
+            ).forEach { (label, path) ->
+                `when`("$label 을 부르면") {
+                    then("리졸버가 같은 확인으로 400 MEMBER-003 을 낸다 — 토큰을 보냈으면 회원으로 판정한다") {
+                        seed()
+                        withdraw(actor)
+
+                        val response = mockMvc.perform(
+                            MockMvcRequestBuilders.get(path)
+                                .header("X-API-Version", "1.0")
+                                .header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(actor, MemberRole.USER)}"),
+                        ).andReturn().response
+
+                        response.status shouldBe 400
+                        mapper.readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText() shouldBe "MEMBER-003"
+                    }
+                }
+            }
+        }
+
+        given("@AuthMemberId 를 받는 핸들러 전부") {
+            `when`("각 경로를 인증 필터 등록 경로와 대조하면") {
+                then("전부 필터 적용 범위 안이다 — 새 엔드포인트가 필터 등록에서 빠지면 여기서 빨개진다") {
+                    val filterPatterns = jwtFilterRegistration.urlPatterns
+                    fun covered(path: String) = filterPatterns.any { p ->
+                        if (p.endsWith("/*")) path == p.removeSuffix("/*") || path.startsWith(p.removeSuffix("*")) else path == p
+                    }
+                    val uncovered = handlerMappings.flatMap { it.handlerMethods.entries }
+                        .filter { (_, method) -> method.methodParameters.any { it.hasParameterAnnotation(AuthMemberId::class.java) } }
+                        .flatMap { (info, method) -> info.patternValues.map { "$it ${method.method.name}" } }
+                        .filterNot { covered(it.substringBefore(' ').replace(Regex("\\{[^}]+}"), "1")) }
+
+                    uncovered shouldBe emptyList()
                 }
             }
         }
