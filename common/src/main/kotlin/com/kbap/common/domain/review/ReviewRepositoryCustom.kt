@@ -21,4 +21,6 @@ interface ReviewRepositoryCustom {
         excludedReviewIds: List<Long>,
         limit: Int,
     ): List<ReviewPageRow>
+
+    fun existsFeedVisible(reviewId: Long, excludedMemberIds: List<Long>): Boolean
 }

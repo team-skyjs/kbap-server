@@ -190,6 +190,15 @@ class ReviewService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getVisibleReview(viewerMemberId: Long?, reviewId: Long): Review {
+        val review = reviewRepository.findById(reviewId).orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        if (viewerMemberId != null && review.isOwnedBy(viewerMemberId)) return review
+        val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
+        if (!reviewRepository.existsFeedVisible(reviewId, excluded)) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        return review
+    }
+
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
 

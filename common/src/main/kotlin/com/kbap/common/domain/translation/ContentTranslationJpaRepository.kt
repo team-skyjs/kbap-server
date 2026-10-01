@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Long> {
     fun findByTargetTypeAndTargetIdAndLanguage(targetType: TranslationTargetType, targetId: Long, language: String): ContentTranslation?
@@ -15,12 +16,12 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
         nativeQuery = true,
         value = """
             INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at)
-            VALUES (:targetType, :targetId, :language, :sourceHash, :translatedText, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))
+            VALUES (:targetType, :targetId, :language, :sourceHash, :translatedText, 'ACTIVE', :now, :now)
             ON DUPLICATE KEY UPDATE
-                source_hash = VALUES(source_hash),
-                translated_text = VALUES(translated_text),
+                source_hash = :sourceHash,
+                translated_text = :translatedText,
                 status = 'ACTIVE',
-                updated_at = CURRENT_TIMESTAMP(6)
+                updated_at = :now
         """,
     )
     fun upsert(
@@ -29,5 +30,6 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
         @Param("language") language: String,
         @Param("sourceHash") sourceHash: String,
         @Param("translatedText") translatedText: String,
+        @Param("now") now: LocalDateTime,
     ): Int
 }

@@ -19,11 +19,7 @@ class ReviewRepositoryCustomImpl(
         excludedReviewIds: List<Long>,
         limit: Int,
     ): List<ReviewPageRow> {
-        val conditions = mutableListOf(
-            "r.memberId not in :excludedMemberIds",
-            "r.id not in :excludedReviewIds",
-            "exists (select 1 from Food f where f.id = r.foodId)",
-        )
+        val conditions = (FEED_VISIBILITY + "r.id not in :excludedReviewIds").toMutableList()
         if (foodId != null) conditions += "r.foodId = :foodId"
         if (countryCode != null) conditions += "r.authorCountryCode = :countryCode"
         if (minRating != null) conditions += "r.rating >= :minRating"
@@ -83,5 +79,18 @@ class ReviewRepositoryCustomImpl(
             val columns = row as Array<*>
             ReviewPageRow(review = columns[0] as Review, metric = (columns[1] as Number).toLong())
         }
+    }
+
+    override fun existsFeedVisible(reviewId: Long, excludedMemberIds: List<Long>): Boolean =
+        entityManager.createQuery("select count(r) from Review r where r.id = :reviewId and ${FEED_VISIBILITY.joinToString(" and ")}")
+            .setParameter("reviewId", reviewId)
+            .setParameter("excludedMemberIds", excludedMemberIds)
+            .singleResult.let { (it as Number).toLong() > 0 }
+
+    private companion object {
+        val FEED_VISIBILITY = listOf(
+            "r.memberId not in :excludedMemberIds",
+            "exists (select 1 from Food f where f.id = r.foodId)",
+        )
     }
 }
