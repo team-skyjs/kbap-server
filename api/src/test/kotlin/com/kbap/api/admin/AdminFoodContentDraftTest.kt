@@ -245,6 +245,26 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("삭제된 음식의 초안과 활성 초안이 섞여 있고 페이지가 꽉 차면(전체 수 질의가 실제로 돌면)") {
+                then("전체 수도 활성 음식 초안만 센다") {
+                    val deleted = publishedFood()
+                    recollectResult(deleted)
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET status = 'DELETED' WHERE id = ${deleted.id}") } }
+                    val active = publishedFood()
+                    recollectResult(active)
+
+                    val payload = body(
+                        mockMvc.get("/api/admin/foods/content-drafts?size=1") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${token()}")
+                        }.andReturn().response,
+                    ).path("payload")
+
+                    payload.path("items").map { it.path("foodId").asLong() } shouldBe listOf(active.id)
+                    payload.path("totalCount").asLong() shouldBe 1L
+                }
+            }
+
             `when`("목록을 보면") {
                 then("검수 대기 초안만 나온다") {
                     val food = publishedFood()
