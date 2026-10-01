@@ -44,7 +44,7 @@ class AdminFoodContentIngestService(
     ) {
         val food = lockFoodAndCompleteOutbox(outboxId, foodId) ?: return
         if (food.isReady()) {
-            Food.storableIngredients(ingredients)
+            val storable = Food.storableIngredients(ingredients)
             draftRepository.findByFoodIdAndReviewStatus(foodId, FoodContentDraftStatus.PENDING)?.supersede()
             draftRepository.save(
                 FoodContentDraft(
@@ -55,7 +55,7 @@ class AdminFoodContentIngestService(
                     spiciness = spiciness,
                     nameTranslations = nameTranslations,
                     descriptionTranslations = descriptionTranslations,
-                    ingredients = ingredients,
+                    ingredients = storable,
                 ),
             )
             return
