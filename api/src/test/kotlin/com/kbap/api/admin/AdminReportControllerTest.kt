@@ -142,6 +142,23 @@ class AdminReportControllerTest : BehaviorSpec() {
             }
         }
 
+        given("아주 큰 페이지 번호") {
+            `when`("page 가 Int 최댓값이면") {
+                then("오프셋이 넘쳐 DB 오류가 나지 않고 빈 페이지 200 이다") {
+                    seed()
+                    seedFourReports()
+
+                    val response = mockMvc.get("/api/admin/reports?page=2147483647") {
+                        header("X-API-Version", "1.0")
+                        header("Authorization", "Bearer ${token()}")
+                    }.andReturn().response
+
+                    response.status shouldBe 200
+                    body(response).path("payload").path("items").size() shouldBe 0
+                }
+            }
+        }
+
         given("대상 단위 처리") {
             `when`("DISMISSED 로 처리하면") {
                 then("같은 대상 PENDING 4건이 전부 HANDLED·처리자·시각·메모가 남고, 리뷰는 그대로 노출된다. 목록은 HANDLED 쪽으로 옮겨간다") {
