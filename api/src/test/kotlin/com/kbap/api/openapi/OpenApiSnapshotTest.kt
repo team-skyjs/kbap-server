@@ -111,6 +111,16 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("대시보드의 콘텐츠 아웃박스 포기 건수 설명") {
+            `when`("문서를 보면") {
+                then("재시도 상한 도달뿐 아니라 공개(READY) 음식이라 재전송하지 않은 포기도 포함한다고 적혀 있다") {
+                    val description = docOf("/v3/api-docs").path("components").path("schemas")
+                        .path("AdminDashboardMetricsResponse").path("properties").path("contentOutboxDeadCount").path("description").asText()
+                    description.contains("공개(READY)") shouldBe true
+                }
+            }
+        }
+
         given("X-API-Version 헤더 파라미터") {
             `when`("문서의 각 오퍼레이션을 보면") {
                 then("모든 오퍼레이션이 헤더를 받고, 버전을 선언한 매핑은 그 값이 기본값으로 채워진다") {
