@@ -1,16 +1,16 @@
 name: Deploy batch prod
 
-# main 머지 시 prod ECS batch 서비스의 태스크정의를 갱신한다.
-# prod batch 는 현재 desired_count 0(미기동) — 리비전만 갱신해 두고, 켜는 시점(desired 1)은
-# 인프라(Terraform batch_desired_count) 소관이다. desired 0 이면 update-service 는 태스크를 띄우지 않는다.
+# main 푸시로 돈 api 배포(Deploy prod)가 성공한 뒤에 prod ECS batch 서비스를 롤링한다.
+# batch 는 Flyway 없이 ddl-auto=validate 라, api green 태스크가 마이그레이션을 끝내기 전에 뜨면
+# 새 엔티티가 매핑한 컬럼이 없어 기동에 실패한다. 그래서 main push 가 아니라 api 배포 완료를 트리거로 쓴다.
+# workflow_run 은 기본 브랜치(develop)의 이 파일로 평가되고 GITHUB_SHA 가 기본 브랜치를 가리키므로
+# 빌드·태그는 반드시 트리거한 실행의 head_sha 로 한다. api 롤백(workflow_dispatch)으로 끝난 실행은 따라가지 않는다.
+# 경로 필터는 workflow_run 에 없으므로 prod 릴리스마다 batch 도 같은 커밋으로 다시 굴린다.
 on:
-  push:
+  workflow_run:
+    workflows: [ "Deploy prod" ]
+    types: [ completed ]
     branches: [ "main" ]
-    paths:
-      - "batch/**"
-      - "common/**"
-      - "Dockerfile.batch"
-      - ".github/workflows/deploy-batch-prod.yml"
   workflow_dispatch:
     inputs:
       image_tag:
@@ -25,18 +25,38 @@ concurrency:
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 jobs:
   deploy:
     name: build and roll batch service (prod)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     environment: prod
     env:
       ECS_NAME: kbap-prod-ecs
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
+      # Deploy prod 의 결론은 뒤따르는 GitHub 릴리스 잡까지 포함하므로, 배포 잡(카나리 = Flyway 적용) 자체의 결론을 본다.
+      - name: Require api deploy success
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          CONCLUSION=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs" \
+            --jq '.jobs[] | select(.name == "build and canary deploy to prod ECS") | .conclusion')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::api 배포 잡 결론이 '${CONCLUSION:-없음}' — 마이그레이션 적용을 보장할 수 없어 batch 롤아웃을 하지 않는다"
+            exit 1
+          fi
+          echo "api 배포 성공(run $RUN_ID) 확인 — batch 롤아웃 진행: $DEPLOY_SHA" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v6
@@ -52,7 +72,7 @@ jobs:
         id: image
         env:
           IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
-          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_SHA: ${{ env.DEPLOY_SHA }}
         run: |
           REPO="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_BATCH_REPOSITORY || vars.ECR_REPOSITORY }}"
           if [ -n "$IMAGE_TAG_INPUT" ]; then
