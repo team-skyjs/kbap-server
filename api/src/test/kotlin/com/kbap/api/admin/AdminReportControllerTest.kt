@@ -316,7 +316,7 @@ class AdminReportControllerTest : BehaviorSpec() {
             }
 
             `when`("모더레이션 삭제가 리뷰를 잠근 채 커밋을 미루는 동안 작성자가 같은 리뷰를 지우면") {
-                then("작성자 요청은 앞 커밋을 기다린 뒤 리뷰 없음 — 리뷰 수·랭킹 이벤트가 두 번 반영되지 않는다") {
+                then("작성자 요청은 앞 커밋을 기다린 뒤 리뷰 없음(REVIEW-001) — 교착 희생 409 가 아니고, 리뷰 수·랭킹 이벤트가 두 번 반영되지 않는다") {
                     seed()
                     exec("INSERT INTO food_review (member_id, food_id, rating, content, status) VALUES ($author, 85630, 5, '작성자의 다른 리뷰', 'ACTIVE')")
                     exec("UPDATE member SET review_count = 2 WHERE id = $author")
@@ -339,7 +339,8 @@ class AdminReportControllerTest : BehaviorSpec() {
                     }.andReturn().response
                     moderation.get(30, TimeUnit.SECONDS)
 
-                    byAuthor.status shouldBe 404
+                    byAuthor.status shouldBe 400
+                    body(byAuthor).path("code").asText() shouldBe "REVIEW-001"
                     scalar("SELECT review_count FROM member WHERE id = $author") shouldBe "1"
                     scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "1"
                 }
