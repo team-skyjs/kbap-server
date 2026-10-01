@@ -471,6 +471,27 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
             }
         }
 
+        given("재수집 API 문서") {
+            `when`("단건·일괄 재수집 오퍼레이션 설명을 보면") {
+                then("READY 음식은 결과가 검수 초안이 되고 승인 전 공개 무변이라고 적혀 있고, 검수 없는 덮어쓰기 문구는 없다") {
+                    val paths = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8)).path("paths")
+                    val single = paths.path("/api/admin/foods/{id}/recollect").path("post").path("description").asText()
+                    val bulk = paths.path("/api/admin/foods/recollect").path("post").path("description").asText()
+
+                    listOf(single, bulk).forEach { description ->
+                        description.contains("검수 대기 초안") shouldBe true
+                        description.contains("승인 전") shouldBe true
+                        description.contains("검수 없는 덮어쓰기") shouldBe false
+                        description.contains("성공(passed=true)") shouldBe true
+                        description.contains("실패(passed=false)") shouldBe true
+                    }
+                    single.contains("pendingDraft") shouldBe true
+                    single.windowed("이미지 재생성 중이면 상태 유지".length).count { it == "이미지 재생성 중이면 상태 유지" } shouldBe 2
+                    bulk.contains("그 외는 FAILED(이미지 재생성 중이면 상태 유지)") shouldBe true
+                }
+            }
+        }
+
         given("초안 엔티티") {
             `when`("맵기가 범위(-1~10) 밖이면") {
                 then("만들 때 거절한다 — food 의 CHECK 제약에서 승인 시점에 터지지 않게") {
