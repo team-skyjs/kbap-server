@@ -41,10 +41,10 @@ class FoodIngredientReplaceCallersTest : BehaviorSpec({
                     "replace 는 그 음식의 재료 행을 잠금 없이 읽어 읽힌 행만 지운다. 새 호출자가 음식 행을 잠그기 전에 다른 조회를 하면 " +
                         "옛 목록을 읽어 재료 행이 조용히 남는다. 범위 삭제로 되돌리면 KB-682 교착이 돌아온다.",
                 ) {
-                    replaceCalls.map { it.originOwner.name.substringBefore('$') }.toSet() shouldBe setOf(
-                        AdminFoodContentIngestService::class.java.name,
-                        AdminFoodService::class.java.name,
-                        AdminFoodIngredientBackfillService::class.java.name,
+                    replaceCalls.map { "${it.originOwner.simpleName.substringBefore('$')}.${it.origin.name.substringBefore('$')}" }.sorted() shouldBe listOf(
+                        "AdminFoodContentIngestService.applyContent",
+                        "AdminFoodIngredientBackfillService.backfill",
+                        "AdminFoodService.updateFood",
                     )
                 }
             }

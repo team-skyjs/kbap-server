@@ -134,7 +134,7 @@ class FoodIngredientReplaceLockingTest : BehaviorSpec() {
 
         given("재수집처럼 같은 재료로 다시 교체하는 이웃한 두 음식이 겹칠 때") {
             `when`("앞 음식이 교체한 채 열려 있는 동안 뒤 음식도 같은 재료로 교체하면") {
-                then("둘 다 성공하고 비율은 새 값이다 — 같은 기본 키를 지우고 다시 넣어도 틈을 잠그지 않는다") {
+                then("뒤 음식은 앞 음식이 끝나기를 기다리지 않고 끝나며 비율은 새 값이다 — 같은 기본 키를 지우고 다시 넣어도 틈을 잠그지 않는다") {
                     food(68241)
                     food(68242)
                     TransactionTemplate(transactionManager).executeWithoutResult {
@@ -142,12 +142,13 @@ class FoodIngredientReplaceLockingTest : BehaviorSpec() {
                         foodIngredientRepository.replace(68242, listOf(FoodIngredient("SESAME", 60), FoodIngredient("WHEAT", 40)))
                     }
                     val firstReplaced = CountDownLatch(1)
+                    val secondDone = CountDownLatch(1)
                     val executor = Executors.newFixedThreadPool(2)
                     val first = executor.submit {
                         TransactionTemplate(transactionManager).executeWithoutResult {
                             foodIngredientRepository.replace(68241, listOf(FoodIngredient("SESAME", 70), FoodIngredient("WHEAT", 30)))
                             firstReplaced.countDown()
-                            Thread.sleep(1_000)
+                            secondDone.await(30, TimeUnit.SECONDS)
                         }
                     }
                     firstReplaced.await(30, TimeUnit.SECONDS) shouldBe true
@@ -158,7 +159,8 @@ class FoodIngredientReplaceLockingTest : BehaviorSpec() {
                     }
                     executor.shutdown()
 
-                    second.get(500, TimeUnit.MILLISECONDS)
+                    second.get(10, TimeUnit.SECONDS)
+                    secondDone.countDown()
                     first.get(30, TimeUnit.SECONDS)
 
                     val percents = "SELECT GROUP_CONCAT(inclusion_percent ORDER BY sort_order) FROM food_ingredient WHERE food_id = "
