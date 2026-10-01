@@ -33,6 +33,7 @@ class AdminReportControllerTest : BehaviorSpec() {
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var adminReportService: AdminReportService
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
+    @Autowired private lateinit var entityManager: jakarta.persistence.EntityManager
 
     private val mapper = jacksonObjectMapper()
 
@@ -213,6 +214,22 @@ class AdminReportControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("작성자가 정지 회원인 리뷰를 CONTENT_DELETED 로 처리하면") {
+                then("탈퇴가 아니므로 작성자 삭제와 같게 리뷰 수를 줄이고 랭킹 이벤트를 남긴다") {
+                    seed()
+                    exec("UPDATE member SET member_status = 'SUSPENDED' WHERE id = $author")
+                    val id = report(reporter1, "install-r1")
+
+                    val response = handleReport(id, "CONTENT_DELETED")
+
+                    response.status shouldBe 200
+                    scalar("SELECT status FROM food_review WHERE id = $review") shouldBe "DELETED"
+                    scalar("SELECT review_count FROM member WHERE id = $author") shouldBe "0"
+                    scalar("SELECT unique_reviewed_food_count FROM member WHERE id = $author") shouldBe "0"
+                    scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "1"
+                }
+            }
+
             `when`("없는 신고 id 를 처리하면") {
                 then("404 REPORT-007") {
                     seed()
@@ -248,6 +265,35 @@ class AdminReportControllerTest : BehaviorSpec() {
                     body(second).path("code").asText() shouldBe "REPORT-006"
                     scalar("SELECT COUNT(*) FROM report WHERE handle_result = 'CONTENT_DELETED'") shouldBe "4"
                     scalar("SELECT status FROM food_review WHERE id = $review") shouldBe "DELETED"
+                }
+            }
+
+            `when`("신고 R 을 처리하려는 사이 다른 처리가 R 을 처리하고 같은 대상에 새 신고 S 가 들어와 커밋되면") {
+                then("R 처리 요청은 409 REPORT-006 — 나중에 들어온 S 를 대신 처리하지 않는다") {
+                    seed()
+                    val r = report(reporter1, "install-r1")
+                    val held = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor()
+                    val first = executor.submit {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            adminReportService.handleTarget(ReportTargetType.REVIEW, review, ReportHandleResult.DISMISSED, null, admin)
+                            entityManager.createNativeQuery(
+                                "INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, reason) " +
+                                    "VALUES ($reporter2, 'install-r2-late', 'REVIEW', $review, 'SPAM')",
+                            ).executeUpdate()
+                            held.countDown()
+                            Thread.sleep(1_500)
+                        }
+                    }
+                    executor.shutdown()
+                    held.await(30, TimeUnit.SECONDS) shouldBe true
+
+                    val second = handleReport(r, "DISMISSED")
+                    first.get(30, TimeUnit.SECONDS)
+
+                    second.status shouldBe 409
+                    body(second).path("code").asText() shouldBe "REPORT-006"
+                    scalar("SELECT COUNT(*) FROM report WHERE handle_status = 'PENDING'") shouldBe "1"
                 }
             }
 
