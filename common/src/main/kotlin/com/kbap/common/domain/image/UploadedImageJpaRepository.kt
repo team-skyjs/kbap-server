@@ -52,6 +52,9 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.object_path = :path")
     fun countRecordedAnyStatus(@Param("path") path: String): Long
 
+    @Query(nativeQuery = true, value = "select count(*) from (select :path as object_path) u where not ($UNREFERENCED)")
+    fun countReferencesTo(@Param("path") path: String): Long
+
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/")
 

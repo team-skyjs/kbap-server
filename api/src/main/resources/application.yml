@@ -207,7 +207,9 @@ kbap:
     max-per-run: ${UPLOADED_IMAGE_CLEANUP_MAX_PER_RUN:100}
     cron: "0 30 4 * * *"
     # 행 없이 S3 에 남은 업로드 오브젝트 정리(KB-665) — 업로드 6용도 접두(`{key-prefix}/images/{용도}/`)만 훑어
-    # uploaded_image 에 (상태 무관) 행이 없고 LastModified 가 retention 을 지난 오브젝트를 지운다. 같은 dry-run 스위치.
+    # uploaded_image 에 (상태 무관) 행이 없고 LastModified 가 retention 을 지났으며 어디서도 참조되지 않는 오브젝트를 지운다.
+    # 삭제 스위치는 #293 잡(dry-run)과 따로다 — 위험이 달라 각자 켠다.
+    unrecorded-dry-run: ${UNRECORDED_UPLOAD_CLEANUP_DRY_RUN:true}
     # retention 은 presigned 유효기간(upload-ttl) + 완료 신고 여유(1일)보다 길어야 기동한다 — 그 뒤엔 새 PUT·complete 가 없다.
     unrecorded-retention-days: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_RETENTION_DAYS:7}
     unrecorded-max-deletes-per-run: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_MAX_DELETES_PER_RUN:100}

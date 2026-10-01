@@ -19,7 +19,7 @@ class UnrecordedUploadCleanupService(
     private val storageObjectStore: StorageObjectStore,
     private val redisTemplate: StringRedisTemplate,
     uploadProperties: ImageUploadProperties,
-    @Value("\${kbap.uploaded-image-cleanup.dry-run:true}") private val dryRun: Boolean,
+    @Value("\${kbap.uploaded-image-cleanup.unrecorded-dry-run:true}") private val dryRun: Boolean,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-retention-days:7}") private val retentionDays: Long,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-deletes-per-run:100}") private val maxDeletesPerRun: Int,
     @Value("\${kbap.uploaded-image-cleanup.unrecorded-max-listed-per-run:20000}") private val maxListedPerRun: Int,
@@ -60,6 +60,7 @@ class UnrecordedUploadCleanupService(
             var purposeListed = 0
             var unrecorded = 0
             var stale = 0
+            var staleReferenced = 0
             var exhausted = false
             while (listed < maxListedPerRun) {
                 val page = storageObjectStore.list(prefixes.getValue(purpose), settledKey, minOf(LIST_PAGE_SIZE, maxListedPerRun - listed))
@@ -73,7 +74,9 @@ class UnrecordedUploadCleanupService(
                 for (obj in page) {
                     val isUnrecorded = obj.path !in recorded
                     if (isUnrecorded) unrecorded++
-                    if (isUnrecorded && obj.lastModified.isBefore(cutoff)) {
+                    if (isUnrecorded && obj.lastModified.isBefore(cutoff) && uploadedImageRepository.countReferencesTo(obj.path) > 0) {
+                        staleReferenced++
+                    } else if (isUnrecorded && obj.lastModified.isBefore(cutoff)) {
                         if (processed >= maxDeletesPerRun) {
                             stopReason = "삭제 상한 $maxDeletesPerRun"
                             break
@@ -104,7 +107,7 @@ class UnrecordedUploadCleanupService(
                 cursor = Cursor(purpose, settledKey, stuck)
                 if (stopReason != null) break
             }
-            counts[purpose.prefix] = UnrecordedUploadCount(listed = purposeListed, unrecorded = unrecorded, stale = stale)
+            counts[purpose.prefix] = UnrecordedUploadCount(purposeListed, unrecorded, stale, staleReferenced)
             if (stopReason != null) break
             if (!exhausted) {
                 stopReason = "목록 상한 $maxListedPerRun"
@@ -118,7 +121,7 @@ class UnrecordedUploadCleanupService(
         saveCursor(cursor)
         val result = UnrecordedUploadCleanupResult(dryRun, counts, deleted, failed, skipped, skippedStuck)
         if (dryRun) {
-            log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위)} {}", counts)
+            log.info("행 없는 업로드 오브젝트 정리 dry-run — 용도별 {목록, 행 없음, 보존 기간 경과(이번 실행 범위), 경과했지만 참조됨} {}", counts)
         } else if (failed > 0) {
             log.warn("행 없는 업로드 오브젝트 정리 — {}건 삭제, {}건 실패, {}건 건너뜀(그 사이 기록됨) {}", deleted, failed, skipped, counts)
         } else {
@@ -170,6 +173,7 @@ class UnrecordedUploadCleanupService(
 
     private fun deleteIfStillUnrecorded(candidate: StoredObject): Outcome {
         if (uploadedImageRepository.countRecordedAnyStatus(candidate.path) > 0) return Outcome.SKIPPED
+        if (uploadedImageRepository.countReferencesTo(candidate.path) > 0) return Outcome.SKIPPED
         return try {
             storageObjectStore.delete(candidate.path)
             Outcome.DELETED
@@ -199,6 +203,7 @@ data class UnrecordedUploadCount(
     val listed: Int,
     val unrecorded: Int,
     val stale: Int,
+    val staleReferenced: Int = 0,
 )
 
 data class UnrecordedUploadCleanupResult(
