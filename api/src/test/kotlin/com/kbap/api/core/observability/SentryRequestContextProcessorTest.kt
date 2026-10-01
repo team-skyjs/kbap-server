@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.core.GlobalExceptionHandler
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -25,6 +26,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.test.web.servlet.get
+import org.springframework.validation.BeanPropertyBindingResult
+import org.springframework.validation.method.MethodValidationResult
+import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.GetMapping
@@ -60,6 +66,12 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
         } finally {
             handlerLogger.detachAppender(appender)
         }
+    }
+
+    fun responseCodeOf(e: Exception): Pair<Int, String> {
+        thrower.next = e
+        val response = mockMvc.get("/throw").andReturn().response
+        return response.status to jacksonObjectMapper().readTree(response.getContentAsString(Charsets.UTF_8)).path("code").asText()
     }
 
     fun eventOf(e: Exception): SentryEvent? = processor.process(SentryEvent(e).apply { level = SentryLevel.FATAL }, Hint())
@@ -110,6 +122,58 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
                 eventOf(deadlock)?.getTag("lock.conflict") shouldBe "deadlock"
                 eventOf(lockWaitTimeout)?.getTag("lock.conflict") shouldBe "lock_wait"
                 eventOf(OptimisticLockingFailureException("optimistic"))?.getTag("lock.conflict") shouldBe "optimistic"
+            }
+        }
+    }
+
+    given("GlobalExceptionHandler 가 받는 예외 타입 전부") {
+        val handledTypes = GlobalExceptionHandler::class.java.declaredMethods
+            .flatMap { method -> method.getAnnotation(ExceptionHandler::class.java)?.value?.map { it.java } ?: emptyList() }
+            .toSet()
+        val samples: Map<Class<out Throwable>, (Throwable?) -> Exception> = mapOf(
+            MethodArgumentNotValidException::class.java to { wrapped ->
+                object : MethodArgumentNotValidException(raise, BeanPropertyBindingResult(Any(), "target")) {
+                    override val cause: Throwable? get() = wrapped
+                }
+            },
+            HandlerMethodValidationException::class.java to { wrapped ->
+                object : HandlerMethodValidationException(MethodValidationResult.emptyResult()) {
+                    override val cause: Throwable? get() = wrapped
+                }
+            },
+            HttpMessageNotReadableException::class.java to { wrapped -> HttpMessageNotReadableException("bad", wrapped, MockHttpInputMessage(ByteArray(0))) },
+            BusinessException::class.java to { wrapped ->
+                object : BusinessException(ErrorCode.INVALID_REQUEST) {
+                    override val cause: Throwable? get() = wrapped
+                }
+            },
+            IllegalArgumentException::class.java to { wrapped -> IllegalArgumentException("bad", wrapped) },
+            MethodArgumentTypeMismatchException::class.java to { wrapped -> MethodArgumentTypeMismatchException("x", Long::class.java, "id", raise, wrapped) },
+            OptimisticLockingFailureException::class.java to { wrapped -> OptimisticLockingFailureException("optimistic", wrapped) },
+            PessimisticLockingFailureException::class.java to { wrapped -> PessimisticLockingFailureException("pessimistic", wrapped) },
+            Exception::class.java to { wrapped -> IllegalStateException("boom", wrapped) },
+        )
+
+        `when`("핸들러에 @ExceptionHandler 가 더해지면") {
+            then("이 표에도 표본이 있어야 한다 — 새 핸들러의 예외는 아래 대조를 거치지 않고는 들어오지 못한다") {
+                samples.keys shouldBe handledTypes
+            }
+        }
+
+        `when`("각 타입을 그대로, 그리고 원인 사슬에 교착·낙관 충돌을 품은 채로 던지면") {
+            then("Sentry 판정이 실제 응답을 따른다 — 5xx 와 잠금 충돌 409(COMMON-004)만 보내고, 태그는 응답 상태와 같다") {
+                samples.forEach { (type, sample) ->
+                    listOf(null, deadlock, OptimisticLockingFailureException("optimistic")).forEach { wrapped ->
+                        withClue("${type.simpleName} (원인: ${wrapped?.javaClass?.simpleName})") {
+                            val exception = sample(wrapped)
+                            val (status, code) = responseCodeOf(exception)
+                            val event = eventOf(exception)
+
+                            (event != null) shouldBe (status >= 500 || (status == 409 && code == ErrorCode.CONFLICT.code))
+                            event?.getTag("http.status") shouldBe event?.let { status.toString() }
+                        }
+                    }
+                }
             }
         }
     }
