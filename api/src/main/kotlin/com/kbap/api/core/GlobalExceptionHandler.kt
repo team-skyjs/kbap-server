@@ -64,7 +64,7 @@ class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException::class)
     fun handleKbap(e: BusinessException, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
         val status = HttpStatus.resolve(e.errorCode.status) ?: HttpStatus.INTERNAL_SERVER_ERROR
-        logFailure(e, e.errorCode.code, status, request)
+        logFailure(e, e.errorCode.code, status, request, asError = status.is5xxServerError && !e.expected)
         return ResponseEntity.status(status).body(BaseResponse.fail(e.errorCode.code, e.errorCode.message, e.payload))
     }
 
@@ -101,7 +101,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        if (LockConflicts.isLockConflict(e)) {
+        if (LockConflict.of(e) != null) {
             return conflictResponse(e, request)
         }
         // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
@@ -118,7 +118,7 @@ class GlobalExceptionHandler {
     }
 
     private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = LockConflicts.isLockHeldTooLong(e))
+        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = LockConflict.of(e)?.severe == true)
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
     }

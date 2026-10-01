@@ -347,15 +347,18 @@ class TranslationControllerTest : BehaviorSpec() {
                     while (translator.calls.size < limit && System.currentTimeMillis() < deadline) Thread.sleep(20)
                     translator.calls.size shouldBe limit
 
-                    val overflow = translate(visible, lang = "en")
+                    try {
+                        val overflow = translate(visible, lang = "en")
 
-                    overflow.status shouldBe 503
-                    body(overflow).path("code").asText() shouldBe "TRANSLATION-001"
-                    translator.calls.size shouldBe limit
-                    shouldThrow<BusinessException> {
-                        translationService.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.EN)
-                    }.expected shouldBe true
-                    release.countDown()
+                        overflow.status shouldBe 503
+                        body(overflow).path("code").asText() shouldBe "TRANSLATION-001"
+                        translator.calls.size shouldBe limit
+                        shouldThrow<BusinessException> {
+                            translationService.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.EN)
+                        }.expected shouldBe true
+                    } finally {
+                        release.countDown()
+                    }
                     inFlight.map { it.get(30, TimeUnit.SECONDS) } shouldBe List(limit) { 200 }
                     executor.shutdown()
 
