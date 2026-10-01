@@ -35,23 +35,39 @@ class Report(
     @Column(length = MAX_DETAIL_LENGTH)
     val detail: String? = null,
 
+) : BaseEntity() {
     @Enumerated(EnumType.STRING)
     @Column(name = "handle_status", nullable = false, length = 20)
-    val handleStatus: ReportHandleStatus = ReportHandleStatus.PENDING,
+    var handleStatus: ReportHandleStatus = ReportHandleStatus.PENDING
+        protected set
 
     @Enumerated(EnumType.STRING)
     @Column(name = "handle_result", length = 20)
-    val handleResult: ReportHandleResult? = null,
+    var handleResult: ReportHandleResult? = null
+        protected set
 
     @Column(name = "handled_by")
-    val handledBy: Long? = null,
+    var handledBy: Long? = null
+        protected set
 
     @Column(name = "handled_at")
-    val handledAt: java.time.LocalDateTime? = null,
+    var handledAt: java.time.LocalDateTime? = null
+        protected set
 
     @Column(name = "handle_note", length = MAX_HANDLE_NOTE_LENGTH)
-    val handleNote: String? = null,
-) : BaseEntity() {
+    var handleNote: String? = null
+        protected set
+
+    fun handle(result: ReportHandleResult, adminAccountId: Long, at: java.time.LocalDateTime, note: String?) {
+        check(handleStatus == ReportHandleStatus.PENDING) { "이미 처리된 신고입니다: id=$id" }
+        require(note == null || note.length <= MAX_HANDLE_NOTE_LENGTH) { "처리 메모는 최대 ${MAX_HANDLE_NOTE_LENGTH}자입니다" }
+        handleStatus = ReportHandleStatus.HANDLED
+        handleResult = result
+        handledBy = adminAccountId
+        handledAt = at
+        handleNote = note
+    }
+
     val reporterLabel: String
         get() = reporterMemberId?.let { "member:$it" }
             ?: reporterInstallationId?.let { "게스트(${it.take(GUEST_LABEL_PREFIX)})" }

@@ -1,13 +1,12 @@
 package com.kbap.common.domain.report
 
+import jakarta.persistence.LockModeType
 import com.kbap.common.domain.report.model.Report
-import com.kbap.common.domain.report.model.ReportHandleResult
 import com.kbap.common.domain.report.model.ReportTargetType
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
-import java.time.LocalDateTime
 
 interface ReportTargetSummary {
     val targetType: String
@@ -57,21 +56,17 @@ interface ReportJpaRepository : JpaRepository<Report, Long> {
 
     fun findByTargetTypeAndTargetIdInOrderByIdDesc(targetType: ReportTargetType, targetIds: Collection<Long>): List<Report>
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
         """
-        update Report r set r.handleStatus = com.kbap.common.domain.report.model.ReportHandleStatus.HANDLED,
-            r.handleResult = :result, r.handledBy = :handledBy, r.handledAt = :handledAt, r.handleNote = :note
+        select r from Report r
         where r.targetType = :targetType and r.targetId = :targetId
           and r.handleStatus = com.kbap.common.domain.report.model.ReportHandleStatus.PENDING
+        order by r.id
         """,
     )
-    fun handlePendingOfTarget(
+    fun findPendingOfTargetForUpdate(
         @Param("targetType") targetType: ReportTargetType,
         @Param("targetId") targetId: Long,
-        @Param("result") result: ReportHandleResult,
-        @Param("handledBy") handledBy: Long,
-        @Param("handledAt") handledAt: LocalDateTime,
-        @Param("note") note: String?,
-    ): Int
+    ): List<Report>
 }
