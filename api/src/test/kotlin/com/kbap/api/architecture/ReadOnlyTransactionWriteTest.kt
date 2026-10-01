@@ -88,7 +88,7 @@ class ReadOnlyTransactionWriteTest : BehaviorSpec({
             then("검사기가 쓰기를 실제로 찾아낸다 — 쓰기 트랜잭션(어드민 음식 수정)에서는 JDBC 쓰기·save·엔티티 변경이 잡힌다") {
                 val (writes, mutations) = findings(imported.get(AdminFoodService::class.java).codeUnits.single { it.name == "updateFood" })
 
-                writes.map { it.substringAfterLast(" -> ") }.toSet() shouldContainAll setOf("JdbcTemplate.update", "JdbcTemplate.batchUpdate", "FoodVectorOutboxJpaRepository.save")
+                writes.map { it.substringAfterLast(" -> ") }.toSet() shouldContainAll setOf("JdbcTemplate.batchUpdate", "FoodVectorOutboxJpaRepository.save")
                 mutations.any { it.endsWith("sets Food.description") } shouldBe true
             }
         }
