@@ -338,7 +338,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
 
                     val summary = summaryWith(cleanup)
 
-                    summary.orphanUploadedImageCounts shouldBe mapOf("review" to 0L, "community" to 0L, "feedback" to 0L)
+                    summary.orphanUploadedImageCounts shouldBe mapOf("review" to 0L, "community" to 0L, "feedback" to 0L, "orders" to 0L)
                     summary.orphanUploadedImageCountedAt.shouldNotBeNull()
                 }
             }

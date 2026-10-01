@@ -56,14 +56,15 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     fun countReferencesTo(@Param("path") path: String): Long
 
     companion object {
-        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/")
+        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
 
         fun isCleanupTarget(path: String): Boolean = CLEANUP_SEGMENTS.any { path.contains(it) }
 
         private const val CLEANUP_PURPOSE =
             "(locate('images/review/', u.object_path) > 0 " +
                 "or locate('images/community/', u.object_path) > 0 " +
-                "or locate('images/feedback/', u.object_path) > 0)"
+                "or locate('images/feedback/', u.object_path) > 0 " +
+                "or locate('images/orders/', u.object_path) > 0)"
 
         private const val UNREFERENCED =
             "not exists (select 1 from food_review r " +
