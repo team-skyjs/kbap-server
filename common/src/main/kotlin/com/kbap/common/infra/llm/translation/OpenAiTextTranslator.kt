@@ -41,10 +41,10 @@ class OpenAiTextTranslator(
             )
         }.onFailure { log.warn("번역 LLM 비용 이벤트 발행 실패", it) }
         val finishReason = response.result?.metadata?.finishReason
-        check(finishReason == null || finishReason.equals(FINISHED, ignoreCase = true)) {
-            "번역이 끝까지 생성되지 않았다(finishReason=${finishReason?.lowercase()}) — 잘린 번역은 쓰지 않는다"
+        check(finishReason.equals(FINISHED, ignoreCase = true)) {
+            "번역이 끝까지 생성됐다는 표식이 없다(finishReason=${finishReason?.lowercase()}) — 잘렸거나 확인할 수 없는 번역은 쓰지 않는다"
         }
-        return response.result?.output?.text?.trim().orEmpty()
+        return response.result?.output?.text.orEmpty()
     }
 
     private fun systemPrompt(target: LanguageCode): String {

@@ -7,6 +7,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.llm.TextTranslator
+import com.zaxxer.hikari.HikariDataSource
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -27,7 +28,7 @@ class TranslationService(
     dataSource: DataSource,
     @Value("\${kbap.translation.max-concurrent-engine-calls:4}") configuredMaxConcurrentEngineCalls: Int,
 ) {
-    val maxConcurrentEngineCalls: Int = configuredMaxConcurrentEngineCalls
+    val maxConcurrentEngineCalls: Int = clampToPool(configuredMaxConcurrentEngineCalls, dataSource)
 
     private val enginePermits = Semaphore(maxConcurrentEngineCalls)
 
@@ -95,6 +96,17 @@ class TranslationService(
         MessageDigest.getInstance("SHA-256")
             .digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
+
+    private fun clampToPool(configured: Int, dataSource: DataSource): Int {
+        val poolSize = runCatching { dataSource.unwrap(HikariDataSource::class.java).maximumPoolSize }.getOrNull() ?: return configured
+        val ceiling = (poolSize / 2).coerceAtLeast(1)
+        if (configured <= ceiling) return configured
+        LoggerFactory.getLogger(javaClass).warn(
+            "kbap.translation.max-concurrent-engine-calls={} 가 DB 커넥션 풀({})의 절반을 넘어 {} 로 낮춘다 — 번역이 풀을 다 쓰지 못하게 한다",
+            configured, poolSize, ceiling,
+        )
+        return ceiling
+    }
 
     companion object {
         const val CACHE_VERSION = "1"
