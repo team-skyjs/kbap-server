@@ -87,17 +87,20 @@ class AuthService(
 
         deleteSocialAccount(memberId, member.identity)
 
+        var failedStage = if (releaseDevices) STAGE_DEVICE_RELEASE else STAGE_MEMBER_WITHDRAW
         try {
             if (releaseDevices) {
                 notificationTokenService.closeOnWithdraw(memberId)
             }
+            failedStage = STAGE_MEMBER_WITHDRAW
             memberService.withdraw(memberId)
         } catch (e: RuntimeException) {
             val alreadyWithdrawn = runCatching { memberService.getMemberOrNull(memberId) == null }.getOrDefault(false)
             if (alreadyWithdrawn) throw e
             log.error(
                 "소셜 계정은 삭제됐고 DB 탈퇴가 실패했다 — 회원은 ACTIVE 로 남아 재시도하면 끝난다(같은 소셜 계정으로 다시 로그인해도 같은 회원): " +
-                    "memberId={}, provider={}",
+                    "stage={}, memberId={}, provider={}",
+                failedStage,
                 memberId,
                 member.identity.provider,
                 e,
@@ -120,5 +123,10 @@ class AuthService(
             )
             throw BusinessException(ErrorCode.SOCIAL_ACCOUNT_DELETE_FAILED)
         }
+    }
+
+    private companion object {
+        const val STAGE_DEVICE_RELEASE = "device_release"
+        const val STAGE_MEMBER_WITHDRAW = "member_withdraw"
     }
 }

@@ -60,7 +60,6 @@ class AdminReportService(
     @Transactional
     fun handleReport(reportId: Long, result: ReportHandleResult, note: String?, adminAccountId: Long): AdminReportHandleResult {
         val report = reportRepository.findById(reportId).orElseThrow { BusinessException(ErrorCode.REPORT_NOT_FOUND) }
-        if (report.handleStatus == ReportHandleStatus.HANDLED) throw BusinessException(ErrorCode.REPORT_ALREADY_HANDLED)
         return handle(report.targetType, report.targetId, result, note, adminAccountId, requiredReportId = reportId)
     }
 
