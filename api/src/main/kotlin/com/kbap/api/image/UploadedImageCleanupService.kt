@@ -89,8 +89,11 @@ class UploadedImageCleanupService(
         latestOrphanCounts = runCatching { OrphanUploadCounts(countTransaction.execute { countOrphansIn(before) }!!, LocalDateTime.now()) }
             .onFailure { log.warn("미참조 업로드 건수를 세지 못했다 — 최근값을 비운다", it) }
             .getOrNull()
-        latestOrphanCounts?.counts?.forEach { (purpose, count) ->
-            metrics.record(UploadCleanupMetrics.RECORDED, purpose, "candidate", count)
+        val counts = latestOrphanCounts?.counts
+        if (counts == null) {
+            metrics.invalidate(UploadCleanupMetrics.RECORDED, "candidate")
+        } else {
+            counts.forEach { (purpose, count) -> metrics.record(UploadCleanupMetrics.RECORDED, purpose, "candidate", count) }
         }
         return latestOrphanCounts
     }

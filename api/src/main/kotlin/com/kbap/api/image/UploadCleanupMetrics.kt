@@ -12,12 +12,18 @@ class UploadCleanupMetrics(private val registry: MeterRegistry) {
     private val values = ConcurrentHashMap<Pair<String, Tags>, AtomicLong>()
 
     fun record(cleanup: String, purpose: String, kind: String, value: Long) =
-        gauge(NAME, Tags.of("cleanup", cleanup, "purpose", purpose, "kind", kind)).set(value)
+        set(NAME, Tags.of("cleanup", cleanup, "purpose", purpose, "kind", kind), value.toDouble())
 
-    fun markRun(cleanup: String) = gauge(LAST_RUN, Tags.of("cleanup", cleanup)).set(Instant.now().epochSecond)
+    fun invalidate(cleanup: String, kind: String) =
+        values.filterKeys { (name, tags) ->
+            name == NAME && tags.any { it.key == "cleanup" && it.value == cleanup } && tags.any { it.key == "kind" && it.value == kind }
+        }.values.forEach { it.set(Double.NaN.toRawBits()) }
 
-    private fun gauge(name: String, tags: Tags): AtomicLong =
-        values.computeIfAbsent(name to tags) { registry.gauge(name, tags, AtomicLong())!! }
+    fun markRun(cleanup: String) = set(LAST_RUN, Tags.of("cleanup", cleanup), Instant.now().epochSecond.toDouble())
+
+    private fun set(name: String, tags: Tags, value: Double) =
+        values.computeIfAbsent(name to tags) { registry.gauge(name, tags, AtomicLong()) { Double.fromBits(it.get()) }!! }
+            .set(value.toRawBits())
 
     companion object {
         const val NAME = "kbap.upload.cleanup"
