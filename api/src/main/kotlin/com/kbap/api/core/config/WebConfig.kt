@@ -54,7 +54,7 @@ class WebConfig(
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(AuthMemberIdArgumentResolver())
-        resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser))
+        resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser, ::isActiveMember))
     }
 
     override fun addInterceptors(registry: InterceptorRegistry) {
@@ -134,7 +134,7 @@ class WebConfig(
                         parseTokenIfPresent = true,
                     ),
                 ),
-                isActiveMember = { memberRepository.existsByIdAndMemberStatus(it, MemberStatus.ACTIVE) },
+                isActiveMember = ::isActiveMember,
                 activeMemberCheckExempt = Regex("^${ApiPaths.ADMIN}/.*"),
             ),
         ).apply {
@@ -164,6 +164,9 @@ class WebConfig(
                 "${ApiPaths.ADMIN}/*",
             )
         }
+
+    private fun isActiveMember(memberId: Long): Boolean =
+        memberRepository.existsByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
     companion object {
         const val ADMIN_LOGIN_PATH = "${ApiPaths.ADMIN}/auth/login"
