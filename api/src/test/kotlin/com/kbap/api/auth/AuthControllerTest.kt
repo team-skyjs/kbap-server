@@ -361,6 +361,77 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("주문 위치 정보가 있는 회원이 탈퇴하면") {
+                then("그 회원 주문의 위치 8컬럼(좌표·주소·식당 스냅샷)이 NULL 이 되고 주문 행·항목은 남는다 — 다른 회원의 주문은 그대로다") {
+                    val token = loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    val otherId = dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate(
+                                "INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                                    "VALUES ('GOOGLE', 'withdraw-location-other', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                            )
+                        }
+                        memberIdOf("withdraw-location-other")
+                    }
+                    val locationColumns = listOf(
+                        "latitude", "longitude", "road_address",
+                        "place_source", "place_external_id", "place_name", "place_address", "place_language",
+                    )
+                    fun seedOrder(memberId: Long, imagePath: String?, status: String = "ACTIVE"): Long =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO orders (member_id, image_path, latitude, longitude, road_address, place_source, " +
+                                    "place_external_id, place_name, place_address, place_language, status) " +
+                                    "VALUES (?, ?, 37.5636000, 126.9834000, '서울 중구 소공로 51', 'GOOGLE_PLACE', 'ChIJwithdraw', '백년옥', " +
+                                    "'서울 중구 소공로 51', 'ko', ?)",
+                                java.sql.Statement.RETURN_GENERATED_KEYS,
+                            ).use { ps ->
+                                ps.setLong(1, memberId)
+                                ps.setString(2, imagePath)
+                                ps.setString(3, status)
+                                ps.executeUpdate()
+                                ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
+                            }
+                        }
+                    fun locationOf(orderId: Long): List<String?> =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("SELECT ${locationColumns.joinToString()} FROM orders WHERE id = ?").use { ps ->
+                                ps.setLong(1, orderId)
+                                ps.executeQuery().use { rs -> rs.next(); locationColumns.indices.map { rs.getString(it + 1) } }
+                            }
+                        }
+                    fun itemCountOf(orderId: Long): Int =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("SELECT COUNT(*) FROM order_item WHERE order_id = ?").use { ps ->
+                                ps.setLong(1, orderId)
+                                ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                            }
+                        }
+                    val mine = seedOrder(id, "scan/withdraw/mine.jpg")
+                    val mineDeleted = seedOrder(id, null, status = "DELETED")
+                    val others = seedOrder(otherId, "scan/withdraw/others.jpg")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate(
+                                "INSERT INTO food (id, korean_name, description, spiciness, name_translations, description_translations, " +
+                                    "ingredients, content_status, status, created_at, updated_at) VALUES (9570, '탈퇴주문음식', '설명', 0, '{}', '{}', '[]', " +
+                                    "'READY', 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                            )
+                            it.executeUpdate("INSERT INTO order_item (order_id, food_id, menu_name, quantity, price) VALUES ($mine, 9570, '탈퇴주문음식', 2, 5000)")
+                        }
+                    }
+
+                    withdraw(token).andReturn().response.status shouldBe 200
+
+                    locationOf(mine) shouldBe List(locationColumns.size) { null }
+                    locationOf(mineDeleted) shouldBe List(locationColumns.size) { null }
+                    locationOf(others).none { it == null } shouldBe true
+                    itemCountOf(mine) shouldBe 1
+                    columnById(id, "status") shouldBe "DELETED"
+                }
+            }
+
             `when`("탈퇴 후 같은 access 토큰으로 프로필을 조회하면") {
                 then("400 으로 거절된다") {
                     val token = loginAccessToken()

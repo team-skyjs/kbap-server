@@ -3,6 +3,7 @@ package com.kbap.api.member
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.ProfileImagePaths
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -17,12 +18,14 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class MemberService(
     private val memberRepository: MemberJpaRepository,
     private val uploadedImageService: UploadedImageService,
+    private val orderRepository: OrderJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
@@ -81,8 +84,16 @@ class MemberService(
 
     @Transactional
     fun withdraw(memberId: Long) {
-        getMember(memberId).withdraw()
+        val member = memberRepository.findByIdForUpdate(memberId)?.takeIf { it.memberStatus == MemberStatus.ACTIVE }
+            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        member.withdraw()
+        orderRepository.eraseLocationByMemberId(memberId)
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun getMemberForShare(memberId: Long): Member =
+        memberRepository.findByIdForShare(memberId)?.takeIf { it.memberStatus == MemberStatus.ACTIVE }
+            ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
     @Transactional(readOnly = true)
     fun getMemberOrNull(memberId: Long): Member? =
