@@ -62,7 +62,7 @@ class TranslationService(
         }
         if (!enginePermits.tryAcquire()) {
             log.warn("동시 번역 엔진 호출 상한({})에 닿아 거절한다 — targetType={}, targetId={}, language={}", maxConcurrentEngineCalls, targetType, targetId, language.code)
-            throw BusinessException(ErrorCode.TRANSLATION_FAILED)
+            throw BusinessException(ErrorCode.TRANSLATION_FAILED, expected = true)
         }
         val translated = try {
             translator.translate(source, language)

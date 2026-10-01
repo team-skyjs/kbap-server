@@ -6,14 +6,22 @@ import com.kbap.api.IntegrationTest
 import com.kbap.api.PoolProbe
 import com.kbap.api.TestTables
 import com.kbap.api.review.ReviewService
+import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import java.security.MessageDigest
+import java.util.concurrent.Callable
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
@@ -21,12 +29,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.PlatformTransactionManager
-import java.security.MessageDigest
-import java.util.concurrent.Callable
-import java.util.concurrent.CyclicBarrier
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import javax.sql.DataSource
 
 @IntegrationTest
 class TranslationControllerTest : BehaviorSpec() {
@@ -265,6 +267,9 @@ class TranslationControllerTest : BehaviorSpec() {
                     response.status shouldBe 503
                     body(response).path("code").asText() shouldBe "TRANSLATION-001"
                     rows() shouldBe 0L
+                    shouldThrow<BusinessException> {
+                        translationService.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
+                    }.expected shouldBe false
 
                     translator.reset()
                     translate(visible).status shouldBe 200
@@ -342,12 +347,18 @@ class TranslationControllerTest : BehaviorSpec() {
                     while (translator.calls.size < limit && System.currentTimeMillis() < deadline) Thread.sleep(20)
                     translator.calls.size shouldBe limit
 
-                    val overflow = translate(visible, lang = "en")
+                    try {
+                        val overflow = translate(visible, lang = "en")
 
-                    overflow.status shouldBe 503
-                    body(overflow).path("code").asText() shouldBe "TRANSLATION-001"
-                    translator.calls.size shouldBe limit
-                    release.countDown()
+                        overflow.status shouldBe 503
+                        body(overflow).path("code").asText() shouldBe "TRANSLATION-001"
+                        translator.calls.size shouldBe limit
+                        shouldThrow<BusinessException> {
+                            translationService.translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.EN)
+                        }.expected shouldBe true
+                    } finally {
+                        release.countDown()
+                    }
                     inFlight.map { it.get(30, TimeUnit.SECONDS) } shouldBe List(limit) { 200 }
                     executor.shutdown()
 
