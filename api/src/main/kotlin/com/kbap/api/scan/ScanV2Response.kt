@@ -25,7 +25,7 @@ data class ScanV2Response(
     )
     val currency: CurrencyResponse?,
 ) {
-    @Schema(description = "개별 메뉴 항목의 판정 결과")
+    @Schema(name = "ScanV2ItemRiskResponse", description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
         @field:Schema(
             description = "조회 가능한(완성된) 음식과 매칭됐는지. false 면 조사 대기라 위험도를 알 수 없다(riskLevel=UNKNOWN).",
