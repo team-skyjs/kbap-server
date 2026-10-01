@@ -52,6 +52,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             maxListed: Int = 20_000,
             repository: UploadedImageJpaRepository = uploadedImageRepository,
             meters: SimpleMeterRegistry = SimpleMeterRegistry(),
+            metrics: UploadCleanupMetrics = UploadCleanupMetrics(meters),
         ) = UnrecordedUploadCleanupService(
             repository,
             storage,
@@ -61,7 +62,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
             retentionDays,
             maxDeletes,
             maxListed,
-            UploadCleanupMetrics(meters),
+            metrics,
         )
 
         fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
@@ -233,13 +234,31 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
 
                     service(dryRun = true, meters = meters).cleanup()
 
-                    gauge(meters, "scans", "candidate") shouldBe 1.0
+                    gauge(meters, "scans", "candidate_in_run") shouldBe 1.0
                     gauge(meters, "orders", "listed") shouldBe 2.0
                     gauge(meters, "orders", "unrecorded") shouldBe 2.0
-                    gauge(meters, "orders", "candidate") shouldBe 2.0
+                    gauge(meters, "orders", "candidate_in_run") shouldBe 2.0
                     gauge(meters, "profile", "kept_referenced") shouldBe 1.0
                     gauge(meters, "all", "deleted") shouldBe 0.0
                     meters.find(UploadCleanupMetrics.LAST_RUN).tags("cleanup", "unrecorded").gauge()!!.value() shouldBeGreaterThan 0.0
+                }
+            }
+
+            `when`("다음 실행이 목록 상한으로 일부 용도만 훑으면") {
+                then("훑지 않은 용도의 실행 범위 게이지는 지난 값이 아니라 NaN 이다 — 이번 실행 값만 남긴다") {
+                    reset()
+                    stored("local/images/scans/2026/09/1_a.webp")
+                    stored("local/images/orders/2026/09/1_b.webp")
+                    val meters = SimpleMeterRegistry()
+                    val metrics = UploadCleanupMetrics(meters)
+                    service(dryRun = true, meters = meters, metrics = metrics).cleanup()
+                    gauge(meters, "orders", "candidate_in_run") shouldBe 1.0
+
+                    service(dryRun = true, maxListed = 1, meters = meters, metrics = metrics).cleanup()
+
+                    gauge(meters, "scans", "candidate_in_run") shouldBe 1.0
+                    gauge(meters, "orders", "candidate_in_run")!!.isNaN() shouldBe true
+                    gauge(meters, "orders", "listed")!!.isNaN() shouldBe true
                 }
             }
 
