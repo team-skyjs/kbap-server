@@ -107,7 +107,7 @@ kbap:
       access-ttl: 30m
       refresh-ttl: 14d
   # 번역 API(KB-678) — 동시에 번역 엔진을 부르는 요청 수 상한. 넘으면 기다리지 않고 503(TRANSLATION-001).
-  # 웹 요청은 엔진 호출 동안에도 DB 커넥션 하나를 쥐고 있어(open-in-view) 번역이 풀(10)을 다 쓰지 못하게 풀의 절반 이하로 둔다.
+  # 엔진 호출 동안에는 DB 커넥션을 쥐지 않는다(KB-681). 번역마다 원문 조회·결과 저장에 커넥션을 쓰므로 번역이 풀(10)을 다 쓰지 못하게 풀의 절반 이하로 둔다.
   # 게스트가 리뷰×언어로 엔진을 한꺼번에 태우는 속도도 함께 묶는다.
   translation:
     max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
@@ -149,7 +149,7 @@ kbap:
       temperature: 1.0
       reasoning-effort: low
       max-retries: 0
-      # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 커넥션을 쥔다.
+      # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 요청 스레드와 동시 호출 허가를 쥔다.
       timeout: ${TRANSLATION_TIMEOUT:12s}
       pricing:
         input-usd-per-million-tokens: 0.2
