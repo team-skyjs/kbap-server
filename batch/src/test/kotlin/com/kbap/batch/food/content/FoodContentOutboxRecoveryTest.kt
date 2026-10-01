@@ -240,7 +240,7 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
             }
 
             `when`("음식이 이미 공개(READY)됐으면") {
-                then("재전송하지 않고 포기로 남긴다 — 결과가 오면 검수 없이 공개 콘텐츠를 덮어쓰므로 사람이 다시 판단한다") {
+                then("재전송하지 않고 포기로 남긴다 — 늦은 결과가 그 사이 사람의 수정을 덮지 않게 사람이 확인 뒤 재수집한다") {
                     clear()
                     val stuck = saveSent("공개국수", LocalDateTime.now().minusHours(30), attempts = 1)
                     foodRepository.save(foodRepository.findById(stuck.foodId).orElseThrow().apply { contentStatus = FoodContentStatus.READY })
@@ -252,7 +252,7 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
                     val reloaded = outboxRepository.findById(stuck.id).orElseThrow()
                     reloaded.outboxStatus shouldBe FoodContentOutboxStatus.SENT
                     reloaded.deadAt.shouldNotBeNull()
-                    reloaded.lastError!! shouldContain "READY"
+                    reloaded.lastError!! shouldContain "자동 재전송하지 않는다"
                 }
             }
 
