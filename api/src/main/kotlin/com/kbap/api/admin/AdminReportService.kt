@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.api.review.ReviewService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.report.ReportJpaRepository
 import com.kbap.common.domain.report.model.Report
 import com.kbap.common.domain.report.model.ReportHandleResult
@@ -18,6 +19,7 @@ class AdminReportService(
     private val reportRepository: ReportJpaRepository,
     private val reviewRepository: ReviewJpaRepository,
     private val reviewService: ReviewService,
+    private val memberRepository: MemberJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getReportPage(handleStatus: ReportHandleStatus, targetType: ReportTargetType?, page: Int, size: Int): AdminReportPageResult {
@@ -31,6 +33,7 @@ class AdminReportService(
             .takeIf { it.isNotEmpty() }
             ?.let { ids -> reviewRepository.findAllAnyStatusByIdIn(ids).associateBy { it.id } }
             .orEmpty()
+        val nicknames = nicknamesOf(reviews.values.map { it.memberId } + reportsByTarget.values.flatten().mapNotNull { it.reporterMemberId })
         return AdminReportPageResult(
             groups = summaries.map { summary ->
                 val type = ReportTargetType.valueOf(summary.targetType)
@@ -41,6 +44,8 @@ class AdminReportService(
                         type = type,
                         id = summary.targetId,
                         authorMemberId = review?.memberId,
+                        authorNickname = review?.let { nicknames[it.memberId] },
+                        foodId = review?.foodId,
                         contentPreview = review?.content?.take(CONTENT_PREVIEW_LENGTH),
                         exists = review?.isActive() == true,
                     ),
@@ -49,6 +54,7 @@ class AdminReportService(
                     reporterCount = summary.reporterCount.toInt(),
                     latest = items.first(),
                     items = items,
+                    reporterNicknames = nicknames,
                 )
             },
             page = page,
@@ -56,6 +62,11 @@ class AdminReportService(
             totalCount = total,
         )
     }
+
+    private fun nicknamesOf(memberIds: Collection<Long>): Map<Long, String> =
+        memberIds.distinct().takeIf { it.isNotEmpty() }
+            ?.let { ids -> memberRepository.findAllById(ids).mapNotNull { m -> m.nickname?.let { m.id to it } }.toMap() }
+            .orEmpty()
 
     @Transactional
     fun handleReport(reportId: Long, result: ReportHandleResult, note: String?, adminAccountId: Long): AdminReportHandleResult {
@@ -122,12 +133,15 @@ data class AdminReportPageResult(
         val reporterCount: Int,
         val latest: Report,
         val items: List<Report>,
+        val reporterNicknames: Map<Long, String>,
     )
 
     data class Target(
         val type: ReportTargetType,
         val id: Long,
         val authorMemberId: Long?,
+        val authorNickname: String?,
+        val foodId: Long?,
         val contentPreview: String?,
         val exists: Boolean,
     )
