@@ -80,8 +80,20 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
 
         val yesterday = LocalDate.of(2026, 1, 14)
 
-        fun reporter(sender: TeamChannelSender?, excluded: Set<Long> = emptySet()) =
-            DailyUserStatsReporter(memberRepository, sender, clock, excluded)
+        fun reporter(sender: TeamChannelSender?, excluded: Set<Long> = emptySet(), enabled: Boolean = true) =
+            DailyUserStatsReporter(memberRepository, sender, clock, excluded, enabled)
+
+        fun logsOf(block: () -> Unit): List<ch.qos.logback.classic.spi.ILoggingEvent> {
+            val logger = org.slf4j.LoggerFactory.getLogger(DailyUserStatsReporter::class.java) as ch.qos.logback.classic.Logger
+            val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().apply { start() }
+            logger.addAppender(appender)
+            try {
+                block()
+            } finally {
+                logger.detachAppender(appender)
+            }
+            return appender.list.toList()
+        }
 
         beforeEach { clear() }
         afterSpec { clear() }
@@ -135,6 +147,46 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
                     text shouldContain "2026-01-14"
                     text shouldContain "신규 가입: 3명 (전일 0명, +3)"
                     text shouldContain "JP 2 · 미설정 1"
+                }
+            }
+        }
+
+        given("일일 유저 통계 켜기·끄기(kbap.batch.user-stats.enabled)") {
+            `when`("켜져 있는데 웹훅 URL 이 없으면(prod 누락)") {
+                then("첫 회 ERROR 로 알린다 — 누락 감지는 그대로") {
+                    val logs = logsOf { reporter(null).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED }
+
+                    logs.count { it.level == ch.qos.logback.classic.Level.ERROR } shouldBe 1
+                }
+            }
+
+            `when`("꺼져 있으면(dev)") {
+                then("웹훅이 없어도 ERROR·WARN 없이 INFO 한 줄로 SKIPPED — 배포마다 Sentry 가 울리지 않는다") {
+                    val logs = logsOf { reporter(null, enabled = false).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED }
+
+                    logs.none { it.level.isGreaterOrEqual(ch.qos.logback.classic.Level.WARN) } shouldBe true
+                    logs.count { it.level == ch.qos.logback.classic.Level.INFO } shouldBe 1
+                }
+            }
+
+            `when`("꺼져 있으면 웹훅이 있어도") {
+                then("보내지 않는다") {
+                    var calls = 0
+                    reporter({ calls++ }, enabled = false).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED
+                    calls shouldBe 0
+                }
+            }
+
+            `when`("프로필 설정을 보면") {
+                then("dev 는 끄고 prod·기본은 켠다") {
+                    fun propertyOf(file: String): Any? =
+                        org.springframework.beans.factory.config.YamlPropertiesFactoryBean().apply {
+                            setResources(org.springframework.core.io.ClassPathResource(file))
+                        }.getObject()!!["kbap.batch.user-stats.enabled"]
+
+                    propertyOf("application-dev.yml") shouldBe false
+                    propertyOf("application-prod.yml") shouldBe null
+                    propertyOf("application.yml") shouldBe "\${USER_STATS_ENABLED:true}"
                 }
             }
         }
