@@ -100,6 +100,17 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("주문 쓰기 오퍼레이션의 에러 코드 표") {
+            `when`("주문 저장·장소 교체 문서를 보면") {
+                then("탈퇴 회원 거절 MEMBER-003 이 실려 있다") {
+                    val paths = docOf("/v3/api-docs").path("paths")
+                    listOf(paths.path("/api/orders").path("post"), paths.path("/api/orders/{orderId}/place").path("patch")).forEach {
+                        it.toString().contains("MEMBER-003") shouldBe true
+                    }
+                }
+            }
+        }
+
         given("X-API-Version 헤더 파라미터") {
             `when`("문서의 각 오퍼레이션을 보면") {
                 then("모든 오퍼레이션이 헤더를 받고, 버전을 선언한 매핑은 그 값이 기본값으로 채워진다") {

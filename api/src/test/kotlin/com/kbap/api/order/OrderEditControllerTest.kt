@@ -40,6 +40,9 @@ class OrderEditControllerTest : BehaviorSpec() {
     private lateinit var orderService: OrderService
 
     @Autowired
+    private lateinit var placeSearchClient: com.kbap.api.place.FakePlaceSearchClient
+
+    @Autowired
     private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     init {
@@ -171,6 +174,7 @@ class OrderEditControllerTest : BehaviorSpec() {
                     val food = seedReadyFood("탈퇴주문음식")
                     seedUpload(memberId, "order-edit/9801/menu.jpg")
                     withdrawBySql(memberId)
+                    val placeSearchesBefore = placeSearchClient.requests.size
 
                     mockMvc.post("/api/orders") {
                         header("X-API-Version", "1.0")
@@ -188,6 +192,7 @@ class OrderEditControllerTest : BehaviorSpec() {
                             ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
                         }
                     } shouldBe 0
+                    placeSearchClient.requests.size shouldBe placeSearchesBefore
                 }
             }
 
