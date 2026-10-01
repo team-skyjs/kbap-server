@@ -1,0 +1,321 @@
+package com.kbap.api.admin
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
+import com.kbap.api.admin.AdminFoodContentIngestTestSupport.PATH
+import com.kbap.api.admin.AdminFoodContentIngestTestSupport.passedBody
+import com.kbap.common.domain.food.FoodContentDraftJpaRepository
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.common.domain.food.ImageBatchJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentDraft
+import com.kbap.common.domain.food.model.FoodContentDraftStatus
+import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
+import com.kbap.common.domain.food.model.ImageBatch
+import com.kbap.common.domain.food.model.ImageBatchItem
+import com.kbap.common.domain.food.model.RegenerationIntent
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType
+import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
+import org.springframework.test.web.servlet.post
+import javax.sql.DataSource
+
+@IntegrationTest
+class AdminFoodContentDraftTest : BehaviorSpec() {
+    override fun extensions() = listOf(SpringExtension)
+
+    @Autowired private lateinit var mockMvc: MockMvc
+    @Autowired private lateinit var dataSource: DataSource
+    @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var foodRepository: FoodJpaRepository
+    @Autowired private lateinit var outboxRepository: FoodContentOutboxJpaRepository
+    @Autowired private lateinit var draftRepository: FoodContentDraftJpaRepository
+    @Autowired private lateinit var imageBatchRepository: ImageBatchJpaRepository
+    @Autowired private lateinit var imageBatchItemRepository: ImageBatchItemJpaRepository
+
+    private val mapper = jacksonObjectMapper()
+
+    init {
+        val admin = 6731L
+
+        beforeContainer { TestTables.clearAll(dataSource) }
+        afterSpec { TestTables.clearAll(dataSource) }
+
+        fun scalar(sql: String): String? = dataSource.connection.use { c ->
+            c.createStatement().use { s -> s.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null } }
+        }
+
+        fun body(response: MockHttpServletResponse): JsonNode = mapper.readTree(response.getContentAsString(Charsets.UTF_8))
+
+        fun token() = tokenIssuer.issueAccessToken(admin, MemberRole.ADMIN)
+
+        fun publishedFood(status: FoodContentStatus = FoodContentStatus.READY): Food {
+            val food = foodRepository.save(
+                Food(
+                    koreanName = "초안칼국수${System.nanoTime()}",
+                    displayName = "초안칼국수",
+                    imageRef = "images/webp/food/draft.webp",
+                    description = "공개 중인 설명",
+                    spiciness = 1,
+                    contentStatus = status,
+                    ingredients = listOf(FoodIngredient("WHEAT", 90)),
+                ),
+            )
+            dataSource.connection.use { c ->
+                c.createStatement().use {
+                    it.execute("INSERT INTO food_ingredient (food_id, ingredient_id, inclusion_percent, sort_order) SELECT ${food.id}, id, 90, 10 FROM ingredients WHERE code = 'WHEAT'")
+                }
+            }
+            return food
+        }
+
+        fun recollectResult(food: Food, description: String = "재수집이 만든 설명", code: String = "SESAME") {
+            val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+            mockMvc.post(PATH) {
+                header("Authorization", "Bearer ${token()}")
+                contentType = MediaType.APPLICATION_JSON
+                content = mapper.writeValueAsString(
+                    passedBody(food.id, outbox.id, description = description, ingredients = listOf(mapOf("code" to code, "inclusion_percent" to 100))),
+                )
+            }.andExpect { status { isOk() } }
+        }
+
+        fun publicDescription(food: Food): String = body(
+            mockMvc.get("/api/foods/${food.id}?lang=en") { header("X-API-Version", "1.0") }.andReturn().response,
+        ).path("payload").path("description").asText()
+
+        fun review(food: Food, passed: Boolean, reason: String? = null) = mockMvc.patch("/api/admin/foods/${food.id}/content-draft") {
+            header("X-API-Version", "1.0")
+            header("Authorization", "Bearer ${token()}")
+            contentType = MediaType.APPLICATION_JSON
+            content = mapper.writeValueAsString(mapOf("passed" to passed, "reason" to reason))
+        }.andReturn().response
+
+        fun ingredientCodes(food: Food): List<String> = dataSource.connection.use { c ->
+            c.createStatement().use { s ->
+                s.executeQuery("SELECT i.code FROM food_ingredient fi JOIN ingredients i ON i.id = fi.ingredient_id WHERE fi.food_id = ${food.id} ORDER BY fi.sort_order")
+                    .use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toList() }
+            }
+        }
+
+        fun upserts(food: Food): Long = scalar("SELECT COUNT(*) FROM food_vector_outbox WHERE food_id = ${food.id} AND operation = 'UPSERT'")!!.toLong()
+
+        given("공개(READY) 음식의 재수집 결과") {
+            `when`("결과가 오면") {
+                then("공개 응답·재료 표·벡터 큐는 그대로이고 결과는 검수 대기 초안 하나로 남는다") {
+                    val food = publishedFood()
+
+                    recollectResult(food)
+
+                    publicDescription(food) shouldBe "공개 중인 설명"
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "공개 중인 설명"
+                    ingredientCodes(food) shouldBe listOf("WHEAT")
+                    upserts(food) shouldBe 0L
+                    val draft = draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!
+                    draft.description shouldBe "재수집이 만든 설명"
+                    draft.ingredients shouldBe listOf(FoodIngredient("SESAME", 100))
+                }
+            }
+
+            `when`("검수 대기 초안이 있는데 다시 결과가 오면") {
+                then("앞 초안은 대체(SUPERSEDED)되고 새 결과가 검수 대기가 된다 — 음식당 대기 초안은 하나") {
+                    val food = publishedFood()
+                    recollectResult(food, description = "첫 결과")
+
+                    recollectResult(food, description = "둘째 결과")
+
+                    scalar("SELECT COUNT(*) FROM food_content_draft WHERE food_id = ${food.id} AND review_status = 'PENDING'") shouldBe "1"
+                    scalar("SELECT description FROM food_content_draft WHERE food_id = ${food.id} AND review_status = 'SUPERSEDED'") shouldBe "첫 결과"
+                    draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!.description shouldBe "둘째 결과"
+                }
+            }
+
+            `when`("이미지 재생성 중인 READY 음식이면") {
+                then("재생성 중이어도 초안으로 간다 — 공개 내용은 그대로") {
+                    val food = publishedFood()
+                    val batch = imageBatchRepository.save(ImageBatch(promptVersion = "v1", model = "gpt-image-2"))
+                    imageBatchItemRepository.save(ImageBatchItem(batchId = batch.id, foodId = food.id, regenerationIntent = RegenerationIntent.WRONG_IMAGE))
+
+                    recollectResult(food)
+
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "공개 중인 설명"
+                    draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe true
+                }
+            }
+
+            `when`("READY 가 아닌 음식에 결과가 오면") {
+                then("종전대로 바로 반영되고 초안은 없다") {
+                    val food = publishedFood(FoodContentStatus.FAILED)
+
+                    recollectResult(food)
+
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "재수집이 만든 설명"
+                    scalar("SELECT COUNT(*) FROM food_content_draft WHERE food_id = ${food.id}") shouldBe "0"
+                }
+            }
+        }
+
+        given("초안 비교 — GET /api/admin/foods/{foodId}/content-draft") {
+            `when`("검수 대기 초안이 있으면") {
+                then("지금 공개 값과 초안 값을 나란히 준다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+
+                    val payload = body(
+                        mockMvc.get("/api/admin/foods/${food.id}/content-draft") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${token()}")
+                        }.andReturn().response,
+                    ).path("payload")
+
+                    payload.path("current").path("description").asText() shouldBe "공개 중인 설명"
+                    payload.path("current").path("ingredients")[0].path("code").asText() shouldBe "WHEAT"
+                    payload.path("draft").path("description").asText() shouldBe "재수집이 만든 설명"
+                    payload.path("draft").path("ingredients")[0].path("code").asText() shouldBe "SESAME"
+                }
+            }
+
+            `when`("목록을 보면") {
+                then("검수 대기 초안만 나온다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    val other = publishedFood()
+                    recollectResult(other)
+                    review(other, passed = false).status shouldBe 200
+
+                    val items = body(
+                        mockMvc.get("/api/admin/foods/content-drafts") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${token()}")
+                        }.andReturn().response,
+                    ).path("payload").path("items")
+
+                    items.map { it.path("foodId").asLong() } shouldBe listOf(food.id)
+                }
+            }
+        }
+
+        given("초안 검수 — PATCH /api/admin/foods/{foodId}/content-draft") {
+            `when`("승인하면") {
+                then("공개 내용·재료 표가 초안으로 바뀌고 벡터 UPSERT 가 예약되며 초안은 APPROVED(처리자·시각) — 음식은 READY 그대로") {
+                    val food = publishedFood()
+                    recollectResult(food)
+
+                    val response = review(food, passed = true)
+
+                    response.status shouldBe 200
+                    body(response).path("payload").path("reviewStatus").asText() shouldBe "APPROVED"
+                    publicDescription(food) shouldBe "noodle-en"
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "재수집이 만든 설명"
+                    foodRepository.findById(food.id).orElseThrow().contentStatus shouldBe FoodContentStatus.READY
+                    ingredientCodes(food) shouldBe listOf("SESAME")
+                    upserts(food) shouldBe 1L
+                    scalar("SELECT resolved_by FROM food_content_draft WHERE food_id = ${food.id} AND review_status = 'APPROVED'") shouldBe "$admin"
+                }
+            }
+
+            `when`("반려하면") {
+                then("공개 내용은 그대로이고 초안은 사유와 함께 REJECTED") {
+                    val food = publishedFood()
+                    recollectResult(food)
+
+                    review(food, passed = false, reason = "재료 오추출").status shouldBe 200
+
+                    publicDescription(food) shouldBe "공개 중인 설명"
+                    ingredientCodes(food) shouldBe listOf("WHEAT")
+                    upserts(food) shouldBe 0L
+                    scalar("SELECT reject_reason FROM food_content_draft WHERE food_id = ${food.id} AND review_status = 'REJECTED'") shouldBe "재료 오추출"
+                }
+            }
+
+            `when`("검수 대기 초안이 없으면") {
+                then("404 FOOD-021") {
+                    val food = publishedFood()
+
+                    val response = review(food, passed = true)
+
+                    response.status shouldBe 404
+                    body(response).path("code").asText() shouldBe "FOOD-021"
+                }
+            }
+
+            `when`("초안 재료 코드가 지금 카탈로그에 없으면") {
+                then("승인하지 않고 400 FOOD-016 — 공개 내용은 그대로, 초안은 검수 대기로 남아 반려로 정리할 수 있다") {
+                    val food = publishedFood()
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+                    draftRepository.save(
+                        FoodContentDraft(
+                            foodId = food.id,
+                            outboxId = outbox.id,
+                            description = "카탈로그에서 빠진 재료의 초안",
+                            spiciness = 2,
+                            ingredients = listOf(FoodIngredient("REMOVED_FROM_CATALOG", 100)),
+                        ),
+                    )
+
+                    val response = review(food, passed = true)
+
+                    response.status shouldBe 400
+                    body(response).path("code").asText() shouldBe "FOOD-016"
+                    publicDescription(food) shouldBe "공개 중인 설명"
+                    draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe true
+                    review(food, passed = false).status shouldBe 200
+                }
+            }
+        }
+
+        given("단건 재수집 응답") {
+            `when`("검수 대기 초안이 있는 음식을 다시 재수집하면") {
+                then("접수되고 pendingDraft = true 로 알린다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+
+                    val payload = body(
+                        mockMvc.post("/api/admin/foods/${food.id}/recollect") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${token()}")
+                        }.andReturn().response,
+                    ).path("payload")
+
+                    payload.path("created").asLong() shouldBe 1L
+                    payload.path("pendingDraft").asBoolean() shouldBe true
+                }
+            }
+        }
+
+        given("api-docs") {
+            `when`("문서를 보면") {
+                then("초안 목록·비교·검수 경로가 실리고, 검수 경로 설명에 사람 검수 전용이라고 적혀 있다") {
+                    val paths = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8)).path("paths")
+
+                    paths.has("/api/admin/foods/content-drafts") shouldBe true
+                    paths.path("/api/admin/foods/{foodId}/content-draft").has("get") shouldBe true
+                    paths.path("/api/admin/foods/{foodId}/content-draft").path("patch").path("summary").asText().contains("사람 검수 전용") shouldBe true
+                }
+            }
+        }
+
+        given("초안 엔티티") {
+            `when`("맵기가 범위(-1~10) 밖이면") {
+                then("만들 때 거절한다 — food 의 CHECK 제약에서 승인 시점에 터지지 않게") {
+                    shouldThrow<IllegalArgumentException> { FoodContentDraft(foodId = 1, outboxId = 1, spiciness = 11) }
+                }
+            }
+        }
+    }
+}
