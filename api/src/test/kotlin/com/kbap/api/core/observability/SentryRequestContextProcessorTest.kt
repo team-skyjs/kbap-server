@@ -8,6 +8,8 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.core.GlobalExceptionHandler
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -31,7 +33,10 @@ import org.springframework.context.MessageSourceResolvable
 import org.springframework.validation.method.MethodValidationResult
 import org.springframework.validation.method.ParameterValidationResult
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.HttpRequestMethodNotSupportedException
@@ -178,11 +183,37 @@ class SentryRequestContextProcessorTest : BehaviorSpec({
                             val (status, code) = responseCodeOf(exception)
                             val event = eventOf(exception)
 
+                            code.isNotBlank() shouldBe true
+
                             (event != null) shouldBe (status >= 500 || (status == 409 && code == ErrorCode.CONFLICT.code))
                             event?.getTag("http.status") shouldBe event?.let { status.toString() }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    given("처리기가 기대는 전제") {
+        val handlerMethods = GlobalExceptionHandler::class.java.declaredMethods.filter { it.isAnnotationPresent(ExceptionHandler::class.java) }
+
+        `when`("예외를 응답으로 바꾸는 자리를 운영 코드에서 전수 검사하면") {
+            then("GlobalExceptionHandler 하나뿐이다 — 처리기는 이 클래스의 핸들러만 보므로, 다른 어드바이스나 컨트롤러 안의 @ExceptionHandler 가 생기면 응답과 이벤트가 어긋난다") {
+                val imported = ClassFileImporter()
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TEST_FIXTURES)
+                    .importPackages("com.kbap")
+
+                imported.filter { it.isAnnotatedWith(RestControllerAdvice::class.java) || it.isAnnotatedWith(ControllerAdvice::class.java) }
+                    .map { it.name } shouldBe listOf(GlobalExceptionHandler::class.java.name)
+                imported.flatMap { it.methods }.filter { it.isAnnotatedWith(ExceptionHandler::class.java) }
+                    .map { it.owner.name }.toSet() shouldBe setOf(GlobalExceptionHandler::class.java.name)
+            }
+        }
+
+        `when`("핸들러 메서드의 @ResponseStatus 선언을 보면") {
+            then("reason 이 없다 — reason 을 주면 스프링이 sendError 로 응답을 끝내 봉투(본문)가 사라지는데 상태는 같아 보인다") {
+                handlerMethods.mapNotNull { it.getAnnotation(ResponseStatus::class.java) }.map { it.reason } shouldBe List(5) { "" }
             }
         }
     }
