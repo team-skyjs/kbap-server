@@ -10,6 +10,7 @@ object TestTables {
         "notification_device",
         "notification_setting",
         "notification_consent",
+        "content_translation",
         "review_like",
         "member_ranking_event",
         "food_review",

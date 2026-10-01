@@ -4,11 +4,13 @@ import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.ReviewTextGenerator
 import com.kbap.common.port.llm.TextEmbeddingClient
+import com.kbap.common.port.llm.TextTranslator
 import com.kbap.common.infra.llm.embedding.OpenAiTextEmbeddingClient
 import com.kbap.common.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.common.infra.llm.menu.MenuBoardResultParser
 import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
+import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
 import com.kbap.common.infra.llm.model.LlmPricing
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
@@ -74,6 +76,29 @@ class LlmConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.translation", name = ["enabled"], havingValue = "true")
+    fun textTranslator(
+        properties: LlmModelProperties,
+        eventPublisher: ApplicationEventPublisher,
+    ): TextTranslator {
+        val props = properties.translation
+        val chatModel = OpenAiChatModel.builder()
+            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+            .build()
+        return OpenAiTextTranslator(
+            chatModel = chatModel,
+            pricing = LlmPricing(
+                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+                usdToKrw = properties.usdToKrw,
+            ),
+            configuredModelName = props.model.orEmpty(),
+            eventPublisher = eventPublisher,
+        )
+    }
+
+    @Bean
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
         OpenAiFoodImageBatchClient(properties.image)
 
@@ -101,6 +126,7 @@ class LlmConfiguration {
             builder.maxRetries(props.maxRetries)
             props.model?.let { builder.model(it) }
             props.temperature?.let { builder.temperature(it) }
+            props.reasoningEffort?.let { builder.reasoningEffort(it) }
             return builder.build()
         }
 

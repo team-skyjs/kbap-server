@@ -133,6 +133,11 @@ class WebConfig(
                         Regex("^${ApiPaths.API}/images/complete$"),
                         parseTokenIfPresent = true,
                     ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/translations$"),
+                        parseTokenIfPresent = true,
+                    ),
                 ),
                 isActiveMember = ::isActiveMember,
                 activeMemberCheckExempt = Regex("^${ApiPaths.ADMIN}/.*"),
@@ -160,6 +165,7 @@ class WebConfig(
                 "${ApiPaths.API}/feedbacks/*",
                 "${ApiPaths.API}/images",
                 "${ApiPaths.API}/images/*",
+                "${ApiPaths.API}/translations",
                 "${ApiPaths.API}/auth/withdraw",
                 "${ApiPaths.ADMIN}/*",
             )
