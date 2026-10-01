@@ -195,6 +195,27 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("결과에 비율 0% 재료가 섞여 있으면") {
+                then("초안에는 승인 때 실제로 반영될 정규화된 재료만 남는다 — 비교 화면과 공개 결과가 같다") {
+                    val food = publishedFood()
+                    val outbox = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+
+                    mockMvc.post(PATH) {
+                        header("Authorization", "Bearer ${token()}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(
+                            passedBody(
+                                food.id,
+                                outbox.id,
+                                ingredients = listOf(mapOf("code" to "SESAME", "inclusion_percent" to 80), mapOf("code" to "WHEAT", "inclusion_percent" to 0)),
+                            ),
+                        )
+                    }.andExpect { status { isOk() } }
+
+                    draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!.ingredients shouldBe listOf(FoodIngredient("SESAME", 80))
+                }
+            }
+
             `when`("READY 가 아닌 음식에 결과가 오면") {
                 then("종전대로 바로 반영되고 초안은 없다") {
                     val food = publishedFood(FoodContentStatus.FAILED)
