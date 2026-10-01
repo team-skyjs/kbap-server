@@ -149,6 +149,37 @@ class WithdrawRecoveryTest : BehaviorSpec() {
             }
         }
 
+        given("같은 회원의 탈퇴 요청 두 개가 겹친 경우") {
+            `when`("뒤 요청의 DB 단계가 앞 요청이 이미 끝낸 탈퇴를 보고 실패하면") {
+                then("'소셜 삭제됨·회원 남음' 오류 로그를 남기지 않는다 — 탈퇴는 이미 끝났으니 거짓 경보다") {
+                    val token = tokenOf(login())
+                    val memberId = tokenParser.parseAccessToken(token).memberId
+                    val overlapping = object : MemberService(memberRepository, uploadedImageService, orderRepository, "", "") {
+                        override fun getMember(memberId: Long): Member = memberService.getMember(memberId)
+
+                        override fun withdraw(memberId: Long) {
+                            memberService.withdraw(memberId)
+                            memberService.withdraw(memberId)
+                        }
+
+                        override fun getMemberOrNull(memberId: Long): Member? = memberService.getMemberOrNull(memberId)
+                    }
+                    val auth = AuthService(verifier, overlapping, tokenIssuer, tokenParser, refreshTokenStore, accountDeleter, notificationTokenService, Duration.ofDays(14))
+                    val logger = LoggerFactory.getLogger(AuthService::class.java) as ch.qos.logback.classic.Logger
+                    val appender = ListAppender<ILoggingEvent>().apply { start() }
+                    logger.addAppender(appender)
+                    try {
+                        shouldThrow<com.kbap.common.core.error.BusinessException> { auth.withdraw(memberId) }
+                    } finally {
+                        logger.detachAppender(appender)
+                    }
+
+                    appender.list.none { it.level == Level.ERROR } shouldBe true
+                    memberStatus().first shouldBe "DELETED"
+                }
+            }
+        }
+
         given("소셜 계정 삭제가 실패한 회원") {
             `when`("제공자가 회복된 뒤 탈퇴를 다시 요청하면") {
                 then("첫 요청은 500 AUTH-007 에 회원 무변, 재요청은 200 으로 탈퇴가 끝난다") {
