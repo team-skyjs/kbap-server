@@ -179,16 +179,36 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
             }
 
             `when`("프로필 설정을 보면") {
-                then("dev 는 끄고 prod·기본은 켠다") {
+                then("dev 는 기본으로 끄고 prod·기본은 켠다 — 어느 프로필이든 USER_STATS_ENABLED 로 덮을 수 있다") {
                     fun propertyOf(file: String): Any? =
                         org.springframework.beans.factory.config.YamlPropertiesFactoryBean().apply {
                             setResources(org.springframework.core.io.FileSystemResource("src/main/resources/$file"))
                         }.getObject()!!["kbap.batch.user-stats.enabled"]
 
-                    propertyOf("application-dev.yml") shouldBe false
+                    propertyOf("application-dev.yml") shouldBe "\${USER_STATS_ENABLED:false}"
                     propertyOf("application-prod.yml") shouldBe null
                     propertyOf("application.yml") shouldBe "\${USER_STATS_ENABLED:true}"
                 }
+            }
+        }
+
+        given("dev 프로필의 일일 유저 통계 설정 해석") {
+            fun resolvedOnDev(env: Map<String, Any>): String? {
+                val loader = org.springframework.boot.env.YamlPropertySourceLoader()
+                val sources = org.springframework.core.env.MutablePropertySources()
+                sources.addLast(org.springframework.core.env.MapPropertySource("env", env))
+                listOf("application-dev.yml", "application.yml").forEach { file ->
+                    loader.load(file, org.springframework.core.io.FileSystemResource("src/main/resources/$file")).forEach(sources::addLast)
+                }
+                return org.springframework.core.env.PropertySourcesPropertyResolver(sources).getProperty("kbap.batch.user-stats.enabled")
+            }
+
+            `when`("USER_STATS_ENABLED 가 없으면") {
+                then("false 로 풀린다") { resolvedOnDev(emptyMap()) shouldBe "false" }
+            }
+
+            `when`("USER_STATS_ENABLED=true 를 주면") {
+                then("dev 에서도 켤 수 있다 — 프로필 파일이 env 를 가리지 않는다") { resolvedOnDev(mapOf("USER_STATS_ENABLED" to "true")) shouldBe "true" }
             }
         }
 
