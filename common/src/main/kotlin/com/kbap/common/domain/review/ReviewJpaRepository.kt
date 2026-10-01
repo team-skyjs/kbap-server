@@ -76,12 +76,12 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
               WHERE f.status = 'ACTIVE' AND f.content_status = 'READY'
                 AND NOT EXISTS (
                   SELECT 1 FROM food_review r JOIN member m ON m.id = r.member_id
-                  WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since
+                  WHERE r.food_id = f.id AND m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE'
                 )
                 AND EXISTS (
                   SELECT 1 FROM member b
                   WHERE b.is_bot = 1 AND b.member_status = 'ACTIVE' AND b.status = 'ACTIVE'
-                    AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id)
+                    AND NOT EXISTS (SELECT 1 FROM food_review br WHERE br.food_id = f.id AND br.member_id = b.id AND br.status = 'ACTIVE')
                 )
             ) t
             WHERE t.cnt > :afterReviewCount OR (t.cnt = :afterReviewCount AND t.id > :afterFoodId)
@@ -100,14 +100,14 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         nativeQuery = true,
         value = """
             SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
-            WHERE m.is_bot = 1 AND r.created_at >= :since
+            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE'
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long
 
     @Query(
         nativeQuery = true,
-        value = "SELECT DISTINCT r.member_id FROM food_review r WHERE r.food_id = :foodId AND r.member_id IN (:memberIds)",
+        value = "SELECT DISTINCT r.member_id FROM food_review r WHERE r.food_id = :foodId AND r.member_id IN (:memberIds) AND r.status = 'ACTIVE'",
     )
     fun findReviewerIdsOfFood(@Param("foodId") foodId: Long, @Param("memberIds") memberIds: Collection<Long>): List<Long>
 }
