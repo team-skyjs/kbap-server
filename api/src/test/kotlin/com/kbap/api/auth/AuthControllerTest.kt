@@ -488,11 +488,11 @@ class AuthControllerTest : BehaviorSpec() {
 
         given("로그인 오퍼레이션 문서") {
             `when`("api-docs 를 보면") {
-                then("정지 회원 거절 403 MEMBER-013 이 실려 있다") {
+                then("403 응답과 오퍼레이션 에러 표(@ApiErrors) 양쪽에 정지 회원 거절 MEMBER-013 이 실려 있다") {
                     val login = objectMapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.contentAsString)
                         .path("paths").path("/api/auth/login").path("post")
-                    login.path("responses").has("403") shouldBe true
-                    login.toString().contains("MEMBER-013") shouldBe true
+                    login.path("responses").path("403").path("description").asText().contains("MEMBER-013") shouldBe true
+                    login.path("description").asText().contains("MEMBER-013") shouldBe true
                 }
             }
         }
