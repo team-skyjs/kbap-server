@@ -3,6 +3,7 @@ package com.kbap.api.translation
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
+import com.kbap.api.PoolProbe
 import com.kbap.api.TestTables
 import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.LanguageCode
@@ -365,7 +366,7 @@ class TranslationControllerTest : BehaviorSpec() {
             }
 
             `when`("상한과 DB 커넥션 풀 크기를 비교하면") {
-                then("상한은 풀의 절반 이하다 — 웹 요청은 엔진 호출 동안에도 커넥션 하나를 쥐고 있어(open-in-view) 번역이 풀을 다 쓰면 안 된다") {
+                then("상한은 풀의 절반 이하다 — 번역마다 원문 조회와 결과 저장에 커넥션을 쓰므로 번역이 풀을 다 쓰면 안 된다") {
                     val poolSize = dataSource.unwrap(com.zaxxer.hikari.HikariDataSource::class.java).maximumPoolSize
 
                     (translationService.maxConcurrentEngineCalls * 2 <= poolSize) shouldBe true
@@ -381,6 +382,19 @@ class TranslationControllerTest : BehaviorSpec() {
                     translate(visible, token = viewerToken())
 
                     translator.transactionActiveDuringCalls shouldBe listOf(false)
+                }
+
+                then("DB 커넥션을 쥐고 있지 않다 — 느린 외부 호출이 커넥션 풀을 붙잡지 않는다") {
+                    seed()
+                    val heldDuringCall = mutableListOf<Int>()
+                    translator.reply = { text, target ->
+                        heldDuringCall += PoolProbe.leastActiveConnections(dataSource)
+                        "[${target.code}] $text"
+                    }
+
+                    translate(visible, token = viewerToken()).status shouldBe 200
+
+                    heldDuringCall shouldBe listOf(0)
                 }
             }
 
