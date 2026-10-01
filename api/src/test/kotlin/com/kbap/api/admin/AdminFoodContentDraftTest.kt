@@ -482,6 +482,8 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                         description.contains("검수 대기 초안") shouldBe true
                         description.contains("승인 전") shouldBe true
                         description.contains("검수 없는 덮어쓰기") shouldBe false
+                        description.contains("성공(passed=true)") shouldBe true
+                        description.contains("실패(passed=false)") shouldBe true
                     }
                     single.contains("pendingDraft") shouldBe true
                 }
