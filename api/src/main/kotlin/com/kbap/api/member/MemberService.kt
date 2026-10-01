@@ -108,6 +108,9 @@ class MemberService(
 
     fun findOrSignUp(identity: SocialIdentity): Pair<Member, Boolean> {
         findByIdentity(identity)?.let { return it to false }
+        if (memberRepository.existsByProviderAndProviderUidAndMemberStatus(identity.provider, identity.providerUserId, MemberStatus.SUSPENDED)) {
+            throw BusinessException(ErrorCode.MEMBER_SUSPENDED_LOGIN)
+        }
 
         return try {
             memberRepository.save(Member.signUp(identity)) to true
