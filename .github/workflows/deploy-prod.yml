@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   deploy:
+    # deploy-batch-prod.yml 이 이 잡 이름을 문자열로 찾아 결론을 확인한다 — 이름을 바꾸면 그쪽도 함께 바꾼다.
     name: build and canary deploy to prod ECS
     runs-on: ubuntu-latest
     timeout-minutes: 110
