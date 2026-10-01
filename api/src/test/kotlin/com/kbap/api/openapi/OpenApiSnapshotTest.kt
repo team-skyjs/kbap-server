@@ -121,6 +121,30 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
         }
 
+        given("api-docs 스키마 이름") {
+            `when`("요청·응답 DTO 클래스의 스키마 이름을 모으면") {
+                then("스키마 이름 하나에 클래스 하나다 — 단순 이름이 겹치면 springdoc 이 한쪽으로 덮어써 다른 API 의 모양이 틀어진다") {
+                    val schemaNames = docOf("/v3/api-docs").path("components").path("schemas").fieldNames().asSequence().toSet()
+                    val resolver = org.springframework.core.io.support.PathMatchingResourcePatternResolver()
+                    val readers = org.springframework.core.type.classreading.CachingMetadataReaderFactory(resolver)
+                    val dtoClasses = resolver.getResources("classpath*:com/kbap/api/**/*.class")
+                        .filter { it.url.toString().contains("/main/") }
+                        .map { readers.getMetadataReader(it).classMetadata.className }
+                        .filter { name -> name.substringAfterLast('.').substringBefore('$').let { it.endsWith("Response") || it.endsWith("Responses") || it.endsWith("Request") } }
+                        .map { Class.forName(it, false, javaClass.classLoader) }
+                    val schemaNameOf = { type: Class<*> ->
+                        type.getAnnotation(io.swagger.v3.oas.annotations.media.Schema::class.java)?.name?.takeIf { it.isNotBlank() } ?: type.simpleName
+                    }
+
+                    val collisions = dtoClasses.groupBy(schemaNameOf)
+                        .filter { (name, types) -> name in schemaNames && types.size > 1 }
+                        .mapValues { (_, types) -> types.map { it.name } }
+
+                    collisions shouldBe emptyMap()
+                }
+            }
+        }
+
         given("X-API-Version 헤더 파라미터") {
             `when`("문서의 각 오퍼레이션을 보면") {
                 then("모든 오퍼레이션이 헤더를 받고, 버전을 선언한 매핑은 그 값이 기본값으로 채워진다") {
