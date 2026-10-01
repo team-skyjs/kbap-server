@@ -11,10 +11,10 @@ import java.util.concurrent.atomic.AtomicLong
 class UploadCleanupMetrics(private val registry: MeterRegistry) {
     private val values = ConcurrentHashMap<Pair<String, Tags>, AtomicLong>()
 
-    fun record(job: String, purpose: String, kind: String, value: Long) =
-        gauge(NAME, Tags.of("job", job, "purpose", purpose, "kind", kind)).set(value)
+    fun record(cleanup: String, purpose: String, kind: String, value: Long) =
+        gauge(NAME, Tags.of("cleanup", cleanup, "purpose", purpose, "kind", kind)).set(value)
 
-    fun markRun(job: String) = gauge(LAST_RUN, Tags.of("job", job)).set(Instant.now().epochSecond)
+    fun markRun(cleanup: String) = gauge(LAST_RUN, Tags.of("cleanup", cleanup)).set(Instant.now().epochSecond)
 
     private fun gauge(name: String, tags: Tags): AtomicLong =
         values.computeIfAbsent(name to tags) { registry.gauge(name, tags, AtomicLong())!! }
