@@ -593,16 +593,22 @@ class AuthControllerTest : BehaviorSpec() {
                         }
                     }
 
-                    outcome.isFailure shouldBe true
+                    val causes = generateSequence(outcome.exceptionOrNull()) { it.cause }.map { it.javaClass.name }.toList()
+                    (
+                        "org.hibernate.AssertionFailure" in causes ||
+                            "org.springframework.transaction.UnexpectedRollbackException" in causes
+                        ) shouldBe true
                 }
 
-                then("그래서 로그인·가입 경로에는 바깥 @Transactional 이 없다") {
+                then("그래서 로그인·가입 경로에는 선언된 @Transactional 이 없다(메타 애너테이션 포함) — 호출자가 여는 트랜잭션은 이 검사 밖이다") {
                     val transactional = org.springframework.transaction.annotation.Transactional::class.java
-                    com.kbap.api.member.MemberService::class.java.getMethod("findOrSignUp", com.kbap.common.domain.member.model.SocialIdentity::class.java)
-                        .isAnnotationPresent(transactional) shouldBe false
-                    AuthService::class.java.methods.filter { it.name == "login" }.none { it.isAnnotationPresent(transactional) } shouldBe true
-                    com.kbap.api.member.MemberService::class.java.isAnnotationPresent(transactional) shouldBe false
-                    AuthService::class.java.isAnnotationPresent(transactional) shouldBe false
+                    val declared = { element: java.lang.reflect.AnnotatedElement ->
+                        org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(element, transactional)
+                    }
+                    declared(com.kbap.api.member.MemberService::class.java.getMethod("findOrSignUp", com.kbap.common.domain.member.model.SocialIdentity::class.java)) shouldBe false
+                    AuthService::class.java.methods.filter { it.name == "login" }.none(declared) shouldBe true
+                    declared(com.kbap.api.member.MemberService::class.java) shouldBe false
+                    declared(AuthService::class.java) shouldBe false
                 }
             }
 
