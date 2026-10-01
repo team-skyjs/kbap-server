@@ -29,7 +29,7 @@ interface OrderApi {
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "저장 성공"),
-        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만·빈 imagePath), 이미지 미검증(SCAN-001), 존재하지 않는 음식(FOOD-001)"),
+        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만·빈 imagePath), 이미지 미검증(SCAN-001), 존재하지 않는 음식(FOOD-001), 탈퇴한 회원(MEMBER-003)"),
         ApiResponse(responseCode = "409", description = "이미 주문한 스캔(ORDER-003)"),
     )
     @SecurityRequirement(name = "bearerAuth")
@@ -37,6 +37,7 @@ interface OrderApi {
         ErrorCode.SCAN_IMAGE_NOT_VERIFIED,
         ErrorCode.ORDER_ALREADY_PLACED,
         ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.MEMBER_NOT_FOUND,
     )
     fun placeOrder(memberId: Long, request: OrderCreateRequest): ResponseEntity<BaseResponse<OrderCreateResponse>>
 
@@ -85,11 +86,11 @@ interface OrderApi {
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "교체 성공 — 갱신된 주문 상세"),
-        ApiResponse(responseCode = "400", description = "placeId·name·language 누락, 길이 초과(COMMON-002)"),
+        ApiResponse(responseCode = "400", description = "placeId·name·language 누락, 길이 초과(COMMON-002), 탈퇴한 회원(MEMBER-003)"),
         ApiResponse(responseCode = "404", description = "주문 없음 또는 타인의 주문(ORDER-002)"),
     )
     @SecurityRequirement(name = "bearerAuth")
-    @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.MEMBER_NOT_FOUND)
     fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): ResponseEntity<BaseResponse<OrderDetailResponse>>
 
     @Operation(
