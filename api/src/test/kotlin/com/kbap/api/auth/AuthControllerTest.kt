@@ -479,7 +479,7 @@ class AuthControllerTest : BehaviorSpec() {
 
         given("탈퇴 후 같은 소셜 계정 재가입") {
             `when`("탈퇴 직후 같은 소셜 계정으로 다시 로그인하면") {
-                then("신규 회원으로 가입되고 이전 프로필을 승계하지 않는다") {
+                then("신규 회원으로 가입되고 이전 프로필을 승계하지 않으며, 새 토큰의 첫 회원 API 는 200 이다 — 탈퇴 회원 토큰이 다시 발급돼 MEMBER-003 이 반복되지 않는다") {
                     val token = loginAccessToken()
                     submitOnboarding(token, validBody()).andReturn()
                     val previousId = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
@@ -493,6 +493,7 @@ class AuthControllerTest : BehaviorSpec() {
                     (newId != previousId) shouldBe true
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "onboarding_completed") shouldBe "0"
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "nickname") shouldBe null
+                    getMyProfile(bodyToken(response, "accessToken")).andReturn().response.status shouldBe 200
                 }
             }
 

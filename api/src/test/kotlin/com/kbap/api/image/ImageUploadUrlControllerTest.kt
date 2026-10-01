@@ -21,11 +21,21 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var dataSource: javax.sql.DataSource
+
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun accessToken(memberId: Long = 42L): String =
-            tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        fun accessToken(memberId: Long = 42L): String {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO member (id, provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                        "VALUES (?, 'GOOGLE', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                ).use { ps -> ps.setLong(1, memberId); ps.setString(2, "upload-url-$memberId"); ps.executeUpdate() }
+            }
+            return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
 
         fun body(purpose: String? = "MENU_SCAN", contentType: String? = "image/jpeg", contentLength: Long? = 384512L): String {
             val map = buildMap {
