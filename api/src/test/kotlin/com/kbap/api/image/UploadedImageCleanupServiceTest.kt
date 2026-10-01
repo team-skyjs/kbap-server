@@ -199,6 +199,36 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                 }
             }
 
+            `when`("주문 항목 사진(orders 용도) 업로드가 보존 기간을 넘겼고 어디에도 참조되지 않으면") {
+                then("지운다 — 주문 편집에서 기본 사진으로 되돌린 사진이 영구 고아로 남지 않는다") {
+                    reset()
+                    val reverted = "dev/images/orders/2026/09/7101_reverted.webp"
+                    upload(reverted)
+
+                    cleanupService().cleanup().deletedCount shouldBe 1
+
+                    activePaths().contains(reverted) shouldBe false
+                    storage.deleted shouldContainExactlyInAnyOrder listOf(reverted)
+                }
+            }
+
+            `when`("주문 항목 사진(orders 용도) 업로드를 주문 항목이 쓰고 있으면") {
+                then("지우지 않는다") {
+                    reset()
+                    val inUse = "dev/images/orders/2026/09/7101_in-use.webp"
+                    upload(inUse)
+                    exec("INSERT INTO orders (id, member_id, image_path) VALUES (7102, $memberId, NULL)")
+                    exec(
+                        "INSERT INTO order_item (order_id, food_id, menu_name, quantity, image_path) " +
+                            "VALUES (7102, $foodId, '정리음식', 1, '$inUse')",
+                    )
+
+                    cleanupService().cleanup().deletedCount shouldBe 0
+
+                    activePaths() shouldBe setOf(inUse)
+                }
+            }
+
             `when`("프로필·스캔·목록에 없는 용도의 업로드는 참조가 없어도") {
                 then("허용 목록 밖이라 지우지 않는다 — 모르는 용도의 기본값은 남긴다") {
                     reset()
