@@ -32,7 +32,9 @@ class ReviewBotAccountService(
         try {
             return creation.execute { createMissing(count, random) }!!
         } finally {
-            memberRepository.releaseNamedLock(LOCK_NAME)
+            if (memberRepository.releaseNamedLock(LOCK_NAME) != 1) {
+                log.error("리뷰 봇 계정 생성 잠금을 풀지 못했습니다 — 잠금을 얻은 커넥션과 다른 커넥션에서 해제를 시도했을 수 있습니다: {}", LOCK_NAME)
+            }
         }
     }
 
