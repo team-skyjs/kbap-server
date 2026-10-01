@@ -58,6 +58,7 @@ data class AdminFoodDetailResponse(
         example = "2026-10-01T06:15:00Z",
     )
     val contentRequestSince: java.time.Instant?,
+    val contentRequestAgeSeconds: Long?,
 ) {
     companion object {
         fun from(
@@ -68,6 +69,7 @@ data class AdminFoodDetailResponse(
             additionalInProgress: Boolean,
             contentRequestPending: Boolean,
             contentRequestSince: java.time.Instant?,
+            now: java.time.Instant,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -95,6 +97,7 @@ data class AdminFoodDetailResponse(
                 additionalInProgress = additionalInProgress,
                 contentRequestPending = contentRequestPending,
                 contentRequestSince = contentRequestSince,
+                contentRequestAgeSeconds = null,
             )
     }
 }
