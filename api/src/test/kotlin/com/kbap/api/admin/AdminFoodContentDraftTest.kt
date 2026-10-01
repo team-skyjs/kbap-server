@@ -99,11 +99,24 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
             mockMvc.get("/api/foods/${food.id}?lang=en") { header("X-API-Version", "1.0") }.andReturn().response,
         ).path("payload").path("description").asText()
 
-        fun review(food: Food, passed: Boolean, reason: String? = null) = mockMvc.patch("/api/admin/foods/${food.id}/content-draft") {
+        fun compared(food: Food): JsonNode = body(
+            mockMvc.get("/api/admin/foods/${food.id}/content-draft") {
+                header("X-API-Version", "1.0")
+                header("Authorization", "Bearer ${token()}")
+            }.andReturn().response,
+        ).path("payload")
+
+        fun review(
+            food: Food,
+            passed: Boolean,
+            reason: String? = null,
+            draftId: Long? = draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)?.id ?: 0L,
+            foodVersion: Long? = foodRepository.findById(food.id).orElseThrow().version,
+        ) = mockMvc.patch("/api/admin/foods/${food.id}/content-draft") {
             header("X-API-Version", "1.0")
             header("Authorization", "Bearer ${token()}")
             contentType = MediaType.APPLICATION_JSON
-            content = mapper.writeValueAsString(mapOf("passed" to passed, "reason" to reason))
+            content = mapper.writeValueAsString(mapOf("passed" to passed, "reason" to reason, "draftId" to draftId, "foodVersion" to foodVersion))
         }.andReturn().response
 
         fun ingredientCodes(food: Food): List<String> = dataSource.connection.use { c ->
@@ -214,6 +227,24 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("초안이 있는 음식이 삭제됐으면") {
+                then("목록과 전체 수에서 함께 빠진다 — 페이지가 비었는데 수가 남지 않는다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET status = 'DELETED' WHERE id = ${food.id}") } }
+
+                    val payload = body(
+                        mockMvc.get("/api/admin/foods/content-drafts") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${token()}")
+                        }.andReturn().response,
+                    ).path("payload")
+
+                    payload.path("items").size() shouldBe 0
+                    payload.path("totalCount").asLong() shouldBe 0L
+                }
+            }
+
             `when`("목록을 보면") {
                 then("검수 대기 초안만 나온다") {
                     val food = publishedFood()
@@ -279,6 +310,40 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                     body(response).path("code").asText() shouldBe "FOOD-020"
                     scalar("SELECT content_status FROM food WHERE id = ${food.id}") shouldBe "PENDING_IMAGE"
                     scalar("SELECT description FROM food WHERE id = ${food.id}") shouldBe "공개 중인 설명"
+                    draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe true
+                }
+            }
+
+            `when`("비교 화면을 본 뒤 새 결과가 와서 초안이 대체됐으면") {
+                then("본 초안 id 로 승인하면 FOOD-021 — 보지 않은 새 초안을 처리하지 않는다") {
+                    val food = publishedFood()
+                    recollectResult(food, description = "본 초안")
+                    val seen = compared(food)
+                    recollectResult(food, description = "보지 않은 새 초안")
+
+                    val response = review(food, passed = true, draftId = seen.path("draftId").asLong(), foodVersion = seen.path("foodVersion").asLong())
+
+                    response.status shouldBe 404
+                    body(response).path("code").asText() shouldBe "FOOD-021"
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "공개 중인 설명"
+                    draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!.description shouldBe "보지 않은 새 초안"
+                }
+            }
+
+            `when`("비교 화면을 본 뒤 다른 관리자가 공개 내용을 고쳤으면") {
+                then("본 버전으로 승인하면 409 FOOD-006 — 더 새 공개 내용을 초안으로 덮지 않는다") {
+                    val food = publishedFood()
+                    recollectResult(food)
+                    val seen = compared(food)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET description = '다른 관리자의 수정', version = version + 1 WHERE id = ${food.id}") }
+                    }
+
+                    val response = review(food, passed = true, draftId = seen.path("draftId").asLong(), foodVersion = seen.path("foodVersion").asLong())
+
+                    response.status shouldBe 409
+                    body(response).path("code").asText() shouldBe "FOOD-006"
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "다른 관리자의 수정"
                     draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe true
                 }
             }
