@@ -5,13 +5,22 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class FoodIngredientJdbcRepository(
     private val jdbcTemplate: JdbcTemplate,
 ) {
+    @Transactional(propagation = Propagation.MANDATORY)
     fun replace(foodId: Long, ingredients: List<FoodIngredient>?) {
-        jdbcTemplate.update("DELETE FROM food_ingredient WHERE food_id = ?", foodId)
+        val existingIngredientIds = jdbcTemplate.queryForList("SELECT ingredient_id FROM food_ingredient WHERE food_id = ?", Long::class.java, foodId).filterNotNull()
+        if (existingIngredientIds.isNotEmpty()) {
+            jdbcTemplate.batchUpdate(
+                "DELETE FROM food_ingredient WHERE food_id = ? AND ingredient_id = ?",
+                existingIngredientIds.map { arrayOf<Any>(foodId, it) },
+            )
+        }
         val rows = ingredients.orEmpty()
         if (rows.isEmpty()) return
         val inserted = jdbcTemplate.batchUpdate(
