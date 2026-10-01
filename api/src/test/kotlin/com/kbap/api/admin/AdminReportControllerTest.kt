@@ -35,6 +35,7 @@ class AdminReportControllerTest : BehaviorSpec() {
     @Autowired private lateinit var adminReportService: AdminReportService
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     @Autowired private lateinit var entityManager: jakarta.persistence.EntityManager
+    @Autowired private lateinit var entityManagerFactory: jakarta.persistence.EntityManagerFactory
 
     private val mapper = jacksonObjectMapper()
 
@@ -139,6 +140,75 @@ class AdminReportControllerTest : BehaviorSpec() {
                     group.path("items").map { it.path("id").asLong() } shouldBe ids.reversed()
                     group.path("items").map { it.path("reporterLabel").asText() }.toSet() shouldBe
                         setOf("member:$reporter1", "member:$reporter2", "게스트(install-)")
+                }
+            }
+        }
+
+        given("신고 목록의 링크·닉네임") {
+            `when`("회원 신고자·게스트 신고자·닉네임 있는 작성자가 섞여 있으면") {
+                then("대상에 음식 id 와 작성자 닉네임, 신고마다 회원 신고자 닉네임(게스트는 null)이 실린다") {
+                    seed()
+                    exec("UPDATE member SET nickname = '작성자닉' WHERE id = $author")
+                    exec("UPDATE member SET nickname = '신고자하나' WHERE id = $reporter1")
+                    report(reporter1, "install-r1")
+                    report(null, "install-guest-0001")
+
+                    val group = list().path("items")[0]
+
+                    group.path("target").path("foodId").asLong() shouldBe 85630L
+                    group.path("target").path("authorNickname").asText() shouldBe "작성자닉"
+                    group.path("items").map { it.path("reporterNickname").takeUnless { n -> n.isNull }?.asText() } shouldBe listOf(null, "신고자하나")
+                }
+            }
+
+            `when`("리뷰가 삭제됐고 작성자가 탈퇴했으면") {
+                then("음식 id 는 그대로 남고 작성자 닉네임은 null 이다") {
+                    seed()
+                    exec("UPDATE member SET nickname = '작성자닉', status = 'DELETED' WHERE id = $author")
+                    exec("UPDATE food_review SET status = 'DELETED' WHERE id = $review")
+                    report(reporter1, "install-r1")
+
+                    val target = list().path("items")[0].path("target")
+
+                    target.path("foodId").asLong() shouldBe 85630L
+                    target.path("authorNickname").isNull shouldBe true
+                }
+            }
+
+            `when`("대상·신고자 수가 늘어나도") {
+                then("목록 조회의 SQL 수는 같다 — 대상·회원마다 따로 조회하지 않는다") {
+                    fun statementsForPage(): Long {
+                        val statistics = entityManagerFactory.unwrap(org.hibernate.SessionFactory::class.java).statistics
+                        statistics.isStatisticsEnabled = true
+                        statistics.clear()
+                        adminReportService.getReportPage(com.kbap.common.domain.report.model.ReportHandleStatus.PENDING, null, 0, 20)
+                        return statistics.prepareStatementCount
+                    }
+                    seed()
+                    report(reporter1, "install-r1")
+                    val one = statementsForPage()
+
+                    (1..3).forEach { i ->
+                        val extra = 85650L + i
+                        exec("INSERT INTO food_review (id, member_id, food_id, rating, content, status) VALUES ($extra, $author, 85630, 3, '추가 리뷰 $i', 'ACTIVE')")
+                        exec("INSERT INTO report (reporter_member_id, reporter_installation_id, target_type, target_id, reason) VALUES (${if (i % 2 == 0) reporter1 else reporter2}, 'install-x$i', 'REVIEW', $extra, 'SPAM')")
+                    }
+                    val four = statementsForPage()
+
+                    four shouldBe one
+                }
+            }
+
+            `when`("api-docs 의 신고 목록 스키마를 보면") {
+                then("묶음·대상·신고 스키마가 신고 전용 이름이라 다른 기능의 Item 과 섞이지 않는다") {
+                    val schemas = mapper.readTree(
+                        mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("components").path("schemas")
+
+                    schemas.path("AdminReportPageResponse").path("properties").path("items").path("items").path("\$ref").asText() shouldBe "#/components/schemas/AdminReportGroup"
+                    schemas.path("AdminReportGroup").path("properties").path("items").path("items").path("\$ref").asText() shouldBe "#/components/schemas/AdminReportItem"
+                    schemas.path("AdminReportGroup").path("properties").path("target").path("\$ref").asText() shouldBe "#/components/schemas/AdminReportTarget"
+                    schemas.path("AdminReportItem").path("properties").has("reporterLabel") shouldBe true
                 }
             }
         }
