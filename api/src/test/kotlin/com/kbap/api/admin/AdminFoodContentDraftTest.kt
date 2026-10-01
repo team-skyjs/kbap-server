@@ -216,6 +216,20 @@ class AdminFoodContentDraftTest : BehaviorSpec() {
                 }
             }
 
+            `when`("검수 대기 초안이 있는 음식이 READY 를 벗어난 사이 새 결과가 오면") {
+                then("새 결과는 바로 반영되고 옛 초안은 SUPERSEDED — 다시 READY 가 돼도 옛 결과가 새 결과를 덮을 수 없다") {
+                    val food = publishedFood()
+                    recollectResult(food, description = "옛 결과")
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET content_status = 'PENDING_IMAGE' WHERE id = ${food.id}") } }
+
+                    recollectResult(food, description = "새 결과")
+
+                    foodRepository.findById(food.id).orElseThrow().description shouldBe "새 결과"
+                    scalar("SELECT review_status FROM food_content_draft WHERE food_id = ${food.id} AND description = '옛 결과'") shouldBe "SUPERSEDED"
+                    draftRepository.existsByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING) shouldBe false
+                }
+            }
+
             `when`("READY 가 아닌 음식에 결과가 오면") {
                 then("종전대로 바로 반영되고 초안은 없다") {
                     val food = publishedFood(FoodContentStatus.FAILED)
