@@ -197,6 +197,27 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "never a language name"
                 system shouldContain "ISO 639-1"
                 system shouldContain "zh-Hans or zh-Hant"
+            }
+
+            then("번역 규칙이 먼저 오고 머리줄 형식은 맨 끝에 온다 — 형식 지시가 번역 지시의 비중을 밀어내지 않는다") {
+                val chatModel = RecordingChatModel(responseOf("LANG-test en\n맛있어요"))
+
+                OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { }) { "LANG-test" }.translate("So tasty", LanguageCode.KO)
+
+                val lines = chatModel.prompts.single().instructions[0].text.orEmpty().lines()
+                lines.indexOfFirst { "LANG-test" in it } shouldBe lines.lastIndex
+                lines.count { "LANG-test" in it } shouldBe 1
+            }
+
+            then("모든 낱말을 대상 언어로 옮기라고 못 박는다 — 고유명사(음식·장소·상표 이름)만 예외다") {
+                val chatModel = RecordingChatModel(responseOf("LANG-test en\n맛있어요"))
+
+                OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { }) { "LANG-test" }.translate("So tasty", LanguageCode.KO)
+
+                val system = chatModel.prompts.single().instructions[0].text
+                system shouldContain "Translate every word into Korean"
+                system shouldContain "Do not leave words in the original language"
+                system shouldContain "except proper nouns (dish, place, brand names)"
                 system.orEmpty().contains('`') shouldBe false
             }
 
