@@ -273,6 +273,24 @@ class TranslationControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("원문이 바뀌어 다시 번역했는데 이번에는 언어를 판별하지 못하면") {
+                then("저장된 원문 언어도 null 로 덮인다 — 예전 글의 언어가 새 글에 남아 거짓 표기가 되지 않는다") {
+                    seed()
+                    translator.sourceLanguageTag = "en"
+                    translate(visible)
+                    cachedSourceLanguage() shouldBe "en"
+                    exec("UPDATE food_review SET content = '맛있어요 정말' WHERE id = $visible")
+                    translator.sourceLanguageTag = null
+
+                    val payload = body(translate(visible)).path("payload")
+
+                    payload.path("text").asText() shouldBe "[ko] 맛있어요 정말"
+                    payload.path("sourceLanguage").isNull shouldBe true
+                    cachedSourceLanguage() shouldBe null
+                    rows() shouldBe 1L
+                }
+            }
+
             `when`("앱이 모르는 언어면") {
                 then("언어 부분만 소문자로 준다 — 앱은 '번역됨'으로 표시한다") {
                     seed()

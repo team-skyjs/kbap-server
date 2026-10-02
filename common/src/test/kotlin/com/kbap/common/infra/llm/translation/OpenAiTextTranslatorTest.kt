@@ -113,10 +113,26 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
             }
         }
 
-        `when`("머리줄에 코드가 없거나 군말이 붙으면") {
-            then("번역문은 살리고 태그는 있는 그대로 넘긴다 — 쓸 수 있는 코드인지는 정규화가 가른다") {
+        `when`("첫 줄에 이번 호출의 표식은 있는데 언어 자리가 비었거나 깨졌으면") {
+            then("그 줄은 항상 떼어 내고 태그만 있는 그대로 넘긴다 — 머리줄이 번역문에 섞여 사용자에게 보이거나 캐시에 굳지 않는다") {
                 translatorOf("LANG-test\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
                 translatorOf("LANG-test   English (US)  \n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "English (US)")
+                translatorOf("LANG-test:en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("  LANG-test en  \r\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("표식 줄이 첫 줄이 아니라 본문 중간에 있으면") {
+            then("머리줄로 보지 않는다 — 판정은 출력의 첫 줄에서만 한다") {
+                val output = "맛있어요\nLANG-test en\n정말로"
+
+                translatorOf(output).translate("So tasty\nreally", LanguageCode.KO) shouldBe TranslatedText(output, null)
+            }
+        }
+
+        `when`("줄 끝이 CRLF 이고 머리줄이 없으면") {
+            then("출력 전체가 그대로 번역문이다") {
+                translatorOf("맛있어요\r\n정말로").translate("So tasty\r\nreally", LanguageCode.KO) shouldBe TranslatedText("맛있어요\r\n정말로", null)
             }
         }
 
@@ -130,6 +146,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "LANG-test"
                 system shouldContain "BCP 47"
                 system shouldContain "und"
+                system shouldContain "never a language name"
             }
 
             then("표식은 호출마다 다르다 — 본문이 미리 알고 흉내 낼 수 없다") {
