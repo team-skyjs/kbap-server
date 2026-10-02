@@ -52,8 +52,9 @@ class TranslationService(
             store(targetType, targetId, language, sourceHash, translated)
         } else {
             log.warn(
-                "번역문의 내용 줄 수가 원문과 다르다 — 번역문은 돌려주되 저장하지 않아 다음 요청이 다시 번역한다: targetType={}, targetId={}, language={}, sourceLines={}, translatedLines={}",
-                targetType, targetId, language.code, sourceLines, translatedLines,
+                "번역문의 내용 줄 수가 원문과 다르다 — 번역문은 돌려주되 저장하지 않아 다음 요청이 다시 번역한다: " +
+                    "targetType={}, targetId={}, sourceLanguage={}, language={}, sourceLines={}, translatedLines={}",
+                targetType, targetId, translated.sourceLanguage, language.code, sourceLines, translatedLines,
             )
         }
         return translated
