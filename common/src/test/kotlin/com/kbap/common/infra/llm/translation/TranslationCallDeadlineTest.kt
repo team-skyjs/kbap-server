@@ -6,6 +6,7 @@ import com.kbap.common.infra.llm.config.LlmModelProperties
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.springframework.context.ApplicationEventPublisher
@@ -27,7 +28,8 @@ class TranslationCallDeadlineTest : BehaviorSpec({
     fun translateAgainst(limit: Duration = Duration.ofSeconds(1), respond: (HttpExchange, Int) -> Unit): Outcome {
         val requests = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.executor = Executors.newCachedThreadPool()
+        val handlers = Executors.newCachedThreadPool()
+        server.executor = handlers
         server.createContext("/") { exchange ->
             exchange.requestBody.readBytes()
             runCatching { respond(exchange, requests.incrementAndGet()) }
@@ -47,6 +49,7 @@ class TranslationCallDeadlineTest : BehaviorSpec({
             return Outcome(text, (System.nanoTime() - started) / 1_000_000, requests.get())
         } finally {
             server.stop(0)
+            handlers.shutdownNow()
         }
     }
 
@@ -71,6 +74,8 @@ class TranslationCallDeadlineTest : BehaviorSpec({
                 }
 
                 outcome.text shouldBe null
+                outcome.requests shouldBe 1
+                outcome.elapsedMillis shouldBeGreaterThanOrEqual 900L
                 outcome.elapsedMillis shouldBeLessThan 4_000L
             }
         }
@@ -90,6 +95,8 @@ class TranslationCallDeadlineTest : BehaviorSpec({
                 }
 
                 outcome.text shouldBe null
+                outcome.requests shouldBe 1
+                outcome.elapsedMillis shouldBeGreaterThanOrEqual 900L
                 outcome.elapsedMillis shouldBeLessThan 4_000L
             }
         }
