@@ -20,10 +20,9 @@ class PublishedFoodRestorer(
         items.filter { it.restoresPublicationOnFailure() }.forEach { restore(it.foodId) }
 
     private fun restore(foodId: Long) {
-        val food = foodRepository.findById(foodId).orElse(null) ?: return
+        val food = foodRepository.findByIdForUpdate(foodId) ?: return
         if (food.contentStatus != FoodContentStatus.PENDING_IMAGE) return
         food.contentStatus = FoodContentStatus.READY
-        foodRepository.save(food)
         vectorOutboxRepository
             .findByFoodIdAndOperationAndOutboxStatus(foodId, FoodVectorOutboxOperation.DELETE, FoodVectorOutboxStatus.PENDING)
             .forEach { it.delete() }

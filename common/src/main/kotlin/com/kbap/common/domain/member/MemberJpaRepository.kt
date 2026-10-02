@@ -4,15 +4,25 @@ import com.kbap.common.domain.member.dto.NewMemberRow
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.SocialProvider
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Member m where m.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): Member?
+
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select m from Member m where m.id = :id")
+    fun findByIdForShare(@Param("id") id: Long): Member?
+
     fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
 
     @Query(nativeQuery = true, value = "SELECT GET_LOCK(:name, :timeoutSeconds)")
@@ -55,6 +65,12 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
 
     fun countByMemberStatusAndIsBotFalse(memberStatus: MemberStatus): Long
 
+    fun existsByProviderAndProviderUidAndMemberStatus(
+        provider: SocialProvider,
+        providerUid: String,
+        memberStatus: MemberStatus,
+    ): Boolean
+
     fun findByProviderAndProviderUidAndMemberStatus(
         provider: SocialProvider,
         providerUid: String,
@@ -90,7 +106,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.reviewCount = m.reviewCount - 1
         where m.id = :memberId
           and m.reviewCount > 0
-          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
         """,
     )
     fun decreaseReviewCount(@Param("memberId") memberId: Long): Int
@@ -113,7 +128,6 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         set m.uniqueReviewedFoodCount = m.uniqueReviewedFoodCount - 1
         where m.id = :memberId
           and m.uniqueReviewedFoodCount > 0
-          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
         """,
     )
     fun decreaseUniqueReviewedFoodCount(@Param("memberId") memberId: Long): Int

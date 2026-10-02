@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
+import java.time.Duration
 import java.time.LocalDateTime
 
 data class AdminFoodDetailResponse(
@@ -43,6 +44,37 @@ data class AdminFoodDetailResponse(
     val regeneration: AdminRegenerationStateResponse?,
     @field:Schema(description = "추가 이미지 생성이 진행 중인지(갤러리 응답과 같은 값)", example = "false")
     val additionalInProgress: Boolean,
+    @field:Schema(
+        description = "이 음식에 처리 중인 콘텐츠 수집 요청이 있는지 — 발행 대기(PENDING)이거나 보냄(SENT)·미완료·포기(dead) 아님이면 true. " +
+            "재수집 뒤 결과(반영·초안)를 기다리는 화면은 false 가 되면 대기를 끝낸다. 재수집 건너뜀·회수 잡과 같은 '진행 중 요청' 정의를 쓴다. " +
+            "삭제된 음식은 항상 false 다 — 그 요청의 결과는 반영되지 않는다. " +
+            "굳은 SENT(24시간 회수 전)도 true 다 — 회수 잡이 다시 보내거나 포기로 넘길 때까지 진행 중으로 본다",
+        example = "false",
+    )
+    val contentRequestPending: Boolean,
+    @field:Schema(
+        description = "contentRequestPending 과 같은 판정으로 잡힌 진행 중 요청 중 가장 최근 요청의 생성 시각(UTC 순간). 없으면 null. " +
+            "보낸 시각이 아니라 요청이 만들어진 시각이다 — 대기 화면은 이 값으로 경과 시간을 보여 주고 클라이언트가 시작 시각을 따로 들고 있지 않는다",
+        nullable = true,
+        example = "2026-10-01T06:15:00Z",
+    )
+    val contentRequestSince: java.time.Instant?,
+    @field:Schema(
+        description = "contentRequestSince 부터 지난 시간을 서버가 응답 시점에 계산한 경과 초. 진행 중 요청이 없으면 null(contentRequestSince 와 함께). " +
+            "대기 상한 판정은 이 값으로 한다 — 클라이언트 시계로 since 와의 차이를 계산하면 PC 시계가 틀릴 때 어긋난다. 0 이상이다",
+        nullable = true,
+        example = "420",
+    )
+    val contentRequestAgeSeconds: Long?,
+    @field:Schema(
+        description = "이 음식의 검수 대기(PENDING) 초안의 id. 없으면 null — 승인·반려·대체된 초안은 가리키지 않는다. " +
+            "contentRequestPending 과 같은 조회 시점에서 읽는다 — 재수집 결과 콜백은 요청 완료와 초안 생성을 한 번에 커밋하므로, " +
+            "한 응답 안에서 '요청이 끝났다(false)'와 이 id 가 함께 보인다. 배지는 이 값으로 판단하고 초안 조회를 따로 맞춰 부르지 않는다. " +
+            "삭제된 음식은 항상 null",
+        nullable = true,
+        example = "42",
+    )
+    val pendingContentDraftId: Long?,
 ) {
     companion object {
         fun from(
@@ -51,6 +83,10 @@ data class AdminFoodDetailResponse(
             humanReview: HumanReviewResponse?,
             regeneration: AdminRegenerationStateResponse?,
             additionalInProgress: Boolean,
+            contentRequestPending: Boolean,
+            contentRequestSince: java.time.Instant?,
+            now: java.time.Instant,
+            pendingContentDraftId: Long?,
         ): AdminFoodDetailResponse =
             AdminFoodDetailResponse(
                 id = food.id,
@@ -76,6 +112,10 @@ data class AdminFoodDetailResponse(
                 humanReview = humanReview,
                 regeneration = regeneration,
                 additionalInProgress = additionalInProgress,
+                contentRequestPending = contentRequestPending,
+                contentRequestSince = contentRequestSince,
+                contentRequestAgeSeconds = contentRequestSince?.let { Duration.between(it, now).seconds.coerceAtLeast(0) },
+                pendingContentDraftId = pendingContentDraftId,
             )
     }
 }
@@ -132,6 +172,12 @@ data class AdminFoodRecollectResponse(
     val skippedRegenerating: Long,
     val exceeded: Boolean,
     val max: Int,
+    @field:Schema(
+        description = "단건 재수집에서만 의미 — 이 음식에 검수 대기 콘텐츠 초안이 이미 있으면 true. " +
+            "재수집은 그대로 접수되고, 새 결과가 오면 그 초안을 대체한다(공개 음식의 결과는 검수 뒤에만 반영)",
+        example = "false",
+    )
+    val pendingDraft: Boolean,
 ) {
     companion object {
         fun from(result: AdminFoodRecollectResult): AdminFoodRecollectResponse =
@@ -142,6 +188,7 @@ data class AdminFoodRecollectResponse(
                 skippedRegenerating = result.skippedRegenerating,
                 exceeded = result.exceeded,
                 max = result.max,
+                pendingDraft = result.pendingDraft,
             )
     }
 }

@@ -46,15 +46,25 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.id = :id and $ORPHAN")
     fun countOrphan(@Param("id") id: Long, @Param("before") before: LocalDateTime): Long
 
+    @Query(nativeQuery = true, value = "select u.object_path from uploaded_image u where u.object_path in (:paths)")
+    fun findRecordedPathsAnyStatus(@Param("paths") paths: Collection<String>): List<String>
+
+    @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.object_path = :path")
+    fun countRecordedAnyStatus(@Param("path") path: String): Long
+
+    @Query(nativeQuery = true, value = "select count(*) from (select :path as object_path) u where not ($UNREFERENCED)")
+    fun countReferencesTo(@Param("path") path: String): Long
+
     companion object {
-        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/")
+        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
 
         fun isCleanupTarget(path: String): Boolean = CLEANUP_SEGMENTS.any { path.contains(it) }
 
         private const val CLEANUP_PURPOSE =
             "(locate('images/review/', u.object_path) > 0 " +
                 "or locate('images/community/', u.object_path) > 0 " +
-                "or locate('images/feedback/', u.object_path) > 0)"
+                "or locate('images/feedback/', u.object_path) > 0 " +
+                "or locate('images/orders/', u.object_path) > 0)"
 
         private const val UNREFERENCED =
             "not exists (select 1 from food_review r " +

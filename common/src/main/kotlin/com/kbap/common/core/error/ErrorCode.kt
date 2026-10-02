@@ -31,6 +31,7 @@ enum class ErrorCode(
     INVALID_SPICINESS_PREFERENCE("MEMBER-009", 400, "맵기 선호는 SKIP·NONE·MILD·MEDIUM·HOT·EXTREME 중 하나여야 합니다"),
     INVALID_CURRENCY_CODE("MEMBER-010", 400, "지원하지 않는 통화 코드입니다"),
     INVALID_DIET_CATEGORY("MEMBER-011", 400, "지원하지 않는 diet 카테고리입니다"),
+    MEMBER_SUSPENDED_LOGIN("MEMBER-013", 403, "이용이 정지된 계정입니다"),
 
     FOOD_NOT_FOUND("FOOD-001", 400, "해당 음식 정보를 찾을 수 없습니다"),
     INVALID_CURSOR("FOOD-002", 400, "커서 형식이 올바르지 않습니다"),
@@ -49,8 +50,10 @@ enum class ErrorCode(
     FOOD_INGREDIENT_PERCENT_OUT_OF_RANGE("FOOD-015", 400, "재료 포함 확률은 0~100 사이여야 합니다"),
     FOOD_UNKNOWN_INGREDIENT("FOOD-016", 400, "재료 카탈로그에 없는 재료 코드입니다"),
     INGREDIENT_BACKFILL_IN_PROGRESS("FOOD-017", 409, "재료 관계 백필이 이미 실행 중입니다"),
+    FOOD_NOT_PUBLIC("FOOD-018", 400, "지금은 볼 수 없는 음식입니다. 잠시 후 다시 확인해 주세요"),
     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS("FOOD-019", 409, "이 음식의 추가 이미지 생성이 이미 진행 중입니다"),
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
+    FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
@@ -99,6 +102,8 @@ enum class ErrorCode(
     REPORT_SELF_TARGET("REPORT-001", 400, "본인이 작성한 콘텐츠는 신고할 수 없습니다"),
     REPORT_TARGET_NOT_FOUND("REPORT-003", 404, "신고 대상을 찾을 수 없습니다"),
     REPORT_INSTALLATION_ID_REQUIRED("REPORT-004", 400, "신고에는 설치 ID(X-Installation-Id) 가 필요합니다"),
+    REPORT_ALREADY_HANDLED("REPORT-006", 409, "이미 처리된 신고입니다"),
+    REPORT_NOT_FOUND("REPORT-007", 404, "신고를 찾을 수 없습니다"),
 
     ORDER_NOT_FOUND("ORDER-002", 404, "해당 주문 내역을 찾을 수 없습니다"),
     ORDER_ALREADY_PLACED("ORDER-003", 409, "이 메뉴판으로는 이미 주문했습니다"),
@@ -107,4 +112,6 @@ enum class ErrorCode(
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
     IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),
+
+    TRANSLATION_FAILED("TRANSLATION-001", 503, "번역을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"),
 }

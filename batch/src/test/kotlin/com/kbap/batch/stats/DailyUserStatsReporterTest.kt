@@ -80,8 +80,20 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
 
         val yesterday = LocalDate.of(2026, 1, 14)
 
-        fun reporter(sender: TeamChannelSender?, excluded: Set<Long> = emptySet()) =
-            DailyUserStatsReporter(memberRepository, sender, clock, excluded)
+        fun reporter(sender: TeamChannelSender?, excluded: Set<Long> = emptySet(), enabled: Boolean = true) =
+            DailyUserStatsReporter(memberRepository, sender, clock, excluded, enabled)
+
+        fun logsOf(block: () -> Unit): List<ch.qos.logback.classic.spi.ILoggingEvent> {
+            val logger = org.slf4j.LoggerFactory.getLogger(DailyUserStatsReporter::class.java) as ch.qos.logback.classic.Logger
+            val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().apply { start() }
+            logger.addAppender(appender)
+            try {
+                block()
+            } finally {
+                logger.detachAppender(appender)
+            }
+            return appender.list.toList()
+        }
 
         beforeEach { clear() }
         afterSpec { clear() }
@@ -136,6 +148,67 @@ class DailyUserStatsReporterTest : BehaviorSpec() {
                     text shouldContain "신규 가입: 3명 (전일 0명, +3)"
                     text shouldContain "JP 2 · 미설정 1"
                 }
+            }
+        }
+
+        given("일일 유저 통계 켜기·끄기(kbap.batch.user-stats.enabled)") {
+            `when`("켜져 있는데 웹훅 URL 이 없으면(prod 누락)") {
+                then("첫 회 ERROR 로 알린다 — 누락 감지는 그대로") {
+                    (DailyUserStatsReporter::class.java.getDeclaredField("skipReported").apply { isAccessible = true }.get(null) as java.util.concurrent.atomic.AtomicBoolean).set(false)
+                    val logs = logsOf { reporter(null).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED }
+
+                    logs.count { it.level == ch.qos.logback.classic.Level.ERROR } shouldBe 1
+                }
+            }
+
+            `when`("꺼져 있으면(dev)") {
+                then("웹훅이 없어도 ERROR·WARN 없이 INFO 한 줄로 SKIPPED — 배포마다 Sentry 가 울리지 않는다") {
+                    val logs = logsOf { reporter(null, enabled = false).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED }
+
+                    logs.none { it.level.isGreaterOrEqual(ch.qos.logback.classic.Level.WARN) } shouldBe true
+                    logs.count { it.level == ch.qos.logback.classic.Level.INFO } shouldBe 1
+                }
+            }
+
+            `when`("꺼져 있으면 웹훅이 있어도") {
+                then("보내지 않는다") {
+                    var calls = 0
+                    reporter({ calls++ }, enabled = false).report() shouldBe DailyUserStatsReporter.Outcome.SKIPPED
+                    calls shouldBe 0
+                }
+            }
+
+            `when`("프로필 설정을 보면") {
+                then("dev 는 기본으로 끄고 prod·기본은 켠다 — 어느 프로필이든 USER_STATS_ENABLED 로 덮을 수 있다") {
+                    fun propertyOf(file: String): Any? =
+                        org.springframework.beans.factory.config.YamlPropertiesFactoryBean().apply {
+                            setResources(org.springframework.core.io.FileSystemResource("src/main/resources/$file"))
+                        }.getObject()!!["kbap.batch.user-stats.enabled"]
+
+                    propertyOf("application-dev.yml") shouldBe "\${USER_STATS_ENABLED:false}"
+                    propertyOf("application-prod.yml") shouldBe null
+                    propertyOf("application.yml") shouldBe "\${USER_STATS_ENABLED:true}"
+                }
+            }
+        }
+
+        given("dev 프로필의 일일 유저 통계 설정 해석") {
+            fun resolvedOnDev(env: Map<String, Any>): String? {
+                val loader = org.springframework.boot.env.YamlPropertySourceLoader()
+                val sources = org.springframework.core.env.MutablePropertySources()
+                sources.addLast(org.springframework.core.env.MapPropertySource("env", env))
+                listOf("application-dev.yml", "application.yml").forEach { file ->
+                    loader.load(file, org.springframework.core.io.FileSystemResource("src/main/resources/$file")).forEach(sources::addLast)
+                }
+                return org.springframework.core.env.PropertySourcesPropertyResolver(sources).getProperty("kbap.batch.user-stats.enabled")
+            }
+
+            `when`("USER_STATS_ENABLED 가 없으면") {
+                then("false 로 풀린다") { resolvedOnDev(emptyMap()) shouldBe "false" }
+            }
+
+            `when`("USER_STATS_ENABLED=true 를 주면") {
+                then("dev 에서도 켤 수 있다 — 프로필 파일이 env 를 가리지 않는다") { resolvedOnDev(mapOf("USER_STATS_ENABLED" to "true")) shouldBe "true" }
             }
         }
 

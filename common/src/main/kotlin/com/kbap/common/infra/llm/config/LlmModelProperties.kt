@@ -10,6 +10,7 @@ data class LlmModelProperties(
     val image: ImageProps = ImageProps(),
     val embedding: EmbeddingProps = EmbeddingProps(),
     val review: VisionProps = VisionProps(),
+    val translation: VisionProps = VisionProps(),
 ) {
     data class EmbeddingProps(
         val enabled: Boolean = false,
@@ -38,6 +39,7 @@ data class LlmModelProperties(
         val model: String? = null,
         val imageBaseUrl: String = "",
         val temperature: Double? = null,
+        val reasoningEffort: String? = null,
         val maxRetries: Int = 0,
         val timeout: Duration = Duration.ofSeconds(60),
         val retryBudget: Duration = Duration.ofSeconds(10),

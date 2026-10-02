@@ -6,6 +6,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
+import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.port.mq.FoodContentPublishResult
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -235,6 +236,34 @@ class FoodContentOutboxRecoveryTest : BehaviorSpec() {
 
                     outboxRepository.findById(outbox.id).orElseThrow().outboxStatus shouldBe
                         FoodContentOutboxStatus.SENT
+                }
+            }
+
+            `when`("음식이 이미 공개(READY)됐으면") {
+                then("재전송하지 않고 포기로 남긴다 — 늦은 결과가 그 사이 사람의 수정을 덮지 않게 사람이 확인 뒤 재수집한다") {
+                    clear()
+                    val stuck = saveSent("공개국수", LocalDateTime.now().minusHours(30), attempts = 1)
+                    foodRepository.save(foodRepository.findById(stuck.foodId).orElseThrow().apply { contentStatus = FoodContentStatus.READY })
+
+                    val summary = recovery().recoverStale()
+
+                    summary.requeued shouldBe 0
+                    summary.dead shouldBe 1
+                    val reloaded = outboxRepository.findById(stuck.id).orElseThrow()
+                    reloaded.outboxStatus shouldBe FoodContentOutboxStatus.SENT
+                    reloaded.deadAt.shouldNotBeNull()
+                    reloaded.lastError!! shouldContain "자동 재전송하지 않는다"
+                }
+            }
+
+            `when`("음식이 검수 대기(PENDING_REVIEW)면") {
+                then("종전대로 재전송한다 — 결과가 와도 검수를 거친다") {
+                    clear()
+                    val stuck = saveSent("검수국수", LocalDateTime.now().minusHours(30), attempts = 1)
+                    foodRepository.save(foodRepository.findById(stuck.foodId).orElseThrow().apply { contentStatus = FoodContentStatus.PENDING_REVIEW })
+
+                    recovery().recoverStale().requeued shouldBe 1
+                    outboxRepository.findById(stuck.id).orElseThrow().deadAt.shouldBeNull()
                 }
             }
 

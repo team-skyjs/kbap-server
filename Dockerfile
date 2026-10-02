@@ -16,15 +16,19 @@ RUN chmod +x gradlew \
 # 압축 해제는 JDK 의 jar 도구로 해 unzip 설치(apt 조회)를 피한다.
 # 아카이브는 빌드 대상 아키텍처(TARGETARCH)에 맞춘다 — dev 워크플로는 amd64, 로컬 ARM 빌드는 aarch64.
 FROM eclipse-temurin:21-jdk AS awscli
+# 아카이브 sha256 은 awscli.amazonaws.com 에서 같은 버전을 직접 받아 계산한 값(AWS 는 PGP 서명만 공개). 버전을 올리면 둘 다 갱신한다.
 ARG AWS_CLI_VERSION=2.36.31
+ARG AWS_CLI_SHA256_X86_64=96ab904b1fec2b49972685aecc1d2e8c0fd0c981d7a81f5dc5d2dd725ace05f1
+ARG AWS_CLI_SHA256_AARCH64=7c024344fa8fac7cfefb099d0ad7f75c33c26a0b1296e93edbe92810d3fd45dd
 ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
-      amd64) AWS_CLI_ARCH=x86_64 ;; \
-      arm64) AWS_CLI_ARCH=aarch64 ;; \
+      amd64) AWS_CLI_ARCH=x86_64;  AWS_CLI_SHA256="${AWS_CLI_SHA256_X86_64}" ;; \
+      arm64) AWS_CLI_ARCH=aarch64; AWS_CLI_SHA256="${AWS_CLI_SHA256_AARCH64}" ;; \
       *) echo "지원하지 않는 TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
  && curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 \
       "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_CLI_ARCH}-${AWS_CLI_VERSION}.zip" -o /tmp/awscli.zip \
+ && echo "${AWS_CLI_SHA256}  /tmp/awscli.zip" | sha256sum -c - \
  && cd /tmp && jar xf awscli.zip && chmod -R a+x aws/install aws/dist \
  && ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli \
  && rm -rf /tmp/aws /tmp/awscli.zip

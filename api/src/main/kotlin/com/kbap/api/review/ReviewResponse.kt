@@ -49,6 +49,15 @@ data class ReviewResponse(
     @field:Schema(description = "리뷰 본문(없으면 null)", example = "정말 맛있어요")
     val content: String?,
 
+    @field:Schema(
+        description = "리뷰 본문의 언어 — 앱 언어 코드(ko·zh-Hans·en·ja·zh-Hant·vi·id·th·ru·es) 또는 null. " +
+            "서버가 저장 시 본문만 보고 판별한다. 판별이 애매하거나 본문이 없거나 앱이 지원하지 않는 언어면 null 이다. " +
+            "클라이언트는 이 값이 앱 언어와 같을 때만 번역 버튼을 숨기고, null 이면 보여 준다.",
+        example = "ko",
+        nullable = true,
+    )
+    val language: String?,
+
     @field:Schema(description = "리뷰 사진 URL 목록(없으면 빈 배열)")
     val imageUrls: List<String>,
 
@@ -89,6 +98,7 @@ data class ReviewResponse(
                 servingSpeed = review.servingSpeedRating,
                 staffKindness = review.staffKindnessRating,
                 content = review.content,
+                language = review.language,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
                 author = author,

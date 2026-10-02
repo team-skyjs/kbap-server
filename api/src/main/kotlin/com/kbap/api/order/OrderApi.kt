@@ -18,15 +18,18 @@ interface OrderApi {
             스캔 결과 화면에서 고른 메뉴들을 주문 1건으로 저장한다. 이름·가격은 저장 시점 스냅샷으로 고정된다.
 
             - **스캔 1회당 주문 1회** — 같은 imagePath 로 다시 저장하면 409(ORDER-003)다.
+            - **스캔 사진 없이도 저장할 수 있다** — imagePath 를 생략하거나 null 로 보낸다(빈 문자열은 400).
+              이때 사진 검증·중복 검사는 하지 않으므로 같은 요청을 두 번 보내면 주문 2건이 저장된다.
+              목록·상세의 scanImageUrl 은 null 로 내려간다.
             - 좌표(latitude·longitude)는 옵셔널이며 함께 보내거나 함께 생략한다. 좌표가 오면 서버가
               도로명 주소로 변환해 좌표·주소를 저장한다 — 변환 실패는 주문을 막지 않는다(주소만 비움).
               좌표는 어떤 응답에도 노출되지 않는다.
-            - imagePath 는 본인이 업로드한 스캔 이미지여야 한다(SCAN-001).
+            - imagePath 를 보낼 때는 본인이 업로드한 스캔 이미지여야 한다(SCAN-001).
         """,
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "저장 성공"),
-        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만), 이미지 미검증(SCAN-001), 존재하지 않는 음식(FOOD-001)"),
+        ApiResponse(responseCode = "400", description = "검증 실패(빈 항목·수량 0·좌표 한쪽만·빈 imagePath), 이미지 미검증(SCAN-001), 존재하지 않는 음식(FOOD-001), 탈퇴한 회원(MEMBER-003)"),
         ApiResponse(responseCode = "409", description = "이미 주문한 스캔(ORDER-003)"),
     )
     @SecurityRequirement(name = "bearerAuth")
@@ -34,6 +37,7 @@ interface OrderApi {
         ErrorCode.SCAN_IMAGE_NOT_VERIFIED,
         ErrorCode.ORDER_ALREADY_PLACED,
         ErrorCode.FOOD_NOT_FOUND,
+        ErrorCode.MEMBER_NOT_FOUND,
     )
     fun placeOrder(memberId: Long, request: OrderCreateRequest): ResponseEntity<BaseResponse<OrderCreateResponse>>
 
@@ -82,11 +86,11 @@ interface OrderApi {
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "교체 성공 — 갱신된 주문 상세"),
-        ApiResponse(responseCode = "400", description = "placeId·name·language 누락, 길이 초과(COMMON-002)"),
+        ApiResponse(responseCode = "400", description = "placeId·name·language 누락, 길이 초과(COMMON-002), 탈퇴한 회원(MEMBER-003)"),
         ApiResponse(responseCode = "404", description = "주문 없음 또는 타인의 주문(ORDER-002)"),
     )
     @SecurityRequirement(name = "bearerAuth")
-    @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
+    @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.MEMBER_NOT_FOUND)
     fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): ResponseEntity<BaseResponse<OrderDetailResponse>>
 
     @Operation(

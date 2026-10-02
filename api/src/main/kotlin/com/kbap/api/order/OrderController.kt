@@ -1,5 +1,6 @@
 package com.kbap.api.order
 
+import com.kbap.api.member.MemberService
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
@@ -24,12 +25,14 @@ class OrderController(
     private val orderService: OrderService,
     private val reverseGeocoder: ReverseGeocoder,
     private val orderPlaceResolver: OrderPlaceResolver,
+    private val memberService: MemberService,
 ) : OrderApi {
     @PostMapping
     override fun placeOrder(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: OrderCreateRequest,
     ): ResponseEntity<BaseResponse<OrderCreateResponse>> {
+        memberService.getMember(memberId)
         val lang = request.lang?.let { LanguageCode.from(it) } ?: LanguageCode.KO
         val roadAddress = request.latitude?.let { reverseGeocoder.getRoadAddressOrNull(it, request.longitude!!) }
         val resolvedPlace = request.latitude?.let { orderPlaceResolver.resolve(it, request.longitude!!, lang) }

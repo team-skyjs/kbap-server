@@ -26,7 +26,7 @@ data class AdminFoodImageGalleryResponse(
     @field:Schema(description = "이미지 목록. 소프트 삭제된 이미지는 제외되며 없으면 빈 배열")
     val items: List<Item>,
 ) {
-    @Schema(description = "갤러리 이미지 한 장")
+    @Schema(name = "AdminFoodImageItem", description = "갤러리 이미지 한 장")
     data class Item(
         @field:Schema(description = "이미지 id", example = "7")
         val id: Long,

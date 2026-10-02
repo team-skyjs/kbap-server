@@ -2,6 +2,7 @@ package com.kbap.batch.food.content
 
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.FoodContentStatus
 import org.slf4j.LoggerFactory
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -32,9 +33,16 @@ class FoodContentOutboxRecovery(
         var dead = 0
         stale.forEach { outbox ->
             transactionTemplate.executeWithoutResult {
-                foodRepository.findByIdForUpdate(outbox.foodId)
+                val food = foodRepository.findByIdForUpdate(outbox.foodId)
                 if (outboxRepository.countStillStale(outbox.id, before) == 0L) return@executeWithoutResult
-                if (outbox.attempts >= maxAttempts) {
+                if (food?.contentStatus == FoodContentStatus.READY) {
+                    dead += outboxRepository.markDeadIfStillStale(
+                        outbox.id,
+                        before,
+                        "응답 없이 ${staleAfter.toHours()}시간 초과 — 공개(READY) 음식의 묵은 요청은 자동 재전송하지 않는다" +
+                            "(결과는 검수 초안이 되지만 묵은 요청에 유료 호출을 다시 쓰지 않는다). 필요하면 어드민이 재수집",
+                    )
+                } else if (outbox.attempts >= maxAttempts) {
                     dead += outboxRepository.markDeadIfStillStale(
                         outbox.id,
                         before,

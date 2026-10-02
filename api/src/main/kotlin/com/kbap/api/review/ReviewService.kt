@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
@@ -38,6 +39,7 @@ class ReviewService(
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val languageDetector: ReviewLanguageDetector,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -64,6 +66,7 @@ class ReviewService(
                 servingSpeedRating = servingSpeed ?: 0,
                 staffKindnessRating = staffKindness ?: 0,
                 content = content,
+                language = languageDetector.detect(content)?.code,
                 imageRefs = imagePaths,
                 authorCountryCode = authorCountryCode,
                 place = place,
@@ -96,6 +99,7 @@ class ReviewService(
             servingSpeedRating = servingSpeed ?: 0,
             staffKindnessRating = staffKindness ?: 0,
             content = content,
+            language = languageDetector.detect(content)?.code,
             imageRefs = imagePaths,
             place = place,
         )
@@ -106,10 +110,25 @@ class ReviewService(
 
     @Transactional
     fun deleteReview(memberId: Long, reviewId: Long) {
-        val review = getMyReview(memberId, reviewId)
+        val review = getMyReviewForUpdate(memberId, reviewId)
         if (rankingEventRepository.existsByReviewIdAndEvent(review.id, RankingEventType.REVIEW_DELETED)) {
             throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         }
+        softDelete(review)
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun deleteForModeration(review: Review) {
+        if (!review.isActive()) return
+        if (!memberRepository.existsById(review.memberId)) {
+            review.delete()
+            return
+        }
+        softDelete(review)
+    }
+
+    private fun softDelete(review: Review) {
+        val memberId = review.memberId
         review.delete()
         memberService.decreaseReviewCount(memberId)
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
@@ -172,6 +191,15 @@ class ReviewService(
                 ?.takeIf { hasNext }
                 ?.let { ReviewListCursor.encode(sort, it.metric, it.review.id) },
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getVisibleReview(viewerMemberId: Long?, reviewId: Long): Review {
+        val review = reviewRepository.findById(reviewId).orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        if (viewerMemberId != null && review.isOwnedBy(viewerMemberId)) return review
+        val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
+        if (!reviewRepository.existsFeedVisible(reviewId, excluded, NO_EXCLUDED_REVIEW_IDS)) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        return review
     }
 
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
@@ -277,9 +305,14 @@ class ReviewService(
     private fun authorOf(memberId: Long): ReviewAuthorResponse =
         ReviewAuthorResponse.from(memberService.getMember(memberId), imagePublicBaseUrl)
 
-    private fun getMyReview(memberId: Long, reviewId: Long): Review {
-        val review = reviewRepository.findById(reviewId)
-            .orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+    private fun getMyReview(memberId: Long, reviewId: Long): Review =
+        ownedBy(memberId, reviewRepository.findById(reviewId).orElse(null))
+
+    private fun getMyReviewForUpdate(memberId: Long, reviewId: Long): Review =
+        ownedBy(memberId, reviewRepository.findByIdForUpdate(reviewId))
+
+    private fun ownedBy(memberId: Long, review: Review?): Review {
+        if (review == null) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }

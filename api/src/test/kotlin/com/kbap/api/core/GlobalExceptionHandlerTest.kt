@@ -129,7 +129,7 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
 
         given("교착으로 희생된 요청") {
             `when`("두 요청이 같은 두 행을 반대 순서로 잠그면") {
-                then("한쪽은 200, 희생된 쪽은 409 COMMON-004 이고 WARN 으로 남는다 — 다시 보내면 풀리는 오류를 500·ERROR 로 올리지 않는다") {
+                then("한쪽은 200, 희생된 쪽은 409 COMMON-004 이고 ERROR 로 남는다 — 다시 보내면 풀리지만 교착은 잠금 순서 결함의 신호다(응답은 500 으로 올리지 않는다)") {
                     val foodIds = dataSource.connection.use { c ->
                         listOf("교착음식A", "교착음식B").map { name ->
                             c.prepareStatement(
@@ -159,7 +159,7 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
                     vendorCodesOf(victim) shouldBe listOf(1213)
                     victim.body().path("code").asText() shouldBe "COMMON-004"
                     val event = appender.list.single { it.value("status") == 409 }
-                    event.level shouldBe Level.WARN
+                    event.level shouldBe Level.ERROR
                     event.value("errorCode") shouldBe "COMMON-004"
                 }
             }
@@ -208,7 +208,7 @@ class GlobalExceptionHandlerTest : BehaviorSpec() {
 
         given("잠금 충돌이 다른 예외에 감싸여 올라온 요청") {
             `when`("응답이 나가면") {
-                then("원인 사슬에서 잠금 충돌을 찾아 409 COMMON-004 로 응답하고, 교착 희생 표식이 없으므로 ERROR 로 남긴다") {
+                then("원인 사슬에서 잠금 충돌을 찾아 409 COMMON-004 로 응답하고, 비관 잠금 실패이므로 ERROR 로 남긴다") {
                     val result = mockMvc.get("/api/test-logging/lock-conflict-wrapped").andReturn()
 
                     result.response.status shouldBe 409

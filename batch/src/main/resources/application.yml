@@ -87,6 +87,9 @@ kbap:
     # 웹훅 URL 은 SSM /kbap/<env>/SLACK_STATS_WEBHOOK_URL 로 주입한다. 비어 있으면 잡은 warn 1줄 후 SKIPPED 로 끝난다.
     # 제외 회원 id 는 환경마다 다르므로(prod 시드 계정) 프로필 yml 에 둔다. 로봇 이메일 패턴 제외는 쿼리(MemberJpaRepository.REAL_MEMBER).
     user-stats:
+      # 일일 유저 통계는 prod 만 보낸다(예진 10/1) — dev 는 application-dev.yml 에서 끈다.
+      # 켜져 있는데 웹훅 URL 이 없으면 첫 회 ERROR 로 누락을 알린다.
+      enabled: ${USER_STATS_ENABLED:true}
       slack-webhook-url: ${SLACK_STATS_WEBHOOK_URL:}
       excluded-member-ids: ${USER_STATS_EXCLUDED_MEMBER_IDS:}
     # 스캔 제안 푸시(KB-471) — 점심 잡 11:00·저녁 잡 17:00 KST(BatchJobScheduler 상수), 슬롯별 문구는 PushTemplates.bySlot.

@@ -14,6 +14,7 @@ import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.ImageBatchJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentDraftStatus
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodVectorOutbox
@@ -67,6 +68,9 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var draftRepository: com.kbap.common.domain.food.FoodContentDraftJpaRepository
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
@@ -75,6 +79,7 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
         fun clearFoods(): Unit =
             dataSource.connection.use { c ->
                 c.createStatement().use {
+                    it.execute("DELETE FROM food_content_draft")
                     it.execute("DELETE FROM food_content_outbox")
                     it.execute("DELETE FROM image_batch_item")
                     it.execute("DELETE FROM image_batch")
@@ -118,6 +123,8 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
         }
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
+
+        afterSpec { dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM food_content_draft") } } }
 
         given("포기한 요청의 결과 적재") {
             `when`("dead_at 이 찍힌 요청의 콜백이 뒤늦게 도착하면") {
@@ -202,27 +209,15 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
         }
 
         given("READY 음식 재수집 결과의 벡터 재동기화") {
-            `when`("READY 음식에 재수집 결과가 반영되면") {
-                then("READY 그대로이고 벡터 UPSERT 가 예약된다 — 내용이 바뀌었는데 벡터가 낡지 않게") {
+            `when`("READY 음식에 재수집 결과가 오면") {
+                then("공개 내용은 그대로라 벡터 UPSERT 를 예약하지 않는다 — 초안 승인 때 예약된다(KB-673)") {
                     clearFoods()
                     val food = saveFood("벡터재동기음식", FoodContentStatus.READY, "images/webp/food/v.webp")
 
                     ingest(passedBody(food.id, longDescription = "재수집으로 바뀐 긴 설명")).andExpect { status { isOk() } }
 
                     reloaded(food.id).contentStatus shouldBe FoodContentStatus.READY
-                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING) shouldBe true
-                }
-            }
-
-            `when`("이미 PENDING UPSERT 가 있는 READY 음식에 재수집 결과가 반영되면") {
-                then("억제하지 않고 UPSERT 행을 하나 더 만든다 — 기존 행을 배치가 이미 읽어 옛 내용으로 임베딩 중일 수 있다") {
-                    clearFoods()
-                    val food = saveFood("벡터중복큐음식", FoodContentStatus.READY, "images/webp/food/dup.webp")
-                    vectorOutboxRepository.save(FoodVectorOutbox.upsert(food.id))
-
-                    ingest(passedBody(food.id)).andExpect { status { isOk() } }
-
-                    vectorOutboxRepository.findByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING).size shouldBe 2
+                    vectorOutboxRepository.existsByFoodIdAndOperationAndOutboxStatus(food.id, FoodVectorOutboxOperation.UPSERT, FoodVectorOutboxStatus.PENDING) shouldBe false
                 }
             }
 
@@ -304,7 +299,7 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
         given("성공 결과 적재") {
             `when`("이미 서비스 중이고 사진이 있는 음식이면") {
-                then("텍스트만 갱신되고 상태·사진은 그대로다") {
+                then("공개 내용·상태·사진은 그대로이고 결과는 검수 초안으로 남는다(KB-673)") {
                     clearFoods()
                     val food = saveFood("칼국수", FoodContentStatus.READY, "images/food/kalguksu.webp")
 
@@ -314,12 +309,10 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
                     }
 
                     val updated = reloaded(food.id)
-                    updated.description shouldBe "들깨를 곱게 갈아 넣어 고소한 칼국수"
-                    updated.spiciness shouldBe 2
-                    updated.nameTranslations shouldBe allTargets("칼국수")
-                    updated.ingredients?.map { it.code } shouldBe listOf("SESAME")
+                    updated.description shouldBe Food.PLACEHOLDER_DESCRIPTION
                     updated.contentStatus shouldBe FoodContentStatus.READY
                     updated.imageRef shouldBe "images/food/kalguksu.webp"
+                    draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)!!.description shouldBe "들깨를 곱게 갈아 넣어 고소한 칼국수"
                 }
             }
 

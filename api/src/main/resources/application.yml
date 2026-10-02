@@ -106,6 +106,20 @@ kbap:
       # access 는 stateless 라 만료 전 무효화가 불가능하므로 짧게, refresh 는 Redis 폐기가 가능하므로 길게.
       access-ttl: 30m
       refresh-ttl: 14d
+  # 트랜잭션이 끝나면 DB 커넥션을 풀에 돌려준다(KB-681) — 외부 LLM 호출 동안 커넥션을 쥐지 않는다.
+  # 문제가 보이면 false 로 끈다: 요청이 끝날 때까지 쥐는 예전 방식으로 돌아간다(코드 되돌림 없이 태스크 정의 env 만 바꿔 재배포).
+  jpa:
+    release-connection-after-transaction: ${JPA_RELEASE_CONNECTION_AFTER_TRANSACTION:true}
+  # 번역 API(KB-678) — 동시에 번역 엔진을 부르는 요청 수 상한. 넘으면 기다리지 않고 503(TRANSLATION-001).
+  # 엔진 호출 동안에는 DB 커넥션을 쥐지 않는다(KB-681). 번역마다 원문 조회·결과 저장에 커넥션을 쓰므로 번역이 풀(10)을 다 쓰지 못하게 풀의 절반 이하로 둔다.
+  # 게스트가 리뷰×언어로 엔진을 한꺼번에 태우는 속도도 함께 묶는다.
+  review:
+    # 이 컬럼이 생기기 전에 쓰인 리뷰의 본문 언어를 기동 뒤 별도 스레드에서 한 번 채운다(KB-702).
+    # language 가 비어 있는 리뷰만 판별해 그 컬럼만 쓴다. 여러 태스크가 동시에 돌아도 같은 값이다. 끄려면 false.
+    language-backfill:
+      enabled: ${REVIEW_LANGUAGE_BACKFILL_ENABLED:true}
+  translation:
+    max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
   llm:
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. 스캔은 필수 기능이라 끄는 스위치를 두지 않는다 —
     # ScanService 가 이 빈에 의존하므로 OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
@@ -131,6 +145,24 @@ kbap:
       model: gpt-5.6-luna
       temperature: 1.0
       max-retries: 0
+      pricing:
+        input-usd-per-million-tokens: 0.2
+        output-usd-per-million-tokens: 1.2
+    # 사용자 글 번역(KB-678, 1차: 리뷰 본문) — 비전·리뷰 봇과 같은 키·모델로 텍스트만 번역한다. 번역은 앱 기능이라 켜 둔다.
+    # 출력 토큰 상한은 호출마다 원문 길이 기준(2048 + 글자 수 × 6)으로 건다 — 추론 토큰이 포함되므로 reasoning-effort 는 low.
+    # 모델·타임아웃을 바꾸거나 프롬프트를 고쳤으면 TranslationService.CACHE_VERSION 을 올려 저장된 번역을 무효화한다.
+    translation:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      model: ${TRANSLATION_MODEL:gpt-5.6-luna}
+      temperature: 1.0
+      reasoning-effort: low
+      max-retries: 0
+      # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 요청 스레드와 동시 호출 허가를 쥔다.
+      # 이 값이 호출 전체 시간(늦은 응답·조금씩 오는 응답·HTTP 계층의 408 재전송 포함)을 묶는 것은 max-retries: 0 과 함께일 때다
+      # (TranslationCallDeadlineTest·DeployedTranslationEngineSettingsTest). 정본은 LlmConfiguration.visionChatOptions 의 옵션 timeout 이다 —
+      # 같은 값을 받는 httpClientBuilderCustomizer 의 timeout 은 그 테스트에서 관측되는 효과가 없고, 무엇을 제한하는지 확인하지 못했다(vision·review 도 같은 조립).
+      timeout: ${TRANSLATION_TIMEOUT:12s}
       pricing:
         input-usd-per-million-tokens: 0.2
         output-usd-per-million-tokens: 1.2
@@ -194,7 +226,7 @@ kbap:
   food-image:
     batch-size: 100
     # 3시간 주기 cron(하루 8회) — 전 인스턴스가 같은 순간 깨어나 ShedLock 이 1대만 고른다(주기당 정확히 1회).
-  # 미참조 업로드 정리(KB-624) — 리뷰·커뮤니티·문의 용도 중 retention-days 가 지났고 어디에도 참조되지 않은 업로드를 지운다.
+  # 미참조 업로드 정리(KB-624) — 리뷰·커뮤니티·문의·주문 항목 사진 용도 중 retention-days 가 지났고 어디에도 참조되지 않은 업로드를 지운다.
   # 스캔·프로필·목록에 없는 용도는 대상이 아니다(UploadedImageJpaRepository.ORPHAN 허용 목록).
   # dry-run 기본 true — 배포만으로는 아무것도 지우지 않고 건수만 센다(대시보드 orphanUploadedImageCounts).
   # 실삭제는 UPLOADED_IMAGE_CLEANUP_DRY_RUN=false 로만 켠다. 켜는 시점은 예진 결정 — 어느 환경에도 기본으로 켜지 않는다.
@@ -206,6 +238,15 @@ kbap:
     # 최악 100 x 10초 = 약 17분으로 ShedLock lockAtMostFor(30분) 안에 끝난다. 남은 대상은 다음 실행이 이어 간다.
     max-per-run: ${UPLOADED_IMAGE_CLEANUP_MAX_PER_RUN:100}
     cron: "0 30 4 * * *"
+    # 행 없이 S3 에 남은 업로드 오브젝트 정리(KB-665) — 업로드 6용도 접두(`{key-prefix}/images/{용도}/`)만 훑어
+    # uploaded_image 에 (상태 무관) 행이 없고 LastModified 가 retention 을 지났으며 어디서도 참조되지 않는 오브젝트를 지운다.
+    # 삭제 스위치는 #293 잡(dry-run)과 따로다 — 위험이 달라 각자 켠다.
+    unrecorded-dry-run: ${UNRECORDED_UPLOAD_CLEANUP_DRY_RUN:true}
+    # retention 은 presigned 유효기간(upload-ttl) + 완료 신고 여유(1일)보다 길어야 기동한다 — 그 뒤엔 새 PUT·complete 가 없다.
+    unrecorded-retention-days: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_RETENTION_DAYS:7}
+    unrecorded-max-deletes-per-run: ${UPLOADED_IMAGE_CLEANUP_UNRECORDED_MAX_DELETES_PER_RUN:100}
+    unrecorded-max-listed-per-run: 20000
+    unrecorded-cron: "0 50 4 * * *"
   # 이미지 스토리지 S3(KB-138 완료검증 head/delete + KB-145 presigned 발급). enabled=true 프로파일에서만
   # 실 S3 빈(StorageObjectStore·PresignedUploadPort)을 조립한다 — 기본 on, 자격증명은 DefaultCredentialsProvider.
   # public-base-url 은 저장·표시용 공개(CDN) 베이스(presigned 발급 응답의 publicUrl).
@@ -221,3 +262,7 @@ kbap:
     allowed-content-types: image/jpeg,image/png,image/webp
     max-bytes: 10485760
     upload-ttl: 5m
+    # 완료 신고 허용 창 — 업로드(오브젝트 LastModified) 뒤 이 시간이 지난 오브젝트는 완료 신고를 거절한다(IMAGE-003).
+    # 행 없는 오브젝트 정리(uploaded-image-cleanup.unrecorded-*)의 보존 기간은 upload-ttl + 이 값보다 길어야 하며,
+    # 그래서 정리 대상은 완료 신고가 절대 받지 않는 오브젝트다(경합 없음). 앱은 업로드 직후 신고한다.
+    complete-window: 1d

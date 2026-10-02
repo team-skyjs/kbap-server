@@ -232,7 +232,13 @@ interface AdminFoodCatalogApi {
             (`created=0`, `skipped=1` — 멱등).
 
             - 이미지 재생성이 진행 중인 음식은 409(FOOD-020) — 재수집 결과가 재생성 상태를 흔들지 않게 상호 배제한다. 재생성이 끝난 뒤 다시 요청한다.
-            - READY 음식의 재수집 결과가 반영되면 벡터 UPSERT 가 함께 예약된다(검수 없는 덮어쓰기는 현행 유지).
+            - 수집 **성공(passed=true)** 결과:
+              - READY(공개) 음식은 공개 내용에 바로 반영되지 않고 **검수 대기 초안**으로 저장된다 — **승인 전 공개 내용은 무변**이다.
+                `/api/admin/foods/{foodId}/content-draft` 에서 비교·승인하면 그때 반영되고 벡터 UPSERT 가 예약된다(KB-673).
+                응답의 `pendingDraft=true` 는 이미 검수 대기 초안이 있다는 뜻이다 — 새 성공 결과가 오면 그 초안을 대체한다.
+              - READY 가 아닌 음식은 결과가 바로 반영되고 승인 대기(PENDING_REVIEW/PENDING_IMAGE)로 간다(이미지 재생성 중이면 상태 유지).
+            - 수집 **실패(passed=false)** 결과: 초안을 만들지 않는다. READY 음식은 공개 내용·상태가 그대로이고 실패 종류·사유만 기록된다.
+              READY 가 아닌 음식은 FAILED 로 간다(이미지 재생성 중이면 상태 유지).
         """,
     )
     @ApiResponses(
@@ -258,6 +264,8 @@ interface AdminFoodCatalogApi {
             - 이미 수집 대기 중인 음식은 건너뛴다(`skipped` 에 집계 — 멱등).
             - 이미지 재생성이 진행 중인 음식도 건너뛰고 `skippedRegenerating` 에 따로 센다(단건은 409 FOOD-020).
             - 대상이 최대치(500)를 넘으면 아무것도 만들지 않고 `exceeded=true` 로 응답한다 — 필터를 좁혀 재요청한다.
+            - 결과 처리는 단건과 같다(KB-673): 수집 **성공(passed=true)** 결과는 READY(공개) 음식이면 **검수 대기 초안**으로 저장되고
+              **승인 전 공개 내용은 무변**이다. 수집 **실패(passed=false)** 결과는 초안을 만들지 않는다 — READY 음식은 그대로, 그 외는 FAILED(이미지 재생성 중이면 상태 유지).
         """,
     )
     @ApiResponses(
