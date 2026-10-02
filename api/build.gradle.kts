@@ -6,6 +6,7 @@ dependencies {
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
+    "implementation"(libs.lingua)
     "implementation"(libs.jjwt.api)
     "runtimeOnly"(libs.jjwt.impl)
     "runtimeOnly"(libs.jjwt.jackson)

@@ -14,6 +14,8 @@ jackson = "2.21.4"
 # 인증(KB-118): jjwt·firebase-admin 은 Spring Boot BOM 이 관리하지 않아 버전을 여기에 고정한다.
 jjwt = "0.12.6"
 firebase-admin = "9.4.3"
+# 리뷰 본문 언어 판별(KB-702): 라틴 문자 글만 Lingua 로 가른다. Boot BOM 밖이라 버전을 여기에 고정한다.
+lingua = "1.2.2"
 # 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
 # presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
 aws-sdk = "2.48.0"
@@ -96,6 +98,7 @@ jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
+lingua = { module = "com.github.pemistahl:lingua", version.ref = "lingua" }
 
 # --- Test (versions managed by the Spring Boot / JUnit BOM) ---
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
