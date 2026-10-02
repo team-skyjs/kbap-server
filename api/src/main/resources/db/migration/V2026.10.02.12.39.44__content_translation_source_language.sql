@@ -3,11 +3,11 @@
 --
 -- 번역 응답이 "○○어에서 번역"을 표시할 수 있게 원문 언어(BCP 47 코드)를 싣는데, 캐시 적중 때도 같은 값을 주려면
 -- 번역문 옆에 저장해 둬야 한다. 엔진이 언어를 판별하지 못한 번역은 NULL 이다.
--- 앱이 아는 언어는 앱의 코드(ko, zh-Hans …)로, 그 밖은 언어 부분만 소문자로 저장한다 — 35자는 BCP 47 태그의 관례적 상한이다.
+-- 값은 BCP 47 언어 코드다. 정규화 규칙은 코드가 정한다 — 35자는 BCP 47 태그의 관례적 상한이다.
 -- 문자셋·콜레이션은 표 기본값(utf8mb4 / utf8mb4_0900_ai_ci)을 따른다.
 --
 -- 구 코드와 공존한다: 구 코드의 INSERT … ON DUPLICATE KEY UPDATE 는 컬럼 목록을 명시하므로 이 컬럼은 NULL 로 남고,
--- 조회는 매핑된 컬럼만 읽는다. 기존 행은 NULL 로 시작한다 — 새 코드는 캐시 판(version)을 올려 그 행을 다시 번역한다.
+-- 조회는 매핑된 컬럼만 읽는다. 기존 행은 NULL 로 시작한다.
 ALTER TABLE content_translation
     ADD COLUMN source_language VARCHAR(35) NULL,
     ALGORITHM = INSTANT;
