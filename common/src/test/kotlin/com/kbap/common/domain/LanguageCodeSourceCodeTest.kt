@@ -40,7 +40,6 @@ class LanguageCodeSourceCodeTest : BehaviorSpec({
                         "jpn" to "ja",
                         "vie" to "vi",
                         "ind" to "id",
-                        "in" to "id",
                         "tha" to "th",
                         "rus" to "ru",
                         "spa" to "es",
@@ -77,6 +76,10 @@ class LanguageCodeSourceCodeTest : BehaviorSpec({
         `when`("앱이 모르는 언어면") {
             then("언어 부분만 소문자로 준다") {
                 verify(mapOf("fr" to "fr", "fr-CA" to "fr", "PT-br" to "pt", "de-DE" to "de", "fil" to "fil"))
+            }
+
+            then("영어 낱말과 겹치는 옛 코드 in 은 인도네시아어로 바꾸지 않는다 — 머리줄을 'in English' 로 쓴 출력이 앱 언어로 둔갑하지 않는다") {
+                verify(mapOf("in" to "in", "IN" to "in"))
             }
         }
 

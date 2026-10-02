@@ -128,6 +128,16 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 translatorOf("Language: LANG-test en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
                 translatorOf("**LANG-test** zh-Hant\n好吃").translate("好吃", LanguageCode.KO) shouldBe TranslatedText("好吃", "zh-Hant")
                 translatorOf("LANG-test: \"en\"\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test <en>\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en.\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en (English)\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("엔진이 머리줄을 문장처럼 쓰면(표식 뒤에 낱말이 여럿)") {
+            then("첫 낱말을 언어 코드로 믿지 않는다 — 'in English' 의 in 이 코드로 읽히지 않는다. 머리줄은 떼고 언어만 모른다") {
+                translatorOf("LANG-test in English\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
+                translatorOf("LANG-test is ko\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
             }
         }
 
@@ -137,8 +147,10 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 translatorOf("LANG-test en\r\n  \r\n\n맛있어요\n").translate("So tasty\n", LanguageCode.KO) shouldBe TranslatedText("맛있어요\n", "en")
             }
 
-            then("원문이 줄바꿈으로 시작하면 그대로 둔다 — 원문의 서식이다") {
+            then("원문이 빈 줄로 시작하면 그대로 둔다 — 원문의 서식이다. 공백만 있는 줄로 시작해도 같다") {
                 translatorOf("LANG-test en\n\n맛있어요").translate("\nSo tasty", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요", "en")
+                translatorOf("LANG-test en\n  \n맛있어요").translate("  \nSo tasty", LanguageCode.KO) shouldBe TranslatedText("  \n맛있어요", "en")
+                translatorOf("LANG-test en\n\t\r\n맛있어요").translate("\t\r\nSo tasty", LanguageCode.KO) shouldBe TranslatedText("\t\r\n맛있어요", "en")
             }
         }
 
