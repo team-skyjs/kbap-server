@@ -45,7 +45,7 @@ class TranslationService(
         }
         if (cached != null && cached.sourceHash == sourceHash) return TranslatedContent(cached.translatedText, cached.sourceLanguage)
 
-        val translated = TranslatedContent(translateOrFail(source, targetType, targetId, language), null)
+        val translated = translateOrFail(source, targetType, targetId, language)
         store(targetType, targetId, language, sourceHash, translated)
         return translated
     }
@@ -55,7 +55,7 @@ class TranslationService(
             TranslationTargetType.REVIEW -> reviewService.getVisibleReview(viewerMemberId, targetId).content.orEmpty()
         }
 
-    private fun translateOrFail(source: String, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): String {
+    private fun translateOrFail(source: String, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): TranslatedContent {
         val translator = translatorProvider.getIfAvailable() ?: run {
             log.warn("번역 엔진이 꺼져 있다(kbap.llm.translation.enabled=false) — 번역 요청을 거절한다")
             throw BusinessException(ErrorCode.TRANSLATION_FAILED)
@@ -64,14 +64,17 @@ class TranslationService(
             log.warn("동시 번역 엔진 호출 상한({})에 닿아 거절한다 — targetType={}, targetId={}, language={}", maxConcurrentEngineCalls, targetType, targetId, language.code)
             throw BusinessException(ErrorCode.TRANSLATION_FAILED, expected = true)
         }
-        val translated = try {
-            translator.translate(source, language).text
+        val engineOutput = try {
+            translator.translate(source, language)
         } catch (e: RuntimeException) {
             log.warn("번역 엔진 호출 실패 — targetType={}, targetId={}, language={}", targetType, targetId, language.code, e)
             throw BusinessException(ErrorCode.TRANSLATION_FAILED)
         } finally {
             enginePermits.release()
         }
+        val sourceLanguage = LanguageCode.sourceCodeOf(engineOutput.sourceLanguageTag)
+        if (sourceLanguage == language.code) return TranslatedContent(source, sourceLanguage)
+        val translated = engineOutput.text
         if (translated.isBlank() || translated.length > MAX_TRANSLATED_LENGTH) {
             log.warn(
                 "번역 결과를 쓸 수 없다(빈 문자열 또는 상한 초과) — targetType={}, targetId={}, language={}, length={}",
@@ -79,7 +82,7 @@ class TranslationService(
             )
             throw BusinessException(ErrorCode.TRANSLATION_FAILED)
         }
-        return translated
+        return TranslatedContent(translated, sourceLanguage)
     }
 
     private fun store(targetType: TranslationTargetType, targetId: Long, language: LanguageCode, sourceHash: String, translated: TranslatedContent) {
@@ -109,7 +112,7 @@ class TranslationService(
     }
 
     companion object {
-        const val CACHE_VERSION = "1"
+        const val CACHE_VERSION = "2"
         const val MAX_TRANSLATED_LENGTH = 10_000
     }
 }

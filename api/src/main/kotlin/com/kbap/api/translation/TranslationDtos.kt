@@ -24,7 +24,14 @@ data class TranslationResponse(
     val targetId: Long,
     @field:Schema(description = "번역된 언어 코드 — 요청 lang 이 미지원 값이면 en 으로 풀린 값", example = "ko")
     val language: String,
-    @field:Schema(description = "번역문. 본문이 빈 글이면 빈 문자열", example = "국물이 깊고 정말 맛있었어요")
+    @field:Schema(description = "번역문. 본문이 빈 글이면 빈 문자열. 원문이 이미 요청한 언어면(sourceLanguage == language) 원문 그대로", example = "국물이 깊고 정말 맛있었어요")
     val text: String,
+    @field:Schema(
+        description = "원문의 언어 코드. 판별하지 못하면 null. 앱이 아는 언어면 앱이 lang 으로 보내는 코드와 같은 표기(ko, en, ja, zh-Hans, zh-Hant, vi, id, th, ru, es)이고, " +
+            "그 밖의 언어는 BCP 47 의 언어 부분만 소문자(fr, de, pt …)다. " +
+            "이 값이 language 와 같으면 원문이 이미 그 언어라는 뜻이고 text 는 원문 그대로다",
+        nullable = true,
+        example = "en",
+    )
     val sourceLanguage: String?,
 )
