@@ -32,7 +32,7 @@ class HomeService(
     }
 
     companion object {
-        const val POPULAR_SIZE = 5
+        const val POPULAR_SIZE = 10
         const val RECENT_SCAN_SIZE = 10
         const val MOST_REVIEWED_SIZE = 10
     }
