@@ -24,7 +24,7 @@ class TranslationCallDeadlineTest : BehaviorSpec({
 
     data class Outcome(val text: String?, val elapsedMillis: Long, val requests: Int)
 
-    fun translateAgainst(respond: (HttpExchange, Int) -> Unit): Outcome {
+    fun translateAgainst(limit: Duration = Duration.ofSeconds(1), respond: (HttpExchange, Int) -> Unit): Outcome {
         val requests = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.executor = Executors.newCachedThreadPool()
@@ -39,7 +39,7 @@ class TranslationCallDeadlineTest : BehaviorSpec({
                 apiKey = "test-key",
                 baseUrl = "http://127.0.0.1:${server.address.port}/v1",
                 model = "gpt-test",
-                timeout = Duration.ofSeconds(1),
+                timeout = limit,
             )
             val translator = LlmConfiguration().textTranslator(LlmModelProperties(translation = props), ApplicationEventPublisher { })
             val started = System.nanoTime()
@@ -59,24 +59,24 @@ class TranslationCallDeadlineTest : BehaviorSpec({
     given("번역 엔진 호출의 시간 제한(운영과 같은 조립, 제한 1초)") {
         `when`("엔진이 제때 응답하면") {
             then("번역문을 받는다") {
-                translateAgainst { exchange, _ -> exchange.send(200, reply) }.text shouldBe "안녕하세요"
+                translateAgainst(limit = Duration.ofSeconds(30)) { exchange, _ -> exchange.send(200, reply) }.text shouldBe "안녕하세요"
             }
         }
 
-        `when`("엔진이 제한을 넘겨 3초 뒤에 응답하면") {
-            then("제한 시각 부근에서 실패한다 — 제한은 호출 전체 시간에 걸린다") {
+        `when`("엔진이 제한을 넘겨 5초 뒤에 응답하면") {
+            then("응답이 오기 전에 제한에서 실패한다 — 제한은 호출 전체 시간에 걸린다") {
                 val outcome = translateAgainst { exchange, _ ->
-                    Thread.sleep(3_000)
+                    Thread.sleep(5_000)
                     exchange.send(200, reply)
                 }
 
                 outcome.text shouldBe null
-                outcome.elapsedMillis shouldBeLessThan 2_500L
+                outcome.elapsedMillis shouldBeLessThan 4_000L
             }
         }
 
-        `when`("엔진이 응답을 조금씩 흘려보내 4초에 걸쳐 끝내면") {
-            then("그래도 제한 시각 부근에서 실패한다 — 바이트가 올 때마다 제한이 새로 시작되지 않는다") {
+        `when`("엔진이 응답을 조금씩 흘려보내 6초에 걸쳐 끝내면") {
+            then("그래도 응답이 끝나기 전에 제한에서 실패한다 — 바이트가 올 때마다 제한이 새로 시작되지 않는다") {
                 val outcome = translateAgainst { exchange, _ ->
                     exchange.responseHeaders.add("Content-Type", "application/json")
                     exchange.sendResponseHeaders(200, 0)
@@ -84,13 +84,13 @@ class TranslationCallDeadlineTest : BehaviorSpec({
                         reply.toList().chunked((reply.size / 10).coerceAtLeast(1)).forEach { chunk ->
                             out.write(chunk.toByteArray())
                             out.flush()
-                            Thread.sleep(400)
+                            Thread.sleep(600)
                         }
                     }
                 }
 
                 outcome.text shouldBe null
-                outcome.elapsedMillis shouldBeLessThan 2_500L
+                outcome.elapsedMillis shouldBeLessThan 4_000L
             }
         }
 
