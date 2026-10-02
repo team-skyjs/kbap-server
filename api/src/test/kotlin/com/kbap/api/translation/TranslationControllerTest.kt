@@ -206,6 +206,171 @@ class TranslationControllerTest : BehaviorSpec() {
             }
         }
 
+        given("번역 응답의 원문 언어(sourceLanguage)") {
+            val source = "The broth was rich and so tasty"
+
+            fun cachedSourceLanguage(): String? = scalar("SELECT source_language FROM content_translation")
+
+            `when`("영어 리뷰를 한국어로 요청하면") {
+                then("번역문과 함께 sourceLanguage en 을 주고, 캐시에도 저장해 적중 응답에서도 같은 값을 준다") {
+                    seed()
+                    translator.sourceLanguageTag = "en-US"
+
+                    val first = body(translate(visible)).path("payload")
+                    val second = body(translate(visible)).path("payload")
+
+                    first.path("text").asText() shouldBe "[ko] $source"
+                    first.path("sourceLanguage").asText() shouldBe "en"
+                    cachedSourceLanguage() shouldBe "en"
+                    second.path("sourceLanguage").asText() shouldBe "en"
+                    second.path("text").asText() shouldBe "[ko] $source"
+                    translator.calls.size shouldBe 1
+                }
+            }
+
+            `when`("원문 언어가 요청 언어와 같으면") {
+                then("엔진이 원문을 그대로 돌려줬으면 text 는 원문 그대로이고 sourceLanguage 는 그 언어다 — 그 결과도 캐시한다") {
+                    seed()
+                    translator.sourceLanguageTag = "en"
+                    translator.reply = { text, _ -> "  $text\n" }
+
+                    val first = body(translate(visible, lang = "en")).path("payload")
+                    val second = body(translate(visible, lang = "en")).path("payload")
+
+                    first.path("text").asText() shouldBe source
+                    first.path("sourceLanguage").asText() shouldBe "en"
+                    scalar("SELECT translated_text FROM content_translation") shouldBe source
+                    second.path("text").asText() shouldBe source
+                    translator.calls.size shouldBe 1
+                }
+
+                then("엔진이 번역문을 비워 보내도 실패가 아니다 — 돌려줄 것은 원문이다") {
+                    seed()
+                    translator.sourceLanguageTag = "zh-TW"
+                    translator.reply = { _, _ -> "" }
+
+                    val response = translate(visible, lang = "zh-Hant")
+
+                    response.status shouldBe 200
+                    body(response).path("payload").path("text").asText() shouldBe source
+                    body(response).path("payload").path("sourceLanguage").asText() shouldBe "zh-Hant"
+                }
+            }
+
+            `when`("엔진이 요청 언어와 같은 코드를 줬는데 번역문은 원문과 다르면") {
+                then("모순이다 — 엔진 출력을 번역문으로 쓰고 sourceLanguage 는 null 이다. 코드 한 줄만 믿고 원문을 영구히 굳히지 않는다") {
+                    seed()
+                    translator.sourceLanguageTag = "ko"
+                    translator.reply = { _, _ -> "국물이 진하고 정말 맛있었어요" }
+
+                    val payload = body(translate(visible, lang = "ko")).path("payload")
+
+                    payload.path("text").asText() shouldBe "국물이 진하고 정말 맛있었어요"
+                    payload.path("sourceLanguage").isNull shouldBe true
+                    cachedSourceLanguage() shouldBe null
+                    scalar("SELECT translated_text FROM content_translation") shouldBe "국물이 진하고 정말 맛있었어요"
+                }
+
+                then("꼬리표 없는 zh 가 간체로 정규화돼도, 번체 원문을 간체로 바꾼 번역문은 버리지 않는다") {
+                    seed()
+                    exec("UPDATE food_review SET content = '湯頭濃郁，非常好吃' WHERE id = $visible")
+                    translator.sourceLanguageTag = "zh"
+                    translator.reply = { _, _ -> "汤头浓郁，非常好吃" }
+
+                    val payload = body(translate(visible, lang = "zh-Hans")).path("payload")
+
+                    payload.path("text").asText() shouldBe "汤头浓郁，非常好吃"
+                    payload.path("sourceLanguage").isNull shouldBe true
+                }
+            }
+
+            `when`("엔진이 원문 언어를 주지 못했거나 태그 모양이 아니면") {
+                then("번역문은 그대로 주고 sourceLanguage 는 null 이다 — 키는 있다") {
+                    listOf(null, "und", "English (US)", "x".repeat(40)).forEach { tag ->
+                        seed()
+                        translator.sourceLanguageTag = tag
+
+                        val payload = body(translate(visible)).path("payload")
+
+                        payload.path("text").asText() shouldBe "[ko] $source"
+                        payload.has("sourceLanguage") shouldBe true
+                        payload.path("sourceLanguage").isNull shouldBe true
+                        cachedSourceLanguage() shouldBe null
+                    }
+                }
+            }
+
+            `when`("원문이 바뀌어 다시 번역했는데 이번에는 언어를 판별하지 못하면") {
+                then("저장된 원문 언어도 null 로 덮인다 — 예전 글의 언어가 새 글에 남아 거짓 표기가 되지 않는다") {
+                    seed()
+                    translator.sourceLanguageTag = "en"
+                    translate(visible)
+                    cachedSourceLanguage() shouldBe "en"
+                    exec("UPDATE food_review SET content = '맛있어요 정말' WHERE id = $visible")
+                    translator.sourceLanguageTag = null
+
+                    val payload = body(translate(visible)).path("payload")
+
+                    payload.path("text").asText() shouldBe "[ko] 맛있어요 정말"
+                    payload.path("sourceLanguage").isNull shouldBe true
+                    cachedSourceLanguage() shouldBe null
+                    rows() shouldBe 1L
+                }
+            }
+
+            `when`("앱이 모르는 언어면") {
+                then("언어 부분만 소문자로 준다 — 앱은 '번역됨'으로 표시한다") {
+                    seed()
+                    translator.sourceLanguageTag = "fr-CA"
+
+                    body(translate(visible)).path("payload").path("sourceLanguage").asText() shouldBe "fr"
+                }
+            }
+
+            `when`("원문 언어 없이 저장된 옛 캐시 행이 있으면") {
+                then("다시 번역해 원문 언어를 채운다 — 캐시 판(version)이 올라 옛 행은 적중하지 않는다") {
+                    seed()
+                    exec(
+                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at) " +
+                            "VALUES ('REVIEW', $visible, 'ko', '${sha256("1\n$source")}', '옛 번역', 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    translator.sourceLanguageTag = "en"
+
+                    val payload = body(translate(visible)).path("payload")
+
+                    payload.path("text").asText() shouldBe "[ko] $source"
+                    payload.path("sourceLanguage").asText() shouldBe "en"
+                    translator.calls.size shouldBe 1
+                    rows() shouldBe 1L
+                    cachedSourceLanguage() shouldBe "en"
+                }
+            }
+
+            `when`("본문이 빈 글이면") {
+                then("빈 문자열과 sourceLanguage null — 엔진을 부르지 않는다") {
+                    seed()
+
+                    val payload = body(translate(emptyBody)).path("payload")
+
+                    payload.path("text").asText() shouldBe ""
+                    payload.path("sourceLanguage").isNull shouldBe true
+                    translator.calls.size shouldBe 0
+                }
+            }
+
+            `when`("api-docs 를 보면") {
+                then("sourceLanguage 가 문자열·nullable 이고, 앱 코드와 같은 표기·같은 언어면 원문 그대로라는 설명이 있다") {
+                    val property = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("components").path("schemas").path("TranslationResponse").path("properties").path("sourceLanguage")
+
+                    property.path("type").asText() shouldBe "string"
+                    property.path("description").asText().contains("앱이 lang 으로 보내는 코드와 같은 표기") shouldBe true
+                    property.path("description").asText().contains("text 는 원문 그대로") shouldBe true
+                    property.path("description").asText().contains("null") shouldBe true
+                }
+            }
+        }
+
         given("번역할 수 없는 리뷰") {
             `when`("삭제된 리뷰·삭제된 음식의 리뷰·내가 차단한 회원의 리뷰를 요청하면") {
                 then("기존 리뷰 조회와 같은 REVIEW-001 이고 번역 엔진을 부르지 않는다") {
@@ -306,7 +471,7 @@ class TranslationControllerTest : BehaviorSpec() {
                     } as ContentTranslationJpaRepository
 
                     val text = TranslationService(reviewService, failingStore, providerOf(translator), transactionManager, dataSource, 4)
-                        .translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO)
+                        .translate(null, TranslationTargetType.REVIEW, visible, LanguageCode.KO).text
 
                     text shouldBe "[ko] The broth was rich and so tasty"
                     rows() shouldBe 0L

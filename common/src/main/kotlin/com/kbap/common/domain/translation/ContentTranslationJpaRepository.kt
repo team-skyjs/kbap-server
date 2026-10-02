@@ -15,11 +15,12 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
     @Query(
         nativeQuery = true,
         value = """
-            INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at)
-            VALUES (:targetType, :targetId, :language, :sourceHash, :translatedText, 'ACTIVE', :now, :now)
+            INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at)
+            VALUES (:targetType, :targetId, :language, :sourceHash, :translatedText, :sourceLanguage, 'ACTIVE', :now, :now)
             ON DUPLICATE KEY UPDATE
                 source_hash = :sourceHash,
                 translated_text = :translatedText,
+                source_language = :sourceLanguage,
                 status = 'ACTIVE',
                 updated_at = :now
         """,
@@ -30,6 +31,7 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
         @Param("language") language: String,
         @Param("sourceHash") sourceHash: String,
         @Param("translatedText") translatedText: String,
+        @Param("sourceLanguage") sourceLanguage: String?,
         @Param("now") now: LocalDateTime,
     ): Int
 }

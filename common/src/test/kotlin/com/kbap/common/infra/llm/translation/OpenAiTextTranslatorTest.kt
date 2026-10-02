@@ -1,5 +1,6 @@
 package com.kbap.common.infra.llm.translation
 
+import com.kbap.common.port.llm.TranslatedText
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.metering.LlmCallCostIncurred
@@ -55,7 +56,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 val translated = OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { })
                     .translate(source, LanguageCode.KO)
 
-                translated shouldBe "맛있어요"
+                translated.text shouldBe "맛있어요"
                 val messages = chatModel.prompts.single().instructions
                 messages.map { it.messageType } shouldBe listOf(MessageType.SYSTEM, MessageType.USER)
                 messages[1].text shouldBe source
@@ -80,6 +81,138 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         }
     }
 
+    given("원문 언어를 함께 받는 머리줄 규약") {
+        fun translatorOf(output: String) =
+            OpenAiTextTranslator(RecordingChatModel(responseOf(output)), pricing, "gpt-test", ApplicationEventPublisher { }) { "LANG-test" }
+
+        `when`("엔진이 첫 줄에 표식과 언어 코드를, 둘째 줄부터 번역문을 주면") {
+            then("언어 태그와 번역문으로 나눈다 — 번역문의 앞뒤 줄바꿈은 그대로다") {
+                translatorOf("LANG-test en\n\n맛있어요\n").translate("\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요\n", "en")
+                translatorOf("LANG-test zh-Hant\r\n好吃").translate("好吃", LanguageCode.KO) shouldBe TranslatedText("好吃", "zh-Hant")
+            }
+        }
+
+        `when`("엔진이 머리줄 없이 번역문만 주면(규약이 깨짐)") {
+            then("출력 전체를 번역문으로 쓰고 언어는 모른다 — 형식이 깨져도 번역문을 잃지 않는다") {
+                translatorOf("맛있어요\n정말로").translate("So tasty\nreally", LanguageCode.KO) shouldBe TranslatedText("맛있어요\n정말로", null)
+            }
+        }
+
+        `when`("원문 첫 줄이 다른 표식의 머리줄을 흉내 내고 엔진이 그 줄을 그대로 돌려주면") {
+            then("속지 않는다 — 이번 호출의 표식이 아니면 머리줄이 아니라 번역문이다") {
+                val imitation = "LANG-12345678 en\n진짜 본문"
+
+                translatorOf(imitation).translate(imitation, LanguageCode.KO) shouldBe TranslatedText(imitation, null)
+            }
+        }
+
+        `when`("머리줄만 있고 번역문이 없으면") {
+            then("번역문은 빈 문자열이다 — 호출부가 빈 번역으로 보고 실패 처리한다") {
+                translatorOf("LANG-test en").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("", "en")
+                translatorOf("LANG-test en\n").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("", "en")
+            }
+        }
+
+        `when`("첫 줄에 이번 호출의 표식은 있는데 언어 자리가 비었거나 깨졌으면") {
+            then("그 줄은 항상 떼어 내고 태그만 있는 그대로 넘긴다 — 머리줄이 번역문에 섞여 사용자에게 보이거나 캐시에 굳지 않는다") {
+                translatorOf("LANG-test\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
+                translatorOf("LANG-test   English (US)  \n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "English")
+                translatorOf("LANG-test:en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("  LANG-test en  \r\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("엔진이 머리줄을 꾸며 쓰면(백틱·접두·굵게)") {
+            then("표식이 그 줄 어디에 있든 머리줄로 떼고, 표식 뒤의 첫 낱말에서 꾸밈을 벗겨 언어를 읽는다 — 머리줄이 번역문 첫 줄로 새지 않는다") {
+                translatorOf("`LANG-test en`\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("Language: LANG-test en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("**LANG-test** zh-Hant\n好吃").translate("好吃", LanguageCode.KO) shouldBe TranslatedText("好吃", "zh-Hant")
+                translatorOf("LANG-test: \"en\"\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test <en>\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en.\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en (English)\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("엔진이 머리줄을 문장처럼 쓰면(표식 뒤에 낱말이 여럿)") {
+            then("첫 낱말을 언어 코드로 믿지 않는다 — 'in English' 의 in 이 코드로 읽히지 않는다. 머리줄은 떼고 언어만 모른다") {
+                translatorOf("LANG-test in English\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
+                translatorOf("LANG-test is ko\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
+            }
+        }
+
+        `when`("머리줄과 번역문 사이에 엔진이 빈 줄을 넣으면") {
+            then("원문이 줄바꿈으로 시작하지 않으면 그 빈 줄을 뗀다 — 구분용 빈 줄이 번역문 첫 줄로 남지 않는다") {
+                translatorOf("LANG-test en\n\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en\r\n  \r\n\n맛있어요\n").translate("So tasty\n", LanguageCode.KO) shouldBe TranslatedText("맛있어요\n", "en")
+            }
+
+            then("원문이 빈 줄로 시작하면 그대로 둔다 — 원문의 서식이다. 공백만 있는 줄로 시작해도 같다") {
+                translatorOf("LANG-test en\n\n맛있어요").translate("\nSo tasty", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요", "en")
+                translatorOf("LANG-test en\n  \n맛있어요").translate("  \nSo tasty", LanguageCode.KO) shouldBe TranslatedText("  \n맛있어요", "en")
+                translatorOf("LANG-test en\n\t\r\n맛있어요").translate("\t\r\nSo tasty", LanguageCode.KO) shouldBe TranslatedText("\t\r\n맛있어요", "en")
+            }
+        }
+
+        `when`("머리줄을 떼고도 번역문에 이번 호출의 표식이 남아 있으면") {
+            then("실패한다 — 표식 문자열이 섞인 번역문을 보여 주거나 저장하지 않는다") {
+                io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+                    translatorOf("LANG-test en\n맛있어요\nLANG-test en\n정말로").translate("So tasty\nreally", LanguageCode.KO)
+                }
+                io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+                    translatorOf("맛있어요\nLANG-test en\n정말로").translate("So tasty\nreally", LanguageCode.KO)
+                }
+            }
+        }
+
+        `when`("엔진이 머리줄 앞에 빈 줄을 하나 이상 내면") {
+            then("빈 줄은 버리고 머리줄을 뗀다 — 표식 문자열이 번역문에 섞여 캐시에 굳지 않는다. 머리줄 뒤의 번역문 줄바꿈은 그대로다") {
+                translatorOf("\nLANG-test en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("\n\n  \r\nLANG-test en\n\n맛있어요\n").translate("\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요\n", "en")
+            }
+        }
+
+        `when`("머리줄이 없고 번역문이 빈 줄로 시작하면") {
+            then("앞의 빈 줄을 포함해 출력 전체가 번역문이다 — 빈 줄을 버리는 것은 머리줄이 있을 때뿐이다") {
+                translatorOf("\n\n맛있어요\n").translate("\n\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n\n맛있어요\n", null)
+            }
+        }
+
+        `when`("줄 끝이 CRLF 이고 머리줄이 없으면") {
+            then("출력 전체가 그대로 번역문이다") {
+                translatorOf("맛있어요\r\n정말로").translate("So tasty\r\nreally", LanguageCode.KO) shouldBe TranslatedText("맛있어요\r\n정말로", null)
+            }
+        }
+
+        `when`("프롬프트를 만들면") {
+            then("이번 호출의 표식과 머리줄 형식이 system 에 실린다") {
+                val chatModel = RecordingChatModel(responseOf("LANG-test en\n맛있어요"))
+
+                OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { }) { "LANG-test" }.translate("So tasty", LanguageCode.KO)
+
+                val system = chatModel.prompts.single().instructions[0].text
+                system shouldContain "LANG-test"
+                system shouldContain "BCP 47"
+                system shouldContain "und"
+                system shouldContain "never a language name"
+                system shouldContain "ISO 639-1"
+                system shouldContain "zh-Hans or zh-Hant"
+                system.orEmpty().contains('`') shouldBe false
+            }
+
+            then("표식은 호출마다 다르다 — 본문이 미리 알고 흉내 낼 수 없다") {
+                val chatModel = RecordingChatModel(responseOf("맛있어요"))
+                val translator = OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { })
+
+                translator.translate("So tasty", LanguageCode.KO)
+                translator.translate("So tasty", LanguageCode.KO)
+
+                val markers = chatModel.prompts.map { Regex("LANG-[0-9a-f]{8}").find(it.instructions[0].text.orEmpty())!!.value }
+                markers.toSet().size shouldBe 2
+            }
+        }
+    }
+
     given("번역 호출의 토큰·비용 기록") {
         `when`("번역이 끝나면") {
             then("모델·토큰 수로 비용 이벤트를 낸다") {
@@ -98,7 +231,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         `when`("비용 이벤트 발행이 실패해도") {
             then("번역 결과는 돌려준다") {
                 OpenAiTextTranslator(RecordingChatModel(responseOf("ok")), pricing, "configured", ApplicationEventPublisher { throw IllegalStateException("발행 실패") })
-                    .translate("hello", LanguageCode.JA) shouldBe "ok"
+                    .translate("hello", LanguageCode.JA).text shouldBe "ok"
             }
         }
     }
@@ -107,7 +240,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         `when`("엔진이 앞뒤에 줄바꿈이 있는 번역문을 돌려주면") {
             then("다듬지 않고 그대로 돌려준다 — 원문의 줄바꿈을 지키라고 한 결과를 어댑터가 바꾸지 않는다") {
                 OpenAiTextTranslator(RecordingChatModel(responseOf("\n\n맛있어요\n")), pricing, "gpt-test", ApplicationEventPublisher { })
-                    .translate("\n\nSo tasty\n", LanguageCode.KO) shouldBe "\n\n맛있어요\n"
+                    .translate("\n\nSo tasty\n", LanguageCode.KO).text shouldBe "\n\n맛있어요\n"
             }
         }
     }
@@ -189,7 +322,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                     val translated = OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { })
                         .translate("hello there", LanguageCode.KO)
 
-                    translated shouldBe "안녕하세요"
+                    translated.text shouldBe "안녕하세요"
                     val body = jacksonObjectMapper().readTree(bodies.single())
                     body.path("model").asText() shouldBe "gpt-test"
                     body.path("max_completion_tokens").asInt() shouldBe 2048 + "hello there".length * 6

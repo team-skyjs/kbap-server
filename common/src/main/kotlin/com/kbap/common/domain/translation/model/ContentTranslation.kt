@@ -31,4 +31,7 @@ class ContentTranslation(
 
     @Column(name = "translated_text", nullable = false, columnDefinition = "text")
     val translatedText: String = "",
+
+    @Column(name = "source_language", length = 35)
+    val sourceLanguage: String? = null,
 ) : BaseEntity()
