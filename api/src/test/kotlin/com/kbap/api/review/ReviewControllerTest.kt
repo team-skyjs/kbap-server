@@ -232,7 +232,7 @@ class ReviewControllerTest : BehaviorSpec() {
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
         given("리뷰 본문 언어(language)") {
-            seedFood(760L, "언어테스트음식")
+            seedFood(7900L, "언어테스트음식")
 
             fun storedLanguageOf(reviewId: Long): String? =
                 dataSource.connection.use { c ->
@@ -250,7 +250,7 @@ class ReviewControllerTest : BehaviorSpec() {
 
             `when`("본문을 써서 작성하면") {
                 then("판별한 언어를 저장하고 응답에 싣는다 — 애매하거나 본문이 없으면 null 이다") {
-                    val token = accessToken(760L)
+                    val token = accessToken(7900L)
                     listOf(
                         "진짜 맛있어요, 또 올게요" to "ko",
                         "The broth was rich and so tasty" to "en",
@@ -259,7 +259,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         null to null,
                     ).forEach { (content, expected) ->
                         withClue(content ?: "본문 없음") {
-                            val result = create(token, createBody(foodId = 760L, content = content)).andExpect { status { isOk() } }
+                            val result = create(token, createBody(foodId = 7900L, content = content)).andExpect { status { isOk() } }
                             val payload = payloadOf(result)
 
                             payload.has("language") shouldBe true
@@ -272,8 +272,8 @@ class ReviewControllerTest : BehaviorSpec() {
 
             `when`("본문을 다른 언어로 고치거나 지우면") {
                 then("언어도 따라 바뀐다") {
-                    val token = accessToken(761L)
-                    val reviewId = reviewIdOf(create(token, createBody(foodId = 760L, content = "정말 맛있었어요")).andExpect { status { isOk() } })
+                    val token = accessToken(7901L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7900L, content = "정말 맛있었어요")).andExpect { status { isOk() } })
                     storedLanguageOf(reviewId) shouldBe "ko"
 
                     payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "Really good, will come again")))
@@ -287,19 +287,19 @@ class ReviewControllerTest : BehaviorSpec() {
 
             `when`("리뷰를 내려주는 조회 응답들을 보면") {
                 then("음식별 목록·전체 피드·내 리뷰·음식 상세의 리뷰에 모두 language 가 실린다") {
-                    seedFood(762L, "언어조회음식")
-                    val token = accessToken(762L)
-                    val reviewId = reviewIdOf(create(token, createBody(foodId = 762L, content = "국물이 진하고 맛있어요")).andExpect { status { isOk() } })
+                    seedFood(7902L, "언어조회음식")
+                    val token = accessToken(7902L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7902L, content = "국물이 진하고 맛있어요")).andExpect { status { isOk() } })
 
                     fun languageIn(reviews: com.fasterxml.jackson.databind.JsonNode): String? =
                         reviews.single { it.path("reviewId").asLong() == reviewId }.path("language").asText()
 
                     fun get(url: String) = payloadOf(mockMvc.get(url) { header("Authorization", "Bearer $token") }.andExpect { status { isOk() } })
 
-                    withClue("음식별 목록") { languageIn(get("/api/reviews?foodId=762&lang=en").path("items")) shouldBe "ko" }
+                    withClue("음식별 목록") { languageIn(get("/api/reviews?foodId=7902&lang=en").path("items")) shouldBe "ko" }
                     withClue("전체 피드") { languageIn(get("/api/reviews?lang=en").path("items")) shouldBe "ko" }
                     withClue("내 리뷰") { languageIn(get("/api/reviews/me?lang=en").path("items")) shouldBe "ko" }
-                    withClue("음식 상세") { languageIn(get("/api/foods/762?lang=en").path("recentReviews")) shouldBe "ko" }
+                    withClue("음식 상세") { languageIn(get("/api/foods/7902?lang=en").path("recentReviews")) shouldBe "ko" }
                 }
             }
         }
