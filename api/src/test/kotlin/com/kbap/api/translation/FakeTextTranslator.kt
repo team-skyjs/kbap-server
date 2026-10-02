@@ -2,6 +2,7 @@ package com.kbap.api.translation
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.TextTranslator
+import com.kbap.common.port.llm.TranslatedText
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.support.TransactionSynchronizationManager
@@ -14,16 +15,20 @@ class FakeTextTranslator : TextTranslator {
     @Volatile
     var reply: (String, LanguageCode) -> String = DEFAULT_REPLY
 
-    override fun translate(text: String, target: LanguageCode): String {
+    @Volatile
+    var sourceLanguageTag: String? = null
+
+    override fun translate(text: String, target: LanguageCode): TranslatedText {
         calls += text to target
         transactionActiveDuringCalls += TransactionSynchronizationManager.isActualTransactionActive()
-        return reply(text, target)
+        return TranslatedText(reply(text, target), sourceLanguageTag)
     }
 
     fun reset() {
         calls.clear()
         transactionActiveDuringCalls.clear()
         reply = DEFAULT_REPLY
+        sourceLanguageTag = null
     }
 
     private companion object {

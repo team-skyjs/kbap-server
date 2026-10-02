@@ -26,4 +26,5 @@ data class TranslationResponse(
     val language: String,
     @field:Schema(description = "번역문. 본문이 빈 글이면 빈 문자열", example = "국물이 깊고 정말 맛있었어요")
     val text: String,
+    val sourceLanguage: String?,
 )

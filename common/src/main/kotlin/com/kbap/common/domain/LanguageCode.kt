@@ -19,5 +19,7 @@ enum class LanguageCode(val code: String) {
 
     companion object {
         fun from(code: String): LanguageCode = entries.firstOrNull { it.code == code } ?: EN
+
+        fun sourceCodeOf(tag: String?): String? = null
     }
 }

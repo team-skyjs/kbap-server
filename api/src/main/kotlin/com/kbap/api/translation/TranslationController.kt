@@ -24,9 +24,9 @@ class TranslationController(
         @Valid @RequestBody request: TranslationRequest,
     ): ResponseEntity<BaseResponse<TranslationResponse>> {
         val language = LanguageCode.from(lang)
-        val text = translationService.translate(memberId, request.targetType!!, request.targetId!!, language)
+        val translated = translationService.translate(memberId, request.targetType!!, request.targetId!!, language)
         return ResponseEntity.ok(
-            BaseResponse.ok(TranslationResponse(request.targetType.name, request.targetId, language.code, text)),
+            BaseResponse.ok(TranslationResponse(request.targetType.name, request.targetId, language.code, translated.text, translated.sourceLanguage)),
         )
     }
 }

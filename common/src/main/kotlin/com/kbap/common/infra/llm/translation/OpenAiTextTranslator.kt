@@ -4,6 +4,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.kbap.common.port.llm.TextTranslator
+import com.kbap.common.port.llm.TranslatedText
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
@@ -13,14 +14,16 @@ import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.UUID
 
 class OpenAiTextTranslator(
     private val chatModel: ChatModel,
     private val pricing: LlmPricing,
     private val configuredModelName: String,
     private val eventPublisher: ApplicationEventPublisher,
+    private val newMarker: () -> String = { "LANG-" + UUID.randomUUID().toString().take(8) },
 ) : TextTranslator {
-    override fun translate(text: String, target: LanguageCode): String {
+    override fun translate(text: String, target: LanguageCode): TranslatedText {
         val options = (chatModel.defaultOptions as? OpenAiChatOptions)?.mutate() ?: OpenAiChatOptions.builder()
         options.maxCompletionTokens(maxOutputTokens(text))
         val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt(target)), UserMessage(text)), options.build()))
@@ -44,7 +47,7 @@ class OpenAiTextTranslator(
         check(finishReason.equals(FINISHED, ignoreCase = true)) {
             "번역이 끝까지 생성됐다는 표식이 없다(finishReason=${finishReason?.lowercase()}) — 잘렸거나 확인할 수 없는 번역은 쓰지 않는다"
         }
-        return response.result?.output?.text.orEmpty()
+        return TranslatedText(response.result?.output?.text.orEmpty(), null)
     }
 
     private fun systemPrompt(target: LanguageCode): String {

@@ -36,16 +36,16 @@ class TranslationService(
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)
 
-    fun translate(viewerMemberId: Long?, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): String {
+    fun translate(viewerMemberId: Long?, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): TranslatedContent {
         val source = sourceOf(viewerMemberId, targetType, targetId)
-        if (source.isBlank()) return ""
+        if (source.isBlank()) return TranslatedContent("", null)
         val sourceHash = hashOf(source)
         val cached = readTransaction.execute {
             translationRepository.findByTargetTypeAndTargetIdAndLanguage(targetType, targetId, language.code)
         }
-        if (cached != null && cached.sourceHash == sourceHash) return cached.translatedText
+        if (cached != null && cached.sourceHash == sourceHash) return TranslatedContent(cached.translatedText, cached.sourceLanguage)
 
-        val translated = translateOrFail(source, targetType, targetId, language)
+        val translated = TranslatedContent(translateOrFail(source, targetType, targetId, language), null)
         store(targetType, targetId, language, sourceHash, translated)
         return translated
     }
@@ -65,7 +65,7 @@ class TranslationService(
             throw BusinessException(ErrorCode.TRANSLATION_FAILED, expected = true)
         }
         val translated = try {
-            translator.translate(source, language)
+            translator.translate(source, language).text
         } catch (e: RuntimeException) {
             log.warn("번역 엔진 호출 실패 — targetType={}, targetId={}, language={}", targetType, targetId, language.code, e)
             throw BusinessException(ErrorCode.TRANSLATION_FAILED)
@@ -82,10 +82,10 @@ class TranslationService(
         return translated
     }
 
-    private fun store(targetType: TranslationTargetType, targetId: Long, language: LanguageCode, sourceHash: String, translated: String) {
+    private fun store(targetType: TranslationTargetType, targetId: Long, language: LanguageCode, sourceHash: String, translated: TranslatedContent) {
         try {
             writeTransaction.executeWithoutResult {
-                translationRepository.upsert(targetType.name, targetId, language.code, sourceHash, translated, LocalDateTime.now())
+                translationRepository.upsert(targetType.name, targetId, language.code, sourceHash, translated.text, translated.sourceLanguage, LocalDateTime.now())
             }
         } catch (e: RuntimeException) {
             log.warn("번역 캐시 저장 실패 — 번역문은 돌려주고 다음 요청이 다시 번역한다: targetType={}, targetId={}, language={}", targetType, targetId, language.code, e)
@@ -113,3 +113,5 @@ class TranslationService(
         const val MAX_TRANSLATED_LENGTH = 10_000
     }
 }
+
+data class TranslatedContent(val text: String, val sourceLanguage: String?)
