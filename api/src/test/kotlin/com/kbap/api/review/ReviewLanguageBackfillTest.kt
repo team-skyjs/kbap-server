@@ -108,6 +108,23 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
                 }
             }
 
+            `when`("살펴보는 사이에 작성자가 본문을 고쳤으면") {
+                then("옛 본문으로 판별한 언어를 쓰지 않는다 — 수정이 정한 값(애매해서 null)이 남는다") {
+                    seed()
+                    val editedMeanwhile = object : ReviewLanguageDetector() {
+                        override fun detect(content: String?): LanguageCode? {
+                            jdbcTemplate.update("UPDATE food_review SET content = 'ㅋㅋㅋ', version = version + 1 WHERE id = 1 AND version = 3")
+                            return super.detect(content)
+                        }
+                    }
+
+                    ReviewLanguageBackfill(jdbcTemplate, editedMeanwhile, transactionManager, true).backfill()
+
+                    languages()[1L] shouldBe null
+                    languages()[2L] shouldBe "en"
+                }
+            }
+
             `when`("스위치를 끄면") {
                 then("기동 뒤에도 돌지 않는다") {
                     seed()

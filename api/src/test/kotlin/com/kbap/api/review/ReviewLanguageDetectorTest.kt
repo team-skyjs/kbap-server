@@ -26,6 +26,7 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
                     "下次還會再來" to LanguageCode.ZH_HANT,
                     "อร่อยมาก" to LanguageCode.TH,
                     "Очень вкусно" to LanguageCode.RU,
+                    "Было очень вкусно, рекомендую" to LanguageCode.RU,
                     "The broth was rich and so tasty" to LanguageCode.EN,
                     "Really good, will come again" to LanguageCode.EN,
                     "Nice tasty" to LanguageCode.EN,
@@ -54,6 +55,7 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
                     "라틴 한 낱말" to "Good",
                     "라틴 한 낱말(음식 이름)" to "Kimchi",
                     "뜻 없는 한 낱말" to "gigi",
+                    "키릴 한 낱말" to "Вкусно",
                     "간체·번체 공통 한자뿐" to "很好吃",
                     "문자가 섞여 지배 문자가 없음" to "Bibimbap 맛있어요",
                     "한글과 한자가 반반" to "맛있다 好吃好吃",
@@ -70,6 +72,9 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
                     "이탈리아어" to "La zuppa era un po' troppo salata",
                     "타갈로그어" to "Masarap pero medyo maalat",
                     "아랍어" to "الطعام لذيذ جدا",
+                    "우크라이나어(키릴)" to "Було дуже смачно, рекомендую",
+                    "불가리아어(키릴)" to "Беше много вкусно, препоръчвам",
+                    "세르비아어(키릴)" to "Било је веома укусно, препоручујем",
                 ).forEach { (case, text) -> withClue(case) { detector.detect(text) shouldBe null } }
             }
         }
