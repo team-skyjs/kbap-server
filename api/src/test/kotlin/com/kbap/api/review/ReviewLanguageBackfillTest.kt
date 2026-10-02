@@ -121,6 +121,18 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
                 }
             }
 
+            `when`("판별하지 못하는 리뷰가 앞쪽에 쌓여 있으면") {
+                then("그 리뷰들이 실행 상한을 쓰지 않는다 — 상한은 채운 수에 걸리고, 뒤쪽 리뷰까지 닿는다") {
+                    seed()
+                    jdbcTemplate.update("UPDATE food_review SET content = 'ㅋㅋㅋ' WHERE id IN (1, 2)")
+
+                    val result = backfillOf().backfill(maxFilled = 1)
+
+                    languages()[7L] shouldBe "zh-Hant"
+                    result shouldBe ReviewLanguageBackfillResult(examined = 4, filled = 1)
+                }
+            }
+
             `when`("스위치를 끄면") {
                 then("기동 뒤에도 돌지 않는다") {
                     seed()
