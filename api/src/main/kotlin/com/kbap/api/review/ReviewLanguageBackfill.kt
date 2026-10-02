@@ -31,11 +31,11 @@ class ReviewLanguageBackfill(
         }
     }
 
-    fun backfill(): ReviewLanguageBackfillResult {
+    fun backfill(maxFilled: Int = MAX_FILLED_PER_RUN): ReviewLanguageBackfillResult {
         var lastId = 0L
         var examined = 0
         var filled = 0
-        while (examined < MAX_ROWS_PER_RUN) {
+        while (filled < maxFilled) {
             val page = fillPageAfter(lastId)
             if (page.examined == 0) break
             lastId = page.lastId
@@ -68,7 +68,7 @@ class ReviewLanguageBackfill(
     private data class FilledPage(val lastId: Long, val examined: Int, val filled: Int)
 
     private companion object {
-        const val MAX_ROWS_PER_RUN = 5_000
+        const val MAX_FILLED_PER_RUN = 5_000
         const val PAGE_SIZE = 200
     }
 }
