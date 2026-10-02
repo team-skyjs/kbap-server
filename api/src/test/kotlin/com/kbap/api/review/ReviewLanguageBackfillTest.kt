@@ -8,7 +8,6 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.transaction.PlatformTransactionManager
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -24,11 +23,8 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
     @Autowired
     private lateinit var detector: ReviewLanguageDetector
 
-    @Autowired
-    private lateinit var transactionManager: PlatformTransactionManager
-
     init {
-        fun backfillOf(enabled: Boolean = true) = ReviewLanguageBackfill(jdbcTemplate, detector, transactionManager, enabled)
+        fun backfillOf(enabled: Boolean = true) = ReviewLanguageBackfill(jdbcTemplate, detector, enabled)
 
         fun seed() {
             TestTables.clearAll(dataSource)
@@ -101,7 +97,7 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
                         }
                     }
 
-                    val result = ReviewLanguageBackfill(jdbcTemplate, filledMeanwhile, transactionManager, true).backfill()
+                    val result = ReviewLanguageBackfill(jdbcTemplate, filledMeanwhile, true).backfill()
 
                     languages()[1L] shouldBe "en"
                     result shouldBe ReviewLanguageBackfillResult(examined = 4, filled = 2)
@@ -118,7 +114,7 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
                         }
                     }
 
-                    ReviewLanguageBackfill(jdbcTemplate, editedMeanwhile, transactionManager, true).backfill()
+                    ReviewLanguageBackfill(jdbcTemplate, editedMeanwhile, true).backfill()
 
                     languages()[1L] shouldBe null
                     languages()[2L] shouldBe "en"
