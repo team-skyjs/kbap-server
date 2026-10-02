@@ -52,11 +52,12 @@ class OpenAiTextTranslator(
     }
 
     private fun split(output: String, marker: String): TranslatedText {
-        val firstLineEnd = output.indexOf('\n')
-        val firstLine = (if (firstLineEnd < 0) output else output.substring(0, firstLineEnd)).trim()
-        if (!firstLine.startsWith(marker)) return TranslatedText(output, null)
-        val translation = if (firstLineEnd < 0) "" else output.substring(firstLineEnd + 1)
-        return TranslatedText(translation, firstLine.removePrefix(marker).trim(' ', '\t', ':'))
+        val headerStart = output.indexOfFirst { !it.isWhitespace() }
+        if (headerStart < 0 || !output.startsWith(marker, headerStart)) return TranslatedText(output, null)
+        val headerEnd = output.indexOf('\n', headerStart)
+        val header = if (headerEnd < 0) output.substring(headerStart) else output.substring(headerStart, headerEnd)
+        val translation = if (headerEnd < 0) "" else output.substring(headerEnd + 1)
+        return TranslatedText(translation, header.removePrefix(marker).trim(' ', '\t', '\r', ':'))
     }
 
     private fun systemPrompt(target: LanguageCode, marker: String): String {
