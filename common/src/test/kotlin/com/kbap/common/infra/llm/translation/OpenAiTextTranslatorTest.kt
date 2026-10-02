@@ -116,9 +116,40 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         `when`("첫 줄에 이번 호출의 표식은 있는데 언어 자리가 비었거나 깨졌으면") {
             then("그 줄은 항상 떼어 내고 태그만 있는 그대로 넘긴다 — 머리줄이 번역문에 섞여 사용자에게 보이거나 캐시에 굳지 않는다") {
                 translatorOf("LANG-test\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "")
-                translatorOf("LANG-test   English (US)  \n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "English (US)")
+                translatorOf("LANG-test   English (US)  \n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "English")
                 translatorOf("LANG-test:en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
                 translatorOf("  LANG-test en  \r\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("엔진이 머리줄을 꾸며 쓰면(백틱·접두·굵게)") {
+            then("표식이 그 줄 어디에 있든 머리줄로 떼고, 표식 뒤의 첫 낱말에서 꾸밈을 벗겨 언어를 읽는다 — 머리줄이 번역문 첫 줄로 새지 않는다") {
+                translatorOf("`LANG-test en`\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("Language: LANG-test en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("**LANG-test** zh-Hant\n好吃").translate("好吃", LanguageCode.KO) shouldBe TranslatedText("好吃", "zh-Hant")
+                translatorOf("LANG-test: \"en\"\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+            }
+        }
+
+        `when`("머리줄과 번역문 사이에 엔진이 빈 줄을 넣으면") {
+            then("원문이 줄바꿈으로 시작하지 않으면 그 빈 줄을 뗀다 — 구분용 빈 줄이 번역문 첫 줄로 남지 않는다") {
+                translatorOf("LANG-test en\n\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("LANG-test en\r\n  \r\n\n맛있어요\n").translate("So tasty\n", LanguageCode.KO) shouldBe TranslatedText("맛있어요\n", "en")
+            }
+
+            then("원문이 줄바꿈으로 시작하면 그대로 둔다 — 원문의 서식이다") {
+                translatorOf("LANG-test en\n\n맛있어요").translate("\nSo tasty", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요", "en")
+            }
+        }
+
+        `when`("머리줄을 떼고도 번역문에 이번 호출의 표식이 남아 있으면") {
+            then("실패한다 — 표식 문자열이 섞인 번역문을 보여 주거나 저장하지 않는다") {
+                io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+                    translatorOf("LANG-test en\n맛있어요\nLANG-test en\n정말로").translate("So tasty\nreally", LanguageCode.KO)
+                }
+                io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
+                    translatorOf("맛있어요\nLANG-test en\n정말로").translate("So tasty\nreally", LanguageCode.KO)
+                }
             }
         }
 
@@ -132,14 +163,6 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         `when`("머리줄이 없고 번역문이 빈 줄로 시작하면") {
             then("앞의 빈 줄을 포함해 출력 전체가 번역문이다 — 빈 줄을 버리는 것은 머리줄이 있을 때뿐이다") {
                 translatorOf("\n\n맛있어요\n").translate("\n\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n\n맛있어요\n", null)
-            }
-        }
-
-        `when`("표식 줄이 번역문이 시작된 뒤 본문 중간에 있으면") {
-            then("머리줄로 보지 않는다 — 판정은 출력의 첫 비어 있지 않은 줄에서만 한다") {
-                val output = "맛있어요\nLANG-test en\n정말로"
-
-                translatorOf(output).translate("So tasty\nreally", LanguageCode.KO) shouldBe TranslatedText(output, null)
             }
         }
 
@@ -160,6 +183,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "BCP 47"
                 system shouldContain "und"
                 system shouldContain "never a language name"
+                system.contains('`') shouldBe false
             }
 
             then("표식은 호출마다 다르다 — 본문이 미리 알고 흉내 낼 수 없다") {

@@ -30,6 +30,31 @@ class LanguageCodeSourceCodeTest : BehaviorSpec({
             }
         }
 
+        `when`("앱이 아는 언어를 다른 코드로 부르면(세 글자 코드·옛 코드)") {
+            then("앱 코드로 맞춘다 — eng 를 모르는 언어로 두면 같은 언어인데도 다르다고 판정한다") {
+                verify(
+                    mapOf(
+                        "eng" to "en",
+                        "ENG-us" to "en",
+                        "kor" to "ko",
+                        "jpn" to "ja",
+                        "vie" to "vi",
+                        "ind" to "id",
+                        "in" to "id",
+                        "tha" to "th",
+                        "rus" to "ru",
+                        "spa" to "es",
+                        "zho" to "zh-Hans",
+                        "chi" to "zh-Hans",
+                        "cmn" to "zh-Hans",
+                        "zho-Hant" to "zh-Hant",
+                        "cmn-TW" to "zh-Hant",
+                        "fra" to "fra",
+                    ),
+                )
+            }
+        }
+
         `when`("중국어면") {
             then("문자 기준으로 간체·번체를 가른다 — 문자 표기가 없으면 지역으로, 그것도 없으면 간체다") {
                 verify(

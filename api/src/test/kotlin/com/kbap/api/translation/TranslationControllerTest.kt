@@ -229,10 +229,10 @@ class TranslationControllerTest : BehaviorSpec() {
             }
 
             `when`("원문 언어가 요청 언어와 같으면") {
-                then("text 는 엔진 출력이 아니라 원문 그대로이고 sourceLanguage 는 그 언어다 — 그 결과도 캐시한다") {
+                then("엔진이 원문을 그대로 돌려줬으면 text 는 원문 그대로이고 sourceLanguage 는 그 언어다 — 그 결과도 캐시한다") {
                     seed()
                     translator.sourceLanguageTag = "en"
-                    translator.reply = { _, _ -> "The broth was rich & tasty (rewritten by the engine)" }
+                    translator.reply = { text, _ -> "  $text\n" }
 
                     val first = body(translate(visible, lang = "en")).path("payload")
                     val second = body(translate(visible, lang = "en")).path("payload")
@@ -254,6 +254,33 @@ class TranslationControllerTest : BehaviorSpec() {
                     response.status shouldBe 200
                     body(response).path("payload").path("text").asText() shouldBe source
                     body(response).path("payload").path("sourceLanguage").asText() shouldBe "zh-Hant"
+                }
+            }
+
+            `when`("엔진이 요청 언어와 같은 코드를 줬는데 번역문은 원문과 다르면") {
+                then("모순이다 — 엔진 출력을 번역문으로 쓰고 sourceLanguage 는 null 이다. 코드 한 줄만 믿고 원문을 영구히 굳히지 않는다") {
+                    seed()
+                    translator.sourceLanguageTag = "ko"
+                    translator.reply = { _, _ -> "국물이 진하고 정말 맛있었어요" }
+
+                    val payload = body(translate(visible, lang = "ko")).path("payload")
+
+                    payload.path("text").asText() shouldBe "국물이 진하고 정말 맛있었어요"
+                    payload.path("sourceLanguage").isNull shouldBe true
+                    cachedSourceLanguage() shouldBe null
+                    scalar("SELECT translated_text FROM content_translation") shouldBe "국물이 진하고 정말 맛있었어요"
+                }
+
+                then("꼬리표 없는 zh 가 간체로 정규화돼도, 번체 원문을 간체로 바꾼 번역문은 버리지 않는다") {
+                    seed()
+                    exec("UPDATE food_review SET content = '湯頭濃郁，非常好吃' WHERE id = $visible")
+                    translator.sourceLanguageTag = "zh"
+                    translator.reply = { _, _ -> "汤头浓郁，非常好吃" }
+
+                    val payload = body(translate(visible, lang = "zh-Hans")).path("payload")
+
+                    payload.path("text").asText() shouldBe "汤头浓郁，非常好吃"
+                    payload.path("sourceLanguage").isNull shouldBe true
                 }
             }
 
