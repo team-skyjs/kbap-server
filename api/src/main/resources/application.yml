@@ -154,6 +154,9 @@ kbap:
       reasoning-effort: low
       max-retries: 0
       # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 요청 스레드와 동시 호출 허가를 쥔다.
+      # 이 값이 호출 전체 시간(늦은 응답·조금씩 오는 응답·HTTP 계층의 408 재전송 포함)을 묶는 것은 max-retries: 0 과 함께일 때다
+      # (TranslationCallDeadlineTest·DeployedTranslationEngineSettingsTest). 정본은 LlmConfiguration.visionChatOptions 의 옵션 timeout 이다 —
+      # 같은 값을 받는 httpClientBuilderCustomizer 의 timeout 은 그 테스트에서 관측되는 효과가 없고, 무엇을 제한하는지 확인하지 못했다(vision·review 도 같은 조립).
       timeout: ${TRANSLATION_TIMEOUT:12s}
       pricing:
         input-usd-per-million-tokens: 0.2
