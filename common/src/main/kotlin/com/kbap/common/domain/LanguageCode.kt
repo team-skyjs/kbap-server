@@ -22,7 +22,7 @@ enum class LanguageCode(val code: String) {
 
         fun sourceCodeOf(tag: String?): String? {
             val subtags = tag?.trim()?.takeIf { it.length <= MAX_TAG_LENGTH && LANGUAGE_TAG.matches(it) }?.split('-') ?: return null
-            val language = subtags.first().lowercase()
+            val language = subtags.first().lowercase().let { ALIASES[it] ?: it }
             val rest = subtags.drop(1).map { it.lowercase() }
             return when {
                 language in NOT_A_LANGUAGE -> null
@@ -34,6 +34,20 @@ enum class LanguageCode(val code: String) {
         private const val MAX_TAG_LENGTH = 35
         private val LANGUAGE_TAG = Regex("[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*")
         private val NOT_A_LANGUAGE = setOf("und", "mul", "mis", "zxx")
+        private val ALIASES = mapOf(
+            "kor" to "ko",
+            "eng" to "en",
+            "jpn" to "ja",
+            "zho" to "zh",
+            "chi" to "zh",
+            "cmn" to "zh",
+            "vie" to "vi",
+            "ind" to "id",
+            "in" to "id",
+            "tha" to "th",
+            "rus" to "ru",
+            "spa" to "es",
+        )
         private const val CHINESE = "zh"
         private const val TRADITIONAL_SCRIPT = "hant"
         private const val SIMPLIFIED_SCRIPT = "hans"

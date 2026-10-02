@@ -72,9 +72,11 @@ class TranslationService(
         } finally {
             enginePermits.release()
         }
-        val sourceLanguage = LanguageCode.sourceCodeOf(engineOutput.sourceLanguageTag)
-        if (sourceLanguage == language.code) return TranslatedContent(source, sourceLanguage)
+        val detected = LanguageCode.sourceCodeOf(engineOutput.sourceLanguageTag)
         val translated = engineOutput.text
+        val sameLanguage = detected == language.code
+        if (sameLanguage && (translated.isBlank() || translated.trim() == source.trim())) return TranslatedContent(source, detected)
+        val sourceLanguage = detected.takeUnless { sameLanguage }
         if (translated.isBlank() || translated.length > MAX_TRANSLATED_LENGTH) {
             log.warn(
                 "번역 결과를 쓸 수 없다(빈 문자열 또는 상한 초과) — targetType={}, targetId={}, language={}, length={}",
