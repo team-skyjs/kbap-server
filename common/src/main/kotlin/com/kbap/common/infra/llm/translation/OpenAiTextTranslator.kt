@@ -59,12 +59,17 @@ class OpenAiTextTranslator(
             TranslatedText(output, null)
         } else {
             val afterHeader = if (headerEnd < 0) "" else output.substring(headerEnd + 1)
-            val translation = if (source.startsWith('\n') || source.startsWith('\r')) afterHeader else afterHeader.replaceFirst(LEADING_BLANK_LINES, "")
-            val tag = firstLine.substringAfter(marker).trim(*HEADER_DECORATION).substringBefore(' ').trim(*HEADER_DECORATION)
-            TranslatedText(translation, tag)
+            val translation = if (LEADING_BLANK_LINES.containsMatchIn(source)) afterHeader else afterHeader.replaceFirst(LEADING_BLANK_LINES, "")
+            TranslatedText(translation, languageTagIn(firstLine.substringAfter(marker)))
         }
         check(marker !in translated.text) { "번역문에 머리줄 표식이 남아 있다 — 표식이 섞인 번역은 쓰지 않는다" }
         return translated
+    }
+
+    private fun languageTagIn(afterMarker: String): String {
+        val words = afterMarker.trim(*HEADER_DECORATION).split(WHITESPACE).filter { it.isNotEmpty() }
+        val sentenceLike = words.size > 1 && !words[1].startsWith('(')
+        return if (sentenceLike) "" else words.firstOrNull().orEmpty().trim(*HEADER_DECORATION)
     }
 
     private fun systemPrompt(target: LanguageCode, marker: String): String {
@@ -87,7 +92,8 @@ class OpenAiTextTranslator(
 
         private const val FINISHED = "stop"
         private val LEADING_BLANK_LINES = Regex("^(?:[ \\t]*\\r?\\n)+")
-        private val HEADER_DECORATION = charArrayOf(' ', '\t', '\r', ':', '`', '*', '"', '\'')
+        private val HEADER_DECORATION = charArrayOf(' ', '\t', '\r', ':', '`', '*', '"', '\'', '<', '>', '.', ',')
+        private val WHITESPACE = Regex("\\s+")
 
         const val OUTPUT_TOKEN_BASE = 2048
         const val OUTPUT_TOKENS_PER_SOURCE_CHAR = 6

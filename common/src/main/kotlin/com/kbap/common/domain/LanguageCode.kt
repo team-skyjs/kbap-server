@@ -43,7 +43,6 @@ enum class LanguageCode(val code: String) {
             "cmn" to "zh",
             "vie" to "vi",
             "ind" to "id",
-            "in" to "id",
             "tha" to "th",
             "rus" to "ru",
             "spa" to "es",
