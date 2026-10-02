@@ -183,7 +183,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "BCP 47"
                 system shouldContain "und"
                 system shouldContain "never a language name"
-                system.contains('`') shouldBe false
+                system.orEmpty().contains('`') shouldBe false
             }
 
             then("표식은 호출마다 다르다 — 본문이 미리 알고 흉내 낼 수 없다") {
