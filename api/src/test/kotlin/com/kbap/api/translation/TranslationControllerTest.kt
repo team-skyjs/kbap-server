@@ -13,6 +13,7 @@ import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -206,6 +207,47 @@ class TranslationControllerTest : BehaviorSpec() {
             }
         }
 
+        given("번역문의 줄 구조") {
+            fun seedWithContent(content: String) {
+                seed()
+                exec("UPDATE food_review SET content = '$content' WHERE id = $visible")
+                translator.sourceLanguageTag = "en"
+            }
+
+            `when`("엔진이 내용 줄을 잃거나 보탠 번역을 돌려주면") {
+                then("번역문은 돌려주되 저장하지 않는다 — 다음 요청이 다시 번역한다") {
+                    listOf(
+                        "한 줄 유실" to "맛있어요\nD\nD",
+                        "두 줄을 한 줄로 합침" to "맛있어요 D\nD\nD",
+                        "없던 줄을 보탬" to "맛있어요\nD\nD\nD\n(번역자 주)",
+                    ).forEach { (case, broken) ->
+                        withClue(case) {
+                            seedWithContent("Tasty\nD\nD\nD")
+                            translator.reply = { _, _ -> broken }
+
+                            body(translate(visible)).path("payload").path("text").asText() shouldBe broken
+                            rows() shouldBe 0L
+
+                            translator.reply = { _, _ -> "맛있어요\nD\nD\nD" }
+                            body(translate(visible)).path("payload").path("text").asText() shouldBe "맛있어요\nD\nD\nD"
+                            translator.calls.size shouldBe 2
+                            rows() shouldBe 1L
+                        }
+                    }
+                }
+            }
+
+            `when`("빈 줄의 수만 다르면") {
+                then("저장한다 — 내용이 있는 줄의 수가 같으면 줄 구조가 지켜진 것으로 본다") {
+                    seedWithContent("Tasty\n\n\nGood\n")
+                    translator.reply = { _, _ -> "맛있어요\n\n좋아요" }
+
+                    body(translate(visible)).path("payload").path("text").asText() shouldBe "맛있어요\n\n좋아요"
+                    rows() shouldBe 1L
+                }
+            }
+        }
+
         given("번역 응답의 원문 언어(sourceLanguage)") {
             val source = "The broth was rich and so tasty"
 
@@ -327,9 +369,9 @@ class TranslationControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("앞선 판(1·2)으로 저장된 캐시 행이 있으면") {
+            `when`("앞선 판(1·2·3)으로 저장된 캐시 행이 있으면") {
                 then("다시 번역한다 — 프롬프트가 바뀔 때마다 캐시 판(version)을 올려 옛 번역이 적중하지 않는다") {
-                    listOf("1", "2").forEach { oldVersion ->
+                    listOf("1", "2", "3").forEach { oldVersion ->
                         seed()
                         exec(
                             "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at) " +
