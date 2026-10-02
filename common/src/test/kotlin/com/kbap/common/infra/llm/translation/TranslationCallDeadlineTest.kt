@@ -101,6 +101,24 @@ class TranslationCallDeadlineTest : BehaviorSpec({
             }
         }
 
+        `when`("엔진이 2초 뒤 408 로 답하고, 다시 보낸 요청에는 3초 뒤에 답하면(제한 4초)") {
+            then("제한에서 실패한다 — HTTP 계층이 다시 보낸 요청도 처음 호출의 제한 안에 든다") {
+                val outcome = translateAgainst(limit = Duration.ofSeconds(4)) { exchange, request ->
+                    if (request == 1) {
+                        Thread.sleep(2_000)
+                        exchange.send(408, """{"error":{"message":"x","type":"timeout"}}""".toByteArray())
+                    } else {
+                        Thread.sleep(3_000)
+                        exchange.send(200, reply)
+                    }
+                }
+
+                outcome.text shouldBe null
+                outcome.requests shouldBe 2
+                outcome.elapsedMillis shouldBeGreaterThanOrEqual 3_600L
+            }
+        }
+
         `when`("엔진이 5xx·429 로 답하면") {
             then("다시 보내지 않는다 — 재시도가 제한 시간을 여러 번 쓰지 않는다") {
                 listOf(500, 503, 429).forEach { status ->
