@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeTrue
@@ -229,6 +230,79 @@ class ReviewControllerTest : BehaviorSpec() {
 
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long =
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
+
+        given("리뷰 본문 언어(language)") {
+            seedFood(7900L, "언어테스트음식")
+
+            fun storedLanguageOf(reviewId: Long): String? =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT language FROM food_review WHERE id = ?").use { ps ->
+                        ps.setLong(1, reviewId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getString(1)
+                        }
+                    }
+                }
+
+            fun payloadOf(result: ResultActionsDsl) =
+                mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+            `when`("본문을 써서 작성하면") {
+                then("판별한 언어를 저장하고 응답에 싣는다 — 애매하거나 본문이 없으면 null 이다") {
+                    val token = accessToken(7900L)
+                    listOf(
+                        "진짜 맛있어요, 또 올게요" to "ko",
+                        "The broth was rich and so tasty" to "en",
+                        "湯頭濃郁，非常好吃" to "zh-Hant",
+                        "ㅋㅋㅋ" to null,
+                        null to null,
+                    ).forEach { (content, expected) ->
+                        withClue(content ?: "본문 없음") {
+                            val result = create(token, createBody(foodId = 7900L, content = content)).andExpect { status { isOk() } }
+                            val payload = payloadOf(result)
+
+                            payload.has("language") shouldBe true
+                            payload.path("language").takeUnless { it.isNull }?.asText() shouldBe expected
+                            storedLanguageOf(payload.path("reviewId").asLong()) shouldBe expected
+                        }
+                    }
+                }
+            }
+
+            `when`("본문을 다른 언어로 고치거나 지우면") {
+                then("언어도 따라 바뀐다") {
+                    val token = accessToken(7901L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7900L, content = "정말 맛있었어요")).andExpect { status { isOk() } })
+                    storedLanguageOf(reviewId) shouldBe "ko"
+
+                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "Really good, will come again")))
+                        .path("language").asText() shouldBe "en"
+                    storedLanguageOf(reviewId) shouldBe "en"
+
+                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4))).path("language").isNull shouldBe true
+                    storedLanguageOf(reviewId) shouldBe null
+                }
+            }
+
+            `when`("리뷰를 내려주는 조회 응답들을 보면") {
+                then("음식별 목록·전체 피드·내 리뷰·음식 상세의 리뷰에 모두 language 가 실린다") {
+                    seedFood(7902L, "언어조회음식")
+                    val token = accessToken(7902L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7902L, content = "국물이 진하고 맛있어요")).andExpect { status { isOk() } })
+
+                    fun languageIn(reviews: com.fasterxml.jackson.databind.JsonNode): String? =
+                        reviews.single { it.path("reviewId").asLong() == reviewId }.path("language").asText()
+
+                    fun get(url: String) = payloadOf(mockMvc.get(url) { header("Authorization", "Bearer $token") }.andExpect { status { isOk() } })
+
+                    withClue("음식별 목록") { languageIn(get("/api/reviews?foodId=7902&lang=en").path("items")) shouldBe "ko" }
+                    withClue("전체 피드") { languageIn(get("/api/reviews?lang=en").path("items")) shouldBe "ko" }
+                    withClue("내 리뷰") { languageIn(get("/api/reviews/me?lang=en").path("items")) shouldBe "ko" }
+                    withClue("음식 상세") { languageIn(get("/api/foods/7902?lang=en").path("recentReviews")) shouldBe "ko" }
+                }
+            }
+        }
 
         given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")

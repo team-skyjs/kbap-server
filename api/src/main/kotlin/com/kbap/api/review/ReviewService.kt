@@ -39,6 +39,7 @@ class ReviewService(
     private val memberRepository: MemberJpaRepository,
     private val memberBlockService: MemberBlockService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val languageDetector: ReviewLanguageDetector,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -65,6 +66,7 @@ class ReviewService(
                 servingSpeedRating = servingSpeed ?: 0,
                 staffKindnessRating = staffKindness ?: 0,
                 content = content,
+                language = languageDetector.detect(content)?.code,
                 imageRefs = imagePaths,
                 authorCountryCode = authorCountryCode,
                 place = place,
@@ -97,6 +99,7 @@ class ReviewService(
             servingSpeedRating = servingSpeed ?: 0,
             staffKindnessRating = staffKindness ?: 0,
             content = content,
+            language = languageDetector.detect(content)?.code,
             imageRefs = imagePaths,
             place = place,
         )
