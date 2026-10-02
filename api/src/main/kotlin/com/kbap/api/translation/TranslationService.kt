@@ -114,7 +114,7 @@ class TranslationService(
     }
 
     companion object {
-        const val CACHE_VERSION = "2"
+        const val CACHE_VERSION = "3"
         const val MAX_TRANSLATED_LENGTH = 10_000
     }
 }
