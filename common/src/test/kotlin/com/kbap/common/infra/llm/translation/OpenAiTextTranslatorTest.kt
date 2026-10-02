@@ -183,6 +183,8 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "BCP 47"
                 system shouldContain "und"
                 system shouldContain "never a language name"
+                system shouldContain "ISO 639-1"
+                system shouldContain "zh-Hans or zh-Hant"
                 system.orEmpty().contains('`') shouldBe false
             }
 
