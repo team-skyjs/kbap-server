@@ -2,6 +2,7 @@ package com.kbap.api.review
 
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.common.domain.LanguageCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -93,11 +94,17 @@ class ReviewLanguageBackfillTest : BehaviorSpec() {
             `when`("살펴보는 사이에 다른 요청이 그 리뷰의 언어를 먼저 채웠으면") {
                 then("덮어쓰지 않는다") {
                     seed()
-                    jdbcTemplate.update("UPDATE food_review SET language = 'en' WHERE id = 1")
+                    val filledMeanwhile = object : ReviewLanguageDetector() {
+                        override fun detect(content: String?): LanguageCode? {
+                            jdbcTemplate.update("UPDATE food_review SET language = 'en' WHERE id = 1 AND language IS NULL")
+                            return super.detect(content)
+                        }
+                    }
 
-                    backfillOf().backfill()
+                    val result = ReviewLanguageBackfill(jdbcTemplate, filledMeanwhile, transactionManager, true).backfill()
 
                     languages()[1L] shouldBe "en"
+                    result shouldBe ReviewLanguageBackfillResult(examined = 4, filled = 2)
                 }
             }
 
