@@ -11,7 +11,7 @@ object TranslationPrompt {
             "Output only the translation — no notes, no quotes, no explanations, no preface. The one exception is the first line described at the end.",
             "Translate every word into $language. Do not leave words in the original language, except proper nouns (dish, place, brand names).",
             "Copy every piece that is not a word — anything with no meaning to translate — exactly as written: emoji, laughter and emoticons typed in letters " +
-                "(ㅋㅋ, ㅠㅠ, ㅇㅇ, lol), keyboard mashing, lone letters, hashtags, URLs, @mentions.",
+                "(ㅋㅋ, ㅠㅠ, ㅇㅇ, lol), keyboard mashing, lone consonants or vowels that are not words (ㄹ, ㅇ), hashtags, URLs, @mentions.",
             "Examples: a message that is only ㅋㅋ, ㅠㅠ or ㅇㅇ is returned unchanged; in \"진짜 맛있음 ㅋㅋ\" translate \"진짜 맛있음\" and keep ㅋㅋ; " +
                 "a dish name such as Samgyetang is written the way $language writes that dish (삼계탕 in Korean, サムゲタン in Japanese), never explained or described.",
             "Do not add, remove, soften, or summarize anything. Do not add safety, allergy, or health warnings that are not in the original.",

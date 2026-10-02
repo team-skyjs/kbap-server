@@ -48,15 +48,14 @@ class TranslationService(
         val translated = translateOrFail(source, targetType, targetId, language)
         val sourceLines = contentLineCount(source)
         val translatedLines = contentLineCount(translated.text)
-        if (sourceLines == translatedLines) {
-            store(targetType, targetId, language, sourceHash, translated)
-        } else {
+        if (sourceLines != translatedLines) {
             log.warn(
-                "번역문의 내용 줄 수가 원문과 다르다 — 번역문은 돌려주되 저장하지 않아 다음 요청이 다시 번역한다: " +
+                "번역문의 내용 줄 수가 원문과 다르다 — 그대로 저장한다(같은 글·언어는 엔진을 한 번만 부른다): " +
                     "targetType={}, targetId={}, sourceLanguage={}, language={}, sourceLines={}, translatedLines={}",
                 targetType, targetId, translated.sourceLanguage, language.code, sourceLines, translatedLines,
             )
         }
+        store(targetType, targetId, language, sourceHash, translated)
         return translated
     }
 
