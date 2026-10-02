@@ -8,6 +8,7 @@ import com.kbap.common.infra.llm.config.LlmConfiguration
 import com.kbap.common.infra.llm.config.LlmModelProperties
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.sun.net.httpserver.HttpServer
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -218,7 +219,34 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 system shouldContain "Translate every word into Korean"
                 system shouldContain "Do not leave words in the original language"
                 system shouldContain "except proper nouns (dish, place, brand names)"
-                system.orEmpty().contains('`') shouldBe false
+            }
+
+            then("낱말이 아닌 것은 그대로 두라고 못 박는다 — 모든 낱말을 옮기라는 규칙 바로 다음 줄이다") {
+                val lines = TranslationPrompt.system(LanguageCode.KO, "LANG-test").lines()
+
+                val everyWord = lines.indexOfFirst { "Translate every word" in it }
+                val keepNonWords = lines.indexOfFirst { "is not a word" in it }
+                keepNonWords shouldBe everyWord + 1
+                listOf("no meaning to translate", "exactly as written", "emoji", "ㅋㅋ", "ㅠㅠ", "ㅇㅇ", "lol", "keyboard mashing", "lone consonants or vowels that are not words (ㄹ, ㅇ)", "hashtags", "URLs", "@mentions")
+                    .forEach { lines[keepNonWords] shouldContain it }
+            }
+
+            then("서로 당기는 두 규칙의 경계 사례가 프롬프트에 예로 실린다") {
+                val system = TranslationPrompt.system(LanguageCode.KO, "LANG-test")
+
+                listOf(
+                    "자모만 친 글은 그대로" to "a message that is only ㅋㅋ, ㅠㅠ or ㅇㅇ is returned unchanged",
+                    "문장과 섞이면 문장은 옮기고 자모만 남긴다" to "in \"진짜 맛있음 ㅋㅋ\" translate \"진짜 맛있음\" and keep ㅋㅋ",
+                    "로마자 음식 이름은 그 언어의 표기로, 뜻풀이 없이" to
+                        "a dish name such as Samgyetang is written the way Korean writes that dish (삼계탕 in Korean, サムゲタン in Japanese), never explained or described",
+                    "숫자 옆의 낱말(인분·원)은 옮기되 값은 환산하지 않는다" to "never convert prices or measurements to another currency or unit",
+                    "줄 수를 보존한다" to "exactly as many lines as the message",
+                    "낱자 한 줄도 합치거나 버리지 않는다" to "Never merge, drop, or add lines, even when a line is a single letter",
+                ).forEach { (case, phrase) -> withClue(case) { system shouldContain phrase } }
+            }
+
+            then("프롬프트에 백틱이 없다") {
+                TranslationPrompt.system(LanguageCode.KO, "LANG-test").contains('`') shouldBe false
             }
 
             then("표식은 호출마다 다르다 — 본문이 미리 알고 흉내 낼 수 없다") {

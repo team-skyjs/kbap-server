@@ -46,9 +46,20 @@ class TranslationService(
         if (cached != null && cached.sourceHash == sourceHash) return TranslatedContent(cached.translatedText, cached.sourceLanguage)
 
         val translated = translateOrFail(source, targetType, targetId, language)
+        val sourceLines = contentLineCount(source)
+        val translatedLines = contentLineCount(translated.text)
+        if (sourceLines != translatedLines) {
+            log.warn(
+                "번역문의 내용 줄 수가 원문과 다르다 — 그대로 저장한다(같은 글·언어는 엔진을 한 번만 부른다): " +
+                    "targetType={}, targetId={}, sourceLanguage={}, language={}, sourceLines={}, translatedLines={}",
+                targetType, targetId, translated.sourceLanguage, language.code, sourceLines, translatedLines,
+            )
+        }
         store(targetType, targetId, language, sourceHash, translated)
         return translated
     }
+
+    private fun contentLineCount(text: String): Int = text.lineSequence().count { it.isNotBlank() }
 
     private fun sourceOf(viewerMemberId: Long?, targetType: TranslationTargetType, targetId: Long): String =
         when (targetType) {
@@ -114,7 +125,7 @@ class TranslationService(
     }
 
     companion object {
-        const val CACHE_VERSION = "3"
+        const val CACHE_VERSION = "4"
         const val MAX_TRANSLATED_LENGTH = 10_000
     }
 }
