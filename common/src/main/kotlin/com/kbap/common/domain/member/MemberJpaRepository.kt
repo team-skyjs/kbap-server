@@ -15,8 +15,6 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
-    fun existsByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Boolean
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Member m where m.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Member?
