@@ -327,22 +327,24 @@ class TranslationControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("원문 언어 없이 저장된 옛 캐시 행이 있으면") {
-                then("다시 번역해 원문 언어를 채운다 — 캐시 판(version)이 올라 옛 행은 적중하지 않는다") {
-                    seed()
-                    exec(
-                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at) " +
-                            "VALUES ('REVIEW', $visible, 'ko', '${sha256("1\n$source")}', '옛 번역', 'ACTIVE', NOW(6), NOW(6))",
-                    )
-                    translator.sourceLanguageTag = "en"
+            `when`("앞선 판(1·2)으로 저장된 캐시 행이 있으면") {
+                then("다시 번역한다 — 프롬프트가 바뀔 때마다 캐시 판(version)을 올려 옛 번역이 적중하지 않는다") {
+                    listOf("1", "2").forEach { oldVersion ->
+                        seed()
+                        exec(
+                            "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, status, created_at, updated_at) " +
+                                "VALUES ('REVIEW', $visible, 'ko', '${sha256("$oldVersion\n$source")}', '옛 번역', 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                        translator.sourceLanguageTag = "en"
 
-                    val payload = body(translate(visible)).path("payload")
+                        val payload = body(translate(visible)).path("payload")
 
-                    payload.path("text").asText() shouldBe "[ko] $source"
-                    payload.path("sourceLanguage").asText() shouldBe "en"
-                    translator.calls.size shouldBe 1
-                    rows() shouldBe 1L
-                    cachedSourceLanguage() shouldBe "en"
+                        payload.path("text").asText() shouldBe "[ko] $source"
+                        payload.path("sourceLanguage").asText() shouldBe "en"
+                        translator.calls.size shouldBe 1
+                        rows() shouldBe 1L
+                        cachedSourceLanguage() shouldBe "en"
+                    }
                 }
             }
 
