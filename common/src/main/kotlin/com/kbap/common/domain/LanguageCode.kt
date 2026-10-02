@@ -25,7 +25,7 @@ enum class LanguageCode(val code: String) {
             val language = subtags.first().lowercase()
             val rest = subtags.drop(1).map { it.lowercase() }
             return when {
-                language == UNDETERMINED -> null
+                language in NOT_A_LANGUAGE -> null
                 language == CHINESE -> if (TRADITIONAL_SCRIPT in rest || (SIMPLIFIED_SCRIPT !in rest && rest.any { it in TRADITIONAL_REGIONS })) ZH_HANT.code else ZH_HANS.code
                 else -> entries.firstOrNull { it.code == language }?.code ?: language
             }
@@ -33,7 +33,7 @@ enum class LanguageCode(val code: String) {
 
         private const val MAX_TAG_LENGTH = 35
         private val LANGUAGE_TAG = Regex("[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*")
-        private const val UNDETERMINED = "und"
+        private val NOT_A_LANGUAGE = setOf("und", "mul", "mis", "zxx")
         private const val CHINESE = "zh"
         private const val TRADITIONAL_SCRIPT = "hant"
         private const val SIMPLIFIED_SCRIPT = "hans"
