@@ -22,7 +22,7 @@ class TranslationCacheVersionTest : BehaviorSpec({
                 ) {
                     val prompts = LanguageCode.entries.joinToString("\n\n") { TranslationPrompt.system(it, "LANG-fingerprint") }
 
-                    (fingerprintOf(prompts) to TranslationService.CACHE_VERSION) shouldBe ("19ccc8b58351cccd" to "3")
+                    (fingerprintOf(prompts) to TranslationService.CACHE_VERSION) shouldBe ("0f6efe762c171d2f" to "4")
                 }
             }
         }
