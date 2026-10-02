@@ -122,8 +122,21 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
             }
         }
 
-        `when`("표식 줄이 첫 줄이 아니라 본문 중간에 있으면") {
-            then("머리줄로 보지 않는다 — 판정은 출력의 첫 줄에서만 한다") {
+        `when`("엔진이 머리줄 앞에 빈 줄을 하나 이상 내면") {
+            then("빈 줄은 버리고 머리줄을 뗀다 — 표식 문자열이 번역문에 섞여 캐시에 굳지 않는다. 머리줄 뒤의 번역문 줄바꿈은 그대로다") {
+                translatorOf("\nLANG-test en\n맛있어요").translate("So tasty", LanguageCode.KO) shouldBe TranslatedText("맛있어요", "en")
+                translatorOf("\n\n  \r\nLANG-test en\n\n맛있어요\n").translate("\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n맛있어요\n", "en")
+            }
+        }
+
+        `when`("머리줄이 없고 번역문이 빈 줄로 시작하면") {
+            then("앞의 빈 줄을 포함해 출력 전체가 번역문이다 — 빈 줄을 버리는 것은 머리줄이 있을 때뿐이다") {
+                translatorOf("\n\n맛있어요\n").translate("\n\nSo tasty\n", LanguageCode.KO) shouldBe TranslatedText("\n\n맛있어요\n", null)
+            }
+        }
+
+        `when`("표식 줄이 번역문이 시작된 뒤 본문 중간에 있으면") {
+            then("머리줄로 보지 않는다 — 판정은 출력의 첫 비어 있지 않은 줄에서만 한다") {
                 val output = "맛있어요\nLANG-test en\n정말로"
 
                 translatorOf(output).translate("So tasty\nreally", LanguageCode.KO) shouldBe TranslatedText(output, null)
