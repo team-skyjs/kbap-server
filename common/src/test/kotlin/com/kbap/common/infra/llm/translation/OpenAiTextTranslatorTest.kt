@@ -227,7 +227,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 val everyWord = lines.indexOfFirst { "Translate every word" in it }
                 val keepNonWords = lines.indexOfFirst { "is not a word" in it }
                 keepNonWords shouldBe everyWord + 1
-                listOf("no meaning to translate", "exactly as written", "emoji", "ㅋㅋ", "ㅠㅠ", "ㅇㅇ", "lol", "keyboard mashing", "lone letters", "hashtags", "URLs", "@mentions")
+                listOf("no meaning to translate", "exactly as written", "emoji", "ㅋㅋ", "ㅠㅠ", "ㅇㅇ", "lol", "keyboard mashing", "lone consonants or vowels that are not words (ㄹ, ㅇ)", "hashtags", "URLs", "@mentions")
                     .forEach { lines[keepNonWords] shouldContain it }
             }
 

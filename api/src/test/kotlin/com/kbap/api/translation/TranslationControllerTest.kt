@@ -14,6 +14,12 @@ import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
+import io.kotest.matchers.string.shouldContain
+import org.slf4j.LoggerFactory
+import ch.qos.logback.core.read.ListAppender
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.Level
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -214,8 +220,20 @@ class TranslationControllerTest : BehaviorSpec() {
                 translator.sourceLanguageTag = "en"
             }
 
+            fun lineCountWarningsDuring(block: () -> Unit): List<String> {
+                val logger = LoggerFactory.getLogger(TranslationService::class.java) as Logger
+                val appender = ListAppender<ILoggingEvent>().apply { start() }
+                logger.addAppender(appender)
+                try {
+                    block()
+                } finally {
+                    logger.detachAppender(appender)
+                }
+                return appender.list.filter { it.level == Level.WARN && "줄 수" in it.formattedMessage }.map { it.formattedMessage }
+            }
+
             `when`("엔진이 내용 줄을 잃거나 보탠 번역을 돌려주면") {
-                then("번역문은 돌려주되 저장하지 않는다 — 다음 요청이 다시 번역한다") {
+                then("경고를 남기고 그대로 저장한다 — 같은 글·언어는 엔진을 한 번만 부른다(줄 수는 사고를 알리는 인계철선일 뿐이다)") {
                     listOf(
                         "한 줄 유실" to "맛있어요\nD\nD",
                         "두 줄을 한 줄로 합침" to "맛있어요 D\nD\nD",
@@ -225,24 +243,28 @@ class TranslationControllerTest : BehaviorSpec() {
                             seedWithContent("Tasty\nD\nD\nD")
                             translator.reply = { _, _ -> broken }
 
-                            body(translate(visible)).path("payload").path("text").asText() shouldBe broken
-                            rows() shouldBe 0L
+                            val warnings = lineCountWarningsDuring {
+                                body(translate(visible)).path("payload").path("text").asText() shouldBe broken
+                                body(translate(visible)).path("payload").path("text").asText() shouldBe broken
+                            }
 
-                            translator.reply = { _, _ -> "맛있어요\nD\nD\nD" }
-                            body(translate(visible)).path("payload").path("text").asText() shouldBe "맛있어요\nD\nD\nD"
-                            translator.calls.size shouldBe 2
+                            translator.calls.size shouldBe 1
                             rows() shouldBe 1L
+                            warnings.size shouldBe 1
+                            warnings.single() shouldContain "targetId=$visible"
+                            warnings.single() shouldContain "sourceLanguage=en"
+                            warnings.single() shouldContain "language=ko"
                         }
                     }
                 }
             }
 
             `when`("빈 줄의 수만 다르면") {
-                then("저장한다 — 내용이 있는 줄의 수가 같으면 줄 구조가 지켜진 것으로 본다") {
+                then("경고하지 않는다 — 내용이 있는 줄의 수가 같으면 줄 구조가 지켜진 것으로 본다") {
                     seedWithContent("Tasty\n\n\nGood\n")
                     translator.reply = { _, _ -> "맛있어요\n\n좋아요" }
 
-                    body(translate(visible)).path("payload").path("text").asText() shouldBe "맛있어요\n\n좋아요"
+                    lineCountWarningsDuring { translate(visible).status shouldBe 200 } shouldBe emptyList()
                     rows() shouldBe 1L
                 }
             }
