@@ -23,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 import java.time.ZoneId
 
 @Service
@@ -200,7 +201,7 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(foodRepository.findRandom(size), lang, memberId)
+        summaryViews(foodRepository.findPopular(LocalDateTime.now().minusDays(POPULAR_WINDOW_DAYS), size), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {
@@ -299,6 +300,7 @@ class FoodService(
 
     companion object {
         const val PAGE_SIZE = 20
+        const val POPULAR_WINDOW_DAYS = 30L
         const val RISK_FILTER_BATCH_SIZE = 100
         const val RISK_FILTER_MAX_BATCHES = 5
         const val DEFAULT_FOOD_IMAGE_PATH = "images/webp/default_miss_food/food_not_found.png"

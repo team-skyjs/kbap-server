@@ -15,6 +15,7 @@ object HomeTestSeed {
             "DELETE FROM uploaded_image",
             "DELETE FROM scan_history",
             "DELETE FROM ingredients",
+            "DELETE FROM food_view_log",
             "DELETE FROM food_content_outbox",
         "DELETE FROM food_vector_outbox",
         "DELETE FROM food_image",
@@ -31,6 +32,9 @@ object HomeTestSeed {
                 "VALUES ($id, '메뉴$id', 'menu-$id.png', '메뉴$id 설명', 0, " +
                 """'{"en":"Menu$id","ja":"メニュー$id"}', '{"en":"Menu$id desc"}', '[]', """ +
                 "'READY', 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
+        } + (1..count).map { id ->
+            "INSERT INTO food_view_log (food_id, member_id, status, created_at, updated_at) " +
+                "VALUES ($id, NULL, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         },
     )
 
