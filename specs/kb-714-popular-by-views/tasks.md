@@ -22,7 +22,7 @@
 
 - [X] T009 `git diff --stat develop -- api/src/test/kotlin/com/kbap/api/home/HomeControllerTest.kt api/src/test/kotlin/com/kbap/api/home/HomeGuestTest.kt` 비어 있음 확인, `grep -rn findRandom common api` 0건 확인
 - [X] T010 [US1] 로컬 bootRun(메인 `.env` source, `DB_USERNAME=root DB_PASSWORD=root`) → 음식 상세를 A 3회·B 1회 조회 → `GET /api/home` 의 `popularFoods` 가 A, B 순인지 확인
-- [ ] T011 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
+- [X] T011 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
 - [ ] T012 Jira KB-714 본문의 "조회수 없는 음식으로 레일 채움" 문구를 보충 철회 결정에 맞게 수정(사용자 확인 후)
 - [ ] T013 [US1] 머지 후 dev 에서 상세 조회 뒤 홈 인기 레일 순서 확인
 
