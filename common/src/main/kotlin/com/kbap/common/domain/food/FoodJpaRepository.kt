@@ -266,13 +266,19 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         nativeQuery = true,
         value = """
         select f.* from food f
+        join (
+            select v.food_id, count(*) as view_count
+            from food_view_log v
+            where v.created_at >= :since
+            group by v.food_id
+        ) x on x.food_id = f.id
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
-        order by rand()
+        order by x.view_count desc, f.id desc
         limit :size
         """,
     )
-    fun findRandom(@Param("size") size: Int): List<Food>
+    fun findPopular(@Param("since") since: LocalDateTime, @Param("size") size: Int): List<Food>
 
     @Query(
         nativeQuery = true,
