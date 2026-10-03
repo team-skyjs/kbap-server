@@ -6,7 +6,10 @@ logging:
       console: ecs
   level:
     # 홈 화면 쿼리별 소요 시간·호출 수 측정용 — 측정 끝나면 generate_statistics 와 함께 되돌린다 (KB-715).
-    org.hibernate.stat: DEBUG
+    # Hibernate 7.4 로거: 쿼리별 time/rows 는 org.hibernate.statistics, 세션당 JDBC 호출 수·시간 요약은
+    # org.hibernate.session.metrics (DEBUG 이면 세션 리스너가 등록된다). 구 org.hibernate.stat 는 더 이상 쓰지 않는다.
+    org.hibernate.statistics: DEBUG
+    org.hibernate.session.metrics: DEBUG
 
 spring:
   # Tomcat 요청 처리를 버추얼 스레드로 — 스레드 풀 상한(200)이 동시 처리를 막지 않는다 (KB-653, dev 만 먼저).
