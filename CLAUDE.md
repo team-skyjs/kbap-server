@@ -172,6 +172,14 @@ data class BaseResponse<T>(
 
 **Spring 애너테이션은 전부 구현 컨트롤러 클래스에, swagger 문서 애너테이션만 `*Api` 인터페이스에 둔다.** 컨트롤러: 매핑(`@GetMapping`·`@PostMapping` 등), web 바인딩(`@RequestBody`·`@PathVariable`·`@RequestParam`·`@Valid`), 인증 리졸버(`@AuthMemberId`·`@AuthMemberIdOrNull`). 인터페이스: swagger 문서(`@Tag`·`@Operation`·`@Parameter`·`@ApiResponses`·`@SecurityRequirement`·`@io.swagger...RequestBody`)만. Spring 은 인터페이스 선언도 병합해 해석하지만(HandlerMethodParameter), 개발자가 컨트롤러 파일만 열어 그 엔드포인트의 경로·바인딩·인증 방식을 즉시 파악할 수 있어야 한다 — 인터페이스에만 두면 컨트롤러에선 평범한 파라미터로 보여 오독한다. 인터페이스 쪽 파라미터는 애너테이션 없이 타입만 맞춘다(중복 선언 금지 — 두 곳이 어긋나면 어느 쪽이 진실인지 모호해진다). swagger 문서 노출은 `OpenApiConfig` 의 `SpringDocUtils.addAnnotationsToIgnore` 가 인증 애너테이션 두 개를 숨기므로 `@Parameter(hidden = true)` 를 따로 달지 않는다.
 
+### 릴리스 PR 제목 규약 (고정 — 2026-10-04)
+
+**base 가 `main` 인 PR(= prod 릴리스) 제목은 예외 없이 `Merge develop into main (release yy.mm.N)` 이다.** `N` 은 **그 달의 몇 번째 prod 릴리스인지**를 0부터 센다 — 그달 첫 릴리스 `26.10.0`, 두 번째 `26.10.1`. 캘린더 버저닝(KB-300 결정, 2026-08-31 정정)이며 SemVer(`1.1.0`)·날짜 전체(`20261004`)·커밋 해시·`①②` 같은 차수 표기는 쓰지 않는다. CI 가 붙이는 GitHub Release 태그 `prod-YYYYMMDD-<sha>` 는 배포 단위 식별자라 별개다.
+
+- `N` 은 **main 머지 이력에서 센다**: `gh pr list --base main --state merged --limit 10` 으로 같은 달(`yy.mm`)에 머지된 릴리스 PR 수를 확인하고, 그 수를 `N` 으로 쓴다(첫 릴리스면 0). 열려 있는 다른 릴리스 PR 이 있으면 그 다음 번호다.
+- 릴리스 PR 을 **열 때부터** 이 제목으로 연다 — draft 여부와 무관하다. 다른 제목으로 열린 릴리스 PR 을 발견하면 `gh pr edit <n> --title` 로 바로 맞춘다(머지된 PR 은 손대지 않는다).
+- 이 규약은 **base=main 인 PR 에만** 적용한다. feature→develop PR 제목은 한국어 Conventional Commits(`feat(scope): 요약`, 번호 접미 없음)이며 `open-draft-pr-to-develop` 스킬이 담당한다.
+
 <!-- SPECKIT START -->
 현재 브랜치의 구현 플랜은 `.specify/feature.json`(git 비추적 — speckit 커맨드가 브랜치마다 재생성)이 가리키는 `specs/<feature>/plan.md` 를 읽는다. 과거 기능의 설계 맥락·선례가 필요하면 `specs/` 디렉터리에서 해당 기능(디렉터리명 = `kb-<nn>-slug`)의 plan.md 를 직접 읽는다.
 
