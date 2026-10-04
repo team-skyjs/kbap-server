@@ -9,7 +9,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(
     name = "scan_history",
-    indexes = [Index(name = "idx_scan_history_member_food_recent", columnList = "member_id, food_id, created_at")],
+    indexes = [Index(name = "idx_scan_history_member_status_food_recent", columnList = "member_id, status, food_id, created_at")],
 )
 class ScanHistory(
     @Column(name = "member_id", nullable = false)
