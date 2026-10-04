@@ -2,7 +2,6 @@ package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
 import com.kbap.api.ingredient.AvoidedIngredientView
-import com.kbap.api.review.FoodRating
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -31,23 +30,18 @@ data class HomeResponse(
     val recentScans: List<RecentScanResponse>,
 ) {
     companion object {
-        fun from(
-            result: HomeResult,
-            authenticated: Boolean,
-            bookmarkedFoodIds: Set<Long>,
-            ratings: Map<Long, FoodRating>,
-        ) = HomeResponse(
+        fun from(result: HomeResult, authenticated: Boolean) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
             popularFoods = result.popularFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             mostReviewedFoods = result.mostReviewedFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             recentScans = result.recentScans.map {
                 RecentScanResponse(
-                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in bookmarkedFoodIds, ratings[it.summary.foodId]),
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
                     scannedAt = it.scannedAt,
                 )
             },
