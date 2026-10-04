@@ -27,14 +27,16 @@ class HomeService(
             ?.let { foodService.getRecentScannedFoods(it.id, lang, RECENT_SCAN_SIZE) }
             .orEmpty()
         val foodIds = (popularFoods + mostReviewedFoods + recentScans.map { it.summary }).map { it.foodId }
+        val bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(member?.id, foodIds)
+        val ratings = reviewService.getFoodRatings(foodIds)
 
         return HomeResult(
             avoidedSubstances = avoidedSubstances,
             popularFoods = popularFoods,
             mostReviewedFoods = mostReviewedFoods,
             recentScans = recentScans,
-            bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(member?.id, foodIds),
-            ratings = reviewService.getFoodRatings(foodIds),
+            bookmarkedFoodIds = bookmarkedFoodIds,
+            ratings = ratings,
         )
     }
 
