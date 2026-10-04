@@ -1,8 +1,10 @@
 package com.kbap.api.home
 
+import com.kbap.api.bookmark.BookmarkService
 import com.kbap.api.food.FoodService
 import com.kbap.api.ingredient.IngredientService
 import com.kbap.api.member.MemberService
+import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.LanguageCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,6 +14,8 @@ class HomeService(
     private val memberService: MemberService,
     private val ingredientService: IngredientService,
     private val foodService: FoodService,
+    private val bookmarkService: BookmarkService,
+    private val reviewService: ReviewService,
 ) {
     @Transactional(readOnly = true)
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
@@ -22,12 +26,15 @@ class HomeService(
         val recentScans = member
             ?.let { foodService.getRecentScannedFoods(it.id, lang, RECENT_SCAN_SIZE) }
             .orEmpty()
+        val foodIds = (popularFoods + mostReviewedFoods + recentScans.map { it.summary }).map { it.foodId }
 
         return HomeResult(
             avoidedSubstances = avoidedSubstances,
             popularFoods = popularFoods,
             mostReviewedFoods = mostReviewedFoods,
             recentScans = recentScans,
+            bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(member?.id, foodIds),
+            ratings = reviewService.getFoodRatings(foodIds),
         )
     }
 
