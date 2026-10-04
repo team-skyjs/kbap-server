@@ -12,12 +12,16 @@ import java.time.LocalDateTime
 interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
     @Query(
         """
-        select f as food, max(sh.createdAt) as scannedAt
-        from ScanHistory sh join Food f on f.id = sh.foodId
-        where sh.memberId = :memberId
-          and f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
-        group by f.id
-        order by max(sh.createdAt) desc
+        with recent as (
+            select sh.foodId as foodId, max(sh.createdAt) as scannedAt
+            from ScanHistory sh
+            where sh.memberId = :memberId
+            group by sh.foodId
+        )
+        select f as food, r.scannedAt as scannedAt
+        from recent r join Food f on f.id = r.foodId
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+        order by r.scannedAt desc
         """,
     )
     fun findRecentScannedFoods(@Param("memberId") memberId: Long, pageable: Pageable): List<RecentScannedFood>
