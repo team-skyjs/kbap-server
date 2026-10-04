@@ -5,6 +5,18 @@
 SET @member = 3;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 사전 준비 — (A)(B) 는 구 인덱스 위에서 돌아야 기준선이 된다. 먼저 현재 인덱스를 확인한다.
+-- ─────────────────────────────────────────────────────────────────────────────
+SHOW INDEX FROM scan_history WHERE Key_name LIKE 'idx_scan_history_member%';
+-- idx_scan_history_member_food_recent 가 보이면 그대로 (A) 로 간다.
+-- idx_scan_history_member_status_food_recent 가 보이면(이 브랜치의 마이그레이션이 이미 적용된 DB)
+-- [로컬 전용] 아래 문으로 구 인덱스 상태를 먼저 만든다. 비교가 끝나면 파일 끝의 "마무리" 로 맞춘다.
+-- ALTER TABLE scan_history
+--     DROP INDEX idx_scan_history_member_status_food_recent,
+--     ADD INDEX idx_scan_history_member_food_recent (member_id, food_id, created_at);
+-- ANALYZE TABLE scan_history;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (A) 현재 쿼리 [읽기 전용] — 조인 후 group by. 기준선.
 -- ─────────────────────────────────────────────────────────────────────────────
 EXPLAIN ANALYZE
@@ -123,8 +135,11 @@ LIMIT 10;
 DROP TABLE tmp_member_scanned_food;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 로컬 원복 — (C) 의 인덱스를 구 인덱스로 되돌린다(Flyway 가 다시 적용할 수 있게).
+-- 마무리 [로컬 전용] — 인덱스를 Flyway 이력과 맞춘다. 지금은 (C) 의 새 인덱스 상태다.
+-- 이 브랜치의 마이그레이션(V2026.10.05.04.20.11)이 이미 적용된 DB 면 그대로 둔다.
+-- 아직 적용되지 않은 DB 면 아래 문으로 구 인덱스로 되돌린다(마이그레이션이 다시 적용할 수 있게).
+-- 적용 여부: SELECT version FROM flyway_schema_history WHERE version = '2026.10.05.04.20.11';
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE scan_history
-    DROP INDEX idx_scan_history_member_status_food_recent,
-    ADD INDEX idx_scan_history_member_food_recent (member_id, food_id, created_at);
+-- ALTER TABLE scan_history
+--     DROP INDEX idx_scan_history_member_status_food_recent,
+--     ADD INDEX idx_scan_history_member_food_recent (member_id, food_id, created_at);

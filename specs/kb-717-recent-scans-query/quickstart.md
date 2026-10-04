@@ -20,7 +20,7 @@ group by f.id order by max(sh.created_at) desc limit 10;
 
 ## 2. 후보 비교 (로컬)
 
-로컬 MySQL(`kbap-local-mysql`, root/root)에 회원 id 3 이 있는지 확인하고 `scripts/perf/seed-home-load.sql` 을 넣는다. 아래 넷을 `EXPLAIN ANALYZE` 로 비교해 표로 만든다.
+로컬 MySQL(`kbap-local-mysql`, root/root)에 회원 id 3 이 있는지 확인하고 `scripts/perf/seed-home-load.sql` 을 넣는다. 비교 전에 `SHOW INDEX FROM scan_history` 로 인덱스 상태를 확인한다. 이 브랜치의 마이그레이션이 이미 적용된 DB 면 구 인덱스로 먼저 되돌려야 현재·D1 후보가 기준선이 된다(절차는 `scripts/perf/recent-scans-candidates.sql` 의 사전 준비·마무리 블록). 아래 넷을 `EXPLAIN ANALYZE` 로 비교해 표로 만든다.
 
 | 후보 | 쿼리 | 인덱스 |
 |---|---|---|
