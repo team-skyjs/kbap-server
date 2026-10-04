@@ -15,7 +15,7 @@
 
 - [X] T005 `./gradlew :api:test` 그린
 - [X] T006 `git diff --stat develop -- api/src/test/kotlin/com/kbap/api/home` 이 비어 있음 확인(홈 테스트 무수정)
-- [ ] T007 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
+- [X] T007 커밋 → `open-draft-pr-to-develop` → ready → Codex 리뷰
 - [ ] T008 [US1] 머지·dev 배포 후 `org.hibernate.session.metrics` 로그에서 홈 요청의 `acquiring 1 JDBC connections`, statements 7(회원) 확인(사용자) → KB-716 DoD 갱신
 
 ## Dependencies
