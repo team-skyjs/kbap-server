@@ -7,17 +7,19 @@ data class FoodSearchCursor(val grade: Int, val scans: Long, val id: Long) {
     fun encode(): String = "$grade:$scans:$id"
 
     companion object {
+        private val FORMAT = Regex("^([0-9]+):([0-9]+):([0-9]+)$")
+
         fun parse(raw: String?): FoodSearchCursor? {
             if (raw.isNullOrBlank()) return null
-            if (raw.all { it.isDigit() }) return null
-            val parts = raw.split(':')
-            val grade = parts.getOrNull(0)?.toIntOrNull()
-            val scans = parts.getOrNull(1)?.toLongOrNull()
-            val id = parts.getOrNull(2)?.toLongOrNull()
-            if (parts.size != 3 || grade == null || scans == null || id == null || grade < 0 || scans < 0 || id < 0) {
-                throw BusinessException(ErrorCode.INVALID_CURSOR)
-            }
-            return FoodSearchCursor(grade, scans, id)
+            val match = FORMAT.matchEntire(raw) ?: throw BusinessException(ErrorCode.INVALID_CURSOR)
+            val (grade, scans, id) = match.destructured
+            val cursor = FoodSearchCursor(
+                grade = grade.toIntOrNull() ?: throw BusinessException(ErrorCode.INVALID_CURSOR),
+                scans = scans.toLongOrNull() ?: throw BusinessException(ErrorCode.INVALID_CURSOR),
+                id = id.toLongOrNull() ?: throw BusinessException(ErrorCode.INVALID_CURSOR),
+            )
+            if (cursor.grade > FoodSearchRanker.CONTAINS) throw BusinessException(ErrorCode.INVALID_CURSOR)
+            return cursor
         }
     }
 }

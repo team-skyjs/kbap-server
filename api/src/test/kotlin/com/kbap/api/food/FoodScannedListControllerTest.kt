@@ -346,7 +346,7 @@ class FoodScannedListControllerTest : BehaviorSpec() {
                     val token = accessToken(5609L)
                     seedFood(5609L, "스캔커서찌개")
                     seedScan(5609L, 5609L, 1)
-                    val payload = payloadOf(scanned(token, cursor = "999999"))
+                    val payload = payloadOf(scanned(token, cursor = "0:0:999999"))
                     payload.path("items").map { it.path("foodId").asLong() } shouldBe listOf(5609L)
                     payload.path("hasNext").asBoolean().shouldBeFalse()
                 }

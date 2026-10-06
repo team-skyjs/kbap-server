@@ -11,7 +11,6 @@ import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.util.LikeWildcards
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
@@ -104,7 +103,7 @@ class FoodService(
     @Transactional(readOnly = true)
     fun searchFoodPage(input: SearchFoodsInput): FoodSearchPage =
         if (input.scope == FoodSearchScope.SCANNED) {
-            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang)
+            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword)
             FoodSearchPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
         } else {
             val ranked = FoodSearchRanker.rank(input.keyword, foodRepository.findSearchableNames()) { ids ->
@@ -123,9 +122,11 @@ class FoodService(
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
-    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
-        val ids = scanHistoryRepository.findScannedFoodIds(memberId, LikeWildcards.escape(keyword), translationJsonPath(lang))
-        return loadInGivenOrder(ids)
+    private fun getScannedFoods(memberId: Long, keyword: String): List<Food> {
+        val scannedIds = scanHistoryRepository.findScannedFoodIdsByRecency(memberId)
+        if (scannedIds.isEmpty()) return emptyList()
+        val matched = FoodSearchRanker.matchingIds(keyword, foodRepository.findSearchableNamesByIds(scannedIds))
+        return loadInGivenOrder(scannedIds.filter { it in matched })
     }
 
     @Transactional(readOnly = true)
@@ -143,9 +144,6 @@ class FoodService(
         val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
         return ids.mapNotNull { foodsById[it] }
     }
-
-    private fun translationJsonPath(lang: LanguageCode): String? =
-        if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {

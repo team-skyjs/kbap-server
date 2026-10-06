@@ -397,8 +397,9 @@ class FoodServiceTest : BehaviorSpec() {
                 saveFood("김치찌개")
                 saveFood("된장찌개")
                 saveFood("비빔밥")
-                saveFood("50000원 세트")
+                val fiftyThousand = saveFood("50000원 세트")
                 return mapOf(
+                    "fifty-thousand" to fiftyThousand,
                     "percent" to saveFood("할인 50% 세트"),
                     "underscore" to saveFood("김치_특"),
                     "backslash" to saveFood("백슬래시\\테스트"),
@@ -406,32 +407,32 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("검색어가 % 하나이면") {
-                then("전체 메뉴가 아니라 이름에 % 를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardFoods()
+                then("와일드카드가 아니다 — 글자·숫자가 없는 검색어는 아무것도 찾지 않는다(기호 무시 규칙, KB-721)") {
+                    seedWildcardFoods()
 
                     val ids = search("%", LanguageCode.KO)
 
-                    ids shouldBe listOf(seeded.getValue("percent"))
+                    ids shouldBe emptyList()
                 }
             }
 
             `when`("검색어가 _ 하나이면") {
-                then("임의 1문자 와일드카드가 아니라 이름에 _ 를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardFoods()
+                then("임의 1문자 와일드카드가 아니다 — 아무것도 찾지 않는다(KB-721)") {
+                    seedWildcardFoods()
 
                     val ids = search("_", LanguageCode.KO)
 
-                    ids shouldBe listOf(seeded.getValue("underscore"))
+                    ids shouldBe emptyList()
                 }
             }
 
             `when`("검색어에 % 가 리터럴로 섞여 있으면 (50%)") {
-                then("그 조각을 이름에 포함하는 메뉴를 부분 일치로 반환한다") {
+                then("와일드카드가 아니라 기호를 뺀 50 으로 찾는다 — 50000원 세트(앞부분 일치)가 할인 50% 세트(포함)보다 먼저다(KB-721)") {
                     val seeded = seedWildcardFoods()
 
                     val ids = search("50%", LanguageCode.KO)
 
-                    ids shouldBe listOf(seeded.getValue("percent"))
+                    ids shouldBe listOf(seeded.getValue("fifty-thousand"), seeded.getValue("percent"))
                 }
             }
 
@@ -449,22 +450,22 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("검색어가 이스케이프 문자 자체(백슬래시)이면") {
-                then("이스케이프 문자도 리터럴로 취급해 백슬래시를 포함하는 메뉴만 반환한다") {
-                    val seeded = seedWildcardFoods()
+                then("이스케이프로 해석하지 않는다 — 기호뿐이라 아무것도 찾지 않는다(KB-721)") {
+                    seedWildcardFoods()
 
                     val ids = search("\\", LanguageCode.KO)
 
-                    ids shouldBe listOf(seeded.getValue("backslash"))
+                    ids shouldBe emptyList()
                 }
             }
 
-            `when`("요청 언어 번역명 경로에서 검색어가 % 하나이면") {
-                then("전체가 아니라 번역명에 % 를 포함하는 메뉴만 반환한다") {
+            `when`("번역명에 % 가 있고 검색어가 50% 이면") {
+                then("기호를 뺀 50 으로 그 번역명을 찾는다(KB-721)") {
                     clearFoods()
                     saveFood("일반세트", nameTranslations = mapOf("en" to "Normal Set"))
                     val sale = saveFood("세일세트", nameTranslations = mapOf("en" to "50% Off Set"))
 
-                    val ids = search("%", LanguageCode.EN)
+                    val ids = search("50%", LanguageCode.EN)
 
                     ids shouldBe listOf(sale)
                 }

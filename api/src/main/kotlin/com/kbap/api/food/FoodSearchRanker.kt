@@ -16,12 +16,19 @@ object FoodSearchRanker {
     val ORDER: Comparator<RankedFood> = compareBy<RankedFood> { it.grade }.thenByDescending { it.scans }.thenByDescending { it.id }
 
     fun rank(keyword: String, names: List<FoodSearchName>, scansByFoodId: (Collection<Long>) -> Map<Long, Long>): List<RankedFood> {
+        val graded = grade(keyword, names)
+        if (graded.isEmpty()) return emptyList()
+        val scans = scansByFoodId(graded.keys)
+        return graded.map { (id, grade) -> RankedFood(id, grade, scans[id] ?: 0L) }.sortedWith(ORDER)
+    }
+
+    fun matchingIds(keyword: String, names: List<FoodSearchName>): Set<Long> = grade(keyword, names).keys
+
+    private fun grade(keyword: String, names: List<FoodSearchName>): Map<Long, Int> {
         val koreanKey = KoreanMenuNameNormalizer.matchKey(keyword)
         val looseKey = loose(keyword)
-        val graded = names.mapNotNull { name -> gradeOf(name, koreanKey, looseKey)?.let { grade -> name.id to grade } }
-        if (graded.isEmpty()) return emptyList()
-        val scans = scansByFoodId(graded.map { it.first })
-        return graded.map { (id, grade) -> RankedFood(id, grade, scans[id] ?: 0L) }.sortedWith(ORDER)
+        if (koreanKey.isEmpty() && looseKey.isEmpty()) return emptyMap()
+        return names.mapNotNull { name -> gradeOf(name, koreanKey, looseKey)?.let { grade -> name.id to grade } }.toMap()
     }
 
     fun after(ranked: List<RankedFood>, cursor: FoodSearchCursor?): List<RankedFood> {
@@ -31,7 +38,7 @@ object FoodSearchRanker {
     }
 
     private fun gradeOf(name: FoodSearchName, koreanKey: String, looseKey: String): Int? {
-        val candidates = listOf(name.koreanName, name.displayName) + name.nameTranslations.values
+        val candidates = listOf(name.koreanName, name.displayName) + name.nameTranslations.values.filterNotNull()
         val grades = if (koreanKey.isNotEmpty()) {
             candidates.map { KoreanMenuNameNormalizer.matchKey(it) }.filter { it.isNotEmpty() }.mapNotNull { gradeOf(it, koreanKey) }
         } else {
@@ -48,7 +55,5 @@ object FoodSearchRanker {
     }
 
     private fun loose(raw: String): String =
-        Normalizer.normalize(raw, Normalizer.Form.NFC).lowercase().split(WHITESPACE).filter { it.isNotEmpty() }.joinToString(" ")
-
-    private val WHITESPACE = Regex("\\s+")
+        Normalizer.normalize(raw, Normalizer.Form.NFKC).lowercase().filter { it.isLetterOrDigit() }
 }

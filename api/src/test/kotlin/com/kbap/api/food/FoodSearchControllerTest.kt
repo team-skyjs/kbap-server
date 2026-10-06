@@ -38,14 +38,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
     init {
         fun seedSearchableFoods() {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM member_ranking_event")
-                    statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food_image")
-                statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
@@ -69,14 +64,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
         }
 
         fun seedNumberedFoods(count: Int) {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM member_ranking_event")
-                    statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food_image")
-                statement.execute("DELETE FROM food")
                     (1..count).forEach { index ->
                         statement.execute(
                             "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
@@ -90,14 +80,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
         }
 
         fun seedJapaneseOnlyFood() {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("DELETE FROM member_ranking_event")
-                    statement.execute("DELETE FROM food_review")
-                    statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food_image")
-                statement.execute("DELETE FROM food")
                     statement.execute(
                         "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                             "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
@@ -331,14 +316,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
         given("메뉴 검색 API — 표시명 띄어쓰기와 무관한 매칭 (KB-298)") {
             fun seedSpacedFood() {
+                TestTables.clearAll(dataSource)
                 dataSource.connection.use { connection ->
                     connection.createStatement().use { statement ->
-                        statement.execute("DELETE FROM member_ranking_event")
-                        statement.execute("DELETE FROM food_review")
-                        statement.execute("DELETE FROM food_content_outbox")
-                statement.execute("DELETE FROM food_vector_outbox")
-                statement.execute("DELETE FROM food_image")
-                statement.execute("DELETE FROM food")
                         statement.execute(
                             "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
                                 "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +

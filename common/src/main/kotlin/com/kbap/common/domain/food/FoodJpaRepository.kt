@@ -247,6 +247,15 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun findSearchableNames(): List<FoodSearchName>
 
     @Query(
+        """
+        select new com.kbap.common.domain.food.dto.FoodSearchName(f.id, f.koreanName, f.displayName, f.nameTranslations)
+        from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY and f.id in :ids
+        """,
+    )
+    fun findSearchableNamesByIds(@Param("ids") ids: Collection<Long>): List<FoodSearchName>
+
+    @Query(
         nativeQuery = true,
         value = """
         select f.* from food f

@@ -25,11 +25,11 @@ data class FoodBrowseRequest(
 
 @Schema(description = "음식 검색 요청")
 data class FoodSearchRequest(
-    @field:Schema(description = "검색어(필수, 빈/공백 400). 한국어명 또는 요청 언어 번역명에 부분 일치. 검색어 입력 전 초기 화면은 이 API 가 아니라 스캔 내역 조회를 사용한다", example = "김치")
+    @field:Schema(description = "검색어(필수, 빈/공백 400). 한국어명·표시명·모든 언어(10로케일) 번역명에 부분 일치 — lang 은 표시 언어만 정한다. 한글이 있으면 한글만 남겨, 없으면 NFKC·소문자·공백·기호를 뺀 뒤 비교한다(글자·숫자가 하나도 없는 검색어는 아무것도 찾지 않는다). 검색어 입력 전 초기 화면은 이 API 가 아니라 스캔 내역 조회를 사용한다", example = "김치")
     val keyword: String? = null,
     @field:Schema(description = "검색 범위 — all(기본, 전체 음식)·scanned(본인 스캔 음식, 회원 전용·최신 스캔순·페이징 없이 전체 반환). 그 외 값은 400", example = "all")
     val scope: String? = null,
-    @field:Schema(description = "직전 페이지 nextCursor(마지막 항목 foodId). 미지정 시 첫 페이지. scope=scanned 는 페이징이 없어 무시된다", example = "42")
+    @field:Schema(description = "직전 페이지 nextCursor 를 그대로 — 불투명 문자열(해석하지 말 것, 형식은 바뀔 수 있다). 미지정 시 첫 페이지. 형식이 맞지 않으면(예전 foodId 숫자 형식 포함) 400 FOOD-002. scope=scanned 는 페이징이 없어 무시된다", example = "1:3:601")
     val cursor: String? = null,
     @field:NotBlank(message = "lang 은 필수입니다")
     @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
