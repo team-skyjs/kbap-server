@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.domain.member.model.MemberRole
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContain
@@ -379,42 +380,142 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
         }
 
-        given("메뉴 검색 API — 언어 분리 (불변식 2·3)") {
-            `when`("일본어 번역명에만 있는 키워드를 lang=ja 로 검색하면") {
-                then("해당 메뉴가 결과에 포함된다") {
-                    seedJapaneseOnlyFood()
+        fun clearFoods() {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    listOf("member_ranking_event", "food_review", "scan_history", "food_content_outbox", "food_vector_outbox", "food_image", "food")
+                        .forEach { statement.execute("DELETE FROM $it") }
+                    statement.execute(
+                        "INSERT IGNORE INTO member (id, provider, provider_uid, nickname, member_status, onboarding_completed, status, created_at, updated_at) " +
+                            "VALUES (7777, 'GOOGLE', 'search-scanner', '스캐너', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                }
+            }
+        }
 
-                    val json = mockMvc.get("/api/foods/search") {
-                        param("keyword", "レイメン")
-                        param("lang", "ja")
-                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+        fun seedFood(id: Long, koreanName: String, displayName: String = koreanName, translations: String = "{}", scans: Int = 0) {
+            dataSource.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute(
+                        "INSERT INTO food (id, korean_name, display_name, image_ref, description, spiciness, " +
+                            "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
+                            "VALUES ($id, '$koreanName', '$displayName', 'f-$id.png', '설명', 0, '$translations', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    repeat(scans) {
+                        statement.execute(
+                            "INSERT INTO scan_history (member_id, food_id, status, created_at, updated_at) VALUES (7777, $id, 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                }
+            }
+        }
 
-                    foodIdsOf(json) shouldBe listOf(610L)
+        fun search(keyword: String, lang: String = "ko", cursor: String? = null): String =
+            mockMvc.get("/api/foods/search") {
+                param("keyword", keyword)
+                param("lang", lang)
+                cursor?.let { param("cursor", it) }
+            }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8)
+
+        given("메뉴 검색 API — 관련도 정렬 (KB-721)") {
+            `when`("정확 일치·앞부분 일치·포함 음식이 섞여 있으면") {
+                then("정확 일치 → 앞부분 일치 → 포함 순이고, 같은 등급에서는 많이 스캔된 순, 그다음 id 내림차순이다") {
+                    clearFoods()
+                    seedFood(701, "돈까스떡볶이원조김밥", scans = 9)
+                    seedFood(702, "참치김밥", scans = 9)
+                    seedFood(703, "김밥", scans = 0)
+                    seedFood(704, "김밥천국", scans = 1)
+                    seedFood(705, "야채김밥", scans = 2)
+                    seedFood(706, "치즈김밥", scans = 2)
+
+                    foodIdsOf(search("김밥")) shouldBe listOf(703L, 704L, 706L, 705L, 702L, 701L)
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 어느 언어로 쳐도 찾는다 (KB-721)") {
+            `when`("ja 앱에서 로마자·한글·가나로 비빔밥을 찾으면") {
+                then("네 검색어 모두 비빔밥을 찾는다") {
+                    clearFoods()
+                    seedFood(711, "비빔밥", translations = """{"en":"Bibimbap","ja":"ビビンバ","zh-Hans":"拌饭"}""")
+                    seedFood(712, "김치찌개", translations = """{"en":"Kimchi Stew","ja":"キムチチゲ"}""")
+
+                    listOf("bibimbap", "Bibimbap", "비빔밥", "ビビンバ", "拌饭").forEach { keyword ->
+                        withClue(keyword) { foodIdsOf(search(keyword, lang = "ja")) shouldBe listOf(711L) }
+                    }
                 }
             }
 
-            `when`("같은 키워드를 lang=en 으로 검색하면") {
-                then("요청 언어가 아니므로 결과에 포함되지 않는다 (불변식 2)") {
+            `when`("요청 언어가 아닌 언어의 이름으로 검색하면") {
+                then("그래도 찾는다 — 이름 전부(한국어명·표시명·모든 번역)를 본다") {
                     seedJapaneseOnlyFood()
 
-                    val json = mockMvc.get("/api/foods/search") {
-                        param("keyword", "レイメン")
-                        param("lang", "en")
-                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    foodIdsOf(search("レイメン", lang = "en")) shouldBe listOf(610L)
+                    foodIdsOf(search("Cold Noodles", lang = "ko")) shouldBe listOf(610L)
+                }
+            }
+        }
 
-                    foodIdsOf(json) shouldBe emptyList()
+        given("메뉴 검색 API — 공백·기호 무시 (KB-721)") {
+            `when`("띄어쓰기만 다른 검색어로 찾으면") {
+                then("같은 결과다 — 한국어는 한글만 남겨 비교하고, 다른 언어는 소문자·공백 축약으로 비교한다") {
+                    clearFoods()
+                    seedFood(721, "김치찌개", translations = """{"en":"Kimchi Stew"}""")
+                    seedFood(722, "김치볶음밥", translations = """{"en":"Kimchi Fried Rice"}""")
+
+                    foodIdsOf(search("김치 찌개")) shouldBe listOf(721L)
+                    foodIdsOf(search("김치찌개")) shouldBe listOf(721L)
+                    foodIdsOf(search("김치-찌개!")) shouldBe listOf(721L)
+                    foodIdsOf(search("KIMCHI   stew", lang = "en")) shouldBe listOf(721L)
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 복합 키셋 커서 (KB-721)") {
+            `when`("같은 등급의 음식 45개를 커서로 끝까지 당기면") {
+                then("중복·누락 없이 세 페이지에 전부 온다") {
+                    clearFoods()
+                    (1..45).forEach { seedFood(800L + it, "밥$it", scans = it % 5) }
+
+                    val seen = mutableListOf<Long>()
+                    var cursor: String? = null
+                    var pages = 0
+                    do {
+                        val root = mapper.readTree(search("밥", cursor = cursor))
+                        seen += root.path("payload").path("items").map { it.path("foodId").asLong() }
+                        pages++
+                        val hasNext = root.path("payload").path("hasNext").asBoolean()
+                        cursor = root.path("payload").path("nextCursor").takeUnless { it.isNull }?.asText()
+                        (hasNext == (cursor != null)) shouldBe true
+                    } while (hasNext && pages < 10)
+
+                    pages shouldBe 3
+                    seen.size shouldBe 45
+                    seen.toSet().size shouldBe 45
+                    seen.take(9).map { (it - 800) % 5 }.toSet() shouldBe setOf(4L)
                 }
             }
 
-            `when`("번역명에만 있는 키워드를 lang 미지정으로 검색하면") {
-                then("ko 폴백이라 한국어명만 매칭해 결과에 포함되지 않는다 (불변식 3)") {
-                    seedJapaneseOnlyFood()
+            `when`("구 형식 커서(숫자)가 오면") {
+                then("400 이 아니라 첫 페이지다") {
+                    clearFoods()
+                    seedFood(731, "비빔밥")
+                    seedFood(732, "돌솥비빔밥")
 
-                    val json = mockMvc.get("/api/foods/search?lang=ko") {
-                        param("keyword", "Cold Noodles")
-                    }.andReturn().response.getContentAsString(Charsets.UTF_8)
+                    foodIdsOf(search("비빔밥", cursor = "732")) shouldBe foodIdsOf(search("비빔밥"))
+                }
+            }
 
-                    foodIdsOf(json) shouldBe emptyList()
+            `when`("형식이 깨진 커서가 오면") {
+                then("400 FOOD-002 다") {
+                    mockMvc.get("/api/foods/search") {
+                        param("keyword", "비빔밥")
+                        param("lang", "ko")
+                        param("cursor", "abc")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value(ErrorCode.INVALID_CURSOR.code) }
+                    }
                 }
             }
         }
