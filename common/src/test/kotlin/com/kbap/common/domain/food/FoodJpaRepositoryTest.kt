@@ -163,20 +163,17 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
 
-            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 이름으로 검색하면") {
-                then("READY 음식 id 만 반환한다") {
+            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 검색용 이름을 읽으면") {
+                then("READY 음식만 돌려준다 — 한국어명·표시명·번역을 함께 싣는다") {
                     clear()
                     val readyId = saveReady("탐색-김치찌개")
                     savePendingReview("탐색-된장찌개")
 
-                    val ids = foodJpaRepository.searchFoodPageIds(
-                        keyword = "탐색",
-                        jsonPath = null,
-                        cursor = null,
-                        size = 10,
-                    )
+                    val names = foodJpaRepository.findSearchableNames()
 
-                    ids shouldBe listOf(readyId)
+                    names.map { it.id } shouldBe listOf(readyId)
+                    names.single().koreanName shouldBe "탐색-김치찌개"
+                    names.single().nameTranslations shouldBe foodJpaRepository.findById(readyId).get().nameTranslations
                 }
             }
         }

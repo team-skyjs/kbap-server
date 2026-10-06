@@ -2,6 +2,7 @@ package com.kbap.api.food
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
+import com.kbap.api.core.SearchPage
 import com.kbap.api.core.config.ApiErrors
 import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
@@ -44,16 +45,27 @@ interface FoodApi {
     @Operation(
         summary = "음식 검색 조회 (무한 스크롤, no-offset)",
         description = """
-            검색어가 한국어 음식명 또는 요청 언어(lang) 번역명에 포함되는 음식을 조회한다.
-            lang=ko 이면 한국어명만, 그 외 언어면 한국어명 또는 해당 언어 번역명에 검색어가 포함되면 매칭된다. 대소문자는 구분하지 않는다.
+            검색어가 음식 이름에 포함되는 음식을 **관련도 순**으로 조회한다. lang 은 표시 언어만 정하고 검색 범위에는 영향이 없다.
+
+            ## 어느 언어로 쳐도 찾는다 (KB-721)
+            한국어명·표시명·모든 언어의 번역명(10개 로케일)을 전부 본다 — ja 앱에서 "bibimbap"·"비빔밥"·"ビビンバ" 모두 비빔밥을 찾는다.
+            - 검색어에 한글이 있으면 **한글만 남겨** 비교한다 — "김치 찌개"·"김치찌개"·"김치-찌개!"는 같은 결과다. 띄어쓰기·기호는 무시된다.
+            - 한글이 없으면 NFKC 로 접고 소문자·공백·기호를 뺀 뒤 비교한다 — "KIMCHI   stew"·"kimchi-stew"·"Kimchi Stew!"는 "Kimchi Stew"와 같고, 전각 공백·반각 가나도 같게 본다.
+              글자·숫자가 하나도 없는 검색어("%"·"!!")는 아무것도 찾지 않는다(빈 목록).
+
+            ## 정렬 — 관련도 (scope=all)
+            1. 이름과 **정확히 일치** → 2. 이름이 검색어로 **시작** → 3. 이름에 **포함**. 여러 이름 중 가장 좋은 등급을 쓴다.
+            같은 등급 안에서는 **많이 스캔된 음식 순**(scan_history 건수), 그다음 foodId 내림차순. "김밥"을 치면 `김밥` → `참치김밥` → `돈까스떡볶이원조김밥` 순이다.
+
             매칭 음식이 없으면 오류가 아니라 빈 목록을 반환한다. 검색어 없이 전체를 훑는 조회는 음식 목록 조회 API 를 사용한다.
 
             keyword 는 scope 무관 **필수**(누락·빈/공백 400)다 — 검색어 입력 전 초기 화면은 이 API 가 아니라 스캔 내역 조회로 구성한다.
 
             scope 파라미터로 검색 범위를 고른다(미지정 시 all):
-            - **scope=all**(기본) — 전체 음식을 최신 등록순(foodId 내림차순)으로 한 페이지 20개씩, no-offset(cursor/keyset) 페이징.
-              직전 페이지 nextCursor(마지막 항목 foodId)를 cursor 로 넘기면 다음 20개가 이어진다. 비회원 사용 가능.
-            - **scope=scanned** — 본인 스캔 이력에 매칭된 음식만, 중복 없이 마지막 스캔 시점 내림차순(리뷰 태그 검색 용도 — 재스캔하면 맨 앞으로).
+            - **scope=all**(기본) — 위 관련도 순으로 한 페이지 20개씩, no-offset(cursor/keyset) 페이징.
+              **nextCursor 는 불투명 문자열**(등급·스캔 수·foodId 의 복합 키)이다 — 해석하지 말고 그대로 cursor 로 돌려준다. 형식은 바뀔 수 있다.
+              형식이 맞지 않는 커서(예전 foodId 숫자 형식 포함)는 400 FOOD-002 다. 비회원 사용 가능.
+            - **scope=scanned** — 본인 스캔 이력의 음식 중 위와 **같은 규칙으로 매칭**된 것만, 중복 없이 마지막 스캔 시점 내림차순(리뷰 태그 검색 용도 — 재스캔하면 맨 앞으로. 관련도 정렬은 all 에만 적용).
               **회원 전용**(인증 없으면 401). **페이징 없이 매칭 전체를 한 번에 반환**한다(hasNext 항상 false·nextCursor 항상 null, cursor 파라미터는 무시).
               삭제·비공개 음식과 음식 미매칭 스캔 항목은 제외되고 매칭 없으면 빈 목록이다.
 
@@ -65,7 +77,7 @@ interface FoodApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 매칭 음식 요약(all ≤20·scanned 전체)·nextCursor·hasNext 반환. 각 항목 bookmarked 는 조회 회원의 북마크 여부(비회원은 항상 false)"),
-            ApiResponse(responseCode = "400", description = "검색어 누락·빈/공백, 지원하지 않는 scope, 잘못된 커서 형식/음수, 또는 lang 누락·빈/공백"),
+            ApiResponse(responseCode = "400", description = "검색어 누락·빈/공백, 지원하지 않는 scope, 커서 형식 불일치(FOOD-002, 예전 숫자 커서 포함 — 형식 검증은 scope 공통이고 scanned 는 값을 쓰지 않는다), 또는 lang 누락·빈/공백"),
             ApiResponse(responseCode = "401", description = "scope=scanned 를 인증 없이 호출"),
         ],
     )
@@ -76,7 +88,7 @@ interface FoodApi {
     fun search(
         @ParameterObject request: FoodSearchRequest,
         memberId: Long?,
-    ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>>
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>>
 
     @Operation(
         summary = "스캔 음식 목록 조회 (리뷰 태그 초기 화면, 회원 전용)",
