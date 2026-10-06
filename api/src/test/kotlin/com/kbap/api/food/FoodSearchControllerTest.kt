@@ -1,6 +1,7 @@
 package com.kbap.api.food
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.TestTables
 import com.kbap.common.core.error.ErrorCode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -381,10 +382,9 @@ class FoodSearchControllerTest : BehaviorSpec() {
         }
 
         fun clearFoods() {
+            TestTables.clearAll(dataSource)
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
-                    listOf("member_ranking_event", "food_review", "scan_history", "food_content_outbox", "food_vector_outbox", "food_image", "food")
-                        .forEach { statement.execute("DELETE FROM $it") }
                     statement.execute(
                         "INSERT IGNORE INTO member (id, provider, provider_uid, nickname, member_status, onboarding_completed, status, created_at, updated_at) " +
                             "VALUES (7777, 'GOOGLE', 'search-scanner', '스캐너', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))",
@@ -496,26 +496,86 @@ class FoodSearchControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("구 형식 커서(숫자)가 오면") {
-                then("400 이 아니라 첫 페이지다") {
-                    clearFoods()
-                    seedFood(731, "비빔밥")
-                    seedFood(732, "돌솥비빔밥")
-
-                    foodIdsOf(search("비빔밥", cursor = "732")) shouldBe foodIdsOf(search("비빔밥"))
+            `when`("형식이 맞지 않는 커서가 오면 — 옛 숫자 커서·범위 밖 등급·유니코드 숫자·토막 부족") {
+                then("400 FOOD-002 다 — 옛 앱은 배포 직후 2페이지에서 중복 대신 400 을 한 번 받고 끝난다") {
+                    listOf("732", "abc", "9:0:0", "1:2", "١:٠:٠", "0:-1:5", "0:0:5:1").forEach { cursor ->
+                        withClue(cursor) {
+                            mockMvc.get("/api/foods/search") {
+                                param("keyword", "비빔밥")
+                                param("lang", "ko")
+                                param("cursor", cursor)
+                            }.andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value(ErrorCode.INVALID_CURSOR.code) }
+                            }
+                        }
+                    }
                 }
             }
+        }
 
-            `when`("형식이 깨진 커서가 오면") {
-                then("400 FOOD-002 다") {
-                    mockMvc.get("/api/foods/search") {
-                        param("keyword", "비빔밥")
-                        param("lang", "ko")
-                        param("cursor", "abc")
-                    }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value(ErrorCode.INVALID_CURSOR.code) }
-                    }
+        given("메뉴 검색 API — 기호·전각 공백·반각 가나 무시 (KB-721)") {
+            `when`("비한글 검색어에 기호·전각 공백·반각 가나가 섞여 있으면") {
+                then("NFKC 로 접고 공백·기호를 뺀 뒤 비교해 같은 음식을 찾는다") {
+                    clearFoods()
+                    seedFood(741, "김치찌개", translations = """{"en":"Kimchi Stew","ja":"キムチチゲ"}""")
+                    seedFood(742, "비빔밥", translations = """{"en":"Bibimbap","ja":"ビビンバ"}""")
+
+                    foodIdsOf(search("kimchi-stew", lang = "en")) shouldBe listOf(741L)
+                    foodIdsOf(search("Kimchi Stew!", lang = "en")) shouldBe listOf(741L)
+                    foodIdsOf(search("キムチ\u3000チゲ", lang = "ja")) shouldBe listOf(741L)
+                    foodIdsOf(search("ﾋﾞﾋﾞﾝﾊﾞ", lang = "ja")) shouldBe listOf(742L)
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 번역 값에 null 이 섞인 음식 (KB-721)") {
+            `when`("name_translations 에 JSON null 값이 있으면") {
+                then("500 이 아니라 다른 이름으로 정상 매칭한다") {
+                    clearFoods()
+                    seedFood(751, "비빔밥", translations = """{"en":null,"ja":"ビビンバ"}""")
+
+                    foodIdsOf(search("ビビンバ", lang = "ja")) shouldBe listOf(751L)
+                    foodIdsOf(search("비빔밥")) shouldBe listOf(751L)
+                }
+            }
+        }
+
+        given("메뉴 검색 API — 소프트 삭제 음식 제외 (kb-62 스펙 유지)") {
+            `when`("이름이 매칭되는 음식이 소프트 삭제돼 있으면") {
+                then("결과에 없다") {
+                    clearFoods()
+                    seedFood(761, "비빔밥")
+                    seedFood(762, "돌솥비빔밥")
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET status = 'DELETED' WHERE id = 762") } }
+
+                    foodIdsOf(search("비빔밥")) shouldBe listOf(761L)
+                }
+            }
+        }
+
+        given("메뉴 검색 API — scope=scanned 도 같은 매칭 규칙 (KB-721)") {
+            `when`("ja 회원이 스캔한 비빔밥을 로마자·띄어쓰기 변형으로 찾으면") {
+                then("all 과 같은 규칙으로 찾고, 스캔하지 않은 음식은 나오지 않는다") {
+                    clearFoods()
+                    seedFood(771, "비빔밥", translations = """{"en":"Bibimbap","ja":"ビビンバ"}""", scans = 1)
+                    seedFood(772, "김치찌개", translations = """{"en":"Kimchi Stew"}""", scans = 1)
+                    seedFood(773, "돌솥비빔밥", translations = """{"en":"Dolsot Bibimbap"}""")
+                    val token = tokenIssuer.issueAccessToken(7777L, MemberRole.USER)
+
+                    fun scanned(keyword: String, lang: String): List<Long> =
+                        foodIdsOf(
+                            mockMvc.get("/api/foods/search") {
+                                header("Authorization", "Bearer $token")
+                                param("keyword", keyword)
+                                param("lang", lang)
+                                param("scope", "scanned")
+                            }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                        )
+
+                    scanned("bibimbap", "ja") shouldBe listOf(771L)
+                    scanned("김치 찌개", "ja") shouldBe listOf(772L)
+                    scanned("비빔밥", "en") shouldBe listOf(771L)
                 }
             }
         }
