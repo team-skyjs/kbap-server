@@ -428,7 +428,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     seedFood(705, "야채김밥", scans = 2)
                     seedFood(706, "치즈김밥", scans = 2)
 
-                    foodIdsOf(search("김밥")) shouldBe listOf(703L, 704L, 706L, 705L, 702L, 701L)
+                    foodIdsOf(search("김밥")) shouldBe listOf(703L, 704L, 702L, 701L, 706L, 705L)
                 }
             }
         }
@@ -558,7 +558,7 @@ class FoodSearchControllerTest : BehaviorSpec() {
 
         given("메뉴 검색 API — 커서 연속성 (US2)") {
             `when`("같은 검색어로 첫 페이지를 조회하면") {
-                then("최신순 20개·hasNext=true·nextCursor 를 반환한다") {
+                then("20개·hasNext=true·문자열 nextCursor 를 반환한다") {
                     seedNumberedFoods(25)
 
                     mockMvc.get("/api/foods/search?lang=ko") {
@@ -567,24 +567,24 @@ class FoodSearchControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.items.length()") { value(20) }
                         jsonPath("$.payload.hasNext") { value(true) }
-                        jsonPath("$.payload.nextCursor") { isNumber() }
+                        jsonPath("$.payload.nextCursor") { isString() }
                     }
                 }
             }
 
             `when`("첫 페이지 nextCursor 를 같은 검색어와 함께 넘겨 다음 페이지를 조회하면") {
-                then("두 페이지의 foodId 교집합이 공집합이고 단조 감소한다") {
+                then("두 페이지의 foodId 교집합이 공집합이고, 같은 등급·같은 스캔 수라 id 내림차순으로 이어진다") {
                     seedNumberedFoods(25)
 
                     val firstJson = mockMvc.get("/api/foods/search?lang=ko") {
                         param("keyword", "검색메뉴")
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val firstIds = foodIdsOf(firstJson)
-                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
+                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asText()
 
                     val secondJson = mockMvc.get("/api/foods/search?lang=ko") {
                         param("keyword", "검색메뉴")
-                        param("cursor", nextCursor.toString())
+                        param("cursor", nextCursor)
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
                     val secondIds = foodIdsOf(secondJson)
 
@@ -602,11 +602,11 @@ class FoodSearchControllerTest : BehaviorSpec() {
                     val firstJson = mockMvc.get("/api/foods/search?lang=ko") {
                         param("keyword", "검색메뉴")
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
-                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asLong()
+                    val nextCursor = mapper.readTree(firstJson).path("payload").path("nextCursor").asText()
 
                     val lastJson = mockMvc.get("/api/foods/search?lang=ko") {
                         param("keyword", "검색메뉴")
-                        param("cursor", nextCursor.toString())
+                        param("cursor", nextCursor)
                     }.andExpect {
                         status { isOk() }
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)

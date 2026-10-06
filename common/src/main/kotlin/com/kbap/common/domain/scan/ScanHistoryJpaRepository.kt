@@ -28,6 +28,16 @@ interface ScanHistoryJpaRepository : JpaRepository<ScanHistory, Long> {
 
     fun existsByMemberIdAndFoodId(memberId: Long, foodId: Long): Boolean
 
+    @Query(
+        """
+        select new com.kbap.common.domain.scan.FoodScanCount(sh.foodId, count(sh))
+        from ScanHistory sh
+        where sh.foodId in :foodIds
+        group by sh.foodId
+        """,
+    )
+    fun countByFoodIds(@Param("foodIds") foodIds: Collection<Long>): List<FoodScanCount>
+
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<ScanHistory>
 
     @Query(

@@ -102,23 +102,26 @@ class FoodService(
     }
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(input: SearchFoodsInput): FoodPage =
+    fun searchFoodPage(input: SearchFoodsInput): FoodSearchPage =
         if (input.scope == FoodSearchScope.SCANNED) {
             val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang)
-            FoodPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
+            FoodSearchPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
         } else {
-            foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+            val ranked = FoodSearchRanker.rank(input.keyword, foodRepository.findSearchableNames()) { ids ->
+                scanHistoryRepository.countByFoodIds(ids).associate { it.foodId to it.count }
+            }
+            val remaining = FoodSearchRanker.after(ranked, input.cursor)
+            val page = remaining.take(PAGE_SIZE)
+            FoodSearchPage(
+                items = summaryViews(loadInGivenOrder(page.map { it.id }), input.lang, input.memberId),
+                nextCursor = page.lastOrNull()?.cursor().takeIf { remaining.size > PAGE_SIZE },
+                hasNext = remaining.size > PAGE_SIZE,
+            )
         }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
-
-    @Transactional(readOnly = true)
-    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
-        loadDescending(
-            foodRepository.searchFoodPageIds(LikeWildcards.escape(keyword), translationJsonPath(lang), cursor, size),
-        )
 
     private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
         val ids = scanHistoryRepository.findScannedFoodIds(memberId, LikeWildcards.escape(keyword), translationJsonPath(lang))

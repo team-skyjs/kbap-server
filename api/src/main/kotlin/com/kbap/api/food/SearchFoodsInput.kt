@@ -6,7 +6,7 @@ import com.kbap.common.domain.LanguageCode
 
 data class SearchFoodsInput(
     val keyword: String,
-    val cursor: Long?,
+    val cursor: FoodSearchCursor?,
     val lang: LanguageCode,
     val memberId: Long? = null,
     val scope: FoodSearchScope = FoodSearchScope.ALL,

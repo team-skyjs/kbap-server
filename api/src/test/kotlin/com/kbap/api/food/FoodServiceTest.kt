@@ -43,6 +43,9 @@ class FoodServiceTest : BehaviorSpec() {
 
         fun clearFoods() = TestTables.clearAll(dataSource)
 
+        fun search(keyword: String, lang: LanguageCode = LanguageCode.KO, cursor: FoodSearchCursor? = null): List<Long> =
+            service.searchFoodPage(SearchFoodsInput(keyword = keyword, cursor = cursor, lang = lang)).items.map { it.foodId }
+
         fun saveFood(
             koreanName: String,
             imageRef: String? = null,
@@ -313,9 +316,9 @@ class FoodServiceTest : BehaviorSpec() {
                     val friedRice = saveFood("김치볶음밥")
                     saveFood("된장찌개")
 
-                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, null, 20)
+                    val ids = search("김치", LanguageCode.KO)
 
-                    page.map { it.id } shouldContainExactlyInAnyOrder listOf(stew, friedRice)
+                    ids shouldContainExactlyInAnyOrder listOf(stew, friedRice)
                 }
             }
 
@@ -324,78 +327,55 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     saveFood("김치찌개")
 
-                    service.getFoodsByKeyword("파스타", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
+                    search("파스타", LanguageCode.KO) shouldBe emptyList()
                 }
             }
 
-            `when`("검색 결과에 커서를 지정하면") {
-                then("id 가 커서보다 작은 매칭 항목만 최신순으로 반환한다") {
+            `when`("매칭 음식이 한 페이지(20)를 넘으면") {
+                then("첫 페이지의 nextCursor 로 이어 받으면 중복·누락 없이 나머지가 온다") {
                     clearFoods()
-                    val ids = (1..3).map { saveFood("커서검색-김치$it") }
-                    val cursor = ids.sorted()[2]
+                    val ids = (1..25).map { saveFood("커서검색-김치$it") }
 
-                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, cursor, 20)
+                    val first = service.searchFoodPage(SearchFoodsInput(keyword = "김치", cursor = null, lang = LanguageCode.KO))
+                    val second = service.searchFoodPage(SearchFoodsInput(keyword = "김치", cursor = first.nextCursor, lang = LanguageCode.KO))
 
-                    page.map { it.id } shouldBe ids.filter { it < cursor }.sortedDescending()
+                    first.items.size shouldBe 20
+                    first.hasNext shouldBe true
+                    second.hasNext shouldBe false
+                    second.nextCursor shouldBe null
+                    (first.items + second.items).map { it.foodId } shouldContainExactlyInAnyOrder ids
                 }
             }
         }
 
-        given("Food 검색 — keyset 커서 경계 (US2)") {
-            `when`("커서 안쪽에 매칭되지 않는 메뉴가 섞여 있으면") {
-                then("id 가 커서보다 작은 매칭 항목만 최신순으로 반환한다") {
-                    clearFoods()
-                    val first = saveFood("커서혼합-김치찌개")
-                    saveFood("커서혼합-된장찌개")
-                    val second = saveFood("커서혼합-김치볶음밥")
-                    saveFood("커서혼합-순두부찌개")
-                    val cursor = saveFood("커서혼합-김치만두")
-
-                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, cursor, 20)
-
-                    page.map { it.id } shouldBe listOf(second, first)
-                }
-            }
-
-            `when`("커서가 매칭 항목의 최소 id 이하이면") {
-                then("빈 목록을 반환한다") {
-                    clearFoods()
-                    val smallest = saveFood("커서소진-김치찌개")
-                    saveFood("커서소진-김치볶음밥")
-
-                    service.getFoodsByKeyword("김치", LanguageCode.KO, smallest, 20) shouldBe emptyList<Food>()
-                }
-            }
-        }
-
-        given("Food 검색 — 검색어 부분 일치(요청 언어 번역명)") {
+        given("Food 검색 — 검색어 부분 일치(번역명)") {
             `when`("영어 번역명 조각을 소문자로 검색하면 (lang=en)") {
                 then("대소문자를 구분하지 않고 번역명 매칭 메뉴를 반환한다") {
                     clearFoods()
                     val bibimbap = saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
                     saveFood("된장찌개", nameTranslations = mapOf("en" to "Doenjang Stew"))
 
-                    val page = service.getFoodsByKeyword("bibim", LanguageCode.EN, null, 20)
+                    val ids = search("bibim", LanguageCode.EN)
 
-                    page.map { it.id } shouldBe listOf(bibimbap)
+                    ids shouldBe listOf(bibimbap)
                 }
             }
 
             `when`("일본어 번역명에만 검색어가 있는 메뉴를 lang=en 으로 검색하면") {
-                then("요청 언어가 아니므로 결과에 포함되지 않는다") {
+                then("요청 언어와 무관하게 찾는다 — 모든 언어 이름을 본다(KB-721)") {
                     clearFoods()
-                    saveFood("냉면", nameTranslations = mapOf("ja" to "ネンミョン", "en" to "Cold Noodles"))
+                    val noodles = saveFood("냉면", nameTranslations = mapOf("ja" to "ネンミョン", "en" to "Cold Noodles"))
 
-                    service.getFoodsByKeyword("ネンミョン", LanguageCode.EN, null, 20) shouldBe emptyList<Food>()
+                    search("ネンミョン", LanguageCode.EN) shouldBe listOf(noodles)
                 }
             }
 
             `when`("번역명에만 있는 검색어를 lang=ko 로 검색하면") {
-                then("ko 는 한국어명만 매칭하므로 결과에 포함되지 않는다") {
+                then("ko 에서도 번역명으로 찾는다(KB-721)") {
                     clearFoods()
-                    saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
+                    val bibimbap = saveFood("비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    service.getFoodsByKeyword("Bibimbap", LanguageCode.KO, null, 20) shouldBe emptyList<Food>()
+                    search("Bibimbap", LanguageCode.KO) shouldBe listOf(bibimbap)
                 }
             }
 
@@ -404,9 +384,9 @@ class FoodServiceTest : BehaviorSpec() {
                     clearFoods()
                     val id = saveFood("Bibim비빔밥", nameTranslations = mapOf("en" to "Bibimbap"))
 
-                    val page = service.getFoodsByKeyword("bibim", LanguageCode.EN, null, 20)
+                    val ids = search("bibim", LanguageCode.EN)
 
-                    page.map { it.id } shouldBe listOf(id)
+                    ids shouldBe listOf(id)
                 }
             }
         }
@@ -429,9 +409,9 @@ class FoodServiceTest : BehaviorSpec() {
                 then("전체 메뉴가 아니라 이름에 % 를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.getFoodsByKeyword("%", LanguageCode.KO, null, 20)
+                    val ids = search("%", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
+                    ids shouldBe listOf(seeded.getValue("percent"))
                 }
             }
 
@@ -439,9 +419,9 @@ class FoodServiceTest : BehaviorSpec() {
                 then("임의 1문자 와일드카드가 아니라 이름에 _ 를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.getFoodsByKeyword("_", LanguageCode.KO, null, 20)
+                    val ids = search("_", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(seeded.getValue("underscore"))
+                    ids shouldBe listOf(seeded.getValue("underscore"))
                 }
             }
 
@@ -449,22 +429,22 @@ class FoodServiceTest : BehaviorSpec() {
                 then("그 조각을 이름에 포함하는 메뉴를 부분 일치로 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.getFoodsByKeyword("50%", LanguageCode.KO, null, 20)
+                    val ids = search("50%", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(seeded.getValue("percent"))
+                    ids shouldBe listOf(seeded.getValue("percent"))
                 }
             }
 
             `when`("검색어 가운데에 _ 가 섞여 있으면 (김_치)") {
-                then("임의 1문자로 해석하지 않아 김밥치즈 는 매칭되지 않는다") {
+                then("임의 1문자로 해석하지 않는다 — 한글 검색어는 기호를 무시해 김치 로 찾으므로(KB-721) 김_치·김치찌개는 오고 김밥치즈 는 아니다") {
                     clearFoods()
-                    saveFood("김치찌개")
+                    val stew = saveFood("김치찌개")
                     saveFood("김밥치즈")
                     val underscore = saveFood("김_치")
 
-                    val page = service.getFoodsByKeyword("김_치", LanguageCode.KO, null, 20)
+                    val ids = search("김_치", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(underscore)
+                    ids shouldBe listOf(underscore, stew)
                 }
             }
 
@@ -472,9 +452,9 @@ class FoodServiceTest : BehaviorSpec() {
                 then("이스케이프 문자도 리터럴로 취급해 백슬래시를 포함하는 메뉴만 반환한다") {
                     val seeded = seedWildcardFoods()
 
-                    val page = service.getFoodsByKeyword("\\", LanguageCode.KO, null, 20)
+                    val ids = search("\\", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(seeded.getValue("backslash"))
+                    ids shouldBe listOf(seeded.getValue("backslash"))
                 }
             }
 
@@ -484,9 +464,9 @@ class FoodServiceTest : BehaviorSpec() {
                     saveFood("일반세트", nameTranslations = mapOf("en" to "Normal Set"))
                     val sale = saveFood("세일세트", nameTranslations = mapOf("en" to "50% Off Set"))
 
-                    val page = service.getFoodsByKeyword("%", LanguageCode.EN, null, 20)
+                    val ids = search("%", LanguageCode.EN)
 
-                    page.map { it.id } shouldBe listOf(sale)
+                    ids shouldBe listOf(sale)
                 }
             }
         }
@@ -505,9 +485,9 @@ class FoodServiceTest : BehaviorSpec() {
                 then("JSON 경로가 인용돼 간체 번역명으로 매칭한다") {
                     val id = seedChineseFood()
 
-                    val page = service.getFoodsByKeyword("简体", LanguageCode.ZH_HANS, null, 20)
+                    val ids = search("简体", LanguageCode.ZH_HANS)
 
-                    page.map { it.id } shouldBe listOf(id)
+                    ids shouldBe listOf(id)
                 }
             }
 
@@ -515,17 +495,17 @@ class FoodServiceTest : BehaviorSpec() {
                 then("JSON 경로가 인용돼 번체 번역명으로 매칭한다") {
                     val id = seedChineseFood()
 
-                    val page = service.getFoodsByKeyword("繁體", LanguageCode.ZH_HANT, null, 20)
+                    val ids = search("繁體", LanguageCode.ZH_HANT)
 
-                    page.map { it.id } shouldBe listOf(id)
+                    ids shouldBe listOf(id)
                 }
             }
 
             `when`("간체 번역명 조각을 lang=zh-Hant 로 교차 검색하면") {
-                then("하이픈 코드에서도 언어 분리가 성립해 매칭되지 않는다") {
-                    seedChineseFood()
+                then("표시 언어와 무관하게 찾는다(KB-721)") {
+                    val id = seedChineseFood()
 
-                    service.getFoodsByKeyword("简体", LanguageCode.ZH_HANT, null, 20) shouldBe emptyList<Food>()
+                    search("简体", LanguageCode.ZH_HANT) shouldBe listOf(id)
                 }
             }
         }
@@ -537,9 +517,9 @@ class FoodServiceTest : BehaviorSpec() {
                     val bbq = saveFood("BBQ 치킨")
                     saveFood("김치찌개")
 
-                    val page = service.getFoodsByKeyword("bbq", LanguageCode.KO, null, 20)
+                    val ids = search("bbq", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(bbq)
+                    ids shouldBe listOf(bbq)
                 }
             }
 
@@ -549,9 +529,9 @@ class FoodServiceTest : BehaviorSpec() {
                     val latte = saveFood("Latte 라떼")
                     saveFood("김치찌개")
 
-                    val page = service.getFoodsByKeyword("LATTE", LanguageCode.KO, null, 20)
+                    val ids = search("LATTE", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(latte)
+                    ids shouldBe listOf(latte)
                 }
             }
         }
@@ -566,9 +546,9 @@ class FoodServiceTest : BehaviorSpec() {
                     deletedEntity.delete()
                     foodJpaRepository.save(deletedEntity)
 
-                    val page = service.getFoodsByKeyword("김치", LanguageCode.KO, null, 20)
+                    val ids = search("김치", LanguageCode.KO)
 
-                    page.map { it.id } shouldBe listOf(alive)
+                    ids shouldBe listOf(alive)
                 }
             }
         }
@@ -748,7 +728,7 @@ class FoodServiceTest : BehaviorSpec() {
                     val ready = saveFood("완성-라면")
                     service.createIncomplete(incompleteNames("미완성-라면"))
 
-                    service.getFoodsByKeyword("라면", LanguageCode.KO, null, 20).map { it.id } shouldBe listOf(ready)
+                    search("라면", LanguageCode.KO) shouldBe listOf(ready)
                 }
             }
         }
