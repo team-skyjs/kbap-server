@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.food.FoodContentDraftJpaRepository
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -17,6 +18,7 @@ import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.FoodContentFailureKind
 import com.kbap.common.domain.food.model.FoodContentOutbox
+import com.kbap.common.domain.food.model.FoodContentDraftStatus
 import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -32,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneId
 
 @Service
 class AdminFoodService(
@@ -43,6 +47,7 @@ class AdminFoodService(
     private val foodService: FoodService,
     private val humanReviewService: AdminHumanReviewService,
     private val regenerationStateResolver: RegenerationStateResolver,
+    private val draftRepository: FoodContentDraftJpaRepository,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -118,7 +123,7 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getDeletedFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findDeletedById(id)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
+            ?.let(::detailOf)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
 
     @Transactional
@@ -144,8 +149,23 @@ class AdminFoodService(
     @Transactional(readOnly = true)
     fun getFoodDetail(id: Long): AdminFoodDetailResponse =
         foodRepository.findById(id).orElse(null)
-            ?.let { AdminFoodDetailResponse.from(it, imagePublicBaseUrl, humanReviewService.humanReviewOf(it), regenerationStateResolver.of(it.id), regenerationStateResolver.isAdditionalInProgress(it.id)) }
+            ?.let(::detailOf)
             ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+
+    private fun detailOf(food: Food): AdminFoodDetailResponse {
+        val inFlight = outboxRepository.findInFlightRequests(listOf(food.id))
+        return AdminFoodDetailResponse.from(
+            food,
+            imagePublicBaseUrl,
+            humanReviewService.humanReviewOf(food),
+            regenerationStateResolver.of(food.id),
+            regenerationStateResolver.isAdditionalInProgress(food.id),
+            contentRequestPending = inFlight.isNotEmpty(),
+            contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
+            now = Instant.now(),
+            pendingContentDraftId = if (food.isDeleted()) null else draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)?.id,
+        )
+    }
 
     @Transactional(readOnly = true)
     fun getFoodDetailOrNull(id: Long): AdminFoodDetailView? {
@@ -271,13 +291,15 @@ class AdminFoodService(
     }
 
     @Transactional
-    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult =
-        when (recollectUnderFoodLock(id)) {
+    fun requestRecollectForFood(id: Long): AdminFoodRecollectResult {
+        val result = when (recollectUnderFoodLock(id)) {
             RecollectOutcome.NOT_FOUND -> throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
             RecollectOutcome.ALREADY_PENDING -> AdminFoodRecollectResult(requested = 1, created = 0, skipped = 1)
             RecollectOutcome.REGENERATING -> throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
             RecollectOutcome.CREATED -> AdminFoodRecollectResult(requested = 1, created = 1, skipped = 0)
         }
+        return result.copy(pendingDraft = draftRepository.existsByFoodIdAndReviewStatus(id, FoodContentDraftStatus.PENDING))
+    }
 
     private fun recollectUnderFoodLock(id: Long): RecollectOutcome {
         val food = foodRepository.findByIdForUpdate(id) ?: return RecollectOutcome.NOT_FOUND
@@ -343,6 +365,7 @@ data class AdminFoodRecollectResult(
     val skippedRegenerating: Long = 0,
     val exceeded: Boolean = false,
     val max: Int = AdminFoodService.RECOLLECT_MAX,
+    val pendingDraft: Boolean = false,
 )
 
 enum class AdminFoodDeleteResult {

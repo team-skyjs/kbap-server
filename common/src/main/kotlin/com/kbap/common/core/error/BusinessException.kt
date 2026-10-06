@@ -4,4 +4,5 @@ package com.kbap.common.core.error
 open class BusinessException(
     val errorCode: ErrorCode,
     val payload: Any? = null,
+    val expected: Boolean = false,
 ) : RuntimeException(errorCode.message)

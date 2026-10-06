@@ -20,6 +20,7 @@ import java.time.Clock
 @Configuration
 class DailyUserStatsBatchConfig(
     @Value("\${kbap.batch.user-stats.excluded-member-ids:}") private val excludedMemberIds: Set<Long>,
+    @Value("\${kbap.batch.user-stats.enabled:true}") private val enabled: Boolean,
     private val jobRepository: JobRepository,
     private val memberRepository: MemberJpaRepository,
     private val sender: ObjectProvider<TeamChannelSender>,
@@ -29,7 +30,7 @@ class DailyUserStatsBatchConfig(
     fun dailyUserStatsJob(clock: Clock): Job {
         val step = StepBuilder("${JOB}Step", jobRepository)
             .tasklet({ contribution, _ ->
-                val reporter = DailyUserStatsReporter(memberRepository, sender.ifAvailable, clock, excludedMemberIds)
+                val reporter = DailyUserStatsReporter(memberRepository, sender.ifAvailable, clock, excludedMemberIds, enabled)
                 if (reporter.report() == DailyUserStatsReporter.Outcome.SKIPPED) {
                     contribution.exitStatus = ExitStatus(SKIPPED)
                 }

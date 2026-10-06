@@ -30,6 +30,7 @@ class ReviewTest : BehaviorSpec({
         servingSpeedRating: Int = 0,
         staffKindnessRating: Int = 0,
         content: String? = null,
+        language: String? = null,
         imageRefs: List<String>? = null,
         place: ReviewPlace? = null,
     ) = update(
@@ -37,6 +38,7 @@ class ReviewTest : BehaviorSpec({
         servingSpeedRating = servingSpeedRating,
         staffKindnessRating = staffKindnessRating,
         content = content,
+        language = language,
         imageRefs = imageRefs,
         place = place,
     )

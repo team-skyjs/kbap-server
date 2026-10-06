@@ -33,6 +33,18 @@ class OrderEditControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var memberService: com.kbap.api.member.MemberService
+
+    @Autowired
+    private lateinit var orderService: OrderService
+
+    @Autowired
+    private lateinit var placeSearchClient: com.kbap.api.place.FakePlaceSearchClient
+
+    @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
     init {
         val mapper = jacksonObjectMapper()
 
@@ -139,6 +151,179 @@ class OrderEditControllerTest : BehaviorSpec() {
             ).path("items").first { it.path("orderId").asLong() == orderId }.path("thumbnails").map { it.asText() }
 
         val placeBody = """{"placeId":"ChIJedit","name":"백년옥","address":"서울 중구 소공로 51","language":"en"}"""
+
+        given("탈퇴한 회원의 아직 유효한 액세스 토큰") {
+            fun withdrawBySql(memberId: Long) = dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE member SET status = 'DELETED', provider_uid = CONCAT('DELETED:', id) WHERE id = ?").use { ps ->
+                    ps.setLong(1, memberId)
+                    ps.executeUpdate()
+                }
+            }
+
+            fun placeColumnsOf(orderId: Long): List<String?> = dataSource.connection.use { c ->
+                c.prepareStatement("SELECT place_external_id, place_name, latitude, road_address FROM orders WHERE id = ?").use { ps ->
+                    ps.setLong(1, orderId)
+                    ps.executeQuery().use { rs -> rs.next(); (1..4).map { rs.getString(it) } }
+                }
+            }
+
+            `when`("탈퇴 뒤 그 토큰으로 주문을 저장하면") {
+                then("400 MEMBER-003 으로 거절되고 주문(위치 포함)이 기록되지 않는다 — 파기한 위치 정보를 다시 쓸 수 없다") {
+                    val memberId = 9801L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴주문음식")
+                    seedUpload(memberId, "order-edit/9801/menu.jpg")
+                    withdrawBySql(memberId)
+                    val placeSearchesBefore = placeSearchClient.requests.size
+
+                    mockMvc.post("/api/orders") {
+                        header("X-API-Version", "1.0")
+                        header("Authorization", "Bearer $token")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"imagePath":"order-edit/9801/menu.jpg","items":[{"menuName":"메뉴","quantity":1,"price":1000,"foodId":$food}],"latitude":37.5636,"longitude":126.9834}"""
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
+                    }
+
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT COUNT(*) FROM orders WHERE member_id = ?").use { ps ->
+                            ps.setLong(1, memberId)
+                            ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                        }
+                    } shouldBe 0
+                    placeSearchClient.requests.size shouldBe placeSearchesBefore
+                }
+            }
+
+            `when`("탈퇴 뒤 그 토큰으로 기존 주문의 장소를 바꾸면") {
+                then("400 MEMBER-003 으로 거절되고 장소가 기록되지 않는다") {
+                    val memberId = 9802L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴장소음식")
+                    val orderId = placeOrder(memberId, token, "order-edit/9802/menu.jpg", food).path("orderId").asLong()
+                    withdrawBySql(memberId)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE orders SET latitude = NULL, longitude = NULL, road_address = NULL, place_source = NULL, " +
+                            "place_external_id = NULL, place_name = NULL, place_address = NULL, place_language = NULL WHERE member_id = ?").use { ps ->
+                            ps.setLong(1, memberId)
+                            ps.executeUpdate()
+                        }
+                    }
+
+                    patchPlace(token, orderId, placeBody).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
+                    }
+
+                    placeColumnsOf(orderId) shouldBe listOf(null, null, null, null)
+                }
+            }
+        }
+
+        given("탈퇴 트랜잭션과 주문 쓰기의 경합") {
+            fun locationOf(orderId: Long): List<String?> = dataSource.connection.use { c ->
+                c.prepareStatement("SELECT latitude, road_address, place_external_id, place_name FROM orders WHERE id = ?").use { ps ->
+                    ps.setLong(1, orderId)
+                    ps.executeQuery().use { rs -> rs.next(); (1..4).map { rs.getString(it) } }
+                }
+            }
+
+            fun whileWithdrawalHolds(memberId: Long, request: () -> Unit) {
+                val held = java.util.concurrent.CountDownLatch(1)
+                val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                val withdrawal = executor.submit {
+                    org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult {
+                        memberService.withdraw(memberId)
+                        held.countDown()
+                        Thread.sleep(1_500)
+                    }
+                }
+                executor.shutdown()
+                held.await(30, java.util.concurrent.TimeUnit.SECONDS).shouldBeTrue()
+                request()
+                withdrawal.get(30, java.util.concurrent.TimeUnit.SECONDS)
+            }
+
+            `when`("탈퇴 트랜잭션이 회원 행을 쥔 채 커밋을 미루는 동안 그 회원의 주문 저장 요청이 오면") {
+                then("요청이 탈퇴 커밋을 기다렸다가 DELETED 를 보고 400 MEMBER-003 으로 거절된다 — 파기 뒤에 위치가 다시 붙지 않는다") {
+                    val memberId = 9803L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴경합음식")
+                    seedUpload(memberId, "order-edit/9803/menu.jpg")
+
+                    whileWithdrawalHolds(memberId) {
+                        mockMvc.post("/api/orders") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer $token")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = """{"imagePath":"order-edit/9803/menu.jpg","items":[{"menuName":"메뉴","quantity":1,"price":1000,"foodId":$food}],"latitude":37.5636,"longitude":126.9834}"""
+                        }.andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("MEMBER-003") }
+                        }
+                    }
+
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("SELECT COUNT(*) FROM orders WHERE member_id = ?").use { ps ->
+                            ps.setLong(1, memberId)
+                            ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                        }
+                    } shouldBe 0
+                }
+            }
+
+            `when`("탈퇴 트랜잭션이 회원 행을 쥔 채 커밋을 미루는 동안 기존 주문의 장소 수정 요청이 오면") {
+                then("요청이 기다렸다가 400 MEMBER-003 으로 거절되고 위치는 파기된 채 남는다") {
+                    val memberId = 9804L
+                    val token = accessToken(memberId)
+                    val food = seedReadyFood("탈퇴경합장소음식")
+                    val orderId = placeOrder(memberId, token, "order-edit/9804/menu.jpg", food).path("orderId").asLong()
+
+                    whileWithdrawalHolds(memberId) {
+                        patchPlace(token, orderId, placeBody).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("MEMBER-003") }
+                        }
+                    }
+
+                    locationOf(orderId) shouldBe listOf(null, null, null, null)
+                }
+            }
+
+            `when`("주문 저장 트랜잭션이 회원 행을 공유 잠금으로 쥔 채 커밋을 미루는 동안 탈퇴가 오면") {
+                then("탈퇴가 그 커밋을 기다린 뒤 파기해 새 주문의 위치도 NULL 이다") {
+                    val memberId = 9805L
+                    accessToken(memberId)
+                    val food = seedReadyFood("탈퇴경합후행음식")
+                    val held = java.util.concurrent.CountDownLatch(1)
+                    val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+                    val ordering = executor.submit<Long> {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            val orderId = orderService.createOrder(
+                                memberId,
+                                OrderCreateRequest(imagePath = null, items = listOf(OrderItemRequest(foodId = food, menuName = "메뉴", quantity = 1, price = 1000)), latitude = java.math.BigDecimal("37.5636"), longitude = java.math.BigDecimal("126.9834")),
+                                roadAddress = "서울 중구 소공로 51",
+                                resolvedPlace = null,
+                            )
+                            held.countDown()
+                            Thread.sleep(1_500)
+                            orderId
+                        }!!
+                    }
+                    executor.shutdown()
+                    held.await(30, java.util.concurrent.TimeUnit.SECONDS).shouldBeTrue()
+
+                    val startedAt = System.nanoTime()
+                    org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult { memberService.withdraw(memberId) }
+                    val waitedMillis = (System.nanoTime() - startedAt) / 1_000_000
+                    val orderId = ordering.get(30, java.util.concurrent.TimeUnit.SECONDS)
+
+                    (waitedMillis >= 500) shouldBe true
+                    locationOf(orderId) shouldBe listOf(null, null, null, null)
+                }
+            }
+        }
 
         given("주문 장소 교체 — PATCH /api/orders/{orderId}/place") {
             `when`("본인 주문에 검색 결과 하나를 보내면") {

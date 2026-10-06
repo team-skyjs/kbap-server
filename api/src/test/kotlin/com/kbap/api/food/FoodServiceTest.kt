@@ -3,8 +3,8 @@ package com.kbap.api.food
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.common.domain.food.model.Food
-import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.core.error.BusinessException
@@ -114,6 +114,19 @@ class FoodServiceTest : BehaviorSpec() {
                     shouldThrow<BusinessException> {
                         service.getReadyFood(99999L)
                     }.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
+                }
+            }
+
+            `when`("존재하는 음식이 이미지 재생성으로 숨겨져 있으면") {
+                then("FOOD_NOT_PUBLIC 예외를 던진다 — 다시 공개될 수 있어 없는 음식(FOOD_NOT_FOUND)과 다르다") {
+                    val hiddenId = saveFood("숨김-김치찌개", substances = listOf("SOY" to 90))
+                    val entity = foodJpaRepository.findById(hiddenId).get()
+                    entity.contentStatus = FoodContentStatus.PENDING_IMAGE
+                    foodJpaRepository.save(entity)
+
+                    shouldThrow<BusinessException> {
+                        service.getReadyFood(hiddenId)
+                    }.errorCode shouldBe ErrorCode.FOOD_NOT_PUBLIC
                 }
             }
 
@@ -719,13 +732,13 @@ class FoodServiceTest : BehaviorSpec() {
             }
 
             `when`("미완성 음식을 id 로 상세 조회하면") {
-                then("FOOD_NOT_FOUND 예외를 던진다") {
+                then("FOOD_NOT_PUBLIC 예외를 던진다 — 존재하지만 공개 전인 음식은 없는 음식과 구분한다") {
                     clearFoods()
                     val incompleteId = service.createIncomplete(incompleteNames("미완성-마라탕")).getValue("미완성-마라탕").id
 
                     shouldThrow<BusinessException> {
                         service.getReadyFood(incompleteId)
-                    }.errorCode shouldBe ErrorCode.FOOD_NOT_FOUND
+                    }.errorCode shouldBe ErrorCode.FOOD_NOT_PUBLIC
                 }
             }
 

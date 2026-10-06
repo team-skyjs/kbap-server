@@ -29,6 +29,9 @@ class Review(
     @Column(length = MAX_CONTENT_LENGTH)
     var content: String? = null,
 
+    @Column(length = 10)
+    var language: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "image_refs")
     var imageRefs: List<String>? = null,
@@ -52,6 +55,7 @@ class Review(
         servingSpeedRating: Int,
         staffKindnessRating: Int,
         content: String?,
+        language: String?,
         imageRefs: List<String>?,
         place: ReviewPlace?,
     ) {
@@ -60,6 +64,7 @@ class Review(
         this.servingSpeedRating = servingSpeedRating
         this.staffKindnessRating = staffKindnessRating
         this.content = content
+        this.language = language
         this.imageRefs = imageRefs
         this.place = place
     }

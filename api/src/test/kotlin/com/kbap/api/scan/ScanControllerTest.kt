@@ -1,6 +1,7 @@
 package com.kbap.api.scan
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.PoolProbe
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
@@ -309,6 +310,30 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[1].koreanName") { value("미등록불고기501") }
                         jsonPath("$.payload.results[1].price") { value(16000) }
                     }
+                }
+            }
+
+            `when`("메뉴판 인식(외부 LLM)을 부르는 동안") {
+                then("DB 커넥션을 쥐고 있지 않다 — 느린 외부 호출이 커넥션 풀을 붙잡지 않는다") {
+                    val memberId = 681L
+                    val path = "scan/681/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("Kimchi 커넥션찌개", "커넥션찌개", 9000, matchedIdx = 0)))
+                    val heldDuringCall = mutableListOf<Int>()
+                    vision.duringExtract = { heldDuringCall += PoolProbe.leastActiveConnections(dataSource) }
+
+                    try {
+                        mockMvc.post("/api/scans") {
+                            param("lang", "ko")
+                            header("Authorization", "Bearer ${accessToken(memberId)}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = body(path, 0 to "커넥션찌개")
+                        }.andExpect { status { isOk() } }
+                    } finally {
+                        vision.duringExtract = {}
+                    }
+
+                    heldDuringCall shouldBe listOf(0)
                 }
             }
 

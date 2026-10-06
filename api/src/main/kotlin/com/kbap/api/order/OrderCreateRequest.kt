@@ -18,9 +18,13 @@ import java.math.BigDecimal
 
 @Schema(description = "주문 저장 요청 — 스캔 결과 화면에서 고른 메뉴들")
 data class OrderCreateRequest(
-    @field:NotBlank(message = "imagePath 는 필수입니다")
     @field:Size(max = 512, message = "imagePath 는 최대 512자입니다")
-    @field:Schema(description = "스캔 식별자 — 스캔 요청에 썼던 이미지 경로 그대로. 스캔 1회당 주문 1회", example = "scan/42/menu.jpg")
+    @field:Schema(
+        description = "스캔 식별자 — 스캔 요청에 썼던 이미지 경로 그대로. 스캔 1회당 주문 1회. " +
+            "스캔 사진 없이 저장하려면 생략하거나 null(빈 문자열은 400)",
+        example = "scan/42/menu.jpg",
+        nullable = true,
+    )
     val imagePath: String? = null,
 
     @field:NotEmpty(message = "주문 항목은 1개 이상이어야 합니다")
@@ -51,10 +55,15 @@ data class OrderCreateRequest(
     val coordinatesComplete: Boolean
         get() = (latitude == null) == (longitude == null)
 
+    @get:jakarta.validation.constraints.AssertTrue(message = "imagePath 는 빈 값일 수 없습니다 — 사진이 없으면 생략합니다")
+    @get:Schema(hidden = true)
+    val imagePathNotBlankWhenPresent: Boolean
+        get() = imagePath == null || imagePath.isNotBlank()
+
     fun toOrder(memberId: Long, roadAddress: String?, resolvedPlace: OrderPlaceSnapshot?): Order =
         Order.create(
             memberId = memberId,
-            imagePath = imagePath!!,
+            imagePath = imagePath,
             latitude = latitude,
             longitude = longitude,
             roadAddress = roadAddress,

@@ -3,6 +3,7 @@ package com.kbap.api.order
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.ImageUploadService
 import com.kbap.api.image.UploadedImageService
+import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.UploadedImageJpaRepository
@@ -30,6 +31,7 @@ class OrderService(
     private val foodRepository: FoodJpaRepository,
     private val foodService: FoodService,
     private val uploadedImageService: UploadedImageService,
+    private val memberService: MemberService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -39,22 +41,27 @@ class OrderService(
         roadAddress: String?,
         resolvedPlace: OrderPlaceSnapshot?,
     ): Long {
+        memberService.getMemberForShare(memberId)
         verifyOrderable(memberId, request)
         return saveOrder(memberId, request, roadAddress, resolvedPlace)
     }
 
     private fun verifyOrderable(memberId: Long, request: OrderCreateRequest) {
-        if (UploadedImageJpaRepository.isCleanupTarget(request.imagePath!!)) {
-            throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-        }
-        imageUploadService.verifyImageAccess(memberId, request.imagePath)
-            ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
-        if (orderRepository.existsByImagePath(request.imagePath)) {
-            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
-        }
+        request.imagePath?.let { verifyScanImage(memberId, it) }
         val foodIds = request.items.map { it.foodId!! }.distinct()
         if (foodRepository.findByIdIn(foodIds).size != foodIds.size) {
             throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        }
+    }
+
+    private fun verifyScanImage(memberId: Long, imagePath: String) {
+        if (UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
+            throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        }
+        imageUploadService.verifyImageAccess(memberId, imagePath)
+            ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
+        if (orderRepository.existsByImagePath(imagePath)) {
+            throw BusinessException(ErrorCode.ORDER_ALREADY_PLACED)
         }
     }
 
@@ -94,6 +101,7 @@ class OrderService(
 
     @Transactional
     fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): OrderDetailResponse {
+        memberService.getMemberForShare(memberId)
         getOwnOrder(memberId, orderId).replacePlace(request.toSnapshot())
         return getOrderDetail(memberId, orderId)
     }

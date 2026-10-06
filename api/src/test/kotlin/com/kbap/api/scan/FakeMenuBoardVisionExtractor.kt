@@ -17,6 +17,9 @@ class FakeMenuBoardVisionExtractor : MenuBoardVisionExtractor {
     private val quotaExhaustedPaths = mutableSetOf<String>()
     val receivedOcrItems: MutableMap<String, List<OcrItem>> = mutableMapOf()
 
+    @Volatile
+    var duringExtract: () -> Unit = {}
+
     fun program(path: String, menus: List<ExtractedMenu>) {
         byPath[path] = menus
     }
@@ -39,6 +42,7 @@ class FakeMenuBoardVisionExtractor : MenuBoardVisionExtractor {
 
     override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> {
         receivedOcrItems[imagePath] = ocrItems
+        duringExtract()
         if (imagePath in unavailablePaths) {
             throw MenuBoardVisionUnavailableException(RuntimeException("LLM 서버 장애(테스트)"))
         }

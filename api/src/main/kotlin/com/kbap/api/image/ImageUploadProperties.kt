@@ -8,4 +8,5 @@ data class ImageUploadProperties(
     val uploadTtl: Duration,
     val publicBaseUrl: String,
     val keyPrefix: String,
+    val completeWindow: Duration,
 )

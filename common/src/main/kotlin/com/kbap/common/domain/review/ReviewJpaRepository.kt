@@ -3,7 +3,9 @@ package com.kbap.common.domain.review
 import com.kbap.common.domain.review.model.Review
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -20,6 +22,16 @@ interface FoodRatingAggregate {
 }
 
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Review r where r.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): Review?
+
+    @Query(nativeQuery = true, value = "select * from food_review where id = :id for update")
+    fun findAnyByIdForUpdate(@Param("id") id: Long): Review?
+
+    @Query(nativeQuery = true, value = "select * from food_review where id in (:ids)")
+    fun findAllAnyStatusByIdIn(@Param("ids") ids: Collection<Long>): List<Review>
+
     @Query(
         """
         select r from Review r
@@ -94,7 +106,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         nativeQuery = true,
         value = """
             SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
-            WHERE m.is_bot = 1 AND r.created_at >= :since
+            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE'
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long

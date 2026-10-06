@@ -14,6 +14,7 @@ class ImageUploadService(
     private val storageObjectStore: StorageObjectStore,
     private val uploadedImageRepository: UploadedImageJpaRepository,
     private val guestUploadQuota: GuestUploadQuota,
+    private val uploadProperties: ImageUploadProperties,
 ) {
     fun completeUpload(
         memberId: Long?,
@@ -44,6 +45,9 @@ class ImageUploadService(
     ): UploadedImage {
         val actual = storageObjectStore.head(path)
             ?: throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
+        if (actual.lastModified.isBefore(java.time.Instant.now().minus(uploadProperties.completeWindow))) {
+            throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
+        }
 
         if (!actual.contentType.startsWith("image/")) {
             storageObjectStore.delete(path)

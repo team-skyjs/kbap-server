@@ -33,6 +33,18 @@ class AuthControllerTest : BehaviorSpec() {
     private lateinit var dataSource: DataSource
 
     @Autowired
+    private lateinit var memberRepository: com.kbap.common.domain.member.MemberJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
+    @Autowired
+    private lateinit var uploadedImageService: com.kbap.api.image.UploadedImageService
+
+    @Autowired
+    private lateinit var orderRepository: com.kbap.common.domain.order.OrderJpaRepository
+
+    @Autowired
     private lateinit var accountDeleter: FakeSocialAccountDeleter
 
     init {
@@ -361,6 +373,77 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("주문 위치 정보가 있는 회원이 탈퇴하면") {
+                then("그 회원 주문의 위치 8컬럼(좌표·주소·식당 스냅샷)이 NULL 이 되고 주문 행·항목은 남는다 — 다른 회원의 주문은 그대로다") {
+                    val token = loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    val otherId = dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate(
+                                "INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                                    "VALUES ('GOOGLE', 'withdraw-location-other', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                            )
+                        }
+                        memberIdOf("withdraw-location-other")
+                    }
+                    val locationColumns = listOf(
+                        "latitude", "longitude", "road_address",
+                        "place_source", "place_external_id", "place_name", "place_address", "place_language",
+                    )
+                    fun seedOrder(memberId: Long, imagePath: String?, status: String = "ACTIVE"): Long =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement(
+                                "INSERT INTO orders (member_id, image_path, latitude, longitude, road_address, place_source, " +
+                                    "place_external_id, place_name, place_address, place_language, status) " +
+                                    "VALUES (?, ?, 37.5636000, 126.9834000, '서울 중구 소공로 51', 'GOOGLE_PLACE', 'ChIJwithdraw', '백년옥', " +
+                                    "'서울 중구 소공로 51', 'ko', ?)",
+                                java.sql.Statement.RETURN_GENERATED_KEYS,
+                            ).use { ps ->
+                                ps.setLong(1, memberId)
+                                ps.setString(2, imagePath)
+                                ps.setString(3, status)
+                                ps.executeUpdate()
+                                ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
+                            }
+                        }
+                    fun locationOf(orderId: Long): List<String?> =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("SELECT ${locationColumns.joinToString()} FROM orders WHERE id = ?").use { ps ->
+                                ps.setLong(1, orderId)
+                                ps.executeQuery().use { rs -> rs.next(); locationColumns.indices.map { rs.getString(it + 1) } }
+                            }
+                        }
+                    fun itemCountOf(orderId: Long): Int =
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("SELECT COUNT(*) FROM order_item WHERE order_id = ?").use { ps ->
+                                ps.setLong(1, orderId)
+                                ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
+                            }
+                        }
+                    val mine = seedOrder(id, "scan/withdraw/mine.jpg")
+                    val mineDeleted = seedOrder(id, null, status = "DELETED")
+                    val others = seedOrder(otherId, "scan/withdraw/others.jpg")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate(
+                                "INSERT INTO food (id, korean_name, description, spiciness, name_translations, description_translations, " +
+                                    "ingredients, content_status, status, created_at, updated_at) VALUES (9570, '탈퇴주문음식', '설명', 0, '{}', '{}', '[]', " +
+                                    "'READY', 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                            )
+                            it.executeUpdate("INSERT INTO order_item (order_id, food_id, menu_name, quantity, price) VALUES ($mine, 9570, '탈퇴주문음식', 2, 5000)")
+                        }
+                    }
+
+                    withdraw(token).andReturn().response.status shouldBe 200
+
+                    locationOf(mine) shouldBe List(locationColumns.size) { null }
+                    locationOf(mineDeleted) shouldBe List(locationColumns.size) { null }
+                    locationOf(others).none { it == null } shouldBe true
+                    itemCountOf(mine) shouldBe 1
+                    columnById(id, "status") shouldBe "DELETED"
+                }
+            }
+
             `when`("탈퇴 후 같은 access 토큰으로 프로필을 조회하면") {
                 then("400 으로 거절된다") {
                     val token = loginAccessToken()
@@ -402,6 +485,138 @@ class AuthControllerTest : BehaviorSpec() {
 
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "status") shouldBe "ACTIVE"
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "member_status") shouldBe "ACTIVE"
+                }
+            }
+        }
+
+        given("로그인 오퍼레이션 문서") {
+            `when`("api-docs 를 보면") {
+                then("403 응답과 오퍼레이션 에러 표(@ApiErrors) 양쪽에 정지 회원 거절 MEMBER-013 이 실려 있다") {
+                    val login = objectMapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.contentAsString)
+                        .path("paths").path("/api/auth/login").path("post")
+                    login.path("responses").path("403").path("description").asText().contains("MEMBER-013") shouldBe true
+                    login.path("description").asText().contains("MEMBER-013") shouldBe true
+                }
+            }
+        }
+
+        given("정지된 회원의 로그인") {
+            `when`("같은 소셜 계정으로 로그인하면") {
+                then("403 MEMBER-013 으로 거절되고 새 회원이 생기지 않는다 — 가입 중복(MEMBER-001)으로 오인되지 않는다") {
+                    loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use { ps -> ps.setLong(1, id); ps.executeUpdate() }
+                    }
+                    val before = countMembers()
+
+                    val response = login().andReturn().response
+
+                    response.status shouldBe 403
+                    response.contentAsString shouldContain "MEMBER-013"
+                    countMembers() shouldBe before
+                }
+            }
+
+            `when`("사전 확인 직후 정지돼 가입 시도가 소셜 신원 유니크에 걸리면") {
+                then("재조회에서도 정지를 가려 MEMBER-013 으로 거절한다 — 가입 중복으로 오인되지 않는다") {
+                    loginAccessToken()
+                    val id = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ?").use { ps -> ps.setLong(1, id); ps.executeUpdate() }
+                    }
+                    var firstCheck = true
+                    val racing = java.lang.reflect.Proxy.newProxyInstance(
+                        com.kbap.common.domain.member.MemberJpaRepository::class.java.classLoader,
+                        arrayOf(com.kbap.common.domain.member.MemberJpaRepository::class.java),
+                    ) { _, method, args ->
+                        if (method.name == "existsByProviderAndProviderUidAndMemberStatus" && firstCheck) {
+                            firstCheck = false
+                            false
+                        } else {
+                            try {
+                                method.invoke(memberRepository, *(args ?: emptyArray()))
+                            } catch (e: java.lang.reflect.InvocationTargetException) {
+                                throw e.targetException
+                            }
+                        }
+                    } as com.kbap.common.domain.member.MemberJpaRepository
+                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, "", "")
+
+                    val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
+                        service.findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, FakeSocialTokenVerifier.DEFAULT_SUB, null))
+                    }
+
+                    error.errorCode shouldBe ErrorCode.MEMBER_SUSPENDED_LOGIN
+                }
+            }
+
+            `when`("다른 로그인이 같은 소셜 계정 가입을 먼저 커밋해 이쪽 가입이 유니크에 걸리면") {
+                fun racingService(uid: String): com.kbap.api.member.MemberService {
+                    val racing = java.lang.reflect.Proxy.newProxyInstance(
+                        com.kbap.common.domain.member.MemberJpaRepository::class.java.classLoader,
+                        arrayOf(com.kbap.common.domain.member.MemberJpaRepository::class.java),
+                    ) { _, method, args ->
+                        val result = try {
+                            method.invoke(memberRepository, *(args ?: emptyArray()))
+                        } catch (e: java.lang.reflect.InvocationTargetException) {
+                            throw e.targetException
+                        }
+                        if (method.name == "existsByProviderAndProviderUidAndMemberStatus") {
+                            dataSource.connection.use { c ->
+                                c.prepareStatement(
+                                    "INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                                        "VALUES ('GOOGLE', ?, 'ACTIVE', 0, 'ACTIVE', NOW(6), NOW(6))",
+                                ).use { ps -> ps.setString(1, uid); ps.executeUpdate() }
+                            }
+                        }
+                        result
+                    } as com.kbap.common.domain.member.MemberJpaRepository
+                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, "", "")
+                }
+
+                then("트랜잭션 밖이면 재조회가 그 커밋을 보고 기존 회원으로 로그인시킨다") {
+                    val uid = "fresh-read-${System.nanoTime()}"
+
+                    val (member, isNew) = racingService(uid).findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, uid, null))
+
+                    isNew shouldBe false
+                    member.id shouldBe memberIdOf(uid)
+                }
+
+                then("한 트랜잭션으로 묶으면 실패한다 — 유니크 위반이 세션을 무효화해 재조회가 깨진다") {
+                    val uid = "one-tx-${System.nanoTime()}"
+
+                    val outcome = runCatching {
+                        org.springframework.transaction.support.TransactionTemplate(transactionManager).execute {
+                            racingService(uid).findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, uid, null))
+                        }
+                    }
+
+                    val causes = generateSequence(outcome.exceptionOrNull()) { it.cause }.map { it.javaClass.name }.toList()
+                    (
+                        "org.hibernate.AssertionFailure" in causes ||
+                            "org.springframework.transaction.UnexpectedRollbackException" in causes
+                        ) shouldBe true
+                }
+
+                then("그래서 로그인·가입 경로에는 선언된 @Transactional 이 없다(메타 애너테이션 포함) — 호출자가 여는 트랜잭션은 이 검사 밖이다") {
+                    val transactional = org.springframework.transaction.annotation.Transactional::class.java
+                    val declared = { element: java.lang.reflect.AnnotatedElement ->
+                        org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(element, transactional)
+                    }
+                    declared(com.kbap.api.member.MemberService::class.java.getMethod("findOrSignUp", com.kbap.common.domain.member.model.SocialIdentity::class.java)) shouldBe false
+                    AuthService::class.java.methods.filter { it.name == "login" }.none(declared) shouldBe true
+                    declared(com.kbap.api.member.MemberService::class.java) shouldBe false
+                    declared(AuthService::class.java) shouldBe false
+                }
+            }
+
+            `when`("정지되지 않은 회원은") {
+                then("종전대로 로그인된다") {
+                    loginAccessToken()
+
+                    login().andReturn().response.status shouldBe 200
                 }
             }
         }

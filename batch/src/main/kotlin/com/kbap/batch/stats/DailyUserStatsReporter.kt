@@ -16,8 +16,13 @@ class DailyUserStatsReporter(
     private val sender: TeamChannelSender?,
     private val clock: Clock,
     private val excludedMemberIds: Set<Long>,
+    private val enabled: Boolean = true,
 ) {
     fun report(): Outcome {
+        if (!enabled) {
+            logger.info("일일 유저 통계 — 이 환경에서는 꺼져 있어 건너뜁니다(kbap.batch.user-stats.enabled=false)")
+            return Outcome.SKIPPED
+        }
         if (sender == null) {
             if (skipReported.compareAndSet(false, true)) {
                 logger.error("일일 유저 통계 — Slack 웹훅 URL 이 없어 발송하지 않습니다(SLACK_STATS_WEBHOOK_URL 미주입). 태스크 정의에 시크릿이 들어갔는지 확인하세요")

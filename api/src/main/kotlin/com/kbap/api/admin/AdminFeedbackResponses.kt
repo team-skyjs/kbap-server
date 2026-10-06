@@ -13,7 +13,7 @@ data class AdminFeedbackPageResponse(
     @field:Schema(description = "전체 페이지 수", example = "2")
     val totalPages: Int,
 ) {
-    @Schema(description = "문의 목록 행")
+    @Schema(name = "AdminFeedbackItem", description = "문의 목록 행")
     data class Item(
         val id: Long,
         @field:Schema(description = "본문 앞 300자")
@@ -84,7 +84,7 @@ data class AdminFeedbackDetailResponse(
         val receivedAt: LocalDateTime,
     )
 
-    @Schema(description = "답변")
+    @Schema(name = "AdminFeedbackDetailReply", description = "답변")
     data class Reply(
         val id: Long,
         val adminAccountId: Long,
@@ -119,7 +119,7 @@ data class AdminFeedbackReplyResponse(
     @field:Schema(description = "답변 후 문의 상태 — OPEN 이었다면 ANSWERED 로 바뀐다", example = "ANSWERED")
     val status: String,
 ) {
-    @Schema(description = "답변")
+    @Schema(name = "AdminFeedbackReply", description = "답변")
     data class Reply(
         val id: Long,
         val adminAccountId: Long,

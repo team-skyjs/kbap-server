@@ -2,11 +2,7 @@ package com.kbap.api.core
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import jakarta.persistence.LockTimeoutException
-import jakarta.persistence.OptimisticLockException
-import jakarta.persistence.PessimisticLockException
 import jakarta.servlet.http.HttpServletRequest
-import java.sql.SQLException
 import org.slf4j.LoggerFactory
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.dao.PessimisticLockingFailureException
@@ -17,6 +13,7 @@ import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
@@ -24,11 +21,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private companion object {
-        const val MYSQL_DEADLOCK_VICTIM = 1213
-    }
-
     @ExceptionHandler(MethodArgumentNotValidException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleValidation(
         e: MethodArgumentNotValidException,
         request: HttpServletRequest,
@@ -44,6 +38,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HandlerMethodValidationException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleHandlerMethodValidation(
         e: HandlerMethodValidationException,
         request: HttpServletRequest,
@@ -61,6 +56,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleUnreadable(
         e: HttpMessageNotReadableException,
         request: HttpServletRequest,
@@ -72,11 +68,12 @@ class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException::class)
     fun handleKbap(e: BusinessException, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
         val status = HttpStatus.resolve(e.errorCode.status) ?: HttpStatus.INTERNAL_SERVER_ERROR
-        logFailure(e, e.errorCode.code, status, request)
+        logFailure(e, e.errorCode.code, status, request, asError = status.is5xxServerError && !e.expected)
         return ResponseEntity.status(status).body(BaseResponse.fail(e.errorCode.code, e.errorCode.message, e.payload))
     }
 
     @ExceptionHandler(IllegalArgumentException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleIllegalArgument(
         e: IllegalArgumentException,
         request: HttpServletRequest,
@@ -87,6 +84,7 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleTypeMismatch(
         e: MethodArgumentTypeMismatchException,
         request: HttpServletRequest,
@@ -109,13 +107,13 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        if (hasLockConflictCause(e)) {
+        if (LockConflict.of(e) != null) {
             return conflictResponse(e, request)
         }
         // 404·405·415 등 스프링 MVC 예외는 자기 상태 코드를 안다(ErrorResponse) —
         // 500 으로 뭉개면 클라이언트 잘못이 서버 장애로 둔갑하므로 원래 상태를 보존한다.
         if (e is ErrorResponse) {
-            val status = HttpStatus.resolve(e.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+            val status = unexpectedStatusOf(e)
             logFailure(e, ErrorCode.INVALID_REQUEST.code, status, request)
             return ResponseEntity.status(status)
                 .body(BaseResponse.fail(ErrorCode.INVALID_REQUEST.code, ErrorCode.INVALID_REQUEST.message))
@@ -125,24 +123,19 @@ class GlobalExceptionHandler {
             .body(BaseResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR.code, ErrorCode.INTERNAL_SERVER_ERROR.message))
     }
 
-    private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
-        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = isLockHeldTooLong(e))
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
+    companion object {
+        fun unexpectedStatusOf(e: Throwable): HttpStatus =
+            when {
+                LockConflict.of(e) != null -> HttpStatus.CONFLICT
+                e is ErrorResponse -> HttpStatus.resolve(e.statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
+                else -> HttpStatus.INTERNAL_SERVER_ERROR
+            }
     }
 
-    private fun hasLockConflictCause(e: Throwable?): Boolean =
-        generateSequence(e) { it.cause }.any {
-            it is OptimisticLockingFailureException || it is OptimisticLockException ||
-                it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
-        }
-
-    private fun isLockHeldTooLong(e: Throwable): Boolean {
-        val chain = generateSequence(e) { it.cause }.toList()
-        val pessimistic = chain.any {
-            it is PessimisticLockingFailureException || it is PessimisticLockException || it is LockTimeoutException
-        }
-        return pessimistic && chain.none { it is SQLException && it.errorCode == MYSQL_DEADLOCK_VICTIM }
+    private fun conflictResponse(e: Exception, request: HttpServletRequest): ResponseEntity<BaseResponse<Any>> {
+        logFailure(e, ErrorCode.CONFLICT.code, HttpStatus.CONFLICT, request, asError = LockConflict.of(e)?.severe == true)
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(BaseResponse.fail(ErrorCode.CONFLICT.code, ErrorCode.CONFLICT.message))
     }
 
     private fun logFailure(

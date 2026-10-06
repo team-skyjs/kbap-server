@@ -42,6 +42,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         uploadTtl = Duration.ofMinutes(5),
         publicBaseUrl = "https://cdn.test",
         keyPrefix = keyPrefix,
+        completeWindow = Duration.ofDays(1),
     )
 
     fun input(
