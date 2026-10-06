@@ -4,8 +4,10 @@ resource "aws_lb" "this" {
   internal           = false
   security_groups    = [aws_security_group.alb.id]
   subnets            = data.aws_subnets.public.ids
-  idle_timeout       = 60
-  tags               = local.common_tags
+  # 메뉴판 스캔은 서버가 비전 모델 응답을 최악 약 70초(호출 제한 60초 + 재시도 예산 10초) 기다리고 앱은 120초를 기다린다 —
+  # 기본값 60초면 ALB 가 먼저 끊어 느린 스캔이 실패로 보인다. 130 = 앱 대기(120) + 여유 10 (KB-720, prod 는 2026-10-06 콘솔에서 먼저 130 으로 바꿈)
+  idle_timeout = 130
+  tags         = local.common_tags
 }
 
 # 블루/그린 타깃그룹 한 쌍 — CodeDeploy 가 리스너의 포워딩 대상을 둘 사이에서 바꾼다
