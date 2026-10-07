@@ -44,3 +44,9 @@ kbap:
     public-base-url: ${IMAGE_PUBLIC_BASE_URL}
     # 공유 버킷 환경 접두 — 기본 dev, env 로 커밋 없이 변경 가능(KB-171).
     key-prefix: ${STORAGE_KEY_PREFIX:dev}
+
+sentry:
+  # dev 는 Sentry 에 이벤트를 보내지 않는다 (KB-724) — 부하 테스트·시드·실험 배포의 5xx 가 운영 이슈를 덮지 않게.
+  # DSN 은 태스크 정의가 계속 주입하지만 SDK 가 초기화되지 않아 아무것도 보내지 않는다.
+  # 리터럴 false 는 env 로 못 켜므로 기본값만 끈다 — 필요하면 태스크 정의에 SENTRY_ENABLED=true 로 되켠다.
+  enabled: ${SENTRY_ENABLED:false}
