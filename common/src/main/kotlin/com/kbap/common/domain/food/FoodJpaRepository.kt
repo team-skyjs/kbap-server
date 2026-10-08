@@ -286,6 +286,14 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     )
     fun findMostReviewed(@Param("size") size: Int): List<Food>
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount + 1 where f.id = :foodId")
+    fun increaseReviewCount(@Param("foodId") foodId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId")
+    fun decreaseReviewCount(@Param("foodId") foodId: Long): Int
+
     companion object {
         const val IMAGE_CANDIDATE =
             "f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.PENDING_IMAGE " +

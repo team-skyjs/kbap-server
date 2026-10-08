@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 
 @SpringBootTest
@@ -38,6 +39,9 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
 
     init {
         val targets = LanguageCode.entries.filter { it != LanguageCode.KO }
@@ -354,6 +358,30 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     reviewCount(high, 3)
 
                     mostReviewedIds(size = 2) shouldBe listOf(high, mid)
+                }
+            }
+        }
+
+        given("음식 리뷰 수 증감") {
+            fun column(name: String, foodId: Long): Long =
+                jdbcTemplate.queryForObject("SELECT $name FROM food WHERE id = ?", Long::class.java, foodId)!!
+
+            `when`("두 번 늘리고 한 번 줄이면") {
+                then("리뷰 수는 1 이고 낙관 락 version 은 그대로다") {
+                    clear()
+                    val id = saveReady("증감-비빔밥")
+                    val versionBefore = column("version", id)
+
+                    transactionTemplate.executeWithoutResult {
+                        foodJpaRepository.increaseReviewCount(id)
+                        foodJpaRepository.increaseReviewCount(id)
+                    }
+                    column("review_count", id) shouldBe 2L
+
+                    transactionTemplate.executeWithoutResult { foodJpaRepository.decreaseReviewCount(id) }
+
+                    column("review_count", id) shouldBe 1L
+                    column("version", id) shouldBe versionBefore
                 }
             }
         }
