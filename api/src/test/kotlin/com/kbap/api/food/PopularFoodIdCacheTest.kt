@@ -4,6 +4,8 @@ import com.github.benmanes.caffeine.cache.Ticker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -72,6 +74,34 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             then("빈 목록이 캐시돼 두 번째 조회는 로더를 부르지 않는다") {
                 second shouldBe emptyList()
                 calls.get() shouldBe 1
+            }
+        }
+    }
+
+    given("빈 캐시에 동시 요청") {
+        `when`("50개 스레드가 동시에 조회하면") {
+            val calls = AtomicInteger()
+            val cache = PopularFoodIdCache(FakeTicker()) {
+                Thread.sleep(200)
+                calls.incrementAndGet()
+                listOf(1L, 2L)
+            }
+            val start = CountDownLatch(1)
+
+            val results = Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+                val futures = (1..50).map {
+                    executor.submit<List<Long>> {
+                        start.await()
+                        cache.getPopularFoodIds(10)
+                    }
+                }
+                start.countDown()
+                futures.map { it.get() }
+            }
+
+            then("로더는 1회만 호출되고 모든 결과가 같다") {
+                calls.get() shouldBe 1
+                results.toSet().size shouldBe 1
             }
         }
     }

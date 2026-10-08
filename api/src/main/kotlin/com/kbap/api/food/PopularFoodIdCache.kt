@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.LocalDateTime
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 @Component
 class PopularFoodIdCache internal constructor(ticker: Ticker, private val loader: (Int) -> List<Long>) {
@@ -19,9 +21,12 @@ class PopularFoodIdCache internal constructor(ticker: Ticker, private val loader
     )
 
     private val cache: Cache<Int, List<Long>> = Caffeine.newBuilder().expireAfterWrite(TTL).ticker(ticker).build()
+    private val refresh = ReentrantLock()
 
-    fun getPopularFoodIds(size: Int): List<Long> =
-        cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) }
+    fun getPopularFoodIds(size: Int): List<Long> {
+        cache.getIfPresent(size)?.let { return it }
+        return refresh.withLock { cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) } }
+    }
 
     fun invalidateAll() = cache.invalidateAll()
 
