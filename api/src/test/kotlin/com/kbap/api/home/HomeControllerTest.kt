@@ -84,6 +84,18 @@ class HomeControllerTest : BehaviorSpec() {
                     비회원 shouldContainExactly 회원
                 }
             }
+
+            `when`("리뷰 수가 같은 음식이 있으면") {
+                then("id 가 큰 음식이 먼저다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 2)
+                    listOf(221L, 222L).forEach { HomeTestSeed.seedPlainMember(dataSource, it) }
+                    HomeTestSeed.seedReviews(dataSource, 2L, listOf(221L))
+                    HomeTestSeed.seedReviews(dataSource, 1L, listOf(222L))
+
+                    val ids = payload(null).path("mostReviewedFoods").map { it.path("foodId").asLong() }
+                    ids shouldContainExactly listOf(2L, 1L)
+                }
+            }
         }
 
         given("홈 응답의 음식 카드 — 리뷰 평점·리뷰 수") {

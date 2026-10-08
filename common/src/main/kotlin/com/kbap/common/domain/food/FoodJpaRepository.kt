@@ -277,19 +277,22 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         nativeQuery = true,
         value = """
         select f.* from food f
-        join (
-            select r.food_id, count(*) as review_count, max(r.id) as latest_review_id
-            from food_review r
-            where r.status = 'ACTIVE'
-            group by r.food_id
-        ) x on x.food_id = f.id
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
-        order by x.review_count desc, x.latest_review_id desc
+          and f.review_count > 0
+        order by f.review_count desc, f.id desc
         limit :size
         """,
     )
     fun findMostReviewed(@Param("size") size: Int): List<Food>
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount + 1 where f.id = :foodId")
+    fun increaseReviewCount(@Param("foodId") foodId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId")
+    fun decreaseReviewCount(@Param("foodId") foodId: Long): Int
 
     companion object {
         const val IMAGE_CANDIDATE =

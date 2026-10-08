@@ -1017,6 +1017,60 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
+        given("음식 리뷰 수 연동") {
+            listOf(740L, 741L, 742L, 743L, 744L).forEach { seedFood(it, "리뷰수음식$it") }
+
+            fun foodReviewCount(foodId: Long): Int =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT review_count FROM food WHERE id = ?").use { ps ->
+                        ps.setLong(1, foodId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getInt(1)
+                        }
+                    }
+                }
+
+            `when`("리뷰를 작성하면") {
+                then("음식 리뷰 수가 1 이 된다") {
+                    createReview(accessToken(740L), 740L)
+                    foodReviewCount(740L) shouldBe 1
+                }
+            }
+            `when`("두 회원이 같은 음식에 작성하면") {
+                then("음식 리뷰 수가 2 가 된다") {
+                    createReview(accessToken(741L), 741L)
+                    createReview(accessToken(742L), 741L)
+                    foodReviewCount(741L) shouldBe 2
+                }
+            }
+            `when`("리뷰를 수정하면") {
+                then("음식 리뷰 수는 바뀌지 않는다") {
+                    val token = accessToken(743L)
+                    val reviewId = createReview(token, 742L)
+                    update(token, reviewId, createBody(foodId = null, rating = 2)).andExpect { status { isOk() } }
+                    foodReviewCount(742L) shouldBe 1
+                }
+            }
+            `when`("본인이 리뷰를 삭제하면") {
+                then("음식 리뷰 수가 0 이 된다") {
+                    val token = accessToken(744L)
+                    val reviewId = createReview(token, 743L)
+                    remove(token, reviewId).andExpect { status { isOk() } }
+                    foodReviewCount(743L) shouldBe 0
+                }
+            }
+            `when`("삭제된 리뷰를 다시 삭제하면") {
+                then("400 이고 음식 리뷰 수는 0 에 머문다") {
+                    val token = accessToken(745L)
+                    val reviewId = createReview(token, 744L)
+                    remove(token, reviewId).andExpect { status { isOk() } }
+                    remove(token, reviewId).andExpect { status { isBadRequest() } }
+                    foodReviewCount(744L) shouldBe 0
+                }
+            }
+        }
+
         given("리뷰 작성 자격 — 스캔 이력 검증") {
             seedFood(870L, "자격김치찌개")
 

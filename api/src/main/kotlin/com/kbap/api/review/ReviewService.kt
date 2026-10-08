@@ -57,6 +57,7 @@ class ReviewService(
         verifyImageOwnership(memberId, imagePaths)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         memberService.increaseReviewCount(memberId)
+        foodRepository.increaseReviewCount(foodId)
 
         val review = reviewRepository.save(
             Review(
@@ -122,6 +123,7 @@ class ReviewService(
         if (!review.isActive()) return
         if (!memberRepository.existsById(review.memberId)) {
             review.delete()
+            foodRepository.decreaseReviewCount(review.foodId)
             return
         }
         softDelete(review)
@@ -131,6 +133,7 @@ class ReviewService(
         val memberId = review.memberId
         review.delete()
         memberService.decreaseReviewCount(memberId)
+        foodRepository.decreaseReviewCount(review.foodId)
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
         if (lastReviewOfFood) {
             memberService.decreaseUniqueReviewedFoodCount(memberId)

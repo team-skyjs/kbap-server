@@ -70,6 +70,7 @@ class AdminReportControllerTest : BehaviorSpec() {
                     "content_status, status, created_at, updated_at) VALUES (85630, '신고음식', '설명', 0, '{}', '{}', '[]', 'READY', 'ACTIVE', NOW(6), NOW(6))",
             )
             exec("INSERT INTO food_review (id, member_id, food_id, rating, content, status) VALUES ($review, $author, 85630, 1, '신고된 리뷰 본문', 'ACTIVE')")
+            exec("UPDATE food SET review_count = 1 WHERE id = 85630")
         }
 
         fun report(memberId: Long?, installation: String, reason: String = "SPAM"): Long {
@@ -278,6 +279,7 @@ class AdminReportControllerTest : BehaviorSpec() {
                     scalar("SELECT status FROM food_review WHERE id = $review") shouldBe "DELETED"
                     scalar("SELECT review_count FROM member WHERE id = $author") shouldBe "0"
                     scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "1"
+                    scalar("SELECT review_count FROM food WHERE id = 85630") shouldBe "0"
                     statuses() shouldBe List(4) { "HANDLED" }
                     list("?handleStatus=HANDLED").path("items")[0].path("target").path("exists").asBoolean() shouldBe false
 
@@ -315,6 +317,21 @@ class AdminReportControllerTest : BehaviorSpec() {
                     scalar("SELECT review_count FROM member WHERE id = $author") shouldBe "0"
                     scalar("SELECT unique_reviewed_food_count FROM member WHERE id = $author") shouldBe "0"
                     scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "1"
+                }
+            }
+
+            `when`("작성자가 탈퇴한 리뷰를 CONTENT_DELETED 로 처리하면") {
+                then("리뷰는 삭제되고 음식 리뷰 수는 1 줄며 회원 리뷰 수는 건드리지 않는다") {
+                    seed()
+                    exec("UPDATE member SET status = 'DELETED' WHERE id = $author")
+                    val id = report(reporter1, "install-r1")
+
+                    val response = handleReport(id, "CONTENT_DELETED")
+
+                    response.status shouldBe 200
+                    scalar("SELECT status FROM food_review WHERE id = $review") shouldBe "DELETED"
+                    scalar("SELECT review_count FROM food WHERE id = 85630") shouldBe "0"
+                    scalar("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = $review AND event = 'REVIEW_DELETED'") shouldBe "0"
                 }
             }
 
