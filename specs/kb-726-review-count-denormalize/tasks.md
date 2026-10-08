@@ -32,9 +32,9 @@
 
 **Purpose**: 컬럼·인덱스·백필과 엔티티 매핑. 이게 없으면 api·common 통합 컨텍스트가 `validate` 에서 뜨지 않는다.
 
-- [ ] T001 Flyway 마이그레이션 `api/src/main/resources/db/migration/V2026.10.08.HH.mm.ss__food_review_count.sql` 작성(파일명 타임스탬프는 생성 시각 `date '+%Y.%m.%d.%H.%M.%S'`) — (1) `ALTER TABLE food ADD COLUMN review_count INT NOT NULL DEFAULT 0, ADD INDEX idx_food_review_count_recent (status, content_status, review_count DESC, id DESC);` (2) 백필 `UPDATE food f LEFT JOIN (SELECT food_id, COUNT(*) AS cnt FROM food_review WHERE status = 'ACTIVE' GROUP BY food_id) x ON x.food_id = f.id SET f.review_count = COALESCE(x.cnt, 0);` SQL 주석으로 KB-726 근거(요청마다 4만 행 집계 제거·절대값 대입이라 재실행 안전·구 코드는 컬럼을 모름) 기록
-- [ ] T002 `common/src/main/kotlin/com/kbap/common/domain/food/model/Food.kt` 본문 프로퍼티(`version` 옆)에 `@Column(name = "review_count", nullable = false, columnDefinition = "int not null default 0") var reviewCount: Int = 0` 추가 — 생성자 파라미터로 넣지 않는다
-- [ ] T003 `./gradlew :common:test` 로 컨텍스트 기동(validate 통과)·기존 테스트 전부 Green 확인
+- [X] T001 Flyway 마이그레이션 `api/src/main/resources/db/migration/V2026.10.08.HH.mm.ss__food_review_count.sql` 작성(파일명 타임스탬프는 생성 시각 `date '+%Y.%m.%d.%H.%M.%S'`) — (1) `ALTER TABLE food ADD COLUMN review_count INT NOT NULL DEFAULT 0, ADD INDEX idx_food_review_count_recent (status, content_status, review_count DESC, id DESC);` (2) 백필 `UPDATE food f LEFT JOIN (SELECT food_id, COUNT(*) AS cnt FROM food_review WHERE status = 'ACTIVE' GROUP BY food_id) x ON x.food_id = f.id SET f.review_count = COALESCE(x.cnt, 0);` SQL 주석으로 KB-726 근거(요청마다 4만 행 집계 제거·절대값 대입이라 재실행 안전·구 코드는 컬럼을 모름) 기록
+- [X] T002 `common/src/main/kotlin/com/kbap/common/domain/food/model/Food.kt` 본문 프로퍼티(`version` 옆)에 `@Column(name = "review_count", nullable = false, columnDefinition = "int not null default 0") var reviewCount: Int = 0` 추가 — 생성자 파라미터로 넣지 않는다
+- [X] T003 `./gradlew :common:test` 로 컨텍스트 기동(validate 통과)·기존 테스트 전부 Green 확인
 
 **Checkpoint**: 스키마·엔티티 정합. 이후 스토리 테스트를 쓸 수 있다.
 
@@ -48,15 +48,15 @@
 
 ### Tests for User Story 1 (Test-First — Red 먼저) ⚠️
 
-- [ ] T004 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt` 에 `given("리뷰 많은 음식 조회")` 추가 — `saveReady` 로 음식 저장 후 `jdbcTemplate.update("UPDATE food SET review_count = ? WHERE id = ?")` 로 값 세팅. 시나리오: (a) 리뷰 수 3·1·0 → `[3짜리, 1짜리]` 만, 0 제외 (b) 같은 리뷰 수 두 음식 → id 큰 쪽 먼저 (c) `PENDING_IMAGE`/`FAILED` 음식은 리뷰 수가 커도 제외 (d) 소프트 삭제(`delete()` 후 save) 음식 제외 (e) `size` 만큼만. **food_review 를 심지 않는다** — 새 쿼리가 리뷰 테이블을 보지 않음을 이 테스트 구조 자체가 고정한다. 기대: 현재 group by 쿼리는 food_review 가 비어 있어 빈 목록 → Red
-- [ ] T005 [P] [US1] `api/src/test/kotlin/com/kbap/api/home/HomeTestSeed.kt` 의 `seedReviews` 가 리뷰 INSERT 뒤 `UPDATE food SET review_count = review_count + ${memberIds.size} WHERE id = $foodId` 를 함께 실행하도록 수정 (리뷰 작성 경로를 타지 않는 시드의 카운터 보정)
-- [ ] T006 [US1] `api/src/test/kotlin/com/kbap/api/home/HomeControllerTest.kt` `given("홈 — 리뷰 많은 음식")` 에 `when("리뷰 수가 같은 음식이 있으면") then("id 가 큰 음식이 먼저다")` 추가 — 음식 1·2 각 리뷰 1건(서로 다른 회원) → `[2L, 1L]`. 기존 시나리오 검증 본문은 수정하지 않는다
-- [ ] T007 [US1] `./gradlew :common:test` 로 T004 Red 확인, `./gradlew :api:test` 로 홈 기존 시나리오 Green(시드 보정 효과)·T006 결과 기록
+- [X] T004 [P] [US1] `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt` 에 `given("리뷰 많은 음식 조회")` 추가 — `saveReady` 로 음식 저장 후 `jdbcTemplate.update("UPDATE food SET review_count = ? WHERE id = ?")` 로 값 세팅. 시나리오: (a) 리뷰 수 3·1·0 → `[3짜리, 1짜리]` 만, 0 제외 (b) 같은 리뷰 수 두 음식 → id 큰 쪽 먼저 (c) `PENDING_IMAGE`/`FAILED` 음식은 리뷰 수가 커도 제외 (d) 소프트 삭제(`delete()` 후 save) 음식 제외 (e) `size` 만큼만. **food_review 를 심지 않는다** — 새 쿼리가 리뷰 테이블을 보지 않음을 이 테스트 구조 자체가 고정한다. 기대: 현재 group by 쿼리는 food_review 가 비어 있어 빈 목록 → Red
+- [X] T005 [P] [US1] `api/src/test/kotlin/com/kbap/api/home/HomeTestSeed.kt` 의 `seedReviews` 가 리뷰 INSERT 뒤 `UPDATE food SET review_count = review_count + ${memberIds.size} WHERE id = $foodId` 를 함께 실행하도록 수정 (리뷰 작성 경로를 타지 않는 시드의 카운터 보정)
+- [X] T006 [US1] `api/src/test/kotlin/com/kbap/api/home/HomeControllerTest.kt` `given("홈 — 리뷰 많은 음식")` 에 `when("리뷰 수가 같은 음식이 있으면") then("id 가 큰 음식이 먼저다")` 추가 — 음식 1·2 각 리뷰 1건(서로 다른 회원) → `[2L, 1L]`. 기존 시나리오 검증 본문은 수정하지 않는다
+- [X] T007 [US1] `./gradlew :common:test` 로 T004 Red 확인, `./gradlew :api:test` 로 홈 기존 시나리오 Green(시드 보정 효과)·T006 결과 기록
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt` 의 `findMostReviewed` 네이티브 쿼리를 `select f.* from food f where f.status = 'ACTIVE' and f.content_status = 'READY' and f.review_count > 0 order by f.review_count desc, f.id desc limit :size` 로 교체 — 시그니처·호출자(`FoodService.getMostReviewedFoods`) 불변
-- [ ] T009 [US1] `./gradlew :common:test` 와 `./gradlew :api:test` Green 확인
+- [X] T008 [US1] `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt` 의 `findMostReviewed` 네이티브 쿼리를 `select f.* from food f where f.status = 'ACTIVE' and f.content_status = 'READY' and f.review_count > 0 order by f.review_count desc, f.id desc limit :size` 로 교체 — 시그니처·호출자(`FoodService.getMostReviewedFoods`) 불변
+- [X] T009 [US1] `./gradlew :common:test` 와 `./gradlew :api:test` Green 확인
 
 **Checkpoint**: 홈 레일이 카운터 기준으로 동작. 카운터가 아직 갱신되지 않으므로 운영 배포는 US2 까지 묶는다.
 
@@ -70,16 +70,16 @@
 
 ### Tests for User Story 2 (Test-First — Red 먼저) ⚠️
 
-- [ ] T010 [P] [US2] `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt` 에 `given("음식 리뷰 수 증감")` 추가 — `increaseReviewCount(id)` 2회 → `review_count` 2, `decreaseReviewCount(id)` 1회 → 1, 그리고 증감 전후 `SELECT version FROM food` 가 같다(낙관 락 비관여). 메서드가 없어 컴파일 실패 = Red
-- [ ] T011 [P] [US2] `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` 에 `given("음식 리뷰 수 연동")` 추가(기존 `seedFood`·`accessToken`·`createReview`·`remove` 헬퍼 재사용, 새 food id 범위 사용) — `fun foodReviewCount(foodId): Int` 를 `SELECT review_count FROM food WHERE id = ?` 로 두고 시나리오: (a) 작성 후 1 (b) 두 회원 작성 후 2 (c) 수정(PATCH) 후 불변 (d) 본인 삭제 후 0 (e) 삭제된 리뷰 재삭제(400) 후 여전히 0
-- [ ] T012 [P] [US2] `api/src/test/kotlin/com/kbap/api/admin/AdminReportControllerTest.kt` — (a) 기존 `when("CONTENT_DELETED 로 처리하면")` then 에 `scalar("SELECT review_count FROM food WHERE id = $food") shouldBe "0"` 단언 추가(시드가 리뷰를 SQL 로 심으면 시드에서 `UPDATE food SET review_count = 1` 도 함께 — 기존 `seed()` 헬퍼 확인) (b) 새 `when("작성자가 탈퇴한 리뷰를 CONTENT_DELETED 로 처리하면") then("리뷰는 삭제되고 음식 리뷰 수는 1 줄며 회원 리뷰 수는 건드리지 않는다")` — `UPDATE member SET status = 'DELETED'` 로 탈퇴 처리 후 처리, `food_review.status = DELETED`·`food.review_count = 0`·`member_ranking_event` REVIEW_DELETED 0건
-- [ ] T013 [US2] Red 확인 — `./gradlew :common:test` 가 T010 의 미존재 메서드로 컴파일 실패하는 것을 T010 의 Red 로 기록한다(Kotest 는 컴파일 실패 시 모듈 전체가 돌지 않음). 이어서 `./gradlew :api:test` 는 T014 전까지 같은 이유로 돌지 않으므로, T014(리포지토리 메서드 2개만) 를 먼저 넣은 뒤 `:api:test` 로 T011·T012 가 카운터 0 에 머물러 Red 인 것을 확인한다
+- [X] T010 [P] [US2] `common/src/test/kotlin/com/kbap/common/domain/food/FoodJpaRepositoryTest.kt` 에 `given("음식 리뷰 수 증감")` 추가 — `increaseReviewCount(id)` 2회 → `review_count` 2, `decreaseReviewCount(id)` 1회 → 1, 그리고 증감 전후 `SELECT version FROM food` 가 같다(낙관 락 비관여). 메서드가 없어 컴파일 실패 = Red
+- [X] T011 [P] [US2] `api/src/test/kotlin/com/kbap/api/review/ReviewControllerTest.kt` 에 `given("음식 리뷰 수 연동")` 추가(기존 `seedFood`·`accessToken`·`createReview`·`remove` 헬퍼 재사용, 새 food id 범위 사용) — `fun foodReviewCount(foodId): Int` 를 `SELECT review_count FROM food WHERE id = ?` 로 두고 시나리오: (a) 작성 후 1 (b) 두 회원 작성 후 2 (c) 수정(PATCH) 후 불변 (d) 본인 삭제 후 0 (e) 삭제된 리뷰 재삭제(400) 후 여전히 0
+- [X] T012 [P] [US2] `api/src/test/kotlin/com/kbap/api/admin/AdminReportControllerTest.kt` — (a) 기존 `when("CONTENT_DELETED 로 처리하면")` then 에 `scalar("SELECT review_count FROM food WHERE id = $food") shouldBe "0"` 단언 추가(시드가 리뷰를 SQL 로 심으면 시드에서 `UPDATE food SET review_count = 1` 도 함께 — 기존 `seed()` 헬퍼 확인) (b) 새 `when("작성자가 탈퇴한 리뷰를 CONTENT_DELETED 로 처리하면") then("리뷰는 삭제되고 음식 리뷰 수는 1 줄며 회원 리뷰 수는 건드리지 않는다")` — `UPDATE member SET status = 'DELETED'` 로 탈퇴 처리 후 처리, `food_review.status = DELETED`·`food.review_count = 0`·`member_ranking_event` REVIEW_DELETED 0건
+- [X] T013 [US2] Red 확인 — `./gradlew :common:test` 가 T010 의 미존재 메서드로 컴파일 실패하는 것을 T010 의 Red 로 기록한다(Kotest 는 컴파일 실패 시 모듈 전체가 돌지 않음). 이어서 `./gradlew :api:test` 는 T014 전까지 같은 이유로 돌지 않으므로, T014(리포지토리 메서드 2개만) 를 먼저 넣은 뒤 `:api:test` 로 T011·T012 가 카운터 0 에 머물러 Red 인 것을 확인한다
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt` 에 `@Modifying(clearAutomatically = true, flushAutomatically = true) @Query("update Food f set f.reviewCount = f.reviewCount + 1 where f.id = :foodId") fun increaseReviewCount(@Param("foodId") foodId: Long): Int` 와 `- 1` 버전 `decreaseReviewCount` 추가 — where 는 PK 만(삭제된 음식도 갱신)
-- [ ] T015 [US2] `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `createReview` 의 `memberService.increaseReviewCount(memberId)` 직후 `foodRepository.increaseReviewCount(foodId)`; `softDelete` 의 `memberService.decreaseReviewCount(memberId)` 직후 `foodRepository.decreaseReviewCount(review.foodId)`; `deleteForModeration` 의 `review.delete()` 분기에서 `review.delete()` 직후 `foodRepository.decreaseReviewCount(review.foodId)`. `foodId` 는 `review.delete()` 뒤 detached 상태에서도 값 필드라 안전
-- [ ] T016 [US2] `./gradlew :common:test` 와 `./gradlew :api:test` Green 확인 — 특히 `ReviewControllerTest` 의 기존 동시 삭제·수정/삭제 경합 시나리오와 `ReviewBotTest` 가 그대로 통과하는지
+- [X] T014 [US2] `common/src/main/kotlin/com/kbap/common/domain/food/FoodJpaRepository.kt` 에 `@Modifying(clearAutomatically = true, flushAutomatically = true) @Query("update Food f set f.reviewCount = f.reviewCount + 1 where f.id = :foodId") fun increaseReviewCount(@Param("foodId") foodId: Long): Int` 와 `- 1` 버전 `decreaseReviewCount` 추가 — where 는 PK 만(삭제된 음식도 갱신)
+- [X] T015 [US2] `api/src/main/kotlin/com/kbap/api/review/ReviewService.kt` — `createReview` 의 `memberService.increaseReviewCount(memberId)` 직후 `foodRepository.increaseReviewCount(foodId)`; `softDelete` 의 `memberService.decreaseReviewCount(memberId)` 직후 `foodRepository.decreaseReviewCount(review.foodId)`; `deleteForModeration` 의 `review.delete()` 분기에서 `review.delete()` 직후 `foodRepository.decreaseReviewCount(review.foodId)`. `foodId` 는 `review.delete()` 뒤 detached 상태에서도 값 필드라 안전
+- [X] T016 [US2] `./gradlew :common:test` 와 `./gradlew :api:test` Green 확인 — 특히 `ReviewControllerTest` 의 기존 동시 삭제·수정/삭제 경합 시나리오와 `ReviewBotTest` 가 그대로 통과하는지
 
 **Checkpoint**: 작성·삭제 경로 전부에서 카운터 정합. US1 + US2 가 배포 단위.
 
@@ -100,8 +100,8 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T019 `./gradlew build` 전체 통과(ArchUnit 포함 — `RepositoryLikeEscapeTest`·`ModuleBoundaryTest` 영향 없음 확인)
-- [ ] T020 [P] `../kbap-agenthub/wiki/` 에 "홈 리뷰 인기 레일 = food.review_count 역정규화, 드리프트 복구는 백필 문장 재실행, 배포 겹침 구간 재실행 필요" 를 기록하고 `INDEX.md` 한 줄 추가 후 허브 커밋(지식 위키 자동 축적 규칙)
+- [X] T019 `./gradlew build` 전체 통과(ArchUnit 포함 — `RepositoryLikeEscapeTest`·`ModuleBoundaryTest` 영향 없음 확인)
+- [X] T020 [P] `../kbap-agenthub/wiki/` 에 "홈 리뷰 인기 레일 = food.review_count 역정규화, 드리프트 복구는 백필 문장 재실행, 배포 겹침 구간 재실행 필요" 를 기록하고 `INDEX.md` 한 줄 추가 후 허브 커밋(지식 위키 자동 축적 규칙)
 - [ ] T021 논리 단위별 커밋(한국어 Conventional Commits, `Co-Authored-By` 라인) — 권장 분할: ① 마이그레이션+엔티티 ② 레일 조회 교체+테스트 ③ 카운터 증감+테스트 ④ 위키
 
 ---
