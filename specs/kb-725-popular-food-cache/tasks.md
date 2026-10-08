@@ -93,7 +93,7 @@
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [X] T011 `./gradlew build` 전체(ArchUnit `arch` 태그 포함)를 돌려 `ModuleBoundaryTest`·`RepositoryLikeEscapeTest` 등 아키텍처 스펙이 통과하는지 확인한다. 실패 시 원인은 신규 import 의 패키지 위치일 가능성이 높다 — `com.kbap.api.food` 에 두었는지 재확인.
-- [ ] T012 `specs/kb-725-popular-food-cache/quickstart.md` 2절대로 로컬 bootRun 후 `GET /api/home` 두 번 호출해 SQL 로그에 집계(`food_view_log … group by`)가 첫 호출에만 찍히는지 확인한다(워크트리 bootRun 은 메모리의 `.env` source·`DB_USERNAME=root` 레시피 사용). 확인 결과를 PR 본문에 한 줄 남긴다.
+- [X] T012 `specs/kb-725-popular-food-cache/quickstart.md` 2절대로 로컬 bootRun 후 `GET /api/home` 두 번 호출해 SQL 로그에 집계(`food_view_log … group by`)가 첫 호출에만 찍히는지 확인한다(워크트리 bootRun 은 메모리의 `.env` source·`DB_USERNAME=root` 레시피 사용). 확인 결과를 PR 본문에 한 줄 남긴다.
 - [ ] T013 `open-draft-pr-to-develop` 스킬로 develop 대상 PR 을 열고(제목 `feat(home): 홈 인기 음식 조회를 Caffeine 캐시로 — DB 집계 1회/TTL, 동시 갱신 방지`, 본문에 Jira KB-725·설계 요지·id 캐시 선택 근거·TTL 2일), Jira DoD 중 코드 항목 3개를 체크한다. dev 부하 테스트 재실행·Notion 기록(DoD 4번째)은 배포 후 사용자가 수행한다고 PR 본문에 명시한다.
 
 ---
