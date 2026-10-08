@@ -91,8 +91,8 @@
 
 **Independent Test**: 로컬 MySQL 에 리뷰가 있는 상태로 마이그레이션 적용 후 드리프트 점검 SQL 0건.
 
-- [ ] T017 [US3] 로컬 검증 — 메인 `.env` 를 `set -a; source ../../.env; set +a` 로 읽고 `DB_USERNAME=root DB_PASSWORD=root ./gradlew :api:bootRun` 으로 기동해 마이그레이션 적용 로그 확인 후 quickstart 2-2 드리프트 점검 SQL 실행 → 0건. 리뷰가 없는 로컬이면 bootRun 전에 `food_review` 에 ACTIVE 2건·DELETED 1건을 한 음식에 넣고 백필 결과가 2 인지 확인
-- [ ] T018 [US3] 로컬에서 quickstart 2-3 `EXPLAIN` 실행 — `idx_food_review_count_recent` 사용, `Using filesort` 없음 확인. 결과를 PR 본문에 첨부
+- [X] T017 [US3] 로컬 검증 — 메인 `.env` 를 `set -a; source ../../.env; set +a` 로 읽고 `DB_USERNAME=root DB_PASSWORD=root ./gradlew :api:bootRun` 으로 기동해 마이그레이션 적용 로그 확인 후 quickstart 2-2 드리프트 점검 SQL 실행 → 0건. 리뷰가 없는 로컬이면 bootRun 전에 `food_review` 에 ACTIVE 2건·DELETED 1건을 한 음식에 넣고 백필 결과가 2 인지 확인
+- [X] T018 [US3] 로컬에서 quickstart 2-3 `EXPLAIN` 실행 — `idx_food_review_count_recent` 사용, `Using filesort` 없음 확인. 결과를 PR 본문에 첨부
 
 **Checkpoint**: 백필·인덱스 실측 완료.
 
@@ -102,7 +102,7 @@
 
 - [X] T019 `./gradlew build` 전체 통과(ArchUnit 포함 — `RepositoryLikeEscapeTest`·`ModuleBoundaryTest` 영향 없음 확인)
 - [X] T020 [P] `../kbap-agenthub/wiki/` 에 "홈 리뷰 인기 레일 = food.review_count 역정규화, 드리프트 복구는 백필 문장 재실행, 배포 겹침 구간 재실행 필요" 를 기록하고 `INDEX.md` 한 줄 추가 후 허브 커밋(지식 위키 자동 축적 규칙)
-- [ ] T021 논리 단위별 커밋(한국어 Conventional Commits, `Co-Authored-By` 라인) — 권장 분할: ① 마이그레이션+엔티티 ② 레일 조회 교체+테스트 ③ 카운터 증감+테스트 ④ 위키
+- [X] T021 논리 단위별 커밋(한국어 Conventional Commits, `Co-Authored-By` 라인) — 권장 분할: ① 마이그레이션+엔티티 ② 레일 조회 교체+테스트 ③ 카운터 증감+테스트 ④ 위키
 
 ---
 
