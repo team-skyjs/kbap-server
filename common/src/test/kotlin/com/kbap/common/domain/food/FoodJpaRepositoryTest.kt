@@ -283,6 +283,81 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
             }
         }
 
+        given("리뷰 많은 음식 조회") {
+            fun reviewCount(foodId: Long, count: Int) =
+                jdbcTemplate.update("UPDATE food SET review_count = ? WHERE id = ?", count, foodId)
+
+            fun mostReviewedIds(size: Int = 10) = foodJpaRepository.findMostReviewed(size).map { it.id }
+
+            `when`("음식마다 리뷰 수가 다르면") {
+                then("리뷰 수 내림차순으로 반환하고 리뷰 0건 음식은 빠진다") {
+                    clear()
+                    val one = saveReady("리뷰-한건")
+                    val three = saveReady("리뷰-세건")
+                    saveReady("리뷰-없음")
+                    reviewCount(one, 1)
+                    reviewCount(three, 3)
+
+                    mostReviewedIds() shouldBe listOf(three, one)
+                }
+            }
+
+            `when`("리뷰 수가 같으면") {
+                then("id 가 큰 음식이 먼저 온다") {
+                    clear()
+                    val older = saveReady("리뷰동률-먼저")
+                    val newer = saveReady("리뷰동률-나중")
+                    reviewCount(older, 2)
+                    reviewCount(newer, 2)
+
+                    mostReviewedIds() shouldBe listOf(newer, older)
+                }
+            }
+
+            `when`("공개되지 않은 음식의 리뷰 수가 크면") {
+                then("결과에 포함하지 않는다") {
+                    clear()
+                    val ready = saveReady("리뷰-공개")
+                    val pendingImage = savePendingImage("리뷰-이미지대기")
+                    val failed = saveFailed("리뷰-실패")
+                    reviewCount(ready, 1)
+                    reviewCount(pendingImage, 5)
+                    reviewCount(failed, 5)
+
+                    mostReviewedIds() shouldBe listOf(ready)
+                }
+            }
+
+            `when`("소프트 삭제된 음식의 리뷰 수가 크면") {
+                then("결과에 포함하지 않는다") {
+                    clear()
+                    val alive = saveReady("리뷰-생존")
+                    val ghostId = saveReady("리뷰-삭제")
+                    reviewCount(alive, 1)
+                    reviewCount(ghostId, 5)
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+
+                    mostReviewedIds() shouldBe listOf(alive)
+                }
+            }
+
+            `when`("리뷰 있는 음식이 요청 크기보다 많으면") {
+                then("상위 요청 크기만큼만 반환한다") {
+                    clear()
+                    val low = saveReady("리뷰상위-하")
+                    val mid = saveReady("리뷰상위-중")
+                    val high = saveReady("리뷰상위-상")
+                    reviewCount(low, 1)
+                    reviewCount(mid, 2)
+                    reviewCount(high, 3)
+
+                    mostReviewedIds(size = 2) shouldBe listOf(high, mid)
+                }
+            }
+        }
+
         given("countGroupByContentStatus — 상태별 건수 집계") {
             `when`("여러 상태의 음식이 섞여 있으면") {
                 then("존재하는 상태만 건수와 함께 반환한다") {

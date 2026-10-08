@@ -43,7 +43,7 @@ object HomeTestSeed {
         memberIds.map { memberId ->
             "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
                 "VALUES ($memberId, $foodId, 5, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
-        },
+        } + "UPDATE food SET review_count = review_count + ${memberIds.size} WHERE id = $foodId",
     )
 
     fun seedPlainMember(dataSource: DataSource, memberId: Long) = execute(

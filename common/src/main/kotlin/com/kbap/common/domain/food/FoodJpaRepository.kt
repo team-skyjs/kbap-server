@@ -277,15 +277,10 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
         nativeQuery = true,
         value = """
         select f.* from food f
-        join (
-            select r.food_id, count(*) as review_count, max(r.id) as latest_review_id
-            from food_review r
-            where r.status = 'ACTIVE'
-            group by r.food_id
-        ) x on x.food_id = f.id
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
-        order by x.review_count desc, x.latest_review_id desc
+          and f.review_count > 0
+        order by f.review_count desc, f.id desc
         limit :size
         """,
     )
