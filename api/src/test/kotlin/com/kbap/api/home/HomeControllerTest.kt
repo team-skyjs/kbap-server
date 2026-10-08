@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.food.PopularFoodIdCache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
@@ -27,6 +28,9 @@ class HomeControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var popularFoodIdCache: PopularFoodIdCache
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
@@ -43,6 +47,7 @@ class HomeControllerTest : BehaviorSpec() {
 
         beforeContainer {
             HomeTestSeed.reset(dataSource)
+            popularFoodIdCache.invalidateAll()
         }
 
         given("홈 — 리뷰 많은 음식") {

@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.food.PopularFoodIdCache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
@@ -21,11 +22,15 @@ class HomeGuestTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var popularFoodIdCache: PopularFoodIdCache
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
         beforeContainer {
             HomeTestSeed.reset(dataSource)
+            popularFoodIdCache.invalidateAll()
         }
 
         given("인증 헤더가 없는 요청") {
