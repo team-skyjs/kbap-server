@@ -68,9 +68,6 @@ class MemberSurvey(
         this.answeredAt = answeredAt
     }
 
-    fun answers(): SurveyAnswers =
-        SurveyAnswers(ageBand, gender, acquisition, situation, tripTiming, tripDuration, purpose, foodAffinity)
-
     companion object {
         const val CURRENT_VERSION = 1
 

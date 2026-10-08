@@ -167,8 +167,8 @@ interface MemberApi {
             스캔 쿼터 상태 4필드를 함께 내려준다 — `scanCount`(사용 횟수)·`freeScanLimit`(무료 한도, 현재 3)·
             `scanUnlocked`(리뷰 작성으로 해금 여부)·`scanRemaining`(잔여 무료 횟수, 해금 회원은 `null`).
             리뷰 탭 넛지 카드 표시 조건과 프로필 잔여 횟수 표기가 이 필드를 쓴다.
-            `surveyCompleted` 는 프로필 설문(`PUT /api/members/me/survey`)을 한 번이라도 제출했는지다 — 앱은 이 값으로
-            설문 시트를 띄울지 정한다(탈퇴 뒤 재가입은 false).
+            `surveyCompleted` 는 프로필 설문(`PUT /api/members/me/survey`)을 **현재 문항 버전으로** 제출했는지다 — 앱은 이 값으로
+            설문 시트를 띄울지 정한다(탈퇴 뒤 재가입은 false, 문항 버전이 올라가면 다시 false 가 되어 재질문한다).
             `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
@@ -220,18 +220,19 @@ interface MemberApi {
             - `gender`: FEMALE·MALE·OTHER·UNDISCLOSED
             - `acquisition`: STORE_SEARCH·SNS_AD·FRIEND·BLOG_VIDEO·OTHER
             - `situation`: TRAVELING_NOW·TRIP_PLANNED·LIVING_IN_KOREA·INTERESTED_NO_PLAN
-            - `tripTiming`: DATE_FIXED·THIS_YEAR·SOMEDAY — **situation=TRIP_PLANNED 일 때만 필수**, 그 외엔 null(값을 보내면 400)
-            - `tripDuration`: UP_TO_3_DAYS·ONE_WEEK·TWO_WEEKS·MONTH_PLUS — **situation=TRIP_PLANNED·TRAVELING_NOW 일 때 필수**, 그 외엔 null
+            - `tripTiming`: DATE_FIXED·THIS_YEAR·SOMEDAY — **situation=TRIP_PLANNED 일 때만 필수**. 그 외 상황에서 값이 오면 거절하지 않고 **null 로 정규화해 저장**한다(뒤로 가서 상황을 바꾼 뒤 남은 값이 와도 400 에 갇히지 않게)
+            - `tripDuration`: UP_TO_3_DAYS·ONE_WEEK·TWO_WEEKS·MONTH_PLUS — **situation=TRIP_PLANNED·TRAVELING_NOW 일 때 필수**, 그 외 상황의 값은 null 로 정규화
             - `purpose`: MENU_READING·ALLERGY_AVOIDANCE·EXPLORE_FOOD·OTHER
             - `foodAffinity`: 1~5
-            응답은 저장된 본문 + `surveyVersion`(문항 버전, 현재 1) + `answeredAt`. 제출 뒤 `GET /api/members/me/profile` 의
-            `surveyCompleted` 가 true 가 된다. 탈퇴하면 설문은 파기된다. `Authorization: Bearer {accessToken}` 로 인증한다.
+            응답은 저장된(정규화된) 본문 + `surveyVersion`(문항 버전, 현재 1) + `answeredAt`. 제출 뒤 `GET /api/members/me/profile` 의
+            `surveyCompleted` 가 true 가 된다. 탈퇴하면 설문은 파기되고 탈퇴 회원의 제출은 400 MEMBER-003 이다.
+            `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "저장 성공 — 저장 본문 + answeredAt"),
-            ApiResponse(responseCode = "400", description = "선택지에 없는 코드·누락·상황별 분기 위반·점수 범위 밖, 또는 회원을 찾을 수 없음"),
+            ApiResponse(responseCode = "400", description = "선택지에 없는 코드·누락·필수 분기 누락·점수 범위 밖(COMMON-002), 또는 회원을 찾을 수 없음·탈퇴 회원(MEMBER-003)"),
             ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
         ],
     )

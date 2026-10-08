@@ -1,16 +1,26 @@
 package com.kbap.api.member
 
+import com.kbap.common.domain.member.model.Acquisition
+import com.kbap.common.domain.member.model.AgeBand
+import com.kbap.common.domain.member.model.Gender
+import com.kbap.common.domain.member.model.Situation
+import com.kbap.common.domain.member.model.SurveyPurpose
+import com.kbap.common.domain.member.model.TripDuration
+import com.kbap.common.domain.member.model.TripTiming
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 data class MemberSurveyResponse(
-    val ageBand: String,
-    val gender: String,
-    val acquisition: String,
-    val situation: String,
-    val tripTiming: String?,
-    val tripDuration: String?,
-    val purpose: String,
+    val ageBand: AgeBand,
+    val gender: Gender,
+    val acquisition: Acquisition,
+    val situation: Situation,
+    @field:Schema(description = "situation=TRIP_PLANNED 일 때만 값, 그 외 null", nullable = true)
+    val tripTiming: TripTiming?,
+    @field:Schema(description = "situation=TRIP_PLANNED·TRAVELING_NOW 일 때만 값, 그 외 null", nullable = true)
+    val tripDuration: TripDuration?,
+    val purpose: SurveyPurpose,
+    @field:Schema(description = "한식 선호 1~5", example = "4")
     val foodAffinity: Int,
     @field:Schema(description = "문항 버전 — 문항이 바뀌면 올라간다", example = "1")
     val surveyVersion: Int,
@@ -20,14 +30,14 @@ data class MemberSurveyResponse(
     companion object {
         fun from(result: MemberSurveyResult): MemberSurveyResponse =
             MemberSurveyResponse(
-                ageBand = result.answers.ageBand.name,
-                gender = result.answers.gender.name,
-                acquisition = result.answers.acquisition.name,
-                situation = result.answers.situation.name,
-                tripTiming = result.answers.tripTiming?.name,
-                tripDuration = result.answers.tripDuration?.name,
-                purpose = result.answers.purpose.name,
-                foodAffinity = result.answers.foodAffinity,
+                ageBand = result.ageBand,
+                gender = result.gender,
+                acquisition = result.acquisition,
+                situation = result.situation,
+                tripTiming = result.tripTiming,
+                tripDuration = result.tripDuration,
+                purpose = result.purpose,
+                foodAffinity = result.foodAffinity,
                 surveyVersion = result.surveyVersion,
                 answeredAt = result.answeredAt,
             )

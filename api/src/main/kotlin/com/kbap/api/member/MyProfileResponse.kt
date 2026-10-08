@@ -22,7 +22,7 @@ data class MyProfileResponse(
     @field:Schema(description = "잔여 무료 스캔 횟수. scanUnlocked=true(무제한)면 null", example = "2", nullable = true)
     val scanRemaining: Int?,
     val ranking: RankingSummary,
-    @field:Schema(description = "프로필 설문(PUT /api/members/me/survey) 제출 여부. false 면 앱이 설문 시트를 띄운다", example = "false")
+    @field:Schema(description = "프로필 설문(PUT /api/members/me/survey)을 현재 문항 버전으로 제출했는지. false 면 앱이 설문 시트를 띄운다", example = "false")
     val surveyCompleted: Boolean,
 ) {
     data class RankingSummary(

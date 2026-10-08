@@ -37,18 +37,21 @@ class SurveyAnswersTest : BehaviorSpec({
             }
         }
         `when`("여행 중(TRAVELING_NOW)이면") {
-            then("여행 기간은 필수, 여행 시기는 비워야 한다") {
+            then("여행 기간은 필수, 여행 시기는 묻지 않으므로 값이 와도 null 로 정규화한다") {
                 answers(Situation.TRAVELING_NOW, tripDuration = TripDuration.UP_TO_3_DAYS).tripDuration shouldBe TripDuration.UP_TO_3_DAYS
                 shouldThrow<IllegalArgumentException> { answers(Situation.TRAVELING_NOW, tripDuration = null) }
-                shouldThrow<IllegalArgumentException> { answers(Situation.TRAVELING_NOW, tripTiming = TripTiming.SOMEDAY, tripDuration = TripDuration.ONE_WEEK) }
+                answers(Situation.TRAVELING_NOW, tripTiming = TripTiming.SOMEDAY, tripDuration = TripDuration.ONE_WEEK).tripTiming shouldBe null
             }
         }
         `when`("거주 중·계획 없음이면") {
-            then("여행 시기·기간을 보내면 거절하고, 비우면 받는다") {
+            then("여행 시기·기간은 묻지 않으므로 값이 와도 둘 다 null 로 정규화한다") {
                 answers(Situation.LIVING_IN_KOREA).tripTiming shouldBe null
                 answers(Situation.INTERESTED_NO_PLAN).tripDuration shouldBe null
-                shouldThrow<IllegalArgumentException> { answers(Situation.LIVING_IN_KOREA, tripDuration = TripDuration.MONTH_PLUS) }
-                shouldThrow<IllegalArgumentException> { answers(Situation.INTERESTED_NO_PLAN, tripTiming = TripTiming.SOMEDAY) }
+                answers(Situation.LIVING_IN_KOREA, tripDuration = TripDuration.MONTH_PLUS).tripDuration shouldBe null
+                answers(Situation.INTERESTED_NO_PLAN, tripTiming = TripTiming.SOMEDAY, tripDuration = TripDuration.ONE_WEEK).let {
+                    it.tripTiming shouldBe null
+                    it.tripDuration shouldBe null
+                }
             }
         }
         `when`("한식 선호가 1~5 를 벗어나면") {

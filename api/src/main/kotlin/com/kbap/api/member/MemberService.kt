@@ -7,6 +7,7 @@ import com.kbap.common.domain.member.MemberSurveyJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.ProfileImagePaths
 import com.kbap.common.domain.member.model.Member
+import com.kbap.common.domain.member.model.MemberSurvey
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import com.kbap.common.domain.member.model.SocialIdentity
@@ -77,7 +78,7 @@ class MemberService(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
-            surveyCompleted = memberSurveyRepository.existsByMemberId(member.id),
+            surveyCompleted = memberSurveyRepository.existsByMemberIdAndSurveyVersion(member.id, MemberSurvey.CURRENT_VERSION),
         )
     }
 

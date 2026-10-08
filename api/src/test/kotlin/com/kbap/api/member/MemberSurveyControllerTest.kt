@@ -8,7 +8,7 @@ import com.kbap.api.auth.FakeSocialTokenVerifier
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -16,6 +16,11 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import java.time.LocalDateTime
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -114,9 +119,8 @@ class MemberSurveyControllerTest : BehaviorSpec() {
             }
 
             `when`("같은 회원이 다시 보내면") {
-                then("행을 늘리지 않고 같은 행을 덮어쓴다(멱등 upsert)") {
+                then("행을 늘리지 않고 같은 행을 덮어쓴다(멱등 upsert) — answeredAt 은 뒤로 간다") {
                     val token = loginAccessToken()
-                    putSurvey(token, validBody()).andReturn().response.status shouldBe 200
                     val first = payload(putSurvey(token, validBody()).andReturn().response).path("answeredAt").asText()
 
                     val second = putSurvey(token, validBody() + mapOf("situation" to "LIVING_IN_KOREA", "tripTiming" to null, "tripDuration" to null, "foodAffinity" to 2))
@@ -130,7 +134,7 @@ class MemberSurveyControllerTest : BehaviorSpec() {
                     rows.single()["situation"] shouldBe "LIVING_IN_KOREA"
                     rows.single()["tripDuration"] shouldBe null
                     rows.single()["foodAffinity"] shouldBe 2
-                    first shouldNotBe null
+                    LocalDateTime.parse(payload(second).path("answeredAt").asText()) shouldBeGreaterThanOrEqualTo LocalDateTime.parse(first)
                 }
             }
 
@@ -145,13 +149,60 @@ class MemberSurveyControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("거주 중인데 여행 기간을 보내면") {
-                then("400 COMMON-002") {
+            `when`("거주 중인데 여행 시기·기간이 남아서 오면") {
+                then("거절하지 않고 null 로 정규화해 저장한다(상황을 바꾼 뒤 남은 값에 갇히지 않게)") {
                     val token = loginAccessToken()
-                    val response = putSurvey(token, validBody() + mapOf("situation" to "LIVING_IN_KOREA", "tripTiming" to null)).andReturn().response
+                    val response = putSurvey(token, validBody() + mapOf("situation" to "LIVING_IN_KOREA")).andReturn().response
+
+                    response.status shouldBe 200
+                    payload(response).path("tripTiming").isNull shouldBe true
+                    payload(response).path("tripDuration").isNull shouldBe true
+                    surveyRows().single()["tripTiming"] shouldBe null
+                    surveyRows().single()["tripDuration"] shouldBe null
+                }
+            }
+
+            `when`("여행 중(TRAVELING_NOW)인데 여행 시기가 남아서 오면") {
+                then("기간은 저장하고 시기만 null 로 정규화한다") {
+                    val token = loginAccessToken()
+                    val response = putSurvey(token, validBody() + mapOf("situation" to "TRAVELING_NOW")).andReturn().response
+
+                    response.status shouldBe 200
+                    payload(response).path("tripTiming").isNull shouldBe true
+                    payload(response).path("tripDuration").asText() shouldBe "ONE_WEEK"
+                }
+            }
+
+            `when`("탈퇴한 회원이 남은 토큰으로 보내면") {
+                then("400 MEMBER-003 으로 거절하고 행을 만들지 않는다") {
+                    val token = loginAccessToken()
+                    withdraw(token).andReturn().response.status shouldBe 200
+
+                    val response = putSurvey(token, validBody()).andReturn().response
 
                     response.status shouldBe 400
-                    code(response) shouldBe "COMMON-002"
+                    code(response) shouldBe "MEMBER-003"
+                    surveyRows() shouldBe emptyList()
+                }
+            }
+
+            `when`("같은 회원이 첫 제출을 동시에 두 번 보내면") {
+                then("둘 다 200 이고 행은 1개다(회원 행 잠금으로 직렬화)") {
+                    val token = loginAccessToken()
+                    val start = CountDownLatch(1)
+                    val pool = Executors.newFixedThreadPool(2)
+                    val statuses = (1..2).map { attempt ->
+                        pool.submit(Callable {
+                            start.await()
+                            putSurvey(token, validBody() + mapOf("foodAffinity" to attempt)).andReturn().response.status
+                        })
+                    }
+                    start.countDown()
+                    val results = statuses.map { it.get(30, TimeUnit.SECONDS) }
+                    pool.shutdown()
+
+                    results shouldBe listOf(200, 200)
+                    surveyRows().size shouldBe 1
                 }
             }
 
@@ -183,6 +234,19 @@ class MemberSurveyControllerTest : BehaviorSpec() {
                     payload(getMyProfile(token).andReturn().response).path("surveyCompleted").asBoolean() shouldBe true
                 }
             }
+
+            `when`("옛 문항 버전으로 답한 행만 있으면") {
+                then("false 다 — 다시 제출하면 현재 버전으로 덮어써 true 가 된다") {
+                    val token = loginAccessToken()
+                    insertSurveyRow(memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB), surveyVersion = 0)
+                    payload(getMyProfile(token).andReturn().response).path("surveyCompleted").asBoolean() shouldBe false
+
+                    putSurvey(token, validBody()).andReturn().response.status shouldBe 200
+
+                    payload(getMyProfile(token).andReturn().response).path("surveyCompleted").asBoolean() shouldBe true
+                    surveyRows().single()["surveyVersion"] shouldBe 1
+                }
+            }
         }
 
         given("탈퇴 파기") {
@@ -200,6 +264,19 @@ class MemberSurveyControllerTest : BehaviorSpec() {
                     rows.size shouldBe 1
                     rows.single()["memberId"] shouldBe memberIdOf("survey-other-member")
                 }
+            }
+        }
+    }
+
+    private fun insertSurveyRow(memberId: Long, surveyVersion: Int) {
+        dataSource.connection.use { c ->
+            c.prepareStatement(
+                "INSERT INTO member_survey (member_id, age_band, gender, acquisition, situation, purpose, food_affinity, survey_version, answered_at, status, created_at, updated_at) " +
+                    "VALUES (?, 'TWENTIES', 'FEMALE', 'SNS_AD', 'LIVING_IN_KOREA', 'MENU_READING', 3, ?, NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+            ).use { ps ->
+                ps.setLong(1, memberId)
+                ps.setInt(2, surveyVersion)
+                ps.executeUpdate()
             }
         }
     }

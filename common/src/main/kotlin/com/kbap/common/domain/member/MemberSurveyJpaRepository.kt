@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param
 interface MemberSurveyJpaRepository : JpaRepository<MemberSurvey, Long> {
     fun findByMemberId(memberId: Long): MemberSurvey?
 
-    fun existsByMemberId(memberId: Long): Boolean
+    fun existsByMemberIdAndSurveyVersion(memberId: Long, surveyVersion: Int): Boolean
 
     @Modifying
     @Query(nativeQuery = true, value = "DELETE FROM member_survey WHERE member_id = :memberId")
