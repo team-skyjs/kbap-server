@@ -23,8 +23,8 @@
 
 **Purpose**: api 모듈에 Caffeine 을 붙인다. 버전은 Spring Boot BOM 관리(카탈로그에 버전 없음).
 
-- [ ] T001 [P] `gradle/libs.versions.toml` 의 `[libraries]` 에 `caffeine = { module = "com.github.ben-manes.caffeine:caffeine" }` 를 추가한다(Spring Boot BOM 관리 주석 한 줄 포함 — 기존 항목 주석 관례 따름)
-- [ ] T002 [P] `api/build.gradle.kts` 의 dependencies 에 `"implementation"(libs.caffeine)` 를 추가하고 `./gradlew :api:compileKotlin` 으로 좌표가 해석되는지 확인한다
+- [X] T001 [P] `gradle/libs.versions.toml` 의 `[libraries]` 에 `caffeine = { module = "com.github.ben-manes.caffeine:caffeine" }` 를 추가한다(Spring Boot BOM 관리 주석 한 줄 포함 — 기존 항목 주석 관례 따름)
+- [X] T002 [P] `api/build.gradle.kts` 의 dependencies 에 `"implementation"(libs.caffeine)` 를 추가하고 `./gradlew :api:compileKotlin` 으로 좌표가 해석되는지 확인한다
 
 ---
 
@@ -42,13 +42,13 @@
 
 ### Tests for User Story 1 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T003 [US1] `api/src/test/kotlin/com/kbap/api/food/PopularFoodIdCacheTest.kt` 를 Spring 없이 `BehaviorSpec` 으로 작성한다. 픽스처: `AtomicLong` 기반 가짜 `Ticker`(`nanos` 를 더해 전진), 호출 횟수를 세는 로더 `(Int) -> List<Long>`. 시나리오 — given("인기 음식 id 캐시"): (1) when("같은 크기로 두 번 조회하면") then("로더는 1회만 호출되고 두 결과가 같다"), (2) when("TTL(2일)이 지난 뒤 조회하면") then("로더를 다시 호출해 새 목록을 돌려준다"), (3) when("로더가 예외를 던지면") then("예외가 전파되고 다음 조회가 로더를 다시 호출한다"), (4) when("로더가 빈 목록을 돌려주면") then("빈 목록이 캐시돼 두 번째 조회는 로더를 부르지 않는다"). 생성자는 `PopularFoodIdCache(ticker, loader)`, 조회는 `getPopularFoodIds(size)`. `./gradlew :api:test` 로 **컴파일 실패(Red)** 를 확인한다.
+- [X] T003 [US1] `api/src/test/kotlin/com/kbap/api/food/PopularFoodIdCacheTest.kt` 를 Spring 없이 `BehaviorSpec` 으로 작성한다. 픽스처: `AtomicLong` 기반 가짜 `Ticker`(`nanos` 를 더해 전진), 호출 횟수를 세는 로더 `(Int) -> List<Long>`. 시나리오 — given("인기 음식 id 캐시"): (1) when("같은 크기로 두 번 조회하면") then("로더는 1회만 호출되고 두 결과가 같다"), (2) when("TTL(2일)이 지난 뒤 조회하면") then("로더를 다시 호출해 새 목록을 돌려준다"), (3) when("로더가 예외를 던지면") then("예외가 전파되고 다음 조회가 로더를 다시 호출한다"), (4) when("로더가 빈 목록을 돌려주면") then("빈 목록이 캐시돼 두 번째 조회는 로더를 부르지 않는다"). 생성자는 `PopularFoodIdCache(ticker, loader)`, 조회는 `getPopularFoodIds(size)`. `./gradlew :api:test` 로 **컴파일 실패(Red)** 를 확인한다.
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] `api/src/main/kotlin/com/kbap/api/food/PopularFoodIdCache.kt` 를 생성한다. `@Component`, 주 생성자 `internal constructor(ticker: Ticker, private val loader: (Int) -> List<Long>)`, `@Autowired` 보조 생성자 `(foodRepository: FoodJpaRepository)` 가 `Ticker.systemTicker()` 와 `{ size -> foodRepository.findPopular(LocalDateTime.now().minusDays(WINDOW_DAYS), size).map { it.id } }` 를 넘긴다. 필드 `cache: Cache<Int, List<Long>> = Caffeine.newBuilder().expireAfterWrite(TTL).ticker(ticker).build()`. `getPopularFoodIds(size)` 는 `cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) }`(락은 US3 에서). `invalidateAll()` 공개. companion: `WINDOW_DAYS = 30L`, `TTL: Duration = Duration.ofDays(2)`. 주석 금지. `./gradlew :api:test` 로 T003 시나리오 Green 확인.
-- [ ] T005 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 를 수정한다 — 생성자에 `private val popularFoodIdCache: PopularFoodIdCache` 주입, `getPopularFoods` 본문을 `summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)` 로 교체(`@Transactional(readOnly = true)` 유지), companion 의 `POPULAR_WINDOW_DAYS` 삭제(참조처 없음 — grep 으로 재확인).
-- [ ] T006 [US1] `api/src/test/kotlin/com/kbap/api/home/HomeControllerTest.kt` 와 `api/src/test/kotlin/com/kbap/api/home/HomeGuestTest.kt` 에 `@Autowired private lateinit var popularFoodIdCache: PopularFoodIdCache` 를 추가하고 `beforeContainer` 의 `HomeTestSeed.reset(dataSource)` 다음 줄에 `popularFoodIdCache.invalidateAll()` 을 넣는다. 검증 본문(given/when/then 내부)은 한 글자도 바꾸지 않는다. `./gradlew :api:test` 전체 Green 확인(공유 컨텍스트에서 캐시가 테스트 간 새지 않는지가 핵심).
+- [X] T004 [US1] `api/src/main/kotlin/com/kbap/api/food/PopularFoodIdCache.kt` 를 생성한다. `@Component`, 주 생성자 `internal constructor(ticker: Ticker, private val loader: (Int) -> List<Long>)`, `@Autowired` 보조 생성자 `(foodRepository: FoodJpaRepository)` 가 `Ticker.systemTicker()` 와 `{ size -> foodRepository.findPopular(LocalDateTime.now().minusDays(WINDOW_DAYS), size).map { it.id } }` 를 넘긴다. 필드 `cache: Cache<Int, List<Long>> = Caffeine.newBuilder().expireAfterWrite(TTL).ticker(ticker).build()`. `getPopularFoodIds(size)` 는 `cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) }`(락은 US3 에서). `invalidateAll()` 공개. companion: `WINDOW_DAYS = 30L`, `TTL: Duration = Duration.ofDays(2)`. 주석 금지. `./gradlew :api:test` 로 T003 시나리오 Green 확인.
+- [X] T005 [US1] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 를 수정한다 — 생성자에 `private val popularFoodIdCache: PopularFoodIdCache` 주입, `getPopularFoods` 본문을 `summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)` 로 교체(`@Transactional(readOnly = true)` 유지), companion 의 `POPULAR_WINDOW_DAYS` 삭제(참조처 없음 — grep 으로 재확인).
+- [X] T006 [US1] `api/src/test/kotlin/com/kbap/api/home/HomeControllerTest.kt` 와 `api/src/test/kotlin/com/kbap/api/home/HomeGuestTest.kt` 에 `@Autowired private lateinit var popularFoodIdCache: PopularFoodIdCache` 를 추가하고 `beforeContainer` 의 `HomeTestSeed.reset(dataSource)` 다음 줄에 `popularFoodIdCache.invalidateAll()` 을 넣는다. 검증 본문(given/when/then 내부)은 한 글자도 바꾸지 않는다. `./gradlew :api:test` 전체 Green 확인(공유 컨텍스트에서 캐시가 테스트 간 새지 않는지가 핵심).
 
 **Checkpoint**: 집계는 인스턴스당 TTL 당 1회. 홈 응답·기존 테스트 불변. 커밋: `feat(home): 인기 음식 id 목록을 Caffeine 캐시로 2일간 재사용한다`.
 
@@ -62,11 +62,11 @@
 
 ### Tests for User Story 2 (REQUIRED — Test-First) ⚠️
 
-- [ ] T007 [US2] `api/src/test/kotlin/com/kbap/api/home/HomePopularCacheTest.kt` 를 `@IntegrationTest` + `SpringExtension` 으로 작성한다. 주입: `MockMvc`·`DataSource`·`TokenIssuer`·`PopularFoodIdCache`. `beforeContainer` 에서 `HomeTestSeed.reset` + `popularFoodIdCache.invalidateAll()`. 헬퍼는 `HomeControllerTest` 의 `token/home/payload` 와 같은 형태(`/api/home?lang=…`, `X-API-Version` 은 기존 테스트 관례대로). 시나리오 — given("인기 음식 목록이 캐시된 뒤"): (1) `seedReadyFoods(2)` + `seedFoodSubstance(1, "EGG", 100)` + `seedMember(11, ["EGG"])` + `seedMember(12, [])`: when("기피 성분이 다른 두 회원이 연속으로 조회하면") then("인기 목록 id 는 같고 회원 11 의 음식 1 은 DANGER, 회원 12 의 음식 1 은 DANGER 가 아니다"); (2) `seedReadyFoods(3)`, 비회원 조회로 캐시 채운 뒤 `UPDATE food SET status = 'DELETED' WHERE id = 2`: when("캐시된 목록의 음식이 삭제되면") then("다음 홈 응답의 popularFoods 에 2 가 없고 1·3 은 남는다"); (3) `seedReadyFoods(1)`, `lang=ko` 로 캐시 채운 뒤 `lang=ja`: when("다른 언어로 조회하면") then("같은 음식이 `メニュー1` 로 나온다"). `./gradlew :api:test` 실행 — id 캐시 설계상 바로 Green 일 수 있다. 그 경우 Red 확인 대신 **(2) 가 의미 있는 검증인지**를 `invalidateAll()` 호출을 잠시 빼고 돌려 캐시 히트 경로를 실제로 타는지 확인한 뒤 복원한다.
+- [X] T007 [US2] `api/src/test/kotlin/com/kbap/api/home/HomePopularCacheTest.kt` 를 `@IntegrationTest` + `SpringExtension` 으로 작성한다. 주입: `MockMvc`·`DataSource`·`TokenIssuer`·`PopularFoodIdCache`. `beforeContainer` 에서 `HomeTestSeed.reset` + `popularFoodIdCache.invalidateAll()`. 헬퍼는 `HomeControllerTest` 의 `token/home/payload` 와 같은 형태(`/api/home?lang=…`, `X-API-Version` 은 기존 테스트 관례대로). 시나리오 — given("인기 음식 목록이 캐시된 뒤"): (1) `seedReadyFoods(2)` + `seedFoodSubstance(1, "EGG", 100)` + `seedMember(11, ["EGG"])` + `seedMember(12, [])`: when("기피 성분이 다른 두 회원이 연속으로 조회하면") then("인기 목록 id 는 같고 회원 11 의 음식 1 은 DANGER, 회원 12 의 음식 1 은 DANGER 가 아니다"); (2) `seedReadyFoods(3)`, 비회원 조회로 캐시 채운 뒤 `UPDATE food SET status = 'DELETED' WHERE id = 2`: when("캐시된 목록의 음식이 삭제되면") then("다음 홈 응답의 popularFoods 에 2 가 없고 1·3 은 남는다"); (3) `seedReadyFoods(1)`, `lang=ko` 로 캐시 채운 뒤 `lang=ja`: when("다른 언어로 조회하면") then("같은 음식이 `メニュー1` 로 나온다"). `./gradlew :api:test` 실행 — id 캐시 설계상 바로 Green 일 수 있다. 그 경우 Red 확인 대신 **(2) 가 의미 있는 검증인지**를 `invalidateAll()` 호출을 잠시 빼고 돌려 캐시 히트 경로를 실제로 타는지 확인한 뒤 복원한다.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] T007 이 Green 이 아니면 `FoodService.getPopularFoods`(`api/src/main/kotlin/com/kbap/api/food/FoodService.kt`) 의 `loadInGivenOrder` 경로를 점검해 고친다(기대: `findByIdIn` 의 `@SQLRestriction` 이 삭제 음식을 거르고 `summaryViews` 가 요청마다 `getAvoidance(memberId)` 를 평가). 추가 코드가 필요 없으면 이 작업은 "변경 없음"으로 닫는다.
+- [X] T008 [US2] T007 이 Green 이 아니면 `FoodService.getPopularFoods`(`api/src/main/kotlin/com/kbap/api/food/FoodService.kt`) 의 `loadInGivenOrder` 경로를 점검해 고친다(기대: `findByIdIn` 의 `@SQLRestriction` 이 삭제 음식을 거르고 `summaryViews` 가 요청마다 `getAvoidance(memberId)` 를 평가). 추가 코드가 필요 없으면 이 작업은 "변경 없음"으로 닫는다.
 
 **Checkpoint**: 사용자별 값·언어·삭제 제외가 테스트로 고정. 커밋: `test(home): 캐시 히트에서도 사용자별 안전 여부·언어·삭제 제외가 유지됨을 고정한다`.
 
@@ -80,11 +80,11 @@
 
 ### Tests for User Story 3 (REQUIRED — Test-First) ⚠️
 
-- [ ] T009 [US3] `api/src/test/kotlin/com/kbap/api/food/PopularFoodIdCacheTest.kt` 에 given("빈 캐시에 동시 요청") when("50개 스레드가 동시에 조회하면") then("로더는 1회만 호출되고 모든 결과가 같다") 를 추가한다. 구성: 로더는 `Thread.sleep(200)` 후 카운트 증가·`listOf(1L, 2L)` 반환, `Executors.newVirtualThreadPerTaskExecutor()`(또는 50 고정 풀) + `CountDownLatch(1)` 로 출발선을 맞추고 `Future.get()` 으로 수집, 단언 `calls.get() shouldBe 1`·`results.toSet().size shouldBe 1`. `./gradlew :api:test` 로 **Red**(락 없는 T004 구현은 여러 번 로드) 확인.
+- [X] T009 [US3] `api/src/test/kotlin/com/kbap/api/food/PopularFoodIdCacheTest.kt` 에 given("빈 캐시에 동시 요청") when("50개 스레드가 동시에 조회하면") then("로더는 1회만 호출되고 모든 결과가 같다") 를 추가한다. 구성: 로더는 `Thread.sleep(200)` 후 카운트 증가·`listOf(1L, 2L)` 반환, `Executors.newVirtualThreadPerTaskExecutor()`(또는 50 고정 풀) + `CountDownLatch(1)` 로 출발선을 맞추고 `Future.get()` 으로 수집, 단언 `calls.get() shouldBe 1`·`results.toSet().size shouldBe 1`. `./gradlew :api:test` 로 **Red**(락 없는 T004 구현은 여러 번 로드) 확인.
 
 ### Implementation for User Story 3
 
-- [ ] T010 [US3] `api/src/main/kotlin/com/kbap/api/food/PopularFoodIdCache.kt` 에 `private val refresh = ReentrantLock()` 을 두고 `getPopularFoodIds` 를 더블 체크로 바꾼다: `cache.getIfPresent(size)?.let { return it }; return refresh.withLock { cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) } }`. `synchronized` 금지(가상 스레드 핀 고정). `./gradlew :api:test` Green 확인.
+- [X] T010 [US3] `api/src/main/kotlin/com/kbap/api/food/PopularFoodIdCache.kt` 에 `private val refresh = ReentrantLock()` 을 두고 `getPopularFoodIds` 를 더블 체크로 바꾼다: `cache.getIfPresent(size)?.let { return it }; return refresh.withLock { cache.getIfPresent(size) ?: loader(size).also { cache.put(size, it) } }`. `synchronized` 금지(가상 스레드 핀 고정). `./gradlew :api:test` Green 확인.
 
 **Checkpoint**: 스탬피드 방어 완료. 커밋: `feat(home): 인기 음식 캐시 미스를 ReentrantLock 으로 묶어 동시 집계를 1회로 막는다`.
 
@@ -92,7 +92,7 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T011 `./gradlew build` 전체(ArchUnit `arch` 태그 포함)를 돌려 `ModuleBoundaryTest`·`RepositoryLikeEscapeTest` 등 아키텍처 스펙이 통과하는지 확인한다. 실패 시 원인은 신규 import 의 패키지 위치일 가능성이 높다 — `com.kbap.api.food` 에 두었는지 재확인.
+- [X] T011 `./gradlew build` 전체(ArchUnit `arch` 태그 포함)를 돌려 `ModuleBoundaryTest`·`RepositoryLikeEscapeTest` 등 아키텍처 스펙이 통과하는지 확인한다. 실패 시 원인은 신규 import 의 패키지 위치일 가능성이 높다 — `com.kbap.api.food` 에 두었는지 재확인.
 - [ ] T012 `specs/kb-725-popular-food-cache/quickstart.md` 2절대로 로컬 bootRun 후 `GET /api/home` 두 번 호출해 SQL 로그에 집계(`food_view_log … group by`)가 첫 호출에만 찍히는지 확인한다(워크트리 bootRun 은 메모리의 `.env` source·`DB_USERNAME=root` 레시피 사용). 확인 결과를 PR 본문에 한 줄 남긴다.
 - [ ] T013 `open-draft-pr-to-develop` 스킬로 develop 대상 PR 을 열고(제목 `feat(home): 홈 인기 음식 조회를 Caffeine 캐시로 — DB 집계 1회/TTL, 동시 갱신 방지`, 본문에 Jira KB-725·설계 요지·id 캐시 선택 근거·TTL 2일), Jira DoD 중 코드 항목 3개를 체크한다. dev 부하 테스트 재실행·Notion 기록(DoD 4번째)은 배포 후 사용자가 수행한다고 PR 본문에 명시한다.
 
