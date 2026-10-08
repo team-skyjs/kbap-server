@@ -23,12 +23,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.orm.jpa.EntityManagerHolder
+import org.springframework.orm.jpa.support.OpenEntityManagerInViewInterceptor
+import org.springframework.orm.jpa.EntityManagerFactoryUtils
+import org.springframework.core.env.Environment
+import org.springframework.context.ApplicationContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
-import org.springframework.transaction.InvalidIsolationLevelException
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import javax.sql.DataSource
@@ -45,6 +46,8 @@ class JpaConnectionHandlingTest : BehaviorSpec() {
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var memberRepository: MemberJpaRepository
     @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var environment: Environment
+    @Autowired private lateinit var applicationContext: ApplicationContext
 
     init {
         beforeContainer { TestTables.clearAll(dataSource) }
@@ -52,50 +55,45 @@ class JpaConnectionHandlingTest : BehaviorSpec() {
 
         fun held(): Int = PoolProbe.leastActiveConnections(dataSource)
 
-        fun <T> withRequestBoundEntityManager(block: (EntityManager) -> T): T {
-            val entityManager = entityManagerFactory.createEntityManager()
-            TransactionSynchronizationManager.bindResource(entityManagerFactory, EntityManagerHolder(entityManager))
-            try {
-                return block(entityManager)
-            } finally {
-                TransactionSynchronizationManager.unbindResource(entityManagerFactory)
-                entityManager.close()
-            }
-        }
+        fun transactionalEntityManager(): EntityManager = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory)!!
 
         fun connectionIdOf(entityManager: EntityManager): Long =
             (entityManager.createNativeQuery("SELECT CONNECTION_ID()").singleResult as Number).toLong()
 
-        given("웹 요청에 묶인 영속성 컨텍스트(open-in-view)") {
-            `when`("트랜잭션이 끝나면") {
-                then("DB 커넥션을 풀에 돌려준다 — 요청이 끝날 때까지 쥐고 있지 않는다") {
-                    withRequestBoundEntityManager {
-                        TransactionTemplate(transactionManager).apply { isReadOnly = true }.execute { foodRepository.count() }
-
-                        held() shouldBe 0
-                    }
+        given("OSIV 가 꺼진 요청 — 영속성 컨텍스트는 트랜잭션 단위다") {
+            `when`("기동 설정을 보면") {
+                then("open-in-view 가 false 이고 요청 단위 EntityManager 를 여는 인터셉터가 없다") {
+                    environment.getProperty("spring.jpa.open-in-view") shouldBe "false"
+                    applicationContext.getBeansOfType(OpenEntityManagerInViewInterceptor::class.java).isEmpty() shouldBe true
+                    TransactionSynchronizationManager.hasResource(entityManagerFactory) shouldBe false
                 }
             }
 
-            `when`("트랜잭션 밖에서 조회하면") {
-                then("그 조회가 끝나는 대로 커넥션을 돌려준다") {
-                    withRequestBoundEntityManager { entityManager ->
-                        entityManager.createQuery("select count(f) from Food f").singleResult
+            `when`("트랜잭션이 끝나면") {
+                then("DB 커넥션을 풀에 돌려준다 — 요청이 끝날 때까지 쥐고 있지 않는다") {
+                    TransactionTemplate(transactionManager).apply { isReadOnly = true }.execute { foodRepository.count() }
 
-                        held() shouldBe 0
-                    }
+                    held() shouldBe 0
+                }
+            }
+
+            `when`("트랜잭션 밖에서 리포지토리의 선언 쿼리(@Query)를 부르면") {
+                then("호출마다 EntityManager 를 열고 닫아 그 조회가 끝나는 대로 커넥션을 돌려준다 — 트랜잭션 없는 서비스 경로는 ScanControllerTest 의 풀 프로브가 담당한다") {
+                    foodRepository.findSearchableNames()
+                    foodRepository.count()
+
+                    TransactionSynchronizationManager.hasResource(entityManagerFactory) shouldBe false
+                    held() shouldBe 0
                 }
             }
 
             `when`("트랜잭션이 열려 있는 동안에는") {
                 then("처음부터 끝까지 한 커넥션을 쓴다 — 문장마다 바뀌지 않는다") {
-                    withRequestBoundEntityManager { entityManager ->
-                        val ids = TransactionTemplate(transactionManager).execute {
-                            listOf(connectionIdOf(entityManager), connectionIdOf(entityManager), jdbcTemplate.queryForObject("SELECT CONNECTION_ID()", Long::class.java)!!)
-                        }!!
+                    val ids = TransactionTemplate(transactionManager).execute {
+                        listOf(connectionIdOf(transactionalEntityManager()), connectionIdOf(transactionalEntityManager()), jdbcTemplate.queryForObject("SELECT CONNECTION_ID()", Long::class.java)!!)
+                    }!!
 
-                        ids.toSet() shouldHaveSize 1
-                    }
+                    ids.toSet() shouldHaveSize 1
                 }
             }
         }
@@ -107,18 +105,16 @@ class JpaConnectionHandlingTest : BehaviorSpec() {
                     val foodId = saved.id
                     val ingredientId = jdbcTemplate.queryForObject("SELECT id FROM ingredients WHERE code = 'SESAME'", Long::class.java)!!
 
-                    withRequestBoundEntityManager { entityManager ->
-                        shouldThrow<IllegalStateException> {
-                            TransactionTemplate(transactionManager).executeWithoutResult {
-                                foodRepository.findByIdForUpdate(foodId)!!.description = "바뀐 설명"
-                                entityManager.flush()
-                                jdbcTemplate.update(
-                                    "INSERT INTO food_ingredient (food_id, ingredient_id, inclusion_percent, sort_order) VALUES (?, ?, 100, 100)",
-                                    foodId,
-                                    ingredientId,
-                                )
-                                error("롤백")
-                            }
+                    shouldThrow<IllegalStateException> {
+                        TransactionTemplate(transactionManager).executeWithoutResult {
+                            foodRepository.findByIdForUpdate(foodId)!!.description = "바뀐 설명"
+                            transactionalEntityManager().flush()
+                            jdbcTemplate.update(
+                                "INSERT INTO food_ingredient (food_id, ingredient_id, inclusion_percent, sort_order) VALUES (?, ?, 100, 100)",
+                                foodId,
+                                ingredientId,
+                            )
+                            error("롤백")
                         }
                     }
 
@@ -164,28 +160,31 @@ class JpaConnectionHandlingTest : BehaviorSpec() {
 
         given("읽기 전용 트랜잭션") {
             `when`("엔티티를 바꾸고 트랜잭션이 끝나면") {
-                then("바뀐 값이 저장되지 않는다 — 읽기 전용은 Hibernate 가 flush 하지 않는 것으로 지켜진다") {
+                then("바뀐 값이 저장되지 않는다 — DB 세션에도 읽기 전용이 걸린다(@@transaction_read_only = 1)") {
                     val saved = foodRepository.save(Food.failed("읽기전용찌개"))
 
-                    withRequestBoundEntityManager {
-                        TransactionTemplate(transactionManager).apply { isReadOnly = true }.executeWithoutResult {
-                            foodRepository.findById(saved.id).orElseThrow().description = "읽기 전용에서 바꾼 설명"
-                        }
+                    val readOnlyFlag = TransactionTemplate(transactionManager).apply { isReadOnly = true }.execute {
+                        foodRepository.findById(saved.id).orElseThrow().description = "읽기 전용에서 바꾼 설명"
+                        jdbcTemplate.queryForObject("SELECT @@transaction_read_only", Int::class.java)
                     }
 
+                    readOnlyFlag shouldBe 1
                     jdbcTemplate.queryForObject("SELECT description FROM food WHERE id = ?", String::class.java, saved.id) shouldBe saved.description
                 }
             }
-        }
 
-        given("격리 수준을 지정한 트랜잭션") {
-            `when`("시작하려 하면") {
-                then("거절된다 — 커넥션을 트랜잭션 단위로 돌려주는 방식에서는 트랜잭션별 격리 수준을 걸 수 없다(컨벤션상 격리 수준은 손대지 않는다)") {
-                    shouldThrow<InvalidIsolationLevelException> {
-                        TransactionTemplate(transactionManager)
-                            .apply { isolationLevel = TransactionDefinition.ISOLATION_READ_COMMITTED }
-                            .execute { foodRepository.count() }
+            `when`("읽기 전용 트랜잭션이 끝난 뒤 바로 그 풀 커넥션으로 쓰면") {
+                then("읽기 전용 표시가 풀려 있다 — 커넥션을 돌려줄 때 원래대로 되돌린다") {
+                    val readOnlyConnectionId = TransactionTemplate(transactionManager).apply { isReadOnly = true }.execute {
+                        jdbcTemplate.queryForObject("SELECT CONNECTION_ID()", Long::class.java)
+                    }!!
+
+                    val flagOnSameConnection = (1..50).firstNotNullOfOrNull {
+                        jdbcTemplate.queryForObject("SELECT IF(CONNECTION_ID() = ?, @@transaction_read_only, -1)", Int::class.java, readOnlyConnectionId)
+                            ?.takeIf { flag -> flag >= 0 }
                     }
+
+                    flagOnSameConnection shouldBe 0
                 }
             }
         }

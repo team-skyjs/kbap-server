@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class JpaConnectionConfig {
     @Bean
-    @ConditionalOnProperty(name = ["kbap.jpa.release-connection-after-transaction"], havingValue = "true", matchIfMissing = true)
-    fun releaseConnectionAfterTransaction(): HibernatePropertiesCustomizer =
+    @ConditionalOnProperty(name = ["spring.jpa.open-in-view"], havingValue = "true")
+    fun releaseConnectionAfterTransactionUnderOpenInView(): HibernatePropertiesCustomizer =
         HibernatePropertiesCustomizer { it["hibernate.connection.handling_mode"] = "DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION" }
 }

@@ -67,6 +67,13 @@ spring:
   # 활성 프로필은 런타임에 지정한다 (예: SPRING_PROFILES_ACTIVE=local|dev|staging|prod).
   # 여기서 기본 프로필이나 datasource 를 강제하지 않는다 — 프로필 없이 뜨는 테스트(@SpringBootTest)는
   # test resources 의 application.yml 오버라이드 + MySQL Testcontainers(@ServiceConnection)로 동작한다.
+  jpa:
+    # 영속성 컨텍스트는 요청이 아니라 트랜잭션 단위다(KB-727, 멘토 의견). 트랜잭션이 끝나면 EntityManager 와 커넥션을 돌려주므로
+    # 외부 LLM 호출 동안 커넥션을 쥐지 않고(KB-681 의 handling_mode 오버라이드는 제거), readOnly 트랜잭션은 DB 세션에도 읽기 전용이 걸린다.
+    # 문제가 보이면 JPA_OPEN_IN_VIEW=true 로 되돌린다(코드 되돌림 없이 태스크 정의 env 만 바꿔 재배포 — 새 태스크가 떠야 반영).
+    # 되돌리면 JpaConnectionConfig 의 customizer 가 조건부로 살아나 #354 상태(OSIV + 트랜잭션 끝 커넥션 반납, 운영 검증됨)로 간다 —
+    # 요청이 끝날 때까지 커넥션을 쥐던 #354 이전 상태로는 떨어지지 않는다.
+    open-in-view: ${JPA_OPEN_IN_VIEW:false}
   ai:
     model:
       # LLM 모델은 구현 시 빈으로 명시 구성한다(OpenAI 단일 벤더).
@@ -106,10 +113,6 @@ kbap:
       # access 는 stateless 라 만료 전 무효화가 불가능하므로 짧게, refresh 는 Redis 폐기가 가능하므로 길게.
       access-ttl: 30m
       refresh-ttl: 14d
-  # 트랜잭션이 끝나면 DB 커넥션을 풀에 돌려준다(KB-681) — 외부 LLM 호출 동안 커넥션을 쥐지 않는다.
-  # 문제가 보이면 false 로 끈다: 요청이 끝날 때까지 쥐는 예전 방식으로 돌아간다(코드 되돌림 없이 태스크 정의 env 만 바꿔 재배포).
-  jpa:
-    release-connection-after-transaction: ${JPA_RELEASE_CONNECTION_AFTER_TRANSACTION:true}
   # 번역 API(KB-678) — 동시에 번역 엔진을 부르는 요청 수 상한. 넘으면 기다리지 않고 503(TRANSLATION-001).
   # 엔진 호출 동안에는 DB 커넥션을 쥐지 않는다(KB-681). 번역마다 원문 조회·결과 저장에 커넥션을 쓰므로 번역이 풀(10)을 다 쓰지 못하게 풀의 절반 이하로 둔다.
   # 게스트가 리뷰×언어로 엔진을 한꺼번에 태우는 속도도 함께 묶는다.
