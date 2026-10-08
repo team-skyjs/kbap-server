@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/members")
 class MemberController(
     private val memberService: MemberService,
+    private val memberSurveyService: MemberSurveyService,
 ) : MemberApi {
     @PostMapping("/me/onboarding", version = "1.0")
     override fun completeOnboarding(
@@ -48,6 +50,15 @@ class MemberController(
     ): ResponseEntity<BaseResponse<MemberRankingResponse>> {
         val result = memberService.getRanking(memberId)
         return ResponseEntity.ok(BaseResponse.ok(MemberRankingResponse.from(result)))
+    }
+
+    @PutMapping("/me/survey")
+    override fun answerSurvey(
+        @AuthMemberId memberId: Long,
+        @RequestBody request: MemberSurveyRequest,
+    ): ResponseEntity<BaseResponse<MemberSurveyResponse>> {
+        val result = memberSurveyService.answerSurvey(memberId, request.toAnswers())
+        return ResponseEntity.ok(BaseResponse.ok(MemberSurveyResponse.from(result)))
     }
 
     @PatchMapping("/me/profile")

@@ -92,7 +92,6 @@ class MemberSurveyControllerTest : BehaviorSpec() {
                 }
             }
 
-        beforeSpec { FakeSocialTokenVerifier.reset() }
         beforeContainer { TestTables.clearAll(dataSource) }
         afterSpec { TestTables.clearAll(dataSource) }
 

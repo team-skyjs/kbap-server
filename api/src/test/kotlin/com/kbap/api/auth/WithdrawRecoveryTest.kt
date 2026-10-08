@@ -10,6 +10,7 @@ import com.kbap.api.image.UploadedImageService
 import com.kbap.api.member.MemberService
 import com.kbap.api.notification.NotificationTokenService
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.MemberSurveyJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.notification.model.DevicePlatform
@@ -43,6 +44,7 @@ class WithdrawRecoveryTest : BehaviorSpec() {
     @Autowired private lateinit var memberRepository: MemberJpaRepository
     @Autowired private lateinit var uploadedImageService: UploadedImageService
     @Autowired private lateinit var orderRepository: OrderJpaRepository
+    @Autowired private lateinit var memberSurveyRepository: MemberSurveyJpaRepository
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var tokenParser: TokenParser
     @Autowired private lateinit var refreshTokenStore: RefreshTokenStore
@@ -84,7 +86,7 @@ class WithdrawRecoveryTest : BehaviorSpec() {
 
         fun authServiceWhoseDbStepFailsOnce(): AuthService {
             var failNext = true
-            val flaky = object : MemberService(memberRepository, uploadedImageService, orderRepository, "", "") {
+            val flaky = object : MemberService(memberRepository, uploadedImageService, orderRepository, memberSurveyRepository, "", "") {
                 override fun getMember(memberId: Long): Member = memberService.getMember(memberId)
 
                 override fun withdraw(memberId: Long) {
@@ -211,7 +213,7 @@ class WithdrawRecoveryTest : BehaviorSpec() {
                 then("'소셜 삭제됨·회원 남음' 오류 로그를 남기지 않는다 — 탈퇴는 이미 끝났으니 거짓 경보다") {
                     val token = tokenOf(login())
                     val memberId = tokenParser.parseAccessToken(token).memberId
-                    val overlapping = object : MemberService(memberRepository, uploadedImageService, orderRepository, "", "") {
+                    val overlapping = object : MemberService(memberRepository, uploadedImageService, orderRepository, memberSurveyRepository, "", "") {
                         override fun getMember(memberId: Long): Member = memberService.getMember(memberId)
 
                         override fun withdraw(memberId: Long) {
@@ -242,7 +244,7 @@ class WithdrawRecoveryTest : BehaviorSpec() {
                 then("원래 예외를 그대로 던지고 '소셜 삭제됨·회원 남음' 경보를 남긴다 — 확인 실패가 원래 실패와 경보를 가리지 않는다") {
                     val token = tokenOf(login())
                     val memberId = tokenParser.parseAccessToken(token).memberId
-                    val down = object : MemberService(memberRepository, uploadedImageService, orderRepository, "", "") {
+                    val down = object : MemberService(memberRepository, uploadedImageService, orderRepository, memberSurveyRepository, "", "") {
                         override fun getMember(memberId: Long): Member = memberService.getMember(memberId)
 
                         override fun withdraw(memberId: Long): Unit = throw CannotAcquireLockException("테스트 — 탈퇴 DB 단계 실패")
