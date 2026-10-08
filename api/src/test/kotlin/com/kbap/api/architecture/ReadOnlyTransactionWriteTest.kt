@@ -21,7 +21,9 @@ import org.springframework.data.repository.Repository
 import org.springframework.jdbc.core.JdbcOperations
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.support.DefaultTransactionDefinition
 import org.springframework.transaction.annotation.Transactional
 
 @Tags("arch")
@@ -47,6 +49,7 @@ class ReadOnlyTransactionWriteTest : BehaviorSpec({
                 name in JDBC_WRITES -> "JDBC $name"
             owner.isAssignableTo(JdbcClient.StatementSpec::class.java) && name == "update" -> "JDBC $name"
             owner.isAssignableTo(Repository::class.java) && (name.startsWith("save") || name.startsWith("delete")) -> "${owner.simpleName}.$name"
+            owner.isAssignableTo(Repository::class.java) && (name.endsWith("ForUpdate") || name.endsWith("ForShare")) -> "${owner.simpleName}.$name(잠금 조회)"
             owner.isAssignableTo(EntityManager::class.java) && name in ENTITY_MANAGER_WRITES -> "EntityManager.$name"
             owner.isAssignableTo(Query::class.java) && name == "executeUpdate" -> "Query.executeUpdate"
             else -> null
@@ -85,8 +88,8 @@ class ReadOnlyTransactionWriteTest : BehaviorSpec({
         `when`("정적 호출 그래프를 따라가면") {
             then("쓰기가 없다 — JDBC 쓰기·@Modifying 쿼리·save/delete·EntityManager 쓰기·벌크 update·엔티티 필드 변경 모두 0건") {
                 withClue(
-                    "읽기 전용 트랜잭션은 DB 세션에 read-only 를 걸지 않는다(커넥션을 트랜잭션 단위로 돌려주는 방식, KB-681). " +
-                        "여기서 쓰기를 부르면 MySQL 이 거절하지 않고 그대로 나가거나(JDBC·@Modifying·save), flush 가 없어 조용히 버려진다(엔티티 변경). " +
+                    "읽기 전용 트랜잭션은 DB 세션에도 read-only 가 걸린다(KB-727). " +
+                        "여기서 쓰기를 부르면 MySQL 이 거절한다(JDBC·@Modifying·save·FOR UPDATE/FOR SHARE 잠금 조회 — 오류 1792), 엔티티 변경은 flush 가 없어 조용히 버려진다. " +
                         "쓰기가 필요하면 그 메서드의 readOnly 를 떼라.",
                 ) {
                     readOnlyEntries.flatMap { entry -> findings(entry).let { (writes, mutations) -> writes + mutations } }.distinct() shouldBe emptyList()
@@ -102,8 +105,9 @@ class ReadOnlyTransactionWriteTest : BehaviorSpec({
             findings(fixture.codeUnits.single { it.name == method }).let { (writes, mutations) -> writes + mutations }.map { it.substringAfterLast(" > ") }
 
         `when`("쓰기 종류마다 한 메서드씩 넣어 보면") {
-            then("직접 부른 쓰기는 전부 잡는다 — JDBC·save·delete·@Modifying·엔티티 대입·persist·벌크 update") {
+            then("직접 부른 쓰기는 전부 잡는다 — JDBC·save·delete·@Modifying·엔티티 대입·persist·벌크 update·잠금 조회") {
                 found("read") shouldBe emptyList()
+                found("lockingRead").single() shouldEndWith "-> FoodJpaRepository.findByIdForUpdate(잠금 조회)"
                 found("jdbcUpdate").single() shouldEndWith "-> JDBC update"
                 found("namedJdbcUpdate").single() shouldEndWith "-> JDBC update"
                 found("repositorySave").single() shouldEndWith "-> FoodJpaRepository.save"
@@ -126,6 +130,19 @@ class ReadOnlyTransactionWriteTest : BehaviorSpec({
 
             then("한계: 인터페이스 뒤의 구현은 따라가지 않는다 — 포트 구현·이벤트 리스너·리플렉션으로 닿는 쓰기는 이 검사가 보지 못한다") {
                 found("throughInterface") shouldBe emptyList()
+            }
+        }
+    }
+
+    given("격리 수준 지정") {
+        `when`("운영 코드를 전수 검사하면") {
+            then("없다 — @Transactional(isolation) 도 TransactionTemplate/DefaultTransactionDefinition 의 isolationLevel 대입도 0건(컨벤션: 격리 수준은 손대지 않는다)") {
+                imported.flatMap { it.codeUnits }
+                    .filter { it.transactional()?.let { tx -> tx.isolation != Isolation.DEFAULT } == true }
+                    .map { it.fullName } shouldBe emptyList()
+                imported.flatMap { it.codeUnits }.flatMap { it.methodCallsFromSelf }
+                    .filter { it.targetOwner.isAssignableTo(DefaultTransactionDefinition::class.java) && it.name.startsWith("setIsolationLevel") }
+                    .map { it.origin.fullName } shouldBe emptyList()
             }
         }
     }
