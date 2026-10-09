@@ -18,10 +18,9 @@ data class MyProfileResult(
     val scanUnlocked: Boolean,
     val scanRemaining: Int?,
     val ranking: MemberRankingResult,
-    val surveyCompleted: Boolean,
 ) {
     companion object {
-        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?, surveyCompleted: Boolean): MyProfileResult =
+        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
                 provider = member.provider.name,
@@ -38,7 +37,6 @@ data class MyProfileResult(
                 scanUnlocked = member.scanUnlocked,
                 scanRemaining = member.scanRemaining(),
                 ranking = ranking,
-                surveyCompleted = surveyCompleted,
             )
     }
 }
