@@ -46,5 +46,4 @@ kbap:
     key-prefix: ${STORAGE_KEY_PREFIX:dev}
 
 sentry:
-  # dev 는 Sentry 로 보내지 않는다 — 부하 테스트·실험 배포의 ERROR 가 운영 알림을 흐리지 않게. DSN 은 그대로 두고 SDK 만 끈다.
   enabled: false
