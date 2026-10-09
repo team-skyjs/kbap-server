@@ -3,11 +3,9 @@ package com.kbap.api.member
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
-import com.kbap.common.domain.member.MemberSurveyJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.ProfileImagePaths
 import com.kbap.common.domain.member.model.Member
-import com.kbap.common.domain.member.model.MemberSurvey
 import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import com.kbap.common.domain.member.model.SocialIdentity
@@ -28,7 +26,6 @@ class MemberService(
     private val memberRepository: MemberJpaRepository,
     private val uploadedImageService: UploadedImageService,
     private val orderRepository: OrderJpaRepository,
-    private val memberSurveyRepository: MemberSurveyJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
@@ -78,7 +75,6 @@ class MemberService(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
-            surveyCompleted = memberSurveyRepository.existsByMemberIdAndSurveyVersion(member.id, MemberSurvey.CURRENT_VERSION),
         )
     }
 
@@ -92,7 +88,6 @@ class MemberService(
             ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         member.withdraw()
         orderRepository.eraseLocationByMemberId(memberId)
-        memberSurveyRepository.purgeByMemberId(memberId)
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
